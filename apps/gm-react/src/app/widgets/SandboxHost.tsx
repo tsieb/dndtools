@@ -89,24 +89,157 @@ const STYLE_STEP_THEME_TOKENS: readonly string[] = SEMANTIC_TOKEN_VALUES.flatMap
 	(option) => /^var\((--[a-z0-9-]+)\)$/.exec(option.value)?.[1] ?? [],
 );
 
+/** The design-system kit (RC-WID-5.4): served beside the sandbox document, delivered in `init`. */
+export const WIDGET_KIT_STYLESHEET = 'widget-kit.css';
+
+/**
+ * The kit's class-contract version. Must equal `--kit-version` in `public/widget-kit.css`. A served
+ * file that says otherwise (a stale cache, a half-finished deploy) is not installed at all, so a
+ * widget draws with its own styles rather than against a contract it was not written for.
+ */
+export const WIDGET_KIT_VERSION = 1;
+
+/** How long the host waits for the kit before initialising the frame without it. */
+const KIT_LOAD_TIMEOUT_MS = 4000;
+
+/**
+ * The theme tokens the kit draws with, beyond the bridge's forwarded set and the Style step's list.
+ * Theme-DEPENDENT values only (colours, shadows, the mono face). The theme-invariant scale lives in
+ * the kit itself, because a forwarded value is set inline and would override the kit's own density
+ * sets and motion collapse. widgetKit.test.ts holds this list, the kit and the app's tokens together.
+ */
+export const KIT_THEME_TOKENS: readonly string[] = Object.freeze([
+	'--color-surface-overlay',
+	'--color-surface-sunken',
+	'--color-border-strong',
+	'--color-border-focus',
+	'--color-accent-hover',
+	'--color-accent-subtle',
+	'--color-accent-border',
+	'--color-status-success-text',
+	'--color-status-success-subtle',
+	'--color-status-warning-text',
+	'--color-status-warning-subtle',
+	'--color-status-error-text',
+	'--color-status-error-subtle',
+	'--color-status-error-foreground',
+	'--color-status-info',
+	'--color-status-info-text',
+	'--color-status-info-subtle',
+	'--color-interactive-hover',
+	'--color-interactive-selected',
+	'--color-interactive-focus-ring',
+	'--shadow-sm',
+	'--shadow-md',
+	'--shadow-lg',
+	'--font-mono',
+]);
+
 /**
  * The theme variables handed to the frame on `init` (RC-WID-2.4): the bridge's forwarded set, plus
- * every semantic token the Style step lets a `--widget-*` token point at. A frame does not inherit
- * host CSS, so a declared `var(--color-surface-sunken)` the bridge's list did not carry would resolve
- * to nothing inside it. Still gated on `host-theme-tokens`, and still the semantic layer only.
+ * every semantic token the Style step lets a `--widget-*` token point at, plus the ones the kit
+ * draws with (RC-WID-5.4). A frame does not inherit host CSS, so a declared
+ * `var(--color-surface-sunken)` the bridge's list did not carry would resolve to nothing inside it.
+ * Still gated on `host-theme-tokens`, and still the semantic layer only.
  */
 export function collectSandboxThemeVariables(
 	definition: WidgetDefinition,
 	read: (token: string) => string,
 ): Record<string, string> {
 	const variables = collectThemeVariables(definition, read);
-	if (!(definition.style?.capabilities ?? []).includes('host-theme-tokens')) return variables;
-	for (const token of STYLE_STEP_THEME_TOKENS) {
+	if (!usesHostTheme(definition)) return variables;
+	for (const token of [...STYLE_STEP_THEME_TOKENS, ...KIT_THEME_TOKENS]) {
 		if (token in variables) continue;
 		const value = read(token).trim();
 		if (value !== '') variables[token] = value;
 	}
 	return variables;
+}
+
+/** Whether a definition asked to look like the host: its theme tokens, the kit, its attributes. */
+function usesHostTheme(definition: WidgetDefinition): boolean {
+	return (definition.style?.capabilities ?? []).includes('host-theme-tokens');
+}
+
+/** What the frame mirrors from the host `<html>`, so the kit's density and motion sets apply. */
+interface HostDocumentLook {
+	theme: string | null;
+	density: string | null;
+	motion: string | null;
+	colorScheme: string | null;
+	/** The host's root font size. Every kit length is in rem, and the frame's own root is 13px. */
+	rootFontSize: string | null;
+}
+
+interface HostLook {
+	themeVariables: Record<string, string>;
+	hostDocument: HostDocumentLook | null;
+}
+
+/** Changes on the host `<html>` that can change what a themed frame should look like. */
+const HOST_LOOK_ATTRIBUTES = ['data-theme', 'data-density', 'data-motion', 'style', 'class'];
+
+/** Everything the frame is told about the host's appearance, read from ONE computed style. */
+function readHostLook(definition: WidgetDefinition): HostLook {
+	if (typeof window === 'undefined') return { themeVariables: {}, hostDocument: null };
+	const root = document.documentElement;
+	const style = window.getComputedStyle(root);
+	return {
+		themeVariables: collectSandboxThemeVariables(definition, (token) =>
+			style.getPropertyValue(token),
+		),
+		hostDocument: usesHostTheme(definition)
+			? {
+					theme: root.getAttribute('data-theme'),
+					density: root.getAttribute('data-density'),
+					motion: root.getAttribute('data-motion'),
+					colorScheme: style.getPropertyValue('color-scheme').trim() || null,
+					rootFontSize: style.getPropertyValue('font-size').trim() || null,
+				}
+			: null,
+	};
+}
+
+/** Whether a kit stylesheet declares the class-contract version this host speaks. */
+export function kitDeclaresVersion(css: string, version: number): boolean {
+	return new RegExp(`--kit-version:\\s*${version}\\s*;`).test(css);
+}
+
+let kitRequest: Promise<string | null> | null = null;
+
+/**
+ * The kit's text, fetched once per page and shared by every frame. The HOST fetches it, from its
+ * own origin, and sends the text in `init`: the frame's `style-src 'unsafe-inline'` already admits
+ * that, whereas letting the frame link it would have meant widening the sandbox policy (see
+ * `renderer-isolation.ts`). A failed load resolves to null and is not cached, so the next frame
+ * tries again; the frame is initialised without the kit rather than not at all.
+ */
+export function loadWidgetKit(): Promise<string | null> {
+	if (kitRequest) return kitRequest;
+	const attempt = fetchWidgetKit();
+	kitRequest = attempt;
+	void attempt.then((css) => {
+		if (css === null && kitRequest === attempt) kitRequest = null;
+	});
+	return attempt;
+}
+
+async function fetchWidgetKit(): Promise<string | null> {
+	if (typeof fetch !== 'function' || typeof document === 'undefined') return null;
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), KIT_LOAD_TIMEOUT_MS);
+	try {
+		// Resolved against the app's base URL, like the sandbox document, so `./` builds work too.
+		const url = new URL(`${WIDGET_KIT_STYLESHEET}?v=${WIDGET_KIT_VERSION}`, document.baseURI);
+		const response = await fetch(url, { signal: controller.signal });
+		if (!response.ok) return null;
+		const css = await response.text();
+		return kitDeclaresVersion(css, WIDGET_KIT_VERSION) ? css : null;
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 export function SandboxHost({
@@ -128,7 +261,9 @@ export function SandboxHost({
 	const runtime = useRuntime();
 	const frameRef = useRef<HTMLIFrameElement | null>(null);
 	const sentRef = useRef<{ props: string; configuration: string; binding: string } | null>(null);
+	const lookRef = useRef<string | null>(null);
 	const [ready, setReady] = useState(false);
+	const [initialized, setInitialized] = useState(false);
 	const [contentHeight, setContentHeight] = useState<number | null>(null);
 	const [failure, setFailure] = useState<HostFailure | null>(null);
 
@@ -226,16 +361,22 @@ export function SandboxHost({
 					setReady(true);
 					const payload = assembly?.payload;
 					if (!payload) return;
-					send('init', {
-						widgetInstanceId: widget.id,
-						html: payload.html,
-						css: payload.css,
-						scripts: payload.scripts,
-						themeVariables: collectSandboxThemeVariables(definition, (token) =>
-							typeof window === 'undefined'
-								? ''
-								: window.getComputedStyle(document.documentElement).getPropertyValue(token),
-						),
+					// A themed package also gets the design-system kit (RC-WID-5.4), fetched here and sent
+					// as text. The frame's `render` may arrive first; the guest holds it until installed.
+					const kit = usesHostTheme(definition) ? loadWidgetKit() : Promise.resolve(null);
+					void kit.then((kitCss) => {
+						const look = readHostLook(definition);
+						lookRef.current = JSON.stringify(look);
+						send('init', {
+							widgetInstanceId: widget.id,
+							html: payload.html,
+							css: payload.css,
+							scripts: payload.scripts,
+							themeVariables: look.themeVariables,
+							hostDocument: look.hostDocument,
+							kit: kitCss === null ? null : { version: WIDGET_KIT_VERSION, css: kitCss },
+						});
+						setInitialized(true);
 					});
 					return;
 				}
@@ -311,6 +452,26 @@ export function SandboxHost({
 		}
 		sentRef.current = next;
 	}, [ready, send, renderProps, widget.configuration]);
+
+	// Keep a themed frame in step with the host's look. Switching theme, density or motion changes the
+	// host `<html>`; without this the frame would keep the look it was initialised with for as long as
+	// it stays on the board. Re-reads are compared by value, so unrelated style writes send nothing.
+	useEffect(() => {
+		if (!initialized || !definition || !usesHostTheme(definition)) return;
+		if (typeof MutationObserver === 'undefined') return;
+		const observer = new MutationObserver(() => {
+			const look = readHostLook(definition);
+			const serialized = JSON.stringify(look);
+			if (serialized === lookRef.current) return;
+			lookRef.current = serialized;
+			send('theme', { themeVariables: look.themeVariables, hostDocument: look.hostDocument });
+		});
+		observer.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: HOST_LOOK_ATTRIBUTES,
+		});
+		return () => observer.disconnect();
+	}, [initialized, definition, send]);
 
 	if (!definition || !source) {
 		return <WidgetPlaceholder diagnostic="This widget's package is no longer installed." />;

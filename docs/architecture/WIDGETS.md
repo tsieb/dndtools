@@ -73,6 +73,7 @@ The protocol (`app/widgets/hostBridge.ts`) mirrors `security/widget-host-api.ts`
 | widget → host | `requestPermission(kind)`                   | `resolveHostCapability` against the approved grant   |
 | widget → host | `outbound(request)`                         | `evaluateWidgetOutboundRequest` (SEC-011)            |
 | widget → host | `resize { height }`                         | clamped frame height (iframe only)                   |
+| host → widget | `theme { themeVariables, hostDocument }`    | the host's live look; themed packages only (§4.1)    |
 
 The core decides, the host relays: `hostBridge.ts` never answers a permission or outbound request
 from its own logic. Inbound messages are validated and attributed to an instance id; unknown kinds,
@@ -85,6 +86,64 @@ template kind the entrypoint declares. Every exchange is on a clock (8s to `read
 missed deadline calls `terminate()`. The hosted CSP admits `worker-src 'self' blob:`; the packaged
 Electron shell's `buildCsp()` does not yet, so a worker there fails closed with "Background widgets
 do not run on this build yet."
+
+### 4.1 The design-system kit
+
+A package that declares the `host-theme-tokens` style capability gets the design-system kit
+(`apps/gm-react/public/widget-kit.css`, RC-WID-5.4): classes that draw the DS Button, IconButton,
+Card, Badge, Chip, ListItem, Input, Select and Stat from the host's own theme tokens. A package
+without the capability gets neither the kit nor the tokens. The Torchlight starter is the reference
+user, and `widget-kit.spec.ts` checks its kit card, badge and button against the DS components
+rendered by the gallery, in all three themes and both densities.
+
+**Delivery.** The kit is served beside `widget-host.html`, but the frame never requests it. The host
+fetches it once per page (`loadWidgetKit` in `SandboxHost.tsx`) and sends the text in `init` as
+`kit { version, css }`. The guest installs it ahead of the package's stylesheet, so a package rule
+beats a kit rule of equal specificity. `WIDGET_SANDBOX_CSP` does not change. A `<link>` would have
+needed `'self'` in `style-src`. That cannot be narrowed to one file, and a stylesheet URL with a
+query string would give the frame a request that bypasses the `outbound` gate
+(`renderer-isolation.ts`). If the fetch fails or the served file declares a different version, the
+frame is initialised without the kit.
+
+**What the host forwards.** `init` and every later `theme` message carry `themeVariables`: the
+bridge's forwarded tokens, the Style step's tokens, and `KIT_THEME_TOKENS` (the colours, shadows and
+mono face the kit draws with). They also carry `hostDocument { theme, density, motion, colorScheme,
+rootFontSize }`, which the guest mirrors onto the frame's `<html>` as `data-theme`, `data-density`,
+`data-motion`, `color-scheme` and `font-size`. The host watches its own `<html>`, so switching theme,
+density or Reduce motion re-themes a running frame without a reload. The theme-invariant scale
+(`--space-*`, `--radius-*`, `--text-*`, `--font-weight-*`, `--leading-*`, `--tracking-*`,
+`--duration-*`, `--easing-*`, `--focus-ring-*`, `--density-*`) is declared by the kit itself, along
+with the two density sets and the motion collapse. `widgetKit.test.ts` holds all of it equal to
+`styles/tokens/`. Package CSS can use any of these tokens.
+
+**Class contract (kit v1).** A modifier goes with its base class. Colours come only from tokens.
+
+| Component   | Markup                                                                                                                                | Modifiers and states                                                                                                           | DS counterpart       |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| Body text   | `class="kit-root"` on a container                                                                                                     | —                                                                                                                              | app body typography  |
+| Button      | `<button class="kit-button">` (or an `<a>`), optional leading/trailing `<svg>`                                                        | `--primary`, `--secondary` (default), `--ghost`, `--danger`, `--accent`; `--sm`, `--lg`; `:disabled` or `aria-disabled="true"` | `Button`             |
+| Icon button | `<button class="kit-icon-button" aria-label="…"><svg>…</svg></button>`                                                                | `--ghost` (default), `--outline`, `--accent`; `--sm`, `--lg`                                                                   | `IconButton`         |
+| Card        | `.kit-card`; header row `.kit-card__header` holding a `.kit-card__title` eyebrow                                                      | `--sunken`, `--flat` (default), `--raised`, `--overlay`; `--accent`; `--pad-none`, `--pad-sm`, `--pad-lg`; `--interactive`     | `Card`, `CardHeader` |
+| Badge       | `<span class="kit-badge">`, optional `<svg>`                                                                                          | `--success`, `--warning`, `--error`, `--info`, `--accent`, `--neutral` (default)                                               | `Badge`              |
+| Chip        | `.kit-chip`; a `<button class="kit-chip" aria-pressed>` for a filter; `.kit-chip__remove` for the close button                        | `--neutral` (default), `--accent`, `--danger`, `--info`; `--selected` or `aria-pressed="true"` (neutral tone)                  | `Chip`               |
+| List row    | `<ul class="kit-list">` of `<li class="kit-list-row">`; an interactive row holds `<button class="kit-list-row__action" aria-pressed>` | `--selected` or `aria-selected="true"`; a disabled action dims its row                                                         | `ListItem`           |
+| Input       | `<input class="kit-input">`, `<textarea class="kit-input">`                                                                           | `--invalid` or `aria-invalid="true"`; focus ring on `:focus`                                                                   | `Input`, `Textarea`  |
+| Select      | `<div class="kit-select"><select>…</select></div>`; the wrapper draws the chevron                                                     | `--invalid` on the wrapper, or `aria-invalid="true"` on the select                                                             | `Select`             |
+| Stat        | `.kit-stat` holding `.kit-stat__label`, `.kit-stat__figure` (`.kit-stat__value`, `.kit-stat__unit`) and `.kit-stat__delta`            | `.kit-stat--accent`; `.kit-stat__delta--up`, `--down`                                                                          | `Stat`               |
+
+Two baselines apply to the whole frame at zero specificity: the app's `:focus-visible` ring, and
+`box-sizing: border-box` on kit elements. Under `data-motion="reduced"` or `"none"`, every animation
+and transition in the frame stops on its resting frame, the package's own included.
+
+**Versioning.** `--kit-version` in the stylesheet and `WIDGET_KIT_VERSION` in `SandboxHost.tsx`
+move together. Renaming or removing a class or modifier, or changing what one means, is breaking and
+bumps both. Adding a class is not breaking.
+
+**What the kit does not do.** It ships no icons; draw a Lucide glyph as inline SVG at a 2px stroke in
+`currentColor`. It ships no behaviour: an `aria-disabled` button must ignore its own clicks, and a
+`role="button"` chip needs its own keyboard handler. The frame cannot load the app's self-hosted
+Inter (`font-src data:`), so kit text renders in the next face of the `--font-sans` stack that the
+device has. Computed sizes, weights and line heights match the DS; glyph shapes may not.
 
 ## 5. Trust review
 
@@ -129,19 +188,20 @@ instances, the same render resolver and the same core mutation path; flow is not
 
 ## 8. Where to look
 
-| Concern                                  | Location                                                                                                                                |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                       |
-| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                |
-| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                  |
-| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                           |
-| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                            |
-| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                             |
-| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                      |
-| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                        |
-| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                           |
-| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                          |
-| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts` |
+| Concern                                  | Location                                                                                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                             |
+| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                      |
+| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                        |
+| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                 |
+| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                  |
+| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                   |
+| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                                            |
+| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                              |
+| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                 |
+| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                      |
+| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                |
+| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts` |
 
 ## 9. Widget gallery
 

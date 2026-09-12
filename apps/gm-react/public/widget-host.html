@@ -19,6 +19,10 @@
 
 			The policy MUST stay byte-identical to `WIDGET_SANDBOX_CSP`; hostBridge.test.ts asserts it,
 			and electron/main.cjs serves the same string as a response header for this path.
+
+			The design-system kit (`widget-kit.css`, RC-WID-5.4) is served beside this file but is NOT
+			linked from it. The host fetches it and sends the text in `init`, so this policy does not
+			change to admit it. See renderer-isolation.ts for why a `'self'` style source was refused.
 		-->
 		<meta
 			http-equiv="Content-Security-Policy"
@@ -70,6 +74,18 @@
 				var listeners = { render: [], configChanged: [], bindingChanged: [] };
 				var lastProps = null;
 				var reportedHeight = -1;
+				var themedNames = [];
+
+				// The host document attributes the kit keys off (RC-WID-5.4), and nothing else. Values are
+				// token-shaped words; anything else is dropped rather than written into this document.
+				var HOST_ATTRIBUTES = {
+					theme: 'data-theme',
+					density: 'data-density',
+					motion: 'data-motion',
+				};
+				var ATTRIBUTE_VALUE = /^[a-z][a-z-]{0,31}$/;
+				var COLOR_SCHEME = /^(normal|light|dark|light dark|dark light|only light|only dark)$/;
+				var FONT_SIZE = /^\d{1,3}(\.\d{1,4})?px$/;
 
 				var root = document.getElementById('widget-root');
 
@@ -118,21 +134,69 @@
 				}
 
 				/**
+				 * Apply the host's look: its forwarded theme tokens, and (for a package that asked for the
+				 * host theme) the theme, density and motion attributes plus the colour scheme. Runs on
+				 * `init` and again on every `theme` message, so a token the host stopped sending is removed
+				 * rather than left behind from the previous theme.
+				 */
+				function applyHostLook(themeVariables, hostDocument) {
+					var html = document.documentElement;
+					var next = [];
+					if (themeVariables) {
+						for (var name in themeVariables) {
+							if (
+								Object.prototype.hasOwnProperty.call(themeVariables, name) &&
+								name.indexOf('--') === 0
+							) {
+								html.style.setProperty(name, String(themeVariables[name]));
+								next.push(name);
+							}
+						}
+					}
+					for (var i = 0; i < themedNames.length; i += 1) {
+						if (next.indexOf(themedNames[i]) === -1) html.style.removeProperty(themedNames[i]);
+					}
+					themedNames = next;
+					if (!hostDocument) return;
+					for (var key in HOST_ATTRIBUTES) {
+						if (!Object.prototype.hasOwnProperty.call(HOST_ATTRIBUTES, key)) continue;
+						var value = hostDocument[key];
+						if (typeof value === 'string' && ATTRIBUTE_VALUE.test(value)) {
+							html.setAttribute(HOST_ATTRIBUTES[key], value);
+						} else {
+							html.removeAttribute(HOST_ATTRIBUTES[key]);
+						}
+					}
+					// Matching the host's scheme keeps the browser from painting an opaque backdrop behind a
+					// frame whose scheme differs from its embedder's.
+					var scheme = hostDocument.colorScheme;
+					html.style.colorScheme =
+						typeof scheme === 'string' && COLOR_SCHEME.test(scheme) ? scheme : '';
+					// The kit measures in rem, so the frame's root takes the host's size. The body keeps its
+					// own 13px, so a package that never uses the kit reads exactly as before.
+					var size = hostDocument.rootFontSize;
+					html.style.fontSize = typeof size === 'string' && FONT_SIZE.test(size) ? size : '';
+				}
+
+				/**
 				 * Install the package's assets. Stylesheet first, then markup, then code, so a script that
 				 * reads the DOM on its first line finds it. Markup goes in through innerHTML, which does not
 				 * execute script elements, so the entrypoint's inline scripts are collected by the host and
 				 * appended here as real elements instead — one code path, no silently-dead widget.
+				 *
+				 * The design-system kit, when the host sends one, goes in before the package's stylesheet,
+				 * so a package rule overrides a kit rule of equal specificity.
 				 */
 				function install(payload) {
 					if (installed) return;
 					installed = true;
 
-					if (payload.themeVariables) {
-						for (var name in payload.themeVariables) {
-							if (Object.prototype.hasOwnProperty.call(payload.themeVariables, name)) {
-								document.documentElement.style.setProperty(name, payload.themeVariables[name]);
-							}
-						}
+					applyHostLook(payload.themeVariables, payload.hostDocument);
+					if (payload.kit && typeof payload.kit.css === 'string') {
+						var kit = document.createElement('style');
+						kit.setAttribute('data-widget-kit', String(payload.kit.version));
+						kit.textContent = payload.kit.css;
+						document.head.appendChild(kit);
 					}
 					if (payload.css) {
 						var style = document.createElement('style');
@@ -184,6 +248,11 @@
 						case 'bindingChanged':
 							if (lastProps) lastProps.binding = data.binding;
 							fire('bindingChanged', data.binding);
+							measure();
+							return;
+						case 'theme':
+							// The DM switched theme, density or motion while this widget was on the board.
+							applyHostLook(data.themeVariables, data.hostDocument);
 							measure();
 							return;
 						case 'result': {

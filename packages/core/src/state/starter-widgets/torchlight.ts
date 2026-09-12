@@ -10,10 +10,16 @@ import { buildStarterWidgetPackage, type StarterWidgetEntry } from './shared';
  * network, no storage and no host DOM (RC-WID-1.3). It asks for NO host permissions: a card that
  * draws a flame has no business with the clipboard or the filesystem, and the review sheet says so.
  *
+ * It is also the showcase for the design-system kit (RC-WID-5.4). The card, the eyebrow title, the
+ * reading badge and the pause button are the kit's `kit-card`, `kit-card__title`, `kit-badge` and
+ * `kit-button`, so they draw as the DS Card, CardHeader, Badge and Button do in every theme. The
+ * package's own stylesheet only draws what the DS has no component for: the flame and the meter.
+ *
  * Motion is a budget, not a default. The flicker is a CSS animation whose duration is derived from
- * the configured intensity, and `prefers-reduced-motion: reduce` turns it off entirely and leaves the
- * flame lit — the information (how much torch is left) is carried by the meter and the words, never
- * by the movement alone.
+ * the configured intensity. It can be paused (WCAG 2.2.2: it runs for as long as the card is on the
+ * board), and reduced motion, from the OS or the app's own setting, turns it off entirely and leaves
+ * the flame lit. The information (how much torch is left) is carried by the meter and the words,
+ * never by the movement alone.
  */
 
 const TORCHLIGHT_HTML = [
@@ -25,36 +31,36 @@ const TORCHLIGHT_HTML = [
 	'  <link rel="stylesheet" href="./styles.css" />',
 	'</head>',
 	'<body>',
-	'  <main class="torch" data-torch>',
+	'  <main class="torch kit-root kit-card" data-torch>',
+	'    <div class="kit-card__header torch-header">',
+	'      <h1 class="kit-card__title" data-title>Torchlight</h1>',
+	'      <span class="kit-badge kit-badge--accent" data-reading>Lit</span>',
+	'    </div>',
 	'    <div class="torch-flame" data-flame aria-hidden="true"></div>',
-	'    <h1 class="torch-title" data-title>Torchlight</h1>',
-	'    <p class="torch-reading" data-reading>Lit</p>',
-	'    <div class="torch-meter">',
+	'    <div class="torch-meter" role="meter" aria-label="Light left" aria-valuemin="1" aria-valuemax="10" aria-valuenow="6" data-meter>',
 	'      <div class="torch-meter-fill" data-fill></div>',
 	'    </div>',
+	'    <button type="button" class="kit-button torch-pause" aria-pressed="false" data-pause>Pause flicker</button>',
 	'    <script src="./main.js"></script>',
 	'  </main>',
 	'</body>',
 	'</html>',
 ].join('\n');
 
+// Tokens only, never the palette: the kit supplies the card, and the host supplies the theme.
 const TORCHLIGHT_CSS = [
-	'body { margin: 0; background: transparent; color: var(--widget-text, #f2e8d8); }',
-	'.torch {',
-	'  box-sizing: border-box; min-height: 100%; padding: 14px;',
-	'  display: grid; gap: 8px; justify-items: center; align-content: center;',
-	'  border-radius: 10px;',
-	'  background: radial-gradient(120% 80% at 50% 0%, var(--widget-glow, #3a2412) 0%, var(--widget-surface, #14100c) 70%);',
-	'  font: 13px/1.45 system-ui, sans-serif;',
-	'}',
+	'body { margin: 0; background: transparent; }',
+	'.torch { display: grid; gap: var(--space-2); justify-items: center; }',
+	'.torch-header { justify-self: stretch; margin-bottom: 0; }',
 	'.torch-flame {',
-	'  width: 26px; height: 38px;',
+	'  width: 26px; height: 38px; margin: var(--space-1) 0;',
 	'  border-radius: 50% 50% 45% 45% / 62% 62% 38% 38%;',
 	'  background: linear-gradient(180deg, var(--widget-flame, #ffb347) 0%, var(--widget-ember, #d2461a) 100%);',
-	'  box-shadow: 0 0 18px 4px var(--widget-glow, #3a2412);',
+	'  box-shadow: 0 0 18px 4px color-mix(in srgb, var(--widget-flame, #ffb347) 40%, transparent);',
 	'  transform-origin: 50% 100%;',
 	'  animation: torch-flicker var(--torch-period, 1.6s) ease-in-out infinite;',
 	'}',
+	'.torch[data-paused] .torch-flame { animation-play-state: paused; }',
 	'@keyframes torch-flicker {',
 	'  0%, 100% { transform: scale(1, 1); opacity: 1; }',
 	'  35% { transform: scale(0.92, 1.08) rotate(-2deg); opacity: 0.86; }',
@@ -62,10 +68,13 @@ const TORCHLIGHT_CSS = [
 	'}',
 	'@media (prefers-reduced-motion: reduce) {',
 	'  .torch-flame { animation: none; }',
+	'  .torch-pause { display: none; }',
 	'}',
-	'.torch-title { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: 0.02em; }',
-	'.torch-reading { margin: 0; font-size: 12px; color: var(--widget-text, #f2e8d8); opacity: 0.8; }',
-	'.torch-meter { width: 100%; max-width: 190px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }',
+	'[data-motion="reduced"] .torch-pause, [data-motion="none"] .torch-pause { display: none; }',
+	'.torch-meter {',
+	'  box-sizing: border-box; width: 100%; max-width: 190px; height: 8px; overflow: hidden;',
+	'  border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-surface-sunken);',
+	'}',
 	'.torch-meter-fill { height: 100%; width: 0%; border-radius: inherit; background: var(--widget-flame, #ffb347); }',
 ].join('\n');
 
@@ -78,9 +87,11 @@ const TORCHLIGHT_JS = [
 	'  var root = document.querySelector("[data-torch]");',
 	'  if (!api || !root) return;',
 	'  var flame = root.querySelector("[data-flame]");',
+	'  var meter = root.querySelector("[data-meter]");',
 	'  var fill = root.querySelector("[data-fill]");',
 	'  var title = root.querySelector("[data-title]");',
 	'  var reading = root.querySelector("[data-reading]");',
+	'  var pause = root.querySelector("[data-pause]");',
 	'  var WORDS = ["Guttering", "Low", "Burning", "Blazing"];',
 	'  function draw(configuration) {',
 	'    var config = configuration || {};',
@@ -92,9 +103,18 @@ const TORCHLIGHT_JS = [
 	'    // A brighter torch settles: the period lengthens as the flame steadies.',
 	'    flame.style.setProperty("--torch-period", (0.75 + intensity * 0.11).toFixed(2) + "s");',
 	'    fill.style.width = intensity * 10 + "%";',
-	'    var word = WORDS[Math.min(WORDS.length - 1, Math.floor((intensity - 1) / 3))];',
-	'    reading.textContent = word + " · " + intensity + " of 10";',
+	'    meter.setAttribute("aria-valuenow", String(intensity));',
+	'    var tier = Math.min(WORDS.length - 1, Math.floor((intensity - 1) / 3));',
+	'    reading.textContent = WORDS[tier] + " · " + intensity + " of 10";',
+	'    // A guttering torch is a warning; anything brighter reads in the accent, as app badges do.',
+	'    reading.className = "kit-badge " + (tier === 0 ? "kit-badge--warning" : "kit-badge--accent");',
 	'  }',
+	'  pause.addEventListener("click", function () {',
+	'    var paused = pause.getAttribute("aria-pressed") !== "true";',
+	'    pause.setAttribute("aria-pressed", String(paused));',
+	'    if (paused) root.setAttribute("data-paused", "");',
+	'    else root.removeAttribute("data-paused");',
+	'  });',
 	'  api.onRender(function (props) {',
 	'    draw((props || {}).configuration);',
 	'  });',
@@ -123,11 +143,8 @@ export const TORCHLIGHT_STARTER: StarterWidgetEntry = {
 			javascript: TORCHLIGHT_JS,
 			styleCapabilities: ['css-variables', 'custom-stylesheet', 'animation', 'host-theme-tokens'],
 			styleTokens: [
-				{ name: 'flame', value: '#ffb347', description: 'The top of the flame.' },
+				{ name: 'flame', value: '#ffb347', description: 'The top of the flame, and its glow.' },
 				{ name: 'ember', value: '#d2461a', description: 'The base of the flame.' },
-				{ name: 'glow', value: '#3a2412', description: 'The light the torch casts.' },
-				{ name: 'surface', value: '#14100c', description: 'The card behind the flame.' },
-				{ name: 'text', value: '#f2e8d8', description: 'Label colour.' },
 			],
 			configFields: [
 				{
@@ -150,7 +167,7 @@ export const TORCHLIGHT_STARTER: StarterWidgetEntry = {
 				},
 			],
 			hostPermissions: [],
-			defaultSize: { width: 260, height: 220 },
-			minSize: { width: 200, height: 180 },
+			defaultSize: { width: 260, height: 240 },
+			minSize: { width: 200, height: 200 },
 		}),
 };

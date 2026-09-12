@@ -1,0 +1,773 @@
+/*
+ * widget-kit.css — the Lamplight design-system kit for custom widgets, version 1 (RC-WID-5.4).
+ *
+ * A `custom-html-js` widget runs in an opaque-origin frame that inherits nothing from the app, so
+ * without this file every package re-invents the button. With it, a package writes
+ * `<button class="kit-button">` and gets the DS Button: same tokens, same states, same density and
+ * motion behaviour, in every theme. The class contract is documented in
+ * docs/architecture/WIDGETS.md §4.1; everything named `kit-*` below is public API for kit v1.
+ *
+ * HOW IT GETS INTO THE FRAME. This file is served beside `widget-host.html`, but the frame never
+ * requests it. The host fetches it from its own origin and hands the text over in the `init`
+ * message, where the sandbox's existing `style-src 'unsafe-inline'` already admits it. Linking it
+ * would have meant `'self'` in the sandbox `style-src`, which cannot be narrowed to one file and
+ * would let a widget make requests of its own; see renderer-isolation.ts. The frame's CSP is
+ * unchanged by the kit.
+ *
+ * WHAT DRIVES IT. Colours, shadows and fonts are the host's theme tokens, forwarded on `init` and
+ * again on every theme change (only for packages that declare the `host-theme-tokens` style
+ * capability; the kit is not installed for anyone else). The theme-invariant scale below
+ * mirrors styles/tokens/spacing.css and typography.css, and the density sets and motion collapse
+ * key off the `data-density` / `data-motion` attributes the host mirrors onto this document.
+ * widgetKit.test.ts fails if any of it drifts from the app.
+ *
+ * VERSIONING. Renaming or removing a class or modifier, or changing what one means, is a breaking
+ * change: bump `--kit-version` here and WIDGET_KIT_VERSION in SandboxHost.tsx together. Adding a
+ * class is not breaking. The file makes no requests of its own: no url(), no @import.
+ */
+
+:root {
+	--kit-version: 1;
+
+	/* --- Theme-invariant scale (mirrors styles/tokens/spacing.css + typography.css) --------- */
+	--space-0-5: 0.125rem;
+	--space-1: 0.25rem;
+	--space-1-5: 0.375rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.25rem;
+	--space-6: 1.5rem;
+	--space-8: 2rem;
+
+	--radius-sm: 3px;
+	--radius-md: 6px;
+	--radius-lg: 12px;
+	--radius-full: 9999px;
+
+	--text-2xs: 0.625rem;
+	--text-xs: 0.75rem;
+	--text-sm: 0.8125rem;
+	--text-base: 0.9375rem;
+	--text-md: 1.0625rem;
+	--text-lg: 1.25rem;
+	--text-xl: 1.5rem;
+	--text-2xl: 1.875rem;
+	--font-weight-regular: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+	--font-weight-bold: 700;
+	--leading-tight: 1.2;
+	--leading-snug: 1.35;
+	--leading-body: 1.5;
+	--tracking-normal: 0em;
+	--tracking-wide: 0.05em;
+	--tracking-wider: 0.08em;
+
+	--icon-size-micro: 16px;
+	--icon-size-sm: 20px;
+	--icon-size-md: 24px;
+
+	--duration-micro: 80ms;
+	--duration-fast: 150ms;
+	--duration-standard: 220ms;
+	--duration-moderate: 300ms;
+	--duration-slow: 400ms;
+	--duration-crawl: 500ms;
+	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+	--easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+	--easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+	--focus-ring-width: 2px;
+	--focus-ring-offset: 2px;
+	--focus-ring-color: var(--color-interactive-focus-ring);
+
+	--component-card-padding: var(--space-4);
+	--component-input-px: var(--space-3);
+	--component-input-py: var(--space-2);
+
+	/* --- Density, standard set (no `data-density`, or `standard`) --------------------------- */
+	--density-touch-target: 2rem;
+	--density-list-gap: var(--space-1);
+	--density-icon-size: var(--icon-size-md);
+	--density-input-height: 2.25rem;
+	--density-button-height: 2.25rem;
+	--density-font-size: var(--text-base);
+}
+
+[data-density='comfortable'] {
+	--density-touch-target: 2.75rem;
+	--density-list-gap: var(--space-2);
+	--density-icon-size: var(--icon-size-md);
+	--density-input-height: 2.75rem;
+	--density-button-height: 2.75rem;
+	--density-font-size: var(--text-base);
+}
+
+[data-density='compact'] {
+	--density-touch-target: 1.75rem;
+	--density-list-gap: var(--space-0-5);
+	--density-icon-size: var(--icon-size-sm);
+	--density-input-height: 1.75rem;
+	--density-button-height: 1.75rem;
+	--density-font-size: var(--text-sm);
+}
+
+/* --- Motion collapse (UX-VIS-010). The same two steps the app takes: every duration token goes to
+ * 0ms, and every animation and transition in the document, the widget's own included, stops on
+ * its resting frame. The frame's own `prefers-reduced-motion` still works for the OS setting; this
+ * is what carries the in-app Reduce motion switch across the boundary. ------------------------ */
+[data-motion='reduced'],
+[data-motion='none'] {
+	--duration-micro: 0ms;
+	--duration-fast: 0ms;
+	--duration-standard: 0ms;
+	--duration-moderate: 0ms;
+	--duration-slow: 0ms;
+	--duration-crawl: 0ms;
+}
+
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after,
+[data-motion='none'] *,
+[data-motion='none'] *::before,
+[data-motion='none'] *::after {
+	animation-duration: 0.001ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.001ms !important;
+}
+
+/* --- Baselines. Zero specificity, so a package's own rule always wins. --------------------- */
+
+/* The app's one focus ring (WCAG 2.4.7), for every focusable element in the frame. */
+:where(:focus-visible) {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+
+:where(
+	.kit-root,
+	.kit-button,
+	.kit-icon-button,
+	.kit-card,
+	.kit-card__header,
+	.kit-badge,
+	.kit-chip,
+	.kit-chip__remove,
+	.kit-list,
+	.kit-list-row,
+	.kit-list-row__action,
+	.kit-input,
+	.kit-select,
+	.kit-stat
+),
+:where(.kit-select) > select {
+	box-sizing: border-box;
+}
+
+/* The app's body typography, for a container that is not itself a component. */
+.kit-root {
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	line-height: var(--leading-body);
+	color: var(--color-text-primary);
+	-webkit-font-smoothing: antialiased;
+}
+
+/* --- Button (DS Button). Default is `secondary`, size `md`. ------------------------------- */
+.kit-button {
+	display: inline-flex;
+	min-width: var(--density-touch-target, 0);
+	max-width: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	margin: 0;
+	padding: var(--space-2) var(--space-4);
+	min-height: var(--density-button-height, 2.25rem);
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	font-weight: var(--font-weight-semibold);
+	line-height: 1.2;
+	text-decoration: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition:
+		background var(--duration-fast) var(--easing-standard),
+		border-color var(--duration-fast) var(--easing-standard),
+		filter var(--duration-fast) var(--easing-standard);
+	white-space: normal;
+	overflow-wrap: anywhere;
+	background: var(--color-surface-raised);
+	color: var(--color-text-primary);
+	border: 1px solid var(--color-border-strong);
+	box-shadow: none;
+}
+
+.kit-button > svg {
+	width: var(--icon-size-sm);
+	height: var(--icon-size-sm);
+	flex: none;
+}
+
+.kit-button--sm {
+	gap: var(--space-1-5);
+	padding: var(--space-1-5) var(--space-3);
+	font-size: var(--text-sm);
+}
+
+.kit-button--lg {
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-5);
+	font-size: var(--text-md);
+}
+
+.kit-button--primary {
+	background: var(--color-accent);
+	color: var(--color-accent-foreground);
+	border-color: var(--color-accent);
+	box-shadow: var(--shadow-sm);
+}
+
+.kit-button--secondary {
+	background: var(--color-surface-raised);
+	color: var(--color-text-primary);
+	border-color: var(--color-border-strong);
+}
+
+.kit-button--ghost {
+	background: transparent;
+	color: var(--color-text-secondary);
+	border-color: transparent;
+}
+
+.kit-button--danger {
+	background: var(--color-status-error);
+	color: var(--color-status-error-foreground);
+	border-color: var(--color-status-error);
+}
+
+.kit-button--accent {
+	background: var(--color-accent-subtle);
+	color: var(--color-accent);
+	border-color: var(--color-accent-border);
+}
+
+.kit-button:hover:not(:disabled, [aria-disabled='true']) {
+	background: var(--color-surface-overlay);
+	color: var(--color-text-primary);
+}
+
+.kit-button--primary:hover:not(:disabled, [aria-disabled='true']) {
+	background: var(--color-accent-hover);
+	color: var(--color-accent-foreground);
+}
+
+/* Danger and accent keep their hue on hover and brighten instead, as the DS Button does. */
+.kit-button--danger:hover:not(:disabled, [aria-disabled='true']) {
+	background: var(--color-status-error);
+	color: var(--color-status-error-foreground);
+	filter: brightness(1.1);
+}
+
+.kit-button--accent:hover:not(:disabled, [aria-disabled='true']) {
+	background: var(--color-accent-subtle);
+	color: var(--color-accent);
+	filter: brightness(1.1);
+}
+
+/* `aria-disabled` keeps the button focusable so its explanation can still be read out. The
+ * package must ignore the click itself; CSS cannot swallow it. */
+.kit-button:disabled,
+.kit-button[aria-disabled='true'] {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+/* --- Icon button (DS IconButton). Default is `ghost`, size `md`. Needs an aria-label. ------ */
+.kit-icon-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.25rem;
+	height: 2.25rem;
+	margin: 0;
+	padding: 0;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition:
+		background var(--duration-fast) var(--easing-standard),
+		color var(--duration-fast) var(--easing-standard);
+	background: transparent;
+	color: var(--color-text-secondary);
+	border: 1px solid transparent;
+}
+
+.kit-icon-button > svg {
+	width: var(--icon-size-md);
+	height: var(--icon-size-md);
+	flex: none;
+}
+
+.kit-icon-button--sm {
+	width: 1.75rem;
+	height: 1.75rem;
+}
+
+.kit-icon-button--sm > svg {
+	width: var(--icon-size-sm);
+	height: var(--icon-size-sm);
+}
+
+.kit-icon-button--lg {
+	width: 2.75rem;
+	height: 2.75rem;
+}
+
+.kit-icon-button--outline {
+	background: var(--color-surface-raised);
+	color: var(--color-text-primary);
+	border-color: var(--color-border-strong);
+}
+
+.kit-icon-button--accent {
+	background: var(--color-accent-subtle);
+	color: var(--color-accent);
+	border-color: var(--color-accent-border);
+}
+
+.kit-icon-button:hover:not(:disabled, [aria-disabled='true'], .kit-icon-button--accent) {
+	background: var(--color-interactive-hover);
+	color: var(--color-text-primary);
+}
+
+.kit-icon-button--outline:hover:not(:disabled, [aria-disabled='true']) {
+	background: var(--color-surface-overlay);
+}
+
+.kit-icon-button:disabled,
+.kit-icon-button[aria-disabled='true'] {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+/* --- Card (DS Card). Default is `flat` elevation, `md` padding. ---------------------------- */
+.kit-card {
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-sm);
+	padding: var(--component-card-padding);
+	color: var(--color-text-primary);
+	cursor: default;
+}
+
+.kit-card--sunken {
+	background: var(--color-surface-sunken);
+	box-shadow: none;
+}
+
+.kit-card--raised {
+	background: var(--color-surface-raised);
+	box-shadow: var(--shadow-md);
+}
+
+.kit-card--overlay {
+	background: var(--color-surface-overlay);
+	box-shadow: var(--shadow-lg);
+}
+
+/* The one primary region. Overrides the elevation's shadow, as the DS Card does. */
+.kit-card--accent {
+	border-color: var(--color-accent-border);
+	box-shadow: var(--shadow-md);
+}
+
+.kit-card--pad-none {
+	padding: 0;
+}
+
+.kit-card--pad-sm {
+	padding: var(--space-3);
+}
+
+.kit-card--pad-lg {
+	padding: var(--space-6);
+}
+
+.kit-card--interactive {
+	cursor: pointer;
+	transition:
+		border-color var(--duration-fast) var(--easing-standard),
+		box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.kit-card--interactive:hover {
+	border-color: var(--color-border-strong);
+	box-shadow: var(--shadow-md);
+}
+
+/* DS CardHeader: an uppercase tracked eyebrow on the left, actions on the right. */
+.kit-card__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	margin-bottom: var(--space-3);
+}
+
+.kit-card__title {
+	margin: 0;
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+	line-height: var(--leading-body);
+	letter-spacing: var(--tracking-wider);
+	text-transform: uppercase;
+	color: var(--color-text-tertiary);
+}
+
+/* --- Badge (DS Badge). Default is `neutral`. A status badge needs a word or an icon beside the
+ * colour (A11Y-011); the kit cannot draw the DS icon for you. ---------------------------------- */
+.kit-badge {
+	display: inline-flex;
+	min-width: 0;
+	max-width: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-1);
+	padding: 2px var(--space-2);
+	border-radius: var(--radius-full);
+	background: var(--color-surface-overlay);
+	color: var(--color-text-secondary);
+	border: 1px solid var(--color-border-strong);
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+	line-height: 1.4;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	text-align: center;
+}
+
+.kit-badge > svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
+}
+
+.kit-badge--success {
+	background: var(--color-status-success-subtle);
+	color: var(--color-status-success-text);
+	border-color: var(--color-status-success);
+}
+
+.kit-badge--warning {
+	background: var(--color-status-warning-subtle);
+	color: var(--color-status-warning-text);
+	border-color: var(--color-status-warning);
+}
+
+.kit-badge--error {
+	background: var(--color-status-error-subtle);
+	color: var(--color-status-error-text);
+	border-color: var(--color-status-error);
+}
+
+.kit-badge--info {
+	background: var(--color-status-info-subtle);
+	color: var(--color-status-info-text);
+	border-color: var(--color-status-info);
+}
+
+.kit-badge--accent {
+	background: var(--color-accent-subtle);
+	color: var(--color-accent);
+	border-color: var(--color-accent-border);
+}
+
+/* --- Chip (DS Chip). Default is `neutral`. A `<button class="kit-chip" aria-pressed>` is a
+ * toggleable filter; `kit-chip--selected` or `aria-pressed="true"` tints the neutral tone. ------ */
+.kit-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	margin: 0;
+	padding: 3px var(--space-2);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface-overlay);
+	color: var(--color-text-primary);
+	border: 1px solid var(--color-border-strong);
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-medium);
+	line-height: var(--leading-body);
+	cursor: default;
+}
+
+button.kit-chip,
+.kit-chip[role='button'] {
+	cursor: pointer;
+}
+
+.kit-chip > svg {
+	width: 13px;
+	height: 13px;
+	flex: none;
+}
+
+.kit-chip:not(.kit-chip--accent, .kit-chip--danger, .kit-chip--info):is(
+		.kit-chip--selected,
+		[aria-pressed='true']
+	) {
+	background: var(--color-interactive-selected);
+}
+
+.kit-chip--accent {
+	background: var(--color-accent-subtle);
+	color: var(--color-accent);
+	border-color: var(--color-accent-border);
+}
+
+.kit-chip--danger {
+	background: var(--color-status-error-subtle);
+	color: var(--color-status-error-text);
+	border-color: var(--color-status-error);
+}
+
+.kit-chip--info {
+	background: var(--color-status-info-subtle);
+	color: var(--color-status-info-text);
+	border-color: var(--color-status-info);
+}
+
+/* The remove affordance inside a chip. Keeps the touch target the chip itself is too small for. */
+.kit-chip__remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target, 24px);
+	min-height: var(--density-touch-target, 24px);
+	margin: 0 0 0 2px;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+.kit-chip__remove > svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* --- List row (DS ListItem). `<ul class="kit-list">` of `<li class="kit-list-row">`; an
+ * interactive row puts `<button class="kit-list-row__action" aria-pressed>` inside the item, so the
+ * list stays a list (WCAG 1.3.1). ------------------------------------------------------------ */
+.kit-list {
+	display: grid;
+	gap: var(--density-list-gap);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.kit-list-row {
+	display: block;
+	list-style: none;
+	padding: var(--space-2) var(--space-3);
+	min-height: var(--density-touch-target, 0);
+	border-radius: var(--radius-md);
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text-primary);
+	transition:
+		background var(--duration-fast) var(--easing-standard),
+		border-color var(--duration-fast) var(--easing-standard);
+}
+
+.kit-list-row:has(> .kit-list-row__action) {
+	padding: 0;
+	min-height: 0;
+}
+
+.kit-list-row--selected,
+.kit-list-row[aria-selected='true'],
+.kit-list-row:has(> .kit-list-row__action[aria-pressed='true']) {
+	border-color: var(--color-accent-border);
+	background: var(--color-accent-subtle);
+}
+
+.kit-list-row:has(> .kit-list-row__action:disabled) {
+	opacity: 0.5;
+}
+
+.kit-list-row__action {
+	display: block;
+	width: 100%;
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	min-height: var(--density-touch-target, 0);
+	border: none;
+	border-radius: inherit;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.kit-list-row__action:disabled {
+	cursor: default;
+}
+
+/* --- Input (DS Input / Textarea) --------------------------------------------------------- */
+.kit-input {
+	width: 100%;
+	margin: 0;
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	color: var(--color-text-primary);
+	background: var(--color-surface-sunken);
+	border: 1px solid var(--color-border-strong);
+	border-radius: var(--radius-sm);
+	padding: var(--component-input-py) var(--component-input-px);
+	min-height: var(--density-input-height, 2.25rem);
+	transition:
+		border-color var(--duration-fast) var(--easing-standard),
+		box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+textarea.kit-input {
+	min-height: auto;
+	resize: vertical;
+	line-height: var(--leading-body);
+}
+
+.kit-input--invalid,
+.kit-input[aria-invalid='true'] {
+	border-color: var(--color-status-error);
+}
+
+/* Focus wins over invalid while the field has it, as in the DS. The global ring stacks with this. */
+.kit-input:focus {
+	border-color: var(--color-border-focus);
+	box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+}
+
+/* --- Select (DS Select). `<div class="kit-select"><select>…</select></div>`; the wrapper draws the
+ * chevron, because a native select's arrow cannot be themed. --------------------------------- */
+.kit-select {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.kit-select > select {
+	width: 100%;
+	margin: 0;
+	appearance: none;
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	color: var(--color-text-primary);
+	background: var(--color-surface-sunken);
+	border: 1px solid var(--color-border-strong);
+	border-radius: var(--radius-sm);
+	padding: var(--component-input-py) var(--component-input-px);
+	padding-right: calc(var(--space-6) + var(--space-2));
+	min-height: var(--density-input-height, 2.25rem);
+	cursor: pointer;
+	transition:
+		border-color var(--duration-fast) var(--easing-standard),
+		box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.kit-select::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	right: 16px;
+	width: 7px;
+	height: 7px;
+	margin-top: -5px;
+	border-right: 2px solid var(--color-text-tertiary);
+	border-bottom: 2px solid var(--color-text-tertiary);
+	transform: rotate(45deg);
+	pointer-events: none;
+}
+
+.kit-select--invalid > select,
+.kit-select > select[aria-invalid='true'] {
+	border-color: var(--color-status-error);
+}
+
+.kit-select > select:focus {
+	border-color: var(--color-border-focus);
+	box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+}
+
+/* --- Stat (DS Stat): a tracked label, a large mono figure, an optional trend. ------------- */
+.kit-stat {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: var(--space-4);
+	border-radius: var(--radius-md);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	box-shadow: var(--shadow-sm);
+}
+
+.kit-stat__label {
+	font-family: var(--font-sans);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-weight-semibold);
+	letter-spacing: var(--tracking-wider);
+	text-transform: uppercase;
+	color: var(--color-text-tertiary);
+}
+
+.kit-stat__figure {
+	display: flex;
+	align-items: baseline;
+	gap: var(--space-1);
+}
+
+.kit-stat__value {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xl);
+	font-weight: var(--font-weight-bold);
+	line-height: 1;
+	color: var(--color-text-primary);
+}
+
+.kit-stat--accent .kit-stat__value {
+	color: var(--color-accent);
+}
+
+.kit-stat__unit {
+	font-family: var(--font-sans);
+	font-size: var(--text-sm);
+	color: var(--color-text-tertiary);
+}
+
+.kit-stat__delta {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	font-family: var(--font-sans);
+	font-size: var(--text-xs);
+	font-weight: var(--font-weight-semibold);
+	color: var(--color-text-tertiary);
+}
+
+.kit-stat__delta--up {
+	color: var(--color-status-success-text);
+}
+
+.kit-stat__delta--down {
+	color: var(--color-status-error-text);
+}
