@@ -68,8 +68,9 @@ export function isProseWidth(value: string | null): value is ProseWidth {
 /** Resolve the active prose-width preference from DOM attr then localStorage with a safe fallback. */
 export function readProseWidthPreference(fallback: ProseWidth = 'comfortable'): ProseWidth {
 	const candidate =
-		(typeof document !== 'undefined' ? document.documentElement.getAttribute('data-prose-width') : null) ??
-		readPreference(PREFERENCE_KEYS.proseWidth);
+		(typeof document !== 'undefined'
+			? document.documentElement.getAttribute('data-prose-width')
+			: null) ?? readPreference(PREFERENCE_KEYS.proseWidth);
 	return isProseWidth(candidate) ? candidate : fallback;
 }
 

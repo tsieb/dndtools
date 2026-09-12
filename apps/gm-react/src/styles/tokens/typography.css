@@ -94,7 +94,9 @@
 }
 
 .knowledge-prose :where(h2, h3, h4, h5, h6) {
-	font-size: calc(var(--knowledge-prose-font-size) * var(--knowledge-prose-heading-scale)) !important;
+	font-size: calc(
+		var(--knowledge-prose-font-size) * var(--knowledge-prose-heading-scale)
+	) !important;
 	line-height: 1.25 !important;
 	font-family: var(--font-display) !important;
 }
