@@ -33,7 +33,11 @@ function accept(result: CommandResult): Extract<CommandResult, { status: 'accept
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -68,7 +72,12 @@ function deliver(
 			sceneId,
 			recipientActorIds,
 			sections: [
-				{ id: 'sec-open', heading: 'Opening', body: 'You find a sealed letter.', visibility: 'player-visible' },
+				{
+					id: 'sec-open',
+					heading: 'Opening',
+					body: 'You find a sealed letter.',
+					visibility: 'player-visible',
+				},
 				{ id: 'sec-cipher', heading: 'Cipher', body: 'XJQ ZTP RVL', visibility: 'shared' },
 				{ id: 'sec-dm', heading: 'DM notes', body: 'It is a trap.', visibility: 'dm-only' },
 			],
@@ -81,7 +90,9 @@ describe('SES-004 handout delivery', () => {
 	it('delivers a handout to Player A as a widget; Player B does NOT receive it (AC1, non-leak)', () => {
 		const env = makeEnvironment();
 		const { state, sceneId } = activeSession(env);
-		const result = accept(deliver(state, env, sceneId, [PLAYER_ACTOR.id], { revealedSectionIds: ['sec-cipher'] }));
+		const result = accept(
+			deliver(state, env, sceneId, [PLAYER_ACTOR.id], { revealedSectionIds: ['sec-cipher'] }),
+		);
 		const next = result.nextState;
 
 		// A handout widget was added to the scene, referencing the handout by id (no content clone).
@@ -106,7 +117,9 @@ describe('SES-004 handout delivery', () => {
 		expect(getHandoutsForActor(next.session, next.permissions, PLAYER_B.id)).toEqual([]);
 
 		// An observer who is not a recipient also receives nothing (fail closed).
-		expect(getHandoutForActor(next.session, next.permissions, OBSERVER_ACTOR.id, handoutId)).toEqual({
+		expect(
+			getHandoutForActor(next.session, next.permissions, OBSERVER_ACTOR.id, handoutId),
+		).toEqual({
 			kind: 'unavailable',
 		});
 	});
@@ -147,7 +160,9 @@ describe('SES-004 handout delivery', () => {
 			PLAYER_ACTOR.id,
 			handoutId,
 		);
-		expect(before.kind === 'available' && before.sections.some((s) => s.id === 'sec-cipher')).toBe(false);
+		expect(before.kind === 'available' && before.sections.some((s) => s.id === 'sec-cipher')).toBe(
+			false,
+		);
 
 		// Reveal the cipher section.
 		const revealed = accept(
@@ -157,8 +172,15 @@ describe('SES-004 handout delivery', () => {
 				payload: { handoutId, sectionId: 'sec-cipher', revealed: true },
 			}),
 		).nextState;
-		const after = getHandoutForActor(revealed.session, revealed.permissions, PLAYER_ACTOR.id, handoutId);
-		expect(after.kind === 'available' && after.sections.some((s) => s.id === 'sec-cipher')).toBe(true);
+		const after = getHandoutForActor(
+			revealed.session,
+			revealed.permissions,
+			PLAYER_ACTOR.id,
+			handoutId,
+		);
+		expect(after.kind === 'available' && after.sections.some((s) => s.id === 'sec-cipher')).toBe(
+			true,
+		);
 
 		// Re-conceal it: the section is withheld again (reveal is reversible).
 		const concealed = accept(
@@ -168,10 +190,15 @@ describe('SES-004 handout delivery', () => {
 				payload: { handoutId, sectionId: 'sec-cipher', revealed: false },
 			}),
 		).nextState;
-		const reconcealed = getHandoutForActor(concealed.session, concealed.permissions, PLAYER_ACTOR.id, handoutId);
-		expect(reconcealed.kind === 'available' && reconcealed.sections.some((s) => s.id === 'sec-cipher')).toBe(
-			false,
+		const reconcealed = getHandoutForActor(
+			concealed.session,
+			concealed.permissions,
+			PLAYER_ACTOR.id,
+			handoutId,
 		);
+		expect(
+			reconcealed.kind === 'available' && reconcealed.sections.some((s) => s.id === 'sec-cipher'),
+		).toBe(false);
 	});
 
 	it('records DELIVERY HISTORY (who received what, when), DM-only', () => {
@@ -182,7 +209,11 @@ describe('SES-004 handout delivery', () => {
 		// Re-deliver the SAME handout to Player B (adds to the audience + history).
 		const second = accept(deliver(first.nextState, env, sceneId, [PLAYER_B.id], { handoutId }));
 
-		const history = getHandoutDeliveryHistory(second.nextState.session, second.nextState.permissions, DM_ACTOR.id);
+		const history = getHandoutDeliveryHistory(
+			second.nextState.session,
+			second.nextState.permissions,
+			DM_ACTOR.id,
+		);
 		expect(history).toHaveLength(2);
 		expect(history.map((row) => row.delivery.recipientActorId).sort()).toEqual(
 			[PLAYER_ACTOR.id, PLAYER_B.id].sort(),
@@ -196,9 +227,13 @@ describe('SES-004 handout delivery', () => {
 		);
 
 		// A non-DM gets an EMPTY delivery history (the audit is DM-only).
-		expect(getHandoutDeliveryHistory(second.nextState.session, second.nextState.permissions, PLAYER_ACTOR.id)).toEqual(
-			[],
-		);
+		expect(
+			getHandoutDeliveryHistory(
+				second.nextState.session,
+				second.nextState.permissions,
+				PLAYER_ACTOR.id,
+			),
+		).toEqual([]);
 	});
 
 	it('fails closed: a player cannot deliver and bad recipients reject; Standby delivery is allowed', () => {
@@ -217,17 +252,23 @@ describe('SES-004 handout delivery', () => {
 			},
 		});
 		expect(byPlayer.status).toBe('rejected');
-		if (byPlayer.status === 'rejected') expect(byPlayer.rejection.code).toBe('actor-not-authorized');
+		if (byPlayer.status === 'rejected')
+			expect(byPlayer.rejection.code).toBe('actor-not-authorized');
 
 		// The DM as a recipient is rejected (the DM is not a delivery target).
 		const dmRecipient = deliver(state, env, sceneId, [DM_ACTOR.id]);
 		expect(dmRecipient.status).toBe('rejected');
-		if (dmRecipient.status === 'rejected') expect(dmRecipient.rejection.code).toBe('invalid-payload');
+		if (dmRecipient.status === 'rejected')
+			expect(dmRecipient.rejection.code).toBe('invalid-payload');
 
 		// RC-SES-6.1 — delivery works in Standby too; the record says it happened outside a session.
 		const idleBase = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 		const idleHome = accept(
-			dispatch(idleBase, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
+			dispatch(idleBase, env, {
+				type: 'command-center.ensure-home',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
 		).nextState;
 		const idleScene = idleHome.commandCenter.homeSceneId!;
 		const idleDeliver = accept(deliver(idleHome, env, idleScene, [PLAYER_ACTOR.id]));

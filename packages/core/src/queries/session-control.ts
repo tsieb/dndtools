@@ -173,7 +173,11 @@ export function getActiveMapViewForActor(
 			enabled: layer.enabled,
 		})),
 		hiddenLayerCount,
-		deliveryStatus: hasDmAuthority(actor.role) ? 'dm-local' : (projection?.deliveryStatus ?? 'queued'),
-		deliveryReason: hasDmAuthority(actor.role) ? 'dm-local' : (projection?.deliveryReason ?? 'offline'),
+		deliveryStatus: hasDmAuthority(actor.role)
+			? 'dm-local'
+			: (projection?.deliveryStatus ?? 'queued'),
+		deliveryReason: hasDmAuthority(actor.role)
+			? 'dm-local'
+			: (projection?.deliveryReason ?? 'offline'),
 	};
 }

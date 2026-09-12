@@ -38,7 +38,11 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -267,14 +271,25 @@ describe('SES-003 roll visibility composes with PERM (fail closed)', () => {
 			dispatch(state, env, {
 				type: 'dice.roll',
 				actorId: DM_ACTOR.id,
-				payload: { expression: '1d20', visibility: 'shared', sharedWith: [PLAYER_ACTOR.id], seed: 's' },
+				payload: {
+					expression: '1d20',
+					visibility: 'shared',
+					sharedWith: [PLAYER_ACTOR.id],
+					seed: 's',
+				},
 			}),
 		);
 		const next = result.nextState;
-		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_ACTOR.id).rolls).toHaveLength(1);
-		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_2.id).rolls).toHaveLength(0);
+		expect(
+			getDiceHistoryForActor(next.session, next.permissions, PLAYER_ACTOR.id).rolls,
+		).toHaveLength(1);
+		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_2.id).rolls).toHaveLength(
+			0,
+		);
 		// The DM always sees it.
-		expect(getDiceHistoryForActor(next.session, next.permissions, DM_ACTOR.id).rolls).toHaveLength(1);
+		expect(getDiceHistoryForActor(next.session, next.permissions, DM_ACTOR.id).rolls).toHaveLength(
+			1,
+		);
 	});
 
 	it('a shared roll with groupIds expands the group to individual recipients (AC4 — Player Group)', () => {
@@ -298,11 +313,17 @@ describe('SES-003 roll visibility composes with PERM (fail closed)', () => {
 		);
 		const next = rollResult.nextState;
 		// PLAYER_ACTOR is a group member → sees the roll.
-		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_ACTOR.id).rolls).toHaveLength(1);
+		expect(
+			getDiceHistoryForActor(next.session, next.permissions, PLAYER_ACTOR.id).rolls,
+		).toHaveLength(1);
 		// PLAYER_2 is not in the group → cannot see the roll.
-		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_2.id).rolls).toHaveLength(0);
+		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_2.id).rolls).toHaveLength(
+			0,
+		);
 		// The DM always sees it.
-		expect(getDiceHistoryForActor(next.session, next.permissions, DM_ACTOR.id).rolls).toHaveLength(1);
+		expect(getDiceHistoryForActor(next.session, next.permissions, DM_ACTOR.id).rolls).toHaveLength(
+			1,
+		);
 		// Unknown group id is rejected fail-closed.
 		const bad = rejected(
 			dispatch(next, env, {
@@ -323,7 +344,11 @@ describe('SES-003 roll visibility composes with PERM (fail closed)', () => {
 				payload: { expression: '1d20', visibility: 'session-visible', seed: 's' },
 			}),
 		);
-		const view = getDiceHistoryForActor(result.nextState.session, result.nextState.permissions, PLAYER_ACTOR.id);
+		const view = getDiceHistoryForActor(
+			result.nextState.session,
+			result.nextState.permissions,
+			PLAYER_ACTOR.id,
+		);
 		expect(view.rolls).toHaveLength(1);
 		// A player never receives the recorded seed (DM-only audit field).
 		expect(view.rolls[0]?.seed).toBeNull();
@@ -381,7 +406,12 @@ describe('SES-008 rollable tables and append-to-notes', () => {
 
 	it('a player without a grant cannot draw a DM table (fail closed)', () => {
 		const session = activeSession();
-		const { state, itemId } = createDiceTable(session.state, session.env, '1d4', ['A', 'B', 'C', 'D']);
+		const { state, itemId } = createDiceTable(session.state, session.env, '1d4', [
+			'A',
+			'B',
+			'C',
+			'D',
+		]);
 		const result = rejected(
 			dispatch(state, session.env, {
 				type: 'dice.roll-table',
@@ -394,7 +424,12 @@ describe('SES-008 rollable tables and append-to-notes', () => {
 
 	it('appends a generated result to a note through the content write path; note history records actor + source (AC2)', () => {
 		const session = activeSession();
-		const tableState = createDiceTable(session.state, session.env, '1d4', ['Coins', 'Gems', 'A ring', 'A map']);
+		const tableState = createDiceTable(session.state, session.env, '1d4', [
+			'Coins',
+			'Gems',
+			'A ring',
+			'A map',
+		]);
 		const noteState = createNote(tableState.state, session.env, 'Session log', 'Existing line.');
 		// Draw the table.
 		const drawn = accept(
@@ -476,7 +511,11 @@ describe('SES-003 the legacy session.record-dice command still records a minimal
 		const roll = result.nextState.session.diceHistory[0]!;
 		expect(roll.total).toBe(18);
 		// Hydrates to session-visible for the actor + DM (no recorded visibility ⇒ in-session default).
-		const view = getDiceHistoryForActor(result.nextState.session, result.nextState.permissions, DM_ACTOR.id);
+		const view = getDiceHistoryForActor(
+			result.nextState.session,
+			result.nextState.permissions,
+			DM_ACTOR.id,
+		);
 		expect(view.rolls).toHaveLength(1);
 	});
 });

@@ -181,7 +181,15 @@ export function handleDispatchWidgetCommand(
 	// the durable SESSION timer state; set-duration is a CONFIGURE action that mutates the scene widget's
 	// configuration (NOT the live timer). Anything else has no reducer here.
 	if (parsed.data.commandType === 'timer.set-duration') {
-		return reduceTimerConfigure(state, env, actor.id, scene, widget.id, parsed.data, idempotencyKey);
+		return reduceTimerConfigure(
+			state,
+			env,
+			actor.id,
+			scene,
+			widget.id,
+			parsed.data,
+			idempotencyKey,
+		);
 	}
 	if (TIMER_OPERATE_COMMANDS.includes(parsed.data.commandType)) {
 		return reduceTimerOperate(state, env, actor.id, scene, widget.id, parsed.data, idempotencyKey);
@@ -209,7 +217,7 @@ const TIMER_OPERATE_COMMANDS: readonly string[] = Object.freeze([
 	'timer.advance',
 ]);
 
-type DispatchData = ReturnType<typeof dispatchWidgetCommandInputSchema['parse']>;
+type DispatchData = ReturnType<(typeof dispatchWidgetCommandInputSchema)['parse']>;
 
 /**
  * SES-005 OPERATE — drive the session timer's runtime: start/pause/resume/reset/advance. Each action
@@ -271,7 +279,13 @@ function reduceTimerOperate(
 				durationSeconds: remainingSecondsAt(previous, now),
 				startedAt: null,
 			});
-			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'pause' };
+			event = {
+				kind: 'session.timer-operated',
+				sceneId: scene.id,
+				widgetInstanceId,
+				actorId,
+				operation: 'pause',
+			};
 			break;
 		case 'timer.resume':
 			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
@@ -279,7 +293,13 @@ function reduceTimerOperate(
 				durationSeconds: baseDuration,
 				startedAt: now,
 			});
-			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'resume' };
+			event = {
+				kind: 'session.timer-operated',
+				sceneId: scene.id,
+				widgetInstanceId,
+				actorId,
+				operation: 'resume',
+			};
 			break;
 		case 'timer.reset':
 			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
@@ -287,7 +307,13 @@ function reduceTimerOperate(
 				durationSeconds: baseDuration,
 				startedAt: null,
 			});
-			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'reset' };
+			event = {
+				kind: 'session.timer-operated',
+				sceneId: scene.id,
+				widgetInstanceId,
+				actorId,
+				operation: 'reset',
+			};
 			break;
 		case 'timer.advance': {
 			const delta = data.payload.deltaSeconds;
@@ -306,12 +332,21 @@ function reduceTimerOperate(
 				durationSeconds: Math.max(0, baseDuration + delta),
 				startedAt: previous?.startedAt ?? null,
 			});
-			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'advance' };
+			event = {
+				kind: 'session.timer-operated',
+				sceneId: scene.id,
+				widgetInstanceId,
+				actorId,
+				operation: 'advance',
+			};
 			break;
 		}
 		default:
 			return reject(
-				{ code: 'command-not-declared', message: `No timer operate reducer for ${data.commandType}.` },
+				{
+					code: 'command-not-declared',
+					message: `No timer operate reducer for ${data.commandType}.`,
+				},
 				state,
 			);
 	}
@@ -412,16 +447,19 @@ function reduceTimerConfigure(
 		entityId: scene.id,
 		opType: 'widget.dispatch-command',
 		path: `widgets/${widgetInstanceId}/configuration/durationSeconds`,
-		value: { widgetInstanceId, commandType: data.commandType, durationSeconds: duration, idempotencyKey },
+		value: {
+			widgetInstanceId,
+			commandType: data.commandType,
+			durationSeconds: duration,
+			idempotencyKey,
+		},
 		beforeRevision: sceneEntity.ownership.revision,
 		afterRevision: updatedScene.ownership.revision,
 	});
 	return {
 		status: 'accepted',
 		nextState: { ...state, scenes: nextScenes, sync: nextLog },
-		events: [
-			{ kind: 'scene.widget-configured', sceneId: scene.id, widgetInstanceId, actorId },
-		],
+		events: [{ kind: 'scene.widget-configured', sceneId: scene.id, widgetInstanceId, actorId }],
 		operationIds: [op.id],
 	};
 }

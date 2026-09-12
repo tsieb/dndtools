@@ -29,4 +29,9 @@
 - Core vitest: 274 files / 4944 tests passed (was 4779; the new `session-standby-permits-everything.test.ts` covers 22 commands × 7 workflow states). After formatting and the import fix, a targeted re-run of the 9 touched core test files passed 380/380.
 - App vitest (`vitest.app.config.ts`): 126 files / 1336 tests passed; targeted re-run of `combat-audio-automation` + `sfx-events` passed 17/17.
 - Root tooling vitest: 24 files / 162 tests passed. `pnpm lint:boundary`: passed. ESLint on changed files: exit 0.
-- Prettier: files clean at HEAD are formatted. Five files were already unformatted at HEAD; only my hunks were formatted, and their pre-existing lines are left alone.
+- Prettier: files clean at HEAD are formatted. Five files were already unformatted at HEAD; attempt 1 formatted only my hunks in them.
+
+## Attempt 2 (gate feedback: "Format (changed)" failed on `b75d1b14`)
+
+- The gate (`pnpm format:check:changed --base loop/rc`) checks whole changed files, so the five files that were already unformatted failed it: `commands/handout.ts`, `commands/widget-command.ts`, `queries/session-control.ts`, `tests/dice-commands.test.ts` and `tests/handout-delivery.test.ts`. Ran `prettier --write` on all five. This is formatting only; the changed lines outside my hunks are line wrapping and `(typeof x)['parse']` parentheses.
+- After formatting: `pnpm format:check:changed --base loop/rc` exit 0. Core typecheck exit 0. ESLint on the five files exit 0. Vitest on dice-commands, handout-delivery, session-standby-permits-everything, session-lifecycle, active-session-control, quick-reference and widget-lifecycle passed 7 files / 273 tests.

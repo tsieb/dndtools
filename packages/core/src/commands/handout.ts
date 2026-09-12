@@ -82,7 +82,8 @@ function handoutLayout(scene: Scene): WidgetLayout {
 function findHandoutWidget(scene: Scene, handoutId: string): WidgetInstance | null {
 	return (
 		scene.widgets.find(
-			(widget) => widget.type === HANDOUT_WIDGET_TYPE && widget.configuration.handoutId === handoutId,
+			(widget) =>
+				widget.type === HANDOUT_WIDGET_TYPE && widget.configuration.handoutId === handoutId,
 		) ?? null
 	);
 }
@@ -117,7 +118,7 @@ function ensureHandoutWidget(
 
 /** Build the handout's sections from the validated input, assigning ids to new sections. */
 function buildSections(
-	input: ReturnType<typeof deliverHandoutInputSchema['parse']>['sections'],
+	input: ReturnType<(typeof deliverHandoutInputSchema)['parse']>['sections'],
 	previous: SessionHandout | undefined,
 	env: CoreEnvironment,
 ): HandoutSection[] {
@@ -188,7 +189,10 @@ export function handleDeliverHandout(
 	const deliveryRecipientIds = resolved.recipientActorIds;
 	if (deliveryRecipientIds.length === 0) {
 		return reject(
-			{ code: 'invalid-payload', message: 'Select at least one recipient or a non-empty player group.' },
+			{
+				code: 'invalid-payload',
+				message: 'Select at least one recipient or a non-empty player group.',
+			},
 			state,
 		);
 	}
@@ -469,7 +473,10 @@ export function handleAcknowledgeHandout(
 		handoutRecipientSealed(handout, actor)
 	) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Handout ${input.handoutId} is not available to you.` },
+			{
+				code: 'content-item-not-found',
+				message: `Handout ${input.handoutId} is not available to you.`,
+			},
 			state,
 		);
 	}
@@ -544,8 +551,7 @@ export function handleRevokeHandout(
 	// every current recipient. Persistent recipients can still be recorded as revoked; the read keeps their
 	// access (so a later persistence removal would re-seal cleanly).
 	const explicit = input.recipientActorIds.filter((id) => handout.recipientActorIds.includes(id));
-	const targets =
-		input.recipientActorIds.length === 0 ? [...handout.recipientActorIds] : explicit;
+	const targets = input.recipientActorIds.length === 0 ? [...handout.recipientActorIds] : explicit;
 	// Only record NEW revocations (idempotent: an already-revoked recipient is not duplicated).
 	const alreadyRevoked = new Set(handout.revocations.map((r) => r.recipientActorId));
 	const now = env.clock();
