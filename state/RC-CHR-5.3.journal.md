@@ -80,3 +80,28 @@ already exists. Nothing is invented and nothing new goes into core.
 - Playwright, earlier run (`characters-roster`, `authoring-layout`, `a11y-axe-gate`, both projects):
   73 passed, 3 failed. The 3 failures were the `getByLabel` locator problem above, fixed afterwards.
   The whole axe gate passed, `/characters` included.
+- Playwright on the committed tree (`27e0dbfb`): all of `characters-roster`, `authoring-layout`
+  (including the 320px roster case) and `character-sheet` passed on desktop-chromium. That run was
+  interrupted at 50/116 with no failures. A separate mobile-chromium run of the same three specs
+  passed 18/18.
+
+## Attempt 2 (2026-09-12)
+
+Gate feedback on `27e0dbfb`: Quality gates, Format (changed), Typecheck, Lint and App tests passed.
+Tooling tests failed in `tests/unit/electron-hardening.test.ts`, which expected 2 matches of
+`devTools: !app.isPackaged` in `apps/gm-react/electron/main.cjs` and found 3.
+
+- This candidate did not cause it. `main.cjs` is not in this diff. The third match came from
+  `ac99ca7b` (scene-display kiosk), which is already on `loop/rc`, and this task's base `338e06cb` is
+  `loop/rc`. So the base fails the same test.
+- The third match is correct hardening. The kiosk projector window is opened through
+  `setWindowOpenHandler`, and its `webPreferences` sets `devTools: !app.isPackaged` like the other two
+  windows. The test's hard-coded 2 was stale.
+- Fix: the test now requires one `devTools: !app.isPackaged` per `webPreferences:` block (at least 2).
+  Adding a window that leaves DevTools ungated fails the test, and adding a hardened window no longer
+  means bumping a number. The file is inside the `*.test.ts` companion path.
+
+### Validation results
+
+- `pnpm test:tooling`: 24 files, 162 tests passed.
+- `eslint` and `prettier --check` on `tests/unit/electron-hardening.test.ts`: clean.
