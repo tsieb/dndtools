@@ -1,6 +1,6 @@
 # Component reference
 
-<!-- Generated from DsGallery.tsx galleryRegistry. Do not edit by hand. -->
+<!-- Generated from the galleryRegistry shared by DsGallery.tsx and scripts/check-prod-bundle.mjs. Do not edit by hand. -->
 
 Run `node scripts/check-prod-bundle.mjs --write-docs` to regenerate; use `--check-docs` to verify coverage and drift.
 
