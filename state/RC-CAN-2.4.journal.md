@@ -118,7 +118,7 @@ Gate feedback on `9ff97aa4`: every gate passed except Browser acceptance (run `f
 passed, 374 failed, 4 flaky, 9 skipped, 23.5 min).
 
 - Same cause as attempt 4, and worse. Over a thousand `page.goto: net::ERR_CONNECTION_REFUSED at
-  http://localhost:5273/…` errors, across every route.
+http://localhost:5273/…` errors, across every route.
 - Overlapping runs on the shared :5273:
   - `a127e092`'s attempt `8be78ea5` (1789195585 → 1789196683) ended inside this gate's window
     (1789196072 → 1789197483), which took the shared server down;
