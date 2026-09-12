@@ -21,6 +21,10 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  WikiCustomDomains:
+    Type: String
+    Default: '{}'
+    Description: JSON map of wiki ids to operator-verified HTTPS custom hostnames, enabled only after DNS and certificate validation.
   WebOrigin:
     Type: String
     Default: 'https://invalid.example'
@@ -244,6 +248,7 @@ Resources:
           # WEB_ORIGIN is the trusted base for the join link the email carries.
           INVITE_SENDER: !Ref InviteSender
           WEB_ORIGIN: !Ref WebOrigin
+          WIKI_CUSTOM_DOMAINS: !Ref WikiCustomDomains
           # Send through the same configuration set Cognito uses, so bounce and complaint
           # rates cover ALL of this project's mail rather than only the account traffic.
           # Owned by the identity stack, which deploys before this one.
@@ -423,6 +428,14 @@ Resources:
         # strictly-shaped wiki id to the player-safe page bundle the owner published;
         # password-protected wikis additionally require the x-wiki-password header
         # (salted-scrypt check in the handler). Never returns the owner's sub.
+        ReadWikiDocument:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: '/wikis/{wikiId}/{document}'
+            Auth:
+              Authorizer: NONE
         ReadWiki:
           Type: HttpApi
           Properties:

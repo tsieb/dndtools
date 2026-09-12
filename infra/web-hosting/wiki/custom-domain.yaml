@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Optional Beacon wiki custom domain. Deploy only for an existing Beacon-published wiki after domain ownership and ACM validation.
+Parameters:
+  WikiId:
+    Type: String
+    AllowedPattern: '^[A-Za-z0-9_-]{8,32}$'
+  HostName:
+    Type: String
+    AllowedPattern: '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$'
+  CertificateArn:
+    Type: String
+    AllowedPattern: '^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$'
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+  ApiDomainName:
+    Type: String
+    AllowedPattern: '^[a-z0-9]+\.execute-api\.[a-z0-9-]+\.amazonaws\.com$'
+  Stage:
+    Type: String
+    AllowedValues: [dev, prod]
+Resources:
+  Route:
+    Type: AWS::CloudFront::Function
+    Properties:
+      AutoPublish: true
+      Name: !Sub '${AWS::StackName}-route'
+      FunctionConfig:
+        Comment: Route this domain only to its published wiki
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var r = event.request;
+          var base = '/wikis/${WikiId}/';
+          if (r.uri === '/') r.uri = base + 'reader';
+          if (r.uri === '/rss.xml' || r.uri === '/sitemap.xml') r.uri = base + r.uri.slice(1);
+          if (r.uri !== base + 'reader' && r.uri !== base + 'rss.xml' && r.uri !== base + 'sitemap.xml') {
+            return {statusCode: 404, statusDescription: 'Not Found'};
+          }
+          return r;
+        }
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases: [!Ref HostName]
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: api
+            DomainName: !Ref ApiDomainName
+            OriginPath: !Sub '/${Stage}'
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: api
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          # No cached public content can survive an access-mode change or unpublish.
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
+          ForwardedValues:
+            QueryString: true
+            Cookies: { Forward: none }
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt Route.FunctionMetadata.FunctionARN
+  Dns:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref HostName
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+Outputs:
+  ReaderUrl:
+    Value: !Sub 'https://${HostName}/'

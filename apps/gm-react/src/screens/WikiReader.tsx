@@ -1,6 +1,7 @@
+import { publicAppBaseUrl } from '../platform/publicAppUrl';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Button, Icon, Input } from '../ds';
+import { Button, Icon, Input, Select } from '../ds';
 import { AppApiError, getPublicWiki, type PublicWiki, type WikiPage } from '../cloud/appApi';
 import { useViewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
@@ -112,6 +113,8 @@ export function WikiReader() {
 		wikiId ? { phase: 'loading' } : { phase: 'missing' },
 	);
 	const [password, setPassword] = useState('');
+	const [query, setQuery] = useState('');
+	const [theme, setTheme] = useState('parchment');
 	const [busy, setBusy] = useState(false);
 	const [openSlug, setOpenSlug] = useState<string | null>(null);
 	const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -138,7 +141,10 @@ export function WikiReader() {
 		getPublicWiki(wikiId, pw)
 			.then((wiki) => {
 				setState({ phase: 'ready', wiki });
-				setOpenSlug(wiki.pages[0]?.slug ?? null);
+				const requested = new URLSearchParams(location.search).get('page');
+				setOpenSlug(
+					wiki.pages.find((p) => p.slug === requested)?.slug ?? wiki.pages[0]?.slug ?? null,
+				);
 			})
 			.catch((e: unknown) => {
 				if (e instanceof AppApiError && e.status === 401) {
@@ -159,15 +165,25 @@ export function WikiReader() {
 	// bookmark and the OS share sheet are the ONLY chrome — and every published wiki was shipping
 	// the app's static <title>, so two open wikis were indistinguishable tabs. Restore the previous
 	// title on unmount so the DM app's own tab is not left renamed after an in-session visit.
+	const readyAccess = state.phase === 'ready' ? state.wiki.access : null;
 	const readyTitle = state.phase === 'ready' ? state.wiki.title : null;
 	useEffect(() => {
 		if (!readyTitle) return;
 		const previous = document.title;
 		document.title = `${readyTitle} — Campaign wiki`;
+		const description = document.createElement('meta');
+		description.name = 'description';
+		description.content = `Read ${readyTitle}, a published campaign wiki.`;
+		const robots = document.createElement('meta');
+		robots.name = 'robots';
+		robots.content = readyAccess === 'public' ? 'index, follow' : 'noindex, nofollow';
+		document.head.append(description, robots);
 		return () => {
 			document.title = previous;
+			description.remove();
+			robots.remove();
 		};
-	}, [readyTitle]);
+	}, [readyTitle, readyAccess]);
 
 	// Fetch once per id (a password wiki resolves to the password phase, then re-fetches on submit).
 	useEffect(() => {
@@ -184,7 +200,7 @@ export function WikiReader() {
 
 	if (state.phase === 'loading') {
 		return (
-			<div data-theme="parchment" style={WRAP}>
+			<div data-theme={theme} style={WRAP}>
 				<Notice icon="knowledge-book" title={t('wikiReader.opening')}>
 					<div
 						style={{ font: '13px var(--font-sans)', color: 'var(--color-text-tertiary)' }}
@@ -200,7 +216,7 @@ export function WikiReader() {
 
 	if (state.phase === 'missing') {
 		return (
-			<div data-theme="parchment" style={WRAP}>
+			<div data-theme={theme} style={WRAP}>
 				<Notice icon="warning" title={t('wikiReader.noLinkTitle')}>
 					<div style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}>
 						{t('wikiReader.noLinkBody')}
@@ -212,7 +228,7 @@ export function WikiReader() {
 
 	if (state.phase === 'invalid') {
 		return (
-			<div data-theme="parchment" style={WRAP}>
+			<div data-theme={theme} style={WRAP}>
 				<Notice icon="warning" title={t('wikiReader.unavailableTitle')}>
 					{/* The loading phase announced itself in a polite live region, and this replaces that
 					    subtree — without a live region of its own the failure is silent to a screen
@@ -244,7 +260,7 @@ export function WikiReader() {
 
 	if (state.phase === 'password') {
 		return (
-			<div data-theme="parchment" style={WRAP}>
+			<div data-theme={theme} style={WRAP}>
 				<Notice icon="lock" title={t('wikiReader.protectedTitle')}>
 					<div style={{ font: '13px/1.6 var(--font-sans)', color: 'var(--color-text-secondary)' }}>
 						{t('wikiReader.protectedBody')}
@@ -291,6 +307,15 @@ export function WikiReader() {
 	// phase === 'ready'
 	const { wiki } = state;
 	const page: WikiPage | undefined = wiki.pages.find((p) => p.slug === openSlug) ?? wiki.pages[0];
+	const visiblePages = wiki.pages.filter((p) =>
+		`${p.title} ${p.markdown}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+	);
+	const folders = new Map<string, WikiPage[]>();
+	for (const p of visiblePages) {
+		const folder = (p as WikiPage & { folder?: string }).folder || t('wikiReader.pagesNav');
+		folders.set(folder, [...(folders.get(folder) ?? []), p]);
+	}
+
 	// Wikilink resolution needs no API call: `wiki.pages` is already the full published set, so a
 	// [[Target]] resolves against page titles (and slugs, for links authored slug-style).
 	const resolveLink = (raw: string): (() => void) | null => {
@@ -303,7 +328,7 @@ export function WikiReader() {
 		return () => setOpenSlug(hit.slug);
 	};
 	return (
-		<div data-theme="parchment" style={WRAP}>
+		<div data-theme={theme} style={WRAP}>
 			<div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 20px' }}>
 				{/* The page nav emits one button per published page AHEAD of the article, so a keyboard
 				    reader tabs through the whole table of contents before reaching the prose. Same
@@ -347,6 +372,17 @@ export function WikiReader() {
 					>
 						<Icon name="knowledge-book" size="sm" /> {t('wikiReader.campaignWiki')}
 					</div>
+					{wiki.access === 'public' && publicAppBaseUrl() && (
+						<div>
+							<a href={`${publicAppBaseUrl()}/wikis/${encodeURIComponent(wiki.wikiId)}/reader`}>
+								{t('wikiReader.webReader')}
+							</a>
+							{' · '}
+							<a href={`${publicAppBaseUrl()}/wikis/${encodeURIComponent(wiki.wikiId)}/rss.xml`}>
+								{t('wikiReader.rss')}
+							</a>
+						</div>
+					)}
 					<h1
 						style={{
 							font: '800 28px var(--font-display)',
@@ -398,33 +434,57 @@ export function WikiReader() {
 							overflowY: isPhone ? undefined : 'auto',
 						}}
 					>
-						{wiki.pages.map((p) => {
-							const active = p.slug === page?.slug;
-							return (
-								<button
-									key={p.slug}
-									type="button"
-									onClick={() => setOpenSlug(p.slug)}
-									aria-current={active ? 'page' : undefined}
-									style={{
-										display: 'block',
-										width: '100%',
-										textAlign: 'left',
-										padding: '8px 12px',
-										borderRadius: 8,
-										cursor: 'pointer',
-										border: 'none',
-										font: `${active ? 600 : 400} 13.5px var(--font-sans)`,
-										color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-										background: active
-											? 'var(--color-surface-sunken, var(--color-surface))'
-											: 'transparent',
-									}}
-								>
-									{p.title}
-								</button>
-							);
-						})}
+						<Input
+							aria-label={t('wikiReader.search')}
+							placeholder={t('wikiReader.search')}
+							value={query}
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+						/>
+						<Select
+							aria-label={t('wikiReader.theme')}
+							value={theme}
+							onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTheme(e.target.value)}
+							options={[
+								{ value: 'parchment', label: t('wikiReader.parchment') },
+								{ value: 'high-contrast', label: t('wikiReader.light') },
+								{ value: 'tavern', label: t('wikiReader.dark') },
+							]}
+						/>
+						{visiblePages.length === 0 && wiki.pages.length > 0 && (
+							<p role="status">{t('wikiReader.noMatches')}</p>
+						)}
+						{[...folders].map(([folder, pages]) => (
+							<section key={folder}>
+								<h3>{folder}</h3>
+								{pages.map((p) => {
+									const active = p.slug === page?.slug;
+									return (
+										<button
+											key={p.slug}
+											type="button"
+											onClick={() => setOpenSlug(p.slug)}
+											aria-current={active ? 'page' : undefined}
+											style={{
+												display: 'block',
+												width: '100%',
+												textAlign: 'left',
+												padding: '8px 12px',
+												borderRadius: 8,
+												cursor: 'pointer',
+												border: 'none',
+												font: `${active ? 600 : 400} 13.5px var(--font-sans)`,
+												color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+												background: active
+													? 'var(--color-surface-sunken, var(--color-surface))'
+													: 'transparent',
+											}}
+										>
+											{p.title}
+										</button>
+									);
+								})}
+							</section>
+						))}
 						{wiki.pages.length === 0 && (
 							<div style={{ font: '13px var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
 								{t('wikiReader.noPages')}
