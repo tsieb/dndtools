@@ -16,7 +16,9 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
   `SegmentedControl`; (d) residual raw rgba/hex in widget map placeholder tiles.
 - Targets: `apps/gm-react/src/app/screen-kit.tsx`, `app/map/`, `screens/atlas/`,
   `app/widgets/builtin/`.
-- Plan: RC-DSN-1.1 (complete the `T` map and lint raw values) closes (a) and (d).
+- Status: partial — (a) and (d) resolved by RC-DSN-1.1 (the `T` map carries spacing, radius, shadow,
+  z and duration; the raw-style lint ratchet is live). (b) and (c) remain and are picked up by the
+  polish stories for Atlas (RC-POL-1.9) and Extensions (RC-POL-1.14).
 
 ## Resolved
 

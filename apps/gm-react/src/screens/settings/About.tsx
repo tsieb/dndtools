@@ -273,7 +273,7 @@ export function SettingsAbout() {
 			</Panel>
 
 			<Panel title={t('settings.about.export')}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 8 }}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}>
 					{t('settings.about.exportBody')}
 				</div>
 				<Button variant="secondary" size="sm" icon="download" onClick={() => void exportBundle()}>

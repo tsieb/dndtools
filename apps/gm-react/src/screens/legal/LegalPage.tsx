@@ -31,25 +31,25 @@ const ARTICLE: CSSProperties = {
 const NAV_LINK: CSSProperties = {
 	display: 'inline-flex',
 	alignItems: 'center',
-	gap: 4,
+	gap: T.space.one,
 	minHeight: 32,
-	padding: '4px 8px 4px 4px',
-	borderRadius: 8,
+	padding: `${T.space.one} ${T.space.two} ${T.space.one} ${T.space.one}`,
+	borderRadius: T.radius.md,
 	font: `13px ${T.sans}`,
 	color: T.sub,
 	textDecoration: 'none',
 };
 
 const PARAGRAPH: CSSProperties = {
-	margin: '0 0 14px',
+	margin: `0 0 ${T.space.three}`,
 	font: `15px/1.65 ${T.sans}`,
 	color: T.ink,
 	overflowWrap: 'anywhere',
 };
 
 const PLACEHOLDER: CSSProperties = {
-	padding: '0 5px',
-	borderRadius: 4,
+	padding: `0 ${T.space.oneHalf}`,
+	borderRadius: T.radius.sm,
 	border: `1px dashed ${T.accBd}`,
 	background: T.accSub,
 	color: T.acc,
@@ -85,9 +85,9 @@ function slug(heading: string): string {
 function Block({ block }: { block: LegalBlock }) {
 	if (typeof block === 'string') return <p style={PARAGRAPH}>{withPlaceholders(block)}</p>;
 	return (
-		<ul style={{ ...PARAGRAPH, paddingLeft: 24 }}>
+		<ul style={{ ...PARAGRAPH, paddingLeft: T.space.six }}>
 			{block.list.map((item, i) => (
-				<li key={i} style={{ marginBottom: 6 }}>
+				<li key={i} style={{ marginBottom: T.space.oneHalf }}>
 					{withPlaceholders(item)}
 				</li>
 			))}
@@ -121,30 +121,30 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 						display: 'flex',
 						flexWrap: 'wrap',
 						justifyContent: 'space-between',
-						gap: 8,
-						margin: '0 0 20px -4px',
+						gap: T.space.two,
+						margin: `0 0 ${T.space.five} calc(-1 * ${T.space.one})`,
 					}}
 				>
 					<Link to="/" style={NAV_LINK}>
 						<Icon name="chevron-left" size={16} />
 						{t('legal.backToApp')}
 					</Link>
-					<Link to={sibling.to} style={{ ...NAV_LINK, color: T.acc, paddingLeft: 8 }}>
+					<Link to={sibling.to} style={{ ...NAV_LINK, color: T.acc, paddingLeft: T.space.two }}>
 						{sibling.label}
 					</Link>
 				</nav>
 
-				<header style={{ marginBottom: 28 }}>
+				<header style={{ marginBottom: T.space.six }}>
 					<h1
 						style={{
-							margin: '0 0 8px',
+							margin: `0 0 ${T.space.two}`,
 							font: `700 clamp(24px, 5vw, 30px)/1.2 ${T.disp}`,
 							color: T.ink,
 						}}
 					>
 						{title}
 					</h1>
-					<p style={{ margin: 0, font: `13px ${T.sans}`, color: T.ter }}>
+					<p style={{ margin: T.space.zero, font: `13px ${T.sans}`, color: T.ter }}>
 						{withPlaceholders(t('legal.lastUpdated', { date: doc.lastUpdated }))}
 					</p>
 				</header>
@@ -153,11 +153,11 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 					{doc.sections.map((section) => {
 						const id = slug(section.heading);
 						return (
-							<section key={id} aria-labelledby={id} style={{ marginBottom: 26 }}>
+							<section key={id} aria-labelledby={id} style={{ marginBottom: T.space.six }}>
 								<h2
 									id={id}
 									style={{
-										margin: '0 0 10px',
+										margin: `0 0 ${T.space.two}`,
 										font: `600 18px/1.3 ${T.disp}`,
 										color: T.ink,
 									}}
@@ -174,12 +174,12 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 
 				<footer
 					style={{
-						marginTop: 36,
-						paddingTop: 16,
+						marginTop: T.space.eight,
+						paddingTop: T.space.four,
 						borderTop: `1px solid ${T.bd}`,
 						display: 'flex',
 						flexWrap: 'wrap',
-						gap: 16,
+						gap: T.space.four,
 						font: `13px ${T.sans}`,
 					}}
 				>

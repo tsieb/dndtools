@@ -61,3 +61,13 @@ export * from './components/system/ProgressMeter.jsx';
 export * from './components/system/Skeleton.jsx';
 /* RC-SYS-3.1 */
 export * from './components/system/SystemPackageCard.jsx';
+export * from './components/core/ListItem.jsx';
+export * from './components/core/RadioCard.jsx';
+export * from './components/core/Kbd.jsx';
+export * from './components/core/Menu.jsx';
+export * from './components/core/Toolbar.jsx';
+export * from './components/core/Callout.jsx';
+export * from './components/core/HelpTip.jsx';
+export * from './components/core/FeatureSpotlight.jsx';
+export * from './components/forms/TagInput.jsx';
+export * from './components/data/Figure.jsx';

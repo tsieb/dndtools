@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MIN_RECOVERY_PASSPHRASE_CHARS, type VaultPrivacyMode } from '@dndtools/core';
 import { Badge, Button, Dialog, Input, Toaster } from '../../ds';
 import { Panel, SetRow, T } from '../../app/screen-kit';
+import { ContextHelp, HelpBeside } from '../../app/help/ContextHelp';
 import { useI18n } from '../../i18n';
 import { recoveryPassphraseIssue, recoveryPassphraseOk } from '../settings-validation';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
@@ -56,9 +57,11 @@ export function VaultPrivacyPanel() {
 		<Panel
 			title={t('settings.privacy.title')}
 			action={
-				<Badge status={isPrivate ? 'success' : 'info'}>
-					{t(isPrivate ? 'settings.privacy.badgePrivate' : 'settings.privacy.badgeCloud')}
-				</Badge>
+				<HelpBeside topic="vaultPrivacy">
+					<Badge status={isPrivate ? 'success' : 'info'}>
+						{t(isPrivate ? 'settings.privacy.badgePrivate' : 'settings.privacy.badgeCloud')}
+					</Badge>
+				</HelpBeside>
 			}
 		>
 			<SetRow
@@ -211,7 +214,7 @@ export function RecoveryKeyPanel() {
 	};
 
 	return (
-		<Panel title={t('settings.recovery.title')}>
+		<Panel title={t('settings.recovery.title')} action={<ContextHelp topic="recoveryKey" />}>
 			<SetRow
 				label={t('settings.recovery.custody')}
 				help={t(

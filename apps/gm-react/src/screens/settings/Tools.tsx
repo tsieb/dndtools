@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Toaster } from '../../ds';
+import { Button, FeatureSpotlight, HelpTip, RadioCard, Toaster } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import {
@@ -29,7 +29,7 @@ export function SettingsToolPreferences() {
 	};
 	return (
 		<Panel title={t('settings.tools.title')}>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.tools.intro')}</div>
+			<HelpTip>{t('settings.tools.intro')}</HelpTip>
 			<div
 				role="radiogroup"
 				aria-label={t('settings.tools.groupLabel')}
@@ -63,13 +63,12 @@ export function SettingsToolPreferences() {
 				).map((option) => {
 					const selected = preference === option.id;
 					return (
-						<button
+						<RadioCard
 							key={option.id}
-							type="button"
-							role="radio"
-							aria-checked={selected}
-							tabIndex={selected ? 0 : -1}
-							onClick={() => choose(option.id)}
+							value={option.id}
+							checked={selected}
+							onChange={choose}
+							heading={t(option.title)}
 							style={{
 								padding: 12,
 								borderRadius: 10,
@@ -79,13 +78,10 @@ export function SettingsToolPreferences() {
 								cursor: 'pointer',
 							}}
 						>
-							<div style={{ font: `600 13px ${T.sans}`, color: selected ? T.acc : T.ink }}>
-								{t(option.title)}
-							</div>
 							<div style={{ marginTop: 4, font: `12px/1.5 ${T.sans}`, color: T.ter }}>
 								{t(option.desc)}
 							</div>
-						</button>
+						</RadioCard>
 					);
 				})}
 			</div>
@@ -102,24 +98,15 @@ export function SettingsPlugins() {
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const extensions = t('settings.plugins.extensions');
-	const body = t('settings.plugins.body', { extensions });
-	const [bodyBefore, bodyAfter = ''] = body.split(extensions);
 	return (
 		<Panel title={t('settings.plugins.title')}>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				{bodyBefore}
-				<strong style={{ color: T.ink }}>{extensions}</strong>
-				{bodyAfter}
-			</div>
-			<Button
-				variant="secondary"
-				size="sm"
+			<FeatureSpotlight
+				title={extensions}
+				description={t('settings.plugins.body', { extensions })}
 				icon="widget"
-				onClick={() => navigate('/extensions')}
-				style={{ alignSelf: 'flex-start' }}
-			>
-				{t('settings.openExtensions')}
-			</Button>
+				actionLabel={t('settings.openExtensions')}
+				onAction={() => navigate('/extensions')}
+			/>
 		</Panel>
 	);
 }

@@ -166,3 +166,13 @@ export type DSChangeEvent = import('react').ChangeEvent<DSFieldElement>;
 export type DSKeyboardEvent = import('react').KeyboardEvent<DSFieldElement>;
 /** The `status` tones `Badge` paints (its `STATUS` map in `components/feedback/Badge.jsx`). */
 export type DSBadgeStatus = 'success' | 'warning' | 'error' | 'info' | 'accent' | 'neutral';
+export const ListItem: DSComponent;
+export const RadioCard: DSComponent;
+export const Kbd: DSComponent;
+export const Menu: DSComponent;
+export const Toolbar: DSComponent;
+export const Callout: DSComponent;
+export const HelpTip: DSComponent;
+export const FeatureSpotlight: DSComponent;
+export const TagInput: DSComponent;
+export const Figure: DSComponent;

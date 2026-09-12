@@ -244,6 +244,7 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		// is gone: RC-CHR-4.3 folds `runtime.readOnly` into canManageInventory, because every write is
 		// rejected while previewing regardless of authority, so a live Item field was a dead control.
 		// Owner authority itself is asserted above, at the command choke point where it actually lives.
+		// The inventory itself stays readable, and the form returns once the preview ends.
 		await page.evaluate(() =>
 			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
 		);
@@ -252,7 +253,9 @@ test.describe('equipment: structured inventory, currency & encumbrance', () => {
 		});
 		await expect(page.getByText(PC_NAME).first()).not.toHaveCount(0);
 		await expect(page.getByLabel('Item')).toHaveCount(0);
+		await expect(page.getByText("Thieves' Tools", { exact: true })).toBeVisible();
 		await exitPreview(page);
+		await expect(page.getByLabel('Item')).toHaveCount(1);
 	});
 
 	test('an added item survives a full reload (durable, not display state)', async ({ page }) => {

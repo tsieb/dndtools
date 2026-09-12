@@ -7,16 +7,19 @@ import {
 	Card,
 	Dialog,
 	Field,
+	Figure,
 	Icon,
 	IconButton,
+	ListItem,
 	Input,
 	Select,
 	Textarea,
+	TagInput,
 	Toaster,
 } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { Page } from '../app/screen-kit';
-import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
+import { Page, T } from '../app/screen-kit';
+import { sceneStatus, statusLabel } from '../app/scene-helpers';
 import { useI18n } from '../i18n';
 import { useViewport } from '../app/useViewport';
 import { SceneCardsPanel } from './SceneCardsPanel';
@@ -40,7 +43,7 @@ export function ScenesCreator() {
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
 	const [visibility, setVisibility] = useState<Visibility>('dm-only');
-	const [tagsRaw, setTagsRaw] = useState('');
+	const [tags, setTags] = useState<string[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	// The outcome of THIS form's own last submit. It used to be derived from `runtime.lastLifecycle`,
 	// which is GLOBAL and survives navigation — so an empty, untouched form wore a green "✓ Saved"
@@ -78,16 +81,13 @@ export function ScenesCreator() {
 					name: name.trim(),
 					description: description.trim(),
 					visibility,
-					tags: tagsRaw
-						.split(',')
-						.map((t) => t.trim())
-						.filter(Boolean),
+					tags,
 				},
 			});
 			if (result.status === 'accepted') {
 				setName('');
 				setDescription('');
-				setTagsRaw('');
+				setTags([]);
 				setVisibility('dm-only');
 				setFeedback({ tone: 'success', text: t('scenes.saved', { name: created }) });
 			} else {
@@ -241,10 +241,10 @@ export function ScenesCreator() {
 							/>
 						</Field>
 						<Field label={t('scenes.tags')} htmlFor="scene-tags" help={t('scenes.tagsHelp')}>
-							<Input
+							<TagInput
 								id="scene-tags"
-								value={tagsRaw}
-								onChange={(e: { target: { value: string } }) => setTagsRaw(e.target.value)}
+								value={tags}
+								onChange={setTags}
 								placeholder={t('scenes.tagsPlaceholder')}
 							/>
 						</Field>
@@ -301,14 +301,9 @@ export function ScenesCreator() {
 					</div>
 					{scenes.length === 0 ? (
 						<Card elevation="flat" padding="lg">
-							<div
-								style={{
-									font: 'var(--text-sm) var(--font-sans)',
-									color: 'var(--color-text-secondary)',
-								}}
-							>
-								{t('scenes.empty')}
-							</div>
+							<Figure caption={t('scenes.empty')} align="center">
+								<Icon name="scene" size="lg" />
+							</Figure>
 						</Card>
 					) : (
 						<Card
@@ -316,96 +311,98 @@ export function ScenesCreator() {
 							padding="sm"
 							style={{ display: 'flex', flexDirection: 'column' }}
 						>
-							{scenes.map((scene, i) => {
-								const s = sceneStatus(scene, activeSceneId);
-								const rowEditing = editingId === scene.id;
-								return (
-									<div
-										key={scene.id}
-										style={{ borderTop: i ? '1px solid var(--color-border)' : 'none' }}
-									>
-										<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-											<button
-												type="button"
-												onClick={() => navigate(`/scene/${scene.id}`)}
-												style={{
-													flex: 1,
-													minWidth: 0,
-													display: 'flex',
-													alignItems: 'center',
-													gap: 'var(--space-3)',
-													padding: 'var(--space-3)',
-													border: 'none',
-													borderRadius: 'var(--radius-sm)',
-													background: 'transparent',
-													cursor: 'pointer',
-													textAlign: 'left',
-												}}
-												onMouseEnter={(e) => {
-													e.currentTarget.style.background = 'var(--color-interactive-hover)';
-												}}
-												onMouseLeave={(e) => {
-													e.currentTarget.style.background = 'transparent';
-												}}
-											>
-												<Icon
-													name={s === 'draft' ? 'lock' : 'atlas-map'}
-													size="sm"
-													color="var(--color-text-secondary)"
-												/>
-												<div style={{ flex: 1, minWidth: 0 }}>
-													<div
-														style={{
-															font: '600 var(--text-sm) var(--font-sans)',
-															color: 'var(--color-text-primary)',
-														}}
-													>
-														{scene.name}
-													</div>
-													<div
-														style={{
-															font: 'var(--text-xs) var(--font-sans)',
-															color: 'var(--color-text-tertiary)',
-														}}
-													>
-														{scene.tags?.[0] ?? t('scenes.tagFallback')}
-													</div>
-												</div>
-												<Badge
-													status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}
+							<ul style={{ listStyle: 'none', margin: T.space.zero, padding: T.space.zero }}>
+								{scenes.map((scene, i) => {
+									const s = sceneStatus(scene, activeSceneId);
+									const rowEditing = editingId === scene.id;
+									return (
+										<ListItem
+											key={scene.id}
+											style={{ borderTop: i ? '1px solid var(--color-border)' : 'none' }}
+										>
+											<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+												<button
+													type="button"
+													onClick={() => navigate(`/scene/${scene.id}`)}
+													style={{
+														flex: 1,
+														minWidth: 0,
+														display: 'flex',
+														alignItems: 'center',
+														gap: 'var(--space-3)',
+														padding: 'var(--space-3)',
+														border: 'none',
+														borderRadius: 'var(--radius-sm)',
+														background: 'transparent',
+														cursor: 'pointer',
+														textAlign: 'left',
+													}}
+													onMouseEnter={(e) => {
+														e.currentTarget.style.background = 'var(--color-interactive-hover)';
+													}}
+													onMouseLeave={(e) => {
+														e.currentTarget.style.background = 'transparent';
+													}}
 												>
-													{t(statusLabel(s))}
-												</Badge>
-											</button>
-											<IconButton
-												icon="edit"
-												label={t('scenes.editDetailsOf', { name: scene.name })}
-												variant="ghost"
-												size="sm"
-												onClick={() => setEditingId(rowEditing ? null : scene.id)}
-												style={{ flex: '0 0 auto' }}
-											/>
-											<IconButton
-												icon="delete"
-												label={t('scenes.deleteNamed', { name: scene.name })}
-												variant="ghost"
-												size="sm"
-												onClick={() => setDeleteTarget({ id: scene.id, name: scene.name })}
-												style={{ marginRight: 'var(--space-2)', flex: '0 0 auto' }}
-											/>
-										</div>
-										{rowEditing && (
-											<SceneRowMetaEditor
-												name={scene.name}
-												description={runtime.state.scenes.scenes[scene.id]?.description ?? ''}
-												tags={scene.tags}
-												onSave={(meta) => saveRowMeta(scene.id, meta)}
-												onClose={() => setEditingId(null)}
-											/>
-										)}
-									</div>
-								);
-							})}
+													<Icon
+														name={s === 'draft' ? 'lock' : 'atlas-map'}
+														size="sm"
+														color="var(--color-text-secondary)"
+													/>
+													<div style={{ flex: 1, minWidth: 0 }}>
+														<div
+															style={{
+																font: '600 var(--text-sm) var(--font-sans)',
+																color: 'var(--color-text-primary)',
+															}}
+														>
+															{scene.name}
+														</div>
+														<div
+															style={{
+																font: 'var(--text-xs) var(--font-sans)',
+																color: 'var(--color-text-tertiary)',
+															}}
+														>
+															{scene.tags?.[0] ?? t('scenes.tagFallback')}
+														</div>
+													</div>
+													<Badge
+														status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}
+													>
+														{t(statusLabel(s))}
+													</Badge>
+												</button>
+												<IconButton
+													icon="edit"
+													label={t('scenes.editDetailsOf', { name: scene.name })}
+													variant="ghost"
+													size="sm"
+													onClick={() => setEditingId(rowEditing ? null : scene.id)}
+													style={{ flex: '0 0 auto' }}
+												/>
+												<IconButton
+													icon="delete"
+													label={t('scenes.deleteNamed', { name: scene.name })}
+													variant="ghost"
+													size="sm"
+													onClick={() => setDeleteTarget({ id: scene.id, name: scene.name })}
+													style={{ marginRight: 'var(--space-2)', flex: '0 0 auto' }}
+												/>
+											</div>
+											{rowEditing && (
+												<SceneRowMetaEditor
+													name={scene.name}
+													description={runtime.state.scenes.scenes[scene.id]?.description ?? ''}
+													tags={scene.tags}
+													onSave={(meta) => saveRowMeta(scene.id, meta)}
+													onClose={() => setEditingId(null)}
+												/>
+											)}
+										</ListItem>
+									);
+								})}
+							</ul>
 						</Card>
 					)}
 				</div>
@@ -477,7 +474,7 @@ function SceneRowMetaEditor({
 	const { t } = useI18n();
 	const [draftName, setDraftName] = useState(name);
 	const [draftDescription, setDraftDescription] = useState(description);
-	const [draftTags, setDraftTags] = useState(tags.join(', '));
+	const [draftTags, setDraftTags] = useState(tags);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -488,7 +485,7 @@ function SceneRowMetaEditor({
 			const rejection = await onSave({
 				name: draftName.trim(),
 				description: draftDescription.trim(),
-				tags: parseTags(draftTags),
+				tags: draftTags,
 			});
 			setError(rejection);
 		} finally {
@@ -529,9 +526,9 @@ function SceneRowMetaEditor({
 				/>
 			</Field>
 			<Field label={t('scenes.tags')} help={t('scenes.tagsHelp')}>
-				<Input
+				<TagInput
 					value={draftTags}
-					onChange={(e: { target: { value: string } }) => setDraftTags(e.target.value)}
+					onChange={setDraftTags}
 					placeholder={t('scenes.tagsPlaceholder')}
 				/>
 			</Field>

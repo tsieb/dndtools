@@ -262,6 +262,12 @@ export function MapTile({
 		event.stopPropagation();
 	}
 
+	// The board scales the widget; compensate the action hit areas just like operation chips.
+	const actionTarget = {
+		minWidth: 'var(--operation-touch-target)',
+		minHeight: 'var(--operation-touch-target)',
+		flexShrink: 0,
+	};
 	const actions =
 		interactive && isDm && sceneId ? (
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -289,6 +295,7 @@ export function MapTile({
 				)}
 				<IconButton
 					className="scene-board-operation"
+					style={actionTarget}
 					icon={overlayOn ? 'visibility-players' : 'visibility-hidden'}
 					label={overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn')}
 					variant="outline"
@@ -297,6 +304,7 @@ export function MapTile({
 				/>
 				<IconButton
 					className="scene-board-operation"
+					style={actionTarget}
 					icon="edit"
 					label={t('widgetBody.map.openInEditor')}
 					variant="outline"
@@ -306,6 +314,7 @@ export function MapTile({
 				/>
 				<IconButton
 					className="scene-board-operation"
+					style={actionTarget}
 					icon="visibility-shared"
 					label={t('projection.toPlayers')}
 					variant="outline"
@@ -334,7 +343,11 @@ export function MapTile({
 	}
 
 	return (
-		<div style={{ ...bodyWrap, gap: 6 }} data-testid="map-tile">
+		<div
+			className="scene-board-operation"
+			style={{ ...bodyWrap, gap: 6, overflowY: 'auto' }}
+			data-testid="map-tile"
+		>
 			<div
 				role="group"
 				aria-label={t('widgetBody.map.viewRegion', { name: view.name })}
@@ -343,7 +356,13 @@ export function MapTile({
 				// Keeps a drag-to-pan and a press inside the tile from also reaching the board canvas
 				// underneath, which would deselect or start moving the widget.
 				onPointerDown={interactive ? (e) => e.stopPropagation() : undefined}
-				style={{ flex: 1, minHeight: 64, position: 'relative', borderRadius: 'var(--radius-sm)' }}
+				style={{
+					flex: '1 0 auto',
+					// Keep all three zoom controls inside the map even in a short, scaled widget.
+					minHeight: interactive ? 'calc(3 * var(--operation-touch-target) + 20px)' : 64,
+					position: 'relative',
+					borderRadius: T.radius.sm,
+				}}
 			>
 				<MapCanvas
 					view={view}
@@ -375,6 +394,7 @@ export function MapTile({
 							}}
 						>
 							<IconButton
+								style={actionTarget}
 								icon="zoom-in"
 								label={t('atlas.zoomIn')}
 								variant="outline"
@@ -383,6 +403,7 @@ export function MapTile({
 								onClick={() => setZoom((z) => zoomed(z, ZOOM_STEP))}
 							/>
 							<IconButton
+								style={actionTarget}
 								icon="zoom-out"
 								label={t('atlas.zoomOut')}
 								variant="outline"
@@ -391,6 +412,7 @@ export function MapTile({
 								onClick={() => setZoom((z) => zoomed(z, -ZOOM_STEP))}
 							/>
 							<IconButton
+								style={actionTarget}
 								icon="zoom-fit"
 								label={t('atlas.fit')}
 								variant="outline"

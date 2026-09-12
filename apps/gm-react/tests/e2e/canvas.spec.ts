@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
@@ -516,6 +517,29 @@ test.describe('canvas: board column-overflow guard', () => {
 		expect(await xOf(mapId)).toBe(diceX);
 		const banner = page.getByTestId('board-layout-banner');
 		await expect(banner).toBeVisible();
+
+		// Scan the OPEN action menu: route-only axe checks cannot see menu ownership failures.
+		const trigger = page.getByTestId('board-layout-quality-trigger');
+		await trigger.click();
+		const menu = page.getByRole('menu', { name: 'Layout issues' });
+		await expect(menu).toBeVisible();
+		const items = menu.getByRole('menuitem');
+		await expect(items.first()).toBeFocused();
+		const accessibility = await new AxeBuilder({ page })
+			.include('[data-testid="board-layout-banner"]')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+			.analyze();
+		expect(accessibility.violations).toEqual([]);
+		await items.first().press('End');
+		await expect(items.last()).toBeFocused();
+		await items.last().press('Home');
+		await expect(items.first()).toBeFocused();
+		await items.first().press('Escape');
+		await expect(menu).toHaveCount(0);
+		await expect(trigger).toBeFocused();
+		await trigger.click();
+		await menu.getByRole('menuitem').first().click();
+		await expect(menu).toHaveCount(0);
 
 		await banner.getByRole('button', { name: 'Fix layout' }).click();
 		await expect(banner).toHaveCount(0);

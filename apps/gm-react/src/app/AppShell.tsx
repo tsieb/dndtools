@@ -13,6 +13,7 @@ import { Footer } from './shell/Footer';
 import { SessionRail } from './shell/SessionRail';
 import { SessionQuickSheet } from './session/QuickPanel';
 import { ShortcutsDialog } from './help/ShortcutsDialog';
+import { Spotlight } from './help/Spotlight';
 import { matchesShortcut } from './shortcuts/registry';
 
 // The palette (its command registry, search and the DS palette widget) is fetched the first time it
@@ -253,6 +254,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 			)}
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+			{/* RC-UX-3.2 — one-time feature spotlights, queued to idle moments. */}
+			<Spotlight />
 			{/* On phone the tab bar owns the bottom edge (52px buttons + --space-1 padding + 1px
 			    border) PLUS the bottom safe area, which the bar also pads for — omitting it here put
 			    toasts on top of the primary nav on any device with a home indicator. */}

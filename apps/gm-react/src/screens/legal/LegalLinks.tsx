@@ -24,7 +24,7 @@ export function LegalLinks({
 				display: 'flex',
 				flexWrap: 'wrap',
 				justifyContent: align,
-				gap: 6,
+				gap: T.space.oneHalf,
 				font: `12px ${T.sans}`,
 				color: T.ter,
 				...style,
