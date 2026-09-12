@@ -8,8 +8,8 @@
 
 ## Ledger
 
-- `apps/gm-react/src/ds/components/` — package contract extraction and TSX conversion underway — PENDING.
-- `apps/gm-react/src/ds/index.d.ts` — remove facade in favor of typed barrel — PENDING validation.
+- `apps/gm-react/src/ds/components/` — package contract extraction and TSX conversion completed — DONE.
+- `apps/gm-react/src/ds/index.d.ts` — facade removed in favor of typed barrel — DONE.
 
 ## Decisions
 
@@ -51,3 +51,21 @@
 - BLOCKED: whole-app typecheck reports the two previously masked signed-string arithmetic errors in the unowned `AbilitiesPanel.tsx` (lines 95 and 139). The DS standalone check passes. Original final diagnostic `/tmp/dsn-types-final.log`; the required behavior correction is recorded in the HANDOFF above. No errors were suppressed and the numeric facade lie was not retained.
 - PARTIAL RC-DSN-2.1: the full owned conversion and debt reduction are implemented; the unowned numeric consumer must be fixed before app-wide typecheck/integration can pass. Root debt/design documentation references also remain an owner handoff.
 - Nothing was pushed or promoted; no agents, additional loops, branch changes or dispatcher control mutations occurred.
+
+## Central typecheck recovery
+
+- Read the original failed gate log at `/home/trinkle/Programming/agent-dispatcher/.state/attempts/cf6dab1e-a1df-424d-ba0e-2524c2fe7151/output.log`. Core and cloud typechecking passed; app reports exactly the two previously recorded `AbilitiesPanel.tsx` errors. Headroom tools remain unavailable.
+- Verified the vendored `docs/design-package/components/creature/AbilityScore.d.ts` explicitly declares a signed string return. A numeric overload, cast, suppression or changed DS return value would violate the task's typed-package/no-behavior-change contract.
+- Verified ownership constraints in roadmap §0.2 and `tools/loop/prompts/worker.md` rule 10: consumer source is outside the write fence and requires a HANDOFF. No ownership expansion is present in this retry.
+- Added `components/creature/AbilityScore.test.tsx` to lock signed output for positive/zero/negative scores and authored display overrides.
+- Prepared `src/ds/handoff/AbilitiesPanel.patch`: import the numeric core helper under an alias and use it at the two arithmetic sites, retaining the string helper for presentation. `git apply --check` passes; the patch has not been applied.
+- Also found the same string-helper arithmetic pattern in unowned `screens/characters/index.tsx:213`; recorded it for the character owner without widening the gate patch.
+- Proposed fix verification and final scoped checks pending below. Actual integration remains blocked on consumer ownership/behavior-fix authorization.
+
+### Recovery validation and disposition
+
+- `git apply --check apps/gm-react/src/ds/handoff/AbilitiesPanel.patch` passed. The proposed source was formatted with repository Prettier settings before producing the patch.
+- In-memory app compiler check of the exact formatted proposed source exited 0 with zero diagnostics; the consumer file remained byte-identical. Original output `/tmp/dsn-gate-overlay.log`. This does not mean the actual repository typecheck passed.
+- Standalone DS typecheck exited 0 (`/tmp/dsn-recovery-types.log`); DS tests exited 0 with 29 files / 205 tests, including six new package-contract checks (`/tmp/dsn-recovery-tests.log`); ESLint on the new test exited 0 (`/tmp/dsn-recovery-lint.log`).
+- No runtime source changed in this recovery. The original whole-app failure remains valid; resolving it needs the central operator to grant the narrow consumer path and authorize its arithmetic correction, or land that fix through the character owner.
+- HANDOFF RC-DSN-2.1 → central operator: grant `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx` for the prepared numeric-consumer fix, then apply the committed patch and run real whole-repository gates. Repeating the unchanged DS-only task cannot legally resolve that gate.
