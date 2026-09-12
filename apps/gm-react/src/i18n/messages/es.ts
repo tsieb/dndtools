@@ -411,8 +411,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.dice.label': 'Etiqueta de la tirada',
 	'session.dice.labelPlaceholder': 'Etiqueta (opcional)',
 	'session.dice.export': 'Exportar registro de tiradas',
-	'session.dice.nat20': 'Nat 20',
-	'session.dice.nat1': 'Nat 1',
+	'session.dice.natural': 'Nat {value}',
 	'session.dice.breakdown.toggle': 'Desglose por dado',
 	'session.dice.breakdown.dropped': '{value} (descartado)',
 	// RC-SES-2.3 — la pestaña de tablas aleatorias.

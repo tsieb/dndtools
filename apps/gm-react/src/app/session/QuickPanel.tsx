@@ -1,12 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+	DICE_SCHEMA_VERSION,
+	getActiveSystemForActor,
 	getCombatTrackerForActor,
+	getDiceHistoryForActor,
 	getQuickTimerForActor,
 	getSessionAudioView,
 	listAudioAssetsForActor,
 	listAudioSourceClassificationsForActor,
+	parseDiceExpression,
+	readRollUnderSystem,
+	type EvaluatedDiceTerm,
+	type EvaluatedTerm,
+	type SystemPackage,
+	type SystemRollReadout,
 } from '@dndtools/core';
-import { Button, Icon, IconButton, Input, SegmentedControl, Sheet, Toaster } from '../../ds';
+import {
+	Button,
+	DiceResult,
+	Icon,
+	IconButton,
+	Input,
+	SegmentedControl,
+	Sheet,
+	Toaster,
+} from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
@@ -57,6 +75,90 @@ const URGENCY_COLOR: Record<string, string> = {
 	warning: T.warn,
 	normal: T.ink,
 };
+
+/** What a recorded roll carries that its readout needs — a `DiceRollView` and the tray's rows both fit. */
+export interface RecordedRoll {
+	expression: string;
+	total: number;
+	dice: number[];
+	modifier: number;
+	terms?: EvaluatedTerm[];
+}
+
+/** A recorded roll as `DiceResult` props. */
+export interface RollChipProps {
+	notation: string;
+	total: number;
+	rolls: number[];
+	modifier: number;
+	model?: SystemRollReadout['model'];
+	dice?: SystemRollReadout['dice'];
+	successes?: number | null;
+	successThreshold?: number | null;
+	tier?: SystemRollReadout['tier'];
+	crit: 'success' | 'fail' | undefined;
+	critNatural: number | null;
+}
+
+/** The sides of the package's CORE die: the die in `dice.notation` (5e's `1d20`, Generic's `1d6`). */
+function coreDieSides(pkg: SystemPackage): number | null {
+	const parsed = parseDiceExpression(pkg.dice.notation);
+	if (!parsed.ok) return null;
+	const term = parsed.expression.terms.find((t) => t.kind === 'dice');
+	return term?.kind === 'dice' ? term.sides : null;
+}
+
+/**
+ * RC-SES-2.4 — a recorded roll as `DiceResult` props, read through the ACTIVE system package
+ * (RC-SYS-2.4): the package's model and headline, and crit/fumble by its own `dice.crit` rules. The
+ * quick panel and the /session tray both read rolls through here, so the two readouts of one roll
+ * cannot disagree.
+ *
+ * A natural is judged on the package's CORE die only. `readRollUnderSystem` reads naturals off the
+ * widest die in the expression, so under 5e a `2d6+3` damage roll showing a 1 reads as a fumble, and
+ * `1d20+1d100` crits whenever the d100 clears 20 — true to the numbers, wrong at the table. A 5e
+ * roll crits off its d20, a Generic pool off its d6, and a roll without the core die has no natural
+ * to celebrate. A tiered (2d6-pbta) package spends its bounds on the tier, as the core does. A legacy
+ * record with no `terms` has no faces to read and stays plain.
+ */
+export function diceResultProps(pkg: SystemPackage, roll: RecordedRoll): RollChipProps {
+	const base = {
+		notation: roll.expression,
+		total: roll.total,
+		rolls: roll.dice,
+		modifier: roll.modifier,
+	};
+	const terms = roll.terms ?? [];
+	const diceTerms = terms.filter((t): t is EvaluatedDiceTerm => t.kind === 'dice');
+	if (diceTerms.length === 0) return { ...base, crit: undefined, critNatural: null };
+	const read = readRollUnderSystem(pkg, {
+		expression: roll.expression,
+		seed: 0,
+		terms,
+		dice: roll.dice,
+		kept: diceTerms.flatMap((t) => t.kept),
+		modifier: roll.modifier,
+		total: roll.total,
+		schemaVersion: DICE_SCHEMA_VERSION,
+	});
+	const sides = coreDieSides(pkg);
+	const faces = diceTerms.filter((t) => t.sides === sides).flatMap((t) => t.kept);
+	const { naturalHigh, naturalLow } = pkg.dice.crit;
+	const judged = read.tier === null;
+	const high = judged && naturalHigh !== null ? faces.filter((f) => f >= naturalHigh) : [];
+	const low = judged && naturalLow !== null ? faces.filter((f) => f <= naturalLow) : [];
+	const crit = high.length > 0 ? 'success' : low.length > 0 ? 'fail' : undefined;
+	return {
+		...base,
+		model: read.model,
+		dice: read.dice,
+		successes: read.headlineKind === 'successes' ? read.headline : null,
+		successThreshold: read.successThreshold,
+		tier: read.tier,
+		crit,
+		critNatural: crit === 'success' ? Math.max(...high) : crit === 'fail' ? Math.min(...low) : null,
+	};
+}
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
@@ -124,6 +226,16 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 	const state = runtime.state;
 	const perms = state.permissions;
 	const isDm = perms.actors[actorId]?.role === 'dm';
+	// RC-SES-2.4 — the roll already showing when the panel mounts RESTS; only a roll that lands while
+	// it is open plays its drama, so a route change or reopening the sheet never replays an old nat 20.
+	const [settledRollId] = useState(() => {
+		const rolls = getDiceHistoryForActor(state.session, perms, actorId).rolls;
+		return rolls[rolls.length - 1]?.id ?? null;
+	});
+	const activePackage = useMemo(
+		() => getActiveSystemForActor(state.systems, perms, actorId).activePackage,
+		[state.systems, perms, actorId],
+	);
 
 	// RC-SES-4.4 — the quick-panel timer ticks only while it is actually running (an idle/paused
 	// panel schedules no timer), mirroring the Timer widget body's own tick discipline.
@@ -161,6 +273,9 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 	// SES-002 — actor-scoped: a countdown is DM-only tooling, a break additionally projects a "Back
 	// in M:SS" card to a player (`queries/session-quick-timer.ts` decides which, never this component).
 	const quickTimerView = getQuickTimerForActor(state.session.quickTimer, perms, actorId, nowIso);
+	// `getDiceHistoryForActor` appends, so the newest visible roll is the last one.
+	const diceRolls = getDiceHistoryForActor(state.session, perms, actorId).rolls;
+	const lastRoll = diceRolls[diceRolls.length - 1];
 
 	async function dispatch(
 		command: Parameters<typeof runtime.dispatch>[0],
@@ -440,6 +555,17 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 							{t('session.dice.roll')}
 						</Button>
 					</form>
+				)}
+				{/* RC-SES-2.4 — the roll that just landed, with its drama, so a roll from the quick panel is
+				    seen on every route rather than only recorded. Keyed by roll: each new one replays. */}
+				{lastRoll && (
+					<DiceResult
+						key={lastRoll.id}
+						data-testid="quick-last-roll"
+						{...diceResultProps(activePackage, lastRoll)}
+						drama={lastRoll.id === settledRollId ? 'static' : 'play'}
+						style={{ flexWrap: 'wrap', padding: 'var(--space-2) var(--space-3)' }}
+					/>
 				)}
 			</Section>
 

@@ -101,6 +101,17 @@
 	--motion-rise-distance: var(--space-2); /* 8px */
 	--motion-sheet-from: translateY(100%); /* bottom sheet; side sheets override. @kind other */
 
+	/* Dice drama (RC-SES-2.4): a natural high pops on the spring and sweeps gold across the chip, a
+	 * natural low pulses a red ring, and both come to rest on a static gold or red border — which is
+	 * all reduced motion leaves. Built from the durations above so they collapse with them. The pop's
+	 * spring is added at its one use site (DiceResult.jsx), not here, so references to the spring
+	 * stay confined to the dice surfaces the reservation test allows. */
+	--motion-dice-pop: var(--duration-slow); /* @kind other */
+	--motion-dice-sheen: var(--duration-loop-shimmer) var(--easing-standard); /* @kind other */
+	--motion-dice-sheen-count: 2; /* sweeps before the chip rests. @kind other */
+	--motion-dice-pulse: var(--duration-crawl) var(--easing-standard); /* @kind other */
+	--motion-dice-pulse-count: 3; /* pulses before the chip rests. @kind other */
+
 	/* --- Iconography (UX-VIS-009) — Lucide, 2px stroke, currentColor. ---------------------- */
 	--icon-size-micro: 16px; /* inline text icons, badge indicators */
 	--icon-size-sm: 20px; /* dense toolbar, compact nav */

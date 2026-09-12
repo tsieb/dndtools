@@ -1,0 +1,67 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dice drama — visual snapshot > natural 1, as it lands (drama="play") 1`] = `
+{
+  "chip": "display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background-color:var(--color-status-error-subtle);border:1px solid var(--color-status-error-text);animation:dndDicePulse var(--motion-dice-pulse) var(--motion-dice-pulse-count) both",
+  "drama": "fumble",
+  "headline": "font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:var(--font-weight-bold);line-height:1;color:var(--color-status-error-text)",
+  "keyframes": "@keyframes dndDicePop{from{transform:scale(0.94)}to{transform:none}}@keyframes dndDiceSheen{from{background-position:-150% 0}to{background-position:250% 0}}@keyframes dndDicePulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px color-mix(in srgb, var(--color-status-error) 40%, transparent)}}",
+  "mode": "play",
+  "text": "1d20 • Natural 11[1]",
+}
+`;
+
+exports[`dice drama — visual snapshot > natural 1, at rest (drama="static") 1`] = `
+{
+  "chip": "display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background-color:var(--color-status-error-subtle);border:1px solid var(--color-status-error-text)",
+  "drama": "fumble",
+  "headline": "font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:var(--font-weight-bold);line-height:1;color:var(--color-status-error-text)",
+  "keyframes": null,
+  "mode": "static",
+  "text": "1d20 • Natural 11[1]",
+}
+`;
+
+exports[`dice drama — visual snapshot > natural 20, as it lands (drama="play") 1`] = `
+{
+  "chip": "display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background-color:var(--color-accent-subtle);border:1px solid var(--color-accent);background-image:linear-gradient(105deg, transparent, color-mix(in srgb, var(--color-accent) 35%, transparent), transparent);background-size:60% 100%;background-repeat:no-repeat;background-position:250% 0;animation:dndDicePop var(--motion-dice-pop) var(--easing-spring) both, dndDiceSheen var(--motion-dice-sheen) var(--motion-dice-sheen-count) both",
+  "drama": "crit",
+  "headline": "font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:var(--font-weight-bold);line-height:1;color:var(--color-accent)",
+  "keyframes": "@keyframes dndDicePop{from{transform:scale(0.94)}to{transform:none}}@keyframes dndDiceSheen{from{background-position:-150% 0}to{background-position:250% 0}}@keyframes dndDicePulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 4px color-mix(in srgb, var(--color-status-error) 40%, transparent)}}",
+  "mode": "play",
+  "text": "1d20 • Natural 2020[20]",
+}
+`;
+
+exports[`dice drama — visual snapshot > natural 20, at rest (drama="static") 1`] = `
+{
+  "chip": "display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background-color:var(--color-accent-subtle);border:1px solid var(--color-accent)",
+  "drama": "crit",
+  "headline": "font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:var(--font-weight-bold);line-height:1;color:var(--color-accent)",
+  "keyframes": null,
+  "mode": "static",
+  "text": "1d20 • Natural 2020[20]",
+}
+`;
+
+exports[`dice drama — visual snapshot > plain roll, as it lands (drama="play") 1`] = `
+{
+  "chip": "display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background-color:var(--color-surface-raised);border:1px solid var(--color-border)",
+  "drama": "plain",
+  "headline": "font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:var(--font-weight-bold);line-height:1;color:var(--color-accent)",
+  "keyframes": null,
+  "mode": "play",
+  "text": "1d2013[13]",
+}
+`;
+
+exports[`dice drama — visual snapshot > plain roll, at rest (drama="static") 1`] = `
+{
+  "chip": "display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background-color:var(--color-surface-raised);border:1px solid var(--color-border)",
+  "drama": "plain",
+  "headline": "font-family:var(--font-mono);font-size:var(--text-2xl);font-weight:var(--font-weight-bold);line-height:1;color:var(--color-accent)",
+  "keyframes": null,
+  "mode": "static",
+  "text": "1d2013[13]",
+}
+`;

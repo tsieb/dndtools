@@ -402,8 +402,7 @@ export const en = {
 	'session.dice.label': 'Roll label',
 	'session.dice.labelPlaceholder': 'Label (optional)',
 	'session.dice.export': 'Export roll log',
-	'session.dice.nat20': 'Nat 20',
-	'session.dice.nat1': 'Nat 1',
+	'session.dice.natural': 'Nat {value}',
 	'session.dice.breakdown.toggle': 'Per-die breakdown',
 	'session.dice.breakdown.dropped': '{value} (dropped)',
 	// RC-SES-2.3 — the rollable tables tab.
