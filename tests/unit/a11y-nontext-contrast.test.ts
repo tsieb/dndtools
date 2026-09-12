@@ -4,9 +4,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+	NAMED_THEMES,
 	contrastRatio,
 	evaluateForcedColors,
 	evaluateNonTextContrast,
+	evaluateThemeCoverage,
 	evaluateThemePairs,
 	nonTextPairs,
 	parseHex,
@@ -62,6 +64,36 @@ describe('non-text contrast gate (UX-A11Y-016)', () => {
 		expect(labels.some((l) => l.includes('status'))).toBe(true);
 		expect(labels.some((l) => l.includes('DM-only'))).toBe(true);
 	});
+
+	it('checks all five themes and knows every theme colors.css declares (RC-DSN-1.2)', () => {
+		expect([...NAMED_THEMES]).toEqual([
+			'tavern',
+			'parchment',
+			'scholar',
+			'dungeon',
+			'high-contrast',
+		]);
+		const result = evaluateThemeCoverage(CSS);
+		expect(result.failures).toEqual([]);
+		expect(result.checks).toBeGreaterThanOrEqual(NAMED_THEMES.length * 2);
+	});
+
+	it('flags a theme block the gate does not know (negative probe)', () => {
+		// A new theme must not ship with no contrast check at all.
+		const css = `${CSS}\n[data-theme='sepia'] {\n\t--color-bg: #704214;\n}\n`;
+		expect(evaluateThemeCoverage(css).failures.some((f) => f.includes('"sepia"'))).toBe(true);
+	});
+
+	it('flags a forced-colors block scoped to only some themes (negative probe)', () => {
+		const narrowed = CSS.replace(
+			/(@media\s*\(forced-colors:\s*active\)\s*\{\s*):root,\s*\[data-theme\]/,
+			"$1:root,\n\t[data-theme='tavern']",
+		);
+		expect(narrowed).not.toBe(CSS);
+		const failures = evaluateThemeCoverage(narrowed).failures;
+		expect(failures.some((f) => f.includes('"scholar"'))).toBe(true);
+		expect(failures.some((f) => f.includes('"tavern"'))).toBe(false);
+	});
 });
 
 /**
@@ -103,19 +135,26 @@ describe('map/layer + status-border token coverage', () => {
 
 	const rootTokens = tokensIn(':root');
 	const layerFamily = [...rootTokens].filter(
-		(t) => t.startsWith('--layer-') || t === '--map-fog-fill' || t === '--map-canvas-bg' || t === '--map-grid-line',
+		(t) =>
+			t.startsWith('--layer-') ||
+			t === '--map-fog-fill' ||
+			t === '--map-canvas-bg' ||
+			t === '--map-grid-line',
 	);
 
 	it('finds the layer/map family in :root at all (guards the probe itself)', () => {
 		expect(layerFamily.length).toBeGreaterThanOrEqual(13);
 	});
 
-	it('re-cuts every layer/map colour for parchment', () => {
+	it('re-cuts every layer/map colour for each light theme', () => {
 		// The :root set is tuned for the dark themes; on parchment's near-white surface the same
-		// values were light-on-light (~2:1, WCAG 1.4.3). Fog opacities are unitless, not colours.
-		const parchment = tokensIn("[data-theme='parchment']");
-		const missing = layerFamily.filter((t) => !parchment.has(t));
-		expect(missing).toEqual([]);
+		// values were light-on-light (~2:1, WCAG 1.4.3). Scholar (RC-DSN-1.2) is the second light
+		// theme and needs the same cut. Fog opacities are unitless, not colours.
+		for (const theme of ['parchment', 'scholar']) {
+			const declared = tokensIn(`[data-theme='${theme}']`);
+			const missing = layerFamily.filter((t) => !declared.has(t));
+			expect(missing, theme).toEqual([]);
+		}
 	});
 
 	it('remaps every layer/map colour under forced-colors', () => {
@@ -134,7 +173,7 @@ describe('map/layer + status-border token coverage', () => {
 		// `--color-status-error`, which is 3.49:1 on the dark/tavern salmon and 2.43:1 on
 		// high-contrast's `#ff8080` — the label is 16px semibold, so 4.5:1 applies. Two themes
 		// need DARK ink and two need light, so this needs a per-theme foreground token.
-		const themes = [':root', "[data-theme='tavern']", "[data-theme='parchment']", "[data-theme='high-contrast']"];
+		const themes = [':root', ...NAMED_THEMES.map((theme) => `[data-theme='${theme}']`)];
 		for (const theme of themes) {
 			const declared = declarationsIn(theme);
 			const bg = declared.get('--color-status-error');
@@ -142,7 +181,10 @@ describe('map/layer + status-border token coverage', () => {
 			expect(bg, `${theme} declares --color-status-error`).toBeTruthy();
 			expect(fg, `${theme} declares --color-status-error-foreground`).toBeTruthy();
 			const ratio = contrastRatio(parseHex(bg!)!, parseHex(fg!)!);
-			expect(ratio, `${theme} danger fill ${bg} vs ${fg} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+			expect(
+				ratio,
+				`${theme} danger fill ${bg} vs ${fg} = ${ratio.toFixed(2)}:1`,
+			).toBeGreaterThanOrEqual(4.5);
 		}
 	});
 

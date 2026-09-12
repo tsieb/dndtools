@@ -5,6 +5,11 @@
  * foreground/background token pair meets its assigned WCAG 2.2 contrast level, for ALL named
  * themes. The high-contrast theme is held to AAA (21:1 for primary text). Failures block release.
  *
+ * RC-DSN-1.2 made it five themes and closed two ways the gate could pass without checking: every
+ * `[data-theme='…']` block in the stylesheet must be a named theme here, so a new theme cannot ship
+ * unchecked; and every checked token must be an opaque hex colour, so a translucent or unparsed value
+ * fails instead of being skipped.
+ *
  * Run via `pnpm tokens:contrast`. Self-contained (reads the CSS via fs) so it has no dependency on
  * the app package or a build step.
  */
@@ -15,9 +20,11 @@ import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // The React GM app's per-theme token vocabulary — validated so no theme drifts below AA text contrast.
-const CSS_PATHS = [resolve(HERE, '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css')];
+const CSS_PATHS = [
+	resolve(HERE, '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css'),
+];
 
-const NAMED_THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
+const NAMED_THEMES = ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'] as const;
 type ThemeName = (typeof NAMED_THEMES)[number];
 
 interface Pair {
@@ -43,7 +50,12 @@ function pairsForTheme(): Pair[] {
 	];
 	const pairs: Pair[] = [
 		{ fg: '--color-text-primary', bg: '--color-bg', min: 7, label: 'primary text on page' },
-		{ fg: '--color-text-primary', bg: '--color-surface', min: 4.5, label: 'primary text on surface' },
+		{
+			fg: '--color-text-primary',
+			bg: '--color-surface',
+			min: 4.5,
+			label: 'primary text on surface',
+		},
 		{ fg: '--color-text-secondary', bg: '--color-bg', min: 4.5, label: 'secondary text on page' },
 		{
 			fg: '--color-text-secondary',
@@ -68,7 +80,12 @@ function pairsForTheme(): Pair[] {
 		},
 		{ fg: '--color-border-focus', bg: '--color-bg', min: 3, label: 'focus ring on page' },
 		{ fg: '--color-border-focus', bg: '--color-surface', min: 3, label: 'focus ring on surface' },
-		{ fg: '--color-dm-only-badge', bg: '--color-surface', min: 3, label: 'DM-only badge on surface' },
+		{
+			fg: '--color-dm-only-badge',
+			bg: '--color-surface',
+			min: 3,
+			label: 'DM-only badge on surface',
+		},
 	];
 	for (const token of statusTextTokens) {
 		pairs.push({ fg: token, bg: '--color-surface', min: 4.5, label: `${token} on surface` });
@@ -91,6 +108,11 @@ function parseThemeTokens(css: string, theme: ThemeName, cssPath: string): Map<s
 		if (declMatch) tokens.set(declMatch[1]!, declMatch[2]!.trim());
 	}
 	return tokens;
+}
+
+/** Every theme name the stylesheet declares a `[data-theme='…']` block for. */
+function declaredThemes(css: string): string[] {
+	return [...new Set([...css.matchAll(/\[data-theme='([^']+)'\]/g)].map((m) => m[1]!))];
 }
 
 function parseHex(value: string): [number, number, number] | null {
@@ -129,14 +151,23 @@ function contrastRatio(fg: [number, number, number], bg: [number, number, number
 
 function main(): void {
 	const failures: string[] = [];
-	let checks = 0;
+	const checksByTheme = new Map<ThemeName, number>(NAMED_THEMES.map((theme) => [theme, 0]));
 
 	for (const cssPath of CSS_PATHS) {
 		const css = readFileSync(cssPath, 'utf8');
 		const app = cssPath.includes('gm-react') ? 'gm-react' : 'gm';
 
+		for (const declared of declaredThemes(css)) {
+			if (!(NAMED_THEMES as readonly string[]).includes(declared)) {
+				failures.push(
+					`[${app}] theme "${declared}" is declared in the stylesheet but not contrast-checked; add it to NAMED_THEMES`,
+				);
+			}
+		}
+
 		for (const theme of NAMED_THEMES) {
 			const tokens = parseThemeTokens(css, theme, cssPath);
+			const count = () => checksByTheme.set(theme, (checksByTheme.get(theme) ?? 0) + 1);
 			for (const pair of pairsForTheme()) {
 				const fgValue = tokens.get(pair.fg);
 				const bgValue = tokens.get(pair.bg);
@@ -147,10 +178,14 @@ function main(): void {
 				const fg = parseHex(fgValue);
 				const bg = parseHex(bgValue);
 				if (!fg || !bg) {
-					// Non-hex (e.g. rgba) values are not contrast-checked here.
+					// Skipping would let the pair pass without being measured.
+					const [token, value] = fg ? [pair.bg, bgValue] : [pair.fg, fgValue];
+					failures.push(
+						`[${app}/${theme}] ${pair.label}: ${token} (${value}) is not an opaque hex colour, so it cannot be measured`,
+					);
 					continue;
 				}
-				checks += 1;
+				count();
 				const ratio = contrastRatio(fg, bg);
 				if (ratio + 1e-9 < pair.min) {
 					failures.push(
@@ -164,7 +199,7 @@ function main(): void {
 				const fg = parseHex(tokens.get('--color-text-primary') ?? '');
 				const bg = parseHex(tokens.get('--color-bg') ?? '');
 				if (fg && bg) {
-					checks += 1;
+					count();
 					const ratio = contrastRatio(fg, bg);
 					if (ratio + 1e-9 < 21) {
 						failures.push(
@@ -181,8 +216,10 @@ function main(): void {
 		for (const failure of failures) console.error(`  - ${failure}`);
 		process.exit(1);
 	}
+	const checks = [...checksByTheme.values()].reduce((sum, n) => sum + n, 0);
+	const perTheme = [...checksByTheme].map(([theme, n]) => `${theme} ${n}`).join(', ');
 	console.log(
-		`Theme contrast validation passed (${checks} pair checks across ${NAMED_THEMES.length} themes × ${CSS_PATHS.length} apps).`,
+		`Theme contrast validation passed (${checks} pair checks across ${NAMED_THEMES.length} themes × ${CSS_PATHS.length} apps: ${perTheme}).`,
 	);
 }
 

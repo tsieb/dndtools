@@ -725,10 +725,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.appearance.intro': 'Los cambios se aplican al momento y se quedan en este dispositivo.',
 	'settings.appearance.theme': 'Tema',
 	'settings.appearance.themeHelp':
-		'Oscuro a la luz de las velas, vitela cálida o el mínimo de accesibilidad.',
+		'Taberna es oscuro a la luz de las velas, Pergamino vitela cálida, Erudito papel frío para textos largos y Mazmorra casi negro para mesas con poca luz. Sistema sigue a este dispositivo: Pergamino si está en claro, Taberna si está en oscuro.',
 	'settings.appearance.themeTavern': 'Taberna',
 	'settings.appearance.themeParchment': 'Pergamino',
+	'settings.appearance.themeScholar': 'Erudito',
+	'settings.appearance.themeDungeon': 'Mazmorra',
 	'settings.appearance.themeHighContrast': 'Alto contraste',
+	'settings.appearance.themeSystem': 'Sistema',
 	'settings.appearance.density': 'Densidad',
 	'settings.appearance.densityHelp':
 		'Cómoda agranda los controles para jugar en la mesa; Compacta los ajusta.',
@@ -2387,6 +2390,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.theme.active': 'activo: {theme}',
 	'extensions.theme.tavernDesc': 'Oscuro a la luz de las velas (predeterminado)',
 	'extensions.theme.parchmentDesc': 'Vitela cálida y clara',
+	'extensions.theme.scholarDesc': 'Papel frío para textos largos',
+	'extensions.theme.dungeonDesc': 'Casi negro para mesas con poca luz',
 	'extensions.theme.highContrastDesc': 'El mínimo de accesibilidad',
 	'extensions.theme.presetHelp':
 		'La elección del preajuste es real y persiste (el mismo ajuste que Configuración → Apariencia). Los preajustes son la arquitectura de temas — no se admiten anulaciones por token, así que las filas de abajo son los valores en vivo, de solo lectura, del preajuste activo.',

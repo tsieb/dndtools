@@ -5,13 +5,14 @@ import { useI18n } from '../../i18n';
 import { Panel, Seg, SetRow, T } from '../../app/screen-kit';
 import { PREV_THEME_KEY, setDocAttr, writeLocal } from './shared';
 import { ExperienceComplexity } from './Experience';
+import { readThemePreference } from '../../platform/theme';
 /* ---- Appearance (PERSISTED DISPLAY PREFS — theme/density/motion `data-*` attrs) ----------------- */
 export function SettingsAppearance() {
 	const { t } = useI18n();
 	const markGmOnly = useMarkGmOnly();
-	const [theme, setTheme] = useState<string>(
-		document.documentElement.getAttribute('data-theme') || 'tavern',
-	);
+	// The stored choice, not the painted preset: "System" paints parchment or tavern, and the picker
+	// must still show that the user asked to follow the device.
+	const [theme, setTheme] = useState<string>(readThemePreference);
 	const [density, setDensity] = useState<string>(
 		document.documentElement.getAttribute('data-density') || 'standard',
 	);
@@ -44,7 +45,10 @@ export function SettingsAppearance() {
 							options={[
 								{ value: 'tavern', label: t('settings.appearance.themeTavern') },
 								{ value: 'parchment', label: t('settings.appearance.themeParchment') },
+								{ value: 'scholar', label: t('settings.appearance.themeScholar') },
+								{ value: 'dungeon', label: t('settings.appearance.themeDungeon') },
 								{ value: 'high-contrast', label: t('settings.appearance.themeHighContrast') },
+								{ value: 'system', label: t('settings.appearance.themeSystem') },
 							]}
 						/>
 					}

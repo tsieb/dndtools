@@ -62,12 +62,13 @@ contextBridge.exposeInMainWorld('dndtoolsSecureStore', {
 });
 
 // Theme-only native-window surface. The renderer sends a named, non-arbitrary theme; the main
-// process owns the actual color palette and rejects unknown values.
+// process owns the actual color palette and rejects unknown values. `followSystem` (a "System"
+// theme choice) leaves nativeTheme on the OS scheme instead of pinning it to the preset's.
 contextBridge.exposeInMainWorld('dndtoolsWindow', {
-	setTheme: (themeName) => {
-		if (!['tavern', 'parchment', 'high-contrast'].includes(themeName))
+	setTheme: (themeName, followSystem) => {
+		if (!['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'].includes(themeName))
 			return Promise.resolve(false);
-		return ipcRenderer.invoke('window:set-theme', themeName);
+		return ipcRenderer.invoke('window:set-theme', themeName, followSystem === true);
 	},
 });
 

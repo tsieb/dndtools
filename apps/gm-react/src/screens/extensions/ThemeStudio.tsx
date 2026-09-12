@@ -2,17 +2,15 @@ import { useMemo, useState } from 'react';
 import { Badge, HPBar, Icon, SegmentedControl, VisibilityChip } from '../../ds';
 import { Panel, T, eb, mono } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
-import { PREFERENCE_KEYS, writePreference } from '../../platform/preferences';
+import { applyThemePreference, type ThemePreset } from '../../platform/theme';
 import { useI18n, type MessageKey } from '../../i18n';
 
 /* ---- Theme studio (REAL — persisted preset choice + the LIVE token values of the active preset) --- */
-// Mirrors Settings → Appearance: the same localStorage key index.html restores pre-paint, and the
-// same dark-theme set so the native color-scheme (scrollbars, form controls) stays in sync.
-const THEME_STORE_KEY = PREFERENCE_KEYS.theme;
-const DARK_PRESETS = new Set(['tavern', 'high-contrast']);
+// Mirrors Settings → Appearance: the same stored preference prepaint.js restores, applied through the
+// same platform helper so the native color-scheme (scrollbars, form controls) stays in sync.
 // The preset names are the same ones Settings → Appearance shows, so they reuse those keys rather
-// than spelling the three theme names a second time per locale.
-const THEME_PRESETS: { id: string; label: MessageKey; desc: MessageKey }[] = [
+// than spelling the five theme names a second time per locale.
+const THEME_PRESETS: { id: ThemePreset; label: MessageKey; desc: MessageKey }[] = [
 	{
 		id: 'tavern',
 		label: 'settings.appearance.themeTavern',
@@ -22,6 +20,16 @@ const THEME_PRESETS: { id: string; label: MessageKey; desc: MessageKey }[] = [
 		id: 'parchment',
 		label: 'settings.appearance.themeParchment',
 		desc: 'extensions.theme.parchmentDesc',
+	},
+	{
+		id: 'scholar',
+		label: 'settings.appearance.themeScholar',
+		desc: 'extensions.theme.scholarDesc',
+	},
+	{
+		id: 'dungeon',
+		label: 'settings.appearance.themeDungeon',
+		desc: 'extensions.theme.dungeonDesc',
 	},
 	{
 		id: 'high-contrast',
@@ -65,12 +73,7 @@ export function ExtTheme() {
 	);
 	// REAL + PERSISTED: the same data-theme attr + localStorage key Settings → Appearance writes, so
 	// the choice survives reload (index.html restores it pre-paint) and both surfaces always agree.
-	const applyTheme = (v: string) => {
-		setTheme(v);
-		document.documentElement.setAttribute('data-theme', v);
-		document.documentElement.style.colorScheme = DARK_PRESETS.has(v) ? 'dark' : 'light';
-		writePreference(THEME_STORE_KEY, v);
-	};
+	const applyTheme = (v: string) => setTheme(applyThemePreference(v));
 	// The LIVE computed value of each token under the active preset (recomputed on theme change —
 	// the `theme` read below is the dependency that forces the re-read after the attr flips).
 	const tokenValues = useMemo(() => {

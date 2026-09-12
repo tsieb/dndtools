@@ -5,18 +5,16 @@ import {
 	writePreference,
 	type PreferenceKey,
 } from '../../platform/preferences';
+import { applyThemePreference } from '../../platform/theme';
 /* ---- Shared across the Settings subpages: the device-scoped display prefs and one error helper --- */
-// The themes that render dark — mirrors the boot script's DARK map in index.html so a runtime theme
-// switch keeps the native color-scheme (scrollbars, form controls) in sync. The boot script sets
-// `style.colorScheme` inline, and an inline style beats the `[data-theme]{color-scheme}` rule, so this
-// must update it too or switching across the dark/light boundary leaves controls on the wrong scheme.
-const DARK_THEMES = new Set(['tavern', 'high-contrast']);
-
 export function setDocAttr(attr: string, key: PreferenceKey, value: string) {
-	document.documentElement.setAttribute(attr, value);
 	if (attr === 'data-theme') {
-		document.documentElement.style.colorScheme = DARK_THEMES.has(value) ? 'dark' : 'light';
+		// A theme preference can be `system`, which is not itself a `data-theme` value; the platform
+		// layer resolves it, paints the preset, keeps the native color-scheme in step, and persists it.
+		applyThemePreference(value);
+		return;
 	}
+	document.documentElement.setAttribute(attr, value);
 	writePreference(key, value);
 	// The tier is read by the Settings shell for REAL nav gating — notify it so a click on a
 	// complexity card re-filters the rail immediately (localStorage writes don't event same-tab).

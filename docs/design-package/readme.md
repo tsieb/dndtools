@@ -33,36 +33,38 @@ warm, atmospheric mood.
 > **Theme decision.** The original "tavern" dark theme read cool/navy. Per the brief we shifted the
 > **entire neutral ramp warm** (espresso brown-black) and gave the gold accent more presence.
 > Tavern is the hero; parchment is a non-washed light variant; high-contrast is the a11y floor.
+>
+> **The other two (RC-DSN-1.2).** **Scholar** is the cool light for long writing: near-neutral paper
+> with a navy ink accent. **Dungeon** is the near-black for dim tables: the espresso ramp dropped
+> toward black, with a brighter gold and brighter status colours. Both are harmonised in OKLCH in
+> the warm family. A **System** choice follows the device, painting parchment when it is light and
+> tavern when it is dark. The app's `apps/gm-react/src/styles/tokens/colors.css` holds their values
+> until the RC-DSN-2.4 re-sync brings them into `tokens/colors.css` here.
 
 ### Themes
 
-Five themes make up the target set, all harmonised in OKLCH in the warm family and all selected by
-one `data-theme` attribute on `<html>`. **Three ship today**; two are specified but not yet
-implemented, so treat their rows as the contract to build against, not as available values.
+Five themes ship in the app, all harmonised in OKLCH in the warm family and all selected by
+one `data-theme` attribute on `<html>`. The vendored token file still carries three; Scholar and
+Dungeon are implemented in the app and await the next token re-vendor.
 
 | Theme | Role | Status |
 | --- | --- | --- |
 | `tavern` | Warm candle-lit dark. The default and hero theme; an un-themed document is already this. | **Ships** |
 | `parchment` | The light variant — warm, not washed out. | **Ships** |
 | `high-contrast` | The accessibility floor. | **Ships** |
-| `scholar` | Light, cooler, navy accent — tuned for long stretches of reading and writing. | *Planned* |
-| `dungeon` | Dark, near-black, brighter accent — tuned for dim tables. | *Planned* |
+| `scholar` | Light, cooler, navy accent — tuned for long stretches of reading and writing. | **Ships in app** |
+| `dungeon` | Dark, near-black, brighter accent — tuned for dim tables. | **Ships in app** |
 
 System light/dark maps to `parchment`/`tavern`. The app carries the forced-colors remap
-(`@media (forced-colors: active)` at `apps/gm-react/src/styles/tokens/colors.css:428`); this
+(`@media (forced-colors: active)` at `apps/gm-react/src/styles/tokens/colors.css`); this
 package's `tokens/colors.css` has no such block yet, and the export that adds it must cover all
 five rows above.
 
-**Where the three shipping themes are defined.** `[data-theme='tavern']`, `[data-theme='parchment']`
-and `[data-theme='high-contrast']` in this package's `tokens/colors.css`, mirrored one-to-one in the
-app at `apps/gm-react/src/styles/tokens/colors.css`. The app's theme picker (Settings › Appearance,
-and the Theme Studio under Settings › Extensions) offers exactly these three.
-
-**`scholar` and `dungeon` are not implemented in either place yet.** They are owned by roadmap story
-**RC-DSN-1.2 — Five themes**, whose acceptance lands the two new ramps, both contrast lints green
-across five themes, and the matching update to this readme and `docs/design/README.md`. Until that
-story lands, setting `data-theme="scholar"` or `data-theme="dungeon"` resolves to no ramp and the
-document falls back to the `:root` tavern values.
+**Where the themes are defined.** This package's `tokens/colors.css` defines `tavern`, `parchment`
+and `high-contrast`. The app at `apps/gm-react/src/styles/tokens/colors.css` defines all five,
+including the Scholar and Dungeon ramps added by **RC-DSN-1.2 — Five themes**. Settings › Appearance
+and the Theme Studio under Settings › Extensions offer all five plus System. The app's forced-colors
+remap covers all five. The generated package tokens will catch up on the next re-vendor.
 
 ---
 

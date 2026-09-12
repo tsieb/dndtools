@@ -5,6 +5,7 @@ import { Icon, Switch } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, SetRow, T } from '../../app/screen-kit';
 import { nextHighContrastTheme } from '../settings-validation';
+import { readThemePreference } from '../../platform/theme';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { PREV_THEME_KEY, readLocal, setDocAttr, writeLocal } from './shared';
 import { shortcutsForScope, type ShortcutScope } from '../../app/shortcuts/registry';
@@ -108,7 +109,8 @@ export function SettingsAccessibility() {
 								// Remember what we are leaving, so turning the switch back off restores it.
 								// It used to hard-code 'tavern' on the way back, silently destroying a
 								// Parchment preference for anyone who tried high contrast once.
-								if (!highContrast) writeLocal(PREV_THEME_KEY, theme);
+								// The stored choice, so a "System" reader comes back to following the device.
+								if (!highContrast) writeLocal(PREV_THEME_KEY, readThemePreference());
 								const v = nextHighContrastTheme(theme, readLocal(PREV_THEME_KEY));
 								setTheme(v);
 								setDocAttr('data-theme', 'dndtools:react:theme', v);

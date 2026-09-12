@@ -249,6 +249,123 @@
 }
 
 /* --------------------------------------------------------------------------------------------
+ * SCHOLAR — cool light for long writing (RC-DSN-1.2). Parchment is vellum under candlelight;
+ * scholar is plain laid paper under a reading lamp. The neutral ramp keeps a warm-family hue (95)
+ * but drops to near-zero chroma so a long page stays quiet, and the one accent is navy ink.
+ * Harmonised in OKLCH, written as hex so the lints and the native chrome measure one exact colour:
+ *   paper   L 0.925-1.0   C <= 0.014   H 95      ink  L 0.22-0.53   C 0.02-0.025   H 262
+ *   accent  navy L 0.35-0.50, C 0.10-0.13, H 262 (40+ degrees and ~0.1 chroma off the DM purple)
+ *   status  parchment's cuts, except info, turned to teal (H 220) so it never reads as the accent
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='scholar'] {
+	color-scheme: light;
+	--color-bg: #f5f3ef; /* oklch(0.965 0.006 95) */
+	--color-surface: #fcfbf8; /* oklch(0.988 0.004 95) */
+	--color-surface-raised: #ffffff;
+	--color-surface-overlay: #fefdfc; /* oklch(0.995 0.002 95) */
+	--color-surface-sunken: #e8e6df; /* oklch(0.925 0.01 95) */
+	--color-surface-alt: #efeee8; /* oklch(0.948 0.008 95) */
+	--color-border: #d0cec4; /* oklch(0.85 0.014 95) */
+	--color-border-strong: #918c7b; /* oklch(0.64 0.025 95) */
+	--color-border-focus: #2e5297; /* oklch(0.45 0.12 262) */
+	--color-text-primary: #141b26; /* oklch(0.22 0.025 262) navy-black ink */
+	--color-text-secondary: #48505e; /* oklch(0.43 0.025 262) */
+	--color-text-tertiary: #666c78; /* oklch(0.53 0.02 262) */
+	--color-text-inverse: #fcfbf8;
+	--color-text-link: #2b519c; /* oklch(0.45 0.13 262) */
+	--color-text-link-visited: #3e3779; /* oklch(0.38 0.11 285) */
+	--color-accent: #264a8e; /* oklch(0.42 0.12 262) navy */
+	--color-accent-hover: #3860ac; /* oklch(0.5 0.13 262) */
+	--color-accent-active: #1c386e; /* oklch(0.35 0.1 262) */
+	--color-accent-subtle: #dfe8f9; /* oklch(0.93 0.025 262) */
+	--color-accent-foreground: #ffffff;
+	--color-accent-border: #90a5cb; /* oklch(0.72 0.06 262) */
+	--color-status-success: #1f793d; /* oklch(0.51 0.125 150) */
+	--color-status-success-text: #175f2f;
+	--color-status-success-subtle: #e4f2e6;
+	--color-status-warning: #9b6412; /* oklch(0.55 0.113 70) */
+	--color-status-warning-text: #7d500b;
+	--color-status-warning-subtle: #f6ead2;
+	--color-status-error: #c0271e; /* oklch(0.526 0.19 29) */
+	--color-status-error-text: #9e1d16;
+	--color-status-error-subtle: #fbe5e2;
+	--color-status-error-foreground: #ffffff;
+	--color-status-info: #1b6b80; /* oklch(0.49 0.08 220) */
+	--color-status-info-text: #15586a;
+	--color-status-info-subtle: #dfeff4;
+	--color-dm-only-badge: #7b27c4; /* oklch(0.487 0.223 303) */
+	--color-dm-only-subtle: #f0e4fb;
+	--color-hidden-content-stripe: rgba(123, 39, 196, 0.12);
+	--color-interactive-hover: rgba(38, 74, 142, 0.07);
+	--color-interactive-selected: rgba(38, 74, 142, 0.13);
+	--color-interactive-focus-ring: #2e5297;
+	--color-interactive-disabled: rgba(20, 27, 38, 0.4);
+	--color-interactive-disabled-bg: rgba(208, 206, 196, 0.55);
+	--color-backdrop: rgba(20, 27, 38, 0.42);
+	--shadow-sm: 0 1px 3px rgba(20, 27, 38, 0.1), 0 1px 2px rgba(20, 27, 38, 0.06);
+	--shadow-md: 0 6px 18px rgba(20, 27, 38, 0.12), 0 2px 5px rgba(20, 27, 38, 0.07);
+	--shadow-lg: 0 14px 44px rgba(20, 27, 38, 0.16), 0 4px 10px rgba(20, 27, 38, 0.09);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * DUNGEON — near-black for dim tables (RC-DSN-1.2). A table lit by one lamp wants a screen that
+ * glows as little as possible and marks that still carry across it. The espresso ramp drops toward
+ * black at tavern's hue while the gold accent, the ink, and every status colour step UP in
+ * lightness and chroma. It is not high-contrast: borders stay warm brown, never white.
+ *   ground  L 0.10-0.42   C <= 0.04   H 70      ink  L 0.70-0.95   C 0.02-0.035   H 78-82
+ *   accent  gold L 0.77-0.90, C 0.10-0.135, H 78-85 (tavern's gold is L 0.79, C 0.10)
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='dungeon'] {
+	color-scheme: dark;
+	--color-bg: #090705; /* oklch(0.13 0.008 70) */
+	--color-surface: #120d09; /* oklch(0.165 0.012 70) */
+	--color-surface-raised: #1b150f; /* oklch(0.2 0.015 70) */
+	--color-surface-overlay: #251e16; /* oklch(0.24 0.018 70) */
+	--color-surface-sunken: #040302; /* oklch(0.1 0.006 70) */
+	--color-surface-alt: #15110b; /* oklch(0.18 0.013 70) */
+	--color-border: #332a1f; /* oklch(0.29 0.022 70) */
+	--color-border-strong: #5b4935; /* oklch(0.42 0.04 70) */
+	--color-border-focus: #fbc865; /* oklch(0.86 0.13 82) */
+	--color-text-primary: #f5eee0; /* oklch(0.95 0.02 82) */
+	--color-text-secondary: #cabca5; /* oklch(0.8 0.035 80) */
+	--color-text-tertiary: #ab9c87; /* oklch(0.7 0.035 78) */
+	--color-text-inverse: #090705;
+	--color-text-link: #fac55c;
+	--color-text-link-visited: #e5ab66; /* oklch(0.78 0.11 70) */
+	--color-accent: #fac55c; /* oklch(0.85 0.135 82) brighter gold */
+	--color-accent-hover: #fdd990; /* oklch(0.9 0.1 85) */
+	--color-accent-active: #e1a948; /* oklch(0.77 0.13 78) */
+	--color-accent-subtle: #271b05; /* oklch(0.23 0.04 80) */
+	--color-accent-foreground: #170d02; /* oklch(0.17 0.03 77) */
+	--color-accent-border: #987337; /* oklch(0.58 0.09 78) */
+	--color-status-success: #56d485; /* oklch(0.78 0.16 153) */
+	--color-status-success-text: #9eedb5;
+	--color-status-success-subtle: #062111;
+	--color-status-warning: #fcb442; /* oklch(0.82 0.15 75) */
+	--color-status-warning-text: #fcd999;
+	--color-status-warning-subtle: #241802;
+	--color-status-error: #fa6863; /* oklch(0.7 0.18 25) */
+	--color-status-error-text: #fbb6b5;
+	--color-status-error-subtle: #290b0a;
+	--color-status-error-foreground: #170d02;
+	--color-status-info: #62c5ef; /* oklch(0.78 0.11 228) */
+	--color-status-info-text: #a3def8;
+	--color-status-info-subtle: #041b29;
+	--color-dm-only-badge: #b97df7; /* oklch(0.7 0.18 305) */
+	--color-dm-only-subtle: #1b0e2c;
+	--color-hidden-content-stripe: rgba(185, 125, 247, 0.16);
+	--color-interactive-hover: rgba(250, 197, 92, 0.1);
+	--color-interactive-selected: rgba(250, 197, 92, 0.18);
+	--color-interactive-focus-ring: #fbc865;
+	--color-interactive-disabled: rgba(245, 238, 224, 0.36);
+	--color-interactive-disabled-bg: rgba(51, 42, 31, 0.5);
+	--color-backdrop: rgba(0, 0, 0, 0.72);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.6);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.72);
+}
+
+/* --------------------------------------------------------------------------------------------
  * MAP / LAYER TOKENS (MAP-005..007, UX-MAP-004/005) — the map-creation surface.
  *
  * The maps UX spec lists raw Material hues (#4CAF50, #2196F3, …) for the 13 layer-type badges.
@@ -320,6 +437,38 @@
 	--map-canvas-bg: #efe4d1; /* the map well, one step deeper than the page vellum */
 }
 
+/* SCHOLAR map/layer tokens: parchment's ink cuts (L ~= 0.45, >= 6:1 on scholar's paper and map
+ * well), declared again so a scholar page never falls back to the dark :root set. Only the map well,
+ * the fog wash, and the grid move to scholar's cooler paper and navy. */
+[data-theme='scholar'] {
+	--layer-base: oklch(0.45 0.02 70);
+	--layer-height: oklch(0.44 0.11 150);
+	--layer-terrain: oklch(0.36 0.13 158);
+	--layer-political: oklch(0.45 0.11 78);
+	--layer-climate: oklch(0.45 0.09 200);
+	--layer-roads: oklch(0.45 0.13 50);
+	--layer-water: oklch(0.45 0.12 245);
+	--layer-wshed: oklch(0.45 0.09 215);
+	--layer-fog: oklch(0.42 0.014 65);
+	--layer-poi: oklch(0.45 0.16 28);
+	--layer-dm: oklch(0.42 0.17 305);
+	--layer-player: oklch(0.44 0.11 82);
+	--layer-combat: oklch(0.45 0.16 40);
+	--layer-custom: oklch(0.46 0.018 70);
+
+	--color-route: oklch(0.5 0.13 62);
+	--map-fog-fill: oklch(0.7 0.01 95); /* the fog wash on cool paper */
+	--map-grid-line: rgba(38, 74, 142, 0.14); /* faint navy tactical grid */
+	--map-canvas-bg: #edebe5; /* oklch(0.94 0.008 95), one step deeper than the page */
+}
+
+/* DUNGEON map: the dark :root layer ramp already reads on near-black. The well drops to match the
+ * page, and the tactical grid brightens a little so it survives a dim room. */
+[data-theme='dungeon'] {
+	--map-grid-line: rgba(250, 197, 92, 0.18);
+	--map-canvas-bg: #070504; /* oklch(0.12 0.008 70) */
+}
+
 /* --------------------------------------------------------------------------------------------
  * TILE-TYPE TOKENS (RC-CAN-2.1) — one accent per board tile type, painted as the tile header's
  * accent rail and type icon. Colour speeds up the scan of a busy board but is never the only cue:
@@ -384,6 +533,39 @@
 	--color-tile-reference: oklch(0.84 0.015 70);
 }
 
+/* Scholar: parchment's ink cut at L 0.48 (>= 5:1 on every scholar surface). */
+[data-theme='scholar'] {
+	--color-tile-note: oklch(0.48 0.09 88);
+	--color-tile-combat: oklch(0.48 0.11 25);
+	--color-tile-encounter: oklch(0.48 0.11 48);
+	--color-tile-dice: oklch(0.48 0.11 335);
+	--color-tile-generator: oklch(0.48 0.08 180);
+	--color-tile-handout: oklch(0.48 0.065 68);
+	--color-tile-timer: oklch(0.48 0.09 112);
+	--color-tile-calendar: oklch(0.48 0.11 245);
+	--color-tile-map: oklch(0.48 0.11 145);
+	--color-tile-character: oklch(0.48 0.11 0);
+	--color-tile-audio: oklch(0.48 0.07 212);
+	--color-tile-reference: oklch(0.48 0.02 70);
+}
+
+/* Dungeon: lifted to L 0.80 so a rail still reads across a dim table (>= 9:1 on the near-black
+ * surfaces), chroma held at or under 0.11 to stay in gamut. */
+[data-theme='dungeon'] {
+	--color-tile-note: oklch(0.8 0.11 88);
+	--color-tile-combat: oklch(0.8 0.11 25);
+	--color-tile-encounter: oklch(0.8 0.11 48);
+	--color-tile-dice: oklch(0.8 0.11 335);
+	--color-tile-generator: oklch(0.8 0.11 180);
+	--color-tile-handout: oklch(0.8 0.065 68);
+	--color-tile-timer: oklch(0.8 0.11 112);
+	--color-tile-calendar: oklch(0.8 0.1 245);
+	--color-tile-map: oklch(0.8 0.11 145);
+	--color-tile-character: oklch(0.8 0.1 0);
+	--color-tile-audio: oklch(0.8 0.1 212);
+	--color-tile-reference: oklch(0.8 0.02 70);
+}
+
 /* --------------------------------------------------------------------------------------------
  * Legacy alias bridge — the prototype's short token names map onto the semantic layer so older
  * component rules resolve per active theme without per-surface color logic.
@@ -422,8 +604,10 @@
  * FORCED-COLORS (OS high-contrast) fallback — WCAG 1.4.11 / 2.4.13.
  * When the OS forces its own palette, remap the semantic tokens onto system colour keywords so
  * surfaces, borders, focus rings, and status graphics still meet non-text contrast. The legacy
- * aliases above resolve through these tokens, so they need no separate remap. Enforced by
- * scripts/a11y-nontext-contrast-lint.ts (`pnpm a11y:contrast`).
+ * aliases above resolve through these tokens, so they need no separate remap. Scoped
+ * `:root, [data-theme]` so it reaches all five themes and any nested theme wrapper. Enforced by
+ * scripts/a11y-nontext-contrast-lint.ts (`pnpm a11y:contrast`), which also fails if that selector
+ * ever narrows to a subset of the themes.
  * ------------------------------------------------------------------------------------------ */
 @media (forced-colors: active) {
 	:root,

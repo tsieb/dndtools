@@ -3,11 +3,15 @@ import {
 	getPlatformCapabilities,
 	setAndroidSystemBarStyle,
 } from './capabilities';
-
-type WindowTheme = 'tavern' | 'parchment' | 'high-contrast';
+import { DARK_THEMES, followsSystemTheme, isThemePreset, type ThemePreset } from './theme';
 
 interface NativeWindowBridge {
-	setTheme(theme: WindowTheme): Promise<boolean>;
+	/**
+	 * `followSystem` hands `nativeTheme.themeSource` back to the OS. Pinning it to the preset's
+	 * scheme would also pin the renderer's `prefers-color-scheme`, and a "System" choice could then
+	 * never see the OS flip it is meant to follow.
+	 */
+	setTheme(theme: ThemePreset, followSystem: boolean): Promise<boolean>;
 }
 
 function bridge(): NativeWindowBridge | null {
@@ -19,15 +23,18 @@ export function isNativeDesktopRuntime(): boolean {
 	return getPlatformCapabilities().runtimeKind === 'electron';
 }
 
-function currentTheme(): WindowTheme {
+function currentTheme(): ThemePreset {
 	const value = document.documentElement.getAttribute('data-theme');
-	return value === 'parchment' || value === 'high-contrast' ? value : 'tavern';
+	return isThemePreset(value) ? value : 'tavern';
 }
 
-function updateBrowserThemeColor(theme: WindowTheme): void {
-	const colors: Record<WindowTheme, string> = {
+function updateBrowserThemeColor(theme: ThemePreset): void {
+	// Each preset's --color-surface, the colour the top bar paints under the browser chrome.
+	const colors: Record<ThemePreset, string> = {
 		tavern: '#1f1810',
 		parchment: '#fdf8f0',
+		scholar: '#fcfbf8',
+		dungeon: '#120d09',
 		'high-contrast': '#000000',
 	};
 	let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -49,9 +56,9 @@ export function bindWindowChromeTheme(): () => void {
 	const sync = () => {
 		const theme = currentTheme();
 		updateBrowserThemeColor(theme);
-		if (native) void native.setTheme(theme).catch(() => false);
+		if (native) void native.setTheme(theme, followsSystemTheme()).catch(() => false);
 		if (capabilities.nativeBridgeAvailable) {
-			void setAndroidSystemBarStyle(theme === 'parchment' ? 'LIGHT' : 'DARK');
+			void setAndroidSystemBarStyle(DARK_THEMES.has(theme) ? 'DARK' : 'LIGHT');
 		}
 	};
 	sync();

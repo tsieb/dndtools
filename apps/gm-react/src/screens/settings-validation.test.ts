@@ -72,6 +72,12 @@ describe('the high-contrast switch is reversible', () => {
 	it('restores the theme the user was on before', () => {
 		expect(nextHighContrastTheme('high-contrast', 'parchment')).toBe('parchment');
 		expect(nextHighContrastTheme('high-contrast', 'tavern')).toBe('tavern');
+		expect(nextHighContrastTheme('high-contrast', 'scholar')).toBe('scholar');
+		expect(nextHighContrastTheme('high-contrast', 'dungeon')).toBe('dungeon');
+	});
+
+	it('returns a System reader to following the device, not to the preset it painted', () => {
+		expect(nextHighContrastTheme('high-contrast', 'system')).toBe('system');
 	});
 
 	it('falls back to Tavern when there is no usable record of the previous theme', () => {

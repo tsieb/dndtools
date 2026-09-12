@@ -380,6 +380,8 @@ const WINDOW_THEMES = {
 	// tokens so the native controls and the adjacent drag strip read as one continuous title surface.
 	tavern: { background: '#14100b', titleBar: '#1f1810', symbols: '#f2e8d8', source: 'dark' },
 	parchment: { background: '#f3ebdd', titleBar: '#fdf8f0', symbols: '#221409', source: 'light' },
+	scholar: { background: '#f5f3ef', titleBar: '#fcfbf8', symbols: '#141b26', source: 'light' },
+	dungeon: { background: '#090705', titleBar: '#120d09', symbols: '#f5eee0', source: 'dark' },
 	'high-contrast': {
 		background: '#000000',
 		titleBar: '#000000',
@@ -389,10 +391,13 @@ const WINDOW_THEMES = {
 };
 let currentWindowTheme = 'tavern';
 
-function applyWindowTheme(win, themeName) {
+// `followSystem` is the renderer's "System" theme choice. It leaves nativeTheme on the OS scheme:
+// pinning it to the preset's scheme would also pin the renderer's prefers-color-scheme, and the
+// choice could then never see the OS flip it is meant to follow.
+function applyWindowTheme(win, themeName, followSystem = false) {
 	const theme = WINDOW_THEMES[themeName] ?? WINDOW_THEMES.tavern;
 	win.setBackgroundColor(theme.background);
-	nativeTheme.themeSource = theme.source;
+	nativeTheme.themeSource = followSystem ? 'system' : theme.source;
 	if (
 		win !== sceneWindow &&
 		process.platform !== 'darwin' &&
@@ -642,13 +647,13 @@ function createWindow() {
 }
 
 function setupWindowIpc() {
-	ipcMain.handle('window:set-theme', (event, themeName) => {
+	ipcMain.handle('window:set-theme', (event, themeName, followSystem) => {
 		if (!isManagedSender(event) || typeof themeName !== 'string' || !(themeName in WINDOW_THEMES))
 			return false;
 		const win = BrowserWindow.fromWebContents(event.sender);
 		if (!win || win.isDestroyed()) return false;
 		if (win === mainWindow) currentWindowTheme = themeName;
-		return applyWindowTheme(win, themeName);
+		return applyWindowTheme(win, themeName, followSystem === true);
 	});
 	ipcMain.handle('network-policy:allow-ai-origin', async (event, value) => {
 		if (!isPrimarySender(event)) return false;

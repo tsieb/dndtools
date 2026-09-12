@@ -4,6 +4,7 @@ import './styles/index.css';
 import { Toaster } from './ds';
 import { App } from './App';
 import { bindWindowChromeTheme } from './platform/windowChrome';
+import { bindSystemTheme } from './platform/theme';
 import { getPlatformCapabilities } from './platform/capabilities';
 import { registerServiceWorker } from './platform/serviceWorker';
 import { StandaloneSceneDisplay } from './screens/SceneDisplay';
@@ -11,6 +12,8 @@ import { I18nProvider, translate, initialLocale, LOCALE_STORAGE_KEY } from './i1
 
 // Synchronize the browser/native title surface before React paints, then follow live theme changes.
 bindWindowChromeTheme();
+// A "System" theme choice was resolved pre-paint; keep following the OS light/dark setting after.
+bindSystemTheme();
 
 // RC-PLT-2.1: install the offline shell in browser runtimes. Feature-detected and self-silencing —
 // Electron and the Android WebView are skipped, and a refusal leaves the app online-only, not broken.

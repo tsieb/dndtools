@@ -1,7 +1,8 @@
 (function () {
 	try {
-		var DARK = { tavern: 1, 'high-contrast': 1 };
-		var NAMED = { tavern: 1, parchment: 1, 'high-contrast': 1 };
+		// Mirrors THEME_PRESETS / DARK_THEMES in src/platform/theme.ts (theme.test.ts checks it).
+		var DARK = { tavern: 1, dungeon: 1, 'high-contrast': 1 };
+		var NAMED = { tavern: 1, parchment: 1, scholar: 1, dungeon: 1, 'high-contrast': 1 };
 		var pref = null;
 		try {
 			pref = window.localStorage.getItem('dndtools:react:theme');
@@ -10,7 +11,14 @@
 		}
 		// The hero theme is tavern. Honor a saved preference, but keep the
 		// application default stable regardless of the operating-system theme.
+		// Only an explicit 'system' choice follows the OS: parchment when light, tavern when dark.
 		var applied = NAMED[pref] ? pref : 'tavern';
+		if (pref === 'system') {
+			var osLight =
+				typeof window.matchMedia === 'function' &&
+				window.matchMedia('(prefers-color-scheme: light)').matches;
+			applied = osLight ? 'parchment' : 'tavern';
+		}
 		var root = document.documentElement;
 		root.setAttribute('data-theme', applied);
 		root.style.colorScheme = DARK[applied] ? 'dark' : 'light';

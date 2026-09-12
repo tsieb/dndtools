@@ -13,7 +13,8 @@ token-compliance lint blocking raw values and structural `dark:` prefixes.
 ## What replaced it
 
 The React app realizes the design package's token architecture: raw palette values only in
-`apps/gm-react/src/styles/tokens/colors.css`, a single `data-theme` swap, three themes today
-(`tavern`, `parchment`, `high-contrast`) with two more planned (RC-DSN-1.2), and the contrast lints
+`apps/gm-react/src/styles/tokens/colors.css`, a single `data-theme` swap, five themes (`tavern`,
+`parchment`, `scholar`, `dungeon`, `high-contrast`; RC-DSN-1.2 brought the two Svelte-era names back,
+re-cut in the warm family), and the contrast lints
 `pnpm tokens:contrast` and `pnpm a11y:contrast`. See `docs/design/README.md`. The principle this ADR
 established, semantic tokens everywhere and no per-component dark-mode logic, still holds.

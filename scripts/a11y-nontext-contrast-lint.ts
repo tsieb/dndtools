@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CSS_PATH = resolve(HERE, '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css');
 
-export const NAMED_THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
+export const NAMED_THEMES = ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'] as const;
 export type ThemeName = (typeof NAMED_THEMES)[number];
 
 interface NonTextPair {
@@ -335,20 +335,63 @@ export function evaluateForcedColors(
 	return { checks, failures };
 }
 
+/**
+ * RC-DSN-1.2: every theme the stylesheet declares must be a named theme here, or it ships with no
+ * contrast check at all. The forced-colors block must also reach every named theme, either through a
+ * bare `[data-theme]` selector or by naming each one, since a remap scoped to some themes leaves the
+ * others painting their own palette over the OS's.
+ */
+export function evaluateThemeCoverage(css: string): NonTextResult {
+	const failures: string[] = [];
+	let checks = 0;
+	const declared = new Set([...css.matchAll(/\[data-theme='([^']+)'\]/g)].map((m) => m[1]!));
+	for (const theme of declared) {
+		checks += 1;
+		if (!(NAMED_THEMES as readonly string[]).includes(theme)) {
+			failures.push(
+				`theme "${theme}" is declared in colors.css but not checked; add it to NAMED_THEMES`,
+			);
+		}
+	}
+	const block = /@media\s*\(forced-colors:\s*active\)\s*\{([\s\S]*?)\n\}/.exec(css);
+	const body = block?.[1] ?? '';
+	const selector = body.slice(0, Math.max(0, body.indexOf('{')));
+	const everyTheme = /\[data-theme\]/.test(selector);
+	for (const theme of NAMED_THEMES) {
+		checks += 1;
+		if (!everyTheme && !selector.includes(`[data-theme='${theme}']`)) {
+			failures.push(
+				`forced-colors: the fallback block's selector does not reach the "${theme}" theme`,
+			);
+		}
+	}
+	return { checks, failures };
+}
+
 function main(): void {
 	const css = readFileSync(CSS_PATH, 'utf8');
 	const contrast = evaluateNonTextContrast(css);
 	const forced = evaluateForcedColors(css);
 	const forcedTiles = evaluateForcedColors(css, FORCED_COLOR_TILE_TOKENS);
-	const failures = [...contrast.failures, ...forced.failures, ...forcedTiles.failures];
+	const coverage = evaluateThemeCoverage(css);
+	const failures = [
+		...contrast.failures,
+		...forced.failures,
+		...forcedTiles.failures,
+		...coverage.failures,
+	];
 	if (failures.length > 0) {
 		console.error(`Non-text contrast gate FAILED (${failures.length} issue(s)):`);
 		for (const f of failures) console.error(`  - ${f}`);
 		process.exit(1);
 	}
+	const perTheme = NAMED_THEMES.map(
+		(theme) => `${theme} ${evaluateThemePairs(theme, parseThemeTokens(css, theme)).checks}`,
+	).join(', ');
 	console.log(
 		`Non-text contrast gate passed (${contrast.checks} pair checks across ${NAMED_THEMES.length} ` +
-			`themes; ${forced.checks + forcedTiles.checks} forced-colors remap checks).`,
+			`themes: ${perTheme}; ${forced.checks + forcedTiles.checks} forced-colors remap checks; ` +
+			`the forced-colors block reaches all ${NAMED_THEMES.length} themes).`,
 	);
 }
 

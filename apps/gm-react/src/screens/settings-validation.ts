@@ -1,5 +1,6 @@
 import { MIN_RECOVERY_PASSPHRASE_CHARS } from '@dndtools/core';
 import type { MessageKey } from '../i18n';
+import { isThemePreference } from '../platform/theme';
 
 /** A blocked export, as a catalog key plus the numbers the message interpolates. The rule is a
  * pure function, so it names the message rather than rendering it — only a component knows the
@@ -36,9 +37,6 @@ export function recoveryPassphraseOk(pass: string, confirm: string): boolean {
 	return pass.length >= MIN_RECOVERY_PASSPHRASE_CHARS && pass === confirm;
 }
 
-/** The themes the High-contrast switch can toggle back to. */
-const RESTORABLE_THEMES = new Set(['tavern', 'parchment']);
-
 /**
  * The theme the High-contrast switch should apply next, given the theme in effect and the one the
  * user was on before they last turned high contrast ON.
@@ -46,9 +44,10 @@ const RESTORABLE_THEMES = new Set(['tavern', 'parchment']);
  * Turning the switch off used to hard-code `'tavern'`, so a Parchment reader who tried high contrast
  * for one minute had their theme preference silently destroyed with no way to notice — the switch
  * looks like a reversible toggle and was not one. `previous` is only trusted when it names a real
- * non-high-contrast theme, so a corrupted or absent value still lands somewhere valid.
+ * non-high-contrast theme, or `system` so a reader who follows the device goes back to following
+ * it; a corrupted or absent value still lands somewhere valid.
  */
 export function nextHighContrastTheme(current: string, previous: string | null): string {
 	if (current !== 'high-contrast') return 'high-contrast';
-	return previous && RESTORABLE_THEMES.has(previous) ? previous : 'tavern';
+	return isThemePreference(previous) && previous !== 'high-contrast' ? previous : 'tavern';
 }

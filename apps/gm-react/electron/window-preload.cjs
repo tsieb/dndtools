@@ -12,9 +12,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('dndtoolsSceneDisplay', true);
 
 contextBridge.exposeInMainWorld('dndtoolsWindow', {
-	setTheme: (themeName) => {
-		if (!['tavern', 'parchment', 'high-contrast'].includes(themeName))
+	setTheme: (themeName, followSystem) => {
+		if (!['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'].includes(themeName))
 			return Promise.resolve(false);
-		return ipcRenderer.invoke('window:set-theme', themeName);
+		return ipcRenderer.invoke('window:set-theme', themeName, followSystem === true);
 	},
 });

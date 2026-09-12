@@ -704,10 +704,14 @@ export const en = {
 	'settings.appearance.title': 'Appearance',
 	'settings.appearance.intro': 'Changes apply immediately and stay with this device.',
 	'settings.appearance.theme': 'Theme',
-	'settings.appearance.themeHelp': 'Candle-lit dark, warm vellum, or the accessibility floor.',
+	'settings.appearance.themeHelp':
+		'Tavern is candle-lit dark, Parchment warm vellum, Scholar cool paper for long writing, and Dungeon near-black for dim tables. System follows this device: Parchment when it is light, Tavern when it is dark.',
 	'settings.appearance.themeTavern': 'Tavern',
 	'settings.appearance.themeParchment': 'Parchment',
+	'settings.appearance.themeScholar': 'Scholar',
+	'settings.appearance.themeDungeon': 'Dungeon',
 	'settings.appearance.themeHighContrast': 'High contrast',
+	'settings.appearance.themeSystem': 'System',
 	'settings.appearance.density': 'Density',
 	'settings.appearance.densityHelp':
 		'Comfortable enlarges controls for play at the table; Compact tightens them.',
@@ -2362,6 +2366,8 @@ export const en = {
 	'extensions.theme.active': 'active: {theme}',
 	'extensions.theme.tavernDesc': 'Candle-lit dark (default)',
 	'extensions.theme.parchmentDesc': 'Warm vellum light',
+	'extensions.theme.scholarDesc': 'Cool paper for long writing',
+	'extensions.theme.dungeonDesc': 'Near-black for dim tables',
 	'extensions.theme.highContrastDesc': 'The accessibility floor',
 	'extensions.theme.presetHelp':
 		'The preset choice is real and persists (the same setting as Settings → Appearance). Presets are the theming architecture — per-token overrides aren’t supported, so the rows below are the live, read-only token values of the active preset.',

@@ -34,9 +34,9 @@ where each side is ahead on a different half. Current known drift, tracked by RC
 | Point          | Package                                                                                                                                            | App                                                                                               | Truth   |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------- |
 | Branding       | prose swept to Lamplight in place (`readme.md`, `SKILL.md`, `handoff/APPLY.md`); 10 `DND Tools` strings remain in re-vendor-only files — see below | Lamplight                                                                                         | app     |
-| Themes         | lists five — three shipping, two marked planned                                                                                                    | three ship: `tavern` default, `parchment`, `high-contrast`                                        | app     |
+| Themes         | documents five app themes; vendored tokens still carry three                                                                                                    | five ship: `tavern` default, `parchment`, `scholar`, `dungeon`, `high-contrast`                                        | app     |
 | Fonts          | `tokens/fonts.css` genuinely `@import`s Google Fonts, and its caveat says so                                                                       | self-hosted `@fontsource/*`                                                                       | app     |
-| Forced colors  | no `@media (forced-colors: active)` block in `tokens/colors.css`                                                                                   | `styles/tokens/colors.css:428`                                                                    | app     |
+| Forced colors  | no `@media (forced-colors: active)` block in `tokens/colors.css`                                                                                   | `styles/tokens/colors.css`                                                                    | app     |
 | Tile tokens    | absent                                                                                                                                             | 48 `--color-tile-*` in `styles/tokens/colors.css` (RC-CAN-2.1)                                    | app     |
 | Widget builder | no `templates/widget-builder/`                                                                                                                     | `src/screens/extensions/WidgetBuilder.tsx`                                                        | app     |
 | System picker  | `templates/system-package-picker/SystemPackagePicker.dc.html` (gallery ↔ detail layout); no `components/system/SystemPackageCard.jsx`              | `src/ds/components/system/SystemPackageCard.jsx`, consumed by `src/screens/extensions/System.tsx` | neither |
@@ -58,11 +58,10 @@ The G1 finding in [`../planning/RC_ROADMAP.md`](../planning/RC_ROADMAP.md):146 s
 finding was written; `System.tsx` implements it now, and the roadmap's own status row at :186
 already records G1 as closed. Read :146 as a snapshot, not as current state.
 
-`scholar` and `dungeon` — the two themes that take the set to five — are **not implemented
-anywhere**. They belong to **RC-DSN-1.2 — Five themes**, which lands the ramps, the lints and the
-picker entries. RC-DSN-2.4 documents the five-theme target in the package readme and labels those
-two as planned; it does not implement them, and the package readme must not be read as evidence that
-they exist.
+RC-DSN-1.2 implements `scholar` and `dungeon` in the app, taking the set to five (see
+[Themes](#themes)). The package readme describes the shipped app presets; its generated
+`tokens/colors.css` still carries three. This prose correction must be carried upstream on the
+next successful re-vendor, along with the two new token ramps.
 
 ## 2. Tokens
 
@@ -85,6 +84,32 @@ by matching values, never contracts.
   sets selected by `data-density`.
 - `fonts.css`: self-hosted `@fontsource/*` faces, no CDN.
 - `base.css`: reset, the one decorative candle-glow on `<body>`, and the global `:focus-visible` ring.
+
+### Themes
+
+Five themes, each a set of `[data-theme='…']` blocks in `colors.css`, all harmonised in OKLCH in the
+warm family. The core semantic tokens are written as hex with their OKLCH coordinates in comments, so
+the lints and the native window chrome measure the exact colour the browser paints.
+
+| `data-theme`    | Scheme | For                                             | Ground and accent (OKLCH)                                       |
+| --------------- | ------ | ----------------------------------------------- | --------------------------------------------------------------- |
+| `tavern`        | dark   | The default and hero: a candle-lit table        | espresso ramp at H 70; gold accent at L 0.79, C 0.10            |
+| `parchment`     | light  | Warm reading and prep                           | vellum at H 80; burnt-sienna accent                             |
+| `scholar`       | light  | Long writing: a quieter, cooler page            | paper at H 95 with C ≤ 0.014; navy ink accent at H 262          |
+| `dungeon`       | dark   | Dim tables: the least glow, the brightest marks | near-black at H 70, L 0.10–0.24; gold accent at L 0.85, C 0.135 |
+| `high-contrast` | dark   | The accessibility floor                         | black and white, AAA text                                       |
+
+Settings › Appearance also offers **System**. It is a stored preference, not a theme: it paints
+`parchment` when the device is light and `tavern` when it is dark, at boot (`public/prepaint.js`) and
+live afterwards (`src/platform/theme.ts`). With nothing stored the app opens on `tavern` whatever the
+device says. The preset list is spelled once in `src/platform/theme.ts`; the boot script, the
+Electron preloads, and the Electron window palette keep copies that `src/platform/theme.test.ts`
+holds in step.
+
+Both lints check all five themes and fail on any `[data-theme='…']` block they do not know. The
+forced-colors block is scoped `:root, [data-theme]` so it reaches every theme, and the non-text lint
+fails if that scope narrows. Visual baselines: `apps/gm-react/tests/e2e/themes.spec.ts` renders a
+swatch board of every semantic token per theme (no text, so the pixels match across Linux hosts).
 
 Rules: components reference semantic tokens (or `T` in `screen-kit.tsx`), never raw hex or a theme's
 value; a theme swap is one attribute change with zero component edits. Lints: `pnpm tokens:contrast`
