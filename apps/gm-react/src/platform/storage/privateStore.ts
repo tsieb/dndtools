@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import { activeLocalVaultId, LEGACY_LOCAL_VAULT_ID } from './coreStore';
 
 /**
  * RC-CHR-4.1 — the PLAYER-PRIVATE device-local store (ADR-035, amending ADR-004/019).
@@ -17,7 +18,7 @@ import Dexie, { type Table } from 'dexie';
  *    by exactly one screen (`screens/play/Journal.tsx`). `privateStore.test.ts` asserts that import
  *    allowlist mechanically, so a future edit that wires private records into `net/` replication or
  *    the MCP layer fails a test rather than leaking silently;
- *  - one database PER CHARACTER, because a shared device may seat two players in turn and neither
+ *  - one database PER VAULT AND CHARACTER, because a shared device may seat two players in turn and neither
  *    should be able to open the other's notes by switching characters.
  *
  * Sharing is the explicit exception and never happens here: the player presses "Share with the DM",
@@ -31,7 +32,10 @@ const PRIVATE_DB_VERSION = 1;
 
 /** The database name for a character's private store. Exported so tests can assert the isolation. */
 export function privateDatabaseName(characterId: string): string {
-	return `dndtools-private-${characterId}`;
+	const vaultId = activeLocalVaultId();
+	return vaultId === LEGACY_LOCAL_VAULT_ID
+		? `dndtools-private-${characterId}`
+		: `dndtools-vault-private:${vaultId}:${encodeURIComponent(characterId)}`;
 }
 
 /** A free-form private note. The DM never sees these — there is no share affordance for a note. */
@@ -86,15 +90,16 @@ class PrivateDatabase extends Dexie {
 	}
 }
 
-// One open handle per character. A player switches characters rarely, so the map stays tiny; keeping
+// One open handle per vault and character. A player switches characters rarely, so the map stays tiny; keeping
 // the handle avoids re-opening (and re-running the version check) on every keystroke-driven save.
 const openDatabases = new Map<string, PrivateDatabase>();
 
 function db(characterId: string): PrivateDatabase {
-	const key = requireCharacterId(characterId);
+	const character = requireCharacterId(characterId);
+	const key = privateDatabaseName(character);
 	let existing = openDatabases.get(key);
 	if (!existing) {
-		existing = new PrivateDatabase(key);
+		existing = new PrivateDatabase(character);
 		openDatabases.set(key, existing);
 	}
 	return existing;
@@ -278,13 +283,13 @@ export async function removePrivateImpression(characterId: string, id: string): 
  * the shape of what was there survives.
  */
 export async function resetPrivateStore(characterId: string): Promise<void> {
-	const key = requireCharacterId(characterId);
+	const key = privateDatabaseName(requireCharacterId(characterId));
 	const existing = openDatabases.get(key);
 	if (existing) {
 		existing.close();
 		openDatabases.delete(key);
 	}
-	await Dexie.delete(privateDatabaseName(key));
+	await Dexie.delete(key);
 }
 
 /** Close the open handles without deleting anything (leaving the device, switching seats). */

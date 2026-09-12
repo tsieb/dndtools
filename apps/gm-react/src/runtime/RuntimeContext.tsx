@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { PLACEHOLDER_DM_NAME, SceneRuntime } from './SceneRuntime';
 import { defaultEnvironment } from './environment';
+import { markLocalVaultOpened } from '../platform/storage/coreStore';
 
 // The device owner. The app seeds a DM actor with this id (plus demo participants) on first load;
 // the "view as" control switches which actor's filtered view is rendered.
@@ -30,7 +31,14 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
 	const runtime = ref.current;
 
 	useEffect(() => {
-		void runtime.load();
+		void runtime.load().then(() => {
+			if (!runtime.loaded) return;
+			try {
+				markLocalVaultOpened();
+			} catch {
+				/* Catalog metadata must not block an existing vault. */
+			}
+		});
 		// DEV-only test seam: expose the live runtime so the round-trip verification (and manual
 		// debugging) can dispatch commands and inspect the persisted Core state. Never present in a
 		// production build (`import.meta.env.DEV` is statically false and tree-shaken out).

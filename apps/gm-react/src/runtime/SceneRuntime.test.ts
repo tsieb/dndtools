@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../platform/storage/coreStore', () => ({
+	activeLocalVaultId: () => 'primary',
+	LEGACY_LOCAL_VAULT_ID: 'primary',
+	vaultPreferenceKey: (key: string) => key,
 	loadCoreState: mocks.loadCoreState,
 	persistFullState: mocks.persistFullState,
 }));

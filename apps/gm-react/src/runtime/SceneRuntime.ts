@@ -44,7 +44,15 @@ import {
 	type ResolvedPreview,
 	type SyncOperation,
 } from '@dndtools/core';
-import { loadCoreState, persistFullState } from '../platform/storage/coreStore';
+import {
+	activeLocalVaultId,
+	LEGACY_LOCAL_VAULT_ID,
+	listLocalVaults,
+	loadCoreState,
+	persistFullState,
+	selectLocalVaultForNextLoad,
+	vaultPreferenceKey,
+} from '../platform/storage/coreStore';
 import { MAP_IMPORT_ADAPTERS } from './environment';
 
 /** Seat name minted for a vault whose DM never introduced themselves; surfaces that mean "you"
@@ -187,7 +195,7 @@ export class SceneRuntime {
 	private mapGenerators: MapGeneratorRegistry | null = null;
 
 	constructor(options: RuntimeOptions) {
-		this.options = options;
+		this.options = { ...options, env: { ...options.env } };
 		this.activeActor = options.defaultActorId;
 	}
 
@@ -202,6 +210,20 @@ export class SceneRuntime {
 	private emit(): void {
 		this.version += 1;
 		for (const listener of this.listeners) listener();
+	}
+
+	/** The document's local storage identity; the original vault retains its cloud key identity. */
+	get vaultId(): string {
+		return activeLocalVaultId();
+	}
+
+	/** Integration seam: callers must scope preferences and cloud services before exposing this. */
+	async openLocalVault(id: string, reload: () => void): Promise<void> {
+		if (id === this.vaultId) return;
+		await this.runExclusiveMaintenance(async () => {
+			selectLocalVaultForNextLoad(id);
+			reload();
+		});
 	}
 
 	// ── Public reads ──────────────────────────────────────────────────────────────────────────
@@ -356,6 +378,9 @@ export class SceneRuntime {
 	}
 
 	private async hydrateFromStorage(seedDemo: boolean): Promise<void> {
+		// Resolve inside the load error boundary, so unreadable selection offers the normal retry UI.
+		const vaultId = this.vaultId;
+		if (vaultId !== LEGACY_LOCAL_VAULT_ID) this.options.env.vaultId = vaultId;
 		const loaded = await loadCoreState();
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
 		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
@@ -435,10 +460,14 @@ export class SceneRuntime {
 	/** Onboarding's "Start fresh" records an explicit empty-vault choice (device-local); honor it on
 	 * every subsequent boot by skipping BOTH demo-population paths (command seed + demo map state). */
 	private freshVaultChosen(): boolean {
+		if (this.vaultId !== LEGACY_LOCAL_VAULT_ID) {
+			// New campaigns start empty. A broken catalog must never trigger demo writes.
+			return listLocalVaults().find((vault) => vault.id === this.vaultId)?.kind !== 'demo';
+		}
 		try {
 			return (
 				typeof window !== 'undefined' &&
-				window.localStorage.getItem('dndtools:react:vault-choice') === 'fresh'
+				window.localStorage.getItem(vaultPreferenceKey('dndtools:react:vault-choice')) === 'fresh'
 			);
 		} catch {
 			return false;

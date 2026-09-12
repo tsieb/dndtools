@@ -26,6 +26,7 @@ import {
 	ensureSessionCombatState,
 	ensureVaultContentState,
 	hashAssetBytes,
+	hasAsciiControlCharacter,
 	hydrateSystemsState,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
@@ -54,6 +55,163 @@ import {
 
 const DB_NAME = 'dndtools-v2';
 const DB_VERSION = 3;
+
+/** RC-UX-5.4: device-local catalog; the released vault keeps its database and key identities. */
+export const LEGACY_LOCAL_VAULT_ID = 'primary';
+const LOCAL_VAULTS_KEY = 'dndtools:react:local-vaults-v1';
+const SELECTED_LOCAL_VAULT_KEY = 'dndtools:react:selected-local-vault';
+
+export interface LocalVault {
+	id: string;
+	name: string;
+	createdAt: string;
+	lastOpenedAt: string | null;
+	/** UX-3.7 can populate a separate demo vault without touching an existing campaign. */
+	kind: 'campaign' | 'demo';
+}
+
+function requireVaultId(id: string): string {
+	if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,128}$/.test(id)) {
+		throw new Error('The local vault ID is invalid.');
+	}
+	return id;
+}
+
+function requireVaultName(name: string): string {
+	const trimmed = name.trim();
+	if (!trimmed || trimmed.length > 80 || hasAsciiControlCharacter(trimmed)) {
+		throw new Error('Use a vault name between 1 and 80 characters.');
+	}
+	return trimmed;
+}
+
+function catalogStorage(): Storage {
+	if (typeof window === 'undefined') throw new Error('Local vaults need browser storage.');
+	return window.localStorage;
+}
+
+/** Register the existing database in place. A damaged catalog is never replaced with an empty one. */
+export function listLocalVaults(): LocalVault[] {
+	const storage = catalogStorage();
+	const raw = storage.getItem(LOCAL_VAULTS_KEY);
+	if (raw === null) {
+		const first: LocalVault = {
+			id: LEGACY_LOCAL_VAULT_ID,
+			name: 'Your campaign',
+			createdAt: new Date().toISOString(),
+			lastOpenedAt: null,
+			kind: 'campaign',
+		};
+		storage.setItem(LOCAL_VAULTS_KEY, JSON.stringify({ schemaVersion: 1, vaults: [first] }));
+		return [first];
+	}
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		throw new Error('The local vault list is damaged. No vaults were changed.');
+	}
+	const validDate = (value: unknown) =>
+		typeof value === 'string' && Number.isFinite(Date.parse(value));
+	if (
+		!plainRecord(parsed) ||
+		parsed.schemaVersion !== 1 ||
+		!Array.isArray(parsed.vaults) ||
+		parsed.vaults.length === 0 ||
+		parsed.vaults.some(
+			(vault: unknown) =>
+				!plainRecord(vault) ||
+				typeof vault.id !== 'string' ||
+				!/^[a-zA-Z0-9-]{1,128}$/.test(vault.id) ||
+				typeof vault.name !== 'string' ||
+				!vault.name.trim() ||
+				hasAsciiControlCharacter(vault.name) ||
+				vault.name.length > 80 ||
+				!validDate(vault.createdAt) ||
+				(vault.lastOpenedAt !== null && !validDate(vault.lastOpenedAt)) ||
+				(vault.kind !== 'campaign' && vault.kind !== 'demo'),
+		)
+	) {
+		throw new Error('The local vault list is damaged. No vaults were changed.');
+	}
+	const vaults = parsed.vaults as LocalVault[];
+	if (
+		new Set(vaults.map((vault) => vault.id)).size !== vaults.length ||
+		!vaults.some((vault) => vault.id === LEGACY_LOCAL_VAULT_ID)
+	) {
+		throw new Error('The local vault list is damaged. No vaults were changed.');
+	}
+	return vaults;
+}
+
+function saveLocalVaults(vaults: LocalVault[]): void {
+	catalogStorage().setItem(LOCAL_VAULTS_KEY, JSON.stringify({ schemaVersion: 1, vaults }));
+}
+
+export function createLocalVault(name: string, kind: LocalVault['kind'] = 'campaign'): LocalVault {
+	const validName = requireVaultName(name);
+	if (kind !== 'campaign' && kind !== 'demo') throw new Error('Unknown local vault kind.');
+	const vaults = listLocalVaults();
+	const vault: LocalVault = {
+		id: `local-${crypto.randomUUID()}`,
+		name: validName,
+		createdAt: new Date().toISOString(),
+		lastOpenedAt: null,
+		kind,
+	};
+	saveLocalVaults([...vaults, vault]);
+	return vault;
+}
+
+export function renameLocalVault(id: string, name: string): void {
+	const validName = requireVaultName(name);
+	const vaults = listLocalVaults();
+	if (!vaults.some((vault) => vault.id === id)) throw new Error('This local vault was not found.');
+	saveLocalVaults(vaults.map((vault) => (vault.id === id ? { ...vault, name: validName } : vault)));
+}
+
+// A document owns ONE namespace until it unloads. Another tab's selection, or an in-flight
+// backup/restore during navigation, must never retarget this document's storage handles.
+let documentVaultId: string | undefined;
+export function activeLocalVaultId(): string {
+	if (documentVaultId !== undefined) return documentVaultId;
+	const selected =
+		typeof window === 'undefined' ? null : window.localStorage.getItem(SELECTED_LOCAL_VAULT_KEY);
+	if (selected !== null && !listLocalVaults().some((vault) => vault.id === selected)) {
+		throw new Error('The selected local vault was not found. No other vault was opened.');
+	}
+	documentVaultId = selected ?? LEGACY_LOCAL_VAULT_ID;
+	return documentVaultId;
+}
+
+/** Stage selection for the NEXT document only. The runtime drains writes before calling this. */
+export function selectLocalVaultForNextLoad(id: string): void {
+	activeLocalVaultId(); // Pin the departing document before changing the next document's choice.
+	if (!listLocalVaults().some((vault) => vault.id === id)) {
+		throw new Error('This local vault was not found.');
+	}
+	catalogStorage().setItem(SELECTED_LOCAL_VAULT_KEY, id);
+}
+
+export function markLocalVaultOpened(): void {
+	const id = activeLocalVaultId();
+	const vaults = listLocalVaults();
+	saveLocalVaults(
+		vaults.map((vault) =>
+			vault.id === id ? { ...vault, lastOpenedAt: new Date().toISOString() } : vault,
+		),
+	);
+}
+
+export function coreDatabaseName(id = activeLocalVaultId()): string {
+	return requireVaultId(id) === LEGACY_LOCAL_VAULT_ID ? DB_NAME : `${DB_NAME}-vault-${id}`;
+}
+
+/** Legacy preference keys stay in place; new vaults never fall back to the legacy value. */
+export function vaultPreferenceKey(key: string, id = activeLocalVaultId()): string {
+	return requireVaultId(id) === LEGACY_LOCAL_VAULT_ID ? key : `dndtools:local-vault:${id}:${key}`;
+}
+
 const SCENE_STATE_KEY = 'scene-state';
 const MAP_STATE_KEY = 'map-state';
 const PERMISSION_STATE_KEY = 'permission-state';
@@ -122,7 +280,7 @@ class V2Database extends Dexie {
 	assetBlobs!: Table<AssetBlobRecord, string>;
 
 	constructor() {
-		super(DB_NAME);
+		super(coreDatabaseName());
 		// Version 1 shipped without the migration journal table; version 2 adds it. Dexie
 		// preserves the existing documents/operations stores across the upgrade.
 		this.version(1).stores({
@@ -1313,6 +1471,12 @@ export const storagePort: StoragePort = {
 };
 
 export const __testing = {
+	/** Simulate a new document after closing all handles; production never changes it in place. */
+	resetVaultSession: (): void => {
+		documentVaultId = undefined;
+	},
+	LOCAL_VAULTS_KEY,
+	SELECTED_LOCAL_VAULT_KEY,
 	closeDb: async (): Promise<void> => {
 		forgetPersistedSlices();
 		if (dbInstance) {

@@ -248,6 +248,8 @@ describe('private store: the host never receives private content', () => {
 		const allowed = new Set([
 			'platform/storage/privateStore.ts',
 			'platform/storage/privateStore.test.ts',
+			// Test-only isolation coverage; the production import allowlist stays unchanged.
+			'platform/storage/localVaults.test.ts',
 			'screens/play/Journal.tsx',
 		]);
 

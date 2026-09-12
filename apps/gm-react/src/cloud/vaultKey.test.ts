@@ -51,6 +51,24 @@ describe('account-scoped vault-key custody', () => {
 		await expect(vaultKeyManager.decrypt(context('account-b'), envelopeA)).rejects.toThrow();
 	});
 
+	it('keeps two local vaults in one account independent across cache loss and key deletion', async () => {
+		const first = context('same-account');
+		const second = { ...first, vaultId: 'local-second' };
+		const a = await vaultKeyManager.encrypt(first, { campaign: 'harbor' });
+		const b = await vaultKeyManager.encrypt(second, { campaign: 'mountain' });
+		const firstKey = await __testing.scopedStorageKey(first.accountId, first.vaultId);
+		const secondKey = await __testing.scopedStorageKey(second.accountId, second.vaultId);
+		expect(mocks.values.get(firstKey)).not.toBe(mocks.values.get(secondKey));
+		__testing.clearCache();
+		expect(await vaultKeyManager.decrypt(first, a)).toEqual({ campaign: 'harbor' });
+		expect(await vaultKeyManager.decrypt(second, b)).toEqual({ campaign: 'mountain' });
+		await expect(vaultKeyManager.decrypt(first, b)).rejects.toThrow();
+		await expect(vaultKeyManager.decrypt(second, a)).rejects.toThrow();
+		await vaultKeyManager.forget(second.accountId, second.vaultId);
+		expect(await vaultKeyManager.decrypt(first, a)).toEqual({ campaign: 'harbor' });
+		expect(mocks.values.has(secondKey)).toBe(false);
+	});
+
 	it('claims a released unscoped key for one account only', async () => {
 		const legacy = createVaultKeyring();
 		mocks.values.set('vaultkey:primary', JSON.stringify(legacy));
