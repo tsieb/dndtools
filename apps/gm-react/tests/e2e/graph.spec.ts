@@ -21,6 +21,32 @@ test.describe('graph: relationship graph & search', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
+	test('keyboard walk and focus keep a stable neighborhood and clear with Escape', async ({
+		page,
+	}) => {
+		const nodes = page.getByTestId('graph-node');
+		const total = await nodes.count();
+		expect(total).toBeGreaterThan(1);
+		await nodes.first().focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(nodes.nth(1)).toBeFocused();
+		await page.keyboard.press('Enter');
+		await page.getByRole('button', { name: 'Focus neighborhood', exact: true }).click();
+		const focusedCount = await nodes.count();
+		expect(focusedCount).toBeLessThan(total);
+		expect(focusedCount).toBeGreaterThan(0);
+		await nodes.first().focus();
+		await page.keyboard.press('End');
+		await expect(nodes.last()).toBeFocused();
+		await page.keyboard.press('Enter');
+		await expect(nodes).toHaveCount(focusedCount);
+		await page.keyboard.press('Escape');
+		await expect(nodes).toHaveCount(total);
+		await expect(
+			page.getByRole('button', { name: 'Focus neighborhood', exact: true }),
+		).toBeDisabled();
+	});
+
 	test('seeded entities render as a graph with real wikilink edges', async ({ page }) => {
 		// Node buttons for the seeded notes exist (canvas node and/or search row — both are real reads).
 		await expect(page.getByRole('button', { name: VISIBLE_NOTE })).not.toHaveCount(0);
@@ -66,6 +92,8 @@ test.describe('graph: relationship graph & search', () => {
 		const search = page.getByLabel('Search the graph');
 		await search.fill('Campaign Primer');
 		const result = page.getByRole('button', { name: VISIBLE_NOTE }).last();
+		// Exclude Playwright's automatic scrolling from the layout-shift measurement.
+		await result.scrollIntoViewIfNeeded();
 		const before = (await result.boundingBox())!;
 
 		await result.click();

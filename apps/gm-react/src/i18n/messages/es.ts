@@ -4737,6 +4737,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.band.moderate': 'Moderada',
 	'graph.band.good': 'Buena',
 	'graph.band.excellent': 'Excelente',
+	'graph.focus.enter': 'Enfocar vecindario',
+	'graph.focus.exit': 'Mostrar grafo completo',
+	'graph.walkHelp':
+		'Usa las flechas para recorrer los nodos, Intro para seleccionar y Escape para borrar la selección.',
 	'graph.view.dm': 'Vista de DM',
 	'graph.view.player': 'Vista de jugador',
 	'graph.needPlayer':
