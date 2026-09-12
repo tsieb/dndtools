@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { actorCanAuthorContent, getContentItemsForActor } from '@dndtools/core';
 import { Button, Card, EmptyState, Icon, Toaster, VisibilityChip } from '../../ds';
-import { Page, T } from '../../app/screen-kit';
+import { ListDetail, Page, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
 import { VIS_CHIP } from './shared';
@@ -102,16 +102,15 @@ export function Knowledge() {
 	// `key={open.id}` REMOUNTS the editor when navigating between notes (e.g. via a backlink/related
 	// row), resetting the draft/edit state — without it React reuses the instance and a Save could
 	// persist note A's draft into note B. Same-note re-renders keep the instance (id unchanged).
-	if (open)
-		return (
-			<NoteViewer
-				key={open.id}
-				note={open}
-				canAuthor={canAuthor}
-				onBack={() => navigate('/knowledge')}
-				onOpen={(id) => navigate(`/knowledge/${id}`)}
-			/>
-		);
+	const viewer = open ? (
+		<NoteViewer
+			key={open.id}
+			note={open}
+			canAuthor={canAuthor}
+			onBack={() => navigate('/knowledge')}
+			onOpen={(id) => navigate(`/knowledge/${id}`)}
+		/>
+	) : null;
 
 	async function createNote(title: string) {
 		setBusy(true);
@@ -185,7 +184,7 @@ export function Knowledge() {
 		}
 	}
 
-	return (
+	const library = (
 		<Page max={1180}>
 			<div
 				style={{
@@ -360,6 +359,9 @@ export function Knowledge() {
 							style={{ minWidth: 0, overflowWrap: 'anywhere' }}
 							elevation="flat"
 							interactive
+							// The note open in the rail tier's detail pane beside this list (RC-UX-4.3).
+							accent={n.id === open?.id}
+							aria-current={n.id === open?.id ? 'true' : undefined}
 							onClick={() => navigate(`/knowledge/${n.id}`)}
 						>
 							<div
@@ -409,5 +411,16 @@ export function Knowledge() {
 				</div>
 			)}
 		</Page>
+	);
+
+	// RC-UX-4.3 — on the rail tier the open note reads in the detail pane BESIDE the note list;
+	// elsewhere it replaces the list as a full page, as before.
+	return (
+		<ListDetail
+			list={library}
+			detail={viewer}
+			detailKey={open?.id ?? null}
+			detailLabel={open?.title ?? ''}
+		/>
 	);
 }

@@ -1,9 +1,9 @@
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon, ProgressMeter, Skeleton } from '../ds';
 import { useI18n } from '../i18n';
-import { useViewport } from './useViewport';
+import { useListDetailSplit, useViewport } from './useViewport';
 
 /**
  * screen-kit — the shared token shorthand + layout primitives ported verbatim from the online
@@ -324,6 +324,21 @@ export function Panel({
 	);
 }
 
+/** Which pane of a split list/detail screen a subtree renders in; `null` = an ordinary full page. */
+const PaneContext = createContext<'list' | 'detail' | null>(null);
+
+/**
+ * True when screen content should lay out as ONE column: on a phone, or inside a split list/detail
+ * pane (RC-UX-4.3), which is phone-width by construction. Detail views branch on this rather than on
+ * the viewport — at 820px the viewport says `rail`, but a character sheet in its ~480px detail pane
+ * would otherwise lay out two ~200px columns and overflow them, exactly as it once did on a phone.
+ */
+export function useSingleColumn(): boolean {
+	const viewport = useViewport();
+	const pane = useContext(PaneContext);
+	return viewport === 'phone' || pane !== null;
+}
+
 export function Page({
 	children,
 	max = 1180,
@@ -334,18 +349,135 @@ export function Page({
 	style?: CSSProperties;
 }) {
 	const viewport = useViewport();
+	const pane = useContext(PaneContext);
 	return (
 		<div
 			style={{
 				width: '100%',
 				minWidth: 0,
-				padding: viewport === 'phone' ? '16px 14px 76px' : '24px 28px 56px',
+				// A split list/detail pane is phone-width but has no tab bar beneath it: tighter gutters
+				// than a full rail page, without the phone's bottom clearance.
+				padding:
+					viewport === 'phone'
+						? '16px 14px 76px'
+						: pane
+							? `${T.space.four} ${T.space.four} ${T.space.twelve}`
+							: '24px 28px 56px',
 				maxWidth: max,
 				margin: '0 auto',
 				...style,
 			}}
 		>
 			{children}
+		</div>
+	);
+}
+
+/** The list pane's width once a detail is open: room for one ~230px card, never more than 360px. */
+const LIST_PANE_WIDTH = 'clamp(280px, 34%, 360px)';
+
+const paneScroll: CSSProperties = {
+	minWidth: 0,
+	minHeight: 0,
+	overflowY: 'auto',
+	overflowX: 'hidden',
+	overscrollBehavior: 'contain',
+};
+
+/**
+ * ListDetail — RC-UX-4.3's right detail panel contract for the list/detail screens (Characters,
+ * Knowledge, Campaign, Atlas).
+ *
+ * Split (`useListDetailSplit`: the rail tier at ≥768px): the list keeps a column on the left and the
+ * open detail takes a RIGHT panel beside it, so a tablet user moves between items without losing the
+ * list. Both panes fill `<main>` (`height:100%`, the same bounded-pane contract as `/board`) and
+ * scroll on their own; `<main>` itself never scrolls. The detail pane is a labelled region, and the
+ * list stays mounted across open / close / switch, so its filters, scroll position and roving tab
+ * stop survive. Content inside either pane reads `useSingleColumn()` as true. The detail brings its
+ * own close affordance (a BackBar, a Cancel); closing it gives the list the full width back.
+ *
+ * With `detailKey` — the detail is something the user OPENED (a route id, an editor) — opening or
+ * switching moves focus into the pane and scrolls it to the top, and closing returns focus to the
+ * control that opened it. Omit it for a detail that is simply always shown (Atlas's selected map),
+ * where following the selection would pull focus out of the list on every pick.
+ *
+ * Not split (desktop, phone, a narrow rail window): the open detail replaces the list as a full page,
+ * exactly as these screens always behaved.
+ */
+export function ListDetail({
+	list,
+	detail,
+	detailLabel,
+	detailKey,
+}: {
+	list: ReactNode;
+	/** The open detail, or null/false when nothing is open. */
+	detail: ReactNode;
+	/** Accessible name of the detail region — the open item's own name. */
+	detailLabel: string;
+	detailKey?: string | null;
+}) {
+	const split = useListDetailSplit();
+	const open = detail !== null && detail !== undefined && detail !== false;
+	const detailRef = useRef<HTMLElement>(null);
+	const openerRef = useRef<HTMLElement | null>(null);
+	const shownKey = useRef(detailKey ?? null);
+
+	useEffect(() => {
+		if (detailKey === undefined) return;
+		const previous = shownKey.current;
+		shownKey.current = detailKey;
+		if (!split || previous === detailKey) return;
+		const pane = detailRef.current;
+		if (detailKey !== null) {
+			// Remember the list control that opened it — but not a link followed from INSIDE the pane
+			// (a backlink), which should hand focus back to the original opener on close.
+			const active = document.activeElement;
+			if (active instanceof HTMLElement && active !== document.body && !pane?.contains(active)) {
+				openerRef.current = active;
+			}
+			if (pane) {
+				pane.scrollTop = 0;
+				pane.focus({ preventScroll: true });
+			}
+			return;
+		}
+		const opener = openerRef.current;
+		openerRef.current = null;
+		// Only when closing left focus nowhere (the pane's own BackBar / Cancel unmounted with it) —
+		// never pull focus back from somewhere the user has since moved it.
+		const active = document.activeElement;
+		if (opener?.isConnected && (active === null || active === document.body)) opener.focus();
+	}, [split, detailKey]);
+
+	if (!split) return <>{open ? detail : list}</>;
+	return (
+		<div
+			data-list-detail=""
+			style={{
+				display: 'grid',
+				gridTemplateColumns: open ? `${LIST_PANE_WIDTH} minmax(0,1fr)` : 'minmax(0,1fr)',
+				height: '100%',
+				minHeight: 0,
+			}}
+		>
+			<div
+				data-pane="list"
+				style={{ ...paneScroll, borderInlineEnd: open ? `1px solid ${T.bd}` : 'none' }}
+			>
+				<PaneContext.Provider value={open ? 'list' : null}>{list}</PaneContext.Provider>
+			</div>
+			{open && (
+				<section
+					ref={detailRef}
+					tabIndex={-1}
+					aria-label={detailLabel || undefined}
+					data-pane="detail"
+					style={{ ...paneScroll, outlineOffset: '-3px' }}
+				>
+					<PaneContext.Provider value="detail">{detail}</PaneContext.Provider>
+				</section>
+			)}
 		</div>
 	);
 }

@@ -26,7 +26,8 @@ import {
 	Toaster,
 	VisibilityChip,
 } from '../ds';
-import { Page, Panel, T, eb } from '../app/screen-kit';
+import { ListDetail, Page, Panel, T, eb } from '../app/screen-kit';
+import { useListDetailSplit } from '../app/useViewport';
 import { ContextHelp } from '../app/help/ContextHelp';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -633,6 +634,7 @@ export function Campaign() {
 	const [questEditor, setQuestEditor] = useState<{ id: string | null } | null>(null);
 
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
+	const split = useListDetailSplit();
 
 	// Create-intent handoff from "New faction" launchers (⌘K): land on the Factions tab with the
 	// editor already open. Consumed once, then cleared.
@@ -689,8 +691,27 @@ export function Campaign() {
 	const editingQuest = questEditor?.id
 		? (data.quests.find((q) => q.view.id === questEditor.id) ?? null)
 		: null;
+	const questForm = canAuthor && questEditor && (
+		<QuestEditor
+			key={questEditor.id ?? 'new'}
+			quest={editingQuest}
+			onClose={() => setQuestEditor(null)}
+		/>
+	);
+	const factionForm = canAuthor && factionEditor && (
+		<FactionEditor
+			key={factionEditor.id ?? 'new'}
+			faction={editingFaction}
+			onClose={() => setFactionEditor(null)}
+		/>
+	);
+	// RC-UX-4.3 — on the rail tier the open editor takes the detail pane BESIDE the cards instead of
+	// pushing them down the page; everywhere else it stays inline above them, as before.
+	const paneTab =
+		split && ((tab === 'quests' && questForm) || (tab === 'factions' && factionForm)) ? tab : null;
+	const paneRow = paneTab === 'quests' ? editingQuest : editingFaction;
 
-	return (
+	const cards = (
 		<Page>
 			<div
 				style={{
@@ -740,13 +761,7 @@ export function Campaign() {
 								</Button>
 							</div>
 						)}
-						{canAuthor && questEditor && (
-							<QuestEditor
-								key={questEditor.id ?? 'new'}
-								quest={editingQuest}
-								onClose={() => setQuestEditor(null)}
-							/>
-						)}
+						{!split && questForm}
 						{data.quests.length === 0 ? (
 							<EmptyState
 								icon="campaign-scroll"
@@ -875,13 +890,7 @@ export function Campaign() {
 								</Button>
 							)}
 						</div>
-						{canAuthor && factionEditor && (
-							<FactionEditor
-								key={factionEditor.id ?? 'new'}
-								faction={editingFaction}
-								onClose={() => setFactionEditor(null)}
-							/>
-						)}
+						{!split && factionForm}
 						{data.factions.length === 0 ? (
 							<EmptyState
 								icon="flag"
@@ -949,5 +958,18 @@ export function Campaign() {
 				)}
 			</div>
 		</Page>
+	);
+
+	return (
+		<ListDetail
+			list={cards}
+			detail={paneTab && <Page>{paneTab === 'quests' ? questForm : factionForm}</Page>}
+			detailKey={paneTab && `${paneTab}:${paneRow?.view.id ?? 'new'}`}
+			detailLabel={
+				paneRow
+					? t('campaign.edit', { title: paneRow.view.title })
+					: t(paneTab === 'quests' ? 'campaign.quest.new' : 'campaign.faction.new')
+			}
+		/>
 	);
 }

@@ -196,6 +196,9 @@ for (const viewport of [
 	{ name: 'rail breakpoint', width: 641, height: 700 },
 	{ name: 'foldable portrait', width: 768, height: 1024 },
 	{ name: 'tablet portrait', width: 853, height: 1280 },
+	// RC-UX-4.3 — the two tablet sizes the rail tier's list/detail split is accepted at.
+	{ name: '820 portrait tablet', width: 820, height: 1180 },
+	{ name: '1024 landscape tablet', width: 1024, height: 768 },
 	{ name: 'desktop-window minimum', width: 720, height: 520 },
 	{ name: 'release rail window', width: 1024, height: 600 },
 	{ name: 'desktop navigation breakpoint', width: 1025, height: 600 },
@@ -1308,3 +1311,119 @@ test('the standalone player view has its own skip link into main', async ({ page
 	// The hash route survives (the app is a HashRouter, so following the href would rewrite it).
 	expect(new URL(page.url()).hash).toBe('#/play');
 });
+
+/**
+ * RC-UX-4.3 — the rail tier's right detail panel contract (`ListDetail`, app/screen-kit.tsx). On a
+ * tablet the open detail sits in a panel to the RIGHT of its list instead of replacing it. Both panes
+ * fill `<main>` and scroll on their own (so `<main>` never does), the detail is a labelled region,
+ * neither pane widens, and nothing in either is clipped.
+ */
+async function expectListDetailSplit(page: Page, screen: string, viewportWidth: number) {
+	const list = page.locator('[data-pane="list"]');
+	const detail = page.locator('[data-pane="detail"]');
+	await expect(detail, `${screen} opened no detail pane`).toBeVisible();
+	await expect(detail, `${screen} detail pane has no accessible name`).toHaveAttribute(
+		'aria-label',
+		/\S/,
+	);
+	await page.waitForTimeout(100);
+	const listBox = await list.boundingBox();
+	const detailBox = await detail.boundingBox();
+	expect(listBox, `${screen} list pane is not rendered`).not.toBeNull();
+	expect(detailBox, `${screen} detail pane is not rendered`).not.toBeNull();
+	if (!listBox || !detailBox) return;
+	expect(listBox.width, `${screen} list pane is narrower than one card`).toBeGreaterThanOrEqual(
+		279,
+	);
+	expect(detailBox.x, `${screen} detail must sit to the right of the list`).toBeGreaterThanOrEqual(
+		listBox.x + listBox.width - 1,
+	);
+	expect(Math.abs(detailBox.y - listBox.y), `${screen} panes must share a top edge`).toBeLessThan(
+		2,
+	);
+	expect(detailBox.x + detailBox.width).toBeLessThanOrEqual(viewportWidth + 1);
+	expect(detailBox.width, `${screen} detail pane is too narrow to read`).toBeGreaterThanOrEqual(
+		400,
+	);
+
+	const mainOverflow = await page
+		.locator('#main-content')
+		.evaluate((main) => main.scrollHeight - main.clientHeight);
+	expect(mainOverflow, `${screen} scrolled <main> instead of its panes`).toBeLessThanOrEqual(2);
+	for (const selector of ['#main-content', '[data-pane="list"]', '[data-pane="detail"]']) {
+		await expectNoHorizontalOverflow(page, screen, selector);
+	}
+	expect(await clippedControls(page), `${screen} clipped a control`).toEqual([]);
+}
+
+for (const viewport of [
+	{ name: '1024x768 landscape tablet', width: 1024, height: 768 },
+	{ name: '820x1180 portrait tablet', width: 820, height: 1180 },
+]) {
+	test(`list/detail screens open a right detail panel beside the list on a ${viewport.name}`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: viewport.width, height: viewport.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		const noteTitle = `Split pane note ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'content.create-item',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: {
+				kind: 'note',
+				title: noteTitle,
+				body: 'Read beside the list.',
+				visibility: 'dm-only',
+			},
+		});
+		expect(created.status).toBe('accepted');
+
+		const list = page.locator('[data-pane="list"]');
+		const detail = page.locator('[data-pane="detail"]');
+
+		// Characters, by keyboard: Enter on a roster card moves focus INTO the pane, the card is marked
+		// as the open one, and the sheet's own back button closes the pane and returns focus to it.
+		await gotoRoute(page, '/characters');
+		const card = list.locator('[data-roster-card]').first();
+		const cardName = await card.getAttribute('aria-label');
+		expect(cardName, 'the seeded roster should contain a character').toBeTruthy();
+		await card.focus();
+		await card.press('Enter');
+		await expect(detail).toBeFocused();
+		await expect(detail).toHaveAttribute('aria-label', cardName!);
+		await expect(card).toHaveAttribute('aria-current', 'true');
+		await expectListDetailSplit(page, '/characters/:id', viewport.width);
+		await detail.getByRole('button', { name: 'Characters', exact: true }).click();
+		await expect(detail).toHaveCount(0);
+		await expect(card).toBeFocused();
+		await expectNoHorizontalOverflow(page, 'closed /characters pane', '[data-pane="list"]');
+
+		// Knowledge: the note reads beside the note list, which stays in view.
+		await gotoRoute(page, '/knowledge');
+		await list.getByText(noteTitle, { exact: true }).click();
+		await expect(detail).toHaveAttribute('aria-label', noteTitle);
+		await expect(list.getByText(noteTitle, { exact: true })).toBeVisible();
+		await expectListDetailSplit(page, '/knowledge/:id', viewport.width);
+		await detail.getByRole('button', { name: 'Notes', exact: true }).click();
+		await expect(detail).toHaveCount(0);
+
+		// Campaign: the quest editor opens in the pane instead of pushing the cards down the page.
+		await gotoRoute(page, '/campaign');
+		await list.getByRole('button', { name: /^(New quest|Create the first quest)$/ }).click();
+		await expect(detail).toBeFocused();
+		await expect(detail).toHaveAttribute('aria-label', 'New quest');
+		await expectListDetailSplit(page, '/campaign quest editor', viewport.width);
+		await detail.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(detail).toHaveCount(0);
+
+		// Atlas: the map library keeps the list pane and the selected map fills the detail pane.
+		await gotoRoute(page, '/atlas');
+		await expectListDetailSplit(page, '/atlas', viewport.width);
+
+		// Desktop keeps its full-width pages: nothing splits once the viewport leaves the rail tier.
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await expect(page.locator('[data-pane]')).toHaveCount(0);
+	});
+}

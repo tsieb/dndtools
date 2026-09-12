@@ -9,8 +9,8 @@ import {
 	type SceneVisibility,
 } from '@dndtools/core';
 import { MapCreationForm, Toaster } from '../../ds';
-import { Page, T } from '../../app/screen-kit';
-import { useViewport } from '../../app/useViewport';
+import { ListDetail, Page, T } from '../../app/screen-kit';
+import { useListDetailSplit, useViewport } from '../../app/useViewport';
 import { pickRasterAssetId } from '../../app/mapGeometry';
 import { dsToVis, type MapTool } from '../../app/map/mapVisibility';
 import { MapEditor } from '../../app/map/MapEditor';
@@ -42,6 +42,7 @@ import { copyToClipboard } from '../../platform/preferences';
 export function Atlas() {
 	const runtime = useRuntime();
 	const isPhone = useViewport() === 'phone';
+	const split = useListDetailSplit();
 	// One actor id for EVERY query AND every dispatch payload — this is what makes "view as player"
 	// render player-safe rather than just visually filtered (Contract 3). `defaultActorId` tracks the
 	// active "view as" actor in this runtime.
@@ -461,47 +462,165 @@ export function Atlas() {
 		setMapZoom((z) => (z < 1.6 ? 1.6 : z));
 	};
 
-	return (
-		<Page max={1320}>
-			<MapChips
-				maps={maps}
-				mapsState={runtime.state.maps}
-				selectedId={selectedId}
-				delivered={delivered}
-				loading={loading}
+	const chips = (
+		<MapChips
+			maps={maps}
+			mapsState={runtime.state.maps}
+			selectedId={selectedId}
+			delivered={delivered}
+			loading={loading}
+			isDm={isDm}
+			creating={creating}
+			onSelect={selectMap}
+			onOpenEditor={() => openBuilder('select')}
+			onToggleCreate={() => setCreating((c) => !c)}
+		/>
+	);
+
+	const noticeBar = notice && <NoticeBar notice={notice} onDismiss={() => setNotice(null)} />;
+
+	const createForm = creating && isDm && (
+		<div
+			style={{
+				marginBottom: 16,
+				padding: 16,
+				borderRadius: 10,
+				background: T.raised,
+				border: `1px solid ${T.accBd}`,
+				maxWidth: 520,
+			}}
+		>
+			<MapCreationForm
+				submitting={busy}
+				onCancel={() => setCreating(false)}
+				onCreate={(draft: {
+					name: string;
+					scale: number | null;
+					unit: string;
+					projection: string;
+					visibility: string;
+				}) => void createMap(draft)}
+			/>
+		</div>
+	);
+
+	const tree = (
+		<MapHierarchyTree tree={mapHierarchy} selectedId={selectedId} onSelect={selectMap} />
+	);
+
+	const canvas = (
+		<AtlasCanvas
+			view={view}
+			mapView={mapView}
+			layers={layers}
+			isDm={isDm}
+			busy={busy}
+			mapZoom={mapZoom}
+			mapCenter={mapCenter}
+			rasterAssetId={rasterAssetId}
+			selPoiId={selPoiId}
+			selTokenId={selTokenId}
+			selectedEntry={selectedEntry}
+			onSelectPoi={setSelPoiId}
+			onSelectToken={setSelTokenId}
+			onFocusPoi={focusPoi}
+			onSetPoiVisibility={setPoiVisibility}
+			onCopyPoiLink={(poiId) => void copyPoiLink(poiId)}
+			onDeletePoi={(poiId) => void deletePoi(poiId)}
+			onZoom={zoom}
+			onOpenEditor={() => openBuilder('select')}
+			onOpenFog={(mode) => openBuilder('fog', mode)}
+			onProjectToPlayers={() => void projectToPlayers()}
+		/>
+	);
+
+	// The selected map's inspectors — all real, actor-filtered Core data.
+	const inspectors = (
+		<>
+			<LayersPanel
+				layers={layers}
+				hiddenMatchCount={layerResult.hiddenMatchCount}
 				isDm={isDm}
-				creating={creating}
-				onSelect={selectMap}
-				onOpenEditor={() => openBuilder('select')}
-				onToggleCreate={() => setCreating((c) => !c)}
+				loading={loading}
+				busy={busy}
+				selectedId={selectedId}
+				onAddLayer={addLayer}
+				onReorderLayer={reorderLayer}
+				onToggleLayerVisibility={toggleLayerVisibility}
+				onToggleLayerEnabled={toggleLayerEnabled}
 			/>
 
-			{notice && <NoticeBar notice={notice} onDismiss={() => setNotice(null)} />}
+			<PoiPanel
+				mapView={mapView}
+				isDm={isDm}
+				loading={loading}
+				busy={busy}
+				selPoiId={selPoiId}
+				onSelectPoi={setSelPoiId}
+				onAddPoi={() => openBuilder('poi')}
+				onTogglePoiVisibility={togglePoiVisibility}
+				onDeletePoi={(poiId) => void deletePoi(poiId)}
+			/>
 
-			{creating && isDm && (
-				<div
-					style={{
-						marginBottom: 16,
-						padding: 16,
-						borderRadius: 10,
-						background: T.raised,
-						border: `1px solid ${T.accBd}`,
-						maxWidth: 520,
-					}}
-				>
-					<MapCreationForm
-						submitting={busy}
-						onCancel={() => setCreating(false)}
-						onCreate={(draft: {
-							name: string;
-							scale: number | null;
-							unit: string;
-							projection: string;
-							visibility: string;
-						}) => void createMap(draft)}
-					/>
-				</div>
-			)}
+			<FogPanel
+				mapView={mapView}
+				isDm={isDm}
+				selectedId={selectedId}
+				onOpenFog={(mode) => openBuilder('fog', mode)}
+			/>
+		</>
+	);
+
+	const editor = builder && selectedId && (
+		<MapEditor
+			// RC-MAP-3.8 — keyed by mapId so drilling to a different map (breadcrumb ancestor or a
+			// `map-link` POI) remounts with a clean tool/zoom/dock/undo-history state rather than
+			// carrying the previous map's editor state onto the new one.
+			key={selectedId}
+			mapId={selectedId}
+			initialTool={builder.tool}
+			initialFogMode={builder.fogMode ?? 'reveal'}
+			onClose={() => setBuilder(null)}
+			onNavigateToMap={selectMap}
+		/>
+	);
+
+	// RC-UX-4.3 — rail tier: the map library (switcher, create form, hierarchy) keeps the list pane and
+	// the selected map fills the detail pane beside it, its inspectors stacked under the canvas. No
+	// `detailKey`: a map is always selected, and following each pick would pull focus out of the tree.
+	if (split)
+		return (
+			<>
+				<ListDetail
+					list={
+						<Page>
+							{chips}
+							{createForm}
+							{tree}
+						</Page>
+					}
+					detail={
+						<Page>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
+								{noticeBar}
+								{canvas}
+								{inspectors}
+							</div>
+						</Page>
+					}
+					detailLabel={selectedEntry?.name ?? ''}
+				/>
+				{editor}
+			</>
+		);
+
+	return (
+		<Page max={1320}>
+			{chips}
+
+			{noticeBar}
+
+			{createForm}
 
 			<div
 				style={{
@@ -511,81 +630,16 @@ export function Atlas() {
 					alignItems: 'start',
 				}}
 			>
-				<AtlasCanvas
-					view={view}
-					mapView={mapView}
-					layers={layers}
-					isDm={isDm}
-					busy={busy}
-					mapZoom={mapZoom}
-					mapCenter={mapCenter}
-					rasterAssetId={rasterAssetId}
-					selPoiId={selPoiId}
-					selTokenId={selTokenId}
-					selectedEntry={selectedEntry}
-					onSelectPoi={setSelPoiId}
-					onSelectToken={setSelTokenId}
-					onFocusPoi={focusPoi}
-					onSetPoiVisibility={setPoiVisibility}
-					onCopyPoiLink={(poiId) => void copyPoiLink(poiId)}
-					onDeletePoi={(poiId) => void deletePoi(poiId)}
-					onZoom={zoom}
-					onOpenEditor={() => openBuilder('select')}
-					onOpenFog={(mode) => openBuilder('fog', mode)}
-					onProjectToPlayers={() => void projectToPlayers()}
-				/>
+				{canvas}
 
 				{/* side rails — all real, actor-filtered Core data */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<MapHierarchyTree tree={mapHierarchy} selectedId={selectedId} onSelect={selectMap} />
-
-					<LayersPanel
-						layers={layers}
-						hiddenMatchCount={layerResult.hiddenMatchCount}
-						isDm={isDm}
-						loading={loading}
-						busy={busy}
-						selectedId={selectedId}
-						onAddLayer={addLayer}
-						onReorderLayer={reorderLayer}
-						onToggleLayerVisibility={toggleLayerVisibility}
-						onToggleLayerEnabled={toggleLayerEnabled}
-					/>
-
-					<PoiPanel
-						mapView={mapView}
-						isDm={isDm}
-						loading={loading}
-						busy={busy}
-						selPoiId={selPoiId}
-						onSelectPoi={setSelPoiId}
-						onAddPoi={() => openBuilder('poi')}
-						onTogglePoiVisibility={togglePoiVisibility}
-						onDeletePoi={(poiId) => void deletePoi(poiId)}
-					/>
-
-					<FogPanel
-						mapView={mapView}
-						isDm={isDm}
-						selectedId={selectedId}
-						onOpenFog={(mode) => openBuilder('fog', mode)}
-					/>
+					{tree}
+					{inspectors}
 				</div>
 			</div>
 
-			{builder && selectedId && (
-				<MapEditor
-					// RC-MAP-3.8 — keyed by mapId so drilling to a different map (breadcrumb ancestor or a
-					// `map-link` POI) remounts with a clean tool/zoom/dock/undo-history state rather than
-					// carrying the previous map's editor state onto the new one.
-					key={selectedId}
-					mapId={selectedId}
-					initialTool={builder.tool}
-					initialFogMode={builder.fogMode ?? 'reveal'}
-					onClose={() => setBuilder(null)}
-					onNavigateToMap={selectMap}
-				/>
-			)}
+			{editor}
 		</Page>
 	);
 }

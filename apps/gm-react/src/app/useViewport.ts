@@ -28,6 +28,28 @@ export function useViewport(): Viewport {
 	return vp;
 }
 
+/* RC-UX-4.3 — list/detail screens (Characters, Knowledge, Campaign, Atlas) put the list and the open
+ * detail SIDE BY SIDE on the rail tier (`ListDetail` in screen-kit). Desktop keeps its full-width
+ * detail pages, whose own two-column layouts already use the room, and a phone stacks. A rail window
+ * under 768px cannot fit a readable detail pane beside the 280px list, so it stacks as well. */
+const SPLIT_QUERY = '(min-width: 768px)';
+
+export function computeListDetailSplit(): boolean {
+	return computeViewport() === 'rail' && matchesMedia(SPLIT_QUERY);
+}
+
+export function useListDetailSplit(): boolean {
+	const [split, setSplit] = useState(() => computeListDetailSplit());
+	useEffect(
+		() =>
+			subscribeMedia([PHONE_QUERY, RAIL_QUERY, SPLIT_QUERY], () =>
+				setSplit(computeListDetailSplit()),
+			),
+		[],
+	);
+	return split;
+}
+
 /** Full sidebar + full-label table actions need more room than the navigation breakpoint alone.
  * Keep the toolbar compact in ordinary split-screen desktop windows, then expand it at 1280px. */
 export function useCompactTopBar(): boolean {

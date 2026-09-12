@@ -25,6 +25,7 @@ export function CharCard({
 	tabIndex,
 	onFocus,
 	describedBy,
+	current = false,
 }: {
 	entry: RosterEntry;
 	onOpen: () => void;
@@ -32,6 +33,8 @@ export function CharCard({
 	onFocus?: () => void;
 	/** Extra `aria-describedby` ids (the grid's keyboard hint, on the card that holds the tab stop). */
 	describedBy?: string;
+	/** The character whose sheet is open in the rail tier's detail pane beside the roster (RC-UX-4.3). */
+	current?: boolean;
 }) {
 	const { t, formatDate, formatList, formatRelativeTime } = useI18n();
 	const { view, className, level, owners, lastPlayed, tags } = entry;
@@ -64,8 +67,10 @@ export function CharCard({
 			elevation="flat"
 			interactive
 			padding="none"
+			accent={current}
 			onClick={onOpen}
 			aria-label={view.name}
+			aria-current={current ? 'true' : undefined}
 			aria-describedby={[detailsId, describedBy].filter(Boolean).join(' ')}
 			data-roster-card=""
 			{...(tabIndex !== undefined ? { tabIndex } : null)}
