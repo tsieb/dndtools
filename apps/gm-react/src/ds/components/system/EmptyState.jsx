@@ -1,14 +1,20 @@
 import React from 'react';
 import { Icon } from '../core/Icon.jsx';
+import { Illustration, isIllustrationKey } from '../../illustrations';
 
 /**
  * EmptyState — what a surface shows before it has content: a muted icon, a plain-spoken title, an
  * optional one-line explanation, and the single action that fills it. Calm, never apologetic —
  * "No combat running." / "Start one →", in the product's stage-manager voice. Use `inset` inside a
  * card/panel and the default for full-region empties.
+ *
+ * `illustration` (RC-DSN-3.1) names a drawing from `ds/illustrations` (`'knowledge-empty'`,
+ * `'search-none'`, …) and shows that 160px line art in place of the icon badge. An unknown key keeps
+ * the icon, so a typo degrades to the plain empty state instead of a blank gap.
  */
 export function EmptyState({
 	icon = 'info',
+	illustration,
 	title,
 	description,
 	action,
@@ -35,22 +41,26 @@ export function EmptyState({
 			}}
 			{...rest}
 		>
-			<span
-				style={{
-					display: 'inline-flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					width: 56,
-					height: 56,
-					borderRadius: 'var(--radius-full)',
-					background: 'var(--color-surface-sunken)',
-					border: '1px solid var(--color-border)',
-					color: 'var(--color-text-tertiary)',
-					marginBottom: 'var(--space-1)',
-				}}
-			>
-				<Icon name={icon} size="lg" aria-hidden="true" />
-			</span>
+			{isIllustrationKey(illustration) ? (
+				<Illustration name={illustration} style={{ marginBottom: 'var(--space-1)' }} />
+			) : (
+				<span
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						width: 56,
+						height: 56,
+						borderRadius: 'var(--radius-full)',
+						background: 'var(--color-surface-sunken)',
+						border: '1px solid var(--color-border)',
+						color: 'var(--color-text-tertiary)',
+						marginBottom: 'var(--space-1)',
+					}}
+				>
+					<Icon name={icon} size="lg" aria-hidden="true" />
+				</span>
+			)}
 			{title && (
 				<h3
 					style={{

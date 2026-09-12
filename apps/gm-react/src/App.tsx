@@ -84,6 +84,16 @@ const DsGallery = import.meta.env.DEV
 	? lazy(() => import('./screens/DsGallery').then((m) => ({ default: m.DsGallery })))
 	: null;
 
+// RC-DSN-3.1 — the empty-state illustration gallery is a design reference, not a surface. It is
+// DEV-only: `import.meta.env.DEV` is statically false in a production build, so the route and its
+// chunk are tree-shaken out (the same guard as the `__rt` test seam).
+const IllustrationGallery = import.meta.env.DEV
+	? lazy(() =>
+			import('./ds/illustrations/IllustrationGallery').then((m) => ({
+				default: m.IllustrationGallery,
+			})),
+		)
+	: null;
 const CENTERED: CSSProperties = {
 	display: 'flex',
 	flexDirection: 'column',
@@ -529,6 +539,17 @@ function Shell() {
 					</Suspense>
 				}
 			/>
+			{/* RC-DSN-3.1 — DEV-only, chrome-less design reference (see the lazy import above). */}
+			{IllustrationGallery && (
+				<Route
+					path="/__illustrations"
+					element={
+						<Suspense fallback={<Boot />}>
+							<IllustrationGallery />
+						</Suspense>
+					}
+				/>
+			)}
 			<Route path="/*" element={<ShelledRoutes />} />
 		</Routes>
 	);
