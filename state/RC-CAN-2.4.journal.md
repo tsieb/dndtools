@@ -60,3 +60,15 @@ commit `aa2d5c4e` was never formatted.
   exit 0.
 - Lesson: before committing, run the gate's own command over the whole branch, not Prettier over the
   files touched in this attempt.
+- Committed as `232daed0`. The first failure stopped the dispatcher, so the later gates never ran on
+  this head; I ran each manifest gate whose `paths` match this diff, at the manifest's own argv:
+  - Typecheck (`pnpm typecheck`): exit 0.
+  - Lint (`pnpm lint`, incl. boundary lint and the non-text contrast gate): exit 0.
+  - Core tests (`pnpm test:critical --maxWorkers=3`): 273 files, 4779 tests passed.
+  - App tests (`pnpm test:app --maxWorkers=3`): 122 files, 1281 tests passed.
+  - Build (`pnpm build`): exit 0. Only the usual chunk-size warning; `check-prod-bundle` OK.
+  - Requirements audit (`pnpm feature-audit`): exit 0, 0/22 screens need wiring review.
+  - Quality gates and Format (changed) already passed above.
+  - Not run: Cloud tests and Tooling tests (no matching paths), and Browser acceptance (the full
+    `pnpm e2e` suite, left to the operator gate). Attempt 2's tile-menu e2e block passed 10/10 on
+    both projects, and this attempt changed only whitespace in app code since then.
