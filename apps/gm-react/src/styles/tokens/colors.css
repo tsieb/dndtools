@@ -321,6 +321,70 @@
 }
 
 /* --------------------------------------------------------------------------------------------
+ * TILE-TYPE TOKENS (RC-CAN-2.1) — one accent per board tile type, painted as the tile header's
+ * accent rail and type icon. Colour speeds up the scan of a busy board but is never the only cue:
+ * every tile also carries its icon + label, which is all that survives forced-colors below.
+ *
+ * Harmonised in OKLCH like the layer ramp: one lightness per theme, a tamed chroma, and hues spaced
+ * 20-35 degrees apart. The DM-only purple band (hue ~250-330) is left EMPTY so no tile can be
+ * mistaken for the safety signal. handout (sepia) and reference (warm grey) share a hue and differ
+ * by chroma alone: paper, not paint. Where a theme's lightness would push a hue out of the sRGB
+ * gamut its chroma is trimmed, so the colour the gate measures is the colour the browser paints.
+ *
+ * Every theme declares the full set, so a nested theme wrapper never inherits another theme's cut.
+ * Each value must reach 3:1 (WCAG 1.4.11) on the page, panel, raised tile body, and sunken
+ * placeholder well. Enforced by scripts/a11y-nontext-contrast-lint.ts (`pnpm a11y:contrast`).
+ * ------------------------------------------------------------------------------------------ */
+:root,
+[data-theme='tavern'] {
+	--color-tile-note: oklch(0.76 0.1 88); /* candle gold — the brand's own ink */
+	--color-tile-combat: oklch(0.76 0.1 25); /* blood red */
+	--color-tile-encounter: oklch(0.76 0.1 48); /* ember — a fight being prepared */
+	--color-tile-dice: oklch(0.76 0.1 335); /* orchid */
+	--color-tile-generator: oklch(0.76 0.1 180); /* verdigris teal */
+	--color-tile-handout: oklch(0.76 0.06 68); /* sepia paper */
+	--color-tile-timer: oklch(0.76 0.1 112); /* brass olive */
+	--color-tile-calendar: oklch(0.76 0.1 245); /* dusk blue */
+	--color-tile-map: oklch(0.76 0.1 145); /* sage — echoes the terrain layers */
+	--color-tile-character: oklch(0.76 0.1 0); /* rose */
+	--color-tile-audio: oklch(0.76 0.1 212); /* lake cyan */
+	--color-tile-reference: oklch(0.76 0.02 70); /* warm grey — a book spine */
+}
+
+/* Parchment: the same hues re-cut at L 0.48 so they read as ink on vellum (>= 4.5:1 on every
+ * parchment surface, clearing 3:1 with room to spare). */
+[data-theme='parchment'] {
+	--color-tile-note: oklch(0.48 0.09 88);
+	--color-tile-combat: oklch(0.48 0.11 25);
+	--color-tile-encounter: oklch(0.48 0.11 48);
+	--color-tile-dice: oklch(0.48 0.11 335);
+	--color-tile-generator: oklch(0.48 0.08 180);
+	--color-tile-handout: oklch(0.48 0.065 68);
+	--color-tile-timer: oklch(0.48 0.09 112);
+	--color-tile-calendar: oklch(0.48 0.11 245);
+	--color-tile-map: oklch(0.48 0.11 145);
+	--color-tile-character: oklch(0.48 0.11 0);
+	--color-tile-audio: oklch(0.48 0.07 212);
+	--color-tile-reference: oklch(0.48 0.02 70);
+}
+
+/* High-contrast: pushed to L 0.84 on black (>= 11:1), chroma held just inside the gamut. */
+[data-theme='high-contrast'] {
+	--color-tile-note: oklch(0.84 0.085 88);
+	--color-tile-combat: oklch(0.84 0.08 25);
+	--color-tile-encounter: oklch(0.84 0.085 48);
+	--color-tile-dice: oklch(0.84 0.085 335);
+	--color-tile-generator: oklch(0.84 0.085 180);
+	--color-tile-handout: oklch(0.84 0.05 68);
+	--color-tile-timer: oklch(0.84 0.085 112);
+	--color-tile-calendar: oklch(0.84 0.075 245);
+	--color-tile-map: oklch(0.84 0.085 145);
+	--color-tile-character: oklch(0.84 0.08 0);
+	--color-tile-audio: oklch(0.84 0.085 212);
+	--color-tile-reference: oklch(0.84 0.015 70);
+}
+
+/* --------------------------------------------------------------------------------------------
  * Legacy alias bridge — the prototype's short token names map onto the semantic layer so older
  * component rules resolve per active theme without per-surface color logic.
  * ------------------------------------------------------------------------------------------ */
@@ -430,5 +494,20 @@
 		--map-fog-fill: GrayText;
 		--map-grid-line: GrayText;
 		--map-canvas-bg: Canvas;
+
+		/* Tile accents. Hue identity is lost under a forced palette, so the accent rail and type
+		 * icon become plain CanvasText and the tile's icon + label carry its type. */
+		--color-tile-note: CanvasText;
+		--color-tile-combat: CanvasText;
+		--color-tile-encounter: CanvasText;
+		--color-tile-dice: CanvasText;
+		--color-tile-generator: CanvasText;
+		--color-tile-handout: CanvasText;
+		--color-tile-timer: CanvasText;
+		--color-tile-calendar: CanvasText;
+		--color-tile-map: CanvasText;
+		--color-tile-character: CanvasText;
+		--color-tile-audio: CanvasText;
+		--color-tile-reference: CanvasText;
 	}
 }

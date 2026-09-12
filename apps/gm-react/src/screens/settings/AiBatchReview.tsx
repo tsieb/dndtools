@@ -8,6 +8,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Checkbox, Icon, Select, Toaster } from '../../ds';
 import { Panel, Seg, T } from '../../app/screen-kit';
+import { HelpBeside } from '../../app/help/ContextHelp';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { errMsg } from './shared';
@@ -172,7 +173,11 @@ export function AiBatchReviewPanel({
 	return (
 		<Panel
 			title={t('settings.ai.stagedTitle')}
-			action={<Badge status={pending.length ? 'warning' : 'success'}>{pending.length}</Badge>}
+			action={
+				<HelpBeside topic="stagedProposals">
+					<Badge status={pending.length ? 'warning' : 'success'}>{pending.length}</Badge>
+				</HelpBeside>
+			}
 		>
 			{pending.length === 0 ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>

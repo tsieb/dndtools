@@ -259,7 +259,7 @@ export function SettingsSubscription() {
 												color: T.sub,
 											}}
 										>
-											<span style={{ marginTop: 1 }}>
+											<span style={{ marginTop: T.space.half }}>
 												<Icon name="check" size={12} color={pl.cloud ? T.acc : T.ter} />
 											</span>
 											{f}

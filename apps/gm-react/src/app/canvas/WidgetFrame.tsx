@@ -1,5 +1,13 @@
+import { useMemo } from 'react';
 import { Icon } from '../../ds';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { TIER_LABEL, visibilityChip, type BoardWidget } from '../board-helpers';
+import {
+	safeBoundEntityName,
+	tileBindingState,
+	tileMetadataForWidget,
+	type TileBindingState,
+} from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
 
 /**
@@ -110,6 +118,15 @@ export function ZoomBtn({
 	);
 }
 
+/** The header's binding glyph: a word as well as a shape, so no state rests on colour alone. */
+const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: string; tone: string }> = {
+	bound: { icon: 'link', label: 'Bound', tone: 'var(--color-text-secondary)' },
+	unbound: { icon: 'link', label: 'Not bound', tone: 'var(--color-text-secondary)' },
+	missing: { icon: 'warning', label: 'Missing', tone: 'var(--color-status-warning-text)' },
+	conflicted: { icon: 'warning', label: 'Conflict', tone: 'var(--color-status-warning-text)' },
+	hidden: { icon: 'visibility-hidden', label: 'Hidden', tone: 'var(--color-text-secondary)' },
+};
+
 export interface WidgetFrameProps {
 	w: BoardWidget;
 	x: number;
@@ -153,6 +170,25 @@ export function WidgetFrame({
 }: WidgetFrameProps) {
 	const chip = visibilityChip(w.visibility);
 	const placeholder = w.status !== 'available';
+	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
+	// icon, the label, who can see it, and what it is bound to.
+	const meta = tileMetadataForWidget(w);
+	const binding = tileBindingState(w);
+	const glyph = binding ? BINDING_GLYPH[binding] : null;
+	const { state, defaultActorId } = useRuntime();
+	const refType = w.bindingRef?.entityType ?? null;
+	const refId = w.bindingRef?.entityId ?? null;
+	// Memoised on primitives: a frame re-renders on every pointer move while a tile is dragged, and
+	// the name is an actor-filtered core read, not a field lookup.
+	const entityName = useMemo(
+		() =>
+			safeBoundEntityName(state, defaultActorId, {
+				status: w.status,
+				bindingRef: refType && refId ? { entityType: refType, entityId: refId } : null,
+			}),
+		[state, defaultActorId, w.status, refType, refId],
+	);
+	const accent = `var(${meta.accentToken})`;
 	return (
 		<div
 			data-testid={`widget-${w.id}`}
@@ -183,7 +219,9 @@ export function WidgetFrame({
 			}}
 		>
 			<div
+				className={meta.silhouetteClass}
 				style={{
+					position: 'relative',
 					height: '100%',
 					display: 'flex',
 					flexDirection: 'column',
@@ -197,10 +235,24 @@ export function WidgetFrame({
 					pointerEvents: editing ? 'none' : 'auto',
 				}}
 			>
+				{/* A BORDER, not a background: forced-colors mode repaints backgrounds as Canvas, which
+				    would erase the rail, but keeps a border and remaps it to CanvasText. */}
+				<span
+					aria-hidden
+					data-testid="tile-accent-rail"
+					style={{
+						position: 'absolute',
+						left: 0,
+						top: 0,
+						bottom: 0,
+						width: 0,
+						borderLeft: `4px solid ${accent}`,
+					}}
+				/>
 				<div
 					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}
 				>
-					<WidgetGlyph icon={w.icon} size="sm" />
+					<WidgetGlyph icon={meta.icon} size={16} color={accent} />
 					<span
 						style={{
 							flex: 1,
@@ -239,14 +291,46 @@ export function WidgetFrame({
 				</div>
 				<div
 					style={{
-						font: 'var(--text-2xs) var(--font-sans)',
-						letterSpacing: 'var(--tracking-wide)',
-						textTransform: 'uppercase',
-						color: 'var(--color-text-tertiary)',
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						minWidth: 0,
 						flex: '0 0 auto',
 					}}
 				>
-					{w.typeLabel}
+					<span
+						title={meta.description}
+						style={{
+							font: 'var(--text-2xs) var(--font-sans)',
+							letterSpacing: 'var(--tracking-wide)',
+							textTransform: 'uppercase',
+							color: 'var(--color-text-tertiary)',
+							whiteSpace: 'nowrap',
+							flex: '0 0 auto',
+						}}
+					>
+						{w.typeLabel}
+					</span>
+					{binding && glyph && (
+						<span
+							data-testid="tile-binding"
+							data-binding-state={binding}
+							title={entityName ? `Bound to ${entityName}` : glyph.label}
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 'var(--space-1)',
+								minWidth: 0,
+								font: '600 var(--text-2xs) var(--font-sans)',
+								color: glyph.tone,
+							}}
+						>
+							<Icon name={glyph.icon} size={12} />
+							<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+								{entityName ?? glyph.label}
+							</span>
+						</span>
+					)}
 				</div>
 				<div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
 					<WidgetRenderSlot widget={w} onCommand={onCommand} />

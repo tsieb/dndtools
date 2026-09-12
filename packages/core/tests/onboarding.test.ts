@@ -12,7 +12,15 @@ import {
 	tierMeets,
 	visibleFeatures,
 	dispatchCommand,
+	FEATURE_SPOTLIGHTS,
+	markSpotlightSeen,
+	parseSeenSpotlights,
+	pendingSpotlights,
+	serializeSeenSpotlights,
+	spotlightsSeenIn,
+	spotlightVaultId,
 	type CoreStateSlice,
+	type SeenSpotlights,
 } from '../src';
 import {
 	DM_ACTOR,
@@ -191,5 +199,92 @@ describe('RC-UX-3.5 maturity-signal disclosure', () => {
 
 	it('isMaturitySignalReached fails closed for an unknown signal id', () => {
 		expect(isMaturitySignalReached('not-a-signal', buildInitialState(DM_ACTOR))).toBe(false);
+	});
+});
+
+describe('RC-UX-3.2 feature spotlights', () => {
+	const VAULT = 'vault-a';
+	const pending = (
+		state: CoreStateSlice,
+		seen: SeenSpotlights = {},
+		vaultId = VAULT,
+		keyboard = true,
+	) => pendingSpotlights(state, DM_ACTOR.id, vaultId, seen, { keyboard }).map((s) => s.id);
+
+	it('declares every spotlight id once', () => {
+		const ids = FEATURE_SPOTLIGHTS.map((s) => s.id);
+		expect(new Set(ids).size).toBe(ids.length);
+	});
+
+	it('queues due spotlights in declaration order, an earned surface first', () => {
+		const fresh = buildInitialState(DM_ACTOR);
+		expect(pending(fresh)).toEqual(['command-palette', 'shortcuts']);
+		const linked = withLinkedNotes(fresh, makeEnvironment(), 3);
+		expect(pending(linked)).toEqual(['graph', 'command-palette', 'shortcuts']);
+	});
+
+	it('never offers a keyboard tip to a touch-only device', () => {
+		const fresh = buildInitialState(DM_ACTOR);
+		expect(pending(fresh, {}, VAULT, false)).toEqual([]);
+		const linked = withLinkedNotes(fresh, makeEnvironment(), 3);
+		expect(pending(linked, {}, VAULT, false)).toEqual(['graph']);
+	});
+
+	it('a seen spotlight never comes back in that vault, and is still due in another', () => {
+		const state = withLinkedNotes(buildInitialState(DM_ACTOR), makeEnvironment(), 3);
+		const seen = markSpotlightSeen({}, VAULT, 'graph');
+		expect(pending(state, seen)).toEqual(['command-palette', 'shortcuts']);
+		expect(pending(state, seen, 'vault-b')).toContain('graph');
+		// The same answer after a round trip through the stored device preference.
+		const stored = parseSeenSpotlights(serializeSeenSpotlights(seen));
+		expect(pending(state, stored)).toEqual(['command-palette', 'shortcuts']);
+		const everything = ['graph', 'command-palette', 'shortcuts'].reduce(
+			(acc, id) => markSpotlightSeen(acc, VAULT, id),
+			stored,
+		);
+		expect(pending(state, everything)).toEqual([]);
+	});
+
+	it('marking is idempotent', () => {
+		const once = markSpotlightSeen({}, VAULT, 'graph');
+		expect(markSpotlightSeen(once, VAULT, 'graph')).toBe(once);
+		expect(spotlightsSeenIn(once, VAULT)).toEqual(['graph']);
+		expect(spotlightsSeenIn(once, 'vault-b')).toEqual([]);
+	});
+
+	it('preserves seen history beyond 64 vaults after reloading preferences', () => {
+		const seen = Object.fromEntries(
+			Array.from({ length: 65 }, (_, index) => [`vault-${index}`, ['graph']]),
+		);
+		const restored = parseSeenSpotlights(serializeSeenSpotlights(seen));
+		expect(restored).toEqual(seen);
+		const state = withLinkedNotes(buildInitialState(DM_ACTOR), makeEnvironment(), 3);
+		expect(pending(state, restored, 'vault-64')).not.toContain('graph');
+	});
+
+	it('is DM-only: a player is never shown a spotlight', () => {
+		const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		expect(pending(state)).not.toEqual([]);
+		expect(pendingSpotlights(state, PLAYER_ACTOR.id, VAULT, {}, { keyboard: true })).toEqual([]);
+	});
+
+	it('parses a corrupt or hostile preference without throwing', () => {
+		expect(parseSeenSpotlights(null)).toEqual({});
+		expect(parseSeenSpotlights('not json')).toEqual({});
+		expect(parseSeenSpotlights('["graph"]')).toEqual({});
+		expect(parseSeenSpotlights('{"a":"graph","b":[1,"graph","graph",""]}')).toEqual({
+			b: ['graph'],
+		});
+		const hostile = parseSeenSpotlights('{"__proto__":["graph"]}');
+		expect(Object.getPrototypeOf(hostile)).toBe(Object.prototype);
+		expect(spotlightsSeenIn(hostile, '__proto__')).toEqual(['graph']);
+		expect(spotlightsSeenIn(hostile, 'constructor')).toEqual([]);
+	});
+
+	it('keys the seen record by the vault id stamped on durable operations', () => {
+		const env = makeEnvironment();
+		const fresh = buildInitialState(DM_ACTOR);
+		expect(spotlightVaultId(fresh, 'fallback')).toBe('fallback');
+		expect(spotlightVaultId(withLinkedNotes(fresh, env, 1), 'fallback')).toBe(env.vaultId);
 	});
 });

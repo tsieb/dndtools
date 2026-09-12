@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { resolveMaturitySignals, visibleFeatures, type FeatureTier } from '@dndtools/core';
-import { Badge, Icon } from '../../ds';
+import { Badge, Icon, RadioCard } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -75,23 +75,19 @@ export function ExperienceComplexity() {
 					const on = levelTier === tier;
 					const reveals = visibleFeatures(levelTier).map((f) => f.label);
 					return (
-						<button
+						<RadioCard
 							key={l.id}
-							type="button"
-							role="radio"
-							aria-checked={on}
-							tabIndex={on ? 0 : -1}
-							onClick={() => {
+							value={l.tier}
+							checked={on}
+							onChange={() => {
 								setTier(levelTier);
 								setDocAttr(TIER_ATTR, TIER_KEY, levelTier);
 							}}
+							icon={l.icon}
 							style={{
 								minWidth: 0,
 								maxWidth: '100%',
 								textAlign: 'left',
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 9,
 								padding: 14,
 								borderRadius: 12,
 								cursor: 'pointer',
@@ -109,21 +105,6 @@ export function ExperienceComplexity() {
 									flexWrap: 'wrap',
 								}}
 							>
-								<span
-									style={{
-										width: 30,
-										height: 30,
-										borderRadius: 8,
-										flex: '0 0 auto',
-										display: 'inline-flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										background: on ? T.acc : T.alt,
-										color: on ? T.accFg : T.acc,
-									}}
-								>
-									<Icon name={l.icon} size="sm" />
-								</span>
 								<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
 									{t(l.name)}
 								</span>
@@ -154,7 +135,7 @@ export function ExperienceComplexity() {
 									</span>
 								))}
 							</div>
-						</button>
+						</RadioCard>
 					);
 				})}
 			</div>

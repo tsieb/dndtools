@@ -1,0 +1,1279 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`tile header identity snapshots > high-contrast theme > atlas 1`] = `
+{
+  "binding": null,
+  "description": "Active-map projection plus map thumbnails.",
+  "icon": {
+    "glyph": "lucide lucide-map",
+    "size": "16px",
+    "stroke": "var(--color-tile-map)",
+  },
+  "label": "Atlas",
+  "rail": {
+    "token": "--color-tile-map",
+    "value": "oklch(0.84 0.085 145)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-map",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > audio 1`] = `
+{
+  "binding": null,
+  "description": "Ambient audio playback controls.",
+  "icon": {
+    "glyph": "lucide lucide-volume2",
+    "size": "16px",
+    "stroke": "var(--color-tile-audio)",
+  },
+  "label": "Audio",
+  "rail": {
+    "token": "--color-tile-audio",
+    "value": "oklch(0.84 0.085 212)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-audio",
+  "type": "Atmosphere",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > character 1`] = `
+{
+  "binding": {
+    "state": "bound",
+    "text": "Brannor",
+  },
+  "description": "A character stat block (HP, AC, abilities).",
+  "icon": {
+    "glyph": "lucide lucide-users",
+    "size": "16px",
+    "stroke": "var(--color-tile-character)",
+  },
+  "label": "Character",
+  "rail": {
+    "token": "--color-tile-character",
+    "value": "oklch(0.84 0.08 0)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-character",
+  "type": "Characters",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > characters 1`] = `
+{
+  "binding": null,
+  "description": "The party roster as a thumbnail grid.",
+  "icon": {
+    "glyph": "lucide lucide-users",
+    "size": "16px",
+    "stroke": "var(--color-tile-character)",
+  },
+  "label": "Characters",
+  "rail": {
+    "token": "--color-tile-character",
+    "value": "oklch(0.84 0.08 0)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-character",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > combat 1`] = `
+{
+  "binding": null,
+  "description": "Live tracker glance plus the most recent encounter.",
+  "icon": {
+    "glyph": "lucide lucide-swords",
+    "size": "16px",
+    "stroke": "var(--color-tile-combat)",
+  },
+  "label": "Combat",
+  "rail": {
+    "token": "--color-tile-combat",
+    "value": "oklch(0.84 0.08 25)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-combat",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > data-hub 1`] = `
+{
+  "binding": null,
+  "description": "Tabbed Scenes / Parties / Campaign tables.",
+  "icon": {
+    "glyph": "lucide lucide-database-zap",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Data Hub",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > dice 1`] = `
+{
+  "binding": null,
+  "description": "Quick-roll buttons that record rolls to the session.",
+  "icon": {
+    "glyph": "lucide lucide-dices",
+    "size": "16px",
+    "stroke": "var(--color-tile-dice)",
+  },
+  "label": "Dice",
+  "rail": {
+    "token": "--color-tile-dice",
+    "value": "oklch(0.84 0.085 335)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-dice",
+  "type": "Dice & Timers",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > getting-started 1`] = `
+{
+  "binding": null,
+  "description": "Onboarding and feature-tier guidance.",
+  "icon": {
+    "glyph": "lucide lucide-sparkles",
+    "size": "16px",
+    "stroke": "var(--color-tile-generator)",
+  },
+  "label": "Getting Started",
+  "rail": {
+    "token": "--color-tile-generator",
+    "value": "oklch(0.84 0.085 180)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-generator",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > handout 1`] = `
+{
+  "binding": null,
+  "description": "A shareable handout message.",
+  "icon": {
+    "glyph": "lucide lucide-scroll",
+    "size": "16px",
+    "stroke": "var(--color-tile-handout)",
+  },
+  "label": "Handout",
+  "rail": {
+    "token": "--color-tile-handout",
+    "value": "oklch(0.84 0.05 68)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-handout",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > initiative-tracker 1`] = `
+{
+  "binding": null,
+  "description": "The live turn order with round and active turn.",
+  "icon": {
+    "glyph": "lucide lucide-swords",
+    "size": "16px",
+    "stroke": "var(--color-tile-combat)",
+  },
+  "label": "Initiative Tracker",
+  "rail": {
+    "token": "--color-tile-combat",
+    "value": "oklch(0.84 0.08 25)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-combat",
+  "type": "Combat",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > map 1`] = `
+{
+  "binding": {
+    "state": "bound",
+    "text": "Old mill",
+  },
+  "description": "A bound map with its visible layers.",
+  "icon": {
+    "glyph": "lucide lucide-map",
+    "size": "16px",
+    "stroke": "var(--color-tile-map)",
+  },
+  "label": "Map",
+  "rail": {
+    "token": "--color-tile-map",
+    "value": "oklch(0.84 0.085 145)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-map",
+  "type": "Maps",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > note 1`] = `
+{
+  "binding": null,
+  "description": "A free-text note rendered inline on the canvas.",
+  "icon": {
+    "glyph": "lucide lucide-notebook-pen",
+    "size": "16px",
+    "stroke": "var(--color-tile-note)",
+  },
+  "label": "Note",
+  "rail": {
+    "token": "--color-tile-note",
+    "value": "oklch(0.84 0.085 88)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-note",
+  "type": "Notes",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > notes 1`] = `
+{
+  "binding": null,
+  "description": "The most recently touched notes.",
+  "icon": {
+    "glyph": "lucide lucide-notebook-pen",
+    "size": "16px",
+    "stroke": "var(--color-tile-note)",
+  },
+  "label": "Notes",
+  "rail": {
+    "token": "--color-tile-note",
+    "value": "oklch(0.84 0.085 88)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-note",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > player-views 1`] = `
+{
+  "binding": null,
+  "description": "Per-participant Player View assignment + projection.",
+  "icon": {
+    "glyph": "lucide lucide-eye",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Player Views",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > prep 1`] = `
+{
+  "binding": null,
+  "description": "A checklist of prep notes for the session.",
+  "icon": {
+    "glyph": "lucide lucide-folder-open",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Prep",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > quick-reference 1`] = `
+{
+  "binding": null,
+  "description": "A compact table of reference content.",
+  "icon": {
+    "glyph": "lucide lucide-book-open",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Quick Reference",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > search 1`] = `
+{
+  "binding": null,
+  "description": "Launch global search from the board.",
+  "icon": {
+    "glyph": "lucide lucide-search",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Search",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > session 1`] = `
+{
+  "binding": null,
+  "description": "Session status strip, phase controls, and workflow.",
+  "icon": {
+    "glyph": "lucide lucide-sliders-horizontal",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Active Session",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > timer 1`] = `
+{
+  "binding": null,
+  "description": "A session countdown with start/pause/advance controls.",
+  "icon": {
+    "glyph": "lucide lucide-clock",
+    "size": "16px",
+    "stroke": "var(--color-tile-timer)",
+  },
+  "label": "Timer",
+  "rail": {
+    "token": "--color-tile-timer",
+    "value": "oklch(0.84 0.085 112)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-timer",
+  "type": "Dice & Timers",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > high-contrast theme > tools 1`] = `
+{
+  "binding": null,
+  "description": "Home-scene tools, the widget library, and layout presets.",
+  "icon": {
+    "glyph": "lucide lucide-briefcase-business",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Tools & Layouts",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.84 0.015 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > atlas 1`] = `
+{
+  "binding": null,
+  "description": "Active-map projection plus map thumbnails.",
+  "icon": {
+    "glyph": "lucide lucide-map",
+    "size": "16px",
+    "stroke": "var(--color-tile-map)",
+  },
+  "label": "Atlas",
+  "rail": {
+    "token": "--color-tile-map",
+    "value": "oklch(0.48 0.11 145)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-map",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > audio 1`] = `
+{
+  "binding": null,
+  "description": "Ambient audio playback controls.",
+  "icon": {
+    "glyph": "lucide lucide-volume2",
+    "size": "16px",
+    "stroke": "var(--color-tile-audio)",
+  },
+  "label": "Audio",
+  "rail": {
+    "token": "--color-tile-audio",
+    "value": "oklch(0.48 0.07 212)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-audio",
+  "type": "Atmosphere",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > character 1`] = `
+{
+  "binding": {
+    "state": "bound",
+    "text": "Brannor",
+  },
+  "description": "A character stat block (HP, AC, abilities).",
+  "icon": {
+    "glyph": "lucide lucide-users",
+    "size": "16px",
+    "stroke": "var(--color-tile-character)",
+  },
+  "label": "Character",
+  "rail": {
+    "token": "--color-tile-character",
+    "value": "oklch(0.48 0.11 0)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-character",
+  "type": "Characters",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > characters 1`] = `
+{
+  "binding": null,
+  "description": "The party roster as a thumbnail grid.",
+  "icon": {
+    "glyph": "lucide lucide-users",
+    "size": "16px",
+    "stroke": "var(--color-tile-character)",
+  },
+  "label": "Characters",
+  "rail": {
+    "token": "--color-tile-character",
+    "value": "oklch(0.48 0.11 0)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-character",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > combat 1`] = `
+{
+  "binding": null,
+  "description": "Live tracker glance plus the most recent encounter.",
+  "icon": {
+    "glyph": "lucide lucide-swords",
+    "size": "16px",
+    "stroke": "var(--color-tile-combat)",
+  },
+  "label": "Combat",
+  "rail": {
+    "token": "--color-tile-combat",
+    "value": "oklch(0.48 0.11 25)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-combat",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > data-hub 1`] = `
+{
+  "binding": null,
+  "description": "Tabbed Scenes / Parties / Campaign tables.",
+  "icon": {
+    "glyph": "lucide lucide-database-zap",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Data Hub",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > dice 1`] = `
+{
+  "binding": null,
+  "description": "Quick-roll buttons that record rolls to the session.",
+  "icon": {
+    "glyph": "lucide lucide-dices",
+    "size": "16px",
+    "stroke": "var(--color-tile-dice)",
+  },
+  "label": "Dice",
+  "rail": {
+    "token": "--color-tile-dice",
+    "value": "oklch(0.48 0.11 335)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-dice",
+  "type": "Dice & Timers",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > getting-started 1`] = `
+{
+  "binding": null,
+  "description": "Onboarding and feature-tier guidance.",
+  "icon": {
+    "glyph": "lucide lucide-sparkles",
+    "size": "16px",
+    "stroke": "var(--color-tile-generator)",
+  },
+  "label": "Getting Started",
+  "rail": {
+    "token": "--color-tile-generator",
+    "value": "oklch(0.48 0.08 180)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-generator",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > handout 1`] = `
+{
+  "binding": null,
+  "description": "A shareable handout message.",
+  "icon": {
+    "glyph": "lucide lucide-scroll",
+    "size": "16px",
+    "stroke": "var(--color-tile-handout)",
+  },
+  "label": "Handout",
+  "rail": {
+    "token": "--color-tile-handout",
+    "value": "oklch(0.48 0.065 68)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-handout",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > initiative-tracker 1`] = `
+{
+  "binding": null,
+  "description": "The live turn order with round and active turn.",
+  "icon": {
+    "glyph": "lucide lucide-swords",
+    "size": "16px",
+    "stroke": "var(--color-tile-combat)",
+  },
+  "label": "Initiative Tracker",
+  "rail": {
+    "token": "--color-tile-combat",
+    "value": "oklch(0.48 0.11 25)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-combat",
+  "type": "Combat",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > map 1`] = `
+{
+  "binding": {
+    "state": "bound",
+    "text": "Old mill",
+  },
+  "description": "A bound map with its visible layers.",
+  "icon": {
+    "glyph": "lucide lucide-map",
+    "size": "16px",
+    "stroke": "var(--color-tile-map)",
+  },
+  "label": "Map",
+  "rail": {
+    "token": "--color-tile-map",
+    "value": "oklch(0.48 0.11 145)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-map",
+  "type": "Maps",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > note 1`] = `
+{
+  "binding": null,
+  "description": "A free-text note rendered inline on the canvas.",
+  "icon": {
+    "glyph": "lucide lucide-notebook-pen",
+    "size": "16px",
+    "stroke": "var(--color-tile-note)",
+  },
+  "label": "Note",
+  "rail": {
+    "token": "--color-tile-note",
+    "value": "oklch(0.48 0.09 88)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-note",
+  "type": "Notes",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > notes 1`] = `
+{
+  "binding": null,
+  "description": "The most recently touched notes.",
+  "icon": {
+    "glyph": "lucide lucide-notebook-pen",
+    "size": "16px",
+    "stroke": "var(--color-tile-note)",
+  },
+  "label": "Notes",
+  "rail": {
+    "token": "--color-tile-note",
+    "value": "oklch(0.48 0.09 88)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-note",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > player-views 1`] = `
+{
+  "binding": null,
+  "description": "Per-participant Player View assignment + projection.",
+  "icon": {
+    "glyph": "lucide lucide-eye",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Player Views",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > prep 1`] = `
+{
+  "binding": null,
+  "description": "A checklist of prep notes for the session.",
+  "icon": {
+    "glyph": "lucide lucide-folder-open",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Prep",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > quick-reference 1`] = `
+{
+  "binding": null,
+  "description": "A compact table of reference content.",
+  "icon": {
+    "glyph": "lucide lucide-book-open",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Quick Reference",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > search 1`] = `
+{
+  "binding": null,
+  "description": "Launch global search from the board.",
+  "icon": {
+    "glyph": "lucide lucide-search",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Search",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > session 1`] = `
+{
+  "binding": null,
+  "description": "Session status strip, phase controls, and workflow.",
+  "icon": {
+    "glyph": "lucide lucide-sliders-horizontal",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Active Session",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > timer 1`] = `
+{
+  "binding": null,
+  "description": "A session countdown with start/pause/advance controls.",
+  "icon": {
+    "glyph": "lucide lucide-clock",
+    "size": "16px",
+    "stroke": "var(--color-tile-timer)",
+  },
+  "label": "Timer",
+  "rail": {
+    "token": "--color-tile-timer",
+    "value": "oklch(0.48 0.09 112)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-timer",
+  "type": "Dice & Timers",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > parchment theme > tools 1`] = `
+{
+  "binding": null,
+  "description": "Home-scene tools, the widget library, and layout presets.",
+  "icon": {
+    "glyph": "lucide lucide-briefcase-business",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Tools & Layouts",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.48 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > atlas 1`] = `
+{
+  "binding": null,
+  "description": "Active-map projection plus map thumbnails.",
+  "icon": {
+    "glyph": "lucide lucide-map",
+    "size": "16px",
+    "stroke": "var(--color-tile-map)",
+  },
+  "label": "Atlas",
+  "rail": {
+    "token": "--color-tile-map",
+    "value": "oklch(0.76 0.1 145)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-map",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > audio 1`] = `
+{
+  "binding": null,
+  "description": "Ambient audio playback controls.",
+  "icon": {
+    "glyph": "lucide lucide-volume2",
+    "size": "16px",
+    "stroke": "var(--color-tile-audio)",
+  },
+  "label": "Audio",
+  "rail": {
+    "token": "--color-tile-audio",
+    "value": "oklch(0.76 0.1 212)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-audio",
+  "type": "Atmosphere",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > character 1`] = `
+{
+  "binding": {
+    "state": "bound",
+    "text": "Brannor",
+  },
+  "description": "A character stat block (HP, AC, abilities).",
+  "icon": {
+    "glyph": "lucide lucide-users",
+    "size": "16px",
+    "stroke": "var(--color-tile-character)",
+  },
+  "label": "Character",
+  "rail": {
+    "token": "--color-tile-character",
+    "value": "oklch(0.76 0.1 0)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-character",
+  "type": "Characters",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > characters 1`] = `
+{
+  "binding": null,
+  "description": "The party roster as a thumbnail grid.",
+  "icon": {
+    "glyph": "lucide lucide-users",
+    "size": "16px",
+    "stroke": "var(--color-tile-character)",
+  },
+  "label": "Characters",
+  "rail": {
+    "token": "--color-tile-character",
+    "value": "oklch(0.76 0.1 0)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-character",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > combat 1`] = `
+{
+  "binding": null,
+  "description": "Live tracker glance plus the most recent encounter.",
+  "icon": {
+    "glyph": "lucide lucide-swords",
+    "size": "16px",
+    "stroke": "var(--color-tile-combat)",
+  },
+  "label": "Combat",
+  "rail": {
+    "token": "--color-tile-combat",
+    "value": "oklch(0.76 0.1 25)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-combat",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > data-hub 1`] = `
+{
+  "binding": null,
+  "description": "Tabbed Scenes / Parties / Campaign tables.",
+  "icon": {
+    "glyph": "lucide lucide-database-zap",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Data Hub",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > dice 1`] = `
+{
+  "binding": null,
+  "description": "Quick-roll buttons that record rolls to the session.",
+  "icon": {
+    "glyph": "lucide lucide-dices",
+    "size": "16px",
+    "stroke": "var(--color-tile-dice)",
+  },
+  "label": "Dice",
+  "rail": {
+    "token": "--color-tile-dice",
+    "value": "oklch(0.76 0.1 335)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-dice",
+  "type": "Dice & Timers",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > getting-started 1`] = `
+{
+  "binding": null,
+  "description": "Onboarding and feature-tier guidance.",
+  "icon": {
+    "glyph": "lucide lucide-sparkles",
+    "size": "16px",
+    "stroke": "var(--color-tile-generator)",
+  },
+  "label": "Getting Started",
+  "rail": {
+    "token": "--color-tile-generator",
+    "value": "oklch(0.76 0.1 180)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-generator",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > handout 1`] = `
+{
+  "binding": null,
+  "description": "A shareable handout message.",
+  "icon": {
+    "glyph": "lucide lucide-scroll",
+    "size": "16px",
+    "stroke": "var(--color-tile-handout)",
+  },
+  "label": "Handout",
+  "rail": {
+    "token": "--color-tile-handout",
+    "value": "oklch(0.76 0.06 68)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-handout",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > initiative-tracker 1`] = `
+{
+  "binding": null,
+  "description": "The live turn order with round and active turn.",
+  "icon": {
+    "glyph": "lucide lucide-swords",
+    "size": "16px",
+    "stroke": "var(--color-tile-combat)",
+  },
+  "label": "Initiative Tracker",
+  "rail": {
+    "token": "--color-tile-combat",
+    "value": "oklch(0.76 0.1 25)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-combat",
+  "type": "Combat",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > map 1`] = `
+{
+  "binding": {
+    "state": "bound",
+    "text": "Old mill",
+  },
+  "description": "A bound map with its visible layers.",
+  "icon": {
+    "glyph": "lucide lucide-map",
+    "size": "16px",
+    "stroke": "var(--color-tile-map)",
+  },
+  "label": "Map",
+  "rail": {
+    "token": "--color-tile-map",
+    "value": "oklch(0.76 0.1 145)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-map",
+  "type": "Maps",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > note 1`] = `
+{
+  "binding": null,
+  "description": "A free-text note rendered inline on the canvas.",
+  "icon": {
+    "glyph": "lucide lucide-notebook-pen",
+    "size": "16px",
+    "stroke": "var(--color-tile-note)",
+  },
+  "label": "Note",
+  "rail": {
+    "token": "--color-tile-note",
+    "value": "oklch(0.76 0.1 88)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-note",
+  "type": "Notes",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > notes 1`] = `
+{
+  "binding": null,
+  "description": "The most recently touched notes.",
+  "icon": {
+    "glyph": "lucide lucide-notebook-pen",
+    "size": "16px",
+    "stroke": "var(--color-tile-note)",
+  },
+  "label": "Notes",
+  "rail": {
+    "token": "--color-tile-note",
+    "value": "oklch(0.76 0.1 88)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-note",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > player-views 1`] = `
+{
+  "binding": null,
+  "description": "Per-participant Player View assignment + projection.",
+  "icon": {
+    "glyph": "lucide lucide-eye",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Player Views",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > prep 1`] = `
+{
+  "binding": null,
+  "description": "A checklist of prep notes for the session.",
+  "icon": {
+    "glyph": "lucide lucide-folder-open",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Prep",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > quick-reference 1`] = `
+{
+  "binding": null,
+  "description": "A compact table of reference content.",
+  "icon": {
+    "glyph": "lucide lucide-book-open",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Quick Reference",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Reference",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > search 1`] = `
+{
+  "binding": null,
+  "description": "Launch global search from the board.",
+  "icon": {
+    "glyph": "lucide lucide-search",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Search",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > session 1`] = `
+{
+  "binding": null,
+  "description": "Session status strip, phase controls, and workflow.",
+  "icon": {
+    "glyph": "lucide lucide-sliders-horizontal",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Active Session",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > timer 1`] = `
+{
+  "binding": null,
+  "description": "A session countdown with start/pause/advance controls.",
+  "icon": {
+    "glyph": "lucide lucide-clock",
+    "size": "16px",
+    "stroke": "var(--color-tile-timer)",
+  },
+  "label": "Timer",
+  "rail": {
+    "token": "--color-tile-timer",
+    "value": "oklch(0.76 0.1 112)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-timer",
+  "type": "Dice & Timers",
+  "visibility": "DM only",
+}
+`;
+
+exports[`tile header identity snapshots > tavern theme > tools 1`] = `
+{
+  "binding": null,
+  "description": "Home-scene tools, the widget library, and layout presets.",
+  "icon": {
+    "glyph": "lucide lucide-briefcase-business",
+    "size": "16px",
+    "stroke": "var(--color-tile-reference)",
+  },
+  "label": "Tools & Layouts",
+  "rail": {
+    "token": "--color-tile-reference",
+    "value": "oklch(0.76 0.02 70)",
+    "width": "4px",
+  },
+  "silhouette": "tile-silhouette-reference",
+  "type": "Command Center",
+  "visibility": "DM only",
+}
+`;

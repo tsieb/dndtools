@@ -10,6 +10,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Checkbox, Dialog, Icon, Input, Select, Toaster } from '../../ds';
 import { Panel, T, mono } from '../../app/screen-kit';
+import { HelpBeside } from '../../app/help/ContextHelp';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { eventField, VISIBILITY_WORD } from './shared';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
@@ -156,9 +157,11 @@ export function CustomObjectTypes() {
 			<Panel
 				title={t('extensions.customTypes.title')}
 				action={
-					<Badge status={summaries.length ? 'accent' : 'neutral'}>
-						{t('extensions.customTypes.definedCount', { count: summaries.length })}
-					</Badge>
+					<HelpBeside topic="customTypes">
+						<Badge status={summaries.length ? 'accent' : 'neutral'}>
+							{t('extensions.customTypes.definedCount', { count: summaries.length })}
+						</Badge>
+					</HelpBeside>
 				}
 			>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>

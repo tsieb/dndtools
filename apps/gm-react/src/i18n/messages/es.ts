@@ -5853,6 +5853,54 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'help.whatsNewNone': 'Aún no hay notas de versión.',
 	'help.keyboardShortcuts': 'Atajos de teclado',
 	'help.keyboardShortcutsBody': 'Consulta todos los atajos del panel y del lienzo.',
+	'help.tip.vaultPrivacy.label': 'Acerca del modo de privacidad del baúl',
+	'help.tip.vaultPrivacy.title': 'Modo de privacidad del baúl',
+	'help.tip.vaultPrivacy.body':
+		'Privado cifra el baúl en tus dispositivos, y solo tus dispositivos guardan las claves. Mejorado por la nube permite que el servicio lo lea para ofrecer funciones de servidor como la IA de campaña y la búsqueda en la nube. Cambiar en cualquier sentido te pide escribir una confirmación antes.',
+	'help.tip.projection.label': 'Acerca de la proyección',
+	'help.tip.projection.title': 'Proyección',
+	'help.tip.projection.body':
+		'La etiqueta muestra en qué punto está la sesión. El combate, los dados, los documentos y la proyección del mapa solo llegan a los jugadores mientras estás en vivo; al terminar la sesión, la mesa vuelve a En espera.',
+	'help.tip.visibility.label': 'Qué significan Solo {gm} y Jugadores',
+	'help.tip.visibility.title': 'Visibilidad',
+	'help.tip.visibility.body':
+		'Solo {gm} se queda en tu pantalla. Jugadores significa que puede llegar a sus pantallas en cuanto lo muestres o proyectes. Edita la entrada para cambiar quién la ve.',
+	'help.tip.stagedProposals.label': 'Acerca de las escrituras preparadas',
+	'help.tip.stagedProposals.title': 'Escrituras preparadas',
+	'help.tip.stagedProposals.body':
+		'El número son las escrituras de agentes que esperan tu decisión. Con revisión estricta, nada de lo que propone un agente llega al baúl hasta que lo apruebas. Rechazar una propuesta no escribe nada.',
+	'help.tip.calendar.label': 'Acerca del calendario de campaña',
+	'help.tip.calendar.title': 'Calendario de campaña',
+	'help.tip.calendar.body':
+		'Define una vez los meses, días de la semana, lunas y festividades de tu mundo. La fecha de la sesión, la línea temporal de la historia y los campos de fecha de las notas lo leen, así que las fases lunares y las festividades aparecen solas.',
+	'help.tip.customTypes.label': 'Acerca de los tipos de objeto personalizados',
+	'help.tip.customTypes.title': 'Tipos de objeto personalizados',
+	'help.tip.customTypes.body':
+		'Añade un tipo cuando los integrados no encajen con tu mundo: un barco, un contrato de gremio, un rumor. Dale unos pocos campos y sus objetos se crean, se validan y se listan como los demás. Un tipo no se puede eliminar mientras aún tenga objetos.',
+	'help.tip.systemPicker.label': 'Acerca de los sistemas de reglas',
+	'help.tip.systemPicker.title': 'Sistema de reglas',
+	'help.tip.systemPicker.body':
+		'El sistema define las palabras, atributos, recursos, estados y dados con los que juega tu mesa. Elige un paquete instalado o bifurca uno para escribir tus reglas de la casa. Los widgets siguen al sistema que esté activo.',
+	'help.tip.widgetTrust.label': 'Acerca de la revisión de confianza',
+	'help.tip.widgetTrust.title': 'Revisión de confianza',
+	'help.tip.widgetTrust.body':
+		'Un paquete instalado no alcanza nada hasta que lo revisas aquí. Permite un permiso solo cuando su motivo tenga sentido; lo que dejes denegado sigue denegado. Si la revisión desaconseja el paquete, confiar en él exige una confirmación adicional.',
+	'help.tip.recoveryKey.label': 'Acerca de la clave de recuperación',
+	'help.tip.recoveryKey.title': 'Clave de recuperación',
+	'help.tip.recoveryKey.body':
+		'Las claves de cifrado de tu baúl, selladas con una frase de contraseña que tú eliges. Expórtala una vez y guárdala fuera de este dispositivo. Si pierdes todos los dispositivos con sesión iniciada, es la única forma de volver a abrir tus copias cifradas.',
+	// RC-UX-3.2 — avisos de funciones que se muestran una sola vez.
+	'spotlight.region': 'Consejo',
+	'spotlight.dismiss': 'Descartar consejo',
+	'spotlight.graph.title': 'Tus notas están conectadas',
+	'spotlight.graph.body':
+		'Tus notas ya se enlazan entre sí. El grafo de relaciones muestra esos enlaces para que puedas seguirlos.',
+	'spotlight.graph.action': 'Abrir el grafo',
+	'spotlight.commandPalette.title': 'Ve a cualquier parte',
+	'spotlight.commandPalette.body':
+		'Pulsa {keys} para abrir la paleta de comandos. Escribe unas letras para llegar a cualquier nota, escena o mapa.',
+	'spotlight.shortcuts.title': 'Atajos de teclado',
+	'spotlight.shortcuts.body': 'Pulsa {keys} en cualquier momento para ver todos los atajos.',
 	// RC-CHR-1.1 — economía de recursos de clase.
 	'character.resources.title': 'Recursos de clase',
 	'character.resources.add': 'Añadir un recurso',

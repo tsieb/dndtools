@@ -8,7 +8,6 @@ import {
 	getContentItemsForActor,
 	listCharactersForActor,
 	projectObjectFieldsForRole,
-	type ContentItemView,
 } from '@dndtools/core';
 import {
 	Badge,
@@ -28,6 +27,7 @@ import {
 	VisibilityChip,
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
+import { ContextHelp } from '../app/help/ContextHelp';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
@@ -42,6 +42,15 @@ import {
 	optionLabel,
 	options,
 } from './campaignVocab';
+import {
+	bodySummary,
+	objectiveArray,
+	str,
+	strArray,
+	type FactionRow,
+	type QuestObjective,
+	type QuestRow,
+} from './campaignRows';
 
 /**
  * Campaign — the structured-entity / world-model lens, wired to the live Processing Core.
@@ -57,55 +66,6 @@ import {
  * core's CONTENT-013 AC3 projection, not client-side filtering). Campaign-date AUTHORING lives on
  * the Session surface (not here), so this screen never invents an out-of-surface write control.
  */
-
-/** First non-heading body line, marker-stripped — the one-line summary for list cards. */
-function bodySummary(body: string, fallback: string): string {
-	const line = body
-		.split('\n')
-		.map((l) => l.trim())
-		.find((l) => l && !l.startsWith('#'));
-	if (!line) return fallback;
-	return line
-		.replace(/^[>\-*]\s+/, '')
-		.replace(/\*\*([^*]+)\*\*/g, '$1')
-		.replace(/\[\[([^\]]+)\]\]/g, '$1')
-		.slice(0, 180);
-}
-
-const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-const strArray = (v: unknown): string[] =>
-	Array.isArray(v) ? v.filter((entry): entry is string => typeof entry === 'string') : [];
-
-/** A quest objective as declared by the `quest` subtype schema: `{id, text, done}`, in order. */
-interface QuestObjective {
-	id: string;
-	text: string;
-	done: boolean;
-}
-
-const objectiveArray = (v: unknown): QuestObjective[] =>
-	Array.isArray(v)
-		? v.filter(
-				(entry): entry is QuestObjective =>
-					!!entry &&
-					typeof entry === 'object' &&
-					typeof (entry as QuestObjective).id === 'string' &&
-					typeof (entry as QuestObjective).text === 'string' &&
-					typeof (entry as QuestObjective).done === 'boolean',
-			)
-		: [];
-
-/** A quest Vault Object row: the raw item view + its role-projected tracker fields. */
-interface QuestRow {
-	view: ContentItemView;
-	fields: Record<string, unknown>;
-}
-
-/** A faction Vault Object row: the raw item view + its role-projected dossier fields. */
-interface FactionRow {
-	view: ContentItemView;
-	fields: Record<string, unknown>;
-}
 
 /**
  * One quest in the Threads list: the DS QuestCard (status header · hook · objective checklist) with
@@ -892,8 +852,19 @@ export function Campaign() {
 
 				{tab === 'factions' && (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-						{canAuthor && !factionEditor && (
-							<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+						{/* One visibility tip for the list, not one per card: every FactionCard carries the
+						    same chip, and a row of identical explain buttons reads as noise (and repeats one
+						    accessible name down the page). Kept for players too — they see the chips. */}
+						<div
+							style={{
+								display: 'flex',
+								justifyContent: 'flex-end',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+							}}
+						>
+							<ContextHelp topic="visibility" />
+							{canAuthor && !factionEditor && (
 								<Button
 									variant="primary"
 									size="sm"
@@ -902,8 +873,8 @@ export function Campaign() {
 								>
 									{t('campaign.faction.new')}
 								</Button>
-							</div>
-						)}
+							)}
+						</div>
 						{canAuthor && factionEditor && (
 							<FactionEditor
 								key={factionEditor.id ?? 'new'}

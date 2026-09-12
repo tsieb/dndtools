@@ -1,4 +1,5 @@
 import { Icon } from '../../ds';
+import { T } from '../screen-kit';
 import { WIDGET_PLACEHOLDER_COPY } from './resolveRenderer';
 
 /**
@@ -17,7 +18,7 @@ export function WidgetPlaceholder({ diagnostic }: { diagnostic: string }) {
 				height: '100%',
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 4,
+				gap: T.space.one,
 				minHeight: 0,
 				overflow: 'hidden',
 				color: 'var(--color-text-secondary)',
@@ -27,7 +28,7 @@ export function WidgetPlaceholder({ diagnostic }: { diagnostic: string }) {
 				style={{
 					display: 'inline-flex',
 					alignItems: 'center',
-					gap: 5,
+					gap: `calc(${T.space.one} + 1px)`,
 					font: '600 var(--text-2xs) var(--font-sans)',
 					color: 'var(--color-text-primary)',
 					flex: '0 0 auto',

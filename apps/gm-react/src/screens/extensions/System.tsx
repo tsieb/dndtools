@@ -22,6 +22,7 @@ import {
 } from './systemVocab';
 import { Badge, Button, Dialog, Field, Icon, Input, SystemPackageCard, Toaster } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
+import { ContextHelp } from '../../app/help/ContextHelp';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
@@ -653,7 +654,11 @@ export function ExtSystem() {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title={t('extensions.system.pickerTitle')} accent>
+			<Panel
+				title={t('extensions.system.pickerTitle')}
+				action={<ContextHelp topic="systemPicker" />}
+				accent
+			>
 				<div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 					<div style={{ flex: '1 1 320px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 						{t('extensions.system.pickerIntro')}
