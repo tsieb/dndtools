@@ -1,6 +1,7 @@
 /* eslint-disable i18n/no-literal-jsx-text -- DEV-only developer documentation, excluded from production; fixtures intentionally show literal component copy. */
 import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import * as DS from '../ds';
+import { useRuntime } from '../runtime/RuntimeContext';
 import { galleryRegistry } from '../../../../scripts/check-prod-bundle.mjs';
 
 type Props = Record<string, unknown>;
@@ -410,6 +411,8 @@ function Specimen({ entry, initial }: { entry: GalleryEntry; initial: Props }) {
 }
 
 export function DsGallery() {
+	// Report live host readiness while keeping component fixtures usable during load failures.
+	const runtime = useRuntime();
 	const [name, setName] = useState('Button');
 	const [example, setExample] = useState('Default');
 	const [overrides, setOverrides] = useState<Props>({});
@@ -461,6 +464,18 @@ export function DsGallery() {
 			}}
 		>
 			<h1>Component gallery</h1>
+			<div role="status" aria-live="polite" data-ds-runtime-status>
+				<DS.StatusDot
+					status={runtime.hasLoadError ? 'error' : runtime.loaded ? 'live' : 'idle'}
+					label={
+						runtime.hasLoadError
+							? 'Vault runtime unavailable'
+							: runtime.loaded
+								? 'Vault runtime ready'
+								: 'Vault runtime loading'
+					}
+				/>
+			</div>
 			<p>
 				{galleryRegistry.length} components. Choose an example and combine its variant and state
 				controls. Hover, press and Tab through the specimen to inspect native interaction states.
