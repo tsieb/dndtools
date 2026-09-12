@@ -17,7 +17,7 @@
 - Built: `playerPreview.ts` (pure model) + unit test, `PlayerPreviewOverlay.tsx`, SceneEditor wiring
   (stage wrapper made `inert` while previewing; toolbar edit controls hidden; a preview-blocked
   scene shows the overlay instead of the "unavailable" card), `ViewAsControl` `placement="scene"`
-  - shared `usePreviewActions`, EN/ES keys, `tests/e2e/player-preview.spec.ts`.
+  and a shared `usePreviewActions`, EN/ES keys, `tests/e2e/player-preview.spec.ts`.
 - Editing is suspended, not reset: no UI state is cleared on entry, so an open panel's unsaved draft,
   the selection and the canvas view survive the preview.
 - Validation so far: model unit test 5/5; sceneEditor + i18n Vitest 37/37 (EN/ES coverage gates
