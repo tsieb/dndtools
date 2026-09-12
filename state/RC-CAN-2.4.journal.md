@@ -72,3 +72,36 @@ commit `aa2d5c4e` was never formatted.
   - Not run: Cloud tests and Tooling tests (no matching paths), and Browser acceptance (the full
     `pnpm e2e` suite, left to the operator gate). Attempt 2's tile-menu e2e block passed 10/10 on
     both projects, and this attempt changed only whitespace in app code since then.
+
+## Attempt 4 (2026-09-11)
+
+Gate feedback on `80481fc7`: every gate passed except Browser acceptance (run `6d9a5236`, 1090
+tests: 976 passed, 99 failed, 8 flaky, 7 skipped, 29.5 min).
+
+Diagnosis: the gate was testing another worktree's dev server, and that server died mid-run. This
+tree was not the cause.
+
+- Mechanism. `apps/gm-react/playwright.config.ts:14` defaults the port to 5273, and `:66` sets
+  `reuseExistingServer: … || !process.env.CI`. The dispatcher sets neither `CI` nor
+  `DNDTOOLS_E2E_PORT` for the Browser acceptance gate, so two overlapping gates share whichever vite
+  holds :5273.
+- Overlap. Worktree `b982c72c5e489e8055d5` ran two Browser acceptance gates inside this gate's window
+  (born 1789192931, ended 1789194701): attempt `a83f77a6` (1789192142 → 1789193316) and attempt
+  `038e294a` (1789193443 → 1789194710).
+- Evidence in the log:
+  - about 230 `page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5273/…` errors, the
+    cascade when the other run's vite exits;
+  - the rest were element-not-found failures such as `getByTestId('scene-board-bounded')` and
+    `…getByTestId('tile-actions-trigger')`;
+  - `b982c72c`'s tree has no `tile-actions-trigger` anywhere under `apps/gm-react/src`, so every
+    tile-menu test fails against its server by construction;
+  - the failures span specs this task never touched (co-dm, collab, combat, command-palette,
+    dice-tray, custom-types).
+- Local repro on an isolated port (`DNDTOOLS_E2E_PORT=5391`, desktop-chromium): 5/5 passed.
+  `canvas.spec.ts:47` (the `scene-board-bounded` failure), `canvas.spec.ts:1533` (Duplicate + undo),
+  `co-dm.spec.ts:278`, `command-palette.spec.ts:32` and `dice-tray.spec.ts:38`.
+- No code change: none of the failures reproduce against this tree. The remedy is operator-side and
+  outside this task's role: give the Browser acceptance gate a per-worktree `DNDTOOLS_E2E_PORT`, or
+  serialize browser gates. This task does not edit the manifest or dispatcher control state.
+- Full suite, exact gate argv, isolated port: `DNDTOOLS_E2E_PORT=5391 pnpm e2e --workers=2
+  --retries=2`. Result below.
