@@ -1,6 +1,6 @@
 # ADR-024: Procedural Map Generation Suite and Editor Rebuild
 
-- Status: Accepted (amended by ADR-030)
+- Status: Accepted (amended by ADR-030; amended by ADR-040)
 - Date: 2026-07-14
 - Deciders: Engineering
 - Consulted: Product, Design, Security
@@ -10,6 +10,10 @@
   (`MapToken`, MAP-019) is removed and replaced by durable `session.combat.tokens`, keyed by
   combatant id. Every other section (pure normalized-vector model, delta ops, local undo, engine-free
   renderer, VTT export, editor IA) is unaffected.
+  [ADR-040](./040-commit-cost-and-boot-path-remediation.md) (2026-09-11) — the generator registry
+  is the `@dndtools/core/map-generators` entry, supplied to the reducer through
+  `CoreEnvironment.mapGenerators` and loaded on the first `map.generate`; without it the command is
+  rejected fail-closed.
 - Relates-to: ADR-014 (the engine-free geometry-renderer decision this ADR upholds), ADR-019
   (content-addressed asset bytes), ADR-009 (performance budgets)
 
