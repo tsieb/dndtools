@@ -29,7 +29,14 @@ import { LayersPanel } from './dock/LayersPanel';
 import { AssetsPanel } from './dock/AssetsPanel';
 import { HistoryPanel } from './dock/HistoryPanel';
 import { GraphPanel } from './dock/GraphPanel';
-import { HeaderMenuItem, MapEditorCoach, QuickToolStrip, ShortcutOverlay } from './MapEditorChrome';
+import {
+	HeaderMenuItem,
+	MapEditorCoach,
+	MapViewToggle,
+	QuickMapActions,
+	QuickToolStrip,
+	ShortcutOverlay,
+} from './MapEditorChrome';
 
 /** A11Y-011: severity must survive grayscale, so each notice tone gets a DISTINCT glyph shape. */
 const NOTICE_ICON: Record<MapNoticeTone, string> = {
@@ -42,7 +49,6 @@ import { EditorCanvas } from './canvas/EditorCanvas';
 import { pickRasterAssetId } from '../mapGeometry';
 import { usePlatformCapabilities } from '../../platform/capabilities';
 import { registerBackHandler } from '../../platform/backNavigation';
-import { QuickMapRail } from './QuickMapRail';
 import { ListView } from './ListView';
 import { isQuickMapTool, normalizeQuickMapTool } from './quickMap';
 import { exportFile, FileExportError } from '../../platform/download';
@@ -511,25 +517,12 @@ export function MapEditor({
 	// tool bar there instead, beside the Panels toggle it behaves like.
 	const phoneBar = isPhone && !quickMapMode;
 	const listToggle = (
-		<Button
-			variant="secondary"
-			size="sm"
-			// The accessible name stays the full verb phrase everywhere; only the printed text shortens.
-			aria-label={listView ? t('mapEditor.showMap') : t('mapEditor.showList')}
-			onClick={() => {
-				const next = !listView;
-				setListView(next);
-				announce(next ? t('mapEditor.listShown') : t('mapEditor.mapShown'));
-			}}
-		>
-			{isPhone || quickMapMode
-				? listView
-					? t('mapEditor.showMapShort')
-					: t('mapEditor.showListShort')
-				: listView
-					? t('mapEditor.showMap')
-					: t('mapEditor.showList')}
-		</Button>
+		<MapViewToggle
+			listView={listView}
+			compact={isPhone || quickMapMode}
+			onChange={setListView}
+			announce={announce}
+		/>
 	);
 
 	// RC-MAP-4.1 — what fills the canvas well: the pointer-driven drawing surface, or the accessible
@@ -967,19 +960,7 @@ export function MapEditor({
 						<QuickToolStrip editor={editor} />
 					</div>
 					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(true)}</div>
-					<div data-map-coach="rail" style={{ flexShrink: 0 }}>
-						<div data-map-coach="dock">
-							<QuickMapRail
-								activeTool={editor.tool}
-								onSelect={editor.setTool}
-								canUndo={editor.canUndo}
-								canRedo={editor.canRedo}
-								onUndo={() => void editor.undo()}
-								onRedo={() => void editor.redo()}
-								onPanels={() => setMobileDock(true)}
-							/>
-						</div>
-					</div>
+					<QuickMapActions editor={editor} onPanels={() => setMobileDock(true)} />
 					{mobileDock && (
 						<Sheet
 							open

@@ -13,6 +13,7 @@ import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
 import { TOOLS_BY_ID } from './tools';
 import { useI18n } from '../../i18n';
+import { QuickMapRail } from './QuickMapRail';
 import { ShortcutsDialog } from '../help/ShortcutsDialog';
 
 /**
@@ -236,5 +237,66 @@ export function MapEditorCoach({
 				)}
 			</div>
 		</FeatureSpotlight>
+	);
+}
+
+/** Shared canvas/list switch for the header and compact tool bar. */
+export function MapViewToggle({
+	listView,
+	compact,
+	onChange,
+	announce,
+}: {
+	listView: boolean;
+	compact: boolean;
+	onChange: (next: boolean) => void;
+	announce: (message: string) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<Button
+			variant="secondary"
+			size="sm"
+			// The accessible name stays the full verb phrase everywhere; only the printed text shortens.
+			aria-label={listView ? t('mapEditor.showMap') : t('mapEditor.showList')}
+			onClick={() => {
+				const next = !listView;
+				onChange(next);
+				announce(next ? t('mapEditor.listShown') : t('mapEditor.mapShown'));
+			}}
+		>
+			{compact
+				? listView
+					? t('mapEditor.showMapShort')
+					: t('mapEditor.showListShort')
+				: listView
+					? t('mapEditor.showMap')
+					: t('mapEditor.showList')}
+		</Button>
+	);
+}
+
+/** Keep quick-map rail actions and their coaching anchors together. */
+export function QuickMapActions({
+	editor,
+	onPanels,
+}: {
+	editor: MapEditorApi;
+	onPanels: () => void;
+}) {
+	return (
+		<div data-map-coach="rail" style={{ flexShrink: 0 }}>
+			<div data-map-coach="dock">
+				<QuickMapRail
+					activeTool={editor.tool}
+					onSelect={editor.setTool}
+					canUndo={editor.canUndo}
+					canRedo={editor.canRedo}
+					onUndo={() => void editor.undo()}
+					onRedo={() => void editor.redo()}
+					onPanels={onPanels}
+				/>
+			</div>
+		</div>
 	);
 }
