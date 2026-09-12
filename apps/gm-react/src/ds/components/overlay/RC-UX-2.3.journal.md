@@ -12,7 +12,7 @@
 ## Review round 2 — three changes on top of `1f7d0f59`
 
 The first attempt gated **Tab** on `ownsEscape`. That was wrong: Escape belongs to the innermost
-open layer of any kind, but Tab containment belongs to the innermost layer that actually implements
+open layer of each kind, but Tab containment belongs to the innermost layer that actually implements
 a trap. `ds/components/core/Popover.jsx` handles Escape, an outside pointerdown and Android Back —
 no Tab trap — so a popover nested inside a Dialog/Sheet took Tab and let it walk out of the modal.
 The live path is the phone map editor: `app/map/MapEditor.tsx:1066` opens the "Map panels" Sheet,

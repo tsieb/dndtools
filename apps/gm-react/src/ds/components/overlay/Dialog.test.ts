@@ -3,9 +3,9 @@
 import { act, createElement, type ComponentType, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Dialog } from './Dialog.jsx';
-import { Sheet } from './Sheet.jsx';
-import { Popover } from '../core/Popover.jsx';
+import { Dialog } from './Dialog';
+import { Sheet } from './Sheet';
+import { Popover } from '../core/Popover';
 import { handlePlatformBack } from '../../../platform/backNavigation';
 
 const TestDialog = Dialog as ComponentType<{

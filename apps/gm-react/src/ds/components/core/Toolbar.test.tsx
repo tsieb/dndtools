@@ -4,10 +4,10 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Toolbar as RawToolbar } from './Toolbar.jsx';
+import { Toolbar as RawToolbar } from './Toolbar';
 
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Toolbar = RawToolbar as React.ComponentType<DsProps>;
+const Toolbar = RawToolbar as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

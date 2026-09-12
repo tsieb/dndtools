@@ -4,10 +4,10 @@ import React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { TagInput as RawTagInput } from './TagInput.jsx';
+import { TagInput as RawTagInput } from './TagInput';
 
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const TagInput = RawTagInput as React.ComponentType<DsProps>;
+const TagInput = RawTagInput as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

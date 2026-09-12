@@ -1,0 +1,432 @@
+import { en } from '../../../i18n/messages/en';
+import type { LayerType } from './LayerTypeBadge';
+
+export interface Layer {
+	id: string;
+	name: string;
+	type: LayerType | (string & {});
+	/** 0–100. Independent of visibility (AP-6). */
+	opacity?: number;
+	/** Whether the layer renders on the DM's own view. Independent of player visibility. */
+	dmDisplay?: boolean;
+	visibility?: 'dm-only' | 'players' | 'shared' | (string & {});
+	locked?: boolean;
+}
+
+/**
+ * LayerRow — canonical layer-panel row. Three independent controls (DM display, visibility,
+ * opacity) plus lock, inline rename, and actions. `readOnly` = the player/observer actor view.
+ */
+export interface LayerRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
+	actionRef?: React.Ref<HTMLButtonElement>;
+	actionExpanded?: boolean;
+	layer: Omit<Layer, 'id'> & { id?: string };
+	/** Actor-filtered player/observer view: strips all authoring controls. */
+	readOnly?: boolean;
+	/** Filter non-match: fades the row to 40%. */
+	dimmed?: boolean;
+	selected?: boolean;
+	onToggleDisplay?: () => void;
+	onCycleVisibility?: (next: 'dm-only' | 'players' | 'shared') => void;
+	onOpacityChange?: (value: number) => void;
+	onToggleLock?: () => void;
+	onRename?: (name: string) => void;
+	onAction?: (action: string) => void;
+	/** Keyboard reorder: −1 (up) / +1 (down), via Alt+Arrow. */
+	onMove?: (delta: number) => void;
+}
+
+import React from 'react';
+import { Icon } from '../core/Icon';
+import { Popover } from '../core/Popover';
+import { Slider } from '../forms/Slider';
+import { LayerTypeBadge } from './LayerTypeBadge';
+
+/**
+ * LayerRow — the canonical layer-panel row (UX-MAP-004/006). Anatomy, left→right:
+ *   drag handle · type badge · DM-display eye · visibility · name · opacity% · lock · actions
+ *
+ * It enforces anti-pattern AP-6: player-visibility, DM display, and opacity are THREE independent
+ * controls — never one conflated slider. `readOnly` (the actor-filtered player/observer view)
+ * strips every authoring affordance and renders the row as a static, label-only list item.
+ *
+ * Reorder is keyboard-accessible: Alt+ArrowUp / Alt+ArrowDown call onMove (the WCAG-2.5.7 fallback
+ * to drag). Locked rows dim and disable their controls; filter-dimmed rows fade to 40%.
+ */
+const VIS: Record<string, { icon: string; color: string; title: string }> = {
+	'dm-only': {
+		icon: 'dm-only',
+		color: 'var(--color-dm-only-badge)',
+		title: 'DM only — players cannot see this',
+	},
+	players: {
+		icon: 'visibility-players',
+		color: 'var(--color-status-success)',
+		title: 'Visible to players',
+	},
+	shared: {
+		icon: 'visibility-shared',
+		color: 'var(--color-status-info)',
+		title: 'Shared with all participants',
+	},
+};
+const VIS_CYCLE: ('dm-only' | 'players' | 'shared')[] = ['dm-only', 'players', 'shared'];
+
+export function LayerRow({
+	layer,
+	readOnly = false,
+	dimmed = false,
+	selected = false,
+	onToggleDisplay,
+	onCycleVisibility,
+	onOpacityChange,
+	onToggleLock,
+	onRename,
+	onAction,
+	actionRef,
+	actionExpanded,
+	onMove,
+	style,
+	...rest
+}: LayerRowProps) {
+	const {
+		name = 'Untitled layer',
+		type = 'custom',
+		opacity = 100,
+		dmDisplay = true,
+		visibility = 'dm-only',
+		locked = false,
+	} = layer || {};
+	const [editing, setEditing] = React.useState(false);
+	// The opacity flyout's own trigger. Popover dismisses on an outside pointerdown, and this button
+	// TOGGLES `opacityOpen`, so without the exemption the close raced the button's click and the
+	// flyout could never be dismissed by pressing the readout a second time.
+	const opacityTriggerRef = React.useRef<HTMLButtonElement | null>(null);
+	const [draft, setDraft] = React.useState(name);
+	const [opacityOpen, setOpacityOpen] = React.useState(false);
+	// `null` = follow the durable `opacity` prop; a number = a drag in progress. See the Slider below.
+	const [opacityDraft, setOpacityDraft] = React.useState<number | null>(null);
+	const commitOpacity = () => {
+		if (opacityDraft === null) return;
+		const next = opacityDraft;
+		setOpacityDraft(null);
+		if (next !== opacity && onOpacityChange) onOpacityChange(next);
+	};
+	const vis = VIS[visibility] || VIS['dm-only'];
+	const disabled = locked;
+
+	const commit = () => {
+		setEditing(false);
+		if (draft.trim() && draft !== name && onRename) onRename(draft.trim());
+		else setDraft(name);
+	};
+
+	return (
+		<div
+			role="listitem"
+			aria-label={`${name}, type ${type}, ${visibility}, ${locked ? 'locked' : 'unlocked'}`}
+			onKeyDown={(e) => {
+				if (!readOnly && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+					e.preventDefault();
+					void (onMove && onMove(e.key === 'ArrowUp' ? -1 : 1));
+				}
+			}}
+			tabIndex={0}
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 'var(--space-1-5)',
+				padding: '6px var(--space-2)',
+				borderRadius: 'var(--radius-sm)',
+				background: selected ? 'var(--color-interactive-selected)' : 'transparent',
+				borderLeft: type === 'dm' ? '3px solid var(--layer-dm)' : '3px solid transparent',
+				opacity: dimmed ? 0.4 : 1,
+				// NO `outline:'none'` here: the row is tabbable (and now keyboard-activatable), and an
+				// inline outline beats the global `:focus-visible` ring in base.css, so a keyboard user
+				// had no idea which layer they were on.
+				position: 'relative',
+				...style,
+			}}
+			onMouseEnter={(e) => {
+				if (!selected) e.currentTarget.style.background = 'var(--color-interactive-hover)';
+			}}
+			onMouseLeave={(e) => {
+				if (!selected) e.currentTarget.style.background = 'transparent';
+			}}
+			{...rest}
+		>
+			{!readOnly && (
+				<span
+					aria-hidden="true"
+					style={{
+						display: 'inline-flex',
+						color: 'var(--color-text-tertiary)',
+						cursor: locked ? 'not-allowed' : 'grab',
+						flex: '0 0 auto',
+					}}
+				>
+					<Icon name="drag-handle" size={16} />
+				</span>
+			)}
+
+			<LayerTypeBadge type={type} compact style={{ flex: '0 0 auto' }} />
+
+			{!readOnly && (
+				<RowBtn
+					label={`${name}: DM display ${dmDisplay ? 'on' : 'off'}`}
+					onClick={() => !disabled && onToggleDisplay && onToggleDisplay()}
+					disabled={disabled}
+					active={dmDisplay}
+				>
+					<Icon name={dmDisplay ? 'dm-only' : 'hidden'} size={16} />
+				</RowBtn>
+			)}
+
+			<RowBtn
+				label={`Visibility: ${visibility}`}
+				title={vis.title}
+				onClick={() => {
+					if (readOnly || disabled) return;
+					void (
+						onCycleVisibility &&
+						onCycleVisibility(
+							VIS_CYCLE[
+								(VIS_CYCLE.indexOf(visibility as 'dm-only' | 'players' | 'shared') + 1) % 3
+							],
+						)
+					);
+				}}
+				disabled={readOnly || disabled}
+				color={vis.color}
+			>
+				<Icon name={vis.icon} size={15} />
+			</RowBtn>
+
+			{editing && !readOnly ? (
+				<input
+					autoFocus
+					value={draft}
+					onChange={(e) => setDraft(e.target.value)}
+					onBlur={commit}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') commit();
+						if (e.key === 'Escape') {
+							setDraft(name);
+							setEditing(false);
+						}
+					}}
+					style={{
+						flex: 1,
+						minWidth: 0,
+						font: 'inherit',
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-sm)',
+						color: 'var(--color-text-primary)',
+						background: 'var(--color-surface-sunken)',
+						border: '1px solid var(--color-border-focus)',
+						borderRadius: 'var(--radius-sm)',
+						padding: '2px 6px',
+						// NO inline `outline:'none'` here: an inline style beats the stylesheet, so it
+						// killed the global :focus-visible ring on a field that is autoFocus'd the
+						// moment a keyboard user starts a rename. Same defect Input/Textarea/Select
+						// were fixed for; the --color-border-focus border stacks with the ring.
+					}}
+				/>
+			) : (
+				<button
+					type="button"
+					onDoubleClick={() => !readOnly && !disabled && setEditing(true)}
+					// Rename used to be double-click ONLY, so this focusable button was a dead control
+					// for keyboard users (WCAG 2.1.1) — and the panel's own Enter/Space handler bails
+					// when the event target is not the row itself, so Enter here did not even fall
+					// through to "select layer". `onClick` deliberately stays absent: a double-click
+					// fires click twice, which would open the editor and then land the second click
+					// inside the input it just opened.
+					onKeyDown={(e) => {
+						if (readOnly || disabled) return;
+						if (e.key === 'Enter' || e.key === 'F2') {
+							e.preventDefault();
+							e.stopPropagation();
+							setEditing(true);
+						}
+					}}
+					title={readOnly || disabled ? undefined : `Rename ${name}`}
+					style={{
+						flex: 1,
+						minWidth: 0,
+						textAlign: 'left',
+						background: 'transparent',
+						border: 'none',
+						padding: 0,
+						cursor: readOnly ? 'default' : 'text',
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-sm)',
+						fontWeight: selected ? 'var(--font-weight-semibold)' : 'var(--font-weight-regular)',
+						color: 'var(--color-text-primary)',
+						whiteSpace: 'nowrap',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+					}}
+				>
+					{name}
+				</button>
+			)}
+
+			{!readOnly && (
+				<div style={{ position: 'relative', flex: '0 0 auto' }}>
+					<button
+						type="button"
+						ref={opacityTriggerRef}
+						onClick={() => !disabled && setOpacityOpen((v) => !v)}
+						disabled={disabled}
+						aria-expanded={opacityOpen}
+						aria-label={`${name} opacity ${opacity}%`}
+						style={{
+							background: 'transparent',
+							border: 'none',
+							cursor: disabled ? 'not-allowed' : 'pointer',
+							fontFamily: 'var(--font-mono)',
+							fontSize: 'var(--text-2xs)',
+							color: 'var(--color-text-tertiary)',
+							padding: '2px 4px',
+							minWidth: 48,
+							minHeight: 48,
+						}}
+					>
+						{opacity}%
+					</button>
+					{opacityOpen && (
+						<Popover
+							open
+							onClose={() => setOpacityOpen(false)}
+							triggerRef={opacityTriggerRef}
+							// Named without a visible header: `title` would render a header row this
+							// 200px flyout has no space for, and an unnamed role="dialog" is an axe
+							// `aria-dialog-name` violation that also leaves a screen-reader user who
+							// has just entered the flyout with no idea what it controls.
+							aria-label={`Opacity — ${name}`}
+							width={200}
+							placement="bottom"
+							// Popover only supplies `--z-overlay` on its `anchor` branch, so an inline-positioned
+							// one must bring its own stacking order — without it the flyout painted UNDER the
+							// next row's `position:relative` wrapper on every row but the last. Every sibling
+							// inline Popover in the map dock already does this.
+							style={{
+								position: 'absolute',
+								right: 0,
+								top: 'calc(100% + 6px)',
+								transform: 'none',
+								zIndex: 20,
+							}}
+						>
+							<Slider
+								min={0}
+								max={100}
+								step={5}
+								value={opacityDraft ?? opacity}
+								// The host dispatches a durable command per call and its write path is
+								// single-flight, so firing on every drag step silently dropped most values —
+								// including the final one if a command was still in flight on release. Track the
+								// pointer locally, commit once per gesture.
+								onChange={setOpacityDraft}
+								onPointerUp={commitOpacity}
+								onKeyUp={commitOpacity}
+								onBlur={commitOpacity}
+								label={en['ds.layerRow.opacity']}
+								valueLabel={`${opacityDraft ?? opacity}%`}
+								aria-label={`${name} opacity`}
+							/>
+						</Popover>
+					)}
+				</div>
+			)}
+
+			{!readOnly && (
+				<RowBtn
+					label={locked ? `Unlock ${name}` : `Lock ${name}`}
+					onClick={() => onToggleLock && onToggleLock()}
+					active={locked}
+				>
+					<Icon name={locked ? 'lock' : 'unlock'} size={15} />
+				</RowBtn>
+			)}
+
+			{!readOnly && (
+				<RowBtn
+					label={`${name} actions`}
+					onClick={() => onAction && onAction('menu')}
+					disabled={disabled}
+					btnRef={actionRef}
+					expanded={actionExpanded}
+				>
+					<Icon name="more" size={16} />
+				</RowBtn>
+			)}
+		</div>
+	);
+}
+
+function RowBtn({
+	children,
+	label,
+	title,
+	onClick,
+	disabled,
+	active,
+	color,
+	btnRef,
+	expanded,
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+	label: string;
+	active?: boolean;
+	color?: string;
+	btnRef?: React.Ref<HTMLButtonElement>;
+	expanded?: boolean;
+}) {
+	return (
+		<button
+			type="button"
+			ref={btnRef}
+			aria-expanded={expanded}
+			aria-label={label}
+			title={title || label}
+			aria-pressed={active != null ? !!active : undefined}
+			onClick={onClick}
+			disabled={disabled}
+			style={{
+				display: 'inline-flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				width: 26,
+				height: 26,
+				flex: '0 0 auto',
+				padding: 0,
+				borderRadius: 'var(--radius-sm)',
+				border: 'none',
+				background: 'transparent',
+				color: color || (active ? 'var(--color-text-primary)' : 'var(--color-text-tertiary)'),
+				cursor: disabled ? 'not-allowed' : 'pointer',
+				opacity: disabled ? 0.4 : 1,
+				transition:
+					'background var(--duration-micro) var(--easing-standard), color var(--duration-micro) var(--easing-standard)',
+			}}
+			onMouseEnter={(e) => {
+				if (!disabled) {
+					e.currentTarget.style.background = 'var(--color-interactive-hover)';
+					if (!color && !active) e.currentTarget.style.color = 'var(--color-text-primary)';
+				}
+			}}
+			onMouseLeave={(e) => {
+				if (!disabled) {
+					e.currentTarget.style.background = 'transparent';
+					if (!color)
+						e.currentTarget.style.color = active
+							? 'var(--color-text-primary)'
+							: 'var(--color-text-tertiary)';
+				}
+			}}
+		>
+			{children}
+		</button>
+	);
+}

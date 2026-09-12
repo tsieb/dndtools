@@ -4,12 +4,12 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Chip as RawChip } from './Chip.jsx';
+import { Chip as RawChip } from './Chip';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Chip = RawChip as React.ComponentType<DsProps>;
+const Chip = RawChip as unknown as React.ComponentType<DsProps>;
 
 // A clickable Chip used to render a bare <span onClick> with `cursor: pointer` — keyboard-dead, and
 // announced as static text. `selected` also drove a background change with no semantic counterpart.

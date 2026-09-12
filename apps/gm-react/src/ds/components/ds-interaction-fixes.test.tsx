@@ -3,67 +3,67 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Button as RawButton } from './core/Button.jsx';
-import { DataTable as RawDataTable } from './data/DataTable.jsx';
-import { ConditionBadge as RawConditionBadge } from './condition/ConditionBadge.jsx';
-import { LayerRow as RawLayerRow } from './map/LayerRow.jsx';
-import { IconButton as RawIconButton } from './core/IconButton.jsx';
-import { Input as RawInput, Textarea as RawTextarea } from './forms/Input.jsx';
-import { Select as RawSelect } from './forms/Select.jsx';
-import { Popover as RawPopover, popoverShiftX } from './core/Popover.jsx';
-import { ProgressMeter as RawProgressMeter } from './system/ProgressMeter.jsx';
-import { Checkbox as RawCheckbox } from './forms/Checkbox.jsx';
-import { Dialog as RawDialog } from './overlay/Dialog.jsx';
-import { Toaster, ToastViewport as RawToastViewport } from './overlay/Toast.jsx';
-import { Sheet as RawSheet } from './overlay/Sheet.jsx';
-import { Slider as RawSlider } from './forms/Slider.jsx';
-import { VisibilityChip as RawVisibilityChip } from './feedback/VisibilityChip.jsx';
-import { DefinitionList as RawDefinitionList } from './data/DefinitionList.jsx';
-import { MapCreationForm as RawMapCreationForm } from './map/MapCreationForm.jsx';
-import { ConditionTracker as RawConditionTracker } from './condition/ConditionTracker.jsx';
-import { Avatar as RawAvatar } from './core/Avatar.jsx';
-import { QuestCard as RawQuestCard } from './campaign/QuestCard.jsx';
-import { Tabs as RawTabs } from './core/Tabs.jsx';
-import { Minimap as RawMinimap } from './map/Minimap.jsx';
-import { SpellSlots as RawSpellSlots } from './spell/SpellSlots.jsx';
-import { Field as RawField } from './forms/Field.jsx';
-import { EmptyState as RawEmptyState } from './system/EmptyState.jsx';
-import { SegmentedControl as RawSegmentedControl } from './forms/SegmentedControl.jsx';
-import { Switch as RawSwitch } from './forms/Switch.jsx';
-import { CommandPalette as RawCommandPalette } from './command/CommandPalette.jsx';
+import { Button as RawButton } from './core/Button';
+import { DataTable as RawDataTable } from './data/DataTable';
+import { ConditionBadge as RawConditionBadge } from './condition/ConditionBadge';
+import { LayerRow as RawLayerRow } from './map/LayerRow';
+import { IconButton as RawIconButton } from './core/IconButton';
+import { Input as RawInput, Textarea as RawTextarea } from './forms/Input';
+import { Select as RawSelect } from './forms/Select';
+import { Popover as RawPopover, popoverShiftX } from './core/Popover';
+import { ProgressMeter as RawProgressMeter } from './system/ProgressMeter';
+import { Checkbox as RawCheckbox } from './forms/Checkbox';
+import { Dialog as RawDialog } from './overlay/Dialog';
+import { Toaster, ToastViewport as RawToastViewport } from './overlay/Toast';
+import { Sheet as RawSheet } from './overlay/Sheet';
+import { Slider as RawSlider } from './forms/Slider';
+import { VisibilityChip as RawVisibilityChip } from './feedback/VisibilityChip';
+import { DefinitionList as RawDefinitionList } from './data/DefinitionList';
+import { MapCreationForm as RawMapCreationForm } from './map/MapCreationForm';
+import { ConditionTracker as RawConditionTracker } from './condition/ConditionTracker';
+import { Avatar as RawAvatar } from './core/Avatar';
+import { QuestCard as RawQuestCard } from './campaign/QuestCard';
+import { Tabs as RawTabs } from './core/Tabs';
+import { Minimap as RawMinimap } from './map/Minimap';
+import { SpellSlots as RawSpellSlots } from './spell/SpellSlots';
+import { Field as RawField } from './forms/Field';
+import { EmptyState as RawEmptyState } from './system/EmptyState';
+import { SegmentedControl as RawSegmentedControl } from './forms/SegmentedControl';
+import { Switch as RawSwitch } from './forms/Switch';
+import { CommandPalette as RawCommandPalette } from './command/CommandPalette';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every defaultless prop as required.
-// Re-type the imports as open prop bags rather than restating each component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Button = RawButton as React.ComponentType<DsProps>;
-const DataTable = RawDataTable as React.ComponentType<DsProps>;
-const ConditionBadge = RawConditionBadge as React.ComponentType<DsProps>;
-const LayerRow = RawLayerRow as React.ComponentType<DsProps>;
-const IconButton = RawIconButton as React.ComponentType<DsProps>;
-const CommandPalette = RawCommandPalette as React.ComponentType<DsProps>;
-const Input = RawInput as React.ComponentType<DsProps>;
-const Textarea = RawTextarea as React.ComponentType<DsProps>;
-const Select = RawSelect as React.ComponentType<DsProps>;
-const Popover = RawPopover as React.ComponentType<DsProps>;
-const Dialog = RawDialog as React.ComponentType<DsProps>;
-const ToastViewport = RawToastViewport as React.ComponentType<DsProps>;
-const Sheet = RawSheet as React.ComponentType<DsProps>;
-const Slider = RawSlider as React.ComponentType<DsProps>;
-const VisibilityChip = RawVisibilityChip as React.ComponentType<DsProps>;
-const DefinitionList = RawDefinitionList as React.ComponentType<DsProps>;
-const MapCreationForm = RawMapCreationForm as React.ComponentType<DsProps>;
-const ConditionTracker = RawConditionTracker as React.ComponentType<DsProps>;
-const Avatar = RawAvatar as React.ComponentType<DsProps>;
-const QuestCard = RawQuestCard as React.ComponentType<DsProps>;
-const Tabs = RawTabs as React.ComponentType<DsProps>;
-const Minimap = RawMinimap as React.ComponentType<DsProps>;
-const ProgressMeter = RawProgressMeter as React.ComponentType<DsProps>;
-const EmptyState = RawEmptyState as React.ComponentType<DsProps>;
-const SegmentedControl = RawSegmentedControl as React.ComponentType<DsProps>;
-const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
-const SpellSlots = RawSpellSlots as React.ComponentType<DsProps>;
-const Field = RawField as React.ComponentType<DsProps>;
-const Switch = RawSwitch as React.ComponentType<DsProps>;
+const Button = RawButton as unknown as React.ComponentType<DsProps>;
+const DataTable = RawDataTable as unknown as React.ComponentType<DsProps>;
+const ConditionBadge = RawConditionBadge as unknown as React.ComponentType<DsProps>;
+const LayerRow = RawLayerRow as unknown as React.ComponentType<DsProps>;
+const IconButton = RawIconButton as unknown as React.ComponentType<DsProps>;
+const CommandPalette = RawCommandPalette as unknown as React.ComponentType<DsProps>;
+const Input = RawInput as unknown as React.ComponentType<DsProps>;
+const Textarea = RawTextarea as unknown as React.ComponentType<DsProps>;
+const Select = RawSelect as unknown as React.ComponentType<DsProps>;
+const Popover = RawPopover as unknown as React.ComponentType<DsProps>;
+const Dialog = RawDialog as unknown as React.ComponentType<DsProps>;
+const ToastViewport = RawToastViewport as unknown as React.ComponentType<DsProps>;
+const Sheet = RawSheet as unknown as React.ComponentType<DsProps>;
+const Slider = RawSlider as unknown as React.ComponentType<DsProps>;
+const VisibilityChip = RawVisibilityChip as unknown as React.ComponentType<DsProps>;
+const DefinitionList = RawDefinitionList as unknown as React.ComponentType<DsProps>;
+const MapCreationForm = RawMapCreationForm as unknown as React.ComponentType<DsProps>;
+const ConditionTracker = RawConditionTracker as unknown as React.ComponentType<DsProps>;
+const Avatar = RawAvatar as unknown as React.ComponentType<DsProps>;
+const QuestCard = RawQuestCard as unknown as React.ComponentType<DsProps>;
+const Tabs = RawTabs as unknown as React.ComponentType<DsProps>;
+const Minimap = RawMinimap as unknown as React.ComponentType<DsProps>;
+const ProgressMeter = RawProgressMeter as unknown as React.ComponentType<DsProps>;
+const EmptyState = RawEmptyState as unknown as React.ComponentType<DsProps>;
+const SegmentedControl = RawSegmentedControl as unknown as React.ComponentType<DsProps>;
+const Checkbox = RawCheckbox as unknown as React.ComponentType<DsProps>;
+const SpellSlots = RawSpellSlots as unknown as React.ComponentType<DsProps>;
+const Field = RawField as unknown as React.ComponentType<DsProps>;
+const Switch = RawSwitch as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;
@@ -423,7 +423,7 @@ describe('Toast announces through a permanent live region', () => {
 	// mutation — which screen readers routinely drop. The app's only confirmation channel was silent.
 	afterEach(() => act(() => Toaster.clear()));
 
-	it('hosts an empty polite region before any toast exists', () => {
+	it('hosts an empty polite region before the first toast exists', () => {
 		act(() => root.render(<ToastViewport />));
 		const polite = container.querySelector('[role="status"]');
 		expect(polite, 'the polite host must pre-exist for a change to be announced').not.toBeNull();
@@ -658,7 +658,7 @@ describe('Sheet opens on its content, not on the way out', () => {
 	// The header (which owns Close) renders BEFORE `children`, so a DOM-order
 	// `panel.querySelector(FOCUSABLE)` focused the Close button on every open — including the phone
 	// "All sections" nav sheet, where the first thing a keyboard/screen-reader user met was "Close".
-	// Same defect, and the same bodyRef fix, as ds/components/core/Popover.jsx.
+	// Same defect, and the same bodyRef fix, as ds/components/core/Popover.tsx.
 	it('focuses the first control inside the body rather than the header Close', async () => {
 		act(() => {
 			root.render(
@@ -741,7 +741,7 @@ describe('DefinitionList can shrink inside a narrow panel', () => {
 });
 
 describe('text fields keep a real focus indicator', () => {
-	// `baseField` set inline `outline: 'none'`, and an inline style beats any stylesheet — so every
+	// `baseField` set inline `outline: 'none'`, and an inline style beats the stylesheet — so every
 	// Input/Textarea/Select in the app suppressed the global `:focus-visible` ring in
 	// `styles/tokens/base.css`. What replaced it was a 16%-alpha `--color-interactive-selected` wash
 	// at ~1.4:1, i.e. the exact value this file already rejects for Slider (WCAG 2.4.11 wants 3:1),
@@ -1470,7 +1470,7 @@ describe('a progress bar never announces a value outside its own range', () => {
 
 describe('an empty state is content, not a live region', () => {
 	// `role="status"` on the root made all ~34 live empty states permanent polite regions with the
-	// implicit aria-atomic=true, so any change inside one re-announced the heading, the description
+	// implicit aria-atomic=true, so each change inside one re-announced the heading, the description
 	// AND the action label — and it made a bare `getByRole('status')` ambiguous against the screens'
 	// real status channels (combat.spec pins the initiative list as containing none).
 	it('does not claim role=status', () => {
@@ -1532,7 +1532,7 @@ describe('Button knows every variant its callers ask for', () => {
 	// `variants[variant] || variants.secondary` downgrades an unknown variant SILENTLY, and
 	// IconButton had an `accent` that Button did not — so the live-session dice roller's primary
 	// action (`screens/Session.tsx`, `variant="accent"`) rendered as a plain raised secondary
-	// button. `ds/index.d.ts` types every export as Record<string, unknown>, so nothing caught it.
+	// button. the former `ds/index.d.ts` typed every export as Record<string, unknown>, so nothing caught it.
 	it('renders accent as the gold tint rather than falling through to secondary', () => {
 		act(() => root.render(<Button variant="accent">Roll</Button>));
 		const accent = container.querySelector('button')!.style.background;
@@ -1607,7 +1607,7 @@ describe('the accent Button keeps its gold under the pointer', () => {
 
 describe('the command palette is a well-behaved overlay', () => {
 	// An INLINE `outline: 'none'` beats the global `:focus-visible` rule in `styles/tokens/base.css`
-	// (an inline style outranks any stylesheet), and this input is the palette's ONLY focusable
+	// (an inline style outranks the stylesheet), and this input is the palette's ONLY focusable
 	// control — so the app's primary keyboard surface had no focus indicator at all. This is the
 	// fourth time the repo has shipped an inline outline suppression.
 	it('does not suppress the focus ring on its combobox', () => {
@@ -1658,8 +1658,8 @@ describe('an Avatar status ring is not the focus ring', () => {
 		expect(disc.style.outlineOffset === '' ? '0' : disc.style.outlineOffset).toMatch(/^0(px)?$/);
 	});
 
-	// An inline `outline: 'none'` beats any stylesheet, so writing it unconditionally would suppress
-	// the app's global focus ring on any consumer that ever makes the avatar focusable. Emit the key
+	// An inline `outline: 'none'` beats the stylesheet, so writing it unconditionally would suppress
+	// the app's global focus ring on each consumer that ever makes the avatar focusable. Emit the key
 	// only in the state that needs it — this repo has shipped that same bug five times.
 	it('emits no inline outline at all when there is no ring', () => {
 		act(() => root.render(<Avatar name="Bog Lurker" />));

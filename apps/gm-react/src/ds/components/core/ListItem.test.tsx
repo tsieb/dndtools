@@ -4,10 +4,10 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ListItem as RawListItem } from './ListItem.jsx';
+import { ListItem as RawListItem } from './ListItem';
 
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const ListItem = RawListItem as React.ComponentType<DsProps>;
+const ListItem = RawListItem as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

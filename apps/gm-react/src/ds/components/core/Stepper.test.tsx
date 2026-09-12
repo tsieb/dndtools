@@ -2,8 +2,8 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it } from 'vitest';
-import { Stepper as RawStepper } from './Stepper.jsx';
-const Stepper = RawStepper as React.ComponentType<Record<string, unknown>>;
+import { Stepper as RawStepper } from './Stepper';
+const Stepper = RawStepper as unknown as React.ComponentType<Record<string, unknown>>;
 
 describe('Stepper', () => {
 	it.each([

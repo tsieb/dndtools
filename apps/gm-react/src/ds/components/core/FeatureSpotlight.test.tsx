@@ -4,14 +4,14 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FeatureSpotlight as RawFeatureSpotlight } from './FeatureSpotlight.jsx';
+import { FeatureSpotlight as RawFeatureSpotlight } from './FeatureSpotlight';
 
 type DsProps = Record<string, unknown> & {
 	title: string;
 	description?: React.ReactNode;
 	actionLabel?: string;
 };
-const FeatureSpotlight = RawFeatureSpotlight as React.ComponentType<DsProps>;
+const FeatureSpotlight = RawFeatureSpotlight as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

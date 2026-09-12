@@ -1,0 +1,10 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"incremental": false,
+		"types": ["node"],
+		"typeRoots": ["../../node_modules/@types", "../../../../packages/core/node_modules/@types"]
+	},
+	"include": ["index.ts", "contracts.typecheck.tsx"],
+	"exclude": []
+}

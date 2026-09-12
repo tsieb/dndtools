@@ -115,7 +115,7 @@ describe('shared surfaces do not bypass the token layer for text on a tokenized 
 	it('POIMarker tints its glyph from a token, not a literal white', () => {
 		// The default `--layer-*` ramp is deliberately LIGHT (it has to read against a candle-lit map),
 		// so a '#fff' glyph landed near 2:1 — below WCAG 1.4.11's 3:1 for meaningful graphics.
-		const src = readFileSync(join(SRC, 'ds/components/map/POIMarker.jsx'), 'utf8');
+		const src = readFileSync(join(SRC, 'ds/components/map/POIMarker.tsx'), 'utf8');
 		expect(src).toContain("color: 'var(--color-text-inverse)'");
 		expect(src).not.toContain("color: '#fff'");
 	});
@@ -124,7 +124,7 @@ describe('shared surfaces do not bypass the token layer for text on a tokenized 
 		// `#fff` on `--color-status-error` is 3.49:1 on dark/tavern's salmon and 2.43:1 on
 		// high-contrast's `#ff8080`. The label is 16px semibold, so WCAG 1.4.3 wants 4.5:1, and
 		// two of the four themes need DARK ink — only a per-theme foreground token can serve both.
-		const src = readFileSync(join(SRC, 'ds/components/core/Button.jsx'), 'utf8');
+		const src = readFileSync(join(SRC, 'ds/components/core/Button.tsx'), 'utf8');
 		expect(src).toContain("color: 'var(--color-status-error-foreground)'");
 		expect(src).not.toContain("color: '#fff'");
 	});
@@ -138,7 +138,8 @@ describe('every in-app Tabs completes the ARIA tabs pattern', () => {
 		for (const file of CODE_FILES.filter((f) => /\.tsx$/.test(f))) {
 			const src = readFileSync(file, 'utf8');
 			for (const m of src.matchAll(/<Tabs\b[\s\S]{0,400}?\/>/g)) {
-				if (!m[0].includes('idBase')) offenders.push(`${file.slice(SRC.length)}: ${m[0].slice(0, 60)}`);
+				if (!m[0].includes('idBase'))
+					offenders.push(`${file.slice(SRC.length)}: ${m[0].slice(0, 60)}`);
 			}
 		}
 		expect(offenders).toEqual([]);

@@ -4,12 +4,12 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Card as RawCard } from './Card.jsx';
+import { Card as RawCard } from './Card';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Card = RawCard as React.ComponentType<DsProps>;
+const Card = RawCard as unknown as React.ComponentType<DsProps>;
 
 // An `interactive` Card is a control — the Command Center library tiles, the Characters roster, and
 // the Knowledge note grid are all built from one. It used to render as a bare <div> with nothing but

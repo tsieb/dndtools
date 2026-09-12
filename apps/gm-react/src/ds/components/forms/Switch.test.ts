@@ -3,7 +3,7 @@
 import { act, createElement, type ComponentType } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Switch } from './Switch.jsx';
+import { Switch } from './Switch';
 
 const TestSwitch = Switch as ComponentType<{
 	checked?: boolean;

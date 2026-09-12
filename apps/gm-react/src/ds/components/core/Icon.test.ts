@@ -6,7 +6,7 @@ import {
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ICON_ALIASES, ICON_REGISTRY, Icon } from './Icon.jsx';
+import { ICON_ALIASES, ICON_REGISTRY, Icon } from './Icon';
 
 describe('Icon registry', () => {
 	const TestIcon = Icon as ComponentType<{ name: string }>;

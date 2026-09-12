@@ -5,14 +5,11 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-	shouldShowVisibilityBadge,
-	VisibilityChip as RawVisibilityChip,
-} from './VisibilityChip.jsx';
+import { shouldShowVisibilityBadge, VisibilityChip as RawVisibilityChip } from './VisibilityChip';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
-const VisibilityChip = RawVisibilityChip as React.ComponentType<Record<string, unknown>>;
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
+const VisibilityChip = RawVisibilityChip as unknown as React.ComponentType<Record<string, unknown>>;
 
 // The visibility chip is the product's safety-critical cue: a DM reads it to know what players can
 // see. Its `levels` map is keyed on CHIP level names, but call sites sometimes hold a RAW core

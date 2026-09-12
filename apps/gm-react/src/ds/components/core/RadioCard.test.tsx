@@ -4,10 +4,10 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RadioCard as RawRadioCard } from './RadioCard.jsx';
+import { RadioCard as RawRadioCard } from './RadioCard';
 
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const RadioCard = RawRadioCard as React.ComponentType<DsProps>;
+const RadioCard = RawRadioCard as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

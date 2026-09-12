@@ -4,17 +4,17 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Field as RawField } from './Field.jsx';
-import { Input as RawInput, Textarea as RawTextarea } from './Input.jsx';
-import { Slider as RawSlider } from './Slider.jsx';
+import { Field as RawField } from './Field';
+import { Input as RawInput, Textarea as RawTextarea } from './Input';
+import { Slider as RawSlider } from './Slider';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the imports as open prop bags rather than restating each contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown>;
-const Input = RawInput as React.ComponentType<DsProps>;
-const Textarea = RawTextarea as React.ComponentType<DsProps>;
-const Slider = RawSlider as React.ComponentType<DsProps>;
-const Field = RawField as React.ComponentType<DsProps>;
+const Input = RawInput as unknown as React.ComponentType<DsProps>;
+const Textarea = RawTextarea as unknown as React.ComponentType<DsProps>;
+const Slider = RawSlider as unknown as React.ComponentType<DsProps>;
+const Field = RawField as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

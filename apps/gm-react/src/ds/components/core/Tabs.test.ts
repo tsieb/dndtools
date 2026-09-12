@@ -3,7 +3,7 @@
 import { act, createElement, type ComponentType } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Tabs } from './Tabs.jsx';
+import { Tabs } from './Tabs';
 
 const TestTabs = Tabs as ComponentType<{
 	tabs: Array<{ id: string; label: string; disabled?: boolean }>;

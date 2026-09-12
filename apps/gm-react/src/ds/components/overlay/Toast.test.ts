@@ -1,7 +1,7 @@
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { Toast } from './Toast.jsx';
+import { Toast } from './Toast';
 
 const TestToast = Toast as ComponentType<{ status: string; message: string }>;
 

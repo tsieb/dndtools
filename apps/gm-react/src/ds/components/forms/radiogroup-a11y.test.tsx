@@ -4,13 +4,13 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SegmentedControl as RawSegmentedControl } from './SegmentedControl.jsx';
+import { SegmentedControl as RawSegmentedControl } from './SegmentedControl';
 import { Seg } from '../../../app/screen-kit';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const SegmentedControl = RawSegmentedControl as React.ComponentType<DsProps>;
+const SegmentedControl = RawSegmentedControl as unknown as React.ComponentType<DsProps>;
 
 // Both segmented controls declare role="radiogroup" with role="radio" children. An ARIA radiogroup
 // is ONE tab stop whose selection moves with the arrow keys; these two shipped with every radio as
@@ -110,7 +110,12 @@ describe('SegmentedControl radiogroup', () => {
 	// The group had no accessible name at several call sites (WCAG 4.1.2).
 	it('names the group from ariaLabel', () => {
 		render(
-			<SegmentedControl options={OPTIONS} value="terrain" onChange={() => {}} ariaLabel="Map kind" />,
+			<SegmentedControl
+				options={OPTIONS}
+				value="terrain"
+				onChange={() => {}}
+				ariaLabel="Map kind"
+			/>,
 		);
 		const group = container.querySelector('[role="radiogroup"]');
 		expect(group?.getAttribute('aria-label')).toBe('Map kind');
@@ -119,13 +124,17 @@ describe('SegmentedControl radiogroup', () => {
 
 describe('Seg radiogroup (screen-kit twin)', () => {
 	it('exposes exactly one tab stop, on the checked radio', () => {
-		render(<Seg options={OPTIONS} value="dungeon" onChange={() => {}} ariaLabel="Note visibility" />);
+		render(
+			<Seg options={OPTIONS} value="dungeon" onChange={() => {}} ariaLabel="Note visibility" />,
+		);
 		expect(radios().map((r) => r.tabIndex)).toEqual([-1, -1, 0]);
 	});
 
 	it('moves the selection with the arrow keys', () => {
 		const onChange = vi.fn();
-		render(<Seg options={OPTIONS} value="terrain" onChange={onChange} ariaLabel="Note visibility" />);
+		render(
+			<Seg options={OPTIONS} value="terrain" onChange={onChange} ariaLabel="Note visibility" />,
+		);
 
 		press(radios()[0], 'ArrowRight');
 		expect(onChange).toHaveBeenLastCalledWith('settlement');
@@ -135,7 +144,9 @@ describe('Seg radiogroup (screen-kit twin)', () => {
 	});
 
 	it('carries its accessible name', () => {
-		render(<Seg options={OPTIONS} value="terrain" onChange={() => {}} ariaLabel="Note visibility" />);
+		render(
+			<Seg options={OPTIONS} value="terrain" onChange={() => {}} ariaLabel="Note visibility" />,
+		);
 		const group = container.querySelector('[role="radiogroup"]');
 		expect(group?.getAttribute('aria-label')).toBe('Note visibility');
 	});

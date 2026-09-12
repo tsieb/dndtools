@@ -4,8 +4,8 @@ import { act, createElement, Fragment, type ComponentType, type ReactNode } from
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handlePlatformBack, resetBackHandlersForTest } from '../../../platform/backNavigation';
-import { Dialog } from '../overlay/Dialog.jsx';
-import { Popover } from './Popover.jsx';
+import { Dialog } from '../overlay/Dialog';
+import { Popover } from './Popover';
 
 const TestPopover = Popover as ComponentType<{
 	open: boolean;

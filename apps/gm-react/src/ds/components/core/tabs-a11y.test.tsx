@@ -4,12 +4,12 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Tabs as RawTabs, tabPanelProps } from './Tabs.jsx';
+import { Tabs as RawTabs, tabPanelProps } from './Tabs';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Tabs = RawTabs as React.ComponentType<DsProps>;
+const Tabs = RawTabs as unknown as React.ComponentType<DsProps>;
 
 // Tabs declared role="tablist"/role="tab" but emitted no `aria-controls`, and NO consumer in the app
 // rendered a role="tabpanel" — so assistive tech got a naked tablist with no link to the content

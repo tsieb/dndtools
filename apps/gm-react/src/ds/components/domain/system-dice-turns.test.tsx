@@ -13,8 +13,8 @@ import {
 	type DiceRollResult,
 	type SystemPackage,
 } from '@dndtools/core';
-import { DiceResult as RawDiceResult } from './DiceResult.jsx';
-import { InitiativeRow as RawInitiativeRow } from './InitiativeRow.jsx';
+import { DiceResult as RawDiceResult } from './DiceResult';
+import { InitiativeRow as RawInitiativeRow } from './InitiativeRow';
 
 /**
  * RC-SYS-2.4 — the dice readout and the tracker row render the ACTIVE PACKAGE'S model.
@@ -25,11 +25,11 @@ import { InitiativeRow as RawInitiativeRow } from './InitiativeRow.jsx';
  * of the row is the contract worth pinning; the inline styles are not.
  */
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the imports as open prop bags rather than restating each component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const DiceResult = RawDiceResult as React.ComponentType<DsProps>;
-const InitiativeRow = RawInitiativeRow as React.ComponentType<DsProps>;
+const DiceResult = RawDiceResult as unknown as React.ComponentType<DsProps>;
+const InitiativeRow = RawInitiativeRow as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

@@ -4,12 +4,12 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Minimap as RawMinimap } from './Minimap.jsx';
+import { Minimap as RawMinimap } from './Minimap';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Minimap = RawMinimap as React.ComponentType<DsProps>;
+const Minimap = RawMinimap as unknown as React.ComponentType<DsProps>;
 
 // The minimap's only real function is jumping the viewport (UX-MAP-003), and it lived on a bare
 // <div onClick> that derived its target from clientX/Y — so it was entirely mouse-only.

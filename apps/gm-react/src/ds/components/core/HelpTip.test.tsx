@@ -4,10 +4,10 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { HelpTip as RawHelpTip } from './HelpTip.jsx';
+import { HelpTip as RawHelpTip } from './HelpTip';
 
 type DsProps = { children?: React.ReactNode; title?: string };
-const HelpTip = RawHelpTip as React.ComponentType<DsProps>;
+const HelpTip = RawHelpTip as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

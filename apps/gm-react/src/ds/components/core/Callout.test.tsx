@@ -4,10 +4,10 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Callout as RawCallout } from './Callout.jsx';
+import { Callout as RawCallout } from './Callout';
 
 type DsProps = { children?: React.ReactNode; title?: string };
-const Callout = RawCallout as React.ComponentType<DsProps>;
+const Callout = RawCallout as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

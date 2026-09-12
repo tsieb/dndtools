@@ -4,14 +4,14 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Menu as RawMenu } from './Menu.jsx';
+import { Menu as RawMenu } from './Menu';
 
 type DsProps = Record<string, unknown> & {
 	open?: boolean;
 	title?: string;
 	children?: React.ReactNode;
 };
-const Menu = RawMenu as React.ComponentType<DsProps>;
+const Menu = RawMenu as unknown as React.ComponentType<DsProps>;
 
 let root: Root;
 let container: HTMLDivElement;

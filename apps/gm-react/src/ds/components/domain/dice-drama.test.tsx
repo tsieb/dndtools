@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import type React from 'react';
 import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DiceResult as RawDiceResult } from './DiceResult.jsx';
+import { DiceResult, type DiceResultProps } from './DiceResult';
 
 /**
  * RC-SES-2.4 — dice drama. A natural high goes gold, pops on the spring and sweeps a gold sheen; a
@@ -19,14 +18,23 @@ import { DiceResult as RawDiceResult } from './DiceResult.jsx';
  * reduced-motion clamp applied — is `tests/e2e/dice-tray.spec.ts`.
  */
 
-type DsProps = Record<string, unknown>;
-const DiceResult = RawDiceResult as React.ComponentType<DsProps>;
-
-const NAT_20 = { notation: '1d20', total: 20, rolls: [20], crit: 'success', critNatural: 20 };
-const NAT_1 = { notation: '1d20', total: 1, rolls: [1], crit: 'fail', critNatural: 1 };
+const NAT_20 = {
+	notation: '1d20',
+	total: 20,
+	rolls: [20],
+	crit: 'success',
+	critNatural: 20,
+} satisfies DiceResultProps;
+const NAT_1 = {
+	notation: '1d20',
+	total: 1,
+	rolls: [1],
+	crit: 'fail',
+	critNatural: 1,
+} satisfies DiceResultProps;
 const PLAIN = { notation: '1d20', total: 13, rolls: [13] };
 
-function chip(props: DsProps): HTMLElement {
+function chip(props: DiceResultProps): HTMLElement {
 	const host = document.createElement('div');
 	host.innerHTML = renderToStaticMarkup(<DiceResult {...props} />);
 	return host.querySelector('[role="group"]') as HTMLElement;
@@ -84,7 +92,7 @@ describe('dice drama — visual snapshot', () => {
 		expect(styleOf(el)).not.toContain('--easing-spring');
 	});
 
-	it('any other roll is the clean chip, even while playing', () => {
+	it('an ordinary roll is the clean chip, even while playing', () => {
 		const el = chip({ ...PLAIN, drama: 'play' });
 		expect(el.getAttribute('data-drama')).toBe('plain');
 		expect(styleOf(el)).toContain('border:1px solid var(--color-border)');

@@ -4,16 +4,16 @@ import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Checkbox as RawCheckbox } from './Checkbox.jsx';
+import { Checkbox as RawCheckbox } from './Checkbox';
 
-// The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
-// required. Re-type the import as an open prop bag rather than restating the component's contract.
+// Preserve the existing partial and malformed runtime fixtures through this test-only adapter.
+// Public consumer typing is checked separately in contracts.typecheck.tsx.
 type DsProps = Record<string, unknown> & { children?: React.ReactNode };
-const Checkbox = RawCheckbox as React.ComponentType<DsProps>;
+const Checkbox = RawCheckbox as unknown as React.ComponentType<DsProps>;
 
 // role="checkbox" sits on a <span> inside a <label>. Implicit label association only works for
-// labelable FORM elements, so the control had NO accessible name at any call site, and clicking the
-// visible label text did not toggle it. Mirrors the fix already in Switch.jsx.
+// labelable FORM elements, so the control had NO accessible name at each call site, and clicking the
+// visible label text did not toggle it. Mirrors the fix already in Switch.tsx.
 
 let root: Root;
 let container: HTMLDivElement;
