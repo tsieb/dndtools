@@ -148,18 +148,22 @@ describe('SES-002 run combat (commands)', () => {
 		expect(t2.session.combat.log.some((e) => e.kind === 'round-advanced')).toBe(true);
 	});
 
-	it('fails closed when the session is not active and when a non-DM runs combat', () => {
-		// Not active: build an idle session.
+	it('runs combat in Standby too, and fails closed when a non-DM runs combat', () => {
+		// RC-SES-6.1 — no live session needed: combat starts in Standby and its log says so.
 		const env = makeEnvironment();
 		const idle = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
-		const idleResult = rejected(
+		const idleResult = accept(
 			dispatch(idle, env, {
 				type: 'combat.start',
 				actorId: DM_ACTOR.id,
 				payload: { combatants: TWO_COMBATANTS },
 			}),
 		);
-		expect(idleResult.rejection.code).toBe('invalid-state');
+		expect(idleResult.nextState.session.combat.status).toBe('running');
+		expect(idleResult.nextState.session.combat.log[0]).toMatchObject({
+			kind: 'combat-started',
+			workflow: 'idle',
+		});
 
 		// Active, but a player tries to start combat (DM-run only).
 		const { state, env: env2 } = activeSession();
@@ -1082,7 +1086,7 @@ describe('UX-SES-006 previous turn (the undo for an accidental advance)', () => 
 		expect(wrapped.events[0]).toMatchObject({ kind: 'combat.turn-reverted', wrappedRound: true });
 	});
 
-	it('fails closed: first turn of round 1, non-DM actors, inactive session, no combat', () => {
+	it('fails closed: first turn of round 1, non-DM actors, no combat; a pause does not block it', () => {
 		const { state, env } = activeSession();
 		const started = accept(
 			dispatch(state, env, {
@@ -1121,7 +1125,7 @@ describe('UX-SES-006 previous turn (the undo for an accidental advance)', () => 
 			).rejection.code,
 		).toBe('invalid-state');
 
-		// Inactive session (paused): the active-session gate fails closed.
+		// RC-SES-6.1 — a paused session no longer blocks the undo; the entry records the pause.
 		const paused = accept(
 			dispatch(t1, env, {
 				type: 'session.set-workflow',
@@ -1129,11 +1133,14 @@ describe('UX-SES-006 previous turn (the undo for an accidental advance)', () => 
 				payload: { workflow: 'paused', activeSceneId: t1.session.activeSceneId },
 			}),
 		).nextState;
-		expect(
-			rejected(
-				dispatch(paused, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
-			).rejection.code,
-		).toBe('invalid-state');
+		const reverted = accept(
+			dispatch(paused, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		expect(reverted.session.combat).toMatchObject({ round: 1, turn: 0 });
+		expect(reverted.session.combat.log.at(-1)).toMatchObject({
+			kind: 'turn-reverted',
+			workflow: 'paused',
+		});
 	});
 });
 

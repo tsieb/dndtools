@@ -201,7 +201,7 @@ describe('SES-004 handout delivery', () => {
 		);
 	});
 
-	it('fails closed: a player cannot deliver, delivery requires an active session, and bad recipients reject', () => {
+	it('fails closed: a player cannot deliver and bad recipients reject; Standby delivery is allowed', () => {
 		const env = makeEnvironment();
 		const { state, sceneId } = activeSession(env);
 
@@ -224,14 +224,16 @@ describe('SES-004 handout delivery', () => {
 		expect(dmRecipient.status).toBe('rejected');
 		if (dmRecipient.status === 'rejected') expect(dmRecipient.rejection.code).toBe('invalid-payload');
 
-		// Delivery requires an active session.
+		// RC-SES-6.1 — delivery works in Standby too; the record says it happened outside a session.
 		const idleBase = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 		const idleHome = accept(
 			dispatch(idleBase, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
 		).nextState;
 		const idleScene = idleHome.commandCenter.homeSceneId!;
-		const idleDeliver = deliver(idleHome, env, idleScene, [PLAYER_ACTOR.id]);
-		expect(idleDeliver.status).toBe('rejected');
-		if (idleDeliver.status === 'rejected') expect(idleDeliver.rejection.code).toBe('invalid-state');
+		const idleDeliver = accept(deliver(idleHome, env, idleScene, [PLAYER_ACTOR.id]));
+		const [delivered] = Object.values(idleDeliver.nextState.session.handouts);
+		expect(delivered?.deliveries).toEqual([
+			expect.objectContaining({ recipientActorId: PLAYER_ACTOR.id, workflow: 'idle' }),
+		]);
 	});
 });

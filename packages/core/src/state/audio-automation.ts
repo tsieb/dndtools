@@ -9,6 +9,8 @@ import {
 	type AudioPlaybackAvailability,
 } from './audio-source';
 import type { AudioState } from './audio-state';
+import type { SessionWorkflowState } from './session-state';
+import { isLiveWorkflow } from '../lifecycle/session-workflow';
 
 /**
  * AUDIO-005 — ATMOSPHERE AUTOMATION: rule/trigger-driven audio behavior.
@@ -382,6 +384,13 @@ export interface AudioAutomationTrigger {
 	assetCached: boolean;
 	/** Whether a previously-cached asset was evicted (AUDIO-010 AC3 — reports missing, never substitutes). */
 	cacheEvicted: boolean;
+	/**
+	 * RC-SES-6.1 — the session workflow the event happened in. Automation rules and SFX events are a
+	 * live-only effect: an event fired outside a live session (combat started in Standby, a roll in Prep)
+	 * resolves no rule. Absent only for a resolution the DM runs by hand (the rule list's "Run now" and
+	 * its outcome preview), which is not an automation firing.
+	 */
+	sessionWorkflow?: SessionWorkflowState;
 }
 
 /** Why an automation rule did NOT issue its declared command (the non-leaking diagnostic reason). */
@@ -494,6 +503,10 @@ export function evaluateAudioAutomationRule(
 ): AudioAutomationOutcome | null {
 	if (!rule.enabled) return null;
 	if (rule.trigger !== trigger.kind) return null;
+	// RC-SES-6.1 — outside a live session no automation fires (the rule is not muted or blocked, it
+	// simply never saw a live event).
+	if (trigger.sessionWorkflow !== undefined && !isLiveWorkflow(trigger.sessionWorkflow))
+		return null;
 	// A scoped rule fires only for its exact scope; an unscoped rule fires for any occurrence.
 	if (rule.triggerScopeId !== null && rule.triggerScopeId !== trigger.scopeId) return null;
 

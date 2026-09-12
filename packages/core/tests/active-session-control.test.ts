@@ -268,23 +268,25 @@ describe('CMD-006 session workflow control', () => {
 			getSessionParticipantStatus(paused.session, paused.permissions, PLAYER_ACTOR.id),
 		).toMatchObject({
 			connection: 'paused-degraded',
-			canExecuteLiveCommands: false,
+			canExecuteLiveCommands: true,
 		});
 
-		const blocked = dispatch(paused, env, {
-			type: 'widget.dispatch-command',
-			actorId: DM_ACTOR.id,
-			idempotencyKey: 'cmd-006-paused-timer',
-			payload: {
-				sceneId: homeSceneId,
-				widgetInstanceId: timer.id,
-				commandType: 'timer.start',
-				payload: { durationSeconds: 30 },
-				expectedRevision: paused.scenes.scenes[homeSceneId]?.ownership.revision,
-			},
-		});
-		expect(blocked.status).toBe('rejected');
-		if (blocked.status === 'rejected') expect(blocked.rejection.code).toBe('invalid-state');
+		// RC-SES-6.1 — the Timer widget is a table tool: it keeps working through a pause.
+		const restarted = accept(
+			dispatch(paused, env, {
+				type: 'widget.dispatch-command',
+				actorId: DM_ACTOR.id,
+				idempotencyKey: 'cmd-006-paused-timer',
+				payload: {
+					sceneId: homeSceneId,
+					widgetInstanceId: timer.id,
+					commandType: 'timer.start',
+					payload: { durationSeconds: 30 },
+					expectedRevision: paused.scenes.scenes[homeSceneId]?.ownership.revision,
+				},
+			}),
+		).nextState;
+		expect(restarted.session.timers[timer.id]).toMatchObject({ status: 'running' });
 
 		const resumed = accept(
 			dispatch(paused, env, {
@@ -336,12 +338,16 @@ describe('CMD-006 session workflow control', () => {
 		expect(archive?.diceHistory).toHaveLength(1);
 		expect(getSessionWidgetMode(recap.session)).toMatchObject({
 			mode: 'archived',
-			canMutateActiveSession: false,
+			// RC-SES-6.1 — widgets still work in recap; they just are not recording, and the archive
+			// under review is read-only.
+			canMutateActiveSession: true,
+			recording: false,
+			status: 'read-only',
 			recapArchiveId: recap.session.recapArchiveId,
 		});
 	});
 
-	it('marks prep widgets as draft state rather than live mutable Session State', () => {
+	it('marks prep widgets as draft (not recording) while they can still write', () => {
 		const env = makeEnvironment();
 		const { state, homeSceneId } = ensureHome(withMaps(), env);
 		const prep = accept(
@@ -353,8 +359,12 @@ describe('CMD-006 session workflow control', () => {
 		).nextState;
 		expect(getSessionWidgetMode(prep.session)).toMatchObject({
 			mode: 'draft',
-			canMutateActiveSession: false,
+			canMutateActiveSession: true,
+			recording: false,
+			status: 'ready',
 		});
+		const live = startActive(prep, env, homeSceneId);
+		expect(getSessionWidgetMode(live.session)).toMatchObject({ mode: 'live', recording: true });
 	});
 });
 

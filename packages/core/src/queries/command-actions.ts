@@ -208,8 +208,8 @@ export function listCommandActions(
 	// map (the same session.set-active-map the Change-map control dispatches), and
 	// "Project active map to players" (the same session.project-active-map the embed's
 	// toggle dispatches). Unavailable reasons are generic/non-leaking by construction:
-	// they describe the DM's own session state, never hidden content.
-	const sessionActive = state.session.workflow === 'active';
+	// they describe the DM's own session state, never hidden content. RC-SES-6.1 — projecting
+	// does not wait for Go live.
 	const vaultMaps = Object.values(state.maps.maps).sort((a, b) => a.name.localeCompare(b.name));
 	for (const map of vaultMaps) {
 		actions.push({
@@ -234,11 +234,9 @@ export function listCommandActions(
 		group: 'map',
 		availability: !state.session.activeMap
 			? unavailable('No active map selected.')
-			: !sessionActive
-				? unavailable('Session is not active.')
-				: playerIds.length === 0
-					? unavailable('No connected players.')
-					: available(),
+			: playerIds.length === 0
+				? unavailable('No connected players.')
+				: available(),
 		commandType: 'session.project-active-map',
 		payload: { playerActorIds: playerIds, connectionState: 'connected' },
 		input: null,

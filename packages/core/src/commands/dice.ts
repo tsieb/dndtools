@@ -29,8 +29,10 @@ import {
 	type DiceRollSourceKind,
 	type DiceRollVisibility,
 	type SessionDiceRoll,
+	type SessionWorkflowState,
 } from '../state/session-state';
 import type { CombatLogEntry } from '../state/combat-tracker';
+import { stampWorkflow } from '../lifecycle/session-workflow';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import { resolveDeliveryTarget } from '../collab/player-groups';
@@ -67,7 +69,8 @@ import { actorMayEditItem } from './content-edit-authority';
  *     from players at the read layer; a `shared` roll is delivered only to the listed participants.
  *   - Authority fails closed: any registered participant may roll (dice are player-safe, SES-003), but
  *     a non-DM may only mark a roll `dm-only` for THEMSELVES is disallowed — only the DM may author a
- *     `dm-only` (secret) roll. Rolling requires an ACTIVE session (the CMD-active-session-control guard).
+ *     `dm-only` (secret) roll. Rolling works in every workflow state (RC-SES-6.1); each record carries
+ *     the workflow it was made in, so only live rolls reach the session log, capture and recap.
  *   - SES-008: a rollable TABLE is a `dice-table` Vault Object (declared subtype). Drawing it resolves
  *     deterministically and records the selected row, attributed to the actor. The result may be
  *     APPENDED to a note BY REFERENCE through the EXISTING content write path (`content.update-item`
@@ -75,17 +78,6 @@ import { actorMayEditItem } from './content-edit-authority';
  */
 
 const SESSION_ENTITY_ID = 'session-default';
-
-/** The session-active guard (fail closed when the workflow is not active). Reused across SES slices. */
-function requireActiveSession(state: CoreStateSlice): CommandRejection | null {
-	if (state.session.workflow !== 'active') {
-		return {
-			code: 'invalid-state',
-			message: 'Rolling dice requires an active Session workflow.',
-		};
-	}
-	return null;
-}
 
 /**
  * Resolve the effective visibility for a roll, fail-closed. Only the DM may author a `dm-only` (secret)
@@ -225,14 +217,17 @@ function withSessionAndCombatRoll(
 	if (combat.status !== 'running') {
 		return { ...state, session: { ...state.session, diceHistory } };
 	}
-	const rollEntry = buildCombatRollLogEntry(
-		activeSystemPackageFor(state),
-		env,
-		actor,
-		operationId,
-		combat.round,
-		combat.turn,
-		record,
+	const rollEntry = stampWorkflow(
+		buildCombatRollLogEntry(
+			activeSystemPackageFor(state),
+			env,
+			actor,
+			operationId,
+			combat.round,
+			combat.turn,
+			record,
+		),
+		state.session.workflow,
 	);
 	const nextCombat = {
 		...combat,
@@ -242,9 +237,13 @@ function withSessionAndCombatRoll(
 	return { ...state, session: { ...state.session, diceHistory, combat: nextCombat } };
 }
 
-/** Build the durable roll record from a recorded evaluation. Pure assembly. */
+/**
+ * Build the durable roll record from a recorded evaluation, stamped with the workflow it was made in
+ * (RC-SES-6.1). Pure assembly.
+ */
 function buildRollRecord(
 	env: CoreEnvironment,
+	workflow: SessionWorkflowState,
 	actor: Actor,
 	result: DiceRollResult,
 	sourceKind: DiceRollSourceKind,
@@ -254,7 +253,7 @@ function buildRollRecord(
 	operationId: string,
 	extra: Partial<SessionDiceRoll> = {},
 ): SessionDiceRoll {
-	return {
+	const record: SessionDiceRoll = {
 		id: env.ids(),
 		actorId: actor.id,
 		actorRole: actor.role,
@@ -273,6 +272,7 @@ function buildRollRecord(
 		operationId,
 		...extra,
 	};
+	return stampWorkflow(record, workflow);
 }
 
 // --- SES-003 — roll a dice expression / macro / inline roll --------------------------------------
@@ -289,8 +289,6 @@ export function handleRollDice(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const parsed = parseInput(rollDiceInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -337,6 +335,7 @@ export function handleRollDice(
 
 	const record = buildRollRecord(
 		env,
+		state.session.workflow,
 		actor,
 		rolled.result,
 		sourceKind,
@@ -417,8 +416,6 @@ export function handleRollTable(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const parsed = parseInput(rollTableInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -463,6 +460,7 @@ export function handleRollTable(
 
 	const record = buildRollRecord(
 		env,
+		state.session.workflow,
 		actor,
 		draw.result.roll,
 		'table',

@@ -64,6 +64,7 @@ import type {
 	CoreStateSlice,
 } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
+import { stampWorkflow } from '../lifecycle/session-workflow';
 
 /**
  * SES-002 — RUN COMBAT command handlers (Architecture Contract 1 / Contract 3).
@@ -84,26 +85,26 @@ import { appendOperationDraft, parseInput, reject, requireActor, requireDm } fro
  *   - RC-SES-5.1 — a player may set INITIATIVE only by rolling for a character combatant they hold
  *     `combat-participant` on, only while the DM's initiative call is open, and only once. Setting a
  *     value (the "adjust") is the DM's alone.
- *   - All combat-running commands are gated on the session workflow being `active` (the
- *     CMD-active-session-control guard, reused). They fail closed when the session is not active and
- *     for unauthorized actors.
+ *   - Combat runs in every session workflow state (RC-SES-6.1: Standby permits everything). Every
+ *     encounter-log entry records the workflow it happened in, so the session log, capture and recap
+ *     keep only the entries made while live. Commands still fail closed for unauthorized actors.
  */
 
 const SESSION_ENTITY_ID = 'session-default';
 
-/** The session-active guard reused from CMD-active-session-control (fail closed when not active). */
-function requireActiveSession(state: CoreStateSlice): CommandRejection | null {
-	if (state.session.workflow !== 'active') {
-		return {
-			code: 'invalid-state',
-			message: 'Running combat requires an active Session workflow.',
-		};
-	}
-	return null;
-}
-
+/**
+ * Commit a combat mutation. RC-SES-6.1 — every encounter-log entry the mutation added (including the
+ * condition-expiry entries the tracker's round tick writes) is stamped with the workflow it happened
+ * in. Entries already on the log keep their stamp, or their absence of one.
+ */
 function withCombat(state: CoreStateSlice, combat: SessionCombatState): CoreStateSlice {
-	return { ...state, session: { ...state.session, combat } };
+	const known = new Set(state.session.combat.log.map((entry) => entry.id));
+	const log = combat.log.map((entry) =>
+		known.has(entry.id) || 'workflow' in entry
+			? entry
+			: stampWorkflow(entry, state.session.workflow),
+	);
+	return { ...state, session: { ...state.session, combat: { ...combat, log } } };
 }
 
 // --- RC-SES-5.1 — the initiative CALL -------------------------------------------------------------
@@ -228,8 +229,6 @@ export function handleStartCombat(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	// SES-002 — refuse to start over a running combat. Silently replacing it would DISCARD the
 	// in-progress encounter (its log, round/turn, and combatants); the DM must explicitly end the
@@ -383,8 +382,6 @@ export function handleAdvanceCombatTurn(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const parsed = parseInput(advanceCombatTurnInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -509,8 +506,6 @@ export function handlePreviousCombatTurn(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const parsed = parseInput(previousCombatTurnInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -638,9 +633,6 @@ export function handleApplyCombatResource(
 	if (combat.status !== 'running') {
 		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
-	// CMD-active-session-control: combat writes require an active session (fail closed).
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const now = env.clock();
 
@@ -1122,7 +1114,7 @@ function handleCombatantInitiative(
 /** The fail-closed default placeholder for a hidden combatant (UX-SES-008 AC2 / UX-SES-016). */
 const DEFAULT_HIDDEN_PLACEHOLDER = 'Unknown creature';
 
-/** Shared DM + active-session + running-combat gate for combatant-management commands. */
+/** Shared DM + running-combat gate for combatant-management commands. */
 function requireRunningCombatAsDm(
 	state: CoreStateSlice,
 	actorId: string,
@@ -1131,8 +1123,6 @@ function requireRunningCombatAsDm(
 	if ('code' in actor) return { rejection: actor };
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return { rejection: dmCheck };
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return { rejection: sessionGuard };
 	if (state.session.combat.status !== 'running') {
 		return { rejection: { code: 'invalid-state', message: 'No combat is currently running.' } };
 	}
@@ -1696,8 +1686,6 @@ export function handleMoveCombatToken(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 	if (state.session.combat.status !== 'running') {
 		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
@@ -2034,8 +2022,6 @@ export function handleEndCombat(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const parsed = parseInput(endCombatInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);

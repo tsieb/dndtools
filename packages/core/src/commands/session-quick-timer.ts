@@ -8,8 +8,8 @@ const SESSION_ENTITY_ID = 'session-default';
 /**
  * RC-SES-4.4 — the QUICK-PANEL TIMER: a session-level countdown or break the DM runs from
  * `SessionQuickPanel`, independent of any scene widget (contrast the per-widget `SessionTimer` a
- * scene's Timer widget drives, `commands/widget-command.ts`). DM-only, and only while the session is
- * live — a timer left over from a stale prep/recap view has nothing to count down to.
+ * scene's Timer widget drives, `commands/widget-command.ts`). DM-only. It is a table tool, not the
+ * session clock, so it runs in every workflow state (RC-SES-6.1); a session reset still clears it.
  *
  * `laps` records the ISO instant of each lap mark; a lap is only meaningful while the timer is
  * running (paused/idle laps are rejected rather than recorded as a meaningless zero-length lap).
@@ -30,15 +30,6 @@ export function handleQuickTimerCommand(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	if (state.session.workflow !== 'active') {
-		return reject(
-			{
-				code: 'invalid-state',
-				message: `The quick-panel timer requires an active session; current workflow is ${state.session.workflow}.`,
-			},
-			state,
-		);
-	}
 
 	const previous = state.session.quickTimer;
 	const now = env.clock();

@@ -175,15 +175,8 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
-	if (descriptor.writesTo === 'session' && state.session.workflow !== 'active') {
-		return reject(
-			{
-				code: 'invalid-state',
-				message: `Session widget commands require an active workflow; current workflow is ${state.session.workflow}.`,
-			},
-			state,
-		);
-	}
+	// RC-SES-6.1 — a session-writing widget command (the Timer widget, the Dice widget) runs in every
+	// workflow state, like the top-level session commands; going live gates no table tool.
 	// SES-005 — the timer/tool reducer. start/pause/resume/reset/advance are OPERATE actions that mutate
 	// the durable SESSION timer state; set-duration is a CONFIGURE action that mutates the scene widget's
 	// configuration (NOT the live timer). Anything else has no reducer here.

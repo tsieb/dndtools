@@ -4260,21 +4260,28 @@ export {
 } from './lifecycle/command-lifecycle';
 
 // SES-011: the SESSION WORKFLOW STATE MACHINE — the 7-state transition table + per-state command
-// availability. Pure Processing-Core policy; the GUI renders the computed availability and the
-// command guards enforce the authoritative gate (`active` remains the only live-session state).
+// availability. Pure Processing-Core policy; the GUI renders the computed availability. RC-SES-6.1 —
+// every session command runs in every workflow; only the live-only effects wait for Go live, and each
+// roll / encounter-log entry / handout delivery records the workflow it happened in.
 export type {
 	SessionCommandAvailability,
 	SessionLifecycleIntent,
+	SessionLiveOnlyEffect,
+	SessionWorkflowStamp,
 } from './lifecycle/session-workflow';
 export {
 	SESSION_COMMAND_AVAILABILITY,
 	SESSION_INTENT_TARGET,
+	SESSION_LIVE_ONLY_EFFECTS,
 	SESSION_WORKFLOW_TRANSITIONS,
 	allowedTransitionsFrom,
 	availableSessionCommands,
+	happenedLive,
 	isLifecycleIntentAllowed,
+	isLiveWorkflow,
 	isSessionCommandAvailable,
 	isTransitionAllowed,
+	stampWorkflow,
 } from './lifecycle/session-workflow';
 
 // COLLAB-009 — FILTER-BEFORE-SEND replication-stream privacy (the keystone). Given the FULL op stream +

@@ -12,7 +12,8 @@ import { isOnline } from '../platform/preferences';
  * (`state/audio-automation.ts`) the instant combat actually starts or ends, dispatching the resolved
  * request through the SAME durable session-audio commands the DM's own "Run now" button and every other
  * device's audio sync already use (`session.audio.play` / `session.audio.stop`). No new playback surface
- * — this only adds the auto-fire that until now required a manual click after every fight.
+ * — this only adds the auto-fire that until now required a manual click after every fight. Like every
+ * automation it is a live-only effect (RC-SES-6.1): a fight run in Standby plays no music.
  *
  * Modeled on `sfx-events.ts`'s driver (watch `runtime.onDispatched`, recognise the durable op, resolve
  * through the core, dispatch the result) but distinct in one respect: a combat-music request is a
@@ -79,6 +80,9 @@ function createCombatAudioAutomationDriver(runtime: SceneRuntime): () => void {
 			assetLocallyAvailable: true,
 			assetCached: true,
 			cacheEvicted: false,
+			// RC-SES-6.1 — combat runs in Standby too, but its music waits for Go live: the core
+			// resolves no rule for a fight started or ended outside a live session.
+			sessionWorkflow: state.session.workflow,
 		});
 		if (!resolution) return;
 

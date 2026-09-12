@@ -12,11 +12,13 @@ import { SESSION_WORKFLOW_STATES } from '../state/session-state';
  * GUI dispatches a transition intent and renders the computed availability; it never decides policy
  * (Contract 1).
  *
- * COMPATIBILITY INVARIANT (do not break): `active` remains the ONLY state in which the existing
- * session-writing commands (combat / dice / handouts / timers / active-map projection) are accepted.
- * The per-command guards in `commands/*.ts` still check `state.session.workflow === 'active'`; this
- * machine formalizes the surrounding lifecycle without changing that gate's meaning. The command
- * availability table below is kept consistent with those guards and is regression-tested.
+ * RC-SES-6.1 (§1.6 D2, "Standby permits everything"): going live is a POSTURE and LOGGING switch, not
+ * a permission. Every session command — dice, tables, combat, handouts, map projection, combat
+ * resources, the quick-panel countdown — is accepted in every workflow state, and no command handler
+ * checks `workflow === 'active'` any more (the regression test asserts both). What still waits for Go
+ * live is {@link SESSION_LIVE_ONLY_EFFECTS}: things the app does BECAUSE the session is live, never a
+ * command the DM issues. The records those commands write carry the workflow they were made in
+ * ({@link SessionWorkflowStamp}), so the session log, capture and recap keep only what happened live.
  */
 
 /**
@@ -103,58 +105,53 @@ export function isLifecycleIntentAllowed(
 }
 
 /**
- * The COMMAND-AVAILABILITY categories for session commands. A category groups command types by the
- * workflow rule that governs them:
- * - `live-session`: session-writing commands accepted ONLY while `active` (combat / dice / handouts /
- *   timers / active-map projection). This is the existing active-session gate, formalized here.
+ * The COMMAND-AVAILABILITY categories for session commands:
  * - `lifecycle`: the workflow transition command itself; always available (it is how you leave a
  *   state). Whether a SPECIFIC transition is allowed is decided by the transition table, not here.
- * - `dm-admin`: DM authoring/admin session commands that are available in any non-idle workflow
- *   (player-view projection, active-map selection, quick-reference pinning, calendar continuity).
- *   These do not require the live `active` gate but are not meaningful with no session at all.
- * - `always`: commands not tied to a live session (e.g. reading recap; calendar continuity is
- *   campaign-level). Available in every workflow state including `idle`.
+ * - `always`: every other session command, in every workflow state including `idle` (Standby).
+ *
+ * RC-SES-6.1 retired the `live-session` category (accepted only while `active`) and the `dm-admin`
+ * category (accepted in any non-idle workflow). Nothing a DM does at the table waits for Go live.
  */
-export type SessionCommandAvailability = 'live-session' | 'lifecycle' | 'dm-admin' | 'always';
+export type SessionCommandAvailability = 'lifecycle' | 'always';
 
 /**
  * The session command types this machine governs, mapped to their availability category. Command
  * types NOT listed here are governed by their own slice policy (this map covers the session domain).
- * The `live-session` set MUST stay in lockstep with the `workflow === 'active'` guards in
- * `commands/*.ts` — the regression test asserts both agree.
+ * No handler in `commands/*.ts` may check `workflow === 'active'` — the regression test asserts it.
  */
 export const SESSION_COMMAND_AVAILABILITY: Partial<
 	Record<CoreCommand['type'], SessionCommandAvailability>
 > = Object.freeze({
 	// Lifecycle transition — always dispatchable; the transition table decides if the move is legal.
 	'session.set-workflow': 'lifecycle',
-	// Live-session writes: accepted only while `active` (the existing gate).
-	'session.record-dice': 'live-session',
-	'dice.roll': 'live-session',
-	'dice.roll-table': 'live-session',
-	'combat.start': 'live-session',
-	'combat.advance-turn': 'live-session',
-	'combat.apply-resource': 'live-session',
-	'combat.end': 'live-session',
-	'session.deliver-handout': 'live-session',
-	'session.reveal-handout-section': 'live-session',
-	'session.project-active-map': 'live-session',
-	'character.update-combat-resource': 'live-session',
-	// RC-SES-4.4 — the quick-panel timer is live-session state: it is cleared on every session reset,
-	// so operating it outside `active` has no session for it to belong to.
-	'session.quick-timer.start': 'live-session',
-	'session.quick-timer.pause': 'live-session',
-	'session.quick-timer.resume': 'live-session',
-	'session.quick-timer.reset': 'live-session',
-	'session.quick-timer.lap': 'live-session',
-	// DM admin session commands: available in any non-idle workflow.
-	'session.project-player-view': 'dm-admin',
-	'session.revoke-player-view': 'dm-admin',
-	'session.set-active-map': 'dm-admin',
-	'session.pin-quick-reference': 'dm-admin',
-	'session.unpin-quick-reference': 'dm-admin',
-	// Campaign calendar continuity is campaign-level (never reset between sessions), so it is always
-	// available regardless of the live workflow.
+	// Table tools (RC-SES-6.1): dice, tables, combat, handouts and map projection work in Standby too.
+	// Each roll, encounter-log entry and handout delivery records the workflow it was made in.
+	'session.record-dice': 'always',
+	'dice.roll': 'always',
+	'dice.roll-table': 'always',
+	'combat.start': 'always',
+	'combat.advance-turn': 'always',
+	'combat.apply-resource': 'always',
+	'combat.end': 'always',
+	'session.deliver-handout': 'always',
+	'session.reveal-handout-section': 'always',
+	'session.project-active-map': 'always',
+	'character.update-combat-resource': 'always',
+	// RC-SES-4.4 / RC-SES-6.1 — the quick-panel countdown is a table tool, not the session clock (the
+	// elapsed clock is a live-only effect; see SESSION_LIVE_ONLY_EFFECTS).
+	'session.quick-timer.start': 'always',
+	'session.quick-timer.pause': 'always',
+	'session.quick-timer.resume': 'always',
+	'session.quick-timer.reset': 'always',
+	'session.quick-timer.lap': 'always',
+	// DM projection and reference commands (formerly available only outside `idle`).
+	'session.project-player-view': 'always',
+	'session.revoke-player-view': 'always',
+	'session.set-active-map': 'always',
+	'session.pin-quick-reference': 'always',
+	'session.unpin-quick-reference': 'always',
+	// Campaign calendar continuity is campaign-level (never reset between sessions).
 	'session.set-campaign-date': 'always',
 	'session.link-calendar-date': 'always',
 	'session.unlink-calendar-date': 'always',
@@ -164,11 +161,11 @@ export const SESSION_COMMAND_AVAILABILITY: Partial<
  * Whether a governed session command is AVAILABLE in the given workflow state (SES-011 per-state
  * command availability). Fail-closed: a command whose category is unknown to this machine is reported
  * unavailable here (its own slice still enforces the authoritative policy). This is a pure predicate
- * the GUI can use to disable controls; the Processing-Core command guards remain authoritative.
+ * the GUI can use to disable controls; the Processing-Core command handlers remain authoritative.
  */
 export function isSessionCommandAvailable(
 	commandType: CoreCommand['type'],
-	workflow: SessionWorkflowState,
+	_workflow: SessionWorkflowState,
 ): boolean {
 	const availability = SESSION_COMMAND_AVAILABILITY[commandType];
 	if (!availability) return false;
@@ -177,10 +174,6 @@ export function isSessionCommandAvailable(
 			return true;
 		case 'lifecycle':
 			return true;
-		case 'live-session':
-			return workflow === 'active';
-		case 'dm-admin':
-			return workflow !== 'idle';
 	}
 }
 
@@ -189,6 +182,55 @@ export function availableSessionCommands(workflow: SessionWorkflowState): CoreCo
 	return (Object.keys(SESSION_COMMAND_AVAILABILITY) as CoreCommand['type'][])
 		.filter((type) => isSessionCommandAvailable(type, workflow))
 		.sort();
+}
+
+/**
+ * RC-SES-6.1 — what still waits for Go live. None of these is a command; each is something the app does
+ * because the session is live:
+ * - `session-clock`: the elapsed session clock (`app/shell/session-posture.ts` counts only while live).
+ * - `audio-automation`: the DM's audio automation rules and SFX events. `state/audio-automation.ts`
+ *   resolves no rule for a trigger fired outside a live session.
+ * - `session-start-triggers`: scene activation and the start-of-session side effects, which only the
+ *   transition into `active` runs (`commands/session-control.ts`).
+ */
+export type SessionLiveOnlyEffect = 'session-clock' | 'audio-automation' | 'session-start-triggers';
+
+export const SESSION_LIVE_ONLY_EFFECTS: readonly SessionLiveOnlyEffect[] = Object.freeze([
+	'session-clock',
+	'audio-automation',
+	'session-start-triggers',
+]);
+
+/** Whether the session is LIVE: the one workflow the {@link SESSION_LIVE_ONLY_EFFECTS} run in. */
+export function isLiveWorkflow(workflow: SessionWorkflowState): boolean {
+	return workflow === 'active';
+}
+
+/**
+ * RC-SES-6.1 — the ADDITIVE field a session record carries: the workflow it was made in. Written on every
+ * dice roll (`SessionDiceRoll`), encounter-log entry (`CombatLogEntry`) and handout delivery
+ * (`HandoutDeliveryRecord`). Optional because a record persisted before it existed has none.
+ */
+export interface SessionWorkflowStamp {
+	workflow?: SessionWorkflowState;
+}
+
+/** Return a copy of `record` carrying the workflow it was made in ({@link SessionWorkflowStamp}). */
+export function stampWorkflow<T extends object>(
+	record: T,
+	workflow: SessionWorkflowState,
+): T & Required<SessionWorkflowStamp> {
+	return { ...record, workflow };
+}
+
+/**
+ * Whether a session record was made while the session was live. The session log, capture and recap
+ * include only these; history labels the rest "Outside a session". A record with no stamp predates
+ * RC-SES-6.1, when every command that writes one was refused outside `active`, so it was made live.
+ */
+export function happenedLive(record: object): boolean {
+	const workflow = (record as SessionWorkflowStamp).workflow;
+	return workflow === undefined || isLiveWorkflow(workflow);
 }
 
 /** Re-export the canonical state list so callers can import the machine surface from one module. */

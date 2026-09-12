@@ -21,6 +21,7 @@ import {
 import { resolveDeliveryTarget } from '../collab/player-groups';
 import { hasDmAuthority } from '../state/permission-state';
 import { handoutRecipientSealed } from '../queries/handout-query';
+import { stampWorkflow } from '../lifecycle/session-workflow';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -39,8 +40,9 @@ import {
  * The DM delivers a HANDOUT as a Scene WIDGET to SELECTED players or groups. The architecture invariants
  * this slice upholds:
  *
- *   - DM-only + active-session-gated (fail closed): only the DM may deliver/reveal, and only while the
- *     session workflow is `active` (the same guard the dice/combat slices use).
+ *   - DM-only (fail closed): only the DM may deliver/reveal. Delivery works in every session workflow
+ *     state (RC-SES-6.1); each delivery record carries the workflow it happened in, so the recap keeps
+ *     only the deliveries made while live.
  *   - VISIBILITY ENFORCEMENT is delegated to the PERM visibility-filter at READ time (the recipient set
  *     is the `shared` audience). The reducer never returns recipient-facing content; the actor-filtered
  *     `getHandoutForActor` read decides what each recipient sees. NON-recipients receive NOTHING.
@@ -142,12 +144,6 @@ export function handleDeliverHandout(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	if (state.session.workflow !== 'active') {
-		return reject(
-			{ code: 'invalid-state', message: 'Delivering a handout requires an active Session workflow.' },
-			state,
-		);
-	}
 
 	const parsed = parseInput(deliverHandoutInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -258,17 +254,23 @@ export function handleDeliverHandout(
 		input.connectionState === 'offline' ? 'queued' : 'delivered';
 
 	// Append ONE delivery record per RESOLVED recipient this delivery targets (history grows, never
-	// overwrites). Recipients resolved via a group are recorded as individual delivery records.
-	const newDeliveries: HandoutDeliveryRecord[] = deliveryRecipientIds.map((recipientId) => ({
-		id: env.ids(),
-		recipientActorId: recipientId,
-		deliveredBy: actor.id,
-		deliveredAt: now,
-		deliveryStatus,
-		deliveryReason: input.connectionState,
-		sceneId: sceneResult.id,
-		widgetInstanceId: ensured.widget.id,
-	}));
+	// overwrites). Recipients resolved via a group are recorded as individual delivery records. Each
+	// record carries the workflow it happened in (RC-SES-6.1).
+	const newDeliveries: HandoutDeliveryRecord[] = deliveryRecipientIds.map((recipientId) =>
+		stampWorkflow<HandoutDeliveryRecord>(
+			{
+				id: env.ids(),
+				recipientActorId: recipientId,
+				deliveredBy: actor.id,
+				deliveredAt: now,
+				deliveryStatus,
+				deliveryReason: input.connectionState,
+				sceneId: sceneResult.id,
+				widgetInstanceId: ensured.widget.id,
+			},
+			state.session.workflow,
+		),
+	);
 
 	const handout: SessionHandout = {
 		id: handoutId,

@@ -1,7 +1,9 @@
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	SESSION_COMMAND_AVAILABILITY,
 	SESSION_INTENT_TARGET,
+	SESSION_LIVE_ONLY_EFFECTS,
 	SESSION_WORKFLOW_STATES,
 	SESSION_WORKFLOW_TRANSITIONS,
 	allowedTransitionsFrom,
@@ -10,7 +12,9 @@ import {
 	canUndo,
 	createCommandLifecycle,
 	dispatchCommand,
+	happenedLive,
 	isLifecycleIntentAllowed,
+	isLiveWorkflow,
 	isSessionCommandAvailable,
 	isTransitionAllowed,
 	markFailure,
@@ -159,55 +163,48 @@ describe('SES-011: session workflow transition table', () => {
 // ---------------------------------------------------------------------------
 
 describe('SES-011: per-state command availability', () => {
-	it('makes live-session commands available ONLY in active', () => {
-		const liveCommands = (
-			Object.entries(SESSION_COMMAND_AVAILABILITY) as [
-				CoreCommand['type'],
-				(typeof SESSION_COMMAND_AVAILABILITY)[CoreCommand['type']],
-			][]
-		)
-			.filter(([, availability]) => availability === 'live-session')
-			.map(([type]) => type);
-		expect(liveCommands.length).toBeGreaterThan(0);
-		for (const type of liveCommands) {
+	it('RC-SES-6.1: makes every governed session command available in every state', () => {
+		const governed = Object.keys(SESSION_COMMAND_AVAILABILITY) as CoreCommand['type'][];
+		expect(governed.length).toBeGreaterThan(0);
+		for (const type of governed) {
 			for (const workflow of SESSION_WORKFLOW_STATES) {
-				expect(isSessionCommandAvailable(type, workflow)).toBe(workflow === 'active');
+				expect(isSessionCommandAvailable(type, workflow)).toBe(true);
 			}
 		}
 	});
 
-	it('makes lifecycle + calendar-continuity commands available in every state', () => {
-		for (const workflow of SESSION_WORKFLOW_STATES) {
-			expect(isSessionCommandAvailable('session.set-workflow', workflow)).toBe(true);
-			expect(isSessionCommandAvailable('session.set-campaign-date', workflow)).toBe(true);
-			expect(isSessionCommandAvailable('session.link-calendar-date', workflow)).toBe(true);
-		}
-	});
-
-	it('makes DM-admin session commands available in any non-idle state', () => {
-		for (const workflow of SESSION_WORKFLOW_STATES) {
-			expect(isSessionCommandAvailable('session.project-player-view', workflow)).toBe(
-				workflow !== 'idle',
-			);
-			expect(isSessionCommandAvailable('session.pin-quick-reference', workflow)).toBe(
-				workflow !== 'idle',
-			);
-		}
+	it('RC-SES-6.1: keeps set-workflow as the one lifecycle command and marks nothing live-only', () => {
+		expect(SESSION_COMMAND_AVAILABILITY['session.set-workflow']).toBe('lifecycle');
+		expect([...new Set(Object.values(SESSION_COMMAND_AVAILABILITY))].sort()).toEqual([
+			'always',
+			'lifecycle',
+		]);
 	});
 
 	it('reports unknown command types as unavailable (fail closed)', () => {
 		expect(isSessionCommandAvailable('scene.create', 'active')).toBe(false);
 	});
 
-	it('lists only available commands per state and excludes live-session commands when idle', () => {
-		const idle = availableSessionCommands('idle');
-		expect(idle).not.toContain('combat.start');
-		expect(idle).not.toContain('dice.roll');
-		expect(idle).toContain('session.set-workflow');
+	it('lists the same commands in every state, Standby included', () => {
 		const active = availableSessionCommands('active');
 		expect(active).toContain('combat.start');
 		expect(active).toContain('dice.roll');
 		expect(active).toContain('session.deliver-handout');
+		expect(active).toContain('session.quick-timer.start');
+		for (const workflow of SESSION_WORKFLOW_STATES) {
+			expect(availableSessionCommands(workflow)).toEqual(active);
+		}
+	});
+
+	it('RC-SES-6.1: only the clock, automations and start triggers wait for Go live', () => {
+		expect([...SESSION_LIVE_ONLY_EFFECTS].sort()).toEqual([
+			'audio-automation',
+			'session-clock',
+			'session-start-triggers',
+		]);
+		for (const workflow of SESSION_WORKFLOW_STATES) {
+			expect(isLiveWorkflow(workflow)).toBe(workflow === 'active');
+		}
 	});
 });
 
@@ -232,28 +229,23 @@ describe('SES-011: set-workflow enforces the transition table', () => {
 		expect(result.nextState.session.workflowRevision).toBe(0);
 	});
 
-	it('AC1: a player submitting an active-combat command from idle is rejected (no leak)', () => {
+	it('RC-SES-6.1: a player rolling in Standby is accepted and recorded outside a session', () => {
 		const env = makeEnvironment();
 		const { state } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
 		expect(state.session.workflow).toBe('idle');
-		// dice.roll is a live-session command that ANY actor (including a player) may submit during an
-		// active session. When the session is idle, the session-workflow gate must reject it with
-		// `invalid-state` — NOT `actor-not-authorized` — so the session state guard is exercised, and
-		// the message must not leak internal entity ids (non-leaking, SES-011 AC1).
-		const result = dispatchCommand(state, env, {
-			type: 'dice.roll',
-			actorId: PLAYER_ACTOR.id,
-			payload: { expression: '1d20' },
-		});
-		expect(result.status).toBe('rejected');
-		if (result.status === 'rejected') {
-			expect(result.rejection.code).toBe('invalid-state');
-			// Non-leaking: the rejection message names the workflow requirement only, no internal ids.
-			expect(result.rejection.message).not.toMatch(/actor-|scene-|op-/);
-		}
-		// Durable state is unchanged — idle workflow, no dice history.
+		// dice.roll is a table tool ANY actor (including a player) may use. Standby permits it; the roll
+		// does not move the workflow, and it is stamped as made outside a live session.
+		const result = accept(
+			dispatchCommand(state, env, {
+				type: 'dice.roll',
+				actorId: PLAYER_ACTOR.id,
+				payload: { expression: '1d20' },
+			}),
+		);
 		expect(result.nextState.session.workflow).toBe('idle');
-		expect(result.nextState.session.diceHistory).toHaveLength(0);
+		const [roll] = result.nextState.session.diceHistory;
+		expect(roll).toMatchObject({ actorId: PLAYER_ACTOR.id, workflow: 'idle' });
+		expect(happenedLive(roll!)).toBe(false);
 	});
 
 	it('advances workflowRevision and appends an op only on an accepted transition', () => {
@@ -335,15 +327,20 @@ describe('SES-011: set-workflow enforces the transition table', () => {
 		expect(archiveAfter?.combat).toEqual(archiveBefore?.combat);
 		expect(archiveAfter?.diceHistory).toEqual(archiveBefore?.diceHistory);
 
-		// Live-session writes (the way to mutate combat/dice/handouts) are rejected in recap with
-		// `invalid-state` — a separate edit command (e.g. session.recover) is required to re-open.
-		const diceReject = dispatchCommand(noteResult.nextState, env, {
-			type: 'session.record-dice',
-			actorId: DM_ACTOR.id,
-			payload: { expression: '1d6', total: 3 },
-		});
-		expect(diceReject.status).toBe('rejected');
-		if (diceReject.status === 'rejected') expect(diceReject.rejection.code).toBe('invalid-state');
+		// RC-SES-6.1 — table tools keep working in recap, but they write the fresh live fields, never the
+		// archive under review (re-opening it still takes session.recover), and the roll is stamped as
+		// made outside a live session.
+		const recapRoll = accept(
+			dispatchCommand(noteResult.nextState, env, {
+				type: 'session.record-dice',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d6', total: 3 },
+			}),
+		);
+		expect(recapRoll.nextState.session.archives[archiveId!]).toEqual(archiveAfter);
+		expect(recapRoll.nextState.session.diceHistory).toEqual([
+			expect.objectContaining({ expression: '1d6', workflow: 'recap' }),
+		]);
 	});
 });
 
@@ -501,30 +498,38 @@ describe('SES-001: session lifecycle persist / archive / recover round-trip', ()
 // SES-001 AC3 — reconnect availability matches workflow state
 // ---------------------------------------------------------------------------
 
-describe('SES-001 AC3: stale active-session commands are rejected outside active', () => {
-	it.each(['paused', 'ending', 'recap'] as const)(
-		'rejects a live combat command while %s',
+describe('SES-001 AC3 / RC-SES-6.1: a reconnecting combat command outside active is logged, not refused', () => {
+	it.each(['paused', 'ending'] as const)(
+		'accepts a combat command while %s and stamps its log entry with that workflow',
 		(workflow) => {
 			const env = makeEnvironment();
 			const { state, homeSceneId } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
 			let current = accept(setWorkflow(state, env, 'active', homeSceneId)).nextState;
-			// Drive into the target non-active workflow through allowed transitions.
-			if (workflow === 'paused') {
-				current = accept(setWorkflow(current, env, 'paused', homeSceneId)).nextState;
-			} else if (workflow === 'ending') {
-				current = accept(setWorkflow(current, env, 'ending', homeSceneId)).nextState;
-			} else {
-				current = accept(setWorkflow(current, env, 'ending', homeSceneId)).nextState;
-				current = accept(setWorkflow(current, env, 'recap')).nextState;
-			}
-			expect(current.session.workflow).toBe(workflow);
-			const result = dispatchCommand(current, env, {
-				type: 'combat.advance-turn',
-				actorId: DM_ACTOR.id,
-				payload: {},
-			});
-			expect(result.status).toBe('rejected');
-			if (result.status === 'rejected') expect(result.rejection.code).toBe('invalid-state');
+			current = accept(
+				dispatchCommand(current, env, {
+					type: 'combat.start',
+					actorId: DM_ACTOR.id,
+					payload: {
+						combatants: [
+							{ kind: 'monster', name: 'Goblin', initiative: 15, maxHp: 7 },
+							{ kind: 'monster', name: 'Bandit', initiative: 12, maxHp: 11 },
+						],
+					},
+				}),
+			).nextState;
+			current = accept(setWorkflow(current, env, workflow, homeSceneId)).nextState;
+			const result = accept(
+				dispatchCommand(current, env, {
+					type: 'combat.advance-turn',
+					actorId: DM_ACTOR.id,
+					payload: {},
+				}),
+			);
+			const log = result.nextState.session.combat.log;
+			// The start entry was made live; the advance was made in the pause/wind-down.
+			expect(log[0]).toMatchObject({ kind: 'combat-started', workflow: 'active' });
+			expect(log.at(-1)).toMatchObject({ kind: 'turn-advanced', workflow });
+			expect(log.filter(happenedLive).map((entry) => entry.kind)).toEqual(['combat-started']);
 		},
 	);
 });
@@ -556,14 +561,15 @@ describe('SES-010: standard async action model for session commands', () => {
 	it('AC1: a rejected session command clears pending, records no op, and offers retry', () => {
 		const env = makeEnvironment();
 		const { state } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
-		// Dispatch a live command while idle -> rejected by the active gate.
+		// Dispatch a malformed roll -> rejected fail closed, no op recorded.
 		const rejected = dispatchCommand(state, env, {
-			type: 'session.record-dice',
+			type: 'dice.roll',
 			actorId: DM_ACTOR.id,
-			payload: { expression: '1d20', total: 12 },
+			payload: { expression: 'not dice' },
 		});
 		expect(rejected.status).toBe('rejected');
-		let lifecycle = markPending(createCommandLifecycle('session.record-dice'));
+		expect(rejected.nextState.sync.operations).toEqual(state.sync.operations);
+		let lifecycle = markPending(createCommandLifecycle('dice.roll'));
 		if (rejected.status === 'rejected') {
 			lifecycle = markFailure(lifecycle, rejected.rejection.message);
 		}
@@ -572,19 +578,14 @@ describe('SES-010: standard async action model for session commands', () => {
 		expect(canRetry(lifecycle)).toBe(true);
 		expect(recoveryAction(lifecycle)).toBe('retry');
 
-		// Retry from the correct workflow succeeds.
-		const { state: state2, homeSceneId } = ensureHome(
-			buildInitialState(DM_ACTOR, PLAYER_ACTOR),
-			env,
-		);
-		const active = accept(setWorkflow(state2, env, 'active', homeSceneId)).nextState;
+		// Retrying with a well-formed expression succeeds.
 		lifecycle = markPending(lifecycle);
 		expect(lifecycle.attempts).toBe(2);
 		const retry = accept(
-			dispatchCommand(active, env, {
-				type: 'session.record-dice',
+			dispatchCommand(state, env, {
+				type: 'dice.roll',
 				actorId: DM_ACTOR.id,
-				payload: { expression: '1d20', total: 12 },
+				payload: { expression: '1d20' },
 			}),
 		);
 		lifecycle = markSuccess(lifecycle, retry.operationIds);
@@ -692,34 +693,25 @@ describe('SES-010: standard async action model for session commands', () => {
 // Regression — existing active-gated commands still work under the formalized machine
 // ---------------------------------------------------------------------------
 
-describe('SES regression: active-gated commands still work after formalization', () => {
-	it('the live-session availability set matches every workflow===active guard in the command layer', () => {
-		// These are the command types whose handlers reject when workflow !== 'active'. The availability
-		// table must mark exactly these as `live-session`, so the formalized machine and the per-command
-		// guards never drift.
-		const expectedLive = [
-			'session.record-dice',
-			'dice.roll',
-			'dice.roll-table',
-			'combat.start',
-			'combat.advance-turn',
-			'combat.apply-resource',
-			'combat.end',
-			'session.deliver-handout',
-			'session.reveal-handout-section',
-			'session.project-active-map',
-			'character.update-combat-resource',
-			'session.quick-timer.start',
-			'session.quick-timer.pause',
-			'session.quick-timer.resume',
-			'session.quick-timer.reset',
-			'session.quick-timer.lap',
-		];
-		const live = Object.entries(SESSION_COMMAND_AVAILABILITY)
-			.filter(([, availability]) => availability === 'live-session')
-			.map(([type]) => type)
-			.sort();
-		expect(live).toEqual([...expectedLive].sort());
+describe('SES regression: the availability table and the command layer stay in lockstep', () => {
+	it('RC-SES-6.1: no handler gates on the live workflow, matching a table with no live-only command', () => {
+		// The table marks no command live-only...
+		const gated = Object.entries(SESSION_COMMAND_AVAILABILITY)
+			.filter(([, availability]) => availability !== 'always' && availability !== 'lifecycle')
+			.map(([type]) => type);
+		expect(gated).toEqual([]);
+		// ...and no command handler refuses anything for the session not being live. A new
+		// `workflow !== 'active'` guard in `commands/*.ts` fails here until the table and the story that
+		// wants it say so.
+		const commandsDir = new URL('../src/commands/', import.meta.url);
+		const guarded = readdirSync(commandsDir)
+			.filter((file) => file.endsWith('.ts'))
+			.filter((file) =>
+				/session\.workflow\s*[!=]==\s*'active'/.test(
+					readFileSync(new URL(file, commandsDir), 'utf8'),
+				),
+			);
+		expect(guarded).toEqual([]);
 	});
 
 	it('combat, dice, and handout commands are accepted while active', () => {

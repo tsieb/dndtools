@@ -158,13 +158,19 @@ describe('SES-003 dice.roll command', () => {
 		expect(result.nextState.session.diceHistory).toHaveLength(0);
 	});
 
-	it('requires an active session (fail closed otherwise)', () => {
+	it('rolls in Standby too, stamped as made outside a session (RC-SES-6.1)', () => {
 		const env = makeEnvironment();
 		const idle = buildInitialState(DM_ACTOR);
-		const result = rejected(
-			dispatch(idle, env, { type: 'dice.roll', actorId: DM_ACTOR.id, payload: { expression: '1d20' } }),
+		const result = accept(
+			dispatch(idle, env, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d20' },
+			}),
 		);
-		expect(result.rejection.code).toBe('invalid-state');
+		expect(result.nextState.session.diceHistory).toEqual([
+			expect.objectContaining({ expression: '1d20', workflow: 'idle' }),
+		]);
 	});
 
 	it('a player may roll a session-visible roll (dice are player-safe)', () => {

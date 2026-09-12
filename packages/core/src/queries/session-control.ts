@@ -11,62 +11,42 @@ import type {
 export interface SessionWidgetMode {
 	workflow: SessionWorkflowState;
 	mode: 'idle' | 'draft' | 'live' | 'paused' | 'ending' | 'archived';
+	/**
+	 * Whether session widgets may write session state (roll, run combat, deliver, time). RC-SES-6.1: true
+	 * in every workflow, because Standby permits everything.
+	 */
 	canMutateActiveSession: boolean;
+	/**
+	 * RC-SES-6.1 — whether the session is live, i.e. what a widget does now counts toward the session log,
+	 * capture and recap. Outside a live session widgets still work; their records are "Outside a session".
+	 */
+	recording: boolean;
 	recapArchiveId: string | null;
+	/** `read-only` only while a recap archive is under review; the archive itself never changes. */
 	status: 'ready' | 'degraded' | 'read-only';
 }
 
 export function getSessionWidgetMode(session: SessionState): SessionWidgetMode {
+	const base = { workflow: session.workflow, canMutateActiveSession: true, recording: false };
 	switch (session.workflow) {
 		case 'active':
-			return {
-				workflow: session.workflow,
-				mode: 'live',
-				canMutateActiveSession: true,
-				recapArchiveId: null,
-				status: 'ready',
-			};
+			return { ...base, mode: 'live', recording: true, recapArchiveId: null, status: 'ready' };
 		case 'paused':
-			return {
-				workflow: session.workflow,
-				mode: 'paused',
-				canMutateActiveSession: false,
-				recapArchiveId: null,
-				status: 'degraded',
-			};
+			return { ...base, mode: 'paused', recapArchiveId: null, status: 'degraded' };
 		case 'prep':
-			return {
-				workflow: session.workflow,
-				mode: 'draft',
-				canMutateActiveSession: false,
-				recapArchiveId: null,
-				status: 'read-only',
-			};
+			return { ...base, mode: 'draft', recapArchiveId: null, status: 'ready' };
 		case 'ending':
-			return {
-				workflow: session.workflow,
-				mode: 'ending',
-				canMutateActiveSession: false,
-				recapArchiveId: null,
-				status: 'read-only',
-			};
+			return { ...base, mode: 'ending', recapArchiveId: null, status: 'ready' };
 		case 'recap':
 		case 'archived':
 			return {
-				workflow: session.workflow,
+				...base,
 				mode: 'archived',
-				canMutateActiveSession: false,
 				recapArchiveId: session.recapArchiveId,
 				status: 'read-only',
 			};
 		case 'idle':
-			return {
-				workflow: session.workflow,
-				mode: 'idle',
-				canMutateActiveSession: false,
-				recapArchiveId: null,
-				status: 'read-only',
-			};
+			return { ...base, mode: 'idle', recapArchiveId: null, status: 'ready' };
 	}
 }
 
@@ -74,6 +54,7 @@ export interface SessionParticipantStatus {
 	actorId: ActorId;
 	workflow: SessionWorkflowState;
 	connection: 'live' | 'paused-degraded' | 'inactive';
+	/** RC-SES-6.1 — session commands run in every workflow, so this is always true. */
 	canExecuteLiveCommands: boolean;
 	recapArchiveId: string | null;
 }
@@ -97,7 +78,7 @@ export function getSessionParticipantStatus(
 			actorId,
 			workflow: session.workflow,
 			connection: 'paused-degraded',
-			canExecuteLiveCommands: false,
+			canExecuteLiveCommands: true,
 			recapArchiveId: null,
 		};
 	}
@@ -105,7 +86,7 @@ export function getSessionParticipantStatus(
 		actorId,
 		workflow: session.workflow,
 		connection: 'inactive',
-		canExecuteLiveCommands: false,
+		canExecuteLiveCommands: true,
 		recapArchiveId: session.recapArchiveId,
 	};
 }

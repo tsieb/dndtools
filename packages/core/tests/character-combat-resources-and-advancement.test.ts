@@ -165,23 +165,21 @@ describe('CHAR-007 — combat-resource updates during a session', () => {
 		expect(result.rejection.code).toBe('actor-not-authorized');
 	});
 
-	it('fails closed when the session is NOT active', () => {
+	it('applies outside a live session too (RC-SES-6.1: Standby permits everything)', () => {
 		const env = makeEnvironment();
 		const __setup = setupCharacter(env);
 		let state = __setup.state;
 		const characterId = __setup.characterId;
 		state = grant(state, env, characterId, 'combat-participant');
-		// No active session.
-		const result = rejected(
-			dispatchCommand(state, env, {
-				type: 'character.update-combat-resource',
-				actorId: PLAYER_ACTOR.id,
-				payload: { characterId, kind: 'hp', delta: -1 },
-			}),
-		);
-		expect(result.rejection.code).toBe('invalid-state');
-		// No mutation occurred.
-		expect(result.nextState.characters.characters[characterId]!.combat.hp).toBe(10);
+		// No live session: the update still lands.
+		const result = dispatchCommand(state, env, {
+			type: 'character.update-combat-resource',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, kind: 'hp', delta: -1 },
+		});
+		expect(result.status).toBe('accepted');
+		expect(result.nextState.session.workflow).toBe('idle');
+		expect(result.nextState.characters.characters[characterId]!.combat.hp).toBe(9);
 	});
 
 	it('fails closed for an unauthorized player (neither owner nor combat-participant)', () => {

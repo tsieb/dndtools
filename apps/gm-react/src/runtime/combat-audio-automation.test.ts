@@ -8,6 +8,7 @@ import {
 	type AudioAutomationRule,
 	type CoreCommand,
 	type CoreStateSlice,
+	type SessionWorkflowState,
 	type SyncOperation,
 } from '@dndtools/core';
 import type { SceneRuntime } from './SceneRuntime';
@@ -83,6 +84,7 @@ function ruleOn(
 function stateWith(
 	rules: AudioAutomationRule[],
 	encounterId: string | null = null,
+	workflow: SessionWorkflowState = 'active',
 ): CoreStateSlice {
 	return {
 		permissions: { actors: { 'dm-1': { id: 'dm-1', role: 'dm', displayName: 'DM' } } },
@@ -93,6 +95,7 @@ function stateWith(
 			automationRules: Object.fromEntries(rules.map((rule) => [rule.id, rule])),
 		},
 		session: {
+			workflow,
 			combat: { encounterId },
 		},
 		systems: EMPTY_SYSTEMS_STATE,
@@ -136,6 +139,37 @@ describe('RC-AUD-3.1 — the combat-music automation driver', () => {
 			actorId: 'dm-1',
 			payload: { sourceId: 's-local', assetId: CLEARED_ASSET.id, assetLocallyAvailable: true },
 		});
+	});
+
+	it('RC-SES-6.1: combat started in Standby fires no combat-start automation; started live it does', async () => {
+		hasAssetBytesMock.mockResolvedValue(true);
+		const rule = ruleOn('combat-start');
+		const { emit, dispatched } = harness();
+		emit(
+			{ opType: 'combat.start', value: { encounterId: 'enc-1' } },
+			stateWith([rule], null, 'idle'),
+		);
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(dispatched).toEqual([]);
+
+		emit(
+			{ opType: 'combat.start', value: { encounterId: 'enc-1' } },
+			stateWith([rule], null, 'active'),
+		);
+		await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+		expect(dispatched[0]).toMatchObject({ type: 'session.audio.play', actorId: 'dm-1' });
+	});
+
+	it('RC-SES-6.1: combat ended outside a live session fires no combat-end automation', async () => {
+		const rule = ruleOn('combat-end', 'stop');
+		const { emit, dispatched } = harness();
+		for (const workflow of ['idle', 'prep', 'paused', 'ending', 'recap'] as const) {
+			emit({ opType: 'combat.end' }, stateWith([rule], 'enc-1', workflow));
+		}
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(dispatched).toEqual([]);
 	});
 
 	it('dispatches session.audio.stop when combat ends and a matching stop rule is armed', async () => {

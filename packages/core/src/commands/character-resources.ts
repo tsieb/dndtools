@@ -34,13 +34,7 @@ import {
 import { hasGrantedCapability } from '../permissions/grants';
 import { activeSystemPackageFor } from './character';
 import type { Actor } from '../state/permission-state';
-import type {
-	CommandRejection,
-	CommandResult,
-	CoreEnvironment,
-	CoreEvent,
-	CoreStateSlice,
-} from './types';
+import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
 	ensureCharacterStateSlice,
@@ -60,11 +54,11 @@ import {
  *
  *   - CHAR-007 session combat-resource updates (HP / temp HP / conditions / death saves / spell slots
  *     / class resources / concentration) accept a character OWNER **or** an authorized COMBAT
- *     PARTICIPANT, but ONLY while the session workflow is `active` (the CMD-active-session-control
- *     guard, reused here). The update fails closed when the session is not active, and fails closed
- *     for an actor who is neither the owner nor a combat participant (and for an observer always).
+ *     PARTICIPANT, in every session workflow state (RC-SES-6.1: Standby permits everything). The
+ *     update fails closed for an actor who is neither the owner nor a combat participant (and for an
+ *     observer always).
  *   - CHAR-008 spell/slot/class-resource MANAGEMENT and REST recovery are OWNER-only structural edits
- *     (the DM bypasses as administrator). They are not gated on the session being active.
+ *     (the DM bypasses as administrator).
  */
 
 function charactersWith(
@@ -72,17 +66,6 @@ function charactersWith(
 	characters: CoreStateSlice['characters'],
 ): CoreStateSlice {
 	return { ...state, characters };
-}
-
-/** The session-active guard reused from CMD-active-session-control (fail closed when not active). */
-function requireActiveSession(state: CoreStateSlice): CommandRejection | null {
-	if (state.session.workflow !== 'active') {
-		return {
-			code: 'invalid-state',
-			message: 'Combat-resource updates require an active Session workflow.',
-		};
-	}
-	return null;
 }
 
 /**
@@ -190,10 +173,6 @@ export function handleUpdateCombatResource(
 			state,
 		);
 	}
-
-	// CMD-active-session-control: combat-resource writes require an active session (fail closed).
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const now = env.clock();
 	// CHAR-007 authority: owner OR combat-participant; anyone else (incl. observers) is rejected.

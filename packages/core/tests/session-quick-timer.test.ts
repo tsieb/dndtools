@@ -71,17 +71,19 @@ describe('RC-SES-4.4 quick-panel timer', () => {
 		expect(result.rejection.code).toBe('actor-not-authorized');
 	});
 
-	it('requires an active session', () => {
+	it('runs in Standby too: a table tool, not the session clock (RC-SES-6.1)', () => {
 		const env = makeEnvironment();
 		const { state } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
-		const result = reject(
+		expect(state.session.workflow).toBe('idle');
+		const result = accept(
 			dispatchCommand(state, env, {
 				type: 'session.quick-timer.start',
 				actorId: DM_ACTOR.id,
 				payload: { kind: 'countdown', durationSeconds: 300 },
 			}),
 		);
-		expect(result.rejection.code).toBe('invalid-state');
+		expect(result.nextState.session.workflow).toBe('idle');
+		expect(result.nextState.session.quickTimer).toMatchObject({ status: 'running' });
 	});
 
 	it('starts, pauses, resumes, and resets a countdown; only the DM sees it', () => {

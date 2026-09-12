@@ -18,12 +18,16 @@ import {
 	type SessionState,
 	type SessionWorkflowState,
 } from '../state/session-state';
-import { isTransitionAllowed } from '../lifecycle/session-workflow';
+import { happenedLive, isTransitionAllowed, stampWorkflow } from '../lifecycle/session-workflow';
 import {
 	auditMapProjectionConsistency,
 	mapProjectionInput,
 } from '../permissions/map-projection-consistency';
-import { EMPTY_SESSION_COMBAT_STATE, ensureSessionCombatState } from '../state/combat-tracker';
+import {
+	EMPTY_SESSION_COMBAT_STATE,
+	ensureSessionCombatState,
+	type SessionCombatState,
+} from '../state/combat-tracker';
 import {
 	EMPTY_SESSION_AUDIO_STATE,
 	cloneSessionAudioState,
@@ -110,6 +114,32 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 	};
 }
 
+/**
+ * RC-SES-6.1 — the archive is what the recap and the end-of-session capture review, so it keeps only what
+ * happened while live: the encounter-log entries made in `active`. The tracker snapshot itself (who is in
+ * the fight, their HP) is the state at archive time and is kept whole.
+ */
+function liveCombatForArchive(combat: SessionCombatState): SessionCombatState {
+	const snapshot = ensureSessionCombatState(combat);
+	return { ...snapshot, log: snapshot.log.filter(happenedLive) };
+}
+
+/**
+ * RC-SES-6.1 — a handout enters the archive with only the deliveries made while live. A handout every
+ * delivery of which happened outside a session (Standby, Prep, …) is left out of the archive entirely.
+ */
+function liveHandoutsForArchive(
+	handouts: Record<string, SessionHandout>,
+): Record<string, SessionHandout> {
+	const archived: Record<string, SessionHandout> = {};
+	for (const [id, handout] of Object.entries(handouts)) {
+		const deliveries = handout.deliveries.filter(happenedLive);
+		if (handout.deliveries.length > 0 && deliveries.length === 0) continue;
+		archived[id] = cloneArchivedHandout({ ...handout, deliveries });
+	}
+	return archived;
+}
+
 function archiveCurrentSession(
 	session: CoreStateSlice['session'],
 	env: CoreEnvironment,
@@ -124,8 +154,10 @@ function archiveCurrentSession(
 		workflowBeforeArchive,
 		activeSceneId: session.activeSceneId,
 		activeMap: session.activeMap,
-		combat: ensureSessionCombatState(session.combat),
-		diceHistory: session.diceHistory.map((roll) => ({ ...roll })),
+		// RC-SES-6.1 — only what happened while live: rolls and encounter-log entries made outside a
+		// session (Standby, Prep, Paused, …) stay out of the recap and the capture it feeds.
+		combat: liveCombatForArchive(session.combat),
+		diceHistory: session.diceHistory.filter(happenedLive).map((roll) => ({ ...roll })),
 		timers: Object.fromEntries(
 			Object.entries(session.timers).map(([id, timer]) => [id, { ...timer }]),
 		),
@@ -156,9 +188,8 @@ function archiveCurrentSession(
 		),
 		// SES-004 / SES-007 — snapshot handouts (with delivery history + reveal state) and pinned panels so
 		// the recap workflow can review what was delivered. Deep-cloned so the archive is immutable.
-		handouts: Object.fromEntries(
-			Object.entries(session.handouts).map(([id, handout]) => [id, cloneArchivedHandout(handout)]),
-		),
+		// RC-SES-6.1 — only the deliveries made while live.
+		handouts: liveHandoutsForArchive(session.handouts),
 		quickReferencePanels: Object.fromEntries(
 			Object.entries(session.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
 		),
@@ -537,26 +568,21 @@ export function handleRecordSessionDice(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	if (state.session.workflow !== 'active') {
-		return reject(
-			{
-				code: 'invalid-state',
-				message: 'Dice history writes require an active Session workflow.',
-			},
-			state,
-		);
-	}
 
 	const parsed = parseInput(recordSessionDiceInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
-	const roll = {
-		id: env.ids(),
-		actorId: actor.id,
-		expression: parsed.data.expression,
-		total: parsed.data.total,
-		rolledAt: env.clock(),
-	};
+	// RC-SES-6.1 — accepted in every workflow; the record carries the workflow it was made in.
+	const roll = stampWorkflow(
+		{
+			id: env.ids(),
+			actorId: actor.id,
+			expression: parsed.data.expression,
+			total: parsed.data.total,
+			rolledAt: env.clock(),
+		},
+		state.session.workflow,
+	);
 	const nextDiceHistory = [...state.session.diceHistory, roll];
 	const nextSession = { ...state.session, diceHistory: nextDiceHistory };
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
@@ -788,15 +814,6 @@ export function handleProjectActiveMap(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
-	if (state.session.workflow !== 'active') {
-		return reject(
-			{
-				code: 'invalid-state',
-				message: 'Active map projection requires an active Session workflow.',
-			},
-			state,
-		);
-	}
 
 	const parsed = parseInput(projectActiveMapInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
