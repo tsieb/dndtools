@@ -55,3 +55,18 @@
 - Re-run this attempt: `tests/e2e/player-preview.spec.ts`, 4/4 across both profiles, isolated
   server on port 47015, Playwright exit 0. Source is byte-identical to the validated `d688bf58`;
   the earlier unit/typecheck/lint/regression results above apply to it unchanged.
+
+## Retry — 2026-09-12 (same feedback text, carried over)
+
+- The feedback is the task's stored `blocker`, not a new rejection. Read-only look at the
+  dispatcher store: the one `attempt.failed` ("outside its claim") is 2026-09-11 14:59:23; the
+  dispatcher process now serving started 18:19:36, after the fence gained `companion_paths`; the
+  task went `blocked → ready` at 20:50 and was claimed again at 00:18 today. No failure since.
+- The dispatcher rebased the candidate onto `5e6064d9`. Replaying the fence's exact rule (owns +
+  journal paths + manifest `companion_paths`; exact, prefix or fnmatch) on `5e6064d9..HEAD`: 9
+  changed paths, none outside. Candidate kept as is.
+- Re-validated on the rebased tree: app `tsc --noEmit` exit 0; Vitest over `screens/sceneEditor`,
+  `i18n` and `app/canvas` 110/110; ESLint on every changed file exit 0; Playwright
+  `player-preview.spec.ts` + `canvas.spec.ts` 74/74 across both profiles on an isolated server
+  (`DNDTOOLS_E2E_PORT=55209`), exit 0.
+- Nothing in the dispatcher was edited; the store was opened read-only.
