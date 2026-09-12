@@ -33,3 +33,18 @@
 - `perf-sample.json`: final implementation, Chromium/Vite dev, five actual linked-note additions observed in the graph rail: 77.1, 89.4, 95.4, 52.9, 33.2 ms. Hostname redacted; timings unchanged.
 - Core `measureBudget('graph-indexing', samples)` grades max 95.4 ms against 500 ms as pass. Its generated message repeats the registry dataset, NOT the measured fixture: this capture used 200 notes on a desktop workstation, not the declared 10,000-record background-worker profile. No full-dataset or baseline-regression claim.
 - DONE: density-based labels, stable neighborhood focus, keyboard canvas walk, linear connection lookup, reproducible perf sample. Central gates and independent review remain with the operator. No push or dispatcher-state changes.
+
+## Gate recovery
+
+- Read the original dispatcher attempt log `08a6f126-222e-492f-97e5-fcb7d888d3d1/output.log`: sole error was Graph.tsx at 874 counted lines, exceeding the 800-line hard limit.
+- Extracted health rendering, labels and existing memoized actor-scoped reads to graph/Health.tsx. No query or interaction behavior changes intended.
+- Quality gate, typecheck and desktop/mobile graph regression checks pending on the split.
+- First extraction hit the raw-style ratchet: moving inline styles requires changing an unowned central allow-list. Revised the split to graph/presentation.ts (presentation mappings, ellipse layout, and health-read hook), leaving all JSX and styles in Graph.tsx. No allow-list or gate changes.
+- Final extraction also moves the existing actor-scoped node-opening hook. Graph.tsx is now 772 lines, presentation.ts 137; `pnpm gates` passes all six gates, with the existing soft size warning retained.
+- Intermediate browser run overlapped the last source edit and had two runtime-load timeouts before test bodies. Discarded that run as final evidence; rerunning against stable files.
+
+### Recovery final evidence
+
+- Final stable source: 32/32 graph browser tests passed across desktop/mobile Chromium (38.4s); 3/3 interaction unit tests passed; app typecheck, targeted ESLint and boundary lint passed.
+- Refreshed `perf-sample.json` after the final split: 138.8, 190.6, 91.1, 80.6, 78.7 ms; core measurement reports pass, maximum 190.6 ms against 500 ms. This supersedes the previous capture, still uses 200 notes, and makes no 10,000-record or baseline-regression claim.
+- Recovery complete: presentation mappings, layout, health queries and open-node navigation extracted without changing styles or interactions. Only owned graph paths changed in this recovery.
