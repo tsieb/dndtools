@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { listCharactersForActor } from '@dndtools/core';
 import {
@@ -7,14 +7,24 @@ import {
 	EmptyState,
 	Icon,
 	IconButton,
+	Select,
 	Tabs,
 	tabPanelProps,
 } from '../../ds';
 import { CharBuilder } from '../../app/charBuilder';
-import { Page, T } from '../../app/screen-kit';
+import { Page, T, srOnly } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { CharCard } from './CharCard';
 import { CharacterSheet } from './CharacterSheet';
+import {
+	OWNER_ANY,
+	OWNER_NONE,
+	TAG_ANY,
+	buildRosterEntries,
+	gridTargetIndex,
+	matchesRosterFilter,
+	rosterFacets,
+} from './roster';
 import { useI18n } from '../../i18n';
 
 /**
@@ -32,6 +42,12 @@ import { useI18n } from '../../i18n';
  * the staged `character.{set-xp,open/set-choices/commit/cancel-advancement}` flow. Every mutation
  * flows through the single `runtime.dispatch` write choke point — the GUI never writes core state
  * directly (Architecture Contract 1).
+ *
+ * Roster information scent (RC-CHR-5.3): each card shows class · level, an HP bar, conditions, the
+ * owning player (a live `owner` grant), tags (`data.tags`, authored on the sheet) and the last session
+ * the character took part in (session archives + the running combat) — all derived in `roster.ts`.
+ * The kind tabs combine with Owner and Tag filters. The card grid is ONE tab stop with a roving
+ * `tabIndex`: arrows move by row and column as laid out, Home/End jump to the ends, Enter opens.
  *
  * Sheet extension slices (WS-4, all core-backed — formerly listed here as honest gaps):
  *   - Skills & saves / hit dice / passive perception render from the structured
@@ -53,6 +69,19 @@ import { useI18n } from '../../i18n';
  *     core rejection (e.g. "start a session first") rather than silently no-op-ing.
  */
 
+/** Keys the card grid handles itself; everything else (Enter/Space, Tab) keeps its default. */
+const GRID_KEYS = new Set(['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End']);
+const GRID_HINT_ID = 'characters-grid-hint';
+
+const filterField = {
+	display: 'flex',
+	flexDirection: 'column',
+	gap: T.space.one,
+	minWidth: 0,
+	maxWidth: '100%',
+} as const;
+const filterLabel = { font: `600 12px ${T.sans}`, color: T.ter } as const;
+
 export function Characters() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -63,6 +92,10 @@ export function Characters() {
 	const { id: detailId = null } = useParams<{ id: string }>();
 	const actorId = runtime.defaultActorId;
 	const [kind, setKind] = useState('all');
+	const [owner, setOwner] = useState(OWNER_ANY);
+	const [tag, setTag] = useState(TAG_ANY);
+	// The card holding the grid's single tab stop; follows focus so Tab returns where the user left.
+	const [activeId, setActiveId] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
 	const [initialKind, setInitialKind] = useState<string | null>(null);
 	// When set, the CharBuilder overlay opens straight into the file-import path (WS-4 JSON import).
@@ -89,7 +122,12 @@ export function Characters() {
 			runtime.state.permissions,
 			actorId,
 		);
-		return { isDm: actor?.role === 'dm', characters };
+		const entries = buildRosterEntries(
+			characters,
+			runtime.state.permissions,
+			runtime.state.session,
+		);
+		return { isDm: actor?.role === 'dm', characters, entries, facets: rosterFacets(entries) };
 	}, [runtime.state, actorId]);
 
 	// `key` is load-bearing, not decoration. CharacterSheet holds a dozen pieces of per-character
@@ -100,17 +138,54 @@ export function Characters() {
 	if (detailId)
 		return <CharacterSheet key={detailId} id={detailId} onBack={() => navigate('/characters')} />;
 
-	const list = data.characters.filter((c) => {
-		if (kind === 'all') return true;
-		if (kind === 'npc') return c.kind === 'npc' || c.kind === 'sidekick';
-		return c.kind === kind;
-	});
+	const list = data.entries.filter((entry) => matchesRosterFilter(entry, { kind, owner, tag }));
+	const filtered = kind !== 'all' || owner !== OWNER_ANY || tag !== TAG_ANY;
+	const tabStopId = list.some((entry) => entry.view.id === activeId)
+		? activeId
+		: (list[0]?.view.id ?? null);
 	const tabs = [
 		{ id: 'all', label: t('characters.filter.all') },
 		{ id: 'pc', label: t('characters.filter.party') },
 		{ id: 'npc', label: t('characters.filter.npcs') },
 		{ id: 'monster', label: t('characters.filter.bestiary') },
 	];
+	const ownerOptions = [
+		{ value: OWNER_ANY, label: t('characters.filter.anyOwner') },
+		...data.facets.owners.map((o) => ({ value: o.id, label: o.name })),
+		{ value: OWNER_NONE, label: t('characters.filter.noOwner') },
+	];
+	// A tag that is still selected after its last character lost it stays in the menu, so the select
+	// never shows a value it has no option for.
+	const tagValues =
+		tag === TAG_ANY || data.facets.tags.includes(tag)
+			? data.facets.tags
+			: [...data.facets.tags, tag];
+	const tagOptions = [
+		{ value: TAG_ANY, label: t('characters.filter.anyTag') },
+		...tagValues.map((value) => ({ value, label: value })),
+	];
+
+	function clearFilters() {
+		setKind('all');
+		setOwner(OWNER_ANY);
+		setTag(TAG_ANY);
+	}
+
+	// Roving focus across a wrapped `auto-fill` grid: the column count is read from layout (cards
+	// sharing the first card's top edge) because it changes with the viewport.
+	function onGridKeyDown(e: KeyboardEvent<HTMLUListElement>) {
+		if (!GRID_KEYS.has(e.key) || e.altKey || e.metaKey || e.shiftKey) return;
+		const cards = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[data-roster-card]'));
+		const index = cards.indexOf(e.target as HTMLElement);
+		if (index === -1) return;
+		e.preventDefault();
+		const firstTop = cards[0]?.getBoundingClientRect().top ?? 0;
+		const columns = cards.filter(
+			(card) => Math.abs(card.getBoundingClientRect().top - firstTop) < 1,
+		).length;
+		const next = gridTargetIndex(e.key, index, cards.length, columns);
+		if (next !== null) cards[next]?.focus();
+	}
 
 	const partyPcs = data.characters.filter((c) => c.kind === 'pc');
 
@@ -152,8 +227,8 @@ export function Characters() {
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 12,
-					marginBottom: 18,
+					gap: T.space.three,
+					marginBottom: T.space.three,
 					flexWrap: 'wrap',
 				}}
 			>
@@ -196,6 +271,58 @@ export function Characters() {
 					</Button>
 				)}
 			</div>
+
+			{data.characters.length > 0 && (
+				<div
+					role="group"
+					aria-label={t('characters.filters')}
+					style={{
+						display: 'flex',
+						alignItems: 'flex-end',
+						gap: T.space.three,
+						marginBottom: T.space.four,
+						flexWrap: 'wrap',
+					}}
+				>
+					{/* A sibling `<label htmlFor>` rather than a wrapping one: a label that CONTAINS a
+					    select takes the select's option text into its own text content. */}
+					<div style={filterField}>
+						<label htmlFor="characters-filter-owner" style={filterLabel}>
+							{t('characters.filter.owner')}
+						</label>
+						<Select
+							id="characters-filter-owner"
+							value={owner}
+							onChange={(e: { target: { value: string } }) => setOwner(e.target.value)}
+							options={ownerOptions}
+							style={{ minWidth: 150, maxWidth: '100%' }}
+						/>
+					</div>
+					{tagValues.length > 0 && (
+						<div style={filterField}>
+							<label htmlFor="characters-filter-tag" style={filterLabel}>
+								{t('characters.filter.tag')}
+							</label>
+							<Select
+								id="characters-filter-tag"
+								value={tag}
+								onChange={(e: { target: { value: string } }) => setTag(e.target.value)}
+								options={tagOptions}
+								style={{ minWidth: 130, maxWidth: '100%' }}
+							/>
+						</div>
+					)}
+					{filtered && (
+						<Button variant="ghost" size="sm" icon="close" onClick={clearFilters}>
+							{t('characters.filter.clear')}
+						</Button>
+					)}
+					<div style={{ flex: 1 }} />
+					<span role="status" style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						{t('characters.resultCount', { shown: list.length, total: data.characters.length })}
+					</span>
+				</div>
+			)}
 
 			{notice && (
 				<div
@@ -240,7 +367,11 @@ export function Characters() {
 								: 'characters.noMatchesBody',
 						)}
 						action={
-							data.isDm ? (
+							data.characters.length > 0 && filtered ? (
+								<Button variant="ghost" size="sm" icon="close" onClick={clearFilters}>
+									{t('characters.filter.clear')}
+								</Button>
+							) : data.isDm ? (
 								<Button
 									variant="primary"
 									size="sm"
@@ -253,19 +384,40 @@ export function Characters() {
 						}
 					/>
 				) : (
-					<div
-						style={{
-							display: 'grid',
-							// `min()` retains the useful desktop card width without forcing horizontal
-							// page scrolling on a 320px phone (292px after page gutters).
-							gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 230px),1fr))',
-							gap: 16,
-						}}
-					>
-						{list.map((c) => (
-							<CharCard key={c.id} view={c} onOpen={() => navigate(`/characters/${c.id}`)} />
-						))}
-					</div>
+					<>
+						<ul
+							aria-label={t('characters.title')}
+							onKeyDown={onGridKeyDown}
+							style={{
+								listStyle: 'none',
+								margin: T.space.zero,
+								padding: T.space.zero,
+								display: 'grid',
+								// `min()` retains the useful desktop card width without forcing horizontal
+								// page scrolling on a 320px phone (292px after page gutters).
+								gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 230px),1fr))',
+								gap: T.space.four,
+							}}
+						>
+							{list.map((entry) => {
+								const isTabStop = entry.view.id === tabStopId;
+								return (
+									<li key={entry.view.id} style={{ display: 'flex', minWidth: 0 }}>
+										<CharCard
+											entry={entry}
+											tabIndex={isTabStop ? 0 : -1}
+											describedBy={isTabStop ? GRID_HINT_ID : undefined}
+											onFocus={() => setActiveId(entry.view.id)}
+											onOpen={() => navigate(`/characters/${entry.view.id}`)}
+										/>
+									</li>
+								);
+							})}
+						</ul>
+						<span id={GRID_HINT_ID} style={srOnly}>
+							{t('characters.gridHint')}
+						</span>
+					</>
 				)}
 			</div>
 
