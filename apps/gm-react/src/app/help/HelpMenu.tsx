@@ -8,7 +8,25 @@ import { T } from '../screen-kit';
 import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { appVersion } from '../../platform/appVersion';
 import { latestRelease, parseChangelog, type ReleaseNote } from './changelog';
+import { renderMarkdown } from '../markdown/render';
 import { ShortcutsDialog } from './ShortcutsDialog';
+
+import guide0 from '../../../../../docs/user/getting-started.md?raw';
+import guide1 from '../../../../../docs/user/running-a-session.md?raw';
+import guide2 from '../../../../../docs/user/maps.md?raw';
+import guide3 from '../../../../../docs/user/widgets-and-builders.md?raw';
+import guide4 from '../../../../../docs/user/systems.md?raw';
+import guide5 from '../../../../../docs/user/remote-play.md?raw';
+import guide6 from '../../../../../docs/user/privacy-modes.md?raw';
+import guide7 from '../../../../../docs/user/android-desktop-install.md?raw';
+
+// Bundle the guides with the app: no docs server or external navigation is required.
+const USER_GUIDES = [guide0, guide1, guide2, guide3, guide4, guide5, guide6, guide7].map(
+	(markdown) => ({
+		title: markdown.split('\n')[0]!.replace(/^# /, ''),
+		body: markdown.split('\n## Implementation references')[0]!.split('\n').slice(1).join('\n'),
+	}),
+);
 
 /** Device-local: the last "What's new" version the DM has opened. A display preference, not a
  * durable vault fact (Contract 1) — mirrors the onboarding tier's own localStorage flag. */
@@ -53,6 +71,7 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
+	const [guide, setGuide] = useState<(typeof USER_GUIDES)[number] | null>(null);
 	const view = resolveOnboarding(runtime.state, runtime.defaultActorId, readTier());
 	const done = view.steps.filter((step) => step.done).length;
 	const [latest, setLatest] = useState<ReleaseNote | null>(null);
@@ -78,7 +97,7 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 
 	return (
 		<>
-			<Dialog open={open} onClose={onClose} title={t('help.title')} icon="info" size="md">
+			<Dialog open={open && !guide} onClose={onClose} title={t('help.title')} icon="info" size="md">
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 					<section aria-label={t('help.gettingStarted')}>
 						<h3
@@ -130,6 +149,21 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 								{t('help.gettingStartedParticipant')}
 							</div>
 						)}
+					</section>
+
+					<section aria-label={t('help.title')} lang="en">
+						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+							{USER_GUIDES.map((entry) => (
+								<Button
+									key={entry.title}
+									variant="secondary"
+									size="sm"
+									onClick={() => setGuide(entry)}
+								>
+									{entry.title}
+								</Button>
+							))}
+						</div>
 					</section>
 
 					<section aria-label={t('help.whatsNew')}>
@@ -185,6 +219,19 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 						</div>
 					</section>
 				</div>
+			</Dialog>
+			<Dialog
+				open={open && guide !== null}
+				onClose={() => setGuide(null)}
+				title={guide?.title ?? ''}
+				size="md"
+				footer={
+					<Button variant="secondary" onClick={() => setGuide(null)}>
+						{t('help.title')}
+					</Button>
+				}
+			>
+				<article lang="en">{guide && renderMarkdown(guide.body, { t })}</article>
 			</Dialog>
 			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
 		</>

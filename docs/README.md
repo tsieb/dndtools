@@ -6,6 +6,22 @@ core (`packages/core`) holds commands, reducers, permissions, and queries and is
 surface. The earlier SvelteKit app is archived at `archive/gm-svelte` (tag `svelte-gm-final`); the
 v1 document editor is preserved at tag `v1-final` only.
 
+## User guides
+
+Open Help in the app to read these guides without leaving your table. The guides are
+in English; their implementation references below each page are for maintainers.
+
+- [Getting started](user/getting-started.md)
+- [Running a session](user/running-a-session.md)
+- [Maps](user/maps.md)
+- [Widgets & builders](user/widgets-and-builders.md)
+- [Systems](user/systems.md)
+- [Remote play](user/remote-play.md)
+- [Privacy modes](user/privacy-modes.md)
+- [Android/desktop install](user/android-desktop-install.md)
+
+Source-review scope and validation: [RC-DOC-1.3 journal](user/RC-DOC-1.3.journal.md).
+
 ## Map
 
 | Question                                 | Read                                                                                  |
