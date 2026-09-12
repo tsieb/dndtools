@@ -128,6 +128,38 @@ Owned: `packages/core/src/commands/combat.ts`, `apps/gm-react/src/net`, `apps/gm
   WebRTC join (the host relay is unit-tested against a real core instead), Android/Electron. The
   central operator's gates are the evidence for the rest.
 
+## Round 2 — quality-gate retry (head 2cf86fe4, rebased onto 884483b0)
+
+- Gate feedback: `pnpm gates` failed with ONE problem — `[file-size-exceeded]`
+  `screens/session/CombatTracker.tsx` was 1,042 lines, over the RC-STB-2.7 800-line hard limit (777
+  before this story, so no grandfather exception applies). My own round-1 runs never included
+  `pnpm gates`; they should have.
+- Fix: restored `CombatTracker.tsx` to its pre-story content (`git show 884483b0:…`) and moved every
+  initiative piece into `apps/gm-react/src/net/InitiativeCallParts.tsx` (owned dir; same precedent as
+  `net/SessionPanelParts.tsx`, which RC-ENG-2.2 split out of `SessionPanel.tsx` for this gate). New
+  files under `screens/session/` are outside the fence. The module exports `useCall` (call state +
+  the call/adjust dispatches), `Banner`, `Badges`, `Adjust` and `Idle`; the tracker imports it as
+  `* as Initiative` and gains eight one-line hooks → 789 lines. The idle "Roll for initiative"
+  button moved from the panel header into the idle body (under the empty state, beside the readiness
+  chips) — still inside `#main-content`, so the e2e locator is unchanged.
+- `pnpm gates`: exit 0 ("quality-gate check passed: 6 gate(s)…"). ESLint on both files: exit 0.
+  gm-react typecheck: exit 0. App suite 126 files / 1,327 tests; net suite 7 files / 69 tests.
+- Red first (e2e, port 5744): 38 failed. Every mobile `responsive.spec` failure was
+  `net::ERR_CONNECTION_REFUSED at localhost:5744` (the server vanished mid-run), and the collab case
+  timed out waiting for "Roll for initiative" on a page whose tracker had NO such button at all — the
+  shape of a stale server from another worktree: dispatcher worktrees derive e2e ports from
+  5300–5899, and 5744 sits inside that range. Nothing was listening on 5740–5749 afterwards. Re-run
+  on 6143 (outside the derived range, checked free first).
+- Playwright collab, combat, responsive, a11y-axe-gate, shortcuts, session-posture (both projects,
+  port 6143): 225 passed, 1 skipped — the collab initiative case passes on desktop and mobile.
+- Playwright player-view, session-lifecycle, session-quick-timer, combat-quick-reference,
+  combat-tile, dice-tray, player-inbox, player-private-notes, co-dm, sfx-events,
+  combat-audio-automation, inline-roll (both projects, port 6144): 109 passed, 5 skipped.
+- `pnpm lint`: exit 0 — 0 errors, the same 15 pre-existing warnings; raw-style count, boundary lint
+  and the non-text contrast gate passed. `pnpm build`: exit 0; `check-prod-bundle: OK`.
+- Lesson for this repo: include `pnpm gates` in the per-story run, and pick e2e ports OUTSIDE
+  5300–5899 (or confirm the port is free) so a sibling worktree's server is never reused.
+
 ## Follow-ups (not owned here)
 
 - `queries/command-center-home.ts` / `queries/combat-tracker-view.ts`: during a call they still report
