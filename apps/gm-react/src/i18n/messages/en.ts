@@ -719,6 +719,11 @@ export const en = {
 	'settings.appearance.densityStandard': 'Standard',
 	'settings.appearance.densityComfortable': 'Comfortable',
 	'settings.appearance.densityCompact': 'Compact',
+	'settings.appearance.proseWidth': 'Reading width',
+	'settings.appearance.proseWidthHelp': 'Widen the line length for longer knowledge prose.',
+	'settings.appearance.proseWidthComfortable': 'Comfortable',
+	'settings.appearance.proseWidthWide': 'Wide',
+	'settings.appearance.proseWidthFull': 'Full',
 	'settings.appearance.motion': 'Motion',
 	'settings.appearance.markGmOnly': 'Mark {gm}-only items',
 	'settings.appearance.markGmOnlyHelp':

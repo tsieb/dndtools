@@ -739,6 +739,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.appearance.densityStandard': 'Estándar',
 	'settings.appearance.densityComfortable': 'Cómoda',
 	'settings.appearance.densityCompact': 'Compacta',
+	'settings.appearance.proseWidth': 'Ancho de lectura',
+	'settings.appearance.proseWidthHelp': 'Amplía la longitud de línea para prosa más larga.',
+	'settings.appearance.proseWidthComfortable': 'Cómoda',
+	'settings.appearance.proseWidthWide': 'Ancha',
+	'settings.appearance.proseWidthFull': 'Completa',
 	'settings.appearance.motion': 'Movimiento',
 	'settings.appearance.markGmOnly': 'Marcar elementos exclusivos del {gm}',
 	'settings.appearance.markGmOnlyHelp':

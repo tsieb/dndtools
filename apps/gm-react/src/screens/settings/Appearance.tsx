@@ -75,20 +75,20 @@ export function SettingsAppearance() {
 					}
 				/>
 				<SetRow
-					label="Reading width"
-					help="Choose a wider line measure for knowledge notes only."
+					label={t('settings.appearance.proseWidth')}
+					help={t('settings.appearance.proseWidthHelp')}
 					control={
 						<Seg
 							value={proseWidth}
-							ariaLabel="Reading width"
+							ariaLabel={t('settings.appearance.proseWidth')}
 							onChange={(v) => {
 								setProseWidth(v);
 								setDocAttr('data-prose-width', PREFERENCE_KEYS.proseWidth, v);
 							}}
 							options={[
-								{ value: 'comfortable', label: 'Comfortable' },
-								{ value: 'wide', label: 'Wide' },
-								{ value: 'full', label: 'Full' },
+								{ value: 'comfortable', label: t('settings.appearance.proseWidthComfortable') },
+								{ value: 'wide', label: t('settings.appearance.proseWidthWide') },
+								{ value: 'full', label: t('settings.appearance.proseWidthFull') },
 							]}
 						/>
 					}
