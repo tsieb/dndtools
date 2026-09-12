@@ -1,13 +1,15 @@
 /**
- * CharBuilder — Step 3 — ability scores: standard array, point buy or manual, with the core rule surfaced.
+ * CharBuilder — Step 3 — ability scores: standard array, point buy, a 4d6 roll or manual, with the
+ * core rule surfaced.
  *
- * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4) — a pure move, no
- * behaviour change.
+ * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4). RC-CHR-5.2 added the roll
+ * method, the class-priority suggestion and slot swapping (`../scores`).
  */
 import { Button, IconButton, Select, Toaster } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
-import { Seg, T, eb } from '../../screen-kit';
+import { Seg, T, eb, srOnly } from '../../screen-kit';
 import { BUILDER, modOf, type ScoreMethod } from '../data';
+import { slotHolder } from '../scores';
 import type { Wizard } from '../wizard';
 import { useI18n } from '../../../i18n';
 
@@ -16,12 +18,16 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 	const {
 		isPhone,
 		isPc,
+		clsObj,
 		method,
 		setMethod,
 		scores,
+		pool,
+		rolls,
 		assign,
-		setAssign,
-		remainingArray,
+		setSlot,
+		rollScores,
+		suggestScores,
 		pointsLeft,
 		scoreMin,
 		scoreMax,
@@ -29,9 +35,13 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 		raiseBlocked,
 		effScores,
 		abilityValidation,
-		standardIncomplete,
+		poolIncomplete,
 		setAc,
 	} = w;
+	const incompleteMessage =
+		method === 'roll'
+			? t(rolls ? 'charBuilder.rollIncomplete' : 'charBuilder.rollFirst')
+			: t('charBuilder.standardIncomplete');
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -48,6 +58,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 				</span>
 				{method === 'pointbuy' && (
 					<span
+						role="status"
 						style={{
 							marginLeft: 'auto',
 							font: `12px ${T.mono}`,
@@ -61,7 +72,104 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						{t('charBuilder.pointsLeft', { points: pointsLeft })}
 					</span>
 				)}
+				{pool && pool.length > 0 && (
+					<Button variant="ghost" size="sm" onClick={suggestScores} style={{ marginLeft: 'auto' }}>
+						{t('charBuilder.suggestFor', { class: clsObj.name })}
+					</Button>
+				)}
 			</div>
+			{method === 'roll' && (
+				<div
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: T.space.three,
+						flexWrap: 'wrap',
+						padding: `${T.space.three} ${T.space.four}`,
+						borderRadius: T.radius.lg,
+						background: T.alt,
+						border: `1px solid ${T.bd}`,
+					}}
+				>
+					<Button
+						variant={rolls ? 'secondary' : 'primary'}
+						size="sm"
+						icon="dice"
+						onClick={rollScores}
+					>
+						{t(rolls ? 'charBuilder.reroll' : 'charBuilder.rollScores')}
+					</Button>
+					{rolls && (
+						<ul
+							aria-label={t('charBuilder.rolledScores')}
+							style={{
+								display: 'flex',
+								flexWrap: 'wrap',
+								gap: T.space.two,
+								listStyle: 'none',
+								margin: T.space.zero,
+								padding: T.space.zero,
+							}}
+						>
+							{rolls.map((r, j) => (
+								<li
+									key={j}
+									style={{
+										display: 'flex',
+										alignItems: 'baseline',
+										gap: T.space.oneHalf,
+										padding: `${T.space.one} ${T.space.three}`,
+										borderRadius: T.radius.full,
+										background: T.surf,
+										border: `1px solid ${T.bd}`,
+									}}
+								>
+									<span aria-hidden="true" style={{ font: `700 15px ${T.mono}`, color: T.ink }}>
+										{r.total}
+									</span>
+									<span
+										aria-hidden="true"
+										style={{
+											display: 'inline-flex',
+											gap: T.space.one,
+											font: `11px ${T.mono}`,
+											color: T.sub,
+										}}
+									>
+										{r.dice.map((d, n) => (
+											<span
+												key={n}
+												style={
+													n === r.dropped
+														? { textDecoration: 'line-through', color: T.ter }
+														: undefined
+												}
+											>
+												{d}
+											</span>
+										))}
+									</span>
+									<span style={srOnly}>
+										{t('charBuilder.rollDetail', {
+											total: r.total,
+											dice: r.dice.join(', '),
+											dropped: r.dice[r.dropped] ?? 0,
+										})}
+									</span>
+								</li>
+							))}
+						</ul>
+					)}
+					<div role="status" style={srOnly}>
+						{rolls
+							? t('charBuilder.rollAnnounce', {
+									totals: rolls.map((r) => r.total).join(', '),
+									class: clsObj.name,
+								})
+							: ''}
+					</div>
+				</div>
+			)}
 			<div
 				style={{
 					display: 'grid',
@@ -84,17 +192,26 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						}}
 					>
 						<span style={{ ...eb }}>{k}</span>
-						{method === 'standard' ? (
+						{pool ? (
+							// Every pool value is offered on every ability: one already placed elsewhere is
+							// labelled as a swap, so a fully assigned pool can be rearranged in one pick.
 							<Select
 								value={assign[k]}
-								onChange={(e: DSChangeEvent) => setAssign((s) => ({ ...s, [k]: e.target.value }))}
+								onChange={(e: DSChangeEvent) => setSlot(k, e.target.value)}
 								options={[
 									{ value: '', label: '—' },
-									...remainingArray(k).map((v) => ({
-										value: String(v),
-										label: String(v),
-									})),
+									...pool.map((v, slot) => {
+										const holder = slotHolder(assign, String(slot));
+										return {
+											value: String(slot),
+											label:
+												holder && holder !== k
+													? t('charBuilder.swapWith', { value: v, ability: holder })
+													: String(v),
+										};
+									}),
 								]}
+								disabled={pool.length === 0}
 								aria-label={`${k} score`}
 								style={{ width: '100%', textAlign: 'center' }}
 							/>
@@ -145,24 +262,25 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 								background: T.alt,
 							}}
 						>
-							{modOf(method === 'standard' ? Number(assign[k] || 10) : scores[k])}
+							{modOf(effScores[k])}
 						</span>
 					</div>
 				))}
 			</div>
-			{((abilityValidation && !abilityValidation.valid) || standardIncomplete) && (
+			{((abilityValidation && !abilityValidation.valid) || poolIncomplete) && (
 				<ul
 					role="alert"
 					style={{ margin: 0, paddingLeft: 18, font: `12.5px ${T.sans}`, color: T.warn }}
 				>
-					{standardIncomplete && <li>{t('charBuilder.standardIncomplete')}</li>}
-					{abilityValidation?.valid === false &&
+					{poolIncomplete && <li>{incompleteMessage}</li>}
+					{!poolIncomplete &&
+						abilityValidation?.valid === false &&
 						abilityValidation.issues.map((iss, j) => (
 							<li key={`${iss.fieldId ?? 'step'}-${j}`}>{iss.message}</li>
 						))}
 				</ul>
 			)}
-			{isPc && method === 'manual' && (
+			{isPc && (method === 'manual' || method === 'roll') && (
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 					{t('charBuilder.pcUsesPointBuy')}
 				</div>

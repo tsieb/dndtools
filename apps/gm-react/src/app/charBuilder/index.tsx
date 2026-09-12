@@ -2,8 +2,8 @@
  * CharBuilder — the full-screen guided character-creation overlay, ported from the online
  * prototype's `views/character-builder.jsx` (entry choice → 6-step wizard: identity / class &
  * level / ability scores / kit / bio / review, with StepRail + selectable Tiles + numeric
- * Steppers and standard-array / point-buy / manual score methods). Mounted from the Characters
- * screen; no route of its own.
+ * Steppers and standard-array / point-buy / 4d6-roll / manual score methods). Mounted from the
+ * Characters screen; no route of its own.
  *
  * Where the prototype dispatched a mock `char/create`, this port drives the REAL core:
  *   - kind PC → the guided draft flow exactly as `runtime/demo-seed.ts` seeds PCs:
@@ -39,11 +39,15 @@
  * the six wizard steps (`steps/*`, `Review`), the shell (`Overlay`), the field primitives (`ui`),
  * the builder tables (`data`), the durable create paths (`create`) and the shared state bag
  * (`wizard`). This file keeps the state, the phase orchestration and the wizard frame.
+ *
+ * RC-CHR-5.2 polished the steps: the roll method and class-priority score dealing (`scores`), the
+ * class preview of the active package's features (`classPreview`), the import diff against a
+ * same-named roster character (`importDiff`), and the step rail's navigation semantics.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getActiveSystemForActor, validateDraftStep } from '@dndtools/core';
 import { Button, Toaster } from '../../ds';
-import { T } from '../screen-kit';
+import { T, srOnly } from '../screen-kit';
 import { useViewport } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { registerBackHandler } from '../../platform/backNavigation';
@@ -66,6 +70,17 @@ import {
 	type CharKind,
 	type ScoreMethod,
 } from './data';
+import {
+	EMPTY_ASSIGNMENT,
+	assignSlot,
+	assignedScores,
+	assignmentComplete,
+	priorityFor,
+	rollAbilityScores,
+	suggestAssignment,
+	type Assignment,
+	type RolledScore,
+} from './scores';
 import { DiscardConfirm, Overlay, StepRail } from './Overlay';
 import { ChoosePhase } from './Choose';
 import { ImportPhase } from './Import';
@@ -80,6 +95,9 @@ import type { Wizard } from './wizard';
 import { useI18n } from '../../i18n';
 
 export { portraitGradient } from './data';
+
+type PoolMethod = Extract<ScoreMethod, 'standard' | 'roll'>;
+const INITIAL_CLASS = 'fighter';
 
 export function CharBuilder({
 	onClose,
@@ -100,22 +118,25 @@ export function CharBuilder({
 	const isPhone = useViewport() === 'phone';
 	const dmActorId = runtime.defaultActorId;
 	const players = runtime.actors.filter((a) => a.role === 'player');
-	// RC-SYS-2.5 — the active rules system, as the plain data the pure import mapper measures against.
-	const systemFit: SystemFitInput = useMemo(() => {
-		const pkg = getActiveSystemForActor(
-			runtime.state.systems,
-			runtime.state.permissions,
-			dmActorId,
-		).activePackage;
-		return {
-			displayName: pkg.displayName,
-			attributeKeys: pkg.attributes.map((a) => a.key),
-			skillKeys: pkg.skills.map((sk) => sk.key),
-			declaresSpellSlots: pkg.resources.some((r) => r.kind === 'slots'),
-			declaresProficiencyBonus: pkg.derived.some((d) => d.key === 'proficiencyBonus'),
-			abilityPlural: pkg.vocabulary.abilityPlural,
-		};
-	}, [runtime.state.systems, runtime.state.permissions, dmActorId]);
+	// RC-SYS-2.5 — the active rules system. The class preview evaluates its resource formulas, and
+	// the pure import mapper measures against it as plain data.
+	const systemPackage = useMemo(
+		() =>
+			getActiveSystemForActor(runtime.state.systems, runtime.state.permissions, dmActorId)
+				.activePackage,
+		[runtime.state.systems, runtime.state.permissions, dmActorId],
+	);
+	const systemFit: SystemFitInput = useMemo(
+		() => ({
+			displayName: systemPackage.displayName,
+			attributeKeys: systemPackage.attributes.map((a) => a.key),
+			skillKeys: systemPackage.skills.map((sk) => sk.key),
+			declaresSpellSlots: systemPackage.resources.some((r) => r.kind === 'slots'),
+			declaresProficiencyBonus: systemPackage.derived.some((d) => d.key === 'proficiencyBonus'),
+			abilityPlural: systemPackage.vocabulary.abilityPlural,
+		}),
+		[systemPackage],
+	);
 
 	const [phase, setPhase] = useState<'choose' | 'scratch' | 'import'>('choose');
 	const [i, setI] = useState(0);
@@ -133,6 +154,16 @@ export function CharBuilder({
 		});
 	}, [confirmDiscard]);
 
+	// A rail jump unmounts the button that had focus (the target becomes the current, non-button
+	// row), which dropped focus to <body>. Land it on the new step's title instead.
+	const titleRef = useRef<HTMLHeadingElement>(null);
+	const focusTitle = useRef(false);
+	useEffect(() => {
+		if (!focusTitle.current) return;
+		focusTitle.current = false;
+		titleRef.current?.focus();
+	}, [i]);
+
 	// Import-from-file state: the parsed plan (with its mapped/unmapped field report) or the
 	// parse failure, both rendered in the 'import' preview phase before anything is created.
 	const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
@@ -148,7 +179,7 @@ export function CharBuilder({
 	const [grad, setGrad] = useState(135);
 	const [owner, setOwner] = useState(players[0]?.id ?? '');
 	const ownerId = players.some((player) => player.id === owner) ? owner : (players[0]?.id ?? '');
-	const [cls, setCls] = useState('fighter');
+	const [cls, setCls] = useState(INITIAL_CLASS);
 	const [subclass, setSubclass] = useState('');
 	const [level, setLevel] = useState(1);
 	const [background, setBackground] = useState('soldier');
@@ -161,14 +192,13 @@ export function CharBuilder({
 		WIS: 10,
 		CHA: 10,
 	});
-	const [assign, setAssign] = useState<Record<AbilityKey, string>>({
-		STR: '',
-		DEX: '',
-		CON: '',
-		INT: '',
-		WIS: '',
-		CHA: '',
-	});
+	// The standard array starts DEALT in the class's priority order — a complete, 27-point-legal
+	// spread the user rearranges — instead of six empty selects that blocked Continue by default.
+	const [assignments, setAssignments] = useState<Record<PoolMethod, Assignment>>(() => ({
+		standard: suggestAssignment(BUILDER.standardArray, priorityFor(INITIAL_CLASS)),
+		roll: EMPTY_ASSIGNMENT,
+	}));
+	const [rolls, setRolls] = useState<RolledScore[] | null>(null);
 	const [ac, setAc] = useState(13);
 	const [hp, setHp] = useState(10);
 	const [speed, setSpeed] = useState(30);
@@ -194,12 +224,34 @@ export function CharBuilder({
 	const clsObj = BUILDER.classes.find((c) => c.id === clsId) ?? BUILDER.classes[0];
 	const bgObj = BUILDER.backgrounds.find((b) => b.id === bgId) ?? BUILDER.backgrounds[0];
 
-	// standard-array assignment bookkeeping
-	const usedArrayVals = Object.values(assign).filter((v) => v !== '');
-	const remainingArray = (forKey: AbilityKey) =>
-		BUILDER.standardArray.filter(
-			(v) => !usedArrayVals.includes(String(v)) || String(v) === assign[forKey],
-		);
+	// pool (standard array / roll) bookkeeping — see `./scores`
+	const poolMethod: PoolMethod | null = method === 'standard' || method === 'roll' ? method : null;
+	const pool: readonly number[] | null =
+		method === 'standard'
+			? BUILDER.standardArray
+			: method === 'roll'
+				? (rolls?.map((r) => r.total) ?? [])
+				: null;
+	const assign = poolMethod ? assignments[poolMethod] : EMPTY_ASSIGNMENT;
+	const setSlot = (k: AbilityKey, slot: string) => {
+		if (!poolMethod) return;
+		setAssignments((a) => ({ ...a, [poolMethod]: assignSlot(a[poolMethod], k, slot) }));
+	};
+	const rollScores = () => {
+		const next = rollAbilityScores();
+		setRolls(next);
+		setAssignments((a) => ({
+			...a,
+			roll: suggestAssignment(
+				next.map((r) => r.total),
+				priorityFor(clsId),
+			),
+		}));
+	};
+	const suggestScores = () => {
+		if (!poolMethod || !pool) return;
+		setAssignments((a) => ({ ...a, [poolMethod]: suggestAssignment(pool, priorityFor(clsId)) }));
+	};
 	// point-buy bookkeeping
 	const pointsSpent = BUILDER.abilityKeys.reduce(
 		(s, k) => s + (BUILDER.pointCost[scores[k]] ?? 0),
@@ -207,13 +259,7 @@ export function CharBuilder({
 	);
 	const pointsLeft = 27 - pointsSpent;
 	// effective scores (what the review/derived/dispatch uses)
-	const effScores: Record<AbilityKey, number> =
-		method === 'standard'
-			? (Object.fromEntries(BUILDER.abilityKeys.map((k) => [k, Number(assign[k] || 10)])) as Record<
-					AbilityKey,
-					number
-				>)
-			: scores;
+	const effScores: Record<AbilityKey, number> = pool ? assignedScores(pool, assign) : scores;
 	const coreAbilities = {
 		str: effScores.STR,
 		dex: effScores.DEX,
@@ -225,16 +271,21 @@ export function CharBuilder({
 	// The CORE's own abilities-step rule (27-point buy, each 8–15) gates the PC path — surface its
 	// issues here instead of letting `finalize-draft` reject at the end.
 	const abilityValidation = isPc ? validateDraftStep('abilities', coreAbilities) : null;
-	// `standard` is the DEFAULT method, and an unassigned slot resolves to 10 above — all-10s costs
-	// 12 of the 27 points, so the core rule happily passed and the wizard silently created a
-	// character with every ability at 10, discarding the standard array it told the user to assign.
-	const standardIncomplete =
-		isPc && method === 'standard' && BUILDER.abilityKeys.some((k) => assign[k] === '');
+	// An unassigned pool ability resolves to 10 above — and all-10s passes the core's 27-point rule,
+	// so an incomplete assignment used to create a character with every ability at 10, discarding
+	// the array (or roll) it told the user to assign. That is wrong for every kind, not just PCs.
+	const poolIncomplete = pool !== null && !assignmentComplete(pool, assign);
 
 	const next = () => setI((x) => Math.min(STEPS.length - 1, x + 1));
 	const back = () => {
 		if (i === 0) setPhase('choose');
 		else setI((x) => x - 1);
+	};
+	/** Revisit a completed step from the rail (forward jumps would skip the per-step gates). */
+	const jumpTo = (j: number) => {
+		if (j >= i) return;
+		focusTitle.current = true;
+		setI(j);
 	};
 
 	// The wizard is "dirty" once real work exists: any step past the first, or typed prose. Kind /
@@ -305,9 +356,12 @@ export function CharBuilder({
 		method,
 		setMethod,
 		scores,
+		pool,
+		rolls,
 		assign,
-		setAssign,
-		remainingArray,
+		setSlot,
+		rollScores,
+		suggestScores,
 		pointsLeft,
 		scoreMin,
 		scoreMax,
@@ -315,7 +369,8 @@ export function CharBuilder({
 		raiseBlocked,
 		effScores,
 		abilityValidation,
-		standardIncomplete,
+		poolIncomplete,
+		systemPackage,
 		ac,
 		setAc,
 		hp,
@@ -405,6 +460,7 @@ export function CharBuilder({
 				isPhone={isPhone}
 				importPlan={importPlan}
 				importError={importError}
+				roster={Object.values(runtime.state.characters.characters)}
 				error={error}
 				submitting={submitting}
 				onClose={onClose}
@@ -431,7 +487,7 @@ export function CharBuilder({
 
 	/* ---- the from-scratch wizard ---- */
 	const step = STEPS[i];
-	const statsOk = (!abilityValidation || abilityValidation.valid) && !standardIncomplete;
+	const statsOk = (!abilityValidation || abilityValidation.valid) && !poolIncomplete;
 	const canContinue = step.id === 'identity' ? identityOk : step.id === 'stats' ? statsOk : true;
 	// Both footer buttons used hard `disabled`, which removes the tab stop AND suppresses the
 	// tooltip — so the ONE thing the user needs (what is still missing) had no channel at all.
@@ -455,7 +511,7 @@ export function CharBuilder({
 			<div style={{ display: 'flex', height: '100%', flex: 1, position: 'relative' }}>
 				{/* The desktop rail would consume nearly all of a 320px dialog. Progress remains
 					    discoverable in the persistent footer on phone instead. */}
-				{!isPhone && <StepRail steps={STEPS} i={i} />}
+				{!isPhone && <StepRail steps={STEPS} i={i} onJump={jumpTo} />}
 				<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 					<div
 						style={{
@@ -465,7 +521,13 @@ export function CharBuilder({
 							padding: isPhone ? '12px 16px 0' : '16px 28px 0',
 						}}
 					>
-						<div style={{ font: `700 19px ${T.disp}` }}>{t(step.title)}</div>
+						<h2
+							ref={titleRef}
+							tabIndex={-1}
+							style={{ margin: T.space.zero, font: `700 19px ${T.disp}` }}
+						>
+							{t(step.title)}
+						</h2>
 						<Button variant="ghost" size="sm" onClick={requestClose}>
 							{t('common.action.cancel')}
 						</Button>
@@ -498,8 +560,11 @@ export function CharBuilder({
 							{i === 0 ? t('common.action.back') : t(STEPS[i - 1].title)}
 						</Button>
 						<div style={{ flex: 1 }} />
-						<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						{/* A live region, so moving on announces where the user landed — Continue keeps
+						    focus, and the step change was otherwise silent to a screen reader. */}
+						<span role="status" style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 							{t('charBuilder.stepOf', { index: i + 1, total: STEPS.length })}
+							<span style={srOnly}>{`: ${t(step.title)}`}</span>
 						</span>
 						{i < STEPS.length - 1 ? (
 							<Button

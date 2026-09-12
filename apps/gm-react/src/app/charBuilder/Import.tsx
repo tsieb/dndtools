@@ -5,9 +5,11 @@
  * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4) — a pure move, no
  * behaviour change.
  */
+import type { Character } from '@dndtools/core';
 import { Avatar, Badge, Button, Icon, IconButton, VisibilityChip } from '../../ds';
 import { T, eb } from '../screen-kit';
 import { KIND_LABEL, KIND_TONE } from './data';
+import { ImportDiff } from './ImportDiff';
 import { Overlay } from './Overlay';
 import type { ImportPlan } from '../charImport/ddbJson';
 import { useI18n } from '../../i18n';
@@ -16,6 +18,7 @@ export function ImportPhase({
 	isPhone,
 	importPlan,
 	importError,
+	roster,
 	error,
 	submitting,
 	onClose,
@@ -26,6 +29,8 @@ export function ImportPhase({
 	isPhone: boolean;
 	importPlan: ImportPlan | null;
 	importError: string | null;
+	/** The current roster, for the diff against a same-named character. */
+	roster: readonly Character[];
 	error: string | null;
 	submitting: boolean;
 	onClose: () => void;
@@ -129,6 +134,7 @@ export function ImportPhase({
 									</div>
 								</div>
 							</div>
+							<ImportDiff plan={importPlan} roster={roster} />
 							<div
 								style={{
 									display: 'grid',
