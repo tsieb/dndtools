@@ -15,16 +15,8 @@ import {
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
 import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
 
-/**
- * The pieces a scene canvas is DRAWN from: one widget frame, and the two overlay buttons that sit
- * on top of the canvas (undo/redo and zoom).
- *
- * Moved out of `SceneBoardCanvas.tsx` verbatim by RC-ENG-1.1 to bring that file back under the
- * RC-STB-2.7 file-size gate. Nothing here changed behaviour: the frame's markup, its roving
- * tabindex, the forced-colors outline note, and the two overlay buttons are exactly as they were.
- * `WidgetGlyph` came along because the frame renders it; `SceneBoardCanvas` re-exports it so its
- * existing importers (Board, Inspector, AddWidgetPanel) keep their import path.
- */
+/** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
+ * explicit stack indices let the canvas change DOM order without changing visual overlap. */
 
 // Kept with the tile chrome copy, like TileActionMenu's local TEXT catalog.
 const RESIZE_HELP =
@@ -124,8 +116,9 @@ export interface WidgetFrameProps {
 	selected: boolean;
 	scale: number;
 	resizable: boolean;
-	/** Roving tabindex: exactly one frame per canvas is tab-reachable (CANVAS-016). */
+	/** Frames participate in the metadata-ordered native Tab sequence. */
 	tabbable: boolean;
+	stackOrder?: number;
 	ariaLabel: string;
 	onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 	onFocusIn: () => void;
@@ -149,6 +142,7 @@ export function WidgetFrame({
 	scale,
 	resizable,
 	tabbable,
+	stackOrder,
 	ariaLabel,
 	onKeyDown,
 	onFocusIn,
@@ -196,6 +190,11 @@ export function WidgetFrame({
 			ref={registerRef}
 			role="group"
 			aria-label={ariaLabel}
+			aria-description={
+				editing
+					? 'Enter opens tile content. Space selects move mode. Arrows navigate between tiles or move the selected tile; Shift with arrows resizes it. Escape leaves move mode. A opens Add. Delete removes; Control or Command with Z undoes.'
+					: 'Arrows navigate to the nearest tile. Enter opens tile content. Escape returns to the tile.'
+			}
 			tabIndex={tabbable ? 0 : -1}
 			onKeyDown={(e) => {
 				const menuKey = e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
@@ -205,6 +204,7 @@ export function WidgetFrame({
 			onFocus={onFocusIn}
 			style={{
 				position: 'absolute',
+				zIndex: stackOrder,
 				left: x,
 				top: y,
 				width,
@@ -330,7 +330,13 @@ export function WidgetFrame({
 						</span>
 					)}
 				</div>
-				<div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+				<div
+					data-tile-content
+					tabIndex={-1}
+					role="group"
+					aria-label={`${w.title} content`}
+					style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
+				>
 					<NoteFrameContext.Provider value={true}>
 						<WidgetRenderSlot widget={w} onCommand={onCommand} />
 					</NoteFrameContext.Provider>

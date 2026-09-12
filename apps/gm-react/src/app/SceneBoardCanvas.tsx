@@ -7,6 +7,8 @@ import {
 	type BoardWidget,
 } from './board-helpers';
 import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
+import { readingOrder, spatialNeighbour, openGallery } from './canvas/keyboard';
+import { matchesShortcut } from './shortcuts/registry';
 import { ZoomCluster } from './canvas/ZoomCluster';
 import {
 	ARROW_DELTA,
@@ -42,8 +44,11 @@ import { useI18n } from '../i18n';
  * Pointer gestures commit once on release through the core. Local drafts keep the geometry
  * responsive until the confirmed layout catches up.
  *
- * Keyboard: arrows traverse unselected frames or move selected tiles; Shift+Arrow resizes.
- * The resize handle uses plain arrows, Enter/Space cycles presets, and Escape returns to the tile.
+ * Keyboard: Tab follows the core metadata reading order; arrows choose the nearest tile.
+ * Enter selects and enters content; Space selects move mode. Selected edit-mode tiles nudge
+ * with arrows and resize with Shift+arrows. Escape returns to spatial navigation. Delete uses
+ * the host's undoable removal and A opens its gallery. The resize handle uses plain arrows,
+ * Enter/Space cycles presets, and Escape returns to the tile.
  */
 
 export function SceneBoardCanvas({
@@ -85,7 +90,7 @@ export function SceneBoardCanvas({
 		},
 		[resizeWidget, policy],
 	);
-	// Keyboard roving-tabindex state: live frame elements by id + the last-focused widget.
+	// Keyboard focus recovery: live frame elements by id + the last-focused widget.
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const { t } = useI18n();
@@ -443,42 +448,64 @@ export function SceneBoardCanvas({
 		});
 
 	// Keyboard traversal order: the core-computed scene focus order first, then any widget it does
-	// not cover (in render order) so every frame stays reachable. Frames keep their RENDER order in
-	// the DOM (paint/stacking unchanged) — traversal moves focus by id instead.
-	const orderIds = useMemo(() => {
-		const present = new Set(widgets.map((w) => w.id));
-		const ordered = (focusOrder ?? []).filter((id) => present.has(id));
-		const seen = new Set(ordered);
-		for (const w of widgets) if (!seen.has(w.id)) ordered.push(w.id);
-		return ordered;
-	}, [widgets, focusOrder]);
+	// not cover so every frame stays reachable. DOM order follows reading order; explicit stacking
+	// indices preserve the original paint order.
+	const orderIds = useMemo(
+		() =>
+			readingOrder(
+				widgets.map((w) => w.id),
+				focusOrder,
+			),
+		[widgets, focusOrder],
+	);
+	const orderedWidgets = orderIds.map((id) => widgets.find((w) => w.id === id)!);
 
-	// Roving tabindex holder: the selection, else the last-focused frame, else the first in order.
-	const tabbableId =
-		(selectedId && orderIds.includes(selectedId) ? selectedId : null) ??
-		(focusedId && orderIds.includes(focusedId) ? focusedId : null) ??
-		orderIds[0] ??
-		null;
+	useEffect(() => {
+		if (focusedId && !orderIds.includes(focusedId) && document.activeElement === document.body) {
+			(frameRefs.current.get(orderIds[0]) ?? wrapRef.current)?.focus();
+		}
+	}, [focusedId, orderIds]);
 
-	const frameKeyDown = (e: React.KeyboardEvent, w: BoardWidget) => {
+	const frameKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, w: BoardWidget) => {
+		if (
+			e.key === 'Escape' &&
+			!e.defaultPrevented &&
+			(e.target as HTMLElement).closest('[data-tile-content]')
+		) {
+			e.preventDefault();
+			e.stopPropagation();
+			onSelect(null);
+			e.currentTarget.focus();
+			return;
+		}
 		// Keys on the widget's own controls (Roll/Start buttons) belong to those controls.
-		if (e.target !== e.currentTarget) return;
-		if (e.key === 'Enter' || e.key === ' ') {
+		if (
+			e.target !== e.currentTarget &&
+			!(e.target as HTMLElement).hasAttribute('data-tile-content')
+		)
+			return;
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (matchesShortcut('canvas.select', e) || matchesShortcut('canvas.moveMode', e)) {
 			e.preventDefault();
 			onSelect(w.id);
+			if (e.key === 'Enter') {
+				const content = e.currentTarget.querySelector<HTMLElement>('[data-tile-content]');
+				const control = content?.querySelector<HTMLElement>(
+					'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+				);
+				(control ?? content)?.focus();
+			} else e.currentTarget.focus();
 			return;
 		}
 		if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
 			onSelect(null);
+			e.currentTarget.focus();
 			return;
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && editing && onRemove) {
 			e.preventDefault();
-			// `onRemove` only STAGES a confirm dialog now — the frame does not unmount here. Moving
-			// focus to a neighbour at this point meant the Dialog captured the NEIGHBOUR as the element
-			// to restore to, so pressing "Keep" silently relocated the keyboard cursor to a widget the
-			// user never selected. The Dialog's own focus return lands back on this frame instead, and
-			// the host screen owns focus for the confirmed case.
 			onRemove(w.id);
 			return;
 		}
@@ -502,9 +529,7 @@ export function SceneBoardCanvas({
 			}
 			return;
 		}
-		// Unselected (any mode): arrows walk the scene focus order.
-		const dir = delta[0] + delta[1];
-		const next = orderIds[orderIds.indexOf(w.id) + dir];
+		const next = spatialNeighbour(orderedWidgets, w.id, delta);
 		if (next) frameRefs.current.get(next)?.focus();
 	};
 
@@ -519,6 +544,12 @@ export function SceneBoardCanvas({
 		// the browser's own text undo.
 		const target = e.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+		if (target?.closest('[data-tile-content]') && !target.hasAttribute('data-tile-content')) return;
+		if (editing && matchesShortcut('canvas.add', e)) {
+			e.preventDefault();
+			openGallery(e.currentTarget, t(policy === 'bounded' ? 'board.add' : 'sceneEditor.add'));
+			return;
+		}
 		// RC-CAN-3.1 — the named zoom steps. Unmodified so `Ctrl+0` stays the browser's page zoom.
 		if (!e.ctrlKey && !e.metaKey && !e.altKey) {
 			const direct = ZOOM_KEY[e.key];
@@ -550,7 +581,7 @@ export function SceneBoardCanvas({
 		}
 	};
 
-	const frames = widgets.map((w) => {
+	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const selected = editing && selectedId === w.id;
@@ -568,7 +599,8 @@ export function SceneBoardCanvas({
 				selected={selected}
 				scale={scale}
 				resizable={resizable}
-				tabbable={tabbableId === w.id}
+				tabbable
+				stackOrder={widgets.indexOf(w)}
 				// The pixel geometry is only actionable while the layout is being edited (it is what
 				// Shift+Arrow and the drag handles change). In VIEW mode it made every widget on the
 				// board announce four coordinates of layout telemetry to a screen-reader user who is
@@ -603,7 +635,7 @@ export function SceneBoardCanvas({
 			data-testid={`scene-board-${policy}`}
 			// Focusable only programmatically/by click, so the canvas can own its own shortcuts without
 			// adding a stop on the Tab order (the widget frames are the real tab stops).
-			tabIndex={history ? -1 : undefined}
+			tabIndex={widgets.length === 0 ? 0 : -1}
 			onWheel={onWheel}
 			onKeyDown={canvasKeyDown}
 			onPointerDown={onBgDown}

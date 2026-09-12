@@ -214,7 +214,7 @@ export function TileActionMenu({
 	}
 
 	/** Re-issue a key on the frame, so the host's own handler stays the owner of the operation. */
-	function viaFrame(key: 'Enter' | 'Delete') {
+	function viaFrame(key: 'Enter' | ' ' | 'Delete') {
 		const frame = anchorRef.current?.parentElement;
 		close();
 		frame?.focus();
@@ -334,14 +334,14 @@ export function TileActionMenu({
 							icon="move"
 							label={TEXT.move}
 							keys="ArrowUp ArrowDown ArrowLeft ArrowRight"
-							onSelect={() => viaFrame('Enter')}
+							onSelect={() => viaFrame(' ')}
 						/>
 						<MenuRow
 							icon="zoom-fit"
 							label={resizable ? TEXT.resize : TEXT.resizeLocked}
 							keys={resizable ? 'Shift+ArrowRight Shift+ArrowDown' : undefined}
 							disabled={!resizable}
-							onSelect={() => viaFrame('Enter')}
+							onSelect={() => viaFrame(' ')}
 						/>
 						<MenuRow icon="duplicate" label={TEXT.duplicate} onSelect={() => void duplicate()} />
 						<div role="separator" style={SEPARATOR} />
