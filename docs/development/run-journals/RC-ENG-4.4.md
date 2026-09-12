@@ -101,3 +101,45 @@ is reverted and the reason is recorded here.
   tooling 24 / 162, `build` (includes the cloud-fns esbuild bundle) and `feature-audit` pass.
   Browser acceptance's path filter is `apps/gm-react/*`, which this commit doesn't touch, and
   `@types` packages are compile-time only.
+- Committed as `514ef6e8`.
+
+### 6. react-dom + `@types/react-dom` 18 → 19 (#61): reverted, not committed
+
+- #61 bumps react-dom alone. react-dom 19 has a peer dependency of `react: ^19.2.8`, and
+  `@types/react-dom` 19 needs `@types/react ^19.2.0`. So I moved all four together: react,
+  react-dom, `@types/react` and `@types/react-dom`, which all resolved to 19.3.0.
+- Typecheck fails with one error:
+  `src/screens/settings/index.tsx(63,38): error TS2503: Cannot find namespace 'JSX'`. That file
+  types its sub-page map as `() => JSX.Element`, and `@types/react` 19 no longer declares the
+  global `JSX` namespace. The fix is one line (`React.JSX.Element`, or `ReactElement`), but the
+  file is outside both this story's claim and the dispatcher's companion paths, so the candidate
+  would be rejected.
+- For the follow-up's scope I also ran the other gates on React 19 before reverting:
+  - App tests: 1 of 1272 fails. `src/ds/components/data/Figure.test.tsx` expects the markup to
+    start with `<figure`, but React 19's `renderToStaticMarkup` now emits
+    `<link rel="preload" as="image" href="/cover.png"/>` first. The test file is a companion path,
+    so the assertion can be fixed alongside.
+  - `build` and `check-prod-bundle` pass. `vendor-react` grows from 53.38 to 76.19 KiB gzipped,
+    and `check:bundle-budget` puts the core bundle at 670.0 KiB (it was 647.9), still a pass.
+  - I didn't run browser acceptance, since the bump was being reverted either way.
+- Reverted `apps/gm-react/package.json` and `pnpm-lock.yaml`, then reinstalled with
+  `--frozen-lockfile`. React is back on 18.3.1.
+- Follow-up needed: one story owning `apps/gm-react/package.json`, the lockfile and
+  `src/screens/settings/index.tsx`, which fixes the `JSX` reference and the Figure assertion and
+  runs the full browser suite. React Router 7 could ship in it, or before it: 7.18 accepts
+  `react >=18`.
+
+### 7. Audit: vitest and joi
+
+- vitest (moderate ×2, < 4.1.11): root `vitest` and `@vitest/coverage-v8`, and core's `vitest`,
+  now require `^4.1.11`. I kept the major at 4, even though vitest 5.0.0 is out.
+- joi (low ×2, < 18.2.5, through `wait-on`): `wait-on` now requires `^9.1.0`. That alone left joi
+  locked at 18.2.3, because `^18.2.3` still matched. `pnpm update -r joi` moved it to 18.2.8, the
+  newest release the one-day rule allows (18.2.9 is newer than that).
+- The unscoped `pnpm audit` (pnpm 11.4.0) now lists 2 advisories, both moderate, both
+  `react-router` < 7.18.0 through `react-router-dom@6`.
+- Gate: `gates`, `format:check:changed`, `typecheck`, `lint` (0 errors), core 272 / 4769 on
+  vitest 4.1.11, `test:coverage:core` (89.75% statements), app 121 / 1272, cloud 36 / 482,
+  tooling 24 / 162, `build`, `check:bundle-budget` (647.9 KiB, pass) and `feature-audit` all pass.
+  `wait-on` only runs in `desktop:dev`, and Playwright doesn't use vitest. The full browser suite
+  runs on the next commit and on the final merged set.
