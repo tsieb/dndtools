@@ -33,6 +33,7 @@ import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useViewport } from '../../app/useViewport';
 import { cap, condKey, type PlayerData } from './shared';
+import { PrintableSheet } from '../../app/character/PrintableSheet';
 import { PlayerSheet } from './Sheet';
 import { PlayerResources } from './Vitals';
 import { PlayerParty } from './Party';
@@ -266,6 +267,7 @@ export function Player() {
 
 	return (
 		<div>
+			<PrintableSheet character={C} inventory={data.inventory} level={level} />
 			{/* persistent vitals bar */}
 			<div
 				style={{
