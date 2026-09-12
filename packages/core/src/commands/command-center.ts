@@ -38,6 +38,43 @@ function homeSceneExists(state: CoreStateSlice): Scene | null {
 	return state.scenes.scenes[id] ?? null;
 }
 
+/**
+ * RC-ENG-8.2 — the map the default board's Map tile opens on. The template used to lay the tile out
+ * unbound even in a vault full of maps, and the tile read that as "the linked map is missing or was
+ * removed": an error on the first screen a DM sees. Prefer the session's active map; otherwise the
+ * first top-level map by name (a map embedded in another is a detail of it, not a place to start).
+ * An empty vault keeps the tile unbound, which it renders as its "No map linked" empty state.
+ */
+export function defaultCommandCenterMapId(state: CoreStateSlice): string | null {
+	const maps = state.maps.maps;
+	const active = state.session.activeMap?.mapId;
+	if (active && maps[active]) return active;
+	const embedded = new Set(
+		Object.values(maps).flatMap((map) => map.embeds.map((embed) => embed.childMapId)),
+	);
+	const byName = Object.values(maps).sort((a, b) => a.name.localeCompare(b.name));
+	return (byName.find((map) => !embedded.has(map.id)) ?? byName[0])?.id ?? null;
+}
+
+function withDefaultMapBinding(scene: Scene, mapId: string | null): Scene {
+	if (!mapId) return scene;
+	return {
+		...scene,
+		widgets: scene.widgets.map((widget) =>
+			widget.type === 'map' && !widget.binding
+				? {
+						...widget,
+						binding: {
+							source: { entityType: 'map', entityId: mapId },
+							mode: 'read',
+							requiredCapability: 'viewer',
+						},
+					}
+				: widget,
+		),
+	};
+}
+
 export function handleEnsureCommandCenterHome(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -53,18 +90,49 @@ export function handleEnsureCommandCenterHome(
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	// Idempotent: when a Command Center home Scene already exists, leave durable
-	// state untouched and simply report it as ready (CMD-001).
+	// state untouched and simply report it as ready (CMD-001). The one repair is a
+	// Map tile a board created before RC-ENG-8.2 left unbound while the vault has
+	// maps: it is bound to the default map so the board stops opening on an error.
 	const existing = homeSceneExists(state);
 	if (existing) {
+		const repaired = withDefaultMapBinding(existing, defaultCommandCenterMapId(state));
+		const rebound = repaired.widgets.find(
+			(widget, index) => widget.binding !== existing.widgets[index]?.binding,
+		);
+		if (!rebound) {
+			return {
+				status: 'accepted',
+				nextState: state,
+				events: [{ kind: 'command-center.home-ready', sceneId: existing.id, actorId: actor.id }],
+				operationIds: [],
+			};
+		}
+		const nextScene = bumpRevision(repaired, env);
+		const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+			entityType: 'scene',
+			entityId: existing.id,
+			opType: 'command-center.bind-default-map',
+			path: `widgets/${rebound.id}/binding`,
+			value: { widgetInstanceId: rebound.id, binding: rebound.binding },
+			beforeRevision: existing.ownership.revision,
+			afterRevision: nextScene.ownership.revision,
+		});
 		return {
 			status: 'accepted',
-			nextState: state,
+			nextState: {
+				...state,
+				scenes: withScene(state.scenes, existing.id, () => nextScene),
+				sync: nextLog,
+			},
 			events: [{ kind: 'command-center.home-ready', sceneId: existing.id, actorId: actor.id }],
-			operationIds: [],
+			operationIds: [op.id],
 		};
 	}
 
-	const scene = buildDefaultCommandCenterScene(env, actor.id);
+	const scene = withDefaultMapBinding(
+		buildDefaultCommandCenterScene(env, actor.id),
+		defaultCommandCenterMapId(state),
+	);
 	const namedScene = parsed.data.name ? { ...scene, name: parsed.data.name } : scene;
 
 	const nextSceneState: SceneState = {

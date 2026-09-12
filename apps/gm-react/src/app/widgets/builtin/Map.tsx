@@ -325,7 +325,9 @@ export function MapTile({
 			</div>
 		) : null;
 
-	if (widget.requiresBinding && widget.status !== 'available') {
+	// No binding at all is the "choose a map" empty state, never "missing": the board resolves an
+	// unbound tile as available, so the status alone cannot tell the two apart (RC-ENG-8.2).
+	if (!boundId || (widget.requiresBinding && widget.status !== 'available')) {
 		return (
 			<div style={bodyWrap}>
 				<Muted>{t('widgetBody.map.noBinding')}</Muted>

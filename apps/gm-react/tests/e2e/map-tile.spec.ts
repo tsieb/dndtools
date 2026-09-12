@@ -11,7 +11,9 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
  * `session.set-active-map` + `session.project-active-map`.
  */
 
-const TILE = '[data-testid="map-tile"]';
+// Scoped to the tile this spec places (set in `beforeEach`): the home board's own Map tile is bound
+// to a map too (RC-ENG-8.2), so an unscoped `map-tile` would match both.
+let TILE = '[data-testid="map-tile"]';
 
 interface Fixture {
 	widgetId: string;
@@ -182,6 +184,7 @@ test.beforeEach(async ({ page }) => {
 	await gotoRoute(page, '/board');
 	await seedFresh(page);
 	fixture = await boardWithMapTile(page);
+	TILE = `[data-testid="widget-${fixture.widgetId}"] [data-testid="map-tile"]`;
 	// Deliberately NO second navigation: the board re-renders from the runtime on every dispatch, and
 	// reloading here raced the vault's persistence flush (the scene write lost, the session write not).
 });
