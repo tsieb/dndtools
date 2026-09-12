@@ -16,6 +16,7 @@
 
 import type { MessageKey } from '../../i18n';
 import { TOOL_GROUPS } from '../map/tools';
+import { en } from '../../i18n/messages/en';
 
 /** Where a shortcut is live. `global` fires anywhere in the shell; the rest need their surface. */
 export type ShortcutScope = 'global' | 'canvas' | 'map';
@@ -244,4 +245,57 @@ export function subscribeCanvasSurface(listener: () => void): () => void {
 	return () => {
 		canvasSurfaceListeners.delete(listener);
 	};
+}
+
+/** Native menu legends and commands come from the same declarations as keyboard handlers. */
+export interface DesktopChrome {
+	setMenu(entries: { id: string; label: string; accelerator: string }[]): Promise<boolean>;
+	setLiveSession(active: boolean): Promise<boolean>;
+	onShortcut(callback: (id: string) => void): () => void;
+}
+
+declare global {
+	interface Window {
+		lamplightDesktop?: DesktopChrome;
+	}
+}
+
+export function desktopMenuEntries() {
+	return SHORTCUTS.filter((entry) => entry.scope === 'global' && entry.combo).map((entry) => {
+		const combo = entry.combo!;
+		return {
+			id: entry.id,
+			label: en[entry.action],
+			accelerator: [
+				combo.mod && 'CommandOrControl',
+				combo.shift && 'Shift',
+				combo.key === 'ArrowRight' ? 'Right' : combo.key.toUpperCase(),
+			]
+				.filter(Boolean)
+				.join('+'),
+		};
+	});
+}
+
+if (typeof window !== 'undefined' && window.lamplightDesktop) {
+	const desktop = window.lamplightDesktop;
+	void desktop.setMenu(desktopMenuEntries()).catch(() => false);
+	const remove = desktop.onShortcut((id) => {
+		const entry = SHORTCUTS.find(
+			(candidate) => candidate.id === id && candidate.scope === 'global',
+		);
+		if (!entry?.combo) return;
+		const { combo } = entry;
+		// Dispatch through existing handlers, retaining text-field and modal guards.
+		(document.activeElement ?? document.body).dispatchEvent(
+			new KeyboardEvent('keydown', {
+				key: combo.key,
+				ctrlKey: !!combo.mod,
+				shiftKey: !!combo.shift,
+				bubbles: true,
+				cancelable: true,
+			}),
+		);
+	});
+	if (import.meta.hot) import.meta.hot.dispose(remove);
 }

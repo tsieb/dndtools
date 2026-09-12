@@ -29,6 +29,43 @@ Upgrades from the v0.2.0 `file://` origin export the legacy database through a h
 import it in bounded chunks, verify a digest, and write a completion marker. The source is never
 deleted and an interrupted move is retried.
 
+### Desktop parity (RC-PLT-1.3)
+
+The native application menu uses standard Edit, View, Window and application/quit roles.
+Session menu labels and shortcut legends come from `src/app/shortcuts/registry.ts`; clicks
+re-enter the existing keydown handlers so text-input and modal guards still apply. Accelerators
+are displayed without registering a second shortcut handler. On Windows/Linux, Alt reveals the
+menu; macOS uses the system menu bar.
+
+`electron/parity.cjs` saves normal window bounds and maximized state on close, using an atomic
+rename in userData. Invalid files and rectangles outside connected display work areas reset to
+window defaults. Minimized/fullscreen state is not restored. AUD-2.4 owns the native display
+chooser and isolated kiosk projector; Escape and display removal close that window.
+
+The main process accepts only `lamplight://join/<URL-safe-token>` and routes it to
+`#/join?token=…`, preserving the existing invite redemption flow. Cold-start arguments, macOS
+`open-url`, and repeat-launch arguments share validation; external URLs, extra path segments,
+queries and fragments are rejected. Delivery waits for the primary preload to be ready.
+Packaged startup requests protocol registration. Installer protocol metadata is still pending
+an ownership extension to `electron-builder.yml`; OS-level installation is not yet verified.
+
+The primary-only `lamplightDesktop.setLiveSession(boolean)` bridge sets a macOS LIVE dock badge
+or a Windows/Linux live-session tray icon with a focus action. Closing the primary window clears
+it. **Automatic synchronization with Core's active workflow is pending** the ownership extension
+for `PlatformLifecycle.tsx`; the native bridge alone does not report a live session automatically.
+
+After building, run the extended desktop suite:
+
+```sh
+pnpm --filter @dndtools/gm-react exec node electron/run-parity-smoke.cjs
+```
+
+It runs the existing desktop suite and then the production main/preload twice with a disposable
+profile. Assertions cover registry menu action, cold/warm/second-instance links, rejected links
+and senders, native badge transitions, projector isolation/Escape, and bounds across restart.
+A display is required. Virtual-display checks do not prove physical monitor placement, visible
+OS badge rendering, packaged protocol installation, or automatic live-workflow synchronization.
+
 ### Auto-update
 
 The packaged app updates from GitHub Releases through `electron-updater`

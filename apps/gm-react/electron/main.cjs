@@ -12,6 +12,9 @@
 
 const {
 	app,
+	Menu,
+	Tray,
+	nativeImage,
 	BrowserWindow,
 	dialog,
 	ipcMain,
@@ -22,6 +25,7 @@ const {
 	safeStorage,
 	screen,
 } = require('electron');
+const { joinHash, readWindowState, persistWindow, installMenu } = require('./parity.cjs');
 const path = require('node:path');
 const fs = require('node:fs');
 const {
@@ -135,7 +139,52 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
 	app.quit();
 } else {
-	app.on('second-instance', focusPrimaryWindow);
+	app.on('second-instance', (_event, argv) => {
+		acceptJoinLink(argv.find((arg) => joinHash(arg)));
+		focusPrimaryWindow();
+	});
+}
+
+let pendingJoinHash = process.argv.map(joinHash).find(Boolean) || null;
+let rendererReady = false;
+let liveTray = null;
+function acceptJoinLink(value) {
+	const hash = joinHash(value);
+	if (!hash) return false;
+	pendingJoinHash = hash;
+	if (rendererReady && mainWindow && !mainWindow.isDestroyed()) {
+		mainWindow.webContents.send('desktop:join', pendingJoinHash);
+		pendingJoinHash = null;
+	}
+	focusPrimaryWindow();
+	return true;
+}
+app.on('open-url', (event, url) => {
+	event.preventDefault();
+	if (hasSingleInstanceLock) acceptJoinLink(url);
+});
+
+function setLiveSession(active) {
+	app.dock?.setBadge(active ? 'LIVE' : '');
+	if (liveTray) {
+		liveTray.destroy();
+		liveTray = null;
+	}
+	if (!active || process.platform === 'darwin') return;
+	// An embedded icon keeps the tray independent of renderer assets and network access.
+	const pixels = Buffer.alloc(16 * 16 * 4);
+	for (let i = 0; i < pixels.length; i += 4) {
+		pixels[i] = 40;
+		pixels[i + 1] = 180;
+		pixels[i + 2] = 245;
+		pixels[i + 3] = 255;
+	}
+	liveTray = new Tray(nativeImage.createFromBitmap(pixels, { width: 16, height: 16 }));
+	liveTray.setToolTip('Lamplight — Live session');
+	liveTray.setContextMenu(
+		Menu.buildFromTemplate([{ label: 'Open live session', click: focusPrimaryWindow }]),
+	);
+	liveTray.on('click', focusPrimaryWindow);
 }
 
 // In dev, `desktop:dev` sets VITE_DEV_SERVER_URL and we point the window at the Vite dev server (HMR).
@@ -526,9 +575,12 @@ ipcMain.handle('scene-display:open', async (event) => {
 
 function createWindow() {
 	const initialTheme = WINDOW_THEMES[currentWindowTheme];
+	const stateFile = path.join(app.getPath('userData'), 'window-state.json');
+	const saved = readWindowState(stateFile, screen.getAllDisplays());
 	const win = new BrowserWindow({
 		width: 1440,
 		height: 900,
+		...saved,
 		minWidth: 720,
 		minHeight: 520,
 		show: false,
@@ -559,6 +611,12 @@ function createWindow() {
 			webviewTag: false,
 		},
 	});
+	persistWindow(win, stateFile);
+	if (saved.maximized) win.maximize();
+	rendererReady = false;
+	win.webContents.on('did-finish-load', () => {
+		if (isPrimaryWebContents(win.webContents)) win.webContents.send('desktop:init');
+	});
 	mainWindow = win;
 	mainWindowReady = false;
 	managedWindows.add(win);
@@ -567,6 +625,8 @@ function createWindow() {
 	win.on('closed', () => {
 		managedWindows.delete(win);
 		if (mainWindow === win) {
+			setLiveSession(false);
+			rendererReady = false;
 			mainWindow = null;
 			mainWindowReady = false;
 			if (sceneWindow && !sceneWindow.isDestroyed()) sceneWindow.destroy();
@@ -647,6 +707,45 @@ function createWindow() {
 }
 
 function setupWindowIpc() {
+	installMenu(Menu, [], () => {});
+	ipcMain.on('desktop:ready', (event) => {
+		if (!isPrimarySender(event)) return null;
+		rendererReady = true;
+		const hash = pendingJoinHash;
+		pendingJoinHash = null;
+		if (hash) event.sender.send('desktop:join', hash);
+	});
+	ipcMain.handle('desktop:live', (event, active) => {
+		if (!isPrimarySender(event) || typeof active !== 'boolean') return false;
+		setLiveSession(active);
+		return true;
+	});
+	ipcMain.handle('desktop:menu', (event, entries) => {
+		if (!isPrimarySender(event) || !Array.isArray(entries) || entries.length > 8) return false;
+		if (
+			!entries.every(
+				(entry) =>
+					entry &&
+					typeof entry.id === 'string' &&
+					/^global\.[a-zA-Z]+$/.test(entry.id) &&
+					typeof entry.label === 'string' &&
+					entry.label.length <= 80 &&
+					typeof entry.accelerator === 'string' &&
+					entry.accelerator.length <= 64,
+			)
+		)
+			return false;
+		installMenu(Menu, entries, (id) => {
+			if (
+				!mainWindow ||
+				mainWindow.isDestroyed() ||
+				BrowserWindow.getFocusedWindow() !== mainWindow
+			)
+				return;
+			mainWindow.webContents.send('desktop:shortcut', id);
+		});
+		return true;
+	});
 	ipcMain.handle('window:set-theme', (event, themeName, followSystem) => {
 		if (!isManagedSender(event) || typeof themeName !== 'string' || !(themeName in WINDOW_THEMES))
 			return false;
@@ -1123,6 +1222,7 @@ if (hasSingleInstanceLock) {
 		setupDiscoveryIpc();
 		setupSecureStoreIpc();
 		setupUpdaterIpc();
+		if (app.isPackaged) app.setAsDefaultProtocolClient('lamplight');
 		primaryWindowCreationEnabled = true;
 		createWindow();
 
