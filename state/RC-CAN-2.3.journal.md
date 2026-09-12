@@ -88,6 +88,20 @@ apps/gm-react/src/app/canvas`: 5 files, 128 tests passed.
 - `loop/rc` is 17 commits past this branch's base; none touch this branch's paths, so the engine's
   rebase applies cleanly.
 
+### Second retry (2026-09-12, feedback "allowance unknown or stale")
+
+- That text is a scheduler eligibility reason, not a gate result: `dispatcher/scheduler.py:104-108`
+  adds it when the provider usage pool has no reading (`known` false) or the reading is older than
+  `allowance_max_age`. It does not inspect the candidate, and the usage probe is dispatcher state
+  this task must not touch. It is unrelated to `scripts/eslint-rules/no-raw-style-values.allow.js`.
+  No source change.
+- The engine rebased the branch onto `f543ec9d` (new SHAs `08b722cf`, `c507afbd`, `74674d48`).
+  `loop/rc` has 7 more commits since (PRs #70/#71/#72 and the main merge); none touch this
+  branch's paths.
+- Re-validated on the rebased tree: gm-react and core `typecheck` exit 0; ESLint on the seven
+  touched files exit 0; widget + canvas vitest 5 files, 128 tests passed; `note-depth.spec.ts` on
+  desktop-chromium + mobile-chromium, `DNDTOOLS_E2E_PORT=39987` (load ≈ 8–12): 4/4 passed, exit 0.
+
 ## Finding for follow-up (outside this story)
 
 - A very large note edited many times in one session can exhaust the 5 MB `persistFullState`
