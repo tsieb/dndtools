@@ -76,3 +76,31 @@
 - Quality gates passed; `format:check:changed --base loop/rc` failed on this journal only — the one
   changed file never run through Prettier. Formatted it and re-ran the same script locally before
   committing. No source changes.
+
+## Retry — 2026-09-12 ("Browser acceptance" gate)
+
+- Every other gate passed on `a9b66967`. Browser acceptance reported 238 passed, 1 flaky, 8
+  skipped and the rest failed — about 2,510 `page.goto: net::ERR_CONNECTION_REFUSED` against
+  `localhost:5273`. All 12 `player-preview.spec.ts` failures are that same refusal; none reached
+  an assertion.
+- Cause: the gate runs `pnpm e2e --workers=2 --retries=2` with no environment, and
+  `playwright.config.ts` sets `reuseExistingServer: !process.env.CI`. Our run started at 00:25:52
+  while worktree `c6b7f0d0`'s own Browser acceptance (00:12:12 → 00:30:13) held :5273, so it
+  attached to that worktree's vite — a different tree — and lost it when that run finished. The
+  first failure (test #243) is a 20 s waitReady timeout at that moment; everything after is refused.
+  So even the 238 passes were against `c6b7f0d0`'s code: the gate said nothing about this candidate.
+- The fix is in `playwright.config.ts` / the gate's environment, outside this story's claim (the
+  e2e-port change is already in flight separately). Not touched here.
+
+## Retry — 2026-09-12 ("Uncommitted work remains")
+
+- The intended source and acceptance spec are already committed in `b77be76f`; the only dirty
+  path on entry was this journal's prior Browser acceptance entry. Preserved that historical entry;
+  its cross-worktree diagnostic was recorded by the previous attempt and was not re-investigated here.
+- Current verification: preview model Vitest 5/5, exit 0. Playwright `player-preview.spec.ts` and
+  `isolation-guard.spec.ts` 6/6 across desktop and mobile Chromium, exit 0, using
+  `CI=1 DNDTOOLS_E2E_PORT=48361` with two workers and no retries. This run started its own server.
+  The preview spec checks rendered verdicts against the preview actor's read and against the DM
+  read, editing suspension, Escape restoration, unchanged scene data, and an inaccessible scene.
+- Formatted and checked this journal before committing the remaining task documentation. No
+  disposable untracked artifacts were present. Full browser acceptance remains with the operator.
