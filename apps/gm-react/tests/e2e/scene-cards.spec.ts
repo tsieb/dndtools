@@ -531,6 +531,10 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		// the very same "up" arrow, ready for a second press.
 		const up = page.getByRole('button', { name: `Move ${titles[2]} up` });
 		await up.click();
+		// The click itself focuses the button, so `toBeFocused` alone passes before the asynchronous
+		// reorder lands, and the Enter below can then act on the stale order. Wait for the new order
+		// first: the card that dropped to the tail has lost its "down" arrow.
+		await expect(page.getByRole('button', { name: `Move ${titles[1]} down` })).toBeDisabled();
 		await expect(up).toBeFocused();
 		// Pressing again is what the restored focus buys: it walks to the head of the queue.
 		await page.keyboard.press('Enter');
