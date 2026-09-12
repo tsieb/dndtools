@@ -53,15 +53,27 @@ function setup(env: CoreEnvironment = makeEnvironment()) {
 		});
 		return sceneOf(state, sceneId).widgets.at(-1)!.id;
 	};
-	const timer = add('timer', { x: 20, y: 20, w: 200, h: 100 }, {
-		configuration: { visibility: 'player-visible' },
-		localState: { running: true },
-	});
+	const timer = add(
+		'timer',
+		{ x: 20, y: 20, w: 200, h: 100 },
+		{
+			configuration: { visibility: 'player-visible' },
+			localState: { running: true },
+		},
+	);
 	// Stacked in the timer's column, and one beside it that shares no column.
 	add('dice', { x: 100, y: 140, w: 200, h: 100 });
 	add('dice', { x: 400, y: 600, w: 200, h: 100 });
 	const map = add('map', { x: 700, y: 20, w: 300, h: 200 }, { binding: MAP_BINDING });
-	return { get state() { return state; }, env, sceneId, timer, map };
+	return {
+		get state() {
+			return state;
+		},
+		env,
+		sceneId,
+		timer,
+		map,
+	};
 }
 
 function duplicate(sceneId: string, widgetInstanceId: string, extra: object = {}): CoreCommand {
@@ -114,7 +126,12 @@ describe('RC-CAN-2.4: scene.duplicate-widget', () => {
 			payload: {
 				sceneId,
 				sections: [
-					{ id: 'section-maps', name: 'Maps', bounds: { x: 0, y: 0, w: 900, h: 900 }, widgetInstanceIds: [map] },
+					{
+						id: 'section-maps',
+						name: 'Maps',
+						bounds: { x: 0, y: 0, w: 900, h: 900 },
+						widgetInstanceIds: [map],
+					},
 				],
 			},
 		});
@@ -162,5 +179,51 @@ describe('RC-CAN-2.4: scene.duplicate-widget', () => {
 		);
 		// No pure inverse (the copy's id is minted in the handler); the lifecycle routes it to destroy.
 		expect(buildWidgetInverse(duplicate(first.sceneId, first.timer), first.state)).toBeNull();
+	});
+
+	it('with a caller-minted copyId, undo destroys the copy and redo restores that same instance', () => {
+		const { state, env, sceneId, timer } = setup();
+		const copyId = env.ids();
+		const forward = duplicate(sceneId, timer, { copyId });
+		const inverse = buildWidgetInverse(forward, state);
+		expect(inverse?.command).toEqual({
+			type: 'scene.destroy-widget',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, widgetInstanceId: copyId },
+		});
+		const duplicated = apply(state, env, forward);
+		const copy = sceneOf(duplicated, sceneId).widgets.find((w) => w.id === copyId)!;
+		expect(copy).toBeDefined();
+
+		const undone = apply(duplicated, env, inverse!.command);
+		expect(sceneOf(undone, sceneId).widgets.map((w) => w.id)).toEqual(
+			sceneOf(state, sceneId).widgets.map((w) => w.id),
+		);
+
+		// Redoing the undo restores the tombstone: the same id comes back, not a second copy.
+		const redo = buildWidgetInverse(inverse!.command, duplicated);
+		expect(redo?.command).toMatchObject({
+			type: 'scene.restore-widget',
+			payload: { sceneId, widgetInstanceId: copyId },
+		});
+		const redone = apply(undone, env, redo!.command);
+		expect(sceneOf(redone, sceneId).widgets.find((w) => w.id === copyId)).toMatchObject({
+			type: copy.type,
+			configuration: copy.configuration,
+		});
+		// And that restore can itself be undone.
+		expect(buildWidgetInverse(redo!.command, undone)?.command).toMatchObject({
+			type: 'scene.destroy-widget',
+			payload: { sceneId, widgetInstanceId: copyId },
+		});
+
+		// A copyId already in use, live or tombstoned, gets no inverse and is refused by the handler.
+		expect(buildWidgetInverse(duplicate(sceneId, timer, { copyId }), undone)).toBeNull();
+		expect(dispatchCommand(undone, env, duplicate(sceneId, timer, { copyId })).status).not.toBe(
+			'accepted',
+		);
+		expect(
+			dispatchCommand(state, env, duplicate(sceneId, timer, { copyId: timer })).status,
+		).not.toBe('accepted');
 	});
 });

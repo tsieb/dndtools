@@ -1575,14 +1575,28 @@ test.describe('canvas: the tile action menu', () => {
 		// The core's own copy command made it — not an add carrying settings the client re-sent.
 		const opTypes = await page.evaluate(
 			(path) =>
-				window.__rt!.state.sync.operations
-					.filter((op) => op.path === path)
-					.map((op) => op.opType),
+				window.__rt!.state.sync.operations.filter((op) => op.path === path).map((op) => op.opType),
 			`widgets/${copy.id}`,
 		);
 		expect(opTypes).toEqual(['scene.duplicate-widget']);
 		// Focus follows the copy, so the next arrow key moves the new tile rather than the old one.
 		await expect(page.getByTestId(`widget-${copy.id}`)).toBeFocused();
+
+		// Undoable like any other layout edit. The copy's id is minted before dispatch, so Undo removes
+		// exactly that tile and Redo brings the same instance back rather than a second copy.
+		const controls = page.getByTestId('canvas-history-controls');
+		await controls.getByRole('button', { name: /^Undo/ }).click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length);
+		await expect(page.getByTestId(`widget-${copy.id}`)).toHaveCount(0);
+		await expect(page.getByRole('status').filter({ hasText: /^Undone: duplicated / })).toHaveCount(
+			1,
+		);
+		await controls.getByRole('button', { name: /^Redo/ }).click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length + 1);
+		await expect(page.getByTestId(`widget-${copy.id}`)).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: /^Redone: duplicated / })).toHaveCount(
+			1,
+		);
 
 		// And it is a real durable instance: it survives a reload.
 		await page.reload({ waitUntil: 'domcontentloaded' });
@@ -1676,7 +1690,10 @@ test.describe('canvas: the tile action menu', () => {
 				await expect(menu).toBeVisible({ timeout: 1_000 });
 			}).toPass();
 		};
-		await expect(frame.getByTestId('tile-binding')).toHaveAttribute('data-binding-state', 'unbound');
+		await expect(frame.getByTestId('tile-binding')).toHaveAttribute(
+			'data-binding-state',
+			'unbound',
+		);
 
 		// Bind… offers the characters the DM can read, and binds the one picked.
 		await openMenu();
