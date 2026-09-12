@@ -26,16 +26,15 @@ export interface RolledScore {
 	total: number;
 }
 
-/** A uniform 1..sides from WebCrypto, rejection-sampled so no face is favoured. */
-export function secureDie(sides: number): number {
-	const limit = Math.floor(0x100000000 / sides) * sides;
-	const buffer = new Uint32Array(1);
-	do crypto.getRandomValues(buffer);
-	while (buffer[0]! >= limit);
-	return (buffer[0]! % sides) + 1;
+/**
+ * A uniform 1..sides. A character's starting scores need no cryptographic randomness, and GUI code
+ * may not reach the `crypto` platform primitive directly (PLAT-006) — so plain `Math.random`.
+ */
+export function rollDie(sides: number): number {
+	return Math.floor(Math.random() * sides) + 1;
 }
 
-export function rollAbilityScore(die: (sides: number) => number = secureDie): RolledScore {
+export function rollAbilityScore(die: (sides: number) => number = rollDie): RolledScore {
 	const dice = [die(6), die(6), die(6), die(6)];
 	let dropped = 0;
 	for (let j = 1; j < dice.length; j += 1) if (dice[j]! < dice[dropped]!) dropped = j;
@@ -43,7 +42,7 @@ export function rollAbilityScore(die: (sides: number) => number = secureDie): Ro
 	return { dice, dropped, total };
 }
 
-export function rollAbilityScores(die: (sides: number) => number = secureDie): RolledScore[] {
+export function rollAbilityScores(die: (sides: number) => number = rollDie): RolledScore[] {
 	return BUILDER.abilityKeys.map(() => rollAbilityScore(die));
 }
 

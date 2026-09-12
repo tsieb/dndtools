@@ -7,7 +7,7 @@ import {
 	assignmentComplete,
 	priorityFor,
 	rollAbilityScore,
-	secureDie,
+	rollDie,
 	suggestAssignment,
 } from './scores';
 
@@ -30,13 +30,17 @@ describe('rollAbilityScore', () => {
 	});
 });
 
-describe('secureDie', () => {
-	it('stays within 1..sides', () => {
+describe('rollDie', () => {
+	it('stays within 1..sides and reaches both ends', () => {
+		const seen = new Set<number>();
 		for (let n = 0; n < 500; n += 1) {
-			const d = secureDie(6);
+			const d = rollDie(6);
+			expect(Number.isInteger(d)).toBe(true);
 			expect(d).toBeGreaterThanOrEqual(1);
 			expect(d).toBeLessThanOrEqual(6);
+			seen.add(d);
 		}
+		expect(seen.has(1) && seen.has(6)).toBe(true);
 	});
 });
 
