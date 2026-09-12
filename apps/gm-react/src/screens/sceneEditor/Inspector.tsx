@@ -148,10 +148,10 @@ export function Inspector({
 			)}
 
 			{styleTokens.length > 0 && (
-				<Section label={t('sceneEditor.style')}>
+				<Section label={t('builder.style.title')}>
 					<div
 						role="list"
-						aria-label={t('sceneEditor.styleTokens')}
+						aria-label={t('builder.style.tokens')}
 						data-testid="widget-inspector-style"
 						style={
 							{

@@ -4205,8 +4205,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.saveDetails': 'Guardar los detalles',
 	'sceneEditor.closeInspector': 'Cerrar el inspector',
 	'sceneEditor.settings': 'Ajustes',
-	'sceneEditor.style': 'Estilo',
-	'sceneEditor.styleTokens': 'Tokens de estilo',
 	'sceneEditor.fixedMapSource':
 		'La fuente de mapa de este widget es fija y no se puede cambiar aquí.',
 	'sceneEditor.fixedDataSource':

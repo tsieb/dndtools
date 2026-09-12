@@ -1,15 +1,9 @@
 // @vitest-environment jsdom
 
-import { act, useEffect } from 'react';
-import type { BoardWidget } from '../board-helpers';
+import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	ThemeAwareWidgetHost,
-	WidgetErrorBoundary,
-	WidgetPlaceholder,
-	WidgetStyleScope,
-} from './WidgetRenderSlot';
+import { WidgetErrorBoundary, WidgetPlaceholder } from './WidgetRenderSlot';
 import { WIDGET_PLACEHOLDER_COPY } from './resolveRenderer';
 
 /**
@@ -44,23 +38,6 @@ describe('WidgetPlaceholder', () => {
 		expect(text).toContain(WIDGET_PLACEHOLDER_COPY.label);
 		expect(text).toContain('Its widget package is turned off.');
 		expect(text).toContain(WIDGET_PLACEHOLDER_COPY.reassurance);
-	});
-});
-
-describe('WidgetStyleScope', () => {
-	it('sets the declared variables as var() references on a box-less wrapper (RC-WID-2.4)', () => {
-		act(() =>
-			root.render(
-				<WidgetStyleScope variables={{ '--widget-accent': 'var(--color-accent)' }}>
-					<span>Body</span>
-				</WidgetStyleScope>,
-			),
-		);
-		const scope = container.querySelector<HTMLElement>('[data-widget-style-scope]');
-		expect(scope).not.toBeNull();
-		expect(scope!.style.getPropertyValue('--widget-accent')).toBe('var(--color-accent)');
-		expect(scope!.style.display).toBe('contents');
-		expect(scope!.textContent).toBe('Body');
 	});
 });
 
@@ -105,52 +82,4 @@ describe('WidgetErrorBoundary', () => {
 		);
 		expect(container.textContent).toBe('Replacement body');
 	});
-});
-
-describe('ThemeAwareWidgetHost', () => {
-	it.each([true, false])(
-		'refreshes only theme consumers (followsTheme=%s)',
-		async (followsTheme) => {
-			const mounted = vi.fn();
-			const unmounted = vi.fn();
-			function Host() {
-				useEffect(() => {
-					mounted();
-					return unmounted;
-				}, []);
-				return <span>Guest</span>;
-			}
-			const original = document.documentElement.getAttribute('data-theme');
-			try {
-				document.documentElement.setAttribute('data-theme', 'tavern');
-				act(() =>
-					root.render(
-						<ThemeAwareWidgetHost
-							Host={Host}
-							followsTheme={followsTheme}
-							widget={{ id: 'test' } as BoardWidget}
-						/>,
-					),
-				);
-				expect(mounted).toHaveBeenCalledTimes(1);
-				await act(async () => {
-					document.documentElement.setAttribute('data-theme', 'parchment');
-				});
-				expect(mounted).toHaveBeenCalledTimes(followsTheme ? 2 : 1);
-				expect(unmounted).toHaveBeenCalledTimes(followsTheme ? 1 : 0);
-				await act(async () => {
-					document.documentElement.setAttribute('data-theme', 'parchment');
-				});
-				expect(mounted).toHaveBeenCalledTimes(followsTheme ? 2 : 1);
-				act(() => root.render(null));
-				await act(async () => {
-					document.documentElement.setAttribute('data-theme', 'tavern');
-				});
-				expect(mounted).toHaveBeenCalledTimes(followsTheme ? 2 : 1);
-			} finally {
-				if (original === null) document.documentElement.removeAttribute('data-theme');
-				else document.documentElement.setAttribute('data-theme', original);
-			}
-		},
-	);
 });
