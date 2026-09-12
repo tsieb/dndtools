@@ -85,3 +85,50 @@ The amended acceptance requires fresh workstation evidence on the candidate;
 the September 10 report is historical evidence only. A new capture and its
 results will be recorded below. Hosted five-run acceptance belongs to
 RC-ENG-1.4 after integration. No hosted run is claimed here.
+
+Measured implementation commit: `8193b9cba1360013b6b366bb71d525885bc0fb87`.
+The scoped unit command passed **2 files / 14 tests** (exit 0). Targeted ESLint,
+Prettier, `bash -n scripts/perf/ci.sh`, `git diff --check`, and an explicit
+base-to-candidate owned-path check passed. The initial expanded Vitest config
+also ran all tooling tests successfully (25 files / 169 tests), before its
+include list was narrowed to the two intended performance suites.
+
+Started a fresh workstation capture with `CI=true`, ports 15273/15373 and a
+new temporary `RUNNER_TEMP`, using `bash scripts/perf/ci.sh`. Output is retained
+in `tmp/perf/workstation.log`. This uses CI grading on a Ryzen workstation,
+not hosted CI; the harness's configured runner label does not change that fact.
+Runs 1 and 2 each completed with all 11 gate verdicts PASS, seven batches per
+budget, zero missing baselines, and numeric drift throughout. Run 3 is in
+progress. No capture source, app source, or comparison policy changed during
+measurement; this journal update is documentation only.
+
+Runs 3 and 4 also completed with all 11 gate verdicts PASS and every drift
+column populated. Run 4 had zero absolute target breaches, whereas runs 1–3
+had one; their baseline-based gate verdicts nevertheless agreed throughout.
+Run 5 is now in progress. No measured source or policy has changed.
+
+### Final workstation result
+
+The uninterrupted five-run invocation finished with **exit 0**. Its stability
+check reports agreement on all 11 CI budget verdicts for implementation commit
+`8193b9cba1360013b6b366bb71d525885bc0fb87`; all 55 verdicts are PASS and all
+55 drift values are numeric. Every reference and candidate capture has seven
+batches per budget. The reference stayed pinned to
+`48a827861616fc3c3f6ccf69f0872edc1c8c771a`.
+
+Committed evidence is in
+[the workstation report](reports/2026-09-12-workstation/README.md), with all
+26 original output files in an exact-byte archive and SHA-256 checksums.
+Verified every capture SHA, matching hardware metadata, batch count, flattened
+raw samples, and all verdicts. Extracted the archive using the documented
+review commands: all 27 checksums (archive plus members) passed and the
+stability checker again exited 0. `scene-first-render` ranged from 1406.1 to
+1981.1 ms: its absolute target diagnostic flipped, but the baseline-based gate
+remained PASS in all five runs.
+
+The final commit adds only this journal and the reports; it preserves the
+measured implementation. The amended pre-merge unit, workstation-report and
+manual-ref-input requirements are now evidenced locally. Hosted acceptance
+remains RC-ENG-1.4's post-integration work, with central gates and independent
+review still pending. No push, promotion, workflow dispatch, new loop, or
+control-state edit occurred.
