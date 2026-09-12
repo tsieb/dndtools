@@ -71,3 +71,10 @@
 - HANDOFF RC-DSN-2.1 → central operator: grant `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx` for the prepared numeric-consumer fix, then apply the committed patch and run real whole-repository gates. Repeating the unchanged DS-only task cannot legally resolve that gate.
 
 - Recovery artifact follow-up: the initial patch's tab-indented context caused `git diff --check` whitespace diagnostics. Regenerated it with zero context and documented `git apply --unidiff-zero`. Both the exact apply check and the staged whitespace check now pass; proposed source and compiler result are unchanged.
+
+## Repeated gate blocker — operator action required
+
+- Read original gate `/home/trinkle/Programming/agent-dispatcher/.state/attempts/015756da-9431-4477-a06d-a804cc1519df/output.log` at candidate `8a2781e79f0449d0723e8950cdf7c96706b02d56`. Core/cloud pass; app fails with the same two TS2345 errors at `AbilitiesPanel.tsx:95` and `:139`. No new diagnostic or ownership expansion was supplied.
+- BLOCKED RC-DSN-2.1: the same scope blocker now spans three consecutive task turns. The DS conversion and repair proposal are committed; further DS-only changes cannot fix the consumer without violating the package string-return contract or concealing its types.
+- Required operator action: grant `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx` and authorize its numeric-arithmetic correction, or route the committed `src/ds/handoff/AbilitiesPanel.patch` to that file's owner. The prepared patch remains applicable; use the documented `--unidiff-zero` option.
+- This turn changes only the journal. No runtime files changed, no suites were repeated, and no dispatcher control state was edited. Actual typecheck remains failed; the task is not ready for integration.
