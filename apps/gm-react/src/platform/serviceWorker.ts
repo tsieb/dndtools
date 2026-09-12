@@ -119,7 +119,10 @@ export async function registerServiceWorker(
 		watchForUpdates(registration);
 		return registration;
 	} catch (error) {
-		console.warn('Service worker registration failed; the app runs online only.', error);
+		console.warn(
+			'Service worker registration failed; offline shell reload is unavailable. Local vault storage is unaffected.',
+			error,
+		);
 		return null;
 	}
 }

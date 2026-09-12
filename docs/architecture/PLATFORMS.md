@@ -140,8 +140,35 @@ opened. Cross-origin traffic (cloud, signalling, AI providers) is never cached. 
 
 `shouldRegisterServiceWorker` registers only for `web` and `ios` runtimes in a secure context, and
 under the Vite dev server only with `?sw=dev` (used by `tests/e2e/pwa-offline.spec.ts`). A failed
-registration is logged and the app stays online-only. A new version waits until the DM accepts the
+registration is logged: offline shell reload is unavailable, but local vault storage still works. A new version waits until the DM accepts the
 reload toast (`LAMPLIGHT_SKIP_WAITING`); a session is never swapped mid-encounter.
 
 Verify: `pnpm test:app` (manifest installability and the registration rule), the `pwa-offline`
 spec, and an offline reload of a production build served with `vite preview`.
+
+### Offline durability assurance (RC-PLT-2.4)
+
+`pwa-offline.spec.ts` runs on desktop Chromium and the Pixel 5 Chromium profile. Each durable
+surface has its own case: a note, NPC character, map, scene, and user audio preset. Each warms its
+route under worker control, disconnects the browser, creates through the real runtime dispatch
+and IndexedDB persistence path, reloads while still offline, and checks both the complete stored
+record and its visible name. The audio case prepares session audio online, then saves the preset
+offline: presets persist references, not remote audio bytes. This is persistence assurance, not
+an assertion that an uncached remote stream plays offline or that every creation form works.
+Lazy routes must have been visited online; the dev worker cannot precache unknown module URLs.
+
+Run both profiles with:
+`pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pwa-offline.spec.ts --workers=1`.
+
+**Open acceptance dependency: cloud-only controls.** The e2e server deliberately has no cloud
+configuration, so a disabled unconfigured control cannot prove signed-in offline behavior.
+`src/screens/settings/Sync.tsx` shows connectivity in its local-only panel, but the configured
+Sync now and restore controls currently gate on busy state without an offline guard.
+`src/screens/settings/Account.tsx` and `src/screens/community/Discover.tsx` likewise need live
+network state at their cloud action controls. Completing the all-control acceptance requires
+ownership of these React surfaces and an audit of authentication, subscription/billing,
+cloud session hosting/joining, publication, and hosted AI actions, with isolated mocked cloud
+responses for configured-state tests. A browser online event means a network interface is
+available; it does not establish cloud-service reachability. Preserve server failures as errors.
+Do not add DOM mutation or label-matching interception to service-worker registration to emulate
+component state. These controls are outside RC-PLT-2.4's currently assigned implementation paths.
