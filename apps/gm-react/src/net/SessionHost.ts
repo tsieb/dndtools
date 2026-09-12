@@ -31,8 +31,21 @@ import {
  */
 const PLAYER_REQUESTABLE_PREFIXES = ['dice.', 'character.'] as const;
 
-function isPlayerRequestable(type: string): boolean {
-	return PLAYER_REQUESTABLE_PREFIXES.some((p) => type.startsWith(p));
+/**
+ * Whether a joined participant may REQUEST this command. RC-SES-5.1 adds ONE exact exception outside
+ * the prefixes: `combat.apply-resource` carrying `kind: 'initiative'` — a player's roll for the DM's
+ * initiative call. The rest of that command (HP, conditions, death saves…) stays refused at the host.
+ * The Core still decides: it re-checks that the stamped actor holds the character the combatant is
+ * (a player can never roll for another player's character) and that a call is open.
+ */
+export function isPlayerRequestable(command: { type: string; payload: unknown }): boolean {
+	if (PLAYER_REQUESTABLE_PREFIXES.some((p) => command.type.startsWith(p))) return true;
+	return (
+		command.type === 'combat.apply-resource' &&
+		typeof command.payload === 'object' &&
+		command.payload !== null &&
+		(command.payload as { kind?: unknown }).kind === 'initiative'
+	);
 }
 
 /** A connected (or invited-but-not-yet-connected) participant on the host side. */
@@ -345,7 +358,7 @@ export class SessionHost {
 		requestId: string,
 		command: { type: string; payload: unknown },
 	): Promise<void> {
-		if (!isPlayerRequestable(command.type)) {
+		if (!isPlayerRequestable(command)) {
 			await peer.link.send({
 				kind: 'command-ack',
 				requestId,

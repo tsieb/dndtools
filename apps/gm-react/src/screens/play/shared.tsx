@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Badge, CONDITIONS, Icon } from '../../ds';
+import { Badge, Button, CONDITIONS, Icon } from '../../ds';
 import type { DSBadgeStatus } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
-import type { PlayerData } from '../../net/viewModels';
+import { sgn } from '../../app/character/abilities';
+import type { InitiativeCallView, PlayerData } from '../../net/viewModels';
 
 /**
  * Shared vocabulary for the standalone player companion app: the seat-tier table, the nav model, the
@@ -278,6 +279,69 @@ export function LockedNote({ what }: { what: string }) {
 				<strong style={{ color: T.ink }}>{coDm}</strong>
 				{noteAfter}
 			</span>
+		</div>
+	);
+}
+
+/**
+ * RC-SES-5.1 — the DM's ROLL FOR INITIATIVE call on the player's own device. It sits on the Stage
+ * (where a player is when the call goes out) and on the Dice tab (where they go to roll). The button
+ * sends a roll REQUEST; the DM's runtime rolls the d20 and decides whether it counts, so the card only
+ * ever reports what came back in the view-model.
+ */
+export function InitiativeCallCard({
+	call,
+	onRoll,
+}: {
+	call: InitiativeCallView;
+	onRoll: () => Promise<void>;
+}) {
+	const { t } = useI18n();
+	const [sending, setSending] = useState(false);
+	const owed = call.combatantId !== null && call.rolled === null;
+	const roll = async () => {
+		setSending(true);
+		try {
+			await onRoll();
+		} finally {
+			setSending(false);
+		}
+	};
+	return (
+		<div
+			data-testid="initiative-call"
+			role="region"
+			aria-label={t('play.initiative.title')}
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				flexWrap: 'wrap',
+				gap: T.space.three,
+				padding: `${T.space.three} ${T.space.four}`,
+				borderRadius: T.radius.lg,
+				background: T.accSub,
+				border: `1px solid ${T.accBd}`,
+			}}
+		>
+			<Icon name="dice" size={20} color={T.acc} />
+			<div style={{ flex: 1, minWidth: 180 }}>
+				<div style={{ font: `700 14px ${T.sans}`, color: T.ink }}>{t('play.initiative.title')}</div>
+				<div style={{ marginTop: T.space.half, font: `12.5px ${T.sans}`, color: T.sub }}>
+					{call.rolled !== null
+						? t('play.initiative.rolled', { total: call.rolled })
+						: call.combatantName
+							? t('play.initiative.prompt', { name: call.combatantName })
+							: t('play.initiative.watching', {
+									rolled: call.rolledCount,
+									total: call.owedCount,
+								})}
+				</div>
+			</div>
+			{owed && (
+				<Button variant="primary" size="sm" icon="dice" disabled={sending} onClick={roll}>
+					{t('play.initiative.roll', { modifier: sgn(call.modifier) })}
+				</Button>
+			)}
 		</div>
 	);
 }

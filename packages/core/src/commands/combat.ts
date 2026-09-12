@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { hasDmAuthority } from '../state/permission-state';
 import {
 	addCombatantsInputSchema,
@@ -80,6 +81,9 @@ import { appendOperationDraft, parseInput, reject, requireActor, requireDm } fro
  *   - Applying a combatant resource (HP / temp HP / condition / death save / concentration) accepts
  *     the DM, OR — for a combatant that IS a character — a player holding `combat-participant` on that
  *     character (the CHAR-007 authority, reused). Observers never qualify.
+ *   - RC-SES-5.1 — a player may set INITIATIVE only by rolling for a character combatant they hold
+ *     `combat-participant` on, only while the DM's initiative call is open, and only once. Setting a
+ *     value (the "adjust") is the DM's alone.
  *   - All combat-running commands are gated on the session workflow being `active` (the
  *     CMD-active-session-control guard, reused). They fail closed when the session is not active and
  *     for unauthorized actors.
@@ -101,6 +105,29 @@ function requireActiveSession(state: CoreStateSlice): CommandRejection | null {
 function withCombat(state: CoreStateSlice, combat: SessionCombatState): CoreStateSlice {
 	return { ...state, session: { ...state.session, combat } };
 }
+
+// --- RC-SES-5.1 — the initiative CALL -------------------------------------------------------------
+
+/**
+ * RC-SES-5.1 — whether the fight is still in its INITIATIVE CALL: combat is running but round 1 has
+ * not begun. The DM opened it with `combat.start` + `rollForInitiative`, players are rolling from their
+ * own devices, and nobody has acted yet. `round` is 0 here exactly as it is before any combat, so the
+ * turn machinery needs no new field: the first `combat.advance-turn` begins round 1.
+ */
+function initiativeCallOpen(combat: SessionCombatState): boolean {
+	return combat.status === 'running' && combat.round === 0;
+}
+
+/**
+ * RC-SES-5.1 — `combat.start`'s input plus the flag that opens the fight as an initiative call. Built
+ * here from the shared schema's shape, and kept strict, so an unknown key is still refused.
+ */
+const startCombatWithCallInputSchema = z
+	.object({
+		...startCombatInputSchema.shape,
+		rollForInitiative: z.boolean().default(false),
+	})
+	.strict();
 
 function combatLogEntry(
 	env: CoreEnvironment,
@@ -217,8 +244,10 @@ export function handleStartCombat(
 		);
 	}
 
-	const parsed = parseInput(startCombatInputSchema, rawPayload);
+	const parsed = parseInput(startCombatWithCallInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
+	// RC-SES-5.1 — open the fight as an initiative call (round 0) instead of starting round 1.
+	const calling = parsed.data.rollForInitiative;
 
 	// An encounter link (SES-006 → SES-002) is BY REFERENCE: the encounter must exist, but its data is
 	// not cloned — its combatant selections seed tracker combatants and the link is recorded.
@@ -281,7 +310,7 @@ export function handleStartCombat(
 		encounterId,
 		// SES-006 AC2: terrain notes flowed from the linked encounter (empty for ad-hoc combat).
 		terrainNotes: linkedTerrainNotes,
-		round: 1,
+		round: calling ? 0 : 1,
 		turn: 0,
 		combatants: combatantMap,
 		order: ordered.order,
@@ -298,7 +327,9 @@ export function handleStartCombat(
 		operationId,
 		nextCombat,
 		'combat-started',
-		`Combat started with ${ordered.order.length} combatant(s).`,
+		calling
+			? `Initiative called for ${ordered.order.length} combatant(s).`
+			: `Combat started with ${ordered.order.length} combatant(s).`,
 		null,
 		null,
 	);
@@ -316,6 +347,8 @@ export function handleStartCombat(
 			// RC-MAP-1.1 — record WHICH map the auto-placement used. The formation itself is derived
 			// from `order`, so a replay reproduces it without shipping a coordinate per combatant.
 			tokenMapId,
+			// RC-SES-5.1 — whether this start opened an initiative call (round 0) rather than round 1.
+			initiativeCall: calling,
 		},
 		beforeRevision: state.session.combat.revision,
 		afterRevision: nextCombat.revision,
@@ -361,13 +394,20 @@ export function handleAdvanceCombatTurn(
 		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
 
-	const advance = advanceTurn(combat.round, combat.turn, combat.order.length);
+	// RC-SES-5.1 — out of an initiative call the first advance BEGINS the fight: round 1, at the top of
+	// the order the rolls produced. It enters a round (the log reads "Round 1 begins.") but nothing
+	// ticks, because no round has passed for a countdown to lose.
+	const beginning = initiativeCallOpen(combat);
+	const advance = beginning
+		? { round: 1, turn: 0, wrappedRound: true }
+		: advanceTurn(combat.round, combat.turn, combat.order.length);
 	const operationId = env.ids();
 	// RC-SES-3.1 — condition countdowns run on ROUNDS, so they only tick when the turn wraps into a
 	// new round. Every timed condition loses a round; one that hits zero comes off the combatant here.
-	const tick = advance.wrappedRound
-		? tickCombatConditions(combat.combatants, combat.order)
-		: { combatants: combat.combatants, expired: [] };
+	const tick =
+		advance.wrappedRound && !beginning
+			? tickCombatConditions(combat.combatants, combat.order)
+			: { combatants: combat.combatants, expired: [] };
 	let nextCombat: SessionCombatState = {
 		...combat,
 		round: advance.round,
@@ -479,6 +519,10 @@ export function handlePreviousCombatTurn(
 	if (combat.status !== 'running') {
 		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
+	// RC-SES-5.1 — during an initiative call nobody has acted, so there is no turn to go back to.
+	if (initiativeCallOpen(combat)) {
+		return reject({ code: 'invalid-state', message: 'Round 1 has not begun yet.' }, state);
+	}
 	// Nothing to return to before the first turn of round 1 (the pure helper is a no-op there).
 	if (combat.round <= 1 && combat.turn <= 0) {
 		return reject(
@@ -580,6 +624,12 @@ export function handleApplyCombatResource(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
+
+	// RC-SES-5.1 — `kind: 'initiative'` is routed before the shared resource union parse (which does
+	// not know it) to its own handler, under the same per-combatant authority.
+	if (isCombatantInitiativePayload(rawPayload)) {
+		return handleCombatantInitiative(state, env, actor, rawPayload);
+	}
 
 	const parsed = parseInput(applyCombatResourceInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -834,6 +884,224 @@ export function handleApplyCombatResource(
 	};
 }
 
+// --- RC-SES-5.1 — a combatant's INITIATIVE (a player's roll, or the DM's adjustment) -------------
+
+/** How far a declared initiative modifier may reach. A 5e build tops out well inside this. */
+const INITIATIVE_MODIFIER_LIMIT = 20;
+
+/**
+ * RC-SES-5.1 — set one combatant's initiative, carried on `combat.apply-resource` as
+ * `kind: 'initiative'` (the one combat command that already accepts a player for their OWN
+ * character). Two shapes:
+ *
+ *   - `roll: { modifier }` — the CORE rolls `1d20 + modifier` from a seed it records, so a player's
+ *     device never supplies the total, only the modifier off its sheet (named in the log line, and
+ *     bounded). This is what a player's companion sends.
+ *   - `value` — an explicit initiative. DM-only: it is the DM's "adjust".
+ */
+const combatantInitiativeInputSchema = z.union([
+	z
+		.object({
+			combatantId: z.string().min(1),
+			kind: z.literal('initiative'),
+			roll: z
+				.object({
+					modifier: z.number().int().min(-INITIATIVE_MODIFIER_LIMIT).max(INITIATIVE_MODIFIER_LIMIT),
+				})
+				.strict(),
+		})
+		.strict(),
+	z
+		.object({
+			combatantId: z.string().min(1),
+			kind: z.literal('initiative'),
+			value: z.number().int().min(-99).max(999),
+		})
+		.strict(),
+]);
+
+/** Whether an `apply-resource` payload is the initiative shape (routed before the union parse). */
+function isCombatantInitiativePayload(rawPayload: unknown): boolean {
+	return (
+		typeof rawPayload === 'object' &&
+		rawPayload !== null &&
+		(rawPayload as { kind?: unknown }).kind === 'initiative'
+	);
+}
+
+/**
+ * RC-SES-5.1 — the initiative handler. Authority is the resource rule reused: the DM, or a player
+ * holding `combat-participant` on the character this combatant IS — so a player can never set another
+ * player's initiative, and an NPC/monster row is the DM's alone. On top of that a player only ever
+ * ROLLS, only while the call is open, and only once: after that the number is the DM's to accept or
+ * adjust.
+ *
+ * The combatant moves to where its new initiative puts it (after any equal initiative, the rule a
+ * mid-fight add already uses). During the call the cursor stays at the top, so round 1 opens on the
+ * highest roll; once the fight is running the active combatant stays active across the move.
+ */
+function handleCombatantInitiative(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actor: Actor,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(combatantInitiativeInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	if (combat.status !== 'running') {
+		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
+	}
+	const sessionGuard = requireActiveSession(state);
+	if (sessionGuard) return reject(sessionGuard, state);
+
+	const payload = parsed.data;
+	const existing = combat.combatants[payload.combatantId];
+	if (!existing) {
+		return reject(
+			{
+				code: 'combatant-not-found',
+				message: `Combatant ${payload.combatantId} is not in combat.`,
+			},
+			state,
+		);
+	}
+	// `now` is passed so an EXPIRED grant is inert (fail closed — PERM-004 AC2).
+	if (!actorMayEditCombatant(state, actor, existing, env.clock())) {
+		return reject(
+			{ code: 'actor-not-authorized', message: "You may not set this combatant's initiative." },
+			state,
+		);
+	}
+	const isDm = hasDmAuthority(actor.role);
+	const calling = initiativeCallOpen(combat);
+	if (!isDm) {
+		if (!calling) {
+			return reject(
+				{
+					code: 'invalid-state',
+					message: 'Initiative is rolled when the DM calls for it, before round 1.',
+				},
+				state,
+			);
+		}
+		if (!('roll' in payload)) {
+			return reject(
+				{
+					code: 'actor-not-authorized',
+					message: 'Only the DM can set an initiative value. Roll for it instead.',
+				},
+				state,
+			);
+		}
+		if (combat.log.some((entry) => entry.kind === 'roll' && entry.combatantId === existing.id)) {
+			return reject(
+				{ code: 'invalid-state', message: `${existing.name} has already rolled initiative.` },
+				state,
+			);
+		}
+	}
+
+	const operationId = env.ids();
+	let initiative: number;
+	let rolled: { expression: string; seed: number } | null = null;
+	if ('roll' in payload) {
+		const { modifier } = payload.roll;
+		const expression = modifier === 0 ? '1d20' : `1d20${modifier > 0 ? '+' : ''}${modifier}`;
+		// Seeded from the recorded operation id, so a replay reproduces the roll exactly.
+		const result = rollExpression(expression, operationId);
+		if (!result.ok) {
+			return reject(
+				{ code: 'invalid-payload', message: 'The initiative roll could not be made.' },
+				state,
+			);
+		}
+		initiative = result.result.total;
+		rolled = { expression, seed: result.result.seed };
+	} else {
+		initiative = payload.value;
+	}
+
+	const activeId = combat.order[combat.turn] ?? null;
+	const cloned = cloneCombatant(existing);
+	const nextCombatant: Combatant = { ...cloned, statBlock: { ...cloned.statBlock, initiative } };
+	const combatants = { ...combat.combatants, [existing.id]: nextCombatant };
+	const order = combat.order.filter((id) => id !== existing.id);
+	order.splice(initiativeInsertionIndex(order, combatants, initiative), 0, existing.id);
+	const position = order.indexOf(existing.id);
+	const turn = calling ? 0 : activeId ? Math.max(0, order.indexOf(activeId)) : combat.turn;
+
+	let nextCombat: SessionCombatState = {
+		...combat,
+		combatants,
+		order,
+		turn,
+		revision: combat.revision + 1,
+	};
+	// A roll is logged as a `roll` (a dice roll made during combat) and an adjustment as a reorder
+	// (it moves the row); `delta` carries the initiative either way, which is how the tracker tells
+	// an adjustment from an earlier/later nudge.
+	let logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		rolled ? 'roll' : 'combatant-reordered',
+		rolled
+			? `${existing.name} rolled initiative: ${rolled.expression} = ${initiative}.`
+			: `${existing.name}: initiative set to ${initiative}.`,
+		existing.id,
+		initiative,
+	);
+	if (rolled) {
+		// The read side filters a `roll` entry by its OWN visibility, not the combatant's, and the label
+		// names the combatant. A hidden combatant's roll therefore stays with the DM (and the player who
+		// rolled it), never session-visible.
+		const rollVisibility: NonNullable<CombatLogEntry['rollVisibility']> = !existing.hidden
+			? 'session-visible'
+			: isDm
+				? 'dm-only'
+				: 'shared';
+		logEntry = {
+			...logEntry,
+			rollVisibility,
+			...(rollVisibility === 'shared' ? { rollSharedWith: [actor.id] } : {}),
+		};
+	}
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.resource.initiative',
+		path: `combat/combatants/${existing.id}/initiative`,
+		value: {
+			kind: 'initiative',
+			initiative,
+			position,
+			...(rolled ? { expression: rolled.expression, seed: rolled.seed } : {}),
+		},
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.resource-applied',
+				actorId: actor.id,
+				combatantId: existing.id,
+				resourceKind: 'initiative',
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
 // --- UX-SES-008 — mid-combat combatant management (add / remove / reorder / visibility) -----------
 
 /** The fail-closed default placeholder for a hidden combatant (UX-SES-008 AC2 / UX-SES-016). */
@@ -929,8 +1197,13 @@ export function handleAddCombatants(
 		}
 	}
 
-	// The active combatant stays active across insertions.
-	const nextTurn = activeId ? Math.max(0, order.indexOf(activeId)) : combat.turn;
+	// The active combatant stays active across insertions. RC-SES-5.1 — during an initiative call
+	// nobody is active yet: the cursor stays at the top, so round 1 opens on the highest initiative.
+	const nextTurn = initiativeCallOpen(combat)
+		? 0
+		: activeId
+			? Math.max(0, order.indexOf(activeId))
+			: combat.turn;
 
 	const operationId = env.ids();
 	let nextCombat: SessionCombatState = {
@@ -1127,7 +1400,12 @@ export function handleReorderCombatant(
 	const order = [...combat.order];
 	const moved = order.splice(from, 1)[0]!;
 	order.splice(to, 0, moved);
-	const turn = activeId ? Math.max(0, order.indexOf(activeId)) : combat.turn;
+	// RC-SES-5.1 — during an initiative call the cursor stays at the top (nobody is active yet).
+	const turn = initiativeCallOpen(combat)
+		? 0
+		: activeId
+			? Math.max(0, order.indexOf(activeId))
+			: combat.turn;
 
 	const operationId = env.ids();
 	let nextCombat: SessionCombatState = {

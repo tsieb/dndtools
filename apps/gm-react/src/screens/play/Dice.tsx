@@ -4,7 +4,8 @@ import { Badge, DiceResult, Icon, IconButton } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { sgn } from '../../app/character/abilities';
-import { Panel, PvPage, SectionHead } from './shared';
+import { InitiativeCallCard, Panel, PvPage, SectionHead } from './shared';
+import type { InitiativeCallView } from '../../net/viewModels';
 import { useI18n } from '../../i18n';
 
 // 3 · DICE — the REAL table roller: every roll dispatches `dice.roll` AS the player actor and is
@@ -29,12 +30,17 @@ export function DiceSection({
 	viewer,
 	actorName,
 	onRoll,
+	initiativeCall,
+	onRollInitiative,
 }: {
 	rolls: DiceRollView[];
 	sessionActive: boolean;
 	viewer: string;
 	actorName: (id: string) => string;
 	onRoll: (expression: string, label: string) => Promise<DiceRollView | null>;
+	/** RC-SES-5.1 — the DM's open initiative call (null when none is open). */
+	initiativeCall: InitiativeCallView | null;
+	onRollInitiative: () => Promise<void>;
 }) {
 	const { t } = useI18n();
 	const viewport = useViewport();
@@ -97,6 +103,11 @@ export function DiceSection({
 					<span style={{ font: `12.5px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
 						{t('play.dice.needsSession')}
 					</span>
+				</div>
+			)}
+			{initiativeCall && (
+				<div style={{ marginBottom: T.space.four }}>
+					<InitiativeCallCard call={initiativeCall} onRoll={onRollInitiative} />
 				</div>
 			)}
 			<div

@@ -1,5 +1,5 @@
 import type { CombatTrackerView } from '@dndtools/core';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
 	Avatar,
 	Badge,
@@ -9,7 +9,9 @@ import {
 	EmptyState,
 	HPBar,
 	IconButton,
+	Input,
 	StatPill,
+	Toaster,
 	VisibilityChip,
 	useConditionCatalog,
 } from '../../ds';
@@ -23,6 +25,8 @@ import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/comba
 import { StatBlockSheet } from '../../app/combat/StatBlockSheet';
 import { useCombatKeyboard } from './useCombatKeyboard';
 import { useHpUndo, type HpUndo } from './useHpUndo';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { useSession } from '../../net/SessionContext';
 
 // ── Combat tracker ────────────────────────────────────────────────────────────────────────────────
 
@@ -77,8 +81,12 @@ export function CombatPanel({
 	// offered at all rather than opening on nothing.
 	const { conditions: systemConditions } = useConditionCatalog();
 	const running = tracker.status === 'running';
-	const activeCombatant =
-		tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null;
+	// RC-SES-5.1 — an initiative call is a running fight whose round 1 has not begun: rolls are still
+	// arriving and nobody is active, so nothing below may mark a turn.
+	const calling = running && tracker.round === 0;
+	const activeCombatant = calling
+		? null
+		: (tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null);
 	const lowest = tracker.combatants
 		.filter((c) => c.resources)
 		.reduce<CombatantRow | null>(
@@ -111,6 +119,61 @@ export function CombatPanel({
 	// RC-SES-3.3 — which combatant's stat block is open in the quick-reference sheet. Held by id, not
 	// by row, so the card follows the live tracker as HP and conditions change underneath it.
 	const [quickRefId, setQuickRefId] = useState<string | null>(null);
+
+	// RC-SES-5.1 — `index.tsx` wires every other tracker callback; the initiative call, the DM's
+	// adjustment and the readiness roster dispatch and read from here, beside the rows they paint.
+	const runtime = useRuntime();
+	const session = useSession();
+	const owedRows = calling ? tracker.combatants.filter((c) => c.kind === 'character') : [];
+	const rolledCount = owedRows.filter(
+		(c) => initiativeSource(tracker, c, true) !== 'awaiting',
+	).length;
+	// Readiness is the presence beat a joined player's "I'm ready" toggle already sends (a side
+	// channel by design, never a command). Only a hosting DM has a roster to show.
+	const readiness =
+		!running && session.role === 'host'
+			? session.peers.filter((p) => p.connected && p.role === 'player')
+			: [];
+
+	/** Open the fight with every player character in it, owing a roll, before round 1. */
+	async function callInitiative(): Promise<void> {
+		if (previewing || !isDm || !isLive) return;
+		const party = Object.values(runtime.state.characters.characters).filter((c) => c.kind === 'pc');
+		if (party.length === 0) {
+			Toaster.warning(t('session.combat.initiative.needsParty'));
+			return;
+		}
+		const result = await runtime.dispatch({
+			type: 'combat.start',
+			actorId: runtime.defaultActorId,
+			payload: {
+				rollForInitiative: true,
+				combatants: party.map((c) => ({
+					kind: 'character',
+					name: c.name,
+					characterId: c.id,
+					ac: c.combat.ac,
+					maxHp: c.combat.maxHp,
+				})),
+			},
+		});
+		if (result.status === 'accepted') Toaster.success(t('session.combat.initiative.called'));
+		else Toaster.error(result.rejection.message);
+	}
+
+	/** The DM's adjustment: an explicit initiative, which moves the row to where the value puts it. */
+	async function setInitiative(id: string, name: string, value: number): Promise<void> {
+		const result = await runtime.dispatch({
+			type: 'combat.apply-resource',
+			actorId: runtime.defaultActorId,
+			payload: { combatantId: id, kind: 'initiative', value },
+		});
+		if (result.status === 'accepted') {
+			Toaster.success(t('session.combat.initiative.setToast', { name, value }));
+		} else {
+			Toaster.error(result.rejection.message);
+		}
+	}
 
 	const hpSheetTarget = hpSheet
 		? (tracker.combatants.find((c) => c.id === hpSheet.id) ?? null)
@@ -195,37 +258,60 @@ export function CombatPanel({
 						</Button>
 					</div>
 				) : (
-					<Button
-						variant="primary"
-						size="sm"
-						icon="sword"
-						// aria-disabled, not disabled: this is where ⌘K's "Build encounter" lands, and a
-						// natively disabled button leaves the tab order — so the DM arrived at a mute dead
-						// control. The EmptyState below explains it, but only to sighted users who scroll;
-						// the reason belongs on the control that refuses.
-						aria-disabled={!isLive || previewing || !isDm || undefined}
-						title={
-							previewing
-								? t('session.combat.buildBlockedPreview')
-								: !isDm
-									? t('session.combat.buildBlockedNotDm')
-									: !isLive
-										? t('session.combat.buildBlockedNotLive')
-										: t('session.combat.build')
-						}
-						aria-label={
-							previewing
-								? t('session.combat.buildLabelPreview')
-								: !isDm
-									? t('session.combat.buildLabelNotDm')
-									: !isLive
-										? t('session.combat.buildLabelNotLive')
-										: t('session.combat.build')
-						}
-						onClick={onStart}
+					<div
+						style={{
+							display: 'flex',
+							gap: T.space.two,
+							flexWrap: 'wrap',
+							justifyContent: 'flex-end',
+						}}
 					>
-						{t('session.combat.build')}
-					</Button>
+						{/* RC-SES-5.1 — offered only when it can work. The EmptyState below already says why
+						    combat is closed (not live / previewing), and a second refusing control beside
+						    "Build encounter" would only repeat it. */}
+						{isDm && isLive && !previewing && (
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="dice"
+								title={t('session.combat.initiative.callTitle')}
+								onClick={() => void callInitiative()}
+							>
+								{t('session.combat.initiative.call')}
+							</Button>
+						)}
+						<Button
+							variant="primary"
+							size="sm"
+							icon="sword"
+							// aria-disabled, not disabled: this is where ⌘K's "Build encounter" lands, and a
+							// natively disabled button leaves the tab order — so the DM arrived at a mute dead
+							// control. The EmptyState below explains it, but only to sighted users who scroll;
+							// the reason belongs on the control that refuses.
+							aria-disabled={!isLive || previewing || !isDm || undefined}
+							title={
+								previewing
+									? t('session.combat.buildBlockedPreview')
+									: !isDm
+										? t('session.combat.buildBlockedNotDm')
+										: !isLive
+											? t('session.combat.buildBlockedNotLive')
+											: t('session.combat.build')
+							}
+							aria-label={
+								previewing
+									? t('session.combat.buildLabelPreview')
+									: !isDm
+										? t('session.combat.buildLabelNotDm')
+										: !isLive
+											? t('session.combat.buildLabelNotLive')
+											: t('session.combat.build')
+							}
+							onClick={onStart}
+						>
+							{t('session.combat.build')}
+						</Button>
+					</div>
 				)
 			}
 		>
@@ -258,46 +344,129 @@ export function CombatPanel({
 				{reorderAnnouncement}
 			</div>
 			{!running ? (
-				<EmptyState
-					icon="sword"
-					title={t(isLive ? 'session.combat.noneRunning' : 'session.combat.goLiveTitle')}
-					description={t(isLive ? 'session.combat.noneRunningHelp' : 'session.combat.goLiveHelp')}
-				/>
+				<>
+					<EmptyState
+						icon="sword"
+						title={t(isLive ? 'session.combat.noneRunning' : 'session.combat.goLiveTitle')}
+						description={t(isLive ? 'session.combat.noneRunningHelp' : 'session.combat.goLiveHelp')}
+					/>
+					{/* RC-SES-5.1 — outside combat, the per-player "ready" chip: who at the table has said
+					    they are ready, from the same companion the initiative roll comes from. */}
+					{readiness.length > 0 && (
+						<div data-testid="table-readiness" style={{ marginTop: T.space.three }}>
+							<div style={{ ...eb, marginBottom: T.space.oneHalf }}>
+								{t('session.combat.ready.title')}
+							</div>
+							<ul
+								style={{
+									display: 'flex',
+									flexWrap: 'wrap',
+									gap: T.space.oneHalf,
+									listStyle: 'none',
+									margin: T.space.zero,
+									padding: T.space.zero,
+								}}
+							>
+								{readiness.map((p) => (
+									<li key={p.peerId}>
+										<Chip
+											icon={p.ready ? 'check' : undefined}
+											tone={p.ready ? 'accent' : 'neutral'}
+										>
+											{t(p.ready ? 'session.combat.ready.ready' : 'session.combat.ready.notReady', {
+												name: p.displayName,
+											})}
+										</Chip>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+				</>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-					<div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-						<StatPill
-							label={t('session.combat.round')}
-							value={String(tracker.round)}
-							tone="accent"
-						/>
-						<StatPill label={t('session.combat.turn')} value={String(tracker.turn + 1)} />
-						{lowest && lowest.resources && (
-							<StatPill
-								label={t('session.combat.lowestHp')}
-								value={`${lowest.resources.hp}/${lowest.resources.maxHp}`}
-								tone="error"
-							/>
-						)}
-						<div style={{ flex: 1 }} />
-						<IconButton
-							icon="chevron-left"
-							label={t('session.combat.previousTurn')}
-							variant="ghost"
-							size="sm"
-							disabled={previewing}
-							onClick={onPrevious}
-						/>
-						<Button
-							variant="primary"
-							size="sm"
-							iconRight="skip"
-							disabled={previewing}
-							onClick={onAdvance}
+					{calling ? (
+						// RC-SES-5.1 — the call replaces the round/turn strip: there is no round yet, and the
+						// one thing to do is start it once the rolls are in.
+						<div
+							data-testid="initiative-call-banner"
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: T.space.two,
+								flexWrap: 'wrap',
+								padding: `${T.space.two} ${T.space.three}`,
+								borderRadius: T.radius.lg,
+								background: T.accSub,
+								border: `1px solid ${T.accBd}`,
+							}}
 						>
-							{t('session.combat.nextTurn')}
-						</Button>
-					</div>
+							<div style={{ flex: 1, minWidth: 200 }}>
+								<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>
+									{t('session.combat.initiative.banner')}
+								</div>
+								<div style={{ marginTop: T.space.half, font: `12px ${T.sans}`, color: T.sub }}>
+									{t('session.combat.initiative.help')}
+								</div>
+								{/* Mounted with the banner and only its text changes, so each arriving roll is
+								    announced to a screen-reader DM. */}
+								<div
+									role="status"
+									aria-live="polite"
+									aria-atomic="true"
+									style={{ marginTop: T.space.one, font: `600 12px ${T.sans}`, color: T.acc }}
+								>
+									{t('session.combat.initiative.progress', {
+										rolled: rolledCount,
+										total: owedRows.length,
+									})}
+								</div>
+							</div>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="sword"
+								disabled={previewing}
+								onClick={onAdvance}
+							>
+								{t('session.combat.initiative.start')}
+							</Button>
+						</div>
+					) : (
+						<div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+							<StatPill
+								label={t('session.combat.round')}
+								value={String(tracker.round)}
+								tone="accent"
+							/>
+							<StatPill label={t('session.combat.turn')} value={String(tracker.turn + 1)} />
+							{lowest && lowest.resources && (
+								<StatPill
+									label={t('session.combat.lowestHp')}
+									value={`${lowest.resources.hp}/${lowest.resources.maxHp}`}
+									tone="error"
+								/>
+							)}
+							<div style={{ flex: 1 }} />
+							<IconButton
+								icon="chevron-left"
+								label={t('session.combat.previousTurn')}
+								variant="ghost"
+								size="sm"
+								disabled={previewing}
+								onClick={onPrevious}
+							/>
+							<Button
+								variant="primary"
+								size="sm"
+								iconRight="skip"
+								disabled={previewing}
+								onClick={onAdvance}
+							>
+								{t('session.combat.nextTurn')}
+							</Button>
+						</div>
+					)}
 
 					{/* RC-SES-3.2 — the five-second undo. It sits above the order rather than floating over
 					    it, so it never covers the row the DM is about to touch, and it is a live region so
@@ -342,7 +511,8 @@ export function CombatPanel({
 						}}
 					>
 						{tracker.combatants.map((c) => {
-							const active = c.id === tracker.activeCombatantId;
+							const active = !calling && c.id === tracker.activeCombatantId;
+							const source = initiativeSource(tracker, c, calling);
 							const sel = c.id === selectedId;
 							const res = c.resources;
 							return (
@@ -383,7 +553,8 @@ export function CombatPanel({
 											color: active ? T.acc : T.sub,
 										}}
 									>
-										{c.statBlock.initiative ?? '—'}
+										{/* A row still owed a roll holds a placeholder 0, not an initiative. */}
+										{source === 'awaiting' ? '—' : (c.statBlock.initiative ?? '—')}
 									</span>
 									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
 									<div style={{ flex: 1, minWidth: 0 }}>
@@ -424,6 +595,21 @@ export function CombatPanel({
 											</button>
 											{c.hidden && <VisibilityChip level="dm-only" compact />}
 											{active && <Badge status="success">{t('session.combat.active')}</Badge>}
+											{/* RC-SES-5.1 — during the call each character row says where its number
+											    stands, in text: owed, rolled by the player, or adjusted by the DM. */}
+											{source === 'awaiting' && (
+												<Badge status="neutral">{t('session.combat.initiative.awaiting')}</Badge>
+											)}
+											{calling && source === 'rolled' && (
+												<Badge status="info">
+													{t('session.combat.initiative.rolled', {
+														value: c.statBlock.initiative ?? 0,
+													})}
+												</Badge>
+											)}
+											{calling && source === 'adjusted' && (
+												<Badge status="neutral">{t('session.combat.initiative.adjusted')}</Badge>
+											)}
 											{c.isBloodied && (
 												<Badge status="warning">{t('session.combat.bloodied')}</Badge>
 											)}
@@ -737,6 +923,17 @@ export function CombatPanel({
 									</>
 								)}
 							</div>
+							{/* RC-SES-5.1 — the DM's "adjust": accept a roll as it landed, or type the number
+							    the table agreed on. Keyed by the current value so an arriving roll resets the
+							    draft instead of leaving a stale number in the field. */}
+							{isDm && (
+								<InitiativeAdjust
+									key={`${selected.id}:${selected.statBlock.initiative ?? ''}`}
+									row={selected}
+									disabled={previewing}
+									onSet={(value) => void setInitiative(selected.id, selected.name, value)}
+								/>
+							)}
 							{isDm && selected.hidden && (
 								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 									{t('session.combat.hiddenNote')}
@@ -774,4 +971,72 @@ export function CombatPanel({
 					: 'session.combat.hp.appliedTemp';
 		return t(key, { amount: entry.amount, name: entry.name });
 	}
+}
+
+/**
+ * RC-SES-5.1 — where a row's initiative came from, read off the encounter log: a player's (or the
+ * DM's) roll is a `roll` entry, a DM adjustment a reorder that carries the value (an earlier/later
+ * nudge carries none). During a call, a character row with neither is still owed a roll.
+ */
+type InitiativeSource = 'awaiting' | 'rolled' | 'adjusted' | null;
+
+function initiativeSource(
+	tracker: CombatTrackerView,
+	row: CombatantRow,
+	calling: boolean,
+): InitiativeSource {
+	let source: InitiativeSource = null;
+	for (const entry of tracker.log) {
+		if (entry.combatantId !== row.id) continue;
+		if (entry.kind === 'roll') source = 'rolled';
+		else if (entry.kind === 'combatant-reordered' && entry.delta !== null) source = 'adjusted';
+	}
+	if (source) return source;
+	return calling && row.kind === 'character' ? 'awaiting' : null;
+}
+
+/** The DM's initiative field for the selected combatant. Enter or "Set" applies it. */
+function InitiativeAdjust({
+	row,
+	disabled,
+	onSet,
+}: {
+	row: CombatantRow;
+	disabled: boolean;
+	onSet: (value: number) => void;
+}) {
+	const { t } = useI18n();
+	const id = useId();
+	const [draft, setDraft] = useState(String(row.statBlock.initiative ?? 0));
+	const value = Number(draft);
+	const valid = draft.trim() !== '' && Number.isInteger(value) && value >= -99 && value <= 999;
+	const apply = () => {
+		if (valid && !disabled) onSet(value);
+	};
+	return (
+		<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}>
+			<label htmlFor={id} style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+				{t('session.combat.initiative.label')}
+			</label>
+			<Input
+				id={id}
+				type="number"
+				inputMode="numeric"
+				value={draft}
+				disabled={disabled}
+				aria-label={t('session.combat.initiative.adjustFor', { name: row.name })}
+				aria-invalid={!valid || undefined}
+				onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+				onKeyDown={(e: { key: string; preventDefault: () => void }) => {
+					if (e.key !== 'Enter') return;
+					e.preventDefault();
+					apply();
+				}}
+				style={{ width: 84 }}
+			/>
+			<Button variant="secondary" size="sm" disabled={disabled || !valid} onClick={apply}>
+				{t('session.combat.initiative.set')}
+			</Button>
+		</div>
+	);
 }
