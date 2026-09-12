@@ -103,6 +103,17 @@ git worktree add /tmp/main-wt main                     # symlink node_modules pe
 | `scene.move-widget` dispatch, median / p95     | 17 / 24 ms   | 9 / 14 ms                  |
 | Eager production JS (unminified)               | 2172 KiB     | 1863 KiB                   |
 
+On GitHub's `ubuntu-latest` runners (the Performance workflow, targets only, `main` figures are the
+six 2026-09-10/11 runs, the branch figure is PR #68 run 34664744164):
+
+| Budget               | `main` on CI      | PR #68 on CI | Target  |
+| -------------------- | ----------------- | ------------ | ------- |
+| `scene-first-render` | 1514–1725 ms ✗    | 1132 ms      | 1500 ms |
+| `app-startup`        | 1177–1390 ms      | 963 ms       | 2000 ms |
+| `vault-open`         | 726–942 ms        | 684 ms       | 3000 ms |
+| `widget-update` p95  | 33–42 ms          | 24 ms        | 100 ms  |
+| `graph-indexing`     | (not in extracts) | 158 ms       | 500 ms  |
+
 Per-command cost at 4× throttle before the change, from a CDP CPU profile of the boot: ~420 ms in
 Dexie, ~270 ms serializing states at the boundary, ~240 ms in zod, across the 43 seed commits. After
 it, the largest own-time function per command is the boundary's `JSON.stringify` of the next state
