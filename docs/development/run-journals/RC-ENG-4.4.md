@@ -143,3 +143,79 @@ is reverted and the reason is recorded here.
   tooling 24 / 162, `build`, `check:bundle-budget` (647.9 KiB, pass) and `feature-audit` all pass.
   `wait-on` only runs in `desktop:dev`, and Playwright doesn't use vitest. The full browser suite
   runs on the next commit and on the final merged set.
+
+### 8. Resumed implement pass (2026-09-11)
+
+- Preserved commits through `17499c4f`; the only uncommitted changes are the React Router
+  6 → 7.18.3 manifest and lockfile update intended to clear the remaining audit advisories.
+- Prior React 19 and Gradle 9.7.1 candidates remain reverted. Their failures above are prior-run
+  evidence, not new validation. No out-of-scope source or AGP fixes will be forced through.
+- Running the local CI mirror, browser acceptance, bundle budget, Android preflight and unscoped
+  audit on the preserved candidate before deciding whether to retain it. Raw outputs are kept
+  in this run's Headroom artifacts.
+- PR closure requires a successfully integrated replacement. This branch is local and promotion
+  is reserved to the central operator; rejected bumps cannot truthfully supersede their PRs.
+
+- Resumed checks so far: frozen install exit 0; unscoped `pnpm audit` exit 0, no known
+  vulnerabilities (Headroom `ac03a94118fd4dd8bcd72fec049ca877`); Android static preflight exit 0.
+- Unit suites: core 272 files / 4769 tests, cloud 36 / 482, app 121 / 1272, tooling 24 / 162,
+  all passed. Build and typecheck passed; bundle budget is 653.4 KiB gzipped, pass
+  (Headroom `1605c332caff4a76b269b5a4fd5908ca`, full tail retrieved).
+- `desktop:smoke` first exited 1 because this worker had no DISPLAY. Reused the built renderer
+  and ran `node apps/gm-react/scripts/run-desktop-smoke.mjs` with the local X display configured:
+  exit 0, secure origin, CORS, persistence, crash-safe migration and 12 updater checks passed
+  (Headroom `e21008ec9ad74c14b3a369e620182676`). No source fix was needed.
+- Long checks exceed Headroom's 120-second command limit, so they run in foreground native exec
+  sessions with complete logs at `/tmp/rc-eng-4.4-resume-{ci,android,desktop-display}.log`.
+  Headroom captures exact relevant log sections; no compressed summary is treated as a pass.
+- Coverage: core 4769 tests passed, statement coverage 89.75%, gate passed.
+- Android: after `cap sync android`, JDK 21 and the retained Gradle 8.14.3 passed
+  `testDebugUnitTest lintDebug assembleDebug bundleDebug` with `--no-daemon --max-workers=2`:
+  exit 0, BUILD SUCCESSFUL, 426 tasks executed (Headroom `7dc47155f3c345a79c4b721f4c8b7a3e`).
+  This validates native unit/lint/debug packaging, not emulator lifecycle or hosted Actions.
+  Restored only the generated `capacitor.settings.gradle` that sync rewrote; it was clean at
+  entry and is outside this task's ownership. CI regenerates it before its native gates.
+
+### 9. React Router 7: rejected and reverted after browser regression
+
+- The resumed full browser run failed `tests/e2e/command-palette.spec.ts:251` on desktop,
+  including both retries. The assertion at line 262 expected the first accessible group to
+  be `On this screen`, but received the board's `Zoom` group. The contextual palette group
+  itself was visible; the failure concerns the exposed background group/order, not missing
+  contextual actions. Exact trace error retained in Headroom `0d30ec34fb0d41a2a70816feb543599c`.
+- Stopped this run's CI process tree after the deterministic failure; the full suite and the
+  subsequent standalone axe/report steps did NOT complete. No full-CI pass is claimed.
+- Controlled A/B with the same isolated port, desktop profile, one test and no retries:
+  - Router 6 restored from `17499c4f`, frozen install, palette test: exit 0 / 1 passed
+    (Headroom `20fbd6bb086a403690dd10cc9860e06e`).
+  - Restored the preserved Router 7 candidate, frozen install, same test: exit 1 / 1 failed,
+    same `Zoom` mismatch (Headroom `64ac275b34f949beb99ee1904b610f74`).
+- Reverted the uncommitted Router 7 manifest and lockfile to `17499c4f`, as required by the
+  task's failed-bump policy. The earlier clean audit and broad unit/native/desktop results
+  in section 8 apply to that rejected candidate, not a final all-green set.
+- HANDOFF RC-ENG-4.4 → apps/gm-react/src/app/CommandPalette.tsx and
+  apps/gm-react/src/platform/modalIsolation.ts:
+  investigate the Router 7 background accessibility regression with the named browser test;
+  do not weaken the assertion merely to force the dependency bump through.
+- Remaining acceptance blockers: two moderate Router 6 audit advisories; rejected React 19
+  and Gradle 9.7.1 migrations need their out-of-scope owners; full final browser/hosted CI and
+  operator integration remain pending. No push or dispatcher control-state changes occurred.
+
+## Report
+
+PARTIAL RC-ENG-4.4: preserved the five dependency commits through `17499c4f`; rejected and
+reverted the Router 7 candidate after a controlled browser regression. React 19 and Gradle
+9.7.1 remain rejected as recorded above. No failing bump was forced through.
+
+- Final frozen install: exit 0. Final palette regression spec: desktop and mobile both pass,
+  2 / 2, no retries (Headroom `03f02034bdbf4ad19b2bb28f67aceb7e`).
+- Final unscoped `pnpm audit`: exit 1, two moderate React Router advisories,
+  GHSA-wrjc-x8rr-h8h6 and GHSA-337j-9hxr-rhxg
+  (Headroom `d1f090935de5473688669b127b8033b1`). Acceptance is NOT complete.
+- The full Router 7 CI run was stopped after the repeated browser failure. Its earlier passing
+  unit, coverage, native and desktop checks do not establish an all-green final set.
+- PRs #56, #57, #59, #60, #61, #62 and #63 remain open. Closure naming an integrating commit
+  remains for the operator after a validated set exists; no unintegrated or rejected bump has
+  been represented on GitHub as a successful replacement.
+- This continuation changes only development documentation and this journal. Earlier intended
+  dependency commits are preserved; the uncommitted rejected Router 7 change is removed.
