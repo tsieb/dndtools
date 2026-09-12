@@ -84,6 +84,23 @@
 	--easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
 	--easing-snap: cubic-bezier(0.6, 0, 0.4, 1); /* @kind other */
 
+	/* Loop periods for the two repeating named transitions. They are durations like the rest, so
+	 * they collapse with them under reduced motion. */
+	--duration-loop-shimmer: 1400ms; /* @kind other */
+	--duration-loop-pulse: 1800ms; /* @kind other */
+
+	/* Named transitions (RC-DSN-1.3): one `<duration> <easing>` timing pair per `@keyframes motion-*`
+	 * in styles/index.css, used as `animation: motion-rise var(--motion-rise) both`. Built only from
+	 * the duration and easing tokens above (never literals, never the spring), so reduced motion
+	 * reaches them through the durations. */
+	--motion-fade-in: var(--duration-fast) var(--easing-decelerate); /* @kind other */
+	--motion-rise: var(--duration-standard) var(--easing-decelerate); /* @kind other */
+	--motion-sheet-slide: var(--duration-moderate) var(--easing-decelerate); /* @kind other */
+	--motion-shimmer: var(--duration-loop-shimmer) var(--easing-standard); /* @kind other */
+	--motion-pulse: var(--duration-loop-pulse) var(--easing-standard); /* @kind other */
+	--motion-rise-distance: var(--space-2); /* 8px */
+	--motion-sheet-from: translateY(100%); /* bottom sheet; side sheets override. @kind other */
+
 	/* --- Iconography (UX-VIS-009) — Lucide, 2px stroke, currentColor. ---------------------- */
 	--icon-size-micro: 16px; /* inline text icons, badge indicators */
 	--icon-size-sm: 20px; /* dense toolbar, compact nav */
@@ -152,4 +169,6 @@
 	--duration-moderate: 0ms; /* @kind other */
 	--duration-slow: 0ms; /* @kind other */
 	--duration-crawl: 0ms; /* @kind other */
+	--duration-loop-shimmer: 0ms; /* @kind other */
+	--duration-loop-pulse: 0ms; /* @kind other */
 }

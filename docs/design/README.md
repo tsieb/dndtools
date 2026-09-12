@@ -38,14 +38,50 @@ by matching values, never contracts.
 - `typography.css`: `--font-sans` (Inter), `--font-display` (Cinzel, 24px and up only),
   `--font-mono` (JetBrains Mono, all numerals and dice); scale `--text-2xs … --text-3xl`.
 - `spacing.css`: the 4px grid (`--space-*`), radius, z-index, motion (`--duration-*`,
-  `--easing-*`; durations collapse to 0 under `[data-motion='reduced'|'none']`), icon sizes, focus
-  ring, touch targets, and the `--density-*` sets selected by `data-density`.
+  `--easing-*`, and the `--motion-*` timing pairs; durations collapse to 0 under
+  `[data-motion='reduced'|'none']`), icon sizes, focus ring, touch targets, and the `--density-*`
+  sets selected by `data-density`.
 - `fonts.css`: self-hosted `@fontsource/*` faces, no CDN.
 - `base.css`: reset, the one decorative candle-glow on `<body>`, and the global `:focus-visible` ring.
 
 Rules: components reference semantic tokens (or `T` in `screen-kit.tsx`), never raw hex or a theme's
 value; a theme swap is one attribute change with zero component edits. Lints: `pnpm tokens:contrast`
 (text pairs) and `pnpm a11y:contrast` (non-text, wired into `pnpm lint`).
+
+### Motion
+
+Five named transitions cover the app's motion. Each one is a `@keyframes motion-<name>` in
+`styles/index.css`, a `--motion-<name>` timing token (`<duration> <easing>`) in `spacing.css`, and a
+`.motion-<name>` class that applies both.
+
+| Name          | For                               | Timing                                         |
+| ------------- | --------------------------------- | ---------------------------------------------- |
+| `fade-in`     | scrims, tooltips, swapped content | `--duration-fast`, decelerate                  |
+| `rise`        | toasts, dialogs, cards arriving   | `--duration-standard`, decelerate, up from 8px |
+| `sheet-slide` | sheets and drawers                | `--duration-moderate`, decelerate              |
+| `shimmer`     | loading skeletons                 | `--duration-loop-shimmer` (1.4s), repeats      |
+| `pulse`       | live or pending status            | `--duration-loop-pulse` (1.8s), repeats        |
+
+`sheet-slide` enters from the bottom. A side sheet sets `--motion-sheet-from: translateX(100%)` (or
+`-100%` for the left edge). Where a class won't do, write `animation: motion-rise var(--motion-rise)
+both`. Check this list before adding a new `@keyframes`.
+
+`--easing-spring` overshoots, so only dice results and celebrations get it. The dice-drama story's
+files (`DiceResult.jsx`, `DiceTray.tsx`, `QuickPanel.tsx`) are the only ones allowed to reference it,
+and none of the five named transitions uses it.
+
+Reduced motion comes down to one attribute. `public/prepaint.js` weighs the stored preference against
+`prefers-reduced-motion` and writes `data-motion` on `<html>` before first paint. Under `reduced` or
+`none`, `spacing.css` zeroes every duration token, loop periods included, and `index.css` clamps every
+animation and transition to a single ~0ms run. Entrances end on their resting frame and the pulse
+starts and ends on it, so a collapsed run leaves content in place instead of half-faded. No component
+needs its own `prefers-reduced-motion` query. `apps/gm-react/src/screens/prepaint-motion.test.ts`
+enforces all of this.
+
+The DS `Dialog`, `Sheet`, `Toast`, `Tooltip`, `CommandPalette`, `StatusDot`, `Skeleton`, and
+`ProgressMeter` still inline their own `dnd*` keyframes, and `base.css` still defines the older
+`dnd-shimmer`. The global clamp covers them. Moving them onto the vocabulary is for the stories that
+own those files.
 
 ## 3. Components
 

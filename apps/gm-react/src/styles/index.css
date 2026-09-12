@@ -297,6 +297,92 @@ html[data-electron='true'] .app-fixed-viewport {
 	border: 0;
 }
 
+/* Motion vocabulary (RC-DSN-1.3). Five named keyframes, each paired with the `--motion-<name>` timing
+   token in tokens/spacing.css and a `.motion-<name>` class that applies both. Reach for these before
+   writing a new @keyframes: `className="motion-rise"`, or `animation: motion-rise var(--motion-rise)
+   both` where a class won't do. Every entrance ends on the element's resting frame (full opacity, no
+   transform) and the pulse starts and ends on it, so when the reduced-motion block below collapses a
+   run to ~0ms the content lands where it belongs instead of freezing half-faded or off-screen. None of
+   them uses --easing-spring, which stays reserved for dice results and celebration surfaces. */
+@keyframes motion-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes motion-rise {
+	from {
+		opacity: 0;
+		transform: translateY(var(--motion-rise-distance));
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* The start offset is a token so one keyframe serves every edge: bottom sheets take the default, a
+   side sheet sets `--motion-sheet-from: translateX(100%)` (or -100% for the left edge) on itself. */
+@keyframes motion-sheet-slide {
+	from {
+		transform: var(--motion-sheet-from);
+	}
+	to {
+		transform: none;
+	}
+}
+
+/* Sweeps a gradient painted at 400% width. Collapsed, it runs once in ~0ms and leaves the gradient
+   standing still, so a skeleton stays visible as a static block. */
+@keyframes motion-shimmer {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@keyframes motion-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+.motion-fade-in {
+	animation: motion-fade-in var(--motion-fade-in) both;
+}
+
+.motion-rise {
+	animation: motion-rise var(--motion-rise) both;
+}
+
+.motion-sheet-slide {
+	animation: motion-sheet-slide var(--motion-sheet-slide) both;
+}
+
+.motion-shimmer {
+	background: linear-gradient(
+		90deg,
+		var(--color-surface-sunken) 25%,
+		var(--color-surface-alt) 37%,
+		var(--color-surface-sunken) 63%
+	);
+	background-size: 400% 100%;
+	animation: motion-shimmer var(--motion-shimmer) infinite;
+}
+
+.motion-pulse {
+	animation: motion-pulse var(--motion-pulse) infinite;
+}
+
 /* Reduced motion (UX-VIS-010). The duration tokens already collapse token-driven transitions to 0ms;
    this also tames the looping keyframe animations (status pulse, skeleton shimmer) that don't read those
    tokens, so the "Reduced" setting — and the OS prefers-reduced-motion the boot script maps onto it — is
