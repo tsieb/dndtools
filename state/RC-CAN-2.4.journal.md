@@ -111,3 +111,25 @@ tree was not the cause.
   - Flaky, each passed on retry, none in code this task touches: `map-editor.spec.ts:342` (desktop)
     and `scene-cards.spec.ts:519` (desktop + mobile). The gate run marked `scene-cards.spec.ts:519`
     flaky as well.
+
+## Attempt 5 (2026-09-12)
+
+Gate feedback on `9ff97aa4`: every gate passed except Browser acceptance (run `fc71de7d`: 703
+passed, 374 failed, 4 flaky, 9 skipped, 23.5 min).
+
+- Same cause as attempt 4, and worse. Over a thousand `page.goto: net::ERR_CONNECTION_REFUSED at
+  http://localhost:5273/…` errors, across every route.
+- Overlapping runs on the shared :5273:
+  - `a127e092`'s attempt `8be78ea5` (1789195585 → 1789196683) ended inside this gate's window
+    (1789196072 → 1789197483), which took the shared server down;
+  - `c6b7f0d0`'s attempt `a9218b72` started at 1789197132, also inside the window.
+- The fix now exists upstream. `loop/rc` is at `5d7bf943`, "Merge main into loop/rc: e2e worktree
+  port, …" (PR #71), and `apps/gm-react/playwright.config.ts` gives every linked worktree (`.git` is
+  a file) its own port, `5300 + fnv1a(root) % 600`. Only the primary checkout, CI and the managed
+  validation harness keep 5273. The branch was still on `f543ec9d`, so the failed gate ran the old
+  config.
+- Rebased onto `loop/rc` (`5d7bf943`), the same operation the dispatcher performs before gating. Clean,
+  9/9 commits, no conflicts; no code change was needed. This worktree's derived port is 5835.
+- On the rebased tree: `pnpm gates` exit 0; `pnpm format:check:changed --base loop/rc` exit 0.
+- Full suite exactly as the gate runs it, with `DNDTOOLS_E2E_PORT` and `CI` unset so the new
+  per-worktree port is what gets exercised: `pnpm e2e --workers=2 --retries=2`. Result below.
