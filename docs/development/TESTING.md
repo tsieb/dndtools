@@ -86,19 +86,48 @@ audit fails when the string is gone from that file, so a quietly closed limit br
 instead of rotting. It also reports stub markers in `apps/gm-react/src` and screens with no
 core-dispatch reference.
 
-## 5. Local LLM verification
+## 5. Assistant eval and local LLM verification
 
-`pnpm ai:verify:local` runs the deterministic provider, prompt, and MCP exchange tests, then two real
-Ollama scenarios (a rollable table and an NPC) through the same staged-write pipeline the app uses.
-It fails if Ollama is unreachable, the model is missing, or a scenario yields no schema-valid staged
-proposal. `pnpm ai:smoke` skips instead of failing without Ollama.
+`pnpm test:app` includes `tests/unit/ai-eval.test.ts`: ten deterministic, hand-authored
+transcripts replayed by `createFakeAiProvider` through the real assistant exchange and Core agent
+pipeline. The corpus covers note append, encounter, quest, widget, level-up, atmosphere, continuity,
+and refusals for publishing, executable widgets, and a player writing a hidden note. It needs no
+credentials or Ollama and rejects network calls. The corpus has a 30-second test budget.
+
+Every invocation checks unchanged domain state; only pending proposals and their staging log may
+be added. Exact proposal payloads are pinned in an inline snapshot, and tool outcomes and error
+flags are asserted separately. Vitest prints an expected/received diff on payload drift; the replay
+provider prints a labeled diff for conversation or tool-result-order drift. These are pipeline
+regressions, not a measure of a live model's prompt understanding or refusal quality.
 
 ```sh
-ollama serve
+pnpm test:app tests/unit/ai-eval.test.ts
+# After reviewing an intentional payload contract change:
+pnpm test:app tests/unit/ai-eval.test.ts --update
+```
+
+Review the inline snapshot diff before committing an update; never regenerate a baseline merely to
+make a failure pass. Keep fake providers explicitly injected in tests; they are not a Settings
+provider and cannot silently replace a live request.
+
+### Live model checks
+
+`pnpm ai:verify:local` runs the deterministic provider, prompt, and MCP exchange tests, then six real
+Ollama scenarios (table, NPC, encounter, quest, faction, and widget) through the same staged-write pipeline the app uses.
+It fails if Ollama is unreachable, the model is missing, or a scenario yields no schema-valid staged
+proposal. The smoke also asserts that domain state stays unchanged and proposals remain pending.
+`pnpm ai:smoke` skips instead of failing without Ollama; a skip does not validate a live model.
+
+```sh
+OLLAMA_CONTEXT_LENGTH=16384 ollama serve
 ollama pull qwen2.5:7b          # tool-calling model (OLLAMA_MODEL overrides)
 ollama pull nomic-embed-text    # embeddings for semantic search
 pnpm ai:verify:local
 ```
+
+The full tool catalog and conversation need room in the context window. The live smoke was
+verified with `OLLAMA_CONTEXT_LENGTH=16384`; a smaller runner window can truncate the prompt
+and cause incorrect tool selection. Check the Ollama log for `truncating input prompt`.
 
 Semantic search embeds once per note revision and caches vectors device-local; with no daemon a new
 query reports `lexical-only` rather than failing. Switching embedding models re-embeds the vault.

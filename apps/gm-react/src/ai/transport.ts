@@ -81,6 +81,9 @@ export interface AiChatOptions {
 	onToken?: (delta: string) => void;
 }
 
+/** Injectable provider boundary used by live transports and deterministic transcript replay. */
+export type AiChatProvider = (request: AiChatRequest, options?: AiChatOptions) => Promise<AiReply>;
+
 // --- typed errors (mirrors AppApiError's honest 4xx-message / generic-5xx split) ------------------
 
 export type AiTransportErrorKind =
