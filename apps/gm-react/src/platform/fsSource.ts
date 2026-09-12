@@ -1,3 +1,11 @@
+import {
+	FOLDER_MAX_BYTES,
+	FOLDER_MAX_FILES,
+	safeFolderPath,
+	type FolderEntry,
+} from '../../../../packages/core/src/export/markdown-folder';
+import { validateFolderEntries } from '../../../../packages/core/src/export/folder-zip';
+
 import Dexie, { type Table } from 'dexie';
 import {
 	checkContentSourceConstraints,
@@ -29,14 +37,18 @@ import {
 export type FsPermissionMode = 'read' | 'readwrite';
 
 export interface FsWritableLike {
-	write(data: string): Promise<void>;
+	write(data: string | Uint8Array): Promise<void>;
 	close(): Promise<void>;
 }
 
 export interface FsFileHandleLike {
 	readonly kind: 'file';
 	readonly name: string;
-	getFile(): Promise<{ text(): Promise<string> }>;
+	getFile(): Promise<{
+		text(): Promise<string>;
+		size?: number;
+		arrayBuffer?(): Promise<ArrayBuffer>;
+	}>;
 	createWritable(): Promise<FsWritableLike>;
 }
 
@@ -394,3 +406,78 @@ export const __testing = {
 	},
 	SOURCES_DB_NAME,
 };
+
+/** Pick a destination and write the same files carried by the web ZIP. Never overwrite a file. */
+export async function saveMarkdownFolder(
+	entries: FolderEntry[],
+	destination?: FsDirHandleLike,
+): Promise<boolean> {
+	validateFolderEntries(entries); // validate everything before opening or writing a destination
+	const root = destination ?? (await pickMarkdownDirectory());
+	if (!root) return false;
+	for await (const _entry of root.values())
+		throw new Error('Choose an empty folder for the export.');
+	for (const entry of entries) {
+		const segments = entry.path.split('/');
+		const name = segments.pop()!;
+		let dir = root;
+		for (const segment of segments) dir = await dir.getDirectoryHandle(segment, { create: true });
+		const handle = await dir.getFileHandle(name, { create: true });
+		const writable = await handle.createWritable();
+		try {
+			await writable.write(entry.bytes);
+		} finally {
+			await writable.close();
+		}
+	}
+	return true;
+}
+
+export async function pickMarkdownDirectory(): Promise<FsDirHandleLike | null> {
+	if (!isFsSourceSupported())
+		throw new Error('This browser cannot open a folder. Use a folder ZIP instead.');
+	try {
+		return await (
+			window as unknown as {
+				showDirectoryPicker(options: { mode: FsPermissionMode }): Promise<FsDirHandleLike>;
+			}
+		).showDirectoryPicker({ mode: 'readwrite' });
+	} catch (error) {
+		if (error instanceof DOMException && error.name === 'AbortError') return null;
+		throw error;
+	}
+}
+
+/** Binary-preserving, bounded folder reader for the round-trip importer. */
+export async function readMarkdownFolder(root: FsDirHandleLike): Promise<FolderEntry[]> {
+	const entries: FolderEntry[] = [];
+	let total = 0;
+	async function walk(dir: FsDirHandleLike, prefix: string, depth: number): Promise<void> {
+		if (depth > WALK_MAX_DEPTH) throw new Error('Folder nesting exceeds the import limit.');
+		for await (const entry of dir.values()) {
+			if (isHiddenName(entry.name)) continue;
+			const path = prefix + entry.name;
+			if (!safeFolderPath(path)) throw new Error('Unsafe folder path.');
+			if (entry.kind === 'directory') {
+				await walk(entry, `${path}/`, depth + 1);
+				continue;
+			}
+			if (entries.length >= FOLDER_MAX_FILES) throw new Error('Folder contains too many files.');
+			const file = await entry.getFile();
+			if (
+				typeof file.size !== 'number' ||
+				!Number.isFinite(file.size) ||
+				!file.arrayBuffer ||
+				total + file.size > FOLDER_MAX_BYTES
+			)
+				throw new Error('Folder is too large.');
+			const bytes = new Uint8Array(await file.arrayBuffer());
+			total += bytes.length;
+			entries.push({ path, bytes });
+		}
+	}
+	await walk(root, '', 0);
+	// Shared archive validation also catches case-insensitive duplicates.
+	validateFolderEntries(entries);
+	return entries;
+}

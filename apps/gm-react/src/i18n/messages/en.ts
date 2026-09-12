@@ -1419,6 +1419,19 @@ export const en = {
 	'settings.invites.emailHelp':
 		'Leave email blank to just get a shareable link + QR code. When set, we’ll also email the invite if this app has email delivery configured.',
 
+	/* Settings › Markdown folder */
+	'settings.folder.title': 'Markdown folder',
+	'settings.folder.description':
+		'Export notes and their images as markdown. Import adds new copies without replacing existing notes. Campaign calendars used by the notes are included. Notes with restricted sections or fields require a private copy.',
+	'settings.folder.includePrivate': 'Include DM-only and shared notes (private copy)',
+	'settings.folder.exportZip': 'Export folder ZIP',
+	'settings.folder.exportFolder': 'Export to empty folder',
+	'settings.folder.importZip': 'Import folder ZIP',
+	'settings.folder.importFolder': 'Import markdown folder',
+	'settings.folder.exported': 'Markdown folder exported.',
+	'settings.folder.imported': 'Imported {count} notes.',
+	'settings.folder.failed': 'Could not complete the markdown folder transfer.',
+
 	/* Settings › Vault connections */
 	'settings.vault.recoveryReadFailed':
 		'Recovery records could not be read. Reopen the vault to try again.',
