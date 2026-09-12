@@ -78,6 +78,11 @@ boundary violation; lint, typecheck, and tests green; the affected e2e specs gre
 profiles; performance budgets not regressed; Android changes pass the runbook's Gradle and
 emulator checks. State what you verified in the PR body.
 
+Complete the [PR template's design conformance checklist](../../.github/pull_request_template.md#design-conformance),
+which mirrors [RC roadmap §20.2](../planning/RC_ROADMAP.md#202-design-fidelity).
+Include verification evidence and explain pending checks, non-applicable items, and deviations
+with rationale; check only verified items.
+
 ## 6. Documentation rules
 
 - Every behaviour claim maps to a real file path. Use exact tool, script, and type names.
