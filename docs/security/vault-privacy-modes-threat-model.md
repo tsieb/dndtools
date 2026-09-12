@@ -125,19 +125,40 @@ The PR that implements the server plaintext path must resolve the six open items
 key-policy and decrypt-audit evidence, and sign the complete checklist before flipping the record
 to `approved: true`. No future feature inherits an approval from this partial review.
 
-## Consent integrity (both modes, phase 1)
+## Consent integrity (ADR-042 tiered creation; phase-1 implementation pending)
 
-- **T5 — Defaulted or bypassed choice.** The onboarding step has no pre-selected option and cannot
-  be skipped (skip/Escape/back are refused until decided). The stored flag's absence or any
-  unrecognized value resolves to Private (fail closed) — a cleared localStorage can only ever
-  _narrow_ the trust boundary, never widen it.
-- **T6 — Flag tampering widens trust.** Phase 1: irrelevant — the Cloud-Enhanced record is
-  unapproved, so a tampered flag still cannot open any server-readable path. Phase 2: the server
-  registers the mode at consent time and enforces it server-side (see checklist); the device-local
-  flag is UX state, not the authority.
-- **T7 — Consent theater.** Phase-1 Cloud-Enhanced copy must describe features as upcoming and the
-  current transport as still end-to-end encrypted; the Settings surface shows the live mode and the
-  gate status truthfully.
+[ADR-042](../adr/042-tiered-vault-privacy-default.md), accepted 2026-09-12 under RC roadmap §1.6
+D3, amends ADR-026's universal forced choice. These are implementation obligations; the reviewed
+onboarding still forces the original choices. Phase-2 approval above remains withheld.
+
+- **T5 — Default mistaken for consent or applied to existing data.** Only new Beginner/Standard
+  vaults receive the Cloud-Enhanced default, with a visible one-line disclosure that the server can
+  read campaign content, including secrets, and a Settings link. Skip paths must still show it.
+  Expert requires an explicit unselected choice and Private's recovery acknowledgment. The forced
+  sample-or-fresh step disappears. Absence, legacy, invalid values and read failure still resolve to
+  Private; upgrade, replay, tier changes and vault switching must preserve existing modes. Record
+  the default and disclosure per new vault; never infer consent from interface tier or an absent
+  flag. Residual risk: users can overlook disclosure; acceptance of this risk does not waive it.
+- **T6 — Flag tampering widens trust.** Phase 1's unapproved record blocks server-readable release.
+  Phase 2 must load authenticated per-vault registration server-side, fail closed on missing or
+  failed reads, and fence concurrent mode changes (see checklist). The current single localStorage
+  key in `cloud/vaultMode.ts` is UX state, not that authority or a per-vault consent ledger.
+- **T7 — Consent theater or hidden privacy controls.** Until phase 2 is approved, disclose upcoming
+  server readability and today's E2EE transport; do not claim cloud features are available. Settings
+  must show effective mode and availability at all tiers and explain the route to Expert's Private
+  choice. No paid plan is required. Validate the disclosure and Settings paths in browser tests;
+  core gate tests cannot establish informed consent.
+- **T8 — A local toggle falsely promises confidentiality.** Settings currently changes only a local
+  preference. Cloud-Enhanced → Private migration of readable cloud data is not supported today.
+  The accepted target requires client-held keys/recovery, write fencing, full encrypted re-upload,
+  verification and deletion of old readable artifacts and derived indexes before completion.
+  Disclose bandwidth/time, temporary storage, interrupted sync, lost server features and user-held
+  recovery duties. Preserve the prior usable copy on failure. Never claim previous server access
+  can be undone; disclose retention limits. Before phase 2, implement the migration or explicitly
+  mark it unavailable. Private → Cloud-Enhanced still requires explicit consent, not a tier change.
+
+Source review: 2026-09-12, commit `8b582677939ad2d89ff843affa60af78bd578ae9`; implementation links
+and remaining validation are in [ADR-042](../adr/042-tiered-vault-privacy-default.md#verification-and-evidence).
 
 ## Out of scope
 
