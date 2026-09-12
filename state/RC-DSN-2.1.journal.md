@@ -69,3 +69,5 @@
 - Standalone DS typecheck exited 0 (`/tmp/dsn-recovery-types.log`); DS tests exited 0 with 29 files / 205 tests, including six new package-contract checks (`/tmp/dsn-recovery-tests.log`); ESLint on the new test exited 0 (`/tmp/dsn-recovery-lint.log`).
 - No runtime source changed in this recovery. The original whole-app failure remains valid; resolving it needs the central operator to grant the narrow consumer path and authorize its arithmetic correction, or land that fix through the character owner.
 - HANDOFF RC-DSN-2.1 → central operator: grant `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx` for the prepared numeric-consumer fix, then apply the committed patch and run real whole-repository gates. Repeating the unchanged DS-only task cannot legally resolve that gate.
+
+- Recovery artifact follow-up: the initial patch's tab-indented context caused `git diff --check` whitespace diagnostics. Regenerated it with zero context and documented `git apply --unidiff-zero`. Both the exact apply check and the staged whitespace check now pass; proposed source and compiler result are unchanged.

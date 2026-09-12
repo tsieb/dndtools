@@ -11,13 +11,13 @@ the DS helper for the ability-score display. Apply it from the repository root a
 ownership of `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx` to the repair task:
 
 ```sh
-git apply --check apps/gm-react/src/ds/handoff/AbilitiesPanel.patch
-git apply apps/gm-react/src/ds/handoff/AbilitiesPanel.patch
+git apply --unidiff-zero --check apps/gm-react/src/ds/handoff/AbilitiesPanel.patch
+git apply --unidiff-zero apps/gm-react/src/ds/handoff/AbilitiesPanel.patch
 pnpm typecheck
 pnpm test:app
 ```
 
-The patch passes `git apply --check`. An in-memory TypeScript compiler-host overlay applying the
+The patch passes `git apply --unidiff-zero --check`. An in-memory TypeScript compiler-host overlay applying the
 same three substitutions passes app typechecking with zero diagnostics. This is a proposed-fix
 check; the actual file remains unchanged, and the actual whole-app gate remains failed.
 
