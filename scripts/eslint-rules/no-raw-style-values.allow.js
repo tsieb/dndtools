@@ -9,7 +9,7 @@
 
 export const allow = {
 	'apps/gm-react/src/app/AppShell.tsx': 3,
-	'apps/gm-react/src/app/canvas/WidgetFrame.tsx': 6,
+	'apps/gm-react/src/app/canvas/WidgetFrame.tsx': 4,
 	'apps/gm-react/src/app/canvas/ZoomCluster.tsx': 2,
 	'apps/gm-react/src/app/character/History.tsx': 5,
 	'apps/gm-react/src/app/character/LevelUp.tsx': 35,

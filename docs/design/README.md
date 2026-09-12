@@ -95,7 +95,7 @@ Lucide registry ([`../reference/ICON_VOCABULARY.md`](../reference/ICON_VOCABULAR
 
 Content voice, visual foundations, and the iconography rules are in the vendored
 [`../design-package/readme.md`](../design-package/readme.md) and are binding for copy: sentence
-case, verbs first, explicit safety language (DM only · Shared · Player visible), no engine jargon, no
+case, verbs first, explicit safety language: name every visibility that differs from GM-only, no engine jargon, no
 emoji, no exclamation marks.
 
 ## 4. Porting from the prototype

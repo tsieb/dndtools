@@ -1604,6 +1604,46 @@ test.describe('canvas: the tile action menu', () => {
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length + 1);
 	});
 
+	test('visibility badges mark exceptions and the device preference restores GM-only chips', async ({
+		page,
+	}) => {
+		const { sceneId, widgetId } = await editBoard(page);
+		const frame = page.getByTestId(`widget-${widgetId}`);
+		const trigger = frame.getByTestId('tile-actions-trigger');
+		await trigger.click();
+		await page.getByRole('menuitem', { name: 'Visibility', exact: true }).click();
+		await page.getByRole('menuitemradio', { name: 'DM only', exact: true }).click();
+		await expect(frame.getByTestId('visibility-badge')).toHaveCount(0);
+		await page.goto('/#/settings?tab=appearance');
+		await page.getByRole('switch', { name: 'Mark DM-only items', exact: true }).click();
+		await page.goto('/#/board');
+		await expect(frame.getByTestId('visibility-badge')).toHaveText('DM only');
+		await page.reload();
+		await expect(frame.getByTestId('visibility-badge')).toHaveText('DM only');
+		await page.goto('/#/settings?tab=appearance');
+		await page.getByRole('switch', { name: 'Mark DM-only items', exact: true }).click();
+		await page.goto('/#/board');
+		await expect(frame.getByTestId('visibility-badge')).toHaveCount(0);
+		const result = await page.evaluate(
+			async ({ sceneId, widgetId }) => {
+				const rt = window.__rt!;
+				const widget = rt.state.scenes.scenes[sceneId].widgets.find((w) => w.id === widgetId)!;
+				return rt.dispatch({
+					type: 'scene.configure-widget',
+					actorId: rt.defaultActorId,
+					payload: {
+						sceneId,
+						widgetInstanceId: widgetId,
+						configuration: { ...widget.configuration, visibility: 'shared' },
+					},
+				});
+			},
+			{ sceneId, widgetId },
+		);
+		expect(result.status).toBe('accepted');
+		await expect(frame.getByTestId('visibility-badge')).toHaveText('Players');
+	});
+
 	test('Move, Visibility and Remove go through the operations the canvas already owns', async ({
 		page,
 	}) => {

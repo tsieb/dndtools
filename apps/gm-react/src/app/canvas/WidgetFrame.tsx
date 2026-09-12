@@ -1,8 +1,8 @@
 import type { LayoutHistory } from './useLayoutHistory';
 import { useMemo, useRef } from 'react';
-import { Icon } from '../../ds';
+import { Icon, VisibilityChip } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { TIER_LABEL, visibilityChip, type BoardWidget } from '../board-helpers';
+import { TIER_LABEL, type BoardWidget } from '../board-helpers';
 import {
 	safeBoundEntityName,
 	tileBindingState,
@@ -143,7 +143,6 @@ export function WidgetFrame({
 	onCommand,
 	history,
 }: WidgetFrameProps) {
-	const chip = visibilityChip(w.visibility);
 	const placeholder = w.status !== 'available';
 	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
 	// icon, the label, who can see it, and what it is bound to.
@@ -261,28 +260,7 @@ export function WidgetFrame({
 					>
 						{w.title}
 					</span>
-					<span
-						style={{
-							display: 'inline-flex',
-							alignItems: 'center',
-							gap: 4,
-							padding: '2px 7px',
-							borderRadius: 'var(--radius-full)',
-							background: chip.players
-								? 'var(--color-accent-subtle)'
-								: 'var(--color-surface-sunken)',
-							// `--color-text-tertiary` on `--color-surface-sunken` is 3.54:1 in parchment
-							// — under 4.5:1 for this 10px text, and this DM-only/Players chip renders
-							// on EVERY widget frame on both /board and /scene/:id. Secondary is
-							// 6.28:1 on the same surface.
-							color: chip.players ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-							font: '600 var(--text-2xs) var(--font-sans)',
-							whiteSpace: 'nowrap',
-						}}
-					>
-						<Icon name={chip.players ? 'visibility-players' : 'dm-only'} size={11} />
-						{chip.label}
-					</span>
+					<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
 				</div>
 				<div
 					style={{

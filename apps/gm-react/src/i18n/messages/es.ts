@@ -715,6 +715,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.appearance.densityComfortable': 'Cómoda',
 	'settings.appearance.densityCompact': 'Compacta',
 	'settings.appearance.motion': 'Movimiento',
+	'settings.appearance.markGmOnly': 'Marcar elementos exclusivos del {gm}',
+	'settings.appearance.markGmOnlyHelp':
+		'Mostrar etiquetas de visibilidad en elementos que solo puede ver el {gm}. Se aplica a este dispositivo.',
 	'settings.appearance.motionHelp':
 		'Reducido acorta las transiciones y detiene las animaciones en bucle.',
 	'settings.appearance.motionFull': 'Completo',

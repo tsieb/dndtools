@@ -10,7 +10,18 @@ import {
 	type SceneCardVisibility,
 	type SceneCardView,
 } from '@dndtools/core';
-import { Badge, Button, Card, Field, IconButton, Input, Select, Textarea, Toaster } from '../ds';
+import {
+	VisibilityChip,
+	Badge,
+	Button,
+	Card,
+	Field,
+	IconButton,
+	Input,
+	Select,
+	Textarea,
+	Toaster,
+} from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { moodTheme, SCENE_MOOD_THEME } from '../app/sceneCardMood';
@@ -621,11 +632,15 @@ function SceneCardRow({
 						{card.flavorText || t('sceneCards.noFlavorText')}
 					</div>
 				</div>
-				<Badge status={card.visibility === 'player-visible' ? 'info' : 'neutral'}>
-					{card.visibility === 'player-visible'
-						? t('settings.players')
-						: t('common.visibility.dmOnly')}
-				</Badge>
+				<VisibilityChip
+					level={card.visibility}
+					byException
+					label={
+						card.visibility === 'player-visible'
+							? t('settings.players')
+							: t('common.visibility.dmOnly')
+					}
+				/>
 				{legacyHeroBlocked && <Badge status="warning">{t('sceneCards.secureImageRequired')}</Badge>}
 				{active && <Badge status="success">{t('sceneDisplay.onDisplay')}</Badge>}
 				{card.lightingHint && (

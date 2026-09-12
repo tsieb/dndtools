@@ -695,6 +695,9 @@ export const en = {
 	'settings.appearance.densityComfortable': 'Comfortable',
 	'settings.appearance.densityCompact': 'Compact',
 	'settings.appearance.motion': 'Motion',
+	'settings.appearance.markGmOnly': 'Mark {gm}-only items',
+	'settings.appearance.markGmOnlyHelp':
+		'Show visibility badges on items only the {gm} can see. Applies to this device.',
 	'settings.appearance.motionHelp': 'Reduce collapses transitions and stops looping animations.',
 	'settings.appearance.motionFull': 'Full',
 	'settings.appearance.motionReduced': 'Reduced',
