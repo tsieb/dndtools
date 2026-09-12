@@ -34,11 +34,8 @@ import { useI18n } from '../i18n';
  *     scroll region rather than a transform view. No free zoom.
  *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom over a transform `view`.
  *
- * It is wired to the REAL Processing Core, not the prototype's local state: every move/resize is
- * committed through the parent's dispatch on pointer-UP only (one `scene.move-widget` /
- * `scene.resize-widget` per gesture — never per pointer-move, which would hammer IndexedDB). While a
- * gesture is in flight an optimistic local draft drives the frame; the draft is dropped the moment
- * the core-confirmed layout catches up, so there is no snap-back flicker.
+ * Pointer gestures commit once on release through the core. Local drafts keep the geometry
+ * responsive until the confirmed layout catches up.
  *
  * Keyboard: arrows traverse unselected frames or move selected tiles; Shift+Arrow resizes.
  * The resize handle uses plain arrows, Enter/Space cycles presets, and Escape returns to the tile.
@@ -752,7 +749,12 @@ export function SceneBoardCanvas({
 				/>
 			)}
 
-			<div role="status" aria-live="polite" aria-atomic="true" style={srOnly}>
+			<div
+				data-testid="canvas-resize-announcement"
+				aria-live="polite"
+				aria-atomic="true"
+				style={srOnly}
+			>
 				{sizeNotice}
 			</div>
 			{widgets.length === 0 && (

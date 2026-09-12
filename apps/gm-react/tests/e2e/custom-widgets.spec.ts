@@ -306,9 +306,10 @@ test('keyboard resize and handle presets persist the declared widget sizes', asy
 	await expect(tile).toHaveCSS('width', '340px');
 	await handle.press('ArrowDown');
 	await expect(tile).toHaveCSS('height', '220px');
-	await expect(
-		page.getByRole('status').filter({ hasText: 'Torchlight, size 340 by 220' }),
-	).toBeVisible();
+	const announcement = page.getByTestId('canvas-resize-announcement');
+	await expect(announcement).toHaveAttribute('aria-live', 'polite');
+	await expect(announcement).toHaveAttribute('aria-atomic', 'true');
+	await expect(announcement).toHaveText('Torchlight, size 340 by 220');
 	await handle.press('Escape');
 	await expect(tile).toBeFocused();
 	await tile.press('Shift+ArrowLeft');

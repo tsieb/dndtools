@@ -20,3 +20,23 @@
     and a radius token.
   - Full operator gates and independent review remain for the central operator.
 - No agents, dispatcher changes, push or promotion.
+
+## Gate recovery (2026-09-12)
+
+- Read the original Browser acceptance log for run
+  94e699ab-1dfc-4af7-94d6-27933438b652, gated head b6c70b48.
+  All four failures were strict-locator collisions in the two canvas history
+  tests, on desktop and mobile: the new resize live region introduced a second
+  status role. The run also reported three unrelated tests flaky, 11 skipped,
+  and 1074 passed.
+- Kept the resize region permanently mounted with aria-live=polite and
+  aria-atomic=true, without the redundant status role. The existing history
+  status remains unambiguous. Resize acceptance now directly checks the live
+  region attributes and announcement text.
+- Focused browser rerun covers both failing history cases plus keyboard resize,
+  on desktop and mobile Chromium. Validation results recorded below.
+- No dispatcher state changes, additional agents, push or promotion.
+- Results: focused Playwright 6/6 passed (15.5 seconds), changed-code ESLint
+  passed, Prettier passed, git diff --check clean, quality gates 6/6 passed.
+  The full browser suite remains for the central operator; this rerun targets
+  every failed case from its log and the resize acceptance.
