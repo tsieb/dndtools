@@ -1326,7 +1326,9 @@ async function putReview(
 	const reviewId = existing?.reviewId || randomUUID();
 	const previousStars = existing ? Number(existing.stars) || 0 : 0;
 	const updatedAt = nowIso();
+	const revision = randomUUID();
 	const review = {
+		revision,
 		moduleId,
 		reviewId,
 		stars,
@@ -1345,9 +1347,13 @@ async function putReview(
 					// was read, so two racing saves cannot both move the aggregate from one baseline.
 					...(existing
 						? {
-								ConditionExpression: '#updatedAt = :previous',
-								ExpressionAttributeNames: { '#updatedAt': 'updatedAt' },
-								ExpressionAttributeValues: toItem({ ':previous': existing.updatedAt }),
+								ConditionExpression: '#version = :previous',
+								ExpressionAttributeNames: {
+									'#version': existing.revision ? 'revision' : 'updatedAt',
+								},
+								ExpressionAttributeValues: toItem({
+									':previous': existing.revision ?? existing.updatedAt,
+								}),
 							}
 						: {
 								ConditionExpression: 'attribute_not_exists(#pk)',
@@ -1378,7 +1384,7 @@ async function putReview(
 			throw new AccountDeleted();
 		}
 		// A response lost after the commit leaves the caller's copy exactly as this request wrote it.
-		const committed = stored?.reviewId === reviewId && stored.updatedAt === updatedAt;
+		const committed = stored?.reviewId === reviewId && stored.revision === revision;
 		if (!committed) {
 			if (isTransactionCanceled(error))
 				throw new Conflict('This rating changed while it was being saved. Reload and try again.');
@@ -1528,9 +1534,9 @@ async function retractReview(review: ListingRow): Promise<'retracted' | 'conflic
 				Delete: {
 					TableName: APP_TABLE,
 					Key: toItem({ pk: modulePk(review.moduleId), sk: listingReviewSk(review.reviewId) }),
-					ConditionExpression: '#updatedAt = :updatedAt',
-					ExpressionAttributeNames: { '#updatedAt': 'updatedAt' },
-					ExpressionAttributeValues: toItem({ ':updatedAt': review.updatedAt }),
+					ConditionExpression: '#version = :version',
+					ExpressionAttributeNames: { '#version': review.revision ? 'revision' : 'updatedAt' },
+					ExpressionAttributeValues: toItem({ ':version': review.revision ?? review.updatedAt }),
 				},
 			},
 			{

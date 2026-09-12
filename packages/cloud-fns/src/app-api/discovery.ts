@@ -123,11 +123,12 @@ export function matchesQuery(row: Row, kind: ModuleKind, query: ListingQuery): b
  */
 export function listingFacets(rows: readonly Row[]): { systems: string[]; licenses: string[] } {
 	const systems = new Set<string>();
-	const licenses = new Map<string, string>(); // case-folded → the first spelling seen
+	const licenses = new Map<string, string>(); // case-folded → a stable spelling independent of query order
 	for (const row of rows) {
 		for (const system of listingSystems(row)) systems.add(system);
 		const license = (row.license ?? '').trim();
-		if (license && !licenses.has(license.toLowerCase()))
+		const previous = licenses.get(license.toLowerCase());
+		if (license && (previous === undefined || license < previous))
 			licenses.set(license.toLowerCase(), license);
 	}
 	const byText = (a: string, b: string) => a.localeCompare(b);

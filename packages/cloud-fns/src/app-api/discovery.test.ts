@@ -96,8 +96,8 @@ describe('RC-CLD-4.5 discovery rules', () => {
 	it('builds facets over every row, licences de-duplicated case-insensitively', () => {
 		expect(
 			listingFacets([
-				{ systems: '["pf2e"]', license: 'CC0' },
 				{ systems: '["dnd5e","pf2e"]', license: 'cc0' },
+				{ systems: '["pf2e"]', license: 'CC0' },
 				{ license: 'MIT' },
 			]),
 		).toEqual({ systems: ['dnd5e', 'pf2e'], licenses: ['CC0', 'MIT'] });

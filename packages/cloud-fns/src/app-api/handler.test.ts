@@ -1680,14 +1680,14 @@ describe('discovery (RC-CLD-4.5)', () => {
 			expect(JSON.stringify(listed.body)).not.toMatch(/dm-1|dm-2/);
 		});
 
-		it('refuses (409) a save that raced another save, leaving the aggregate untouched', async () => {
+		it('refuses a concurrent save even when both revisions have the same timestamp', async () => {
 			const moduleId = await publish('pub-a');
 			await install('dm-1', moduleId);
 			await rate('dm-1', moduleId, { stars: 3 });
 			const mirrorKey = `account#dm-1|review#${moduleId}`;
 			store.beforeNextTransaction = () => {
 				const mirror = store.items.get(mirrorKey)!;
-				store.items.set(mirrorKey, { ...mirror, updatedAt: '2099-01-01T00:00:00.000Z' });
+				store.items.set(mirrorKey, { ...mirror, revision: 'concurrent-revision' });
 			};
 			const raced = await rate('dm-1', moduleId, { stars: 5 });
 			expect(raced.status).toBe(409);

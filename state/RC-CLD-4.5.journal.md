@@ -6,8 +6,9 @@ Discovery for the marketplace: server-side search and filters (`GET /listings?q&
 a maintainer-curated featured set, 1–5 ratings with a 280-character note (a review requires an
 install record), and a moderation queue of flagged reviews for the maintainer. Owned paths:
 `infra/app-api/template.yaml`, `packages/cloud-fns/src/app-api`, `screens/community/Discover.tsx`,
-`screens/community/shared.tsx`, `screens/extensions/Plugins.tsx` (+ manifest companion paths: i18n
-catalogs, `*.test.ts(x)`, e2e specs). No agents, dispatcher mutations, push or promotion.
+`screens/community/shared.tsx`, `screens/extensions/Plugins.tsx`. The previous attempt assumed
+companion paths were included; the central scope gate rejected that assumption. No agents,
+dispatcher mutations, push or promotion.
 
 ## Decisions
 
@@ -66,3 +67,24 @@ catalogs, `*.test.ts(x)`, e2e specs). No agents, dispatcher mutations, push or p
 - The full Playwright suite was not run; only the specs above.
 - Listings published before this story have no `systems`/`license` facets until republished.
 - `infra/verify-app-api.mjs` does not exercise the new routes (outside the claim).
+
+## Scope-gate follow-up (2026-09-11)
+
+- Starting branch was clean at `bf4b7555`, containing the prior implementation above.
+- The rejected companion paths remain in that inherited commit. Asked whether their claim can
+  be expanded; no authorization has arrived. In particular, restoring the old Discover test
+  restores mocks for `listModules`, which the server-search implementation no longer calls.
+  Moving UI tests under the Lambda package would also take them out of the standard app and
+  browser suites. No test-only production compatibility shim or gate exclusion was added.
+- Independently fixed two backend defects within ownership: ratings now use a random revision
+  for edit/retraction concurrency and lost-response detection, avoiding timestamp collisions;
+  licence facet spelling now resolves deterministically instead of following random listing IDs.
+- Regression evidence: the same-timestamp revision test returned 200 instead of 409 before the
+  fix. That run also reproduced the licence-facet test failure (`cc-by-4.0` vs `CC-BY-4.0`).
+  After fixes: app-api suite 3 files / 100 tests passed; cloud-fns typecheck and ESLint on all
+  four changed backend files passed. Prettier formatted those files. Browser tests were not
+  rerun during this follow-up; earlier browser results above belong to the previous attempt.
+- Remaining blocker: central claim resolution for `apps/gm-react/src/i18n/messages/{en,es}.ts`,
+  `apps/gm-react/src/screens/community/Discover.test.tsx`,
+  `apps/gm-react/tests/e2e/community-discover.spec.ts`, and
+  `scripts/eslint-rules/no-raw-style-values.allow.js`. The branch is not scope-gate-ready.
