@@ -2,9 +2,10 @@ import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // RC-SES-2.2 — an inline `[[roll:1d20+5]]` written into a note body renders a real control on the
-// Knowledge note viewer. Pressing it rolls, shows the number, and — when a session is live —
-// records the roll in the durable session history with `sourceKind: 'inline'`. Outside a session
-// the control still rolls and says plainly that the result was not recorded.
+// Knowledge note viewer. Pressing it rolls, shows the number, and records the roll in the durable
+// session history with `sourceKind: 'inline'`. RC-SES-6.1 — Standby permits the roll too: it is
+// recorded with the workflow it was made in, which keeps it out of the session log, capture and recap,
+// so the chip claims the roll history and never the session log.
 
 const BODY = 'Squeeze through the grate: [[roll:1d20+5|Acrobatics]].';
 
@@ -121,15 +122,30 @@ test('the control is keyboard-operable and reachable by Enter', async ({ page })
 	expect((await diceHistory(page)).last?.sourceKind).toBe('inline');
 });
 
-test('outside a session it still rolls and says the result was not recorded', async ({ page }) => {
+test('outside a session it rolls and records the roll as outside a session', async ({ page }) => {
 	await openNoteWithRoll(page);
+	const workflow = await page.evaluate(
+		() => (window.__rt!.state.session as unknown as { workflow: string }).workflow,
+	);
+	expect(workflow).not.toBe('active');
 	const before = (await diceHistory(page)).count;
 
 	await page.getByRole('button', { name: /Roll 1d20\+5/ }).click();
 
+	await page.waitForFunction(
+		(n) =>
+			(window.__rt!.state.session as unknown as { diceHistory: unknown[] }).diceHistory.length > n,
+		before,
+		{ timeout: 10_000 },
+	);
+	// RC-SES-6.1 — the roll lands in the history stamped with the (non-live) workflow it was made in.
+	const { last } = await diceHistory(page);
+	expect(last?.sourceKind).toBe('inline');
+	expect(last?.workflow).toBe(workflow);
+
 	const chip = page.locator('[role="status"]').first();
-	await expect(chip).toBeVisible();
-	await expect(chip).toContainText('not recorded');
-	// Nothing durable was written — no fake log entry.
-	expect((await diceHistory(page)).count).toBe(before);
+	await expect(chip).toContainText(String(last?.total));
+	await expect(chip).toContainText('Recorded in the roll history');
+	// It never claims a session-log entry, which a Standby roll does not get.
+	await expect(chip).not.toContainText('session log');
 });

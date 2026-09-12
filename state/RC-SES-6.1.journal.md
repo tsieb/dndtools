@@ -35,3 +35,14 @@
 
 - The gate (`pnpm format:check:changed --base loop/rc`) checks whole changed files, so the five files that were already unformatted failed it: `commands/handout.ts`, `commands/widget-command.ts`, `queries/session-control.ts`, `tests/dice-commands.test.ts` and `tests/handout-delivery.test.ts`. Ran `prettier --write` on all five. This is formatting only; the changed lines outside my hunks are line wrapping and `(typeof x)['parse']` parentheses.
 - After formatting: `pnpm format:check:changed --base loop/rc` exit 0. Core typecheck exit 0. ESLint on the five files exit 0. Vitest on dice-commands, handout-delivery, session-standby-permits-everything, session-lifecycle, active-session-control, quick-reference and widget-lifecycle passed 7 files / 273 tests.
+
+## Attempt 3 (gate feedback: "Browser acceptance" failed on `d59fb103`)
+
+- Real failure: `tests/e2e/inline-roll.spec.ts:124` "outside a session it still rolls and says the result was not recorded", on both projects and all 3 attempts. The chip read "… Recorded in the session log." because the core now accepts a Standby roll and `NoteViewer`'s logger returns true on accept. The three flaky tests passed on retry and are unrelated to this story: knowledge-filters saved search (desktop + mobile) and the map-editor POI nudge.
+- The old copy was also untrue under this story, because a Standby roll is recorded but kept out of the session log. `RollButton.tsx` and `NoteViewer.tsx` are not owned, so the fix stays in companion paths:
+  - `markdown.rollRecorded` → "Recorded in the roll history." (ES "Registrado en el historial de tiradas."), which is true live and in Standby.
+  - `markdown.rollNotRecorded` → "Not recorded." (ES "Sin registrar."). It now shows only for a refusal or a host with no logger, so "no session is running" was no longer its reason.
+  - `render.test.tsx` expects the new copy.
+  - The e2e test now asserts that a Standby roll lands in the history with `sourceKind: 'inline'` and the current non-live workflow, that the chip shows its total and "Recorded in the roll history", and that the chip never mentions the session log.
+- Follow-up outside the claim: the `RollButton.tsx` / `NoteViewer.tsx` header comments still say the core refuses rolls outside a session. A chip that says "Outside a session" for a non-live roll needs those files.
+- Validation: inline-roll e2e passed 8/8 (desktop + mobile, `/tmp/rc-ses-6-1-inline-roll.log`). App vitest passed 126 files / 1336 tests. gm-react typecheck exit 0. ESLint on the four edited files exit 0. The old copy appears nowhere else in the repo.

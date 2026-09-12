@@ -6478,9 +6478,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'markdown.rollTitle': 'Tirar {expression}',
 	'markdown.rollAria': 'Tirar {expression}',
 	'markdown.rollInvalid': 'Escribe una expresión de dados, como 3d6+2.',
-	'markdown.rollRecorded': 'Registrado en el historial de la sesión.',
-	'markdown.rollNotRecorded':
-		'Sin registrar. Inicia una sesión en vivo para registrar las próximas tiradas.',
+	'markdown.rollRecorded': 'Registrado en el historial de tiradas.',
+	'markdown.rollNotRecorded': 'Sin registrar.',
 	'markdown.rollLocal': 'sin registrar',
 	// RC-CHR-1.2 — el flujo de descanso: el diálogo por personaje y la llamada del DM a todo el grupo.
 	'character.rest.title': 'Descanso — {name}',

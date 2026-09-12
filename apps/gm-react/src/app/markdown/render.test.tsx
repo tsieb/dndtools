@@ -239,7 +239,7 @@ describe('RC-SES-2.2 renderer — inline rolls', () => {
 		expect((body.querySelector('button') as HTMLButtonElement).textContent).toContain('2d6');
 	});
 
-	it('shows a result and says it was recorded when a session took the roll', async () => {
+	it('shows a result and says it was recorded when the host took the roll', async () => {
 		const seen: { expression: string; seed: number; label?: string }[] = [];
 		const body = render(NOTE, {
 			logInlineRoll: (roll) => {
@@ -259,7 +259,8 @@ describe('RC-SES-2.2 renderer — inline rolls', () => {
 		const total = Number.parseInt(chip.textContent ?? '', 10);
 		expect(total).toBeGreaterThanOrEqual(6);
 		expect(total).toBeLessThanOrEqual(25);
-		expect(chip.textContent).toContain('Recorded in the session log.');
+		// RC-SES-6.1 — only a live roll reaches the session log, so the chip claims the roll history.
+		expect(chip.textContent).toContain('Recorded in the roll history.');
 	});
 
 	it('still rolls with no session, and says the result was not recorded', async () => {

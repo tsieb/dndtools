@@ -6383,8 +6383,9 @@ export const en = {
 	'markdown.rollTitle': 'Roll {expression}',
 	'markdown.rollAria': 'Roll {expression}',
 	'markdown.rollInvalid': 'Enter a dice expression such as 3d6+2.',
-	'markdown.rollRecorded': 'Recorded in the session log.',
-	'markdown.rollNotRecorded': 'Not recorded. Start a live session to record future rolls.',
+	// RC-SES-6.1 — a roll is recorded in every workflow, but only a live one reaches the session log.
+	'markdown.rollRecorded': 'Recorded in the roll history.',
+	'markdown.rollNotRecorded': 'Not recorded.',
 	'markdown.rollLocal': 'not recorded',
 	// RC-CHR-1.2 — the rest workflow: the per-character rest dialog and the DM's party-wide call.
 	'character.rest.title': 'Rest — {name}',
