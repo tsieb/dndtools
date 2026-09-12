@@ -1,5 +1,11 @@
 # Workstation stability evidence — 2026-09-12
 
+**Historical evidence after the next rebase:** candidate `31dc027c` rebases this
+work onto `ac99ca7b`, which changes app and core code relative to the measured
+commit below. These captures remain valid for `8193b9cb`; they do not establish
+stability for the newly rebased candidate. See the [run journal](../../run-journal.md)
+for the inherited tooling-test blocker and required follow-up.
+
 **PASS: five consecutive paired runs agree on all 11 CI-mode gate verdicts; every drift column is populated.** `scripts/perf/ci.sh` exited 0. Each comparison also passed independently; there were zero regressions, unmeasured budgets, or missing baselines in every run.
 
 Measured implementation commit: `8193b9cba1360013b6b366bb71d525885bc0fb87`. Pinned reference: `48a827861616fc3c3f6ccf69f0872edc1c8c771a`. The implementation commit contains the ownership repair and manual-ref workflow input. The subsequent evidence commit changes only reports and the run journal; measured source and comparison policy are unchanged.

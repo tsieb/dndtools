@@ -132,3 +132,54 @@ manual-ref-input requirements are now evidenced locally. Hosted acceptance
 remains RC-ENG-1.4's post-integration work, with central gates and independent
 review still pending. No push, promotion, workflow dispatch, new loop, or
 control-state edit occurred.
+
+## 2026-09-12 — inherited Electron tooling failure after another rebase
+
+Starting candidate: `31dc027c1147152952bf3288b8dcb94ce7ba61c7`; clean tree.
+The original output of tooling attempt `ed7380d4-1ae5-4683-bb48-02fe6f26000d`
+was read directly, without compression. It reports one failure at
+`tests/unit/electron-hardening.test.ts:147`: the test expects two matches of
+`devTools: !app.isPackaged` in `apps/gm-react/electron/main.cjs`, but finds three.
+
+The current task series is a patch-equivalent rebase of the previous twelve
+commits onto `ac99ca7b97570d6e9a77a1890db9c9f5eb1fbf59`, confirmed by
+`git range-diff 5e6064d9..be36a815 ac99ca7b..31dc027c` (all twelve entries `=`).
+That base commit adds the chosen-display kiosk window with a third guarded
+`devTools` setting. The three current settings are at main.cjs lines 489, 551,
+and 612. The assertion still counts exactly two.
+
+Neither implicated file is changed by this task: `git diff ac99ca7b HEAD --
+tests/unit/electron-hardening.test.ts apps/gm-react/electron/main.cjs` is empty.
+Git blob identities match between the base and candidate:
+
+- Test: `e731899bc3fd7f28ca4fd1c0f021bbca8041dd39` on both revisions.
+- Electron main: `df13d7cf02fe4ee5dab1e026e2886a15b5e76b44` on both revisions.
+
+Validation on this candidate:
+
+- Exact failed command, `pnpm test:tooling --maxWorkers=3`: exit 1,
+  **23 files / 161 tests passed; 1 file / 1 test failed** with the same
+  expected-two/received-three assertion. This is a reproduced base defect,
+  not a fixed gate or missing dependency.
+- `pnpm exec vitest run --config tests/perf/vitest.config.ts`: exit 0,
+  **2 files / 14 tests passed**.
+- Base-to-candidate changed paths remain inside the task claim.
+
+Both the Electron implementation and its unit test are outside the explicit
+owned paths. No security setting was removed, assertion bypassed, test excluded,
+or out-of-scope file changed to make the gate pass. The Electron/base owner must
+reconcile the hardening assertion with the third window (while retaining checks
+that every privileged window disables packaged devtools), then rerun tooling.
+This task cannot repair that inherited assertion within its current claim.
+
+The rebase also changes app/core source relative to measured SHA `8193b9cb`.
+The archived five-run result therefore remains historical evidence for that SHA,
+not acceptance evidence for `31dc027c`. The report now says so explicitly. After
+the base defect is repaired and rebased, capture fresh workstation evidence on
+the resulting candidate, then run central gates and independent review. No new
+performance capture or hosted verification is claimed during this blocked retry.
+The reviewed perf implementation and exact-byte measurement archive are preserved.
+
+This retry commits only the journal and provenance clarification. Validation is
+still blocked; no push, promotion, workflow dispatch, additional loop, dispatcher
+control-state edit, or sub-agent was used.
