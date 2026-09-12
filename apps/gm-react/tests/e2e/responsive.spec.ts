@@ -19,12 +19,13 @@ const ROUTES = [
 	'/board',
 ];
 
+const CONTROL_SELECTOR =
+	'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]';
+
 async function clippedControls(page: Page, rootSelector = 'body'): Promise<string[]> {
 	return page
 		.locator(rootSelector)
-		.locator(
-			'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]',
-		)
+		.locator(CONTROL_SELECTOR)
 		.evaluateAll((elements) => {
 			const isClippedWithoutScrollPath = (element: Element, axis: 'x' | 'y') => {
 				const rect = element.getBoundingClientRect();
@@ -48,7 +49,16 @@ async function clippedControls(page: Page, rootSelector = 'body'): Promise<strin
 					const clientSize = axis === 'x' ? parent.clientWidth : parent.clientHeight;
 					return scrollSize <= clientSize + 1;
 				}
-				return true;
+				// No ancestor clips it, so the one scroll path left is the document. The standalone
+				// routes (`/play`, `/join`, `/wiki`) scroll the page rather than a pane. Sideways that is
+				// never a path: a page that scrolls horizontally is the failure
+				// `expectNoHorizontalOverflow` exists for.
+				if (axis === 'x') return true;
+				const root = document.scrollingElement ?? document.documentElement;
+				const scrolls = root.scrollHeight > root.clientHeight + 1;
+				return (
+					!scrolls || start + window.scrollY < -1 || end + window.scrollY > root.scrollHeight + 1
+				);
 			};
 
 			return elements.flatMap((element) => {
@@ -713,7 +723,207 @@ test('every player tab uses a single bounded column on a compact phone', async (
 	}
 });
 
-for (const mode of ['200% text', 'reduced motion', 'forced colors'] as const) {
+// RC-UX-2.4 — text scaling and zoom (WCAG 1.4.4 Resize Text, 1.4.10 Reflow). The two settings reach
+// layout differently, so each gets its own sweep across all three navigation tiers:
+//  • Browser zoom scales CSS px along with everything else. To layout, 200% of a window IS a
+//    viewport half its width and height at twice the device pixels, so 200% of 1280×800 is 640×400
+//    at devicePixelRatio 2. The windows below are picked so the zoomed viewport lands on each tier
+//    of useViewport (≤640 phone, ≤1024 rail, desktop above): zooming is how a desktop user ends up
+//    on the phone layout, and the shell has to hold up when that happens.
+//  • A large-text preference raises the default font size and leaves the viewport alone. Only
+//    rem/em text follows it (hence every type token is rem), so that sweep also proves text grew.
+const STANDALONE_ROUTES = ['/play', '/join', '/wiki'];
+
+type NavigationTier = 'phone' | 'rail' | 'desktop';
+
+async function nextFrames(page: Page): Promise<void> {
+	// Settle from a fresh task, as `dispatch` does (RC-ENG-2.6).
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))),
+			),
+	);
+}
+
+/**
+ * Moves to a hash route and waits until its screen, not a placeholder, is what gets measured. The
+ * `h1` the other sweeps wait on is no signal: the shell's TopBar owns it, so it is attached before a
+ * lazily loaded screen has arrived. react-router 6's HashRouter does not navigate inside a
+ * transition, so a screen whose chunk is still loading shows the route `<Suspense>` Boot fallback
+ * in its place, and that fallback is what to wait out.
+ */
+async function settleRoute(page: Page, route: string): Promise<void> {
+	await page.evaluate((next) => {
+		window.location.hash = next;
+	}, route);
+	await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+	await nextFrames(page);
+	await expect(page.getByText('Loading your vault…', { exact: true })).toHaveCount(0, {
+		timeout: 20_000,
+	});
+	await nextFrames(page);
+}
+
+/** Which navigation profile the shell rendered, read from the Primary navigation's geometry. */
+async function navigationTier(page: Page): Promise<NavigationTier | null> {
+	const box = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
+	if (!box) return null;
+	const viewport = page.viewportSize();
+	if (viewport && box.y > viewport.height / 2) return 'phone';
+	return box.width < 100 ? 'rail' : 'desktop';
+}
+
+/**
+ * Raises the browser's default font size, which is what a large-text preference changes, instead of
+ * injecting an author `html { font-size }` rule. An injected `!important` rule overrides whatever
+ * the app declares on `html`, so it would pass even if the app pinned its root size in px and
+ * ignored the user's preference altogether.
+ */
+async function setDefaultFontSize(page: Page, standardPx: number): Promise<void> {
+	const session = await page.context().newCDPSession(page);
+	await session.send('Page.setFontSizes', {
+		fontSizes: { standard: standardPx, fixed: Math.round(standardPx * 0.8125) },
+	});
+}
+
+/**
+ * A control you scroll to is only reached if nothing sits on top of it once you get there: a fixed
+ * bar covers exactly the edge that scrolling brings a control to. Scrolls each control that starts
+ * off-screen into view, hit-tests its centre, then restores every scroll offset it moved. A control
+ * still off-screen afterwards is `clippedControls`'s to report, and a box under 3px is a visually
+ * hidden control rather than a target.
+ */
+async function controlsCoveredWhenReached(page: Page): Promise<string[]> {
+	return page.locator(CONTROL_SELECTOR).evaluateAll((elements) => {
+		const offsets = new Map<Element, [number, number]>();
+		const covered: string[] = [];
+		for (const element of elements) {
+			const resting = element.getBoundingClientRect();
+			if (resting.width < 3 || resting.height < 3) continue;
+			if (getComputedStyle(element).visibility === 'hidden') continue;
+			if (
+				resting.top >= 0 &&
+				resting.left >= 0 &&
+				resting.bottom <= window.innerHeight &&
+				resting.right <= window.innerWidth
+			) {
+				continue;
+			}
+			for (let node = element.parentElement; node; node = node.parentElement) {
+				if (!offsets.has(node)) offsets.set(node, [node.scrollLeft, node.scrollTop]);
+			}
+			element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			const rect = element.getBoundingClientRect();
+			const x = rect.left + rect.width / 2;
+			const y = rect.top + rect.height / 2;
+			if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) continue;
+			const hit = document.elementFromPoint(x, y);
+			if (!hit || element.contains(hit) || hit.closest('label')?.control === element) continue;
+			const name =
+				element.getAttribute('aria-label') || element.textContent?.trim() || element.tagName;
+			const cover = hit.getAttribute('aria-label') || hit.getAttribute('class') || hit.tagName;
+			covered.push(
+				`${name.replace(/\s+/g, ' ').slice(0, 60)} is under ${cover.slice(0, 60)} once scrolled into view`,
+			);
+		}
+		for (const [node, [left, top]] of offsets) {
+			node.scrollLeft = left;
+			node.scrollTop = top;
+		}
+		return covered;
+	});
+}
+
+/**
+ * Known large-text defects in components this story does not own, excused from the covered-control
+ * check alone: overflow and clipping still run on these routes. Both are clean at the default text
+ * size. Remove an entry once its screen is fixed.
+ *  • `/player` on a phone: the sticky vitals bar (screens/player/index.tsx) wraps into a block so tall
+ *    that it covers whatever the pane scrolls beneath it, and its own last controls sit under the tab bar.
+ *  • `/board`: widget tiles keep their authored px extent while their rem text doubles, so one tile's
+ *    operation controls end up under a neighbouring tile.
+ */
+const LARGE_TEXT_COVER_EXCEPTIONS: Record<NavigationTier, readonly string[]> = {
+	phone: ['/player', '/board'],
+	rail: ['/board'],
+	desktop: ['/board'],
+};
+
+async function expectScaledRoutesWhole(
+	page: Page,
+	setting: string,
+	coverExceptions: readonly string[] = [],
+): Promise<void> {
+	for (const route of [...ROUTES, ...STANDALONE_ROUTES]) {
+		await settleRoute(page, route);
+		// `/play`, `/join` and `/wiki` render outside AppShell, so they have no `#main-content`.
+		const pane = STANDALONE_ROUTES.includes(route) ? 'html' : '#main-content';
+		await expectNoHorizontalOverflow(page, `${route} ${setting}`, pane, true);
+		expect.soft(await clippedControls(page), `${route} clipped a control ${setting}`).toEqual([]);
+		if (coverExceptions.includes(route)) continue;
+		expect
+			.soft(await controlsCoveredWhenReached(page), `${route} hid a control ${setting}`)
+			.toEqual([]);
+	}
+}
+
+test.describe('200% browser zoom', () => {
+	test.use({ deviceScaleFactor: 2 });
+
+	for (const zoom of [
+		{ tier: 'phone', window: '1280×800', width: 640, height: 400 },
+		{ tier: 'rail', window: '1920×1080', width: 960, height: 540 },
+		{ tier: 'desktop', window: '2560×1440', width: 1280, height: 720 },
+	] as const) {
+		test(`a ${zoom.window} window at 200% keeps every route whole on the ${zoom.tier} tier`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: zoom.width, height: zoom.height });
+			await markOnboarded(page);
+			await gotoRoute(page, '/');
+			await seedFresh(page);
+
+			expect(
+				await page.evaluate(() => ({ ratio: window.devicePixelRatio, width: window.innerWidth })),
+			).toEqual({ ratio: 2, width: zoom.width });
+			await expect.poll(() => navigationTier(page)).toBe(zoom.tier);
+			await expectScaledRoutesWhole(page, `at 200% zoom of a ${zoom.window} window`);
+		});
+	}
+});
+
+for (const large of [
+	{ tier: 'phone', width: 360, height: 640 },
+	{ tier: 'rail', width: 768, height: 1024 },
+	{ tier: 'desktop', width: 1280, height: 800 },
+] as const) {
+	test(`200% large text keeps every route whole on the ${large.tier} tier`, async ({ page }) => {
+		await page.setViewportSize({ width: large.width, height: large.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		await setDefaultFontSize(page, 32);
+
+		// The preference only helps if the app's text follows it: the root takes the doubled default,
+		// and body text (`--text-base`, 0.9375rem) doubles from 15px with it.
+		await expect
+			.poll(() =>
+				page.evaluate(() =>
+					[document.documentElement, document.body].map((el) => getComputedStyle(el).fontSize),
+				),
+			)
+			.toEqual(['32px', '30px']);
+		await expect.poll(() => navigationTier(page)).toBe(large.tier);
+		await expectScaledRoutesWhole(
+			page,
+			'with 200% large text',
+			LARGE_TEXT_COVER_EXCEPTIONS[large.tier],
+		);
+	});
+}
+
+for (const mode of ['reduced motion', 'forced colors'] as const) {
 	test(`primary routes remain reachable with ${mode}`, async ({ page }) => {
 		await page.setViewportSize({ width: 360, height: 640 });
 		if (mode === 'reduced motion') await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -721,12 +931,6 @@ for (const mode of ['200% text', 'reduced motion', 'forced colors'] as const) {
 		await markOnboarded(page);
 		await gotoRoute(page, '/');
 		await seedFresh(page);
-		if (mode === '200% text') {
-			await page.addStyleTag({
-				content:
-					'html { font-size: 200% !important; -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }',
-			});
-		}
 
 		for (const route of ROUTES) {
 			await page.evaluate((next) => {

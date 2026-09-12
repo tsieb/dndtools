@@ -147,7 +147,9 @@ html[data-electron='true'] .electron-titlebar {
 	background: var(--color-surface);
 	border-bottom: 1px solid var(--color-border);
 	color: var(--color-text-tertiary);
-	font: 600 11px var(--font-sans);
+	/* rem, like every type token, so a large-text preference reaches the window chrome too (RC-UX-2.4).
+	   11px at the default size; doubled it still sits inside the 36px strip. */
+	font: 600 0.6875rem var(--font-sans);
 	letter-spacing: 0.025em;
 	user-select: none;
 }
@@ -235,6 +237,14 @@ html[data-electron='true'] .app-fixed-viewport {
 
 	.player-view-nav-row {
 		flex: 0 0 44px;
+	}
+
+	/* The page, not a pane, scrolls here, and the fixed nav above covers its bottom edge. A scroll that
+	   brings a control to the nearest edge (`scrollIntoView({ block: 'nearest' })`) stopped it right
+	   under the nav — found at 200% zoom, where the stage grows tall enough to push Raise hand below
+	   the fold (RC-UX-2.4). Same reservation as the shell's bottom padding. */
+	html:has(.player-view-shell) {
+		scroll-padding-bottom: calc(107px + env(safe-area-inset-bottom, 0px));
 	}
 
 	.player-view-toolbar > span:nth-child(2) {
