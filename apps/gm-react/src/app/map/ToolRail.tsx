@@ -38,6 +38,7 @@ export function ToolRail({
 
 	return (
 		<div
+			data-map-coach="rail"
 			role="toolbar"
 			aria-label={t('mapEditor.tools')}
 			aria-orientation={orientation}
@@ -71,7 +72,13 @@ export function ToolRail({
 						<button
 							key={g.id}
 							type="button"
-							title={isOpen ? t('mapTool.hideTools', { group: t(g.label) }) : t(g.label)}
+							title={t('mapTool.hintWithShortcut', {
+								hint: isOpen ? t('mapTool.hideTools', { group: t(g.label) }) : t(g.label),
+								shortcut: g.tools
+									.map((tool) => tool.shortcut?.toUpperCase())
+									.filter(Boolean)
+									.join(' · '),
+							})}
 							aria-label={t(g.label)}
 							aria-pressed={isActiveGroup}
 							aria-expanded={isOpen}

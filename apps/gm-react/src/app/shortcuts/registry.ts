@@ -125,6 +125,7 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
 		action: 'shortcuts.action.canvasUndoRedo',
 	},
 
+	{ id: 'map.help', scope: 'map', keys: '?', action: 'mapEditor.shortcuts', combo: { key: '?' } },
 	...MAP_TOOL_SHORTCUTS,
 	{
 		id: 'map.brushSize',

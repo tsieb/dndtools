@@ -29,7 +29,7 @@ import { LayersPanel } from './dock/LayersPanel';
 import { AssetsPanel } from './dock/AssetsPanel';
 import { HistoryPanel } from './dock/HistoryPanel';
 import { GraphPanel } from './dock/GraphPanel';
-import { HeaderMenuItem, QuickToolStrip, ShortcutOverlay } from './MapEditorChrome';
+import { HeaderMenuItem, MapEditorCoach, QuickToolStrip, ShortcutOverlay } from './MapEditorChrome';
 
 /** A11Y-011: severity must survive grayscale, so each notice tone gets a DISTINCT glyph shape. */
 const NOTICE_ICON: Record<MapNoticeTone, string> = {
@@ -909,6 +909,13 @@ export function MapEditor({
 				)}
 			</header>
 
+			<MapEditorCoach
+				rootRef={rootRef}
+				compact={isPhone || quickMapMode}
+				quick={quickMapMode}
+				activity={`${editor.tool}:${editor.selection.join(',')}`}
+			/>
+
 			{editor.notice && (
 				<div
 					// `setNotice` is where useMapEditor funnels EVERY command rejection and thrown error,
@@ -956,17 +963,23 @@ export function MapEditor({
 			{/* ── workspace ── */}
 			{quickMapMode ? (
 				<>
-					<QuickToolStrip editor={editor} />
+					<div data-map-coach="options" style={{ flexShrink: 0 }}>
+						<QuickToolStrip editor={editor} />
+					</div>
 					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(true)}</div>
-					<QuickMapRail
-						activeTool={editor.tool}
-						onSelect={editor.setTool}
-						canUndo={editor.canUndo}
-						canRedo={editor.canRedo}
-						onUndo={() => void editor.undo()}
-						onRedo={() => void editor.redo()}
-						onPanels={() => setMobileDock(true)}
-					/>
+					<div data-map-coach="rail" style={{ flexShrink: 0 }}>
+						<div data-map-coach="dock">
+							<QuickMapRail
+								activeTool={editor.tool}
+								onSelect={editor.setTool}
+								canUndo={editor.canUndo}
+								canRedo={editor.canRedo}
+								onUndo={() => void editor.undo()}
+								onRedo={() => void editor.redo()}
+								onPanels={() => setMobileDock(true)}
+							/>
+						</div>
+					</div>
 					{mobileDock && (
 						<Sheet
 							open
@@ -1029,7 +1042,9 @@ export function MapEditor({
 				</>
 			) : isPhone ? (
 				<>
-					<ToolOptionsBar editor={editor} announce={announce} />
+					<div data-map-coach="options" style={{ flexShrink: 0 }}>
+						<ToolOptionsBar editor={editor} announce={announce} />
+					</div>
 					<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(false)}</div>
 					<div
 						style={{
@@ -1049,6 +1064,7 @@ export function MapEditor({
 						</div>
 						{listToggle}
 						<IconButton
+							data-map-coach="dock"
 							icon="layers"
 							label={t('mapEditor.panels')}
 							// IconButton has no "primary" variant — it silently fell through to `ghost`, so
@@ -1095,10 +1111,13 @@ export function MapEditor({
 						<ToolRail activeTool={editor.tool} onSelect={editor.setTool} />
 					</div>
 					<div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-						<ToolOptionsBar editor={editor} announce={announce} />
+						<div data-map-coach="options" style={{ flexShrink: 0 }}>
+							<ToolOptionsBar editor={editor} announce={announce} />
+						</div>
 						<div style={{ flex: 1, minHeight: 0, position: 'relative' }}>{well(false)}</div>
 					</div>
 					<div
+						data-map-coach="dock"
 						style={{
 							display: 'flex',
 							flexDirection: 'column',

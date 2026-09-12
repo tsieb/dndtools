@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import { Icon, SegmentedControl } from '../../ds';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import {
+	markSpotlightSeen,
+	parseSeenSpotlights,
+	serializeSeenSpotlights,
+	spotlightsSeenIn,
+	spotlightVaultId,
+} from '@dndtools/core';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
+import { Button, FeatureSpotlight, Icon, SegmentedControl } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
 import { TOOLS_BY_ID } from './tools';
@@ -122,4 +131,110 @@ export function ShortcutOverlay({ onClose }: { onClose: () => void }) {
 	// RC-UX-3.3 — the editor keymap is no longer re-typed here: both this overlay and the keyboard
 	// layer read app/shortcuts/registry.ts, whose map entries derive their tool keys from TOOL_GROUPS.
 	return <ShortcutsDialog onClose={onClose} scopes={['map']} title={t('mapEditor.shortcuts')} />;
+}
+
+/** Mark the whole tour seen on first display, including an interrupted or dismissed tour. */
+export function MapEditorCoach({
+	rootRef,
+	compact,
+	quick,
+	activity,
+}: {
+	rootRef: RefObject<HTMLDivElement | null>;
+	compact: boolean;
+	quick: boolean;
+	/** Starting to edit ends the first-open tour without taking focus from the map. */
+	activity: string;
+}) {
+	const { t } = useI18n();
+	const runtime = useRuntime();
+	const vaultId = spotlightVaultId(runtime.state, 'local-default');
+	const attempted = useRef<string | null>(null);
+	const initialActivity = useRef(activity);
+	const [tour, setTour] = useState<{ vaultId: string; step: number } | null>(null);
+	useEffect(() => {
+		if (attempted.current === vaultId) return;
+		attempted.current = vaultId;
+		setTour(null);
+		const key = PREFERENCE_KEYS.seenSpotlights;
+		const seen = parseSeenSpotlights(readPreference(key));
+		if (spotlightsSeenIn(seen, vaultId).includes('map-editor')) return;
+		writePreference(key, serializeSeenSpotlights(markSpotlightSeen(seen, vaultId, 'map-editor')));
+		// A denied write must not turn first-open guidance into a recurring interruption.
+		if (
+			spotlightsSeenIn(parseSeenSpotlights(readPreference(key)), vaultId).includes('map-editor')
+		) {
+			setTour({ vaultId, step: 0 });
+		}
+	}, [vaultId]);
+	useEffect(() => {
+		if (activity !== initialActivity.current) setTour(null);
+	}, [activity]);
+	const step = tour?.vaultId === vaultId ? tour.step : null;
+	const target = step === null ? null : ['rail', 'options', 'dock'][step];
+	useEffect(() => {
+		if (!target) return;
+		const node = rootRef.current?.querySelector<HTMLElement>(`[data-map-coach="${target}"]`);
+		if (!node) return;
+		const previous = node.style.outline;
+		const previousOffset = node.style.outlineOffset;
+		node.style.outline = '3px solid var(--color-accent)';
+		node.style.outlineOffset = '-3px';
+		return () => {
+			node.style.outline = previous;
+			node.style.outlineOffset = previousOffset;
+		};
+	}, [target, rootRef, compact, quick]);
+	if (step === null) return null;
+	const titles = [
+		'mapEditor.coach.rail',
+		'mapEditor.coach.options',
+		'mapEditor.coach.dock',
+	] as const;
+	const bodies = [
+		quick ? 'mapEditor.coach.quickRailBody' : 'mapEditor.coach.railBody',
+		'mapEditor.coach.optionsBody',
+		compact ? 'mapEditor.coach.dockCompactBody' : 'mapEditor.coach.dockBody',
+	] as const;
+	const close = () => {
+		setTour(null);
+		rootRef.current?.focus();
+	};
+	return (
+		<FeatureSpotlight
+			data-map-onboarding={target}
+			aria-live="polite"
+			icon="info"
+			title={`${step + 1}/3 · ${t(titles[step]!)}`}
+			description={t(bodies[step]!)}
+			style={{ flexShrink: 0 }}
+			onKeyDown={(event: React.KeyboardEvent) => {
+				if (event.key === 'Escape') {
+					event.stopPropagation();
+					close();
+				}
+			}}
+		>
+			<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+				<Button
+					size="sm"
+					style={quick ? { minWidth: 48, minHeight: 48 } : undefined}
+					variant="primary"
+					onClick={() => (step === 2 ? close() : setTour({ vaultId, step: step + 1 }))}
+				>
+					{t(step === 2 ? 'common.action.done' : 'common.action.next')}
+				</Button>
+				{step < 2 && (
+					<Button
+						size="sm"
+						style={quick ? { minWidth: 48, minHeight: 48 } : undefined}
+						variant="ghost"
+						onClick={close}
+					>
+						{t('mapEditor.coach.skip')}
+					</Button>
+				)}
+			</div>
+		</FeatureSpotlight>
+	);
 }

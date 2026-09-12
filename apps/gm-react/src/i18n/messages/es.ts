@@ -3,6 +3,20 @@ import type { MessageKey } from './en';
 /** Spanish. A `Partial` of `en`: an untranslated key renders its English source rather than a
  * blank or a bare identifier, so a partly translated locale degrades honestly. */
 export const es: Partial<Record<MessageKey, string>> = {
+	'mapEditor.coach.quickRailBody':
+		'Elige una herramienta en la barra resaltada. Usa Navegar para moverte por el mapa sin editarlo.',
+	'mapEditor.coach.rail': 'Elige una herramienta',
+	'mapEditor.coach.options': 'Ajusta sus opciones',
+	'mapEditor.coach.dock': 'Explora los paneles',
+	'mapEditor.coach.railBody':
+		'Elige un grupo en la barra resaltada y luego una herramienta. Pasa el cursor sobre una herramienta para ver su atajo de teclado.',
+	'mapEditor.coach.optionsBody':
+		'La barra resaltada cambia con la herramienta. Ajusta sus opciones antes de trabajar en el mapa.',
+	'mapEditor.coach.dockBody':
+		'Usa el panel resaltado para inspeccionar selecciones, gestionar capas, explorar recursos y revisar el historial. Pulsa ? para ver los atajos del mapa.',
+	'mapEditor.coach.dockCompactBody':
+		'Abre Paneles en la barra resaltada para inspeccionar selecciones, gestionar capas y explorar recursos. Pulsa ? para ver los atajos del mapa.',
+	'mapEditor.coach.skip': 'Omitir recorrido',
 	'common.action.save': 'Guardar',
 	'common.action.cancel': 'Cancelar',
 	'common.action.close': 'Cerrar',

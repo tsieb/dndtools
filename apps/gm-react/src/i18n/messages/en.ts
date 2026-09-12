@@ -8,6 +8,20 @@
  * Values may use ICU syntax — plural, select, number, date, time, unit — rendered by `format.ts`.
  * Every key a locale translates must exist here; a locale catalog is a `Partial` of this one. */
 export const en = {
+	'mapEditor.coach.quickRailBody':
+		'Choose a tool in the highlighted rail. Use Navigate to move around the map without editing it.',
+	'mapEditor.coach.rail': 'Choose a tool',
+	'mapEditor.coach.options': 'Adjust its options',
+	'mapEditor.coach.dock': 'Explore the panels',
+	'mapEditor.coach.railBody':
+		'Choose a group in the highlighted rail, then choose a tool. Hover over a tool to see its keyboard shortcut.',
+	'mapEditor.coach.optionsBody':
+		'The highlighted bar changes with your tool. Adjust its settings before working on the map.',
+	'mapEditor.coach.dockBody':
+		'Use the highlighted dock to inspect selections, manage layers, browse assets and review history. Press ? for map shortcuts.',
+	'mapEditor.coach.dockCompactBody':
+		'Open Panels in the highlighted rail to inspect selections, manage layers and browse assets. Press ? for map shortcuts.',
+	'mapEditor.coach.skip': 'Skip tour',
 	'common.action.save': 'Save',
 	'common.action.cancel': 'Cancel',
 	'common.action.close': 'Close',
