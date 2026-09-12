@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 const ROUTES = [
@@ -1752,3 +1752,306 @@ test('rotating across the split width keeps the open detail mounted', async ({ p
 		'true',
 	);
 });
+
+// RC-UX-4.2 — the mobile primary-action contract (UX-002; docs/architecture/NAVIGATION.md §4 and §7),
+// audited screen by screen. On a phone the top bar holds the title, ONE inline action (Search: the
+// palette reaches every destination and command) and ONE labelled overflow ("Table controls"). That
+// overflow's bounded sheet holds the table utilities, including the only primary-weight control the
+// top bar owns (Go live / End session). A screen's own first screenful keeps to one filled action.
+// The screens that still show more are listed with the POL story that owns the fix. A ceiling only
+// ever comes down.
+const PRIMARY_ACTION_DEBT: Record<string, { ceiling: number; owner: string }> = {
+	// "Go live" and the soft-disabled "Build encounter" both fill above the fold on a phone.
+	'/session': { ceiling: 2, owner: 'RC-POL-1.4' },
+};
+
+/** Routes whose section is a row in the phone "All sections" sheet (not one of the four tabs). Graph
+ * is usage-gated (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
+const MORE_SHEET_ROUTES = new Set([
+	'/board',
+	'/campaign',
+	'/knowledge',
+	'/graph',
+	'/audio',
+	'/extensions',
+	'/community',
+	'/upgrade',
+	'/player',
+	'/settings',
+]);
+
+async function settleScreen(page: Page): Promise<void> {
+	// The top bar's own <h1> is attached before a lazy route's chunk has rendered anything, so wait
+	// for the main pane to hold something real before counting what it shows.
+	await expect(
+		page.locator('#main-content').locator(`${CONTROL_SELECTOR}, h2, [role="tab"]`).first(),
+	).toBeVisible({ timeout: 20_000 });
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				// Settle from a fresh task (RC-ENG-2.6).
+				requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))),
+			),
+	);
+}
+
+/** Accessible names of the visible controls under `scope`, in DOM order. */
+async function visibleControlNames(scope: Locator): Promise<string[]> {
+	return scope.locator(CONTROL_SELECTOR).evaluateAll((elements) =>
+		elements.flatMap((element) => {
+			const rect = element.getBoundingClientRect();
+			const style = getComputedStyle(element);
+			if (rect.width === 0 || rect.height === 0 || style.visibility === 'hidden') return [];
+			return [(element.getAttribute('aria-label') || element.textContent || '').trim()];
+		}),
+	);
+}
+
+/**
+ * Visible filled (primary-weight) actions under `scope`: the Button `primary` and `danger` fills,
+ * resolved from the live tokens so a theme cannot break the comparison. A selected segment, tab or
+ * toggle paints the same accent to show STATE rather than invite an action, so those are left out.
+ * With `firstScreenful`, only controls that start above the scope's own bottom edge count.
+ */
+async function filledActions(scope: Locator, firstScreenful = false): Promise<string[]> {
+	return scope.evaluate((root, onlyFirstScreenful) => {
+		const probe = document.createElement('div');
+		document.body.appendChild(probe);
+		const fills = ['var(--color-accent)', 'var(--color-status-error)'].map((value) => {
+			probe.style.background = value;
+			return getComputedStyle(probe).backgroundColor;
+		});
+		probe.remove();
+		const fold = onlyFirstScreenful ? root.getBoundingClientRect().bottom : Number.MAX_VALUE;
+		return Array.from(root.querySelectorAll('button, a[href], [role="button"]')).flatMap(
+			(element) => {
+				if (
+					element.matches(
+						'[aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current]:not([aria-current="false"])',
+					)
+				) {
+					return [];
+				}
+				const rect = element.getBoundingClientRect();
+				const style = getComputedStyle(element);
+				if (rect.width === 0 || rect.height === 0 || style.visibility === 'hidden') return [];
+				if (rect.top >= fold || !fills.includes(style.backgroundColor)) return [];
+				const name = element.getAttribute('aria-label') || element.textContent || element.tagName;
+				return [name.replace(/\s+/g, ' ').trim().slice(0, 60)];
+			},
+		);
+	}, firstScreenful);
+}
+
+for (const route of ROUTES) {
+	test(`${route} keeps one top-bar action, one overflow and one primary action on a phone`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 375, height: 812 });
+		await markOnboarded(page);
+		await gotoRoute(page, route);
+		await seedFresh(page);
+		await settleScreen(page);
+
+		// The top bar: the title, Search and the Table controls overflow. Nothing else, on any screen,
+		// and nothing primary-weight: Go live lives inside the overflow.
+		const banner = page.getByRole('banner');
+		expect(await visibleControlNames(banner), `${route} top bar`).toEqual([
+			'Search',
+			'Table controls',
+		]);
+		expect(await filledActions(banner), `${route} top bar primary-weight controls`).toEqual([]);
+		const title = await banner.getByRole('heading', { level: 1 }).boundingBox();
+		expect(title?.width ?? 0, `${route} squeezed its title`).toBeGreaterThanOrEqual(375 / 2);
+		for (const name of ['Search', 'Table controls']) {
+			const box = await banner.getByRole('button', { name, exact: true }).boundingBox();
+			expect(box?.width ?? 0, `${route} ${name} width`).toBeGreaterThanOrEqual(44);
+			expect(box?.height ?? 0, `${route} ${name} height`).toBeGreaterThanOrEqual(44);
+		}
+
+		// The screen's own first screenful keeps to one filled action, or to its recorded ceiling.
+		const debt = PRIMARY_ACTION_DEBT[route];
+		const filled = await filledActions(page.locator('#main-content'), true);
+		expect(
+			filled.length,
+			`${route} fills ${filled.join(' + ')} above the fold${debt ? ` (${debt.owner} owns the fix)` : ''}`,
+		).toBeLessThanOrEqual(debt?.ceiling ?? 1);
+
+		// The overflow says what it opens, works from the keyboard, and gives focus back. CSS, not a
+		// role query, for the trigger: an open modal hides its siblings from the accessibility tree.
+		const trigger = page.locator('header [aria-label="Table controls"]');
+		await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+		await trigger.focus();
+		await page.keyboard.press('Enter');
+		const controls = page.getByRole('dialog', { name: 'Table controls' });
+		await expect(controls).toBeVisible();
+		await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+		await expect
+			.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')))
+			.toBe(true);
+		expect(await filledActions(controls), `${route} table controls primary action`).toEqual([
+			'Go live',
+		]);
+		await expectOverlayControlsReachable(page, `${route} table controls`);
+		await page.keyboard.press('Escape');
+		await expect(controls).toBeHidden();
+		await expect(trigger).toBeFocused();
+		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+		// The navigation overflow: every section the tab bar cannot hold, touch-sized, with this
+		// screen marked when it is one of them.
+		const more = page.getByRole('navigation', { name: 'Primary' }).getByRole('button', {
+			name: 'More',
+		});
+		await more.focus();
+		await page.keyboard.press('Enter');
+		const sections = page.getByRole('dialog', { name: 'All sections' });
+		await expect(sections).toBeVisible();
+		await expectOverlayControlsReachable(page, `${route} all sections`);
+		const rowHeights = await sections
+			.locator('button:not([aria-label="Close"])')
+			.evaluateAll((rows) =>
+				rows.map(
+					(row) => `${row.textContent?.trim().slice(0, 30)}:${row.getBoundingClientRect().height}`,
+				),
+			);
+		expect(
+			rowHeights.filter((row) => Number(row.split(':').pop()) < 44),
+			`${route} all-sections rows under 44px`,
+		).toEqual([]);
+		await expect(sections.locator('[aria-current="page"]')).toHaveCount(
+			MORE_SHEET_ROUTES.has(route) ? 1 : 0,
+		);
+		await page.keyboard.press('Escape');
+		await expect(sections).toBeHidden();
+		await expect(
+			page.locator('nav[aria-label="Primary"] button', { hasText: 'More' }),
+		).toBeFocused();
+	});
+}
+
+// The only confirmation the phone top bar can raise is End session, from inside the Table controls
+// sheet. Both answers are measured against the viewport and `bottomInset` (the Android gesture bar).
+async function expectEndSessionConfirmOnScreen(
+	page: Page,
+	height: number,
+	bottomInset = 0,
+): Promise<{ controls: Locator; confirm: Locator }> {
+	await page.getByRole('button', { name: 'Table controls' }).click();
+	const controls = page.getByRole('dialog', { name: 'Table controls' });
+	await controls.getByRole('button', { name: 'Go live', exact: true }).click();
+	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+	await controls.getByRole('button', { name: 'End live session' }).click();
+
+	const confirm = page.getByRole('dialog', { name: 'End the live session?' });
+	await expect(confirm).toBeVisible();
+	await page.waitForTimeout(250); // the dialog's entrance transform
+	for (const name of ['Stay live', 'End session']) {
+		const answer = confirm.getByRole('button', { name, exact: true });
+		await expect(answer).toBeInViewport({ ratio: 1 });
+		const box = await answer.boundingBox();
+		expect(box, `${name} is not rendered`).not.toBeNull();
+		expect(box!.y + box!.height, `${name} sits under the gesture bar`).toBeLessThanOrEqual(
+			height - bottomInset + 0.5,
+		);
+	}
+	// The confirmation is the one dialog here with a description; the sheet under it has none.
+	expect(
+		await clippedControls(page, '[role="dialog"][aria-describedby]'),
+		'the End session confirmation clipped a control',
+	).toEqual([]);
+	return { controls, confirm };
+}
+
+test('End session from the phone overflow asks first, and Escape unwinds one layer at a time', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+
+	const { controls, confirm } = await expectEndSessionConfirmOnScreen(page, 812);
+	// Escape answers "stay" and closes only the confirmation; the next Escape closes the sheet and
+	// hands focus back to the overflow that opened it.
+	await page.keyboard.press('Escape');
+	await expect(confirm).toBeHidden();
+	await expect(controls).toBeVisible();
+	expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+	await page.keyboard.press('Escape');
+	await expect(controls).toBeHidden();
+	await expect(page.locator('header [aria-label="Table controls"]')).toBeFocused();
+});
+
+// …and the answers must stay on screen when ~360px is left: this file's software-keyboard fixture,
+// which is also every landscape phone, and on Android above the gesture bar too.
+// KNOWN DEFECT, recorded here rather than fixed: the DS Dialog renders `description` in its header,
+// and the header never yields height, so this confirmation's long body pushes the footer out of the
+// clipped panel and both answers render with zero visible area. The fix belongs in
+// `ds/components/overlay/Dialog.jsx` (RC-UX-2.3's Owns), not in the shell. Drop `test.fail` when it
+// lands; Playwright reports this test as unexpectedly passing until then.
+for (const android of [false, true]) {
+	test(`the End session confirmation stays keyboard-safe at 360px${android ? ' inside the Android safe area' : ''}`, async ({
+		page,
+	}) => {
+		test.fail(true, 'Dialog header does not yield height to its footer (ds/components/overlay)');
+		if (android) {
+			await page.addInitScript(() => {
+				(
+					globalThis as typeof globalThis & {
+						__DNDTOOLS_TEST_RUNTIME_KIND__?: 'android';
+					}
+				).__DNDTOOLS_TEST_RUNTIME_KIND__ = 'android';
+			});
+		}
+		await page.setViewportSize({ width: 360, height: 360 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		if (android) {
+			await page.evaluate(() => {
+				const root = document.documentElement.style;
+				root.setProperty('--safe-area-inset-top', '24px');
+				root.setProperty('--safe-area-inset-right', '18px');
+				root.setProperty('--safe-area-inset-bottom', '30px');
+				root.setProperty('--safe-area-inset-left', '16px');
+			});
+		}
+		await expectEndSessionConfirmOnScreen(page, 360, android ? 30 : 0);
+	});
+}
+
+// Wider compact top bars (the rail tier, and a desktop window under 1280px) have the width to keep the
+// table utilities inline as icons, so they carry no overflow, but they still hold the line on
+// primary weight: Go live is the one filled control, on every screen.
+for (const viewport of [
+	{ name: 'rail', width: 800, height: 700 },
+	{ name: 'compact desktop', width: 1100, height: 700 },
+]) {
+	test(`the ${viewport.name} top bar keeps one primary-weight action on every screen`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: viewport.width, height: viewport.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+
+		const banner = page.getByRole('banner');
+		for (const route of ROUTES) {
+			await page.evaluate((next) => {
+				window.location.hash = next;
+			}, route);
+			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+			await settleScreen(page);
+
+			const filled = await filledActions(banner);
+			expect(filled, `${route} ${viewport.name} top bar`).toHaveLength(1);
+			expect(filled[0], `${route} ${viewport.name} top bar`).toMatch(/^Go live/);
+			await expect(banner.getByRole('button', { name: 'Table controls' })).toHaveCount(0);
+			expect(await clippedControls(page, 'header'), `${route} top bar clipped a control`).toEqual(
+				[],
+			);
+		}
+	});
+}

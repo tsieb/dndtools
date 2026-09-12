@@ -42,6 +42,10 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'minmax(0,1fr)',
+						// RC-UX-4.2 — a phone touch target is at least 44px. A row with a subtitle clears that
+						// on its own, but Settings has none and rendered 36px tall; the track floor stretches
+						// every row's button to 44px without touching the shared SideRow.
+						gridAutoRows: 'minmax(44px, auto)',
 						gap: 4,
 						paddingBottom: 8,
 					}}

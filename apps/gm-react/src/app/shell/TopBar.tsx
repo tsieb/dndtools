@@ -168,11 +168,16 @@ export function TopBar({
 					</button>
 				)}
 				{viewport === 'phone' ? (
+					// RC-UX-4.2 — the phone top bar's ONE overflow (NAVIGATION.md §4). It announces itself
+					// as a dialog opener with its open state, so a screen reader hears where the table
+					// controls went instead of a bare "Table controls, button".
 					<IconButton
 						icon="session-bolt"
 						label={t('shell.tableControls')}
 						variant="outline"
 						size="lg"
+						aria-haspopup="dialog"
+						aria-expanded={controlsOpen}
 						onClick={() => setControlsOpen(true)}
 					/>
 				) : (
