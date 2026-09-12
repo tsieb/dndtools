@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { statSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 // The whole-app validation harness owns the Vite process so every browser check shares the
 // same local-only server. GitHub Actions sets CI=1, where standalone Playwright runs must still
@@ -11,7 +13,25 @@ const reuseValidationServer = process.env.DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERV
 // another checkout of the repo already holds 5273 (e.g. the autonomous review loop's worktree).
 // Without it, `reuseExistingServer` is true outside CI and a local run silently attaches to that
 // other checkout's server — testing someone else's working tree and reporting it as your own.
-const port = Number(process.env.DNDTOOLS_E2E_PORT ?? 5273);
+//
+// A linked git worktree (`.git` is a file there, not a directory) is a dispatcher candidate or a
+// scratch tree, never the checkout a developer runs `pnpm dev` from, and several of them run this
+// suite at once. Each one gets its own stable port derived from its path, so two overlapping gates
+// cannot attach to each other's server (and die with ERR_CONNECTION_REFUSED when the other run
+// stops it). The primary checkout, CI and the managed validation harness keep 5273.
+function linkedWorktreePort(): number | undefined {
+	if (reuseValidationServer) return undefined;
+	const root = fileURLToPath(new URL('../../', import.meta.url));
+	try {
+		if (!statSync(`${root}.git`).isFile()) return undefined;
+	} catch {
+		return undefined;
+	}
+	let hash = 2166136261;
+	for (const ch of root) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+	return 5300 + (hash % 600);
+}
+const port = Number(process.env.DNDTOOLS_E2E_PORT ?? linkedWorktreePort() ?? 5273);
 
 // Worker cap. Playwright's default is half the logical CPUs — 8 Chromium instances on a 16-core
 // box — and several concurrent runs (the RC loop's slots, the promotion gate, an interactive run)

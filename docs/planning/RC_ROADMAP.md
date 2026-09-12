@@ -792,7 +792,8 @@ character,audio,reference}` per theme, OKLCH-harmonised in the warm family; forc
   Acceptance: snapshot per type in all three themes; the "one second scan" rule verified by a
   reviewer note in the PR.
 - **RC-CAN-2.3 — Note tile depth levels.** `M` · P2 · Deps: 2.2, KNW-1.1 · Owns:
-  `app/widgets/builtin/NoteBody.tsx`, `app/widgets/builtin/NotesBody.tsx`, `app/widgets/builtin/index.tsx`,
+  `app/widgets/builtin/NoteBody.tsx`, `app/widgets/builtin/Note.tsx` (new; the depth renderer `NoteBody`
+  delegates to), `app/widgets/builtin/NotesBody.tsx`, `app/widgets/builtin/index.tsx`,
   `packages/core/src/state/widget-package-state.ts` (the note widget's `configFields`:
   `depth: title|summary|full`), `app/canvas/WidgetFrame.tsx` (a depth badge in edit mode). Full depth uses the shared markdown renderer and virtualizes over 200
   lines (IntersectionObserver sentinels). Acceptance: e2e toggles depth; perf test renders a 2,000-
