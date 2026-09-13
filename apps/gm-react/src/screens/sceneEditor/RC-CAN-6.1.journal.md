@@ -150,3 +150,20 @@
   check on the overlay, exit 0. Playwright `player-preview.spec.ts` + `isolation-guard.spec.ts` 6/6
   across desktop and mobile Chromium, `CI=1 DNDTOOLS_E2E_PORT=53377`, no retries, JSON reporter
   (`startTime` 02:22:36Z, 6 expected, 0 unexpected, 0 flaky), exit 0.
+
+## Retry — 2026-09-12 ("App tests" gate)
+
+- Gate on `c63b3f10`: Quality gates, Format (changed), Typecheck and Lint passed. App tests exited 1
+  with 1 failure out of 1340: `app/help/changelog.test.ts` › "the shipped version is the changelog's
+  latest release", `expected 'Unreleased' to be '0.3.7'`. It reproduces locally on HEAD the same way.
+- Not caused by this story, and outside its claim. The branch's base is `66d78752`, the current
+  `loop/rc` tip, already in HEAD. `git diff 66d78752 HEAD` touches only the nine story files, and
+  the test's inputs are byte-identical between base and HEAD (`CHANGELOG.md`,
+  `apps/gm-react/package.json`, `app/help/`). So base fails this test on its own.
+- Cause: `66b7ab7f` ("docs: add RC release notes and Lamplight marketing page", on `loop/rc`) put
+  release-candidate bullets under `## [Unreleased]`. `latestRelease` skips `[Unreleased]` only when
+  it is empty, so it now returns `Unreleased`, while the app's `package.json` is still `0.3.7`.
+- Not fixed here. The fix is a release-notes decision: move those notes under a versioned heading
+  with a matching `package.json` bump, or change what "What's new" shows for unreleased notes. It
+  lives in `CHANGELOG.md` or `app/help/`, neither of which this story owns, and it has to land on
+  `loop/rc` for every candidate. This attempt commits only this journal entry. No source changed.
