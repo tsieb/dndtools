@@ -88,3 +88,25 @@ dispatcher mutations, push or promotion.
   `apps/gm-react/src/screens/community/Discover.test.tsx`,
   `apps/gm-react/tests/e2e/community-discover.spec.ts`, and
   `scripts/eslint-rules/no-raw-style-values.allow.js`. The branch is not scope-gate-ready.
+
+## Current scheduled follow-up (2026-09-12)
+
+- Resumed clean branch at `14f679e6`; inherited implementation and companion files preserved.
+- Headroom tools are not available in this session; using bounded native reads and command output.
+- Checking a rating/deletion race: listing existence is read before the rating transaction, so
+  deletion can finish before a late rating recreates orphaned review and aggregate rows.
+- Regression reproduced: the deleted-listing request returned 200 instead of 409 before the fix.
+  Added an atomic listing-existence condition to the rating transaction. Its contract test verifies
+  409 and no reviewer copy, public review or aggregate written after the concurrent deletion.
+- Current-run verification (native, complete output inspected):
+  - `pnpm exec vitest run --config vitest.cloud.config.ts packages/cloud-fns/src/app-api --maxWorkers=1`:
+    3 files / 101 tests passed, including endpoint contracts and maintainer guards.
+  - `pnpm --filter @dndtools/cloud-fns typecheck`: passed.
+  - Targeted ESLint on handler and handler tests, Prettier, `git diff --check`: passed.
+  - `community-discover.spec.ts`, one worker, fresh dynamically allocated server port:
+    8/8 desktop/mobile tests passed (kind/system search, featured row, install then rate,
+    and Extensions panel presence/absence). The browser uses the existing mocked API transport;
+    the contract tests exercise the actual handler with fake AWS persistence.
+- Current edits are limited to the owned handler/test paths and this required run journal.
+  Earlier companion changes remain inherited and untouched; the prior scope-gate concern is
+  still unresolved here. No full central gates, deployment, push or promotion were performed.

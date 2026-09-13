@@ -1694,6 +1694,18 @@ describe('discovery (RC-CLD-4.5)', () => {
 			expect((await reviewsOf('dm-1', moduleId)).body.rating).toEqual({ average: 3, count: 1 });
 		});
 
+		it('does not recreate reviews after the listing is removed mid-request', async () => {
+			const moduleId = await publish('pub-a');
+			await install('dm-1', moduleId);
+			store.beforeNextTransaction = () => {
+				store.items.delete(`module#${moduleId}|listing`);
+			};
+			expect((await rate('dm-1', moduleId, { stars: 4 })).status).toBe(409);
+			expect(store.items.has(`account#dm-1|review#${moduleId}`)).toBe(false);
+			expect([...store.items.keys()].some((key) => key.startsWith('listing-ratings|'))).toBe(false);
+			expect([...store.items.values()].some((row) => row.reviewerSub === 'dm-1')).toBe(false);
+		});
+
 		it('writes no rating once the account is deleted mid-request (410)', async () => {
 			const moduleId = await publish('pub-a');
 			await install('dm-1', moduleId);

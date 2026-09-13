@@ -1339,6 +1339,16 @@ async function putReview(
 	try {
 		await sendTransaction([
 			accountActiveCheck(caller),
+			// A listing removed after the initial read must not acquire new orphaned ratings.
+			// The existence check and review writes share the same transaction.
+			{
+				ConditionCheck: {
+					TableName: APP_TABLE,
+					Key: toItem({ pk: modulePk(moduleId), sk: SK_LISTING }),
+					ConditionExpression: 'attribute_exists(#pk)',
+					ExpressionAttributeNames: { '#pk': 'pk' },
+				},
+			},
 			{
 				Put: {
 					TableName: APP_TABLE,
