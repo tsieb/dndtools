@@ -3,6 +3,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Muted, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveReadout } from './live';
 
 /**
  * The `notes` Command Center widget (RC-WID-4.1) — the notes most recently touched, `count` deciding
@@ -36,7 +37,9 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 					{note.title}
 				</div>
 			))}
-			<Muted>{t('widgetBody.notes.count', { shown: shown.length, total: notes.length })}</Muted>
+			<LiveReadout>
+				<Muted>{t('widgetBody.notes.count', { shown: shown.length, total: notes.length })}</Muted>
+			</LiveReadout>
 		</div>
 	);
 }

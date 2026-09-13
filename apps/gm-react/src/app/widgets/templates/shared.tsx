@@ -24,8 +24,27 @@ export interface WidgetTemplateProps {
 	onCommand?: WidgetCommandHandler;
 }
 
-/** The frame body every template fills: a column that scrolls rather than escaping its widget. */
-export function TemplateShell({ children, testId }: { children: ReactNode; testId: string }) {
+/**
+ * The frame body every template fills: a column that scrolls rather than escaping its widget.
+ *
+ * RC-WID-4.4 — the column has two parts. `children` is the READOUT, what the data says, and it sits
+ * in a polite live region so a row arriving or a figure moving is announced instead of changing
+ * silently under a screen-reader user. It is part of the shell, so it is mounted for as long as the
+ * template is and never arrives together with its own text. `controls` (an action panel's buttons, a
+ * form's fields) sit OUTSIDE it: a region that also held them would re-read a control's label on top
+ * of the focus announcement the user already gets. Not atomic, so a new row is read on its own
+ * rather than the whole table again. `aria-live` rather than `role="status"`, for the reason
+ * `builtin/live.tsx` gives: the board's own confirmation channel is the one status on a canvas.
+ */
+export function TemplateShell({
+	children,
+	testId,
+	controls,
+}: {
+	children: ReactNode;
+	testId: string;
+	controls?: ReactNode;
+}) {
 	return (
 		<div
 			data-testid={testId}
@@ -38,7 +57,14 @@ export function TemplateShell({ children, testId }: { children: ReactNode; testI
 				overflow: 'auto',
 			}}
 		>
-			{children}
+			<div
+				aria-live="polite"
+				aria-atomic="false"
+				style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+			>
+				{children}
+			</div>
+			{controls}
 		</div>
 	);
 }

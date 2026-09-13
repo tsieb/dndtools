@@ -334,3 +334,85 @@ describe('declared operate commands are visible controls on the tile', () => {
 		expect(dispatchSpy).not.toHaveBeenCalled();
 	});
 });
+
+/**
+ * RC-WID-4.4 — the accessibility contract on the bodies themselves (docs/architecture/WIDGETS.md
+ * §3.1): a value readout is a live region that is already mounted when the value changes, and a
+ * state an accent tone carried is also a shape with a name.
+ */
+describe('the widget accessibility contract', () => {
+	const byType = (type: string): WidgetDefinition => {
+		const found = SYSTEM_DEFINITIONS.find((d) => d.type === type);
+		if (!found) throw new Error(`no system widget definition for ${type}`);
+		return found;
+	};
+
+	// A polite live region: the new readouts use `aria-live`; the dice result keeps its older
+	// `role="status"`, which is polite by definition.
+	const LIVE = '[aria-live="polite"], [role="status"]';
+
+	// Authored prose is content, not a value. `map` and `quick-reference` have nothing to read out
+	// in this fixture: the map tile is unbound and the vault holds no reference rows.
+	const NO_READOUT = new Set(['note', 'handout', 'map', 'quick-reference']);
+
+	it.each(
+		SYSTEM_DEFINITIONS.filter((d) => !NO_READOUT.has(d.type)).map((d) => [d.type, d] as const),
+	)('%s reads its value out through a polite live region', (_type, definition) => {
+		renderBody(definition);
+		const region = container.querySelector(LIVE);
+		expect(region).not.toBeNull();
+		// `status` is polite by definition; an explicit `aria-live` may only restate that.
+		expect(region?.getAttribute('aria-live') ?? 'polite').toBe('polite');
+	});
+
+	it('does not read authored prose into a live region', () => {
+		renderBody(byType('note'));
+		expect(container.querySelector(LIVE)).toBeNull();
+	});
+
+	it('keeps the region mounted as the value changes, so the change is announced', () => {
+		runtimeRef.state = campaign();
+		runtimeRef.defaultActorId = DM_ACTOR.id;
+		const draw = () =>
+			act(() =>
+				root.render(
+					<I18nProvider>
+						<WidgetBody widget={boardWidget(byType('combat'))} />
+					</I18nProvider>,
+				),
+			);
+		draw();
+		const before = container.querySelector(LIVE);
+		expect(before?.textContent).toContain('1');
+
+		runtimeRef.state = accept(
+			dispatchCommand(runtimeRef.state, makeEnvironment(), {
+				type: 'combat.advance-turn',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
+		);
+		draw();
+		const after = container.querySelector(LIVE);
+		expect(after).toBe(before);
+		expect(after?.textContent).toContain('2');
+	});
+
+	it('draws the empty audio tile inside the region a starting track will be announced in', () => {
+		renderBody(byType('audio'));
+		expect(container.firstElementChild?.getAttribute('aria-live')).toBe('polite');
+	});
+
+	it('names a done setup step and a pinned search, instead of leaving it to the accent tone', () => {
+		renderBody(byType('getting-started'));
+		expect(container.querySelector('[role="img"][aria-label="Done"]')).not.toBeNull();
+		renderBody(byType('search'));
+		expect(container.querySelector('[role="img"][aria-label="Pinned"]')).not.toBeNull();
+	});
+
+	it('keeps the ticking countdown out of the live region', () => {
+		renderBody(byType('timer'));
+		expect(container.querySelector('[role="timer"]')?.textContent).toMatch(/\d:\d\d/);
+		expect(container.querySelector('[aria-live="polite"] [role="timer"]')).toBeNull();
+	});
+});

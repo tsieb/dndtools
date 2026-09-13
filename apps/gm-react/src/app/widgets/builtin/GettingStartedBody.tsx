@@ -2,6 +2,7 @@ import { resolveOnboarding } from '@dndtools/core';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import { Chip, Muted, StatPill, bodyWrap } from '../../widget-body-kit';
+import { LiveStats, StateMark } from './live';
 
 /**
  * The `getting-started` Command Center widget (RC-WID-4.1) — the first-run guidance tile, reading
@@ -16,7 +17,7 @@ export function GettingStartedBody() {
 	const done = view.steps.filter((step) => step.done).length;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill
 					label={t('widgetBody.gettingStarted.setup')}
 					value={`${done} / ${view.steps.length}`}
@@ -25,11 +26,12 @@ export function GettingStartedBody() {
 					label={t('widgetBody.gettingStarted.tier')}
 					value={t(`widgetBody.gettingStarted.tier.${view.tier}`)}
 				/>
-			</div>
+			</LiveStats>
 			{view.canSetup ? (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 					{view.steps.map((step) => (
 						<Chip key={step.id} tone={step.done ? 'accent' : 'neutral'}>
+							{step.done && <StateMark icon="check" label={t('common.action.done')} />}
 							{step.label}
 						</Chip>
 					))}

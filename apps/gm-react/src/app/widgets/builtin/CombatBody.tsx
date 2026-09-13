@@ -3,6 +3,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Chip, Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * The `combat` Command Center widget (RC-WID-4.1) — the live tracker at a glance plus the most
@@ -42,7 +43,7 @@ export function CombatBody({ widget }: { widget: BoardWidget }) {
 	);
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill
 					label={t('widgetBody.initiative.round')}
 					value={running ? String(tracker.round) : '—'}
@@ -51,7 +52,7 @@ export function CombatBody({ widget }: { widget: BoardWidget }) {
 					label={t('widgetBody.initiative.turn')}
 					value={running ? (active?.name ?? `#${tracker.turn + 1}`) : '—'}
 				/>
-			</div>
+			</LiveStats>
 			{latest ? (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 					<Chip>{latest.title}</Chip>

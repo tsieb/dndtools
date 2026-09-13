@@ -1,4 +1,5 @@
 import { DefinitionList, ProgressMeter, Stat } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
 	TemplateEmpty,
@@ -20,8 +21,12 @@ import {
  * are a DM's judgement rather than something the core derives, and a widget whose measure is its
  * configuration is the honest way to say so. Failing that (no measures and no configured numbers) it
  * falls back to the row COUNT, the one thing a list-shaped source can always be tracked by.
+ *
+ * The active row's meter was marked by its accent tone alone; its label now says "Now" too, so the
+ * state survives a screen reader and forced-colors mode (RC-WID-4.4).
  */
 export function TrackerTemplate({ widget, definition, data }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const query = data.primary;
 	const rows = query?.rows ?? [];
 	const metered = rows.filter(
@@ -62,7 +67,7 @@ export function TrackerTemplate({ widget, definition, data }: WidgetTemplateProp
 			{metered.map((row) => (
 				<ProgressMeter
 					key={row.id}
-					label={row.primary}
+					label={row.active ? `${row.primary} · ${t('widgetTemplate.now')}` : row.primary}
 					value={row.value}
 					max={row.max}
 					valueLabel={`${row.value} of ${row.max}`}

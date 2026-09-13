@@ -3,6 +3,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Chip, Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * The `atlas` Command Center widget (RC-WID-4.1) — the active-map projection state plus the most
@@ -23,7 +24,7 @@ export function AtlasBody({ widget }: { widget: BoardWidget }) {
 	if (maps.length === 0) return <Muted>{t('widgetBody.atlas.empty')}</Muted>;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill label={t('widgetBody.atlas.maps')} value={String(maps.length)} />
 				{projection && (
 					<StatPill
@@ -35,7 +36,7 @@ export function AtlasBody({ widget }: { widget: BoardWidget }) {
 						}
 					/>
 				)}
-			</div>
+			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{maps.slice(0, shown).map((map) => (
 					<Chip key={map.id}>{map.name}</Chip>

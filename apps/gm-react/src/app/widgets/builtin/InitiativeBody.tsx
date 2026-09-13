@@ -11,6 +11,7 @@ import { Muted, StatPill, bodyWrap, cfg, type WidgetCommandHandler } from '../..
 import { useViewport } from '../../useViewport';
 import { InitiativeTrackerCompact } from './InitiativeTracker';
 import { NextTurnControl } from './NextTurnControl';
+import { LiveStats } from './live';
 
 /**
  * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
@@ -62,7 +63,8 @@ export function InitiativeBody({
 	if (compact) return <InitiativeTrackerCompact showHp={showHp} interactive={!!onCommand} />;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			{/* RC-WID-4.4 — the round and whose turn it is ARE this tile's value: announce them. */}
+			<LiveStats>
 				{turnModel.rounds && (
 					<StatPill
 						label={t('widgetBody.initiative.round')}
@@ -83,7 +85,7 @@ export function InitiativeBody({
 						value={`${active.resources.hp} / ${active.resources.maxHp}`}
 					/>
 				)}
-			</div>
+			</LiveStats>
 			{/* RC-WID-4.2 — the tile's own operate control; see `NextTurnControl.tsx`. */}
 			<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
 				<NextTurnControl running={running} interactive={!!onCommand} />

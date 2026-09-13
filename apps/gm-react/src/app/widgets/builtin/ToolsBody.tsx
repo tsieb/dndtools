@@ -1,6 +1,7 @@
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import { Chip, Muted, StatPill, bodyWrap } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * The `tools` Command Center widget (RC-WID-4.1) — what the GM Screen currently holds and what can
@@ -17,10 +18,10 @@ export function ToolsBody() {
 	const presets = Object.values(runtime.state.commandCenter.presets);
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill label={t('widgetBody.tools.widgets')} value={String(widgetCount)} />
 				<StatPill label={t('widgetBody.tools.layouts')} value={String(presets.length)} />
-			</div>
+			</LiveStats>
 			{presets.length > 0 ? (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 					{presets.slice(0, 3).map((preset) => (

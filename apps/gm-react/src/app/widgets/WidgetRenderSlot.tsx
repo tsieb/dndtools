@@ -10,6 +10,7 @@ import {
 	resolveWidgetStyleVariables,
 	type WidgetTemplateKind,
 } from '@dndtools/core';
+import { matchesMedia, subscribeMedia } from '../../platform/preferences';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
@@ -129,34 +130,71 @@ export function WidgetStyleScope({
 	);
 }
 
-function subscribeToTheme(onChange: () => void) {
+/**
+ * RC-WID-4.4 — every widget's contents are ONE region, named by the widget's own title, so a
+ * screen-reader user can move tile to tile by landmark and always knows whose content they are in.
+ * It is drawn here, on the single render path, rather than in each body: a builtin body, a template,
+ * a sandboxed frame and the "disabled, preserved" placeholder all get it, and none can forget it.
+ * The frame around it (`WidgetFrame`) is the focusable group that carries the layout chrome; this is
+ * the content inside it.
+ */
+export function WidgetRegion({ label, children }: { label: string; children: ReactNode }) {
+	return (
+		<section aria-label={label} data-widget-region="" style={{ height: '100%', minHeight: 0 }}>
+			{children}
+		</section>
+	);
+}
+
+const FORCED_COLORS_QUERY = '(forced-colors: active)';
+
+function subscribeToAppearance(onChange: () => void) {
 	const observer = new MutationObserver(onChange);
 	observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-	return () => observer.disconnect();
+	const unsubscribeMedia = subscribeMedia([FORCED_COLORS_QUERY], onChange);
+	return () => {
+		observer.disconnect();
+		unsubscribeMedia();
+	};
 }
 
 const readTheme = () => document.documentElement.getAttribute('data-theme') ?? '';
-const serverTheme = () => '';
-const ignoreTheme = () => () => {};
+const readForcedColors = () => matchesMedia(FORCED_COLORS_QUERY);
+/** The whole palette: a frame drawn with the host's tokens restarts on any theme change. */
+const readPalette = () => `${readTheme()}|${readForcedColors()}`;
+/** Only the contrast state `SandboxHost` forwards to every frame (RC-WID-4.4). */
+const readContrast = () => `${readTheme() === 'high-contrast'}|${readForcedColors()}`;
+const serverAppearance = () => '';
+const ignoreAppearance = () => () => {};
 
 /**
- * The sandbox protocol only installs theme variables at initialization. Refresh that host when the
- * app theme changes so its opaque document receives the new palette. This restarts guest-local JS
- * state; persisted configuration and bindings are supplied again by SandboxHost. Workers and widgets
- * without host-theme-tokens do not subscribe or restart. Replace this refresh with a theme message
- * when the sandbox protocol supports updates without reinitialization.
+ * The sandbox protocol only installs theme variables at initialization. Refresh that host when what
+ * it was given goes stale, so its opaque document receives the new values. This restarts guest-local
+ * JS state; persisted configuration and bindings are supplied again by SandboxHost.
+ *
+ * Two tiers. A frame that declares `host-theme-tokens` (`followsTheme`) restarts on any theme change,
+ * because its palette came from the host. EVERY other frame (`followsContrast`) restarts only when the
+ * contrast state flips — the high-contrast theme, or the OS forcing colours — because SandboxHost
+ * forwards that state to all frames regardless of declared capabilities. Workers draw through the host's
+ * own templates and follow neither. Replace this refresh with a theme message when the sandbox
+ * protocol supports updates without reinitialization.
  */
 export function ThemeAwareWidgetHost({
 	Host,
 	followsTheme,
+	followsContrast = false,
 	...props
-}: WidgetRendererProps & { Host: WidgetRenderer; followsTheme: boolean }) {
-	const theme = useSyncExternalStore(
-		followsTheme ? subscribeToTheme : ignoreTheme,
-		followsTheme ? readTheme : serverTheme,
-		serverTheme,
+}: WidgetRendererProps & {
+	Host: WidgetRenderer;
+	followsTheme: boolean;
+	followsContrast?: boolean;
+}) {
+	const appearance = useSyncExternalStore(
+		followsTheme || followsContrast ? subscribeToAppearance : ignoreAppearance,
+		followsTheme ? readPalette : followsContrast ? readContrast : serverAppearance,
+		serverAppearance,
 	);
-	return <Host key={theme} {...props} />;
+	return <Host key={appearance} {...props} />;
 }
 
 /** Draw one resolved plan. Split out so the resolver's branches map 1:1 onto render calls. */
@@ -181,11 +219,13 @@ function renderPlan(
 		case 'custom': {
 			// Which sandbox the package asked for. Anything that is not a worker gets the frame, so a
 			// package that names no sandbox keeps the RC-WID-1.3 behaviour it had.
-			const Host = plan.entrypoint.sandbox === 'worker' ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
+			const worker = plan.entrypoint.sandbox === 'worker';
+			const Host = worker ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
 			return Host ? (
 				<ThemeAwareWidgetHost
 					Host={Host}
-					followsTheme={followsTheme && plan.entrypoint.sandbox !== 'worker'}
+					followsTheme={followsTheme && !worker}
+					followsContrast={!worker}
 					{...props}
 				/>
 			) : (
@@ -226,13 +266,15 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 		<WidgetStyleScope
 			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
 		>
-			<WidgetErrorBoundary widgetId={widget.id}>
-				{renderPlan(
-					plan,
-					{ widget, onCommand },
-					definition?.style?.capabilities?.includes('host-theme-tokens') ?? false,
-				)}
-			</WidgetErrorBoundary>
+			<WidgetRegion label={widget.title.trim() || widget.typeLabel}>
+				<WidgetErrorBoundary widgetId={widget.id}>
+					{renderPlan(
+						plan,
+						{ widget, onCommand },
+						definition?.style?.capabilities?.includes('host-theme-tokens') ?? false,
+					)}
+				</WidgetErrorBoundary>
+			</WidgetRegion>
 		</WidgetStyleScope>
 	);
 }

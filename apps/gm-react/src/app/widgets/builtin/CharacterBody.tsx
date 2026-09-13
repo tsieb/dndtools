@@ -4,6 +4,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import { useI18n } from '../../../i18n';
 import { Chip, Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
@@ -65,7 +66,7 @@ export function CharacterBody({ widget }: { widget: BoardWidget }) {
 					{view.name}
 				</div>
 			)}
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill
 					label={t('widgetBody.initiative.hp')}
 					value={view ? `${view.combat.hp} / ${view.combat.maxHp}` : '— / —'}
@@ -76,7 +77,7 @@ export function CharacterBody({ widget }: { widget: BoardWidget }) {
 						value={view ? String(view.combat.ac) : '—'}
 					/>
 				)}
-			</div>
+			</LiveStats>
 			{showAbilities && attributes.length > 0 && (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 					{attributes.map((attribute) => {

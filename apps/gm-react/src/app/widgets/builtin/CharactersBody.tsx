@@ -3,6 +3,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Chip, Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * The `characters` Command Center widget (RC-WID-4.1) — the party roster at a glance. `showVitals`
@@ -25,13 +26,13 @@ export function CharactersBody({ widget }: { widget: BoardWidget }) {
 	if (characters.length === 0) return <Muted>{t('widgetBody.characters.empty')}</Muted>;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill label={t('widgetBody.characters.party')} value={String(party.length)} />
 				<StatPill
 					label={t('widgetBody.characters.others')}
 					value={String(characters.length - party.length)}
 				/>
-			</div>
+			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{characters.slice(0, 6).map((character) => (
 					<Chip key={character.id}>
