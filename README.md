@@ -1,8 +1,28 @@
 # Lamplight
 
-A canvas-first command platform for tabletop RPG play. Content, tools, and AI compose into one
-spatial workspace where the GM runs sessions, maps, and characters. Local-first, system-agnostic,
-and playable across a table or across the internet.
+Lamplight is a workspace for running tabletop RPGs. Keep campaign notes beside your maps,
+arrange session tools on a board, and track the party through a fight. Your vault lives on your
+device; cloud services are optional.
+
+The app is in alpha, with a release candidate in development. Start with the
+[install guide](apps/gm-react/INSTALL-ALPHA.md) for desktop and Android downloads, setup, and
+platform limits. Export a vault backup before upgrading. See the [release notes](CHANGELOG.md)
+for changes and the [project site](https://lamplight.click) for the web app.
+
+## At the table
+
+![Lamplight board with session widgets in the sample campaign](infra/web-hosting/static/screenshots/board.png)
+
+Arrange widgets on the board to keep session tools within reach.
+
+![Lamplight atlas with the sample campaign map and layer controls](infra/web-hosting/static/screenshots/atlas.png)
+
+The atlas brings maps and points of interest into the campaign. Reveal fog and move tokens during play.
+
+These are real captures of the built-in sample vault from the RC development build, refreshed on
+2026-09-12. [Capture details and refresh command](infra/web-hosting/README.md#screenshots).
+
+## Work on Lamplight
 
 This repository is a pnpm workspace:
 

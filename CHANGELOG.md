@@ -6,6 +6,22 @@ v1 document-editor have been removed; that application's last state is preserved
 
 ## [Unreleased]
 
+### Release candidate preview
+
+The Lamplight release candidate is in development. These notes describe changes on the current
+branch. Installers still come from the alpha releases.
+
+- The README and landing page now show the board and atlas with the built-in sample campaign.
+  Screenshots are captured from the app by a local browser suite, with source revision and image
+  hashes recorded alongside them.
+- System package authors can validate their packages with `pnpm systems:validate` and follow
+  the authoring guide in `docs/architecture/SYSTEM_PACKAGES.md`.
+- Board widgets hide repeated GM-only badges by default. Shared, hidden, and mixed visibility
+  remain marked; a preference restores the GM-only labels.
+
+For available installers and upgrade steps, use the [alpha install guide](apps/gm-react/INSTALL-ALPHA.md).
+Export a vault backup before updating, especially on Android, where uninstalling removes local data.
+
 ## [0.3.7] - 2026-09-09
 
 Same application code as 0.3.6, plus the three Android fixes below. 0.3.6's release build never
