@@ -299,6 +299,61 @@ describe('multiple-accent-primaries', () => {
 	});
 });
 
+describe('review regressions', () => {
+	it.each(['12px / 1.2', '12px/ 1.2', '12px /1.2'])(
+		'parses spaced shorthand line-height: %s',
+		(size) => {
+			const findings = lint(
+				{
+					'Title.tsx': [
+						`export const Title = () => <h2 style={{ font: '700 ${size} var(--font-display)' }} />;`,
+					],
+				},
+				'display-face-below-24px',
+			);
+			expect(findings).toHaveLength(1);
+			expect(findings[0]).toMatchObject({ line: 1, weight: 1 });
+		},
+	);
+
+	it.each([
+		["font: '700 24px var(--font-display)', fontSize: 12", 1],
+		["font: '700 12px var(--font-display)', fontSize: 24", 0],
+		["fontSize: 12, font: '700 24px var(--font-display)'", 0],
+		["fontSize: 24, font: '700 12px var(--font-display)'", 1],
+		["font: '700 12px var(--font-display)', fontFamily: 'sans-serif'", 0],
+	])('respects font declaration order: %s', (style, count) => {
+		expect(
+			lint(
+				{ 'Title.tsx': [`export const Title = () => <h2 style={{ ${style} }} />;`] },
+				'display-face-below-24px',
+			),
+		).toHaveLength(count);
+	});
+
+	it.each([
+		["style={{ background: 'var(--color-accent)' }}", 1],
+		['variant="secondary" style={{ backgroundColor: \'var(--color-accent)\' }}', 1],
+		['variant="primary"', 1],
+		["style={{ background: 'var(--color-accent-subtle)' }}", 0],
+	])('counts DS inline fills with the real Button: %s', (props, count) => {
+		const findings = lint(
+			{
+				'Button.jsx': fs
+					.readFileSync(path.join(REPO_ROOT, SRC, 'ds/components/core/Button.jsx'), 'utf8')
+					.split('\n'),
+				'Page.tsx': [
+					"import { Button } from './Button.jsx';",
+					`export const Page = () => <div><Button ${props}>One</Button><Button ${props}>Two</Button></div>;`,
+				],
+			},
+			'multiple-accent-primaries',
+		);
+		expect(findings).toHaveLength(count);
+		if (count) expect(findings[0]).toMatchObject({ file: `${SRC}/Page.tsx`, line: 2, weight: 1 });
+	});
+});
+
 describe('baseline', () => {
 	it('fails a count that rises or a new file, and lets counts shrink', () => {
 		const baseline: Baseline = {

@@ -421,19 +421,21 @@ export function cssSizePx(
 function shorthandSizePx(value: string, textTokens: Map<string, number>): number | undefined {
 	const at = value.search(DISPLAY_FACE_START);
 	if (at < 0) return undefined;
-	const last = splitTopLevel(value.slice(0, at)).at(-1);
-	if (!last) return undefined;
-	// `22px/1.1` — drop the line-height.
+	// The slash may have whitespace on either side. Ignore the entire line-height,
+	// while retaining slashes nested in CSS functions.
+	const prefix = value.slice(0, at);
 	let depth = 0;
-	let size = last;
-	for (let i = 0; i < last.length; i += 1) {
-		if (last[i] === '(') depth += 1;
-		if (last[i] === ')') depth -= 1;
-		if (last[i] === '/' && depth === 0) {
-			size = last.slice(0, i);
+	let end = prefix.length;
+	for (let i = 0; i < prefix.length; i += 1) {
+		if (prefix[i] === '(') depth += 1;
+		if (prefix[i] === ')') depth -= 1;
+		if (prefix[i] === '/' && depth === 0) {
+			end = i;
 			break;
 		}
 	}
+	const size = splitTopLevel(prefix.slice(0, end)).at(-1);
+	if (!size) return undefined;
 	return cssSizePx(size, textTokens);
 }
 
@@ -537,7 +539,11 @@ function primaryLabel(element: ts.JsxOpeningLikeElement): string | undefined {
 	const tag = tagOf(element);
 	if (!tag) return undefined;
 	const prop = PRIMARY_PROPS.get(tag.name);
-	if (prop && !isIntrinsic(tag)) return prop.check(element) ? prop.label : undefined;
+	if (prop && !isIntrinsic(tag)) {
+		if (tag.name === 'Button' && hasInlineAccentFill(element))
+			return '<Button> with an accent fill';
+		return prop.check(element) ? prop.label : undefined;
+	}
 	if (!isIntrinsic(tag)) return undefined;
 	// A skip link sits off-viewport until focused; the app marks it `data-skip-link`.
 	if (jsxAttribute(element, 'data-skip-link')) return undefined;
@@ -859,34 +865,32 @@ class Project {
 		object: ts.ObjectLiteralExpression,
 		findings: Finding[],
 	): void {
-		const props = new Map<string, ts.PropertyAssignment>();
+		// Apply shorthand resets and longhand overrides in declaration order, as React does.
+		let states: { display: boolean; size?: number }[] = [{ display: false }];
+		let anchor: ts.Node | undefined;
 		for (const prop of object.properties) {
 			if (!ts.isPropertyAssignment(prop)) continue;
 			const name = propertyName(prop.name);
-			if (name) props.set(name, prop);
+			if (name !== 'font' && name !== 'fontFamily' && name !== 'fontSize') continue;
+			anchor = prop;
+			const values = evaluate(prop.initializer);
+			states = states
+				.flatMap((state) =>
+					values.map((value) => {
+						if (name === 'font')
+							return {
+								display: DISPLAY_FACE.test(value),
+								size: shorthandSizePx(value, this.textTokens),
+							};
+						if (name === 'fontFamily') return { ...state, display: DISPLAY_FACE.test(value) };
+						return { ...state, size: cssSizePx(value, this.textTokens, true) };
+					}),
+				)
+				.slice(0, MAX_VARIANTS);
 		}
-		const sizes: number[] = [];
-		let anchor: ts.Node | undefined;
-		const font = props.get('font');
-		if (font) {
-			for (const value of evaluate(font.initializer)) {
-				if (!DISPLAY_FACE.test(value)) continue;
-				anchor = font;
-				const px = shorthandSizePx(value, this.textTokens);
-				if (px !== undefined) sizes.push(px);
-			}
-		}
-		const family = props.get('fontFamily');
-		if (family && evaluate(family.initializer).some((value) => DISPLAY_FACE.test(value))) {
-			anchor ??= family;
-			const size = props.get('fontSize');
-			if (size) {
-				for (const value of evaluate(size.initializer)) {
-					const px = cssSizePx(value, this.textTokens, true);
-					if (px !== undefined) sizes.push(px);
-				}
-			}
-		}
+		const sizes = states.flatMap((state) =>
+			state.display && state.size !== undefined ? [state.size] : [],
+		);
 		const small = sizes.filter((px) => px < DISPLAY_MIN_PX);
 		if (!anchor || small.length === 0) return;
 		const px = Math.round(Math.min(...small) * 100) / 100;

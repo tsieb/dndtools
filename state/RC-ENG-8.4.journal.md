@@ -55,3 +55,18 @@ No agents, dispatcher mutations, push or promotion.
 
 - The Write tool stored the `UNKNOWN` sentinel as a literal NUL byte, which makes git treat the
   file as binary. Use the `'\u0000'` escape.
+
+## Review correction (2026-09-12)
+
+- Read the original independent review journal and probes for candidate 71bfd0be in artifact
+  7477a5c90eb8452bb450ad66140c007c. Headroom tools are unavailable in this run.
+- Fixed DS Button inline accent fills, ordered font shorthand/longhand overrides, and whitespace
+  around shorthand line-height slashes. Added 12 regression cases including the real Button
+  source, positive controls, reverse declaration order, and fixed-size/family exemptions.
+- Focused fixtures: 25 passed. Reran the original external probes: all three previously missed
+  violations now report file/line; fixed_font stays quiet; both positive controls still report.
+- The real-tree baseline test passes without raising or changing the committed baseline.
+- Validation complete: full `pnpm lint` exit 0 (baseline remains 84 / 61); full tooling suite
+  exit 0 (25 files / 187 tests); strict standalone TypeScript check exit 0; Prettier and
+  `git diff --check` pass. Original local logs: `/tmp/rc-eng-8.4-lint.log` and
+  `/tmp/rc-eng-8.4-tooling.log`. Central operator gates and independent review remain external.
