@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
+import { setMarkGmOnly } from '../../../platform/preferences';
 import type React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { VisibilityChip as RawVisibilityChip } from './VisibilityChip.jsx';
+import {
+	shouldShowVisibilityBadge,
+	VisibilityChip as RawVisibilityChip,
+} from './VisibilityChip.jsx';
 
 // The DS ships as .jsx with `checkJs: false`, so tsc infers every prop that has no default as
 // required. Re-type the import as an open prop bag rather than restating the component's contract.
@@ -20,6 +24,7 @@ let root: Root;
 let container: HTMLDivElement;
 
 beforeEach(() => {
+	setMarkGmOnly(false);
 	container = document.createElement('div');
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -61,5 +66,28 @@ describe('VisibilityChip', () => {
 	// dangerous direction, so anything unrecognized must still read as DM only.
 	it('falls back to DM only for an unrecognized level', () => {
 		expect(labelFor('not-a-level')).toBe('DM only');
+	});
+});
+
+describe('visibility by exception', () => {
+	it.each(['players', 'player-visible', 'shared', 'mixed', 'hidden'])(
+		'always marks %s',
+		(level) => {
+			expect(shouldShowVisibilityBadge(level)).toBe(true);
+			expect(shouldShowVisibilityBadge(level, true)).toBe(true);
+		},
+	);
+	it('hides GM-only badges by default and updates mounted chips with the preference', () => {
+		expect(shouldShowVisibilityBadge('dm-only')).toBe(false);
+		expect(shouldShowVisibilityBadge('dm-only', true)).toBe(true);
+		act(() => root.render(<VisibilityChip level="dm-only" byException />));
+		expect(container.childElementCount).toBe(0);
+		act(() => setMarkGmOnly(true));
+		expect(container.textContent).toBe('DM only');
+		act(() => setMarkGmOnly(false));
+		expect(container.childElementCount).toBe(0);
+	});
+	it('keeps authoring states explicit regardless of the preference', () => {
+		expect(labelFor('dm-only')).toBe('DM only');
 	});
 });

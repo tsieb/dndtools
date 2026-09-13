@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react';
+
 /**
  * RC-UX-4.1 (DEBT-2026-001) — the device-preferences slice and platform capability layer.
  *
@@ -22,6 +24,7 @@
  * is a type error, and the whole set of things this app persists per-device is readable here.
  */
 export const PREFERENCE_KEYS = {
+	markGmOnly: 'dndtools:react:mark-gm-only',
 	/** Active theme preset — shared by Settings › Appearance and the Theme studio. */
 	theme: 'dndtools:react:theme',
 	/** The theme in effect before high contrast was switched on, so the switch is reversible. */
@@ -159,4 +162,26 @@ export function subscribeViewportSize(onChange: () => void): () => void {
 		window.removeEventListener('resize', onChange);
 		window.visualViewport?.removeEventListener('resize', onChange);
 	};
+}
+
+const preferenceListeners = new Set<() => void>();
+export function setMarkGmOnly(value: boolean): void {
+	writePreference(PREFERENCE_KEYS.markGmOnly, String(value));
+	for (const listener of preferenceListeners) listener();
+}
+function subscribeMarkGmOnly(listener: () => void): () => void {
+	preferenceListeners.add(listener);
+	window.addEventListener('storage', listener);
+	return () => {
+		preferenceListeners.delete(listener);
+		window.removeEventListener('storage', listener);
+	};
+}
+/** Device-only display preference; never changes an item's visibility. */
+export function useMarkGmOnly(): boolean {
+	return useSyncExternalStore(
+		subscribeMarkGmOnly,
+		() => readPreference(PREFERENCE_KEYS.markGmOnly) === 'true',
+		() => false,
+	);
 }

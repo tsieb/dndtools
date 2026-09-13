@@ -17,7 +17,7 @@ exports[`tile header identity snapshots > high-contrast theme > atlas 1`] = `
   },
   "silhouette": "tile-silhouette-map",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -38,7 +38,7 @@ exports[`tile header identity snapshots > high-contrast theme > audio 1`] = `
   },
   "silhouette": "tile-silhouette-audio",
   "type": "Atmosphere",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -62,7 +62,7 @@ exports[`tile header identity snapshots > high-contrast theme > character 1`] = 
   },
   "silhouette": "tile-silhouette-character",
   "type": "Characters",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -83,7 +83,7 @@ exports[`tile header identity snapshots > high-contrast theme > characters 1`] =
   },
   "silhouette": "tile-silhouette-character",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -104,7 +104,7 @@ exports[`tile header identity snapshots > high-contrast theme > combat 1`] = `
   },
   "silhouette": "tile-silhouette-combat",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -125,7 +125,7 @@ exports[`tile header identity snapshots > high-contrast theme > data-hub 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -146,7 +146,7 @@ exports[`tile header identity snapshots > high-contrast theme > dice 1`] = `
   },
   "silhouette": "tile-silhouette-dice",
   "type": "Dice & Timers",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -167,7 +167,7 @@ exports[`tile header identity snapshots > high-contrast theme > getting-started 
   },
   "silhouette": "tile-silhouette-generator",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -188,7 +188,7 @@ exports[`tile header identity snapshots > high-contrast theme > handout 1`] = `
   },
   "silhouette": "tile-silhouette-handout",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -209,7 +209,7 @@ exports[`tile header identity snapshots > high-contrast theme > initiative-track
   },
   "silhouette": "tile-silhouette-combat",
   "type": "Combat",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -233,7 +233,7 @@ exports[`tile header identity snapshots > high-contrast theme > map 1`] = `
   },
   "silhouette": "tile-silhouette-map",
   "type": "Maps",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -254,7 +254,7 @@ exports[`tile header identity snapshots > high-contrast theme > note 1`] = `
   },
   "silhouette": "tile-silhouette-note",
   "type": "Notes",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -275,7 +275,7 @@ exports[`tile header identity snapshots > high-contrast theme > notes 1`] = `
   },
   "silhouette": "tile-silhouette-note",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -296,7 +296,7 @@ exports[`tile header identity snapshots > high-contrast theme > player-views 1`]
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -317,7 +317,7 @@ exports[`tile header identity snapshots > high-contrast theme > prep 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -338,7 +338,7 @@ exports[`tile header identity snapshots > high-contrast theme > quick-reference 
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -359,7 +359,7 @@ exports[`tile header identity snapshots > high-contrast theme > search 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -380,7 +380,7 @@ exports[`tile header identity snapshots > high-contrast theme > session 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -401,7 +401,7 @@ exports[`tile header identity snapshots > high-contrast theme > timer 1`] = `
   },
   "silhouette": "tile-silhouette-timer",
   "type": "Dice & Timers",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -422,7 +422,7 @@ exports[`tile header identity snapshots > high-contrast theme > tools 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -443,7 +443,7 @@ exports[`tile header identity snapshots > parchment theme > atlas 1`] = `
   },
   "silhouette": "tile-silhouette-map",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -464,7 +464,7 @@ exports[`tile header identity snapshots > parchment theme > audio 1`] = `
   },
   "silhouette": "tile-silhouette-audio",
   "type": "Atmosphere",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -488,7 +488,7 @@ exports[`tile header identity snapshots > parchment theme > character 1`] = `
   },
   "silhouette": "tile-silhouette-character",
   "type": "Characters",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -509,7 +509,7 @@ exports[`tile header identity snapshots > parchment theme > characters 1`] = `
   },
   "silhouette": "tile-silhouette-character",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -530,7 +530,7 @@ exports[`tile header identity snapshots > parchment theme > combat 1`] = `
   },
   "silhouette": "tile-silhouette-combat",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -551,7 +551,7 @@ exports[`tile header identity snapshots > parchment theme > data-hub 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -572,7 +572,7 @@ exports[`tile header identity snapshots > parchment theme > dice 1`] = `
   },
   "silhouette": "tile-silhouette-dice",
   "type": "Dice & Timers",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -593,7 +593,7 @@ exports[`tile header identity snapshots > parchment theme > getting-started 1`] 
   },
   "silhouette": "tile-silhouette-generator",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -614,7 +614,7 @@ exports[`tile header identity snapshots > parchment theme > handout 1`] = `
   },
   "silhouette": "tile-silhouette-handout",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -635,7 +635,7 @@ exports[`tile header identity snapshots > parchment theme > initiative-tracker 1
   },
   "silhouette": "tile-silhouette-combat",
   "type": "Combat",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -659,7 +659,7 @@ exports[`tile header identity snapshots > parchment theme > map 1`] = `
   },
   "silhouette": "tile-silhouette-map",
   "type": "Maps",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -680,7 +680,7 @@ exports[`tile header identity snapshots > parchment theme > note 1`] = `
   },
   "silhouette": "tile-silhouette-note",
   "type": "Notes",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -701,7 +701,7 @@ exports[`tile header identity snapshots > parchment theme > notes 1`] = `
   },
   "silhouette": "tile-silhouette-note",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -722,7 +722,7 @@ exports[`tile header identity snapshots > parchment theme > player-views 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -743,7 +743,7 @@ exports[`tile header identity snapshots > parchment theme > prep 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -764,7 +764,7 @@ exports[`tile header identity snapshots > parchment theme > quick-reference 1`] 
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -785,7 +785,7 @@ exports[`tile header identity snapshots > parchment theme > search 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -806,7 +806,7 @@ exports[`tile header identity snapshots > parchment theme > session 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -827,7 +827,7 @@ exports[`tile header identity snapshots > parchment theme > timer 1`] = `
   },
   "silhouette": "tile-silhouette-timer",
   "type": "Dice & Timers",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -848,7 +848,7 @@ exports[`tile header identity snapshots > parchment theme > tools 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -869,7 +869,7 @@ exports[`tile header identity snapshots > tavern theme > atlas 1`] = `
   },
   "silhouette": "tile-silhouette-map",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -890,7 +890,7 @@ exports[`tile header identity snapshots > tavern theme > audio 1`] = `
   },
   "silhouette": "tile-silhouette-audio",
   "type": "Atmosphere",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -914,7 +914,7 @@ exports[`tile header identity snapshots > tavern theme > character 1`] = `
   },
   "silhouette": "tile-silhouette-character",
   "type": "Characters",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -935,7 +935,7 @@ exports[`tile header identity snapshots > tavern theme > characters 1`] = `
   },
   "silhouette": "tile-silhouette-character",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -956,7 +956,7 @@ exports[`tile header identity snapshots > tavern theme > combat 1`] = `
   },
   "silhouette": "tile-silhouette-combat",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -977,7 +977,7 @@ exports[`tile header identity snapshots > tavern theme > data-hub 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -998,7 +998,7 @@ exports[`tile header identity snapshots > tavern theme > dice 1`] = `
   },
   "silhouette": "tile-silhouette-dice",
   "type": "Dice & Timers",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1019,7 +1019,7 @@ exports[`tile header identity snapshots > tavern theme > getting-started 1`] = `
   },
   "silhouette": "tile-silhouette-generator",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1040,7 +1040,7 @@ exports[`tile header identity snapshots > tavern theme > handout 1`] = `
   },
   "silhouette": "tile-silhouette-handout",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1061,7 +1061,7 @@ exports[`tile header identity snapshots > tavern theme > initiative-tracker 1`] 
   },
   "silhouette": "tile-silhouette-combat",
   "type": "Combat",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1085,7 +1085,7 @@ exports[`tile header identity snapshots > tavern theme > map 1`] = `
   },
   "silhouette": "tile-silhouette-map",
   "type": "Maps",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1106,7 +1106,7 @@ exports[`tile header identity snapshots > tavern theme > note 1`] = `
   },
   "silhouette": "tile-silhouette-note",
   "type": "Notes",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1127,7 +1127,7 @@ exports[`tile header identity snapshots > tavern theme > notes 1`] = `
   },
   "silhouette": "tile-silhouette-note",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1148,7 +1148,7 @@ exports[`tile header identity snapshots > tavern theme > player-views 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1169,7 +1169,7 @@ exports[`tile header identity snapshots > tavern theme > prep 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1190,7 +1190,7 @@ exports[`tile header identity snapshots > tavern theme > quick-reference 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Reference",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1211,7 +1211,7 @@ exports[`tile header identity snapshots > tavern theme > search 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1232,7 +1232,7 @@ exports[`tile header identity snapshots > tavern theme > session 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1253,7 +1253,7 @@ exports[`tile header identity snapshots > tavern theme > timer 1`] = `
   },
   "silhouette": "tile-silhouette-timer",
   "type": "Dice & Timers",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;
 
@@ -1274,6 +1274,6 @@ exports[`tile header identity snapshots > tavern theme > tools 1`] = `
   },
   "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
-  "visibility": "DM only",
+  "visibility": null,
 }
 `;

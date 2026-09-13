@@ -1,11 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	getGraphVisualizationForActor,
-	getGraphHealthForDm,
-	getMapViewForActor,
-	getPlayerScopedHealthSummary,
-	listMapsForActor,
 	type GraphVisualization,
 	type GraphVizNode,
 } from '@dndtools/core';
@@ -21,6 +17,18 @@ import {
 	useClusterHulls,
 	useGraphClusters,
 } from './graph/clusters';
+import { indexConnections, showNodeLabel, walkNode } from './graph/interaction';
+import {
+	KIND_COLOR,
+	KIND_ICON,
+	KIND_LABEL,
+	REL_LABEL,
+	BAND_TONE,
+	BAND_LABEL,
+	positioned,
+	useGraphHealth,
+	useOpenGraphNode,
+} from './graph/presentation';
 import type { MessageKey } from '../i18n';
 
 /**
@@ -35,62 +43,6 @@ import type { MessageKey } from '../i18n';
  */
 
 const DEFAULT_SOURCE_ID = 'local-vault';
-
-// Real GraphVizNode.kind is note | object | map | poi (NOT the design prototype's character/place/
-// faction). Colors, icons and labels are remapped to those; the legend is built from the live facets.
-const KIND_COLOR: Record<string, string> = {
-	note: 'var(--color-status-info)',
-	object: T.acc,
-	map: T.ok,
-	poi: 'var(--color-status-warning)',
-};
-const KIND_ICON: Record<string, string> = {
-	note: 'knowledge-book',
-	object: 'tag',
-	map: 'new-map',
-	poi: 'globe',
-};
-const KIND_LABEL: Record<string, MessageKey> = {
-	note: 'graph.kind.note',
-	object: 'graph.kind.object',
-	map: 'graph.kind.map',
-	poi: 'graph.kind.poi',
-};
-const REL_LABEL: Record<string, MessageKey> = {
-	wikilink: 'graph.rel.wikilink',
-	'poi-link': 'graph.rel.poiLink',
-};
-const BAND_TONE: Record<string, string> = {
-	none: 'neutral',
-	few: 'success',
-	several: 'warning',
-	many: 'error',
-};
-// Player-facing health bands arrive as machine tokens; render the spoken versions.
-const BAND_LABEL: Record<string, MessageKey> = {
-	none: 'graph.band.none',
-	few: 'graph.band.few',
-	several: 'graph.band.several',
-	many: 'graph.band.many',
-	low: 'graph.band.low',
-	moderate: 'graph.band.moderate',
-	good: 'graph.band.good',
-	excellent: 'graph.band.excellent',
-};
-
-/** Deterministic, force-free ellipse layout — the core graph carries no coordinates (it is a pure model). */
-function positioned(nodes: GraphVizNode[]): (GraphVizNode & { x: number; y: number })[] {
-	const n = nodes.length;
-	const cx = 50;
-	const cy = 35;
-	const rx = 38;
-	const ry = 26;
-	return nodes.map((node, i) => {
-		if (n <= 1) return { ...node, x: cx, y: cy };
-		const angle = (2 * Math.PI * i) / n - Math.PI / 2;
-		return { ...node, x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
-	});
-}
 
 function HealthRow({ label, count }: { label: string; count: number }) {
 	return (
@@ -127,6 +79,10 @@ export function Graph() {
 	const [facet, setFacet] = useState('all');
 	const [query, setQuery] = useState('');
 	const [sel, setSel] = useState<string | null>(null);
+	const [focusId, setFocusId] = useState<string | null>(null);
+	const [activeId, setActiveId] = useState<string | null>(null);
+	const [hoverId, setHoverId] = useState<string | null>(null);
+	const nodeButtons = useRef(new Map<string, HTMLButtonElement>());
 
 	const viewActorId = view === 'dm' ? dmId : playerId;
 
@@ -147,23 +103,7 @@ export function Graph() {
 		[runtime.state, viewActorId, facet, query],
 	);
 
-	const health = useMemo(() => {
-		const now = new Date().toISOString();
-		return view === 'dm'
-			? {
-					kind: 'dm' as const,
-					report: getGraphHealthForDm(runtime.state.content, runtime.state.permissions, dmId, now),
-				}
-			: {
-					kind: 'player' as const,
-					summary: getPlayerScopedHealthSummary(
-						runtime.state.content,
-						runtime.state.permissions,
-						playerId,
-						now,
-					),
-				};
-	}, [runtime.state, view, dmId, playerId]);
+	const health = useGraphHealth(view, dmId, playerId);
 
 	const clusters = useGraphClusters(runtime.state, viewActorId);
 
@@ -171,48 +111,25 @@ export function Graph() {
 	const nodeById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
 	const { hulls, hullsOn, toggleHulls } = useClusterHulls(clusters.clusters, nodeById);
 	const selNode = sel && nodeById[sel] ? nodeById[sel] : null;
-	const selEdges = selNode ? viz.edges.filter((e) => e.fromId === sel || e.toId === sel) : [];
+	const connections = useMemo(() => indexConnections(viz), [viz]);
+	const selectedConnections = selNode ? connections.get(selNode.id) : undefined;
+	const selEdges = selectedConnections?.edges ?? [];
+	const focusAnchor = focusId && nodeById[focusId] ? focusId : null;
+	const canvasNodes = useMemo(
+		() =>
+			focusAnchor
+				? nodes.filter(
+						(n) => n.id === focusAnchor || connections.get(focusAnchor)?.neighbors.has(n.id),
+					)
+				: nodes,
+		[nodes, connections, focusAnchor],
+	);
+	const canvasIds = canvasNodes.map((n) => n.id);
+	const tabId = activeId && canvasIds.includes(activeId) ? activeId : canvasIds[0];
 	// The kinds the actor COULD filter by, straight from the live facets (never reveals hidden content).
 	const legendKinds = viz.facets.kinds;
 
-	// Open navigates to the ENTITY the node represents, not to a list: notes deep-link to
-	// `/knowledge/:id`, maps/POIs to the Atlas `?map=&poi=` deep link (the same URL MapBuilder's
-	// "copy link" writes). A POI's owning map is resolved through the SAME actor-filtered map reads
-	// the Atlas renders from, so the link never names a map the current viewpoint cannot see.
-	// Objects (quest/faction dossiers) live on Campaign — the same destination the Characters
-	// mention-search uses for object hits.
-	const openNode = (n: GraphVizNode) => {
-		if (n.kind === 'note') {
-			navigate(`/knowledge/${n.id}`);
-			return;
-		}
-		if (n.kind === 'map') {
-			navigate(`/atlas?map=${encodeURIComponent(n.id)}`);
-			return;
-		}
-		if (n.kind === 'poi') {
-			const owner = listMapsForActor(
-				runtime.state.maps,
-				runtime.state.permissions,
-				viewActorId,
-			).find((m) => {
-				const view = getMapViewForActor(
-					runtime.state.maps,
-					runtime.state.permissions,
-					viewActorId,
-					m.id,
-				);
-				return view.kind === 'available' && view.pois.some((p) => p.id === n.id);
-			});
-			navigate(
-				owner
-					? `/atlas?map=${encodeURIComponent(owner.id)}&poi=${encodeURIComponent(n.id)}`
-					: `/atlas?poi=${encodeURIComponent(n.id)}`,
-			);
-			return;
-		}
-		navigate('/campaign');
-	};
+	const openNode = useOpenGraphNode(viewActorId);
 
 	return (
 		<Page max={1280}>
@@ -228,7 +145,11 @@ export function Graph() {
 				<Seg
 					value={view}
 					ariaLabel="Graph viewpoint"
-					onChange={(v: string) => setView(v as 'dm' | 'player')}
+					onChange={(v: string) => {
+						setView(v as 'dm' | 'player');
+						setSel(null);
+						setFocusId(null);
+					}}
 					options={[
 						{ value: 'dm', label: t('graph.view.dm') },
 						// Disable when no player actor is registered — otherwise the fallback would render DM
@@ -250,6 +171,24 @@ export function Graph() {
 						total: viz.totalVisibleNodes,
 					})}
 					{viz.partial ? t('graph.partial') : ''}
+				</span>
+				<Button
+					variant="secondary"
+					size="sm"
+					aria-pressed={focusAnchor !== null}
+					disabled={!selNode && !focusAnchor}
+					onClick={() => setFocusId(focusAnchor ? null : (selNode?.id ?? null))}
+					onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
+						if (e.key === 'Escape') {
+							setFocusId(null);
+							setSel(null);
+						}
+					}}
+				>
+					{focusAnchor ? t('graph.focus.exit') : t('graph.focus.enter')}
+				</Button>
+				<span id="graph-walk-help" style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					{t('graph.walkHelp')}
 				</span>
 				<div style={{ flex: 1 }} />
 				<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -285,9 +224,14 @@ export function Graph() {
 				// rail, and from there Escape used to do nothing. The search input keeps its own
 				// Escape (clear the query), so skip it here.
 				onKeyDown={(e) => {
-					if (e.key === 'Escape' && sel !== null && !(e.target instanceof HTMLInputElement)) {
+					if (
+						e.key === 'Escape' &&
+						(sel !== null || focusAnchor !== null) &&
+						!(e.target instanceof HTMLInputElement)
+					) {
 						e.stopPropagation();
 						setSel(null);
+						setFocusId(null);
 					}
 				}}
 				style={{
@@ -334,11 +278,12 @@ export function Graph() {
 						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
 					>
 						{/* RC-KNW-4.1 — cluster hulls, drawn FIRST so they sit behind every edge and node. */}
-						<ClusterHulls hulls={hulls} />
+						<ClusterHulls hulls={focusAnchor ? [] : hulls} />
 						{viz.edges.map((e, i) => {
 							const a = nodeById[e.fromId];
 							const b = nodeById[e.toId];
-							if (!a || !b) return null;
+							if (!a || !b || (focusAnchor && e.fromId !== focusAnchor && e.toId !== focusAnchor))
+								return null;
 							const hot = selNode != null && (e.fromId === sel || e.toId === sel);
 							return (
 								<line
@@ -356,16 +301,30 @@ export function Graph() {
 							);
 						})}
 					</svg>
-					{nodes.map((n) => {
+					{canvasNodes.map((n) => {
 						const col = KIND_COLOR[n.kind] ?? T.sub;
 						const dim =
-							selNode != null &&
-							n.id !== sel &&
-							!selEdges.some((e) => e.fromId === n.id || e.toId === n.id);
+							selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id);
 						const d = Math.max(34, Math.min(70, 34 + n.degree * 7));
 						return (
 							<button
 								key={n.id}
+								data-testid="graph-node"
+								ref={(el) => {
+									if (el) nodeButtons.current.set(n.id, el);
+									else nodeButtons.current.delete(n.id);
+								}}
+								tabIndex={n.id === tabId ? 0 : -1}
+								onFocus={() => setActiveId(n.id)}
+								onMouseEnter={() => setHoverId(n.id)}
+								onMouseLeave={() => setHoverId(null)}
+								aria-describedby="graph-walk-help"
+								onKeyDown={(e) => {
+									const next = walkNode(canvasIds, n.id, e.key);
+									if (!next) return;
+									e.preventDefault();
+									nodeButtons.current.get(next)?.focus();
+								}}
 								type="button"
 								// Toggle, not latch. `setSel(null)` existed nowhere, so the first click on any
 								// node dimmed every non-incident node to 0.4 and every non-incident edge to
@@ -407,6 +366,7 @@ export function Graph() {
 							>
 								<span
 									style={{
+										pointerEvents: 'none',
 										// `d` bottoms out at 34, so a /6 divisor pinned every low-degree node's
 										// title at the 7px floor — illegible, and clipped mid-glyph with no
 										// ellipsis. Raise the floor to 10px and truncate honestly.
@@ -416,12 +376,20 @@ export function Graph() {
 										textOverflow: 'ellipsis',
 									}}
 								>
-									{n.title}
+									{showNodeLabel(
+										canvasNodes.length,
+										isPhone,
+										n.id === sel || n.id === activeId || n.id === hoverId,
+									) ? (
+										n.title
+									) : (
+										<Icon name={KIND_ICON[n.kind] ?? 'tag'} size={15} />
+									)}
 								</span>
 							</button>
 						);
 					})}
-					<ClusterToggle on={hullsOn} onToggle={toggleHulls} />
+					{!focusAnchor && <ClusterToggle on={hullsOn} onToggle={toggleHulls} />}
 				</div>
 
 				{/* search + inspector + health. Search comes FIRST on purpose: the "Selected" panel used to
@@ -446,7 +414,10 @@ export function Graph() {
 							<Icon name="search" size={15} color={T.ter} />
 							<input
 								value={query}
-								onChange={(e) => setQuery(e.target.value)}
+								onChange={(e) => {
+									setQuery(e.target.value);
+									setFocusId(null);
+								}}
 								// The grid's Escape handler deliberately skips inputs because the input was
 								// documented as keeping "its own Escape (clear the query)" — except it never
 								// had one, so Escape in the search box cleared neither the query nor the
@@ -478,7 +449,10 @@ export function Graph() {
 									type="button"
 									// The applied facet was signalled by colour alone (WCAG 1.4.1 / 4.1.2).
 									aria-pressed={facet === f}
-									onClick={() => setFacet(f)}
+									onClick={() => {
+										setFacet(f);
+										setFocusId(null);
+									}}
 									style={{
 										font: `11.5px ${T.sans}`,
 										padding: '4px 9px',

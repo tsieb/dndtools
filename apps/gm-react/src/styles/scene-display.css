@@ -49,3 +49,35 @@
 .scene-display__card--cut {
 	animation: none;
 }
+
+.scene-display__hero {
+	animation: sd-ken-burns 30s ease-in-out infinite alternate;
+	transform-origin: center;
+}
+
+.scene-display__wash {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+@keyframes sd-ken-burns {
+	from {
+		transform: scale(1.02) translate(-0.5%, -0.5%);
+	}
+	to {
+		transform: scale(1.12) translate(1%, 1%);
+	}
+}
+
+[data-motion='reduced'] .scene-display__hero {
+	animation: none;
+	transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scene-display__hero {
+		animation: none;
+		transform: none;
+	}
+}

@@ -22,6 +22,8 @@ import {
 	handleSetWidgetFocusOrder,
 	// RC-CAN-1.2 (append-only)
 	handleRestoreWidget,
+	// RC-CAN-2.4 (append-only)
+	handleDuplicateWidget,
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
 // RC-SYS-1.3 — the DM-authored rules SYSTEM commands (append-only block in the switch below).
@@ -356,6 +358,9 @@ export function dispatchCommand(
 		// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only) ----------------------------------
 		case 'scene.restore-widget':
 			return handleRestoreWidget(state, env, command.actorId, command.payload);
+		// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only) ---------------------------------
+		case 'scene.duplicate-widget':
+			return handleDuplicateWidget(state, env, command.actorId, command.payload);
 		// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only) -----------------------------
 		case 'session.mark-party':
 			return handleMarkParty(state, env, command.actorId, command.payload);

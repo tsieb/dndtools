@@ -49,6 +49,8 @@ export const UNDOABLE_COMMAND_TYPES: Partial<Record<CoreCommand['type'], CoreCom
 	// RC-CAN-1.2: destroying a widget is undone by restoring it from its scene tombstone — same id,
 	// same layout, same configuration and binding. Valid inside the 30-day retention window.
 	'scene.destroy-widget': 'scene.restore-widget',
+	// RC-CAN-2.4: a duplicate is a new instance, so it is undone the way an add is — destroying it.
+	'scene.duplicate-widget': 'scene.destroy-widget',
 	// Projecting a player view is undone by revoking it.
 	'session.project-player-view': 'session.revoke-player-view',
 	// Installing a widget package is undone by removing it.

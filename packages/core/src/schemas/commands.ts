@@ -3654,3 +3654,15 @@ export const mergeRemoteOperationsInputSchema = z
 		baseRevision: z.number().int().min(-1).default(-1),
 	})
 	.strict();
+
+// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only block) --------------------------------
+// Names the source only: the type, version, configuration and binding the copy gets are read from the
+// Core's own scene, never accepted from the caller. `position` is where the copy's top-left lands;
+// omitted, it goes directly below the lowest widget sharing the source's columns.
+export const duplicateWidgetInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+		position: z.object({ x: z.number().finite(), y: z.number().finite() }).strict().optional(),
+	})
+	.strict();

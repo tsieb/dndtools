@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import { Icon } from '../../ds';
+import type { LayoutHistory } from './useLayoutHistory';
+import { useMemo, useRef } from 'react';
+import { Icon, VisibilityChip } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { TIER_LABEL, visibilityChip, type BoardWidget } from '../board-helpers';
+import { TIER_LABEL, type BoardWidget } from '../board-helpers';
 import {
 	safeBoundEntityName,
 	tileBindingState,
@@ -9,6 +10,7 @@ import {
 	type TileBindingState,
 } from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
+import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
 
 /**
  * The pieces a scene canvas is DRAWN from: one widget frame, and the two overlay buttons that sit
@@ -84,38 +86,9 @@ export function HistoryBtn({
 	);
 }
 
-export function ZoomBtn({
-	icon,
-	label,
-	onClick,
-}: {
-	icon: string;
-	label: string;
-	onClick: () => void;
-}) {
-	return (
-		<button
-			type="button"
-			title={label}
-			aria-label={label}
-			onClick={onClick}
-			onPointerDown={(e) => e.stopPropagation()}
-			style={{
-				display: 'inline-flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				width: 28,
-				height: 28,
-				border: 'none',
-				borderRadius: 'var(--radius-sm)',
-				background: 'transparent',
-				color: 'var(--color-text-secondary)',
-				cursor: 'pointer',
-			}}
-		>
-			<Icon name={icon} size="sm" />
-		</button>
-	);
+/** The zoom cluster's control: the same overlay button, never disabled. */
+export function ZoomBtn(props: { icon: string; label: string; onClick: () => void }) {
+	return <HistoryBtn {...props} disabled={false} />;
 }
 
 /** The header's binding glyph: a word as well as a shape, so no state rests on colour alone. */
@@ -128,6 +101,7 @@ const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: string; ton
 };
 
 export interface WidgetFrameProps {
+	history?: LayoutHistory;
 	w: BoardWidget;
 	x: number;
 	y: number;
@@ -167,8 +141,8 @@ export function WidgetFrame({
 	onStartMove,
 	onStartResize,
 	onCommand,
+	history,
 }: WidgetFrameProps) {
-	const chip = visibilityChip(w.visibility);
 	const placeholder = w.status !== 'available';
 	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
 	// icon, the label, who can see it, and what it is bound to.
@@ -189,6 +163,15 @@ export function WidgetFrame({
 		[state, defaultActorId, w.status, refType, refId],
 	);
 	const accent = `var(${meta.accentToken})`;
+	// RC-CAN-2.4: Shift+F10 and the ContextMenu key open the tile menu from a focused frame. A
+	// keyboard-raised `contextmenu` lands on the frame too; a right-click lands on the drag overlay.
+	const menuRef = useRef<{ open: () => void } | null>(null);
+	const openMenu = (e: React.SyntheticEvent<HTMLDivElement>) => {
+		if (!editing || e.target !== e.currentTarget) return false;
+		e.preventDefault();
+		menuRef.current?.open();
+		return true;
+	};
 	return (
 		<div
 			data-testid={`widget-${w.id}`}
@@ -196,7 +179,11 @@ export function WidgetFrame({
 			role="group"
 			aria-label={ariaLabel}
 			tabIndex={tabbable ? 0 : -1}
-			onKeyDown={onKeyDown}
+			onKeyDown={(e) => {
+				const menuKey = e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
+				if (!(menuKey && openMenu(e))) onKeyDown(e);
+			}}
+			onContextMenu={openMenu}
 			onFocus={onFocusIn}
 			style={{
 				position: 'absolute',
@@ -250,7 +237,14 @@ export function WidgetFrame({
 					}}
 				/>
 				<div
-					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flex: '0 0 auto' }}
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						flex: '0 0 auto',
+						// Room for the edit-mode menu trigger, held at screen size (hence ÷ scale).
+						...(editing ? { paddingRight: `calc(${TRIGGER_SIZE} / ${scale})` } : {}),
+					}}
 				>
 					<WidgetGlyph icon={meta.icon} size={16} color={accent} />
 					<span
@@ -266,28 +260,7 @@ export function WidgetFrame({
 					>
 						{w.title}
 					</span>
-					<span
-						style={{
-							display: 'inline-flex',
-							alignItems: 'center',
-							gap: 4,
-							padding: '2px 7px',
-							borderRadius: 'var(--radius-full)',
-							background: chip.players
-								? 'var(--color-accent-subtle)'
-								: 'var(--color-surface-sunken)',
-							// `--color-text-tertiary` on `--color-surface-sunken` is 3.54:1 in parchment
-							// — under 4.5:1 for this 10px text, and this DM-only/Players chip renders
-							// on EVERY widget frame on both /board and /scene/:id. Secondary is
-							// 6.28:1 on the same surface.
-							color: chip.players ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-							font: '600 var(--text-2xs) var(--font-sans)',
-							whiteSpace: 'nowrap',
-						}}
-					>
-						<Icon name={chip.players ? 'visibility-players' : 'dm-only'} size={11} />
-						{chip.label}
-					</span>
+					<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
 				</div>
 				<div
 					style={{
@@ -361,6 +334,18 @@ export function WidgetFrame({
 						borderRadius: 'var(--radius-md)',
 						cursor: 'grab',
 					}}
+				/>
+			)}
+
+			{/* After the drag overlay in DOM order, so it paints — and takes presses — above it. */}
+			{editing && (
+				<TileActionMenu
+					handle={menuRef}
+					history={history}
+					w={w}
+					scale={scale}
+					resizable={resizable}
+					entityName={entityName}
 				/>
 			)}
 

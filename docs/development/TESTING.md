@@ -40,6 +40,7 @@ and each isolated file re-imported the whole module graph.
 - Mobile UI changes cover compact portrait, short landscape, tablet, 200% text, reduced motion,
   forced colors, safe areas, and a keyboard-reduced viewport; targets are checked at 48px.
 - Playwright's `newPage()` is a fresh browser context with no shared IndexedDB.
+- A `page.evaluate` that awaits app work waits for a fresh task before returning (§6).
 - CI or gate changes update this document in the same change.
 
 ## 3. `pnpm validate`
@@ -100,3 +101,43 @@ pnpm ai:verify:local
 
 Semantic search embeds once per note revision and caches vectors device-local; with no daemon a new
 query reports `lexical-only` rather than failing. Switching embedding models re-embeds the vault.
+
+## 6. "Execution context was destroyed" with no navigation
+
+`combat-audio-automation.spec.ts` and `systems.spec.ts` used to fail on mobile-chromium under load
+with `page.evaluate: Execution context was destroyed, most likely because of a navigation`
+(RC-ENG-2.6). Nothing navigated. The failure screenshots kept state that only lives in React (the
+selected Audio tab, toasts from earlier steps), Playwright launches Chromium with the back-forward
+cache off, a traced run loaded each test's document exactly once, and a cold full-suite run printed
+no Vite reload.
+
+The protocol error underneath is V8's `Promise was collected`. Playwright's Chromium layer reports
+every protocol error that is not a page exception with the navigation message. When a
+`page.evaluate` function returns a promise, the inspector holds that promise weakly, and one
+microtask slot passes between the promise settling and the inspector reading it. A full GC in that
+slot collects the settled promise and fails the call. The slot is empty unless the app has work
+queued behind the promise. In combat-audio it always has: `combat.start` fires the audio automation
+driver, which queues `session.audio.play` right behind it, and that command's reducer and Dexie
+write run inside the slot. Memory pressure makes full GCs frequent, so the failure tracked machine
+load and never appeared on an idle machine, with or without a 4× CPU throttle.
+
+To reproduce it on demand, make every young-generation GC a full one:
+
+```bash
+DNDTOOLS_E2E_JS_FLAGS='--gc-global --max-semi-space-size=1' DNDTOOLS_E2E_PORT=<free port> \
+  npx playwright test tests/e2e/combat-audio-automation.spec.ts --project=mobile-chromium --retries=0
+```
+
+Before the fix that failed 3 of 3 at `combat-audio-automation.spec.ts:12`, and `DEBUG=pw:protocol`
+showed `Promise was collected` for each failure.
+
+The fix is in the helpers, not the retry count. An evaluate that awaits app work waits for a fresh
+task (`await new Promise((resolve) => setTimeout(resolve, 0))`) before it returns, so only the
+inspector's own job runs in that slot. `dispatch()` in `_helpers.ts` does this and returns only
+`status`, `rejection` and `events`; the runtime's `nextState` is the whole vault. Write any new
+async evaluate the same way, or poll with `page.waitForFunction`, which retries this error. About 36
+async evaluates in other specs still return straight off app work and carry the same exposure.
+
+Two opt-in switches in `_helpers.ts` help with the next hunt of this kind: `DNDTOOLS_E2E_CPU_THROTTLE=4`
+slows the renderer, and `DNDTOOLS_E2E_TRACE_NAV=1` logs main-frame navigations, the Vite client's
+console lines, and the stack behind each unload.

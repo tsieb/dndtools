@@ -56,6 +56,12 @@ const workers =
 // get a screenshot; opt back into video with DNDTOOLS_E2E_VIDEO=1 when a failure needs it.
 const video = process.env.DNDTOOLS_E2E_VIDEO === '1' ? 'retain-on-failure' : 'off';
 
+// V8 flags for the browser, for reproducing garbage-collection races on demand (RC-ENG-2.6).
+// `DNDTOOLS_E2E_JS_FLAGS='--gc-global --max-semi-space-size=1'` makes every young-generation GC a
+// full one, which turns the load-dependent "Execution context was destroyed" flake into a
+// deterministic failure. See docs/development/TESTING.md §6.
+const jsFlags = process.env.DNDTOOLS_E2E_JS_FLAGS?.trim();
+
 // Playwright config for the React GM app (@dndtools/gm-react).
 //
 // The specs MUST run against the Vite DEV server (`pnpm dev`, port 5273), not `vite preview`:
@@ -74,6 +80,7 @@ export default defineConfig({
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		video,
+		...(jsFlags ? { launchOptions: { args: [`--js-flags=${jsFlags}`] } } : {}),
 	},
 	projects: [
 		{ name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },

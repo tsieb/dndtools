@@ -1407,3 +1407,406 @@ test.describe('canvas: named zoom presets on the bounded board', () => {
 		await expect.poll(() => board.evaluate((el) => el.scrollLeft > 0)).toBe(true);
 	});
 });
+
+// RC-CAN-2.4 — every tile carries a `…` action menu in edit mode. Each item takes a path the canvas
+// already owns: Move/Resize/Configure select the tile the way Enter does, Remove is Delete (with its
+// Undo toast), and Duplicate/Visibility dispatch the same core commands as the Add panel/Inspector.
+test.describe('canvas: the tile action menu', () => {
+	const widgetCount = (page: Page, sceneId: string) =>
+		page.evaluate((id) => window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0, sceneId);
+
+	/** The seeded GM Screen, in edit mode. */
+	async function editBoard(page: Page): Promise<{ sceneId: string; widgetId: string }> {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		const handle = await page.waitForFunction(
+			() => {
+				const rt = window.__rt!;
+				const id = rt.state.commandCenter.homeSceneId;
+				return id && (rt.state.scenes.scenes[id]?.widgets.length ?? 0) > 0 ? id : null;
+			},
+			null,
+			{ timeout: 20_000 },
+		);
+		const sceneId = (await handle.jsonValue()) as string;
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId,
+		);
+		return { sceneId, widgetId };
+	}
+
+	test('follows the WAI-ARIA menu-button keyboard pattern, submenu included', async ({ page }) => {
+		const { widgetId } = await editBoard(page);
+		const frame = page.getByTestId(`widget-${widgetId}`);
+		const trigger = frame.getByTestId('tile-actions-trigger');
+		await expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+		const name = (await trigger.getAttribute('aria-label'))!;
+		expect(name).toMatch(/^Actions for /);
+		const menu = page.getByRole('menu', { name, exact: true });
+		const items = menu.getByRole('menuitem');
+
+		// Enter opens it on the first item.
+		await trigger.focus();
+		await page.keyboard.press('Enter');
+		await expect(menu).toBeVisible();
+		await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+		await expect(items.first()).toBeFocused();
+		await expect(items.first()).toHaveAccessibleName('Move');
+
+		// Scan the OPEN menu: a route-level axe run never sees it.
+		const accessibility = await new AxeBuilder({ page })
+			.include('[data-testid="tile-actions-menu"]')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+			.analyze();
+		expect(accessibility.violations).toEqual([]);
+
+		// ↑/↓ walk and wrap at both ends; Home/End jump.
+		await page.keyboard.press('ArrowDown');
+		await expect(items.nth(1)).toBeFocused();
+		await page.keyboard.press('End');
+		await expect(items.last()).toBeFocused();
+		await expect(items.last()).toHaveAccessibleName('Remove');
+		await page.keyboard.press('ArrowDown');
+		await expect(items.first()).toBeFocused();
+		await page.keyboard.press('ArrowUp');
+		await expect(items.last()).toBeFocused();
+		await page.keyboard.press('Home');
+		await expect(items.first()).toBeFocused();
+
+		// → enters the Visibility submenu on its checked option; ← steps back out to the parent.
+		const parent = menu.getByRole('menuitem', { name: 'Visibility', exact: true });
+		const submenu = page.getByRole('menu', { name: 'Visibility', exact: true });
+		await parent.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(submenu).toBeVisible();
+		await expect(parent).toHaveAttribute('aria-expanded', 'true');
+		await expect(submenu.getByRole('menuitemradio', { checked: true })).toBeFocused();
+		// The submenu's own ↓ stays inside it rather than walking back into the top level.
+		const options = submenu.getByRole('menuitemradio');
+		await expect(options).toHaveCount(3);
+		await options.last().focus();
+		await page.keyboard.press('ArrowDown');
+		await expect(options.first()).toBeFocused();
+		await page.keyboard.press('ArrowLeft');
+		await expect(submenu).toHaveCount(0);
+		await expect(parent).toBeFocused();
+
+		// Escape inside the submenu closes only the submenu…
+		await page.keyboard.press('ArrowRight');
+		await expect(submenu).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(submenu).toHaveCount(0);
+		await expect(menu).toBeVisible();
+		await expect(parent).toBeFocused();
+
+		// …and the next Escape closes the menu and gives focus back to the trigger.
+		await page.keyboard.press('Escape');
+		await expect(menu).toHaveCount(0);
+		await expect(trigger).toBeFocused();
+		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+		// Space and ↓ open it too; Tab closes it rather than leaving it open behind the focus.
+		await page.keyboard.press('Space');
+		await expect(items.first()).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(menu).toHaveCount(0);
+		await trigger.focus();
+		await page.keyboard.press('ArrowDown');
+		await expect(items.first()).toBeFocused();
+		await page.keyboard.press('Escape');
+
+		// Shift+F10 on the focused frame opens it without leaving the frame's roving tab stop.
+		await frame.focus();
+		await page.keyboard.press('Shift+F10');
+		await expect(items.first()).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(menu).toHaveCount(0);
+		await expect(frame).toBeFocused();
+	});
+
+	test('Duplicate places a copy below its column and hands it the focus', async ({ page }) => {
+		const { sceneId, widgetId } = await editBoard(page);
+		const before = await page.evaluate(
+			(id) =>
+				window.__rt!.state.scenes.scenes[id].widgets.map((w) => ({
+					id: w.id,
+					type: w.type,
+					configuration: w.configuration,
+					layout: { x: w.layout.x, y: w.layout.y, w: w.layout.w, h: w.layout.h },
+				})),
+			sceneId,
+		);
+		const source = before.find((w) => w.id === widgetId)!;
+
+		// The pointer path this time: the trigger, then the item.
+		await page.getByTestId(`widget-${widgetId}`).getByTestId('tile-actions-trigger').click();
+		await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click();
+
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length + 1);
+		const copy = await page.evaluate(
+			({ id, known }) => {
+				const w = window.__rt!.state.scenes.scenes[id].widgets.find((x) => !known.includes(x.id))!;
+				return { id: w.id, type: w.type, configuration: w.configuration, layout: w.layout };
+			},
+			{ id: sceneId, known: before.map((w) => w.id) },
+		);
+		// The same definition and settings, as a new instance.
+		expect(copy.type).toBe(source.type);
+		expect(copy.configuration).toEqual(source.configuration);
+		// In the source's own column, below everything in it — so it overlaps no tile on the board.
+		expect(copy.layout.x).toBe(source.layout.x);
+		expect(copy.layout.w).toBe(source.layout.w);
+		expect(copy.layout.y).toBeGreaterThanOrEqual(source.layout.y + source.layout.h);
+		for (const other of before) {
+			const apart =
+				other.layout.x >= copy.layout.x + copy.layout.w ||
+				copy.layout.x >= other.layout.x + other.layout.w ||
+				other.layout.y >= copy.layout.y + copy.layout.h ||
+				copy.layout.y >= other.layout.y + other.layout.h;
+			expect(apart, `the copy overlaps ${other.id}`).toBe(true);
+		}
+		await expect(page.getByText(/^Duplicated /)).toBeVisible();
+		// The core's own copy command made it — not an add carrying settings the client re-sent.
+		const opTypes = await page.evaluate(
+			(path) =>
+				window.__rt!.state.sync.operations.filter((op) => op.path === path).map((op) => op.opType),
+			`widgets/${copy.id}`,
+		);
+		expect(opTypes).toEqual(['scene.duplicate-widget']);
+		// Focus follows the copy, so the next arrow key moves the new tile rather than the old one.
+		await expect(page.getByTestId(`widget-${copy.id}`)).toBeFocused();
+
+		// Undoable like any other layout edit. The copy's id is minted before dispatch, so Undo removes
+		// exactly that tile and Redo brings the same instance back rather than a second copy.
+		const controls = page.getByTestId('canvas-history-controls');
+		await controls.getByRole('button', { name: /^Undo/ }).click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length);
+		await expect(page.getByTestId(`widget-${copy.id}`)).toHaveCount(0);
+		await expect(page.getByRole('status').filter({ hasText: /^Undone: duplicated / })).toHaveCount(
+			1,
+		);
+		await controls.getByRole('button', { name: /^Redo/ }).click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length + 1);
+		await expect(page.getByTestId(`widget-${copy.id}`)).toBeVisible();
+		await expect(page.getByRole('status').filter({ hasText: /^Redone: duplicated / })).toHaveCount(
+			1,
+		);
+
+		// And it is a real durable instance: it survives a reload.
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(before.length + 1);
+	});
+
+	test('visibility badges mark exceptions and the device preference restores GM-only chips', async ({
+		page,
+	}) => {
+		const { sceneId, widgetId } = await editBoard(page);
+		const frame = page.getByTestId(`widget-${widgetId}`);
+		const trigger = frame.getByTestId('tile-actions-trigger');
+		await trigger.click();
+		await page.getByRole('menuitem', { name: 'Visibility', exact: true }).click();
+		await page.getByRole('menuitemradio', { name: 'DM only', exact: true }).click();
+		await expect(frame.getByTestId('visibility-badge')).toHaveCount(0);
+		await page.goto('/#/settings?tab=appearance');
+		await page.getByRole('switch', { name: 'Mark DM-only items', exact: true }).click();
+		await page.goto('/#/board');
+		await expect(frame.getByTestId('visibility-badge')).toHaveText('DM only');
+		await page.reload();
+		await expect(frame.getByTestId('visibility-badge')).toHaveText('DM only');
+		await page.goto('/#/settings?tab=appearance');
+		await page.getByRole('switch', { name: 'Mark DM-only items', exact: true }).click();
+		await page.goto('/#/board');
+		await expect(frame.getByTestId('visibility-badge')).toHaveCount(0);
+		const result = await page.evaluate(
+			async ({ sceneId, widgetId }) => {
+				const rt = window.__rt!;
+				const widget = rt.state.scenes.scenes[sceneId].widgets.find((w) => w.id === widgetId)!;
+				return rt.dispatch({
+					type: 'scene.configure-widget',
+					actorId: rt.defaultActorId,
+					payload: {
+						sceneId,
+						widgetInstanceId: widgetId,
+						configuration: { ...widget.configuration, visibility: 'shared' },
+					},
+				});
+			},
+			{ sceneId, widgetId },
+		);
+		expect(result.status).toBe('accepted');
+		await expect(frame.getByTestId('visibility-badge')).toHaveText('Players');
+	});
+
+	test('Move, Visibility and Remove go through the operations the canvas already owns', async ({
+		page,
+	}) => {
+		const { sceneId, widgetId } = await editBoard(page);
+		const frame = page.getByTestId(`widget-${widgetId}`);
+		const trigger = frame.getByTestId('tile-actions-trigger');
+		const instance = () =>
+			page.evaluate(
+				({ id, wid }) => {
+					const w = window.__rt!.state.scenes.scenes[id].widgets.find((x) => x.id === wid)!;
+					return { x: w.layout.x, visibility: w.configuration.visibility };
+				},
+				{ id: sceneId, wid: widgetId },
+			);
+
+		// Move is the keyboard move mode: the tile is selected and focused, so an arrow moves it.
+		const { x } = await instance();
+		await trigger.click();
+		await page.getByRole('menuitem', { name: 'Move', exact: true }).click();
+		await expect(frame).toBeFocused();
+		await page.keyboard.press('ArrowRight');
+		await expect.poll(async () => (await instance()).x).toBeGreaterThan(x);
+
+		// Visibility writes the instance configuration, and the header chip follows it.
+		await trigger.click();
+		await page.getByRole('menuitem', { name: 'Visibility', exact: true }).click();
+		await page.getByRole('menuitemradio', { name: 'Players', exact: true }).click();
+		await expect.poll(async () => (await instance()).visibility).toBe('player-visible');
+		await expect(frame.getByText('Players', { exact: true })).toBeVisible();
+
+		// Remove is Delete: gone at once, with the same Undo toast behind it.
+		const count = await widgetCount(page, sceneId);
+		await trigger.click();
+		await page.getByRole('menuitem', { name: 'Remove', exact: true }).click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(count - 1);
+		await page.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect.poll(() => widgetCount(page, sceneId)).toBe(count);
+	});
+
+	test('Bind… and Configure… on the board open dialogs that write the tile', async ({ page }) => {
+		const { sceneId } = await editBoard(page);
+		// A Character tile placed unbound, below everything — the way the Add panel places one.
+		const tileId = await page.evaluate(async (id) => {
+			const rt = window.__rt!;
+			const widgets = rt.state.scenes.scenes[id].widgets;
+			const def = Object.values(rt.state.widgets.packages)
+				.flatMap((record) => record.package.widgets)
+				.find((definition) => definition.type === 'character')!;
+			const bottom = Math.max(...widgets.map((w) => w.layout.y + w.layout.h));
+			await rt.dispatch({
+				type: 'scene.add-widget',
+				actorId: rt.defaultActorId,
+				payload: {
+					sceneId: id,
+					widget: {
+						type: 'character',
+						version: def.version,
+						layout: { x: 20, y: bottom + 20, w: def.defaultSize.width, h: def.defaultSize.height },
+						configuration: {},
+						localState: {},
+						binding: null,
+					},
+				},
+			});
+			return rt.state.scenes.scenes[id].widgets.at(-1)!.id;
+		}, sceneId);
+		const frame = page.getByTestId(`widget-${tileId}`);
+		const trigger = frame.getByTestId('tile-actions-trigger');
+		const instance = () =>
+			page.evaluate(
+				({ id, wid }) => {
+					const w = window.__rt!.state.scenes.scenes[id].widgets.find((x) => x.id === wid)!;
+					return { x: w.layout.x, binding: w.binding, configuration: w.configuration };
+				},
+				{ id: sceneId, wid: tileId },
+			);
+		// The tile sits below the fold on a desktop board. Settle the board's scroll before opening the
+		// menu: a fixed menu dismisses itself on any scroll, so one landing late closes it under the click.
+		const menu = page.getByTestId('tile-actions-menu');
+		const openMenu = async () => {
+			await frame.scrollIntoViewIfNeeded();
+			await expect(async () => {
+				if (!(await menu.isVisible())) await trigger.click();
+				await expect(menu).toBeVisible({ timeout: 1_000 });
+			}).toPass();
+		};
+		await expect(frame.getByTestId('tile-binding')).toHaveAttribute(
+			'data-binding-state',
+			'unbound',
+		);
+
+		// Bind… offers the characters the DM can read, and binds the one picked.
+		await openMenu();
+		await page.getByRole('menuitem', { name: 'Bind…', exact: true }).click();
+		const bind = page.getByRole('dialog', { name: 'Bind Character', exact: true });
+		await expect(bind).toBeVisible();
+		const accessibility = await new AxeBuilder({ page })
+			.include('[data-testid="tile-bind-dialog"]')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+			.analyze();
+		expect(accessibility.violations).toEqual([]);
+		const picker = bind.getByLabel('Character', { exact: true });
+		await picker.selectOption({ index: 1 });
+		const name = (await picker.locator('option:checked').textContent())!.trim();
+		await bind.getByRole('button', { name: 'Bind', exact: true }).click();
+		await expect(bind).toHaveCount(0);
+		await expect(frame).toBeFocused();
+		await expect.poll(async () => (await instance()).binding?.source.entityType).toBe('character');
+		const boundId = (await instance()).binding!.source.entityId;
+		expect(
+			await page.evaluate((cid) => window.__rt!.state.characters.characters[cid]?.name, boundId),
+		).toBe(name);
+		await expect(frame.getByTestId('tile-binding')).toHaveAttribute('data-binding-state', 'bound');
+		await expect(frame.getByTestId('tile-binding')).toContainText(name);
+
+		// Configure… — the board has no Inspector — lists the definition's settings in a dialog.
+		await openMenu();
+		await page.getByRole('menuitem', { name: 'Configure…', exact: true }).click();
+		const configure = page.getByRole('dialog', { name: 'Configure Character', exact: true });
+		const abilities = configure.getByRole('switch', { name: 'Ability scores' });
+		await expect(abilities).toBeChecked();
+		await abilities.click();
+		await expect.poll(async () => (await instance()).configuration.showAbilities).toBe(false);
+		// Keys typed in the dialog stay in it: an arrow does not move the tile, Delete does not remove it.
+		const { x } = await instance();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('Delete');
+		expect((await instance()).x).toBe(x);
+		await page.keyboard.press('Escape');
+		await expect(configure).toHaveCount(0);
+		await expect(frame).toBeFocused();
+		await expect(frame).toBeVisible();
+	});
+
+	test('Configure… on the scene editor opens the Inspector for that tile', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		const sceneName = `Menu Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(n) => Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === n)?.id ?? null,
+			sceneName,
+		);
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await page.getByTestId('scene-add-widget-panel').getByRole('button').nth(1).click();
+		await expect.poll(() => widgetCount(page, sceneId!)).toBe(1);
+		// Placing a widget can leave the Inspector open on it; start from no selection.
+		await page.keyboard.press('Escape');
+		const widgetId = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
+			sceneId!,
+		);
+
+		await page.getByTestId(`widget-${widgetId}`).getByTestId('tile-actions-trigger').click();
+		await page.getByRole('menuitem', { name: 'Configure…', exact: true }).click();
+		// The Inspector's Remove control is unique to it.
+		await expect(page.getByRole('button', { name: 'Remove widget' })).toBeVisible();
+	});
+});

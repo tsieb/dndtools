@@ -974,6 +974,16 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only block) -----------------------------
+	// Copy an instance on its own scene: same definition, version, size, configuration, binding and
+	// section, a fresh id and fresh local state. The copy is read from the Core's own scene, never from
+	// the caller, and the binding is re-checked against the duplicating actor.
+	| {
+			type: 'scene.duplicate-widget';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =

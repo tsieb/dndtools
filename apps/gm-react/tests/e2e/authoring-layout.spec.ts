@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 /**
  * Authoring cards must fit the *usable* phone width, not merely a typical 375px
@@ -49,6 +49,80 @@ test('populated authoring libraries fit a 320px Android viewport', async ({ page
 	for (const route of ['/atlas', '/audio']) {
 		await expectMainFitsPhone(page, route);
 	}
+});
+
+test('the roster cards and their filters fit a 320px Android viewport', async ({ page }) => {
+	// RC-CHR-5.3 grew each roster card (HP bar, condition badges, tags, owner chip, last played) and
+	// added an Owner/Tag filter row. Every one of them has to wrap inside the 292px usable width.
+	await page.setViewportSize({ width: 320, height: 640 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/characters');
+	await seedFresh(page);
+
+	// Give one card the longest lines a card can grow, and the roster a Tag filter to render.
+	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+	const kingId = await page.evaluate(() => {
+		const chars = (
+			window.__rt as unknown as {
+				state: { characters: { characters: Record<string, { id: string; name: string }> } };
+			}
+		).state.characters.characters;
+		return Object.values(chars).find((c) => c.name === 'The Hollow King')?.id ?? null;
+	});
+	expect(kingId, 'the seeded vault must contain The Hollow King').not.toBeNull();
+	const edits: Array<[string, string | string[]]> = [
+		['data.tags', 'boss, undead, drowned empire, recurring villain'],
+		['combat.conditions', ['poisoned', 'frightened', 'restrained', 'prone']],
+	];
+	for (const [path, value] of edits) {
+		const result = await dispatch(page, {
+			type: 'character.edit-field',
+			actorId,
+			payload: { characterId: kingId, path, value },
+		});
+		expect(result.status, result.rejection?.message).toBe('accepted');
+	}
+
+	const expectRosterFits = async (label: string) => {
+		const main = await page.locator('#main-content').evaluate((el) => ({
+			clientWidth: el.clientWidth,
+			scrollWidth: el.scrollWidth,
+		}));
+		expect(main.scrollWidth, `${label}: no horizontal scroll`).toBeLessThanOrEqual(
+			main.clientWidth + 1,
+		);
+		const clipped = await page
+			.locator('[data-roster-card]')
+			.evaluateAll((cards) =>
+				cards
+					.filter(
+						(card) =>
+							card.scrollWidth > card.clientWidth + 1 ||
+							card.getBoundingClientRect().right > document.documentElement.clientWidth + 1,
+					)
+					.map((card) => card.getAttribute('aria-label')),
+			);
+		expect(clipped, `${label}: cards that clip their content`).toEqual([]);
+	};
+
+	const filters = page.getByRole('group', { name: 'Filter characters' });
+	const owner = filters.getByRole('combobox', { name: 'Owner', exact: true });
+	const tag = filters.getByRole('combobox', { name: 'Tag', exact: true });
+	await owner.selectOption({ label: 'No player owner' });
+	await tag.selectOption('undead');
+	const clear = filters.getByRole('button', { name: 'Clear filters' });
+	for (const control of [owner, tag, clear]) {
+		const box = await control.boundingBox();
+		expect(box, 'filter control must be laid out').not.toBeNull();
+		expect(box!.x).toBeGreaterThanOrEqual(0);
+		expect(box!.x + box!.width).toBeLessThanOrEqual(320 + 1);
+	}
+	await expect(page.locator('[data-roster-card]')).toHaveCount(1);
+	await expectRosterFits('filtered roster');
+
+	await clear.click();
+	await expect(page.locator('[data-roster-card]')).not.toHaveCount(1);
+	await expectRosterFits('full roster');
 });
 
 test('the character builder starts its first step without horizontal clipping on a 320px phone', async ({
@@ -197,7 +271,6 @@ test('the wizard uses the whole phone viewport instead of floating as a fixed sl
 		'the phone wizard must fill the viewport, not float inside it',
 	).toBeGreaterThan(viewportHeight * 0.95);
 });
-
 
 test('entering the wizard moves focus into it, so Tab cannot walk out behind the scrim', async ({
 	page,

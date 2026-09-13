@@ -24,6 +24,7 @@ import { SpellsPanel } from './sheet/SpellsPanel';
 import { ReferencePanel } from './sheet/ReferencePanel';
 import { SharingPanel } from './sheet/SharingPanel';
 import { BioPanel } from './sheet/BioPanel';
+import { TagsPanel } from './sheet/TagsPanel';
 import { useAdvancementEditor } from './sheet/useAdvancementEditor';
 import { useI18n } from '../../i18n';
 
@@ -519,6 +520,23 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 					)}
 
 					<ReferencePanel view={view} />
+
+					{/* Keyed on the mode so leaving edit mode drops an unsaved tag draft, like the other panels. */}
+					<TagsPanel
+						key={editMode ? 'edit' : 'read'}
+						view={view}
+						editMode={editMode && isDm}
+						onSave={(value) =>
+							dispatch(
+								{
+									type: 'character.edit-field',
+									actorId,
+									payload: { characterId: id, path: 'data.tags', value },
+								},
+								t('characters.tagsSaved'),
+							)
+						}
+					/>
 
 					{isDm && record && (
 						<SharingPanel
