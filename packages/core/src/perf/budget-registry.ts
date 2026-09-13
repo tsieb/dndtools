@@ -131,12 +131,13 @@ export interface PerformanceBudget {
 export const PERFORMANCE_BUDGET_REGISTRY_VERSION = 1 as const;
 
 /**
- * The declared, owned performance budgets for v2. These are the concrete provisional thresholds the
- * PERF-007 budget artifact names (smoke CI, startup, vault open, Scene first render, widget update,
- * map pan/zoom, search, graph indexing, sync reconciliation). This module is the executable,
- * validated source of truth for those thresholds. All are `provisional` (no measured baseline
- * exists yet, per ADR-014's prototype stance) and therefore each declares dataset, device class,
- * and a review date.
+ * The declared, owned performance budgets for v2. All eleven have observed baselines in
+ * `tests/perf/baseline.json`, recorded on 2026-09-06 by the RC-ENG-1.1 browser/Node harness.
+ * Targets remain the workflow ceilings/floors; they are not the observed values. Dataset and
+ * deviceClass below describe the target scope, not a claim that every reference profile was
+ * measured. The recorded fixtures include smaller vaults/scenes and local-only session delivery;
+ * see `docs/development/PERFORMANCE.md` for values, sample counts, hardware, and coverage limits.
+ * The provisional maturity variant remains supported for future budgets without measurements.
  */
 export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 	{
@@ -146,8 +147,13 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'Slow CI feedback delays every contributor and erodes the fast-feedback loop.',
 		dataset: 'Supported CI runner',
 		deviceClass: 'CI reference runner',
-		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 3 * 60 * 1000, unit: 'ms' },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'duration-ms',
+			direction: 'lower-is-better',
+			target: 3 * 60 * 1000,
+			unit: 'ms',
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'app-startup',
@@ -157,7 +163,7 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		dataset: 'Warm cache',
 		deviceClass: 'Desktop reference device',
 		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 2 * 1000, unit: 'ms' },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'vault-open',
@@ -167,7 +173,7 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		dataset: '1,000 notes / 100 objects / 20 maps',
 		deviceClass: 'Desktop reference device',
 		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 3 * 1000, unit: 'ms' },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'scene-first-render',
@@ -177,7 +183,7 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		dataset: '50 widgets / 10 active bindings',
 		deviceClass: 'Desktop and slim reference profiles',
 		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 1500, unit: 'ms' },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'widget-update',
@@ -186,8 +192,14 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A laggy widget update makes a Scene feel sluggish to the DM and players.',
 		dataset: 'Single accepted command',
 		deviceClass: 'Desktop and slim reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 100, unit: 'ms', percentile: 95 },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 100,
+			unit: 'ms',
+			percentile: 95,
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'map-pan-zoom-desktop',
@@ -196,8 +208,14 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A low frame rate makes map navigation stutter during play.',
 		dataset: '4 layers / 100 POIs',
 		deviceClass: 'Desktop reference',
-		metric: { kind: 'throughput-fps-p95', direction: 'higher-is-better', target: 50, unit: 'fps', percentile: 95 },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'throughput-fps-p95',
+			direction: 'higher-is-better',
+			target: 50,
+			unit: 'fps',
+			percentile: 95,
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'map-pan-zoom-slim',
@@ -206,8 +224,14 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A low frame rate makes map navigation stutter on slim devices.',
 		dataset: '4 layers / 100 POIs',
 		deviceClass: 'Slim reference',
-		metric: { kind: 'throughput-fps-p95', direction: 'higher-is-better', target: 30, unit: 'fps', percentile: 95 },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'throughput-fps-p95',
+			direction: 'higher-is-better',
+			target: 30,
+			unit: 'fps',
+			percentile: 95,
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'search',
@@ -216,8 +240,14 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A slow query makes finding content feel unresponsive.',
 		dataset: '10,000 indexed records',
 		deviceClass: 'Desktop and mobile reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 250, unit: 'ms', percentile: 95 },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 250,
+			unit: 'ms',
+			percentile: 95,
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'graph-indexing',
@@ -227,7 +257,7 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		dataset: 'One changed note in a 10,000-record vault',
 		deviceClass: 'Background worker profile',
 		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 500, unit: 'ms' },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		id: 'sync-reconciliation',
@@ -236,8 +266,14 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A slow replay starves the UI while a backlog of operations is applied.',
 		dataset: '1,000 queued operations',
 		deviceClass: 'Desktop and mobile reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 2 * 1000, unit: 'ms', percentile: 95 },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 2 * 1000,
+			unit: 'ms',
+			percentile: 95,
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 	{
 		// Migrated from the COLLAB live-session module's ad-hoc DEFAULT_SESSION_LATENCY_BUDGET. The p95
@@ -249,8 +285,14 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A laggy live session leaves a participant view behind the DM during play.',
 		dataset: 'Near-real-time projected session ops',
 		deviceClass: 'Desktop and mobile reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 500, unit: 'ms', percentile: 95 },
-		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 500,
+			unit: 'ms',
+			percentile: 95,
+		},
+		maturity: { kind: 'baseline', measuredAt: '2026-09-06' },
 	},
 ];
 
