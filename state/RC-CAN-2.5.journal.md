@@ -65,3 +65,30 @@
   (board-layout-guard with new fit/preset/cycle cases, canvas suites): 95/95.
   Typecheck, ESLint on changed files, Prettier, quality gates 6/6 all passed.
 - No dispatcher state changes, additional agents, push or promotion.
+
+## Gate recovery: App tests on rebased head b10f8e88 (2026-09-12)
+
+- Read the original App tests log (run fca98f6e-c05a-47bc-8861-8151a48a8e92):
+  1 failed, 1337 passed. The single failure is
+  `apps/gm-react/src/app/help/changelog.test.ts` › "agree, so the badge and
+  the release notes name the same version": expected 'Unreleased' to be
+  '0.3.7'. board-layout-guard and every canvas suite passed.
+- Cause is the new base, not this story. The branch was rebased onto
+  66b7ab7f (RC-DOC-1.4, "docs: add RC release notes and Lamplight marketing
+  page"), which filled `CHANGELOG.md`'s `[Unreleased]` section. `latestRelease`
+  skips only an EMPTY leading Unreleased section, so it now returns
+  'Unreleased', while `apps/gm-react/package.json` is still 0.3.7.
+- Proof: `git diff --quiet 66b7ab7f HEAD -- CHANGELOG.md
+apps/gm-react/package.json apps/gm-react/src/app/help` reports identical
+  inputs, and the test reproduces at HEAD in isolation (1 failed, 6 passed).
+  This story's commits touch only SceneBoardCanvas.tsx, board-helpers.ts,
+  WidgetFrame.tsx, board-layout-guard.test.ts, custom-widgets.spec.ts and this
+  journal.
+- Not fixed here: CHANGELOG.md and the changelog parser/test are outside
+  RC-CAN-2.5's owned paths, and the fix means choosing between RC-DOC-1.4's
+  release copy and the version-agreement rule. Needs an owner decision on the
+  base branch (e.g. let `latestRelease` skip `[Unreleased]` entirely, or
+  bump/tag the version the preview notes describe).
+- Acceptance re-verified on the rebased head: focused resize e2e 4/4 on
+  desktop and mobile Chromium, no retries.
+- No dispatcher state changes, additional agents, push or promotion.
