@@ -110,3 +110,25 @@ dispatcher mutations, push or promotion.
 - Current edits are limited to the owned handler/test paths and this required run journal.
   Earlier companion changes remain inherited and untouched; the prior scope-gate concern is
   still unresolved here. No full central gates, deployment, push or promotion were performed.
+
+## App-gate follow-up (2026-09-12)
+
+- Resumed clean rebased task head `a12a1dcc3ca56ea96c48cf964ee56b86666fb5e0`.
+- Read the original failed gate log at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/bde06cd2-6d07-4f64-b817-a4e71e238337/output.log`.
+  App tests: 125 files passed, 1 failed; 1338 tests passed, 1 failed. The sole failure is
+  `apps/gm-react/src/app/help/changelog.test.ts:85`: expected `0.3.7`, received `Unreleased`.
+- Root cause: base commit `66b7ab7f` adds bullets under `[Unreleased]` in `CHANGELOG.md`.
+  `latestRelease` currently returns the first section with bullets, including Unreleased.
+  `git diff 66b7ab7f HEAD -- CHANGELOG.md apps/gm-react/src/app/help/changelog.ts
+apps/gm-react/src/app/help/changelog.test.ts apps/gm-react/package.json` is empty: all
+  inputs to the failure are unchanged from the task base.
+- Focused reproduction:
+  `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/help/changelog.test.ts apps/gm-react/src/screens/community/Discover.test.tsx --maxWorkers=1`.
+  Exit 1: same changelog failure, 14 tests passed (including all 8 Discover tests).
+- No discovery change can correct this failure. Required follow-up is outside ownership:
+  make `latestRelease` skip Unreleased sections even when populated, and add a regression in
+  its adjacent tests. Preserve the release-candidate notes and the shipped version.
+- Committing this diagnosis only. The app gate remains failed; central operator must route the
+  changelog fix or expand ownership before a successful full app gate can be claimed.
+  No test suppression, unrelated edits, dispatcher state changes, push or promotion.
