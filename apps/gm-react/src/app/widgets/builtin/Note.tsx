@@ -59,10 +59,11 @@ export const NOTE_CHUNK_LINES = 100;
 const SUMMARY_MAX_LINES = 12;
 
 /**
- * The same test `parseBlocks` uses for a fence line (`app/markdown/plugins.ts`). A window must never
- * close inside a fence, or the rest of the code block would render as prose.
+ * The same tests `parseBlocks` uses for a fence line and a heading (`app/markdown/plugins.ts`). A
+ * window must never close inside a fence, or the rest of the code block would render as prose.
  */
 const FENCE_LINE = /^\s*(?:```|~~~)\s*([A-Za-z0-9+#-]*)\s*$/;
+const HEADING_LINE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 
 type Translate = ReturnType<typeof useI18n>['t'];
 
@@ -77,14 +78,30 @@ function lineCount(text: string): number {
 }
 
 /**
+ * True when the parser starts a new block at `next` whatever line came before it: after a closing
+ * fence, or at an opening fence or a heading. No block `parseBlocks` builds (paragraph, list, quote,
+ * callout, table, figure caption) takes a fence or a heading as its next line, except that a table
+ * takes any line with a `|` in it as a row, so a heading with one is not trusted.
+ */
+function startsBlock(next: string, afterClosingFence: boolean): boolean {
+	return (
+		afterClosingFence || FENCE_LINE.test(next) || (HEADING_LINE.test(next) && !next.includes('|'))
+	);
+}
+
+/**
  * Cut a long body into windows that parse the same way apart as they do together.
  *
  * A window prefers to close on a blank line outside a fence. The parser ends every block there, so
- * that cut changes nothing. Only a body with no such line for {@link NOTE_CHUNK_LINES} × 2 lines
- * takes a harder cut, and even then never between two `>` lines and never between two table rows.
- * The `>` rule is what keeps a note safe: a `[!Secret]` callout runs over consecutive `>` lines, and
- * a cut inside one would render its tail as an ordinary quote on a board the players can see. A run
- * with no legal cut stays in one window: correct rendering matters more than a fast one.
+ * that cut changes nothing. A body with no such line for {@link NOTE_CHUNK_LINES} × 2 lines may
+ * also close a window where the parser starts a new block regardless ({@link startsBlock}). Any
+ * other cut would split one block into two, each rendered on its own: the tail of a `[!Secret]`
+ * callout would show as an ordinary quote on a board the players can see, a numbered list would
+ * restart at 1, a table would lose its header. A run with no legal cut stays in one window: correct
+ * rendering matters more than a fast one.
+ *
+ * The one difference apart is heading `id`s: a repeated heading is numbered `-2`, `-3` from the
+ * start of its own window. Nothing links into a board tile by anchor.
  *
  * Joining the result with `\n` gives back the body (line endings normalised).
  */
@@ -95,16 +112,13 @@ export function splitNoteChunks(body: string, target: number = NOTE_CHUNK_LINES)
 	let inFence = false;
 	for (let i = 0; i < lines.length - 1; i += 1) {
 		const line = lines[i]!;
-		if (FENCE_LINE.test(line)) inFence = !inFence;
+		const fence = FENCE_LINE.test(line);
+		if (fence) inFence = !inFence;
 		const size = i + 1 - start;
 		if (inFence || size < target) continue;
-		const next = lines[i + 1]!;
+		// Past the `inFence` guard, a fence line is one that just closed its block.
 		const blank = line.trim() === '';
-		const hard =
-			size >= target * 2 &&
-			!(line.startsWith('>') && next.startsWith('>')) &&
-			!(line.includes('|') && next.includes('|'));
-		if (blank || hard) {
+		if (blank || (size >= target * 2 && startsBlock(lines[i + 1]!, fence))) {
 			chunks.push(lines.slice(start, i + 1).join('\n'));
 			start = i + 1;
 		}

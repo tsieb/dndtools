@@ -102,6 +102,30 @@ apps/gm-react/src/app/canvas`: 5 files, 128 tests passed.
   touched files exit 0; widget + canvas vitest 5 files, 128 tests passed; `note-depth.spec.ts` on
   desktop-chromium + mobile-chromium, `DNDTOOLS_E2E_PORT=39987` (load ≈ 8–12): 4/4 passed, exit 0.
 
+### Third retry (2026-09-12, review: ordered list split at a window boundary)
+
+- Reviewer's probe (a 201-line tight `1. … 201.` list) rendered two `<ol>`s, the second restarting
+  from one. Cause: the hard cut (≥ 200 lines with no blank line) was only barred between two `>`
+  lines and two `|` rows. `parseBlocks` continues a list over consecutive item lines, and a paragraph over
+  consecutive plain lines, so the cut split those blocks too.
+- Fix in `splitNoteChunks`: flip the blacklist to an allow-list. A hard cut now happens only where
+  the parser starts a new block whatever preceded it: after a closing fence, or before an opening
+  fence or a heading without a `|` (a table takes any `|` line as a row). A run with none of those
+  stays in one window, as before. The `>` and table rules are subsumed.
+- The reviewer also saw per-window heading anchors (`repeated` instead of `repeated-3`). The renderer
+  takes no anchor offset and `render.tsx`/`plugins.ts` are outside this claim. Nothing in the app
+  navigates to a heading `id` (routing is the hash), so this is documented on `splitNoteChunks` and
+  excluded from the equivalence test, not changed.
+- Tests: the 201-step list stays one chunk and renders as one `<ol>` of 201 items; a no-blank body
+  still cuts, only before headings/fences; a seeded property test (40 bodies × 400 lines of every
+  block type, target 5, >100 cuts) asserts `chunks.flatMap(parseBlocks)` equals `parseBlocks(body)`
+  modulo anchors. Against the old chunker, the three `splitNoteChunks` tests fail (3 failed / 21
+  passed); against the fix all pass.
+- Validation: `Note.test.tsx` 25 tests pass; widget + canvas vitest 5 files, 132 tests passed;
+  gm-react `typecheck` exit 0; ESLint + Prettier on both files exit 0;
+  `DNDTOOLS_E2E_PORT=47713 npx playwright test tests/e2e/note-depth.spec.ts
+--project=desktop-chromium --project=mobile-chromium` (load ≈ 2): 4/4 passed, exit 0.
+
 ## Finding for follow-up (outside this story)
 
 - A very large note edited many times in one session can exhaust the 5 MB `persistFullState`

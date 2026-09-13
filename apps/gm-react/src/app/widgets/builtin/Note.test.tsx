@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSystemWidgetPackages, type WidgetDefinition } from '@dndtools/core';
 import type { BoardWidget } from '../../board-helpers';
 import { I18nProvider } from '../../../i18n';
+import { parseBlocks } from '../../markdown/plugins';
 import {
 	NOTE_CHUNK_LINES,
 	NoteTile,
@@ -222,6 +223,68 @@ describe('splitNoteChunks', () => {
 		expect(chunks.find((chunk) => chunk.includes('> [!Secret]'))).toContain('> Hidden line 400.');
 	});
 
+	it('keeps a numbered list with no blank lines in one window, so it counts on past 200', () => {
+		const body = Array.from({ length: 201 }, (_, i) => `${i + 1}. Step ${i + 1}`).join('\n');
+		expect(splitNoteChunks(body)).toEqual([body]);
+	});
+
+	it('still cuts a body with no blank lines before a heading or a fence', () => {
+		const lines: string[] = [];
+		for (let section = 1; section <= 12; section += 1) {
+			lines.push(`## Watch ${section}`);
+			for (let i = 1; i <= 40; i += 1) lines.push(`${i}. Bell ${i}`);
+			lines.push('```', `log ${section}`, '```');
+		}
+		const chunks = splitNoteChunks(lines.join('\n'));
+		expect(chunks.join('\n')).toBe(lines.join('\n'));
+		expect(chunks.length).toBeGreaterThan(1);
+		for (const chunk of chunks.slice(1)) expect(chunk).toMatch(/^(## Watch|```)/);
+	});
+
+	it('parses the same apart as together, whatever blocks meet at a cut', () => {
+		// Every block the parser knows, packed with almost no blank lines and cut into tiny windows,
+		// so nearly every cut is a hard one. A seeded generator keeps a failure reproducible.
+		let seed = 20260912;
+		const random = () => {
+			seed ^= seed << 13;
+			seed ^= seed >>> 17;
+			seed ^= seed << 5;
+			return (seed >>> 0) / 4294967296;
+		};
+		const pool: ((n: number) => string)[] = [
+			(n) => `${n}. Step ${n}`,
+			(n) => `- Item ${n}`,
+			(n) => `* Star ${n}`,
+			(n) => `Prose line ${n}.`,
+			(n) => `> Quoted ${n}`,
+			() => '> [!Secret] Vault',
+			(n) => `| cell ${n} | b |`,
+			() => '|---|---|',
+			(n) => `## Heading ${n % 5}`,
+			(n) => `# Piped | ${n}`,
+			() => '```',
+			() => '---',
+			() => '***',
+			() => '![Chart](https://example.com/chart.png)',
+			() => '*A caption*',
+		];
+		// Heading anchors are the documented difference between windows; everything else must match.
+		const shape = (blocks: unknown) =>
+			JSON.stringify(blocks, (key, value: unknown) => (key === 'anchor' ? undefined : value));
+		let cuts = 0;
+		for (let run = 0; run < 40; run += 1) {
+			const lines = Array.from({ length: 400 }, (_, n) =>
+				random() < 0.02 ? '' : pool[Math.floor(random() * pool.length)]!(n),
+			);
+			const body = lines.join('\n');
+			const chunks = splitNoteChunks(body, 5);
+			cuts += chunks.length - 1;
+			expect(chunks.join('\n')).toBe(body);
+			expect(shape(chunks.flatMap((chunk) => parseBlocks(chunk)))).toBe(shape(parseBlocks(body)));
+		}
+		expect(cuts).toBeGreaterThan(100);
+	});
+
 	it('never closes a window inside a fence, even on a blank line', () => {
 		const lines = [
 			...Array.from({ length: 90 }, (_, i) => `Prose ${i + 1}.`),
@@ -320,6 +383,14 @@ describe('full depth virtualization', () => {
 
 		FakeObserver.current!.fire(0, false);
 		expect(windows()[0]!.dataset.mounted).toBe('true');
+	});
+
+	it('draws a 201-step numbered list as one list, not a second one restarting at 1', () => {
+		const body = Array.from({ length: 201 }, (_, i) => `${i + 1}. Step ${i + 1}`).join('\n');
+		render(noteWidget({ heading: 'Drill', body }));
+		const lists = [...container.querySelectorAll('ol')];
+		expect(lists).toHaveLength(1);
+		expect(lists[0]!.children).toHaveLength(201);
 	});
 
 	it('still withholds a [!Secret] callout that sits past line 200', () => {
