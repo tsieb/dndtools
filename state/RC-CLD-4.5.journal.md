@@ -132,3 +132,15 @@ apps/gm-react/src/app/help/changelog.test.ts apps/gm-react/package.json` is empt
 - Committing this diagnosis only. The app gate remains failed; central operator must route the
   changelog fix or expand ownership before a successful full app gate can be claimed.
   No test suppression, unrelated edits, dispatcher state changes, push or promotion.
+
+## Repeated app-gate blocker (2026-09-12)
+
+- Inspected original log for run `de285a2b-2b3d-4d56-844a-795884e2b24a` at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/de285a2b-2b3d-4d56-844a-795884e2b24a/output.log`.
+  It repeats exactly the changelog failure above: 1338 passed, 1 failed, at task head `28b6327f`.
+- Reconfirmed the four changelog/version input files have no diff from base `66b7ab7f`.
+  No new implementation defect was reported. Repeating discovery changes or app tests cannot
+  resolve this unchanged, out-of-scope failure.
+- Required operator action remains: authorize `apps/gm-react/src/app/help/changelog.ts` and
+  its adjacent `changelog.test.ts`, or land the populated-Unreleased handling fix separately.
+  The discovery implementation remains committed; the full app gate remains blocked.
