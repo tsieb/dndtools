@@ -62,6 +62,21 @@
   move the RC notes under a versioned heading, bump the app version, or change `latestRelease()`
   or the test so unreleased notes don't count as the shipped release. No code change in this attempt.
 
+## Attempt 3 — App tests gate (run `b547911a`), same failure
+
+- Gate at `1bec109e` (journal-only commit): the same single failure, `changelog.test.ts`
+  `'Unreleased'` vs `'0.3.7'`; 1365 of 1366 app tests passed. The branch is unchanged, and no base
+  branch has touched the test's inputs since `66b7ab7f`, so retrying this branch as-is cannot pass.
+- Fleet impact: `66b7ab7f` is on local `loop/rc` only (no remote). Every task branch cut from it
+  fails App tests the same way; `dispatch/dndtools/70753c938c463ff01702` already contains it.
+  RC-DOC-1.4's journal shows it ran `pnpm gates`, which runs no tests, so the break went unseen.
+- Owners of the fix, per the roadmap: RC-UX-3.4 (`app/help/*`, the `CHANGELOG.md` parser),
+  RC-DOC-1.4 (the changelog RC entry), RC-ENG-7.2 (`CHANGELOG.md`, the version bump).
+- Smallest fix, in RC-UX-3.4's paths: make `latestRelease()` in `app/help/changelog.ts` skip the
+  `Unreleased` heading, not only an empty one, and add a fixture case for a non-empty Unreleased
+  section. The test's own comment says the badge compares against the BUILT version, and unreleased
+  notes are not in any built version. Not applied here: outside this story's owned paths.
+
 ## Known gap (outside owned paths)
 
 - `app/map/canvas/MapMarkers.tsx` and the DS `POIMarker` always render markers as buttons. On a
