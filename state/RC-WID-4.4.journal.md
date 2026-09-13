@@ -9,8 +9,8 @@
 - `SandboxHost.tsx`: `init` carries `--host-forced-colors` and `--host-high-contrast` to every
   frame (`collectSandboxContrastVariables`). The header comment records the aria contract.
 - Builtin bodies: new `builtin/live.tsx` (`LiveReadout`, `LiveStats`, `StateMark`). Stat rows,
-  count lines, the timer status line, the map summary and the compact initiative heading are polite
-  status regions mounted with the readout. Done setup steps, pinned searches and the DM's
+  count lines, the timer status line, the map summary and the compact initiative heading are
+  `aria-live="polite"` regions mounted with the readout. Done setup steps, pinned searches and the DM's
   playing-audio chip carry an icon with a name. The urgent timer shows a warning glyph, and its
   countdown is `role="timer"`. Timer Reset hands focus to the transport (the Reset button used to
   unmount under the keyboard and drop focus to `<body>`).
@@ -45,6 +45,22 @@
   0 failed, 5 skipped (the combat-tile desk/phone profile gates). `custom-widgets.spec.ts` re-run
   after a final rename in the spec: 14/14.
 - Not run here: the full Playwright suite and the operator's gates and review.
+
+## Attempt 2 — App tests gate (run `a52ed2c3`)
+
+- The gate ran at `15e4a15c`: this story's commit rebased onto `66b7ab7f` ("docs: add RC release
+  notes and Lamplight marketing page"). 1365 of 1366 app tests passed. The one failure is
+  `apps/gm-react/src/app/help/changelog.test.ts` › "agree, so the badge and the release notes name
+  the same version": `expected 'Unreleased' to be '0.3.7'`.
+- Cause: `66b7ab7f` added bullets under `## [Unreleased]` in `CHANGELOG.md`. `latestRelease()`
+  skips only an EMPTY Unreleased section, so the latest release is now `Unreleased`, and the test
+  compares it with `apps/gm-react/package.json` version `0.3.7`.
+- Not caused by this story: between `66b7ab7f` and this commit, `git diff` is empty for all three
+  of the test's inputs (`CHANGELOG.md`, `apps/gm-react/package.json`, `apps/gm-react/src/app/help`).
+  Reproduced locally at `15e4a15c` with the same assertion.
+- Not fixed here: every fix is outside this story's owned paths and is a release-notes decision —
+  move the RC notes under a versioned heading, bump the app version, or change `latestRelease()`
+  or the test so unreleased notes don't count as the shipped release. No code change in this attempt.
 
 ## Known gap (outside owned paths)
 
