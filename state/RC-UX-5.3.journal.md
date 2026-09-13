@@ -19,17 +19,56 @@ controlling amendment. The index retains its existing three-column format.
 - Linked the dated ADR-026 amendment in both directions and updated both index rows.
 - Replaced the threat model's universal forced-consent requirement with scoped creation defaults,
   disclosure, legacy preservation, server authority and migration obligations.
-- Security review: [report below](#security-review-report).
+- Security review: [`/security-review` report below](#security-review-report).
+- Attempt 2 (2026-09-12): independent review approved everything except the missing
+  `/security-review` report. The `security-review` skill was available in this session and was run.
+  Its report replaces the earlier manual substitute. The four owned docs are unchanged since
+  `f3d72b87`.
 
 ## Security-review report
 
-Method: manual source/diff review by the task agent, 2026-09-12. No callable `/security-review`
-command or skill was exposed in this session; this report is a manual substitute, **not a claim
-that the slash command ran or that an independent security reviewer approved the change**. The
-central operator's independent review remains required.
+### `/security-review` run (attempt 2, 2026-09-12)
 
-Scope: ADR-042, ADR-026 amendment/index and threat-model consent changes; compare to the linked
-local source at the base commit. No deployed service or live onboarding was exercised.
+Invoked the `security-review` skill against branch HEAD `f3d72b87`. The command diffs from the
+merge-base with `main` (`1e84f783`), so its range covers 101 files: this task's docs and the
+integrated loop/rc code commits beneath it. The skill's own procedure calls for sub-tasks. Step 1
+(identification) ran as one read-only general-purpose sub-agent given the full command prompt and
+exclusions. It returned no findings, so step 2 (per-finding false-positive sub-tasks) and step 3
+(confidence ≥ 8 filter) had nothing to process. No files were modified by the review.
+
+**Result: no High or Medium vulnerabilities found.** The identification sub-task's conclusion,
+verbatim:
+
+> I found no vulnerabilities that meet the bar (>80% confidence, High/Medium severity) in
+> `1e84f783...f3d72b87`.
+
+Coverage the sub-agent recorded, summarized:
+
+- Electron `scene-display:open` IPC and kiosk window: gated by `isPrimarySender`. The renderer
+  supplies no URL or bounds. The kiosk window uses the least-privilege preload with sandbox and
+  context isolation on, and navigation away from `#/display` destroys it.
+- Core `scene.duplicate-widget`: same authority, package and binding checks as add. Copied fields
+  come from the core's own state. A caller `copyId` colliding with a live or tombstoned widget is
+  refused. Remote players cannot reach it because the relay only forwards `dice.`/`character.`.
+- Widget sandbox and style tokens: extra theme tokens are forwarded only with `host-theme-tokens`.
+  `--widget-*` values go through the existing `resolveWidgetStyleVariables` sanitizer.
+- PDF export, scene-display hero `blob:` URL, dev-only component gallery (with the production-bundle
+  check), `promote-production.yml` and the legal-placeholder script: no untrusted sink found.
+- The RC-UX-5.3 docs, other journals, tests and snapshots are excluded from findings by the
+  command's rules (documentation and test-only files). **The command therefore gives no security
+  verdict on the ADR-042 decision itself.** That doc-level analysis is the manual review below.
+
+I checked three of the sub-agent's claims against source myself: the sender gate at
+`apps/gm-react/electron/main.cjs:448`, the relay allowlist at `apps/gm-react/src/net/SessionHost.ts:32`,
+and the `copyId` collision check at `packages/core/src/commands/widget.ts:1007-1015`. I did not
+re-verify its other claims, and I ran no dynamic testing.
+
+### Manual decision review (attempt 1, unchanged)
+
+Method: manual source/diff review by the task agent, 2026-09-12, scoped to ADR-042, the ADR-026
+amendment/index and the threat-model consent changes, compared with the linked local source at the
+base commit. No deployed service or live onboarding was exercised. This is not an independent
+security approval.
 
 Disposition: the documentation preserves the closed phase-2 gate and makes the product's weaker
 consent model explicit. No runtime authorization change is introduced. Remaining implementation
@@ -66,6 +105,15 @@ Run from the repository root:
 - `git diff --check`: passed. Final diff reviewed; only the four owned docs and required journal
   changed. Prettier normalized the touched ADR tables without changing other rows' content.
 
-Browser, deployment and central wrapper gates were not run. No push, promotion, loop launch,
-additional agent or dispatcher control-state change. The manual security report above does not
-satisfy literal execution of an unavailable `/security-review` command; operator review is pending.
+Attempt 1: browser, deployment and central wrapper gates were not run. No push, promotion, loop
+launch, additional agent or dispatcher control-state change.
+
+Attempt 2 (journal-only change; owned docs untouched):
+
+- Ran `/security-review` as recorded above. Its step-1 sub-agent is the only agent spawned. The task
+  requires this command, and the command's procedure is multi-agent. The sub-agent was read-only.
+- Re-ran focused `pnpm exec prettier --check`, `git diff --check`, and the local link/anchor check
+  on this journal. Results are in the attempt-2 commit message.
+- Browser, deployment and central wrapper gates were not run. No push, promotion, loop launch or
+  dispatcher control-state change. The central operator's gates and independent review remain
+  pending.
