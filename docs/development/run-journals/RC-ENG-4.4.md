@@ -261,3 +261,40 @@ handoff above. No new dependency bump is retained and no full merged-set gate pa
 This continuation changes only this journal. `pnpm gates`, `pnpm format:check:changed`, and
 `git diff --check` pass (exit 0); the quality registry emits existing file-size target warnings.
 These documentation checks do not establish type, unit, browser, native, or hosted CI success.
+
+## 11. App gate failure after integration-base refresh
+
+- Entry tree clean at `bbf3c825fcbbdf7710fbe15de23f4fbd1ed0ba68`. Read the original failed
+  app-gate log at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/d684741f-6e9e-4fba-bd80-15093e006b78/output.log`.
+  It reports 125 passing files, one failing file, 1333 passing tests and one failing test.
+- The sole failure is `apps/gm-react/src/app/help/changelog.test.ts:85`: the shipped-version
+  assertion expects `0.3.7`, but `latestRelease()` returns `Unreleased`.
+- Reproduced with `pnpm test:app apps/gm-react/src/app/help/changelog.test.ts --maxWorkers=3`:
+  exit 1, six passing tests and the same single failure. Original output retrieved in full from
+  `/tmp/rc-eng-4.4-changelog-failure.log`.
+- Cause verified without modifying source or dependencies: invoke the current parser on
+  `git show 66b7ab7f^:CHANGELOG.md`, `66b7ab7f:CHANGELOG.md`, and `HEAD:CHANGELOG.md`.
+  Results are respectively `0.3.7` (two bullets), `Unreleased` (three bullets), and `Unreleased`
+  (three bullets). Commit `66b7ab7f` added the populated preview section before this dependency
+  branch's commits. The parser, its test and changelog have no diff from that base to HEAD.
+- `apps/gm-react/src/app/help/changelog.ts:50` selects the first nonempty section regardless of
+  whether it is released. `HelpMenu.tsx:43` uses the same function, so this is a product bug,
+  not just a stale expected value. Changing the package version to `Unreleased`, removing
+  preview notes or filtering only inside the test would conceal the defect.
+- HANDOFF RC-ENG-4.4 → apps/gm-react/src/app/help/changelog.ts: make `latestRelease()` skip
+  `[Unreleased]` even when it contains bullets, while keeping those entries in `parseChangelog()`.
+  Add regressions for populated Unreleased before a shipped release and populated Unreleased
+  without any shipped release (expect null). Keep the real shipped-version assertion intact.
+  The production parser is outside this task's owned paths; no source fix is authorized here.
+- No dependency was newly bumped or reverted: the controlled historical input comparison
+  establishes this failure comes from the integrated documentation change, not a dependency.
+  Existing dependency commits and unrelated release documentation are preserved.
+
+### Report
+
+BLOCKED RC-ENG-4.4: current app gate requires the out-of-scope changelog parser fix above.
+The previously recorded Router audit and migration handoffs also remain unresolved. The supplied
+operator results passed quality, formatting, typecheck, lint and core tests on `bbf3c825`; app
+failed, and later gates were not reached. No all-green merged set or completed acceptance is
+claimed. This pass changes only the journal; no push, promotion, PR closure or control-state edit.
