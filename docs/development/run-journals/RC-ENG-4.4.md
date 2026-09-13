@@ -201,7 +201,7 @@ is reverted and the reason is recorded here.
   and Gradle 9.7.1 migrations need their out-of-scope owners; full final browser/hosted CI and
   operator integration remain pending. No push or dispatcher control-state changes occurred.
 
-## Report
+## Report from the previous implement pass
 
 PARTIAL RC-ENG-4.4: preserved the five dependency commits through `17499c4f`; rejected and
 reverted the Router 7 candidate after a controlled browser regression. React 19 and Gradle
@@ -219,3 +219,45 @@ reverted the Router 7 candidate after a controlled browser regression. React 19 
   been represented on GitHub as a successful replacement.
 - This continuation changes only development documentation and this journal. Earlier intended
   dependency commits are preserved; the uncommitted rejected Router 7 change is removed.
+
+## 10. Capacity-timeout continuation (2026-09-12)
+
+### Ledger and decisions
+
+- Entry tree was clean at `d35e57d6213b9fc46a9bbf273f8a4c224ed0bd87`. The previous
+  verification-capacity timeout is scheduler feedback, not a failed product check and not proof
+  of a successful gate. No dispatcher controls were changed or additional agents started.
+- Existing commits are preserved: Vite/plugin `d2301af6`, Actions `2f3691d0`, Electron
+  `4c05767a`, Node types `11aed244`, and Vitest/Joi `000d4761`. Earlier hashes in this journal
+  predate the branch rebase; these are the current branch's corresponding commits.
+- Fresh registry query (`pnpm view react-router-dom@6 version --json`) confirms 6.30.6 is the
+  newest Router 6 release. The current lockfile already resolves that version. There is no
+  newer Router 6 patch to apply within this major.
+- Fresh `pnpm audit --json` with the repository-pinned pnpm 10.34.5 exits 1: two moderate
+  advisories, GHSA-wrjc-x8rr-h8h6 and GHSA-337j-9hxr-rhxg, both requiring react-router >=7.18.0.
+  Exact output: `/tmp/rc-eng-4.4-current-audit.json`. No audit exclusions were added.
+- Router 7.18.3 remains the newest stable 7.x version in the registry. It is the same candidate
+  already rejected by section 9's controlled browser comparison. Repeating that unchanged
+  candidate or suppressing its failing assertion would not resolve the recorded regression.
+- React 19 and Gradle 9.7.1 remain rejected under the explicit failed-bump policy. Current
+  Android configuration still pairs Gradle 8.14.3 with AGP 8.13.0. Their earlier failure
+  diagnostics above are prior-run evidence; these migrations were not retried in this pass.
+- HANDOFF RC-ENG-4.4 → apps/gm-react/src/app/CommandPalette.tsx and
+  apps/gm-react/src/platform/modalIsolation.ts: resolve the Router 7 accessibility regression
+  before retrying the patched router. These source files are outside the task's write fence.
+- HANDOFF RC-ENG-4.4 → apps/gm-react/src/screens/settings/index.tsx: migrate the global JSX
+  type before retrying React 19, with the Figure rendering assertion described in section 6.
+- HANDOFF RC-ENG-4.4 → apps/gm-react/android/build.gradle and .github/dependabot.yml:
+  migrate AGP alongside Gradle and lift the incompatible-version ignore only after native gates.
+- Acceptance amendment of 2026-09-12 applied: closing PRs #56, #57 and #59–#63 as superseded
+  belongs to loop/rc → main delivery after integration. PR closure is not a candidate-review
+  criterion. No PRs were closed, and nothing was pushed or promoted.
+
+### Report
+
+PARTIAL RC-ENG-4.4: existing dependency commits preserved; fresh unscoped audit still fails
+with two moderate Router advisories. A clean audit requires the out-of-scope Router migration
+handoff above. No new dependency bump is retained and no full merged-set gate pass is claimed.
+This continuation changes only this journal. `pnpm gates`, `pnpm format:check:changed`, and
+`git diff --check` pass (exit 0); the quality registry emits existing file-size target warnings.
+These documentation checks do not establish type, unit, browser, native, or hosted CI success.
