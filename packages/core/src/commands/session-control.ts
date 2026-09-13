@@ -95,15 +95,17 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 		// unnamed rather than inheriting a name for a session that is over. The archive keeps it.
 		title: null,
 		activeMap: null,
-		combat: { ...EMPTY_SESSION_COMBAT_STATE },
-		diceHistory: [],
+		// Non-live history survives session teardown; live records are retained in the archive.
+		combat: {
+			...EMPTY_SESSION_COMBAT_STATE,
+			log: session.combat.log.filter((entry) => !happenedLive(entry)),
+		},
+		diceHistory: session.diceHistory.filter((roll) => !happenedLive(roll)),
 		timers: {},
 		playerViewAssignments: {},
 		activeMapProjections: {},
-		// SES-004 / SES-007 — handouts (with their delivery history) and pinned quick-reference panels are
-		// live session state; clearing them when the session resets prevents stale handouts/pins carrying
-		// into the next session. They are preserved in the archive snapshot below for recap.
-		handouts: {},
+		// Keep non-live handout deliveries available as table history; live deliveries are archived.
+		handouts: liveHandoutsForArchive(session.handouts, false),
 		quickReferencePanels: {},
 		// AUDIO-002 / AUDIO-003 — the currently-playing audio is LIVE session state; resetting the session
 		// stops it (a new session starts silent). It is preserved in the archive snapshot below for recap.
@@ -130,10 +132,11 @@ function liveCombatForArchive(combat: SessionCombatState): SessionCombatState {
  */
 function liveHandoutsForArchive(
 	handouts: Record<string, SessionHandout>,
+	live = true,
 ): Record<string, SessionHandout> {
 	const archived: Record<string, SessionHandout> = {};
 	for (const [id, handout] of Object.entries(handouts)) {
-		const deliveries = handout.deliveries.filter(happenedLive);
+		const deliveries = handout.deliveries.filter((delivery) => happenedLive(delivery) === live);
 		if (handout.deliveries.length > 0 && deliveries.length === 0) continue;
 		archived[id] = cloneArchivedHandout({ ...handout, deliveries });
 	}

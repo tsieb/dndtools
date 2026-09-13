@@ -1,3 +1,4 @@
+import type { SessionWorkflowStamp } from '../lifecycle/session-workflow';
 import type { ActorId } from './ids';
 import type { ActorRole } from './permission-state';
 import {
@@ -137,7 +138,7 @@ export interface Combatant {
 }
 
 /** One durable entry in the ENCOUNTER LOG (SES-002): a record of a combat event, in order. */
-export interface CombatLogEntry {
+export interface CombatLogEntry extends SessionWorkflowStamp {
 	id: string;
 	/** Which round the event occurred in (0 before combat starts). */
 	round: number;

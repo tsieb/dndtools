@@ -64,7 +64,7 @@ import type {
 	CoreStateSlice,
 } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
-import { stampWorkflow } from '../lifecycle/session-workflow';
+import { happenedLive, stampWorkflow } from '../lifecycle/session-workflow';
 
 /**
  * SES-002 — RUN COMBAT command handlers (Architecture Contract 1 / Contract 3).
@@ -332,7 +332,10 @@ export function handleStartCombat(
 		null,
 		null,
 	);
-	nextCombat = { ...nextCombat, log: [startEntry] };
+	nextCombat = {
+		...nextCombat,
+		log: [...state.session.combat.log.filter((entry) => !happenedLive(entry)), startEntry],
+	};
 
 	const draft = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: COMBAT_ENTITY_TYPE,

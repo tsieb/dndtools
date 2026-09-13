@@ -46,3 +46,13 @@
   - The e2e test now asserts that a Standby roll lands in the history with `sourceKind: 'inline'` and the current non-live workflow, that the chip shows its total and "Recorded in the roll history", and that the chip never mentions the session log.
 - Follow-up outside the claim: the `RollButton.tsx` / `NoteViewer.tsx` header comments still say the core refuses rolls outside a session. A chip that says "Outside a session" for a non-live roll needs those files.
 - Validation: inline-roll e2e passed 8/8 (desktop + mobile, `/tmp/rc-ses-6-1-inline-roll.log`). App vitest passed 126 files / 1336 tests. gm-react typecheck exit 0. ESLint on the four edited files exit 0. The old copy appears nowhere else in the repo.
+
+## Attempt 4 (independent review: SFX and non-live history defects)
+
+- The prior journal's SFX, type attribution, and dice-history label follow-ups are now implemented. Necessary companion paths are included to finish the reviewed behavior; no dispatcher state was edited.
+- `runtime/sfx-events.ts` ignores dispatched table events outside `active` and supplies the workflow to the core resolver. A seven-workflow runtime matrix covers critical rolls, handout delivery, map reveal and death saves, alongside the existing combat-start runtime coverage.
+- Session resets retain non-live dice history, combat log entries and handout deliveries; archives continue to contain only live records. Starting a new combat preserves prior non-live log entries. The lifecycle regression follows Standby records through recap, archive and idle and verifies the archive still excludes them.
+- The three durable record interfaces now declare the additive workflow stamp. The actor-filtered dice query retains that stamp without changing visibility filtering. Both newest and older dice history rows label non-live rolls "Outside a session" (English and Spanish catalogs). A rendered seven-workflow UI test caught and then verified the newest-row case.
+- Validation: full core suite 274 files / 4944 tests passed; full app suite 127 files / 1350 tests passed. Original logs: `/tmp/rc-ses-6-1-review-core-full.log` and `/tmp/rc-ses-6-1-review-app-full.log`. Focused lifecycle/capture matrix: 226 passed; audio runtimes: 24 passed. Core typecheck and changed-file ESLint passed. Final app typecheck, boundary and format checks recorded below after completion.
+- Browser acceptance and central wrapper gates are left to the central operator, as requested; no push or promotion performed.
+- Final checks: gm-react typecheck exit 0; boundary lint passed; Prettier on all changed source/tests passed; `git diff --check` clean.

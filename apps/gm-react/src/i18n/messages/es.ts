@@ -511,6 +511,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.dice.label': 'Etiqueta de la tirada',
 	'session.dice.labelPlaceholder': 'Etiqueta (opcional)',
 	'session.dice.export': 'Exportar registro de tiradas',
+	'session.dice.outsideSession': 'Fuera de una sesión',
 	'session.dice.natural': 'Nat {value}',
 	'session.dice.breakdown.toggle': 'Desglose por dado',
 	'session.dice.breakdown.dropped': '{value} (descartado)',

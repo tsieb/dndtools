@@ -9,6 +9,7 @@ import {
 	ensureAudioState,
 	evaluateAudioAutomationRule,
 	happenedLive,
+	getDiceHistoryForActor,
 	resolveAudioAutomationForActor,
 	type AudioAutomationRule,
 	type AudioAutomationTrigger,
@@ -529,6 +530,17 @@ describe('RC-SES-6.1: records carry the workflow they happened in', () => {
 
 		ctx = setWorkflow(ctx, 'ending');
 		ctx = setWorkflow(ctx, 'recap');
+		const outsideRolls = getDiceHistoryForActor(
+			ctx.state.session,
+			ctx.state.permissions,
+			DM_ACTOR.id,
+		).rolls;
+		expect(outsideRolls.map((r) => [r.label, r.workflow])).toEqual([['Standby check', 'idle']]);
+		expect(ctx.state.session.combat.log.length).toBeGreaterThan(0);
+		expect(ctx.state.session.combat.log.every((entry) => !happenedLive(entry))).toBe(true);
+		expect(Object.values(ctx.state.session.handouts).map((h) => h.title)).toEqual([
+			'Standby letter',
+		]);
 		const archiveId = ctx.state.session.recapArchiveId!;
 		const archive = ctx.state.session.archives[archiveId]!;
 		expect(archive.diceHistory.map((r) => r.label)).toEqual(['Live check']);
@@ -546,6 +558,16 @@ describe('RC-SES-6.1: records carry the workflow they happened in', () => {
 		const captured = ctx.state.session.archives[archiveId]!;
 		expect(captured.recap).toBeDefined();
 		expect(captured.diceHistory.map((r) => r.label)).toEqual(['Live check']);
+		ctx = setWorkflow(ctx, 'archived');
+		ctx = setWorkflow(ctx, 'idle');
+		expect(
+			getDiceHistoryForActor(ctx.state.session, ctx.state.permissions, DM_ACTOR.id).rolls,
+		).toMatchObject([{ label: 'Standby check', workflow: 'idle' }]);
+		expect(Object.values(ctx.state.session.handouts).map((h) => h.title)).toEqual([
+			'Standby letter',
+		]);
+		ctx = startCombat(ctx);
+		expect(ctx.state.session.combat.log.some((entry) => entry.workflow === 'idle')).toBe(true);
 	});
 });
 

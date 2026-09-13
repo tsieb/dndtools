@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
 	EMPTY_AUDIO_STATE,
+	SESSION_WORKFLOW_STATES,
 	EMPTY_SYSTEMS_STATE,
 	buildAudioAutomationRule,
 	configureAudioSource,
@@ -66,6 +67,7 @@ function stateWith(
 			sfxEvents,
 		},
 		session: {
+			workflow: 'active',
 			diceHistory: diceTerms
 				? [
 						{
@@ -128,6 +130,32 @@ function harness() {
 }
 
 describe('RC-AUD-3.2 — the SFX event driver', () => {
+	it.each(SESSION_WORKFLOW_STATES)('SFX waits for Go live in %s', async (workflow) => {
+		const { emit, played, dispatched } = harness();
+		const state = stateWith(
+			[
+				ruleOn('roll-critical-success'),
+				ruleOn('handout-delivery'),
+				ruleOn('map-reveal'),
+				ruleOn('death-save-success'),
+			],
+			{},
+			d20Terms(20),
+		);
+		state.session.workflow = workflow;
+		for (const op of [
+			{ opType: 'session.roll-dice' },
+			{ opType: 'session.deliver-handout' },
+			{ opType: 'map.fog.remove' },
+			{ opType: 'combat.resource.death-save', value: { delta: 1 } },
+		])
+			emit(op, state);
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(played).toHaveLength(workflow === 'active' ? 4 : 0);
+		expect(dispatched).toEqual([]);
+	});
+
 	it('plays the armed cue when a recorded roll comes up a natural 20', async () => {
 		const rule = ruleOn('roll-critical-success');
 		const { driver, emit, played } = harness();

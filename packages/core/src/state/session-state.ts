@@ -1,3 +1,4 @@
+import type { SessionWorkflowStamp } from '../lifecycle/session-workflow';
 import type { ActorId, SceneId, SectionId, WidgetInstanceId } from './ids';
 import {
 	EMPTY_SESSION_COMBAT_STATE as EMPTY_COMBAT_TRACKER_STATE,
@@ -158,7 +159,7 @@ export type DiceRollSourceKind = 'expression' | 'macro' | 'inline' | 'table';
  * Back-compat: the recorded fields beyond the original `expression`/`total` are OPTIONAL so a record
  * persisted by the legacy `session.record-dice` command (manual total, no draw) hydrates safely.
  */
-export interface SessionDiceRoll {
+export interface SessionDiceRoll extends SessionWorkflowStamp {
 	id: string;
 	actorId: ActorId;
 	/** The actor role at roll time (for the read filter; back-compat optional). */
@@ -311,7 +312,7 @@ export interface HandoutSection {
 }
 
 /** A durable record that a handout was delivered to ONE recipient at a point in time (SES-004 history). */
-export interface HandoutDeliveryRecord {
+export interface HandoutDeliveryRecord extends SessionWorkflowStamp {
 	id: string;
 	recipientActorId: ActorId;
 	deliveredBy: ActorId;

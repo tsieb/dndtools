@@ -499,6 +499,7 @@ export const en = {
 	'session.dice.label': 'Roll label',
 	'session.dice.labelPlaceholder': 'Label (optional)',
 	'session.dice.export': 'Export roll log',
+	'session.dice.outsideSession': 'Outside a session',
 	'session.dice.natural': 'Nat {value}',
 	'session.dice.breakdown.toggle': 'Per-die breakdown',
 	'session.dice.breakdown.dropped': '{value} (dropped)',

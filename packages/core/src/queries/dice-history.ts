@@ -30,6 +30,8 @@ import type { EvaluatedTerm } from '../state/dice';
 
 /** A read-only roll in the actor-filtered history. Carries only what the actor may see. */
 export interface DiceRollView {
+	/** Workflow recorded at roll time; absent on legacy live records. */
+	workflow?: SessionDiceRoll['workflow'];
 	id: string;
 	actorId: string;
 	expression: string;
@@ -84,6 +86,7 @@ function actorCanSeeRoll(roll: SessionDiceRoll, actorId: string, isDm: boolean):
 function toView(roll: SessionDiceRoll, includeSeed: boolean): DiceRollView {
 	return {
 		id: roll.id,
+		...(roll.workflow !== undefined ? { workflow: roll.workflow } : {}),
 		actorId: roll.actorId,
 		expression: roll.expression,
 		total: roll.total,

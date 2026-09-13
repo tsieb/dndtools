@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react';
-import { getActiveSystemForActor, type EvaluatedTerm } from '@dndtools/core';
+import {
+	getActiveSystemForActor,
+	happenedLive,
+	type SessionWorkflowStamp,
+	type EvaluatedTerm,
+} from '@dndtools/core';
 import { Button, DiceResult, Icon, Input } from '../../ds';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 import { Panel, T, mono } from '../../app/screen-kit';
@@ -9,7 +14,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 
 // ── Dice ──────────────────────────────────────────────────────────────────────────────────────────
 
-type TrayRoll = {
+type TrayRoll = SessionWorkflowStamp & {
 	id: string;
 	expression: string;
 	total: number;
@@ -216,8 +221,11 @@ export function DicePanel({
 						{...diceResultProps(activePackage, last)}
 						drama={last.id === settledRollId ? 'static' : 'play'}
 					/>
-					{last.label && (
-						<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 4 }}>{last.label}</div>
+					{(!happenedLive(last) || last.label) && (
+						<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 4 }}>
+							{!happenedLive(last) ? `${t('session.dice.outsideSession')} · ` : ''}
+							{last.label}
+						</div>
 					)}
 					<div style={{ marginTop: 4 }}>
 						<RollBreakdown roll={last} />
@@ -240,6 +248,7 @@ export function DicePanel({
 									}}
 								>
 									<span style={{ ...mono, color: T.sub }}>
+										{!happenedLive(d) ? `${t('session.dice.outsideSession')} · ` : ''}
 										{d.label ? `${d.label} · ` : ''}
 										{d.expression}
 									</span>

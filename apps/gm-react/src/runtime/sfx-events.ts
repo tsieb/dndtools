@@ -204,6 +204,7 @@ function createSfxEventsDriver(
 
 		const resolution = resolveAudioAutomationForActor(state.audio, state.permissions, dmId, {
 			kind: detected.event,
+			sessionWorkflow: state.session.workflow,
 			scopeId: detected.scopeId,
 			online: typeof navigator === 'undefined' ? true : navigator.onLine !== false,
 			// The device-byte check happens per request below; the resolver's availability inputs
@@ -247,7 +248,7 @@ function createSfxEventsDriver(
 	};
 
 	const unsubscribe = runtime.onDispatched((operations, nextState) => {
-		if (stopped) return;
+		if (stopped || nextState.session.workflow !== 'active') return;
 		for (const op of operations) {
 			const detected = eventForOperation(op, nextState);
 			if (detected) fire(detected, nextState);
