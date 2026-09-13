@@ -158,3 +158,23 @@ Required explicit integration ownership:
 
 This is a repository write-fence blocker (RC_ROADMAP.md §0.2), not an automatic approval rejection.
 No dispatcher state, unrelated files, pushes, promotion, loops, or additional agents changed.
+
+## Wrapper gate follow-up — 2026-09-13
+
+- Candidate after central rebase: `238c811a47b53c05d78681f904cad5844e239aa5`.
+- Read exact failed wrapper log `d298afd3-44a9-457b-bfba-e137e2a49d95/output.log`;
+  retained excerpt `e0c8f314527248b689c8d72d9b46e005`, original retrieved.
+- App gate: 1342 passed, 1 failed. `app/help/changelog.test.ts:85` expects `0.3.7` but
+  `latestRelease()` returns `Unreleased` after baseline commit `66b7ab7f` populated draft notes.
+- Fresh targeted reproduction: `pnpm test:app apps/gm-react/src/app/help/changelog.test.ts`
+  exits 1, 6 passed / 1 failed; original stdout/stderr artifact
+  `f42eb657e8c14b0f91c5fc5e7eb2b528` retrieved. No fix or passing gate claimed.
+- Neither the changelog parser, its test, nor CHANGELOG.md is modified by the vault candidate.
+- HANDOFF RC-UX-5.4 → `apps/gm-react/src/app/help/changelog.ts:51`: latestRelease must skip
+  `[Unreleased]` regardless of whether it has notes; retain the shipped-version assertion.
+  Add regressions for a populated draft preceding a release and a draft-only changelog.
+- Prepared reviewable patch at `tmp/RC-UX-5.4-changelog-gate-fix.patch` (untracked, not applied).
+- Requested explicit scope for that production parser repair; no answer yet. Earlier required
+  vault-integration ownership extension also remains unresolved. Current task is still partial.
+- Per roadmap §0.2 and the user's instruction that repository restrictions take precedence, do
+  not edit an unowned parser, weaken tests, remove draft release notes, or patch global behavior.
