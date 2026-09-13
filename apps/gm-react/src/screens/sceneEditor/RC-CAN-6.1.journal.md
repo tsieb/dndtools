@@ -132,3 +132,21 @@
   the three changed files, exit 0. Playwright `player-preview.spec.ts` + `isolation-guard.spec.ts`
   6/6 across desktop and mobile Chromium, `CI=1 DNDTOOLS_E2E_PORT=51837`, two workers, no retries.
   The run started its own server, exit 0.
+
+## Retry — 2026-09-12 ("Lint" gate)
+
+- Gate on `385fd33d` (the map-verdict fix, rebased): Quality gates, Format (changed) and Typecheck
+  passed; Lint exited 1. ESLint itself reported 0 errors. The failing step was `lint:emphasis`:
+  `PlayerPreviewOverlay.tsx:191` set the Cinzel display face at `--text-lg` (20px). Cinzel starts
+  at `--text-xl` (24px), and the rule's baseline may only shrink. Being an `<h3>` does not exempt
+  it; the rule checks only face and size.
+- This dates from the story's first commit, not the map fix. It went unflagged in earlier attempts
+  and is flagged on the current base.
+- Fix: the overlay title keeps its size and weight in `var(--font-sans)`. A compact overlay header
+  is not the place for a 24px display heading.
+- Validation: `pnpm lint` (the gate's exact command, repo root) exit 0. Emphasis counts are
+  `display-face-below-24px` 84 and `multiple-accent-primaries` 61, both at baseline. Boundary lint
+  and the non-text contrast gate passed. ESLint: 0 errors, 15 pre-existing warnings. Prettier
+  check on the overlay, exit 0. Playwright `player-preview.spec.ts` + `isolation-guard.spec.ts` 6/6
+  across desktop and mobile Chromium, `CI=1 DNDTOOLS_E2E_PORT=53377`, no retries, JSON reporter
+  (`startTime` 02:22:36Z, 6 expected, 0 unexpected, 0 flaky), exit 0.

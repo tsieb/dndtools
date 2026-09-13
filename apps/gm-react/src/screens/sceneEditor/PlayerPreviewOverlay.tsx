@@ -188,7 +188,8 @@ export function PlayerPreviewOverlay({
 					<h3
 						style={{
 							margin: 'var(--space-0)',
-							font: '700 var(--text-lg) var(--font-display)',
+							// Cinzel starts at --text-xl; a compact overlay title stays in the sans face.
+							font: '700 var(--text-lg) var(--font-sans)',
 							color: 'var(--color-text-primary)',
 						}}
 					>
