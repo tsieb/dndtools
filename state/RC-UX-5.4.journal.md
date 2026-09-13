@@ -104,3 +104,57 @@ cloud sync acceptance are therefore NOT complete. Do not mark the entire story d
 Specific recovery-key consumer: `apps/gm-react/src/screens/settings/SyncPrivacy.tsx` uses
 `CLOUD_VAULT_ID` for both recovery export and import; scope both with the sync-engine handoff.
 No pushes, promotion, extra agents, loops, or dispatcher control-state edits occurred.
+
+## Review remediation — 2026-09-12
+
+- Read current roadmap §0.2: Owns is an explicit write fence, with tests/catalogs granted.
+- Headroom tools are available for this run; use retained original output for gate conclusions.
+- Confirmed production blockers: preferences.ts reads unscoped campaign keys; syncEngine.ts defaults
+  to primary (also consumed by SyncPrivacy recovery); cloudSync.ts opt-in is account-only;
+  RailNav.tsx and MoreSheet.tsx have no switcher entry.
+- Requested explicit ownership extension for those integration files. No extension received yet;
+  do not enable switching against shared cloud/preferences or bypass the fence with runtime patches.
+- Independent owned work: harden the runtime switch lifecycle against hydration races, navigation
+  failure and post-switch writes; add real regression tests. PENDING.
+- Full switching/search/keyring journey and declared performance fixture remain acceptance work,
+  not satisfied by the earlier catalog test or seven-widget timing.
+
+### Remediation ledger and verification
+
+- DONE coreStore.ts: staged selection returns conditional rollback for navigation failure.
+- DONE SceneRuntime.ts: wait for hydration and its queued seed; reject competing switches; stop
+  later mutations once departing; roll back navigation failures and permit retry/editing.
+- DONE localVaults.test.ts: real IndexedDB tests for rollback, retained edits, selection in another
+  tab, and rejecting late writes; SceneRuntime.test.ts covers initial hydration and failed loads.
+- Focused regression suite: exit 0, 17 tests. Original Headroom artifact
+  `6604098eff054e059a9caf242d5cba2c` retrieved.
+- `pnpm test:app`: exit 0, 127 files / 1343 tests. Original stdout retrieved in full from
+  `94646b11f45a47e2ab5c5a0020713c2f`.
+- `pnpm typecheck`: exit 0; original `9c927ac38b47458592847b9bd4b438a5` retrieved.
+- `pnpm lint`: exit 0, 15 existing warnings; boundary/contrast passed. Original
+  `ea5ab78c0c8049e5a753fc982ee3e4f6` retrieved.
+- `pnpm check`: exit 0; core 4779, cloud 483, app 1343, tooling 162 tests passed.
+  Original stdout `9e9671ad5df343e6ba0401052fc0abc4` retrieved in full. Android check is static only.
+- Existing local-vault catalog e2e: exit 0, 2 passed on Chromium profiles. Original
+  `8e61d46eee5b4dcbad207a0471638f71` retrieved. It remains a desktop-width catalog test;
+  this is regression coverage only, not phone reachability or switching acceptance.
+- No performance acceptance claimed: declared 50-widget/10-binding fixture has not been run.
+
+### Remediation report
+
+PARTIAL RC-UX-5.4: lifecycle failure/race fixes are verified. Full story remains BLOCKED by the
+unchanged ownership fence. The requested scope extension is pending; no answer received.
+The prior review rejection's production switching, preference/cloud isolation, responsive entries,
+and actual switch-isolation e2e findings remain unresolved. Do not mark this story complete.
+
+Required explicit integration ownership:
+
+- `apps/gm-react/src/platform/preferences.ts`: namespace campaign choices/history/preferences.
+- `apps/gm-react/src/cloud/cloudSync.ts`: vault-scoped opt-in and cleanup defaults.
+- `apps/gm-react/src/cloud/syncEngine.ts`: default engine to active runtime vault.
+- `apps/gm-react/src/screens/settings/SyncPrivacy.tsx`: active-vault recovery export/import.
+- `apps/gm-react/src/app/shell/RailNav.tsx`: campaign switcher trigger.
+- `apps/gm-react/src/app/shell/MoreSheet.tsx`: phone switcher entry.
+
+This is a repository write-fence blocker (RC_ROADMAP.md §0.2), not an automatic approval rejection.
+No dispatcher state, unrelated files, pushes, promotion, loops, or additional agents changed.

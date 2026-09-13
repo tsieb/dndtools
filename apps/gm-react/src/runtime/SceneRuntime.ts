@@ -189,6 +189,8 @@ export class SceneRuntime {
 	private mutationTail: Promise<void> = Promise.resolve();
 	/** StrictMode/retry clicks share one initial hydration instead of racing duplicate demo seeding. */
 	private loadAttempt: Promise<void> | null = null;
+	private vaultSwitchAttempt: Promise<void> | null = null;
+	private departingVault = false;
 	// The Core's declared MCP tool allowlist — built once; construction fails closed on wiring errors.
 	private readonly mcpToolRegistry: McpToolRegistry = createBaselineMcpToolRegistry();
 	/** The procedural map generators, loaded the first time a `map.generate` command is dispatched. */
@@ -218,12 +220,32 @@ export class SceneRuntime {
 	}
 
 	/** Integration seam: callers must scope preferences and cloud services before exposing this. */
-	async openLocalVault(id: string, reload: () => void): Promise<void> {
-		if (id === this.vaultId) return;
-		await this.runExclusiveMaintenance(async () => {
-			selectLocalVaultForNextLoad(id);
-			reload();
+	openLocalVault(id: string, reload: () => void | Promise<void>): Promise<void> {
+		if (this.vaultSwitchAttempt || this.departingVault) {
+			return Promise.reject(new Error('A local vault is already opening.'));
+		}
+		if (id === this.vaultId) return Promise.resolve();
+		const switching = async () => {
+			// Initial hydration is not itself a queued mutation; it may still enqueue its demo seed.
+			if (this.loadAttempt) await this.loadAttempt;
+			if (!this.loaded)
+				throw new Error('Wait for this vault to finish loading before opening another.');
+			await this.runExclusiveMaintenance(async () => {
+				const rollback = selectLocalVaultForNextLoad(id);
+				this.departingVault = true;
+				try {
+					await reload();
+				} catch (error) {
+					this.departingVault = false;
+					rollback();
+					throw error;
+				}
+			});
+		};
+		this.vaultSwitchAttempt = switching().finally(() => {
+			this.vaultSwitchAttempt = null;
 		});
+		return this.vaultSwitchAttempt;
 	}
 
 	// ── Public reads ──────────────────────────────────────────────────────────────────────────
@@ -440,7 +462,13 @@ export class SceneRuntime {
 	}
 
 	private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
-		const result = this.mutationTail.then(operation, operation);
+		const run = () => {
+			if (this.departingVault) {
+				throw new Error('Wait for the selected vault to open before making changes.');
+			}
+			return operation();
+		};
+		const result = this.mutationTail.then(run, run);
 		this.mutationTail = result.then(
 			() => undefined,
 			() => undefined,

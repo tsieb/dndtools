@@ -185,12 +185,21 @@ export function activeLocalVaultId(): string {
 }
 
 /** Stage selection for the NEXT document only. The runtime drains writes before calling this. */
-export function selectLocalVaultForNextLoad(id: string): void {
+export function selectLocalVaultForNextLoad(id: string): () => void {
 	activeLocalVaultId(); // Pin the departing document before changing the next document's choice.
 	if (!listLocalVaults().some((vault) => vault.id === id)) {
 		throw new Error('This local vault was not found.');
 	}
-	catalogStorage().setItem(SELECTED_LOCAL_VAULT_KEY, id);
+	const storage = catalogStorage();
+	const previous = storage.getItem(SELECTED_LOCAL_VAULT_KEY);
+	storage.setItem(SELECTED_LOCAL_VAULT_KEY, id);
+	// Navigation can fail (for example in a native shell). Roll back our staged choice without
+	// overwriting a subsequent choice from another tab. The departing document stays pinned.
+	return () => {
+		if (storage.getItem(SELECTED_LOCAL_VAULT_KEY) !== id) return;
+		if (previous === null) storage.removeItem(SELECTED_LOCAL_VAULT_KEY);
+		else storage.setItem(SELECTED_LOCAL_VAULT_KEY, previous);
+	};
 }
 
 export function markLocalVaultOpened(): void {

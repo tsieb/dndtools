@@ -197,6 +197,55 @@ describe('local vault storage boundaries', () => {
 		await Promise.all([pending, switching]);
 		expect(events).toEqual(['saved', 'reload']);
 		expect(runtime.vaultId).toBe(second.id);
+		await expect(
+			runtime.dispatch({
+				type: 'scene.create',
+				actorId: 'dm',
+				payload: { name: 'Too late', visibility: 'dm-only' },
+			}),
+		).rejects.toThrow(/selected vault to open/);
+		expect((await loadCoreState()).sync.operations).toHaveLength(0);
+	});
+
+	it('rolls back failed navigation and permits edits and a later switch', async () => {
+		const second = createLocalVault('Fresh');
+		await nextDocument(second.id);
+		const runtime = new SceneRuntime({
+			defaultActorId: 'dm',
+			env: {
+				vaultId: second.id,
+				sourceId: 'device',
+				ids: () => crypto.randomUUID(),
+				clock: () => new Date().toISOString(),
+			},
+		});
+		await runtime.load();
+		await expect(
+			runtime.openLocalVault('primary', async () => {
+				throw new Error('Navigation failed');
+			}),
+		).rejects.toThrow('Navigation failed');
+		expect(localStorage.getItem(__testing.SELECTED_LOCAL_VAULT_KEY)).toBe(second.id);
+		expect(runtime.vaultId).toBe(second.id);
+		const result = await runtime.dispatch({
+			type: 'scene.create',
+			actorId: 'dm',
+			payload: { name: 'Still here', visibility: 'dm-only' },
+		});
+		expect(result.status).toBe('accepted');
+		expect((await loadCoreState()).sync.operations).toHaveLength(1);
+		await runtime.openLocalVault('primary', () => {});
+		expect(localStorage.getItem(__testing.SELECTED_LOCAL_VAULT_KEY)).toBe('primary');
+	});
+
+	it('does not overwrite another tab selection when rolling back a failed switch', () => {
+		const second = createLocalVault('Second');
+		const third = createLocalVault('Third');
+		const rollback = selectLocalVaultForNextLoad(second.id);
+		selectLocalVaultForNextLoad(third.id);
+		rollback();
+		expect(localStorage.getItem(__testing.SELECTED_LOCAL_VAULT_KEY)).toBe(third.id);
+		expect(activeLocalVaultId()).toBe('primary');
 	});
 
 	it('rejects damaged catalogs, invalid names and unknown selections without replacing data', () => {
