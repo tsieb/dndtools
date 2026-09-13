@@ -349,3 +349,53 @@ test('keyboard resize and handle presets persist the declared widget sizes', asy
 	await expect(tile).toHaveCSS('width', '200px');
 	await expect(tile).toHaveCSS('height', '120px');
 });
+
+test('bounded board resize announces the width its columns allow', async ({ page }) => {
+	await page.setViewportSize({ width: 1280, height: 900 });
+	await openScene(page);
+	await installAndEnable(page, TORCH_PACKAGE, PACKAGE_ID);
+	await gotoRoute(page, '/board');
+	await expect
+		.poll(() => page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId))
+		.toBeTruthy();
+	const sceneId = await page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId!);
+	// The board's right bound is x=792, so a 320-wide tile at x=472 already touches it.
+	await placeWidget(page, sceneId, 'torchlight', 472);
+	const id = await instanceId(page, sceneId, 'torchlight');
+	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	const tile = page.getByTestId(`widget-${id}`);
+	await tile.focus();
+	await tile.press('Enter');
+	const handle = tile.getByRole('button', { name: 'Resize Torchlight', exact: true });
+	const announcement = page.getByTestId('canvas-resize-announcement');
+	await handle.focus();
+	await handle.press('ArrowRight');
+	await expect(announcement).toHaveText('Torchlight, size 320 by 200');
+	await expect(tile).toHaveCSS('width', '320px');
+	// The large preset (480 wide) is clamped to the bound as well.
+	await handle.press('Enter');
+	await expect(announcement).toHaveText('Torchlight, size 320 by 300');
+	await expect(tile).toHaveCSS('height', '300px');
+	await expect(tile).toHaveCSS('width', '320px');
+	// A drag past the edge neither paints nor announces a width the board refuses.
+	const bounds = await handle.boundingBox();
+	expect(bounds).toBeTruthy();
+	await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(bounds!.x + bounds!.width / 2 + 60, bounds!.y + bounds!.height / 2, {
+		steps: 4,
+	});
+	await expect(tile).toHaveCSS('width', '320px');
+	await page.mouse.up();
+	await expect(announcement).toHaveText('Torchlight, size 320 by 300');
+	await expect(tile).toHaveCSS('width', '320px');
+	await expect
+		.poll(() =>
+			page.evaluate(
+				([scene, widget]) =>
+					window.__rt!.state.scenes.scenes[scene!]!.widgets.find((w) => w.id === widget)?.layout.w,
+				[sceneId, id] as const,
+			),
+		)
+		.toBe(320);
+});

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../ds';
-import { isWidgetResizable, widgetSizePresets, type BoardWidget } from './board-helpers';
+import {
+	fitWidgetSize,
+	isWidgetResizable,
+	nextSizePreset,
+	type BoardWidget,
+} from './board-helpers';
 import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
 import { ZoomCluster } from './canvas/ZoomCluster';
 import {
@@ -67,21 +72,18 @@ export function SceneBoardCanvas({
 	const [sizeNotice, setSizeNotice] = useState('');
 	const resizeWidget = useCallback(
 		(w: BoardWidget, width: number, height: number) => {
-			const nextW = Math.max(w.minSize?.width ?? 180, width);
-			const nextH = Math.max(w.minSize?.height ?? 120, height);
-			void onResize(w.id, nextW, nextH);
-			setSizeNotice(`${w.title}, size ${nextW} by ${nextH}`);
+			const next = fitWidgetSize(w, width, height, policy === 'bounded');
+			void onResize(w.id, next.w, next.h);
+			setSizeNotice(`${w.title}, size ${next.w} by ${next.h}`);
 		},
-		[onResize],
+		[onResize, policy],
 	);
 	const cycleSize = useCallback(
 		(w: BoardWidget) => {
-			const sizes = widgetSizePresets(w);
-			const index = sizes.findIndex((size) => size.w === w.w && size.h === w.h);
-			const next = sizes[(index + 1) % sizes.length];
+			const next = nextSizePreset(w, sizeDraftRef.current[w.id] ?? w, policy === 'bounded');
 			resizeWidget(w, next.w, next.h);
 		},
-		[resizeWidget],
+		[resizeWidget, policy],
 	);
 	// Keyboard roving-tabindex state: live frame elements by id + the last-focused widget.
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
@@ -354,13 +356,10 @@ export function SceneBoardCanvas({
 				if (!resizeMoved.current && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
 				resizeMoved.current = true;
 				const widget = widgets.find((w) => w.id === d.id);
-				setSizeDraft((prev) => ({
-					...prev,
-					[d.id]: {
-						w: Math.max(widget?.minSize?.width ?? 180, snapTo(d.ow + dx, snap)),
-						h: Math.max(widget?.minSize?.height ?? 120, snapTo(d.oh + dy, snap)),
-					},
-				}));
+				if (!widget) return;
+				const width = snapTo(d.ow + dx, snap);
+				const next = fitWidgetSize(widget, width, snapTo(d.oh + dy, snap), policy === 'bounded');
+				setSizeDraft((prev) => ({ ...prev, [d.id]: next }));
 			}
 		};
 		const up = () => {
@@ -402,7 +401,7 @@ export function SceneBoardCanvas({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [scale, snap, onMove, widgets, cycleSize, resizeWidget]);
+	}, [scale, snap, policy, onMove, widgets, cycleSize, resizeWidget]);
 
 	const onWheel = useCallback(
 		(e: React.WheelEvent) => {

@@ -40,3 +40,28 @@
   passed, Prettier passed, git diff --check clean, quality gates 6/6 passed.
   The full browser suite remains for the central operator; this rerun targets
   every failed case from its log and the resize acceptance.
+
+## Review fix: bounded clamp announcements (2026-09-12)
+
+- Review of 2780dac8 withheld approval: on `/board` a 320-wide tile at x=472
+  (right edge on the 792 bound) announced "size 340 by 200" after ArrowRight,
+  while Board's `resize` committed 320. The announcement echoed the request,
+  not what the board keeps.
+- Added `fitWidgetSize` to board-helpers: minimum floor plus, under the
+  bounded policy, the same `clampWidthToColumns` Board applies. The canvas
+  uses it for the announcement, the committed size, the pointer draft and the
+  S/M/L presets, so a preset clamped onto an existing size collapses into it.
+  Clamping the draft also stops a drag past the edge from painting a wider
+  draft that the clamped commit never matches.
+- A rerun of the existing acceptance exposed a preset race: after a drag,
+  Enter could cycle from the core-confirmed size while the draft was still
+  on screen (240x160 drawn, cycled from 200x120, jumped to 320x200).
+  `nextSizePreset` now cycles from the size on screen (draft, else confirmed).
+- SceneBoardCanvas.tsx stays at 799 lines (the 800-line hard gate).
+- Validation: new e2e "bounded board resize announces the width its columns
+  allow" (keyboard step, clamped L preset, drag past the edge, persisted
+  width) plus the keyboard acceptance: 4/4 on desktop and mobile Chromium
+  with no retries. canvas.spec.ts + custom-widgets.spec.ts: 90/90. App unit
+  (board-layout-guard with new fit/preset/cycle cases, canvas suites): 95/95.
+  Typecheck, ESLint on changed files, Prettier, quality gates 6/6 all passed.
+- No dispatcher state changes, additional agents, push or promotion.

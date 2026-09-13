@@ -330,21 +330,43 @@ export function repackBoardColumns(
 	return next;
 }
 
-/** Small is the declared minimum, medium the default, large 150% of the default. */
-export function widgetSizePresets(widget: BoardWidget) {
+/** The size a resize request actually commits: floored at the definition's minimum and, on the
+ *  bounded board, clamped to its columns exactly as Board's `resize` does, so a live announcement
+ *  or pointer draft never reports a width the board is about to refuse. */
+export function fitWidgetSize(
+	widget: BoardWidget,
+	width: number,
+	height: number,
+	bounded: boolean,
+): { w: number; h: number } {
+	const w = Math.max(widget.minSize?.width ?? 180, width);
+	return {
+		w: bounded ? clampWidthToColumns(widget.x, w) : w,
+		h: Math.max(widget.minSize?.height ?? 120, height),
+	};
+}
+
+/** Small is the declared minimum, medium the default, large 150% of the default — each fitted, so
+ *  a preset the bounded board clamps to an existing size collapses into it. */
+export function widgetSizePresets(widget: BoardWidget, bounded = false) {
 	const min = widget.minSize ?? { width: 180, height: 120 };
 	const base = widget.defaultSize ?? { width: 280, height: 220 };
-	return [
-		min,
-		{ width: Math.max(min.width, base.width), height: Math.max(min.height, base.height) },
-		{
-			width: Math.max(min.width, Math.round(base.width * 1.5)),
-			height: Math.max(min.height, Math.round(base.height * 1.5)),
-		},
-	]
-		.map(({ width, height }) => ({ w: width, h: height }))
+	return [min, base, { width: Math.round(base.width * 1.5), height: Math.round(base.height * 1.5) }]
+		.map(({ width, height }) => fitWidgetSize(widget, width, height, bounded))
 		.filter(
 			(size, index, sizes) =>
 				sizes.findIndex((other) => other.w === size.w && other.h === size.h) === index,
 		);
+}
+
+/** The preset after `current` — the size on screen, which may be a draft the core has not
+ *  confirmed yet. A custom size restarts the cycle at small. */
+export function nextSizePreset(
+	widget: BoardWidget,
+	current: { w: number; h: number },
+	bounded = false,
+): { w: number; h: number } {
+	const sizes = widgetSizePresets(widget, bounded);
+	const index = sizes.findIndex((size) => size.w === current.w && size.h === current.h);
+	return sizes[(index + 1) % sizes.length];
 }
