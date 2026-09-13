@@ -42,6 +42,15 @@ function build(sceneVisibility: 'player-visible' | 'dm-only' = 'player-visible')
 		},
 	});
 	const npcId = Object.keys(state.characters.characters)[0]!;
+	const createMap = (name: string, visibility: 'player-visible' | 'dm-only' | 'shared') => {
+		run({ type: 'map.create', actorId: DM_ACTOR.id, payload: { name, visibility } });
+		return Object.values(state.maps.maps).find((map) => map.name === name)!.id;
+	};
+	const maps = {
+		chart: createMap('Harbor chart', 'player-visible'),
+		crypt: createMap('Crypt', 'dm-only'),
+		ledger: createMap('Smuggler ledger', 'shared'),
+	};
 	const add = (
 		type: string,
 		configuration: Record<string, unknown>,
@@ -62,13 +71,18 @@ function build(sceneVisibility: 'player-visible' | 'dm-only' = 'player-visible')
 				},
 			},
 		});
+	const mapTile = (entityId: string) =>
+		add('map', { visibility: 'player-visible' }, { entityType: 'map', entityId });
 	add('note', { visibility: 'player-visible', title: 'Notice' });
 	add('note', { visibility: 'dm-only', title: 'Ambush' });
 	add('character', { visibility: 'player-visible' }, { entityType: 'character', entityId: npcId });
 	add('note', { title: 'No setting' });
-	add('map', { visibility: 'player-visible' }, { entityType: 'map', entityId: 'map-elsewhere' });
+	mapTile('map-that-was-deleted');
+	mapTile(maps.chart);
+	mapTile(maps.crypt);
+	mapTile(maps.ledger);
 	const ids = state.scenes.scenes[sceneId]!.widgets.map((w) => w.id);
-	return { state, sceneId, ids };
+	return { state, sceneId, ids, maps };
 }
 
 /** What the runtime serves while previewing: the same state, with the reserved preview actors. */
@@ -79,7 +93,7 @@ function previewing(state: CoreStateSlice): CoreStateSlice {
 describe('readPlayerPreview', () => {
 	it('reads as the previewed actor: tile setting, bound DM-only content, fail-closed default', () => {
 		const { state, sceneId, ids } = build();
-		const [notice, ambush, npc, unset, map] = ids;
+		const [notice, ambush, npc, unset] = ids;
 		const read = readPlayerPreview(previewing(state), PREVIEW_PLAYER_ACTOR_ID, sceneId);
 		expect(read.actorId).toBe(PREVIEW_PLAYER_ACTOR_ID);
 		expect(read.sceneDelivered).toBe(true);
@@ -89,23 +103,68 @@ describe('readPlayerPreview', () => {
 		expect(read.tiles[npc!]).toMatchObject({ tone: 'hidden', reason: 'bindingDmOnly' });
 		// An unset visibility is DM only, as the header chip already says.
 		expect(read.tiles[unset!]).toMatchObject({ tone: 'hidden', reason: 'tileDmOnly' });
-		// A map binding is outside what the environment models — not falsely reported missing.
-		expect(read.tiles[map!]?.reason).not.toBe('missing');
-		expect(read.deliveredCount).toBe(2);
+	});
+
+	it('gives map tiles the map read’s verdict: deleted, public, DM-only, shared but undelivered', () => {
+		const { state, sceneId, ids } = build();
+		const [, , , , lost, chart, crypt, ledger] = ids;
+		const read = readPlayerPreview(previewing(state), PREVIEW_PLAYER_ACTOR_ID, sceneId);
+		expect(read.tiles[lost!]).toMatchObject({ tone: 'placeholder', reason: 'missing' });
+		expect(read.tiles[chart!]).toMatchObject({ tone: 'visible', reason: 'visible' });
+		expect(read.tiles[crypt!]).toMatchObject({ tone: 'hidden', reason: 'bindingDmOnly' });
+		expect(read.tiles[ledger!]).toMatchObject({ tone: 'hidden', reason: 'bindingNotShared' });
+		// Notice, the deleted map's placeholder and the public map.
+		expect(read.deliveredCount).toBe(3);
 	});
 
 	it('gives the DM a different answer for the same scene — the verdicts are actor-scoped', () => {
 		const { state, sceneId, ids } = build();
 		const dm = readPlayerPreview(state, DM_ACTOR.id, sceneId);
-		for (const id of ids.slice(0, 4)) expect(dm.tiles[id]?.tone).toBe('visible');
+		const [notice, ambush, npc, unset, lost, chart, crypt, ledger] = ids;
+		for (const id of [notice, ambush, npc, unset, chart, crypt, ledger]) {
+			expect(dm.tiles[id!]?.tone).toBe('visible');
+		}
+		// A deleted map is missing for everyone.
+		expect(dm.tiles[lost!]?.reason).toBe('missing');
 	});
 
-	it('honours a specific player with a real grant set', () => {
-		const { state, sceneId, ids } = build();
-		const read = readPlayerPreview(previewing(state), PLAYER_ACTOR.id, sceneId);
+	it('honours a specific player with a real grant set, including a map delivered to them', () => {
+		const { state, sceneId, ids, maps } = build();
+		const ledger = ids[7]!;
+		expect(
+			readPlayerPreview(previewing(state), PLAYER_ACTOR.id, sceneId).tiles[ledger]?.reason,
+		).toBe('bindingNotShared');
+		const at = '2026-09-12T00:00:00.000Z';
+		const delivered: CoreStateSlice = {
+			...state,
+			session: {
+				...state.session,
+				activeMapProjections: {
+					[PLAYER_ACTOR.id]: {
+						id: 'projection-1',
+						playerActorId: PLAYER_ACTOR.id,
+						mapId: maps.ledger,
+						regionId: null,
+						deliveryStatus: 'delivered',
+						deliveryReason: 'connected',
+						createdBy: DM_ACTOR.id,
+						createdAt: at,
+						updatedAt: at,
+						revision: 1,
+					},
+				},
+			},
+		};
+		const read = readPlayerPreview(previewing(delivered), PLAYER_ACTOR.id, sceneId);
 		expect(read.actorId).toBe(PLAYER_ACTOR.id);
 		expect(read.tiles[ids[1]!]?.reason).toBe('tileDmOnly');
 		expect(read.tiles[ids[2]!]?.reason).toBe('bindingDmOnly');
+		expect(read.tiles[ledger]).toMatchObject({ tone: 'visible', reason: 'visible' });
+		// Delivery is per player: the generic preview player still does not get it.
+		expect(
+			readPlayerPreview(previewing(delivered), PREVIEW_PLAYER_ACTOR_ID, sceneId).tiles[ledger]
+				?.reason,
+		).toBe('bindingNotShared');
 	});
 
 	it('hides every tile with the scene reason when the actor cannot open the scene', () => {

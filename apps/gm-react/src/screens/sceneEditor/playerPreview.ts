@@ -1,10 +1,10 @@
 import {
-	CHARACTER_ENTITY_TYPE,
-	CONTENT_ITEM_ENTITY_TYPE,
 	buildCharacterDataEnvironment,
 	buildContentWidgetDataEnvironment,
+	deliveredMapIdsForActor,
 	entityBindingKey,
 	evaluateVisibility,
+	getMapViewForActor,
 	getSceneForActor,
 	normalizeVisibilityLevel,
 	type ActorId,
@@ -24,10 +24,13 @@ import { payloadIndex } from '../../app/board-helpers';
  * which tiles to draw — the overlay has to know about a tile to dim it — and is never consulted for a
  * visibility decision.
  *
- * The one input the actor read does not cover is a tile's own authored visibility
- * (`configuration.visibility`, the header's "DM only" / "Players" chip): `getSceneForActor` delivers
- * a tile regardless of it. That setting goes through the core policy engine (`evaluateVisibility`) for
- * the same actor, failing closed to `dm-only` exactly as `boardWidgetsOf` paints the chip.
+ * Two inputs the scene read does not cover get the core's own actor-scoped answer instead:
+ * - a tile's authored visibility (`configuration.visibility`, the header's "DM only" / "Players"
+ *   chip), which `getSceneForActor` ignores. It goes through the core policy engine
+ *   (`evaluateVisibility`) for the same actor, failing closed to `dm-only` as `boardWidgetsOf` paints it;
+ * - a map binding. The core's binding builders do not model maps, so a map tile's verdict comes from
+ *   `getMapViewForActor` made as the previewed actor with the deliveries the Map tile itself passes —
+ *   the read that decides whether that tile draws a map for them.
  *
  * Pure: (state, actorId, sceneId) in, verdicts out — so the e2e can import this module into the page
  * and prove the overlay rendered the previewed actor's read rather than the DM's.
@@ -88,17 +91,16 @@ const TONE: Record<PreviewTileReason, PreviewTileTone> = {
 	outsideSections: 'hidden',
 };
 
-/** The entity types the core's environment builders actually model. */
-const MODELLED_ENTITY_TYPES: ReadonlySet<string> = new Set([
-	CHARACTER_ENTITY_TYPE,
-	CONTENT_ITEM_ENTITY_TYPE,
-]);
+/** The binding type the map read decides (`TileBindDialog` binds maps, characters, content items). */
+const MAP_ENTITY_TYPE = 'map';
 
 /**
  * The data environment the actor read resolves this scene's bindings against. The builders mark
  * every character and live content item as a known key, which makes a binding to a deleted one
- * `missing`. A binding to a type they do not model (a map, say) is added as known too: without that
- * the resolver would call a perfectly good map tile `missing` and the preview would lie about it.
+ * `missing`. They do not model maps, so a bound map is added as known only while it exists: a
+ * binding to a deleted map resolves `missing`, and whether a live one reaches the actor is the map
+ * read's call (`readPlayerPreview`). Any other type stays unknown and resolves `missing` — a
+ * placeholder, never a claim that the actor sees something the preview cannot check.
  */
 export function previewDataEnvironment(
 	state: CoreStateSlice,
@@ -111,7 +113,7 @@ export function previewDataEnvironment(
 	const known = new Set(base.knownEntityKeys ?? Object.keys(base.entities));
 	for (const widget of state.scenes.scenes[sceneId]?.widgets ?? []) {
 		const source = widget.binding?.source;
-		if (source && !MODELLED_ENTITY_TYPES.has(source.entityType)) {
+		if (source?.entityType === MAP_ENTITY_TYPE && state.maps.maps[source.entityId]) {
 			known.add(entityBindingKey(source.entityType, source.entityId));
 		}
 	}
@@ -167,6 +169,11 @@ export function readPlayerPreview(
 
 	const actor = state.permissions.actors[actorId];
 	const delivered = payloadIndex(summary.widgets);
+	// The same read and deliveries the Map tile makes (`widgets/builtin/Map.tsx`).
+	const deliveredMapIds = deliveredMapIdsForActor(state.session, actorId);
+	const mapReachesActor = (mapId: string) =>
+		getMapViewForActor(state.maps, state.permissions, actorId, mapId, { deliveredMapIds }).kind ===
+		'available';
 	for (const widget of instances) {
 		const payload = delivered.get(widget.id);
 		// Section scoping: the read delivered the scene but not this tile.
@@ -188,7 +195,19 @@ export function readPlayerPreview(
 			record(widget.id, own.reason === 'not-shared' ? 'tileNotShared' : 'tileDmOnly');
 			continue;
 		}
-		record(widget.id, bindingReason(payload));
+		const reason = bindingReason(payload);
+		const source = widget.binding?.source;
+		if (
+			source?.entityType === MAP_ENTITY_TYPE &&
+			TONE[reason] === 'visible' &&
+			!mapReachesActor(source.entityId)
+		) {
+			// The map read is deliberately silent on why; the DM's own state names it.
+			const shared = state.maps.maps[source.entityId]?.visibility === 'shared';
+			record(widget.id, shared ? 'bindingNotShared' : 'bindingDmOnly');
+			continue;
+		}
+		record(widget.id, reason);
 	}
 	const deliveredCount = Object.values(tiles).filter((tile) => tile.tone !== 'hidden').length;
 	return { actorId, sceneDelivered: true, tiles, deliveredCount };

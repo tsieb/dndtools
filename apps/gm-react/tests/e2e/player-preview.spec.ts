@@ -16,9 +16,16 @@ interface Fixture {
 	notice: string;
 	ambush: string;
 	contact: string;
+	/** Map tiles: a player-visible map, a DM-only map, and a map that no longer exists. */
+	chart: string;
+	crypt: string;
+	lost: string;
 }
 
-/** A scene with one tile for each case: player-visible, DM-only by setting, DM-only by binding. */
+/**
+ * A scene with one tile for each case: player-visible, DM-only by setting, DM-only by bound
+ * character, and three map tiles whose verdict only the map read can give.
+ */
 async function seedScene(
 	page: Page,
 	name: string,
@@ -51,12 +58,27 @@ async function seedScene(
 			// The demo seed's DM-only NPCs (Mira the Ferryman, the Hollow King).
 			const npc = Object.values(characters).find((c) => c.visibility === 'dm-only');
 			if (!npc) throw new Error('the demo seed has no DM-only NPC to bind');
+			const createMap = async (mapName: string, mapVisibility: string) => {
+				await run({
+					type: 'map.create',
+					actorId: dmId,
+					payload: { name: mapName, visibility: mapVisibility },
+				});
+				const maps = (
+					rt.state as unknown as { maps: { maps: Record<string, { id: string; name: string }> } }
+				).maps.maps;
+				const map = Object.values(maps).find((m) => m.name === mapName);
+				if (!map) throw new Error(`map ${mapName} was not created`);
+				return map.id;
+			};
+			const chartMap = await createMap(`${name} chart`, 'player-visible');
+			const cryptMap = await createMap(`${name} crypt`, 'dm-only');
 			const add = (
 				type: string,
 				x: number,
 				y: number,
 				configuration: Record<string, unknown>,
-				entityId: string | null = null,
+				source: { entityType: string; entityId: string } | null = null,
 			) =>
 				run({
 					type: 'scene.add-widget',
@@ -69,13 +91,7 @@ async function seedScene(
 							layout: { x, y, w: 260, h: 180 },
 							configuration,
 							localState: {},
-							binding: entityId
-								? {
-										source: { entityType: 'character', entityId },
-										mode: 'read',
-										requiredCapability: 'viewer',
-									}
-								: null,
+							binding: source ? { source, mode: 'read', requiredCapability: 'viewer' } : null,
 						},
 					},
 				});
@@ -86,10 +102,26 @@ async function seedScene(
 				48,
 				260,
 				{ visibility: 'player-visible', title: 'Ferry contact' },
-				npc.id,
+				{ entityType: 'character', entityId: npc.id },
 			);
-			const [notice, ambush, contact] = rt.state.scenes.scenes[scene.id]!.widgets.map((w) => w.id);
-			return { sceneId: scene.id, dmId, notice: notice!, ambush: ambush!, contact: contact! };
+			const mapTile = (x: number, y: number, title: string, entityId: string) =>
+				add('map', x, y, { visibility: 'player-visible', title }, { entityType: 'map', entityId });
+			await mapTile(340, 260, 'Harbor chart', chartMap);
+			await mapTile(632, 48, 'Crypt map', cryptMap);
+			await mapTile(632, 260, 'Lost map', 'map-that-was-deleted');
+			const [notice, ambush, contact, chart, crypt, lost] = rt.state.scenes.scenes[
+				scene.id
+			]!.widgets.map((w) => w.id);
+			return {
+				sceneId: scene.id,
+				dmId,
+				notice: notice!,
+				ambush: ambush!,
+				contact: contact!,
+				chart: chart!,
+				crypt: crypt!,
+				lost: lost!,
+			};
 		},
 		{ name, visibility },
 	);
@@ -169,6 +201,14 @@ test.describe('scene editor: player-view preview overlay', () => {
 		// setting says players.
 		await expect(tile(f.contact)).toHaveAttribute('data-tone', 'hidden');
 		await expect(tile(f.contact)).toContainText('it shows DM-only content');
+		// Map tiles: the map read, made as the player, decides. A DM-only map is withheld even though
+		// the tile says players; a deleted map is an honest placeholder, not a visible tile.
+		await expect(tile(f.chart)).toHaveAttribute('data-tone', 'visible');
+		await expect(tile(f.crypt)).toHaveAttribute('data-tone', 'hidden');
+		await expect(tile(f.crypt)).toHaveAttribute('data-reason', 'bindingDmOnly');
+		await expect(tile(f.crypt)).toContainText('it shows DM-only content');
+		await expect(tile(f.lost)).toHaveAttribute('data-tone', 'placeholder');
+		await expect(tile(f.lost)).toHaveAttribute('data-reason', 'missing');
 
 		// Isolation guard, part 2: rendered verdicts == the actor read, and != the DM read.
 		const reads = await modelReads(page, f);
@@ -176,6 +216,7 @@ test.describe('scene editor: player-view preview overlay', () => {
 		expect(rendered).toEqual(reads.actor);
 		expect(reads.dm[f.ambush]).toBe('visible:visible');
 		expect(reads.dm[f.contact]).toBe('visible:visible');
+		expect(reads.dm[f.crypt]).toBe('visible:visible');
 		expect(rendered).not.toEqual(reads.dm);
 
 		// Editing is suspended: no layout controls, and the canvas is out of reach under the overlay.
@@ -208,7 +249,7 @@ test.describe('scene editor: player-view preview overlay', () => {
 		// Not the "Scene unavailable" card: the overlay explains why the player gets nothing.
 		await expect(page.getByText('Scene unavailable')).toHaveCount(0);
 		await expect(overlay.getByRole('note')).toContainText('can’t open this scene');
-		for (const id of [f.notice, f.ambush, f.contact]) {
+		for (const id of [f.notice, f.ambush, f.contact, f.chart, f.crypt, f.lost]) {
 			await expect(overlay.getByTestId(`preview-tile-${id}`)).toHaveAttribute(
 				'data-reason',
 				'sceneDmOnly',

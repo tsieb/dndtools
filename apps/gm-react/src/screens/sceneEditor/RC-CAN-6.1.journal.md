@@ -104,3 +104,31 @@
   read, editing suspension, Escape restoration, unchanged scene data, and an inaccessible scene.
 - Formatted and checked this journal before committing the remaining task documentation. No
   disposable untracked artifacts were present. Full browser acceptance remains with the operator.
+
+## Retry — 2026-09-12 (review: false "visible" verdict for map tiles)
+
+- Review of `a4e7a529` withheld approval: a map tile bound to a DM-only map rendered "visible" in
+  the overlay, and a map tile bound to a map that no longer exists came out "visible" in the model.
+- Cause: `previewDataEnvironment` added every map binding to `knownEntityKeys` without looking at
+  the map, so the core resolver fell through to `available` and no map read was ever made. The
+  earlier note above ("maps are added as known keys so a map tile is not falsely reported
+  `missing`") fixed one lie by introducing another.
+- Fix, in `playerPreview.ts` only: a map key is known only while `state.maps.maps` holds it, so a
+  deleted map resolves `missing` (placeholder). A live map's verdict comes from `getMapViewForActor`
+  made as the previewed actor with `deliveredMapIdsForActor(session, actor)`: the same read and
+  deliveries the Map tile (`widgets/builtin/Map.tsx`) uses to decide whether it draws the map.
+  When that read is `unavailable`, the tile is hidden as `bindingNotShared` for a `shared` map
+  that was not delivered to this actor, and as `bindingDmOnly` otherwise. The blanket "unmodelled
+  type is known" rule is gone. `TileBindDialog` binds only maps, characters and content items, and
+  any other type now resolves `missing` rather than visible. No new copy; overlay and wiring unchanged.
+- Tests: the unit model now covers the deleted, public, DM-only and undelivered-shared map cases,
+  plus a shared map delivered to one player through `activeMapProjections`, which turns visible for
+  that player and stays hidden for the generic preview player. The e2e seeds a player-visible map,
+  a DM-only map and a deleted map as tiles. It asserts visible / hidden `bindingDmOnly` / placeholder
+  `missing`, that the DM read calls the DM-only map visible, and that the rendered verdicts equal
+  the actor read.
+- Validation: preview model Vitest 6/6, exit 0; app `tsc --noEmit` exit 0; the spec typechecked
+  through a throwaway tsconfig adding it to `src` (deleted), exit 0; Prettier check and ESLint on
+  the three changed files, exit 0. Playwright `player-preview.spec.ts` + `isolation-guard.spec.ts`
+  6/6 across desktop and mobile Chromium, `CI=1 DNDTOOLS_E2E_PORT=51837`, two workers, no retries.
+  The run started its own server, exit 0.
