@@ -10,7 +10,7 @@ on:
 
 concurrency:
   # Every integration push gets a complete run, even while other slots keep landing work.
-  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/loop/rc' && github.run_id || github.event.pull_request.base.ref || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/loop/rc' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
