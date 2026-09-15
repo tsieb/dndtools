@@ -26,7 +26,8 @@ export function Skeleton({
 	...rest
 }) {
 	const base = {
-		background: 'linear-gradient(90deg, var(--color-surface-sunken) 25%, var(--color-surface-alt) 37%, var(--color-surface-sunken) 63%)',
+		background:
+			'linear-gradient(90deg, var(--color-surface-sunken) 25%, var(--color-surface-alt) 37%, var(--color-surface-sunken) 63%)',
 		backgroundSize: '400% 100%',
 		animation: 'dnd-shimmer 1.4s ease-in-out infinite',
 		borderRadius: radius || 'var(--radius-sm)',
@@ -37,7 +38,13 @@ export function Skeleton({
 			<span
 				aria-hidden="true"
 				data-skeleton="list"
-				style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: width || '100%', ...style }}
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-2)',
+					width: width || '100%',
+					...style,
+				}}
 				{...rest}
 			>
 				{Array.from({ length: Math.max(1, rows) }).map((_, i) => (
@@ -55,10 +62,34 @@ export function Skeleton({
 						}}
 					>
 						{avatar && (
-							<span className="dnd-skeleton" style={{ ...base, flex: 'none', width: 24, height: 24, borderRadius: 'var(--radius-full)' }} />
+							<span
+								className="dnd-skeleton"
+								style={{
+									...base,
+									flex: 'none',
+									width: 24,
+									height: 24,
+									borderRadius: 'var(--radius-full)',
+								}}
+							/>
 						)}
-						<span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)', flex: 1, minWidth: 0 }}>
-							<span className="dnd-skeleton" style={{ ...base, height: 10, width: LIST_TITLE_WIDTHS[i % LIST_TITLE_WIDTHS.length] }} />
+						<span
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 'var(--space-1-5)',
+								flex: 1,
+								minWidth: 0,
+							}}
+						>
+							<span
+								className="dnd-skeleton"
+								style={{
+									...base,
+									height: 10,
+									width: LIST_TITLE_WIDTHS[i % LIST_TITLE_WIDTHS.length],
+								}}
+							/>
 							<span className="dnd-skeleton" style={{ ...base, height: 8, width: '32%' }} />
 						</span>
 					</span>
@@ -73,7 +104,15 @@ export function Skeleton({
 				className="dnd-skeleton"
 				aria-hidden="true"
 				data-skeleton="canvas"
-				style={{ ...base, display: 'block', width: width || '100%', height: height || '100%', minHeight: 240, borderRadius: radius || 'var(--radius-lg)', ...style }}
+				style={{
+					...base,
+					display: 'block',
+					width: width || '100%',
+					height: height || '100%',
+					minHeight: 240,
+					borderRadius: radius || 'var(--radius-lg)',
+					...style,
+				}}
 				{...rest}
 			/>
 		);
@@ -81,18 +120,65 @@ export function Skeleton({
 
 	if (variant === 'circle') {
 		const d = width || height || 40;
-		return <span className="dnd-skeleton" aria-hidden="true" style={{ ...base, display: 'inline-block', width: d, height: d, borderRadius: 'var(--radius-full)', ...style }} {...rest} />;
+		return (
+			<span
+				className="dnd-skeleton"
+				aria-hidden="true"
+				style={{
+					...base,
+					display: 'inline-block',
+					width: d,
+					height: d,
+					borderRadius: 'var(--radius-full)',
+					...style,
+				}}
+				{...rest}
+			/>
+		);
 	}
 
 	if (variant === 'text') {
 		return (
-			<span aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: width || '100%', ...style }} {...rest}>
+			<span
+				aria-hidden="true"
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-2)',
+					width: width || '100%',
+					...style,
+				}}
+				{...rest}
+			>
 				{Array.from({ length: lines }).map((_, i) => (
-					<span key={i} className="dnd-skeleton" style={{ ...base, height: height || 12, width: i === lines - 1 && lines > 1 ? '60%' : '100%', borderRadius: 'var(--radius-sm)' }} />
+					<span
+						key={i}
+						className="dnd-skeleton"
+						style={{
+							...base,
+							height: height || 12,
+							width: i === lines - 1 && lines > 1 ? '60%' : '100%',
+							borderRadius: 'var(--radius-sm)',
+						}}
+					/>
 				))}
 			</span>
 		);
 	}
 
-	return <span className="dnd-skeleton" aria-hidden="true" style={{ ...base, display: 'block', width: width || '100%', height: height || 80, borderRadius: radius || 'var(--radius-md)', ...style }} {...rest} />;
+	return (
+		<span
+			className="dnd-skeleton"
+			aria-hidden="true"
+			style={{
+				...base,
+				display: 'block',
+				width: width || '100%',
+				height: height || 80,
+				borderRadius: radius || 'var(--radius-md)',
+				...style,
+			}}
+			{...rest}
+		/>
+	);
 }
