@@ -1,7 +1,7 @@
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Icon } from '../ds';
+import { Icon, ProgressMeter, Skeleton } from '../ds';
 import { useI18n } from '../i18n';
 import { useViewport } from './useViewport';
 
@@ -174,22 +174,105 @@ export const srOnly: CSSProperties = {
  * its content. Both the start of loading and its completion were therefore silent, on exactly the
  * panels (devices, invites, vault connections, marketplace listings) where a screen-reader user has
  * no visual shimmer to fall back on. Carrying the text inside fixes it once for every call site.
+ *
+ * RC-DSN-3.4 — two first-load presets and a determinate mode, so screens stop hand-rolling them:
+ * - `skeleton="list"` (with `rows`) or `skeleton="canvas"` renders the DS skeleton for that shape
+ *   when the call site passes no bespoke children.
+ * - `progress` swaps the hidden label for a labelled meter with time-left copy, for work long
+ *   enough to deserve one (import, backup, sync, generation). The label is the region's only
+ *   spoken content; the percentage and ETA ride on the bar's `aria-valuetext`, so the polite region
+ *   announces "Backing up vault" once instead of every tick.
  */
 export function LoadingRegion({
 	label,
 	children,
 	style,
+	skeleton,
+	rows,
+	progress,
 }: {
 	label: string;
 	children?: ReactNode;
 	style?: CSSProperties;
+	skeleton?: 'list' | 'canvas';
+	/** Row count for `skeleton="list"`; match the rows the list usually opens with. */
+	rows?: number;
+	progress?: LoadingProgress;
 }) {
 	return (
 		<div role="status" style={style}>
-			<span style={srOnly}>{label}</span>
-			{children}
+			{progress ? (
+				<LoadingProgressMeter label={label} progress={progress} />
+			) : (
+				<span style={srOnly}>{label}</span>
+			)}
+			{children ?? (skeleton ? <Skeleton variant={skeleton} rows={rows} /> : null)}
 		</div>
 	);
+}
+
+/** Determinate progress for long work. Pass `remainingMs` when the work reports it, or `startedAt`
+ * to have it extrapolated from the rate so far. */
+export type LoadingProgress = {
+	value: number;
+	max?: number;
+	/** Epoch ms the work began. */
+	startedAt?: number;
+	/** Time left as reported by the work itself; wins over the extrapolation. */
+	remainingMs?: number;
+	/** The clock, for tests; defaults to render time. */
+	now?: number;
+};
+
+// Too little signal to extrapolate from: the first second, or the first 2%, of an import or backup
+// is dominated by setup (a handshake, a directory walk) and projects a finish that is wildly wrong.
+const ETA_MIN_ELAPSED_MS = 1000;
+const ETA_MIN_FRACTION = 0.02;
+
+/** Time left on determinate work at the rate so far, or `null` when there is nothing honest to
+ * say: no progress yet, already done, or too early to have a rate. */
+export function estimateRemainingMs({
+	value,
+	max = 100,
+	startedAt,
+	now = Date.now(),
+}: {
+	value: number;
+	max?: number;
+	startedAt: number;
+	now?: number;
+}): number | null {
+	if (!(max > 0) || !(value > 0) || value >= max) return null;
+	const elapsed = now - startedAt;
+	if (!(elapsed >= ETA_MIN_ELAPSED_MS) || value / max < ETA_MIN_FRACTION) return null;
+	return (elapsed * (max - value)) / value;
+}
+
+/** Coarsens a time left for copy: five-second steps under a minute, whole minutes under an hour.
+ * Rounded UP, so the promise is one the work tends to beat, and coarse so the copy doesn't change
+ * on every progress event. */
+export function roundEtaMs(ms: number): number {
+	const second = 1000;
+	const minute = 60 * second;
+	if (ms < minute) return Math.max(5, Math.ceil(ms / (5 * second)) * 5) * second;
+	if (ms < 60 * minute) return Math.ceil(ms / minute) * minute;
+	return ms;
+}
+
+function LoadingProgressMeter({ label, progress }: { label: string; progress: LoadingProgress }) {
+	const { formatRelativeTime } = useI18n();
+	const { value, max = 100, startedAt, remainingMs, now = Date.now() } = progress;
+	const left =
+		remainingMs != null && Number.isFinite(remainingMs) && remainingMs >= 0
+			? remainingMs
+			: startedAt != null
+				? estimateRemainingMs({ value, max, startedAt, now })
+				: null;
+	// Intl's relative time ("in 2 minutes", "dentro de 2 minutos") localizes the copy without a
+	// catalog string per duration.
+	const eta =
+		left != null && value < max ? formatRelativeTime(now + roundEtaMs(left), now) : undefined;
+	return <ProgressMeter label={label} value={value} max={max} eta={eta} />;
 }
 
 export function Panel({
