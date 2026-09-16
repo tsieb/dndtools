@@ -28,7 +28,7 @@ export function NavRail({ items = [], active, onSelect, header, footer, width = 
 			{...rest}
 		>
 			{header && <div style={{ padding: 'var(--space-2) 0 var(--space-3)' }}>{header}</div>}
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', flex: 1, minHeight: 0, overflowY: 'auto', width: '100%', alignItems: 'center' }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--component-list-gap)', flex: 1, minHeight: 0, overflowY: 'auto', width: '100%', alignItems: 'center' }}>
 				{items.map((it) => (
 					<NavItem
 						key={it.key}
@@ -38,7 +38,19 @@ export function NavRail({ items = [], active, onSelect, header, footer, width = 
 						collapsed
 						active={active === it.key}
 						onClick={() => onSelect && onSelect(it.key)}
-						style={{ position: 'relative', width: 44, height: 44 }}
+						/* RC-DSN-1.4 — the audited nav item box is the density one (48/36/28), not a fixed
+						   44px square. A hard `height: 44` sat ABOVE compact/standard's min-height and
+						   BELOW comfortable's, so the rail rendered 48/44/44 and the density control
+						   moved nothing below Comfortable. `padding: 0` lets the 20px glyph centre
+						   inside the 28px compact box, and `flex: '0 0 auto'` makes a tall list scroll
+						   rather than shrink its items under the 24px WCAG 2.5.8 floor. */
+						style={{
+							position: 'relative',
+							width: 'var(--density-nav-item-height)',
+							height: 'var(--density-nav-item-height)',
+							padding: 0,
+							flex: '0 0 auto',
+						}}
 					/>
 				))}
 			</div>

@@ -535,7 +535,11 @@ async function densityTokenMetrics(page: Page) {
 	});
 }
 
-/** The rail's destinations: the buttons in its scrolling list, not the palette button in its footer. */
+/**
+ * The rail's destinations: the buttons in its scrolling list, not the palette button in its footer.
+ * `listGap` is the row gap of that real list container, so the density list-gap token is measured
+ * where the app actually lays rows out rather than on a synthetic probe.
+ */
 async function railNavItems(page: Page) {
 	return page.locator('nav[aria-label="Primary"] button').evaluateAll((buttons) =>
 		buttons
@@ -548,6 +552,7 @@ async function railNavItems(page: Page) {
 				return {
 					name: button.getAttribute('aria-label') ?? button.tagName,
 					minHeight: parseFloat(getComputedStyle(button).minHeight),
+					listGap: parseFloat(getComputedStyle(button.parentElement as Element).rowGap),
 					width: rect.width,
 					height: rect.height,
 				};
@@ -592,9 +597,19 @@ test('each density set gives nav items, cards and list gaps their audited target
 		expect(items.length, 'the rail rendered no destinations').toBeGreaterThan(3);
 		for (const item of items) {
 			expect(item.minHeight, `${item.name} nav item min-height (${set.value})`).toBe(set.navItem);
-			expect(item.height, `${item.name} is shorter than its min-height`).toBeGreaterThanOrEqual(
-				set.navItem - 0.5,
+			// The RENDERED box, not just a floor: a fixed 44px square on the rail item previously sat
+			// above compact/standard's min-height and below comfortable's, so the rail measured
+			// 48/44/44 while every min-height assertion above still passed.
+			expect(item.height, `${item.name} rendered nav item height (${set.value})`).toBeCloseTo(
+				set.navItem,
+				1,
 			);
+			expect(item.width, `${item.name} rendered nav item width (${set.value})`).toBeCloseTo(
+				set.navItem,
+				1,
+			);
+			// The rail's own list — a production list — has to lay its rows out on the density gap.
+			expect(item.listGap, `the rail list gap (${set.value})`).toBe(set.listGap);
 			// WCAG 2.5.8's 24px floor holds at every density, compact included.
 			expect(
 				Math.min(item.width, item.height),
@@ -655,11 +670,9 @@ test('a stored density applies from 1200px; narrower viewports boot locked to co
 	const items = await railNavItems(page);
 	expect(items.length, 'the rail rendered no destinations').toBeGreaterThan(3);
 	for (const item of items) {
-		expect(
-			item.height,
-			`${item.name} is under the 48px comfortable nav item`,
-		).toBeGreaterThanOrEqual(47.5);
-		expect(item.width, `${item.name} is under the 44px touch target`).toBeGreaterThanOrEqual(43.5);
+		expect(item.height, `${item.name} is not the 48px comfortable nav item`).toBeCloseTo(48, 1);
+		expect(item.width, `${item.name} is not the 48px comfortable nav item`).toBeCloseTo(48, 1);
+		expect(item.listGap, 'the rail list gap under the comfortable boot lock').toBe(8);
 	}
 });
 
