@@ -4216,6 +4216,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{count, plural, one {# widget} other {# widgets}} · desplaza y haz zoom para explorar',
 	'sceneEditor.editMeta': 'Editar el nombre, la descripción y las etiquetas de la escena',
 	'sceneEditor.snap': 'Ajustar a la rejilla',
+	'sceneEditor.layout': 'Disposición',
+	'sceneEditor.layoutFlow': 'Flujo',
+	'sceneEditor.layoutCanvas': 'Lienzo',
+	'sceneEditor.layoutFlowHint':
+		'Los paneles llenan una cuadrícula de columnas adaptable y se reorganizan en pantallas pequeñas.',
+	'sceneEditor.layoutCanvasHint':
+		'Los paneles conservan el lugar exacto donde los pongas en un lienzo libre.',
 	'sceneEditor.add': 'Añadir',
 	'sceneEditor.addWidget': 'Añadir widget',
 	'sceneEditor.noWidgetsAvailable': 'No hay widgets que añadir en este dispositivo.',

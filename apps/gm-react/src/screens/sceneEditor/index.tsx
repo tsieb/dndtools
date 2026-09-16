@@ -6,6 +6,8 @@ import {
 	getSceneForActor,
 	listWidgetLibrary,
 	resolveAddWidgetCommand,
+	screenLayoutPolicy,
+	type ScreenLayoutPolicy,
 	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
@@ -13,8 +15,10 @@ import { Button, Card, Icon, IconButton, Switch, Toaster } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../../app/widget-rejection';
 import { SceneBoardCanvas } from '../../app/SceneBoardCanvas';
+import { FlowBoard } from '../../app/canvas/FlowBoard';
 import { useLayoutHistory } from '../../app/canvas/useLayoutHistory';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../../app/board-helpers';
+import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
@@ -36,6 +40,11 @@ import { useI18n } from '../../i18n';
  *
  * "Generate widget" (RC-WID-3.2) opens the assistant's widget dialog: the run STAGES a proposal and
  * the manual builder opens on it for review, so nothing is installed or placed without the DM.
+ *
+ * RC-CAN-7.7 / ADR-041: the scene carries a LAYOUT POLICY, and this screen is the surface that both
+ * renders it and changes it. `canvas` is the free spatial editor this screen has always been;
+ * `flow` is the responsive column grid hub screens use. Both host the same widget instances and the
+ * same commands — the policy picks the engine, it converts nothing.
  */
 export function SceneEditor() {
 	const { t } = useI18n();
@@ -93,6 +102,10 @@ export function SceneEditor() {
 				includeUnavailable: false,
 			});
 
+	// ADR-041 — which engine this scene renders in. `screenMetaOf` defaults to `canvas`, so every
+	// scene authored before screens existed keeps exactly the surface it had.
+	const layoutPolicy: ScreenLayoutPolicy = rawScene ? screenLayoutPolicy(rawScene) : 'canvas';
+
 	const selectedInstance = rawScene?.widgets.find((w) => w.id === selectedId) ?? null;
 	const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
 
@@ -146,6 +159,16 @@ export function SceneEditor() {
 			},
 			`Moved ${titleOf(widgetInstanceId)}`,
 		);
+	}
+	// The policy is durable scene state, not a view toggle: `scene.set-layout-policy` writes the
+	// policy and nothing else, so widget identity, configuration and bindings come through untouched.
+	function setLayoutPolicy(next: string) {
+		if (next === layoutPolicy) return;
+		return dispatch({
+			type: 'scene.set-layout-policy',
+			actorId,
+			payload: { sceneId: id, layoutPolicy: next },
+		});
 	}
 	function resize(widgetInstanceId: string, w: number, h: number) {
 		return history.run(
@@ -296,6 +319,10 @@ export function SceneEditor() {
 		);
 	}
 
+	const emptyHint = editing
+		? 'Press Add to place your first widget.'
+		: 'Press Edit layout, then Add to place a widget.';
+
 	return (
 		<div
 			style={{
@@ -378,20 +405,42 @@ export function SceneEditor() {
 				<div style={{ flex: 1 }} />
 				{editing && (
 					<>
-						<Switch
-							checked={snap}
-							onChange={setSnap}
-							label={
-								<span
-									style={{
-										font: 'var(--text-2xs) var(--font-sans)',
-										color: 'var(--color-text-secondary)',
-									}}
-								>
-									{t('sceneEditor.snap')}
-								</span>
-							}
+						{/* ADR-041 — the policy picker. It is a durable scene property, so it lives beside
+						    the other layout controls rather than in a settings dialog. */}
+						<Seg
+							ariaLabel={t('sceneEditor.layout')}
+							value={layoutPolicy}
+							onChange={setLayoutPolicy}
+							options={[
+								{
+									value: 'flow',
+									label: t('sceneEditor.layoutFlow'),
+									title: t('sceneEditor.layoutFlowHint'),
+								},
+								{
+									value: 'canvas',
+									label: t('sceneEditor.layoutCanvas'),
+									title: t('sceneEditor.layoutCanvasHint'),
+								},
+							]}
 						/>
+						{/* Snap is a CANVAS affordance: flow has no free coordinates to snap to. */}
+						{layoutPolicy === 'canvas' && (
+							<Switch
+								checked={snap}
+								onChange={setSnap}
+								label={
+									<span
+										style={{
+											font: 'var(--text-2xs) var(--font-sans)',
+											color: 'var(--color-text-secondary)',
+										}}
+									>
+										{t('sceneEditor.snap')}
+									</span>
+								}
+							/>
+						)}
 						<Button
 							variant="secondary"
 							size="sm"
@@ -462,33 +511,54 @@ export function SceneEditor() {
 					position: 'relative',
 				}}
 			>
-				<SceneBoardCanvas
-					widgets={widgets}
-					policy="canvas"
-					editing={editing}
-					snap={snap}
-					selectedId={selectedId}
-					// The Inspector below is gated `!addOpen && !metaOpen`, but selection was not — so
-					// with "Scene details" open, clicking a widget painted its selection ring and title
-					// chip and opened no editor at all: a dead end with a visible selection and nothing
-					// to do with it. Selecting a widget is about that widget, so it closes the
-					// scene-level details panel.
-					onSelect={(id) => {
-						setSelectedId(id);
-						if (id) setMetaOpen(false);
-					}}
-					onMove={move}
-					onResize={resize}
-					focusOrder={summary.focusOrder.map((entry) => entry.widgetInstanceId)}
-					onRemove={destroy}
-					onWidgetCommand={operateWidget}
-					history={history}
-					emptyHint={
-						editing
-							? 'Press Add to place your first widget.'
-							: 'Press Edit layout, then Add to place a widget.'
-					}
-				/>
+				{/* ADR-041 — one policy, one engine. Both read the SAME `widgets` view-model and commit
+				    through the SAME `move`/`resize`/`destroy`/`operateWidget`; switching the policy
+				    changes no widget, no configuration and no binding.
+
+				    `focusOrder` goes only to the canvas. Flow's layout order IS its focus order, so it
+				    accepts no traversal override — see `FlowBoardProps`. */}
+				{layoutPolicy === 'flow' ? (
+					<FlowBoard
+						widgets={widgets}
+						tier={viewport}
+						editing={editing}
+						selectedId={selectedId}
+						onSelect={(id) => {
+							setSelectedId(id);
+							if (id) setMetaOpen(false);
+						}}
+						onMove={move}
+						onResize={resize}
+						onRemove={destroy}
+						onWidgetCommand={operateWidget}
+						history={history}
+						emptyHint={emptyHint}
+					/>
+				) : (
+					<SceneBoardCanvas
+						widgets={widgets}
+						policy="canvas"
+						editing={editing}
+						snap={snap}
+						selectedId={selectedId}
+						// The Inspector below is gated `!addOpen && !metaOpen`, but selection was not — so
+						// with "Scene details" open, clicking a widget painted its selection ring and title
+						// chip and opened no editor at all: a dead end with a visible selection and nothing
+						// to do with it. Selecting a widget is about that widget, so it closes the
+						// scene-level details panel.
+						onSelect={(id) => {
+							setSelectedId(id);
+							if (id) setMetaOpen(false);
+						}}
+						onMove={move}
+						onResize={resize}
+						focusOrder={summary.focusOrder.map((entry) => entry.widgetInstanceId)}
+						onRemove={destroy}
+						onWidgetCommand={operateWidget}
+						history={history}
+						emptyHint={emptyHint}
+					/>
+				)}
 
 				{metaOpen && (
 					<SceneMetaPanel

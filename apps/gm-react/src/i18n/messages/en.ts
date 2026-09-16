@@ -4187,6 +4187,12 @@ export const en = {
 		'{count, plural, one {# widget} other {# widgets}} · pan and zoom to explore',
 	'sceneEditor.editMeta': 'Edit scene name, description & tags',
 	'sceneEditor.snap': 'Snap',
+	// RC-CAN-7.7 / ADR-041 — the scene's layout policy, picked on the editor's toolbar.
+	'sceneEditor.layout': 'Layout',
+	'sceneEditor.layoutFlow': 'Flow',
+	'sceneEditor.layoutCanvas': 'Canvas',
+	'sceneEditor.layoutFlowHint': 'Tiles fill a responsive column grid and reflow on small screens.',
+	'sceneEditor.layoutCanvasHint': 'Tiles keep the exact place you put them on a free canvas.',
 	'sceneEditor.add': 'Add',
 	'sceneEditor.addWidget': 'Add widget',
 	'sceneEditor.noWidgetsAvailable': 'No widgets are available to add on this device.',
