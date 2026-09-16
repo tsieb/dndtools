@@ -46,25 +46,39 @@ The main process accepts only `lamplight://join/<URL-safe-token>` and routes it 
 `#/join?token=…`, preserving the existing invite redemption flow. Cold-start arguments, macOS
 `open-url`, and repeat-launch arguments share validation; external URLs, extra path segments,
 queries and fragments are rejected. Delivery waits for the primary preload to be ready.
-Packaged startup requests protocol registration. Installer protocol metadata is still pending
-an ownership extension to `electron-builder.yml`; OS-level installation is not yet verified.
 
-The primary-only `lamplightDesktop.setLiveSession(boolean)` bridge sets a macOS LIVE dock badge
-or a Windows/Linux live-session tray icon with a focus action. Closing the primary window clears
-it. **Automatic synchronization with Core's active workflow is pending** the ownership extension
-for `PlatformLifecycle.tsx`; the native bridge alone does not report a live session automatically.
+Getting the OS to hand that link over takes two halves, and both must be present. The packaged
+bundle DECLARES the scheme — `protocols:` in `electron-builder.yml` becomes `CFBundleURLTypes` in
+the macOS `Info.plist` and the scheme's registry keys in the NSIS installer, while
+`linux.desktop.entry.MimeType: x-scheme-handler/lamplight;` puts it in the AppImage's desktop
+entry — and packaged startup then CLAIMS it via `app.setAsDefaultProtocolClient`. An unpackaged
+dev tree deliberately does not claim the scheme: a checkout moves or disappears, and pointing a
+developer's mime database at one would break invites for the installed app. Dev and CI exercise
+the same delivery path through argv / `open-url` / `second-instance` instead.
 
-After building, run the extended desktop suite:
+The macOS LIVE dock badge and the Windows/Linux live-session tray icon follow Core's own
+`session.workflow`: `PlatformLifecycle` calls the primary-only
+`lamplightDesktop.setLiveSession(boolean)` bridge whenever the workflow changes, from the same
+state the Android live-session notification reads, so the two platforms cannot disagree and the
+badge cannot claim a table is live when it is not. It stands down on End session, on unmount, and
+when the primary window closes. A Linux session with no StatusNotifier host (minimal desktops,
+xvfb CI) logs a warning and keeps running without a tray icon.
+
+Parity runs as part of the standard desktop suite, so CI's `desktop-smoke` job and any release
+check cover it:
 
 ```sh
-pnpm --filter @dndtools/gm-react exec node electron/run-parity-smoke.cjs
+pnpm --filter @dndtools/gm-react desktop:smoke
 ```
 
-It runs the existing desktop suite and then the production main/preload twice with a disposable
-profile. Assertions cover registry menu action, cold/warm/second-instance links, rejected links
-and senders, native badge transitions, projector isolation/Escape, and bounds across restart.
-A display is required. Virtual-display checks do not prove physical monitor placement, visible
-OS badge rendering, packaged protocol installation, or automatic live-workflow synchronization.
+After the origin, migration and auto-update passes it boots the production main/preload twice
+against a disposable profile. Assertions cover the registry-built menu action, cold / warm /
+second-instance links, rejected links and senders, the packaged protocol declaration for all three
+platforms, the live badge following a click on the real **Go live** control and standing down on
+**End session**, projector isolation/Escape, and window bounds across a genuine restart. A display
+is required. What a virtual display still cannot prove: physical monitor placement, visible OS
+badge rendering, and a genuine OS protocol hand-off — that last one needs an installed package and
+a real desktop session, which is why the declaration itself is asserted instead.
 
 ### Auto-update
 

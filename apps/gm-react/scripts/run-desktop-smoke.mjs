@@ -2,7 +2,9 @@
 // against a shared throwaway userData dir — `write` then `verify` — proving the packaged app boots from
 // its secure custom origin, identifies that origin correctly in CORS requests, loads self-hosted fonts
 // offline, honours the production CSP, persists IndexedDB across a genuine process restart, and migrates
-// the v0.2.0 file origin without losing binary data or secrets. Requires a display. Run after `vite build`.
+// the v0.2.0 file origin without losing binary data or secrets. It then runs the auto-update
+// (RC-PLT-1.2) and OS-chrome parity (RC-PLT-1.3) suites against the same production shell.
+// Requires a display. Run after `vite build`.
 
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
@@ -16,6 +18,7 @@ const here = path.dirname(new URL(import.meta.url).pathname);
 const smoke = path.join(here, 'smoke-desktop.cjs');
 const migrationSmoke = path.join(here, 'smoke-storage-origin-migration.cjs');
 const updaterSmoke = path.join(here, 'smoke-updater.cjs');
+const paritySmoke = path.join(here, '..', 'electron', 'smoke-parity.cjs');
 const dist = path.join(here, '..', 'dist', 'index.html');
 
 if (!existsSync(dist)) {
@@ -79,15 +82,50 @@ function runUpdater() {
 	return result;
 }
 
+// Desktop parity (RC-PLT-1.3): the OS-facing chrome, driven through the real production main and
+// preload — the application menu built from the shortcut registry, `lamplight://join/<token>`
+// arriving cold (argv), warm (`open-url`) and from a second launch, the packaged declaration that
+// lets the OS route that scheme at all, the live-session badge following the app's own Go live
+// control, the projector window's isolation, and window geometry surviving a real restart. Runs
+// write then verify against one shared throwaway profile, as the origin smoke above does.
+function runParity() {
+	const profile = mkdtempSync(path.join(tmpdir(), 'lamplight-parity-'));
+	const parityEnv = { ...process.env, SMOKE_USER_DATA: profile };
+	try {
+		for (const mode of ['write', 'verify']) {
+			const res = spawnSync(electronBin, ['--no-sandbox', paritySmoke, mode], {
+				env: parityEnv,
+				encoding: 'utf8',
+				cwd: path.join(here, '..'),
+				timeout: 120000,
+			});
+			const line = (res.stdout || '')
+				.split('\n')
+				.find((entry) => entry.startsWith('PARITY_SMOKE_RESULT '));
+			if (!line) {
+				console.error(`✗ parity ${mode}: no result. stderr:\n${(res.stderr || '').slice(-1600)}`);
+				return { ok: false };
+			}
+			const result = JSON.parse(line.slice('PARITY_SMOKE_RESULT '.length));
+			console.log(`${result.ok ? '✓' : '✗'} parity ${mode}: ${JSON.stringify(result)}`);
+			if (!result.ok) return result;
+		}
+		return { ok: true };
+	} finally {
+		rmSync(profile, { recursive: true, force: true });
+	}
+}
+
 try {
 	const w = run('write');
 	const v = w.ok ? run('verify') : { ok: false };
 	const migration = w.ok && v.ok ? runMigration() : { ok: false };
 	const updater = w.ok && v.ok ? runUpdater() : { ok: false };
-	const ok = w.ok && v.ok && migration.ok && updater.ok;
+	const parity = w.ok && v.ok ? runParity() : { ok: false };
+	const ok = w.ok && v.ok && migration.ok && updater.ok && parity.ok;
 	console.log(
 		ok
-			? '\n✓ desktop smoke PASS (secure app origin, CORS, persistence, crash-safe file-origin upgrade, verified auto-update)'
+			? '\n✓ desktop smoke PASS (secure app origin, CORS, persistence, crash-safe file-origin upgrade, verified auto-update, OS chrome parity)'
 			: '\n✗ desktop smoke FAIL',
 	);
 	process.exit(ok ? 0 : 1);

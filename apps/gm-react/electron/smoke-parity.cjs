@@ -15,8 +15,29 @@ ipcMain.handle = (channel, handler) => {
 };
 const verify = process.argv.includes('verify');
 process.argv.push('lamplight://join/smoke-token');
-require('./main.cjs');
+const shell = require('./main.cjs');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Click a real control by its accessible name, the way a DM would. Matches an exact aria-label or
+ * button text and refuses soft-disabled buttons (ProjectionControl uses `aria-disabled`, not
+ * `disabled`, so its reason stays reachable), so a control that went dead cannot pass as a click.
+ */
+function clickControl(win, name) {
+	return win.webContents.executeJavaScript(`(() => {
+		const wanted = ${JSON.stringify(name)};
+		const button = [...document.querySelectorAll('button')].find((candidate) => {
+			const label = (candidate.getAttribute('aria-label') ?? candidate.textContent ?? '').trim();
+			return (
+				(label === wanted || label.startsWith(wanted + ' — ')) &&
+				candidate.getAttribute('aria-disabled') !== 'true' &&
+				!candidate.disabled
+			);
+		});
+		if (!button) return false;
+		button.click();
+		return true;
+	})()`);
+}
 async function until(check) {
 	for (let i = 0; i < 200; i++) {
 		if (await check()) return;
@@ -30,6 +51,19 @@ const timeout = setTimeout(() => {
 }, 45000);
 app.whenReady().then(async () => {
 	try {
+		// The OS can only hand `lamplight://` to the app if the PACKAGED bundle declares the scheme;
+		// `setAsDefaultProtocolClient` claims a declaration, it cannot create one. Assert both halves
+		// of that declaration, because nothing else in CI can: a genuine OS handoff needs an installed
+		// package and a real desktop session, so a missing line here would otherwise only surface as a
+		// dead invite link in a tester's hands.
+		const builder = fs.readFileSync(path.join(__dirname, '..', 'electron-builder.yml'), 'utf8');
+		assert.match(builder, /^protocols:\n\s+- name: .+\n\s+schemes:\n\s+- lamplight$/m);
+		assert.match(builder, /^\s+MimeType: x-scheme-handler\/lamplight;$/m);
+		// ...and that an unpackaged tree does NOT claim the scheme. A checkout moves or disappears;
+		// pointing a developer's mime database at this one would break invites for the installed app.
+		assert.equal(app.isPackaged, false);
+		assert.equal(app.isDefaultProtocolClient('lamplight'), false);
+
 		await until(() =>
 			BrowserWindow.getAllWindows().some((win) =>
 				win.webContents.getURL().includes('#/join?token=smoke-token'),
@@ -50,14 +84,17 @@ app.whenReady().then(async () => {
 		assert.equal(await handlers.get('desktop:live')({ sender: {}, senderFrame: {} }, true), false);
 		assert.equal(await handlers.get('desktop:menu')(event, [{ id: 'evil' }]), false);
 		assert.equal(await handlers.get('desktop:live')(event, 'yes'), false);
+		assert.equal(shell.isLiveSessionBadgeShown(), false);
 		assert.equal(
 			await win.webContents.executeJavaScript('window.lamplightDesktop.setLiveSession(true)'),
 			true,
 		);
+		assert.equal(shell.isLiveSessionBadgeShown(), true);
 		assert.equal(
 			await win.webContents.executeJavaScript('window.lamplightDesktop.setLiveSession(false)'),
 			true,
 		);
+		assert.equal(shell.isLiveSessionBadgeShown(), false);
 		app.emit('open-url', { preventDefault() {} }, 'lamplight://join/warm-token');
 		await until(() => win.webContents.getURL().includes('token=warm-token'));
 		app.emit('second-instance', {}, ['lamplight://join/second-token']);
@@ -72,6 +109,18 @@ app.whenReady().then(async () => {
 		win.show();
 		win.focus();
 		await delay(200);
+		// The badge has to follow the app's OWN session lifecycle, not a test-only IPC call — so drive
+		// the production Go live control in the real renderer and watch the OS chrome follow it. This
+		// is the end-to-end proof that `session.workflow` reaches the dock badge / tray icon.
+		assert.equal(shell.isLiveSessionBadgeShown(), false);
+		await until(() => clickControl(win, 'Go live'));
+		await until(() => shell.isLiveSessionBadgeShown() === true);
+		await until(() => clickControl(win, 'End live session'));
+		await until(() =>
+			win.webContents.executeJavaScript('!!document.querySelector(\'[aria-modal="true"]\')'),
+		);
+		await until(() => clickControl(win, 'End session'));
+		await until(() => shell.isLiveSessionBadgeShown() === false);
 		Menu.getApplicationMenu().getMenuItemById('global.palette').click();
 		await until(() =>
 			win.webContents.executeJavaScript('!!document.querySelector(\'[aria-modal="true"]\')'),
@@ -130,6 +179,8 @@ app.whenReady().then(async () => {
 						'invalid links',
 						'IPC isolation',
 						'live badge transitions',
+						'Go live drives the OS badge',
+						'packaged protocol declaration',
 						'projector Escape',
 						'window persistence',
 					],

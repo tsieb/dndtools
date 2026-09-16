@@ -260,6 +260,15 @@ declare global {
 	}
 }
 
+/**
+ * The Electron preload's desktop bridge, or `null` everywhere else (web, Android, tests, SSR). The
+ * window declaration and the `DesktopChrome` contract live here, so the lookup does too rather than
+ * each caller re-typing `window.lamplightDesktop`.
+ */
+export function getDesktopChrome(): DesktopChrome | null {
+	return (typeof window === 'undefined' ? null : window.lamplightDesktop) ?? null;
+}
+
 export function desktopMenuEntries() {
 	return SHORTCUTS.filter((entry) => entry.scope === 'global' && entry.combo).map((entry) => {
 		const combo = entry.combo!;
@@ -277,8 +286,9 @@ export function desktopMenuEntries() {
 	});
 }
 
-if (typeof window !== 'undefined' && window.lamplightDesktop) {
-	const desktop = window.lamplightDesktop;
+const bootDesktopChrome = getDesktopChrome();
+if (bootDesktopChrome) {
+	const desktop = bootDesktopChrome;
 	void desktop.setMenu(desktopMenuEntries()).catch(() => false);
 	const remove = desktop.onShortcut((id) => {
 		const entry = SHORTCUTS.find(

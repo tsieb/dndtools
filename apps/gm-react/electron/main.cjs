@@ -164,7 +164,12 @@ app.on('open-url', (event, url) => {
 	if (hasSingleInstanceLock) acceptJoinLink(url);
 });
 
+// The renderer drives this from the core's own `session.workflow` (see PlatformLifecycle), so the
+// badge can never claim a table is live when it is not. `liveSessionBadge` is the observable record
+// of that: the desktop smoke reads it to prove the Go live control reaches the OS chrome.
+let liveSessionBadge = false;
 function setLiveSession(active) {
+	liveSessionBadge = active;
 	app.dock?.setBadge(active ? 'LIVE' : '');
 	if (liveTray) {
 		liveTray.destroy();
@@ -179,13 +184,31 @@ function setLiveSession(active) {
 		pixels[i + 2] = 245;
 		pixels[i + 3] = 255;
 	}
-	liveTray = new Tray(nativeImage.createFromBitmap(pixels, { width: 16, height: 16 }));
-	liveTray.setToolTip('Lamplight — Live session');
-	liveTray.setContextMenu(
-		Menu.buildFromTemplate([{ label: 'Open live session', click: focusPrimaryWindow }]),
-	);
-	liveTray.on('click', focusPrimaryWindow);
+	try {
+		liveTray = new Tray(nativeImage.createFromBitmap(pixels, { width: 16, height: 16 }));
+		liveTray.setToolTip('Lamplight — Live session');
+		liveTray.setContextMenu(
+			Menu.buildFromTemplate([{ label: 'Open live session', click: focusPrimaryWindow }]),
+		);
+		liveTray.on('click', focusPrimaryWindow);
+	} catch (error) {
+		// A Linux session with no StatusNotifier host (minimal desktops, xvfb CI) has nowhere to put
+		// a tray icon. The dock badge and the in-app live posture still stand; losing the tray must
+		// not take the session down with it.
+		liveTray = null;
+		console.warn('Could not show the live-session tray icon:', error.message);
+	}
 }
+
+// `lamplight://join/<token>` has to reach THIS app from the OS, and that needs two halves to agree.
+// The packaged bundle DECLARES the scheme — electron-builder's `protocols` writes CFBundleURLTypes
+// into Info.plist on macOS and the scheme's registry keys on Windows, and `linux.desktop.entry
+// .MimeType` puts `x-scheme-handler/lamplight` in the .desktop file — and the running app CLAIMS it
+// here, so a fresh install owns the scheme without the user configuring anything. An unpackaged dev
+// tree has no bundle or desktop entry to declare, so it deliberately does NOT claim the scheme: it
+// would point the user's mime database at a checkout that moves or disappears. Dev and CI exercise
+// the same delivery path through argv / `open-url` / `second-instance` instead.
+const JOIN_PROTOCOL = 'lamplight';
 
 // In dev, `desktop:dev` sets VITE_DEV_SERVER_URL and we point the window at the Vite dev server (HMR).
 // When packaged there is no dev server — the constrained custom protocol serves the built bundle.
@@ -1222,7 +1245,7 @@ if (hasSingleInstanceLock) {
 		setupDiscoveryIpc();
 		setupSecureStoreIpc();
 		setupUpdaterIpc();
-		if (app.isPackaged) app.setAsDefaultProtocolClient('lamplight');
+		if (app.isPackaged) app.setAsDefaultProtocolClient(JOIN_PROTOCOL);
 		primaryWindowCreationEnabled = true;
 		createWindow();
 
@@ -1237,3 +1260,7 @@ if (hasSingleInstanceLock) {
 		if (primaryWindowCreationEnabled && process.platform !== 'darwin') app.quit();
 	});
 }
+
+// Read-only observation hook for the desktop smoke. The shell is the Electron entry point, so
+// nothing in production ever requires it — this exposes state, never a way to change it.
+module.exports = { isLiveSessionBadgeShown: () => liveSessionBadge };
