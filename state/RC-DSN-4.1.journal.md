@@ -71,3 +71,37 @@ block; a documented update command. No agents, dispatcher mutations, push or pro
   is the runner script itself. `scripts/ci-local.ts` does not mirror the new job for the same reason.
 - The CI job has not run on GitHub yet (no push from this task); its first run is the proof that the
   container, pnpm and the `inputs` expression behave as they did locally and under actionlint.
+
+## Review recovery (2026-09-16) — the missing DS gallery baselines
+
+- Independent review ran the candidate unchanged in the pinned image with `CI=1`,
+  `--update-snapshots=none` and retries off: 126 passed, 9 failed, every failure "A snapshot doesn't
+  exist … ds-gallery--<theme>.png". Reproduced here before changing anything.
+- Cause: the first pass was written against a base without RC-DSN-2.3, so the DS gallery test
+  skipped itself nine times and committed no baselines. The candidate's base (`ba6b3d91`) _has_
+  `#/__ds` (`App.tsx:572`, DEV-only), so the guard stopped firing and the suite compared against
+  files that were never written. The skip was silent either way — the suite reported green while a
+  surface it claims to cover had no baseline.
+- Fix: rendered the nine missing baselines in the pinned image
+  (`run-in-container.sh --update-snapshots=missing -g "DS gallery"`), and replaced the skip with
+  `expect(page.url()).toContain('#/__ds')`, so losing the route fails the test instead of silently
+  re-capturing Command Center under the gallery's name. All nine captures were opened: the gallery
+  header, the live "Vault runtime ready" StatusDot (it waits for `__rt.loaded`, so the label is
+  fixed), the theme select showing the applied theme, and the Button specimen.
+- Full compare, pinned image, `CI=1`, `--update-snapshots=none --retries=0`: **135 passed, exit 0**
+  (`/tmp/rc-dsn41-full-compare.log`) — the reviewer's exact configuration, now green.
+- Determinism: DS gallery re-run with `--repeat-each=2`, 18 passed, exit 0
+  (`/tmp/rc-dsn41-ds-repeat.log`).
+- Blocking proof on the new surface: `visual-desktop/ds-gallery--tavern.png` replaced with the
+  parchment capture → exit 1, 1,003,729 pixels different (`/tmp/rc-dsn41-block-proof.log`); the
+  baseline was restored and its sha256 matched the original byte for byte.
+- Budget after the addition: 135 files, 12,805.6 KiB of 32,768.0 KiB, exit 0. Largest file is still
+  222 KiB against the 320 KiB cap; the budget script's "~15 surfaces is ~135 PNGs" comment is now
+  literal.
+- `TESTING.md` §7 drops the "once RC-DSN-2.3 builds `#/__ds`" wording, states the DS gallery is
+  covered, and says a surface with no committed baseline fails CI.
+- Gates re-run on the change: app `tsc --noEmit` clean, ESLint on the spec clean, Prettier clean on
+  both edited files, `pnpm test:tooling` 24 files / 162 tests passed. GitHub CI still has not run
+  this job (no push from this task).
+- Only the four owned paths (three of them touched) plus this journal changed; `test-results/` was
+  deleted after each run. No agents, dispatcher edits, push or promotion.

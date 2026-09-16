@@ -165,8 +165,8 @@ string that tooling depends on gets an entry in `DOCS_COUPLINGS`.
 `apps/gm-react/tests/visual/golden-routes.spec.ts` (RC-DSN-4.1) screenshots the golden routes:
 Command Center, `/board`, `/scenes`, `/characters`, `/knowledge`, `/campaign`, `/session`,
 `/player`, `/settings`, `/scene/:id`, `/atlas` with the map editor open, `/play`, `/display`,
-`/wiki`, and the DS gallery once RC-DSN-2.3 builds `#/__ds` (until then that test reports itself
-skipped). Each is captured in every theme in the spec's `THEMES` on three projects, one per
+`/wiki`, and RC-DSN-2.3's DEV-only DS gallery at `#/__ds`. Each is captured in every theme in the
+spec's `THEMES` on three projects, one per
 `useViewport` tier: `visual-desktop` (1280×800), `visual-rail` (834×1112) and `visual-phone`
 (393×851, touch), all at a device scale factor of 1. Every capture is a `toHaveScreenshot`
 comparison against a PNG committed under `apps/gm-react/tests/visual/__screenshots__/<project>/`.
@@ -219,8 +219,9 @@ per-file cap catches.
 
 **Adding a surface or a theme.** Add the route to `SHELLED_ROUTES` (or give it its own test) or the
 theme to `THEMES`, run the update command, and commit the new PNGs with the change. RC-DSN-1.2 adds
-Scholar and Dungeon; RC-DSN-2.3's route turns the DS gallery test on. Delete a surface's PNGs when
-the surface goes: Playwright never removes orphaned baselines.
+Scholar and Dungeon, which is 45 more PNGs. Delete a surface's PNGs when the surface goes:
+Playwright never removes orphaned baselines. A surface with no committed baseline fails CI (the job
+compares with `--update-snapshots=none`), so the capture and its PNGs land in one commit.
 
 **Bumping Playwright.** The image carries exactly one browser build. Bump `@playwright/test`, the
 image tag and digest in `ci.yml`, and `run-in-container.sh` together, then re-baseline everything

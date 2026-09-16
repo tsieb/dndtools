@@ -168,14 +168,16 @@ for (const theme of THEMES) {
 			await snap(page, theme, 'wiki');
 		});
 
-		// The DS gallery is RC-DSN-2.3's DEV-only `#/__ds` route. Until it exists the shell's catch-all
-		// redirects to `/`, and this test reports itself skipped instead of duplicating Command
-		// Center. The PR that adds the route commits these baselines.
+		// The DS gallery is RC-DSN-2.3's DEV-only `#/__ds` route (App.tsx), which this suite always
+		// has because it runs against the Vite dev server. If the route ever disappears the shell's
+		// catch-all redirects to `/`; asserting the URL survived fails that here instead of
+		// re-capturing Command Center under the gallery's name. Its header reports live runtime
+		// readiness, so the capture waits for `__rt.loaded` like every shelled route does.
 		test('DS gallery', async ({ page }) => {
 			await page.goto('/#/__ds', { waitUntil: 'domcontentloaded' });
 			await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
 			await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
-			test.skip(!page.url().includes('#/__ds'), 'the DS gallery (RC-DSN-2.3) is not built yet');
+			expect(page.url(), 'the DS gallery route redirected away from #/__ds').toContain('#/__ds');
 			await snap(page, theme, 'ds-gallery');
 		});
 	});
