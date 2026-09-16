@@ -50,7 +50,9 @@ function ClassPreviewCard({ w }: { w: Wizard }) {
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.two, flexWrap: 'wrap' }}>
-				<span style={{ font: `700 16px ${T.disp}`, color: T.ink }}>{clsObj.name}</span>
+				{/* The display face (Cinzel) only starts at 24px — RC-ENG-8.4's emphasis lint. This is a
+				    card label at 16px, so it takes the sans face and keeps its weight. */}
+				<span style={{ font: `700 16px ${T.sans}`, color: T.ink }}>{clsObj.name}</span>
 				<span style={{ font: `12px ${T.sans}`, color: T.sub }}>
 					{t('charBuilder.classHint', {
 						hd: clsObj.hd,

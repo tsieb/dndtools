@@ -92,12 +92,10 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						border: `1px solid ${T.bd}`,
 					}}
 				>
-					<Button
-						variant={rolls ? 'secondary' : 'primary'}
-						size="sm"
-						icon="dice"
-						onClick={rollScores}
-					>
+					{/* Secondary, not primary: the wizard's footer already owns the one accent-filled
+					    primary in this overlay (RC-ENG-8.4's emphasis lint). The dice icon, the
+					    highlighted panel and the "roll before continuing" alert carry the affordance. */}
+					<Button variant="secondary" size="sm" icon="dice" onClick={rollScores}>
 						{t(rolls ? 'charBuilder.reroll' : 'charBuilder.rollScores')}
 					</Button>
 					{rolls && (

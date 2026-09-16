@@ -78,3 +78,45 @@ proves the case-insensitivity it was written for.
 - Fence re-checked against `manifests/dndtools.json` after the revert: every changed path is inside
   `owns`, `companion_paths` or `journal_paths`.
 - Not run here: the full Playwright suite and `pnpm build` are the operator's gates.
+
+## Attempt 6 (2026-09-16) — the Lint gate on `04ddb782`
+
+Quality gates, Format (changed) and Typecheck passed; **Lint exited 1**. The rebase onto `loop/rc`
+brought in RC-ENG-8.4's emphasis lint (`scripts/emphasis-lint.ts`, wired into `pnpm lint`), a ratchet
+whose per-file counts in `scripts/emphasis-baseline.json` may only shrink. Two of this story's own
+files were above it — both introduced by attempt 1, neither visible before the rebase:
+
+- `steps/ClassLevel.tsx:53` · `display-face-below-24px` 1 > 0. The class-preview card set the class
+  name in the display face (Cinzel) at 16px; that face only starts at 24px. Now `T.sans` at the same
+  700/16px, so the card reads identically and the rule's own first remedy is the one taken.
+- `index.tsx:585` · `multiple-accent-primaries` 1 > 0. The Abilities step's "Roll 4d6 × 6" button was
+  `variant="primary"` until something had been rolled, which put two accent-filled primaries in the
+  wizard overlay at once alongside the footer's Continue/Create. The roll button is now always
+  `secondary`; the dice icon, the highlighted panel it sits in, and the existing "Roll the six scores
+  before continuing" alert carry the affordance, and the footer keeps the overlay's single primary.
+
+The baseline file itself was NOT touched — `scripts/emphasis-baseline.json` is not in `owns`,
+`companion_paths` or `journal_paths`, and lowering a baseline to admit a regression this task caused
+would defeat the ratchet. The script's "1 baseline entry is above the current count" line is a
+`console.log`, not a failure (`scripts/emphasis-lint.ts:1015-1031` returns 1 only for regressions);
+that entry is `app/widgets/builtin/NoteBody.tsx`, pre-existing and outside this task.
+
+### Validation results (attempt 6)
+
+- `pnpm lint:emphasis`: exit 0 — `display-face-below-24px 83, multiple-accent-primaries 61` against a
+  baseline of 84/61. The six remaining charBuilder warnings are exactly the baselined ones (`Import`
+  1, `Overlay` 2, `Review` 1, `index` 1, `ui` 1).
+- `pnpm lint`: exit 0 end to end (raw-style count, eslint, boundary lint, emphasis, contrast gate).
+- `pnpm typecheck`: clean. `pnpm gates`: exit 0. `prettier --check` on both changed files: clean.
+- `pnpm test:app`: 130 files, 1409 tests passed. `pnpm test:critical`: 274 files, 4811 tests passed.
+  (Both totals moved with the rebase, not with this change.)
+- `pnpm build`: exit 0, `check-prod-bundle` OK. `pnpm feature-audit`: 0/23 screens need wiring review.
+- `playwright test tests/e2e/char-builder-steps.spec.ts`: 12/12 on desktop-chromium and
+  mobile-chromium. The button-variant change does not move any accessible name, so the roll cases are
+  unaffected.
+- `verify:ui` on an isolated dev server (`REACT_URL=http://localhost:5841`, `NODE_PATH` set to resolve
+  the hoisted Playwright): **`✓ Characters · New character  ops 41→52`**, the required case. The
+  script still exits 1 on `Atlas · builder POI place`, `Session · Build encounter` and
+  `Board · safe-point round-trip`. `git diff --name-only` over the whole branch touches nothing under
+  Atlas, Session or Board, and the independent reviewer saw the same three on the unchanged
+  candidate. No full `verify:ui` pass is claimed.
