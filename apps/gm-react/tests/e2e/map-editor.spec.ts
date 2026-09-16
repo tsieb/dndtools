@@ -378,6 +378,16 @@ test.describe('map editor', () => {
 		const placed = (await readMap(page, mapId))!.pois.at(-1)!;
 		expect(placed.label).toBe('New POI');
 
+		// Placing a POI SELECTS it, and a selected POI opens its popover — assert that before nudging.
+		// The arrow key only nudges when exactly one object is selected, but `handlePlace` selects the
+		// new POI in the continuation of its `map.create-poi` command, after the durable write settles
+		// and clears the editor's single-flight guard. The poll above satisfies on the in-memory state
+		// commit, which lands first: pressing an arrow there either found an empty selection (so the
+		// key browsed for a POI ahead of the viewport centre, found none, and did nothing) or hit the
+		// still-set busy guard, which drops the nudge command silently. Waiting on the popover proves
+		// both the selection and the guard have settled.
+		await expect(page.getByRole('dialog', { name: 'New POI' })).toBeVisible();
+
 		// Move it with the arrow keys — the keyboard alternative to dragging the marker.
 		await focusEditor(page);
 		await page.keyboard.press('ArrowRight');
