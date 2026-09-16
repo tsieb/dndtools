@@ -37,7 +37,7 @@ function rosterCopy(overrides: Record<string, unknown> = {}): Character {
 		visibility: 'dm-only',
 		sharedWith: [],
 		abilityScores: { str: 10, dex: 12, con: 14, int: 13, wis: 16, cha: 8 },
-		attacks: [{ id: 'a1', name: 'Warhammer', detail: '' }],
+		attacks: [{ id: 'a1', name: 'Warhammer', detail: '+4 TO HIT' }],
 		combat: { hp: 21, maxHp: 24, tempHp: 0, ac: 16, conditions: [] },
 		data: { level: '3', class: 'Cleric' },
 		dmOnlyFields: [],
@@ -77,8 +77,66 @@ describe('importDiff', () => {
 		).filter((row) => row.changed);
 		expect(changed).toEqual([
 			{ field: 'ac', roster: '14', file: '16', changed: true },
-			{ field: 'spells', roster: 'sacred flame', file: 'cure wounds, sacred flame', changed: true },
+			{
+				field: 'spells',
+				roster: 'sacred flame (level 0)',
+				file: 'cure wounds (level 1, prepared), sacred flame (level 0)',
+				changed: true,
+			},
 		]);
+	});
+
+	it('reports a changed attack detail, not just a changed attack name', () => {
+		const row = importDiff(
+			plan,
+			rosterCopy({ attacks: [{ id: 'a1', name: 'Warhammer', detail: '+9 to hit, 2d6' }] }),
+		).find((r) => r.field === 'attacks');
+		expect(row).toEqual({
+			field: 'attacks',
+			roster: 'warhammer (+9 to hit, 2d6)',
+			file: 'warhammer (+4 to hit)',
+			changed: true,
+		});
+	});
+
+	it('reports a spell that changed level or preparation under an unchanged name', () => {
+		const row = importDiff(
+			plan,
+			rosterCopy({
+				resources: {
+					spells: [
+						{ id: 's1', name: 'Sacred Flame', level: 0, prepared: false },
+						{ id: 's2', name: 'cure wounds', level: 1, prepared: false },
+					],
+				},
+			}),
+		).find((r) => r.field === 'spells');
+		expect(row).toEqual({
+			field: 'spells',
+			roster: 'cure wounds (level 1), sacred flame (level 0)',
+			file: 'cure wounds (level 1, prepared), sacred flame (level 0)',
+			changed: true,
+		});
+	});
+
+	it('reports a skill promoted to expertise under an unchanged skill key', () => {
+		const row = importDiff(
+			plan,
+			rosterCopy({
+				proficiencies: {
+					skills: { Religion: 'proficient', insight: 'proficient', history: 'none' },
+					saves: ['cha', 'wis'],
+					proficiencyBonus: null,
+					hitDice: { die: 'd8', total: 3, spent: 0 },
+				},
+			}),
+		).find((r) => r.field === 'skills');
+		expect(row).toEqual({
+			field: 'skills',
+			roster: 'insight (proficient), religion (proficient)',
+			file: 'insight (proficient), religion (expertise)',
+			changed: true,
+		});
 	});
 
 	it('shows a missing value as a dash on either side', () => {
