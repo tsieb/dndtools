@@ -143,7 +143,10 @@ an unknown feature fails closed. Decision record: [ADR-012](../adr/012-progressi
 ## 8. Compact primary actions (UX-002)
 
 A compact screen is any route at the phone tier (≤ 640px wide, portrait or landscape). RC-UX-4.2
-audits every shell route against these rules in `apps/gm-react/tests/e2e/responsive.spec.ts`:
+audits every screen the shell renders against these rules in
+`apps/gm-react/tests/e2e/responsive.spec.ts` — one test per screen, sub-routes included
+(`/scene/:id`, `/campaign/calendar`, `/campaign/relationships`, `/graph/repair`), because a screen
+reached only by a card or a link is where a second primary action tends to hide:
 
 1. **Top bar.** The phone budget in §4: the title, Search and the Table controls overflow, both at
    least 44px, with the title keeping at least half the bar's width.
@@ -160,14 +163,17 @@ audits every shell route against these rules in `apps/gm-react/tests/e2e/respons
 4. **Keyboard-safe confirmations.** Both answers of a confirmation stay fully on screen with 360px of
    height (the software keyboard, and every landscape phone) and above the Android bottom inset.
    Escape gives the safe answer and closes only the topmost layer, so a confirmation raised from a
-   sheet leaves the sheet open.
+   sheet leaves the sheet open. `Dialog` carries this for every caller: its header and body both
+   yield height and scroll what does not fit, and the footer that holds the answers keeps its own.
+   Before RC-UX-4.2 the header could not shrink at all, so a long `description` pushed the answers
+   out of the panel and the End session confirmation asked a destructive question with nothing to
+   answer it with.
 
 A screen that breaks a rule gets fixed by the POL story that owns it. Until then its ceiling is
 recorded in the spec and may only come down.
 
-| Where                       | Gap (found 2026-09-12)                                                                                                                                                                                                                                                 | Owner                               |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `/session`                  | Go live and the soft-disabled Build encounter both fill the first phone screenful (ceiling 2).                                                                                                                                                                         | RC-POL-1.4                          |
-| End session confirmation    | At 360px tall, `Dialog` lays out `description` in its header, and the header never gives up height. This confirmation's long body pushes the footer out of the clipped panel, so neither answer is visible. The spec keeps this case as `test.fail`.                   | RC-UX-2.3 (`ds/components/overlay`) |
-| `/scenes` on phone and rail | The tab bar marks More as current, but Scenes is not a row in All sections, and the rail has no Scenes entry either. Of the three navigations only the desktop sidebar's Scenes group reaches it (Command Center and the palette still do), which breaks rule 4 of §1. | RC-POL-1.23                         |
-| Phone tab bar More          | The button opens the All sections sheet but announces no `aria-haspopup` / `aria-expanded`, unlike Table controls. `app/shell/Footer.tsx` builds the item, but `BottomTabBar` (`ds/components/navigation`) has no prop to carry either attribute yet.                  | RC-POL-1.23                         |
+| Where                       | Gap (found 2026-09-12)                                                                                                                                                                                                                                                 | Owner       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `/session`                  | Go live and the soft-disabled Build encounter both fill the first phone screenful (ceiling 2).                                                                                                                                                                         | RC-POL-1.4  |
+| `/scenes` on phone and rail | The tab bar marks More as current, but Scenes is not a row in All sections, and the rail has no Scenes entry either. Of the three navigations only the desktop sidebar's Scenes group reaches it (Command Center and the palette still do), which breaks rule 4 of §1. | RC-POL-1.23 |
+| Phone tab bar More          | The button opens the All sections sheet but announces no `aria-haspopup` / `aria-expanded`, unlike Table controls. `app/shell/Footer.tsx` builds the item, but `BottomTabBar` (`ds/components/navigation`) has no prop to carry either attribute yet.                  | RC-POL-1.23 |

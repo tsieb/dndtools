@@ -45,8 +45,9 @@ mutations, push or promotion.
   keyboard open, focus inside, Go live is its one filled action, every control reachable, Escape
   restores focus; All sections sheet: reachable, rows ≥ 44px, `aria-current` on the screen's row iff it
   is a More route, Escape restores focus to More. Plus: End session asks first and Escape unwinds one
-  layer (375x812); End session keyboard-safe at 360x360, plain + Android insets (`test.fail`, see
-  below); rail and compact-desktop top bars keep exactly one filled action (Go live) on every screen.
+  layer (375x812); End session keyboard-safe at 360x360, plain + Android insets (`test.fail` in this
+  revision — see revision 2, where it is fixed and the pin is gone); rail and compact-desktop top
+  bars keep exactly one filled action (Go live) on every screen.
 
 ## Validation results
 
@@ -72,11 +73,105 @@ mutations, push or promotion.
 
 ## Known defects recorded, not fixed (outside Owns)
 
-- End session confirmation at 360px tall (software keyboard / any landscape phone): the DS `Dialog`
-  renders `description` in its header, which never yields height, so the footer is clipped out of the
-  panel. Fix belongs in `ds/components/overlay/Dialog.jsx` (RC-UX-2.3, still open). The spec pins it
-  with `test.fail` so it flags as "unexpectedly passed" once fixed.
+The End session confirmation was here in revision 1; revision 2 fixed it instead.
+
 - `/scenes`: the phone tab bar marks More current, but no All sections row exists for Scenes and the
   rail has no Scenes entry; only the desktop sidebar reaches it (IA differs by tier). RC-POL-1.23.
 - Phone tab bar "More" has no `aria-haspopup` / `aria-expanded`; `BottomTabBar` has no prop for it.
   RC-POL-1.23.
+
+## Revision 2 — independent review requested changes (2026-09-16)
+
+Two findings, both accepted:
+
+### 1. The keyboard-safe confirmation was deferred, not delivered
+
+Revision 1 pinned the 360px End session confirmation with `test.fail` and handed the fix to
+RC-UX-2.3 because `ds/components/overlay/Dialog.jsx` is outside this story's Owns. The reviewer is
+right that this does not satisfy the acceptance criterion — "keyboard-safe confirmations (UX-002
+contract)" is the story, and a ledgered `test.fail` is a record of the contract being broken. Fixed
+here, in the DS, deliberately outside Owns and called out in the commit message.
+
+Root cause, measured rather than guessed: `Dialog`'s panel is a column flex box with
+`overflow: hidden` and `maxHeight: 100%`. Its header was a plain flex item, so its `min-height`
+resolved to `auto` and it could not shrink below its own content. The End session confirmation's
+`description` is a ~250-character paragraph that renders ~20 lines in a 360px-wide `size="sm"`
+panel, so the header alone asked for more height than the panel had at a 360px viewport; the body
+and footer were pushed out of the clipped panel entirely and neither answer had any visible area
+(the reviewer's four reproductions all reported `Stay live` at viewport ratio 0).
+
+The fix is layout resilience, not a redesign: the header takes `flex: '0 1 auto'`, `minHeight: 0`,
+`overflowY: 'auto'` (so it yields height and scrolls what does not fit, with the title at the top of
+that scroll), and the footer takes `flex: '0 0 auto'` (so the answers are never what goes). At any
+height where the dialog already fitted, nothing shrinks and nothing changes — this is why the 1327
+app tests, the DS overlay tests and the full browser suite are unaffected.
+
+`test.fail` is gone; both 360px tests now pass for real, on desktop-chromium and mobile-chromium.
+
+### 2. Per-screen coverage omitted four shell screens
+
+`ROUTES` is the older sweep's list of top-level destinations (15). `ShelledRoutes` in `App.tsx`
+renders 19 screens: the missing four are `/scene/:id`, `/campaign/calendar`,
+`/campaign/relationships` and `/graph/repair` — exactly the kind of screen the audit should cover,
+since a surface reached only by a card or a link is where a second primary action hides.
+
+- New `SHELL_SCREENS` (`ROUTES` plus the four) drives both the per-screen audit and the
+  rail/compact-desktop sweep. `ROUTES` itself is untouched, so the pre-existing tests that use it
+  keep their exact scope.
+- `openShellScreen` resolves `:id` AFTER `seedFresh`, because the wipe-and-reload would otherwise
+  strand the editor on a dead id. `seededSceneId` mirrors the axe gate's resolver
+  (`commandCenter.homeSceneId`, else the first non-template Scene).
+- `expectStillOn` guards the whole thing: the shell's `*` route redirects an unknown path to `/`, so
+  without it a broken sub-route would silently re-audit the Command Center and pass. Both the
+  per-screen test and the rail sweep assert it.
+- `MORE_SHEET_ROUTES` gains the three sub-routes whose parent section is a More row — `MoreSheet`
+  marks the active SECTION (`active === s.id`), so a sub-route marks its parent's row.
+
+All four new screens pass every rule with no new ceiling: none of them needed an entry in
+`PRIMARY_ACTION_DEBT`.
+
+### Validation (revision 2)
+
+- `tsc --noEmit -p apps/gm-react/tsconfig.json`: exit 0. ESLint on the spec and the two shell files:
+  exit 0 (`Dialog.jsx` is not in the ESLint project — warning only, no rule applies to it).
+  Prettier `--check` on all five changed files: clean.
+- Red first, again: the two 360px tests reproduced as failures on desktop-chromium BEFORE the Dialog
+  change (`test.fail`, so Playwright reported them as expected failures); they pass after it.
+- `responsive.spec.ts`, desktop-chromium + mobile-chromium, isolated port: 128 passed, 0 failed,
+  0 flaky (2.3m). That is the 20 tests of revision 1 plus the four new screens on both profiles.
+- `pnpm test:app`: 126 files, 1327 tests, all passing — unchanged by the Dialog edit.
+- DS overlay unit tests (`vitest run src/ds/components/overlay`): 3 files, 4 tests, passing.
+- Mutation-checked both fixes rather than trusting a green run:
+  - reverting `Dialog.jsx` alone (spec unchanged, `test.fail` already gone) fails both 360px tests
+    with `toBeInViewport() failed / viewport ratio 0` on `Stay live` — the reviewer's exact symptom.
+    Restored afterwards and re-verified by `git diff --stat`.
+  - adding a bogus `/mutation-check-bogus` screen to `SHELL_SCREENS` fails with
+    `/mutation-check-bogus redirected to /`, so `expectStillOn` really does catch the `*` redirect
+    instead of letting a dead sub-route re-audit the Command Center. Removed afterwards.
+- `pnpm gates`: passed (6 gates). The spec is 1,471 lines but `scripts/quality-gates.ts` walks
+  `apps/gm-react/src/**/*.tsx` only, so it is out of scope; `Dialog.jsx` is `.jsx` and also out of
+  scope. No new file-size warning.
+- `pnpm lint` (ESLint + boundary lint + non-text contrast): exit 0, 15 pre-existing warnings, 0
+  errors.
+- NOT completed by me: the full Playwright suite. I started it three times and none of the three
+  finished — the first two I stopped deliberately because I had edited a source file while they were
+  running (the shared Vite dev server HMRs the tree under the run, so those results would have been
+  measured against a tree that no longer existed), and the third was cut off when the session ended
+  at 12/~1150 tests with 0 failures. In its place I ran the 35 specs that actually drive a
+  `role="dialog"` surface, which is what the `Dialog.jsx` edit can reach — see below. The central
+  operator's gates are the evidence for the rest.
+- Dialog regression set — every spec in `tests/e2e` that drives a `role="dialog"` surface (35 files,
+  `grep -l` rather than a hand-picked list), desktop-chromium + mobile-chromium, isolated port 6219:
+  **766 passed, 0 failed, 0 flaky, 10 skipped, exit 0 (9.8m)**. This is the coverage that matters for
+  a `Dialog.jsx` edit: the confirmations, wizards, review sheets and axe gates that mount one.
+- `NAVIGATION.md`: §8 now states the Dialog rule as part of rule 4 and names the sub-routes it
+  audits; the End session row is out of the gap ledger because it is no longer a gap. The `/scenes`
+  IA gap and the tab-bar `More` attribute gap stay, both still owned by RC-POL-1.23.
+
+### Deliberate scope call
+
+`ds/components/overlay/Dialog.jsx` is not in this story's Owns. I edited it anyway: the acceptance
+criterion names keyboard-safe confirmations, the review rejected deferring it, and the defect is in
+the shared chrome rather than in any one screen (so it is not POL work either). The edit is eight
+style properties on two existing elements with no API or behaviour change above 360px. RC-UX-2.3
+still owns the rest of the overlay's compact work.

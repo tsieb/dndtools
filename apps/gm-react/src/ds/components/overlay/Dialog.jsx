@@ -20,6 +20,9 @@ import { restoreReturnFocus } from '../../../platform/returnFocus';
  *    header Close. For a dialog holding composed work (EncounterBuilder's roster), a mis-aimed click
  *    on the scrim discarding it is data loss; Escape and Close are deliberate acts, so they stay.
  *  - Body scroll locks while open. Closing restores focus to the element that opened it.
+ *  - The panel never grows past the viewport, and on a short one (a landscape phone, a software
+ *    keyboard) the header and the body are what give way — the footer keeps its height, so the
+ *    answers to a confirmation are always on screen (UX-002, NAVIGATION.md §8).
  *  - `tone="danger"` colours the header mark + primary affordance for destructive confirms; the
  *    distinct status-icon shape carries severity without relying on colour (A11Y-011).
  *
@@ -244,6 +247,17 @@ export function Dialog({
 							gap: 'var(--space-3)',
 							padding: 'var(--space-4) var(--space-5)',
 							borderBottom: '1px solid var(--color-border)',
+							// A column flex item's `min-height` is `auto`, so this header could not shrink
+							// below its own content and a long `description` simply pushed the footer out of
+							// the (overflow: hidden) panel — on a landscape phone or with a software keyboard
+							// up, a destructive confirm rendered with neither answer on screen (RC-UX-4.2).
+							// It yields height like any other row now and scrolls what does not fit; the title
+							// stays at the top of that scroll, and the footer below is never the part that
+							// goes.
+							flex: '0 1 auto',
+							minHeight: 0,
+							overflowY: 'auto',
+							overscrollBehavior: 'contain',
 						}}
 					>
 						{markName && (
@@ -365,6 +379,9 @@ export function Dialog({
 								'var(--space-3) var(--space-5) calc(var(--space-3) + var(--safe-area-bottom, 0px))',
 							borderTop: '1px solid var(--color-border)',
 							background: 'var(--color-surface)',
+							// The answers are the one part of a dialog that must survive a short viewport: the
+							// header scrolls and the body scrolls, but this row keeps every pixel it asked for.
+							flex: '0 0 auto',
 						}}
 					>
 						{footer}

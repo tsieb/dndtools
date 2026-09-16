@@ -1765,13 +1765,33 @@ const PRIMARY_ACTION_DEBT: Record<string, { ceiling: number; owner: string }> = 
 	'/session': { ceiling: 2, owner: 'RC-POL-1.4' },
 };
 
-/** Routes whose section is a row in the phone "All sections" sheet (not one of the four tabs). Graph
- * is usage-gated (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
+/**
+ * Every screen the shell renders — `ShelledRoutes` in App.tsx, minus the `*` redirect. `ROUTES`
+ * above is the older sweep's list of top-level destinations; the audit is per SCREEN, so the four
+ * sub-routes that render their own surface inside the same section (the scene editor, Story's
+ * calendar and relationships, the graph repair workspace) are audited in their own right — a screen
+ * reached only by a card or a link is exactly where a second primary action tends to hide.
+ * `:id` is resolved against the seeded vault by `openShellScreen`.
+ */
+const SHELL_SCREENS = [
+	...ROUTES,
+	'/scene/:id',
+	'/campaign/calendar',
+	'/campaign/relationships',
+	'/graph/repair',
+];
+
+/** Screens whose section is a row in the phone "All sections" sheet (not one of the four tabs). The
+ * sheet marks the active SECTION, so a sub-route marks its parent's row. Graph is usage-gated
+ * (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
 const MORE_SHEET_ROUTES = new Set([
 	'/board',
 	'/campaign',
+	'/campaign/calendar',
+	'/campaign/relationships',
 	'/knowledge',
 	'/graph',
+	'/graph/repair',
 	'/audio',
 	'/extensions',
 	'/community',
@@ -1779,6 +1799,47 @@ const MORE_SHEET_ROUTES = new Set([
 	'/player',
 	'/settings',
 ]);
+
+/** The id of a Scene the seeded vault already carries — the editor's not-found state is not a
+ * screen, so `/scene/:id` has to open on something real (mirrors the axe gate's resolver). */
+async function seededSceneId(page: Page): Promise<string> {
+	const id = await page.evaluate(() => {
+		const state = window.__rt!.state as unknown as {
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		return (
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((scene) => !scene.isTemplate)?.id ??
+			null
+		);
+	});
+	expect(id, 'the seeded vault has no Scene to open the editor on').not.toBeNull();
+	return id!;
+}
+
+/** Put the page on `screen` with a freshly seeded vault. A screen whose path carries a parameter is
+ * resolved AFTER the seed, because the wipe-and-reload would otherwise strand the editor on an id
+ * that no longer exists. */
+async function openShellScreen(page: Page, screen: string): Promise<void> {
+	if (!screen.includes(':')) {
+		await gotoRoute(page, screen);
+		await seedFresh(page);
+		return;
+	}
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await gotoRoute(page, screen.replace(':id', await seededSceneId(page)));
+}
+
+/** The shell's `*` route redirects an unknown path to `/`, which would silently turn a sub-route's
+ * audit into a second audit of the Command Center. Every assertion below is only worth what this
+ * check is. */
+async function expectStillOn(page: Page, screen: string): Promise<void> {
+	const hash = new URL(page.url()).hash.replace(/^#/, '');
+	const pattern = new RegExp(`^${screen.replace(':id', '[^/]+')}$`);
+	expect(hash, `${screen} redirected to ${hash}`).toMatch(pattern);
+}
 
 async function settleScreen(page: Page): Promise<void> {
 	// The top bar's own <h1> is attached before a lazy route's chunk has rendered anything, so wait
@@ -1843,15 +1904,15 @@ async function filledActions(scope: Locator, firstScreenful = false): Promise<st
 	}, firstScreenful);
 }
 
-for (const route of ROUTES) {
+for (const route of SHELL_SCREENS) {
 	test(`${route} keeps one top-bar action, one overflow and one primary action on a phone`, async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 375, height: 812 });
 		await markOnboarded(page);
-		await gotoRoute(page, route);
-		await seedFresh(page);
+		await openShellScreen(page, route);
 		await settleScreen(page);
+		await expectStillOn(page, route);
 
 		// The top bar: the title, Search and the Table controls overflow. Nothing else, on any screen,
 		// and nothing primary-weight: Go live lives inside the overflow.
@@ -1985,17 +2046,15 @@ test('End session from the phone overflow asks first, and Escape unwinds one lay
 });
 
 // …and the answers must stay on screen when ~360px is left: this file's software-keyboard fixture,
-// which is also every landscape phone, and on Android above the gesture bar too.
-// KNOWN DEFECT, recorded here rather than fixed: the DS Dialog renders `description` in its header,
-// and the header never yields height, so this confirmation's long body pushes the footer out of the
-// clipped panel and both answers render with zero visible area. The fix belongs in
-// `ds/components/overlay/Dialog.jsx` (RC-UX-2.3's Owns), not in the shell. Drop `test.fail` when it
-// lands; Playwright reports this test as unexpectedly passing until then.
+// which is also every landscape phone, and on Android above the gesture bar too. This is the
+// regression guard on the Dialog layout fix that made the case pass: the panel's header used to be
+// unable to shrink (a column flex item's `min-height` is `auto`), so this confirmation's long
+// description pushed the footer out of the `overflow: hidden` panel and the DM was asked a
+// destructive question with neither answer on screen.
 for (const android of [false, true]) {
 	test(`the End session confirmation stays keyboard-safe at 360px${android ? ' inside the Android safe area' : ''}`, async ({
 		page,
 	}) => {
-		test.fail(true, 'Dialog header does not yield height to its footer (ds/components/overlay)');
 		if (android) {
 			await page.addInitScript(() => {
 				(
@@ -2036,20 +2095,23 @@ for (const viewport of [
 		await markOnboarded(page);
 		await gotoRoute(page, '/');
 		await seedFresh(page);
+		const sceneId = await seededSceneId(page);
 
 		const banner = page.getByRole('banner');
-		for (const route of ROUTES) {
+		for (const screen of SHELL_SCREENS) {
+			const route = screen.replace(':id', sceneId);
 			await page.evaluate((next) => {
 				window.location.hash = next;
 			}, route);
 			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
 			await settleScreen(page);
+			await expectStillOn(page, screen);
 
 			const filled = await filledActions(banner);
-			expect(filled, `${route} ${viewport.name} top bar`).toHaveLength(1);
-			expect(filled[0], `${route} ${viewport.name} top bar`).toMatch(/^Go live/);
+			expect(filled, `${screen} ${viewport.name} top bar`).toHaveLength(1);
+			expect(filled[0], `${screen} ${viewport.name} top bar`).toMatch(/^Go live/);
 			await expect(banner.getByRole('button', { name: 'Table controls' })).toHaveCount(0);
-			expect(await clippedControls(page, 'header'), `${route} top bar clipped a control`).toEqual(
+			expect(await clippedControls(page, 'header'), `${screen} top bar clipped a control`).toEqual(
 				[],
 			);
 		}
