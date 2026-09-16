@@ -13,6 +13,7 @@ import type {
 	AttackRow,
 	BuilderBackground,
 	BuilderClass,
+	BuilderMethod,
 	BuilderRace,
 	CharKind,
 	ScoreMethod,
@@ -56,6 +57,8 @@ export interface Wizard {
 
 	method: ScoreMethod;
 	setMethod: Dispatch<SetStateAction<ScoreMethod>>;
+	/** The score methods this KIND can actually finalize — a guided PC has no roll (CHAR-002). */
+	methodChoices: readonly BuilderMethod[];
 	scores: Record<AbilityKey, number>;
 	/** The values the standard-array / roll methods assign from; null for point buy and manual. */
 	pool: readonly number[] | null;

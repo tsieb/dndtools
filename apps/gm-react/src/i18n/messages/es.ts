@@ -4389,7 +4389,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'charBuilder.standardIncomplete':
 		'Asigna los seis valores de la matriz estándar antes de continuar (las características sin asignar se guardarían como 10).',
 	'charBuilder.pcUsesPointBuy':
-		'Un PJ guiado usa la compra por puntos estándar — cada puntuación de 8 a 15, 27 puntos en total. Las puntuaciones tiradas o manuales fuera de ese rango no se pueden finalizar.',
+		'Un PJ guiado se valida con la compra por puntos — cada puntuación de 8 a 15, 27 puntos en total — así que las puntuaciones tiradas no se pueden finalizar. Tirar está disponible para PNJ, monstruos y secuaces.',
 	'charBuilder.derivedSuggestions': 'Sugerencias derivadas',
 	'charBuilder.initiative': 'Iniciativa {value}',
 	'charBuilder.unarmoredAc': 'CA sin armadura {value}',

@@ -21,7 +21,10 @@
  *   - PC classes/backgrounds are limited to the core guided flow's options (CHAR-002
  *     `DRAFT_CLASS_OPTIONS` / `DRAFT_BACKGROUND_OPTIONS`) — anything else is rejected at finalize.
  *   - PC ability scores must satisfy the core's 27-point-buy rule (each 8–15); the wizard surfaces
- *     the core's own `validateDraftStep` issues instead of letting finalize reject.
+ *     the core's own `validateDraftStep` issues instead of letting finalize reject. The 4d6 ROLL
+ *     method is therefore offered for the kinds the core takes scores from as given (NPC / monster /
+ *     sidekick) and withheld from the guided PC path, where finalize would refuse an ordinary rolled
+ *     spread with no way forward. DEBT-2026-006 tracks the core change that would lift this.
  *   - A PC needs a player OWNER (create-draft rejects otherwise) — an "Owned by" select is added.
  *   - PC visibility is forced `shared`-with-owner by finalize; the visibility tiles are replaced
  *     with a note (the DM widens sharing post-create from the sheet via `character.set-sharing`).
@@ -183,7 +186,7 @@ export function CharBuilder({
 	const [subclass, setSubclass] = useState('');
 	const [level, setLevel] = useState(1);
 	const [background, setBackground] = useState('soldier');
-	const [method, setMethod] = useState<ScoreMethod>('standard');
+	const [pickedMethod, setMethod] = useState<ScoreMethod>('standard');
 	const [scores, setScores] = useState<Record<AbilityKey, number>>({
 		STR: 10,
 		DEX: 10,
@@ -220,6 +223,17 @@ export function CharBuilder({
 	// Effective picks: a selection made under another kind may be illegal for a PC — fall back legal.
 	const clsId = clsChoices.some((c) => c.id === cls) ? cls : clsChoices[0].id;
 	const bgId = bgChoices.some((b) => b.id === background) ? background : bgChoices[0].id;
+	// The CORE validates a guided PC's ability scores against 27-point buy, each 8–15 (CHAR-002), and
+	// `finalize-draft` REJECTS anything else — there is no PC-side command that could carry a rolled
+	// 16 or 7, so a 4d6 roll offered here would be a dead end the user can only escape by rerolling
+	// until point buy happens to accept the dice. Roll is therefore offered for the kinds whose
+	// scores the core takes as given (NPC / monster / sidekick). DEBT-2026-006 tracks the core work.
+	const methodChoices = isPc ? BUILDER.methods.filter((m) => m.id !== 'roll') : BUILDER.methods;
+	// A method picked under another kind may not exist for this one — fall back legal, as class and
+	// background do above (switching NPC→PC with Roll selected must not strand the step).
+	const method: ScoreMethod = methodChoices.some((m) => m.id === pickedMethod)
+		? pickedMethod
+		: 'standard';
 	const raceObj = BUILDER.races.find((r) => r.id === race) ?? BUILDER.races[0];
 	const clsObj = BUILDER.classes.find((c) => c.id === clsId) ?? BUILDER.classes[0];
 	const bgObj = BUILDER.backgrounds.find((b) => b.id === bgId) ?? BUILDER.backgrounds[0];
@@ -355,6 +369,7 @@ export function CharBuilder({
 		bgObj,
 		method,
 		setMethod,
+		methodChoices,
 		scores,
 		pool,
 		rolls,

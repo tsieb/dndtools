@@ -3,7 +3,9 @@
  * core rule surfaced.
  *
  * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4). RC-CHR-5.2 added the roll
- * method, the class-priority suggestion and slot swapping (`../scores`).
+ * method, the class-priority suggestion and slot swapping (`../scores`). The methods offered come
+ * from the wizard, not the table: a guided PC has no roll, because the core's CHAR-002 flow refuses
+ * scores the point-buy budget does not cover (DEBT-2026-006).
  */
 import { Button, IconButton, Select, Toaster } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
@@ -21,6 +23,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 		clsObj,
 		method,
 		setMethod,
+		methodChoices,
 		scores,
 		pool,
 		rolls,
@@ -48,13 +51,11 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 				<Seg
 					value={method}
 					onChange={(v) => setMethod(v as ScoreMethod)}
-					options={BUILDER.methods.map((m) => ({ value: m.id, label: t(m.label) }))}
+					options={methodChoices.map((m) => ({ value: m.id, label: t(m.label) }))}
 					ariaLabel={t('charBuilder.scoreMethod')}
 				/>
 				<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					{t(
-						BUILDER.methods.find((m) => m.id === method)?.note ?? 'charBuilder.method.standardNote',
-					)}
+					{t(methodChoices.find((m) => m.id === method)?.note ?? 'charBuilder.method.standardNote')}
 				</span>
 				{method === 'pointbuy' && (
 					<span
@@ -280,7 +281,9 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						))}
 				</ul>
 			)}
-			{isPc && (method === 'manual' || method === 'roll') && (
+			{/* Point buy's own method note already states the rule; every other PC method needs it said,
+			    including WHY there is no roll to pick here (the core would refuse it at finalize). */}
+			{isPc && method !== 'pointbuy' && (
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
 					{t('charBuilder.pcUsesPointBuy')}
 				</div>

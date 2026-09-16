@@ -4353,7 +4353,7 @@ export const en = {
 	'charBuilder.standardIncomplete':
 		'Assign all six standard-array values before continuing (unassigned abilities would be saved as 10).',
 	'charBuilder.pcUsesPointBuy':
-		'A guided PC uses standard point buy — each score 8–15, 27 points total. Rolled or manual scores outside that can’t be finalized.',
+		'A guided PC is checked against point buy — each score 8–15, 27 points total — so rolled scores can’t be finalized. Roll is available for NPCs, monsters and sidekicks.',
 	'charBuilder.derivedSuggestions': 'Derived suggestions',
 	'charBuilder.initiative': 'Initiative {value}',
 	'charBuilder.unarmoredAc': 'Unarmored AC {value}',

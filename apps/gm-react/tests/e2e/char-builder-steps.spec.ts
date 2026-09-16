@@ -3,8 +3,9 @@ import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 /**
  * RC-CHR-5.2 — character builder step polish: the ability-score methods (standard array dealt for
- * the class, point buy, a 4d6 roll), the class preview of the active package's features, the step
- * rail's navigation semantics, and the import review's diff against a same-named roster character.
+ * the class, point buy, a 4d6 roll for the kinds the core takes scores from as given), the class
+ * preview of the active package's features, the step rail's navigation semantics, and the import
+ * review's diff against a same-named roster character.
  */
 
 interface RosterCharacter {
@@ -94,6 +95,66 @@ test('ability scores: the standard array starts dealt for the class, and a 4d6 r
 	await expect
 		.poll(async () => (await roster(page)).find((c) => c.name === 'Roll Tester')?.abilityScores)
 		.toEqual(rolled);
+});
+
+test('a guided PC is offered only the score methods it can finalize, and creates with them', async ({
+	page,
+}) => {
+	const wizard = await openWizard(page);
+	// PC is the default kind, and the seeded roster supplies the player owner a PC draft needs.
+	await wizard.getByLabel('Name').fill('Array Hero');
+	const cont = wizard.getByRole('button', { name: 'Continue' });
+	await cont.click(); // class & level
+	await cont.click(); // ability scores
+
+	// The core validates a PC against point buy and finalize REFUSES anything else, so a 4d6 roll is
+	// not offered on this path — offering it would assign six scores the wizard could never create.
+	const methods = wizard.getByRole('radiogroup', { name: 'Ability score method' });
+	await expect(methods.getByRole('radio', { name: 'Roll', exact: true })).toHaveCount(0);
+	for (const name of ['Standard array', 'Point buy', 'Manual']) {
+		await expect(methods.getByRole('radio', { name, exact: true })).toBeVisible();
+	}
+	await expect(wizard).toContainText('Roll is available for NPCs, monsters and sidekicks');
+
+	// Each method a PC IS offered reaches a live Continue with no outstanding core issue.
+	const assignedScores: Record<string, number> = {};
+	for (const ability of ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']) {
+		assignedScores[ability.toLowerCase()] = Number(await assigned(wizard, ability).textContent());
+	}
+	expect(Object.values(assignedScores).sort((a, b) => b - a)).toEqual([15, 14, 13, 12, 10, 8]);
+	await expect(wizard).not.toContainText('must be between 8 and 15');
+	await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
+
+	for (let s = 0; s < 3; s += 1) await cont.click(); // kit, bio, review
+	const create = wizard.getByRole('button', { name: 'Create character' });
+	await expect(create).not.toHaveAttribute('aria-disabled', 'true');
+	await create.click();
+	await expect
+		.poll(async () => (await roster(page)).find((c) => c.name === 'Array Hero')?.abilityScores)
+		.toEqual(assignedScores);
+});
+
+test('switching from an NPC roll to a PC lands on a method the PC can finalize', async ({
+	page,
+}) => {
+	const wizard = await openWizard(page);
+	await startNpc(wizard, 'Kind Switcher');
+	const cont = wizard.getByRole('button', { name: 'Continue' });
+	await cont.click(); // ability scores
+	await wizard.getByRole('radio', { name: 'Roll', exact: true }).click();
+	await wizard.getByRole('button', { name: 'Roll 4d6 × 6' }).click();
+
+	// Back to Identity (the footer's back button is labelled with the step it returns to) and switch
+	// to a PC: Roll is gone, so the step must not be left on a method that no longer exists — it falls
+	// back to the standard array, already dealt and complete.
+	await wizard.getByRole('button', { name: 'Class & level', exact: true }).click();
+	await wizard.getByRole('button', { name: 'Identity', exact: true }).click();
+	await wizard.getByRole('button', { name: 'PC', exact: true }).click();
+	await cont.click(); // class & level
+	await cont.click(); // ability scores
+	await expect(wizard.getByRole('radio', { name: 'Standard array' })).toBeChecked();
+	await expect(assigned(wizard, 'STR')).toHaveText('15');
+	await expect(cont).not.toHaveAttribute('aria-disabled', 'true');
 });
 
 test('the class step previews what the active package gives the class at the chosen level', async ({
