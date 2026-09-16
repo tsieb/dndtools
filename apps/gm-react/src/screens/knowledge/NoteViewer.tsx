@@ -358,8 +358,14 @@ export function NoteViewer({
 							suggest={suggestWikilinks}
 							// The preview is the SAME renderer the reader below gets (RC-KNW-1.1), given the
 							// same actor-scoped resolver — so a `[[link]]` that will be broken for readers
-							// already reads as broken while it is being written.
-							renderPreview={(draft) => mdToNodes(draft, t, resolveLink, canAuthor)}
+							// already reads as broken while it is being written. Same `.knowledge-prose`
+							// wrapper too, so the preview carries the reading measure and leading the
+							// note will actually be read at.
+							renderPreview={(draft) => (
+								<div className="knowledge-prose" data-prose-width={proseWidth}>
+									{mdToNodes(draft, t, resolveLink, canAuthor)}
+								</div>
+							)}
 							onSave={saveDraft}
 							onCancel={() => {
 								// Clearing `err` is not cosmetic: view mode renders the SAME state in its own
