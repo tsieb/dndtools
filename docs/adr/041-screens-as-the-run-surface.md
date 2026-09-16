@@ -173,6 +173,12 @@ Source inspection on 2026-09-12 at commit `8b582677939ad2d89ff843affa60af78bd578
   existing actor-scoped model. [Focus tests](../../packages/core/tests/scene-focus-order.test.ts)
   cover canvas metadata traversal, not flow layout. These tests were inspected, not run for this ADR.
 
+Re-checked on 2026-09-16 while rebasing onto `d4729e8fba3267cce310057ceee24813d74737c5`:
+`git diff --stat 8b582677..d4729e8f` over the paths cited above reports no changes, so those
+observations still describe the tree this ADR lands on. `pnpm gates` exits 0 on that tree, including
+the RC-DOC-2.2 docs check (254 files reachable, 279 relative links resolved), which also asserts that
+this ADR's `Status:` line and its index cell agree.
+
 The related architecture owners now point back here: [NAVIGATION.md](../architecture/NAVIGATION.md)
 §1 records the canonical screen routes, the alias resolution and the user-defined Screens pin group,
 and [WIDGETS.md](../architecture/WIDGETS.md) §7 records the flow and canvas layout policies. Both
