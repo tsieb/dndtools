@@ -439,8 +439,10 @@ export function WidgetFrame({
 								padding: 0,
 								touchAction: 'none',
 								borderRadius: 'var(--radius-sm)',
-								background: 'var(--color-accent)',
-								border: '2px solid var(--color-bg)',
+								// A tinted handle, not a gold fill: the canvas's one accent-filled primary
+								// belongs to the zoom cluster (RC-ENG-8.4 emphasis lint).
+								background: 'var(--color-accent-subtle)',
+								border: '2px solid var(--color-accent-border)',
 								cursor: 'nwse-resize',
 								transform: `scale(${1 / scale})`,
 								transformOrigin: 'bottom right',

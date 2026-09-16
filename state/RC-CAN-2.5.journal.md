@@ -92,3 +92,30 @@ apps/gm-react/package.json apps/gm-react/src/app/help` reports identical
 - Acceptance re-verified on the rebased head: focused resize e2e 4/4 on
   desktop and mobile Chromium, no retries.
 - No dispatcher state changes, additional agents, push or promotion.
+
+## Rebase onto loop/rc f38d7a47 (2026-09-16)
+
+- The App tests gate failed twice more on e16bf0b7 with the same single
+  changelog failure. loop/rc has since moved from 66b7ab7f to f38d7a47 and
+  carries 32d9ed73 ("fix(help): exclude unreleased notes from shipped release
+  selection"), which fixes it upstream. Rebased this story's four commits onto
+  f38d7a47; no conflicts. App tests now pass 1372/1372.
+- The rebase also brought RC-ENG-8.4's emphasis lint, which the resize handle
+  then failed: `multiple-accent-primaries` counts a `<button>` with an inline
+  `var(--color-accent)` background, so turning the handle from a div into a
+  button gave SceneBoardCanvas two accent-filled primaries (the handle plus
+  ZoomCluster) against a baseline of none.
+- Fix, inside the owned file: the handle is now a tint rather than a fill —
+  `--color-accent-subtle` background with a `--color-accent-border` edge. The
+  zoom cluster keeps the canvas's one accent primary. Size, target area and
+  behaviour are unchanged, and the non-text contrast gate still passes
+  (191 pair checks across 3 themes).
+- Not changed: `scripts/emphasis-baseline.json`. Lint reports one entry above
+  its current count, but it is NoteBody.tsx from upstream RC-CAN-2.3, not this
+  story, and lint exits 0. Lowering that shared ratchet here would collide with
+  sibling tasks.
+- Validation on the rebased head: app tests 1372/1372; canvas.spec.ts +
+  custom-widgets.spec.ts 92/92 on desktop and mobile Chromium; focused resize
+  acceptance 4/4 after the restyle; typecheck, full lint (exit 0), Prettier and
+  quality gates 6/6 all passed. SceneBoardCanvas.tsx remains 799 lines.
+- No dispatcher state changes, additional agents, push or promotion.
