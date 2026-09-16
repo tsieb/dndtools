@@ -72,6 +72,27 @@ export function parseWikilink(raw: string): { target: string; label: string } {
 	return { target, label };
 }
 
+/**
+ * Absolute URL of a crawlable wiki document (`/wikis/{id}/reader`, `/wikis/{id}/rss.xml`) on the
+ * hosting origin.
+ *
+ * `publicAppBaseUrl()` is a *document* URL, not an origin: it ends in `/` at the site root and in
+ * `/index.html` for the packaged Electron build's configured URL. Concatenating a path onto it
+ * produced `https://host//wikis/…` and `https://host/index.html/wikis/…`, and CloudFront forwards
+ * the raw URI after picking a behavior — the second form selects the S3 default behavior and never
+ * reaches the document handler. Resolving a root-absolute path against the base fixes both; the
+ * `/wikis/*` cache behavior lives at the distribution root, so the base's own path is not a prefix.
+ */
+export function wikiDocumentUrl(wikiId: string, document: 'reader' | 'rss.xml'): string | null {
+	const base = publicAppBaseUrl();
+	if (!base) return null;
+	try {
+		return new URL(`/wikis/${encodeURIComponent(wikiId)}/${document}`, base).href;
+	} catch {
+		return null;
+	}
+}
+
 function Notice({ icon, title, children }: { icon: string; title: string; children?: ReactNode }) {
 	return (
 		<div style={CENTER}>
@@ -372,15 +393,11 @@ export function WikiReader() {
 					>
 						<Icon name="knowledge-book" size="sm" /> {t('wikiReader.campaignWiki')}
 					</div>
-					{wiki.access === 'public' && publicAppBaseUrl() && (
+					{wiki.access === 'public' && wikiDocumentUrl(wiki.wikiId, 'reader') && (
 						<div>
-							<a href={`${publicAppBaseUrl()}/wikis/${encodeURIComponent(wiki.wikiId)}/reader`}>
-								{t('wikiReader.webReader')}
-							</a>
+							<a href={wikiDocumentUrl(wiki.wikiId, 'reader')!}>{t('wikiReader.webReader')}</a>
 							{' · '}
-							<a href={`${publicAppBaseUrl()}/wikis/${encodeURIComponent(wiki.wikiId)}/rss.xml`}>
-								{t('wikiReader.rss')}
-							</a>
+							<a href={wikiDocumentUrl(wiki.wikiId, 'rss.xml')!}>{t('wikiReader.rss')}</a>
 						</div>
 					)}
 					<h1

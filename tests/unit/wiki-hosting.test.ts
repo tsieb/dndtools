@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
 import YAML from 'yaml';
+import { wikiDocument } from '../../packages/cloud-fns/src/app-api/wiki-documents';
 
 const read = (path: string) => YAML.parse(readFileSync(path, 'utf8'), { logLevel: 'silent' });
 it('only forwards this custom domain to its own wiki documents', () => {
@@ -45,4 +46,48 @@ it('registers documents as anonymous reads while publishing retains the default 
 	expect(events.ReadWikiDocument.Properties.Auth?.Authorizer).toBe('NONE');
 	expect(events.ReadWikiDocument.Properties.Path).toBe('/wikis/{wikiId}/{document}');
 	expect(events.PublishWiki.Properties.Auth?.Authorizer).not.toBe('NONE');
+});
+
+it('every URL the renderer publishes on a custom domain survives that domain routing', () => {
+	// The reviewer's failure mode: the renderer and the CloudFront function each look correct alone,
+	// but composed they disagree. Run the SHIPPED function over the URLs the SHIPPED renderer emits.
+	const host = 'campaign.example';
+	const appOrigin = 'https://app.example';
+	const source = read(
+		'infra/web-hosting/wiki/custom-domain.yaml',
+	).Resources.Route.Properties.FunctionCode.replaceAll('${WikiId}', 'campaign1234');
+	const route = (uri: string) =>
+		runInNewContext(`${source}\nhandler(event)`, { event: { request: { uri, querystring: {} } } });
+	const wiki = {
+		wikiId: 'campaign1234',
+		title: 'Copper & Coast',
+		access: 'public',
+		updatedAt: '2026-09-01',
+		pages: [
+			{ slug: 'harbour', title: 'Harbour', markdown: 'Ships at anchor.', folder: 'Places' },
+			{ slug: 'recap', title: 'First voyage', markdown: 'A sunken crypt.', kind: 'recap' as const },
+		],
+	};
+	const hrefs = ['reader', 'rss.xml', 'sitemap.xml'].flatMap((format) => [
+		...wikiDocument(wiki, `https://${host}`, format, { page: 'harbour' }, appOrigin).body.matchAll(
+			/(?:href|src)="([^"]+)"|<(?:loc|link|guid[^>]*)>([^<]+)<\//g,
+		),
+	]);
+	const urls = hrefs
+		.map(([, attr, node]) => (attr ?? node)!.replaceAll('&amp;', '&'))
+		.filter((u) => !u.startsWith('#'));
+	expect(urls.length).toBeGreaterThan(8);
+	for (const raw of urls) {
+		const url = new URL(raw, `https://${host}/wikis/campaign1234/reader`);
+		// An off-host URL (the app link) leaves this distribution entirely and is not its to route.
+		if (url.host !== host) {
+			expect(url.origin).toBe(appOrigin);
+			continue;
+		}
+		// Reaching the origin is not enough: the function must route the URL to ITSELF. An app link
+		// left on this host would arrive as '/' and be rewritten to the text reader — a 200 that
+		// silently lands the reader somewhere other than where the link pointed.
+		const routed = route(url.pathname);
+		expect({ raw, routed: routed.statusCode ?? routed.uri }).toEqual({ raw, routed: url.pathname });
+	}
 });

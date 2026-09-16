@@ -29,13 +29,21 @@ const escape = (value: string) =>
 	);
 const text = (page: WikiDocumentPage) => stripSecretCallouts(page.markdown);
 
-/** All URLs come from deployment coordinates, never Host or a user-supplied URL. */
+/**
+ * All URLs come from deployment coordinates, never Host or a user-supplied URL.
+ *
+ * `origin` is where THIS document is published (the wiki's verified custom domain when it has one);
+ * `appOrigin` is where the SPA is served. They are distinct on a custom domain, which forwards only
+ * this wiki's text documents, so `appOrigin` has no default — defaulting it to `origin` emitted an
+ * "Open formatted reader" link that the custom-domain distribution rewrote back to the text reader.
+ * An unset `appOrigin` omits the link rather than emitting one that cannot open the app.
+ */
 export function wikiDocument(
 	wiki: WikiDocument,
 	origin: string,
 	format: string,
 	query: Record<string, string | undefined> = {},
-	appOrigin = origin,
+	appOrigin = '',
 ) {
 	const base = `${origin.replace(/\/$/, '')}/wikis/${encodeURIComponent(wiki.wikiId)}`;
 	const pageUrl = (slug: string) => `${base}/reader?page=${encodeURIComponent(slug)}`;
@@ -83,6 +91,9 @@ export function wikiDocument(
 		groups.set(group, [...(groups.get(group) ?? []), p]);
 	}
 	const dark = query.theme === 'dark';
+	const appLink = /^https?:\/\/[^/?#]+$/.test(appOrigin.replace(/\/$/, ''))
+		? `<a href="${escape(`${appOrigin.replace(/\/$/, '')}/#/wiki?id=${encodeURIComponent(wiki.wikiId)}&page=${encodeURIComponent(page.slug)}`)}">Open formatted reader</a>`
+		: '';
 	const title = `${page.title} — ${wiki.title}`;
 	const description =
 		text(page).replace(/\s+/g, ' ').slice(0, 160) || `Read ${page.title} in ${wiki.title}.`;
@@ -90,7 +101,7 @@ export function wikiDocument(
 		200,
 		`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(title)}</title><meta name="description" content="${escape(description)}"><meta name="robots" content="${wiki.access === 'public' ? 'index, follow' : 'noindex, nofollow'}"><link rel="canonical" href="${escape(pageUrl(page.slug))}"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta property="og:type" content="article"><meta property="og:url" content="${escape(pageUrl(page.slug))}">${wiki.access === 'public' ? `<link rel="alternate" type="application/rss+xml" title="Session recaps" href="${base}/rss.xml">` : ''}<style>
 :root{color-scheme:${dark ? 'dark' : 'light'};font:18px/1.6 system-ui}body{max-width:70rem;margin:auto;padding:1.5rem}a{color:LinkText}header{border-bottom:1px solid;padding-bottom:1rem}.layout{display:grid;grid-template-columns:minmax(12rem,1fr) 3fr;gap:2rem}nav a{display:block;padding:.35rem}article{white-space:pre-wrap;overflow-wrap:anywhere}input,button{font:inherit;max-width:100%;box-sizing:border-box}input{width:100%}h1,h2{line-height:1.2}main{min-width:0}@media(max-width:600px){.layout{display:block}}:focus-visible{outline:3px solid LinkText;outline-offset:3px}
-</style></head><body><a href="#content">Skip to content</a><header><h1>${escape(wiki.title)}</h1><a href="${escape(`${appOrigin.replace(/\/$/, '')}/#/wiki?id=${encodeURIComponent(wiki.wikiId)}&page=${encodeURIComponent(page.slug)}`)}">Open formatted reader</a><form role="search" method="get"><label for="q">Search wiki</label><input id="q" name="q" value="${escape(search)}" maxlength="200"><input type="hidden" name="page" value="${escape(page.slug)}"><input type="hidden" name="theme" value="${dark ? 'dark' : 'light'}"><button>Search</button></form><a href="?${new URLSearchParams({ page: page.slug, q: search, theme: dark ? 'light' : 'dark' }).toString().replace(/&/g, '&amp;')}">Use ${dark ? 'light' : 'dark'} theme</a>${wiki.access === 'public' ? ` · <a href="${base}/rss.xml">Subscribe to recaps</a> · <a href="${base}/sitemap.xml">Sitemap</a>` : ''}</header><div class="layout"><nav aria-label="Wiki pages">${matches.length ? [...groups].map(([folder, pages]) => `<section><h2>${escape(folder)}</h2>${pages.map((p) => `<a href="${escape(`${pageUrl(p.slug)}&theme=${dark ? 'dark' : 'light'}`)}"${p.slug === page.slug ? ' aria-current="page"' : ''}>${escape(p.title)}</a>`).join('')}</section>`).join('') : '<p>No matching pages</p>'}</nav><main id="content" tabindex="-1"><h2>${escape(page.title)}</h2><article>${escape(text(page))}</article></main></div></body></html>`,
+</style></head><body><a href="#content">Skip to content</a><header><h1>${escape(wiki.title)}</h1>${appLink}<form role="search" method="get"><label for="q">Search wiki</label><input id="q" name="q" value="${escape(search)}" maxlength="200"><input type="hidden" name="page" value="${escape(page.slug)}"><input type="hidden" name="theme" value="${dark ? 'dark' : 'light'}"><button>Search</button></form><a href="?${new URLSearchParams({ page: page.slug, q: search, theme: dark ? 'light' : 'dark' }).toString().replace(/&/g, '&amp;')}">Use ${dark ? 'light' : 'dark'} theme</a>${wiki.access === 'public' ? ` · <a href="${base}/rss.xml">Subscribe to recaps</a> · <a href="${base}/sitemap.xml">Sitemap</a>` : ''}</header><div class="layout"><nav aria-label="Wiki pages">${matches.length ? [...groups].map(([folder, pages]) => `<section><h2>${escape(folder)}</h2>${pages.map((p) => `<a href="${escape(`${pageUrl(p.slug)}&theme=${dark ? 'dark' : 'light'}`)}"${p.slug === page.slug ? ' aria-current="page"' : ''}>${escape(p.title)}</a>`).join('')}</section>`).join('') : '<p>No matching pages</p>'}</nav><main id="content" tabindex="-1"><h2>${escape(page.title)}</h2><article>${escape(text(page))}</article></main></div></body></html>`,
 		'text/html',
 	);
 }

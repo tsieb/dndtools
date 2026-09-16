@@ -53,6 +53,9 @@ const server = createServer((req, res) => {
 		origin,
 		url.pathname.split('/').at(-1)!,
 		Object.fromEntries(url.searchParams),
+		// This harness stands in for the shared distribution, where the documents and the SPA share
+		// one origin. A custom domain passes the separate WEB_ORIGIN instead.
+		origin,
 	);
 	res.writeHead(response.statusCode, response.headers);
 	res.end(response.body);
@@ -95,9 +98,11 @@ try {
 			]),
 		),
 	};
+	// Tabs, to match the repo's Prettier config: a space-indented artifact makes every re-run dirty
+	// the tree and trip the formatting gate, so the committed score could never be reproduced as-is.
 	await writeFile(
 		new URL('./seo-result.json', import.meta.url),
-		`${JSON.stringify(summary, null, 2)}\n`,
+		`${JSON.stringify(summary, null, '\t')}\n`,
 	);
 	console.log(JSON.stringify({ ...summary, fullReport: output }));
 	if (score < 90) throw new Error(`Reader SEO ${score} is below 90`);

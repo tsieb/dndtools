@@ -71,3 +71,65 @@ Final lint (0 errors, 15 existing warnings), formatting and all 1,284 app tests 
 
 The local acceptance artifacts do not establish deployed CloudFront, DNS or certificate health.
 Those deployment checks are documented in README.md. No push, promotion or dispatch control changes.
+
+## Review round 2 — URL composition defects
+
+Independent review rejected the first candidate for two URL-composition defects. Both reproduced
+before any edit, and both are now covered by tests that fail against the previous code.
+
+### High — the reader advertised document URLs that cannot reach the document handler
+
+`WikiReader.tsx` built both links as `` `${publicAppBaseUrl()}/wikis/…` ``. That helper returns a
+DOCUMENT url, not an origin: `https://host/` at the site root and `https://host/index.html` for the
+packaged build's configured `VITE_PUBLIC_APP_URL`. Concatenation therefore produced
+`https://host//wikis/…` and `https://host/index.html/wikis/…`. CloudFront forwards the raw URI to
+the origin after selecting a behavior, so the `index.html` form selects the S3 default behavior and
+never reaches the `/wikis/{wikiId}/{document}` route.
+
+Fixed by resolving a root-absolute path against the base (`new URL('/wikis/…', base)`), exported as
+`wikiDocumentUrl`. The `/wikis/*` cache behavior lives at the distribution root, so the base's own
+path is correctly not a prefix. Covered by three `WikiReader.test.tsx` cases using the REAL helper
+(site root, `/index.html` document url, and non-public wikis, which advertise nothing). Mutation
+check: restoring the concatenation fails 2 of the 3 with the exact `//wikis/` and
+`/index.html/wikis/` strings the reviewer reported.
+
+### Medium — "Open formatted reader" pointed at a host that serves no app
+
+`handler.ts` passed only four arguments, so `wikiDocument`'s `appOrigin` defaulted to `origin` — the
+wiki's custom domain when it has one. `custom-domain.yaml` serves that wiki's text documents and no
+SPA, and rewrites `/` back to the text reader, so the link bounced and dropped the selected page.
+
+Fixed by passing `WEB_ORIGIN` explicitly as `appOrigin` while canonical, RSS and sitemap URLs keep
+following the verified custom domain. The `appOrigin = origin` default is removed; it now defaults
+to `''` and an unset app origin OMITS the link rather than emitting one that cannot open the app.
+`check-seo.ts` and the e2e spec pass their single origin explicitly, which is correct for the shared
+distribution.
+
+### Tests added
+
+- `handler.test.ts`: with `WIKI_CUSTOM_DOMAINS` set, canonical URLs use the custom domain while the
+  app link uses `WEB_ORIGIN`. Mutation check: passing `origin` as `appOrigin` fails it.
+- `wiki-documents.test.ts`: the custom-domain split, and that an unset app origin omits the link.
+- `wiki-hosting.test.ts`: runs the SHIPPED CloudFront function over every URL the SHIPPED renderer
+  emits for a custom domain — the reviewer's own composed method. On-host URLs must route to
+  THEMSELVES (not merely return 200): a rewritten URL is a 200 that silently lands the reader
+  somewhere other than where the link pointed, which is exactly how the app link failed. Off-host
+  URLs must be the app origin. Mutation-checked in both directions.
+- `wiki-v2.spec.ts`: a real browser round-trip — the text reader's app link resolves, is clicked,
+  and lands in the SPA with the page preserved.
+
+### Also fixed
+
+`check-seo.ts` wrote `seo-result.json` space-indented while Prettier enforces tabs, so every run
+dirtied the tree and the committed score could never be reproduced as-is. It now writes tabs;
+a re-run leaves the artifact byte-identical (verified).
+
+### Final-tree verification
+
+Typecheck, lint (0 errors, 15 pre-existing warnings), Prettier on changed files. 491 cloud tests,
+1,293 app tests, 165 tooling tests. 12 wiki e2e tests on desktop-chromium AND mobile-chromium.
+Lighthouse 12.8.2 SEO = 100 (threshold 90) on the local production text renderer.
+
+Unchanged from round 1: these are local renderer/browser checks. Deployed CloudFront, DNS and
+certificate operation is not exercised here and remains operator work per README.md. No push, no
+promotion, no dispatch control changes.

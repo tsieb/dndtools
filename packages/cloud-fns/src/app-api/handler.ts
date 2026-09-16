@@ -399,11 +399,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 				unknown
 			>;
 			const host = domains[document.wikiId];
+			// Canonical/feed/sitemap URLs follow the wiki's own (verified) domain, but the SPA lives
+			// ONLY on the web origin: a custom-domain distribution serves this wiki's text documents
+			// and nothing else, so an app link built from it would bounce back to the reader and lose
+			// the page. The app link therefore always uses WEB_ORIGIN, never the custom host.
+			const webOrigin = process.env.WEB_ORIGIN || '';
 			const origin =
 				typeof host === 'string' && /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(host)
 					? `https://${host}`
-					: process.env.WEB_ORIGIN || '';
-			return wikiDocument(document, origin, format, event.queryStringParameters);
+					: webOrigin;
+			return wikiDocument(document, origin, format, event.queryStringParameters, webOrigin);
 		}
 		if (routeKey === 'GET /wikis/{wikiId}') {
 			return await readWiki(

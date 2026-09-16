@@ -288,3 +288,42 @@ describe('wiki v2 reader controls', () => {
 		expect(container.querySelector('[data-theme]')?.getAttribute('data-theme')).toBe('tavern');
 	});
 });
+
+describe('the reader advertises the crawlable document routes', () => {
+	// These hrefs used to be `${publicAppBaseUrl()}/wikis/…`, but that helper returns a DOCUMENT url
+	// — `…/` at the site root and `…/index.html` for the packaged build's configured URL — so the
+	// links came out as `//wikis/…` and `/index.html/wikis/…`. CloudFront forwards the raw URI after
+	// choosing a behavior, so the second form lands on the S3 default behavior, never the document
+	// handler. Both must resolve to the single-slash path the app-api route is registered at.
+	const hrefs = () =>
+		[...container.querySelectorAll('header a')].map((a) => a.getAttribute('href'));
+
+	it('builds single-slash absolute document URLs from the site root', async () => {
+		mockedGetPublicWiki.mockResolvedValue(WIKI);
+		await mount();
+		expect(hrefs()).toEqual([
+			`${location.origin}/wikis/w1/reader`,
+			`${location.origin}/wikis/w1/rss.xml`,
+		]);
+	});
+
+	it('does not hang the document path off an index.html document URL', async () => {
+		window.history.replaceState({}, '', '/index.html');
+		try {
+			mockedGetPublicWiki.mockResolvedValue(WIKI);
+			await mount();
+			expect(hrefs()).toEqual([
+				`${location.origin}/wikis/w1/reader`,
+				`${location.origin}/wikis/w1/rss.xml`,
+			]);
+		} finally {
+			window.history.replaceState({}, '', '/');
+		}
+	});
+
+	it('offers no crawlable links for a wiki that is not public', async () => {
+		mockedGetPublicWiki.mockResolvedValue({ ...WIKI, access: 'unlisted' });
+		await mount();
+		expect(hrefs()).toEqual([]);
+	});
+});

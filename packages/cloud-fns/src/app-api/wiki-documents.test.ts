@@ -51,6 +51,31 @@ describe('wiki documents', () => {
 		expect(sitemap.body.match(/<url>/g)).toHaveLength(2);
 		expect(sitemap.body).toContain('/reader?page=harbour');
 	});
+	it('keeps the app link on the SPA origin when the wiki is published on its own domain', () => {
+		// A custom-domain distribution serves ONLY this wiki's text documents, so an app link built
+		// from that host is rewritten straight back to the reader and the reader loses their page.
+		const body = wikiDocument(
+			wiki,
+			'https://campaign.example',
+			'reader',
+			{ page: 'harbour' },
+			'https://app.example',
+		).body;
+		expect(body).toContain(
+			'href="https://app.example/#/wiki?id=campaign1234&amp;page=harbour">Open formatted reader',
+		);
+		expect(body).toContain('rel="canonical" href="https://campaign.example/wikis/');
+		expect(
+			wikiDocument(wiki, 'https://campaign.example', 'rss.xml', {}, 'https://app.example').body,
+		).toContain(
+			'<link>https://campaign.example/wikis/campaign1234/reader?page=first-session</link>',
+		);
+	});
+	it('omits the app link rather than emitting one that cannot reach the app', () => {
+		expect(wikiDocument(wiki, 'https://campaign.example', 'reader').body).not.toContain(
+			'Open formatted reader',
+		);
+	});
 	it('unlisted documents are noindex and never syndicated', () => {
 		const privateWiki = { ...wiki, access: 'unlisted' };
 		expect(

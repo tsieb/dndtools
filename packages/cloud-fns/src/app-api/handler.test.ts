@@ -987,6 +987,35 @@ describe('campaign wiki', () => {
 		expect((await read('reader')).statusCode).toBe(404);
 	});
 
+	it('publishes canonical URLs on a verified custom domain but keeps the app link on WEB_ORIGIN', async () => {
+		await asBeacon();
+		const pub = await publish({
+			title: 'Coast',
+			access: 'public',
+			pages: [{ ...PAGES[0], folder: 'Places', kind: 'recap' }],
+		});
+		const saved = process.env.WIKI_CUSTOM_DOMAINS;
+		process.env.WIKI_CUSTOM_DOMAINS = JSON.stringify({ [pub.body.wikiId]: 'campaign.example' });
+		try {
+			const html = (await handler(
+				event('GET /wikis/{wikiId}/{document}', {
+					sub: null,
+					params: { wikiId: pub.body.wikiId, document: 'reader' },
+				}),
+				{} as never,
+				() => {},
+			)) as { body: string };
+			expect(html.body).toContain('rel="canonical" href="https://campaign.example/wikis/');
+			// The custom-domain distribution serves this wiki's documents and no SPA, so the app link
+			// has to leave that host or it just bounces back to the text reader.
+			expect(html.body).toContain('href="https://app.example.test/#/wiki?id=');
+			expect(html.body).not.toContain('href="https://campaign.example/#/wiki');
+		} finally {
+			if (saved === undefined) delete process.env.WIKI_CUSTOM_DOMAINS;
+			else process.env.WIKI_CUSTOM_DOMAINS = saved;
+		}
+	});
+
 	it('strips secret callouts before storing or syndicating a recap', async () => {
 		await asBeacon();
 		const pub = await publish({

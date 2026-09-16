@@ -34,6 +34,9 @@ test.beforeEach(async ({ page, baseURL }) => {
 			baseURL!,
 			url.pathname.split('/').at(-1)!,
 			Object.fromEntries(url.searchParams),
+			// The shared distribution serves the documents and the SPA from one origin; a custom
+			// domain passes its separate WEB_ORIGIN here instead.
+			baseURL!,
 		);
 		await route.fulfill({ status: result.statusCode, headers: result.headers, body: result.body });
 	});
@@ -74,4 +77,20 @@ test('reader exposes RSS and sitemap links and scales to the viewport', async ({
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
 		true,
 	);
+});
+test('the text reader hands a reader back to the app, keeping the page they were on', async ({
+	page,
+	baseURL,
+}) => {
+	await page.goto('/wikis/campaign1234/reader?page=recap');
+	const back = page.getByRole('link', { name: 'Open formatted reader' });
+	// This link used to be built from the document's own origin, so on a wiki's custom domain — which
+	// serves that wiki's text documents and no SPA — it resolved back to the text reader and dropped
+	// the page. It has to address the app origin, and carry the page across.
+	await expect(back).toHaveAttribute('href', `${baseURL}/#/wiki?id=campaign1234&page=recap`);
+	await back.click();
+	await expect(page).toHaveURL(`${baseURL}/#/wiki?id=campaign1234&page=recap`);
+	// No cloud backend is configured offline, so the app can only reach its honest invalid-link
+	// notice — but it IS the app, which is what the custom-domain bounce prevented.
+	await expect(page.getByRole('main')).toBeVisible();
 });
