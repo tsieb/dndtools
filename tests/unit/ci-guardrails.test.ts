@@ -398,6 +398,35 @@ describe('CI guardrails', () => {
 		expect(setupSteps).toBeGreaterThan(0);
 	});
 
+	it('pins the Android SDK packages instead of the removed `tools` default', () => {
+		const workflowsRoot = path.join(repoRoot, '.github', 'workflows');
+		let androidSteps = 0;
+		for (const name of fs.readdirSync(workflowsRoot).filter((file) => file.endsWith('.yml'))) {
+			const workflow = YAML.parse(
+				fs.readFileSync(path.join(workflowsRoot, name), 'utf-8'),
+			) as WorkflowFile;
+			for (const job of Object.values(workflow.jobs ?? {})) {
+				for (const step of job.steps ?? []) {
+					if (!step.uses?.startsWith('android-actions/setup-android@')) continue;
+					androidSteps += 1;
+					// setup-android installs `tools platform-tools` unless `packages` is given, and Google
+					// dropped the obsolete `tools` (SDK Tools 26.1.1) package from the SDK repository on
+					// 2026-09-16. sdkmanager then exits 1 with "Failed to find package 'tools'" and every
+					// Android job dies before it installs a single toolchain package.
+					const packages = step.with?.packages;
+					expect(typeof packages, `${name} leaves setup-android on its default packages`).toBe(
+						'string',
+					);
+					expect(
+						String(packages).split(/\s+/).filter(Boolean),
+						`${name} still requests the removed 'tools' package`,
+					).not.toContain('tools');
+				}
+			}
+		}
+		expect(androidSteps).toBeGreaterThan(0);
+	});
+
 	it('parses every CloudFormation template without duplicate mapping keys', () => {
 		const infraRoot = path.join(repoRoot, 'infra');
 		const templates = fs

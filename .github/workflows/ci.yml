@@ -364,6 +364,12 @@ jobs:
           java-version: '21'
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          # The action installs `tools platform-tools` by default, but Google removed the
+          # obsolete `tools` (SDK Tools 26.1.1) package from the SDK repository, so the
+          # default now fails with "Failed to find package 'tools'". Nothing in this repo
+          # consumes it; the toolchain step below installs every package the build needs.
+          packages: platform-tools
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Install Android API 36 toolchain
