@@ -166,10 +166,10 @@ string that tooling depends on gets an entry in `DOCS_COUPLINGS`.
 Command Center, `/board`, `/scenes`, `/characters`, `/knowledge`, `/campaign`, `/session`,
 `/player`, `/settings`, `/scene/:id`, `/atlas` with the map editor open, `/play`, `/display`,
 `/wiki`, and RC-DSN-2.3's DEV-only DS gallery at `#/__ds`. Each is captured in every theme in the
-spec's `THEMES` on three projects, one per
-`useViewport` tier: `visual-desktop` (1280×800), `visual-rail` (834×1112) and `visual-phone`
-(393×851, touch), all at a device scale factor of 1. Every capture is a `toHaveScreenshot`
-comparison against a PNG committed under `apps/gm-react/tests/visual/__screenshots__/<project>/`.
+spec's `THEMES` on three projects, one per `useViewport` tier: `visual-desktop` (1280×800),
+`visual-rail` (834×1112) and `visual-phone` (393×851, touch), all at a device scale factor of 1.
+Every capture is a `toHaveScreenshot` comparison against a PNG committed under
+`apps/gm-react/tests/visual/__screenshots__/<project>/`.
 
 The visual projects exist only when `DNDTOOLS_VISUAL=1`, and then they replace the functional ones,
 so `pnpm e2e` and the browser-E2E shards never compare pixels. What holds a capture still: a fixed

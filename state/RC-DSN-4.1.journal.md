@@ -105,3 +105,34 @@ block; a documented update command. No agents, dispatcher mutations, push or pro
   this job (no push from this task).
 - Only the four owned paths (three of them touched) plus this journal changed; `test-results/` was
   deleted after each run. No agents, dispatcher edits, push or promotion.
+
+## Rebase onto the integration branch (2026-09-16, `584a5469`)
+
+- The conflict was structural, not semantic: the integration branch appended `## 7. Docs check` to
+  the end of `TESTING.md` and this task appended `## 7. Visual regression (golden routes)` to the
+  same place. Both sections are kept; the visual one is now **§8**, and the four pointers at it
+  (`ci.yml`, `playwright.config.ts`, `golden-routes.spec.ts`, `run-in-container.sh`, plus the §1
+  table row) were renumbered with it. The `§6` pointers (the "execution context destroyed" section)
+  are unchanged. `pnpm gates` docs check passed on the restructured file: 254 files reachable,
+  279 links resolved.
+- The new base moves real pixels. Compare on the rebased tree (pinned image, `CI=1`,
+  `--update-snapshots=none --retries=0`): 108 passed, **27 failed** — `/board`, `/scene/:id` and
+  `/settings` on all three themes × all three tiers (`/tmp/rc-dsn41-rebase-compare.log`).
+- Diagnosed before re-baselining, from the diff images rather than the count: the integration branch
+  turned the always-on "DM only" widget badges into an opt-in Settings toggle ("Mark DM-only items",
+  `screens/settings/Appearance.tsx`), default off. The red pixels in the diffs are badges present in
+  the _old_ baselines and gone from the new render, plus the taller Appearance panel that the new
+  toggle adds. Every failing surface is one that shows widget headers or that panel; `/knowledge`
+  did not diff even though `Graph.tsx` changed, because the graph sits behind a tab.
+- Re-baselined with `--update-snapshots=changed`: exactly those 27 PNGs were rewritten, no others.
+  Opened `board--tavern` (desktop), `settings--tavern` (phone, the new toggle is visible and off)
+  and `scene-editor--high-contrast` (rail) to confirm the captures are the new UI, not a broken or
+  half-loaded page.
+- Verification on the rebased tree: full compare 135 passed, exit 0
+  (`/tmp/rc-dsn41-rebase-verify.log`); budget 135 files, 12,799.5 KiB of 32,768.0 KiB, exit 0;
+  blocking re-proved by swapping `visual-desktop/board--tavern.png` for the high-contrast capture →
+  exit 1, 14,123 pixels different, baseline restored and sha256-verified.
+- Gates after the rebase: `pnpm gates` exit 0, app `tsc --noEmit` clean, ESLint clean on the spec and
+  config, Prettier clean on every edited text file, `pnpm test:tooling` 26 files / 191 tests passed.
+- The branch diff against `584a5469` is the four owned paths plus this journal. No app or CI
+  behaviour from the integration branch was altered, and nothing was pushed or promoted.
