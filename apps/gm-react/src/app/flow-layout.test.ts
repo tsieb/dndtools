@@ -5,7 +5,12 @@ import {
 	FLOW_ROW_STEP,
 	flowKeyBetween,
 	flowOrder,
+	FLOW_AUTHORING_TIER,
+	FLOW_PANEL_MARGIN,
+	FLOW_SPAN_PRESETS,
+	flowPanelPosition,
 	flowPlacements,
+	flowPresetSpan,
 	flowRenumber,
 	flowReorderMoves,
 	flowSpanOf,
@@ -71,6 +76,59 @@ describe('flowSpanOf / flowSpanWidth', () => {
 	it('floors an unreadable or sub-column width at one column', () => {
 		expect(flowSpanOf(tile('a', 0, 0, 1))).toBe(1);
 		expect(flowSpanOf(tile('a', 0, 0, Number.NaN))).toBe(1);
+	});
+});
+
+describe('flowPresetSpan — the width menu commits against the authoring grid', () => {
+	it('reads each preset as a fraction of the authoring grid, whatever the reader is looking at', () => {
+		// Full / Half / Third / Quarter, the four rows the tile menu offers.
+		expect([1, 2, 3, 4].map(flowPresetSpan)).toEqual([12, 6, 4, 3]);
+		// The durable widths those commit round-trip through `flowSpanOf` at the authoring tier.
+		for (const divisor of [1, 2, 3, 4]) {
+			const span = flowPresetSpan(divisor);
+			expect(flowSpanOf({ w: flowSpanWidth(span) }, FLOW_COLUMNS[FLOW_AUTHORING_TIER])).toBe(span);
+		}
+	});
+
+	it('keeps the four menu rows distinct, so exactly one can be checked at a time', () => {
+		// The bug this guards: presets read off the TIER collapse at phone — 1/1..1/4 all round to 1 —
+		// so every row reported itself checked and "Full width" durably wrote span 1 of twelve.
+		const spans = FLOW_SPAN_PRESETS.map((preset) => preset.span);
+		expect(spans).toEqual([12, 6, 4, 3]);
+		expect(new Set(spans).size).toBe(spans.length);
+	});
+
+	it('never commits a span outside the authoring grid', () => {
+		expect(flowPresetSpan(0)).toBe(FLOW_COLUMNS[FLOW_AUTHORING_TIER]);
+		expect(flowPresetSpan(-3)).toBe(FLOW_COLUMNS[FLOW_AUTHORING_TIER]);
+		expect(flowPresetSpan(1000)).toBe(1);
+	});
+});
+
+describe('flowPanelPosition — the tile menu stays on screen', () => {
+	const panel = { width: 224, height: 400 };
+	const viewport = { width: 375, height: 700 };
+
+	it('leaves a panel that already fits exactly where the trigger put it', () => {
+		expect(flowPanelPosition({ top: 100, left: 40 }, panel, viewport)).toEqual({
+			top: 100,
+			left: 40,
+		});
+	});
+
+	it('pulls a panel hung below the fold back inside — the phone case', () => {
+		// A tile low in the scroll region: the trigger is on screen, the menu under it is not.
+		const next = flowPanelPosition({ top: 640, left: 40 }, panel, viewport);
+		expect(next.top + panel.height).toBeLessThanOrEqual(viewport.height - FLOW_PANEL_MARGIN);
+		// Self-stabilising: the corrected position measures back to itself.
+		expect(flowPanelPosition(next, panel, viewport)).toEqual(next);
+	});
+
+	it('pins the near edge when the panel is larger than the viewport', () => {
+		const tall = { width: 224, height: 900 };
+		expect(flowPanelPosition({ top: 500, left: 40 }, tall, viewport).top).toBe(FLOW_PANEL_MARGIN);
+		const wide = { width: 500, height: 200 };
+		expect(flowPanelPosition({ top: 100, left: 300 }, wide, viewport).left).toBe(FLOW_PANEL_MARGIN);
 	});
 });
 

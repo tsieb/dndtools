@@ -153,3 +153,109 @@ selects the tile, a selection opens the Inspector beside the board, and the grid
 pointer — so the drop point was where the tile used to be. The behaviour is the scene editor's, not
 flow's (the canvas does the same), so the test re-measures after the Inspector appears rather than
 the screen suppressing the reflow.
+
+## Attempt 2 (2026-09-16) — the review's high finding
+
+Independent review rejected `93ddb675` on one high defect. It is real, I reproduced it, and it is
+fixed here. Everything else in attempt 1 stands; this attempt touches only the tile menu and the
+tests around it.
+
+### The defect
+
+`FlowTileMenu` computed its Width presets from the **tier's** column count (`columns / divisor`,
+where `columns = FLOW_COLUMNS[tier]`) but committed them through `flowSpanWidth`, which measures
+against the **twelve-column authoring grid**. The two resize paths therefore disagreed: Shift+Arrow
+walked the authoring span correctly, the menu did not.
+
+What that looked like, in the reviewer's repro and again in mine:
+
+- at phone (`data-flow-columns=1`) every divisor rounds to span 1, so all four `menuitemradio` rows
+  reported `aria-checked=true` at once — an ARIA violation the axe scan cannot see, because axe does
+  not count checked radios in a group — and picking "Full width" wrote `w=96`, span 1 of 12. The
+  tile came back a twelfth of the screen wide the next time the scene opened on a desktop.
+- at rail (6 columns) a half-width tile read back as "Full width", and choosing "Half" wrote span 3.
+
+`checked={span === presetSpan}` compounded it by comparing against `placement.span` — the
+tier-clamped, lone-row-stretched span — rather than the durable one.
+
+### The fix
+
+- `board-helpers.ts` gains `flowPresetSpan(divisor)` and the resolved `FLOW_SPAN_PRESETS` table.
+  A preset is a **durable** choice, so it takes no tier at all: that is now a compile-time fact
+  rather than a convention a future edit could quietly break.
+- `FlowTileMenu` no longer receives `span` or `columns`. It reads the tile's own durable span with
+  `flowSpanOf(w, AUTHORING_COLUMNS)` and maps `FLOW_SPAN_PRESETS` — so "Half" means half of the
+  authored screen at every tier, and exactly one row is checked.
+- `AUTHORING_COLUMNS` is now the single name for the grid a durable span is measured against, and
+  every span call site in the renderer goes through it. The three `FLOW_COLUMNS.desktop` literals
+  that used to say the same thing in different places are gone.
+
+### One more defect the regression test turned up
+
+Writing the phone-tier e2e, the click on "Full width" timed out: _element is outside of the
+viewport_. The menu is `position: fixed` at `trigger.bottom + 4`, and for a tile low in the board's
+scroll region the whole panel hangs below the fold. `Popover` clamps horizontally, but only for its
+own `anchor` placement — a caller-positioned menu like this one gets nothing. So on a phone, where
+tiles are full width and the list is long, the Width group was present but unreachable, which is the
+one thing "the phone tier collapses to one column and keeps every control" does not allow.
+
+Fixed with `flowPanelPosition` (pure, in `board-helpers.ts`, unit-tested — jsdom rects are all zero,
+which is why `popoverShiftX` lives outside its component too) plus a `maxHeight`/`overflowY` wrapper
+for the case where the panel is taller than the screen. The measured element is a wrapper div rather
+than the panel: `Menu`/`Popover` are React 18 function components with no `forwardRef`, and `Popover`
+keeps its own root ref for outside-press dismissal, so a `ref` spread through `...rest` would clobber
+it.
+
+### The two review notes worth acting on
+
+- **Un-awaited moves in the renumber fallback.** `reorder` fired N `onMove` calls in parallel.
+  `history.run` reads `runtime.state` _before_ dispatching to build its inverse, so overlapping
+  dispatches record inverses against a tree that has already moved. They are chained now. The N-undo-
+  steps half of the note stands: one `history.run` is one entry, and batching would need an API in
+  `useLayoutHistory.ts`, which this story does not own.
+- **The 7 + 5 evidence gap.** The acceptance names the Command Center's _current_ arrangement, which
+  is `minmax(0,1.5fr) minmax(0,1fr)` — spans 7 + 5, not an even split. That was only asserted at unit
+  level; the browser test reproduced 6 + 6. `seedFlowScene` now takes spans and a new e2e seeds the
+  real 7 + 5 and asserts the rendered ratio (1.25 < main/side < 1.55; an even split measures 1.0), then
+  its rail reflow.
+
+Left as the reviewer described them: the Shift+Arrow announcement already names the authoring grid
+(`spanNotice(title, span, 12)`), so a press past the tier's clamp is announced honestly even though
+nothing visibly moves; and the two i18n catalog keys remain out-of-claim but additive and in sync.
+
+### File size
+
+`FlowBoard.tsx` went to 798 lines, two under RC-STB-2.7's hard limit — too close to leave. Two things
+that were never renderer concerns moved to `board-helpers.ts` (a `.ts`, and the file this story owns
+for exactly this): the panel clamp and the preset table. 783 lines now, and both are unit-tested as a
+result. The split the attempt-1 journal asked for (`FlowTile`/`FlowTileMenu` into their own file)
+still wants doing by whichever story next claims a new file under `app/canvas/`.
+
+### Verification
+
+Run in this worktree at the fixed tree, 2026-09-16.
+
+| Check                                                           | Result                  |
+| --------------------------------------------------------------- | ----------------------- |
+| `pnpm --filter @dndtools/gm-react typecheck`                    | exit 0                  |
+| `pnpm lint`                                                     | exit 0                  |
+| `pnpm gates`                                                    | exit 0                  |
+| `pnpm format:check:changed`                                     | clean (4 files)         |
+| `pnpm test:app`                                                 | 1418 passed / 128 files |
+| `flow-layout.spec.ts` + `canvas.spec.ts`, both browser projects | 96 passed               |
+
+The pre-existing `display-face-below-24px 83 vs baseline 84` warn is unchanged and still non-blocking;
+`scripts/emphasis-baseline.json` is not in this claim.
+
+### Mutation checks
+
+Each applied at the fixed tree, suite run, then reverted.
+
+| Mutation                                                              | Caught by                                                                  |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| The defect itself: `span`/`columns` props back, presets from the tier | e2e width-menu test — `"Full width" at 900px` expected `false`, got `true` |
+| `onSpan(presetSpan)` → `onSpan(1)` (the phone tier's write)           | e2e width-menu test — durable `w` expected 1152, got 96                    |
+| The `flowPanelPosition` correction never applied                      | e2e width-menu test — `menu bottom at 900px` expected ≤ 900, got 1080.5    |
+
+The four-simultaneously-checked ARIA state is what the per-row `aria-checked` assertions pin; the
+axe scan passes either way, which is why the check is explicit rather than left to the scan.

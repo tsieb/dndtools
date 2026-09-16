@@ -1,8 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, IconButton, Menu, VisibilityChip } from '../../ds';
 import {
+	FLOW_AUTHORING_TIER,
 	FLOW_COLUMNS,
+	FLOW_PANEL_MARGIN,
+	FLOW_SPAN_PRESETS,
+	flowPanelPosition,
 	flowPlacements,
 	flowReorderMoves,
 	flowSpanOf,
@@ -56,13 +68,8 @@ const TEXT = {
 };
 
 const MENU_WIDTH = 224;
-/** Column span presets, as fractions of the authoring grid — the four a hub layout actually uses. */
-const SPAN_PRESETS: { label: string; divisor: number }[] = [
-	{ label: 'Full width', divisor: 1 },
-	{ label: 'Half', divisor: 2 },
-	{ label: 'Third', divisor: 3 },
-	{ label: 'Quarter', divisor: 4 },
-];
+/** The grid a durable span is measured against, at every tier. See {@link flowPresetSpan}. */
+const AUTHORING_COLUMNS = FLOW_COLUMNS[FLOW_AUTHORING_TIER];
 
 interface MenuRowProps {
 	label: string;
@@ -109,8 +116,6 @@ interface FlowTileMenuProps {
 	w: BoardWidget;
 	index: number;
 	count: number;
-	span: number;
-	columns: number;
 	resizable: boolean;
 	onMoveTo: (toIndex: number) => void;
 	onSpan: (span: number) => void;
@@ -126,14 +131,17 @@ function FlowTileMenu({
 	w,
 	index,
 	count,
-	span,
-	columns,
 	resizable,
 	onMoveTo,
 	onSpan,
 	onRemove,
 }: FlowTileMenuProps) {
 	const anchorRef = useRef<HTMLDivElement | null>(null);
+	const panelRef = useRef<HTMLDivElement | null>(null);
+	// The tile's DURABLE span, not `placement.span`: the placement is clamped to the current tier and
+	// stretched when the tile lands alone in a row, so checking against it would tick the wrong row —
+	// and at phone, where every placement is span 1, it would tick EVERY row at once.
+	const authoredSpan = flowSpanOf(w, AUTHORING_COLUMNS);
 	const [box, setBox] = useState<{ top: number; left: number } | null>(null);
 	const label = TEXT.actions(w.title);
 	const close = () => setBox(null);
@@ -146,6 +154,17 @@ function FlowTileMenu({
 		close();
 		action();
 	};
+	// Measure the panel once it exists and pull it back on screen — see {@link flowPanelPosition}.
+	useLayoutEffect(() => {
+		const el = panelRef.current;
+		if (!box || !el) return;
+		const root = document.documentElement;
+		const next = flowPanelPosition(box, el.getBoundingClientRect(), {
+			width: root.clientWidth,
+			height: root.clientHeight,
+		});
+		if (Math.abs(next.top - box.top) > 0.5 || Math.abs(next.left - box.left) > 0.5) setBox(next);
+	}, [box]);
 	return (
 		<div ref={anchorRef} style={{ position: 'absolute', top: T.space.two, right: T.space.two }}>
 			<IconButton
@@ -160,66 +179,78 @@ function FlowTileMenu({
 			/>
 			{box &&
 				createPortal(
-					<Menu
-						title={label}
-						triggerRef={anchorRef}
-						onClose={close}
-						width={MENU_WIDTH}
-						data-testid="flow-tile-menu"
-						style={{ position: 'fixed', top: box.top, left: box.left }}
+					// `Menu`/`Popover` are not ref-forwarding, and `Popover` keeps its own root ref for
+					// outside-press dismissal, so the measured element is this wrapper rather than the panel.
+					<div
+						ref={panelRef}
+						style={{
+							position: 'fixed',
+							top: box.top,
+							left: box.left,
+							zIndex: 'var(--z-overlay)',
+							// Taller than the screen (a short viewport, a phone in landscape): scroll the rows
+							// rather than cropping them — `Popover`'s own root is `overflow: hidden`.
+							maxHeight: `calc(100dvh - ${FLOW_PANEL_MARGIN * 2}px)`,
+							overflowY: 'auto',
+						}}
 					>
-						<MenuRow
-							icon="arrow-up"
-							label={TEXT.moveToStart}
-							disabled={index === 0}
-							onSelect={() => run(() => onMoveTo(0))}
-						/>
-						<MenuRow
-							icon="arrow-left"
-							label={TEXT.moveBack}
-							disabled={index === 0}
-							onSelect={() => run(() => onMoveTo(index - 1))}
-						/>
-						<MenuRow
-							icon="arrow-right"
-							label={TEXT.moveForward}
-							disabled={index >= count - 1}
-							onSelect={() => run(() => onMoveTo(index + 1))}
-						/>
-						<MenuRow
-							icon="arrow-down"
-							label={TEXT.moveToEnd}
-							disabled={index >= count - 1}
-							onSelect={() => run(() => onMoveTo(count - 1))}
-						/>
-						<div
-							role="group"
-							aria-label={TEXT.width}
-							style={{
-								borderTop: `1px solid ${T.bd}`,
-								marginTop: T.space.one,
-								paddingTop: T.space.one,
-							}}
+						<Menu
+							title={label}
+							triggerRef={anchorRef}
+							onClose={close}
+							width={MENU_WIDTH}
+							data-testid="flow-tile-menu"
 						>
-							{SPAN_PRESETS.map((preset) => {
-								const presetSpan = Math.max(1, Math.round(columns / preset.divisor));
-								return (
+							<MenuRow
+								icon="arrow-up"
+								label={TEXT.moveToStart}
+								disabled={index === 0}
+								onSelect={() => run(() => onMoveTo(0))}
+							/>
+							<MenuRow
+								icon="arrow-left"
+								label={TEXT.moveBack}
+								disabled={index === 0}
+								onSelect={() => run(() => onMoveTo(index - 1))}
+							/>
+							<MenuRow
+								icon="arrow-right"
+								label={TEXT.moveForward}
+								disabled={index >= count - 1}
+								onSelect={() => run(() => onMoveTo(index + 1))}
+							/>
+							<MenuRow
+								icon="arrow-down"
+								label={TEXT.moveToEnd}
+								disabled={index >= count - 1}
+								onSelect={() => run(() => onMoveTo(count - 1))}
+							/>
+							<div
+								role="group"
+								aria-label={TEXT.width}
+								style={{
+									borderTop: `1px solid ${T.bd}`,
+									marginTop: T.space.one,
+									paddingTop: T.space.one,
+								}}
+							>
+								{FLOW_SPAN_PRESETS.map((preset) => (
 									<MenuRow
 										key={preset.label}
 										label={preset.label}
-										checked={span === presetSpan}
+										checked={authoredSpan === preset.span}
 										disabled={!resizable}
-										onSelect={() => run(() => onSpan(presetSpan))}
+										onSelect={() => run(() => onSpan(preset.span))}
 									/>
-								);
-							})}
-						</div>
-						{onRemove && (
-							<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
-								<MenuRow icon="trash" label={TEXT.remove} onSelect={() => run(onRemove)} />
+								))}
 							</div>
-						)}
-					</Menu>,
+							{onRemove && (
+								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
+									<MenuRow icon="trash" label={TEXT.remove} onSelect={() => run(onRemove)} />
+								</div>
+							)}
+						</Menu>
+					</div>,
 					document.body,
 				)}
 		</div>
@@ -230,7 +261,6 @@ interface FlowTileProps {
 	w: BoardWidget;
 	placement: FlowPlacement;
 	count: number;
-	columns: number;
 	editing: boolean;
 	selected: boolean;
 	resizable: boolean;
@@ -252,7 +282,6 @@ function FlowTile({
 	w,
 	placement,
 	count,
-	columns,
 	editing,
 	selected,
 	resizable,
@@ -415,8 +444,6 @@ function FlowTile({
 					w={w}
 					index={placement.index}
 					count={count}
-					span={placement.span}
-					columns={columns}
 					resizable={resizable}
 					onMoveTo={onMoveTo}
 					onSpan={onSpan}
@@ -470,7 +497,14 @@ export function FlowBoard({
 		(id: string, toIndex: number) => {
 			const moves = flowReorderMoves(widgets, id, toIndex);
 			if (moves.length === 0) return;
-			for (const move of moves) void onMove(move.id, move.x, move.y);
+			// Normally exactly one move. The renumber fallback is the rare exception, and its commands
+			// are chained rather than fired in parallel: the screen's undo stack reads the state each
+			// command was dispatched against, so overlapping dispatches would record inverses against a
+			// tree that had already moved on.
+			void moves.reduce<Promise<unknown>>(
+				(chain, move) => chain.then(() => onMove(move.id, move.x, move.y)),
+				Promise.resolve(),
+			);
 			const landed = Math.min(Math.max(0, Math.round(toIndex)), Math.max(0, widgets.length - 1));
 			announce(TEXT.position(byId.get(id)?.title ?? '', landed + 1, widgets.length));
 		},
@@ -479,11 +513,13 @@ export function FlowBoard({
 
 	const setSpan = useCallback(
 		(w: BoardWidget, span: number) => {
-			const next = Math.min(FLOW_COLUMNS.desktop, Math.max(1, Math.round(span)));
+			const next = Math.min(AUTHORING_COLUMNS, Math.max(1, Math.round(span)));
 			const width = flowSpanWidth(next);
 			if (width === w.w) return;
 			void onResize(w.id, width, w.h);
-			announce(TEXT.spanNotice(w.title, next, FLOW_COLUMNS.desktop));
+			// The announcement names the AUTHORING grid, because that is what the span was written
+			// against — at rail and phone the tier clamps the tile narrower than the number says.
+			announce(TEXT.spanNotice(w.title, next, AUTHORING_COLUMNS));
 		},
 		[announce, onResize],
 	);
@@ -526,7 +562,7 @@ export function FlowBoard({
 			if (e.shiftKey) {
 				// Shift+Arrow picks the column span, one column at a time — flow's resize.
 				if (!(canResize ? canResize(w) : isWidgetResizable(w))) return;
-				setSpan(w, flowSpanOf(w, FLOW_COLUMNS.desktop) + (forward ? 1 : -1));
+				setSpan(w, flowSpanOf(w, AUTHORING_COLUMNS) + (forward ? 1 : -1));
 			} else {
 				reorder(w.id, index + (forward ? 1 : -1));
 			}
@@ -647,7 +683,6 @@ export function FlowBoard({
 							w={w}
 							placement={placement}
 							count={placements.length}
-							columns={columns}
 							editing={editing}
 							selected={editing && selectedId === w.id}
 							resizable={editing && (canResize ? canResize(w) : isWidgetResizable(w))}

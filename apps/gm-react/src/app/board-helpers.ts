@@ -449,6 +449,66 @@ export function flowSpanWidth(span: number): number {
 	return Math.min(FLOW_COLUMNS.desktop, Math.max(1, Math.round(span))) * FLOW_COLUMN_STEP;
 }
 
+/**
+ * The span a width preset commits: a fraction of the AUTHORING grid, never of the tier the reader
+ * happens to be at.
+ *
+ * It takes no tier on purpose. A preset is a durable choice — it goes out through
+ * {@link flowSpanWidth}, which measures against the twelve authoring columns — so reading "Half"
+ * off the tier would commit a different width depending on where the GM was standing when they
+ * picked it. On a phone, where the tier has one column, every preset would round to span 1 and the
+ * control would shrink the tile to a twelfth of the screen everywhere else.
+ */
+export function flowPresetSpan(divisor: number): number {
+	const columns = FLOW_COLUMNS[FLOW_AUTHORING_TIER];
+	return Math.min(columns, Math.max(1, Math.round(columns / Math.max(1, divisor))));
+}
+
+/**
+ * The width rows a flow tile's menu offers, resolved once against the authoring grid — the four
+ * fractions a hub layout actually uses. A table rather than four divisors computed at render time,
+ * because a preset read off the TIER is the bug this shape exists to prevent: at phone, where the
+ * tier has one column, every divisor rounds to span 1, so every row reports itself checked and
+ * picking any of them shrinks the tile to a twelfth of the screen everywhere else.
+ */
+export const FLOW_SPAN_PRESETS: readonly { label: string; span: number }[] = [
+	{ label: 'Full width', span: flowPresetSpan(1) },
+	{ label: 'Half', span: flowPresetSpan(2) },
+	{ label: 'Third', span: flowPresetSpan(3) },
+	{ label: 'Quarter', span: flowPresetSpan(4) },
+];
+
+/** Breathing room between a portalled flow panel and the viewport edge it is pulled back from. */
+export const FLOW_PANEL_MARGIN = 8;
+
+/**
+ * Pull a fixed-position panel back inside the viewport.
+ *
+ * A tile menu is hung off its trigger's bottom edge, and a tile low in the board's scroll region
+ * put the whole panel below the fold — on a phone, where tiles are full width and the list is
+ * long, that took the Width group out of reach entirely, which is the one thing the phone tier is
+ * not allowed to lose. `Popover` corrects this only for its own `anchor` placement, which a
+ * caller-positioned menu does not use.
+ *
+ * Self-stabilising: a corrected position measures back to itself, so applying the result and
+ * re-measuring settles in one pass instead of oscillating.
+ */
+export function flowPanelPosition(
+	wanted: { top: number; left: number },
+	panel: { width: number; height: number },
+	viewport: { width: number; height: number },
+	margin: number = FLOW_PANEL_MARGIN,
+): { top: number; left: number } {
+	// Taller (or wider) than the screen: pin the near edge rather than flipping between the two
+	// overflows — the caller scrolls the panel from there.
+	const clamp = (value: number, size: number, extent: number) =>
+		Math.max(margin, Math.min(value, extent - size - margin));
+	return {
+		top: clamp(wanted.top, panel.height, viewport.height),
+		left: clamp(wanted.left, panel.width, viewport.width),
+	};
+}
+
 /** One tile's place in the grid. `index` is its position in the reading order, which is also its
  *  DOM position and its keyboard traversal position — in flow those are one order, not three. */
 export interface FlowPlacement {
