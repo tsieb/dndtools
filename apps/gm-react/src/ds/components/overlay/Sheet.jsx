@@ -1,5 +1,5 @@
 import React from 'react';
-import { tabbableElements } from './focus.js';
+import { ownsFocusTrap, popTrapLayer, pushTrapLayer, tabbableElements } from './focus.js';
 import { Icon } from '../core/Icon.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { isolateModalSiblings } from '../../../platform/modalIsolation';
@@ -51,7 +51,13 @@ export function Sheet({
 		const restoreIsolation = panelRef.current ? isolateModalSiblings(panelRef.current) : () => {};
 		const t = setTimeout(() => {
 			const panel = panelRef.current;
-			if (!panel || !ownsEscape(escapeToken)) return;
+			// A Dialog/Sheet nested inside this one owns entry focus; it will place it itself.
+			if (!panel || !ownsFocusTrap(trapToken)) return;
+			// A non-trapping surface mounted in the same commit (a Popover/menu) may already have sent
+			// focus somewhere inside this panel. Don't yank it back to the first field — but if it put
+			// focus nowhere (a flyout with no focusable control), still run our own entry below.
+			const already = document.activeElement;
+			if (already && already !== panel && panel.contains(already)) return;
 			// Query the CONTENT before the panel. The header (which owns Close) renders before
 			// `children`, so a plain DOM-order `querySelector(FOCUSABLE)` opened every sheet — the phone
 			// "All sections" nav among them — focused on Close, i.e. on the way out. Same defect, and
@@ -61,16 +67,20 @@ export function Sheet({
 			(f || panel).focus();
 		}, 0);
 		const escapeToken = pushEscapeLayer(() => panelRef.current);
+		const trapToken = pushTrapLayer(() => panelRef.current);
 		const onKey = (e) => {
 			// A Popover opened from inside this sheet owns Escape while it is up: `stopPropagation`
 			// does nothing between listeners on `document`, so without this check Escape in a
 			// layer-opacity flyout also dismissed the whole sheet.
 			if (e.key === 'Escape' && dismissibleRef.current && ownsEscape(escapeToken)) {
 				e.stopPropagation();
-				onCloseRef.current && onCloseRef.current();
+				onCloseRef.current?.();
 				return;
 			}
-			if (e.key !== 'Tab' || !ownsEscape(escapeToken)) return;
+			// Tab is gated on TRAP ownership, not escape ownership: a Popover/menu opened inside this
+			// sheet owns Escape but traps nothing, so standing down for it let Tab leave the modal —
+			// the live case being the phone map editor's "Map panels" sheet and its layer row menus.
+			if (e.key !== 'Tab' || !ownsFocusTrap(trapToken)) return;
 			const panel = panelRef.current;
 			if (!panel) return;
 			const nodes = tabbableElements(panel);
@@ -81,16 +91,15 @@ export function Sheet({
 			}
 			const first = nodes[0];
 			const last = nodes[nodes.length - 1];
-			if (
-				e.shiftKey &&
-				(document.activeElement === first || !nodes.includes(document.activeElement))
-			) {
+			const active = document.activeElement;
+			// Anything focused INSIDE the panel but absent from `nodes` — the panel's own tabindex=-1
+			// rows, an <iframe>, a media element with controls — is still inside the trap, so let the
+			// browser move on from it. Only wrap when focus is genuinely outside (or on the panel).
+			const outside = !active || active === panel || !panel.contains(active);
+			if (e.shiftKey && (active === first || outside)) {
 				e.preventDefault();
 				last.focus();
-			} else if (
-				!e.shiftKey &&
-				(document.activeElement === last || !nodes.includes(document.activeElement))
-			) {
+			} else if (!e.shiftKey && (active === last || outside)) {
 				e.preventDefault();
 				first.focus();
 			}
@@ -110,13 +119,14 @@ export function Sheet({
 		};
 		panelRef.current?.addEventListener('focusin', onFocusIn);
 		const unregisterBack = registerBackHandler('overlay', () => {
-			if (dismissibleRef.current) onCloseRef.current && onCloseRef.current();
+			if (dismissibleRef.current) onCloseRef.current?.();
 			return true;
 		});
 		return () => {
 			clearTimeout(t);
 			document.removeEventListener('keydown', onKey, true);
 			popEscapeLayer(escapeToken);
+			popTrapLayer(trapToken);
 			panelRef.current?.removeEventListener('focusin', onFocusIn);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
@@ -190,7 +200,7 @@ export function Sheet({
 				animation: 'dndScrimIn var(--duration-fast) var(--easing-standard)',
 			}}
 			onMouseDown={(e) => {
-				if (dismissible && e.target === e.currentTarget) onClose && onClose();
+				if (dismissible && e.target === e.currentTarget) onClose?.();
 			}}
 		>
 			<style>
@@ -292,7 +302,7 @@ export function Sheet({
 							<button
 								type="button"
 								aria-label="Close"
-								onClick={() => onClose && onClose()}
+								onClick={() => onClose?.()}
 								style={{
 									display: 'inline-flex',
 									alignItems: 'center',
