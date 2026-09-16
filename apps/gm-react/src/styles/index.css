@@ -444,3 +444,96 @@ html[data-electron='true'] .app-fixed-viewport {
 	box-shadow: 0 0 0 1.5px var(--color-accent-border);
 	animation: session-live-ring 2s var(--easing-standard) infinite;
 }
+
+/* RC-UX-2.4 — text scaling (WCAG 1.4.4 Resize Text) and reflow (1.4.10).
+
+   The shell is viewport-locked: `#root` is the window height, `.app-shell` hides its overflow and
+   `<main>` is the single scrollport. That contract holds while a screen's own chrome is small next
+   to the pane, and stops holding once a large-text preference doubles every rem: a toolbar that
+   cost 60px costs 500px, and a screen still pinned to the pane height pushes the rest of itself
+   outside a pane with nothing taller than itself to scroll to. The repairs below live in the
+   stylesheet rather than in the screens because the lock they run into is the stylesheet's. */
+
+/* The bounded board pins itself to the pane (`height: 100%` inline, screens/Board.tsx) and hands
+   the leftover space to a canvas that is `flex: 1; min-height: 0`. At a 32px default font size its
+   toolbars alone need more than the pane, and the shortfall came out of the one box that was free
+   to give: the canvas collapsed to 2px, the toolbars overflowed past the bottom of a root whose
+   height stayed 100%, and every widget control landed outside `<main>`'s scroll range. An auto
+   height with a definite floor is the same layout while the chrome fits — flex still distributes
+   the free space the floor creates, which is why the floor keeps the screen's own 360px minimum
+   alongside the pane — and lets the root grow past the pane when the chrome does not fit, which is
+   all `<main>`'s `overflow-y: auto` needs to reach it. */
+#main-content > *:has([data-testid='scene-board-bounded']) {
+	height: auto !important;
+	min-height: max(360px, 100%) !important;
+}
+
+/* …and the canvas keeps a floor of its own, in rem so it grows with the text it has to show.
+   Without it the auto-height root above would resolve a `flex-basis: 0` item to zero height. */
+[data-testid='scene-board-bounded'] {
+	min-height: 10rem !important;
+}
+
+/* The two queries below both ask "is the user's text preference large next to this viewport?", and
+   neither is a width query. `em` in a media query resolves against the browser's DEFAULT font size
+   — never the app's root size, which is why a page cannot fake its way past one — so a viewport
+   measured in em IS the text scale, read backwards.
+
+   `max-width: 18em` is the severe end: false on the narrowest supported phone at the default size
+   (320px = 20em), true on any phone once the preference is raised (360px = 11.25em at a 32px
+   default). Pairing `max-width: 42em` with `min-width: 700px` extends the same question to the
+   wider tiers without ever matching at the default size, where 42em is 672px and can never also be
+   700px wide: a 768px tablet or a 1280px window only enters it by raising the default (24em and
+   40em at 32px). Between them the second query covers every tier, so it carries the repairs that
+   are not specific to a phone. */
+@media (max-width: 18em) {
+	/* Sticky chrome inside the pane releases. At this text size it wraps into a block taller than
+	   the scrollport — /player's vitals bar measures 620px in a 345px pane — so it stops being a
+	   header and becomes an opaque lid: no amount of `scroll-padding-top` reserves a strip bigger
+	   than the pane, and everything the pane scrolls beneath it, including the bar's own last
+	   controls, is unreachable. Scrolling it away costs persistence and keeps access.
+	   The screens set `position: sticky` in a React `style` prop, which no class selector can
+	   outrank, so the hook is the serialized declaration itself — both spellings, since only the
+	   browser's own serialization inserts the space. */
+	#main-content [style*='position: sticky'],
+	#main-content [style*='position:sticky'] {
+		position: static !important;
+	}
+}
+
+/* The bounded board is a spatial canvas: tile extents are authored in board units and painted
+   through one `scale()`, so a tile's box cannot grow when the rem text inside it does. At a 32px
+   default the two header rows alone fill a 240x160 tile and its operate row is clipped away by the
+   tile's own `overflow: hidden` — on a phone, where the board also paints at ~0.5, a single chip is
+   taller than the whole tile. There is no scale that fits both, so at this text size the board
+   stops being spatial: the transform layer releases, every tile takes the canvas width and its own
+   content height, and the canvas's existing `overflow-y: auto` becomes the way through them. This
+   is 1.4.10's own remedy — reflow to one column — applied to the one surface whose layout is
+   otherwise fixed. The scale variable resets with the transform so the operate chips stop dividing
+   their touch target by a scale that is no longer applied. */
+@media (max-width: 18em), (min-width: 700px) and (max-width: 42em) {
+	[data-testid='scene-board-bounded'] > *:has(> [data-testid^='widget-']) {
+		position: static !important;
+		transform: none !important;
+		/* The layer carries the authored extent as `min-width`/`height`; both would keep the board
+		   wider and shorter than the column it now is. */
+		min-width: 0 !important;
+		width: auto !important;
+		height: auto !important;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding: var(--space-3);
+		--scene-board-scale: 1;
+	}
+
+	[data-testid='scene-board-bounded'] [data-testid^='widget-'] {
+		position: static !important;
+		width: auto !important;
+		height: auto !important;
+		/* A floor rather than a content height: the tile's own body is `flex: 1; min-height: 0`, so
+		   in a column with no definite height it would resolve to nothing. In rem, so the room a
+		   tile gets grows with the text it has to hold. */
+		min-height: 16rem !important;
+	}
+}

@@ -835,33 +835,13 @@ async function controlsCoveredWhenReached(page: Page): Promise<string[]> {
 	});
 }
 
-/**
- * Known large-text defects in components this story does not own, excused from the covered-control
- * check alone: overflow and clipping still run on these routes. Both are clean at the default text
- * size. Remove an entry once its screen is fixed.
- *  • `/player` on a phone: the sticky vitals bar (screens/player/index.tsx) wraps into a block so tall
- *    that it covers whatever the pane scrolls beneath it, and its own last controls sit under the tab bar.
- *  • `/board`: widget tiles keep their authored px extent while their rem text doubles, so one tile's
- *    operation controls end up under a neighbouring tile.
- */
-const LARGE_TEXT_COVER_EXCEPTIONS: Record<NavigationTier, readonly string[]> = {
-	phone: ['/player', '/board'],
-	rail: ['/board'],
-	desktop: ['/board'],
-};
-
-async function expectScaledRoutesWhole(
-	page: Page,
-	setting: string,
-	coverExceptions: readonly string[] = [],
-): Promise<void> {
+async function expectScaledRoutesWhole(page: Page, setting: string): Promise<void> {
 	for (const route of [...ROUTES, ...STANDALONE_ROUTES]) {
 		await settleRoute(page, route);
 		// `/play`, `/join` and `/wiki` render outside AppShell, so they have no `#main-content`.
 		const pane = STANDALONE_ROUTES.includes(route) ? 'html' : '#main-content';
 		await expectNoHorizontalOverflow(page, `${route} ${setting}`, pane, true);
 		expect.soft(await clippedControls(page), `${route} clipped a control ${setting}`).toEqual([]);
-		if (coverExceptions.includes(route)) continue;
 		expect
 			.soft(await controlsCoveredWhenReached(page), `${route} hid a control ${setting}`)
 			.toEqual([]);
@@ -915,13 +895,35 @@ for (const large of [
 			)
 			.toEqual(['32px', '30px']);
 		await expect.poll(() => navigationTier(page)).toBe(large.tier);
-		await expectScaledRoutesWhole(
-			page,
-			'with 200% large text',
-			LARGE_TEXT_COVER_EXCEPTIONS[large.tier],
-		);
+		await expectScaledRoutesWhole(page, 'with 200% large text');
 	});
 }
+
+/**
+ * The sweep hit-tests each control's centre, which is the point a click resolves to — this case
+ * spends the click. Both surfaces are the ones large text used to take away on a phone: /player's
+ * tab bar sat under a sticky vitals bar that had wrapped into a block taller than the pane, and
+ * /board's map tile clipped its own operate row inside an extent the text had outgrown. A real
+ * press carries Playwright's actionability checks (visible, stable, receives pointer events), so it
+ * fails on a covered control the way a user's finger does rather than on geometry.
+ */
+test('200% large text leaves phone controls pressable, not just present', async ({ page }) => {
+	await page.setViewportSize({ width: 360, height: 640 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await setDefaultFontSize(page, 32);
+
+	await settleRoute(page, '/player');
+	await page.locator('#player-tab-resources').click({ timeout: 10_000 });
+	await expect(page.locator('#player-panel-resources')).toBeVisible();
+
+	await settleRoute(page, '/board');
+	const changeMap = page.getByLabel('Change map').first();
+	await changeMap.scrollIntoViewIfNeeded();
+	await expect(changeMap).toBeEnabled();
+	await changeMap.click({ timeout: 10_000 });
+});
 
 for (const mode of ['reduced motion', 'forced colors'] as const) {
 	test(`primary routes remain reachable with ${mode}`, async ({ page }) => {
