@@ -43,70 +43,50 @@
 	--tracking-wide: 0.05em; /* small caps eyebrows */
 	--tracking-wider: 0.08em; /* widget eyebrows / section labels */
 
-	/* --- Reading preference tokens (prose-only) ------------------------------------------- */
-	--prose-width-comfortable: min(62ch, 100%);
-	--prose-width-wide: min(76ch, 100%);
-	--prose-width-full: 100%;
-	--prose-font-size-comfortable: var(--text-base);
-	--prose-font-size-wide: 1rem;
-	--prose-font-size-full: var(--text-md);
-	--prose-line-height-comfortable: var(--leading-body);
-	--prose-line-height-wide: var(--leading-relaxed);
-	--prose-line-height-full: var(--leading-relaxed);
-	--prose-heading-compact: 1.05;
-	--prose-heading-wide: 1.07;
-	--prose-heading-full: 1.08;
+	/* --- Reading width (RC-KNW-1.4) — prose measure + leading, PROSE SURFACES ONLY ---------
+	 * Comfortable sits at the classic 60–75 character line; Wide trades a little reading comfort
+	 * for fewer wraps in tables and long wikilink runs; Full hands the whole panel over (what the
+	 * screen did before this preference existed). The leading opens as the measure grows — a
+	 * longer line needs more space between lines for the eye to find the next one.
+	 *
+	 * These are `rem`, not `ch`, even though `ch` is the natural unit for a measure. `ch` on the
+	 * prose WRAPPER resolves against the font the wrapper inherits from the panel, not against the
+	 * 13.5px Inter the markdown renderer sets inline on each paragraph — so a `ch` measure here
+	 * silently comes out ~20% wider than the character count it names. `rem` still tracks the
+	 * reader's root font size, which is what a reading-width control owes them. */
+	--prose-measure-comfortable: 30rem; /* ~480px ≈ 65 characters of note body */
+	--prose-measure-wide: 37.5rem; /* ~600px ≈ 80 characters */
+	--prose-measure-full: 100%;
+	--prose-leading-comfortable: var(--leading-relaxed); /* 1.7 — the renderer's own default */
+	--prose-leading-wide: 1.75;
+	--prose-leading-full: 1.8;
 }
 
+/* A prose column. Left-aligned rather than centered so the body stays on the same margin as the
+ * title and metadata above it inside the panel. */
 .knowledge-prose {
-	--knowledge-prose-width: var(--prose-width-comfortable);
-	--knowledge-prose-font-size: var(--prose-font-size-comfortable);
-	--knowledge-prose-line-height: var(--prose-line-height-comfortable);
-	--knowledge-prose-heading-scale: var(--prose-heading-compact);
-	width: min(100%, var(--knowledge-prose-width));
-	margin-inline: auto;
-	overflow-wrap: anywhere;
-}
-
-.knowledge-prose[data-prose-width='comfortable'] {
-	--knowledge-prose-width: var(--prose-width-comfortable);
-	--knowledge-prose-font-size: var(--prose-font-size-comfortable);
-	--knowledge-prose-line-height: var(--prose-line-height-comfortable);
-	--knowledge-prose-heading-scale: var(--prose-heading-compact);
+	--prose-measure: var(--prose-measure-comfortable);
+	--prose-leading: var(--prose-leading-comfortable);
+	max-width: min(100%, var(--prose-measure));
+	overflow-wrap: break-word;
 }
 
 .knowledge-prose[data-prose-width='wide'] {
-	--knowledge-prose-width: var(--prose-width-wide);
-	--knowledge-prose-font-size: var(--prose-font-size-wide);
-	--knowledge-prose-line-height: var(--prose-line-height-wide);
-	--knowledge-prose-heading-scale: var(--prose-heading-wide);
+	--prose-measure: var(--prose-measure-wide);
+	--prose-leading: var(--prose-leading-wide);
 }
 
 .knowledge-prose[data-prose-width='full'] {
-	--knowledge-prose-width: var(--prose-width-full);
-	--knowledge-prose-font-size: var(--prose-font-size-full);
-	--knowledge-prose-line-height: var(--prose-line-height-full);
-	--knowledge-prose-heading-scale: var(--prose-heading-full);
+	--prose-measure: var(--prose-measure-full);
+	--prose-leading: var(--prose-leading-full);
 }
 
-.knowledge-prose > * {
-	max-width: 100%;
-}
-
-.knowledge-prose :where(h2, h3, h4, h5, h6) {
-	font-size: calc(
-		var(--knowledge-prose-font-size) * var(--knowledge-prose-heading-scale)
-	) !important;
-	line-height: 1.25 !important;
-	font-family: var(--font-display) !important;
-}
-
-.knowledge-prose :where(p, li, blockquote p, figure, figcaption, aside, pre, code, th, td) {
-	font-size: var(--knowledge-prose-font-size) !important;
-	line-height: var(--knowledge-prose-line-height) !important;
-}
-
-.knowledge-prose :where(button, a, span, em, strong) {
-	font-size: inherit !important;
-	line-height: inherit !important;
+/* Leading only, and only on running text. The shared markdown renderer styles every block with an
+ * inline `font:` shorthand, so reaching it at all takes `!important` — which is exactly why this
+ * rule sets NO font-size: an `!important` size here would flatten the renderer's heading scale
+ * (22/18/15px) and the callout labels, tags and inline code down to one uniform body size. Sizes
+ * stay the renderer's business; the preference only moves the measure and the leading.
+ * Blockquote paragraphs are excluded so the quote block keeps its own tighter 1.6. */
+.knowledge-prose :where(p, li):not(blockquote p) {
+	line-height: var(--prose-leading) !important;
 }
