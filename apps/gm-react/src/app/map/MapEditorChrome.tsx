@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import {
 	markSpotlightSeen,
 	parseSeenSpotlights,
@@ -134,7 +134,20 @@ export function ShortcutOverlay({ onClose }: { onClose: () => void }) {
 	return <ShortcutsDialog onClose={onClose} scopes={['map']} title={t('mapEditor.shortcuts')} />;
 }
 
-/** Mark the whole tour seen on first display, including an interrupted or dismissed tour. */
+/**
+ * RC-MAP-4.5 — the first-open editor tour. Mark the whole tour seen on first display, including an
+ * interrupted or dismissed tour.
+ *
+ * The card sits IN FLOW above the workspace rather than floating over it. A floating coach mark
+ * would have to be anchored somewhere, and every anchor in this editor covers something the DM is
+ * being told to use — the canvas, the options bar it highlights, or the dock — so a pointer aimed at
+ * the highlighted control would land on the card instead. In flow it covers nothing.
+ *
+ * Both the decision and the dismissal run as LAYOUT effects, so the card is part of the first frame
+ * the editor paints and leaves in the same frame the edit that ended it lands. A passive effect
+ * would paint the editor once at full height and reflow it a frame later, moving the canvas under a
+ * pointer (or under a measurement) that was already aimed at it.
+ */
 export function MapEditorCoach({
 	rootRef,
 	compact,
@@ -153,7 +166,7 @@ export function MapEditorCoach({
 	const attempted = useRef<string | null>(null);
 	const initialActivity = useRef(activity);
 	const [tour, setTour] = useState<{ vaultId: string; step: number } | null>(null);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (attempted.current === vaultId) return;
 		attempted.current = vaultId;
 		setTour(null);
@@ -168,12 +181,12 @@ export function MapEditorCoach({
 			setTour({ vaultId, step: 0 });
 		}
 	}, [vaultId]);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (activity !== initialActivity.current) setTour(null);
 	}, [activity]);
 	const step = tour?.vaultId === vaultId ? tour.step : null;
 	const target = step === null ? null : ['rail', 'options', 'dock'][step];
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (!target) return;
 		const node = rootRef.current?.querySelector<HTMLElement>(`[data-map-coach="${target}"]`);
 		if (!node) return;
