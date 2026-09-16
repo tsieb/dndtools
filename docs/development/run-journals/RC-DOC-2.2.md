@@ -61,3 +61,41 @@
 - `pnpm test:tooling`: exit 0, 24 files / 162 tests passed in 6.27 seconds.
 - Acceptance remains blocked on the real-tree ADR-040 mismatch. The passing fixture does not
   establish that the real tree passes. No push, promotion, loop launch, or dispatcher-state edit.
+
+## Rebase retry — 2026-09-16
+
+- The prior attempt failed in `git rebase`, not in the checker. Rebasing the two commits onto
+  `loop/rc` (`f38d7a47`) conflicted once, in `docs/development/TESTING.md`: both sides appended a
+  new `## 6`. Upstream added §6 "Execution context was destroyed" (RC-ENG-2.6); this story added
+  §6 "Docs check". Resolved by keeping both and renumbering the docs-check section to §7.
+- `docs/README.md`'s pointer to the docs-check section was updated `§6` → `§7` to match.
+  `apps/gm-react/playwright.config.ts:62` also cites "TESTING.md §6", but it means the RC-ENG-2.6
+  section, which kept its number, so it was left alone. Those are the only two section references
+  in the repository.
+- The ADR-040 mismatch that blocked the previous attempt is gone: upstream now has
+  `Accepted (amends ADR-004, ADR-024)` in both the document and the index cell. No ADR file was
+  touched here, and status equality was not weakened.
+- One new real failure on the rebased tree: `docs/design/COMPONENTS.md` (the generated component
+  reference from RC-DSN-2.3) was unreachable from `docs/README.md`. Fixed inside an owned path by
+  adding a "Component reference (DEV gallery)" row to the docs index map. The checker found genuine
+  drift that landed after this story was written, which is the behaviour the story asks for.
+- Fixture construction gotcha: the first fixture copied `docs/` and symlinked the other top-level
+  entries with `for e in *`, which skips dotfiles, so `.github` was absent and
+  `DEVELOPMENT.md:81`'s `../../.github/pull_request_template.md` reported a false broken link.
+  Symlinking dotted entries too (excluding `.git`) makes the fixture baseline match the real tree.
+
+### Verification (all commands re-run on the rebased tree)
+
+- `pnpm gates` on the tree: exit 0 — "docs check passed: 253 file(s) reachable from
+  docs/README.md, 259 relative link(s) resolved."
+- `pnpm gates --docs-root <fixture>` on an unmodified fixture: exit 0, same 253/259 counts.
+- Broken-link acceptance: appending `[Broken-link acceptance fixture](RC-DOC-2.2-missing.md)` to
+  the fixture's docs index gave exit 1 with exactly one problem,
+  `[broken-link] docs/README.md:58: RC-DOC-2.2-missing.md does not exist`.
+- The other three kinds still fire together in one fixture run (exit 1, exactly three problems):
+  `unreachable-doc` for an added `docs/orphan.md`, `missing-coupling-string` for a removed
+  `test:cloud`, and `adr-index-drift` at `docs/adr/README.md:19` for ADR-007 set to Deprecated.
+- `pnpm test:tooling`: exit 0, 25 files / 187 tests. ESLint and `prettier --check` on the changed
+  files: exit 0.
+- Original command output retained locally under `/tmp/rc-doc-2.2-run/` (temporary evidence, not
+  repository assets). No push, promotion, loop launch, or dispatcher-state edit.
