@@ -72,3 +72,20 @@ it; passive effects painted the editor once at full height and reflowed the canv
 which moved the drawing surface under a pointer (or a measurement) already aimed at it. The
 component's comment also records why the card sits in flow above the workspace instead of floating
 over it: every anchor available in this editor covers a control the tour is telling the DM to use.
+
+## Catching up with the rebased base
+
+The branch now sits on a base that carries two gates the earlier revisions never met.
+
+- **Emphasis lint (RC-ENG-8.4).** The tour's "Next"/"Done" was `<Button variant="primary">`, a second
+  gold fill inside the editor dialog, so `multiple-accent-primaries` for `MapEditor.tsx` went 1 → 2
+  and the Lint gate failed; the baseline may only shrink, so it is not the thing to move. The button
+  is `variant="accent"` now — the same gold, as a tint rather than a fill, which the rule exempts and
+  which leaves the header's "Project to players" as the region's one primary. Editor count is back at
+  the baseline's 1.
+- **Golden-route visual suite (RC-DSN-4.1).** `/atlas with the map editor open` is captured on a
+  fresh vault, which is exactly when the tour shows, so all nine of its baselines (three themes ×
+  three tiers) moved. Re-baselined in the pinned `playwright:v1.61.1-noble` image per
+  docs/development/TESTING.md §8; the `-diff`/`-actual` pairs were read first and the only change is
+  the card plus the accent outline on the highlighted rail. Nothing else in the suite moved: 135
+  passed at `--update-snapshots=none`, budget 12796.5 of 32768.0 KiB.

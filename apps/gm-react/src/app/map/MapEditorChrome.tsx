@@ -233,7 +233,10 @@ export function MapEditorCoach({
 				<Button
 					size="sm"
 					style={quick ? { minWidth: 48, minHeight: 48 } : undefined}
-					variant="primary"
+					// `accent`, not `primary`: the editor's one gold fill belongs to the header's
+					// "Project to players", and guidance must not compete with the work it explains
+					// (RC-ENG-8.4's one-primary-per-region rule).
+					variant="accent"
 					onClick={() => (step === 2 ? close() : setTour({ vaultId, step: step + 1 }))}
 				>
 					{t(step === 2 ? 'common.action.done' : 'common.action.next')}
