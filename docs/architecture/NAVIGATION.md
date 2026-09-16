@@ -40,6 +40,14 @@ Rules:
 4. The same IA renders in every viewport tier. A tier change is a presentation change, never an IA
    change.
 
+The accepted target for the Run group is [ADR-041](../adr/041-screens-as-the-run-surface.md):
+Command Center, the GM Screen and Session become **screens** — scenes carrying screen metadata —
+with `/screens` as the library and `/screen/:id` for one screen, while `/`, `/board`, `/session`,
+`/scenes` and `/scene/:id` resolve to a screen in a single history entry. Sidebar pins become a
+user-defined Screens group under [ADR-013](../adr/013-three-layer-navigation-contract.md) rather than
+new hard-coded destinations, and `nav.ts` stays the source of global IA. The tables above describe
+the destinations and routes that ship today; the conversion lands in CAN-7.2 onward.
+
 ## 2. Navigation layers
 
 Navigation elements are exactly one of:

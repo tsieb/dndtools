@@ -3,7 +3,9 @@
 Widgets turn the GM Screen and scene canvases into a configurable mission-control surface. They are
 a platform primitive: the same declarative model powers the built-in tiles and the sandboxed custom
 widgets a DM or the assistant authors. Decision records: [ADR-031](../adr/031-custom-widget-runtime-host.md)
-(runtime host, trust review, authoring) and [ADR-029](../adr/029-scene-layout-history.md) (layout history).
+(runtime host, trust review, authoring), [ADR-029](../adr/029-scene-layout-history.md) (layout history),
+and [ADR-041](../adr/041-screens-as-the-run-surface.md) (screens as the run surface, flow and canvas
+layout policies).
 
 ## 1. Model
 
@@ -118,6 +120,12 @@ are pre-trusted.
 `app/SceneBoardCanvas.tsx` is the shared engine for `/board` and `/scene/:id`. Every pointer
 operation serializes to the same core command as its keyboard equivalent (WCAG 2.5.7). Layout undo
 and reversible destroy are documented in [`SCENE_HISTORY.md`](SCENE_HISTORY.md).
+
+[ADR-041](../adr/041-screens-as-the-run-surface.md) accepts this engine as the `canvas` layout policy
+of a screen and adds `flow`, a responsive column grid of auto-height tiles whose visual, DOM and
+focus order is the layout order, as the default for hub screens. Both policies use the same widget
+instances, the same render resolver and the same core mutation path; flow is not implemented yet
+(CAN-7.7).
 
 ## 8. Where to look
 

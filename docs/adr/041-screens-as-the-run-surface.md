@@ -173,8 +173,9 @@ Source inspection on 2026-09-12 at commit `8b582677939ad2d89ff843affa60af78bd578
   existing actor-scoped model. [Focus tests](../../packages/core/tests/scene-focus-order.test.ts)
   cover canvas metadata traversal, not flow layout. These tests were inspected, not run for this ADR.
 
-Related architecture owners are [NAVIGATION.md](../architecture/NAVIGATION.md) and
-[WIDGETS.md](../architecture/WIDGETS.md). Their backlinks to this ADR require a companion change:
-CAN-7.1's ownership grants only this ADR and its index. Full cross-link acceptance remains pending
-that handoff. Browser behavior, migration, visual parity and performance remain unvalidated by this
-documentation-only change; the central operator runs gates and independent review afterward.
+The related architecture owners now point back here: [NAVIGATION.md](../architecture/NAVIGATION.md)
+§1 records the canonical screen routes, the alias resolution and the user-defined Screens pin group,
+and [WIDGETS.md](../architecture/WIDGETS.md) §7 records the flow and canvas layout policies. Both
+state that the surfaces and routes they otherwise describe are the ones shipping today. Browser
+behavior, migration, visual parity and performance remain unvalidated by this documentation-only
+change; the central operator runs gates and independent review afterward.
