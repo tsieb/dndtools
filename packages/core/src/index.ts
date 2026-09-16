@@ -5973,3 +5973,38 @@ export {
 	importSystemPackageFromBundle,
 	systemPackageModuleId,
 } from './commands/system-package';
+
+// RC-CAN-7.2 — SCREENS (ADR-041). A screen IS a scene: the same record, the same permission model,
+// the same commands. What is new is an additive, optional `Scene.screen` record (pinned, pin order,
+// layout policy, origin) that drops its key whenever it holds the default, so a scene with nothing to
+// say about screens round-trips byte-identically and no schemaVersion moves; the four DM-only
+// commands over it; and `listScreensForActor`, which reuses the existing scene visibility rules so a
+// player lists only the screens visible to them.
+export type { ScreenLayoutPolicy, ScreenMeta, ScreenOrigin } from './state/scene-state';
+export {
+	DEFAULT_SCREEN_META,
+	SCREEN_LAYOUT_POLICIES,
+	compareScreenOrder,
+	hydrateScreenMeta,
+	isDefaultScreenMeta,
+	isPinnedScreen,
+	listPinnedScreens,
+	screenLayoutPolicy,
+	screenMetaOf,
+	screenPinOrder,
+	withScreenMeta,
+} from './state/scene-state';
+export {
+	duplicateSceneInputSchema,
+	reorderScreenPinsInputSchema,
+	setScreenLayoutPolicyInputSchema,
+	setScreenPinnedInputSchema,
+} from './schemas/commands';
+export {
+	handleDuplicateScene,
+	handleReorderScreenPins,
+	handleSetScreenLayoutPolicy,
+	handleSetScreenPinned,
+} from './commands/scene';
+export type { ScreenListEntry, ScreenListOptions } from './queries/screens';
+export { listPinnedScreensForActor, listScreensForActor } from './queries/screens';

@@ -11,6 +11,8 @@ import { widgetPackageDefinitionSchema } from './widget-package';
 // RC-SYS-1.3 — the system-package command inputs (append-only block at the end of this module).
 import { systemPackageSchema } from './system-package';
 import { SCENE_CARD_FLAVOR_MAX_LENGTH } from '../state/scene-card';
+// RC-CAN-7.2 — the screen layout policies ADR-041 accepts (the state module owns the list).
+import { SCREEN_LAYOUT_POLICIES } from '../state/scene-state';
 import {
 	CUSTOM_OBJECT_TYPE_ID_PATTERN,
 	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
@@ -3664,5 +3666,47 @@ export const duplicateWidgetInputSchema = z
 		sceneId: idSchema,
 		widgetInstanceId: idSchema,
 		position: z.object({ x: z.number().finite(), y: z.number().finite() }).strict().optional(),
+	})
+	.strict();
+
+// --- RC-CAN-7.2 — SCREEN METADATA, PINS AND DUPLICATION (append-only block; ADR-041) -------------
+// A screen is a scene, so these are scene commands. Every one of them names the target by id and
+// carries only the field it changes; nothing here accepts widgets, bindings or visibility, because a
+// screen's content is only ever changed through the commands that already own it.
+
+// Pin or unpin a SCREEN in the shell's user-defined Screens group. Nothing to do with a tile's
+// `WidgetLayout.pinned`. The reducer picks the new pin's position — a caller cannot choose it here,
+// so two clients pinning concurrently cannot both claim the same slot.
+export const setScreenPinnedInputSchema = z
+	.object({
+		sceneId: idSchema,
+		pinned: z.boolean(),
+	})
+	.strict();
+
+// The GM's complete pin order, front to back. The reducer requires the list to be exactly the set of
+// currently pinned screens: a stale client that has lost a pin cannot silently unpin it by reordering.
+export const reorderScreenPinsInputSchema = z
+	.object({
+		sceneIds: z.array(idSchema).min(1),
+	})
+	.strict();
+
+// Switch a screen between the flow and canvas layout policies. Widget identity, configuration and
+// bindings are untouched by construction: the reducer writes the policy and nothing else.
+export const setScreenLayoutPolicyInputSchema = z
+	.object({
+		sceneId: idSchema,
+		layoutPolicy: z.enum(SCREEN_LAYOUT_POLICIES),
+	})
+	.strict();
+
+// Copy a whole screen. Names the source and the copy's name only: every widget, section, layout,
+// configuration and binding on the copy is read from the Core's own scene, never accepted from the
+// caller. The name is required rather than derived because core does not author display strings.
+export const duplicateSceneInputSchema = z
+	.object({
+		sceneId: idSchema,
+		name: z.string().min(1, 'Scene name is required'),
 	})
 	.strict();

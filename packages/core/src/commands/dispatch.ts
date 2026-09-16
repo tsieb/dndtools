@@ -8,6 +8,13 @@ import {
 	handleSetSceneSections,
 	handleUpdateSceneMetadata,
 } from './scene-meta';
+// RC-CAN-7.2 — the screen commands (ADR-041): screen pins, pin order, layout policy and duplication.
+import {
+	handleDuplicateScene,
+	handleReorderScreenPins,
+	handleSetScreenLayoutPolicy,
+	handleSetScreenPinned,
+} from './scene';
 import {
 	handleAddWidget,
 	handleConfigureWidget,
@@ -361,6 +368,15 @@ export function dispatchCommand(
 		// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only) ---------------------------------
 		case 'scene.duplicate-widget':
 			return handleDuplicateWidget(state, env, command.actorId, command.payload);
+		// --- RC-CAN-7.2 — SCREEN METADATA, PINS AND DUPLICATION (append-only; ADR-041) --------------
+		case 'scene.set-pinned':
+			return handleSetScreenPinned(state, env, command.actorId, command.payload);
+		case 'scene.reorder-pins':
+			return handleReorderScreenPins(state, env, command.actorId, command.payload);
+		case 'scene.set-layout-policy':
+			return handleSetScreenLayoutPolicy(state, env, command.actorId, command.payload);
+		case 'scene.duplicate':
+			return handleDuplicateScene(state, env, command.actorId, command.payload);
 		// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only) -----------------------------
 		case 'session.mark-party':
 			return handleMarkParty(state, env, command.actorId, command.payload);
