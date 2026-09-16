@@ -158,7 +158,10 @@ const HEADER_ROW: CSSProperties = {
 const HEADING_STYLE: CSSProperties = {
 	flex: 1,
 	minWidth: 0,
-	font: '700 var(--text-sm) var(--font-display)',
+	// RC-ENG-8.4: the display face starts at --text-xl (24px), and a note heading inside a tile is
+	// --text-sm. The face came across from the old `NoteBody.tsx`, which the emphasis baseline still
+	// carries; sans is the rule's own prescription at this size.
+	font: '700 var(--text-sm) var(--font-sans)',
 	color: 'var(--color-text-primary)',
 	overflowWrap: 'anywhere',
 };

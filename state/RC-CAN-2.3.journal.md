@@ -132,3 +132,36 @@ apps/gm-react/src/app/canvas`: 5 files, 128 tests passed.
   boundary (`platform/storage/coreStore.ts:502`), because every `scene.configure-widget` op
   persists the full configuration. Not caused by depth levels; it applies to the note body as
   shipped. Worth a look alongside op-log compaction.
+
+### Fourth retry (2026-09-16, feedback: rebase conflict on `55c6a466`)
+
+- The gate feedback was a rebase failure, not a review finding. `loop/rc` moved 20 commits past this
+  branch's base and five of them touch `WidgetFrame.tsx` (RC-CAN-2.4's tile action menu, then
+  `83cb216f` "visibility badges by exception"), so `55c6a466` no longer applied.
+- Rebased onto `32d9ed73`. One conflicted file, two hunks, both in the import/opening lines of
+  `WidgetFrame.tsx`; resolved in `loop/rc`'s favour and re-added only what this story needs:
+  - imports: kept `LayoutHistory`, `useRef` and `VisibilityChip`, dropped the now-unused
+    `visibilityChip` helper, and merged `Badge` into the `ds` import beside the note imports.
+  - body: kept `const { t } = useI18n();` and dropped `const chip = visibilityChip(w.visibility);`
+    — `83cb216f` replaced that inline chip with `<VisibilityChip byException>`.
+    The depth badge, the `NoteFrameContext.Provider` around the render slot and the header markup
+    auto-merged; the badge still sits beside `w.typeLabel` in the metadata row, which the new
+    visibility chip does not occupy.
+- New gate on the rebased base: RC-ENG-8.4's emphasis lint (`f4575229`) fails a file whose count
+  rises above `scripts/emphasis-baseline.json`, and the baseline may only shrink. `Note.tsx:161`
+  tripped `display-face-below-24px` at 13px. The style is not new — it came across verbatim from the
+  old `NoteBody.tsx`, whose baseline entry of 1 is now unspent — but a moved finding still reads as a
+  regression on a new file, and the baseline is outside this claim. Fixed in `Note.tsx` with the
+  rule's own prescription: the note heading is `700 var(--text-sm) var(--font-sans)`. The stale
+  `NoteBody.tsx` entry is left for whoever owns the baseline (the lint warns, it does not fail).
+- Validation on the rebased tree: gm-react and core `typecheck` exit 0; ESLint on all nine touched
+  source/test files exit 0; Prettier `--check` clean; `pnpm lint:raw-style-count` 2,580 across 259
+  files; `pnpm lint:emphasis --quiet` exit 0, no regressions.
+- Tests: widgets + canvas vitest 5 files / 132 tests passed (includes `WidgetFrame.test.tsx`'s 67,
+  whose header snapshots `8b582677` had just rewritten). `pnpm test:app` 127 files / 1,364 tests.
+  `pnpm test:critical` 273 files / 4,779 tests. `pnpm test:tooling` 25 files / 187 tests — all pass
+  now, including the `file-size-gate` case that failed on the old base for an unrelated file.
+- e2e (`DNDTOOLS_E2E_PORT=53211`, load ≈ 7): `note-depth.spec.ts` 4/4 on desktop-chromium +
+  mobile-chromium, exit 0, re-run after the font change. Because `WidgetFrame` is shared canvas
+  chrome, also ran `canvas.spec.ts`, `starter-widgets.spec.ts` and `scene-cards.spec.ts` on both
+  projects: 112 passed, exit 0 — including the new "visibility badges mark exceptions" case.
