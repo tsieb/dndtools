@@ -1,0 +1,11 @@
+- main:
+  - dialog "End the live session?":
+    - heading "End the live session?" [level=2]
+    - paragraph: Ending into Recap archives this session — the scene and map, the initiative order, the handouts and the dice log — so you can write it up. Ending without a record clears all of it and archives nothing.
+    - button "Close"
+    - button "Stay live"
+    - button "End session"
+    - button "End and review"
+- status:
+  - text: Rest called for 3 characters
+  - button "Dismiss"
