@@ -7,6 +7,7 @@ import { isPlaceholderActorName, useRuntime } from '../../runtime/RuntimeContext
 import { useAuth } from '../../cloud/AuthContext';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { coDmSeatsForPlan, useEntitlements } from '../../cloud/entitlements';
+import { useCloudActions } from '../../cloud/offline';
 import { errMsg } from './shared';
 import { InvitesPanel } from './PlayerInvites';
 /* ---- Players (REAL — the live actor roster the Core enforces visibility against) ---------------- */
@@ -71,6 +72,12 @@ export function SettingsPlayers() {
 			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.players.renameFailed'))));
 	};
 
+	// Role assignment and the invite flow are app-api round trips. Renaming an actor is a vault
+	// command and stays available offline, so its IconButton is deliberately not gated.
+	const cloudActions = useCloudActions('cloud.offline.invite');
+	// In a local-only build the Invite button only raises an explanatory toast, which works fine
+	// with no network — so it is gated only where it would actually reach the server.
+	const inviteOfflineProps = isAccountApiConfigured ? cloudActions.offlineProps : {};
 	const assignRole = (
 		targetActorId: string,
 		role: 'co-dm' | 'player' | 'observer',
@@ -103,6 +110,7 @@ export function SettingsPlayers() {
 						variant="primary"
 						size="sm"
 						icon="add"
+						{...inviteOfflineProps}
 						onClick={() => {
 							if (cloudReady) setInviteOpen(true);
 							else if (isAccountApiConfigured) auth.openAuthModal();
@@ -225,7 +233,14 @@ export function SettingsPlayers() {
 										<Select
 											aria-label={t('settings.players.roleFor', { name: a.displayName })}
 											value={a.role}
+											// Select is not a DS Button, so the soft-disable does not swallow its
+											// own change — the offline guard lives in the handler as well as on
+											// the control.
+											aria-disabled={cloudActions.offline || undefined}
+											title={cloudActions.offlineProps.title}
+											data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
 											onChange={(e: { target: { value: string } }) => {
+												if (cloudActions.blocked) return;
 												const next = e.target.value as 'co-dm' | 'player' | 'observer';
 												if (next !== a.role) assignRole(a.id, next, a.displayName);
 											}}

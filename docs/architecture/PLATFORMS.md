@@ -160,15 +160,51 @@ Lazy routes must have been visited online; the dev worker cannot precache unknow
 Run both profiles with:
 `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pwa-offline.spec.ts --workers=1`.
 
-**Open acceptance dependency: cloud-only controls.** The e2e server deliberately has no cloud
-configuration, so a disabled unconfigured control cannot prove signed-in offline behavior.
-`src/screens/settings/Sync.tsx` shows connectivity in its local-only panel, but the configured
-Sync now and restore controls currently gate on busy state without an offline guard.
-`src/screens/settings/Account.tsx` and `src/screens/community/Discover.tsx` likewise need live
-network state at their cloud action controls. Completing the all-control acceptance requires
-ownership of these React surfaces and an audit of authentication, subscription/billing,
-cloud session hosting/joining, publication, and hosted AI actions, with isolated mocked cloud
-responses for configured-state tests. A browser online event means a network interface is
-available; it does not establish cloud-service reachability. Preserve server failures as errors.
-Do not add DOM mutation or label-matching interception to service-worker registration to emulate
-component state. These controls are outside RC-PLT-2.4's currently assigned implementation paths.
+### The honest network indicator on cloud-only controls (RC-PLT-2.4)
+
+Almost everything in Lamplight is local-first and works with no network. A minority of controls are
+not: publishing a module, minting an invite, revoking a device, opening the billing portal, pushing
+to a Google Doc. Offline those can only fail, and they used to look exactly as live as the local
+ones — the only way to find out was to press one and read the error.
+
+`src/cloud/offline.tsx` is the single mechanism. `useCloudActions(reason)` returns `offlineProps`,
+spread onto each cloud-only control; `<CloudOfflineNotice />` is the once-per-panel prose.
+
+**Soft-disable, not `disabled`.** A natively disabled button leaves the tab order, taking its own
+`title` with it — so the sentence explaining why it cannot be pressed becomes unreachable by exactly
+the people who most need it announced. Both `Button` and `IconButton` already implement the
+alternative: a truthy `aria-disabled` renders the control unavailable (0.5 opacity, `not-allowed`
+cursor) and swallows activation while keeping it focusable and readable. `offlineProps` therefore
+sets `aria-disabled`, a `title` naming what the action needs, and `data-cloud-offline="true"`.
+Controls that are not DS buttons (`Switch`, `Select`, a `<form onSubmit>`, an Enter-key shortcut)
+do not swallow their own activation, so those call sites also guard on `cloudActions.blocked`.
+
+**What it does not claim.** `navigator.onLine === false` is trustworthy — no interface, so no cloud
+call can succeed. The true case is much weaker: an interface exists, nothing more. A captive portal,
+dead DNS or a service outage all report "online". So the gate only ever ADDS an indicator; it never
+suppresses, retries or reinterprets a failure a request actually returned. Server errors stay
+errors.
+
+**Deliberately ungated**, because gating them would be a lie in the other direction: local vault
+backup/restore, recovery-key export/import (local crypto against the OS credential store), copying
+an already-minted invite link, local folder sources (File System Access), renaming an actor,
+in-app navigation to `/upgrade`, and a device-local preview plan change when no account backs it.
+
+Verification is three layers, because no single one covers the criterion:
+
+| Layer       | File                                    | Covers                                                                                                                                                             |
+| ----------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Static rule | `src/cloud/offline.gate.test.ts`        | No module may import a network-backed cloud client without the gate. Exemptions live in `NO_CLOUD_CONTROLS`, each with a stated reason.                            |
+| Component   | `src/cloud/offline.configured.test.tsx` | The configured-and-signed-in screens, which e2e cannot reach: exact set of gated controls, `aria-disabled` not `disabled`, and recovery on reconnect.              |
+| Browser     | `tests/e2e/pwa-offline.spec.ts`         | Real offline transition on both profiles: the indicator appears, the control stays focusable, the click fires no request, reconnecting clears it without a reload. |
+
+The middle layer exists because the Playwright server blanks every `VITE_*` cloud coordinate on
+purpose (`playwright.config.ts`, asserted by `isolation-guard.spec.ts`) so no e2e run can reach
+Cognito or app-api. A cloud-configured, signed-in screen is therefore unreachable from a browser
+test by design — the same split `Discover.test.tsx` and `WikiReader.test.tsx` already use. The two
+e2e routes that do exercise a real cloud-only control (`/join`, `/wiki`) reach it legitimately: the
+server fetch fails, the shipping component offers a retry, and that retry is the gated control.
+
+Run all three with:
+`pnpm --filter @dndtools/gm-react exec vitest run src/cloud/offline` and
+`pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pwa-offline.spec.ts --workers=1`.

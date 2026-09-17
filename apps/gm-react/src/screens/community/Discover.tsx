@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import { Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { Badge, Button, Dialog, Toaster } from '../../ds';
@@ -39,6 +40,7 @@ export function CommDiscover() {
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const ready = useMarketplaceReady();
+	const cloudActions = useCloudActions();
 	// RC-CLD-4.5 — the shelf is a SERVER-SIDE search: words, kind, system and licence all travel to
 	// `GET /listings`, and the server answers with the matches and the facets to filter by next.
 	// RC-SYS-3.4's kind filter is the same control; it now narrows on the server instead of in here.
@@ -68,6 +70,7 @@ export function CommDiscover() {
 	}, [query.q]);
 
 	const load = useCallback(() => {
+		if (cloudActions.blocked) return;
 		// Only the newest request may land: a slow answer to an older query never overwrites it.
 		const seq = ++requestSeq.current;
 		setFailed(false);
@@ -83,13 +86,14 @@ export function CommDiscover() {
 			.catch(() => {
 				if (seq === requestSeq.current) setFailed(true);
 			});
-	}, [debouncedQ, query.kind, query.system, query.license]);
+	}, [cloudActions.blocked, debouncedQ, query.kind, query.system, query.license]);
 	// The featured row is a garnish: when it cannot load, the row is absent and the shelf still works.
 	const loadFeatured = useCallback(() => {
+		if (cloudActions.blocked) return;
 		getFeaturedListings()
 			.then(setFeatured)
 			.catch(() => setFeatured([]));
-	}, []);
+	}, [cloudActions.blocked]);
 	useEffect(() => {
 		if (ready) load();
 	}, [ready, load]);
@@ -118,6 +122,7 @@ export function CommDiscover() {
 	// core command re-validates fail-closed — this pass is only so the dialog can show honest facts
 	// (kind, id, how many things would land) before the DM commits.
 	const startInstall = (listing: DiscoveryListing) => {
+		if (cloudActions.blocked) return;
 		setBusy(true);
 		fetchListingPackage(listing.moduleId)
 			.then((full) => {
@@ -146,6 +151,7 @@ export function CommDiscover() {
 	};
 
 	const confirmInstall = async () => {
+		if (cloudActions.blocked) return;
 		if (!review) return;
 		const { plan } = review;
 		if (plan.kind === 'unsupported') return;
@@ -190,6 +196,7 @@ export function CommDiscover() {
 	};
 
 	const removeFromMarketplace = (listing: DiscoveryListing) => {
+		if (cloudActions.blocked) return;
 		setBusy(true);
 		removeListing(listing.moduleId)
 			.then(() => {
@@ -219,20 +226,26 @@ export function CommDiscover() {
 				alignItems: 'start',
 			}}
 		>
-			<DiscoverShelf
-				query={query}
-				setQuery={setQuery}
-				result={result}
-				featured={featured}
-				failed={failed}
-				listings={listings}
-				sel={sel}
-				filtersActive={filtersActive}
-				onlyKindFilter={onlyKindFilter}
-				setSelId={setSelId}
-				load={load}
-				loadFeatured={loadFeatured}
-			/>
+			{/* The search, filters and retry live in `DiscoverShelf`. Offline, a query edit is kept
+			    locally and the server search waits for the `online` event (`load` is gated), so
+			    the one thing to say is that — once, above the shelf. */}
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four, minWidth: 0 }}>
+				<CloudOfflineNotice body="cloud.offline.discoverNotice" />
+				<DiscoverShelf
+					query={query}
+					setQuery={setQuery}
+					result={result}
+					featured={featured}
+					failed={failed}
+					listings={listings}
+					sel={sel}
+					filtersActive={filtersActive}
+					onlyKindFilter={onlyKindFilter}
+					setSelId={setSelId}
+					load={load}
+					loadFeatured={loadFeatured}
+				/>
+			</div>
 			{sel && (
 				<Panel
 					accent
@@ -279,6 +292,7 @@ export function CommDiscover() {
 							size="md"
 							icon="import"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => startInstall(sel)}
 						>
 							{t('community.discover.installToVault')}
@@ -290,6 +304,7 @@ export function CommDiscover() {
 							size="sm"
 							icon="trash"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => setConfirmRemove(sel)}
 						>
 							{t('community.discover.removeListing')}
@@ -315,6 +330,7 @@ export function CommDiscover() {
 							variant="secondary"
 							size="sm"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => setConfirmRemove(null)}
 						>
 							{t('common.action.cancel')}
@@ -324,6 +340,7 @@ export function CommDiscover() {
 							size="sm"
 							icon="trash"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => confirmRemove && removeFromMarketplace(confirmRemove)}
 						>
 							{busy ? t('community.discover.removing') : t('community.discover.removeListing')}
@@ -347,7 +364,13 @@ export function CommDiscover() {
 				size="md"
 				footer={
 					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setReview(null)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							disabled={busy}
+							{...cloudActions.offlineProps}
+							onClick={() => setReview(null)}
+						>
 							{t('common.action.cancel')}
 						</Button>
 						{review?.plan.kind !== 'unsupported' && (
@@ -356,6 +379,7 @@ export function CommDiscover() {
 								size="sm"
 								icon="import"
 								disabled={busy}
+								{...cloudActions.offlineProps}
 								onClick={() => void confirmInstall()}
 							>
 								{busy

@@ -4,6 +4,7 @@
 // as props (no context import) to keep it decoupled from AuthContext.
 import { useEffect, useState } from 'react';
 import { Dialog, Field, Input, Button, Toaster } from '../ds';
+import { CloudOfflineNoticeFor, useCloudActionsFor } from './offline';
 
 type View = 'sign-in' | 'sign-up' | 'confirm' | 'forgot' | 'reset';
 
@@ -26,6 +27,11 @@ function passwordProblem(pw: string): string | null {
 }
 
 const RESET_CODE_SENT = 'If an account uses that email, a reset code is on its way.';
+// RC-PLT-2.4 — this file writes its own copy rather than reading the catalog (see the note on
+// `useCloudActionsFor`), so its offline strings live here with the rest of them.
+const OFFLINE_REASON = 'Signing in needs a connection — you’re offline';
+const OFFLINE_NOTICE =
+	'You’re offline. Your vault keeps working — an account is only needed for optional online services, and you can sign in once you reconnect.';
 const RESET_REQUEST_FAILED = 'Couldn’t send a reset code. Check your connection and try again.';
 
 function errorCode(err: unknown): string {
@@ -97,6 +103,9 @@ export function AuthModal({
 	const [password, setPassword] = useState('');
 	const [code, setCode] = useState('');
 	const [busy, setBusy] = useState(false);
+	// Every view of this modal is a Cognito round trip: sign in, sign up, confirm, reset, resend.
+	// There is no offline branch to fall back to, so the whole form is gated.
+	const cloudActions = useCloudActionsFor(OFFLINE_REASON);
 	const [error, setError] = useState<string | null>(null);
 
 	// The modal is a persistently-mounted singleton (AuthProvider never unmounts
@@ -132,6 +141,8 @@ export function AuthModal({
 	};
 
 	async function resendResetCode() {
+		// aria-disabled on a plain <button> does not swallow the click the way DS Button does.
+		if (cloudActions.blocked) return;
 		setError(null);
 		setBusy(true);
 		try {
@@ -146,6 +157,8 @@ export function AuthModal({
 	}
 
 	async function resendConfirmationCode() {
+		// aria-disabled on a plain <button> does not swallow the click the way DS Button does.
+		if (cloudActions.blocked) return;
 		setError(null);
 		setBusy(true);
 		try {
@@ -160,6 +173,9 @@ export function AuthModal({
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
+		// A form submits on Enter without going through the button, so the offline guard has to
+		// live here too — the soft-disabled submit button alone would not stop it.
+		if (cloudActions.blocked) return;
 		setError(null);
 		setBusy(true);
 		try {
@@ -251,6 +267,7 @@ export function AuthModal({
 			initialFocus="#auth-email"
 			aria-busy={busy}
 		>
+			<CloudOfflineNoticeFor text={OFFLINE_NOTICE} />
 			<form onSubmit={onSubmit} style={{ display: 'grid', gap: 'var(--space-4, 16px)' }}>
 				<Field label="Email" htmlFor="auth-email" required>
 					<Input
@@ -323,7 +340,13 @@ export function AuthModal({
 					</p>
 				)}
 
-				<Button type="submit" variant="primary" size="md" disabled={busy}>
+				<Button
+					type="submit"
+					variant="primary"
+					size="md"
+					disabled={busy}
+					{...cloudActions.offlineProps}
+				>
 					{busy
 						? 'Please wait…'
 						: view === 'sign-in'
@@ -367,6 +390,9 @@ export function AuthModal({
 								className="link"
 								onClick={() => void resendConfirmationCode()}
 								disabled={busy}
+								aria-disabled={cloudActions.offline || undefined}
+								title={cloudActions.offlineProps.title}
+								data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
 							>
 								Resend code
 							</button>
@@ -387,6 +413,9 @@ export function AuthModal({
 								className="link"
 								onClick={() => void resendResetCode()}
 								disabled={busy}
+								aria-disabled={cloudActions.offline || undefined}
+								title={cloudActions.offlineProps.title}
+								data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
 							>
 								Send a new code
 							</button>

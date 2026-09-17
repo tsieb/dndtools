@@ -3,6 +3,7 @@ import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import { Badge, Button, Dialog, EmptyState, Icon, Input, Skeleton, Textarea } from '../../ds';
 import { type MessageKey } from '../../i18n';
 import { MarketplaceGate } from './shared';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 
 // RC-CLD-4.3 — the checklist item id → its label key. camelCase (not the item's own kebab id) because
 // message keys are addressed by dotted path only (i18n/index.test.ts), never a hyphen.
@@ -37,6 +38,9 @@ export function CommPublish() {
 		unpublish,
 		publish,
 	} = usePublishModel();
+	// Publishing, listing and unpublishing are all app-api round trips. Building the draft from the
+	// local vault is not, so opening the dialog stays available — only the publish itself is gated.
+	const cloudActions = useCloudActions('cloud.offline.publish');
 	if (!cloudReady) return <MarketplaceGate signInPrompt="community.market.signInPublish" />;
 	return (
 		<div
@@ -53,6 +57,7 @@ export function CommPublish() {
 				>
 					{t('community.publish.intro')}
 				</div>
+				<CloudOfflineNotice />
 				{packages.length === 0 ? (
 					<EmptyState
 						illustration="publish-empty"
@@ -102,6 +107,7 @@ export function CommPublish() {
 									size="sm"
 									icon="upload"
 									disabled={busy}
+									{...cloudActions.offlineProps}
 									onClick={() => openDraft(def)}
 								>
 									{t('community.publish.action')}
@@ -149,6 +155,7 @@ export function CommPublish() {
 						size="sm"
 						icon="upload"
 						disabled={busy}
+						{...cloudActions.offlineProps}
 						onClick={openContentDraft}
 					>
 						{t('community.publish.action')}
@@ -164,7 +171,13 @@ export function CommPublish() {
 						title={t('community.publish.listingsFailed')}
 						description={t('community.discover.loadFailedBody')}
 						action={
-							<Button variant="secondary" size="sm" icon="retry" onClick={loadMine}>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="retry"
+								{...cloudActions.offlineProps}
+								onClick={loadMine}
+							>
 								{t('common.action.retry')}
 							</Button>
 						}
@@ -206,6 +219,7 @@ export function CommPublish() {
 									variant="ghost"
 									size="sm"
 									disabled={busy}
+									{...cloudActions.offlineProps}
 									onClick={() => setConfirmUnpublish(m)}
 								>
 									{t('common.action.remove')}
@@ -237,6 +251,7 @@ export function CommPublish() {
 							size="sm"
 							icon="trash"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => confirmUnpublish && unpublish(confirmUnpublish)}
 						>
 							{busy ? t('community.discover.removing') : t('community.discover.removeListing')}
@@ -266,6 +281,7 @@ export function CommPublish() {
 							size="sm"
 							icon="upload"
 							disabled={busy || !checklist?.readyToPublish}
+							{...cloudActions.offlineProps}
 							onClick={publish}
 						>
 							{busy ? t('community.publish.publishing') : t('community.publish.publishModule')}

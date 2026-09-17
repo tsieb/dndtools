@@ -175,6 +175,90 @@ test.describe('installable web app', () => {
 		});
 	}
 
+	/**
+	 * RC-PLT-2.4 — the honest network indicator on cloud-only controls.
+	 *
+	 * These two routes are the ones that still render a REAL cloud-only control in the e2e
+	 * environment. The Playwright server blanks every `VITE_*` cloud coordinate on purpose
+	 * (`playwright.config.ts`, asserted by `isolation-guard.spec.ts`), so the account and
+	 * marketplace screens render their fail-closed local-only panels here and their controls
+	 * cannot be reached from a browser test at all. Both routes below reach the same place by a
+	 * legitimate path: the server fetch fails, the screen offers a retry, and that retry is a
+	 * genuine cloud-only control rendered by the shipping component.
+	 *
+	 * The configured-and-signed-in surfaces are covered by `src/cloud/offline.configured.test.tsx`,
+	 * and the rule that no future screen can skip the gate by `src/cloud/offline.gate.test.ts`.
+	 * This file is the part that needs a real browser and a real offline transition.
+	 */
+	for (const surface of [
+		{ name: 'invite', url: '/?sw=dev#/join?token=e2e-offline-token', control: 'Try again' },
+		{ name: 'player wiki', url: '/?sw=dev#/wiki?id=e2e-offline-wiki', control: 'Try again' },
+	]) {
+		test(`marks the ${surface.name} retry as offline and restores it on reconnect`, async ({
+			page,
+			context,
+		}) => {
+			test.slow();
+			await markOnboarded(page);
+			await page.goto(surface.url, { waitUntil: 'domcontentloaded' });
+			await waitForController(page);
+
+			const retry = page.getByRole('button', { name: surface.control });
+			await expect(retry).toBeVisible({ timeout: 30_000 });
+
+			// Online, the gate must contribute nothing at all: a control dimmed while the network is
+			// up is a worse lie than one that fails honestly.
+			await expect(page.locator('[data-cloud-offline]')).toHaveCount(0);
+			await expect(retry).toBeEnabled();
+
+			await context.setOffline(true);
+			try {
+				await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+
+				// The control itself says so — visibly, and to a screen reader.
+				await expect(retry).toHaveAttribute('data-cloud-offline', 'true');
+				await expect(retry).toHaveAttribute('aria-disabled', 'true');
+				await expect(retry).toHaveAttribute('title', /offline/i);
+				// Soft-disabled, NOT natively disabled. This is the whole reason the gate sets
+				// `aria-disabled` instead of `disabled`: the control keeps its place in the tab order,
+				// so the `title` explaining why it cannot be pressed is still reachable by the people
+				// who most need it announced. (Playwright's `toBeEnabled()` is ARIA-aware and reports
+				// `aria-disabled` as disabled, so the native property is what has to be read here.)
+				expect(await retry.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+				await retry.focus();
+				expect(
+					await page.evaluate(() => document.activeElement?.getAttribute('data-cloud-offline')),
+				).toBe('true');
+				await expect(retry).toHaveCSS('cursor', 'not-allowed');
+
+				// And the panel explains, once, that the vault is unaffected.
+				const notice = page.locator('[data-cloud-offline-notice="true"]');
+				await expect(notice).toBeVisible();
+				await expect(notice).toHaveText(/vault keeps working/i);
+
+				// Pressing it does nothing: no request leaves, and the screen does not pretend to work.
+				let requested = false;
+				await page.route('**/*', (route) => {
+					if (!route.request().url().includes('localhost')) requested = true;
+					return route.continue();
+				});
+				await retry.click({ force: true });
+				await page.waitForTimeout(500);
+				expect(requested).toBe(false);
+				await expect(retry).toHaveAttribute('data-cloud-offline', 'true');
+				await page.unroute('**/*');
+			} finally {
+				await context.setOffline(false);
+			}
+
+			// Reconnecting clears the indicator without a reload — the control goes live again.
+			await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(true);
+			await expect(page.locator('[data-cloud-offline]')).toHaveCount(0);
+			await expect(page.locator('[data-cloud-offline-notice="true"]')).toHaveCount(0);
+			await expect(retry).toBeEnabled();
+		});
+	}
+
 	test('serves the worker and links a manifest the browser can install from', async ({
 		page,
 		request,

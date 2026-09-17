@@ -5,6 +5,7 @@ import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { PLAN_CARDS, type PlanCard, type PlanId } from '../../cloud/entitlements';
 import type { PaidPlanId } from '../../cloud/appApi';
+import { useCloudActions } from '../../cloud/offline';
 
 /**
  * Plan dialogs for the Upgrade ("Plans & cloud") screen, split out of `Upgrade.tsx` by
@@ -66,10 +67,14 @@ export function ChangePlanDialog({
 }) {
 	const { t } = useI18n();
 	const plans = usePlanCards();
+	const cloudActions = useCloudActions('cloud.offline.billing');
 	const target = toId ? plans.find((plan) => plan.id === toId) : null;
 	if (!target) return null;
 	const current = planById(currentId);
 	const up = (target.price || 0) > (current?.price || 0);
+	// A device-local preview plan is written to storage and works offline; only a server-backed
+	// change is a round trip. The component is already told which it is.
+	const offlineProps = serverBacked ? cloudActions.offlineProps : {};
 	const losesCloud = !!current?.cloud && !target.cloud;
 	const price = target.price
 		? annual
@@ -104,6 +109,7 @@ export function ChangePlanDialog({
 						size="sm"
 						icon={up ? 'ArrowUp' : 'check'}
 						disabled={busy}
+						{...offlineProps}
 						onClick={() => onConfirm(target.id)}
 					>
 						{busy ? t('upgrade.dialog.saving') : t('upgrade.dialog.save')}
@@ -209,6 +215,7 @@ export function CheckoutDialog({
 }) {
 	const { t } = useI18n();
 	const plans = usePlanCards();
+	const cloudActions = useCloudActions('cloud.offline.billing');
 	const target = toId ? plans.find((plan) => plan.id === toId) : null;
 	if (!target) return null;
 	const price = annual ? `$${target.price * 10}` : `$${target.price}`;
@@ -232,6 +239,7 @@ export function CheckoutDialog({
 						size="sm"
 						icon="CreditCard"
 						disabled={busy}
+						{...cloudActions.offlineProps}
 						onClick={() => onConfirm(target.id as PaidPlanId)}
 					>
 						{busy ? t('upgrade.dialog.redirecting') : t('upgrade.dialog.continueToCheckout')}

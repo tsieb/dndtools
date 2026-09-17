@@ -6,6 +6,7 @@ import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAuthConfigured } from '../cloud/config';
 import { AppApiError, resolveInvite, type ResolvedInvite } from '../cloud/appApi';
+import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 import { useI18n } from '../i18n';
 
 /**
@@ -57,6 +58,8 @@ export function Join() {
 	// The failure copy tells the invitee to "try again", so give them something to press. Bumping
 	// this re-runs the resolve effect with the same token.
 	const [retryNonce, setRetryNonce] = useState(0);
+	// Resolving an invite and signing in both need the server. Opening the player app does not.
+	const cloudActions = useCloudActions('cloud.offline.invite');
 
 	useEffect(() => {
 		if (!token) {
@@ -115,6 +118,7 @@ export function Join() {
 						style={{ alignSelf: 'center' }}
 					/>
 				)}
+				<CloudOfflineNotice />
 				{state.phase === 'loading' && (
 					<div
 						style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}
@@ -189,7 +193,11 @@ export function Join() {
 							>
 								<Icon name="UserCircle" size="sm" />
 								<span style={{ flex: 1 }}>{t('join.signInPrompt')}</span>
-								<Button variant="secondary" onClick={() => auth.openAuthModal()}>
+								<Button
+									variant="secondary"
+									{...cloudActions.offlineProps}
+									onClick={() => auth.openAuthModal()}
+								>
 									{t('settings.account.signIn')}
 								</Button>
 							</div>
@@ -211,8 +219,11 @@ export function Join() {
 					<Button
 						variant="secondary"
 						icon="retry"
-						aria-disabled={state.phase === 'loading' || undefined}
-						title={state.phase === 'loading' ? t('join.checking') : undefined}
+						// Two reasons this can be unavailable, and the more specific one wins: mid-check
+						// says "checking", otherwise offline says why a retry cannot reach the server.
+						aria-disabled={state.phase === 'loading' || cloudActions.offline || undefined}
+						title={state.phase === 'loading' ? t('join.checking') : cloudActions.offlineProps.title}
+						data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
 						onClick={() => setRetryNonce((n) => n + 1)}
 					>
 						{t('join.tryAgain')}

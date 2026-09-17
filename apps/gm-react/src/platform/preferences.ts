@@ -202,6 +202,29 @@ export function isOnline(): boolean {
 }
 
 /**
+ * Subscribe to connectivity flips; `onChange` receives the new `isOnline()` value. Returns the
+ * unsubscribe function.
+ *
+ * Every cloud-only control reads its availability through this, so the listener pair is written
+ * once rather than re-derived per screen (RC-PLT-2.4). Note what the browser is actually telling
+ * us: `navigator.onLine` false is a reliable "there is no network interface", but true only means
+ * an interface exists — it is not a promise that any cloud service is reachable. So this drives
+ * the OFFLINE indicator and never suppresses a real request failure; a server error still
+ * surfaces as an error.
+ */
+export function subscribeOnline(onChange: (online: boolean) => void): () => void {
+	if (typeof window === 'undefined') return () => {};
+	const on = () => onChange(true);
+	const off = () => onChange(false);
+	window.addEventListener('online', on);
+	window.addEventListener('offline', off);
+	return () => {
+		window.removeEventListener('online', on);
+		window.removeEventListener('offline', off);
+	};
+}
+
+/**
  * Copy text to the clipboard. Resolves `false` when the capability is missing or the write is
  * denied so the caller can degrade honestly (show the text for manual copying) instead of
  * claiming a copy that never happened.

@@ -4,6 +4,7 @@ import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useAuth } from '../../cloud/AuthContext';
 import { listDevices, revokeAllSessions, revokeDevice, type Device } from '../../cloud/appApi';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import { errMsg } from './shared';
 /* ---- Account devices (REAL app-api — the remembered sign-ins and the global sign-out) ------------ */
 /** The user agent is turned into something a person recognizes. Browser names are brands and stay
@@ -57,6 +58,8 @@ export function AccountDevicesPanel() {
 			.catch(() => setFailed(true));
 	};
 	useEffect(load, []);
+	// Listing, forgetting and the global sign-out are all app-api round trips.
+	const cloudActions = useCloudActions('cloud.offline.devices');
 	const revoke = (deviceKey: string) => {
 		setBusy(true);
 		revokeDevice(deviceKey)
@@ -93,6 +96,7 @@ export function AccountDevicesPanel() {
 					size="sm"
 					icon="close"
 					disabled={busy}
+					{...cloudActions.offlineProps}
 					onClick={() => setSignOutOpen(true)}
 				>
 					{t('settings.devices.signOutEverywhere')}
@@ -102,6 +106,7 @@ export function AccountDevicesPanel() {
 			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
 				{t('settings.devices.intro')}
 			</div>
+			<CloudOfflineNotice />
 			{failed ? (
 				// Was dead text telling the user to reopen the tab; `load` is right here.
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -112,6 +117,7 @@ export function AccountDevicesPanel() {
 						variant="secondary"
 						size="sm"
 						icon="retry"
+						{...cloudActions.offlineProps}
 						onClick={() => {
 							setFailed(false);
 							load();
@@ -176,7 +182,13 @@ export function AccountDevicesPanel() {
 										: t('settings.devices.lastSeenUnknown')}
 								</div>
 							</div>
-							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(d)}>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={busy}
+								{...cloudActions.offlineProps}
+								onClick={() => setPendingRevoke(d)}
+							>
 								{t('settings.devices.forget')}
 							</Button>
 						</div>
@@ -204,6 +216,7 @@ export function AccountDevicesPanel() {
 							variant="danger"
 							size="sm"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => pendingRevoke && revoke(pendingRevoke.deviceKey)}
 						>
 							{busy ? t('settings.devices.forgetting') : t('settings.devices.forgetDevice')}
@@ -234,7 +247,13 @@ export function AccountDevicesPanel() {
 						>
 							{t('common.action.cancel')}
 						</Button>
-						<Button variant="danger" size="sm" disabled={busy} onClick={signOutEverywhere}>
+						<Button
+							variant="danger"
+							size="sm"
+							disabled={busy}
+							{...cloudActions.offlineProps}
+							onClick={signOutEverywhere}
+						>
 							{busy ? t('settings.devices.signingOut') : t('settings.devices.signOutEverywhere')}
 						</Button>
 					</>

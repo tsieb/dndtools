@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { useLocation } from 'react-router-dom';
 import { Button, Card, EmptyState, Icon, Input, Select } from '../ds';
 import { AppApiError, getPublicWiki, type PublicWiki, type WikiPage } from '../cloud/appApi';
+import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 import { useViewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
 import { renderMarkdown } from '../app/markdown/render';
@@ -93,6 +94,9 @@ export function WikiReader() {
 		return isThemePreset(current) ? current : 'parchment';
 	});
 	const [busy, setBusy] = useState(false);
+	// The whole surface is a fetch of hosted content: there is no local copy of somebody else's
+	// published wiki, so both the retry and the password unlock are cloud-only.
+	const cloudActions = useCloudActions('cloud.offline.wiki');
 	const [openSlug, setOpenSlug] = useState<string | null>(null);
 	const headingRef = useRef<HTMLHeadingElement | null>(null);
 	const shownSlug = useRef<string | null>(null);
@@ -160,8 +164,8 @@ export function WikiReader() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [wikiId]);
 	const submitPassword = () => {
-		// Enter must obey the same in-flight guard as the disabled button.
-		if (!password.trim() || busy) return;
+		// Enter must obey the same in-flight and offline guards as the button.
+		if (!password.trim() || busy || cloudActions.blocked) return;
 		fetchWiki(password.trim());
 	};
 	if (state.phase === 'loading') {
@@ -198,11 +202,13 @@ export function WikiReader() {
 					<div role="alert" style={BODY}>
 						{state.message}
 					</div>
+					<CloudOfflineNotice />
 					<Button
 						variant="primary"
 						style={{ minHeight: 'var(--space-12)' }}
 						icon="retry"
 						disabled={busy}
+						{...cloudActions.offlineProps}
 						onClick={() => {
 							setState({ phase: 'loading' });
 							fetchWiki();
@@ -249,11 +255,13 @@ export function WikiReader() {
 								: t('wikiReader.passwordWrongAgain', { count: state.failedAttempts })}
 						</div>
 					)}
+					<CloudOfflineNotice />
 					<Button
 						variant="primary"
 						style={{ minHeight: 'var(--space-12)' }}
 						icon="unlock"
 						disabled={busy || !password.trim()}
+						{...cloudActions.offlineProps}
 						onClick={submitPassword}
 					>
 						{busy ? t('wikiReader.checking') : t('wikiReader.openWiki')}

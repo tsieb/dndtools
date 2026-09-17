@@ -9,6 +9,7 @@ import {
 	type WikiPage,
 } from '../../cloud/appApi';
 import { getIdToken } from '../../cloud/auth';
+import { useCloudActions } from '../../cloud/offline';
 import { cloudConfig, isAccountApiConfigured } from '../../cloud/config';
 import { Badge, Button, EmptyState } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -84,6 +85,7 @@ export const wikiPublicUrl = (wikiId: string) => publicAppHashUrl('/wiki', { id:
 export function MarketplaceGate({ signInPrompt }: { signInPrompt: MessageKey }) {
 	const { t } = useI18n();
 	const auth = useAuth();
+	const signInActions = useCloudActions('cloud.offline.signIn');
 	if (!isAccountApiConfigured) {
 		return (
 			<Panel
@@ -107,7 +109,13 @@ export function MarketplaceGate({ signInPrompt }: { signInPrompt: MessageKey }) 
 				<div style={{ flex: '1 1 240px', font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t(signInPrompt)}
 				</div>
-				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>
+				<Button
+					variant="primary"
+					size="sm"
+					icon="UserCircle"
+					{...signInActions.offlineProps}
+					onClick={() => auth.openAuthModal()}
+				>
 					{t('community.market.signIn')}
 				</Button>
 			</div>

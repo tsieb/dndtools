@@ -1,4 +1,5 @@
 import { LoadingRegion, Panel, T, eb, radioGroupKeyDown } from '../../app/screen-kit';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import { isAccountApiConfigured } from '../../cloud/config';
 import { Badge, Button, Checkbox, Dialog, EmptyState, Icon, Input, Skeleton, Stat } from '../../ds';
 import { useI18n } from '../../i18n';
@@ -40,6 +41,9 @@ export function CommWiki() {
 		unpublish,
 		copyLink,
 	} = useWikiModel();
+	// Publish, republish and unpublish all hit app-api. `Copy link` is excluded on purpose: the URL
+	// is already in hand and copying it works fine with no network.
+	const cloudActions = useCloudActions('cloud.offline.wiki');
 	// The settings/publish column adapts to the tier; the reading preview is always shown.
 	let settings: React.ReactNode;
 	if (!isAccountApiConfigured) {
@@ -75,6 +79,7 @@ export function CommWiki() {
 						variant="primary"
 						size="sm"
 						icon="UserCircle"
+						{...cloudActions.offlineProps}
 						onClick={() => auth.openAuthModal()}
 					>
 						{t('community.market.signIn')}
@@ -130,7 +135,13 @@ export function CommWiki() {
 					title={t('community.wiki.loadFailed')}
 					description={t('community.discover.loadFailedBody')}
 					action={
-						<Button variant="secondary" size="sm" icon="retry" onClick={loadStatus}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="retry"
+							{...cloudActions.offlineProps}
+							onClick={loadStatus}
+						>
 							{t('common.action.retry')}
 						</Button>
 					}
@@ -252,9 +263,17 @@ export function CommWiki() {
 						)}
 					</div>
 				)}
+				<CloudOfflineNotice />
 				<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
 					{canPublish ? (
-						<Button variant="secondary" size="md" icon="upload" disabled={busy} onClick={publish}>
+						<Button
+							variant="secondary"
+							size="md"
+							icon="upload"
+							disabled={busy}
+							{...cloudActions.offlineProps}
+							onClick={publish}
+						>
 							{busy ? t('community.discover.working') : t('community.wiki.republish')}
 						</Button>
 					) : (
@@ -267,6 +286,7 @@ export function CommWiki() {
 						size="md"
 						icon="delete"
 						disabled={busy}
+						{...cloudActions.offlineProps}
 						onClick={() => setConfirmUnpublish(true)}
 					>
 						{t('community.wiki.unpublish')}
@@ -289,7 +309,14 @@ export function CommWiki() {
 							>
 								{t('common.action.cancel')}
 							</Button>
-							<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={unpublish}>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="delete"
+								disabled={busy}
+								{...cloudActions.offlineProps}
+								onClick={unpublish}
+							>
 								{busy ? t('community.wiki.unpublishing') : t('community.wiki.unpublishWiki')}
 							</Button>
 						</>
@@ -376,11 +403,13 @@ export function CommWiki() {
 				<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 					{t('community.wiki.publishNote')}
 				</div>
+				<CloudOfflineNotice />
 				<Button
 					variant="primary"
 					size="md"
 					icon="upload"
 					disabled={busy || pages.length === 0}
+					{...cloudActions.offlineProps}
 					onClick={publish}
 				>
 					{busy ? t('community.publish.publishing') : t('community.wiki.publishWiki')}

@@ -24,6 +24,7 @@ import { qrDataUrl } from '../../net/qr';
 import { publicAppBaseUrl, publicAppHashUrl } from '../../platform/publicAppUrl';
 import { copyToClipboard } from '../../platform/preferences';
 import { coDmSeatsForPlan, useEntitlements } from '../../cloud/entitlements';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import { errMsg } from './shared';
 /* ---- Player invites (REAL app-api when configured + signed in — server-minted join links) -------- */
 /** The web join link an invite token redeems at — the /join route outside the DM shell. */
@@ -50,6 +51,9 @@ export function InvitesPanel({
 	const [invites, setInvites] = useState<Invite[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [busy, setBusy] = useState(false);
+	// Listing, minting and revoking are app-api round trips. Copying an already-minted link is NOT
+	// — that is a clipboard write on a URL already in hand, so those two buttons stay ungated.
+	const cloudActions = useCloudActions('cloud.offline.invite');
 	const [campaignName, setCampaignName] = useState('');
 	const [note, setNote] = useState('');
 	const [role, setRole] = useState<'player' | 'co-dm'>('player');
@@ -152,6 +156,7 @@ export function InvitesPanel({
 	const [revokeBefore, revokeAfter = ''] = revokeSentence.split(revokeName);
 	return (
 		<Panel title={t('settings.invites.title')}>
+			{cloudReady ? <CloudOfflineNotice /> : null}
 			{!cloudReady ? (
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
 					{t('settings.invites.beforeAppIntro')}{' '}
@@ -170,6 +175,7 @@ export function InvitesPanel({
 						variant="secondary"
 						size="sm"
 						icon="retry"
+						{...cloudActions.offlineProps}
 						onClick={() => {
 							setFailed(false);
 							setInvites(null);
@@ -250,6 +256,7 @@ export function InvitesPanel({
 									variant="ghost"
 									size="sm"
 									disabled={busy}
+									{...cloudActions.offlineProps}
 									onClick={() => setPendingRevoke(v)}
 								>
 									{t('settings.invites.revoke')}
@@ -280,6 +287,7 @@ export function InvitesPanel({
 							variant="danger"
 							size="sm"
 							disabled={busy}
+							{...cloudActions.offlineProps}
 							onClick={() => pendingRevoke && revoke(pendingRevoke.inviteId)}
 						>
 							{busy ? t('settings.invites.revoking') : t('settings.invites.revokeInvite')}
@@ -312,7 +320,14 @@ export function InvitesPanel({
 							<Button variant="secondary" size="sm" disabled={busy} onClick={close}>
 								{t('common.action.cancel')}
 							</Button>
-							<Button variant="primary" size="sm" icon="send" disabled={busy} onClick={mint}>
+							<Button
+								variant="primary"
+								size="sm"
+								icon="send"
+								disabled={busy}
+								{...cloudActions.offlineProps}
+								onClick={mint}
+							>
 								{busy ? t('settings.invites.creating') : t('settings.invites.createInvite')}
 							</Button>
 						</>

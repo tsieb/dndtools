@@ -381,6 +381,23 @@ export const en = {
 	'status.online': 'Online',
 	'status.away': 'Away',
 	'status.offline': 'Offline',
+	/* RC-PLT-2.4 — the offline vocabulary shared by every cloud-only control. One generic reason
+	 * plus a specific one per action family, because a tooltip that names the action ("Publishing
+	 * needs a connection") is worth more than the same outage sentence repeated on 30 controls. */
+	'cloud.offline.notice':
+		'You’re offline. Your vault keeps working — the actions below need a connection and will resume when you reconnect.',
+	'cloud.offline.action': 'Needs a connection — you’re offline',
+	'cloud.offline.sync': 'Syncing needs a connection — you’re offline',
+	'cloud.offline.account': 'Account changes need a connection — you’re offline',
+	'cloud.offline.billing': 'Billing needs a connection — you’re offline',
+	'cloud.offline.publish': 'Publishing needs a connection — you’re offline',
+	'cloud.offline.install': 'Installing needs a connection — you’re offline',
+	'cloud.offline.invite': 'Invites need a connection — you’re offline',
+	'cloud.offline.devices': 'Device management needs a connection — you’re offline',
+	'cloud.offline.signIn': 'Signing in needs a connection — you’re offline',
+	'cloud.offline.docs': 'Connected documents need a connection — you’re offline',
+	'cloud.offline.calendar': 'Scheduling needs a connection — you’re offline',
+	'cloud.offline.wiki': 'The player wiki needs a connection — you’re offline',
 	'onboarding.dialogLabel': 'First-run setup',
 	'onboarding.skip': 'Skip setup',
 	'onboarding.stepCounter': 'Step {current} of {total}',

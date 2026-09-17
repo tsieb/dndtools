@@ -4,6 +4,7 @@ import { Badge, Button, Icon, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { PLAN_CARDS, useEntitlements } from '../../cloud/entitlements';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import {
 	billingConfigured,
 	billingInformsOnly,
@@ -22,6 +23,10 @@ export function SettingsSubscription() {
 	const navigate = useNavigate();
 	const ent = useEntitlements();
 	const [busy, setBusy] = useState(false);
+	// Only the Stripe portal is gated. The `navigate('/upgrade')` buttons are in-app routing and
+	// work perfectly offline — gating them would be theatre, and would hide a screen that honestly
+	// shows the last-known plan from cache.
+	const cloudActions = useCloudActions('cloud.offline.billing');
 	const current = PLAN_CARDS.find((p) => p.id === ent.plan) ?? PLAN_CARDS[0];
 	const live = billingConfigured(ent);
 	const checkoutMode = canStartCheckout(ent);
@@ -152,6 +157,7 @@ export function SettingsSubscription() {
 								size="sm"
 								icon="CreditCard"
 								disabled={busy}
+								{...cloudActions.offlineProps}
 								onClick={openPortal}
 							>
 								{t('settings.subscription.manageBilling')}
@@ -159,6 +165,7 @@ export function SettingsSubscription() {
 						) : undefined
 					}
 				>
+					<CloudOfflineNotice />
 					<div
 						data-testid="billing-phase"
 						style={{
@@ -279,6 +286,7 @@ export function SettingsSubscription() {
 											size="sm"
 											icon="CreditCard"
 											disabled={busy || !portalMode}
+											{...cloudActions.offlineProps}
 											onClick={openPortal}
 										>
 											{portalMode

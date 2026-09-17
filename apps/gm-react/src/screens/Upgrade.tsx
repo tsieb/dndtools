@@ -4,6 +4,7 @@ import { Button, Icon, Switch, Toaster } from '../ds';
 import { BackBar, Page, T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAccountApiConfigured } from '../cloud/config';
+import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 import { useI18n } from '../i18n';
 import { PlanStatus } from './upgrade/PlanStatus';
 import { PlanCards } from './upgrade/PlanCards';
@@ -51,6 +52,8 @@ export function Upgrade() {
 	const [confirmTo, setConfirmTo] = useState<PlanId | null>(null);
 	const [checkoutTo, setCheckoutTo] = useState<PaidPlanId | null>(null);
 	const [busy, setBusy] = useState(false);
+	const billingActions = useCloudActions('cloud.offline.billing');
+	const signInActions = useCloudActions('cloud.offline.signIn');
 	const [confirming, setConfirming] = useState(false);
 	const planId = ent.plan;
 	const priceStr = (p: PlanCard) =>
@@ -147,6 +150,12 @@ export function Upgrade() {
 	// Nudge, not a wall: the pricing page stays fully usable signed out (device-local choice),
 	// but signing in makes the simulated plan follow the account.
 	const showSignInNudge = isAccountApiConfigured && auth.status === 'signed-out';
+	// `setPlan` only crosses the network when an account backs it (`cloud/entitlements.ts`); signed
+	// out it writes a device-local preview plan, which works offline. So the gate follows that split
+	// rather than dimming a control that would have succeeded. `PlanCards` gates its CTAs on `busy`,
+	// so offline that disables exactly the cloud ones — every live-billing CTA (Checkout, portal)
+	// and a signed-in plan change — while the notice below says why.
+	const cardsOffline = billingActions.offline && (liveBilling || ent.serverBacked);
 
 	return (
 		<Page
@@ -253,6 +262,7 @@ export function Upgrade() {
 						size="sm"
 						icon="CreditCard"
 						disabled={busy}
+						{...billingActions.offlineProps}
 						onClick={openPortal}
 					>
 						{t('upgrade.manageBilling')}
@@ -301,9 +311,22 @@ export function Upgrade() {
 					<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 						{t('upgrade.signInNudge')}
 					</span>
-					<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>
+					<Button
+						variant="secondary"
+						size="sm"
+						{...signInActions.offlineProps}
+						onClick={() => auth.openAuthModal()}
+					>
 						{t('settings.account.signIn')}
 					</Button>
+				</div>
+			)}
+
+			{/* Signed out, this page is a device-local plan preview that works offline — saying the
+			    actions below need a connection would be false there. Only claim it when one does. */}
+			{(liveBilling || ent.serverBacked) && (
+				<div style={{ margin: `${T.space.three} auto 0`, maxWidth: 560 }}>
+					<CloudOfflineNotice />
 				</div>
 			)}
 
@@ -350,7 +373,7 @@ export function Upgrade() {
 					ent,
 					planId,
 					currentPrice,
-					busy,
+					busy: busy || cardsOffline,
 					liveBilling,
 					subscribed,
 					portalMode,

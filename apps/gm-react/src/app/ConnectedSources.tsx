@@ -35,6 +35,7 @@ import {
 	touchGdocConnection,
 	type GdocConnection,
 } from '../cloud/googleDocs';
+import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 
 /**
  * ConnectedSources — the vault-source panel (WS-7, product decision E): LOCAL FOLDERS via the File
@@ -137,6 +138,8 @@ export function ConnectedSourcesPanel() {
 	const [busy, setBusy] = useState<string | null>(null);
 	const [policy, setPolicy] = useState('skip');
 	const [pendingPush, setPendingPush] = useState<PendingPush | null>(null);
+	// RC-PLT-2.4: only the Google half is cloud-only; folder handles stay live offline.
+	const cloudActions = useCloudActions('cloud.offline.docs');
 	const [disconnectTarget, setDisconnectTarget] = useState<DisconnectTarget | null>(null);
 	const googleRuntimeSupported = isGoogleDocsRuntimeSupported(
 		window.location.protocol,
@@ -558,6 +561,7 @@ export function ConnectedSourcesPanel() {
 								size="sm"
 								icon="check"
 								disabled={busy !== null}
+								{...(pendingPush.kind === 'gdoc' ? cloudActions.offlineProps : {})}
 								onClick={() => void executePush(pendingPush)}
 							>
 								{pendingPush.plan.requiresAcknowledgment
@@ -717,6 +721,7 @@ export function ConnectedSourcesPanel() {
 					gap: 10,
 				}}
 			>
+				{isGoogleDocsConfigured && <CloudOfflineNotice body="cloud.offline.docs" />}
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 					<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink, flex: 1 }}>
 						{t('sources.googleDocs')}
@@ -739,6 +744,7 @@ export function ConnectedSourcesPanel() {
 								variant="secondary"
 								size="sm"
 								disabled={busy !== null}
+								{...cloudActions.offlineProps}
 								onClick={() => void signInGoogle()}
 							>
 								{t('sources.signInGoogle')}
@@ -774,6 +780,7 @@ export function ConnectedSourcesPanel() {
 								size="sm"
 								icon="add"
 								disabled={busy !== null || !googleSignedIn}
+								{...cloudActions.offlineProps}
 								onClick={() => void createNewDoc()}
 							>
 								{t('sources.createDoc')}
@@ -831,6 +838,7 @@ export function ConnectedSourcesPanel() {
 											size="sm"
 											icon="import"
 											disabled={busy !== null}
+											{...cloudActions.offlineProps}
 											onClick={() => void pullGdoc(conn)}
 										>
 											{t('sources.pullNotes')}
@@ -840,6 +848,7 @@ export function ConnectedSourcesPanel() {
 											size="sm"
 											icon="send"
 											disabled={busy !== null}
+											{...cloudActions.offlineProps}
 											onClick={() => startGdocPush(conn)}
 										>
 											{t('sources.pushNotes')}

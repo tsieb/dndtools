@@ -10,6 +10,7 @@ import {
 	isGoogleCalendarSignedIn,
 	rosterAttendeeEmails,
 } from '../../cloud/googleCalendar';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 
 // ── Schedule next session (cloud-tier roadmap P2 #8, Calendar half — metadata only) ───────────────
 
@@ -27,6 +28,8 @@ export function SchedulePanel() {
 	const [reminder, setReminder] = useState('60');
 	const [note, setNote] = useState('');
 	const [busy, setBusy] = useState(false);
+	// Creating the event calls Google Calendar; there is no local calendar to fall back to.
+	const cloudActions = useCloudActions('cloud.offline.calendar');
 	const [link, setLink] = useState('');
 	const emails = useMemo(rosterAttendeeEmails, []);
 
@@ -135,8 +138,13 @@ export function SchedulePanel() {
 						: t('session.schedule.noRosterEmails')}{' '}
 					{t('session.schedule.metadataOnly')}
 				</div>
+				<CloudOfflineNotice />
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-					<Button onClick={() => void create()} disabled={!start || busy}>
+					<Button
+						{...cloudActions.offlineProps}
+						onClick={() => void create()}
+						disabled={!start || busy}
+					>
 						{t(busy ? 'session.schedule.scheduling' : 'session.schedule.create')}
 					</Button>
 					{link && (

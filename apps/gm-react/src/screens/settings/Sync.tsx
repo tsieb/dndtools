@@ -7,6 +7,7 @@ import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { downloadJsonFile, fileDateStamp } from '../../platform/download';
 import { pickTextFile } from '../../platform/filePick';
 import { isOnline } from '../../platform/preferences';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import {
 	MAX_VAULT_BACKUP_FILE_BYTES,
 	exportFullVault,
@@ -60,6 +61,8 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 	const ent = useEntitlements();
 	const [busy, setBusy] = useState(false);
 	const [restoreOpen, setRestoreOpen] = useState(false);
+	// Every control below this point is a cloud round trip: enabling sync, pushing, restoring.
+	const cloudActions = useCloudActions('cloud.offline.sync');
 
 	if (!cloud.available) {
 		return (
@@ -158,17 +161,23 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						// `disabled` disabled the control under the user's focus and the browser dropped
 						// focus to `<body>` mid-toggle. The durable `!canEnable` gate stays native.
 						disabled={!canEnable}
-						aria-disabled={busy || undefined}
+						aria-disabled={busy || cloudActions.offline || undefined}
+						title={cloudActions.offlineProps.title}
+						data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
 						aria-label={t('settings.sync.cloudRow')}
-						onChange={() =>
+						onChange={() => {
+							// Switch is not a DS Button, so it does not swallow its own activation when
+							// soft-disabled — the offline guard has to live in the handler.
+							if (cloudActions.blocked) return;
 							void run(
 								() => (cloud.enabled ? cloud.disable() : cloud.enable()),
 								t(cloud.enabled ? 'settings.sync.turnedOff' : 'settings.sync.turnedOn'),
-							)
-						}
+							);
+						}}
 					/>
 				}
 			/>
+			<CloudOfflineNotice />
 			{cloud.enabled && canEnable ? (
 				<div
 					role="status"
@@ -220,6 +229,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						size="sm"
 						icon="retry"
 						disabled={busy || es?.busy}
+						{...cloudActions.offlineProps}
 						onClick={() => void syncNow()}
 					>
 						{t('settings.sync.syncNow')}
@@ -229,6 +239,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						size="sm"
 						icon="download"
 						disabled={busy || es?.busy}
+						{...cloudActions.offlineProps}
 						onClick={() => setRestoreOpen(true)}
 					>
 						{t('settings.sync.restoreDevice')}
@@ -259,6 +270,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 									variant="danger"
 									size="sm"
 									disabled={busy}
+									{...cloudActions.offlineProps}
 									onClick={() => {
 										setRestoreOpen(false);
 										void run(cloud.restore, t('settings.sync.restored'));

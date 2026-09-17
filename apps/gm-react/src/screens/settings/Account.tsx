@@ -6,6 +6,7 @@ import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { useAuth } from '../../cloud/AuthContext';
 import { forgetCloudSyncAccount } from '../../cloud/cloudSync';
 import { isAccountApiConfigured } from '../../cloud/config';
+import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
 import {
 	deleteAccount as apiDeleteAccount,
 	exportAccountData,
@@ -29,6 +30,8 @@ function AccountProfilePanel() {
 	const [draft, setDraft] = useState('');
 	const [busy, setBusy] = useState(false);
 	const [reloadKey, setReloadKey] = useState(0);
+	// The profile read, the retry and the display-name save are all app-api round trips.
+	const cloudActions = useCloudActions('cloud.offline.account');
 	useEffect(() => {
 		let cancelled = false;
 		// Reset on every attempt: without this a retry that succeeds still painted the failure copy,
@@ -71,6 +74,7 @@ function AccountProfilePanel() {
 				</Badge>
 			}
 		>
+			<CloudOfflineNotice />
 			{failed ? (
 				// "reopen this tab" was the only way out of this state, while the sibling device and
 				// export panels in this same file both offer a Retry. Now it does too.
@@ -85,6 +89,7 @@ function AccountProfilePanel() {
 						variant="secondary"
 						size="sm"
 						icon="retry"
+						{...cloudActions.offlineProps}
 						onClick={() => setReloadKey((n) => n + 1)}
 					>
 						{t('common.action.retry')}
@@ -103,7 +108,14 @@ function AccountProfilePanel() {
 									aria-label={t('settings.account.displayName')}
 									maxLength={60}
 								/>
-								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
+								<Button
+									variant="primary"
+									size="sm"
+									icon="check"
+									disabled={busy}
+									{...cloudActions.offlineProps}
+									onClick={save}
+								>
 									{t('common.action.save')}
 								</Button>
 								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>
@@ -151,6 +163,8 @@ function AccountDangerPanel() {
 	const [busy, setBusy] = useState(false);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [phrase, setPhrase] = useState('');
+	// Data export and account deletion both happen server-side; neither has a local fallback.
+	const cloudActions = useCloudActions('cloud.offline.account');
 	// The confirmation phrase is copy, not a magic token: a Spanish reader is asked to type the
 	// Spanish sentence they can see on screen, and the comparison reads the same catalog entry.
 	const deletePhrase = t('settings.account.deletePhrase');
@@ -223,6 +237,7 @@ function AccountDangerPanel() {
 			title={t('settings.account.dangerZone')}
 			style={{ borderColor: 'var(--color-status-error-border)' }}
 		>
+			<CloudOfflineNotice />
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px' }}>
 					<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.account.dangerHeading')}</div>
@@ -230,7 +245,14 @@ function AccountDangerPanel() {
 						{t('settings.account.dangerBody')}
 					</div>
 				</div>
-				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={exportData}>
+				<Button
+					variant="secondary"
+					size="sm"
+					icon="download"
+					disabled={busy}
+					{...cloudActions.offlineProps}
+					onClick={exportData}
+				>
 					{t('settings.account.download')}
 				</Button>
 				<Button
@@ -238,6 +260,7 @@ function AccountDangerPanel() {
 					size="sm"
 					icon="trash"
 					disabled={busy}
+					{...cloudActions.offlineProps}
 					onClick={() => {
 						setPhrase('');
 						setConfirmOpen(true);
@@ -272,6 +295,7 @@ function AccountDangerPanel() {
 							size="sm"
 							icon="trash"
 							disabled={busy || phrase.trim().toLowerCase() !== deletePhrase}
+							{...cloudActions.offlineProps}
 							onClick={destroy}
 						>
 							{busy ? t('settings.account.deleting') : t('settings.account.deleteForever')}
@@ -302,6 +326,7 @@ function AccountDangerPanel() {
 function CloudAccountGate() {
 	const { t } = useI18n();
 	const auth = useAuth();
+	const cloudActions = useCloudActions('cloud.offline.signIn');
 	if (!isAccountApiConfigured) {
 		return (
 			<Panel
@@ -319,11 +344,18 @@ function CloudAccountGate() {
 			title={t('settings.account.cloudAccount')}
 			action={<Badge status="neutral">{t('settings.account.signedOut')}</Badge>}
 		>
+			<CloudOfflineNotice />
 			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
 					{t('settings.account.signedOutBody')}
 				</div>
-				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>
+				<Button
+					variant="primary"
+					size="sm"
+					icon="UserCircle"
+					{...cloudActions.offlineProps}
+					onClick={() => auth.openAuthModal()}
+				>
 					{t('settings.account.signIn')}
 				</Button>
 			</div>
