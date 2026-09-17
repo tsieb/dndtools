@@ -523,11 +523,72 @@ export async function listQuarantinedDocuments(): Promise<QuarantinedDocument[]>
 	return records.map((record) => record.doc as QuarantinedDocument);
 }
 
+/**
+ * Probe one persisted document through the SAME hydration `loadCoreState` runs on it.
+ *
+ * Container validation alone cannot decide whether a document is loadable. Most slices are
+ * finished by a core hydrator that walks NESTED records — `hydrateSystemsState` clones every
+ * system package field by field, `ensureVaultContentState` re-normalizes every saved search,
+ * `ensureSceneCardState` walks the card queue — and a nested value of the wrong shape throws
+ * there, well past `trustedPersistedDocument`, which only inspects top-level containers. The
+ * quarantine pass has to see exactly what the load would see, or nested corruption stays fatal
+ * and is never recorded (the whole vault refuses to open with nothing listed to recover).
+ *
+ * Hydrators are pure and the record came from `documents.get`, which already deserialized a
+ * private copy, so probing cannot disturb the payload we may be about to quarantine.
+ */
+function probePersistedDocument(
+	record: DocumentRecord | undefined,
+	documentId: DurableStateDocumentId,
+	widgetPackageDoc: unknown,
+): void {
+	const document = trustedPersistedDocument<Record<string, unknown>>(record, documentId);
+	if (!document) return;
+	switch (documentId) {
+		case 'session': {
+			const session = document as unknown as SessionState;
+			ensureSessionCombatState(session.combat);
+			ensureSessionAudioState(session.audioPlayback);
+			ensureCalendarContinuityState(session.calendarContinuity);
+			ensureSceneCardState(session.sceneCards);
+			break;
+		}
+		case 'widgets':
+			mergeSystemWidgetPackages(document as unknown as WidgetPackageState);
+			break;
+		case 'content':
+			ensureVaultContentState(document as unknown as VaultContentState);
+			break;
+		case 'encounters':
+			ensureEncounterState(document as unknown as EncounterState);
+			break;
+		case 'audio':
+			ensureAudioState(document as unknown as AudioState);
+			break;
+		case 'mcp':
+			ensureMcpPolicyState(document as unknown as McpPolicyState);
+			break;
+		case 'systems':
+			hydrateSystemsState(
+				document as unknown as SystemsState,
+				widgetPackageDoc as { activeSystemPackageId?: string | null } | undefined,
+			);
+			break;
+		// scenes / maps / permissions / commandCenter / characters are hydrated by container
+		// defaulting alone, which `trustedPersistedDocument` above already covered.
+		default:
+			break;
+	}
+}
+
 /** Keep the original structured-clone payload until the DM explicitly resets the vault. */
 async function quarantineDamagedDocuments(): Promise<void> {
 	const database = db();
 	await database.transaction('rw', database.documents, async () => {
 		const damaged: Array<{ record: DocumentRecord; reason: string }> = [];
+		// The systems document's hydrator reads the legacy active-package carrier off the widget
+		// document, so the probe needs it in hand before the per-document loop.
+		const widgetPackageDoc = (await database.documents.get(WIDGET_PACKAGE_STATE_KEY))?.doc;
 		for (const id of DURABLE_STATE_DOCUMENT_IDS) {
 			const record = await database.documents.get(DOCUMENT_KEY_BY_ID[id]);
 			// A future version is an upgrade requirement, never corruption to replace with defaults.
@@ -539,7 +600,7 @@ async function quarantineDamagedDocuments(): Promise<void> {
 				trustedPersistedDocument(record, id);
 			}
 			try {
-				trustedPersistedDocument(record, id);
+				probePersistedDocument(record, id, widgetPackageDoc);
 			} catch (error) {
 				if (record) damaged.push({ record, reason: String(error) });
 			}

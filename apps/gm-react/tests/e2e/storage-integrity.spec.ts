@@ -19,7 +19,19 @@ test('a corrupted fixture opens the vault and exports its quarantined original',
 			request.onsuccess = () => {
 				const db = request.result;
 				const tx = db.transaction('documents', 'readwrite');
-				tx.objectStore('documents').put({ key: 'content-state', doc: '{"items":' });
+				const documents = tx.objectStore('documents');
+				// Two shapes of damage in one fixture: a document that is not an object at all, and
+				// one whose containers are intact but whose NESTED system package is malformed —
+				// the latter only surfaces inside the core hydrator, past container validation.
+				documents.put({ key: 'content-state', doc: '{"items":' });
+				documents.put({
+					key: 'systems-state',
+					doc: {
+						schemaVersion: 1,
+						activePackageId: 'homebrew',
+						packages: { homebrew: { id: 'homebrew', attributes: 'not-an-array' } },
+					},
+				});
 				tx.oncomplete = () => {
 					db.close();
 					setTimeout(resolve, 0);
@@ -33,6 +45,7 @@ test('a corrupted fixture opens the vault and exports its quarantined original',
 	await waitReady(page);
 	await expect(page.getByText('Quarantined documents', { exact: true })).toBeVisible();
 	await expect(page.getByText('content-state', { exact: true })).toBeVisible();
+	await expect(page.getByText('systems-state', { exact: true })).toBeVisible();
 	await expect(page.getByRole('alert').filter({ hasText: '80%' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Free space', exact: true })).toBeVisible();
 	const downloadPromise = page.waitForEvent('download');
@@ -46,4 +59,5 @@ test('a corrupted fixture opens the vault and exports its quarantined original',
 	await page.reload();
 	await waitReady(page);
 	await expect(page.getByText('content-state', { exact: true })).toBeVisible();
+	await expect(page.getByText('systems-state', { exact: true })).toBeVisible();
 });

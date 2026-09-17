@@ -118,7 +118,15 @@ invalid or denied estimates remain unknown. Free space prunes only rebuildable e
 from `assetBlobs`; campaign images/audio and quarantined originals are retained. Estimates cover
 the origin, so cache pruning may not clear the alert if other site data dominates usage.
 
-Before hydration, each durable document is validated. A damaged document moves atomically to a
+Before hydration, each durable document is validated by running the same hydration the load path
+would run on it: the container checks **and** the core hydrator that finishes that slice
+(`hydrateSystemsState`, `ensureVaultContentState`, `ensureEncounterState`, `ensureAudioState`,
+`ensureMcpPolicyState`, `mergeSystemWidgetPackages`, and the session's combat/audio/calendar/scene-card
+hydrators). Container checks alone only inspect top-level shape, so a document whose containers are
+intact but whose NESTED record is malformed — a system package with a non-array `attributes`, an
+encounter entry list that is not a list, an audio asset with a non-iterable waveform — would
+otherwise throw past validation and make the whole vault unopenable with nothing listed to recover.
+A damaged document moves atomically to a
 unique `quarantine:` record in the existing `documents` table, preserving its original payload,
 source key, timestamp and reason. Only after this transaction commits does its absent slice hydrate
 with safe defaults; healthy slices continue loading. A quota error aborts the move without deleting
