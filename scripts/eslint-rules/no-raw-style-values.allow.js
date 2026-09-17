@@ -203,7 +203,7 @@ export const allow = {
 	'apps/gm-react/src/screens/knowledge/NoteViewer.tsx': 9,
 	'apps/gm-react/src/screens/knowledge/SavedSearches.tsx': 9,
 	'apps/gm-react/src/screens/knowledge/Templates.tsx': 14,
-	'apps/gm-react/src/screens/play/Dice.tsx': 17,
+	'apps/gm-react/src/screens/play/Dice.tsx': 15,
 	'apps/gm-react/src/screens/play/Elevated.tsx': 20,
 	'apps/gm-react/src/screens/play/Frame.tsx': 28,
 	'apps/gm-react/src/screens/play/Handouts.tsx': 9,

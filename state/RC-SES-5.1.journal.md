@@ -238,3 +238,61 @@ join, which the e2e suite does not stand up (`collab: the DM host panel` asserts
 presence→`peer.ready` mapping behind them is covered by `net/sessionStatus.test.ts`; the rendering is
 not, and this app has no component-render harness (no `@testing-library/react`) to add one cheaply.
 Left as a follow-up rather than pulled in here.
+
+## Revision 3 — the emphasis lint the rebase brought with it (2026-09-17)
+
+The branch was rebased onto a newer base (`dd7cd001`), which added `pnpm lint:emphasis` to the root
+`lint` script. That gate did not exist when revision 2 ran its gates, so the failure is genuinely new
+to this branch rather than something revision 2 missed — and it is caused by this story's change:
+
+```
+apps/gm-react/src/screens/play/Dice.tsx  multiple-accent-primaries  1 > 0
+  Dice.tsx:110  2 accent-filled primaries can show at once in DiceSection
+  (<button> with an accent fill at line 69, <InitiativeCallCard> (shared.tsx:346) at line 110).
+```
+
+RC-SES-5.1 put `InitiativeCallCard` (whose roll button is `<Button variant="primary">`) on the Dice
+tab, which already painted an accent FILL on the active segment of its hand-rolled d20-mode toggle.
+Two gold fills in one region, and Dice.tsx's baseline for the rule is 0.
+
+### What was rejected
+
+Passing the variant through a prop (`variant={emphasis}`) would have silenced the gate without fixing
+anything: `attrLeaves` only reads string literals through ternaries and `||`/`??`, so an identifier
+resolves to `[]` and the card would stop counting as a primary ANYWHERE, including on the Stage where
+it legitimately is one. Raising `scripts/emphasis-baseline.json` is likewise not available — the lint's
+own header says the baseline may only shrink and `--write` refuses to raise an entry.
+
+### What was done
+
+The d20-mode toggle was a bespoke `<button aria-pressed>` trio with `background: T.acc` on the active
+one. Replaced with screen-kit's `Seg`, which the lint's rule doc names as the sanctioned tinted
+alternative ("the subtle accent … is a tint, not a fill" — `Seg` paints `T.accSub`). So the single
+primary in the region is the initiative roll, which is the right one: it is the DM-called, time-boxed
+action, while the d20 mode is a selection, not an action. `Seg` is also a real ARIA radiogroup with
+roving tabindex and arrow-key movement, which the hand-rolled trio was not, so this is an
+accessibility gain rather than a lint dodge. Nothing in the test corpus selected the old buttons
+(checked `tests/e2e` and the unit suites for the d20-mode labels).
+
+Removing the bespoke control dropped Dice.tsx from 17 raw style values to 15, which tripped the
+`dsn/no-raw-style-values` ratchet ("lower it … so the allow-list keeps shrinking"). Lowered that one
+entry to 15. `scripts/eslint-rules/no-raw-style-values.allow.js` is outside `Owns`; the edit is a
+single number and is the ratchet's own instruction on an owned-file change, so it is flagged here
+rather than worked around.
+
+`scripts/emphasis-baseline.json` is deliberately NOT touched. The run still prints "1 baseline entry
+is above the current count" for `display-face-below-24px` (83 vs 84) — that note predates this branch
+(it is in the failing log at `cfc1cea2` too), is informational, and the entry is not this story's.
+
+### Gates re-run on this revision
+
+- `pnpm lint`: exit 0 — raw-style count, eslint (0 errors, 15 pre-existing warnings), boundary lint,
+  emphasis lint (`multiple-accent-primaries` back to 61 = baseline; Dice.tsx no longer listed) and the
+  non-text contrast gate all pass. `pnpm gates`: exit 0. `pnpm typecheck`: exit 0.
+- `pnpm format:check:changed`: exit 0. `pnpm build`: exit 0; `check-prod-bundle: OK`.
+- `pnpm --filter @dndtools/core test`: 276 files, 4830 passed. `pnpm test:app`: 134 files, 1481 passed.
+  `pnpm test:cloud`: 38 files, 499 passed. (Counts are above revision 2's because the rebase brought in
+  newer main work.)
+- Playwright `collab.spec.ts` + `dice-tray.spec.ts` + `a11y-axe-gate.spec.ts`, both projects (port 6231,
+  checked free and outside the 5300–5899 derived range): 80 passed. The initiative acceptance passes on
+  desktop-chromium and mobile-chromium, and the whole dice-tray suite passes over the swapped control.
