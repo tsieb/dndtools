@@ -125,6 +125,11 @@ export interface InitiativeCallView {
 	/** Visible character rows whose initiative is in, out of how many owe one. */
 	rolledCount: number;
 	owedCount: number;
+	/**
+	 * How many characters in this fight the viewer holds `combat-participant` on. Above one, `rolled`
+	 * reports only the character named here, so the card says which one it means.
+	 */
+	heldCount: number;
 }
 
 export interface PlayerData {
@@ -291,9 +296,9 @@ function buildInitiativeCall(
 	const actor = state.permissions.actors[viewer];
 	const owed = combat.combatants.filter((c) => c.kind === 'character' && !c.redacted);
 	// Only a PLAYER rolls from here: a co-DM holds every character by authority, not by grant.
-	const own =
+	const held =
 		actor?.role === 'player'
-			? (owed.find(
+			? owed.filter(
 					(c) =>
 						c.characterId !== null &&
 						hasGrantedCapability(
@@ -303,8 +308,13 @@ function buildInitiativeCall(
 							c.characterId,
 							'combat-participant',
 						),
-				) ?? null)
-			: null;
+				)
+			: [];
+	// A player can hold SEVERAL characters in one fight. Offer the next one still owing an initiative
+	// rather than the first in tracker order, or the card would keep naming a character who has already
+	// rolled and hide the button on the ones who have not. Once every held row is in, fall back to the
+	// last so the card reports a result instead of going blank.
+	const own = held.find((c) => !initiativeIsIn(combat, c.id)) ?? held[held.length - 1] ?? null;
 	const dex = own?.characterId
 		? state.characters.characters[own.characterId]?.abilityScores?.dex
 		: undefined;
@@ -317,6 +327,7 @@ function buildInitiativeCall(
 		rolled: own && initiativeIsIn(combat, own.id) ? own.statBlock.initiative : null,
 		rolledCount: owed.filter((c) => initiativeIsIn(combat, c.id)).length,
 		owedCount: owed.length,
+		heldCount: held.length,
 	};
 }
 

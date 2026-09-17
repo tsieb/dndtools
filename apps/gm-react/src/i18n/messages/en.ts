@@ -1080,6 +1080,8 @@ export const en = {
 	'play.initiative.prompt': 'Your {gm} called for initiative. Roll for {name}.',
 	'play.initiative.roll': 'Roll initiative (d20 {modifier})',
 	'play.initiative.rolled': 'You rolled {total}. Your {gm} starts the fight once everyone is in.',
+	'play.initiative.rolledFor':
+		'You rolled {total} for {name}. Your {gm} starts the fight once everyone is in.',
 	'play.initiative.watching':
 		'{rolled} of {total, plural, one {# character} other {# characters}} rolled.',
 	'play.initiative.sent': 'Initiative roll sent to your {gm}',

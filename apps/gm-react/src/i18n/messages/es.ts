@@ -1104,6 +1104,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.initiative.roll': 'Tirar iniciativa (d20 {modifier})',
 	'play.initiative.rolled':
 		'Sacaste {total}. Tu {gm} empieza el combate cuando todos hayan tirado.',
+	'play.initiative.rolledFor':
+		'Sacaste {total} por {name}. Tu {gm} empieza el combate cuando todos hayan tirado.',
 	'play.initiative.watching':
 		'{rolled} de {total, plural, one {# personaje} other {# personajes}} han tirado.',
 	'play.initiative.sent': 'Tirada de iniciativa enviada a tu {gm}',

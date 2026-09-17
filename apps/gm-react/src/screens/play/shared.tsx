@@ -328,7 +328,12 @@ export function InitiativeCallCard({
 				<div style={{ font: `700 14px ${T.sans}`, color: T.ink }}>{t('play.initiative.title')}</div>
 				<div style={{ marginTop: T.space.half, font: `12.5px ${T.sans}`, color: T.sub }}>
 					{call.rolled !== null
-						? t('play.initiative.rolled', { total: call.rolled })
+						? call.heldCount > 1 && call.combatantName
+							? t('play.initiative.rolledFor', {
+									total: call.rolled,
+									name: call.combatantName,
+								})
+							: t('play.initiative.rolled', { total: call.rolled })
 						: call.combatantName
 							? t('play.initiative.prompt', { name: call.combatantName })
 							: t('play.initiative.watching', {

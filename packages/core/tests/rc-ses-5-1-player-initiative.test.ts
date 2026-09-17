@@ -297,6 +297,47 @@ describe('RC-SES-5.1 a player rolls from their own device', () => {
 		);
 	});
 
+	it('a roll still in flight cannot overwrite an initiative the DM has already set', () => {
+		const { state, env, mine } = callSetup();
+		// The DM finalizes Wren's row while that player's roll request is in flight.
+		const adjusted = accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: mine, kind: 'initiative', value: 50 },
+			}),
+		).nextState;
+		const late = rejected(roll(adjusted, env, PLAYER_ACTOR.id, mine));
+		expect(late.rejection.code).toBe('invalid-state');
+		expect(late.rejection.message).toContain('already set');
+		expect(initiativeOf(adjusted, mine)).toBe(50);
+
+		// The DM keeps the row: their own adjustment is never closed out by the same guard.
+		const again = accept(
+			dispatch(adjusted, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: mine, kind: 'initiative', value: 12 },
+			}),
+		).nextState;
+		expect(initiativeOf(again, mine)).toBe(12);
+	});
+
+	it('a plain position nudge leaves the row still owing a roll', () => {
+		const { state, env, mine } = callSetup();
+		// `combat.reorder-combatant` logs a reorder with a NULL delta — it moves the row without
+		// deciding an initiative, so the player may still roll.
+		const nudged = accept(
+			dispatch(state, env, {
+				type: 'combat.reorder-combatant',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: mine, direction: 'later' },
+			}),
+		).nextState;
+		expect(nudged.session.combat.log.at(-1)!.delta).toBeNull();
+		expect(accept(roll(nudged, env, PLAYER_ACTOR.id, mine)).status).toBe('accepted');
+	});
+
 	it('refuses a modifier outside the bound and a payload carrying both shapes', () => {
 		const { state, env, mine } = callSetup();
 		expect(rejected(roll(state, env, PLAYER_ACTOR.id, mine, 21)).rejection.code).toBe(

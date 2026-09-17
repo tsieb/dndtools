@@ -206,6 +206,7 @@ describe('RC-SES-5.1 — the call in the player view-model', () => {
 			rolled: null,
 			rolledCount: 0,
 			owedCount: 2,
+			heldCount: 1,
 		});
 		expect(data.round).toBeNull();
 		expect(data.activeName).toBeNull();
@@ -217,6 +218,54 @@ describe('RC-SES-5.1 — the call in the player view-model', () => {
 		expect(buildPlayerData(state, SECOND_PLAYER.id).initiativeCall?.combatantId).toBe(theirs);
 		// An observer watches the call; there is nothing for them to roll.
 		expect(buildPlayerData(state, OBSERVER_ACTOR.id).initiativeCall?.combatantId).toBeNull();
+	});
+
+	it('walks a player who holds several characters through every roll they owe', () => {
+		const { env, state, mine, theirs } = campaignInCall();
+		// The DM hands this one player BOTH characters in the fight.
+		const shared = dispatchCommand(state, env, {
+			type: 'permission.grant-capability-set',
+			actorId: DM_ACTOR.id,
+			payload: {
+				entityType: 'character',
+				entityId: state.session.combat.combatants[theirs]!.characterId,
+				playerActorId: PLAYER_ACTOR.id,
+				capabilitySet: 'combat-participant',
+			},
+		});
+		if (shared.status !== 'accepted') throw new Error(shared.rejection.message);
+
+		const first = buildPlayerData(shared.nextState, PLAYER_ACTOR.id).initiativeCall!;
+		expect(first.combatantId).toBe(mine);
+		expect(first.heldCount).toBe(2);
+
+		// Roll the FIRST character high enough to sort above the second, so tracker order alone would
+		// keep re-offering the character who is already done.
+		const rolled = dispatchCommand(shared.nextState, env, {
+			type: 'combat.apply-resource',
+			actorId: PLAYER_ACTOR.id,
+			payload: { combatantId: mine, kind: 'initiative', roll: { modifier: 20 } },
+		});
+		if (rolled.status !== 'accepted') throw new Error(rolled.rejection.message);
+
+		// The card now names the character still owing a roll, and still offers the button.
+		const next = buildPlayerData(rolled.nextState, PLAYER_ACTOR.id).initiativeCall!;
+		expect(next.combatantId).toBe(theirs);
+		expect(next.combatantName).toBe('Tamsin');
+		expect(next.rolled).toBeNull();
+
+		const both = dispatchCommand(rolled.nextState, env, {
+			type: 'combat.apply-resource',
+			actorId: PLAYER_ACTOR.id,
+			payload: { combatantId: theirs, kind: 'initiative', roll: { modifier: 0 } },
+		});
+		if (both.status !== 'accepted') throw new Error(both.rejection.message);
+
+		// With everything in, the card reports a result rather than going blank.
+		const done = buildPlayerData(both.nextState, PLAYER_ACTOR.id).initiativeCall!;
+		expect(done.rolled).not.toBeNull();
+		expect(done.rolledCount).toBe(2);
+		expect(done.owedCount).toBe(2);
 	});
 
 	it('reports the roll once it is in, and disappears when round 1 begins', () => {

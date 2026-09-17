@@ -177,3 +177,64 @@ Owned: `packages/core/src/commands/combat.ts`, `apps/gm-react/src/net`, `apps/gm
   the formula scope defined.
 - Readiness stays a presence side-channel, shown only on a hosting DM's tracker; a solo device has
   no remote roster to show.
+
+## Revision 2 — the two defects independent review reproduced (2026-09-17)
+
+Review of `910ef3e8` requested changes on two behavioural defects, each with a saved deterministic
+reproduction. Both are fixed here; the reviewer's own `reproduce.ts` was re-run unchanged against the
+fixed tree and now reports the expected results.
+
+### 1 · A late player roll could overwrite an initiative the DM had already set (core)
+
+`handleCombatantInitiative`'s once-only guard tested for a prior `roll` log entry ONLY. A DM-set value
+is logged as a `combatant-reordered` entry carrying the initiative in `delta`, so the guard did not see
+it: a roll request still in flight when the DM finalized the row landed afterwards and replaced the
+DM's number (reproduction: DM sets 50, player's roll lands, row becomes 20 and moves).
+
+The guard now closes a row on either signal — a `roll`, or a `combatant-reordered` with a non-null
+`delta` — which is exactly the predicate the view-model's `initiativeIsIn` already used, so the
+authority and the read side finally agree on what "initiative is in" means. Two things deliberately
+stay open: the DM is not subject to the guard, so they can keep adjusting their own value; and a plain
+position nudge (`combat.reorder-combatant`) logs a NULL delta, so it moves a row without closing
+rolling. `combat.start` logs a single `combat-started` entry with a null delta, so opening a call never
+trips the guard. Both carve-outs are now tests.
+
+### 2 · A player holding several characters could not finish rolling (view-model)
+
+`buildInitiativeCall` picked the first granted character in TRACKER order regardless of whether its
+initiative was already in. Roll the first character above the second and the next snapshot re-selected
+the completed character; `shared.tsx` then hid the button because `rolled` was non-null, stranding the
+second character (reproduction: Wren returned with `rolled: 30` while Tamsin stayed unrolled).
+
+Selection now takes the first held character still owing an initiative, falling back to the last held
+one once every one is in so the card reports a result instead of going blank. `InitiativeCallView`
+gained `heldCount`; above one, the card says which character a result belongs to
+(`play.initiative.rolledFor`, added to en + es) — otherwise "You rolled 18" is ambiguous across two
+characters.
+
+### Boundary note
+
+`i18n/messages/{en,es}.ts` is outside `Owns`. The crossing is one key, `play.initiative.rolledFor`,
+and matches the crossing the first revision already made for the rest of the `play.initiative.*` set.
+
+### Gates re-run on this revision
+
+- `pnpm typecheck`: exit 0. `pnpm lint`: exit 0 — 0 errors, the same 15 pre-existing warnings.
+- `pnpm --filter @dndtools/core test`: 274 files, 4795 passed (+2: the DM-set close and the nudge
+  carve-out). `pnpm test:cloud`: 37 files, 490 passed (+1: the multi-character walk — `src/net/**` is
+  excluded from `test:app` and owned by `vitest.cloud.config.ts`). `pnpm test:app`: 126 files, 1334
+  passed. `pnpm test:tooling`: 24 files, 162 passed.
+- `pnpm build`: exit 0; `check-prod-bundle: OK`.
+- Playwright `collab.spec.ts`, both projects (port 5417): 12 passed — the initiative acceptance case
+  passes on desktop-chromium and mobile-chromium.
+- Reviewer's `reproduce.ts`, unchanged: case 1 now `"result": "rejected"` with the row still at 50
+  (was accepted, overwritten to 20); case 2 now returns Tamsin still owing a roll (was Wren, done).
+
+### Not addressed, and why
+
+The review summary also noted that the readiness chips have no dedicated round-trip acceptance test.
+The chips render from `session.peers` on a HOSTING DM, so a round-trip needs a real two-peer WebRTC
+join, which the e2e suite does not stand up (`collab: the DM host panel` asserts an empty roster). The
+presence→`peer.ready` mapping behind them is covered by `net/sessionStatus.test.ts`; the rendering is
+not, and this app has no component-render harness (no `@testing-library/react`) to add one cheaply.
+Left as a follow-up rather than pulled in here.

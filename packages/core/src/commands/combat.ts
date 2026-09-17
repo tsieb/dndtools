@@ -995,9 +995,24 @@ function handleCombatantInitiative(
 				state,
 			);
 		}
-		if (combat.log.some((entry) => entry.kind === 'roll' && entry.combatantId === existing.id)) {
+		// A row's initiative goes in ONCE, from whichever side put it there: the player's own roll, or a
+		// value the DM set (logged as a reorder CARRYING the initiative — a plain position nudge logs a
+		// null delta and leaves rolling open). Checking only for a prior roll would let a request still
+		// in flight when the DM finalizes the row land afterwards and overwrite the DM's number.
+		const closed = combat.log.find(
+			(entry) =>
+				entry.combatantId === existing.id &&
+				(entry.kind === 'roll' || (entry.kind === 'combatant-reordered' && entry.delta !== null)),
+		);
+		if (closed) {
 			return reject(
-				{ code: 'invalid-state', message: `${existing.name} has already rolled initiative.` },
+				{
+					code: 'invalid-state',
+					message:
+						closed.kind === 'roll'
+							? `${existing.name} has already rolled initiative.`
+							: `The DM has already set ${existing.name}'s initiative.`,
+				},
 				state,
 			);
 		}
