@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
 	matchesMedia,
 	readViewportHeight,
@@ -38,16 +38,43 @@ export function computeListDetailSplit(): boolean {
 	return computeViewport() === 'rail' && matchesMedia(SPLIT_QUERY);
 }
 
+/**
+ * ONE store for every consumer, rather than a `useState` and a `matchMedia` listener each.
+ *
+ * A screen decides what to put in the detail pane from this answer and `ListDetail` decides how to
+ * lay the panes out from it, so the two MUST flip in the same render. Per-component subscriptions
+ * flip on per-component `change` events, which React cannot batch together: for one commit the
+ * screen said "no split" while the layout still said "split", and that half-state — nothing open,
+ * but still two panes — unmounted the list pane and took the half-filled form inside it with it.
+ */
+const splitListeners = new Set<() => void>();
+let splitSnapshot: boolean | null = null;
+let splitUnsubscribe: (() => void) | null = null;
+
+function subscribeSplit(onStoreChange: () => void): () => void {
+	splitListeners.add(onStoreChange);
+	splitUnsubscribe ??= subscribeMedia([PHONE_QUERY, RAIL_QUERY, SPLIT_QUERY], () => {
+		splitSnapshot = computeListDetailSplit();
+		for (const listener of splitListeners) listener();
+	});
+	return () => {
+		splitListeners.delete(onStoreChange);
+		if (splitListeners.size > 0) return;
+		splitUnsubscribe?.();
+		splitUnsubscribe = null;
+		// Nothing is listening, so the cached answer can go stale: recompute on the next mount.
+		splitSnapshot = null;
+	};
+}
+
+function readSplit(): boolean {
+	// Cached, because `useSyncExternalStore` demands a snapshot that only changes when the store does.
+	splitSnapshot ??= computeListDetailSplit();
+	return splitSnapshot;
+}
+
 export function useListDetailSplit(): boolean {
-	const [split, setSplit] = useState(() => computeListDetailSplit());
-	useEffect(
-		() =>
-			subscribeMedia([PHONE_QUERY, RAIL_QUERY, SPLIT_QUERY], () =>
-				setSplit(computeListDetailSplit()),
-			),
-		[],
-	);
-	return split;
+	return useSyncExternalStore(subscribeSplit, readSplit, () => false);
 }
 
 /** Full sidebar + full-label table actions need more room than the navigation breakpoint alone.

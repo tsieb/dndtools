@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
@@ -146,25 +146,90 @@ function QuestCardRow({
 }
 
 /**
+ * RC-UX-4.3 — a draft that OUTLIVES its editor's mount.
+ *
+ * On the rail tier the quest / faction editor renders in the detail pane; everywhere else it renders
+ * inline above the cards. Those are two different positions in the tree, so crossing the split width
+ * (a tablet rotating from portrait to landscape) remounts the editor and resets its `useState` — the
+ * DM's typed, unsaved quest vanished with no warning. The slot lives in `Campaign`, which stays
+ * mounted across the rotation: the editor writes every keystroke into it (a ref, so the card grid is
+ * not re-rendered on each one) and seeds itself from it when it mounts.
+ *
+ * Keyed by the editor's identity, so the draft is only ever restored into the editor that wrote it,
+ * and dropped when that editor closes — Cancel still discards.
+ */
+type DraftSlot<T> = { read: () => T | null; write: (value: T) => void };
+
+function useDraftSlot<T>(key: string | null): DraftSlot<T> {
+	const held = useRef<{ key: string; value: T } | null>(null);
+	useEffect(() => {
+		if (key === null) held.current = null;
+	}, [key]);
+	return useMemo(
+		() => ({
+			read: () => (key !== null && held.current?.key === key ? held.current.value : null),
+			write: (value: T) => {
+				if (key !== null) held.current = { key, value };
+			},
+		}),
+		[key],
+	);
+}
+
+type QuestDraft = {
+	title: string;
+	status: string;
+	objectivesText: string;
+	body: string;
+	visibility: string;
+};
+
+type FactionDraft = {
+	name: string;
+	kind: string;
+	stance: string;
+	leader: string;
+	goalsText: string;
+	secret: string;
+	body: string;
+	visibility: string;
+};
+
+/**
  * Inline create/edit quest form (DM-only; the caller gates on `actorCanAuthorContent`). Structured
  * tracker data (status + objectives) lives in the subtype's declared frontmatter fields; the hook /
  * journal prose is the markdown body. Same shape as the FactionEditor beside it — editing dispatches
  * `content.update-object` so a mis-set visibility or objective list stays correctable.
  */
-function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () => void }) {
+function QuestEditor({
+	quest,
+	draft,
+	onClose,
+}: {
+	quest: QuestRow | null;
+	draft: DraftSlot<QuestDraft>;
+	onClose: () => void;
+}) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const existingObjectives = objectiveArray(quest?.fields.objectives);
-	const [title, setTitle] = useState(quest?.view.title ?? '');
-	const [status, setStatus] = useState(str(quest?.fields.status) || 'active');
+	const held = draft.read();
+	const [title, setTitle] = useState(held?.title ?? quest?.view.title ?? '');
+	const [status, setStatus] = useState(held?.status ?? (str(quest?.fields.status) || 'active'));
 	const [objectivesText, setObjectivesText] = useState(
-		existingObjectives.map((o) => o.text).join('\n'),
+		held?.objectivesText ?? existingObjectives.map((o) => o.text).join('\n'),
 	);
-	const [body, setBody] = useState(quest?.view.body ?? '');
-	const [visibility, setVisibility] = useState<string>(quest?.view.visibility ?? 'dm-only');
+	const [body, setBody] = useState(held?.body ?? quest?.view.body ?? '');
+	const [visibility, setVisibility] = useState<string>(
+		held?.visibility ?? quest?.view.visibility ?? 'dm-only',
+	);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	// Keep the surviving copy current, so a rotation across the split width restores what was typed.
+	useEffect(() => {
+		draft.write({ title, status, objectivesText, body, visibility });
+	}, [draft, title, status, objectivesText, body, visibility]);
 
 	async function save() {
 		if (!title.trim()) {
@@ -434,22 +499,39 @@ function FactionCard({
  * previewing the runtime rejects every dispatch read-only anyway). Structured card data lives in the
  * subtype's declared frontmatter fields; the prose dossier is the markdown body.
  */
-function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClose: () => void }) {
+function FactionEditor({
+	faction,
+	draft,
+	onClose,
+}: {
+	faction: FactionRow | null;
+	draft: DraftSlot<FactionDraft>;
+	onClose: () => void;
+}) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
-	const [name, setName] = useState(faction?.view.title ?? '');
-	const [kind, setKind] = useState(str(faction?.fields.kind) || 'other');
-	const [stance, setStance] = useState(str(faction?.fields.stance) || 'neutral');
-	const [leader, setLeader] = useState(str(faction?.fields.leader));
-	const [goalsText, setGoalsText] = useState(strArray(faction?.fields.goals).join('\n'));
-	const [secret, setSecret] = useState(str(faction?.fields.secret));
-	const [body, setBody] = useState(faction?.view.body ?? '');
+	const held = draft.read();
+	const [name, setName] = useState(held?.name ?? faction?.view.title ?? '');
+	const [kind, setKind] = useState(held?.kind ?? (str(faction?.fields.kind) || 'other'));
+	const [stance, setStance] = useState(held?.stance ?? (str(faction?.fields.stance) || 'neutral'));
+	const [leader, setLeader] = useState(held?.leader ?? str(faction?.fields.leader));
+	const [goalsText, setGoalsText] = useState(
+		held?.goalsText ?? strArray(faction?.fields.goals).join('\n'),
+	);
+	const [secret, setSecret] = useState(held?.secret ?? str(faction?.fields.secret));
+	const [body, setBody] = useState(held?.body ?? faction?.view.body ?? '');
 	// Widened to string (same as Knowledge's visibility control): the Select yields a string and the
 	// core validates the enum fail-closed at dispatch.
-	const [visibility, setVisibility] = useState<string>(faction?.view.visibility ?? 'dm-only');
+	const [visibility, setVisibility] = useState<string>(
+		held?.visibility ?? faction?.view.visibility ?? 'dm-only',
+	);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	// See `useDraftSlot`: what is typed here survives the editor moving between pane and inline.
+	useEffect(() => {
+		draft.write({ name, kind, stance, leader, goalsText, secret, body, visibility });
+	}, [draft, name, kind, stance, leader, goalsText, secret, body, visibility]);
 
 	async function save() {
 		if (!name.trim()) {
@@ -691,17 +773,24 @@ export function Campaign() {
 	const editingQuest = questEditor?.id
 		? (data.quests.find((q) => q.view.id === questEditor.id) ?? null)
 		: null;
-	const questForm = canAuthor && questEditor && (
+	// The open editor's identity — also what keys its surviving draft (`useDraftSlot`).
+	const questKey = canAuthor && questEditor ? (questEditor.id ?? 'new') : null;
+	const factionKey = canAuthor && factionEditor ? (factionEditor.id ?? 'new') : null;
+	const questDraft = useDraftSlot<QuestDraft>(questKey);
+	const factionDraft = useDraftSlot<FactionDraft>(factionKey);
+	const questForm = questKey !== null && (
 		<QuestEditor
-			key={questEditor.id ?? 'new'}
+			key={questKey}
 			quest={editingQuest}
+			draft={questDraft}
 			onClose={() => setQuestEditor(null)}
 		/>
 	);
-	const factionForm = canAuthor && factionEditor && (
+	const factionForm = factionKey !== null && (
 		<FactionEditor
-			key={factionEditor.id ?? 'new'}
+			key={factionKey}
 			faction={editingFaction}
+			draft={factionDraft}
 			onClose={() => setFactionEditor(null)}
 		/>
 	);

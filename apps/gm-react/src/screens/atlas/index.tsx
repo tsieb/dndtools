@@ -588,18 +588,47 @@ export function Atlas() {
 	// RC-UX-4.3 — rail tier: the map library (switcher, create form, hierarchy) keeps the list pane and
 	// the selected map fills the detail pane beside it, its inspectors stacked under the canvas. No
 	// `detailKey`: a map is always selected, and following each pick would pull focus out of the tree.
-	if (split)
-		return (
-			<>
-				<ListDetail
-					list={
-						<Page>
-							{chips}
-							{createForm}
-							{tree}
-						</Page>
-					}
-					detail={
+	//
+	// ONE element for both tiers, so crossing the split width only re-flows. Branching to a separate
+	// `return` above replaced the whole subtree on a tablet rotation, which threw away a half-filled
+	// "New map" form and the map editor's tool / zoom / undo history without asking.
+	const library = (
+		<Page max={split ? undefined : 1320}>
+			{chips}
+
+			{!split && noticeBar}
+
+			{createForm}
+
+			{split ? (
+				tree
+			) : (
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 320px',
+						gap: 18,
+						alignItems: 'start',
+					}}
+				>
+					{canvas}
+
+					{/* side rails — all real, actor-filtered Core data */}
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+						{tree}
+						{inspectors}
+					</div>
+				</div>
+			)}
+		</Page>
+	);
+
+	return (
+		<>
+			<ListDetail
+				list={library}
+				detail={
+					split && (
 						<Page>
 							<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 								{noticeBar}
@@ -607,39 +636,13 @@ export function Atlas() {
 								{inspectors}
 							</div>
 						</Page>
-					}
-					detailLabel={selectedEntry?.name ?? ''}
-				/>
-				{editor}
-			</>
-		);
-
-	return (
-		<Page max={1320}>
-			{chips}
-
-			{noticeBar}
-
-			{createForm}
-
-			<div
-				style={{
-					display: 'grid',
-					gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 320px',
-					gap: 18,
-					alignItems: 'start',
-				}}
-			>
-				{canvas}
-
-				{/* side rails — all real, actor-filtered Core data */}
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					{tree}
-					{inspectors}
-				</div>
-			</div>
-
+					)
+				}
+				detailLabel={selectedEntry?.name ?? ''}
+			/>
+			{/* A `position:fixed` overlay, so it renders the same outside the page as it did within it —
+			    and from here it survives the tier change instead of remounting with a cleared canvas. */}
 			{editor}
-		</Page>
+		</>
 	);
 }

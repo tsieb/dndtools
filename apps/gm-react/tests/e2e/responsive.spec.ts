@@ -1427,3 +1427,91 @@ for (const viewport of [
 		await expect(page.locator('[data-pane]')).toHaveCount(0);
 	});
 }
+
+/**
+ * RC-UX-4.3 — crossing the split width must not DISCARD TYPED WORK.
+ *
+ * A tablet rotates between 820×1180 (split) and 1180×820 (a full-width desktop page), and the
+ * list/detail screens lay themselves out differently on either side of that line. Layout is all that
+ * may change: an editor the DM is part-way through has to still be there, holding every value, in
+ * both directions. The first cut of this story swapped whole subtrees at the breakpoint, so a
+ * rotation emptied an unsaved quest with no warning and no undo.
+ */
+test('rotating across the split width keeps an unsaved draft', async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+
+	const detail = page.locator('[data-pane="detail"]');
+	const questTitle = 'Unsaved tablet quest';
+	const questHook = 'Typed in portrait, still here in landscape.';
+
+	// Campaign — the quest editor, opened in the tablet's detail pane and filled in there.
+	await gotoRoute(page, '/campaign');
+	await page.getByRole('button', { name: /^(New quest|Create the first quest)$/ }).click();
+	await expect(detail).toBeVisible();
+	await detail.getByLabel('Title').fill(questTitle);
+	await detail.getByLabel('Hook & journal').fill(questHook);
+
+	// Rotate to landscape, past the split width: the editor goes back inline above the cards.
+	await page.setViewportSize({ width: 1180, height: 820 });
+	await expect(page.locator('[data-pane]')).toHaveCount(0);
+	await expect(page.getByLabel('Title')).toHaveValue(questTitle);
+	await expect(page.getByLabel('Hook & journal')).toHaveValue(questHook);
+
+	// And back into the pane, still whole. (Cancel, and the draft is gone for good — as asked.)
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(detail.getByLabel('Title')).toHaveValue(questTitle);
+	await expect(detail.getByLabel('Hook & journal')).toHaveValue(questHook);
+	await detail.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await page.getByRole('button', { name: /^(New quest|Create the first quest)$/ }).click();
+	await expect(detail.getByLabel('Title')).toHaveValue('');
+
+	// Atlas — the same contract for the "New map" form, which lives in the list pane. Its map editor
+	// overlay also has to ride out the rotation rather than reopening on a blank canvas.
+	await gotoRoute(page, '/atlas');
+	const mapName = 'Unsaved tablet map';
+	await page.getByRole('button', { name: 'New map' }).click();
+	await page.getByLabel('Name').fill(mapName);
+	await page.setViewportSize({ width: 1180, height: 820 });
+	await expect(page.locator('[data-pane]')).toHaveCount(0);
+	await expect(page.getByLabel('Name')).toHaveValue(mapName);
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(page.getByLabel('Name')).toHaveValue(mapName);
+});
+
+/**
+ * The detail pane and the full-width page are the SAME mount, so a rotation cannot reset what is open
+ * in the detail either — here the character sheet, which is put into edit mode BEFORE the rotation.
+ * That mode is the sheet's own state: it comes back as "Edit" if the sheet was remounted.
+ */
+test('rotating across the split width keeps the open detail mounted', async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+
+	await gotoRoute(page, '/characters');
+	const detail = page.locator('[data-pane="detail"]');
+	const card = page.locator('[data-roster-card]').first();
+	const cardName = await card.getAttribute('aria-label');
+	await card.click();
+	await expect(detail).toBeVisible();
+	await detail.getByRole('button', { name: 'Edit', exact: true }).click();
+	await expect(detail.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+
+	// Landscape: the sheet is a full-width page again, the same instance, still in edit mode.
+	await page.setViewportSize({ width: 1180, height: 820 });
+	await expect(page.locator('[data-pane]')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+
+	// Portrait again: back beside the roster, which is showing the sheet's character as the open one.
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(detail.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	await expect(detail).toHaveAttribute('aria-label', /\S/);
+	await expect(page.locator(`[data-roster-card][aria-label="${cardName}"]`)).toHaveAttribute(
+		'aria-current',
+		'true',
+	);
+});

@@ -384,6 +384,9 @@ const paneScroll: CSSProperties = {
 	overscrollBehavior: 'contain',
 };
 
+/** A wrapper that is only there to hold a React position: it generates no box of its own. */
+const CONTENTS: CSSProperties = { display: 'contents' };
+
 /**
  * ListDetail — RC-UX-4.3's right detail panel contract for the list/detail screens (Characters,
  * Knowledge, Campaign, Atlas).
@@ -402,7 +405,14 @@ const paneScroll: CSSProperties = {
  * where following the selection would pull focus out of the list on every pick.
  *
  * Not split (desktop, phone, a narrow rail window): the open detail replaces the list as a full page,
- * exactly as these screens always behaved.
+ * exactly as these screens always behaved — the wrappers below collapse to `display:contents`, so the
+ * page lays out as a direct child of `<main>` the way it did before this component existed.
+ *
+ * BOTH modes render the same two slots in the same order. Returning a bare fragment when not split
+ * made the open detail a DIFFERENT position in the tree, so crossing the split width — a tablet
+ * rotating from 820×1180 to 1180×820 — unmounted the whole detail and silently threw away whatever
+ * was in it: a half-typed quest, an unsaved sheet edit. Keeping the slots means a rotation only
+ * re-styles the panes.
  */
 export function ListDetail({
 	list,
@@ -450,32 +460,45 @@ export function ListDetail({
 		if (opener?.isConnected && (active === null || active === document.body)) opener.focus();
 	}, [split, detailKey]);
 
-	if (!split) return <>{open ? detail : list}</>;
 	return (
 		<div
-			data-list-detail=""
-			style={{
-				display: 'grid',
-				gridTemplateColumns: open ? `${LIST_PANE_WIDTH} minmax(0,1fr)` : 'minmax(0,1fr)',
-				height: '100%',
-				minHeight: 0,
-			}}
+			data-list-detail={split ? '' : undefined}
+			style={
+				split
+					? {
+							display: 'grid',
+							gridTemplateColumns: open ? `${LIST_PANE_WIDTH} minmax(0,1fr)` : 'minmax(0,1fr)',
+							height: '100%',
+							minHeight: 0,
+						}
+					: CONTENTS
+			}
 		>
-			<div
-				data-pane="list"
-				style={{ ...paneScroll, borderInlineEnd: open ? `1px solid ${T.bd}` : 'none' }}
-			>
-				<PaneContext.Provider value={open ? 'list' : null}>{list}</PaneContext.Provider>
-			</div>
+			{/* Not split, with the detail open, the list is not rendered at all — the detail IS the page,
+			    as it has always been on desktop and on a phone. */}
+			{(split || !open) && (
+				<div
+					data-pane={split ? 'list' : undefined}
+					style={
+						split
+							? { ...paneScroll, borderInlineEnd: open ? `1px solid ${T.bd}` : 'none' }
+							: CONTENTS
+					}
+				>
+					<PaneContext.Provider value={split && open ? 'list' : null}>{list}</PaneContext.Provider>
+				</div>
+			)}
 			{open && (
+				// Nameless and not focusable off the split tier: a bare <section> is generic, so the full
+				// page keeps the accessibility tree it had before.
 				<section
 					ref={detailRef}
-					tabIndex={-1}
-					aria-label={detailLabel || undefined}
-					data-pane="detail"
-					style={{ ...paneScroll, outlineOffset: '-3px' }}
+					tabIndex={split ? -1 : undefined}
+					aria-label={(split && detailLabel) || undefined}
+					data-pane={split ? 'detail' : undefined}
+					style={split ? { ...paneScroll, outlineOffset: '-3px' } : CONTENTS}
 				>
-					<PaneContext.Provider value="detail">{detail}</PaneContext.Provider>
+					<PaneContext.Provider value={split ? 'detail' : null}>{detail}</PaneContext.Provider>
 				</section>
 			)}
 		</div>
