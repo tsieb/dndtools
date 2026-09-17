@@ -373,8 +373,11 @@ export function Characters() {
 									{t('characters.filter.clear')}
 								</Button>
 							) : data.isDm ? (
+								// Secondary, not a second gold button: this is the SAME "New character" action
+								// the header already offers in accent, and on the rail tier the sheet in the
+								// detail pane beside this list owns an accent primary of its own (RC-UX-4.3).
 								<Button
-									variant="primary"
+									variant="secondary"
 									size="sm"
 									icon="new-character"
 									onClick={() => setCreating(true)}

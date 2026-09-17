@@ -323,8 +323,11 @@ export function Knowledge() {
 					description={t(canAuthor ? 'knowledge.emptyDmBody' : 'knowledge.emptyPlayerBody')}
 					action={
 						canAuthor ? (
+							// Secondary, not a second gold button: the header already offers this same "New
+							// note" in accent, and on the rail tier the open note in the detail pane beside
+							// this list owns an accent primary of its own (RC-UX-4.3).
 							<Button
-								variant="primary"
+								variant="secondary"
 								size="sm"
 								icon="note-edit"
 								// The three disclosures are mutually exclusive, but this second entry point

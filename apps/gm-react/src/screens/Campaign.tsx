@@ -382,19 +382,12 @@ export function Campaign() {
 			<div {...tabPanelProps('campaign', tab)}>
 				{tab === 'quests' && (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-						{canAuthor && !questEditor && data.quests.length > 0 && (
-							<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-								<Button
-									variant="primary"
-									size="sm"
-									icon="add"
-									onClick={() => setQuestEditor({ id: null })}
-								>
-									{t('campaign.quest.new')}
-								</Button>
-							</div>
-						)}
 						{!split && questForm}
+						{/* "Create the first quest" and the header's "New quest" are ONE accent action in two
+						    places, and they are guarded by opposite quest counts — so they live in the two
+						    branches of that one condition. As siblings they read as two gold primaries that
+						    can show at once (RC-ENG-8.4's emphasis lint), which neither the DM nor the rail
+						    tier's editor pane beside them ever sees. */}
 						{data.quests.length === 0 ? (
 							<EmptyState
 								icon="campaign-scroll"
@@ -416,24 +409,38 @@ export function Campaign() {
 								}
 							/>
 						) : (
-							<div
-								style={{
-									display: 'grid',
-									// Keep a single card within the usable width on narrow phones.
-									gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 330px),1fr))',
-									gap: 16,
-									alignItems: 'start',
-								}}
-							>
-								{data.quests.map((q) => (
-									<QuestCardRow
-										key={q.view.id}
-										row={q}
-										canAuthor={canAuthor}
-										onEdit={() => setQuestEditor({ id: q.view.id })}
-									/>
-								))}
-							</div>
+							<>
+								{canAuthor && !questEditor && (
+									<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+										<Button
+											variant="primary"
+											size="sm"
+											icon="add"
+											onClick={() => setQuestEditor({ id: null })}
+										>
+											{t('campaign.quest.new')}
+										</Button>
+									</div>
+								)}
+								<div
+									style={{
+										display: 'grid',
+										// Keep a single card within the usable width on narrow phones.
+										gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 330px),1fr))',
+										gap: 16,
+										alignItems: 'start',
+									}}
+								>
+									{data.quests.map((q) => (
+										<QuestCardRow
+											key={q.view.id}
+											row={q}
+											canAuthor={canAuthor}
+											onEdit={() => setQuestEditor({ id: q.view.id })}
+										/>
+									))}
+								</div>
+							</>
 						)}
 					</div>
 				)}

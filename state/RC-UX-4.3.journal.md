@@ -116,3 +116,46 @@ off the 4px grid). 24 → 22 overall, so the list still only shrinks.
 - Full Playwright suite on the split, both projects: 1,153 passed, 11 skipped, 0 failed in 19.2m.
   The two known flakes from the previous run (`knowledge-filters.spec.ts:101`,
   `map-editor.spec.ts:342`) both passed this time.
+
+## Fourth pass — the emphasis lint
+
+`pnpm lint` failed on `lint:emphasis` (RC-ENG-8.4), which arrived with the commits this branch was
+rebased onto. Its `multiple-accent-primaries` rule counts the accent-filled primaries that can show
+at once in one region, and the two-pane layout genuinely adds one: the detail's primary is now beside
+the list's, where before an early return made them alternatives the lint could see. Three files rose
+above their baseline, which may only shrink:
+
+- `Campaign.tsx` 3 > 2 — fixed WITHOUT a design change. "New quest" (tab header, shown when quests
+  exist) and "Create the first quest" (empty state, shown when none do) were siblings under opposite
+  guards; they are now the two branches of one `data.quests.length === 0` ternary, which is what they
+  always were in behaviour. Nothing moves: the header is hidden whenever the editor is open, so its
+  position relative to the inline editor was never observable.
+- `characters/index.tsx` 2 > 1 and `knowledge/index.tsx` 6 > 5 — here the pair CAN be on screen
+  together (an empty roster shows the header's gold "New character" and the empty state's), so the
+  empty-state copy of the same action became `variant="secondary"`. One gold action per surface is
+  the rule those screens were already bending; the two-pane layout is what made it fail.
+
+`scripts/emphasis-lint.ts` and `scripts/emphasis-baseline.json` are neither owned nor companion
+paths, and the baseline can only shrink, so the fix had to be in the screens. Which button to demote
+was chosen to avoid touching the golden-route baselines: a probe of the first-run seed showed
+`/campaign` renders its quests empty state (so nothing there may change colour) while `/characters`
+and `/knowledge` do not.
+
+- `pnpm lint`: exit 0. `multiple-accent-primaries` back to 61, exactly the baseline. (`display-face`
+  83 vs baseline 84 is a pre-existing shrinkable entry from the rebased commits, informational only.)
+- `pnpm gates`: exit 0. `tsc`, ESLint, Prettier, `raw-style-count` (2,578): clean.
+- `vitest --config vitest.app.config.ts`: 133 files, 1,464 tests passed.
+- e2e slice covering everything touched (responsive, campaign ×3, knowledge ×2, characters, ux-audit,
+  a11y-axe-gate), both Chromium projects: 228 passed, 2 failed — both `knowledge-filters.spec.ts:101`,
+  timing out on a `filters-save` button left `disabled` by the async `setSaveName('')` reset in
+  `SavedSearches.tsx` (not an owned file). That is the documented every-commit failure, and the
+  failure text matches it exactly.
+
+- Full Playwright suite after the demotions, both projects: 1,152 passed, 11 skipped, 1 failed in
+  17.0m — the same `knowledge-filters.spec.ts:101` and nothing else. Same 1,164 total as the run
+  before it.
+
+Open for the operator: the golden-route visual baselines (`tests/visual/__screenshots__`, a CI job,
+not a dispatcher gate) are PNGs with no companion glob, so they cannot be regenerated from inside
+this fence. The `visual-rail` tier is 834×1112 — inside the split range — so the rail baselines for
+the four list/detail routes may need a re-run of `tests/visual/run-in-container.sh`.
