@@ -84,3 +84,35 @@ rotation and its child pane did not.
   exactly 4 (two tests × two projects).
 - Disposable run logs removed from `/tmp`; the probe dev server was stopped. No push, promotion,
   loop, agent delegation or dispatcher control changes.
+
+## Third pass — the file-size gate
+
+`pnpm gates` rejected the fix: `Campaign.tsx` reached 1,064 lines, past its grandfathered RC-STB-2.7
+baseline of 988 ("Grandfathering caps growth; it does not permit more"). The draft plumbing was what
+pushed it over, so the file was split the way the gate asks for, into the `screens/campaign/` folder
+that already holds Calendar and Relationships:
+
+- `campaign/draftSlot.ts` — `DraftSlot` / `useDraftSlot`.
+- `campaign/QuestEditor.tsx`, `campaign/FactionEditor.tsx` — the two editors and their draft types.
+- `Campaign.tsx` is 608 lines and now composes rather than contains; the move is verbatim apart from
+  the imports and two `gap: 12` literals that became `T.space.three` (var(--space-3) IS 12px).
+
+Reading the gate code first mattered: `auditFileSizes` fails a stale exception only when the file no
+longer EXISTS, not when it drops under the 800-line limit, so shrinking past the limit is safe. The
+exception entry itself lives in `packages/core/src/platform/quality-gates.ts`, which is neither owned
+nor a companion path, so it stays as-is.
+
+The `dsn/no-raw-style-values` ratchet had to move with the code — it fails when an allowance exceeds
+the real count. `scripts/eslint-rules/*.allow.js` is a declared companion path, so:
+`Campaign.tsx` 24 → 20, and the two editors carry 1 each (the `gap: 10` that has no token — 10px is
+off the 4px grid). 24 → 22 overall, so the list still only shrinks.
+
+- `tsx scripts/quality-gates.ts`: quality-gate check passed (6 gates), docs check passed, exit 0.
+- `tsc`, ESLint and Prettier on every changed file: clean. `raw-style-count`: 2,578 across 261 files.
+- `vitest --config vitest.app.config.ts`: 133 files, 1,464 tests passed (the count rose with the
+  commits this branch was rebased onto).
+- `responsive.spec` + `campaign.spec` + `campaign-relationships.spec` + `campaign-calendar.spec`,
+  both Chromium projects: 116 passed, exit 0 — the acceptance sizes and both rotation tests included.
+- Full Playwright suite on the split, both projects: 1,153 passed, 11 skipped, 0 failed in 19.2m.
+  The two known flakes from the previous run (`knowledge-filters.spec.ts:101`,
+  `map-editor.spec.ts:342`) both passed this time.

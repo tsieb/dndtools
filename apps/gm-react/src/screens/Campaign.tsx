@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
@@ -13,16 +13,13 @@ import {
 	Badge,
 	Button,
 	EmptyState,
-	Field,
 	IconButton,
-	Input,
 	NpcCard,
 	QuestCard,
 	Select,
 	SessionTimeline,
 	Tabs,
 	tabPanelProps,
-	Textarea,
 	Toaster,
 	VisibilityChip,
 } from '../ds';
@@ -39,7 +36,6 @@ import {
 	STANCE_OPTIONS,
 	STANCE_TONE,
 	VIS_CHIP,
-	VIS_OPTIONS,
 	optionLabel,
 	options,
 } from './campaignVocab';
@@ -49,9 +45,11 @@ import {
 	str,
 	strArray,
 	type FactionRow,
-	type QuestObjective,
 	type QuestRow,
 } from './campaignRows';
+import { useDraftSlot } from './campaign/draftSlot';
+import { FactionEditor, type FactionDraft } from './campaign/FactionEditor';
+import { QuestEditor, type QuestDraft } from './campaign/QuestEditor';
 
 /**
  * Campaign — the structured-entity / world-model lens, wired to the live Processing Core.
@@ -142,251 +140,6 @@ function QuestCardRow({
 				)}
 			</div>
 		</div>
-	);
-}
-
-/**
- * RC-UX-4.3 — a draft that OUTLIVES its editor's mount.
- *
- * On the rail tier the quest / faction editor renders in the detail pane; everywhere else it renders
- * inline above the cards. Those are two different positions in the tree, so crossing the split width
- * (a tablet rotating from portrait to landscape) remounts the editor and resets its `useState` — the
- * DM's typed, unsaved quest vanished with no warning. The slot lives in `Campaign`, which stays
- * mounted across the rotation: the editor writes every keystroke into it (a ref, so the card grid is
- * not re-rendered on each one) and seeds itself from it when it mounts.
- *
- * Keyed by the editor's identity, so the draft is only ever restored into the editor that wrote it,
- * and dropped when that editor closes — Cancel still discards.
- */
-type DraftSlot<T> = { read: () => T | null; write: (value: T) => void };
-
-function useDraftSlot<T>(key: string | null): DraftSlot<T> {
-	const held = useRef<{ key: string; value: T } | null>(null);
-	useEffect(() => {
-		if (key === null) held.current = null;
-	}, [key]);
-	return useMemo(
-		() => ({
-			read: () => (key !== null && held.current?.key === key ? held.current.value : null),
-			write: (value: T) => {
-				if (key !== null) held.current = { key, value };
-			},
-		}),
-		[key],
-	);
-}
-
-type QuestDraft = {
-	title: string;
-	status: string;
-	objectivesText: string;
-	body: string;
-	visibility: string;
-};
-
-type FactionDraft = {
-	name: string;
-	kind: string;
-	stance: string;
-	leader: string;
-	goalsText: string;
-	secret: string;
-	body: string;
-	visibility: string;
-};
-
-/**
- * Inline create/edit quest form (DM-only; the caller gates on `actorCanAuthorContent`). Structured
- * tracker data (status + objectives) lives in the subtype's declared frontmatter fields; the hook /
- * journal prose is the markdown body. Same shape as the FactionEditor beside it — editing dispatches
- * `content.update-object` so a mis-set visibility or objective list stays correctable.
- */
-function QuestEditor({
-	quest,
-	draft,
-	onClose,
-}: {
-	quest: QuestRow | null;
-	draft: DraftSlot<QuestDraft>;
-	onClose: () => void;
-}) {
-	const runtime = useRuntime();
-	const { t } = useI18n();
-	const actorId = runtime.defaultActorId;
-	const existingObjectives = objectiveArray(quest?.fields.objectives);
-	const held = draft.read();
-	const [title, setTitle] = useState(held?.title ?? quest?.view.title ?? '');
-	const [status, setStatus] = useState(held?.status ?? (str(quest?.fields.status) || 'active'));
-	const [objectivesText, setObjectivesText] = useState(
-		held?.objectivesText ?? existingObjectives.map((o) => o.text).join('\n'),
-	);
-	const [body, setBody] = useState(held?.body ?? quest?.view.body ?? '');
-	const [visibility, setVisibility] = useState<string>(
-		held?.visibility ?? quest?.view.visibility ?? 'dm-only',
-	);
-	const [busy, setBusy] = useState(false);
-	const [err, setErr] = useState<string | null>(null);
-	// Keep the surviving copy current, so a rotation across the split width restores what was typed.
-	useEffect(() => {
-		draft.write({ title, status, objectivesText, body, visibility });
-	}, [draft, title, status, objectivesText, body, visibility]);
-
-	async function save() {
-		if (!title.trim()) {
-			setErr(t('campaign.quest.needsTitle'));
-			return;
-		}
-		setBusy(true);
-		setErr(null);
-		// `runtime.dispatch` RETHROWS on a persist failure (SceneRuntime.dispatchNow), and `busy` also
-		// disables this panel's Cancel button — so a throw froze the editor permanently with the DM's
-		// typed work unrecoverable and no way out but a reload. Any await inside a busy guard in this
-		// app needs `finally`.
-		try {
-			const stamp = Date.now().toString(36);
-			// Line i keeps existing objective i's id + done state (a text edit doesn't reset the checklist);
-			// new lines become fresh unchecked objectives.
-			const objectives: QuestObjective[] = objectivesText
-				.split('\n')
-				.map((t) => t.trim())
-				.filter(Boolean)
-				.map((text, i) =>
-					existingObjectives[i]
-						? { ...existingObjectives[i], text }
-						: { id: `obj-${stamp}-${i}`, text, done: false },
-				);
-			const result = quest
-				? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
-					await runtime.dispatch({
-						type: 'content.update-object',
-						actorId,
-						payload: {
-							itemId: quest.view.id,
-							title: title.trim(),
-							fields: { title: title.trim(), status, objectives },
-							body,
-						},
-					})
-				: // content.create-object — DM-only vault authoring against the declared `quest` schema
-					// (validated fail-closed before any durable write); visibility fails closed to dm-only.
-					await runtime.dispatch({
-						type: 'content.create-object',
-						actorId,
-						payload: {
-							subtype: 'quest',
-							title: title.trim(),
-							fields: { title: title.trim(), status, objectives },
-							body,
-							visibility,
-						},
-					});
-			if (result.status !== 'accepted') {
-				setErr(result.rejection.message);
-				return;
-			}
-			// Visibility is a SEPARATE command on edit (same split as FactionEditor / Knowledge).
-			if (quest && visibility !== quest.view.visibility) {
-				const vis = await runtime.dispatch({
-					type: 'content.set-item-visibility',
-					actorId,
-					payload: { itemId: quest.view.id, visibility },
-				});
-				if (vis.status !== 'accepted') {
-					setErr(vis.rejection.message);
-					return;
-				}
-			}
-			// Confirm the write. `onClose()` unmounts this whole Panel, so with no toast a successful
-			// save was indistinguishable from a dead button: the editor vanished, focus fell to <body>,
-			// and nothing anywhere said the quest had been stored.
-			Toaster.success(
-				quest
-					? t('campaign.saved', { title: title.trim() })
-					: t('campaign.created', { title: title.trim() }),
-			);
-			onClose();
-		} catch {
-			setErr(t('campaign.saveFailed'));
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	return (
-		<Panel
-			title={quest ? t('campaign.edit', { title: quest.view.title }) : t('campaign.quest.new')}
-			accent
-		>
-			{/* A real <form> so Enter submits — the natural "type a title, press Enter" was a no-op. */}
-			<form
-				onSubmit={(e) => {
-					e.preventDefault();
-					if (busy) return;
-					void save();
-				}}
-				style={{ display: 'contents' }}
-			>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-						gap: 12,
-					}}
-				>
-					<Field label={t('common.field.title')} required>
-						<Input
-							value={title}
-							onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-							placeholder={t('campaign.quest.titlePlaceholder')}
-						/>
-					</Field>
-					<Field label={t('campaign.status')}>
-						<Select
-							options={options(QUEST_STATUS_OPTIONS, t)}
-							value={status}
-							onChange={(e: { target: { value: string } }) => setStatus(e.target.value)}
-						/>
-					</Field>
-				</div>
-				<Field label={t('campaign.quest.objectives')} help={t('campaign.quest.objectivesHelp')}>
-					<Textarea
-						value={objectivesText}
-						onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)}
-						rows={3}
-						placeholder={t('campaign.quest.objectivesPlaceholder')}
-					/>
-				</Field>
-				<Field label={t('campaign.quest.hook')} help={t('campaign.quest.hookHelp')}>
-					<Textarea
-						value={body}
-						onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
-						rows={4}
-						placeholder={t('campaign.quest.hookPlaceholder')}
-					/>
-				</Field>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<Field label={t('common.visibility.label')}>
-						<Select
-							options={options(VIS_OPTIONS, t)}
-							value={visibility}
-							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
-						/>
-					</Field>
-					<div style={{ flex: 1 }} />
-					{err && (
-						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
-							{err}
-						</span>
-					)}
-					<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-						{t('common.action.cancel')}
-					</Button>
-					<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
-						{quest ? t('campaign.quest.save') : t('campaign.quest.create')}
-					</Button>
-				</div>
-			</form>
-		</Panel>
 	);
 }
 
@@ -490,215 +243,6 @@ function FactionCard({
 					<div style={{ font: `italic 12.5px/1.5 ${T.sans}`, color: T.sub }}>{secret}</div>
 				</div>
 			)}
-		</Panel>
-	);
-}
-
-/**
- * Inline create/edit dossier form (DM-only; the caller gates on `actorCanAuthorContent`, and while
- * previewing the runtime rejects every dispatch read-only anyway). Structured card data lives in the
- * subtype's declared frontmatter fields; the prose dossier is the markdown body.
- */
-function FactionEditor({
-	faction,
-	draft,
-	onClose,
-}: {
-	faction: FactionRow | null;
-	draft: DraftSlot<FactionDraft>;
-	onClose: () => void;
-}) {
-	const runtime = useRuntime();
-	const { t } = useI18n();
-	const actorId = runtime.defaultActorId;
-	const held = draft.read();
-	const [name, setName] = useState(held?.name ?? faction?.view.title ?? '');
-	const [kind, setKind] = useState(held?.kind ?? (str(faction?.fields.kind) || 'other'));
-	const [stance, setStance] = useState(held?.stance ?? (str(faction?.fields.stance) || 'neutral'));
-	const [leader, setLeader] = useState(held?.leader ?? str(faction?.fields.leader));
-	const [goalsText, setGoalsText] = useState(
-		held?.goalsText ?? strArray(faction?.fields.goals).join('\n'),
-	);
-	const [secret, setSecret] = useState(held?.secret ?? str(faction?.fields.secret));
-	const [body, setBody] = useState(held?.body ?? faction?.view.body ?? '');
-	// Widened to string (same as Knowledge's visibility control): the Select yields a string and the
-	// core validates the enum fail-closed at dispatch.
-	const [visibility, setVisibility] = useState<string>(
-		held?.visibility ?? faction?.view.visibility ?? 'dm-only',
-	);
-	const [busy, setBusy] = useState(false);
-	const [err, setErr] = useState<string | null>(null);
-	// See `useDraftSlot`: what is typed here survives the editor moving between pane and inline.
-	useEffect(() => {
-		draft.write({ name, kind, stance, leader, goalsText, secret, body, visibility });
-	}, [draft, name, kind, stance, leader, goalsText, secret, body, visibility]);
-
-	async function save() {
-		if (!name.trim()) {
-			setErr(t('campaign.faction.needsName'));
-			return;
-		}
-		setBusy(true);
-		setErr(null);
-		// `runtime.dispatch` RETHROWS on a persist failure (SceneRuntime.dispatchNow), and `busy` also
-		// disables this panel's Cancel button — so a throw froze the editor permanently with the DM's
-		// typed work unrecoverable and no way out but a reload. Any await inside a busy guard in this
-		// app needs `finally`.
-		try {
-			// Exactly the subtype's declared frontmatter fields — the core validates them fail-closed
-			// against the `faction` schema before any durable write (an undeclared field is rejected).
-			const fields = {
-				name: name.trim(),
-				kind,
-				stance,
-				leader: leader.trim(),
-				goals: goalsText
-					.split('\n')
-					.map((g) => g.trim())
-					.filter(Boolean),
-				secret: secret.trim(),
-			};
-			const result = faction
-				? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
-					await runtime.dispatch({
-						type: 'content.update-object',
-						actorId,
-						payload: { itemId: faction.view.id, title: name.trim(), fields, body },
-					})
-				: // content.create-object — DM-only vault authoring; visibility fails closed to dm-only.
-					await runtime.dispatch({
-						type: 'content.create-object',
-						actorId,
-						payload: { subtype: 'faction', title: name.trim(), fields, body, visibility },
-					});
-			if (result.status !== 'accepted') {
-				setErr(result.rejection.message);
-				return;
-			}
-			// Visibility is a SEPARATE command on edit (same split as Knowledge).
-			if (faction && visibility !== faction.view.visibility) {
-				const vis = await runtime.dispatch({
-					type: 'content.set-item-visibility',
-					actorId,
-					payload: { itemId: faction.view.id, visibility },
-				});
-				if (vis.status !== 'accepted') {
-					setErr(vis.rejection.message);
-					return;
-				}
-			}
-			// Same reason as the quest editor above: the Panel unmounts, so the toast is the only
-			// confirmation a successful faction save ever produces.
-			Toaster.success(
-				faction
-					? t('campaign.saved', { title: name.trim() })
-					: t('campaign.created', { title: name.trim() }),
-			);
-			onClose();
-		} catch {
-			setErr(t('campaign.saveFailed'));
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	return (
-		<Panel
-			title={
-				faction ? t('campaign.edit', { title: faction.view.title }) : t('campaign.faction.new')
-			}
-			accent
-		>
-			{/* See QuestEditor — Enter submits rather than doing nothing. */}
-			<form
-				onSubmit={(e) => {
-					e.preventDefault();
-					if (busy) return;
-					void save();
-				}}
-				style={{ display: 'contents' }}
-			>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
-						gap: 12,
-					}}
-				>
-					<Field label={t('campaign.faction.name')} required>
-						<Input
-							value={name}
-							onChange={(e: { target: { value: string } }) => setName(e.target.value)}
-							placeholder={t('campaign.faction.namePlaceholder')}
-						/>
-					</Field>
-					<Field label={t('campaign.faction.kind')}>
-						<Select
-							options={options(FACTION_KIND_OPTIONS, t)}
-							value={kind}
-							onChange={(e: { target: { value: string } }) => setKind(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('campaign.faction.stance')}>
-						<Select
-							options={options(STANCE_OPTIONS, t)}
-							value={stance}
-							onChange={(e: { target: { value: string } }) => setStance(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('campaign.faction.leader')}>
-						<Input
-							value={leader}
-							onChange={(e: { target: { value: string } }) => setLeader(e.target.value)}
-							placeholder={t('campaign.faction.leaderPlaceholder')}
-						/>
-					</Field>
-				</div>
-				<Field label={t('campaign.faction.goals')} help={t('campaign.faction.goalsHelp')}>
-					<Textarea
-						value={goalsText}
-						onChange={(e: { target: { value: string } }) => setGoalsText(e.target.value)}
-						rows={3}
-						placeholder={t('campaign.faction.goalsPlaceholder')}
-					/>
-				</Field>
-				<Field label={t('campaign.faction.dossier')} help={t('campaign.faction.dossierHelp')}>
-					<Textarea
-						value={body}
-						onChange={(e: { target: { value: string } }) => setBody(e.target.value)}
-						rows={5}
-						placeholder={t('campaign.faction.dossierPlaceholder')}
-					/>
-				</Field>
-				<Field label={t('campaign.faction.secret')} help={t('campaign.faction.secretHelp')}>
-					<Input
-						value={secret}
-						onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
-						placeholder={t('campaign.faction.secretPlaceholder')}
-					/>
-				</Field>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<Field label={t('common.visibility.label')}>
-						<Select
-							options={options(VIS_OPTIONS, t)}
-							value={visibility}
-							onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)}
-						/>
-					</Field>
-					<div style={{ flex: 1 }} />
-					{err && (
-						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
-							{err}
-						</span>
-					)}
-					<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
-						{t('common.action.cancel')}
-					</Button>
-					<Button type="submit" variant="primary" size="sm" icon="check" disabled={busy}>
-						{faction ? t('campaign.faction.save') : t('campaign.faction.create')}
-					</Button>
-				</div>
-			</form>
 		</Panel>
 	);
 }
