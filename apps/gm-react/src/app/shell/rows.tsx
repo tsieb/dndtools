@@ -115,6 +115,19 @@ export function SceneSideRow({
 	);
 }
 
+/* A sidebar row is a fixed ~189px rail, so a single nowrap line silently ate the tail of any label
+ * or caption longer than English's. RC-UX-1.5's pseudo locale (+40%) clipped four of these outright.
+ * Wrapping to a second line costs nothing in English — every shipped string still fits one line — and
+ * the two-line clamp keeps a pathological user-supplied scene name from growing the row without
+ * bound. `anywhere` covers a single unbreakable token that is wider than the rail on its own. */
+const ROW_TEXT = {
+	display: '-webkit-box',
+	WebkitBoxOrient: 'vertical' as const,
+	WebkitLineClamp: 2,
+	overflow: 'hidden',
+	overflowWrap: 'anywhere' as const,
+};
+
 export function SideRow({
 	icon,
 	label,
@@ -176,30 +189,14 @@ export function SideRow({
 			<span style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
 				<span
 					style={{
-						display: 'block',
+						...ROW_TEXT,
 						font: `${active ? 600 : 500} 13.5px ${T.sans}`,
 						color: active ? T.acc : T.ink,
-						whiteSpace: 'nowrap',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
 					}}
 				>
 					{label}
 				</span>
-				{sub && (
-					<span
-						style={{
-							display: 'block',
-							font: `11px ${T.sans}`,
-							color: T.ter,
-							whiteSpace: 'nowrap',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
-						}}
-					>
-						{sub}
-					</span>
-				)}
+				{sub && <span style={{ ...ROW_TEXT, font: `11px ${T.sans}`, color: T.ter }}>{sub}</span>}
 			</span>
 			{badge}
 			{right}

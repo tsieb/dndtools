@@ -136,7 +136,11 @@ export function TopBar({
 							gap: 8,
 							padding: '8px 12px',
 							flex: '1 1 150px',
-							minWidth: 46,
+							// The field shares the bar with a title block that grows with its translation, so a
+							// bare 46px floor let a long locale squeeze it to a stub: RC-UX-1.5's pseudo locale
+							// cut "Search everything…" to under half. `fit-content` only binds while shrinking —
+							// English still grows past it — and the title beside it ellipsizes by design.
+							minWidth: 'fit-content',
 							background: T.surf,
 							border: `1px solid ${T.bd}`,
 							borderRadius: 9,

@@ -114,6 +114,67 @@ async function clippedControls(page: Page, rootSelector = 'body'): Promise<strin
 		});
 }
 
+/** The accented alphabet and the `~` padding token the DEV pseudo catalog is generated with
+ * (src/i18n/dev/pseudo.ts). Seeded vault content is plain ASCII, so a run of text that matches
+ * this came out of a message catalog rather than out of the DM's own data. */
+const PSEUDO_TEXT = /[áƀçďéƒğĥíĵķľḿñóƥɋŕšţúṽŵẋýžÁƁÇĎÉƑĞĤÍĴĶĽḾÑÓƤɊŔŠŢÚṼŴẊÝŽ~]/;
+
+/**
+ * Controls whose *own* text is cut off by its box — the failure `clippedControls` cannot see.
+ * That audit compares a control's border box against the viewport and its scrolling ancestors, so
+ * a button that stays exactly where it belongs while an `overflow: hidden` span inside it eats the
+ * tail of its label passes it cleanly. That is precisely what a 40%-longer locale produces.
+ *
+ * Only pseudo-localized runs are reported. Deliberate truncation of DM-authored content (a graph
+ * node's title clamped to its node, a note card's excerpt clamped to three lines) is a design
+ * decision that English exhibits too and is not evidence about the catalog; filtering on the
+ * catalog's own alphabet keeps this assertion pointed at translated UI strings. Both axes count:
+ * a caption that silently loses its second line is as broken as one cut off mid-word.
+ */
+async function controlsClippingTranslatedText(page: Page): Promise<string[]> {
+	return page
+		.locator('body')
+		.locator(CONTROL_SELECTOR)
+		.evaluateAll((elements, pseudoSource) => {
+			const pseudo = new RegExp(pseudoSource);
+			const findings: string[] = [];
+			for (const control of elements) {
+				const box = control.getBoundingClientRect();
+				const controlStyle = getComputedStyle(control);
+				if (
+					box.width === 0 ||
+					box.height === 0 ||
+					controlStyle.display === 'none' ||
+					controlStyle.visibility === 'hidden'
+				) {
+					continue;
+				}
+				for (const node of [control, ...Array.from(control.querySelectorAll('*'))]) {
+					const style = getComputedStyle(node);
+					// `hidden`/`clip` destroy the overflowing text outright. `auto`/`scroll` do not: the
+					// reader can still reach it, and those are audited as reachability by clippedControls.
+					const axes = [
+						/hidden|clip/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1
+							? 'horizontally'
+							: '',
+						/hidden|clip/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1
+							? 'vertically'
+							: '',
+					].filter(Boolean);
+					if (axes.length === 0) continue;
+					const text = (node.textContent ?? '').trim().replace(/\s+/g, ' ');
+					if (!pseudo.test(text)) continue;
+					const name =
+						control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName;
+					findings.push(
+						`${name.replace(/\s+/g, ' ').slice(0, 40)} → "${text.slice(0, 40)}" is cut off ${axes.join(' and ')} (${node.scrollWidth}x${node.scrollHeight} inside ${node.clientWidth}x${node.clientHeight})`,
+					);
+				}
+			}
+			return findings;
+		}, PSEUDO_TEXT.source);
+}
+
 /**
  * Exercises the shared bounded-overlay contract at a deliberately keyboard-like short height.
  * The test scopes to the dialog so controls below its visible body are accepted only when the
@@ -2197,8 +2258,34 @@ test('pseudo locale keeps eight primary routes free of clipping and overflow', a
 		// The shell heading can precede the lazy screen; wait for its translated body too.
 		await expect(page.locator('#main-content')).toContainText('[');
 		await page.evaluate(() => document.fonts.ready);
+		// A green audit is only evidence if it can go red. Plant one control that clips its own
+		// pseudo text, confirm the audit names it, and take it back out before the real assertion —
+		// otherwise a selector typo or an alphabet drift would read as eight clean routes.
+		const planted = await page.evaluate(() => {
+			const probe = document.createElement('button');
+			probe.type = 'button';
+			probe.dataset.clipProbe = '';
+			probe.style.cssText =
+				'width:20px;padding:0;border:0;overflow:hidden;white-space:nowrap;position:fixed;top:0';
+			// A sentinel no catalog string contains, so the audit's own finding is unambiguous.
+			probe.textContent = '[ÇĽÍƤ ƤŔÓƁÉ~~~~]';
+			document.body.append(probe);
+			return probe.scrollWidth > probe.clientWidth;
+		});
+		expect(planted, 'the planted probe must actually overflow its box').toBe(true);
+		expect(
+			(await controlsClippingTranslatedText(page)).filter((finding) =>
+				finding.includes('ÇĽÍƤ ƤŔÓƁÉ'),
+			),
+			`${route} audit failed to notice a deliberately clipped control`,
+		).toHaveLength(1);
+		await page.evaluate(() => document.querySelector('[data-clip-probe]')?.remove());
 		await expectNoHorizontalOverflow(page, route);
 		await expectNoHorizontalOverflow(page, route, '#main-content');
-		expect(await clippedControls(page), `${route} clipped a pseudo-localized control`).toEqual([]);
+		expect(await clippedControls(page), `${route} pushed a control out of reach`).toEqual([]);
+		expect(
+			await controlsClippingTranslatedText(page),
+			`${route} cut off pseudo-localized text inside a control`,
+		).toEqual([]);
 	}
 });
