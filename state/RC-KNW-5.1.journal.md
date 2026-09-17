@@ -95,3 +95,35 @@ left untouched, so the import reported success while the renderer had nothing to
 - Browser acceptance `markdown-folder.spec.ts`: 4 passed on desktop-chromium and mobile-chromium,
   including the new foreign-folder import driven through the real Import folder ZIP button, which
   asserts the wikilink/embed survive and the adopted image renders with `naturalWidth > 0`.
+
+## Rebase onto the integration branch (dd7cd001)
+
+The gate rejected the previous attempt for conflicts, not for behaviour: both commits replayed onto
+`dd7cd001` with conflicts in `apps/gm-react/src/i18n/messages/en.ts` and
+`apps/gm-react/src/screens/settings/Vault.tsx`. Both were additive collisions at the same anchor —
+RC-ENG-6.2 (`77e729da`, storage quarantine) had inserted its own block at exactly the point this
+story inserts one — so the resolution keeps both sides in full; nothing from either was dropped.
+
+- `en.ts`: the `settings.folder.*` keys now sit under their own `/* Settings › Markdown folder */`
+  heading ahead of `/* Settings › Vault connections */`, leaving RC-ENG-6.2's `settings.vault.*`
+  recovery/pressure/quarantine keys contiguous with the vault block they belong to.
+- `Vault.tsx`: `<VaultIntegrity />` and `<MarkdownFolderPanel />` both render, integrity first.
+  The replay would have left two separate `import … from '../../platform/fsSource'` statements, so
+  `saveMarkdownFolder`, `pickMarkdownDirectory` and `readMarkdownFolder` were folded into the
+  existing fsSource import rather than added as a duplicate.
+
+### Evidence after the rebase
+
+- Every other file this story owns is byte-identical to the pre-rebase commits (verified per file
+  against the pre-rebase ref); `git diff dd7cd001..HEAD` touches only this story's files, so
+  RC-ENG-6.2's `storageUsage.ts`, `coreStore.ts`, `assetStore.ts` and `integrity.test.ts` are
+  untouched.
+- Gates on the rebased tree: typecheck (core + cloud-fns + app) clean; `pnpm lint` exit 0
+  (15 warnings, 0 errors) including boundary, emphasis, raw-style and non-text contrast; production
+  build exit 0 with check-prod-bundle over 83 JS assets; Prettier clean on both resolved files.
+- Tests: core 276 files / 4844 tests, app 135 files / 1491 tests, tooling 26 files / 191 tests — all
+  pass. Targeted: `packages/core/src/export/markdown-folder.test.ts` 27/27,
+  `apps/gm-react/src/platform/markdown-folder.test.ts` 10/10.
+- Browser: `markdown-folder.spec.ts` 4 passed across desktop-chromium and mobile-chromium. Because
+  the merge put a second panel on the vault screen, RC-ENG-6.2's own `storage-integrity.spec.ts` was
+  rerun on both viewports as well — 2 passed — confirming the two panels coexist on that route.
