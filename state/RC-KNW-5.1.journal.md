@@ -43,3 +43,55 @@ Completed below.
 This is note-folder portability, not a whole-vault replacement: re-import creates fresh note IDs/revisions and retains original timestamps in front matter fields. Structured object records and typed cross-object embed relationships remain the full-vault JSON backup's responsibility. Literal markdown wikilinks and embeds are preserved. Existing legacy source pull/write-back APIs are unchanged.
 
 Final source review: diff whitespace check passed. Only owned implementation files plus companion tests, English messages and this journal were changed. Central operator gates and independent review remain external to this run.
+
+## Review response (second pass)
+
+Independent review rejected `b9c99c67` on two reproduced defects. Both are fixed here, in owned
+paths, with the reviewer's own `edge-cases.mts` rerun as the check.
+
+### High — equivalent YAML silently discarded the privacy rules
+
+Root cause: `readFolderProperties` accepted only `JSON.parse`-able spellings, so
+`dndtools.format: markdown-folder-v1` (valid YAML, no quotes) left `own` false. Every `dndtools.*`
+value was then dropped — including `sectionVisibility` — and the note imported player-visible with
+the DM-only prose in its body, which a later default (public) export then published.
+
+- `packages/core/src/export/markdown-folder.ts` now parses the front matter as YAML: double-quoted,
+  single-quoted (`''` unescaping), plain scalars, flow sequences and `key:`-then-`- item` block
+  lists all decode to the same value. Each key's raw text is kept too, so a JSON payload respelled
+  as a bare YAML flow node still reads.
+- Fail-closed: a file presenting any Lamplight transfer key (`FOLDER_METADATA_KEYS`, which
+  deliberately excludes the legacy `dndtools.visibility`) whose format marker cannot be read is
+  refused — "Nothing imported" — rather than degraded to an ordinary note. A payload spelled in a
+  form we cannot read (e.g. a nested block mapping) is refused the same way. `decodeFolderNote` and
+  `decodeFolderRules` share one reader, so they can never disagree about whether a rule exists.
+  The refusal surfaces to the DM through `errMsg` in the Vault panel toast.
+
+### Medium — ordinary markdown folders lost their adjacent images
+
+Root cause: only images listed in `vault-assets.json` were stored; a plain relative reference was
+left untouched, so the import reported success while the renderer had nothing to show.
+
+- New `resolveFolderImageRef` (core) resolves a relative reference against the note's own folder —
+  `./`, `../`, percent-escapes and `#`/`?` suffixes — and refuses URLs, absolute paths and any
+  traversal out of the folder.
+- `importMarkdownFolder` adopts those files: identified by magic bytes (`sniffImageMime`), never by
+  filename, bounded by `MAX_ASSET_BLOB_BYTES`, stored content-addressed, and the body reference
+  rewritten to `asset:<id>` before any command runs. A reference naming no file in the folder, or a
+  file that is not an image, is left exactly as written. Lookup is case-insensitive, matching the
+  folder's existing duplicate-path rule.
+
+### Evidence
+
+- Reviewer's `edge-cases.mts` rerun verbatim on this tree: `assetStored: true`, re-export now
+  contains the PNG, the reformatted copy keeps `{hidden: {level: 'dm-only'}}`, and
+  `reformattedIncludesSecret` is now `false` (was `true`).
+- Mutation check: the new tests were run against the reverted `HEAD` sources — 15 core and 3 app
+  tests fail there (`expected {} to deeply equal { hidden: { level: 'dm-only' } }`,
+  `promise resolved "1" instead of rejecting`, relative path left unrewritten) and pass here.
+- Core 274 files / 4809 tests; app 127 files / 1337 tests; typecheck (core + cloud-fns + app),
+  `pnpm lint` (0 errors), boundary lint, non-text contrast, raw-style count, production build with
+  check-prod-bundle (85 JS assets) all pass.
+- Browser acceptance `markdown-folder.spec.ts`: 4 passed on desktop-chromium and mobile-chromium,
+  including the new foreign-folder import driven through the real Import folder ZIP button, which
+  asserts the wikilink/embed survive and the adopted image renders with `naturalWidth > 0`.

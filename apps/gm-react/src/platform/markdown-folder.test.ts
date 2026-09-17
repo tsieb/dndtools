@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Dexie from 'dexie';
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
-import { dispatchCommand, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
+import {
+	assetId,
+	dispatchCommand,
+	hashAssetBytes,
+	type CoreCommand,
+	type CoreStateSlice,
+} from '@dndtools/core';
 import { DM_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { seedDemoContent } from '../runtime/demo-seed';
 import { exportMarkdownFolder, importMarkdownFolder } from './backup';
 import { decodeFolderZip, encodeFolderZip } from '../../../../packages/core/src/export/folder-zip';
 import { putAssetBytes, getAssetBytes } from './storage/assetStore';
+import { safeImageSrc } from '../app/markdown/plugins';
 import { __testing } from './storage/coreStore';
 
 function runtime(initial?: CoreStateSlice) {
@@ -233,4 +240,138 @@ it('writes and reads a real nested folder without altering binary or text bytes'
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}
+});
+
+describe('interoperability with folders other tools wrote', () => {
+	/** A real 1x1 PNG: the importer identifies images by their bytes, not their filename. */
+	const png = () =>
+		Uint8Array.from(
+			atob(
+				'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3XcAAAAASUVORK5CYII=',
+			),
+			(char) => char.charCodeAt(0),
+		);
+
+	it('adopts an image sitting next to an ordinary markdown note', async () => {
+		const bytes = png();
+		const target = runtime();
+		expect(
+			await importMarkdownFolder(target, [
+				{
+					path: 'Lore/Note.md',
+					bytes: new TextEncoder().encode('![Map](assets/map.png)\n[[link]] ![[embed]]'),
+				},
+				{ path: 'Lore/assets/map.png', bytes },
+			]),
+		).toBe(1);
+		const note = Object.values(target.state.content.items)[0]!;
+		const id = assetId(hashAssetBytes(bytes));
+		// The image survives: stored, addressable, and accepted by the renderer's URL allow-list.
+		expect(note.body).toBe(`![Map](asset:${id})\n[[link]] ![[embed]]`);
+		expect(new Uint8Array(await (await getAssetBytes(id))!.arrayBuffer())).toEqual(bytes);
+		expect(safeImageSrc(`asset:${id}`)).toEqual({ kind: 'asset', assetId: id });
+		const reexported = await exportMarkdownFolder(target, true);
+		expect(reexported.find((entry) => entry.path.endsWith('.png'))?.bytes).toEqual(bytes);
+	});
+
+	it('leaves a reference naming no file in the folder exactly as written', async () => {
+		const target = runtime();
+		await importMarkdownFolder(target, [
+			{
+				path: 'Note.md',
+				bytes: new TextEncoder().encode(
+					'![Remote](https://example.com/a.png) ![Gone](assets/missing.png) ![Text](notes/a.txt)',
+				),
+			},
+			{ path: 'notes/a.txt', bytes: new TextEncoder().encode('not an image') },
+		]);
+		expect(Object.values(target.state.content.items)[0]!.body).toBe(
+			'![Remote](https://example.com/a.png) ![Gone](assets/missing.png) ![Text](notes/a.txt)',
+		);
+	});
+
+	it('keeps granular privacy rules when another editor reformats the front matter', async () => {
+		const source = runtime();
+		await source.dispatch({
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: {
+				kind: 'note',
+				title: 'Public with hidden section',
+				body: '# Public\nHello.\n\n# Hidden\nDM secret.',
+				visibility: 'player-visible',
+			},
+		});
+		const id = Object.keys(source.state.content.items)[0]!;
+		await source.dispatch({
+			type: 'content.set-section-visibility',
+			actorId: DM_ACTOR.id,
+			payload: { itemId: id, sectionId: 'hidden', rule: { level: 'dm-only' } },
+		});
+		const exported = await exportMarkdownFolder(source, true);
+		// Only the quoting changes — the same YAML, as another editor would save it.
+		const reformatted = exported.map((entry) =>
+			entry.path.endsWith('.md')
+				? {
+						...entry,
+						bytes: new TextEncoder().encode(
+							new TextDecoder()
+								.decode(entry.bytes)
+								.replace(
+									'dndtools.format: "markdown-folder-v1"',
+									'dndtools.format: markdown-folder-v1',
+								),
+						),
+					}
+				: entry,
+		);
+		expect(new TextDecoder().decode(reformatted[0]!.bytes)).not.toBe(
+			new TextDecoder().decode(exported[0]!.bytes),
+		);
+		const target = runtime();
+		await importMarkdownFolder(target, reformatted);
+		const copy = Object.values(target.state.content.items)[0]!;
+		expect(copy.sectionVisibility).toEqual(source.state.content.items[id]!.sectionVisibility);
+		expect(copy.visibility).toBe('player-visible');
+		// The decisive check: the reformatted copy is no more eligible for a public export than the original.
+		const publicText = (await exportMarkdownFolder(target))
+			.map((entry) => new TextDecoder().decode(entry.bytes))
+			.join('\n');
+		expect(publicText).not.toContain('DM secret.');
+	});
+
+	it('refuses a note whose Lamplight metadata cannot be read instead of importing it as public', async () => {
+		const source = runtime();
+		await source.dispatch({
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: {
+				kind: 'note',
+				title: 'Damaged metadata',
+				body: '# Public\nHello.\n\n# Hidden\nDM secret.',
+				visibility: 'player-visible',
+			},
+		});
+		const id = Object.keys(source.state.content.items)[0]!;
+		await source.dispatch({
+			type: 'content.set-section-visibility',
+			actorId: DM_ACTOR.id,
+			payload: { itemId: id, sectionId: 'hidden', rule: { level: 'dm-only' } },
+		});
+		const damaged = (await exportMarkdownFolder(source, true)).map((entry) =>
+			entry.path.endsWith('.md')
+				? {
+						...entry,
+						bytes: new TextEncoder().encode(
+							new TextDecoder()
+								.decode(entry.bytes)
+								.replace(/dndtools\.format: .*/, 'dndtools.format: some-other-tool'),
+						),
+					}
+				: entry,
+		);
+		const target = runtime();
+		await expect(importMarkdownFolder(target, damaged)).rejects.toThrow('Nothing imported');
+		expect(Object.keys(target.state.content.items)).toHaveLength(0);
+	});
 });

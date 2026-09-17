@@ -41,6 +41,36 @@ export function mapFolderImages(body: string, map: (ref: string) => string): str
 		.join('');
 }
 
+/**
+ * Resolve an ordinary relative image reference (`assets/map.png`, `../img/a.png`) against the note's
+ * own folder, returning the folder-relative path it names — or `null` when it is not a file this
+ * folder can carry (an `asset:`/`http:` URL, an absolute path, a traversal out of the folder).
+ * Ordinary Obsidian vaults address their images this way, so the importer must be able to find them.
+ */
+export function resolveFolderImageRef(notePath: string, ref: string): string | null {
+	const trimmed = ref.trim();
+	if (trimmed === '' || trimmed.startsWith('/') || trimmed.startsWith('#')) return null;
+	if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(trimmed)) return null; // asset:, http:, data:, …
+	let decoded: string;
+	try {
+		decoded = decodeURIComponent(trimmed.split('#')[0]!.split('?')[0]!);
+	} catch {
+		return null; // a malformed percent escape names nothing
+	}
+	const segments = notePath.split('/').slice(0, -1);
+	for (const part of decoded.split('/')) {
+		if (part === '' || part === '.') continue;
+		if (part === '..') {
+			if (segments.length === 0) return null;
+			segments.pop();
+			continue;
+		}
+		segments.push(part);
+	}
+	const resolved = segments.join('/');
+	return resolved !== '' && safeFolderPath(resolved) ? resolved : null;
+}
+
 export function selectFolderNotes(
 	content: VaultContentState,
 	permissions: PermissionState,
@@ -140,9 +170,13 @@ export function encodeFolderNote(note: ContentItem, assets: Record<string, strin
 export function decodeFolderNote(text: string, path: string) {
 	const note = obsidianFileToCanonicalNote(text, { preserveBody: true });
 	const props = readFolderProperties(text);
-	const own = props['dndtools.format'] === 'markdown-folder-v1';
+	const own = props.own;
+	const scalar = (key: string): string | undefined => {
+		const value = props.values[key];
+		return typeof value === 'string' ? value : undefined;
+	};
 	const json = (key: string, fallback: unknown): unknown =>
-		own && typeof props[key] === 'string' ? JSON.parse(props[key] as string) : fallback;
+		own ? readFolderJson(props, key, fallback) : fallback;
 	const assets = json('dndtools.assets', {}) as Record<string, unknown>;
 	if (!assets || typeof assets !== 'object' || Array.isArray(assets))
 		throw new Error('Invalid note asset map.');
@@ -161,28 +195,29 @@ export function decodeFolderNote(text: string, path: string) {
 		throw new Error('Invalid note fields.');
 	if (own)
 		for (const key of ['tags', 'aliases']) {
-			if (Array.isArray(props[key]) && (key in fields || (props[key] as unknown[]).length > 0)) {
-				(fields as Record<string, unknown>)[key] = props[key];
+			const value = props.values[key];
+			if (Array.isArray(value) && (key in fields || value.length > 0)) {
+				(fields as Record<string, unknown>)[key] = value;
 			}
 		}
 	return createContentItemInputSchema.parse({
 		kind: 'note',
-		title: props.title ?? note.userProperties.title ?? path.replace(/\.(md|markdown)$/i, ''),
+		title: scalar('title') ?? note.userProperties.title ?? path.replace(/\.(md|markdown)$/i, ''),
 		body: mapFolderImages(sanitizeMarkdownContent(note.body), (ref) => reverse.get(ref) ?? ref),
 		fields: {
 			...(fields as Record<string, unknown>),
 			...(own
 				? {
-						'dndtools.createdAt': props['dndtools.createdAt'],
-						'dndtools.updatedAt': props['dndtools.updatedAt'],
+						'dndtools.createdAt': scalar('dndtools.createdAt'),
+						'dndtools.updatedAt': scalar('dndtools.updatedAt'),
 					}
 				: {}),
 		},
 		visibility:
-			props['dndtools.visibility'] ?? note.dndtoolsMetadata['dndtools.visibility'] ?? 'dm-only',
+			scalar('dndtools.visibility') ?? note.dndtoolsMetadata['dndtools.visibility'] ?? 'dm-only',
 		dateFields: json('dndtools.dateFields', {}),
 		timelineRefs: json('dndtools.timelineRefs', []),
-		sharedWith: own ? props['dndtools.sharedWith'] : [],
+		sharedWith: own ? props.values['dndtools.sharedWith'] : [],
 	});
 }
 
@@ -205,31 +240,158 @@ export function folderNotePath(note: ContentItem, used: Set<string>): string {
 	return path;
 }
 
-function readFolderProperties(text: string): Record<string, unknown> {
+/** The portable marker every Lamplight markdown-folder export carries in its front matter. */
+const FOLDER_FORMAT = 'markdown-folder-v1';
+
+/**
+ * The front-matter keys that carry Lamplight's OWN transfer metadata — including every privacy
+ * rule. `dndtools.visibility` is deliberately absent: the legacy Obsidian import reads it from
+ * ordinary vault files that were never produced by this exporter.
+ */
+const FOLDER_METADATA_KEYS: ReadonlySet<string> = new Set([
+	'dndtools.format',
+	'dndtools.createdAt',
+	'dndtools.updatedAt',
+	'dndtools.fields',
+	'dndtools.dateFields',
+	'dndtools.timelineRefs',
+	'dndtools.sharedWith',
+	'dndtools.sectionVisibility',
+	'dndtools.fieldVisibility',
+	'dndtools.fieldSections',
+	'dndtools.assets',
+]);
+
+interface FolderProperties {
+	/** Decoded values: every equivalent YAML spelling of one scalar decodes to the same value. */
+	values: Record<string, unknown>;
+	/** The raw text right of `key:`, so a JSON payload respelled as a YAML flow node still reads. */
+	raw: Record<string, string>;
+	/** The file claims to be a Lamplight export (any `dndtools.*` transfer key is present). */
+	claimed: boolean;
+	/** The claim was understood: its metadata — privacy rules included — can be trusted. */
+	own: boolean;
+}
+
+/**
+ * Decode one YAML scalar spelling to its value. Quoting is presentation, not meaning: a note whose
+ * front matter was reformatted by another editor must decode to exactly the same values, because
+ * those values carry the DM's privacy rules.
+ */
+function decodeYamlScalar(raw: string): string | string[] {
+	const trimmed = raw.trim();
+	if (trimmed.startsWith('"')) {
+		try {
+			const parsed: unknown = JSON.parse(trimmed);
+			if (typeof parsed === 'string') return parsed;
+		} catch {
+			/* Not a spelling we understand; fall through to the literal text. */
+		}
+		return trimmed;
+	}
+	if (trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'"))
+		return trimmed.slice(1, -1).replace(/''/g, "'");
+	if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+		try {
+			const parsed: unknown = JSON.parse(trimmed);
+			if (Array.isArray(parsed) && parsed.every((entry) => typeof entry === 'string'))
+				return parsed as string[];
+		} catch {
+			/* A bare YAML flow sequence (`[one, two]`); split it below. */
+		}
+		const inner = trimmed.slice(1, -1).trim();
+		if (inner === '') return [];
+		return inner
+			.split(',')
+			.map((entry) => {
+				const value = decodeYamlScalar(entry);
+				return Array.isArray(value) ? entry.trim() : value;
+			})
+			.filter((entry) => entry.length > 0);
+	}
+	return trimmed;
+}
+
+/** Parse the front-matter block: `key: scalar`, flow sequences, and `key:`-then-`- item` lists. */
+function parseFolderFrontMatter(text: string): FolderProperties {
 	const fence = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
-	const props: Record<string, unknown> = Object.create(null);
+	const values: Record<string, unknown> = Object.create(null);
+	const raw: Record<string, string> = Object.create(null);
+	let claimed = false;
+	let listKey: string | null = null;
+	let list: string[] = [];
+	const flush = (): void => {
+		if (listKey !== null) {
+			values[listKey] = list;
+			raw[listKey] = JSON.stringify(list);
+			listKey = null;
+			list = [];
+		}
+	};
 	if (fence)
 		for (const line of fence[1]!.split(/\r?\n/)) {
-			const match = /^([\w.-]+): (.*)$/.exec(line);
-			if (match) {
-				try {
-					props[match[1]!] = JSON.parse(match[2]!);
-				} catch {
-					/* Ordinary Obsidian scalar. */
-				}
+			if (line.trim() === '') continue;
+			const item = /^\s*-\s+(.*)$/.exec(line);
+			if (item && listKey !== null) {
+				const value = decodeYamlScalar(item[1]!);
+				list.push(Array.isArray(value) ? item[1]!.trim() : value);
+				continue;
 			}
+			const pair = /^([\w.-]+):(?:[ \t]+(.*))?$/.exec(line);
+			flush();
+			// Anything else (an indented nested mapping, a block scalar) stays unread on purpose:
+			// a Lamplight key spelled that way ends up empty and is refused below, never trusted.
+			if (!pair) continue;
+			const key = pair[1]!;
+			if (FOLDER_METADATA_KEYS.has(key)) claimed = true;
+			const value = pair[2] ?? '';
+			if (value.trim() === '') {
+				listKey = key;
+				list = [];
+				continue;
+			}
+			values[key] = decodeYamlScalar(value);
+			raw[key] = value.trim();
 		}
+	flush();
+	return { values, raw, claimed, own: claimed && values['dndtools.format'] === FOLDER_FORMAT };
+}
+
+/**
+ * Read the front matter, FAIL-CLOSED. A file that presents Lamplight transfer metadata we cannot
+ * interpret is refused outright rather than imported as an ordinary note: dropping the metadata
+ * would silently drop the DM-only rules with it and publish the prose they were protecting.
+ */
+function readFolderProperties(text: string): FolderProperties {
+	const props = parseFolderFrontMatter(text);
+	if (props.claimed && !props.own)
+		throw new Error(
+			'This markdown file carries Lamplight metadata that cannot be read. Nothing imported.',
+		);
 	return props;
+}
+
+/** Read one JSON payload property, accepting any YAML spelling that still means the same value. */
+function readFolderJson(props: FolderProperties, key: string, fallback: unknown): unknown {
+	const decoded = props.values[key];
+	if (decoded === undefined) return fallback;
+	const spellings = typeof decoded === 'string' ? [decoded, props.raw[key]] : [props.raw[key]];
+	for (const spelling of spellings) {
+		if (spelling === undefined) continue;
+		try {
+			return JSON.parse(spelling) as unknown;
+		} catch {
+			/* Try the next spelling before refusing. */
+		}
+	}
+	throw new Error(`Lamplight note metadata "${key}" could not be read. Nothing imported.`);
 }
 
 /** Validate granular rules before any writes; the importer applies them while the note is private. */
 export function decodeFolderRules(text: string) {
 	const props = readFolderProperties(text);
 	const read = (key: string): Record<string, unknown> => {
-		const value: unknown =
-			props['dndtools.format'] === 'markdown-folder-v1' && typeof props[key] === 'string'
-				? JSON.parse(props[key] as string)
-				: {};
+		const value: unknown = props.own ? readFolderJson(props, key, {}) : {};
 		if (!value || typeof value !== 'object' || Array.isArray(value))
 			throw new Error('Invalid note visibility metadata.');
 		return value as Record<string, unknown>;

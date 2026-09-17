@@ -4,8 +4,10 @@ import { DM_ACTOR } from '../testing/fixtures';
 import {
 	encodeFolderNote,
 	decodeFolderNote,
+	decodeFolderRules,
 	folderNotePath,
 	mapFolderImages,
+	resolveFolderImageRef,
 } from './markdown-folder';
 import { encodeFolderZip, decodeFolderZip } from './folder-zip';
 
@@ -92,4 +94,100 @@ it('does not collect image-like examples in inline code or fenced code', () => {
 	});
 	expect(mapped).toBe(body);
 	expect(seen).toEqual([]);
+});
+
+describe('front matter spelling never changes what a note means', () => {
+	const protectedNote = () => {
+		const note = makeNote('# Public\nHello.\n\n# Hidden\nDM secret.');
+		note.visibility = 'player-visible';
+		note.sectionVisibility = { hidden: { level: 'dm-only' } };
+		note.fieldVisibility = { 'fields.gmNotes': { level: 'dm-only' } };
+		note.fieldSections = { 'fields.gmNotes': 'hidden' };
+		return note;
+	};
+	/** Respell the front matter the way another editor would, without changing its meaning. */
+	const respell = (text: string, replace: (line: string) => string) => {
+		const fence = /^---\n([\s\S]*?)\n---\n?/.exec(text)!;
+		return `---\n${fence[1]!.split('\n').map(replace).join('\n')}\n---\n${text.slice(fence[0].length)}`;
+	};
+	it.each([
+		[
+			'unquoted plain scalars',
+			(line: string) =>
+				/^(dndtools\.(format|visibility|createdAt|updatedAt)): "(.*)"$/.test(line)
+					? line.replace(/: "(.*)"$/, ': $1')
+					: line,
+		],
+		[
+			'single-quoted JSON payloads',
+			(line: string) =>
+				line.startsWith('dndtools.sectionVisibility: ') ||
+				line.startsWith('dndtools.fieldVisibility: ')
+					? `${line.slice(0, line.indexOf(': '))}: '${JSON.parse(line.slice(line.indexOf(': ') + 2)) as string}'`
+					: line,
+		],
+		[
+			'flow payloads spelled as bare YAML nodes',
+			(line: string) =>
+				line.startsWith('dndtools.fieldSections: ') ||
+				line.startsWith('dndtools.sectionVisibility: ')
+					? `${line.slice(0, line.indexOf(': '))}: ${JSON.parse(line.slice(line.indexOf(': ') + 2)) as string}`
+					: line,
+		],
+	])('decodes %s to the same privacy rules', (_label, replace) => {
+		const note = protectedNote();
+		const original = encodeFolderNote(note);
+		const reformatted = respell(original, replace);
+		expect(reformatted).not.toBe(original);
+		expect(decodeFolderRules(reformatted)).toEqual(decodeFolderRules(original));
+		expect(decodeFolderRules(reformatted).sections).toHaveLength(1);
+		expect(decodeFolderNote(reformatted, 'Note.md').body).toBe(
+			decodeFolderNote(original, 'Note.md').body,
+		);
+	});
+	it('refuses a file whose Lamplight metadata cannot be read rather than publishing its prose', () => {
+		const original = encodeFolderNote(protectedNote());
+		for (const damaged of [
+			original.replace(/^dndtools\.format: .*$/m, 'dndtools.format: some-other-tool'),
+			original.replace(/^dndtools\.format: .*$/m, 'dndtools.format:'),
+			original.replace(
+				/^dndtools\.sectionVisibility: .*$/m,
+				'dndtools.sectionVisibility:\n  hidden:\n    level: dm-only',
+			),
+		]) {
+			expect(() => decodeFolderRules(damaged)).toThrow(/Nothing imported|visibility metadata/);
+		}
+	});
+	it('still reads an ordinary vault note that only carries dndtools.visibility', () => {
+		expect(
+			decodeFolderNote('---\ndndtools.visibility: player-visible\n---\nHi\n', 'Note.md'),
+		).toMatchObject({ visibility: 'player-visible' });
+	});
+	it('reads block-list tags the way an Obsidian editor writes them', () => {
+		expect(
+			decodeFolderNote('---\ntags:\n  - one\n  - "two"\n---\nbody', 'Note.md').fields.tags,
+		).toEqual(['one', 'two']);
+	});
+});
+
+describe('relative image references', () => {
+	it.each([
+		['Lore/Note.md', 'assets/map.png', 'Lore/assets/map.png'],
+		['Lore/Note.md', './assets/map.png', 'Lore/assets/map.png'],
+		['Lore/Deep/Note.md', '../assets/map.png', 'Lore/assets/map.png'],
+		['Note.md', 'my%20map.png', 'my map.png'],
+		['Note.md', 'map.png#anchor', 'map.png'],
+	])('resolves %s + %s against the note folder', (notePath, ref, expected) => {
+		expect(resolveFolderImageRef(notePath, ref)).toBe(expected);
+	});
+	it.each([
+		['Note.md', 'asset:asset-123'],
+		['Note.md', 'https://example.com/a.png'],
+		['Note.md', 'data:image/png;base64,AAAA'],
+		['Note.md', '/etc/passwd'],
+		['Lore/Note.md', '../../../etc/passwd'],
+		['Note.md', '%E0%A4%A'],
+	])('refuses %s + %s', (notePath, ref) => {
+		expect(resolveFolderImageRef(notePath, ref)).toBeNull();
+	});
 });

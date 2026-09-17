@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
-import { decodeFolderZip } from '../../../../packages/core/src/export/folder-zip';
+import { decodeFolderZip, encodeFolderZip } from '../../../../packages/core/src/export/folder-zip';
 
 const PNG =
 	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3XcAAAAASUVORK5CYII=';
@@ -105,6 +105,57 @@ test('folder ZIP keeps private notes opt-in and re-imports a note with its image
 	expect(Buffer.from(imported.bytes)).toEqual(Buffer.from(PNG, 'base64'));
 	await gotoRoute(page, `/knowledge/${imported.id}`);
 	const image = page.getByRole('img', { name: 'Round trip image', exact: true });
+	await expect(image).toBeVisible();
+	await expect
+		.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+		.toBeGreaterThan(0);
+});
+
+test('imports an ordinary markdown folder written by another tool without losing its image', async ({
+	page,
+}) => {
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings?tab=vault');
+	await seedFresh(page);
+	await page.goto('/#/settings?tab=vault', { waitUntil: 'domcontentloaded' });
+	await waitReady(page);
+	// A plain Obsidian-style folder: a relative image path and no Lamplight manifest.
+	const zipBytes = Buffer.from(
+		encodeFolderZip([
+			{
+				path: 'Lore/Foreign Folder Note.md',
+				bytes: new TextEncoder().encode(
+					'---\ntitle: Foreign Folder Note\ntags:\n  - imported\n---\n![Adjacent image](assets/map.png)\n\n[[Campaign Primer]] ![[Campaign Primer]]\n',
+				),
+			},
+			{ path: 'Lore/assets/map.png', bytes: Uint8Array.from(Buffer.from(PNG, 'base64')) },
+		]),
+	);
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import folder ZIP', exact: true }).click();
+	await (
+		await chooser
+	).setFiles({ name: 'foreign.zip', mimeType: 'application/zip', buffer: zipBytes });
+	await expect(page.getByText(/Imported \d+ notes\./)).toBeVisible();
+	const imported = await page.evaluate(() => {
+		const items = (
+			window.__rt!.state.content as {
+				items: Record<
+					string,
+					{ id: string; title: string; body: string; deletedAt: string | null }
+				>;
+			}
+		).items;
+		const note = Object.values(items).find(
+			(item) => item.title === 'Foreign Folder Note' && !item.deletedAt,
+		)!;
+		return { id: note.id, body: note.body };
+	});
+	// The wikilink and embed survive; the adjacent image became a stored vault asset.
+	expect(imported.body).toContain('[[Campaign Primer]] ![[Campaign Primer]]');
+	expect(imported.body).toMatch(/!\[Adjacent image\]\(asset:[\w-]+\)/);
+	await gotoRoute(page, `/knowledge/${imported.id}`);
+	const image = page.getByRole('img', { name: 'Adjacent image', exact: true });
 	await expect(image).toBeVisible();
 	await expect
 		.poll(() => image.evaluate((element) => (element as HTMLImageElement).naturalWidth))

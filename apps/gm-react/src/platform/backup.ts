@@ -5,6 +5,7 @@ import {
 	encodeFolderNote,
 	folderNotePath,
 	mapFolderImages,
+	resolveFolderImageRef,
 	selectFolderNotes,
 	FOLDER_MAX_BYTES,
 	FOLDER_MAX_FILES,
@@ -570,6 +571,25 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
 	'image/avif': 'avif',
 };
 
+/**
+ * Identify a supplied image by its BYTES, never by its filename. An ordinary markdown folder is
+ * written by other tools, so the extension is a hint the importer must not trust before storing
+ * bytes under a content-addressed id.
+ */
+function sniffImageMime(bytes: Uint8Array): string | null {
+	const starts = (...magic: number[]) =>
+		bytes.length >= magic.length && magic.every((byte, i) => bytes[i] === byte);
+	const ascii = (offset: number, text: string) =>
+		bytes.length >= offset + text.length &&
+		[...text].every((char, i) => bytes[offset + i] === char.charCodeAt(0));
+	if (starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+	if (starts(0xff, 0xd8, 0xff)) return 'image/jpeg';
+	if (ascii(0, 'GIF87a') || ascii(0, 'GIF89a')) return 'image/gif';
+	if (ascii(0, 'RIFF') && ascii(8, 'WEBP')) return 'image/webp';
+	if (ascii(4, 'ftyp') && (ascii(8, 'avif') || ascii(8, 'avis'))) return 'image/avif';
+	return null;
+}
+
 export async function exportMarkdownFolder(
 	runtime: MarkdownRuntime,
 	includeDmOnly = false,
@@ -685,7 +705,11 @@ export async function importMarkdownFolder(
 		.filter((entry) => /\.(md|markdown)$/i.test(entry.path))
 		.map((entry) => {
 			const text = decoder.decode(entry.bytes);
-			return { note: decodeFolderNote(text, entry.path), rules: decodeFolderRules(text) };
+			return {
+				path: entry.path,
+				note: decodeFolderNote(text, entry.path),
+				rules: decodeFolderRules(text),
+			};
 		});
 	if (notes.length === 0) throw new Error('This folder contains no markdown notes.');
 	const calendarEntry = entries.find((entry) => entry.path === 'vault-calendars.json');
@@ -703,6 +727,40 @@ export async function importMarkdownFolder(
 			}
 		}
 	}
+	// An ordinary markdown folder addresses its images by relative path and carries no Lamplight
+	// manifest. Adopt those files too, so importing a plain Obsidian export does not quietly drop
+	// every image in it; a reference naming no file in the folder is left untouched.
+	const adopted = new Map<string, { bytes: Uint8Array; mime: string; id: string }>();
+	// Folder paths are already unique case-insensitively, and the vaults these folders come from
+	// often live on case-insensitive filesystems, so match a reference the same way.
+	const byPath = new Map(entries.map((entry) => [entry.path.toLowerCase(), entry]));
+	for (const entry of notes) {
+		const refs = new Set<string>();
+		mapFolderImages(entry.note.body, (ref) => {
+			if (!ref.startsWith('asset:')) refs.add(ref);
+			return ref;
+		});
+		const mapping = new Map<string, string>();
+		for (const ref of refs) {
+			const resolved = resolveFolderImageRef(entry.path, ref);
+			if (resolved === null) continue;
+			const file = byPath.get(resolved.toLowerCase());
+			if (!file) continue;
+			let asset = adopted.get(file.path);
+			if (!asset) {
+				const mime = sniffImageMime(file.bytes);
+				if (!mime) continue; // not an image we can store; leave the reference as written
+				if (file.bytes.length > MAX_ASSET_BLOB_BYTES)
+					throw new Error('A folder image is too large to import. Nothing imported.');
+				asset = { bytes: file.bytes, mime, id: assetId(hashAssetBytes(file.bytes)) };
+				adopted.set(file.path, asset);
+			}
+			mapping.set(ref, `asset:${asset.id}`);
+		}
+		if (mapping.size > 0)
+			entry.note.body = mapFolderImages(entry.note.body, (ref) => mapping.get(ref) ?? ref);
+	}
+	assets.push(...[...adopted.values()].map(({ bytes, mime }) => ({ bytes, mime })));
 	const bundledIds = new Set(assets.map((asset) => assetId(hashAssetBytes(asset.bytes))));
 	for (const { note } of notes) {
 		const refs = new Set<string>();
