@@ -48,8 +48,10 @@ implemented, so treat their rows as the contract to build against, not as availa
 | `scholar` | Light, cooler, navy accent — tuned for long stretches of reading and writing. | *Planned* |
 | `dungeon` | Dark, near-black, brighter accent — tuned for dim tables. | *Planned* |
 
-System light/dark maps to `parchment`/`tavern`, and the `@media (forced-colors: active)` block is
-to cover all five.
+System light/dark maps to `parchment`/`tavern`. The app carries the forced-colors remap
+(`@media (forced-colors: active)` at `apps/gm-react/src/styles/tokens/colors.css:428`); this
+package's `tokens/colors.css` has no such block yet, and the export that adds it must cover all
+five rows above.
 
 **Where the three shipping themes are defined.** `[data-theme='tavern']`, `[data-theme='parchment']`
 and `[data-theme='high-contrast']` in this package's `tokens/colors.css`, mirrored one-to-one in the
@@ -262,12 +264,20 @@ Section icons: home `house` · session `zap` · characters `users` · atlas `map
 - `tokens/colors.css` · `typography.css` · `spacing.css` · `fonts.css` · `base.css` — the token
   layers and webfont declaration.
 - `guidelines/*.card.html` — foundation specimen cards (Colors, Type, Spacing, Brand groups).
+  *Published by source A; not part of this vendored copy — see **Caveats**.*
 
-**Components** (`components/<group>/` — React primitives + `.d.ts` + `.prompt.md` + a `@dsCard`).
+**Components** (`components/<group>/` — 69 React primitives, each with a colocated `.d.ts`. A
+`.prompt.md` long-form spec exists for six of them: `core/Button`, `creature/StatBlock`,
+`overlay/{Dialog,Sheet,Toast,Tooltip}`. The `@dsCard` specimen blocks live upstream in source A,
+not here — see **Caveats**.)
 *The `creature`, `condition`, `spell` and `domain` groups are the **D&D 5e reference package's**
 implementation of the System Package contract — reusable containers fed 5e vocabulary, not 5e-only
 fixtures. Feed them another package's vocabulary for another game.*
-- `core/` — **Icon, Button, IconButton, Card / CardHeader, Avatar, Tabs, Breadcrumb, Popover, Stepper**
+- `core/` — **Icon, Button, IconButton, Card / CardHeader, Avatar, Tabs, Breadcrumb, Popover,
+  Stepper, ListItem, RadioCard, Menu, Toolbar, Callout, Kbd, HelpTip, FeatureSpotlight** — the nine
+  from `Stepper` on are the RC-DSN-2.2 supporting primitives; their contracts, keyboard behaviour
+  and production consumers are in
+  [`components/missing-primitives.md`](components/missing-primitives.md).
 - `command/` — **CommandPalette** — the ⌘K hot path. One top-anchored overlay to jump to any of the
   seven sections or fire any action by typing: substring match over label + keywords, a Recent
   section on empty query, full keyboard navigation (↑/↓/Home/End/Enter/Esc), and the system's
@@ -275,14 +285,14 @@ fixtures. Feed them another package's vocabulary for another game.*
 - `navigation/` — **NavSidebar, NavRail, NavItem, BottomTabBar** — the one IA in three presentations:
   full sidebar (desktop), collapsed icon rail (tablet), and bottom tab bar (mobile). `NavItem` is the
   shared row: section icon, label, optional count badge, the gold active rail, ≥44px touch targets.
-- `forms/` — **Field, Input, Textarea, Select, Checkbox, Switch, SegmentedControl, Slider**
+- `forms/` — **Field, Input, Textarea, Select, Checkbox, Switch, SegmentedControl, Slider, TagInput**
 - `feedback/` — **Badge, Chip, VisibilityChip, StatusDot**
 - `overlay/` — **Dialog, Sheet, Toast (+ ToastViewport / Toaster), Tooltip** — the modal chrome the
   form bodies delegate to ("drop it inside a Dialog (desktop) or sheet (mobile)"), transient
   plain-state confirmations, and the hover/focus hint for icon-only controls. Scrim + focus-trap +
   scroll-lock + focus-restore on Dialog/Sheet; status→distinct-shape on Toast.
-- `data/` — **DataTable, DefinitionList, Stat** — the prep/authoring tabular vocabulary: a sortable,
-  selectable table for vault/monster/spell lists; a label→value definition list for stat-blocks and
+- `data/` — **DataTable, DefinitionList, Stat, Figure** — the prep/authoring tabular vocabulary:
+  a sortable, selectable table for vault/monster/spell lists; a label→value definition list for stat-blocks and
   detail panes; and a single labelled `Stat` readout (mono value + eyebrow) for dashboards.
 - `system/` — **EmptyState, Skeleton, ProgressMeter** — the pre-content, loading, and determinate-
   progress affordances (no-combat empties, list skeletons, XP-budget / sync / prep meters).
@@ -360,18 +370,40 @@ Mount in `@dsCard` HTML via `const { Button } = window.DNDToolsDesignSystem_8ae0
   (`tokens/fonts.css`). The compiler therefore reports 0 bundled `@font-face` binaries — rendering
   is unaffected. *If you want them self-hosted/offline, drop the `.woff2` files in `assets/fonts/`
   and swap the `@import` for local `@font-face` rules.*
-- **This vendored copy trails the app on four points.** It was last re-vendored from source A on
-  2026-07-03 (repo commit `ff07b838`); the branding and theme sections above were corrected in place
-  afterwards rather than re-exported, because the upstream push needs an interactive DesignSync
-  authorization. Still un-pushed and therefore absent from `tokens/`, `components/` and `templates/`
-  here: (1) the **tile-type tokens** — 48 `--color-tile-*` declarations exist in
-  `apps/gm-react/src/styles/tokens/colors.css` (RC-CAN-2.1) and none in this package's
-  `tokens/colors.css`; (2) the **widget-builder template** — the app ships
-  `apps/gm-react/src/screens/extensions/WidgetBuilder.tsx` with no counterpart under `templates/`;
-  (3) the **supporting primitives** from RC-DSN-2.2, which are documented in
-  `components/missing-primitives.md` but have no `components/<group>/` entries with `.d.ts` /
-  `.prompt.md` / `@dsCard` like the rest; (4) the **system-picker template updates**. Read the app
-  as the truth on all four until RC-DSN-2.4 completes its upstream push and re-vendor.
+- **This copy was last re-vendored from source A on 2026-07-03** (repo commit `ff07b838`). Prose in
+  `readme.md`, `SKILL.md` and `handoff/APPLY.md` has been corrected in place since, because pushing
+  to A needs an interactive DesignSync authorization that a headless run cannot obtain. Everything
+  below is un-pushed. Where the two disagree the app is the truth **except on the system picker**,
+  noted inline:
+  - **Tile-type tokens — app ahead.** 48 `--color-tile-*` declarations in
+    `apps/gm-react/src/styles/tokens/colors.css` (RC-CAN-2.1); zero in this package's
+    `tokens/colors.css`.
+  - **Widget-builder template — app ahead.** The app ships
+    `apps/gm-react/src/screens/extensions/WidgetBuilder.tsx`; `templates/` has no
+    `widget-builder/` counterpart.
+  - **System picker — split.** The package is ahead on the layout
+    (`templates/system-package-picker/SystemPackagePicker.dc.html`, gallery ↔ detail); the app is
+    ahead on the component, shipping `apps/gm-react/src/ds/components/system/SystemPackageCard.jsx`
+    (consumed by `apps/gm-react/src/screens/extensions/System.tsx`) with no
+    `components/system/SystemPackageCard.jsx` here. Reconcile in both directions on the next sync.
+  - **Forced-colors remap — app ahead.** See **Themes** above.
+  - **Prose branding — partly swept.** Ten mentions of the pre-rebrand product name survive in
+    files this repo may not hand-edit, all header comments or a generated demo: `styles.css`,
+    `tokens/{colors,typography,spacing,fonts,base}.css`, `components/core/Icon.{jsx,d.ts}`,
+    `handoff/redesign.tokens.css`, `handoff/before-after.html`. They clear only on the next export
+    from A; [`../design/README.md`](../design/README.md) carries the exact grep.
+  - **Not drift:** all eleven RC-DSN-2.2 supporting primitives *are* vendored here — `Stepper`,
+    `ListItem`, `RadioCard`, `Menu`, `Toolbar`, `Callout`, `Kbd`, `HelpTip`, `FeatureSpotlight`
+    under `components/core/`, `TagInput` under `components/forms/`, `Figure` under
+    `components/data/`,
+    each with a `.jsx` and a `.d.ts` here, and each with a `.jsx` plus a colocated `.test.tsx`
+    under `apps/gm-react/src/ds/components/{core,forms,data}/`. An earlier revision of this caveat
+    listed them as package-side prose only; that was wrong.
+- **Source A publishes more than this copy holds.** `_ds_bundle.js`, `SOURCES.md`, the
+  `guidelines/*.card.html` specimens and the per-component `@dsCard` blocks referenced above and in
+  **INDEX** live in project A and are not vendored into this repo. There is therefore no upstream
+  bundle version string to quote here; `ff07b838` is the only version identifier the repo has. See
+  [`../design/README.md`](../design/README.md) → *Vendored bundle version*.
 - **The "before" evidence screenshots** (`redesign/evidence/`) show the *current* build, which the
   brief deliberately moves away from — use them for IA only, not visual reference.
 - This system implements the brief's highest-leverage surfaces in depth (Command Center, Session,

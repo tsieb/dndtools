@@ -110,3 +110,93 @@ only, so I did not edit them — flagging for whoever owns the roadmap ledger.
 **0 stale**, 0/23 screens needing wiring review. Every path cited in both files was
 existence-checked. Docs-only change; no product code touched, so app test suites were not
 run. No push, promotion, loop, or dispatcher control-state edit.
+
+## 2026-09-16 (second pass): corrected the drift record after gate review
+
+Three of the previous pass's claims were wrong. This pass verifies each drift point against the
+tree before restating it, and corrects the two owned documents accordingly. Upstream remains
+blocked; no new DesignSync call was made, because the blocker was already established first-hand
+in the entry above and nothing in this repo can change it.
+
+**The primitives point was false, and the correction is the substantive change here.** The previous
+caveat said the RC-DSN-2.2 supporting primitives "are documented in `components/missing-primitives.md`
+but have no `components/<group>/` entries". They do. All eleven are vendored: `Stepper`, `ListItem`,
+`RadioCard`, `Menu`, `Toolbar`, `Callout`, `Kbd`, `HelpTip`, `FeatureSpotlight` in
+`docs/design-package/components/core/`, `TagInput` in `components/forms/`, `Figure` in
+`components/data/`, each with a `.jsx` and a `.d.ts`, against `.jsx` + colocated `.test.tsx` on the
+app side. Package and app agree; it was never drift. Both documents now say so and name the earlier
+revision as the source of the error.
+
+Chasing that turned up why it was plausible: the readme's own **INDEX** was stale. Its `core/` list
+named nine components against seventeen on disk, omitting the eight new core primitives
+(`Stepper`, the ninth, was already listed);
+`forms/` omitted `TagInput` and `data/` omitted `Figure`. Corrected in place (prose). While there,
+two INDEX header claims that do not hold for this vendored copy: it promised every component carries
+a `.prompt.md` and a `@dsCard` — actual counts are 6 `.prompt.md` of 69 components (`core/Button`,
+`creature/StatBlock`, `overlay/{Dialog,Sheet,Toast,Tooltip}`) and **zero** `@dsCard` blocks — and it
+listed `guidelines/*.card.html`, a directory that does not exist here. Both are now stated as what
+they are: published by A, not vendored. Same for `SOURCES.md` and `_ds_bundle.js`, which the readme
+references in three places and the repo does not contain.
+
+**The system-picker point had the direction backwards.** It sat in a list headed "read the app as
+the truth on all four". The two sides are each ahead on a different half: the package has the layout
+(`templates/system-package-picker/SystemPackagePicker.dc.html`), the app has the component
+(`apps/gm-react/src/ds/components/system/SystemPackageCard.jsx`, imported at
+`apps/gm-react/src/screens/extensions/System.tsx:23` and rendered at :458 and :733) with no
+`components/system/SystemPackageCard.jsx` in the package. Both documents now carry the split
+explicitly, and the drift table gained a `Truth` column so no row inherits a blanket rule that does
+not fit it. This also makes RC_ROADMAP.md:146 ("ships a `system-package-picker` template that nothing
+implements") a stale snapshot — noted in `docs/design/README.md` alongside the roadmap's own status
+row at :186, which already records G1 as closed. RC_ROADMAP.md is not owned here and was not edited.
+
+**Branding: swept what the rules allow, named what remains.** `docs/design/README.md` distinguishes
+prose (correctable in place when A is unreachable) from generated output (re-vendor only). Applied
+that rule rather than asserting branding was resolved:
+
+- Swept: `SKILL.md` frontmatter `description` and the `**Brand:**` line (whose parenthetical "name
+  kept for now" was doubly stale after the rename), and the `handoff/APPLY.md` title. The skill's
+  `name: dndtools-design` slug is an identifier, not branding, and was left alone.
+- Left, and now enumerated in both documents: ten mentions in header comments and one generated
+  demo — `styles.css`, `tokens/{colors,typography,spacing,fonts,base}.css`,
+  `components/core/Icon.{jsx,d.ts}`, `handoff/redesign.tokens.css`, `handoff/before-after.html`.
+  `grep -rn 'DND Tools' docs/design-package/` from the repo root returns exactly those ten and is
+  recorded in `docs/design/README.md` as the check. The package readme deliberately phrases this
+  without the literal string so it does not appear in its own grep result.
+
+The "Edited by" cell in §1 now names the generated files (`tokens/`, `components/`, `templates/`,
+`styles.css`, `support.js`, `handoff/redesign.tokens.css`, `handoff/before-after.html`) instead of
+leaving "never hand-edited" to be inferred from three directory names.
+
+**Forced-colors claim corrected.** The previous readme said "the `@media (forced-colors: active)`
+block is to cover all five", which reads as a state claim about a block this package does not have.
+`docs/design-package/tokens/colors.css` contains no such block; the app's is at
+`apps/gm-react/src/styles/tokens/colors.css:428`. Reworded to attribute the block to the app and
+state the five-row coverage as a requirement on the export that adds it. Added as its own drift row.
+
+**Corrected handoff pointers** (the previous entry's were wrong; unowned files, so pointers only):
+
+- `docs/planning/RC_ROADMAP.md:160` — G15, "design package readme still branded 'DND Tools' with CDN
+  fonts". Stale as to branding in `readme.md`/`SKILL.md`/`handoff/APPLY.md`; still true of the ten
+  generated-file mentions and of CDN fonts. (The previous entry cited line 154, which is G7.)
+- `docs/planning/RC_ROADMAP.md:119` — §1.1 current state, "the package readme claims five and still
+  says 'DND Tools'". Now stale on both halves: the readme labels which of the five ship, and says
+  Lamplight. The previous entry missed this line entirely.
+- `docs/planning/RC_ROADMAP.md:1916` — §15 current state, "`docs/design-package/readme.md` claims
+  five themes". Stale in the same way. (The previous entry cited 1641-1642, which is §12 audio.)
+- `docs/planning/RC_ROADMAP.md:165` — G20 and `:414`, both of which also reference the "DND Tools"
+  naming across docs.
+- `docs/requirements/FEATURE-GAPS.md:63` — "three of the five planned themes". Still accurate.
+
+**Still not done, unchanged from the previous entry.** Every upstream write: pushing branding, the
+five-theme set, the primitives, tile tokens and the template updates to source A, and re-vendoring
+the result. That needs a one-time interactive `/design-login` on this machine. The drift table in
+`docs/design/README.md` is the work list for that sync, and it is now accurate in both direction and
+file paths.
+
+**Validation.** `pnpm gates`: quality-gate 6 gates owned/budgeted/wired; docs check 254 files
+reachable, 283 relative links resolved — the new relative links in both documents are inside that
+count. `pnpm feature-audit`: 48 declared limits, 0 stale, 0/23 screens needing wiring review.
+`npx prettier --check` clean on all four changed files (`docs/design-package` is Prettier-ignored
+per `.prettierignore:11`, so only `docs/design/README.md` was reformatted). Every count and path
+asserted in this entry was checked against the tree in this session. Docs-only change; no product
+code touched. No push, promotion, loop, or dispatcher control-state edit; no agent spawned.

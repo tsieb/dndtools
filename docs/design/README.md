@@ -6,12 +6,12 @@ realized in the React app.
 
 ## 1. Where the design lives
 
-| Source                                     | What it is                                                                                                                                                         | Edited by                                                                                                                                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **A** — the design system                  | claude.ai/design project `8ae04609-d2e8-47b6-8989-7bac8fce7edf`: tokens, guidelines, components, templates, the published `_ds_bundle.js`, and the handoff runbook | Claude Code through the DesignSync MCP, or the UI                                                                                                                                                                                                |
-| **B** — the prototype                      | claude.ai/design project `20316ed7-4fd5-4edd-8294-48f899b74252`: the click-through app (`app.jsx`, `views/*.jsx`, `campaign-data.js`) consuming a pinned copy of A | The claude.ai/design UI only (read-only to DesignSync)                                                                                                                                                                                           |
-| **R** — this repo                          | `apps/gm-react`: the shipping product, reskinned toward A and B                                                                                                    | Claude Code directly                                                                                                                                                                                                                             |
-| [`../design-package/`](../design-package/) | The vendored copy of A: `tokens/`, `components/`, `templates/`, `handoff/APPLY.md`, `readme.md` (content voice, visual foundations, iconography)                   | Re-vendored from A. Prose corrections may be applied in place when A is unreachable — record them under _Vendored bundle version_ below and push them upstream on the next sync; `tokens/`, `components/` and `templates/` are never hand-edited |
+| Source                                     | What it is                                                                                                                                                         | Edited by                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** — the design system                  | claude.ai/design project `8ae04609-d2e8-47b6-8989-7bac8fce7edf`: tokens, guidelines, components, templates, the published `_ds_bundle.js`, and the handoff runbook | Claude Code through the DesignSync MCP, or the UI                                                                                                                                                                                                                                                                                                                                       |
+| **B** — the prototype                      | claude.ai/design project `20316ed7-4fd5-4edd-8294-48f899b74252`: the click-through app (`app.jsx`, `views/*.jsx`, `campaign-data.js`) consuming a pinned copy of A | The claude.ai/design UI only (read-only to DesignSync)                                                                                                                                                                                                                                                                                                                                  |
+| **R** — this repo                          | `apps/gm-react`: the shipping product, reskinned toward A and B                                                                                                    | Claude Code directly                                                                                                                                                                                                                                                                                                                                                                    |
+| [`../design-package/`](../design-package/) | The vendored copy of A: `tokens/`, `components/`, `templates/`, `handoff/APPLY.md`, `readme.md` (content voice, visual foundations, iconography)                   | Re-vendored from A. Prose — `readme.md`, `SKILL.md`, `handoff/APPLY.md` — may be corrected in place when A is unreachable; record it under _Vendored bundle version_ below and push it upstream on the next sync. Generated output is never hand-edited: `tokens/`, `components/`, `templates/`, `styles.css`, `support.js`, `handoff/redesign.tokens.css`, `handoff/before-after.html` |
 
 B depends on A; the repo depends on A; A depends on nothing. Never invert this. B pins a frozen
 bundle of A, so A can drift ahead until the bundle is re-imported. DesignSync is available only in
@@ -28,17 +28,35 @@ authorization` in non-interactive sessions, and `/design-login` must be run once
 Claude Code session on this machine before a headless run can reach A. Re-check and replace this
 paragraph with the real upstream version as part of the next successful re-vendor.
 
-Where the package and the app disagree, **the app is the truth.** Current known drift, tracked by
-RC-DSN-2.4:
+Where the package and the app disagree, **the app is the truth — except on the system picker**,
+where each side is ahead on a different half. Current known drift, tracked by RC-DSN-2.4:
 
-| Point          | Package                                                                      | App (truth)                                                    |
-| -------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Branding       | Lamplight throughout (corrected in place, not re-exported)                   | Lamplight                                                      |
-| Themes         | lists five — three shipping, two marked planned                              | three ship: `tavern` default, `parchment`, `high-contrast`     |
-| Fonts          | `tokens/fonts.css` genuinely `@import`s Google Fonts, and its caveat says so | self-hosted `@fontsource/*`                                    |
-| Tile tokens    | absent                                                                       | 48 `--color-tile-*` in `styles/tokens/colors.css` (RC-CAN-2.1) |
-| Widget builder | no `templates/widget-builder/`                                               | `src/screens/extensions/WidgetBuilder.tsx`                     |
-| New primitives | prose only, in `components/missing-primitives.md`                            | `src/ds/components/{core,forms,data}` (RC-DSN-2.2)             |
+| Point          | Package                                                                                                                                            | App                                                                                               | Truth   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------- |
+| Branding       | prose swept to Lamplight in place (`readme.md`, `SKILL.md`, `handoff/APPLY.md`); 10 `DND Tools` strings remain in re-vendor-only files — see below | Lamplight                                                                                         | app     |
+| Themes         | lists five — three shipping, two marked planned                                                                                                    | three ship: `tavern` default, `parchment`, `high-contrast`                                        | app     |
+| Fonts          | `tokens/fonts.css` genuinely `@import`s Google Fonts, and its caveat says so                                                                       | self-hosted `@fontsource/*`                                                                       | app     |
+| Forced colors  | no `@media (forced-colors: active)` block in `tokens/colors.css`                                                                                   | `styles/tokens/colors.css:428`                                                                    | app     |
+| Tile tokens    | absent                                                                                                                                             | 48 `--color-tile-*` in `styles/tokens/colors.css` (RC-CAN-2.1)                                    | app     |
+| Widget builder | no `templates/widget-builder/`                                                                                                                     | `src/screens/extensions/WidgetBuilder.tsx`                                                        | app     |
+| System picker  | `templates/system-package-picker/SystemPackagePicker.dc.html` (gallery ↔ detail layout); no `components/system/SystemPackageCard.jsx`              | `src/ds/components/system/SystemPackageCard.jsx`, consumed by `src/screens/extensions/System.tsx` | neither |
+
+The branding residue is header comments and one generated demo, in files this repo re-vendors
+rather than hand-edits: `styles.css`, `tokens/{colors,typography,spacing,fonts,base}.css`,
+`components/core/Icon.{jsx,d.ts}`, `handoff/redesign.tokens.css`, `handoff/before-after.html`. They
+clear on the next export from A; `grep -rn 'DND Tools' docs/design-package/` is the check.
+
+**Not drift.** All eleven RC-DSN-2.2 supporting primitives are vendored on both sides — `Stepper`,
+`ListItem`, `RadioCard`, `Menu`, `Toolbar`, `Callout`, `Kbd`, `HelpTip`, `FeatureSpotlight` in
+`../design-package/components/core/`, `TagInput` in `components/forms/`, `Figure` in
+`components/data/` — each with a `.jsx` + `.d.ts` in the package, and a `.jsx` + colocated
+`.test.tsx` under `apps/gm-react/src/ds/components/{core,forms,data}/`. A 2026-09-16 revision of
+this table listed them as package-side prose only; that was wrong and is corrected here.
+
+The G1 finding in [`../planning/RC_ROADMAP.md`](../planning/RC_ROADMAP.md):146 says the package
+"ships a `system-package-picker` template that nothing implements". That was the state when the
+finding was written; `System.tsx` implements it now, and the roadmap's own status row at :186
+already records G1 as closed. Read :146 as a snapshot, not as current state.
 
 `scholar` and `dungeon` — the two themes that take the set to five — are **not implemented
 anywhere**. They belong to **RC-DSN-1.2 — Five themes**, which lands the ramps, the lints and the
