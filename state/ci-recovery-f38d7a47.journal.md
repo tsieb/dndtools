@@ -69,8 +69,38 @@ at exactly the three `setup-android` call sites the candidate touched — `ci.ym
 at `31acff8e` returns those three and no others, so no call site is left on the broken default.
 The candidate's diff carries no behavioural difference; only its comment wording differs.
 
-Nothing from the original candidate is worth carrying forward, so this branch keeps only this
-run journal on top of `31acff8e`. No workflow file is modified by this branch.
+Nothing from the original candidate's workflow diff is worth carrying forward, so no workflow
+file is modified by this branch.
+
+## Gap the landed fix left: no regression guard
+
+`31acff8e` pins the workflows but adds **no test**, so nothing fails closed if the pin is
+removed. That was checked, not assumed: `tests/unit/ci-guardrails.test.ts` exists on
+`31acff8e`, but its only `packages` matches are the `packages/core/**` path globs in the
+deploy-order test — it says nothing about `setup-android`. With the pin unguarded, deleting the
+`with:` block silently restores the action's broken default and takes the whole Android job
+down again, which is precisely the outage this task was opened for.
+
+So this branch adds one guardrail case to that file,
+`never asks the Android SDK for the retired 'tools' package`. It walks every workflow, finds
+each `android-actions/setup-android` step, and asserts the `packages` input is present, does
+not request `tools`, and does request `platform-tools`, with a `setupSteps > 0` assertion so
+the loop cannot pass vacuously. It follows the shape of the neighbouring
+`uses the package-manager pin consistently in every workflow` case. The `tools` check splits on
+whitespace and compares tokens rather than substrings, so `platform-tools` does not trip it.
+
+Mutation-checked against **both** loss shapes, since a green run alone does not prove a
+guardrail fails closed:
+
+- Restore the default value (`packages: tools platform-tools`) → 1 failed, 13 passed. Message:
+  `ci.yml setup-android requests the retired` `tools` `: expected [ 'tools', 'platform-tools' ]`
+  `to not include 'tools'`.
+- Delete the `with:` block entirely — the likelier regression, and the one a value-only
+  assertion would miss → 1 failed, 13 passed. Message:
+  `ci.yml setup-android must pin` `packages` `: expected 'undefined' to be 'string'`.
+
+`.github/workflows/ci.yml` was restored after each mutation and `git diff` against it is empty;
+the only files this branch changes are the guardrail test and this journal.
 
 ## Out of scope, flagged not absorbed
 
@@ -105,7 +135,9 @@ Local checks on the candidate tree, before reconciliation:
 - `pnpm ci:local` exit 0, **all eight steps PASS** — `gates`, `security:secrets`,
   `format:check:changed`, `lint`, `typecheck`, `build`, `test`, `test:coverage:core`.
 - `pnpm test` exit 0, all four suites: critical 276 files / 4,830 tests; cloud 38 / 499;
-  app 134 / 1,481; tooling 26 / 191 — 7,001 tests, 0 failures.
+  app 134 / 1,481; tooling 26 / 191 — 7,001 tests, 0 failures. Re-run after the guardrail was
+  added, `pnpm test:tooling` is 26 files / **192** tests, and `pnpm typecheck` and `pnpm lint`
+  both exit 0 with no errors.
 - `pnpm gates` exit 0: quality gate 6 gates owned, budgeted and wired; docs check 255 files
   reachable from `docs/README.md`, 283 relative links resolved. The `file-size-warn` lines are
   warn-only (RC-STB-2.7) and pre-exist on `31acff8e`.
@@ -114,9 +146,9 @@ Local checks on the candidate tree, before reconciliation:
 - Lint reported only pre-existing `multiple-accent-primaries` and `display-face-below-24px`
   warnings; no errors.
 
-No assertion, budget, job condition or workflow protection was weakened. This branch adds no
-test and changes no source or workflow file — its only diff against `31acff8e` is this
-markdown file.
+No assertion, budget, job condition or workflow protection was weakened. This branch changes no
+source or workflow file; it only adds a guardrail test and this journal, so the change to the
+suite is strictly additive.
 
 The Android gradle gates themselves could not be rerun here and did not need to be: they passed
 end to end on 2026-09-14 and the break is entirely in SDK setup. This machine has a JRE and no
@@ -133,3 +165,10 @@ JDK, so `gradlew` aborts before configuring.
   has 0–38% headroom on GitHub's runners and will breach again.
 - Open item for the Canvas owner, not fixed here: `scene-first-render` needs either real
   first-render work or a baseline recorded on CI hardware, not a looser target.
+- When a sibling lands the fix first, check whether it also landed the _guard_. `31acff8e`
+  pinned the workflows but shipped no test, so the pin was one deletion away from reopening the
+  outage. "The fix is already on the integration branch" is not the same as "this cannot
+  regress".
+- `tests/unit/` belongs to `pnpm test:tooling` (the ROOT vitest config), not `test:app`. Also,
+  vitest 4 has no `basic` reporter — `--reporter=basic` dies with a confusing
+  `Failed to load custom Reporter` startup error rather than an unknown-option message.

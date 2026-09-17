@@ -429,6 +429,36 @@ describe('CI guardrails', () => {
 		}
 	});
 
+	it('never asks the Android SDK for the retired `tools` package', () => {
+		// Google retired the standalone `tools` package, and android-actions/setup-android still
+		// defaults its `packages` input to `tools platform-tools`. Taking that default fails the
+		// whole Android job at SDK setup. Dropping the `with:` block is the likelier regression
+		// than reintroducing the literal, so require the pin to be present, not merely correct.
+		const workflowsRoot = path.join(repoRoot, '.github', 'workflows');
+		let setupSteps = 0;
+		for (const name of fs.readdirSync(workflowsRoot).filter((file) => file.endsWith('.yml'))) {
+			const workflow = YAML.parse(
+				fs.readFileSync(path.join(workflowsRoot, name), 'utf-8'),
+			) as WorkflowFile;
+			for (const job of Object.values(workflow.jobs ?? {})) {
+				for (const step of job.steps ?? []) {
+					if (!step.uses?.startsWith('android-actions/setup-android@')) continue;
+					setupSteps += 1;
+					const packages = step.with?.['packages'];
+					expect(typeof packages, `${name} setup-android must pin \`packages\``).toBe('string');
+					const requested = String(packages).split(/\s+/).filter(Boolean);
+					expect(requested, `${name} setup-android requests the retired \`tools\``).not.toContain(
+						'tools',
+					);
+					expect(requested, `${name} setup-android drops \`platform-tools\``).toContain(
+						'platform-tools',
+					);
+				}
+			}
+		}
+		expect(setupSteps).toBeGreaterThan(0);
+	});
+
 	it('keeps the always-on TURN relay bounded and application-health monitored', () => {
 		const turn = fs.readFileSync(path.join(repoRoot, 'infra', 'turn', 'template.yaml'), 'utf-8');
 
