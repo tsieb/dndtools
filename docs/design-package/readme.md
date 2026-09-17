@@ -25,7 +25,8 @@ package supplies the word.)
 
 This design system delivers the **warm "candle-lit" redesign** described in the brief below: the
 underlying token architecture (color, type, spacing, radius, elevation, motion, density, five
-themes behind one `data-theme` swap) is excellent and preserved; what was added is the *design* the
+themes behind one `data-theme` swap — see **Themes** below for the five and which ship today) is
+excellent and preserved; what was added is the *design* the
 original build never received — emphasis hierarchy, intentional color, crafted components, and a
 warm, atmospheric mood.
 
@@ -33,11 +34,39 @@ warm, atmospheric mood.
 > **entire neutral ramp warm** (espresso brown-black) and gave the gold accent more presence.
 > Tavern is the hero; parchment is a non-washed light variant; high-contrast is the a11y floor.
 
+### Themes
+
+Five themes make up the target set, all harmonised in OKLCH in the warm family and all selected by
+one `data-theme` attribute on `<html>`. **Three ship today**; two are specified but not yet
+implemented, so treat their rows as the contract to build against, not as available values.
+
+| Theme | Role | Status |
+| --- | --- | --- |
+| `tavern` | Warm candle-lit dark. The default and hero theme; an un-themed document is already this. | **Ships** |
+| `parchment` | The light variant — warm, not washed out. | **Ships** |
+| `high-contrast` | The accessibility floor. | **Ships** |
+| `scholar` | Light, cooler, navy accent — tuned for long stretches of reading and writing. | *Planned* |
+| `dungeon` | Dark, near-black, brighter accent — tuned for dim tables. | *Planned* |
+
+System light/dark maps to `parchment`/`tavern`, and the `@media (forced-colors: active)` block is
+to cover all five.
+
+**Where the three shipping themes are defined.** `[data-theme='tavern']`, `[data-theme='parchment']`
+and `[data-theme='high-contrast']` in this package's `tokens/colors.css`, mirrored one-to-one in the
+app at `apps/gm-react/src/styles/tokens/colors.css`. The app's theme picker (Settings › Appearance,
+and the Theme Studio under Settings › Extensions) offers exactly these three.
+
+**`scholar` and `dungeon` are not implemented in either place yet.** They are owned by roadmap story
+**RC-DSN-1.2 — Five themes**, whose acceptance lands the two new ramps, both contrast lints green
+across five themes, and the matching update to this readme and `docs/design/README.md`. Until that
+story lands, setting `data-theme="scholar"` or `data-theme="dungeon"` resolves to no ramp and the
+document falls back to the `:root` tavern values.
+
 ---
 
 ## SYSTEM PACKAGES — the system-agnostic core
 
-DND Tools runs **any** tabletop game. What changes between games — the stats on a sheet, the
+Lamplight runs **any** tabletop game. What changes between games — the stats on a sheet, the
 conditions a creature can suffer, the dice you roll, how many actions a turn grants, what
 "leveling up" means — is **not** hardwired into the chrome. It is supplied by a **System Package**:
 the rules vocabulary the interface reads at runtime. Swap the package and the same widgets,
@@ -112,7 +141,7 @@ explore them to build higher-fidelity work:
 - **GitHub — [`tsieb/dndtools`](https://github.com/tsieb/dndtools)** — the monorepo (`apps/`,
   `packages/`, `docs/`). Browse `docs/architecture/` (IA, navigation, layout contracts) and
   `apps/gm-react/` for the full UX spec, the navigation registry, and component code. **Explore this
-  repo to build better DND Tools designs.**
+  repo to build better Lamplight designs.**
 
 Fonts (Inter, Cinzel, JetBrains Mono) are referenced by name and self-hosted in the app via the
 vendored `@fontsource/*` packages (`apps/gm-react/src/styles/tokens/fonts.css`) — no CDN request,
@@ -120,7 +149,7 @@ so the desktop shell and offline web use render the real brand faces. See **Cave
 
 ---
 
-## CONTENT FUNDAMENTALS — how DND Tools writes
+## CONTENT FUNDAMENTALS — how Lamplight writes
 
 The voice is a **calm, competent stage manager**: it hands the DM control and gets out of the way.
 It is genre-aware (fantasy domain words: scene, handout, initiative, party, vault) but never
@@ -331,6 +360,18 @@ Mount in `@dsCard` HTML via `const { Button } = window.DNDToolsDesignSystem_8ae0
   (`tokens/fonts.css`). The compiler therefore reports 0 bundled `@font-face` binaries — rendering
   is unaffected. *If you want them self-hosted/offline, drop the `.woff2` files in `assets/fonts/`
   and swap the `@import` for local `@font-face` rules.*
+- **This vendored copy trails the app on four points.** It was last re-vendored from source A on
+  2026-07-03 (repo commit `ff07b838`); the branding and theme sections above were corrected in place
+  afterwards rather than re-exported, because the upstream push needs an interactive DesignSync
+  authorization. Still un-pushed and therefore absent from `tokens/`, `components/` and `templates/`
+  here: (1) the **tile-type tokens** — 48 `--color-tile-*` declarations exist in
+  `apps/gm-react/src/styles/tokens/colors.css` (RC-CAN-2.1) and none in this package's
+  `tokens/colors.css`; (2) the **widget-builder template** — the app ships
+  `apps/gm-react/src/screens/extensions/WidgetBuilder.tsx` with no counterpart under `templates/`;
+  (3) the **supporting primitives** from RC-DSN-2.2, which are documented in
+  `components/missing-primitives.md` but have no `components/<group>/` entries with `.d.ts` /
+  `.prompt.md` / `@dsCard` like the rest; (4) the **system-picker template updates**. Read the app
+  as the truth on all four until RC-DSN-2.4 completes its upstream push and re-vendor.
 - **The "before" evidence screenshots** (`redesign/evidence/`) show the *current* build, which the
   brief deliberately moves away from — use them for IA only, not visual reference.
 - This system implements the brief's highest-leverage surfaces in depth (Command Center, Session,
