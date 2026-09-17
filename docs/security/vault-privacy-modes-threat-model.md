@@ -48,9 +48,17 @@ The consented boundary: **server-side feature code may read vault content.** Enc
 adversaries, **not** against the service operator or a compromise of the service's runtime role —
 that residual exposure is precisely what the user consents to, and the consent copy must say so.
 
-Phase-2 obligations (review checklist — all must hold before `approved: true`):
+Phase-2 obligations (review checklist — all must hold before `approved: true`).
 
-- [x] Dedicated KMS key **configuration** per stage with key policy scoped to the sync-api role;
+**Status 2026-09-16: phase 2 is deferred, and this checklist is the exit criterion of roadmap epic
+CLD-6, signed in RC-CLD-6.5.** Six of the seven items below describe a system that does not exist in
+the tree; the seventh has its configuration in place and its deployed-stage evidence outstanding. No
+item can close before the platform it describes is built, so every box is open and stays open until
+that epic runs. The RC-1 story that remains (RC-CLD-2.2) does not touch this list: it keeps the
+decision record unapproved, proves the gate cannot be bypassed, and keeps the product copy honest
+about a capability that is not in this edition.
+
+- [ ] Dedicated KMS key **configuration** per stage with key policy scoped to the sync-api role;
       CloudTrail configured for decrypt; no wildcard principals. `CloudEnhancedContentKey` in
       `infra/sync-api/template.yaml` is unconditional for `dev` and `prod`, with a stage-specific
       alias and SSM discovery path, rotation enabled, and retention on deletion/replacement.
@@ -61,7 +69,9 @@ Phase-2 obligations (review checklist — all must hold before `approved: true`)
       `AuditTrail` in `infra/foundation/template.yaml` includes all management reads/writes with
       no KMS exclusion. `tests/unit/cloud-enhanced-kms.test.ts` guards these template properties.
       **Deployment evidence remains outstanding:** no stage apply, deployed policy inspection,
-      access probe, or delivered CloudTrail decrypt event was verified by this review.
+      access probe, or delivered CloudTrail decrypt event was verified by this review. That evidence
+      is gathered in RC-CLD-6.5, for each stage that serves the path, which is why this item is open
+      despite its configuration being complete.
 - [ ] Plaintext path accepts uploads **only** for vaults whose server-side mode registration says
       `cloud-enhanced`; an E2EE vault's envelope is never readable regardless of a client bug.
       `isPlaintextUploadPermitted` / `assertPlaintextUploadPermitted` in
@@ -124,6 +134,33 @@ source/configuration review with unresolved findings, **not approval to release 
 The PR that implements the server plaintext path must resolve the six open items, attach dev/prod
 key-policy and decrypt-audit evidence, and sign the complete checklist before flipping the record
 to `approved: true`. No future feature inherits an approval from this partial review.
+
+### Phase-2 scope disposition — 2026-09-16
+
+**The review was asked for before the thing it reviews existed.** The 2026-09-08 disposition says as
+much in its own terms: six items wait on "the PR that implements the server plaintext path". No such
+PR is planned anywhere in the RC-1 roadmap, and no story in it builds a server-side mode authority, a
+server-readable content path, a mode-transition migration, a purge protocol for derived data, or the
+features that were the point. Two dispatcher attempts at RC-CLD-2.2 failed on that mismatch rather
+than on anything a reviewer could fix.
+
+The plan now separates the two halves. The platform is roadmap **epic CLD-6**, sized as a platform and
+placed after RC-1; this checklist is its exit criterion and RC-CLD-6.5 is the only story permitted to
+approve the record. The RC-1 story keeps its name, RC-CLD-2.2, and a smaller job: the decision record
+ships unapproved, the permission helpers refuse an approval that did not come from the shipped
+selector, this document says the capability is unbuilt rather than pending, and every Cloud-Enhanced
+surface tells the user the transport is still end-to-end encrypted and the features are not in this
+edition.
+
+Nothing shipped regresses. RC-CLD-2.5 (keyless browser access) and RC-AI-4.1 (managed Copilot) were
+built fail-closed behind this gate and stay that way; a closed gate withholds a capability that has no
+implementation to withhold.
+
+One consequence is recorded here because it is easy to lose. ADR-042 (RC-UX-5.3) makes Cloud-Enhanced
+the default mode for the Beginner and Standard tiers while the gate is closed. Those vaults are E2EE
+in fact, and their owners have consented to a label, not to server reads. Opening the path later must
+therefore ask them again: RC-CLD-6.3 carries the rule that no existing vault's boundary widens without
+fresh consent, and no story in CLD-6 may treat the tiered default as that consent.
 
 ## Consent integrity (both modes, phase 1)
 
