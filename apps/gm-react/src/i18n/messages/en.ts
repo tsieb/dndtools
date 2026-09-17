@@ -1902,7 +1902,7 @@ export const en = {
 	'settings.ai.auditFilterAll': 'All',
 	'settings.ai.auditFilterAgent': 'Filter audit trail by agent',
 	'settings.ai.auditFilterAgentAll': 'All agents',
-	'settings.ai.auditMode.staged': 'Awaiting review',
+	'settings.ai.auditMode.staged': 'Proposed',
 	'settings.ai.auditMode.direct': 'Saved',
 	'settings.ai.auditMode.denied': 'Denied',
 	'settings.ai.auditAsActor': 'as {actor}',

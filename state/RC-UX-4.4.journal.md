@@ -75,3 +75,37 @@
   catalog copy, fixture protocol values and assertion behavior are unchanged by this follow-up.
 - Full browser-suite revalidation and independent reviewer sign-off remain with the central
   operator. This run supplies targeted browser evidence, not a claim that the full suite passed.
+
+## Review follow-up: audit status accuracy
+
+- Read the independent review verdict and its retained evidence
+  (`reproduce-audit-label.mts` / `.log`, `review.journal.md`, `wrapper-runs.json`) before editing.
+  Two findings: a medium inaccurate audit status and a low Spanish agreement error.
+- Confirmed the medium finding at the source. `McpAuditEntry.mode` records how a write was
+  routed, not its resolution: `packages/core/src/commands/mcp-policy.ts:411` and `:657` append
+  `mode: 'staged'` on a _successful_ approval, and `AiAuditBrowser.tsx:19` maps every entry's
+  mode straight to `settings.ai.auditMode.staged`. "Awaiting review" therefore kept promising an
+  unfinished review after the proposal was approved or rejected.
+- Changed that label to a historic one that stays true after resolution: `Proposed` / `Propuesto`.
+  It also matches `settings.ai.auditIntro`, which already calls these rows proposals, and keeps
+  masculine-singular agreement with `cambio` alongside `Guardado` / `Denegado`. The baseline
+  `Staged` / `En espera` was not restored: the first is engine jargon, the second is also a
+  pending claim. The neighbouring assistant-transcript badge is unchanged — that feed narrates
+  a run as it happens and was not flagged.
+- Low finding: `mapGenerate.presets` in Spanish had been swept to `Configuración preestablecidos`
+  (mismatched gender and number). Restored `Ajustes preestablecidos`, which agrees and matches
+  the catalog's existing preset wording at `es.ts:341` and `es.ts:5787`. Swept the rest of the
+  catalog for the same sweep damage: this was the only occurrence.
+- Updated the one permitted companion assertion that pinned the old string
+  (`ai-audit-browser.spec.ts:97`); no behavioral assertion changed.
+- Validation on this follow-up, original output read in full: `pnpm test:app` 126 files /
+  1,330 tests passed; app typecheck passed; ESLint passed on all three changed files;
+  changed-file Prettier and `git diff --check` passed; `pnpm feature-audit` reported 48 declared
+  limits with zero stale and zero screens needing wiring; the audit-browser spec passed all six
+  cases on desktop and mobile with `--retries=0` (`DNDTOOLS_E2E_PORT=5301`).
+- Re-ran the reviewer's own reproduction unmodified against the fixed catalogs
+  (`/tmp/rc-ux-44-verify-audit-label.log`): with zero pending proposals, the approved run's two
+  audit rows and the rejected run's row all read `Proposed` / `Propuesto`. The stated defect no
+  longer reproduces.
+- This is a targeted follow-up, not a claim that the full browser suite was re-run. Full-suite
+  revalidation and independent reviewer sign-off remain with the central operator.

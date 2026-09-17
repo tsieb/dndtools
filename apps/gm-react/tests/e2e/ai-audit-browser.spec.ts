@@ -94,7 +94,7 @@ test.describe('ai audit trail: browser + export (RC-AI-2.3)', () => {
 		await seedAuditTrail(page);
 		const panel = auditPanel(page);
 
-		await expect(panel.getByText('Awaiting review', { exact: true })).not.toHaveCount(0);
+		await expect(panel.getByText('Proposed', { exact: true })).not.toHaveCount(0);
 		await expect(panel.getByText('Saved', { exact: true })).not.toHaveCount(0);
 		await expect(panel.getByText('Prep ·')).not.toHaveCount(0);
 		await expect(panel.getByText('Scout ·')).not.toHaveCount(0);
