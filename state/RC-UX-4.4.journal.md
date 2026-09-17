@@ -109,3 +109,51 @@
   longer reproduces.
 - This is a targeted follow-up, not a claim that the full browser suite was re-run. Full-suite
   revalidation and independent reviewer sign-off remain with the central operator.
+
+## Review follow-up: Spanish renders English vocabulary
+
+- Read the rejection and reproduced its high finding before changing anything. Confirmed at the
+  source: `SystemVocabulary` is ten plain string fields (`state/system-package.ts:472`), both built-in
+  packages were authored in English (`systems/dnd5e.ts:283`, `systems/generic.ts:71`),
+  `SystemContext.tsx:37` passes the vocabulary through untouched, and `vocabularyValues()` uses its
+  `locale` argument only to lowercase. A `{hitPoints}` in a Spanish string therefore renders
+  `Hit points`. The reviewer's count is right: 9 keys carried these tokens at base, 24 at head.
+- Prototyped the real fix — a locale-keyed translation of the shipped packages' words, applied per
+  field in `vocabularyValues()`, with a DM-authored package passed through untouched. It fixes all 24
+  keys including the 9 that were already wrong. Then reverted it: `apps/gm-react/src/i18n/vocabulary.tsx`
+  is neither in this story's `Owns:` nor in the manifest's `companion_paths`, so committing it trips
+  `candidate changes paths outside its claim` before any gate runs (`dispatcher/engine.py:805`).
+- The reviewer's third remedy — Spanish nouns in `es.ts`, English tokens left in `en.ts` — is blocked
+  by an invariant that predates this story: `index.test.ts` asserts every Spanish string carries the
+  same sorted argument shape as its English source. Exempting the vocabulary names from that guard
+  would weaken a real check to accommodate a change that cannot be correct in Spanish yet.
+- So the 12 newly tokenized keys went back to their nouns in BOTH catalogs, keeping the copy pass's
+  rewording. Restored `HP` / `PG` at the three width-constrained labels the medium finding named
+  (`characters.hpLabel`, `widgetBody.initiative.hp`, `encounter.hp`) and the two widget-body snapshots
+  that recorded the expansion. The 9 pre-existing placeholder keys are untouched, so the catalogs sit
+  exactly at base for every `{hitPoints}` / `{spell*}` token.
+- `{gm}` (14 → 156 uses) is kept. A Spanish reader sees `DM`, where the base catalog spelled out `DJ`
+  — an abbreviation crosses the language boundary where a full noun does not. It is the owner's call,
+  and it is written down rather than left to be rediscovered.
+- Recorded the whole limit as `DEBT-2026-007`, in the shape `DEBT-2026-006` set for the same
+  situation: the fix is understood, it is outside the claim, it needs its own story.
+- Low finding fixed: `settings.ai.batchSelectGroup` is now `Select all proposed by {agent}` /
+  `Seleccionar todo lo propuesto por {agent}`. Swept the rest of the panel for the same jargon and
+  found three more English-only leaks the Spanish had already avoided — `approving as staged` in
+  `conflictIntro` and `# change staged for your review` across the three assistant-outcome messages —
+  now `approving it as it stands` and `# change proposed for your review`.
+- Reproduced the reviewer's own scenario against the fixed catalogs (`/tmp/rc-ux-44-render.log`):
+  rendering every Spanish string that carries an argument through `formatMessage('es', …)` under both
+  packages' real vocabularies. The 15 regressions are gone; the 14 that remain under 5e are the
+  pre-existing `{spell*}` and `{levelUp}` keys, unchanged from base.
+- Validation, original output read in full: `pnpm test:app` 133 files / 1,467 tests passed; app
+  typecheck passed; ESLint passed on all 27 changed TypeScript files; Prettier and `git diff --check`
+  passed; `pnpm feature-audit` reported 48 declared limits with 0 stale and 0 screens needing wiring.
+  Browser: 56 cases (`ai-batch-review`, `command-palette`, `encounter-builder`, `character-resources`)
+  and then 26 cases (`ai-assistant`, `ai-proposal-conflict`, `ai-batch-review`) passed on desktop and
+  mobile with `--retries=0` on `DNDTOOLS_E2E_PORT=5311` — `/tmp/rc-ux-44-e2e-1.log`,
+  `/tmp/rc-ux-44-e2e-2.log`. No retries, skips or failures.
+- No pixels were captured for the medium finding's layout risk, and none are needed: the three labels
+  are byte-identical to base again, and the one label that did change case (`player.hp.label`,
+  `HIT POINTS` → `Hit points`) renders narrower, not wider.
+- Full-suite revalidation and independent reviewer sign-off remain with the central operator.

@@ -133,7 +133,7 @@ test.describe('ai batch review: grouping and filters (RC-AI-2.4)', () => {
 		await seedBatch(page);
 		const panel = stagedPanel(page);
 
-		await panel.getByRole('checkbox', { name: 'Select all staged by Prep' }).click();
+		await panel.getByRole('checkbox', { name: 'Select all proposed by Prep' }).click();
 		await expect(panel.getByText('2 selected')).not.toHaveCount(0);
 
 		await panel.getByRole('button', { name: 'Reject selected' }).click();
