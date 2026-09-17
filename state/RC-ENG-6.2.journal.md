@@ -80,12 +80,12 @@ once before the loop. Future-schema documents still rethrow and block, unchanged
 - `pnpm --filter @dndtools/core test`: 4782 passed. Full app vitest: **1344 passed** (was 1339).
 - `pnpm -r typecheck`: passed. ESLint on changed files: clean. Prettier: already formatted.
 - `pnpm -r build`: passed, including `check-prod-bundle`.
-- Full Playwright suite (`DNDTOOLS_E2E_PORT=5641`, all 84 specs × desktop/mobile): launched at
-  commit time and still running when this commit was made — NOT claimed as passing here. The
-  change only alters the quarantine probe, which is reached exclusively when a document fails
-  hydration; a healthy vault differs only by running the (pure) hydrators once more at open.
-  Result appended below once known. Known pre-existing red on this repo:
-  `knowledge-filters.spec.ts:101` on mobile-chromium, unrelated to this task.
+- Full Playwright suite (`DNDTOOLS_E2E_PORT=5641`, all 84 specs × desktop/mobile):
+  **1101 passed, 11 skipped, 0 flaky, exit 0** in 22.3m. Launched before the commit and finished
+  after it; recorded here on completion. The prior gate on the rejected revision reported 1097
+  passed with 4 flaky, so this run is 4 more passing tests (the two new nested-fixture assertions
+  on each viewport) with nothing left flaky. `knowledge-filters.spec.ts:101` on mobile-chromium —
+  red at every commit per the standing note — passed in this run.
 
 Central operator retains responsibility for the gates and independent review. No push or
 promotion.
