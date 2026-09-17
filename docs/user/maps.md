@@ -16,7 +16,7 @@ Use the session's map and combat controls together during an encounter. The **Ru
 
 ## Work on a smaller screen
 
-Android opens maps in **Quick Map** mode. Existing geometry stays visible and is preserved, while precision geometry authoring belongs on desktop. Navigation is the default; use two fingers to pan without drawing. Prepare detailed geometry on desktop, then use Quick Map at the table.
+On Android the map editor opens in a reduced, touch-first form: the canvas leads, every control is at least 48dp, and the precision drawing tools are absent. Existing geometry stays visible and is preserved; authoring it belongs on desktop. **More map actions → About advanced drawing** says so in the app. Navigation is the default; use two fingers to pan without drawing. Prepare detailed geometry on desktop, then carry the map to the table on the phone.
 
 ## Implementation references
 

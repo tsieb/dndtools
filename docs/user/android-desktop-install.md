@@ -12,7 +12,7 @@ In the packaged desktop app, the App updates panel in Settings lets you check, d
 
 The Android shell requires Android 7.0 or later. If your release provides an APK, transfer it to the device, open it with Android's installer, and follow the device's install prompts. For an update, install over the existing app using a build from the same signing source. If Android refuses it, retain the existing installation and check with the release provider before removing anything.
 
-Open Lamplight and confirm your vault after installation. Native exports use Android's share or save chooser; complete that chooser to keep the file. Android uses Quick Map for maps, with precision geometry editing on desktop.
+Open Lamplight and confirm your vault after installation. Native exports use Android's share or save chooser; complete that chooser to keep the file. The Android map editor drops the precision geometry tools for a touch-first canvas; author that geometry on desktop.
 
 ## Browser installation and offline use
 

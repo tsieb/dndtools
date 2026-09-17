@@ -6,6 +6,7 @@ import { ViewAsControl } from '../ViewAsControl';
 import { ProjectionControl } from '../ProjectionControl';
 import { HostSessionButton, AccountButton } from '../../net/SessionPanel';
 import { useViewport } from '../useViewport';
+import { HelpLauncher } from '../help/HelpMenu';
 import { activeSectionId, sectionLabelKey, sectionSubtitleKey } from '../nav';
 import { T } from '../screen-kit';
 import { useSessionPosture } from './session-posture';
@@ -180,6 +181,9 @@ export function TopBar({
 						<HostSessionButton compact />
 						<ViewAsControl compact />
 						<ProjectionControl compact />
+						{/* RC-DOC-1.3 — Help's consistent location above 640px. The phone reaches the same
+						    menu from `Footer.tsx`, which desktop and rail never mount. */}
+						<HelpLauncher />
 						<AccountButton compact />
 					</>
 				)}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { resolveOnboarding } from '@dndtools/core';
-import { Button, Dialog, Icon } from '../../ds';
+import { Button, Dialog, Icon, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { readTier } from '../../screens/settings/shared';
@@ -59,6 +59,47 @@ export function hasUnseenWhatsNew(): boolean {
 async function loadLatestRelease(): Promise<ReleaseNote | null> {
 	const { default: markdown } = await import('../../../../../CHANGELOG.md?raw');
 	return latestRelease(parseChangelog(markdown));
+}
+
+/**
+ * The Help trigger for the tiers that have no phone tab bar (RC-DOC-1.3). `Footer.tsx` owns the
+ * phone's own trigger in the slim row above the tab bar; desktop and rail never mount that footer,
+ * so without this button the Help menu — and with it every user guide — is unreachable above 640px.
+ * The trigger and its unseen-release dot live here beside the menu they open, so the shell only has
+ * to mount one element: WCAG 3.2.6 asks for Help in a CONSISTENT place on every screen, and the top
+ * bar is the one piece of chrome that follows the DM onto every route at these widths.
+ */
+export function HelpLauncher() {
+	const { t } = useI18n();
+	const [open, setOpen] = useState(false);
+	return (
+		<div style={{ position: 'relative', flex: '0 0 auto' }}>
+			<IconButton
+				icon="info"
+				label={t('shell.help')}
+				variant="outline"
+				size="lg"
+				onClick={() => setOpen(true)}
+			/>
+			{hasUnseenWhatsNew() && (
+				<span
+					aria-hidden="true"
+					data-testid="whats-new-badge"
+					style={{
+						position: 'absolute',
+						top: 2,
+						right: 2,
+						width: 8,
+						height: 8,
+						borderRadius: T.radius.full,
+						background: T.acc,
+						border: `1px solid ${T.bg}`,
+					}}
+				/>
+			)}
+			<HelpMenu open={open} onClose={() => setOpen(false)} />
+		</div>
+	);
 }
 
 /**

@@ -12,7 +12,7 @@ Pick the amount of detail you want on screen and work through the remaining setu
 
 **Command Center** is your starting point. **GM Screen** holds the widgets you want beside you. **Session** holds live play; **Characters**, **Maps**, and **Notes** hold your material. On a phone, use **More** for destinations that do not fit in the bottom bar. Your chosen game system may use a different name for the GM.
 
-Open Help for the setup checklist, keyboard shortcuts, and these guides. To prepare your first evening, read **Running a session**. If people are joining from their own devices, read **Remote play** too.
+Open Help for the setup checklist, keyboard shortcuts, and these guides. It is the info button in the top bar, or the row just above the tab bar on a phone. To prepare your first evening, read **Running a session**. If people are joining from their own devices, read **Remote play** too.
 
 ## Keep a copy
 

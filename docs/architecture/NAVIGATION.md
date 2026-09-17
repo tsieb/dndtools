@@ -96,7 +96,12 @@ Page primitives in `screen-kit.tsx`: `Page` (centered column, max 1180px), `Pane
 3. A status-only "Session live · 01:12" label while a session is active. No button, no link, not an
    `aria-live` region. Omitted on the phone tier, which carries the status strip instead.
 4. Right-aligned utilities: `HostSessionButton`, `ViewAsControl`, `ProjectionControl`,
-   `AccountButton`.
+   `HelpLauncher`, `AccountButton`.
+5. Help (`HelpLauncher` from `app/help/HelpMenu.tsx`) on the desktop and rail tiers only. WCAG 3.2.6
+   wants Help in the same place on every screen, and above 640px the top bar is the only chrome that
+   follows the DM onto every route — the phone's own trigger sits in `Footer.tsx`, which those tiers
+   never mount. The menu behind it carries Getting started, What's new, the shortcut overlay, and the
+   eight user guides indexed in [`../README.md`](../README.md#user-guides) (RC-DOC-1.3).
 
 It must not host content actions (create, delete, roll, push), a duplicate settings or navigation
 destination, or any control that is not relevant across routes.
