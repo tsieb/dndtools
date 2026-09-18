@@ -200,3 +200,27 @@ owned paths. The operator must assign that repair to its owner or explicitly
 expand this task's ownership before it can be applied here. Then rerun the
 full tooling gate and capture fresh workstation evidence for the resulting
 candidate. No gate bypass or out-of-scope change was made on this dispatch.
+
+### Rebase onto integration head `6a745225` (2026-09-18)
+
+Tooling log `87605be1-bc4e-4d9e-8afa-060bc43a40e1` showed the same line-147
+Electron assertion. The integration branch now counts guards per
+`webPreferences` block (`tests/unit/electron-hardening.test.ts:152`), so no
+out-of-scope repair is needed. A first rebase onto `origin/loop/rc` (`1baa5e21`)
+pulled in main-merge docs commits that are absent from the integration head, and
+the operator's rebase onto `6a745225` then conflicted in
+`docs/security/vault-privacy-modes-threat-model.md`. The 14 perf commits were
+replayed with `git rebase --onto 6a745225 1baa5e21`. The candidate diff against
+`6a745225` now touches only `.github/workflows/perf.yml`, `scripts/perf` and
+`tests/perf`.
+
+On the rebased tree: `pnpm test:tooling` passed 26 files / 193 tests,
+the perf vitest config passed 2 files / 14 tests, `typecheck`, `lint` and
+`gates` exited 0, and `format:check:changed -- --base 6a745225` was clean.
+
+A fresh workstation capture on the pre-rebase candidate was started, then
+killed with exit 143 during run 1 `smoke-ci` when the session ended. It produced
+no evidence. The 2026-09-12 archive remains evidence for `8193b9cb` only. A new
+interleaved median-of-7 capture on the rebased candidate follows below if it
+completes. No push, promotion, workflow dispatch, extra loop, dispatcher
+control-state edit or sub-agent was used.
