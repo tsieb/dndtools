@@ -29,6 +29,7 @@ import { tileMetadataForWidget } from '../widgets/tileMeta';
 import { WidgetRenderSlot } from '../widgets/WidgetRenderSlot';
 import type { FlowBoardProps, FlowDrag } from '../SceneBoardModel';
 import { HistoryBtn, WidgetGlyph } from './WidgetFrame';
+import { canvasSurfaceProps, OperationLiveRegion, useOperationNotice } from './surfaceA11y';
 
 /**
  * FlowBoard — ADR-041's FLOW layout policy, the responsive counterpart to `SceneBoardCanvas`.
@@ -475,19 +476,13 @@ export function FlowBoard({
 	const [drag, setDrag] = useState<FlowDrag | null>(null);
 	const dragRef = useRef<FlowDrag | null>(null);
 	dragRef.current = drag;
-	const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
-	const seqRef = useRef(0);
+	const [notice, announce] = useOperationNotice();
 
 	const placements = useMemo(() => flowPlacements(widgets, columns), [widgets, columns]);
 	// Reading order IS render order here: the tiles are emitted in `placements` order, which is the
 	// order `flowOrder` produced. Nothing re-sorts them for paint.
 	const byId = useMemo(() => new Map(widgets.map((w) => [w.id, w])), [widgets]);
 	const orderIds = useMemo(() => placements.map((p) => p.id), [placements]);
-
-	const announce = useCallback((text: string) => {
-		seqRef.current += 1;
-		setNotice({ seq: seqRef.current, text });
-	}, []);
 
 	/**
 	 * The ONE place a flow tile moves. Drag, the arrow keys and the tile menu differ only in how
@@ -638,6 +633,7 @@ export function FlowBoard({
 	return (
 		<div
 			data-testid="scene-board-flow"
+			{...canvasSurfaceProps('flow', editing, placements.length)}
 			data-flow-columns={columns}
 			tabIndex={history ? -1 : undefined}
 			onKeyDown={boardKeyDown}
@@ -753,9 +749,7 @@ export function FlowBoard({
 					)}
 				</div>
 			)}
-			<div data-testid="flow-announcement" aria-live="polite" aria-atomic="true" style={srOnly}>
-				{notice && <span key={notice.seq}>{notice.text}</span>}
-			</div>
+			<OperationLiveRegion notice={notice} testId="flow-announcement" />
 
 			{widgets.length === 0 && (
 				<div

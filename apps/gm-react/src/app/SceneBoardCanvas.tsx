@@ -38,6 +38,7 @@ import {
 } from './canvas/keyboard';
 import { matchesShortcut } from './shortcuts/registry';
 import { ZoomCluster } from './canvas/ZoomCluster';
+import * as A11y from './canvas/surfaceA11y';
 import {
 	ARROW_DELTA,
 	clamp,
@@ -102,14 +103,14 @@ export function SceneBoardCanvas({
 	const [wrapWidth, setWrapWidth] = useState(0);
 	const dragRef = useRef<Drag | null>(null);
 	const resizeMoved = useRef(false);
-	const [sizeNotice, setSizeNotice] = useState('');
+	const [notice, announce] = A11y.useOperationNotice();
 	const resizeWidget = useCallback(
 		(w: BoardWidget, width: number, height: number) => {
 			const next = fitWidgetSize(w, width, height, policy === 'bounded');
 			void onResize(w.id, next.w, next.h);
-			setSizeNotice(`${w.title}, size ${next.w} by ${next.h}`);
+			announce(A11y.OPERATION_TEXT.resized(w.title, next.w, next.h));
 		},
-		[onResize, policy],
+		[onResize, policy, announce],
 	);
 	const cycleSize = useCallback(
 		(w: BoardWidget) => {
@@ -419,8 +420,10 @@ export function SceneBoardCanvas({
 				const ids = [d.id, ...Object.keys(groupDrag.current)];
 				groupDrag.current = {};
 				const drafts = posDraftRef.current;
-				if (drafts[d.id])
-					void moveAll(ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : [])));
+				const p = drafts[d.id];
+				if (p) void moveAll(ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : [])));
+				const w = widgets.find((c) => c.id === d.id);
+				if (p && w) announce(A11y.OPERATION_TEXT.moved(w.title, p.x, p.y));
 			} else if (d.mode === 'resize') {
 				const s = sizeDraftRef.current[d.id];
 				const widget = widgets.find((w) => w.id === d.id);
@@ -453,7 +456,7 @@ export function SceneBoardCanvas({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [scale, snap, policy, moveAll, widgets, cycleSize, resizeWidget]);
+	}, [scale, snap, policy, moveAll, widgets, cycleSize, resizeWidget, announce]);
 
 	const onWheel = useCallback(
 		(e: React.WheelEvent) => {
@@ -490,6 +493,7 @@ export function SceneBoardCanvas({
 		if (key === 'leave') {
 			e.preventDefault();
 			e.stopPropagation();
+			if (editing && selectedId === w.id) announce(A11y.OPERATION_TEXT.dropped(w.title));
 			onSelect(null);
 			e.currentTarget.focus();
 			return;
@@ -504,6 +508,7 @@ export function SceneBoardCanvas({
 			if (!editing || !selection.includes(w.id)) select(withGroupMates([w.id], groupOf));
 			if (e.key === 'Enter') enterTileContent(e.currentTarget);
 			else e.currentTarget.focus();
+			if (e.key !== 'Enter' && editing) announce(A11y.OPERATION_TEXT.picked(w.title));
 			return;
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && editing && onRemove) {
@@ -527,7 +532,10 @@ export function SceneBoardCanvas({
 					x: Math.max(0, x + delta[0] * GRID),
 					y: Math.max(0, y + delta[1] * GRID),
 				});
-				void moveAll(selection.flatMap(rectOf).map(step));
+				const moved = selection.flatMap(rectOf).map(step);
+				void moveAll(moved);
+				const own = moved.find((m) => m.id === w.id);
+				if (own) announce(A11y.OPERATION_TEXT.moved(w.title, own.x, own.y));
 			}
 			return;
 		}
@@ -552,7 +560,7 @@ export function SceneBoardCanvas({
 			});
 		}
 		if (placed.length || resolved)
-			setSizeNotice(t('boardCanvas.arrange.done', { count: selection.length }));
+			announce(t('boardCanvas.arrange.done', { count: selection.length }));
 	};
 
 	/**
@@ -659,6 +667,7 @@ export function SceneBoardCanvas({
 		<div
 			ref={wrapRef}
 			data-testid={`scene-board-${policy}`}
+			{...A11y.canvasSurfaceProps(policy, editing, widgets.length)}
 			// Focusable only programmatically/by click, so the canvas can own its own shortcuts without
 			// adding a stop on the Tab order (the widget frames are the real tab stops).
 			tabIndex={widgets.length === 0 ? 0 : -1}
@@ -770,14 +779,8 @@ export function SceneBoardCanvas({
 				/>
 			)}
 
-			<div
-				data-testid="canvas-resize-announcement"
-				aria-live="polite"
-				aria-atomic="true"
-				style={srOnly}
-			>
-				{sizeNotice}
-			</div>
+			{/* RC-UX-2.2: every layout operation (move, resize, pick up, put down) speaks here. */}
+			<A11y.OperationLiveRegion notice={notice} testId="canvas-resize-announcement" />
 			{widgets.length === 0 && <EmptyCanvas title={emptyTitle} hint={emptyHint} />}
 		</div>
 	);
