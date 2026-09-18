@@ -224,3 +224,19 @@ no evidence. The 2026-09-12 archive remains evidence for `8193b9cb` only. A new
 interleaved median-of-7 capture on the rebased candidate follows below if it
 completes. No push, promotion, workflow dispatch, extra loop, dispatcher
 control-state edit or sub-agent was used.
+
+### Fresh workstation evidence on `7ccdfc0a` (2026-09-18)
+
+The first capture invocation on `7ccdfc0a` failed closed in run 1. One
+`sync-reconciliation` batch hit the 30 s `__rt.loaded` timeout after a reload
+while another worktree's Playwright suite was running, and baseline/compare
+refused the incomplete capture. The scenario completed in that invocation's
+run 2. Because run 1 had no verdict, the set could not pass, so it was stopped
+and restarted from scratch. The second invocation completed all five runs,
+`ci.sh` exited 0, and `stability.ts` confirmed that all 55 CI verdicts pass and
+agree with drift populated. Every capture records candidate `7ccdfc0a` and
+reference `48a82786`. The archive, checksums and analysis are in
+`reports/2026-09-18-workstation/`, which supersedes the 2026-09-12 report for
+acceptance. `search` reads +67–117% in four runs, which is 6 ms rising to
+10–13 ms, inside the 25 ms floor. That is a small real offset between the two
+commits, not a verdict flip. Hosted five-run agreement remains RC-ENG-1.4's.

@@ -1,10 +1,8 @@
 # Workstation stability evidence — 2026-09-12
 
-**Historical evidence after the next rebase:** candidate `31dc027c` rebases this
-work onto `ac99ca7b`, which changes app and core code relative to the measured
-commit below. These captures remain valid for `8193b9cb`; they do not establish
-stability for the newly rebased candidate. See the [run journal](../../run-journal.md)
-for the inherited tooling-test blocker and required follow-up.
+**Historical evidence, superseded:** these captures remain valid for `8193b9cb`
+only. The rebased candidate was measured again in the
+[2026-09-18 report](../2026-09-18-workstation/README.md).
 
 **PASS: five consecutive paired runs agree on all 11 CI-mode gate verdicts; every drift column is populated.** `scripts/perf/ci.sh` exited 0. Each comparison also passed independently; there were zero regressions, unmeasured budgets, or missing baselines in every run.
 
