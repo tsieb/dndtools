@@ -695,7 +695,7 @@ export function AddWidgetGallery({
 						<WidgetLibraryCard
 							key={`${entry.packageId}:${entry.type}`}
 							entry={entry}
-							onPick={(picked) => void pick(picked)}
+							onPick={() => void pick(entry)}
 						>
 							<Miniature
 								entry={entry}

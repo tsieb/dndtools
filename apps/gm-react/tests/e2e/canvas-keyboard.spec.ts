@@ -32,11 +32,10 @@ test('keyboard-only builds a three-tile board and passes axe', async ({ page }) 
 	for (let count = 0; count < 3; count++) {
 		await tabTo(page, count ? frames.first() : board);
 		await page.keyboard.press('a');
-		await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveAttribute(
-			'aria-expanded',
-			'true',
-		);
-		const note = page.getByRole('button', { name: /^Note A free-text note/ }).last();
+		// The phone gallery is a modal Sheet over the toolbar, so assert the gallery, not the toggle.
+		const gallery = page.getByTestId('add-widget-gallery');
+		await expect(gallery).toBeVisible();
+		const note = gallery.getByTestId('gallery-entry-note');
 		await tabTo(page, note);
 		await page.keyboard.press('Enter');
 		await expect(frames).toHaveCount(count + 1);
@@ -45,9 +44,10 @@ test('keyboard-only builds a three-tile board and passes axe', async ({ page }) 
 		nodes
 			.map((node) => ({
 				id: node.getAttribute('data-testid')!,
+				x: parseFloat((node as HTMLElement).style.left),
 				y: parseFloat((node as HTMLElement).style.top),
 			}))
-			.sort((a, b) => a.y - b.y)
+			.sort((a, b) => a.y - b.y || a.x - b.x)
 			.map((tile) => tile.id),
 	);
 	const top = page.getByTestId(spatialIds[0]);
@@ -57,8 +57,8 @@ test('keyboard-only builds a three-tile board and passes axe', async ({ page }) 
 	await expect(top.locator('[data-tile-content]')).toBeFocused();
 	await page.keyboard.press('Escape');
 	await expect(top).toBeFocused();
-	// Add cascades notes diagonally; spatial navigation must follow their actual geometry.
-	await page.keyboard.press('ArrowDown');
+	// The gallery (RC-CAN-4.1) fills the top row first; spatial navigation follows that geometry.
+	await page.keyboard.press('ArrowRight');
 	await expect(middle).toBeFocused();
 	await page.keyboard.press('Space');
 	const before = await middle.getAttribute('aria-label');

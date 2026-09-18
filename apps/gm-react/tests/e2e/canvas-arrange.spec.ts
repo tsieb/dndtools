@@ -46,11 +46,11 @@ test('RC-CAN-3.6: keyboard-only multi-select aligns and layers three tiles', asy
 		await page.keyboard.press('Delete');
 		await expect(frames).toHaveCount(count - 1);
 	}
-	// Add cascades new notes diagonally, so the three start at three different lefts.
+	// The gallery (RC-CAN-4.1) fills the first open slot, so the three start at three different lefts.
 	for (let count = 0; count < 3; count++) {
 		await tabTo(page, count ? frames.first() : board);
 		await page.keyboard.press('a');
-		const note = page.getByRole('button', { name: /^Note A free-text note/ }).last();
+		const note = page.getByTestId('add-widget-gallery').getByTestId('gallery-entry-note');
 		await tabTo(page, note);
 		await page.keyboard.press('Enter');
 		await expect(frames).toHaveCount(count + 1);

@@ -216,7 +216,11 @@ PYTEST
 
 The scene library retains its existing `scene-add-widget-panel` test hook on the card list.
 The phone sheet exposes Done in its footer so layout editing can finish while the toolbar is
-covered. Existing canvas and widget-builder browser tests run unchanged.
+covered. Existing canvas and widget-builder browser tests run unchanged. The keyboard specs from
+RC-CAN-3.5/3.6 (`canvas-keyboard.spec.ts`, `canvas-arrange.spec.ts`) now pick the Note card by its
+`gallery-entry-note` test id. They wait for the gallery itself, because the phone Sheet hides the
+toolbar toggle. They also expect first-open-slot placement (one row) instead of the old diagonal
+cascade.
 
 ```typescript
 import AxeBuilder from '@axe-core/playwright';

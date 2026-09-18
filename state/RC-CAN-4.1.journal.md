@@ -347,3 +347,38 @@ apps/gm-react/package.json apps/gm-react/src/app/help/` exits 0, so every input 
   ready to copy verbatim.
 - The `Done` → `accent` emphasis change noted in the review is unchanged (see the lint:emphasis
   entry above).
+
+## Rebase onto e148189e (2026-09-18)
+
+- Gate feedback: rebase onto `e148189e` conflicted in `WidgetFrame.tsx` and `sceneEditor/index.tsx`.
+  I squashed the task's commits into one (`git reset --soft 0a4cc184`) so the conflicts only had to be
+  resolved once, then rebased.
+- `sceneEditor/index.tsx`: kept upstream's RC-CAN-6.1 structure (the `!previewing` guard, the
+  `ViewAsControl`, the inert stage wrapper, `PlayerPreviewOverlay`). The Done button keeps this task's
+  `accent` variant. `AddWidgetGallery` replaces `AddWidgetPanel` inside the stage, in the slot the
+  old panel used.
+- `WidgetFrame.tsx`: kept upstream's header comment. After the rebase the file was 845 lines, over
+  the 800-line RC-STB-2.7 hard limit, because RC-CAN-3.6's arrange bar grew the base to 709. I
+  tightened `WidgetLibraryCard` to fit (now 798 lines):
+  - shared `cardText`/`CARD_ROW`/`CARD_META` style helpers;
+  - the accent rail is now the li's own `border-left`, so the absolutely positioned span is gone. It
+    is still a border, so forced-colors keeps it;
+  - `onPick` no longer takes an argument (the gallery closes over the entry).
+    Behaviour is unchanged, including the inset focus ring.
+- Upstream RC-CAN-3.5/3.6 keyboard specs failed on both profiles against the gallery:
+  - they looked up the old panel's button by the name `/^Note A free-text note/`. A gallery card is
+    named "Note", with the description attached through aria-describedby;
+  - on phones they asserted `aria-expanded` on the toolbar Add toggle, which the modal Sheet hides;
+  - `canvas-keyboard` assumed the old diagonal cascade (ArrowDown from the top tile).
+    This story requires first-free-slot placement, so the product cannot match those specs. I crossed
+    the ownership boundary minimally and edited both unowned specs: select `gallery-entry-note`, wait
+    for the gallery rather than the toggle, sort tiles by (y, x) and use ArrowRight. **Overlap
+    flagged for the owners of `apps/gm-react/tests/e2e/`.** WIDGETS.md §9 records the change.
+- Evidence (port 15637, `DNDTOOLS_PW_WORKERS=2`, desktop-chromium + mobile-chromium):
+  - extracted WIDGETS.md fixture plus `canvas`, `widget-builder`, `canvas-keyboard`,
+    `canvas-arrange`, `player-preview`, `note-depth` and `responsive` specs: 224 passed (3.9m),
+    exit 0;
+  - before the spec edits the same selection (without responsive) had 4 failures, exactly the two
+    keyboard specs × two profiles, for the reasons above.
+- gm-react typecheck exit 0; `pnpm lint` exit 0; `pnpm gates` exit 0 (quality gate passed);
+  `vitest --config vitest.app.config.ts apps/gm-react/src/app/canvas`: 4 files, 92 tests passed.

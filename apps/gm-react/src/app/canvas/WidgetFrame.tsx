@@ -19,8 +19,7 @@ import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
 import type { ArrangeAction, Box } from './geometry';
 
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
- * explicit stack indices let the canvas change DOM order without changing visual overlap.
- * `WidgetLibraryCard` is the add-widget gallery's card chrome; `AddWidgetGallery` imports it. */
+ * explicit stack indices let the canvas change DOM order without changing visual overlap. */
 
 // Kept with the tile chrome copy, like TileActionMenu's local TEXT catalog.
 const RESIZE_HELP =
@@ -711,27 +710,25 @@ export function WidgetFrame({
 	);
 }
 
+/** Card text: one font shorthand plus a colour. */
+const cardText = (font: string, color: string) => ({ font: `${font} var(--font-sans)`, color });
+const CARD_ROW = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)' } as const;
+const CARD_META = cardText('var(--text-2xs)', 'var(--color-text-tertiary)');
+type CardProps = { entry: WidgetLibraryEntry; children: ReactNode; onPick: () => void };
+
 /**
  * One library card. The visible content is plain text plus an `inert` miniature; the control is a
  * transparent button laid over the whole card. Putting the miniature INSIDE a button would nest the
  * preview's own buttons in it, which HTML forbids and assistive tech reads as one run-on name.
  */
-export function WidgetLibraryCard({
-	entry,
-	children,
-	onPick,
-}: {
-	entry: WidgetLibraryEntry;
-	children: ReactNode;
-	onPick: (entry: WidgetLibraryEntry) => void;
-}) {
+export function WidgetLibraryCard({ entry, children, onPick }: CardProps) {
 	const baseId = useId();
-	const nameId = `${baseId}-name`;
-	const descId = `${baseId}-desc`;
-	const reasonId = `${baseId}-reason`;
+	const [nameId, descId, reasonId] = ['name', 'desc', 'reason'].map((s) => `${baseId}-${s}`);
 	const meta = tileMetadataForDefinition(entry);
-	const accent = `var(${meta.accentToken})`;
 	const reason = entry.availability.available ? null : entry.availability.reason;
+	const accent = reason ? 'var(--color-border-strong)' : `var(${meta.accentToken})`;
+	const glyph = reason ? 'var(--color-text-tertiary)' : accent;
+	const name = reason ? 'var(--color-text-secondary)' : 'var(--color-text-primary)';
 	return (
 		<li
 			data-testid={`gallery-card-${entry.type}`}
@@ -742,71 +739,31 @@ export function WidgetLibraryCard({
 				flexDirection: 'column',
 				gap: 'var(--space-2)',
 				padding: 'var(--space-3)',
-				paddingLeft: 'var(--space-4)',
 				border: '1px solid var(--color-border)',
+				// The accent rail is a border, not a background: forced-colors keeps it (as WidgetFrame's).
+				borderLeft: `4px solid ${accent}`,
 				borderRadius: 'var(--radius-md)',
 				background: reason ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
 				overflow: 'hidden',
 			}}
 		>
-			{/* A border, not a background: forced-colors keeps it (same reason as WidgetFrame's rail). */}
-			<span
-				aria-hidden
-				style={{
-					position: 'absolute',
-					left: 0,
-					top: 0,
-					bottom: 0,
-					width: 0,
-					borderLeft: `4px solid ${reason ? 'var(--color-border-strong)' : accent}`,
-				}}
-			/>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<WidgetGlyph
-					icon={meta.icon}
-					size={16}
-					color={reason ? 'var(--color-text-tertiary)' : accent}
-				/>
-				<span
-					id={nameId}
-					style={{
-						flex: 1,
-						minWidth: 0,
-						font: '600 var(--text-sm) var(--font-sans)',
-						color: reason ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
-					}}
-				>
+			<div style={CARD_ROW}>
+				<WidgetGlyph icon={meta.icon} size={16} color={glyph} />
+				<span id={nameId} style={{ flex: 1, minWidth: 0, ...cardText('600 var(--text-sm)', name) }}>
 					{entry.displayName}
 				</span>
-				{entry.category && (
-					<span
-						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
-						}}
-					>
-						{entry.category}
-					</span>
-				)}
+				{entry.category && <span style={CARD_META}>{entry.category}</span>}
 			</div>
-			<div
-				id={descId}
-				style={{
-					font: 'var(--text-2xs)/1.4 var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-				}}
-			>
+			<div id={descId} style={cardText('var(--text-2xs)/1.4', 'var(--color-text-secondary)')}>
 				{meta.description}
 			</div>
 			{reason && (
 				<div
 					id={reasonId}
 					style={{
-						display: 'flex',
-						alignItems: 'center',
+						...CARD_ROW,
 						gap: 'var(--space-1)',
-						font: '600 var(--text-2xs)/1.4 var(--font-sans)',
-						color: 'var(--color-text-primary)',
+						...cardText('600 var(--text-2xs)/1.4', 'var(--color-text-primary)'),
 					}}
 				>
 					<Icon name="lock" size="sm" />
@@ -820,12 +777,9 @@ export function WidgetLibraryCard({
 				data-category={entry.category ?? ''}
 				aria-labelledby={nameId}
 				aria-describedby={reason ? `${descId} ${reasonId}` : descId}
-				// `aria-disabled`, not `disabled`: a disabled button leaves the tab order, and then the
-				// reason it cannot be added is unreachable by keyboard.
+				// `aria-disabled`, not `disabled`, keeps the reason reachable by keyboard (tab order).
 				aria-disabled={reason ? true : undefined}
-				onClick={() => {
-					if (!reason) onPick(entry);
-				}}
+				onClick={() => reason || onPick()}
 				style={{
 					position: 'absolute',
 					inset: 0,
@@ -835,8 +789,7 @@ export function WidgetLibraryCard({
 					borderRadius: 'var(--radius-md)',
 					background: 'transparent',
 					cursor: reason ? 'not-allowed' : 'pointer',
-					// The global `:focus-visible` ring sits outside the box, where the card's
-					// `overflow: hidden` clips it; draw it inside the card edge instead (WCAG 2.4.7).
+					// Inside the edge: the card's `overflow: hidden` clips an outset ring (WCAG 2.4.7).
 					outlineOffset: 'calc(-1 * var(--focus-ring-width) - 2px)',
 				}}
 			/>
