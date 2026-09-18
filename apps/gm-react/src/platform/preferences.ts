@@ -56,6 +56,8 @@ export const PREFERENCE_KEYS = {
 	seenSpotlights: 'dndtools:react:seen-spotlights',
 	/** Reading width for prose surfaces: comfortable / wide / full. */
 	proseWidth: 'dndtools:react:prose-width',
+	/** RC-CAN-5.1 — phone reading defaults to `stacked` panels; `canvas` explicitly opts out. */
+	boardPhoneLayout: 'dndtools:react:board-phone-layout',
 } as const;
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS];
@@ -120,6 +122,38 @@ export function removePreference(key: PreferenceKey): void {
 		window.localStorage.removeItem(preferenceStorageKey(key));
 	} catch {
 		/* nothing was persisted anyway */
+	}
+}
+
+/**
+ * TAB-scoped UI state, spelled once like `PREFERENCE_KEYS` but kept in `sessionStorage`: it survives
+ * a reload and dies with the tab, so it is never a device preference and never vault state. Each
+ * entry is a namespace, and the caller supplies the id within it (one entry per scene, say).
+ */
+export const SESSION_KEY_PREFIXES = {
+	/** RC-CAN-5.1 — which panels of the phone's stacked board are collapsed, one entry per scene. */
+	stackedBoard: 'dndtools:react:stacked-board:',
+} as const;
+
+export type SessionKeyPrefix = (typeof SESSION_KEY_PREFIXES)[keyof typeof SESSION_KEY_PREFIXES];
+
+/** Read tab-scoped UI state. `null` when unset, unreadable (private mode) or off-browser. */
+export function readSessionValue(prefix: SessionKeyPrefix, id: string): string | null {
+	try {
+		if (typeof window === 'undefined') return null;
+		return window.sessionStorage.getItem(`${prefix}${id}`);
+	} catch {
+		return null;
+	}
+}
+
+/** Persist tab-scoped UI state. Best-effort: a browser that refuses storage just forgets it. */
+export function writeSessionValue(prefix: SessionKeyPrefix, id: string, value: string): void {
+	try {
+		if (typeof window === 'undefined') return;
+		window.sessionStorage.setItem(`${prefix}${id}`, value);
+	} catch {
+		/* private mode or a full quota — the state remains in memory until its owner unmounts */
 	}
 }
 

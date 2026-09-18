@@ -63,7 +63,8 @@ Sizes resolve to `--icon-size-*` CSS variables.
   `move`, `pin`, `edit`, `delete`, `duplicate`, `preview`.
 - **Live play** — `dice`, `heart`, `shield`, `sword`, `audio`/`audio-off`, `play`/`pause`/`skip`.
 - **Command Center / authoring** — `scene`, `widget`, `new-character`, `new-map`, `note-edit`,
-  `players`, `permissions`, `vault`, `connection`, `lock`/`unlock`.
+  `players`, `permissions`, `vault`, `connection`, `lock`/`unlock`, and the phone board's
+  List view toggle (`layout-list`) and full-screen tile toggle (`maximize-2`/`minimize-2`).
 - **Maps** — view controls (`zoom-in/out/fit`, `minimap`), the drawing/fog tool palette
   (`tool-*`, `reveal`, `conceal`), and layer-type glyphs (`layer-*`).
 - **Conditions** — `cond-*` (below), plus spellcasting glyphs (`spell-slot`, `flame`, `ritual`,

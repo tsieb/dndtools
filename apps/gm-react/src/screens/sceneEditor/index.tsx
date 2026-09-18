@@ -19,6 +19,11 @@ import { SceneBoardCanvas } from '../../app/SceneBoardCanvas';
 import { FlowBoard } from '../../app/canvas/FlowBoard';
 import { useLayoutHistory } from '../../app/canvas/useLayoutHistory';
 import { registerCanvasSurface } from '../../app/shortcuts/registry';
+import {
+	StackedBoard,
+	StackedLayoutToggle,
+	useStackedPosture,
+} from '../../app/canvas/StackedBoard';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../../app/board-helpers';
 import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -36,24 +41,10 @@ import { PlayerPreviewOverlay } from './PlayerPreviewOverlay';
 import { readPlayerPreview } from './playerPreview';
 
 /**
- * SceneEditor (`/scene/:id`) — the prototype's scene canvas (`scene-shell.jsx` + `scene-canvas.jsx`)
- * ported as a React screen and wired to the REAL Processing Core widget platform, mirroring the
- * archived Svelte `scene/[id]/+page.svelte`. The scene + its widgets come from `getSceneForActor`
- * (CANVAS-009, which surfaces hidden / conflicted / missing binding states); every edit flows through
- * the single dispatch choke point: `scene.add-widget`, `scene.move-widget`, `scene.resize-widget`,
- * `scene.configure-widget`, `scene.destroy-widget`.
- *
- * "Generate widget" (RC-WID-3.2) opens the assistant's widget dialog: the run STAGES a proposal and
- * the manual builder opens on it for review, so nothing is installed or placed without the DM.
- *
- * RC-CAN-7.7 / ADR-041: the scene carries a LAYOUT POLICY, and this screen is the surface that both
- * renders it and changes it. `canvas` is the free spatial editor this screen has always been;
- * `flow` is the responsive column grid hub screens use. Both host the same widget instances and the
- * same commands — the policy picks the engine, it converts nothing.
- *
- * "What player X sees" (RC-CAN-6.1): while the runtime previews as another role — from the canvas's
- * own switcher or the top bar's — an overlay covers the canvas, dims every tile the previewed actor's
- * read withholds and says why, and editing is suspended underneath it. Escape leaves preview.
+ * Actor-filtered scene widgets, edited through core commands. Canvas and flow policies share
+ * instances and commands (ADR-041); phones read stacked panels outside layout editing.
+ * Generated widgets stay staged for DM review. Player preview suspends editing under an
+ * overlay explaining the previewed actor's withheld tiles; Escape restores the editor.
  */
 export function SceneEditor() {
 	const { t } = useI18n();
@@ -84,6 +75,8 @@ export function SceneEditor() {
 	const [templatesOpen, setTemplatesOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const configQueue = useRef(Promise.resolve());
+	// RC-CAN-5.1 — a phone defaults to the stacked panel list (List); editing stays spatial.
+	const posture = useStackedPosture(viewport === 'phone' && !editing);
 
 	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
 	// never unmounts it on a scene→scene navigation (the sidebar and ⌘K both do exactly that). Every
@@ -419,26 +412,20 @@ export function SceneEditor() {
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-3)',
-				// `<main>` is already the bounded pane: viewport-height minus the top bar and (on
-				// phone) the tab bar. Asking for the full 100dvh here overflowed by ~94px and pushed
-				// the canvas zoom cluster below the fold — and zoom is a required affordance
-				// (UX-CANVAS). Subtracting a constant only moved the error: it was still measured off
-				// the WHOLE window, so desktop still overflowed. `100%` tracks the pane exactly at
-				// every window size. Same fix Board.tsx makes; locked by responsive.spec.ts.
+				// Match the shell's pane, which already excludes the top and bottom navigation.
 				height: '100%',
-				minHeight: 360,
-				// Bypassing `<Page>` also meant bypassing its gutters: heading, toolbar and canvas all
-				// sat flush against the pane edges. `border-box` keeps `height:'100%'` exact. Phone is
-				// exempt for the same reason as Board.tsx — the bounded fit scale is width-derived and
-				// already too small there.
+				// The stacked phone list scrolls itself; a floor here would only push a full-screen
+				// tile past `<main>`'s bottom edge, i.e. under the tab bar it must stay above.
+				minHeight: posture.stacked ? 0 : 360,
+				// Include gutters in the pane height; phones keep their full width for widget content.
 				boxSizing: 'border-box',
 				padding: viewport === 'phone' ? 0 : '16px 28px',
 			}}
 		>
-			{/* edit toolbar */}
+			{/* edit toolbar — hidden while a stacked tile is full screen (it has its own way back) */}
 			<div
 				style={{
-					display: 'flex',
+					display: posture.hideChrome ? 'none' : 'flex',
 					alignItems: 'center',
 					gap: 'var(--space-2)',
 					// Without wrapping, edit mode's back + edit + snap + add + done controls consumed the
@@ -475,7 +462,9 @@ export function SceneEditor() {
 							color: 'var(--color-text-tertiary)',
 						}}
 					>
-						{t('sceneEditor.widgetSummary', { count: widgets.length })}
+						{t(posture.stacked ? 'home.scene.widgets' : 'sceneEditor.widgetSummary', {
+							count: widgets.length,
+						})}
 					</div>
 				</div>
 				{!previewing && (
@@ -560,6 +549,7 @@ export function SceneEditor() {
 					</>
 				)}
 				{/* RC-CAN-6.1 — this canvas's own "what player X sees" switcher. */}
+				{!previewing && <StackedLayoutToggle posture={posture} />}
 				<div ref={previewTriggerRef} style={{ display: 'contents' }}>
 					<ViewAsControl placement="scene" compact={viewport === 'phone'} />
 				</div>
@@ -594,7 +584,14 @@ export function SceneEditor() {
 			)}
 
 			{/* canvas + side panels, with the player-view preview overlay above them (RC-CAN-6.1) */}
-			<div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative' }}>
+			<div
+				style={{
+					flex: 1,
+					minHeight: posture.regionMinHeight,
+					display: 'flex',
+					position: 'relative',
+				}}
+			>
 				<div
 					ref={stageRef}
 					data-testid="scene-editor-stage"
@@ -621,7 +618,16 @@ export function SceneEditor() {
 					<div
 						style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}
 					>
-						{layoutPolicy === 'flow' ? (
+						{posture.stacked ? (
+							<StackedBoard
+								sceneId={id}
+								widgets={widgets}
+								onWidgetCommand={operateWidget}
+								emptyTitle={previewing ? shown.name : ''}
+								emptyHint={previewing ? emptyHint : ''}
+								onMaximizedChange={posture.onMaximizedChange}
+							/>
+						) : layoutPolicy === 'flow' ? (
 							<FlowBoard
 								widgets={widgets}
 								tier={viewport}
@@ -690,13 +696,9 @@ export function SceneEditor() {
 						)}
 					</div>
 
-					{propertiesOpen && (
+					{propertiesOpen && !posture.hideChrome && (
 						<SceneMetaPanel
-							// Its three fields are `useState(prop)` drafts with no prop→draft sync, and its Save
-							// is a full metadata REPLACEMENT addressed by the route id — with no key tied to the
-							// scene, navigating scene→scene with the panel open wrote the OLD scene's name,
-							// description and tags onto the new one. `Inspector` below keys on its selected
-							// instance for exactly this reason.
+							// Reset draft fields per scene so a save cannot reuse another scene's metadata.
 							key={id}
 							scene={rawScene}
 							belowCanvas={propertiesBelow}

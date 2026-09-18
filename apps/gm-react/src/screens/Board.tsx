@@ -30,6 +30,7 @@ import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
 import { registerCanvasSurface } from '../app/shortcuts/registry';
+import { StackedBoard, StackedLayoutToggle, useStackedPosture } from '../app/canvas/StackedBoard';
 import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
 import {
@@ -61,8 +62,8 @@ import { WidgetBuilder } from './extensions/WidgetBuilder';
  * Comfortable/Detail deliberately overflow a narrow window for the same reason. RC-CAN-3.2 made
  * reaching that scroll range "scroll-natural": wheel, Shift+wheel, trackpad two-finger and a single
  * touch-finger all scroll it natively, and a middle-mouse drag pans it directly (SceneBoardCanvas's
- * `scroll-pan`) for the one gesture a real scroll container doesn't grant for free. There is still no
- * free zoom slider and no pinch-zoom — only the three named steps above.
+ * `scroll-pan`) for the one gesture a real scroll container doesn't grant for free — and never
+ * pinch-zoom. A PHONE defaults to `StackedBoard`'s panel list (RC-CAN-5.1, List).
  */
 // `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
 // fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
@@ -92,6 +93,7 @@ export function Board() {
 	// toolbar. The bounded canvas IS its own scroll container, so an in-canvas control would scroll
 	// away from the widgets it applies to and sit on top of the top-left widget while it did.
 	const [zoom, setZoom] = useState<ZoomPreset>('fit');
+	const posture = useStackedPosture(viewport === 'phone' && !editing);
 	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
 	// control and no Escape handler — so on a phone (where it is a 280px absolute overlay) it
 	// covered all but ~97px of the board and could not be dismissed without leaving edit mode.
@@ -375,7 +377,7 @@ export function Board() {
 				// `<main>` by ~43px (a second, nested scrollbar) while a phone left space unused.
 				// `100%` tracks the pane exactly at every size. Locked by responsive.spec.ts.
 				height: '100%',
-				minHeight: 360,
+				minHeight: posture.stacked ? 0 : 360,
 				// `/board` and `/scene/:id` are the only two screens that bypass `<Page>`, so without
 				// this they rendered flush against the pane edges — heading, toolbar and the canvas's
 				// own rounded border all touching, so the border read as a crop. `border-box` keeps
@@ -391,7 +393,7 @@ export function Board() {
 			<Toolbar
 				ariaLabel={t('board.title')}
 				style={{
-					display: 'flex',
+					display: posture.hideChrome ? 'none' : 'flex',
 					alignItems: 'center',
 					gap: 'var(--space-2)',
 					flex: '0 0 auto',
@@ -478,30 +480,30 @@ export function Board() {
 						</Button>
 					</>
 				)}
-				{/* The three named zoom steps. Always available: reading the board at Detail is as much
-				    a viewing act as an editing one. */}
-				<div
-					role="group"
-					aria-label={t('boardCanvas.zoomGroup')}
-					data-testid="board-zoom-presets"
-					// Wraps INSIDE the group: at 200% text "Comfortable" alone is a third of a 360px
-					// phone, and a group that could only wrap as a unit widened `#main-content`.
-					style={{ display: 'flex', flexWrap: 'wrap', gap: 2, flex: '0 1 auto', minWidth: 0 }}
-				>
-					{ZOOM_PRESETS.map((preset) => (
-						<Button
-							key={preset}
-							variant={zoom === preset ? 'primary' : 'ghost'}
-							size="sm"
-							aria-pressed={zoom === preset}
-							onClick={() => setZoom(preset)}
-						>
-							{t(ZOOM_PRESET_KEY[preset])}
-						</Button>
-					))}
-				</div>
-				{/* Done is the subtle accent, not the gold fill: in edit mode the selected zoom chip
-				    already holds this region's one primary (RC-ENG-8.4 emphasis rule). */}
+				<StackedLayoutToggle posture={posture} />
+				{/* The named zoom steps, in both modes — but not on the stacked list, which has none. */}
+				{!posture.stacked && (
+					<div
+						role="group"
+						aria-label={t('boardCanvas.zoomGroup')}
+						data-testid="board-zoom-presets"
+						// Wraps INSIDE the group: at 200% text "Comfortable" alone is a third of a 360px
+						// phone, and a group that could only wrap as a unit widened `#main-content`.
+						style={{ display: 'flex', flexWrap: 'wrap', gap: 2, flex: '0 1 auto', minWidth: 0 }}
+					>
+						{ZOOM_PRESETS.map((preset) => (
+							<Button
+								key={preset}
+								variant={zoom === preset ? 'primary' : 'ghost'}
+								size="sm"
+								aria-pressed={zoom === preset}
+								onClick={() => setZoom(preset)}
+							>
+								{t(ZOOM_PRESET_KEY[preset])}
+							</Button>
+						))}
+					</div>
+				)}
 				<Button
 					variant={editing ? 'accent' : 'secondary'}
 					size="sm"
@@ -560,7 +562,7 @@ export function Board() {
 			    name (shape — warning triangle for an overflow, error circle for an overlap — carries
 			    the distinction, not colour alone) with a "Select" that jumps the DM straight to it,
 			    alongside the one-click "Fix layout". */}
-			{layoutIssues.length > 0 && (
+			{layoutIssues.length > 0 && !posture.hideChrome && (
 				<Card
 					elevation="flat"
 					padding="sm"
@@ -667,32 +669,43 @@ export function Board() {
 			<div
 				style={{
 					flex: 1,
-					minHeight: 0,
+					minHeight: posture.regionMinHeight,
 					display: 'flex',
 					gap: 'var(--space-3)',
 					position: 'relative',
 				}}
 			>
 				<div style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}>
-					<SceneBoardCanvas
-						widgets={widgets}
-						policy="bounded"
-						editing={editing}
-						snap={snap}
-						selectedId={selectedId}
-						onSelect={setSelectedId}
-						onMove={move}
-						onResize={resize}
-						focusOrder={focusOrder}
-						onRemove={remove}
-						onWidgetCommand={operateWidget}
-						emptyHint={ready ? '' : t('board.preparingHint')}
-						// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
-						emptyTitle={ready ? '' : t('board.preparingTitle')}
-						history={history}
-						zoomPreset={zoom}
-						onZoomPresetChange={setZoom}
-					/>
+					{posture.stacked ? (
+						<StackedBoard
+							sceneId={homeSceneId}
+							widgets={widgets}
+							onWidgetCommand={operateWidget}
+							emptyHint={ready ? '' : t('board.preparingHint')}
+							emptyTitle={ready ? '' : t('board.preparingTitle')}
+							onMaximizedChange={posture.onMaximizedChange}
+						/>
+					) : (
+						<SceneBoardCanvas
+							widgets={widgets}
+							policy="bounded"
+							editing={editing}
+							snap={snap}
+							selectedId={selectedId}
+							onSelect={setSelectedId}
+							onMove={move}
+							onResize={resize}
+							focusOrder={focusOrder}
+							onRemove={remove}
+							onWidgetCommand={operateWidget}
+							emptyHint={ready ? '' : t('board.preparingHint')}
+							// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
+							emptyTitle={ready ? '' : t('board.preparingTitle')}
+							history={history}
+							zoomPreset={zoom}
+							onZoomPresetChange={setZoom}
+						/>
+					)}
 					{ready && widgets.length === 0 && (
 						<BoardEmptyState
 							title={t('board.emptyTitle')}
