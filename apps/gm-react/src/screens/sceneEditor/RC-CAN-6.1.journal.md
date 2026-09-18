@@ -167,3 +167,33 @@
   with a matching `package.json` bump, or change what "What's new" shows for unreleased notes. It
   lives in `CHANGELOG.md` or `app/help/`, neither of which this story owns, and it has to land on
   `loop/rc` for every candidate. This attempt commits only this journal entry. No source changed.
+
+## Retry — 2026-09-18 ("App tests" gate, same failure; rebased onto the fix)
+
+- Gate on `d10779e3`: the same single failure as the previous attempt (`changelog.test.ts`,
+  `expected 'Unreleased' to be '0.3.7'`). Every other gate passed.
+- The fix has since landed on the dispatcher's local `loop/rc`: `32d9ed73` ("fix(help): exclude
+  unreleased notes from shipped release selection"). So I rebased the branch onto local `loop/rc`
+  (`6a745225`), which contains it. Local and `origin/loop/rc` have diverged (3 local-only, 6
+  origin-only). The earlier rebases in this journal used the local integration branch, and so does
+  this one. Nothing was fetched into it or pushed.
+- One conflict, in `sceneEditor/index.tsx`, from RC-CAN-7.7 (`ba5c52dd`, ADR-041 layout policy): a
+  Flow/Canvas `Seg` picker in the edit controls, and a `FlowBoard` engine beside `SceneBoardCanvas`.
+  Resolved by taking `loop/rc`'s file and reapplying this story's wiring:
+  - both engines sit inside the `inert` stage;
+  - the layout picker and snap switch are hidden while previewing, with the other edit controls;
+  - the overlay sits above the stage;
+  - the canvas `focusOrder` and the details panel read from `shown`, so a preview-blocked scene
+    still renders.
+    The EN/ES catalogs auto-merged, and my later commits replayed cleanly.
+- Validation on the rebased tree: `pnpm test:app` 137 files and 1500/1500 tests, exit 0. `pnpm lint`
+  exit 0: ESLint 0 errors and 15 pre-existing warnings; boundary lint and the contrast gate passed.
+  Emphasis `display-face-below-24px` is 83 against a baseline of 84. Lowering
+  `scripts/emphasis-baseline.json` is outside this story's claim, and the gate does not require it.
+  `pnpm format:check:changed -- --base loop/rc` covered 9 files, exit 0. App `tsc --noEmit` exit 0,
+  and the spec typechecked through a throwaway tsconfig (deleted), exit 0.
+- Playwright on desktop and mobile Chromium, `CI=1`, no retries, JSON reporter, own servers:
+  - `player-preview`, `isolation-guard` and `canvas` specs: 88/88 (port 54719, start 16:06:26Z,
+    0 unexpected, 0 flaky);
+  - `flow-layout` and `canvas-keyboard`, the specs for the `loop/rc` features this merge touches:
+    18/18 (port 55183, start 16:07:47Z, 0 unexpected, 0 flaky).
