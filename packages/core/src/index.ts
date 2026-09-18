@@ -3198,6 +3198,8 @@ export {
 	evaluateCloudReleaseGate,
 	findServerVisibilityViolations,
 	isPlaintextUploadPermitted,
+	isSanctionedSecurityDecisionRecord,
+	sanctionSecurityDecisionRecord,
 	validateCloudSecurityRecord,
 } from './security/cloud-security-model';
 

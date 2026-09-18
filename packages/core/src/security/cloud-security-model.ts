@@ -304,6 +304,70 @@ export function assertServerSeesOnlyAllowedMetadata(
 	if (violations.length > 0) throw new Error(violations[0]!.message);
 }
 
+// --- Sanctioned decision records (ADR-026 phase-2 checklist item 7) ---------------------------
+
+/**
+ * The records this codebase has SANCTIONED as real release postures. Every trust-WIDENING path
+ * below (the `assertServerVisibilityForRecord` relaxation and the plaintext-upload gate) requires
+ * membership here in addition to the structural checks, because a structurally valid record is
+ * cheap to forge: `{ ...DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD, approved: true }` passes
+ * {@link validateCloudSecurityRecord} while the shipped record still says `approved: false`.
+ * Identity membership is what makes "a caller cannot approve itself" hold BY CONSTRUCTION rather
+ * than by review of the call sites.
+ *
+ * A `WeakSet` keyed on object identity, so sanctioning cannot be spoofed by shape, cannot be
+ * enumerated, and cannot leak the records. Unsanctioned ⇒ fail closed, so forgetting to sanction a
+ * record can only ever NARROW trust.
+ */
+const SANCTIONED_DECISION_RECORDS = new WeakSet<CloudSecurityDecisionRecord>();
+
+/**
+ * Declare a decision record to be a sanctioned release posture and return the frozen instance the
+ * rest of the codebase must use. This is the single auditable chokepoint for widening trust: grep
+ * for `sanctionSecurityDecisionRecord(` to enumerate every record that may ever open a
+ * server-readable path.
+ *
+ * Sanctioning does NOT approve anything: the sanctioned Cloud-Enhanced record still ships
+ * `approved: false`, so it still fails every gate. Sanctioning only makes a record ELIGIBLE to be
+ * evaluated once its `approved` flag is flipped by the phase-2 sign-off (RC-CLD-6.5, epic CLD-6).
+ *
+ * SCOPE OF THE GUARANTEE — read before relying on this. This function IS re-exported from the
+ * package barrel (`packages/core/src/index.ts`), because the Copilot unit tests in
+ * `packages/cloud-fns` and `apps/gm-react` must be able to simulate the post-review posture. So the
+ * enforced property is NOT "only `securityDecisionRecordForVaultMode` can produce a record that
+ * opens the relaxation" — any caller able to import this function can mint one. What IS enforced by
+ * construction is that opening a trust-widening path requires an explicit, named, greppable call to
+ * this function, instead of an anonymous object spread that no reviewer would notice. The set of
+ * files allowed to make that call is pinned by the source scan in
+ * `packages/core/tests/security-vault-privacy-modes.test.ts` (ADR-026 phase-2 checklist item 7). If
+ * a plaintext route ever needs its own sanctioned record, that scan is the review gate it must pass.
+ *
+ * MODULE-IDENTITY COUPLING — {@link SANCTIONED_DECISION_RECORDS} is module-level state keyed on
+ * OBJECT IDENTITY, so membership does not survive any boundary that copies the record: two bundled
+ * copies of `@dndtools/core`, a record round-tripped through `JSON.parse`/`JSON.stringify` in a
+ * Lambda request, or a `structuredClone`. A caller that reconstitutes a record from a serialized
+ * form instead of importing it will see {@link isPlaintextUploadPermitted} return `false` and
+ * {@link assertPlaintextUploadPermitted} throw a message about sanctioning — which reads like a
+ * policy refusal but is really an identity mismatch. The direction is fail-closed, so this can only
+ * narrow trust, never widen it. A server route MUST import the record from this package rather than
+ * accept it over the wire.
+ */
+export function sanctionSecurityDecisionRecord(
+	record: CloudSecurityDecisionRecord,
+): CloudSecurityDecisionRecord {
+	const sanctioned: CloudSecurityDecisionRecord = Object.freeze({
+		...record,
+		allowedServerMetadata: Object.freeze([...record.allowedServerMetadata]),
+	});
+	SANCTIONED_DECISION_RECORDS.add(sanctioned);
+	return sanctioned;
+}
+
+/** Whether this exact record instance was sanctioned by {@link sanctionSecurityDecisionRecord}. */
+export function isSanctionedSecurityDecisionRecord(record: CloudSecurityDecisionRecord): boolean {
+	return SANCTIONED_DECISION_RECORDS.has(record);
+}
+
 /**
  * ADR-026 — the MODE-AWARE server-visibility guard. Under an end-to-end-encrypted record this is
  * exactly {@link assertServerSeesOnlyAllowedMetadata} (the SEC-009 AC4 boundary is unconditional for
@@ -312,6 +376,12 @@ export function assertServerSeesOnlyAllowedMetadata(
  * storage (the Cloud-Enhanced mode) AND whose record passed the release gate. Anything else —
  * an undeclared record, or a server-readable record that is incomplete or not yet approved (the
  * phase-1 posture) — fails closed: no server-visible payload may be produced under it at all.
+ *
+ * The approved server-readable record must ALSO be a sanctioned instance
+ * ({@link sanctionSecurityDecisionRecord}). A caller-built record that merely has the right shape
+ * and `approved: true` is refused — a spread, a JSON round-trip or a `structuredClone` of the shipped
+ * record included. The only other way in is an explicit `sanctionSecurityDecisionRecord` call, and
+ * the files allowed to make one are pinned by the source scan described on that function.
  */
 export function assertServerVisibilityForRecord(
 	record: CloudSecurityDecisionRecord,
@@ -323,14 +393,15 @@ export function assertServerVisibilityForRecord(
 	}
 	if (
 		record.encryption === 'server-side-encrypted' &&
+		isSanctionedSecurityDecisionRecord(record) &&
 		validateCloudSecurityRecord(record).length === 0
 	) {
 		return;
 	}
 	throw new Error(
 		'No server-visible payload is permitted: the cloud security record is neither an ' +
-			'end-to-end-encrypted declaration nor a complete, approved server-readable declaration ' +
-			'(fail closed).',
+			'end-to-end-encrypted declaration nor a sanctioned, complete, approved server-readable ' +
+			'declaration (fail closed).',
 	);
 }
 
@@ -356,7 +427,10 @@ export type RegisteredVaultPrivacyMode = 'private-e2ee' | 'cloud-enhanced';
  *      request header/body claiming the mode is never sufficient, only a prior server-side write, and
  *   2. the Cloud-Enhanced decision record must itself be complete and approved
  *      ({@link validateCloudSecurityRecord}), so an unapproved record keeps every vault's plaintext
- *      path closed regardless of that vault's own registration.
+ *      path closed regardless of that vault's own registration, and
+ *   3. that record must be a SANCTIONED instance ({@link sanctionSecurityDecisionRecord}) — a
+ *      look-alike record a caller assembled with `approved: true` is refused, so a route cannot
+ *      approve itself past the phase-2 review.
  *
  * Pure: a function of the two inputs, no I/O. The route owns looking up the registration row and
  * the release-approved record before calling this.
@@ -367,6 +441,7 @@ export function isPlaintextUploadPermitted(
 ): boolean {
 	if (registeredMode !== 'cloud-enhanced') return false;
 	if (record.encryption !== 'server-side-encrypted') return false;
+	if (!isSanctionedSecurityDecisionRecord(record)) return false;
 	return validateCloudSecurityRecord(record).length === 0;
 }
 
@@ -381,7 +456,7 @@ export function assertPlaintextUploadPermitted(
 	if (!isPlaintextUploadPermitted(registeredMode, record)) {
 		throw new Error(
 			'Plaintext upload refused: the vault is not server-side registered for cloud-enhanced mode ' +
-				'under a complete, approved decision record (fail closed).',
+				'under a sanctioned, complete, approved decision record (fail closed).',
 		);
 	}
 }

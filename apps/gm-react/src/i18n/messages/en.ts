@@ -321,7 +321,7 @@ export const en = {
 		'Your campaign is encrypted on your devices before anything leaves them, and only your devices hold the keys — the service can never read it. Server-powered features (campaign AI, cloud search, opening your campaign from any browser) will not be available to this vault.',
 	'onboarding.privacy.cloudTitle': 'Cloud-Enhanced vault',
 	'onboarding.privacy.cloudDesc':
-		'Encrypted in transit and at rest with service-managed keys, and readable by the service to power upcoming features — campaign AI, cloud search, and access from any browser. Today your data is still end-to-end encrypted; this records your consent for when those features arrive.',
+		'Consent for the service to read your campaign to power server features — campaign AI, cloud search, and access from any browser. Those features are not in this edition: your data stays end-to-end encrypted, and you will be asked again before anything becomes readable.',
 	'onboarding.privacy.noRecoveryTitle': 'No one can recover this for you',
 	'onboarding.privacy.noRecoveryBody':
 		'Cloud backups of a Private vault can only be opened with keys held on your devices. If you lose every device without exporting a recovery key (Settings → Sync), the cloud copy is gone for good — the service cannot reset or restore it.',
@@ -1592,18 +1592,18 @@ export const en = {
 	'settings.privacy.helpPrivate':
 		'{chose} the Private model: everything is encrypted on your devices before it leaves them, and only your devices hold the keys. Server-powered features (campaign AI, cloud search, browser access without your key) stay unavailable to this vault.',
 	'settings.privacy.helpCloud':
-		'You consented to the Cloud-Enhanced model: encrypted in transit and at rest with service-managed keys, readable by the service to power upcoming features (campaign AI, cloud search, any-browser access). Until those features ship, your data still travels through the end-to-end-encrypted pipeline.',
+		'This vault is set to Cloud-Enhanced: consent for the service to read its content to power server features (campaign AI, cloud search, browser access without your key). Those features are not in this edition, so nothing is server-readable — your data still travels and is stored end-to-end encrypted, exactly like a Private vault.',
 	'settings.privacy.switchToCloud': 'Switch to Cloud-Enhanced…',
 	'settings.privacy.switchToPrivate': 'Switch to Private…',
 	'settings.privacy.dialogPrivateTitle': 'Make this vault Private?',
 	'settings.privacy.dialogCloudTitle': 'Switch to Cloud-Enhanced?',
 	'settings.privacy.dialogPrivateDescription': 'Only your devices will hold the keys from here on.',
 	'settings.privacy.dialogCloudDescription':
-		'You are consenting to service-readable storage for this vault.',
+		'This records consent to a server-readable mode that this edition does not include.',
 	'settings.privacy.bodyToPrivate':
-		'Content the service could read while this vault was Cloud-Enhanced may already have been read — switching back cannot undo that. Going forward, cloud copies can only be opened with keys on your devices; export a recovery key and keep it safe, because the service cannot recover a Private vault for you.',
+		'In this edition a Cloud-Enhanced vault is still end-to-end encrypted, so the service could not read it. Private keeps it that way for good: cloud copies can only be opened with keys on your devices. Export a recovery key and keep it safe, because the service cannot recover a Private vault for you.',
 	'settings.privacy.bodyToCloud':
-		'When Cloud-Enhanced features ship, the service will be able to read this vault’s content to power them — that is the point of the mode, and it is a real widening of trust. Switching modes later re-uploads your vault under the new model. Nothing is server-readable until those features arrive and you are notified.',
+		'Cloud-Enhanced means the service may read this vault’s content to power server features — a real widening of trust. Those features are not in this edition: the vault stays end-to-end encrypted and nothing becomes server-readable. If they are added later, you will be asked again before anything of yours becomes readable.',
 	'settings.privacy.phrasePrivate': 'i hold the keys',
 	'settings.privacy.phraseCloud': 'read my vault',
 	'settings.privacy.ackPrompt': 'Type {phrase} to confirm.',
@@ -1613,7 +1613,7 @@ export const en = {
 	'settings.privacy.nowPrivate':
 		'This vault is now Private — end-to-end encrypted with your keys only.',
 	'settings.privacy.consentRecorded':
-		'Consent recorded — this vault will use Cloud-Enhanced features when they arrive.',
+		'Cloud-Enhanced recorded. Its server features are not in this edition, so this vault stays end-to-end encrypted.',
 
 	/* Settings › Backup & history › Recovery key */
 	'settings.recovery.title': 'Recovery key',
@@ -6010,7 +6010,7 @@ export const en = {
 	'help.tip.vaultPrivacy.label': 'About vault privacy mode',
 	'help.tip.vaultPrivacy.title': 'Vault privacy mode',
 	'help.tip.vaultPrivacy.body':
-		'Private encrypts the vault on your devices, and only your devices hold the keys. Cloud-Enhanced lets the service read it to power server features like campaign AI and cloud search. Switching either way asks you to type a confirmation first.',
+		'Private encrypts the vault on your devices, and only your devices hold the keys. Cloud-Enhanced is consent for the service to read the vault to power server features like campaign AI and cloud search; those features are not in this edition, so a Cloud-Enhanced vault is still end-to-end encrypted today. Switching either way asks you to type a confirmation first.',
 	'help.tip.projection.label': 'About projection',
 	'help.tip.projection.title': 'Projection',
 	'help.tip.projection.body':

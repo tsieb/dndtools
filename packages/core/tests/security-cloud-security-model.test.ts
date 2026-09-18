@@ -13,6 +13,7 @@ import {
 	type CloudSyncSecurityModel,
 	type ServerVisibleField,
 } from '../src';
+import { sanctionSecurityDecisionRecord } from '../src/security/cloud-security-model';
 
 /**
  * SEC-009 — the cloud security model decision record + release gate. Release is BLOCKED until a complete,
@@ -139,16 +140,19 @@ describe('SEC-009 AC4 — under an E2EE claim the server sees ONLY allowed metad
 });
 
 describe('ADR-026 phase 2 — plaintext upload requires a SERVER-side cloud-enhanced registration + an approved record', () => {
-	const APPROVED_CLOUD_ENHANCED_RECORD: CloudSecurityDecisionRecord = {
-		schemaVersion: 1,
-		approved: true,
-		encryption: 'server-side-encrypted',
-		keyCustodian: 'provider-held',
-		credentialRotationDeclared: true,
-		recovery: 'supported',
-		allowedServerMetadata: [],
-		decisionRecordRef: 'docs/adr/026-opt-in-vault-privacy-modes.md',
-	};
+	// The post-review phase-2 posture: sanctioned (as `cloud-security-decision.ts` sanctions the
+	// shipped records) AND approved. Both axes are required — see the forgery test below.
+	const APPROVED_CLOUD_ENHANCED_RECORD: CloudSecurityDecisionRecord =
+		sanctionSecurityDecisionRecord({
+			schemaVersion: 1,
+			approved: true,
+			encryption: 'server-side-encrypted',
+			keyCustodian: 'provider-held',
+			credentialRotationDeclared: true,
+			recovery: 'supported',
+			allowedServerMetadata: [],
+			decisionRecordRef: 'docs/adr/026-opt-in-vault-privacy-modes.md',
+		});
 
 	it('an unregistered vault (no row) is refused even under an approved record — fail closed', () => {
 		expect(isPlaintextUploadPermitted(undefined, APPROVED_CLOUD_ENHANCED_RECORD)).toBe(false);
@@ -162,11 +166,22 @@ describe('ADR-026 phase 2 — plaintext upload requires a SERVER-side cloud-enha
 	});
 
 	it('a vault registered cloud-enhanced is refused while the decision record is unapproved (phase-1 posture)', () => {
-		const unapproved: CloudSecurityDecisionRecord = {
+		const unapproved = sanctionSecurityDecisionRecord({
 			...APPROVED_CLOUD_ENHANCED_RECORD,
 			approved: false,
-		};
+		});
 		expect(isPlaintextUploadPermitted('cloud-enhanced', unapproved)).toBe(false);
+	});
+
+	it('refuses an UNSANCTIONED look-alike record — a caller cannot approve itself past the review', () => {
+		// Structurally identical to the sanctioned record above, and `approved: true`, but assembled
+		// by the caller rather than handed out by `securityDecisionRecordForVaultMode`.
+		const forged: CloudSecurityDecisionRecord = { ...APPROVED_CLOUD_ENHANCED_RECORD };
+		expect(validateCloudSecurityRecord(forged)).toEqual([]);
+		expect(isPlaintextUploadPermitted('cloud-enhanced', forged)).toBe(false);
+		expect(() => assertPlaintextUploadPermitted('cloud-enhanced', forged)).toThrow(
+			/sanctioned.*fail closed/is,
+		);
 	});
 
 	it('a vault registered cloud-enhanced is refused under an E2EE-claimed record (wrong record shape)', () => {

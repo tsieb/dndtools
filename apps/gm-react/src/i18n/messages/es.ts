@@ -327,7 +327,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Tu campaña se cifra en tus dispositivos antes de que nada salga de ellos, y solo tus dispositivos tienen las claves — el servicio nunca puede leerla. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, abrir tu campaña desde cualquier navegador) no estarán disponibles para este baúl.',
 	'onboarding.privacy.cloudTitle': 'Baúl mejorado con la nube',
 	'onboarding.privacy.cloudDesc':
-		'Cifrado en tránsito y en reposo con claves gestionadas por el servicio, y legible por el servicio para habilitar próximas funciones — IA de campaña, búsqueda en la nube y acceso desde cualquier navegador. Hoy tus datos siguen cifrados de extremo a extremo; esto registra tu consentimiento para cuando lleguen esas funciones.',
+		'Consentimiento para que el servicio lea tu campaña y ofrezca funciones de servidor: IA de campaña, búsqueda en la nube y acceso desde cualquier navegador. Esas funciones no están disponibles en esta edición: tus datos siguen cifrados de extremo a extremo y se te volverá a preguntar antes de que nada sea legible.',
 	'onboarding.privacy.noRecoveryTitle': 'Nadie puede recuperar esto por ti',
 	'onboarding.privacy.noRecoveryBody':
 		'Las copias en la nube de un baúl privado solo se pueden abrir con claves guardadas en tus dispositivos. Si pierdes todos tus dispositivos sin exportar una clave de recuperación (Ajustes → Sincronización), la copia en la nube se pierde para siempre — el servicio no puede restablecerla ni restaurarla.',
@@ -1598,7 +1598,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.privacy.helpPrivate':
 		'{chose} el modelo Privado: todo se cifra en tus dispositivos antes de salir de ellos y solo tus dispositivos tienen las claves. Las funciones que dependen del servidor (IA de campaña, búsqueda en la nube, acceso desde el navegador sin tu clave) no están disponibles para este baúl.',
 	'settings.privacy.helpCloud':
-		'Diste tu consentimiento al modelo Mejorado por la nube: cifrado en tránsito y en reposo con claves gestionadas por el servicio, legible por el servicio para impulsar las próximas funciones (IA de campaña, búsqueda en la nube, acceso desde cualquier navegador). Hasta que esas funciones lleguen, tus datos siguen viajando por el canal cifrado de extremo a extremo.',
+		'Este baúl está en modo Mejorado por la nube: consentimiento para que el servicio lea su contenido y ofrezca funciones de servidor (IA de campaña, búsqueda en la nube, acceso desde el navegador sin tu clave). Esas funciones no están disponibles en esta edición, así que nada es legible por el servidor: tus datos siguen viajando y guardándose cifrados de extremo a extremo, igual que un baúl privado.',
 	'settings.privacy.switchToCloud': 'Cambiar a Mejorado por la nube…',
 	'settings.privacy.switchToPrivate': 'Cambiar a Privado…',
 	'settings.privacy.dialogPrivateTitle': '¿Hacer privado este baúl?',
@@ -1606,11 +1606,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.privacy.dialogPrivateDescription':
 		'A partir de ahora solo tus dispositivos tendrán las claves.',
 	'settings.privacy.dialogCloudDescription':
-		'Estás consintiendo que este baúl se guarde de forma legible para el servicio.',
+		'Esto registra tu consentimiento a un modo legible por el servidor que esta edición no incluye.',
 	'settings.privacy.bodyToPrivate':
-		'El contenido que el servicio pudo leer mientras este baúl estuvo en modo Mejorado por la nube puede haberse leído ya: volver atrás no deshace eso. A partir de ahora, las copias en la nube solo se pueden abrir con claves de tus dispositivos; exporta una clave de recuperación y guárdala bien, porque el servicio no puede recuperar por ti un baúl privado.',
+		'En esta edición un baúl Mejorado por la nube sigue cifrado de extremo a extremo, así que el servicio no pudo leerlo. Privado lo deja así para siempre: las copias en la nube solo se pueden abrir con claves de tus dispositivos. Exporta una clave de recuperación y guárdala bien, porque el servicio no puede recuperar por ti un baúl privado.',
 	'settings.privacy.bodyToCloud':
-		'Cuando lleguen las funciones Mejoradas por la nube, el servicio podrá leer el contenido de este baúl para hacerlas posibles: ese es el sentido del modo y es una ampliación real de confianza. Cambiar de modo más adelante vuelve a subir tu baúl con el nuevo modelo. Nada es legible por el servidor hasta que esas funciones lleguen y se te avise.',
+		'Mejorado por la nube significa que el servicio puede leer el contenido de este baúl para ofrecer funciones de servidor: es una ampliación real de confianza. Esas funciones no están disponibles en esta edición: el baúl sigue cifrado de extremo a extremo y nada pasa a ser legible por el servidor. Si se añaden más adelante, se te volverá a preguntar antes de que nada tuyo sea legible.',
 	'settings.privacy.phrasePrivate': 'yo tengo las llaves',
 	'settings.privacy.phraseCloud': 'lee mi baúl',
 	'settings.privacy.ackPrompt': 'Escribe {phrase} para confirmar.',
@@ -1620,7 +1620,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.privacy.nowPrivate':
 		'Este baúl ya es privado: cifrado de extremo a extremo solo con tus claves.',
 	'settings.privacy.consentRecorded':
-		'Consentimiento registrado: este baúl usará las funciones Mejoradas por la nube cuando lleguen.',
+		'Mejorado por la nube registrado. Sus funciones de servidor no están disponibles en esta edición, así que este baúl sigue cifrado de extremo a extremo.',
 
 	/* Ajustes › Copias e historial › Clave de recuperación */
 	'settings.recovery.title': 'Clave de recuperación',
@@ -6063,7 +6063,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'help.tip.vaultPrivacy.label': 'Acerca del modo de privacidad del baúl',
 	'help.tip.vaultPrivacy.title': 'Modo de privacidad del baúl',
 	'help.tip.vaultPrivacy.body':
-		'Privado cifra el baúl en tus dispositivos, y solo tus dispositivos guardan las claves. Mejorado por la nube permite que el servicio lo lea para ofrecer funciones de servidor como la IA de campaña y la búsqueda en la nube. Cambiar en cualquier sentido te pide escribir una confirmación antes.',
+		'Privado cifra el baúl en tus dispositivos, y solo tus dispositivos guardan las claves. Mejorado por la nube es el consentimiento para que el servicio lea el baúl y ofrezca funciones de servidor como la IA de campaña y la búsqueda en la nube; esas funciones no están disponibles en esta edición, así que hoy un baúl Mejorado por la nube sigue cifrado de extremo a extremo. Cambiar en cualquier sentido te pide escribir una confirmación antes.',
 	'help.tip.projection.label': 'Acerca de la proyección',
 	'help.tip.projection.title': 'Proyección',
 	'help.tip.projection.body':
