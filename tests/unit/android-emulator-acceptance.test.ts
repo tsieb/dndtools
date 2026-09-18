@@ -53,6 +53,31 @@ describe('Android emulator acceptance gate', () => {
 		expect(fs.statSync(scriptPath).mode & 0o111).not.toBe(0);
 	});
 
+	it('waits for a settled system-surface focus before injecting Back into one', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+
+		// A key injected while Android is handing the foreground to a system surface is dropped by
+		// the input dispatcher, which is what made the share-sheet cancellation intermittently fail.
+		// Every Back aimed at a surface the app does not own must first wait for that surface to
+		// hold input focus, so the press is delivered rather than swallowed.
+		expect(source).toContain('mCurrentFocus=Window{');
+		const lines = source.split('\n');
+		const systemSurfaceWaits = lines.flatMap((line, index) =>
+			/^wait_until_not_foreground \|\| fail '(external HTTPS|native vault backup|vault restore)/.test(
+				line,
+			)
+				? [index]
+				: [],
+		);
+		expect(systemSurfaceWaits).toHaveLength(3);
+		for (const index of systemSurfaceWaits) {
+			expect(lines[index + 1], `unsettled Back after: ${lines[index]}`).toMatch(
+				/^wait_for_settled_system_focus \|\| fail '/,
+			);
+			expect(lines[index + 2]).toBe('adb shell input keyevent KEYCODE_BACK');
+		}
+	});
+
 	it('runs instrumentation and the shared script in CI and signed release emulators', () => {
 		const ci = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
