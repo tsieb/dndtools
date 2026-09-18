@@ -10,7 +10,8 @@ table. Run it before each promotion, or whenever §23 looks stale:
     tools/roadmap/sync-status.py --format        # also runs Prettier on the file
 
 Status cells: `done (sha7)` for succeeded (the integrated head, or the sha already in the cell),
-`in progress` for running/review, `blocked(<class>)` for blocked, `operator` for proposed owner
+`in progress` for running/review, `blocked(<class>)` for blocked (a blocker-less task keeps the
+class already in its cell, which is how `deferred` survives a migrate), `operator` for proposed owner
 steps, `skipped` for cancelled, blank for ready.
 """
 from __future__ import annotations
@@ -59,8 +60,14 @@ def cell(task: dict | None, previous: str) -> str:
         return "operator" if (task.get("metadata") or {}).get("operator") else "proposed"
     if st == "blocked":
         b = str(task.get("blocker") or "").lower()
-        kind = ("write fence" if "outside its claim" in b else "rebase" if "rebase" in b
-                else "review" if "review" in b else "attempts" if "attempt" in b else "blocked")
+        if not b:
+            # `dispatch.py migrate` imports a `blocked(<class>)` cell as a bare `blocked` with no
+            # blocker text, so the cell is the only record of why (e.g. `deferred` for epic CLD-6).
+            m = re.fullmatch(r"blocked\((.+)\)", previous)
+            return previous if m and m.group(1) != "blocked" else "blocked(blocked)"
+        kind = ("deferred" if b.startswith("deferred") else "write fence" if "outside its claim" in b
+                else "rebase" if "rebase" in b else "review" if "review" in b
+                else "attempts" if "attempt" in b else "blocked")
         return f"blocked({kind})"
     if st in ("running", "review"):
         return "in progress"
