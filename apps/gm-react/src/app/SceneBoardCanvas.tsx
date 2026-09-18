@@ -7,7 +7,13 @@ import {
 	type BoardWidget,
 } from './board-helpers';
 import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
-import { readingOrder, spatialNeighbour, openGallery } from './canvas/keyboard';
+import {
+	enterTileContent,
+	frameKey,
+	openGallery,
+	spatialNeighbour,
+	useReadingOrder,
+} from './canvas/keyboard';
 import { matchesShortcut } from './shortcuts/registry';
 import { ZoomCluster } from './canvas/ZoomCluster';
 import {
@@ -44,11 +50,9 @@ import { useI18n } from '../i18n';
  * Pointer gestures commit once on release through the core. Local drafts keep the geometry
  * responsive until the confirmed layout catches up.
  *
- * Keyboard: Tab follows the core metadata reading order; arrows choose the nearest tile.
- * Enter selects and enters content; Space selects move mode. Selected edit-mode tiles nudge
- * with arrows and resize with Shift+arrows. Escape returns to spatial navigation. Delete uses
- * the host's undoable removal and A opens its gallery. The resize handle uses plain arrows,
- * Enter/Space cycles presets, and Escape returns to the tile.
+ * Keyboard (RC-CAN-3.5, see `canvas/keyboard.ts`): Tab follows metadata reading order, arrows pick
+ * the nearest tile, Enter enters content, Space = move mode (arrows nudge, Shift+arrows resize),
+ * Escape leaves, Delete = undoable remove, A = add gallery. The resize handle takes plain arrows.
  */
 
 export function SceneBoardCanvas({
@@ -447,61 +451,26 @@ export function SceneBoardCanvas({
 			return { tx: cx - wx * s1, ty: cy - wy * s1, scale: s1 };
 		});
 
-	// Keyboard traversal order: the core-computed scene focus order first, then any widget it does
-	// not cover so every frame stays reachable. DOM order follows reading order; explicit stacking
-	// indices preserve the original paint order.
-	const orderIds = useMemo(
-		() =>
-			readingOrder(
-				widgets.map((w) => w.id),
-				focusOrder,
-			),
-		[widgets, focusOrder],
-	);
-	const orderedWidgets = orderIds.map((id) => widgets.find((w) => w.id === id)!);
-
-	useEffect(() => {
-		if (focusedId && !orderIds.includes(focusedId) && document.activeElement === document.body) {
-			(frameRefs.current.get(orderIds[0]) ?? wrapRef.current)?.focus();
-		}
-	}, [focusedId, orderIds]);
+	// DOM order follows the core's metadata reading order, so native Tab walks it; a removed focused
+	// frame hands focus to a survivor (or the empty canvas).
+	const orderedWidgets = useReadingOrder(widgets, focusOrder, focusedId, frameRefs, wrapRef);
 
 	const frameKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, w: BoardWidget) => {
-		if (
-			e.key === 'Escape' &&
-			!e.defaultPrevented &&
-			(e.target as HTMLElement).closest('[data-tile-content]')
-		) {
+		// Keys on the widget's own controls (Roll/Start buttons) belong to those controls.
+		const key = frameKey(e);
+		if (!key) return;
+		if (key === 'leave') {
 			e.preventDefault();
 			e.stopPropagation();
 			onSelect(null);
 			e.currentTarget.focus();
 			return;
 		}
-		// Keys on the widget's own controls (Roll/Start buttons) belong to those controls.
-		if (
-			e.target !== e.currentTarget &&
-			!(e.target as HTMLElement).hasAttribute('data-tile-content')
-		)
-			return;
-		if (e.ctrlKey || e.metaKey || e.altKey) return;
 		if (matchesShortcut('canvas.select', e) || matchesShortcut('canvas.moveMode', e)) {
 			e.preventDefault();
 			onSelect(w.id);
-			if (e.key === 'Enter') {
-				const content = e.currentTarget.querySelector<HTMLElement>('[data-tile-content]');
-				const control = content?.querySelector<HTMLElement>(
-					'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
-				);
-				(control ?? content)?.focus();
-			} else e.currentTarget.focus();
-			return;
-		}
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			e.stopPropagation();
-			onSelect(null);
-			e.currentTarget.focus();
+			if (e.key === 'Enter') enterTileContent(e.currentTarget);
+			else e.currentTarget.focus();
 			return;
 		}
 		if ((e.key === 'Delete' || e.key === 'Backspace') && editing && onRemove) {

@@ -36,3 +36,31 @@
   and mobile, exit 0. `format:check:changed --base loop/rc` and `git diff --check`: clean.
 - Operator retains full repository gates and independent review; no full-app browser suite or build
   is claimed here.
+
+## Attempt 2 (2026-09-18)
+
+- Gate feedback: fenced for touching `apps/gm-react/src/app/canvas/TileActionMenu.tsx`. The operator
+  brief now owns that path. The edit is unchanged and minimal: the helper's key union gains `' '`,
+  and the menu's Move and Resize rows re-issue Space instead of Enter. They have to, because Enter now
+  enters tile content, so re-issuing it would push focus into the tile instead of move mode. The
+  `canvas.spec.ts` menu test "Move, Visibility and Remove…" covers it.
+- The candidate was 114 commits behind `loop/rc` and conflicted with the RC-CAN resize-handle work
+  (`bba0631b`…`a9894133`) and the note-depth `NoteFrameContext` wrapper. Rebased onto
+  `origin/loop/rc`, keeping both sides: the content region (`data-tile-content`) wraps the
+  `NoteFrameContext.Provider`, and the size-preset/announcement code sits beside the reading-order
+  wiring. The resize handle's Escape still lands on the frame, because the handle is outside the
+  content region.
+- The merge left `SceneBoardCanvas.tsx` at 831 lines, over the RC-STB-2.7 800-line limit. I moved the
+  frame key classification (`frameKey`), Enter-into-content (`enterTileContent`) and the reading-order
+  memo plus removed-frame focus recovery (`useReadingOrder`) into the owned `canvas/keyboard.ts`. The
+  canvas is now 800 lines, and `pnpm gates` passes.
+
+### Validation (attempt 2)
+
+- `apps/gm-react` `tsc --noEmit` clean. ESLint clean on the canvas directory, the registry,
+  `SceneBoardCanvas.tsx` and the keyboard spec.
+- `pnpm test:app`: 136 files / 1494 tests passed.
+- Playwright (`DNDTOOLS_E2E_PORT=5731`, desktop + mobile): `canvas-keyboard`, `canvas` and
+  `shortcuts` gave 92 passed. `flow-layout`, `responsive`, `custom-widgets`, `android-quick-map`,
+  `map-tile` and `combat-tile` gave 153 passed and 5 skipped.
+- I did not run the full Playwright suite or a production build. The operator runs the full gates.
