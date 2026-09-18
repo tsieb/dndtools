@@ -24,8 +24,8 @@ left behind when RC-KNW-2.2 switched the note card from `formatStamp` (absolute,
 to `formatRelativeTime` (`updated now` against the suite's pinned `FIXED_TIME`); both forms are
 deterministic, so re-baselining repairs the gate rather than weakening it.
 
-Neither fix has ever reached `loop/rc` — the recovery branches are not the thing that gets
-promoted — so every new promoted commit inherits both failures.
+When this branch was cut (base `354e41b9`) neither fix was on `loop/rc`. Both landed there while
+it was in flight — see the reconciliation section below.
 
 ## Reproduction
 
@@ -77,7 +77,43 @@ accepting that reflow. Re-ran the gate's exact invocation: 5 changed files, all 
 code, workflow or baseline changed — `16809a99` and `f903a839` are byte-identical, so the gate
 results recorded above still stand.
 
+## Reconciliation with `loop/rc` (second gate feedback, `acea63fe`)
+
+Independent review found the candidate could not merge: `origin/loop/rc` (`a967a64d`, now `67d9ac69`)
+already carries both repairs — the Android pin as `31acff8e` with its guardrail `7b2e81de`, and the
+nine `/knowledge` baselines as `283580fc`. `git merge-tree --write-tree origin/loop/rc acea63fe`
+conflicted in `ci.yml`, `release.yml` and `validate.yml` (same `packages: platform-tools` line,
+different comment above it), and `tests/unit/ci-guardrails.test.ts` auto-merged into two tests
+asserting the same thing.
+
+Merged `origin/loop/rc` into this branch and resolved every overlap in its favour, per the standing
+rule for sibling ci-recovery races:
+
+- The three workflows take `loop/rc`'s version verbatim.
+- `tests/unit/ci-guardrails.test.ts` takes `loop/rc`'s version verbatim, so only its
+  "never asks the Android SDK for the retired `tools` package" case remains. This branch's
+  near-duplicate is dropped; the kept case asserts the same two things (no `tools`, has
+  `platform-tools`) on every `setup-android` step.
+- The `/knowledge` PNGs from `f903a839` are byte-identical to `283580fc`, so the merge adds nothing
+  there.
+
+After the merge, `git diff origin/loop/rc` touches only this journal. Everything else on the branch
+is now a no-op against the integration branch.
+
+`loop/rc` CI evidence: push run `35286320709` on `a967a64d` is green, including the Android job and
+the golden-route visual job. The `pull_request` run on the same SHA (`35286323232`) failed in
+Android emulator acceptance at "Back did not cancel the Android share/save sheet". That is past
+`Set up Android SDK`, so it is not the `tools` failure. The push run on the identical SHA passed,
+so I recorded it as an emulator flake and left it out of scope here.
+
+Post-merge checks (on the merge result):
+
+- `npx vitest run tests/unit/ci-guardrails.test.ts` → 14 passed.
+- Mutation check on the kept guardrail: setting `ci.yml` back to `packages: tools platform-tools`
+  fails it. Reverted immediately.
+- `pnpm format:check:changed -- --base origin/loop/rc` → clean, exit 0.
+
 ## Not done
 
-Nothing was pushed or promoted. The underlying recurrence only stops when one of these recovery
-branches actually lands on `loop/rc`; that is the user's merge to make.
+Nothing was pushed or promoted. This branch can be merged cleanly or closed as superseded. Its only
+remaining content is this record.
