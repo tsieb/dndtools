@@ -6063,7 +6063,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'help.tip.vaultPrivacy.label': 'Acerca del modo de privacidad del baúl',
 	'help.tip.vaultPrivacy.title': 'Modo de privacidad del baúl',
 	'help.tip.vaultPrivacy.body':
-		'Privado cifra el baúl en tus dispositivos, y solo tus dispositivos guardan las claves. Mejorado por la nube es el consentimiento para que el servicio lea el baúl y ofrezca funciones de servidor como la IA de campaña y la búsqueda en la nube; esas funciones no están disponibles en esta edición, así que hoy un baúl Mejorado por la nube sigue cifrado de extremo a extremo. Cambiar en cualquier sentido te pide escribir una confirmación antes.',
+		'Privado: solo tus dispositivos guardan las claves. Mejorado por la nube es tu consentimiento para que el servicio lea el baúl y ofrezca funciones de servidor como la IA de campaña; no están disponibles en esta edición, así que el baúl sigue cifrado de extremo a extremo. Cambiar en cualquier sentido te pide escribir una confirmación antes.',
 	'help.tip.projection.label': 'Acerca de la proyección',
 	'help.tip.projection.title': 'Proyección',
 	'help.tip.projection.body':

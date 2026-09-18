@@ -6010,7 +6010,7 @@ export const en = {
 	'help.tip.vaultPrivacy.label': 'About vault privacy mode',
 	'help.tip.vaultPrivacy.title': 'Vault privacy mode',
 	'help.tip.vaultPrivacy.body':
-		'Private encrypts the vault on your devices, and only your devices hold the keys. Cloud-Enhanced is consent for the service to read the vault to power server features like campaign AI and cloud search; those features are not in this edition, so a Cloud-Enhanced vault is still end-to-end encrypted today. Switching either way asks you to type a confirmation first.',
+		'Private: only your devices hold the keys. Cloud-Enhanced is your consent for the service to read the vault for server features like campaign AI; those are not in this edition, so the vault stays end-to-end encrypted. Switching either way asks you to type a confirmation first.',
 	'help.tip.projection.label': 'About projection',
 	'help.tip.projection.title': 'Projection',
 	'help.tip.projection.body':
