@@ -314,7 +314,34 @@ RC-CLD-2.5 as "Done, and it stays gated. The client half ships fail-closed". A s
 e2e turned up. The gate is closed either way, so nothing is exposed, but the roadmap's "done"
 still does not match the tree.
 
-<!-- RC-CLD-2.2 CHECKS -->
+**Checks run on 2026-09-18, bound to commits.** These checks ran on the integration base
+`4e8d6c05` plus this story's two code commits: `18280549` (the change) and `c9ccddbf` (it shortens
+the vault-privacy help tip to the 280-character budget that `helpTopics.test.ts` enforces). The
+commit that adds this block changes only this file. Commands run from the repository root unless
+noted. All checks are local, and none exercises a deployed stage.
+
+- On `c9ccddbf`: `pnpm typecheck`, `pnpm lint` and `pnpm build` exit 0. `pnpm gates` runs no
+  compiler, so these three are run explicitly.
+- On `c9ccddbf`: `pnpm test:app` gives 138 files, 1516 passed, 0 failed. On `18280549` the same
+  command gave 1 failed and 1515 passed. The failure was the help-tip length rule, and `c9ccddbf`
+  exists to fix it.
+- On `c9ccddbf`: `pnpm --filter @dndtools/core exec vitest run tests/security-vault-privacy-modes.test.ts tests/security-cloud-security-model.test.ts`
+  gives 2 files, 40 passed.
+- On `c9ccddbf`, from `apps/gm-react`:
+  `pnpm exec playwright test tests/e2e/cloud-enhanced-honest-limit.spec.ts tests/e2e/onboarding-consent.spec.ts tests/e2e/help-tips.spec.ts --project=desktop-chromium --project=mobile-chromium`
+  gives 24 passed (3 new tests and 9 existing ones, on each profile). Mutation check: restoring
+  "will use Cloud-Enhanced features when they arrive" to the consent toast fails the new spec
+  (`promises: /will use Cloud-Enhanced features/i`). The copy was restored afterwards.
+- On `c9ccddbf`: `pnpm format:check:changed -- --base loop/rc` exits 0.
+- On `18280549`: `pnpm --filter @dndtools/core exec vitest run` gives 278 files, 4878 passed.
+  `pnpm test:cloud` gives 38 files, 499 passed.
+  `pnpm exec vitest run tests/unit/cloud-enhanced-kms.test.ts` gives 1 file, 5 passed. `c9ccddbf`
+  changes only two strings in `apps/gm-react/src/i18n/messages/{en,es}.ts`, and none of these three
+  suites reads those files.
+
+**Still unverified.** The KMS item has no deployed-stage evidence (item 1), and nothing here
+was run in a browser against a deployed stage. The e2e spec proves what the local build shows. It
+cannot prove that a user understood the disclosure (T7).
 
 ### Phase-2 scope disposition — 2026-09-16
 
