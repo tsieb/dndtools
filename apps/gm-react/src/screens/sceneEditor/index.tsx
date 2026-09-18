@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
-	listWidgetLibrary,
 	resolveAddWidgetCommand,
 	screenLayoutPolicy,
 	type ScreenLayoutPolicy,
@@ -21,10 +20,9 @@ import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../../app/board-
 import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
-import { widgetProfileForRuntime } from '../../platform/capabilities';
+import { AddWidgetGallery } from '../../app/canvas/AddWidgetGallery';
 import { type Visibility } from './shared';
 import { SceneMetaPanel } from './SceneMetaPanel';
-import { AddWidgetPanel } from './AddWidgetPanel';
 import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from '../extensions/WidgetBuilder';
 import { Inspector } from './Inspector';
@@ -73,6 +71,8 @@ export function SceneEditor() {
 	// reviews it. Neither is durable: closing either discards the draft.
 	const [generateOpen, setGenerateOpen] = useState(false);
 	const [generated, setGenerated] = useState<WidgetPackageDefinition | null>(null);
+	// RC-CAN-4.1 — the gallery's "Build your own" opens the builder on a blank widget.
+	const [building, setBuilding] = useState(false);
 	const [metaOpen, setMetaOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -115,13 +115,6 @@ export function SceneEditor() {
 		// `rawScene` + `runtime.state.widgets` are fresh references after each dispatch (immutable
 		// reducer updates), so this recomputes whenever the scene or widget packages change.
 	}, [denied, previewBlocked, rawScene, runtime.state.widgets, summary]);
-
-	const library = denied
-		? []
-		: listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, actorId, {
-				profileId: widgetProfileForRuntime(),
-				includeUnavailable: false,
-			});
 
 	// ADR-041 — which engine this scene renders in. `screenMetaOf` defaults to `canvas`, so every
 	// scene authored before screens existed keeps exactly the surface it had.
@@ -209,16 +202,13 @@ export function SceneEditor() {
 			`Resized ${titleOf(widgetInstanceId)}`,
 		);
 	}
-	async function addWidget(entry: WidgetLibraryEntry) {
-		const count = rawScene?.widgets.length ?? 0;
-		const cascade = (count % 6) * 28;
-		const command = resolveAddWidgetCommand(entry, id, { x: 48 + cascade, y: 48 + cascade });
-		if (!command) return;
+	// RC-CAN-4.1: the gallery picks the first open slot and focuses the placed tile.
+	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
+		const command = resolveAddWidgetCommand(entry, id, position);
+		if (!command) return false;
 		const ok = await dispatch({ type: command.type, actorId, payload: command.payload });
-		if (ok) {
-			setAddOpen(false);
-			if (!editing) setEditing(true);
-		}
+		if (ok && !editing) setEditing(true);
+		return ok;
 	}
 	// Removing a widget used to stage a confirm dialog, because a destroy took the instance's
 	// configuration with it for good. RC-CAN-1.2 gave the core `scene.restore-widget`, so both entry
@@ -512,9 +502,10 @@ export function SceneEditor() {
 				<div ref={previewTriggerRef} style={{ display: 'contents' }}>
 					<ViewAsControl placement="scene" compact={viewport === 'phone'} />
 				</div>
+				{/* The subtle accent, as on the GM Screen: one gold primary per region (RC-ENG-8.4). */}
 				{!previewing && (
 					<Button
-						variant={editing ? 'primary' : 'secondary'}
+						variant={editing ? 'accent' : 'secondary'}
 						size="sm"
 						icon={editing ? 'check' : 'edit'}
 						onClick={() => {
@@ -630,14 +621,22 @@ export function SceneEditor() {
 						/>
 					)}
 
-					{addOpen && !metaOpen && (
-						<AddWidgetPanel
-							library={library}
-							phone={viewport === 'phone'}
-							onAdd={addWidget}
-							onClose={() => setAddOpen(false)}
-						/>
-					)}
+					<AddWidgetGallery
+						open={addOpen && !metaOpen}
+						onClose={() => setAddOpen(false)}
+						viewport={viewport}
+						policy={layoutPolicy}
+						widgets={widgets}
+						onDone={() => {
+							setEditing(false);
+							setSelectedId(null);
+							setMetaOpen(false);
+						}}
+						onAdd={addWidget}
+						error={error}
+						onGenerate={() => setGenerateOpen(true)}
+						onBuild={() => setBuilding(true)}
+					/>
 
 					{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 						<Inspector
@@ -672,8 +671,14 @@ export function SceneEditor() {
 					setGenerated(pkg);
 				}}
 			/>
-			{generated && (
-				<WidgetBuilder generatedPackage={generated} onClose={() => setGenerated(null)} />
+			{(generated || building) && (
+				<WidgetBuilder
+					generatedPackage={generated}
+					onClose={() => {
+						setGenerated(null);
+						setBuilding(false);
+					}}
+				/>
 			)}
 		</div>
 	);

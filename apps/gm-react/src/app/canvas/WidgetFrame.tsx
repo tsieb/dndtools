@@ -1,5 +1,6 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useMemo, useRef } from 'react';
+import { useId, useMemo, useRef, type ReactNode } from 'react';
+import type { WidgetLibraryEntry } from '@dndtools/core';
 import { Badge, Icon, VisibilityChip } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
@@ -10,6 +11,7 @@ import {
 	safeBoundEntityName,
 	tileBindingState,
 	tileMetadataForWidget,
+	tileMetadataForDefinition,
 	type TileBindingState,
 } from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
@@ -17,7 +19,8 @@ import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
 import type { ArrangeAction, Box } from './geometry';
 
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
- * explicit stack indices let the canvas change DOM order without changing visual overlap. */
+ * explicit stack indices let the canvas change DOM order without changing visual overlap.
+ * `WidgetLibraryCard` is the add-widget gallery's card chrome; `AddWidgetGallery` imports it. */
 
 // Kept with the tile chrome copy, like TileActionMenu's local TEXT catalog.
 const RESIZE_HELP =
@@ -705,5 +708,138 @@ export function WidgetFrame({
 				</>
 			)}
 		</div>
+	);
+}
+
+/**
+ * One library card. The visible content is plain text plus an `inert` miniature; the control is a
+ * transparent button laid over the whole card. Putting the miniature INSIDE a button would nest the
+ * preview's own buttons in it, which HTML forbids and assistive tech reads as one run-on name.
+ */
+export function WidgetLibraryCard({
+	entry,
+	children,
+	onPick,
+}: {
+	entry: WidgetLibraryEntry;
+	children: ReactNode;
+	onPick: (entry: WidgetLibraryEntry) => void;
+}) {
+	const baseId = useId();
+	const nameId = `${baseId}-name`;
+	const descId = `${baseId}-desc`;
+	const reasonId = `${baseId}-reason`;
+	const meta = tileMetadataForDefinition(entry);
+	const accent = `var(${meta.accentToken})`;
+	const reason = entry.availability.available ? null : entry.availability.reason;
+	return (
+		<li
+			data-testid={`gallery-card-${entry.type}`}
+			className={meta.silhouetteClass}
+			style={{
+				position: 'relative',
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-2)',
+				padding: 'var(--space-3)',
+				paddingLeft: 'var(--space-4)',
+				border: '1px solid var(--color-border)',
+				borderRadius: 'var(--radius-md)',
+				background: reason ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
+				overflow: 'hidden',
+			}}
+		>
+			{/* A border, not a background: forced-colors keeps it (same reason as WidgetFrame's rail). */}
+			<span
+				aria-hidden
+				style={{
+					position: 'absolute',
+					left: 0,
+					top: 0,
+					bottom: 0,
+					width: 0,
+					borderLeft: `4px solid ${reason ? 'var(--color-border-strong)' : accent}`,
+				}}
+			/>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+				<WidgetGlyph
+					icon={meta.icon}
+					size={16}
+					color={reason ? 'var(--color-text-tertiary)' : accent}
+				/>
+				<span
+					id={nameId}
+					style={{
+						flex: 1,
+						minWidth: 0,
+						font: '600 var(--text-sm) var(--font-sans)',
+						color: reason ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+					}}
+				>
+					{entry.displayName}
+				</span>
+				{entry.category && (
+					<span
+						style={{
+							font: 'var(--text-2xs) var(--font-sans)',
+							color: 'var(--color-text-tertiary)',
+						}}
+					>
+						{entry.category}
+					</span>
+				)}
+			</div>
+			<div
+				id={descId}
+				style={{
+					font: 'var(--text-2xs)/1.4 var(--font-sans)',
+					color: 'var(--color-text-secondary)',
+				}}
+			>
+				{meta.description}
+			</div>
+			{reason && (
+				<div
+					id={reasonId}
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-1)',
+						font: '600 var(--text-2xs)/1.4 var(--font-sans)',
+						color: 'var(--color-text-primary)',
+					}}
+				>
+					<Icon name="lock" size="sm" />
+					{reason}
+				</div>
+			)}
+			{children}
+			<button
+				type="button"
+				data-testid={`gallery-entry-${entry.type}`}
+				data-category={entry.category ?? ''}
+				aria-labelledby={nameId}
+				aria-describedby={reason ? `${descId} ${reasonId}` : descId}
+				// `aria-disabled`, not `disabled`: a disabled button leaves the tab order, and then the
+				// reason it cannot be added is unreachable by keyboard.
+				aria-disabled={reason ? true : undefined}
+				onClick={() => {
+					if (!reason) onPick(entry);
+				}}
+				style={{
+					position: 'absolute',
+					inset: 0,
+					width: '100%',
+					height: '100%',
+					border: 'none',
+					borderRadius: 'var(--radius-md)',
+					background: 'transparent',
+					cursor: reason ? 'not-allowed' : 'pointer',
+					// The global `:focus-visible` ring sits outside the box, where the card's
+					// `overflow: hidden` clips it; draw it inside the card edge instead (WCAG 2.4.7).
+					outlineOffset: 'calc(-1 * var(--focus-ring-width) - 2px)',
+				}}
+			/>
+		</li>
 	);
 }

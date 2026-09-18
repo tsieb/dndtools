@@ -142,3 +142,429 @@ instances, the same render resolver and the same core mutation path; flow is not
 | Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                           |
 | Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                          |
 | E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts` |
+
+## 9. Widget gallery
+
+`WidgetFrame.tsx` owns the gallery card chrome (`WidgetLibraryCard`), including identity,
+unavailability reasons and the accessible selection control. The control overlays the whole card,
+and the card clips overflow, so the control draws its focus ring inside the card edge with a
+negative `outline-offset` (WCAG 2.4.7). The gallery supplies its inert miniature as children and
+owns discovery, filtering and placement. Card test ids (`gallery-card-<type>`,
+`gallery-entry-<type>`) are keyed on widget type, which assumes types are unique across installed
+packages.
+
+`AddWidgetGallery` is shared by the GM Screen (`Board`) and scene editor. Phones use the design
+system bottom `Sheet`; wider viewports use a non-modal side panel. Each library card carries its
+accent, icon, name, description and miniature. Search matches name, description, category, type and
+package name; category filters combine with search. Unsupported entries remain visible after the
+available entries, with an accessible reason and no add action.
+
+### Rendering and placement
+
+The gallery reads `listWidgetLibrary` with the runtime profile and `includeUnavailable: true`.
+Declared templates render through the same pure template components used by `WidgetRenderSlot`,
+with synthetic sample rows and default configuration. These samples never enter campaign state.
+Legacy bodies without a declared template use `WidgetRenderSlot`. Custom-code packages show a
+labelled silhouette; browsing does not start their iframe or worker. Miniatures mount near the
+viewport and are inert and hidden from accessibility navigation; card names and descriptions
+remain accessible separately.
+
+An empty scene offers “Start from a template”. “Generate with assistant” opens the existing draft
+workflow; “Build your own” opens the widget builder. Neither installs a package just by opening it.
+Selecting a library card calls the host's core add command at the first free slot: top to bottom,
+then left to right, with the board's 24px margin/gutter and 264px column step. The GM Screen uses its
+fixed right bound; scenes also admit their existing horizontal extent. Oversized tiles still place
+at the margin below any conflicting tiles. A scene on the `flow` layout policy (ADR-041) has no free
+coordinates to search, so its next slot is the end of the reading order: `flowKeyBetween(last,
+null)` over `flowOrder`, one flow row below the last tile. After a successful add and panel dismissal, the new tile
+receives focus through the existing canvas focus handler. Failed adds keep the gallery open.
+
+Gallery-specific English and Spanish copy is colocated in the owned component and uses the shared
+locale and message formatter. Existing title/empty-state strings remain in the shared catalogs.
+
+### Browser acceptance
+
+The executable Playwright fixture below checks Board and SceneEditor in both desktop-chromium and
+mobile-chromium: panel modality, populated template miniatures, unsupported profile reason and
+blocked placement, search, categories, empty header, generation/build entry points, non-overlapping
+placement, tile focus and a visible keyboard focus ring on a card. It also runs axe over the open gallery's interactive content.
+
+Test paths are outside RC-CAN-4.1 ownership, so this fixture is kept here and extracted temporarily.
+From the repository root, run:
+
+````sh
+python3 - <<'PYTEST'
+from pathlib import Path
+import os
+import subprocess
+text = Path('docs/architecture/WIDGETS.md').read_text()
+spec = text.split('```typescript\n', 1)[1].split('\n```', 1)[0]
+path = Path('apps/gm-react/tests/e2e/rc-can-gallery-acceptance.spec.ts')
+with path.open('x') as output:
+    output.write(spec + '\n')
+try:
+    result = subprocess.run([
+        'pnpm', '--filter', '@dndtools/gm-react', 'exec', 'playwright', 'test',
+        'tests/e2e/rc-can-gallery-acceptance.spec.ts',
+        '--project=desktop-chromium', '--project=mobile-chromium',
+    ], env={**os.environ, 'DNDTOOLS_E2E_PORT': '15549', 'DNDTOOLS_PW_WORKERS': '2'})
+finally:
+    path.unlink()
+raise SystemExit(result.returncode)
+PYTEST
+````
+
+The scene library retains its existing `scene-add-widget-panel` test hook on the card list.
+The phone sheet exposes Done in its footer so layout editing can finish while the toolbar is
+covered. Existing canvas and widget-builder browser tests run unchanged.
+
+```typescript
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+
+/**
+ * RC-CAN-4.1 — the Add-widget gallery on `/board` and `/scene/:id`, run on both Playwright
+ * projects. The phone project gets the DS Sheet, the desktop project the side panel; everything
+ * else (live miniatures, search, category filter, dimmed profile-unsupported entries, the empty
+ * scene's template header, the generate/build entries, placing into the first open slot and
+ * focusing the new tile) is asserted identically on both.
+ */
+
+const DESKTOP_ONLY_ID = 'e2e.gallery-desk-lantern';
+const DESKTOP_ONLY_TYPE = 'gallery-desk-lantern';
+
+/** A package whose only widget declares the desktop profile. The browser runtime is `web`. */
+const DESKTOP_ONLY_PACKAGE = (() => {
+	const base = `widgets/${DESKTOP_ONLY_TYPE}`;
+	return {
+		id: DESKTOP_ONLY_ID,
+		version: '1.0.0',
+		displayName: 'Desk Lantern',
+		widgets: [
+			{
+				type: DESKTOP_ONLY_TYPE,
+				version: '1.0.0',
+				displayName: 'Desk Lantern',
+				author: 'workspace',
+				description: 'Only runs in the desktop app.',
+				placement: { surfaces: ['scene'], libraryListed: true },
+				renderEntrypoint: {
+					runtime: 'custom-html-js',
+					sandbox: 'iframe',
+					assetPath: `${base}/index.html`,
+					hostApiVersion: 1,
+				},
+				style: {
+					isolation: 'iframe-document',
+					stylesheetAssetPaths: [`${base}/styles.css`],
+					capabilities: ['css-variables', 'host-theme-tokens'],
+					tokens: [],
+				},
+				supportedProfiles: ['desktop'],
+				defaultSize: { width: 240, height: 160 },
+				minSize: { width: 200, height: 120 },
+				resizePolicy: 'free',
+				requiredBindings: [],
+				optionalBindings: [],
+				configurationSchema: { type: 'object', additionalProperties: true },
+				capabilitySets: ['manager', 'operator', 'viewer'],
+				commands: [],
+				events: [],
+				hostPermissions: [],
+			},
+		],
+		migrations: [],
+		assets: [
+			{
+				path: `${base}/index.html`,
+				kind: 'html',
+				entrypoint: true,
+				content:
+					'<!doctype html><html><head><link rel="stylesheet" href="./styles.css" /></head><body><p>Lantern</p><script src="./main.js"></script></body></html>',
+			},
+			{ path: `${base}/styles.css`, kind: 'css', content: 'p { margin: 0; }' },
+			{ path: `${base}/main.js`, kind: 'javascript', content: '' },
+		],
+		portabilityWarnings: [],
+	};
+})();
+
+async function installDesktopOnly(page: Page): Promise<void> {
+	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+	const installed = await dispatch(page, {
+		type: 'widget.package.install',
+		actorId,
+		payload: { package: DESKTOP_ONLY_PACKAGE },
+	});
+	expect(installed.status, JSON.stringify(installed.rejection)).toBe('accepted');
+	const enabled = await dispatch(page, {
+		type: 'widget.package.enable',
+		actorId,
+		payload: { packageId: DESKTOP_ONLY_ID },
+	});
+	expect(enabled.status, JSON.stringify(enabled.rejection)).toBe('accepted');
+}
+
+type Layout = { id: string; x: number; y: number; w: number; h: number };
+
+function layouts(page: Page, sceneId: string): Promise<Layout[]> {
+	return page.evaluate(
+		(id) =>
+			(
+				window.__rt!.state.scenes.scenes[id]?.widgets as unknown as
+					| Array<{ id: string; layout: { x: number; y: number; w: number; h: number } }>
+					| undefined
+			)?.map((w) => ({ id: w.id, ...w.layout })) ?? [],
+		sceneId,
+	);
+}
+
+const overlaps = (a: Layout, b: Layout) =>
+	a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+/** Pick the first addable card and return the new tile's layout once the core has it. */
+async function placeFirst(page: Page, sceneId: string): Promise<Layout> {
+	const before = new Set((await layouts(page, sceneId)).map((w) => w.id));
+	await page
+		.getByTestId('add-widget-gallery')
+		.locator('[data-testid^="gallery-entry-"]:not([aria-disabled="true"])')
+		.first()
+		.click();
+	await expect.poll(async () => (await layouts(page, sceneId)).length).toBe(before.size + 1);
+	return (await layouts(page, sceneId)).find((w) => !before.has(w.id))!;
+}
+
+test.describe('add-widget gallery (RC-CAN-4.1)', () => {
+	test('the GM Screen gallery previews, filters, dims unsupported entries and places a tile in the first open slot', async ({
+		page,
+	}, testInfo) => {
+		const phone = testInfo.project.name === 'mobile-chromium';
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		const homeSceneId = (await (
+			await page.waitForFunction(
+				() => {
+					const rt = window.__rt!;
+					const id = rt.state.commandCenter.homeSceneId;
+					return id && (rt.state.scenes.scenes[id]?.widgets.length ?? 0) > 0 ? id : null;
+				},
+				null,
+				{ timeout: 10_000 },
+			)
+		).jsonValue()) as string;
+		await installDesktopOnly(page);
+
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		const gallery = page.getByTestId('add-widget-gallery');
+		await expect(gallery).toBeVisible();
+		// Phone: a modal DS Sheet. Desktop: a side panel that leaves the board in view.
+		await expect(page.getByRole('dialog', { name: 'Add widget' })).toHaveCount(phone ? 1 : 0);
+		// The home board already has tiles, so there is no "start from a template" header.
+		await expect(gallery.getByTestId('gallery-start-header')).toHaveCount(0);
+
+		// A keyboard-focused card shows its focus ring (WCAG 2.4.7): the card clips overflow, so
+		// the ring must be drawn inside it. Previews are masked so only the chrome is compared.
+		const firstCard = gallery
+			.locator('[data-testid^="gallery-card-"]')
+			.filter({ has: page.locator('[data-testid^="gallery-entry-"]:not([aria-disabled="true"])') })
+			.first();
+		const firstEntry = firstCard.locator('[data-testid^="gallery-entry-"]');
+		const cardShot = () =>
+			firstCard.screenshot({ mask: [firstCard.locator('[data-preview]')], animations: 'disabled' });
+		const unfocused = await cardShot();
+		await firstEntry.focus();
+		await page.keyboard.press('Shift+Tab');
+		await page.keyboard.press('Tab');
+		await expect(firstEntry).toBeFocused();
+		expect(await firstEntry.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+		const ring = await firstEntry.evaluate((el) => {
+			const s = getComputedStyle(el);
+			return {
+				style: s.outlineStyle,
+				reach: parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset),
+			};
+		});
+		expect(ring.style).toBe('solid');
+		expect(ring.reach).toBeLessThanOrEqual(0);
+		expect(unfocused.equals(await cardShot())).toBe(false);
+		await firstEntry.blur();
+
+		// Cards carry a rendered miniature drawn by the widget render path, not just a name.
+		const live = gallery.locator('[data-preview="live"]').first();
+		await expect(live).toBeVisible();
+		await expect
+			.poll(() => live.evaluate((el) => el.textContent?.trim().length ?? 0))
+			.toBeGreaterThan(0);
+		await expect(live).toHaveAttribute('inert', '');
+		// The preview uses the declared template and populated sample rows, even before binding.
+		await gallery.getByRole('searchbox').fill('initiative');
+		const sample = gallery.getByTestId('gallery-card-initiative-tracker');
+		await expect(sample.locator('[data-testid="widget-template-status-list"]')).toBeVisible();
+		await expect(sample).toContainText('Scout');
+		await gallery.getByRole('searchbox').fill('');
+
+		// The desktop-only widget is listed, dimmed, with the core's reason, and cannot be added.
+		const lanternCard = gallery.getByTestId(`gallery-card-${DESKTOP_ONLY_TYPE}`);
+		const lantern = gallery.getByTestId(`gallery-entry-${DESKTOP_ONLY_TYPE}`);
+		await expect(lanternCard).toContainText('Not available on the web profile.');
+		await expect(lantern).toHaveAttribute('aria-disabled', 'true');
+		const countBefore = (await layouts(page, homeSceneId)).length;
+		await lantern.click({ force: true });
+		await expect(gallery).toBeVisible();
+		expect((await layouts(page, homeSceneId)).length).toBe(countBefore);
+
+		// Search narrows the list; a miss says so.
+		const search = gallery.getByRole('searchbox', { name: 'Search widgets' });
+		await search.fill('no-such-widget-anywhere');
+		await expect(gallery.getByText('No widgets match that search.')).toBeVisible();
+		await expect(gallery.locator('[data-testid^="gallery-entry-"]')).toHaveCount(0);
+		await search.fill('lantern');
+		await expect(gallery.locator('[data-testid^="gallery-entry-"]')).toHaveCount(1);
+		await search.fill('');
+
+		// The category filter shows only that category's cards.
+		const categories = gallery.getByRole('group', { name: 'Filter by category' });
+		const chip = categories.getByRole('button').nth(1);
+		const category = (await chip.textContent())!.trim();
+		await chip.click();
+		await expect(chip).toHaveAttribute('aria-pressed', 'true');
+		const shown = await gallery
+			.locator('[data-testid^="gallery-entry-"]')
+			.evaluateAll((els) => els.map((el) => el.getAttribute('data-category')));
+		expect(shown.length).toBeGreaterThan(0);
+		expect(new Set(shown)).toEqual(new Set([category]));
+		await categories.getByRole('button', { name: 'All', exact: true }).click();
+
+		// Picking a card places it in an open spot on the board's columns and focuses the new tile.
+		const placed = await placeFirst(page, homeSceneId);
+		await expect(gallery).toHaveCount(0);
+		await expect(page.getByTestId(`widget-${placed.id}`)).toBeFocused();
+		const others = (await layouts(page, homeSceneId)).filter((w) => w.id !== placed.id);
+		for (const other of others) expect(overlaps(placed, other), other.id).toBe(false);
+		await expect(page.getByTestId('board-layout-banner')).toHaveCount(0);
+	});
+
+	test('the scene editor gallery offers a template header on an empty scene, plus generate and build entries', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		const sceneName = `Gallery Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = (await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		))!;
+		expect(sceneId).toBeTruthy();
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		const addToggle = page.getByRole('button', { name: 'Add', exact: true });
+		await addToggle.click();
+		const gallery = page.getByTestId('add-widget-gallery');
+		await expect(gallery).toBeVisible();
+		await expect(gallery.getByTestId('gallery-start-header')).toContainText(
+			'Start from a template',
+		);
+		await expect(gallery.getByRole('button', { name: 'Generate with assistant' })).toBeVisible();
+		await expect(gallery.getByRole('button', { name: 'Build your own' })).toBeVisible();
+
+		// The open gallery passes axe. The miniatures are `inert` + `aria-hidden` previews of other
+		// widgets' bodies, which their own specs cover, so they are excluded here.
+		const results = await new AxeBuilder({ page })
+			.include('[data-testid="add-widget-gallery"]')
+			.exclude('[data-preview]')
+			.analyze();
+		expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+
+		const first = await placeFirst(page, sceneId);
+		expect({ x: first.x, y: first.y }).toEqual({ x: 24, y: 24 });
+		await expect(gallery).toHaveCount(0);
+		await expect(page.getByTestId(`widget-${first.id}`)).toBeFocused();
+
+		// The scene is no longer empty, so the header is gone; the second tile clears the first.
+		await addToggle.click();
+		await expect(gallery).toBeVisible();
+		await expect(gallery.getByTestId('gallery-start-header')).toHaveCount(0);
+		const second = await placeFirst(page, sceneId);
+		expect(overlaps(first, second)).toBe(false);
+		await expect(page.getByTestId(`widget-${second.id}`)).toBeFocused();
+
+		// Generation opens the assistant dialog without installing anything.
+		await addToggle.click();
+		await gallery.getByRole('button', { name: 'Generate with assistant' }).click();
+		await expect(gallery).toHaveCount(0);
+		const generator = page.getByRole('dialog');
+		await expect(generator).toBeVisible();
+		await generator.getByRole('button', { name: 'Close', exact: true }).first().click();
+		expect((await layouts(page, sceneId)).length).toBe(2);
+
+		// "Build your own" closes the gallery and opens the widget builder on a blank widget.
+		await addToggle.click();
+		await gallery.getByRole('button', { name: 'Build your own' }).click();
+		await expect(gallery).toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: /Widget builder/ })).toBeVisible();
+	});
+
+	test('a flow scene appends gallery picks to the end of its reading order and focuses them', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/scenes');
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const sceneName = `Gallery Flow ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId,
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = (await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		))!;
+		expect(sceneId).toBeTruthy();
+		// The same command the editor's layout picker dispatches.
+		const policy = await dispatch(page, {
+			type: 'scene.set-layout-policy',
+			actorId,
+			payload: { sceneId, layoutPolicy: 'flow' },
+		});
+		expect(policy.status, JSON.stringify(policy.rejection)).toBe('accepted');
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await page.getByRole('button', { name: 'Edit layout' }).click();
+		const addToggle = page.getByRole('button', { name: 'Add', exact: true });
+		const gallery = page.getByTestId('add-widget-gallery');
+		await addToggle.click();
+		await expect(gallery.getByTestId('scene-add-widget-panel')).toBeVisible();
+		const first = await placeFirst(page, sceneId);
+		expect({ x: first.x, y: first.y }).toEqual({ x: 0, y: 0 });
+		await expect(page.getByTestId('scene-board-flow')).toBeVisible();
+		await expect(page.getByTestId(`widget-${first.id}`)).toBeFocused();
+
+		// The second pick lands one flow row below the first: last in reading, DOM and focus order.
+		await addToggle.click();
+		const second = await placeFirst(page, sceneId);
+		expect({ x: second.x, y: second.y }).toEqual({ x: 0, y: 240 });
+		await expect(page.getByTestId(`widget-${second.id}`)).toBeFocused();
+		const order = await page
+			.getByTestId('scene-board-flow')
+			.locator('[data-testid^="widget-"][role="group"]')
+			.evaluateAll((tiles) => tiles.map((tile) => tile.getAttribute('data-testid')));
+		expect(order).toEqual([`widget-${first.id}`, `widget-${second.id}`]);
+	});
+});
+```

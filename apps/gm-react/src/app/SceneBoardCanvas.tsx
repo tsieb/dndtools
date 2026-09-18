@@ -56,8 +56,8 @@ import {
 } from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 
-// `WidgetGlyph` lives with the frame that renders it; re-exported here so Board, the scene-editor
-// Inspector and AddWidgetPanel keep importing it from the path they always have.
+// `WidgetGlyph` lives with the frame that renders it; re-exported here so the scene-editor Inspector
+// keeps importing it from the path it always has.
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
