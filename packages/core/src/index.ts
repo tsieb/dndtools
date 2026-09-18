@@ -1008,6 +1008,7 @@ export {
 	grantCapabilitySetInputSchema,
 	importMapAssetInputSchema,
 	groupWidgetsInputSchema,
+	setWidgetOrderInputSchema,
 	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,
 	layerWidgetInputSchema,
@@ -1337,6 +1338,9 @@ export {
 	MIN_WIDGET_EXTENT,
 	listWidgetLayoutCommands,
 	resolveLayoutCommandPayload,
+	// RC-CAN-3.6
+	resolveSelectionLayoutCommand,
+	resolveWidgetOrderCommand,
 } from './queries/layout-commands';
 
 export type {
@@ -5651,6 +5655,9 @@ export {
 	sceneTombstones,
 	withTombstones,
 } from './state/scene-state';
+
+// RC-CAN-3.6 — paint order: `scene.set-widget-order` reorders `Scene.widgets` and renumbers `z`.
+export { widgetPaintOrder, withWidgetOrder } from './state/scene-state';
 
 // RC-MAP-1.3 — MOVEMENT RANGE AND PATH. Dijkstra over grid cells, from the walls, doors and
 // `terrain: difficult` features the map already carries; speed comes from the active system

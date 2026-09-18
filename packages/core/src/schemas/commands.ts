@@ -150,6 +150,19 @@ export const groupWidgetsInputSchema = z
 	.object({
 		sceneId: idSchema,
 		widgetInstanceIds: z.array(idSchema).min(2),
+		// RC-CAN-3.6 (additive): `true` clears the listed widgets' `groupId` instead of minting one.
+		ungroup: z.boolean().optional(),
+	})
+	.strict();
+
+/**
+ * RC-CAN-3.6 — `scene.set-widget-order`: the scene's full back-to-front paint order. Must name every
+ * widget on the scene exactly once; the handler reorders `Scene.widgets` and renumbers `z` to match.
+ */
+export const setWidgetOrderInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceIds: z.array(idSchema).min(1),
 	})
 	.strict();
 

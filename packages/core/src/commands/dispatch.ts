@@ -27,6 +27,8 @@ import {
 	handlePinWidget,
 	handleResizeWidget,
 	handleSetWidgetFocusOrder,
+	// RC-CAN-3.6 (append-only)
+	handleSetWidgetOrder,
 	// RC-CAN-1.2 (append-only)
 	handleRestoreWidget,
 	// RC-CAN-2.4 (append-only)
@@ -354,6 +356,8 @@ export function dispatchCommand(
 			return handleGroupWidgets(state, env, command.actorId, command.payload);
 		case 'scene.move-group':
 			return handleMoveGroup(state, env, command.actorId, command.payload);
+		case 'scene.set-widget-order':
+			return handleSetWidgetOrder(state, env, command.actorId, command.payload);
 		case 'scene.dock-widget':
 			return handleDockWidget(state, env, command.actorId, command.payload);
 		case 'scene.pin-widget':

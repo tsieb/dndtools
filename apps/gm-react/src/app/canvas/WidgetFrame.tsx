@@ -14,6 +14,7 @@ import {
 } from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
 import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
+import type { ArrangeAction, Box } from './geometry';
 
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
  * explicit stack indices let the canvas change DOM order without changing visual overlap. */
@@ -91,6 +92,249 @@ export function HistoryBtn({
 	);
 }
 
+/** The canvas Undo/Redo cluster. Anchored top-right on the bounded board (it scrolls, and an edit
+ *  session starts at the top) and bottom-left on the free canvas, opposite its zoom cluster. */
+export function HistoryCluster({
+	history,
+	policy,
+}: {
+	history: LayoutHistory;
+	policy: 'bounded' | 'canvas';
+}) {
+	return (
+		<div
+			data-testid="canvas-history-controls"
+			style={{
+				position: 'absolute',
+				...(policy === 'bounded' ? { top: 12, right: 12 } : { left: 16, bottom: 16 }),
+				display: 'flex',
+				alignItems: 'center',
+				gap: 2,
+				padding: 4,
+				borderRadius: 'var(--radius-md)',
+				background: 'var(--color-surface-overlay)',
+				border: '1px solid var(--color-border-strong)',
+				boxShadow: 'var(--shadow-lg)',
+			}}
+		>
+			<HistoryBtn
+				icon="undo"
+				label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+				disabled={!history.canUndo}
+				onClick={() => void history.undo()}
+			/>
+			<HistoryBtn
+				icon="redo"
+				label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+				disabled={!history.canRedo}
+				onClick={() => void history.redo()}
+			/>
+		</div>
+	);
+}
+
+/** The empty canvas. It doubles as the LOADING state (a board has no widgets while
+ *  `command-center.ensure-home` is in flight), so the caller may say which it is. The heading is
+ *  sans: the display face starts at `--text-xl` (the RC-ENG-8.4 emphasis lint). */
+export function EmptyCanvas({ title, hint }: { title?: string; hint?: string }) {
+	return (
+		<div
+			style={{
+				position: 'absolute',
+				inset: 0,
+				display: 'flex',
+				flexDirection: 'column',
+				alignItems: 'center',
+				justifyContent: 'center',
+				gap: 'var(--space-3)',
+				pointerEvents: 'none',
+				textAlign: 'center',
+				padding: 'var(--space-6)',
+			}}
+		>
+			<Icon name="widget" size="xl" color="var(--color-text-tertiary)" />
+			<div
+				style={{
+					font: '700 var(--text-lg) var(--font-sans)',
+					color: 'var(--color-text-secondary)',
+				}}
+			>
+				{title ?? 'An empty scene'}
+			</div>
+			<div
+				style={{
+					font: 'var(--text-sm) var(--font-sans)',
+					color: 'var(--color-text-tertiary)',
+					maxWidth: 320,
+				}}
+			>
+				{hint ?? 'Press Edit, then add a widget.'}
+			</div>
+		</div>
+	);
+}
+
+/** RC-CAN-3.6 — the marquee rectangle, in board coordinates inside the canvas transform layer. */
+export function Marquee({ box }: { box: Box }) {
+	return (
+		<div
+			data-testid="canvas-marquee"
+			aria-hidden
+			style={{
+				position: 'absolute',
+				left: box.x,
+				top: box.y,
+				width: box.w,
+				height: box.h,
+				border: '1px dashed var(--color-accent)',
+				background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
+				pointerEvents: 'none',
+				zIndex: 100000,
+			}}
+		/>
+	);
+}
+
+interface ArrangeButton {
+	action: ArrangeAction;
+	short: MessageKey;
+	full: MessageKey;
+	keys: string;
+	/** Tiles the action needs before it can do anything. */
+	min: number;
+}
+
+const ARRANGE_BUTTONS: ArrangeButton[] = [
+	['left', 'A'],
+	['center', 'H'],
+	['right', 'D'],
+	['top', 'W'],
+	['middle', 'V'],
+	['bottom', 'S'],
+].map(([mode, key]) => ({
+	action: { kind: 'align', mode } as ArrangeAction,
+	short: `boardCanvas.arrange.${mode}` as MessageKey,
+	full: `boardCanvas.arrange.${mode}Full` as MessageKey,
+	keys: `Alt+${key}`,
+	min: 2,
+}));
+ARRANGE_BUTTONS.push(
+	{
+		action: { kind: 'distribute', axis: 'horizontal' },
+		short: 'boardCanvas.arrange.distributeH',
+		full: 'boardCanvas.arrange.distributeHFull',
+		keys: 'Alt+Shift+H',
+		min: 3,
+	},
+	{
+		action: { kind: 'distribute', axis: 'vertical' },
+		short: 'boardCanvas.arrange.distributeV',
+		full: 'boardCanvas.arrange.distributeVFull',
+		keys: 'Alt+Shift+V',
+		min: 3,
+	},
+	{
+		action: { kind: 'layer', move: 'forward' },
+		short: 'boardCanvas.arrange.forward',
+		full: 'boardCanvas.arrange.forwardFull',
+		keys: 'Control+]',
+		min: 1,
+	},
+	{
+		action: { kind: 'layer', move: 'backward' },
+		short: 'boardCanvas.arrange.backward',
+		full: 'boardCanvas.arrange.backwardFull',
+		keys: 'Control+[',
+		min: 1,
+	},
+);
+
+/**
+ * RC-CAN-3.6 — the multi-selection toolbar: align, distribute, layer and group, each also a
+ * shortcut (`geometry.ts` `arrangeShortcut`). A real toolbar of buttons, so every arrange action is
+ * reachable without a pointer AND without memorising a chord. Buttons a selection this small cannot
+ * use are disabled rather than hidden, so the bar does not reflow under the cursor.
+ */
+export function ArrangeBar({
+	count,
+	grouped,
+	policy,
+	onAction,
+}: {
+	count: number;
+	grouped: boolean;
+	policy: 'bounded' | 'canvas';
+	onAction: (action: ArrangeAction) => void;
+}) {
+	const { t } = useI18n();
+	const buttons: ArrangeButton[] = [
+		...ARRANGE_BUTTONS,
+		grouped
+			? {
+					action: { kind: 'ungroup' },
+					short: 'boardCanvas.arrange.ungroup',
+					full: 'boardCanvas.arrange.ungroupFull',
+					keys: 'Control+Shift+G',
+					min: 1,
+				}
+			: {
+					action: { kind: 'group' },
+					short: 'boardCanvas.arrange.group',
+					full: 'boardCanvas.arrange.groupFull',
+					keys: 'Control+G',
+					min: 2,
+				},
+	];
+	return (
+		<div
+			role="toolbar"
+			aria-label={t('boardCanvas.arrange.toolbar', { count })}
+			data-testid="canvas-arrange-bar"
+			onPointerDown={(e) => e.stopPropagation()}
+			style={{
+				position: 'absolute',
+				...(policy === 'bounded' ? { top: 12, left: 12 } : { top: 16, left: 16 }),
+				maxWidth: 'calc(100% - 24px)',
+				display: 'flex',
+				flexWrap: 'wrap',
+				alignItems: 'center',
+				gap: 'var(--space-1)',
+				padding: 'var(--space-1)',
+				borderRadius: 'var(--radius-md)',
+				background: 'var(--color-surface-overlay)',
+				border: '1px solid var(--color-border-strong)',
+				boxShadow: 'var(--shadow-lg)',
+				zIndex: 1,
+			}}
+		>
+			{buttons.map((button) => (
+				<button
+					key={button.short}
+					type="button"
+					aria-label={t(button.full)}
+					aria-keyshortcuts={button.keys}
+					title={`${t(button.full)} (${button.keys})`}
+					disabled={count < button.min}
+					onClick={() => onAction(button.action)}
+					style={{
+						minHeight: 28,
+						border: 'none',
+						borderRadius: 'var(--radius-sm)',
+						padding: '0 var(--space-2)',
+						background: 'transparent',
+						color:
+							count < button.min ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
+						font: '600 var(--text-xs) var(--font-sans)',
+						cursor: count < button.min ? 'default' : 'pointer',
+					}}
+				>
+					{t(button.short)}
+				</button>
+			))}
+		</div>
+	);
+}
+
 /** The zoom cluster's control: the same overlay button, never disabled. */
 export function ZoomBtn(props: { icon: string; label: string; onClick: () => void }) {
 	return <HistoryBtn {...props} disabled={false} />;
@@ -114,6 +358,8 @@ export interface WidgetFrameProps {
 	height: number;
 	editing: boolean;
 	selected: boolean;
+	/** RC-CAN-3.6: one of several selected tiles — outlined, without the single-tile chip/handle. */
+	multi?: boolean;
 	scale: number;
 	resizable: boolean;
 	/** Frames participate in the metadata-ordered native Tab sequence. */
@@ -139,6 +385,7 @@ export function WidgetFrame({
 	height,
 	editing,
 	selected,
+	multi = false,
 	scale,
 	resizable,
 	tabbable,
@@ -192,7 +439,7 @@ export function WidgetFrame({
 			aria-label={ariaLabel}
 			aria-description={
 				editing
-					? 'Enter opens tile content. Space selects move mode. Arrows navigate between tiles or move the selected tile; Shift with arrows resizes it. Escape leaves move mode. A opens Add. Delete removes; Control or Command with Z undoes.'
+					? 'Enter opens tile content. Space selects move mode; Shift with Space adds the tile to the selection. Arrows navigate between tiles or move the selected tiles; Shift with arrows resizes. Alt with A, H, D, W, V or S aligns the selection. Escape leaves move mode. A opens Add. Delete removes; Control or Command with Z undoes.'
 					: 'Arrows navigate to the nearest tile. Enter opens tile content. Escape returns to the tile.'
 			}
 			tabIndex={tabbable ? 0 : -1}
@@ -382,7 +629,7 @@ export function WidgetFrame({
 				/>
 			)}
 
-			{selected && (
+			{selected && !multi && (
 				<>
 					<div
 						style={{

@@ -195,6 +195,34 @@ export function listRestorableWidgets(scene: Scene, now: string): WidgetTombston
 		.sort((a, b) => (a.destroyedAt < b.destroyedAt ? 1 : a.destroyedAt > b.destroyedAt ? -1 : 0));
 }
 
+// --- RC-CAN-3.6 — PAINT ORDER -----------------------------------------------------------------
+// The canvas paints `Scene.widgets` in array order (later = on top), and focus order reads `z`
+// (higher = reached first). `scene.set-widget-order` rewrites both together so they never disagree.
+
+/** The scene's widget ids back to front — the order the canvas paints them in. */
+export function widgetPaintOrder(scene: Scene): WidgetInstanceId[] {
+	return scene.widgets.map((widget) => widget.id);
+}
+
+/**
+ * The scene with its widgets in `order` (back to front) and `z` renumbered 1..n to match. `null` when
+ * `order` is not a permutation of the scene's widget ids: a partial or stale list would silently
+ * drop or duplicate a widget, so it fails closed instead.
+ */
+export function withWidgetOrder(scene: Scene, order: readonly WidgetInstanceId[]): Scene | null {
+	const byId = new Map(scene.widgets.map((widget) => [widget.id, widget]));
+	if (order.length !== byId.size || new Set(order).size !== order.length) return null;
+	const widgets: WidgetInstance[] = [];
+	for (const [index, id] of order.entries()) {
+		const widget = byId.get(id);
+		if (!widget) return null;
+		widgets.push(
+			widget.layout.z === index + 1 ? widget : { ...widget, layout: { ...widget.layout, z: index + 1 } },
+		);
+	}
+	return { ...scene, widgets };
+}
+
 export interface SceneState {
 	scenes: Record<SceneId, Scene>;
 	schemaVersion: typeof SCENE_STATE_SCHEMA_VERSION;

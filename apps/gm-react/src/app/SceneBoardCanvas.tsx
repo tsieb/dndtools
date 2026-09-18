@@ -1,12 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Icon } from '../ds';
 import {
 	fitWidgetSize,
 	isWidgetResizable,
 	nextSizePreset,
 	type BoardWidget,
 } from './board-helpers';
-import { HistoryBtn, WidgetFrame } from './canvas/WidgetFrame';
+import type { CoreCommand } from '@dndtools/core';
+import {
+	ArrangeBar,
+	EmptyCanvas,
+	HistoryCluster,
+	Marquee,
+	WidgetFrame,
+} from './canvas/WidgetFrame';
+import {
+	arrangeCommand,
+	arrangeShortcut,
+	boxFromPoints,
+	dropSettled,
+	enclosedIds,
+	extentOf,
+	planPlacements,
+	toggleSelection,
+	withGroupMates,
+	zoomAbout,
+	type ArrangeAction,
+	type Box,
+	type Placement,
+} from './canvas/geometry';
+import { useRuntime } from '../runtime/RuntimeContext';
 import {
 	enterTileContent,
 	frameKey,
@@ -53,6 +75,8 @@ import { useI18n } from '../i18n';
  * Keyboard (RC-CAN-3.5, see `canvas/keyboard.ts`): Tab follows metadata reading order, arrows pick
  * the nearest tile, Enter enters content, Space = move mode (arrows nudge, Shift+arrows resize),
  * Escape leaves, Delete = undoable remove, A = add gallery. The resize handle takes plain arrows.
+ * Multi-select (RC-CAN-3.6, see `canvas/geometry.ts`): Shift+Space / Shift-click / marquee add tiles,
+ * then the arrange bar or Alt+letter aligns, and Ctrl+] / Ctrl+[ / Ctrl+G layer and group.
  */
 
 export function SceneBoardCanvas({
@@ -98,7 +122,38 @@ export function SceneBoardCanvas({
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const { t } = useI18n();
+	// RC-CAN-3.6 — the host owns ONE selected id (its inspector follows it); `multi` holds the whole
+	// selection once it grows past one tile, and empties itself when the host's id leaves it.
+	const runtime = useRuntime();
+	const [multi, setMulti] = useState<string[]>([]);
+	const [marquee, setMarquee] = useState<Box | null>(null);
+	const marqueeRef = useRef<{ x: number; y: number; base: string[] } | null>(null);
+	const groupDrag = useRef<Record<string, { x: number; y: number }>>({});
+	const selection = multi.length ? multi : selectedId ? [selectedId] : [];
+	const scene = useMemo(
+		() =>
+			Object.values(runtime.state.scenes.scenes).find((sc) =>
+				sc.widgets.some((w) => w.id === widgets[0]?.id),
+			),
+		[runtime.state, widgets],
+	);
+	const groupOf = useMemo(
+		() => new Map(scene?.widgets.map((w) => [w.id, w.layout.groupId]) ?? []),
+		[scene],
+	);
+	const select = (ids: string[]) => {
+		setMulti(ids.length > 1 ? ids : []);
+		onSelect(ids[ids.length - 1] ?? null);
+	};
+	useEffect(() => {
+		if (!editing || !selectedId || !multi.includes(selectedId))
+			setMulti((m) => (m.length ? [] : m));
+	}, [editing, selectedId, multi]);
 	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
+	const paneCentre = (): [number, number] => {
+		const r = wrapRef.current?.getBoundingClientRect();
+		return [(r?.width ?? 800) / 2, (r?.height ?? 600) / 2];
+	};
 	// RC-CAN-3.1: the board opens fitted (it is a glanceable dashboard); a free scene opens 1:1.
 	const [localPreset, setLocalPreset] = useState<ZoomPreset>(
 		policy === 'bounded' ? 'fit' : 'comfortable',
@@ -117,34 +172,30 @@ export function SceneBoardCanvas({
 	const sizeDraftRef = useRef(sizeDraft);
 	posDraftRef.current = posDraft;
 	sizeDraftRef.current = sizeDraft;
+	// Every tile's live geometry: the confirmed layout under any in-flight draft.
+	const rects = useMemo(
+		() =>
+			widgets.map((w) => ({
+				id: w.id,
+				...(posDraft[w.id] ?? { x: w.x, y: w.y }),
+				...(sizeDraft[w.id] ?? { w: w.w, h: w.h }),
+			})),
+		[widgets, posDraft, sizeDraft],
+	);
+	const rectOf = (id: string) => rects.filter((r) => r.id === id);
+	/** One `scene.move-widget` per tile, in sequence, so each lands as its own undo step. */
+	const moveAll = useCallback(
+		async (list: Placement[]) => {
+			for (const p of list) await onMove(p.id, p.x, p.y);
+		},
+		[onMove],
+	);
 
 	// Drop a draft once the core-confirmed layout matches it — flicker-free hand-off from optimistic
 	// drag to persisted state.
 	useEffect(() => {
-		setPosDraft((prev) => {
-			let changed = false;
-			const next = { ...prev };
-			for (const w of widgets) {
-				const d = prev[w.id];
-				if (d && d.x === w.x && d.y === w.y) {
-					delete next[w.id];
-					changed = true;
-				}
-			}
-			return changed ? next : prev;
-		});
-		setSizeDraft((prev) => {
-			let changed = false;
-			const next = { ...prev };
-			for (const w of widgets) {
-				const d = prev[w.id];
-				if (d && d.w === w.w && d.h === w.h) {
-					delete next[w.id];
-					changed = true;
-				}
-			}
-			return changed ? next : prev;
-		});
+		setPosDraft((prev) => dropSettled(prev, widgets, (d, w) => d.x === w.x && d.y === w.y));
+		setSizeDraft((prev) => dropSettled(prev, widgets, (d, w) => d.w === w.w && d.h === w.h));
 	}, [widgets]);
 
 	useEffect(() => {
@@ -160,17 +211,7 @@ export function SceneBoardCanvas({
 	// The bounded GM Screen is a composed dashboard, not a free-panning canvas. At narrow window
 	// sizes the Fit preset scales the authored board width into view so controls on right-hand
 	// widgets remain reachable. Canvas-mode scenes keep their continuous user-controlled zoom.
-	const contentExtent = useMemo(() => {
-		let right = 0;
-		let bottom = 0;
-		for (const widget of widgets) {
-			const pos = posDraft[widget.id] ?? widget;
-			const size = sizeDraft[widget.id] ?? widget;
-			right = Math.max(right, pos.x + size.w);
-			bottom = Math.max(bottom, pos.y + size.h);
-		}
-		return { width: Math.max(1, right), height: Math.max(1, bottom) };
-	}, [widgets, posDraft, sizeDraft]);
+	const contentExtent = useMemo(() => extentOf(rects), [rects]);
 
 	// RC-CAN-3.1 — the three named presets. Fit is derived from the pane and the authored extent and
 	// is FLOORED: a board that would have to paint at 0.35 to fit scrolls at 0.5 instead. The other
@@ -202,17 +243,7 @@ export function SceneBoardCanvas({
 				// Fit re-frames the whole scene; the other two zoom about the pane centre so the
 				// widget the DM is looking at stays put.
 				if (next === 'fit') setView({ tx: 32, ty: 32, scale: s1 });
-				else
-					setView((v) => {
-						const r = wrapRef.current?.getBoundingClientRect();
-						const cx = (r?.width ?? 800) / 2;
-						const cy = (r?.height ?? 600) / 2;
-						return {
-							tx: cx - ((cx - v.tx) / v.scale) * s1,
-							ty: cy - ((cy - v.ty) / v.scale) * s1,
-							scale: s1,
-						};
-					});
+				else setView((v) => zoomAbout(v, ...paneCentre(), s1));
 			}
 		},
 		[onZoomPresetChange, policy, scaleForPreset],
@@ -252,13 +283,9 @@ export function SceneBoardCanvas({
 	const activePreset =
 		ZOOM_PRESETS.find((p) => Math.abs(scaleForPreset(p) - scale) < 0.005) ?? null;
 
-	// Capturing the pointer keeps the gesture bound to the element it started on, so releasing outside
-	// the browser window (or over another frame) still delivers `pointerup`/`pointercancel` to us.
-	// Without it — and without the `pointercancel` listener below — a drag interrupted by the browser
-	// taking over the touch (the phone board sets `touch-action:'pan-y'`, so a vertical swipe does
-	// exactly that) left `dragRef` set and `document.body.style.userSelect` pinned to `'none'`
-	// APP-WIDE: every later pointermove kept dragging the widget with no button down, and the next
-	// stray pointerup committed a move the DM never made.
+	// Capture keeps a gesture bound to the element it started on, so a release outside the window (or
+	// over another frame) still ends it; with `pointercancel` below it stops a browser-taken-over touch
+	// leaving a stuck drag and `userSelect:'none'` pinned app-wide.
 	const capture = (e: React.PointerEvent) => {
 		try {
 			e.currentTarget.setPointerCapture(e.pointerId);
@@ -267,76 +294,81 @@ export function SceneBoardCanvas({
 		}
 	};
 
+	/** Start a pointer gesture: capture it, record it (`null` for a marquee) and stop text selection. */
+	const begin = (e: React.PointerEvent, drag: Drag | null) => {
+		capture(e);
+		dragRef.current = drag;
+		document.body.style.userSelect = 'none';
+	};
+
 	const startMove = (e: React.PointerEvent, w: BoardWidget) => {
 		e.stopPropagation();
-		onSelect(w.id);
-		if (!editing) return;
-		capture(e);
+		if (!editing) return onSelect(w.id);
+		const tile = withGroupMates([w.id], groupOf);
+		if (e.shiftKey || e.ctrlKey || e.metaKey) return select(toggleSelection(selection, tile));
+		// Dragging one tile of a selection drags the whole selection.
+		const moving = selection.includes(w.id) ? selection : tile;
+		if (!selection.includes(w.id)) select(tile);
+		groupDrag.current = Object.fromEntries(
+			moving.flatMap(rectOf).flatMap((r) => (r.id === w.id ? [] : [[r.id, { x: r.x, y: r.y }]])),
+		);
 		const cur = posDraft[w.id] ?? { x: w.x, y: w.y };
-		dragRef.current = {
-			mode: 'move',
-			id: w.id,
-			sx: e.clientX,
-			sy: e.clientY,
-			ox: cur.x,
-			oy: cur.y,
-		};
-		document.body.style.userSelect = 'none';
+		begin(e, { mode: 'move', id: w.id, sx: e.clientX, sy: e.clientY, ox: cur.x, oy: cur.y });
 	};
 	const startResize = (e: React.PointerEvent, w: BoardWidget) => {
 		if (e.button !== 0) return;
 		resizeMoved.current = false;
 		e.stopPropagation();
-		capture(e);
 		const cur = sizeDraft[w.id] ?? { w: w.w, h: w.h };
-		dragRef.current = {
-			mode: 'resize',
-			id: w.id,
-			sx: e.clientX,
-			sy: e.clientY,
-			ow: cur.w,
-			oh: cur.h,
-		};
-		document.body.style.userSelect = 'none';
+		begin(e, { mode: 'resize', id: w.id, sx: e.clientX, sy: e.clientY, ow: cur.w, oh: cur.h });
 	};
 	const onBgDown = (e: React.PointerEvent) => {
-		// RC-CAN-3.2 — middle-button drag pans EITHER policy, from anywhere in the canvas (including
-		// over widget content): it is the mouse-equivalent of a two-finger trackpad pan and a
-		// dedicated non-primary button, so it never fights text selection or a widget's own drag
-		// handles the way a left-press does. The board scrolls its real overflow region; the free
-		// canvas keeps moving its transform `view` exactly like a background left-drag.
+		// RC-CAN-3.2 — middle-button drag pans EITHER policy from anywhere, even over widget content,
+		// without fighting text selection or drag handles. The board scrolls its real overflow region.
 		if (e.button === 1) {
 			e.preventDefault();
-			capture(e);
-			if (policy === 'bounded') {
-				const el = wrapRef.current;
-				dragRef.current = {
-					mode: 'scroll-pan',
-					sx: e.clientX,
-					sy: e.clientY,
-					sl: el?.scrollLeft ?? 0,
-					st: el?.scrollTop ?? 0,
-				};
-			} else {
-				dragRef.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty };
-			}
-			document.body.style.userSelect = 'none';
-			return;
+			const el = wrapRef.current;
+			const [sl, st] = [el?.scrollLeft ?? 0, el?.scrollTop ?? 0];
+			const at = { sx: e.clientX, sy: e.clientY };
+			return begin(
+				e,
+				policy === 'bounded'
+					? { mode: 'scroll-pan', ...at, sl, st }
+					: { mode: 'pan', ...at, tx: view.tx, ty: view.ty },
+			);
 		}
 		onSelect(null);
+		// RC-CAN-3.6 — marquee: any empty-board drag on the board, Shift+drag on the free canvas (a
+		// plain drag there pans). Shift keeps the existing selection and adds to it.
+		const onTile = (e.target as HTMLElement).closest('[data-testid^="widget-"]');
+		if (editing && e.button === 0 && !onTile && (policy === 'bounded' || e.shiftKey)) {
+			marqueeRef.current = { ...boardPoint.current(e), base: e.shiftKey ? selection : [] };
+			return begin(e, null);
+		}
 		if (policy !== 'canvas') return;
-		// The drag overlay that swallows pointerdown only exists in EDIT mode, so in VIEW mode this
-		// handler received every press that landed on widget CONTENT — note text, character stats, a map
-		// thumbnail — started a canvas pan and set `userSelect:'none'` on <body>. A DM could therefore
-		// never select or copy a note, and an accidental drag while reading threw the whole canvas
-		// off-screen. Only a press on the background itself is a pan.
+		// In VIEW mode presses on widget CONTENT land here too (no drag overlay); panning on them made
+		// note text unselectable. Only a press on the background itself is a pan.
 		if (e.target !== e.currentTarget) return;
-		dragRef.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty };
-		document.body.style.userSelect = 'none';
+		begin(e, { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty });
 	};
+
+	const boardPoint = useRef((_e: { clientX: number; clientY: number }) => ({ x: 0, y: 0 }));
+	boardPoint.current = (e) => {
+		const el = wrapRef.current!;
+		const r = el.getBoundingClientRect();
+		return {
+			x: (e.clientX - r.left - el.clientLeft + el.scrollLeft - tx) / scale,
+			y: (e.clientY - r.top - el.clientTop + el.scrollTop - ty) / scale,
+		};
+	};
+	const marqueeEnd = useRef((_box: Box, _base: string[]) => {});
+	marqueeEnd.current = (box, base) =>
+		select([...new Set([...base, ...withGroupMates(enclosedIds(rects, box), groupOf)])]);
 
 	useEffect(() => {
 		const move = (e: PointerEvent) => {
+			const m = marqueeRef.current;
+			if (m) return setMarquee(boxFromPoints(m, boardPoint.current(e)));
 			const d = dragRef.current;
 			if (!d) return;
 			if (d.mode === 'pan') {
@@ -354,13 +386,14 @@ export function SceneBoardCanvas({
 			const dx = (e.clientX - d.sx) / scale;
 			const dy = (e.clientY - d.sy) / scale;
 			if (d.mode === 'move') {
-				setPosDraft((prev) => ({
-					...prev,
-					[d.id]: {
-						x: Math.max(0, snapTo(d.ox + dx, snap)),
-						y: Math.max(0, snapTo(d.oy + dy, snap)),
-					},
-				}));
+				const x = Math.max(0, snapTo(d.ox + dx, snap));
+				const y = Math.max(0, snapTo(d.oy + dy, snap));
+				setPosDraft((prev) => {
+					const next = { ...prev, [d.id]: { x, y } };
+					for (const [id, o] of Object.entries(groupDrag.current))
+						next[id] = { x: Math.max(0, o.x + x - d.ox), y: Math.max(0, o.y + y - d.oy) };
+					return next;
+				});
 			} else {
 				if (!resizeMoved.current && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
 				resizeMoved.current = true;
@@ -371,14 +404,23 @@ export function SceneBoardCanvas({
 				setSizeDraft((prev) => ({ ...prev, [d.id]: next }));
 			}
 		};
-		const up = () => {
+		const up = (e: PointerEvent) => {
 			const d = dragRef.current;
+			const m = marqueeRef.current;
 			dragRef.current = null;
+			marqueeRef.current = null;
 			document.body.style.userSelect = '';
+			if (m) {
+				setMarquee(null);
+				marqueeEnd.current(boxFromPoints(m, boardPoint.current(e)), m.base);
+			}
 			if (!d) return;
 			if (d.mode === 'move') {
-				const p = posDraftRef.current[d.id];
-				if (p) void onMove(d.id, p.x, p.y);
+				const ids = [d.id, ...Object.keys(groupDrag.current)];
+				groupDrag.current = {};
+				const drafts = posDraftRef.current;
+				if (drafts[d.id])
+					void moveAll(ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : [])));
 			} else if (d.mode === 'resize') {
 				const s = sizeDraftRef.current[d.id];
 				const widget = widgets.find((w) => w.id === d.id);
@@ -388,19 +430,20 @@ export function SceneBoardCanvas({
 				}
 			}
 		};
-		// `pointerup` was the ONLY terminator. When the browser takes the gesture over — which the
-		// phone board invites, since it sets `touch-action:'pan-y'` so a vertical swipe scrolls —
-		// it fires `pointercancel` instead, and the drag never ended: `dragRef` stayed set and
-		// `document.body.style.userSelect` stayed pinned to `'none'` app-wide. Cancel abandons the
-		// gesture WITHOUT dispatching; the drafts are dropped so the widget snaps back to its
-		// durable position rather than committing a move the DM never asked for.
+		// A browser-taken-over gesture (the phone board's `pan-y` swipe) fires `pointercancel`, not
+		// `pointerup`: abandon it WITHOUT dispatching and drop the drafts so tiles snap back.
 		const cancel = () => {
 			const d = dragRef.current;
 			dragRef.current = null;
+			marqueeRef.current = null;
+			setMarquee(null);
 			document.body.style.userSelect = '';
 			if (!d || d.mode === 'pan' || d.mode === 'scroll-pan') return;
-			if (d.mode === 'move') setPosDraft((prev) => omitKey(prev, d.id));
-			else setSizeDraft((prev) => omitKey(prev, d.id));
+			if (d.mode === 'move') {
+				const ids = [d.id, ...Object.keys(groupDrag.current)];
+				groupDrag.current = {};
+				setPosDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
+			} else setSizeDraft((prev) => omitKey(prev, d.id));
 		};
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);
@@ -410,7 +453,7 @@ export function SceneBoardCanvas({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [scale, snap, policy, onMove, widgets, cycleSize, resizeWidget]);
+	}, [scale, snap, policy, moveAll, widgets, cycleSize, resizeWidget]);
 
 	const onWheel = useCallback(
 		(e: React.WheelEvent) => {
@@ -418,19 +461,12 @@ export function SceneBoardCanvas({
 			if (e.ctrlKey || e.metaKey) {
 				const r = wrapRef.current?.getBoundingClientRect();
 				if (!r) return;
-				const cx = e.clientX - r.left;
-				const cy = e.clientY - r.top;
-				setView((v) => {
-					const s1 = clamp(v.scale * (e.deltaY < 0 ? 1.1 : 1 / 1.1), 0.4, 1.8);
-					const wx = (cx - v.tx) / v.scale;
-					const wy = (cy - v.ty) / v.scale;
-					return { tx: cx - wx * s1, ty: cy - wy * s1, scale: s1 };
-				});
+				const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+				setView((v) =>
+					zoomAbout(v, e.clientX - r.left, e.clientY - r.top, clamp(v.scale * factor, 0.4, 1.8)),
+				);
 			} else {
-				// RC-CAN-3.2 — Shift+wheel scrolls horizontally. A trackpad already reports a
-				// horizontal `deltaX` from its own two-finger gesture; a plain mouse wheel only ever
-				// reports `deltaY`, so Shift re-routes that single axis onto `tx` instead of leaving the
-				// modifier a no-op.
+				// RC-CAN-3.2 — Shift+wheel scrolls horizontally: a plain mouse wheel only reports `deltaY`.
 				const horizontal = e.shiftKey && e.deltaX === 0;
 				const dx = horizontal ? e.deltaY : e.deltaX;
 				const dy = horizontal ? 0 : e.deltaY;
@@ -441,15 +477,7 @@ export function SceneBoardCanvas({
 	);
 
 	const zoom = (factor: number) =>
-		setView((v) => {
-			const r = wrapRef.current?.getBoundingClientRect();
-			const cx = (r?.width ?? 800) / 2;
-			const cy = (r?.height ?? 600) / 2;
-			const s1 = clamp(v.scale * factor, 0.4, 1.8);
-			const wx = (cx - v.tx) / v.scale;
-			const wy = (cy - v.ty) / v.scale;
-			return { tx: cx - wx * s1, ty: cy - wy * s1, scale: s1 };
-		});
+		setView((v) => zoomAbout(v, ...paneCentre(), clamp(v.scale * factor, 0.4, 1.8)));
 
 	// DOM order follows the core's metadata reading order, so native Tab walks it; a removed focused
 	// frame hands focus to a survivor (or the empty canvas).
@@ -466,9 +494,14 @@ export function SceneBoardCanvas({
 			e.currentTarget.focus();
 			return;
 		}
+		if (editing && e.key === ' ' && e.shiftKey) {
+			e.preventDefault();
+			select(toggleSelection(selection, withGroupMates([w.id], groupOf)));
+			return;
+		}
 		if (matchesShortcut('canvas.select', e) || matchesShortcut('canvas.moveMode', e)) {
 			e.preventDefault();
-			onSelect(w.id);
+			if (!editing || !selection.includes(w.id)) select(withGroupMates([w.id], groupOf));
 			if (e.key === 'Enter') enterTileContent(e.currentTarget);
 			else e.currentTarget.focus();
 			return;
@@ -481,25 +514,45 @@ export function SceneBoardCanvas({
 		const delta = ARROW_DELTA[e.key];
 		if (!delta) return;
 		e.preventDefault();
-		if (editing && selectedId === w.id) {
-			// One grid step per key press, committed as ONE core op (like a pointer gesture's up).
-			const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
+		if (editing && selection.includes(w.id)) {
+			// One grid step per key press, one core op per selected tile (like a pointer gesture's up).
 			const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 			if (e.shiftKey) {
 				const resizable = canResize ? canResize(w) : isWidgetResizable(w);
 				if (!resizable) return;
 				resizeWidget(w, size.w + delta[0] * GRID, size.h + delta[1] * GRID);
 			} else {
-				void onMove(
-					w.id,
-					Math.max(0, pos.x + delta[0] * GRID),
-					Math.max(0, pos.y + delta[1] * GRID),
-				);
+				const step = ({ id, x, y }: Placement) => ({
+					id,
+					x: Math.max(0, x + delta[0] * GRID),
+					y: Math.max(0, y + delta[1] * GRID),
+				});
+				void moveAll(selection.flatMap(rectOf).map(step));
 			}
 			return;
 		}
 		const next = spatialNeighbour(orderedWidgets, w.id, delta);
 		if (next) frameRefs.current.get(next)?.focus();
+	};
+
+	/** RC-CAN-3.6 — run an arrange action over the selection. Align/distribute move each tile through
+	 *  the host's `onMove`; layer and group are single core commands through the undo stack. */
+	const arrange = async (action: ArrangeAction) => {
+		if (action.kind === 'select-all') return select(widgets.map((w) => w.id));
+		const placed = planPlacements(action, selection.flatMap(rectOf));
+		await moveAll(placed);
+		const resolved = scene ? arrangeCommand(action, scene, selection) : null;
+		if (resolved) {
+			const command = { ...resolved, actorId: runtime.defaultActorId } as CoreCommand;
+			await (history ? history.run(command, 'Arranged tiles') : runtime.dispatch(command));
+			// A reorder moves frames in the DOM, which can drop focus to <body>.
+			requestAnimationFrame(() => {
+				if (document.activeElement === document.body && focusedId)
+					frameRefs.current.get(focusedId)?.focus();
+			});
+		}
+		if (placed.length || resolved)
+			setSizeNotice(t('boardCanvas.arrange.done', { count: selection.length }));
 	};
 
 	/**
@@ -514,6 +567,12 @@ export function SceneBoardCanvas({
 		const target = e.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 		if (target?.closest('[data-tile-content]') && !target.hasAttribute('data-tile-content')) return;
+		const action = editing ? arrangeShortcut(e) : null;
+		if (action && (action.kind === 'select-all' || selection.length)) {
+			e.preventDefault();
+			void arrange(action);
+			return;
+		}
 		if (editing && matchesShortcut('canvas.add', e)) {
 			e.preventDefault();
 			openGallery(e.currentTarget, t(policy === 'bounded' ? 'board.add' : 'sceneEditor.add'));
@@ -553,7 +612,7 @@ export function SceneBoardCanvas({
 	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
-		const selected = editing && selectedId === w.id;
+		const selected = editing && selection.includes(w.id);
 		const resizable = editing && (canResize ? canResize(w) : isWidgetResizable(w));
 		return (
 			<WidgetFrame
@@ -566,17 +625,15 @@ export function SceneBoardCanvas({
 				height={size.h}
 				editing={editing}
 				selected={selected}
+				multi={selected && multi.length > 1}
 				scale={scale}
 				resizable={resizable}
 				tabbable
 				stackOrder={widgets.indexOf(w)}
-				// The pixel geometry is only actionable while the layout is being edited (it is what
-				// Shift+Arrow and the drag handles change). In VIEW mode it made every widget on the
-				// board announce four coordinates of layout telemetry to a screen-reader user who is
-				// just reading the board.
+				// Pixel geometry only while editing: in VIEW mode it is telemetry nobody can act on.
 				ariaLabel={
 					editing
-						? `${w.title}, ${w.typeLabel} widget, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`
+						? `${w.title}, ${w.typeLabel} widget${selected && multi.length ? ', selected' : ''}, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`
 						: `${w.title}, ${w.typeLabel} widget`
 				}
 				onKeyDown={(e) => frameKeyDown(e, w)}
@@ -633,8 +690,7 @@ export function SceneBoardCanvas({
 					position: 'absolute',
 					inset: 0,
 					background:
-						// Not a literal warm rgba: parchment and high-contrast got an unrequested gold film
-						// that no token controlled. color-mix keeps the wash tied to the active accent.
+						// color-mix, not a literal rgba, so the wash follows the active theme's accent.
 						'radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 60%)',
 					pointerEvents: 'none',
 				}}
@@ -647,9 +703,7 @@ export function SceneBoardCanvas({
 						top: 0,
 						transformOrigin: '0 0',
 						transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
-						// Published as a bare number so `.scene-board-operation` can divide the density
-						// touch target by it: the chips are painted inside this transform, so their
-						// on-screen size is (declared size x scale).
+						// Bare number: `.scene-board-operation` divides its touch target by it.
 						'--scene-board-scale': String(scale),
 						minWidth: policy === 'bounded' ? contentExtent.width : '100%',
 						height: policy === 'bounded' ? contentExtent.height : undefined,
@@ -660,11 +714,8 @@ export function SceneBoardCanvas({
 					<div
 						style={{
 							position: 'absolute',
-							// Under the bounded policy this layer sits inside an `overflow: auto` scroll
-							// container, and an absolutely-positioned child still contributes scrollable
-							// overflow — so the oversized -2000/6000 sheet ballooned /board's scrollHeight
-							// to ~4000px against a real extent of ~550px. Bounded only ever needs to cover
-							// its own extent; the roaming sheet stays for the free `canvas` policy.
+							// Bounded covers only its own extent: an oversized sheet inside its scroll
+							// container ballooned /board's scrollHeight. The free canvas keeps the sheet.
 							...(policy === 'bounded'
 								? { inset: 0 }
 								: { left: -2000, top: -2000, width: 6000, height: 6000 }),
@@ -675,47 +726,21 @@ export function SceneBoardCanvas({
 					/>
 				)}
 				{frames}
+				{marquee && <Marquee box={marquee} />}
 			</div>
 
-			{history && editing && (
-				<div
-					data-testid="canvas-history-controls"
-					style={{
-						position: 'absolute',
-						// The bounded board scrolls, and an absolutely-positioned child scrolls with it —
-						// so the cluster is anchored to the TOP there (where an edit session starts and
-						// where the board sits by default) and to the free canvas's idle bottom-left
-						// corner, opposite its zoom cluster, where nothing else is painted.
-						...(policy === 'bounded' ? { top: 12, right: 12 } : { left: 16, bottom: 16 }),
-						display: 'flex',
-						alignItems: 'center',
-						gap: 2,
-						padding: 4,
-						borderRadius: 'var(--radius-md)',
-						background: 'var(--color-surface-overlay)',
-						border: '1px solid var(--color-border-strong)',
-						boxShadow: 'var(--shadow-lg)',
-					}}
-				>
-					<HistoryBtn
-						icon="undo"
-						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
-						disabled={!history.canUndo}
-						onClick={() => void history.undo()}
-					/>
-					<HistoryBtn
-						icon="redo"
-						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
-						disabled={!history.canRedo}
-						onClick={() => void history.redo()}
-					/>
-				</div>
+			{history && editing && <HistoryCluster history={history} policy={policy} />}
+			{editing && selection.length > 1 && (
+				<ArrangeBar
+					count={selection.length}
+					grouped={selection.some((id) => groupOf.get(id))}
+					policy={policy}
+					onAction={(action) => void arrange(action)}
+				/>
 			)}
 
-			{/* Permanent live region: it is in the a11y tree before the first undo, so the reversal is
-			    announced by the CONTENT changing rather than by a region being inserted with its text
-			    already in it — which screen readers routinely drop. Re-keying on `seq` replaces the
-			    child node, so undoing the same move twice still announces twice. */}
+			{/* Permanent live regions: announced by CONTENT changing, never by a region being inserted
+			    (screen readers drop those). Re-keying on `seq` repeats an identical announcement. */}
 			{history && (
 				<div role="status" aria-live="polite" aria-atomic="true" style={srOnly}>
 					{history.announcement && (
@@ -724,11 +749,7 @@ export function SceneBoardCanvas({
 				</div>
 			)}
 
-			{/* RC-CAN-3.1: a zoom change is otherwise silent, so every step announces itself. The host
-			    is permanent for the same reason the history region above is. It is a bare `aria-live`
-			    region rather than a second `role="status"`: two status roles on one canvas is one
-			    ambiguous landmark for a screen-reader user (and an ambiguous locator for the history
-			    tests), and the undo region is the one that speaks for the surface. */}
+			{/* RC-CAN-3.1: zoom steps announce here — bare `aria-live`, since one `status` per canvas. */}
 			<div aria-live="polite" aria-atomic="true" style={srOnly}>
 				{zoomNotice && (
 					<span key={zoomNotice.seq}>
@@ -757,44 +778,7 @@ export function SceneBoardCanvas({
 			>
 				{sizeNotice}
 			</div>
-			{widgets.length === 0 && (
-				<div
-					style={{
-						position: 'absolute',
-						inset: 0,
-						display: 'flex',
-						flexDirection: 'column',
-						alignItems: 'center',
-						justifyContent: 'center',
-						gap: 'var(--space-3)',
-						pointerEvents: 'none',
-						textAlign: 'center',
-						padding: 'var(--space-6)',
-					}}
-				>
-					<Icon name="widget" size="xl" color="var(--color-text-tertiary)" />
-					<div
-						style={{
-							font: '700 var(--text-lg) var(--font-display)',
-							color: 'var(--color-text-secondary)',
-						}}
-					>
-						{/* The empty state doubles as the LOADING state (widgets.length is 0 while
-						 * `command-center.ensure-home` is in flight), so /board's first paint used to read
-						 * "An empty scene" over "Preparing your GM Screen…". Let the caller say which it is. */}
-						{emptyTitle ?? 'An empty scene'}
-					</div>
-					<div
-						style={{
-							font: 'var(--text-sm) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
-							maxWidth: 320,
-						}}
-					>
-						{emptyHint ?? 'Press Edit, then add a widget.'}
-					</div>
-				</div>
-			)}
+			{widgets.length === 0 && <EmptyCanvas title={emptyTitle} hint={emptyHint} />}
 		</div>
 	);
 }

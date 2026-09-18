@@ -2,6 +2,7 @@ import { actorCanCoEditScene } from '../permissions/grants';
 import type { PermissionState } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Scene, WidgetDock, WidgetInstance } from '../state/scene-state';
+import { withWidgetOrder } from '../state/scene-state';
 import type { CoreCommand } from '../commands/types';
 
 /**
@@ -46,6 +47,8 @@ export type SceneLayoutCommandId =
 	| 'focus-later'
 	| 'focus-clear'
 	| 'group-selection'
+	// RC-CAN-3.6
+	| 'ungroup-selection'
 	| 'destroy';
 
 export type SceneLayoutCommandType = Extract<
@@ -58,6 +61,8 @@ export type SceneLayoutCommandType = Extract<
 	| 'scene.set-focus-order'
 	| 'scene.group-widgets'
 	| 'scene.destroy-widget'
+	// RC-CAN-3.6
+	| 'scene.set-widget-order'
 >;
 
 export interface SceneLayoutCommand {
@@ -162,6 +167,16 @@ export function listWidgetLayoutCommands(
 		targets: 'selection',
 		pointerFree: true,
 	});
+	if (widget.layout.groupId !== null) {
+		commands.push({
+			id: 'ungroup-selection',
+			label: 'Ungroup selected widgets',
+			group: 'group',
+			commandType: 'scene.group-widgets',
+			targets: 'selection',
+			pointerFree: true,
+		});
+	}
 
 	commands.push(selfCommand('destroy', 'Remove widget', 'lifecycle', 'scene.destroy-widget'));
 
@@ -240,6 +255,58 @@ export function resolveLayoutCommandPayload(
 		case 'destroy':
 			return { type: 'scene.destroy-widget', payload: { ...base } };
 		case 'group-selection':
+		case 'ungroup-selection':
 			return null;
 	}
+}
+
+/**
+ * RC-CAN-3.6 — resolve a `selection` command against the GUI's multi-widget selection. Grouping needs
+ * two or more widgets; ungrouping takes the whole selection (every member of every group it touches,
+ * so no group is left with a single stranded member). `null` when the selection cannot take it.
+ */
+export function resolveSelectionLayoutCommand(
+	command: Pick<SceneLayoutCommand, 'id'>,
+	scene: Scene,
+	selectedIds: readonly string[],
+): ResolvedLayoutCommand | null {
+	const selected = scene.widgets.filter((widget) => selectedIds.includes(widget.id));
+	if (command.id === 'group-selection') {
+		if (selected.length < 2) return null;
+		return {
+			type: 'scene.group-widgets',
+			payload: { sceneId: scene.id, widgetInstanceIds: selected.map((widget) => widget.id) },
+		};
+	}
+	if (command.id !== 'ungroup-selection') return null;
+	const groups = new Set(selected.map((widget) => widget.layout.groupId).filter((id) => id !== null));
+	const members = scene.widgets.filter(
+		(widget) => widget.layout.groupId !== null && groups.has(widget.layout.groupId),
+	);
+	if (members.length < 2) return null;
+	return {
+		type: 'scene.group-widgets',
+		payload: {
+			sceneId: scene.id,
+			widgetInstanceIds: members.map((widget) => widget.id),
+			ungroup: true,
+		},
+	};
+}
+
+/**
+ * RC-CAN-3.6 — a dispatch-ready `scene.set-widget-order` for a back-to-front order the GUI computed
+ * (bring forward / send back). `null` when the order is not a permutation of the scene's widgets or
+ * would change nothing, so the GUI never logs a no-op op.
+ */
+export function resolveWidgetOrderCommand(
+	scene: Scene,
+	order: readonly string[],
+): ResolvedLayoutCommand | null {
+	const next = withWidgetOrder(scene, order);
+	if (!next || next.widgets.every((widget, index) => widget === scene.widgets[index])) return null;
+	return {
+		type: 'scene.set-widget-order',
+		payload: { sceneId: scene.id, widgetInstanceIds: [...order] },
+	};
 }
