@@ -70,3 +70,17 @@
   canvas-keyboard, canvas and a11y-axe-gate gave 140 passed.
 - I did not run the full Playwright suite or a production build. `loop/rc` is 6 commits ahead,
   touching docs only, with no overlap with these files.
+
+## Attempt 2 (2026-09-18)
+
+- Gate feedback: `Format (changed)` failed on `packages/core/src/queries/layout-commands.ts` and
+  `packages/core/src/state/scene-state.ts`. Attempt 1 ran `format:check:changed` against
+  `origin/loop/rc` before the new files were committed, so it checked 11 files instead of 20 and
+  missed both.
+- `layout-commands.ts` was already unformatted on the base (`6a745225`): its
+  `resolveLayoutCommandPayload` switch uses one-line `return` statements that Prettier wraps. Because
+  the gate checks whole changed files, the fix reformats those pre-existing lines too. Prettier
+  changed layout only, not logic. `scene-state.ts` needed a single line of my own `withWidgetOrder`
+  wrapped.
+- Validation: `pnpm format:check:changed -- --base loop/rc` checks 20 files and is clean. Core
+  `tsc --noEmit` is clean. The widget-order, layout-accessibility and widget-layout tests pass.

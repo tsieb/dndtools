@@ -207,21 +207,45 @@ export function resolveLayoutCommandPayload(
 
 	switch (command.id) {
 		case 'move-left':
-			return { type: 'scene.move-widget', payload: { ...base, x: Math.max(0, layout.x - step.move), y: layout.y } };
+			return {
+				type: 'scene.move-widget',
+				payload: { ...base, x: Math.max(0, layout.x - step.move), y: layout.y },
+			};
 		case 'move-right':
-			return { type: 'scene.move-widget', payload: { ...base, x: layout.x + step.move, y: layout.y } };
+			return {
+				type: 'scene.move-widget',
+				payload: { ...base, x: layout.x + step.move, y: layout.y },
+			};
 		case 'move-up':
-			return { type: 'scene.move-widget', payload: { ...base, x: layout.x, y: Math.max(0, layout.y - step.move) } };
+			return {
+				type: 'scene.move-widget',
+				payload: { ...base, x: layout.x, y: Math.max(0, layout.y - step.move) },
+			};
 		case 'move-down':
-			return { type: 'scene.move-widget', payload: { ...base, x: layout.x, y: layout.y + step.move } };
+			return {
+				type: 'scene.move-widget',
+				payload: { ...base, x: layout.x, y: layout.y + step.move },
+			};
 		case 'grow-width':
-			return { type: 'scene.resize-widget', payload: { ...base, w: layout.w + step.resize, h: layout.h } };
+			return {
+				type: 'scene.resize-widget',
+				payload: { ...base, w: layout.w + step.resize, h: layout.h },
+			};
 		case 'shrink-width':
-			return { type: 'scene.resize-widget', payload: { ...base, w: Math.max(MIN_WIDGET_EXTENT, layout.w - step.resize), h: layout.h } };
+			return {
+				type: 'scene.resize-widget',
+				payload: { ...base, w: Math.max(MIN_WIDGET_EXTENT, layout.w - step.resize), h: layout.h },
+			};
 		case 'grow-height':
-			return { type: 'scene.resize-widget', payload: { ...base, w: layout.w, h: layout.h + step.resize } };
+			return {
+				type: 'scene.resize-widget',
+				payload: { ...base, w: layout.w, h: layout.h + step.resize },
+			};
 		case 'shrink-height':
-			return { type: 'scene.resize-widget', payload: { ...base, w: layout.w, h: Math.max(MIN_WIDGET_EXTENT, layout.h - step.resize) } };
+			return {
+				type: 'scene.resize-widget',
+				payload: { ...base, w: layout.w, h: Math.max(MIN_WIDGET_EXTENT, layout.h - step.resize) },
+			};
 		case 'layer-forward':
 			return { type: 'scene.layer-widget', payload: { ...base, z: layout.z + 1 } };
 		case 'layer-backward':
@@ -279,7 +303,9 @@ export function resolveSelectionLayoutCommand(
 		};
 	}
 	if (command.id !== 'ungroup-selection') return null;
-	const groups = new Set(selected.map((widget) => widget.layout.groupId).filter((id) => id !== null));
+	const groups = new Set(
+		selected.map((widget) => widget.layout.groupId).filter((id) => id !== null),
+	);
 	const members = scene.widgets.filter(
 		(widget) => widget.layout.groupId !== null && groups.has(widget.layout.groupId),
 	);

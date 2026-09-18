@@ -217,7 +217,9 @@ export function withWidgetOrder(scene: Scene, order: readonly WidgetInstanceId[]
 		const widget = byId.get(id);
 		if (!widget) return null;
 		widgets.push(
-			widget.layout.z === index + 1 ? widget : { ...widget, layout: { ...widget.layout, z: index + 1 } },
+			widget.layout.z === index + 1
+				? widget
+				: { ...widget, layout: { ...widget.layout, z: index + 1 } },
 		);
 	}
 	return { ...scene, widgets };
