@@ -51,7 +51,7 @@ median of seven. Never loosen a budget to make a run pass.
 `.github/workflows/perf.yml` runs in one of two modes. Each paired run still writes its own
 `report-N.md` and `verdict-N.json`, but those are evidence, not the verdict. The job's one binding
 verdict comes from `compare.ts --policy`. It goes to the job summary and `policy.json` in the
-`perf-run` artifact. Apart from the pipeline's own unit tests, which run first, it is the only step that can fail the job.
+`perf-run` artifact. Setup, pipeline tests and artifact upload can also fail independently of the performance verdict.
 
 | Mode           | Runs on                                                                       | Paired runs | Binding verdict, once enforcing                                                    | Advisory only                 |
 | -------------- | ----------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- | ----------------------------- |

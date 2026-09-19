@@ -57,7 +57,7 @@ on:
 # Keyed per event and per PR: a scheduled run never cancels a push run, and one PR never cancels
 # another PR against the same base. Two manual runs of different refs do not cancel each other.
 concurrency:
-  group: perf-${{ github.event_name }}-${{ inputs.ref || github.event.pull_request.number || github.ref }}-${{ inputs.mode || 'auto' }}
+  group: perf-${{ inputs.ref || github.event.pull_request.number || github.ref }}-${{ github.event_name }}-${{ inputs.mode || 'auto' }}
   cancel-in-progress: true
 
 permissions:

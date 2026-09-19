@@ -273,3 +273,41 @@ integration. The five-scheduled-run agreement has to be collected after merge
 with the `--agreement` recipe in PERFORMANCE.md §2.1, and the first baseline has
 to be recorded by a dispatch plus a delivery PR. No push, dispatch, promotion or
 sub-agent was used.
+
+## RC-ENG-1.4 — expanded claim and integration rebase (2026-09-19)
+
+Rebased the previous implementation onto local `loop/rc` at
+`c8a2c291463c39e0f1deeff83cc64027ce3bcf59` without conflicts. The operator
+expanded ownership to include `ci.sh`, this journal and the performance README.
+The prior policy test changes in `tests/perf/perf-pipeline.test.ts` remain outside
+that claim and were restored to the integration version. The concurrency key
+still separates events, PRs, refs and modes, with the ref component first to
+preserve the existing pipeline contract. The aggregate diff now contains exactly
+the seven authorized paths.
+
+Fixed a missing-capture loophole: when a baseline is recorded for the pinned
+reference, no runner capture now fails closed instead of disabling enforcement.
+Documentation also distinguishes setup/test/upload failures from the performance
+policy verdict.
+
+Validation after rebase:
+
+- `pnpm test:tooling`: exit 0, 26 files / 193 tests.
+- `pnpm exec vitest run --config tests/perf/vitest.config.ts`: exit 0,
+  2 files / 14 tests on the final in-scope tree. Before restoring the unowned
+  test changes, the expanded suite also passed 20 tests.
+- `pnpm typecheck`, `pnpm lint`, `pnpm gates`: exit 0. Lint and gates retain
+  existing warnings; there were no blocking errors.
+- Direct assertions exercised missing captures in both states: advisory without
+  a recording, failed with a recording. Both passed.
+- `bash -n scripts/perf/ci.sh`, targeted ESLint, changed-file formatting and
+  `git diff --check`: passed.
+
+Original command logs for tooling, typecheck, lint and gates are retained locally
+under `/tmp/rc-eng-1.4-*.log`. These checks do not establish hosted performance
+agreement. `recorded` remains null: no hosted baseline or timing was fabricated.
+Five scheduled workflow runs on one commit and the baseline delivery PR remain
+pending operator execution after authorized publication, using PERFORMANCE.md
+section 2.1. No push, promotion, workflow dispatch, extra loop, dispatcher-state
+edit or sub-agent was used. Central wrapper gates and independent review remain
+separate from these local results.

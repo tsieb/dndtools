@@ -278,8 +278,13 @@ export function enforcementFor(
 			reason: `The recorded baseline measured reference ${recorded.referenceCommit.slice(0, 8)}, but the pinned reference is now ${config.referenceCommit.slice(0, 8)}; record it again before it can gate.`,
 		};
 	}
+	if (!host) {
+		return {
+			enforcing: true,
+			reason: 'A baseline is recorded, but no capture identifies the runner; failing closed.',
+		};
+	}
 	if (
-		!host ||
 		host.runnerLabel !== recorded.host.runnerLabel ||
 		host.os !== recorded.host.os ||
 		host.cpuCount !== recorded.host.cpuCount
