@@ -106,3 +106,36 @@ change. The stored claim does not cover it, so the fence will report
 Adding that path to RC-DSN-3.1's `owns` (roadmap line 1692, then `tools/roadmap/sync-tasks.py
 --apply`) clears it. The change is additive: the default render is unchanged when `illustration` is
 absent.
+
+## Attempt 2 (2026-09-19): operator-authorized ownership retry
+
+- Starting branch: `dispatch/dndtools/3556721cde8f2b13c92b`; clean working tree at
+  `ff6203e9` (the complete previous implementation). No additional agents were used.
+- The current task explicitly owns `apps/gm-react/src/ds/components/system/EmptyState.jsx`.
+  This supersedes Attempt 1's out-of-fence note above; no dispatcher control state was edited.
+- Reviewed the registry, all 24 drawings, gallery, existing route, component integration and tests.
+  The existing implementation already supplies the acceptance criteria: `#/__illustrations` in
+  development renders each of the 24 keys exactly once through `EmptyState`.
+- Retained the minimal existing `EmptyState.jsx` changes: import the illustration renderer/key
+  guard, accept the `illustration` prop, render known keys instead of the icon badge, and document
+  that behavior. Each is required to expose the requested key prop; absent or unknown keys retain
+  the existing badge. No further component changes were necessary.
+- Preserved all existing implementation and companion-path changes. This retry changes only this
+  run journal, explicitly requested by the task. No push, promotion or loop launch was performed.
+- Dispatch Headroom tools were not available in this session; verification used original native
+  command output, not compressed summaries.
+
+### Fresh verification
+
+- Illustration and i18n unit suites: 2 files, 55 tests passed. The initial command also named an
+  incorrect path for the interaction suite; that suite was therefore run separately below.
+- Existing `ds/components/ds-interaction-fixes.test.tsx`: 1 file, 103 tests passed.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- ESLint on `apps/gm-react/src/ds/illustrations`: exit 0.
+- Prettier check on illustrations and `EmptyState.jsx`: passed.
+- Existing Playwright illustration spec: 2 passed (desktop and mobile Chromium), using the
+  worktree-specific development-server port. Both profiles verified the gallery's 24 unique keys,
+  160px rendered drawing size, and no serious/critical axe violations.
+- `git diff --check`: passed before the journal update; checked again before commit.
+- The operator still owns the full gates and independent review. No claim is made that the
+  dispatcher ownership gate was executed here.
