@@ -15,7 +15,9 @@ the standing decisions the CLD workstream executes.
 [`SCREENS_PARITY.md`](SCREENS_PARITY.md) is the RC-CAN-7.5 inventory of the Command Center, the GM
 screen board and Session as they shipped before the ADR-041 conversion, with the gap register
 RC-WID-5 works through. It is the row-by-row checklist RC-CAN-7.6 and RC-CAN-7.8 are measured
-against.
+against. Its [filed follow-up backlog](SCREENS_PARITY.md#filed-wid-stories)
+records open RC-WID-5.6–5.11 with acceptance criteria; operator registration in the execution
+roadmap remains separate from this documentation filing.
 
 For what is actually built, read [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)
 and run `pnpm feature-audit`, not this folder.

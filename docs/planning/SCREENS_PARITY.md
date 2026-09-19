@@ -1,7 +1,7 @@
 # Screens parity inventory — the three run surfaces before conversion
 
 RC-CAN-7.5. This is the pre-conversion record of what the Command Center (`/`), the GM screen board
-(`/board`) and the Session console (`/session`) do **as they ship today**, so
+(`/board`) and the Session console (`/session`) do **at the capture baseline**, so
 [ADR-041](../adr/041-screens-as-the-run-surface.md)'s conversion can be checked row by row instead of
 by impression. RC-CAN-7.6 and RC-CAN-7.8 tick these rows; RC-WID-5.1–5.4 close the gaps §4 records.
 
@@ -20,10 +20,18 @@ survives conversion unchanged — that is what the acceptance criteria of 7.6 an
 | Tiers          | desktop 1440×900, rail 900×800, phone 390×844 (`useViewport`: ≥1025 / 641–1024 / ≤640)                |
 | Aria snapshots | [`state/RC-CAN-7.5/aria/`](../../state/RC-CAN-7.5/aria) — 27 files                                    |
 | Screenshots    | [`state/RC-CAN-7.5/screens/`](../../state/RC-CAN-7.5/screens) — 41 lossless WebP                      |
-| Run journal    | [`state/RC-CAN-7.5.journal.md`](../../state/RC-CAN-7.5.journal.md)                                    |
+| Run journal    | [`state/RC-CAN-7.5/RUN_JOURNAL.md`](../../state/RC-CAN-7.5/RUN_JOURNAL.md)                            |
 
-Reproduce the capture with the harness described in the run journal; the harness spec itself is
-deliberately not committed, because it drives the bespoke surfaces this epic deletes.
+The original capture harness was not retained; the historical journal describes its setup but
+is not an executable reproduction recipe. The committed captures remain the frozen baseline.
+The [control crosswalk](../../state/RC-CAN-7.5/control-coverage.json) assigns every interactive
+ARIA node (including options and disabled controls) to a matrix row, with exact file/line locations
+and capture hashes. From the repository root, run
+`python3 state/RC-CAN-7.5/verify-evidence.py` to check coverage and the 27 route/theme/tier files.
+This checks recorded evidence, not a fresh browser run or semantic correctness of a mapping.
+
+Source and evidence were rechecked on 2026-09-19 at `8e893374` (the prior inventory candidate).
+The screenshots below retain their original capture date; no new live capture is claimed.
 
 ### What an aria snapshot here covers
 
@@ -41,12 +49,12 @@ is owned by RC-CAN-7.4, RC-UX-4.2/4.3 and RC-POL-1.23, not by this conversion. T
 
 ### Reading the parity target column
 
-| Target       | Meaning                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------ |
-| **builtin**  | A widget body already exists in `app/widgets/builtin/` and the row is a re-parent, not a rebuild.      |
-| **template** | The row can be expressed by a widget `template` definition — today's eight kinds, or one WID-5.3 adds. |
-| **gap→X**    | No public surface can express the row; story X closes it. Every gap is registered in §4.               |
-| **shell**    | Not a widget: the row belongs to the screen chrome or the app shell, and another story owns it.        |
+| Target       | Meaning                                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| **builtin**  | A related body exists in `app/widgets/builtin/`; inspect its scope before reuse. It is not proof of full Session parity. |
+| **template** | The row can be expressed by a widget `template` definition — today's eight kinds, or one WID-5.3 adds.                   |
+| **gap→X**    | No public surface can express the row; story X closes it. Every gap is registered in §4.                                 |
+| **shell**    | Not a widget: the row belongs to the screen chrome or the app shell, and another story owns it.                          |
 
 Today's public surface, for reference: eight template kinds (`data-table`, `status-list`, `tracker`,
 `action-panel`, `scene-message`, `chart`, `stat-block`, `form-panel`), eight query sources
@@ -177,7 +185,7 @@ column of eleven panels on the right. Evidence: `aria-session-{desktop,rail,phon
 
 The whole screen has four gate axes that every row is a function of: **workflow**
 (`idle`/`prep`/`active`/`recap`), **isDm**, **previewing**, and the per-panel emptiness of its read.
-Disabled controls carry the reason inside the accessible name — "Build encounter (unavailable — go
+Some disabled controls carry the reason inside the accessible name — "Build encounter (unavailable — go
 live first)" off-session, "(unavailable — exit player preview first)" while previewing. That pattern
 is load-bearing and has no public equivalent today (G-07).
 
@@ -186,13 +194,19 @@ is load-bearing and has no public equivalent today (G-07).
 | ID    | Element            | Behaviour                                                                                                                                                                                                                                                                                                          | States                                                                                                                                                         | Keyboard / heading                       | Tier       | Parity target                    |
 | ----- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------- | -------------------------------- |
 | SE-01 | Session eyebrow    | "Live session" + the active scene name, or "No active scene".                                                                                                                                                                                                                                                      | 4 workflows × scene present/absent.                                                                                                                            | Plain text, no heading.                  | Unchanged. | template (hero) → WID-5.3 + 5.2  |
-| SE-02 | Phase control      | `radiogroup "Session phase"` with Standby / Prep / Live / Recap. Selection-follows-focus. Illegal transitions are **disabled**, not merely rejected: from Live, `Prep` is disabled; from Recap, `Live` is disabled. Choosing `Live` opens SE-30 rather than dispatching; choosing `Standby` from Live opens SE-32. | Every legal pairing of `allowedTransitionsFrom`. All four options disabled while previewing.                                                                   | Radio group; arrow keys move and select. | Unchanged. | gap→G-05 + gap→G-06              |
+| SE-02 | Phase control      | `radiogroup "Session phase"` with Standby / Prep / Live / Recap. Selection-follows-focus. Illegal transitions are **disabled**, not merely rejected: from Live, `Prep` is disabled; from Recap, `Live` is disabled. Choosing `Live` opens SE-30 rather than dispatching; choosing `Standby` from Live opens SE-32. | Every legal pairing of `allowedTransitionsFrom`. All four options disabled while previewing.                                                                   | Radio group; arrow keys move and select. | Unchanged. | gap→G-05 + gap→G-07              |
 | SE-03 | Standby card       | Shown whenever not live: a phase name, "Session is in \<phase\>", the hint "Go live to open combat, dice, handouts, and what players see.", and a `Go live` button.                                                                                                                                                | Standby / Prep (button enabled) / Recap (button **disabled**, hint replaced by "Return to Standby first — you cannot go live from Recap."). Absent while live. | Button.                                  | Unchanged. | template (hero/action) → WID-5.3 |
 | SE-04 | `Call a rest`      | Live only. Opens SE-31.                                                                                                                                                                                                                                                                                            | Present live; absent otherwise; suppressed while previewing.                                                                                                   | Button.                                  | Unchanged. | gap→G-05                         |
 | SE-05 | `End session`      | Live only. Opens SE-32.                                                                                                                                                                                                                                                                                            | As SE-04.                                                                                                                                                      | Button.                                  | Unchanged. | gap→G-05                         |
 | SE-06 | "Players see" line | Live only: "Players see **\<scene\>**".                                                                                                                                                                                                                                                                            | Live only.                                                                                                                                                     | Plain text with a `<strong>`.            | Unchanged. | template (hero) → WID-5.3 + 5.2  |
 
 ### 3.2 Combat
+
+The existing `CombatBody` is a compact readout, not the full Session tracker. Its name in the target
+column identifies reusable reads only: the controls in SE-07–SE-14 still require the templates,
+commands, dialogs, announcements and keyboard capabilities assigned in §4. Likewise `DiceBody`
+and `AudioBody` are board bodies, not proof of parity with the full Session panels. Conversion
+must check every behaviour listed here and pass WID-5.5; retaining a builtin name is insufficient.
 
 | ID    | Element                  | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | States                                                                                               | Keyboard / heading                                                                                                                                                                                                                         | Tier                                                                                         | Parity target                   |
 | ----- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------- |
@@ -207,29 +221,39 @@ is load-bearing and has no public equivalent today (G-07).
 
 ### 3.3 The right-hand column
 
-| ID    | Panel (`<h2>`)         | Behaviour                                                                                                                                                                                                                                                             | States                                                                                                                                                                                                                                                                                                                       | Parity target                                           |
-| ----- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| SE-15 | Dice                   | Five quick-roll buttons (`1d20`, `1d20+5`, `2d6+3`, `1d8+2`, `4d6`), a `Dice expression` textbox (default `1d20+7`), a `Roll label` textbox, `Roll`, a `role="status"`, and the session roll history.                                                                 | All controls disabled off-session with the banner "Dice rolls record to the live session — go live to roll."; enabled live; disabled while previewing.                                                                                                                                                                       | builtin (`DiceBody`) + gap→G-07, CAN-7.8                |
-| SE-16 | Rollable tables        | One row per dice-table vault object with a roll action, a pin action (`session.pin-quick-reference`) and an unpin; draws are recorded to the dice log.                                                                                                                | **Empty in the demo seed**: `<h3>` "No rollable tables yet." + "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here." Populated state inventoried from source only.                                                                                                 | template (`data-table` + action) → WID-5.2/5.3          |
-| SE-17 | Handouts               | A `Handout title` textbox, a "What the players read" textbox, `Push to players`, and the delivered list with revoke and acknowledge.                                                                                                                                  | Off-session banner "Handouts deliver to the live session — go live to push to players."; `Push to players` gated on DM **and** live only — the no-players and no-scene cases are reported as toasts, not as a disabled button. Player preview shows a different sentence: "Handouts the DM has shared with you appear here." | template (`form-panel`) → WID-5.3 + 5.2                 |
-| SE-18 | Now playing            | Track label, pause/resume/stop and a volume control over `session.audio.*`.                                                                                                                                                                                           | "Nothing playing. Start ambience from the Audio library." as seeded.                                                                                                                                                                                                                                                         | builtin (`AudioBody`)                                   |
-| SE-19 | Stage                  | An `Active map` combobox over the actor's maps (`— none —` + three), `Project to players`, then a **per-player projection row**: one `Scene projected to <player>` combobox per registered player and observer, each listing every scene.                             | Comboboxes disabled off-session; `Project to players` disabled off-session; the no-players case is a toast. Four participants in the seed.                                                                                                                                                                                   | template (`form-panel`) → WID-5.3 + 5.2                 |
-| SE-20 | Campaign date          | The current date or "No date set", the calendar's name and the note "drives the Campaign timeline", a `+1 day` button, Month combobox / Day and Year spinbuttons, `Set date`, and `Edit calendar`.                                                                    | DM only (absent in player preview). `+1 day` disabled with no date set.                                                                                                                                                                                                                                                      | template (`form-panel`) → WID-5.3 + 5.2                 |
-| SE-21 | Prep & recap           | A continuity digest ("Carry into the session", "N recent changes to review", and while combat runs "Combat is running (round N); review before resuming.") and the session-archive list. In Recap it additionally offers a `Session recap` textarea and `Save recap`. | DM only, marked with a "DM only" image badge. Archives empty as seeded ("No archived sessions yet. Ending a live session into Recap creates one here."). Recap heading text changes from "Carry into the session" to "What happened".                                                                                        | template (`status-list` + `form-panel`) → WID-5.3 + 5.2 |
-| SE-22 | End-of-session capture | A `Session log title` textbox, `What happened` textarea, a **`What changed` checkbox group over 14 vault items**, a `Follow-ups` textarea, and `Save session log`. Writes a recap **and** a `session-log` note, the note only after the recap is accepted.            | DM only. Inert until an archive exists ("No archived sessions yet. …creates one to capture."). Save disabled until valid. Placeholder text carries the archive's timestamp.                                                                                                                                                  | gap→G-06 (multi-select over a query source)             |
-| SE-23 | Table roster           | Live P2P peers and core presence, projected for this viewer.                                                                                                                                                                                                          | "No live table yet. Use **Host** in the top bar to open your table — players appear here as they connect."                                                                                                                                                                                                                   | template (`status-list`) → WID-5.2/5.3                  |
-| SE-24 | Party                  | One row per PC with current/max HP.                                                                                                                                                                                                                                   | Three PCs as seeded; "No player characters yet." in player preview, because the read is actor-filtered.                                                                                                                                                                                                                      | template (`status-list`) → WID-5.2/5.3                  |
-| SE-25 | Rests this session     | `<h2>` "Rests this session" + "Every rest the party has taken, newest first." and one `<li>` per rest (time, character, "Long rest"/"Short rest").                                                                                                                    | **The whole panel is absent when the rest log is empty** — it does not render an empty state. Confirmed by `aria-session-desktop-rest-timeline.yaml` against the pre-rest snapshot.                                                                                                                                          | template (`status-list`) → WID-5.2/5.3                  |
-| SE-26 | Schedule next session  | Google Calendar scheduling.                                                                                                                                                                                                                                           | DM only. Unconfigured in this install: "Google Calendar scheduling isn't set up for this install. A one-time Google Cloud setup enables it — see the guide at docs/runbooks/google-oauth-setup.md." The configured state was not captured.                                                                                   | builtin — keep, pass the WID-5.5 gate                   |
+For every row in this table: the panel title is an `h2`; controls use normal DOM Tab order,
+buttons activate with Enter/Space, text inputs support normal editing, selects and spinbuttons
+retain native keyboard behaviour, and capture checkboxes toggle with Space. No panel-specific
+bare-key shortcuts are declared. Dice additionally submits on Enter (SE-15). These are source
+contracts, not a new keyboard test. All tiers retain these controls; phone stacks the columns
+(§3.5). DM-only panels are absent for participants; actor-filtered reads and preview write refusal
+apply to every remaining panel. The empty/live cases are listed per row. No separate per-panel
+loading frame was captured; the route loading boundary applies (§5).
+
+| ID    | Panel (`<h2>`)         | Behaviour                                                                                                                                                                                                                                                                                                                                                              | States                                                                                                                                                                                                                                                                                                                                                                                                | Parity target                                           |
+| ----- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| SE-15 | Dice                   | Five quick-roll buttons (`1d20`, `1d20+5`, `2d6+3`, `1d8+2`, `4d6`), a `Dice expression` textbox (default `1d20+7`), a `Roll label` textbox, `Roll`, a `role="status"`, and the session roll history. Source-only populated controls: Export roll log copies visible rolls; each roll with dice terms has an expandable breakdown button (Enter/Space, aria-expanded). | Roll actions disabled off-session with the banner "Dice rolls record to the live session — go live to roll."; enabled live; disabled while previewing. The two textboxes remain editable in both states; Enter submits only when live, not previewing, and the expression is nonempty.                                                                                                                | builtin (`DiceBody`) + gap→G-07, CAN-7.8                |
+| SE-16 | Rollable tables        | One row per dice-table vault object with a roll action, a pin action (`session.pin-quick-reference`) and an unpin; draws are recorded to the dice log.                                                                                                                                                                                                                 | **Empty in the demo seed**: `<h3>` "No rollable tables yet." + "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here." Populated state inventoried from source only.                                                                                                                                                                          | template (`data-table` + action) → WID-5.2/5.3          |
+| SE-17 | Handouts               | A `Handout title` textbox, a "What the players read" textbox, `Push to players`, and the delivered list with revoke and acknowledge.                                                                                                                                                                                                                                   | Off-session banner "Handouts deliver to the live session — go live to push to players."; `Push to players` gated on DM **and** live only — the no-players and no-scene cases are reported as toasts, not as a disabled button. Player preview shows a different sentence: "Handouts the DM has shared with you appear here."                                                                          | template (`form-panel`) → WID-5.3 + 5.2                 |
+| SE-18 | Now playing            | Track label, pause/resume/stop and a volume control over `session.audio.*`.                                                                                                                                                                                                                                                                                            | "Nothing playing. Start ambience from the Audio library." as seeded.                                                                                                                                                                                                                                                                                                                                  | builtin (`AudioBody`)                                   |
+| SE-19 | Stage                  | An `Active map` combobox over the actor's maps (`— none —` + three), `Project to players`, then a **per-player projection row**: one `Scene projected to <player>` combobox per registered player and observer, each listing every scene.                                                                                                                              | DM only. Active map remains editable off-session (disabled only in preview); per-player selectors are disabled off-session or in preview. Project requires live, no preview and an active map; no players produces a toast. Four participants in the seed. Source-only map preview is read-only, 200px high, absent without a map and shows a gone/unavailable message when the actor cannot read it. | template (`form-panel`) → WID-5.3 + 5.2                 |
+| SE-20 | Campaign date          | The current date or "No date set", the calendar's name and the note "drives the Campaign timeline", a `+1 day` button, Month combobox / Day and Year spinbuttons, `Set date`, and `Edit calendar`.                                                                                                                                                                     | DM only (absent in player preview). `+1 day` disabled with no date set.                                                                                                                                                                                                                                                                                                                               | template (`form-panel`) → WID-5.3 + 5.2                 |
+| SE-21 | Prep & recap           | A continuity digest ("Carry into the session", "N recent changes to review", and while combat runs "Combat is running (round N); review before resuming.") and the session-archive list. In Recap it additionally offers a `Session recap` textarea and `Save recap`.                                                                                                  | DM only, marked with a "DM only" image badge. Archives empty in Standby; the captured Recap contains one archive and the editor with Save disabled until valid. Recap heading text changes from "Carry into the session" to "What happened".                                                                                                                                                          | template (`status-list` + `form-panel`) → WID-5.3 + 5.2 |
+| SE-22 | End-of-session capture | A `Session log title` textbox, `What happened` textarea, a **`What changed` checkbox group over 14 vault items**, a `Follow-ups` textarea, and `Save session log`. Writes a recap **and** a `session-log` note, the note only after the recap is accepted.                                                                                                             | DM only. Inert until an archive exists ("No archived sessions yet. …creates one to capture."). Save disabled until valid. Placeholder text carries the archive's timestamp.                                                                                                                                                                                                                           | gap→G-06 (multi-select over a query source)             |
+| SE-23 | Table roster           | Live P2P peers and core presence, projected for this viewer.                                                                                                                                                                                                                                                                                                           | "No live table yet. Use **Host** in the top bar to open your table — players appear here as they connect."                                                                                                                                                                                                                                                                                            | template (`status-list`) → WID-5.2/5.3                  |
+| SE-24 | Party                  | One row per PC with current/max HP.                                                                                                                                                                                                                                                                                                                                    | Three PCs as seeded; "No player characters yet." in player preview, because the read is actor-filtered.                                                                                                                                                                                                                                                                                               | template (`status-list`) → WID-5.2/5.3                  |
+| SE-25 | Rests this session     | `<h2>` "Rests this session" + "Every rest the party has taken, newest first." and one `<li>` per rest (time, character, "Long rest"/"Short rest").                                                                                                                                                                                                                     | **The whole panel is absent when the rest log is empty** — it does not render an empty state. Confirmed by `aria-session-desktop-rest-timeline.yaml` against the pre-rest snapshot.                                                                                                                                                                                                                   | template (`status-list`) → WID-5.2/5.3                  |
+| SE-26 | Schedule next session  | Google Calendar scheduling. Source-only configured controls: local date/time input, duration select (2/3/4 hours), reminder select (1 hour/1 day/default), optional note, create button, and an external event link after success. Create is disabled without a start or while busy; sign-in cancellation returns without creating; failures produce a toast.          | DM only. Unconfigured in this install: "Google Calendar scheduling isn't set up for this install. A one-time Google Cloud setup enables it — see the guide at docs/runbooks/google-oauth-setup.md." The configured state was not captured.                                                                                                                                                            | gap→G-10 (calendar host integration)                    |
 
 ### 3.4 Dialogs
 
-| ID    | Dialog                | Behaviour                                                                                                                                                                                                                                    | Parity target |
-| ----- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| SE-30 | Start a session       | Raised by `Go live` / choosing `Live`. Asks which scene to run and lets a new session be named; an unnamed start clears any name left on the slice. Refuses to open when there is no startable scene, warning instead.                       | gap→G-05      |
-| SE-31 | Call a rest           | `radiogroup "Rest"` (Short rest / Long rest), "Applies to N player characters.", `Cancel` / `Call the rest`. Confirm is disabled at party size 0. Dispatches one `character.rest` per PC and reports only the ones the core accepted.        | gap→G-05      |
-| SE-32 | End the live session? | "Ending into Recap archives this session … Ending without a record clears all of it and archives nothing." Three actions: `Stay live`, `End session`, `End and review`. `End and review` is offered only when `recap` is a legal transition. | gap→G-05      |
-| SE-33 | End combat            | A danger confirm for `combat.end`, which discards the round, order, HP and conditions with no core restore. Not captured in an aria snapshot.                                                                                                | gap→G-05      |
+| ID    | Dialog                | Behaviour                                                                                                                                                                                                                                    | Parity target                                      |
+| ----- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| SE-30 | Start a session       | Raised by `Go live` / choosing `Live`. Asks which scene to run and lets a new session be named; an unnamed start clears any name left on the slice. Refuses to open when there is no startable scene, warning instead.                       | gap→G-05                                           |
+| SE-31 | Call a rest           | `radiogroup "Rest"` (Short rest / Long rest), "Applies to N player characters.", `Cancel` / `Call the rest`. Confirm is disabled at party size 0. Dispatches one `character.rest` per PC and reports only the ones the core accepted.        | gap→G-05                                           |
+| SE-32 | End the live session? | "Ending into Recap archives this session … Ending without a record clears all of it and archives nothing." Three actions: `Stay live`, `End session`, `End and review`. `End and review` is offered only when `recap` is a legal transition. | gap→G-05                                           |
+| SE-33 | End combat            | A danger confirm for `combat.end`, which discards the round, order, HP and conditions with no core restore. Not captured in an aria snapshot.                                                                                                | gap→G-05                                           |
+| SE-34 | Outcome toast         | The captured end-session dialog also contains the earlier “Rest called for 3 characters” status and its `Dismiss` button. Dismiss removes the toast; it does not undo the command.                                                           | shell (shared Toaster); keep alongside SE-31/SE-32 |
 
 ### 3.5 Heading and tier structure at `/session`
 
@@ -256,7 +280,7 @@ against `aria-session-phone-live-combat.yaml`. Unlike `/board`, nothing is dropp
 ## 4. Gap register
 
 Every row above whose parity target is not `builtin`, `template` or `shell` lands here. `G-01`–`G-04`
-are covered by an existing story; `G-05`–`G-09` are not, and §4.2 proposes stories for them.
+are assigned to existing roadmap stories; `G-05`–`G-10` are assigned to the new stories filed in §4.2.
 
 ### 4.1 Gaps covered by RC-WID-5.1–5.4
 
@@ -267,12 +291,26 @@ are covered by an existing story; `G-05`–`G-09` are not, and §4.2 proposes st
 | G-03 | **Hub template kinds and bare presentation.** No hero, card grid, launcher or link-list renderer, and no way for a widget instance to hide its frame chrome in view mode so it reads as page content.                                                                                                                                                                                                                                                                  | CC-01–CC-05, CC-07, CC-09–CC-15, SE-01, SE-03, SE-06, SE-16–SE-21, SE-23–SE-25                                        | WID-5.3 | M    |
 | G-04 | **The design-system kit inside the sandbox.** A custom-html-js widget cannot reach the first-party look without copying it. Not required by any row above, but it is what makes a GM-authored replacement of one of these rows look like the original.                                                                                                                                                                                                                 | (none directly)                                                                                                       | WID-5.4 | M    |
 
-### 4.2 Gaps with no story yet — proposed
+<a id="filed-wid-stories"></a>
 
-These five are the reason CAN-7.6's precondition is not yet met. **They are proposed here, not
-filed:** `docs/planning/RC_ROADMAP.md` is outside this story's `Owns:`, so inserting them into §6
-(Workstream WID) and the §23 story index, and re-running `tools/roadmap/sync-tasks.py`, is an owner
-step. The text below is written in the roadmap's story format so filing is a copy.
+### 4.2 Filed follow-up stories — RC-WID-5.6–5.11
+
+**Filed 2026-09-19 · status: open · owner: WID.** This section is the local follow-up story
+backlog linked from the planning index. Each entry has an ID, size, priority, dependencies, owned
+paths and acceptance criteria. These are filed work items, not implemented capabilities.
+The roadmap and dispatcher have not been changed: scheduler registration is an operator handoff,
+not evidence of delivery. CAN-7.6 must consult this register before conversion and preserve these
+behaviours until the corresponding public capability is available. Do not interpret filing as
+permission to remove an unsupported control.
+
+| Gap  | Missing capability                                    | Rows                                                         | Filed story | Size |
+| ---- | ----------------------------------------------------- | ------------------------------------------------------------ | ----------- | ---- |
+| G-05 | Widget-owned dialogs and confirmations                | SE-02, SE-04, SE-05, SE-12–SE-14, SE-30–SE-33                | RC-WID-5.6  | M    |
+| G-06 | Multi-select over actor-scoped queries                | SE-14, SE-22                                                 | RC-WID-5.9  | S    |
+| G-07 | Declarative workflow gates, reasons and announcements | BD-10, BD-21–BD-23, SE-02, SE-07, SE-09, SE-15, SE-17, SE-19 | RC-WID-5.7  | M    |
+| G-08 | Host-arbitrated keyboard model                        | SE-10–SE-12                                                  | RC-WID-5.8  | M    |
+| G-09 | Headings retained in bare presentation                | CC-14, CC-15, BD-11, SE-07–SE-26                             | RC-WID-5.10 | S    |
+| G-10 | Host-mediated calendar scheduling                     | SE-26                                                        | RC-WID-5.11 | M    |
 
 - **RC-WID-5.6 — Widget-owned dialogs and confirmations.** `M` · P2 · Deps: 5.1 · Owns:
   `packages/core/src/state/widget-package-state.ts`, `packages/core/src/schemas/widget-package.ts`,
@@ -293,12 +331,14 @@ step. The text below is written in the roadmap's story format so filing is a cop
   Owns: `packages/core/src/state/widget-package-state.ts`,
   `packages/core/src/schemas/widget-package.ts`, `apps/gm-react/src/app/widgets/templates`,
   `apps/gm-react/src/app/widgetBuilder/CommandsStep.tsx`, `docs/architecture/WIDGETS.md`. Both run
-  surfaces gate controls on session workflow, DM-ness and preview, and **every** gated control
-  carries the reason inside its accessible name ("Roll d20 — Go live in Session first — this reaches
+  surfaces gate controls on session workflow, DM-ness and preview, and some gated controls
+  carry the reason inside their accessible name ("Roll d20 — Go live in Session first — this reaches
   the table only during play.", "Build encounter (unavailable — exit player preview first)"). They
   also announce durable outcomes through `role="status"` regions the panel owns — the combat turn
-  announcement, the reorder announcement, the board's status and alert regions. A template widget
-  can declare neither. Add a gate expression over the session-state and actor query sources, with a
+  announcement, the reorder announcement, the board's status and alert regions. The form template already gates manager commands and missing edit callbacks; it cannot
+  declare arbitrary workflow predicates or its own outcome announcement. Simple
+  `requiresConfirmation` metadata already exists on output declarations; G-05 concerns composed
+  choice dialogs, not the absence of all confirmation metadata. Add a gate expression over the session-state and actor query sources, with a
   required reason string per gate, and a declared polite live region a command descriptor can write.
   Acceptance: a gated builder-made control is disabled with its reason in the accessible name at
   every tier; the gate is re-evaluated on a workflow change without a remount; an axe run finds no
@@ -338,6 +378,21 @@ step. The text below is written in the roadmap's story format so filing is a cop
   labelled region and a heading at its declared level; a screen whose widgets would skip a level
   fails a test; the Session screen's heading order after CAN-7.8 matches §3.5 of this document.
 
+- **RC-WID-5.11 — Public calendar scheduling action.** `M` · P2 · Deps: 5.1, 5.2 · Owns:
+  `apps/gm-react/src/app/widgets/hostBridge.ts`,
+  `packages/core/src/state/widget-package-state.ts`,
+  `packages/core/src/schemas/widget-package.ts`,
+  `apps/gm-react/src/app/widgets/templates/FormPanel.tsx`,
+  `apps/gm-react/src/cloud/googleCalendar.ts`, `docs/architecture/WIDGETS.md`.
+  SE-26 calls a host calendar integration directly; there is no Schedule builtin in the registry,
+  and `SessionBody` is only a status strip. Expose a host-mediated schedule action and connection
+  status usable by a builder-made form. Keep OAuth credentials outside widget data; submit only
+  the date/time, duration, reminder, approved attendee metadata and the explicitly entered note.
+  Acceptance: an exported/imported builder form can invoke the host action; unconfigured, signed-out,
+  cancelled, busy, failed and successful states match SchedulePanel; non-DM/preview calls are
+  refused; tests mock the provider and assert no vault content or credential crosses the bridge.
+  A real provider event remains a separately authorized integration check.
+
 ### 4.3 Defects observed while capturing
 
 Not gaps in the widget surface — existing behaviour this conversion should fix or at least not
@@ -363,10 +418,11 @@ Stated plainly so CAN-7.6 and CAN-7.8 do not mistake silence for coverage.
   the harness could not hold a loading frame deterministically; the board's own
   "Setting up your GM Screen…" state and the lazy route-chunk boundary are inventoried from source
   only. RC-DSN-3.4 owns the skeleton and progress states these should adopt.
-- **Populated states for four panels.** Rollable tables (SE-16), session archives and the recap
-  editor with real archives (SE-21), the capture form against an existing archive (SE-22), and a
-  configured Google Calendar (SE-26) are all empty in the demo seed and are described from source.
-- **Three dialogs and two sheets.** End combat (SE-33), the condition picker (SE-13) and the HP
+- **Uncaptured populated states.** Rollable tables (SE-16), delivered handouts (SE-17),
+  playing audio (SE-18), a staged map (SE-19), and configured Google Calendar (SE-26) are described
+  from source only. Recap does contain an archive, its recap editor (SE-21), and the capture form
+  with 14 checkboxes (SE-22); no successful save is proven by these snapshots.
+- **Uncaptured dialogs and sheets.** Start a session (SE-30), end combat (SE-33), the condition picker (SE-13) and the HP
   keypad sheet (SE-12) have no aria snapshot here.
 - **The board's layout-quality indicator** (BD-09) never renders on the seeded layout.
 - **The player and observer variants of `/board` and `/session`** were captured through the DM's
@@ -383,7 +439,27 @@ Stated plainly so CAN-7.6 and CAN-7.8 do not mistake silence for coverage.
   transitions; it was not captured.
 - **Performance.** No `scene-first-render` measurement was taken here. CAN-7.6 carries that budget.
 
-## 6. Related
+## 6. Source and test references
+
+Inspected locally on 2026-09-19; tests below were read, not rerun for a product change:
+
+- [Command Center](../../apps/gm-react/src/screens/CommandCenter.tsx),
+  [Board](../../apps/gm-react/src/screens/Board.tsx),
+  [seeded tile list](../../packages/core/src/state/command-center-state.ts).
+- [Session composition](../../apps/gm-react/src/screens/session/index.tsx),
+  [calendar panel](../../apps/gm-react/src/screens/session/Schedule.tsx),
+  [builtin registry](../../apps/gm-react/src/app/widgets/builtin/index.tsx),
+  [dice gates and keyboard submit](../../apps/gm-react/src/screens/session/DiceTray.tsx),
+  [stage selector and preview](../../apps/gm-react/src/screens/session/ActiveMap.tsx).
+- [Widget descriptor types](../../packages/core/src/state/widget-package-state.ts),
+  [schema](../../packages/core/src/schemas/widget-package.ts),
+  [form renderer](../../apps/gm-react/src/app/widgets/templates/FormPanel.tsx).
+- [Lifecycle spec](../../apps/gm-react/tests/e2e/session-lifecycle.spec.ts),
+  [capture spec](../../apps/gm-react/tests/e2e/session-capture.spec.ts).
+  These specify state arrangement and durable command outcomes; the ARIA evidence alone proves
+  neither successful saves nor a real participant device.
+
+## 7. Related
 
 - [ADR-041 — Screens as the run surface](../adr/041-screens-as-the-run-surface.md)
 - [`RC_ROADMAP.md`](RC_ROADMAP.md) §1.6 D1, §6 Workstream WID, §7 Workstream CAN
