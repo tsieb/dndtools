@@ -491,3 +491,33 @@ apps/gm-react/src/screens/sceneEditor/playerPreview.test.ts`: 7 files / 111 test
   are committed in the rebased implementation; this follow-up commits the reconciliation
   evidence. All changes relative to the requested base remain within the owned paths plus
   this journal. Central gates and independent review remain with the operator.
+
+## Central browser-gate diagnosis — 2026-09-19
+
+- Resumed at `f5f94291` with a clean working tree. Read the original browser output
+  from attempt `7663c759-7d37-4955-a263-caa0aba22438`, including each failure and
+  retry. Central result: 1,203 passed, 11 skipped, 4 failed (18.1m). No callable
+  dispatch Headroom tools or applicable AGENTS.md were available.
+- The failures include the three unowned-test conflicts recorded above and one more:
+  `canvas-arrange.spec.ts:40` waits for `scene-board-bounded` on a fresh phone before
+  entering layout editing. All retries encounter the default stacked surface. The
+  task's supplied owned-path list still excludes this spec, `a11y-axe-gate.spec.ts`
+  and `scene-templates.spec.ts`; no safe product correction resolves their obsolete
+  assumptions while preserving the required default panels.
+- Extended the unapplied proposal to
+  `/tmp/rc-can-5.1-rebase-probes/complete-test-owner.patch`: the keyboard-arrange test
+  also calls `preferPhoneCanvas` before navigation. The earlier two focused canvas
+  accessibility-test changes and template persistence selector change are retained.
+  Ordinary axe scans and responsive tests still exercise default panels.
+- `git apply --check` passed. External copies of all four failing tests, both profiles,
+  passed: 8 tests (13.2s), exit 0. Command:
+  `DNDTOOLS_E2E_PORT=15753 pnpm --filter @dndtools/gm-react exec playwright test
+--config=/tmp/rc-can-5.1-rebase-probes/playwright.config.ts owner-
+--grep 'a11y tree: /board|a11y tree: scene editor|applies a built-in template|keyboard-only multi-select'
+--workers=2`. Exact output:
+  `/tmp/rc-can-5.1-rebase-probes/complete-owner-validation.log`.
+- Requested explicit ownership expansion for these three files before applying the
+  concrete validated patch. This commit records the complete gate diagnosis; product
+  code and repository tests remain unchanged, and the central browser gate remains
+  blocked pending that expansion or application by the test owners. No agents,
+  dispatcher control changes, push or promotion.
