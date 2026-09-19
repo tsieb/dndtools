@@ -303,3 +303,26 @@ fixed box trapped by a transformed clip`. Mutation checks: removing the fixed ru
   resolved, but browser acceptance is still red pending the already-requested ownership expansion.
 - Verified the exact requested integration SHA is an ancestor of HEAD and the diff contains only
   owned files plus this required journal. Committing this evidence on the current task branch.
+
+## Central browser-gate blocker confirmed (2026-09-19)
+
+- Read the original central Browser acceptance output for exact candidate
+  `3415796ea0848c304ed04e0b55d0662ebf943b96` at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/c44d5325-c4db-4f7f-aeef-7b8fae4111b8/output.log`.
+  Headroom tools remain unavailable in this session.
+- Manifest command `pnpm e2e --workers=2 --retries=2`: **1,271 passed, 11 skipped, 2 failed**,
+  22.6m. The only failures are desktop/mobile golden live-session journeys, on all three attempts.
+  Every diagnostic names `Move Golden foe earlier in initiative` or `Move Golden foe later in
+initiative` as disabled without reason, at rounds 1–3 and the projection checkpoint.
+- Rechecked the source: CombatTracker.tsx supplies action-only IconButton labels and marks the
+  initiative boundary controls `aria-disabled`; no explicit boundary explanation is provided.
+  The current operator request still excludes that file from Owned paths. The necessary narrow
+  repair is explicit first/last-in-initiative explanations, with the preview reason taking
+  precedence. It must be authorized in CombatTracker.tsx (and localization resources if new
+  translated messages are required), or supplied by an independently owned integration change.
+- No new in-scope defect appears in this gate. No assertion suppression, altered journey coverage,
+  indirect DOM patch, retry increase or unowned source edit is justified. No additional browser
+  rerun: the unchanged failure has already reproduced in the central gate on both profiles.
+- Acceptance remains blocked on the same unresolved ownership constraint. This journal-only commit
+  records the actual central evidence; it does not claim implementation or browser acceptance is
+  complete. No push, promotion, agents, loop launch or dispatcher-state edits.
