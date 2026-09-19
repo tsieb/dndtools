@@ -19,3 +19,12 @@ export const PHONE_PANEL_OVERLAY: React.CSSProperties = {
 	width: 'min(300px, 100%)',
 	maxWidth: '100%',
 };
+
+/**
+ * RC-WID-4.3 — one audience's resolver verdict on a widget's binding, as the Binding inspector shows
+ * it: the six states of Architecture Contract 4 (`WIDGETS.md` §2). `reason` is present on `hidden`
+ * only, and only the DM's own inspector ever reads it — the resolver never tells a player why.
+ */
+export type BindingResolverState =
+	| { state: 'available' | 'unbound' | 'missing' | 'conflicted' | 'degraded' }
+	| { state: 'hidden'; reason: 'dm-only' | 'not-shared' | 'field-hidden' };

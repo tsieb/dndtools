@@ -4374,6 +4374,41 @@ export const en = {
 	'sceneEditor.preview.reason.sceneNotShared': 'Hidden — this scene isn’t shared with {label}.',
 	'sceneEditor.preview.reason.outsideSections':
 		'Hidden — it sits outside the sections {label} can see.',
+	/* Scene editor › Inspector › Binding (RC-WID-4.3) */
+	'sceneEditor.binding.title': 'Binding',
+	'sceneEditor.binding.none': 'Not bound to anything yet.',
+	'sceneEditor.binding.boundTo': 'Shows {name}',
+	'sceneEditor.binding.boundToGone': 'Shows something that no longer exists.',
+	'sceneEditor.binding.unbind': 'Unbind',
+	'sceneEditor.binding.states': 'Who gets the bound content',
+	'sceneEditor.binding.forYou': 'You',
+	'sceneEditor.binding.forPlayers': 'Players',
+	'sceneEditor.binding.state.available': 'Available',
+	'sceneEditor.binding.state.unbound': 'Unbound',
+	'sceneEditor.binding.state.missing': 'Missing',
+	'sceneEditor.binding.state.hidden': 'Hidden',
+	'sceneEditor.binding.state.conflicted': 'Conflicted',
+	'sceneEditor.binding.state.degraded': 'Degraded',
+	'sceneEditor.binding.explain.available': 'The bound content comes through.',
+	'sceneEditor.binding.explain.unbound': 'Nothing is bound, so the tile waits empty.',
+	'sceneEditor.binding.explain.unboundOptional': 'Nothing is bound. The widget draws without it.',
+	'sceneEditor.binding.explain.missing':
+		'The bound content no longer exists. The tile shows a placeholder.',
+	'sceneEditor.binding.explain.hidden':
+		'Players get nothing from it, and are never told whether it still exists or has a conflict.',
+	'sceneEditor.binding.explain.conflicted':
+		'The bound content has an unresolved conflict. The tile shows a placeholder rather than pick one version.',
+	'sceneEditor.binding.explain.degraded':
+		'The content comes through, but some of this widget’s permissions are denied, so parts of it won’t work.',
+	'sceneEditor.binding.hiddenReason.dmOnly': 'It is DM only.',
+	'sceneEditor.binding.hiddenReason.notShared': 'It is shared only with specific players.',
+	'sceneEditor.binding.hiddenReason.fieldHidden': 'The field it shows is DM only.',
+	'sceneEditor.binding.mode': 'Binding mode',
+	'sceneEditor.binding.search': 'Find a {noun} to bind',
+	'sceneEditor.binding.nothing': 'There is no {noun} to bind yet.',
+	'sceneEditor.binding.noMatches': 'Nothing matches “{query}”.',
+	'sceneEditor.binding.results': 'Matches',
+	'sceneEditor.binding.bindTo': 'Bind to {name}',
 	/* Character builder › the wizard shell, the import path and the five steps */
 	'charBuilder.addCharacter': 'Add a character',
 	'charBuilder.addCharacterHint': 'Build one from scratch with the guided 5e wizard.',

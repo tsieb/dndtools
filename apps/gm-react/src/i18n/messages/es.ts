@@ -4384,6 +4384,42 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.preview.reason.sceneNotShared': 'Oculto — esta escena no se comparte con {label}.',
 	'sceneEditor.preview.reason.outsideSections':
 		'Oculto — está fuera de las secciones que {label} puede ver.',
+	/* Editor de escenas › Inspector › Vinculación (RC-WID-4.3) */
+	'sceneEditor.binding.title': 'Vinculación',
+	'sceneEditor.binding.none': 'Todavía no está vinculado a nada.',
+	'sceneEditor.binding.boundTo': 'Muestra {name}',
+	'sceneEditor.binding.boundToGone': 'Muestra algo que ya no existe.',
+	'sceneEditor.binding.unbind': 'Desvincular',
+	'sceneEditor.binding.states': 'Quién recibe el contenido vinculado',
+	'sceneEditor.binding.forYou': 'Tú',
+	'sceneEditor.binding.forPlayers': 'Jugadores',
+	'sceneEditor.binding.state.available': 'Disponible',
+	'sceneEditor.binding.state.unbound': 'Sin vincular',
+	'sceneEditor.binding.state.missing': 'Ausente',
+	'sceneEditor.binding.state.hidden': 'Oculto',
+	'sceneEditor.binding.state.conflicted': 'En conflicto',
+	'sceneEditor.binding.state.degraded': 'Degradado',
+	'sceneEditor.binding.explain.available': 'El contenido vinculado llega.',
+	'sceneEditor.binding.explain.unbound': 'No hay nada vinculado, así que el mosaico espera vacío.',
+	'sceneEditor.binding.explain.unboundOptional':
+		'No hay nada vinculado. El widget se dibuja sin ello.',
+	'sceneEditor.binding.explain.missing':
+		'El contenido vinculado ya no existe. El mosaico muestra un marcador.',
+	'sceneEditor.binding.explain.hidden':
+		'Los jugadores no reciben nada de él y nunca se les dice si aún existe o tiene un conflicto.',
+	'sceneEditor.binding.explain.conflicted':
+		'El contenido vinculado tiene un conflicto sin resolver. El mosaico muestra un marcador en lugar de elegir una versión.',
+	'sceneEditor.binding.explain.degraded':
+		'El contenido llega, pero algunos permisos de este widget están denegados, así que partes no funcionarán.',
+	'sceneEditor.binding.hiddenReason.dmOnly': 'Es solo para el DM.',
+	'sceneEditor.binding.hiddenReason.notShared': 'Solo se comparte con jugadores concretos.',
+	'sceneEditor.binding.hiddenReason.fieldHidden': 'El campo que muestra es solo para el DM.',
+	'sceneEditor.binding.mode': 'Modo de vinculación',
+	'sceneEditor.binding.search': 'Busca un {noun} que vincular',
+	'sceneEditor.binding.nothing': 'Todavía no hay ningún {noun} que vincular.',
+	'sceneEditor.binding.noMatches': 'Nada coincide con «{query}».',
+	'sceneEditor.binding.results': 'Coincidencias',
+	'sceneEditor.binding.bindTo': 'Vincular a {name}',
 	/* Constructor de personajes › el asistente, la importación y los cinco pasos */
 	'charBuilder.addCharacter': 'Añadir un personaje',
 	'charBuilder.addCharacterHint': 'Crea uno desde cero con el asistente guiado de 5e.',

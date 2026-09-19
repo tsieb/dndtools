@@ -8,6 +8,7 @@ import { WidgetGlyph } from '../../app/SceneBoardCanvas';
 import { isWidgetResizable, TIER_LABEL, type BoardWidget } from '../../app/board-helpers';
 import { PHONE_PANEL_OVERLAY, type Visibility } from './shared';
 import { FieldControl, Section } from './fields';
+import { BindingInspector } from './BindingInspector';
 import { useI18n } from '../../i18n';
 
 /**
@@ -17,7 +18,8 @@ import { useI18n } from '../../i18n';
  * data-driven customization surface) as live controls — a Note's heading/body, a Dice widget's
  * formulas, a Timer's duration, an Initiative tracker's HP toggle — each round-tripped through
  * `scene.configure-widget`. Binding-backed content (a Map's map, a Character's sheet) is shown LOCKED:
- * it is managed by the widget's data binding, not free-form configuration.
+ * it is managed by the widget's data binding, not free-form configuration — which the Binding section
+ * (RC-WID-4.3, `BindingInspector`) edits, for any widget whose definition declares a binding slot.
  */
 export function Inspector({
 	widget,
@@ -166,6 +168,8 @@ export function Inspector({
 					))}
 				</Section>
 			)}
+
+			<BindingInspector widget={widget} />
 
 			{styleTokens.length > 0 && (
 				<Section label={t('builder.style.title')}>
