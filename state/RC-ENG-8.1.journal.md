@@ -280,3 +280,26 @@ fixed box trapped by a transformed clip`. Mutation checks: removing the fixed ru
   name only the initiative-boundary controls. All new regressions and both prep journeys pass.
 - Strict standalone TypeScript, targeted ESLint, Prettier on all four changed files and
   `git diff --check`: passed. No product files changed; ownership expansion remains pending.
+
+## Integration rebase repair (2026-09-19)
+
+- Rebased the two task commits onto the operator's exact integration base
+  `812a37e493f16731129b2bbc30327f0b4aef3600`. The only conflict was the owned
+  `apps/gm-react/src/runtime/demo-seed.ts`.
+- Preserved RC-ENG-8.2's `bindableEntity`, required widget bindings, `needHomeMapBinding`
+  guard and `command-center.ensure-home` backfill. Kept RC-ENG-8.1's removal of the synthetic
+  data-URL audio source and automatic playback, which fixes the journey's rejected audio-seed
+  console warning. Removed only the obsolete audio helper/block from the conflicting hunks.
+- Reviewed the resolved diff against the integration base: only the intended audio-seed removal
+  remains in demo-seed.ts; all integration binding repairs are preserved. No unowned source changes.
+- Existing demo-seed regression tests: **3 passed** (`/tmp/e81-rebase-seed.log`, original read),
+  covering demo widget bindings, empty vault behavior and one-time legacy home-map repair.
+- Demo-seed Prettier, ESLint and `git diff --check`: passed. Headroom tools unavailable; native
+  original logs used. Golden-path rerun pending below. No push, promotion or dispatcher-state edits.
+- Rebased golden suite: `pnpm e2e golden-path.spec.ts --workers=2 --retries=0`: **58 passed,
+  2 failed**, 27.9s (`/tmp/e81-rebase-golden.log`, original diagnostics and summary read).
+  Failures remain exclusively the earlier/later initiative controls in unowned CombatTracker.tsx;
+  there are no new seed, widget-binding or detector failures. The requested rebase conflict is
+  resolved, but browser acceptance is still red pending the already-requested ownership expansion.
+- Verified the exact requested integration SHA is an ancestor of HEAD and the diff contains only
+  owned files plus this required journal. Committing this evidence on the current task branch.
