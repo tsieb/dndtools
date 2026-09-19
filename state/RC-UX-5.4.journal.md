@@ -210,3 +210,30 @@ playwright test tests/e2e/local-vault-performance.spec.ts --workers=1`.
 - Remaining BLOCKED acceptance: production switching, active-vault cloud/key recovery and intent,
   real per-vault preference consumers, rail/phone switcher entries, and their two-way browser journey.
   Do not mark RC-UX-5.4 complete. No push, promotion, dispatcher-state edits or additional agents.
+
+## Review follow-up — 2026-09-19, candidate 31457b6d
+
+- Entry tree was clean. Re-read production callers and roadmap sections 0.2 and 21.2.
+  The seven required integration paths remain outside the supplied Owns list. The task explicitly
+  gives repository restrictions precedence; section 21.2 says "Never widen scope."
+- Requested explicit scope extension for platform/preferences.ts, cloud/cloudSync.ts,
+  cloud/syncEngine.ts, cloud/CloudSyncContext.tsx, screens/settings/SyncPrivacy.tsx,
+  app/shell/RailNav.tsx and app/shell/MoreSheet.tsx (all beneath apps/gm-react/src).
+  No response received as of this entry. Did not edit dispatcher claims or control state.
+- Prepared a concrete, unapplied integration draft at tmp/RC-UX-5.4-integration-draft.patch.
+  It proposes scoped campaign preferences and cloud intent, runtime-bound sync/recovery context,
+  shared runtime reload activation, and rail/phone dialog entry points. Nine source files total:
+  the seven requested extensions plus already-owned coreStore.ts and VaultSwitcher.tsx.
+  Draft copies live under tmp/RC-UX-5.4-integration-draft/; no production sources were changed.
+- Draft parses through Prettier and `git apply --check` exits 0. This establishes only syntax
+  formatting and applicability, NOT type safety, functional correctness or acceptance.
+  Exact Headroom applicability result ec38b33f6cbc4dc189b636474657d532 retrieved; rule excerpts
+  and patch summary e4a5800f078546b385aac44185341376 retrieved.
+- After scope authorization, apply and finish the draft, add consumer-level preference/cloud/
+  recovery tests and the actual desktop/rail/phone two-way op-count/search/keyring browser journey,
+  check account-deletion cleanup across the new namespaces, then run required gates and the
+  declared scene-first-render fixture. The draft is not a validated fix and must not be auto-applied
+  or treated as completion evidence.
+- BLOCKED: all four independent-review findings remain unresolved in production. No application
+  tests or performance checks rerun because production is unchanged. Journal-only commit records
+  the concrete handoff; it does not satisfy RC-UX-5.4. No push, promotion, loop or extra agents.
