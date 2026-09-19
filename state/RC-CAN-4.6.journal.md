@@ -227,3 +227,28 @@ This revision supersedes the earlier direct-dispatch and temporary-test decision
   `/tmp/rc-can-46-gates-final.log`.
 - Prettier check on all changed source, registered spec and journal: exit 0; `git diff --check`: clean.
 - Central operator retains full wrapper gates and independent review. No push or promotion.
+
+## Integration rebase reconciliation (2026-09-19)
+
+- Rebased the restored task commits onto `a66f3475acfef4e5cbe975aca120b6c99235f5e5`
+  on the current task branch. Both commits conflicted only in Inspector.tsx.
+- Preserved the integration branch's placed-widget definition editor: package eligibility,
+  DM/preview guard, editor launch button, and CanvasWidgetBuilder overlay. Inserted the docking
+  picker in its existing Transform section and retained the shared per-scene history dispatch.
+- Reviewed whitespace-insensitive diffs against both original candidate `9da06fc3` and integration
+  base `a66f3475`: the final Inspector contains both changes, with no duplicated sections or lost
+  controls. All other integration files are inherited unchanged.
+- No Headroom tools were available; original native command output is retained in local logs.
+  No agents, pushes, promotion, other loops, or dispatcher control changes.
+
+### Post-rebase validation
+
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/scene-surfaces.spec.ts tests/e2e/canvas.spec.ts tests/e2e/widget-builder.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=2`:
+  **104 passed (1.6m)**, exit 0, on rebased source `2934081d`. This includes all background,
+  dock/undock history, section, scrolling, canvas regression, and placed-definition editor tests
+  on both profiles. Original local output: `/tmp/rc-can-46-rebase-e2e.log`.
+- App typecheck, Inspector ESLint and Prettier check, and `pnpm gates`: exit 0. Quality/docs
+  output: `/tmp/rc-can-46-rebase-gates.log` (existing advisory size warnings only).
+- `git diff --check` passed; `a66f3475` is an ancestor of the rebased task branch. Only the
+  existing six task files differ from that integration base. Full operator wrapper validation
+  and independent review remain pending; no remote publication performed.
