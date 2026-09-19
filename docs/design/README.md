@@ -34,9 +34,9 @@ where each side is ahead on a different half. Current known drift, tracked by RC
 | Point          | Package                                                                                                                                            | App                                                                                               | Truth   |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------- |
 | Branding       | prose swept to Lamplight in place (`readme.md`, `SKILL.md`, `handoff/APPLY.md`); 10 `DND Tools` strings remain in re-vendor-only files — see below | Lamplight                                                                                         | app     |
-| Themes         | documents five app themes; vendored tokens still carry three                                                                                                    | five ship: `tavern` default, `parchment`, `scholar`, `dungeon`, `high-contrast`                                        | app     |
+| Themes         | documents five app themes; vendored tokens still carry three                                                                                       | five ship: `tavern` default, `parchment`, `scholar`, `dungeon`, `high-contrast`                   | app     |
 | Fonts          | `tokens/fonts.css` genuinely `@import`s Google Fonts, and its caveat says so                                                                       | self-hosted `@fontsource/*`                                                                       | app     |
-| Forced colors  | no `@media (forced-colors: active)` block in `tokens/colors.css`                                                                                   | `styles/tokens/colors.css`                                                                    | app     |
+| Forced colors  | no `@media (forced-colors: active)` block in `tokens/colors.css`                                                                                   | `styles/tokens/colors.css`                                                                        | app     |
 | Tile tokens    | absent                                                                                                                                             | 48 `--color-tile-*` in `styles/tokens/colors.css` (RC-CAN-2.1)                                    | app     |
 | Widget builder | no `templates/widget-builder/`                                                                                                                     | `src/screens/extensions/WidgetBuilder.tsx`                                                        | app     |
 | System picker  | `templates/system-package-picker/SystemPackagePicker.dc.html` (gallery ↔ detail layout); no `components/system/SystemPackageCard.jsx`              | `src/ds/components/system/SystemPackageCard.jsx`, consumed by `src/screens/extensions/System.tsx` | neither |
@@ -155,7 +155,6 @@ The DS `Dialog`, `Sheet`, `Toast`, `Tooltip`, `CommandPalette`, `StatusDot`, `Sk
 `ProgressMeter` still inline their own `dnd*` keyframes, and `base.css` still defines the older
 `dnd-shimmer`. The global clamp covers them. Moving them onto the vocabulary is for the stories that
 own those files.
-
 
 ## 3. Components
 

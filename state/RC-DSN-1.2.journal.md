@@ -131,3 +131,50 @@ the commands' original output, including their successful final exit status.
 
 Full central gates and independent review remain the operator's responsibility. No push, promotion,
 additional loop, sub-agent or dispatcher control-state mutation was performed.
+
+## Attempt 3 (2026-09-19): reconcile integration changes
+
+Rebased the two task commits onto the operator-specified integration commit
+`983ec990e3d653509959c0ebda94f197033626d8`. Resolved both reported conflicts and the follow-up
+README conflict when replaying the verification commit. The integration commit is now an ancestor
+of the task branch; no integration branch was moved.
+
+### Conflict decisions and path justification
+
+- `apps/gm-react/src/screens/settings/Appearance.tsx`: preserve the integration branch's
+  `useMarkGmOnly` hook and switch unchanged, alongside this task's stored theme preference
+  initialization and six picker choices. Neither setting displaces the other.
+- `docs/design/README.md`: retain the integration branch's vendored bundle provenance, drift
+  inventory, primitive corrections, motion section and visibility wording. Update only stale theme
+  status and the shifted forced-colors line reference, retain the five-theme section and verification
+  procedure, and record that the package prose correction and token ramps need the next upstream sync.
+- `docs/design-package/readme.md`: its textual auto-merge was clean but left contradictory claims
+  that only three app themes ship and Scholar/Dungeon are unimplemented. Correct those theme rows
+  and descriptions while retaining the app-versus-generated-package distinction and Lamplight branding.
+- `state/RC-DSN-1.2.journal.md`: record reconciliation and fresh post-rebase evidence as requested.
+
+No palette or snapshot changes were necessary. No Headroom tools are available; validation results
+are taken from original command output. No sub-agents, push, promotion, new loop or dispatcher
+control-state edits.
+
+### Post-rebase validation
+
+- `pnpm tokens:contrast`: exit 0, 101 checks across five themes (20/20/20/20/21).
+- `pnpm a11y:contrast`: exit 0, 319 checks across five themes (64/64/64/64/63),
+  16 forced-colors remap checks and selector coverage for all five.
+- `pnpm typecheck`: exit 0 for core, cloud-fns and gm-react.
+- App Vitest on `platform/theme.test.ts`, `screens/settings-validation.test.ts` and
+  `screens/prepaint-motion.test.ts`: exit 0, 41 tests passed. Includes the integration branch's
+  motion expectations alongside theme behavior.
+- Tooling Vitest on `tests/unit/a11y-nontext-contrast.test.ts` and
+  `tests/unit/electron-hardening.test.ts`: exit 0, 23 tests passed.
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/themes.spec.ts
+  tests/e2e/settings.spec.ts --workers=1`: exit 0, 29 passed, five intentional mobile swatch skips.
+  All five desktop snapshots matched without baseline updates; theme/settings behavior passed on
+  desktop and mobile.
+- Prettier check for the conflict-resolved Appearance component and app design guide: passed.
+  The vendored package readme remains excluded by repository formatting configuration.
+- `git diff --check`: clean. Reviewed the Appearance diff against integration: the GM-only hook
+  and switch are unchanged. `git merge-base --is-ancestor 983ec990 HEAD`: exit 0.
+
+Central gates and independent review remain pending with the operator.
