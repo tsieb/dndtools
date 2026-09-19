@@ -44,3 +44,15 @@ Base: `07305d5d` (loop/rc tip at task start). RC-CAN-4.3 (`ded275a1`) is NOT on 
 - Regression e2e: scene-templates, canvas, canvas-keyboard, canvas-arrange, widget-builder,
   note-depth, command-palette, flow-layout, responsive, a11y-axe-gate → 320 passed (5.5m).
 - Screenshots (desktop dialog, phone sheet, applied scene) checked by eye.
+
+## Retry — quality gate (attempt `f08ab310`, head `55edc35d`)
+
+- Failure: `pnpm gates` → `[file-size-exceeded] AddWidgetGallery.tsx is 806 lines, over the 800-line
+hard limit (RC-STB-2.7)`. Base was 786; the header entry added ~20 lines.
+- Fix: the gallery now takes a generic `startAction?: React.ReactNode` header slot (+4 lines, 790) and
+  exports its existing `CreateEntry`. The entry itself, `TemplateStartEntry`, and its EN/ES copy moved
+  to `TemplatePicker.tsx`; Board and SceneEditor pass it into `startAction`. Behaviour and test ids
+  unchanged. Line counts: gallery 790, TemplatePicker 540, Board 763, sceneEditor/index 736.
+- Re-verified: `pnpm gates` exit 0 (quality-gate + docs checks passed); `pnpm lint` exit 0; gm-react
+  `tsc --noEmit` clean; app vitest 138 files / 1521 tests passed; e2e scene-templates, canvas,
+  widget-builder, note-depth, canvas-keyboard → 112 passed (desktop + mobile).

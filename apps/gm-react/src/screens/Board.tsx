@@ -34,7 +34,7 @@ import { useI18n } from '../i18n';
 import { BoardPlayerNotice } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
 import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
-import { TemplatePicker } from '../app/canvas/TemplatePicker';
+import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
 import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
 
@@ -713,7 +713,14 @@ export function Board() {
 					error={error}
 					onGenerate={() => setGenerateOpen(true)}
 					onBuild={() => setBuilder({ pkg: null })}
-					onTemplates={() => setTemplatesOpen(true)}
+					startAction={
+						<TemplateStartEntry
+							onPick={() => {
+								setAddOpen(false);
+								setTemplatesOpen(true);
+							}}
+						/>
+					}
 				/>
 
 				{editing && layoutsOpen && (

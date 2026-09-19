@@ -21,7 +21,7 @@ import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
 import { AddWidgetGallery } from '../../app/canvas/AddWidgetGallery';
-import { TemplatePicker } from '../../app/canvas/TemplatePicker';
+import { TemplatePicker, TemplateStartEntry } from '../../app/canvas/TemplatePicker';
 import { type Visibility } from './shared';
 import { SceneMetaPanel } from './SceneMetaPanel';
 import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
@@ -671,7 +671,14 @@ export function SceneEditor() {
 						error={error}
 						onGenerate={() => setGenerateOpen(true)}
 						onBuild={() => setBuilding(true)}
-						onTemplates={() => setTemplatesOpen(true)}
+						startAction={
+							<TemplateStartEntry
+								onPick={() => {
+									setAddOpen(false);
+									setTemplatesOpen(true);
+								}}
+							/>
+						}
 					/>
 
 					{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (

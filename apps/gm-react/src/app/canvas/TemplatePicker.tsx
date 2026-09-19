@@ -13,6 +13,7 @@ import { formatMessage } from '../../i18n/format';
 import { tileMetadataForDefinition } from '../widgets/tileMeta';
 import type { Viewport } from '../useViewport';
 import { WidgetGlyph } from './WidgetFrame';
+import { CreateEntry } from './AddWidgetGallery';
 
 // Feature-local translations, the same pattern as AddWidgetGallery: the built-in names come from the
 // core in English, so their localized copy lives here keyed by template id.
@@ -33,6 +34,9 @@ const pickerMessages = {
 			'Applied “{name}”. Skipped tiles whose widget is no longer installed: {types}.',
 		'templates.notSaved': "That template couldn't be saved to this device. Try again.",
 		'templates.cancel': 'Cancel',
+		'templates.startEntry': 'Use a scene template',
+		'templates.startEntryHint':
+			'Lay out a whole scene at once: combat, social, exploration and more.',
 		'templates.combat.name': 'Combat scene',
 		'templates.combat.body': 'Initiative, the battle map, dice and a round timer in reach.',
 		'templates.social.name': 'Social encounter',
@@ -62,6 +66,9 @@ const pickerMessages = {
 		'templates.notSaved':
 			'No se pudo guardar la plantilla en este dispositivo. Inténtalo de nuevo.',
 		'templates.cancel': 'Cancelar',
+		'templates.startEntry': 'Usar una plantilla de escena',
+		'templates.startEntryHint':
+			'Monta una escena entera de una vez: combate, social, exploración y más.',
 		'templates.combat.name': 'Escena de combate',
 		'templates.combat.body': 'Iniciativa, el mapa de batalla, dados y un temporizador de asalto.',
 		'templates.social.name': 'Encuentro social',
@@ -290,6 +297,19 @@ function TemplateCard({
 				}}
 			/>
 		</li>
+	);
+}
+
+/** The gallery header's "Use a scene template" entry (its `startAction` slot, shown while empty). */
+export function TemplateStartEntry({ onPick }: { onPick: () => void }) {
+	const copy = usePickerCopy();
+	return (
+		<CreateEntry
+			icon="layers"
+			label={copy('templates.startEntry')}
+			hint={copy('templates.startEntryHint')}
+			onClick={onPick}
+		/>
 	);
 }
 
