@@ -34,6 +34,7 @@ import { useI18n } from '../i18n';
 import { BoardPlayerNotice } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
 import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
+import { TemplatePicker } from '../app/canvas/TemplatePicker';
 import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
 
@@ -76,6 +77,8 @@ export function Board() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	// RC-CAN-4.4 — the scene-template picker, opened from the empty board or the gallery header.
+	const [templatesOpen, setTemplatesOpen] = useState(false);
 	// RC-CAN-4.1 — the gallery's "Generate with assistant" and "Build your own" entries. `builder.pkg`
 	// is the assistant's staged proposal, or null for a blank widget; neither is durable.
 	const [generateOpen, setGenerateOpen] = useState(false);
@@ -522,6 +525,37 @@ export function Board() {
 				</Callout>
 			)}
 
+			{/* RC-CAN-4.4 — the empty-state moment for templates. The canvas's empty message is
+			    `pointer-events: none`, so the offer sits in the page flow above the canvas. */}
+			{ready && widgets.length === 0 && (
+				<div
+					data-testid="board-empty-templates"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						flexWrap: 'wrap',
+						gap: 'var(--space-2)',
+						flex: '0 0 auto',
+						font: 'var(--text-xs) var(--font-sans)',
+						color: 'var(--color-text-secondary)',
+					}}
+				>
+					<span>{t('board.emptyTemplatesHint')}</span>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="layers"
+						onClick={() => {
+							setTemplatesOpen(true);
+							setAddOpen(false);
+							setLayoutsOpen(false);
+						}}
+					>
+						{t('board.useTemplate')}
+					</Button>
+				</div>
+			)}
+
 			{/* RC-CAN-3.3/3.4: a widget dragged (or preset-applied) past the board's columns is clamped
 			    back onto the grid at the point it commits, but that snap can still land it on top of
 			    another widget. This banner names that honestly instead of leaving an invisible overlap,
@@ -679,6 +713,7 @@ export function Board() {
 					error={error}
 					onGenerate={() => setGenerateOpen(true)}
 					onBuild={() => setBuilder({ pkg: null })}
+					onTemplates={() => setTemplatesOpen(true)}
 				/>
 
 				{editing && layoutsOpen && (
@@ -696,6 +731,17 @@ export function Board() {
 					/>
 				)}
 			</div>
+			<TemplatePicker
+				open={templatesOpen}
+				onClose={() => setTemplatesOpen(false)}
+				viewport={viewport}
+				sceneId={ready ? homeSceneId : null}
+				// The applied layout is a good checkpoint to fall back to, and the DM picked it to adjust it.
+				onApplied={() => {
+					void snapshotSafePoint();
+					setEditing(true);
+				}}
+			/>
 			<GenerateDialog
 				open={generateOpen}
 				onClose={() => setGenerateOpen(false)}

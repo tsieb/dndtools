@@ -1,4 +1,5 @@
 import {
+	applySceneTemplateInputSchema,
 	createSceneInputSchema,
 	deleteSceneInputSchema,
 	instantiateSceneTemplateInputSchema,
@@ -25,6 +26,11 @@ import {
 	withScene,
 } from './helpers';
 import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
+import {
+	builtinSceneTemplateLayout,
+	findBuiltinSceneTemplate,
+} from '../state/command-center-state';
+import { instantiateLayoutSnapshot, type LayoutSnapshot } from './command-center';
 
 export function handleCreateScene(
 	state: CoreStateSlice,
@@ -183,10 +189,7 @@ export function handleDeleteScene(
 		);
 	}
 	if (state.session.activeSceneId === scene.id) {
-		return reject(
-			{ code: 'invalid-state', message: 'The active scene cannot be deleted.' },
-			state,
-		);
+		return reject({ code: 'invalid-state', message: 'The active scene cannot be deleted.' }, state);
 	}
 	if (state.commandCenter.homeSceneId === scene.id) {
 		return reject(
@@ -500,6 +503,177 @@ export function handleInstantiateSceneTemplate(
 				templateSceneId: template.id,
 				newSceneId: newId,
 				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/** The gap between what a scene already holds and a template appended below it (the board gutter). */
+const APPEND_GUTTER = 24;
+
+/** A template scene read as the same preset-shaped snapshot a saved preset is. */
+function sceneAsLayoutSnapshot(scene: Scene): LayoutSnapshot {
+	return {
+		visualSettings: { ...scene.visualSettings },
+		sections: scene.sections.map((section) => ({
+			name: section.name,
+			bounds: { ...section.bounds },
+			presetWidgetIds: section.widgetInstanceIds.slice(),
+		})),
+		widgets: scene.widgets.map((widget) => ({
+			presetWidgetId: widget.id,
+			type: widget.type,
+			version: widget.version,
+			layout: { ...widget.layout },
+			configuration: { ...widget.configuration },
+			localState: { ...widget.localState },
+			binding: widget.binding ? { ...widget.binding } : null,
+		})),
+	};
+}
+
+/**
+ * RC-CAN-4.4 — `scene.apply-template`: instantiate a template's widgets into ANY live scene, not only
+ * the Command Center home (`command-center.apply-preset`) and not as a new scene
+ * (`scene.instantiate-template`). The source is a built-in template, a saved preset or a template
+ * scene; all three reduce to one preset-shaped snapshot and go through the preset materializer.
+ *
+ * It APPENDS. On an empty scene the template lands exactly as authored and its background is adopted;
+ * on a scene that already has tiles the template goes below them (stacking and traversal order lifted
+ * above the existing tiles) and the scene keeps its own background, so applying a template never
+ * destroys the DM's work. Widgets whose package is gone are skipped and reported (CMD-007); a template
+ * that would place nothing is refused rather than recorded as an empty change. DM-only, like every
+ * other template and preset command.
+ */
+export function handleApplySceneTemplate(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(applySceneTemplateInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = requireScene(state, parsed.data.sceneId);
+	if ('code' in scene) return reject(scene, state);
+
+	const { source } = parsed.data;
+	let snapshot: LayoutSnapshot;
+	let sourceId: string;
+	if (source.kind === 'builtin') {
+		// The schema's enum already refused an unknown id; this keeps the lookup total for the types.
+		const template = findBuiltinSceneTemplate(source.templateId);
+		if (!template) {
+			return reject(
+				{ code: 'template-not-found', message: `Template ${source.templateId} does not exist.` },
+				state,
+			);
+		}
+		snapshot = builtinSceneTemplateLayout(template);
+		sourceId = template.id;
+	} else if (source.kind === 'preset') {
+		const preset = state.commandCenter.presets[source.presetId];
+		if (!preset) {
+			return reject(
+				{ code: 'preset-not-found', message: `Preset ${source.presetId} does not exist.` },
+				state,
+			);
+		}
+		snapshot = preset;
+		sourceId = preset.id;
+	} else {
+		const template = requireScene(state, source.templateSceneId);
+		if ('code' in template) return reject(template, state);
+		if (!template.templateMeta.isTemplate) {
+			return reject(
+				{
+					code: 'template-source-not-template',
+					message: `Scene ${template.id} is not marked as a template.`,
+				},
+				state,
+			);
+		}
+		snapshot = sceneAsLayoutSnapshot(template);
+		sourceId = template.id;
+	}
+
+	const empty = scene.widgets.length === 0;
+	const placement = empty
+		? {}
+		: {
+				offset: {
+					x: 0,
+					y:
+						Math.max(...scene.widgets.map((w) => w.layout.y + w.layout.h)) +
+						APPEND_GUTTER -
+						Math.min(...snapshot.widgets.map((w) => w.layout.y), Number.POSITIVE_INFINITY),
+				},
+				zBase: Math.max(0, ...scene.widgets.map((w) => w.layout.z)),
+				focusBase: Math.max(0, ...scene.widgets.map((w) => w.layout.focusOrder ?? 0)),
+			};
+	const { widgets, sections, missingWidgetTypes } = instantiateLayoutSnapshot(
+		state,
+		env,
+		snapshot,
+		placement,
+	);
+	if (widgets.length === 0) {
+		return reject(
+			{
+				code: 'template-empty',
+				message:
+					missingWidgetTypes.length > 0
+						? `None of this template's widgets are installed (${missingWidgetTypes.join(', ')}).`
+						: 'This template has no widgets to place.',
+			},
+			state,
+		);
+	}
+
+	const nextScene = bumpRevision(
+		{
+			...scene,
+			visualSettings: empty ? { ...snapshot.visualSettings } : scene.visualSettings,
+			sections: [...scene.sections, ...sections],
+			widgets: [...scene.widgets, ...widgets],
+			schemaVersion: SCENE_SCHEMA_VERSION,
+		},
+		env,
+	);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.apply-template',
+		value: {
+			source: source.kind,
+			sourceId,
+			appliedWidgetCount: widgets.length,
+			missingWidgetTypes,
+		},
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [
+			{
+				kind: 'scene.template-applied',
+				sceneId: scene.id,
+				source: source.kind,
+				sourceId,
+				actorId: actor.id,
+				appliedWidgetCount: widgets.length,
+				missingWidgetTypes,
 			},
 		],
 		operationIds: [op.id],

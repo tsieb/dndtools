@@ -4302,6 +4302,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.layoutCanvasHint':
 		'Los paneles conservan el lugar exacto donde los pongas en un lienzo libre.',
 	'sceneEditor.add': 'Añadir',
+	'sceneEditor.emptyTemplatesHint': 'Aún no hay nada. Empieza con un diseño ya preparado:',
+	'sceneEditor.useTemplate': 'Usar una plantilla',
 	'sceneEditor.addWidget': 'Añadir widget',
 	'sceneEditor.noWidgetsAvailable': 'No hay widgets que añadir en este dispositivo.',
 	'sceneEditor.sceneDetails': 'Detalles de la escena',
@@ -4880,6 +4882,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.emptyTitle': 'Tu pantalla del DM está vacía',
 	'board.preparingTitle': 'Configurando tu pantalla del DM',
 	'board.addWidget': 'Añadir widget',
+	'board.emptyTemplatesHint': 'Tu tablero está vacío. Empieza con un diseño ya preparado:',
+	'board.useTemplate': 'Usar una plantilla',
 	'board.closeLayouts': 'Cerrar los diseños',
 	'board.noWidgets': 'Ahora mismo no hay widgets disponibles para añadir.',
 	'board.saveCurrentLayout': 'Guardar el diseño actual',

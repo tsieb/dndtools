@@ -501,8 +501,14 @@ export type {
 	CommandCenterPresetSection,
 	CommandCenterPresetWidget,
 	CommandCenterState,
+	BuiltinSceneTemplate,
+	BuiltinSceneTemplateId,
 } from './state/command-center-state';
 export {
+	BUILTIN_SCENE_TEMPLATES,
+	BUILTIN_SCENE_TEMPLATE_IDS,
+	builtinSceneTemplateLayout,
+	findBuiltinSceneTemplate,
 	COMMAND_CENTER_STATE_SCHEMA_VERSION,
 	DEFAULT_COMMAND_CENTER_NAME,
 	DEFAULT_COMMAND_CENTER_TOOLS,
@@ -989,6 +995,7 @@ export { dispatchCommand } from './commands/dispatch';
 export {
 	addWidgetInputSchema,
 	applyCommandCenterPresetInputSchema,
+	applySceneTemplateInputSchema,
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
 	configureWidgetInputSchema,

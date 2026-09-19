@@ -3,6 +3,7 @@ import {
 	handleCreateScene,
 	handleDeleteScene,
 	handleInstantiateSceneTemplate,
+	handleApplySceneTemplate,
 	handleRestoreScene,
 	handleSaveSceneTemplate,
 	handleSetSceneSections,
@@ -344,6 +345,8 @@ export function dispatchCommand(
 			return handleSaveSceneTemplate(state, env, command.actorId, command.payload);
 		case 'scene.instantiate-template':
 			return handleInstantiateSceneTemplate(state, env, command.actorId, command.payload);
+		case 'scene.apply-template':
+			return handleApplySceneTemplate(state, env, command.actorId, command.payload);
 		case 'scene.add-widget':
 			return handleAddWidget(state, env, command.actorId, command.payload);
 		case 'scene.move-widget':

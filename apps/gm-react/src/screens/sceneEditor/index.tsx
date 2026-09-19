@@ -21,6 +21,7 @@ import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
 import { AddWidgetGallery } from '../../app/canvas/AddWidgetGallery';
+import { TemplatePicker } from '../../app/canvas/TemplatePicker';
 import { type Visibility } from './shared';
 import { SceneMetaPanel } from './SceneMetaPanel';
 import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
@@ -74,6 +75,8 @@ export function SceneEditor() {
 	// RC-CAN-4.1 — the gallery's "Build your own" opens the builder on a blank widget.
 	const [building, setBuilding] = useState(false);
 	const [metaOpen, setMetaOpen] = useState(false);
+	// RC-CAN-4.4 — the scene-template picker, opened from the empty canvas or the gallery header.
+	const [templatesOpen, setTemplatesOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
@@ -84,6 +87,7 @@ export function SceneEditor() {
 	useEffect(() => {
 		setMetaOpen(false);
 		setAddOpen(false);
+		setTemplatesOpen(false);
 		setSelectedId(null);
 		setEditing(false);
 		setError(null);
@@ -522,6 +526,37 @@ export function SceneEditor() {
 				)}
 			</div>
 
+			{/* RC-CAN-4.4 — the empty-state moment for templates. The canvas's own empty message sits under
+			    `pointer-events: none`, so the offer lives in the page flow above it instead. */}
+			{widgets.length === 0 && !previewing && (
+				<div
+					data-testid="scene-empty-templates"
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						flexWrap: 'wrap',
+						gap: 'var(--space-2)',
+						flex: '0 0 auto',
+						font: 'var(--text-xs) var(--font-sans)',
+						color: 'var(--color-text-secondary)',
+					}}
+				>
+					<span>{t('sceneEditor.emptyTemplatesHint')}</span>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="layers"
+						onClick={() => {
+							setTemplatesOpen(true);
+							setAddOpen(false);
+							setMetaOpen(false);
+						}}
+					>
+						{t('sceneEditor.useTemplate')}
+					</Button>
+				</div>
+			)}
+
 			{error && (
 				<div
 					// Rejected layout writes were announced to nobody; Campaign.tsx already does this.
@@ -636,6 +671,7 @@ export function SceneEditor() {
 						error={error}
 						onGenerate={() => setGenerateOpen(true)}
 						onBuild={() => setBuilding(true)}
+						onTemplates={() => setTemplatesOpen(true)}
 					/>
 
 					{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
@@ -663,6 +699,14 @@ export function SceneEditor() {
 					/>
 				)}
 			</div>
+			<TemplatePicker
+				open={templatesOpen}
+				onClose={() => setTemplatesOpen(false)}
+				viewport={viewport}
+				sceneId={id}
+				// The DM picked a starting layout to adjust it: land in edit mode, as a gallery add does.
+				onApplied={() => setEditing(true)}
+			/>
 			<GenerateDialog
 				open={generateOpen}
 				onClose={() => setGenerateOpen(false)}

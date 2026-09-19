@@ -13,6 +13,7 @@ import { systemPackageSchema } from './system-package';
 import { SCENE_CARD_FLAVOR_MAX_LENGTH } from '../state/scene-card';
 // RC-CAN-7.2 — the screen layout policies ADR-041 accepts (the state module owns the list).
 import { SCREEN_LAYOUT_POLICIES } from '../state/scene-state';
+import { BUILTIN_SCENE_TEMPLATE_IDS } from '../state/command-center-state';
 import {
 	CUSTOM_OBJECT_TYPE_ID_PATTERN,
 	CUSTOM_OBJECT_TYPE_MAX_FIELDS,
@@ -93,6 +94,22 @@ export const instantiateSceneTemplateInputSchema = z
 	.object({
 		templateSceneId: idSchema,
 		newSceneName: z.string().min(1),
+	})
+	.strict();
+
+// RC-CAN-4.4 — instantiate a template's widgets into ANY live scene. The source is one of the three
+// kinds of layout the picker offers: a code-defined built-in, a saved Command Center preset, or a
+// scene marked as a template.
+export const applySceneTemplateInputSchema = z
+	.object({
+		sceneId: idSchema,
+		source: z.discriminatedUnion('kind', [
+			z
+				.object({ kind: z.literal('builtin'), templateId: z.enum(BUILTIN_SCENE_TEMPLATE_IDS) })
+				.strict(),
+			z.object({ kind: z.literal('preset'), presetId: idSchema }).strict(),
+			z.object({ kind: z.literal('scene'), templateSceneId: idSchema }).strict(),
+		]),
 	})
 	.strict();
 

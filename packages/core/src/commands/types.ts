@@ -114,6 +114,7 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	| { type: 'scene.apply-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.add-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.move-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.resize-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -1047,6 +1048,16 @@ export type CoreEvent =
 			templateSceneId: SceneId;
 			newSceneId: SceneId;
 			actorId: ActorId;
+	  }
+	| {
+			kind: 'scene.template-applied';
+			sceneId: SceneId;
+			source: 'builtin' | 'preset' | 'scene';
+			/** The built-in template id, preset id or template scene id. */
+			sourceId: string;
+			actorId: ActorId;
+			appliedWidgetCount: number;
+			missingWidgetTypes: string[];
 	  }
 	| { kind: 'widget.package-installed'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-enabled'; packageId: string; actorId: ActorId }
@@ -2104,6 +2115,8 @@ export type RejectionCode =
 	| 'hidden-target'
 	| 'conflicted-target'
 	| 'template-source-not-template'
+	| 'template-not-found'
+	| 'template-empty'
 	| 'command-center-not-configured'
 	| 'preset-not-found'
 	| 'auto-save-not-available'

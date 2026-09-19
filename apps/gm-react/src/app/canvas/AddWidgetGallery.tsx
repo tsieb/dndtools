@@ -42,6 +42,9 @@ const galleryMessages = {
 		'addGallery.startTitle': 'Start from a template',
 		'addGallery.startBody':
 			'This scene is empty. Every card below is a ready-made tile: pick one and it lands in the first open spot.',
+		'addGallery.startTemplates': 'Use a scene template',
+		'addGallery.startTemplatesHint':
+			'Lay out a whole scene at once: combat, social, exploration and more.',
 		'addGallery.createGroup': 'Make something new',
 		'addGallery.generate': 'Generate with assistant',
 		'addGallery.generateHint': 'Describe it, then review the draft before anything is installed.',
@@ -61,6 +64,9 @@ const galleryMessages = {
 		'addGallery.startTitle': 'Empieza con una plantilla',
 		'addGallery.startBody':
 			'Esta escena está vacía. Cada tarjeta es un widget listo para usar: elige una y se colocará en el primer hueco libre.',
+		'addGallery.startTemplates': 'Usar una plantilla de escena',
+		'addGallery.startTemplatesHint':
+			'Monta una escena entera de una vez: combate, social, exploración y más.',
 		'addGallery.createGroup': 'Crea algo nuevo',
 		'addGallery.generate': 'Generar con el asistente',
 		'addGallery.generateHint': 'Descríbelo y revisa el borrador antes de que se instale nada.',
@@ -430,6 +436,8 @@ export interface AddWidgetGalleryProps {
 	onGenerate?: () => void;
 	/** "Build your own" (RC-WID-2.1). The entry is omitted when absent. */
 	onBuild?: () => void;
+	/** RC-CAN-4.4 — open the scene-template picker. Offered in the header only while the scene is empty. */
+	onTemplates?: () => void;
 }
 
 export function AddWidgetGallery({
@@ -443,6 +451,7 @@ export function AddWidgetGallery({
 	onGenerate,
 	onBuild,
 	onDone,
+	onTemplates,
 }: AddWidgetGalleryProps) {
 	const { t } = useI18n();
 	const copy = useGalleryCopy();
@@ -596,6 +605,17 @@ export function AddWidgetGallery({
 					>
 						{copy('addGallery.startBody')}
 					</div>
+					{onTemplates && (
+						<CreateEntry
+							icon="layers"
+							label={copy('addGallery.startTemplates')}
+							hint={copy('addGallery.startTemplatesHint')}
+							onClick={() => {
+								onClose();
+								onTemplates();
+							}}
+						/>
+					)}
 				</div>
 			)}
 			<Input
