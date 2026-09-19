@@ -166,3 +166,34 @@ cannot name a file. The policy itself remains unchanged, and the focused securit
 The documented font limitation remains: computed DS styles match, but the sandbox cannot fetch
 self-hosted Inter, so this is not a pixel-identical glyph snapshot claim. Full repository gates,
 independent review and publication remain the central operator's responsibility.
+
+## Integration rebase recovery — 2026-09-19
+
+Gate feedback requested reconciliation with `a66f3475acfef4e5cbe975aca120b6c99235f5e5`.
+Rebased the task's two commits onto that exact integration commit. The only conflict was
+`docs/architecture/WIDGETS.md`: the kit's expanded section 8 table overlapped the integration
+branch's appended section 9 gallery documentation and embedded browser fixture.
+
+Resolved by keeping the kit table (including stylesheet and acceptance-test links) followed by
+the complete integration gallery section. The integration ADR-041 introduction and layout-policy
+paragraphs remain. Exact-content assertions confirm the gallery section/fixture is byte-identical
+to integration, the section 4.1 class contract is byte-identical to the pre-rebase candidate, and
+both ADR-041 additions remain. `git range-diff` shows only the expected documentation context
+change in the implementation commit; the follow-up patch is unchanged. The rebased commits are
+`9307b508` and `4d1078e1`. No runtime, Torchlight, or test edits were needed for this recovery.
+The existing [security-review report](#security-review) still covers the unchanged kit code.
+
+Validation against the rebased tree (original output read directly; no Headroom tools available):
+
+- Focused app Vitest: **38 passed** (`/tmp/rc-wid54-rebase-app.log`).
+- Focused core Vitest: **41 passed** (`/tmp/rc-wid54-rebase-core.log`).
+- Playwright: `DNDTOOLS_E2E_PORT=15734 pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/widget-kit.spec.ts tests/e2e/starter-widgets.spec.ts
+tests/e2e/custom-widgets.spec.ts --workers=1`: **16 passed**, desktop and mobile Chromium
+  (`/tmp/rc-wid54-rebase-e2e.log`). Integration adds four resize checks to the prior twelve.
+  The three-theme DS Button/Card/Badge comparisons, focus rings and motion tests still pass.
+- App `tsc --noEmit`: exit 0 (`/tmp/rc-wid54-rebase-types.log`).
+- Prettier check on the reconciled document and journal, and `git diff --check`: clean.
+
+The target integration commit is now an ancestor of the candidate. Only the task branch was
+rebased; nothing was pushed or promoted and no dispatcher control state was changed.
