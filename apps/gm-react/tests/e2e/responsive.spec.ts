@@ -721,6 +721,17 @@ test('Android holds the comfortable set even with compact stored at a wide viewp
 		...(await targetSizes(page, 'nav[aria-label="Settings navigation"] button')),
 	].filter((control) => control.width < 47.5 || control.height < 47.5);
 	expect(undersized, 'controls under 48dp with compact stored on Android').toEqual([]);
+
+	// Resize without reloading: compact remains selected, so only the Android override can
+	// keep the actual rail comfortable. The short viewport also exercises its scrolling list.
+	await page.setViewportSize({ width: 800, height: 480 });
+	await expect.poll(async () => (await railNavItems(page)).length).toBeGreaterThan(3);
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+	for (const item of await railNavItems(page)) {
+		expect(item.height, `${item.name} Android rail height`).toBeCloseTo(48, 1);
+		expect(item.width, `${item.name} Android rail width`).toBeCloseTo(48, 1);
+		expect(item.listGap, 'Android rail list gap').toBe(8);
+	}
 });
 
 test('first-run setup remains usable through every step at 375x520', async ({ page }) => {

@@ -233,3 +233,34 @@ the integration branch, not with this story: the full RC-DSN-1.4 diff contains z
 `font-display` or `T.disp` references. Lowering the baseline would be an unrelated edit to a shared
 ratchet file that another in-flight task may also be moving, so it is flagged here rather than
 folded in.
+
+## Revision 4 — authorized rail scope and Android rail acceptance (2026-09-19)
+
+The operator brief dated 2026-09-18 explicitly adds
+`apps/gm-react/src/ds/components/navigation/NavRail.jsx` to this task's ownership.
+The prior candidate commits are already on this task branch. Their rail edits are retained:
+- Token-driven width/height replace the fixed 44px square to render 48/36/28 exactly.
+- Zero padding permits the compact box; non-shrinking flex sizing preserves target sizes in a
+  short scrolling rail.
+- The list gap consumes the density alias to render 8/4/2 in the production list.
+No further NavRail edit is necessary. The density tokens and Panel defaults are also retained.
+
+This revision extends the existing Android acceptance test to resize from the wide sidebar to
+an 800x480 rail without reloading. It checks that compact remains selected while every real
+rail destination stays 48x48 with an 8px list gap. This exercises the Android override and
+non-shrinking targets on a short viewport, rather than relying only on synthetic token metrics.
+Only the owned responsive spec and this explicitly requested run journal change in this revision.
+No agents, dispatcher state edits, push, promotion or additional loop.
+
+Validation in progress: full responsive.spec.ts on both Chromium projects with two workers.
+
+### Current validation results
+
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.ts --workers=2`:
+  **86 passed (1.7m), exit 0**, covering desktop-chromium and mobile-chromium. Raw output:
+  `/tmp/rc-dsn-1.4-current-responsive.log` (read directly after process completion).
+- `pnpm exec prettier --check apps/gm-react/tests/e2e/responsive.spec.ts`: passed, exit 0.
+- `pnpm exec eslint apps/gm-react/tests/e2e/responsive.spec.ts`: passed, exit 0; raw output
+  `/tmp/rc-dsn-1.4-current-eslint.log` is empty.
+- `git diff --check`: passed. Full repository gates and independent review remain with the
+  central operator; older journal results above are historical, not rerun in this revision.
