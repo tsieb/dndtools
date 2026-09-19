@@ -311,3 +311,38 @@ pending operator execution after authorized publication, using PERFORMANCE.md
 section 2.1. No push, promotion, workflow dispatch, extra loop, dispatcher-state
 edit or sub-agent was used. Central wrapper gates and independent review remain
 separate from these local results.
+
+## RC-ENG-1.4 — review follow-up and current integration rebase (2026-09-19)
+
+Rebased candidate `c65ef50d` onto `loop/rc` at
+`51cec17732d5423acaa381ff8c6a521f8a566e0c`, also verified as the fetched
+`origin/loop/rc` tip. The rebase completed without conflicts; implementation
+HEAD before this journal update is `6e184f4a`. The aggregate change still touches
+only the seven owned paths. No policy code change was indicated by the supplied
+independent review, whose outstanding finding concerns hosted acceptance evidence.
+
+Read-only GitHub queries on this date returned `[]` for both of these commands:
+
+```bash
+gh run list --workflow perf.yml --event schedule --limit 100 --json databaseId,headSha,status,conclusion
+gh run list --workflow perf.yml --event workflow_dispatch --limit 100 --json databaseId,headSha,status,conclusion
+```
+
+There is therefore no scheduled or manually dispatched run set available from
+these queries to download and validate. Recent pull-request runs are not a
+substitute. Five genuine scheduled-mode artifacts on the same candidate/reference
+SHA and their original successful `compare.ts --agreement` output remain missing.
+The baseline recording and delivery evidence also remain missing; `recorded` is
+still null. This task is **not acceptance-complete**. The operator must publish
+the candidate through the authorized delivery path before hosted captures can
+measure it, collect the five runs and agreement output, and deliver the reviewed
+baseline separately. The no-push/no-promotion restriction prevents completing
+that publication in this implement task. No hosted timing or agreement was
+inferred from local tests.
+
+Post-rebase local checks passed: quality gates, typecheck, lint (existing warnings), tooling
+(26 files / 193 tests), performance tests (2 files / 14 tests), changed-file
+formatting against `loop/rc`, shell syntax and `git diff --check`. Original gate,
+lint, tooling and typecheck logs are retained in `/tmp/rc-eng-1.4-recheck/`.
+No push, promotion, workflow dispatch, additional loop, dispatcher control-state
+edit or sub-agent was used.
