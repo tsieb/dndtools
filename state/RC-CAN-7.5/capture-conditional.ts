@@ -59,11 +59,9 @@ try {
 						visibility: 'dm-only',
 					});
 			});
-			const panel = page
-				.locator('section')
-				.filter({
-					has: page.getByRole('heading', { name: 'End-of-session capture', exact: true }),
-				});
+			const panel = page.locator('section').filter({
+				has: page.getByRole('heading', { name: 'End-of-session capture', exact: true }),
+			});
 			await expect(panel.getByRole('combobox', { name: 'Archived session' })).toBeVisible();
 			const filter = panel.getByRole('textbox', { name: 'Filter', exact: true });
 			await expect(filter).toBeVisible();

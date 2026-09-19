@@ -313,7 +313,10 @@ read command outputs directly. No additional agents used.
   file-size warnings only. No full pnpm check or independent review is claimed for this docs repair.
 - Complete candidate ownership checked against supplied base, including the relocated journal:
   no path outside the two authorized planning documents and state/RC-CAN-7.5/ remains.
-- Format checks passed for the 104 existing candidate files selected by the exact-base command
-  and all 23 staged repair files selected by `pnpm format:check:changed` without a base. The
-  base option compares committed HEAD, so both checks were necessary before committing.
-  `git diff --cached --check` passed. Evidence verifier passed again after formatting.
+- The precommit exact-base format check passed for 104 existing candidate files. The separate
+  staged-file check caught a formatting issue in capture-conditional.ts; corrected with Prettier.
+  The initial commit's claim that this staged check passed was premature and is superseded here.
+  Evidence verifier and diff whitespace checks passed. Final full-candidate formatting is checked
+  after the repair commit because the base option selects committed HEAD.
+- Final exact-base format check passed for all 124 candidate files after the harness correction;
+  evidence verifier and complete-base `git diff --check` also passed. Worktree was clean.
