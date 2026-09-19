@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { SECTION_FEATURE_GATES } from '../packages/core/src/state/onboarding';
 import { en } from '../apps/gm-react/src/i18n/messages/en';
@@ -39,8 +39,19 @@ export function renderFeatureComplexity(): string {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-	writeFileSync(
-		new URL('../docs/reference/FEATURE_COMPLEXITY.md', import.meta.url),
-		renderFeatureComplexity(),
-	);
+	const args = process.argv.slice(2);
+	if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) {
+		throw new Error('Usage: tsx scripts/feature-complexity.ts [--check]');
+	}
+	const reference = new URL('../docs/reference/FEATURE_COMPLEXITY.md', import.meta.url);
+	const expected = renderFeatureComplexity();
+	if (args[0] === '--check') {
+		if (readFileSync(reference, 'utf8') !== expected) {
+			throw new Error(
+				'Feature complexity reference is stale. Run pnpm exec tsx scripts/feature-complexity.ts.',
+			);
+		}
+	} else {
+		writeFileSync(reference, expected);
+	}
 }
