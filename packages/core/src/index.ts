@@ -1412,6 +1412,8 @@ export {
 } from './queries/widget-library';
 
 export type {
+	CanvasActionSurface,
+	CanvasCommandActionContext,
 	CommandAction,
 	CommandActionAvailability,
 	CommandActionContext,
@@ -1421,6 +1423,7 @@ export type {
 	ResolvedCommandAction,
 } from './queries/command-actions';
 export {
+	listCanvasCommandActions,
 	listCommandActions,
 	resolveCommandAction,
 	searchCommandActions,
@@ -1583,6 +1586,7 @@ export type {
 export {
 	QUICK_SWITCHER_COMMAND_SIGIL,
 	buildQuickSwitcher,
+	canvasSurfaceForRoute,
 	parseQuickSwitcherQuery,
 	resolveQuickSwitcherEntry,
 } from './queries/quick-switcher-query';

@@ -1,18 +1,18 @@
 import type { ActorId } from '../state/ids';
 import type { CalendarDateFormat } from '../state/calendar';
 import type { SearchContentType } from '../state/saved-search';
-import {
-	searchVaultForActor,
-	type SearchHit,
-	type SearchResult,
-} from './search-query';
+import { searchVaultForActor, type SearchHit, type SearchResult } from './search-query';
 import {
 	listPaletteCommands,
 	resolvePaletteCommand,
 	type PaletteCommand,
 	type ResolvedPaletteCommand,
 } from './command-availability';
-import type { CommandActionContext, CommandActionStateView } from './command-actions';
+import type {
+	CanvasActionSurface,
+	CommandActionContext,
+	CommandActionStateView,
+} from './command-actions';
 import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
 import type { PermissionState } from '../state/permission-state';
@@ -162,7 +162,10 @@ function navigationEntries(result: SearchResult, limit: number): QuickSwitcherNa
  * Whether a palette command's title or keywords match a (lowercased, non-empty) query. A title match scores
  * above a keyword-only match so command ordering is also title-first, consistent with the content hits.
  */
-function commandMatch(command: PaletteCommand, needle: string): { matched: boolean; titleMatch: boolean } {
+function commandMatch(
+	command: PaletteCommand,
+	needle: string,
+): { matched: boolean; titleMatch: boolean } {
 	if (needle === '') return { matched: true, titleMatch: false };
 	const titleMatch = command.title.toLowerCase().includes(needle);
 	const keywordMatch = command.keywords.some((keyword) => keyword.toLowerCase().includes(needle));
@@ -208,9 +211,34 @@ export interface ParsedQuickSwitcherQuery {
 export function parseQuickSwitcherQuery(query: string): ParsedQuickSwitcherQuery {
 	const trimmed = query.trim();
 	if (trimmed.startsWith(QUICK_SWITCHER_COMMAND_SIGIL)) {
-		return { commandMode: true, needle: trimmed.slice(QUICK_SWITCHER_COMMAND_SIGIL.length).trim().toLowerCase() };
+		return {
+			commandMode: true,
+			needle: trimmed.slice(QUICK_SWITCHER_COMMAND_SIGIL.length).trim().toLowerCase(),
+		};
 	}
 	return { commandMode: false, needle: trimmed.toLowerCase() };
+}
+
+/**
+ * RC-CAN-4.3 — the canvas a route puts on screen, or `null` when it shows none. The canvas actions
+ * (`listCanvasCommandActions`: Add tile, Apply template — plus the GUI's Toggle edit and Undo) are
+ * offered ONLY on these two routes, so the switcher decides that from the route itself rather than
+ * from whichever screen happened to render last. `/board` is the GM Screen; `/scene/:id` one scene
+ * (the id is URL-decoded; an empty or nested segment is not a scene route). Query strings and
+ * fragments are ignored. Pure.
+ */
+export function canvasSurfaceForRoute(route: string): CanvasActionSurface | null {
+	const path = (route.split(/[?#]/, 1)[0] ?? '').replace(/\/+$/, '');
+	if (path === '/board') return { kind: 'board' };
+	const segment = /^\/scene\/([^/]+)$/.exec(path)?.[1];
+	if (!segment) return null;
+	let sceneId: string;
+	try {
+		sceneId = decodeURIComponent(segment);
+	} catch {
+		return null;
+	}
+	return sceneId ? { kind: 'scene', sceneId } : null;
 }
 
 /**

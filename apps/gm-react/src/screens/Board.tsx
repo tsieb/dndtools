@@ -29,6 +29,7 @@ import {
 import { useViewport } from '../app/useViewport';
 import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
+import { registerCanvasSurface } from '../app/shortcuts/registry';
 import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
 import { BoardPlayerNotice } from './board/BoardPlayerNotice';
@@ -325,6 +326,31 @@ export function Board() {
 		return ok;
 	}
 
+	// The Edit-layout / Done button's handler, shared with the command palette's Toggle edit row.
+	function enterEditing(next: boolean) {
+		if (next) void snapshotSafePoint();
+		setEditing(next);
+		setSelectedId(null);
+		setAddOpen(false);
+		setLayoutsOpen(false);
+	}
+
+	// RC-CAN-4.3 — lend the palette this canvas's edit toggle and undo stack while it is mounted.
+	useEffect(() => {
+		if (!isDm || !homeSceneId) return;
+		return registerCanvasSurface({
+			sceneId: homeSceneId,
+			policy: 'bounded',
+			widgets,
+			editable: true,
+			editing,
+			setEditing: enterEditing,
+			canUndo: history.canUndo,
+			undoLabel: history.undoLabel,
+			undo: () => void historyRef.current.undo(),
+		});
+	});
+
 	if (!isDm) return <BoardPlayerNotice />;
 
 	return (
@@ -471,14 +497,7 @@ export function Board() {
 					variant={editing ? 'accent' : 'secondary'}
 					size="sm"
 					icon={editing ? 'check' : 'edit'}
-					onClick={() => {
-						const next = !editing;
-						if (next) void snapshotSafePoint();
-						setEditing(next);
-						setSelectedId(null);
-						setAddOpen(false);
-						setLayoutsOpen(false);
-					}}
+					onClick={() => enterEditing(!editing)}
 				>
 					{editing ? t('board.done') : t('board.editLayout')}
 				</Button>

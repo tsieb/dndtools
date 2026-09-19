@@ -1,6 +1,6 @@
-import type { ActorId } from '../state/ids';
+import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
-import type { SceneState } from '../state/scene-state';
+import { isLiveScene, type SceneState } from '../state/scene-state';
 import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
@@ -26,7 +26,16 @@ import { listSessionPhaseActions } from './command-center-live';
  * unavailable beyond a safe, generic reason.
  */
 
-export type CommandActionGroup = 'home' | 'preset' | 'widget' | 'session' | 'map';
+export type CommandActionGroup =
+	| 'home'
+	| 'preset'
+	| 'widget'
+	| 'session'
+	| 'map'
+	/** RC-CAN-4.3 — "Add tile: …" rows scoped to the canvas the DM is looking at. */
+	| 'tile'
+	/** RC-CAN-4.3 — "Apply template: …" rows scoped to the canvas the DM is looking at. */
+	| 'template';
 
 /** A value the palette must collect from the DM before dispatch (e.g. a preset name). */
 export interface CommandActionInput {
@@ -245,6 +254,98 @@ export function listCommandActions(
 }
 
 /**
+ * RC-CAN-4.3 — which canvas a contextual action provider is scoped to: the GM Screen (`/board`, whose
+ * backing scene is the Command Center home) or one scene (`/scene/:id`). The route → surface mapping
+ * lives in `canvasSurfaceForRoute` (quick-switcher-query.ts).
+ */
+export type CanvasActionSurface = { kind: 'board' } | { kind: 'scene'; sceneId: SceneId };
+
+export interface CanvasCommandActionContext extends CommandActionContext {
+	surface: CanvasActionSurface;
+}
+
+/**
+ * RC-CAN-4.3 — the CONTEXTUAL action provider for a canvas: "Add tile: <type>" for every library
+ * entry, targeting the canvas on screen (not always the home scene, as the global catalog's
+ * "Add <widget>" rows do), and "Apply template: <name>" for every saved layout the canvas can take.
+ *
+ * Each action carries the same core command the canvas's own controls dispatch — the tile gallery's
+ * `scene.add-widget` (payload from `resolveAddWidgetCommand`, so config defaults are seeded
+ * identically) and the Layouts panel's `command-center.apply-preset`. The GUI may re-place a tile at
+ * the canvas's next free slot before dispatch; the command itself is unchanged.
+ *
+ * Fails closed exactly like {@link listCommandActions}: a non-author actor gets an empty list, and a
+ * scene route whose scene is missing, a template, or not live offers nothing at all.
+ *
+ * Templates: the board's templates are the Command Center presets (they only ever materialize onto
+ * the home scene). A plain scene has no in-place apply command yet — RC-CAN-4.4 adds
+ * `scene.apply-template` and its rows join this provider then — so it lists none rather than
+ * offering a verb the core would reject.
+ */
+export function listCanvasCommandActions(
+	state: CommandActionStateView,
+	actorId: ActorId,
+	context: CanvasCommandActionContext,
+): CommandAction[] {
+	const actor = state.permissions.actors[actorId];
+	if (!actorCanAuthorScene(actor)) return [];
+
+	const { surface } = context;
+	let sceneId: SceneId | null;
+	if (surface.kind === 'board') {
+		const homeSceneId = state.commandCenter.homeSceneId;
+		sceneId = homeSceneId && state.scenes.scenes[homeSceneId] ? homeSceneId : null;
+	} else {
+		const scene = state.scenes.scenes[surface.sceneId];
+		if (!scene || scene.templateMeta.isTemplate || !isLiveScene(scene)) return [];
+		sceneId = scene.id;
+	}
+
+	const actions: CommandAction[] = [];
+	const library = listWidgetLibrary(state.widgets, state.permissions, actorId, {
+		profileId: context.profileId,
+		includeUnavailable: true,
+	});
+	for (const entry of library) {
+		const resolved = sceneId ? resolveAddWidgetCommand(entry, sceneId) : null;
+		actions.push({
+			id: `canvas.tile.add:${entry.type}`,
+			title: `Add tile: ${entry.displayName}`,
+			keywords: ['add', 'tile', 'widget', 'type', entry.displayName, entry.type],
+			group: 'tile',
+			availability: !sceneId
+				? unavailable(NO_HOME_REASON)
+				: !entry.availability.available
+					? unavailable(entry.availability.reason)
+					: available(),
+			commandType: 'scene.add-widget',
+			payload: resolved?.payload ?? {},
+			input: null,
+		});
+	}
+
+	if (surface.kind === 'board') {
+		const presets = Object.values(state.commandCenter.presets).sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
+		for (const preset of presets) {
+			actions.push({
+				id: `canvas.template.apply:${preset.id}`,
+				title: `Apply template: ${preset.name}`,
+				keywords: ['apply', 'template', 'layout', 'preset', preset.name],
+				group: 'template',
+				availability: sceneId ? available() : unavailable(NO_HOME_REASON),
+				commandType: 'command-center.apply-preset',
+				payload: { presetId: preset.id },
+				input: null,
+			});
+		}
+	}
+
+	return actions;
+}
+
+/**
  * Resolve an action to the dispatch-ready Processing Core command, identical to the
  * one the matching visible control issues. Returns `null` when the action is
  * unavailable or a required input value is missing, so the palette can never
@@ -264,13 +365,17 @@ export function resolveCommandAction(
 	return { type: action.commandType, payload } as ResolvedCommandAction;
 }
 
-/** Filter actions by a case-insensitive query over titles and keywords. */
+/**
+ * Filter actions by a case-insensitive query over titles and keywords. Every whitespace-separated
+ * token must appear somewhere in the title or keywords (RC-CAN-4.3), so "add tile dice" finds
+ * "Add tile: Dice" — the same all-tokens rule the palette's own filter applies. A single-token query
+ * matches exactly what the old whole-string substring match did.
+ */
 export function searchCommandActions(actions: CommandAction[], query: string): CommandAction[] {
-	const q = query.trim().toLowerCase();
-	if (!q) return actions;
-	return actions.filter(
-		(action) =>
-			action.title.toLowerCase().includes(q) ||
-			action.keywords.some((keyword) => keyword.toLowerCase().includes(q)),
-	);
+	const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0) return actions;
+	return actions.filter((action) => {
+		const hay = [action.title, ...action.keywords].join(' ').toLowerCase();
+		return tokens.every((token) => hay.includes(token));
+	});
 }

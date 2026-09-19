@@ -16,6 +16,7 @@ import { widgetRejectionMessage } from '../../app/widget-rejection';
 import { SceneBoardCanvas } from '../../app/SceneBoardCanvas';
 import { FlowBoard } from '../../app/canvas/FlowBoard';
 import { useLayoutHistory } from '../../app/canvas/useLayoutHistory';
+import { registerCanvasSurface } from '../../app/shortcuts/registry';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../../app/board-helpers';
 import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -306,6 +307,33 @@ export function SceneEditor() {
 		});
 	}
 
+	// The Edit-layout / Done button's handler, shared with the command palette's Toggle edit row.
+	function enterEditing(next: boolean) {
+		setEditing(next);
+		setSelectedId(null);
+		setAddOpen(false);
+		// …and the details panel too: it also gates the Inspector off, so leaving it open across the
+		// Edit-layout toggle made every later widget click inert.
+		setMetaOpen(false);
+	}
+
+	// RC-CAN-4.3 — lend the palette this canvas's edit toggle and undo stack while it is mounted.
+	// Editing is suspended under a player preview, so the palette may not toggle it then either.
+	useEffect(() => {
+		if (denied || !rawScene) return;
+		return registerCanvasSurface({
+			sceneId: id,
+			policy: layoutPolicy,
+			widgets,
+			editable: !previewing,
+			editing,
+			setEditing: enterEditing,
+			canUndo: history.canUndo,
+			undoLabel: history.undoLabel,
+			undo: () => void historyRef.current.undo(),
+		});
+	});
+
 	if ((denied && !previewBlocked) || !rawScene) {
 		return (
 			<div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -512,14 +540,7 @@ export function SceneEditor() {
 						variant={editing ? 'accent' : 'secondary'}
 						size="sm"
 						icon={editing ? 'check' : 'edit'}
-						onClick={() => {
-							setEditing((v) => !v);
-							setSelectedId(null);
-							setAddOpen(false);
-							// …and the details panel too: it also gates the Inspector off, so leaving it
-							// open across the Edit-layout toggle made every later widget click inert.
-							setMetaOpen(false);
-						}}
+						onClick={() => enterEditing(!editing)}
 					>
 						{editing ? 'Done' : 'Edit layout'}
 					</Button>

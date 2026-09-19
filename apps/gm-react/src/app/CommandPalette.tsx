@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+	canvasSurfaceForRoute,
 	getSavedSearchesForActor,
 	getSceneDisplayForActor,
+	listCanvasCommandActions,
 	listCommandActions,
 	listScenesForActor,
 	listCharactersForActor,
@@ -20,7 +22,14 @@ import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetProfileForRuntime } from '../platform/capabilities';
 import { PREFERENCE_KEYS, readPreference, writePreference } from '../platform/preferences';
-import { shortcut } from './shortcuts/registry';
+import {
+	activeCanvasSurface,
+	shortcut,
+	subscribeCanvasSurface,
+	type CanvasSurfaceHandle,
+} from './shortcuts/registry';
+import { nextFreeSlot } from './canvas/AddWidgetGallery';
+import { BOARD_RIGHT_BOUND, flowKeyBetween, flowOrder } from './board-helpers';
 import {
 	RUN,
 	LIBRARY,
@@ -111,21 +120,51 @@ const ACTION_GROUP_ICON: Record<CommandActionGroup, string> = {
 	widget: 'widget',
 	session: 'session-bolt',
 	map: 'atlas-map',
+	tile: 'widget',
+	template: 'layers',
 };
 
 /**
- * RC-KNW-2.3 / RC-CAN-4.3 — CONTEXTUAL actions: which core action groups belong to the screen the
- * DM is looking at right now. Those are promoted into an "On this screen" group at the top of the
- * palette and offered even with an empty query; everything else in the catalog waits behind a
- * query or the `>` prefix. Route → relevance is GUI navigation metadata (the same kind of mapping
- * `routeForHit` already owns); eligibility itself stays the core's decision.
+ * RC-KNW-2.3 — CONTEXTUAL actions: which core action groups belong to the screen the DM is looking
+ * at right now. Those are promoted into an "On this screen" group at the top of the palette and
+ * offered even with an empty query; everything else in the catalog waits behind a query or the `>`
+ * prefix. Route → relevance is GUI navigation metadata (the same kind of mapping `routeForHit`
+ * already owns); eligibility itself stays the core's decision. The two canvas routes are not listed
+ * here: RC-CAN-4.3 gives them their own core provider (`listCanvasCommandActions`).
  */
 function contextualGroupsFor(pathname: string): readonly CommandActionGroup[] {
-	if (pathname === '/board' || pathname.startsWith('/scene/')) return ['home', 'preset', 'widget'];
 	if (pathname.startsWith('/session')) return ['session', 'map'];
 	if (pathname.startsWith('/atlas')) return ['map'];
 	if (pathname.startsWith('/player')) return ['session', 'map'];
 	return [];
+}
+
+/**
+ * Where a palette-added tile lands: the same slot the tile gallery's pick would choose on this
+ * canvas — the end of the reading order under flow, else the first open spot inside the board's
+ * columns (bounded) or the canvas's current extent (canvas).
+ */
+function slotFor(
+	surface: CanvasSurfaceHandle,
+	size: { w: number; h: number },
+): { x: number; y: number } {
+	if (surface.policy === 'flow') {
+		const ordered = flowOrder(surface.widgets);
+		return flowKeyBetween(ordered[ordered.length - 1] ?? null, null) ?? { x: 0, y: 0 };
+	}
+	const bound =
+		surface.policy === 'bounded'
+			? BOARD_RIGHT_BOUND
+			: surface.widgets.reduce((max, w) => Math.max(max, w.x + w.w), BOARD_RIGHT_BOUND);
+	return nextFreeSlot(surface.widgets, size, bound);
+}
+
+/** Focus a just-added tile once its frame has rendered, as the gallery does after a pick. */
+function focusTileWhenRendered(widgetInstanceId: string, attempts = 20): void {
+	const frame = document.querySelector<HTMLElement>(`[data-testid="widget-${widgetInstanceId}"]`);
+	if (frame) frame.focus();
+	else if (attempts > 0)
+		requestAnimationFrame(() => focusTileWhenRendered(widgetInstanceId, attempts - 1));
 }
 
 /** A note hit deep-links the exact note; a POI hit deep-links its map and highlights the marker
@@ -188,6 +227,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 	const [query, setQuery] = useState('');
 	const [debouncedQuery, setDebouncedQuery] = useState('');
 	const [recentIds, setRecentIds] = useState<string[]>(readRecentIds);
+	// RC-CAN-4.3 — the canvas behind the palette (its edit toggle + undo stack), if one is mounted.
+	const canvasSurface = useSyncExternalStore(subscribeCanvasSurface, activeCanvasSurface);
 
 	useEffect(() => {
 		// The DS palette clears its own input on open; keep the mirror in sync so stale hits never flash.
@@ -262,6 +303,55 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			})();
 			onClose();
 		};
+		// RC-CAN-4.3 — "Add tile: X" dispatches the provider's `scene.add-widget` unchanged except for
+		// WHERE: on the mounted canvas it takes the gallery's next free slot instead of the library
+		// default (which stacks every new tile on the first one), then enters edit mode and focuses
+		// the new tile, exactly as a gallery pick does.
+		const placeTile = (action: CommandAction) => () => {
+			const resolved = resolveCommandAction(action);
+			if (!resolved || resolved.type !== 'scene.add-widget') {
+				Toaster.error(t('palette.toast.rejected'));
+				return;
+			}
+			const payload = resolved.payload as {
+				sceneId: string;
+				widget: { layout: { x: number; y: number; w: number; h: number } };
+			};
+			const surface = activeCanvasSurface();
+			const onCanvas = surface && surface.sceneId === payload.sceneId ? surface : null;
+			const layout = onCanvas
+				? { ...payload.widget.layout, ...slotFor(onCanvas, payload.widget.layout) }
+				: payload.widget.layout;
+			const before = new Set(
+				(runtime.state.scenes.scenes[payload.sceneId]?.widgets ?? []).map((w) => w.id),
+			);
+			remember(`action:${action.id}`);
+			onClose();
+			void (async () => {
+				try {
+					const result = await runtime.dispatch({
+						type: 'scene.add-widget',
+						actorId,
+						payload: { ...payload, widget: { ...payload.widget, layout } },
+					});
+					if (result.status === 'rejected') {
+						Toaster.error(t('palette.toast.rejected'));
+						return;
+					}
+					Toaster.success(t('palette.toast.ran', { title: action.title }));
+					const current = activeCanvasSurface();
+					if (current && current.sceneId === payload.sceneId && current.editable) {
+						if (!current.editing) current.setEditing(true);
+					}
+					const added = result.nextState.scenes.scenes[payload.sceneId]?.widgets.find(
+						(w) => !before.has(w.id),
+					);
+					if (added) focusTileWhenRendered(added.id);
+				} catch {
+					Toaster.error(t('palette.toast.notSaved'));
+				}
+			})();
+		};
 		const actionRow = (action: CommandAction, contextualRow: boolean): PaletteCommand => {
 			const blocked =
 				action.availability.status === 'unavailable' ? action.availability.reason : null;
@@ -278,12 +368,19 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				run: dispatchAction(action),
 			};
 		};
-		const catalog = listCommandActions(runtime.state, actorId, {
-			profileId: widgetProfileForRuntime(),
-		})
+		// Hand-written action rows (advance card, the canvas verbs) gate on this; the core lists fail
+		// closed on their own.
+		const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
+		const profileId = widgetProfileForRuntime();
+		// RC-CAN-4.3 — on /board and /scene/:id the canvas's own provider supplies Add tile / Apply
+		// template for THAT canvas, which supersedes the global catalog's home-scene "Add <widget>" and
+		// "Apply preset" rows there (on a scene route those would have added to a different scene).
+		const canvasRoute = canvasSurfaceForRoute(location.pathname);
+		const superseded: readonly CommandActionGroup[] = canvasRoute ? ['widget', 'preset'] : [];
+		const catalog = listCommandActions(runtime.state, actorId, { profileId })
 			// An action that needs a typed value (a preset name) has no field to collect it here, and
 			// a row that can never fire is a dead control. Its own screen owns that form.
-			.filter((action) => action.input === null);
+			.filter((action) => action.input === null && !superseded.includes(action.group));
 		const contextualActions = catalog.filter((action) => contextual.includes(action.group));
 		const otherActions = catalog.filter((action) => !contextual.includes(action.group));
 		// Contextual actions are always offered; the rest of the catalog waits for a query or `>`.
@@ -291,9 +388,94 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		const matchedOthers =
 			commandMode || needle !== '' ? searchCommandActions(otherActions, needle) : [];
 		const actions: PaletteCommand[] = [
+			...canvasRows(),
 			...searchCommandActions(contextualActions, needle).map((action) => actionRow(action, true)),
 			...matchedOthers.slice(0, ACTION_LIMIT).map((action) => actionRow(action, false)),
 		];
+
+		/**
+		 * RC-CAN-4.3 — the canvas's verbs, ONLY on its two routes, all under "On this screen": Toggle
+		 * edit and Undo (the toolbar button's and Ctrl/⌘+Z's own handlers, lent by the mounted screen
+		 * through `registerCanvasSurface`), then Apply template and Add tile from the core provider.
+		 * Templates are few and always offered; the tile types wait for a query or `>`, since a whole
+		 * library of "Add tile" rows would bury everything else on an empty palette.
+		 */
+		function canvasRows(): PaletteCommand[] {
+			if (!canvasRoute) return [];
+			const here = t('palette.group.here');
+			const rows: PaletteCommand[] = [];
+			const provided = listCanvasCommandActions(runtime.state, actorId, {
+				profileId,
+				surface: canvasRoute,
+			});
+			// The provider fails closed for a non-author; the GUI-only verbs must too.
+			const canvasSceneId =
+				canvasRoute.kind === 'board'
+					? runtime.state.commandCenter.homeSceneId
+					: canvasRoute.sceneId;
+			const lent =
+				isDm && canvasSurface && canvasSceneId && canvasSurface.sceneId === canvasSceneId
+					? canvasSurface
+					: null;
+			if (lent) {
+				const editLabel = t(
+					lent.editing ? 'palette.canvas.doneEditing' : 'palette.canvas.editLayout',
+				);
+				const editWords = t('palette.canvas.editKeywords');
+				if (matchesNeedle(editLabel, editWords))
+					rows.push({
+						id: 'action:canvas.toggle-edit',
+						kind: 'action',
+						label: editLabel,
+						icon: lent.editing ? 'check' : 'edit',
+						group: here,
+						keywords: commandMode ? withQuery(editWords) : editWords,
+						disabled: !lent.editable,
+						description: lent.editable ? undefined : t('palette.canvas.editBlocked'),
+						run: () => {
+							remember('action:canvas.toggle-edit');
+							onClose();
+							// Read the surface afresh: the screen re-registers on every render.
+							const current = activeCanvasSurface();
+							if (current?.editable) current.setEditing(!current.editing);
+						},
+					});
+				const undoLabel = t('palette.canvas.undo');
+				const undoWords = t('palette.canvas.undoKeywords');
+				if (matchesNeedle(undoLabel, undoWords, lent.undoLabel ?? undefined))
+					rows.push({
+						id: 'action:canvas.undo',
+						kind: 'action',
+						label: undoLabel,
+						icon: 'undo',
+						group: here,
+						keywords: commandMode ? withQuery(undoWords) : undoWords,
+						// `canvas.undoRedo` prints "Ctrl/⌘+Z · Ctrl/⌘+Shift+Z"; this row fires only the first.
+						shortcut: shortcut('canvas.undoRedo').keys.split(' · ')[0],
+						disabled: !lent.canUndo,
+						description: lent.canUndo
+							? (lent.undoLabel ?? undefined)
+							: t('palette.canvas.undoBlocked'),
+						run: () => {
+							remember('action:canvas.undo');
+							onClose();
+							activeCanvasSurface()?.undo();
+						},
+					});
+			}
+			const templates = provided.filter((action) => action.group === 'template');
+			const tiles = provided.filter((action) => action.group === 'tile');
+			rows.push(
+				...searchCommandActions(templates, needle).map((action) => actionRow(action, true)),
+			);
+			if (commandMode || needle !== '')
+				rows.push(
+					...searchCommandActions(tiles, needle)
+						.slice(0, ACTION_LIMIT)
+						.map((action) => ({ ...actionRow(action, true), run: placeTile(action) })),
+				);
+			return rows;
+		}
 
 		// I11 S11.2.3 — the one global keyboard shortcut the palette can also fire, so the row can
 		// honestly print its key legend from the registry instead of advertising a chord it does not
@@ -307,14 +489,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		const advanceKeywords = t('palette.action.advanceCardKeywords');
 		// DM-only, like every other action here: `listCommandActions` fails closed on its own, so this
 		// hand-written row has to as well — a player previewing the vault is offered no verbs at all.
-		const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 		if (isDm && matchesNeedle(advanceLabel, advanceKeywords))
 			actions.push({
 				id: 'action:scene-card.advance',
 				kind: 'action',
 				label: advanceLabel,
 				icon: 'skip',
-				group: t(contextual.length ? 'palette.group.here' : 'palette.group.actions'),
+				group: t(contextual.length || canvasRoute ? 'palette.group.here' : 'palette.group.actions'),
 				// Plain-text row: it only needs the raw query when the DS query still carries the sigil.
 				keywords: commandMode ? withQuery(advanceKeywords) : advanceKeywords,
 				shortcut: shortcut('global.advanceCard').keys,
@@ -577,6 +758,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		location.pathname,
 		navigate,
 		onClose,
+		canvasSurface,
 		remember,
 		t,
 	]);
