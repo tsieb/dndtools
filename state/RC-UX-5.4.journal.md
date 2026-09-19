@@ -178,3 +178,35 @@ No dispatcher state, unrelated files, pushes, promotion, loops, or additional ag
   vault-integration ownership extension also remains unresolved. Current task is still partial.
 - Per roadmap §0.2 and the user's instruction that repository restrictions take precedence, do
   not edit an unowned parser, weaken tests, remove draft release notes, or patch global behavior.
+
+## Review remediation — 2026-09-19
+
+- Current HEAD on entry: `06dbba05646169c292b082d4678a985a85d4a5c8`; tracked tree clean.
+- Re-read roadmap §0.2 and §21.2. The ownership fence still explicitly blocks edits outside Owns
+  and granted companion paths. Requested an extension for preferences.ts, cloudSync.ts,
+  syncEngine.ts, CloudSyncContext.tsx, SyncPrivacy.tsx, RailNav.tsx, MoreSheet.tsx and the performance
+  fixture if needed. No authorization received. No out-of-scope production edits made.
+- DONE (granted e2e companion): `local-vault-performance.spec.ts` supplies the missing declared-size
+  fixture through real commands: 50 widgets, including 10 map bindings to a persisted map and 40
+  dice widgets. Every reload waits for all 50 frames AND all 10 resolved map bodies, then crosses
+  two animation frames. One warmup is discarded and three samples are graded by their maximum
+  against 1500 ms. Uses the actual desktop and phone profile viewports without forcing desktop.
+- The test is opt-in to avoid measuring contention from parallel functional workers. It records
+  commit, worktree status, viewport, fixture and raw samples in stdout and a JSON test attachment.
+  This is a workstation browser measurement with a warm Vite module graph and persisted fixture;
+  it is not a physical reference-phone measurement or a claim that switching works.
+- Initial fixture construction failed because the home template has dice, not notes, and the add
+  command accepts only the input layout fields, not the full persisted layout. Corrected the test;
+  retrieved exact failure and passing output before recording results.
+- `pnpm check`: exit 0; core 4902, cloud 522, app 1536, tooling 193 tests passed. All 130341 stdout
+  bytes and 402749 stderr bytes retrieved from Headroom artifact `2c0a0be8f06d4749b763afa38fba7f87`.
+- Final fixture plus catalog regression e2e: exit 0, 4 passed. Exact original artifact
+  `960c87ca95f74cd489c838bd0b3870c9` retrieved. Final fixture maxima before commit: desktop
+  882.3 ms; phone 908.2 ms. The catalog spec still intentionally checks disabled switching;
+  its pass is NOT the missing two-way UI journey. Performance will also be rerun on the committed
+  candidate so the retained output carries that exact SHA and a clean worktree status.
+- Reproduce: `DNDTOOLS_VAULT_PERF=1 DNDTOOLS_E2E_PORT=15614 pnpm --filter @dndtools/gm-react exec
+playwright test tests/e2e/local-vault-performance.spec.ts --workers=1`.
+- Remaining BLOCKED acceptance: production switching, active-vault cloud/key recovery and intent,
+  real per-vault preference consumers, rail/phone switcher entries, and their two-way browser journey.
+  Do not mark RC-UX-5.4 complete. No push, promotion, dispatcher-state edits or additional agents.
