@@ -116,7 +116,8 @@ const PLATFORM_PRIMITIVE_RULES: PrimitiveRule[] = [
 		// raw viewport width. Reading innerWidth/innerHeight/matchMedia/screen.* in a GUI or
 		// route component is a violation; the platform layer probes once behind an exception.
 		id: 'viewport-sniff',
-		pattern: /\b(?:window\.)?(?:innerWidth|innerHeight|outerWidth|matchMedia)\b|\bscreen\.(?:width|height|availWidth)\b/,
+		pattern:
+			/\b(?:window\.)?(?:innerWidth|innerHeight|outerWidth|matchMedia)\b|\bscreen\.(?:width|height|availWidth)\b/,
 		message:
 			'sniffs the raw viewport (innerWidth/matchMedia/screen.*) instead of branching on the resolved platform profile (PLAT-001)',
 	},
@@ -134,9 +135,22 @@ const MCP_DIR_NAME = 'mcp';
 const MCP_FORBIDDEN_FS_IMPORT_PREFIXES = ['fs', 'node:fs', 'node:', 'path', 'os'];
 // Direct filesystem / platform-service primitive ACCESS (call sites) forbidden inside MCP modules.
 const MCP_FS_PRIMITIVE_RULES: PrimitiveRule[] = [
-	{ id: 'fs', pattern: /\b(?:fs|fsp|fsPromises)\.\w+\s*\(/, message: 'calls a node:fs filesystem API directly' },
-	{ id: 'readFileSync', pattern: /\b(?:readFileSync|writeFileSync|readFile|writeFile|openSync|mkdirSync|rmSync|unlinkSync)\s*\(/, message: 'calls a filesystem API directly' },
-	{ id: 'process', pattern: /\bprocess\.(?:cwd|env|chdir)\b/, message: 'reaches a Node process global directly' },
+	{
+		id: 'fs',
+		pattern: /\b(?:fs|fsp|fsPromises)\.\w+\s*\(/,
+		message: 'calls a node:fs filesystem API directly',
+	},
+	{
+		id: 'readFileSync',
+		pattern:
+			/\b(?:readFileSync|writeFileSync|readFile|writeFile|openSync|mkdirSync|rmSync|unlinkSync)\s*\(/,
+		message: 'calls a filesystem API directly',
+	},
+	{
+		id: 'process',
+		pattern: /\bprocess\.(?:cwd|env|chdir)\b/,
+		message: 'reaches a Node process global directly',
+	},
 ];
 
 // PLAT-011: files under the contracts dir (or matching the contract suffix) are type-only.
@@ -257,7 +271,9 @@ function codeOnly(line: string): string {
 		return '';
 	}
 	const noLineComment = line.replace(/\/\/.*$/, '');
-	return noLineComment.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '""');
+	// Keep escapes and ordinary characters disjoint. Otherwise an unmatched quote in
+	// a regex literal can backtrack exponentially over every following backslash.
+	return noLineComment.replace(/(['"`])(?:\\.|(?!\1)[^\\])*\1/g, '""');
 }
 
 /**
