@@ -221,6 +221,45 @@ const FORMERLY_GATED: CoreCommand['type'][] = [
 	'session.unpin-quick-reference',
 ];
 
+// These commands inherited the removed combat guard but were not in the category registry.
+const FORMERLY_COMBAT_GATED: CoreCommand['type'][] = [
+	'combat.previous-turn',
+	'combat.add-combatants',
+	'combat.remove-combatant',
+	'combat.reorder-combatant',
+	'combat.set-combatant-visibility',
+	'combat.place-token',
+	'combat.move-token',
+	'combat.remove-token',
+	'combat.place-template',
+	'combat.remove-template',
+];
+
+const placeToken = (ctx: Ctx): Ctx =>
+	run(ctx, {
+		type: 'combat.place-token',
+		actorId: DM_ACTOR.id,
+		payload: {
+			combatantId: ctx.state.session.combat.order[0]!,
+			mapId: 'map-western-reaches',
+			x: 0.3,
+			y: 0.4,
+		},
+	});
+const placeTemplate = (ctx: Ctx): Ctx =>
+	run(ctx, {
+		type: 'combat.place-template',
+		actorId: DM_ACTOR.id,
+		payload: {
+			kind: 'sphere',
+			mapId: 'map-western-reaches',
+			label: 'Fireball',
+			x: 0.3,
+			y: 0.4,
+			size: 20,
+		},
+	});
+
 interface MovedCommand {
 	name: string;
 	type: CoreCommand['type'];
@@ -230,6 +269,114 @@ interface MovedCommand {
 }
 
 const MOVED: MovedCommand[] = [
+	{
+		name: 'combat.previous-turn',
+		type: 'combat.previous-turn',
+		setup: (ctx) => advanceTurn(startCombat(ctx)),
+		command: () => ({ type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+	},
+	{
+		name: 'combat.add-combatants',
+		type: 'combat.add-combatants',
+		setup: startCombat,
+		command: () => ({
+			type: 'combat.add-combatants',
+			actorId: DM_ACTOR.id,
+			payload: { combatants: [{ kind: 'monster', name: 'Ogre', initiative: 5, maxHp: 20 }] },
+		}),
+	},
+	{
+		name: 'combat.remove-combatant',
+		type: 'combat.remove-combatant',
+		setup: startCombat,
+		command: (ctx) => ({
+			type: 'combat.remove-combatant',
+			actorId: DM_ACTOR.id,
+			payload: { combatantId: ctx.state.session.combat.order[0]! },
+		}),
+	},
+	{
+		name: 'combat.reorder-combatant',
+		type: 'combat.reorder-combatant',
+		setup: startCombat,
+		command: (ctx) => ({
+			type: 'combat.reorder-combatant',
+			actorId: DM_ACTOR.id,
+			payload: { combatantId: ctx.state.session.combat.order[1]!, direction: 'earlier' },
+		}),
+	},
+	{
+		name: 'combat.set-combatant-visibility',
+		type: 'combat.set-combatant-visibility',
+		setup: startCombat,
+		command: (ctx) => ({
+			type: 'combat.set-combatant-visibility',
+			actorId: DM_ACTOR.id,
+			payload: { combatantId: ctx.state.session.combat.order[0]!, hidden: true },
+		}),
+	},
+	{
+		name: 'combat.place-token',
+		type: 'combat.place-token',
+		setup: startCombat,
+		command: (ctx) => ({
+			type: 'combat.place-token',
+			actorId: DM_ACTOR.id,
+			payload: {
+				combatantId: ctx.state.session.combat.order[0]!,
+				mapId: 'map-western-reaches',
+				x: 0.3,
+				y: 0.4,
+			},
+		}),
+	},
+	{
+		name: 'combat.move-token',
+		type: 'combat.move-token',
+		setup: (ctx) => placeToken(startCombat(ctx)),
+		command: (ctx) => ({
+			type: 'combat.move-token',
+			actorId: DM_ACTOR.id,
+			payload: { combatantId: ctx.state.session.combat.order[0]!, x: 0.5, y: 0.6 },
+		}),
+	},
+	{
+		name: 'combat.remove-token',
+		type: 'combat.remove-token',
+		setup: (ctx) => placeToken(startCombat(ctx)),
+		command: (ctx) => ({
+			type: 'combat.remove-token',
+			actorId: DM_ACTOR.id,
+			payload: { combatantId: ctx.state.session.combat.order[0]! },
+		}),
+	},
+	{
+		name: 'combat.place-template',
+		type: 'combat.place-template',
+		setup: startCombat,
+		command: () => ({
+			type: 'combat.place-template',
+			actorId: DM_ACTOR.id,
+			payload: {
+				kind: 'sphere',
+				mapId: 'map-western-reaches',
+				label: 'Fireball',
+				x: 0.3,
+				y: 0.4,
+				size: 20,
+			},
+		}),
+	},
+	{
+		name: 'combat.remove-template',
+		type: 'combat.remove-template',
+		setup: (ctx) => placeTemplate(startCombat(ctx)),
+		command: (ctx) => ({
+			type: 'combat.remove-template',
+			actorId: DM_ACTOR.id,
+			payload: { templateId: ctx.state.session.combat.templates[0]!.id },
+		}),
+	},
 	{
 		name: 'session.record-dice',
 		type: 'session.record-dice',
@@ -462,7 +609,7 @@ describe('RC-SES-6.1: every moved command runs in every workflow state', () => {
 		const covered = MOVED.map((moved) => moved.type).filter(
 			(type) => type !== 'widget.dispatch-command',
 		);
-		expect([...covered].sort()).toEqual([...FORMERLY_GATED].sort());
+		expect([...covered].sort()).toEqual([...FORMERLY_GATED, ...FORMERLY_COMBAT_GATED].sort());
 		for (const type of FORMERLY_GATED) {
 			expect(SESSION_COMMAND_AVAILABILITY[type]).toBe('always');
 		}
@@ -503,6 +650,57 @@ describe('RC-SES-6.1: records carry the workflow they happened in', () => {
 			expect(handout!.deliveries.every(happenedLive)).toBe(live);
 		},
 	);
+
+	it('recover retains outside-session rolls, combat events and mixed handout deliveries without duplicates', () => {
+		let ctx = deliverLetter(startCombat(roll(inWorkflow('idle'), 'Standby check')), 'Mixed letter');
+		const mixedId = Object.keys(ctx.state.session.handouts)[0]!;
+		ctx = deliverLetter(ctx, 'Outside only');
+		const outsideRoll = ctx.state.session.diceHistory[0]!;
+		const outsideCombat = [...ctx.state.session.combat.log];
+		const outsideHandouts = ctx.state.session.handouts;
+		ctx = setWorkflow(ctx, 'active');
+		ctx = advanceTurn(roll(ctx, 'Live check'));
+		ctx = run(ctx, {
+			type: 'session.deliver-handout',
+			actorId: DM_ACTOR.id,
+			payload: {
+				handoutId: mixedId,
+				title: 'Mixed letter',
+				sections: [{ id: 'sec-1', heading: 'Body', body: 'Again', visibility: 'shared' }],
+				sceneId: ctx.homeSceneId,
+				recipientActorIds: [PLAYER_ACTOR.id],
+				connectionState: 'connected',
+			},
+		});
+		const mixedDeliveries = ctx.state.session.handouts[mixedId]!.deliveries;
+		ctx = setWorkflow(setWorkflow(ctx, 'ending'), 'recap');
+		const archiveId = ctx.state.session.recapArchiveId!;
+		const archiveBefore = structuredClone(ctx.state.session.archives[archiveId]!);
+		expect(archiveBefore.handouts[mixedId]!.deliveries).toEqual(
+			mixedDeliveries.filter(happenedLive),
+		);
+		expect(Object.keys(archiveBefore.handouts)).toEqual([mixedId]);
+		// History written after archive creation must survive recovery as well.
+		ctx = roll(ctx, 'Recap check');
+		const recapRoll = ctx.state.session.diceHistory.at(-1)!;
+		for (let attempt = 0; attempt < 2; attempt++) {
+			ctx = run(ctx, { type: 'session.recover', actorId: DM_ACTOR.id, payload: { archiveId } });
+			expect(ctx.state.session.diceHistory).toEqual(
+				expect.arrayContaining([outsideRoll, recapRoll, ...archiveBefore.diceHistory]),
+			);
+			expect(ctx.state.session.diceHistory).toHaveLength(3);
+			expect(ctx.state.session.combat.log).toEqual(
+				expect.arrayContaining([...outsideCombat, ...archiveBefore.combat.log]),
+			);
+			expect(ctx.state.session.combat.log).toHaveLength(
+				outsideCombat.length + archiveBefore.combat.log.length,
+			);
+			expect(ctx.state.session.handouts[mixedId]!.deliveries).toEqual(mixedDeliveries);
+			const outsideOnly = Object.values(outsideHandouts).find((handout) => handout.id !== mixedId)!;
+			expect(ctx.state.session.handouts[outsideOnly.id]).toEqual(outsideOnly);
+			expect(ctx.state.session.archives[archiveId]).toEqual(archiveBefore);
+		}
+	});
 
 	it('reads a record written before the stamp existed as live (the old gate allowed nothing else)', () => {
 		expect(happenedLive({ id: 'roll-legacy', expression: '1d20', total: 12 })).toBe(true);

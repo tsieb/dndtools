@@ -214,6 +214,37 @@ function archiveCurrentSession(
 	};
 }
 
+/** Restore archived records without discarding table history that the archive deliberately excludes. */
+function restoreHistory<T extends { id: string; workflow?: SessionWorkflowState }>(
+	archived: T[],
+	current: T[],
+	timestamp: (record: T) => string,
+): T[] {
+	const records = new Map(archived.map((record) => [record.id, { ...record }]));
+	for (const record of current.filter((entry) => !happenedLive(entry))) {
+		records.set(record.id, { ...record });
+	}
+	return [...records.values()].sort((a, b) => timestamp(a).localeCompare(timestamp(b)));
+}
+
+function restoreHandouts(
+	current: Record<string, SessionHandout>,
+	archived: Record<string, SessionHandout>,
+): Record<string, SessionHandout> {
+	const handouts = liveHandoutsForArchive(current, false);
+	for (const [id, handout] of Object.entries(archived)) {
+		handouts[id] = cloneArchivedHandout({
+			...handout,
+			deliveries: restoreHistory(
+				handout.deliveries,
+				current[id]?.deliveries ?? [],
+				(delivery) => delivery.deliveredAt,
+			),
+		});
+	}
+	return handouts;
+}
+
 /**
  * SES-001 RECOVER — restore the live Session State fields from a durable archive snapshot. This is the
  * lifecycle counterpart of ARCHIVE: archive snapshots the live state and clears it; recover replays a
@@ -229,8 +260,15 @@ function restoreLiveFieldsFromArchive(
 		...session,
 		activeSceneId: archive.activeSceneId,
 		activeMap: archive.activeMap ? { ...archive.activeMap } : null,
-		combat: ensureSessionCombatState(archive.combat),
-		diceHistory: archive.diceHistory.map((roll) => ({ ...roll })),
+		combat: {
+			...ensureSessionCombatState(archive.combat),
+			log: restoreHistory(
+				ensureSessionCombatState(archive.combat).log,
+				session.combat.log,
+				(entry) => entry.at,
+			),
+		},
+		diceHistory: restoreHistory(archive.diceHistory, session.diceHistory, (roll) => roll.rolledAt),
 		timers: Object.fromEntries(
 			Object.entries(archive.timers).map(([id, timer]) => [id, { ...timer }]),
 		),
@@ -246,9 +284,7 @@ function restoreLiveFieldsFromArchive(
 				{ ...projection },
 			]),
 		),
-		handouts: Object.fromEntries(
-			Object.entries(archive.handouts).map(([id, handout]) => [id, cloneArchivedHandout(handout)]),
-		),
+		handouts: restoreHandouts(session.handouts, archive.handouts),
 		quickReferencePanels: Object.fromEntries(
 			Object.entries(archive.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
 		),
