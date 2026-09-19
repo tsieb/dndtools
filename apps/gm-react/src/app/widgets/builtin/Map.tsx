@@ -128,6 +128,35 @@ export function MapTile({
 	const party = useMemo(() => (followParty ? partyCentre(view) : null), [followParty, view]);
 	const shownCentre = party ?? centre;
 
+	// RC-ENG-8.2 — `MapCanvas` draws tokens and POIs as `<button>`s whether or not anything handles a
+	// press. The tile never does (pan is its only gesture), and the board shrinks tiles on the phone
+	// tier, so on the default board those dead buttons became 15px targets. The canvas gets the view
+	// without its markers, and the tile draws the same places as decoration (same transform as
+	// `MapCanvas`'s `toVisual`, same `enabled`-layer rule).
+	const canvasView = useMemo(() => (view ? { ...view, tokens: [], pois: [] } : null), [view]);
+	const markerGlyphs = useMemo(() => {
+		if (!view) return [];
+		const on = new Set(view.layers.filter((layer) => layer.enabled).map((layer) => layer.id));
+		const place = (p: { x: number; y: number }) => ({
+			x: 0.5 + zoom * (p.x - shownCentre.x),
+			y: 0.5 + zoom * (p.y - shownCentre.y),
+		});
+		const pois = view.pois
+			.filter((poi) => on.has(poi.layerId))
+			.map((poi) => ({ id: poi.id, kind: 'poi' as const, at: place(poi.position), label: '' }));
+		const tokens = view.tokens
+			.filter((token) => on.has(token.layerId))
+			.map((token) => ({
+				id: token.id,
+				kind: token.linkedActorId ? ('party' as const) : ('token' as const),
+				at: place(token.position),
+				label: token.label.slice(0, 1),
+			}));
+		return [...pois, ...tokens].filter(
+			({ at }) => at.x >= 0 && at.x <= 1 && at.y >= 0 && at.y <= 1,
+		);
+	}, [view, zoom, shownCentre]);
+
 	/** The scene this instance lives on — `scene.configure-widget` addresses widgets by scene. */
 	const sceneId = useMemo(() => {
 		for (const scene of Object.values(scenes.scenes)) {
@@ -360,14 +389,13 @@ export function MapTile({
 				onPointerDown={interactive ? (e) => e.stopPropagation() : undefined}
 				style={{
 					flex: '1 0 auto',
-					// Keep all three zoom controls inside the map even in a short, scaled widget.
-					minHeight: interactive ? 'calc(3 * var(--operation-touch-target) + 20px)' : 64,
+					minHeight: 64,
 					position: 'relative',
 					borderRadius: T.radius.sm,
 				}}
 			>
 				<MapCanvas
-					view={view}
+					view={canvasView}
 					layers={layers}
 					isDm={isDm}
 					zoom={zoom}
@@ -383,51 +411,75 @@ export function MapTile({
 					height="100%"
 					style={{ borderRadius: 'var(--radius-sm)' }}
 				>
-					{interactive && (
-						<div
-							style={{
-								position: 'absolute',
-								right: 6,
-								bottom: 6,
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 4,
-								zIndex: 6,
-							}}
-						>
-							<IconButton
-								style={actionTarget}
-								icon="zoom-in"
-								label={t('atlas.zoomIn')}
-								variant="outline"
-								size="sm"
-								disabled={zoom >= ZOOM_MAX}
-								onClick={() => setZoom((z) => zoomed(z, ZOOM_STEP))}
-							/>
-							<IconButton
-								style={actionTarget}
-								icon="zoom-out"
-								label={t('atlas.zoomOut')}
-								variant="outline"
-								size="sm"
-								disabled={zoom <= ZOOM_MIN}
-								onClick={() => setZoom((z) => zoomed(z, -ZOOM_STEP))}
-							/>
-							<IconButton
-								style={actionTarget}
-								icon="zoom-fit"
-								label={t('atlas.fit')}
-								variant="outline"
-								size="sm"
-								onClick={() => {
-									setZoom(ZOOM_MIN);
-									setCentre({ x: 0.5, y: 0.5 });
+					<div
+						aria-hidden
+						style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}
+					>
+						{markerGlyphs.map((glyph) => (
+							<span
+								key={glyph.id}
+								style={{
+									position: 'absolute',
+									left: `${glyph.at.x * 100}%`,
+									top: `${glyph.at.y * 100}%`,
+									transform: 'translate(-50%,-50%)',
+									width: '1.25em',
+									height: '1.25em',
+									borderRadius: T.radius.full,
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									font: `700 var(--text-xs)/1 ${T.mono}`,
+									color: T.ink,
+									background: glyph.kind === 'poi' ? 'var(--layer-poi)' : T.bg,
+									border: `2px solid ${glyph.kind === 'poi' ? T.bg : glyph.kind === 'party' ? T.ok : T.err}`,
 								}}
-							/>
-						</div>
-					)}
+							>
+								{glyph.label}
+							</span>
+						))}
+					</div>
 				</MapCanvas>
 			</div>
+			{/* Zoom lives in the tile's own scrolling column, not stacked inside the map: a board-scaled
+			    touch target is several times a small tile's height, and inside the clipped map it ran off
+			    the bottom with no way to scroll to it. */}
+			{interactive && (
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="zoom-in"
+						label={t('atlas.zoomIn')}
+						variant="outline"
+						size="sm"
+						disabled={zoom >= ZOOM_MAX}
+						onClick={() => setZoom((z) => zoomed(z, ZOOM_STEP))}
+					/>
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="zoom-out"
+						label={t('atlas.zoomOut')}
+						variant="outline"
+						size="sm"
+						disabled={zoom <= ZOOM_MIN}
+						onClick={() => setZoom((z) => zoomed(z, -ZOOM_STEP))}
+					/>
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="zoom-fit"
+						label={t('atlas.fit')}
+						variant="outline"
+						size="sm"
+						onClick={() => {
+							setZoom(ZOOM_MIN);
+							setCentre({ x: 0.5, y: 0.5 });
+						}}
+					/>
+				</div>
+			)}
 			<div
 				style={{
 					display: 'flex',
