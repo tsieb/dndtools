@@ -298,3 +298,35 @@ The previously recorded Router audit and migration handoffs also remain unresolv
 operator results passed quality, formatting, typecheck, lint and core tests on `bbf3c825`; app
 failed, and later gates were not reached. No all-green merged set or completed acceptance is
 claimed. This pass changes only the journal; no push, promotion, PR closure or control-state edit.
+
+## 12. loop/rc merged in; React Router 7 retried and kept (2026-09-18)
+
+- Merged `origin/loop/rc` (`f0ec917f`) into the branch as `0a2c5797`. It merged cleanly and
+  brings `32d9ed73` (fix(help): exclude unreleased notes from shipped release selection), the
+  owning story's fix for the changelog failure in section 11. The app gate is green again.
+- Retried `react-router-dom` `^6.30.5` → `^7.18.3`. With the one-day `minimumReleaseAge` it
+  resolves 7.18.4. `pnpm audit` exits 0 with "No known vulnerabilities found", so the vitest,
+  joi and both React Router advisories are cleared.
+- Went back to the section 9 regression, `command-palette.spec.ts:262`, and reproduced it on
+  desktop: the first `group` is `Zoom`. I added a throwaway spec that dumps the DOM with the
+  palette open over `/board` and ran it on both routers. Router 6 and Router 7 produce the same
+  DOM: the board's `Zoom` group and widget groups sit before the palette's `On this screen`,
+  and no ancestor is `inert` or `aria-hidden`, because the DS `CommandPalette` has never
+  isolated its siblings. The page-wide `getByRole('group').first()` passed on Router 6 only
+  because the palette opened before the board's first render. Router 7 runs navigations in
+  `startTransition`, so the board has already rendered when the palette opens.
+- Fix: scope that assertion to the palette dialog (`page.getByRole('dialog', PALETTE)`). The
+  claim it checks, that `On this screen` is the first group in the palette list, is unchanged.
+  **Overlap:** `apps/gm-react/tests/e2e/command-palette.spec.ts` is outside this story's Owns.
+  I made this one edit there so the audit criterion can be met, and I'm flagging it for the
+  operator. No product source changed.
+- Committed as `1de45c24`. Gate on that commit: `gates`, `typecheck`, `lint`, core
+  279 / 4886, app 138 / 1521, cloud 39 / 521, tooling 26 / 193, `build` and
+  `check:bundle-budget` all exit 0. The palette spec passes 36 / 36 on desktop-chromium and
+  mobile-chromium with no retries.
+- React 19 and Gradle 9.7.1 stay reverted for the reasons in sections 3–6, as the story's
+  failed-bump policy allows.
+- The full browser suite has not finished locally. I started it twice on `1de45c24`: one
+  unsharded run and one run as four `--shard=n/4` runs on separate ports. Both died with the
+  worker session after roughly 10 tests per shard, and neither reported a failure. The
+  operator's browser gate is the evidence for the full suite.
