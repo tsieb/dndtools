@@ -5,7 +5,8 @@ import {
 	nextSizePreset,
 	type BoardWidget,
 } from './board-helpers';
-import type { CoreCommand } from '@dndtools/core';
+import { getSceneForActor, type CoreCommand, type SectionLayoutRegion } from '@dndtools/core';
+import { useParams } from 'react-router-dom';
 import {
 	ArrangeBar,
 	EmptyCanvas,
@@ -57,31 +58,27 @@ import {
 } from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 
-// `WidgetGlyph` lives with the frame that renders it; re-exported here so the scene-editor Inspector
-// keeps importing it from the path it always has.
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
 
-/**
- * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
- * widget frames + edit interactions under two overflow POLICIES.
- *   • 'bounded' (Command Center / `/board`): top-anchored, glanceable, a REAL `overflow:auto`
- *     scroll region rather than a transform view. No free zoom.
- *   • 'canvas'  (custom scenes / `/scene/:id`): free pan + zoom over a transform `view`.
- *
- * Pointer gestures commit once on release through the core. Local drafts keep the geometry
- * responsive until the confirmed layout catches up.
- *
- * Keyboard (RC-CAN-3.5, see `canvas/keyboard.ts`): Tab follows metadata reading order, arrows pick
- * the nearest tile, Enter enters content, Space = move mode (arrows nudge, Shift+arrows resize),
- * Escape leaves, Delete = undoable remove, A = add gallery. The resize handle takes plain arrows.
- * Multi-select (RC-CAN-3.6, see `canvas/geometry.ts`): Shift+Space / Shift-click / marquee add tiles,
- * then the arrange bar or Alt+letter aligns, and Ctrl+] / Ctrl+[ / Ctrl+G layer and group.
- */
+const NO_SECTIONS: SectionLayoutRegion[] = [];
+
+// Dock to the authored board extent; retain free coordinates for undocking.
+function dockedPosition(
+	position: { x: number; y: number; w: number; h: number },
+	dock: string | null,
+	extent: { width: number; height: number },
+) {
+	return {
+		x: dock === 'left' ? 0 : dock === 'right' ? Math.max(0, extent.width - position.w) : position.x,
+		y:
+			dock === 'top' ? 0 : dock === 'bottom' ? Math.max(0, extent.height - position.h) : position.y,
+	};
+}
 
 export function SceneBoardCanvas({
-	widgets,
+	widgets: authoredWidgets,
 	policy,
 	editing,
 	snap,
@@ -119,25 +116,48 @@ export function SceneBoardCanvas({
 		},
 		[resizeWidget, policy],
 	);
-	// Keyboard focus recovery: live frame elements by id + the last-focused widget.
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const { t } = useI18n();
-	// RC-CAN-3.6 — the host owns ONE selected id (its inspector follows it); `multi` holds the whole
-	// selection once it grows past one tile, and empties itself when the host's id leaves it.
 	const runtime = useRuntime();
 	const [multi, setMulti] = useState<string[]>([]);
 	const [marquee, setMarquee] = useState<Box | null>(null);
 	const marqueeRef = useRef<{ x: number; y: number; base: string[] } | null>(null);
 	const groupDrag = useRef<Record<string, { x: number; y: number }>>({});
 	const selection = multi.length ? multi : selectedId ? [selectedId] : [];
+	const { id: routeSceneId } = useParams();
 	const scene = useMemo(
 		() =>
+			runtime.state.scenes.scenes[
+				routeSceneId ??
+					(policy === 'bounded' ? (runtime.state.commandCenter.homeSceneId ?? '') : '')
+			] ??
 			Object.values(runtime.state.scenes.scenes).find((sc) =>
-				sc.widgets.some((w) => w.id === widgets[0]?.id),
+				sc.widgets.some((w) => w.id === authoredWidgets[0]?.id),
 			),
-		[runtime.state, widgets],
+		[runtime.state, authoredWidgets, routeSceneId, policy],
 	);
+	const summary = scene
+		? getSceneForActor(
+				runtime.state.scenes,
+				runtime.state.permissions,
+				runtime.defaultActorId,
+				scene.id,
+			)
+		: null;
+	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
+	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
+	const widgets = useMemo(() => {
+		const extent = extentOf([...authoredWidgets, ...sections.map((section) => section.bounds)]);
+		return authoredWidgets.map((widget) => ({
+			...widget,
+			...dockedPosition(
+				widget,
+				scene?.widgets.find((w) => w.id === widget.id)?.layout.dock ?? null,
+				extent,
+			),
+		}));
+	}, [authoredWidgets, scene, sections]);
 	const groupOf = useMemo(
 		() => new Map(scene?.widgets.map((w) => [w.id, w.layout.groupId]) ?? []),
 		[scene],
@@ -155,7 +175,6 @@ export function SceneBoardCanvas({
 		const r = wrapRef.current?.getBoundingClientRect();
 		return [(r?.width ?? 800) / 2, (r?.height ?? 600) / 2];
 	};
-	// RC-CAN-3.1: the board opens fitted (it is a glanceable dashboard); a free scene opens 1:1.
 	const [localPreset, setLocalPreset] = useState<ZoomPreset>(
 		policy === 'bounded' ? 'fit' : 'comfortable',
 	);
@@ -165,15 +184,12 @@ export function SceneBoardCanvas({
 		percent: number;
 	} | null>(null);
 	const zoomSeq = useRef(0);
-	// Optimistic per-gesture overrides (x/y for moves, w/h for resizes).
 	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
 	const [sizeDraft, setSizeDraft] = useState<Record<string, { w: number; h: number }>>({});
-	// Refs so the global pointerup handler reads the latest drafts without re-binding the listener.
 	const posDraftRef = useRef(posDraft);
 	const sizeDraftRef = useRef(sizeDraft);
 	posDraftRef.current = posDraft;
 	sizeDraftRef.current = sizeDraft;
-	// Every tile's live geometry: the confirmed layout under any in-flight draft.
 	const rects = useMemo(
 		() =>
 			widgets.map((w) => ({
@@ -192,12 +208,13 @@ export function SceneBoardCanvas({
 		[onMove],
 	);
 
-	// Drop a draft once the core-confirmed layout matches it — flicker-free hand-off from optimistic
-	// drag to persisted state.
 	useEffect(() => {
-		setPosDraft((prev) => dropSettled(prev, widgets, (d, w) => d.x === w.x && d.y === w.y));
-		setSizeDraft((prev) => dropSettled(prev, widgets, (d, w) => d.w === w.w && d.h === w.h));
-	}, [widgets]);
+		// Commands persist free coordinates, even when docking derives a different painted position.
+		setPosDraft((prev) => dropSettled(prev, authoredWidgets, (d, w) => d.x === w.x && d.y === w.y));
+		setSizeDraft((prev) =>
+			dropSettled(prev, authoredWidgets, (d, w) => d.w === w.w && d.h === w.h),
+		);
+	}, [authoredWidgets]);
 
 	useEffect(() => {
 		const node = wrapRef.current;
@@ -209,28 +226,19 @@ export function SceneBoardCanvas({
 		return () => observer.disconnect();
 	}, []);
 
-	// The bounded GM Screen is a composed dashboard, not a free-panning canvas. At narrow window
-	// sizes the Fit preset scales the authored board width into view so controls on right-hand
-	// widgets remain reachable. Canvas-mode scenes keep their continuous user-controlled zoom.
-	const contentExtent = useMemo(() => extentOf(rects), [rects]);
+	const contentExtent = extentOf([...authoredWidgets, ...rects, ...sections.map((s) => s.bounds)]);
 
-	// RC-CAN-3.1 — the three named presets. Fit is derived from the pane and the authored extent and
-	// is FLOORED: a board that would have to paint at 0.35 to fit scrolls at 0.5 instead. The other
-	// two are fixed so "Comfortable" means the same thing on a laptop and on a handset.
 	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentExtent.width, FIT_FLOOR, 1) : 1;
 	const scaleForPreset = useCallback(
 		(p: ZoomPreset) => (p === 'fit' ? fitScale : FIXED_PRESET_SCALE[p]),
 		[fitScale],
 	);
-	// Controlled when the host passes `zoomPreset` (the bounded board), local otherwise.
 	const preset = zoomPreset ?? localPreset;
 
 	const boundedScale = policy === 'bounded' ? scaleForPreset(preset) : 1;
 	const scale = policy === 'canvas' ? view.scale : boundedScale;
 	const tx = policy === 'canvas' ? view.tx : boundedScale < 1 ? 8 : 0;
 	const ty = policy === 'canvas' ? view.ty : boundedScale < 1 ? 8 : 0;
-	// Fit at the floor, or either fixed step, can paint wider than the pane. The bounded board then
-	// SCROLLS horizontally rather than shrinking every widget further.
 	const overflowsHorizontally = policy === 'bounded' && scale * contentExtent.width > wrapWidth;
 
 	/** Move to a named step. The bounded board reads its scale straight off the preset; the free
@@ -241,8 +249,6 @@ export function SceneBoardCanvas({
 			onZoomPresetChange?.(next);
 			const s1 = scaleForPreset(next);
 			if (policy === 'canvas') {
-				// Fit re-frames the whole scene; the other two zoom about the pane centre so the
-				// widget the DM is looking at stays put.
 				if (next === 'fit') setView({ tx: 32, ty: 32, scale: s1 });
 				else setView((v) => zoomAbout(v, ...paneCentre(), s1));
 			}
@@ -250,8 +256,6 @@ export function SceneBoardCanvas({
 		[onZoomPresetChange, policy, scaleForPreset],
 	);
 
-	// Announce every step change, wherever it came from — the canvas keys OR the host's own control
-	// (the board's toolbar owns the state, so the change arrives as a prop).
 	const announcedRef = useRef<ZoomPreset | null>(null);
 	useEffect(() => {
 		if (announcedRef.current === null || announcedRef.current === preset) {
@@ -284,9 +288,6 @@ export function SceneBoardCanvas({
 	const activePreset =
 		ZOOM_PRESETS.find((p) => Math.abs(scaleForPreset(p) - scale) < 0.005) ?? null;
 
-	// Capture keeps a gesture bound to the element it started on, so a release outside the window (or
-	// over another frame) still ends it; with `pointercancel` below it stops a browser-taken-over touch
-	// leaving a stuck drag and `userSelect:'none'` pinned app-wide.
 	const capture = (e: React.PointerEvent) => {
 		try {
 			e.currentTarget.setPointerCapture(e.pointerId);
@@ -307,7 +308,6 @@ export function SceneBoardCanvas({
 		if (!editing) return onSelect(w.id);
 		const tile = withGroupMates([w.id], groupOf);
 		if (e.shiftKey || e.ctrlKey || e.metaKey) return select(toggleSelection(selection, tile));
-		// Dragging one tile of a selection drags the whole selection.
 		const moving = selection.includes(w.id) ? selection : tile;
 		if (!selection.includes(w.id)) select(tile);
 		groupDrag.current = Object.fromEntries(
@@ -324,8 +324,6 @@ export function SceneBoardCanvas({
 		begin(e, { mode: 'resize', id: w.id, sx: e.clientX, sy: e.clientY, ow: cur.w, oh: cur.h });
 	};
 	const onBgDown = (e: React.PointerEvent) => {
-		// RC-CAN-3.2 — middle-button drag pans EITHER policy from anywhere, even over widget content,
-		// without fighting text selection or drag handles. The board scrolls its real overflow region.
 		if (e.button === 1) {
 			e.preventDefault();
 			const el = wrapRef.current;
@@ -339,16 +337,12 @@ export function SceneBoardCanvas({
 			);
 		}
 		onSelect(null);
-		// RC-CAN-3.6 — marquee: any empty-board drag on the board, Shift+drag on the free canvas (a
-		// plain drag there pans). Shift keeps the existing selection and adds to it.
 		const onTile = (e.target as HTMLElement).closest('[data-testid^="widget-"]');
 		if (editing && e.button === 0 && !onTile && (policy === 'bounded' || e.shiftKey)) {
 			marqueeRef.current = { ...boardPoint.current(e), base: e.shiftKey ? selection : [] };
 			return begin(e, null);
 		}
 		if (policy !== 'canvas') return;
-		// In VIEW mode presses on widget CONTENT land here too (no drag overlay); panning on them made
-		// note text unselectable. Only a press on the background itself is a pan.
 		if (e.target !== e.currentTarget) return;
 		begin(e, { mode: 'pan', sx: e.clientX, sy: e.clientY, tx: view.tx, ty: view.ty });
 	};
@@ -433,8 +427,6 @@ export function SceneBoardCanvas({
 				}
 			}
 		};
-		// A browser-taken-over gesture (the phone board's `pan-y` swipe) fires `pointercancel`, not
-		// `pointerup`: abandon it WITHOUT dispatching and drop the drafts so tiles snap back.
 		const cancel = () => {
 			const d = dragRef.current;
 			dragRef.current = null;
@@ -469,7 +461,6 @@ export function SceneBoardCanvas({
 					zoomAbout(v, e.clientX - r.left, e.clientY - r.top, clamp(v.scale * factor, 0.4, 1.8)),
 				);
 			} else {
-				// RC-CAN-3.2 — Shift+wheel scrolls horizontally: a plain mouse wheel only reports `deltaY`.
 				const horizontal = e.shiftKey && e.deltaX === 0;
 				const dx = horizontal ? e.deltaY : e.deltaX;
 				const dy = horizontal ? 0 : e.deltaY;
@@ -482,12 +473,9 @@ export function SceneBoardCanvas({
 	const zoom = (factor: number) =>
 		setView((v) => zoomAbout(v, ...paneCentre(), clamp(v.scale * factor, 0.4, 1.8)));
 
-	// DOM order follows the core's metadata reading order, so native Tab walks it; a removed focused
-	// frame hands focus to a survivor (or the empty canvas).
 	const orderedWidgets = useReadingOrder(widgets, focusOrder, focusedId, frameRefs, wrapRef);
 
 	const frameKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, w: BoardWidget) => {
-		// Keys on the widget's own controls (Roll/Start buttons) belong to those controls.
 		const key = frameKey(e);
 		if (!key) return;
 		if (key === 'leave') {
@@ -520,7 +508,6 @@ export function SceneBoardCanvas({
 		if (!delta) return;
 		e.preventDefault();
 		if (editing && selection.includes(w.id)) {
-			// One grid step per key press, one core op per selected tile (like a pointer gesture's up).
 			const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 			if (e.shiftKey) {
 				const resizable = canResize ? canResize(w) : isWidgetResizable(w);
@@ -553,7 +540,6 @@ export function SceneBoardCanvas({
 		if (resolved) {
 			const command = { ...resolved, actorId: runtime.defaultActorId } as CoreCommand;
 			await (history ? history.run(command, 'Arranged tiles') : runtime.dispatch(command));
-			// A reorder moves frames in the DOM, which can drop focus to <body>.
 			requestAnimationFrame(() => {
 				if (document.activeElement === document.body && focusedId)
 					frameRefs.current.get(focusedId)?.focus();
@@ -563,15 +549,7 @@ export function SceneBoardCanvas({
 			announce(t('boardCanvas.arrange.done', { count: selection.length }));
 	};
 
-	/**
-	 * `Ctrl+Z` / `Ctrl+Shift+Z` (and `Ctrl+Y`, which is what Windows editors train), SCOPED to this
-	 * canvas: the handler sits on the canvas wrapper, so the shortcut only fires while focus is
-	 * somewhere inside the board. A global listener would have let Ctrl+Z on a Settings form reverse
-	 * a widget move nobody could see.
-	 */
 	const canvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-		// A widget body can hold a real text field, where these keys type characters and Ctrl+Z is
-		// the browser's own text undo.
 		const target = e.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 		if (target?.closest('[data-tile-content]') && !target.hasAttribute('data-tile-content')) return;
@@ -586,7 +564,6 @@ export function SceneBoardCanvas({
 			openGallery(e.currentTarget, t(policy === 'bounded' ? 'board.add' : 'sceneEditor.add'));
 			return;
 		}
-		// RC-CAN-3.1 — the named zoom steps. Unmodified so `Ctrl+0` stays the browser's page zoom.
 		if (!e.ctrlKey && !e.metaKey && !e.altKey) {
 			const direct = ZOOM_KEY[e.key];
 			if (direct) {
@@ -638,7 +615,6 @@ export function SceneBoardCanvas({
 				resizable={resizable}
 				tabbable
 				stackOrder={widgets.indexOf(w)}
-				// Pixel geometry only while editing: in VIEW mode it is telemetry nobody can act on.
 				ariaLabel={
 					editing
 						? `${w.title}, ${w.typeLabel} widget${selected && multi.length ? ', selected' : ''}, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`
@@ -667,9 +643,8 @@ export function SceneBoardCanvas({
 		<div
 			ref={wrapRef}
 			data-testid={`scene-board-${policy}`}
+			data-background={background}
 			{...A11y.canvasSurfaceProps(policy, editing, widgets.length)}
-			// Focusable only programmatically/by click, so the canvas can own its own shortcuts without
-			// adding a stop on the Tab order (the widget frames are the real tab stops).
 			tabIndex={widgets.length === 0 ? 0 : -1}
 			onWheel={onWheel}
 			onKeyDown={canvasKeyDown}
@@ -695,12 +670,18 @@ export function SceneBoardCanvas({
 			}}
 		>
 			<div
+				data-testid="scene-background"
+				data-theme={
+					background === 'paper' || background === 'parchment'
+						? 'parchment'
+						: background === 'dark'
+							? 'tavern'
+							: undefined
+				}
 				style={{
 					position: 'absolute',
 					inset: 0,
-					background:
-						// color-mix, not a literal rgba, so the wash follows the active theme's accent.
-						'radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--color-accent) 7%, transparent), transparent 60%)',
+					background: background === 'paper' ? 'var(--color-surface-raised)' : 'var(--color-bg)',
 					pointerEvents: 'none',
 				}}
 			/>
@@ -719,7 +700,7 @@ export function SceneBoardCanvas({
 					} as CSSProperties
 				}
 			>
-				{editing && (
+				{(editing || background === 'grid') && (
 					<div
 						style={{
 							position: 'absolute',
@@ -734,6 +715,35 @@ export function SceneBoardCanvas({
 						}}
 					/>
 				)}
+				{sections.map((section) => (
+					<div
+						key={section.id}
+						data-testid={`scene-section-${section.id}`}
+						role="region"
+						aria-label={section.name}
+						style={{
+							position: 'absolute',
+							left: section.bounds.x,
+							top: section.bounds.y,
+							width: section.bounds.w,
+							height: section.bounds.h,
+							pointerEvents: 'none',
+							border: '1px solid var(--color-border-strong)',
+							background: 'color-mix(in srgb, var(--color-surface) 35%, transparent)',
+						}}
+					>
+						<div
+							style={{
+								padding: 'var(--space-1) var(--space-2)',
+								background: 'var(--color-surface)',
+								color: 'var(--color-text-primary)',
+								fontWeight: 600,
+							}}
+						>
+							{section.name}
+						</div>
+					</div>
+				))}
 				{frames}
 				{marquee && <Marquee box={marquee} />}
 			</div>

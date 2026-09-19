@@ -2,10 +2,22 @@ import type React from 'react';
 import { useId, useState } from 'react';
 import {
 	resolveWidgetStyleVariables,
+	listWidgetLayoutCommands,
+	resolveLayoutCommandPayload,
 	permissionsWithPreviewActors,
 	PREVIEW_PLAYER_ACTOR_ID,
 } from '@dndtools/core';
-import { Badge, Button, Card, Icon, IconButton, Select, Tabs, tabPanelProps } from '../../ds';
+import {
+	Badge,
+	Button,
+	Card,
+	Field,
+	Icon,
+	IconButton,
+	Select,
+	Tabs,
+	tabPanelProps,
+} from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { SEMANTIC_TOKEN_VALUES } from '../../app/widgetBuilder/vocabulary';
 import { WidgetGlyph } from '../../app/SceneBoardCanvas';
@@ -91,6 +103,16 @@ export function Inspector({
 	const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
 		candidate.widgets.some((instance) => instance.id === widget.id),
 	);
+	const instance = scene?.widgets.find((w) => w.id === widget.id);
+	const dockCommands =
+		scene && instance
+			? listWidgetLayoutCommands(
+					scene,
+					instance,
+					runtime.state.permissions,
+					runtime.defaultActorId,
+				).filter((c) => c.group === 'dock')
+			: [];
 	const playerVerdict = scene
 		? readPlayerPreview(
 				{ ...runtime.state, permissions: permissionsWithPreviewActors(runtime.state.permissions) },
@@ -398,6 +420,31 @@ export function Inspector({
 							onMove={move}
 							onResize={onResize}
 						/>
+						{dockCommands.length > 0 && (
+							<Field label={locale === 'es' ? 'Acoplar al borde' : 'Dock to edge'}>
+								<Select
+									value={instance?.layout.dock ?? 'none'}
+									options={['none', 'left', 'right', 'top', 'bottom'].map((edge) => ({
+										value: edge,
+										label:
+											edge === 'none'
+												? labels.none
+												: edge === 'top'
+													? labels.topDock
+													: t(`builder.dock.${edge as 'left' | 'right' | 'bottom'}`),
+									}))}
+									onChange={(e: { target: { value: string } }) => {
+										const descriptor = dockCommands.find((c) => c.id === `dock-${e.target.value}`);
+										const command =
+											descriptor && scene && instance
+												? resolveLayoutCommandPayload(descriptor, scene, instance)
+												: null;
+										if (command)
+											void runtime.dispatch({ ...command, actorId: runtime.defaultActorId });
+									}}
+								/>
+							</Field>
+						)}
 					</Section>
 
 					{/* CANVAS-016 — pin where this widget lands in the canvas's keyboard traversal
