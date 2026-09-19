@@ -442,3 +442,52 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts --workers=2`.
   tests and journal, and `git diff --check` passed. Only the four authorized test files
   and this journal are included in the recovery commit. Full central wrapper gates and
   independent review remain with the operator.
+
+## Integration rebase reconciliation — 2026-09-19
+
+- Resumed at `de72dc8f` with a clean tree. Reproduced the reported two conflicts by
+  rebasing onto the specified `c8a2c291463c39e0f1deeff83cc64027ce3bcf59`.
+- Reconciled Board's stacked toggle and conditional zoom controls with the integration
+  branch's accent Done button, widget gallery, templates and bound home widgets.
+- Reconciled SceneEditor's stacked surface with the new inert player-preview stage and
+  overlay, gallery and templates. Preserved the preview-aware scene metadata and focus
+  order, hid the layout toggle during preview, and applied the phone region-height floor
+  to the outer stage container. Full-screen panels still hide the toolbar and metadata
+  panel; normal reading uses panels and editing remains spatial.
+- Rebase completed as `7b975dd6` (implementation) and `bc9d4ee1` (browser recovery),
+  directly above the requested integration commit. Board is 776 lines and SceneEditor
+  764, both below the 800-line limit. Frozen-lockfile install passed without tracked
+  dependency changes. No agents, publishing or dispatcher control edits.
+- Full `pnpm typecheck`, `pnpm gates` and `pnpm lint`: exit 0. Focused unit command:
+  `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/canvas
+apps/gm-react/src/platform/preferences.test.ts
+apps/gm-react/src/screens/sceneEditor/playerPreview.test.ts`: 7 files / 111 tests passed.
+  Exact logs are `/tmp/rc-can-5.1-rebase-{typecheck,gates,lint,unit}.log`.
+- Browser command, port 15752, both profiles, two workers: the five prior specs plus
+  `player-preview.spec.ts` and `scene-templates.spec.ts`: 267 passed, 3 failed (5.0m).
+  Exact output: `/tmp/rc-can-5.1-rebase-browser.log`. The requested 320×640 board,
+  360×360 route sweep and `/board` mobile axe scan passed, as did player-preview on
+  both profiles. The broader browser gate is NOT passing.
+- All three failures are new integration tests outside this task's owned paths:
+  `a11y-axe-gate.spec.ts:462` and `:504` require spatial-canvas selectors before
+  testing canvas accessibility semantics; `scene-templates.spec.ts:86` requires
+  `scene-board-canvas` after reload, when a phone correctly returns to stacked reading.
+  No product default or test ID was changed to impersonate the absent canvas.
+- External focused probes in `/tmp/rc-can-5.1-rebase-probes/stacked.spec.ts`: 4 passed
+  (14.8s), checking both hosts at 320×640 and 360×360: default stack, y/x order, 48px
+  headers, collapse/reload persistence, no canvas/zoom surface, full-screen bounds above
+  navigation, full-screen axe and Escape focus return. Exact log: that directory's
+  `browser.log`; command uses its `playwright.config.ts`, mobile-chromium, port 15753.
+- Prepared an unapplied owner patch at
+  `/tmp/rc-can-5.1-rebase-probes/test-owner.patch`. It opts only the two canvas-specific
+  accessibility-tree tests into the explicit canvas preference, keeping all ordinary
+  axe scans on default panels, and lets the template persistence assertion count either
+  canvas or stacked tiles. `git apply --check` passes. External-copy validation of the
+  three tests on both profiles: 6 passed (9.6s), exit 0; exact output is that directory's
+  `owner-validation.log`. The owner must apply this patch or expand the claim to those
+  two test files before the broader browser gate can pass.
+- `pnpm format:check:changed --base c8a2c291463c39e0f1deeff83cc64027ce3bcf59`
+  passed for all 11 changed files; `git diff --check` passed. Source conflict resolutions
+  are committed in the rebased implementation; this follow-up commits the reconciliation
+  evidence. All changes relative to the requested base remain within the owned paths plus
+  this journal. Central gates and independent review remain with the operator.
