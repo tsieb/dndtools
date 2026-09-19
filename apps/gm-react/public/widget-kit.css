@@ -10,8 +10,8 @@
  * HOW IT GETS INTO THE FRAME. This file is served beside `widget-host.html`, but the frame never
  * requests it. The host fetches it from its own origin and hands the text over in the `init`
  * message, where the sandbox's existing `style-src 'unsafe-inline'` already admits it. Linking it
- * would have meant `'self'` in the sandbox `style-src`, which cannot be narrowed to one file and
- * would let a widget make requests of its own; see renderer-isolation.ts. The frame's CSP is
+ * would require an external style source and let a widget make requests of its own, even if
+ * restricted to the kit's path; see renderer-isolation.ts. The frame's CSP is
  * unchanged by the kit.
  *
  * WHAT DRIVES IT. Colours, shadows and fonts are the host's theme tokens, forwarded on `init` and

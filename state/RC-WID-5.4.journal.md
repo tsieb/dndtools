@@ -30,22 +30,26 @@ rootFontSize }`, and watches the host `<html>` so a theme, density or motion swi
 ## Decision: the widget CSP did not change
 
 The story allows the CSP to change "only to admit that one same-origin stylesheet". A `<link>` from
-the frame would need `'self'` in `style-src`. A source expression cannot name one file, so that would
-admit every stylesheet on the app origin and any `@import` in one, and a stylesheet URL with a query
-string is a request the frame makes without going through the host's `outbound` gate. It would also
+the frame would need an external source in `style-src`. Allowing the entire app origin would
+admit other stylesheets. A path-restricted source is possible, but a stylesheet URL with a query
+string is still a request the frame makes without going through the host's `outbound` gate. It would also
 have required editing `apps/gm-react/electron/main.cjs`, which serves the same policy as a header and
 is outside this task's paths. So the host fetches the kit and passes the text, and the existing
 `style-src 'unsafe-inline'` admits it. `WIDGET_SANDBOX_CSP`, the meta tag and the Electron header are
 byte-identical to before, and `hostBridge.test.ts` still asserts all three agree.
 
-## Out-of-claim path — needs operator attention
+## Torchlight scope — resolved by operator brief (2026-09-18)
 
-`packages/core/src/state/starter-widgets/torchlight.ts` is modified and is not in this task's owned or
-companion paths. The acceptance names "the starter library's custom showcase restyled with the kit",
-and Torchlight is the only starter that ships code, so it can't be met without touching it. If the
-write fence rejects the candidate, widening `owns` to include that file is the fix. Changes: the kit
-card, eyebrow title, reading badge (warning when guttering, accent otherwise) and a Pause flicker
-button (`aria-pressed`, WCAG 2.2.2), hidden under reduced motion. The meter is now `role="meter"`
+`packages/core/src/state/starter-widgets/torchlight.ts` is now explicitly owned by this task.
+The previous candidate's path-fence failure is resolved by the operator's expanded claim; no
+runtime rewrite is needed. The existing changes are retained because Torchlight is the only
+code-shipping starter and the acceptance explicitly requires restyling that showcase. There are
+no further Torchlight edits in the 2026-09-19 follow-up.
+
+Justification for the retained edits: the kit
+card, eyebrow title and reading badge (warning when guttering, accent otherwise) and a Pause flicker
+button (`aria-pressed`, WCAG 2.2.2), hidden under reduced motion, demonstrate the DS contract
+and provide an accessible control for continuous animation. The meter is now `role="meter"`
 with `aria-valuenow`. Palette literals were dropped in favour of tokens, and the glow is derived
 from the flame token, so the `glow`, `surface` and `text` style tokens are gone. Default size went
 from 260×220 to 260×240 and min height from 180 to 200 to fit the button.
@@ -111,3 +115,54 @@ Checked and dismissed:
   has no network channel of its own to send it anywhere.
 - **`postMessage(…, '*')` for `theme`.** Same targeting as the existing `render` messages, which
   carry far more sensitive, actor-filtered data. Nothing new and nothing sensitive added.
+
+## Revalidation and scope recovery — 2026-09-19
+
+Starting candidate: `2187dd18a96f6d5588d4b3c96b5c51d309456686`, already committed on the current
+task branch, with a clean working tree. The implementation, existing acceptance tests and class
+contract were retained. Headroom tools were not available; validation used original command output.
+
+This follow-up corrects the CSP rationale in the owned stylesheet comment, core policy comment
+and WIDGETS.md. CSP supports path restrictions; the reason to keep host-delivered CSS is that even
+a path restriction allows query-bearing requests outside the outbound gate. See the
+[W3C URL matching algorithm](https://www.w3.org/TR/CSP3/#match-url-to-source-expression).
+No executable behavior, CSP directive, Torchlight asset or test was changed. Journal updates are
+required task evidence. No dispatcher control state was edited.
+
+### Current validation
+
+- App: `pnpm exec vitest run --config vitest.app.config.ts
+apps/gm-react/src/app/widgets/widgetKit.test.ts
+apps/gm-react/src/app/widgets/hostBridge.test.ts`: **38 passed**, 2 files.
+  Original output: `/tmp/rc-wid54-current-app.log`.
+- Core: `pnpm --filter @dndtools/core exec vitest run
+tests/starter-widget-library.test.ts tests/security-renderer-isolation.test.ts`:
+  **41 passed**, 2 files. Original output: `/tmp/rc-wid54-current-core.log`.
+- Browser: `DNDTOOLS_E2E_PORT=15734 pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/widget-kit.spec.ts tests/e2e/starter-widgets.spec.ts
+tests/e2e/custom-widgets.spec.ts --workers=1`: **12 passed**, desktop and mobile Chromium.
+  Original output: `/tmp/rc-wid54-current-e2e.log`. This includes live DS computed-style snapshots
+  for Button, Card and Badge in tavern, parchment and high-contrast, comfortable and compact,
+  focus-ring parity, motion collapse, starter installation and sandbox failure isolation.
+
+- `pnpm --filter @dndtools/gm-react exec tsc --noEmit` and the corresponding core command:
+  both exit 0. Logs: `/tmp/rc-wid54-current-types-app.log`, `/tmp/rc-wid54-current-types-core.log`.
+- Focused ESLint on SandboxHost, renderer-isolation and Torchlight: clean. Prettier check on
+  all six owned paths and this journal: clean. `git diff --check`: clean.
+
+### Current security review follow-up
+
+The retained [`/security-review` report](#security-review) records the previous candidate's review.
+No `/security-review` tool or repository command is exposed in this session; this follow-up is a
+manual source review, not a claim to have rerun that command or the operator's independent review.
+
+Reviewed the current guest `install`/`applyHostLook` and message source check, the host's fixed kit
+fetch and version check, capability-gated token forwarding, stylesheet request guards, Torchlight
+assets, and core/meta/Electron CSP consistency tests. No new executable changes or new security
+findings. The guest still receives styles through `textContent` and remains `allow-scripts` only;
+kit CSS contains no URL/import/image-set requests. Corrected the inaccurate claim that a CSP source
+cannot name a file. The policy itself remains unchanged, and the focused security tests pass.
+
+The documented font limitation remains: computed DS styles match, but the sandbox cannot fetch
+self-hosted Inter, so this is not a pixel-identical glyph snapshot claim. Full repository gates,
+independent review and publication remain the central operator's responsibility.

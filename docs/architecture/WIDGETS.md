@@ -99,9 +99,9 @@ rendered by the gallery, in all three themes and both densities.
 **Delivery.** The kit is served beside `widget-host.html`, but the frame never requests it. The host
 fetches it once per page (`loadWidgetKit` in `SandboxHost.tsx`) and sends the text in `init` as
 `kit { version, css }`. The guest installs it ahead of the package's stylesheet, so a package rule
-beats a kit rule of equal specificity. `WIDGET_SANDBOX_CSP` does not change. A `<link>` would have
-needed `'self'` in `style-src`. That cannot be narrowed to one file, and a stylesheet URL with a
-query string would give the frame a request that bypasses the `outbound` gate
+beats a kit rule of equal specificity. `WIDGET_SANDBOX_CSP` does not change. A `<link>` would need
+an external style source. Even restricting that source to the kit's path would allow a query
+string on the stylesheet URL, giving the frame a request that bypasses the `outbound` gate
 (`renderer-isolation.ts`). If the fetch fails or the served file declares a different version, the
 frame is initialised without the kit.
 

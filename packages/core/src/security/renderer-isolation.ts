@@ -239,13 +239,12 @@ export const SECURE_RENDERER_WINDOW_CONFIG: RendererWindowSecurityConfig = Objec
  * boundary this policy establishes.
  *
  * The design-system kit (RC-WID-5.4, `public/widget-kit.css`) did not change this policy. It is
- * first-party CSS served beside the sandbox document, and the obvious way to load it, a `<link>`,
- * would have needed `'self'` in `style-src`. That was refused. A source expression cannot name a
- * single file, so `'self'` would admit every stylesheet on the app origin, plus any `@import`
- * inside one. And a stylesheet URL can carry a query string, which gives the frame a request of its
- * own that never passes through the host's `outbound` gate. So the host fetches the kit and sends
- * the text in `init`, where `'unsafe-inline'` already admits it. The kit gives the frame no new
- * capability.
+ * first-party CSS served beside the sandbox document. Loading it through a `<link>` would require
+ * an external style source. Allowing the whole app origin would admit other stylesheets as well.
+ * Even a source restricted to the kit's path would allow a stylesheet URL to carry a query string,
+ * which gives the frame a request of its own that never passes through the host's `outbound` gate.
+ * So the host fetches the kit and sends the text in `init`, where `'unsafe-inline'` already admits
+ * it. The kit gives the frame no new capability.
  *
  * Pure + deterministic over plain data — no DOM, no fetch, no clock. The host builds its frame FROM
  * {@link WIDGET_SANDBOX_IFRAME_TOKENS} and {@link WIDGET_SANDBOX_CSP} rather than hand-rolling them.
