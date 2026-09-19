@@ -22,3 +22,15 @@
 - Only the newly owned generator and this explicitly requested run journal were edited during the retry. No dispatcher control state, other implementation paths, agents, push, promotion or loop launches.
 - Fresh validation: acceptance suite 7/7 passed; existing Core onboarding suite 25/25 passed. `pnpm exec tsx scripts/feature-complexity.ts --check` passed. A temporary drift probe returned nonzero with the stale-reference diagnostic and did not rewrite the file; the probe restored the original bytes in a `finally` block and the subsequent check passed. An unknown-argument probe returned nonzero with usage guidance and left the reference unchanged.
 - Targeted ESLint and Prettier passed for the generator; `git diff --check` passed. No fresh browser, full-suite or typecheck run was needed for this Node CLI-only change; the earlier typecheck evidence above remains from the previous candidate. Central operator gates and independent review are still downstream.
+
+## Quality-gate retry — documentation reachability
+
+- Read the original operator log for attempt `ced3005c-0364-4eb6-a2ff-11ac9da28da6` in full. It reports one fatal problem: `[unreachable-doc] docs/reference/FEATURE_COMPLEXITY.md: no chain of relative links from docs/README.md reaches this file`. File-size entries are warnings. The rebased candidate HEAD is `2d3c5a3f`.
+- Reproduced using the repository's `auditDocs(process.cwd())`: 258 files, 286 links, exactly that one problem. Headroom tools remain unavailable.
+- Concrete required fix: insert this row into the Map table in `docs/README.md`, immediately before Terms:
+
+  `| Feature complexity tiers | [reference/FEATURE_COMPLEXITY.md](reference/FEATURE_COMPLEXITY.md) |`
+
+- Verified the exact row in a temporary copy of the documentation tree using the unchanged repository auditor: 258 files, 287 links, zero problems. The working documentation index was not edited. This proves the proposed documentation fix, not a passing gate on the actual candidate.
+- Blocked on ownership: `docs/README.md` is absent from the four explicit Owned paths. The previous ownership fence and instruction that wrapper validation gates take precedence prevent silently expanding this claim. Editing only the generated reference or generator cannot create an incoming documentation link. Request ownership of `docs/README.md` for the one-row fix, then rerun `pnpm gates` on the actual branch.
+- This retry changes only the required run journal. No weakening of the docs gate, unrelated edits, agents, push, promotion, loop launches or dispatcher-state changes. The actual candidate still fails documentation reachability; implementation completion is not claimed.
