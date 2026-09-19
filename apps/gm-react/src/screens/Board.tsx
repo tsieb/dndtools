@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -43,8 +43,16 @@ import { FlowBoard } from '../app/canvas/FlowBoard';
 import { BoardHeading } from './board/BoardHeading';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
-import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
-import { WidgetBuilder } from './extensions/WidgetBuilder';
+// Authoring tools are loaded only when opened, so their editor/provider modules do not
+// sit on the first scene's navigation path. Keep Suspense local to preserve the board.
+const GenerateDialog = lazy(() =>
+	import('../app/widgetBuilder/GenerateDialog').then((module) => ({
+		default: module.GenerateDialog,
+	})),
+);
+const WidgetBuilder = lazy(() =>
+	import('./extensions/WidgetBuilder').then((module) => ({ default: module.WidgetBuilder })),
+);
 
 /**
  * Board (`/board`) — the Command Center spatial board: the application's home Scene rendered as a
@@ -147,11 +155,16 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
 	const isHomeBoard = homeSceneId === runtime.state.commandCenter.homeSceneId;
 	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
-	const summary = homeSceneId
-		? getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, homeSceneId, {
-				widgetPackages: runtime.state.widgets,
-			})
-		: null;
+	const scenes = runtime.state.scenes;
+	const permissions = runtime.state.permissions;
+	const widgetPackages = runtime.state.widgets;
+	const summary = useMemo(
+		() =>
+			homeSceneId
+				? getSceneForActor(scenes, permissions, actorId, homeSceneId, { widgetPackages })
+				: null,
+		[scenes, permissions, actorId, homeSceneId, widgetPackages],
+	);
 	const ready = summary !== null && !('kind' in summary);
 	// Core-computed keyboard traversal order (CANVAS-016) + the scene revision the durable widget
 	// command envelope must carry (`expectedRevision`, packages/core/src/commands/widget-command.ts).
@@ -678,15 +691,21 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 					setEditing(true);
 				}}
 			/>
-			<GenerateDialog
-				open={generateOpen}
-				onClose={() => setGenerateOpen(false)}
-				onGenerated={(pkg) => {
-					setGenerateOpen(false);
-					setBuilder({ pkg });
-				}}
-			/>
-			{builder && <WidgetBuilder generatedPackage={builder.pkg} onClose={() => setBuilder(null)} />}
+			<Suspense fallback={<p role="status">{t('common.state.loading')}</p>}>
+				{generateOpen && (
+					<GenerateDialog
+						open={generateOpen}
+						onClose={() => setGenerateOpen(false)}
+						onGenerated={(pkg) => {
+							setGenerateOpen(false);
+							setBuilder({ pkg });
+						}}
+					/>
+				)}
+				{builder && (
+					<WidgetBuilder generatedPackage={builder.pkg} onClose={() => setBuilder(null)} />
+				)}
+			</Suspense>
 		</div>
 	);
 }

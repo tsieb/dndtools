@@ -1,3 +1,4 @@
+import { unstable_batchedUpdates } from 'react-dom';
 import {
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
@@ -211,7 +212,11 @@ export class SceneRuntime {
 
 	private emit(): void {
 		this.version += 1;
-		for (const listener of this.listeners) listener();
+		// Keep the external-store notification synchronous, while scheduling all React
+		// consumers together (a scene can have multiple subscribers per widget).
+		unstable_batchedUpdates(() => {
+			for (const listener of this.listeners) listener();
+		});
 	}
 
 	/** The document's local storage identity; the original vault retains its cloud key identity. */
