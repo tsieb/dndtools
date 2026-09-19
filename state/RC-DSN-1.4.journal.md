@@ -283,3 +283,53 @@ files (exit 0). The final journal is formatted and the same gate rerun before co
 The 86 passing responsive checks in revision 4 remain historical evidence; they are
 not rerun for this formatting-only repair. Central gates and independent review remain
 with the operator. No push, promotion, agents, loop launch or dispatcher state changes.
+
+## Revision 6 — preserve the default widget-kit card token contract
+
+Read the original app-test failure from attempt
+`08a83a65-bcdb-4745-9e04-4dd4605e0ca1/output.log`. There was one failure among 1551 tests:
+`widgetKit.test.ts` compares the kit's default token declarations with the app and found
+`--component-card-padding: var(--space-4)` in the kit versus `var(--density-card-padding)`
+in the app. Both resolve to 16px in standard density, but the declaration contract differs.
+
+The scoped fix in `spacing.css` restores the shared default declaration and places the
+component alias in each explicit comfortable/compact set and the Android lock. Standard
+cards remain 16px; compact cards remain 12px; comfortable and Android cards remain 16px.
+The explicit comfortable and Android aliases also override compact when those selectors
+apply. Panel still consumes the density token directly. No widget-kit file or test is changed,
+and no NavRail edit is needed. This keeps the shared default scale stable while expressing
+variable card spacing in the density sets this task owns.
+
+Validation in progress: full app tests and responsive.spec.ts on both Chromium profiles.
+
+### Large-text regression discovered during verification
+
+The first full responsive run had 108 passes and two failures: atlas main content grew
+from 360px to 374px at 200% text size, in both projects. Replacing only the three candidate
+production files with their integration-base versions (`16dd3e7e`) made those two tests
+pass. All candidate files were restored immediately after the baseline check.
+
+The Panel default had changed from fixed 18px padding to a rem-based density token,
+which becomes 32px with enlarged text. In the owned `screen-kit.tsx`, bound the default
+with `min(var(--density-card-padding), 16px)`. Normal comfortable/standard/compact
+padding stays 16/16/12; enlarged text gets room inside the card without enlarged gutters.
+Explicit caller padding overrides remain unchanged. This is a layout fix, not a weakened
+assertion. The focused density and large-text checks passed 8/8 across both projects.
+
+Raw verification logs: `/tmp/rc-dsn14-rev6-app.log` (1551 passed),
+`/tmp/rc-dsn14-rev6-responsive.log` (108 passed, 2 failed),
+`/tmp/rc-dsn14-rev6-baseline-responsive.log` (2 passed), and
+`/tmp/rc-dsn14-rev6-focused.log` (8 passed). Full app and responsive suites are now
+being rerun with the final Panel fix.
+
+### Final revision 6 verification
+
+- `pnpm test:app`: 142 files, **1551 tests passed**, exit 0. Raw log:
+  `/tmp/rc-dsn14-rev6-final-app.log`.
+- Full `responsive.spec.ts`, both Chromium projects, two workers: **110 passed**, exit 0.
+  Raw log: `/tmp/rc-dsn14-rev6-final-responsive.log`.
+- `pnpm lint`: exit 0; raw log `/tmp/rc-dsn14-rev6-lint.log`.
+- `pnpm format:check:changed --base loop/rc`: all five candidate files pass.
+- `git diff --check`: clean. Final journal formatting and the changed-file format gate
+  are checked again before commit. Only spacing.css, screen-kit.tsx and the requested
+  journal change in this revision. No push, promotion or dispatcher state mutation.

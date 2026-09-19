@@ -298,7 +298,8 @@ export function Panel({
 	action,
 	children,
 	style,
-	pad = T.density.cardPad,
+	// Keep card gutters bounded when the user enlarges text; leave room for the content.
+	pad = `min(${T.density.cardPad}, 16px)`,
 	accent,
 }: {
 	title?: ReactNode;
