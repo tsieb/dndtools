@@ -197,3 +197,217 @@ tests/e2e/custom-widgets.spec.ts --workers=1`: **16 passed**, desktop and mobile
 
 The target integration commit is now an ancestor of the candidate. Only the task branch was
 rebased; nothing was pushed or promoted and no dispatcher control state was changed.
+
+## Rendered font parity recovery — 2026-09-19
+
+This supersedes the font limitation recorded above. Review of candidate `e30621fc` correctly
+identified missing Inter faces despite matching computed CSS. Headroom and `/security-review`
+commands are not exposed in this session; original local output was read directly.
+
+Scope: only `SandboxHost.tsx`, `WIDGETS.md`, and this required journal changed. No additional
+Torchlight edits were needed. The host now prepends vendored WOFF2 data-URL font faces to the
+version-checked kit text. The family/weight inventory exactly follows `styles/tokens/fonts.css`,
+including Cinzel and JetBrains Mono so the other forwarded font tokens resolve too. Vite's explicit
+`?inline` imports embed the bytes in development and production, independent of asset base paths.
+The guest still receives only the capability-gated kit via `init`. Font display remains `swap`.
+The public stylesheet and class-contract version remain unchanged; this fixes resource delivery.
+
+### Validation of rendered output
+
+- External Playwright probe: **1 passed**, comparing identical `Pause flicker` content in clones
+  of the actual gallery DS and installed Torchlight Button/Card/Badge in all three themes at
+  comfortable density. Waits for `document.fonts.ready`, asserts a loaded Inter 400/600 face,
+  compares actual element/text dimensions, and captures all nine screenshot pairs.
+  Button text is **96px** and intrinsic width **130px** in both documents, in every theme.
+  Card text is **94px**, intrinsic width **128px**; Badge text **76px**, width **94px**.
+- Pixel comparison: all nine text interiors are identical. Badges are pixel-identical throughout.
+  Rounded-edge rasterisation differs on Button (21–40 pixels, max channel delta 2/255) and Card
+  (41 pixels, max delta 4/255). All pairs pass a maximum per-channel tolerance of 4/255.
+  The probe removes transformed scene ancestors for consistent frame screenshot coordinates;
+  an initial screenshot run without that normalization captured the wrong tavern region.
+- Negative control: removing only guest `@font-face` rules fails the loaded-face assertion and
+  reproduces the original **93.6875px** DOM text / **127.6875px** button width.
+  This explicitly guards against the old computed-style-only false positive.
+- Existing widget-kit, starter-widget and custom-widget browser suites: **16 passed**, desktop
+  and mobile Chromium, including all three themes at comfortable and compact density.
+- Focused app tests: **38 passed**. Focused core tests: **41 passed**.
+- App TypeScript, focused ESLint, Prettier, `git diff --check`: passed.
+- Production app build and production bundle guard: passed. Existing large-chunk warnings remain.
+
+Original artifacts: `/tmp/rc-wid54-font-proof/{parity.log,negative.log,pixels.log,ds-*.png,kit-*.png}`;
+other logs `/tmp/rc-wid54-font-{app,core,types,e2e,build}.log`. The external probe is preserved below
+so its regression assertions remain reproducible without editing unowned test paths. The full
+operator gates and independent review are still separate from these focused checks.
+
+### Security review follow-up: embedded font delivery
+
+This manual follow-up extends the retained [`/security-review` report](#security-review); it does
+not claim an unavailable command or independent reviewer ran again. No new findings.
+
+Reviewed the fixed dependency imports, generated font-face CSS, capability gate, kit version/failure
+handling, guest style insertion, parent-window message check and existing core/meta/Electron CSP.
+Font sources and family/weight descriptors are build-time constants, with no widget-provided URL,
+remote fetch, stylesheet traversal, or host data. Only vendored latin WOFF2 bytes cross the boundary;
+`textContent` insertion cannot turn them into markup. The guest uses already-permitted `data:` font
+loads. `connect-src 'none'`, inline-only `style-src`, `font-src data:`, and `allow-scripts` without
+`allow-same-origin` are unchanged. Existing consistency/security tests pass. No dispatcher state,
+publication, promotion or additional agent work occurred.
+
+### Reproducible external regression probe
+
+Build a temporary spec by taking `apps/gm-react/tests/e2e/widget-kit.spec.ts` up to (excluding)
+`test.describe(`, replace its `./_helpers` import with the absolute repository helper path, then
+append the TypeScript below. This reuses the checked-in starter installation and DS references.
+Set the temporary directory's `package.json` to `{"type":"module"}` and symlink its `node_modules`
+to `apps/gm-react/node_modules`. Its Playwright config imports the repository config and overrides
+`testDir` to that temporary directory, `webServer.cwd` to `apps/gm-react`, and `projects` to
+`[{name: 'desktop-chromium', use: {viewport: {width: 1280, height: 800}}}]`.
+Run from the app using `DNDTOOLS_E2E_PORT=15738 pnpm exec playwright test --config <temporary-config>
+--workers=1`. `WIDGET_FONT_NEGATIVE=1` repeats the run with guest font faces removed and must fail.
+The screenshot output directory is `/tmp/rc-wid54-font-proof` (create it first).
+
+```ts
+async function capture(target: Locator, name: string) {
+	await target.evaluate(async (element) => {
+		const clone = element.cloneNode(false) as HTMLElement;
+		clone.removeAttribute('data-pause');
+		clone.removeAttribute('data-reading');
+		clone.removeAttribute('data-torch');
+		clone.textContent = 'Pause flicker';
+		Object.assign(clone.style, {
+			position: 'fixed',
+			left: '0px',
+			top: '0px',
+			margin: '0px',
+			width: 'max-content',
+			zIndex: '2147483647',
+			transform: 'none',
+			transition: 'none',
+		});
+		const backing = document.createElement('div');
+		Object.assign(backing.style, {
+			position: 'fixed',
+			inset: '0',
+			background: 'white',
+			zIndex: '2147483646',
+		});
+		document.body.append(backing, clone);
+		clone.id = 'font-proof';
+		backing.id = 'font-proof-backing';
+		await document.fonts.ready;
+	});
+
+	if (process.env.WIDGET_FONT_NEGATIVE === '1') {
+		await target.evaluate(async () => {
+			const kit = document.querySelector('style[data-widget-kit]');
+			if (kit) kit.textContent = kit.textContent!.replace(/@font-face\s*\{[^}]*\}/g, '');
+			await document.fonts.ready;
+		});
+	}
+	// Locate within the same document as the supplied locator (including opaque sandbox frames).
+	const metrics = await target.evaluate(() => {
+		const el = document.querySelector('#font-proof')!;
+		const style = getComputedStyle(el);
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		return {
+			width: el.getBoundingClientRect().width,
+			height: el.getBoundingClientRect().height,
+			textWidth: range.getBoundingClientRect().width,
+			fonts: [...document.fonts]
+				.filter((f) => f.family.replace(/['"]/g, '') === 'Inter' && f.status === 'loaded')
+				.map((f) => f.weight)
+				.sort(),
+			font: [style.fontFamily, style.fontSize, style.fontWeight, style.lineHeight],
+		};
+	});
+	const handle = await target.evaluateHandle(() => document.querySelector('#font-proof')!);
+	if (process.env.WIDGET_FONT_NEGATIVE !== '1')
+		await handle
+			.asElement()!
+			.screenshot({ path: `/tmp/rc-wid54-font-proof/${name}.png`, animations: 'disabled' });
+	await target.evaluate(() => {
+		document.querySelector('#font-proof')!.remove();
+		document.querySelector('#font-proof-backing')!.remove();
+	});
+	return metrics;
+}
+test('rendered font and component parity across themes', async ({ page }) => {
+	test.setTimeout(120000);
+	const sceneId = await placeTorchlight(page);
+	const snapshots: Record<string, Awaited<ReturnType<typeof capture>>> = {};
+	await page.goto('/#/__ds');
+	await page.locator('[data-ds-gallery]').waitFor();
+	for (const ref of REFERENCES) {
+		await page.getByLabel('Component', { exact: true }).selectOption(ref.component);
+		for (const [prop, value] of Object.entries(ref.props))
+			await page.getByLabel(`Prop ${prop}`, { exact: true }).selectOption({ label: value });
+		for (const theme of THEMES) {
+			await page.getByLabel('Theme', { exact: true }).selectOption(theme);
+			await page.getByLabel('Density', { exact: true }).selectOption('comfortable');
+			await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'none'));
+			snapshots[`${theme}-${ref.component}`] = await capture(
+				page.locator(ref.specimen).first(),
+				`ds-${theme}-${ref.component}`,
+			);
+		}
+	}
+	await gotoRoute(page, `/scene/${sceneId}`);
+	const frame = page.locator('iframe[data-widget-sandbox="torchlight"]');
+	await expect(frame).toBeVisible();
+	await frame.evaluate((el) =>
+		Object.assign((el as HTMLElement).style, {
+			position: 'fixed',
+			left: '0px',
+			top: '0px',
+			width: '600px',
+			height: '400px',
+			zIndex: '2147483647',
+		}),
+	);
+	const inside = page.frameLocator('iframe[data-widget-sandbox="torchlight"]');
+	await expect(inside.locator('style[data-widget-kit="1"]')).toHaveCount(1);
+	await frame.evaluate((el) => {
+		for (let ancestor = el.parentElement; ancestor; ancestor = ancestor.parentElement) {
+			ancestor.style.setProperty('transform', 'none', 'important');
+			ancestor.style.setProperty('contain', 'none', 'important');
+			ancestor.style.setProperty('overflow', 'visible', 'important');
+		}
+	});
+	await page.waitForTimeout(1000);
+	for (const theme of THEMES) {
+		await setHostLook(page, theme, 'comfortable', 'full');
+		await expect(inside.locator('html')).toHaveAttribute('data-theme', theme);
+		for (const ref of REFERENCES) {
+			const actual = await capture(inside.locator(ref.kit), `kit-${theme}-${ref.component}`);
+			const expected = snapshots[`${theme}-${ref.component}`];
+			console.log(theme, ref.component, JSON.stringify({ actual, expected }));
+			expect(actual.fonts).toContain(ref.component === 'Card' ? '400' : '600');
+			expect({ ...actual, fonts: undefined }).toEqual({ ...expected, fonts: undefined });
+		}
+	}
+});
+```
+
+Pixel assertions (Python 3 plus ImageMagick), run after the positive browser probe:
+
+```python
+from pathlib import Path
+import subprocess
+
+for ds in sorted(Path('/tmp/rc-wid54-font-proof').glob('ds-*.png')):
+    kit = ds.with_name(ds.name.replace('ds-', 'kit-', 1))
+    a = subprocess.check_output(['magick', str(ds), '-depth', '8', 'rgba:-'])
+    b = subprocess.check_output(['magick', str(kit), '-depth', '8', 'rgba:-'])
+    size = subprocess.check_output(['identify', '-format', '%w %h', str(ds)])
+    assert size == subprocess.check_output(['identify', '-format', '%w %h', str(kit)])
+    width, height = map(int, size.split())
+    assert len(a) == len(b)
+    delta = max(abs(x - y) for x, y in zip(a, b))
+    assert delta <= 4, (ds.name, delta)
+    for y in range(8, height - 8):
+        for x in range(8, width - 8):
+            i = (y * width + x) * 4
+            assert a[i:i + 4] == b[i:i + 4], (ds.name, x, y)
+    print(f'{ds.name}: matched; max channel delta {delta}/255; identical text interior')
+```

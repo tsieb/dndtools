@@ -98,7 +98,12 @@ rendered by the gallery, in all three themes and both densities.
 
 **Delivery.** The kit is served beside `widget-host.html`, but the frame never requests it. The host
 fetches it once per page (`loadWidgetKit` in `SandboxHost.tsx`) and sends the text in `init` as
-`kit { version, css }`. The guest installs it ahead of the package's stylesheet, so a package rule
+`kit { version, css }`. The host prepends `@font-face` rules containing data URLs for the same
+vendored latin WOFF2 faces and weights as `styles/tokens/fonts.css` (Inter 400–800, Cinzel 400–900,
+JetBrains Mono 400–700). Vite embeds those assets in both development and production; no guest
+font request leaves the frame, and the existing `font-src data:` policy is unchanged. These faces
+follow the app's `font-display: swap`; wait for `document.fonts.ready` before comparing rendered text.
+The guest installs it ahead of the package's stylesheet, so a package rule
 beats a kit rule of equal specificity. `WIDGET_SANDBOX_CSP` does not change. A `<link>` would need
 an external style source. Even restricting that source to the kit's path would allow a query
 string on the stylesheet URL, giving the frame a request that bypasses the `outbound` gate
@@ -141,9 +146,8 @@ bumps both. Adding a class is not breaking.
 
 **What the kit does not do.** It ships no icons; draw a Lucide glyph as inline SVG at a 2px stroke in
 `currentColor`. It ships no behaviour: an `aria-disabled` button must ignore its own clicks, and a
-`role="button"` chip needs its own keyboard handler. The frame cannot load the app's self-hosted
-Inter (`font-src data:`), so kit text renders in the next face of the `--font-sans` stack that the
-device has. Computed sizes, weights and line heights match the DS; glyph shapes may not.
+`role="button"` chip needs its own keyboard handler. The kit supplies the app's latin fonts; glyphs
+absent from those fonts use the same device fallback stack as the app. A package that overrides typography owns the resulting look.
 
 ## 5. Trust review
 

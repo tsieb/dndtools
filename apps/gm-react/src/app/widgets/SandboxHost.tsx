@@ -1,3 +1,18 @@
+import inter400 from '@fontsource/inter/files/inter-latin-400-normal.woff2?inline';
+import inter500 from '@fontsource/inter/files/inter-latin-500-normal.woff2?inline';
+import inter600 from '@fontsource/inter/files/inter-latin-600-normal.woff2?inline';
+import inter700 from '@fontsource/inter/files/inter-latin-700-normal.woff2?inline';
+import inter800 from '@fontsource/inter/files/inter-latin-800-normal.woff2?inline';
+import cinzel400 from '@fontsource/cinzel/files/cinzel-latin-400-normal.woff2?inline';
+import cinzel500 from '@fontsource/cinzel/files/cinzel-latin-500-normal.woff2?inline';
+import cinzel600 from '@fontsource/cinzel/files/cinzel-latin-600-normal.woff2?inline';
+import cinzel700 from '@fontsource/cinzel/files/cinzel-latin-700-normal.woff2?inline';
+import cinzel800 from '@fontsource/cinzel/files/cinzel-latin-800-normal.woff2?inline';
+import cinzel900 from '@fontsource/cinzel/files/cinzel-latin-900-normal.woff2?inline';
+import jetbrainsmono400 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2?inline';
+import jetbrainsmono500 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2?inline';
+import jetbrainsmono600 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2?inline';
+import jetbrainsmono700 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2?inline';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	findPackageRecordForWidgetType,
@@ -205,6 +220,35 @@ export function kitDeclaresVersion(css: string, version: number): boolean {
 	return new RegExp(`--kit-version:\\s*${version}\\s*;`).test(css);
 }
 
+/**
+ * The same latin faces/weights as styles/tokens/fonts.css. Vite embeds the vendored bytes as
+ * data URLs in dev and production, including offline/relative-base builds. Never accept font
+ * URLs from a widget or forward host stylesheet URLs: the guest must have no network channel.
+ * Keep these faces with the kit text so the existing font-src data: policy remains sufficient.
+ */
+const KIT_FONT_CSS = [
+	['Inter', 400, inter400],
+	['Inter', 500, inter500],
+	['Inter', 600, inter600],
+	['Inter', 700, inter700],
+	['Inter', 800, inter800],
+	['Cinzel', 400, cinzel400],
+	['Cinzel', 500, cinzel500],
+	['Cinzel', 600, cinzel600],
+	['Cinzel', 700, cinzel700],
+	['Cinzel', 800, cinzel800],
+	['Cinzel', 900, cinzel900],
+	['JetBrains Mono', 400, jetbrainsmono400],
+	['JetBrains Mono', 500, jetbrainsmono500],
+	['JetBrains Mono', 600, jetbrainsmono600],
+	['JetBrains Mono', 700, jetbrainsmono700],
+]
+	.map(
+		([family, weight, source]) =>
+			`@font-face { font-family: '${family}'; font-style: normal; font-weight: ${weight}; font-display: swap; src: url('${source}') format('woff2'); }`,
+	)
+	.join('\n');
+
 let kitRequest: Promise<string | null> | null = null;
 
 /**
@@ -234,7 +278,7 @@ async function fetchWidgetKit(): Promise<string | null> {
 		const response = await fetch(url, { signal: controller.signal });
 		if (!response.ok) return null;
 		const css = await response.text();
-		return kitDeclaresVersion(css, WIDGET_KIT_VERSION) ? css : null;
+		return kitDeclaresVersion(css, WIDGET_KIT_VERSION) ? `${KIT_FONT_CSS}\n${css}` : null;
 	} catch {
 		return null;
 	} finally {
