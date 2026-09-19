@@ -7,7 +7,16 @@ import { NavItem } from './NavItem.jsx';
  * contract as NavSidebar so the switch between breakpoints is a presentation change, never an IA
  * change. A badge collapses to a single accent dot.
  */
-export function NavRail({ items = [], active, onSelect, header, footer, width = 64, style, ...rest }) {
+export function NavRail({
+	items = [],
+	active,
+	onSelect,
+	header,
+	footer,
+	width = 64,
+	style,
+	...rest
+}) {
 	return (
 		<nav
 			aria-label="Primary"
@@ -28,7 +37,18 @@ export function NavRail({ items = [], active, onSelect, header, footer, width = 
 			{...rest}
 		>
 			{header && <div style={{ padding: 'var(--space-2) 0 var(--space-3)' }}>{header}</div>}
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--component-list-gap)', flex: 1, minHeight: 0, overflowY: 'auto', width: '100%', alignItems: 'center' }}>
+			<div
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--component-list-gap)',
+					flex: 1,
+					minHeight: 0,
+					overflowY: 'auto',
+					width: '100%',
+					alignItems: 'center',
+				}}
+			>
 				{items.map((it) => (
 					<NavItem
 						key={it.key}
@@ -54,7 +74,20 @@ export function NavRail({ items = [], active, onSelect, header, footer, width = 
 					/>
 				))}
 			</div>
-			{footer && <div style={{ marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--color-border)', width: '100%', display: 'flex', justifyContent: 'center' }}>{footer}</div>}
+			{footer && (
+				<div
+					style={{
+						marginTop: 'var(--space-2)',
+						paddingTop: 'var(--space-2)',
+						borderTop: '1px solid var(--color-border)',
+						width: '100%',
+						display: 'flex',
+						justifyContent: 'center',
+					}}
+				>
+					{footer}
+				</div>
+			)}
 		</nav>
 	);
 }

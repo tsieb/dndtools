@@ -96,7 +96,7 @@ then asserted them on a **synthetic probe** — a detached `<div>` laid out with
 resolved 48/36/28 and 8/4/2 honestly, but nothing in the app consumed either value:
 
 - `ds/components/navigation/NavRail.jsx` passed every item `style={{ width: 44, height: 44 }}`. That
-  fixed square sat *above* compact's and standard's `min-height` and *below* comfortable's, so the
+  fixed square sat _above_ compact's and standard's `min-height` and _below_ comfortable's, so the
   rail rendered 48/44/44 and the Density control moved nothing below Comfortable. The inline `height`
   also outranked the token, so no amount of token work in `spacing.css` could have reached it.
 - The rail's scrolling list used `gap: var(--space-1)` — a hardcoded 4px, never the density gap.
@@ -105,7 +105,7 @@ Measured before the fix (`data-density` driven live through Settings › Appeara
 `comfortable 48 · standard 44 · compact 44`, list gap `4px` at all three.
 
 `NavItem` itself was already correct — `minHeight: var(--density-nav-item-height, 40px)`. Only the
-call site overrode it. Note the DS `NavItem` is reached *only* through `NavRail`; the desktop sidebar
+call site overrode it. Note the DS `NavItem` is reached _only_ through `NavRail`; the desktop sidebar
 is the app's own `app/shell/rows.tsx`, so the tablet rail is the single surface under this audit.
 
 ### Fix
@@ -126,12 +126,12 @@ is exactly the rail's 64px width minus its 2×8px padding, so nothing overflows.
 ### Test tightening
 
 The reviewer's third point — "the new tests allow both gaps" — was the real defect. `responsive.spec`
-asserted `min-height` exactly but only a *lower bound* on rendered height, which 44px satisfies at
+asserted `min-height` exactly but only a _lower bound_ on rendered height, which 44px satisfies at
 standard and compact. Now:
 
 - `railNavItems` also reports the real list container's `rowGap`, so the gap is measured where the app
   lays rows out, not on a probe.
-- Rendered `height` *and* `width` are asserted with `toBeCloseTo(set.navItem, 1)` — exact, not a floor.
+- Rendered `height` _and_ `width` are asserted with `toBeCloseTo(set.navItem, 1)` — exact, not a floor.
 - `expect(item.listGap).toBe(set.listGap)` on the production list.
 - The comfortable boot-lock test moved from `>= 47.5 / >= 43.5` to exactly 48×48 plus an 8px gap.
 
@@ -142,7 +142,7 @@ standard and compact. Now:
   - list gap reverted alone → 1 failed (`the rail list gap (comfortable)`: expected 8, received 4).
   - `height: 44` alone, i.e. the exact 48/44/44 shape the reviewer flagged → 1 failed
     (`rendered nav item height (standard)`: expected 36, received 44).
-  None of these failed before the tightening, which is why revision 1 passed 86/86 while broken.
+    None of these failed before the tightening, which is why revision 1 passed 86/86 while broken.
 - `responsive.spec.ts`, both projects, worktree-derived port 5417: **86 passed, 0 failed**.
 - `pnpm lint` 0 errors (15 pre-existing warnings), boundary + non-text contrast gates green.
 - `pnpm typecheck` clean. `pnpm build` clean (`check-prod-bundle` OK).
@@ -159,7 +159,6 @@ standard and compact. Now:
 and is not converted. It is a different navigation from the audited rail, is not measured by
 `responsive.spec`, and moving it to 8px at comfortable would be a visual redesign rather than a
 density audit. Raising it as a follow-up rather than folding it in silently.
-
 
 ### The one full-suite failure, and why it is not this change
 
@@ -228,7 +227,7 @@ Nothing in the integration range touched `ds/components/navigation/`, `app/shell
 
 `pnpm lint` now prints: "1 baseline entry is above the current count; lower
 `scripts/emphasis-baseline.json`" — `display-face-below-24px` is 83 against a baseline of 84. The
-ratchet only fails when the count *exceeds* the baseline, so lint still exits 0. This arrived with
+ratchet only fails when the count _exceeds_ the baseline, so lint still exits 0. This arrived with
 the integration branch, not with this story: the full RC-DSN-1.4 diff contains zero `Cinzel`,
 `font-display` or `T.disp` references. Lowering the baseline would be an unrelated edit to a shared
 ratchet file that another in-flight task may also be moving, so it is flagged here rather than
@@ -239,11 +238,12 @@ folded in.
 The operator brief dated 2026-09-18 explicitly adds
 `apps/gm-react/src/ds/components/navigation/NavRail.jsx` to this task's ownership.
 The prior candidate commits are already on this task branch. Their rail edits are retained:
+
 - Token-driven width/height replace the fixed 44px square to render 48/36/28 exactly.
 - Zero padding permits the compact box; non-shrinking flex sizing preserves target sizes in a
   short scrolling rail.
 - The list gap consumes the density alias to render 8/4/2 in the production list.
-No further NavRail edit is necessary. The density tokens and Panel defaults are also retained.
+  No further NavRail edit is necessary. The density tokens and Panel defaults are also retained.
 
 This revision extends the existing Android acceptance test to resize from the wide sidebar to
 an 800x480 rail without reloading. It checks that compact remains selected while every real
@@ -264,3 +264,22 @@ Validation in progress: full responsive.spec.ts on both Chromium projects with t
   `/tmp/rc-dsn-1.4-current-eslint.log` is empty.
 - `git diff --check`: passed. Full repository gates and independent review remain with the
   central operator; older journal results above are historical, not rerun in this revision.
+
+## Revision 5 — changed-file formatting gate repair (2026-09-19)
+
+Read the original failed gate output at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/120016cd-9178-440f-8f53-db67c361e735/output.log`.
+The gate checked all five candidate files against `loop/rc` and identified only
+`NavRail.jsx` and this journal. Revision 4 checked only the responsive spec's formatting,
+which did not cover the earlier candidate changes.
+
+Applied the repository's Prettier to those two files only. The authorized NavRail edits
+are formatting only: expand the function arguments, scrolling-list style and footer JSX
+into the required multiline layout. No values, props or density behavior changed.
+The journal receives Prettier's Markdown whitespace and indentation normalization.
+
+Validation: `pnpm format:check:changed --base loop/rc` passed for all five candidate
+files (exit 0). The final journal is formatted and the same gate rerun before commit.
+The 86 passing responsive checks in revision 4 remain historical evidence; they are
+not rerun for this formatting-only repair. Central gates and independent review remain
+with the operator. No push, promotion, agents, loop launch or dispatcher state changes.
