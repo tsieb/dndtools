@@ -91,3 +91,43 @@ the two themes to work end to end or is required by the acceptance:
     baselines matched pixel for pixel.
   - The scholar, dungeon and tavern boards were inspected by eye.
 - Not run here: the full Playwright suite (the operator's browser gate runs it).
+
+## Attempt 2 (2026-09-19): expanded ownership and fresh verification
+
+Starting HEAD: `6a6d824a5f1114cedde89ad5774de67381880a92`; working tree clean. The previous
+implementation, tests and five baselines are already committed on this task branch. The operator's
+2026-09-18 brief now explicitly owns the paths named in the prior scope rejection. The path
+justifications above still apply; no implementation or baseline changes were needed in this attempt.
+No dispatch Headroom tools are available in this session; all results below were read directly from
+the commands' original output, including their successful final exit status.
+
+### Minimal changes and justification
+
+- `docs/design/README.md`: add the reproducible theme browser command, desktop/mobile coverage,
+  exact-pixel comparison policy and visual review requirement for intentional baseline updates.
+- `docs/design-package/readme.md`: record the two five-theme lint requirements and link to that
+  verification procedure, keeping the design package aligned with the app guide.
+- `state/RC-DSN-1.2.journal.md`: update the explicitly requested run journal with current evidence.
+
+### Fresh validation
+
+- `pnpm tokens:contrast`: exit 0; 101 pair checks across all five themes
+  (tavern/parchment/scholar/dungeon: 20 each; high-contrast: 21).
+- `pnpm a11y:contrast`: exit 0; 319 pair checks across all five themes
+  (tavern/parchment/scholar/dungeon: 64 each; high-contrast: 63), 16 forced-colors remap checks,
+  with forced-colors selectors reaching all five.
+- `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/platform/theme.test.ts
+  apps/gm-react/src/screens/settings-validation.test.ts`: exit 0; 23 tests passed.
+- `pnpm exec vitest run tests/unit/a11y-nontext-contrast.test.ts
+  tests/unit/electron-hardening.test.ts`: exit 0; 23 tests passed. The prior Electron test failure
+  does not recur; its existing fix is in ancestor commit `d16482c5`.
+- `pnpm typecheck`: exit 0 for core, cloud-fns and gm-react.
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/themes.spec.ts
+  tests/e2e/settings.spec.ts --workers=1`: exit 0; 29 passed, 5 intentionally skipped mobile
+  swatch duplicates. All five desktop baselines matched exactly without updating snapshots.
+  Both browser projects passed preset switching, new-preset reload persistence, live/reloaded
+  System mapping and forced-colors coverage. Inspected all five committed swatch images visually.
+- `git diff --check`: clean. Documentation formatting checked with the repository Prettier setup.
+
+Full central gates and independent review remain the operator's responsibility. No push, promotion,
+additional loop, sub-agent or dispatcher control-state mutation was performed.

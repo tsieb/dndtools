@@ -40,6 +40,10 @@ warm, atmospheric mood.
 > the warm family. A **System** choice follows the device, painting parchment when it is light and
 > tavern when it is dark. The app's `apps/gm-react/src/styles/tokens/colors.css` holds their values
 > until the RC-DSN-2.4 re-sync brings them into `tokens/colors.css` here.
+>
+> **Theme verification.** All five app presets must pass `pnpm tokens:contrast` and
+> `pnpm a11y:contrast`, plus the five exact-pixel swatch comparisons in `themes.spec.ts`.
+> See [the app design guide](../design/README.md#themes) for the command and baseline review policy.
 
 ### Themes
 

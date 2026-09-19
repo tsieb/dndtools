@@ -115,6 +115,12 @@ Rules: components reference semantic tokens (or `T` in `screen-kit.tsx`), never 
 value; a theme swap is one attribute change with zero component edits. Lints: `pnpm tokens:contrast`
 (text pairs) and `pnpm a11y:contrast` (non-text, wired into `pnpm lint`).
 
+Verify palette changes from the repository root with both contrast commands, then run
+`pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/themes.spec.ts`.
+The desktop project compares all five swatch baselines with zero pixel tolerance; both desktop and
+mobile check theme selection, reload persistence, live System changes, and forced-colors coverage.
+Review intentional palette changes visually before updating the five committed PNG baselines.
+
 ### Motion
 
 Five named transitions cover the app's motion. Each one is a `@keyframes motion-<name>` in
@@ -149,6 +155,7 @@ The DS `Dialog`, `Sheet`, `Toast`, `Tooltip`, `CommandPalette`, `StatusDot`, `Sk
 `ProgressMeter` still inline their own `dnd*` keyframes, and `base.css` still defines the older
 `dnd-shimmer`. The global clamp covers them. Moving them onto the vocabulary is for the stories that
 own those files.
+
 
 ## 3. Components
 
