@@ -145,6 +145,56 @@ test.describe('widget builder: build, install, place', () => {
 				),
 			)
 			.toBe(1);
+
+		// RC-WID-2.6: edit the placed definition, cancel safely, then migrate that same copy.
+		const before = await page.evaluate(
+			(id) =>
+				window.__rt!.state.scenes.scenes[id!]!.widgets.find((w) => w.type === 'party-status')!,
+			sceneId,
+		);
+		await page.getByTestId(`widget-${before.id}`).focus();
+		await page.keyboard.press('Enter');
+		const inspector = page.getByTestId('widget-inspector');
+		const edit = inspector.getByRole('button', { name: 'Edit widget definition' });
+		await edit.click();
+		await expect(dialog.getByRole('button', { name: 'Layout', exact: true })).toHaveAttribute(
+			'aria-current',
+			'step',
+		);
+		await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
+		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
+		await dialog.getByLabel('Name', { exact: true }).fill('Discard this edit');
+		await page.keyboard.press('Escape');
+		await expect(dialog).toHaveCount(0);
+		await expect(edit).toBeFocused();
+		expect((await installedPackage(page, PACKAGE_ID))!.package.version).toBe('1.0.0');
+
+		await edit.click();
+		await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
+		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
+		await dialog.getByRole('button', { name: 'Config fields', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Add config field' }).click();
+		await dialog.getByLabel('Label', { exact: true }).fill('Caption');
+		await dialog.getByLabel('Key', { exact: true }).fill('caption');
+		await dialog.getByLabel('Default value', { exact: true }).fill('Ready for adventure');
+		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Save new version' }).click();
+		await expect(dialog).toHaveCount(0);
+		await expect(edit).toBeFocused();
+		expect((await installedPackage(page, PACKAGE_ID))!.package.version).toBe('1.0.1');
+		const after = await page.evaluate(
+			([id, widgetId]) =>
+				window.__rt!.state.scenes.scenes[id!]!.widgets.find((w) => w.id === widgetId),
+			[sceneId, before.id],
+		);
+		expect(after).toMatchObject({
+			...before,
+			version: '1.0.1',
+			configuration: { ...before.configuration, caption: 'Ready for adventure' },
+		});
+		await expect(inspector.getByLabel('Caption', { exact: true })).toHaveValue(
+			'Ready for adventure',
+		);
 	});
 
 	test('names the step that still needs attention instead of installing', async ({ page }) => {

@@ -4340,6 +4340,7 @@ export const en = {
 	'sceneEditor.auto': 'Auto',
 	'sceneEditor.autoLayoutOrder': 'Auto (layout order)',
 	'sceneEditor.position': 'Position {index}',
+	'sceneEditor.editWidgetDefinition': 'Edit widget definition',
 	'sceneEditor.removeWidget': 'Remove widget',
 	/* Scene editor › the player-view preview overlay (RC-CAN-6.1) */
 	'sceneEditor.preview.region': 'Player view preview as {label}',

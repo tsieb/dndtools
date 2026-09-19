@@ -4345,6 +4345,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.auto': 'Automático',
 	'sceneEditor.autoLayoutOrder': 'Automático (orden de la disposición)',
 	'sceneEditor.position': 'Posición {index}',
+	'sceneEditor.editWidgetDefinition': 'Editar definición del widget',
 	'sceneEditor.removeWidget': 'Quitar el widget',
 	/* Editor de escenas › la vista previa de jugador sobre el lienzo (RC-CAN-6.1) */
 	'sceneEditor.preview.region': 'Vista previa de jugador como {label}',
