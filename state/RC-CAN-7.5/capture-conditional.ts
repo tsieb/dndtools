@@ -80,9 +80,13 @@ try {
 			await check.getByRole('button', { name: 'Create', exact: true }).click();
 			await expect(check).toHaveCount(0);
 			const created = await page.evaluate(() =>
-				Object.values((window.__rt!.state.characters as any).characters).some(
-					(c: any) => c.name === 'Thornwick' && c.kind === 'npc',
-				),
+				Object.values(
+					(
+						window.__rt!.state.characters as {
+							characters: Record<string, { name: string; kind: string }>;
+						}
+					).characters,
+				).some((c) => c.name === 'Thornwick' && c.kind === 'npc'),
 			);
 			if (!created) throw new Error('Continuity NPC not created');
 			await context.close();

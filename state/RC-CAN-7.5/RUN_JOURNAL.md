@@ -320,3 +320,29 @@ read command outputs directly. No additional agents used.
   after the repair commit because the base option selects committed HEAD.
 - Final exact-base format check passed for all 124 candidate files after the harness correction;
   evidence verifier and complete-base `git diff --check` also passed. Worktree was clean.
+
+## Operator lint-gate repair — 2026-09-19
+
+Starting HEAD: `cdc5116288d77ec3319a9cb7d3862302b4c0aee6`, clean worktree.
+Read the original operator log for run `c2eff00d-77b1-4921-93d3-5b76b755455b` directly;
+no Headroom tools were available. It reports two no-explicit-any errors in
+capture-conditional.ts:83–84 and 15 unrelated application warnings. Quality, format and
+Typecheck passed in the supplied operator report; those are prior results, not reruns here.
+
+Inspected the ESLint configuration, the DEV runtime seam in tests/e2e/\_helpers.ts and the
+CharacterState record. Replace only the harness's two any annotations with an explicit
+character record shape, matching the existing session-capture.spec.ts convention. The assertion
+still checks the same NPC name and kind; this type-only repair does not recapture or alter
+browser evidence. This journal records the gate repair; both edits are inside the owned directory.
+
+Validation from repository root:
+
+- `pnpm lint`: exit 0. ESLint has zero errors and the same 15 application warnings; boundary,
+  emphasis and non-text contrast gates passed. Existing emphasis warnings and its suggestion
+  to lower the baseline remain outside this repair. Original output retained at
+  `/tmp/rc-can-7.5-lint-repair.log` and read directly before recording this result.
+- `python3 state/RC-CAN-7.5/verify-evidence.py`: exit 0; all 4,273 control occurrences,
+  303 records, 117 ARIA captures and ten gap assignments remain intact.
+- Prettier initially flagged this appended journal; formatted it before the final changed-file
+  check. No new browser run or full pnpm check is claimed for this type-only repair.
+- Final `pnpm format:check:changed` passed for both repair files; `git diff --check` passed.
