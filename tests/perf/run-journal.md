@@ -346,3 +346,34 @@ formatting against `loop/rc`, shell syntax and `git diff --check`. Original gate
 lint, tooling and typecheck logs are retained in `/tmp/rc-eng-1.4-recheck/`.
 No push, promotion, workflow dispatch, additional loop, dispatcher control-state
 edit or sub-agent was used.
+
+## RC-ENG-1.4 — renewed implement validation (2026-09-19)
+
+Rebased the reviewed candidate `68fe9c90` onto current local `loop/rc` at
+`27e419688943c189a61e9f5a47c5066c8b059929` without conflicts. The rebased
+implementation HEAD before this journal entry is
+`7e2fdf3f822282a5f6af9cbc62774908acdc55c3`. The aggregate diff remains within
+the seven owned paths; the reviewed performance policy is unchanged.
+
+Fresh read-only `gh run list` queries using the schedule and workflow_dispatch
+commands above both exited 0 and returned `[]`. There are still no hosted runs
+from those queries to download for agreement verification. `recorded` remains
+null. The review's missing hosted evidence finding is unresolved: this candidate
+is **not acceptance-complete**. Authorized publication, five genuine scheduled-mode
+artifacts on one candidate/reference SHA, successful agreement output, and the
+reviewed baseline delivery remain necessary. Repeating local gates cannot replace
+those captures, and this implement task prohibits pushing or promoting.
+
+Post-rebase local validation passed:
+
+- `pnpm gates`: exit 0, six quality gates and documentation checks; existing warnings.
+- `pnpm typecheck`: exit 0 across core, cloud functions and the React app.
+- `pnpm lint`: exit 0; existing warnings, no blocking errors.
+- `pnpm test:tooling`: exit 0, 26 files / 193 tests.
+- Performance Vitest configuration: 2 files / 14 tests passed.
+- Changed-file formatting against `loop/rc`, shell syntax and diff whitespace passed.
+
+Original quality-gate, typecheck, lint and tooling logs are retained locally in
+`/tmp/rc-eng-1.4-current/`. Central wrapper gates and independent review must still
+assess the resulting commit. No push, promotion, workflow dispatch, additional
+loop, dispatcher control-state edit or sub-agent was used.
