@@ -9,6 +9,10 @@ import {
 	SegmentedControl,
 	RadioCard,
 	Toaster,
+	DiceResult,
+	VisibilityChip,
+	Skeleton,
+	ProgressMeter,
 	abilityModifier,
 	type ButtonProps,
 	type DSChangeEvent,
@@ -27,8 +31,14 @@ export function consumerContracts(onChoice: (value: 'map' | 'scene') => void) {
 	const rows = [{ id: 'one', count: 3 }];
 	const status: DSBadgeStatus = 'success';
 	Toaster.show({ status, message: 'Saved', id: 'stable-id' });
+	Toaster.show({ message: 'Generated ID' }) satisfies number;
 	const valid = (
 		<>
+			<DiceResult total={20} dice={[{ value: 20 }] as const} drama="play" />
+			<VisibilityChip byException label={String(status)} />
+			<Skeleton variant="list" rows={3} avatar />
+			<Skeleton variant="canvas" />
+			<ProgressMeter value={42} eta="About one minute left" />
 			<Button icon="add" onClick={(event) => event.currentTarget.focus()} />
 			<Input onChange={onField} onKeyDown={(event) => event.currentTarget.select()} />
 			<Select options={['one']} onChange={onField} />

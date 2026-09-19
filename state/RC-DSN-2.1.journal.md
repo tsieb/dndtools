@@ -78,3 +78,35 @@
 - BLOCKED RC-DSN-2.1: the same scope blocker now spans three consecutive task turns. The DS conversion and repair proposal are committed; further DS-only changes cannot fix the consumer without violating the package string-return contract or concealing its types.
 - Required operator action: grant `apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx` and authorize its numeric-arithmetic correction, or route the committed `src/ds/handoff/AbilitiesPanel.patch` to that file's owner. The prepared patch remains applicable; use the documented `--unidiff-zero` option.
 - This turn changes only the journal. No runtime files changed, no suites were repeated, and no dispatcher control state was edited. Actual typecheck remains failed; the task is not ready for integration.
+
+## Integration reconciliation — eafbce28
+
+- DONE: explicitly requested rebase onto `eafbce28a4f78231185cbf44ccbd603ad489415a`; replayed all four task commits and resolved the nine reported conflicts. No push, promotion, dispatcher mutations or agents.
+- DONE: retained upstream icon vocabulary/aliases and tests, dice drama, visibility preference/vocabulary hooks, nested overlay focus traps and tests, Skeleton list/canvas variants, and ProgressMeter ETA behavior.
+- DONE: migrated newly integrated `overlay/focus.js` to typed `focus.ts`; extended public props for the upstream additions, accepted readonly dice readouts, and typed dice-drama fixtures directly.
+- DONE: preserved numeric IDs from `Toaster.show` when callers omit a custom ID using overloads; custom string IDs still work. The implementation body is unchanged.
+- DONE: standalone DS compiler config resolves core's existing Node declarations for the platform preference dependency, without adding dependencies or ambient shims.
+- Initial reconciliation checks: standalone DS compiler passed; 29 DS files / 234 tests passed before replay of the six AbilityScore tests. Final gates pending below.
+- Whole-app typecheck exposed new gallery consumer typing gaps alongside the previously documented character-sheet arithmetic errors. DS-owned readonly dice and generated-toast ID contracts are fixed; final diagnostics pending.
+- Headroom tools are now available; command originals are retained by artifact ID and retrieved before diagnostic conclusions.
+
+### Reconciliation validation findings
+
+- Compared all 74 implementation modules against integration using normalized esbuild output with exact catalog values inlined: 72 matched exactly. Reviewed the remaining diffs: DiceResult adds a logically redundant non-null guard for control-flow narrowing; Toast moves the unchanged show body into an overloaded function. Subsequently split the unchanged semantic icon registry/aliases into `core/icon-registry.ts` to satisfy the 800-line gate without expanding allowances.
+- Full app tests initially passed 1,556/1,557; the sole failure was the motion test's `.jsx` filename allowlist. Updated that test to `.tsx` under the automatic test ownership grant. Final rerun pending.
+- HANDOFF RC-DSN-2.1 → apps/gm-react/src/screens/DsGallery.tsx: concrete tabs/value and optional required-flag types through the generic props record; prepared unapplied `src/ds/handoff/DsGallery.patch`. The prior AbilitiesPanel arithmetic handoff remains.
+- HANDOFF RC-DSN-2.1 → scripts/emphasis-baseline.json: migrate ten DS baseline keys to their TSX paths with unchanged counts. This is the only remaining lint failure after ESLint and boundary lint pass; changing the actual component styles would violate no-behavior-change.
+- HANDOFF RC-DSN-2.1 → scripts/check-prod-bundle.mjs, apps/gm-react/scripts/check-prod-bundle.mjs, docs/design/COMPONENTS.md: migrate gallery source paths, update coverage derivation from the removed facade to typed modules, regenerate the reference (77 stale links), and cover TSX source markers in the production exclusion check.
+- Final checks run on the reconciled tree below; integration remains blocked by these explicit out-of-scope consumer/tooling dependencies.
+
+### Final reconciliation report
+
+- PASS: full app suite, 143 files / 1,557 tests; exact completion `/tmp/dsn-rebase-app-final.log`, Headroom original `70773e9b459e415bad4de1bd46fbf489` retrieved.
+- PASS: standalone DS contract compiler; original `c4fa219613df49afaa426058f87430b0` retrieved. Typed fixture covers incoming drama, readonly dice, visibility options, loading variants, ETA, and generated numeric toast IDs.
+- PASS: production build and runtime/gallery exclusion across 85 JS assets; `/tmp/dsn-rebase-build.log`, original `cfc0d9cc9703442fb7613be4f91d122f` retrieved.
+- PASS: zero whole-word escape-type tokens and zero JS/JSX files under DS; deleted facade stays absent. Git diff whitespace and both unapplied consumer patches' apply checks pass.
+- PASS (proposal only): both exact consumer patch hunks applied through an in-memory compiler host produce zero app diagnostics. Original `32519acea8844597bc972665752df03c`; no consumer file was written.
+- BLOCKED: real `pnpm typecheck` exits 2, exactly four errors: gallery lines 118/130 and character-sheet lines 95/139. Original `5103eceb513f4ba49c9897b0c460b624` retrieved. The two committed handoff patches resolve these when their owners apply them.
+- BLOCKED: `pnpm gates` exits 1 only for 77 obsolete generated component links; icon file-size error is fixed by the registry split. Original `181bd1d7276844eab6e7a6727ed9c34a`, full `/tmp/dsn-rebase-gates.log`.
+- BLOCKED: `pnpm lint` passes ESLint (19 inherited warnings) and boundary lint, then fails emphasis baseline matching for ten renamed DS paths. Original `ae096d756f1a4aff8f4860481ef399a7` retrieved. No allowance or visual behavior changed.
+- PARTIAL RC-DSN-2.1: conflicts reconciled and owned conversion/zero-escape debt reduction complete; consumer and tooling ownership handoffs prevent green whole-repository gates. Current branch descends from requested `eafbce28`; no push, promotion, agents or dispatcher control writes.

@@ -165,7 +165,7 @@ describe('dice drama under reduced motion', () => {
 	});
 
 	it('the resting frame alone still reads as a natural 20: static gold border and fill, in words', () => {
-		for (const drama of ['play', 'static']) {
+		for (const drama of ['play', 'static'] as const) {
 			const style = styleOf(chip({ ...NAT_20, drama }));
 			expect(style).toContain('border:1px solid var(--color-accent)');
 			expect(style).toContain('background-color:var(--color-accent-subtle)');

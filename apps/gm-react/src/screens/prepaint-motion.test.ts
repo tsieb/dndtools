@@ -148,7 +148,7 @@ describe('--easing-spring stays reserved for dice and celebration surfaces', () 
 	// The spring overshoots, which reads as play on a crit and as a glitch on a menu. These are the
 	// files RC-SES-2.4 (dice drama) owns; extend the list only for another dice or celebration surface.
 	const ALLOWED = [
-		'ds/components/domain/DiceResult.jsx',
+		'ds/components/domain/DiceResult.tsx',
 		'screens/session/DiceTray.tsx',
 		'app/session/QuickPanel.tsx',
 	];
