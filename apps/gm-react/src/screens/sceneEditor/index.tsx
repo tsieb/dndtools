@@ -7,6 +7,7 @@ import {
 	resolveAddWidgetCommand,
 	screenLayoutPolicy,
 	type ScreenLayoutPolicy,
+	type SceneBackground,
 	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
@@ -76,9 +77,12 @@ export function SceneEditor() {
 	// RC-CAN-4.1 — the gallery's "Build your own" opens the builder on a blank widget.
 	const [building, setBuilding] = useState(false);
 	const [metaOpen, setMetaOpen] = useState(false);
+	const [propertiesDismissed, setPropertiesDismissed] = useState(false);
+	useEffect(() => setPropertiesDismissed(false), [editing, id]);
 	// RC-CAN-4.4 — the scene-template picker, opened from the empty canvas or the gallery header.
 	const [templatesOpen, setTemplatesOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const configQueue = useRef(Promise.resolve());
 
 	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
 	// never unmounts it on a scene→scene navigation (the sidebar and ⌘K both do exactly that). Every
@@ -128,9 +132,12 @@ export function SceneEditor() {
 	const selectedInstance = rawScene?.widgets.find((w) => w.id === selectedId) ?? null;
 	const selectedWidget = widgets.find((w) => w.id === selectedId) ?? null;
 
+	const propertiesOpen =
+		metaOpen || (editing && !selectedWidget && !addOpen && !propertiesDismissed);
+
 	// Each of these panels has a path that unmounts it while focus is still inside: a successful Add,
 	// a saved metadata edit, the Inspector's Close, a deselect. See usePanelFocusReturn.
-	usePanelFocusReturn(metaOpen || addOpen);
+	usePanelFocusReturn(propertiesOpen || addOpen);
 	usePanelFocusReturn(!!(editing && selectedWidget && selectedInstance && !addOpen && !metaOpen));
 
 	// RC-CAN-6.1 — editing is SUSPENDED while previewing, not torn down: the canvas, its selection and
@@ -263,13 +270,21 @@ export function SceneEditor() {
 		});
 	}
 	// SCENE METADATA (scene.update-metadata) — scenes are no longer permanently named at creation.
-	async function saveMetadata(meta: { name: string; description: string; tags: string[] }) {
+	async function saveMetadata(meta: {
+		name: string;
+		description: string;
+		tags: string[];
+		visualSettings: { background: SceneBackground };
+	}) {
 		const ok = await dispatch({
 			type: 'scene.update-metadata',
 			actorId,
-			payload: { sceneId: id, name: meta.name, description: meta.description, tags: meta.tags },
+			payload: { sceneId: id, ...meta },
 		});
-		if (ok) setMetaOpen(false);
+		if (ok) {
+			setMetaOpen(false);
+			setPropertiesDismissed(true);
+		}
 	}
 	// CANVAS-016 — pin the selected widget's explicit keyboard traversal position (null clears it back
 	// to the core's derived order).
@@ -296,15 +311,25 @@ export function SceneEditor() {
 	// and the edit survives reload identically to any other authored change.
 	function setConfig(key: string, value: unknown) {
 		if (!selectedInstance) return;
-		return dispatch({
-			type: 'scene.configure-widget',
-			actorId,
-			payload: {
-				sceneId: id,
-				widgetInstanceId: selectedInstance.id,
-				configuration: { ...selectedInstance.configuration, [key]: value },
-			},
+		const widgetInstanceId = selectedInstance.id;
+		// A blur and a discrete field change can arrive before persistence re-renders the panel.
+		// Read the latest configuration after prior edits commit so one tab cannot erase another.
+		configQueue.current = configQueue.current.then(async () => {
+			const latest = runtime.state.scenes.scenes[id]?.widgets.find(
+				(w) => w.id === widgetInstanceId,
+			);
+			if (!latest) return;
+			await dispatch({
+				type: 'scene.configure-widget',
+				actorId,
+				payload: {
+					sceneId: id,
+					widgetInstanceId,
+					configuration: { ...latest.configuration, [key]: value },
+				},
+			});
 		});
+		return configQueue.current;
 	}
 
 	// The Edit-layout / Done button's handler, shared with the command palette's Toggle edit row.
@@ -600,6 +625,10 @@ export function SceneEditor() {
 				<div
 					ref={stageRef}
 					data-testid="scene-editor-stage"
+					onKeyDownCapture={(event: React.KeyboardEvent) => {
+						// Escape dismisses the current panel without opening scene properties over the canvas.
+						if (event.key === 'Escape') setPropertiesDismissed(true);
+					}}
 					style={{
 						flex: 1,
 						minHeight: 0,
@@ -623,6 +652,7 @@ export function SceneEditor() {
 							selectedId={selectedId}
 							onSelect={(id) => {
 								setSelectedId(id);
+								if (id) setPropertiesDismissed(false);
 								if (id) setMetaOpen(false);
 							}}
 							onMove={move}
@@ -646,6 +676,7 @@ export function SceneEditor() {
 							// scene-level details panel.
 							onSelect={(id) => {
 								setSelectedId(id);
+								if (id) setPropertiesDismissed(false);
 								if (id) setMetaOpen(false);
 							}}
 							onMove={move}
@@ -660,7 +691,7 @@ export function SceneEditor() {
 						/>
 					)}
 
-					{metaOpen && (
+					{propertiesOpen && (
 						<SceneMetaPanel
 							// Its three fields are `useState(prop)` drafts with no prop→draft sync, and its Save
 							// is a full metadata REPLACEMENT addressed by the route id — with no key tied to the
@@ -668,18 +699,25 @@ export function SceneEditor() {
 							// description and tags onto the new one. `Inspector` below keys on its selected
 							// instance for exactly this reason.
 							key={id}
+							scene={rawScene}
 							name={shown.name}
 							description={shown.description}
 							tags={shown.tags}
 							phone={viewport === 'phone'}
 							onSave={saveMetadata}
-							onClose={() => setMetaOpen(false)}
+							onClose={() => {
+								setMetaOpen(false);
+								setPropertiesDismissed(true);
+							}}
 						/>
 					)}
 
 					<AddWidgetGallery
 						open={addOpen && !metaOpen}
-						onClose={() => setAddOpen(false)}
+						onClose={() => {
+							setAddOpen(false);
+							setPropertiesDismissed(true);
+						}}
 						viewport={viewport}
 						policy={layoutPolicy}
 						widgets={widgets}
@@ -711,6 +749,7 @@ export function SceneEditor() {
 							onVisibility={setVisibility}
 							onConfigure={setConfig}
 							onResize={(w, h) => resize(selectedInstance.id, w, h)}
+							onMove={(x, y) => move(selectedInstance.id, x, y)}
 							onFocusOrder={(order) => setFocusOrder(selectedInstance.id, order)}
 							onRemove={() => destroy(selectedInstance.id)}
 							onClose={() => setSelectedId(null)}

@@ -1,6 +1,8 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type WidgetConfigField } from '@dndtools/core';
+import type { BoardWidget } from '../../app/board-helpers';
+import { useI18n } from '../../i18n';
 import { Field, Input, Select, Switch, Textarea } from '../../ds';
 
 /** A titled, top-bordered inspector section, matching the prototype's `Section`. */
@@ -20,7 +22,7 @@ export function Section({ label, children }: { label: string; children: React.Re
 					font: '600 var(--text-2xs) var(--font-sans)',
 					letterSpacing: 'var(--tracking-wider)',
 					textTransform: 'uppercase',
-					color: 'var(--color-text-tertiary)',
+					color: 'var(--color-text-secondary)',
 				}}
 			>
 				{label}
@@ -183,5 +185,100 @@ export function NumberFieldControl({
 				}}
 			/>
 		</Field>
+	);
+}
+
+/** One numeric transform field. Commits on blur or Enter, never per keystroke, so typing "320"
+ *  is one core op rather than three. */
+function TransformField({
+	label,
+	value,
+	min,
+	disabled,
+	onCommit,
+}: {
+	label: string;
+	value: number;
+	min: number;
+	disabled?: boolean;
+	onCommit: (value: number) => void;
+}) {
+	const [draft, setDraft] = useState(String(value));
+	useEffect(() => setDraft(String(value)), [value]);
+	const commit = () => {
+		const n = Math.round(Number(draft));
+		if (!Number.isFinite(n) || draft.trim() === '') return setDraft(String(value));
+		const next = Math.max(min, n);
+		setDraft(String(next));
+		if (next !== value) onCommit(next);
+	};
+	return (
+		<Field label={label}>
+			<Input
+				type="number"
+				inputMode="numeric"
+				value={draft}
+				min={min}
+				step={1}
+				disabled={disabled}
+				onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+				onBlur={commit}
+				onKeyDown={(e: React.KeyboardEvent) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						commit();
+					}
+				}}
+			/>
+		</Field>
+	);
+}
+
+/** RC-CAN-3.6 — the numeric position and size of the selected widget, in board pixels. Width and
+ *  height follow the same resizable gate as the size buttons above. */
+export function TransformPanel({
+	widget,
+	resizable,
+	onMove,
+	onResize,
+}: {
+	widget: BoardWidget;
+	resizable: boolean;
+	onMove: (x: number, y: number) => void;
+	onResize: (w: number, h: number) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<div
+			data-testid="widget-inspector-transform"
+			style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}
+		>
+			<TransformField
+				label={t('sceneEditor.transformX')}
+				value={widget.x}
+				min={0}
+				onCommit={(x) => onMove(x, widget.y)}
+			/>
+			<TransformField
+				label={t('sceneEditor.transformY')}
+				value={widget.y}
+				min={0}
+				onCommit={(y) => onMove(widget.x, y)}
+			/>
+			<TransformField
+				label={t('sceneEditor.transformW')}
+				value={widget.w}
+				min={40}
+				disabled={!resizable}
+				onCommit={(w) => onResize(w, widget.h)}
+			/>
+			<TransformField
+				label={t('sceneEditor.transformH')}
+				value={widget.h}
+				min={40}
+				disabled={!resizable}
+				onCommit={(h) => onResize(widget.w, h)}
+			/>
+		</div>
 	);
 }
