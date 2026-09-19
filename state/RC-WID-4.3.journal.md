@@ -35,3 +35,24 @@
 - The existing implementation, catalogs, and acceptance spec are preserved per the operator brief.
 - Dispatch Headroom tools are unavailable in this session; validation uses native exact command output.
 - Next: commit the relocation, rebase onto current local `loop/rc`, and rerun validation.
+
+## Report — operator repair completed
+
+- Relocation committed, then both task commits rebased cleanly onto local `loop/rc`
+  `c8a2c291463c39e0f1deeff83cc64027ce3bcf59`; rebased implementation is `8229deb3`.
+- No journal remains under `apps/gm-react/src/`. Candidate paths are the three owned sources,
+  EN/ES catalogs, the acceptance spec, and this allowed state journal. Roadmap §0.2 grants
+  catalogs and e2e specs automatically; these are not outstanding ownership exceptions.
+- Fresh post-rebase gates (all exit 0): `pnpm typecheck`, `pnpm lint`, `pnpm gates`,
+  `pnpm build`, `pnpm feature-audit`, and `pnpm format:fix:changed --base loop/rc`.
+  Formatting changed no files. Lint reports warnings but no errors; build reports bundle-size
+  warnings. Feature audit: 0 stale limits and 0/23 screens need wiring review.
+- `pnpm test:app`: 140 files, 1,527 tests passed. Focused i18n/sceneEditor tests: 38 passed.
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/binding-inspector.spec.ts tests/e2e/player-preview.spec.ts tests/e2e/note-depth.spec.ts --project=desktop-chromium --project=mobile-chromium`:
+  12 passed, including the hidden-NPC acceptance on both profiles. The assertion checks
+  `data-state=hidden` in the inspector and `data-tone=hidden` in the actual player preview.
+- `git diff --check loop/rc...HEAD` passed. Only this report was added after the code gates;
+  final formatting and whitespace verification run before committing it.
+- No implementation change was needed after the rebase. No push, promotion, new loop, or
+  dispatcher control-state edit performed. Central operator gates and independent review remain
+  the next integration steps.
