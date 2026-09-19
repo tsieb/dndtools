@@ -19,7 +19,9 @@ def controls():
 
 def main():
     matrix = (ROOT / 'docs/planning/SCREENS_PARITY.md').read_text()
-    row_ids = set(re.findall(r'^\|\s*((?:CC|BD|SE)-\d+)\s*\|', matrix, re.M))
+    rows = re.findall(r'^\|\s*((?:CC|BD|SE)-\d+)\s*\|', matrix, re.M)
+    assert len(rows) == len(set(rows)), f'Duplicate matrix IDs: {[r for r in rows if rows.count(r) > 1]}'
+    row_ids = set(rows)
     manifest = json.loads((EVIDENCE / 'control-coverage.json').read_text())
     actual = controls()
     mapped = {}
@@ -42,8 +44,11 @@ def main():
                 assert data[:4] == b'RIFF' and data[8:12] == b'WEBP', p
     # Reviewed omissions are explicit assertions, not merely checks against a frozen manifest.
     refreshed = ('home', 'board', 'board-gallery', 'board-gallery-empty',
-                 'session', 'session-active', 'session-call', 'session-adjust')
+                 'session', 'session-active', 'session-call', 'session-adjust',
+                 'capture-filter', 'capture-continuity')
     required = {
+        'capture-filter': ('combobox "Archived session"', 'textbox "Filter": zzzz-no-match', '[checked]'),
+        'capture-continuity': ('button "Create"', 'button "Not now"', 'group "1 name mentioned without notes"'),
         'home': ('button "Open scene"',),
         'board': ('button "Edit layout"',),
         'board-gallery': ('searchbox "Search widgets"', 'group "Filter by category"',
@@ -69,7 +74,7 @@ def main():
                        ('G-05', '5.6'), ('G-06', '5.9'), ('G-07', '5.7'), ('G-08', '5.8'), ('G-09', '5.10'), ('G-10', '5.11')]:
         assert re.search(r'^\|\s*' + gap + r'\s*\|.*WID-' + re.escape(story) + r'\b', matrix, re.M), gap
     print(f'PASS: {len(actual)} control occurrences, {len(manifest["controls"])} distinct mapped controls, '
-          f'{len(manifest["aria_sha256"])} unchanged ARIA captures, 27 historical baseline + 72 refresh screenshots, 10 assigned gaps.')
+          f'{len(manifest["aria_sha256"])} unchanged ARIA captures, 27 historical baseline + 90 refresh screenshots, 10 assigned gaps.')
 
 
 if __name__ == '__main__':

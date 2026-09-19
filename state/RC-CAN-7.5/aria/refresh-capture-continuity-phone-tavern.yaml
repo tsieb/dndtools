@@ -1,0 +1,46 @@
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- group "1 name mentioned without notes":
+    - text: 1 name mentioned without notes Thornwick — create?
+    - button "Create"
+    - button "Not now"
+- combobox "Archived session":
+    - option "Sep 19 · 3:59 PM" [selected]
+    - option "Sep 19 · 3:59 PM"
+- textbox "Session log title":
+    - /placeholder: Session log — Sep 19 · 3:59 PM
+- text: What happened
+- textbox "What happened":
+    - /placeholder: The party bargained with the harbour master and burned the manifest…
+- text: What changed
+- textbox "Filter"
+- group "What changed":
+    - checkbox "Brother Calloway"
+    - checkbox "Mira the Ferryman"
+    - checkbox "Sera Duskwhisper"
+    - checkbox "The Hollow King"
+    - checkbox "Tormund Ironfist"
+    - checkbox "Faction · The Ashen Hand"
+    - checkbox "Capture fixture 7"
+    - checkbox "Capture fixture 10"
+    - checkbox "Capture fixture 8"
+    - checkbox "Capture fixture 0"
+    - checkbox "Capture fixture 12"
+    - checkbox "Session log — Sep 19 · 3:59 PM"
+    - checkbox "Capture fixture 1"
+    - checkbox "Capture fixture 5"
+    - checkbox "Capture fixture 15"
+    - checkbox "Brine Hand"
+    - checkbox "The Drowning of Saltreach"
+    - checkbox "Capture fixture 13"
+    - checkbox "Capture fixture 14"
+    - checkbox "The Sunken Crypt — DM notes"
+    - checkbox "Saltmarsh Watch"
+    - checkbox "The party makes landfall"
+    - checkbox "The Hollow King stirs"
+    - checkbox "Campaign Primer"
+- text: Follow-ups
+- textbox "Follow-ups":
+    - /placeholder: "Send the guild’s reply\nName the harbour master"
+- text: One follow-up per line. Saves a DM-only session log note. Set the campaign date to place it on the timeline.
+- button "Save session log" [disabled]

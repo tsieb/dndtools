@@ -6,12 +6,12 @@
 instructions. No repository AGENTS.md was found. The earlier candidate and its evidence are
 already on this task branch; this revision preserves all 27 ARIA snapshots and 41 screenshots.
 Their original capture date and source baseline remain 2026-09-16 / `83f94aabb28cf188630d30e56f9d301d2773fb26`.
-The [historical journal](../RC-CAN-7.5.journal.md) records the original capture procedure and
+The [historical journal](HISTORICAL_JOURNAL.md) records the original capture procedure and
 historical gates; those results are not rerun results for this revision.
 
 The 2026-09-18 operator brief explicitly adds the planning index and this evidence directory to
 Owns. Only `docs/planning/SCREENS_PARITY.md`, `docs/planning/README.md`, and
-`state/RC-CAN-7.5/` are changed. The older sibling journal remains untouched.
+`state/RC-CAN-7.5/` are changed. The historical sibling journal was subsequently relocated into this directory; see the capture repair below.
 
 ## Changes and reasons
 
@@ -258,3 +258,62 @@ Each cell links one lossless image from the corrected run; corresponding ARIA ha
   was not used to validate this revision. `git diff --cached --check` passed.
 - No full `pnpm check`, general browser suite, typecheck or independent review result is claimed
   for this repair. The central operator runs its candidate gates and review after this commit.
+
+## Capture omissions and ownership repair — 2026-09-19
+
+Starting HEAD `cfa8754f699a77d684b957bff0cf014bd65fff35`; clean worktree.
+Review base: `16dd3e7ef62ae2d8dbd8f4eff97d6a02a645044c`. No Headroom tools available;
+read command outputs directly. No additional agents used.
+
+- Read Capture.tsx, Session handlers/useSessionView, SceneRuntime preview guard, Panel heading
+  implementation and session-capture.spec.ts before editing. SE-39–41 cover archive selection,
+  bounded filtering and continuity actions; SE-22 links those details. Extend existing G-02,
+  G-06 and G-07 assignments and filed WID-5.7/5.9 acceptance. No product edits.
+- Give Outcome toast the unique SE-38 ID and update Dismiss crosswalk records. Verifier now
+  rejects duplicate IDs before resolving mappings and requires the four omitted signatures.
+- Move the historical sibling journal into HISTORICAL_JOURNAL.md, preserving its content, and
+  update its link. This removes the out-of-scope addition from the complete base-to-candidate
+  delta. README has no new edit; its previously authorized index link remains minimal.
+- Retain capture-conditional.ts. Run against the isolated cloud-disabled Vite command above,
+  then `pnpm exec tsx state/RC-CAN-7.5/capture-conditional.ts`. Fresh local demo per theme/tier;
+  accepted DEV commands create two archives and 16 synthetic notes. Real UI filtering selects
+  a note then enters a nonmatching query; assertion confirms the selected checkbox remains.
+  Real UI save produces the continuity group; Create is clicked and the NPC record asserted.
+- Setup retries exposed tsx function naming in page.evaluate, an unset home scene and illegal
+  recap-to-prep setup transition. Harness supplies the naming helper, uses a seeded scene
+  fallback and transitions through idle. Only the successful final captures are retained.
+- Eighteen new ARIA files and lossless panel screenshots cover both states at all nine combinations.
+  These panel-scoped captures supplement the retained route captures; they are not whole-page
+  captures. Busy/rejection, preview with a retained suggestion, and Not now activation remain
+  source-inspected contracts. No exhaustive keyboard, screen-reader or participant-device test
+  is claimed. Conditional states no longer rely on the initial seed's 14-checkbox snapshot.
+
+### Conditional screenshot index
+
+| State / tier                 | Tavern                                                           | Parchment                                                              | High contrast                                                                  |
+| ---------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| capture filter / desktop     | [tavern](screens/refresh-capture-filter-desktop-tavern.webp)     | [parchment](screens/refresh-capture-filter-desktop-parchment.webp)     | [high-contrast](screens/refresh-capture-filter-desktop-high-contrast.webp)     |
+| capture filter / rail        | [tavern](screens/refresh-capture-filter-rail-tavern.webp)        | [parchment](screens/refresh-capture-filter-rail-parchment.webp)        | [high-contrast](screens/refresh-capture-filter-rail-high-contrast.webp)        |
+| capture filter / phone       | [tavern](screens/refresh-capture-filter-phone-tavern.webp)       | [parchment](screens/refresh-capture-filter-phone-parchment.webp)       | [high-contrast](screens/refresh-capture-filter-phone-high-contrast.webp)       |
+| capture continuity / desktop | [tavern](screens/refresh-capture-continuity-desktop-tavern.webp) | [parchment](screens/refresh-capture-continuity-desktop-parchment.webp) | [high-contrast](screens/refresh-capture-continuity-desktop-high-contrast.webp) |
+| capture continuity / rail    | [tavern](screens/refresh-capture-continuity-rail-tavern.webp)    | [parchment](screens/refresh-capture-continuity-rail-parchment.webp)    | [high-contrast](screens/refresh-capture-continuity-rail-high-contrast.webp)    |
+| capture continuity / phone   | [tavern](screens/refresh-capture-continuity-phone-tavern.webp)   | [parchment](screens/refresh-capture-continuity-phone-parchment.webp)   | [high-contrast](screens/refresh-capture-continuity-phone-high-contrast.webp)   |
+
+### Capture repair validation
+
+- Capture harness passed all nine contexts: retained selected checkbox after filtering,
+  post-save continuity group, successful Create and resulting NPC record.
+- Visually inspected the phone tavern continuity image: the four reviewed controls are visible.
+  The app's inner scroll container clips lower panel content and the toast overlays its bottom;
+  panel screenshots do not prove below-viewport layout. ARIA retains the full panel controls.
+- `python3 state/RC-CAN-7.5/verify-evidence.py`: passed, 4,273 occurrences, 303 mapped records,
+  117 ARIA captures and ten assigned gaps. A read-only injected duplicate SE-34 matrix row
+  triggered the expected Duplicate matrix IDs assertion (negative verification).
+- `pnpm gates`: exit 0, 258 reachable documents / 321 resolved relative links. Existing product
+  file-size warnings only. No full pnpm check or independent review is claimed for this docs repair.
+- Complete candidate ownership checked against supplied base, including the relocated journal:
+  no path outside the two authorized planning documents and state/RC-CAN-7.5/ remains.
+- Format checks passed for the 104 existing candidate files selected by the exact-base command
+  and all 23 staged repair files selected by `pnpm format:check:changed` without a base. The
+  base option compares committed HEAD, so both checks were necessary before committing.
+  `git diff --cached --check` passed. Evidence verifier passed again after formatting.

@@ -99,7 +99,25 @@
 		"refresh-session-phone-tavern.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
 		"refresh-session-rail-high-contrast.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
 		"refresh-session-rail-parchment.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
-		"refresh-session-rail-tavern.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1"
+		"refresh-session-rail-tavern.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
+		"refresh-capture-continuity-desktop-high-contrast.yaml": "6a52de5438f551b7b594bc7b0b3992f2fc92c314654390481ac9c45c6df14726",
+		"refresh-capture-continuity-desktop-parchment.yaml": "0f4208643ab671b051dc3eeba9bb65c5d0e12f0e164f608c0d78e6cf549a6c39",
+		"refresh-capture-continuity-desktop-tavern.yaml": "b12d50c0d48d1a1d38b9d5d767c1071de6e3af56b08bd1185155fe63cc60e0d0",
+		"refresh-capture-continuity-phone-high-contrast.yaml": "ac3134c96a01b7ac2774f20e87dac6227ed7c86733179e172141c3a33087a066",
+		"refresh-capture-continuity-phone-parchment.yaml": "b2907702b0837ce9e2c46af2eea54f0ad56b0c36fa6079d4b7f29fdf9a4fbdd5",
+		"refresh-capture-continuity-phone-tavern.yaml": "42c02f4e2b7be7728a4133c8332068814aad8e3e603baa2fc46bd55695caf53c",
+		"refresh-capture-continuity-rail-high-contrast.yaml": "d09497ae4e042d3370cdebc1a20de22960bd6a7190a7fd7952dc29b9b1498e4d",
+		"refresh-capture-continuity-rail-parchment.yaml": "b1c9826fff8868b753ca6d4cddb72cbad3bbaeb83cb70acebe0e85def2a80948",
+		"refresh-capture-continuity-rail-tavern.yaml": "0aaa01ddd0f3fd4110cddd02aeefb1a758345a06d3fae53a70504e1326d22bb5",
+		"refresh-capture-filter-desktop-high-contrast.yaml": "5ebfbe5dfc64e539a6dea0b7879a9957a9913b937ac7db2f4eb1e02ee5131464",
+		"refresh-capture-filter-desktop-parchment.yaml": "4ad1c52d25b10299a9d59fe4a1445a3abbc3c05dd0e4ab11a275b3b3adda9dc5",
+		"refresh-capture-filter-desktop-tavern.yaml": "643b316acea3a99ba77e32aea55dfd51c9a4f8811016ee4c1515408abebc0107",
+		"refresh-capture-filter-phone-high-contrast.yaml": "118fdefe43759707542cd5a1b1a01787ca979da3ce9a42eae87134dd9a08e2b3",
+		"refresh-capture-filter-phone-parchment.yaml": "3f18ccf41ba94a545a411940e49de2fb3f4241610919e2ae5fe3d7c3ea9a4e3e",
+		"refresh-capture-filter-phone-tavern.yaml": "4ad1c52d25b10299a9d59fe4a1445a3abbc3c05dd0e4ab11a275b3b3adda9dc5",
+		"refresh-capture-filter-rail-high-contrast.yaml": "8ec3233cf07b1d7ea0c717d38b7bca77a848b1c636741f95489a40ba6da8035c",
+		"refresh-capture-filter-rail-parchment.yaml": "643b316acea3a99ba77e32aea55dfd51c9a4f8811016ee4c1515408abebc0107",
+		"refresh-capture-filter-rail-tavern.yaml": "74b31c16c7e26b831b8189e8c148ca453c31f5eac594d1f5e8612690807033e3"
 	},
 	"controls": [
 		{
@@ -462,7 +480,7 @@
 		},
 		{
 			"row": "BD-20",
-			"control": "- option \"Choose a map\u2026\" [selected]",
+			"control": "- option \"Choose a map…\" [selected]",
 			"occurrences": [
 				"aria-board-desktop.yaml:14",
 				"aria-board-phone.yaml:14",
@@ -516,7 +534,7 @@
 		},
 		{
 			"row": "BD-21",
-			"control": "- button \"Next turn \u2014 Start combat in Session first \u2014 there is no turn to advance.\" [disabled]: Next turn",
+			"control": "- button \"Next turn — Start combat in Session first — there is no turn to advance.\" [disabled]: Next turn",
 			"occurrences": [
 				"aria-board-desktop.yaml:23",
 				"aria-board-rail.yaml:23",
@@ -530,7 +548,7 @@
 		},
 		{
 			"row": "BD-22",
-			"control": "- button \"Roll d20 \u2014 Go live in Session first \u2014 this reaches the table only during play.\" [disabled]: Roll",
+			"control": "- button \"Roll d20 — Go live in Session first — this reaches the table only during play.\" [disabled]: Roll",
 			"occurrences": [
 				"aria-board-desktop.yaml:28",
 				"aria-board-phone.yaml:24",
@@ -548,7 +566,7 @@
 		},
 		{
 			"row": "BD-23",
-			"control": "- button \"Add 60 seconds to the timer \u2014 Go live in Session first \u2014 this reaches the table only during play.\" [disabled]: Add a minute",
+			"control": "- button \"Add 60 seconds to the timer — Go live in Session first — this reaches the table only during play.\" [disabled]: Add a minute",
 			"occurrences": [
 				"aria-board-desktop.yaml:33",
 				"aria-board-phone.yaml:29",
@@ -566,7 +584,7 @@
 		},
 		{
 			"row": "BD-23",
-			"control": "- button \"Start 60-second timer \u2014 Go live in Session first \u2014 this reaches the table only during play.\" [disabled]: Start",
+			"control": "- button \"Start 60-second timer — Go live in Session first — this reaches the table only during play.\" [disabled]: Start",
 			"occurrences": [
 				"aria-board-desktop.yaml:32",
 				"aria-board-phone.yaml:28",
@@ -622,7 +640,7 @@
 		},
 		{
 			"row": "CC-09",
-			"control": "- button \"Draft The Sunken Crypt dungeon \u00b7 3 widgets\"",
+			"control": "- button \"Draft The Sunken Crypt dungeon · 3 widgets\"",
 			"occurrences": [
 				"aria-home-desktop.yaml:12",
 				"aria-home-phone.yaml:12",
@@ -640,7 +658,7 @@
 		},
 		{
 			"row": "CC-09",
-			"control": "- button \"Ready Harbor of Saltreach town \u00b7 0 widgets\"",
+			"control": "- button \"Ready Harbor of Saltreach town · 0 widgets\"",
 			"occurrences": [
 				"aria-home-desktop.yaml:11",
 				"aria-home-phone.yaml:11",
@@ -815,7 +833,7 @@
 		},
 		{
 			"row": "CC-13",
-			"control": "- button \"Characters 3 PCs \u00b7 2 NPCs\"",
+			"control": "- button \"Characters 3 PCs · 2 NPCs\"",
 			"occurrences": [
 				"aria-home-desktop-no-scenes.yaml:24",
 				"aria-home-desktop.yaml:24",
@@ -872,7 +890,7 @@
 		},
 		{
 			"row": "CC-13",
-			"control": "- button \"Story 0 threads \u00b7 3 factions\"",
+			"control": "- button \"Story 0 threads · 3 factions\"",
 			"occurrences": [
 				"aria-home-desktop-no-scenes.yaml:26",
 				"aria-home-desktop.yaml:26",
@@ -1274,12 +1292,12 @@
 		},
 		{
 			"row": "SE-07",
-			"control": "- button \"Build encounter (unavailable \u2014 exit player preview first)\" [disabled]: Build encounter",
+			"control": "- button \"Build encounter (unavailable — exit player preview first)\" [disabled]: Build encounter",
 			"occurrences": ["aria-session-desktop-recap-preview-player.yaml:11"]
 		},
 		{
 			"row": "SE-07",
-			"control": "- button \"Build encounter (unavailable \u2014 go live first)\" [disabled]: Build encounter",
+			"control": "- button \"Build encounter (unavailable — go live first)\" [disabled]: Build encounter",
 			"occurrences": [
 				"aria-session-desktop-prep.yaml:11",
 				"aria-session-desktop-recap.yaml:11",
@@ -1388,7 +1406,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Damage 1 HP \u2014 Brother Calloway\"",
+			"control": "- button \"Damage 1 HP — Brother Calloway\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:54",
 				"aria-session-desktop-rest-timeline.yaml:54",
@@ -1415,7 +1433,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Damage 1 HP \u2014 Mira the Ferryman\"",
+			"control": "- button \"Damage 1 HP — Mira the Ferryman\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:29",
 				"aria-session-desktop-rest-timeline.yaml:29",
@@ -1424,7 +1442,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Damage 1 HP \u2014 Sera Duskwhisper\"",
+			"control": "- button \"Damage 1 HP — Sera Duskwhisper\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:46",
 				"aria-session-desktop-rest-timeline.yaml:46",
@@ -1451,7 +1469,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Damage 1 HP \u2014 The Hollow King\"",
+			"control": "- button \"Damage 1 HP — The Hollow King\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:38",
 				"aria-session-desktop-rest-timeline.yaml:38",
@@ -1460,7 +1478,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Heal 1 HP \u2014 Brother Calloway\"",
+			"control": "- button \"Heal 1 HP — Brother Calloway\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:53",
 				"aria-session-desktop-rest-timeline.yaml:53",
@@ -1487,7 +1505,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Heal 1 HP \u2014 Mira the Ferryman\"",
+			"control": "- button \"Heal 1 HP — Mira the Ferryman\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:28",
 				"aria-session-desktop-rest-timeline.yaml:28",
@@ -1496,7 +1514,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Heal 1 HP \u2014 Sera Duskwhisper\"",
+			"control": "- button \"Heal 1 HP — Sera Duskwhisper\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:45",
 				"aria-session-desktop-rest-timeline.yaml:45",
@@ -1523,7 +1541,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Heal 1 HP \u2014 The Hollow King\"",
+			"control": "- button \"Heal 1 HP — The Hollow King\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:37",
 				"aria-session-desktop-rest-timeline.yaml:37",
@@ -1541,7 +1559,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Quick reference \u2014 Brother Calloway\"",
+			"control": "- button \"Quick reference — Brother Calloway\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:52",
 				"aria-session-desktop-rest-timeline.yaml:52",
@@ -1568,7 +1586,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Quick reference \u2014 Mira the Ferryman\"",
+			"control": "- button \"Quick reference — Mira the Ferryman\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:27",
 				"aria-session-desktop-rest-timeline.yaml:27",
@@ -1577,7 +1595,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Quick reference \u2014 Sera Duskwhisper\"",
+			"control": "- button \"Quick reference — Sera Duskwhisper\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:44",
 				"aria-session-desktop-rest-timeline.yaml:44",
@@ -1604,7 +1622,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Quick reference \u2014 The Hollow King\"",
+			"control": "- button \"Quick reference — The Hollow King\"",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:36",
 				"aria-session-desktop-rest-timeline.yaml:36",
@@ -1640,7 +1658,7 @@
 		},
 		{
 			"row": "SE-12",
-			"control": "- button \"Adjust hit points \u2014 Brother Calloway\": 31/31",
+			"control": "- button \"Adjust hit points — Brother Calloway\": 31/31",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:50",
 				"aria-session-desktop-rest-timeline.yaml:50",
@@ -1649,7 +1667,7 @@
 		},
 		{
 			"row": "SE-12",
-			"control": "- button \"Adjust hit points \u2014 Mira the Ferryman\": 0/0",
+			"control": "- button \"Adjust hit points — Mira the Ferryman\": 0/0",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:25",
 				"aria-session-desktop-rest-timeline.yaml:25",
@@ -1658,7 +1676,7 @@
 		},
 		{
 			"row": "SE-12",
-			"control": "- button \"Adjust hit points \u2014 Sera Duskwhisper\": 24/24",
+			"control": "- button \"Adjust hit points — Sera Duskwhisper\": 24/24",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:42",
 				"aria-session-desktop-rest-timeline.yaml:42",
@@ -1667,7 +1685,7 @@
 		},
 		{
 			"row": "SE-12",
-			"control": "- button \"Adjust hit points \u2014 The Hollow King\": 0/0",
+			"control": "- button \"Adjust hit points — The Hollow King\": 0/0",
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:34",
 				"aria-session-desktop-rest-timeline.yaml:34",
@@ -1681,7 +1699,7 @@
 		},
 		{
 			"row": "SE-14",
-			"control": "- button \"Brother Calloway HP 31 \u00b7 AC 18\" [pressed]",
+			"control": "- button \"Brother Calloway HP 31 · AC 18\" [pressed]",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:11"]
 		},
 		{
@@ -1696,7 +1714,7 @@
 		},
 		{
 			"row": "SE-14",
-			"control": "- button \"Mira the Ferryman HP 9 \u00b7 AC 12\"",
+			"control": "- button \"Mira the Ferryman HP 9 · AC 12\"",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:15"]
 		},
 		{
@@ -1736,7 +1754,7 @@
 		},
 		{
 			"row": "SE-14",
-			"control": "- button \"Sera Duskwhisper HP 24 \u00b7 AC 15\" [pressed]",
+			"control": "- button \"Sera Duskwhisper HP 24 · AC 15\" [pressed]",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:12"]
 		},
 		{
@@ -1746,12 +1764,12 @@
 		},
 		{
 			"row": "SE-14",
-			"control": "- button \"The Hollow King HP 76 \u00b7 AC 19\"",
+			"control": "- button \"The Hollow King HP 76 · AC 19\"",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:16"]
 		},
 		{
 			"row": "SE-14",
-			"control": "- button \"Tormund Ironfist HP 42 \u00b7 AC 17\" [pressed]",
+			"control": "- button \"Tormund Ironfist HP 42 · AC 17\" [pressed]",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:13"]
 		},
 		{
@@ -3487,7 +3505,7 @@
 		},
 		{
 			"row": "SE-19",
-			"control": "- option \"\u2014 none \u2014\" [selected]",
+			"control": "- option \"— none —\" [selected]",
 			"occurrences": [
 				"aria-session-desktop-active.yaml:47",
 				"aria-session-desktop-active.yaml:54",
@@ -4358,7 +4376,19 @@
 		{
 			"row": "SE-22",
 			"control": "- button \"Save session log\" [disabled]",
-			"occurrences": ["aria-session-desktop-recap.yaml:126", "aria-session-phone-recap.yaml:126"]
+			"occurrences": [
+				"aria-session-desktop-recap.yaml:126",
+				"aria-session-phone-recap.yaml:126",
+				"refresh-capture-continuity-desktop-high-contrast.yaml:46",
+				"refresh-capture-continuity-desktop-parchment.yaml:46",
+				"refresh-capture-continuity-desktop-tavern.yaml:46",
+				"refresh-capture-continuity-phone-high-contrast.yaml:46",
+				"refresh-capture-continuity-phone-parchment.yaml:46",
+				"refresh-capture-continuity-phone-tavern.yaml:46",
+				"refresh-capture-continuity-rail-high-contrast.yaml:46",
+				"refresh-capture-continuity-rail-parchment.yaml:46",
+				"refresh-capture-continuity-rail-tavern.yaml:46"
+			]
 		},
 		{
 			"row": "SE-22",
@@ -4377,12 +4407,12 @@
 		},
 		{
 			"row": "SE-22",
-			"control": "- checkbox \"Dockworkers\u2019 Union\"",
+			"control": "- checkbox \"Dockworkers’ Union\"",
 			"occurrences": ["aria-session-desktop-recap.yaml:117", "aria-session-phone-recap.yaml:117"]
 		},
 		{
 			"row": "SE-22",
-			"control": "- checkbox \"Faction \u00b7 The Ashen Hand\"",
+			"control": "- checkbox \"Faction · The Ashen Hand\"",
 			"occurrences": ["aria-session-desktop-recap.yaml:114", "aria-session-phone-recap.yaml:114"]
 		},
 		{
@@ -4417,7 +4447,7 @@
 		},
 		{
 			"row": "SE-22",
-			"control": "- checkbox \"The Sunken Crypt \u2014 DM notes\"",
+			"control": "- checkbox \"The Sunken Crypt — DM notes\"",
 			"occurrences": ["aria-session-desktop-recap.yaml:115", "aria-session-phone-recap.yaml:115"]
 		},
 		{
@@ -4433,17 +4463,80 @@
 		{
 			"row": "SE-22",
 			"control": "- textbox \"Follow-ups\":",
-			"occurrences": ["aria-session-desktop-recap.yaml:123", "aria-session-phone-recap.yaml:123"]
+			"occurrences": [
+				"aria-session-desktop-recap.yaml:123",
+				"aria-session-phone-recap.yaml:123",
+				"refresh-capture-continuity-desktop-high-contrast.yaml:43",
+				"refresh-capture-continuity-desktop-parchment.yaml:43",
+				"refresh-capture-continuity-desktop-tavern.yaml:43",
+				"refresh-capture-continuity-phone-high-contrast.yaml:43",
+				"refresh-capture-continuity-phone-parchment.yaml:43",
+				"refresh-capture-continuity-phone-tavern.yaml:43",
+				"refresh-capture-continuity-rail-high-contrast.yaml:43",
+				"refresh-capture-continuity-rail-parchment.yaml:43",
+				"refresh-capture-continuity-rail-tavern.yaml:43",
+				"refresh-capture-filter-desktop-high-contrast.yaml:16",
+				"refresh-capture-filter-desktop-parchment.yaml:16",
+				"refresh-capture-filter-desktop-tavern.yaml:16",
+				"refresh-capture-filter-phone-high-contrast.yaml:16",
+				"refresh-capture-filter-phone-parchment.yaml:16",
+				"refresh-capture-filter-phone-tavern.yaml:16",
+				"refresh-capture-filter-rail-high-contrast.yaml:16",
+				"refresh-capture-filter-rail-parchment.yaml:16",
+				"refresh-capture-filter-rail-tavern.yaml:16"
+			]
 		},
 		{
 			"row": "SE-22",
 			"control": "- textbox \"Session log title\":",
-			"occurrences": ["aria-session-desktop-recap.yaml:101", "aria-session-phone-recap.yaml:101"]
+			"occurrences": [
+				"aria-session-desktop-recap.yaml:101",
+				"aria-session-phone-recap.yaml:101",
+				"refresh-capture-continuity-desktop-high-contrast.yaml:10",
+				"refresh-capture-continuity-desktop-parchment.yaml:10",
+				"refresh-capture-continuity-desktop-tavern.yaml:10",
+				"refresh-capture-continuity-phone-high-contrast.yaml:10",
+				"refresh-capture-continuity-phone-parchment.yaml:10",
+				"refresh-capture-continuity-phone-tavern.yaml:10",
+				"refresh-capture-continuity-rail-high-contrast.yaml:10",
+				"refresh-capture-continuity-rail-parchment.yaml:10",
+				"refresh-capture-continuity-rail-tavern.yaml:10",
+				"refresh-capture-filter-desktop-high-contrast.yaml:6",
+				"refresh-capture-filter-desktop-parchment.yaml:6",
+				"refresh-capture-filter-desktop-tavern.yaml:6",
+				"refresh-capture-filter-phone-high-contrast.yaml:6",
+				"refresh-capture-filter-phone-parchment.yaml:6",
+				"refresh-capture-filter-phone-tavern.yaml:6",
+				"refresh-capture-filter-rail-high-contrast.yaml:6",
+				"refresh-capture-filter-rail-parchment.yaml:6",
+				"refresh-capture-filter-rail-tavern.yaml:6"
+			]
 		},
 		{
 			"row": "SE-22",
 			"control": "- textbox \"What happened\":",
-			"occurrences": ["aria-session-desktop-recap.yaml:104", "aria-session-phone-recap.yaml:104"]
+			"occurrences": [
+				"aria-session-desktop-recap.yaml:104",
+				"aria-session-phone-recap.yaml:104",
+				"refresh-capture-continuity-desktop-high-contrast.yaml:13",
+				"refresh-capture-continuity-desktop-parchment.yaml:13",
+				"refresh-capture-continuity-desktop-tavern.yaml:13",
+				"refresh-capture-continuity-phone-high-contrast.yaml:13",
+				"refresh-capture-continuity-phone-parchment.yaml:13",
+				"refresh-capture-continuity-phone-tavern.yaml:13",
+				"refresh-capture-continuity-rail-high-contrast.yaml:13",
+				"refresh-capture-continuity-rail-parchment.yaml:13",
+				"refresh-capture-continuity-rail-tavern.yaml:13",
+				"refresh-capture-filter-desktop-high-contrast.yaml:9",
+				"refresh-capture-filter-desktop-parchment.yaml:9",
+				"refresh-capture-filter-desktop-tavern.yaml:9",
+				"refresh-capture-filter-phone-high-contrast.yaml:9",
+				"refresh-capture-filter-phone-parchment.yaml:9",
+				"refresh-capture-filter-phone-tavern.yaml:9",
+				"refresh-capture-filter-rail-high-contrast.yaml:9",
+				"refresh-capture-filter-rail-parchment.yaml:9",
+				"refresh-capture-filter-rail-tavern.yaml:9"
+			]
 		},
 		{
 			"row": "SE-31",
@@ -4491,7 +4584,7 @@
 			"occurrences": ["aria-dialog-end-session.yaml:6"]
 		},
 		{
-			"row": "SE-34",
+			"row": "SE-38",
 			"control": "- button \"Dismiss\"",
 			"occurrences": ["aria-dialog-end-session.yaml:11"]
 		},
@@ -5058,7 +5151,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Adjust hit points \u2014 Sera Duskwhisper\": 24/24",
+			"control": "- button \"Adjust hit points — Sera Duskwhisper\": 24/24",
 			"occurrences": [
 				"refresh-session-adjust-desktop-high-contrast.yaml:25",
 				"refresh-session-adjust-desktop-parchment.yaml:25",
@@ -5082,7 +5175,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Adjust hit points \u2014 Brother Calloway\": 31/31",
+			"control": "- button \"Adjust hit points — Brother Calloway\": 31/31",
 			"occurrences": [
 				"refresh-session-adjust-desktop-high-contrast.yaml:34",
 				"refresh-session-adjust-desktop-parchment.yaml:34",
@@ -5130,7 +5223,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Adjust hit points \u2014 Tormund Ironfist\": 42/42",
+			"control": "- button \"Adjust hit points — Tormund Ironfist\": 42/42",
 			"occurrences": [
 				"refresh-session-adjust-desktop-high-contrast.yaml:43",
 				"refresh-session-adjust-desktop-parchment.yaml:43",
@@ -5154,7 +5247,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Quick reference \u2014 Tormund Ironfist\"",
+			"control": "- button \"Quick reference — Tormund Ironfist\"",
 			"occurrences": [
 				"refresh-session-adjust-desktop-high-contrast.yaml:45",
 				"refresh-session-adjust-desktop-parchment.yaml:45",
@@ -5178,7 +5271,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Heal 1 HP \u2014 Tormund Ironfist\"",
+			"control": "- button \"Heal 1 HP — Tormund Ironfist\"",
 			"occurrences": [
 				"refresh-session-adjust-desktop-high-contrast.yaml:46",
 				"refresh-session-adjust-desktop-parchment.yaml:46",
@@ -5202,7 +5295,7 @@
 		},
 		{
 			"row": "SE-11",
-			"control": "- button \"Damage 1 HP \u2014 Tormund Ironfist\"",
+			"control": "- button \"Damage 1 HP — Tormund Ironfist\"",
 			"occurrences": [
 				"refresh-session-adjust-desktop-high-contrast.yaml:47",
 				"refresh-session-adjust-desktop-parchment.yaml:47",
@@ -5343,6 +5436,596 @@
 				"refresh-session-adjust-rail-parchment.yaml:57",
 				"refresh-session-adjust-rail-tavern.yaml:57"
 			]
+		},
+		{
+			"row": "SE-41",
+			"control": "- button \"Create\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:5",
+				"refresh-capture-continuity-desktop-parchment.yaml:5",
+				"refresh-capture-continuity-desktop-tavern.yaml:5",
+				"refresh-capture-continuity-phone-high-contrast.yaml:5",
+				"refresh-capture-continuity-phone-parchment.yaml:5",
+				"refresh-capture-continuity-phone-tavern.yaml:5",
+				"refresh-capture-continuity-rail-high-contrast.yaml:5",
+				"refresh-capture-continuity-rail-parchment.yaml:5",
+				"refresh-capture-continuity-rail-tavern.yaml:5"
+			]
+		},
+		{
+			"row": "SE-41",
+			"control": "- button \"Not now\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:6",
+				"refresh-capture-continuity-desktop-parchment.yaml:6",
+				"refresh-capture-continuity-desktop-tavern.yaml:6",
+				"refresh-capture-continuity-phone-high-contrast.yaml:6",
+				"refresh-capture-continuity-phone-parchment.yaml:6",
+				"refresh-capture-continuity-phone-tavern.yaml:6",
+				"refresh-capture-continuity-rail-high-contrast.yaml:6",
+				"refresh-capture-continuity-rail-parchment.yaml:6",
+				"refresh-capture-continuity-rail-tavern.yaml:6"
+			]
+		},
+		{
+			"row": "SE-39",
+			"control": "- combobox \"Archived session\":",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:7",
+				"refresh-capture-continuity-desktop-parchment.yaml:7",
+				"refresh-capture-continuity-desktop-tavern.yaml:7",
+				"refresh-capture-continuity-phone-high-contrast.yaml:7",
+				"refresh-capture-continuity-phone-parchment.yaml:7",
+				"refresh-capture-continuity-phone-tavern.yaml:7",
+				"refresh-capture-continuity-rail-high-contrast.yaml:7",
+				"refresh-capture-continuity-rail-parchment.yaml:7",
+				"refresh-capture-continuity-rail-tavern.yaml:7",
+				"refresh-capture-filter-desktop-high-contrast.yaml:3",
+				"refresh-capture-filter-desktop-parchment.yaml:3",
+				"refresh-capture-filter-desktop-tavern.yaml:3",
+				"refresh-capture-filter-phone-high-contrast.yaml:3",
+				"refresh-capture-filter-phone-parchment.yaml:3",
+				"refresh-capture-filter-phone-tavern.yaml:3",
+				"refresh-capture-filter-rail-high-contrast.yaml:3",
+				"refresh-capture-filter-rail-parchment.yaml:3",
+				"refresh-capture-filter-rail-tavern.yaml:3"
+			]
+		},
+		{
+			"row": "SE-39",
+			"control": "- option \"Sep 19 · 3:59 PM\" [selected]",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:8",
+				"refresh-capture-continuity-desktop-parchment.yaml:8",
+				"refresh-capture-continuity-desktop-tavern.yaml:8",
+				"refresh-capture-continuity-phone-high-contrast.yaml:8",
+				"refresh-capture-continuity-phone-parchment.yaml:8",
+				"refresh-capture-continuity-phone-tavern.yaml:8",
+				"refresh-capture-continuity-rail-high-contrast.yaml:8",
+				"refresh-capture-continuity-rail-parchment.yaml:8",
+				"refresh-capture-continuity-rail-tavern.yaml:8",
+				"refresh-capture-filter-desktop-high-contrast.yaml:4",
+				"refresh-capture-filter-desktop-parchment.yaml:4",
+				"refresh-capture-filter-desktop-tavern.yaml:4",
+				"refresh-capture-filter-phone-high-contrast.yaml:4",
+				"refresh-capture-filter-phone-parchment.yaml:4",
+				"refresh-capture-filter-phone-tavern.yaml:4",
+				"refresh-capture-filter-rail-high-contrast.yaml:4",
+				"refresh-capture-filter-rail-parchment.yaml:4",
+				"refresh-capture-filter-rail-tavern.yaml:4"
+			]
+		},
+		{
+			"row": "SE-39",
+			"control": "- option \"Sep 19 · 3:59 PM\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:9",
+				"refresh-capture-continuity-desktop-parchment.yaml:9",
+				"refresh-capture-continuity-desktop-tavern.yaml:9",
+				"refresh-capture-continuity-phone-high-contrast.yaml:9",
+				"refresh-capture-continuity-phone-parchment.yaml:9",
+				"refresh-capture-continuity-phone-tavern.yaml:9",
+				"refresh-capture-continuity-rail-high-contrast.yaml:9",
+				"refresh-capture-continuity-rail-parchment.yaml:9",
+				"refresh-capture-continuity-rail-tavern.yaml:9",
+				"refresh-capture-filter-desktop-high-contrast.yaml:5",
+				"refresh-capture-filter-desktop-parchment.yaml:5",
+				"refresh-capture-filter-desktop-tavern.yaml:5",
+				"refresh-capture-filter-phone-high-contrast.yaml:5",
+				"refresh-capture-filter-phone-parchment.yaml:5",
+				"refresh-capture-filter-phone-tavern.yaml:5",
+				"refresh-capture-filter-rail-high-contrast.yaml:5",
+				"refresh-capture-filter-rail-parchment.yaml:5",
+				"refresh-capture-filter-rail-tavern.yaml:5"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- textbox \"Filter\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:16",
+				"refresh-capture-continuity-desktop-parchment.yaml:16",
+				"refresh-capture-continuity-desktop-tavern.yaml:16",
+				"refresh-capture-continuity-phone-high-contrast.yaml:16",
+				"refresh-capture-continuity-phone-parchment.yaml:16",
+				"refresh-capture-continuity-phone-tavern.yaml:16",
+				"refresh-capture-continuity-rail-high-contrast.yaml:16",
+				"refresh-capture-continuity-rail-parchment.yaml:16",
+				"refresh-capture-continuity-rail-tavern.yaml:16"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Brother Calloway\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:18",
+				"refresh-capture-continuity-desktop-parchment.yaml:18",
+				"refresh-capture-continuity-desktop-tavern.yaml:18",
+				"refresh-capture-continuity-phone-high-contrast.yaml:18",
+				"refresh-capture-continuity-phone-parchment.yaml:18",
+				"refresh-capture-continuity-phone-tavern.yaml:18",
+				"refresh-capture-continuity-rail-high-contrast.yaml:18",
+				"refresh-capture-continuity-rail-parchment.yaml:18",
+				"refresh-capture-continuity-rail-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Mira the Ferryman\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:19",
+				"refresh-capture-continuity-desktop-parchment.yaml:19",
+				"refresh-capture-continuity-desktop-tavern.yaml:19",
+				"refresh-capture-continuity-phone-high-contrast.yaml:19",
+				"refresh-capture-continuity-phone-parchment.yaml:19",
+				"refresh-capture-continuity-phone-tavern.yaml:19",
+				"refresh-capture-continuity-rail-high-contrast.yaml:19",
+				"refresh-capture-continuity-rail-parchment.yaml:19",
+				"refresh-capture-continuity-rail-tavern.yaml:19"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Sera Duskwhisper\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:20",
+				"refresh-capture-continuity-desktop-parchment.yaml:20",
+				"refresh-capture-continuity-desktop-tavern.yaml:20",
+				"refresh-capture-continuity-phone-high-contrast.yaml:20",
+				"refresh-capture-continuity-phone-parchment.yaml:20",
+				"refresh-capture-continuity-phone-tavern.yaml:20",
+				"refresh-capture-continuity-rail-high-contrast.yaml:20",
+				"refresh-capture-continuity-rail-parchment.yaml:20",
+				"refresh-capture-continuity-rail-tavern.yaml:20"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"The Hollow King\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:21",
+				"refresh-capture-continuity-desktop-parchment.yaml:21",
+				"refresh-capture-continuity-desktop-tavern.yaml:21",
+				"refresh-capture-continuity-phone-high-contrast.yaml:21",
+				"refresh-capture-continuity-phone-parchment.yaml:21",
+				"refresh-capture-continuity-phone-tavern.yaml:21",
+				"refresh-capture-continuity-rail-high-contrast.yaml:21",
+				"refresh-capture-continuity-rail-parchment.yaml:21",
+				"refresh-capture-continuity-rail-tavern.yaml:21"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Tormund Ironfist\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:22",
+				"refresh-capture-continuity-desktop-parchment.yaml:22",
+				"refresh-capture-continuity-desktop-tavern.yaml:22",
+				"refresh-capture-continuity-phone-high-contrast.yaml:22",
+				"refresh-capture-continuity-phone-parchment.yaml:22",
+				"refresh-capture-continuity-phone-tavern.yaml:22",
+				"refresh-capture-continuity-rail-high-contrast.yaml:22",
+				"refresh-capture-continuity-rail-parchment.yaml:22",
+				"refresh-capture-continuity-rail-tavern.yaml:22"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 8\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:23",
+				"refresh-capture-continuity-desktop-parchment.yaml:39",
+				"refresh-capture-continuity-desktop-tavern.yaml:39",
+				"refresh-capture-continuity-phone-high-contrast.yaml:38",
+				"refresh-capture-continuity-phone-tavern.yaml:26",
+				"refresh-capture-continuity-rail-high-contrast.yaml:28",
+				"refresh-capture-continuity-rail-parchment.yaml:36",
+				"refresh-capture-continuity-rail-tavern.yaml:28"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Faction · The Ashen Hand\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:24",
+				"refresh-capture-continuity-desktop-parchment.yaml:29",
+				"refresh-capture-continuity-desktop-tavern.yaml:28",
+				"refresh-capture-continuity-phone-high-contrast.yaml:41",
+				"refresh-capture-continuity-phone-parchment.yaml:37",
+				"refresh-capture-continuity-phone-tavern.yaml:23",
+				"refresh-capture-continuity-rail-parchment.yaml:30",
+				"refresh-capture-continuity-rail-tavern.yaml:31"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 10\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:25",
+				"refresh-capture-continuity-phone-parchment.yaml:25",
+				"refresh-capture-continuity-phone-tavern.yaml:25",
+				"refresh-capture-continuity-rail-high-contrast.yaml:23",
+				"refresh-capture-continuity-rail-parchment.yaml:40",
+				"refresh-capture-continuity-rail-tavern.yaml:39"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"The party makes landfall\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:26",
+				"refresh-capture-continuity-desktop-parchment.yaml:23",
+				"refresh-capture-continuity-desktop-tavern.yaml:30",
+				"refresh-capture-continuity-phone-high-contrast.yaml:23",
+				"refresh-capture-continuity-phone-parchment.yaml:33",
+				"refresh-capture-continuity-phone-tavern.yaml:39",
+				"refresh-capture-continuity-rail-high-contrast.yaml:40",
+				"refresh-capture-continuity-rail-parchment.yaml:31",
+				"refresh-capture-continuity-rail-tavern.yaml:29"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Saltmarsh Watch\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:27",
+				"refresh-capture-continuity-desktop-tavern.yaml:25",
+				"refresh-capture-continuity-phone-high-contrast.yaml:31",
+				"refresh-capture-continuity-phone-parchment.yaml:24",
+				"refresh-capture-continuity-phone-tavern.yaml:38",
+				"refresh-capture-continuity-rail-high-contrast.yaml:35",
+				"refresh-capture-continuity-rail-parchment.yaml:26",
+				"refresh-capture-continuity-rail-tavern.yaml:34"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Session log — Sep 19 · 3:59 PM\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:28",
+				"refresh-capture-continuity-desktop-parchment.yaml:35",
+				"refresh-capture-continuity-desktop-tavern.yaml:40",
+				"refresh-capture-continuity-phone-high-contrast.yaml:37",
+				"refresh-capture-continuity-phone-parchment.yaml:35",
+				"refresh-capture-continuity-phone-tavern.yaml:29",
+				"refresh-capture-continuity-rail-tavern.yaml:35"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 4\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:29",
+				"refresh-capture-continuity-desktop-parchment.yaml:25",
+				"refresh-capture-continuity-desktop-tavern.yaml:31",
+				"refresh-capture-continuity-phone-high-contrast.yaml:27",
+				"refresh-capture-continuity-rail-high-contrast.yaml:24",
+				"refresh-capture-continuity-rail-parchment.yaml:28"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 9\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:30",
+				"refresh-capture-continuity-desktop-parchment.yaml:37",
+				"refresh-capture-continuity-desktop-tavern.yaml:24",
+				"refresh-capture-continuity-phone-high-contrast.yaml:30",
+				"refresh-capture-continuity-phone-parchment.yaml:23",
+				"refresh-capture-continuity-rail-high-contrast.yaml:32",
+				"refresh-capture-continuity-rail-parchment.yaml:29",
+				"refresh-capture-continuity-rail-tavern.yaml:30"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Campaign Primer\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:31",
+				"refresh-capture-continuity-phone-high-contrast.yaml:29",
+				"refresh-capture-continuity-phone-parchment.yaml:32",
+				"refresh-capture-continuity-phone-tavern.yaml:41",
+				"refresh-capture-continuity-rail-high-contrast.yaml:38",
+				"refresh-capture-continuity-rail-parchment.yaml:32"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 12\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:32",
+				"refresh-capture-continuity-desktop-parchment.yaml:33",
+				"refresh-capture-continuity-desktop-tavern.yaml:41",
+				"refresh-capture-continuity-phone-high-contrast.yaml:28",
+				"refresh-capture-continuity-phone-tavern.yaml:28",
+				"refresh-capture-continuity-rail-high-contrast.yaml:29",
+				"refresh-capture-continuity-rail-parchment.yaml:27",
+				"refresh-capture-continuity-rail-tavern.yaml:33"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 13\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:33",
+				"refresh-capture-continuity-desktop-parchment.yaml:34",
+				"refresh-capture-continuity-desktop-tavern.yaml:37",
+				"refresh-capture-continuity-phone-high-contrast.yaml:24",
+				"refresh-capture-continuity-phone-parchment.yaml:39",
+				"refresh-capture-continuity-phone-tavern.yaml:35",
+				"refresh-capture-continuity-rail-high-contrast.yaml:30",
+				"refresh-capture-continuity-rail-parchment.yaml:38"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 2\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:34",
+				"refresh-capture-continuity-desktop-parchment.yaml:26",
+				"refresh-capture-continuity-phone-high-contrast.yaml:39",
+				"refresh-capture-continuity-phone-parchment.yaml:27",
+				"refresh-capture-continuity-rail-tavern.yaml:24"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 6\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:35",
+				"refresh-capture-continuity-desktop-parchment.yaml:28",
+				"refresh-capture-continuity-phone-parchment.yaml:31",
+				"refresh-capture-continuity-rail-high-contrast.yaml:26",
+				"refresh-capture-continuity-rail-parchment.yaml:41"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 0\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:36",
+				"refresh-capture-continuity-desktop-tavern.yaml:32",
+				"refresh-capture-continuity-phone-parchment.yaml:29",
+				"refresh-capture-continuity-phone-tavern.yaml:27",
+				"refresh-capture-continuity-rail-parchment.yaml:37"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 15\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:37",
+				"refresh-capture-continuity-desktop-tavern.yaml:35",
+				"refresh-capture-continuity-phone-high-contrast.yaml:34",
+				"refresh-capture-continuity-phone-parchment.yaml:36",
+				"refresh-capture-continuity-phone-tavern.yaml:32",
+				"refresh-capture-continuity-rail-high-contrast.yaml:25",
+				"refresh-capture-continuity-rail-tavern.yaml:25"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 1\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:38",
+				"refresh-capture-continuity-desktop-parchment.yaml:30",
+				"refresh-capture-continuity-desktop-tavern.yaml:29",
+				"refresh-capture-continuity-phone-high-contrast.yaml:40",
+				"refresh-capture-continuity-phone-parchment.yaml:38",
+				"refresh-capture-continuity-phone-tavern.yaml:30",
+				"refresh-capture-continuity-rail-high-contrast.yaml:41",
+				"refresh-capture-continuity-rail-tavern.yaml:37"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Dockworkers’ Union\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:39",
+				"refresh-capture-continuity-desktop-tavern.yaml:26",
+				"refresh-capture-continuity-rail-high-contrast.yaml:33",
+				"refresh-capture-continuity-rail-tavern.yaml:36"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 7\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:40",
+				"refresh-capture-continuity-desktop-parchment.yaml:24",
+				"refresh-capture-continuity-phone-high-contrast.yaml:33",
+				"refresh-capture-continuity-phone-parchment.yaml:34",
+				"refresh-capture-continuity-phone-tavern.yaml:24",
+				"refresh-capture-continuity-rail-parchment.yaml:34",
+				"refresh-capture-continuity-rail-tavern.yaml:32"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 11\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-high-contrast.yaml:41",
+				"refresh-capture-continuity-desktop-parchment.yaml:38",
+				"refresh-capture-continuity-phone-parchment.yaml:30",
+				"refresh-capture-continuity-rail-high-contrast.yaml:36",
+				"refresh-capture-continuity-rail-parchment.yaml:39"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Brine Hand\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-parchment.yaml:27",
+				"refresh-capture-continuity-phone-high-contrast.yaml:36",
+				"refresh-capture-continuity-phone-parchment.yaml:40",
+				"refresh-capture-continuity-phone-tavern.yaml:33",
+				"refresh-capture-continuity-rail-high-contrast.yaml:34"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 3\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-parchment.yaml:31",
+				"refresh-capture-continuity-desktop-tavern.yaml:23",
+				"refresh-capture-continuity-phone-high-contrast.yaml:35",
+				"refresh-capture-continuity-rail-parchment.yaml:23",
+				"refresh-capture-continuity-rail-tavern.yaml:27"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 14\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-parchment.yaml:32",
+				"refresh-capture-continuity-desktop-tavern.yaml:36",
+				"refresh-capture-continuity-phone-high-contrast.yaml:32",
+				"refresh-capture-continuity-phone-tavern.yaml:36",
+				"refresh-capture-continuity-rail-high-contrast.yaml:27",
+				"refresh-capture-continuity-rail-parchment.yaml:25",
+				"refresh-capture-continuity-rail-tavern.yaml:23"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"The Sunken Crypt — DM notes\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-parchment.yaml:36",
+				"refresh-capture-continuity-desktop-tavern.yaml:27",
+				"refresh-capture-continuity-phone-parchment.yaml:28",
+				"refresh-capture-continuity-phone-tavern.yaml:37",
+				"refresh-capture-continuity-rail-high-contrast.yaml:31",
+				"refresh-capture-continuity-rail-tavern.yaml:26"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"The Hollow King stirs\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-parchment.yaml:40",
+				"refresh-capture-continuity-desktop-tavern.yaml:33",
+				"refresh-capture-continuity-phone-high-contrast.yaml:25",
+				"refresh-capture-continuity-phone-tavern.yaml:40",
+				"refresh-capture-continuity-rail-high-contrast.yaml:37",
+				"refresh-capture-continuity-rail-parchment.yaml:33",
+				"refresh-capture-continuity-rail-tavern.yaml:41"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"The Drowning of Saltreach\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-parchment.yaml:41",
+				"refresh-capture-continuity-desktop-tavern.yaml:38",
+				"refresh-capture-continuity-phone-parchment.yaml:26",
+				"refresh-capture-continuity-phone-tavern.yaml:34",
+				"refresh-capture-continuity-rail-parchment.yaml:35",
+				"refresh-capture-continuity-rail-tavern.yaml:38"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 5\"",
+			"occurrences": [
+				"refresh-capture-continuity-desktop-tavern.yaml:34",
+				"refresh-capture-continuity-phone-high-contrast.yaml:26",
+				"refresh-capture-continuity-phone-parchment.yaml:41",
+				"refresh-capture-continuity-phone-tavern.yaml:31",
+				"refresh-capture-continuity-rail-high-contrast.yaml:39",
+				"refresh-capture-continuity-rail-parchment.yaml:24",
+				"refresh-capture-continuity-rail-tavern.yaml:40"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- textbox \"Filter\": zzzz-no-match",
+			"occurrences": [
+				"refresh-capture-filter-desktop-high-contrast.yaml:12",
+				"refresh-capture-filter-desktop-parchment.yaml:12",
+				"refresh-capture-filter-desktop-tavern.yaml:12",
+				"refresh-capture-filter-phone-high-contrast.yaml:12",
+				"refresh-capture-filter-phone-parchment.yaml:12",
+				"refresh-capture-filter-phone-tavern.yaml:12",
+				"refresh-capture-filter-rail-high-contrast.yaml:12",
+				"refresh-capture-filter-rail-parchment.yaml:12",
+				"refresh-capture-filter-rail-tavern.yaml:12"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 8\" [checked]",
+			"occurrences": ["refresh-capture-filter-desktop-high-contrast.yaml:14"]
+		},
+		{
+			"row": "SE-22",
+			"control": "- button \"Save session log\"",
+			"occurrences": [
+				"refresh-capture-filter-desktop-high-contrast.yaml:19",
+				"refresh-capture-filter-desktop-parchment.yaml:19",
+				"refresh-capture-filter-desktop-tavern.yaml:19",
+				"refresh-capture-filter-phone-high-contrast.yaml:19",
+				"refresh-capture-filter-phone-parchment.yaml:19",
+				"refresh-capture-filter-phone-tavern.yaml:19",
+				"refresh-capture-filter-rail-high-contrast.yaml:19",
+				"refresh-capture-filter-rail-parchment.yaml:19",
+				"refresh-capture-filter-rail-tavern.yaml:19"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 7\" [checked]",
+			"occurrences": [
+				"refresh-capture-filter-desktop-parchment.yaml:14",
+				"refresh-capture-filter-phone-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 3\" [checked]",
+			"occurrences": [
+				"refresh-capture-filter-desktop-tavern.yaml:14",
+				"refresh-capture-filter-rail-parchment.yaml:14"
+			]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 13\" [checked]",
+			"occurrences": ["refresh-capture-filter-phone-high-contrast.yaml:14"]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 9\" [checked]",
+			"occurrences": ["refresh-capture-filter-phone-parchment.yaml:14"]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 10\" [checked]",
+			"occurrences": ["refresh-capture-filter-rail-high-contrast.yaml:14"]
+		},
+		{
+			"row": "SE-40",
+			"control": "- checkbox \"Capture fixture 14\" [checked]",
+			"occurrences": ["refresh-capture-filter-rail-tavern.yaml:14"]
 		}
 	]
 }
