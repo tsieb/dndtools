@@ -18,8 +18,7 @@ import { activeLocalVaultId, listLocalVaults } from '../platform/storage/coreSto
  * the design-studio prototype (which is populated everywhere), not an empty shell. It runs only when
  * a slice is empty, dispatching the SAME commands a DM would (`character.quick-create`,
  * `content.create-item`, `content.create-object`, `content.update-item`, `scene.create`,
- * `scene.add-widget`, `content.define-calendar`,
- * `audio.configure-source`, `session.audio.play`) through the single choke point — so the demo content
+ * `scene.add-widget`, `content.define-calendar`) through the single choke point — so the demo content
  * persists to IndexedDB and survives reload identically to user-authored content, and the PER-SLICE
  * emptiness guards mean each category seeds independently and never double-seeds.
  *
@@ -27,7 +26,8 @@ import { activeLocalVaultId, listLocalVaults } from '../platform/storage/coreSto
  * Session-only live state (delivered handouts) is intentionally NOT seeded: a handout requires an
  * `active` Session workflow, and forcing the vault "live" on first load would be incoherent (no players
  * connected) and would mask the real empty-state. An empty delivered-handout list with no live session
- * is correct domain behaviour, not a gap.
+ * is correct domain behaviour, not a gap. Audio also starts idle: the starter pack can be imported
+ * from Audio, instead of seeding a synthetic data URL as a remote stream or autoplaying on boot.
  */
 
 interface Seedable {
@@ -227,49 +227,6 @@ const DEMO_DATED_NOTES = [
 	},
 ] as const;
 
-// AUDIO-009/010 — a declared, supported web-stream source (cache behaviour declared ⇒ playback enabled)
-// played as the session's now-playing track, so the Audio screen's now-playing strip is populated. A
-// web-stream needs no imported asset bytes (the stream IS the track), so this seeds with no file import.
-// The URL is a generated data: URI (a 0.25s silent WAV loop) rather than a fake remote host: the
-// app-level playback driver mounts an <audio> for the now-playing track on every route, and a
-// non-resolvable host would log a network error on every page (breaking the console-clean gates).
-// Silence keeps the demo honest — the transport genuinely plays; there is just nothing to hear.
-function silentWavDataUri(): string {
-	const sampleRate = 8000;
-	const samples = Math.round(sampleRate * 0.25);
-	const bytes = new Uint8Array(44 + samples).fill(128, 44); // 8-bit unsigned silence
-	const view = new DataView(bytes.buffer);
-	const ascii = (offset: number, text: string) => {
-		for (let i = 0; i < text.length; i++) bytes[offset + i] = text.charCodeAt(i);
-	};
-	ascii(0, 'RIFF');
-	view.setUint32(4, 36 + samples, true);
-	ascii(8, 'WAVE');
-	ascii(12, 'fmt ');
-	view.setUint32(16, 16, true); // fmt chunk size
-	view.setUint16(20, 1, true); // PCM
-	view.setUint16(22, 1, true); // mono
-	view.setUint32(24, sampleRate, true);
-	view.setUint32(28, sampleRate, true); // byte rate (8-bit mono)
-	view.setUint16(32, 1, true); // block align
-	view.setUint16(34, 8, true); // bits per sample
-	ascii(36, 'data');
-	view.setUint32(40, samples, true);
-	let bin = '';
-	for (const b of bytes) bin += String.fromCharCode(b);
-	return `data:audio/wav;base64,${btoa(bin)}`;
-}
-
-const DEMO_AUDIO = {
-	source: {
-		type: 'web-stream',
-		displayName: 'Tides Beneath Saltreach (silent sample loop)',
-		url: silentWavDataUri(),
-		cacheBehavior: 'cache-required',
-	},
-	volume: 0.5,
-} as const;
-
 function sceneIdFromResult(result: CommandResult): string | null {
 	if (result.status !== 'accepted') return null;
 	for (const event of result.events) {
@@ -287,15 +244,6 @@ function eventField(result: CommandResult, kind: string, field: string): string 
 			const value = (event as Record<string, unknown>)[field];
 			if (typeof value === 'string') return value;
 		}
-	}
-	return null;
-}
-
-function sourceIdFromResult(result: CommandResult): string | null {
-	if (result.status !== 'accepted') return null;
-	for (const event of result.events) {
-		const sourceId = (event as { sourceId?: unknown }).sourceId;
-		if (typeof sourceId === 'string') return sourceId;
 	}
 	return null;
 }
@@ -364,7 +312,6 @@ async function seedBaseContent(rt: Seedable): Promise<boolean> {
 	const needScenes =
 		Object.values(rt.state.scenes.scenes).filter((s) => !s?.templateMeta?.isTemplate).length === 0;
 	const needCalendar = Object.keys(rt.state.content.calendars).length === 0;
-	const needAudio = Object.keys(rt.state.audio.sources).length === 0;
 	// Factions guard on THEIR OWN emptiness (any faction-subtype object), so a vault seeded before the
 	// faction category existed still backfills it.
 	const needFactions = !Object.values(rt.state.content.items).some(
@@ -414,7 +361,6 @@ async function seedBaseContent(rt: Seedable): Promise<boolean> {
 		!needNotes &&
 		!needScenes &&
 		!needCalendar &&
-		!needAudio &&
 		!needFactions &&
 		!needWikilinks &&
 		!needHomeMapBinding &&
@@ -617,29 +563,6 @@ async function seedBaseContent(rt: Seedable): Promise<boolean> {
 				await rt.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} }),
 				'home map binding',
 			);
-		}
-
-		// Now-playing session audio: configure a declared web-stream source, then play it as the track.
-		if (needAudio) {
-			const configured = expect(
-				await rt.dispatch({
-					type: 'audio.configure-source',
-					actorId,
-					payload: { ...DEMO_AUDIO.source },
-				}),
-				'audio source',
-			);
-			const sourceId = sourceIdFromResult(configured);
-			if (sourceId) {
-				expect(
-					await rt.dispatch({
-						type: 'session.audio.play',
-						actorId,
-						payload: { sourceId, volume: DEMO_AUDIO.volume, online: true },
-					}),
-					'audio play',
-				);
-			}
 		}
 
 		if (needScenes) {

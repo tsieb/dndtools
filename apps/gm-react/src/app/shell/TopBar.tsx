@@ -68,6 +68,7 @@ export function TopBar({
 			>
 				<div style={{ minWidth: 0, flex: '1 1 auto' }}>
 					<h1
+						title={title}
 						style={{
 							margin: 0,
 							font: `700 ${viewport === 'phone' ? 17 : 21}px ${T.disp}`,
@@ -82,6 +83,7 @@ export function TopBar({
 					</h1>
 					{!compact && (
 						<div
+							title={sub}
 							style={{
 								font: `12.5px ${T.sans}`,
 								color: T.ter,

@@ -143,6 +143,9 @@ export function CampaignDatePanel({
 					size="sm"
 					icon="skip"
 					disabled={previewing || !current}
+					title={
+						previewing ? t('player.blockedPreview') : !current ? t('session.date.none') : undefined
+					}
 					onClick={advanceDay}
 				>
 					{t('session.date.advance')}

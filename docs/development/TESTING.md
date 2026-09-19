@@ -260,3 +260,78 @@ compares with `--update-snapshots=none`), so the capture and its PNGs land in on
 image tag and digest in `ci.yml`, and `run-in-container.sh` together, then re-baseline everything
 with `--update-snapshots=all`, because a new Chromium usually moves text by a pixel. A mismatched
 pair fails loudly with "Executable doesn't exist".
+
+## 9. Golden-path journeys (RC-ENG-8.1)
+
+`apps/gm-react/tests/e2e/golden-path.spec.ts` runs automatically in the dispatcher manifest's
+**Browser acceptance** gate (`pnpm e2e --workers=2 --retries=2`). Playwright's `*.spec.ts` discovery
+includes both the journeys and the detector regression tests on `desktop-chromium` and
+`mobile-chromium`. Run this spec alone with no retries while investigating:
+
+```sh
+pnpm e2e golden-path.spec.ts --workers=2 --retries=0
+```
+
+The four independent journeys cover:
+
+1. First-run privacy setup through entry into Command Center, with the explicit fresh-vault
+   preference and an assertion that no demo notes were populated.
+2. Prep a character, map and private note, instantiate a screen from a populated template, pin its
+   cloned widget, and visit each library to verify the results.
+3. Standby, start a named live session, roll dice, draw a table, start an encounter, and play three
+   complete rounds with HP damage and expiring conditions. Deliver a handout, project a map, end
+   and review, save capture, and verify the durable archive and recap note.
+4. A player in a separate browser context joins through the real LAN offer/reply flow, sees the
+   projected map and shared handout, and checks that both the UI and received snapshot omit the
+   private note. The player context starts with its own empty vault.
+
+Fixture authoring uses accepted Core commands through `dispatch`; start/end, table draw, HP, turn
+advance, capture and player join use real controls. `installFakeLan` replaces only the ordered RTC
+channel and ICE/SDP plumbing with an in-process relay between isolated browser contexts. Real
+`SessionHost`, `SessionClient`, signaling-code validation, encryption and player filtering still
+run. It tests no real LAN connectivity, cloud service or native discovery.
+
+`watchJourney` attaches **before navigation** and retains console warnings/errors, uncaught page
+errors, failed requests and HTTP responses >=400 for the entire journey. It has no warning or URL
+allowlist. Named `checkpoint` calls retain surface defects while allowing the rest of a journey to
+run; `assertHealthy` fails with all accumulated diagnostics. A successful domain flow is therefore
+not a passing journey when its health diagnostics fail.
+
+`journeySurfaceIssues` waits for fonts and two animation frames, then inspects rendered elements,
+including content below the fold. It detects widget placeholders/error markers and disabled native
+or ARIA controls without a nonempty `title`, resolved `aria-describedby`, or `aria-description`.
+
+For overflow, `scrollWidth`/`scrollHeight` identify candidates; text-range and replaced-element bounds
+then verify that content actually crosses a hidden/clip boundary. Geometry has a two-CSS-pixel
+rounding tolerance. A contained inner scroll/auto region makes its descendants recoverable. A
+scrollable parent does **not** excuse a child's own hidden clip, and a scroller does not excuse its
+clipped siblings. Offscreen one-pixel screen-reader helpers and decorative excess space alone are
+not lost content, even when they increase an ancestor's scroll height. A `position: fixed` box
+escapes an ancestor's clip (the shell's skip link sits above the viewport until focused) unless an
+ancestor's transform, perspective, filter, `contain` or `will-change` makes it the fixed box's
+containing block; a fixture proves the trapped case still fails.
+
+Explicit full-text alternatives (`title`, `aria-label`, `aria-labelledby`, `aria-describedby`) must
+contain the entire clipped text. The complete accessible name of a containing enabled button or link
+also qualifies: the detector asks Playwright's accessible-name engine instead of assuming that DOM
+text is accessible. An overriding label that omits the clipped text fails. A text alternative does
+not excuse lost graphical content. Hidden/inert content and conventional one-pixel screen-reader
+text are excluded. The detector does not infer that an arbitrary click handler opens a full-text
+view, inspect canvas pixels, or prove that overlapping elements remain operable.
+
+Additional fixtures cover nested clips, clipped siblings, unrelated/overriding full-text labels,
+dangling ARIA disabled reasons, inner scrolling, offscreen helpers and clipped graphics. Seeded
+browser defects prove the same assertion rejects console warning, console error, page error,
+request abort, HTTP 503, widget placeholder, unexplained disabled control, and horizontal/vertical
+clipping. Each starts with a clean passing fixture and requires its specific diagnostic, so another
+failure cannot satisfy it. Positive fixtures prove scrollable overflow, explicit complete text and
+an associated disabled reason remain accepted. Product failures exposed by these checks must be
+fixed at their source; do not suppress warnings, add blanket route exceptions or turn the journeys
+into expected failures to make the gate green.
+
+When repairing a finding, keep the explanation tied to the condition that disables the control
+(e.g. Standby, player preview, an empty required field, or an in-flight save). Give intentionally
+truncated text its complete text alternative, or let it wrap/scroll. The shell main pane establishes
+a positioning context so absolute screen-reader helpers remain inside its scroll region. Startup
+warnings are failures too: use the existing Capacitor SystemBars registration, opt into the installed
+router future flags, and keep demo seeding within the same command validation as user content.

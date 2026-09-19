@@ -25,6 +25,7 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 			{shown.map((note) => (
 				<div
 					key={note.id}
+					title={note.title}
 					style={{
 						font: 'var(--text-xs)/1.4 var(--font-sans)',
 						color: 'var(--color-text-secondary)',

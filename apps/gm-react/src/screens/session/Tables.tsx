@@ -109,6 +109,7 @@ function TableRow({
 	draw,
 	pin,
 	disabled,
+	disabledReason,
 	onRoll,
 	onPin,
 	onUnpin,
@@ -117,6 +118,7 @@ function TableRow({
 	draw: TableDrawView | undefined;
 	pin: QuickReferencePanelView | undefined;
 	disabled: boolean;
+	disabledReason: string | undefined;
 	onRoll: (table: TableView) => void;
 	onPin: (table: TableView) => void;
 	onUnpin: (panelId: string) => void;
@@ -147,6 +149,7 @@ function TableRow({
 					size="sm"
 					icon="dice"
 					disabled={disabled}
+					title={disabledReason}
 					onClick={() => onRoll(table)}
 				>
 					{t('session.tables.roll')}
@@ -156,6 +159,7 @@ function TableRow({
 						icon="pin"
 						label={t('session.tables.unpin', { title: table.title })}
 						disabled={disabled}
+						title={disabledReason}
 						onClick={() => onUnpin(pin.id)}
 					/>
 				) : (
@@ -163,6 +167,7 @@ function TableRow({
 						icon="pin"
 						label={t('session.tables.pin', { title: table.title })}
 						disabled={disabled}
+						title={disabledReason}
 						onClick={() => onPin(table)}
 					/>
 				)}
@@ -237,6 +242,7 @@ export function TablesPanel({
 							draw={draws.get(table.id)}
 							pin={pinByTable.get(table.id)}
 							disabled={disabled}
+							disabledReason={previewing ? t('player.blockedPreview') : undefined}
 							onRoll={onRoll}
 							onPin={onPin}
 							onUnpin={onUnpin}

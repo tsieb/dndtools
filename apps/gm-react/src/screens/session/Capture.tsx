@@ -336,6 +336,17 @@ export function CapturePanel({
 						size="sm"
 						icon="check"
 						disabled={previewing || busy || empty || !target}
+						title={
+							previewing
+								? t('player.blockedPreview')
+								: busy
+									? t('settings.provider.saving')
+									: !target
+										? t('session.capture.noArchives')
+										: empty
+											? `${t('session.capture.happened')} · ${t('extensions.customTypes.required')}`
+											: undefined
+						}
 						onClick={() => void save()}
 					>
 						{t('session.capture.save')}

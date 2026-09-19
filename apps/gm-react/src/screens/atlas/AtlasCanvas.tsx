@@ -118,6 +118,7 @@ export function AtlasCanvas({
 					}}
 				>
 					<span
+						title={mapView?.name ?? selectedEntry?.name ?? t('atlas.noMapSelected')}
 						style={{
 							font: `700 16px ${T.sans}`,
 							color: T.ink,
@@ -136,13 +137,21 @@ export function AtlasCanvas({
 								gap: 'var(--space-1-5)',
 								font: `11px ${T.sans}`,
 								color: T.sub,
-								whiteSpace: 'nowrap',
-								overflow: 'hidden',
-								textOverflow: 'ellipsis',
+								flexWrap: 'wrap',
 							}}
 						>
 							<VisibilityChip level={VIS_CHIP[selectedEntry.visibility] ?? 'dm-only'} />
-							{selectedEntry.description || t('atlas.noDescription')}
+							<span
+								title={selectedEntry.description || t('atlas.noDescription')}
+								style={{
+									minWidth: 0,
+									overflow: 'hidden',
+									whiteSpace: 'nowrap',
+									textOverflow: 'ellipsis',
+								}}
+							>
+								{selectedEntry.description || t('atlas.noDescription')}
+							</span>
 						</span>
 					)}
 				</div>

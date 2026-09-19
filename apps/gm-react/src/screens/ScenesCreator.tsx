@@ -255,6 +255,13 @@ export function ScenesCreator() {
 								variant="primary"
 								icon="add"
 								disabled={submitting || !name.trim()}
+								title={
+									submitting
+										? t('scenes.creating')
+										: !name.trim()
+											? `${t('scenes.name')} · ${t('extensions.customTypes.required')}`
+											: undefined
+								}
 							>
 								{submitting ? t('scenes.creating') : t('scenes.createScene')}
 							</Button>

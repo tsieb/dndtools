@@ -68,6 +68,15 @@ export function StagePanel({
 						size="sm"
 						icon="visibility-players"
 						disabled={!isLive || previewing || !activeMapId}
+						title={
+							previewing
+								? t('player.blockedPreview')
+								: !isLive
+									? t('session.goLive.hint')
+									: !activeMapId
+										? `${t('session.stage.activeMap')} · ${t('extensions.customTypes.required')}`
+										: undefined
+						}
 						onClick={onProject}
 					>
 						{t('session.stage.project')}

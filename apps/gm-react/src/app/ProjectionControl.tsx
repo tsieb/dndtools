@@ -254,6 +254,13 @@ export function PlayerViewAssignments({
 								participant.assignment?.kind === 'assigned' ? participant.assignment.sceneId : ''
 							}
 							disabled={!isLive || previewing}
+							title={
+								previewing
+									? t('player.blockedPreview')
+									: !isLive
+										? t('session.goLive.hint')
+										: undefined
+							}
 							options={[
 								{ value: '', label: t('session.stage.noneOption') },
 								...sceneOptions.map((scene) => ({ value: scene.id, label: scene.name })),

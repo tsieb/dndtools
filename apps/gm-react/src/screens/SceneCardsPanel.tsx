@@ -377,6 +377,13 @@ export function SceneCardsPanel() {
 							variant="primary"
 							icon="add"
 							disabled={submitting || !title.trim()}
+							title={
+								submitting
+									? t('sceneCards.creating')
+									: !title.trim()
+										? `${t('common.field.title')} · ${t('extensions.customTypes.required')}`
+										: undefined
+							}
 						>
 							{submitting ? t('sceneCards.creating') : t('sceneCards.create')}
 						</Button>

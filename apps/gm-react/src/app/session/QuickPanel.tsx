@@ -631,6 +631,17 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 							size="sm"
 							icon="send"
 							disabled={handoutBlocked || !handoutTitle.trim()}
+							title={
+								previewing
+									? t('player.blockedPreview')
+									: !activeSceneId
+										? t('session.goLive.needsSceneShort')
+										: players.length === 0
+											? t('projection.noPlayers')
+											: !handoutTitle.trim()
+												? t('session.handouts.blockedNoTitle')
+												: undefined
+							}
 						>
 							{t('session.quick.push')}
 						</Button>

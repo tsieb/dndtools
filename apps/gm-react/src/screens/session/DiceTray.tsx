@@ -175,6 +175,13 @@ export function DicePanel({
 						variant="secondary"
 						size="sm"
 						disabled={disabled}
+						title={
+							previewing
+								? t('player.blockedPreview')
+								: !isLive
+									? t('session.dice.goLive')
+									: undefined
+						}
 						onClick={() => onRoll(p, label.trim() || undefined)}
 					>
 						{p}
@@ -205,7 +212,21 @@ export function DicePanel({
 					aria-label={t('session.dice.label')}
 					style={{ flex: 1, minWidth: 100 }}
 				/>
-				<Button type="submit" variant="accent" icon="dice" disabled={disabled || !expr.trim()}>
+				<Button
+					type="submit"
+					variant="accent"
+					icon="dice"
+					disabled={disabled || !expr.trim()}
+					title={
+						previewing
+							? t('player.blockedPreview')
+							: !isLive
+								? t('session.dice.goLive')
+								: !expr.trim()
+									? `${t('session.dice.expression')} · ${t('extensions.customTypes.required')}`
+									: undefined
+					}
+				>
 					{t('session.dice.roll')}
 				</Button>
 			</form>

@@ -543,6 +543,7 @@ export function StageSection({
 										<div style={{ flex: 1, minWidth: 0 }}>
 											<div style={{ font: `600 13px ${T.sans}`, color: T.ink }}>{h.title}</div>
 											<div
+												title={h.body}
 												style={{
 													font: `12px/1.4 ${T.sans}`,
 													color: T.sub,

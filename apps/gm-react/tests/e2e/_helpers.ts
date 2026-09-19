@@ -216,3 +216,304 @@ export function dispatch(
 		return { status, rejection, events };
 	}, command);
 }
+
+/** Collect every runtime/network failure from installation until the page closes. No allowlist. */
+export function watchJourney(page: Page) {
+	const failures: string[] = [];
+	page.on('console', (message) => {
+		if (['error', 'warning'].includes(message.type()))
+			failures.push(`console ${message.type()}: ${message.text()}`);
+	});
+	page.on('pageerror', (error) => failures.push(`page error: ${error.message}`));
+	page.on('requestfailed', (request) =>
+		failures.push(`request failed: ${request.url()} ${request.failure()?.errorText}`),
+	);
+	page.on('response', (response) => {
+		if (response.status() >= 400) failures.push(`HTTP ${response.status()}: ${response.url()}`);
+	});
+	return {
+		async checkpoint(name: string) {
+			failures.push(...(await journeySurfaceIssues(page)).map((issue) => `${name}: ${issue}`));
+		},
+		async assertHealthy() {
+			const issues = [...failures, ...(await journeySurfaceIssues(page))];
+			if (issues.length) throw new Error(`Journey health:\n${issues.join('\n')}`);
+		},
+	};
+}
+
+/**
+ * Inspect rendered content, including content below the fold. A scrollable ancestor can recover
+ * an offscreen child, but cannot recover a child's own hidden/clip overflow. Full-text alternatives
+ * must contain the complete clipped text; an unrelated aria-label is not an escape hatch.
+ */
+export async function journeySurfaceIssues(page: Page): Promise<string[]> {
+	// Font substitution changes both line wrapping and text bounds. Read geometry after that
+	// layout has painted, rather than capturing an intermediate fallback-font measurement.
+	await page.evaluate(async () => {
+		await document.fonts.ready;
+		await new Promise<void>((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+		);
+	});
+	const { issues, clips } = await page.evaluate(() => {
+		const issues: string[] = [];
+		const clips: Array<{
+			diagnostic: string;
+			text: string;
+			ownerIndex: number;
+			role: 'button' | 'link';
+		}> = [];
+		const elements = [...document.querySelectorAll<HTMLElement>('html, body, body *')];
+		const text = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+		const refs = (el: Element, attr: string) =>
+			(el.getAttribute(attr) ?? '')
+				.split(/\s+/)
+				.map((id) => document.getElementById(id))
+				.filter((node): node is HTMLElement => !!node)
+				.map(text)
+				.join(' ');
+		const srOnly = (el: HTMLElement) => {
+			const style = getComputedStyle(el);
+			return (
+				el.clientWidth <= 1 &&
+				el.clientHeight <= 1 &&
+				(style.clip !== 'auto' || style.clipPath === 'inset(50%)')
+			);
+		};
+		// These properties make an ancestor the containing block for its fixed descendants, and
+		// then its overflow does clip them.
+		const trapsFixed = (el: HTMLElement) => {
+			const css = getComputedStyle(el);
+			return (
+				css.transform !== 'none' ||
+				css.perspective !== 'none' ||
+				css.filter !== 'none' ||
+				css.backdropFilter !== 'none' ||
+				/paint|layout|strict|content/.test(css.contain) ||
+				/transform|perspective|filter/.test(css.willChange)
+			);
+		};
+		const fixedTrappedBelow = (node: HTMLElement) => {
+			for (let p = node.parentElement; p; p = p.parentElement) if (trapsFixed(p)) return true;
+			return false;
+		};
+		const rendered = (el: HTMLElement) =>
+			el.getClientRects().length > 0 &&
+			getComputedStyle(el).visibility !== 'hidden' &&
+			!el.closest('[hidden], [inert]');
+		const fullTextAlternative = (el: Element, full: string) =>
+			full.length > 0 &&
+			[
+				el.getAttribute('title'),
+				el.getAttribute('aria-label'),
+				refs(el, 'aria-labelledby'),
+				refs(el, 'aria-describedby'),
+			].some((value) => value?.replace(/\s+/g, ' ').includes(full));
+		for (const el of elements) {
+			if (!rendered(el) || srOnly(el)) continue;
+			const label = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''} ${text(el).slice(0, 100)}`;
+			if (el.matches('[data-testid="widget-placeholder"], [data-widget-state="error"]'))
+				issues.push(`widget error: ${label}`);
+			if (
+				el.matches(':disabled, [aria-disabled="true"]') &&
+				!(
+					el.getAttribute('title')?.trim() ||
+					refs(el, 'aria-describedby') ||
+					el.getAttribute('aria-description')?.trim()
+				)
+			)
+				issues.push(`disabled without reason: ${label}`);
+			const style = getComputedStyle(el);
+			for (const axis of ['x', 'y'] as const) {
+				const overflow = axis === 'x' ? style.overflowX : style.overflowY;
+				const size = axis === 'x' ? el.clientWidth : el.clientHeight;
+				const extent = axis === 'x' ? el.scrollWidth : el.scrollHeight;
+				if (size <= 0 || extent <= size + 2 || !['hidden', 'clip'].includes(overflow)) continue;
+				const bounds = el.getBoundingClientRect();
+				const outside = (rect: DOMRect) =>
+					axis === 'x'
+						? rect.left < bounds.left - 2 || rect.right > bounds.right + 2
+						: rect.top < bounds.top - 2 || rect.bottom > bounds.bottom + 2;
+				// scrollHeight includes absolutely positioned screen-reader helpers and descendants
+				// whose content can be reached through an inner scroller. Neither is a lost pixel.
+				const protectedByScroller = (source: HTMLElement) => {
+					for (
+						let node: HTMLElement | null = source;
+						node && node !== el;
+						node = node.parentElement
+					) {
+						if (!rendered(node) || srOnly(node)) return true;
+						// A fixed box is positioned against the viewport, so this ancestor's overflow
+						// never clips it (e.g. a skip link parked above the viewport until focused).
+						if (getComputedStyle(node).position === 'fixed' && !fixedTrappedBelow(node))
+							return true;
+						const css = getComputedStyle(node);
+						if (
+							['auto', 'scroll'].includes(axis === 'x' ? css.overflowX : css.overflowY) &&
+							!outside(node.getBoundingClientRect())
+						)
+							return true;
+					}
+					return false;
+				};
+				const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+				let lost = false;
+				for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+					if (!node.textContent?.trim() || protectedByScroller(node.parentElement!)) continue;
+					const range = document.createRange();
+					range.selectNodeContents(node);
+					if ([...range.getClientRects()].some(outside)) {
+						lost = true;
+						break;
+					}
+				}
+				// Textless controls and replaced content must also remain reachable. Padding,
+				// shadows and one-pixel helpers alone do not constitute lost content.
+				lost ||= [
+					...el.querySelectorAll<HTMLElement>(
+						'button, input, select, textarea, img, canvas, video, [role="button"]',
+					),
+				].some(
+					(node) =>
+						rendered(node) && outside(node.getBoundingClientRect()) && !protectedByScroller(node),
+				);
+				const lostGraphic = [...el.querySelectorAll<HTMLElement>('img, canvas, video')].some(
+					(node) =>
+						rendered(node) && outside(node.getBoundingClientRect()) && !protectedByScroller(node),
+				);
+				if (!lost || (!lostGraphic && fullTextAlternative(el, text(el)))) continue;
+				const owner = el.closest<HTMLElement>('button, [role="button"], a[href], [role="link"]');
+				const diagnostic = `unrecoverable clip (${axis}): ${label}`;
+				if (
+					owner &&
+					!lostGraphic &&
+					!el.closest('[aria-hidden="true"]') &&
+					!owner.matches(':disabled, [aria-disabled="true"]')
+				) {
+					if (fullTextAlternative(owner, text(el))) continue;
+					clips.push({
+						diagnostic,
+						text: text(el),
+						ownerIndex: elements.indexOf(owner),
+						role: owner.matches('a, [role="link"]') ? 'link' : 'button',
+					});
+				} else issues.push(diagnostic);
+			}
+		}
+		return { issues, clips };
+	});
+	for (const clip of clips) {
+		// Use Playwright's actual accessible-name computation, not textContent or a guess
+		// about an onclick handler. A clamped child can still be read in its control's name.
+		const name = new RegExp(clip.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+		const readable =
+			clip.text.length > 0 &&
+			(await page
+				.getByRole(clip.role, { name })
+				.evaluateAll(
+					(owners, index) =>
+						owners.includes(document.querySelectorAll<HTMLElement>('html, body, body *')[index]!),
+					clip.ownerIndex,
+				));
+		if (!readable) issues.push(clip.diagnostic);
+	}
+	return issues;
+}
+
+/** Test-only ordered LAN data channel. Real signaling, encryption and host filtering still run. */
+export async function installFakeLan(page: Page, peers: Page[]): Promise<void> {
+	peers.push(page);
+	await page.exposeFunction('__goldenLanSend', async (id: string, data: unknown) => {
+		await Promise.all(
+			peers
+				.filter((peer) => peer !== page && !peer.isClosed())
+				.map((peer) =>
+					peer.evaluate(
+						({ id, data }) => {
+							(
+								window as unknown as { goldenLanDeliver?: (id: string, data: unknown) => void }
+							).goldenLanDeliver?.(id, data);
+						},
+						{ id, data },
+					),
+				),
+		);
+	});
+	await page.addInitScript(() => {
+		const channels = new Map<string, Channel>();
+		Object.assign(window, {
+			goldenLanDeliver: (id: string, data: { open?: boolean; frame: string }) => {
+				const channel = channels.get(id);
+				if (data.open) channel?.open();
+				else channel?.onmessage?.({ data: data.frame });
+			},
+		});
+		class Channel {
+			readyState = 'connecting';
+			onopen: (() => void) | null = null;
+			onclose: (() => void) | null = null;
+			onmessage: ((event: { data: string }) => void) | null = null;
+			bus: { postMessage(data: unknown): void; close(): void };
+			constructor(id: string) {
+				channels.set(id, this);
+				this.bus = {
+					postMessage(data) {
+						void (
+							window as unknown as { __goldenLanSend(id: string, data: unknown): Promise<void> }
+						).__goldenLanSend(id, data);
+					},
+					close() {
+						channels.delete(id);
+					},
+				};
+			}
+			open() {
+				this.readyState = 'open';
+				this.onopen?.();
+			}
+			send(frame: string) {
+				this.bus.postMessage({ frame });
+			}
+			close() {
+				this.readyState = 'closed';
+				this.bus.close();
+				this.onclose?.();
+			}
+		}
+		class Connection extends EventTarget {
+			iceGatheringState = 'complete';
+			connectionState = 'new';
+			localDescription: { type: string; sdp: string } | null = null;
+			id: string = crypto.randomUUID();
+			channel?: Channel;
+			createDataChannel() {
+				this.channel = new Channel(this.id);
+				return this.channel;
+			}
+			async createOffer() {
+				return { type: 'offer', sdp: this.id };
+			}
+			async createAnswer() {
+				return { type: 'answer', sdp: this.id };
+			}
+			async setLocalDescription(description: { type: string; sdp: string }) {
+				this.localDescription = description;
+			}
+			async setRemoteDescription(description: { type: string; sdp: string }) {
+				if (description.type === 'offer') {
+					this.id = description.sdp;
+					this.channel = new Channel(this.id);
+					this.dispatchEvent(Object.assign(new Event('datachannel'), { channel: this.channel }));
+				} else {
+					this.channel!.bus.postMessage({ open: true });
+					this.channel!.open();
+				}
+			}
+			close() {
+				this.channel?.close();
+			}
+		}
+		Object.defineProperty(window, 'RTCPeerConnection', { value: Connection });
+	});
+}

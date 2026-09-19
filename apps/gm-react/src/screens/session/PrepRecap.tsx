@@ -225,6 +225,15 @@ export function RecapPanel({
 									// unconditionally meant emptying the box disabled the only control that
 									// could store the emptied value, so a wrong recap was permanent.
 									disabled={previewing || busy || (!draft.trim() && !target.recap)}
+									title={
+										previewing
+											? t('player.blockedPreview')
+											: busy
+												? t('settings.provider.saving')
+												: !draft.trim() && !target.recap
+													? `${t('session.prep.recapField')} · ${t('extensions.customTypes.required')}`
+													: undefined
+									}
 									onClick={() => void save()}
 								>
 									{t(target.recap ? 'session.prep.updateRecap' : 'session.prep.saveRecap')}

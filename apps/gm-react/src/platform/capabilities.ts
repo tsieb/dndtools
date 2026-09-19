@@ -1,6 +1,12 @@
 import { App, type AppState, type BackButtonListenerEvent } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import {
+	Capacitor,
+	registerPlugin,
+	SystemBars,
+	SystemBarsStyle,
+	type PluginListenerHandle,
+} from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 /**
@@ -289,14 +295,9 @@ interface NativeAppIntentPlugin {
 	): Promise<PluginListenerHandle>;
 }
 
-interface NativeSystemBarsPlugin {
-	setStyle(input: { style: 'LIGHT' | 'DARK' }): Promise<void>;
-}
-
 /** Typed custom-plugin seams. Registration is inert in web/Electron builds. */
 export const DndtoolsSecureStore = registerPlugin<NativeSecureStorePlugin>('DndtoolsSecureStore');
 export const DndtoolsFileExport = registerPlugin<NativeFileExportPlugin>('DndtoolsFileExport');
-const SystemBars = registerPlugin<NativeSystemBarsPlugin>('SystemBars');
 export const DndtoolsAppIntent = registerPlugin<NativeAppIntentPlugin>('DndtoolsAppIntent');
 
 /**
@@ -366,7 +367,9 @@ export async function bindAppIntents(
 export async function setAndroidSystemBarStyle(style: 'LIGHT' | 'DARK'): Promise<boolean> {
 	if (!platformCapabilities.nativeBridgeAvailable) return false;
 	try {
-		await SystemBars.setStyle({ style });
+		await SystemBars.setStyle({
+			style: style === 'LIGHT' ? SystemBarsStyle.Light : SystemBarsStyle.Dark,
+		});
 		return true;
 	} catch {
 		return false;
