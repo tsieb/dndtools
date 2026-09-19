@@ -139,3 +139,31 @@ absent.
 - `git diff --check`: passed before the journal update; checked again before commit.
 - The operator still owns the full gates and independent review. No claim is made that the
   dispatcher ownership gate was executed here.
+
+## Attempt 3 (2026-09-19): reconcile integration rebase
+
+- Feedback identified a rebase conflict in `apps/gm-react/src/App.tsx` against integration commit
+  `eafbce28a4f78231185cbf44ccbd603ad489415a`. Started from the clean task branch at `fef30403`.
+- Rebased the two task commits onto that exact integration commit. The only conflict was adjacent
+  lazy-import declarations: integration added `DsGallery`, while this task added
+  `IllustrationGallery`. Resolved by retaining both declarations with their DEV guards.
+- This `App.tsx` reconciliation is required by the explicit retry feedback. Preserved integration's
+  outer `#/__ds` route and the task's `#/__illustrations` route; the diff against integration adds
+  only the original 21 lines for the illustration import and route. No other integration routing
+  was changed. No additional `EmptyState.jsx` edits were needed.
+- Rebase completed successfully, producing implementation commit `8deb55ea` and prior verification
+  journal commit `d57b8350`. No agents, push, promotion, loop launch or dispatcher-state edits.
+- Headroom remained unavailable; all checks below use original native command output.
+
+### Reconciled-tree verification
+
+- Illustration, i18n and existing DS interaction suites: 3 files, 158 tests passed.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- ESLint on `App.tsx` and the illustration directory: exit 0. Prettier checks on `App.tsx`
+  and this journal passed; `git diff --check` passed.
+- Playwright `illustrations.spec.ts` and `widget-kit.spec.ts`: all 6 tests passed on desktop and
+  mobile Chromium. These exercise both gallery routes: 24 unique 160px illustrations with no
+  serious/critical axe violations, plus the existing DS gallery's component/theme comparisons.
+- `git merge-base --is-ancestor eafbce28a4f78231185cbf44ccbd603ad489415a HEAD`: exit 0,
+  confirming the requested integration commit is now an ancestor of the task candidate.
+- Full central gates and independent review remain the operator's next step.
