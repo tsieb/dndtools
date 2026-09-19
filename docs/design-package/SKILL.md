@@ -1,6 +1,6 @@
 ---
 name: dndtools-design
-description: Use this skill to generate well-branded interfaces and assets for DND Tools — a canvas-first, **system-agnostic** command platform for running tabletop RPG sessions live, for the Game Master. The rules of the game (stats, resources, conditions, dice) come from a swappable **System Package** — D&D 5e ships as the default/reference package, plus generic and community packages, or a GM builds their own. Either for production or throwaway prototypes/mocks. Contains essential design guidelines, colors, type, fonts, assets, and UI kit components for prototyping.
+description: Use this skill to generate well-branded interfaces and assets for Lamplight — a canvas-first, **system-agnostic** command platform for running tabletop RPG sessions live, for the Game Master. The rules of the game (stats, resources, conditions, dice) come from a swappable **System Package** — D&D 5e ships as the default/reference package, plus generic and community packages, or a GM builds their own. Either for production or throwaway prototypes/mocks. Contains essential design guidelines, colors, type, fonts, assets, and UI kit components for prototyping.
 user-invocable: true
 ---
 
@@ -22,10 +22,11 @@ production code, depending on the need.
   Premade packages ship built-in (D&D 5e · Generic / narrative · community Pathfinder 2e); a GM can
   fork one or build their own. Components are containers; packages are content — feed a non-5e
   package's vocabulary into the same containers; don't assume STR/DEX, a d20, or spell slots exist.
-- **Brand:** DND Tools — a warm, candle-lit, dark-first GM workspace (name kept for now; product is
-  any-system). Hero theme **tavern** (espresso neutrals + warm-gold accent); light variant
-  **parchment**; a11y floor **high-contrast**. The candle-lit warmth is the house style across
-  every package.
+- **Brand:** Lamplight (`lamplight.click`) — a warm, candle-lit, dark-first GM workspace; the
+  product underneath is any-system. Hero theme **tavern** (espresso neutrals + warm-gold accent);
+  light variant **parchment**; a11y floor **high-contrast**. Two further themes, `scholar` and
+  `dungeon`, are specified in `readme.md` but not implemented — see its **Themes** table before
+  emitting a `data-theme` value. The candle-lit warmth is the house style across every package.
 - **The one rule:** color encodes state, never decorates. Gold = the single primary action per
   region. Status colors always pair with a redundant icon shape. The purple DM-only vs
   player-visible signal is safety-critical and must read at a glance and in grayscale.

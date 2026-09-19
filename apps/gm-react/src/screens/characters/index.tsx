@@ -12,7 +12,7 @@ import {
 	tabPanelProps,
 } from '../../ds';
 import { CharBuilder } from '../../app/charBuilder';
-import { Page, T, srOnly } from '../../app/screen-kit';
+import { ListDetail, Page, T, srOnly } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { CharCard } from './CharCard';
 import { CharacterSheet } from './CharacterSheet';
@@ -135,8 +135,9 @@ export function Characters() {
 	// on `id`, so navigating sheet -> sheet (the command palette does exactly that) reused the
 	// mounted component and carried A's drafts onto B — where `applySharing` and `saveAttacks`, both
 	// full replacements, would happily write them. Remounting on id change is the fix.
-	if (detailId)
-		return <CharacterSheet key={detailId} id={detailId} onBack={() => navigate('/characters')} />;
+	const sheet = detailId ? (
+		<CharacterSheet key={detailId} id={detailId} onBack={() => navigate('/characters')} />
+	) : null;
 
 	const list = data.entries.filter((entry) => matchesRosterFilter(entry, { kind, owner, tag }));
 	const filtered = kind !== 'all' || owner !== OWNER_ANY || tag !== TAG_ANY;
@@ -221,7 +222,7 @@ export function Characters() {
 		);
 	}
 
-	return (
+	const roster = (
 		<Page>
 			<div
 				style={{
@@ -372,8 +373,11 @@ export function Characters() {
 									{t('characters.filter.clear')}
 								</Button>
 							) : data.isDm ? (
+								// Secondary, not a second gold button: this is the SAME "New character" action
+								// the header already offers in accent, and on the rail tier the sheet in the
+								// detail pane beside this list owns an accent primary of its own (RC-UX-4.3).
 								<Button
-									variant="primary"
+									variant="secondary"
 									size="sm"
 									icon="new-character"
 									onClick={() => setCreating(true)}
@@ -409,6 +413,7 @@ export function Characters() {
 											describedBy={isTabStop ? GRID_HINT_ID : undefined}
 											onFocus={() => setActiveId(entry.view.id)}
 											onOpen={() => navigate(`/characters/${entry.view.id}`)}
+											current={entry.view.id === detailId}
 										/>
 									</li>
 								);
@@ -441,5 +446,16 @@ export function Characters() {
 				/>
 			)}
 		</Page>
+	);
+
+	// RC-UX-4.3 — on the rail tier an open sheet takes the detail pane BESIDE the roster, so the DM
+	// moves between characters without losing the list; elsewhere it replaces the roster, as before.
+	return (
+		<ListDetail
+			list={roster}
+			detail={sheet}
+			detailKey={detailId}
+			detailLabel={data.characters.find((c) => c.id === detailId)?.name ?? t('characters.title')}
+		/>
 	);
 }

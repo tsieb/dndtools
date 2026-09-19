@@ -78,20 +78,31 @@ export function SavedSearches({
 	}
 
 	async function saveCurrent() {
+		const typed = saveName;
+		const pinned = savePinned;
+		// Clear the form BEFORE awaiting the dispatch, not after it. Resetting in the continuation left
+		// a window in which the runtime had already committed — the new entry was rendered in the saved
+		// list below — while `setSaveName('')` was still pending. Anything the DM typed into the name
+		// field during that window was then wiped by the late reset, which left Save disabled under a
+		// name that was visibly present a frame earlier and no way back except retyping it.
+		setSaveName('');
+		setSavePinned(false);
 		const ok = await run(
 			'content.create-saved-search',
 			{
-				name: saveName.trim(),
+				name: typed.trim(),
 				filter,
 				visibility: saveVisibility,
 				sharedWith: [],
-				pinned: savePinned,
+				pinned,
 			},
 			'knowledge.filters.saveFailed',
 		);
-		if (ok) {
-			setSaveName('');
-			setSavePinned(false);
+		// A rejection must not cost the DM what they typed: `run` has already surfaced the reason, so
+		// put the form back exactly as it was and let them correct it.
+		if (!ok) {
+			setSaveName(typed);
+			setSavePinned(pinned);
 		}
 	}
 

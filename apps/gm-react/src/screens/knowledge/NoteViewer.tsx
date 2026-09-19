@@ -6,8 +6,7 @@ import {
 	type ContentItemView,
 } from '@dndtools/core';
 import { Button, Dialog, Icon, IconButton, Toaster, VisibilityChip } from '../../ds';
-import { BackBar, Page, Panel, Seg, T } from '../../app/screen-kit';
-import { useViewport } from '../../app/useViewport';
+import { BackBar, Page, Panel, Seg, T, useSingleColumn } from '../../app/screen-kit';
 import { NoteEditor, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
 import type { WikilinkSuggestion } from '../../app/editor/Autocomplete';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
@@ -85,7 +84,9 @@ export function NoteViewer({
 	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
-	const isPhone = useViewport() === 'phone';
+	// One column on a phone AND in the rail tier's detail pane (RC-UX-4.3): the 280px side column
+	// beside the note body would leave the body ~160px wide there.
+	const isPhone = useSingleColumn();
 	const [editing, setEditing] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);

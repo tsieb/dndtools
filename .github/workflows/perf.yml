@@ -1,12 +1,6 @@
-# RC-ENG-1.1 — performance measurement pipeline.
-#
-# Captures a sample for every budget the PERF-001 registry owns (scripts/perf/capture.ts) and grades
-# the run against both the declared targets and the recorded baseline (scripts/perf/compare.ts). A
-# breach, a regression beyond the tolerance, or a scenario that recorded nothing fails the job — an
-# unmeasured budget is never a pass.
-#
-# Path-filtered: perf numbers only move when the app, the core, the perf scripts, or the budgets
-# themselves change, and this job is far too slow to run on a docs-only edit.
+# RC-ENG-1.3: measure a pinned reference and the candidate interleaved, batch by batch, on the same
+# runner, five times over, and verify the five runs agree. Raw batches, the CI baselines, reports and
+# agreement evidence are retained.
 name: Performance
 
 on:
@@ -32,10 +26,17 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/perf.yml'
       - '.github/actions/setup-e2e/**'
+  # A manual run can capture any ref, so an unmerged candidate gets hosted evidence before it lands.
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or full commit SHA to capture as the candidate (blank: the branch run from)'
+        required: false
+        type: string
+        default: ''
 
 concurrency:
-  group: perf-${{ github.event.pull_request.base.ref || github.ref }}
+  group: perf-${{ inputs.ref || github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -44,12 +45,18 @@ permissions:
 jobs:
   measure:
     name: capture and compare budgets
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    # Five paired runs measure both revisions every time; GitHub-hosted jobs cap at 360.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Blank on push, pull_request and schedule, which keeps checkout's own default. The capture
+          # records the checked-out SHA, so every run file names the exact revision it measured.
+          ref: ${{ inputs.ref }}
           persist-credentials: false
+          # Full history: ci.sh checks out the pinned reference SHA into a second worktree.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
@@ -65,17 +72,15 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
 
+      - name: Test performance measurement and comparison
+        run: pnpm exec vitest run --config tests/perf/vitest.config.ts
+
       # The capture drives the real app in Chromium and resolves Playwright from apps/gm-react.
       - name: Set up browser tests
         uses: ./.github/actions/setup-e2e
 
-      - name: Capture performance samples
-        env:
-          PERF_RUNNER_LABEL: github-ubuntu-latest
-        run: pnpm perf:capture -- --out tests/perf/current.json
-
-      - name: Compare against targets and baseline
-        run: pnpm perf:compare -- --run tests/perf/current.json --markdown tmp/perf/report.md
+      - name: Measure reference and candidate interleaved, five runs
+        run: bash scripts/perf/ci.sh
 
       - name: Upload the run and the report
         if: always()
@@ -83,7 +88,6 @@ jobs:
         with:
           name: perf-run
           path: |
-            tests/perf/current.json
-            tmp/perf/report.md
+            tmp/perf/
           if-no-files-found: warn
           retention-days: 30

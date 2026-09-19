@@ -267,25 +267,40 @@ export function handleApplyCommandCenterPreset(
 }
 
 /**
- * Materialize a snapshot layout (a preset or a last-known-good auto-save) onto the home Scene. Widget
- * ids and group ids are remapped to fresh instances; any widget whose package is no longer installed is
- * skipped and reported, restoring all the others (CMD-007 / UX-CMD-008 AC4). Shared by preset-apply and
- * auto-save-restore so both paths behave identically.
+ * The preset-shaped snapshot every layout source reduces to: a saved preset, the last-known-good
+ * auto-save, a built-in scene template, or a template scene (RC-CAN-4.4).
  */
-function materializeLayoutOntoScene(
+export interface LayoutSnapshot {
+	visualSettings: SceneVisualSettings;
+	sections: CommandCenterPresetSection[];
+	widgets: CommandCenterPresetWidget[];
+}
+
+/**
+ * Instantiate a snapshot's widgets and sections as fresh scene instances. Widget ids and group ids
+ * are remapped; any widget whose package is no longer installed is skipped and reported, keeping all
+ * the others (CMD-007 / UX-CMD-008 AC4). `offset` shifts every widget and section (append placement)
+ * and `zBase` / `focusBase` lift stacking and traversal order above what the scene already holds.
+ * Shared by preset-apply, auto-save-restore and `scene.apply-template` so all three behave identically.
+ */
+export function instantiateLayoutSnapshot(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
-	scene: Scene,
-	source: {
-		visualSettings: SceneVisualSettings;
-		sections: CommandCenterPresetSection[];
-		widgets: CommandCenterPresetWidget[];
-	},
-): { nextScene: Scene; restoredWidgets: WidgetInstance[]; missingWidgetTypes: string[] } {
+	source: LayoutSnapshot,
+	placement: { offset?: { x: number; y: number }; zBase?: number; focusBase?: number } = {},
+): {
+	widgets: WidgetInstance[];
+	sections: SectionLayoutRegion[];
+	missingWidgetTypes: string[];
+} {
+	const dx = placement.offset?.x ?? 0;
+	const dy = placement.offset?.y ?? 0;
+	const zBase = placement.zBase ?? 0;
+	const focusBase = placement.focusBase ?? 0;
 	const missingWidgetTypes: string[] = [];
 	const groupRemap = new Map<string, string>();
 	const presetToInstance = new Map<string, string>();
-	const restoredWidgets: WidgetInstance[] = [];
+	const widgets: WidgetInstance[] = [];
 	for (const presetWidget of source.widgets) {
 		const record = findPackageRecordForWidgetType(state.widgets, presetWidget.type);
 		if (!record || record.removedAt) {
@@ -302,11 +317,19 @@ function materializeLayoutOntoScene(
 			groupRemap.set(groupId, remapped);
 			groupId = remapped;
 		}
-		restoredWidgets.push({
+		const { layout } = presetWidget;
+		widgets.push({
 			id: newId,
 			type: presetWidget.type,
 			version: presetWidget.version,
-			layout: { ...presetWidget.layout, groupId },
+			layout: {
+				...layout,
+				x: layout.x + dx,
+				y: layout.y + dy,
+				z: layout.z + zBase,
+				focusOrder: layout.focusOrder === null ? null : layout.focusOrder + focusBase,
+				groupId,
+			},
 			configuration: { ...presetWidget.configuration },
 			localState: { ...presetWidget.localState },
 			binding: presetWidget.binding ? { ...presetWidget.binding } : null,
@@ -314,26 +337,39 @@ function materializeLayoutOntoScene(
 		});
 	}
 
-	const restoredSections: SectionLayoutRegion[] = source.sections.map((section) => ({
+	const sections: SectionLayoutRegion[] = source.sections.map((section) => ({
 		id: env.ids(),
 		name: section.name,
-		bounds: { ...section.bounds },
+		bounds: { ...section.bounds, x: section.bounds.x + dx, y: section.bounds.y + dy },
 		widgetInstanceIds: section.presetWidgetIds
 			.map((presetWidgetId) => presetToInstance.get(presetWidgetId))
 			.filter((value): value is string => Boolean(value)),
 	}));
+	return { widgets, sections, missingWidgetTypes };
+}
 
+/**
+ * Materialize a snapshot layout (a preset or a last-known-good auto-save) onto the home Scene,
+ * REPLACING its widgets, sections and visual settings.
+ */
+function materializeLayoutOntoScene(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	scene: Scene,
+	source: LayoutSnapshot,
+): { nextScene: Scene; restoredWidgets: WidgetInstance[]; missingWidgetTypes: string[] } {
+	const { widgets, sections, missingWidgetTypes } = instantiateLayoutSnapshot(state, env, source);
 	const nextScene = bumpRevision(
 		{
 			...scene,
 			visualSettings: { ...source.visualSettings },
-			sections: restoredSections,
-			widgets: restoredWidgets,
+			sections,
+			widgets,
 			schemaVersion: SCENE_SCHEMA_VERSION,
 		},
 		env,
 	);
-	return { nextScene, restoredWidgets, missingWidgetTypes };
+	return { nextScene, restoredWidgets: widgets, missingWidgetTypes };
 }
 
 /**

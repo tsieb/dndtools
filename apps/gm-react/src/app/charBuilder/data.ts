@@ -29,7 +29,7 @@ export interface BuilderBackground {
 	name: string;
 	skills: string;
 }
-export type ScoreMethod = 'standard' | 'pointbuy' | 'manual';
+export type ScoreMethod = 'standard' | 'pointbuy' | 'roll' | 'manual';
 export interface BuilderMethod {
 	id: ScoreMethod;
 	label: MessageKey;
@@ -187,6 +187,7 @@ export const BUILDER: {
 			label: 'charBuilder.method.pointBuy',
 			note: 'charBuilder.method.pointBuyNote',
 		},
+		{ id: 'roll', label: 'charBuilder.method.roll', note: 'charBuilder.method.rollNote' },
 		{ id: 'manual', label: 'charBuilder.method.manual', note: 'charBuilder.method.manualNote' },
 	],
 	standardArray: [15, 14, 13, 12, 10, 8],

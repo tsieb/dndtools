@@ -64,7 +64,8 @@ function classify(
 	present: boolean,
 	target: number,
 ): DocumentMigrationStatus {
-	if (!present || version === null) return 'absent';
+	if (!present) return 'absent';
+	if (version === null) return 'unknown-version';
 	if (!Number.isInteger(version) || version < 1) return 'unknown-version';
 	if (version === target) return 'current';
 	if (version < target) return 'needs-upgrade';

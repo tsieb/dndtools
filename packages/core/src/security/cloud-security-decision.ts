@@ -2,6 +2,7 @@ import {
 	ALLOWED_SERVER_METADATA_CLASSES,
 	CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
 	evaluateCloudReleaseGate,
+	sanctionSecurityDecisionRecord,
 	type CloudReleaseGateResult,
 	type CloudSecurityDecisionRecord,
 } from './cloud-security-model';
@@ -65,16 +66,17 @@ export const DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL: CloudSyncSecurityModel = Object
 });
 
 /** The release-approved SEC-009 decision record for PRIVATE vaults. Complete + approved + internally consistent (E2EE ⇒ client-held). */
-export const DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD: CloudSecurityDecisionRecord = Object.freeze({
-	schemaVersion: CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
-	approved: true,
-	encryption: 'end-to-end-encrypted',
-	keyCustodian: 'client-held',
-	credentialRotationDeclared: true,
-	recovery: 'supported',
-	allowedServerMetadata: Object.freeze([...ALLOWED_SERVER_METADATA_CLASSES]),
-	decisionRecordRef: 'docs/adr/026-opt-in-vault-privacy-modes.md',
-});
+export const DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD: CloudSecurityDecisionRecord =
+	sanctionSecurityDecisionRecord({
+		schemaVersion: CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
+		approved: true,
+		encryption: 'end-to-end-encrypted',
+		keyCustodian: 'client-held',
+		credentialRotationDeclared: true,
+		recovery: 'supported',
+		allowedServerMetadata: [...ALLOWED_SERVER_METADATA_CLASSES],
+		decisionRecordRef: 'docs/adr/026-opt-in-vault-privacy-modes.md',
+	});
 
 /**
  * The declared SYNC-017 model for CLOUD-ENHANCED vaults (ADR-026 phase 2 target): TLS in transit,
@@ -93,19 +95,21 @@ export const DNDTOOLS_CLOUD_ENHANCED_SYNC_SECURITY_MODEL: CloudSyncSecurityModel
  * The SEC-009 decision record for CLOUD-ENHANCED vaults. `approved: false` is the phase-1 posture and
  * is LOAD-BEARING: it keeps {@link evaluateCloudEnhancedRelease} blocked and makes the mode-aware
  * `assertServerVisibilityForRecord` fail closed, so consent UX can ship while every server-readable
- * path stays unreleasable. Flipping `approved` requires the phase-2 security review (ADR-026).
+ * path stays unreleasable. The server-readable platform is unbuilt and deferred to roadmap epic
+ * CLD-6; RC-CLD-6.5 is the ONLY story allowed to flip `approved`, after the complete phase-2
+ * checklist in `docs/security/vault-privacy-modes-threat-model.md` is signed. No RC-1 story may.
  * `allowedServerMetadata` is empty because the class set is only meaningful under E2EE — under a
  * server-readable model the server reads content by consent, not a metadata subset.
  */
 export const DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD: CloudSecurityDecisionRecord =
-	Object.freeze({
+	sanctionSecurityDecisionRecord({
 		schemaVersion: CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
 		approved: false,
 		encryption: 'server-side-encrypted',
 		keyCustodian: 'provider-held',
 		credentialRotationDeclared: true,
 		recovery: 'supported',
-		allowedServerMetadata: Object.freeze([]),
+		allowedServerMetadata: [],
 		decisionRecordRef: 'docs/adr/026-opt-in-vault-privacy-modes.md',
 	});
 
@@ -144,8 +148,8 @@ export function evaluateDndtoolsCloudRelease(): CloudReleaseGateResult {
 /**
  * Evaluate the SEC-009 release gate for the CLOUD-ENHANCED mode. Returns `canRelease: false` today
  * (the record is unapproved) — the machine-checkable proof that ADR-026 phase 1 ships consent without
- * shipping a server-readable path. When phase 2 lands with its security review, flipping the record's
- * `approved` opens this gate with no call-site change.
+ * shipping a server-readable path. When epic CLD-6 lands and RC-CLD-6.5 signs the phase-2 review,
+ * flipping the record's `approved` opens this gate with no call-site change.
  */
 export function evaluateCloudEnhancedRelease(): CloudReleaseGateResult {
 	return evaluateCloudReleaseGate(

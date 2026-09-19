@@ -7,6 +7,10 @@
 # the built bundle, the Electron main/preload, and package.json (which points `main` at the shell).
 # This also sidesteps electron-builder walking the pnpm-symlinked node_modules / the `workspace:*`
 # core dependency.
+#
+# Every icon and installer bitmap under build-resources/ is rendered from the design system's
+# assets/logo.svg by build-resources/brand-kit.mjs (RC-DSN-3.3). They are committed, so no platform
+# build converts icon.png on the fly; regenerate them with the script, never by hand.
 appId: com.dndtools.gm
 productName: Lamplight GM
 # Hyphenated artifact names (productName has spaces) so download URLs are clean.
@@ -32,12 +36,28 @@ mac:
         - arm64
         - x64
   category: public.app-category.productivity
+  # The tile inset on Apple's 824/1024 grid with its drop shadow, 16pt–512pt@2x.
+  icon: icon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
   extendInfo:
     NSLocalNetworkUsageDescription: Lamplight uses your local network to find and connect to nearby game tables.
     NSBonjourServices:
       - _dndtools._tcp
+
+# Drag-to-install window, sized by background.png (540×380; background@2x.png beside it is picked up
+# for Retina). The two icons stand on the table band, whose tone keeps Finder's own black-or-white
+# labels legible in both appearances — move the icons and the labels leave it.
+dmg:
+  background: background.png
+  iconSize: 96
+  contents:
+    - x: 140
+      y: 188
+    - x: 400
+      y: 188
+      type: link
+      path: /Applications
 
 linux:
   executableName: lamplight-gm
@@ -46,6 +66,8 @@ linux:
       arch:
         - x64
   category: Game
+  # A 16–512px set (NxN.png) of the same inset tile as the macOS icon.
+  icon: icons
   synopsis: Offline Game-Master workspace for tabletop RPGs
   desktop:
     entry:
@@ -56,8 +78,9 @@ win:
     - target: nsis
       arch:
         - x64
-  # Preview CI disables signing auto-discovery; production CI provides the certificate. The .ico is
-  # auto-generated from build-resources/icon.png (1024x1024).
+  # Preview CI disables signing auto-discovery; production CI provides the certificate.
+  # The full-bleed tile at 16/20/24/32/40/48/64 (bitmaps) and 256px (PNG).
+  icon: icon.ico
 
 # Assisted NSIS installer, tuned for beta testers: a per-user install (no admin/UAC prompt), a
 # visible wizard that lets them pick the folder, Start-menu + desktop shortcuts, and a clean
@@ -69,6 +92,11 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Lamplight GM
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  # Welcome/finish page bitmap: 164×314, uncompressed 24-bit BMP (all Modern UI accepts).
+  installerSidebar: installerSidebar.bmp
+  uninstallerSidebar: installerSidebar.bmp
 
 # CI (release.yml) attaches the built dmg/AppImage/exe to a DRAFT GitHub Release for the pushed tag.
 publish:

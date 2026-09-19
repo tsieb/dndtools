@@ -62,7 +62,7 @@ export function beginMigration(input: BeginMigrationInput): MigrationJournalEntr
 			migrationId: input.migrationId,
 			createdAt: input.startedAt,
 			fromVersions: { ...input.fromVersions },
-			documents: { ...input.documents },
+			documents: structuredClone(input.documents),
 		},
 		schemaVersion: MIGRATION_JOURNAL_SCHEMA_VERSION,
 	};
@@ -138,7 +138,8 @@ export function recoverFromJournal(entry: MigrationJournalEntry | null): Recover
 		? {
 				action: 'roll-back',
 				snapshot: entry.snapshot,
-				reason: 'Unrecognized migration journal phase; rolling back to the safety snapshot (fail closed).',
+				reason:
+					'Unrecognized migration journal phase; rolling back to the safety snapshot (fail closed).',
 			}
 		: {
 				action: 'none',

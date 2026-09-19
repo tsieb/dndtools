@@ -152,3 +152,148 @@ export function buildDefaultCommandCenterScene(env: CoreEnvironment, ownerActorI
 		schemaVersion: SCENE_SCHEMA_VERSION,
 	};
 }
+
+/**
+ * RC-CAN-4.4 — the code-defined scene templates the template picker offers next to the DM's own saved
+ * presets and template scenes. Each is a preset-shaped layout (the same snapshot shape
+ * `command-center.apply-preset` restores), so `scene.apply-template` instantiates all three kinds of
+ * source through one materializer. Layouts stay inside the bounded board's three 240px columns
+ * (x + w ≤ 792) so a template applied to the home board needs no clamping.
+ */
+export const BUILTIN_SCENE_TEMPLATE_IDS = [
+	'combat',
+	'social',
+	'exploration',
+	'town',
+	'session-prep',
+] as const;
+
+export type BuiltinSceneTemplateId = (typeof BUILTIN_SCENE_TEMPLATE_IDS)[number];
+
+export interface BuiltinSceneTemplate {
+	id: BuiltinSceneTemplateId;
+	name: string;
+	description: string;
+	/** The picker's card icon (a DS icon name). */
+	icon: string;
+	visualSettings: SceneVisualSettings;
+	widgets: ReadonlyArray<{
+		type: string;
+		/** Optional tile title (`configuration.title`), so "Notes" can read "NPC notes". */
+		title?: string;
+		x: number;
+		y: number;
+		w: number;
+		h: number;
+	}>;
+}
+
+// Columns start at 24 / 288 / 552 (24px margin, 264px step), mirroring `defaultLayout` above.
+export const BUILTIN_SCENE_TEMPLATES: ReadonlyArray<BuiltinSceneTemplate> = Object.freeze([
+	{
+		id: 'combat',
+		name: 'Combat scene',
+		description: 'Initiative, the battle map, dice and a round timer in reach.',
+		icon: 'tile-combat',
+		visualSettings: { background: 'dark' },
+		widgets: [
+			{ type: 'initiative-tracker', x: 24, y: 24, w: 240, h: 344 },
+			{ type: 'map', x: 288, y: 24, w: 504, h: 344 },
+			{ type: 'dice', x: 24, y: 392, w: 240, h: 160 },
+			{ type: 'timer', title: 'Round timer', x: 288, y: 392, w: 240, h: 160 },
+			{ type: 'quick-reference', title: 'Conditions', x: 552, y: 392, w: 240, h: 160 },
+		],
+	},
+	{
+		id: 'social',
+		name: 'Social encounter',
+		description: 'NPC notes, a handout to reveal, dice for checks and ambience.',
+		icon: 'players',
+		visualSettings: { background: 'parchment' },
+		widgets: [
+			{ type: 'note', title: 'NPC notes', x: 24, y: 24, w: 504, h: 240 },
+			{ type: 'handout', x: 552, y: 24, w: 240, h: 240 },
+			{ type: 'dice', x: 24, y: 288, w: 240, h: 160 },
+			{ type: 'audio', title: 'Ambience', x: 288, y: 288, w: 240, h: 160 },
+		],
+	},
+	{
+		id: 'exploration',
+		name: 'Exploration',
+		description: 'The region map with travel notes, a watch timer and dice.',
+		icon: 'travel',
+		visualSettings: { background: 'paper' },
+		widgets: [
+			{ type: 'map', x: 24, y: 24, w: 504, h: 344 },
+			{ type: 'note', title: 'Travel log', x: 552, y: 24, w: 240, h: 344 },
+			{ type: 'timer', title: 'Watch timer', x: 24, y: 392, w: 240, h: 160 },
+			{ type: 'dice', x: 288, y: 392, w: 240, h: 160 },
+			{ type: 'audio', title: 'Ambience', x: 552, y: 392, w: 240, h: 160 },
+		],
+	},
+	{
+		id: 'town',
+		name: 'Town visit',
+		description: 'A town map, shop and rumour notes, and a handout for posted notices.',
+		icon: 'flag',
+		visualSettings: { background: 'parchment' },
+		widgets: [
+			{ type: 'map', title: 'Town map', x: 24, y: 24, w: 504, h: 280 },
+			{ type: 'note', title: 'Shops & rumours', x: 552, y: 24, w: 240, h: 280 },
+			{ type: 'handout', title: 'Notice board', x: 24, y: 328, w: 240, h: 200 },
+			{ type: 'quick-reference', x: 288, y: 328, w: 240, h: 200 },
+		],
+	},
+	{
+		id: 'session-prep',
+		name: 'Session prep',
+		description: 'Prep checklist, session notes, the reference shelf and the next map.',
+		icon: 'hourglass',
+		visualSettings: { background: 'paper' },
+		widgets: [
+			{ type: 'prep', x: 24, y: 24, w: 240, h: 344 },
+			{ type: 'note', title: 'Session notes', x: 288, y: 24, w: 504, h: 344 },
+			{ type: 'quick-reference', x: 24, y: 392, w: 240, h: 200 },
+			{ type: 'map', title: 'Next map', x: 288, y: 392, w: 504, h: 200 },
+		],
+	},
+]);
+
+export function findBuiltinSceneTemplate(id: string): BuiltinSceneTemplate | undefined {
+	return BUILTIN_SCENE_TEMPLATES.find((template) => template.id === id);
+}
+
+/**
+ * The preset-shaped layout snapshot of a built-in template. Preset widget ids are derived from the
+ * template id and index (not `env.ids()`), so the snapshot is pure and a miniature can be drawn from
+ * it without a core environment; `scene.apply-template` remaps every id to a fresh instance anyway.
+ */
+export function builtinSceneTemplateLayout(template: BuiltinSceneTemplate): {
+	visualSettings: SceneVisualSettings;
+	sections: CommandCenterPresetSection[];
+	widgets: CommandCenterPresetWidget[];
+} {
+	return {
+		visualSettings: { ...template.visualSettings },
+		sections: [],
+		widgets: template.widgets.map((widget, index) => ({
+			presetWidgetId: `${template.id}:${index}`,
+			type: widget.type,
+			version: '1.0.0',
+			layout: {
+				x: widget.x,
+				y: widget.y,
+				w: widget.w,
+				h: widget.h,
+				z: index + 1,
+				groupId: null,
+				dock: null,
+				pinned: false,
+				focusOrder: index + 1,
+			},
+			configuration: widget.title ? { title: widget.title } : {},
+			localState: {},
+			binding: null,
+		})),
+	};
+}

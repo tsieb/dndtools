@@ -15,6 +15,8 @@ import {
 	restoreWidgetInputSchema,
 	// RC-CAN-2.4 (append-only)
 	duplicateWidgetInputSchema,
+	// RC-CAN-3.6 (append-only)
+	setWidgetOrderInputSchema,
 } from '../schemas/commands';
 import { actorCanCoEditScene, hasGrantedCapability } from '../permissions/grants';
 import { evaluateSceneVisibility } from '../permissions/visibility';
@@ -34,6 +36,8 @@ import {
 	pruneExpiredTombstones,
 	sceneTombstones,
 	withTombstones,
+	// RC-CAN-3.6 — paint order.
+	withWidgetOrder,
 } from '../state/scene-state';
 import {
 	findPackageRecordForWidgetType,
@@ -495,7 +499,8 @@ export function handleGroupWidgets(
 		}
 	}
 
-	const groupId = env.ids();
+	// RC-CAN-3.6: `ungroup` clears the membership instead of minting a group.
+	const groupId = parsed.data.ungroup ? null : env.ids();
 	const targetIds = new Set(parsed.data.widgetInstanceIds);
 	const newWidgets = scene.widgets.map((widget) =>
 		targetIds.has(widget.id) ? { ...widget, layout: { ...widget.layout, groupId } } : widget,
@@ -507,7 +512,7 @@ export function handleGroupWidgets(
 		entityType: 'scene',
 		entityId: scene.id,
 		opType: 'scene.group-widgets',
-		path: `groups/${groupId}`,
+		path: groupId === null ? 'groups' : `groups/${groupId}`,
 		value: { groupId, widgetInstanceIds: parsed.data.widgetInstanceIds },
 		beforeRevision: scene.ownership.revision,
 		afterRevision: nextScene.ownership.revision,
@@ -522,6 +527,65 @@ export function handleGroupWidgets(
 			widgetInstanceId: id,
 			actorId: actor.id,
 			field: 'group' as const,
+		})),
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * RC-CAN-3.6 — `scene.set-widget-order`: bring forward / send back / to front / to back, for one tile
+ * or a selection. The payload is the WHOLE back-to-front order, so the command is idempotent and a
+ * replay can never interleave with a concurrent add into a different result than the one recorded.
+ */
+export function handleSetWidgetOrder(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+
+	const parsed = parseInput(setWidgetOrderInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = requireScene(state, parsed.data.sceneId);
+	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
+
+	const reordered = withWidgetOrder(scene, parsed.data.widgetInstanceIds);
+	if (!reordered) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `The order must list every widget on Scene ${scene.id} exactly once.`,
+			},
+			state,
+		);
+	}
+	const changed = reordered.widgets.filter((widget, index) => widget !== scene.widgets[index]);
+	const nextScene = bumpRevision(reordered, env);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.set-widget-order',
+		path: 'widgets/order',
+		value: { widgetInstanceIds: parsed.data.widgetInstanceIds },
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: changed.map((widget) => ({
+			kind: 'scene.widget-layout-changed' as const,
+			sceneId: scene.id,
+			widgetInstanceId: widget.id,
+			actorId: actor.id,
+			field: 'z' as const,
 		})),
 		operationIds: [op.id],
 	};

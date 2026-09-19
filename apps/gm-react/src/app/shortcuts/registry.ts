@@ -94,9 +94,18 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
 	{
 		id: 'canvas.select',
 		scope: 'canvas',
-		keys: 'Enter / Space',
+		keys: 'Enter',
+		combo: { key: 'Enter' },
 		action: 'settings.a11y.shortcutEnter',
 	},
+	{
+		id: 'canvas.moveMode',
+		scope: 'canvas',
+		keys: 'Space',
+		action: 'settings.a11y.shortcutArrows',
+		combo: { key: ' ' },
+	},
+	{ id: 'canvas.add', scope: 'canvas', keys: 'A', action: 'board.addWidget', combo: { key: 'a' } },
 	{
 		id: 'canvas.resize',
 		scope: 'canvas',

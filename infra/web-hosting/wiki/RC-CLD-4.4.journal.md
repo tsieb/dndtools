@@ -1,0 +1,135 @@
+# RC-CLD-4.4 run journal
+
+## Plan
+
+- Extend existing publisher and reader with folder groups, search, themes and opt-in session recaps.
+- Add uncached server-rendered public pages, RSS and sitemap using the existing access checks.
+- Supply optional custom-domain infrastructure, validate targeted browser/SEO and package gates, commit.
+
+## Ledger
+
+- Existing publishing uses Beacon gate, versioned S3 and stable wiki IDs.
+- Client API type declarations are outside ownership; use additive local types and structural request fields.
+- No dispatch Headroom tools were initially discovered by name; available dispatch read/search/run tools now used.
+
+## Decisions
+
+- Do not provision DNS or deploy resources. Supply reviewable infrastructure and deployment instructions.
+- Keep private wiki data out of indexing and feeds; preserve password reader.
+- Journal lives here because LOOP_JOURNAL is a logical task identifier, not a filesystem path.
+
+## Tests and gates
+
+See validation ledger and Report below.
+
+## Report
+
+Implementation and local validation complete; deployment limitations are recorded below.
+
+## Edits made
+
+- `apps/gm-react/src/screens/WikiReader.tsx` — folder groups, content search, semantic themes,
+  metadata and links to text reader/RSS; formatted markdown remains in the existing shared pipeline.
+- `apps/gm-react/src/screens/community/Wiki.tsx` — public field/body projection, opt-in recaps,
+  recap selection restored from owner status, recap-only publication allowed.
+- `packages/cloud-fns/src/app-api/handler.ts` — additive folder/kind/recap count, secret stripping,
+  anonymous documents through the existing access lookup, password redirect and verified domain map.
+- `packages/cloud-fns/src/app-api/wiki-documents.ts` — escaped, script-free text reader,
+  search, folder navigation, themes, per-page canonical/meta, public-only RSS and sitemap.
+- `infra/web-hosting/template.yaml` and `wiki/custom-domain.yaml` — uncached forwarding and
+  operator-provisioned single-wiki custom domain; no cloud deployment performed.
+- Component, handler, document, hosting and desktop/mobile browser regressions added.
+
+## Validation ledger
+
+- Initial typecheck exposed detail-view narrowing; fixed after exact diagnostic retrieval.
+- Initial Playwright load hit the core barrel's JSON import; document renderer now imports the
+  narrow shared markdown module. Exact failure retrieved before correction.
+- Dispatch commands do not inherit worker limits from this process. After observing four browser
+  workers, subsequent commands explicitly set DNDTOOLS_PW_WORKERS=2 / DNDTOOLS_TEST_WORKERS=3.
+- App suite, cloud suite, typecheck, lint and targeted browser specs have passed during development.
+- New publisher/reader component checks: 14 passed. Hosting/retention checks: 5 passed.
+- Lighthouse 12.8.2: 100 SEO on local production text renderer. Full report:
+  `/tmp/wiki-seo-4XEj6C/lighthouse.json`; reproducible script and sanitized score artifact committed.
+- Final-tree gates passed below; deployment/DNS/certificate validation remains operator work.
+
+## Final decisions
+
+The formatted reader and its original share links are preserved. The crawlable edition renders
+escaped plain text and links back to the selected page in the formatted reader, avoiding a second
+markdown interpretation pipeline. Custom-domain claims are an operator-verified infrastructure
+workflow, not a self-service hostname form. No unverified domain controls canonical URLs.
+
+## Report
+
+Implemented RC-CLD-4.4 in the owned surfaces, infrastructure and automatically granted tests/catalogs.
+Validated: 10 desktop/mobile wiki e2e tests (2 workers), 1,284 app tests, 488 cloud tests,
+5 hosting/retention tests, typecheck, quality-gate registry, cloud-function build and Lighthouse SEO 100.
+A final new-test boundary error was traced to a viewport stub; the test now mocks the existing
+useViewport hook instead of accessing browser viewport APIs. Exact diagnostics were retrieved.
+Final lint (0 errors, 15 existing warnings), formatting and all 1,284 app tests passed after that correction. Exact output retrieved before recording success.
+
+The local acceptance artifacts do not establish deployed CloudFront, DNS or certificate health.
+Those deployment checks are documented in README.md. No push, promotion or dispatch control changes.
+
+## Review round 2 — URL composition defects
+
+Independent review rejected the first candidate for two URL-composition defects. Both reproduced
+before any edit, and both are now covered by tests that fail against the previous code.
+
+### High — the reader advertised document URLs that cannot reach the document handler
+
+`WikiReader.tsx` built both links as `` `${publicAppBaseUrl()}/wikis/…` ``. That helper returns a
+DOCUMENT url, not an origin: `https://host/` at the site root and `https://host/index.html` for the
+packaged build's configured `VITE_PUBLIC_APP_URL`. Concatenation therefore produced
+`https://host//wikis/…` and `https://host/index.html/wikis/…`. CloudFront forwards the raw URI to
+the origin after selecting a behavior, so the `index.html` form selects the S3 default behavior and
+never reaches the `/wikis/{wikiId}/{document}` route.
+
+Fixed by resolving a root-absolute path against the base (`new URL('/wikis/…', base)`), exported as
+`wikiDocumentUrl`. The `/wikis/*` cache behavior lives at the distribution root, so the base's own
+path is correctly not a prefix. Covered by three `WikiReader.test.tsx` cases using the REAL helper
+(site root, `/index.html` document url, and non-public wikis, which advertise nothing). Mutation
+check: restoring the concatenation fails 2 of the 3 with the exact `//wikis/` and
+`/index.html/wikis/` strings the reviewer reported.
+
+### Medium — "Open formatted reader" pointed at a host that serves no app
+
+`handler.ts` passed only four arguments, so `wikiDocument`'s `appOrigin` defaulted to `origin` — the
+wiki's custom domain when it has one. `custom-domain.yaml` serves that wiki's text documents and no
+SPA, and rewrites `/` back to the text reader, so the link bounced and dropped the selected page.
+
+Fixed by passing `WEB_ORIGIN` explicitly as `appOrigin` while canonical, RSS and sitemap URLs keep
+following the verified custom domain. The `appOrigin = origin` default is removed; it now defaults
+to `''` and an unset app origin OMITS the link rather than emitting one that cannot open the app.
+`check-seo.ts` and the e2e spec pass their single origin explicitly, which is correct for the shared
+distribution.
+
+### Tests added
+
+- `handler.test.ts`: with `WIKI_CUSTOM_DOMAINS` set, canonical URLs use the custom domain while the
+  app link uses `WEB_ORIGIN`. Mutation check: passing `origin` as `appOrigin` fails it.
+- `wiki-documents.test.ts`: the custom-domain split, and that an unset app origin omits the link.
+- `wiki-hosting.test.ts`: runs the SHIPPED CloudFront function over every URL the SHIPPED renderer
+  emits for a custom domain — the reviewer's own composed method. On-host URLs must route to
+  THEMSELVES (not merely return 200): a rewritten URL is a 200 that silently lands the reader
+  somewhere other than where the link pointed, which is exactly how the app link failed. Off-host
+  URLs must be the app origin. Mutation-checked in both directions.
+- `wiki-v2.spec.ts`: a real browser round-trip — the text reader's app link resolves, is clicked,
+  and lands in the SPA with the page preserved.
+
+### Also fixed
+
+`check-seo.ts` wrote `seo-result.json` space-indented while Prettier enforces tabs, so every run
+dirtied the tree and the committed score could never be reproduced as-is. It now writes tabs;
+a re-run leaves the artifact byte-identical (verified).
+
+### Final-tree verification
+
+Typecheck, lint (0 errors, 15 pre-existing warnings), Prettier on changed files. 491 cloud tests,
+1,293 app tests, 165 tooling tests. 12 wiki e2e tests on desktop-chromium AND mobile-chromium.
+Lighthouse 12.8.2 SEO = 100 (threshold 90) on the local production text renderer.
+
+Unchanged from round 1: these are local renderer/browser checks. Deployed CloudFront, DNS and
+certificate operation is not exercised here and remains operator work per README.md. No push, no
+promotion, no dispatch control changes.

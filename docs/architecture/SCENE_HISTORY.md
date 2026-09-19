@@ -17,8 +17,12 @@ the exact inverse, or `null` when inversion is ambiguous. Covered: `widget.move`
 `dock`, `pin`, `set-focus-order`, `configure`, `move-group`, and
 `scene.destroy-widget` (inverts to `scene.restore-widget`). Not covered: `scene.add-widget` (the
 minted id is not in `stateBefore`, and the screens' guarded `dispatch` does not surface it, so
-adding a widget leaves the stack untouched) and `scene.group-widgets` (a fresh group id with no
-ungroup command).
+adding a widget leaves the stack untouched) and `scene.group-widgets` (a fresh group id; the
+RC-CAN-3.6 `ungroup: true` form clears membership but cannot put a prior `groupId` back).
+`scene.set-widget-order` (RC-CAN-3.6: the whole back-to-front paint order, `z` renumbered 1..n) is
+not covered yet either: its inverse needs the prior `z` values as well as the prior order, and the
+builder has no case for it, so a layer change leaves the stack untouched. The canvas's align and
+distribute record one `scene.move-widget` per tile, so undoing an align takes one step per tile.
 
 The app hook `apps/gm-react/src/app/canvas/useLayoutHistory.ts` keeps a 50-deep stack per canvas
 instance, takes the runtime as an argument (which is what lets the resize undo be unit-tested, since

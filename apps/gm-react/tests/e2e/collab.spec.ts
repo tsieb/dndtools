@@ -347,3 +347,169 @@ test.describe('collab: live fog reveal', () => {
 		);
 	});
 });
+
+// RC-SES-5.1 — PLAYER-ROLLED INITIATIVE. The DM calls for initiative from the tracker, the player rolls
+// from `/play`, and the roll lands on the DM's tracker row in initiative order. `/play` renders as the
+// real player actor (`actor-player`, who owns a PC in the demo seed) with no preview mode, so the roll
+// is dispatched AS that player through `combat.apply-resource` — the same command the P2P host relays
+// for a joined device (`SessionHost` unit-tests that relay) — and the DM's runtime is the authority
+// that accepts it, or refuses it for a character the player does not hold.
+test.describe('collab: player-rolled initiative', () => {
+	test('the DM calls, the player rolls, the tracker orders; no one rolls for another player', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+
+		const party = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				session: { activeSceneId: string | null };
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+				characters: { characters: Record<string, { id: string; kind: string; name: string }> };
+				permissions: {
+					grants: { playerActorId: string; entityType: string; entityId: string }[];
+				};
+			};
+			const sceneId =
+				state.session.activeSceneId ??
+				state.commandCenter.homeSceneId ??
+				Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+			const live = await rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId: sceneId },
+			});
+			const pcs = Object.values(state.characters.characters).filter((c) => c.kind === 'pc');
+			const ownedIds = new Set(
+				state.permissions.grants
+					.filter((g) => g.playerActorId === 'actor-player' && g.entityType === 'character')
+					.map((g) => g.entityId),
+			);
+			return {
+				live: live.status,
+				mine: pcs.find((c) => ownedIds.has(c.id))?.name ?? null,
+				others: pcs.filter((c) => !ownedIds.has(c.id)).map((c) => c.name),
+			};
+		});
+		expect(party.live).toBe('accepted');
+		expect(party.mine, 'the demo player must own a PC').toBeTruthy();
+		expect(party.others.length, 'the seed must carry a second PC').toBeGreaterThan(0);
+		const mine = party.mine!;
+		const other = party.others[0]!;
+		const pcCount = party.others.length + 1;
+
+		// 1 · The DM calls for initiative from the tracker: every PC enters the fight owing a roll.
+		const main = page.locator('#main-content');
+		await main.getByRole('button', { name: 'Roll for initiative' }).click();
+		const banner = page.getByTestId('initiative-call-banner');
+		await expect(banner).toBeVisible();
+		await expect(banner).toContainText(`0 of ${pcCount} characters rolled`);
+
+		// The DM brings in two monsters with fixed numbers around the d20 range, so the order the
+		// player's roll lands in is checkable whatever the die shows.
+		const added = await page.evaluate(() =>
+			window.__rt!.dispatch({
+				type: 'combat.add-combatants',
+				actorId: window.__rt!.defaultActorId,
+				payload: {
+					combatants: [
+						{ kind: 'monster', name: 'Bog Lurker', initiative: 40, maxHp: 22 },
+						{ kind: 'monster', name: 'Reed Stalker', initiative: -10, maxHp: 14 },
+					],
+				},
+			}),
+		);
+		expect(added.status, JSON.stringify(added.rejection ?? {})).toBe('accepted');
+
+		// 2 · The player rolls from their own companion.
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+			timeout: 20_000,
+		});
+		const call = page.getByTestId('initiative-call');
+		await expect(call).toBeVisible({ timeout: 20_000 });
+		await expect(call).toContainText(`Roll for ${mine}`);
+		await call.getByRole('button', { name: /Roll initiative/ }).click();
+		await expect(call).toContainText(/You rolled -?\d+/, { timeout: DELIVERY_BUDGET_MS });
+		await expect(call.getByRole('button', { name: /Roll initiative/ })).toHaveCount(0);
+
+		const rolled = await page.evaluate((name) => {
+			const combat = (
+				window.__rt!.state.session as unknown as {
+					combat: {
+						order: string[];
+						combatants: Record<string, { name: string; statBlock: { initiative: number } }>;
+						log: { kind: string; combatantId: string | null; actorActorId: string }[];
+					};
+				}
+			).combat;
+			const id = combat.order.find((cid) => combat.combatants[cid]!.name === name)!;
+			const entry = combat.log.find((e) => e.kind === 'roll' && e.combatantId === id);
+			return { total: combat.combatants[id]!.statBlock.initiative, by: entry?.actorActorId };
+		}, mine);
+		// The roll is the player's own, recorded by the DM's runtime.
+		expect(rolled.by).toBe('actor-player');
+
+		// 3 · A player cannot set another player's initiative — neither by rolling for their character
+		// nor by naming a number. The DM's runtime refuses both.
+		const refused = await page.evaluate(async (name) => {
+			const rt = window.__rt!;
+			const combat = (
+				rt.state.session as unknown as {
+					combat: { order: string[]; combatants: Record<string, { name: string }> };
+				}
+			).combat;
+			const id = combat.order.find((cid) => combat.combatants[cid]!.name === name)!;
+			const byRoll = await rt.dispatch({
+				type: 'combat.apply-resource',
+				actorId: 'actor-player',
+				payload: { combatantId: id, kind: 'initiative', roll: { modifier: 5 } },
+			});
+			const byValue = await rt.dispatch({
+				type: 'combat.apply-resource',
+				actorId: 'actor-player',
+				payload: { combatantId: id, kind: 'initiative', value: 99 },
+			});
+			return [byRoll.status, byValue.status];
+		}, other);
+		expect(refused).toEqual(['rejected', 'rejected']);
+
+		// 4 · Back on the DM's tracker the roll sits on the player's row, in initiative order.
+		await page.goto('/#/session', { waitUntil: 'domcontentloaded' });
+		const order = page.getByRole('list').filter({ hasText: 'Bog Lurker' }).first();
+		const rows = order.getByRole('listitem');
+		await expect(rows).toHaveCount(pcCount + 2, { timeout: 20_000 });
+		await expect(rows.filter({ hasText: mine })).toContainText(`Rolled ${rolled.total}`);
+		await expect(rows.filter({ hasText: other })).toContainText('Awaiting roll');
+		await expect(banner).toContainText(`1 of ${pcCount} characters rolled`);
+		await expect(rows.first()).toContainText('Bog Lurker');
+		await expect(rows.last()).toContainText('Reed Stalker');
+		const names = async () =>
+			(await rows.allInnerTexts()).map((text) =>
+				[mine, other, 'Bog Lurker', 'Reed Stalker', ...party.others].find((n) => text.includes(n)),
+			);
+		const before = await names();
+		expect(before.indexOf(mine)).toBeGreaterThan(before.indexOf('Bog Lurker'));
+		expect(before.indexOf(mine)).toBeLessThan(before.indexOf('Reed Stalker'));
+
+		// 5 · The DM adjusts the other player's number, and the row moves to the top.
+		await rows.filter({ hasText: other }).getByRole('button', { name: other, exact: true }).click();
+		const field = page.getByLabel(`Initiative for ${other}`);
+		await field.fill('50');
+		await field.press('Enter');
+		await expect(rows.first()).toContainText(other);
+		await expect(rows.first()).toContainText('Adjusted');
+
+		// 6 · The DM starts: round 1 opens on the highest initiative, and the call is gone.
+		await banner.getByRole('button', { name: 'Start round 1' }).click();
+		await expect(banner).toHaveCount(0);
+		await expect(rows.first()).toContainText('Active');
+		const round = await page.evaluate(
+			() => (window.__rt!.state.session as unknown as { combat: { round: number } }).combat.round,
+		);
+		expect(round).toBe(1);
+	});
+});

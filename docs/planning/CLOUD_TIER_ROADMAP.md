@@ -45,13 +45,23 @@ unlocks the features that justify a subscription.
 
 ## Blocked on external action
 
-| Item                                     | Blocked on                                                                            |
-| ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| Public sign-up                           | Replying to the SES production-access case (`../runbooks/ses-production-access.md`)   |
-| Stripe billing in prod                   | Opening the Stripe account, the tax-handling decision, filling the legal placeholders |
-| Campaign Copilot, search, keyless access | The Cloud-Enhanced phase-2 review (`../security/vault-privacy-modes-threat-model.md`) |
-| FCM push                                 | A Firebase project and a server-key custody decision                                  |
-| TURN production HA                       | DNS and the TLS cutover in `infra/turn/README.md`                                     |
+| Item                   | Blocked on                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Public sign-up         | Replying to the SES production-access case (`../runbooks/ses-production-access.md`)   |
+| Stripe billing in prod | Opening the Stripe account, the tax-handling decision, filling the legal placeholders |
+| FCM push               | A Firebase project and a server-key custody decision                                  |
+| TURN production HA     | DNS and the TLS cutover in `infra/turn/README.md`                                     |
 
 The RAG de-risk measurement that validated the Copilot architecture is
 [`../development/COPILOT_RAG_DERISK.md`](../development/COPILOT_RAG_DERISK.md).
+
+## Deferred by scope decision
+
+Campaign Copilot, server-side search and keyless browser access all need a server that may read vault
+content. That server does not exist: phase 1 of [ADR-026](../adr/026-opt-in-vault-privacy-modes.md)
+shipped the mode, the consent and the closed gate, and nothing else. Building it is roadmap epic
+CLD-6, which sits after RC-1 — a platform (mode authority, gated content path, migration and deletion,
+then the features), not the single security review it was once filed as. See the 2026-09-16 scope
+disposition in [`../security/vault-privacy-modes-threat-model.md`](../security/vault-privacy-modes-threat-model.md).
+Until that epic runs and RC-CLD-6.5 signs the checklist, the client halves of these features ship
+fail-closed and say so, and no tier may be sold on them.

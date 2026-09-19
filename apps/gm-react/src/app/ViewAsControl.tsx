@@ -7,14 +7,40 @@ import { registerBackHandler } from '../platform/backNavigation';
 import { T } from './screen-kit';
 
 /**
+ * Enter and leave preview with the toasts the menu raises. RC-CAN-6.1: the scene editor's overlay
+ * (Escape, "Exit preview") leaves preview through this, exactly the way "DM view" does.
+ */
+export function usePreviewActions() {
+	const { t } = useI18n();
+	const runtime = useRuntime();
+	return {
+		enter(selection: PreviewSelection, label: string) {
+			runtime.enterPreview(selection);
+			Toaster.info(t('viewAs.enteredToast', { label }));
+		},
+		exit() {
+			runtime.exitPreview();
+			Toaster.success(t('viewAs.exitedToast'));
+		},
+	};
+}
+
+/**
  * ViewAsControl — the "view as" / preview switcher (was entirely absent in the visual port despite
  * the runtime shipping the model). It drives the real `SceneRuntime` preview: previewing as a
  * player/observer projects the actor-filtered, player-safe view and makes every mutation read-only
  * (the runtime rejects writes while previewing); "Back to DM" exits. DM-only, fail-closed.
+ *
+ * `placement="scene"` is the scene editor's own switcher (RC-CAN-6.1): the same menu and the same
+ * runtime preview, named for the scene so it never shares an accessible name with the top bar's.
  */
-export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
+export function ViewAsControl({
+	compact = false,
+	placement = 'shell',
+}: { compact?: boolean; placement?: 'shell' | 'scene' } = {}) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
+	const actions = usePreviewActions();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
@@ -56,13 +82,11 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	// Both use close(true): picking an item with the keyboard used to drop focus to <body>, so the
 	// next Tab restarted from the top of the top bar (WCAG 2.4.3).
 	function preview_(selection: PreviewSelection, label: string) {
-		runtime.enterPreview(selection);
-		Toaster.info(t('viewAs.enteredToast', { label }));
+		actions.enter(selection, label);
 		close(true);
 	}
 	function exit() {
-		runtime.exitPreview();
-		Toaster.success(t('viewAs.exitedToast'));
+		actions.exit();
 		close(true);
 	}
 
@@ -70,6 +94,10 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 	if (!isDm && !preview) return null;
 
 	const label = preview ? preview.label : t('viewAs.dmView');
+	const scene = placement === 'scene';
+	const triggerName = preview
+		? t(scene ? 'viewAs.scenePreviewing' : 'viewAs.previewingAs', { label })
+		: t(scene ? 'viewAs.sceneTrigger' : 'viewAs.trigger');
 
 	return (
 		<div style={{ position: 'relative', flex: '0 0 auto' }}>
@@ -78,8 +106,8 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 				type="button"
 				aria-haspopup="menu"
 				aria-expanded={open}
-				aria-label={preview ? t('viewAs.previewingAs', { label }) : t('viewAs.trigger')}
-				title={preview ? t('viewAs.previewingAs', { label }) : t('viewAs.trigger')}
+				aria-label={triggerName}
+				title={triggerName}
 				onClick={() => setOpen((v) => !v)}
 				style={{
 					display: 'flex',
@@ -99,7 +127,9 @@ export function ViewAsControl({ compact = false }: { compact?: boolean } = {}) {
 				<Icon name="visibility-players" size="sm" />
 				{!compact && (
 					<span style={{ font: `12px ${T.sans}`, whiteSpace: 'nowrap' }}>
-						{preview ? t('viewAs.previewChip', { label }) : t('viewAs.label')}
+						{preview
+							? t('viewAs.previewChip', { label })
+							: t(scene ? 'viewAs.sceneLabel' : 'viewAs.label')}
 					</span>
 				)}
 				{!compact && <Icon name="chevron-down" size={12} />}

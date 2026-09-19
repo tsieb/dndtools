@@ -69,13 +69,12 @@ slice without producing an accepted operation; all documents and the new operati
 one Dexie transaction, so a reload can never observe state without its operation.
 
 Load path (`loadCoreState`): `recoverPendingMigration` rolls back a crashed migration from the
-journal; a missing slice hydrates to its safe, most-restrictive default; a malformed document,
-future schema, or gap, duplicate, or malformed operation rejects the whole load rather than
-producing a partial vault.
+journal; damaged documents are quarantined before missing slices hydrate to safe defaults.
+A future schema or a gap, duplicate, or malformed operation still rejects the whole load.
 
 `restoreCoreState` validates a decrypted cloud snapshot and atomically replaces documents, log, and
-journal while preserving local media bytes (cloud backup carries metadata only).
-`restoreFullVaultState` validates asset ids and bytes and replaces all four stores.
+journal while preserving local media bytes and quarantine records (cloud backup carries metadata only).
+`restoreFullVaultState` validates asset ids and bytes and replaces all four stores, retaining quarantine records.
 `resetCoreStorage` clears them.
 
 Packaged desktop builds use the `dndtools://app` origin; a v0.2.0 `file://` vault is migrated once on
@@ -110,3 +109,38 @@ recognized only to show a migration message.
 - Hydration is fail-closed: a safe default for an absent legacy slice, rejection for anything
   malformed.
 - Durable state never changes except through an accepted operation (the op-growth guard).
+
+### Storage pressure and recovery (RC-ENG-6.2)
+
+Settings → Vault checks the browser origin usage/quota on mount, focus and every 30 seconds.
+At **80% or above**, an alert offers **Free space** and backup/media-removal guidance. Missing,
+invalid or denied estimates remain unknown. Free space prunes only rebuildable embedding vectors
+from `assetBlobs`; campaign images/audio and quarantined originals are retained. Estimates cover
+the origin, so cache pruning may not clear the alert if other site data dominates usage.
+
+Before hydration, each durable document is validated by running the same hydration the load path
+would run on it: the container checks **and** the core hydrator that finishes that slice
+(`hydrateSystemsState`, `ensureVaultContentState`, `ensureEncounterState`, `ensureAudioState`,
+`ensureMcpPolicyState`, `mergeSystemWidgetPackages`, and the session's combat/audio/calendar/scene-card
+hydrators). Container checks alone only inspect top-level shape, so a document whose containers are
+intact but whose NESTED record is malformed — a system package with a non-array `attributes`, an
+encounter entry list that is not a list, an audio asset with a non-iterable waveform — would
+otherwise throw past validation and make the whole vault unopenable with nothing listed to recover.
+A damaged document moves atomically to a
+unique `quarantine:` record in the existing `documents` table, preserving its original payload,
+source key, timestamp and reason. Only after this transaction commits does its absent slice hydrate
+with safe defaults; healthy slices continue loading. A quota error aborts the move without deleting
+the original. Future schema versions still block opening and roll back the entire quarantine pass;
+invalid operation history and migration recovery data remain fatal. Settings → Vault lists quarantine
+records across restarts and exports each original inside a recovery JSON envelope. Recovery records
+are local data, not diagnostic telemetry, and remain until an explicit vault reset. Ordinary backup
+exports do not replace the separate recovery downloads.
+
+`migrateStoredDocuments` runs a migrator against detached documents. Dry-run executes and validates
+its output without writing a journal or candidate documents; pending rollback blocks a dry run
+until the vault has been reopened and recovered. Real
+execution durably writes a committing journal with a deep-cloned safety snapshot before invoking
+the migrator, then atomically commits documents and the committed marker. Any thrown migrator or
+write error invokes snapshot rollback, preserving original documents and exact absence; restart
+recovery handles a process interrupted before rollback. The core planner rejects present documents
+with unreadable versions, and `beginMigration` snapshots nested payloads without aliasing the caller.

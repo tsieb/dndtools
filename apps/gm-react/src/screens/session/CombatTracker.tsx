@@ -23,6 +23,8 @@ import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/comba
 import { StatBlockSheet } from '../../app/combat/StatBlockSheet';
 import { useCombatKeyboard } from './useCombatKeyboard';
 import { useHpUndo, type HpUndo } from './useHpUndo';
+// RC-SES-5.1 — the initiative call the player companion answers (call, badges, adjust, readiness).
+import * as Initiative from '../../net/InitiativeCallParts';
 
 // ── Combat tracker ────────────────────────────────────────────────────────────────────────────────
 
@@ -77,8 +79,11 @@ export function CombatPanel({
 	// offered at all rather than opening on nothing.
 	const { conditions: systemConditions } = useConditionCatalog();
 	const running = tracker.status === 'running';
-	const activeCombatant =
-		tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null;
+	// RC-SES-5.1 — during an initiative call (before round 1) nobody is active yet.
+	const call = Initiative.useCall(tracker, { isDm, isLive, previewing });
+	const activeCombatant = call.calling
+		? null
+		: (tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null);
 	const lowest = tracker.combatants
 		.filter((c) => c.resources)
 		.reduce<CombatantRow | null>(
@@ -265,39 +270,43 @@ export function CombatPanel({
 				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-					<div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-						<StatPill
-							label={t('session.combat.round')}
-							value={String(tracker.round)}
-							tone="accent"
-						/>
-						<StatPill label={t('session.combat.turn')} value={String(tracker.turn + 1)} />
-						{lowest && lowest.resources && (
+					{call.calling ? (
+						<Initiative.Banner call={call} onStart={onAdvance} />
+					) : (
+						<div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
 							<StatPill
-								label={t('session.combat.lowestHp')}
-								value={`${lowest.resources.hp}/${lowest.resources.maxHp}`}
-								tone="error"
+								label={t('session.combat.round')}
+								value={String(tracker.round)}
+								tone="accent"
 							/>
-						)}
-						<div style={{ flex: 1 }} />
-						<IconButton
-							icon="chevron-left"
-							label={t('session.combat.previousTurn')}
-							variant="ghost"
-							size="sm"
-							disabled={previewing}
-							onClick={onPrevious}
-						/>
-						<Button
-							variant="primary"
-							size="sm"
-							iconRight="skip"
-							disabled={previewing}
-							onClick={onAdvance}
-						>
-							{t('session.combat.nextTurn')}
-						</Button>
-					</div>
+							<StatPill label={t('session.combat.turn')} value={String(tracker.turn + 1)} />
+							{lowest && lowest.resources && (
+								<StatPill
+									label={t('session.combat.lowestHp')}
+									value={`${lowest.resources.hp}/${lowest.resources.maxHp}`}
+									tone="error"
+								/>
+							)}
+							<div style={{ flex: 1 }} />
+							<IconButton
+								icon="chevron-left"
+								label={t('session.combat.previousTurn')}
+								variant="ghost"
+								size="sm"
+								disabled={previewing}
+								onClick={onPrevious}
+							/>
+							<Button
+								variant="primary"
+								size="sm"
+								iconRight="skip"
+								disabled={previewing}
+								onClick={onAdvance}
+							>
+								{t('session.combat.nextTurn')}
+							</Button>
+						</div>
+					)}
 
 					{/* RC-SES-3.2 — the five-second undo. It sits above the order rather than floating over
 					    it, so it never covers the row the DM is about to touch, and it is a live region so
@@ -342,7 +351,7 @@ export function CombatPanel({
 						}}
 					>
 						{tracker.combatants.map((c) => {
-							const active = c.id === tracker.activeCombatantId;
+							const active = !call.calling && c.id === tracker.activeCombatantId;
 							const sel = c.id === selectedId;
 							const res = c.resources;
 							return (
@@ -383,7 +392,7 @@ export function CombatPanel({
 											color: active ? T.acc : T.sub,
 										}}
 									>
-										{c.statBlock.initiative ?? '—'}
+										{call.initiativeText(c)}
 									</span>
 									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
 									<div style={{ flex: 1, minWidth: 0 }}>
@@ -424,6 +433,7 @@ export function CombatPanel({
 											</button>
 											{c.hidden && <VisibilityChip level="dm-only" compact />}
 											{active && <Badge status="success">{t('session.combat.active')}</Badge>}
+											<Initiative.Badges call={call} row={c} />
 											{c.isBloodied && (
 												<Badge status="warning">{t('session.combat.bloodied')}</Badge>
 											)}
@@ -737,6 +747,7 @@ export function CombatPanel({
 									</>
 								)}
 							</div>
+							<Initiative.Adjust call={call} row={selected} />
 							{isDm && selected.hidden && (
 								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 									{t('session.combat.hiddenNote')}
@@ -762,6 +773,7 @@ export function CombatPanel({
 					/>
 				</div>
 			)}
+			{!running && <Initiative.Idle call={call} />}
 		</Panel>
 	);
 

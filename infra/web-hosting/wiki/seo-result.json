@@ -1,0 +1,52 @@
+{
+	"lighthouseVersion": "12.8.2",
+	"score": 100,
+	"threshold": 90,
+	"fixture": "Public campaign with folder note and session recap",
+	"audits": {
+		"is-crawlable": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"document-title": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"meta-description": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"http-status-code": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"link-text": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"crawlable-anchors": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"robots-txt": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"image-alt": {
+			"score": null,
+			"displayMode": "notApplicable"
+		},
+		"hreflang": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"canonical": {
+			"score": 1,
+			"displayMode": "binary"
+		},
+		"structured-data": {
+			"score": null,
+			"displayMode": "manual"
+		}
+	}
+}
