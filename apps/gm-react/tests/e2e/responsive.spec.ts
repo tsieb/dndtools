@@ -19,12 +19,13 @@ const ROUTES = [
 	'/board',
 ];
 
+const CONTROL_SELECTOR =
+	'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]';
+
 async function clippedControls(page: Page, rootSelector = 'body'): Promise<string[]> {
 	return page
 		.locator(rootSelector)
-		.locator(
-			'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]',
-		)
+		.locator(CONTROL_SELECTOR)
 		.evaluateAll((elements) => {
 			const isClippedWithoutScrollPath = (element: Element, axis: 'x' | 'y') => {
 				const rect = element.getBoundingClientRect();
@@ -48,7 +49,16 @@ async function clippedControls(page: Page, rootSelector = 'body'): Promise<strin
 					const clientSize = axis === 'x' ? parent.clientWidth : parent.clientHeight;
 					return scrollSize <= clientSize + 1;
 				}
-				return true;
+				// No ancestor clips it, so the one scroll path left is the document. The standalone
+				// routes (`/play`, `/join`, `/wiki`) scroll the page rather than a pane. Sideways that is
+				// never a path: a page that scrolls horizontally is the failure
+				// `expectNoHorizontalOverflow` exists for.
+				if (axis === 'x') return true;
+				const root = document.scrollingElement ?? document.documentElement;
+				const scrolls = root.scrollHeight > root.clientHeight + 1;
+				return (
+					!scrolls || start + window.scrollY < -1 || end + window.scrollY > root.scrollHeight + 1
+				);
 			};
 
 			return elements.flatMap((element) => {
@@ -186,6 +196,9 @@ for (const viewport of [
 	{ name: 'rail breakpoint', width: 641, height: 700 },
 	{ name: 'foldable portrait', width: 768, height: 1024 },
 	{ name: 'tablet portrait', width: 853, height: 1280 },
+	// RC-UX-4.3 — the two tablet sizes the rail tier's list/detail split is accepted at.
+	{ name: '820 portrait tablet', width: 820, height: 1180 },
+	{ name: '1024 landscape tablet', width: 1024, height: 768 },
 	{ name: 'desktop-window minimum', width: 720, height: 520 },
 	{ name: 'release rail window', width: 1024, height: 600 },
 	{ name: 'desktop navigation breakpoint', width: 1025, height: 600 },
@@ -713,7 +726,209 @@ test('every player tab uses a single bounded column on a compact phone', async (
 	}
 });
 
-for (const mode of ['200% text', 'reduced motion', 'forced colors'] as const) {
+// RC-UX-2.4 — text scaling and zoom (WCAG 1.4.4 Resize Text, 1.4.10 Reflow). The two settings reach
+// layout differently, so each gets its own sweep across all three navigation tiers:
+//  • Browser zoom scales CSS px along with everything else. To layout, 200% of a window IS a
+//    viewport half its width and height at twice the device pixels, so 200% of 1280×800 is 640×400
+//    at devicePixelRatio 2. The windows below are picked so the zoomed viewport lands on each tier
+//    of useViewport (≤640 phone, ≤1024 rail, desktop above): zooming is how a desktop user ends up
+//    on the phone layout, and the shell has to hold up when that happens.
+//  • A large-text preference raises the default font size and leaves the viewport alone. Only
+//    rem/em text follows it (hence every type token is rem), so that sweep also proves text grew.
+const STANDALONE_ROUTES = ['/play', '/join', '/wiki'];
+
+type NavigationTier = 'phone' | 'rail' | 'desktop';
+
+async function nextFrames(page: Page): Promise<void> {
+	// Settle from a fresh task, as `dispatch` does (RC-ENG-2.6).
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))),
+			),
+	);
+}
+
+/**
+ * Moves to a hash route and waits until its screen, not a placeholder, is what gets measured. The
+ * `h1` the other sweeps wait on is no signal: the shell's TopBar owns it, so it is attached before a
+ * lazily loaded screen has arrived. react-router 6's HashRouter does not navigate inside a
+ * transition, so a screen whose chunk is still loading shows the route `<Suspense>` Boot fallback
+ * in its place, and that fallback is what to wait out.
+ */
+async function settleRoute(page: Page, route: string): Promise<void> {
+	await page.evaluate((next) => {
+		window.location.hash = next;
+	}, route);
+	await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+	await nextFrames(page);
+	await expect(page.getByText('Loading your vault…', { exact: true })).toHaveCount(0, {
+		timeout: 20_000,
+	});
+	await nextFrames(page);
+}
+
+/** Which navigation profile the shell rendered, read from the Primary navigation's geometry. */
+async function navigationTier(page: Page): Promise<NavigationTier | null> {
+	const box = await page.getByRole('navigation', { name: 'Primary' }).boundingBox();
+	if (!box) return null;
+	const viewport = page.viewportSize();
+	if (viewport && box.y > viewport.height / 2) return 'phone';
+	return box.width < 100 ? 'rail' : 'desktop';
+}
+
+/**
+ * Raises the browser's default font size, which is what a large-text preference changes, instead of
+ * injecting an author `html { font-size }` rule. An injected `!important` rule overrides whatever
+ * the app declares on `html`, so it would pass even if the app pinned its root size in px and
+ * ignored the user's preference altogether.
+ */
+async function setDefaultFontSize(page: Page, standardPx: number): Promise<void> {
+	const session = await page.context().newCDPSession(page);
+	await session.send('Page.setFontSizes', {
+		fontSizes: { standard: standardPx, fixed: Math.round(standardPx * 0.8125) },
+	});
+}
+
+/**
+ * A control you scroll to is only reached if nothing sits on top of it once you get there: a fixed
+ * bar covers exactly the edge that scrolling brings a control to. Scrolls each control that starts
+ * off-screen into view, hit-tests its centre, then restores every scroll offset it moved. A control
+ * still off-screen afterwards is `clippedControls`'s to report, and a box under 3px is a visually
+ * hidden control rather than a target.
+ */
+async function controlsCoveredWhenReached(page: Page): Promise<string[]> {
+	return page.locator(CONTROL_SELECTOR).evaluateAll((elements) => {
+		const offsets = new Map<Element, [number, number]>();
+		const covered: string[] = [];
+		for (const element of elements) {
+			const resting = element.getBoundingClientRect();
+			if (resting.width < 3 || resting.height < 3) continue;
+			if (getComputedStyle(element).visibility === 'hidden') continue;
+			if (
+				resting.top >= 0 &&
+				resting.left >= 0 &&
+				resting.bottom <= window.innerHeight &&
+				resting.right <= window.innerWidth
+			) {
+				continue;
+			}
+			for (let node = element.parentElement; node; node = node.parentElement) {
+				if (!offsets.has(node)) offsets.set(node, [node.scrollLeft, node.scrollTop]);
+			}
+			element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			const rect = element.getBoundingClientRect();
+			const x = rect.left + rect.width / 2;
+			const y = rect.top + rect.height / 2;
+			if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) continue;
+			const hit = document.elementFromPoint(x, y);
+			if (!hit || element.contains(hit) || hit.closest('label')?.control === element) continue;
+			const name =
+				element.getAttribute('aria-label') || element.textContent?.trim() || element.tagName;
+			const cover = hit.getAttribute('aria-label') || hit.getAttribute('class') || hit.tagName;
+			covered.push(
+				`${name.replace(/\s+/g, ' ').slice(0, 60)} is under ${cover.slice(0, 60)} once scrolled into view`,
+			);
+		}
+		for (const [node, [left, top]] of offsets) {
+			node.scrollLeft = left;
+			node.scrollTop = top;
+		}
+		return covered;
+	});
+}
+
+async function expectScaledRoutesWhole(page: Page, setting: string): Promise<void> {
+	for (const route of [...ROUTES, ...STANDALONE_ROUTES]) {
+		await settleRoute(page, route);
+		// `/play`, `/join` and `/wiki` render outside AppShell, so they have no `#main-content`.
+		const pane = STANDALONE_ROUTES.includes(route) ? 'html' : '#main-content';
+		await expectNoHorizontalOverflow(page, `${route} ${setting}`, pane, true);
+		expect.soft(await clippedControls(page), `${route} clipped a control ${setting}`).toEqual([]);
+		expect
+			.soft(await controlsCoveredWhenReached(page), `${route} hid a control ${setting}`)
+			.toEqual([]);
+	}
+}
+
+test.describe('200% browser zoom', () => {
+	test.use({ deviceScaleFactor: 2 });
+
+	for (const zoom of [
+		{ tier: 'phone', window: '1280×800', width: 640, height: 400 },
+		{ tier: 'rail', window: '1920×1080', width: 960, height: 540 },
+		{ tier: 'desktop', window: '2560×1440', width: 1280, height: 720 },
+	] as const) {
+		test(`a ${zoom.window} window at 200% keeps every route whole on the ${zoom.tier} tier`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: zoom.width, height: zoom.height });
+			await markOnboarded(page);
+			await gotoRoute(page, '/');
+			await seedFresh(page);
+
+			expect(
+				await page.evaluate(() => ({ ratio: window.devicePixelRatio, width: window.innerWidth })),
+			).toEqual({ ratio: 2, width: zoom.width });
+			await expect.poll(() => navigationTier(page)).toBe(zoom.tier);
+			await expectScaledRoutesWhole(page, `at 200% zoom of a ${zoom.window} window`);
+		});
+	}
+});
+
+for (const large of [
+	{ tier: 'phone', width: 360, height: 640 },
+	{ tier: 'rail', width: 768, height: 1024 },
+	{ tier: 'desktop', width: 1280, height: 800 },
+] as const) {
+	test(`200% large text keeps every route whole on the ${large.tier} tier`, async ({ page }) => {
+		await page.setViewportSize({ width: large.width, height: large.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		await setDefaultFontSize(page, 32);
+
+		// The preference only helps if the app's text follows it: the root takes the doubled default,
+		// and body text (`--text-base`, 0.9375rem) doubles from 15px with it.
+		await expect
+			.poll(() =>
+				page.evaluate(() =>
+					[document.documentElement, document.body].map((el) => getComputedStyle(el).fontSize),
+				),
+			)
+			.toEqual(['32px', '30px']);
+		await expect.poll(() => navigationTier(page)).toBe(large.tier);
+		await expectScaledRoutesWhole(page, 'with 200% large text');
+	});
+}
+
+/**
+ * The sweep hit-tests each control's centre, which is the point a click resolves to — this case
+ * spends the click. Both surfaces are the ones large text used to take away on a phone: /player's
+ * tab bar sat under a sticky vitals bar that had wrapped into a block taller than the pane, and
+ * /board's map tile clipped its own operate row inside an extent the text had outgrown. A real
+ * press carries Playwright's actionability checks (visible, stable, receives pointer events), so it
+ * fails on a covered control the way a user's finger does rather than on geometry.
+ */
+test('200% large text leaves phone controls pressable, not just present', async ({ page }) => {
+	await page.setViewportSize({ width: 360, height: 640 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await setDefaultFontSize(page, 32);
+
+	await settleRoute(page, '/player');
+	await page.locator('#player-tab-resources').click({ timeout: 10_000 });
+	await expect(page.locator('#player-panel-resources')).toBeVisible();
+
+	await settleRoute(page, '/board');
+	const changeMap = page.getByLabel('Change map').first();
+	await changeMap.scrollIntoViewIfNeeded();
+	await expect(changeMap).toBeEnabled();
+	await changeMap.click({ timeout: 10_000 });
+});
+
+for (const mode of ['reduced motion', 'forced colors'] as const) {
 	test(`primary routes remain reachable with ${mode}`, async ({ page }) => {
 		await page.setViewportSize({ width: 360, height: 640 });
 		if (mode === 'reduced motion') await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -721,12 +936,6 @@ for (const mode of ['200% text', 'reduced motion', 'forced colors'] as const) {
 		await markOnboarded(page);
 		await gotoRoute(page, '/');
 		await seedFresh(page);
-		if (mode === '200% text') {
-			await page.addStyleTag({
-				content:
-					'html { font-size: 200% !important; -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }',
-			});
-		}
 
 		for (const route of ROUTES) {
 			await page.evaluate((next) => {
@@ -1101,4 +1310,208 @@ test('the standalone player view has its own skip link into main', async ({ page
 	await expect(page.locator('#player-main')).toBeFocused();
 	// The hash route survives (the app is a HashRouter, so following the href would rewrite it).
 	expect(new URL(page.url()).hash).toBe('#/play');
+});
+
+/**
+ * RC-UX-4.3 — the rail tier's right detail panel contract (`ListDetail`, app/screen-kit.tsx). On a
+ * tablet the open detail sits in a panel to the RIGHT of its list instead of replacing it. Both panes
+ * fill `<main>` and scroll on their own (so `<main>` never does), the detail is a labelled region,
+ * neither pane widens, and nothing in either is clipped.
+ */
+async function expectListDetailSplit(page: Page, screen: string, viewportWidth: number) {
+	const list = page.locator('[data-pane="list"]');
+	const detail = page.locator('[data-pane="detail"]');
+	await expect(detail, `${screen} opened no detail pane`).toBeVisible();
+	await expect(detail, `${screen} detail pane has no accessible name`).toHaveAttribute(
+		'aria-label',
+		/\S/,
+	);
+	await page.waitForTimeout(100);
+	const listBox = await list.boundingBox();
+	const detailBox = await detail.boundingBox();
+	expect(listBox, `${screen} list pane is not rendered`).not.toBeNull();
+	expect(detailBox, `${screen} detail pane is not rendered`).not.toBeNull();
+	if (!listBox || !detailBox) return;
+	expect(listBox.width, `${screen} list pane is narrower than one card`).toBeGreaterThanOrEqual(
+		279,
+	);
+	expect(detailBox.x, `${screen} detail must sit to the right of the list`).toBeGreaterThanOrEqual(
+		listBox.x + listBox.width - 1,
+	);
+	expect(Math.abs(detailBox.y - listBox.y), `${screen} panes must share a top edge`).toBeLessThan(
+		2,
+	);
+	expect(detailBox.x + detailBox.width).toBeLessThanOrEqual(viewportWidth + 1);
+	expect(detailBox.width, `${screen} detail pane is too narrow to read`).toBeGreaterThanOrEqual(
+		400,
+	);
+
+	const mainOverflow = await page
+		.locator('#main-content')
+		.evaluate((main) => main.scrollHeight - main.clientHeight);
+	expect(mainOverflow, `${screen} scrolled <main> instead of its panes`).toBeLessThanOrEqual(2);
+	for (const selector of ['#main-content', '[data-pane="list"]', '[data-pane="detail"]']) {
+		await expectNoHorizontalOverflow(page, screen, selector);
+	}
+	expect(await clippedControls(page), `${screen} clipped a control`).toEqual([]);
+}
+
+for (const viewport of [
+	{ name: '1024x768 landscape tablet', width: 1024, height: 768 },
+	{ name: '820x1180 portrait tablet', width: 820, height: 1180 },
+]) {
+	test(`list/detail screens open a right detail panel beside the list on a ${viewport.name}`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: viewport.width, height: viewport.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		const noteTitle = `Split pane note ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'content.create-item',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: {
+				kind: 'note',
+				title: noteTitle,
+				body: 'Read beside the list.',
+				visibility: 'dm-only',
+			},
+		});
+		expect(created.status).toBe('accepted');
+
+		const list = page.locator('[data-pane="list"]');
+		const detail = page.locator('[data-pane="detail"]');
+
+		// Characters, by keyboard: Enter on a roster card moves focus INTO the pane, the card is marked
+		// as the open one, and the sheet's own back button closes the pane and returns focus to it.
+		await gotoRoute(page, '/characters');
+		const card = list.locator('[data-roster-card]').first();
+		const cardName = await card.getAttribute('aria-label');
+		expect(cardName, 'the seeded roster should contain a character').toBeTruthy();
+		await card.focus();
+		await card.press('Enter');
+		await expect(detail).toBeFocused();
+		await expect(detail).toHaveAttribute('aria-label', cardName!);
+		await expect(card).toHaveAttribute('aria-current', 'true');
+		await expectListDetailSplit(page, '/characters/:id', viewport.width);
+		await detail.getByRole('button', { name: 'Characters', exact: true }).click();
+		await expect(detail).toHaveCount(0);
+		await expect(card).toBeFocused();
+		await expectNoHorizontalOverflow(page, 'closed /characters pane', '[data-pane="list"]');
+
+		// Knowledge: the note reads beside the note list, which stays in view.
+		await gotoRoute(page, '/knowledge');
+		await list.getByText(noteTitle, { exact: true }).click();
+		await expect(detail).toHaveAttribute('aria-label', noteTitle);
+		await expect(list.getByText(noteTitle, { exact: true })).toBeVisible();
+		await expectListDetailSplit(page, '/knowledge/:id', viewport.width);
+		await detail.getByRole('button', { name: 'Notes', exact: true }).click();
+		await expect(detail).toHaveCount(0);
+
+		// Campaign: the quest editor opens in the pane instead of pushing the cards down the page.
+		await gotoRoute(page, '/campaign');
+		await list.getByRole('button', { name: /^(New quest|Create the first quest)$/ }).click();
+		await expect(detail).toBeFocused();
+		await expect(detail).toHaveAttribute('aria-label', 'New quest');
+		await expectListDetailSplit(page, '/campaign quest editor', viewport.width);
+		await detail.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await expect(detail).toHaveCount(0);
+
+		// Atlas: the map library keeps the list pane and the selected map fills the detail pane.
+		await gotoRoute(page, '/atlas');
+		await expectListDetailSplit(page, '/atlas', viewport.width);
+
+		// Desktop keeps its full-width pages: nothing splits once the viewport leaves the rail tier.
+		await page.setViewportSize({ width: 1280, height: 800 });
+		await expect(page.locator('[data-pane]')).toHaveCount(0);
+	});
+}
+
+/**
+ * RC-UX-4.3 — crossing the split width must not DISCARD TYPED WORK.
+ *
+ * A tablet rotates between 820×1180 (split) and 1180×820 (a full-width desktop page), and the
+ * list/detail screens lay themselves out differently on either side of that line. Layout is all that
+ * may change: an editor the DM is part-way through has to still be there, holding every value, in
+ * both directions. The first cut of this story swapped whole subtrees at the breakpoint, so a
+ * rotation emptied an unsaved quest with no warning and no undo.
+ */
+test('rotating across the split width keeps an unsaved draft', async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+
+	const detail = page.locator('[data-pane="detail"]');
+	const questTitle = 'Unsaved tablet quest';
+	const questHook = 'Typed in portrait, still here in landscape.';
+
+	// Campaign — the quest editor, opened in the tablet's detail pane and filled in there.
+	await gotoRoute(page, '/campaign');
+	await page.getByRole('button', { name: /^(New quest|Create the first quest)$/ }).click();
+	await expect(detail).toBeVisible();
+	await detail.getByLabel('Title').fill(questTitle);
+	await detail.getByLabel('Hook & journal').fill(questHook);
+
+	// Rotate to landscape, past the split width: the editor goes back inline above the cards.
+	await page.setViewportSize({ width: 1180, height: 820 });
+	await expect(page.locator('[data-pane]')).toHaveCount(0);
+	await expect(page.getByLabel('Title')).toHaveValue(questTitle);
+	await expect(page.getByLabel('Hook & journal')).toHaveValue(questHook);
+
+	// And back into the pane, still whole. (Cancel, and the draft is gone for good — as asked.)
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(detail.getByLabel('Title')).toHaveValue(questTitle);
+	await expect(detail.getByLabel('Hook & journal')).toHaveValue(questHook);
+	await detail.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await page.getByRole('button', { name: /^(New quest|Create the first quest)$/ }).click();
+	await expect(detail.getByLabel('Title')).toHaveValue('');
+
+	// Atlas — the same contract for the "New map" form, which lives in the list pane. Its map editor
+	// overlay also has to ride out the rotation rather than reopening on a blank canvas.
+	await gotoRoute(page, '/atlas');
+	const mapName = 'Unsaved tablet map';
+	await page.getByRole('button', { name: 'New map' }).click();
+	await page.getByLabel('Name').fill(mapName);
+	await page.setViewportSize({ width: 1180, height: 820 });
+	await expect(page.locator('[data-pane]')).toHaveCount(0);
+	await expect(page.getByLabel('Name')).toHaveValue(mapName);
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(page.getByLabel('Name')).toHaveValue(mapName);
+});
+
+/**
+ * The detail pane and the full-width page are the SAME mount, so a rotation cannot reset what is open
+ * in the detail either — here the character sheet, which is put into edit mode BEFORE the rotation.
+ * That mode is the sheet's own state: it comes back as "Edit" if the sheet was remounted.
+ */
+test('rotating across the split width keeps the open detail mounted', async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+
+	await gotoRoute(page, '/characters');
+	const detail = page.locator('[data-pane="detail"]');
+	const card = page.locator('[data-roster-card]').first();
+	const cardName = await card.getAttribute('aria-label');
+	await card.click();
+	await expect(detail).toBeVisible();
+	await detail.getByRole('button', { name: 'Edit', exact: true }).click();
+	await expect(detail.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+
+	// Landscape: the sheet is a full-width page again, the same instance, still in edit mode.
+	await page.setViewportSize({ width: 1180, height: 820 });
+	await expect(page.locator('[data-pane]')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+
+	// Portrait again: back beside the roster, which is showing the sheet's character as the open one.
+	await page.setViewportSize({ width: 820, height: 1180 });
+	await expect(detail.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	await expect(detail).toHaveAttribute('aria-label', /\S/);
+	await expect(page.locator(`[data-roster-card][aria-label="${cardName}"]`)).toHaveAttribute(
+		'aria-current',
+		'true',
+	);
 });

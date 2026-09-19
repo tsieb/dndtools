@@ -106,7 +106,8 @@ const DEMO_FACTIONS = [
 			stance: 'hostile',
 			leader: 'Mother Sild',
 			goals: ['Wake what sleeps below the vaults', 'Keep the shipment route open through the 14th'],
-			secret: 'Sild doesn’t lead the cult so much as translate for it. If the Bell rings twice, she stops being in charge.',
+			secret:
+				'Sild doesn’t lead the cult so much as translate for it. If the Bell rings twice, she stops being in charge.',
 		},
 	},
 	{
@@ -132,7 +133,8 @@ const DEMO_FACTIONS = [
 			stance: 'friendly',
 			leader: 'Dockmaster Pell',
 			goals: ['Keep the docks working through the trouble'],
-			secret: 'Pell’s the leak — the tide schedule that let the cult take the shipment came from his own hand.',
+			secret:
+				'Pell’s the leak — the tide schedule that let the cult take the shipment came from his own hand.',
 		},
 	},
 ] as const;
@@ -164,7 +166,8 @@ const DEMO_WIKILINK_APPENDS = [
 const DEMO_SCENES = [
 	{
 		name: 'The Sunken Crypt',
-		description: 'A flooded antechamber beneath the old keep — the reliquary lies past the broken seal.',
+		description:
+			'A flooded antechamber beneath the old keep — the reliquary lies past the broken seal.',
 		visibility: 'dm-only',
 		tags: ['dungeon', 'combat'],
 		seedWidgets: true,
@@ -290,6 +293,26 @@ function sourceIdFromResult(result: CommandResult): string | null {
 	return null;
 }
 
+/** The first entity (by name) of one of `entityTypes` that a seeded widget can bind to, if any. */
+function bindableEntity(
+	state: CoreStateSlice,
+	entityTypes: readonly string[],
+): { entityType: string; entityId: string } | null {
+	for (const entityType of entityTypes) {
+		const candidates =
+			entityType === 'character'
+				? Object.entries(state.characters.characters).map(([id, c]) => ({ id, name: c.name }))
+				: entityType === 'map'
+					? Object.values(state.maps.maps).map((m) => ({ id: m.id, name: m.name }))
+					: Object.values(state.content.items)
+							.filter((item) => item.kind === entityType && isLiveContentItem(item))
+							.map((item) => ({ id: item.id, name: item.title }));
+		const first = candidates.sort((a, b) => a.name.localeCompare(b.name))[0];
+		if (first) return { entityType, entityId: first.id };
+	}
+	return null;
+}
+
 export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 	const actorId = rt.defaultActorId;
 	// Capture emptiness UP FRONT so a partial seed never double-seeds on the next load. Each category
@@ -334,6 +357,16 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 			? [{ name: pc.name, characterId: existing[0], owner: pc.owner }]
 			: [];
 	});
+	// RC-ENG-8.2 backfill: a home board created before its Map tile was bound on creation opens on
+	// "The linked map is missing or was removed." `command-center.ensure-home` repairs exactly that
+	// (it binds an unbound Map tile to the default map), so it runs when the board has one and the
+	// vault has a map to bind. A fresh vault's board is created bound, by the Board screen, after this.
+	const homeScene = rt.state.commandCenter.homeSceneId
+		? rt.state.scenes.scenes[rt.state.commandCenter.homeSceneId]
+		: undefined;
+	const needHomeMapBinding =
+		Object.keys(rt.state.maps.maps).length > 0 &&
+		(homeScene?.widgets.some((widget) => widget.type === 'map' && !widget.binding) ?? false);
 	if (
 		!needCharacters &&
 		!needNotes &&
@@ -342,6 +375,7 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		!needAudio &&
 		!needFactions &&
 		!needWikilinks &&
+		!needHomeMapBinding &&
 		ownerGrantBackfill.length === 0
 	)
 		return false;
@@ -349,7 +383,10 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 	// Surface a swallowed rejection in dev so a mis-shaped seed datum is visible, not silently dropped.
 	const expect = (result: CommandResult, label: string): CommandResult => {
 		if (result.status === 'rejected' && import.meta.env.DEV) {
-			console.warn(`[demo-seed] "${label}" was rejected:`, result.rejection?.message ?? result.rejection);
+			console.warn(
+				`[demo-seed] "${label}" was rejected:`,
+				result.rejection?.message ?? result.rejection,
+			);
 		}
 		return result;
 	};
@@ -400,7 +437,11 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 				await step('abilities', { ...pc.abilities });
 				await step('class', { class: pc.klass });
 				const finalized = expect(
-					await rt.dispatch({ type: 'character.finalize-draft', actorId: pc.owner, payload: { draftId } }),
+					await rt.dispatch({
+						type: 'character.finalize-draft',
+						actorId: pc.owner,
+						payload: { draftId },
+					}),
 					`finalize ${pc.name}`,
 				);
 				const characterId = eventField(finalized, 'character.created', 'characterId');
@@ -489,7 +530,11 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		// (the dated notes' dates are validated against it on dispatch).
 		if (needCalendar) {
 			expect(
-				await rt.dispatch({ type: 'content.define-calendar', actorId, payload: { ...DEMO_CALENDAR, months: [...DEMO_CALENDAR.months] } }),
+				await rt.dispatch({
+					type: 'content.define-calendar',
+					actorId,
+					payload: { ...DEMO_CALENDAR, months: [...DEMO_CALENDAR.months] },
+				}),
 				'calendar',
 			);
 			for (const n of DEMO_DATED_NOTES) {
@@ -536,10 +581,21 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 			}
 		}
 
+		if (needHomeMapBinding) {
+			expect(
+				await rt.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} }),
+				'home map binding',
+			);
+		}
+
 		// Now-playing session audio: configure a declared web-stream source, then play it as the track.
 		if (needAudio) {
 			const configured = expect(
-				await rt.dispatch({ type: 'audio.configure-source', actorId, payload: { ...DEMO_AUDIO.source } }),
+				await rt.dispatch({
+					type: 'audio.configure-source',
+					actorId,
+					payload: { ...DEMO_AUDIO.source },
+				}),
 				'audio source',
 			);
 			const sourceId = sourceIdFromResult(configured);
@@ -560,12 +616,19 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 				const result = await rt.dispatch({
 					type: 'scene.create',
 					actorId,
-					payload: { name: s.name, description: s.description, visibility: s.visibility, tags: [...s.tags] },
+					payload: {
+						name: s.name,
+						description: s.description,
+						visibility: s.visibility,
+						tags: [...s.tags],
+					},
 				});
 				if (!s.seedWidgets) continue;
 				const sceneId = sceneIdFromResult(result);
 				if (!sceneId) continue;
-				// Place the first few library widgets so the scene editor opens populated, not empty.
+				// Place the first few library widgets so the scene editor opens populated, not empty. A widget
+				// that requires a binding is bound to a seeded entity of its type, or left out when the vault
+				// has none: placed unbound, the Character tile opened on "No character linked" (RC-ENG-8.2).
 				const library = listWidgetLibrary(rt.state.widgets, rt.state.permissions, actorId, {
 					profileId: 'desktop',
 					includeUnavailable: false,
@@ -574,7 +637,22 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 				for (const entry of library) {
 					const command = resolveAddWidgetCommand(entry, sceneId, { x: 48 + i * 280, y: 48 });
 					if (!command) continue;
-					await rt.dispatch({ type: command.type, actorId, payload: command.payload });
+					const required = entry.requiredBindings[0];
+					const target = required ? bindableEntity(rt.state, required.entityTypes) : null;
+					if (required && !target) continue;
+					const binding =
+						required && target
+							? {
+									source: target,
+									mode: required.mode,
+									requiredCapability: required.requiredCapability,
+								}
+							: null;
+					await rt.dispatch({
+						type: command.type,
+						actorId,
+						payload: { ...command.payload, widget: { ...command.payload.widget, binding } },
+					});
 					i += 1;
 				}
 			}

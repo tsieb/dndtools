@@ -95,7 +95,7 @@ export function WidgetBody({
 	switch (widget.type) {
 		case 'note':
 		case 'handout':
-			return <NoteBody widget={widget} />;
+			return <NoteBody widget={widget} editing={!onCommand} />;
 		case 'dice':
 			return <DiceBody widget={widget} onCommand={onCommand} />;
 		case 'timer':

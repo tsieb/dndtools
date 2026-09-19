@@ -13,6 +13,7 @@
 | Smoke gate         | `pnpm test:smoke`                                                        | boundary lint + typecheck + the curated critical subset (`packages/core/vitest.smoke.config.ts`), about 30s     |
 | Browser E2E        | `pnpm e2e`                                                               | Playwright specs in `apps/gm-react/tests/e2e/` on `desktop-chromium` and `mobile-chromium`                      |
 | Accessibility gate | `pnpm a11y:gate`                                                         | non-text contrast lint + axe on both profiles + merged report                                                   |
+| Visual regression  | `apps/gm-react/tests/visual/run-in-container.sh`                         | golden-route screenshots, every theme × desktop/rail/phone, in the pinned Playwright image (§8)                 |
 | Performance        | `pnpm perf:capture` then `pnpm perf:compare`                             | see [PERFORMANCE.md](PERFORMANCE.md)                                                                            |
 | Android native     | `./gradlew testReleaseUnitTest lintRelease` from `apps/gm-react/android` | Java unit tests and Android lint; the emulator matrix is in the [Android runbook](../runbooks/android-alpha.md) |
 | Whole application  | `pnpm validate`                                                          | the staged, capability-gated harness (§3)                                                                       |
@@ -27,7 +28,7 @@ already listening on :5273.
 
 Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
 raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
-12 min, `accessibility` 5 min. The core suite runs with `isolate: false` because it is framework-free
+12 min, `accessibility` 5 min, `visual-regression` 10 min. The core suite runs with `isolate: false` because it is framework-free
 and each isolated file re-imported the whole module graph.
 
 ## 2. Mandatory rules
@@ -40,6 +41,7 @@ and each isolated file re-imported the whole module graph.
 - Mobile UI changes cover compact portrait, short landscape, tablet, 200% text, reduced motion,
   forced colors, safe areas, and a keyboard-reduced viewport; targets are checked at 48px.
 - Playwright's `newPage()` is a fresh browser context with no shared IndexedDB.
+- A `page.evaluate` that awaits app work waits for a fresh task before returning (§6).
 - CI or gate changes update this document in the same change.
 
 ## 3. `pnpm validate`
@@ -100,3 +102,128 @@ pnpm ai:verify:local
 
 Semantic search embeds once per note revision and caches vectors device-local; with no daemon a new
 query reports `lexical-only` rather than failing. Switching embedding models re-embeds the vault.
+
+## 6. "Execution context was destroyed" with no navigation
+
+`combat-audio-automation.spec.ts` and `systems.spec.ts` used to fail on mobile-chromium under load
+with `page.evaluate: Execution context was destroyed, most likely because of a navigation`
+(RC-ENG-2.6). Nothing navigated. The failure screenshots kept state that only lives in React (the
+selected Audio tab, toasts from earlier steps), Playwright launches Chromium with the back-forward
+cache off, a traced run loaded each test's document exactly once, and a cold full-suite run printed
+no Vite reload.
+
+The protocol error underneath is V8's `Promise was collected`. Playwright's Chromium layer reports
+every protocol error that is not a page exception with the navigation message. When a
+`page.evaluate` function returns a promise, the inspector holds that promise weakly, and one
+microtask slot passes between the promise settling and the inspector reading it. A full GC in that
+slot collects the settled promise and fails the call. The slot is empty unless the app has work
+queued behind the promise. In combat-audio it always has: `combat.start` fires the audio automation
+driver, which queues `session.audio.play` right behind it, and that command's reducer and Dexie
+write run inside the slot. Memory pressure makes full GCs frequent, so the failure tracked machine
+load and never appeared on an idle machine, with or without a 4× CPU throttle.
+
+To reproduce it on demand, make every young-generation GC a full one:
+
+```bash
+DNDTOOLS_E2E_JS_FLAGS='--gc-global --max-semi-space-size=1' DNDTOOLS_E2E_PORT=<free port> \
+  npx playwright test tests/e2e/combat-audio-automation.spec.ts --project=mobile-chromium --retries=0
+```
+
+Before the fix that failed 3 of 3 at `combat-audio-automation.spec.ts:12`, and `DEBUG=pw:protocol`
+showed `Promise was collected` for each failure.
+
+The fix is in the helpers, not the retry count. An evaluate that awaits app work waits for a fresh
+task (`await new Promise((resolve) => setTimeout(resolve, 0))`) before it returns, so only the
+inspector's own job runs in that slot. `dispatch()` in `_helpers.ts` does this and returns only
+`status`, `rejection` and `events`; the runtime's `nextState` is the whole vault. Write any new
+async evaluate the same way, or poll with `page.waitForFunction`, which retries this error. About 36
+async evaluates in other specs still return straight off app work and carry the same exposure.
+
+Two opt-in switches in `_helpers.ts` help with the next hunt of this kind: `DNDTOOLS_E2E_CPU_THROTTLE=4`
+slows the renderer, and `DNDTOOLS_E2E_TRACE_NAV=1` logs main-frame navigations, the Vite client's
+console lines, and the stack behind each unload.
+
+## 7. Docs check
+
+`pnpm gates` runs `scripts/validate/docs-links.ts` over `docs/` and fails when:
+
+- a relative link (inline, image, or a `[label]: path` definition) points at a missing file or
+  directory. Links inside code spans and fenced blocks are skipped;
+- a file under `docs/` is not reachable from `docs/README.md` through relative links. A directory
+  link covers everything beneath it, which is how `design-package/` and `run-journals/` are reached;
+- a string another tool reads is gone: the four `test:*` script names in this file
+  (`tests/unit/ci-guardrails.test.ts`), or `i18n-catalog.ts export` and `import` in LOCALIZATION.md
+  (`tests/unit/i18n-catalog.test.ts`);
+- an ADR's `- Status:` line differs from its Status cell in `docs/adr/README.md`, or the index and
+  the ADR files disagree about which ADRs exist.
+
+`pnpm gates --docs-root <dir>` runs the same check against another tree, such as a fixture. A new doc
+string that tooling depends on gets an entry in `DOCS_COUPLINGS`.
+
+## 8. Visual regression (golden routes)
+
+`apps/gm-react/tests/visual/golden-routes.spec.ts` (RC-DSN-4.1) screenshots the golden routes:
+Command Center, `/board`, `/scenes`, `/characters`, `/knowledge`, `/campaign`, `/session`,
+`/player`, `/settings`, `/scene/:id`, `/atlas` with the map editor open, `/play`, `/display`,
+`/wiki`, and RC-DSN-2.3's DEV-only DS gallery at `#/__ds`. Each is captured in every theme in the
+spec's `THEMES` on three projects, one per `useViewport` tier: `visual-desktop` (1280×800),
+`visual-rail` (834×1112) and `visual-phone` (393×851, touch), all at a device scale factor of 1.
+Every capture is a `toHaveScreenshot` comparison against a PNG committed under
+`apps/gm-react/tests/visual/__screenshots__/<project>/`.
+
+The visual projects exist only when `DNDTOOLS_VISUAL=1`, and then they replace the functional ones,
+so `pnpm e2e` and the browser-E2E shards never compare pixels. What holds a capture still: a fixed
+clock (`page.clock.setFixedTime`), a seeded `Math.random`, UTC and en-US, reduced motion,
+animations and the caret disabled, fonts awaited, font hinting, subpixel positioning and LCD text
+off, sRGB output, service workers blocked, and the fresh first-run vault. Up to 40 differing pixels
+per image are tolerated for canvas anti-aliasing; more than that fails.
+
+Baselines are rendered in one place only: the pinned `mcr.microsoft.com/playwright:v1.61.1-noble`
+image. Font rasterisation differs between distributions, so a baseline written on a Fedora host
+diffs on every Ubuntu CI run. The config refuses a visual run outside the image (the image sets
+`PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`) unless `DNDTOOLS_VISUAL_HOST=1`, which is for local
+iteration only; never commit what a host run writes.
+
+```bash
+pnpm install                                                                  # once; the container reuses node_modules
+apps/gm-react/tests/visual/run-in-container.sh                                # compare with the baselines
+apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=changed     # re-baseline what changed
+apps/gm-react/tests/visual/run-in-container.sh --project=visual-phone -g board
+node apps/gm-react/tests/visual/check-baseline-budget.mjs                     # the size budget CI enforces
+```
+
+The script uses podman or docker (`CONTAINER_ENGINE` overrides the choice), mounts the checkout at
+its own path, and passes its arguments to `playwright test`. After a failure,
+`apps/gm-react/test-results/` holds the `-actual`, `-expected` and `-diff` PNG for each screenshot.
+
+**Updating baselines.** A change that moves pixels on purpose re-baselines in the same PR. Run the
+update command, open every rewritten PNG (`git status` lists them), and commit them with the change;
+the reviewer reads a baseline diff as part of the change. Without a container engine, run the CI
+workflow by hand on the branch (Actions › CI › Run workflow) with **update-visual-baselines**
+ticked. The `visual-regression` job then rewrites the changed baselines and uploads them as the
+`visual-baselines` artifact; unpack it over `apps/gm-react/tests/visual/__screenshots__/` and
+commit.
+
+**CI.** The `visual-regression` job in `ci.yml` runs in the same image, pinned by digest, whenever
+`apps/gm-react/src`, `public`, `index.html`, the Vite or Playwright config, the app's
+`package.json`, `packages/core` (the first-run seed), the lockfile, the suite itself or `ci.yml`
+changes, and on every manual dispatch. It checks the size budget and then compares with
+`--update-snapshots=none`, so a diff or a missing baseline fails the job and blocks the merge. The
+`visual-regression-report` artifact holds the HTML report and the diff images.
+
+**Size budget.** The repo does not use Git LFS, so baselines live in ordinary history and every
+re-baseline adds its full size again. `check-baseline-budget.mjs` caps a single PNG at 320 KiB and
+the whole set at 32 MiB, which fits the three current themes with room for RC-DSN-1.2's five.
+Captures stay viewport-sized: a full-page capture or a device scale factor above 1 is what the
+per-file cap catches.
+
+**Adding a surface or a theme.** Add the route to `SHELLED_ROUTES` (or give it its own test) or the
+theme to `THEMES`, run the update command, and commit the new PNGs with the change. RC-DSN-1.2 adds
+Scholar and Dungeon, which is 45 more PNGs. Delete a surface's PNGs when the surface goes:
+Playwright never removes orphaned baselines. A surface with no committed baseline fails CI (the job
+compares with `--update-snapshots=none`), so the capture and its PNGs land in one commit.
+
+**Bumping Playwright.** The image carries exactly one browser build. Bump `@playwright/test`, the
+image tag and digest in `ci.yml`, and `run-in-container.sh` together, then re-baseline everything
+with `--update-snapshots=all`, because a new Chromium usually moves text by a pixel. A mismatched
+pair fails loudly with "Executable doesn't exist".

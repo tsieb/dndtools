@@ -1,10 +1,24 @@
 import type React from 'react';
-import { Badge, Button, Card, Icon, IconButton, Select } from '../../ds';
+import { useId, useState } from 'react';
+import {
+	resolveWidgetStyleVariables,
+	permissionsWithPreviewActors,
+	PREVIEW_PLAYER_ACTOR_ID,
+} from '@dndtools/core';
+import { Badge, Button, Card, Icon, IconButton, Select, Tabs, tabPanelProps } from '../../ds';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { SEMANTIC_TOKEN_VALUES } from '../../app/widgetBuilder/vocabulary';
 import { WidgetGlyph } from '../../app/SceneBoardCanvas';
 import { isWidgetResizable, TIER_LABEL, type BoardWidget } from '../../app/board-helpers';
 import { PHONE_PANEL_OVERLAY, type Visibility } from './shared';
-import { FieldControl, Section } from './fields';
+import { FieldControl, Section, TransformPanel } from './fields';
+import { bindingSlot } from '../../app/canvas/TileDialogs';
+import { BindingInspector } from './BindingInspector';
+import { readPlayerPreview } from './playerPreview';
+import { inspectorLabels } from './shared';
 import { useI18n } from '../../i18n';
+import { CanvasWidgetBuilder } from '../../app/widgetBuilder';
+import { readPackage, type WidgetDraft } from '../../app/widgetBuilder/draft';
 
 /**
  * Inspector — the right-docked editor for the selected widget, TIERED after the prototype's
@@ -13,7 +27,8 @@ import { useI18n } from '../../i18n';
  * data-driven customization surface) as live controls — a Note's heading/body, a Dice widget's
  * formulas, a Timer's duration, an Initiative tracker's HP toggle — each round-tripped through
  * `scene.configure-widget`. Binding-backed content (a Map's map, a Character's sheet) is shown LOCKED:
- * it is managed by the widget's data binding, not free-form configuration.
+ * it is managed by the widget's data binding, not free-form configuration — which the Binding section
+ * (RC-WID-4.3, `BindingInspector`) edits, for any widget whose definition declares a binding slot.
  */
 export function Inspector({
 	widget,
@@ -22,6 +37,7 @@ export function Inspector({
 	onVisibility,
 	onConfigure,
 	onResize,
+	onMove,
 	onFocusOrder,
 	onRemove,
 	onClose,
@@ -33,212 +49,415 @@ export function Inspector({
 	onVisibility: (v: Visibility) => void;
 	onConfigure: (key: string, value: unknown) => void;
 	onResize: (w: number, h: number) => void;
+	/** RC-CAN-3.6 — the numeric X/Y fields. A host that routes moves through its undo stack passes
+	 *  its own; otherwise the panel dispatches `scene.move-widget` directly (not undoable). */
+	onMove?: (x: number, y: number) => void;
 	onFocusOrder: (order: number | null) => void;
 	onRemove: () => void;
 	onClose: () => void;
 }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
+	const labels = inspectorLabels(locale);
+	// Open at the tile's primary controls: binding source, note depth, or editable content.
+	const [tab, setTab] = useState(
+		widget.requiresBinding ? 'binding' : widget.type === 'note' ? 'display' : 'content',
+	);
+	const tabId = useId();
 	// `visibility` has its own dedicated control; never surface it twice if a widget also declares it.
 	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
 	const resizable = isWidgetResizable(widget);
+	// RC-WID-2.4 — the `--widget-*` tokens the package declared. A system widget's default
+	// accent/text pair is consumed by no host body, so listing it would present knobs that do nothing;
+	// the group shows what a package AUTHOR declared.
+	const styleTokens = widget.tier === 'system' ? [] : (widget.styleTokens ?? []);
+	// Resolved the way the frame resolves them (instance overrides included), and set on the group so
+	// each swatch reads the same `var()` the placed widget does and re-themes with `data-theme`.
+	const styleVariables = resolveWidgetStyleVariables(
+		{ style: { isolation: 'host-scoped', tokens: styleTokens } },
+		widget.configuration,
+	);
+	const runtime = useRuntime();
+	const [builderDraft, setBuilderDraft] = useState<WidgetDraft | null>(null);
+	const editablePackage = Object.values(runtime.state.widgets.packages).find(
+		(record) =>
+			!record.removedAt &&
+			record.package.authoring?.source === 'user-authored' &&
+			// The builder edits one definition; never discard siblings from an imported bundle.
+			record.package.widgets.length === 1 &&
+			record.package.widgets[0]?.type === widget.type,
+	);
+	const canEditDefinition =
+		!runtime.preview && runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
+	const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
+		candidate.widgets.some((instance) => instance.id === widget.id),
+	);
+	const playerVerdict = scene
+		? readPlayerPreview(
+				{ ...runtime.state, permissions: permissionsWithPreviewActors(runtime.state.permissions) },
+				PREVIEW_PLAYER_ACTOR_ID,
+				scene.id,
+			).tiles[widget.id]
+		: undefined;
+	const tabs = ['content', 'display', 'style', 'binding', 'transform', 'visibility'].map((id) => ({
+		id,
+		label: labels[id as keyof typeof labels],
+	}));
+	const move =
+		onMove ??
+		((x: number, y: number) => {
+			const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
+				candidate.widgets.some((instance) => instance.id === widget.id),
+			);
+			if (!scene) return;
+			void runtime.dispatch({
+				type: 'scene.move-widget',
+				actorId: runtime.defaultActorId,
+				payload: { sceneId: scene.id, widgetInstanceId: widget.id, x, y },
+			});
+		});
+	const tokenValueLabel = (value: string) => {
+		const semantic = SEMANTIC_TOKEN_VALUES.find((option) => option.value === value);
+		return semantic ? t(semantic.label) : value;
+	};
 	return (
-		<Card
-			elevation="overlay"
-			padding="md"
-			data-testid="widget-inspector"
-			onKeyDown={(e: React.KeyboardEvent) => {
-				if (e.key === 'Escape') {
-					e.stopPropagation();
-					onClose();
-				}
-			}}
-			style={{
-				width: 288,
-				flex: '0 0 auto',
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 'var(--space-1)',
-				maxHeight: '100%',
-				overflow: 'auto',
-				...(phone ? PHONE_PANEL_OVERLAY : {}),
-			}}
-		>
-			<div
+		<>
+			{builderDraft && (
+				<CanvasWidgetBuilder draft={builderDraft} onClose={() => setBuilderDraft(null)} />
+			)}
+			<Card
+				elevation="overlay"
+				padding="md"
+				data-testid="widget-inspector"
+				onKeyDown={(e: React.KeyboardEvent) => {
+					if (e.key === 'Escape') {
+						e.stopPropagation();
+						onClose();
+					}
+				}}
 				style={{
+					width: 288,
+					flex: '0 0 auto',
 					display: 'flex',
-					alignItems: 'center',
-					gap: 'var(--space-2)',
-					paddingBottom: 'var(--space-2)',
+					flexDirection: 'column',
+					gap: 'var(--space-1)',
+					maxHeight: '100%',
+					overflow: 'auto',
+					...(phone ? PHONE_PANEL_OVERLAY : {}),
 				}}
 			>
-				<WidgetGlyph icon={widget.icon} size="sm" />
-				<span
+				<div
 					style={{
-						flex: 1,
-						minWidth: 0,
-						font: '700 var(--text-md) var(--font-display)',
-						color: 'var(--color-text-primary)',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
-						whiteSpace: 'nowrap',
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-2)',
+						paddingBottom: 'var(--space-2)',
 					}}
 				>
-					{widget.title}
-				</span>
-				<IconButton
-					icon="close"
-					label={t('sceneEditor.closeInspector')}
-					variant="ghost"
-					size="sm"
-					onClick={onClose}
-				/>
-			</div>
-			<Badge status={widget.tier === 'system' ? 'neutral' : 'accent'}>
-				{TIER_LABEL[widget.tier]}
-			</Badge>
+					<WidgetGlyph icon={widget.icon} size="sm" />
+					<span
+						style={{
+							flex: 1,
+							minWidth: 0,
+							font: '700 var(--text-md) var(--font-display)',
+							color: 'var(--color-text-primary)',
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+							whiteSpace: 'nowrap',
+						}}
+					>
+						{widget.title}
+					</span>
+					<IconButton
+						icon="close"
+						label={t('sceneEditor.closeInspector')}
+						variant="ghost"
+						size="sm"
+						onClick={onClose}
+					/>
+				</div>
+				<Badge status={widget.tier === 'system' ? 'neutral' : 'accent'}>
+					{TIER_LABEL[widget.tier]}
+				</Badge>
 
-			{(settingsFields.length > 0 || widget.requiresBinding) && (
-				<Section label={t('sceneEditor.settings')}>
-					{widget.requiresBinding && (
-						<div
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 6,
-								padding: 'var(--space-2)',
-								borderRadius: 'var(--radius-sm)',
-								background: 'var(--color-surface-sunken)',
-								font: '500 var(--text-2xs)/1.4 var(--font-sans)',
-								color: 'var(--color-text-tertiary)',
-							}}
-						>
-							<Icon name="lock" size={12} />
-							{t(
-								widget.type === 'map'
-									? 'sceneEditor.fixedMapSource'
-									: 'sceneEditor.fixedDataSource',
-							)}
-						</div>
-					)}
-					{settingsFields.map((field) => (
-						<FieldControl
-							key={field.key}
-							field={field}
-							value={widget.configuration[field.key]}
-							onCommit={(value) => onConfigure(field.key, value)}
-						/>
-					))}
-				</Section>
-			)}
+				{canEditDefinition && editablePackage && (
+					<Button
+						variant="secondary"
+						size="sm"
+						onClick={() => setBuilderDraft(readPackage(editablePackage.package))}
+					>
+						{t('sceneEditor.editWidgetDefinition')}
+					</Button>
+				)}
 
-			<Section label={t('sceneEditor.visibility')}>
-				{/* `Section`'s label is an unassociated <span> and DS `Select` renders a bare <select>
+				<Section label={t('sceneEditor.visibility')}>
+					{/* `Section`'s label is an unassociated <span> and DS `Select` renders a bare <select>
 				    (only `Field` wires a label up), so the ONE control that decides whether a widget
 				    is DM-only or on the players' screen announced nothing but its current value —
 				    axe `select-name`, WCAG 4.1.2. `/scene/:id` is not in the axe gate's route list,
 				    so nothing was ever going to catch it. */}
-				<Select
-					aria-label={t('sceneEditor.widgetVisibility')}
-					value={widget.visibility}
-					onChange={(e: { target: { value: string } }) =>
-						onVisibility(e.target.value as Visibility)
-					}
-					options={[
-						{ value: 'dm-only', label: t('common.visibility.dmOnly') },
-						{ value: 'shared', label: t('common.visibility.shared') },
-						{ value: 'player-visible', label: t('common.visibility.playerVisible') },
-					]}
-				/>
-			</Section>
+					<Select
+						aria-label={t('sceneEditor.widgetVisibility')}
+						value={widget.visibility}
+						onChange={(e: { target: { value: string } }) =>
+							onVisibility(e.target.value as Visibility)
+						}
+						options={[
+							{ value: 'dm-only', label: t('common.visibility.dmOnly') },
+							{ value: 'shared', label: t('common.visibility.shared') },
+							{ value: 'player-visible', label: t('common.visibility.playerVisible') },
+						]}
+					/>
+				</Section>
 
-			<Section label={t('sceneEditor.size')}>
-				{/* The canvas paints a padlock, renders no resize handle and swallows Shift+Arrow for
+				<Tabs
+					tabs={tabs}
+					value={tab}
+					onChange={(next: string) => {
+						// Touch activation can hide a focused input without firing blur. Commit its draft first.
+						const active = document.activeElement;
+						if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
+							active.blur();
+						setTab(next);
+					}}
+					idBase={tabId}
+					aria-label={labels.properties}
+				/>
+				{['content', 'display', 'style'].map((group) => (
+					<div key={group} {...tabPanelProps(tabId, group)} hidden={tab !== group}>
+						{settingsFields.some((field) => (field.group ?? 'content') === group) ||
+						(group === 'content' && widget.requiresBinding) ? (
+							<Section label={t('sceneEditor.settings')}>
+								{group === 'content' && widget.requiresBinding && (
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											padding: 'var(--space-2)',
+											borderRadius: 'var(--radius-sm)',
+											background: 'var(--color-surface-sunken)',
+											font: '500 var(--text-2xs)/1.4 var(--font-sans)',
+											color: 'var(--color-text-tertiary)',
+										}}
+									>
+										<Icon name="lock" size={12} />
+										{t(
+											widget.type === 'map'
+												? 'sceneEditor.fixedMapSource'
+												: 'sceneEditor.fixedDataSource',
+										)}
+									</div>
+								)}
+								{settingsFields
+									.filter((field) => (field.group ?? 'content') === group)
+									.map((field) => (
+										<FieldControl
+											key={field.key}
+											field={field}
+											value={widget.configuration[field.key]}
+											onCommit={(value) => onConfigure(field.key, value)}
+										/>
+									))}
+							</Section>
+						) : (
+							<p>{labels.noFields}</p>
+						)}
+						{group === 'style' && styleTokens.length > 0 && (
+							<Section label={t('builder.style.title')}>
+								<div
+									role="list"
+									aria-label={t('builder.style.tokens')}
+									data-testid="widget-inspector-style"
+									style={
+										{
+											display: 'flex',
+											flexDirection: 'column',
+											gap: 'var(--space-2)',
+											...styleVariables,
+										} as React.CSSProperties
+									}
+								>
+									{styleTokens.map((token) => {
+										const variable = `--widget-${token.name}`;
+										return (
+											<div
+												key={token.name}
+												role="listitem"
+												style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
+											>
+												<span
+													aria-hidden="true"
+													data-testid={`widget-style-swatch-${token.name}`}
+													style={{
+														width: 16,
+														height: 16,
+														flex: '0 0 auto',
+														borderRadius: 'var(--radius-sm)',
+														border: '1px solid var(--color-border)',
+														background: `var(${variable})`,
+													}}
+												/>
+												<div
+													style={{
+														display: 'flex',
+														flexDirection: 'column',
+														gap: 'var(--space-1)',
+														minWidth: 0,
+													}}
+												>
+													<span
+														style={{
+															font: '600 var(--text-2xs) var(--font-mono)',
+															color: 'var(--color-text-primary)',
+															overflowWrap: 'anywhere',
+														}}
+													>
+														{variable}
+													</span>
+													<span
+														style={{
+															font: 'var(--text-2xs) var(--font-sans)',
+															color: 'var(--color-text-secondary)',
+														}}
+													>
+														{tokenValueLabel(styleVariables[variable] ?? token.value)}
+													</span>
+													{token.description && (
+														<span
+															style={{
+																font: 'var(--text-2xs)/1.4 var(--font-sans)',
+																color: 'var(--color-text-tertiary)',
+															}}
+														>
+															{token.description}
+														</span>
+													)}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							</Section>
+						)}
+					</div>
+				))}
+				<div {...tabPanelProps(tabId, 'binding')} hidden={tab !== 'binding'}>
+					{bindingSlot(runtime.state.widgets, widget.type) ? (
+						<BindingInspector widget={widget} />
+					) : (
+						<p>{labels.noBinding}</p>
+					)}
+				</div>
+
+				<div {...tabPanelProps(tabId, 'visibility')} hidden={tab !== 'visibility'}>
+					<p data-testid="widget-inspector-audience" aria-live="polite">
+						{labels.whoSees}: {labels.players} —{' '}
+						{playerVerdict
+							? t(`sceneEditor.preview.reason.${playerVerdict.reason}`)
+							: labels.unavailable}
+					</p>
+				</div>
+				<div {...tabPanelProps(tabId, 'transform')} hidden={tab !== 'transform'}>
+					<Section label={t('sceneEditor.size')}>
+						{/* The canvas paints a padlock, renders no resize handle and swallows Shift+Arrow for
 				    every `system`-tier widget — which today is EVERY widget that ships. The three size
 				    buttons had no such gate and `widget.handleResizeWidget` has no tier check either,
 				    so the two affordances flatly contradicted each other: the DM is told the widget
 				    cannot be resized and then discovers by accident that it can. Agree with the
 				    canvas, which is the surface that also owns the drag and keyboard paths. */}
-				{resizable ? (
-					<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-						{(
-							[
-								['S', 220, 140],
-								['M', 300, 200],
-								['L', 420, 280],
-							] as const
-						).map(([label, w, h]) => (
-							<Button key={label} variant="secondary" size="sm" onClick={() => onResize(w, h)}>
-								{label}
-							</Button>
-						))}
-					</div>
-				) : (
-					<div
-						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
-						}}
-					>
-						{t('sceneEditor.sizeLocked')}
-					</div>
-				)}
-				<div
-					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
-				>
-					{widget.w} × {widget.h}
-				</div>
-			</Section>
+						{resizable ? (
+							<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+								{(
+									[
+										['S', 220, 140],
+										['M', 300, 200],
+										['L', 420, 280],
+									] as const
+								).map(([label, w, h]) => (
+									<Button key={label} variant="secondary" size="sm" onClick={() => onResize(w, h)}>
+										{label}
+									</Button>
+								))}
+							</div>
+						) : (
+							<div
+								style={{
+									font: 'var(--text-2xs) var(--font-sans)',
+									color: 'var(--color-text-tertiary)',
+								}}
+							>
+								{t('sceneEditor.sizeLocked')}
+							</div>
+						)}
+					</Section>
 
-			{/* CANVAS-016 — pin where this widget lands in the canvas's keyboard traversal
+					<Section label={t('sceneEditor.transform')}>
+						<TransformPanel
+							widget={widget}
+							resizable={resizable}
+							onMove={move}
+							onResize={onResize}
+						/>
+					</Section>
+
+					{/* CANVAS-016 — pin where this widget lands in the canvas's keyboard traversal
 			    (`scene.set-focus-order`); "Auto" clears back to the core's derived order. */}
-			<Section label={t('sceneEditor.keyboardOrder')}>
-				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+					<Section label={t('sceneEditor.keyboardOrder')}>
+						<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+							<Button
+								variant="secondary"
+								size="sm"
+								// Soft, not native: pressing Earlier until the widget reaches Position 1 natively
+								// disabled the very button the user was standing on, and the browser dropped focus
+								// to `<body>` — so the last press of the sequence always cost the keyboard cursor.
+								// DS Button swallows the click on a truthy `aria-disabled` and keeps the tab stop,
+								// which is also the only channel this control has for saying why it is unavailable.
+								aria-disabled={focusOrder === 0 || undefined}
+								title={focusOrder === 0 ? t('sceneEditor.alreadyFirst') : undefined}
+								onClick={() => {
+									if (focusOrder === 0) return;
+									onFocusOrder(Math.max(0, (focusOrder ?? 0) - 1));
+								}}
+							>
+								{t('sceneEditor.earlier')}
+							</Button>
+							<Button
+								variant="secondary"
+								size="sm"
+								onClick={() => onFocusOrder((focusOrder ?? 0) + 1)}
+							>
+								{t('sceneEditor.later')}
+							</Button>
+							{focusOrder !== null && (
+								<Button variant="ghost" size="sm" onClick={() => onFocusOrder(null)}>
+									{t('sceneEditor.auto')}
+								</Button>
+							)}
+						</div>
+						<div
+							style={{
+								font: 'var(--text-2xs) var(--font-mono)',
+								color: 'var(--color-text-tertiary)',
+							}}
+						>
+							{focusOrder === null
+								? t('sceneEditor.autoLayoutOrder')
+								: t('sceneEditor.position', { index: focusOrder + 1 })}
+						</div>
+					</Section>
+				</div>
+				<div style={{ paddingTop: 'var(--space-3)' }}>
 					<Button
-						variant="secondary"
+						variant="danger"
 						size="sm"
-						// Soft, not native: pressing Earlier until the widget reaches Position 1 natively
-						// disabled the very button the user was standing on, and the browser dropped focus
-						// to `<body>` — so the last press of the sequence always cost the keyboard cursor.
-						// DS Button swallows the click on a truthy `aria-disabled` and keeps the tab stop,
-						// which is also the only channel this control has for saying why it is unavailable.
-						aria-disabled={focusOrder === 0 || undefined}
-						title={focusOrder === 0 ? t('sceneEditor.alreadyFirst') : undefined}
-						onClick={() => {
-							if (focusOrder === 0) return;
-							onFocusOrder(Math.max(0, (focusOrder ?? 0) - 1));
-						}}
+						icon="delete"
+						onClick={onRemove}
+						style={{ alignSelf: 'flex-start' }}
 					>
-						{t('sceneEditor.earlier')}
+						{t('sceneEditor.removeWidget')}
 					</Button>
-					<Button variant="secondary" size="sm" onClick={() => onFocusOrder((focusOrder ?? 0) + 1)}>
-						{t('sceneEditor.later')}
-					</Button>
-					{focusOrder !== null && (
-						<Button variant="ghost" size="sm" onClick={() => onFocusOrder(null)}>
-							{t('sceneEditor.auto')}
-						</Button>
-					)}
 				</div>
-				<div
-					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
-				>
-					{focusOrder === null
-						? t('sceneEditor.autoLayoutOrder')
-						: t('sceneEditor.position', { index: focusOrder + 1 })}
-				</div>
-			</Section>
-
-			<div style={{ paddingTop: 'var(--space-3)' }}>
-				<Button
-					variant="danger"
-					size="sm"
-					icon="delete"
-					onClick={onRemove}
-					style={{ alignSelf: 'flex-start' }}
-				>
-					{t('sceneEditor.removeWidget')}
-				</Button>
-			</div>
-		</Card>
+			</Card>
+		</>
 	);
 }

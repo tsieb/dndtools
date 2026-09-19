@@ -7,7 +7,13 @@ vi.mock('@dndtools/core', async (importOriginal) => {
 	return {
 		...core,
 		get DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD() {
-			return { ...core.DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD, approved: gate.approved };
+			// Simulating the post-review posture means producing a SANCTIONED record, exactly as
+			// `cloud-security-decision.ts` does. A bare spread is an unsanctioned look-alike and the
+			// core gate refuses it — that refusal is the phase-2 checklist item 7 property.
+			return core.sanctionSecurityDecisionRecord({
+				...core.DNDTOOLS_CLOUD_ENHANCED_SECURITY_DECISION_RECORD,
+				approved: gate.approved,
+			});
 		},
 	};
 });

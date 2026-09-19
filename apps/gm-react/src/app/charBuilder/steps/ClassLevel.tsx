@@ -1,15 +1,121 @@
 /**
  * CharBuilder — Step 2 — class, subclass, level and background.
  *
- * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4) — a pure move, no
- * behaviour change.
+ * Split out of the former single-file `app/CharBuilder.tsx` (RC-STB-2.4). RC-CHR-5.2 added the
+ * class preview card: what the active system package gives the picked class at the picked level.
  */
+import type { SystemRecovery } from '@dndtools/core';
 import { Select } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
-import { T } from '../../screen-kit';
+import { T, eb } from '../../screen-kit';
+import { previewClass, type ClassFeaturePreview } from '../classPreview';
 import { FieldLabel, NumStepper, Tile } from '../ui';
 import type { Wizard } from '../wizard';
-import { useI18n } from '../../../i18n';
+import { useI18n, type MessageKey } from '../../../i18n';
+
+const RECOVERY_LABEL: Record<SystemRecovery, MessageKey> = {
+	short: 'charBuilder.recovery.short',
+	long: 'charBuilder.recovery.long',
+	scene: 'charBuilder.recovery.scene',
+	never: 'charBuilder.recovery.never',
+};
+
+/** The picked class, with the package's own numbers for it — the tiles only name the class. */
+function ClassPreviewCard({ w }: { w: Wizard }) {
+	const { t } = useI18n();
+	const { clsObj, clsId, level, subclass, effScores, systemPackage } = w;
+	const preview = previewClass(systemPackage, clsId, { level, scores: effScores, subclass });
+	const amount = (f: ClassFeaturePreview) => {
+		if (f.needsSubclass)
+			return t('charBuilder.featureNeedsSubclass', { subclass: f.needsSubclass });
+		if (f.value === null) return t('charBuilder.featureOnSheet');
+		if (f.unlocksAt !== null) return t('charBuilder.featureUnlocks', { level: f.unlocksAt });
+		if (f.diceNotation)
+			return t('charBuilder.featureDice', { count: f.value, die: f.diceNotation });
+		return String(f.value);
+	};
+	const empty = preview.features.length === 0 && !preview.spellcasting;
+	return (
+		<section
+			aria-label={t('charBuilder.classPreview', { class: clsObj.name })}
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: T.space.two,
+				marginTop: T.space.three,
+				padding: `${T.space.three} ${T.space.four}`,
+				borderRadius: T.radius.lg,
+				background: T.surf,
+				border: `1px solid ${T.accBd}`,
+			}}
+		>
+			<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.two, flexWrap: 'wrap' }}>
+				{/* The display face (Cinzel) only starts at 24px — RC-ENG-8.4's emphasis lint. This is a
+				    card label at 16px, so it takes the sans face and keeps its weight. */}
+				<span style={{ font: `700 16px ${T.sans}`, color: T.ink }}>{clsObj.name}</span>
+				<span style={{ font: `12px ${T.sans}`, color: T.sub }}>
+					{t('charBuilder.classHint', {
+						hd: clsObj.hd,
+						primary: clsObj.primary,
+						saves: clsObj.saves,
+					})}
+				</span>
+			</div>
+			<div style={eb}>
+				{t('charBuilder.featuresFrom', { system: systemPackage.displayName, level })}
+			</div>
+			{empty ? (
+				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					{t('charBuilder.noClassFeatures', {
+						system: systemPackage.displayName,
+						class: clsObj.name,
+					})}
+				</div>
+			) : (
+				<ul
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: T.space.oneHalf,
+						listStyle: 'none',
+						margin: T.space.zero,
+						padding: T.space.zero,
+					}}
+				>
+					{preview.features.map((f) => (
+						<li
+							key={f.key}
+							style={{
+								display: 'flex',
+								alignItems: 'baseline',
+								gap: T.space.two,
+								flexWrap: 'wrap',
+								font: `12.5px ${T.sans}`,
+								color: T.sub,
+							}}
+						>
+							<span style={{ fontWeight: 600, color: T.ink }}>{f.label}</span>
+							<span
+								style={{
+									font: `12px ${T.mono}`,
+									color: f.needsSubclass || f.unlocksAt !== null ? T.ter : T.acc,
+								}}
+							>
+								{amount(f)}
+							</span>
+							<span style={{ color: T.ter }}>· {t(RECOVERY_LABEL[f.recovery])}</span>
+						</li>
+					))}
+					{preview.spellcasting && (
+						<li style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+							{t('charBuilder.spellcasting', { ability: preview.spellcasting })}
+						</li>
+					)}
+				</ul>
+			)}
+		</section>
+	);
+}
 
 export function ClassLevelStep({ w }: { w: Wizard }) {
 	const { t } = useI18n();
@@ -32,15 +138,7 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 			<div>
-				<FieldLabel
-					hint={t('charBuilder.classHint', {
-						hd: clsObj.hd,
-						primary: clsObj.primary,
-						saves: clsObj.saves,
-					})}
-				>
-					{t('charBuilder.class')}
-				</FieldLabel>
+				<FieldLabel>{t('charBuilder.class')}</FieldLabel>
 				<div
 					style={{
 						display: 'grid',
@@ -67,6 +165,7 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 						{t('charBuilder.classesSupported')}
 					</div>
 				)}
+				<ClassPreviewCard w={w} />
 			</div>
 			<div
 				style={{

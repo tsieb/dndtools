@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { Button, Icon } from '../../ds';
-import { T } from '../screen-kit';
+import { T, srOnly } from '../screen-kit';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { useI18n, type MessageKey } from '../../i18n';
 
@@ -15,9 +15,12 @@ import { useI18n, type MessageKey } from '../../i18n';
 export function StepRail({
 	steps,
 	i,
+	onJump,
 }: {
 	steps: readonly { id: string; title: MessageKey; icon: string }[];
 	i: number;
+	/** Revisit a completed step. Only steps before `i` are offered — later ones may still be gated. */
+	onJump?: (index: number) => void;
 }) {
 	const { t } = useI18n();
 	return (
@@ -51,56 +54,99 @@ export function StepRail({
 					{t('charBuilder.newCharacter')}
 				</div>
 			</div>
-			<ol
-				style={{
-					display: 'flex',
-					flexDirection: 'column',
-					gap: 3,
-					flex: 1,
-					listStyle: 'none',
-					margin: 0,
-					padding: 0,
-				}}
-			>
-				{steps.map((s, j) => {
-					const done = j < i,
-						on = j === i;
-					return (
-						<li
-							key={s.id}
-							aria-current={on ? 'step' : undefined}
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 11,
-								padding: '9px 10px',
-								borderRadius: 9,
-								background: on ? T.raised : 'transparent',
-								border: `1px solid ${on ? T.accBd : 'transparent'}`,
-							}}
-						>
-							<span
-								style={{
-									width: 26,
-									height: 26,
-									borderRadius: '50%',
-									flex: '0 0 auto',
-									display: 'inline-flex',
-									alignItems: 'center',
-									justifyContent: 'center',
-									background: done ? T.ok : on ? T.acc : T.alt,
-									color: done || on ? T.accFg : T.ter,
-								}}
-							>
-								{done ? <Icon name="check" size={13} /> : <Icon name={s.icon} size={14} />}
-							</span>
-							<span style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.ink : T.sub }}>
-								{t(s.title)}
-							</span>
-						</li>
-					);
-				})}
-			</ol>
+			{/* Was a bare <ol> of styled rows: the only step state a screen reader got was
+			    aria-current on the active row (done vs not started was a check-icon colour), the
+			    rail was no landmark, and a finished step could not be revisited from it. */}
+			<nav aria-label={t('charBuilder.stepsLabel')} style={{ flex: 1 }}>
+				<ol
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 3,
+						listStyle: 'none',
+						margin: 0,
+						padding: 0,
+					}}
+				>
+					{steps.map((s, j) => {
+						const done = j < i,
+							on = j === i;
+						const state = t(
+							done
+								? 'charBuilder.stepDone'
+								: on
+									? 'charBuilder.stepCurrent'
+									: 'charBuilder.stepTodo',
+						);
+						const row: React.CSSProperties = {
+							display: 'flex',
+							alignItems: 'center',
+							gap: 11,
+							width: '100%',
+							padding: '9px 10px',
+							borderRadius: 9,
+							background: on ? T.raised : 'transparent',
+							border: `1px solid ${on ? T.accBd : 'transparent'}`,
+						};
+						const body = (
+							<>
+								<span
+									style={{
+										width: 26,
+										height: 26,
+										borderRadius: '50%',
+										flex: '0 0 auto',
+										display: 'inline-flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										background: done ? T.ok : on ? T.acc : T.alt,
+										color: done || on ? T.accFg : T.ter,
+									}}
+								>
+									{done ? <Icon name="check" size={13} /> : <Icon name={s.icon} size={14} />}
+								</span>
+								<span
+									style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.ink : T.sub }}
+								>
+									{t(s.title)}
+								</span>
+								<span style={srOnly}>{`, ${state}`}</span>
+							</>
+						);
+						return (
+							<li key={s.id} aria-current={on ? 'step' : undefined}>
+								{done && onJump ? (
+									// Named explicitly: name-from-content put a space before the visually
+									// hidden state ("Identity , completed").
+									<button
+										type="button"
+										aria-label={`${t(s.title)}, ${state}`}
+										onClick={() => onJump(j)}
+										title={t('charBuilder.goBackTo', { step: t(s.title) })}
+										onMouseEnter={(event) => {
+											event.currentTarget.style.background = 'var(--color-interactive-hover)';
+										}}
+										onMouseLeave={(event) => {
+											event.currentTarget.style.background = 'transparent';
+										}}
+										style={{
+											...row,
+											cursor: 'pointer',
+											textAlign: 'left',
+											font: 'inherit',
+											color: 'inherit',
+										}}
+									>
+										{body}
+									</button>
+								) : (
+									<div style={row}>{body}</div>
+								)}
+							</li>
+						);
+					})}
+				</ol>
+			</nav>
 			<div
 				style={{
 					display: 'flex',

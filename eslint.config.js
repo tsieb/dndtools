@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import noPositiveTabindex from './scripts/eslint-rules/no-positive-tabindex.js';
 import prettier from 'eslint-config-prettier';
 import ts from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -7,6 +8,7 @@ import noLiteralJsxText from './scripts/eslint-rules/no-literal-jsx-text.js';
 import noRawStyleValues from './scripts/eslint-rules/no-raw-style-values.js';
 import { allow as literalTextAllow } from './scripts/eslint-rules/no-literal-jsx-text.allow.js';
 import { allow as rawStyleValuesAllow } from './scripts/eslint-rules/no-raw-style-values.allow.js';
+import { jsxRatchet } from './scripts/eslint-rules/jsx-ratchet.allow.js';
 
 // Lint config for the React GM app (`apps/gm-react`), the processing core (`packages/core`),
 // the cloud Lambdas (`packages/cloud-fns`), and repo tooling (`scripts/`, `tests/`). The Svelte
@@ -75,6 +77,18 @@ export default ts.config(
 			],
 		},
 	},
+	{
+		// RC-UX-2.3: `.jsx` (the design-system primitives) was outside lint coverage entirely, so the
+		// tabindex gate below could not see it. The recommended sets now apply to `.jsx` like every
+		// other source file; the violations that predate this get a per-rule, per-file exemption in
+		// `jsx-ratchet.allow.js` so the backlog stays countable instead of invisible.
+		files: ['**/*.{js,jsx,ts,tsx}'],
+		languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
+		plugins: { a11y: { rules: { 'no-positive-tabindex': noPositiveTabindex } } },
+		rules: { 'a11y/no-positive-tabindex': 'error' },
+	},
+	...jsxRatchet.map(({ rule, files }) => ({ files, rules: { [rule]: 'off' } })),
+
 	{
 		// CommonJS node scripts (Electron smoke harness, etc.) legitimately use require().
 		files: ['**/*.cjs'],

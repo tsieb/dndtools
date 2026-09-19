@@ -1,3 +1,5 @@
+import { wikiDocument, type WikiDocument } from './wiki-documents';
+import { stripSecretCallouts } from '@dndtools/core';
 // dndtools app-api — the application backend for account-scoped features that are NOT
 // E2EE vault sync: plan entitlements (an explicit dev-only preview; production never
 // accepts self-service simulated upgrades), the marketplace (plaintext widget-package
@@ -18,6 +20,7 @@ import {
 	QueryCommand,
 	TransactWriteItemsCommand,
 	type AttributeValue,
+	type TransactWriteItem,
 } from '@aws-sdk/client-dynamodb';
 import {
 	CognitoIdentityProviderClient,
@@ -39,6 +42,7 @@ import {
 	queryPartition,
 	incrementCounterBelow,
 	transactWrite,
+	type FlatTransactionWrite,
 } from '../lib/aws.ts';
 import {
 	putJsonVersioned,
@@ -49,6 +53,19 @@ import {
 // RC-CLD-4.1 — the marketplace's listing kinds and the `.dndmodule` bundle format are defined ONCE,
 // in the core, so the server validates a publish against the exact schema the client installs from.
 import { MODULE_KINDS, parseModuleBundle, type ModuleKind } from '@dndtools/core';
+// RC-CLD-4.5 — discovery's pure rules: query parsing, matching, facets and rating summaries.
+import {
+	MAX_REVIEW_NOTE_CHARS,
+	bundleFacets,
+	listingFacets,
+	listingSystems,
+	maintainerSubs,
+	matchesQuery,
+	newestFirst,
+	parseListingQuery,
+	parseStars,
+	ratingSummary,
+} from './discovery.ts';
 // ADR-027 — Stripe billing. This handler only STARTS money flows (hosted Checkout, hosted portal)
 // and reports billing state; the paid entitlement row is written by the webhook Lambda alone.
 import {
@@ -119,6 +136,19 @@ const WIKI_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,119}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const WIKI_PASSWORD_FAILURE_LIMIT = 5;
 const WIKI_PASSWORD_WINDOW_SECONDS = 15 * 60;
+// --- RC-CLD-4.5 discovery bounds --------------------------------------------------------
+// A search reads the browse partition and filters in the Lambda. That is cheap at this shelf's
+// size; MAX_SEARCH_SCAN is the point where a real search index would have to take over.
+const MAX_SEARCH_SCAN = 1000;
+const MAX_SEARCH_RESULTS = 100;
+const MAX_FEATURED = 12;
+const MAX_REVIEWS_READ = 500;
+const MAX_REVIEWS_RETURNED = 50;
+const MAX_MODERATION_QUEUE = 100;
+const MAX_FLAG_REASON_CHARS = 280;
+const REVIEWS_PER_DAY = 50;
+const FLAGS_PER_DAY = 30;
+const MODERATION_ACTIONS = ['dismiss', 'remove'] as const;
 
 // --- key layout (single table; see infra/app-api/template.yaml) ------------------------
 const accountPk = (sub: string) => `account#${sub}`;
@@ -139,6 +169,16 @@ const primaryVaultPk = (sub: string) => `${sub}#primary`;
 const wikiPk = (wikiId: string) => `wiki#${wikiId}`;
 const SK_SITE = 'site'; // public wikiId → site lookup (mirrors the invite redeem row)
 const wikiS3Key = (wikiId: string) => `wikis/${wikiId}.json`;
+// RC-CLD-4.5 — discovery rows (the key layout comment in infra/app-api/template.yaml lists them).
+const installSk = (moduleId: string) => `install#${moduleId}`; // under account#<sub>
+const accountReviewSk = (moduleId: string) => `review#${moduleId}`; // the reviewer's own copy
+const accountFlagSk = (moduleId: string, reviewId: string) => `flag#${moduleId}#${reviewId}`;
+const listingReviewSk = (reviewId: string) => `review#${reviewId}`; // under module#<moduleId>
+const RATINGS_PK = 'listing-ratings'; // every aggregate in ONE partition: one query per search
+const FEATURED_PK = 'featured';
+const FLAGS_PK = 'review-flags'; // the moderation queue
+const listingKeySk = (moduleId: string) => `module#${moduleId}`; // sk in ratings + featured
+const flagSk = (moduleId: string, reviewId: string) => `review#${moduleId}#${reviewId}`;
 
 // --- plans + the feature matrix (server-side single source of truth) --------------------
 // The client's Upgrade screen renders THIS matrix when the account backend is reachable;
@@ -225,7 +265,11 @@ class Conflict extends Error {}
 /** Billing is not configured/reachable for this stage — every money flow fails CLOSED. */
 class ServiceUnavailable extends Error {}
 
-function json(statusCode: number, body: unknown, headers: Record<string, string> = {}) {
+function json(
+	statusCode: number,
+	body: unknown,
+	headers: Record<string, string> = {},
+): { statusCode: number; headers: Record<string, string>; body: string } {
 	return {
 		statusCode,
 		headers: { 'content-type': 'application/json', ...headers },
@@ -281,6 +325,18 @@ interface Caller {
 	email: string;
 }
 
+/** The transaction item that fails the whole write once DELETE /account has tombstoned the caller. */
+function accountActiveCheck(caller: Caller): TransactWriteItem {
+	return {
+		ConditionCheck: {
+			TableName: APP_TABLE,
+			Key: toItem({ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }),
+			ConditionExpression: 'attribute_not_exists(#deletedAt)',
+			ExpressionAttributeNames: { '#deletedAt': 'deletedAt' },
+		},
+	};
+}
+
 type AccountTransactionWrite =
 	| { put: Record<string, string | number | undefined> }
 	| { delete: Record<string, string> };
@@ -300,14 +356,7 @@ async function transactWhileAccountActive(
 			new TransactWriteItemsCommand({
 				ClientRequestToken: randomUUID(),
 				TransactItems: [
-					{
-						ConditionCheck: {
-							TableName: APP_TABLE,
-							Key: toItem({ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }),
-							ConditionExpression: 'attribute_not_exists(#deletedAt)',
-							ExpressionAttributeNames: { '#deletedAt': 'deletedAt' },
-						},
-					},
+					accountActiveCheck(caller),
 					...writes.map((write) =>
 						'put' in write
 							? { Put: { TableName: APP_TABLE, Item: toItem(write.put) } }
@@ -361,6 +410,48 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		// The UNAUTHENTICATED routes — handled before any claims are required.
 		if (routeKey === 'GET /invites/resolve/{token}') {
 			return await resolveInvite(event.pathParameters?.token);
+		}
+		if (routeKey === 'GET /wikis/{wikiId}/{document}') {
+			const format = event.pathParameters?.document ?? '';
+			if (!['reader', 'rss.xml', 'sitemap.xml'].includes(format))
+				return json(404, { error: 'not found' });
+			const result = await readWiki(
+				event.pathParameters?.wikiId,
+				undefined,
+				event.requestContext.http.sourceIp || 'unknown',
+			);
+			if (result.statusCode !== 200) {
+				if (result.statusCode === 401 && format === 'reader' && process.env.WEB_ORIGIN)
+					return {
+						statusCode: 302,
+						headers: {
+							location: `${process.env.WEB_ORIGIN}/#/wiki?id=${encodeURIComponent(event.pathParameters?.wikiId ?? '')}`,
+							'cache-control': 'no-store',
+							'x-robots-tag': 'noindex',
+						},
+						body: '',
+					};
+				return {
+					...result,
+					headers: { ...result.headers, 'cache-control': 'no-store', 'x-robots-tag': 'noindex' },
+				};
+			}
+			const document = JSON.parse(result.body) as WikiDocument;
+			const domains = JSON.parse(process.env.WIKI_CUSTOM_DOMAINS || '{}') as Record<
+				string,
+				unknown
+			>;
+			const host = domains[document.wikiId];
+			// Canonical/feed/sitemap URLs follow the wiki's own (verified) domain, but the SPA lives
+			// ONLY on the web origin: a custom-domain distribution serves this wiki's text documents
+			// and nothing else, so an app link built from it would bounce back to the reader and lose
+			// the page. The app link therefore always uses WEB_ORIGIN, never the custom host.
+			const webOrigin = process.env.WEB_ORIGIN || '';
+			const origin =
+				typeof host === 'string' && /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(host)
+					? `https://${host}`
+					: webOrigin;
+			return wikiDocument(document, origin, format, event.queryStringParameters, webOrigin);
 		}
 		if (routeKey === 'GET /wikis/{wikiId}') {
 			return await readWiki(
@@ -417,6 +508,30 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 				return await getModule(caller, event.pathParameters?.moduleId);
 			case 'DELETE /marketplace/modules/{moduleId}':
 				return await deleteModule(caller, event.pathParameters?.moduleId);
+			// Discovery (RC-CLD-4.5) -------------------------------------------------------
+			case 'GET /listings':
+				return await searchListings(caller, event.queryStringParameters);
+			case 'GET /listings/featured':
+				return await getFeatured(caller);
+			case 'PUT /listings/featured':
+				return await setFeatured(caller, event.body);
+			case 'POST /listings/{moduleId}/install':
+				return await recordInstall(caller, event.pathParameters?.moduleId);
+			case 'GET /listings/{moduleId}/reviews':
+				return await listReviews(caller, event.pathParameters?.moduleId);
+			case 'PUT /listings/{moduleId}/review':
+				return await putReview(caller, event.pathParameters?.moduleId, event.body);
+			case 'POST /listings/{moduleId}/reviews/{reviewId}/flag':
+				return await flagReview(
+					caller,
+					event.pathParameters?.moduleId,
+					event.pathParameters?.reviewId,
+					event.body,
+				);
+			case 'GET /moderation/reviews':
+				return await moderationQueue(caller);
+			case 'POST /moderation/reviews/resolve':
+				return await resolveFlag(caller, event.body);
 			// Campaign wiki ----------------------------------------------------------------
 			case 'GET /wiki':
 				return await getOwnWiki(caller);
@@ -465,7 +580,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 	}
 };
 
-type PublishBudgetKind = 'module' | 'invite' | 'wiki';
+type PublishBudgetKind = 'module' | 'invite' | 'wiki' | 'review' | 'flag';
+const BUDGET_LABEL: Record<PublishBudgetKind, string> = {
+	module: 'module publishing',
+	invite: 'invite publishing',
+	wiki: 'wiki publishing',
+	review: 'rating',
+	flag: 'review report',
+};
 
 /**
  * Per-account durable-write budget. API Gateway throttling bounds bursts; this
@@ -490,7 +612,7 @@ async function consumePublishBudget(
 	);
 	if (!allowed) {
 		throw new TooManyRequests(
-			`Daily ${kind} publishing limit reached. Try again later.`,
+			`Daily ${BUDGET_LABEL[kind]} limit reached. Try again later.`,
 			Math.max(1, windowEnd - now),
 		);
 	}
@@ -806,13 +928,16 @@ function listingResponse(row: ListingRow, callerSub: string) {
 		moduleId: row.moduleId,
 		// RC-CLD-4.1 — what this listing IS. Rows written before the kind existed are widget
 		// packages, which is what the marketplace could publish at the time.
-		kind: isModuleKind(row.kind) ? row.kind : LEGACY_LISTING_KIND,
+		kind: listingKind(row),
 		name: row.name,
 		summary: row.summary,
 		version: row.version,
 		publishedAt: row.publishedAt,
 		contentHash: row.contentHash,
 		size: Number(row.size),
+		// RC-CLD-4.5 — the facets discovery filters on, recorded from the validated bundle at publish.
+		systems: listingSystems(row),
+		license: row.license ?? '',
 		// Ownership as a per-caller boolean — the raw owner sub is never echoed to browsers.
 		owned: row.ownerSub === callerSub,
 	};
@@ -822,13 +947,20 @@ function isModuleKind(value: unknown): value is ModuleKind {
 	return typeof value === 'string' && (MODULE_KINDS as readonly string[]).includes(value);
 }
 
+function listingKind(row: ListingRow): ModuleKind {
+	return isModuleKind(row.kind) ? row.kind : LEGACY_LISTING_KIND;
+}
+
 /**
  * RC-CLD-4.1 — a publish carries EITHER a `.dndmodule` bundle (any of the four kinds) or, for
  * backwards compatibility, a bare widget-package definition. Either way the server decides the
  * listing's kind from the payload it actually validated, never from an unchecked client claim: a
  * `kind` field that disagrees with the bundle's manifest is a rejection.
  */
-function resolveListingKind(payload: unknown, declaredKind: unknown): ModuleKind {
+function resolveListingFacts(
+	payload: unknown,
+	declaredKind: unknown,
+): { kind: ModuleKind; systems: string[]; license: string } {
 	if (declaredKind !== undefined && !isModuleKind(declaredKind))
 		throw new BadRequest(`kind must be one of: ${MODULE_KINDS.join(', ')}`);
 	const isEnvelope =
@@ -840,7 +972,7 @@ function resolveListingKind(payload: unknown, declaredKind: unknown): ModuleKind
 		// the server can validate it against its kind's schema.
 		if (declaredKind !== undefined && declaredKind !== LEGACY_LISTING_KIND)
 			throw new BadRequest(`a ${String(declaredKind)} must be published as a .dndmodule bundle`);
-		return LEGACY_LISTING_KIND;
+		return { kind: LEGACY_LISTING_KIND, ...bundleFacets(null) };
 	}
 	const parsed = parseModuleBundle(payload);
 	if (!parsed.ok) {
@@ -852,7 +984,8 @@ function resolveListingKind(payload: unknown, declaredKind: unknown): ModuleKind
 	}
 	if (declaredKind !== undefined && declaredKind !== parsed.bundle.manifest.kind)
 		throw new BadRequest("kind does not match the bundle's manifest");
-	return parsed.bundle.manifest.kind;
+	// RC-CLD-4.5 — the discovery facets come from the same validated manifest as the kind.
+	return { kind: parsed.bundle.manifest.kind, ...bundleFacets(parsed.bundle) };
 }
 
 async function publishModule(caller: Caller, body: string | undefined) {
@@ -863,7 +996,7 @@ async function publishModule(caller: Caller, body: string | undefined) {
 	if (!VERSION_RE.test(version)) throw new BadRequest('version must be semver (e.g. 1.2.0)');
 	if (parsed.package === undefined || parsed.package === null)
 		throw new BadRequest('package is required');
-	const kind = resolveListingKind(parsed.package, parsed.kind);
+	const { kind, systems, license } = resolveListingFacts(parsed.package, parsed.kind);
 	const payloadJson = JSON.stringify(parsed.package);
 	const size = Buffer.byteLength(payloadJson, 'utf8');
 	if (size > MAX_MODULE_PACKAGE_BYTES)
@@ -888,6 +1021,8 @@ async function publishModule(caller: Caller, body: string | undefined) {
 	const listing = {
 		moduleId,
 		kind,
+		systems: systems.length > 0 ? JSON.stringify(systems) : undefined,
+		license: license || undefined,
 		ownerSub: caller.sub,
 		name,
 		summary,
@@ -961,12 +1096,586 @@ async function deleteModule(caller: Caller, rawModuleId: string | undefined) {
 		{ delete: { pk: BROWSE_PK, sk: browseSk(moduleId) } },
 		{ delete: { pk: accountPk(caller.sub), sk: ownedModuleSk(moduleId) } },
 	]);
+	await purgeListingDiscoveryRows(moduleId);
 	if (row.s3VersionId) {
 		await deleteObjectVersion(MODULES_BUCKET, moduleS3Key(moduleId), row.s3VersionId);
 	} else {
 		await deleteObject(MODULES_BUCKET, moduleS3Key(moduleId));
 	}
 	return json(200, { ok: true });
+}
+
+// --- RC-CLD-4.5: DISCOVERY — search and filters, the featured set, ratings, moderation. ---
+// --- The curation policy is decided here: a rating needs an install record and never comes -
+// --- from the listing's own publisher; stars are whole 1–5 with an optional 280-character ---
+// --- note; the featured set is edited only by a maintainer; a reported review waits in a ----
+// --- queue only a maintainer reads. Every aggregate lives in ONE partition, so a search -----
+// --- costs a fixed handful of queries, and every aggregate move rides the same transaction --
+// --- as the review row that justifies it, so a count cannot drift from its reviews. ---------
+function isMaintainer(caller: Caller): boolean {
+	// Read per request, so a changed allowlist applies without waiting for a cold start.
+	return maintainerSubs(process.env.MARKETPLACE_MAINTAINER_SUBS).has(caller.sub);
+}
+
+function requireMaintainer(caller: Caller): void {
+	if (!isMaintainer(caller))
+		throw new Forbidden('This action is limited to marketplace maintainers.');
+}
+
+function isTransactionCanceled(error: unknown): boolean {
+	return (error as { name?: string })?.name === 'TransactionCanceledException';
+}
+
+async function sendTransaction(items: TransactWriteItem[]): Promise<void> {
+	await ddb.send(
+		new TransactWriteItemsCommand({ ClientRequestToken: randomUUID(), TransactItems: items }),
+	);
+}
+
+/** Move one listing's aggregate by whole ratings and whole stars. Only ever inside a transaction. */
+function ratingDelta(
+	moduleId: string,
+	countDelta: number,
+	starDelta: number,
+	requireExisting = false,
+): TransactWriteItem {
+	return {
+		Update: {
+			TableName: APP_TABLE,
+			Key: toItem({ pk: RATINGS_PK, sk: listingKeySk(moduleId) }),
+			UpdateExpression: 'SET #moduleId = :moduleId ADD #count :count, #sum :sum',
+			// Withdrawing a rating must never resurrect the aggregate of a listing that is gone.
+			...(requireExisting ? { ConditionExpression: 'attribute_exists(#pk)' } : {}),
+			ExpressionAttributeNames: {
+				'#moduleId': 'moduleId',
+				'#count': 'ratingCount',
+				'#sum': 'ratingSum',
+				...(requireExisting ? { '#pk': 'pk' } : {}),
+			},
+			ExpressionAttributeValues: toItem({
+				':moduleId': moduleId,
+				':count': countDelta,
+				':sum': starDelta,
+			}),
+		},
+	};
+}
+
+/** What a search or the featured row needs beyond the listing rows themselves. */
+interface DiscoveryContext {
+	ratings: Map<string, ListingRow>;
+	featuredRows: ListingRow[];
+	installed: Set<string>;
+	myReviews: Map<string, ListingRow>;
+}
+
+async function discoveryContext(caller: Caller): Promise<DiscoveryContext> {
+	const own = (prefix: string) => ({ name: 'sk', lo: prefix, hi: `${prefix}\uffff` });
+	const [ratingRows, featuredRows, installRows, reviewRows] = await Promise.all([
+		queryPartition(
+			APP_TABLE,
+			{ name: 'pk', value: RATINGS_PK },
+			undefined,
+			MAX_SEARCH_SCAN,
+			MAX_SEARCH_SCAN,
+		),
+		queryPartition(
+			APP_TABLE,
+			{ name: 'pk', value: FEATURED_PK },
+			undefined,
+			MAX_FEATURED * 2,
+			MAX_FEATURED * 2,
+		),
+		queryPartition(APP_TABLE, { name: 'pk', value: accountPk(caller.sub) }, own('install#')),
+		queryPartition(APP_TABLE, { name: 'pk', value: accountPk(caller.sub) }, own('review#')),
+	]);
+	return {
+		ratings: new Map(ratingRows.map((row) => [row.moduleId, row])),
+		featuredRows,
+		installed: new Set(installRows.map((row) => row.moduleId)),
+		myReviews: new Map(reviewRows.map((row) => [row.moduleId, row])),
+	};
+}
+
+function discoveryListing(row: ListingRow, caller: Caller, ctx: DiscoveryContext) {
+	const mine = ctx.myReviews.get(row.moduleId);
+	return {
+		...listingResponse(row, caller.sub),
+		rating: ratingSummary(ctx.ratings.get(row.moduleId)),
+		featured: ctx.featuredRows.some((featured) => featured.moduleId === row.moduleId),
+		// The two facts the rating form turns on: may this caller rate it, and what did they say.
+		installed: ctx.installed.has(row.moduleId),
+		myReview: mine
+			? { reviewId: mine.reviewId, stars: Number(mine.stars), note: mine.note ?? '' }
+			: null,
+	};
+}
+
+async function searchListings(
+	caller: Caller,
+	params: Record<string, string | undefined> | undefined,
+) {
+	const parsed = parseListingQuery(params);
+	if (!parsed.ok) throw new BadRequest(parsed.error);
+	const [rows, ctx] = await Promise.all([
+		queryPartition(
+			APP_TABLE,
+			{ name: 'pk', value: BROWSE_PK },
+			undefined,
+			MAX_SEARCH_SCAN,
+			MAX_SEARCH_SCAN,
+		),
+		discoveryContext(caller),
+	]);
+	const matches = rows
+		.filter((row) => matchesQuery(row, listingKind(row), parsed.query))
+		.sort(newestFirst);
+	return json(200, {
+		listings: matches.slice(0, MAX_SEARCH_RESULTS).map((row) => discoveryListing(row, caller, ctx)),
+		total: matches.length,
+		facets: listingFacets(rows),
+	});
+}
+
+/** The listing rows behind a featured set, in the given order; removed listings drop out. */
+async function featuredListings(moduleIds: readonly string[]): Promise<ListingRow[]> {
+	const rows = await Promise.all(
+		moduleIds.map((moduleId) => getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING })),
+	);
+	return rows.filter((row): row is ListingRow => Boolean(row));
+}
+
+async function getFeatured(caller: Caller) {
+	const ctx = await discoveryContext(caller);
+	const ordered = [...ctx.featuredRows]
+		.sort((a, b) => Number(a.rank) - Number(b.rank))
+		.slice(0, MAX_FEATURED)
+		.map((row) => row.moduleId);
+	const rows = await featuredListings(ordered);
+	return json(200, { featured: rows.map((row) => discoveryListing(row, caller, ctx)) });
+}
+
+/** Maintainer-only: REPLACE the featured set with this ordered list of listing ids. */
+async function setFeatured(caller: Caller, body: string | undefined) {
+	requireMaintainer(caller);
+	const { moduleIds } = parseBody(body);
+	if (!Array.isArray(moduleIds)) throw new BadRequest('moduleIds must be an array of listing ids');
+	if (moduleIds.length > MAX_FEATURED)
+		throw new BadRequest(`the featured set holds at most ${MAX_FEATURED} listings`);
+	const ids = moduleIds.map((id, i) => {
+		if (typeof id !== 'string' || !UUID_RE.test(id))
+			throw new BadRequest(`moduleIds[${i}] is not a listing id`);
+		return id;
+	});
+	if (new Set(ids).size !== ids.length)
+		throw new BadRequest('moduleIds must not name a listing twice');
+	const rows = await featuredListings(ids);
+	const missing = ids.find((id) => !rows.some((row) => row.moduleId === id));
+	if (missing) throw new BadRequest(`no listing ${missing} exists`);
+	const current = await queryPartition(APP_TABLE, { name: 'pk', value: FEATURED_PK });
+	const curatedAt = nowIso();
+	const writes: FlatTransactionWrite[] = [
+		...current
+			.filter((row) => !ids.includes(row.moduleId))
+			.map((row) => ({ delete: { pk: FEATURED_PK, sk: row.sk } })),
+		...ids.map((moduleId, rank) => ({
+			put: { pk: FEATURED_PK, sk: listingKeySk(moduleId), moduleId, rank, curatedAt },
+		})),
+	];
+	if (writes.length > 0) await transactWrite(APP_TABLE, writes);
+	// Answer from what was just written: the featured partition read is eventually consistent.
+	const ctx = await discoveryContext(caller);
+	return json(200, {
+		featured: rows.map((row) => ({ ...discoveryListing(row, caller, ctx), featured: true })),
+	});
+}
+
+/** The caller installed this listing. The record is what makes a rating possible. */
+async function recordInstall(caller: Caller, rawModuleId: string | undefined) {
+	if (!rawModuleId) throw new BadRequest('missing moduleId');
+	const moduleId = decodePathId(rawModuleId, 'moduleId', UUID_RE);
+	const listing = await getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING });
+	if (!listing) return json(404, { error: 'module not found' });
+	// No content, only the fact and the version. It is the caller's own row: exported with the
+	// account and purged with it.
+	await transactWhileAccountActive(caller, [
+		{
+			put: {
+				pk: accountPk(caller.sub),
+				sk: installSk(moduleId),
+				moduleId,
+				version: listing.version,
+				installedAt: nowIso(),
+			},
+		},
+	]);
+	return json(200, { ok: true, installed: true });
+}
+
+function reviewResponse(row: ListingRow, callerSub: string) {
+	return {
+		reviewId: row.reviewId,
+		stars: Number(row.stars),
+		note: row.note ?? '',
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+		// Authorship as a per-caller boolean — the reviewer's sub never reaches a browser.
+		mine: row.reviewerSub === callerSub,
+	};
+}
+
+async function listReviews(caller: Caller, rawModuleId: string | undefined) {
+	if (!rawModuleId) throw new BadRequest('missing moduleId');
+	const moduleId = decodePathId(rawModuleId, 'moduleId', UUID_RE);
+	const listing = await getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING });
+	if (!listing) return json(404, { error: 'module not found' });
+	const [rows, aggregate] = await Promise.all([
+		queryPartition(
+			APP_TABLE,
+			{ name: 'pk', value: modulePk(moduleId) },
+			{ name: 'sk', lo: 'review#', hi: 'review#\uffff' },
+			MAX_REVIEWS_READ,
+			MAX_REVIEWS_READ,
+		),
+		getItem(APP_TABLE, { pk: RATINGS_PK, sk: listingKeySk(moduleId) }),
+	]);
+	const reviews = rows
+		.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+		.slice(0, MAX_REVIEWS_RETURNED)
+		.map((row) => reviewResponse(row, caller.sub));
+	return json(200, { reviews, rating: ratingSummary(aggregate) });
+}
+
+/** Rate (or re-rate) a listing. One rating per DM per listing; the policy checks come first. */
+async function putReview(
+	caller: Caller,
+	rawModuleId: string | undefined,
+	body: string | undefined,
+) {
+	if (!rawModuleId) throw new BadRequest('missing moduleId');
+	const moduleId = decodePathId(rawModuleId, 'moduleId', UUID_RE);
+	const parsed = parseBody(body);
+	const stars = parseStars(parsed.stars);
+	if (stars === null) throw new BadRequest('stars must be a whole number from 1 to 5');
+	const note = optionalString(parsed.note, 'note', MAX_REVIEW_NOTE_CHARS);
+	const listing = await getItem(APP_TABLE, { pk: modulePk(moduleId), sk: SK_LISTING });
+	if (!listing) return json(404, { error: 'module not found' });
+	if (listing.ownerSub === caller.sub)
+		throw new Forbidden('You cannot rate a module you published.');
+	const [install, existing] = await Promise.all([
+		getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: installSk(moduleId) }, true),
+		getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: accountReviewSk(moduleId) }, true),
+	]);
+	if (!install)
+		throw new Forbidden(
+			'Install this module before rating it. Ratings come only from DMs who installed it.',
+		);
+	const budgetKey = await consumePublishBudget(caller, 'review', REVIEWS_PER_DAY);
+	const reviewId = existing?.reviewId || randomUUID();
+	const previousStars = existing ? Number(existing.stars) || 0 : 0;
+	const updatedAt = nowIso();
+	const revision = randomUUID();
+	const review = {
+		revision,
+		moduleId,
+		reviewId,
+		stars,
+		note,
+		createdAt: existing?.createdAt || updatedAt,
+		updatedAt,
+	};
+	try {
+		await sendTransaction([
+			accountActiveCheck(caller),
+			// A listing removed after the initial read must not acquire new orphaned ratings.
+			// The existence check and review writes share the same transaction.
+			{
+				ConditionCheck: {
+					TableName: APP_TABLE,
+					Key: toItem({ pk: modulePk(moduleId), sk: SK_LISTING }),
+					ConditionExpression: 'attribute_exists(#pk)',
+					ExpressionAttributeNames: { '#pk': 'pk' },
+				},
+			},
+			{
+				Put: {
+					TableName: APP_TABLE,
+					Item: toItem({ pk: accountPk(caller.sub), sk: accountReviewSk(moduleId), ...review }),
+					// The reviewer's own copy is the concurrency guard: it must still be exactly what
+					// was read, so two racing saves cannot both move the aggregate from one baseline.
+					...(existing
+						? {
+								ConditionExpression: '#version = :previous',
+								ExpressionAttributeNames: {
+									'#version': existing.revision ? 'revision' : 'updatedAt',
+								},
+								ExpressionAttributeValues: toItem({
+									':previous': existing.revision ?? existing.updatedAt,
+								}),
+							}
+						: {
+								ConditionExpression: 'attribute_not_exists(#pk)',
+								ExpressionAttributeNames: { '#pk': 'pk' },
+							}),
+				},
+			},
+			{
+				Put: {
+					TableName: APP_TABLE,
+					Item: toItem({
+						pk: modulePk(moduleId),
+						sk: listingReviewSk(reviewId),
+						...review,
+						reviewerSub: caller.sub,
+					}),
+				},
+			},
+			ratingDelta(moduleId, existing ? 0 : 1, stars - previousStars),
+		]);
+	} catch (error) {
+		const [account, stored] = await Promise.all([
+			getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: SK_ENTITLEMENT }, true),
+			getItem(APP_TABLE, { pk: accountPk(caller.sub), sk: accountReviewSk(moduleId) }, true),
+		]);
+		if (account?.deletedAt) {
+			await deleteItem(APP_TABLE, budgetKey);
+			throw new AccountDeleted();
+		}
+		// A response lost after the commit leaves the caller's copy exactly as this request wrote it.
+		const committed = stored?.reviewId === reviewId && stored.revision === revision;
+		if (!committed) {
+			if (isTransactionCanceled(error))
+				throw new Conflict('This rating changed while it was being saved. Reload and try again.');
+			throw error;
+		}
+	}
+	const aggregate = await getItem(APP_TABLE, { pk: RATINGS_PK, sk: listingKeySk(moduleId) }, true);
+	return json(200, {
+		review: { reviewId, stars, note, createdAt: review.createdAt, updatedAt },
+		rating: ratingSummary(aggregate),
+	});
+}
+
+/** Report a review to the maintainer's queue. One report per DM per review. */
+async function flagReview(
+	caller: Caller,
+	rawModuleId: string | undefined,
+	rawReviewId: string | undefined,
+	body: string | undefined,
+) {
+	if (!rawModuleId || !rawReviewId) throw new BadRequest('missing moduleId or reviewId');
+	const moduleId = decodePathId(rawModuleId, 'moduleId', UUID_RE);
+	const reviewId = decodePathId(rawReviewId, 'reviewId', UUID_RE);
+	const reason = optionalString(parseBody(body).reason, 'reason', MAX_FLAG_REASON_CHARS);
+	const review = await getItem(APP_TABLE, {
+		pk: modulePk(moduleId),
+		sk: listingReviewSk(reviewId),
+	});
+	if (!review) return json(404, { error: 'review not found' });
+	if (review.reviewerSub === caller.sub) throw new BadRequest('You cannot report your own review.');
+	const budgetKey = await consumePublishBudget(caller, 'flag', FLAGS_PER_DAY);
+	const names: Record<string, string> = {
+		'#moduleId': 'moduleId',
+		'#reviewId': 'reviewId',
+		'#at': 'lastFlaggedAt',
+		'#count': 'flagCount',
+	};
+	const values: Record<string, string | number> = {
+		':moduleId': moduleId,
+		':reviewId': reviewId,
+		':at': nowIso(),
+		':one': 1,
+	};
+	let set = 'SET #moduleId = :moduleId, #reviewId = :reviewId, #at = :at';
+	if (reason) {
+		names['#reason'] = 'lastReason';
+		values[':reason'] = reason;
+		set += ', #reason = :reason';
+	}
+	try {
+		await sendTransaction([
+			accountActiveCheck(caller),
+			// The caller's marker makes a repeat report a no-op, so the queue's count is a count of
+			// people, not of clicks.
+			{
+				Put: {
+					TableName: APP_TABLE,
+					Item: toItem({
+						pk: accountPk(caller.sub),
+						sk: accountFlagSk(moduleId, reviewId),
+						moduleId,
+						reviewId,
+						flaggedAt: String(values[':at']),
+					}),
+					ConditionExpression: 'attribute_not_exists(#pk)',
+					ExpressionAttributeNames: { '#pk': 'pk' },
+				},
+			},
+			{
+				Update: {
+					TableName: APP_TABLE,
+					Key: toItem({ pk: FLAGS_PK, sk: flagSk(moduleId, reviewId) }),
+					UpdateExpression: `${set} ADD #count :one`,
+					ExpressionAttributeNames: names,
+					ExpressionAttributeValues: toItem(values),
+				},
+			},
+		]);
+	} catch (error) {
+		const account = await getItem(
+			APP_TABLE,
+			{ pk: accountPk(caller.sub), sk: SK_ENTITLEMENT },
+			true,
+		);
+		if (account?.deletedAt) {
+			await deleteItem(APP_TABLE, budgetKey);
+			throw new AccountDeleted();
+		}
+		const marker = await getItem(
+			APP_TABLE,
+			{ pk: accountPk(caller.sub), sk: accountFlagSk(moduleId, reviewId) },
+			true,
+		);
+		// With the marker in place this DM has reported it already (or this report committed and
+		// only its response was lost): either way the queue is already right.
+		if (!marker) throw error;
+	}
+	return json(200, { ok: true });
+}
+
+/** Maintainer-only: the reported reviews, most-reported first. */
+async function moderationQueue(caller: Caller) {
+	requireMaintainer(caller);
+	const flags = await queryPartition(
+		APP_TABLE,
+		{ name: 'pk', value: FLAGS_PK },
+		undefined,
+		MAX_MODERATION_QUEUE,
+		MAX_MODERATION_QUEUE,
+	);
+	const entries = await Promise.all(
+		flags.map(async (flag) => {
+			const [review, listing] = await Promise.all([
+				getItem(APP_TABLE, { pk: modulePk(flag.moduleId), sk: listingReviewSk(flag.reviewId) }),
+				getItem(APP_TABLE, { pk: modulePk(flag.moduleId), sk: SK_LISTING }),
+			]);
+			// A report on a review that has since gone is nothing left to moderate.
+			if (!review) return null;
+			return {
+				moduleId: flag.moduleId,
+				listingName: listing?.name ?? '',
+				reviewId: flag.reviewId,
+				stars: Number(review.stars),
+				note: review.note ?? '',
+				updatedAt: review.updatedAt,
+				flagCount: Number(flag.flagCount) || 0,
+				lastReason: flag.lastReason ?? '',
+				lastFlaggedAt: flag.lastFlaggedAt ?? '',
+			};
+		}),
+	);
+	const reviews = entries
+		.filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+		.sort((a, b) => b.flagCount - a.flagCount || b.lastFlaggedAt.localeCompare(a.lastFlaggedAt));
+	return json(200, { reviews });
+}
+
+/**
+ * Take a review down: its public row, the reviewer's own copy and its share of the aggregate go
+ * together or not at all. 'conflict' means the review changed since it was read, or its listing's
+ * aggregate is already gone; the caller decides what that means for it.
+ */
+async function retractReview(review: ListingRow): Promise<'retracted' | 'conflict'> {
+	try {
+		await sendTransaction([
+			{
+				Delete: {
+					TableName: APP_TABLE,
+					Key: toItem({ pk: modulePk(review.moduleId), sk: listingReviewSk(review.reviewId) }),
+					ConditionExpression: '#version = :version',
+					ExpressionAttributeNames: { '#version': review.revision ? 'revision' : 'updatedAt' },
+					ExpressionAttributeValues: toItem({ ':version': review.revision ?? review.updatedAt }),
+				},
+			},
+			{
+				Delete: {
+					TableName: APP_TABLE,
+					Key: toItem({
+						pk: accountPk(review.reviewerSub),
+						sk: accountReviewSk(review.moduleId),
+					}),
+				},
+			},
+			ratingDelta(review.moduleId, -1, -(Number(review.stars) || 0), true),
+		]);
+		return 'retracted';
+	} catch (error) {
+		if (isTransactionCanceled(error)) return 'conflict';
+		throw error;
+	}
+}
+
+/** Maintainer-only: dismiss a report (the review stays) or remove the review it names. */
+async function resolveFlag(caller: Caller, body: string | undefined) {
+	requireMaintainer(caller);
+	const parsed = parseBody(body);
+	const id = (value: unknown) => (typeof value === 'string' && UUID_RE.test(value) ? value : '');
+	const moduleId = id(parsed.moduleId);
+	const reviewId = id(parsed.reviewId);
+	if (!moduleId || !reviewId)
+		throw new BadRequest('moduleId and reviewId must be a listing id and a review id');
+	const action = parsed.action;
+	if (action !== 'dismiss' && action !== 'remove')
+		throw new BadRequest(`action must be one of: ${MODERATION_ACTIONS.join(', ')}`);
+	const queueKey = { pk: FLAGS_PK, sk: flagSk(moduleId, reviewId) };
+	if (action === 'remove') {
+		const review = await getItem(
+			APP_TABLE,
+			{ pk: modulePk(moduleId), sk: listingReviewSk(reviewId) },
+			true,
+		);
+		if (!review) {
+			await deleteItem(APP_TABLE, queueKey);
+			return json(404, { error: 'review not found' });
+		}
+		if ((await retractReview(review)) === 'conflict')
+			throw new Conflict('This review changed while it was being removed. Reload the queue.');
+	}
+	await deleteItem(APP_TABLE, queueKey);
+	return json(200, { ok: true, action });
+}
+
+/** Account deletion: take one of the caller's ratings off another DM's listing. */
+async function withdrawAccountReview(mirror: ListingRow): Promise<void> {
+	const key = { pk: modulePk(mirror.moduleId), sk: listingReviewSk(mirror.reviewId) };
+	const review = await getItem(APP_TABLE, key, true);
+	// A conflict here means the listing and its aggregate are already gone (the account is locked,
+	// so its review cannot have been edited): nothing is left to keep consistent.
+	if (review && (await retractReview(review)) === 'conflict') await deleteItem(APP_TABLE, key);
+	await deleteItem(APP_TABLE, { pk: FLAGS_PK, sk: flagSk(mirror.moduleId, mirror.reviewId) });
+}
+
+/**
+ * A removed listing takes its ratings, their reviewers' own copies, its aggregate, its featured
+ * slot and its queue entries with it. Install records stay with the accounts that made them.
+ */
+async function purgeListingDiscoveryRows(moduleId: string): Promise<void> {
+	const reviews = await queryPartition(
+		APP_TABLE,
+		{ name: 'pk', value: modulePk(moduleId) },
+		{ name: 'sk', lo: 'review#', hi: 'review#\uffff' },
+	);
+	for (const review of reviews) {
+		await deleteItem(APP_TABLE, { pk: FLAGS_PK, sk: flagSk(moduleId, review.reviewId) });
+		if (review.reviewerSub)
+			await deleteItem(APP_TABLE, {
+				pk: accountPk(review.reviewerSub),
+				sk: accountReviewSk(moduleId),
+			});
+		await deleteItem(APP_TABLE, { pk: modulePk(moduleId), sk: review.sk });
+	}
+	await deleteItem(APP_TABLE, { pk: RATINGS_PK, sk: listingKeySk(moduleId) });
+	await deleteItem(APP_TABLE, { pk: FEATURED_PK, sk: listingKeySk(moduleId) });
 }
 
 // --- Campaign wiki: ONE wiki per account. Owner row (account#<sub>|wiki) carries the ----
@@ -977,6 +1686,8 @@ async function deleteModule(caller: Caller, rawModuleId: string | undefined) {
 // --- is validated to STRICT text-only shapes here; the reader renders markdown as -------
 // --- React text nodes (never innerHTML), so hosted content cannot script readers. -------
 interface WikiPage {
+	folder?: string;
+	kind?: 'note' | 'recap';
 	slug: string;
 	title: string;
 	markdown: string;
@@ -989,6 +1700,7 @@ function wikiStatusResponse(row: Record<string, string>) {
 		title: row.title,
 		access: row.access,
 		pageCount: Number(row.pageCount),
+		recapCount: Number(row.recapCount || 0),
 		size: Number(row.size),
 		publishedAt: row.publishedAt,
 		updatedAt: row.updatedAt,
@@ -1032,7 +1744,17 @@ function sanitizeWikiPages(value: unknown): WikiPage[] {
 		if (typeof page.markdown !== 'string')
 			throw new BadRequest(`pages[${i}].markdown must be a string`);
 		const updatedAt = optionalString(page.updatedAt, `pages[${i}].updatedAt`, 40);
-		return { slug, title, markdown: page.markdown, updatedAt };
+		const folder = optionalString(page.folder, `pages[${i}].folder`, 240);
+		if (page.kind !== undefined && page.kind !== 'note' && page.kind !== 'recap')
+			throw new BadRequest('invalid wiki page kind');
+		return {
+			slug,
+			title,
+			markdown: stripSecretCallouts(page.markdown),
+			updatedAt,
+			...(folder ? { folder } : {}),
+			...(page.kind ? { kind: page.kind as 'note' | 'recap' } : {}),
+		};
 	});
 }
 
@@ -1081,6 +1803,7 @@ async function publishWiki(caller: Caller, body: string | undefined) {
 		title,
 		access: access as WikiAccess,
 		pageCount: pages.length,
+		recapCount: pages.filter((page) => page.kind === 'recap').length,
 		size,
 		publishedAt,
 		updatedAt,
@@ -1522,6 +2245,9 @@ async function gatherAccountData(caller: Caller) {
 		// Per-owner rows are written transactionally with every module from this release onward. Account
 		// export/deletion therefore stays partition-scoped instead of reading the global marketplace.
 		ownModules: accountRows.filter((row) => row.sk.startsWith('module#')),
+		// RC-CLD-4.5 — the caller's ratings (their own copies) and the install records behind them.
+		reviewRows: accountRows.filter((row) => row.sk.startsWith('review#')),
+		installRows: accountRows.filter((row) => row.sk.startsWith('install#')),
 		wikiRow,
 	};
 }
@@ -1562,6 +2288,18 @@ async function exportAccount(caller: Caller) {
 			summary: row.summary,
 			version: row.version,
 			publishedAt: row.publishedAt,
+		})),
+		reviews: data.reviewRows.map((row) => ({
+			moduleId: row.moduleId,
+			stars: Number(row.stars),
+			note: row.note ?? '',
+			createdAt: row.createdAt,
+			updatedAt: row.updatedAt,
+		})),
+		installedModules: data.installRows.map((row) => ({
+			moduleId: row.moduleId,
+			version: row.version,
+			installedAt: row.installedAt,
 		})),
 		publishedWiki: data.wikiRow ? wikiStatusResponse(data.wikiRow) : null,
 		note: 'Vault content is not included: it is stored end-to-end encrypted in the sync service, which cannot read or export your plaintext. Use the in-app vault export for your campaign data.',
@@ -1650,7 +2388,11 @@ async function deleteAccount(caller: Caller) {
 		} else {
 			await deleteObject(MODULES_BUCKET, moduleS3Key(row.moduleId));
 		}
+		await purgeListingDiscoveryRows(row.moduleId);
 	}
+	// RC-CLD-4.5 — the account's ratings of other DMs' modules leave those listings (and their
+	// aggregates) before the account's own copies go in the sweep below.
+	for (const row of data.reviewRows) await withdrawAccountReview(row);
 	if (data.wikiRow?.wikiId) {
 		await deleteItem(APP_TABLE, { pk: wikiPk(data.wikiRow.wikiId), sk: SK_SITE });
 		if (data.wikiRow.s3VersionId) {

@@ -1,0 +1,8 @@
+{
+	"schemaVersion": 1,
+	"referenceCommit": "48a827861616fc3c3f6ccf69f0872edc1c8c771a",
+	"runnerLabel": "github-ubuntu-24.04",
+	"aggregation": "median-of-batches-v1",
+	"tolerance": 0.2,
+	"description": "Pinned code reference, measured afresh on the same CI runner with the candidate capture harness. This is configuration, not fabricated timing data. The measured baseline and its raw samples are uploaded with every run. Refresh this SHA only after reviewing performance evidence."
+}

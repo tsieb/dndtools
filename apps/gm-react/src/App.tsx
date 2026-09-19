@@ -79,6 +79,11 @@ const Terms = lazy(() => import('./screens/legal/Terms').then((m) => ({ default:
 const WikiReader = lazy(() =>
 	import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })),
 );
+// Like window.__rt, both the import and route must disappear from production.
+const DsGallery = import.meta.env.DEV
+	? lazy(() => import('./screens/DsGallery').then((m) => ({ default: m.DsGallery })))
+	: null;
+
 const CENTERED: CSSProperties = {
 	display: 'flex',
 	flexDirection: 'column',
@@ -561,7 +566,19 @@ export function App() {
 						<SessionProvider>
 							<HashRouter>
 								<ErrorBoundary>
-									<RoutedApp />
+									<Routes>
+										{import.meta.env.DEV && DsGallery && (
+											<Route
+												path="/__ds"
+												element={
+													<Suspense fallback={<Boot />}>
+														<DsGallery />
+													</Suspense>
+												}
+											/>
+										)}
+										<Route path="/*" element={<RoutedApp />} />
+									</Routes>
 								</ErrorBoundary>
 							</HashRouter>
 						</SessionProvider>

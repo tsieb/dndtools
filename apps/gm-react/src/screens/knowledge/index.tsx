@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { actorCanAuthorContent, getContentItemsForActor } from '@dndtools/core';
 import { Button, Card, EmptyState, Icon, Toaster, VisibilityChip } from '../../ds';
-import { Page, T } from '../../app/screen-kit';
+import { ListDetail, Page, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
 import { VIS_CHIP } from './shared';
-import { formatStamp, parseArchive, snippetOf } from './markdown';
+import { parseArchive, snippetOf } from './markdown';
 import { useI18n } from '../../i18n';
+import { NoteListMetadata } from './NoteListMetadata';
 import { NoteViewer } from './NoteViewer';
 import { Composer } from './Composer';
 import { ImportPanel } from './ImportPanel';
@@ -28,7 +29,7 @@ export { parseWikilink } from './markdown';
  */
 
 export function Knowledge() {
-	const { t, formatDate } = useI18n();
+	const { t, formatDate, formatRelativeTime } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -101,16 +102,15 @@ export function Knowledge() {
 	// `key={open.id}` REMOUNTS the editor when navigating between notes (e.g. via a backlink/related
 	// row), resetting the draft/edit state — without it React reuses the instance and a Save could
 	// persist note A's draft into note B. Same-note re-renders keep the instance (id unchanged).
-	if (open)
-		return (
-			<NoteViewer
-				key={open.id}
-				note={open}
-				canAuthor={canAuthor}
-				onBack={() => navigate('/knowledge')}
-				onOpen={(id) => navigate(`/knowledge/${id}`)}
-			/>
-		);
+	const viewer = open ? (
+		<NoteViewer
+			key={open.id}
+			note={open}
+			canAuthor={canAuthor}
+			onBack={() => navigate('/knowledge')}
+			onOpen={(id) => navigate(`/knowledge/${id}`)}
+		/>
+	) : null;
 
 	async function createNote(title: string) {
 		setBusy(true);
@@ -184,7 +184,7 @@ export function Knowledge() {
 		}
 	}
 
-	return (
+	const library = (
 		<Page max={1180}>
 			<div
 				style={{
@@ -323,8 +323,11 @@ export function Knowledge() {
 					description={t(canAuthor ? 'knowledge.emptyDmBody' : 'knowledge.emptyPlayerBody')}
 					action={
 						canAuthor ? (
+							// Secondary, not a second gold button: the header already offers this same "New
+							// note" in accent, and on the rail tier the open note in the detail pane beside
+							// this list owns an accent primary of its own (RC-UX-4.3).
 							<Button
-								variant="primary"
+								variant="secondary"
 								size="sm"
 								icon="note-edit"
 								// The three disclosures are mutually exclusive, but this second entry point
@@ -356,8 +359,12 @@ export function Knowledge() {
 					{notes.map((n) => (
 						<Card
 							key={n.id}
+							style={{ minWidth: 0, overflowWrap: 'anywhere' }}
 							elevation="flat"
 							interactive
+							// The note open in the rail tier's detail pane beside this list (RC-UX-4.3).
+							accent={n.id === open?.id}
+							aria-current={n.id === open?.id ? 'true' : undefined}
 							onClick={() => navigate(`/knowledge/${n.id}`)}
 						>
 							<div
@@ -378,6 +385,7 @@ export function Knowledge() {
 								<VisibilityChip level={VIS_CHIP[n.visibility] || 'dm-only'} compact />
 							</div>
 							<div style={{ font: `600 14.5px ${T.sans}`, marginBottom: 5 }}>{n.title}</div>
+							<NoteListMetadata note={n} />
 							<div
 								style={{
 									font: `12.5px/1.55 ${T.sans}`,
@@ -391,12 +399,31 @@ export function Knowledge() {
 								{snippetOf(n.body, t)}
 							</div>
 							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 9 }}>
-								{t('knowledge.updated', { when: formatStamp(n.updatedAt, formatDate) })}
+								<time
+									dateTime={n.updatedAt}
+									title={formatDate(new Date(n.updatedAt), {
+										dateStyle: 'long',
+										timeStyle: 'short',
+									})}
+								>
+									{t('knowledge.updated', { when: formatRelativeTime(new Date(n.updatedAt)) })}
+								</time>
 							</div>
 						</Card>
 					))}
 				</div>
 			)}
 		</Page>
+	);
+
+	// RC-UX-4.3 — on the rail tier the open note reads in the detail pane BESIDE the note list;
+	// elsewhere it replaces the list as a full page, as before.
+	return (
+		<ListDetail
+			list={library}
+			detail={viewer}
+			detailKey={open?.id ?? null}
+			detailLabel={open?.title ?? ''}
+		/>
 	);
 }

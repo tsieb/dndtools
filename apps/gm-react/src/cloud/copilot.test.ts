@@ -6,10 +6,14 @@ vi.mock('@dndtools/core', async (importOriginal) => {
 	const core = await importOriginal<typeof import('@dndtools/core')>();
 	return {
 		...core,
-		securityDecisionRecordForVaultMode: (mode: import('@dndtools/core').VaultPrivacyMode) => ({
-			...core.securityDecisionRecordForVaultMode(mode),
-			approved: state.approved,
-		}),
+		// Simulating the post-review posture means producing a SANCTIONED record, exactly as
+		// `cloud-security-decision.ts` does. A bare spread is an unsanctioned look-alike and the core
+		// gate refuses it — that refusal is the ADR-026 phase-2 checklist item 7 property.
+		securityDecisionRecordForVaultMode: (mode: import('@dndtools/core').VaultPrivacyMode) =>
+			core.sanctionSecurityDecisionRecord({
+				...core.securityDecisionRecordForVaultMode(mode),
+				approved: state.approved,
+			}),
 	};
 });
 const question = { version: 1, vaultId: 'vault', revision: 'r1', question: 'Who guards the gate?' };

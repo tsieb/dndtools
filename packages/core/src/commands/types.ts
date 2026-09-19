@@ -114,12 +114,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	| { type: 'scene.apply-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.add-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.move-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.resize-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.layer-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.group-widgets'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.move-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.set-widget-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.dock-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.pin-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.set-focus-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -974,10 +976,50 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
-	  };
+	  }
+	// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only block) -----------------------------
+	// Copy an instance on its own scene: same definition, version, size, configuration, binding and
+	// section, a fresh id and fresh local state. The copy is read from the Core's own scene, never from
+	// the caller, and the binding is re-checked against the duplicating actor.
+	| {
+			type: 'scene.duplicate-widget';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// --- RC-CAN-7.2 — SCREEN METADATA, PINS AND DUPLICATION (append-only block; ADR-041) ----------
+	// A screen IS a scene, so these are scene commands over the additive `Scene.screen` record plus
+	// whole-screen duplication. All four are DM-only. `scene.set-pinned` pins a SCREEN in the shell's
+	// Screens group and is unrelated to `scene.pin-widget`, which pins a tile inside one.
+	| { type: 'scene.set-pinned'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.reorder-pins'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'scene.set-layout-policy';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'scene.duplicate'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
+	// --- RC-CAN-7.2 — SCREEN METADATA (ADR-041) ---------------------------------------------------
+	// The pin order is a property of the pin SET, so `scene.pins-reordered` carries the whole list and
+	// names no single scene.
+	| { kind: 'scene.pin-changed'; sceneId: SceneId; actorId: ActorId; pinned: boolean }
+	| { kind: 'scene.pins-reordered'; actorId: ActorId; sceneIds: SceneId[] }
+	| {
+			kind: 'scene.layout-policy-changed';
+			sceneId: SceneId;
+			actorId: ActorId;
+			layoutPolicy: 'flow' | 'canvas';
+	  }
+	| {
+			kind: 'scene.duplicated';
+			sourceSceneId: SceneId;
+			newSceneId: SceneId;
+			actorId: ActorId;
+	  }
 	| { kind: 'scene.metadata-changed'; sceneId: SceneId; actorId: ActorId; paths: string[] }
 	| { kind: 'scene.sections-changed'; sceneId: SceneId; actorId: ActorId }
 	| { kind: 'scene.widget-added'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
@@ -1006,6 +1048,16 @@ export type CoreEvent =
 			templateSceneId: SceneId;
 			newSceneId: SceneId;
 			actorId: ActorId;
+	  }
+	| {
+			kind: 'scene.template-applied';
+			sceneId: SceneId;
+			source: 'builtin' | 'preset' | 'scene';
+			/** The built-in template id, preset id or template scene id. */
+			sourceId: string;
+			actorId: ActorId;
+			appliedWidgetCount: number;
+			missingWidgetTypes: string[];
 	  }
 	| { kind: 'widget.package-installed'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-enabled'; packageId: string; actorId: ActorId }
@@ -2063,6 +2115,8 @@ export type RejectionCode =
 	| 'hidden-target'
 	| 'conflicted-target'
 	| 'template-source-not-template'
+	| 'template-not-found'
+	| 'template-empty'
 	| 'command-center-not-configured'
 	| 'preset-not-found'
 	| 'auto-save-not-available'

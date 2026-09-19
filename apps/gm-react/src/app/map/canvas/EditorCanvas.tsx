@@ -25,6 +25,7 @@ import { clamp01 } from '../mapVocab';
 import { COMBAT_TOKEN_TOOLS, ROUTE_DEFAULT_NAME } from '../tools';
 import { categoryForTool } from '../useMapEditor';
 import { useI18n } from '../../../i18n';
+import { mapCanvasLabel } from '../mapA11y';
 import type { MapEditorApi } from '../useMapEditor';
 
 const MemoMapCanvas = memo(MapCanvas);
@@ -774,9 +775,8 @@ export function EditorCanvas({
 		<div
 			ref={containerRef}
 			role="application"
-			// The human label, not the internal id — a screen reader used to announce
-			// "Drawing tool: poi".
-			aria-label={`Map canvas — ${editor.map?.name ?? 'map'}. Drawing tool: ${editor.toolLabel}.`}
+			// RC-UX-2.2: name + counts + the human tool label; the List view is the non-visual path.
+			aria-label={mapCanvasLabel(editor)}
 			onPointerDownCapture={onTouchDownCapture}
 			onPointerMoveCapture={onTouchMoveCapture}
 			onPointerUpCapture={endTouchCapture}

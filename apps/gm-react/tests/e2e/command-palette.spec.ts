@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // COMMAND PALETTE — the ⌘K quick-switcher (app/CommandPalette.tsx on the DS CommandPalette). The
 // overlay is the keyboard spine of the seven-section IA: it opens on Meta/Control+K (and from the
@@ -15,8 +15,9 @@ const PALETTE = { name: 'Command palette' } as const;
 async function openViaKeyboard(page: Page, chord: 'Meta+k' | 'Control+k'): Promise<void> {
 	await page.keyboard.press(chord);
 	await expect(page.getByRole('dialog', PALETTE)).toBeVisible();
-	// The overlay focuses its combobox on open (its a11y contract); typing must land there.
-	await expect(page.getByRole('combobox')).toBeFocused();
+	// The overlay focuses its combobox on open (its a11y contract); typing must land there. Scoped to
+	// the dialog: a tile on the canvas behind it may carry a combobox of its own.
+	await expect(page.getByRole('dialog', PALETTE).getByRole('combobox')).toBeFocused();
 }
 
 test.describe('command palette: the ⌘K quick-switcher', () => {
@@ -258,9 +259,137 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await openViaKeyboard(page, 'Meta+k');
 		const here = page.getByRole('group', { name: 'On this screen' });
 		await expect(here).toBeVisible();
-		// It is the FIRST group in the list, before Create and Go to.
-		await expect(page.getByRole('group').first()).toHaveAttribute('aria-label', 'On this screen');
+		// It is the FIRST group in the list, before Create and Go to. Scoped to the palette: the board
+		// behind it has its own groups (Zoom, the widgets), and a page-wide `.first()` only passed while
+		// the palette won the race against the board's first render (RC-ENG-4.4, React Router 7).
+		const palette = page.getByRole('dialog', PALETTE);
+		await expect(palette.getByRole('group').first()).toHaveAttribute(
+			'aria-label',
+			'On this screen',
+		);
 		expect(await here.getByRole('option').count()).toBeGreaterThan(0);
+	});
+
+	// ── RC-CAN-4.3 — `>board` and `>scene` canvas actions ────────────────────────────────────────
+	// On the two canvas routes the palette carries the canvas's own verbs — Toggle edit, Undo, Apply
+	// template, Add tile of type… — each firing what the matching toolbar control / key fires. They
+	// exist ONLY there: everywhere else those rows are absent, not disabled.
+	test('on the GM Screen the palette toggles edit, adds a tile, and undoes', async ({ page }) => {
+		await gotoRoute(page, '/board');
+		const main = page.locator('#main-content');
+		await expect(main.getByRole('button', { name: 'Edit layout' })).toBeVisible();
+		const homeTiles = () =>
+			page.evaluate(() => {
+				const rt = window.__rt!;
+				const home = rt.state.commandCenter.homeSceneId!;
+				return rt.state.scenes.scenes[home]!.widgets.length;
+			});
+
+		await openViaKeyboard(page, 'Meta+k');
+		const here = page.getByRole('group', { name: 'On this screen' });
+		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>scene');
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>board');
+		// Undo is offered but blocked (with its reason) until the layout has a step to take back.
+		const undo = here.getByRole('option', { name: /Undo last change/ });
+		await expect(undo).toHaveAttribute('aria-disabled', 'true');
+		await expect(undo.getByText('Ctrl/⌘+Z')).toBeVisible();
+		await here.getByRole('option', { name: /Edit layout/ }).click();
+		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+		await expect(main.getByRole('button', { name: 'Done' })).toBeVisible();
+
+		// The toggle's label follows the mode it would leave (the row just run is hoisted into Recent).
+		await openViaKeyboard(page, 'Meta+k');
+		await expect(
+			page.getByRole('dialog', PALETTE).getByRole('option', { name: /Done editing layout/ }),
+		).toBeVisible();
+
+		// "Add tile of type…" — behind a query, so a whole library never floods the empty palette.
+		const before = await homeTiles();
+		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>board add tile dice');
+		await expect(page.getByRole('group', { name: 'Go to' })).toHaveCount(0);
+		await here
+			.getByRole('option', { name: /^Add tile: Dice\b/ })
+			.first()
+			.click();
+		await expect.poll(homeTiles).toBe(before + 1);
+
+		// Remove a tile (an undoable step), then take it back from the palette.
+		const first = main.locator('[data-testid^="widget-"]').first();
+		await first.focus();
+		await page.keyboard.press('Delete');
+		await expect.poll(homeTiles).toBe(before);
+		await openViaKeyboard(page, 'Meta+k');
+		const undoNow = here.getByRole('option', { name: /Undo last change/ });
+		await expect(undoNow).not.toHaveAttribute('aria-disabled', 'true');
+		await expect(undoNow).toContainText(/Removed/);
+		await undoNow.click();
+		await expect.poll(homeTiles).toBe(before + 1);
+	});
+
+	test('on a scene, Add tile targets that scene — not the GM Screen', async ({ page }) => {
+		await gotoRoute(page, '/scenes');
+		const sceneName = `Palette Scene ${Date.now()}`;
+		const created = await dispatch(page, {
+			type: 'scene.create',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+		});
+		expect(created.status).toBe('accepted');
+		const sceneId = await page.evaluate(
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
+			sceneName,
+		);
+		expect(sceneId).toBeTruthy();
+		const counts = () =>
+			page.evaluate((id) => {
+				const rt = window.__rt!;
+				const home = rt.state.commandCenter.homeSceneId;
+				return {
+					scene: rt.state.scenes.scenes[id]!.widgets.length,
+					home: home ? (rt.state.scenes.scenes[home]?.widgets.length ?? 0) : 0,
+				};
+			}, sceneId!);
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await expect(page.getByRole('button', { name: 'Edit layout' })).toBeVisible();
+		const before = await counts();
+		await openViaKeyboard(page, 'Meta+k');
+		const here = page.getByRole('group', { name: 'On this screen' });
+		await expect(here.getByRole('option', { name: /Edit layout/ })).toBeVisible();
+		await page.getByRole('combobox').fill('>add tile dice');
+		await here
+			.getByRole('option', { name: /^Add tile: Dice\b/ })
+			.first()
+			.click();
+		await expect.poll(counts).toEqual({ scene: before.scene + 1, home: before.home });
+		// Adding enters edit mode, as a gallery pick does.
+		await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
+		await openViaKeyboard(page, 'Meta+k');
+		await page
+			.getByRole('dialog', PALETTE)
+			.getByRole('combobox')
+			.fill('>scene apply template combat');
+		await here.getByRole('option', { name: /^Apply template: Combat scene/ }).click();
+		await expect.poll(async () => (await counts()).scene).toBeGreaterThan(before.scene + 1);
+		expect((await counts()).home).toBe(before.home);
+	});
+
+	test('the canvas actions are absent off the canvas routes', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		for (const prefix of ['>board', '>scene']) {
+			await page.getByRole('dialog', PALETTE).getByRole('combobox').fill(prefix);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+		}
+		await page.getByRole('combobox').fill('>add tile');
+		await expect(page.getByRole('option', { name: /^Add tile:/ })).toHaveCount(0);
+		await page.getByRole('combobox').fill('>edit layout');
+		await expect(page.getByRole('option', { name: /Edit layout/ })).toHaveCount(0);
+		await page.getByRole('combobox').fill('>undo last');
+		await expect(page.getByRole('option', { name: /Undo last change/ })).toHaveCount(0);
+		await page.getByRole('combobox').fill('>apply template');
+		await expect(page.getByRole('option', { name: /^Apply template:/ })).toHaveCount(0);
 	});
 
 	// A row that fires the same thing a documented key chord fires prints that chord, straight from

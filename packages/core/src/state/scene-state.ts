@@ -133,6 +133,14 @@ export interface Scene {
 	 * existed hydrates with no tombstones (an empty bin) rather than failing — no schemaVersion bump.
 	 */
 	tombstones?: WidgetTombstone[];
+	/**
+	 * RC-CAN-7.2 / ADR-041 — SCREEN metadata: pinned, pin order, layout policy and origin. Additive and
+	 * OPTIONAL, and `withScreenMeta` drops the key whenever the value is the default, so a scene with
+	 * nothing to say about screens serialises byte-identically to one persisted before screens existed
+	 * — which is why this carries no schemaVersion bump. Read it through {@link screenMetaOf}, never
+	 * directly: the accessor hydrates a damaged record fail-closed.
+	 */
+	screen?: ScreenMeta | null;
 	schemaVersion: typeof SCENE_SCHEMA_VERSION;
 }
 
@@ -187,6 +195,36 @@ export function listRestorableWidgets(scene: Scene, now: string): WidgetTombston
 		.sort((a, b) => (a.destroyedAt < b.destroyedAt ? 1 : a.destroyedAt > b.destroyedAt ? -1 : 0));
 }
 
+// --- RC-CAN-3.6 — PAINT ORDER -----------------------------------------------------------------
+// The canvas paints `Scene.widgets` in array order (later = on top), and focus order reads `z`
+// (higher = reached first). `scene.set-widget-order` rewrites both together so they never disagree.
+
+/** The scene's widget ids back to front — the order the canvas paints them in. */
+export function widgetPaintOrder(scene: Scene): WidgetInstanceId[] {
+	return scene.widgets.map((widget) => widget.id);
+}
+
+/**
+ * The scene with its widgets in `order` (back to front) and `z` renumbered 1..n to match. `null` when
+ * `order` is not a permutation of the scene's widget ids: a partial or stale list would silently
+ * drop or duplicate a widget, so it fails closed instead.
+ */
+export function withWidgetOrder(scene: Scene, order: readonly WidgetInstanceId[]): Scene | null {
+	const byId = new Map(scene.widgets.map((widget) => [widget.id, widget]));
+	if (order.length !== byId.size || new Set(order).size !== order.length) return null;
+	const widgets: WidgetInstance[] = [];
+	for (const [index, id] of order.entries()) {
+		const widget = byId.get(id);
+		if (!widget) return null;
+		widgets.push(
+			widget.layout.z === index + 1
+				? widget
+				: { ...widget, layout: { ...widget.layout, z: index + 1 } },
+		);
+	}
+	return { ...scene, widgets };
+}
+
 export interface SceneState {
 	scenes: Record<SceneId, Scene>;
 	schemaVersion: typeof SCENE_STATE_SCHEMA_VERSION;
@@ -196,3 +234,177 @@ export const EMPTY_SCENE_STATE: SceneState = Object.freeze({
 	scenes: {},
 	schemaVersion: SCENE_STATE_SCHEMA_VERSION,
 });
+
+// --- RC-CAN-7.2 — SCREEN METADATA (ADR-041) ------------------------------------------------------
+// A screen IS a scene: there is no second entity, no duplicate widget store and no parallel
+// permission model. What a screen adds is a small, OPTIONAL record on the scene — whether the GM
+// pinned it to the shell, where it sits among the pins, which layout policy renders it, and where it
+// came from. Absent, the record resolves to "unpinned, canvas, no recorded origin", which is exactly
+// how every scene behaved before this field existed, so no schemaVersion bump is warranted.
+
+/** The two layout policies ADR-041 accepts. `canvas` is today's bounded board; `flow` is CAN-7.7. */
+export const SCREEN_LAYOUT_POLICIES = ['flow', 'canvas'] as const;
+
+export type ScreenLayoutPolicy = (typeof SCREEN_LAYOUT_POLICIES)[number];
+
+/**
+ * PROVENANCE, never a live dependency: recording that a screen was duplicated from another, or
+ * provisioned as one of the default screens, must never license overwriting a screen the GM has
+ * since customised. Nothing reads this to re-seed content.
+ */
+export interface ScreenOrigin {
+	kind: 'default' | 'duplicate' | 'template';
+	/** The scene this one was copied from (`duplicate`/`template`), else `null`. */
+	sourceSceneId: SceneId | null;
+	/** The stable default-screen key this one was provisioned under (CAN-7.6/7.8), else `null`. */
+	defaultKey: string | null;
+	/** ISO timestamp of the copy/provisioning, from `env.clock()`. */
+	at: string;
+}
+
+export interface ScreenMeta {
+	/**
+	 * SCREEN pinning — a shortcut in the shell's user-defined Screens group. Distinct from
+	 * {@link WidgetLayout.pinned}, which describes a TILE inside a screen. The two never interact.
+	 */
+	pinned: boolean;
+	/**
+	 * The GM's order among pinned screens, ascending. `null` whenever `pinned` is false. Values are
+	 * NOT required to be contiguous: `scene.set-pinned` appends above the current maximum and
+	 * `scene.reorder-pins` is the one command that renumbers them to 0..n-1.
+	 */
+	pinOrder: number | null;
+	layoutPolicy: ScreenLayoutPolicy;
+	origin: ScreenOrigin | null;
+}
+
+/**
+ * What a scene with NO screen record resolves to: unpinned, existing canvas behavior, no recorded
+ * origin. `withScreenMeta` writes no field for this value, so an old scene is never rewritten with
+ * defaults just because something read it.
+ */
+export const DEFAULT_SCREEN_META: ScreenMeta = Object.freeze({
+	pinned: false,
+	pinOrder: null,
+	layoutPolicy: 'canvas',
+	origin: null,
+});
+
+function isScreenLayoutPolicy(value: unknown): value is ScreenLayoutPolicy {
+	return SCREEN_LAYOUT_POLICIES.includes(value as ScreenLayoutPolicy);
+}
+
+/** A screen origin hydrated fail-closed: anything that is not a complete record becomes `null`. */
+function hydrateScreenOrigin(raw: unknown): ScreenOrigin | null {
+	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+	const record = raw as Record<string, unknown>;
+	if (record.kind !== 'default' && record.kind !== 'duplicate' && record.kind !== 'template') {
+		return null;
+	}
+	if (typeof record.at !== 'string' || record.at.length === 0) return null;
+	const sourceSceneId =
+		typeof record.sourceSceneId === 'string' && record.sourceSceneId.length > 0
+			? record.sourceSceneId
+			: null;
+	const defaultKey =
+		typeof record.defaultKey === 'string' && record.defaultKey.length > 0
+			? record.defaultKey
+			: null;
+	return { kind: record.kind, sourceSceneId, defaultKey, at: record.at };
+}
+
+/**
+ * Hydrate a persisted screen record FAIL-CLOSED. A missing, damaged or partially-written record
+ * resolves field by field to {@link DEFAULT_SCREEN_META}, so a corrupt value can only ever cost a
+ * screen its pin or its policy — it can never pin a screen the GM never pinned, and it can never
+ * put a screen into a layout policy the build does not know how to render.
+ */
+export function hydrateScreenMeta(raw: unknown): ScreenMeta {
+	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return DEFAULT_SCREEN_META;
+	const record = raw as Record<string, unknown>;
+	const pinned = record.pinned === true;
+	const pinOrder =
+		pinned &&
+		typeof record.pinOrder === 'number' &&
+		Number.isInteger(record.pinOrder) &&
+		record.pinOrder >= 0
+			? record.pinOrder
+			: null;
+	return {
+		pinned,
+		pinOrder,
+		layoutPolicy: isScreenLayoutPolicy(record.layoutPolicy) ? record.layoutPolicy : 'canvas',
+		origin: hydrateScreenOrigin(record.origin),
+	};
+}
+
+/** The screen record of a scene, hydrator-safe: a scene persisted before the field existed has none. */
+export function screenMetaOf(scene: Scene): ScreenMeta {
+	if (scene.screen === undefined || scene.screen === null) return DEFAULT_SCREEN_META;
+	return hydrateScreenMeta(scene.screen);
+}
+
+/** Whether `meta` carries nothing a default scene does not already imply. */
+export function isDefaultScreenMeta(meta: ScreenMeta): boolean {
+	return (
+		meta.pinned === DEFAULT_SCREEN_META.pinned &&
+		meta.pinOrder === DEFAULT_SCREEN_META.pinOrder &&
+		meta.layoutPolicy === DEFAULT_SCREEN_META.layoutPolicy &&
+		meta.origin === null
+	);
+}
+
+/**
+ * A scene carrying `next` as its screen record. A record equal to {@link DEFAULT_SCREEN_META} drops
+ * the field ENTIRELY, so a screen that is unpinned, canvas and origin-less serialises byte-identically
+ * to a scene persisted before screens existed. That is what makes "absent round-trips unchanged" a
+ * property of the writer rather than a convention readers have to remember.
+ */
+export function withScreenMeta(scene: Scene, next: ScreenMeta): Scene {
+	if (isDefaultScreenMeta(next)) {
+		const { screen: _dropped, ...rest } = scene;
+		return rest;
+	}
+	return { ...scene, screen: next };
+}
+
+/** Which layout policy renders this screen. A scene with no record is canvas, as it has always been. */
+export function screenLayoutPolicy(scene: Scene): ScreenLayoutPolicy {
+	return screenMetaOf(scene).layoutPolicy;
+}
+
+/** Whether the GM pinned this SCREEN to the shell (never about a tile's `WidgetLayout.pinned`). */
+export function isPinnedScreen(scene: Scene): boolean {
+	return screenMetaOf(scene).pinned;
+}
+
+/** This screen's place among the pins, or `null` when it is not pinned. */
+export function screenPinOrder(scene: Scene): number | null {
+	return screenMetaOf(scene).pinOrder;
+}
+
+/**
+ * The ONE ordering the pin reducer and the screens read share: pinned screens first in the GM's
+ * order, then everything else by name. Ties break on id so the result is total and stable no matter
+ * what order the scene record was iterated in.
+ */
+export function compareScreenOrder(a: Scene, b: Scene): number {
+	const left = screenMetaOf(a);
+	const right = screenMetaOf(b);
+	if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+	if (left.pinned && right.pinned) {
+		const leftOrder = left.pinOrder ?? Number.MAX_SAFE_INTEGER;
+		const rightOrder = right.pinOrder ?? Number.MAX_SAFE_INTEGER;
+		if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+	}
+	const byName = a.name.localeCompare(b.name);
+	if (byName !== 0) return byName;
+	return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** Every live, pinned screen in the GM's order. The pin list the shell and `scene.reorder-pins` agree on. */
+export function listPinnedScreens(state: SceneState): Scene[] {
+	return Object.values(state.scenes)
+		.filter((scene) => isLiveScene(scene) && isPinnedScreen(scene))
+		.sort(compareScreenOrder);
+}

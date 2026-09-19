@@ -1,5 +1,15 @@
-import { Component, type ComponentType, type ReactNode } from 'react';
-import { findWidgetDefinition, type WidgetTemplateKind } from '@dndtools/core';
+import {
+	Component,
+	useSyncExternalStore,
+	type ComponentType,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
+import {
+	findWidgetDefinition,
+	resolveWidgetStyleVariables,
+	type WidgetTemplateKind,
+} from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
@@ -96,8 +106,65 @@ export class WidgetErrorBoundary extends Component<
 	}
 }
 
+/**
+ * The widget's declared `--widget-*` custom properties (RC-WID-2.4), set on a wrapper that draws no
+ * box, so every branch's body inherits them without the frame's layout changing. Values stay the
+ * `var()` references the package declared, so they re-resolve under whichever `data-theme` encloses
+ * the frame instead of freezing the palette of the theme that was active when it was placed.
+ *
+ * Always rendered, even with no variables, so a package that gains or loses tokens does not remount
+ * the body under it — a sandboxed widget would reload its frame.
+ */
+export function WidgetStyleScope({
+	variables,
+	children,
+}: {
+	variables: Record<string, string>;
+	children: ReactNode;
+}) {
+	return (
+		<div data-widget-style-scope="" style={{ display: 'contents', ...variables } as CSSProperties}>
+			{children}
+		</div>
+	);
+}
+
+function subscribeToTheme(onChange: () => void) {
+	const observer = new MutationObserver(onChange);
+	observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+	return () => observer.disconnect();
+}
+
+const readTheme = () => document.documentElement.getAttribute('data-theme') ?? '';
+const serverTheme = () => '';
+const ignoreTheme = () => () => {};
+
+/**
+ * The sandbox protocol only installs theme variables at initialization. Refresh that host when the
+ * app theme changes so its opaque document receives the new palette. This restarts guest-local JS
+ * state; persisted configuration and bindings are supplied again by SandboxHost. Workers and widgets
+ * without host-theme-tokens do not subscribe or restart. Replace this refresh with a theme message
+ * when the sandbox protocol supports updates without reinitialization.
+ */
+export function ThemeAwareWidgetHost({
+	Host,
+	followsTheme,
+	...props
+}: WidgetRendererProps & { Host: WidgetRenderer; followsTheme: boolean }) {
+	const theme = useSyncExternalStore(
+		followsTheme ? subscribeToTheme : ignoreTheme,
+		followsTheme ? readTheme : serverTheme,
+		serverTheme,
+	);
+	return <Host key={theme} {...props} />;
+}
+
 /** Draw one resolved plan. Split out so the resolver's branches map 1:1 onto render calls. */
-function renderPlan(plan: WidgetRenderPlan, props: WidgetRendererProps): ReactNode {
+function renderPlan(
+	plan: WidgetRenderPlan,
+	props: WidgetRendererProps,
+	followsTheme: boolean,
+): ReactNode {
 	switch (plan.kind) {
 		case 'builtin':
 			return <WidgetBody widget={props.widget} onCommand={props.onCommand} />;
@@ -116,7 +183,11 @@ function renderPlan(plan: WidgetRenderPlan, props: WidgetRendererProps): ReactNo
 			// package that names no sandbox keeps the RC-WID-1.3 behaviour it had.
 			const Host = plan.entrypoint.sandbox === 'worker' ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
 			return Host ? (
-				<Host {...props} />
+				<ThemeAwareWidgetHost
+					Host={Host}
+					followsTheme={followsTheme && plan.entrypoint.sandbox !== 'worker'}
+					{...props}
+				/>
 			) : (
 				<WidgetPlaceholder diagnostic={WIDGET_PLACEHOLDER_COPY.customHostUnavailable} />
 			);
@@ -152,8 +223,16 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 		},
 	);
 	return (
-		<WidgetErrorBoundary widgetId={widget.id}>
-			{renderPlan(plan, { widget, onCommand })}
-		</WidgetErrorBoundary>
+		<WidgetStyleScope
+			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
+		>
+			<WidgetErrorBoundary widgetId={widget.id}>
+				{renderPlan(
+					plan,
+					{ widget, onCommand },
+					definition?.style?.capabilities?.includes('host-theme-tokens') ?? false,
+				)}
+			</WidgetErrorBoundary>
+		</WidgetStyleScope>
 	);
 }

@@ -1,0 +1,39 @@
+.character-print-sheet {
+	display: none;
+}
+@media print {
+	@page {
+		size: A4 portrait;
+		margin: 12mm;
+	}
+	body:has(> .character-print-sheet) {
+		height: auto;
+		background: white;
+	}
+	body:has(> .character-print-sheet) > :not(.character-print-sheet) {
+		display: none !important;
+	}
+	.character-print-sheet {
+		display: block;
+		color: #111;
+		background: white;
+		font: 10pt/1.3 sans-serif;
+	}
+	.character-print-sheet h1 {
+		font-size: 18pt;
+		margin: 0 0 3mm;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.character-print-sheet p {
+		margin: 0 0 2mm;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.character-print-sheet footer {
+		margin-top: 5mm;
+		font-size: 8pt;
+	}
+}

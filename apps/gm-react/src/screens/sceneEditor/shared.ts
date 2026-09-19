@@ -19,3 +19,71 @@ export const PHONE_PANEL_OVERLAY: React.CSSProperties = {
 	width: 'min(300px, 100%)',
 	maxWidth: '100%',
 };
+
+/**
+ * RC-WID-4.3 — one audience's resolver verdict on a widget's binding, as the Binding inspector shows
+ * it: the six states of Architecture Contract 4 (`WIDGETS.md` §2). `reason` is present on `hidden`
+ * only, and only the DM's own inspector ever reads it — the resolver never tells a player why.
+ */
+export type BindingResolverState =
+	| { state: 'available' | 'unbound' | 'missing' | 'conflicted' | 'degraded' }
+	| { state: 'hidden'; reason: 'dm-only' | 'not-shared' | 'field-hidden' };
+
+/** Local copy stays with this panel's owned surface. */
+export function inspectorLabels(locale: string) {
+	return locale === 'es'
+		? {
+				content: 'Contenido',
+				display: 'Presentación',
+				style: 'Estilo',
+				binding: 'Vínculo',
+				transform: 'Transformación',
+				visibility: 'Visibilidad',
+				properties: 'Propiedades',
+				noFields: 'No hay opciones en esta pestaña.',
+				noBinding: 'Este elemento no usa un vínculo.',
+				whoSees: 'Quién ve esto',
+				players: 'Cualquier jugador',
+				unavailable: 'No disponible',
+				background: 'Fondo',
+				paper: 'Papel',
+				parchment: 'Pergamino',
+				dark: 'Oscuro',
+				grid: 'Cuadrícula',
+				docks: 'Anclajes',
+				topDock: 'Anclaje superior',
+				sections: 'Secciones',
+				template: 'Plantilla',
+				none: 'Ninguno',
+				source: 'Plantilla de origen',
+				yes: 'Sí',
+				no: 'No',
+			}
+		: {
+				content: 'Content',
+				display: 'Display',
+				style: 'Style',
+				binding: 'Binding',
+				transform: 'Transform',
+				visibility: 'Visibility',
+				properties: 'Properties',
+				noFields: 'No settings in this tab.',
+				noBinding: 'This tile does not use a binding.',
+				whoSees: 'Who sees this',
+				players: 'Any player',
+				unavailable: 'Unavailable',
+				background: 'Background',
+				paper: 'Paper',
+				parchment: 'Parchment',
+				dark: 'Dark',
+				grid: 'Grid',
+				docks: 'Docks',
+				topDock: 'Top dock',
+				sections: 'Sections',
+				template: 'Template',
+				none: 'None',
+				source: 'Source template',
+				yes: 'Yes',
+				no: 'No',
+			};
+}

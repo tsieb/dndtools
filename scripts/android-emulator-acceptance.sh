@@ -16,6 +16,7 @@ esac
 
 fail() {
 	echo "Android emulator acceptance failed: $*" >&2
+	adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' >&2 || true
 	adb shell dumpsys activity activities 2>/dev/null | tail -120 >&2 || true
 	adb logcat -d -t 300 '*:E' >&2 || true
 	exit 1
@@ -67,6 +68,44 @@ wait_until_foreground() {
 		activities=$(adb shell dumpsys activity activities 2>/dev/null || true)
 		if grep -Eq "(mResumedActivity|topResumedActivity).*${PACKAGE_ID}" <<<"$activities"; then
 			return 0
+		fi
+		sleep 1
+	done
+	return 1
+}
+
+# The window that injected key events are delivered to. `dumpsys window displays` carries
+# mCurrentFocus on current API levels and is far cheaper than the whole window dump; fall back to
+# the full dump so the helper keeps working if that section moves again.
+focused_window() {
+	local dump=''
+	dump=$(adb shell dumpsys window displays 2>/dev/null | tr -d '\r' || true)
+	if ! grep -q 'mCurrentFocus' <<<"$dump"; then
+		dump=$(adb shell dumpsys window 2>/dev/null | tr -d '\r' || true)
+	fi
+	sed -n 's/.*mCurrentFocus=Window{[^ ]* [^ ]* \([^}]*\)}.*/\1/p' <<<"$dump" | head -1
+}
+
+# `wait_until_not_foreground` only proves the app stopped being the resumed Activity. While Android
+# hands the foreground to a system surface (the share/save chooser, the document picker, the
+# external browser) mResumedActivity is briefly null and no window owns input focus, so that
+# condition is already true a beat BEFORE anything can receive a key. A KEYCODE_BACK injected in
+# that window is dropped by the input dispatcher, the system surface stays up and the following
+# `wait_until_foreground` times out — the intermittent "Back did not cancel the Android share/save
+# sheet" failure. Require the system surface to actually hold input focus, and to still hold it one
+# poll later, before pressing Back. This waits for the precondition of the assertion; the assertion
+# itself (one Back returns to the app) is unchanged.
+wait_for_settled_system_focus() {
+	local focus='' settled=''
+	for _ in {1..30}; do
+		focus=$(focused_window)
+		if [[ -n "$focus" && "$focus" != *"$PACKAGE_ID"* ]]; then
+			if [[ "$focus" == "$settled" ]]; then
+				return 0
+			fi
+			settled=$focus
+		else
+			settled=''
 		fi
 		sleep 1
 	done
@@ -313,6 +352,7 @@ EXTERNAL_OUTPUT=$(adb shell am start -W -a android.intent.action.VIEW \
 	-d 'https://capacitorjs.com/' -n "$COMPONENT" | tr -d '\r')
 grep -q 'Status: ok' <<<"$EXTERNAL_OUTPUT" || fail 'external HTTPS intent did not reach MainActivity'
 wait_until_not_foreground || fail 'external HTTPS navigation remained inside the embedded WebView'
+wait_for_settled_system_focus || fail 'the external HTTPS browser surface never took input focus'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back did not return from the external HTTPS browser surface'
 wait_for_root_destination || fail 'app state was lost after external HTTPS navigation'
@@ -331,6 +371,7 @@ tap_ui_control 'Backup' || fail 'Backup & history choice was not reachable'
 wait_for_ui_text 'Local backup' || fail 'Backup & history did not render the local backup panel'
 tap_ui_button 'Download backup' || fail 'native vault backup action was not reachable'
 wait_until_not_foreground || fail 'native vault backup did not open the Android share/save sheet'
+wait_for_settled_system_focus || fail 'the Android share/save sheet never took input focus'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back did not cancel the Android share/save sheet'
 wait_for_ui_control_enabled 'Download backup' \
@@ -339,6 +380,7 @@ wait_for_ui_text_absent 'Could not build or export' \
 	|| fail 'native share cancellation surfaced as an export failure'
 tap_ui_button 'Restore from backup' || fail 'vault backup file-import action was not reachable'
 wait_until_not_foreground || fail 'vault restore did not open the Android file picker'
+wait_for_settled_system_focus || fail 'the Android file picker never took input focus'
 adb shell input keyevent KEYCODE_BACK
 wait_until_foreground || fail 'Back did not cancel the Android file picker'
 wait_for_ui_text 'Local backup' || fail 'file-picker cancellation did not return to Local backup'

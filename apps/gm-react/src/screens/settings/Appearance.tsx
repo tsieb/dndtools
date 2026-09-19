@@ -1,3 +1,5 @@
+import { Switch } from '../../ds';
+import { useMarkGmOnly, setMarkGmOnly } from '../../platform/preferences';
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import { Panel, Seg, SetRow, T } from '../../app/screen-kit';
@@ -6,6 +8,7 @@ import { ExperienceComplexity } from './Experience';
 /* ---- Appearance (PERSISTED DISPLAY PREFS — theme/density/motion `data-*` attrs) ----------------- */
 export function SettingsAppearance() {
 	const { t } = useI18n();
+	const markGmOnly = useMarkGmOnly();
 	const [theme, setTheme] = useState<string>(
 		document.documentElement.getAttribute('data-theme') || 'tavern',
 	);
@@ -80,6 +83,17 @@ export function SettingsAppearance() {
 								{ value: 'full', label: t('settings.appearance.motionFull') },
 								{ value: 'reduced', label: t('settings.appearance.motionReduced') },
 							]}
+						/>
+					}
+				/>
+				<SetRow
+					label={t('settings.appearance.markGmOnly')}
+					help={t('settings.appearance.markGmOnlyHelp')}
+					control={
+						<Switch
+							checked={markGmOnly}
+							aria-label={t('settings.appearance.markGmOnly')}
+							onChange={() => setMarkGmOnly(!markGmOnly)}
 						/>
 					}
 				/>

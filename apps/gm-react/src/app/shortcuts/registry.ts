@@ -94,9 +94,18 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
 	{
 		id: 'canvas.select',
 		scope: 'canvas',
-		keys: 'Enter / Space',
+		keys: 'Enter',
+		combo: { key: 'Enter' },
 		action: 'settings.a11y.shortcutEnter',
 	},
+	{
+		id: 'canvas.moveMode',
+		scope: 'canvas',
+		keys: 'Space',
+		action: 'settings.a11y.shortcutArrows',
+		combo: { key: ' ' },
+	},
+	{ id: 'canvas.add', scope: 'canvas', keys: 'A', action: 'board.addWidget', combo: { key: 'a' } },
 	{
 		id: 'canvas.resize',
 		scope: 'canvas',
@@ -173,4 +182,65 @@ export function matchesShortcut(
 	// `?` is Shift+/ on most layouts, so a combo that does not ask about Shift must not check it.
 	if (combo.shift !== undefined && combo.shift !== event.shiftKey) return false;
 	return true;
+}
+
+/**
+ * RC-CAN-4.3 — the mounted canvas, as the command palette sees it.
+ *
+ * The palette's Toggle edit and Undo rows fire the SAME verbs the canvas toolbar's Edit-layout button
+ * and `canvas.undoRedo` (Ctrl/⌘+Z) fire — and both live in the screen: edit mode is the screen's own
+ * state, and the undo stack is deliberately per-person, per-screen (`useLayoutHistory`), never core
+ * state. So the GM Screen and the scene editor register what they have here while mounted, and the
+ * palette (lazy-loaded, so it cannot be imported by the screens) subscribes to it. One slot, not a
+ * list: exactly one canvas is ever on screen, and a stale registration is dropped by its own cleanup.
+ */
+export interface CanvasSurfaceHandle {
+	/** The scene this canvas shows (the home scene on `/board`). */
+	sceneId: string;
+	/** The canvas's layout policy — decides where a palette-added tile is placed, as the gallery does. */
+	policy: 'bounded' | 'canvas' | 'flow';
+	/** The tiles currently laid out, for the next-free-slot search. */
+	widgets: readonly { id: string; x: number; y: number; w: number; h: number }[];
+	/** False while something (e.g. a player preview) suspends editing on this canvas. */
+	editable: boolean;
+	editing: boolean;
+	/** The toolbar button's own handler, so entering edit mode from the palette does the same work. */
+	setEditing: (next: boolean) => void;
+	canUndo: boolean;
+	/** "Moved Timer" — what Undo would reverse. */
+	undoLabel: string | null;
+	undo: () => void;
+}
+
+let canvasSurface: CanvasSurfaceHandle | null = null;
+const canvasSurfaceListeners = new Set<() => void>();
+
+function setCanvasSurface(next: CanvasSurfaceHandle | null): void {
+	if (canvasSurface === next) return;
+	canvasSurface = next;
+	for (const listener of canvasSurfaceListeners) listener();
+}
+
+/** Register the mounted canvas; returns the cleanup that unregisters it (only if still current). */
+export function registerCanvasSurface(surface: CanvasSurfaceHandle): () => void {
+	setCanvasSurface(surface);
+	return () => {
+		if (canvasSurface === surface) setCanvasSurface(null);
+	};
+}
+
+/** The canvas on screen right now, or null. Also the `useSyncExternalStore` snapshot. */
+export function activeCanvasSurface(): CanvasSurfaceHandle | null {
+	return canvasSurface;
+}
+
+/**
+ * Subscribe to (un)registrations — the palette can open before the canvas behind it has mounted,
+ * and must pick its rows up when it does. For `useSyncExternalStore`.
+ */
+export function subscribeCanvasSurface(listener: () => void): () => void {
+	canvasSurfaceListeners.add(listener);
+	return () => {
+		canvasSurfaceListeners.delete(listener);
+	};
 }

@@ -144,7 +144,12 @@ describe('packaged Electron hardening policy', () => {
 		expect(source).toContain('http://[::1]:*');
 		expect(source).toContain("permission === 'clipboard-sanitized-write'");
 		expect(source).toContain("permission === 'speaker-selection'");
-		expect(source.match(/devTools: !app\.isPackaged/g)).toHaveLength(2);
+		// Every window's webPreferences (main, child, and the kiosk display opened through
+		// setWindowOpenHandler) must gate DevTools on packaging. A hard-coded count went stale the
+		// moment a third window was added, so pin it to the number of webPreferences blocks instead.
+		const webPreferenceBlocks = source.match(/webPreferences:\s*\{/g) ?? [];
+		expect(webPreferenceBlocks.length).toBeGreaterThanOrEqual(2);
+		expect(source.match(/devTools: !app\.isPackaged/g)).toHaveLength(webPreferenceBlocks.length);
 		expect(source).toContain('app.requestSingleInstanceLock()');
 		expect(source).toContain("fs.openSync(tempFile, 'wx', 0o600)");
 		expect(source).toContain('fs.renameSync(tempFile, file)');

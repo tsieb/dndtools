@@ -21,6 +21,11 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  WikiApiId:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^[a-z0-9]+$'
+    Description: App HTTP API id. Set after app-api deployment to enable crawlable wiki routes.
   AiConnectSources:
     Type: String
     Default: 'https://api.anthropic.com https://api.openai.com'
@@ -63,6 +68,7 @@ Parameters:
     Description: Route53 zone that owns the hostnames above; alias records are written here.
 
 Conditions:
+  HasWikiApi: !Not [!Equals [!Ref WikiApiId, '']]
   # A custom domain is only wired up when the hostname, its certificate, and the zone to
   # publish records into are ALL present. Any subset would produce a half-configured
   # distribution — aliases without a certificate fail outright, records without aliases
@@ -76,6 +82,29 @@ Conditions:
     - !Not [!Equals [!Ref SecondaryHostName, '']]
 
 Resources:
+  WikiNoCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${ProjectName}-${Stage}-wiki-no-cache'
+        DefaultTTL: 0
+        MinTTL: 0
+        MaxTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: false
+          CookiesConfig: { CookieBehavior: none }
+          HeadersConfig: { HeaderBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: none }
+  WikiRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub '${ProjectName}-${Stage}-wiki-request'
+        CookiesConfig: { CookieBehavior: none }
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers: [x-wiki-password]
+        QueryStringsConfig: { QueryStringBehavior: all }
   # --- Private origin bucket: holds dist/ assets; only CloudFront (OAC) may read. -----
   # Versioned so a bad deploy can be rolled back; noncurrent versions expire in 30 days
   # to keep storage cost near zero.
@@ -200,6 +229,26 @@ Resources:
             OriginAccessControlId: !GetAtt WebOac.Id
             S3OriginConfig:
               OriginAccessIdentity: '' # empty: OAC (above) supersedes the legacy OAI
+          - !If
+            - HasWikiApi
+            - Id: wiki-api-origin
+              DomainName: !Sub '${WikiApiId}.execute-api.${AWS::Region}.amazonaws.com'
+              OriginPath: !Sub '/${Stage}'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref AWS::NoValue
+        CacheBehaviors: !If
+          - HasWikiApi
+          - - PathPattern: '/wikis/*'
+              TargetOriginId: wiki-api-origin
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD]
+              CachedMethods: [GET, HEAD]
+              Compress: true
+              CachePolicyId: !Ref WikiNoCachePolicy
+              OriginRequestPolicyId: !Ref WikiRequestPolicy
+          - !Ref AWS::NoValue
         DefaultCacheBehavior:
           TargetOriginId: web-s3-origin
           ViewerProtocolPolicy: redirect-to-https

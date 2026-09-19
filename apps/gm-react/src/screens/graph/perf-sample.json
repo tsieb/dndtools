@@ -1,0 +1,22 @@
+{
+	"schemaVersion": 1,
+	"capturedAt": "2026-09-12T14:39:53.915Z",
+	"host": {
+		"hostname": "redacted",
+		"os": "Linux linux x64",
+		"cpuCount": 16,
+		"cpuModel": "AMD Ryzen 7 5700X 8-Core Processor",
+		"totalMemoryMb": 32005,
+		"ci": false,
+		"runnerLabel": "local"
+	},
+	"budgets": [
+		{
+			"budgetId": "graph-indexing",
+			"samples": [138.8, 190.6, 91.1, 80.6, 78.7],
+			"scenario": "Add one linked note 5\u00d7 and time until the graph rail shows the affected node.",
+			"fixture": "One changed note in a 200-note vault (budget dataset: one changed note in a 10,000-record vault)",
+			"profile": "desktop"
+		}
+	]
+}

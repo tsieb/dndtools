@@ -1,0 +1,26 @@
+{
+	"sourceCommit": "5134e91c54d83d01c4791a8d969ab796a51834b3",
+	"capturedAt": "2026-09-13T00:08:49.268Z",
+	"browser": "149.0.7827.55",
+	"fixture": "Fresh built-in sample vault; onboarding dismissed; Ruined Keep selected through UI on both routes; external requests blocked",
+	"captures": [
+		{
+			"file": "board.png",
+			"route": "/board",
+			"viewport": {
+				"width": 1440,
+				"height": 1000
+			},
+			"sha256": "ba3a95cafc7fcaea33d2ac1be7480b2e8007e4b9e1ed4a2dc0065f451136e486"
+		},
+		{
+			"file": "atlas.png",
+			"route": "/atlas",
+			"viewport": {
+				"width": 1440,
+				"height": 1000
+			},
+			"sha256": "17e373dbed505777a03ce239998878654ff329d1fa17124d8d7ab0c642347b5b"
+		}
+	]
+}

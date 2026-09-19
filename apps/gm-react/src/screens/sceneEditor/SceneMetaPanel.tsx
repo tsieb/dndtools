@@ -1,8 +1,11 @@
+import { findWidgetDefinition, type Scene, type SceneBackground } from '@dndtools/core';
 import type React from 'react';
 import { useState } from 'react';
-import { Button, Card, Field, IconButton, Input, Textarea } from '../../ds';
+import { Button, Card, Field, IconButton, Input, Select, Textarea } from '../../ds';
 import { parseTags } from '../../app/scene-helpers';
-import { PHONE_PANEL_OVERLAY } from './shared';
+import { Section } from './fields';
+import { inspectorLabels, PHONE_PANEL_OVERLAY } from './shared';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
 
 /**
@@ -10,21 +13,35 @@ import { useI18n } from '../../i18n';
  * `scene.update-metadata`. A right-docked side panel like the add-widget panel; Escape closes it.
  */
 export function SceneMetaPanel({
+	scene,
 	name,
 	description,
 	tags,
 	phone,
+	belowCanvas = false,
 	onSave,
 	onClose,
 }: {
+	scene: Scene;
 	name: string;
 	description: string;
 	tags: string[];
 	phone: boolean;
-	onSave: (meta: { name: string; description: string; tags: string[] }) => void;
+	/** Automatic phone properties share space with the canvas instead of covering its controls. */
+	belowCanvas?: boolean;
+	onSave: (meta: {
+		name: string;
+		description: string;
+		tags: string[];
+		visualSettings: { background: SceneBackground };
+	}) => void;
 	onClose: () => void;
 }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
+	const labels = inspectorLabels(locale);
+	const runtime = useRuntime();
+	const sourceId = scene.templateMeta.instantiatedFromTemplateSceneId;
+	const [background, setBackground] = useState(scene.visualSettings.background);
 	const [draftName, setDraftName] = useState(name);
 	const [draftDescription, setDraftDescription] = useState(description);
 	const [draftTags, setDraftTags] = useState(tags.join(', '));
@@ -47,7 +64,11 @@ export function SceneMetaPanel({
 				gap: 'var(--space-3)',
 				maxHeight: '100%',
 				overflow: 'auto',
-				...(phone ? PHONE_PANEL_OVERLAY : {}),
+				...(belowCanvas
+					? { width: '100%', maxHeight: '40%', minHeight: 0, flex: '0 1 auto' }
+					: phone
+						? PHONE_PANEL_OVERLAY
+						: {}),
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -95,6 +116,55 @@ export function SceneMetaPanel({
 					placeholder={t('sceneEditor.tagsPlaceholder')}
 				/>
 			</Field>
+			<Field label={labels.background}>
+				<Select
+					value={background}
+					onChange={(e: { target: { value: string } }) =>
+						setBackground(e.target.value as SceneBackground)
+					}
+					options={(['paper', 'parchment', 'dark', 'grid'] as const).map((value) => ({
+						value,
+						label: labels[value],
+					}))}
+				/>
+			</Field>
+			<Section label={labels.docks}>
+				{scene.widgets.some((widget) => widget.layout.dock)
+					? scene.widgets
+							.filter((widget) => widget.layout.dock)
+							.map((widget) => (
+								<div key={widget.id}>
+									{String(
+										widget.configuration.title ??
+											findWidgetDefinition(runtime.state.widgets, widget.type)?.displayName ??
+											widget.type,
+									)}
+									:{' '}
+									{widget.layout.dock === 'top'
+										? labels.topDock
+										: widget.layout.dock && t(`builder.dock.${widget.layout.dock}`)}
+								</div>
+							))
+					: labels.none}
+			</Section>
+			<Section label={labels.sections}>
+				{scene.sections.length
+					? scene.sections.map((section) => (
+							<div key={section.id}>
+								{section.name} ({section.widgetInstanceIds.length})
+							</div>
+						))
+					: labels.none}
+			</Section>
+			<Section label={labels.template}>
+				<div>{scene.templateMeta.isTemplate ? labels.yes : labels.no}</div>
+				<div>
+					{labels.source}:{' '}
+					{sourceId
+						? (runtime.state.scenes.scenes[sourceId]?.name ?? labels.unavailable)
+						: labels.none}
+				</div>
+			</Section>
 			<Button
 				variant="primary"
 				size="sm"
@@ -105,6 +175,7 @@ export function SceneMetaPanel({
 						name: draftName.trim(),
 						description: draftDescription.trim(),
 						tags: parseTags(draftTags),
+						visualSettings: { background },
 					})
 				}
 				style={{ alignSelf: 'flex-start' }}

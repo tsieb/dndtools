@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { DiceRollView, EvaluatedDiceTerm } from '@dndtools/core';
 import { Badge, DiceResult, Icon, IconButton } from '../../ds';
-import { T, eb } from '../../app/screen-kit';
+import { Seg, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { sgn } from '../../app/character/abilities';
-import { Panel, PvPage, SectionHead } from './shared';
+import { InitiativeCallCard, Panel, PvPage, SectionHead } from './shared';
+import type { InitiativeCallView } from '../../net/viewModels';
 import { useI18n } from '../../i18n';
 
 // 3 · DICE — the REAL table roller: every roll dispatches `dice.roll` AS the player actor and is
@@ -29,12 +30,17 @@ export function DiceSection({
 	viewer,
 	actorName,
 	onRoll,
+	initiativeCall,
+	onRollInitiative,
 }: {
 	rolls: DiceRollView[];
 	sessionActive: boolean;
 	viewer: string;
 	actorName: (id: string) => string;
 	onRoll: (expression: string, label: string) => Promise<DiceRollView | null>;
+	/** RC-SES-5.1 — the DM's open initiative call (null when none is open). */
+	initiativeCall: InitiativeCallView | null;
+	onRollInitiative: () => Promise<void>;
 }) {
 	const { t } = useI18n();
 	const viewport = useViewport();
@@ -59,24 +65,6 @@ export function DiceSection({
 	};
 	// Newest first for display; the query returns the durable log oldest-first.
 	const recent = [...rolls].reverse().slice(0, 16);
-	const seg = (id: 'normal' | 'adv' | 'dis', label: string) => (
-		<button
-			type="button"
-			aria-pressed={mode === id}
-			onClick={() => setMode(id)}
-			style={{
-				flex: 1,
-				padding: '8px 0',
-				cursor: 'pointer',
-				font: `600 12px ${T.sans}`,
-				border: 'none',
-				background: mode === id ? T.acc : 'transparent',
-				color: mode === id ? T.accFg : T.sub,
-			}}
-		>
-			{label}
-		</button>
-	);
 	return (
 		<PvPage max={920}>
 			<SectionHead title={t('play.dice.title')} sub={t('play.dice.sub')} />
@@ -97,6 +85,11 @@ export function DiceSection({
 					<span style={{ font: `12.5px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
 						{t('play.dice.needsSession')}
 					</span>
+				</div>
+			)}
+			{initiativeCall && (
+				<div style={{ marginBottom: T.space.four }}>
+					<InitiativeCallCard call={initiativeCall} onRoll={onRollInitiative} />
 				</div>
 			)}
 			<div
@@ -133,18 +126,16 @@ export function DiceSection({
 					</div>
 					<div style={{ marginTop: 14 }}>
 						<div style={{ ...eb, marginBottom: 6 }}>{t('play.dice.d20Mode')}</div>
-						<div
-							style={{
-								display: 'flex',
-								borderRadius: 9,
-								overflow: 'hidden',
-								border: `1px solid ${T.bd}`,
-							}}
-						>
-							{seg('dis', t('play.dice.disadvantage'))}
-							{seg('normal', t('play.dice.normal'))}
-							{seg('adv', t('play.dice.advantage'))}
-						</div>
+						<Seg
+							ariaLabel={t('play.dice.d20Mode')}
+							value={mode}
+							onChange={(v) => setMode(v as 'normal' | 'adv' | 'dis')}
+							options={[
+								{ value: 'dis', label: t('play.dice.disadvantage') },
+								{ value: 'normal', label: t('play.dice.normal') },
+								{ value: 'adv', label: t('play.dice.advantage') },
+							]}
+						/>
 					</div>
 					<div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
 						<span style={eb}>{t('play.dice.modifier')}</span>

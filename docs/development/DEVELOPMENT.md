@@ -78,6 +78,11 @@ boundary violation; lint, typecheck, and tests green; the affected e2e specs gre
 profiles; performance budgets not regressed; Android changes pass the runbook's Gradle and
 emulator checks. State what you verified in the PR body.
 
+Complete the [PR template's design conformance checklist](../../.github/pull_request_template.md#design-conformance),
+which mirrors [RC roadmap §20.2](../planning/RC_ROADMAP.md#202-design-fidelity).
+Include verification evidence and explain pending checks, non-applicable items, and deviations
+with rationale; check only verified items.
+
 ## 6. Documentation rules
 
 - Every behaviour claim maps to a real file path. Use exact tool, script, and type names.
@@ -93,7 +98,14 @@ emulator checks. State what you verified in the PR body.
 `pnpm security:audit` gates on high severity in CI; moderate transitive advisories accumulate
 silently, so run an unscoped `pnpm audit` periodically and pin fixes through `pnpm-workspace.yaml`
 `overrides`. Newly published patches are held by the release-age policy. Deliberately deferred
-majors: React 19 and React Router 7 (which carry the two remaining moderate advisories), Vite 8 with
-plugin-react 6, TypeScript 7, Lucide 1.x, aws-jwt-verify 5. Migrate each with its own typecheck,
-build, and e2e run rather than folding it into release hardening. Native majors (Capacitor, AGP,
+majors: React 19, React Router 7, TypeScript 7, Lucide 1.x, and aws-jwt-verify 5. Vite 8 with
+plugin-react 6, Electron 44, and Node 26 types are included in the September dependency wave.
+React 19, React Router 7, and Gradle 9.7.1 were reverted after failing gates; see the
+[dependency wave journal](run-journals/RC-ENG-4.4.md) for the required follow-up ownership.
+Migrate each deferred major with its own typecheck, build, and e2e run rather than folding it
+into release hardening. Native majors (Capacitor, AGP,
 Gradle) need synchronized renderer, Gradle, emulator, and signing validation.
+
+React Router 6 retains two moderate audit advisories. The Router 7 candidate cleared the audit
+but failed browser acceptance, so the unscoped audit is still a release blocker. Do not suppress
+the advisories or report the high-severity-only security gate as a clean unscoped audit.

@@ -1,4 +1,25 @@
 import {
+	decodeFolderNote,
+	decodeFolderRules,
+	decodeFolderCalendars,
+	encodeFolderNote,
+	folderNotePath,
+	mapFolderImages,
+	resolveFolderImageRef,
+	selectFolderNotes,
+	FOLDER_MAX_BYTES,
+	FOLDER_MAX_FILES,
+	safeFolderPath,
+	type FolderEntry,
+} from '../../../../packages/core/src/export/markdown-folder';
+import {
+	decodeFolderZip,
+	encodeFolderZip,
+	validateFolderEntries,
+} from '../../../../packages/core/src/export/folder-zip';
+import { hasDmAuthority, type CoreCommand, type CommandResult } from '@dndtools/core';
+
+import {
 	MAX_ASSET_BLOB_BYTES,
 	SCENE_CARD_FLAVOR_MAX_LENGTH,
 	assetId,
@@ -529,4 +550,299 @@ export async function materializeScenePackage(pkg: ScenePackage): Promise<{
 		audioAssociationId: pkg.card.audioAssociationId,
 		heroImage,
 	};
+}
+
+// Markdown-folder transport. The pure codec stays in core; blobs stay in the platform store.
+interface MarkdownRuntime {
+	readonly state: CoreStateSlice;
+	readonly defaultActorId: string;
+	dispatch(command: CoreCommand): Promise<CommandResult>;
+}
+interface FolderAsset {
+	path: string;
+	id: string;
+	mime: string;
+}
+const IMAGE_EXTENSIONS: Record<string, string> = {
+	'image/png': 'png',
+	'image/jpeg': 'jpg',
+	'image/gif': 'gif',
+	'image/webp': 'webp',
+	'image/avif': 'avif',
+};
+
+/**
+ * Identify a supplied image by its BYTES, never by its filename. An ordinary markdown folder is
+ * written by other tools, so the extension is a hint the importer must not trust before storing
+ * bytes under a content-addressed id.
+ */
+function sniffImageMime(bytes: Uint8Array): string | null {
+	const starts = (...magic: number[]) =>
+		bytes.length >= magic.length && magic.every((byte, i) => bytes[i] === byte);
+	const ascii = (offset: number, text: string) =>
+		bytes.length >= offset + text.length &&
+		[...text].every((char, i) => bytes[offset + i] === char.charCodeAt(0));
+	if (starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+	if (starts(0xff, 0xd8, 0xff)) return 'image/jpeg';
+	if (ascii(0, 'GIF87a') || ascii(0, 'GIF89a')) return 'image/gif';
+	if (ascii(0, 'RIFF') && ascii(8, 'WEBP')) return 'image/webp';
+	if (ascii(4, 'ftyp') && (ascii(8, 'avif') || ascii(8, 'avis'))) return 'image/avif';
+	return null;
+}
+
+export async function exportMarkdownFolder(
+	runtime: MarkdownRuntime,
+	includeDmOnly = false,
+): Promise<FolderEntry[]> {
+	const notes = selectFolderNotes(
+		runtime.state.content,
+		runtime.state.permissions,
+		runtime.defaultActorId,
+		includeDmOnly,
+	);
+	const entries: FolderEntry[] = [];
+	const used = new Set<string>();
+	const manifest: FolderAsset[] = [];
+	const encoder = new TextEncoder();
+	for (const note of notes) {
+		const path = folderNotePath(note, used);
+		const prefix = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
+		const refs = new Set<string>();
+		mapFolderImages(note.body, (ref) => {
+			if (ref.startsWith('asset:')) refs.add(ref);
+			return ref;
+		});
+		const assets: Record<string, string> = {};
+		for (const ref of refs) {
+			const id = ref.slice(6);
+			if (!/^[\w-]+$/.test(id)) throw new Error('Invalid image asset reference.');
+			const blob = await getAssetBytes(id);
+			if (!blob)
+				throw new Error(`An image in "${note.title}" is missing. Restore it before exporting.`);
+			const extension = IMAGE_EXTENSIONS[blob.type];
+			if (!extension) throw new Error(`An image in "${note.title}" has an unsupported format.`);
+			const target = `assets/${id}.${extension}`;
+			assets[ref] = target;
+			if (!manifest.some((asset) => asset.path === prefix + target)) {
+				entries.push({ path: prefix + target, bytes: new Uint8Array(await blob.arrayBuffer()) });
+				manifest.push({ path: prefix + target, id, mime: blob.type });
+			}
+		}
+		entries.push({ path, bytes: encoder.encode(encodeFolderNote(note, assets)) });
+	}
+	entries.push({ path: 'vault-assets.json', bytes: encoder.encode(JSON.stringify(manifest)) });
+	const calendarIds = new Set(
+		notes.flatMap((note) =>
+			[...Object.values(note.dateFields), ...note.timelineRefs.map((ref) => ref.date)].map(
+				(date) => date.calendarId,
+			),
+		),
+	);
+	if (calendarIds.size) {
+		const calendars = [...calendarIds].sort().map((id) => {
+			const calendar = runtime.state.content.calendars[id];
+			if (!calendar) throw new Error('A note references a missing calendar.');
+			const { schemaVersion: _version, ...definition } = calendar;
+			return definition;
+		});
+		entries.push({
+			path: 'vault-calendars.json',
+			bytes: encoder.encode(JSON.stringify(calendars)),
+		});
+	}
+	// Apply the same count, path and aggregate limits used by both transport readers.
+	validateFolderEntries(entries);
+	return entries;
+}
+
+export async function exportMarkdownZip(
+	runtime: MarkdownRuntime,
+	includeDmOnly = false,
+): Promise<Blob> {
+	return new Blob([encodeFolderZip(await exportMarkdownFolder(runtime, includeDmOnly))], {
+		type: 'application/zip',
+	});
+}
+
+/** Additive import: validate all files/assets first, then use ordinary core commands for each note. */
+export async function importMarkdownFolder(
+	runtime: MarkdownRuntime,
+	entries: FolderEntry[],
+): Promise<number> {
+	const actor = runtime.state.permissions.actors[runtime.defaultActorId];
+	if (!actor || !hasDmAuthority(actor.role))
+		throw new Error('Only the DM may import a markdown folder.');
+	validateFolderEntries(entries); // common path/count/size validation before any storage or command
+	const decoder = new TextDecoder('utf-8', { fatal: true });
+	const manifestEntry = entries.find((entry) => entry.path === 'vault-assets.json');
+	const manifest: unknown = manifestEntry ? JSON.parse(decoder.decode(manifestEntry.bytes)) : [];
+	if (!Array.isArray(manifest) || manifest.length > FOLDER_MAX_FILES)
+		throw new Error('Invalid folder asset manifest.');
+	const assets: Array<{ bytes: Uint8Array; mime: string }> = [];
+	for (const candidate of manifest) {
+		if (
+			!plainRecord(candidate) ||
+			typeof candidate.path !== 'string' ||
+			!safeFolderPath(candidate.path) ||
+			typeof candidate.id !== 'string' ||
+			typeof candidate.mime !== 'string' ||
+			!IMAGE_EXTENSIONS[candidate.mime]
+		) {
+			throw new Error('Invalid folder image descriptor.');
+		}
+		const entry = entries.find((file) => file.path === candidate.path);
+		if (
+			!entry ||
+			entry.bytes.length === 0 ||
+			entry.bytes.length > MAX_ASSET_BLOB_BYTES ||
+			assetId(hashAssetBytes(entry.bytes)) !== candidate.id
+		) {
+			throw new Error('Folder image is missing or does not match its asset id.');
+		}
+		assets.push({ bytes: entry.bytes, mime: candidate.mime });
+	}
+	const notes = entries
+		.filter((entry) => /\.(md|markdown)$/i.test(entry.path))
+		.map((entry) => {
+			const text = decoder.decode(entry.bytes);
+			return {
+				path: entry.path,
+				note: decodeFolderNote(text, entry.path),
+				rules: decodeFolderRules(text),
+			};
+		});
+	if (notes.length === 0) throw new Error('This folder contains no markdown notes.');
+	const calendarEntry = entries.find((entry) => entry.path === 'vault-calendars.json');
+	const calendars = decodeFolderCalendars(
+		calendarEntry ? JSON.parse(decoder.decode(calendarEntry.bytes)) : [],
+	);
+	for (const calendar of calendars) {
+		const existing = runtime.state.content.calendars[calendar.id];
+		if (existing) {
+			const { schemaVersion: _version, ...definition } = existing;
+			if (JSON.stringify(decodeFolderCalendars([definition])[0]) !== JSON.stringify(calendar)) {
+				throw new Error(
+					`Calendar "${calendar.name}" differs from the destination calendar. Nothing imported.`,
+				);
+			}
+		}
+	}
+	// An ordinary markdown folder addresses its images by relative path and carries no Lamplight
+	// manifest. Adopt those files too, so importing a plain Obsidian export does not quietly drop
+	// every image in it; a reference naming no file in the folder is left untouched.
+	const adopted = new Map<string, { bytes: Uint8Array; mime: string; id: string }>();
+	// Folder paths are already unique case-insensitively, and the vaults these folders come from
+	// often live on case-insensitive filesystems, so match a reference the same way.
+	const byPath = new Map(entries.map((entry) => [entry.path.toLowerCase(), entry]));
+	for (const entry of notes) {
+		const refs = new Set<string>();
+		mapFolderImages(entry.note.body, (ref) => {
+			if (!ref.startsWith('asset:')) refs.add(ref);
+			return ref;
+		});
+		const mapping = new Map<string, string>();
+		for (const ref of refs) {
+			const resolved = resolveFolderImageRef(entry.path, ref);
+			if (resolved === null) continue;
+			const file = byPath.get(resolved.toLowerCase());
+			if (!file) continue;
+			let asset = adopted.get(file.path);
+			if (!asset) {
+				const mime = sniffImageMime(file.bytes);
+				if (!mime) continue; // not an image we can store; leave the reference as written
+				if (file.bytes.length > MAX_ASSET_BLOB_BYTES)
+					throw new Error('A folder image is too large to import. Nothing imported.');
+				asset = { bytes: file.bytes, mime, id: assetId(hashAssetBytes(file.bytes)) };
+				adopted.set(file.path, asset);
+			}
+			mapping.set(ref, `asset:${asset.id}`);
+		}
+		if (mapping.size > 0)
+			entry.note.body = mapFolderImages(entry.note.body, (ref) => mapping.get(ref) ?? ref);
+	}
+	assets.push(...[...adopted.values()].map(({ bytes, mime }) => ({ bytes, mime })));
+	const bundledIds = new Set(assets.map((asset) => assetId(hashAssetBytes(asset.bytes))));
+	for (const { note } of notes) {
+		const refs = new Set<string>();
+		mapFolderImages(note.body, (ref) => {
+			if (ref.startsWith('asset:')) refs.add(ref.slice(6));
+			return ref;
+		});
+		for (const id of refs)
+			if (!bundledIds.has(id) && !(await getAssetBytes(id)))
+				throw new Error('A note image is missing from the folder. Nothing imported.');
+		for (const date of [
+			...Object.values(note.dateFields),
+			...note.timelineRefs.map((ref) => ref.date),
+		]) {
+			if (
+				!runtime.state.content.calendars[date.calendarId] &&
+				!calendars.some((calendar) => calendar.id === date.calendarId)
+			)
+				throw new Error('A note calendar is missing. Nothing imported.');
+		}
+	}
+	let imported = 0;
+	const dispatch = async (type: CoreCommand['type'], payload: unknown) => {
+		const result = await runtime.dispatch({
+			type,
+			actorId: runtime.defaultActorId,
+			payload,
+		} as CoreCommand);
+		if (result.status !== 'accepted')
+			throw new Error(`Imported ${imported} notes before stopping: ${result.rejection.message}`);
+		return result;
+	};
+	for (const calendar of calendars)
+		if (!runtime.state.content.calendars[calendar.id])
+			await dispatch('content.define-calendar', calendar);
+	for (const asset of assets) await putAssetBytes(asset.bytes, asset.mime);
+	for (const { note, rules } of notes) {
+		// Keep protected prose private until every granular rule is restored.
+		const protectedNote = rules.sections.length > 0 || rules.fields.length > 0;
+		const result = await dispatch(
+			'content.create-item',
+			protectedNote ? { ...note, visibility: 'dm-only', sharedWith: [] } : note,
+		);
+		if (protectedNote) {
+			const event = result.events.find((event) => event.kind === 'content.item-changed');
+			if (!event || !('itemId' in event))
+				throw new Error('Imported note id was not returned. The note remains private.');
+			const itemId = event.itemId;
+			for (const rule of rules.sections)
+				await dispatch('content.set-section-visibility', { ...rule, itemId });
+			for (const rule of rules.fields)
+				await dispatch('content.set-field-visibility', { ...rule, itemId });
+			await dispatch('content.set-item-visibility', {
+				itemId,
+				visibility: note.visibility,
+				sharedWith: note.sharedWith,
+			});
+		}
+		imported++;
+	}
+	return imported;
+}
+
+export async function importMarkdownZip(runtime: MarkdownRuntime, file: File): Promise<number> {
+	if (file.size > FOLDER_MAX_BYTES + 512_000) throw new Error('Folder ZIP is too large.');
+	return importMarkdownFolder(runtime, decodeFolderZip(new Uint8Array(await file.arrayBuffer())));
+}
+
+/** Pick without allocating the file; importMarkdownZip checks its declared size before reading. */
+export function pickMarkdownZip(): Promise<File | null> {
+	return new Promise((resolve) => {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.zip';
+		input.hidden = true;
+		document.body.appendChild(input);
+		const done = (file: File | null) => {
+			input.remove();
+			resolve(file);
+		};
+		input.addEventListener('change', () => done(input.files?.[0] ?? null), { once: true });
+		input.addEventListener('cancel', () => done(null), { once: true });
+		input.click();
+	});
 }

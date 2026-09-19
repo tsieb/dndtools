@@ -62,6 +62,34 @@ describe('latestRelease', () => {
 	it('is null when nothing has shipped notes', () => {
 		expect(latestRelease(parseChangelog('## [Unreleased]\n'))).toBeNull();
 	});
+
+	it.each(['Unreleased', 'unreleased', ' UNRELEASED '])(
+		'skips populated [%s] preview notes without discarding them from the parser',
+		(heading) => {
+			const releases = parseChangelog(
+				FIXTURE.replace('## [Unreleased]', `## [${heading}]\n\n- Planned feature.`),
+			);
+			expect(releases[0]).toEqual({
+				version: heading,
+				date: null,
+				items: ['Planned feature.'],
+			});
+			expect(latestRelease(releases)).toEqual({
+				version: '0.2.0',
+				date: '2026-06-01',
+				items: ['Added the thing.', 'Fixed the other thing.'],
+			});
+		},
+	);
+
+	it('is null when only populated preview notes exist', () => {
+		expect(latestRelease(parseChangelog('## [Unreleased]\n\n- Planned feature.\n'))).toBeNull();
+	});
+
+	it('still skips numbered releases with no notes', () => {
+		const releases = parseChangelog('## [0.3.0] - 2026-07-01\n\n' + FIXTURE);
+		expect(latestRelease(releases)?.version).toBe('0.2.0');
+	});
 });
 
 describe('the real CHANGELOG.md', () => {

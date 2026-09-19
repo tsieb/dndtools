@@ -18,9 +18,9 @@
 		"test:smoke": "vitest run --config vitest.smoke.config.ts"
 	},
 	"devDependencies": {
-		"@types/node": "^24.12.4",
+		"@types/node": "^26.5.1",
 		"typescript": "^6.0.3",
-		"vitest": "^4.1.8",
+		"vitest": "^4.1.11",
 		"zod": "^4.5.4"
 	}
 }

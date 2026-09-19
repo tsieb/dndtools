@@ -44,8 +44,13 @@ export function parseChangelog(markdown: string): ReleaseNote[] {
 	return releases;
 }
 
-/** The most recent release that actually shipped notes — skips a heading with no bullets yet (an
- * empty `[Unreleased]` section between releases). Null for an empty or heading-less changelog. */
+/** The most recent shipped release with notes. Preview entries under `[Unreleased]` are never
+ * shipped, even when they contain bullets. Null when no shipped section has notes. */
 export function latestRelease(releases: readonly ReleaseNote[]): ReleaseNote | null {
-	return releases.find((release) => release.items.length > 0) ?? null;
+	return (
+		releases.find(
+			(release) =>
+				release.version.trim().toLowerCase() !== 'unreleased' && release.items.length > 0,
+		) ?? null
+	);
 }

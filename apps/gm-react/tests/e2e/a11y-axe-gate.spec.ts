@@ -305,32 +305,67 @@ test('a11y axe gate: /display', async ({ page }, testInfo) => {
 // character builder) are durable workspaces in their own right but only exist in an OPEN state, so
 // each gets its own scan of that state rather than a ROUTES entry.
 
-test('a11y axe gate: map editor (open state)', async ({ page }, testInfo) => {
+/**
+ * Create a map (one `Base` layer, plus a DM-only POI per label) and open it in the full-screen
+ * editor from `/atlas`. Shared by the axe scan below and the RC-UX-2.2 accessibility-tree contract.
+ */
+async function openMapEditor(page: Page, name: string, poiLabels: readonly string[] = []) {
 	await openRoute(page, '/atlas');
-	const mapId = await page.evaluate(async () => {
-		const rt = window.__rt!;
-		const res = await rt.dispatch({
-			type: 'map.create',
-			actorId: rt.defaultActorId,
-			payload: {
-				name: 'Axe Gate Map',
-				visibility: 'dm-only',
-				projection: { kind: 'flat', rotationDegrees: 0 },
-				initialLayers: [{ name: 'Base', category: 'base', visibility: 'dm-only' }],
-			},
-		});
-		if (res.status !== 'accepted') return null;
-		const created = (res.events ?? []).find(
-			(e) => (e as { kind?: string }).kind === 'map.created',
-		) as { mapId?: string } | undefined;
-		return created?.mapId ?? null;
-	});
-	expect(mapId, 'map.create must be accepted to reach the editor').not.toBeNull();
-	await page.getByRole('button', { name: 'Axe Gate Map', exact: true }).click();
+	const mapId = await page.evaluate(
+		async ({ mapName, labels }) => {
+			const rt = window.__rt!;
+			const res = await rt.dispatch({
+				type: 'map.create',
+				actorId: rt.defaultActorId,
+				payload: {
+					name: mapName,
+					visibility: 'dm-only',
+					projection: { kind: 'flat', rotationDegrees: 0 },
+					initialLayers: [{ name: 'Base', category: 'base', visibility: 'dm-only' }],
+				},
+			});
+			if (res.status !== 'accepted') return null;
+			const created = (res.events ?? []).find(
+				(e) => (e as { kind?: string }).kind === 'map.created',
+			) as { mapId?: string } | undefined;
+			const id = created?.mapId;
+			if (!id) return null;
+			const maps = rt.state.maps as unknown as {
+				maps: Record<string, { layers: Array<{ id: string }> }>;
+			};
+			const layerId = maps.maps[id]?.layers[0]?.id;
+			for (const [i, label] of labels.entries()) {
+				const poi = await rt.dispatch({
+					type: 'map.create-poi',
+					actorId: rt.defaultActorId,
+					payload: {
+						mapId: id,
+						id: `a11y-poi-${i}-${Date.now()}`,
+						layerId,
+						label,
+						category: 'other',
+						position: { x: 0.3 + i * 0.2, y: 0.4 },
+						visibility: 'dm-only',
+					},
+				});
+				if (poi.status !== 'accepted') return null;
+			}
+			return id;
+		},
+		{ mapName: name, labels: [...poiLabels] },
+	);
+	expect(mapId, 'map.create (and every map.create-poi) must be accepted').not.toBeNull();
+	await page.getByRole('button', { name, exact: true }).click();
 	const openBtn = page.getByRole('button', { name: 'Open in map editor' });
 	await expect(openBtn).toBeEnabled();
 	await openBtn.click();
-	await expect(page.getByRole('dialog', { name: 'Map editor — Axe Gate Map' })).toBeVisible();
+	const editor = page.getByRole('dialog', { name: `Map editor — ${name}` });
+	await expect(editor).toBeVisible();
+	return editor;
+}
+
+test('a11y axe gate: map editor (open state)', async ({ page }, testInfo) => {
+	await openMapEditor(page, 'Axe Gate Map');
 	await page.waitForTimeout(250);
 	await assertAxeState(page, testInfo, '/atlas#map-editor', 'map-editor');
 });
@@ -388,4 +423,148 @@ test('a11y axe gate: opened command palette and compact table controls', async (
 	// entrance transform before asking axe to calculate foreground/background contrast.
 	await page.waitForTimeout(250);
 	await assertAxeState(page, testInfo, '/#table-controls', 'table-controls');
+});
+
+// ── RC-UX-2.2 — screen-reader contracts for the canvas surfaces ──────────────────────────────────
+//
+// axe proves the tree is VALID; it cannot prove it says the right thing. These assert what a screen
+// reader is actually handed on the three spatial surfaces — role, accessible name, and the counts in
+// that name — on both profiles, against the accessibility tree Playwright snapshots (the same tree
+// Chromium exposes to NVDA/TalkBack). The contract itself is documented in ACCESSIBILITY.md §3.
+
+const widgetsWord = (n: number) => `${n} ${n === 1 ? 'widget' : 'widgets'}`;
+
+/** The home Scene's id and widget count, once `command-center.ensure-home` has seeded it. */
+async function homeScene(page: Page) {
+	await page.waitForFunction(
+		() => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { widgets: unknown[] }> };
+			};
+			const id = state.commandCenter.homeSceneId;
+			return !!id && (state.scenes.scenes[id]?.widgets.length ?? 0) > 0;
+		},
+		null,
+		{ timeout: 20_000 },
+	);
+	return page.evaluate(() => {
+		const state = window.__rt!.state as unknown as {
+			commandCenter: { homeSceneId: string };
+			scenes: { scenes: Record<string, { widgets: unknown[] }> };
+		};
+		const id = state.commandCenter.homeSceneId;
+		return { id, count: state.scenes.scenes[id]!.widgets.length };
+	});
+}
+
+test('a11y tree: /board names its surface, counts its widgets, and voices keyboard moves', async ({
+	page,
+}) => {
+	await openRoute(page, '/board');
+	const { count } = await homeScene(page);
+	const board = page.getByTestId('scene-board-bounded');
+	// Every widget frame is a named group, in reading order — the non-visual list of the board.
+	const frames = board.locator('[role="group"][data-testid^="widget-"]');
+	await expect(frames).toHaveCount(count);
+
+	// VIEW: a labelled region, so browse mode still reads widget content.
+	await expect(board).toHaveAttribute('role', 'region');
+	await expect(board).toHaveAccessibleName(`GM Screen, ${widgetsWord(count)}`);
+	await expect(board).toMatchAriaSnapshot(`
+		- region "GM Screen, ${widgetsWord(count)}":
+		  - group /^.+, .+ widget$/
+	`);
+
+	// EDIT: the canvas owns the arrow keys, so it becomes an application — same count.
+	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(board).toHaveAttribute('role', 'application');
+	await expect(board).toHaveAccessibleName(`GM Screen layout editor, ${widgetsWord(count)}`);
+	await expect(board).toMatchAriaSnapshot(`
+		- application "GM Screen layout editor, ${widgetsWord(count)}":
+		  - group /^.+, .+ widget, position \\d+, \\d+, size \\d+ by \\d+$/
+	`);
+	await expect(frames).toHaveCount(count);
+
+	// Every keyboard operation speaks through the one operation live region.
+	const live = page.getByTestId('canvas-resize-announcement');
+	await expect(live).toHaveAttribute('aria-live', 'polite');
+	const first = frames.first();
+	const title = (await first.getAttribute('aria-label'))!.split(',')[0]!;
+	await first.focus();
+	await first.press('Space');
+	await expect(live).toHaveText(new RegExp(`^${title} selected\\. Arrows move it`));
+	await first.press('ArrowDown');
+	await expect(live).toHaveText(new RegExp(`^${title}, moved to \\d+, \\d+$`));
+	await first.press('Escape');
+	await expect(live).toHaveText(`${title} put down.`);
+});
+
+test('a11y tree: scene editor names its surface and counts its widgets', async ({ page }) => {
+	// `/board` is what seeds the home Scene (`command-center.ensure-home`); then open it as a Scene.
+	await openRoute(page, '/board');
+	const { id, count } = await homeScene(page);
+	await openRoute(page, `/scene/${id}`);
+	// The home Scene may render under either layout policy; the contract is the same for both.
+	const surface = page.locator(
+		'[data-testid="scene-board-canvas"], [data-testid="scene-board-flow"]',
+	);
+	await expect(surface).toHaveCount(1);
+	await expect(surface).toHaveAttribute('role', 'region');
+	await expect(surface).toHaveAccessibleName(
+		new RegExp(`^Scene (canvas|layout), ${widgetsWord(count)}$`),
+	);
+	await expect(surface).toMatchAriaSnapshot(`
+		- region /^Scene (canvas|layout), ${widgetsWord(count)}$/:
+		  - group /^.+, .+ widget$/
+	`);
+	await expect(surface.locator('[role="group"][data-testid^="widget-"]')).toHaveCount(count);
+
+	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(surface).toHaveAttribute('role', 'application');
+	await expect(surface).toHaveAccessibleName(`Scene layout editor, ${widgetsWord(count)}`);
+	await expect(surface).toMatchAriaSnapshot(`
+		- application "Scene layout editor, ${widgetsWord(count)}":
+		  - group /^.+, .+ widget, position .+$/
+	`);
+});
+
+test('a11y tree: map editor canvas carries counts; the List view is the full non-visual path', async ({
+	page,
+}) => {
+	const editor = await openMapEditor(page, 'Contract Map', ['Old Mill', 'Watchtower']);
+	const canvas = editor.getByRole('application');
+	await expect(canvas).toHaveCount(1);
+	await expect(canvas).toHaveAccessibleName(
+		/^Map canvas — Contract Map\. 2 points of interest, 0 tokens, 0 routes, 1 layer\. Drawing tool: .+\.$/,
+	);
+
+	await editor.getByRole('button', { name: 'Show list', exact: true }).click();
+	// The swap is voiced, and the drawing surface leaves the tree rather than sitting behind the list.
+	await expect(editor.getByText('List view shown.')).toBeAttached();
+	await expect(editor.getByRole('application')).toHaveCount(0);
+	// The same map as tables: counts in the region's and each table's name, one row per object, and
+	// every row's label editable and its "Navigate to" reachable without pointing.
+	await expect(editor).toMatchAriaSnapshot(`
+		- region "Map inventory — Contract Map. 2 points of interest, 0 tokens, 0 routes, 1 layer.":
+		  - paragraph: 2 points of interest, 0 tokens, 0 routes, 1 layer.
+		  - group "Points of interest, 2 rows":
+		    - table:
+		      - rowgroup:
+		        - row /^Label Category Visibility/
+		      - rowgroup:
+		        - row /^Old Mill /:
+		          - cell "Old Mill":
+		            - textbox "Label for point of interest Old Mill"
+		          - cell "Navigate to Old Mill":
+		            - button "Navigate to Old Mill"
+		        - row /^Watchtower /
+		  - group "Layers, 1 row":
+		    - table:
+		      - rowgroup:
+		        - row /^Name Category/
+		      - rowgroup:
+		        - row /^Base /
+	`);
 });

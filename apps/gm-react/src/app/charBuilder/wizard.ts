@@ -7,16 +7,18 @@
  * setters are exactly the locals the single-file `CharBuilder` used before RC-STB-2.4 split it.
  */
 import type { Dispatch, SetStateAction } from 'react';
-import type { Actor, validateDraftStep } from '@dndtools/core';
+import type { Actor, SystemPackage, validateDraftStep } from '@dndtools/core';
 import type {
 	AbilityKey,
 	AttackRow,
 	BuilderBackground,
 	BuilderClass,
+	BuilderMethod,
 	BuilderRace,
 	CharKind,
 	ScoreMethod,
 } from './data';
+import type { Assignment, RolledScore } from './scores';
 
 export interface Wizard {
 	isPhone: boolean;
@@ -55,10 +57,19 @@ export interface Wizard {
 
 	method: ScoreMethod;
 	setMethod: Dispatch<SetStateAction<ScoreMethod>>;
+	/** The score methods this KIND can actually finalize — a guided PC has no roll (CHAR-002). */
+	methodChoices: readonly BuilderMethod[];
 	scores: Record<AbilityKey, number>;
-	assign: Record<AbilityKey, string>;
-	setAssign: Dispatch<SetStateAction<Record<AbilityKey, string>>>;
-	remainingArray: (forKey: AbilityKey) => number[];
+	/** The values the standard-array / roll methods assign from; null for point buy and manual. */
+	pool: readonly number[] | null;
+	/** The current 4d6 roll, once made (kept across method switches). */
+	rolls: RolledScore[] | null;
+	/** Each ability's pool slot under the current pool method (see `./scores`). */
+	assign: Assignment;
+	setSlot: (k: AbilityKey, slot: string) => void;
+	rollScores: () => void;
+	/** Re-deal the current pool in the chosen class's priority order. */
+	suggestScores: () => void;
 	pointsLeft: number;
 	scoreMin: number;
 	scoreMax: number;
@@ -66,7 +77,10 @@ export interface Wizard {
 	raiseBlocked: (k: AbilityKey) => boolean;
 	effScores: Record<AbilityKey, number>;
 	abilityValidation: ReturnType<typeof validateDraftStep> | null;
-	standardIncomplete: boolean;
+	/** A pool method with an ability still unassigned (it would silently be saved as 10). */
+	poolIncomplete: boolean;
+	/** The active rules system — the class preview evaluates its resource formulas. */
+	systemPackage: SystemPackage;
 
 	ac: number;
 	setAc: Dispatch<SetStateAction<number>>;

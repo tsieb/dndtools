@@ -38,6 +38,43 @@ function homeSceneExists(state: CoreStateSlice): Scene | null {
 	return state.scenes.scenes[id] ?? null;
 }
 
+/**
+ * RC-ENG-8.2 — the map the default board's Map tile opens on. The template used to lay the tile out
+ * unbound even in a vault full of maps, and the tile read that as "the linked map is missing or was
+ * removed": an error on the first screen a DM sees. Prefer the session's active map; otherwise the
+ * first top-level map by name (a map embedded in another is a detail of it, not a place to start).
+ * An empty vault keeps the tile unbound, which it renders as its "No map linked" empty state.
+ */
+export function defaultCommandCenterMapId(state: CoreStateSlice): string | null {
+	const maps = state.maps.maps;
+	const active = state.session.activeMap?.mapId;
+	if (active && maps[active]) return active;
+	const embedded = new Set(
+		Object.values(maps).flatMap((map) => map.embeds.map((embed) => embed.childMapId)),
+	);
+	const byName = Object.values(maps).sort((a, b) => a.name.localeCompare(b.name));
+	return (byName.find((map) => !embedded.has(map.id)) ?? byName[0])?.id ?? null;
+}
+
+function withDefaultMapBinding(scene: Scene, mapId: string | null): Scene {
+	if (!mapId) return scene;
+	return {
+		...scene,
+		widgets: scene.widgets.map((widget) =>
+			widget.type === 'map' && !widget.binding
+				? {
+						...widget,
+						binding: {
+							source: { entityType: 'map', entityId: mapId },
+							mode: 'read',
+							requiredCapability: 'viewer',
+						},
+					}
+				: widget,
+		),
+	};
+}
+
 export function handleEnsureCommandCenterHome(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -53,18 +90,49 @@ export function handleEnsureCommandCenterHome(
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	// Idempotent: when a Command Center home Scene already exists, leave durable
-	// state untouched and simply report it as ready (CMD-001).
+	// state untouched and simply report it as ready (CMD-001). The one repair is a
+	// Map tile a board created before RC-ENG-8.2 left unbound while the vault has
+	// maps: it is bound to the default map so the board stops opening on an error.
 	const existing = homeSceneExists(state);
 	if (existing) {
+		const repaired = withDefaultMapBinding(existing, defaultCommandCenterMapId(state));
+		const rebound = repaired.widgets.find(
+			(widget, index) => widget.binding !== existing.widgets[index]?.binding,
+		);
+		if (!rebound) {
+			return {
+				status: 'accepted',
+				nextState: state,
+				events: [{ kind: 'command-center.home-ready', sceneId: existing.id, actorId: actor.id }],
+				operationIds: [],
+			};
+		}
+		const nextScene = bumpRevision(repaired, env);
+		const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+			entityType: 'scene',
+			entityId: existing.id,
+			opType: 'command-center.bind-default-map',
+			path: `widgets/${rebound.id}/binding`,
+			value: { widgetInstanceId: rebound.id, binding: rebound.binding },
+			beforeRevision: existing.ownership.revision,
+			afterRevision: nextScene.ownership.revision,
+		});
 		return {
 			status: 'accepted',
-			nextState: state,
+			nextState: {
+				...state,
+				scenes: withScene(state.scenes, existing.id, () => nextScene),
+				sync: nextLog,
+			},
 			events: [{ kind: 'command-center.home-ready', sceneId: existing.id, actorId: actor.id }],
-			operationIds: [],
+			operationIds: [op.id],
 		};
 	}
 
-	const scene = buildDefaultCommandCenterScene(env, actor.id);
+	const scene = withDefaultMapBinding(
+		buildDefaultCommandCenterScene(env, actor.id),
+		defaultCommandCenterMapId(state),
+	);
 	const namedScene = parsed.data.name ? { ...scene, name: parsed.data.name } : scene;
 
 	const nextSceneState: SceneState = {
@@ -267,25 +335,40 @@ export function handleApplyCommandCenterPreset(
 }
 
 /**
- * Materialize a snapshot layout (a preset or a last-known-good auto-save) onto the home Scene. Widget
- * ids and group ids are remapped to fresh instances; any widget whose package is no longer installed is
- * skipped and reported, restoring all the others (CMD-007 / UX-CMD-008 AC4). Shared by preset-apply and
- * auto-save-restore so both paths behave identically.
+ * The preset-shaped snapshot every layout source reduces to: a saved preset, the last-known-good
+ * auto-save, a built-in scene template, or a template scene (RC-CAN-4.4).
  */
-function materializeLayoutOntoScene(
+export interface LayoutSnapshot {
+	visualSettings: SceneVisualSettings;
+	sections: CommandCenterPresetSection[];
+	widgets: CommandCenterPresetWidget[];
+}
+
+/**
+ * Instantiate a snapshot's widgets and sections as fresh scene instances. Widget ids and group ids
+ * are remapped; any widget whose package is no longer installed is skipped and reported, keeping all
+ * the others (CMD-007 / UX-CMD-008 AC4). `offset` shifts every widget and section (append placement)
+ * and `zBase` / `focusBase` lift stacking and traversal order above what the scene already holds.
+ * Shared by preset-apply, auto-save-restore and `scene.apply-template` so all three behave identically.
+ */
+export function instantiateLayoutSnapshot(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
-	scene: Scene,
-	source: {
-		visualSettings: SceneVisualSettings;
-		sections: CommandCenterPresetSection[];
-		widgets: CommandCenterPresetWidget[];
-	},
-): { nextScene: Scene; restoredWidgets: WidgetInstance[]; missingWidgetTypes: string[] } {
+	source: LayoutSnapshot,
+	placement: { offset?: { x: number; y: number }; zBase?: number; focusBase?: number } = {},
+): {
+	widgets: WidgetInstance[];
+	sections: SectionLayoutRegion[];
+	missingWidgetTypes: string[];
+} {
+	const dx = placement.offset?.x ?? 0;
+	const dy = placement.offset?.y ?? 0;
+	const zBase = placement.zBase ?? 0;
+	const focusBase = placement.focusBase ?? 0;
 	const missingWidgetTypes: string[] = [];
 	const groupRemap = new Map<string, string>();
 	const presetToInstance = new Map<string, string>();
-	const restoredWidgets: WidgetInstance[] = [];
+	const widgets: WidgetInstance[] = [];
 	for (const presetWidget of source.widgets) {
 		const record = findPackageRecordForWidgetType(state.widgets, presetWidget.type);
 		if (!record || record.removedAt) {
@@ -302,11 +385,19 @@ function materializeLayoutOntoScene(
 			groupRemap.set(groupId, remapped);
 			groupId = remapped;
 		}
-		restoredWidgets.push({
+		const { layout } = presetWidget;
+		widgets.push({
 			id: newId,
 			type: presetWidget.type,
 			version: presetWidget.version,
-			layout: { ...presetWidget.layout, groupId },
+			layout: {
+				...layout,
+				x: layout.x + dx,
+				y: layout.y + dy,
+				z: layout.z + zBase,
+				focusOrder: layout.focusOrder === null ? null : layout.focusOrder + focusBase,
+				groupId,
+			},
 			configuration: { ...presetWidget.configuration },
 			localState: { ...presetWidget.localState },
 			binding: presetWidget.binding ? { ...presetWidget.binding } : null,
@@ -314,26 +405,39 @@ function materializeLayoutOntoScene(
 		});
 	}
 
-	const restoredSections: SectionLayoutRegion[] = source.sections.map((section) => ({
+	const sections: SectionLayoutRegion[] = source.sections.map((section) => ({
 		id: env.ids(),
 		name: section.name,
-		bounds: { ...section.bounds },
+		bounds: { ...section.bounds, x: section.bounds.x + dx, y: section.bounds.y + dy },
 		widgetInstanceIds: section.presetWidgetIds
 			.map((presetWidgetId) => presetToInstance.get(presetWidgetId))
 			.filter((value): value is string => Boolean(value)),
 	}));
+	return { widgets, sections, missingWidgetTypes };
+}
 
+/**
+ * Materialize a snapshot layout (a preset or a last-known-good auto-save) onto the home Scene,
+ * REPLACING its widgets, sections and visual settings.
+ */
+function materializeLayoutOntoScene(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	scene: Scene,
+	source: LayoutSnapshot,
+): { nextScene: Scene; restoredWidgets: WidgetInstance[]; missingWidgetTypes: string[] } {
+	const { widgets, sections, missingWidgetTypes } = instantiateLayoutSnapshot(state, env, source);
 	const nextScene = bumpRevision(
 		{
 			...scene,
 			visualSettings: { ...source.visualSettings },
-			sections: restoredSections,
-			widgets: restoredWidgets,
+			sections,
+			widgets,
 			schemaVersion: SCENE_SCHEMA_VERSION,
 		},
 		env,
 	);
-	return { nextScene, restoredWidgets, missingWidgetTypes };
+	return { nextScene, restoredWidgets: widgets, missingWidgetTypes };
 }
 
 /**

@@ -1,0 +1,180 @@
+/* Tavern palette and type from docs/design-package/tokens. */
+@font-face {
+	font-family: Inter;
+	src: url('fonts/inter-latin-400-normal.woff2') format('woff2');
+	font-weight: 400;
+	font-display: swap;
+}
+@font-face {
+	font-family: Cinzel;
+	src: url('fonts/cinzel-latin-400-normal.woff2') format('woff2');
+	font-weight: 400;
+	font-display: swap;
+}
+:root {
+	color-scheme: dark;
+	--background: #14100b;
+	--panel: #1f1810;
+	--text: #f2e8d8;
+	--muted: #bcab92;
+	--accent: #e0b06f;
+	--line: #5c4630;
+}
+* {
+	box-sizing: border-box;
+}
+html {
+	scroll-padding-top: 2rem;
+}
+body {
+	margin: 0;
+	background: var(--background);
+	color: var(--text);
+	font:
+		1.05rem/1.65 Inter,
+		system-ui,
+		sans-serif;
+}
+a {
+	color: var(--accent);
+	text-underline-offset: 0.25em;
+}
+a:hover {
+	text-decoration-thickness: 0.15em;
+}
+a:focus-visible {
+	outline: 3px solid var(--accent);
+	outline-offset: 5px;
+}
+header,
+main,
+footer {
+	width: min(1120px, calc(100% - 3rem));
+	margin-inline: auto;
+}
+header,
+footer,
+nav,
+.actions {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	flex-wrap: wrap;
+}
+header,
+footer {
+	justify-content: space-between;
+	padding-block: 1.5rem;
+}
+header {
+	border-bottom: 1px solid var(--line);
+}
+nav a,
+.actions a,
+footer a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 48px;
+}
+.brand {
+	color: var(--text);
+	font:
+		1.7rem Cinzel,
+		Georgia,
+		serif;
+	text-decoration: none;
+}
+.intro {
+	padding-block: clamp(2rem, 6vw, 5rem);
+	max-width: 830px;
+}
+.eyebrow {
+	color: var(--accent);
+	font-size: 0.95rem;
+}
+h1,
+h2 {
+	font-family: Cinzel, Georgia, serif;
+	line-height: 1.15;
+	font-weight: 400;
+	text-wrap: balance;
+}
+h1 {
+	font-size: clamp(2.6rem, 6vw, 4.6rem);
+	margin: 0.5em 0;
+}
+h2 {
+	font-size: 2rem;
+}
+.lead {
+	font-size: 1.25rem;
+	max-width: 60ch;
+}
+.note,
+figcaption {
+	color: var(--muted);
+	font-size: 0.95rem;
+}
+.button {
+	background: var(--accent);
+	color: var(--background);
+	padding: 0.7rem 1.3rem;
+	border-radius: 0.4rem;
+	font-weight: 650;
+	text-decoration: none;
+}
+figure {
+	margin: 0;
+}
+img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+	border-radius: 0.6rem;
+	background: var(--panel);
+}
+figcaption {
+	padding-block: 0.7rem;
+}
+.features {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 3rem;
+	padding-block: 3rem;
+}
+.closing {
+	max-width: 720px;
+	padding-block: 3rem;
+}
+footer {
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+}
+.skip {
+	position: absolute;
+	top: -100px;
+	padding: 0.7rem;
+	background: var(--background);
+}
+.skip:focus {
+	top: 0;
+}
+@media (max-width: 600px) {
+	header,
+	main,
+	footer {
+		width: calc(100% - 2rem);
+	}
+	header {
+		gap: 0.5rem;
+	}
+	nav {
+		gap: 1rem;
+	}
+	.features {
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+		padding-block: 1.5rem;
+	}
+}

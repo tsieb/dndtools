@@ -55,10 +55,15 @@ export function WidgetBuilder({
 	 * on the Review step with every generated field editable; `editPackage` wins if both are given.
 	 */
 	generatedPackage,
+	initialDraft,
+	initialStep,
 	onClose,
 }: {
 	editPackage?: WidgetPackageDefinition | null;
 	generatedPackage?: WidgetPackageDefinition | null;
+	/** A caller-owned draft, captured when this overlay opens. */
+	initialDraft?: WidgetDraft;
+	initialStep?: BuilderStepId;
 	onClose: () => void;
 }) {
 	const { t } = useI18n();
@@ -68,16 +73,18 @@ export function WidgetBuilder({
 	const dmId = runtime.defaultActorId;
 	const canWrite = runtime.state.permissions.actors[dmId]?.role === 'dm' && !runtime.preview;
 
-	const [draft, setDraft] = useState<WidgetDraft>(() =>
-		editPackage
-			? readPackage(editPackage)
-			: generatedPackage
-				? readPackage(generatedPackage, 'proposed')
-				: emptyDraft(),
+	const [draft, setDraft] = useState<WidgetDraft>(
+		() =>
+			initialDraft ??
+			(editPackage
+				? readPackage(editPackage)
+				: generatedPackage
+					? readPackage(generatedPackage, 'proposed')
+					: emptyDraft()),
 	);
 	// A generated draft starts where a DM reviews it, not where a DM would start typing.
 	const [step, setStep] = useState<BuilderStepId>(
-		!editPackage && generatedPackage ? 'review' : 'identity',
+		initialStep ?? (!editPackage && generatedPackage ? 'review' : 'identity'),
 	);
 	const [pane, setPane] = useState<'edit' | 'preview' | 'json'>('edit');
 	const [busy, setBusy] = useState(false);

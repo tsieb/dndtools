@@ -20,6 +20,7 @@ const {
 	protocol,
 	session,
 	safeStorage,
+	screen,
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -392,7 +393,11 @@ function applyWindowTheme(win, themeName) {
 	const theme = WINDOW_THEMES[themeName] ?? WINDOW_THEMES.tavern;
 	win.setBackgroundColor(theme.background);
 	nativeTheme.themeSource = theme.source;
-	if (process.platform !== 'darwin' && typeof win.setTitleBarOverlay === 'function') {
+	if (
+		win !== sceneWindow &&
+		process.platform !== 'darwin' &&
+		typeof win.setTitleBarOverlay === 'function'
+	) {
 		win.setTitleBarOverlay({ color: theme.titleBar, symbolColor: theme.symbols, height: 36 });
 	}
 	return true;
@@ -415,6 +420,104 @@ function configurePermissionPolicy() {
 		);
 	});
 }
+
+function manageSceneWindow(child) {
+	managedWindows.add(child);
+	child.on('closed', () => managedWindows.delete(child));
+	child.setMenuBarVisibility(false);
+	applyWindowTheme(child, currentWindowTheme);
+	child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+	const rejectChildNavigation = (event, url) => {
+		if (isTrustedDisplayUrl(url)) return;
+		event?.preventDefault?.();
+		if (!child.isDestroyed()) child.destroy();
+	};
+	child.webContents.on('will-navigate', rejectChildNavigation);
+	child.webContents.on('will-redirect', rejectChildNavigation);
+	child.webContents.on('did-navigate', (event, url) => rejectChildNavigation(event, url));
+	child.webContents.on('did-navigate-in-page', (event, url, isMainFrame) => {
+		if (isMainFrame) rejectChildNavigation(event, url);
+	});
+}
+
+let sceneWindow = null;
+let choosingSceneDisplay = false;
+
+// Only the primary renderer can request this OS-owned chooser; no renderer-supplied URLs or bounds.
+ipcMain.handle('scene-display:open', async (event) => {
+	if (!isPrimarySender(event) || choosingSceneDisplay) return false;
+	choosingSceneDisplay = true;
+	try {
+		const displays = screen.getAllDisplays();
+		const primary = screen.getPrimaryDisplay();
+		const { response } = await dialog.showMessageBox(mainWindow, {
+			type: 'question',
+			title: 'Scene display',
+			message: 'Choose a display for your scene',
+			detail: 'The scene fills the chosen display. Press Escape there to close it.',
+			buttons: [
+				...displays.map(
+					(display, index) =>
+						`${display.label || `Display ${index + 1}`} (${display.size.width} × ${display.size.height})${display.id === primary.id ? ' — Primary' : ''}`,
+				),
+				'Cancel',
+			],
+			defaultId: Math.max(
+				0,
+				displays.findIndex((display) => display.id !== primary.id),
+			),
+			cancelId: displays.length,
+			noLink: true,
+		});
+		const selected = displays[response];
+		if (!selected) return true;
+		const target = screen.getAllDisplays().find((display) => display.id === selected.id);
+		if (!target || !mainWindow || mainWindow.isDestroyed()) return false;
+		if (sceneWindow && !sceneWindow.isDestroyed()) sceneWindow.destroy();
+		const child = new BrowserWindow({
+			...target.bounds,
+			show: false,
+			frame: false,
+			kiosk: true,
+			backgroundColor: '#05070c',
+			title: 'Lamplight — Scene Display',
+			webPreferences: {
+				preload: path.join(__dirname, 'window-preload.cjs'),
+				contextIsolation: true,
+				nodeIntegration: false,
+				sandbox: true,
+				devTools: !app.isPackaged,
+				webviewTag: false,
+			},
+		});
+		sceneWindow = child;
+		manageSceneWindow(child);
+		const closeOnRemoval = (_event, display) => {
+			if (display.id === target.id && !child.isDestroyed()) child.destroy();
+		};
+		screen.on('display-removed', closeOnRemoval);
+		child.on('closed', () => {
+			screen.removeListener('display-removed', closeOnRemoval);
+			if (sceneWindow === child) sceneWindow = null;
+		});
+		child.webContents.on('before-input-event', (inputEvent, input) => {
+			if (input.type === 'keyDown' && input.key === 'Escape') {
+				inputEvent.preventDefault();
+				child.destroy();
+			}
+		});
+		child.once('ready-to-show', () => child.show());
+		try {
+			await child.loadURL(`${DEV_SERVER_URL || APP_ENTRY_URL}#/display`);
+			return true;
+		} catch {
+			if (!child.isDestroyed()) child.destroy();
+			return false;
+		}
+	} finally {
+		choosingSceneDisplay = false;
+	}
+});
 
 function createWindow() {
 	const initialTheme = WINDOW_THEMES[currentWindowTheme];
@@ -461,6 +564,7 @@ function createWindow() {
 		if (mainWindow === win) {
 			mainWindow = null;
 			mainWindowReady = false;
+			if (sceneWindow && !sceneWindow.isDestroyed()) sceneWindow.destroy();
 			disposeDiscovery();
 		}
 	});
@@ -513,24 +617,7 @@ function createWindow() {
 		}
 		return { action: 'deny' };
 	});
-	win.webContents.on('did-create-window', (child) => {
-		managedWindows.add(child);
-		child.on('closed', () => managedWindows.delete(child));
-		child.setMenuBarVisibility(false);
-		applyWindowTheme(child, currentWindowTheme);
-		child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-		const rejectChildNavigation = (event, url) => {
-			if (isTrustedDisplayUrl(url)) return;
-			event?.preventDefault?.();
-			if (!child.isDestroyed()) child.destroy();
-		};
-		child.webContents.on('will-navigate', rejectChildNavigation);
-		child.webContents.on('will-redirect', rejectChildNavigation);
-		child.webContents.on('did-navigate', (event, url) => rejectChildNavigation(event, url));
-		child.webContents.on('did-navigate-in-page', (event, url, isMainFrame) => {
-			if (isMainFrame) rejectChildNavigation(event, url);
-		});
-	});
+	win.webContents.on('did-create-window', manageSceneWindow);
 	const rejectPrimaryNavigation = (event, url) => {
 		if (isTrustedAppDocumentUrl(url)) return;
 		event?.preventDefault?.();

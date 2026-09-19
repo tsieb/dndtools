@@ -1,7 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getContentItemsForActor } from '@dndtools/core';
-import { Badge, Button, Dialog, EmptyState, Icon, Input, Skeleton, Stat, Toaster } from '../../ds';
+import {
+	getContentItemsForActor,
+	getContentItemDetailForActor,
+	getSessionRecapFeedForActor,
+	stripSecretCallouts,
+} from '@dndtools/core';
+import {
+	Badge,
+	Button,
+	Checkbox,
+	Dialog,
+	EmptyState,
+	Icon,
+	Input,
+	Skeleton,
+	Stat,
+	Toaster,
+} from '../../ds';
 import { LoadingRegion, Panel, T, eb, radioGroupKeyDown } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -17,7 +33,7 @@ import {
 } from '../../cloud/appApi';
 import { publicAppBaseUrl } from '../../platform/publicAppUrl';
 import { copyToClipboard } from '../../platform/preferences';
-import { WIKI_ACCESS_MODES, buildWikiPages, errText, kb, wikiPublicUrl } from './shared';
+import { WIKI_ACCESS_MODES, buildWikiPages, slugify, errText, kb, wikiPublicUrl } from './shared';
 import { useI18n } from '../../i18n';
 
 export function CommWiki() {
@@ -35,6 +51,7 @@ export function CommWiki() {
 	const [title, setTitle] = useState(() => t('community.wiki.defaultTitle'));
 	const [access, setAccess] = useState<WikiAccess>('unlisted');
 	const [password, setPassword] = useState('');
+	const [includeRecaps, setIncludeRecaps] = useState(false);
 	// undefined → the initial status fetch is in flight; null → nothing published; else the live status.
 	const [status, setStatus] = useState<WikiStatus | null | undefined>(
 		cloudReady ? undefined : null,
@@ -51,7 +68,61 @@ export function CommWiki() {
 	const notes = items.filter((i) => i.kind === 'note');
 	const eligibleNotes = notes.filter((i) => i.visibility === 'player-visible');
 	const eligible = eligibleNotes.length;
-	const pages = useMemo(() => buildWikiPages(eligibleNotes), [eligibleNotes]);
+	const pages = useMemo(() => {
+		// An ungranted observer projects only globally player-visible fields and bodies.
+		const readerId = '__wiki_public_reader__';
+		const permissions = {
+			...runtime.state.permissions,
+			actors: {
+				[readerId]: { id: readerId, role: 'observer' as const, displayName: 'Wiki reader' },
+			},
+			grants: [],
+		};
+		const notes = buildWikiPages(eligibleNotes).map((page, index) => {
+			const detail = getContentItemDetailForActor(
+				runtime.state.content,
+				permissions,
+				readerId,
+				eligibleNotes[index].id,
+			);
+			const folder = detail.visible ? detail.visibleFields['dndtools.folder'] : '';
+			return {
+				...page,
+				markdown: detail.visible ? detail.body : '',
+				folder: typeof folder === 'string' ? folder.slice(0, 240) : '',
+				kind: 'note' as const,
+			};
+		});
+		if (!includeRecaps) return notes;
+		const used = new Set(notes.map((p) => p.slug));
+		const recaps = getSessionRecapFeedForActor(
+			runtime.state.session,
+			runtime.state.permissions,
+			dmId,
+		).map((entry) => {
+			const base = `recap-${slugify(entry.archiveId) || 'session'}`.slice(0, 110);
+			let slug = base;
+			for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`;
+			used.add(slug);
+			return {
+				slug,
+				title: entry.title || t('community.wiki.sessionRecap'),
+				markdown: stripSecretCallouts(entry.markdown),
+				updatedAt: entry.authoredAt,
+				folder: t('community.wiki.recaps'),
+				kind: 'recap' as const,
+			};
+		});
+		return [...notes, ...recaps];
+	}, [
+		eligibleNotes,
+		includeRecaps,
+		runtime.state.content,
+		runtime.state.permissions,
+		runtime.state.session,
+		dmId,
+		t,
+	]);
 
 	// Load the caller's current published-wiki status; adopt its title/access into the form so a
 	// re-publish edits the live wiki rather than resetting it.
@@ -65,6 +136,7 @@ export function CommWiki() {
 				if (s) {
 					setTitle(s.title);
 					setAccess(s.access);
+					setIncludeRecaps(((s as WikiStatus & { recapCount?: number }).recapCount ?? 0) > 0);
 				}
 			})
 			.catch(() => setStatusFailed(true));
@@ -143,6 +215,11 @@ export function CommWiki() {
 					{t('community.wiki.localOnlyBody')}
 				</div>
 				<EligibilityStat eligible={eligible} total={notes.length} />
+				<Checkbox
+					label={t('community.wiki.includeRecaps')}
+					checked={includeRecaps}
+					onChange={setIncludeRecaps}
+				/>
 			</Panel>
 		);
 	} else if (auth.status !== 'signed-in') {
@@ -165,6 +242,11 @@ export function CommWiki() {
 					</Button>
 				</div>
 				<EligibilityStat eligible={eligible} total={notes.length} />
+				<Checkbox
+					label={t('community.wiki.includeRecaps')}
+					checked={includeRecaps}
+					onChange={setIncludeRecaps}
+				/>
 			</Panel>
 		);
 	} else if (!canPublish && status === null) {
@@ -192,6 +274,11 @@ export function CommWiki() {
 					{t('community.wiki.seePlans')}
 				</Button>
 				<EligibilityStat eligible={eligible} total={notes.length} />
+				<Checkbox
+					label={t('community.wiki.includeRecaps')}
+					checked={includeRecaps}
+					onChange={setIncludeRecaps}
+				/>
 			</Panel>
 		);
 	} else if (statusFailed) {
@@ -292,6 +379,12 @@ export function CommWiki() {
 						)}`,
 					})}
 				</div>
+				<Checkbox
+					label={t('community.wiki.includeRecaps')}
+					checked={includeRecaps}
+					disabled={!canPublish || busy}
+					onChange={setIncludeRecaps}
+				/>
 				{!canPublish && (
 					<div
 						style={{
@@ -427,6 +520,11 @@ export function CommWiki() {
 					/>
 				)}
 				<EligibilityStat eligible={eligible} total={notes.length} />
+				<Checkbox
+					label={t('community.wiki.includeRecaps')}
+					checked={includeRecaps}
+					onChange={setIncludeRecaps}
+				/>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 					{t('community.wiki.publishNote')}
 				</div>
@@ -434,7 +532,7 @@ export function CommWiki() {
 					variant="primary"
 					size="md"
 					icon="upload"
-					disabled={busy || eligible === 0}
+					disabled={busy || pages.length === 0}
 					onClick={publish}
 				>
 					{busy ? t('community.publish.publishing') : t('community.wiki.publishWiki')}

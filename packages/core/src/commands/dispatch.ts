@@ -3,11 +3,19 @@ import {
 	handleCreateScene,
 	handleDeleteScene,
 	handleInstantiateSceneTemplate,
+	handleApplySceneTemplate,
 	handleRestoreScene,
 	handleSaveSceneTemplate,
 	handleSetSceneSections,
 	handleUpdateSceneMetadata,
 } from './scene-meta';
+// RC-CAN-7.2 — the screen commands (ADR-041): screen pins, pin order, layout policy and duplication.
+import {
+	handleDuplicateScene,
+	handleReorderScreenPins,
+	handleSetScreenLayoutPolicy,
+	handleSetScreenPinned,
+} from './scene';
 import {
 	handleAddWidget,
 	handleConfigureWidget,
@@ -20,8 +28,12 @@ import {
 	handlePinWidget,
 	handleResizeWidget,
 	handleSetWidgetFocusOrder,
+	// RC-CAN-3.6 (append-only)
+	handleSetWidgetOrder,
 	// RC-CAN-1.2 (append-only)
 	handleRestoreWidget,
+	// RC-CAN-2.4 (append-only)
+	handleDuplicateWidget,
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
 // RC-SYS-1.3 — the DM-authored rules SYSTEM commands (append-only block in the switch below).
@@ -333,6 +345,8 @@ export function dispatchCommand(
 			return handleSaveSceneTemplate(state, env, command.actorId, command.payload);
 		case 'scene.instantiate-template':
 			return handleInstantiateSceneTemplate(state, env, command.actorId, command.payload);
+		case 'scene.apply-template':
+			return handleApplySceneTemplate(state, env, command.actorId, command.payload);
 		case 'scene.add-widget':
 			return handleAddWidget(state, env, command.actorId, command.payload);
 		case 'scene.move-widget':
@@ -345,6 +359,8 @@ export function dispatchCommand(
 			return handleGroupWidgets(state, env, command.actorId, command.payload);
 		case 'scene.move-group':
 			return handleMoveGroup(state, env, command.actorId, command.payload);
+		case 'scene.set-widget-order':
+			return handleSetWidgetOrder(state, env, command.actorId, command.payload);
 		case 'scene.dock-widget':
 			return handleDockWidget(state, env, command.actorId, command.payload);
 		case 'scene.pin-widget':
@@ -356,6 +372,18 @@ export function dispatchCommand(
 		// --- RC-CAN-1.2 — RESTORE A DESTROYED WIDGET (append-only) ----------------------------------
 		case 'scene.restore-widget':
 			return handleRestoreWidget(state, env, command.actorId, command.payload);
+		// --- RC-CAN-2.4 — DUPLICATE A WIDGET INSTANCE (append-only) ---------------------------------
+		case 'scene.duplicate-widget':
+			return handleDuplicateWidget(state, env, command.actorId, command.payload);
+		// --- RC-CAN-7.2 — SCREEN METADATA, PINS AND DUPLICATION (append-only; ADR-041) --------------
+		case 'scene.set-pinned':
+			return handleSetScreenPinned(state, env, command.actorId, command.payload);
+		case 'scene.reorder-pins':
+			return handleReorderScreenPins(state, env, command.actorId, command.payload);
+		case 'scene.set-layout-policy':
+			return handleSetScreenLayoutPolicy(state, env, command.actorId, command.payload);
+		case 'scene.duplicate':
+			return handleDuplicateScene(state, env, command.actorId, command.payload);
 		// --- RC-MAP-1.4 — MARK THE PARTY'S ATLAS LOCATION (append-only) -----------------------------
 		case 'session.mark-party':
 			return handleMarkParty(state, env, command.actorId, command.payload);

@@ -21,6 +21,10 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  WikiCustomDomains:
+    Type: String
+    Default: '{}'
+    Description: JSON map of wiki ids to operator-verified HTTPS custom hostnames, enabled only after DNS and certificate validation.
   WebOrigin:
     Type: String
     Default: 'https://invalid.example'
@@ -34,6 +38,14 @@ Parameters:
       link + QR and the API returns emailStatus="not-configured". Set this ONLY to an
       address/domain already verified in SES for this account+region, or sends will fail
       (fail-open — the invite is still returned with emailStatus="failed").
+  MarketplaceMaintainerSubs:
+    Type: String
+    Default: ''
+    Description: >-
+      RC-CLD-4.5. Comma-separated Cognito subs of the marketplace maintainers, the only callers
+      who may edit the featured set or read and resolve the review moderation queue. LEAVE EMPTY
+      to ship with no maintainer (fail-closed: those routes answer 403). Like any parameter, a
+      later deploy that does not pass it resets it to empty, which also fails closed.
   SyncOpsTableName:
     Type: String
     Default: ''
@@ -137,6 +149,14 @@ Resources:
   #   invite#<token>           | redeem                   — token → invite lookup (TTL `expiresAt`)
   #   module#<moduleId>        | listing                  — marketplace listing (payload in S3)
   #   modules                  | listing#<moduleId>       — browse partition (single-tenant scan-free list)
+  # RC-CLD-4.5 discovery. The `ratings` and `featured` tables are partitions of this one table:
+  #   listing-ratings          | module#<moduleId>        — ratings: count + star sum per listing (one query/search)
+  #   featured                 | module#<moduleId>        — featured: maintainer-curated, ranked
+  #   module#<moduleId>        | review#<reviewId>        — public rating: 1–5 stars + 280-char note
+  #   account#<sub>            | review#<moduleId>        — the reviewer's own copy (concurrency guard)
+  #   account#<sub>            | install#<moduleId>       — install record (a rating requires one)
+  #   account#<sub>            | flag#<moduleId>#<rid>    — one report per DM per review
+  #   review-flags             | review#<moduleId>#<rid>  — moderation queue (maintainer-only read)
   #   account#<sub>            | wiki                     — owner's published-wiki status (stable wikiId)
   #   wiki#<wikiId>            | site                     — public wikiId → site lookup (pages in S3)
   AppTable:
@@ -244,6 +264,7 @@ Resources:
           # WEB_ORIGIN is the trusted base for the join link the email carries.
           INVITE_SENDER: !Ref InviteSender
           WEB_ORIGIN: !Ref WebOrigin
+          WIKI_CUSTOM_DOMAINS: !Ref WikiCustomDomains
           # Send through the same configuration set Cognito uses, so bounce and complaint
           # rates cover ALL of this project's mail rather than only the account traffic.
           # Owned by the identity stack, which deploys before this one.
@@ -254,6 +275,8 @@ Resources:
           # container), never baked into the template or the environment. No parameters under
           # this prefix = billing not configured = every money route fails closed (503).
           BILLING_SSM_PREFIX: !Sub '/${ProjectName}/${Stage}/billing'
+          # RC-CLD-4.5: who may curate the featured set and moderate reviews. Empty = nobody.
+          MARKETPLACE_MAINTAINER_SUBS: !Ref MarketplaceMaintainerSubs
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref AppTable }
         - S3CrudPolicy: { BucketName: !Ref ModulesBucket }
@@ -399,6 +422,63 @@ Resources:
             ApiId: !Ref AppHttpApi
             Method: DELETE
             Path: '/marketplace/modules/{moduleId}'
+        # Discovery (RC-CLD-4.5): search and filters, the featured set, ratings, moderation.
+        # All authenticated. Editing the featured set and both moderation routes are also
+        # maintainer-only in the handler (MarketplaceMaintainerSubs; empty fails them closed).
+        SearchListings:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /listings
+        GetFeaturedListings:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /listings/featured
+        SetFeaturedListings:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: PUT
+            Path: /listings/featured
+        RecordInstall:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: '/listings/{moduleId}/install'
+        ListReviews:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: '/listings/{moduleId}/reviews'
+        PutReview:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: PUT
+            Path: '/listings/{moduleId}/review'
+        FlagReview:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: '/listings/{moduleId}/reviews/{reviewId}/flag'
+        ModerationQueue:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /moderation/reviews
+        ResolveModeration:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /moderation/reviews/resolve
         # Campaign wiki ---------------------------------------------------------------
         GetOwnWiki:
           Type: HttpApi
@@ -423,6 +503,14 @@ Resources:
         # strictly-shaped wiki id to the player-safe page bundle the owner published;
         # password-protected wikis additionally require the x-wiki-password header
         # (salted-scrypt check in the handler). Never returns the owner's sub.
+        ReadWikiDocument:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: '/wikis/{wikiId}/{document}'
+            Auth:
+              Authorizer: NONE
         ReadWiki:
           Type: HttpApi
           Properties:

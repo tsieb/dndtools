@@ -501,8 +501,14 @@ export type {
 	CommandCenterPresetSection,
 	CommandCenterPresetWidget,
 	CommandCenterState,
+	BuiltinSceneTemplate,
+	BuiltinSceneTemplateId,
 } from './state/command-center-state';
 export {
+	BUILTIN_SCENE_TEMPLATES,
+	BUILTIN_SCENE_TEMPLATE_IDS,
+	builtinSceneTemplateLayout,
+	findBuiltinSceneTemplate,
 	COMMAND_CENTER_STATE_SCHEMA_VERSION,
 	DEFAULT_COMMAND_CENTER_NAME,
 	DEFAULT_COMMAND_CENTER_TOOLS,
@@ -989,6 +995,7 @@ export { dispatchCommand } from './commands/dispatch';
 export {
 	addWidgetInputSchema,
 	applyCommandCenterPresetInputSchema,
+	applySceneTemplateInputSchema,
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
 	configureWidgetInputSchema,
@@ -1008,6 +1015,7 @@ export {
 	grantCapabilitySetInputSchema,
 	importMapAssetInputSchema,
 	groupWidgetsInputSchema,
+	setWidgetOrderInputSchema,
 	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,
 	layerWidgetInputSchema,
@@ -1337,6 +1345,9 @@ export {
 	MIN_WIDGET_EXTENT,
 	listWidgetLayoutCommands,
 	resolveLayoutCommandPayload,
+	// RC-CAN-3.6
+	resolveSelectionLayoutCommand,
+	resolveWidgetOrderCommand,
 } from './queries/layout-commands';
 
 export type {
@@ -1401,6 +1412,8 @@ export {
 } from './queries/widget-library';
 
 export type {
+	CanvasActionSurface,
+	CanvasCommandActionContext,
 	CommandAction,
 	CommandActionAvailability,
 	CommandActionContext,
@@ -1410,6 +1423,7 @@ export type {
 	ResolvedCommandAction,
 } from './queries/command-actions';
 export {
+	listCanvasCommandActions,
 	listCommandActions,
 	resolveCommandAction,
 	searchCommandActions,
@@ -1572,6 +1586,7 @@ export type {
 export {
 	QUICK_SWITCHER_COMMAND_SIGIL,
 	buildQuickSwitcher,
+	canvasSurfaceForRoute,
 	parseQuickSwitcherQuery,
 	resolveQuickSwitcherEntry,
 } from './queries/quick-switcher-query';
@@ -3194,6 +3209,8 @@ export {
 	evaluateCloudReleaseGate,
 	findServerVisibilityViolations,
 	isPlaintextUploadPermitted,
+	isSanctionedSecurityDecisionRecord,
+	sanctionSecurityDecisionRecord,
 	validateCloudSecurityRecord,
 } from './security/cloud-security-model';
 
@@ -5652,6 +5669,9 @@ export {
 	withTombstones,
 } from './state/scene-state';
 
+// RC-CAN-3.6 — paint order: `scene.set-widget-order` reorders `Scene.widgets` and renumbers `z`.
+export { widgetPaintOrder, withWidgetOrder } from './state/scene-state';
+
 // RC-MAP-1.3 — MOVEMENT RANGE AND PATH. Dijkstra over grid cells, from the walls, doors and
 // `terrain: difficult` features the map already carries; speed comes from the active system
 // package, and `getCombatantMovementForActor` is the one actor-filtered read (a hidden combatant's
@@ -5973,3 +5993,38 @@ export {
 	importSystemPackageFromBundle,
 	systemPackageModuleId,
 } from './commands/system-package';
+
+// RC-CAN-7.2 — SCREENS (ADR-041). A screen IS a scene: the same record, the same permission model,
+// the same commands. What is new is an additive, optional `Scene.screen` record (pinned, pin order,
+// layout policy, origin) that drops its key whenever it holds the default, so a scene with nothing to
+// say about screens round-trips byte-identically and no schemaVersion moves; the four DM-only
+// commands over it; and `listScreensForActor`, which reuses the existing scene visibility rules so a
+// player lists only the screens visible to them.
+export type { ScreenLayoutPolicy, ScreenMeta, ScreenOrigin } from './state/scene-state';
+export {
+	DEFAULT_SCREEN_META,
+	SCREEN_LAYOUT_POLICIES,
+	compareScreenOrder,
+	hydrateScreenMeta,
+	isDefaultScreenMeta,
+	isPinnedScreen,
+	listPinnedScreens,
+	screenLayoutPolicy,
+	screenMetaOf,
+	screenPinOrder,
+	withScreenMeta,
+} from './state/scene-state';
+export {
+	duplicateSceneInputSchema,
+	reorderScreenPinsInputSchema,
+	setScreenLayoutPolicyInputSchema,
+	setScreenPinnedInputSchema,
+} from './schemas/commands';
+export {
+	handleDuplicateScene,
+	handleReorderScreenPins,
+	handleSetScreenLayoutPolicy,
+	handleSetScreenPinned,
+} from './commands/scene';
+export type { ScreenListEntry, ScreenListOptions } from './queries/screens';
+export { listPinnedScreensForActor, listScreensForActor } from './queries/screens';

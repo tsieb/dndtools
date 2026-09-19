@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import type { EvaluatedTerm } from '@dndtools/core';
+import { useMemo, useState } from 'react';
+import { getActiveSystemForActor, type EvaluatedTerm } from '@dndtools/core';
 import { Button, DiceResult, Icon, Input } from '../../ds';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 import { Panel, T, mono } from '../../app/screen-kit';
+import { diceResultProps } from '../../app/session/QuickPanel';
 import { copyToClipboard } from '../../platform/preferences';
+import { useRuntime } from '../../runtime/RuntimeContext';
 
 // ── Dice ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -16,21 +18,6 @@ type TrayRoll = {
 	modifier: number;
 	terms?: EvaluatedTerm[];
 };
-
-/** Natural-20/natural-1 detection on a RECORDED roll: exactly one d20 term keeping a single die.
- *  Mirrors `screens/play/Dice.tsx`'s `critOf` (the player table's crit readout) so the DM's roll
- *  tray agrees with what players see for the same roll — kept as a small local copy rather than a
- *  cross-screen import so this file's `terms` stays optional (`getDiceHistoryForActor` always
- *  supplies it, but nothing here should assume that of a caller). */
-function critOf(terms: EvaluatedTerm[] | undefined): 'success' | 'fail' | undefined {
-	const diceTerms = (terms ?? []).filter(
-		(t): t is Extract<EvaluatedTerm, { kind: 'dice' }> => t.kind === 'dice',
-	);
-	if (diceTerms.length !== 1) return undefined;
-	const term = diceTerms[0];
-	if (term.sides !== 20 || term.kept.length !== 1) return undefined;
-	return term.kept[0] === 20 ? 'success' : term.kept[0] === 1 ? 'fail' : undefined;
-}
 
 /** RC-SES-2.1 — one line per dice term, showing every die rolled (not just the kept ones), so a
  *  kh1/kl1 advantage roll reads as "both dice fell, this one counted" instead of hiding the drop. */
@@ -129,13 +116,22 @@ export function DicePanel({
 	onRoll: (expression: string, label?: string) => void;
 }) {
 	const { t } = useI18n();
+	const runtime = useRuntime();
+	const { systems, permissions } = runtime.state;
 	const [copied, setCopied] = useState(false);
+	// RC-SES-2.4 — the roll already on screen when the tray mounts rests; only a roll that lands while
+	// it is open plays its drama, so coming back to /session never replays an old nat 20.
+	const [settledRollId] = useState(() => rolls[rolls.length - 1]?.id ?? null);
+	// Crit and headline follow the ACTIVE package's dice rules (RC-SYS-2.4) through the same read the
+	// quick panel makes, so the tray and the rail never disagree about one roll.
+	const activePackage = useMemo(
+		() => getActiveSystemForActor(systems, permissions, runtime.activeActorId).activePackage,
+		[systems, permissions, runtime.activeActorId],
+	);
 	const presets = ['1d20', '1d20+5', '2d6+3', '1d8+2', '4d6'];
 	// `getDiceHistoryForActor` returns rolls oldest-first (appended), so the newest is the LAST element.
 	const recent = [...rolls].reverse();
 	const last = recent[0];
-	const lastCrit = last ? critOf(last.terms) : undefined;
-	const lastNatural = lastCrit && last?.dice.length === 1 ? last.dice[0] : null;
 	const disabled = !isLive || previewing;
 	return (
 		<Panel
@@ -213,13 +209,12 @@ export function DicePanel({
 			</form>
 			{last && (
 				<div>
+					{/* Keyed by roll, so every new roll mounts fresh and plays its own drama. */}
 					<DiceResult
-						notation={last.expression}
-						total={last.total}
-						rolls={last.dice}
-						modifier={last.modifier}
-						crit={lastCrit}
-						critNatural={lastNatural}
+						key={last.id}
+						data-testid="dice-last-roll"
+						{...diceResultProps(activePackage, last)}
+						drama={last.id === settledRollId ? 'static' : 'play'}
 					/>
 					{last.label && (
 						<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 4 }}>{last.label}</div>
@@ -232,7 +227,7 @@ export function DicePanel({
 			{recent.length > 1 && (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 					{recent.slice(1, 6).map((d) => {
-						const crit = critOf(d.terms);
+						const { crit, critNatural } = diceResultProps(activePackage, d);
 						return (
 							<div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 								<div
@@ -257,8 +252,7 @@ export function DicePanel({
 										}}
 									>
 										{d.total}
-										{crit === 'success' ? ` · ${t('session.dice.nat20')}` : ''}
-										{crit === 'fail' ? ` · ${t('session.dice.nat1')}` : ''}
+										{crit ? ` · ${t('session.dice.natural', { value: critNatural ?? '' })}` : ''}
 									</span>
 								</div>
 								<RollBreakdown roll={d} />

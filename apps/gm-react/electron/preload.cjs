@@ -94,3 +94,8 @@ contextBridge.exposeInMainWorld('dndtoolsUpdates', {
 		return () => ipcRenderer.removeListener('updates:state', h);
 	},
 });
+
+// Primary-only native projector control; the OS dialog owns display selection.
+contextBridge.exposeInMainWorld('dndtoolsSceneDisplayControl', {
+	open: () => ipcRenderer.invoke('scene-display:open'),
+});
