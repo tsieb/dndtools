@@ -330,3 +330,17 @@ claimed. This pass changes only the journal; no push, promotion, PR closure or c
   unsharded run and one run as four `--shard=n/4` runs on separate ports. Both died with the
   worker session after roughly 10 tests per shard, and neither reported a failure. The
   operator's browser gate is the evidence for the full suite.
+- Partial browser evidence in the foreground on `52da2f2a`, both Playwright projects,
+  `--workers=4 --retries=1`. First batch: `ux-audit`, `responsive`, `isolation-guard`, `join`,
+  `player-view`, `shortcuts`, `help-menu` and `settings`, 168 passed. Second batch:
+  `a11y-axe-gate`, `canvas`, `knowledge`, `wiki`, `campaign`, `session-lifecycle`, `combat`,
+  `characters-roster`, `atlas` and `command-palette`, 345 passed and 1 skipped. Both exited 0
+  with no failed and no flaky tests. These 18 of the 95 specs are not the full suite.
+
+### Report
+
+RC-ENG-4.4 candidate: `pnpm audit` is clean. Kept bumps: vite 8, Actions, electron 44,
+`@types/node` 26, vitest and joi, and React Router 7.18. React 19 and Gradle 9.7.1 are reverted
+with the reasons recorded above. One edit outside Owns: the palette spec scoping in section 12.
+The full browser suite and hosted CI are left to the operator's gates. No push, promotion, PR
+closure or control-state edit.
