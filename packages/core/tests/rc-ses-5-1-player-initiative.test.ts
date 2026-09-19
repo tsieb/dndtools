@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+	SESSION_WORKFLOW_STATES,
+	type SessionWorkflowState,
 	dispatchCommand,
 	getCombatTrackerForActor,
 	type Actor,
@@ -42,7 +44,7 @@ function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreComm
 }
 
 /** A live session with two player-owned characters and a DM-held initiative call over them + a monster. */
-function callSetup(): {
+function callSetup(workflow: SessionWorkflowState = 'active'): {
 	state: CoreStateSlice;
 	env: CoreEnvironment;
 	mine: string;
@@ -96,6 +98,7 @@ function callSetup(): {
 		characterIds.push(id);
 	}
 
+	state = { ...state, session: { ...state.session, workflow } };
 	state = accept(
 		dispatch(state, env, {
 			type: 'combat.start',
@@ -433,4 +436,32 @@ describe('RC-SES-5.1 the DM accepts, adjusts and starts', () => {
 		const seen = getCombatTrackerForActor(next.session.combat, next.permissions, PLAYER_ACTOR.id);
 		expect(seen.log.some((e) => e.combatantId === monster)).toBe(false);
 	});
+});
+
+describe('RC-SES-6.1 initiative remains a table tool after integration', () => {
+	it.each(SESSION_WORKFLOW_STATES)(
+		'permits authorized initiative in %s and stamps its history',
+		(workflow) => {
+			const { state, env, mine, theirs } = callSetup(workflow);
+			expect(rejected(roll(state, env, PLAYER_ACTOR.id, theirs)).rejection.code).toBe(
+				'actor-not-authorized',
+			);
+			const next = accept(roll(state, env, PLAYER_ACTOR.id, mine)).nextState;
+			expect(next.session.workflow).toBe(workflow);
+			expect(next.session.combat.log.at(-1)).toMatchObject({
+				workflow,
+				kind: 'roll',
+			});
+			expect(roll(next, env, PLAYER_ACTOR.id, mine).status).toBe('rejected');
+			const adjusted = accept(
+				dispatch(next, env, {
+					type: 'combat.apply-resource',
+					actorId: DM_ACTOR.id,
+					payload: { combatantId: mine, kind: 'initiative', value: 18 },
+				}),
+			).nextState;
+			expect(initiativeOf(adjusted, mine)).toBe(18);
+			expect(adjusted.session.combat.log.at(-1)).toMatchObject({ workflow });
+		},
+	);
 });

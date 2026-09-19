@@ -948,8 +948,6 @@ function handleCombatantInitiative(
 	if (combat.status !== 'running') {
 		return reject({ code: 'invalid-state', message: 'No combat is currently running.' }, state);
 	}
-	const sessionGuard = requireActiveSession(state);
-	if (sessionGuard) return reject(sessionGuard, state);
 
 	const payload = parsed.data;
 	const existing = combat.combatants[payload.combatantId];
