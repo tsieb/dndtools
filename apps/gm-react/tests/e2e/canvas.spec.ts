@@ -1,6 +1,16 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	gotoRoute,
+	markOnboarded,
+	seedFresh,
+	waitReady,
+	preferPhoneCanvas,
+} from './_helpers';
+
+// These specs exercise the spatial canvas; phones default to stacked panels (RC-CAN-5.1).
+test.beforeEach(async ({ page }) => preferPhoneCanvas(page));
 
 /**
  * Take the session live on the home scene.

@@ -1,6 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, seedFresh, waitReady, preferPhoneCanvas } from './_helpers';
+
+// These specs exercise the spatial canvas; phones default to stacked panels (RC-CAN-5.1).
+test.beforeEach(async ({ page }) => preferPhoneCanvas(page));
 
 /** Only Tab changes focus: no pointer, locator.focus(), or DOM focus injection. */
 async function tabTo(page: Page, target: Locator) {

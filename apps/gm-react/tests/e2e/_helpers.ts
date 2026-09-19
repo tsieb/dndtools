@@ -95,6 +95,22 @@ export async function markOnboarded(page: Page): Promise<void> {
 }
 
 /**
+ * Phones read `/board` and `/scene/:id` as stacked panels by default (RC-CAN-5.1). Specs that
+ * exercise the spatial canvas on a phone (fit scale, zoom presets, pan, frame focus, flow reflow)
+ * save the explicit canvas preference first, exactly as a user who chose it would have. Must be
+ * called BEFORE the first navigation. The stacked default is covered in `responsive.spec.ts`.
+ */
+export async function preferPhoneCanvas(page: Page): Promise<void> {
+	await page.addInitScript(() => {
+		try {
+			window.localStorage.setItem('dndtools:react:board-phone-layout', 'canvas');
+		} catch {
+			/* storage may be unavailable in some contexts */
+		}
+	});
+}
+
+/**
  * Op-log length recorded the first time a page reached a ready app boot (RC-ENG-2.2). Playwright
  * gives every test its own browser context, so that first boot starts from an empty IndexedDB and
  * therefore already IS a freshly seeded vault. While the count is unchanged nothing durable has

@@ -401,3 +401,44 @@ tests/e2e/a11y-axe-gate.spec.ts` on both profiles: 156 passed (includes 320×640
   135 files / 1491 tests passed; Prettier check on the changed files passes;
   `DNDTOOLS_E2E_PORT=5711 playwright test tests/e2e/responsive.spec.ts
 tests/e2e/a11y-axe-gate.spec.ts` on both profiles: 156 passed.
+
+## Browser acceptance recovery — legacy phone-canvas specs — 2026-09-18
+
+- Attempt `5a542bde` (full `pnpm e2e --workers=2 --retries=2` at `5823473a`, rebased onto
+  `6a745225`): 22 failed, 1,155 passed, 11 skipped. Every failure is a phone-width test in
+  `canvas.spec.ts`, `canvas-keyboard.spec.ts` or `flow-layout.spec.ts` that drives the spatial
+  canvas (fit scale, zoom presets, pan, frame focus, keyboard build, flow reflow) and now
+  meets the stacked panels that fresh phones read by default. This is the legacy-spec conflict
+  recorded above. The default itself stays; review rejected a canvas default.
+- Crossed the ownership boundary as little as possible, following the owned-paths-vs-acceptance
+  rule: `tests/e2e/_helpers.ts` gains `preferPhoneCanvas(page)`, an init script that saves the
+  explicit `canvas` phone preference, as a user who picked it would have. Each of the three
+  specs gets one `test.beforeEach` calling it. No assertion changed. The stacked default keeps
+  its coverage in `responsive.spec.ts` and `a11y-axe-gate.spec.ts`. These test files belong to
+  the canvas/flow stories, so the operator should confirm the overlap.
+- Evidence: port 5711, `canvas.spec.ts canvas-keyboard.spec.ts flow-layout.spec.ts
+responsive.spec.ts a11y-axe-gate.spec.ts`, both profiles, `--workers=2`: 256 passed (4.5m).
+  `pnpm lint` and `pnpm typecheck` exit 0.
+
+## Authorized browser recovery commit — 2026-09-19
+
+- Resumed on `dispatch/dndtools/b982c72c5e489e8055d5` at `5823473a`. The only
+  uncommitted changes were the four browser-test files and the preceding journal entry.
+  The operator brief now explicitly owns all four test files, resolving the earlier
+  ownership restriction. Reviewed the helper and all three hooks; no assertion changes.
+- `preferPhoneCanvas` sets the existing explicit canvas preference before navigation in
+  the spatial-canvas suites. Responsive and axe specs do not invoke it and continue to
+  exercise the default phone panels. Product source is unchanged in this recovery.
+- No applicable AGENTS.md or callable dispatch Headroom tools were available. Used native
+  tools and exact local logs. No agents, dispatcher control edits, push or promotion.
+- Fresh browser validation: 256 passed (4.5m), exit 0. Command:
+  `DNDTOOLS_E2E_PORT=15751 pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/canvas.spec.ts tests/e2e/canvas-keyboard.spec.ts tests/e2e/flow-layout.spec.ts
+tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts --workers=2`.
+  Both profiles passed, including 320×640, the 360×360 virtual-keyboard route sweep,
+  and the `/board` mobile axe gate. Exact output: `/tmp/rc-can-5.1-20260919-browser.log`.
+- Full `pnpm typecheck`: exit 0; exact output:
+  `/tmp/rc-can-5.1-20260919-typecheck.log`. Changed-test ESLint, Prettier on the four
+  tests and journal, and `git diff --check` passed. Only the four authorized test files
+  and this journal are included in the recovery commit. Full central wrapper gates and
+  independent review remain with the operator.
