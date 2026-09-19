@@ -745,6 +745,7 @@ export function SceneEditor() {
 
 					{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 						<Inspector
+							history={history}
 							key={selectedInstance.id}
 							widget={selectedWidget}
 							phone={viewport === 'phone'}

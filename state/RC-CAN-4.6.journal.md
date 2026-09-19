@@ -191,3 +191,39 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 - Prettier and `git diff --check` passed. Temporary fixture removed, exact fixture preserved above.
 - Only two owned source paths and this journal are committed. Full integration gates and
   independent review remain with the central operator. No push or promotion performed.
+
+## Independent-review revision (2026-09-19)
+
+This revision supersedes the earlier direct-dispatch and temporary-test decisions above.
+
+- No Headroom tools or applicable AGENTS.md were available. Started from clean candidate
+  `769b833951d88c8f8a6bad753013b1a382219b16`; no agents or dispatcher state changes.
+- Scope empty-state foreground tokens to the selected surface theme, and use secondary text
+  for the small hint and icon. Initial axe replay passed paper but identified parchment's
+  tertiary hint at 4.01:1; strengthening the hint fixes that additional case too. Widget and
+  toolbar themes remain inherited from the application.
+- Extend the background layer to the scaled bounded content extent on both axes, while keeping
+  its viewport minimum. A section stretching to 8000px exercises both scrollbar extremes.
+- Route dock and undock through the existing per-scene layout history and guarded dispatch.
+  The necessary one-line `screens/sceneEditor/index.tsx` host wiring passes that same history
+  into Inspector. The existing core command and inverse builder remain unchanged.
+- Register `apps/gm-react/tests/e2e/scene-surfaces.spec.ts` in the normal Playwright suite instead
+  of keeping regression coverage only in this journal. It preserves the prior feature fixture
+  and adds all-background empty-state axe contrast, dock/undock undo and redo, and horizontal
+  and vertical scrolling coverage for desktop and mobile.
+- Initial quality gate caught WidgetFrame exceeding the 800-line limit after the prop addition;
+  a compact named props type keeps it within budget. Final quality/docs check passed, with
+  existing advisory size warnings. App typecheck and targeted ESLint passed.
+
+### Revision validation and handoff
+
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/scene-surfaces.spec.ts tests/e2e/canvas.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=2`:
+  **86 passed (1.3m)**, exit 0. All four feature/regression profile cases passed, including axe
+  contrast for paper, parchment, dark and grid. Original local output: `/tmp/rc-can-46-final-e2e.log`.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- Targeted ESLint on all five changed TypeScript/TSX files: exit 0.
+- `pnpm gates`: exit 0, six quality-gate definitions and documentation validated; this is not a
+  claim that the operator's eight wrapper gates have run. Original output:
+  `/tmp/rc-can-46-gates-final.log`.
+- Prettier check on all changed source, registered spec and journal: exit 0; `git diff --check`: clean.
+- Central operator retains full wrapper gates and independent review. No push or promotion.

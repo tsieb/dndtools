@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { LayoutHistory } from '../../app/canvas/useLayoutHistory';
 import { useId, useState } from 'react';
 import {
 	resolveWidgetStyleVariables,
@@ -44,6 +45,7 @@ import { readPackage, type WidgetDraft } from '../../app/widgetBuilder/draft';
  */
 export function Inspector({
 	widget,
+	history,
 	phone,
 	focusOrder,
 	onVisibility,
@@ -55,6 +57,7 @@ export function Inspector({
 	onClose,
 }: {
 	widget: BoardWidget;
+	history: LayoutHistory;
 	phone: boolean;
 	/** The instance's EXPLICIT keyboard traversal position (`layout.focusOrder`); null = derived. */
 	focusOrder: number | null;
@@ -440,7 +443,10 @@ export function Inspector({
 												? resolveLayoutCommandPayload(descriptor, scene, instance)
 												: null;
 										if (command)
-											void runtime.dispatch({ ...command, actorId: runtime.defaultActorId });
+											void history.run(
+												{ ...command, actorId: runtime.defaultActorId },
+												`${e.target.value === 'none' ? 'Undocked' : 'Docked'} ${widget.title}`,
+											);
 									}}
 								/>
 							</Field>

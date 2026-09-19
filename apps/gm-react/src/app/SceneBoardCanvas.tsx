@@ -147,6 +147,12 @@ export function SceneBoardCanvas({
 		: null;
 	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
 	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
+	const surfaceTheme =
+		background === 'paper' || background === 'parchment'
+			? 'parchment'
+			: background === 'dark'
+				? 'tavern'
+				: undefined;
 	const widgets = useMemo(() => {
 		const extent = extentOf([...authoredWidgets, ...sections.map((section) => section.bounds)]);
 		return authoredWidgets.map((widget) => ({
@@ -671,16 +677,12 @@ export function SceneBoardCanvas({
 		>
 			<div
 				data-testid="scene-background"
-				data-theme={
-					background === 'paper' || background === 'parchment'
-						? 'parchment'
-						: background === 'dark'
-							? 'tavern'
-							: undefined
-				}
+				data-theme={surfaceTheme}
 				style={{
 					position: 'absolute',
 					inset: 0,
+					minWidth: policy === 'bounded' ? tx + contentExtent.width * scale : undefined,
+					minHeight: policy === 'bounded' ? ty + contentExtent.height * scale : undefined,
 					background: background === 'paper' ? 'var(--color-surface-raised)' : 'var(--color-bg)',
 					pointerEvents: 'none',
 				}}
@@ -789,9 +791,10 @@ export function SceneBoardCanvas({
 				/>
 			)}
 
-			{/* RC-UX-2.2: every layout operation (move, resize, pick up, put down) speaks here. */}
 			<A11y.OperationLiveRegion notice={notice} testId="canvas-resize-announcement" />
-			{widgets.length === 0 && <EmptyCanvas title={emptyTitle} hint={emptyHint} />}
+			{widgets.length === 0 && (
+				<EmptyCanvas theme={surfaceTheme} title={emptyTitle} hint={emptyHint} />
+			)}
 		</div>
 	);
 }

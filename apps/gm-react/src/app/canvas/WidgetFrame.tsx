@@ -138,9 +138,11 @@ export function HistoryCluster({
 /** The empty canvas. It doubles as the LOADING state (a board has no widgets while
  *  `command-center.ensure-home` is in flight), so the caller may say which it is. The heading is
  *  sans: the display face starts at `--text-xl` (the RC-ENG-8.4 emphasis lint). */
-export function EmptyCanvas({ title, hint }: { title?: string; hint?: string }) {
+type EmptyCanvasProps = { title?: string; hint?: string; theme?: string };
+export function EmptyCanvas({ title, hint, theme }: EmptyCanvasProps) {
 	return (
 		<div
+			data-theme={theme}
 			style={{
 				position: 'absolute',
 				inset: 0,
@@ -154,7 +156,7 @@ export function EmptyCanvas({ title, hint }: { title?: string; hint?: string }) 
 				padding: 'var(--space-6)',
 			}}
 		>
-			<Icon name="widget" size="xl" color="var(--color-text-tertiary)" />
+			<Icon name="widget" size="xl" color="var(--color-text-secondary)" />
 			<div
 				style={{
 					font: '700 var(--text-lg) var(--font-sans)',
@@ -166,7 +168,7 @@ export function EmptyCanvas({ title, hint }: { title?: string; hint?: string }) 
 			<div
 				style={{
 					font: 'var(--text-sm) var(--font-sans)',
-					color: 'var(--color-text-tertiary)',
+					color: 'var(--color-text-secondary)',
 					maxWidth: 320,
 				}}
 			>
