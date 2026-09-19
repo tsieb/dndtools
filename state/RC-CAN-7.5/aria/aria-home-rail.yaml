@@ -1,27 +1,27 @@
 - main:
-  - text: Command Center
-  - heading "Your campaign" [level=2]
-  - text: Resume or open a scene to run live play · 3 in the party
-  - img "Brother Calloway"
-  - img "Sera Duskwhisper"
-  - img "Tormund Ironfist"
-  - button "Open scene"
-  - heading "Scenes" [level=2]
-  - button "New scene"
-  - button "Ready Harbor of Saltreach town · 0 widgets"
-  - button "Draft The Sunken Crypt dungeon · 3 widgets"
-  - heading "Create" [level=2]
-  - button "New scene A canvas for the table"
-  - button "New character PC, NPC, or monster"
-  - button "New map Battle map or region"
-  - button "New widget A GM Screen tracker"
-  - button "New note Lore, quest, or handout"
-  - heading "Manage" [level=2]
-  - button "Players Roster & invites"
-  - button "Permissions Roles & capability grants"
-  - button "Vault connections Connected note sources"
-  - heading "Library" [level=2]
-  - button "Characters 3 PCs · 2 NPCs"
-  - button "Maps 3 maps"
-  - button "Story 0 threads · 3 factions"
-  - button "Notes 6 notes"
+    - text: Command Center
+    - heading "Your campaign" [level=2]
+    - text: Resume or open a scene to run live play · 3 in the party
+    - img "Brother Calloway"
+    - img "Sera Duskwhisper"
+    - img "Tormund Ironfist"
+    - button "Open scene"
+    - heading "Scenes" [level=2]
+    - button "New scene"
+    - button "Ready Harbor of Saltreach town · 0 widgets"
+    - button "Draft The Sunken Crypt dungeon · 3 widgets"
+    - heading "Create" [level=2]
+    - button "New scene A canvas for the table"
+    - button "New character PC, NPC, or monster"
+    - button "New map Battle map or region"
+    - button "New widget A GM Screen tracker"
+    - button "New note Lore, quest, or handout"
+    - heading "Manage" [level=2]
+    - button "Players Roster & invites"
+    - button "Permissions Roles & capability grants"
+    - button "Vault connections Connected note sources"
+    - heading "Library" [level=2]
+    - button "Characters 3 PCs · 2 NPCs"
+    - button "Maps 3 maps"
+    - button "Story 0 threads · 3 factions"
+    - button "Notes 6 notes"

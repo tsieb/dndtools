@@ -1,11 +1,11 @@
 - main:
-  - dialog "Call a rest":
-    - heading "Call a rest" [level=2]
-    - paragraph: Every player character takes this rest. Players spend their own hit dice from the character sheet.
-    - button "Close"
-    - radiogroup "Rest":
-      - radio "Short rest" [checked]
-      - radio "Long rest"
-    - text: Applies to 3 player characters.
-    - button "Cancel"
-    - button "Call the rest"
+    - dialog "Call a rest":
+        - heading "Call a rest" [level=2]
+        - paragraph: Every player character takes this rest. Players spend their own hit dice from the character sheet.
+        - button "Close"
+        - radiogroup "Rest":
+            - radio "Short rest" [checked]
+            - radio "Long rest"
+        - text: Applies to 3 player characters.
+        - button "Cancel"
+        - button "Call the rest"

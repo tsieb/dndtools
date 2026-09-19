@@ -1,53 +1,53 @@
 - main:
-  - toolbar "GM Screen":
-    - heading "GM Screen" [level=2]
-    - text: 7 widgets · your home board
-    - switch "Snap" [checked]
-    - text: Snap
-    - button "Add" [expanded]
-    - button "Layouts"
-    - group "Zoom":
-      - button "Fit" [pressed]
-      - button "Comfortable"
-      - button "Detail"
-    - button "Done"
-  - status
-  - group "Map, Maps widget, position 24, 24, size 240 by 160":
-    - text: Map Maps Not bound The linked map is missing or was removed. Choose another map in edit mode.
-    - button "Actions for Map"
-  - group "Initiative Tracker, Combat widget, position 288, 24, size 240 by 160":
-    - text: Initiative Tracker Combat Round — Turn —
+    - toolbar "GM Screen":
+        - heading "GM Screen" [level=2]
+        - text: 7 widgets · your home board
+        - switch "Snap" [checked]
+        - text: Snap
+        - button "Add" [expanded]
+        - button "Layouts"
+        - group "Zoom":
+            - button "Fit" [pressed]
+            - button "Comfortable"
+            - button "Detail"
+        - button "Done"
     - status
-    - text: No combat running · HP shown
-    - button "Actions for Initiative Tracker"
-  - group "Dice, Dice & Timers widget, position 552, 24, size 240 by 160":
-    - text: Dice Dice & Timers d20
+    - group "Map, Maps widget, position 24, 24, size 240 by 160":
+        - text: Map Maps Not bound The linked map is missing or was removed. Choose another map in edit mode.
+        - button "Actions for Map"
+    - group "Initiative Tracker, Combat widget, position 288, 24, size 240 by 160":
+        - text: Initiative Tracker Combat Round — Turn —
+        - status
+        - text: No combat running · HP shown
+        - button "Actions for Initiative Tracker"
+    - group "Dice, Dice & Timers widget, position 552, 24, size 240 by 160":
+        - text: Dice Dice & Timers d20
+        - status
+        - button "Actions for Dice"
+    - group "Timer, Dice & Timers widget, position 24, 208, size 240 by 160":
+        - text: Timer Dice & Timers 1:00
+        - button "Actions for Timer"
+    - group "Audio, Atmosphere widget, position 288, 208, size 240 by 160":
+        - text: Audio Atmosphere Nothing playing — cue a track from the session audio controls.
+        - button "Actions for Audio"
+    - group "Quick Reference, Reference widget, position 552, 208, size 240 by 160":
+        - text: Quick Reference Reference Dockworkers’ Union Brine Hand Saltmarsh Watch 3 of 3 reference rows
+        - button "Actions for Quick Reference"
+    - group "Prep, Reference widget, position 24, 392, size 240 by 160":
+        - text: Prep Reference Campaign Primer The Drowning of Saltreach The Sunken Crypt — DM notes The party makes landfall The Hollow King stirs 5 of 6 prep notes
+        - button "Actions for Prep"
+    - button "Undo" [disabled]
+    - button "Redo" [disabled]
     - status
-    - button "Actions for Dice"
-  - group "Timer, Dice & Timers widget, position 24, 208, size 240 by 160":
-    - text: Timer Dice & Timers 1:00
-    - button "Actions for Timer"
-  - group "Audio, Atmosphere widget, position 288, 208, size 240 by 160":
-    - text: Audio Atmosphere Nothing playing — cue a track from the session audio controls.
-    - button "Actions for Audio"
-  - group "Quick Reference, Reference widget, position 552, 208, size 240 by 160":
-    - text: Quick Reference Reference Dockworkers’ Union Brine Hand Saltmarsh Watch 3 of 3 reference rows
-    - button "Actions for Quick Reference"
-  - group "Prep, Reference widget, position 24, 392, size 240 by 160":
-    - text: Prep Reference Campaign Primer The Drowning of Saltreach The Sunken Crypt — DM notes The party makes landfall The Hollow King stirs 5 of 6 prep notes
-    - button "Actions for Prep"
-  - button "Undo" [disabled]
-  - button "Redo" [disabled]
-  - status
-  - text: Add widget
-  - button "Close"
-  - button "Audio Ambient audio playback controls."
-  - button "Character A character stat block (HP, AC, abilities)."
-  - button "Dice Quick-roll buttons that record rolls to the session."
-  - button "Handout A shareable handout message."
-  - button "Initiative Tracker The live turn order with round and active turn."
-  - button "Map A bound map with its visible layers."
-  - button "Note A free-text note rendered inline on the canvas."
-  - button "Prep A checklist of prep notes for the session."
-  - button "Quick Reference A compact table of reference content."
-  - button "Timer A session countdown with start/pause/advance controls."
+    - text: Add widget
+    - button "Close"
+    - button "Audio Ambient audio playback controls."
+    - button "Character A character stat block (HP, AC, abilities)."
+    - button "Dice Quick-roll buttons that record rolls to the session."
+    - button "Handout A shareable handout message."
+    - button "Initiative Tracker The live turn order with round and active turn."
+    - button "Map A bound map with its visible layers."
+    - button "Note A free-text note rendered inline on the canvas."
+    - button "Prep A checklist of prep notes for the session."
+    - button "Quick Reference A compact table of reference content."
+    - button "Timer A session countdown with start/pause/advance controls."

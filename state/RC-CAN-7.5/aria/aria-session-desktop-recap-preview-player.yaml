@@ -1,39 +1,39 @@
 - main:
-  - text: Live session No active scene
-  - radiogroup "Session phase":
-    - radio "Standby" [disabled]
-    - radio "Prep" [disabled]
-    - radio "Live" [disabled]
-    - radio "Recap" [checked]
-  - text: Recap Session is in Recap Return to Standby first — you cannot go live from Recap.
-  - button "Go live" [disabled]
-  - heading "Combat" [level=2]
-  - button "Build encounter (unavailable — exit player preview first)" [disabled]: Build encounter
-  - status
-  - status
-  - heading "Go live to start combat" [level=3]
-  - paragraph: Combat is open only while the session is live.
-  - heading "Dice" [level=2]
-  - status
-  - text: Dice rolls record to the live session — go live to roll.
-  - button "1d20" [disabled]
-  - button "1d20+5" [disabled]
-  - button "2d6+3" [disabled]
-  - button "1d8+2" [disabled]
-  - button "4d6" [disabled]
-  - textbox "Dice expression":
-    - /placeholder: e.g. 3d6+2
-    - text: 1d20+7
-  - textbox "Roll label":
-    - /placeholder: Label (optional)
-  - button "Roll" [disabled]
-  - heading "Handouts" [level=2]
-  - text: Handouts the DM has shared with you appear here. No handouts delivered yet.
-  - heading "Now playing" [level=2]
-  - text: Nothing playing. Start ambience from the Audio library.
-  - heading "Table roster" [level=2]
-  - text: No live table yet. Use
-  - strong: Host
-  - text: in the top bar to open your table — players appear here as they connect.
-  - heading "Party" [level=2]
-  - text: No player characters yet.
+    - text: Live session No active scene
+    - radiogroup "Session phase":
+        - radio "Standby" [disabled]
+        - radio "Prep" [disabled]
+        - radio "Live" [disabled]
+        - radio "Recap" [checked]
+    - text: Recap Session is in Recap Return to Standby first — you cannot go live from Recap.
+    - button "Go live" [disabled]
+    - heading "Combat" [level=2]
+    - button "Build encounter (unavailable — exit player preview first)" [disabled]: Build encounter
+    - status
+    - status
+    - heading "Go live to start combat" [level=3]
+    - paragraph: Combat is open only while the session is live.
+    - heading "Dice" [level=2]
+    - status
+    - text: Dice rolls record to the live session — go live to roll.
+    - button "1d20" [disabled]
+    - button "1d20+5" [disabled]
+    - button "2d6+3" [disabled]
+    - button "1d8+2" [disabled]
+    - button "4d6" [disabled]
+    - textbox "Dice expression":
+        - /placeholder: e.g. 3d6+2
+        - text: 1d20+7
+    - textbox "Roll label":
+        - /placeholder: Label (optional)
+    - button "Roll" [disabled]
+    - heading "Handouts" [level=2]
+    - text: Handouts the DM has shared with you appear here. No handouts delivered yet.
+    - heading "Now playing" [level=2]
+    - text: Nothing playing. Start ambience from the Audio library.
+    - heading "Table roster" [level=2]
+    - text: No live table yet. Use
+    - strong: Host
+    - text: in the top bar to open your table — players appear here as they connect.
+    - heading "Party" [level=2]
+    - text: No player characters yet.

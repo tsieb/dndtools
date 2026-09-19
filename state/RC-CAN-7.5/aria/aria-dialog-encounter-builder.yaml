@@ -1,56 +1,56 @@
 - main:
-  - dialog "Build encounter":
-    - heading "Build encounter" [level=2]
-    - paragraph: Pick combatants from your roster, set or roll initiative, and start the fight.
-    - button "Close"
-    - text: Encounter title
-    - textbox "Encounter title":
-      - /placeholder: Ambush at the docks
-      - text: The Sunken Crypt — encounter
-    - text: Party
-    - button "Brother Calloway HP 31 · AC 18" [pressed]
-    - button "Sera Duskwhisper HP 24 · AC 15" [pressed]
-    - button "Tormund Ironfist HP 42 · AC 17" [pressed]
-    - text: NPCs
-    - button "Mira the Ferryman HP 9 · AC 12"
-    - button "The Hollow King HP 76 · AC 19"
-    - text: Monsters None in the vault. Quick add
-    - textbox "Quick add":
-      - /placeholder: e.g. Brine Cultist
-    - text: HP
-    - spinbutton "HP": "7"
-    - text: AC
-    - spinbutton "AC": "13"
-    - button "Add" [disabled]
-    - text: Combatants · 3 Brother Calloway Init
-    - textbox "Brother Calloway initiative":
-      - /placeholder: auto
-    - button "Roll initiative for Brother Calloway"
-    - button "Remove Brother Calloway from the draft"
-    - text: Sera Duskwhisper Init
-    - textbox "Sera Duskwhisper initiative":
-      - /placeholder: auto
-    - button "Roll initiative for Sera Duskwhisper"
-    - button "Remove Sera Duskwhisper from the draft"
-    - text: Tormund Ironfist Init
-    - textbox "Tormund Ironfist initiative":
-      - /placeholder: auto
-    - button "Roll initiative for Tormund Ironfist"
-    - button "Remove Tormund Ironfist from the draft"
-    - text: Blank initiative auto-rolls a d20 + DEX modifier. Hidden foes show players an “Unknown creature” placeholder. How the fight opens
-    - radiogroup "How the fight opens":
-      - radio "Straight fight" [checked]
-      - radio "Party ambushes"
-      - radio "Party surprised"
-    - text: Initiative is rolled at the table. Blank fields auto-roll a d20 + DEX modifier.
-    - switch "Place tokens on the map" [disabled]
-    - text: Place tokens on the map No active map in this session, so there is nowhere to place tokens yet. Party size
-    - spinbutton "Party size": "3"
-    - text: Avg level
-    - spinbutton "Avg level": "3"
-    - text: Challenge budget
-    - progressbar "Challenge budget"
-    - text: trivial
-    - button "Cancel"
-    - button "Save encounter"
-    - button "Start combat"
+    - dialog "Build encounter":
+        - heading "Build encounter" [level=2]
+        - paragraph: Pick combatants from your roster, set or roll initiative, and start the fight.
+        - button "Close"
+        - text: Encounter title
+        - textbox "Encounter title":
+            - /placeholder: Ambush at the docks
+            - text: The Sunken Crypt — encounter
+        - text: Party
+        - button "Brother Calloway HP 31 · AC 18" [pressed]
+        - button "Sera Duskwhisper HP 24 · AC 15" [pressed]
+        - button "Tormund Ironfist HP 42 · AC 17" [pressed]
+        - text: NPCs
+        - button "Mira the Ferryman HP 9 · AC 12"
+        - button "The Hollow King HP 76 · AC 19"
+        - text: Monsters None in the vault. Quick add
+        - textbox "Quick add":
+            - /placeholder: e.g. Brine Cultist
+        - text: HP
+        - spinbutton "HP": '7'
+        - text: AC
+        - spinbutton "AC": '13'
+        - button "Add" [disabled]
+        - text: Combatants · 3 Brother Calloway Init
+        - textbox "Brother Calloway initiative":
+            - /placeholder: auto
+        - button "Roll initiative for Brother Calloway"
+        - button "Remove Brother Calloway from the draft"
+        - text: Sera Duskwhisper Init
+        - textbox "Sera Duskwhisper initiative":
+            - /placeholder: auto
+        - button "Roll initiative for Sera Duskwhisper"
+        - button "Remove Sera Duskwhisper from the draft"
+        - text: Tormund Ironfist Init
+        - textbox "Tormund Ironfist initiative":
+            - /placeholder: auto
+        - button "Roll initiative for Tormund Ironfist"
+        - button "Remove Tormund Ironfist from the draft"
+        - text: Blank initiative auto-rolls a d20 + DEX modifier. Hidden foes show players an “Unknown creature” placeholder. How the fight opens
+        - radiogroup "How the fight opens":
+            - radio "Straight fight" [checked]
+            - radio "Party ambushes"
+            - radio "Party surprised"
+        - text: Initiative is rolled at the table. Blank fields auto-roll a d20 + DEX modifier.
+        - switch "Place tokens on the map" [disabled]
+        - text: Place tokens on the map No active map in this session, so there is nowhere to place tokens yet. Party size
+        - spinbutton "Party size": '3'
+        - text: Avg level
+        - spinbutton "Avg level": '3'
+        - text: Challenge budget
+        - progressbar "Challenge budget"
+        - text: trivial
+        - button "Cancel"
+        - button "Save encounter"
+        - button "Start combat"

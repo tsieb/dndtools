@@ -1,33 +1,33 @@
 {
 	"description": "Frozen control-to-matrix crosswalk. Each occurrence is an ARIA filename and 1-based line. Disabled/checked/pressed variants remain distinct. Review mappings with the source matrix; verifier checks completeness, not semantic correctness.",
 	"aria_sha256": {
-		"aria-board-desktop-add-panel.yaml": "61132262b2b4a2cc117eda182faca289d4d4a1b0b4f19e672964f9df1a33f90f",
-		"aria-board-desktop-edit.yaml": "9831d99bcf42a4337c260b91a5050122ba5e34156218012facf55585a7765001",
-		"aria-board-desktop-layouts-panel.yaml": "787842c62502cab98c4a7ef5911c67c156a25461c4813c2698e92729c26f7ead",
-		"aria-board-desktop-preview-observer.yaml": "fdacbd433c9c4acfb584feba0e4c00ad96bd5ce6269666148650bd960ff2b8b1",
-		"aria-board-desktop.yaml": "7f4fe0de697f3c36af473f11b462b4f684d5c55ea3aee3324928b4ed6232cd67",
-		"aria-board-phone.yaml": "5a3c5daaa75ee90799cb433ee091127aeb1c8d4280233b43c0ff316ca6252bd8",
-		"aria-board-rail.yaml": "7f4fe0de697f3c36af473f11b462b4f684d5c55ea3aee3324928b4ed6232cd67",
-		"aria-dialog-call-rest.yaml": "ebcb963f913b0c8592177d09874c4a64b980def327cc1d9624dc390d4024ef3d",
-		"aria-dialog-encounter-builder.yaml": "668337778de824840cae6d52012676a652ccea55cc9ef6421384b0087023ce13",
-		"aria-dialog-end-session.yaml": "d5485c577a2ad3e47fa9fadf78db5dc7cc0e55346cf2f36a3e5f9e196d63e29b",
-		"aria-home-desktop-no-scenes.yaml": "d5004f32daa6ee8b6b9ef7bd37e820af4db6986385ccbb791bde0a441c596167",
-		"aria-home-desktop-preview-observer.yaml": "880e72d66d885dc36350df8c31322ee39a8ade4286e519730349660986d6e21c",
-		"aria-home-desktop-preview-player.yaml": "a7759473f184686ccd2fee79a4b9f6d8b5846391f8f403a0cfd54cf7b0ff5b1d",
-		"aria-home-desktop.yaml": "b5e90c911597b526597c6a3b08792d058abb95f43ea508b17a7f3db4551205d2",
-		"aria-home-phone.yaml": "b5e90c911597b526597c6a3b08792d058abb95f43ea508b17a7f3db4551205d2",
-		"aria-home-rail.yaml": "b5e90c911597b526597c6a3b08792d058abb95f43ea508b17a7f3db4551205d2",
-		"aria-session-desktop-active.yaml": "b50be90a2c1c804ab73d4526229a1353c176c4567bcc631482b3310d7d757fa4",
-		"aria-session-desktop-live-combat.yaml": "ee884005dfa5e23bc23e2b060f1b391ad54e2765058f91d34684a93e30d5c3f3",
-		"aria-session-desktop-prep.yaml": "52507800e3d23428acd2ab1faf87b252f2d8f24b45250a91c6e102eedb5b205e",
-		"aria-session-desktop-recap-preview-player.yaml": "18b2f54355ec7f2e3551c31c9709fe3d3949a86d23df0e8bc8ef045f9b1dd573",
-		"aria-session-desktop-recap.yaml": "a9dd293abe88bdef0e545fde5ed27145299651cefeb94b5c6666a8bcf3ab5882",
-		"aria-session-desktop-rest-timeline.yaml": "079be7c528e47cfe726c061b3c0691f6d2c240d1f3df99efb195113c2de94cbc",
-		"aria-session-desktop.yaml": "e5777ec7386edb286b944cbc3637114d08c9353fe6120817d85f80d10f609445",
-		"aria-session-phone-live-combat.yaml": "ee884005dfa5e23bc23e2b060f1b391ad54e2765058f91d34684a93e30d5c3f3",
-		"aria-session-phone-recap.yaml": "a9dd293abe88bdef0e545fde5ed27145299651cefeb94b5c6666a8bcf3ab5882",
-		"aria-session-phone.yaml": "e5777ec7386edb286b944cbc3637114d08c9353fe6120817d85f80d10f609445",
-		"aria-session-rail.yaml": "e5777ec7386edb286b944cbc3637114d08c9353fe6120817d85f80d10f609445"
+		"aria-board-desktop-add-panel.yaml": "7799b1d0b9032c61cc8089bf646176733f297f8ae87d4cefae97b1892f4b1bd7",
+		"aria-board-desktop-edit.yaml": "e05a9b58416d3359e5f6b706708570211578c936c31622763765cf5983197195",
+		"aria-board-desktop-layouts-panel.yaml": "b5fb95d1cce693e2d2252fbd4480a2fd6c390ccce5b276ef19ca67c70d93e5cc",
+		"aria-board-desktop-preview-observer.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"aria-board-desktop.yaml": "ce876bf5aa74abc8cf31f94e1c1753bd84ee11a7826e93869d955f7490f14e7f",
+		"aria-board-phone.yaml": "4f38dcf6b95e57509ee879494095b225f8de2b50b700f00211acf4cf7d1437de",
+		"aria-board-rail.yaml": "ce876bf5aa74abc8cf31f94e1c1753bd84ee11a7826e93869d955f7490f14e7f",
+		"aria-dialog-call-rest.yaml": "33d21c35775dd7be0d25fa3bd5ac295b8a412b5ce3442b1ac7f2b6b5133158a1",
+		"aria-dialog-encounter-builder.yaml": "fd14acf09b28aad9a8da7bfb094ba4f4f47cfb975a51ff77a594ef3998df9fd3",
+		"aria-dialog-end-session.yaml": "bf64d9fb6cd8f44fc9835f2ea4d48bd920370def0355221ad5518aff9e5c2fbd",
+		"aria-home-desktop-no-scenes.yaml": "233f2460069820a1593d6aa2b7a18f190a7057aa0eefa7182bfc273a94d5612a",
+		"aria-home-desktop-preview-observer.yaml": "8a90c5a8e0a0747bc51277accd2f433a1476dfcc6f1fc2cbb4e634e2d103b051",
+		"aria-home-desktop-preview-player.yaml": "b559c3c1f533ddde83655718f7da68c8fb0b9ef907a2800d27b5a47ff8f8cd7a",
+		"aria-home-desktop.yaml": "1bed24347bb8a3b4e107a2fbf1ed70df7c90d6c8bc81c9da0854c8d9b4deb47e",
+		"aria-home-phone.yaml": "1bed24347bb8a3b4e107a2fbf1ed70df7c90d6c8bc81c9da0854c8d9b4deb47e",
+		"aria-home-rail.yaml": "1bed24347bb8a3b4e107a2fbf1ed70df7c90d6c8bc81c9da0854c8d9b4deb47e",
+		"aria-session-desktop-active.yaml": "c908b025b86d3b4c8494bd560eb504e17c3fb0b968b8fd5773bd730bce24dd74",
+		"aria-session-desktop-live-combat.yaml": "2f49d2c536681925d2c8d28fe0f63d890ec774f972d28e99f636860e021b5fd0",
+		"aria-session-desktop-prep.yaml": "e2cade6e77db0e9de2a45ce9b82f0636c07579f5c897710097479713cc3c3b72",
+		"aria-session-desktop-recap-preview-player.yaml": "81df5fe257de3c389c2db780257b6df3df39c9e64cbeae05ed96ef012914ca24",
+		"aria-session-desktop-recap.yaml": "746b6a73687d9b443b28fc9463aa66dd35e8eee8df2f5b39bc5d3cc5041af397",
+		"aria-session-desktop-rest-timeline.yaml": "90c32bf113652e81e2720c40beb13c57b5c298191a9bccb556f3aa0de4a311ff",
+		"aria-session-desktop.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
+		"aria-session-phone-live-combat.yaml": "2f49d2c536681925d2c8d28fe0f63d890ec774f972d28e99f636860e021b5fd0",
+		"aria-session-phone-recap.yaml": "746b6a73687d9b443b28fc9463aa66dd35e8eee8df2f5b39bc5d3cc5041af397",
+		"aria-session-phone.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
+		"aria-session-rail.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1"
 	},
 	"controls": [
 		{
@@ -1020,22 +1020,22 @@
 		},
 		{
 			"row": "SE-14",
-			"control": "- spinbutton \"AC\": \"13\"",
+			"control": "- spinbutton \"AC\": '13'",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:23"]
 		},
 		{
 			"row": "SE-14",
-			"control": "- spinbutton \"Avg level\": \"3\"",
+			"control": "- spinbutton \"Avg level\": '3'",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:50"]
 		},
 		{
 			"row": "SE-14",
-			"control": "- spinbutton \"HP\": \"7\"",
+			"control": "- spinbutton \"HP\": '7'",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:21"]
 		},
 		{
 			"row": "SE-14",
-			"control": "- spinbutton \"Party size\": \"3\"",
+			"control": "- spinbutton \"Party size\": '3'",
 			"occurrences": ["aria-dialog-encounter-builder.yaml:48"]
 		},
 		{
@@ -1800,7 +1800,7 @@
 		},
 		{
 			"row": "SE-20",
-			"control": "- spinbutton \"Day\": \"1\"",
+			"control": "- spinbutton \"Day\": '1'",
 			"occurrences": [
 				"aria-session-desktop-active.yaml:88",
 				"aria-session-desktop-live-combat.yaml:121",
@@ -1816,7 +1816,7 @@
 		},
 		{
 			"row": "SE-20",
-			"control": "- spinbutton \"Year\": \"1\"",
+			"control": "- spinbutton \"Year\": '1'",
 			"occurrences": [
 				"aria-session-desktop-active.yaml:90",
 				"aria-session-desktop-live-combat.yaml:123",

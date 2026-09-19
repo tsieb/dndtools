@@ -1,107 +1,107 @@
 - main:
-  - text: Live session Command Center
-  - radiogroup "Session phase":
-    - radio "Standby"
-    - radio "Prep" [disabled]
-    - radio "Live" [checked]
-    - radio "Recap"
-  - button "Call a rest"
-  - button "End session"
-  - text: Players see
-  - strong: Command Center
-  - heading "Combat" [level=2]
-  - button "Build encounter"
-  - status
-  - status
-  - heading "No combat running" [level=3]
-  - paragraph: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
-  - heading "Dice" [level=2]
-  - status
-  - button "1d20"
-  - button "1d20+5"
-  - button "2d6+3"
-  - button "1d8+2"
-  - button "4d6"
-  - textbox "Dice expression":
-    - /placeholder: e.g. 3d6+2
-    - text: 1d20+7
-  - textbox "Roll label":
-    - /placeholder: Label (optional)
-  - button "Roll"
-  - heading "Rollable tables" [level=2]
-  - heading "No rollable tables yet." [level=3]
-  - paragraph: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
-  - heading "Handouts" [level=2]
-  - text: Handout title
-  - textbox "Handout title"
-  - text: What the players read
-  - textbox "What the players read":
-    - /placeholder: What the players read…
-  - button "Push to players" [disabled]
-  - text: No handouts delivered yet.
-  - heading "Now playing" [level=2]
-  - text: Nothing playing. Start ambience from the Audio library.
-  - heading "Stage" [level=2]
-  - text: Active map What you stage for the table.
-  - combobox "Active map":
-    - option "— none —" [selected]
-    - option "Hidden Outpost"
-    - option "Ruined Keep"
-    - option "Western Reaches"
-  - button "Project to players" [disabled]
-  - text: Player views Demo Player
-  - combobox "Scene projected to Demo Player":
-    - option "— none —" [selected]
-    - option "Command Center"
-    - option "Harbor of Saltreach"
-    - option "The Sunken Crypt"
-  - text: Demo Player 2
-  - combobox "Scene projected to Demo Player 2":
-    - option "— none —" [selected]
-    - option "Command Center"
-    - option "Harbor of Saltreach"
-    - option "The Sunken Crypt"
-  - text: Demo Player 3
-  - combobox "Scene projected to Demo Player 3":
-    - option "— none —" [selected]
-    - option "Command Center"
-    - option "Harbor of Saltreach"
-    - option "The Sunken Crypt"
-  - text: Demo Observer
-  - combobox "Scene projected to Demo Observer":
-    - option "— none —" [selected]
-    - option "Command Center"
-    - option "Harbor of Saltreach"
-    - option "The Sunken Crypt"
-  - heading "Campaign date" [level=2]
-  - text: No date set Reckoning of Saltreach · drives the Campaign timeline
-  - button "+1 day" [disabled]
-  - text: Month
-  - combobox "Month":
-    - option "Thawmonth" [selected]
-    - option "Tidemarch"
-    - option "Brightmoor"
-    - option "Highsun"
-    - option "Harvestwane"
-    - option "Mournfrost"
-  - text: Day
-  - spinbutton "Day": "1"
-  - text: Year
-  - spinbutton "Year": "1"
-  - button "Set date"
-  - button "Edit calendar"
-  - heading "Prep & recap" [level=2]
-  - img "DM only"
-  - text: Carry into the session 10 recent changes to review. Session archives No archived sessions yet. Ending a live session into Recap creates one here.
-  - heading "End-of-session capture" [level=2]
-  - img "DM only"
-  - text: No archived sessions yet. Ending a live session into Recap creates one to capture.
-  - heading "Table roster" [level=2]
-  - text: No live table yet. Use
-  - strong: Host
-  - text: in the top bar to open your table — players appear here as they connect.
-  - heading "Party" [level=2]
-  - text: Brother Calloway 31/31 Sera Duskwhisper 24/24 Tormund Ironfist 42/42
-  - heading "Schedule next session" [level=2]
-  - img "DM only"
-  - text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at docs/runbooks/google-oauth-setup.md.
+    - text: Live session Command Center
+    - radiogroup "Session phase":
+        - radio "Standby"
+        - radio "Prep" [disabled]
+        - radio "Live" [checked]
+        - radio "Recap"
+    - button "Call a rest"
+    - button "End session"
+    - text: Players see
+    - strong: Command Center
+    - heading "Combat" [level=2]
+    - button "Build encounter"
+    - status
+    - status
+    - heading "No combat running" [level=3]
+    - paragraph: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+    - heading "Dice" [level=2]
+    - status
+    - button "1d20"
+    - button "1d20+5"
+    - button "2d6+3"
+    - button "1d8+2"
+    - button "4d6"
+    - textbox "Dice expression":
+        - /placeholder: e.g. 3d6+2
+        - text: 1d20+7
+    - textbox "Roll label":
+        - /placeholder: Label (optional)
+    - button "Roll"
+    - heading "Rollable tables" [level=2]
+    - heading "No rollable tables yet." [level=3]
+    - paragraph: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+    - heading "Handouts" [level=2]
+    - text: Handout title
+    - textbox "Handout title"
+    - text: What the players read
+    - textbox "What the players read":
+        - /placeholder: What the players read…
+    - button "Push to players" [disabled]
+    - text: No handouts delivered yet.
+    - heading "Now playing" [level=2]
+    - text: Nothing playing. Start ambience from the Audio library.
+    - heading "Stage" [level=2]
+    - text: Active map What you stage for the table.
+    - combobox "Active map":
+        - option "— none —" [selected]
+        - option "Hidden Outpost"
+        - option "Ruined Keep"
+        - option "Western Reaches"
+    - button "Project to players" [disabled]
+    - text: Player views Demo Player
+    - combobox "Scene projected to Demo Player":
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - text: Demo Player 2
+    - combobox "Scene projected to Demo Player 2":
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - text: Demo Player 3
+    - combobox "Scene projected to Demo Player 3":
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - text: Demo Observer
+    - combobox "Scene projected to Demo Observer":
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - heading "Campaign date" [level=2]
+    - text: No date set Reckoning of Saltreach · drives the Campaign timeline
+    - button "+1 day" [disabled]
+    - text: Month
+    - combobox "Month":
+        - option "Thawmonth" [selected]
+        - option "Tidemarch"
+        - option "Brightmoor"
+        - option "Highsun"
+        - option "Harvestwane"
+        - option "Mournfrost"
+    - text: Day
+    - spinbutton "Day": '1'
+    - text: Year
+    - spinbutton "Year": '1'
+    - button "Set date"
+    - button "Edit calendar"
+    - heading "Prep & recap" [level=2]
+    - img "DM only"
+    - text: Carry into the session 10 recent changes to review. Session archives No archived sessions yet. Ending a live session into Recap creates one here.
+    - heading "End-of-session capture" [level=2]
+    - img "DM only"
+    - text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+    - heading "Table roster" [level=2]
+    - text: No live table yet. Use
+    - strong: Host
+    - text: in the top bar to open your table — players appear here as they connect.
+    - heading "Party" [level=2]
+    - text: Brother Calloway 31/31 Sera Duskwhisper 24/24 Tormund Ironfist 42/42
+    - heading "Schedule next session" [level=2]
+    - img "DM only"
+    - text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at docs/runbooks/google-oauth-setup.md.
