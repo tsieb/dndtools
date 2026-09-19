@@ -28,33 +28,52 @@ No agents, dispatcher mutations, push or promotion.
   `command-center.bind-default-map`, revision bump); otherwise it stays a no-op.
 - `demo-seed.ts`: backfill category `needHomeMapBinding` dispatches `ensure-home` for boards created
   before the fix; library widgets that require a binding are bound to a seeded entity of their type
-  (or skipped when there is none).
-- Outside the owned paths, each required by the change: `Map.tsx` treats "no binding" as the
-  empty state (one condition); the `builtin-bodies` snapshot recorded the old error copy as the
-  unbound body and now records "No map linked"; `map-tile.spec.ts` scopes `TILE` to its own
-  widget id, because the home board's default tile now also renders `data-testid="map-tile"`.
+  (or skipped when there is none). `format:check:changed` checks whole files, so Prettier also
+  rewrapped seven pre-existing over-long lines in this file (whitespace only).
 
-## Verification
+### `Map.tsx` (owned from the 2026-09-18 operator brief) — one condition
 
-- New tests: `packages/core/tests/command-center-default-bindings.test.ts` (4) and
-  `apps/gm-react/src/runtime/demo-seed.test.ts` (3). Both resolve every widget against a data
-  environment built from the vault (`knownEntityKeys`, so an absent target reads `missing`).
-- Core suite 274 files / 4783 tests pass; app suite 127 files pass after the snapshot update
-  (builtin-bodies 30/30); core + gm-react typecheck exit 0; eslint clean on all changed files.
-- Playwright `map-tile.spec.ts` 6/6 on desktop-chromium and mobile-chromium; `canvas.spec.ts` +
-  `a11y-axe-gate.spec.ts` 67/67 on desktop-chromium.
+`if (widget.requiresBinding && widget.status !== 'available')` became
+`if (!boundId || (widget.requiresBinding && widget.status !== 'available'))`, plus a two-line
+comment. Why it is needed: the Board and the scene editor call `getSceneForActor` without a
+`dataEnvironment`, so an unbound tile arrives with status `available`, skips the empty state and
+falls through to `!view`, which prints `widgetBody.map.missingDm`. The core binding alone cannot
+fix an EMPTY vault (there is no map to bind), and the built-in templates (RC-CAN-4.4) always place
+unbound Map tiles, so without this line both still open on the error copy. Nothing else in the
+file changed.
+
+### Companion paths (tests, snapshot, journal)
+
+- New tests: `packages/core/tests/command-center-default-bindings.test.ts`,
+  `apps/gm-react/src/runtime/demo-seed.test.ts`.
+- `builtin-bodies.test.tsx.snap`: its `map` entry had recorded the error copy as the unbound body;
+  it now records "No map linked — choose a map to show its layers." (one line).
+- `tests/e2e/map-tile.spec.ts`: `TILE` is scoped to the widget id the spec places, because the home
+  board's default Map tile now also renders `data-testid="map-tile"` and the unscoped locator would
+  match two elements (strict mode).
+
+## Verification (2026-09-18, rebased onto `origin/loop/rc` 123014e9)
+
+- Core test covers the default home (demo vault, active-map preference, empty vault, legacy repair
+  - idempotency) and all five `BUILTIN_SCENE_TEMPLATES` applied to a fresh scene: every widget
+    resolves `available`, or `unbound` only for a tile that requires a binding. App test runs the real
+    seed + `ensure-home` and resolves every widget on every scene against a data environment built
+    from the vault (`knownEntityKeys`, so an absent target reads `missing`), and checks the tile's
+    `getMapViewForActor` read is `available`.
+- Core 280 files / 4895 tests; app 139 files / 1524 tests; core + gm-react `tsc` exit 0; eslint
+  exit 0 on the six changed TS files; `format:check:changed --base origin/loop/rc` clean.
+- Playwright `map-tile`, `canvas`, `a11y-axe-gate`, `scene-templates`: 75/75 desktop-chromium and
+  75/75 mobile-chromium (`DNDTOOLS_E2E_PORT` 5711/5713). The mobile `/board` axe run that failed on
+  the 2026-09-12 base (target-size on the bound map's token/POI markers) ran and passed; the phone
+  flow layout that landed since (RC-CAN-7.7) no longer scales the tile down.
 
 ## Open
 
-- **Blocking: mobile-chromium axe gate on `/board` fails** (66/67): `target-size` (serious) on
-  `button[aria-label="Token: Sir Caldwell"]` and `button[aria-label="POI: Broken Altar"]`, both on
-  `map-ruined-keep`, the map the default tile now binds to. Before this change the tile rendered a
-  line of text, so the markers were never on the board. `MapMarkers.tsx` renders every token as a
-  `<button>` and the design-system `POIMarker.jsx` is always a 44px `<button>`, even when the
-  consumer passes no select handler (the Map tile and session `ActiveMap` pass none; only the Atlas
-  does). The board scales tiles down, so on mobile they paint under 24px. The known-violations
-  register is empty. Fix belongs in the shared map renderer / design system (a marker with no select
-  handler should not be a control), which is outside this story's paths; left for the operator.
+- ENG-8.1's `golden-path.spec.ts` is not on `loop/rc` yet, so its "no error tile" assertion could
+  not be run; the unit tests above cover the same resolution for every default screen.
+- Map markers still render as `<button>`s when the consumer passes no select handler
+  (`MapMarkers.tsx`, design-system `POIMarker.jsx`; the Map tile and session `ActiveMap`). Not failing
+  any gate now, but a scaled tile would bring the target-size finding back.
 - Not a widget error, but seen while testing: the seed's `audio.configure-source` is rejected on
   every boot ("A web stream URL must be an absolute http(s) URL…"). The seed's `data:` URI
   (`0ae9a2d5`, 2026-07-04) predates core's http(s)-only check (`32dffe67`, 2026-07-15). In dev it

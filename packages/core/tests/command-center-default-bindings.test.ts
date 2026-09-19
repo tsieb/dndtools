@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	BUILTIN_SCENE_TEMPLATES,
 	WIDGET_DATA_ENVIRONMENT_SCHEMA_VERSION,
 	buildDefaultCommandCenterScene,
 	createDemoMapState,
@@ -61,12 +62,16 @@ function mapsDataEnvironment(state: CoreStateSlice): WidgetDataEnvironment {
 
 /** Widget type → payload kind for every widget on the home screen, as the DM receives it. */
 function homeWidgetStates(state: CoreStateSlice): Record<string, string> {
-	const homeId = state.commandCenter.homeSceneId!;
-	const summary = getSceneForActor(state.scenes, state.permissions, DM_ACTOR.id, homeId, {
+	return sceneWidgetStates(state, state.commandCenter.homeSceneId!);
+}
+
+/** Widget type → payload kind for every widget on one scene, as the DM receives it. */
+function sceneWidgetStates(state: CoreStateSlice, sceneId: string): Record<string, string> {
+	const summary = getSceneForActor(state.scenes, state.permissions, DM_ACTOR.id, sceneId, {
 		widgetPackages: state.widgets,
 		dataEnvironment: mapsDataEnvironment(state),
 	});
-	if ('kind' in summary) throw new Error(`home denied: ${summary.reason}`);
+	if ('kind' in summary) throw new Error(`scene denied: ${summary.reason}`);
 	return Object.fromEntries(
 		summary.widgets.map((payload) => [
 			'widget' in payload ? payload.widget.type : payload.type,
@@ -92,9 +97,9 @@ describe('RC-ENG-8.2 default Command Center bindings', () => {
 		const mapId = homeMapTile(nextState)?.binding?.source.entityId ?? '';
 		// A top-level map, first by name: the DM-only outpost is embedded in the Western Reaches.
 		expect(mapId).toBe('map-ruined-keep');
-		expect(
-			getMapViewForActor(nextState.maps, nextState.permissions, DM_ACTOR.id, mapId).kind,
-		).toBe('available');
+		expect(getMapViewForActor(nextState.maps, nextState.permissions, DM_ACTOR.id, mapId).kind).toBe(
+			'available',
+		);
 	});
 
 	it("prefers the session's active map", () => {
@@ -148,11 +153,44 @@ describe('RC-ENG-8.2 default Command Center bindings', () => {
 		expect(home.ownership.revision).toBe(legacyHome.ownership.revision + 1);
 		expect(homeMapTile(repaired.nextState)?.binding?.source.entityId).toBe('map-ruined-keep');
 		expect(
-			Object.entries(homeWidgetStates(repaired.nextState)).filter(([, kind]) => kind !== 'available'),
+			Object.entries(homeWidgetStates(repaired.nextState)).filter(
+				([, kind]) => kind !== 'available',
+			),
 		).toEqual([]);
 
 		const again = ensureHome(repaired.nextState, env);
 		expect(again.operationIds).toHaveLength(0);
 		expect(again.nextState).toBe(repaired.nextState);
 	});
+
+	// RC-CAN-4.4's built-in templates are default screens too. They lay tiles out unbound by design
+	// (a template is a layout, not content), so a tile that REQUIRES a binding may land in its
+	// intentional `unbound` empty state ("No map linked"); nothing may resolve missing, conflicted,
+	// degraded, hidden or disabled.
+	it.each(BUILTIN_SCENE_TEMPLATES.map((template) => [template.id] as const))(
+		'the %s built-in template never lands a widget in an error state',
+		(templateId) => {
+			const env = makeEnvironment();
+			const base = withMaps(buildInitialState(DM_ACTOR));
+			const created = accept(
+				dispatchCommand(base, env, {
+					type: 'scene.create',
+					actorId: DM_ACTOR.id,
+					payload: { name: `From ${templateId}`, visibility: 'dm-only' },
+				}),
+			);
+			const sceneId = Object.keys(created.nextState.scenes.scenes)[0]!;
+			const applied = accept(
+				dispatchCommand(created.nextState, env, {
+					type: 'scene.apply-template',
+					actorId: DM_ACTOR.id,
+					payload: { sceneId, source: { kind: 'builtin', templateId } },
+				}),
+			);
+
+			const states = Object.values(sceneWidgetStates(applied.nextState, sceneId));
+			expect(states.length).toBeGreaterThan(0);
+			expect(states.filter((kind) => kind !== 'available' && kind !== 'unbound')).toEqual([]);
+		},
+	);
 });

@@ -106,7 +106,8 @@ const DEMO_FACTIONS = [
 			stance: 'hostile',
 			leader: 'Mother Sild',
 			goals: ['Wake what sleeps below the vaults', 'Keep the shipment route open through the 14th'],
-			secret: 'Sild doesn’t lead the cult so much as translate for it. If the Bell rings twice, she stops being in charge.',
+			secret:
+				'Sild doesn’t lead the cult so much as translate for it. If the Bell rings twice, she stops being in charge.',
 		},
 	},
 	{
@@ -132,7 +133,8 @@ const DEMO_FACTIONS = [
 			stance: 'friendly',
 			leader: 'Dockmaster Pell',
 			goals: ['Keep the docks working through the trouble'],
-			secret: 'Pell’s the leak — the tide schedule that let the cult take the shipment came from his own hand.',
+			secret:
+				'Pell’s the leak — the tide schedule that let the cult take the shipment came from his own hand.',
 		},
 	},
 ] as const;
@@ -164,7 +166,8 @@ const DEMO_WIKILINK_APPENDS = [
 const DEMO_SCENES = [
 	{
 		name: 'The Sunken Crypt',
-		description: 'A flooded antechamber beneath the old keep — the reliquary lies past the broken seal.',
+		description:
+			'A flooded antechamber beneath the old keep — the reliquary lies past the broken seal.',
 		visibility: 'dm-only',
 		tags: ['dungeon', 'combat'],
 		seedWidgets: true,
@@ -380,7 +383,10 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 	// Surface a swallowed rejection in dev so a mis-shaped seed datum is visible, not silently dropped.
 	const expect = (result: CommandResult, label: string): CommandResult => {
 		if (result.status === 'rejected' && import.meta.env.DEV) {
-			console.warn(`[demo-seed] "${label}" was rejected:`, result.rejection?.message ?? result.rejection);
+			console.warn(
+				`[demo-seed] "${label}" was rejected:`,
+				result.rejection?.message ?? result.rejection,
+			);
 		}
 		return result;
 	};
@@ -431,7 +437,11 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 				await step('abilities', { ...pc.abilities });
 				await step('class', { class: pc.klass });
 				const finalized = expect(
-					await rt.dispatch({ type: 'character.finalize-draft', actorId: pc.owner, payload: { draftId } }),
+					await rt.dispatch({
+						type: 'character.finalize-draft',
+						actorId: pc.owner,
+						payload: { draftId },
+					}),
 					`finalize ${pc.name}`,
 				);
 				const characterId = eventField(finalized, 'character.created', 'characterId');
@@ -520,7 +530,11 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		// (the dated notes' dates are validated against it on dispatch).
 		if (needCalendar) {
 			expect(
-				await rt.dispatch({ type: 'content.define-calendar', actorId, payload: { ...DEMO_CALENDAR, months: [...DEMO_CALENDAR.months] } }),
+				await rt.dispatch({
+					type: 'content.define-calendar',
+					actorId,
+					payload: { ...DEMO_CALENDAR, months: [...DEMO_CALENDAR.months] },
+				}),
 				'calendar',
 			);
 			for (const n of DEMO_DATED_NOTES) {
@@ -577,7 +591,11 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		// Now-playing session audio: configure a declared web-stream source, then play it as the track.
 		if (needAudio) {
 			const configured = expect(
-				await rt.dispatch({ type: 'audio.configure-source', actorId, payload: { ...DEMO_AUDIO.source } }),
+				await rt.dispatch({
+					type: 'audio.configure-source',
+					actorId,
+					payload: { ...DEMO_AUDIO.source },
+				}),
 				'audio source',
 			);
 			const sourceId = sourceIdFromResult(configured);
@@ -598,7 +616,12 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 				const result = await rt.dispatch({
 					type: 'scene.create',
 					actorId,
-					payload: { name: s.name, description: s.description, visibility: s.visibility, tags: [...s.tags] },
+					payload: {
+						name: s.name,
+						description: s.description,
+						visibility: s.visibility,
+						tags: [...s.tags],
+					},
 				});
 				if (!s.seedWidgets) continue;
 				const sceneId = sceneIdFromResult(result);
@@ -619,7 +642,11 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 					if (required && !target) continue;
 					const binding =
 						required && target
-							? { source: target, mode: required.mode, requiredCapability: required.requiredCapability }
+							? {
+									source: target,
+									mode: required.mode,
+									requiredCapability: required.requiredCapability,
+								}
 							: null;
 					await rt.dispatch({
 						type: command.type,

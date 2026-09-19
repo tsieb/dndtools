@@ -131,7 +131,9 @@ function widgetStates(state: CoreStateSlice): string[] {
  * are out of scope here (its audio source is currently rejected by core's http(s)-only stream check).
  */
 function boardRejections(rejected: readonly string[]): string[] {
-	return rejected.filter((entry) => entry.startsWith('command-center.') || entry.startsWith('scene.'));
+	return rejected.filter(
+		(entry) => entry.startsWith('command-center.') || entry.startsWith('scene.'),
+	);
 }
 
 function homeMapTile(state: CoreStateSlice) {
@@ -198,7 +200,9 @@ describe('RC-ENG-8.2 default content never shows an error', () => {
 
 		expect(boardRejections(rejected)).toEqual([]);
 		expect(homeMapTile(staged.state)?.binding?.source.entityType).toBe('map');
-		expect(widgetStates(staged.state).filter((entry) => !entry.endsWith('→ available'))).toEqual([]);
+		expect(widgetStates(staged.state).filter((entry) => !entry.endsWith('→ available'))).toEqual(
+			[],
+		);
 		// The repair runs once: with the tile bound, the next boot does not dispatch it again.
 		dispatched.length = 0;
 		await seedDemoContent(staged);
