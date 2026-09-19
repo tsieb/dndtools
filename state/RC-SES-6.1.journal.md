@@ -56,3 +56,17 @@
 - Validation: full core suite 274 files / 4944 tests passed; full app suite 127 files / 1350 tests passed. Original logs: `/tmp/rc-ses-6-1-review-core-full.log` and `/tmp/rc-ses-6-1-review-app-full.log`. Focused lifecycle/capture matrix: 226 passed; audio runtimes: 24 passed. Core typecheck and changed-file ESLint passed. Final app typecheck, boundary and format checks recorded below after completion.
 - Browser acceptance and central wrapper gates are left to the central operator, as requested; no push or promotion performed.
 - Final checks: gm-react typecheck exit 0; boundary lint passed; Prettier on all changed source/tests passed; `git diff --check` clean.
+
+## Attempt 5 (2026-09-19: expanded ownership after claim fence)
+
+- The operator brief dated 2026-09-18 explicitly adds the five paths named by the claim fence. The existing implementation is present at `48b93caa`; the working tree was clean on entry. No implementation rewrite is needed for this ownership-only feedback. This attempt preserves the candidate and records fresh verification.
+- Minimal-change justification for each newly owned path:
+  - `apps/gm-react/src/runtime/sfx-events.ts`: pass the recorded dispatch workflow to automation resolution and ignore non-live event dispatches, so table tools cannot play automatic SFX in Standby.
+  - `apps/gm-react/src/screens/session/DiceTray.tsx`: carry the optional workflow stamp in the view prop and label both newest and older non-live rolls "Outside a session". No layout redesign.
+  - `packages/core/src/queries/dice-history.ts`: expose the optional recorded workflow through the existing actor-filtered read model. Visibility checks are unchanged.
+  - `packages/core/src/state/combat-tracker.ts`: extend `CombatLogEntry` with the optional workflow stamp, declaring the additive field already written by combat commands.
+  - `packages/core/src/state/session-state.ts`: extend dice rolls and handout deliveries with the same optional stamp, retaining compatibility with older records.
+- The existing lockstep regression, 22-command/seven-workflow matrix, combat-start runtime test, SFX workflow matrix, rendered history labels and capture/recap exclusion tests remain in place. No agents, dispatcher writes, push or promotion were used. Headroom tools were unavailable; native command logs retain the original validation output under `/tmp/rc-ses-6-1-sep19-*.log`.
+- Fresh validation: full core suite passed (274 files / 4944 tests); core and gm-react typechecks exited 0; ESLint over all candidate TypeScript paths exited 0; boundary lint passed; changed-file formatting against `710931d0^` passed (34 files); `git diff --check` passed.
+- Full app suite: 126 files passed, 1 failed; 1349 tests passed, 1 failed. Original diagnostic in `/tmp/rc-ses-6-1-sep19-app.log`: `apps/gm-react/src/app/help/changelog.test.ts:85`, expected `0.3.7`, received `Unreleased`. The changelog parser, test, root CHANGELOG.md and app package.json have no changes between `710931d0^` and this candidate (`git diff --exit-code` returned 0). This unrelated failure is preserved for the central operator; the app suite is not claimed green.
+- Focused SFX, combat automation and rendered dice-history suites passed 3 files / 31 tests (original output `/tmp/rc-ses-6-1-sep19-focused-app.log`). No production code changed during this attempt; only this ownership justification and current validation record are committed. Browser acceptance and independent central gates remain pending.
