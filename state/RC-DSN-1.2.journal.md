@@ -117,13 +117,13 @@ the commands' original output, including their successful final exit status.
   (tavern/parchment/scholar/dungeon: 64 each; high-contrast: 63), 16 forced-colors remap checks,
   with forced-colors selectors reaching all five.
 - `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/platform/theme.test.ts
-  apps/gm-react/src/screens/settings-validation.test.ts`: exit 0; 23 tests passed.
+apps/gm-react/src/screens/settings-validation.test.ts`: exit 0; 23 tests passed.
 - `pnpm exec vitest run tests/unit/a11y-nontext-contrast.test.ts
-  tests/unit/electron-hardening.test.ts`: exit 0; 23 tests passed. The prior Electron test failure
+tests/unit/electron-hardening.test.ts`: exit 0; 23 tests passed. The prior Electron test failure
   does not recur; its existing fix is in ancestor commit `d16482c5`.
 - `pnpm typecheck`: exit 0 for core, cloud-fns and gm-react.
 - `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/themes.spec.ts
-  tests/e2e/settings.spec.ts --workers=1`: exit 0; 29 passed, 5 intentionally skipped mobile
+tests/e2e/settings.spec.ts --workers=1`: exit 0; 29 passed, 5 intentionally skipped mobile
   swatch duplicates. All five desktop baselines matched exactly without updating snapshots.
   Both browser projects passed preset switching, new-preset reload persistence, live/reloaded
   System mapping and forced-colors coverage. Inspected all five committed swatch images visually.
@@ -169,7 +169,7 @@ control-state edits.
 - Tooling Vitest on `tests/unit/a11y-nontext-contrast.test.ts` and
   `tests/unit/electron-hardening.test.ts`: exit 0, 23 tests passed.
 - `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/themes.spec.ts
-  tests/e2e/settings.spec.ts --workers=1`: exit 0, 29 passed, five intentional mobile swatch skips.
+tests/e2e/settings.spec.ts --workers=1`: exit 0, 29 passed, five intentional mobile swatch skips.
   All five desktop snapshots matched without baseline updates; theme/settings behavior passed on
   desktop and mobile.
 - Prettier check for the conflict-resolved Appearance component and app design guide: passed.
@@ -178,3 +178,15 @@ control-state edits.
   and switch are unchanged. `git merge-base --is-ancestor 983ec990 HEAD`: exit 0.
 
 Central gates and independent review remain pending with the operator.
+
+## Attempt 4 (2026-09-19): changed-file formatting gate
+
+Read the original operator log for run `8cc81baa-38ac-41d6-bf4a-82b37ab7e226`.
+The exact command was `pnpm format:check:changed --base loop/rc`; its only reported formatting
+failure was this run journal. The prior attempt checked the resolved source and guide but omitted
+formatting the newly appended journal. Applied repository Prettier to this file after adding this
+entry. This is a journal-only formatting correction; implementation and snapshot pixels are unchanged.
+
+Validation: `pnpm format:check:changed --base loop/rc` passes for all 25 changed files;
+`git diff --check` passes. Theme acceptance results remain those recorded in Attempt 3; no behavioral
+checks were repeated for this Markdown-only correction. No push, promotion or dispatcher mutation.
