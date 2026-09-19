@@ -110,3 +110,11 @@
 - BLOCKED: `pnpm gates` exits 1 only for 77 obsolete generated component links; icon file-size error is fixed by the registry split. Original `181bd1d7276844eab6e7a6727ed9c34a`, full `/tmp/dsn-rebase-gates.log`.
 - BLOCKED: `pnpm lint` passes ESLint (19 inherited warnings) and boundary lint, then fails emphasis baseline matching for ten renamed DS paths. Original `ae096d756f1a4aff8f4860481ef399a7` retrieved. No allowance or visual behavior changed.
 - PARTIAL RC-DSN-2.1: conflicts reconciled and owned conversion/zero-escape debt reduction complete; consumer and tooling ownership handoffs prevent green whole-repository gates. Current branch descends from requested `eafbce28`; no push, promotion, agents or dispatcher control writes.
+
+## Central quality-gate retry — ff228708
+
+- Read and retrieved the complete original gate log for run `0cceeac5-9f16-40ff-b129-18ed3071c579` at candidate `ff2287088a7ab67466c3a6c6f18a9d9bfd99c9a7`. Headroom artifact `f8da461d89164973bbb41acf82e76757`; all 19,562 original bytes inspected.
+- The gate fails exclusively on 77 obsolete JSX source links in generated `docs/design/COMPONENTS.md`. File-size findings are warnings; the prior Icon hard-limit failure is absent. No new DS implementation diagnostic was supplied.
+- Reconfirmed roadmap §0.2's write fence and worker rule 10's explicit HANDOFF requirement. This retry supplies the same DS-only ownership and does not grant the generated reference or its generator files. Restoring JSX placeholders or the deleted declaration facade would violate the migration acceptance and conceal the missing integration work.
+- HANDOFF RC-DSN-2.1 → central operator / gallery-tooling owner: grant or separately repair `scripts/check-prod-bundle.mjs`, `apps/gm-react/scripts/check-prod-bundle.mjs`, and `docs/design/COMPONENTS.md` as described in `src/ds/handoff/README.md`. Regenerate from typed implementations and new source paths, then rerun gates. The existing consumer patches and emphasis-baseline handoff remain required for subsequent validation stages.
+- No runtime source changed in this retry. Existing owned implementation and acceptance checks remain committed. Repeating the unchanged ownership assignment cannot repair this generated-document gate; integration remains BLOCKED pending that dependency.
