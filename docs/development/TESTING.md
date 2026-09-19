@@ -299,10 +299,14 @@ not a passing journey when its health diagnostics fail.
 
 `journeySurfaceIssues` waits for fonts and two animation frames, then inspects rendered elements,
 including content below the fold. It detects widget placeholders/error markers and disabled native
-or ARIA controls without a nonempty `title`, resolved `aria-describedby`, or `aria-description`.
+or ARIA controls without a nonempty `title`, resolved `aria-describedby`, or `aria-description`
+that differs from their action labels (visible text, `aria-label`, or `aria-labelledby`, ignoring
+case and whitespace). An ordinary action-only tooltip, including IconButton's default title, is
+not a disabled reason. This detects repeated labels; it does not judge arbitrary prose semantically.
 
-For overflow, `scrollWidth`/`scrollHeight` identify candidates; text-range and replaced-element bounds
-then verify that content actually crosses a hidden/clip boundary. Geometry has a two-CSS-pixel
+For overflow, text-range and replaced-element bounds (including SVG) verify that content crosses
+either edge of a hidden/clip boundary. Inspection does not require an increased scroll extent:
+leading-edge clipping can leave `scrollWidth` equal to `clientWidth`. Geometry has a two-CSS-pixel
 rounding tolerance. A contained inner scroll/auto region makes its descendants recoverable. A
 scrollable parent does **not** excuse a child's own hidden clip, and a scroller does not excuse its
 clipped siblings. Offscreen one-pixel screen-reader helpers and decorative excess space alone are
@@ -314,13 +318,18 @@ containing block; a fixture proves the trapped case still fails.
 Explicit full-text alternatives (`title`, `aria-label`, `aria-labelledby`, `aria-describedby`) must
 contain the entire clipped text. The complete accessible name of a containing enabled button or link
 also qualifies: the detector asks Playwright's accessible-name engine instead of assuming that DOM
-text is accessible. An overriding label that omits the clipped text fails. A text alternative does
+text is accessible. The original containing element is retained through a browser handle across
+geometry and accessible-name evaluations, so sibling insertions cannot change its identity. Prep
+checkpoints wait for the expected content inside the destination main pane, rather than a matching
+persistent sidebar entry. An overriding label that omits the clipped text fails. A text alternative does
 not excuse lost graphical content. Hidden/inert content and conventional one-pixel screen-reader
 text are excluded. The detector does not infer that an arbitrary click handler opens a full-text
 view, inspect canvas pixels, or prove that overlapping elements remain operable.
 
 Additional fixtures cover nested clips, clipped siblings, unrelated/overriding full-text labels,
-dangling ARIA disabled reasons, inner scrolling, offscreen helpers and clipped graphics. Seeded
+dangling ARIA disabled reasons, action-only ordinary/IconButton tooltips, inner scrolling, offscreen
+helpers, leading-edge clipping on both axes, SVG bounds and clipped graphics. A deterministic DOM
+insertion between geometry capture and accessible-name lookup proves element identity is stable. Seeded
 browser defects prove the same assertion rejects console warning, console error, page error,
 request abort, HTTP 503, widget placeholder, unexplained disabled control, and horizontal/vertical
 clipping. Each starts with a clean passing fixture and requires its specific diagnostic, so another

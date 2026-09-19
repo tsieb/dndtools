@@ -127,7 +127,9 @@ test.describe('golden paths', () => {
 			['/scenes', 'Golden screen'],
 		]) {
 			await gotoRoute(page, route!);
-			await expect(page.getByText(name!, { exact: true }).first()).toBeVisible();
+			await expect(
+				page.locator('#main-content').getByText(name!, { exact: true }).first(),
+			).toBeVisible();
 			await health.checkpoint(route!);
 		}
 		await gotoRoute(page, `/scene/${sceneId}`);
@@ -526,4 +528,58 @@ test('accessible names cannot hide clipped graphical content', async ({ page }) 
 		'<button title="Map" style="width:40px;height:40px;overflow:hidden"><span>Map</span><canvas width="200" height="200" aria-label="Map"></canvas></button>',
 	);
 	await expect(watchJourney(page).assertHealthy()).rejects.toThrow('unrecoverable clip');
+});
+
+for (const [name, markup, diagnostic] of [
+	[
+		'leading-edge text',
+		'<div style="width:100px;height:30px;overflow:hidden"><div style="position:relative;left:-60px;white-space:nowrap">Missing prefix</div></div>',
+		'unrecoverable clip (x)',
+	],
+	[
+		'leading-edge vertical text',
+		'<div style="height:30px;overflow:hidden"><div style="position:relative;top:-15px">Missing top</div></div>',
+		'unrecoverable clip (y)',
+	],
+	[
+		'SVG bounds',
+		'<div style="width:40px;height:40px;overflow:hidden"><svg width="200" height="200"><rect width="200" height="200" fill="red" /></svg></div>',
+		'unrecoverable clip',
+	],
+	['action-only tooltip', '<button disabled title="Save">Save</button>', 'disabled without reason'],
+	[
+		'IconButton action-only tooltip',
+		'<button disabled title="Save" aria-label="Save"><svg width="16" height="16"><path d="M0 0L16 16" /></svg></button>',
+		'disabled without reason',
+	],
+] as const) {
+	test(`detector rejects ${name}`, async ({ page }) => {
+		await page.setContent(markup);
+		await expect(watchJourney(page).assertHealthy()).rejects.toThrow(diagnostic);
+	});
+}
+
+test('containing control identity survives insertion after geometry capture', async ({ page }) => {
+	await page.setContent(
+		'<button><span style="display:block;width:40px;overflow:hidden;white-space:nowrap">The complete readable note summary</span></button>',
+	);
+	// Insert at the exact boundary before accessible-name lookup, without a timing race.
+	const original = page.getByRole.bind(page);
+	let inserted = false;
+	page.getByRole = ((...args: Parameters<Page['getByRole']>) => {
+		const locator = original(...args);
+		const evaluateAll = locator.evaluateAll.bind(locator);
+		locator.evaluateAll = async (...evaluation: Parameters<typeof locator.evaluateAll>) => {
+			await page.evaluate(() => document.body.prepend(document.createElement('div')));
+			inserted = true;
+			return evaluateAll(...evaluation);
+		};
+		return locator;
+	}) as Page['getByRole'];
+	try {
+		await watchJourney(page).assertHealthy();
+		expect(inserted).toBe(true);
+	} finally {
+		page.getByRole = original;
+	}
 });

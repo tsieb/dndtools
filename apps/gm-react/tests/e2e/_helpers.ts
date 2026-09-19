@@ -256,12 +256,12 @@ export async function journeySurfaceIssues(page: Page): Promise<string[]> {
 			requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
 		);
 	});
-	const { issues, clips } = await page.evaluate(() => {
+	const inspection = await page.evaluateHandle(() => {
 		const issues: string[] = [];
 		const clips: Array<{
 			diagnostic: string;
 			text: string;
-			ownerIndex: number;
+			owner: HTMLElement;
 			role: 'button' | 'link';
 		}> = [];
 		const elements = [...document.querySelectorAll<HTMLElement>('html, body, body *')];
@@ -312,24 +312,27 @@ export async function journeySurfaceIssues(page: Page): Promise<string[]> {
 			].some((value) => value?.replace(/\s+/g, ' ').includes(full));
 		for (const el of elements) {
 			if (!rendered(el) || srOnly(el)) continue;
-			const label = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''} ${text(el).slice(0, 100)}`;
+			const label = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''} ${(el.getAttribute('aria-label') || text(el)).slice(0, 100)}`;
 			if (el.matches('[data-testid="widget-placeholder"], [data-widget-state="error"]'))
 				issues.push(`widget error: ${label}`);
-			if (
-				el.matches(':disabled, [aria-disabled="true"]') &&
-				!(
-					el.getAttribute('title')?.trim() ||
-					refs(el, 'aria-describedby') ||
-					el.getAttribute('aria-description')?.trim()
-				)
-			)
-				issues.push(`disabled without reason: ${label}`);
+			if (el.matches(':disabled, [aria-disabled="true"]')) {
+				const normalize = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+				const labels = [text(el), el.getAttribute('aria-label') ?? '', refs(el, 'aria-labelledby')]
+					.map(normalize)
+					.filter(Boolean);
+				const reasons = [
+					el.getAttribute('title'),
+					refs(el, 'aria-describedby'),
+					el.getAttribute('aria-description'),
+				];
+				if (!reasons.some((reason) => reason?.trim() && !labels.includes(normalize(reason))))
+					issues.push(`disabled without reason: ${label}`);
+			}
 			const style = getComputedStyle(el);
 			for (const axis of ['x', 'y'] as const) {
 				const overflow = axis === 'x' ? style.overflowX : style.overflowY;
 				const size = axis === 'x' ? el.clientWidth : el.clientHeight;
-				const extent = axis === 'x' ? el.scrollWidth : el.scrollHeight;
-				if (size <= 0 || extent <= size + 2 || !['hidden', 'clip'].includes(overflow)) continue;
+				if (size <= 0 || !['hidden', 'clip'].includes(overflow)) continue;
 				const bounds = el.getBoundingClientRect();
 				const outside = (rect: DOMRect) =>
 					axis === 'x'
@@ -372,13 +375,13 @@ export async function journeySurfaceIssues(page: Page): Promise<string[]> {
 				// shadows and one-pixel helpers alone do not constitute lost content.
 				lost ||= [
 					...el.querySelectorAll<HTMLElement>(
-						'button, input, select, textarea, img, canvas, video, [role="button"]',
+						'button, input, select, textarea, img, canvas, video, svg, [role="button"]',
 					),
 				].some(
 					(node) =>
 						rendered(node) && outside(node.getBoundingClientRect()) && !protectedByScroller(node),
 				);
-				const lostGraphic = [...el.querySelectorAll<HTMLElement>('img, canvas, video')].some(
+				const lostGraphic = [...el.querySelectorAll<HTMLElement>('img, canvas, video, svg')].some(
 					(node) =>
 						rendered(node) && outside(node.getBoundingClientRect()) && !protectedByScroller(node),
 				);
@@ -395,7 +398,7 @@ export async function journeySurfaceIssues(page: Page): Promise<string[]> {
 					clips.push({
 						diagnostic,
 						text: text(el),
-						ownerIndex: elements.indexOf(owner),
+						owner,
 						role: owner.matches('a, [role="link"]') ? 'link' : 'button',
 					});
 				} else issues.push(diagnostic);
@@ -403,20 +406,34 @@ export async function journeySurfaceIssues(page: Page): Promise<string[]> {
 		}
 		return { issues, clips };
 	});
-	for (const clip of clips) {
-		// Use Playwright's actual accessible-name computation, not textContent or a guess
-		// about an onclick handler. A clamped child can still be read in its control's name.
-		const name = new RegExp(clip.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-		const readable =
-			clip.text.length > 0 &&
-			(await page
-				.getByRole(clip.role, { name })
-				.evaluateAll(
-					(owners, index) =>
-						owners.includes(document.querySelectorAll<HTMLElement>('html, body, body *')[index]!),
-					clip.ownerIndex,
-				));
-		if (!readable) issues.push(clip.diagnostic);
+	const issues = await (await inspection.getProperty('issues')).jsonValue();
+	const clips = await inspection.getProperty('clips');
+	try {
+		for (const clipHandle of (await clips.getProperties()).values()) {
+			const clip = await clipHandle.evaluate(({ diagnostic, text, role }) => ({
+				diagnostic,
+				text,
+				role,
+			}));
+			const owner = await clipHandle.getProperty('owner');
+			try {
+				// Keep the exact DOM node alive across evaluations: document indices change when
+				// React inserts siblings while the accessible-name engine is running.
+				const name = new RegExp(clip.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+				const readable =
+					clip.text.length > 0 &&
+					(await page
+						.getByRole(clip.role, { name })
+						.evaluateAll((owners, original) => owners.includes(original), owner));
+				if (!readable) issues.push(clip.diagnostic);
+			} finally {
+				await owner.dispose();
+				await clipHandle.dispose();
+			}
+		}
+	} finally {
+		await clips.dispose();
+		await inspection.dispose();
 	}
 	return issues;
 }

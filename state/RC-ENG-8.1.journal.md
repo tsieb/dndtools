@@ -235,3 +235,48 @@ fixed box trapped by a transformed clip`. Mutation checks: removing the fixed ru
 - Diff vs `origin/loop/rc`: only the owned paths and this journal. `App.tsx`, `AppShell.tsx`,
   `en.ts` and `command-palette.spec.ts` are unchanged.
 - No push, promotion, agents, loop launches or dispatcher-state edits.
+
+## Independent review repair (2026-09-19)
+
+- Addressing all three medium findings on candidate `cace3ff4`; Headroom tools are not
+  available in this session, so command logs are retained and read directly.
+- Accessible-name checks now retain the actual containing DOM element with a browser handle,
+  disposed after inspection, instead of looking up a mutable document-wide index. A deterministic
+  regression inserts a sibling immediately before the name evaluation.
+- Prep waits for its expected entity inside `#main-content` before each checkpoint. A persistent
+  sidebar screen entry can no longer satisfy the destination-surface wait prematurely.
+- Hidden/clip inspection checks geometry even when scroll extent equals client size, and includes
+  SVG bounds. Added independent horizontal/vertical leading-edge and SVG defect fixtures.
+- Disabled reasons must differ from action labels after whitespace/case normalization. Added
+  ordinary button and IconButton-shaped action-tooltip defect fixtures. This is a structural
+  check, not a semantic natural-language classifier.
+- The corrected disabled-reason assertion exposes two real product defects: the selected
+  combatant's earlier/later IconButtons have only action-label titles when disabled at initiative
+  boundaries. They are in `src/screens/session/CombatTracker.tsx`, outside Owned paths. No product
+  source edit was applied. Scope expansion was requested; a concrete two-title proposal is retained
+  in `/tmp/e81-combat-disabled-reasons.patch` (not applied or validated; English boundary copy would
+  need localization in a follow-up). The exact original diagnostic in
+  `/tmp/e81-review-controls.log` identifies both controls at every round/projection checkpoint.
+- Changes remain restricted to the two owned e2e files, TESTING.md and this required journal.
+
+### Review-repair validation
+
+- Initial no-retry run: **58 passed, 2 failed** (`/tmp/e81-review-fixes.log`, original diagnostics
+  read). All 12 new regression/profile cases pass; the only failures are the live-session journeys
+  with the initiative-button disabled reasons described above. This is not a green acceptance gate.
+- Prep repetitions: `pnpm e2e golden-path.spec.ts --grep 'prep a character' --repeat-each=5
+--workers=2 --retries=0`: **10 passed**, five per profile (`/tmp/e81-review-prep-repeat.log`).
+- Mutation proof: temporarily restored the exact HEAD helper, ran only the six new regressions on
+  both profiles, and restored the repaired helper in `finally`. **12 failed as intended**:
+  ten false negatives resolved instead of rejecting, and the DOM insertion produced the false
+  unrecoverable-clip failure. Original diagnostics and summary read from
+  `/tmp/e81-review-mutation.log`. No mutation remains in the worktree.
+- `pnpm gates`: exit 0, existing advisory file-size warnings only (`/tmp/e81-review-gates.log`).
+- Full central browser gate is not rerun locally while the known product assertion is red; the
+  unchanged manifest still discovers this spec on both profiles. No retries, exclusions, warning
+  allowlists or product workarounds were introduced.
+- Final repaired-tree run: `pnpm e2e golden-path.spec.ts --workers=2 --retries=0`: **58 passed,
+  2 failed** (`/tmp/e81-review-final.log`, original diagnostics and summary read). Both failures
+  name only the initiative-boundary controls. All new regressions and both prep journeys pass.
+- Strict standalone TypeScript, targeted ESLint, Prettier on all four changed files and
+  `git diff --check`: passed. No product files changed; ownership expansion remains pending.
