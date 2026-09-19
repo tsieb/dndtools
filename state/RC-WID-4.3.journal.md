@@ -28,3 +28,10 @@
   raised); Vitest i18n + sceneEditor 38/38. E2E: new spec 4/4 plus player-preview + note-depth, 12/12
   on desktop-chromium and mobile-chromium; regression sweep canvas, widget-builder, flow-layout,
   responsive 218/218 on both profiles. Not run: the full suite (the operator owns the gates).
+
+## Operator repair — 2026-09-19
+
+- Moved the mistakenly source-located journal into the explicitly allowed `state/` path.
+- The existing implementation, catalogs, and acceptance spec are preserved per the operator brief.
+- Dispatch Headroom tools are unavailable in this session; validation uses native exact command output.
+- Next: commit the relocation, rebase onto current local `loop/rc`, and rerun validation.
