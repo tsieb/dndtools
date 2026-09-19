@@ -5,8 +5,12 @@ import {
 	boardLayoutIssues,
 	clampToColumns,
 	clampWidthToColumns,
+	fitWidgetSize,
+	nextSizePreset,
 	repackBoardColumns,
+	widgetSizePresets,
 	type BoardLayoutRect,
+	type BoardWidget,
 } from './board-helpers';
 
 /**
@@ -44,6 +48,53 @@ describe('clampToColumns / clampWidthToColumns', () => {
 
 	it('leaves an in-bounds resize untouched', () => {
 		expect(clampWidthToColumns(24, 240)).toBe(240);
+	});
+});
+
+describe('fitWidgetSize / widgetSizePresets (RC-CAN-2.5)', () => {
+	// A 320-wide tile whose right edge already sits on the bound.
+	const edge = BOARD_RIGHT_BOUND - 320;
+	const widget = {
+		x: edge,
+		w: 320,
+		h: 200,
+		minSize: { width: 200, height: 120 },
+		defaultSize: { width: 320, height: 200 },
+	} as BoardWidget;
+
+	it('reports the width the bounded board will commit, not the one requested', () => {
+		expect(fitWidgetSize(widget, 340, 200, true)).toEqual({ w: 320, h: 200 });
+		expect(fitWidgetSize(widget, 340, 200, false)).toEqual({ w: 340, h: 200 });
+	});
+
+	it('floors both axes at the declared minimum', () => {
+		expect(fitWidgetSize(widget, 100, 50, true)).toEqual({ w: 200, h: 120 });
+	});
+
+	it('fits presets to the bounded board and keeps them distinct', () => {
+		expect(widgetSizePresets(widget)).toEqual([
+			{ w: 200, h: 120 },
+			{ w: 320, h: 200 },
+			{ w: 480, h: 300 },
+		]);
+		expect(widgetSizePresets(widget, true)).toEqual([
+			{ w: 200, h: 120 },
+			{ w: 320, h: 200 },
+			{ w: 320, h: 300 },
+		]);
+		expect(
+			widgetSizePresets({ ...widget, defaultSize: { width: 320, height: 120 } }, true),
+		).toEqual([
+			{ w: 200, h: 120 },
+			{ w: 320, h: 120 },
+			{ w: 320, h: 180 },
+		]);
+	});
+
+	it('cycles from the size on screen, so an unconfirmed drag draft restarts at small', () => {
+		expect(nextSizePreset(widget, widget)).toEqual({ w: 480, h: 300 });
+		expect(nextSizePreset(widget, { w: 240, h: 160 })).toEqual({ w: 200, h: 120 });
+		expect(nextSizePreset(widget, { w: 320, h: 300 }, true)).toEqual({ w: 200, h: 120 });
 	});
 });
 

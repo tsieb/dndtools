@@ -8,11 +8,7 @@ import {
 	buildCanonicalOperation,
 } from './source-adapters';
 import type { PlatformProfileId } from '../state/widget-package-state';
-import {
-	type FakeVaultTransport,
-	readVaultFile,
-	writeVaultFile,
-} from './source-transport';
+import { type FakeVaultTransport, readVaultFile, writeVaultFile } from './source-transport';
 import {
 	parseMarkdownNote,
 	serializeMarkdownNote,
@@ -142,10 +138,18 @@ const INTERPRETED_PROPERTY_KEYS: ReadonlySet<string> = new Set(['aliases', 'tags
  * SYNC-004 — PARSE one Obsidian file's text into the canonical note value, REUSING `markdown.ts`. User
  * frontmatter is preserved verbatim; the `dndtools.*` namespace is split out so it can never overwrite a
  * user property; aliases/tags/wikilinks/markdown-links/headings are surfaced as first-class structures.
+ * `preserveBody` bypasses legacy whitespace normalization for folder transfers.
  * Pure + deterministic.
  */
-export function obsidianFileToCanonicalNote(text: string): ObsidianCanonicalNote {
+export function obsidianFileToCanonicalNote(
+	text: string,
+	options: { preserveBody?: boolean } = {},
+): ObsidianCanonicalNote {
 	const parsed: ParsedMarkdownNote = parseMarkdownNote(text);
+	if (options.preserveBody) {
+		const fence = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/.exec(text);
+		parsed.body = fence ? text.slice(fence[0].length) : text;
+	}
 	const userProperties: Record<string, string | string[]> = {};
 	const dndtoolsMetadata: Record<string, string | string[]> = {};
 	for (const [key, value] of Object.entries(parsed.properties)) {
@@ -247,13 +251,20 @@ export function createObsidianAdapter(
 				sourcePath?: unknown;
 				note?: ObsidianCanonicalNote;
 			};
-			const path = typeof value.sourcePath === 'string' ? value.sourcePath : `${operation.entityId}.md`;
+			const path =
+				typeof value.sourcePath === 'string' ? value.sourcePath : `${operation.entityId}.md`;
 			if (operation.opType.endsWith('delete')) {
 				return [{ op: 'delete', externalId: path }];
 			}
 			const note = value.note;
 			if (!note) return [];
-			return [{ op: 'write', externalId: path, entity: { path, text: canonicalNoteToObsidianFile(note) } }];
+			return [
+				{
+					op: 'write',
+					externalId: path,
+					entity: { path, text: canonicalNoteToObsidianFile(note) },
+				},
+			];
 		},
 	};
 }

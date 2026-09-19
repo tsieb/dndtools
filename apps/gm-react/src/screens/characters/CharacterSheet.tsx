@@ -11,8 +11,7 @@ import {
 	type PreparedSpell,
 } from '@dndtools/core';
 import { EmptyState } from '../../ds';
-import { Page, T } from '../../app/screen-kit';
-import { useViewport } from '../../app/useViewport';
+import { Page, T, useSingleColumn } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ABILITIES, BackBar, clamp } from './shared';
 import { SheetHeader } from './sheet/SheetHeader';
@@ -33,7 +32,8 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
-	const isPhone = useViewport() === 'phone';
+	// Also true in the rail tier's detail pane (RC-UX-4.3), which is phone-width by construction.
+	const isPhone = useSingleColumn();
 	const actorId = runtime.defaultActorId;
 	const [editMode, setEditMode] = useState(false);
 	// A single screen-level `role="alert"` under the BackBar carried BOTH core rejections and the

@@ -13,6 +13,8 @@ import {
 	listCharactersForActor,
 	listScenesForActor,
 	hasDmAuthority,
+	hasGrantedCapability,
+	CHARACTER_ENTITY_TYPE,
 	resourcesOf,
 	availableSlots,
 	type ActorId,
@@ -100,6 +102,36 @@ export interface PartySpellSlotLevel {
 	max: number;
 }
 
+/**
+ * RC-SES-5.1 — the DM's open ROLL FOR INITIATIVE call, as it concerns one viewer. Present only while
+ * the call is open (combat running, round 1 not begun). Derived from the viewer-filtered tracker, so a
+ * hidden row never counts and never names itself here.
+ */
+export interface InitiativeCallView {
+	/**
+	 * The viewer's OWN combatant — a character they hold `combat-participant` on — or null for an
+	 * observer, a co-DM, or a player with no character in this fight. The Core enforces the same rule
+	 * when the roll arrives; this only decides whether to offer the button.
+	 */
+	combatantId: string | null;
+	combatantName: string | null;
+	/**
+	 * The modifier the roll declares. 5e's initiative is a Dexterity check, so it is read off the
+	 * character's DEX score (0 without one); the Core rolls the d20 and the DM can adjust the result.
+	 */
+	modifier: number;
+	/** The viewer's initiative once it is in (their roll, or a DM adjustment), else null. */
+	rolled: number | null;
+	/** Visible character rows whose initiative is in, out of how many owe one. */
+	rolledCount: number;
+	owedCount: number;
+	/**
+	 * How many characters in this fight the viewer holds `combat-participant` on. Above one, `rolled`
+	 * reports only the character named here, so the card says which one it means.
+	 */
+	heldCount: number;
+}
+
 export interface PlayerData {
 	home: CommandCenterHomeView;
 	live: boolean;
@@ -133,6 +165,11 @@ export interface PlayerData {
 	diceRolls: DiceRollView[];
 	/** Whether the Session workflow is `active` — the Core's gate for `dice.roll`. */
 	sessionActive: boolean;
+	/**
+	 * RC-SES-5.1 — the DM's open initiative call (null when none is open). While it is open nobody is
+	 * active and there is no round yet, so `turnOrder` marks no one and `round`/`activeName` are null.
+	 */
+	initiativeCall: InitiativeCallView | null;
 	/**
 	 * The map actively projected TO THIS VIEWER (`session.set-active-map` + `session.project-active-map`),
 	 * or null. This is the ONLY path a raster asset id may take into a player view-model: the resolver
@@ -237,6 +274,63 @@ function buildPartyVitals(
 		});
 }
 
+/** Whether a (viewer-filtered) row's initiative is in: rolled, or set by the DM (a reorder carrying a value). */
+function initiativeIsIn(combat: CombatTrackerView, combatantId: string): boolean {
+	return combat.log.some(
+		(entry) =>
+			entry.combatantId === combatantId &&
+			(entry.kind === 'roll' || (entry.kind === 'combatant-reordered' && entry.delta !== null)),
+	);
+}
+
+/**
+ * RC-SES-5.1 — the open initiative call for `viewer`, or null. `combat` is the viewer-filtered tracker,
+ * so the counts cover only rows this viewer may see.
+ */
+function buildInitiativeCall(
+	state: CoreStateSlice,
+	viewer: ActorId,
+	combat: CombatTrackerView,
+): InitiativeCallView | null {
+	if (combat.status !== 'running' || combat.round !== 0) return null;
+	const actor = state.permissions.actors[viewer];
+	const owed = combat.combatants.filter((c) => c.kind === 'character' && !c.redacted);
+	// Only a PLAYER rolls from here: a co-DM holds every character by authority, not by grant.
+	const held =
+		actor?.role === 'player'
+			? owed.filter(
+					(c) =>
+						c.characterId !== null &&
+						hasGrantedCapability(
+							state.permissions,
+							actor,
+							CHARACTER_ENTITY_TYPE,
+							c.characterId,
+							'combat-participant',
+						),
+				)
+			: [];
+	// A player can hold SEVERAL characters in one fight. Offer the next one still owing an initiative
+	// rather than the first in tracker order, or the card would keep naming a character who has already
+	// rolled and hide the button on the ones who have not. Once every held row is in, fall back to the
+	// last so the card reports a result instead of going blank.
+	const own = held.find((c) => !initiativeIsIn(combat, c.id)) ?? held[held.length - 1] ?? null;
+	const dex = own?.characterId
+		? state.characters.characters[own.characterId]?.abilityScores?.dex
+		: undefined;
+	const modifier =
+		typeof dex === 'number' ? Math.max(-20, Math.min(20, Math.floor((dex - 10) / 2))) : 0;
+	return {
+		combatantId: own?.id ?? null,
+		combatantName: own?.name ?? null,
+		modifier,
+		rolled: own && initiativeIsIn(combat, own.id) ? own.statBlock.initiative : null,
+		rolledCount: owed.filter((c) => initiativeIsIn(combat, c.id)).length,
+		owedCount: owed.length,
+		heldCount: held.length,
+	};
+}
+
 /**
  * Build the player-safe view-model for `viewer` from the authoritative campaign `state`. This is the
  * ONE serialization surface the host sends over the wire and the one PlayerView renders — reused so the
@@ -255,16 +349,21 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 	const live = strip?.phase.tone === 'live' || sceneName !== null;
 
 	const combat = getCombatTrackerForActor(state.session.combat, state.permissions, viewer);
+	const initiativeCall = buildInitiativeCall(state, viewer, combat);
 	const turnOrder =
 		combat.status === 'running'
 			? combat.combatants.map((c) => ({
 					id: c.id,
 					name: c.name,
-					init: c.statBlock.initiative,
+					// RC-SES-5.1 — a row still owed a roll has no initiative yet; its 0 is a placeholder.
+					init:
+						initiativeCall && c.kind === 'character' && !initiativeIsIn(combat, c.id)
+							? null
+							: c.statBlock.initiative,
 					hp: c.resources?.hp ?? null,
 					maxHp: c.resources?.maxHp ?? null,
 					kind: c.kind,
-					active: c.isActive,
+					active: c.isActive && !initiativeCall,
 				}))
 			: [];
 
@@ -302,8 +401,8 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		live: Boolean(live),
 		sceneName,
 		turnOrder,
-		round: strip?.turn.round ?? null,
-		activeName: strip?.turn.activeName ?? null,
+		round: initiativeCall ? null : (strip?.turn.round ?? null),
+		activeName: initiativeCall ? null : (strip?.turn.activeName ?? null),
 		pc,
 		pcId: chosen?.id ?? null,
 		level: record ? advancementStateOf(record).level : null,
@@ -319,6 +418,7 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		handouts,
 		diceRolls: dice.rolls,
 		sessionActive: state.session.workflow === 'active',
+		initiativeCall,
 		projectedMap: resolveProjectedMapForViewer(state, viewer),
 		displayName: home.kind === 'participant' ? home.displayName : (actor?.displayName ?? 'Player'),
 		role,

@@ -15,12 +15,18 @@ const TONES = {
  * else.) An optional eyebrow label sits left of a mono value readout; `tone` colors the fill;
  * `markers` drops threshold ticks (e.g. difficulty bands). Indeterminate omits the value and
  * sweeps the shimmer.
+ *
+ * RC-DSN-3.4 — `eta` is the time-left copy for long work (import, backup, sync, generation), shown
+ * under the bar and folded into `aria-valuetext`. The visible readouts are `aria-hidden` whenever the
+ * bar itself carries the same words: a meter inside a `role="status"` region otherwise re-announced
+ * "41%", "42%", … and every changed ETA, on each tick.
  */
 export function ProgressMeter({
 	value = 0,
 	max = 100,
 	label,
 	valueLabel,
+	eta,
 	tone = 'accent',
 	size = 'md',
 	markers = [],
@@ -31,6 +37,16 @@ export function ProgressMeter({
 	const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
 	const h = size === 'sm' ? 6 : size === 'lg' ? 12 : 8;
 	const fill = TONES[tone] || TONES.accent;
+	const readout = valueLabel != null ? String(valueLabel) : `${Math.round(pct * 100)}%`;
+	const etaText = typeof eta === 'string' && eta !== '' ? eta : null;
+	const valueText = indeterminate
+		? etaText || undefined
+		: valueLabel != null || etaText
+			? [readout, etaText].filter(Boolean).join(', ')
+			: undefined;
+	// A node `valueLabel` has no faithful string form, so it stays readable in place.
+	const readoutMirrored =
+		valueLabel == null || typeof valueLabel === 'string' || typeof valueLabel === 'number';
 	return (
 		<div
 			style={{
@@ -67,6 +83,7 @@ export function ProgressMeter({
 					)}
 					{!indeterminate && (
 						<span
+							aria-hidden={readoutMirrored ? 'true' : undefined}
 							style={{
 								fontFamily: 'var(--font-mono)',
 								fontSize: 'var(--text-xs)',
@@ -87,7 +104,7 @@ export function ProgressMeter({
 				aria-valuenow={indeterminate ? undefined : Math.max(0, Math.min(max, value))}
 				// Without this the bar announces a bare percentage while the readout beside it says
 				// "12 / 40 pts" — the encounter builder's difficulty meter is the live example.
-				aria-valuetext={!indeterminate && valueLabel != null ? String(valueLabel) : undefined}
+				aria-valuetext={valueText}
 				aria-valuemin={0}
 				aria-valuemax={max}
 				aria-label={typeof label === 'string' ? label : undefined}
@@ -141,6 +158,19 @@ export function ProgressMeter({
 					/>
 				))}
 			</div>
+			{eta != null && eta !== '' && (
+				<span
+					data-progress-eta=""
+					aria-hidden={etaText ? 'true' : undefined}
+					style={{
+						fontFamily: 'var(--font-sans)',
+						fontSize: 'var(--text-xs)',
+						color: 'var(--color-text-secondary)',
+					}}
+				>
+					{eta}
+				</span>
+			)}
 		</div>
 	);
 }

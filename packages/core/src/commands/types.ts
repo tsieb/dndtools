@@ -120,6 +120,7 @@ export type CoreCommand =
 	| { type: 'scene.layer-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.group-widgets'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.move-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.set-widget-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.dock-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.pin-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.set-focus-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -984,10 +985,40 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
-	  };
+	  }
+	// --- RC-CAN-7.2 — SCREEN METADATA, PINS AND DUPLICATION (append-only block; ADR-041) ----------
+	// A screen IS a scene, so these are scene commands over the additive `Scene.screen` record plus
+	// whole-screen duplication. All four are DM-only. `scene.set-pinned` pins a SCREEN in the shell's
+	// Screens group and is unrelated to `scene.pin-widget`, which pins a tile inside one.
+	| { type: 'scene.set-pinned'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.reorder-pins'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'scene.set-layout-policy';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'scene.duplicate'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
+	// --- RC-CAN-7.2 — SCREEN METADATA (ADR-041) ---------------------------------------------------
+	// The pin order is a property of the pin SET, so `scene.pins-reordered` carries the whole list and
+	// names no single scene.
+	| { kind: 'scene.pin-changed'; sceneId: SceneId; actorId: ActorId; pinned: boolean }
+	| { kind: 'scene.pins-reordered'; actorId: ActorId; sceneIds: SceneId[] }
+	| {
+			kind: 'scene.layout-policy-changed';
+			sceneId: SceneId;
+			actorId: ActorId;
+			layoutPolicy: 'flow' | 'canvas';
+	  }
+	| {
+			kind: 'scene.duplicated';
+			sourceSceneId: SceneId;
+			newSceneId: SceneId;
+			actorId: ActorId;
+	  }
 	| { kind: 'scene.metadata-changed'; sceneId: SceneId; actorId: ActorId; paths: string[] }
 	| { kind: 'scene.sections-changed'; sceneId: SceneId; actorId: ActorId }
 	| { kind: 'scene.widget-added'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }

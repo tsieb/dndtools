@@ -1,6 +1,7 @@
 # ADR-026: Opt-In Vault Privacy Modes — Private (E2EE) vs Cloud-Enhanced
 
-- Status: Accepted
+- Status: Accepted (amended by ADR-042)
+- Amended by: [ADR-042](./042-tiered-vault-privacy-default.md) (2026-09-12) — tiered new-vault defaults per RC roadmap §1.6 D3.
 - Date: 2026-07-23
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
@@ -12,6 +13,25 @@
   [ADR-020](./020-app-api-backend-and-simulated-entitlements.md): the class of server-side features a
   paid plan may gate now includes Cloud-Enhanced-mode capabilities; the simulated-checkout carve-out
   itself is unchanged.
+
+## Amendment — 2026-09-12 (§1.6 D3)
+
+[ADR-042](./042-tiered-vault-privacy-default.md) governs new-vault creation: Beginner and Standard
+create Cloud-Enhanced vaults with a one-line plain disclosure of what the server can read and a
+Settings link. Expert offers an explicit Private (E2EE) or Cloud-Enhanced choice, retaining the
+Private recovery acknowledgment. Sample-or-fresh is no longer a forced step; the demo moves to the
+vault switcher. Settings shows the effective mode and how to change it at every tier.
+
+This reverses the rejected Cloud-Enhanced default **for simpler tiers with disclosure**, not permission
+to hide server readability. Legacy/absent/invalid modes still read as Private; no existing vault
+changes mode on upgrade, tier change or replay. ADR-042 records the costs and limits of later moves
+to Private: today's Settings setter changes a local preference, not server-readable cloud data;
+future migration requires verified encrypted re-upload and cleanup and cannot undo prior access.
+The phase-2 gate stays closed pending its separate review.
+
+The sections below retain the original decision and phase-1 implementation history. Their universal
+explicit-opt-in, forced-onboarding and friction rationale is amended by ADR-042; their security,
+recovery and compatibility requirements otherwise remain in force.
 
 ## Context
 
@@ -132,15 +152,15 @@ the newer of the two) so a stale recovery file can never roll an active keyring 
 
 ## Rejected Alternatives
 
-| Alternative                                                      | Why Rejected                                                                                                                                                             |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Keep E2EE as the sole invariant (status quo)                     | Permanently blocks every server-side premium feature; the paid tiers stay theater. The roadmap review found no viable paid cloud product under it.                       |
-| Drop E2EE entirely; server-readable for everyone                 | Betrays the privacy-conscious segment and the local-first brand; contradicts SEC-009's intent. Never considered seriously.                                               |
-| Silent default to Cloud-Enhanced (opt-out E2EE)                  | A trust boundary this large must be an informed, explicit choice; product decision is a forced, undefaulted pick. Legacy/absent value must mean Private.                 |
-| Per-feature consent prompts instead of a vault mode              | Consent fatigue and an untestable matrix of partial states; a single per-vault mode is auditable and maps cleanly onto the SEC-009 record machinery that already exists. |
-| Client-side search/AI over E2EE data instead of any relaxation   | Already exists (BYO-key AI, local search) and keeps working; it cannot deliver keyless browser access, server RAG over large corpora, thumbnails, or async views.        |
-| E2EE with user-key-wrapped server compute (homomorphic/enclaves) | Operationally and economically unrealistic at this product's scale; enclaves would still hold plaintext in memory, weakening the honesty of an "E2EE" claim.             |
-| Ship phase 2 (server-readable pipeline) in the same change       | Widens a security boundary without its dedicated review; phase 1's `approved: false` record lets consent UX ship while the gate stays closed.                            |
+| Alternative                                                      | Why Rejected                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keep E2EE as the sole invariant (status quo)                     | Permanently blocks every server-side premium feature; the paid tiers stay theater. The roadmap review found no viable paid cloud product under it.                                                                                                        |
+| Drop E2EE entirely; server-readable for everyone                 | Betrays the privacy-conscious segment and the local-first brand; contradicts SEC-009's intent. Never considered seriously.                                                                                                                                |
+| Silent default to Cloud-Enhanced (opt-out E2EE)                  | Originally rejected in favor of a forced choice. **Amended 2026-09-12 by [ADR-042](./042-tiered-vault-privacy-default.md):** Beginner/Standard default with plain disclosure; truly silent defaults remain rejected. Legacy/absent values remain Private. |
+| Per-feature consent prompts instead of a vault mode              | Consent fatigue and an untestable matrix of partial states; a single per-vault mode is auditable and maps cleanly onto the SEC-009 record machinery that already exists.                                                                                  |
+| Client-side search/AI over E2EE data instead of any relaxation   | Already exists (BYO-key AI, local search) and keeps working; it cannot deliver keyless browser access, server RAG over large corpora, thumbnails, or async views.                                                                                         |
+| E2EE with user-key-wrapped server compute (homomorphic/enclaves) | Operationally and economically unrealistic at this product's scale; enclaves would still hold plaintext in memory, weakening the honesty of an "E2EE" claim.                                                                                              |
+| Ship phase 2 (server-readable pipeline) in the same change       | Widens a security boundary without its dedicated review; phase 1's `approved: false` record lets consent UX ship while the gate stays closed.                                                                                                             |
 
 ## Migration Impact
 

@@ -1,4 +1,4 @@
-# Applying the DND Tools design system to `apps/gm-react`
+# Applying the Lamplight design system to `apps/gm-react`
 
 This is the runbook for landing the **warm "candle-lit" redesign** on the production **React** app
 (`apps/gm-react`, Vite + React 18). Two phases: a **token reskin** (low-risk, reskins the whole app

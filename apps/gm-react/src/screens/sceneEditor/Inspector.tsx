@@ -1,6 +1,8 @@
 import type React from 'react';
+import { useEffect, useState } from 'react';
 import { resolveWidgetStyleVariables } from '@dndtools/core';
-import { Badge, Button, Card, Icon, IconButton, Select } from '../../ds';
+import { Badge, Button, Card, Field, Icon, IconButton, Input, Select } from '../../ds';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { SEMANTIC_TOKEN_VALUES } from '../../app/widgetBuilder/vocabulary';
 import { WidgetGlyph } from '../../app/SceneBoardCanvas';
 import { isWidgetResizable, TIER_LABEL, type BoardWidget } from '../../app/board-helpers';
@@ -24,6 +26,7 @@ export function Inspector({
 	onVisibility,
 	onConfigure,
 	onResize,
+	onMove,
 	onFocusOrder,
 	onRemove,
 	onClose,
@@ -35,6 +38,9 @@ export function Inspector({
 	onVisibility: (v: Visibility) => void;
 	onConfigure: (key: string, value: unknown) => void;
 	onResize: (w: number, h: number) => void;
+	/** RC-CAN-3.6 — the numeric X/Y fields. A host that routes moves through its undo stack passes
+	 *  its own; otherwise the panel dispatches `scene.move-widget` directly (not undoable). */
+	onMove?: (x: number, y: number) => void;
 	onFocusOrder: (order: number | null) => void;
 	onRemove: () => void;
 	onClose: () => void;
@@ -53,6 +59,20 @@ export function Inspector({
 		{ style: { isolation: 'host-scoped', tokens: styleTokens } },
 		widget.configuration,
 	);
+	const runtime = useRuntime();
+	const move =
+		onMove ??
+		((x: number, y: number) => {
+			const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
+				candidate.widgets.some((instance) => instance.id === widget.id),
+			);
+			if (!scene) return;
+			void runtime.dispatch({
+				type: 'scene.move-widget',
+				actorId: runtime.defaultActorId,
+				payload: { sceneId: scene.id, widgetInstanceId: widget.id, x, y },
+			});
+		});
 	const tokenValueLabel = (value: string) => {
 		const semantic = SEMANTIC_TOKEN_VALUES.find((option) => option.value === value);
 		return semantic ? t(semantic.label) : value;
@@ -276,11 +296,10 @@ export function Inspector({
 						{t('sceneEditor.sizeLocked')}
 					</div>
 				)}
-				<div
-					style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}
-				>
-					{widget.w} × {widget.h}
-				</div>
+			</Section>
+
+			<Section label={t('sceneEditor.transform')}>
+				<TransformPanel widget={widget} resizable={resizable} onMove={move} onResize={onResize} />
 			</Section>
 
 			{/* CANVAS-016 — pin where this widget lands in the canvas's keyboard traversal
@@ -334,5 +353,100 @@ export function Inspector({
 				</Button>
 			</div>
 		</Card>
+	);
+}
+
+/** One numeric transform field. Commits on blur or Enter, never per keystroke, so typing "320"
+ *  is one core op rather than three. */
+function TransformField({
+	label,
+	value,
+	min,
+	disabled,
+	onCommit,
+}: {
+	label: string;
+	value: number;
+	min: number;
+	disabled?: boolean;
+	onCommit: (value: number) => void;
+}) {
+	const [draft, setDraft] = useState(String(value));
+	useEffect(() => setDraft(String(value)), [value]);
+	const commit = () => {
+		const n = Math.round(Number(draft));
+		if (!Number.isFinite(n) || draft.trim() === '') return setDraft(String(value));
+		const next = Math.max(min, n);
+		setDraft(String(next));
+		if (next !== value) onCommit(next);
+	};
+	return (
+		<Field label={label}>
+			<Input
+				type="number"
+				inputMode="numeric"
+				value={draft}
+				min={min}
+				step={1}
+				disabled={disabled}
+				onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+				onBlur={commit}
+				onKeyDown={(e: React.KeyboardEvent) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						commit();
+					}
+				}}
+			/>
+		</Field>
+	);
+}
+
+/** RC-CAN-3.6 — the numeric position and size of the selected widget, in board pixels. Width and
+ *  height follow the same resizable gate as the size buttons above. */
+function TransformPanel({
+	widget,
+	resizable,
+	onMove,
+	onResize,
+}: {
+	widget: BoardWidget;
+	resizable: boolean;
+	onMove: (x: number, y: number) => void;
+	onResize: (w: number, h: number) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<div
+			data-testid="widget-inspector-transform"
+			style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}
+		>
+			<TransformField
+				label={t('sceneEditor.transformX')}
+				value={widget.x}
+				min={0}
+				onCommit={(x) => onMove(x, widget.y)}
+			/>
+			<TransformField
+				label={t('sceneEditor.transformY')}
+				value={widget.y}
+				min={0}
+				onCommit={(y) => onMove(widget.x, y)}
+			/>
+			<TransformField
+				label={t('sceneEditor.transformW')}
+				value={widget.w}
+				min={40}
+				disabled={!resizable}
+				onCommit={(w) => onResize(w, widget.h)}
+			/>
+			<TransformField
+				label={t('sceneEditor.transformH')}
+				value={widget.h}
+				min={40}
+				disabled={!resizable}
+				onCommit={(h) => onResize(widget.w, h)}
+			/>
+		</div>
 	);
 }

@@ -1,9 +1,9 @@
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Icon } from '../ds';
+import { Icon, ProgressMeter, Skeleton } from '../ds';
 import { useI18n } from '../i18n';
-import { useViewport } from './useViewport';
+import { useListDetailSplit, useViewport } from './useViewport';
 
 /**
  * screen-kit — the shared token shorthand + layout primitives ported verbatim from the online
@@ -174,22 +174,105 @@ export const srOnly: CSSProperties = {
  * its content. Both the start of loading and its completion were therefore silent, on exactly the
  * panels (devices, invites, vault connections, marketplace listings) where a screen-reader user has
  * no visual shimmer to fall back on. Carrying the text inside fixes it once for every call site.
+ *
+ * RC-DSN-3.4 — two first-load presets and a determinate mode, so screens stop hand-rolling them:
+ * - `skeleton="list"` (with `rows`) or `skeleton="canvas"` renders the DS skeleton for that shape
+ *   when the call site passes no bespoke children.
+ * - `progress` swaps the hidden label for a labelled meter with time-left copy, for work long
+ *   enough to deserve one (import, backup, sync, generation). The label is the region's only
+ *   spoken content; the percentage and ETA ride on the bar's `aria-valuetext`, so the polite region
+ *   announces "Backing up vault" once instead of every tick.
  */
 export function LoadingRegion({
 	label,
 	children,
 	style,
+	skeleton,
+	rows,
+	progress,
 }: {
 	label: string;
 	children?: ReactNode;
 	style?: CSSProperties;
+	skeleton?: 'list' | 'canvas';
+	/** Row count for `skeleton="list"`; match the rows the list usually opens with. */
+	rows?: number;
+	progress?: LoadingProgress;
 }) {
 	return (
 		<div role="status" style={style}>
-			<span style={srOnly}>{label}</span>
-			{children}
+			{progress ? (
+				<LoadingProgressMeter label={label} progress={progress} />
+			) : (
+				<span style={srOnly}>{label}</span>
+			)}
+			{children ?? (skeleton ? <Skeleton variant={skeleton} rows={rows} /> : null)}
 		</div>
 	);
+}
+
+/** Determinate progress for long work. Pass `remainingMs` when the work reports it, or `startedAt`
+ * to have it extrapolated from the rate so far. */
+export type LoadingProgress = {
+	value: number;
+	max?: number;
+	/** Epoch ms the work began. */
+	startedAt?: number;
+	/** Time left as reported by the work itself; wins over the extrapolation. */
+	remainingMs?: number;
+	/** The clock, for tests; defaults to render time. */
+	now?: number;
+};
+
+// Too little signal to extrapolate from: the first second, or the first 2%, of an import or backup
+// is dominated by setup (a handshake, a directory walk) and projects a finish that is wildly wrong.
+const ETA_MIN_ELAPSED_MS = 1000;
+const ETA_MIN_FRACTION = 0.02;
+
+/** Time left on determinate work at the rate so far, or `null` when there is nothing honest to
+ * say: no progress yet, already done, or too early to have a rate. */
+export function estimateRemainingMs({
+	value,
+	max = 100,
+	startedAt,
+	now = Date.now(),
+}: {
+	value: number;
+	max?: number;
+	startedAt: number;
+	now?: number;
+}): number | null {
+	if (!(max > 0) || !(value > 0) || value >= max) return null;
+	const elapsed = now - startedAt;
+	if (!(elapsed >= ETA_MIN_ELAPSED_MS) || value / max < ETA_MIN_FRACTION) return null;
+	return (elapsed * (max - value)) / value;
+}
+
+/** Coarsens a time left for copy: five-second steps under a minute, whole minutes under an hour.
+ * Rounded UP, so the promise is one the work tends to beat, and coarse so the copy doesn't change
+ * on every progress event. */
+export function roundEtaMs(ms: number): number {
+	const second = 1000;
+	const minute = 60 * second;
+	if (ms < minute) return Math.max(5, Math.ceil(ms / (5 * second)) * 5) * second;
+	if (ms < 60 * minute) return Math.ceil(ms / minute) * minute;
+	return ms;
+}
+
+function LoadingProgressMeter({ label, progress }: { label: string; progress: LoadingProgress }) {
+	const { formatRelativeTime } = useI18n();
+	const { value, max = 100, startedAt, remainingMs, now = Date.now() } = progress;
+	const left =
+		remainingMs != null && Number.isFinite(remainingMs) && remainingMs >= 0
+			? remainingMs
+			: startedAt != null
+				? estimateRemainingMs({ value, max, startedAt, now })
+				: null;
+	// Intl's relative time ("in 2 minutes", "dentro de 2 minutos") localizes the copy without a
+	// catalog string per duration.
+	const eta =
+		left != null && value < max ? formatRelativeTime(now + roundEtaMs(left), now) : undefined;
+	return <ProgressMeter label={label} value={value} max={max} eta={eta} />;
 }
 
 export function Panel({
@@ -241,6 +324,21 @@ export function Panel({
 	);
 }
 
+/** Which pane of a split list/detail screen a subtree renders in; `null` = an ordinary full page. */
+const PaneContext = createContext<'list' | 'detail' | null>(null);
+
+/**
+ * True when screen content should lay out as ONE column: on a phone, or inside a split list/detail
+ * pane (RC-UX-4.3), which is phone-width by construction. Detail views branch on this rather than on
+ * the viewport — at 820px the viewport says `rail`, but a character sheet in its ~480px detail pane
+ * would otherwise lay out two ~200px columns and overflow them, exactly as it once did on a phone.
+ */
+export function useSingleColumn(): boolean {
+	const viewport = useViewport();
+	const pane = useContext(PaneContext);
+	return viewport === 'phone' || pane !== null;
+}
+
 export function Page({
 	children,
 	max = 1180,
@@ -251,18 +349,158 @@ export function Page({
 	style?: CSSProperties;
 }) {
 	const viewport = useViewport();
+	const pane = useContext(PaneContext);
 	return (
 		<div
 			style={{
 				width: '100%',
 				minWidth: 0,
-				padding: viewport === 'phone' ? '16px 14px 76px' : '24px 28px 56px',
+				// A split list/detail pane is phone-width but has no tab bar beneath it: tighter gutters
+				// than a full rail page, without the phone's bottom clearance.
+				padding:
+					viewport === 'phone'
+						? '16px 14px 76px'
+						: pane
+							? `${T.space.four} ${T.space.four} ${T.space.twelve}`
+							: '24px 28px 56px',
 				maxWidth: max,
 				margin: '0 auto',
 				...style,
 			}}
 		>
 			{children}
+		</div>
+	);
+}
+
+/** The list pane's width once a detail is open: room for one ~230px card, never more than 360px. */
+const LIST_PANE_WIDTH = 'clamp(280px, 34%, 360px)';
+
+const paneScroll: CSSProperties = {
+	minWidth: 0,
+	minHeight: 0,
+	overflowY: 'auto',
+	overflowX: 'hidden',
+	overscrollBehavior: 'contain',
+};
+
+/** A wrapper that is only there to hold a React position: it generates no box of its own. */
+const CONTENTS: CSSProperties = { display: 'contents' };
+
+/**
+ * ListDetail — RC-UX-4.3's right detail panel contract for the list/detail screens (Characters,
+ * Knowledge, Campaign, Atlas).
+ *
+ * Split (`useListDetailSplit`: the rail tier at ≥768px): the list keeps a column on the left and the
+ * open detail takes a RIGHT panel beside it, so a tablet user moves between items without losing the
+ * list. Both panes fill `<main>` (`height:100%`, the same bounded-pane contract as `/board`) and
+ * scroll on their own; `<main>` itself never scrolls. The detail pane is a labelled region, and the
+ * list stays mounted across open / close / switch, so its filters, scroll position and roving tab
+ * stop survive. Content inside either pane reads `useSingleColumn()` as true. The detail brings its
+ * own close affordance (a BackBar, a Cancel); closing it gives the list the full width back.
+ *
+ * With `detailKey` — the detail is something the user OPENED (a route id, an editor) — opening or
+ * switching moves focus into the pane and scrolls it to the top, and closing returns focus to the
+ * control that opened it. Omit it for a detail that is simply always shown (Atlas's selected map),
+ * where following the selection would pull focus out of the list on every pick.
+ *
+ * Not split (desktop, phone, a narrow rail window): the open detail replaces the list as a full page,
+ * exactly as these screens always behaved — the wrappers below collapse to `display:contents`, so the
+ * page lays out as a direct child of `<main>` the way it did before this component existed.
+ *
+ * BOTH modes render the same two slots in the same order. Returning a bare fragment when not split
+ * made the open detail a DIFFERENT position in the tree, so crossing the split width — a tablet
+ * rotating from 820×1180 to 1180×820 — unmounted the whole detail and silently threw away whatever
+ * was in it: a half-typed quest, an unsaved sheet edit. Keeping the slots means a rotation only
+ * re-styles the panes.
+ */
+export function ListDetail({
+	list,
+	detail,
+	detailLabel,
+	detailKey,
+}: {
+	list: ReactNode;
+	/** The open detail, or null/false when nothing is open. */
+	detail: ReactNode;
+	/** Accessible name of the detail region — the open item's own name. */
+	detailLabel: string;
+	detailKey?: string | null;
+}) {
+	const split = useListDetailSplit();
+	const open = detail !== null && detail !== undefined && detail !== false;
+	const detailRef = useRef<HTMLElement>(null);
+	const openerRef = useRef<HTMLElement | null>(null);
+	const shownKey = useRef(detailKey ?? null);
+
+	useEffect(() => {
+		if (detailKey === undefined) return;
+		const previous = shownKey.current;
+		shownKey.current = detailKey;
+		if (!split || previous === detailKey) return;
+		const pane = detailRef.current;
+		if (detailKey !== null) {
+			// Remember the list control that opened it — but not a link followed from INSIDE the pane
+			// (a backlink), which should hand focus back to the original opener on close.
+			const active = document.activeElement;
+			if (active instanceof HTMLElement && active !== document.body && !pane?.contains(active)) {
+				openerRef.current = active;
+			}
+			if (pane) {
+				pane.scrollTop = 0;
+				pane.focus({ preventScroll: true });
+			}
+			return;
+		}
+		const opener = openerRef.current;
+		openerRef.current = null;
+		// Only when closing left focus nowhere (the pane's own BackBar / Cancel unmounted with it) —
+		// never pull focus back from somewhere the user has since moved it.
+		const active = document.activeElement;
+		if (opener?.isConnected && (active === null || active === document.body)) opener.focus();
+	}, [split, detailKey]);
+
+	return (
+		<div
+			data-list-detail={split ? '' : undefined}
+			style={
+				split
+					? {
+							display: 'grid',
+							gridTemplateColumns: open ? `${LIST_PANE_WIDTH} minmax(0,1fr)` : 'minmax(0,1fr)',
+							height: '100%',
+							minHeight: 0,
+						}
+					: CONTENTS
+			}
+		>
+			{/* Not split, with the detail open, the list is not rendered at all — the detail IS the page,
+			    as it has always been on desktop and on a phone. */}
+			{(split || !open) && (
+				<div
+					data-pane={split ? 'list' : undefined}
+					style={
+						split
+							? { ...paneScroll, borderInlineEnd: open ? `1px solid ${T.bd}` : 'none' }
+							: CONTENTS
+					}
+				>
+					<PaneContext.Provider value={split && open ? 'list' : null}>{list}</PaneContext.Provider>
+				</div>
+			)}
+			{open && (
+				// Nameless and not focusable off the split tier: a bare <section> is generic, so the full
+				// page keeps the accessibility tree it had before.
+				<section
+					ref={detailRef}
+					tabIndex={split ? -1 : undefined}
+					aria-label={(split && detailLabel) || undefined}
+					data-pane={split ? 'detail' : undefined}
+					style={split ? { ...paneScroll, outlineOffset: '-3px' } : CONTENTS}
+				>
+					<PaneContext.Provider value={split ? 'detail' : null}>{detail}</PaneContext.Provider>
+				</section>
+			)}
 		</div>
 	);
 }

@@ -1,0 +1,129 @@
+# RC-KNW-5.1 run journal
+
+## Scope and findings
+
+- Implement markdown folder/ZIP export and additive re-import in owned paths; preserve current branch and unrelated changes. No agents, push, promotion or dispatcher mutations.
+- Headroom tools are not available in this session; native commands provide original output.
+- Existing legacy markdown import trims bodies and skips asset files. Its parser and command are outside ownership. The new round-trip codec will use the owned Obsidian adapter with an explicit exact-body option, and re-import through existing content.create-item commands. Existing folder-source pull semantics remain intact.
+- Dates, tags, visibility and structured note metadata travel in front matter. Only explicitly selected DM exports include private notes. Image assets must be collected only from selected notes.
+- ZIP is the web folder transport. Use stored ZIP entries (no dependency changes); validate paths, size, checksums and assets before import.
+
+## Validation
+
+Completed below.
+
+## Implementation and evidence
+
+- Settings → Vault now offers ZIP export/import everywhere and empty-directory export/import where File System Access is available. Import is additive through core commands, with an explicit unchecked private-copy checkbox for export.
+- Core folder codec emits valid YAML front matter with visibility, tags, aliases, original timestamps, custom dates and rule metadata. Exact body mode in the owned Obsidian adapter preserves whitespace, CRLF, wikilinks and embeds. Referenced image URLs become adjacent asset paths and restore to their original content-addressed references on import.
+- Referenced calendars accompany the notes. A conflicting destination calendar fails before any notes are imported. Protected notes are created private, their granular rules restored, and only then their entity visibility restored.
+- The existing list/detail query retains raw section prose even when section metadata is restricted. Public export therefore omits notes with non-public section/field rules; it uses the existing player projection for secret callouts. Private export preserves the rules. This is explicitly described in the UI.
+- Portable export rejects source content requiring security redaction/sanitization rather than silently changing an exported body. Import validates schema, paths, aggregate/per-file limits, asset content hashes and ZIP CRCs. ZIP reader accepts the standard stored ZIP format this exporter writes, not arbitrary compressed ZIPs.
+- New core functions are imported directly from owned core export modules because the package barrel is outside this task's ownership. No changes to legacy import commands or their whitespace semantics.
+- Native directory export refuses nonempty destinations. Binary and text bytes were tested through real temporary filesystem handles.
+
+## Validation results
+
+- Core codec and existing sync-source-adapters: 2 files, 47 tests passed (including 10 folder codec cases). Core typecheck passed.
+- App targeted suites (markdown-folder, fsSource, backup): 3 files, 36 tests passed.
+- Browser folder ZIP acceptance: desktop and mobile Chromium passed (2 tests), including default exclusion of the private note/image, explicit private export, deleting the original note/blob, re-import, byte comparison and rendered image naturalWidth > 0. Final rerun after hardening passed on both profiles (2 tests).
+- App typecheck and scoped ESLint passed.
+- Boundary lint passed.
+- Final production build passed, including check-prod-bundle (85 JS assets; no test runtime or gallery). The standard chunk-size advisory remains.
+
+## Corrections found by tests
+
+- Sanitization initially blocked a restored asset: URL. Fixed by sanitizing the portable body first and restoring only validated image mappings afterward; unit and browser round trips passed.
+- Playwright initially could not import the ZIP helper because it pulled in core system JSON via the note codec. Separated the archive code's runtime dependencies; the browser tests subsequently loaded and passed.
+- E2E cleanup initially used a nonexistent content.delete-item command. Corrected to the actual content.remove-item command, and both profiles passed.
+- Granular public-export test exposed the raw-prose behavior described above; public filtering was tightened and the test now passes.
+
+## Deliberate boundaries
+
+This is note-folder portability, not a whole-vault replacement: re-import creates fresh note IDs/revisions and retains original timestamps in front matter fields. Structured object records and typed cross-object embed relationships remain the full-vault JSON backup's responsibility. Literal markdown wikilinks and embeds are preserved. Existing legacy source pull/write-back APIs are unchanged.
+
+Final source review: diff whitespace check passed. Only owned implementation files plus companion tests, English messages and this journal were changed. Central operator gates and independent review remain external to this run.
+
+## Review response (second pass)
+
+Independent review rejected `b9c99c67` on two reproduced defects. Both are fixed here, in owned
+paths, with the reviewer's own `edge-cases.mts` rerun as the check.
+
+### High — equivalent YAML silently discarded the privacy rules
+
+Root cause: `readFolderProperties` accepted only `JSON.parse`-able spellings, so
+`dndtools.format: markdown-folder-v1` (valid YAML, no quotes) left `own` false. Every `dndtools.*`
+value was then dropped — including `sectionVisibility` — and the note imported player-visible with
+the DM-only prose in its body, which a later default (public) export then published.
+
+- `packages/core/src/export/markdown-folder.ts` now parses the front matter as YAML: double-quoted,
+  single-quoted (`''` unescaping), plain scalars, flow sequences and `key:`-then-`- item` block
+  lists all decode to the same value. Each key's raw text is kept too, so a JSON payload respelled
+  as a bare YAML flow node still reads.
+- Fail-closed: a file presenting any Lamplight transfer key (`FOLDER_METADATA_KEYS`, which
+  deliberately excludes the legacy `dndtools.visibility`) whose format marker cannot be read is
+  refused — "Nothing imported" — rather than degraded to an ordinary note. A payload spelled in a
+  form we cannot read (e.g. a nested block mapping) is refused the same way. `decodeFolderNote` and
+  `decodeFolderRules` share one reader, so they can never disagree about whether a rule exists.
+  The refusal surfaces to the DM through `errMsg` in the Vault panel toast.
+
+### Medium — ordinary markdown folders lost their adjacent images
+
+Root cause: only images listed in `vault-assets.json` were stored; a plain relative reference was
+left untouched, so the import reported success while the renderer had nothing to show.
+
+- New `resolveFolderImageRef` (core) resolves a relative reference against the note's own folder —
+  `./`, `../`, percent-escapes and `#`/`?` suffixes — and refuses URLs, absolute paths and any
+  traversal out of the folder.
+- `importMarkdownFolder` adopts those files: identified by magic bytes (`sniffImageMime`), never by
+  filename, bounded by `MAX_ASSET_BLOB_BYTES`, stored content-addressed, and the body reference
+  rewritten to `asset:<id>` before any command runs. A reference naming no file in the folder, or a
+  file that is not an image, is left exactly as written. Lookup is case-insensitive, matching the
+  folder's existing duplicate-path rule.
+
+### Evidence
+
+- Reviewer's `edge-cases.mts` rerun verbatim on this tree: `assetStored: true`, re-export now
+  contains the PNG, the reformatted copy keeps `{hidden: {level: 'dm-only'}}`, and
+  `reformattedIncludesSecret` is now `false` (was `true`).
+- Mutation check: the new tests were run against the reverted `HEAD` sources — 15 core and 3 app
+  tests fail there (`expected {} to deeply equal { hidden: { level: 'dm-only' } }`,
+  `promise resolved "1" instead of rejecting`, relative path left unrewritten) and pass here.
+- Core 274 files / 4809 tests; app 127 files / 1337 tests; typecheck (core + cloud-fns + app),
+  `pnpm lint` (0 errors), boundary lint, non-text contrast, raw-style count, production build with
+  check-prod-bundle (85 JS assets) all pass.
+- Browser acceptance `markdown-folder.spec.ts`: 4 passed on desktop-chromium and mobile-chromium,
+  including the new foreign-folder import driven through the real Import folder ZIP button, which
+  asserts the wikilink/embed survive and the adopted image renders with `naturalWidth > 0`.
+
+## Rebase onto the integration branch (dd7cd001)
+
+The gate rejected the previous attempt for conflicts, not for behaviour: both commits replayed onto
+`dd7cd001` with conflicts in `apps/gm-react/src/i18n/messages/en.ts` and
+`apps/gm-react/src/screens/settings/Vault.tsx`. Both were additive collisions at the same anchor —
+RC-ENG-6.2 (`77e729da`, storage quarantine) had inserted its own block at exactly the point this
+story inserts one — so the resolution keeps both sides in full; nothing from either was dropped.
+
+- `en.ts`: the `settings.folder.*` keys now sit under their own `/* Settings › Markdown folder */`
+  heading ahead of `/* Settings › Vault connections */`, leaving RC-ENG-6.2's `settings.vault.*`
+  recovery/pressure/quarantine keys contiguous with the vault block they belong to.
+- `Vault.tsx`: `<VaultIntegrity />` and `<MarkdownFolderPanel />` both render, integrity first.
+  The replay would have left two separate `import … from '../../platform/fsSource'` statements, so
+  `saveMarkdownFolder`, `pickMarkdownDirectory` and `readMarkdownFolder` were folded into the
+  existing fsSource import rather than added as a duplicate.
+
+### Evidence after the rebase
+
+- Every other file this story owns is byte-identical to the pre-rebase commits (verified per file
+  against the pre-rebase ref); `git diff dd7cd001..HEAD` touches only this story's files, so
+  RC-ENG-6.2's `storageUsage.ts`, `coreStore.ts`, `assetStore.ts` and `integrity.test.ts` are
+  untouched.
+- Gates on the rebased tree: typecheck (core + cloud-fns + app) clean; `pnpm lint` exit 0
+  (15 warnings, 0 errors) including boundary, emphasis, raw-style and non-text contrast; production
+  build exit 0 with check-prod-bundle over 83 JS assets; Prettier clean on both resolved files.
+- Tests: core 276 files / 4844 tests, app 135 files / 1491 tests, tooling 26 files / 191 tests — all
+  pass. Targeted: `packages/core/src/export/markdown-folder.test.ts` 27/27,
+  `apps/gm-react/src/platform/markdown-folder.test.ts` 10/10.
+- Browser: `markdown-folder.spec.ts` 4 passed across desktop-chromium and mobile-chromium. Because
+  the merge put a second panel on the vault screen, RC-ENG-6.2's own `storage-integrity.spec.ts` was
+  rerun on both viewports as well — 2 passed — confirming the two panels coexist on that route.

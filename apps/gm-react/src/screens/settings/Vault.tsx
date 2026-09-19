@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge, Button, Dialog, EmptyState, Icon, Skeleton, Toaster } from '../../ds';
+import { Badge, Button, Checkbox, Dialog, EmptyState, Icon, Skeleton, Toaster } from '../../ds';
 import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import {
 	isFsSourceSupported,
 	listFolderSources,
 	disconnectFolderSource,
+	saveMarkdownFolder,
+	pickMarkdownDirectory,
+	readMarkdownFolder,
 	type FolderSourceRecord,
 } from '../../platform/fsSource';
 import {
@@ -17,6 +20,109 @@ import {
 	type GdocConnection,
 } from '../../cloud/googleDocs';
 import { errMsg } from './shared';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { hasDmAuthority } from '@dndtools/core';
+import {
+	exportMarkdownFolder,
+	exportMarkdownZip,
+	importMarkdownFolder,
+	importMarkdownZip,
+	pickMarkdownZip,
+} from '../../platform/backup';
+import { downloadBlob } from '../../platform/download';
+import { collectStoragePressure, type StoragePressure } from '../../diagnostics/storageUsage';
+import {
+	listQuarantinedDocuments,
+	type QuarantinedDocument,
+} from '../../platform/storage/coreStore';
+import { pruneAssetCache } from '../../platform/storage/assetStore';
+
+function VaultIntegrity() {
+	const { t } = useI18n();
+	const [pressure, setPressure] = useState<StoragePressure | null>(null);
+	const [quarantined, setQuarantined] = useState<QuarantinedDocument[]>([]);
+	const [busy, setBusy] = useState(false);
+	useEffect(() => {
+		let active = true;
+		const refresh = () => {
+			void collectStoragePressure().then((value) => {
+				if (active) setPressure(value);
+			});
+			void listQuarantinedDocuments()
+				.then((value) => {
+					if (active) setQuarantined(value);
+				})
+				.catch(() => {
+					if (active) Toaster.error(t('settings.vault.recoveryReadFailed'));
+				});
+		};
+		refresh();
+		const timer = window.setInterval(refresh, 30_000);
+		window.addEventListener('focus', refresh);
+		return () => {
+			active = false;
+			window.clearInterval(timer);
+			window.removeEventListener('focus', refresh);
+		};
+	}, [t]);
+	const prune = async () => {
+		setBusy(true);
+		try {
+			const result = await pruneAssetCache();
+			setPressure(await collectStoragePressure());
+			Toaster.success(t('settings.vault.pruned', { bytes: result.freedBytes.toLocaleString() }));
+		} catch {
+			Toaster.error(t('settings.vault.pruneFailed'));
+		} finally {
+			setBusy(false);
+		}
+	};
+	const exportItem = (item: QuarantinedDocument) => {
+		try {
+			const url = URL.createObjectURL(
+				new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' }),
+			);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `${item.documentKey}-recovery.json`;
+			link.click();
+			window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+		} catch {
+			Toaster.error(t('settings.vault.recoveryExportFailed'));
+		}
+	};
+	return (
+		<>
+			{pressure?.pressured && (
+				<Panel title={t('settings.vault.pressureTitle')}>
+					<div role="alert">
+						<p>{t('settings.vault.pressureBody', { percent: Math.floor(pressure.ratio * 100) })}</p>
+						<p>{t('settings.vault.pressureGuidance')}</p>
+						<Button variant="secondary" disabled={busy} onClick={() => void prune()}>
+							{t('settings.vault.freeSpace')}
+						</Button>
+					</div>
+				</Panel>
+			)}
+			{quarantined.length > 0 && (
+				<Panel title={t('settings.vault.quarantineTitle')}>
+					<p>{t('settings.vault.quarantineBody')}</p>
+					<ul>
+						{quarantined.map((item) => (
+							<li key={item.key}>
+								<span>{item.documentKey}</span>{' '}
+								<Button variant="secondary" size="sm" onClick={() => exportItem(item)}>
+									{t('settings.vault.exportRecovery', { name: item.documentKey })}
+								</Button>
+							</li>
+						))}
+					</ul>
+				</Panel>
+			)}
+		</>
+	);
+}
+
 /* ---- Vault (REAL — the connected-source registry; pull/push/manage lives in Knowledge → Sources) ---- */
 export function SettingsVault() {
 	const { t, formatDate } = useI18n();
@@ -100,6 +206,8 @@ export function SettingsVault() {
 	];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<VaultIntegrity />
+			<MarkdownFolderPanel />
 			<Panel
 				title={t('settings.vault.title')}
 				action={
@@ -239,5 +347,105 @@ export function SettingsVault() {
 				)}
 			</Panel>
 		</div>
+	);
+}
+
+function MarkdownFolderPanel() {
+	const { t } = useI18n();
+	const runtime = useRuntime();
+	const [includeDmOnly, setIncludeDmOnly] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const actor = runtime.state.permissions.actors[runtime.defaultActorId];
+	if (!actor || !hasDmAuthority(actor.role)) return null;
+	const run = async (action: () => Promise<void>) => {
+		setBusy(true);
+		try {
+			await action();
+		} catch (error) {
+			Toaster.error(errMsg(error, t('settings.folder.failed')));
+		} finally {
+			setBusy(false);
+		}
+	};
+	return (
+		<Panel title={t('settings.folder.title')}>
+			<p>{t('settings.folder.description')}</p>
+			<Checkbox
+				checked={includeDmOnly}
+				onChange={setIncludeDmOnly}
+				disabled={busy}
+				label={t('settings.folder.includePrivate')}
+			/>
+			<div
+				style={{
+					display: 'flex',
+					flexWrap: 'wrap',
+					gap: 'var(--space-2)',
+					marginTop: 'var(--space-3)',
+				}}
+			>
+				<Button
+					variant="secondary"
+					disabled={busy}
+					onClick={() =>
+						void run(async () => {
+							const blob = await exportMarkdownZip(runtime, includeDmOnly);
+							const result = await downloadBlob('lamplight-markdown-folder.zip', blob);
+							if (result.status === 'exported') Toaster.success(t('settings.folder.exported'));
+						})
+					}
+				>
+					{t('settings.folder.exportZip')}
+				</Button>
+				{isFsSourceSupported() && (
+					<Button
+						variant="secondary"
+						disabled={busy}
+						onClick={() =>
+							void run(async () => {
+								const root = await pickMarkdownDirectory();
+								if (!root) return;
+								if (
+									await saveMarkdownFolder(await exportMarkdownFolder(runtime, includeDmOnly), root)
+								)
+									Toaster.success(t('settings.folder.exported'));
+							})
+						}
+					>
+						{t('settings.folder.exportFolder')}
+					</Button>
+				)}
+				<Button
+					variant="secondary"
+					disabled={busy}
+					onClick={() =>
+						void run(async () => {
+							const picked = await pickMarkdownZip();
+							if (!picked) return;
+							const count = await importMarkdownZip(runtime, picked);
+							Toaster.success(t('settings.folder.imported', { count }));
+						})
+					}
+				>
+					{t('settings.folder.importZip')}
+				</Button>
+				{isFsSourceSupported() && (
+					<Button
+						variant="secondary"
+						disabled={busy}
+						onClick={() =>
+							void run(async () => {
+								const root = await pickMarkdownDirectory();
+								if (!root) return;
+								const count = await importMarkdownFolder(runtime, await readMarkdownFolder(root));
+								Toaster.success(t('settings.folder.imported', { count }));
+							})
+						}
+					>
+						{t('settings.folder.importFolder')}
+					</Button>
+				)}
+			</div>
+		</Panel>
 	);
 }

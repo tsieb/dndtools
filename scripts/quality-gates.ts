@@ -18,6 +18,7 @@ import { auditScopeBoundary } from '../packages/core/src/constraints/scope-const
 import { auditGuiHidingReliance } from '../packages/core/src/constraints/gui-hiding-not-authoritative.ts';
 import { auditExternalDependencyRequirement } from '../packages/core/src/constraints/network-not-required.ts';
 import { auditSourceOfTruthOwnership } from '../packages/core/src/constraints/source-of-truth.ts';
+import { auditDocs, type DocsAuditResult } from './validate/docs-links.ts';
 
 /**
  * PLAT-010 + PLAT-014 + CON-004 + CON-003/CON-006 + CON-001/CON-002/CON-005 enforcement: validate the
@@ -53,6 +54,10 @@ import { auditSourceOfTruthOwnership } from '../packages/core/src/constraints/so
  *     local workflow; and no cloud/external/snapshot/cache/widget store is the sole source of truth for core
  *     vault content (every content class is owned by a durable local state document). A drift on any axis
  *     fails the gate, so the security + source-of-truth invariants can never silently erode.
+ *   - (RC-DOC-2.2 docs gate) every relative link under `docs/` resolves, every `docs/**` file is
+ *     reachable from `docs/README.md`, the doc strings other tooling reads are still present, and
+ *     every ADR's Status line matches its index cell (`scripts/validate/docs-links.ts`).
+ *     `--docs-root <dir>` points this check at another tree, such as a fixture.
  *
  * Exit code 1 on any problem so the gate fails closed in CI and pre-push.
  */
@@ -79,6 +84,17 @@ function parseMeasured(argv: string[]): Record<string, number> {
 		}
 	}
 	return out;
+}
+
+function parseDocsRoot(argv: string[]): string {
+	const flagIndex = argv.indexOf('--docs-root');
+	const raw = flagIndex === -1 ? undefined : argv[flagIndex + 1];
+	return raw ? path.resolve(raw) : repoRoot;
+}
+
+/** RC-DOC-2.2: the docs link and coupling problems for the tree `--docs-root` names (the repo by default). */
+export function runDocsCheck(argv: string[]): DocsAuditResult {
+	return auditDocs(parseDocsRoot(argv));
 }
 
 /**
@@ -189,7 +205,9 @@ export function runQualityGateCheck(
 }
 
 function runCli(): void {
-	const problems = runQualityGateCheck(process.argv.slice(2));
+	const argv = process.argv.slice(2);
+	const problems = runQualityGateCheck(argv);
+	const docs = runDocsCheck(argv);
 	const warnings = collectFileSizeWarnings();
 	for (const warning of warnings) {
 		console.warn(`  [file-size-warn] ${warning.path}: ${warning.message}`);
@@ -199,10 +217,20 @@ function runCli(): void {
 		for (const problem of problems) {
 			console.error(`  [${problem.kind}] ${problem.gateId}: ${problem.message}`);
 		}
-		process.exit(1);
 	}
+	if (docs.problems.length > 0) {
+		console.error(`docs check failed with ${docs.problems.length} problem(s):`);
+		for (const problem of docs.problems) {
+			const where = problem.line ? `${problem.file}:${problem.line}` : problem.file;
+			console.error(`  [${problem.kind}] ${where}: ${problem.message}`);
+		}
+	}
+	if (problems.length > 0 || docs.problems.length > 0) process.exit(1);
 	console.log(
 		`quality-gate check passed: ${QUALITY_GATES.length} gate(s) owned, budgeted, and wired to package scripts.`,
+	);
+	console.log(
+		`docs check passed: ${docs.files} file(s) reachable from docs/README.md, ${docs.links} relative link(s) resolved.`,
 	);
 }
 

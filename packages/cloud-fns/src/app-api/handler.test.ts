@@ -1009,6 +1009,89 @@ describe('campaign wiki', () => {
 	};
 	const publish = (body: unknown, sub = 'user-1') => call(event('PUT /wiki', { sub, body }));
 
+	it('serves documents from the published version and revokes them on unpublish', async () => {
+		await asBeacon();
+		const pub = await publish({
+			title: 'Coast',
+			access: 'public',
+			pages: [{ ...PAGES[0], folder: 'Places', kind: 'recap' }],
+		});
+		const request = (document: string) =>
+			event('GET /wikis/{wikiId}/{document}', {
+				sub: null,
+				params: { wikiId: pub.body.wikiId, document },
+			});
+		const read = async (document: string) =>
+			(await handler(request(document), {} as never, () => {})) as {
+				statusCode: number;
+				body: string;
+				headers: Record<string, string>;
+			};
+		const html = await read('reader');
+		expect(html.statusCode).toBe(200);
+		expect(html.body).toContain('<h2>Places</h2>');
+		expect(html.body).not.toContain('user-1');
+		expect((await read('rss.xml')).body).toContain('<item>');
+		await publish({ title: 'Private', access: 'unlisted', pages: PAGES });
+		expect((await read('sitemap.xml')).statusCode).toBe(404);
+		expect((await read('reader')).headers['x-robots-tag']).toBe('noindex, nofollow');
+		await publish({
+			title: 'Locked',
+			access: 'password',
+			password: 'strong-password',
+			pages: PAGES,
+		});
+		const locked = await read('reader');
+		expect(locked.statusCode).toBe(302);
+		expect(locked.headers.location).toContain('/#/wiki?id=');
+		expect(locked.body).not.toContain('Locked');
+		await call(event('DELETE /wiki'));
+		expect((await read('reader')).statusCode).toBe(404);
+	});
+
+	it('publishes canonical URLs on a verified custom domain but keeps the app link on WEB_ORIGIN', async () => {
+		await asBeacon();
+		const pub = await publish({
+			title: 'Coast',
+			access: 'public',
+			pages: [{ ...PAGES[0], folder: 'Places', kind: 'recap' }],
+		});
+		const saved = process.env.WIKI_CUSTOM_DOMAINS;
+		process.env.WIKI_CUSTOM_DOMAINS = JSON.stringify({ [pub.body.wikiId]: 'campaign.example' });
+		try {
+			const html = (await handler(
+				event('GET /wikis/{wikiId}/{document}', {
+					sub: null,
+					params: { wikiId: pub.body.wikiId, document: 'reader' },
+				}),
+				{} as never,
+				() => {},
+			)) as { body: string };
+			expect(html.body).toContain('rel="canonical" href="https://campaign.example/wikis/');
+			// The custom-domain distribution serves this wiki's documents and no SPA, so the app link
+			// has to leave that host or it just bounces back to the text reader.
+			expect(html.body).toContain('href="https://app.example.test/#/wiki?id=');
+			expect(html.body).not.toContain('href="https://campaign.example/#/wiki');
+		} finally {
+			if (saved === undefined) delete process.env.WIKI_CUSTOM_DOMAINS;
+			else process.env.WIKI_CUSTOM_DOMAINS = saved;
+		}
+	});
+
+	it('strips secret callouts before storing or syndicating a recap', async () => {
+		await asBeacon();
+		const pub = await publish({
+			title: 'Coast',
+			access: 'public',
+			pages: [
+				{ ...PAGES[0], markdown: 'Shared lore\n> [!Secret]\n> Secret treasure', kind: 'recap' },
+			],
+		});
+		expect(JSON.stringify(store.objects.get(`wikis/${pub.body.wikiId}.json`))).not.toContain(
+			'Secret treasure',
+		);
+	});
+
 	it('refuses to publish on a non-Beacon plan (403) — gate is honest even though plans are simulated', async () => {
 		const res = await publish({ title: 'My Wiki', access: 'unlisted', pages: PAGES });
 		expect(res.status).toBe(403);

@@ -10,6 +10,12 @@
 			name="description"
 			content="A local-first campaign workspace for preparing and running tabletop RPG sessions."
 		/>
+		<!--
+			RC-DSN-3.3 — every icon and the share card below are rendered from the design system's
+			assets/logo.svg by build-resources/brand-kit.mjs; regenerate them there, never by hand.
+			favicon.ico carries 16/32/48 for shells that cannot read SVG; the SVG tile wins elsewhere.
+		-->
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="icon" type="image/svg+xml" href="/icon.svg" />
 		<!--
 			RC-PLT-2.1 — installable web app. The manifest and its icons are ordinary public assets,
@@ -19,11 +25,30 @@
 			src/platform/serviceWorker.ts; nothing here assumes a browser that supports it.
 		-->
 		<link rel="manifest" href="/manifest.webmanifest" />
-		<link rel="apple-touch-icon" href="/icon-192.png" />
+		<!-- 180px and opaque: iOS cuts its own corners and paints transparent pixels black. -->
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-title" content="Lamplight" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<!--
+			Share card for link unfurls (Open Graph, which X also reads). The image is a public asset,
+			so Vite rewrites it to the relative base like the icons; an absolute URL would need the
+			build to know its public origin, which the Electron and Android builds never do.
+		-->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Lamplight" />
+		<meta property="og:title" content="Lamplight" />
+		<meta
+			property="og:description"
+			content="A local-first campaign workspace for preparing and running tabletop RPG sessions."
+		/>
+		<meta property="og:image" content="/og-image.jpg" />
+		<meta property="og:image:type" content="image/jpeg" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="The Lamplight mark and wordmark on a lamplit ground." />
+		<meta name="twitter:card" content="summary_large_image" />
 		<title>Lamplight — Command Center</title>
 		<!--
 			Resolve theme / motion / density before first paint, at the document boot,

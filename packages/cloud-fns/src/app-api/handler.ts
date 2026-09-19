@@ -1,3 +1,5 @@
+import { wikiDocument, type WikiDocument } from './wiki-documents';
+import { stripSecretCallouts } from '@dndtools/core';
 // dndtools app-api — the application backend for account-scoped features that are NOT
 // E2EE vault sync: plan entitlements (an explicit dev-only preview; production never
 // accepts self-service simulated upgrades), the marketplace (plaintext widget-package
@@ -263,7 +265,11 @@ class Conflict extends Error {}
 /** Billing is not configured/reachable for this stage — every money flow fails CLOSED. */
 class ServiceUnavailable extends Error {}
 
-function json(statusCode: number, body: unknown, headers: Record<string, string> = {}) {
+function json(
+	statusCode: number,
+	body: unknown,
+	headers: Record<string, string> = {},
+): { statusCode: number; headers: Record<string, string>; body: string } {
 	return {
 		statusCode,
 		headers: { 'content-type': 'application/json', ...headers },
@@ -404,6 +410,48 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		// The UNAUTHENTICATED routes — handled before any claims are required.
 		if (routeKey === 'GET /invites/resolve/{token}') {
 			return await resolveInvite(event.pathParameters?.token);
+		}
+		if (routeKey === 'GET /wikis/{wikiId}/{document}') {
+			const format = event.pathParameters?.document ?? '';
+			if (!['reader', 'rss.xml', 'sitemap.xml'].includes(format))
+				return json(404, { error: 'not found' });
+			const result = await readWiki(
+				event.pathParameters?.wikiId,
+				undefined,
+				event.requestContext.http.sourceIp || 'unknown',
+			);
+			if (result.statusCode !== 200) {
+				if (result.statusCode === 401 && format === 'reader' && process.env.WEB_ORIGIN)
+					return {
+						statusCode: 302,
+						headers: {
+							location: `${process.env.WEB_ORIGIN}/#/wiki?id=${encodeURIComponent(event.pathParameters?.wikiId ?? '')}`,
+							'cache-control': 'no-store',
+							'x-robots-tag': 'noindex',
+						},
+						body: '',
+					};
+				return {
+					...result,
+					headers: { ...result.headers, 'cache-control': 'no-store', 'x-robots-tag': 'noindex' },
+				};
+			}
+			const document = JSON.parse(result.body) as WikiDocument;
+			const domains = JSON.parse(process.env.WIKI_CUSTOM_DOMAINS || '{}') as Record<
+				string,
+				unknown
+			>;
+			const host = domains[document.wikiId];
+			// Canonical/feed/sitemap URLs follow the wiki's own (verified) domain, but the SPA lives
+			// ONLY on the web origin: a custom-domain distribution serves this wiki's text documents
+			// and nothing else, so an app link built from it would bounce back to the reader and lose
+			// the page. The app link therefore always uses WEB_ORIGIN, never the custom host.
+			const webOrigin = process.env.WEB_ORIGIN || '';
+			const origin =
+				typeof host === 'string' && /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(host)
+					? `https://${host}`
+					: webOrigin;
+			return wikiDocument(document, origin, format, event.queryStringParameters, webOrigin);
 		}
 		if (routeKey === 'GET /wikis/{wikiId}') {
 			return await readWiki(
@@ -1638,6 +1686,8 @@ async function purgeListingDiscoveryRows(moduleId: string): Promise<void> {
 // --- is validated to STRICT text-only shapes here; the reader renders markdown as -------
 // --- React text nodes (never innerHTML), so hosted content cannot script readers. -------
 interface WikiPage {
+	folder?: string;
+	kind?: 'note' | 'recap';
 	slug: string;
 	title: string;
 	markdown: string;
@@ -1650,6 +1700,7 @@ function wikiStatusResponse(row: Record<string, string>) {
 		title: row.title,
 		access: row.access,
 		pageCount: Number(row.pageCount),
+		recapCount: Number(row.recapCount || 0),
 		size: Number(row.size),
 		publishedAt: row.publishedAt,
 		updatedAt: row.updatedAt,
@@ -1693,7 +1744,17 @@ function sanitizeWikiPages(value: unknown): WikiPage[] {
 		if (typeof page.markdown !== 'string')
 			throw new BadRequest(`pages[${i}].markdown must be a string`);
 		const updatedAt = optionalString(page.updatedAt, `pages[${i}].updatedAt`, 40);
-		return { slug, title, markdown: page.markdown, updatedAt };
+		const folder = optionalString(page.folder, `pages[${i}].folder`, 240);
+		if (page.kind !== undefined && page.kind !== 'note' && page.kind !== 'recap')
+			throw new BadRequest('invalid wiki page kind');
+		return {
+			slug,
+			title,
+			markdown: stripSecretCallouts(page.markdown),
+			updatedAt,
+			...(folder ? { folder } : {}),
+			...(page.kind ? { kind: page.kind as 'note' | 'recap' } : {}),
+		};
 	});
 }
 
@@ -1742,6 +1803,7 @@ async function publishWiki(caller: Caller, body: string | undefined) {
 		title,
 		access: access as WikiAccess,
 		pageCount: pages.length,
+		recapCount: pages.filter((page) => page.kind === 'recap').length,
 		size,
 		publishedAt,
 		updatedAt,

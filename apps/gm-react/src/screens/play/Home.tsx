@@ -7,7 +7,7 @@ import { useAssetObjectUrl } from '../../platform/assetUrl';
 import { useViewport } from '../../app/useViewport';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../../platform/capabilities';
 import { PartyBoardTiles } from '../../app/character/PartyPanel';
-import { Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { InitiativeCallCard, Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { StageMap } from './StageMap';
 import { useI18n } from '../../i18n';
 
@@ -138,6 +138,7 @@ export function StageSection({
 	presenceShared,
 	selfPresence,
 	onPresence,
+	onRollInitiative,
 }: {
 	data: LiveData;
 	r: number;
@@ -147,6 +148,8 @@ export function StageSection({
 	/** Our own entry from the host's replicated presence roster (the table-visible truth), when joined. */
 	selfPresence: { hand?: boolean; ready?: boolean } | null;
 	onPresence: (hand: boolean, ready: boolean) => void;
+	/** RC-SES-5.1 — roll for the DM's initiative call (the request rides the command path). */
+	onRollInitiative: () => Promise<void>;
 }) {
 	const { t } = useI18n();
 	const viewport = useViewport();
@@ -234,6 +237,14 @@ export function StageSection({
 					</span>
 				}
 			/>
+			{/* RC-SES-5.1 — the call goes above the stage, not into the turn panel beside it: on a phone
+			    that panel is a screen's scroll away, and "roll for initiative" is the one thing the
+			    player has to do right now. */}
+			{data.initiativeCall && (
+				<div style={{ marginBottom: T.space.four }}>
+					<InitiativeCallCard call={data.initiativeCall} onRoll={onRollInitiative} />
+				</div>
+			)}
 			<div
 				style={{
 					display: 'grid',

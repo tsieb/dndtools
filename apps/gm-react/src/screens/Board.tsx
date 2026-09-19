@@ -3,16 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
-	listWidgetLibrary,
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
+	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Button, Card, Icon, IconButton, Menu, Callout, Toolbar, Switch, Toaster } from '../ds';
+import { Button, Card, Icon, Menu, Callout, Toolbar, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import {
 	SceneBoardCanvas,
-	WidgetGlyph,
 	ZOOM_PRESETS,
 	ZOOM_PRESET_KEY,
 	type ZoomPreset,
@@ -34,7 +33,9 @@ import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
 import { BoardPlayerNotice } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
-import { widgetProfileForRuntime } from '../platform/capabilities';
+import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
+import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
+import { WidgetBuilder } from './extensions/WidgetBuilder';
 
 /**
  * Board (`/board`) — the Command Center spatial board: the application's home Scene rendered as a
@@ -75,6 +76,10 @@ export function Board() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	// RC-CAN-4.1 — the gallery's "Generate with assistant" and "Build your own" entries. `builder.pkg`
+	// is the assistant's staged proposal, or null for a blank widget; neither is durable.
+	const [generateOpen, setGenerateOpen] = useState(false);
+	const [builder, setBuilder] = useState<{ pkg: WidgetPackageDefinition | null } | null>(null);
 	// RC-CAN-3.1: the board's zoom lives here, not in the canvas, so the control can sit in the
 	// toolbar. The bounded canvas IS its own scroll container, so an in-canvas control would scroll
 	// away from the widgets it applies to and sit on top of the top-left widget while it did.
@@ -155,13 +160,6 @@ export function Board() {
 	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
 		a.name.localeCompare(b.name),
 	);
-	const library = isDm
-		? listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, actorId, {
-				profileId: widgetProfileForRuntime(),
-				includeUnavailable: false,
-			})
-		: [];
-
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		// Clear before the attempt, not only after it. `error` renders inside a `role="alert"`, which
 		// announces on INSERTION — and setting the identical string again is an `Object.is` bail-out,
@@ -313,20 +311,15 @@ export function Board() {
 		});
 		if (ok) setStatus(null);
 	}
-	async function addWidget(entry: WidgetLibraryEntry) {
-		if (!homeSceneId) return;
-		const count = widgets.length;
-		const cascade = (count % 6) * 28;
-		const command = resolveAddWidgetCommand(entry, homeSceneId, {
-			x: 48 + cascade,
-			y: 48 + cascade,
-		});
-		if (!command) return;
+	// RC-CAN-4.1: the gallery chooses the slot (the first open spot on the board's columns, where the
+	// old cascade stacked each new widget over the seeded ones) and focuses the placed tile.
+	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
+		if (!homeSceneId) return false;
+		const command = resolveAddWidgetCommand(entry, homeSceneId, position);
+		if (!command) return false;
 		const ok = await dispatch({ type: command.type, actorId, payload: command.payload });
-		if (ok) {
-			setAddOpen(false);
-			if (!editing) setEditing(true);
-		}
+		if (ok && !editing) setEditing(true);
+		return ok;
 	}
 
 	if (!isDm) return <BoardPlayerNotice />;
@@ -469,8 +462,10 @@ export function Board() {
 						</Button>
 					))}
 				</div>
+				{/* Done is the subtle accent, not the gold fill: in edit mode the selected zoom chip
+				    already holds this region's one primary (RC-ENG-8.4 emphasis rule). */}
 				<Button
-					variant={editing ? 'primary' : 'secondary'}
+					variant={editing ? 'accent' : 'secondary'}
 					size="sm"
 					icon={editing ? 'check' : 'edit'}
 					onClick={() => {
@@ -669,100 +664,22 @@ export function Board() {
 					onZoomPresetChange={setZoom}
 				/>
 
-				{addOpen && (
-					<Card
-						elevation="overlay"
-						padding="md"
-						onKeyDown={(e: React.KeyboardEvent) => {
-							if (e.key === 'Escape') {
-								e.stopPropagation();
-								setAddOpen(false);
-							}
-						}}
-						style={{
-							width: viewport === 'phone' ? 'min(300px, 100%)' : 300,
-							flex: '0 0 auto',
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 'var(--space-2)',
-							maxHeight: '100%',
-							overflow: 'auto',
-							...(viewport === 'phone'
-								? { position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 4 }
-								: {}),
-						}}
-					>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-							<span
-								style={{
-									flex: 1,
-									font: '700 var(--text-md) var(--font-display)',
-									color: 'var(--color-text-primary)',
-								}}
-							>
-								{t('board.addWidget')}
-							</span>
-							<IconButton
-								icon="close"
-								label={t('common.action.close')}
-								variant="ghost"
-								size="sm"
-								onClick={() => setAddOpen(false)}
-							/>
-						</div>
-						{library.length === 0 ? (
-							<div
-								style={{
-									font: 'var(--text-xs) var(--font-sans)',
-									color: 'var(--color-text-tertiary)',
-								}}
-							>
-								{t('board.noWidgets')}
-							</div>
-						) : (
-							library.map((entry) => (
-								<button
-									key={`${entry.packageId}:${entry.type}`}
-									type="button"
-									onClick={() => addWidget(entry)}
-									style={{
-										display: 'flex',
-										alignItems: 'flex-start',
-										gap: 'var(--space-2)',
-										padding: 'var(--space-2)',
-										textAlign: 'left',
-										border: '1px solid var(--color-border)',
-										borderRadius: 'var(--radius-md)',
-										background: 'var(--color-surface-alt)',
-										cursor: 'pointer',
-									}}
-								>
-									<WidgetGlyph icon={entry.icon ?? 'widget'} size="sm" />
-									<div style={{ minWidth: 0 }}>
-										<div
-											style={{
-												font: '600 var(--text-sm) var(--font-sans)',
-												color: 'var(--color-text-primary)',
-											}}
-										>
-											{entry.displayName}
-										</div>
-										{entry.description && (
-											<div
-												style={{
-													font: 'var(--text-2xs)/1.4 var(--font-sans)',
-													color: 'var(--color-text-tertiary)',
-												}}
-											>
-												{entry.description}
-											</div>
-										)}
-									</div>
-								</button>
-							))
-						)}
-					</Card>
-				)}
+				<AddWidgetGallery
+					open={addOpen}
+					onClose={() => setAddOpen(false)}
+					viewport={viewport}
+					policy="bounded"
+					widgets={widgets}
+					onDone={() => {
+						setEditing(false);
+						setSelectedId(null);
+						setLayoutsOpen(false);
+					}}
+					onAdd={addWidget}
+					error={error}
+					onGenerate={() => setGenerateOpen(true)}
+					onBuild={() => setBuilder({ pkg: null })}
+				/>
 
 				{editing && layoutsOpen && (
 					<BoardLayoutsPanel
@@ -779,6 +696,15 @@ export function Board() {
 					/>
 				)}
 			</div>
+			<GenerateDialog
+				open={generateOpen}
+				onClose={() => setGenerateOpen(false)}
+				onGenerated={(pkg) => {
+					setGenerateOpen(false);
+					setBuilder({ pkg });
+				}}
+			/>
+			{builder && <WidgetBuilder generatedPackage={builder.pkg} onClose={() => setBuilder(null)} />}
 		</div>
 	);
 }

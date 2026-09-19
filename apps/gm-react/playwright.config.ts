@@ -62,6 +62,81 @@ const video = process.env.DNDTOOLS_E2E_VIDEO === '1' ? 'retain-on-failure' : 'of
 // deterministic failure. See docs/development/TESTING.md §6.
 const jsFlags = process.env.DNDTOOLS_E2E_JS_FLAGS?.trim();
 
+// RC-DSN-4.1 — the golden-route visual regression suite (`tests/visual`). `DNDTOOLS_VISUAL=1`
+// swaps the functional projects for one screenshot project per layout tier, so neither `pnpm e2e`
+// nor a CI shard ever compares pixels. Baselines are rendered inside the pinned Playwright image
+// (`tests/visual/run-in-container.sh`, and the CI `visual-regression` job): glyph rasterisation
+// differs between distributions, so a baseline written on a developer's Fedora box would diff on
+// every Ubuntu run. The image sets PLAYWRIGHT_BROWSERS_PATH=/ms-playwright, which is how a host run
+// is recognised and refused; DNDTOOLS_VISUAL_HOST=1 allows one for local iteration, where diffs
+// are expected and nothing it writes should be committed.
+const visual = process.env.DNDTOOLS_VISUAL === '1';
+if (
+	visual &&
+	process.env.PLAYWRIGHT_BROWSERS_PATH !== '/ms-playwright' &&
+	process.env.DNDTOOLS_VISUAL_HOST !== '1'
+) {
+	throw new Error(
+		'The visual suite renders its baselines in the pinned Playwright image. Run ' +
+			'apps/gm-react/tests/visual/run-in-container.sh, or set DNDTOOLS_VISUAL_HOST=1 for a ' +
+			'host run whose diffs you will not commit (docs/development/TESTING.md §8).',
+	);
+}
+
+// Fixed-font rendering: no hinting, no subpixel positioning, no LCD text, sRGB output. With the
+// pinned browser build these make the same page rasterise to the same pixels on every run.
+const visualLaunchArgs = [
+	'--font-render-hinting=none',
+	'--disable-font-subpixel-positioning',
+	'--disable-lcd-text',
+	'--force-color-profile=srgb',
+];
+
+// The three responsive tiers of `app/useViewport.ts` at a device scale factor of 1, which keeps
+// each baseline small enough for the size budget (tests/visual/check-baseline-budget.mjs).
+const visualTiers = [
+	{
+		name: 'visual-desktop',
+		use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
+	},
+	{
+		name: 'visual-rail',
+		use: { ...devices['Desktop Chrome'], viewport: { width: 834, height: 1112 } },
+	},
+	{
+		name: 'visual-phone',
+		use: { ...devices['Pixel 5'], viewport: { width: 393, height: 851 }, deviceScaleFactor: 1 },
+	},
+];
+
+const visualProjects = visualTiers.map((tier) => ({
+	name: tier.name,
+	testDir: './tests/visual',
+	// One committed PNG per test, tier and screenshot name. No platform suffix: the only platform
+	// that writes or reads a baseline is the pinned image.
+	snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}/{arg}{ext}',
+	// A genuine diff fails both attempts; one retry absorbs a slow boot, and the report marks it flaky.
+	retries: process.env.CI ? 1 : 0,
+	expect: {
+		toHaveScreenshot: {
+			animations: 'disabled' as const,
+			caret: 'hide' as const,
+			scale: 'css' as const,
+			// Per-pixel colour tolerance stays at the default 0.2; a handful of pixels absorbs
+			// anti-aliasing jitter on canvas edges without letting a real change through.
+			maxDiffPixels: 40,
+		},
+	},
+	use: {
+		...tier.use,
+		locale: 'en-US',
+		timezoneId: 'UTC',
+		reducedMotion: 'reduce' as const,
+		serviceWorkers: 'block' as const,
+		launchOptions: { args: visualLaunchArgs },
+	},
+}));
+
 // Playwright config for the React GM app (@dndtools/gm-react).
 //
 // The specs MUST run against the Vite DEV server (`pnpm dev`, port 5273), not `vite preview`:
@@ -82,13 +157,16 @@ export default defineConfig({
 		video,
 		...(jsFlags ? { launchOptions: { args: [`--js-flags=${jsFlags}`] } } : {}),
 	},
-	projects: [
-		{ name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
-		{ name: 'mobile-chromium', use: { ...devices['Pixel 5'] } },
-	],
+	projects: visual
+		? visualProjects
+		: [
+				{ name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
+				{ name: 'mobile-chromium', use: { ...devices['Pixel 5'] } },
+			],
 	webServer: {
 		// `pnpm dev` hardcodes `--port 5273`; invoking vite directly avoids passing a duplicate flag.
-		command: `pnpm exec vite --port ${port}`,
+		// The Playwright image ships no pnpm, so the visual suite starts the linked binary itself.
+		command: visual ? `./node_modules/.bin/vite --port ${port}` : `pnpm exec vite --port ${port}`,
 		port,
 		reuseExistingServer: reuseValidationServer || !process.env.CI,
 		timeout: 300_000,

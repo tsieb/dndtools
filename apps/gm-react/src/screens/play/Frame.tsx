@@ -160,6 +160,40 @@ export function PlayerView() {
 		return result.status === 'accepted';
 	};
 
+	/**
+	 * RC-SES-5.1 — roll for the DM's initiative call. The request rides the SAME path as a dice roll:
+	 * JOINED → a command REQUEST the host stamps with our authenticated identity, so the DM's runtime is
+	 * the authority (and refuses a character we do not hold); SOLO → the local dispatch as the viewer.
+	 * Either way the core rolls the d20 — this device only declares the modifier off its sheet.
+	 */
+	const rollInitiative = async (): Promise<void> => {
+		const call = data.initiativeCall;
+		if (!call?.combatantId) return;
+		const combatantId = call.combatantId;
+		const payload = { combatantId, kind: 'initiative', roll: { modifier: call.modifier } };
+		if (joined) {
+			const ack = await session.requestCommand({ type: 'combat.apply-resource', payload });
+			if (ack.ok) toast(t('play.initiative.sent'), 'success', 'dice');
+			else toast(ack.message ?? t('play.initiative.declined'), 'error', 'hidden');
+			return;
+		}
+		const result = await runtime.dispatch({
+			type: 'combat.apply-resource',
+			actorId: viewer,
+			payload,
+		});
+		if (result.status === 'rejected') {
+			toast(result.rejection.message, 'error', 'hidden');
+			return;
+		}
+		const total = runtime.state.session.combat.combatants[combatantId]?.statBlock.initiative;
+		toast(
+			total === undefined ? t('play.initiative.sent') : t('play.initiative.rolledToast', { total }),
+			'success',
+			'dice',
+		);
+	};
+
 	// Resolve a roller's display name. Joined devices have no full roster, so map self → "You" and fall
 	// back to the presence roster / the roll's own attribution; solo reads the local actor roster.
 	const actorName = (id: string): string => {
@@ -270,6 +304,7 @@ export function PlayerView() {
 				presenceShared={presenceShared}
 				selfPresence={selfPresence}
 				onPresence={sendPresence}
+				onRollInitiative={rollInitiative}
 			/>
 		);
 	else if (current === 'sheet') body = <SheetSection data={data} />;
@@ -281,6 +316,8 @@ export function PlayerView() {
 				viewer={viewer}
 				actorName={actorName}
 				onRoll={rollDice}
+				initiativeCall={data.initiativeCall}
+				onRollInitiative={rollInitiative}
 			/>
 		);
 	else if (current === 'party') body = <PartySection data={data} />;
