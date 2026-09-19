@@ -1,0 +1,56 @@
+- main:
+    - toolbar "GM Screen":
+        - heading "GM Screen" [level=2]
+        - text: 7 widgets · your home board
+        - group "Zoom":
+            - button "Fit" [pressed]
+            - button "Comfortable"
+            - button "Detail"
+        - button "Edit layout"
+    - status
+    - region "GM Screen, 7 widgets":
+        - group "Map, Maps widget":
+            - text: Map Maps Ruined Keep
+            - group "Map content":
+                - group "Map view — Ruined Keep. Arrow keys pan, plus and minus zoom, zero refits.":
+                    - img
+                - button "Zoom in"
+                - button "Zoom out" [disabled]
+                - button "Fit"
+                - text: Ruined Keep · 2 places
+                - combobox "Change map":
+                    - option "Hidden Outpost"
+                    - option "Ruined Keep" [selected]
+                    - option "Western Reaches"
+                - button "Hide combat overlay"
+                - button "Open in editor"
+                - button "Project to players" [disabled]
+        - group "Initiative Tracker, Combat widget":
+            - text: Initiative Tracker Combat
+            - group "Initiative Tracker content":
+                - text: Round — Turn —
+                - button "Next turn — Start combat in Session first — there is no turn to advance." [disabled]: Next turn
+                - status
+                - text: No combat running · HP shown
+        - group "Dice, Dice & Timers widget":
+            - text: Dice Dice & Timers
+            - group "Dice content":
+                - text: d20
+                - button "Roll d20 — Go live in Session first — this reaches the table only during play." [disabled]: Roll
+                - status
+        - group "Timer, Dice & Timers widget":
+            - text: Timer Dice & Timers
+            - group "Timer content":
+                - text: 1:00
+                - button "Start 60-second timer — Go live in Session first — this reaches the table only during play." [disabled]: Start
+                - button "Add 60 seconds to the timer — Go live in Session first — this reaches the table only during play." [disabled]: Add a minute
+        - group "Audio, Atmosphere widget":
+            - text: Audio Atmosphere
+            - group "Audio content": Nothing playing — cue a track from the session audio controls.
+        - group "Quick Reference, Reference widget":
+            - text: Quick Reference Reference
+            - group "Quick Reference content": Dockworkers’ Union Brine Hand Saltmarsh Watch 3 of 3 reference rows
+        - group "Prep, Reference widget":
+            - text: Prep Reference
+            - group "Prep content": Faction · The Ashen Hand The Drowning of Saltreach The Hollow King stirs The Sunken Crypt — DM notes Campaign Primer 5 of 6 prep notes
+        - status
