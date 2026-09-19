@@ -105,3 +105,20 @@ All run locally on this branch, on 2026-09-18:
     `canvas-keyboard.spec.ts` + `shortcuts.spec.ts`: 136 passed.
   - `add-widget-gallery.spec.ts` + `command-palette.spec.ts` at `--repeat-each=2`: 84 passed.
 - Prettier `--write` was run on every changed file.
+
+## Quality-gate retry (2026-09-19)
+
+- Read the original dispatcher attempt log for `b97c602a-aa0c-4fc8-a98d-cbc78845f3dd`.
+  Its only failure was `file-size-exceeded`: `CommandPalette.tsx` had 810 lines against
+  the 800-line limit. Earlier local checks did not include `pnpm gates`.
+- Condensed the palette component's repetitive documentation, retaining its filtering,
+  dispatch and DS input contracts. No executable code or screen wiring changed.
+- `loop/rc` remains `268e32b8`; it is already an ancestor of this candidate.
+- Validation on this retry:
+  - `pnpm gates`: exit 0; six gate contracts and documentation checks passed
+    (`/tmp/rc-can-43-retry-gates.log`). Palette is 794 lines; existing soft-limit warnings remain.
+  - `command-palette.spec.ts`, desktop/mobile Chromium with one worker: exit 0,
+    42 passed (1.4m), `/tmp/rc-can-43-retry-e2e.log`.
+  - Changed-file Prettier and `git diff --check`: passed.
+- Final diff review confirms the source change is documentation only. No gate exception,
+  threshold change, executable-code change, or dispatcher-state mutation.

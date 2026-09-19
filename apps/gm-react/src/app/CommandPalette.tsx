@@ -193,28 +193,12 @@ function readRecentIds(): string[] {
 }
 
 /**
- * CommandPalette — the working ⌘K surface, backed by the Processing Core's search engine AND its
- * actor-filtered action catalog. The command set composes:
- *  - the static "Go to" / "Create" launchers (section destinations),
- *  - the actor-filtered entity lists the core exposes (`listScenesForActor` → `/scene/:id`,
- *    `listCharactersForActor` → Characters, `listMapsForActor` → `/atlas?map=:id`),
- *  - REAL full-text hits from `searchVaultForActor` (SRCH-001/003/005) once the user types — the
- *    same actor-filtered, deterministically ranked read the core quick-switcher composes — over
- *    notes, structured objects, map POIs, handouts, and rolls, each in its own group and routed to
- *    the owning section, and
- *  - RC-KNW-2.3: ACTIONS from `listCommandActions` (CMD-008), dispatched through
- *    `runtime.dispatch` as the IDENTICAL core command the visible control issues. The actions
- *    relevant to the current route are promoted to "On this screen"; a leading `>` (the core's
- *    `parseQuickSwitcherQuery` sigil, SRCH-005) narrows the palette to actions only.
+ * Compose navigation, actor-filtered search hits and core actions in the ⌘K palette.
+ * Contextual actions lead; `>` restricts results to actions. Core actions dispatch the same
+ * commands as their visible controls. Actor-filtered reads keep hidden content out of results.
  *
- * Every candidate comes from an actor-filtered read, so a dm-only note / hidden POI / withheld
- * handout / DM-only action is never even a candidate while previewing or viewing as a player.
- *
- * The DS `CommandPalette` owns the input; we mirror its query through the (bubbling) input event
- * on a wrapper and debounce it lightly before running the search read. Because the DS applies its
- * own substring filter to the RAW query text, every row we compute ourselves carries that raw text
- * as a keyword — otherwise a body-only search hit, or anything behind the `>` sigil, would be
- * filtered straight back out.
+ * Mirror and debounce the DS input before querying. Computed rows carry the raw query as a
+ * keyword so the DS filter preserves body-only matches and results behind the `>` sigil.
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const { t } = useI18n();
