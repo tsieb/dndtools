@@ -1,6 +1,6 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ModuleKind, PermissionState } from '@dndtools/core';
-import { Badge, Button, SegmentedControl, Skeleton, Textarea, Toaster } from '../../ds';
+import { Badge, Button, Skeleton, Textarea, Toaster } from '../../ds';
 import { LoadingRegion, Panel, T } from '../../app/screen-kit';
 import {
 	AppApiError,
@@ -314,10 +314,75 @@ export async function flagReview(moduleId: string, reviewId: string): Promise<vo
 const MAX_REVIEW_NOTE = 280;
 const STAR = '★';
 const EMPTY_STAR = '☆';
-const STAR_OPTIONS = [1, 2, 3, 4, 5].map((stars) => ({
-	value: String(stars),
-	label: `${stars} ${STAR}`,
-}));
+const STAR_VALUES = [1, 2, 3, 4, 5];
+
+/** The 1–5 picker. A radiogroup like SegmentedControl, but the chosen star takes the subtle accent
+ * rather than the gold fill: the listing's install button stays the one primary on the screen. */
+function StarPicker({
+	value,
+	onChange,
+	ariaLabel,
+}: {
+	value: number;
+	onChange: (stars: number) => void;
+	ariaLabel: string;
+}) {
+	const refs = useRef<(HTMLButtonElement | null)[]>([]);
+	const select = (index: number) => {
+		const next = (index + STAR_VALUES.length) % STAR_VALUES.length;
+		refs.current[next]?.focus();
+		onChange(STAR_VALUES[next]);
+	};
+	const tabStop = value > 0 ? value - 1 : 0;
+	return (
+		<div role="radiogroup" aria-label={ariaLabel} style={{ display: 'flex', gap: T.space.one }}>
+			{STAR_VALUES.map((stars, index) => {
+				const active = stars === value;
+				return (
+					<button
+						key={stars}
+						ref={(node) => {
+							refs.current[index] = node;
+						}}
+						type="button"
+						role="radio"
+						aria-checked={active}
+						tabIndex={index === tabStop ? 0 : -1}
+						onClick={() => onChange(stars)}
+						onKeyDown={(event) => {
+							const step =
+								event.key === 'ArrowRight' || event.key === 'ArrowDown'
+									? 1
+									: event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+										? -1
+										: 0;
+							if (step !== 0) {
+								event.preventDefault();
+								select(index + step);
+							} else if (event.key === 'Home' || event.key === 'End') {
+								event.preventDefault();
+								select(event.key === 'Home' ? 0 : STAR_VALUES.length - 1);
+							}
+						}}
+						style={{
+							minWidth: 44,
+							minHeight: 32,
+							padding: `${T.space.one} ${T.space.two}`,
+							borderRadius: T.radius.md,
+							cursor: 'pointer',
+							font: `12px ${T.sans}`,
+							color: active ? T.ink : T.sub,
+							border: `1px solid ${active ? T.accBd : T.bd}`,
+							background: active ? T.accSub : 'transparent',
+						}}
+					>
+						{`${stars} ${STAR}`}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
 
 /** "4.5 ★ · 2 ratings", or "No ratings yet". Announced as a sentence, not as glyphs. */
 export function RatingText({ rating }: { rating: RatingSummary }) {
@@ -361,7 +426,7 @@ export function FeaturedRow({
 			<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.two, flexWrap: 'wrap' }}>
 				<h2
 					id={headingId}
-					style={{ margin: T.space.zero, font: `700 14px ${T.disp}`, color: T.ink }}
+					style={{ margin: T.space.zero, font: `700 14px ${T.sans}`, color: T.ink }}
 				>
 					{t('community.discover.featured')}
 				</h2>
@@ -395,7 +460,7 @@ export function FeaturedRow({
 							background: T.accSub,
 						}}
 					>
-						<span style={{ font: `700 13.5px ${T.disp}`, color: T.ink }}>{m.name}</span>
+						<span style={{ font: `700 13.5px ${T.sans}`, color: T.ink }}>{m.name}</span>
 						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
 							{t(KIND_LABEL[m.kind] ?? 'community.discover.kindWidget')}
 						</span>
@@ -501,12 +566,10 @@ export function ListingRatings({
 				hint('community.discover.rateNeedsInstall')
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
-					<SegmentedControl
+					<StarPicker
 						ariaLabel={t('community.discover.yourRating')}
-						size="sm"
-						value={stars > 0 ? String(stars) : ''}
-						onChange={(value: string) => setStars(Number(value))}
-						options={STAR_OPTIONS}
+						value={stars}
+						onChange={setStars}
 					/>
 					<Textarea
 						value={note}

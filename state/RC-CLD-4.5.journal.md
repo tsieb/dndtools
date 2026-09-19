@@ -144,3 +144,20 @@ apps/gm-react/src/app/help/changelog.test.ts apps/gm-react/package.json` is empt
 - Required operator action remains: authorize `apps/gm-react/src/app/help/changelog.ts` and
   its adjacent `changelog.test.ts`, or land the populated-Unreleased handling fix separately.
   The discovery implementation remains committed; the full app gate remains blocked.
+
+## Base refresh + emphasis lint (2026-09-18)
+
+- Gate run `17039e25` failed only on `changelog.test.ts:85` (same base-red failure as above).
+  `origin/loop/rc` has since fixed it (`32d9ed73`, `latestRelease` skips `[Unreleased]`), so the
+  task branch now merges `origin/loop/rc` (`07305d5d`). The merge was clean.
+- The merge brought in `pnpm lint:emphasis`, which flagged three issues in owned files: two
+  sub-24px Cinzel labels in `shared.tsx` (the featured heading and the featured card names, now
+  sans), and `CommDiscover` showing two accent primaries (the install button plus the star
+  `SegmentedControl`'s gold active segment). The stars now use a local `StarPicker` radiogroup
+  with the same roving-tabindex/arrow-key contract. It marks the chosen star with the subtle
+  accent instead of the gold fill.
+- Local evidence, from the worktree after the merge: app vitest 138 files / 1521 tests passed; cloud vitest
+  `packages/cloud-fns/src/app-api` 4 files / 110 tests passed; `pnpm typecheck` 0; `pnpm lint` 0;
+  `format:check:changed -- --base origin/loop/rc` clean; Playwright `community-discover.spec.ts`
+  8/8 passed on desktop-chromium + mobile-chromium (`DNDTOOLS_E2E_PORT=5731`).
+- No push, promotion or dispatcher state changes.
