@@ -258,8 +258,11 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await openViaKeyboard(page, 'Meta+k');
 		const here = page.getByRole('group', { name: 'On this screen' });
 		await expect(here).toBeVisible();
-		// It is the FIRST group in the list, before Create and Go to.
-		await expect(page.getByRole('group').first()).toHaveAttribute('aria-label', 'On this screen');
+		// It is the FIRST group in the list, before Create and Go to. Scoped to the palette: the board
+		// behind it has its own groups (Zoom, the widgets), and a page-wide `.first()` only passed while
+		// the palette won the race against the board's first render (RC-ENG-4.4, React Router 7).
+		const palette = page.getByRole('dialog', PALETTE);
+		await expect(palette.getByRole('group').first()).toHaveAttribute('aria-label', 'On this screen');
 		expect(await here.getByRole('option').count()).toBeGreaterThan(0);
 	});
 
