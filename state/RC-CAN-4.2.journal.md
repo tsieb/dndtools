@@ -80,6 +80,7 @@ test('Inspector v2 tabs, configuration and scene properties persist', async ({ p
 	await page.keyboard.press('Enter');
 	const panel = page.getByTestId('widget-inspector');
 	await expect(panel.getByRole('tab')).toHaveCount(6);
+	await panel.getByRole('tab', { name: 'Content', exact: true }).click();
 	await panel.getByLabel('Heading', { exact: true }).fill('Persistent heading');
 	await panel.getByRole('tab', { name: 'Display', exact: true }).click();
 	await expect(panel.getByLabel('Heading', { exact: true })).toBeHidden();
@@ -175,3 +176,27 @@ test('Inspector v2 tabs, configuration and scene properties persist', async ({ p
   name/description/tags remain editable through the existing metadata command.
 - Only the five owned source files and this journal are intended for the task commit.
   Central operator retains responsibility for independent review and integration gates.
+
+## Browser gate recovery (2026-09-19)
+
+- Read the exact operator Browser acceptance log `0882ddf4-7f56-4d75-a73e-e2b53c050ee1`.
+  Full run: 1,212 passed, 11 skipped, 5 failed. All other operator gates passed.
+- Three flow-layout failures: the automatic phone scene-properties overlay intercepted tile
+  action clicks, including a desktop project that resizes down to phone width. Automatic phone
+  properties now share a column with the canvas, capped at 40% height with their own scroll area.
+  Explicit Scene details retains its dismissible overlay; desktop properties retain their side panel.
+- Two note-depth failures: Depth correctly moved to Display but was hidden on initial selection.
+  Notes now start on Display, binding-backed tiles on Binding, other tiles on Content. All fields
+  retain their declared groups. The journal fixture explicitly opens Content to edit a note.
+- No Headroom tools are exposed in this session. Exact native outputs used. Verification pending.
+- Recovery checks on unchanged source: `flow-layout.spec.ts`, `note-depth.spec.ts`, and
+  the extracted journal fixture, desktop + mobile Chromium, two workers: 20 passed (24.9s),
+  exit 0. This includes every case that failed the operator's browser gate, without edits
+  to the existing test specs.
+- App typecheck, targeted ESLint, Prettier, and six quality gates passed (exit 0).
+  Scene editor index remains below the hard limit at 799 lines. `git diff --check` is clean.
+- Unchanged `canvas.spec.ts`, both Chromium profiles, two workers: 82 passed (1.2m), exit 0.
+  Configure round-trip retained. The full 1,228-case browser gate remains the operator's integration check.
+- Removed the temporary fixture after validation; its reproducible source remains above.
+  Recovery commit contains only three owned source paths and this journal. No push, promotion,
+  dispatcher control-state edits, additional loops, or agents.

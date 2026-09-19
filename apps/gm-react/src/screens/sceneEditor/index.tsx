@@ -135,6 +135,7 @@ export function SceneEditor() {
 	const propertiesOpen =
 		metaOpen || (editing && !selectedWidget && !addOpen && !propertiesDismissed);
 
+	const propertiesBelow = viewport === 'phone' && propertiesOpen && !metaOpen;
 	// Each of these panels has a path that unmounts it while focus is still inside: a successful Add,
 	// a saved metadata edit, the Inspector's Close, a deselect. See usePanelFocusReturn.
 	usePanelFocusReturn(propertiesOpen || addOpen);
@@ -635,6 +636,7 @@ export function SceneEditor() {
 						minWidth: 0,
 						display: 'flex',
 						gap: 'var(--space-3)',
+						flexDirection: propertiesBelow ? 'column' : 'row',
 						position: 'relative',
 					}}
 				>
@@ -700,6 +702,7 @@ export function SceneEditor() {
 							// instance for exactly this reason.
 							key={id}
 							scene={rawScene}
+							belowCanvas={propertiesBelow}
 							name={shown.name}
 							description={shown.description}
 							tags={shown.tags}

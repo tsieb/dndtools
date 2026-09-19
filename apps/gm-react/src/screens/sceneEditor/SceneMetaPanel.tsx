@@ -18,6 +18,7 @@ export function SceneMetaPanel({
 	description,
 	tags,
 	phone,
+	belowCanvas = false,
 	onSave,
 	onClose,
 }: {
@@ -26,6 +27,8 @@ export function SceneMetaPanel({
 	description: string;
 	tags: string[];
 	phone: boolean;
+	/** Automatic phone properties share space with the canvas instead of covering its controls. */
+	belowCanvas?: boolean;
 	onSave: (meta: {
 		name: string;
 		description: string;
@@ -61,7 +64,11 @@ export function SceneMetaPanel({
 				gap: 'var(--space-3)',
 				maxHeight: '100%',
 				overflow: 'auto',
-				...(phone ? PHONE_PANEL_OVERLAY : {}),
+				...(belowCanvas
+					? { width: '100%', maxHeight: '40%', minHeight: 0, flex: '0 1 auto' }
+					: phone
+						? PHONE_PANEL_OVERLAY
+						: {}),
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>

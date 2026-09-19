@@ -56,8 +56,10 @@ export function Inspector({
 }) {
 	const { t, locale } = useI18n();
 	const labels = inspectorLabels(locale);
-	// Bound-content tiles open at their source; editable-content tiles open at their fields.
-	const [tab, setTab] = useState(widget.requiresBinding ? 'binding' : 'content');
+	// Open at the tile's primary controls: binding source, note depth, or editable content.
+	const [tab, setTab] = useState(
+		widget.requiresBinding ? 'binding' : widget.type === 'note' ? 'display' : 'content',
+	);
 	const tabId = useId();
 	// `visibility` has its own dedicated control; never surface it twice if a widget also declares it.
 	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
