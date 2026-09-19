@@ -20,8 +20,12 @@ trap 'git worktree remove --force "$reference_dir"' EXIT
 # The reference supplies only its app, dependencies and smoke target; the candidate's capture
 # harness drives both revisions, so a protocol change always applies to both sides.
 (cd "$reference_dir" && ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile)
+# PERF_RUNS: five for the scheduled agreement check (the default), two interleaved repeats on a pull
+# request (RC-ENG-1.4). The workflow's policy step, not this exit status, decides the job.
+runs="${PERF_RUNS:-5}"
+[[ "$runs" =~ ^[1-9]$ ]]
 failed=0
-for run in 1 2 3 4 5; do
+for run in $(seq 1 "$runs"); do
   # Complete all five even if one fails, retaining evidence of disagreement. A missing run or
   # baseline file fails the later steps closed; stability.ts then rejects the set.
   pnpm perf:capture -- --out "$output/current-$run.json" --port "$candidate_port" \
@@ -32,5 +36,7 @@ for run in 1 2 3 4 5; do
   pnpm perf:compare -- --ci --run "$output/current-$run.json" --baseline "$output/baseline-$run.json" \
     --tolerance "$tolerance" --markdown "$output/report-$run.md" --json "$output/verdict-$run.json" || failed=1
 done
-pnpm exec tsx scripts/perf/stability.ts "$output" || failed=1
+if [[ "$runs" == 5 ]]; then
+  pnpm exec tsx scripts/perf/stability.ts "$output" || failed=1
+fi
 exit "$failed"

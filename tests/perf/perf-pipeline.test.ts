@@ -10,7 +10,14 @@ import type { BaselineComparison } from '@dndtools/core';
 import {
 	RESOLUTION_FLOOR_MS,
 	applyResolutionFloor,
+	decidePolicy,
 	measureCapture,
+	recordCiBaseline,
+	verifyScheduledAgreement,
+	type CiBaselineConfig,
+	type PerfBaselineFile,
+	type PolicyDecision,
+	type RunVerdict,
 } from '../../scripts/perf/compare';
 import { verifyStability } from '../../scripts/perf/stability';
 
@@ -136,8 +143,33 @@ describe('shared runner performance', () => {
 			step.uses?.startsWith('actions/checkout@'),
 		);
 		expect(checkout.with).toMatchObject({ ref: '${{ inputs.ref }}', 'fetch-depth': 0 });
-		// Two manual runs of different refs must not cancel each other.
-		expect(perf.concurrency.group).toMatch(/^perf-\$\{\{ inputs\.ref \|\| /);
+		// Two manual runs of different refs, or two PRs against one base, must not cancel each other.
+		expect(perf.concurrency.group).toContain('inputs.ref || github.event.pull_request.number');
+		expect(perf.concurrency.group).not.toContain('pull_request.base.ref');
+	});
+	it('encodes both policy modes and lets only the policy step decide the job', () => {
+		const perf = YAML.parse(readFileSync('.github/workflows/perf.yml', 'utf8'));
+		expect(perf.on.schedule[0].cron).toMatch(/^\d+ \d+ \* \* \*$/);
+		expect(perf.on.push.branches).toEqual(['main', 'loop/rc']);
+		expect(perf.on.workflow_dispatch.inputs.mode).toMatchObject({
+			type: 'choice',
+			options: ['scheduled', 'pull-request'],
+			default: 'scheduled',
+		});
+		const mode = perf.jobs.measure.env.PERF_MODE as string;
+		expect(mode).toContain("github.event_name == 'schedule'");
+		expect(mode).toContain("'scheduled' || 'pull-request'");
+		const steps = perf.jobs.measure.steps as Array<{ name?: string; run?: string }>;
+		const capture = steps.find((step) => step.run?.includes('scripts/perf/ci.sh'))!;
+		expect(capture.run).toContain('PERF_RUNS=5');
+		expect(capture.run).toContain('PERF_RUNS=2');
+		expect(capture.run).toMatch(/ci\.sh \|\| /);
+		const policy = steps.find((step) => step.run?.includes('--policy'))!;
+		expect(policy.run).toContain('"$PERF_MODE"');
+		expect(policy.run).toContain('$GITHUB_STEP_SUMMARY');
+		expect(steps.indexOf(policy)).toBeLessThan(
+			steps.findIndex((step) => step.name?.startsWith('Upload')),
+		);
 	});
 	it('writes and grades a real-shaped CI baseline, requires like hardware and detects regression', () => {
 		const dir = mkdtempSync(join(tmpdir(), 'perf-ci-test-'));
@@ -209,4 +241,191 @@ describe('shared runner performance', () => {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	}, 30000);
+});
+
+const host = {
+	ci: true,
+	hostname: 'runner',
+	os: 'Linux',
+	cpuModel: 'AMD EPYC 7763',
+	cpuCount: 4,
+	runnerLabel: 'github-ubuntu-24.04',
+	totalMemoryMb: 16000,
+};
+const unrecorded: CiBaselineConfig = {
+	schemaVersion: 1,
+	referenceCommit: baselineCommit,
+	runnerLabel: 'github-ubuntu-24.04',
+	aggregation: 'median-of-batches-v1',
+	tolerance: 0.2,
+	recorded: null,
+};
+const recorded: CiBaselineConfig = {
+	...unrecorded,
+	recorded: {
+		recordedAt: '2026-09-18T06:17:00.000Z',
+		commit,
+		referenceCommit: baselineCommit,
+		runId: '1',
+		host: { runnerLabel: 'github-ubuntu-24.04', os: 'Linux', cpuCount: 4, cpuModels: ['x'] },
+		runs: 5,
+		budgets: [],
+	},
+};
+function runVerdict(overrides: Record<string, { verdict?: string; targetVerdict?: string }> = {}) {
+	return {
+		commit,
+		baselineCommit,
+		ci: true,
+		clean: true,
+		budgets: PERFORMANCE_BUDGETS.map(({ id }) => ({
+			budgetId: id,
+			verdict: 'pass',
+			drift: '+1.0%',
+			targetVerdict: 'PASS',
+			...overrides[id],
+		})),
+	} satisfies RunVerdict;
+}
+
+describe('RC-ENG-1.4 performance policy', () => {
+	const drifted = { 'app-startup': { verdict: 'breach' } };
+	const breached = { 'app-startup': { targetVerdict: 'BREACH' } };
+
+	it('reports and never fails until a baseline is recorded for the runner class', () => {
+		for (const mode of ['scheduled', 'pull-request'] as const) {
+			const runs = mode === 'scheduled' ? 5 : 2;
+			const decision = decidePolicy({
+				mode,
+				config: unrecorded,
+				verdicts: Array.from({ length: runs }, () =>
+					runVerdict({ 'app-startup': { verdict: 'breach', targetVerdict: 'BREACH' } }),
+				),
+				host,
+			});
+			expect(decision.enforcing).toBe(false);
+			expect(decision.failures.length).toBeGreaterThan(0);
+			expect(decision.failed).toBe(false);
+		}
+		// A baseline for another runner class or another pinned reference does not enforce either.
+		for (const [config, runner] of [
+			[recorded, { ...host, cpuCount: 16 }],
+			[{ ...recorded, referenceCommit: 'c'.repeat(40) }, host],
+		] as const) {
+			const decision = decidePolicy({
+				mode: 'scheduled',
+				config,
+				verdicts: Array.from({ length: 5 }, () => runVerdict(drifted)),
+				host: runner,
+			});
+			expect(decision).toMatchObject({ enforcing: false, failed: false });
+		}
+	});
+
+	it('fails the scheduled run on drift or disagreement, never on a target breach alone', () => {
+		const scheduled = (verdicts: Array<RunVerdict | null>) =>
+			decidePolicy({ mode: 'scheduled', config: recorded, verdicts, host });
+		const clean = scheduled(Array.from({ length: 5 }, () => runVerdict()));
+		expect(clean).toMatchObject({ enforcing: true, binding: 'drift', stable: true, failed: false });
+		const targetOnly = scheduled(Array.from({ length: 5 }, () => runVerdict(breached)));
+		expect(targetOnly.failed).toBe(false);
+		expect(targetOnly.advisories.join()).toContain('app-startup');
+		expect(scheduled(Array.from({ length: 5 }, () => runVerdict(drifted))).failed).toBe(true);
+		const flipped = scheduled([
+			...Array.from({ length: 4 }, () => runVerdict()),
+			runVerdict(drifted),
+		]);
+		expect(flipped).toMatchObject({ stable: false, failed: true });
+		expect(scheduled([...Array.from({ length: 4 }, () => runVerdict()), null]).failed).toBe(true);
+	});
+
+	it('fails a pull request only on a target breach confirmed by both repeats', () => {
+		const pullRequest = (verdicts: Array<RunVerdict | null>) =>
+			decidePolicy({ mode: 'pull-request', config: recorded, verdicts, host });
+		expect(pullRequest([runVerdict(), runVerdict()])).toMatchObject({
+			binding: 'target',
+			failed: false,
+		});
+		expect(pullRequest([runVerdict(drifted), runVerdict(drifted)]).failed).toBe(false);
+		const once = pullRequest([runVerdict(breached), runVerdict()]);
+		expect(once.failed).toBe(false);
+		expect(once.budgets.find((b) => b.budgetId === 'app-startup')?.verdict).toBe(
+			'unconfirmed-breach',
+		);
+		const twice = pullRequest([runVerdict(breached), runVerdict(breached)]);
+		expect(twice.failed).toBe(true);
+		expect(twice.budgets.find((b) => b.budgetId === 'app-startup')?.verdict).toBe(
+			'confirmed-breach',
+		);
+		// A breach cannot be confirmed by one surviving repeat, and a lost repeat fails closed.
+		expect(pullRequest([runVerdict(breached), null]).failed).toBe(true);
+		const unmeasured = { search: { targetVerdict: 'NOT MEASURED' } };
+		expect(pullRequest([runVerdict(unmeasured), runVerdict(unmeasured)]).failed).toBe(true);
+	});
+
+	it('proposes a baseline only from a complete, agreeing scheduled set', () => {
+		const reference = (value: number): PerfBaselineFile => ({
+			schemaVersion: 1,
+			recordedAt: '2026-09-18T06:00:00.000Z',
+			commit: baselineCommit,
+			aggregation: 'median-of-batches-v1',
+			host,
+			tolerance: 0.2,
+			budgets: PERFORMANCE_BUDGETS.map(({ id, metric }) => ({
+				budgetId: id,
+				observedValue: value,
+				unit: metric.unit,
+				sampleCount: 7,
+				fixture: 'test',
+				scenario: 'test',
+			})),
+		});
+		const references = [100, 104, 99, 250, 101].map(reference);
+		const decision = decidePolicy({
+			mode: 'scheduled',
+			config: unrecorded,
+			verdicts: Array.from({ length: 5 }, () => runVerdict()),
+			host,
+		});
+		const proposed = recordCiBaseline(unrecorded, decision, references, '42', 'now');
+		expect(proposed?.recorded).toMatchObject({
+			commit,
+			referenceCommit: baselineCommit,
+			runId: '42',
+			runs: 5,
+			host: { runnerLabel: 'github-ubuntu-24.04', cpuCount: 4, cpuModels: ['AMD EPYC 7763'] },
+		});
+		expect(proposed?.recorded?.budgets[0]).toMatchObject({ observedValue: 101 });
+		// Once landed, the same runner class enforces.
+		expect(
+			decidePolicy({ ...decision, config: proposed!, verdicts: [runVerdict()], host }).enforcing,
+		).toBe(true);
+		expect(recordCiBaseline(unrecorded, decision, references.slice(0, 4), null, 'now')).toBeNull();
+		expect(
+			recordCiBaseline(unrecorded, { ...decision, stable: false }, references, null, 'now'),
+		).toBeNull();
+	});
+
+	it('checks five scheduled jobs on one commit reached the same decision', () => {
+		const decision = (overrides: Record<string, { verdict?: string }> = {}): PolicyDecision =>
+			decidePolicy({
+				mode: 'scheduled',
+				config: recorded,
+				verdicts: Array.from({ length: 5 }, () => runVerdict(overrides)),
+				host,
+			});
+		expect(() =>
+			verifyScheduledAgreement(Array.from({ length: 5 }, () => decision())),
+		).not.toThrow();
+		expect(() => verifyScheduledAgreement(Array.from({ length: 4 }, () => decision()))).toThrow();
+		expect(() =>
+			verifyScheduledAgreement([...Array.from({ length: 4 }, () => decision()), decision(drifted)]),
+		).toThrow(/disagree/);
+		expect(() =>
+			verifyScheduledAgreement([
+				...Array.from({ length: 4 }, () => decision()),
+				{ ...decision(), commit: 'c'.repeat(40) },
+			]),
+		).toThrow(/commit/);
+	});
 });

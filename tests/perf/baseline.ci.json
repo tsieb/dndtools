@@ -4,5 +4,6 @@
 	"runnerLabel": "github-ubuntu-24.04",
 	"aggregation": "median-of-batches-v1",
 	"tolerance": 0.2,
-	"description": "Pinned code reference, measured afresh on the same CI runner with the candidate capture harness. This is configuration, not fabricated timing data. The measured baseline and its raw samples are uploaded with every run. Refresh this SHA only after reviewing performance evidence."
+	"description": "Pinned code reference, measured afresh on the same CI runner with the candidate capture harness. This is configuration, not fabricated timing data. The measured baseline and its raw samples are uploaded with every run. Refresh this SHA only after reviewing performance evidence. `recorded` is null until a scheduled Performance run on main proposes a baseline for this runner class (the artifact's baseline.ci.json) and a delivery PR lands it; while it is null, or names another reference or runner class, the workflow reports and never fails (RC-ENG-1.4).",
+	"recorded": null
 }

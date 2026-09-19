@@ -240,3 +240,36 @@ reference `48a82786`. The archive, checksums and analysis are in
 acceptance. `search` reads +67–117% in four runs, which is 6 ms rising to
 10–13 ms, inside the 25 ms floor. That is a small real offset between the two
 commits, not a verdict flip. Hosted five-run agreement remains RC-ENG-1.4's.
+
+## RC-ENG-1.4 — CI performance policy (2026-09-18)
+
+Branch `dispatch/dndtools/30779a09fcac910ba751`, based on `2a9a7b71` (the
+`origin/loop/rc` tip at the time).
+
+`perf.yml` now runs in two modes, chosen by `PERF_MODE`. `scheduled` is the
+new nightly cron on `main` and the default for `workflow_dispatch`: five paired
+runs, drift binding. `pull-request` covers pull requests, pushes to `main` and
+`loop/rc`, and dispatches with `mode=pull-request`: two paired runs, and only a
+target breached in both of them is binding. `ci.sh`'s exit status no longer
+decides the job. The new `compare.ts --policy` step reads the `verdict-N.json`
+files, writes `policy.json`/`policy.md` to the job summary, and fails only when
+`baseline.ci.json` has a `recorded` block for this reference and runner class.
+The committed file has `"recorded": null`, so every mode is advisory until a
+scheduled run's proposed `baseline.ci.json` artifact lands through a delivery
+PR. `compare.ts --agreement <dir>` checks five scheduled runs' `policy.json`
+files for agreement.
+
+Outside the owned paths, kept minimal: `scripts/perf/ci.sh` takes `PERF_RUNS`
+(default 5) and runs `stability.ts` only for five; `tests/perf/perf-pipeline.test.ts`
+now expects the new concurrency key (per PR number and event, so sibling PRs no
+longer cancel each other) and covers both modes; `tests/perf/README.md` got a
+pointer to the policy.
+
+Evidence on this branch: the perf vitest config passed 2 files / 20 tests. A
+mutation (a confirmed breach needing one repeat instead of both) was caught by
+the PR-mode test. A fixture CLI run of `--policy pull-request` produced the
+advisory summary and exited 0. Hosted evidence cannot exist before
+integration. The five-scheduled-run agreement has to be collected after merge
+with the `--agreement` recipe in PERFORMANCE.md §2.1, and the first baseline has
+to be recorded by a dispatch plus a delivery PR. No push, dispatch, promotion or
+sub-agent was used.
