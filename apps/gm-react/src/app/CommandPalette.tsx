@@ -257,7 +257,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
 	const parsed = parseQuickSwitcherQuery(debouncedQuery);
 	const commandMode = parsed.commandMode;
-	const needle = parsed.needle;
+	// A canvas prefix scopes action search to the matching route's canvas verbs.
+	const canvasPrefix = parsed.commandMode
+		? /^(board|scene)(?=\s|$)/i.exec(parsed.needle)?.[1].toLowerCase()
+		: undefined;
+	const needle = canvasPrefix
+		? parsed.needle.slice(canvasPrefix.length).trimStart()
+		: parsed.needle;
 	const rawQuery = debouncedQuery.trim();
 
 	const commands = useMemo<PaletteCommand[]>(() => {
@@ -389,8 +395,12 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			commandMode || needle !== '' ? searchCommandActions(otherActions, needle) : [];
 		const actions: PaletteCommand[] = [
 			...canvasRows(),
-			...searchCommandActions(contextualActions, needle).map((action) => actionRow(action, true)),
-			...matchedOthers.slice(0, ACTION_LIMIT).map((action) => actionRow(action, false)),
+			...searchCommandActions(canvasPrefix ? [] : contextualActions, needle).map((action) =>
+				actionRow(action, true),
+			),
+			...(canvasPrefix ? [] : matchedOthers)
+				.slice(0, ACTION_LIMIT)
+				.map((action) => actionRow(action, false)),
 		];
 
 		/**
@@ -401,7 +411,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		 * library of "Add tile" rows would bury everything else on an empty palette.
 		 */
 		function canvasRows(): PaletteCommand[] {
-			if (!canvasRoute) return [];
+			if (!canvasRoute || (canvasPrefix && canvasPrefix !== canvasRoute.kind)) return [];
 			const here = t('palette.group.here');
 			const rows: PaletteCommand[] = [];
 			const provided = listCanvasCommandActions(runtime.state, actorId, {
@@ -489,7 +499,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		const advanceKeywords = t('palette.action.advanceCardKeywords');
 		// DM-only, like every other action here: `listCommandActions` fails closed on its own, so this
 		// hand-written row has to as well — a player previewing the vault is offered no verbs at all.
-		if (isDm && matchesNeedle(advanceLabel, advanceKeywords))
+		if (!canvasPrefix && isDm && matchesNeedle(advanceLabel, advanceKeywords))
 			actions.push({
 				id: 'action:scene-card.advance',
 				kind: 'action',
@@ -632,6 +642,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		// `>` lists ACTIONS only: no section, no entity, no search hit can appear behind the sigil
 		// (SRCH-005 AC3), so the DM who typed `>` is never handed a place instead of a verb. A saved
 		// search qualifies — it RUNS a stored query rather than naming a place.
+		if (canvasPrefix) return actions;
 		if (commandMode) return [...actions, ...creates, ...savedSearches];
 
 		// ── Destinations ─────────────────────────────────────────────────────────────────────────
@@ -759,6 +770,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		navigate,
 		onClose,
 		canvasSurface,
+		canvasPrefix,
 		remember,
 		t,
 	]);

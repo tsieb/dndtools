@@ -5,7 +5,8 @@
 `>board` and `>scene` command-palette actions: Add tile of type…, Apply template…, Toggle edit,
 Undo, visible only on `/board` and `/scene/:id`. Owned paths: `app/CommandPalette.tsx`,
 `app/shortcuts/registry.ts` (under `apps/gm-react/src`), `packages/core/src/queries/command-actions.ts`
-(contextual action provider), `packages/core/src/queries/quick-switcher-query.ts`. Acceptance:
+(contextual action provider), `packages/core/src/queries/quick-switcher-query.ts`, and wiring in
+`apps/gm-react/src/screens/Board.tsx` and `screens/sceneEditor/index.tsx`. Acceptance:
 `command-palette.spec.ts`. No agents, dispatcher mutations, push or promotion.
 
 ## Design
@@ -41,10 +42,10 @@ Undo, visible only on `/board` and `/scene/:id`. Owned paths: `app/CommandPalett
   match the whole query as one substring), so `>add tile dice` finds "Add tile: Dice". A query
   with one token behaves exactly as before.
 
-## Boundary crossings (outside Owns — flagged)
+## Supporting paths and screen wiring
 
-- `apps/gm-react/src/screens/Board.tsx`, `screens/sceneEditor/index.tsx` (owned by RC-POL-1.2 /
-  RC-POL-1.3 / CAN-4.x): each extracts its Edit-layout button handler into `enterEditing(next)`
+- `apps/gm-react/src/screens/Board.tsx`, `screens/sceneEditor/index.tsx` (added to this claim by
+  the 2026-09-18 operator brief): each extracts its Edit-layout button handler into `enterEditing(next)`
   (no behaviour change) and adds one `useEffect` that registers the canvas surface. Needed
   because Toggle edit and Undo act on state that only lives in those screens.
 - `packages/core/src/index.ts`: exports `listCanvasCommandActions`, `canvasSurfaceForRoute` and
@@ -53,14 +54,29 @@ Undo, visible only on `/board` and `/scene/:id`. Owned paths: `app/CommandPalett
 - `apps/gm-react/tests/e2e/command-palette.spec.ts` (the acceptance spec) and a new
   `packages/core/tests/canvas-command-actions.test.ts`.
 
-## Deferred
+## Rebase follow-up (2026-09-19)
 
-- **Apply template on `/scene/:id`**: the core has no command that applies a template to an
-  existing scene yet. `scene.instantiate-template` creates a NEW scene, and `apply-preset` only
-  materializes onto the home scene. RC-CAN-4.4 owns the new `scene.apply-template` (in
-  `commands/command-center.ts`) and its palette surfacing. The provider already takes the scene
-  surface, so the rows plug in there. Until then a scene route lists no template rows, rather
-  than a verb the core would reject.
+- Rebased the candidate onto local `loop/rc` at `268e32b8`. Kept the upstream dialog-scoped
+  assertion when resolving the sole conflict in the acceptance spec. No fetch, push or promotion.
+- Both screen edits remain wiring only: share the toolbar handler and register the current canvas.
+- Current `loop/rc` includes `scene.apply-template`; the earlier deferral is closed. Scene routes
+  now offer built-in, nonempty saved-preset and live template-scene sources, using the picker payload.
+  Applying appends to the selected scene, leaving the home scene untouched.
+- Literal `>board` and `>scene` prefixes scope the query to that route's canvas actions; an
+  optional following query filters those actions. Other routes return no scoped canvas actions.
+- Added core dispatch and browser coverage for scene template application and literal prefixes.
+- Dispatch Headroom tools were unavailable in this session; native commands retain full gate logs
+  under `/tmp/rc-can-43-*.log`. No additional agents or dispatcher state changes.
+- Post-rebase validation on the final source:
+  - `pnpm typecheck`: exit 0 (`/tmp/rc-can-43-typecheck-final.log`).
+  - `pnpm lint`: exit 0 (`/tmp/rc-can-43-lint-final.log`); baseline warnings remain.
+  - `pnpm test:app`: exit 0, 139 files / 1524 tests (`/tmp/rc-can-43-app.log`).
+  - Focused core `canvas-command-actions.test.ts` + `command-actions.test.ts`: exit 0,
+    2 files / 14 tests (`/tmp/rc-can-43-core.log`).
+  - Final `command-palette.spec.ts`, desktop and mobile Chromium: exit 0, 42 passed (1.8m)
+    (`/tmp/rc-can-43-e2e-final.log`). This run began after all source/spec edits.
+  - Changed-file Prettier and `git diff --check`: passed.
+- Historical validation below is retained for provenance only.
 
 ## Spec fixes to pre-existing tests
 

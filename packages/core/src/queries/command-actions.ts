@@ -1,7 +1,7 @@
 import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import { isLiveScene, type SceneState } from '../state/scene-state';
-import type { CommandCenterState } from '../state/command-center-state';
+import { BUILTIN_SCENE_TEMPLATES, type CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
 import type { VaultContentState } from '../state/content';
@@ -277,10 +277,8 @@ export interface CanvasCommandActionContext extends CommandActionContext {
  * Fails closed exactly like {@link listCommandActions}: a non-author actor gets an empty list, and a
  * scene route whose scene is missing, a template, or not live offers nothing at all.
  *
- * Templates: the board's templates are the Command Center presets (they only ever materialize onto
- * the home scene). A plain scene has no in-place apply command yet — RC-CAN-4.4 adds
- * `scene.apply-template` and its rows join this provider then — so it lists none rather than
- * offering a verb the core would reject.
+ * Board layouts restore saved presets. Scene templates append through `scene.apply-template`,
+ * using the same sources and payload as the canvas template picker.
  */
 export function listCanvasCommandActions(
 	state: CommandActionStateView,
@@ -337,6 +335,48 @@ export function listCanvasCommandActions(
 				availability: sceneId ? available() : unavailable(NO_HOME_REASON),
 				commandType: 'command-center.apply-preset',
 				payload: { presetId: preset.id },
+				input: null,
+			});
+		}
+	}
+
+	if (surface.kind === 'scene') {
+		const sources = [
+			...BUILTIN_SCENE_TEMPLATES.map((template) => ({
+				id: `builtin:${template.id}`,
+				name: template.name,
+				source: { kind: 'builtin', templateId: template.id },
+			})),
+			...Object.values(state.commandCenter.presets)
+				.filter((preset) => preset.widgets.length > 0)
+				.map((preset) => ({
+					id: `preset:${preset.id}`,
+					name: preset.name,
+					source: { kind: 'preset', presetId: preset.id },
+				})),
+			...Object.values(state.scenes.scenes)
+				.filter(
+					(scene) =>
+						scene.templateMeta.isTemplate &&
+						isLiveScene(scene) &&
+						scene.id !== sceneId &&
+						scene.widgets.length > 0,
+				)
+				.map((scene) => ({
+					id: `scene:${scene.id}`,
+					name: scene.name,
+					source: { kind: 'scene', templateSceneId: scene.id },
+				})),
+		];
+		for (const template of sources) {
+			actions.push({
+				id: `canvas.template.apply:${template.id}`,
+				title: `Apply template: ${template.name}`,
+				keywords: ['apply', 'template', 'layout', template.name],
+				group: 'template',
+				availability: available(),
+				commandType: 'scene.apply-template',
+				payload: { sceneId, source: template.source },
 				input: null,
 			});
 		}

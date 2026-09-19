@@ -98,13 +98,21 @@ describe('RC-CAN-4.3 canvas contextual actions', () => {
 		});
 	});
 
-	it('scene: Add tile targets THAT scene, not the home scene, and lists no board templates', () => {
+	it('scene: Add tile targets THAT scene, not the home scene, and templates append to that scene', () => {
 		const { env, state, sceneId } = setup();
 		const actions = listCanvasCommandActions(state, DM_ACTOR.id, {
 			profileId: 'desktop',
 			surface: { kind: 'scene', sceneId },
 		});
-		expect(actions.some((a) => a.group === 'template')).toBe(false);
+		const template = actions.find((a) => a.id === 'canvas.template.apply:builtin:combat')!;
+		const applied = run(state, env, {
+			...resolveCommandAction(template)!,
+			actorId: DM_ACTOR.id,
+		} as CoreCommand);
+		expect(applied.scenes.scenes[sceneId]!.widgets.length).toBeGreaterThan(0);
+		expect(applied.scenes.scenes[state.commandCenter.homeSceneId!]!.widgets).toEqual(
+			state.scenes.scenes[state.commandCenter.homeSceneId!]!.widgets,
+		);
 		const dice = actions.find((a) => a.id === 'canvas.tile.add:dice')!;
 		const resolved = resolveCommandAction(dice)!;
 		expect(resolved.payload).toMatchObject({ sceneId });

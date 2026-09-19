@@ -287,6 +287,9 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 
 		await openViaKeyboard(page, 'Meta+k');
 		const here = page.getByRole('group', { name: 'On this screen' });
+		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>scene');
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>board');
 		// Undo is offered but blocked (with its reason) until the layout has a step to take back.
 		const undo = here.getByRole('option', { name: /Undo last change/ });
 		await expect(undo).toHaveAttribute('aria-disabled', 'true');
@@ -303,7 +306,7 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 
 		// "Add tile of type…" — behind a query, so a whole library never floods the empty palette.
 		const before = await homeTiles();
-		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>add tile dice');
+		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>board add tile dice');
 		await expect(page.getByRole('group', { name: 'Go to' })).toHaveCount(0);
 		await here
 			.getByRole('option', { name: /^Add tile: Dice\b/ })
@@ -363,10 +366,22 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await expect.poll(counts).toEqual({ scene: before.scene + 1, home: before.home });
 		// Adding enters edit mode, as a gallery pick does.
 		await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
+		await openViaKeyboard(page, 'Meta+k');
+		await page
+			.getByRole('dialog', PALETTE)
+			.getByRole('combobox')
+			.fill('>scene apply template combat');
+		await here.getByRole('option', { name: /^Apply template: Combat scene/ }).click();
+		await expect.poll(async () => (await counts()).scene).toBeGreaterThan(before.scene + 1);
+		expect((await counts()).home).toBe(before.home);
 	});
 
 	test('the canvas actions are absent off the canvas routes', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
+		for (const prefix of ['>board', '>scene']) {
+			await page.getByRole('dialog', PALETTE).getByRole('combobox').fill(prefix);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+		}
 		await page.getByRole('combobox').fill('>add tile');
 		await expect(page.getByRole('option', { name: /^Add tile:/ })).toHaveCount(0);
 		await page.getByRole('combobox').fill('>edit layout');
