@@ -84,7 +84,10 @@ Every capture now records 22 entries: the eleven standard budget IDs and their
 storage restore, before the measured navigation. Notes have two resolvable links
 each; the compacted snapshot has a 200-operation real update delta. Construction
 is checked against a ten-second ceiling. Setup, restore and initial hydration are
-outside the measured workflow; subsequent reloads read the actual durable vault.
+outside the measured workflow; subsequent opens read the actual durable vault.
+Repeated opens use a new page in the same browser context, preserving IndexedDB
+and cache while releasing Chromium module-loader resources from the previous page.
+Page creation and close are outside the navigation-based sample.
 Scenario mutations (extra map/POIs or indexed notes) run on top of this background
 fixture. Smoke CI is repository-wide and explicitly labels that distinction.
 

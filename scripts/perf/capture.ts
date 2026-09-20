@@ -86,7 +86,8 @@ interface Page {
 		url: string,
 		options?: { waitUntil?: 'domcontentloaded' | 'load' | 'commit' },
 	): Promise<unknown>;
-	reload(options?: { waitUntil?: 'domcontentloaded' | 'load' | 'commit' }): Promise<unknown>;
+	context(): BrowserContext;
+	url(): string;
 	evaluate<R, A = undefined>(fn: (arg: A) => R | Promise<R>, arg?: A): Promise<R>;
 	waitForFunction<A = undefined>(
 		fn: (arg: A) => unknown,
@@ -372,6 +373,20 @@ async function newPage(
 	}
 }
 
+/** Reopen the durable vault in a fresh document within the SAME storage/cache context.
+ * Repeated Vite reloads in one Chromium page can exhaust module-loader resources and leave
+ * a blank document (net::ERR_INSUFFICIENT_RESOURCES). Closing the old page releases them.
+ * Creation/close are outside the navigation-based sample; IndexedDB and HTTP cache persist.
+ */
+async function reopenPage(page: Page): Promise<Page> {
+	const context = page.context();
+	const url = page.url();
+	await page.close();
+	const next = await context.newPage();
+	await next.goto(url, { waitUntil: 'domcontentloaded' });
+	return next;
+}
+
 /** Resolve once the SceneRuntime has hydrated and the shell's main landmark exists. */
 async function waitReady(page: Page): Promise<void> {
 	await page.waitForFunction(
@@ -526,13 +541,19 @@ const appStartup: Scenario = {
 const vaultOpen: Scenario = {
 	budgetId: 'vault-open',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/');
 			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			const samples: number[] = [];
 			for (let i = 0; i < 3; i += 1) {
-				await page.reload({ waitUntil: 'domcontentloaded' });
+				page = await reopenPage(page);
 				await waitReady(page);
 				// The per-route <h1> is always in the DOM but visually hidden in the compact layout, so
 				// wait for it ATTACHED (the e2e helpers make the same distinction).
@@ -552,7 +573,7 @@ const vaultOpen: Scenario = {
 			}
 			return {
 				samples,
-				scenario: 'Reload a seeded vault → runtime hydrated + Command Center heading rendered.',
+				scenario: 'Reopen a seeded vault → runtime hydrated + Command Center heading rendered.',
 				fixture: `${seeded} seeded notes + demo content (budget dataset: 1,000 notes / 100 objects / 20 maps)`,
 				profile: 'desktop',
 			};
@@ -570,13 +591,19 @@ const vaultOpen: Scenario = {
 const syncReconciliation: Scenario = {
 	budgetId: 'sync-reconciliation',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/');
 			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			const samples: number[] = [];
 			for (let i = 0; i < 5; i += 1) {
-				await page.reload({ waitUntil: 'domcontentloaded' });
+				page = await reopenPage(page);
 				await page.waitForFunction(
 					() => !!(window as unknown as { __rt?: { loaded?: boolean } }).__rt?.loaded,
 					undefined,
@@ -602,7 +629,7 @@ const syncReconciliation: Scenario = {
 			);
 			return {
 				samples,
-				scenario: 'Reload → hydrate storage and replay the durable op log to a loaded runtime.',
+				scenario: 'Reopen → hydrate storage and replay the durable op log to a loaded runtime.',
 				fixture: `${ops} queued operations (${seeded} seeded notes) (budget dataset: 1,000 queued operations)`,
 				profile: 'desktop',
 			};
@@ -827,11 +854,17 @@ const liveSessionDelivery: Scenario = {
 const search: Scenario = {
 	budgetId: 'search',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/graph');
 			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
-			await page.reload({ waitUntil: 'domcontentloaded' });
+			page = await reopenPage(page);
 			await waitReady(page);
 			const box = page.getByRole('textbox', { name: 'Search the graph' });
 			await box.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
@@ -888,11 +921,17 @@ const search: Scenario = {
 const graphIndexing: Scenario = {
 	budgetId: 'graph-indexing',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
+		const { page: initialPage, close } = await newPage(
+			browser,
+			options.port,
+			'desktop',
+			options.vaultProfile,
+		);
+		let page = initialPage;
 		try {
 			await gotoRoute(page, '/graph');
 			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
-			await page.reload({ waitUntil: 'domcontentloaded' });
+			page = await reopenPage(page);
 			await waitReady(page);
 			const actor = await actorId(page);
 			const samples = await page.evaluate<number[], { actor: string; runs: number }>(

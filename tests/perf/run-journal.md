@@ -286,3 +286,23 @@ its second construction/deep comparison cannot obscure the explicit 10-second
 first-build assertion. No application performance fix or warning suppression was
 introduced. Other large-scenario probes are functional checks, not stable timing
 comparisons: some ran concurrently on this workstation.
+
+### Browser failure diagnosis and recovery
+
+A later unit run failed before collection with `Unknown system error -122, write`
+while the temporary reference checkout was installed in quota-limited `/tmp`.
+After removing that task-created checkout, the identical scoped perf command
+passed again (3 files / 16 tests). No user data or dispatcher state was removed.
+
+Browser failures also reproduced independently of quota: after repeated same-page
+reloads, requests for Vite modules failed with `net::ERR_INSUFFICIENT_RESOURCES`;
+the timeout diagnostic showed an empty document and no `window.__rt`, not a loaded
+vault that missed its performance target. Waiting for network idle did not fix it.
+Reopening in a new page within the same browser context preserves IndexedDB/cache
+and releases the previous page's loader resources. With that change, standalone
+probes completed large sync (5 samples), delivery (15), graph indexing (5), and
+standard search (20). Capture now uses this reopen path for vault, sync, search
+and graph scenarios; samples still start at navigation, after page close/create.
+No failed sample is converted to a pass or omitted. Earlier failed captures stay
+in local `tmp/perf` as failed evidence. A fresh seven-batch standard/large capture
+of those four workflows is running against the final implementation.
