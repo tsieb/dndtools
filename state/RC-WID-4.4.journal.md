@@ -82,3 +82,28 @@
 - `app/map/canvas/MapMarkers.tsx` and the DS `POIMarker` always render markers as buttons. On a
   mobile board a bound map with tokens or POIs fails axe `target-size`. The e2e binds the map tile
   to a map with no markers. The fix belongs in the shared marker renderer.
+
+## Attempt 4 — current verification (2026-09-20)
+
+- Read the original supplied App tests log for run `6e685d0d-5263-4257-8877-2ff470e96fa5`.
+  It records 1365 passing tests and the same single changelog assertion failure at line 85.
+  This is still an unresolved gate failure, not a successful implementation retry.
+- Verified at `3a9ff68d` that `git diff 66b7ab7f HEAD -- CHANGELOG.md
+apps/gm-react/package.json apps/gm-react/src/app/help` is empty. The current parser still
+  chooses the first section with bullets, including `Unreleased`.
+- Ran `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/widgets
+apps/gm-react/src/app/help/changelog.test.ts`: exit 1, nine widget files pass (180 tests);
+  the changelog file has six passes and the reproduced `Unreleased` versus `0.3.7` failure.
+  Original output: `/tmp/rc-wid-44-unit.log` (ephemeral local evidence).
+- Ran `pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/custom-widgets.spec.ts --project=desktop-chromium --project=mobile-chromium
+--workers=2`: exit 0, 14 passed. This includes both routes' builtin axe checks, keyboard
+  operation, and forced-colors forwarding on both profiles. Original output:
+  `/tmp/rc-wid-44-e2e.log` (ephemeral local evidence).
+- No product changes in this attempt; the implementation remains in `15e4a15c`. No full app
+  suite or visual gate rerun: the supplied full app result remains failed, and this attempt
+  changes only this journal. The documented populated-map marker gap also remains.
+- Operator handoff: repair the changelog parser and add the non-empty Unreleased fixture in
+  the owning task, then integrate that prerequisite and rerun the central gates. Repeating
+  this unchanged candidate cannot resolve the App tests failure. No dispatcher state,
+  ownership-external source, remote branch, or integration branch was modified.
