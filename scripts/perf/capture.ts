@@ -95,6 +95,7 @@ interface Page {
 	getByTestId(testId: string): Locator;
 	addInitScript(script: () => void): Promise<void>;
 	readonly mouse: Mouse;
+	context(): BrowserContext;
 	close(): Promise<void>;
 }
 
@@ -512,18 +513,43 @@ const vaultOpen: Scenario = {
 const syncReconciliation: Scenario = {
 	budgetId: 'sync-reconciliation',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const initial = await newPage(browser, options.port, 'desktop');
+		let page = initial.page;
+		const context = page.context();
+		const close = initial.close;
 		try {
 			await gotoRoute(page, '/');
 			const seeded = await seedNotes(page, options.notes);
 			const samples: number[] = [];
 			for (let i = 0; i < 5; i += 1) {
 				await page.reload({ waitUntil: 'domcontentloaded' });
-				await page.waitForFunction(
-					() => !!(window as unknown as { __rt?: { loaded?: boolean } }).__rt?.loaded,
-					undefined,
-					{ timeout: READY_TIMEOUT },
-				);
+				try {
+					await page.waitForFunction(
+						() => !!(window as unknown as { __rt?: { loaded?: boolean } }).__rt?.loaded,
+						undefined,
+						{ timeout: READY_TIMEOUT },
+					);
+				} catch (error) {
+					// Keep the timeout unchanged, but distinguish boot failure from a slow runner.
+					const boot = await page
+						.evaluate(() => {
+							const rt = (
+								window as unknown as {
+									__rt?: { loaded: boolean; hasLoadError: boolean; lastError: string | null };
+								}
+							).__rt;
+							return {
+								runtimePresent: !!rt,
+								loaded: rt?.loaded,
+								hasLoadError: rt?.hasLoadError,
+								lastError: rt?.lastError,
+							};
+						})
+						.catch(() => ({ runtimePresent: false }));
+					throw new Error(
+						`Reconciliation reload ${i + 1}: ${JSON.stringify(boot)}; ${String(error)}`,
+					);
+				}
 				samples.push(
 					round(
 						await page.evaluate<number>(() => {
@@ -536,6 +562,15 @@ const syncReconciliation: Scenario = {
 						}),
 					),
 				);
+				if (i < 4) {
+					// Repeated Vite module reloads can exhaust Chromium's per-page resources
+					// before the runtime exists. Release the page between samples, retaining
+					// this context's seeded IndexedDB and cache. Setup is outside the timer;
+					// the next sample still measures a real reload through runtime hydration.
+					await page.close();
+					page = await context.newPage();
+					await gotoRoute(page, '/');
+				}
 			}
 			const ops = await page.evaluate<number>(
 				() =>
@@ -1237,11 +1272,15 @@ async function main(): Promise<void> {
 				const batches = new Map<Side['label'], Capture[]>(sides.map((side) => [side.label, []]));
 				for (let repeat = 0; repeat < 7; repeat += 1) {
 					for (const side of interleavedOrder(sides, repeat)) {
-						const batch = await scenario.run({
-							browser: browser as Browser,
-							options: { ...options, port: side.port },
-							root: side.root,
-						});
+						const batch = await scenario
+							.run({
+								browser: browser as Browser,
+								options: { ...options, port: side.port },
+								root: side.root,
+							})
+							.catch((error: unknown) => {
+								throw new Error(`${side.label} batch ${repeat + 1}: ${String(error)}`);
+							});
 						if (batch.samples.length === 0) {
 							throw new Error(`${side.label}: ${batch.unavailableReason ?? 'empty batch'}`);
 						}

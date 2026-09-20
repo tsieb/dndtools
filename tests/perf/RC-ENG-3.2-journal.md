@@ -15,3 +15,57 @@ reference, comparison policy or measurement scenario changed.
 
 Validation and timing results pending. A detached checkout of the starting
 revision provides the unchanged-code reference for the interleaved comparison.
+
+Existing runtime serialization suite: 8/8 passed. Added regression coverage for
+synchronous version/preview delivery, unsubscribe, per-command replication after
+persistence, and rollback without replication. Perf config: 17/17 passed before
+a type-only correction to the preview selection fixture (`role: 'player'`).
+Targeted source ESLint and formatting passed. The supplemental large-scene
+script uses 10 bound map tiles and 40 demo-derived tiles; it fails on rejected
+fixture commands or missing rendered tiles and retains all seven paired samples.
+
+The first complete capture finished but is **incomplete evidence**: reconciliation
+hit the unchanged 30-second runtime-ready timeout, so both paired captures record
+that budget unavailable. Baseline generation correctly refused it. All ten other
+budgets have seven batches. Scene first render: 1084.9 -> 1046.8 ms; widget update:
+16.8 -> 18.5 ms. These partial results do not establish all-green acceptance.
+Logs show a pre-existing Graph font/lineHeight warning on both revisions; no
+runtime error was exposed by the original timeout. Added failure-only diagnostics
+(side, batch, reload, runtime load flags/error) without changing samples, timeout,
+fixtures or grading. A targeted paired reconciliation run follows.
+
+Shortened the new Board comment to remain below the 800-line hard limit; no
+executable app change since the measured implementation. Perf tests rerun: 17/17
+passed. Repository quality and documentation gates passed.
+
+The targeted run reproduced failure on **reference batch 1, reload 5** with no
+runtime instance. A standalone browser reproduction showed Chromium rejecting
+module fetches with `net::ERR_INSUFFICIENT_RESOURCES`, leaving a blank document.
+Waiting for network idle outside each timing interval did not resolve it (failed
+on reload 4). This is not evidence of slow replay or a candidate regression.
+Testing fresh pages within the same seeded browser context preserves IndexedDB
+and the five measured reloads while releasing each previous page's resources.
+
+Fresh-page reproduction: 12 consecutive measured reloads, zero failed requests.
+The harness now releases each page between reconciliation samples but retains
+the same seeded browser context/IndexedDB/cache. Each replacement is opened before
+the next measured reload; neither setup nor cleanup enters the timing interval.
+Seven batches, five reload samples per batch, targets and timeout are unchanged.
+Both revisions use this same harness. No retry discards a failing timing sample.
+
+Full app suite: **142 files / 1551 tests passed**. Perf suite after the harness
+repair: **3 files / 17 tests passed**. Targeted ESLint passed.
+
+Supplemental scene capture: seven alternating pairs at 2x CPU throttle, after one
+warmup per revision, all 50 widget frames and exactly 10 map bodies verified.
+Median reference **1143.9 ms**, candidate **1102.0 ms** (**-3.7%**). The earlier
+fixture attempt failed before recording samples because hydration auto-binds every
+map tile; the corrected 40 remaining tiles use non-map demo types. This is a modest
+incremental win on a base that already includes the archived seed optimization,
+not a new 20% speedup. It is a persisted-vault reload, distinct from the standard
+cold-context demo-first-render scenario.
+
+Browser authoring check passed: zero generator/builder module requests before
+opening; both dialogs load, open and close through Board's gallery, and the board
+remains mounted. A first manual script forgot to reopen the gallery after closing
+the builder; correcting that test sequence required no app change.

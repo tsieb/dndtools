@@ -43,8 +43,7 @@ import { FlowBoard } from '../app/canvas/FlowBoard';
 import { BoardHeading } from './board/BoardHeading';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
-// Authoring tools are loaded only when opened, so their editor/provider modules do not
-// sit on the first scene's navigation path. Keep Suspense local to preserve the board.
+// Load authoring tools on demand; local Suspense keeps the board mounted.
 const GenerateDialog = lazy(() =>
 	import('../app/widgetBuilder/GenerateDialog').then((module) => ({
 		default: module.GenerateDialog,
