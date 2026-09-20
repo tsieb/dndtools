@@ -341,3 +341,49 @@ or promoted; no workflow, loop, sub-agent or dispatcher control-state change was
 launched. The task-created reference checkout and diagnostic servers were removed
 or stopped; original local failed diagnostics remain available under `tmp/perf`
 and the task-named `/tmp/rc-eng-3.3-*` logs.
+
+## 2026-09-20 — RC-ENG-3.3 independent-review timing repair
+
+Review of candidate `fa2d30bdeb7eb470889f404bcab8081a127e2dd7` identified
+same-document startup/board navigation after large-fixture restore. The undefined
+start mark then included the setup document's elapsed time. Large setup now closes
+its document and returns a fresh page in the same durable storage/cache context.
+Startup and scene navigation also reject null navigation responses, failing closed
+if a future change turns either into a hash-only transition.
+
+Added opt-in real-Chromium regression coverage in `navigation.browser.ts`, exercising
+both standard and large startup/scene scenarios. It deliberately delays setup and
+asserts all four navigations per scenario (warmup plus samples) are real document
+loads, with each large measured time origin after restore and the injected delay.
+Run against a Vite server with `PERF_BROWSER_URL=http://localhost:15573 pnpm exec tsx
+tests/perf/navigation.browser.ts`.
+
+Scoped unit suite: 16 passed, four browser checks skipped without the opt-in URL.
+Targeted ESLint and the capture TypeScript check exited 0. Live browser results
+and any new capture evidence follow below. No Headroom tools are available.
+Hosted 22-row acceptance remains required; local execution is not a hosted runner,
+and this task does not authorize publication or remote workflow dispatch.
+
+The initial Vitest browser invocation failed two large checks because its SSR
+transform rewrote the browser-side dynamic import to an unavailable Vitest helper.
+The browser test now runs under tsx/node:test, like the capture CLI, to exercise
+the actual browser code without that transform. This was a test-runner issue,
+not a timing measurement result.
+
+The tsx/node:test browser invocation exited 0: all four checks passed. All eight
+large measured-document origins (including warmups) followed completed setup;
+none of the 24 total navigations was a same-document transition. Large startup
+samples were 813.9/818.2/818.2 ms, scene samples 1314.5/1147.8/1142.3 ms.
+The final scoped suite passed 3 files / 16 tests and measured fixture construction
+at 766.7 ms. Typechecking the capture and browser regression together passed.
+An initial direct Playwright type import did not resolve through the app compiler
+configuration; the regression now derives its browser types from the scenario API.
+No application behavior or performance targets were changed.
+
+A post-commit browser run will retain exact implementation-SHA provenance. This
+is regression evidence only, not the missing 22-row hosted baseline. The central
+operator must publish the candidate when authorized, run its Performance workflow,
+and retain the full `perf-run` artifact with the candidate SHA and all 22 numeric
+baseline rows. The task's no-push restriction prevents supplying new hosted-runner
+evidence here; neither configuration descriptions nor local/synthetic samples
+are substituted for that acceptance requirement.
