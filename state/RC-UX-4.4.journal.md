@@ -157,3 +157,32 @@
   are byte-identical to base again, and the one label that did change case (`player.hp.label`,
   `HIT POINTS` → `Hit points`) renders narrower, not wider.
 - Full-suite revalidation and independent reviewer sign-off remain with the central operator.
+
+## Post-rebase follow-up: vault recovery translations
+
+- Read the original app-test failure in attempt `3233c64a-45d6-4134-a454-5f584aff82be`
+  and reproduced it locally: the exact-key-coverage test identified 11 missing Spanish vault
+  recovery/storage keys. The earlier copy pass and review fixes are already in this branch.
+- Read the content fundamentals and the vault recovery UI. Added all 11 Spanish translations,
+  preserving `{percent}`, `{name}` and `{bytes}`. Kept the existing coverage and argument checks.
+- Added a retry action to the recovery-export failure in both locales and replaced the internal
+  quarantine heading with “Documents needing recovery”. Updated its one companion e2e assertion
+  under roadmap §0.2; no behavioral assertion changed.
+- Delegated only the two longer help strings to natural-writer, following its local instructions;
+  incorporated its EN/ES guidance on freeing space and retaining originals for recovery.
+- Headroom tools are unavailable; diagnostics below use original command logs. Initial full app
+  run: 119 files / 1,386 tests passed, 15 suites could not load with `Unknown system error -122`
+  on write. Initial browser run: both profiles reached the final reload and timed out waiting for
+  the runtime. `/tmp` uses a per-user quota; rerunning with a task-specific `TMPDIR` under
+  `/home/trinkle/.cache/rc-ux-44-tmp`, without deleting shared temporary files. Validation pending.
+- Final app rerun passed: 134 files / 1,484 tests, including exact Spanish coverage and argument
+  parity (`/tmp/rc-ux-44-app-recheck.log`). Browser rerun passed both desktop and mobile with one
+  worker and zero retries (`/tmp/rc-ux-44-storage-recheck.log`), including original export and reload.
+  This establishes the rerun result; it does not prove the initial browser timeout's cause.
+- `pnpm check` also passed in full (`/tmp/rc-ux-44-check.log`): system/Android validation, quality
+  gates, boundary lint, all three package typechecks, core (4,814 tests), cloud (491), app (1,484),
+  and tooling (191). Changed-file ESLint, Prettier and `git diff --check` passed. Read original
+  summaries and confirmed exit code 0 for each completed validation command.
+- The earlier per-package vocabulary limitation remains recorded in `DEBT-2026-007`; this follow-up
+  introduces no vocabulary changes. Independent reviewer sign-off remains with the central operator.
+  No push, promotion, additional loop or dispatcher control-state changes.

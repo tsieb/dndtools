@@ -1498,16 +1498,16 @@ export const en = {
 	'settings.vault.pruneFailed':
 		'Could not free space. Export a backup before removing campaign media.',
 	'settings.vault.recoveryExportFailed':
-		'This recovery record could not be exported. Its original remains stored on this device.',
+		'This recovery file could not be exported. Try again. The original stays on this device.',
 	'settings.vault.pressureTitle': 'Storage almost full',
 	'settings.vault.pressureBody':
 		'{percent}% of browser storage is in use. Free space before adding more content.',
 	'settings.vault.pressureGuidance':
-		"Clear cached search data below. If more space is needed, export a vault backup, then remove unneeded campaign media. Keep this site's data to preserve your vault.",
+		'Choose Free space to clear cached search data. If you still need room, export a vault backup before removing campaign media. Keep this site’s data in your browser to preserve your vault.',
 	'settings.vault.freeSpace': 'Free space',
-	'settings.vault.quarantineTitle': 'Quarantined documents',
+	'settings.vault.quarantineTitle': 'Documents needing recovery',
 	'settings.vault.quarantineBody':
-		'These documents could not be read. The rest of your vault is available. Export each original for recovery; keep it until you have restored your content.',
+		'These documents could not be read. You can still use the rest of your vault. Export each original and keep it until you have recovered its content.',
 	'settings.vault.exportRecovery': 'Export {name} for recovery',
 	'settings.vault.pruned': 'Freed {bytes} bytes of cached search data.',
 	'settings.vault.title': 'Vault connections',

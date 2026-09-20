@@ -1504,6 +1504,23 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Deja el correo en blanco para obtener solo un enlace para compartir y un código QR. Si lo rellenas, también enviaremos la invitación por correo si esta aplicación tiene configurado el envío.',
 
 	/* Ajustes › Conexiones del baúl */
+	'settings.vault.recoveryReadFailed':
+		'No se pudieron leer los archivos de recuperación. Vuelve a abrir la bóveda para intentarlo de nuevo.',
+	'settings.vault.pruneFailed':
+		'No se pudo liberar espacio. Exporta una copia de seguridad antes de eliminar archivos multimedia de la campaña.',
+	'settings.vault.recoveryExportFailed':
+		'No se pudo exportar este archivo de recuperación. Inténtalo de nuevo. El original sigue guardado en este dispositivo.',
+	'settings.vault.pressureTitle': 'Almacenamiento casi lleno',
+	'settings.vault.pressureBody':
+		'Se está usando el {percent}% del almacenamiento del navegador. Libera espacio antes de añadir más contenido.',
+	'settings.vault.pressureGuidance':
+		'Selecciona Liberar espacio para borrar los datos de búsqueda guardados en caché. Si necesitas más espacio, exporta una copia de seguridad de la bóveda antes de eliminar archivos multimedia de la campaña. Conserva los datos de este sitio en el navegador para mantener tu bóveda.',
+	'settings.vault.freeSpace': 'Liberar espacio',
+	'settings.vault.quarantineTitle': 'Documentos que necesitan recuperación',
+	'settings.vault.quarantineBody':
+		'No se pudieron leer estos documentos. Puedes seguir usando el resto de tu bóveda. Exporta cada original y guárdalo hasta que hayas recuperado su contenido.',
+	'settings.vault.exportRecovery': 'Exportar {name} para su recuperación',
+	'settings.vault.pruned': 'Se liberaron {bytes} bytes de datos de búsqueda guardados en caché.',
 	'settings.vault.title': 'Conexiones de bóveda',
 	'settings.vault.manageInKnowledge': 'Gestionar en Conocimiento',
 	'settings.vault.loading': 'Cargando las conexiones de la bóveda',
