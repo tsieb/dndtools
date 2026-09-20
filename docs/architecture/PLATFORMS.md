@@ -208,3 +208,9 @@ server fetch fails, the shipping component offers a retry, and that retry is the
 Run all three with:
 `pnpm --filter @dndtools/gm-react exec vitest run src/cloud/offline` and
 `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pwa-offline.spec.ts --workers=1`.
+
+Discovery server-side search and facet filters carry the same offline state as install and
+remove actions. Rating submission and review reporting are guarded in the shared discovery
+components; selecting cached cards and editing an unsent rating draft remain local actions.
+`Discover.test.tsx` verifies these controls across disconnect and reconnect, including that
+blocked activations issue no requests.

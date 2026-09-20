@@ -217,3 +217,27 @@ for the next reader of this spec.
 - No additional source changes were needed for the task acceptance checks. Committing the
   remaining reconciliation journal addresses the uncommitted-work feedback. No push, promotion,
   additional loop, delegation, or dispatcher control-state mutation.
+
+## Attempt 5 — reconcile discovery changes on 2d9f566d
+
+- Rebased the three task commits onto `2d9f566d194d10e597c8001015b7e8be31811d59`.
+  Resolved Discover by preserving integration's server search, facets, featured listings,
+  ratings, install tracking and removal API, then applying the offline guards.
+- Integration added cloud controls in `community/shared.tsx`: rating submission and review
+  reporting now use the gate. Removed its obsolete static-rule exemption. This minimal ownership
+  crossing is necessary to preserve all-control acceptance on the new integration tree.
+- Search/filter changes and background discovery loads stop offline and resume on reconnect.
+  Cached-card selection, cancellation and editing an unsent rating draft remain local.
+- Added configured Discover regression coverage for filters, install, rating and report;
+  checks the indicators, blocked requests, local draft editing, and reconnect. Initial test
+  failed on an incorrect report-button label; corrected to the actual accessible label.
+- Fresh offline component/static suite: 6 passed, exit 0. App typecheck: exit 0.
+  `pnpm gates`: exit 0. Original logs `/tmp/rc-plt-reconcile-unit.log`,
+  `/tmp/rc-plt-reconcile-type.log`, `/tmp/rc-plt-reconcile-gates.log`.
+- Offline browser spec: 18 passed on both profiles, exit 0;
+  original log `/tmp/rc-plt-reconcile-pwa.log`. Full browser suite not rerun;
+  prior saved-search failure remains recorded above, not claimed fixed.
+- Final configured Discover suite: 9 passed, exit 0 (`/tmp/rc-plt-discover-tests.log`).
+  Final app typecheck passed (`/tmp/rc-plt-reconcile-type-final.log`); focused ESLint,
+  Prettier and whitespace checks passed. Verified the requested integration SHA is an ancestor
+  of this branch. No publication or dispatcher mutations.

@@ -319,6 +319,55 @@ describe('RC-SYS-3.4 / RC-CLD-4.5 Community › Discover', () => {
 		expect(container.querySelector('textarea')).toBeNull();
 	});
 
+	it('marks server filters, install, rating and report offline without blocking local drafts', async () => {
+		server.listings = [listing({ moduleId: 'm1', installed: true })];
+		server.reviews = [
+			{
+				reviewId: 'r1',
+				stars: 3,
+				note: 'Useful',
+				createdAt: '2026-09-01',
+				updatedAt: '2026-09-01',
+				mine: false,
+			},
+		];
+		const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+		try {
+			await mount();
+			await click(button('4 ★'));
+			online.mockReturnValue(false);
+			await act(async () => window.dispatchEvent(new Event('offline')));
+			const controls = [
+				container.querySelector('input[type="search"]')!,
+				select('community-kind-filter'),
+				select('community-system-filter'),
+				select('community-license-filter'),
+				button('Install to vault'),
+				button('Save rating'),
+				container.querySelector('button[aria-label="Report this review to the maintainers"]')!,
+			];
+			for (const control of controls) {
+				expect(control).not.toBeNull();
+				expect(control.getAttribute('data-cloud-offline')).toBe('true');
+				expect(control.getAttribute('title')).toMatch(/offline/i);
+			}
+			const requests = server.requests.length;
+			await choose('community-kind-filter', 'system-package');
+			await click(button('Save rating'));
+			await click(controls[6] as HTMLElement);
+			await click(button('Install to vault'));
+			await type(container.querySelector('textarea')!, 'A local draft');
+			expect(server.requests).toHaveLength(requests);
+			expect(container.querySelector('textarea')!.value).toBe('A local draft');
+			online.mockReturnValue(true);
+			await act(async () => window.dispatchEvent(new Event('online')));
+			await settle();
+			expect(container.querySelectorAll('[data-cloud-offline]')).toHaveLength(0);
+		} finally {
+			online.mockRestore();
+		}
+	});
+
 	it('rates an installed module: stars and a note go to the server, and the card shows it', async () => {
 		server.listings = [listing({ moduleId: 'm1', name: 'Torch tracker', installed: true })];
 		await mount();

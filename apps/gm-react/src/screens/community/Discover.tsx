@@ -330,7 +330,6 @@ export function CommDiscover() {
 							variant="secondary"
 							size="sm"
 							disabled={busy}
-							{...cloudActions.offlineProps}
 							onClick={() => setConfirmRemove(null)}
 						>
 							{t('common.action.cancel')}
@@ -364,13 +363,7 @@ export function CommDiscover() {
 				size="md"
 				footer={
 					<>
-						<Button
-							variant="secondary"
-							size="sm"
-							disabled={busy}
-							{...cloudActions.offlineProps}
-							onClick={() => setReview(null)}
-						>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setReview(null)}>
 							{t('common.action.cancel')}
 						</Button>
 						{review?.plan.kind !== 'unsupported' && (
