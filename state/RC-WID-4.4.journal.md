@@ -132,3 +132,28 @@ tests/e2e/custom-widgets.spec.ts --project=desktop-chromium --project=mobile-chr
   integration branch's live kit updates. Prettier and `git diff --check` pass.
 - The populated-map marker limitation documented above remains outside this conflict repair.
   No push, promotion, dispatcher state changes, or additional agents.
+
+## Attempt 6 — distinguish repeated widget landmarks (2026-09-20)
+
+- Read the original browser acceptance log for `a50e5075-bcb8-40f0-b0cc-5bc7571f6f84`.
+  All four failures are `landmark-unique`: the canvas arrange and keyboard tests create multiple
+  default Note tiles, whose content regions all had the accessible name `Note`. The gate recorded
+  1266 passes, 16 skips, and these four failures across desktop and mobile (including retries).
+- `WidgetRenderSlot` now prefixes placed region names with the widget's persisted scene-list
+  position, e.g. `1. Note` and `2. Note`. This applies to every renderer branch and distinguishes
+  equal titles without exposing internal IDs. Moving/resizing leaves numbering unchanged;
+  insertion/removal can renumber later entries. Unplaced previews retain their title.
+- The owned custom-widget axe scenarios now place additional duplicate Note tiles on both routes.
+  Their shared region assertion rejects duplicate accessible names as well as empty names.
+  WIDGETS.md documents the naming contract.
+- Focused browser verification: custom-widgets, canvas-keyboard and canvas-arrange, both Chromium
+  profiles with two workers and no retries: exit 0, 24 passed. This includes all four previously
+  failing cases. Original log: `/tmp/rc-wid-44-landmarks-e2e.log`.
+- Full `pnpm test:app`: exit 0, 144 files / 1616 tests passed. Original log:
+  `/tmp/rc-wid-44-landmarks-unit.log`. App typecheck and focused ESLint both exit 0;
+  logs: `/tmp/rc-wid-44-landmarks-typecheck.log`, `/tmp/rc-wid-44-landmarks-lint.log`.
+- Pinned visual comparison (`--update-snapshots=none --workers=2`): exit 0, 135 passed;
+  `/tmp/rc-wid-44-landmarks-visual.log`. No baseline changes. Prettier and diff checks pass.
+- The full 1286-case browser acceptance command is left to the central operator; this attempt ran
+  the affected suites rather than claiming a new full browser result. Logs above are ephemeral
+  local evidence. No push, promotion, or dispatcher state changes.

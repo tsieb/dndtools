@@ -65,6 +65,11 @@ What every widget owes a keyboard or screen-reader user, and who supplies each p
 | No colour-only state | An accent tone also carries a shape and a name: `StateMark` (done, pinned, playing), "Now" on the active chart and tracker row, a warning glyph on an urgent timer.                                                                     | Same rule. Honour the contrast state below.                                                                                                            |
 | Contrast             | Tokens remap under `forced-colors` (`styles/tokens/colors.css`).                                                                                                                                                                        | `init` sets `--host-forced-colors` (`active` \| `none`) and `--host-high-contrast` (`on` \| `off`) on the frame's root, whatever the package declares. |
 
+Placed regions prefix the title with their persisted scene-list position (for example, `1. Note`
+and `2. Note`). This keeps landmarks distinct when titles repeat, including across widget types.
+Moving or resizing a tile preserves its number; adding/removing tiles may renumber later entries.
+Unplaced previews use the title alone.
+
 The readouts are `aria-live`, not `role="status"`. The canvas's confirmation channel ("Undone: moved
 …") is the one status on a board; twenty tiles each claiming the role would bury it.
 

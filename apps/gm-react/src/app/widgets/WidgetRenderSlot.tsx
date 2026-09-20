@@ -131,7 +131,7 @@ export function WidgetStyleScope({
 }
 
 /**
- * RC-WID-4.4 — every widget's contents are ONE region, named by the widget's own title, so a
+ * RC-WID-4.4 — every widget's contents are ONE region, named by its scene position and title, so a
  * screen-reader user can move tile to tile by landmark and always knows whose content they are in.
  * It is drawn here, on the single render path, rather than in each body: a builtin body, a template,
  * a sandboxed frame and the "disabled, preserved" placeholder all get it, and none can forget it.
@@ -240,6 +240,16 @@ function renderPlan(
 
 export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 	const runtime = useRuntime();
+	// Titles are editable and repeated types often share one (e.g. three "Note" tiles). Prefix the
+	// persisted scene-list position so each landmark has a distinct, readable name without exposing
+	// an internal ID. Moving/resizing a tile leaves this number unchanged.
+	// Unplaced previews have no scene position and keep their title.
+	const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
+		candidate.widgets.some((instance) => instance.id === widget.id),
+	);
+	const position = scene?.widgets.findIndex((instance) => instance.id === widget.id) ?? -1;
+	const title = widget.title.trim() || widget.typeLabel;
+	const regionLabel = position >= 0 ? `${position + 1}. ${title}` : title;
 	// The board view-model carries no entrypoint (it is chrome-only), so the definition is read here
 	// — the same lookup `/board` and `/scene/:id` already use to build the view-model.
 	const definition = findWidgetDefinition(runtime.state.widgets, widget.type);
@@ -267,7 +277,7 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 		<WidgetStyleScope
 			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
 		>
-			<WidgetRegion label={widget.title.trim() || widget.typeLabel}>
+			<WidgetRegion label={regionLabel}>
 				<WidgetErrorBoundary widgetId={widget.id}>
 					{renderPlan(
 						plan,

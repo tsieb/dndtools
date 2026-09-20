@@ -546,6 +546,7 @@ async function expectLabelledRegions(page: Page, count: number) {
 		els.map((el) => el.getAttribute('aria-label')?.trim() ?? ''),
 	);
 	expect(names.filter((name) => name === '')).toEqual([]);
+	expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(count);
 }
 
 /**
@@ -601,7 +602,8 @@ test.describe('widget accessibility contract', () => {
 		page,
 	}) => {
 		await openScene(page);
-		const types = await builtinTypes(page);
+		// Duplicate default titles must remain distinguishable as landmarks.
+		const types = [...(await builtinTypes(page)), 'note', 'note'];
 		expect(types.length).toBeGreaterThan(15);
 		const sceneId = await createScene(page, `Contract Scene ${Date.now()}`);
 		await placeTypes(page, sceneId, types, {
@@ -643,7 +645,11 @@ test.describe('widget accessibility contract', () => {
 			};
 		});
 		expect(home.id, 'the GM Screen has no home scene').toBeTruthy();
-		const missing = (await builtinTypes(page)).filter((type) => !home.types.includes(type));
+		const missing = [
+			...(await builtinTypes(page)).filter((type) => !home.types.includes(type)),
+			'note',
+			'note',
+		];
 		// The board's own three-column grid (`board-helpers.ts`), below what the seed already placed.
 		await placeTypes(page, home.id!, missing, {
 			x: 24,
