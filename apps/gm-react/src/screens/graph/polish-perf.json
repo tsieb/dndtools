@@ -1,0 +1,90 @@
+{
+	"baselineRevision": "2d9f566d",
+	"fixtureScope": "200 notes, local desktop Chromium/Vite; not the 10,000-record reference profile",
+	"before": {
+		"schemaVersion": 1,
+		"capturedAt": "2026-09-20T14:29:23.399Z",
+		"commit": "2d9f566d194d10e597c8001015b7e8be31811d59",
+		"aggregation": "median-of-batches-v1",
+		"host": {
+			"hostname": "redacted",
+			"os": "Linux linux x64",
+			"cpuCount": 16,
+			"cpuModel": "AMD Ryzen 7 5700X 8-Core Processor",
+			"totalMemoryMb": 32005,
+			"ci": false,
+			"runnerLabel": "local"
+		},
+		"budgets": [
+			{
+				"budgetId": "graph-indexing",
+				"samples": [
+					80, 86.3, 59.6, 42.8, 52.7, 79.9, 112.1, 66.6, 43.8, 47.6, 85.4, 112, 64.8, 57.5, 48.1,
+					93.8, 106.3, 61.3, 62.1, 36.8, 85.5, 122.9, 62, 61.1, 50.7, 95.9, 121.7, 62.7, 63, 42.4,
+					79.6, 88.4, 63.7, 59.3, 36.9
+				],
+				"scenario": "Add one linked note 5× and time until the graph rail shows the affected node.",
+				"fixture": "One changed note in a 200-note vault (budget dataset: one changed note in a 10,000-record vault)",
+				"profile": "desktop",
+				"repetitions": [
+					[80, 86.3, 59.6, 42.8, 52.7],
+					[79.9, 112.1, 66.6, 43.8, 47.6],
+					[85.4, 112, 64.8, 57.5, 48.1],
+					[93.8, 106.3, 61.3, 62.1, 36.8],
+					[85.5, 122.9, 62, 61.1, 50.7],
+					[95.9, 121.7, 62.7, 63, 42.4],
+					[79.6, 88.4, 63.7, 59.3, 36.9]
+				]
+			}
+		]
+	},
+	"after": {
+		"schemaVersion": 1,
+		"capturedAt": "2026-09-20T14:30:36.769Z",
+		"commit": "2d9f566d194d10e597c8001015b7e8be31811d59",
+		"aggregation": "median-of-batches-v1",
+		"host": {
+			"hostname": "redacted",
+			"os": "Linux linux x64",
+			"cpuCount": 16,
+			"cpuModel": "AMD Ryzen 7 5700X 8-Core Processor",
+			"totalMemoryMb": 32005,
+			"ci": false,
+			"runnerLabel": "local"
+		},
+		"budgets": [
+			{
+				"budgetId": "graph-indexing",
+				"samples": [
+					104.9, 117.3, 74.8, 65, 64, 91.1, 148.4, 62.3, 41.8, 58.2, 96.1, 117.6, 67.4, 67.6, 55.1,
+					102.6, 136.7, 69.8, 71.7, 65.4, 114.9, 138.1, 66.3, 63.8, 54.6, 105, 125.3, 69.6, 63.9,
+					57.8, 95.9, 125.3, 68.4, 69.1, 55.8
+				],
+				"scenario": "Add one linked note 5× and time until the graph rail shows the affected node.",
+				"fixture": "One changed note in a 200-note vault (budget dataset: one changed note in a 10,000-record vault)",
+				"profile": "desktop",
+				"repetitions": [
+					[104.9, 117.3, 74.8, 65, 64],
+					[91.1, 148.4, 62.3, 41.8, 58.2],
+					[96.1, 117.6, 67.4, 67.6, 55.1],
+					[102.6, 136.7, 69.8, 71.7, 65.4],
+					[114.9, 138.1, 66.3, 63.8, 54.6],
+					[105, 125.3, 69.6, 63.9, 57.8],
+					[95.9, 125.3, 68.4, 69.1, 55.8]
+				]
+			}
+		]
+	},
+	"measurements": {
+		"before": 112,
+		"after": 125.3
+	},
+	"comparison": {
+		"budgetId": "graph-indexing",
+		"verdict": "steady",
+		"observedValue": 125.3,
+		"baselineValue": 112,
+		"driftRatio": 0.11874999999999998,
+		"message": "Budget \"graph-indexing\" STEADY: 125.3ms is 11.9% worse than the 112ms baseline (tolerance 20.0%)."
+	}
+}

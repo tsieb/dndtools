@@ -5081,6 +5081,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.focus.exit': 'Mostrar grafo completo',
 	'graph.walkHelp':
 		'Usa las flechas para recorrer los nodos, Intro para seleccionar y Escape para borrar la selección.',
+	'graph.canvas': 'Grafo de relaciones',
+	'graph.viewpoint': 'Punto de vista del grafo',
+	'graph.clearFilters': 'Borrar filtros',
+	'graph.results': 'Resultados del grafo',
+	'graph.repair.retry':
+		'Vuelve a intentar la reparación. Si sigue fallando, abre la nota y revisa el enlace.',
+	'graph.repair.saving': 'Guardando el enlace reparado…',
+	'graph.repair.readOnly': 'Sal de la vista previa para reparar enlaces.',
 	'graph.view.dm': 'Vista de {gm}',
 	'graph.view.player': 'Vista de jugador',
 	'graph.needPlayer':

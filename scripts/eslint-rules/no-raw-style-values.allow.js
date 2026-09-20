@@ -190,9 +190,6 @@ export const allow = {
 	'apps/gm-react/src/screens/extensions/ThemeStudio.tsx': 15,
 	'apps/gm-react/src/screens/extensions/TrustReviewSheet.tsx': 21,
 	'apps/gm-react/src/screens/extensions/WidgetBuilder.tsx': 20,
-	'apps/gm-react/src/screens/Graph.tsx': 46,
-	'apps/gm-react/src/screens/graph/clusters.tsx': 7,
-	'apps/gm-react/src/screens/graph/Repair.tsx': 8,
 	'apps/gm-react/src/screens/Join.tsx': 13,
 	'apps/gm-react/src/screens/knowledge/Composer.tsx': 2,
 	'apps/gm-react/src/screens/knowledge/Filters.tsx': 20,
@@ -270,4 +267,4 @@ export const allow = {
 	'apps/gm-react/src/screens/WikiReader.tsx': 21,
 };
 
-// Total current findings: 2599
+// Total current findings: 2514

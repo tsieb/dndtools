@@ -1,3 +1,4 @@
+import './graph.css';
 import { useMemo, useState } from 'react';
 import {
 	authorizeLinkRepairForActor,
@@ -7,7 +8,7 @@ import {
 	serializeMarkdownNote,
 	type BulkRepairPreviewRow,
 } from '@dndtools/core';
-import { Badge, Button, Icon, Toaster } from '../../ds';
+import { Badge, Button, EmptyState, Icon, Toaster } from '../../ds';
 import { BackBar, Page, Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
@@ -33,7 +34,6 @@ import { useI18n } from '../../i18n';
 const SOURCE_LABEL: Record<string, string> = {
 	obsidian: 'Obsidian',
 	'google-docs': 'Google Docs',
-	'local-markdown': 'this vault',
 };
 
 function rowKey(row: BulkRepairPreviewRow): string {
@@ -55,18 +55,18 @@ function RepairRow({
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 8,
-				padding: '12px 14px',
-				border: `1px solid ${T.bd}`,
-				borderRadius: 10,
+				gap: 'var(--space-2)',
+				padding: 'var(--space-3) var(--space-4)',
+				border: `0.0625rem solid ${T.bd}`,
+				borderRadius: 'var(--radius-lg)',
 				background: T.surf,
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<Icon name="knowledge-book" size={14} color={T.ter} />
 				<span
 					style={{
-						font: `600 13px ${T.sans}`,
+						font: `600 var(--text-base) ${T.sans}`,
 						flex: 1,
 						minWidth: 0,
 						whiteSpace: 'nowrap',
@@ -78,18 +78,21 @@ function RepairRow({
 				</span>
 				{row.blocked && <Badge status="neutral">{t('graph.repair.blockedBadge')}</Badge>}
 			</div>
-			<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+			<div style={{ font: `var(--text-base) ${T.sans}`, color: T.sub }}>
 				{t('graph.repair.broken', { target: row.brokenTarget })}
 			</div>
 			{row.blocked === 'unsupported-source' && (
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 					{t('graph.repair.unsupportedSource', {
-						source: SOURCE_LABEL[row.source] ?? row.source,
+						source:
+							row.source === 'local-markdown'
+								? t('graph.thisVault')
+								: (SOURCE_LABEL[row.source] ?? row.source),
 					})}
 				</div>
 			)}
 			{row.blocked === 'no-candidate' && (
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 					{t('graph.repair.noCandidate')}
 				</div>
 			)}
@@ -107,11 +110,11 @@ function RepairRow({
 				</div>
 			)}
 			{!row.blocked && row.ambiguous && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 						{t('graph.repair.ambiguous')}
 					</div>
-					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}>
 						{row.candidates.map((candidate) => (
 							<Button
 								key={candidate}
@@ -134,6 +137,7 @@ export function Repair() {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
+	const [error, setError] = useState<string | null>(null);
 	const [busyKey, setBusyKey] = useState<string | null>(null);
 
 	// Recomputed on every state change — a row for a link someone already fixed (here or elsewhere)
@@ -145,6 +149,8 @@ export function Repair() {
 
 	const fix = async (row: BulkRepairPreviewRow, fixTitle: string) => {
 		const key = rowKey(row);
+		if (runtime.readOnly || busyKey) return;
+		setError(null);
 		setBusyKey(key);
 		try {
 			const authorized = authorizeLinkRepairForActor(
@@ -156,7 +162,7 @@ export function Repair() {
 				fixTitle,
 			);
 			if (authorized.status !== 'authorized' || authorized.result.status !== 'repaired') {
-				Toaster.error(t('graph.repair.fixFailed', { title: row.itemTitle }));
+				setError(t('graph.repair.fixFailed', { title: row.itemTitle }));
 				return;
 			}
 			const view = getContentItemsForActor(
@@ -165,7 +171,7 @@ export function Repair() {
 				actorId,
 			).find((v) => v.id === row.itemId);
 			if (!view) {
-				Toaster.error(t('graph.repair.fixFailed', { title: row.itemTitle }));
+				setError(t('graph.repair.fixFailed', { title: row.itemTitle }));
 				return;
 			}
 			// Reattach the note's own front matter — the engine only ever saw the stripped body.
@@ -177,12 +183,12 @@ export function Repair() {
 				payload: { itemId: row.itemId, title: view.title, body, baseRevision: view.revision },
 			});
 			if (result.status !== 'accepted') {
-				Toaster.error(
-					result.rejection.message ?? t('graph.repair.fixFailed', { title: row.itemTitle }),
-				);
+				setError(t('graph.repair.fixFailed', { title: row.itemTitle }));
 				return;
 			}
 			Toaster.success(t('graph.repair.fixed', { title: row.itemTitle }));
+		} catch {
+			setError(t('graph.repair.fixFailed', { title: row.itemTitle }));
 		} finally {
 			setBusyKey(null);
 		}
@@ -190,33 +196,53 @@ export function Repair() {
 
 	return (
 		<Page max={860}>
-			<BackBar to="/graph" label={t('graph.repair.back')} />
-			<Panel
-				title={t('graph.repair.title')}
-				action={
-					<Badge status={preview.rows.length === 0 ? 'success' : 'warning'}>
-						{preview.rows.length}
-					</Badge>
-				}
-			>
-				<div style={{ font: `12px ${T.sans}`, color: T.sub, marginBottom: 12 }}>
-					{t('graph.repair.intro')}
-				</div>
-				{preview.rows.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('graph.repair.empty')}</div>
-				) : (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-						{preview.rows.map((row) => (
-							<RepairRow
-								key={rowKey(row)}
-								row={row}
-								busy={busyKey === rowKey(row)}
-								onFix={(fixTitle) => fix(row, fixTitle)}
-							/>
-						))}
+			<div className="graph-surface">
+				<BackBar to="/graph" label={t('graph.repair.back')} />
+				<Panel
+					title={t('graph.repair.title')}
+					action={
+						<Badge status={preview.rows.length === 0 ? 'success' : 'warning'}>
+							{preview.rows.length}
+						</Badge>
+					}
+				>
+					<div
+						style={{
+							font: `var(--text-base) ${T.sans}`,
+							color: T.sub,
+							marginBottom: 'var(--space-3)',
+						}}
+					>
+						{t('graph.repair.intro')}
 					</div>
-				)}
-			</Panel>
+					{error && (
+						<div role="alert">
+							<EmptyState
+								inset
+								icon="warning"
+								title={error}
+								description={t('graph.repair.retry')}
+							/>
+						</div>
+					)}
+					{busyKey && <p role="status">{t('graph.repair.saving')}</p>}
+					{runtime.readOnly && <p>{t('graph.repair.readOnly')}</p>}
+					{preview.rows.length === 0 ? (
+						<EmptyState inset illustration="graph-empty" title={t('graph.repair.empty')} />
+					) : (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+							{preview.rows.map((row) => (
+								<RepairRow
+									key={rowKey(row)}
+									row={row}
+									busy={busyKey !== null || runtime.readOnly}
+									onFix={(fixTitle) => fix(row, fixTitle)}
+								/>
+							))}
+						</div>
+					)}
+				</Panel>
+			</div>
 		</Page>
 	);
 }

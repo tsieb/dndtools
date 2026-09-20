@@ -5,7 +5,7 @@ import {
 	type GraphCluster,
 	type GraphClusterReport,
 } from '@dndtools/core';
-import { Badge } from '../../ds';
+import { Badge, Button } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 
@@ -179,8 +179,9 @@ export function ClusterHulls({ hulls }: { hulls: readonly ClusterHull[] }) {
 export function ClusterToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 	const { t } = useI18n();
 	return (
-		<button
+		<Button
 			type="button"
+			variant={on ? 'accent' : 'secondary'}
 			aria-pressed={on}
 			data-testid="graph-clusters-toggle"
 			onClick={onToggle}
@@ -188,18 +189,18 @@ export function ClusterToggle({ on, onToggle }: { on: boolean; onToggle: () => v
 				position: 'absolute',
 				top: 10,
 				right: 10,
-				font: `11.5px ${T.sans}`,
-				padding: '4px 9px',
-				borderRadius: 20,
+				font: `var(--text-sm) ${T.sans}`,
+				padding: 'var(--space-1) var(--space-2)',
+				borderRadius: 'var(--radius-full)',
 				cursor: 'pointer',
-				border: `1px solid ${on ? T.accBd : T.bd}`,
+				border: `0.0625rem solid ${on ? T.accBd : T.bd}`,
 				// Solid, never the gradient behind it: the label has to stay legible wherever a node sits.
 				background: on ? T.accSub : T.surf,
 				color: on ? T.acc : T.sub,
 			}}
 		>
 			{t('graph.clusters.toggle')}
-		</button>
+		</Button>
 	);
 }
 
@@ -222,27 +223,37 @@ export function DormantArcsPanel({
 	const activeArcs = report.clusters.filter((c) => c.size > 1 && !c.dormant).length;
 	return (
 		<Panel
+			style={{ background: T.sunken, boxShadow: 'none' }}
 			title={t('graph.dormant.title')}
 			action={<Badge status="neutral">{t('graph.arcs', { count: activeArcs })}</Badge>}
 		>
-			<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+			<div
+				style={{
+					font: `var(--text-sm)/1.5 ${T.sans}`,
+					color: T.ter,
+					marginBottom: 'var(--space-2)',
+				}}
+			>
 				{t('graph.dormant.intro', { days: report.recentWindowDays })}
 			</div>
 			{report.dormantArcs.length === 0 ? (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('graph.dormant.empty')}</div>
+				<div style={{ font: `var(--text-base) ${T.sans}`, color: T.ter }}>
+					{t('graph.dormant.empty')}
+				</div>
 			) : (
 				<div
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 8,
+						gap: 'var(--space-2)',
 						maxHeight: 260,
 						overflowY: 'auto',
 					}}
 				>
 					{report.dormantArcs.map((arc) => (
-						<button
+						<Button
 							key={arc.id}
+							variant={arc.anchorId === selectedId ? 'accent' : 'secondary'}
 							type="button"
 							data-testid="graph-dormant-arc"
 							// Selecting the ANCHOR is the honest action: it is a note that exists on this
@@ -254,16 +265,16 @@ export function DormantArcsPanel({
 								display: 'block',
 								width: '100%',
 								textAlign: 'left',
-								padding: '9px 10px',
-								border: `1px solid ${arc.anchorId === selectedId ? T.accBd : T.bd}`,
-								borderRadius: 9,
+								padding: 'var(--space-2) var(--space-3)',
+								border: `0.0625rem solid ${arc.anchorId === selectedId ? T.accBd : T.bd}`,
+								borderRadius: 'var(--radius-md)',
 								background: arc.anchorId === selectedId ? T.accSub : T.surf,
 								cursor: 'pointer',
 							}}
 						>
 							<div
 								style={{
-									font: `600 12.5px ${T.sans}`,
+									font: `600 var(--text-base) ${T.sans}`,
 									whiteSpace: 'nowrap',
 									overflow: 'hidden',
 									textOverflow: 'ellipsis',
@@ -271,7 +282,13 @@ export function DormantArcsPanel({
 							>
 								{arc.label}
 							</div>
-							<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+							<div
+								style={{
+									font: `var(--text-sm) ${T.sans}`,
+									color: T.ter,
+									marginTop: 'var(--space-0-5)',
+								}}
+							>
 								{t('graph.dormant.meta', {
 									count: arc.size,
 									when: arc.lastTouchedAt
@@ -279,7 +296,7 @@ export function DormantArcsPanel({
 										: t('graph.dormant.never'),
 								})}
 							</div>
-						</button>
+						</Button>
 					))}
 				</div>
 			)}

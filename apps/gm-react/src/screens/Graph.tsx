@@ -1,12 +1,15 @@
+import './graph/graph.css';
+import { GraphSearch } from './graph/Search';
+import { GraphInspector } from './graph/Inspector';
+import { GraphHealth } from './graph/Health';
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
 	getGraphVisualizationForActor,
 	type GraphVisualization,
 	type GraphVizNode,
 } from '@dndtools/core';
-import { Badge, Button, Icon, VisibilityChip } from '../ds';
-import { Page, Panel, Seg, T, eb } from '../app/screen-kit';
+import { Button, EmptyState, HelpTip, Icon } from '../ds';
+import { Page, Seg, T } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useI18n } from '../i18n';
@@ -22,14 +25,10 @@ import {
 	KIND_COLOR,
 	KIND_ICON,
 	KIND_LABEL,
-	REL_LABEL,
-	BAND_TONE,
-	BAND_LABEL,
 	positioned,
 	useGraphHealth,
 	useOpenGraphNode,
 } from './graph/presentation';
-import type { MessageKey } from '../i18n';
 
 /**
  * Graph & Search — the relationship graph canvas + faceted search, wired to the live Processing
@@ -44,28 +43,12 @@ import type { MessageKey } from '../i18n';
 
 const DEFAULT_SOURCE_ID = 'local-vault';
 
-function HealthRow({ label, count }: { label: string; count: number }) {
-	return (
-		<div
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 8,
-				font: `12px ${T.sans}`,
-				color: T.sub,
-			}}
-		>
-			<span style={{ flex: 1 }}>{label}</span>
-			<Badge status={count === 0 ? 'success' : count <= 3 ? 'warning' : 'error'}>{count}</Badge>
-		</div>
-	);
-}
-
 export function Graph() {
 	const runtime = useRuntime();
 	const { t } = useI18n();
-	const isPhone = useViewport() === 'phone';
-	const navigate = useNavigate();
+	const viewport = useViewport();
+	const isPhone = viewport === 'phone';
+
 	const dmId = runtime.defaultActorId;
 	const actors = runtime.state.permissions.actors;
 	// The player POV is a REAL registered player actor; the toggle reads the graph AS them (no global
@@ -133,638 +116,313 @@ export function Graph() {
 
 	return (
 		<Page max={1280}>
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 12,
-					marginBottom: 16,
-					flexWrap: 'wrap',
-				}}
-			>
-				<Seg
-					value={view}
-					ariaLabel="Graph viewpoint"
-					onChange={(v: string) => {
-						setView(v as 'dm' | 'player');
-						setSel(null);
-						setFocusId(null);
-					}}
-					options={[
-						{ value: 'dm', label: t('graph.view.dm') },
-						// Disable when no player actor is registered — otherwise the fallback would render DM
-						// data under the "Player view" label (playerId === dmId).
-						{ value: 'player', label: t('graph.view.player'), disabled: playerId === dmId },
-					]}
-				/>
-				{/* A permanently greyed radio with no reason is a dead end: nothing told the DM that
-				    registering a player is what enables it. Rendered beside the Seg rather than as a
-				    `title`, which is unreachable on touch and to screen readers. */}
-				{playerId === dmId && (
-					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{t('graph.needPlayer')}</span>
-				)}
-				{/* This count is the ONLY feedback that a filter, a search or the DM/player view switch
-				    did anything. It is present from mount, so role=status announces each change. */}
-				<span role="status" style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					{t('graph.showing', {
-						shown: viz.nodes.length,
-						total: viz.totalVisibleNodes,
-					})}
-					{viz.partial ? t('graph.partial') : ''}
-				</span>
-				<Button
-					variant="secondary"
-					size="sm"
-					aria-pressed={focusAnchor !== null}
-					disabled={!selNode && !focusAnchor}
-					onClick={() => setFocusId(focusAnchor ? null : (selNode?.id ?? null))}
-					onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
-						if (e.key === 'Escape') {
-							setFocusId(null);
-							setSel(null);
-						}
-					}}
-				>
-					{focusAnchor ? t('graph.focus.exit') : t('graph.focus.enter')}
-				</Button>
-				<span id="graph-walk-help" style={{ font: `12px ${T.sans}`, color: T.ter }}>
-					{t('graph.walkHelp')}
-				</span>
-				<div style={{ flex: 1 }} />
-				<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-					{legendKinds.map((k) => (
-						<span
-							key={k}
-							style={{
-								display: 'inline-flex',
-								alignItems: 'center',
-								gap: 6,
-								font: `11.5px ${T.sans}`,
-								color: T.sub,
-							}}
-						>
-							<span
-								style={{
-									width: 10,
-									height: 10,
-									borderRadius: 3,
-									background: KIND_COLOR[k] ?? T.sub,
-								}}
-							/>
-							{KIND_LABEL[k] ? t(KIND_LABEL[k]) : k}
-						</span>
-					))}
-				</div>
-			</div>
-
-			<div
-				// Escape bubbles up from whichever node button has focus, so a keyboard user can drop
-				// the selection without hunting for the node they last pressed. It lives on the GRID,
-				// not the canvas: half the selection entry points are the search rows in the right
-				// rail, and from there Escape used to do nothing. The search input keeps its own
-				// Escape (clear the query), so skip it here.
-				onKeyDown={(e) => {
-					if (
-						e.key === 'Escape' &&
-						(sel !== null || focusAnchor !== null) &&
-						!(e.target instanceof HTMLInputElement)
-					) {
-						e.stopPropagation();
-						setSel(null);
-						setFocusId(null);
-					}
-				}}
-				style={{
-					display: 'grid',
-					gridTemplateColumns: isPhone ? '1fr' : '1fr 320px',
-					gap: 18,
-					alignItems: 'start',
-				}}
-			>
-				{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
+			<div className="graph-surface">
 				<div
 					style={{
-						position: 'relative',
-						borderRadius: 14,
-						border: `1px solid ${T.bd}`,
-						background: `radial-gradient(680px 360px at 60% 0%, ${T.accSub}, ${T.sunken} 70%)`,
-						overflow: 'hidden',
-						aspectRatio: '16/11',
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-3)',
+						marginBottom: 'var(--space-4)',
+						flexWrap: 'wrap',
 					}}
 				>
-					{nodes.length === 0 && (
-						<div
-							style={{
-								position: 'absolute',
-								inset: 0,
-								display: 'flex',
-								alignItems: 'center',
-								justifyContent: 'center',
-								font: `13px ${T.sans}`,
-								color: T.ter,
-								textAlign: 'center',
-								padding: 24,
-							}}
-						>
-							{view === 'player' ? t('graph.emptyPlayer') : t('graph.emptyDm')}
-						</div>
+					<Seg
+						value={view}
+						ariaLabel={t('graph.viewpoint')}
+						onChange={(v: string) => {
+							setView(v as 'dm' | 'player');
+							setSel(null);
+							setFocusId(null);
+						}}
+						options={[
+							{ value: 'dm', label: t('graph.view.dm') },
+							// Disable when no player actor is registered — otherwise the fallback would render DM
+							// data under the "Player view" label (playerId === dmId).
+							{ value: 'player', label: t('graph.view.player'), disabled: playerId === dmId },
+						]}
+					/>
+					{/* A permanently greyed radio with no reason is a dead end: nothing told the DM that
+				    registering a player is what enables it. Rendered beside the Seg rather than as a
+				    `title`, which is unreachable on touch and to screen readers. */}
+					{playerId === dmId && (
+						<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
+							{t('graph.needPlayer')}
+						</span>
 					)}
-					{/* preserveAspectRatio="none" stretches the viewBox to the container so SVG edge
-					    coordinates line up with the percentage-positioned node buttons ((x/100)%, (y/70)%)
-					    at any aspect ratio. */}
-					<svg
-						viewBox="0 0 100 70"
-						preserveAspectRatio="none"
-						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-					>
-						{/* RC-KNW-4.1 — cluster hulls, drawn FIRST so they sit behind every edge and node. */}
-						<ClusterHulls hulls={focusAnchor ? [] : hulls} />
-						{viz.edges.map((e, i) => {
-							const a = nodeById[e.fromId];
-							const b = nodeById[e.toId];
-							if (!a || !b || (focusAnchor && e.fromId !== focusAnchor && e.toId !== focusAnchor))
-								return null;
-							const hot = selNode != null && (e.fromId === sel || e.toId === sel);
-							return (
-								<line
-									key={`${e.fromId}-${e.toId}-${i}`}
-									x1={a.x}
-									y1={a.y}
-									x2={b.x}
-									y2={b.y}
-									stroke={
-										hot ? T.acc : e.relationship === 'poi-link' ? 'var(--color-status-info)' : T.bd
-									}
-									strokeWidth={hot ? 0.6 : 0.35}
-									opacity={selNode && !hot ? 0.22 : 0.8}
-								/>
-							);
+					{/* This count is the ONLY feedback that a filter, a search or the DM/player view switch
+				    did anything. It is present from mount, so role=status announces each change. */}
+					<span role="status" style={{ font: `var(--text-base) ${T.sans}`, color: T.ter }}>
+						{t('graph.showing', {
+							shown: viz.nodes.length,
+							total: viz.totalVisibleNodes,
 						})}
-					</svg>
-					{canvasNodes.map((n) => {
-						const col = KIND_COLOR[n.kind] ?? T.sub;
-						const dim =
-							selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id);
-						const d = Math.max(34, Math.min(70, 34 + n.degree * 7));
-						return (
-							<button
-								key={n.id}
-								data-testid="graph-node"
-								ref={(el) => {
-									if (el) nodeButtons.current.set(n.id, el);
-									else nodeButtons.current.delete(n.id);
-								}}
-								tabIndex={n.id === tabId ? 0 : -1}
-								onFocus={() => setActiveId(n.id)}
-								onMouseEnter={() => setHoverId(n.id)}
-								onMouseLeave={() => setHoverId(null)}
-								aria-describedby="graph-walk-help"
-								onKeyDown={(e) => {
-									const next = walkNode(canvasIds, n.id, e.key);
-									if (!next) return;
-									e.preventDefault();
-									nodeButtons.current.get(next)?.focus();
-								}}
-								type="button"
-								// Toggle, not latch. `setSel(null)` existed nowhere, so the first click on any
-								// node dimmed every non-incident node to 0.4 and every non-incident edge to
-								// 0.22 for the rest of the session with no way back. Atlas's POI list already
-								// toggles the same way.
-								aria-pressed={n.id === sel}
-								onClick={() => setSel((cur) => (cur === n.id ? null : n.id))}
-								title={t('graph.nodeTitle', {
-									title: n.title,
-									kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
-									count: n.degree,
-								})}
-								aria-label={t('graph.nodeLabel', {
-									title: n.title,
-									kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
-									count: n.degree,
-								})}
+						{viz.partial ? t('graph.partial') : ''}
+					</span>
+					<Button
+						variant="secondary"
+						size="sm"
+						aria-pressed={focusAnchor !== null}
+						disabled={!selNode && !focusAnchor}
+						onClick={() => setFocusId(focusAnchor ? null : (selNode?.id ?? null))}
+						onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
+							if (e.key === 'Escape') {
+								setFocusId(null);
+								setSel(null);
+							}
+						}}
+					>
+						{focusAnchor ? t('graph.focus.exit') : t('graph.focus.enter')}
+					</Button>
+					<HelpTip
+						id="graph-walk-help"
+						style={{ font: `var(--text-base) ${T.sans}`, color: T.ter }}
+					>
+						{t('graph.walkHelp')}
+					</HelpTip>
+					<div style={{ flex: 1 }} />
+					<div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+						{legendKinds.map((k) => (
+							<span
+								key={k}
 								style={{
-									position: 'absolute',
-									left: `${n.x}%`,
-									top: `${(n.y / 70) * 100}%`,
-									transform: 'translate(-50%,-50%)',
-									width: d,
-									height: d,
-									borderRadius: '50%',
-									cursor: 'pointer',
-									display: 'flex',
+									display: 'inline-flex',
 									alignItems: 'center',
-									justifyContent: 'center',
-									textAlign: 'center',
-									padding: 4,
-									opacity: dim ? 0.4 : 1,
-									border: `1.5px solid ${n.id === sel ? T.acc : col}`,
-									background: `color-mix(in srgb, ${col} ${n.id === sel ? 28 : 16}%, ${T.surf})`,
-									color: T.ink,
-									boxShadow: n.id === sel ? T.smd : 'none',
-									transition: 'opacity var(--duration-fast) var(--easing-standard)',
+									gap: 'var(--space-1-5)',
+									font: `var(--text-sm) ${T.sans}`,
+									color: T.sub,
 								}}
 							>
-								<span
-									style={{
-										pointerEvents: 'none',
-										// `d` bottoms out at 34, so a /6 divisor pinned every low-degree node's
-										// title at the 7px floor — illegible, and clipped mid-glyph with no
-										// ellipsis. Raise the floor to 10px and truncate honestly.
-										font: `600 ${Math.max(10, d / 5)}px ${T.sans}`,
-										lineHeight: 1.05,
-										overflow: 'hidden',
-										textOverflow: 'ellipsis',
-									}}
-								>
-									{showNodeLabel(
-										canvasNodes.length,
-										isPhone,
-										n.id === sel || n.id === activeId || n.id === hoverId,
-									) ? (
-										n.title
-									) : (
-										<Icon name={KIND_ICON[n.kind] ?? 'tag'} size={15} />
-									)}
-								</span>
-							</button>
-						);
-					})}
-					{!focusAnchor && <ClusterToggle on={hullsOn} onToggle={toggleHulls} />}
+								<Icon name={KIND_ICON[k] ?? 'tag'} size="sm" color={KIND_COLOR[k]} />
+								{KIND_LABEL[k] ? t(KIND_LABEL[k]) : k}
+							</span>
+						))}
+					</div>
 				</div>
 
-				{/* search + inspector + health. Search comes FIRST on purpose: the "Selected" panel used to
+				<div
+					// Escape bubbles up from whichever node button has focus, so a keyboard user can drop
+					// the selection without hunting for the node they last pressed. It lives on the GRID,
+					// not the canvas: half the selection entry points are the search rows in the right
+					// rail, and from there Escape used to do nothing. The search input keeps its own
+					// Escape (clear the query), so skip it here.
+					onKeyDown={(e) => {
+						if (
+							e.key === 'Escape' &&
+							(sel !== null || focusAnchor !== null) &&
+							!(e.target instanceof HTMLInputElement)
+						) {
+							e.stopPropagation();
+							setSel(null);
+							setFocusId(null);
+						}
+					}}
+					style={{
+						display: 'grid',
+						gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(0, 20rem)',
+						gap: 'var(--space-5)',
+						alignItems: 'start',
+					}}
+				>
+					{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
+					<section
+						aria-label={t('graph.canvas')}
+						style={{
+							position: 'relative',
+							borderRadius: 'var(--radius-lg)',
+							border: `0.0625rem solid ${T.bd}`,
+							background: `radial-gradient(42.5rem 22.5rem at 60% 0%, ${T.accSub}, ${T.sunken} 70%)`,
+							overflow: 'hidden',
+							aspectRatio: nodes.length ? '16/11' : undefined,
+							boxShadow: T.smd,
+						}}
+					>
+						<h2 className="graph-visually-hidden">{t('graph.canvas')}</h2>
+						{nodes.length === 0 && (
+							<EmptyState
+								inset
+								illustration="graph-empty"
+								title={
+									query.trim() || facet !== 'all'
+										? t('graph.noResultsFilter')
+										: view === 'player'
+											? t('graph.emptyPlayer')
+											: t('graph.emptyDm')
+								}
+								action={
+									query.trim() || facet !== 'all' ? (
+										<Button
+											onClick={() => {
+												setQuery('');
+												setFacet('all');
+											}}
+										>
+											{t('graph.clearFilters')}
+										</Button>
+									) : undefined
+								}
+							/>
+						)}
+
+						{/* preserveAspectRatio="none" stretches the viewBox to the container so SVG edge
+					    coordinates line up with the percentage-positioned node buttons ((x/100)%, (y/70)%)
+					    at any aspect ratio. */}
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 100 70"
+							preserveAspectRatio="none"
+							style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+						>
+							{/* RC-KNW-4.1 — cluster hulls, drawn FIRST so they sit behind every edge and node. */}
+							<ClusterHulls hulls={focusAnchor ? [] : hulls} />
+							{viz.edges.map((e, i) => {
+								const a = nodeById[e.fromId];
+								const b = nodeById[e.toId];
+								if (!a || !b || (focusAnchor && e.fromId !== focusAnchor && e.toId !== focusAnchor))
+									return null;
+								const hot = selNode != null && (e.fromId === sel || e.toId === sel);
+								return (
+									<line
+										key={`${e.fromId}-${e.toId}-${i}`}
+										x1={a.x}
+										y1={a.y}
+										x2={b.x}
+										y2={b.y}
+										stroke={
+											hot
+												? T.acc
+												: e.relationship === 'poi-link'
+													? 'var(--color-status-info)'
+													: T.bd
+										}
+										strokeWidth={hot ? 0.6 : 0.35}
+										opacity={selNode && !hot ? 0.22 : 0.8}
+									/>
+								);
+							})}
+						</svg>
+						{canvasNodes.map((n) => {
+							const col = KIND_COLOR[n.kind] ?? T.sub;
+							const dim =
+								selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id);
+							const d = Math.max(48, Math.min(70, 48 + n.degree * 4));
+							return (
+								<button
+									key={n.id}
+									data-testid="graph-node"
+									ref={(el: HTMLButtonElement | null) => {
+										if (el) nodeButtons.current.set(n.id, el);
+										else nodeButtons.current.delete(n.id);
+									}}
+									tabIndex={n.id === tabId ? 0 : -1}
+									onFocus={() => setActiveId(n.id)}
+									onMouseEnter={() => setHoverId(n.id)}
+									onMouseLeave={() => setHoverId(null)}
+									aria-describedby="graph-walk-help"
+									onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
+										const next = walkNode(canvasIds, n.id, e.key);
+										if (!next) return;
+										e.preventDefault();
+										nodeButtons.current.get(next)?.focus();
+									}}
+									type="button"
+									// Toggle, not latch. `setSel(null)` existed nowhere, so the first click on any
+									// node emphasized its neighbors and dimmed every non-incident edge to
+									// 0.22 for the rest of the session with no way back. Atlas's POI list already
+									// toggles the same way.
+									aria-pressed={n.id === sel}
+									onClick={() => setSel((cur) => (cur === n.id ? null : n.id))}
+									title={t('graph.nodeTitle', {
+										title: n.title,
+										kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
+										count: n.degree,
+									})}
+									aria-label={t('graph.nodeLabel', {
+										title: n.title,
+										kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
+										count: n.degree,
+									})}
+									style={{
+										position: 'absolute',
+										left: `${n.x}%`,
+										top: `${(n.y / 70) * 100}%`,
+										transform: 'translate(-50%,-50%)',
+										width: d,
+										height: d,
+										borderRadius: 'var(--radius-full)',
+										cursor: 'pointer',
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										textAlign: 'center',
+										padding: 'var(--space-1)',
+										opacity: 1,
+										filter: dim ? 'grayscale(1)' : undefined,
+										border: `0.09375rem solid ${n.id === sel ? T.acc : col}`,
+										background: `color-mix(in srgb, ${col} ${n.id === sel ? 28 : 16}%, ${T.surf})`,
+										color: T.ink,
+										boxShadow: n.id === sel ? T.smd : 'none',
+										transition: 'opacity var(--duration-fast) var(--easing-standard)',
+									}}
+								>
+									<span
+										style={{
+											pointerEvents: 'none',
+											// Labels use the readable metadata token; dense canvases reveal them on focus.
+											font: `600 var(--text-sm) ${T.sans}`,
+											lineHeight: 1.05,
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+										}}
+									>
+										{showNodeLabel(
+											canvasNodes.length,
+											viewport !== 'desktop',
+											n.id === sel || n.id === activeId || n.id === hoverId,
+										) ? (
+											n.title
+										) : (
+											<Icon name={KIND_ICON[n.kind] ?? 'tag'} size={15} />
+										)}
+									</span>
+								</button>
+							);
+						})}
+						{!focusAnchor && <ClusterToggle on={hullsOn} onToggle={toggleHulls} />}
+					</section>
+
+					{/* search + inspector + health. Search comes FIRST on purpose: the "Selected" panel used to
 				    be the rail's first child, so clicking a search result inserted ~250px of inspector
 				    ABOVE the result list and the row the user had just aimed at jumped out from under the
 				    pointer — the next click landed on a different node. Keeping DOM order == visual order
 				    also keeps the tab sequence honest (an `order:` swap would not have). */}
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<Panel title={t('graph.search')} pad={14}>
-						<div
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 8,
-								padding: '8px 10px',
-								borderRadius: 9,
-								background: T.alt,
-								border: `1px solid ${T.bd}`,
-								marginBottom: 10,
-							}}
-						>
-							<Icon name="search" size={15} color={T.ter} />
-							<input
-								value={query}
-								onChange={(e) => {
-									setQuery(e.target.value);
-									setFocusId(null);
-								}}
-								// The grid's Escape handler deliberately skips inputs because the input was
-								// documented as keeping "its own Escape (clear the query)" — except it never
-								// had one, so Escape in the search box cleared neither the query nor the
-								// selection. There is no × affordance either; clearing meant backspacing.
-								onKeyDown={(e) => {
-									if (e.key === 'Escape' && query) {
-										e.stopPropagation();
-										setQuery('');
-									}
-								}}
-								placeholder={t('graph.searchPlaceholder')}
-								aria-label={t('graph.searchLabel')}
-								style={{
-									flex: 1,
-									border: 'none',
-									// No `outline: none` — this raw input has no compensating focus style of
-									// its own, so suppressing the ring left keyboard users with no focus
-									// indicator at all (WCAG 2.4.7). Let the global :focus-visible ring apply.
-									background: 'transparent',
-									color: T.ink,
-									font: `12.5px ${T.sans}`,
-								}}
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+						<GraphSearch
+							view={view}
+							viz={viz}
+							query={query}
+							setQuery={setQuery}
+							facet={facet}
+							setFacet={setFacet}
+							setFocusId={setFocusId}
+							sel={sel}
+							setSel={setSel}
+						/>
+						{selNode && (
+							<GraphInspector
+								selNode={selNode}
+								selEdges={selEdges}
+								nodeById={nodeById}
+								facet={facet}
+								query={query}
+								setSel={setSel}
+								openNode={openNode}
 							/>
-						</div>
-						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-							{['all', ...legendKinds].map((f) => (
-								<button
-									key={f}
-									type="button"
-									// The applied facet was signalled by colour alone (WCAG 1.4.1 / 4.1.2).
-									aria-pressed={facet === f}
-									onClick={() => {
-										setFacet(f);
-										setFocusId(null);
-									}}
-									style={{
-										font: `11.5px ${T.sans}`,
-										padding: '4px 9px',
-										borderRadius: 20,
-										cursor: 'pointer',
-										border: `1px solid ${facet === f ? T.accBd : T.bd}`,
-										background: facet === f ? T.accSub : 'transparent',
-										color: facet === f ? T.acc : T.sub,
-									}}
-								>
-									{f === 'all' ? t('graph.facetAll') : KIND_LABEL[f] ? t(KIND_LABEL[f]) : f}
-								</button>
-							))}
-						</div>
-						<div
-							style={{
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 8,
-								maxHeight: 280,
-								overflowY: 'auto',
-							}}
-						>
-							{viz.nodes.map((r) => (
-								<button
-									key={r.id}
-									type="button"
-									aria-pressed={r.id === sel}
-									onClick={() => setSel((cur) => (cur === r.id ? null : r.id))}
-									style={{
-										display: 'block',
-										width: '100%',
-										textAlign: 'left',
-										padding: '9px 10px',
-										border: `1px solid ${r.id === sel ? T.accBd : T.bd}`,
-										borderRadius: 9,
-										background: r.id === sel ? T.accSub : T.surf,
-										cursor: 'pointer',
-									}}
-								>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-										<span
-											style={{
-												width: 8,
-												height: 8,
-												borderRadius: 2,
-												background: KIND_COLOR[r.kind] ?? T.sub,
-												flex: '0 0 auto',
-											}}
-										/>
-										<span
-											style={{
-												font: `600 12.5px ${T.sans}`,
-												flex: 1,
-												minWidth: 0,
-												whiteSpace: 'nowrap',
-												overflow: 'hidden',
-												textOverflow: 'ellipsis',
-											}}
-										>
-											{r.title}
-										</span>
-										<span style={{ font: `10.5px ${T.mono}`, color: T.ter }}>{r.degree}</span>
-									</div>
-									<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-										{KIND_LABEL[r.kind] ? t(KIND_LABEL[r.kind]) : r.kind}
-										{r.folder ? ` · ${r.folder}` : ''}
-										{r.tags.length ? ` · ${r.tags.map((tag) => `#${tag}`).join(' ')}` : ''}
-									</div>
-								</button>
-							))}
-							{viz.nodes.length === 0 && (
-								<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '8px 2px' }}>
-									{view === 'player' ? t('graph.noResultsPlayer') : t('graph.noResultsFilter')}
-								</div>
-							)}
-						</div>
-						{/* RC-KNW-2.1 — the graph search matches NODE LABELS only. Full-text over bodies,
-						    handouts, POIs and rolls lives on the Knowledge filters panel, so hand the typed
-						    words over rather than leaving the DM to retype them there. It sits BELOW the
-						    result list: above it, the rows fell off a 320px viewport. */}
-						<div style={{ marginTop: 10 }}>
-							<Button
-								variant="ghost"
-								size="sm"
-								icon="search"
-								disabled={query.trim() === ''}
-								data-testid="graph-search-vault"
-								onClick={() => navigate('/knowledge', { state: { search: query.trim() } })}
-							>
-								{t('graph.searchVault')}
-							</Button>
-						</div>
-					</Panel>
+						)}
 
-					{selNode ? (
-						<Panel
-							accent
-							title={t('graph.selected')}
-							action={
-								<Badge status="neutral">
-									{KIND_LABEL[selNode.kind] ? t(KIND_LABEL[selNode.kind]) : selNode.kind}
-								</Badge>
-							}
-						>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-								<span
-									style={{
-										width: 34,
-										height: 34,
-										borderRadius: 9,
-										flex: '0 0 auto',
-										display: 'inline-flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										background: `color-mix(in srgb, ${KIND_COLOR[selNode.kind] ?? T.sub} 18%, transparent)`,
-										color: KIND_COLOR[selNode.kind] ?? T.sub,
-									}}
-								>
-									<Icon name={KIND_ICON[selNode.kind] ?? 'tag'} size="md" />
-								</span>
-								<div style={{ minWidth: 0 }}>
-									<div style={{ font: `700 15px ${T.disp}` }}>{selNode.title}</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										{selNode.folder ? `${selNode.folder} · ` : ''}
-										{selNode.source === DEFAULT_SOURCE_ID ? t('graph.thisVault') : selNode.source}
-									</div>
-								</div>
-							</div>
-							{selNode.tags.length > 0 && (
-								<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-									{selNode.tags.map((tag) => (
-										<Badge key={tag} status="neutral">
-											#{tag}
-										</Badge>
-									))}
-								</div>
-							)}
-							<div style={{ marginTop: 8 }}>
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="chevron-right"
-									onClick={() => openNode(selNode)}
-								>
-									{selNode.kind === 'note'
-										? t('graph.openNote')
-										: selNode.kind === 'object'
-											? t('graph.openInStory')
-											: t('graph.openInMaps')}
-								</Button>
-							</div>
-							<div style={{ ...eb, marginTop: 8 }}>
-								{t('graph.connections', { count: selEdges.length })}
-							</div>
-							{selEdges.length === 0 ? (
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									{/* `selEdges` derives from `viz.edges`, which the core filters by facet and
-									    text — so typing anything in the search box emptied it and a
-									    well-connected node reported that its links do not exist "yet". */}
-									{facet !== 'all' || query.trim() ? t('graph.noLinksFilter') : t('graph.noLinks')}
-								</div>
-							) : (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-									{selEdges.map((e, i) => {
-										const otherId = e.fromId === sel ? e.toId : e.fromId;
-										const other = nodeById[otherId];
-										if (!other) return null;
-										const outgoing = e.fromId === sel;
-										return (
-											<button
-												key={`${otherId}-${i}`}
-												type="button"
-												onClick={() => setSel(other.id)}
-												style={{
-													display: 'flex',
-													alignItems: 'center',
-													gap: 8,
-													padding: '6px 8px',
-													border: `1px solid ${T.bd}`,
-													borderRadius: 8,
-													background: T.surf,
-													cursor: 'pointer',
-													textAlign: 'left',
-												}}
-											>
-												<span
-													style={{
-														width: 8,
-														height: 8,
-														borderRadius: 2,
-														background: KIND_COLOR[other.kind] ?? T.sub,
-														flex: '0 0 auto',
-													}}
-												/>
-												<span
-													style={{
-														flex: 1,
-														minWidth: 0,
-														font: `12px ${T.sans}`,
-														whiteSpace: 'nowrap',
-														overflow: 'hidden',
-														textOverflow: 'ellipsis',
-													}}
-												>
-													{other.title}
-												</span>
-												<span style={{ font: `10.5px ${T.sans}`, color: T.ter }}>
-													{outgoing ? '→' : '←'}{' '}
-													{REL_LABEL[e.relationship]
-														? t(REL_LABEL[e.relationship])
-														: t('graph.rel.linked')}
-												</span>
-											</button>
-										);
-									})}
-								</div>
-							)}
-						</Panel>
-					) : null}
+						<DormantArcsPanel report={clusters} selectedId={sel} onSelect={setSel} />
 
-					<DormantArcsPanel report={clusters} selectedId={sel} onSelect={setSel} />
-
-					{/* GRAPH-007 — DM sees the full health report; a player sees only the generalized coarse bands. */}
-					{health.kind === 'dm' ? (
-						<Panel
-							title={t('graph.health')}
-							action={
-								<Badge status={health.report.coverage.overall >= 70 ? 'success' : 'warning'}>
-									{t('graph.coveragePercent', { percent: health.report.coverage.overall })}
-								</Badge>
-							}
-						>
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-								<HealthRow label={t('graph.staleNotes')} count={health.report.staleNotes.length} />
-								<HealthRow
-									label={t('graph.missingLinks')}
-									count={health.report.missingLinks.length}
-								/>
-								<HealthRow
-									label={t('graph.contentGaps')}
-									count={health.report.contentGaps.length}
-								/>
-								<HealthRow
-									label={t('graph.openThreads')}
-									count={health.report.openThreads.length}
-								/>
-							</div>
-							{/* RC-KNW-4.2 — one-click repair of broken wikilinks lives on its own screen (the
-							    preview + fix flow needs room a health-row count can't give it); this is just
-							    the entry point, DM-only since repairing is an authoring action. */}
-							<div style={{ marginTop: 10 }}>
-								<Button
-									variant="ghost"
-									size="sm"
-									icon="chevron-right"
-									onClick={() => navigate('/graph/repair')}
-								>
-									{t('graph.repair.entry')}
-								</Button>
-							</div>
-						</Panel>
-					) : (
-						<Panel title={t('graph.health')} action={<VisibilityChip level="players" compact />}>
-							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-								{t('graph.coarseNote')}
-							</div>
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-								{(
-									[
-										['graph.staleNotes', health.summary.staleNotes],
-										['graph.missingLinks', health.summary.missingLinks],
-										['graph.contentGaps', health.summary.contentGaps],
-										['graph.openThreads', health.summary.openThreads],
-									] as const satisfies readonly (readonly [MessageKey, string])[]
-								).map(([label, band]) => (
-									<div
-										key={label}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 8,
-											font: `12px ${T.sans}`,
-											color: T.sub,
-										}}
-									>
-										<span style={{ flex: 1 }}>{t(label)}</span>
-										<Badge status={BAND_TONE[band] as 'neutral'}>
-											{BAND_LABEL[band] ? t(BAND_LABEL[band]) : band}
-										</Badge>
-									</div>
-								))}
-								<div
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 8,
-										font: `12px ${T.sans}`,
-										color: T.sub,
-										marginTop: 2,
-									}}
-								>
-									<span style={{ flex: 1 }}>{t('graph.coverage')}</span>
-									<Badge status="neutral">
-										{BAND_LABEL[health.summary.coverageBand]
-											? t(BAND_LABEL[health.summary.coverageBand])
-											: health.summary.coverageBand}
-									</Badge>
-								</div>
-							</div>
-						</Panel>
-					)}
+						<GraphHealth health={health} />
+					</div>
 				</div>
 			</div>
 		</Page>

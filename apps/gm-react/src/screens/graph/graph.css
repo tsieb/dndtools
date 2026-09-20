@@ -1,0 +1,66 @@
+/* Graph geometry stays in viewBox coordinates; controls scale with text and density. */
+.graph-surface button,
+.graph-surface input {
+	min-height: max(var(--space-12), var(--density-touch-target));
+	min-width: var(--space-12);
+}
+.graph-surface button {
+	overflow-wrap: anywhere;
+}
+.graph-surface input {
+	min-width: 0;
+}
+.graph-surface svg {
+	pointer-events: none;
+}
+.graph-surface [data-testid='graph-node']:focus-visible {
+	z-index: var(--z-raised);
+}
+.graph-facets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1);
+	margin-block: var(--space-2);
+}
+.graph-results {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	max-height: 18rem;
+	overflow-y: auto;
+	padding: var(--space-1);
+}
+.graph-result-title {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.graph-result-name {
+	flex: 1;
+	min-width: 0;
+	white-space: normal;
+}
+.graph-number {
+	font-family: var(--font-mono);
+}
+.graph-meta {
+	display: block;
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+	white-space: normal;
+}
+.graph-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: var(--space-0);
+	margin: var(--space-0);
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+/* screen-kit's shared Panel sets a small display face inline; graph headings use body typography. */
+.graph-surface h2 {
+	font-family: var(--font-sans) !important;
+	font-size: var(--text-md) !important;
+}
