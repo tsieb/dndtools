@@ -152,3 +152,17 @@ that wrapping `SideRow` is pixel-identical in English.
   `git diff --check` passed. The operator's latest supplied visual gate passed; the
   earlier visual failures above describe the previous base, not this candidate.
 - No shell changes, unowned edits, dispatcher mutations, extra agents, push or promotion.
+
+### Repeated gate feedback — unchanged ownership blocker
+
+- Read the exact typecheck output for run `7c3b9286-6bff-4d50-952d-1435e9593ce5`
+  on `5c2e76ad`. It reports the same TS7053 errors at `AddWidgetGallery.tsx:77` and
+  `TemplatePicker.tsx:94`; core and cloud typechecks complete before the app fails.
+- The repeated task still excludes both canvas paths. No authorization to apply the
+  previously prepared fallback patch has arrived. `git apply --check` confirms it
+  still applies; neither file was modified. The locale implementation and acceptance
+  evidence from the preceding entry are unchanged.
+- Operator action required: add `apps/gm-react/src/app/canvas/AddWidgetGallery.tsx`
+  and `apps/gm-react/src/app/canvas/TemplatePicker.tsx` to ownership, or integrate
+  equivalent safe English fallbacks separately before rerunning this candidate.
+  Repeating the same typecheck against unchanged sources cannot resolve this blocker.
