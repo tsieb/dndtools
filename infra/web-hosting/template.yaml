@@ -67,6 +67,31 @@ Parameters:
     Default: ''
     Description: Route53 zone that owns the hostnames above; alias records are written here.
 
+  WebAclArn:
+    Type: String
+    Default: ''
+    # The trailing id segment is a UUID in practice, but AWS's own documented example
+    # (…/ExampleWebACL/a1b2c3d4-5678-90ab-cdef-EXAMPLE11111) is not lowercase-hex, so the
+    # character class stays wide. The parts worth pinning are the service, the region and
+    # `global/` — those are what distinguish a usable ACL from one CloudFront will reject.
+    AllowedPattern: '^$|^arn:aws:wafv2:us-east-1:[0-9]{12}:global/webacl/[0-9A-Za-z_-]{1,128}/[0-9A-Za-z-]+$'
+    Description: >-
+      AWS WAF web ACL fronting this distribution — the WebAclArn output of the `edge-waf` stack
+      in the SAME account. Blank leaves the distribution unprotected, which is how dev runs (the
+      ACL bills ~$6/month flat and dev's budget ceiling is $12; see infra/edge-waf/samconfig.toml).
+
+      MUST be a CLOUDFRONT-scope ACL, which AWS only lets you create in us-east-1 — the pattern
+      enforces that, because CloudFormation accepts a regional ACL ARN here and CloudFront then
+      rejects the distribution update with an unhelpful error. Copied across rather than resolved
+      for the same reason WebCertificateArn is: SSM cannot be read cross-region.
+
+Rules:
+  ProductionRequiresWaf:
+    RuleCondition: !Equals [!Ref Stage, prod]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref WebAclArn, '']]
+        AssertDescription: Deploy edge-waf first and supply its WebAclArn.
+
 Conditions:
   HasWikiApi: !Not [!Equals [!Ref WikiApiId, '']]
   # A custom domain is only wired up when the hostname, its certificate, and the zone to
@@ -80,8 +105,22 @@ Conditions:
   HasSecondaryHost: !And
     - !Condition HasCustomDomain
     - !Not [!Equals [!Ref SecondaryHostName, '']]
+  HasWebAcl: !Not [!Equals [!Ref WebAclArn, '']]
 
 Resources:
+  WikiViewerIp:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-wiki-viewer-ip'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Pass the verified viewer address to the protected wiki origin.
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          event.request.headers['x-app-client-ip'] = { value: event.viewer.ip };
+          return event.request;
+        }
   WikiNoCachePolicy:
     Type: AWS::CloudFront::CachePolicy
     Properties:
@@ -103,7 +142,7 @@ Resources:
         CookiesConfig: { CookieBehavior: none }
         HeadersConfig:
           HeaderBehavior: whitelist
-          Headers: [x-wiki-password]
+          Headers: [x-wiki-password, x-app-client-ip]
         QueryStringsConfig: { QueryStringBehavior: all }
   # --- Private origin bucket: holds dist/ assets; only CloudFront (OAC) may read. -----
   # Versioned so a bad deploy can be rolled back; noncurrent versions expire in 30 days
@@ -179,7 +218,7 @@ Resources:
               https://w.soundcloud.com;
               connect-src 'self' https://cognito-idp.${AWS::Region}.amazonaws.com
               https://{{resolve:ssm:/${ProjectName}/${Stage}/sync/api-id}}.execute-api.${AWS::Region}.amazonaws.com
-              https://{{resolve:ssm:/${ProjectName}/${Stage}/app-api/api-id}}.execute-api.${AWS::Region}.amazonaws.com
+              {{resolve:ssm:/${ProjectName}/${Stage}/app-api/origin}}
               wss://{{resolve:ssm:/${ProjectName}/${Stage}/signaling/api-id}}.execute-api.${AWS::Region}.amazonaws.com
               https://api.open5e.com https://docs.googleapis.com https://accounts.google.com
               https://oauth2.googleapis.com ${AiConnectSources}
@@ -216,6 +255,11 @@ Resources:
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_100
+        # Per-IP rate limiting for everything this distribution serves (RC-ENG-5.3). Despite the
+        # legacy `WebACLId` name, CloudFront takes the WAFv2 web ACL *ARN* here; the numeric id
+        # form is WAF Classic. Blank parameter = no association at all, rather than an association
+        # to nothing, which CloudFront would reject.
+        WebACLId: !If [HasWebAcl, !Ref WebAclArn, !Ref 'AWS::NoValue']
         Aliases: !If
           - HasCustomDomain
           - !If
@@ -234,6 +278,11 @@ Resources:
             - Id: wiki-api-origin
               DomainName: !Sub '${WikiApiId}.execute-api.${AWS::Region}.amazonaws.com'
               OriginPath: !Sub '/${Stage}'
+              OriginCustomHeaders: !If
+                - HasWebAcl
+                - - HeaderName: x-app-origin
+                    HeaderValue: !Sub '{{resolve:secretsmanager:${ProjectName}-${Stage}-app-origin:SecretString}}'
+                - !Ref AWS::NoValue
               CustomOriginConfig:
                 OriginProtocolPolicy: https-only
                 OriginSSLProtocols: [TLSv1.2]
@@ -248,6 +297,9 @@ Resources:
               Compress: true
               CachePolicyId: !Ref WikiNoCachePolicy
               OriginRequestPolicyId: !Ref WikiRequestPolicy
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt WikiViewerIp.FunctionMetadata.FunctionARN
           - !Ref AWS::NoValue
         DefaultCacheBehavior:
           TargetOriginId: web-s3-origin

@@ -2,7 +2,7 @@
 # Deploy one dndtools infra stack for one stage.
 # Usage: infra/deploy.sh <stack> [stage]
 #   <stack>  foundation | identity | signaling | turn | sync-api | app-api | web-hosting
-#            | edge-cert (us-east-1, stage-independent — see below)
+#            | edge-cert | edge-waf (both us-east-1 — see below)
 #   [stage]  dev (default) | prod
 #
 # Thin wrapper around `sam build && sam deploy --config-env <stage>` run from the
@@ -37,11 +37,17 @@ case "$STAGE" in
 esac
 REGION="${DNDTOOLS_REGION:-ca-central-1}"
 
-# edge-cert is the one stack that is NOT regional to this project: CloudFront can only attach a
-# certificate issued in us-east-1. Pin it here rather than relying on the caller to remember, since
-# deploying it into ca-central-1 succeeds and then produces a certificate CloudFront silently
-# refuses. It is also stage-independent — one shared certificate — so both stages are the same deploy.
-if [ "$STACK" = "edge-cert" ]; then
+# edge-cert and edge-waf are the stacks that are NOT regional to this project, both because
+# CloudFront's control plane lives in us-east-1: a certificate CloudFront can attach must be issued
+# there, and a CLOUDFRONT-scope WAF web ACL can only be created there. Pin the region here rather
+# than relying on the caller to remember. The failure modes differ and are both unpleasant:
+# edge-cert in ca-central-1 succeeds and then produces a certificate CloudFront silently refuses,
+# while edge-waf in ca-central-1 fails outright at create time.
+#
+# edge-cert is stage-independent (one shared certificate, prod account only) so both stages are the
+# same deploy; edge-waf is per-stage AND per-account, because a distribution can only attach a web
+# ACL from its own account.
+if [ "$STACK" = "edge-cert" ] || [ "$STACK" = "edge-waf" ]; then
   REGION="us-east-1"
 fi
 
@@ -247,15 +253,49 @@ esac
 # NOTE ON COMPLETENESS: only stacks whose parameters must be COMPUTED at deploy time (the web
 # origin, the sync table name, the invite sender, the concurrency env switch) are overridden
 # from here, and each such list is complete. Stacks whose per-stage config is static — `turn`
-# (VpcId/SubnetId), `foundation`, `web-hosting`, `edge-cert` — deliberately take NO overrides
+# (VpcId/SubnetId), `foundation`, `edge-cert`, `edge-waf` — deliberately take NO overrides
 # here, so their samconfig.toml stays the single source of truth. Adding a lone pair for one of
-# them would replace its whole samconfig list and drop, say, the VPC ids.
+# them would replace its whole samconfig list and drop, say, the VPC ids. Hosting
+# copies its complete samconfig list below before replacing the dynamic ACL parameter.
 
 case "$STACK" in
   signaling|sync-api|app-api)
     PARAM_OVERRIDES+=("ReserveLambdaConcurrency=${DNDTOOLS_RESERVE_CONCURRENCY:-false}")
     ;;
 esac
+# Read the cross-region ACL output on every protected-stack deploy. Failure is blocking in
+# prod; never silently clear an association after a credential error or missing prerequisite.
+if [ "$STACK" = "app-api" ] || [ "$STACK" = "web-hosting" ]; then
+  EDGE_ACL_ARN=""
+  if [ "$STAGE" = "prod" ]; then
+    EDGE_ACL_ARN=$(aws cloudformation describe-stacks \
+      --stack-name "dndtools-$STAGE-edge-waf" --region us-east-1 --profile "$PROFILE" \
+      --query "Stacks[0].Outputs[?OutputKey=='WebAclArn'].OutputValue | [0]" --output text)
+    [[ "$EDGE_ACL_ARN" =~ ^arn:aws:wafv2:us-east-1:[0-9]{12}:global/webacl/ ]] || {
+      echo "Deploy edge-waf $STAGE first: no usable WebAclArn output" >&2; exit 1;
+    }
+  fi
+  if [ "$STACK" = "web-hosting" ]; then
+    # Preserve the COMPLETE configured list, including domain/certificate and blank values.
+    # NUL delimiters retain values containing spaces without evaluating configuration as shell.
+    EDGE_CONFIG_FILE=$(mktemp)
+    python3 - "$STACK_DIR/samconfig.toml" "$STAGE" > "$EDGE_CONFIG_FILE" <<'CONFIG'
+import shlex, sys, tomllib
+with open(sys.argv[1], 'rb') as config:
+    values = tomllib.load(config)[sys.argv[2]]['deploy']['parameters']['parameter_overrides']
+for pair in shlex.split(values):
+    if not pair.startswith('WebAclArn='):
+        sys.stdout.buffer.write(pair.encode() + b'\0')
+CONFIG
+    mapfile -d '' -t PARAM_OVERRIDES < "$EDGE_CONFIG_FILE"
+    rm -f "$EDGE_CONFIG_FILE"
+    for i in "${!PARAM_OVERRIDES[@]}"; do
+      pair="${PARAM_OVERRIDES[$i]}"
+      PARAM_OVERRIDES[$i]="${pair%%=*}=$(sam_quote_override_value "${pair#*=}")"
+    done
+  fi
+  PARAM_OVERRIDES+=("WebAclArn=$(sam_quote_override_value "$EDGE_ACL_ARN")")
+fi
 if [ ${#PARAM_OVERRIDES[@]} -gt 0 ]; then
   DEPLOY_FLAGS+=(--parameter-overrides "${PARAM_OVERRIDES[@]}")
 fi

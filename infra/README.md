@@ -1,8 +1,9 @@
 # Cloud infrastructure (AWS SAM)
 
 Small, independently deployable SAM stacks that add opt-in cloud capabilities to the local-first
-app. Everything is pay-per-use except the prod `t4g.nano` running coturn and the prod alerts KMS
-key; dev has no always-on compute. Steady state is roughly $12/month across both accounts.
+app. Everything is pay-per-use except the prod `t4g.nano` running coturn, the prod alerts KMS key and
+the prod WAF web ACL; dev has no always-on compute. Steady state is roughly $18/month across both
+accounts once the web ACL is switched on ($12 before it).
 
 ## Accounts, profiles, region
 
@@ -11,7 +12,8 @@ key; dev has no always-on compute. Steady state is roughly $12/month across both
 | dev   | `703621193648` | `dndtools`      | org `o-fvdpu0124z`; CI deploys on every push to `main` via OIDC |
 | prod  | `649320110863` | `dndtools-prod` | own OIDC provider, deploy role, SNS topic, SES identity, budget |
 
-Region is `ca-central-1` for everything except the CloudFront certificate (`edge-cert`, `us-east-1`).
+Region is `ca-central-1` for everything except the two CloudFront-control-plane stacks — the
+certificate (`edge-cert`) and the WAF web ACL (`edge-waf`) — which must be `us-east-1`.
 Each stack's `samconfig.toml` names the profile per config-env; `infra/deploy.sh` reads
 `DNDTOOLS_DEV_PROFILE` / `DNDTOOLS_PROD_PROFILE` (never `AWS_PROFILE`). Most stacks deploy happily
 into the wrong account; only `turn` catches it because its `VpcId` exists in one account. So
@@ -24,16 +26,17 @@ case-sensitive usernames (the client canonicalizes emails); the prod pool is cas
 
 ## Stacks, in deploy order
 
-| #   | Stack         | Purpose                                                                                                                            | Always-on cost        |
-| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| 0   | `edge-cert`   | us-east-1 ACM certificate for the custom domain; deploy once                                                                       | none                  |
-| 1   | `foundation`  | Budget and cost-anomaly alerts, OIDC deploy role, SSM namespace, alerts topic (+ KMS key in prod), the stage dashboard             | ~$1/mo (prod)         |
-| 2   | `identity`    | Cognito user pool and client; the SES configuration set every mail goes through                                                    | none                  |
-| 3   | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + credential Lambda                                                                          | ~$7.70/mo (prod only) |
-| 4   | `app-api`     | HTTP API + Lambda + DynamoDB (accounts, entitlements, invites, listings) + S3 (modules) + telemetry Lambda + Stripe webhook Lambda | none                  |
-| 5   | `signaling`   | WebSocket API + Lambdas + DynamoDB (rooms, connections, TTL)                                                                       | none                  |
-| 6   | `sync-api`    | HTTP API + Lambdas + DynamoDB (op index) + S3 (ciphertext) + the Cloud-Enhanced KMS key                                            | none                  |
-| 7   | `web-hosting` | Private S3 + CloudFront (OAC) + CSP header                                                                                         | none                  |
+| #   | Stack         | Purpose                                                                                                                                                          | Always-on cost          |
+| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 0   | `edge-cert`   | us-east-1 ACM certificate for the custom domain; deploy once                                                                                                     | none                    |
+| 1   | `foundation`  | Budget and cost-anomaly alerts, OIDC deploy role, SSM namespace, alerts topic (+ KMS key in prod), the stage dashboard                                           | ~$1/mo (prod)           |
+| 2   | `identity`    | Cognito user pool and client; the SES configuration set every mail goes through                                                                                  | none                    |
+| 3   | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + credential Lambda                                                                                                        | ~$7.70/mo (prod only)   |
+| 3.5 | `edge-waf`    | us-east-1 per-IP rate-limiting WAF web ACL for the public edge (prod only on cost grounds)                                                                       | ~$6/mo (prod)           |
+| 4   | `app-api`     | HTTP API + Lambda + DynamoDB (accounts, entitlements, invites, listings) + S3 (modules) + telemetry Lambda + Stripe webhook Lambda + protected CloudFront origin | ~$0.40/mo secret (prod) |
+| 5   | `signaling`   | WebSocket API + Lambdas + DynamoDB (rooms, connections, TTL)                                                                                                     | none                    |
+| 6   | `sync-api`    | HTTP API + Lambdas + DynamoDB (op index) + S3 (ciphertext) + the Cloud-Enhanced KMS key                                                                          | none                    |
+| 7   | `web-hosting` | Private S3 + CloudFront (OAC) + CSP header + `edge-waf` ACL                                                                                                      | none                    |
 
 Stacks couple through SSM under `/dndtools/<stage>/…`, never `ImportValue`, so any one can be
 updated alone once its inputs exist. Two deploy-time couplings enforce the order: `signaling`
@@ -44,6 +47,23 @@ GetItem access to it (the workflows do this), so account deletion can verify the
 stage takes two passes: APIs first use the `https://invalid.example` origin, `web-hosting` publishes
 its URL, then `identity`, `sync-api`, and `app-api` are refreshed with it; later deploys read the
 current origin from SSM.
+
+Deploy `edge-waf` before production `app-api` and `web-hosting`. The wrapper reads the
+us-east-1 ACL output and passes the complete parameter list to each consumer; missing output or
+credentials fail the deploy. Blank production ACLs also fail template assertions. Dev remains
+explicitly unprotected. No workflow bootstraps `edge-waf`: the operator must deploy it first.
+
+For activation, deploy edge-waf → app-api → web-hosting, rebuild clients from the new app-api/url
+SSM value, and update Stripe's webhook URL. Both distributions must show the same WebACLId ARN.
+Verify normal JWT calls, anonymous wiki reads and Stripe delivery through the edge; direct origin
+calls must fail. `infra/verify-app-api.mjs` and `infra/verify-billing.sh` remain the functional checks.
+The API ID is unchanged, but old binaries embedding its execute-api URL require an update.
+
+The origin credential costs approximately $0.40/month beyond WAF's ~$6/month floor. It is resolved
+by CloudFormation, never copied into samconfig. Rotate it with a coordinated refresh of app-api
+and web-hosting; dynamic references do not refresh themselves. Do not delete the ACL while either
+distribution is associated. Removing production protection requires a deliberate template/rule
+change; blanking a parameter is refused. See `docs/security/README.md` for the boundary and costs.
 
 ```bash
 infra/deploy.sh <stack> <stage>     # validate (blocking), lint (advisory), build, deploy
@@ -84,6 +104,7 @@ Now:
 | Alarms (`CreateAlarms`)            | off                          | on                                                                                                    |
 | Alerts-topic encryption            | none                         | customer-managed KMS key                                                                              |
 | Log retention                      | 14 days                      | 90 days                                                                                               |
+| Edge WAF web ACL (`CreateWebAcl`)  | off                          | one per-IP rate-limit ACL on the web distribution                                                     |
 | TURN relay                         | torn down; rebuild on demand | always on                                                                                             |
 | Monthly budget ceiling             | $12                          | $20                                                                                                   |
 
@@ -101,6 +122,13 @@ aws cloudwatch set-alarm-state --alarm-name <alarm> --state-value ALARM --state-
 aws cloudwatch describe-alarm-history --alarm-name <alarm> --history-item-type Action --max-records 1 \
   --query 'AlarmHistoryItems[].HistoryData' --output text     # expect actionState "Succeeded"
 ```
+
+AWS WAF bills $5/month per web ACL plus $1/month per rule regardless of traffic, plus $0.60 per
+million requests inspected (negligible here, but it is not a flat charge). That ~$6 floor is
+why `edge-waf` runs prod-only: dev's entire ceiling is $12 against a steady state already near it,
+so a dev ACL would breach the budget alarm on its own. HTTP APIs cannot attach WAF directly;
+app-api uses a protected CloudFront distribution. Sync and signaling retain stage throttles
+and their existing handler controls. See `docs/security/README.md`.
 
 Turn dev observability on for a debugging session with `DNDTOOLS_CREATE_ALARMS=true infra/deploy.sh
 app-api dev` or `CreateStageDashboard=true` in `foundation/samconfig.toml`, and put it back after.

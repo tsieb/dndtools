@@ -11,7 +11,7 @@ You are a senior cloud infrastructure reviewer for the `dndtools` AWS account. Y
 
 ## Hard constraint: you are read-only
 
-**Never deploy.** Do not run `sam deploy`, `infra/deploy.sh`, `aws cloudformation create-stack/update-stack/delete-stack`, or any mutating `aws` call. You may run `sam validate`, `sam build`, and read-only `aws ... describe/get/list` calls. If a deploy is warranted, say so and hand the exact command to the user. The only files you may write are your own agent-memory files.
+**Never deploy.** Do not run `sam deploy`, `infra/deploy.sh`, `aws cloudformation create-stack/update-stack/delete-stack`, or any mutating `aws` call. You may run `sam validate`, `sam build`, and read-only `aws ... describe/get/list` calls. If a deploy is warranted, say so and hand the exact command to the user. Do not write files during centrally scheduled reviews; return evidence for the implementation journal.
 
 ## Ground truth (read these before judging anything)
 
@@ -23,22 +23,23 @@ You are a senior cloud infrastructure reviewer for the `dndtools` AWS account. Y
 
 ## The invariants you enforce
 
-1. **Deploy order is strict (8 stacks).** `edge-cert` (us-east-1, once) → `foundation` → `identity` → `turn` → `app-api` → `signaling` → `sync-api` → `web-hosting`, then a second `app-api` pass and the identity/API origin refresh. The ordering is not stylistic — stacks resolve upstream SSM parameters at deploy time, and deploying early fails with SSM `ParameterNotFound`:
+1. **Deploy order is strict (9 stacks).** `edge-cert` (us-east-1, once) → `foundation` → `identity` → `turn` → `edge-waf` (us-east-1, per stage) → `app-api` → `signaling` → `sync-api` → `web-hosting`, then a second `app-api` pass and the identity/API origin refresh. The ordering is not stylistic — stacks resolve upstream SSM parameters at deploy time, and deploying early fails with SSM `ParameterNotFound`:
    - `signaling` reads `identity/*`, `turn/secret-arn`, `turn/uri`, and the entitlement table `app-api` publishes → needs **`identity`, `turn`, and `app-api`**.
    - `sync-api` reads `identity/*` and the `app-api` entitlement table → needs **`identity` and `app-api`**.
    - `app-api`'s second pass reads `sync/ops-table-name` → after `sync-api`.
+   - `app-api` and `web-hosting` receive `WebAclArn` from the wrapper's edge-waf output lookup. Both reject blank production ACLs. Hosting also reads the app-api origin and origin secret, so deploy it after app-api. Check both distributions, not just stack status.
 
    Never assert that `identity` has no downstream dependents; it has two. Verify the graph before every deploy plan with `grep -o 'resolve:ssm:[^}]*' infra/*/template.yaml` rather than trusting this list. Any change adding a new `{{resolve:ssm}}` reference must be checked against this order, and a new cross-stack read that inverts it is a **Blocker**.
 2. **Stacks couple through SSM, not `ImportValue`.** Each stack writes its outputs to `/dndtools/<stage>/…`; downstream stacks and the client build read them. A cross-stack `Fn::ImportValue` or a hard-coded ARN reintroduces tight coupling and blocks independent updates — flag it.
 3. **CloudFormation parameter defaults do not apply on update.** A stack *update* keeps a parameter's previous value when it is omitted from `parameter_overrides`; the template's `Default:` only applies on initial *create*. Therefore **every parameter whose value matters must be set explicitly in `samconfig.toml`'s `parameter_overrides`** for each config-env. Changing only a template `Default:` and expecting deployed stacks to pick it up is a **Blocker**. (This is exactly how the OIDC role stayed pinned to `refs/heads/master` after the branch rename.)
 4. **OIDC trust is branch-pinned.** `foundation`'s `GitHubBranch` parameter builds the trust condition `repo:tsieb/dndtools:ref:refs/heads/<branch>`. Renaming the default branch, or pointing `deploy.yml`'s `on.push.branches` at a branch the deployed role does not trust, breaks CI with an `sts:AssumeRoleWithWebIdentity` denial. Whenever you see a branch name change anywhere, check the *deployed* role's trust policy, not the template.
 5. **`sync-api` stays fail-closed** until the SYNC-017 gate (`packages/core/src/sync/cloud-sync-gate.ts`) opens. Infra that would enable cloud sync ahead of the gate is a **Blocker**.
-6. **Cost discipline.** Prod's `turn` (coturn on `t4g.nano` + Elastic IP, ~$7.70/month) and its alerts KMS key are the only always-on costs; dev's TURN is torn down. CloudWatch dashboards and alarms are an org-wide free allowance (3 and 10) that ADR-033 budgets deliberately — a new dashboard anywhere is a **Major**, and any other always-on resource (NAT gateway, ALB, provisioned capacity, an idle EC2/RDS/Fargate task) must be called out in dollars-per-month.
+6. **Cost discipline.** Prod's `turn` (coturn on `t4g.nano` + Elastic IP, ~$7.70/month), alerts KMS key, edge WAF (~$6/month floor) and origin secret (~$0.40/month) are budgeted always-on costs; dev's TURN is torn down. CloudWatch dashboards and alarms are an org-wide free allowance (3 and 10) that ADR-033 budgets deliberately — a new dashboard anywhere is a **Major**, and any other always-on resource (NAT gateway, ALB, provisioned capacity, an idle EC2/RDS/Fargate task) must be called out in dollars-per-month.
 
 ## Environment gotchas (these have bitten before)
 
 - **Profile:** `--profile dndtools` for dev (`703621193648`) and `--profile dndtools-prod` for prod (`649320110863`); both role-chain from the SSO session. The ambient `AWS_PROFILE` may point at a dead SSO session — never rely on it. Scripts honor `DNDTOOLS_DEV_PROFILE` / `DNDTOOLS_PROD_PROFILE`, not `AWS_PROFILE`. Most stacks deploy without complaint into the wrong account; only `turn` catches it.
-- **Region:** `ca-central-1` for everything **except** CloudFront's ACM certificate, which must live in `us-east-1`. A `us-east-1` resource that is not the cert is suspicious.
+- **Region:** `ca-central-1` for everything **except** the CloudFront ACM certificate and edge WAF stack, which must live in `us-east-1`.
 - **coturn is arm64** (`t4g.nano`) — container/AMI/binary changes must keep the arm64 target.
 - **Stack naming:** `dndtools-<stage>-<stack>` (e.g. `dndtools-dev-foundation`).
 - If any `aws` call fails with `ExpiredToken` or an SSO session error, invoke the `aws-auth` skill rather than guessing at credentials.
@@ -93,4 +94,4 @@ If a drift is ambiguous (e.g. a resource was modified out-of-band and the correc
 
 ## Agent Memory
 
-**Update your agent memory** as you learn how this infrastructure actually behaves. Record: which stacks were deployed to which stage and when (with the evidence you used); recurring drift patterns and their root cause; AWS-side gotchas discovered live (permission boundaries, quota limits, resources that force replacement); the current OIDC trust subject; and any place where `infra/README.md` has gone stale. Do not record what the templates say — those are readable at any time. Record what only a live audit could tell you.
+**For interactive reviews only, update your agent memory** as you learn how this infrastructure actually behaves. Record: which stacks were deployed to which stage and when (with the evidence you used); recurring drift patterns and their root cause; AWS-side gotchas discovered live (permission boundaries, quota limits, resources that force replacement); the current OIDC trust subject; and any place where `infra/README.md` has gone stale. Do not record what the templates say — those are readable at any time. Record what only a live audit could tell you.

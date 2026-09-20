@@ -9,13 +9,15 @@ Read `infra/README.md` first — it is the contract, and it carries the current 
 
 ## Before you touch anything
 
-- **Accounts:** dev `dndtools` = `703621193648`, prod `dndtools-prod` = `649320110863`, region **`ca-central-1`**. The one exception is CloudFront's ACM certificate (`edge-cert`), which must live in `us-east-1`.
+- **Accounts:** dev `dndtools` = `703621193648`, prod `dndtools-prod` = `649320110863`, region **`ca-central-1`**. The exceptions are the two CloudFront control-plane stacks, `edge-cert` (the ACM certificate) and `edge-waf` (the WAF web ACL), which must both live in `us-east-1`.
 - **Profile:** `--profile dndtools` for dev, `--profile dndtools-prod` for prod (`infra/deploy.sh` picks by stage). The ambient `AWS_PROFILE` on this machine may point at a dead SSO session — never rely on it. Scripts read `DNDTOOLS_PROFILE`, not `AWS_PROFILE`. On `ExpiredToken` or an SSO error, use the `aws-auth` skill; the user must complete a browser login.
 - **Deploys are a user decision.** Confirm before running a deploy the user did not explicitly ask for. `prod` always requires explicit confirmation (its `samconfig.toml` sets `confirm_changeset = true`).
 
 ## Deploy order is strict
 
-`edge-cert` (once) → `foundation` → `identity` → `turn` → `app-api` → `signaling` → `sync-api` → `web-hosting` → `app-api` again (purge proof) → identity/API origin refresh
+`edge-cert` (once) → `foundation` → `identity` → `turn` → `edge-waf` → `app-api` → `signaling` → `sync-api` → `web-hosting` → `app-api` again (purge proof) → identity/API origin refresh
+
+`edge-waf` is prod-only in practice (`CreateWebAcl=false` in dev, on cost grounds) and couples to `app-api` and `web-hosting` through the deploy wrapper's cross-region output lookup. Missing production output blocks deployment; no manual ARN copy is needed.
 
 Stacks read other stacks' SSM parameters through `{{resolve:ssm}}`, which resolves **at deploy time**. Deploying before an upstream exists fails with SSM `ParameterNotFound`:
 

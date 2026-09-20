@@ -2468,13 +2468,24 @@ app-security-review-<date>.md`, fixes. Scope: sandbox host (WID-1.3), host API, 
   Run `/security-review` on each of those PRs first. Deps: `POL-1.*`, CLD-2.2 ·
   Acceptance: no open high; `docs/security/README.md` updated.
 - **RC-ENG-5.3 — API edge hardening.** `M` · P3 · Owns: `infra/app-api/template.yaml`,
-  `infra/foundation/template.yaml` (a WAF web ACL with a rate-based rule),
+  `infra/edge-waf` (a WAF web ACL with a rate-based rule), `infra/web-hosting/template.yaml` and
+  `infra/web-hosting/samconfig.toml` (the `WebAclArn` association), `infra/deploy.sh` and
+  `infra/README.md` (the new stack's region pin and deploy order),
+  `scripts/check-cloudformation-drift.sh` (so the new stack is drift-checked),
   `packages/cloud-fns/src/app-api` (per-user quotas on write endpoints), `docs/security/README.md`.
   Current state: `sync-api` and `signaling` carry stage throttles (burst 20 / rate 10) with throttle
-  alarms; `app-api` has none, and no web ACL fronts any stage. Acceptance: throttles and alarms on the
+  alarms; ~~`app-api` has none~~ (stale — `app-api` has carried the same throttles and a
+  `AppFunctionThrottlesAlarm` since `cdd3102b`, 2026-07-15), and no web ACL fronts any stage.
+  Acceptance: throttles and alarms on the
   app API match the other stacks; a per-IP rate rule fronts the app API and the web hosting
   distribution; a contract test proves a 429 on the 21st listing write in a minute; an
   `infra-ops-reviewer` pass is recorded in the journal.
+
+  **Operator scope amendment, 2026-09-18:** the edge stack, hosting, wrapper, drift script and
+  deployment/reviewer documentation are owned. The CloudFront-scope ACL lives in us-east-1;
+  production app API requests now pass through a protected CloudFront distribution with direct
+  origin rejection. See `docs/security/README.md` for activation and client migration requirements.
+
 - **RC-ENG-5.2 — Regression gates for new security invariants.** `S` · P2 · Owns:
   `security/regression-gates.ts`. Add: custom widget cannot reach `window.parent` state; private
   store never in a view-model; system package cannot carry functions; sandbox CSP exact.

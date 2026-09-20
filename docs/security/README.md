@@ -87,6 +87,80 @@ the internet disconnected.
 - **Regression gates.** `packages/core/src/security/regression-gates.ts` declares the security
   invariants the test suite proves; `pnpm security:secrets` scans tracked files for credentials.
 
+### API abuse controls
+
+The app API matches sync/signaling with a stage burst limit of 20 and rate limit of 10
+requests/second. Its Lambda throttle alarm uses `Sum` over five minutes, threshold 1, and
+notifies the stage alerts topic when `CreateAlarms` is enabled (prod on, dev off).
+
+Authenticated app-api write requests (`POST`, `PUT`, `PATCH`, `DELETE`, including account
+export) share a per-Cognito-sub budget of 20 attempts per UTC minute. A conditional DynamoDB
+increment enforces the budget across Lambda instances before route side effects; rejected
+validation attempts count too. Request 21 returns HTTP 429 with `Retry-After` in seconds until
+the next minute. Reads and other accounts remain available. The existing daily publishing
+budgets still apply. This is a fixed window, so two bursts can straddle a minute boundary;
+it is not a sliding 60-second limit. Counter keys include the window and expire by TTL;
+correct reset does not depend on timely TTL deletion. Storage failures fail closed with 500.
+The handler contract suite verifies 20 successful listing writes followed by a 429 without
+additional listing/S3 writes, window reset, tenant isolation, and concurrent quota admission
+using the in-memory AWS layer.
+
+Both unauthenticated app-api routes — `GET /invites/resolve/{token}` and `GET /wikis/{wikiId}` —
+share a per-source-IP budget of 60 requests per UTC minute, keyed by an unsalted SHA-256 hash of the
+address, so no raw address is persisted or logged. The hash is a storage-hygiene measure, not an
+anonymisation claim: IPv4 space is small enough to enumerate, so anyone holding both the table and
+the intent could reverse a key. What limits the exposure is lifetime — the rows carry a TTL of two
+minutes. It is consumed before any route work, so the
+61st request costs one conditional DynamoDB update rather than an S3 read or a scrypt verification.
+The tighter wiki-password limiter (5 failures per 15 minutes per wiki+address) still applies
+underneath it.
+
+### Edge rate limiting (AWS WAF)
+
+`infra/edge-waf` holds a CloudFront-scope web ACL with one rate-based rule: 2000 requests per
+five-minute sliding window per client IP, blocked with a 429 and a JSON body, default action
+allow. `infra/web-hosting` attaches it to the SPA distribution through `WebACLId`, which takes the
+WAFv2 ACL ARN despite its WAF-Classic name. The rule aggregates on `IP` rather than
+`FORWARDED_IP`: CloudFront is the first hop, so the address WAF sees is the real client, and
+trusting `X-Forwarded-For` there would let a caller choose its own rate-limit bucket.
+
+Production also attaches the ACL to `AppEdge`, a dedicated CloudFront distribution for all
+app API paths. Its URL is published at `/dndtools/<stage>/app-api/url`; clients must be rebuilt
+from that value when activating the edge. The hosted CSP reads the corresponding `/origin` value.
+All methods, Authorization, cookies and query strings reach the HTTP API with caching disabled.
+The web distribution's `/wikis/*` origin remains supported and uses the same origin credential.
+
+CloudFront overwrites `x-app-origin` with a generated Secrets Manager credential. Public routes
+(including telemetry and the Stripe webhook) use an uncached Lambda origin authorizer; JWT routes
+retain Cognito authentication and verify the credential before handler work. Direct API calls
+therefore fail before business operations. Gateway-generated OPTIONS responses may remain public.
+Viewer-request functions overwrite `x-app-client-ip`; the handler trusts it only after verifying
+the credential, so its public/wiki-password budgets count viewers rather than CloudFront servers.
+Never log or expose the credential. Rotation requires refreshing both distributions and the app
+functions together; changing only the secret value does not refresh CloudFormation dynamic references.
+
+The ACL must [live in us-east-1](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-wafv2-webacl.html),
+so it remains in `edge-waf`, outside the regional foundation stack. `deploy.sh` reads its output
+for both production consumers and fails if it cannot obtain the ARN; template rules also reject
+blank production associations. Dev deliberately keeps its direct endpoint and no ACL.
+The design follows AWS's [HTTP API origin restriction pattern](https://aws.amazon.com/blogs/networking-and-content-delivery/restricting-access-http-api-gateway-lambda-authorizer/)
+and [managed origin request policy](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-origin-request-policies.html).
+WAF rate enforcement is approximate; the deterministic 20-write contract belongs to the atomic
+DynamoDB quota, not the WAF rule. WAF evaluates its rate budget separately for each distribution.
+
+Activation is a coordinated release: deploy edge-waf, app-api, then web-hosting; rebuild clients,
+update Stripe's webhook URL to the protected API URL, and verify both normal requests and direct
+origin rejection. Existing client binaries embedding the old URL need an update. This task does
+not perform that release or claim any deployed protection.
+
+Cost is why the ACL is prod-only. AWS WAF bills $5/month per web ACL plus $1/month per rule
+regardless of traffic, plus $0.60 per million requests inspected — so ~$6 is a floor, not a flat
+charge. The origin secret adds about $0.40/month; the distribution, function and authorizer also
+incur usage charges. Dev's entire monthly budget ceiling is $12 against a steady state already near it, so
+`edge-waf` deploys with `CreateWebAcl=false` in dev. Prod's ceiling is $20; the ACL takes it to
+roughly $15–16, which approaches its FORECASTED-80% ($16) alert threshold, so monitor budget
+alerts and decide deliberately whether to raise the ceiling.
+
 ## 5. Audit history
 
 A three-auditor review of the cloud stacks, Lambdas, and client on 2026-07-06 found and fixed five

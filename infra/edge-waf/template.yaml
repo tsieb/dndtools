@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  dndtools edge-waf — the us-east-1 AWS WAF web ACL that rate-limits the public edge per
+  client IP. Consumed by app-api and web-hosting via the WebAclArn parameter (RC-ENG-5.3).
+
+# WHY THIS IS A SEPARATE, REGION-PINNED STACK
+# A web ACL that protects a CloudFront distribution must be created with Scope: CLOUDFRONT, and
+# "for CLOUDFRONT, you must create your WAFv2 resources in the US East (N. Virginia) Region,
+# us-east-1" (AWS::WAFv2::WebACL, Scope). `foundation` — where the RC-ENG-5.3 story first placed
+# this ACL — is a ca-central-1 stack, so it CANNOT hold one: a CLOUDFRONT-scope resource declared
+# there fails at create time. `edge-cert` is already the precedent for this exact problem, but it
+# is one stage-independent certificate shared by both stages and lives only in the prod account,
+# whereas a web ACL is per-stage and per-account. Hence a second region-pinned stack rather than
+# an overload of the first.
+#
+# Like the certificate, the ARN crosses regions as a deploy PARAMETER, never SSM: SSM is
+# per-region and both consumers run in ca-central-1.
+#
+# Deploy order: after foundation, before app-api and web-hosting. See infra/README.md.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  CreateWebAcl:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >-
+      Create this stage's web ACL. OFF in dev on cost grounds, not on security grounds.
+
+      AWS WAF bills $5.00/month per web ACL plus $1.00/month per rule, unconditionally and
+      regardless of traffic — roughly $6/month for the single rule below. Dev's whole monthly
+      budget ceiling is $12 against a steady state near that, so switching it on in dev breaches
+      the budget alarm by itself; prod's ceiling is $20 with room for it. This mirrors how
+      CreateAlarms and CreateStageDashboard are already split across the two stages.
+
+      The wrapper supplies the ARN to both production consumers. For a dev investigation,
+      deploy consumers explicitly with the test ACL ARN; the normal dev wrapper keeps it blank.
+      Before deleting an ACL, detach BOTH distributions. Production rules intentionally prevent
+      accidental removal by blank parameter; removal needs an explicit reviewed rule change.
+  RateLimitPer5Min:
+    Type: Number
+    Default: 2000
+    MinValue: 100
+    MaxValue: 2000000000
+    Description: >-
+      Requests one client IP may make through the distribution in a five-minute sliding window
+      before AWS WAF blocks it. This fronts an SPA, so the unit is assets-and-API-calls, not page
+      views: a cold load of the bundle is tens of requests, so 2000/5min is generous for a human
+      and still an order of magnitude under a scripted scrape. The MinValue of 100 below is this
+      project's floor, not AWS's — AWS itself allows down to 10, which is low enough to lock out
+      a single ordinary page load.
+
+Conditions:
+  ShouldCreateWebAcl: !Equals [!Ref CreateWebAcl, 'true']
+
+Resources:
+  EdgeWebAcl:
+    Type: AWS::WAFv2::WebACL
+    Condition: ShouldCreateWebAcl
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-edge'
+      # CLOUDFRONT is what makes this stack us-east-1-only; see the header.
+      Scope: CLOUDFRONT
+      Description: !Sub 'Per-IP rate limit fronting the ${ProjectName} ${Stage} public edge.'
+      # Allow by default: this ACL exists to bound abuse volume, not to allowlist traffic. A
+      # default Block would take the whole site down the moment the ACL is associated.
+      DefaultAction:
+        Allow: {}
+      CustomResponseBodies:
+        RateLimited:
+          ContentType: APPLICATION_JSON
+          Content: '{"error":"rate_limited","message":"Too many requests from this address. Try again shortly."}'
+      Rules:
+        - Name: per-ip-rate-limit
+          Priority: 0
+          Statement:
+            RateBasedStatement:
+              Limit: !Ref RateLimitPer5Min
+              # Stated explicitly even though 300 is the default, so the parameter name above
+              # (RateLimitPer5Min) is verifiable against the template rather than against AWS's
+              # current default.
+              EvaluationWindowSec: 300
+              # IP, not FORWARDED_IP: CloudFront is the first hop, so the source address WAF sees
+              # is the real client. Trusting X-Forwarded-For here would instead let a caller pick
+              # its own rate-limit bucket by forging the header.
+              AggregateKeyType: IP
+          Action:
+            Block:
+              CustomResponse:
+                ResponseCode: 429
+                CustomResponseBodyKey: RateLimited
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${ProjectName}-${Stage}-edge-per-ip-rate-limit'
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${ProjectName}-${Stage}-edge'
+      Tags:
+        - Key: project
+          Value: !Ref ProjectName
+        - Key: stage
+          Value: !Ref Stage
+        - Key: service
+          Value: edge-waf
+
+Outputs:
+  WebAclArn:
+    Description: >-
+      Pass to app-api and web-hosting as WebAclArn (cross-region, so not via SSM). Empty-string
+      output is not possible for a conditional resource, so this output only exists when the ACL
+      does; an absent output means this stage deliberately runs without a web ACL.
+    Condition: ShouldCreateWebAcl
+    Value: !GetAtt EdgeWebAcl.Arn

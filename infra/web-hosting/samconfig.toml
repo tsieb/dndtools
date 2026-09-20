@@ -16,6 +16,10 @@ version = 0.1
 # WebCertificateArn is the CertificateArn output of the `edge-cert` stack in the SAME account,
 # us-east-1. It is copied here rather than resolved because SSM cannot be read across regions.
 # Re-copy it if that certificate is ever replaced (changing the domain replaces it).
+#
+# WebAclArn is populated by deploy.sh from the same-account edge-waf output in us-east-1.
+# Blank dev is deliberate. The prod placeholder below is overridden by the wrapper; deploying
+# SAM directly with that blank value fails the production template rule.
 
 [dev.global.parameters]
 stack_name = "dndtools-dev-web-hosting"
@@ -26,7 +30,7 @@ region = "ca-central-1"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-web-hosting"
-parameter_overrides = "ProjectName=dndtools Stage=dev PrimaryHostName='' SecondaryHostName='' WebCertificateArn='' HostedZoneId=''"
+parameter_overrides = "ProjectName=dndtools Stage=dev PrimaryHostName='' SecondaryHostName='' WebCertificateArn='' HostedZoneId='' WebAclArn=''"
 tags = "project=dndtools stage=dev service=web-hosting owner=platform data-class=public managed-by=sam"
 
 [prod.global.parameters]
@@ -38,5 +42,5 @@ region = "ca-central-1"
 confirm_changeset = true
 resolve_s3 = true
 s3_prefix = "dndtools-prod-web-hosting"
-parameter_overrides = "ProjectName=dndtools Stage=prod PrimaryHostName=lamplight.click SecondaryHostName=www.lamplight.click WebCertificateArn=arn:aws:acm:us-east-1:649320110863:certificate/064d0983-7e18-47b9-9e0e-a18644181eb6 HostedZoneId=Z07658511EFS4B5KGNYUX"
+parameter_overrides = "ProjectName=dndtools Stage=prod PrimaryHostName=lamplight.click SecondaryHostName=www.lamplight.click WebCertificateArn=arn:aws:acm:us-east-1:649320110863:certificate/064d0983-7e18-47b9-9e0e-a18644181eb6 HostedZoneId=Z07658511EFS4B5KGNYUX WebAclArn=''"
 tags = "project=dndtools stage=prod service=web-hosting owner=platform data-class=public managed-by=sam"

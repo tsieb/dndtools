@@ -10,7 +10,7 @@ Description: >-
   webhook Lambda that is the only writer of PAID plan rows). One HTTP API with a Cognito
   JWT authorizer, one on-demand single-table DynamoDB (pk/sk + TTL), one private S3 bucket
   for module payloads and wiki bundles. Unlike sync-api this stack sees PLAINTEXT payloads
-  (published for sharing) — it must never store vault content. Scale-to-zero, $0 idle.
+  (published for sharing) — it must never store vault content. Production adds a WAF-protected CloudFront origin and a billed origin secret.
   Cross-stack values are read from SSM at deploy time (no ImportValue).
 
 Parameters:
@@ -21,6 +21,11 @@ Parameters:
     Type: String
     Default: dev
     AllowedValues: [dev, prod]
+  WebAclArn:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^arn:aws:wafv2:us-east-1:[0-9]{12}:global/webacl/.+$'
+    Description: Same-account edge-waf output, supplied by deploy.sh. Required in prod.
   WikiCustomDomains:
     Type: String
     Default: '{}'
@@ -85,7 +90,15 @@ Parameters:
       notified nobody. Turn them on in dev only alongside a confirmed subscription on
       the dev alerts topic, otherwise the same silence returns.
 
+Rules:
+  ProductionRequiresWaf:
+    RuleCondition: !Equals [!Ref Stage, prod]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref WebAclArn, '']]
+        AssertDescription: Deploy edge-waf first and supply its WebAclArn.
+
 Conditions:
+  HasWebAcl: !Not [!Equals [!Ref WebAclArn, '']]
   ShouldCreateAlarms: !Equals [!Ref CreateAlarms, 'true']
   ShouldReserveConcurrency: !Equals [!Ref ReserveLambdaConcurrency, 'true']
   IsProd: !Equals [!Ref Stage, prod]
@@ -122,6 +135,75 @@ Resources:
             Schedule: rate(1 minute)
             Enabled: false
 
+  OriginSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: HasWebAcl
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-app-origin'
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludePunctuation: true
+  OriginAuthorizerFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs24.x
+      InlineCode: |
+        const { timingSafeEqual } = require('node:crypto');
+        exports.handler = async (event) => {
+          const expected = process.env.ORIGIN_SECRET || '';
+          const received = event.headers?.['x-app-origin'] || '';
+          return { isAuthorized: !expected || (Buffer.byteLength(expected) === Buffer.byteLength(received)
+            && timingSafeEqual(Buffer.from(expected), Buffer.from(received))) };
+        };
+      Environment:
+        Variables:
+          ORIGIN_SECRET:
+            !If [HasWebAcl, !Sub '{{resolve:secretsmanager:${OriginSecret}:SecretString}}', '']
+  AppEdge:
+    Type: AWS::CloudFront::Distribution
+    Condition: HasWebAcl
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        WebACLId: !Ref WebAclArn
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: app-api
+            DomainName: !Sub '${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+            OriginPath: !Sub '/${Stage}'
+            OriginCustomHeaders:
+              - HeaderName: x-app-origin
+                HeaderValue: !Sub '{{resolve:secretsmanager:${OriginSecret}:SecretString}}'
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: app-api
+          ViewerProtocolPolicy: https-only
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt AppViewerIp.FunctionMetadata.FunctionARN
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+  AppViewerIp:
+    Type: AWS::CloudFront::Function
+    Condition: HasWebAcl
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-app-viewer-ip'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Overwrite untrusted viewer IP header before forwarding to the origin.
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          event.request.headers['x-app-client-ip'] = { value: event.viewer.ip };
+          return event.request;
+        }
   # --- Marketplace module payloads + wiki page bundles (`wikis/` prefix): -------
   # --- private, encrypted-at-rest S3; only the Lambda reads/writes it (wiki -----
   # --- reads are served THROUGH the handler, never as public bucket access). ----
@@ -230,6 +312,13 @@ Resources:
       Auth:
         DefaultAuthorizer: CognitoJwt
         Authorizers:
+          OriginOnly:
+            FunctionArn: !GetAtt OriginAuthorizerFn.Arn
+            AuthorizerPayloadFormatVersion: '2.0'
+            EnableSimpleResponses: true
+            EnableFunctionDefaultPermissions: true
+            Identity:
+              ReauthorizeEvery: 0
           CognitoJwt:
             IdentitySource: '$request.header.Authorization'
             JwtConfiguration:
@@ -284,6 +373,8 @@ Resources:
           # Invite email delivery (optional; empty INVITE_SENDER = disabled/fail-closed).
           # WEB_ORIGIN is the trusted base for the join link the email carries.
           INVITE_SENDER: !Ref InviteSender
+          ORIGIN_SECRET:
+            !If [HasWebAcl, !Sub '{{resolve:secretsmanager:${OriginSecret}:SecretString}}', '']
           WEB_ORIGIN: !Ref WebOrigin
           WIKI_CUSTOM_DOMAINS: !Ref WikiCustomDomains
           # Send through the same configuration set Cognito uses, so bounce and complaint
@@ -531,7 +622,7 @@ Resources:
             Method: GET
             Path: '/wikis/{wikiId}/{document}'
             Auth:
-              Authorizer: NONE
+              Authorizer: OriginOnly
         ReadWiki:
           Type: HttpApi
           Properties:
@@ -539,7 +630,7 @@ Resources:
             Method: GET
             Path: '/wikis/{wikiId}'
             Auth:
-              Authorizer: NONE
+              Authorizer: OriginOnly
         # Invites -------------------------------------------------------------------
         CreateInvite:
           Type: HttpApi
@@ -570,7 +661,7 @@ Resources:
             Method: GET
             Path: '/invites/resolve/{token}'
             Auth:
-              Authorizer: NONE
+              Authorizer: OriginOnly
 
   # --- RC-CLD-1.4: opt-in product analytics ingestion ---------------------------
   # Anonymous, consent-gated usage counters. Deliberately its OWN function rather than another
@@ -621,7 +712,7 @@ Resources:
             # text/plain body with credentials omitted, so no cookie or Authorization header can
             # reach it even by accident.
             Auth:
-              Authorizer: NONE
+              Authorizer: OriginOnly
 
   # --- ADR-027: Stripe webhook — the ONLY writer of paid entitlement rows ---------
   # Its own function and role, like TelemetryFn, because it is the stack's one unauthenticated
@@ -677,7 +768,7 @@ Resources:
             # Unauthenticated BY DESIGN: Stripe is the caller. Authentication is the HMAC
             # signature over the raw body, checked in the handler with the endpoint secret.
             Auth:
-              Authorizer: NONE
+              Authorizer: OriginOnly
 
   BillingWebhookErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -776,7 +867,24 @@ Resources:
     Properties:
       Name: !Sub '/${ProjectName}/${Stage}/app-api/url'
       Type: String
-      Value: !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+      Value:
+        !If [
+          HasWebAcl,
+          !Sub 'https://${AppEdge.DomainName}',
+          !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}',
+        ]
+
+  ParamAppApiOrigin:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/app-api/origin'
+      Type: String
+      Value:
+        !If [
+          HasWebAcl,
+          !Sub 'https://${AppEdge.DomainName}',
+          !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com',
+        ]
 
   ParamAppApiId:
     Type: AWS::SSM::Parameter
@@ -795,7 +903,12 @@ Resources:
 Outputs:
   AppApiUrl:
     Description: HTTP API base URL for the application backend (send Authorization=<cognito-id-token>).
-    Value: !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+    Value:
+      !If [
+        HasWebAcl,
+        !Sub 'https://${AppEdge.DomainName}',
+        !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}',
+      ]
   AppTable:
     Value: !Ref AppTable
   ModulesBucket:

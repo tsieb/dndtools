@@ -1,0 +1,46 @@
+version = 0.1
+
+# us-east-1 only. A CLOUDFRONT-scope web ACL can only be created there (see template header), and
+# `infra/deploy.sh` pins the region for this stack so a caller cannot get it wrong.
+#
+# Unlike `edge-cert`, this stack IS per-stage and per-account: each account's CloudFront
+# distribution needs an ACL from its own account, so dev deploys into 703621193648 and prod into
+# 649320110863.
+#
+# CreateWebAcl is false in dev and true in prod on COST grounds — a web ACL bills ~$6/month flat,
+# and dev's budget ceiling is $12 against a steady state already near it. See the parameter's own
+# description and infra/README.md "Observability and cost".
+#
+# The deploy wrapper reads this stack's WebAclArn for both production consumers on every deploy.
+#
+# THE DEV CONFIG-ENV IS NOT MEANT TO BE DEPLOYED. With CreateWebAcl=false the template declares no
+# resources at all, and `sam deploy --no-fail-on-empty-changeset` against a stack that has never
+# existed leaves it parked in REVIEW_IN_PROGRESS rather than creating anything. It is defined only
+# so a dev investigation can flip CreateWebAcl=true without inventing config under time pressure.
+#
+# Detach BOTH distributions before deleting the ACL. Production rules block blank ARN updates;
+# removing protection requires an explicit reviewed rule change, not merely a parameter flip.
+
+[dev.global.parameters]
+stack_name = "dndtools-dev-edge-waf"
+
+[dev.deploy.parameters]
+profile = "dndtools"
+region = "us-east-1"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-dev-edge-waf"
+parameter_overrides = "ProjectName=dndtools Stage=dev CreateWebAcl=false RateLimitPer5Min=2000"
+tags = "project=dndtools stage=dev service=edge-waf owner=platform data-class=public managed-by=sam"
+
+[prod.global.parameters]
+stack_name = "dndtools-prod-edge-waf"
+
+[prod.deploy.parameters]
+profile = "dndtools-prod"
+region = "us-east-1"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "dndtools-prod-edge-waf"
+parameter_overrides = "ProjectName=dndtools Stage=prod CreateWebAcl=true RateLimitPer5Min=2000"
+tags = "project=dndtools stage=prod service=edge-waf owner=platform data-class=public managed-by=sam"

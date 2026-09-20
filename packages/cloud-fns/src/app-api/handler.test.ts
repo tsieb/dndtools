@@ -437,6 +437,7 @@ function event(
 		name?: string;
 		body?: unknown;
 		params?: Record<string, string>;
+		sourceIp?: string;
 		query?: Record<string, string>;
 	} = {},
 ) {
@@ -452,7 +453,10 @@ function event(
 	return {
 		routeKey,
 		rawPath,
-		requestContext: { http: { method }, ...(claims ? { authorizer: { jwt: { claims } } } : {}) },
+		requestContext: {
+			http: { method, ...(opts.sourceIp ? { sourceIp: opts.sourceIp } : {}) },
+			...(claims ? { authorizer: { jwt: { claims } } } : {}),
+		},
 		pathParameters: opts.params,
 		queryStringParameters: opts.query,
 		body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
@@ -460,8 +464,12 @@ function event(
 }
 
 const call = async (e: APIGatewayProxyEventV2) => {
-	const res = (await handler(e, {} as never, () => {})) as { statusCode: number; body: string };
-	return { status: res.statusCode, body: JSON.parse(res.body) };
+	const res = (await handler(e, {} as never, () => {})) as {
+		statusCode: number;
+		body: string;
+		headers?: Record<string, string>;
+	};
+	return { status: res.statusCode, body: JSON.parse(res.body), headers: res.headers };
 };
 
 const GOOD_MODULE = {
@@ -2190,5 +2198,192 @@ describe('billing (ADR-027 — hosted Checkout + portal; the webhook writes plan
 			status: 'active',
 			currentPeriodEnd: 1800000000,
 		});
+	});
+});
+
+describe('app-api per-user minute write quota', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-09-12T12:00:10Z'));
+	});
+	afterEach(() => vi.useRealTimers());
+
+	it('accepts 20 listing writes, rejects the 21st before side effects, and resets next minute', async () => {
+		for (let i = 0; i < 20; i++) {
+			expect((await call(event('POST /marketplace/modules', { body: GOOD_MODULE }))).status).toBe(
+				200,
+			);
+		}
+		const rowsBefore = structuredClone([...store.items.entries()]);
+		const objectsBefore = structuredClone([...store.versions.entries()]);
+		const rejected = await call(event('POST /marketplace/modules', { body: GOOD_MODULE }));
+		expect(rejected.status).toBe(429);
+		expect(rejected.headers?.['retry-after']).toBe('50');
+		expect([...store.items.entries()]).toEqual(rowsBefore);
+		expect([...store.versions.entries()]).toEqual(objectsBefore);
+		expect((await call(event('GET /marketplace/modules'))).status).toBe(200);
+		expect(
+			(await call(event('POST /marketplace/modules', { sub: 'user-2', body: GOOD_MODULE }))).status,
+		).toBe(200);
+		vi.setSystemTime(new Date('2026-09-12T12:01:00Z'));
+		expect((await call(event('POST /marketplace/modules', { body: GOOD_MODULE }))).status).toBe(
+			200,
+		);
+	});
+
+	it('shares quota across write routes and counts invalid attempts', async () => {
+		for (let i = 0; i < 20; i++) {
+			expect((await call(event('POST /marketplace/modules', { body: {} }))).status).toBe(400);
+		}
+		for (const route of [
+			'PUT /account/profile',
+			'DELETE /wiki',
+			'POST /invites',
+			'POST /billing/checkout-session',
+			// Integration's discovery writes share this quota with publishing.
+			'POST /listings/{moduleId}/install',
+			'PUT /listings/{moduleId}/review',
+			'POST /listings/{moduleId}/reviews/{reviewId}/flag',
+			'POST /moderation/reviews/resolve',
+		]) {
+			expect((await call(event(route, { body: {} }))).status).toBe(429);
+		}
+		expect(store.objects.size).toBe(0);
+		expect(store.sesCalls).toHaveLength(0);
+		expect(billing.customersCreated).toHaveLength(0);
+	});
+
+	it('admits only 20 concurrent write attempts for the same user', async () => {
+		const responses = await Promise.all(
+			Array.from({ length: 30 }, () =>
+				call(event('PUT /account/profile', { body: { displayName: 'Player' } })),
+			),
+		);
+		expect(responses.filter((response) => response.status === 200)).toHaveLength(20);
+		expect(responses.filter((response) => response.status === 429)).toHaveLength(10);
+	});
+
+	it('does not allocate counters for unauthenticated requests', async () => {
+		expect(
+			(await call(event('POST /marketplace/modules', { sub: null, body: GOOD_MODULE }))).status,
+		).toBe(401);
+		expect([...store.items.values()].some((row) => row.sk?.startsWith('rate#'))).toBe(false);
+	});
+});
+
+describe('app-api per-IP minute budget on the unauthenticated routes', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-09-12T12:00:10Z'));
+	});
+	afterEach(() => vi.useRealTimers());
+
+	const resolve = (sourceIp: string) =>
+		call(event('GET /invites/resolve/{token}', { sub: null, params: { token: 'nope' }, sourceIp }));
+
+	it('accepts 60 public requests from one address and rejects the 61st, then resets next minute', async () => {
+		for (let i = 0; i < 60; i++) expect((await resolve('203.0.113.7')).status).toBe(404);
+		const rejected = await resolve('203.0.113.7');
+		expect(rejected.status).toBe(429);
+		expect(rejected.headers?.['retry-after']).toBe('50');
+		vi.setSystemTime(new Date('2026-09-12T12:01:00Z'));
+		expect((await resolve('203.0.113.7')).status).toBe(404);
+	});
+
+	it('budgets each address separately and never persists the raw address', async () => {
+		for (let i = 0; i < 60; i++) expect((await resolve('203.0.113.7')).status).toBe(404);
+		expect((await resolve('203.0.113.7')).status).toBe(429);
+		expect((await resolve('198.51.100.4')).status).toBe(404);
+		const counters = [...store.items.values()].filter((row) => row.pk?.startsWith('ip-rate#'));
+		expect(counters).toHaveLength(2);
+		expect(JSON.stringify(counters)).not.toContain('203.0.113.7');
+	});
+
+	it('shares one address budget across all three public routes', async () => {
+		// Publishing is Beacon-gated; put the owner on Beacon, then publish a public wiki.
+		await call(event('POST /account/entitlements', { sub: 'owner-ip', body: { plan: 'beacon' } }));
+		const pub = await call(
+			event('PUT /wiki', {
+				sub: 'owner-ip',
+				body: {
+					title: 'Public Lore',
+					access: 'public',
+					pages: [{ slug: 'welcome', title: 'Welcome', markdown: '# Hi' }],
+				},
+			}),
+		);
+		expect(pub.status).toBe(200);
+		for (let i = 0; i < 60; i++) expect((await resolve('203.0.113.9')).status).toBe(404);
+		const blocked = await call(
+			event('GET /wikis/{wikiId}', {
+				sub: null,
+				params: { wikiId: pub.body.wikiId },
+				sourceIp: '203.0.113.9',
+			}),
+		);
+		expect(blocked.status).toBe(429);
+		// The crawlable document route (RC-CLD-4.4) is unauthenticated too, and it calls readWiki
+		// itself — so it must be charged by the same budget, and charged only once.
+		const blockedDocument = (await handler(
+			event('GET /wikis/{wikiId}/{document}', {
+				sub: null,
+				params: { wikiId: pub.body.wikiId, document: 'reader' },
+				sourceIp: '203.0.113.9',
+			}),
+			{} as never,
+			() => {},
+		)) as { statusCode: number };
+		expect(blockedDocument.statusCode).toBe(429);
+	});
+
+	it('charges the document route once per request, not once per internal readWiki call', async () => {
+		await call(event('POST /account/entitlements', { sub: 'owner-doc', body: { plan: 'beacon' } }));
+		const pub = await call(
+			event('PUT /wiki', {
+				sub: 'owner-doc',
+				body: {
+					title: 'Public Lore',
+					access: 'public',
+					pages: [{ slug: 'welcome', title: 'Welcome', markdown: '# Hi' }],
+				},
+			}),
+		);
+		expect(pub.status).toBe(200);
+		// `reader` answers HTML, so go through the handler directly rather than the JSON-parsing
+		// `call` helper.
+		const readDocument = async () =>
+			(await handler(
+				event('GET /wikis/{wikiId}/{document}', {
+					sub: null,
+					params: { wikiId: pub.body.wikiId, document: 'reader' },
+					sourceIp: '198.51.100.9',
+				}),
+				{} as never,
+				() => {},
+			)) as { statusCode: number };
+		for (let i = 0; i < 60; i++) expect((await readDocument()).statusCode).toBe(200);
+		expect((await readDocument()).statusCode).toBe(429);
+	});
+
+	it('leaves authenticated routes unaffected by a spent public budget', async () => {
+		for (let i = 0; i < 61; i++) await resolve('203.0.113.7');
+		expect(
+			(await call(event('GET /marketplace/modules', { sourceIp: '203.0.113.7' }))).status,
+		).toBe(200);
+	});
+});
+
+describe('CloudFront origin boundary', () => {
+	afterEach(() => {
+		delete process.env.ORIGIN_SECRET;
+	});
+	it('rejects direct and forged-origin requests before route work', async () => {
+		process.env.ORIGIN_SECRET = 'trusted-edge-secret';
+		const request = event('GET /account/entitlements');
+		expect((await call(request)).status).toBe(403);
+		request.headers = { 'x-app-origin': 'forged', 'x-app-client-ip': '192.0.2.1' };
+		expect((await call(request)).status).toBe(403);
+		request.headers['x-app-origin'] = 'trusted-edge-secret';
+		expect((await call(request)).status).toBe(200);
 	});
 });

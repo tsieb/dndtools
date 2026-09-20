@@ -106,6 +106,9 @@ const MAX_EMAIL_CHARS = 254; // RFC 5321 max address length — a cheap DoS boun
 const MAX_BROWSE_RESULTS = 100;
 const MAX_ACTIVE_MODULES_PER_ACCOUNT = 50;
 const MAX_ACTIVE_INVITES_PER_ACCOUNT = 50;
+const WRITES_PER_MINUTE = 20;
+const WRITE_WINDOW_SECONDS = 60;
+const PUBLIC_REQUESTS_PER_IP_PER_MINUTE = 60;
 const MODULE_PUBLISHES_PER_DAY = 25;
 const INVITES_CREATED_PER_DAY = 50;
 const WIKI_PUBLISHES_PER_DAY = 20;
@@ -405,9 +408,36 @@ async function queryAccountRowsStrong(sub: string): Promise<Record<string, strin
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+	const originSecret = process.env.ORIGIN_SECRET || '';
+	if (originSecret) {
+		const supplied = event.headers?.['x-app-origin'] || '';
+		if (
+			Buffer.byteLength(supplied) !== Buffer.byteLength(originSecret) ||
+			!timingSafeEqual(Buffer.from(supplied), Buffer.from(originSecret))
+		) {
+			return { statusCode: 403, body: JSON.stringify({ error: 'forbidden' }) };
+		}
+	}
+	// Only trust the overwritten viewer header after verifying the origin credential.
+	const sourceIp = originSecret
+		? event.headers?.['x-app-client-ip'] || 'unknown'
+		: event.requestContext.http.sourceIp || 'unknown';
 	const routeKey = event.routeKey;
 	try {
 		// The UNAUTHENTICATED routes — handled before any claims are required.
+		//
+		// None of these three carries a Cognito sub, so the per-account write budget below cannot
+		// bound them; a per-IP budget is the only caller identity available. It is charged once,
+		// here, rather than inside each route — `GET /wikis/{wikiId}/{document}` calls readWiki
+		// itself, and charging per call would bill that route twice. This deterministic minute budget supplements
+		// the approximate CloudFront WAF rule and also covers the direct dev endpoint.
+		if (
+			routeKey === 'GET /invites/resolve/{token}' ||
+			routeKey === 'GET /wikis/{wikiId}' ||
+			routeKey === 'GET /wikis/{wikiId}/{document}'
+		) {
+			await consumePublicIpBudget(sourceIp);
+		}
 		if (routeKey === 'GET /invites/resolve/{token}') {
 			return await resolveInvite(event.pathParameters?.token);
 		}
@@ -415,11 +445,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			const format = event.pathParameters?.document ?? '';
 			if (!['reader', 'rss.xml', 'sitemap.xml'].includes(format))
 				return json(404, { error: 'not found' });
-			const result = await readWiki(
-				event.pathParameters?.wikiId,
-				undefined,
-				event.requestContext.http.sourceIp || 'unknown',
-			);
+			const result = await readWiki(event.pathParameters?.wikiId, undefined, sourceIp);
 			if (result.statusCode !== 200) {
 				if (result.statusCode === 401 && format === 'reader' && process.env.WEB_ORIGIN)
 					return {
@@ -457,7 +483,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			return await readWiki(
 				event.pathParameters?.wikiId,
 				event.headers?.['x-wiki-password'],
-				event.requestContext.http.sourceIp || 'unknown',
+				sourceIp,
 			);
 		}
 
@@ -487,6 +513,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			true,
 		);
 		if (accountState?.deletedAt && routeKey !== 'DELETE /account') throw new AccountDeleted();
+
+		if (/^(POST|PUT|PATCH|DELETE) /.test(routeKey)) await consumeWriteBudget(caller);
 
 		switch (routeKey) {
 			// Entitlements (simulated checkout) ------------------------------------------
@@ -579,6 +607,47 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		return json(500, { error: 'internal error' });
 	}
 };
+
+/** Shared across write routes and Lambda instances; failed attempts also consume quota.
+ * UTC minute buckets do not depend on DynamoDB TTL deletion (which is asynchronous).
+ */
+async function consumeWriteBudget(caller: Caller): Promise<void> {
+	const now = nowSec();
+	const windowStart = Math.floor(now / WRITE_WINDOW_SECONDS) * WRITE_WINDOW_SECONDS;
+	const windowEnd = windowStart + WRITE_WINDOW_SECONDS;
+	const allowed = await incrementCounterBelow(
+		APP_TABLE,
+		{ pk: accountPk(caller.sub), sk: `rate#write#${windowStart}` },
+		WRITES_PER_MINUTE,
+		windowEnd + WRITE_WINDOW_SECONDS,
+	);
+	if (!allowed) {
+		throw new TooManyRequests('Account write limit reached. Try again later.', windowEnd - now);
+	}
+}
+
+/** Per-source-IP ceiling for the unauthenticated routes, keyed by a one-way hash so the raw
+ * address is never persisted (the same treatment the wiki password limiter already gives it).
+ * Shared across every public route and every Lambda instance; rejections are charged too.
+ */
+async function consumePublicIpBudget(sourceIp: string): Promise<void> {
+	const now = nowSec();
+	const windowStart = Math.floor(now / WRITE_WINDOW_SECONDS) * WRITE_WINDOW_SECONDS;
+	const windowEnd = windowStart + WRITE_WINDOW_SECONDS;
+	const sourceKey = createHash('sha256').update(sourceIp).digest('hex');
+	const allowed = await incrementCounterBelow(
+		APP_TABLE,
+		{ pk: `ip-rate#${sourceKey}`, sk: `window#${windowStart}` },
+		PUBLIC_REQUESTS_PER_IP_PER_MINUTE,
+		windowEnd + WRITE_WINDOW_SECONDS,
+	);
+	if (!allowed) {
+		throw new TooManyRequests(
+			'Too many requests from this address. Try again later.',
+			Math.max(1, windowEnd - now),
+		);
+	}
+}
 
 type PublishBudgetKind = 'module' | 'invite' | 'wiki' | 'review' | 'flag';
 const BUDGET_LABEL: Record<PublishBudgetKind, string> = {
