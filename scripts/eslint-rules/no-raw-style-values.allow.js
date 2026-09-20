@@ -212,7 +212,6 @@ export const allow = {
 	'apps/gm-react/src/screens/settings/SyncPrivacy.tsx': 3,
 	'apps/gm-react/src/screens/settings/Tools.tsx': 4,
 	'apps/gm-react/src/screens/settings/Vault.tsx': 5,
-	'apps/gm-react/src/screens/WikiReader.tsx': 21,
 };
 
-// Total current findings: 2085
+// Total current findings: 2064

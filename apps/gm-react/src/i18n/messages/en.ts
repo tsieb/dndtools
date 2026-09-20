@@ -5179,6 +5179,7 @@ export const en = {
 	'scenes.saveDetails': 'Save details',
 
 	/* Wiki reader › the public, account-less reader for a published campaign wiki */
+	'wikiReader.description': 'Read {title}, a published campaign wiki.',
 	'wikiReader.pageEmpty': 'This page is empty.',
 	'wikiReader.opening': 'Opening wiki…',
 	'wikiReader.fetching': 'Fetching the published pages…',
@@ -5186,6 +5187,7 @@ export const en = {
 	'wikiReader.noLinkBody':
 		'This link is incomplete. Ask whoever shared it to copy the full link again.',
 	'wikiReader.unavailableTitle': 'Wiki unavailable',
+	'wikiReader.notConfigured': 'Online account services are not available in this edition.',
 	'wikiReader.loadFailed': 'This wiki could not be loaded — try again.',
 	'wikiReader.tryAgain': 'Try again',
 	'wikiReader.protectedTitle': 'This wiki is protected',

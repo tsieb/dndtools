@@ -8,9 +8,8 @@ import { AppApiError, type PublicWiki } from '../cloud/appApi';
 import { I18nProvider } from '../i18n';
 import { WikiReader } from './WikiReader';
 
-// The public wiki reader is CLOUD-gated, so the Playwright e2e server can only ever reach its
-// `missing` and `invalid` phases — the `password` and `ready` phases have no e2e coverage and never
-// will offline. These component tests are where their interactive contract lives.
+// These component tests cover promise outcomes and repeated password feedback. Browser coverage
+// in wiki-reader-polish.spec.ts uses a fully intercepted local API fixture for the ready states.
 vi.mock('../cloud/appApi', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('../cloud/appApi')>();
 	return { ...actual, getPublicWiki: vi.fn() };
@@ -121,7 +120,9 @@ describe('the wiki reader announces a load failure', () => {
 		await mount();
 		// The loading phase announced itself politely; replacing that subtree without a live region
 		// left a screen reader stuck on "Fetching the published pages…".
-		expect(container.querySelector('[role="alert"]')?.textContent).toContain('This wiki is gone.');
+		expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+			'This wiki could not be loaded',
+		);
 	});
 
 	it('offers a Try again that re-fetches, on the one route with no app chrome', async () => {
@@ -168,7 +169,7 @@ describe('the ready wiki is navigable by keyboard', () => {
 
 	it('moves focus to the new page heading when a page is switched', async () => {
 		await mount();
-		expect(container.querySelector('h2')?.textContent).toBe('Harbour Ward');
+		expect(container.querySelector('article h2')?.textContent).toBe('Harbour Ward');
 
 		const cryptBtn = [...container.querySelectorAll('nav button')].find(
 			(b) => b.textContent === 'The Sunken Crypt',
@@ -177,7 +178,7 @@ describe('the ready wiki is navigable by keyboard', () => {
 			cryptBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 		});
 
-		const heading = container.querySelector('h2')!;
+		const heading = container.querySelector('article h2')!;
 		expect(heading.textContent).toBe('The Sunken Crypt');
 		// Focus used to stay on the nav button with nothing announcing the swap.
 		expect(document.activeElement).toBe(heading);
@@ -185,7 +186,7 @@ describe('the ready wiki is navigable by keyboard', () => {
 
 	it('does not steal focus on the initial load', async () => {
 		await mount();
-		expect(container.querySelector('h2')?.textContent).toBe('Harbour Ward');
+		expect(container.querySelector('article h2')?.textContent).toBe('Harbour Ward');
 		expect(document.activeElement).toBe(document.body);
 	});
 });
@@ -269,7 +270,7 @@ describe('wiki v2 reader controls', () => {
 			pages: WIKI.pages.map((p) => ({ ...p, folder: 'Places / Coast' })),
 		});
 		await mount();
-		expect(container.querySelector('nav h3')?.textContent).toBe('Places / Coast');
+		expect(container.querySelector('nav h2')?.textContent).toBe('Places / Coast');
 		const input = container.querySelector<HTMLInputElement>('input[aria-label="Search wiki"]')!;
 		await act(async () => {
 			Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(

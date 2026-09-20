@@ -5237,6 +5237,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'scenes.saveDetails': 'Guardar los detalles',
 
 	/* Lector de wiki › el lector público y sin cuenta de una wiki de campaña publicada */
+	'wikiReader.description': 'Lee {title}, una wiki de campaña publicada.',
 	'wikiReader.pageEmpty': 'Esta página está vacía.',
 	'wikiReader.opening': 'Abriendo la wiki…',
 	'wikiReader.fetching': 'Obteniendo las páginas publicadas…',
@@ -5244,6 +5245,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'wikiReader.noLinkBody':
 		'Este enlace está incompleto. Pide a quien lo compartió que copie el enlace completo otra vez.',
 	'wikiReader.unavailableTitle': 'Wiki no disponible',
+	'wikiReader.notConfigured':
+		'Los servicios de cuenta en línea no están disponibles en esta edición.',
 	'wikiReader.loadFailed': 'No se pudo cargar esta wiki — inténtalo de nuevo.',
 	'wikiReader.tryAgain': 'Intentar de nuevo',
 	'wikiReader.protectedTitle': 'Esta wiki está protegida',
