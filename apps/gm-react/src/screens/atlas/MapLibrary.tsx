@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { getMapViewForActor, queryMapLayers, type MapListEntry } from '@dndtools/core';
 import { Button, EmptyState } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -39,6 +39,7 @@ export function MapLibrary({
 	onSelect: (id: string) => void;
 }) {
 	const runtime = useRuntime();
+	const labelId = useId();
 	const { t } = useI18n();
 	const [query, setQuery] = useState('');
 	const [focused, setFocused] = useState<string | null>(null);
@@ -154,14 +155,18 @@ export function MapLibrary({
 							type="button"
 							className="map-library-card"
 							tabIndex={tabId === map.id ? 0 : -1}
+							aria-labelledby={`${labelId}-${map.id}-name${delivered.has(map.id) ? ` ${labelId}-${map.id}-delivery` : ''}`}
+							aria-describedby={`${labelId}-${map.id}-region ${labelId}-${map.id}-metadata`}
 							aria-current={selectedId === map.id ? 'true' : undefined}
 							onFocus={() => setFocused(map.id)}
 							onClick={() => onSelect(map.id)}
 						>
 							<Thumbnail model={model} client={client} />
-							<span className="map-library-name">{map.name}</span>
-							<span>{region}</span>
-							<span className="map-library-chips">
+							<span id={`${labelId}-${map.id}-name`} className="map-library-name">
+								{map.name}
+							</span>
+							<span id={`${labelId}-${map.id}-region`}>{region}</span>
+							<span id={`${labelId}-${map.id}-metadata`} className="map-library-chips">
 								<span>{t('atlas.library.pois', { count: model.view.pois.length })}</span>
 								<span>
 									{t(model.layers.length === 1 ? 'atlas.library.layer' : 'atlas.library.layers', {
@@ -172,7 +177,7 @@ export function MapLibrary({
 									<span>{t('atlas.library.party')}</span>
 								)}
 								{delivered.has(map.id) && (
-									<span>
+									<span id={`${labelId}-${map.id}-delivery`}>
 										{t(
 											runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm'
 												? 'atlas.library.live'

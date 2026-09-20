@@ -26,3 +26,11 @@
 - Reviewed the generated desktop screenshot: two-column card grid beside the map preview, metadata chips and visible keyboard focus. Phone coverage passes with the stacked layout.
 - Formatting and `git diff --check` passed. Final focused ESLint passed; final app typecheck log: `/tmp/map44-verified-typecheck.log`.
 - Production build and quality gates preceded only the final layout/copy/test refinements; the central operator still owns independent review and candidate-wide validation.
+
+## Follow-up: pinned visual gate failure
+
+- Read the original operator gate log at `.state/attempts/2cc0382c-4be4-4ebf-b5a4-c972f8f9af4d/output.log`. All 9 atlas cases timed out selecting the exact accessible button name `Golden Route Map`; the other 126 visual cases passed. This was a navigation failure before screenshot comparison.
+- The new card had implicitly included its region and metadata chips in its accessible name. Added explicit name references to the map title and (when present) delivery status, with region and chips exposed as the accessible description. This preserves exact map-name selection and readable live-delivery announcements without changing the visual gate or baselines.
+- Added gallery e2e assertions for exact map-name lookup and the POI/layer accessible description.
+- Follow-up functional validation: 27 desktop/mobile atlas and gallery tests passed, with the existing phone breadcrumb skip (`/tmp/map44-followup-e2e.log`). This includes worker performance, party/visibility, keyboard preview, projection status and the new accessible-name/description checks.
+- Focused ESLint, app typecheck, Prettier and `git diff --check` passed. Full pinned visual comparison passed: **135/135** using `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh` (`/tmp/map44-followup-visual.log`, exit 0). All nine atlas theme/viewport cases now reach the editor and match the existing baselines; no snapshots or visual tests were changed.

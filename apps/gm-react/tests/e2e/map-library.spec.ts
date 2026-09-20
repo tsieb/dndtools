@@ -23,6 +23,10 @@ test('gallery thumbnails, keyboard preview, region filtering and illustrated emp
 	const gallery = page.getByRole('group', { name: 'Map library', exact: true });
 	const cards = gallery.getByRole('button');
 	await expect(cards).not.toHaveCount(0);
+	const firstName = await cards.first().locator('.map-library-name').innerText();
+	await expect(gallery.getByRole('button', { name: firstName, exact: true })).toHaveCount(1);
+	await expect(cards.first()).toHaveAccessibleDescription(/POIs.*layers?/);
+
 	await expect(gallery.locator('img').first()).toBeVisible();
 	const image = gallery.locator('img').first();
 	await expect(image).toHaveAttribute('src', /^data:image\/svg\+xml/);
