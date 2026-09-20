@@ -395,3 +395,22 @@ All 24 navigation responses were document loads, and all eight large measurement
 origins followed setup. The evidence commit changes only documentation/output.
 Hosted baseline acceptance remains unresolved; no push, promotion, workflow
 dispatch, new loop, dispatcher control-state edit or sub-agent was used.
+
+## 2026-09-20 — CI acceptance evidence retry
+
+Starting candidate: `1e1f38c63fbae9e69a0470471a5ff80da5fda701`; clean tree.
+The supplied independent review identifies missing hosted capture evidence,
+not a remaining implementation defect. Read the existing capture workflow,
+CI script, stability checker and timing-repair report. No callable Headroom
+tools were available. The read-only GitHub Actions lookup returned exit 0 and
+zero runs for the reviewed SHA. Its selected response and exact command are
+retained in [the acceptance lookup](reports/2026-09-20-ci-acceptance/README.md).
+
+Reran `pnpm exec vitest run --config tests/perf/vitest.config.ts`: exit 0,
+3 files / 16 tests passed. No measured source or budget target changed.
+Another workstation capture cannot supply the hosted artifact required by
+review, so no substitute baseline was created. Acceptance remains incomplete;
+the linked report gives the exact-SHA publication/capture/artifact handoff for
+the central operator. This evidence-only retry respects the explicit no-push
+restriction. No promotion, remote workflow dispatch, extra loop, dispatcher
+control-state edit or sub-agent was used.
