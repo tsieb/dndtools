@@ -1,5 +1,8 @@
 # RC-ENG-3.2 review recovery evidence
 
+See the [latest complete paired capture](../2026-09-19-runtime-second-review/README.md)
+for current executable-source evidence.
+
 **Historical capture; acceptance is not met.** The branch was subsequently rebased
 onto application changes, so this archive is not exact-current-candidate evidence.
 The complete fresh capture establishes nine passing

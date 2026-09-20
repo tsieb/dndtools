@@ -1,9 +1,10 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status: acceptance unmet; resolver scope extension pending.** The fresh
-review capture has search and graph target breaches, and neither scene experiment
-demonstrates the requested approximately 20% improvement. Earlier green claims
-below describe historical, smaller-workload captures only.
+**Current status: acceptance unmet; resolver scope extension pending.** The latest
+[complete paired capture](reports/2026-09-19-runtime-second-review/README.md) has
+10 passing targets and a graph breach at 1238.0/500 ms. Scene recovery is 2.3%,
+short of approximately 20%. Search passes at 240.1/250 ms. Historical captures
+below do not establish acceptance for the current tree.
 
 ## 2026-09-19 implementation
 
@@ -222,3 +223,27 @@ samples or recording a timeout as successful work. Three focused tests cover the
 outcomes. The performance suite passes 21/21, targeted ESLint and app typecheck
 exit 0, and quality/documentation gates exit 0. Full browser checks and exact-source
 performance capture follow. No claim of graph recovery or a 20% scene win yet.
+
+Final second-review capture: exact executable source `67b57da0` versus integration
+base `e0d2031b`, 11 budgets and seven alternating batches per revision. All 154
+batch groups populated and flatten exactly to the raw samples; both source trees
+match Git. Absolute comparator exits 1 for graph alone: 1238.0/500 ms (reference
+1167.5 ms). Search passes at 240.1/250 ms. Scene first render 1140.4 -> 1114.2 ms
+(-2.3%) does not meet the requested approximately 20% recovery. Widget update is
+18.3/100 ms. CI drift-only comparator exits 0 with no regressions, missing values
+or missing baselines; that does not override the absolute failure.
+
+Canvas browser suite: 82/82 passed across desktop/mobile. The final performance
+suite has 21/21 passing tests, including real runtime notifications and graph
+capture rejection/timeout checks. App typecheck, targeted ESLint and
+quality/documentation gates passed. Archive retains all raw timings, both verdicts,
+validation logs and explicit source/tree identities. The evidence-only follow-up
+has no executable diff from the captured commit. No resolver scope approval
+arrived, so the three state-engine files remain unchanged; graph recovery and the
+approximately 20% scene win are still blocked/unresolved. No acceptance claim,
+push, promotion, extra loop, sub-agent or dispatcher control-state change.
+
+Archive verification passed: archive plus all 13 member checksums, sanitized paths,
+source trees and batch/sample integrity. Final formatting and whitespace checks
+passed. Quality/documentation gates reran successfully. The temporary reference
+checkout and task-owned capture servers were removed/stopped.
