@@ -54,7 +54,9 @@ Seven batches, five reload samples per batch, targets and timeout are unchanged.
 Both revisions use this same harness. No retry discards a failing timing sample.
 
 Full app suite: **142 files / 1551 tests passed**. Perf suite after the harness
-repair: **3 files / 17 tests passed**. Targeted ESLint passed.
+repair: **3 files / 17 tests passed**. Final harness lint then required preserving
+caught errors with `cause`; that failure-diagnostic-only adjustment is pending the
+final checks below. It does not change the measured path.
 
 Supplemental scene capture: seven alternating pairs at 2x CPU throttle, after one
 warmup per revision, all 50 widget frames and exactly 10 map bodies verified.
@@ -69,3 +71,40 @@ Browser authoring check passed: zero generator/builder module requests before
 opening; both dialogs load, open and close through Board's gallery, and the board
 remains mounted. A first manual script forgot to reopen the gallery after closing
 the builder; correcting that test sequence required no app change.
+
+## Final local acceptance
+
+The fresh complete capture on `1e962b8e9644ba72d74723e1d83708f75837b6a9`
+against starting revision `eafbce28a4f78231185cbf44ccbd603ad489415a`
+completed with all **11 budgets / seven batches per revision** populated.
+Both comparators exited 0: **zero target breaches, zero regressions, zero missing
+measurements and zero missing baselines**. Scene first render is **1053.3 ms**
+(target 1500), widget update **17.8 ms** (target 100), and reconciliation
+**684.0 ms** (target 2000). All 35 reconciliation reloads per revision completed.
+No previous failed run was spliced into this complete run.
+
+[Evidence and reproduction commands](reports/2026-09-19-runtime-recovery/README.md)
+include the exact raw captures and both verdict sets, the earlier failed captures,
+and the supplemental scene samples. All 13 checksums (archive plus twelve members)
+passed after extraction. Verified both source SHAs, all 154 batch groups, raw
+sample flattening, numeric drift, and both all-pass verdict sets. Archive ownership
+metadata is normalized, and the captures contain the sanitized `ci-runner` hostname.
+
+Final validation: targeted ESLint (including preserved error causes) exit 0;
+perf tests **17/17**; full app tests **1551/1551**; quality/documentation gates
+exit 0; production build and production test-seam exclusion scan exit 0.
+The final error-cause addition changes failure diagnostics only; measured app code,
+measurement paths, budgets, pinned CI reference and comparison policy are unchanged.
+
+This is workstation evidence using the task's starting revision for isolation,
+not hosted CI or five-run stability evidence. Standard graph/search fixtures
+remain 200 notes; no 2,000-note claim is made. The separate 50-widget / ten-map-binding
+measurement is a 3.7% incremental win, not a newly achieved 20% reduction.
+Central gates and independent review remain the operator's next steps.
+No push, promotion, workflow dispatch, extra loop, dispatcher control-state edit,
+or sub-agent was used.
+
+Final artifact replay through the CI-mode comparator also exited 0. The changed-file
+formatting gate and explicit Prettier checks on all nine changed text/source files
+passed, as did the staged whitespace check. All twelve changed/new paths are within
+the task claim. The clean temporary reference worktree was removed after capture.

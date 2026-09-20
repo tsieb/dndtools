@@ -75,3 +75,32 @@ full commit SHA:
 `gh workflow run perf.yml --ref main -f ref=<branch-or-sha>`. The job checks that
 ref out and runs _its_ `ci.sh` and capture harness, so the ref must already contain
 this pipeline. The SHA it measured is the `commit` in every `current-N.json`.
+
+## Reconciliation page lifetime
+
+Reconciliation keeps its seeded browser context (IndexedDB and cache), but releases
+and reopens the page between its five timed reloads. Each replacement finishes its
+initial load before the next measured reload starts. Repeatedly reloading the same
+Vite page can otherwise make Chromium reject module requests with
+`net::ERR_INSUFFICIENT_RESOURCES`, leaving a blank document before `SceneRuntime`
+exists. Waiting for network idle did not resolve this in the September 19 local
+reproduction; twelve fresh-page reloads completed without failed requests.
+This changes neither the measured reload interval nor its timeout/sample count.
+Errors identify the revision side, batch, reload number, and runtime boot state.
+
+## Supplemental large-scene measurement
+
+With isolated reference and candidate dev servers already running:
+
+```sh
+node scripts/perf/scene-stress.mjs http://localhost:16373 http://localhost:16273 tmp/perf/scene-stress.json
+```
+
+Record the two server revisions with the output; the script cannot authenticate
+an arbitrary already-running server's revision. It creates 50 widgets through real
+commands: ten map tiles bound to an existing map, and forty non-map demo tiles.
+After reloading, it requires all fifty widget frames and exactly ten map bodies.
+Seven alternating pairs follow one warmup per revision, at 2x CPU throttle. Raw
+samples and medians are retained. This is a persisted-vault reload through two
+paint frames, not the cold-context demo-first-render scenario, and does not replace
+the standard budget comparison or the hosted stability workflow.

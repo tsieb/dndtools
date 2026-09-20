@@ -548,6 +548,7 @@ const syncReconciliation: Scenario = {
 						.catch(() => ({ runtimePresent: false }));
 					throw new Error(
 						`Reconciliation reload ${i + 1}: ${JSON.stringify(boot)}; ${String(error)}`,
+						{ cause: error },
 					);
 				}
 				samples.push(
@@ -1279,7 +1280,9 @@ async function main(): Promise<void> {
 								root: side.root,
 							})
 							.catch((error: unknown) => {
-								throw new Error(`${side.label} batch ${repeat + 1}: ${String(error)}`);
+								throw new Error(`${side.label} batch ${repeat + 1}: ${String(error)}`, {
+									cause: error,
+								});
 							});
 						if (batch.samples.length === 0) {
 							throw new Error(`${side.label}: ${batch.unavailableReason ?? 'empty batch'}`);
