@@ -387,3 +387,11 @@ and retain the full `perf-run` artifact with the candidate SHA and all 22 numeri
 baseline rows. The task's no-push restriction prevents supplying new hosted-runner
 evidence here; neither configuration descriptions nor local/synthetic samples
 are substituted for that acceptance requirement.
+
+Post-commit verification on clean implementation `cd075a5306534e25cfee1ad1abd76e4c8dd81908`
+exited 0 with four browser checks passed. The original output and reproduction
+instructions are retained in [the timing-repair report](reports/2026-09-20-navigation-repair/README.md).
+All 24 navigation responses were document loads, and all eight large measurement
+origins followed setup. The evidence commit changes only documentation/output.
+Hosted baseline acceptance remains unresolved; no push, promotion, workflow
+dispatch, new loop, dispatcher control-state edit or sub-agent was used.

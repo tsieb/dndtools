@@ -1,0 +1,45 @@
+TAP version 13
+{"id":"app-startup","profile":"standard","samples":[881.5,862.3,875],"navigations":[{"origin":1789907012059.9,"setupFinished":0,"response":true},{"origin":1789907013016.4,"setupFinished":0,"response":true},{"origin":1789907013929.3,"setupFinished":0,"response":true},{"origin":1789907014816.6,"setupFinished":0,"response":true}]}
+# Subtest: navigation measurement boundaries in Chromium
+    # Subtest: app-startup (standard) starts a document after fixture setup
+    ok 1 - app-startup (standard) starts a document after fixture setup
+      ---
+      duration_ms: 4109.588539
+      type: 'test'
+      ...
+{"id":"app-startup","profile":"large","samples":[845.1,798.9,822.7],"navigations":[{"origin":1789907015801.1,"setupFinished":0,"response":true},{"origin":1789907018608.8,"setupFinished":1789907018586.7002,"response":true},{"origin":1789907019486.2,"setupFinished":0,"response":true},{"origin":1789907022252.3,"setupFinished":1789907022229.5999,"response":true},{"origin":1789907023125.3,"setupFinished":0,"response":true},{"origin":1789907025835.4,"setupFinished":1789907025812.3,"response":true},{"origin":1789907026665.4,"setupFinished":0,"response":true},{"origin":1789907029386.7,"setupFinished":1789907029366.7,"response":true}]}
+    # Subtest: app-startup (large) starts a document after fixture setup
+    ok 2 - app-startup (large) starts a document after fixture setup
+      ---
+      duration_ms: 14530.434409
+      type: 'test'
+      ...
+{"id":"scene-first-render","profile":"standard","samples":[1101,1071.1,1075.4],"navigations":[{"origin":1789907030339.3,"setupFinished":0,"response":true},{"origin":1789907031448.9,"setupFinished":0,"response":true},{"origin":1789907032575.7,"setupFinished":0,"response":true},{"origin":1789907033679.5,"setupFinished":0,"response":true}]}
+    # Subtest: scene-first-render (standard) starts a document after fixture setup
+    ok 3 - scene-first-render (standard) starts a document after fixture setup
+      ---
+      duration_ms: 4535.689311
+      type: 'test'
+      ...
+{"id":"scene-first-render","profile":"large","samples":[1153.5,1150.1,1141.4],"navigations":[{"origin":1789907034868.1,"setupFinished":0,"response":true},{"origin":1789907037543.4,"setupFinished":1789907037521,"response":true},{"origin":1789907038651.3,"setupFinished":0,"response":true},{"origin":1789907041386.2,"setupFinished":1789907041364.4001,"response":true},{"origin":1789907042617.9,"setupFinished":0,"response":true},{"origin":1789907045306.7,"setupFinished":1789907045285.7,"response":true},{"origin":1789907046529.4,"setupFinished":0,"response":true},{"origin":1789907049227.5,"setupFinished":1789907049206.7,"response":true}]}
+    # Subtest: scene-first-render (large) starts a document after fixture setup
+    ok 4 - scene-first-render (large) starts a document after fixture setup
+      ---
+      duration_ms: 15668.688951
+      type: 'test'
+      ...
+    1..4
+ok 1 - navigation measurement boundaries in Chromium
+  ---
+  duration_ms: 38845.458291
+  type: 'suite'
+  ...
+1..1
+# tests 4
+# suites 1
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 38848.626512
