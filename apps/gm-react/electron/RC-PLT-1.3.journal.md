@@ -137,3 +137,31 @@ Reconciliation verification:
 - Prettier checks, `node --check` for main/smoke, and `git diff --check`: passed.
 - Verified the requested integration SHA is an ancestor and inspected the complete main/registry
   diffs against it: the integration features are preserved. No unowned aggregate changes.
+
+## Run 5 — isolate the badge handler assertion (2026-09-20)
+
+Independent review reproduced a startup race: the smoke's direct renderer call set the badge true,
+then PlatformLifecycle's initial workflow=false IPC cleared it before the main-process assertion.
+Waiting for the registry menu did not establish lifecycle readiness.
+
+- `electron/smoke-parity.cjs`: call the captured production `desktop:live` handler synchronously
+  for the direct true/false assertions, keeping both transitions and their observations in one
+  main-process turn. Renderer startup IPC cannot interleave with this block. No delay, retry, or
+  suppression of the lifecycle writer is needed. The real Go live / End session checks remain
+  intact and still cover the production renderer, preload, IPC, and badge together.
+- No changes to builder configuration, PlatformLifecycle, or the standard runner were needed;
+  their existing minimal integrations remain justified in Runs 2 and 3.
+- No Headroom tools were available; inspected native command output and original log excerpts.
+
+Validation results are recorded below after completion.
+
+- `pnpm --filter @dndtools/gm-react desktop:smoke`: exit 0 after a fresh production build;
+  origin write/verify, migration, 12 updater checks, and parity write/verify passed. Original log:
+  `/tmp/rc-plt-1.3-race-smoke.log` (existing bundle-size warning).
+- Five additional fresh disposable profiles, each launching the production parity smoke in write
+  then verify mode: all ten processes exited 0 with successful parity results, including the real
+  Go live / End session transitions. Original log: `/tmp/rc-plt-1.3-race-repeat.log`.
+- Prettier check, `node --check` for the smoke, and `git diff --check`: passed.
+- Only the owned smoke and this journal changed in this revision. Aggregate candidate paths
+  against `2d9f566d194d10e597c8001015b7e8be31811d59` remain the ten owned files. Central gates
+  and independent review remain the operator's next steps; OS handoff/display limits above apply.

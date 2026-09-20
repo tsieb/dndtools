@@ -97,15 +97,12 @@ app.whenReady().then(async () => {
 		assert.equal(await handlers.get('desktop:menu')(event, [{ id: 'evil' }]), false);
 		assert.equal(await handlers.get('desktop:live')(event, 'yes'), false);
 		assert.equal(shell.isLiveSessionBadgeShown(), false);
-		assert.equal(
-			await win.webContents.executeJavaScript('window.lamplightDesktop.setLiveSession(true)'),
-			true,
-		);
+		// Keep the direct handler assertions in one main-process turn: awaiting renderer IPC here
+		// lets PlatformLifecycle's initial workflow=false update overwrite the test's true value.
+		// The real Go live / End session controls below independently cover renderer + preload IPC.
+		assert.equal(handlers.get('desktop:live')(event, true), true);
 		assert.equal(shell.isLiveSessionBadgeShown(), true);
-		assert.equal(
-			await win.webContents.executeJavaScript('window.lamplightDesktop.setLiveSession(false)'),
-			true,
-		);
+		assert.equal(handlers.get('desktop:live')(event, false), true);
 		assert.equal(shell.isLiveSessionBadgeShown(), false);
 		app.emit('open-url', { preventDefault() {} }, 'lamplight://join/warm-token');
 		await until(() => win.webContents.getURL().includes('token=warm-token'));
