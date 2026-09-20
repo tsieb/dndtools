@@ -7,7 +7,12 @@ import {
 	spotlightVaultId,
 } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
+import {
+	matchesMedia,
+	PREFERENCE_KEYS,
+	readPreference,
+	writePreference,
+} from '../../platform/preferences';
 import { Button, FeatureSpotlight, Icon, SegmentedControl } from '../../ds';
 import { T } from '../screen-kit';
 import type { MapEditorApi } from './useMapEditor';
@@ -249,7 +254,7 @@ export function MapEditorCoach({
 						onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
 							// Touch can synthesize mouse entry as the editor replaces the tapped
 							// Atlas control. Do not leave the new coach action looking hovered.
-							if (!window.matchMedia('(hover: hover)').matches) return;
+							if (!matchesMedia('(hover: hover)')) return;
 							event.currentTarget.style.background = 'var(--color-surface-overlay)';
 							event.currentTarget.style.color = 'var(--color-text-primary)';
 						}}

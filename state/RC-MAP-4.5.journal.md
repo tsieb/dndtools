@@ -177,3 +177,27 @@ Final verification:
 
 The source fix, two necessary phone baseline updates, and this journal are the entire revision.
 No push, promotion, additional agents, or dispatcher control edits.
+
+## Lint gate recovery — use the platform media adapter
+
+Read the original output of lint attempt `60acd1b1-aa95-4925-827c-aac6a5d72b92`
+against `2044381e`. ESLint reported zero errors; the failure was boundary lint at
+`MapEditorChrome.tsx:252`: the direct `window.matchMedia` call violates PLAT-001/006.
+The central visual and typecheck gates had passed on that candidate.
+
+Replaced the raw query with the existing `matchesMedia` adapter from
+`platform/preferences.ts`, also used by the shared help spotlight. Its implementation
+returns the same media-query result and safely returns false when the API is unavailable.
+This preserves the touch-hover fix without bypassing the GUI/platform boundary or adding
+an exception. No PNGs changed in this revision.
+
+Fresh full `pnpm lint` passed (exit 0), including raw-style count, ESLint, boundary,
+emphasis, and non-text contrast. Existing warnings remain. Original local output:
+`/tmp/rc-map-4-5-lint.log`.
+
+App typecheck and source Prettier check passed. The onboarding e2e suite passed all
+16 desktop/mobile cases with two workers and zero retries, including no repeats after
+completion, interruption, reload, dismissal, and opening another map in the same vault.
+Original local output: `/tmp/rc-map-4-5-adapter-e2e.log`. Changed-file formatting and
+`git diff --check` were checked before commit. The full visual suite was not repeated
+for this behavior-preserving adapter substitution; the preceding central gate passed it.
