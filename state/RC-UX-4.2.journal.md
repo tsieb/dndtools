@@ -206,3 +206,23 @@ still owns the rest of the overlay's compact work.
   both short-viewport keyboard confirmation cases on both profiles.
 - Full application/browser suites and central wrapper gates are left to the operator; earlier
   journal results are historical, not rerun claims.
+
+## Revision 4 — reconcile integration rebase (2026-09-20)
+
+- Rebased the three task commits onto `2d9f566d194d10e597c8001015b7e8be31811d59`.
+- Resolved overlapping end-of-file additions in responsive.spec.ts by preserving the integration
+  spec verbatim (apart from adding the Locator type import), then retaining the complete RC-UX-4.2
+  audit. Kept integration's broader CONTROL_SELECTOR and removed this task's duplicate declaration.
+  The tablet split/rotation, text-scaling, zoom and document-scroll checks remain intact.
+- Dialog merged cleanly; no additional Dialog changes. Its inherited minimal header/footer
+  resilience remains within the operator's expanded ownership and is justified in revisions 2–3.
+- Verified the integration spec is an exact prefix after the import adjustment and that the
+  selector has exactly one declaration. Headroom tools remain unavailable.
+- Fresh validation on the reconciled tree: full responsive.spec.ts on desktop-chromium and
+  mobile-chromium with two workers: **152 passed, no failures or retries, exit 0 (3.1m)**.
+  Exact local log: `/tmp/rc-ux-4.2-rebase-responsive.log`.
+- TypeScript (`pnpm exec tsc --noEmit -p apps/gm-react/tsconfig.json`), targeted ESLint (spec,
+  TopBar, MoreSheet), Prettier (spec, navigation documentation, Dialog), and git diff --check:
+  all passed. Verified the requested integration SHA is an ancestor of the rebased branch.
+- No push, promotion, dispatcher changes or additional agents. Central wrapper gates and
+  independent review remain the operator's next step.
