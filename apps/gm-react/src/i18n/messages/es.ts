@@ -1503,6 +1503,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.invites.emailHelp':
 		'Deja el correo en blanco para obtener solo un enlace para compartir y un código QR. Si lo rellenas, también enviaremos la invitación por correo si esta aplicación tiene configurado el envío.',
 
+	/* Configuración › Carpeta Markdown */
+	'settings.folder.title': 'Carpeta Markdown',
+	'settings.folder.description':
+		'Exporta las notas y sus imágenes en formato Markdown. Al importar, se añaden copias nuevas sin reemplazar las notas existentes. Se incluyen los calendarios de campaña que usan las notas. Las notas con secciones o campos restringidos requieren una copia privada.',
+	'settings.folder.includePrivate': 'Incluir notas solo para el {gm} y compartidas (copia privada)',
+	'settings.folder.exportZip': 'Exportar carpeta ZIP',
+	'settings.folder.exportFolder': 'Exportar a una carpeta vacía',
+	'settings.folder.importZip': 'Importar carpeta ZIP',
+	'settings.folder.importFolder': 'Importar carpeta Markdown',
+	'settings.folder.exported': 'Carpeta Markdown exportada.',
+	'settings.folder.imported': 'Se importaron {count} notas.',
+	'settings.folder.failed':
+		'No se pudo completar la transferencia de la carpeta Markdown. Inténtalo de nuevo.',
+
 	/* Ajustes › Conexiones del baúl */
 	'settings.vault.recoveryReadFailed':
 		'No se pudieron leer los archivos de recuperación. Vuelve a abrir la bóveda para intentarlo de nuevo.',
@@ -3240,7 +3254,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.discover.ratingsTitle': 'Valoraciones',
 	'community.discover.rateOwn': 'Publicaste este módulo, así que no puedes valorarlo.',
 	'community.discover.rateNeedsInstall':
-		'Instala este módulo para valorarlo. Las valoraciones solo vienen de DMs que lo instalaron.',
+		'Instala este módulo para valorarlo. Solo un {gm} que lo haya instalado puede valorarlo.',
 	'community.discover.yourRating': 'Tu valoración, en estrellas',
 	'community.discover.reviewNote': 'Nota de la reseña (opcional)',
 	'community.discover.reviewNotePlaceholder': '¿Qué funcionó en tu mesa?',
@@ -4433,7 +4447,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.preview.title': 'Lo que ve {label}',
 	'sceneEditor.preview.count': '{delivered} de {total} mosaicos llegan a {label}',
 	'sceneEditor.preview.paused':
-		'La edición está en pausa. Pulsa Escape o Salir de la vista previa para volver a tu vista del DM.',
+		'La edición está en pausa. Pulsa Escape o Salir de la vista previa para volver a tu vista del {gm}.',
 	'sceneEditor.preview.exit': 'Salir de la vista previa',
 	'sceneEditor.preview.tiles': 'Mosaicos tal como los ve {label}',
 	'sceneEditor.preview.empty': 'Esta escena aún no tiene mosaicos.',
@@ -4453,16 +4467,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{label} ve un marcador hasta que se resuelva el conflicto del vínculo.',
 	'sceneEditor.preview.reason.disabled':
 		'{label} ve un marcador — este paquete de widgets está desactivado.',
-	'sceneEditor.preview.reason.tileDmOnly': 'Oculto — este mosaico es solo para el DM.',
+	'sceneEditor.preview.reason.tileDmOnly': 'Oculto — este mosaico es solo para el {gm}.',
 	'sceneEditor.preview.reason.tileNotShared':
 		'Oculto — este mosaico está compartido, pero no con {label}.',
-	'sceneEditor.preview.reason.bindingDmOnly': 'Oculto — muestra contenido solo para el DM.',
+	'sceneEditor.preview.reason.bindingDmOnly': 'Oculto — muestra contenido solo para el {gm}.',
 	'sceneEditor.preview.reason.bindingNotShared':
 		'Oculto — muestra contenido que no se comparte con {label}.',
 	'sceneEditor.preview.reason.bindingFieldHidden':
-		'Oculto — el campo que muestra es solo para el DM.',
+		'Oculto — el campo que muestra es solo para el {gm}.',
 	'sceneEditor.preview.reason.bindingHidden': 'Oculto — su contenido no se muestra a {label}.',
-	'sceneEditor.preview.reason.sceneDmOnly': 'Oculto — toda la escena es solo para el DM.',
+	'sceneEditor.preview.reason.sceneDmOnly': 'Oculto — toda la escena es solo para el {gm}.',
 	'sceneEditor.preview.reason.sceneNotShared': 'Oculto — esta escena no se comparte con {label}.',
 	'sceneEditor.preview.reason.outsideSections':
 		'Oculto — está fuera de las secciones que {label} puede ver.',
@@ -4493,9 +4507,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'El contenido vinculado tiene un conflicto sin resolver. El mosaico muestra un marcador en lugar de elegir una versión.',
 	'sceneEditor.binding.explain.degraded':
 		'El contenido llega, pero algunos permisos de este widget están denegados, así que partes no funcionarán.',
-	'sceneEditor.binding.hiddenReason.dmOnly': 'Es solo para el DM.',
+	'sceneEditor.binding.hiddenReason.dmOnly': 'Es solo para el {gm}.',
 	'sceneEditor.binding.hiddenReason.notShared': 'Solo se comparte con jugadores concretos.',
-	'sceneEditor.binding.hiddenReason.fieldHidden': 'El campo que muestra es solo para el DM.',
+	'sceneEditor.binding.hiddenReason.fieldHidden': 'El campo que muestra es solo para el {gm}.',
 	'sceneEditor.binding.mode': 'Modo de vinculación',
 	'sceneEditor.binding.search': 'Busca un {noun} que vincular',
 	'sceneEditor.binding.nothing': 'Todavía no hay ningún {noun} que vincular.',

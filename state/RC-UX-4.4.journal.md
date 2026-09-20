@@ -186,3 +186,31 @@
 - The earlier per-package vocabulary limitation remains recorded in `DEBT-2026-007`; this follow-up
   introduces no vocabulary changes. Independent reviewer sign-off remains with the central operator.
   No push, promotion, additional loop or dispatcher control-state changes.
+
+## Integration reconciliation onto 2d9f566d
+
+- Reproduced the rebase conflicts and replayed all six task commits onto
+  `2d9f566d194d10e597c8001015b7e8be31811d59`. Preserved the integration branch's newer
+  privacy disclosures (features unavailable in this edition and fresh consent before server
+  readability), theme guidance, scene-preview keys, illustration captions and atlas library.
+  Retained task vocabulary placeholders and the clearer high-contrast description.
+- Reconciled the requirements inventory against the newer table, changing only the two existing
+  copy anchors. Reviewed `git range-diff`; the later task commits replayed without conflicts.
+- The first rebased app run found two failures: ten new Markdown-folder keys lacked Spanish,
+  and new integration messages spelled out DM/DMs. Added the ten translations, delegated only
+  the long description to natural-writer, and applied `{gm}` in both locales to the new role
+  references. The folder-transfer rejection now offers a retry. Existing guards are unchanged.
+- Original diagnostics: `/tmp/rc-ux-44-rebase-app.log`; Headroom remains unavailable.
+  Final validation pending. Independent reviewer sign-off remains with the central operator.
+- Final `pnpm check` passed (`/tmp/rc-ux-44-rebase-check.log`, exit 0): quality gates,
+  boundary lint, package typechecks, core 4,902 tests, cloud 521, app 1,587 across 144 files,
+  and tooling 196. The app run includes Spanish coverage and vocabulary guards after the fixes.
+  `pnpm feature-audit` passed all 48 anchors with zero stale limits and zero unwired screens
+  (`/tmp/rc-ux-44-rebase-audit.log`). Changed-file format, catalog ESLint and diff checks passed.
+- Browser validation: binding inspector and Markdown-folder specs passed both profiles; player
+  preview passed desktop but initially timed out on mobile waiting for `#main-content` before
+  copy assertions (10 passed / 2 failed, `/tmp/rc-ux-44-rebase-e2e.log`). Re-ran preview with one
+  worker and included the integration privacy-limit spec: all 10 cases passed on desktop/mobile,
+  zero retries (`/tmp/rc-ux-44-rebase-privacy-preview.log`). No assertion or timeout was weakened.
+- Confirmed `2d9f566d` is an ancestor of the reconciled task branch. No push, promotion or
+  dispatcher-state changes. Central independent review remains pending.

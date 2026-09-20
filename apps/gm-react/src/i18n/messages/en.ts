@@ -1483,14 +1483,14 @@ export const en = {
 	'settings.folder.title': 'Markdown folder',
 	'settings.folder.description':
 		'Export notes and their images as markdown. Import adds new copies without replacing existing notes. Campaign calendars used by the notes are included. Notes with restricted sections or fields require a private copy.',
-	'settings.folder.includePrivate': 'Include DM-only and shared notes (private copy)',
+	'settings.folder.includePrivate': 'Include {gm}-only and shared notes (private copy)',
 	'settings.folder.exportZip': 'Export folder ZIP',
 	'settings.folder.exportFolder': 'Export to empty folder',
 	'settings.folder.importZip': 'Import folder ZIP',
 	'settings.folder.importFolder': 'Import markdown folder',
 	'settings.folder.exported': 'Markdown folder exported.',
 	'settings.folder.imported': 'Imported {count} notes.',
-	'settings.folder.failed': 'Could not complete the markdown folder transfer.',
+	'settings.folder.failed': 'Could not complete the markdown folder transfer. Try again.',
 
 	/* Settings › Vault connections */
 	'settings.vault.recoveryReadFailed':
@@ -3194,7 +3194,7 @@ export const en = {
 	'community.discover.ratingsTitle': 'Ratings',
 	'community.discover.rateOwn': 'You published this module, so you can’t rate it.',
 	'community.discover.rateNeedsInstall':
-		'Install this module to rate it. Ratings come only from DMs who installed it.',
+		'Install this module to rate it. Only a {gm} who installed it can leave a rating.',
 	'community.discover.yourRating': 'Your rating, in stars',
 	'community.discover.reviewNote': 'Review note (optional)',
 	'community.discover.reviewNotePlaceholder': 'What worked at your table?',
@@ -4426,7 +4426,7 @@ export const en = {
 	'sceneEditor.preview.title': 'What {label} sees',
 	'sceneEditor.preview.count': '{delivered} of {total} tiles reach {label}',
 	'sceneEditor.preview.paused':
-		'Editing is paused. Press Escape or Exit preview to return to your DM view.',
+		'Editing is paused. Press Escape or Exit preview to return to your {gm} view.',
 	'sceneEditor.preview.exit': 'Exit preview',
 	'sceneEditor.preview.tiles': 'Tiles as {label} sees them',
 	'sceneEditor.preview.empty': 'This scene has no tiles yet.',
@@ -4443,14 +4443,14 @@ export const en = {
 		'{label} sees a placeholder until the binding conflict is resolved.',
 	'sceneEditor.preview.reason.disabled':
 		'{label} sees a placeholder — this widget package is disabled.',
-	'sceneEditor.preview.reason.tileDmOnly': 'Hidden — this tile is set to DM only.',
+	'sceneEditor.preview.reason.tileDmOnly': 'Hidden — this tile is set to {gm} only.',
 	'sceneEditor.preview.reason.tileNotShared': 'Hidden — this tile is shared, but not with {label}.',
-	'sceneEditor.preview.reason.bindingDmOnly': 'Hidden — it shows DM-only content.',
+	'sceneEditor.preview.reason.bindingDmOnly': 'Hidden — it shows {gm}-only content.',
 	'sceneEditor.preview.reason.bindingNotShared':
 		'Hidden — it shows content that isn’t shared with {label}.',
-	'sceneEditor.preview.reason.bindingFieldHidden': 'Hidden — the field it shows is DM only.',
+	'sceneEditor.preview.reason.bindingFieldHidden': 'Hidden — the field it shows is {gm} only.',
 	'sceneEditor.preview.reason.bindingHidden': 'Hidden — its content is withheld from {label}.',
-	'sceneEditor.preview.reason.sceneDmOnly': 'Hidden — the whole scene is DM only.',
+	'sceneEditor.preview.reason.sceneDmOnly': 'Hidden — the whole scene is {gm} only.',
 	'sceneEditor.preview.reason.sceneNotShared': 'Hidden — this scene isn’t shared with {label}.',
 	'sceneEditor.preview.reason.outsideSections':
 		'Hidden — it sits outside the sections {label} can see.',
@@ -4480,9 +4480,9 @@ export const en = {
 		'The bound content has an unresolved conflict. The tile shows a placeholder rather than pick one version.',
 	'sceneEditor.binding.explain.degraded':
 		'The content comes through, but some of this widget’s permissions are denied, so parts of it won’t work.',
-	'sceneEditor.binding.hiddenReason.dmOnly': 'It is DM only.',
+	'sceneEditor.binding.hiddenReason.dmOnly': 'It is {gm} only.',
 	'sceneEditor.binding.hiddenReason.notShared': 'It is shared only with specific players.',
-	'sceneEditor.binding.hiddenReason.fieldHidden': 'The field it shows is DM only.',
+	'sceneEditor.binding.hiddenReason.fieldHidden': 'The field it shows is {gm} only.',
 	'sceneEditor.binding.mode': 'Binding mode',
 	'sceneEditor.binding.search': 'Find a {noun} to bind',
 	'sceneEditor.binding.nothing': 'There is no {noun} to bind yet.',
