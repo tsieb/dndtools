@@ -1,6 +1,7 @@
 import {
 	Component,
 	lazy,
+	memo,
 	Suspense,
 	useSyncExternalStore,
 	useEffect,
@@ -574,7 +575,9 @@ function renderPlan(
 	}
 }
 
-export function WidgetRenderSlot({
+// Canvas geometry changes need not redraw an unchanged body; runtime subscriptions
+// still invalidate the slot and its children when campaign or actor state changes.
+export const WidgetRenderSlot = memo(function WidgetRenderSlot({
 	widget,
 	onCommand,
 	...fit
@@ -628,4 +631,4 @@ export function WidgetRenderSlot({
 			</WidgetRegion>
 		</WidgetStyleScope>
 	);
-}
+});

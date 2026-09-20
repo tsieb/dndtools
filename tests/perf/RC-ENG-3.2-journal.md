@@ -124,3 +124,23 @@ fixture diagnostics exposed a setup race before home creation, then a tsx named
 function helper in page.evaluate; both were corrected before collecting samples.
 Diagnostic runs with uncommitted harness changes are not acceptance evidence.
 Fresh committed-code capture and grading remain pending.
+
+Fresh complete capture of 9aef81b3 against dda3120a finished all eleven budgets,
+seven alternating batches each. Source/tree checks passed with both checkouts
+clean. Absolute comparator FAILS: search 306.7 ms / 250 ms and graph indexing
+1209.4 ms / 500 ms at 2,000 notes. All nine other targets pass; no drift regression.
+CI-only drift comparison passes but is NOT all-green acceptance. Large-scene
+first navigation is 1081.4 ms versus 1134.7 ms (-4.7%), still short of ~20%.
+
+Custom-host browser checks passed all five tests, including actual iframe code,
+configuration changes, isolation and board resize. 36 widget unit tests, 18 perf
+tests and application typecheck passed before the full capture.
+
+An isolated seven-sample Node query profile on 2,000 linked notes shows median
+visualization ~19.7 ms, health ~156.5 ms, clustering ~167.0 ms. The latter two
+repeat linear wikilink lookup for every outbound edge; the canonical resolver is
+packages/core/src/state/wikilink-graph.ts, outside this task's owned paths. A
+narrow ownership extension has been requested before editing that engine.
+Continuing the authorized scene path: memoize render slots and retain per-widget
+command callbacks across canvas geometry/focus renders, refreshing them whenever
+the host callback or widget set changes. Fresh measurements pending.
