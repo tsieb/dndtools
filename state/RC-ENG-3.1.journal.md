@@ -46,3 +46,28 @@ observations with positive sample counts, and no registry problems as of 2026-09
 No fresh browser performance capture was claimed. Formatting and diff checks passed.
 The central operator still owns wrapper gates and independent review; this retry does not claim
 that the ownership gate itself has run. No dispatcher state changes, push, promotion, or agents.
+
+## Visual-gate retry after dba0673b
+
+Read the original failed gate log at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/8d8920b1-9fd7-4167-a8e0-49be6873c680/output.log`
+(no Headroom tools available). It reports 134 passing tests and one failure: desktop tavern
+`/board`, with 13,330 differing pixels. Inspected the original actual and diff PNGs: the actual
+shows the shell with "Loading your vault…" instead of board widgets. Preserved those artifacts
+under `/tmp/rc-eng-3.1-visual-evidence/` before rerunning.
+
+`App.tsx` uses that message for its Boot/Suspense fallback. `golden-routes.spec.ts` waits for
+runtime loaded, the shell main and the first h1, but not board-content readiness. This supports
+a lazy-surface readiness race; it does not prove the underlying timing cause. No owned-file
+change can appropriately repair that visual-test readiness condition. No test, app, snapshot,
+or dispatcher files were changed.
+
+The exact failing case passed unchanged in the pinned container:
+`apps/gm-react/tests/visual/run-in-container.sh --project=visual-desktop -g 'tavern.* /board$' --update-snapshots=none`
+(1/1). The full pinned-container comparison then passed all 135 tests in 2.4 minutes
+(exit 0); the original output is `/tmp/rc-eng-3.1-visual-rerun.log`, and its final result was
+read directly. Snapshot updates remained disabled. This successful rerun does not establish
+that the readiness race is fixed. The acceptance assertion
+also passed again: eleven baseline entries with dates matching populated measurement evidence
+and no registry validation errors. Existing implementation and documentation are retained;
+this retry changes only the explicitly required run journal to record gate evidence.
