@@ -75,3 +75,28 @@ full commit SHA:
 `gh workflow run perf.yml --ref main -f ref=<branch-or-sha>`. The job checks that
 ref out and runs _its_ `ci.sh` and capture harness, so the ref must already contain
 this pipeline. The SHA it measured is the `commit` in every `current-N.json`.
+
+## Large-vault row (RC-ENG-3.3)
+
+Every capture now records 22 entries: the eleven standard budget IDs and their
+`:large` counterparts. Each large browser context receives the same deterministic
+5,000-note / 200-map / 60-tile / 40-character snapshot via the app's validated
+storage restore, before the measured navigation. Notes have two resolvable links
+each; the compacted snapshot has a 200-operation real update delta. Construction
+is checked against a ten-second ceiling. Setup, restore and initial hydration are
+outside the measured workflow; subsequent reloads read the actual durable vault.
+Scenario mutations (extra map/POIs or indexed notes) run on top of this background
+fixture. Smoke CI is repository-wide and explicitly labels that distinction.
+
+`search:large`, `graph-indexing:large`, `vault-open:large`, and
+`scene-first-render:large` have provisional targets of 500 ms, 1,000 ms,
+5,000 ms, and 2,500 ms respectively. The other large rows retain the workflow's
+existing target. The baseline writer and five-run CI stability check require all
+22 IDs, so neither row can silently disappear. `--only search` selects both
+sizes; `--only search:large` selects just the large row. Missing samples make
+capture exit nonzero as well as making comparison fail closed.
+
+The historical `baseline.json` has explicit null large entries because that
+workstation run did not measure them. They are not CI evidence. Hosted CI writes
+fresh numeric values for both rows into every `tmp/perf/baseline-N.json` and
+uploads the paired raw captures. No hosted result is implied by this configuration.

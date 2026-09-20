@@ -50,6 +50,10 @@ import { cpus, hostname, totalmem, type } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { buildDemoSeedProfile } from '../../apps/gm-react/src/runtime/demo-seed';
+import type { CoreStateSlice } from '../../packages/core/src/commands/types';
+import { LARGE_VAULT_DATASET } from '../../packages/core/src/testing/large-vault';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../..');
 
@@ -160,6 +164,7 @@ interface Options {
 	out: string;
 	port: number;
 	notes: number;
+	vaultProfile: 'standard' | 'large';
 	only: Set<string> | null;
 	skip: Set<string>;
 	headed: boolean;
@@ -194,6 +199,7 @@ function parseOptions(argv: readonly string[]): Options {
 		out: flags.get('out') ?? join(REPO_ROOT, 'tests/perf/current.json'),
 		port: Number(flags.get('port') ?? process.env.DNDTOOLS_E2E_PORT ?? 5273),
 		notes: Number(flags.get('notes') ?? 200),
+		vaultProfile: 'standard',
 		only: flags.has('only') ? list(flags.get('only')) : null,
 		skip: list(flags.get('skip')),
 		headed: bare.has('headed'),
@@ -298,6 +304,7 @@ async function newPage(
 	browser: Browser,
 	port: number,
 	profile: 'desktop' | 'slim',
+	vaultProfile: Options['vaultProfile'] = 'standard',
 ): Promise<{ page: Page; close: () => Promise<void> }> {
 	const context = await browser.newContext({
 		baseURL: `http://localhost:${port}`,
@@ -316,7 +323,53 @@ async function newPage(
 			/* storage may be unavailable; the bypass is best-effort */
 		}
 	});
-	return { page, close: () => context.close() };
+	try {
+		if (vaultProfile === 'large') {
+			await page.addInitScript(() => {
+				window.localStorage.setItem('dndtools:react:vault-choice', 'fresh');
+			});
+			await gotoRoute(page, '/');
+			const started = performance.now();
+			const snapshot = await buildDemoSeedProfile('large');
+			if (performance.now() - started >= 10_000)
+				throw new Error('Large fixture build exceeded 10 s');
+			// Both revisions receive the SAME candidate-generated snapshot via their own restore path.
+			// This also works on the pinned reference, which predates the large profile.
+			await page.evaluate(
+				async (state) => {
+					const modulePath = '/src/platform/storage/coreStore.ts';
+					const storage = await import(/* @vite-ignore */ modulePath);
+					const rt = (
+						window as unknown as {
+							__rt: {
+								runExclusiveMaintenance<T>(operation: () => Promise<T>): Promise<T>;
+								reloadFromStorage(): Promise<void>;
+								state: CoreStateSlice;
+							};
+						}
+					).__rt;
+					await rt.runExclusiveMaintenance(async () => {
+						await storage.restoreCoreState(state);
+						await rt.reloadFromStorage();
+						const loaded = rt.state;
+						if (
+							Object.keys(loaded.content.items).length !== 5_000 ||
+							Object.keys(loaded.maps.maps).length !== 200 ||
+							Object.keys(loaded.characters.characters).length !== 40 ||
+							loaded.scenes.scenes[loaded.commandCenter.homeSceneId!]?.widgets.length !== 60
+						) {
+							throw new Error('Large fixture counts changed during storage hydration');
+						}
+					});
+				},
+				{ ...snapshot, sync: { operations: snapshot.sync.operations } },
+			);
+		}
+		return { page, close: () => context.close() };
+	} catch (error) {
+		await context.close();
+		throw error;
+	}
 }
 
 /** Resolve once the SceneRuntime has hydrated and the shell's main landmark exists. */
@@ -363,7 +416,12 @@ function actorId(page: Page): Promise<string> {
  * the timed scenarios read is a REAL vault built by real commands — not a hand-written fixture that
  * skips the op-log the app actually replays.
  */
-async function seedNotes(page: Page, count: number): Promise<number> {
+async function seedNotes(
+	page: Page,
+	count: number,
+	profile: Options['vaultProfile'],
+): Promise<number> {
+	if (profile === 'large') return 5_000;
 	const actor = await actorId(page);
 	return page.evaluate<number, { actor: string; count: number }>(
 		async ({ actor: a, count: n }) => {
@@ -429,7 +487,7 @@ const appStartup: Scenario = {
 		// transform of every route chunk, which is a property of Vite, not of the app's startup path.
 		// Every recorded sample is a real cold browser context against an already-warm server.
 		for (let i = -1; i < 3; i += 1) {
-			const { page, close } = await newPage(browser, options.port, 'desktop');
+			const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 			try {
 				await gotoRoute(page, '/');
 				if (i < 0) continue;
@@ -468,10 +526,10 @@ const appStartup: Scenario = {
 const vaultOpen: Scenario = {
 	budgetId: 'vault-open',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await gotoRoute(page, '/');
-			const seeded = await seedNotes(page, options.notes);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			const samples: number[] = [];
 			for (let i = 0; i < 3; i += 1) {
 				await page.reload({ waitUntil: 'domcontentloaded' });
@@ -512,10 +570,10 @@ const vaultOpen: Scenario = {
 const syncReconciliation: Scenario = {
 	budgetId: 'sync-reconciliation',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await gotoRoute(page, '/');
-			const seeded = await seedNotes(page, options.notes);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			const samples: number[] = [];
 			for (let i = 0; i < 5; i += 1) {
 				await page.reload({ waitUntil: 'domcontentloaded' });
@@ -565,7 +623,7 @@ const sceneFirstRender: Scenario = {
 		let widgetCount = 0;
 		// As in app-startup, the first navigation warms the dev server's module graph and is discarded.
 		for (let i = -1; i < 3; i += 1) {
-			const { page, close } = await newPage(browser, options.port, 'desktop');
+			const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 			try {
 				await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 				await page.waitForFunction(
@@ -634,7 +692,7 @@ const sceneFirstRender: Scenario = {
 const widgetUpdate: Scenario = {
 	budgetId: 'widget-update',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 			await waitReady(page);
@@ -719,7 +777,7 @@ const widgetUpdate: Scenario = {
 const liveSessionDelivery: Scenario = {
 	budgetId: 'live-session-delivery',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await gotoRoute(page, '/');
 			const samples = await page.evaluate<number[], number>(async (runs) => {
@@ -769,10 +827,10 @@ const liveSessionDelivery: Scenario = {
 const search: Scenario = {
 	budgetId: 'search',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			await page.reload({ waitUntil: 'domcontentloaded' });
 			await waitReady(page);
 			const box = page.getByRole('textbox', { name: 'Search the graph' });
@@ -824,10 +882,10 @@ const search: Scenario = {
 const graphIndexing: Scenario = {
 	budgetId: 'graph-indexing',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes);
+			const seeded = await seedNotes(page, options.notes, options.vaultProfile);
 			await page.reload({ waitUntil: 'domcontentloaded' });
 			await waitReady(page);
 			const actor = await actorId(page);
@@ -869,6 +927,8 @@ const graphIndexing: Scenario = {
 							if (hit) break;
 							await new Promise<void>((done) => requestAnimationFrame(() => done()));
 						}
+						if (performance.now() >= deadline)
+							throw new Error('Graph node did not appear before the deadline');
 						performance.mark('rc-perf:graph-indexing:reindexed');
 						performance.measure(
 							'rc-perf:graph-indexing',
@@ -903,7 +963,7 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 	return {
 		budgetId,
 		run: async ({ browser, options }) => {
-			const { page, close } = await newPage(browser, options.port, profile);
+			const { page, close } = await newPage(browser, options.port, profile, options.vaultProfile);
 			try {
 				await gotoRoute(page, '/atlas');
 				const actor = await actorId(page);
@@ -1116,7 +1176,7 @@ const smokeCi: Scenario = {
 	},
 };
 
-const SCENARIOS: readonly Scenario[] = [
+const STANDARD_SCENARIOS: readonly Scenario[] = [
 	smokeCi,
 	appStartup,
 	vaultOpen,
@@ -1128,6 +1188,37 @@ const SCENARIOS: readonly Scenario[] = [
 	graphIndexing,
 	syncReconciliation,
 	liveSessionDelivery,
+];
+
+/** Each fixture is a separate baseline key; never overwrite the standard observation. */
+export const SCENARIOS: readonly Scenario[] = [
+	...STANDARD_SCENARIOS,
+	...STANDARD_SCENARIOS.map(
+		(scenario): Scenario => ({
+			budgetId: `${scenario.budgetId}:large`,
+			run: async (ctx) => {
+				const capture = await scenario.run({
+					...ctx,
+					options: { ...ctx.options, vaultProfile: 'large' },
+				});
+				return {
+					...capture,
+					fixture:
+						scenario.budgetId === 'smoke-ci'
+							? `${LARGE_VAULT_DATASET}; smoke CI is repository-wide, independent of the browser vault`
+							: `${LARGE_VAULT_DATASET}; compacted snapshot + 200 update operations${
+									scenario.budgetId.startsWith('map-pan-zoom')
+										? '; additional scenario map: 4 layers / 100 POIs'
+										: scenario.budgetId === 'graph-indexing'
+											? '; add five linked notes'
+											: scenario.budgetId === 'live-session-delivery'
+												? '; local projection, network hop excluded'
+												: ''
+								}`,
+				};
+			},
+		}),
+	),
 ];
 
 // ── Runner ───────────────────────────────────────────────────────────────────────────────────────
@@ -1180,8 +1271,11 @@ async function main(): Promise<void> {
 	const options = parseOptions(process.argv.slice(2));
 	const selected = SCENARIOS.filter(
 		(scenario) =>
-			(options.only === null || options.only.has(scenario.budgetId)) &&
-			!options.skip.has(scenario.budgetId),
+			(options.only === null ||
+				options.only.has(scenario.budgetId) ||
+				options.only.has(scenario.budgetId.replace(/:large$/, ''))) &&
+			!options.skip.has(scenario.budgetId) &&
+			!options.skip.has(scenario.budgetId.replace(/:large$/, '')),
 	);
 	if (selected.length === 0) throw new Error('no scenarios selected; check --only / --skip');
 
@@ -1202,7 +1296,7 @@ async function main(): Promise<void> {
 	sides.push({ label: 'candidate', root: REPO_ROOT, port: options.port, out: options.out });
 	const paired = sides.length > 1;
 
-	const needsBrowser = selected.some((scenario) => scenario.budgetId !== 'smoke-ci');
+	const needsBrowser = selected.some((scenario) => !scenario.budgetId.startsWith('smoke-ci'));
 	const servers: Array<{ stop: () => Promise<void> }> = [];
 	let browser: Browser | null = null;
 	const captured = new Map<Side['label'], CapturedBudget[]>(sides.map((side) => [side.label, []]));
@@ -1302,6 +1396,7 @@ async function main(): Promise<void> {
 		);
 		const empty = budgets.filter((entry) => entry.samples.length === 0);
 		if (empty.length > 0) {
+			process.exitCode = 1;
 			console.log(
 				`${empty.length} budget(s) recorded no samples: ${empty.map((entry) => entry.budgetId).join(', ')}`,
 			);

@@ -138,7 +138,7 @@ export const PERFORMANCE_BUDGET_REGISTRY_VERSION = 1 as const;
  * exists yet, per ADR-014's prototype stance) and therefore each declares dataset, device class,
  * and a review date.
  */
-export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
+const STANDARD_PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 	{
 		id: 'smoke-ci',
 		workflow: 'Smoke CI',
@@ -146,7 +146,12 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'Slow CI feedback delays every contributor and erodes the fast-feedback loop.',
 		dataset: 'Supported CI runner',
 		deviceClass: 'CI reference runner',
-		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 3 * 60 * 1000, unit: 'ms' },
+		metric: {
+			kind: 'duration-ms',
+			direction: 'lower-is-better',
+			target: 3 * 60 * 1000,
+			unit: 'ms',
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
 	{
@@ -186,7 +191,13 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A laggy widget update makes a Scene feel sluggish to the DM and players.',
 		dataset: 'Single accepted command',
 		deviceClass: 'Desktop and slim reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 100, unit: 'ms', percentile: 95 },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 100,
+			unit: 'ms',
+			percentile: 95,
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
 	{
@@ -196,7 +207,13 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A low frame rate makes map navigation stutter during play.',
 		dataset: '4 layers / 100 POIs',
 		deviceClass: 'Desktop reference',
-		metric: { kind: 'throughput-fps-p95', direction: 'higher-is-better', target: 50, unit: 'fps', percentile: 95 },
+		metric: {
+			kind: 'throughput-fps-p95',
+			direction: 'higher-is-better',
+			target: 50,
+			unit: 'fps',
+			percentile: 95,
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
 	{
@@ -206,7 +223,13 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A low frame rate makes map navigation stutter on slim devices.',
 		dataset: '4 layers / 100 POIs',
 		deviceClass: 'Slim reference',
-		metric: { kind: 'throughput-fps-p95', direction: 'higher-is-better', target: 30, unit: 'fps', percentile: 95 },
+		metric: {
+			kind: 'throughput-fps-p95',
+			direction: 'higher-is-better',
+			target: 30,
+			unit: 'fps',
+			percentile: 95,
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
 	{
@@ -216,7 +239,13 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A slow query makes finding content feel unresponsive.',
 		dataset: '10,000 indexed records',
 		deviceClass: 'Desktop and mobile reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 250, unit: 'ms', percentile: 95 },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 250,
+			unit: 'ms',
+			percentile: 95,
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
 	{
@@ -236,7 +265,13 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A slow replay starves the UI while a backlog of operations is applied.',
 		dataset: '1,000 queued operations',
 		deviceClass: 'Desktop and mobile reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 2 * 1000, unit: 'ms', percentile: 95 },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 2 * 1000,
+			unit: 'ms',
+			percentile: 95,
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
 	{
@@ -249,9 +284,38 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 		userFacingRisk: 'A laggy live session leaves a participant view behind the DM during play.',
 		dataset: 'Near-real-time projected session ops',
 		deviceClass: 'Desktop and mobile reference profiles',
-		metric: { kind: 'latency-ms-p95', direction: 'lower-is-better', target: 500, unit: 'ms', percentile: 95 },
+		metric: {
+			kind: 'latency-ms-p95',
+			direction: 'lower-is-better',
+			target: 500,
+			unit: 'ms',
+			percentile: 95,
+		},
 		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
 	},
+];
+
+/** RC-ENG-3.3: separate IDs keep both fixture rows in capture, baseline and CI verdicts.
+ * These are provisional targets; no timings are invented when declaring the large row.
+ * Other workflows retain their existing target on the larger background vault.
+ */
+const LARGE_TARGETS: Readonly<Record<string, number>> = {
+	search: 500,
+	'graph-indexing': 1_000,
+	'vault-open': 5_000,
+	'scene-first-render': 2_500,
+};
+export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
+	...STANDARD_PERFORMANCE_BUDGETS,
+	...STANDARD_PERFORMANCE_BUDGETS.map(
+		(budget): PerformanceBudget => ({
+			...budget,
+			id: `${budget.id}:large`,
+			workflow: `${budget.workflow} (large vault)`,
+			dataset: '5,000 notes / 200 maps / 60 tiles / 40 characters',
+			metric: { ...budget.metric, target: LARGE_TARGETS[budget.id] ?? budget.metric.target },
+		}),
+	),
 ];
 
 /** The registry id of the budget that owns the COLLAB live-session p95 delivery target (see migration note). */
@@ -275,13 +339,13 @@ export function budgetForId(
 }
 
 /**
- * Every declared budget owned by a domain, in registry order. Lets a planning review confirm the
- * relevant budgets exist before that domain starts implementation (PERF-001 AC1). Owner match is
- * case-insensitive so `Maps` and `maps` resolve the same.
+ * Workflow ownership lookup (PERF-001 AC1), in registry order. Defaults to one entry per
+ * workflow, preserving the planning API. Pass PERFORMANCE_BUDGETS explicitly to inspect every
+ * fixture target. Owner match is case-insensitive so `Maps` and `maps` resolve the same.
  */
 export function budgetsForOwner(
 	owner: string,
-	budgets: readonly PerformanceBudget[] = PERFORMANCE_BUDGETS,
+	budgets: readonly PerformanceBudget[] = STANDARD_PERFORMANCE_BUDGETS,
 ): PerformanceBudget[] {
 	const needle = owner.trim().toLowerCase();
 	return budgets.filter((budget) => budget.owner.trim().toLowerCase() === needle);
