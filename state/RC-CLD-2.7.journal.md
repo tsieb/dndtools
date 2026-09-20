@@ -78,3 +78,27 @@ Fresh retry validation:
 - Focused ESLint, boundary lint, SAM template lint and `git diff --check`: exit 0.
 - No new product changes, ownership/control-state edits, deployment or remote operations. The
   operator still owns the full gate and independent review; this retry does not claim either ran.
+
+## Integration rebase repair — 2026-09-20
+
+Rebased the two candidate commits onto the operator-specified integration commit
+`2d9f566d194d10e597c8001015b7e8be31811d59`. The sole conflict was adjacent additions at the
+start of `apps/gm-react/src/i18n/messages/en.ts`: upstream map-coach keys and candidate push keys.
+Kept both blocks verbatim. A direct comparison after removing only the push block proves the
+remaining catalog exactly equals the integration catalog. The automatic SAM merge preserves the
+integration template and adds only the disabled PushReminderFn resource.
+
+Rewritten commits are `e35565bd` (implementation) and `004053c3` (scheduler contract). A range-diff
+against the original two commits shows only the locale insertion context changed; the scheduler
+contract commit is unchanged. The integration SHA is an ancestor of the repaired branch.
+
+Fresh checks on the rebased candidate:
+
+- Focused cloud tests: 4 files, 14 tests passed.
+- Push e2e: desktop and mobile Chromium both passed (2 tests).
+- Cloud-fns and gm-react typechecks: exit 0.
+- Focused ESLint, boundary lint, English catalog Prettier check, SAM template lint and diff
+  whitespace checks: exit 0.
+
+No product behavior was changed for the conflict repair. Full operator gates and independent
+review remain external to this run. No push, promotion, additional agent or dispatcher-state edit.
