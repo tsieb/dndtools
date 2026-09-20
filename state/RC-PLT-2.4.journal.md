@@ -134,3 +134,86 @@ all `return` a fail-closed panel before reaching the notice; Sync's panel is beh
 `cloud.available`; Account's panels behind `cloudReady`; Subscription's behind `live`. Recording
 this because a gate that lies in the optimistic direction and a gate that lies in the pessimistic
 direction are the same class of bug, and only the first one is obvious.
+
+## Attempt 3 — reconcile with the integration branch
+
+Feedback: rebase onto `b8dc080e` conflicted in `screens/community/Wiki.tsx`.
+
+Rebased both commits onto `b8dc080e` (55 commits ahead of my old base `884483b0`). Commit 1
+(durable surfaces) applied clean. Commit 2 conflicted in exactly one hunk.
+
+**The conflict.** `fd6c9058` (RC-CLD-4.4, wiki discovery + reader controls) changed the publish
+button's guard from `disabled={busy || eligible === 0}` to `disabled={busy || pages.length === 0}`
+— it added opt-in shared session recaps, so eligibility is no longer just the note count. My side
+added `{...cloudActions.offlineProps}` to the same element. Both belong: took their condition and
+kept my spread. No other hunk conflicted; `en.ts`, `es.ts`, `preferences.ts` and `WikiReader.tsx`
+auto-merged.
+
+**Re-audited the moved tree rather than assuming the rebase was enough**, because RC-CLD-4.4 adds
+cloud controls and a coarse static rule would not notice a new ungated button inside an
+already-gated file:
+
+- Static rule (`offline.gate.test.ts`) passes: no module imports a network client without the gate.
+- Of the 16 files I gated, only `Wiki.tsx` and `WikiReader.tsx` were touched by the 55 commits.
+  Read both in full: every cloud path is gated. Wiki's ungated controls are `navigate('/upgrade')`,
+  the clipboard copy and `setAccess` — all local. WikiReader's new folder navigation and search
+  filter an already-fetched page bundle; `getPublicWiki` is reachable only from `fetchWiki`, whose
+  three call sites (mount effect, gated retry, password submit guarded on `blocked`) are covered.
+- No new modules under `src/cloud` or `src/net`, so no new client could bypass `NETWORK_MODULES`.
+- One screen calls `fetch(` directly: `AiProvider.tsx`. Checked rather than gated — it probes
+  LOOPBACK Ollama (`LOCAL_OLLAMA.healthUrl`), which works offline, and its key save/forget go
+  through `cloud/secureStore.ts`, which has zero network I/O. Gating it would have been the
+  pessimistic lie. Correctly ungated and correctly outside the rule.
+
+Re-running every gate against the reconciled tree; the previous attempt's results do not transfer.
+
+### Considered and rejected: rewriting the click assertion
+
+The offline click check in `pwa-offline.spec.ts` uses `page.route` to observe whether any
+non-localhost request leaves after pressing a gated control. I briefly thought this reads stronger
+than it is — an offline context fails requests anyway, so a pass might be trivially satisfied.
+Checked the semantics instead of guessing: Playwright intercepts via the Fetch domain, which pauses
+a request BEFORE the network stack, so a request the app actually initiated would still reach the
+handler while offline. The assertion is sound as written.
+
+Rejected swapping it for a `window.fetch` call-counter: that is a legibility improvement at best,
+and it would have meant killing a 1190-test run to re-run it. Recording the reasoning because
+"I could not immediately tell whether my own assertion was load-bearing" is worth leaving behind
+for the next reader of this spec.
+
+### Verification against the reconciled tree (post-rebase onto b8dc080e)
+
+- typecheck exit 0; lint 0 errors / 15 pre-existing warnings; boundary lint passed; a11y
+  non-text contrast passed (191 pair checks, 3 themes).
+- `pnpm gates` passed (6 gates); Prettier clean across all 26 files in the two commits.
+- test:critical 4811 passed; test:cloud 497 passed; test:app 1464 passed; test:tooling 191 passed.
+  (Counts rose from the pre-rebase run because the integration branch added tests, not because
+  mine moved: my 6 live in the cloud slice, which `vitest.app.config.ts` excludes by design.)
+- Build exit 0; prod-bundle check OK (85 assets, no `__rt`).
+- `pwa-offline.spec.ts`: 18/18, desktop-chromium + mobile-chromium, exit 0
+  (`/tmp/rc-plt-2.4-pwa.log`).
+- Full Playwright suite: re-run detached against the reconciled tree
+  (`/tmp/rc-plt-2.4-full-e2e.log`); two earlier attempts died on session teardown, not on a test
+  failure. Completed result recorded below.
+
+## Attempt 4 — commit the remaining journal and verify task acceptance
+
+- Starting HEAD: `07fe255e`, on `dispatch/dndtools/768437ccff1bd9f4ac83`.
+  The source implementation is already committed in `c24176dd` and `07fe255e`.
+  The only outstanding tracked change was this task journal; no untracked artifacts remained.
+- Read the original `/tmp/rc-plt-2.4-full-e2e.log`: the full run completed with
+  1178 passed, 11 skipped, and 1 failed (exit 1). The failure was desktop
+  `knowledge-filters.spec.ts:101`, timing out on the second saved-search Save button at line 112.
+  This is not a successful full-suite gate.
+- Fresh targeted Vitest run with `vitest.cloud.config.ts`: both offline test files passed,
+  6 tests total, exit 0 (configured controls and the static import rule).
+- Fresh browser run of `pwa-offline.spec.ts` and `knowledge-filters.spec.ts`, one worker,
+  both profiles: 28 passed, 2 failed, exit 1. All 18 offline assurance cases passed.
+  The same saved-search case failed on both profiles. Original output:
+  `/tmp/rc-plt-2.4-final-browser.log`.
+- `SavedSearches.tsx` and `knowledge-filters.spec.ts` have no task diff against `b8dc080e`.
+  Preserved these unrelated files and recorded the reproducible failure for central review;
+  no claim that the full browser suite is green.
+- No additional source changes were needed for the task acceptance checks. Committing the
+  remaining reconciliation journal addresses the uncommitted-work feedback. No push, promotion,
+  additional loop, delegation, or dispatcher control-state mutation.
