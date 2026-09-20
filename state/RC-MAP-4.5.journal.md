@@ -89,3 +89,44 @@ The branch now sits on a base that carries two gates the earlier revisions never
   docs/development/TESTING.md §8; the `-diff`/`-actual` pairs were read first and the only change is
   the card plus the accent outline on the highlighted rail. Nothing else in the suite moved: 135
   passed at `--update-snapshots=none`, budget 12796.5 of 32768.0 KiB.
+
+## 2026-09-19 — expanded-ownership resumption
+
+The operator's 2026-09-18 brief adds all nine map-editor PNGs to this task's claim. The
+working tree started clean at `7cc64ba5`, with the implementation and those baselines already
+committed. No further source or PNG changes were necessary. This revision only records fresh
+verification in the required run journal; it does not alter dispatcher control state.
+
+Retained baseline justification, individually identified by tier and filename below: each capture
+opens a fresh vault and must show the first-open coach card and highlighted rail. The desktop,
+rail and phone layouts each require their own capture, and each theme requires its own colors.
+
+| Screenshot directory | Retained file                         | Reason                                             |
+| -------------------- | ------------------------------------- | -------------------------------------------------- |
+| `visual-desktop`     | `atlas-map-editor--high-contrast.png` | Desktop coach and rail outline in high contrast.   |
+| `visual-desktop`     | `atlas-map-editor--parchment.png`     | Desktop coach and rail outline in parchment.       |
+| `visual-desktop`     | `atlas-map-editor--tavern.png`        | Desktop coach and rail outline in tavern.          |
+| `visual-phone`       | `atlas-map-editor--high-contrast.png` | Phone coach and rail outline in high contrast.     |
+| `visual-phone`       | `atlas-map-editor--parchment.png`     | Phone coach and rail outline in parchment.         |
+| `visual-phone`       | `atlas-map-editor--tavern.png`        | Phone coach and rail outline in tavern.            |
+| `visual-rail`        | `atlas-map-editor--high-contrast.png` | Rail-tier coach and rail outline in high contrast. |
+| `visual-rail`        | `atlas-map-editor--parchment.png`     | Rail-tier coach and rail outline in parchment.     |
+| `visual-rail`        | `atlas-map-editor--tavern.png`        | Rail-tier coach and rail outline in tavern.        |
+
+Fresh verification (exact command output inspected, all exited 0):
+
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/map-onboarding.spec.ts tests/e2e/shortcuts.spec.ts --workers=2 --retries=0`:
+  **22 passed**, desktop and mobile. Includes completion, interruption, reload, another map in the
+  same vault, separate vault history, skip, Escape, edit dismissal, storage denial, tool key
+  legends and map-only `?` help.
+- `pnpm --filter @dndtools/gm-react typecheck`: passed.
+- `pnpm lint:emphasis`: passed with baseline warnings (83 display-face findings and 61
+  multiple-primary findings; allowed baselines 84 and 61).
+- `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh -g '/atlas with the map editor open' --update-snapshots=none`:
+  **9 passed** in the repository's pinned Playwright container; no snapshots rewritten.
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: 135 files, 12796.5 KiB of
+  32768.0 KiB.
+- `git diff --check`: passed before the journal update; checked again before committing it.
+
+No new claim is made about the historical POI nudge race or the full application gate suite.
+Central gates and independent review remain the operator's next step. No push or promotion.
