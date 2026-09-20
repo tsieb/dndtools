@@ -242,6 +242,15 @@ for (const viewport of [
 	test(`the bounded canvas routes fit the shell's main pane on ${viewport.name}`, async ({
 		page,
 	}) => {
+		// Exercise the lazy-route loading frame even with warm Vite caches. The shell heading
+		// is ready before this module; measuring it as though the canvas were ready is a race.
+		let sceneModuleDelivered = false;
+		await page.route('**/src/screens/sceneEditor/index.tsx*', async (route) => {
+			const response = await route.fetch();
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			sceneModuleDelivered = true;
+			await route.fulfill({ response });
+		});
 		await page.setViewportSize({ width: viewport.width, height: viewport.height });
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
@@ -263,37 +272,33 @@ for (const viewport of [
 
 		for (const route of ['/board', `/scene/${sceneId}`]) {
 			await gotoRoute(page, route);
-			// These routes are lazily loaded and `gotoRoute` only changes the hash, so its `h1` wait can
-			// resolve against the PREVIOUS route's heading. A fixed sleep here then raced the chunk load
-			// under parallel workers and measured a half-laid-out pane. Poll the measurement instead: a
-			// real overflow still fails, it just takes the retry budget to do it.
-			// A 2px tolerance absorbs sub-pixel rounding of the flex track, nothing more.
-			const measure = async () =>
-				page.locator('#main-content').evaluate((element) => ({
-					clientHeight: element.clientHeight,
-					scrollHeight: element.scrollHeight,
+			// The shell's h1 survives hash navigation. Wait for the requested canvas, otherwise
+			// the old board (or a Suspense-hidden div) can satisfy an overflow-only poll.
+			const canvas = page.getByRole('region', {
+				name: route === '/board' ? /^GM Screen,/ : /^Scene canvas,/,
+			});
+			await expect(canvas).toBeVisible({ timeout: 10_000 });
+			const pane = page.locator('#main-content > div').filter({ has: canvas });
+			// Read both bounds in one browser evaluation, then require them to pass together.
+			// A 2px tolerance absorbs sub-pixel rounding; overflow and underfill still fail.
+			await expect(async () => {
+				const { clientHeight, scrollHeight, canvasHeight } = await pane.evaluate((element) => ({
+					clientHeight: element.parentElement!.clientHeight,
+					scrollHeight: element.parentElement!.scrollHeight,
+					canvasHeight: element.getBoundingClientRect().height,
 				}));
-			await expect
-				.poll(
-					async () => {
-						const m = await measure();
-						return m.scrollHeight - m.clientHeight;
-					},
-					{ message: `${route} overflowed the shell's main pane`, timeout: 10_000 },
-				)
-				.toBeLessThanOrEqual(2);
-			const main = await measure();
-			// …and it must not shrink away from the pane either: a bounded canvas that only fills
-			// half of main is the same magic-number bug with the sign flipped.
-			const canvasHeight = await page
-				.locator('#main-content > div')
-				.first()
-				.evaluate((element) => element.getBoundingClientRect().height);
-			expect(
-				canvasHeight,
-				`${route} left ${main.clientHeight - canvasHeight}px of the main pane unused`,
-			).toBeGreaterThanOrEqual(main.clientHeight - 2);
+				expect(clientHeight, `${route} has no main pane height`).toBeGreaterThan(0);
+				expect(
+					scrollHeight - clientHeight,
+					`${route} overflowed the shell's main pane`,
+				).toBeLessThanOrEqual(2);
+				expect(
+					canvasHeight,
+					`${route} left ${clientHeight - canvasHeight}px of the main pane unused`,
+				).toBeGreaterThanOrEqual(clientHeight - 2);
+			}).toPass({ timeout: 10_000 });
 		}
+		expect(sceneModuleDelivered, 'the scene must load before its layout is measured').toBe(true);
 	});
 }
 
