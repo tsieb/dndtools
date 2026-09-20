@@ -44,6 +44,7 @@
 
 import { captureRevision, assertSameRevision } from './provenance';
 import { seedLargeScene } from './scene-fixture';
+import { captureGraphUpdates } from './graph-update';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs';
@@ -920,53 +921,7 @@ const graphIndexing: Scenario = {
 			await gotoRoute(page, '/graph');
 			const actor = await actorId(page);
 			const samples = await page.evaluate<number[], { actor: string; runs: number }>(
-				async ({ actor: a, runs }) => {
-					const rt = (
-						window as unknown as {
-							__rt: { dispatch: (c: unknown) => Promise<{ status: string }> };
-						}
-					).__rt;
-					const out: number[] = [];
-					for (let i = 0; i < runs; i += 1) {
-						const title = `Perf indexed note ${i}`;
-						const started = performance.now();
-						performance.mark('rc-perf:graph-indexing:start');
-						const res = await rt.dispatch({
-							type: 'content.create-item',
-							actorId: a,
-							payload: {
-								kind: 'note',
-								title,
-								body: `Linked to [[Perf note 1]] and [[Perf note 2]].`,
-								visibility: 'player-visible',
-							},
-						});
-						if (res.status !== 'accepted') continue;
-						// Wait for the graph rail to show the changed note — the affected-node update.
-						// NOTE: no named inner function here. `tsx` compiles this file with esbuild's
-						// keep-names transform, which rewrites a named function/arrow into a `__name(...)`
-						// call — and `__name` does not exist inside the page, so the evaluate would throw.
-						const deadline = performance.now() + 10_000;
-						while (performance.now() < deadline) {
-							const main = document.querySelector('#main-content');
-							const hit =
-								!!main &&
-								Array.from(main.querySelectorAll('button')).some((b) =>
-									(b.textContent ?? '').includes(title),
-								);
-							if (hit) break;
-							await new Promise<void>((done) => requestAnimationFrame(() => done()));
-						}
-						performance.mark('rc-perf:graph-indexing:reindexed');
-						performance.measure(
-							'rc-perf:graph-indexing',
-							'rc-perf:graph-indexing:start',
-							'rc-perf:graph-indexing:reindexed',
-						);
-						out.push(Math.round((performance.now() - started) * 1000) / 1000);
-					}
-					return out;
-				},
+				captureGraphUpdates,
 				{ actor, runs: 5 },
 			);
 			return {

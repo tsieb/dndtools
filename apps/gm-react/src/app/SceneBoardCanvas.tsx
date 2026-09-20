@@ -225,9 +225,12 @@ export function SceneBoardCanvas({
 	useEffect(() => {
 		const node = wrapRef.current;
 		if (!node) return;
-		const update = () => setWrapWidth(node.clientWidth);
-		update();
-		const observer = new ResizeObserver(update);
+		// Use the browser's completed layout instead of forcing layout after mounting every tile.
+		// This wrapper has no padding, so the content width matches its former clientWidth read.
+		const observer = new ResizeObserver((entries) => {
+			const entry = entries.find((entry) => entry.target === node);
+			if (entry) setWrapWidth(Math.round(entry.contentRect.width));
+		});
 		observer.observe(node);
 		return () => observer.disconnect();
 	}, []);

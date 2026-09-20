@@ -201,3 +201,24 @@ passed. No app/runtime behavior changed in this lint repair, and no fresh browse
 budget claim is made. Search/graph breaches and the missing ~20% scene win remain
 acceptance gaps. Resolver scope extension remains pending; no out-of-claim engine
 edit, push, promotion, additional loop, sub-agent or dispatcher-state edit occurred.
+
+## Second independent-review recovery
+
+Starting head: `24b6da0fd8846181018a80f57a3394a5efeea1b3`, clean worktree.
+Fresh independent review establishes a graph breach (936.9/500 ms), search passing
+(203.5/250 ms), and no full-candidate capture. Historical captures above do not
+establish acceptance for this tree. No applicable AGENTS.md or Headroom tool was
+available. The shared resolver and direct graph-engine callers remain outside the
+owned paths; a narrow scope extension was requested through the active user-input
+channel. Meanwhile, profiling the owned scene paths and checking in-scope query
+opportunities. No budgets, thresholds, dispatcher state or remote refs changed.
+
+The browser CPU profile identifies a forced `clientWidth` read in the canvas
+resize effect (23.3 ms self time in one diagnostic sample). Consume the observer's
+completed content-box measurement instead; the wrapper has no padding, so rounding
+preserves the former clientWidth semantics. The graph capture now invalidates a
+batch on command rejection or a render timeout, instead of dropping rejected
+samples or recording a timeout as successful work. Three focused tests cover these
+outcomes. The performance suite passes 21/21, targeted ESLint and app typecheck
+exit 0, and quality/documentation gates exit 0. Full browser checks and exact-source
+performance capture follow. No claim of graph recovery or a 20% scene win yet.
