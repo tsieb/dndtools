@@ -253,7 +253,7 @@ test.describe('atlas: the DM can see which map is on the players’ screens', ()
 		// The screen opens on Hidden Outpost (the seeded POIs live on Western Reaches).
 		const open = page.locator(`${MAIN} button[aria-current="true"]`).first();
 		await expect(open).toBeVisible();
-		const openName = (await open.innerText()).trim();
+		const openName = (await open.locator('.map-library-name').innerText()).trim();
 		expect(openName.length).toBeGreaterThan(0);
 
 		await project.click();

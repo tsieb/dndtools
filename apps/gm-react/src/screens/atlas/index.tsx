@@ -10,11 +10,12 @@ import {
 } from '@dndtools/core';
 import { MapCreationForm, Toaster } from '../../ds';
 import { ListDetail, Page, T } from '../../app/screen-kit';
-import { useListDetailSplit, useViewport } from '../../app/useViewport';
+import { useListDetailSplit } from '../../app/useViewport';
 import { pickRasterAssetId } from '../../app/mapGeometry';
 import { dsToVis, type MapTool } from '../../app/map/mapVisibility';
 import { MapEditor } from '../../app/map/MapEditor';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { MapLibrary } from './MapLibrary';
 import { MapChips } from './MapChips';
 import { MapHierarchyTree } from './MapHierarchyTree';
 import { NoticeBar } from './NoticeBar';
@@ -41,7 +42,6 @@ import { copyToClipboard } from '../../platform/preferences';
 
 export function Atlas() {
 	const runtime = useRuntime();
-	const isPhone = useViewport() === 'phone';
 	const split = useListDetailSplit();
 	// One actor id for EVERY query AND every dispatch payload — this is what makes "view as player"
 	// render player-safe rather than just visually filtered (Contract 3). `defaultActorId` tracks the
@@ -464,6 +464,7 @@ export function Atlas() {
 
 	const chips = (
 		<MapChips
+			controlsOnly
 			maps={maps}
 			mapsState={runtime.state.maps}
 			selectedId={selectedId}
@@ -600,26 +601,26 @@ export function Atlas() {
 
 			{createForm}
 
-			{split ? (
-				tree
-			) : (
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 320px',
-						gap: 18,
-						alignItems: 'start',
-					}}
-				>
-					{canvas}
-
-					{/* side rails — all real, actor-filtered Core data */}
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-						{tree}
+			<div
+				className={split ? 'atlas-library-layout atlas-library-split' : 'atlas-library-layout'}
+				style={{ gap: 18 }}
+			>
+				<div>
+					<MapLibrary
+						maps={maps}
+						selectedId={selectedId}
+						delivered={delivered}
+						onSelect={selectMap}
+					/>
+					{tree}
+				</div>
+				{!split && (
+					<div className="atlas-library-preview" style={{ gap: 16 }}>
+						{canvas}
 						{inspectors}
 					</div>
-				</div>
-			)}
+				)}
+			</div>
 		</Page>
 	);
 

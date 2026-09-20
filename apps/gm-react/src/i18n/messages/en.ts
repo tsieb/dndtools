@@ -6431,6 +6431,22 @@ export const en = {
 	'ds.illustrations.caption.invitesEmpty': 'Player invites, before one is sent.',
 	'ds.illustrations.caption.inventoryEmpty': 'The party stash, with nothing in it.',
 	'ds.illustrations.caption.connectionLost': 'A list that could not load from the network.',
+	'atlas.library.title': 'Map library',
+	'atlas.library.search': 'Filter maps by name or region',
+	'atlas.library.help': 'Use arrow keys to browse. Press Space or Enter to preview a map.',
+	'atlas.library.loading': 'Loading maps…',
+	'atlas.library.noRegion': 'No region',
+	'atlas.library.noMatches': 'No matching maps',
+	'atlas.library.empty': 'Your map library is empty',
+	'atlas.library.filterHint': 'Try another name or region.',
+	'atlas.library.emptyHint': 'Create a map to start your atlas.',
+	'atlas.library.clear': 'Clear filter',
+	'atlas.library.pois': '{count} POIs',
+	'atlas.library.layer': '{count} layer',
+	'atlas.library.layers': '{count} layers',
+	'atlas.library.party': 'Party here',
+	'atlas.library.live': 'Live to players',
+	'atlas.library.onScreen': 'On your screen',
 } as const;
 
 /** Every string the app can render, addressed by key. */
