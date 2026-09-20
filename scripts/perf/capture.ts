@@ -315,7 +315,7 @@ async function newPage(
 		isMobile: false,
 		hasTouch: profile === 'slim',
 	});
-	const page = await context.newPage();
+	let page = await context.newPage();
 	// The first-run onboarding overlay covers every surface; bypass it before the first navigation
 	// exactly as `tests/e2e/_helpers.ts` does.
 	await page.addInitScript(() => {
@@ -366,6 +366,11 @@ async function newPage(
 				},
 				{ ...snapshot, sync: { operations: snapshot.sync.operations } },
 			);
+			// The setup document's time origin includes fixture construction and restore. A hash
+			// navigation would keep that origin, contaminating navigation-based measurements.
+			// Keep durable storage/cache, but give every scenario an un-navigated document.
+			await page.close();
+			page = await context.newPage();
 		}
 		return { page, close: () => context.close() };
 	} catch (error) {
@@ -401,6 +406,14 @@ async function waitReady(page: Page): Promise<void> {
 async function gotoRoute(page: Page, path: string): Promise<void> {
 	await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
 	await waitReady(page);
+}
+
+/** Navigation-from-origin samples must never silently become same-document route transitions. */
+async function gotoDocument(page: Page, path: string): Promise<void> {
+	const response = await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
+	if (response === null) {
+		throw new Error('Navigation timing requires a fresh document; setup time must be excluded');
+	}
 }
 
 interface DispatchResult {
@@ -505,7 +518,8 @@ const appStartup: Scenario = {
 		for (let i = -1; i < 3; i += 1) {
 			const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 			try {
-				await gotoRoute(page, '/');
+				await gotoDocument(page, '/');
+				await waitReady(page);
 				if (i < 0) continue;
 				samples.push(
 					round(
@@ -653,7 +667,7 @@ const sceneFirstRender: Scenario = {
 		for (let i = -1; i < 3; i += 1) {
 			const { page, close } = await newPage(browser, options.port, 'desktop', options.vaultProfile);
 			try {
-				await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
+				await gotoDocument(page, '/board');
 				await page.waitForFunction(
 					() => {
 						const rt = (
