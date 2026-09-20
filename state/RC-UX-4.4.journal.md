@@ -214,3 +214,14 @@
   zero retries (`/tmp/rc-ux-44-rebase-privacy-preview.log`). No assertion or timeout was weakened.
 - Confirmed `2d9f566d` is an ancestor of the reconciled task branch. No push, promotion or
   dispatcher-state changes. Central independent review remains pending.
+
+## Formatting gate follow-up
+
+- Read the original `7d2974e8-3165-4164-aa13-6662c18ba9c2/output.log`: the central gate
+  checked `--base loop/rc` and flagged only `docs/requirements/FEATURE-GAPS.md`.
+  The previous local formatter checked uncommitted files only, so it missed the already-committed
+  table reconciliation from the rebase. Headroom tools remain unavailable.
+- Ran Prettier on that companion inventory. Verified that only table padding and separator widths
+  changed; all document content and anchors are intact. No catalog or application behavior changes.
+- Re-ran the exact gate, `pnpm format:check:changed --base loop/rc`: passed all 30 candidate files.
+  Independent reviewer sign-off remains pending. No push, promotion or dispatcher-state changes.
