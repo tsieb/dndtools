@@ -23,15 +23,20 @@ export function CharactersBody({ widget }: { widget: BoardWidget }) {
 		runtime.defaultActorId,
 	);
 	const party = characters.filter((character) => character.kind === 'pc');
-	if (characters.length === 0) return <Muted>{t('widgetBody.characters.empty')}</Muted>;
 	return (
 		<div style={bodyWrap}>
 			<LiveStats>
-				<StatPill label={t('widgetBody.characters.party')} value={String(party.length)} />
-				<StatPill
-					label={t('widgetBody.characters.others')}
-					value={String(characters.length - party.length)}
-				/>
+				{characters.length === 0 ? (
+					<Muted>{t('widgetBody.characters.empty')}</Muted>
+				) : (
+					<>
+						<StatPill label={t('widgetBody.characters.party')} value={String(party.length)} />
+						<StatPill
+							label={t('widgetBody.characters.others')}
+							value={String(characters.length - party.length)}
+						/>
+					</>
+				)}
 			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{characters.slice(0, 6).map((character) => (

@@ -76,7 +76,10 @@ The readouts are `aria-live`, not `role="status"`. The canvas's confirmation cha
 What counts as a value is deliberate. It is what changes while the tile sits on the board: the
 round, a count, whether a track plays. Authored prose (a note or handout body) is content and is not
 announced. The countdown figure is `role="timer"`, readable on demand but never read out twice a
-second; the status line under it announces the status and, once, the time left when it turns urgent.
+second; the status line under it announces the status and time left on explicit timer operations
+(including duration adjustments while paused, running or stopped) and urgency transitions. Ordinary
+clock ticks leave that live text unchanged. Count readouts keep the same live-region element mounted
+through empty and populated states, including removal of the last item.
 The phone initiative tile announces the turn by its place in the order, because the name is already
 in its row and a second copy in the DOM makes every by-name lookup ambiguous.
 

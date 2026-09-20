@@ -365,6 +365,90 @@ describe('the widget accessibility contract', () => {
 		expect(region?.getAttribute('aria-live') ?? 'polite').toBe('polite');
 	});
 
+	it.each(['atlas', 'characters', 'notes', 'prep', 'quick-reference'])(
+		'%s preserves its live region through empty, populated and empty states',
+		(type) => {
+			const empty = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+			const populated = accept(
+				dispatchCommand(campaign(), makeEnvironment(), {
+					type: 'content.create-item',
+					actorId: DM_ACTOR.id,
+					payload: { kind: 'object', title: 'Lantern', body: '', visibility: 'player-visible' },
+				}),
+			);
+			runtimeRef.defaultActorId = DM_ACTOR.id;
+			const draw = (state: CoreStateSlice) => {
+				runtimeRef.state = state;
+				act(() =>
+					root.render(
+						<I18nProvider>
+							<WidgetBody widget={boardWidget(byType(type))} />
+						</I18nProvider>,
+					),
+				);
+			};
+			draw(empty);
+			const region = container.querySelector(LIVE);
+			expect(region).not.toBeNull();
+			const emptyText = region?.textContent;
+			draw(populated);
+			expect(container.querySelector(LIVE)).toBe(region);
+			expect(region?.textContent).not.toBe(emptyText);
+			draw(empty);
+			expect(container.querySelector(LIVE)).toBe(region);
+			expect(region?.textContent).toBe(emptyText);
+		},
+	);
+
+	it.each(['paused', 'running', 'idle'] as const)(
+		'announces explicit timer adjustments while %s, without narrating ticks',
+		(status) => {
+			vi.useFakeTimers();
+			try {
+				vi.setSystemTime(new Date('2026-09-20T12:00:00Z'));
+				runtimeRef.state = campaign();
+				runtimeRef.defaultActorId = DM_ACTOR.id;
+				const widget = boardWidget(byType('timer'));
+				const timer = {
+					id: 'timer',
+					widgetInstanceId: widget.id,
+					sceneId: 'scene',
+					status,
+					durationSeconds: 120,
+					startedAt: status === 'running' ? new Date().toISOString() : null,
+					revision: 1,
+				};
+				runtimeRef.state.session.timers[widget.id] = timer;
+				const draw = () =>
+					act(() =>
+						root.render(
+							<I18nProvider>
+								<WidgetBody widget={widget} />
+							</I18nProvider>,
+						),
+					);
+				draw();
+				const region = container.querySelector(LIVE);
+				expect(region?.textContent).toContain('2:00');
+				runtimeRef.state.session.timers[widget.id] = {
+					...timer,
+					durationSeconds: 180,
+					revision: 2,
+				};
+				draw();
+				expect(container.querySelector(LIVE)).toBe(region);
+				expect(region?.textContent).toContain('3:00');
+				const spoken = region?.textContent;
+				act(() => vi.advanceTimersByTime(2000));
+				expect(region?.textContent).toBe(spoken);
+				if (status === 'running')
+					expect(container.querySelector('[role="timer"]')?.textContent).toBe('2:58');
+			} finally {
+				vi.useRealTimers();
+			}
+		},
+	);
+
 	it('does not read authored prose into a live region', () => {
 		renderBody(byType('note'));
 		expect(container.querySelector(LIVE)).toBeNull();

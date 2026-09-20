@@ -21,20 +21,25 @@ export function AtlasBody({ widget }: { widget: BoardWidget }) {
 	const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
 	const shown = Math.max(1, Number(cfg<string>(widget, 'thumbnails') ?? 3) || 3);
 	const projection = getActiveMapProjectionSummary(runtime.state, actorId);
-	if (maps.length === 0) return <Muted>{t('widgetBody.atlas.empty')}</Muted>;
 	return (
 		<div style={bodyWrap}>
 			<LiveStats>
-				<StatPill label={t('widgetBody.atlas.maps')} value={String(maps.length)} />
-				{projection && (
-					<StatPill
-						label={t('widgetBody.atlas.sharing')}
-						value={
-							projection.projecting
-								? String(projection.deliveredCount)
-								: t('widgetBody.atlas.noOne')
-						}
-					/>
+				{maps.length === 0 ? (
+					<Muted>{t('widgetBody.atlas.empty')}</Muted>
+				) : (
+					<>
+						<StatPill label={t('widgetBody.atlas.maps')} value={String(maps.length)} />
+						{projection && (
+							<StatPill
+								label={t('widgetBody.atlas.sharing')}
+								value={
+									projection.projecting
+										? String(projection.deliveredCount)
+										: t('widgetBody.atlas.noOne')
+								}
+							/>
+						)}
+					</>
 				)}
 			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

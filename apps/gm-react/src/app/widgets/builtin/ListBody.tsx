@@ -32,13 +32,6 @@ export function ListBody({
 		runtime.state.permissions,
 		runtime.defaultActorId,
 	).filter((item) => item.kind === kind);
-	if (items.length === 0) {
-		return (
-			<Muted>
-				{kind === 'note' ? t('widgetBody.list.notesEmpty') : t('widgetBody.list.objectsEmpty')}
-			</Muted>
-		);
-	}
 	const shown = items.slice(0, count);
 	return (
 		<div style={bodyWrap}>
@@ -58,11 +51,15 @@ export function ListBody({
 			))}
 			<LiveReadout>
 				<Muted>
-					{t('widgetBody.list.count', {
-						shown: shown.length,
-						total: items.length,
-						unit: t(unit),
-					})}
+					{items.length === 0
+						? kind === 'note'
+							? t('widgetBody.list.notesEmpty')
+							: t('widgetBody.list.objectsEmpty')
+						: t('widgetBody.list.count', {
+								shown: shown.length,
+								total: items.length,
+								unit: t(unit),
+							})}
 				</Muted>
 			</LiveReadout>
 		</div>

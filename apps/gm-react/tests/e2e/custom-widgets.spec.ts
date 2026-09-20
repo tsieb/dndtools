@@ -666,6 +666,35 @@ test.describe('widget accessibility contract', () => {
 		await expectAxeClean(page, '/board');
 	});
 
+	test('atlas keeps the same live region through its first and last map', async ({ page }) => {
+		await openScene(page);
+		const actor = await actorId(page);
+		const removeMap = async (mapId: string) => {
+			const result = await dispatch(page, {
+				type: 'map.delete',
+				actorId: actor,
+				payload: { mapId, force: true },
+			});
+			expect(result.status, JSON.stringify(result.rejection)).toBe('accepted');
+		};
+		const maps = await page.evaluate(() => Object.keys(window.__rt!.state.maps.maps));
+		for (const id of maps) await removeMap(id);
+		const sceneId = await createScene(page, `Empty atlas ${Date.now()}`);
+		await placeWidget(page, sceneId, 'atlas', 40);
+		const id = (await instanceId(page, sceneId, 'atlas'))!;
+		await gotoRoute(page, `/scene/${sceneId}`);
+		const live = page.getByTestId(`widget-${id}`).locator(LIVE_REGION);
+		await expect(live).toHaveCount(1);
+		const emptyText = await live.textContent();
+		const original = await live.elementHandle();
+		const mapId = await createMap(page, 'First map');
+		await expect(live).toContainText('Maps1');
+		expect(await live.evaluate((node, before) => node === before, original)).toBe(true);
+		await removeMap(mapId);
+		await expect(live).toHaveText(emptyText!);
+		expect(await live.evaluate((node, before) => node === before, original)).toBe(true);
+	});
+
 	test('every declared operate command runs from the keyboard alone', async ({ page }) => {
 		await openScene(page);
 		// The test drives exactly what the builtins declare: a new operate command fails it here.
@@ -714,10 +743,23 @@ test.describe('widget accessibility contract', () => {
 			.poll(async () => (await timerState(page, timerId))?.durationSeconds)
 			.toBe((paused?.durationSeconds ?? 0) + 60);
 
+		await expect(timer.locator(LIVE_REGION)).toContainText(
+			(await timer.getByRole('timer').textContent())!.trim(),
+		);
+
 		// timer.resume, reached going back the way a keyboard user would.
 		await tabTo(page, resume, 'Shift+Tab');
 		await page.keyboard.press('Enter');
 		await expect(timer.locator(LIVE_REGION)).toContainText('Running');
+
+		// Running adjustments announce the new value even without an urgency transition.
+		const beforeAdvance = await timer.locator(LIVE_REGION).textContent();
+		await tabTo(page, timer.getByRole('button', { name: 'Add 60 seconds to the timer' }));
+		await page.keyboard.press('Enter');
+		await expect(timer.locator(LIVE_REGION)).not.toHaveText(beforeAdvance!);
+		const spoken = await timer.locator(LIVE_REGION).textContent();
+		await page.waitForTimeout(1200);
+		await expect(timer.locator(LIVE_REGION)).toHaveText(spoken!);
 
 		// timer.reset — and focus lands on the transport, not on <body>.
 		await tabTo(page, timer.getByRole('button', { name: 'Reset', exact: true }));

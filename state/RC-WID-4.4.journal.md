@@ -157,3 +157,34 @@ tests/e2e/custom-widgets.spec.ts --project=desktop-chromium --project=mobile-chr
 - The full 1286-case browser acceptance command is left to the central operator; this attempt ran
   the affected suites rather than claiming a new full browser result. Logs above are ephemeral
   local evidence. No push, promotion, or dispatcher state changes.
+
+## Attempt 7 — independent review announcement regressions (2026-09-20)
+
+- Addressed both findings supplied for candidate `04412e70`: timer adjustments did not change
+  live text, and empty Atlas/Notes/Characters/List bodies removed their live region.
+- Timer announcements now freeze the remaining-time readout on durable timer revision, status,
+  or urgency changes. Periodic countdown ticks do not change the spoken text. This covers
+  adjustments while paused, running without an urgency transition, and stopped.
+- Empty readouts retain the same live-region DOM node when their first item appears and their
+  last item disappears; existing empty-state messages are preserved.
+- Added five empty/populated/empty identity regressions and three timer-state regressions with
+  a fake clock. Browser coverage checks paused/running keyboard adjustment announcements,
+  tick silence, and atlas live-node identity through real map creation/deletion on both profiles.
+- WIDGETS.md now explicitly describes duration adjustments and empty-state persistence.
+- Focused widget unit run: exit 0, 11 files / 224 tests passed. Original output:
+  `/tmp/rc-wid-44-announcements-unit.log`. Further verification in progress below.
+- Full app unit suite: exit 0, 144 files / 1624 tests passed;
+  `/tmp/rc-wid-44-announcements-app.log`.
+- Custom-widget browser suite, both Chromium profiles, two workers, retries disabled: exit 0,
+  20 passed. Includes builtin axe on both routes, all declared keyboard operations, first/last map
+  persistence, timer adjustment announcements and contrast forwarding;
+  `/tmp/rc-wid-44-announcements-e2e.log`.
+- App typecheck, focused ESLint and Prettier checks passed;
+  `/tmp/rc-wid-44-announcements-typecheck.log`, `/tmp/rc-wid-44-announcements-lint.log`.
+- Boundary lint and raw-style count passed; original logs:
+  `/tmp/rc-wid-44-announcements-boundary.log`, `/tmp/rc-wid-44-announcements-style.log`.
+- Pinned visual comparison (`--update-snapshots=none --workers=2`): exit 0, 135 passed;
+  `/tmp/rc-wid-44-announcements-visual.log`. No baseline changes.
+- Final diff/format checks passed. These are local DOM/browser checks, not measured screen-reader
+  speech or fresh central approval. The central operator still owns wrapper gates and independent
+  review. No push, promotion, dispatcher state changes, or additional agents. Logs are ephemeral.

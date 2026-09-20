@@ -19,7 +19,6 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 		runtime.state.permissions,
 		runtime.defaultActorId,
 	).filter((item) => item.kind === 'note');
-	if (notes.length === 0) return <Muted>{t('widgetBody.notes.empty')}</Muted>;
 	const shown = notes.slice(0, count);
 	return (
 		<div style={bodyWrap}>
@@ -38,7 +37,11 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 				</div>
 			))}
 			<LiveReadout>
-				<Muted>{t('widgetBody.notes.count', { shown: shown.length, total: notes.length })}</Muted>
+				<Muted>
+					{notes.length === 0
+						? t('widgetBody.notes.empty')
+						: t('widgetBody.notes.count', { shown: shown.length, total: notes.length })}
+				</Muted>
 			</LiveReadout>
 		</div>
 	);

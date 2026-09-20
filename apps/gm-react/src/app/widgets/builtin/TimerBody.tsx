@@ -58,13 +58,14 @@ export function TimerBody({
 		return () => window.clearInterval(id);
 	}, [ticking]);
 
-	// RC-WID-4.4 — the moment the countdown turned urgent, frozen. The live status line below says it
-	// ONCE per change of state ("Running · 0:30"); reading the ticking figure itself into a live region
-	// would announce twice a second. Held as state from the previous render, the pattern React
-	// documents for "adjust state when an input changes", so no effect has to chase the clock.
-	const urgencyKey = `${countdown.status}:${countdown.urgency}`;
-	const [urgentAt, setUrgentAt] = useState({ key: urgencyKey, display: countdown.display });
-	if (urgentAt.key !== urgencyKey) setUrgentAt({ key: urgencyKey, display: countdown.display });
+	// Freeze the spoken time on durable timer changes and urgency transitions. Ordinary clock
+	// ticks must not mutate the live text, but explicit adjustments must be announced even when
+	// paused or when the urgency stays the same. Revision also covers operations from other views.
+	const announcementKey = `${countdown.status}:${countdown.urgency}:${timer?.revision ?? 0}:${configured}`;
+	const [announced, setAnnounced] = useState({ key: announcementKey, display: countdown.display });
+	if (announced.key !== announcementKey) {
+		setAnnounced({ key: announcementKey, display: countdown.display });
+	}
 	const urgent = countdown.urgency !== 'normal';
 
 	const declares = (type: string) => !!onCommand && widget.commands.includes(type);
@@ -130,9 +131,7 @@ export function TimerBody({
 				</div>
 				<LiveReadout>
 					{countdown.status !== 'stopped' && <Muted>{countdown.statusLabel}</Muted>}
-					{urgent && countdown.status === 'running' && (
-						<span style={SR_ONLY}>{urgentAt.display}</span>
-					)}
+					{timer && <span style={SR_ONLY}> {announced.display}</span>}
 				</LiveReadout>
 			</div>
 			<div
