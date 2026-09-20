@@ -4615,7 +4615,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	'charBuilder.wizard': 'Asistente de personaje nuevo',
 	'charBuilder.newCharacter': 'Personaje nuevo',
-	'charBuilder.savedLocally': 'Guardado en tu bóveda local',
+	'charBuilder.savedLocally': 'Se guarda al crear el personaje',
 	'charBuilder.stepOf': 'Paso {index} de {total}',
 	'charBuilder.stepsLabel': 'Pasos del asistente',
 	'charBuilder.stepDone': 'completado',
@@ -4632,8 +4632,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'charBuilder.needScoresShort':
 		'Termina las puntuaciones de característica antes de crear el personaje.',
 	'charBuilder.discardTitle': '¿Descartar este personaje?',
-	'charBuilder.discardBody':
-		'El asistente todavía no ha creado nada — cerrar ahora descarta todo lo introducido hasta el momento.',
+	'charBuilder.discardBody': '«{name}» no se ha guardado. ¿Descartar este borrador?',
 	'charBuilder.keepEditing': 'Seguir editando',
 	'charBuilder.discardCharacter': 'Descartar el personaje',
 	'charBuilder.step.identity': 'Identidad',

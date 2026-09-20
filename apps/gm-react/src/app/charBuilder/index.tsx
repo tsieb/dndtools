@@ -1,56 +1,11 @@
 /**
- * CharBuilder — the full-screen guided character-creation overlay, ported from the online
- * prototype's `views/character-builder.jsx` (entry choice → 6-step wizard: identity / class &
- * level / ability scores / kit / bio / review, with StepRail + selectable Tiles + numeric
- * Steppers and standard-array / point-buy / 4d6-roll / manual score methods). Mounted from the
- * Characters screen; no route of its own.
- *
- * Where the prototype dispatched a mock `char/create`, this port drives the REAL core:
- *   - kind PC → the guided draft flow exactly as `runtime/demo-seed.ts` seeds PCs:
- *     `character.create-draft` (DM, assigns a player owner) → 3× `character.update-draft-step`
- *     (identity / abilities / class, dispatched AS the owning player — owner-only in core) →
- *     `character.finalize-draft` (owner) → `character.set-combat` (DM: HP/AC) →
- *     `permission.grant-capability-set` (DM grants the owner set — finalize doesn't, PERM-004) →
- *     sheet extras (race / alignment / speed / level / bio / portrait tone) via validated
- *     `character.edit-field` `data.*` writes.
- *   - kind NPC / Monster / Sidekick → one `character.quick-create` (its `kind` enum excludes
- *     `pc` — CHAR-001), carrying ability scores, attacks, combat block, and free-form data;
- *     DM notes land in `data.dmNotes` marked `dmOnlyFields` so they never reach players.
- *
- * Honest deviations from the design source (each forced by the core model, labeled in-UI):
- *   - PC classes/backgrounds are limited to the core guided flow's options (CHAR-002
- *     `DRAFT_CLASS_OPTIONS` / `DRAFT_BACKGROUND_OPTIONS`) — anything else is rejected at finalize.
- *   - PC ability scores must satisfy the core's 27-point-buy rule (each 8–15); the wizard surfaces
- *     the core's own `validateDraftStep` issues instead of letting finalize reject. The 4d6 ROLL
- *     method is therefore offered for the kinds the core takes scores from as given (NPC / monster /
- *     sidekick) and withheld from the guided PC path, where finalize would refuse an ordinary rolled
- *     spread with no way forward. DEBT-2026-006 tracks the core change that would lift this.
- *   - A PC needs a player OWNER (create-draft rejects otherwise) — an "Owned by" select is added.
- *   - PC visibility is forced `shared`-with-owner by finalize; the visibility tiles are replaced
- *     with a note (the DM widens sharing post-create from the sheet via `character.set-sharing`).
- *     DM-only notes still have no post-create marking command for a PC — noted, not faked.
- *   - PC custom attacks ride the draft's optional `kit` step: `character.finalize-draft` carries
- *     the saved kit attacks (and AC/HP) onto the finalized character.
- *
- * "Import character file (JSON)" is REAL: the pure mapper (`./charImport/ddbJson`) accepts a
- * D&D Beyond character export or the simple native JSON shape and produces a PLAN of core
- * dispatches (`character.quick-create` → `set-proficiencies` → `set-spell` ×N → `update-attacks`).
- * FAIL-CLOSED: the plan's mapped/unmapped field report is shown as an import PREVIEW and nothing
- * is created until the user confirms — unrecognized fields are listed, never silently dropped.
- *
- * RC-STB-2.4 split the single 2,470-line file into this directory: the phases (`Choose`, `Import`),
- * the six wizard steps (`steps/*`, `Review`), the shell (`Overlay`), the field primitives (`ui`),
- * the builder tables (`data`), the durable create paths (`create`) and the shared state bag
- * (`wizard`). This file keeps the state, the phase orchestration and the wizard frame.
- *
- * RC-CHR-5.2 polished the steps: the roll method and class-priority score dealing (`scores`), the
- * class preview of the active package's features (`classPreview`), the import diff against a
- * same-named roster character (`importDiff`), and the step rail's navigation semantics.
+ * Character-builder orchestration: in-memory draft, validated PC score/owner constraints,
+ * reviewed import plan and runtime-dispatch creation. WizardFrame owns the responsive shell;
+ * create.ts owns the durable commands. Closing a draft never implies that it was saved.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getActiveSystemForActor, validateDraftStep } from '@dndtools/core';
-import { Button, Toaster } from '../../ds';
-import { T, srOnly } from '../screen-kit';
+import { Toaster } from '../../ds';
 import { useViewport } from '../useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { registerBackHandler } from '../../platform/backNavigation';
@@ -84,16 +39,10 @@ import {
 	type Assignment,
 	type RolledScore,
 } from './scores';
-import { DiscardConfirm, Overlay, StepRail } from './Overlay';
+import { WizardFrame } from './WizardFrame';
 import { ChoosePhase } from './Choose';
 import { ImportPhase } from './Import';
 import { createOther, createPc, runImport } from './create';
-import { IdentityStep } from './steps/Identity';
-import { ClassLevelStep } from './steps/ClassLevel';
-import { AbilitiesStep } from './steps/Abilities';
-import { KitStep } from './steps/Kit';
-import { BioStep } from './steps/Bio';
-import { ReviewStep } from './Review';
 import type { Wizard } from './wizard';
 import { useI18n } from '../../i18n';
 
@@ -500,122 +449,28 @@ export function CharBuilder({
 		);
 	}
 
-	/* ---- the from-scratch wizard ---- */
-	const step = STEPS[i];
-	const statsOk = (!abilityValidation || abilityValidation.valid) && !poolIncomplete;
-	const canContinue = step.id === 'identity' ? identityOk : step.id === 'stats' ? statsOk : true;
-	// Both footer buttons used hard `disabled`, which removes the tab stop AND suppresses the
-	// tooltip — so the ONE thing the user needs (what is still missing) had no channel at all.
-	const blockedReason =
-		step.id === 'identity' && !identityOk
-			? isPc && !ownerId
-				? t('charBuilder.needNameAndOwner')
-				: t('charBuilder.needName')
-			: step.id === 'stats' && !statsOk
-				? t('charBuilder.needScores')
-				: null;
-
 	return (
-		<Overlay
-			key="scratch"
-			onClose={requestClose}
-			wide
-			label={t('charBuilder.wizard')}
-			phone={isPhone}
-		>
-			<div style={{ display: 'flex', height: '100%', flex: 1, position: 'relative' }}>
-				{/* The desktop rail would consume nearly all of a 320px dialog. Progress remains
-					    discoverable in the persistent footer on phone instead. */}
-				{!isPhone && <StepRail steps={STEPS} i={i} onJump={jumpTo} />}
-				<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							justifyContent: 'space-between',
-							padding: isPhone ? '12px 16px 0' : '16px 28px 0',
-						}}
-					>
-						<h2
-							ref={titleRef}
-							tabIndex={-1}
-							style={{ margin: T.space.zero, font: `700 19px ${T.disp}` }}
-						>
-							{t(step.title)}
-						</h2>
-						<Button variant="ghost" size="sm" onClick={requestClose}>
-							{t('common.action.cancel')}
-						</Button>
-					</div>
-					<div
-						style={{
-							flex: 1,
-							minHeight: 0,
-							overflowY: 'auto',
-							padding: isPhone ? '14px 16px 20px' : '14px 28px 20px',
-						}}
-					>
-						{step.id === 'identity' && <IdentityStep w={w} />}
-						{step.id === 'class' && <ClassLevelStep w={w} />}
-						{step.id === 'stats' && <AbilitiesStep w={w} />}
-						{step.id === 'kit' && <KitStep w={w} />}
-						{step.id === 'bio' && <BioStep w={w} />}
-						{step.id === 'review' && <ReviewStep w={w} />}
-					</div>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 10,
-							padding: isPhone ? '12px 16px' : '14px 28px',
-							borderTop: `1px solid ${T.bd}`,
-						}}
-					>
-						<Button variant="ghost" onClick={back} icon="chevron-left">
-							{i === 0 ? t('common.action.back') : t(STEPS[i - 1].title)}
-						</Button>
-						<div style={{ flex: 1 }} />
-						{/* A live region, so moving on announces where the user landed — Continue keeps
-						    focus, and the step change was otherwise silent to a screen reader. */}
-						<span role="status" style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							{t('charBuilder.stepOf', { index: i + 1, total: STEPS.length })}
-							<span style={srOnly}>{`: ${t(step.title)}`}</span>
-						</span>
-						{i < STEPS.length - 1 ? (
-							<Button
-								variant="primary"
-								icon="chevron-right"
-								aria-disabled={!canContinue || undefined}
-								title={blockedReason ?? undefined}
-								onClick={next}
-							>
-								{t('charBuilder.continue')}
-							</Button>
-						) : (
-							<Button
-								variant="primary"
-								icon="check"
-								disabled={submitting}
-								aria-disabled={!identityOk || !statsOk || undefined}
-								title={
-									!identityOk
-										? t('charBuilder.needName')
-										: !statsOk
-											? t('charBuilder.needScoresShort')
-											: undefined
-								}
-								onClick={create}
-							>
-								{submitting ? t('charBuilder.creating') : t('charBuilder.createCharacter')}
-							</Button>
-						)}
-					</div>
-				</div>
-
-				{confirmDiscard && (
-					<DiscardConfirm onKeep={() => setConfirmDiscard(false)} onDiscard={onClose} />
-				)}
-			</div>
-		</Overlay>
+		<WizardFrame
+			{...{
+				w,
+				i,
+				identityOk,
+				abilityValidation,
+				poolIncomplete,
+				isPc,
+				ownerId,
+				isPhone,
+				titleRef,
+				requestClose,
+				jumpTo,
+				back,
+				next,
+				create,
+				submitting,
+				confirmDiscard,
+				setConfirmDiscard,
+				onClose,
+			}}
+		/>
 	);
 }

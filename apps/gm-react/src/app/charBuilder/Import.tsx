@@ -41,20 +41,37 @@ export function ImportPhase({
 	const { t } = useI18n();
 	return (
 		<Overlay key="import" onClose={onClose} label={t('charBuilder.importTitle')} phone={isPhone}>
-			<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
+			<div
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					height: '100%',
+					flex: 1,
+					minWidth: 0,
+					overflowWrap: 'anywhere',
+				}}
+			>
 				<div
 					style={{
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'space-between',
-						padding: isPhone ? '16px 16px 0' : '20px 28px 0',
+						padding: isPhone
+							? 'var(--space-4) var(--space-4) var(--space-0)'
+							: 'var(--space-5) var(--space-6) var(--space-0)',
 					}}
 				>
 					<div>
-						<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>
+						<h2 style={{ margin: 'var(--space-0)', font: `700 var(--text-xl) ${T.disp}` }}>
 							{t('charBuilder.importTitle')}
 						</h2>
-						<p style={{ margin: '4px 0 0', font: `13px ${T.sans}`, color: T.ter }}>
+						<p
+							style={{
+								margin: 'var(--space-1) var(--space-0) var(--space-0)',
+								font: `var(--text-sm) ${T.sans}`,
+								color: T.ter,
+							}}
+						>
 							{t(importPlan ? 'charBuilder.importReview' : 'charBuilder.importUnreadable')}
 						</p>
 					</div>
@@ -70,30 +87,37 @@ export function ImportPhase({
 						flex: 1,
 						minHeight: 0,
 						overflowY: 'auto',
-						padding: isPhone ? '16px' : '18px 28px',
+						padding: isPhone ? 'var(--space-4)' : 'var(--space-4) var(--space-6)',
 					}}
 				>
 					{importError && (
 						<div
 							role="alert"
 							style={{
-								font: `13px/1.6 ${T.sans}`,
+								font: `var(--text-sm)/1.6 ${T.sans}`,
 								color: T.err,
-								padding: '12px 14px',
-								borderRadius: 10,
+								padding: 'var(--space-3) var(--space-3)',
+								borderRadius: 'var(--radius-lg)',
 								border: `1px solid ${T.err}`,
 							}}
 						>
-							{importError}
+							<Icon name="error" size="sm" /> {importError}
 						</div>
 					)}
 					{importPlan && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
 								<Avatar name={importPlan.name} size="lg" ring="turn" />
 								<div style={{ minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-										<span style={{ font: `700 19px ${T.disp}` }}>{importPlan.name}</span>
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 'var(--space-2)',
+											flexWrap: 'wrap',
+										}}
+									>
+										<span style={{ font: `700 var(--text-lg) ${T.sans}` }}>{importPlan.name}</span>
 										<Badge status={KIND_TONE[importPlan.quickCreate.kind]}>
 											{t(KIND_LABEL[importPlan.quickCreate.kind])}
 										</Badge>
@@ -111,7 +135,13 @@ export function ImportPhase({
 											)}
 										</Badge>
 									</div>
-									<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 3 }}>
+									<div
+										style={{
+											font: `var(--text-xs) ${T.sans}`,
+											color: T.ter,
+											marginTop: 'var(--space-0-5)',
+										}}
+									>
 										{[
 											t('charBuilder.countAbilityScores', {
 												count: Object.keys(importPlan.quickCreate.abilityScores).length,
@@ -139,29 +169,31 @@ export function ImportPhase({
 								style={{
 									display: 'grid',
 									gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
-									gap: 14,
+									gap: 'var(--space-3)',
 									alignItems: 'start',
 								}}
 							>
 								<div
 									style={{
-										padding: 14,
-										borderRadius: 12,
+										padding: 'var(--space-3)',
+										borderRadius: 'var(--radius-lg)',
 										border: `1px solid ${T.bd}`,
 										background: T.surf,
 									}}
 								>
-									<div style={{ ...eb, marginBottom: 8, color: T.ok }}>
+									<div style={{ ...eb, marginBottom: 'var(--space-2)', color: T.ok }}>
 										{t('charBuilder.willImport', { count: importPlan.mapped.length })}
 									</div>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+									<div
+										style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}
+									>
 										{importPlan.mapped.map((n, j) => (
 											<div
 												key={`${n.field}-${j}`}
 												style={{
 													display: 'flex',
-													gap: 7,
-													font: `12px/1.45 ${T.sans}`,
+													gap: 'var(--space-1-5)',
+													font: `var(--text-xs)/1.45 ${T.sans}`,
 													color: T.sub,
 												}}
 											>
@@ -175,28 +207,30 @@ export function ImportPhase({
 								</div>
 								<div
 									style={{
-										padding: 14,
-										borderRadius: 12,
+										padding: 'var(--space-3)',
+										borderRadius: 'var(--radius-lg)',
 										border: `1.5px dashed ${T.bdS}`,
 										background: T.alt,
 									}}
 								>
-									<div style={{ ...eb, marginBottom: 8, color: T.warn }}>
+									<div style={{ ...eb, marginBottom: 'var(--space-2)', color: T.warn }}>
 										{t('charBuilder.couldNotMap', { count: importPlan.unmapped.length })}
 									</div>
 									{importPlan.unmapped.length === 0 ? (
-										<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+										<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 											{t('charBuilder.allMapped')}
 										</div>
 									) : (
-										<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+										<div
+											style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}
+										>
 											{importPlan.unmapped.map((n, j) => (
 												<div
 													key={`${n.field}-${j}`}
 													style={{
 														display: 'flex',
-														gap: 7,
-														font: `12px/1.45 ${T.sans}`,
+														gap: 'var(--space-1-5)',
+														font: `var(--text-xs)/1.45 ${T.sans}`,
 														color: T.sub,
 													}}
 												>
@@ -208,7 +242,13 @@ export function ImportPhase({
 											))}
 										</div>
 									)}
-									<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginTop: 10 }}>
+									<div
+										style={{
+											font: `var(--text-xs)/1.5 ${T.sans}`,
+											color: T.ter,
+											marginTop: 'var(--space-2)',
+										}}
+									>
 										{t('charBuilder.unmappedNote')}
 									</div>
 								</div>
@@ -217,10 +257,10 @@ export function ImportPhase({
 								<div
 									role="alert"
 									style={{
-										font: `12.5px/1.5 ${T.sans}`,
+										font: `var(--text-sm)/1.5 ${T.sans}`,
 										color: T.err,
-										padding: '10px 12px',
-										borderRadius: 10,
+										padding: 'var(--space-2) var(--space-3)',
+										borderRadius: 'var(--radius-lg)',
 										border: `1px solid ${T.err}`,
 									}}
 								>
@@ -234,8 +274,8 @@ export function ImportPhase({
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 10,
-						padding: isPhone ? '12px 16px' : '14px 28px',
+						gap: 'var(--space-2)',
+						padding: isPhone ? 'var(--space-3) var(--space-4)' : 'var(--space-3) var(--space-6)',
 						flexWrap: 'wrap',
 						borderTop: `1px solid ${T.bd}`,
 					}}

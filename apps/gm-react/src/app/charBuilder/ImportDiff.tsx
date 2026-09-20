@@ -45,7 +45,7 @@ export function ImportDiff({ plan, roster }: { plan: ImportPlan; roster: readonl
 	const match = findRosterMatch(plan, roster);
 	if (!match) {
 		return (
-			<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter }}>
+			<div style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.ter }}>
 				{t('charBuilder.diffNew', { name: plan.name })}
 			</div>
 		);
@@ -74,11 +74,11 @@ export function ImportDiff({ plan, roster }: { plan: ImportPlan; roster: readonl
 			<div id={titleId} style={{ ...eb, color: T.acc }}>
 				{t('charBuilder.diffTitle')}
 			</div>
-			<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
+			<div style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.sub }}>
 				{t('charBuilder.diffMatch', { name: match.name })}
 			</div>
 			{changed.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ok }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ok }}>
 					{t('charBuilder.diffIdentical')}
 				</div>
 			) : (
@@ -87,12 +87,16 @@ export function ImportDiff({ plan, roster }: { plan: ImportPlan; roster: readonl
 						width: '100%',
 						borderCollapse: 'collapse',
 						tableLayout: 'fixed',
-						font: `12px/1.45 ${T.sans}`,
+						font: `var(--text-xs)/1.45 ${T.sans}`,
 						color: T.sub,
 					}}
 				>
 					<caption
-						style={{ textAlign: 'left', paddingBottom: T.space.one, font: `600 12px ${T.sans}` }}
+						style={{
+							textAlign: 'left',
+							paddingBottom: T.space.one,
+							font: `600 var(--text-xs) ${T.sans}`,
+						}}
 					>
 						{t('charBuilder.diffChanged', { count: changed.length })}
 					</caption>
@@ -121,7 +125,7 @@ export function ImportDiff({ plan, roster }: { plan: ImportPlan; roster: readonl
 				</table>
 			)}
 			{changed.length > 0 && changed.length < rows.length && (
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 					{t('charBuilder.diffSame', { count: rows.length - changed.length })}
 				</div>
 			)}

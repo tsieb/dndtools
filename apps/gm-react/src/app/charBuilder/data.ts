@@ -234,7 +234,8 @@ export const CORE_PC_BACKGROUNDS = new Set(DRAFT_BACKGROUND_OPTIONS.map((o) => o
 
 /** The character "portrait tone" gradient — single source for the builder's preview swatch and the
  *  roster's CharCard header (Characters.tsx imports this instead of duplicating the raw hexes). */
-export const portraitGradient = (deg: number) => `linear-gradient(${deg}deg,#2a2117,#14100b)`;
+export const portraitGradient = (deg: number) =>
+	`linear-gradient(${deg}deg,var(--color-surface-sunken),var(--color-bg))`;
 
 export const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 export const modOf = (n: number) => {

@@ -30,14 +30,22 @@ export function ChoosePhase({
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'space-between',
-						padding: isPhone ? '16px 16px 0' : '20px 28px 0',
+						padding: isPhone
+							? 'var(--space-4) var(--space-4) var(--space-0)'
+							: 'var(--space-5) var(--space-6) var(--space-0)',
 					}}
 				>
 					<div>
-						<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>
+						<h2 style={{ margin: 'var(--space-0)', font: `700 var(--text-xl) ${T.disp}` }}>
 							{t('charBuilder.addCharacter')}
 						</h2>
-						<p style={{ margin: '4px 0 0', font: `13px ${T.sans}`, color: T.ter }}>
+						<p
+							style={{
+								margin: 'var(--space-1) var(--space-0) var(--space-0)',
+								font: `var(--text-sm) ${T.sans}`,
+								color: T.ter,
+							}}
+						>
 							{t('charBuilder.addCharacterHint')}
 						</p>
 					</div>
@@ -52,9 +60,11 @@ export function ChoosePhase({
 					style={{
 						flex: 1,
 						display: 'grid',
+						minHeight: 0,
+						overflowY: 'auto',
 						gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
-						gap: 18,
-						padding: isPhone ? '16px' : '24px 28px 28px',
+						gap: 'var(--space-4)',
+						padding: isPhone ? 'var(--space-4)' : 'var(--space-6) var(--space-6) var(--space-6)',
 						alignItems: 'stretch',
 					}}
 				>

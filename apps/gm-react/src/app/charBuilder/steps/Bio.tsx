@@ -14,10 +14,11 @@ export function BioStep({ w }: { w: Wizard }) {
 	const { t } = useI18n();
 	const { isPc, bio, setBio, dmNotes, setDmNotes, vis, setVis } = w;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<div>
 				<FieldLabel>{t('charBuilder.bio')}</FieldLabel>
 				<Textarea
+					aria-label={t('charBuilder.bio')}
 					value={bio}
 					onChange={(e: DSChangeEvent) => setBio(e.target.value)}
 					rows={4}
@@ -33,6 +34,7 @@ export function BioStep({ w }: { w: Wizard }) {
 					<HonestNote>{t('charBuilder.dmNotesUnavailable')}</HonestNote>
 				) : (
 					<Textarea
+						aria-label={t('charBuilder.dmNotes')}
 						value={dmNotes}
 						onChange={(e: DSChangeEvent) => setDmNotes(e.target.value)}
 						rows={3}
@@ -49,7 +51,7 @@ export function BioStep({ w }: { w: Wizard }) {
 						{t('charBuilder.pcSharedAfter')}
 					</HonestNote>
 				) : (
-					<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+					<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
 						<Tile
 							on={vis === 'players'}
 							onClick={() => setVis('players')}

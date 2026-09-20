@@ -7,6 +7,7 @@
  */
 import { useState } from 'react';
 import { Icon, IconButton } from '../../ds';
+import { Illustration } from '../../ds/illustrations';
 import { T, eb } from '../screen-kit';
 import { clamp } from './data';
 
@@ -18,9 +19,16 @@ export function FieldLabel({
 	hint?: React.ReactNode;
 }) {
 	return (
-		<div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
+		<div
+			style={{
+				display: 'flex',
+				alignItems: 'baseline',
+				gap: 'var(--space-2)',
+				marginBottom: 'var(--space-1-5)',
+			}}
+		>
 			<span style={eb}>{children}</span>
-			{hint && <span style={{ font: `11px ${T.sans}`, color: T.ter }}>{hint}</span>}
+			{hint && <span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>{hint}</span>}
 		</div>
 	);
 }
@@ -56,11 +64,12 @@ export function Tile({
 			onMouseLeave={() => setHov(false)}
 			style={{
 				textAlign: 'left',
+				minHeight: 'var(--space-12)',
 				display: 'flex',
 				alignItems: 'center',
-				gap: 11,
-				padding: compact ? '10px 12px' : '13px 14px',
-				borderRadius: 11,
+				gap: 'var(--space-3)',
+				padding: compact ? 'var(--space-2) var(--space-3)' : 'var(--space-3) var(--space-3)',
+				borderRadius: 'var(--radius-lg)',
 				cursor: 'pointer',
 				border: `1px solid ${on || hov ? T.accBd : T.bd}`,
 				background: on ? T.accSub : hov ? T.hover : T.surf,
@@ -74,7 +83,7 @@ export function Tile({
 					style={{
 						width: 34,
 						height: 34,
-						borderRadius: 9,
+						borderRadius: 'var(--radius-md)',
 						flex: '0 0 auto',
 						display: 'inline-flex',
 						alignItems: 'center',
@@ -87,13 +96,20 @@ export function Tile({
 				</span>
 			)}
 			<span style={{ flex: 1, minWidth: 0 }}>
-				<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-					<span style={{ font: `600 13.5px ${T.sans}`, color: on ? T.acc : T.ink }}>{title}</span>
+				<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
+					<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: on ? T.acc : T.ink }}>
+						{title}
+					</span>
 					{badge}
 				</span>
 				{sub && (
 					<span
-						style={{ display: 'block', font: `11.5px/1.4 ${T.sans}`, color: T.sub, marginTop: 1 }}
+						style={{
+							display: 'block',
+							font: `var(--text-xs)/1.4 ${T.sans}`,
+							color: T.sub,
+							marginTop: 'var(--space-0)',
+						}}
 					>
 						{sub}
 					</span>
@@ -109,10 +125,10 @@ export function HonestNote({ children }: { children: React.ReactNode }) {
 	return (
 		<div
 			style={{
-				font: `12px/1.5 ${T.sans}`,
+				font: `var(--text-xs)/1.5 ${T.sans}`,
 				color: T.ter,
-				padding: '10px 12px',
-				borderRadius: 10,
+				padding: 'var(--space-2) var(--space-3)',
+				borderRadius: 'var(--radius-lg)',
 				border: `1.5px dashed ${T.bdS}`,
 			}}
 		>
@@ -147,11 +163,12 @@ export function PathCard({
 			onMouseLeave={() => setH(false)}
 			style={{
 				textAlign: 'left',
+				minHeight: 'var(--space-12)',
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 14,
-				padding: 24,
-				borderRadius: 16,
+				gap: 'var(--space-3)',
+				padding: 'var(--space-6)',
+				borderRadius: 'var(--radius-lg)',
 				cursor: 'pointer',
 				border: `1px solid ${primary || h ? T.accBd : T.bd}`,
 				background: primary
@@ -166,30 +183,42 @@ export function PathCard({
 				style={{
 					width: 48,
 					height: 48,
-					borderRadius: 12,
+					borderRadius: 'var(--radius-lg)',
 					display: 'inline-flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					background: primary ? T.acc : T.accSub,
+					background: T.accSub,
 					color: primary ? T.accFg : T.acc,
 				}}
 			>
-				<Icon name={icon} size="lg" />
+				{primary ? (
+					<Illustration name="characters-empty" size={48} />
+				) : (
+					<Icon name={icon} size="lg" />
+				)}
 			</span>
 			<div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-					<span style={{ font: `700 18px ${T.disp}` }}>{title}</span>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+					<span style={{ font: `700 var(--text-lg) ${T.sans}` }}>{title}</span>
 					{badge}
 				</div>
-				<p style={{ margin: '6px 0 0', font: `13px/1.6 ${T.sans}`, color: T.sub }}>{desc}</p>
+				<p
+					style={{
+						margin: 'var(--space-1-5) var(--space-0) var(--space-0)',
+						font: `var(--text-sm)/1.6 ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					{desc}
+				</p>
 			</div>
 			<span
 				style={{
 					marginTop: 'auto',
 					display: 'inline-flex',
 					alignItems: 'center',
-					gap: 7,
-					font: `600 13px ${T.sans}`,
+					gap: 'var(--space-1-5)',
+					font: `600 var(--text-sm) ${T.sans}`,
 					color: T.acc,
 				}}
 			>
@@ -263,9 +292,9 @@ export function NumStepper({
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 8,
-				padding: '4px 4px 4px 10px',
-				borderRadius: 9,
+				gap: 'var(--space-2)',
+				padding: 'var(--space-1) var(--space-1) var(--space-1) var(--space-2)',
+				borderRadius: 'var(--radius-md)',
 				border: `1px solid ${T.bd}`,
 				background: T.surf,
 				width: 'fit-content',
@@ -284,14 +313,14 @@ export function NumStepper({
 				onKeyDown={onKeyDown}
 				onBlur={(e) => commit(e.target.value)}
 				style={{
-					font: `700 17px ${isMono ? T.mono : T.sans}`,
+					font: `700 var(--text-base) ${isMono ? T.mono : T.sans}`,
 					color: T.ink,
 					width: 46,
 					textAlign: 'center',
 					border: 'none',
 					background: 'transparent',
-					padding: '2px 0',
-					borderRadius: 5,
+					padding: 'var(--space-0-5) var(--space-0)',
+					borderRadius: 'var(--radius-md)',
 				}}
 			/>
 			<IconButton

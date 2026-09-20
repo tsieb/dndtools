@@ -4574,7 +4574,7 @@ export const en = {
 
 	'charBuilder.wizard': 'New character wizard',
 	'charBuilder.newCharacter': 'New character',
-	'charBuilder.savedLocally': 'Saved to your local vault',
+	'charBuilder.savedLocally': 'Saved when you create the character',
 	'charBuilder.stepOf': 'Step {index} of {total}',
 	'charBuilder.stepsLabel': 'Wizard steps',
 	'charBuilder.stepDone': 'completed',
@@ -4590,8 +4590,7 @@ export const en = {
 		'Finish the ability scores — every score needs a value and the totals must be legal.',
 	'charBuilder.needScoresShort': 'Finish the ability scores before creating the character.',
 	'charBuilder.discardTitle': 'Discard this character?',
-	'charBuilder.discardBody':
-		'The wizard hasn’t created anything yet — closing now throws away everything entered so far.',
+	'charBuilder.discardBody': '“{name}” has not been saved. Discard this draft?',
 	'charBuilder.keepEditing': 'Keep editing',
 	'charBuilder.discardCharacter': 'Discard character',
 	'charBuilder.step.identity': 'Identity',

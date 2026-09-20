@@ -46,15 +46,17 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 			? t(rolls ? 'charBuilder.rollIncomplete' : 'charBuilder.rollFirst')
 			: t('charBuilder.standardIncomplete');
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+			<div
+				style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}
+			>
 				<Seg
 					value={method}
 					onChange={(v) => setMethod(v as ScoreMethod)}
 					options={methodChoices.map((m) => ({ value: m.id, label: t(m.label) }))}
 					ariaLabel={t('charBuilder.scoreMethod')}
 				/>
-				<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+				<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 					{t(methodChoices.find((m) => m.id === method)?.note ?? 'charBuilder.method.standardNote')}
 				</span>
 				{method === 'pointbuy' && (
@@ -62,10 +64,10 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						role="status"
 						style={{
 							marginLeft: 'auto',
-							font: `12px ${T.mono}`,
+							font: `var(--text-xs) ${T.mono}`,
 							color: pointsLeft < 0 ? T.err : T.acc,
-							padding: '4px 10px',
-							borderRadius: 20,
+							padding: 'var(--space-1) var(--space-2)',
+							borderRadius: 'var(--radius-xl)',
 							background: T.accSub,
 							border: `1px solid ${T.accBd}`,
 						}}
@@ -123,7 +125,10 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 										border: `1px solid ${T.bd}`,
 									}}
 								>
-									<span aria-hidden="true" style={{ font: `700 15px ${T.mono}`, color: T.ink }}>
+									<span
+										aria-hidden="true"
+										style={{ font: `700 var(--text-base) ${T.mono}`, color: T.ink }}
+									>
 										{r.total}
 									</span>
 									<span
@@ -131,7 +136,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 										style={{
 											display: 'inline-flex',
 											gap: T.space.one,
-											font: `11px ${T.mono}`,
+											font: `var(--text-xs) ${T.mono}`,
 											color: T.sub,
 										}}
 									>
@@ -173,7 +178,7 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? 'repeat(2,minmax(0,1fr))' : 'repeat(6,1fr)',
-					gap: 10,
+					gap: 'var(--space-2)',
 				}}
 			>
 				{BUILDER.abilityKeys.map((k) => (
@@ -183,9 +188,9 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 							display: 'flex',
 							flexDirection: 'column',
 							alignItems: 'center',
-							gap: 8,
-							padding: '12px 8px',
-							borderRadius: 11,
+							gap: 'var(--space-2)',
+							padding: 'var(--space-3) var(--space-2)',
+							borderRadius: 'var(--radius-lg)',
 							background: T.surf,
 							border: `1px solid ${T.bd}`,
 						}}
@@ -216,8 +221,10 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 							/>
 						) : (
 							<>
-								<span style={{ font: `700 22px ${T.mono}`, color: T.ink }}>{scores[k]}</span>
-								<div style={{ display: 'flex', gap: 4 }}>
+								<span style={{ font: `700 var(--text-lg) ${T.mono}`, color: T.ink }}>
+									{scores[k]}
+								</span>
+								<div style={{ display: 'flex', gap: 'var(--space-1)' }}>
 									{/* Both bounds used to be enforced only inside the handler (or by the
 														    clamp in `setScore`), so at the point-buy ceiling or at score 8 the
 														    button looked and hovered exactly like a live one and silently did
@@ -254,10 +261,10 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 						)}
 						<span
 							style={{
-								font: `12px ${T.mono}`,
+								font: `var(--text-xs) ${T.mono}`,
 								color: T.sub,
-								padding: '2px 9px',
-								borderRadius: 20,
+								padding: 'var(--space-0-5) var(--space-2)',
+								borderRadius: 'var(--radius-xl)',
 								background: T.alt,
 							}}
 						>
@@ -269,7 +276,12 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 			{((abilityValidation && !abilityValidation.valid) || poolIncomplete) && (
 				<ul
 					role="alert"
-					style={{ margin: 0, paddingLeft: 18, font: `12.5px ${T.sans}`, color: T.warn }}
+					style={{
+						margin: 'var(--space-0)',
+						paddingLeft: 'var(--space-4)',
+						font: `var(--text-sm) ${T.sans}`,
+						color: T.warn,
+					}}
 				>
 					{poolIncomplete && <li>{incompleteMessage}</li>}
 					{!poolIncomplete &&
@@ -282,32 +294,32 @@ export function AbilitiesStep({ w }: { w: Wizard }) {
 			{/* Point buy's own method note already states the rule; every other PC method needs it said,
 			    including WHY there is no roll to pick here (the core would refuse it at finalize). */}
 			{isPc && method !== 'pointbuy' && (
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 					{t('charBuilder.pcUsesPointBuy')}
 				</div>
 			)}
 			<div
 				style={{
 					display: 'flex',
-					gap: 14,
-					padding: '12px 14px',
-					borderRadius: 11,
+					gap: 'var(--space-3)',
+					padding: 'var(--space-3) var(--space-3)',
+					borderRadius: 'var(--radius-lg)',
 					background: T.alt,
 					border: `1px solid ${T.bd}`,
 					flexWrap: 'wrap',
 					alignItems: 'center',
 				}}
 			>
-				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+				<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{t('charBuilder.derivedSuggestions')}
 				</span>
-				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
+				<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 					{t('charBuilder.initiative', { value: modOf(effScores.DEX) })}
 				</span>
-				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
+				<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 					{t('charBuilder.unarmoredAc', { value: 10 + Math.floor((effScores.DEX - 10) / 2) })}
 				</span>
-				<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
+				<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 					{t('charBuilder.conMod', { value: modOf(effScores.CON) })}
 				</span>
 				{/* Was a bare `padding: 0` text button ~15px tall with no hover or active state —

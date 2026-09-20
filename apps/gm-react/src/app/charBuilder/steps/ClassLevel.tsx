@@ -52,8 +52,8 @@ function ClassPreviewCard({ w }: { w: Wizard }) {
 			<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.two, flexWrap: 'wrap' }}>
 				{/* The display face (Cinzel) only starts at 24px — RC-ENG-8.4's emphasis lint. This is a
 				    card label at 16px, so it takes the sans face and keeps its weight. */}
-				<span style={{ font: `700 16px ${T.sans}`, color: T.ink }}>{clsObj.name}</span>
-				<span style={{ font: `12px ${T.sans}`, color: T.sub }}>
+				<span style={{ font: `700 var(--text-base) ${T.sans}`, color: T.ink }}>{clsObj.name}</span>
+				<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t('charBuilder.classHint', {
 						hd: clsObj.hd,
 						primary: clsObj.primary,
@@ -65,7 +65,7 @@ function ClassPreviewCard({ w }: { w: Wizard }) {
 				{t('charBuilder.featuresFrom', { system: systemPackage.displayName, level })}
 			</div>
 			{empty ? (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 					{t('charBuilder.noClassFeatures', {
 						system: systemPackage.displayName,
 						class: clsObj.name,
@@ -90,14 +90,14 @@ function ClassPreviewCard({ w }: { w: Wizard }) {
 								alignItems: 'baseline',
 								gap: T.space.two,
 								flexWrap: 'wrap',
-								font: `12.5px ${T.sans}`,
+								font: `var(--text-sm) ${T.sans}`,
 								color: T.sub,
 							}}
 						>
 							<span style={{ fontWeight: 600, color: T.ink }}>{f.label}</span>
 							<span
 								style={{
-									font: `12px ${T.mono}`,
+									font: `var(--text-xs) ${T.mono}`,
 									color: f.needsSubclass || f.unlocksAt !== null ? T.ter : T.acc,
 								}}
 							>
@@ -107,7 +107,7 @@ function ClassPreviewCard({ w }: { w: Wizard }) {
 						</li>
 					))}
 					{preview.spellcasting && (
-						<li style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+						<li style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('charBuilder.spellcasting', { ability: preview.spellcasting })}
 						</li>
 					)}
@@ -136,14 +136,14 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 		setLevel,
 	} = w;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<div>
 				<FieldLabel>{t('charBuilder.class')}</FieldLabel>
 				<div
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))',
-						gap: 10,
+						gap: 'var(--space-2)',
 					}}
 				>
 					{clsChoices.map((c) => (
@@ -161,7 +161,9 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 					))}
 				</div>
 				{isPc && (
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 8 }}>
+					<div
+						style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter, marginTop: 'var(--space-2)' }}
+					>
 						{t('charBuilder.classesSupported')}
 					</div>
 				)}
@@ -173,7 +175,7 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 					// The identity step's identical 1.4fr/1fr track is already phone-guarded; this one was
 					// missed, and NumStepper is width:fit-content so the row could not shrink to fit 393px.
 					gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
-					gap: 16,
+					gap: 'var(--space-4)',
 				}}
 			>
 				<div>
@@ -209,7 +211,7 @@ export function ClassLevelStep({ w }: { w: Wizard }) {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))',
-						gap: 10,
+						gap: 'var(--space-2)',
 					}}
 				>
 					{bgChoices.map((b) => (

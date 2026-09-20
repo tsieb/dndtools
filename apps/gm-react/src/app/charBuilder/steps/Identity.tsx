@@ -32,14 +32,14 @@ export function IdentityStep({ w }: { w: Wizard }) {
 		setOwner,
 	} = w;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<div>
 				<FieldLabel>{t('charBuilder.kind')}</FieldLabel>
 				<div
 					style={{
 						display: 'grid',
 						gridTemplateColumns: isPhone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,1fr)',
-						gap: 10,
+						gap: 'var(--space-2)',
 					}}
 				>
 					{KINDS.map((k) => (
@@ -58,7 +58,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
-					gap: 16,
+					gap: 'var(--space-4)',
 				}}
 			>
 				<div>
@@ -87,7 +87,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.4fr 1fr',
-						gap: 16,
+						gap: 'var(--space-4)',
 					}}
 				>
 					<div>
@@ -116,7 +116,7 @@ export function IdentityStep({ w }: { w: Wizard }) {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))',
-						gap: 10,
+						gap: 'var(--space-2)',
 					}}
 				>
 					{BUILDER.races.map((r) => (
@@ -133,12 +133,12 @@ export function IdentityStep({ w }: { w: Wizard }) {
 			</div>
 			<div>
 				<FieldLabel>{t('charBuilder.portraitTone')}</FieldLabel>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
 					<span
 						style={{
 							width: 56,
 							height: 56,
-							borderRadius: 12,
+							borderRadius: 'var(--radius-lg)',
 							flex: '0 0 auto',
 							position: 'relative',
 							overflow: 'hidden',
@@ -163,11 +163,11 @@ export function IdentityStep({ w }: { w: Wizard }) {
 						value={grad}
 						onChange={(e) => setGrad(Number(e.target.value))}
 						aria-label={t('charBuilder.portraitTone')}
-						style={{ flex: 1, accentColor: 'var(--color-accent)' }}
+						style={{ minHeight: 'var(--space-12)', flex: 1, accentColor: 'var(--color-accent)' }}
 					/>
 					<span
 						style={{
-							font: `12px ${T.mono}`,
+							font: `var(--text-xs) ${T.mono}`,
 							color: T.ter,
 							width: 38,
 							textAlign: 'right',

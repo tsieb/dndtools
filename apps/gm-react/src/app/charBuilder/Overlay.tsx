@@ -6,8 +6,9 @@
  * behaviour change.
  */
 import { useEffect, useRef } from 'react';
-import { Button, Icon } from '../../ds';
+import { Button, Dialog, Icon } from '../../ds';
 import { T, srOnly } from '../screen-kit';
+import { isolateModalSiblings } from '../../platform/modalIsolation';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { useI18n, type MessageKey } from '../../i18n';
 
@@ -30,17 +31,24 @@ export function StepRail({
 				flex: '0 0 240px',
 				background: `linear-gradient(180deg, ${T.accSub}, ${T.surf})`,
 				borderRight: `1px solid ${T.bd}`,
-				padding: '24px 20px',
+				padding: 'var(--space-6) var(--space-5)',
 				display: 'flex',
 				flexDirection: 'column',
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 24 }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 'var(--space-2)',
+					marginBottom: 'var(--space-6)',
+				}}
+			>
 				<span
 					style={{
 						width: 30,
 						height: 30,
-						borderRadius: 7,
+						borderRadius: 'var(--radius-md)',
 						background: T.acc,
 						color: T.accFg,
 						display: 'inline-flex',
@@ -50,7 +58,7 @@ export function StepRail({
 				>
 					<Icon name="new-character" size="sm" />
 				</span>
-				<div style={{ font: `700 14px ${T.disp}`, letterSpacing: '.01em' }}>
+				<div style={{ font: `700 var(--text-sm) ${T.sans}`, letterSpacing: '.01em' }}>
 					{t('charBuilder.newCharacter')}
 				</div>
 			</div>
@@ -62,10 +70,10 @@ export function StepRail({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 3,
+						gap: 'var(--space-0-5)',
 						listStyle: 'none',
-						margin: 0,
-						padding: 0,
+						margin: 'var(--space-0)',
+						padding: 'var(--space-0)',
 					}}
 				>
 					{steps.map((s, j) => {
@@ -81,10 +89,10 @@ export function StepRail({
 						const row: React.CSSProperties = {
 							display: 'flex',
 							alignItems: 'center',
-							gap: 11,
+							gap: 'var(--space-3)',
 							width: '100%',
-							padding: '9px 10px',
-							borderRadius: 9,
+							padding: 'var(--space-2) var(--space-2)',
+							borderRadius: 'var(--radius-md)',
 							background: on ? T.raised : 'transparent',
 							border: `1px solid ${on ? T.accBd : 'transparent'}`,
 						};
@@ -94,7 +102,7 @@ export function StepRail({
 									style={{
 										width: 26,
 										height: 26,
-										borderRadius: '50%',
+										borderRadius: 'var(--radius-full)',
 										flex: '0 0 auto',
 										display: 'inline-flex',
 										alignItems: 'center',
@@ -106,7 +114,10 @@ export function StepRail({
 									{done ? <Icon name="check" size={13} /> : <Icon name={s.icon} size={14} />}
 								</span>
 								<span
-									style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.ink : T.sub }}
+									style={{
+										font: `${on ? 600 : 500} var(--text-sm) ${T.sans}`,
+										color: on ? T.ink : T.sub,
+									}}
 								>
 									{t(s.title)}
 								</span>
@@ -151,8 +162,8 @@ export function StepRail({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 7,
-					font: `11.5px ${T.sans}`,
+					gap: 'var(--space-1-5)',
+					font: `var(--text-xs) ${T.sans}`,
 					color: T.ter,
 				}}
 			>
@@ -187,6 +198,7 @@ export function Overlay({
 	useEffect(() => {
 		const previous = document.activeElement as HTMLElement | null;
 		const panel = panelRef.current;
+		const restoreIsolation = panel ? isolateModalSiblings(panel) : () => {};
 		const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
 		(first ?? panel)?.focus();
 		const prevOverflow = document.body.style.overflow;
@@ -196,6 +208,7 @@ export function Overlay({
 			return true;
 		});
 		const onKey = (e: KeyboardEvent) => {
+			if (panelRef.current?.querySelector('[role=alertdialog]')) return;
 			if (e.key === 'Escape') {
 				e.stopPropagation();
 				closeRef.current();
@@ -226,6 +239,7 @@ export function Overlay({
 		return () => {
 			document.removeEventListener('keydown', onKey, true);
 			unregisterBack();
+			restoreIsolation();
 			document.body.style.overflow = prevOverflow;
 			previous?.focus?.();
 		};
@@ -258,6 +272,8 @@ export function Overlay({
 				onMouseDown={(e) => e.stopPropagation()}
 				style={{
 					width: wide ? 1000 : 760,
+					['--density-button-height' as string]: 'var(--space-12)',
+					['--density-touch-target' as string]: 'var(--space-12)',
 					maxWidth: '100%',
 					// Every other property here already goes full-bleed on a phone (no scrim padding
 					// above, square corners below) — the fixed 620px did not, so on a 851px-tall device
@@ -268,8 +284,8 @@ export function Overlay({
 					display: 'flex',
 					background: T.raised,
 					border: `1px solid ${T.bdS}`,
-					borderRadius: phone ? 0 : 18,
-					boxShadow: 'var(--shadow-lg)',
+					borderRadius: phone ? 'var(--radius-none)' : 'var(--radius-xl)',
+					boxShadow: 'var(--shadow-md)',
 					overflow: 'hidden',
 				}}
 			>
@@ -282,56 +298,37 @@ export function Overlay({
 /** Discard confirm — shown when a dismiss (backdrop / Escape / Cancel) would lose a dirty wizard.
  *  Rendered INSIDE the Overlay panel so its existing focus trap covers it. */
 export function DiscardConfirm({
+	name,
 	onKeep,
 	onDiscard,
 }: {
+	name: string;
 	onKeep: () => void;
 	onDiscard: () => void;
 }) {
 	const { t } = useI18n();
 	return (
-		<div
+		<Dialog
+			open
 			role="alertdialog"
-			aria-label={t('charBuilder.discardTitle')}
-			style={{
-				position: 'absolute',
-				inset: 0,
-				zIndex: 5,
-				background: 'var(--color-backdrop)',
-				display: 'flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				padding:
-					'max(24px, var(--safe-area-top, 0px)) max(24px, var(--safe-area-right, 0px)) max(24px, var(--safe-area-bottom, 0px)) max(24px, var(--safe-area-left, 0px))',
-			}}
-		>
-			<div
-				style={{
-					width: 400,
-					maxWidth: '100%',
-					background: T.raised,
-					border: `1px solid ${T.bdS}`,
-					borderRadius: 14,
-					boxShadow: 'var(--shadow-lg)',
-					padding: 20,
-					display: 'flex',
-					flexDirection: 'column',
-					gap: 12,
-				}}
-			>
-				<div style={{ font: `700 16px ${T.disp}` }}>{t('charBuilder.discardTitle')}</div>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{t('charBuilder.discardBody')}
-				</div>
-				<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-					<Button variant="ghost" size="sm" autoFocus onClick={onKeep}>
+			title={t('charBuilder.discardTitle')}
+			description={t('charBuilder.discardBody', {
+				name: name.trim() || t('charBuilder.newCharacter'),
+			})}
+			tone="danger"
+			size="sm"
+			onClose={onKeep}
+			initialFocus="[data-keep-editing]"
+			footer={
+				<>
+					<Button data-keep-editing variant="ghost" onClick={onKeep}>
 						{t('charBuilder.keepEditing')}
 					</Button>
-					<Button variant="danger" size="sm" onClick={onDiscard}>
+					<Button variant="danger" onClick={onDiscard}>
 						{t('charBuilder.discardCharacter')}
 					</Button>
-				</div>
-			</div>
-		</div>
+				</>
+			}
+		/>
 	);
 }

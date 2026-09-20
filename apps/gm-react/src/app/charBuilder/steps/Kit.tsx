@@ -15,12 +15,12 @@ export function KitStep({ w }: { w: Wizard }) {
 	const { t } = useI18n();
 	const { isPhone, kind, ac, setAc, hp, setHp, speed, setSpeed, attacks, setAttacks } = w;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<div
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : 'repeat(3,1fr)',
-					gap: 14,
+					gap: 'var(--space-3)',
 				}}
 			>
 				<div>
@@ -65,7 +65,7 @@ export function KitStep({ w }: { w: Wizard }) {
 				</FieldLabel>
 				{/* All kinds carry custom attacks now: NPC/monster/sidekick via quick-create,
 									    a PC via the draft's kit step (finalize-draft carries kit attacks onto the PC). */}
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 					{attacks.map((at, idx) => (
 						<div
 							key={idx}
@@ -76,8 +76,8 @@ export function KitStep({ w }: { w: Wizard }) {
 								// grid in the same step.
 								gridTemplateColumns: isPhone
 									? 'minmax(0,1fr) minmax(0,1fr)'
-									: 'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) 28px',
-								gap: 8,
+									: 'minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr) var(--space-12)',
+								gap: 'var(--space-2)',
 								alignItems: 'center',
 							}}
 						>
@@ -152,14 +152,14 @@ export function KitStep({ w }: { w: Wizard }) {
 							display: 'flex',
 							alignItems: 'center',
 							justifyContent: 'center',
-							gap: 7,
-							padding: 10,
-							borderRadius: 10,
+							gap: 'var(--space-1-5)',
+							padding: 'var(--space-2)',
+							borderRadius: 'var(--radius-lg)',
 							border: `1.5px dashed ${T.bdS}`,
 							background: 'transparent',
 							cursor: 'pointer',
 							color: T.ter,
-							font: `600 12.5px ${T.sans}`,
+							font: `600 var(--text-sm) ${T.sans}`,
 						}}
 					>
 						<Icon name="add" size={14} />

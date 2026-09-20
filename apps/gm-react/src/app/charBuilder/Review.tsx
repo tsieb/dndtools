@@ -36,28 +36,49 @@ export function ReviewStep({ w }: { w: Wizard }) {
 			style={{
 				display: 'grid',
 				gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
-				gap: 18,
+				gap: 'var(--space-4)',
 				alignItems: 'start',
 			}}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
 					<Avatar name={name || 'New'} size="xl" ring="turn" />
 					<div style={{ minWidth: 0 }}>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-							<span style={{ font: `700 20px ${T.disp}` }}>{name || 'Unnamed'}</span>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								flexWrap: 'wrap',
+							}}
+						>
+							<span style={{ font: `700 var(--text-lg) ${T.sans}` }}>{name || 'Unnamed'}</span>
 							<Badge status={KIND_TONE[kind]}>{t(KIND_LABEL[kind])}</Badge>
 							<VisibilityChip
 								level={isPc ? 'shared' : vis === 'players' ? 'players' : 'dm-only'}
 								compact
 							/>
 						</div>
-						<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>{subLine}</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						<div
+							style={{
+								font: `var(--text-sm) ${T.sans}`,
+								color: T.sub,
+								marginTop: 'var(--space-0-5)',
+							}}
+						>
+							{subLine}
+						</div>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{align} · {bgObj.name}
 						</div>
 						{isPc && (
-							<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+							<div
+								style={{
+									font: `var(--text-xs) ${T.sans}`,
+									color: T.ter,
+									marginTop: 'var(--space-0-5)',
+								}}
+							>
 								{t('charBuilder.ownedBy', {
 									name: players.find((p) => p.id === ownerId)?.displayName ?? '—',
 								})}
@@ -69,7 +90,7 @@ export function ReviewStep({ w }: { w: Wizard }) {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: isPhone ? 'repeat(3,minmax(0,1fr))' : 'repeat(6,1fr)',
-						gap: 8,
+						gap: 'var(--space-2)',
 					}}
 				>
 					{BUILDER.abilityKeys.map((k) => (
@@ -80,10 +101,10 @@ export function ReviewStep({ w }: { w: Wizard }) {
 					<div
 						role="alert"
 						style={{
-							font: `12.5px/1.5 ${T.sans}`,
+							font: `var(--text-sm)/1.5 ${T.sans}`,
 							color: T.err,
-							padding: '10px 12px',
-							borderRadius: 10,
+							padding: 'var(--space-2) var(--space-3)',
+							borderRadius: 'var(--radius-lg)',
 							border: `1px solid ${T.err}`,
 						}}
 					>
@@ -95,15 +116,15 @@ export function ReviewStep({ w }: { w: Wizard }) {
 				style={{
 					display: 'flex',
 					flexDirection: 'column',
-					gap: 12,
-					padding: 16,
-					borderRadius: 12,
+					gap: 'var(--space-3)',
+					padding: 'var(--space-4)',
+					borderRadius: 'var(--radius-lg)',
 					background: T.surf,
 					border: `1px solid ${T.accBd}`,
 					boxShadow: T.smd,
 				}}
 			>
-				<div style={{ display: 'flex', gap: 18 }}>
+				<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
 					{(
 						[
 							['AC', String(ac), 'shield'],
@@ -112,22 +133,25 @@ export function ReviewStep({ w }: { w: Wizard }) {
 							['Init', modOf(effScores.DEX), 'session-bolt'],
 						] as const
 					).map(([l, v, ic]) => (
-						<div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-							<span style={{ display: 'flex', alignItems: 'center', gap: 5, ...eb }}>
+						<div
+							key={l}
+							style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
+						>
+							<span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', ...eb }}>
 								<Icon name={ic} size={12} color={T.acc} />
 								{l}
 							</span>
-							<span style={{ font: `700 16px ${T.mono}`, color: T.ink }}>{v}</span>
+							<span style={{ font: `700 var(--text-base) ${T.mono}`, color: T.ink }}>{v}</span>
 						</div>
 					))}
 				</div>
-				<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 10 }}>
-					<div style={{ ...eb, marginBottom: 6 }}>
+				<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 'var(--space-2)' }}>
+					<div style={{ ...eb, marginBottom: 'var(--space-1-5)' }}>
 						{t('charBuilder.attacksCount', {
 							count: attacks.filter((a) => a.name.trim()).length,
 						})}
 					</div>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 						{attacks
 							.filter((a) => a.name.trim())
 							.map((a, idx) => (
@@ -136,8 +160,8 @@ export function ReviewStep({ w }: { w: Wizard }) {
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 8,
-										font: `12.5px ${T.sans}`,
+										gap: 'var(--space-2)',
+										font: `var(--text-sm) ${T.sans}`,
 										color: T.sub,
 									}}
 								>
@@ -148,7 +172,7 @@ export function ReviewStep({ w }: { w: Wizard }) {
 								</div>
 							))}
 						{!attacks.filter((a) => a.name.trim()).length && (
-							<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 								{t('charBuilder.noAttacks')}
 							</span>
 						)}
@@ -157,10 +181,10 @@ export function ReviewStep({ w }: { w: Wizard }) {
 				{bio && (
 					<div
 						style={{
-							font: `12.5px/1.55 ${T.sans}`,
+							font: `var(--text-sm)/1.55 ${T.sans}`,
 							color: T.sub,
 							borderTop: `1px solid ${T.bd}`,
-							paddingTop: 10,
+							paddingTop: 'var(--space-2)',
 						}}
 					>
 						{bio}
