@@ -1,6 +1,8 @@
 # RC-ENG-3.2 review recovery evidence
 
-**Acceptance is not met.** The complete fresh capture establishes nine passing
+**Historical capture; acceptance is not met.** The branch was subsequently rebased
+onto application changes, so this archive is not exact-current-candidate evidence.
+The complete fresh capture establishes nine passing
 targets and two breaches at the assigned larger workloads. CI drift passes, but
 that does not override the absolute targets. The requested approximately 20%
 scene improvement is also not demonstrated. No budget or tolerance was increased.
@@ -30,9 +32,9 @@ breach search and graph absolute targets. Scene improvement is **4.7%**, not 20%
 - Both Vite servers were started by the same candidate harness, ports 16273/16373.
   Hostname is sanitized to `ci-runner`; runner label is `local-workstation`.
 - Default browser CPU speed, matching the standard capture protocol; no 2x claim.
-- The final evidence commit restores the application and scripts to exactly the
-  fully measured revision. Subsequent differences are this report, its artifacts,
-  and the journal. Verify with the source-diff command below.
+- The original evidence commit `f5bb740a` restored the application and scripts
+  to the fully measured revision. Later rebases include unrelated application
+  changes; the source-diff command below exposes those differences.
 
 Scene setup issues real durable commands, exports IndexedDB, and navigates to the
 board in fresh browser contexts. Samples require exactly 50 frames and ten map
@@ -82,7 +84,7 @@ From the repository root, grading the absolute targets must exit **1**:
 ```sh
 pnpm perf:compare -- --run /tmp/runtime-review-evidence/review-current.json --baseline /tmp/runtime-review-evidence/review-baseline.json --tolerance 0.2
 pnpm perf:compare -- --ci --run /tmp/runtime-review-evidence/review-current.json --baseline /tmp/runtime-review-evidence/review-baseline.json --tolerance 0.2
-# Must be empty: final executable source equals the measured candidate.
+# Inspect differences from the historical measured candidate; subsequent rebases differ.
 git diff 9aef81b3bc9b6f7524aa8882353867441d3fabd1 HEAD -- apps packages scripts
 ```
 
@@ -92,9 +94,12 @@ Fresh capture (prepare the detached reference and install frozen dependencies fi
 CI=true PERF_RUNNER_LABEL=local-workstation pnpm perf:capture -- --out tmp/perf/review-current.json --port 16273 --reference-root /tmp/rc-eng-3.2-review-reference --reference-port 16373 --reference-out tmp/perf/review-reference.json
 ```
 
-For query profiling, copy the archived `profile-queries.ts` into `tmp/perf/`
-and run `pnpm exec tsx tmp/perf/profile-queries.ts`. It writes the original
-CPU profile locally; that file includes local source paths and is not packaged.
+For query profiling, run `pnpm exec tsx scripts/perf/profile-queries.ts`. The
+maintained script uses the typed Node inspector Promise API. The archived script
+is historical evidence; do not extract it into the repository for execution, since
+its explicit `any` fails repository-wide lint even under ignored `tmp/`. The profiler
+writes local outputs under `tmp/perf/`; CPU profiles include local source paths
+and are not packaged. Profiling outputs are diagnostics, not budget evidence.
 
 Validation: 36 widget unit tests, 18 perf tests, application typecheck, and five
 custom-widget browser tests passed for the fully measured code. No push,

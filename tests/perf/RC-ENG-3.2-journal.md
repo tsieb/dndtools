@@ -175,3 +175,29 @@ raw samples; packaged paths are sanitized. Final executable source diff against
 repository quality/documentation gates passed. Absolute-target comparator exit 1
 is the retained, expected failure evidence; CI drift comparator exit 0 is recorded
 separately and is not presented as acceptance.
+
+## Scheduled lint repair after rebase
+
+Starting head: a3c708013521a4b6a3886a72c9e699155b9972bb; worktree clean.
+Read the original failed lint output from attempt
+0e3a1e66-96c9-4651-b231-3ca8478f94c1. Its sole error was explicit `any` in the
+previous diagnostic scratch file tmp/perf/profile-queries.ts:14. Git ignores that
+file, but the repository-wide ESLint invocation still scans it. The other fifteen
+ESLint findings were warnings. No Headroom tools were exposed.
+
+Added the maintained scripts/perf/profile-queries.ts using Node's typed inspector
+Promise API and output-directory creation. Replaced our leftover scratch copy with
+that same lint-clean script, preserving its output files. Updated reproduction
+instructions to use the maintained script rather than extracting the historical
+scratch script from the evidence archive. Original archive bytes/checksums remain
+unchanged. Marked the timing archive historical after the branch rebase: unrelated
+application changes mean its original exact-source identity claim no longer applies
+to the current candidate. Those changes were preserved.
+
+Validation: full `pnpm lint` exited 0 (ESLint, boundary, emphasis and non-text
+contrast); the maintained profiler exited 0 and produced seven positive finite
+samples for each of three queries plus a populated CPU profile; targeted Prettier
+passed. No app/runtime behavior changed in this lint repair, and no fresh browser
+budget claim is made. Search/graph breaches and the missing ~20% scene win remain
+acceptance gaps. Resolver scope extension remains pending; no out-of-claim engine
+edit, push, promotion, additional loop, sub-agent or dispatcher-state edit occurred.
