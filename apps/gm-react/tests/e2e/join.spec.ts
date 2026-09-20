@@ -131,3 +131,25 @@ test.describe('join: the player-side session panel', () => {
 		await expect(dialog.getByTestId('session-roster-entry')).toHaveCount(0);
 	});
 });
+
+// RC-POL-1.19: preserve a keyboard exit and readable recovery copy at large text.
+test('join recovery remains reachable with large text and keyboard input', async ({ page }) => {
+	await markOnboarded(page);
+	await page.goto('/#/join?token=e2e-fake-invite-token');
+	await expect(page.getByRole('alert')).toBeVisible();
+	await page.evaluate(() => {
+		document.documentElement.style.fontSize = '200%';
+	});
+	const retry = page.getByRole('button', { name: 'Try again' });
+	await retry.focus();
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('alert')).toBeVisible();
+	await expect(retry).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(page.getByRole('button', { name: 'Go to the app' })).toBeFocused();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	await page.keyboard.press('Enter');
+	await page.waitForURL((url) => url.hash === '#/');
+	await page.goBack();
+	await expect(page.getByRole('main', { name: 'Campaign invite' })).toBeVisible();
+});

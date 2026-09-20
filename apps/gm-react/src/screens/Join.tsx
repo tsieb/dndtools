@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Button, Icon } from '../ds';
+import { Button, Card, Icon, Skeleton } from '../ds';
+import { Illustration } from '../ds/illustrations';
 import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAuthConfigured } from '../cloud/config';
@@ -18,7 +19,7 @@ import { useI18n } from '../i18n';
 type JoinState =
 	| { phase: 'loading' }
 	| { phase: 'missing' }
-	| { phase: 'invalid'; message: string }
+	| { phase: 'invalid'; message: 'join.unavailable' | 'join.expired' | 'join.checkFailed' }
 	| { phase: 'ready'; invite: ResolvedInvite };
 
 const WRAP: React.CSSProperties = {
@@ -26,20 +27,19 @@ const WRAP: React.CSSProperties = {
 	display: 'flex',
 	alignItems: 'center',
 	justifyContent: 'center',
-	padding: 24,
+	padding: 'var(--space-6)',
 	background: 'var(--color-bg)',
 };
 
 const CARD: React.CSSProperties = {
-	width: 'min(440px, 100%)',
+	width: 'min(100%, 28rem)',
+	minWidth: 0,
+	overflowWrap: 'anywhere',
 	display: 'flex',
 	flexDirection: 'column',
-	gap: 14,
-	padding: '28px 28px 24px',
-	borderRadius: 16,
-	border: `1px solid ${T.bd}`,
-	background: T.raised,
-	boxShadow: T.smd,
+	gap: 'var(--space-4)',
+	padding: 'var(--space-6)',
+	borderRadius: 'var(--radius-lg)',
 };
 
 export function Join() {
@@ -71,27 +71,29 @@ export function Join() {
 			})
 			.catch((e: unknown) => {
 				if (cancelled) return;
-				const message = e instanceof AppApiError ? e.message : t('join.checkFailed');
+				const message =
+					e instanceof AppApiError && e.code === 'not-configured'
+						? 'join.unavailable'
+						: e instanceof AppApiError && (e.status === 404 || e.status === 410)
+							? 'join.expired'
+							: 'join.checkFailed';
 				setState({ phase: 'invalid', message });
 			});
 		return () => {
 			cancelled = true;
 		};
-		// `t` is re-created whenever the locale changes; re-resolving the invite on a locale switch
-		// would be a pointless network round-trip, so the effect stays keyed on the token alone.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [token, retryNonce]);
 
 	const signedOut = isAuthConfigured && auth.status !== 'signed-in';
 	return (
 		<div style={WRAP}>
-			<div style={CARD} role="main" aria-label={t('join.invite')}>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+			<Card elevation="raised" style={CARD} role="main" aria-label={t('join.invite')}>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
 					<span
 						style={{
-							width: 38,
-							height: 38,
-							borderRadius: 10,
+							width: 'var(--space-10)',
+							height: 'var(--space-10)',
+							borderRadius: 'var(--radius-md)',
 							display: 'inline-flex',
 							alignItems: 'center',
 							justifyContent: 'center',
@@ -102,29 +104,42 @@ export function Join() {
 						<Icon name="send" size="md" />
 					</span>
 					{/* A styled div left this standalone, emailed-link route with no heading at all. */}
-					<h1 style={{ margin: 0, font: `700 17px ${T.disp}`, color: T.ink }}>
+					<h1 style={{ margin: T.space.zero, font: `700 var(--text-2xl) ${T.disp}`, color: T.ink }}>
 						{t('join.heading')}
 					</h1>
 				</div>
 
+				{state.phase !== 'ready' && (
+					<Illustration
+						name={state.phase === 'invalid' ? 'connection-lost' : 'invites-empty'}
+						style={{ alignSelf: 'center' }}
+					/>
+				)}
 				{state.phase === 'loading' && (
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }} role="status" aria-live="polite">
+					<div
+						style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}
+						role="status"
+						aria-live="polite"
+					>
 						{t('join.checking')}
+						<Skeleton variant="text" style={{ marginTop: 'var(--space-3)' }} />
 					</div>
 				)}
 				{state.phase === 'missing' && (
-					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{t('join.incomplete')}</div>
+					<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
+						{t('join.incomplete')}
+					</div>
 				)}
 				{state.phase === 'invalid' && (
 					// The failure arrives asynchronously and the loading region unmounts, so without a
 					// live region a screen-reader user was never told the invite check had failed.
-					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }} role="alert">
-						{state.message}
+					<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }} role="alert">
+						{t(state.message)}
 					</div>
 				)}
 				{state.phase === 'ready' && (
 					<>
-						<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
+						<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 							<strong style={{ color: T.ink }}>{state.invite.invitedBy}</strong>{' '}
 							{t('join.invitedYouToJoin')}{' '}
 							<strong style={{ color: T.ink }}>{state.invite.campaignName}</strong>
@@ -141,12 +156,12 @@ export function Join() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 8,
-									padding: '9px 12px',
-									borderRadius: 10,
+									gap: 'var(--space-2)',
+									padding: 'var(--space-3)',
+									borderRadius: 'var(--radius-md)',
 									background: T.accSub,
-									border: `1px solid ${T.accBd}`,
-									font: `12px/1.5 ${T.sans}`,
+									border: `thin solid ${T.accBd}`,
+									font: `var(--text-sm)/1.5 ${T.sans}`,
 									color: T.sub,
 								}}
 							>
@@ -154,7 +169,7 @@ export function Join() {
 								<span>{t('join.coDmNote')}</span>
 							</div>
 						)}
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{t('join.expires', { date: formatDate(state.invite.expiresAt * 1000) })}
 						</div>
 						{signedOut && (
@@ -162,18 +177,19 @@ export function Join() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '10px 12px',
-									borderRadius: 10,
-									background: T.surf,
-									border: `1px solid ${T.bd}`,
-									font: `12px/1.5 ${T.sans}`,
+									gap: 'var(--space-3)',
+									padding: 'var(--space-3)',
+									borderRadius: 'var(--radius-md)',
+									background: T.sunken,
+									flexWrap: 'wrap',
+									border: `thin solid ${T.bd}`,
+									font: `var(--text-sm)/1.5 ${T.sans}`,
 									color: T.sub,
 								}}
 							>
 								<Icon name="UserCircle" size="sm" />
 								<span style={{ flex: 1 }}>{t('join.signInPrompt')}</span>
-								<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>
+								<Button variant="secondary" onClick={() => auth.openAuthModal()}>
 									{t('settings.account.signIn')}
 								</Button>
 							</div>
@@ -181,7 +197,7 @@ export function Join() {
 						<Button variant="primary" icon="play" onClick={() => navigate('/play')}>
 							{t('join.openPlayerApp')}
 						</Button>
-						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 							{t('join.playerAppHint')}
 						</div>
 					</>
@@ -207,7 +223,7 @@ export function Join() {
 						{t('join.goToApp')}
 					</Button>
 				)}
-			</div>
+			</Card>
 		</div>
 	);
 }

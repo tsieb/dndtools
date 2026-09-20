@@ -176,6 +176,7 @@ for (const route of ROUTES) {
 const STANDALONE_ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/play', slug: 'play' },
 	{ path: '/join', slug: 'join' },
+	{ path: '/join?token=axe-invalid', slug: 'join-unavailable' },
 ];
 
 async function openStandaloneRoute(page: Page, path: string) {

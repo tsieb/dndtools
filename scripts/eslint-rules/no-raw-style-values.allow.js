@@ -142,7 +142,6 @@ export const allow = {
 	'apps/gm-react/src/screens/characters/sheet/SheetHeader.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SpellsPanel.tsx': 20,
 	'apps/gm-react/src/screens/CommandCenter.tsx': 33,
-	'apps/gm-react/src/screens/Join.tsx': 13,
 	'apps/gm-react/src/screens/knowledge/Composer.tsx': 2,
 	'apps/gm-react/src/screens/knowledge/Filters.tsx': 20,
 	'apps/gm-react/src/screens/knowledge/ImportPanel.tsx': 5,
