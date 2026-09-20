@@ -246,6 +246,13 @@ export function MapEditorCoach({
 						size="sm"
 						style={quick ? { minWidth: 48, minHeight: 48 } : undefined}
 						variant="ghost"
+						onMouseEnter={(event: React.MouseEvent<HTMLButtonElement>) => {
+							// Touch can synthesize mouse entry as the editor replaces the tapped
+							// Atlas control. Do not leave the new coach action looking hovered.
+							if (!window.matchMedia('(hover: hover)').matches) return;
+							event.currentTarget.style.background = 'var(--color-surface-overlay)';
+							event.currentTarget.style.color = 'var(--color-text-primary)';
+						}}
 						onClick={close}
 					>
 						{t('mapEditor.coach.skip')}

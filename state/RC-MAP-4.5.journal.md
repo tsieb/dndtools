@@ -130,3 +130,50 @@ Fresh verification (exact command output inspected, all exited 0):
 
 No new claim is made about the historical POI nudge race or the full application gate suite.
 Central gates and independent review remain the operator's next step. No push or promotion.
+
+## Visual gate recovery — phone coach hover
+
+Read the original gate log for attempt `441ba04f-50fe-4860-b689-c227342e233f`
+against `34033944`: 133 passed; phone tavern failed by 128 pixels and phone parchment
+by 72 pixels. Inspected both original diff PNGs and the tavern expected/actual pair.
+The highlighted differences are confined to Skip tour. The expected image contains
+its hover background and primary text color; the actual contains its resting ghost
+style. This explains why the earlier isolated nine-case run was insufficient evidence
+for the later full-suite run.
+
+`Button` handles mouse entry by mutating inline background/text colors. Touch devices
+can synthesize mouse entry when Atlas is replaced by the editor. The coach now overrides
+Skip tour's mouse-entry handler to apply the existing ghost hover colors only when
+`(hover: hover)` matches. Its shared mouse-leave behavior and keyboard focus behavior
+remain intact. This is scoped to `MapEditorChrome.tsx`; no shared DS or test files changed.
+
+Re-rendered only the phone map-editor cases in the pinned container. Exactly two owned
+baselines changed, each visually inspected afterward:
+
+- `visual-phone/atlas-map-editor--tavern.png`: remove the accidental Skip tour hover fill
+  and restore its resting secondary text color (108037 → 107801 bytes).
+- `visual-phone/atlas-map-editor--parchment.png`: the same resting-state correction in
+  parchment (110849 → 110653 bytes).
+
+The other seven map-editor baselines were left byte-for-byte unchanged. No tolerance,
+assertion, or retry policy was relaxed.
+
+Verification completed so far:
+
+- App typecheck passed.
+- `pnpm gates` passed (existing file-size warnings).
+- Onboarding and shortcuts e2e: 22 passed on desktop/mobile, two workers, zero retries.
+- Prettier check on the edited source passed.
+
+Final verification:
+
+- `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none`:
+  **135 passed (2.8m)**, exit 0. This is the full suite, including both previously failing phone
+  captures. Original output retained locally at `/tmp/rc-map-4-5-visual.log`.
+- Targeted ESLint for `MapEditorChrome.tsx` passed.
+- `pnpm format:check:changed` passed for both changed text files.
+- Baseline budget passed: 135 files, 12881.2 KiB of 32768.0 KiB.
+- `git diff --check` passed.
+
+The source fix, two necessary phone baseline updates, and this journal are the entire revision.
+No push, promotion, additional agents, or dispatcher control edits.
