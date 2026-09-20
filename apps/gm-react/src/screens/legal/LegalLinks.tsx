@@ -16,16 +16,24 @@ export function LegalLinks({
 	style?: CSSProperties;
 }) {
 	const { t } = useI18n();
-	const link: CSSProperties = { color: T.sub, textDecoration: 'underline' };
+	const link: CSSProperties = {
+		color: T.sub,
+		textDecoration: 'underline',
+		display: 'inline-flex',
+		alignItems: 'center',
+		minHeight: T.space.twelve,
+		paddingInline: T.space.two,
+	};
 	return (
 		<nav
 			aria-label={t('legal.docNav')}
 			style={{
 				display: 'flex',
 				flexWrap: 'wrap',
+				alignItems: 'center',
 				justifyContent: align,
 				gap: T.space.oneHalf,
-				font: `12px ${T.sans}`,
+				font: `var(--text-sm) ${T.sans}`,
 				color: T.ter,
 				...style,
 			}}

@@ -18,7 +18,7 @@ const WRAP: CSSProperties = {
 	minHeight: 'var(--app-viewport-height)',
 	background: 'var(--color-bg)',
 	color: T.ink,
-	padding: 'clamp(20px, 5vw, 48px) 16px 72px',
+	padding: 'clamp(var(--space-5), 5vw, var(--space-12)) var(--space-4) var(--space-16)',
 };
 
 const ARTICLE: CSSProperties = {
@@ -32,17 +32,17 @@ const NAV_LINK: CSSProperties = {
 	display: 'inline-flex',
 	alignItems: 'center',
 	gap: T.space.one,
-	minHeight: 32,
+	minHeight: T.space.twelve,
 	padding: `${T.space.one} ${T.space.two} ${T.space.one} ${T.space.one}`,
 	borderRadius: T.radius.md,
-	font: `13px ${T.sans}`,
+	font: `var(--text-sm) ${T.sans}`,
 	color: T.sub,
 	textDecoration: 'none',
 };
 
 const PARAGRAPH: CSSProperties = {
 	margin: `0 0 ${T.space.three}`,
-	font: `15px/1.65 ${T.sans}`,
+	font: `var(--text-base)/1.65 ${T.sans}`,
 	color: T.ink,
 	overflowWrap: 'anywhere',
 };
@@ -54,7 +54,7 @@ const PLACEHOLDER: CSSProperties = {
 	background: T.accSub,
 	color: T.acc,
 	font: `0.9em ${T.mono}`,
-	whiteSpace: 'nowrap',
+	overflowWrap: 'anywhere',
 };
 
 /** Render text with each `[BRACKETED PLACEHOLDER]` visibly marked for the operator. */
@@ -113,7 +113,7 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 	}, [title]);
 
 	return (
-		<div style={WRAP}>
+		<main style={WRAP}>
 			<article style={ARTICLE}>
 				<nav
 					aria-label={t('legal.docNav')}
@@ -138,18 +138,18 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 					<h1
 						style={{
 							margin: `0 0 ${T.space.two}`,
-							font: `700 clamp(24px, 5vw, 30px)/1.2 ${T.disp}`,
+							font: `700 clamp(var(--text-xl), 5vw, var(--text-2xl))/1.2 ${T.disp}`,
 							color: T.ink,
 						}}
 					>
 						{title}
 					</h1>
-					<p style={{ margin: T.space.zero, font: `13px ${T.sans}`, color: T.ter }}>
+					<p style={{ margin: T.space.zero, font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 						{withPlaceholders(t('legal.lastUpdated', { date: doc.lastUpdated }))}
 					</p>
 				</header>
 
-				<main id="legal-content">
+				<div id="legal-content">
 					{doc.sections.map((section) => {
 						const id = slug(section.heading);
 						return (
@@ -158,7 +158,7 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 									id={id}
 									style={{
 										margin: `0 0 ${T.space.two}`,
-										font: `600 18px/1.3 ${T.disp}`,
+										font: `600 var(--text-md)/1.3 ${T.sans}`,
 										color: T.ink,
 									}}
 								>
@@ -170,7 +170,7 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 							</section>
 						);
 					})}
-				</main>
+				</div>
 
 				<footer
 					style={{
@@ -180,17 +180,17 @@ export function LegalPage({ doc, title }: { doc: LegalDocument; title: string })
 						display: 'flex',
 						flexWrap: 'wrap',
 						gap: T.space.four,
-						font: `13px ${T.sans}`,
+						font: `var(--text-sm) ${T.sans}`,
 					}}
 				>
-					<Link to="/" style={{ color: T.sub }}>
+					<Link to="/" style={NAV_LINK}>
 						{t('legal.backToApp')}
 					</Link>
-					<Link to={sibling.to} style={{ color: T.acc }}>
+					<Link to={sibling.to} style={{ ...NAV_LINK, color: T.acc }}>
 						{sibling.label}
 					</Link>
 				</footer>
 			</article>
-		</div>
+		</main>
 	);
 }

@@ -1,3 +1,4 @@
+import { usePlanCards } from './usePlanCards';
 import type { ReactNode } from 'react';
 import { Button, Dialog, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
@@ -30,12 +31,12 @@ export function MatrixCell({ v, accent }: { v: unknown; accent?: boolean }) {
 			<span
 				role="img"
 				aria-label={t('upgrade.notIncluded')}
-				style={{ font: `13px ${T.sans}`, color: T.ter }}
+				style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}
 			>
 				—
 			</span>
 		);
-	return <span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>{v as ReactNode}</span>;
+	return <span style={{ font: `var(--text-sm) ${T.sans}`, color: T.ink }}>{v as ReactNode}</span>;
 }
 
 /**
@@ -64,7 +65,8 @@ export function ChangePlanDialog({
 	onConfirm: (id: PlanId) => void;
 }) {
 	const { t } = useI18n();
-	const target = toId ? planById(toId) : null;
+	const plans = usePlanCards();
+	const target = toId ? plans.find((plan) => plan.id === toId) : null;
 	if (!target) return null;
 	const current = planById(currentId);
 	const up = (target.price || 0) > (current?.price || 0);
@@ -79,6 +81,7 @@ export function ChangePlanDialog({
 		<Dialog
 			open
 			onClose={onClose}
+			dismissible={!busy}
 			title={
 				target.cloud
 					? t('upgrade.tryPreview', { plan: target.name })
@@ -116,9 +119,9 @@ export function ChangePlanDialog({
 					marginBottom: T.space.three,
 				}}
 			>
-				<span style={{ font: `700 28px ${T.mono}`, color: T.ink }}>{price}</span>
-				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{per}</span>
-				<span style={{ marginLeft: 'auto', font: `12px ${T.sans}`, color: T.sub }}>
+				<span style={{ font: `700 var(--text-2xl) ${T.mono}`, color: T.ink }}>{price}</span>
+				<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>{per}</span>
+				<span style={{ marginLeft: 'auto', font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{target.tagline}
 				</span>
 			</div>
@@ -130,7 +133,7 @@ export function ChangePlanDialog({
 							display: 'flex',
 							alignItems: 'center',
 							gap: T.space.two,
-							font: `12.5px ${T.sans}`,
+							font: `var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -150,7 +153,7 @@ export function ChangePlanDialog({
 						borderRadius: T.radius.md,
 						background: 'var(--color-status-warning-subtle)',
 						border: `1px solid ${T.warn}`,
-						font: `12px/1.5 ${T.sans}`,
+						font: `var(--text-sm)/1.5 ${T.sans}`,
 						color: T.sub,
 					}}
 				>
@@ -171,7 +174,7 @@ export function ChangePlanDialog({
 					borderRadius: T.radius.md,
 					background: T.accSub,
 					border: `1px solid ${T.accBd}`,
-					font: `11.5px/1.5 ${T.sans}`,
+					font: `var(--text-sm)/1.5 ${T.sans}`,
 					color: T.sub,
 				}}
 			>
@@ -205,7 +208,8 @@ export function CheckoutDialog({
 	onConfirm: (id: PaidPlanId) => void;
 }) {
 	const { t } = useI18n();
-	const target = toId ? planById(toId) : null;
+	const plans = usePlanCards();
+	const target = toId ? plans.find((plan) => plan.id === toId) : null;
 	if (!target) return null;
 	const price = annual ? `$${target.price * 10}` : `$${target.price}`;
 	const per = annual ? t('upgrade.perYear') : t('upgrade.perMonth');
@@ -213,6 +217,7 @@ export function CheckoutDialog({
 		<Dialog
 			open
 			onClose={onClose}
+			dismissible={!busy}
 			title={t('upgrade.subscribeTo', { plan: target.name })}
 			description={target.tagline}
 			icon="connection"
@@ -242,8 +247,8 @@ export function CheckoutDialog({
 					marginBottom: T.space.three,
 				}}
 			>
-				<span style={{ font: `700 28px ${T.mono}`, color: T.ink }}>{price}</span>
-				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{per}</span>
+				<span style={{ font: `700 var(--text-2xl) ${T.mono}`, color: T.ink }}>{price}</span>
+				<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>{per}</span>
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 				{target.features.map((f: string) => (
@@ -253,7 +258,7 @@ export function CheckoutDialog({
 							display: 'flex',
 							alignItems: 'center',
 							gap: T.space.two,
-							font: `12.5px ${T.sans}`,
+							font: `var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -272,7 +277,7 @@ export function CheckoutDialog({
 					borderRadius: T.radius.md,
 					background: T.accSub,
 					border: `1px solid ${T.accBd}`,
-					font: `11.5px/1.5 ${T.sans}`,
+					font: `var(--text-sm)/1.5 ${T.sans}`,
 					color: T.sub,
 				}}
 			>

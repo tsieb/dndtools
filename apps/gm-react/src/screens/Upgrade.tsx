@@ -1,18 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Icon, Switch, Toaster } from '../ds';
-import { BackBar, Page, T, eb } from '../app/screen-kit';
+import { BackBar, Page, T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { isAccountApiConfigured } from '../cloud/config';
-import { useViewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
+import { PlanStatus } from './upgrade/PlanStatus';
+import { PlanCards } from './upgrade/PlanCards';
+import { PlanComparison } from './upgrade/PlanComparison';
 import { LegalLinks } from './legal/LegalLinks';
-import {
-	OFFLINE_FALLBACK_MATRIX,
-	useEntitlements,
-	type PlanCard,
-	type PlanId,
-} from '../cloud/entitlements';
+import { useEntitlements, type PlanCard, type PlanId } from '../cloud/entitlements';
 import {
 	billingConfigured,
 	billingInformsOnly,
@@ -33,20 +30,11 @@ import type { PaidPlanId } from '../cloud/appApi';
  * Plan state comes from `useEntitlements()` — REAL server entitlements when the account backend
  * is configured and the user is signed in (the feature matrix below is then the server's copy,
  * the single source of truth; `OFFLINE_FALLBACK_MATRIX` renders only offline/unconfigured).
- * Checkout is SIMULATED end to end: the backend stores the plan with `simulated: true` and no
- * payment processor exists anywhere — the confirm dialog says so plainly instead of pretending
- * to charge. Signed-out/unconfigured keeps the honest device-local plan choice (localStorage,
- * the same key Settings' Subscription pane reads) with a nudge to sign in when signing in would
- * make the choice durable.
+ * Configured web accounts use Stripe-hosted checkout/portal. Without live billing, an explicit
+ * no-payment preview saves the plan to the account or this device. Native builds inform only.
  */
 
-import {
-	CheckoutDialog,
-	ChangePlanDialog,
-	MatrixCell,
-	PLANS,
-	planById,
-} from './upgrade/PlanDialogs';
+import { CheckoutDialog, ChangePlanDialog, planById } from './upgrade/PlanDialogs';
 
 /** How many refreshes to try after a successful Checkout return, and how far apart. The webhook
  *  usually lands within a couple of seconds; this covers a slow one without spinning forever. */
@@ -54,7 +42,6 @@ const CHECKOUT_CONFIRM_ATTEMPTS = 12;
 const CHECKOUT_CONFIRM_INTERVAL_MS = 2500;
 
 export function Upgrade() {
-	const viewport = useViewport();
 	const auth = useAuth();
 	const ent = useEntitlements();
 	const { t } = useI18n();
@@ -66,9 +53,6 @@ export function Upgrade() {
 	const [busy, setBusy] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 	const planId = ent.plan;
-	// The feature matrix: the server's copy when reachable (live or last-known cache); the
-	// annotated offline fallback otherwise. Both share the same shape.
-	const matrix = ent.features ?? OFFLINE_FALLBACK_MATRIX;
 	const priceStr = (p: PlanCard) =>
 		p.price ? (annual ? `$${p.price * 10}` : `$${p.price}`) : t('upgrade.free');
 	const perStr = (p: PlanCard) =>
@@ -165,23 +149,31 @@ export function Upgrade() {
 	const showSignInNudge = isAccountApiConfigured && auth.status === 'signed-out';
 
 	return (
-		<Page max={1080}>
+		<Page
+			max={1080}
+			style={
+				{
+					'--density-button-height': T.space.twelve,
+					'--density-touch-target': T.space.twelve,
+				} as CSSProperties
+			}
+		>
 			<BackBar to="/settings" label={t('shell.navSettings')} />
 
 			{/* hero */}
-			<div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 8px' }}>
+			<div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto var(--space-2)' }}>
 				<span
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',
-						gap: 7,
-						padding: '5px 12px',
-						borderRadius: 20,
+						gap: T.space.two,
+						padding: 'var(--space-1) var(--space-3)',
+						borderRadius: T.radius.full,
 						background: T.accSub,
 						border: `1px solid ${T.accBd}`,
-						font: `600 11.5px ${T.sans}`,
+						font: `600 var(--text-sm) ${T.sans}`,
 						color: T.acc,
-						marginBottom: 16,
+						marginBottom: T.space.four,
 					}}
 				>
 					<Icon name="Sprout" size={13} />
@@ -189,8 +181,8 @@ export function Upgrade() {
 				</span>
 				<h2
 					style={{
-						margin: 0,
-						font: `800 ${viewport === 'phone' ? 28 : 34}px ${T.disp}`,
+						margin: T.space.zero,
+						font: `800 var(--text-2xl) ${T.disp}`,
 						letterSpacing: '-.02em',
 						color: T.ink,
 					}}
@@ -201,7 +193,7 @@ export function Upgrade() {
 							? t('upgrade.headingUnavailable')
 							: t('upgrade.headingPreview')}
 				</h2>
-				<p style={{ font: `14px/1.7 ${T.sans}`, color: T.sub, marginTop: 12 }}>
+				<p style={{ font: `var(--text-sm)/1.7 ${T.sans}`, color: T.sub, marginTop: T.space.three }}>
 					{liveBilling
 						? t('upgrade.whyLive')
 						: planChangesUnavailable
@@ -214,13 +206,13 @@ export function Upgrade() {
 						style={{
 							display: 'inline-flex',
 							alignItems: 'center',
-							gap: 6,
-							marginTop: 10,
-							padding: '4px 10px',
-							borderRadius: 20,
+							gap: T.space.oneHalf,
+							marginTop: T.space.three,
+							padding: 'var(--space-1) var(--space-2)',
+							borderRadius: T.radius.full,
 							background: 'var(--color-status-warning-subtle)',
 							border: `1px solid ${T.warn}`,
-							font: `600 11px ${T.sans}`,
+							font: `600 var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -239,14 +231,14 @@ export function Upgrade() {
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
-						gap: 10,
-						margin: '12px auto 0',
+						gap: T.space.three,
+						margin: 'var(--space-3) auto 0',
 						maxWidth: 560,
-						padding: '10px 14px',
-						borderRadius: 10,
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: T.radius.md,
 						background: T.accSub,
 						border: `1px solid ${T.accBd}`,
-						font: `12.5px ${T.sans}`,
+						font: `var(--text-sm) ${T.sans}`,
 						color: T.sub,
 					}}
 				>
@@ -255,7 +247,7 @@ export function Upgrade() {
 				</div>
 			)}
 			{portalMode && (
-				<div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+				<div style={{ display: 'flex', justifyContent: 'center', marginTop: T.space.three }}>
 					<Button
 						variant="secondary"
 						size="sm"
@@ -273,14 +265,14 @@ export function Upgrade() {
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
-						gap: 10,
-						margin: '12px auto 0',
+						gap: T.space.three,
+						margin: 'var(--space-3) auto 0',
 						maxWidth: 560,
-						padding: '10px 14px',
-						borderRadius: 10,
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: T.radius.md,
 						background: T.surf,
 						border: `1px solid ${T.bd}`,
-						font: `12.5px ${T.sans}`,
+						font: `var(--text-sm) ${T.sans}`,
 						color: T.sub,
 					}}
 				>
@@ -295,18 +287,20 @@ export function Upgrade() {
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
-						gap: 10,
-						margin: '4px auto 0',
+						gap: T.space.three,
+						margin: 'var(--space-1) auto 0',
 						maxWidth: 560,
-						padding: '10px 14px',
-						borderRadius: 10,
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: T.radius.md,
 						background: T.surf,
 						border: `1px solid ${T.bd}`,
 						flexWrap: 'wrap',
 					}}
 				>
 					<Icon name="UserCircle" size={16} color={T.acc} />
-					<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{t('upgrade.signInNudge')}</span>
+					<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+						{t('upgrade.signInNudge')}
+					</span>
 					<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>
 						{t('settings.account.signIn')}
 					</Button>
@@ -319,12 +313,12 @@ export function Upgrade() {
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					gap: 12,
-					margin: '22px 0 20px',
+					gap: T.space.three,
+					margin: 'var(--space-5) 0 var(--space-5)',
 					flexWrap: 'wrap',
 				}}
 			>
-				<span style={{ font: `12.5px ${T.sans}`, color: annual ? T.ter : T.ink }}>
+				<span style={{ font: `var(--text-sm) ${T.sans}`, color: annual ? T.ter : T.ink }}>
 					{t('upgrade.monthlyPrice')}
 				</span>
 				<Switch
@@ -333,212 +327,57 @@ export function Upgrade() {
 					label=""
 					aria-label={liveBilling ? t('upgrade.showAnnualLive') : t('upgrade.showAnnual')}
 				/>
-				<span style={{ font: `12.5px ${T.sans}`, color: annual ? T.ink : T.ter }}>
+				<span style={{ font: `var(--text-sm) ${T.sans}`, color: annual ? T.ink : T.ter }}>
 					{t('upgrade.annualPrice')}
 				</span>
 				<span
 					style={{
-						font: `600 11px ${T.sans}`,
+						font: `600 var(--text-sm) ${T.sans}`,
 						color: T.acc,
 						background: T.accSub,
 						border: `1px solid ${T.accBd}`,
-						borderRadius: 20,
-						padding: '2px 8px',
+						borderRadius: T.radius.full,
+						padding: 'var(--space-0-5) var(--space-2)',
 					}}
 				>
 					{liveBilling ? t('upgrade.annualSavingLive') : t('upgrade.annualSaving')}
 				</span>
 			</div>
 
-			{/* plan cards */}
-			<div
-				style={{
-					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-					gap: 16,
+			<PlanStatus ent={ent} />
+			<PlanCards
+				{...{
+					ent,
+					planId,
+					currentPrice,
+					busy,
+					liveBilling,
+					subscribed,
+					portalMode,
+					checkoutMode,
+					openPortal,
+					setCheckoutTo,
+					setConfirmTo,
+					priceStr,
+					perStr,
 				}}
-			>
-				{PLANS.map((pl) => {
-					const on = pl.id === planId;
-					const featured = pl.popular;
-					const isUpgrade = (pl.price || 0) > currentPrice;
-					return (
-						<div
-							key={pl.id}
-							style={{
-								position: 'relative',
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 14,
-								padding: 22,
-								borderRadius: 16,
-								border: `1px solid ${featured ? T.accBd : T.bd}`,
-								background: featured
-									? `linear-gradient(180deg, ${T.accSub}, ${T.raised} 46%)`
-									: T.raised,
-								boxShadow: featured ? T.smd : 'none',
-							}}
-						>
-							{featured && (
-								<span
-									style={{
-										position: 'absolute',
-										top: -10,
-										left: '50%',
-										transform: 'translateX(-50%)',
-										font: `600 10px ${T.sans}`,
-										letterSpacing: '.07em',
-										textTransform: 'uppercase',
-										color: T.accFg,
-										background: T.acc,
-										padding: '3px 11px',
-										borderRadius: 20,
-									}}
-								>
-									{t('common.badge.recommended')}
-								</span>
-							)}
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-								<span
-									style={{
-										width: 36,
-										height: 36,
-										borderRadius: 10,
-										display: 'inline-flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										background: pl.cloud ? T.acc : T.alt,
-										color: pl.cloud ? T.accFg : T.acc,
-									}}
-								>
-									<Icon name={pl.cloud ? 'connection' : 'home'} size="md" />
-								</span>
-								<div>
-									<div style={{ font: `700 18px ${T.disp}`, color: T.ink }}>{pl.name}</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{pl.tagline}</div>
-								</div>
-							</div>
-							<div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-								<span style={{ font: `800 30px ${T.mono}`, color: T.ink }}>{priceStr(pl)}</span>
-								<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{perStr(pl)}</span>
-								{pl.cloud && (
-									<span
-										style={{
-											marginLeft: 'auto',
-											font: `11px ${T.sans}`,
-											color: T.ter,
-											display: 'inline-flex',
-											alignItems: 'center',
-											gap: 4,
-										}}
-									>
-										<Icon name="connection" size={12} color={T.acc} />
-										{t('upgrade.cloud')}
-									</span>
-								)}
-							</div>
-							<div style={{ height: 1, background: T.bd }} />
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-								{pl.features.map((f: string) => (
-									<span
-										key={f}
-										style={{
-											display: 'flex',
-											alignItems: 'flex-start',
-											gap: 8,
-											font: `12.5px/1.45 ${T.sans}`,
-											color: T.sub,
-										}}
-									>
-										<span style={{ marginTop: 1 }}>
-											<Icon name="check" size={13} color={pl.cloud ? T.acc : T.ter} />
-										</span>
-										{f}
-									</span>
-								))}
-							</div>
-							{/* CTA. Live billing (ADR-027): a paid card starts Stripe Checkout, or — once
-							    subscribed — every change goes through the hosted portal; non-web surfaces
-							    only INFORM (no link, per Play policy). Otherwise the preview/local flow. */}
-							{on ? (
-								<Button variant="secondary" size="md" disabled icon="check">
-									{t('upgrade.currentPlan')}
-								</Button>
-							) : liveBilling ? (
-								subscribed || (portalMode && !pl.cloud) ? (
-									<Button
-										variant={pl.cloud ? 'primary' : 'secondary'}
-										size="md"
-										icon="CreditCard"
-										disabled={busy || !portalMode}
-										onClick={openPortal}
-									>
-										{portalMode
-											? t('upgrade.manageBilling')
-											: t('upgrade.manageOnWeb', { host: billingWebHost() })}
-									</Button>
-								) : pl.cloud ? (
-									<Button
-										variant="primary"
-										size="md"
-										icon="CreditCard"
-										disabled={busy || !checkoutMode}
-										onClick={() => setCheckoutTo(pl.id as PaidPlanId)}
-									>
-										{checkoutMode
-											? t('upgrade.subscribeTo', { plan: pl.name })
-											: t('upgrade.subscribeOnWeb', { host: billingWebHost() })}
-									</Button>
-								) : (
-									<Button variant="secondary" size="md" disabled icon="check">
-										{t('upgrade.currentPlan')}
-									</Button>
-								)
-							) : isUpgrade ? (
-								/* icon="ArrowUp" is the direct Lucide name (like "Sprout" above): it renders correctly whether or not the registry carries an 'arrow-up' alias, unlike unknown kebab names which fall back to a Square glyph. */
-								<Button
-									variant="primary"
-									size="md"
-									icon="ArrowUp"
-									disabled={ent.loading || !ent.canChangePlan}
-									onClick={() => setConfirmTo(pl.id)}
-								>
-									{ent.canChangePlan
-										? t('upgrade.tryPreview', { plan: pl.name })
-										: t('upgrade.changesUnavailable')}
-								</Button>
-							) : (
-								<Button
-									variant="secondary"
-									size="md"
-									disabled={ent.loading || !ent.canChangePlan}
-									onClick={() => setConfirmTo(pl.id)}
-								>
-									{ent.canChangePlan
-										? t('upgrade.switchTo', { plan: pl.name })
-										: t('upgrade.changesUnavailable')}
-								</Button>
-							)}
-						</div>
-					);
-				})}
-			</div>
+			/>
 
 			{/* honest cost note */}
 			<div
 				style={{
 					display: 'flex',
 					alignItems: 'flex-start',
-					gap: 12,
-					margin: '22px 0',
-					padding: '14px 16px',
-					borderRadius: 12,
+					gap: T.space.three,
+					margin: 'var(--space-5) 0',
+					padding: 'var(--space-3) var(--space-4)',
+					borderRadius: T.radius.lg,
 					background: T.surf,
 					border: `1px solid ${T.bd}`,
 				}}
 			>
 				<Icon name="info" size={17} color={T.acc} />
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{liveBilling ? (
 						<>
 							<strong style={{ color: T.ink }}>{t('upgrade.note.liveLead')}</strong>{' '}
@@ -558,154 +397,23 @@ export function Upgrade() {
 				</div>
 			</div>
 
-			{/* detailed matrix — served by the account backend when reachable (single source of truth) */}
+			<PlanComparison {...{ ent, priceStr, perStr }} />
+
 			<div
-				role="region"
-				aria-label={t('upgrade.matrix.region')}
-				tabIndex={0}
 				style={{
-					borderRadius: 16,
-					border: `1px solid ${T.bd}`,
-					background: T.raised,
-					overflowX: 'auto',
-					marginTop: 8,
+					textAlign: 'center',
+					font: `var(--text-sm) ${T.sans}`,
+					color: T.ter,
+					marginTop: T.space.five,
 				}}
 			>
-				<div role="table" aria-label={t('upgrade.matrix.region')} style={{ minWidth: 620 }}>
-					<div
-						role="row"
-						style={{
-							display: 'grid',
-							gridTemplateColumns: '1.7fr 1fr 1fr 1fr',
-							alignItems: 'end',
-							gap: 0,
-							padding: '16px 20px',
-							borderBottom: `1px solid ${T.bdS}`,
-							background: T.surf,
-						}}
-					>
-						<div role="columnheader" style={{ font: `700 14px ${T.disp}`, color: T.ink }}>
-							{t('upgrade.matrix.title')}
-							{ent.source !== 'server' && (
-								<span
-									style={{
-										display: 'block',
-										font: `400 10.5px ${T.sans}`,
-										color: T.ter,
-										marginTop: 2,
-									}}
-								>
-									{ent.source === 'cache' ? t('upgrade.matrix.cache') : t('upgrade.matrix.offline')}
-								</span>
-							)}
-						</div>
-						{PLANS.map((pl) => (
-							<div key={pl.id} role="columnheader" style={{ textAlign: 'center' }}>
-								<div
-									style={{
-										display: 'inline-flex',
-										alignItems: 'center',
-										gap: 5,
-										font: `700 13px ${T.sans}`,
-										color: pl.id === planId ? T.acc : T.ink,
-									}}
-								>
-									{pl.cloud && <Icon name="connection" size={12} color={T.acc} />}
-									{pl.name}
-								</div>
-								<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: 2 }}>
-									{priceStr(pl)}
-									{perStr(pl)}
-								</div>
-							</div>
-						))}
-					</div>
-					{matrix.map((grp) => (
-						<div key={grp.group} role="rowgroup">
-							<div
-								role="row"
-								style={{
-									background: T.alt,
-									borderBottom: `1px solid ${T.bd}`,
-								}}
-							>
-								<div
-									role="columnheader"
-									aria-colspan={4}
-									style={{ padding: '11px 20px 7px', ...eb, color: T.ter }}
-								>
-									{grp.group}
-								</div>
-							</div>
-							{grp.rows.map((r, i) => (
-								<div
-									key={r.label}
-									role="row"
-									style={{
-										display: 'grid',
-										gridTemplateColumns: '1.7fr 1fr 1fr 1fr',
-										alignItems: 'center',
-										padding: '12px 20px',
-										borderBottom: i === grp.rows.length - 1 ? 'none' : `1px solid ${T.bd}`,
-									}}
-								>
-									<div
-										role="rowheader"
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 8,
-											font: `13px ${T.sans}`,
-											color: T.ink,
-										}}
-									>
-										{r.label}
-										{r.cloud && (
-											<span
-												title={t('upgrade.matrix.cloudOnly')}
-												style={{
-													display: 'inline-flex',
-													alignItems: 'center',
-													gap: 3,
-													font: `600 9.5px ${T.sans}`,
-													letterSpacing: '.04em',
-													textTransform: 'uppercase',
-													color: T.acc,
-													background: T.accSub,
-													border: `1px solid ${T.accBd}`,
-													borderRadius: 5,
-													padding: '1px 5px',
-												}}
-											>
-												<Icon name="connection" size={9} />
-												{t('upgrade.cloud')}
-											</span>
-										)}
-									</div>
-									<div role="cell" style={{ textAlign: 'center' }}>
-										<MatrixCell v={r.hearth} />
-									</div>
-									<div role="cell" style={{ textAlign: 'center' }}>
-										<MatrixCell v={r.lantern} accent={r.cloud} />
-									</div>
-									<div role="cell" style={{ textAlign: 'center' }}>
-										<MatrixCell v={r.beacon} accent={r.cloud} />
-									</div>
-								</div>
-							))}
-						</div>
-					))}
-				</div>
-			</div>
-
-			<div style={{ textAlign: 'center', font: `12px ${T.sans}`, color: T.ter, marginTop: 18 }}>
 				{liveBilling
 					? t('upgrade.footer.live')
 					: planChangesUnavailable
 						? t('upgrade.footer.unavailable')
 						: t('upgrade.footer.preview')}
 			</div>
-			<LegalLinks align="center" style={{ marginTop: 8 }} />
+			<LegalLinks align="center" style={{ marginTop: T.space.two }} />
 
 			<ChangePlanDialog
 				toId={ent.canChangePlan && !liveBilling ? confirmTo : null}
@@ -713,14 +421,18 @@ export function Upgrade() {
 				annual={annual}
 				serverBacked={ent.serverBacked}
 				busy={busy}
-				onClose={() => setConfirmTo(null)}
+				onClose={() => {
+					if (!busy) setConfirmTo(null);
+				}}
 				onConfirm={confirmChange}
 			/>
 			<CheckoutDialog
 				toId={checkoutMode ? checkoutTo : null}
 				annual={annual}
 				busy={busy}
-				onClose={() => setCheckoutTo(null)}
+				onClose={() => {
+					if (!busy) setCheckoutTo(null);
+				}}
 				onConfirm={beginCheckout}
 			/>
 		</Page>
