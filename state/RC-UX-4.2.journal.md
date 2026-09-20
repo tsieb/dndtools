@@ -175,3 +175,34 @@ criterion names keyboard-safe confirmations, the review rejected deferring it, a
 the shared chrome rather than in any one screen (so it is not POL work either). The edit is eight
 style properties on two existing elements with no API or behaviour change above 360px. RC-UX-2.3
 still owns the rest of the overlay's compact work.
+
+## Revision 3 — authorized scope recovery (2026-09-20)
+
+- The operator brief now explicitly owns `apps/gm-react/src/ds/components/overlay/Dialog.jsx`.
+  The inherited header shrink/scroll and fixed footer changes are retained: they directly prevent
+  the confirmation answers being clipped at 360px. No further Dialog edits are needed.
+- Confirmed the existing audit covers all 19 shell route definitions, including four sub-routes;
+  the candidate already contains the implementation and prior tests in e69d1a65 and e78e7d36.
+- Extended both short-viewport confirmation cases to activate Stay live with Enter, verify the live
+  workflow and restored focus inside the sheet, reopen with Enter, Tab to End session, and confirm
+  the idle workflow. This tests keyboard operability as well as the inherited full-visibility checks.
+- Clarified NAVIGATION.md: the 360px case is a reduced-height fixture, not evidence of every real
+  software keyboard or landscape device; documented keyboard activation and cancellation focus.
+- Headroom tools are not available in this session; native command output is used.
+- No dispatcher state, publication, or other screen implementation edits.
+
+### Current-run validation
+
+- First full responsive run: 127 passed, one failed (desktop Chromium, Android fixture). The new
+  assertion observed an active workflow after Enter closed the reopened dialog. The test moved
+  focus before Dialog's asynchronous initial-focus callback had settled; it now waits for Close
+  to receive initial focus before tabbing through the footer. No production change for test timing.
+- TypeScript (`pnpm exec tsc --noEmit -p apps/gm-react/tsconfig.json`): exit 0.
+- ESLint on responsive.spec.ts: exit 0. Prettier on the spec, navigation documentation, TopBar,
+  MoreSheet and Dialog: exit 0. `git diff --check`: clean.
+- Final `responsive.spec.ts`, desktop-chromium + mobile-chromium, two workers on the worktree-derived
+  isolated port: **128 passed, no failures or retries, exit 0 (2.3m)**. Exact local output:
+  `/tmp/rc-ux-4.2-responsive-final.log`. This includes all 19 per-screen audits on both profiles and
+  both short-viewport keyboard confirmation cases on both profiles.
+- Full application/browser suites and central wrapper gates are left to the operator; earlier
+  journal results are historical, not rerun claims.

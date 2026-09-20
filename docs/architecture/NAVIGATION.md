@@ -161,7 +161,9 @@ reached only by a card or a link is where a second primary action tends to hide:
    screen's row carries `aria-current="page"`, and Escape closes the sheet and returns focus to the
    trigger. This applies to the Table controls sheet and the All sections sheet.
 4. **Keyboard-safe confirmations.** Both answers of a confirmation stay fully on screen with 360px of
-   height (the software keyboard, and every landscape phone) and above the Android bottom inset.
+   available viewport height (a reduced-height keyboard/landscape fixture) and above the Android
+   bottom inset. Both answers can be activated with the keyboard; cancelling preserves the live
+   session and returns focus to the opener inside the sheet.
    Escape gives the safe answer and closes only the topmost layer, so a confirmation raised from a
    sheet leaves the sheet open. `Dialog` carries this for every caller: its header and body both
    yield height and scroll what does not fit, and the footer that holds the answers keeps its own.

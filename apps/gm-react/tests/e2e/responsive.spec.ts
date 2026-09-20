@@ -1753,7 +1753,7 @@ test('rotating across the split width keeps the open detail mounted', async ({ p
 	);
 });
 
-// RC-UX-4.2 — the mobile primary-action contract (UX-002; docs/architecture/NAVIGATION.md §4 and §7),
+// RC-UX-4.2 — the mobile primary-action contract (UX-002; docs/architecture/NAVIGATION.md §4 and §8),
 // audited screen by screen. On a phone the top bar holds the title, ONE inline action (Search: the
 // palette reaches every destination and command) and ONE labelled overflow ("Table controls"). That
 // overflow's bounded sheet holds the table utilities, including the only primary-weight control the
@@ -2077,7 +2077,38 @@ for (const android of [false, true]) {
 				root.setProperty('--safe-area-inset-left', '16px');
 			});
 		}
-		await expectEndSessionConfirmOnScreen(page, 360, android ? 30 : 0);
+		const { controls, confirm } = await expectEndSessionConfirmOnScreen(
+			page,
+			360,
+			android ? 30 : 0,
+		);
+		// Visibility alone does not prove the answers work with a keyboard in a nested overlay.
+		// Cancel preserves the session and returns focus to its opener inside the still-open sheet.
+		const stay = confirm.getByRole('button', { name: 'Stay live', exact: true });
+		await stay.focus();
+		await page.keyboard.press('Enter');
+		await expect(confirm).toBeHidden();
+		await expect(controls).toBeVisible();
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.state.session.workflow))
+			.toBe('active');
+		const endTrigger = controls.getByRole('button', { name: 'End live session' });
+		await expect(endTrigger).toBeFocused();
+
+		// Reopen from that restored focus, tab between the answers, and explicitly confirm.
+		await page.keyboard.press('Enter');
+		await expect(confirm).toBeVisible();
+		// Dialog assigns initial focus asynchronously; wait before navigating its footer.
+		await expect(confirm.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+		await stay.focus();
+		await page.keyboard.press('Tab');
+		const end = confirm.getByRole('button', { name: 'End session', exact: true });
+		await expect(end).toBeFocused();
+		await expect(end).toBeInViewport({ ratio: 1 });
+		await page.keyboard.press('Enter');
+		await expect(confirm).toBeHidden();
+		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+		await expect(controls).toBeVisible();
 	});
 }
 
