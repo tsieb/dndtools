@@ -60,3 +60,38 @@ failure, then verifies the core runner avoids that dependency. It does not claim
 to repair host quotas or make filesystem-dependent application tests immune to
 storage exhaustion. Only the current task branch is changed; no push, promotion,
 additional loop, or dispatcher control-state edit was performed.
+
+## Independent review follow-up
+
+- Review of `a1e65475` identified weakened native-timezone coverage: assigning
+  `process.env.TZ` inside a Node worker does not change native Date/Intl state.
+  The earlier claim that effective assertions were unchanged was incorrect.
+- Re-read the original promotion log: 64 suite-load failures with errno `-122`.
+  Re-ran the controlled quota regression: 2/2 passed, including the explicit
+  forks failure control (`/tmp/promotion-dda3120-review-quota.log`).
+- Reproduced the review finding by temporarily asserting distinct native offsets
+  in the existing test: it failed with `expected 480 not to be 480`, while the
+  other 30 calendar tests passed. Exact output:
+  `/tmp/promotion-dda3120-review-timezone-before.log`.
+- Replaced worker environment mutation with child processes that import the real
+  formatter source. TZ and locale are set before startup; the clock is changed
+  inside each child. Both original formatter comparisons remain, with added
+  assertions for native offsets (-840 and 720), locales, and clock values.
+  The child TypeScript loader has disk caching disabled. The core threads pool,
+  isolation, worker caps, coverage thresholds, and workflows remain intact.
+- Focused calendar validation: 31/31 passed, exit 0
+  (`/tmp/promotion-dda3120-review-timezone-after.log`). A temporary mutation of
+  the real formatter to append its native timezone offset made the repaired
+  comparison fail (`DR -840` versus `DR 480`), exit 1. The source was restored
+  byte-for-byte before full validation. Exact negative-control output:
+  `/tmp/promotion-dda3120-review-timezone-mutation.log`.
+- `pnpm lint`, `pnpm typecheck`, `pnpm gates`, `pnpm security:secrets`, and
+  `pnpm format:check:changed`: all exited 0; existing warnings remain. Logs:
+  `/tmp/promotion-dda3120-review-{lint,typecheck,gates,secrets,format}.log`.
+- Full `pnpm test`: exited 0, **490 files / 7,202 tests passed**: core 281 /
+  4,902; cloud 39 / 521; app 143 / 1,581; tooling 27 / 198. Original output:
+  `/tmp/promotion-dda3120-review-test.log`.
+- `git diff --check`: passed. This follow-up changes calendar test coverage,
+  its child fixture, a runner comment, and this journal only. No application
+  source, dependencies, workflow protections, or dispatcher control state changed.
+  Build/browser checks are left to the central operator's gates and review.

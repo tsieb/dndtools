@@ -7,9 +7,9 @@ export default defineConfig({
 		environment: 'node',
 		globals: false,
 		maxWorkers: testWorkers(),
-		// The pure TypeScript core needs no process-only APIs. Threads transfer transformed
-		// modules in memory; Vitest's forks pool writes them to temporary storage and can fail
-		// before assertions run when a shared runner hits EDQUOT (promotion dda3120a5615).
+		// Threads transfer transformed modules in memory; Vitest's forks pool writes them to
+		// temporary storage and can fail before assertions run on EDQUOT (promotion dda3120a5615).
+		// Tests needing native process state (e.g. TZ) must use a child with its startup env set.
 		pool: 'threads',
 		// RC-ENG-2.2. Vitest's default forks one worker PROCESS PER TEST FILE and tears it down
 		// afterwards, so all 267 files re-import the whole core module graph from scratch: 124s of
