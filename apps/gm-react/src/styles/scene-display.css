@@ -1,21 +1,115 @@
-/*
- * I11 S11.2.3 — scene display transitions. Durations use the design-token vars, so the app-wide
- * [data-motion='reduced'] contract (index.css) collapses them to ~0ms automatically — no per-component
- * prefers-reduced-motion query. `cut` has no animation by design.
- */
+/* Projector mood colors come from sceneCardMood; controls use the dark DS palette. */
+.scene-display-viewport {
+	position: fixed;
+	inset: 0;
+	background: var(--color-surface-sunken);
+}
+
+.scene-display-overlay {
+	z-index: var(--z-modal);
+	display: flex;
+	flex-direction: column;
+}
+
 .scene-display {
 	position: absolute;
 	inset: 0;
-	overflow: hidden;
-	background: #05070c;
+	overflow: auto;
+	background: var(--color-surface-sunken);
+}
+
+.scene-display--empty {
+	display: grid;
+	place-content: safe center;
+}
+
+.scene-display-overlay > .scene-display {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	order: 2;
 }
 
 .scene-display__card {
-	position: absolute;
-	inset: 0;
+	position: relative;
+	min-height: 100%;
 	display: flex;
 	flex-direction: column;
 	justify-content: flex-end;
+	background: radial-gradient(120% 90% at 50% 0%, var(--scene-to), var(--scene-from));
+	isolation: isolate;
+}
+
+.scene-display__hero {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	z-index: -1;
+}
+
+/* Opaque mood backing protects contrast even over an all-white photograph. */
+.scene-display__copy {
+	position: relative;
+	padding: clamp(var(--space-6), 6vw, var(--space-20));
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-4);
+	color: var(--scene-ink);
+	background: var(--scene-from);
+	overflow-wrap: anywhere;
+}
+
+.scene-display__mood {
+	font: var(--font-weight-bold) var(--text-sm) var(--font-sans);
+	letter-spacing: var(--tracking-wide);
+	text-transform: uppercase;
+}
+
+.scene-display__copy h1 {
+	margin: 0;
+	font: var(--font-weight-bold) clamp(var(--text-2xl), 5.4vw, var(--space-20)) var(--font-display);
+	line-height: var(--leading-tight);
+}
+
+.scene-display__copy p {
+	margin: 0;
+	max-width: 65ch;
+	font: var(--font-weight-regular) clamp(var(--text-base), 1.9vw, var(--text-xl)) var(--font-sans);
+	line-height: var(--leading-body);
+	white-space: pre-wrap;
+}
+
+.scene-display__controls {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	padding-top: max(var(--space-2), var(--safe-area-top, 0rem));
+	padding-right: calc(var(--space-16) + var(--safe-area-right, 0rem));
+	padding-left: max(var(--space-3), var(--safe-area-left, 0rem));
+	background: var(--color-surface-raised);
+	color: var(--color-text-primary);
+	box-shadow: var(--shadow-md);
+	max-height: 50%;
+	overflow: auto;
+}
+
+.scene-display__controls button {
+	min-height: var(--space-12);
+	min-width: var(--space-12);
+}
+
+.scene-display__feedback {
+	margin: 0;
+	font: var(--font-weight-regular) var(--text-sm) var(--font-sans);
+}
+
+.scene-display__feedback:empty {
+	display: none;
 }
 
 @keyframes sd-crossfade {
@@ -39,45 +133,53 @@
 }
 
 .scene-display__card--crossfade {
-	animation: sd-crossfade var(--duration-slow, 600ms) var(--easing-standard, ease) both;
+	animation: sd-crossfade var(--duration-slow) var(--easing-standard) both;
 }
 
 .scene-display__card--slide {
-	animation: sd-slide var(--duration-slow, 600ms) var(--easing-standard, ease) both;
+	animation: sd-slide var(--duration-slow) var(--easing-standard) both;
 }
 
-.scene-display__card--cut {
+[data-motion='reduced'] .scene-display__card,
+[data-motion='none'] .scene-display__card {
 	animation: none;
-}
-
-.scene-display__hero {
-	animation: sd-ken-burns 30s ease-in-out infinite alternate;
-	transform-origin: center;
-}
-
-.scene-display__wash {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-}
-
-@keyframes sd-ken-burns {
-	from {
-		transform: scale(1.02) translate(-0.5%, -0.5%);
-	}
-	to {
-		transform: scale(1.12) translate(1%, 1%);
-	}
-}
-
-[data-motion='reduced'] .scene-display__hero {
-	animation: none;
-	transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.scene-display__hero {
+	.scene-display__card {
 		animation: none;
-		transform: none;
 	}
+}
+
+.scene-display__exit {
+	position: absolute;
+	top: max(var(--space-2), var(--safe-area-top, 0rem));
+	right: max(var(--space-3), var(--safe-area-right, 0rem));
+	background: var(--color-surface-raised);
+	z-index: 1;
+}
+
+.scene-display__exit button {
+	min-width: var(--space-12);
+	min-height: var(--space-12);
+}
+
+.scene-display__empty-copy {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-4);
+	padding: var(--space-8);
+	text-align: center;
+	color: var(--color-text-primary);
+}
+
+.scene-display__empty-copy h1 {
+	margin: 0;
+	font: var(--font-weight-semibold) var(--text-md) var(--font-sans);
+}
+
+.scene-display__empty-copy p {
+	margin: 0;
+	font: var(--font-weight-regular) var(--text-base) var(--font-sans);
 }

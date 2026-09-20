@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
 	getSceneDisplayForActor,
 	type SceneCardTransitionStyle,
@@ -15,6 +15,7 @@ import { moodTheme } from '../app/sceneCardMood';
 import { useI18n } from '../i18n';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
 import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
+import { Illustration } from '../ds/illustrations';
 import '../styles/scene-display.css';
 
 /** Resolve a card's hero image to a renderable URL (direct for `url`, asset-store for `vault-asset`). */
@@ -51,32 +52,24 @@ export function SceneDisplaySurface({
 	active,
 	transitionStyle,
 	resolveVaultAssets = true,
+	waiting = false,
 }: {
 	active: SceneCardView | null;
 	transitionStyle: SceneCardTransitionStyle;
 	resolveVaultAssets?: boolean;
+	waiting?: boolean;
 }) {
 	const heroUrl = useHeroImageUrl(active, resolveVaultAssets);
+	const [failedHero, setFailedHero] = useState<string | null>(null);
 	const { t } = useI18n();
 
 	if (!active) {
 		return (
-			<div className="scene-display" role="img" aria-label={t('sceneDisplay.noScene')}>
-				<div
-					style={{
-						position: 'absolute',
-						inset: 0,
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						// 0.34 over the display's #05070c is ~2.9:1 — a WCAG 1.4.3 failure on the one
-						// surface the whole table is looking at. 0.62 lands around 6.5:1.
-						color: 'rgba(255,255,255,0.62)',
-						font: '500 15px var(--font-sans, system-ui)',
-						letterSpacing: '0.04em',
-					}}
-				>
-					{t('sceneDisplay.noScene')}
+			<div className="scene-display scene-display--empty" data-theme="tavern" tabIndex={0}>
+				<div className="scene-display__empty-copy">
+					<Illustration name="scenes-empty" />
+					<h1>{t(waiting ? 'sceneDisplay.waiting' : 'sceneDisplay.noScene')}</h1>
+					{waiting ? <p>{t('sceneDisplay.waitingHelp')}</p> : null}
 				</div>
 			</div>
 		);
@@ -84,101 +77,30 @@ export function SceneDisplaySurface({
 
 	const theme = moodTheme(active.mood);
 	return (
-		<div
-			className="scene-display"
-			role="group"
-			aria-label={`${active.title} — ${theme.label} scene`}
-		>
+		<div className="scene-display" role="group" aria-label={active.title} tabIndex={0}>
 			<div
 				key={`${active.id}:${transitionStyle}:${active.revision}`}
 				className={`scene-display__card scene-display__card--${transitionStyle}`}
-				style={{
-					background: `radial-gradient(120% 90% at 50% 0%, ${theme.to}, ${theme.from})`,
-				}}
+				style={
+					{
+						'--scene-from': theme.from,
+						'--scene-to': theme.to,
+						'--scene-ink': theme.ink,
+					} as CSSProperties
+				}
 			>
-				{heroUrl ? (
+				{heroUrl && failedHero !== heroUrl ? (
 					<img
 						className="scene-display__hero"
 						src={heroUrl}
 						alt=""
-						style={{
-							position: 'absolute',
-							inset: 0,
-							width: '100%',
-							height: '100%',
-							objectFit: 'cover',
-						}}
+						onError={() => setFailedHero(heroUrl)}
 					/>
 				) : null}
-				<div
-					className="scene-display__wash"
-					aria-hidden="true"
-					style={{ background: `linear-gradient(135deg, ${theme.to}88, ${theme.accent}33)` }}
-				/>
-				{/* Bottom scrim so title/flavor stay legible over any image. */}
-				<div
-					style={{
-						position: 'absolute',
-						inset: 0,
-						background: `linear-gradient(to top, ${theme.from}f2 0%, ${theme.from}99 34%, transparent 68%)`,
-					}}
-				/>
-				<div
-					style={{
-						position: 'relative',
-						minWidth: 0,
-						padding: 'clamp(28px, 6vw, 88px)',
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 'clamp(10px, 1.6vw, 22px)',
-						maxWidth: 1100,
-					}}
-				>
-					<span
-						style={{
-							alignSelf: 'flex-start',
-							padding: '4px 12px',
-							borderRadius: 999,
-							background: `${theme.accent}22`,
-							border: `1px solid ${theme.accent}`,
-							color: theme.accent,
-							font: '700 clamp(11px, 1.2vw, 14px) var(--font-sans, system-ui)',
-							letterSpacing: '0.12em',
-							textTransform: 'uppercase',
-						}}
-					>
-						{theme.label}
-					</span>
-					<h1
-						style={{
-							margin: 0,
-							maxWidth: '100%',
-							color: theme.ink,
-							font: '800 clamp(30px, 5.4vw, 76px) var(--font-display, Georgia, serif)',
-							lineHeight: 1.04,
-							overflowWrap: 'anywhere',
-							textShadow: '0 2px 24px rgba(0,0,0,0.55)',
-						}}
-					>
-						{active.title}
-					</h1>
-					{active.flavorText ? (
-						<p
-							style={{
-								margin: 0,
-								color: theme.ink,
-								opacity: 0.92,
-								maxWidth: 820,
-								font: '400 clamp(15px, 1.9vw, 26px) var(--font-sans, system-ui)',
-								lineHeight: 1.5,
-								overflowWrap: 'anywhere',
-								textShadow: '0 1px 16px rgba(0,0,0,0.5)',
-								whiteSpace: 'pre-wrap',
-							}}
-						>
-							{active.flavorText}
-						</p>
-					) : null}
+				<div className="scene-display__copy">
+					<span className="scene-display__mood">{t(`sceneDisplay.mood.${active.mood}`)}</span>
+					<h1>{active.title}</h1>
+					{active.flavorText ? <p>{active.flavorText}</p> : null}
 				</div>
 			</div>
 		</div>
@@ -195,7 +117,11 @@ export function SceneDisplay() {
 	const runtime = useRuntime();
 	const [payload, setPayload] = useState<SceneDisplayPayload | null>(null);
 
-	useEffect(() => subscribeSceneDisplay(setPayload), []);
+	useEffect(() => {
+		const unsubscribe = subscribeSceneDisplay(setPayload);
+		requestSceneDisplay();
+		return unsubscribe;
+	}, []);
 
 	const local = useMemo(
 		() =>
@@ -211,10 +137,7 @@ export function SceneDisplay() {
 	const transitionStyle = payload ? payload.transitionStyle : local.transitionStyle;
 
 	return (
-		<div
-			className="app-fixed-viewport"
-			style={{ position: 'fixed', inset: 0, background: '#05070c' }}
-		>
+		<div className="app-fixed-viewport scene-display-viewport" role="main">
 			<SceneDisplaySurface active={active} transitionStyle={transitionStyle} />
 		</div>
 	);
@@ -235,14 +158,12 @@ export function StandaloneSceneDisplay() {
 	}, []);
 
 	return (
-		<div
-			className="app-fixed-viewport"
-			style={{ position: 'fixed', inset: 0, background: '#05070c' }}
-		>
+		<div className="app-fixed-viewport scene-display-viewport" role="main">
 			<SceneDisplaySurface
 				active={payload?.active ?? null}
 				transitionStyle={payload?.transitionStyle ?? 'cut'}
 				resolveVaultAssets={false}
+				waiting={!payload}
 			/>
 		</div>
 	);

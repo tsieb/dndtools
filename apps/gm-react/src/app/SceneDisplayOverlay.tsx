@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSceneDisplayForActor } from '@dndtools/core';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -8,7 +8,7 @@ import {
 	postSceneDisplay,
 	subscribeSceneDisplayRequests,
 } from '../platform/sceneDisplayChannel';
-import { Button, IconButton, Toaster } from '../ds';
+import { Button, IconButton } from '../ds';
 import { useI18n } from '../i18n';
 import { createAssetObjectUrl, type AssetObjectUrlHandle } from '../platform/assetUrl';
 import { registerBackHandler } from '../platform/backNavigation';
@@ -91,6 +91,9 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 	const capabilities = usePlatformCapabilities();
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
+	const [feedback, setFeedback] = useState('');
+	const [pending, setPending] = useState(false);
+	const readOnly = runtime.readOnly;
 	const overlayRef = useRef<HTMLDivElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const onCloseRef = useRef(onClose);
@@ -161,13 +164,18 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 		payload: Record<string, unknown>,
 		failMsg: string,
 	) {
+		if (readOnly || pending) return;
+		setPending(true);
+		setFeedback(t('sceneDisplay.saving'));
 		try {
 			const result = await runtime.dispatch({ type, actorId, payload } as Parameters<
 				typeof runtime.dispatch
 			>[0]);
-			if (result.status !== 'accepted') Toaster.error(result.rejection.message ?? failMsg);
-		} catch (err) {
-			Toaster.error(err instanceof Error ? err.message : failMsg);
+			setFeedback(result.status === 'accepted' ? t('sceneDisplay.saved') : failMsg);
+		} catch {
+			setFeedback(failMsg);
+		} finally {
+			setPending(false);
 		}
 	}
 	async function advance() {
@@ -180,43 +188,20 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 	return (
 		<div
 			ref={overlayRef}
-			className="app-fixed-viewport"
+			className="app-fixed-viewport scene-display-viewport scene-display-overlay"
 			data-scene-display-overlay="true"
 			role="dialog"
 			aria-modal="true"
 			aria-label={t('sceneDisplay.title')}
 			tabIndex={-1}
-			style={{ position: 'fixed', inset: 0, zIndex: 120, background: '#05070c' }}
 		>
 			<SceneDisplaySurface active={display.active} transitionStyle={display.transitionStyle} />
-			<div
-				// The control bar is permanently dark chrome — `rgba(6,9,14,0.72)` over the near-black
-				// stage — but the DS Buttons inside it painted whatever the DOCUMENT theme said. In
-				// parchment `--color-text-secondary` is `#5c4a39`, i.e. ~2.4:1 on this bar, so the
-				// ghost controls of the app's only fullscreen surface were barely legible. Scoping the
-				// bar to the dark palette makes its tokens match the background it actually has.
-				// (`forced-colors` remaps `:root, [data-theme]` alike, so HC is unaffected.)
-				data-theme="tavern"
-				style={{
-					position: 'fixed',
-					top: 'max(16px, var(--safe-area-top, 0px))',
-					right: 'max(16px, var(--safe-area-right, 0px))',
-					left: 'max(16px, var(--safe-area-left, 0px))',
-					zIndex: 121,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'flex-end',
-					flexWrap: 'wrap',
-					gap: 8,
-					padding: '8px 10px',
-					borderRadius: 10,
-					background: 'rgba(6,9,14,0.72)',
-					backdropFilter: 'blur(6px)',
-					border: '1px solid rgba(255,255,255,0.14)',
-				}}
-			>
+			<div data-theme="tavern" className="scene-display__controls">
+				<p className="scene-display__feedback" role="status">
+					{readOnly ? t('sceneDisplay.readOnly') : feedback}
+				</p>
 				<Button
-					variant="secondary"
+					variant="primary"
 					size="sm"
 					icon="skip"
 					// Both of these used to hard-`disable` themselves on their OWN last press — playing
@@ -225,7 +210,7 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 					// defect run #21 fixed on the sibling call site in `SceneCardsPanel`; the soft form
 					// keeps the tab stop, keeps the name, and explains itself. The handler has to guard
 					// too: DS `Button` only swallows `aria-disabled={true}`.
-					aria-disabled={display.queuedCount === 0 || undefined}
+					aria-disabled={readOnly || pending || display.queuedCount === 0 || undefined}
 					title={display.queuedCount === 0 ? t('sceneDisplay.queueFirst') : undefined}
 					onClick={() => {
 						if (display.queuedCount === 0) return;
@@ -239,7 +224,7 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 				<Button
 					variant="ghost"
 					size="sm"
-					aria-disabled={!display.active || undefined}
+					aria-disabled={readOnly || pending || !display.active || undefined}
 					title={display.active ? undefined : t('sceneDisplay.empty')}
 					onClick={() => {
 						if (!display.active) return;
@@ -271,14 +256,16 @@ export function SceneDisplayOverlay({ open, onClose }: { open: boolean; onClose:
 							void window.dndtoolsSceneDisplayControl
 								.open()
 								.then((opened) => {
-									if (!opened) Toaster.error('Could not open the scene display. Try again.');
+									if (!opened) setFeedback(t('sceneDisplay.openFailed'));
 								})
-								.catch(() => Toaster.error('Could not open the scene display. Try again.'));
-						} else if (!openSecondScreen()) Toaster.error(t('sceneDisplay.popupBlocked'));
+								.catch(() => setFeedback(t('sceneDisplay.openFailed')));
+						} else if (!openSecondScreen()) setFeedback(t('sceneDisplay.popupBlocked'));
 					}}
 				>
 					{t('sceneDisplay.secondScreen')}
 				</Button>
+			</div>
+			<div className="scene-display__exit" data-theme="tavern">
 				<IconButton
 					icon="close"
 					label={t('sceneDisplay.exit')}

@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
 	dispatch,
@@ -113,6 +114,7 @@ async function waitRuntime(page: Page): Promise<void> {
 
 test.describe('scene cards: atmosphere authoring, push, and display', () => {
 	test.beforeEach(async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' });
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
 		await seedFresh(page);
@@ -192,6 +194,63 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 
 		await page.keyboard.press('Escape');
 		await expect(display).toBeHidden();
+	});
+
+	test('display polish: axe, failed popup feedback, read-only controls and long text reachability', async ({
+		page,
+	}) => {
+		const cardId = await createCardViaCore(page, {
+			title: 'The lantern road',
+			visibility: 'player-visible',
+			flavorText: 'A lantern marks the road. '.repeat(15) + 'End of the road.',
+		});
+		await activateViaCore(page, cardId);
+		await page.keyboard.press('Control+Shift+S');
+		const overlay = page.getByRole('dialog', { name: 'Scene display' });
+		await expect(overlay).toBeVisible();
+		expect(
+			(await new AxeBuilder({ page }).include('[data-scene-display-overlay]').analyze()).violations,
+		).toEqual([]);
+		await page.evaluate(() => {
+			window.open = () => null;
+		});
+		await overlay.getByRole('button', { name: 'Open on a second screen' }).click();
+		await expect(overlay.getByRole('status')).toContainText(/pop-up|popup/i);
+		await page.setViewportSize({ width: 360, height: 360 });
+		await page.evaluate(() => {
+			document.documentElement.style.fontSize = '200%';
+		});
+		await overlay.locator('.scene-display').evaluate((el) => {
+			el.scrollTop = el.scrollHeight;
+		});
+		expect(await overlay.locator('.scene-display').evaluate((el) => el.scrollTop > 0)).toBe(true);
+		await expect(overlay.getByRole('button', { name: 'Exit scene display' })).toBeInViewport();
+		await page.keyboard.press('Escape');
+		await enterPreview(page, 'player');
+		await page.keyboard.press('Control+Shift+S');
+		await expect(overlay.getByRole('button', { name: 'Clear display' })).toHaveAttribute(
+			'aria-disabled',
+			'true',
+		);
+		await expect(overlay.getByRole('status')).toHaveText('Player preview is read-only.');
+		await page.keyboard.press('Escape');
+		await exitPreview(page);
+		await page.keyboard.press('Control+Shift+S');
+		await overlay.getByRole('button', { name: 'Clear display' }).click();
+		await expect(overlay.getByRole('status')).toHaveText('Display saved.');
+		await expect(overlay.getByRole('heading', { name: 'No scene on display' })).toBeVisible();
+		expect(
+			(await new AxeBuilder({ page }).include('[data-scene-display-overlay]').analyze()).violations,
+		).toEqual([]);
+		await page.keyboard.press('Escape');
+		await activateViaCore(page, cardId);
+		await page.goto('/#/display');
+		await waitRuntime(page);
+		await expect(page.getByRole('heading', { name: 'The lantern road' })).toBeVisible();
+		expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+		await activateViaCore(page, null);
+		await expect(page.getByText('No scene on display')).toBeVisible();
+		expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 	});
 
 	test('the composer authors a player-visible scene card that survives reload', async ({
