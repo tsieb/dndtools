@@ -59,7 +59,6 @@ import {
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 
 export { WidgetGlyph } from './canvas/WidgetFrame';
-import type { WidgetCommandHandler } from './widgets/WidgetRenderSlot';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
 
@@ -601,18 +600,6 @@ export function SceneBoardCanvas({
 		}
 	};
 
-	// Keep body commands stable across local resize/zoom/focus renders. Refresh the
-	// closures whenever the host callback or widget set changes, including revisions.
-	const widgetCommands = useMemo(() => {
-		const commands = new Map<string, WidgetCommandHandler>();
-		if (onWidgetCommand) {
-			for (const widget of widgets) {
-				commands.set(widget.id, (type, payload) => onWidgetCommand(widget.id, type, payload));
-			}
-		}
-		return commands;
-	}, [widgets, onWidgetCommand]);
-
 	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
@@ -649,7 +636,11 @@ export function SceneBoardCanvas({
 				onStartResize={(e) => startResize(e, w)}
 				onCycleSize={() => cycleSize(w)}
 				onResizeStep={(dx, dy) => resizeWidget(w, size.w + dx * GRID, size.h + dy * GRID)}
-				onCommand={editing ? undefined : widgetCommands.get(w.id)}
+				onCommand={
+					!editing && onWidgetCommand
+						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
+						: undefined
+				}
 			/>
 		);
 	});

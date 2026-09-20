@@ -1,5 +1,10 @@
 # RC-ENG-3.2 runtime performance recovery
 
+**Current status: acceptance unmet; resolver scope extension pending.** The fresh
+review capture has search and graph target breaches, and neither scene experiment
+demonstrates the requested approximately 20% improvement. Earlier green claims
+below describe historical, smaller-workload captures only.
+
 ## 2026-09-19 implementation
 
 Starting revision: `eafbce28`; clean task worktree. No applicable AGENTS.md or
@@ -72,7 +77,7 @@ opening; both dialogs load, open and close through Board's gallery, and the boar
 remains mounted. A first manual script forgot to reopen the gallery after closing
 the builder; correcting that test sequence required no app change.
 
-## Final local acceptance
+## Historical local acceptance
 
 The fresh complete capture on `1e962b8e9644ba72d74723e1d83708f75837b6a9`
 against starting revision `eafbce28a4f78231185cbf44ccbd603ad489415a`
@@ -144,3 +149,29 @@ narrow ownership extension has been requested before editing that engine.
 Continuing the authorized scene path: memoize render slots and retain per-widget
 command callbacks across canvas geometry/focus renders, refreshing them whenever
 the host callback or widget set changes. Fresh measurements pending.
+
+## Review recovery handoff
+
+The memoization experiment 38fac4f0 completed seven paired batches for both scene
+and widget update. Scene 1487.2 -> 1373.4 ms (-7.7%); widget 21.8 -> 20.6 ms.
+It also fails the ~20% recovery expectation. Its five custom-widget browser tests
+passed. Restored its two application files to 9aef81b3, retaining raw diagnostic
+samples separately; no partial run was spliced into a complete run.
+
+Final application and measurement scripts exactly match fully captured 9aef81b3.
+The new [review evidence](reports/2026-09-19-runtime-review/README.md) retains all
+11 budgets, explicit source trees, failed absolute verdicts, passing drift-only
+verdicts, and the separate memo/query diagnostics. The historic archive remains
+explicitly historical. The final source-diff and archive verification are checked
+before commit. This task is **not ready for acceptance**: search 306.7/250 ms,
+graph 1209.4/500 ms, and only 4.7% large-scene improvement. The requested core
+resolver ownership extension remains pending; no out-of-claim engine change was
+made. No dispatcher control state, remote branch, or promotion was touched.
+
+Handoff verification: archive plus all twelve member checksums passed; both source
+trees match Git; all 154 batch groups are populated and flatten exactly to their
+raw samples; packaged paths are sanitized. Final executable source diff against
+9aef81b3 is empty. Perf tests rerun 18/18; targeted ESLint and Prettier passed;
+repository quality/documentation gates passed. Absolute-target comparator exit 1
+is the retained, expected failure evidence; CI drift comparator exit 0 is recorded
+separately and is not presented as acceptance.
