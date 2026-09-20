@@ -1473,12 +1473,12 @@ test('rotating across the split width keeps an unsaved draft', async ({ page }) 
 	await gotoRoute(page, '/atlas');
 	const mapName = 'Unsaved tablet map';
 	await page.getByRole('button', { name: 'New map' }).click();
-	await page.getByLabel('Name').fill(mapName);
+	await page.getByLabel('Name', { exact: true }).fill(mapName);
 	await page.setViewportSize({ width: 1180, height: 820 });
 	await expect(page.locator('[data-pane]')).toHaveCount(0);
-	await expect(page.getByLabel('Name')).toHaveValue(mapName);
+	await expect(page.getByLabel('Name', { exact: true })).toHaveValue(mapName);
 	await page.setViewportSize({ width: 820, height: 1180 });
-	await expect(page.getByLabel('Name')).toHaveValue(mapName);
+	await expect(page.getByLabel('Name', { exact: true })).toHaveValue(mapName);
 });
 
 /**

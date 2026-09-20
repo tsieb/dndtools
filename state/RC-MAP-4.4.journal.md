@@ -34,3 +34,9 @@
 - Added gallery e2e assertions for exact map-name lookup and the POI/layer accessible description.
 - Follow-up functional validation: 27 desktop/mobile atlas and gallery tests passed, with the existing phone breadcrumb skip (`/tmp/map44-followup-e2e.log`). This includes worker performance, party/visibility, keyboard preview, projection status and the new accessible-name/description checks.
 - Focused ESLint, app typecheck, Prettier and `git diff --check` passed. Full pinned visual comparison passed: **135/135** using `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh` (`/tmp/map44-followup-visual.log`, exit 0). All nine atlas theme/viewport cases now reach the editor and match the existing baselines; no snapshots or visual tests were changed.
+
+## Follow-up: browser acceptance rotation selector
+
+- Read the original browser gate log at `.state/attempts/ba2f40ae-0aea-495e-80cc-227dbdaee1a9/output.log`. The only failing test was `rotating across the split width keeps an unsaved draft`, on both desktop/mobile projects and their retries; 1,244 other cases passed.
+- The failure occurs before filling the map form: substring `getByLabel('Name')` matches both the map creation `Name` textbox and the new `Filter maps by name or region` searchbox. Changed the three map-name fill/value lookups to `{ exact: true }`, preserving the rotation and unsaved-draft assertions and the gallery's descriptive label.
+- No product code or visual baselines changed. Validation passed: 10 desktop/mobile browser cases covering unsaved-draft rotation, open-detail rotation, gallery interactions, visibility/party badges and worker performance (`/tmp/map44-rotation-repair.log`, exit 0). Focused ESLint, Prettier and `git diff --check` passed. The full browser gate was not repeated locally; the operator owns the next candidate-wide run.
