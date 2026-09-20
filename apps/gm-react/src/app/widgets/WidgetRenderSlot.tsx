@@ -168,16 +168,17 @@ const serverAppearance = () => '';
 const ignoreAppearance = () => () => {};
 
 /**
- * The sandbox protocol only installs theme variables at initialization. Refresh that host when what
- * it was given goes stale, so its opaque document receives the new values. This restarts guest-local
- * JS state; persisted configuration and bindings are supplied again by SandboxHost.
+ * Refresh on palette/contrast changes so package scripts that inspect accessibility signals only
+ * at startup can apply them again. This restarts guest-local JS state; persisted configuration and
+ * bindings are supplied again by SandboxHost. The kit also receives live appearance messages for
+ * changes such as density and motion, which do not restart the frame.
  *
  * Two tiers. A frame that declares `host-theme-tokens` (`followsTheme`) restarts on any theme change,
  * because its palette came from the host. EVERY other frame (`followsContrast`) restarts only when the
  * contrast state flips — the high-contrast theme, or the OS forcing colours — because SandboxHost
  * forwards that state to all frames regardless of declared capabilities. Workers draw through the host's
- * own templates and follow neither. Replace this refresh with a theme message when the sandbox
- * protocol supports updates without reinitialization.
+ * own templates and follow neither. Removing this refresh also requires a guest notification
+ * contract for scripts that currently read the contrast variables only at startup.
  */
 export function ThemeAwareWidgetHost({
 	Host,

@@ -107,3 +107,28 @@ tests/e2e/custom-widgets.spec.ts --project=desktop-chromium --project=mobile-chr
   the owning task, then integrate that prerequisite and rerun the central gates. Repeating
   this unchanged candidate cannot resolve the App tests failure. No dispatcher state,
   ownership-external source, remote branch, or integration branch was modified.
+
+## Attempt 5 — reconcile integration changes (2026-09-20)
+
+- Rebased the task branch onto `2d9f566d194d10e597c8001015b7e8be31811d59` as requested.
+  Resolved both conflicts; the implementation commit is now `b95157ca`.
+- `SandboxHost.tsx` retains the integration branch's kit loading, vendored fonts, host document
+  attributes and live theme messages. `readHostLook` now includes accessibility contrast variables,
+  so both asynchronous initialization and later appearance updates carry the combined contract.
+- `custom-widgets.spec.ts` retains both integration resize tests and all accessibility tests.
+  No integration source was discarded to resolve the conflicts.
+- The integration commit already fixes `latestRelease`; the previous changelog gate blocker is
+  resolved. Fresh `pnpm test:app`: exit 0, 144 files / 1616 tests passed.
+- Fresh custom-widgets plus widget-kit Playwright suites on desktop-chromium and mobile-chromium:
+  exit 0, 22 passed. Includes resize persistence/bounds, builtin axe on both routes, keyboard
+  operation, contrast forwarding, and kit theme/density/motion behavior.
+- App typecheck completed without diagnostics; focused ESLint completed with exit 0.
+- Original local logs: `/tmp/rc-wid-44-rebase-unit.log`, `/tmp/rc-wid-44-rebase-e2e.log`,
+  `/tmp/rc-wid-44-rebase-typecheck.log`, `/tmp/rc-wid-44-rebase-lint.log` (ephemeral).
+- Pinned visual gate: `bash apps/gm-react/tests/visual/run-in-container.sh
+--update-snapshots=none --workers=2`, exit 0, 135 passed. Original output:
+  `/tmp/rc-wid-44-rebase-visual.log`. No baselines changed.
+- Updated the appearance wrapper's comment to explain startup contrast handling alongside the
+  integration branch's live kit updates. Prettier and `git diff --check` pass.
+- The populated-map marker limitation documented above remains outside this conflict repair.
+  No push, promotion, dispatcher state changes, or additional agents.
