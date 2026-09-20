@@ -271,3 +271,18 @@ A standalone full fixture construction measured 695.1 ms with exact counts and
 open and scene render; search and graph indexing are still running. A temporary
 pinned-reference checkout is being prepared to verify the restore seam on the
 actual CI reference. These are local checks, not central or hosted gate results.
+
+The paired large-vault-open probe succeeded against the configured reference
+`48a827861616fc3c3f6ccf69f0872edc1c8c771a` and candidate `e06c96ea`: seven
+batches / 21 samples on each side, including the post-restore count assertions.
+The first large search probe completed seven batches / 140 samples. Its long
+setup/render time exposed that the old search statistic started after input fill,
+even though the scenario already emitted earlier start/end marks. Capture now
+returns that real performance measure, including input processing. A fresh
+standard-plus-large search capture is running against this corrected code.
+Large startup descriptions now say seeded context; the setup warms the context
+before measured navigation. The fixture test has a 30-second overall timeout so
+its second construction/deep comparison cannot obscure the explicit 10-second
+first-build assertion. No application performance fix or warning suppression was
+introduced. Other large-scenario probes are functional checks, not stable timing
+comparisons: some ran concurrently on this workstation.

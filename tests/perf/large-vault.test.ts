@@ -37,7 +37,7 @@ describe('large vault performance fixture', () => {
 				expect(second.content.items[`perf-note-${match[1]}`]).toBeDefined();
 			}
 		}
-	});
+	}, 30_000);
 	it('registers and captures both rows of all eleven budgets with qualified large targets', () => {
 		expect(SCENARIOS.map((scenario) => scenario.budgetId)).toEqual(
 			PERFORMANCE_BUDGETS.map((budget) => budget.id),

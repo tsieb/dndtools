@@ -846,7 +846,6 @@ const search: Scenario = {
 					performance.mark('rc-perf:search:start');
 				});
 				await box.fill(query);
-				const started = Date.now();
 				await page.waitForFunction<string>(
 					(needle) => {
 						const main = document.querySelector('#main-content');
@@ -859,11 +858,18 @@ const search: Scenario = {
 					query,
 					{ timeout: 15_000, polling: 'raf' },
 				);
-				await page.evaluate<void>(() => {
-					performance.mark('rc-perf:search:results');
-					performance.measure('rc-perf:search', 'rc-perf:search:start', 'rc-perf:search:results');
-				});
-				samples.push(round(Date.now() - started));
+				samples.push(
+					round(
+						await page.evaluate<number>(() => {
+							performance.mark('rc-perf:search:results');
+							return performance.measure(
+								'rc-perf:search',
+								'rc-perf:search:start',
+								'rc-perf:search:results',
+							).duration;
+						}),
+					),
+				);
 			}
 			return {
 				samples,
@@ -1206,6 +1212,7 @@ export const SCENARIOS: readonly Scenario[] = [
 				});
 				return {
 					...capture,
+					scenario: capture.scenario.replace('Cold context', 'Seeded context'),
 					fixture:
 						scenario.budgetId === 'smoke-ci'
 							? `${LARGE_VAULT_DATASET}; smoke CI is repository-wide, independent of the browser vault`
