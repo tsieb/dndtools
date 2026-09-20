@@ -666,6 +666,50 @@ test.describe('widget accessibility contract', () => {
 		await expectAxeClean(page, '/board');
 	});
 
+	test('compact initiative preserves its value region through the combat lifecycle', async ({
+		page,
+		isMobile,
+	}) => {
+		test.skip(!isMobile, 'The compact tracker is the phone renderer.');
+		await openScene(page);
+		const actor = await actorId(page);
+		const command = async (type: string, payload: Record<string, unknown>) => {
+			const result = await dispatch(page, { type, actorId: actor, payload });
+			expect(result.status, JSON.stringify(result.rejection)).toBe('accepted');
+		};
+		const sceneId = await createScene(page, `Initiative lifecycle ${Date.now()}`);
+		await command('session.set-workflow', { workflow: 'active', activeSceneId: sceneId });
+		await placeWidget(page, sceneId, 'initiative-tracker', 40);
+		const id = (await instanceId(page, sceneId, 'initiative-tracker'))!;
+		await gotoRoute(page, `/scene/${sceneId}`);
+		const value = page.getByTestId(`widget-${id}`).locator(LIVE_REGION).first();
+		await expect(value).toContainText('No combat running');
+		const original = await value.elementHandle();
+		const idleText = await value.textContent();
+		const expectSameRegion = async () => {
+			expect(await value.evaluate((node, before) => node === before, original)).toBe(true);
+			await expect(value).toHaveAttribute('aria-atomic', 'true');
+		};
+		await runTheTable(page, sceneId);
+		await expect(value).toContainText('Turn 1');
+		await expectSameRegion();
+		await command('combat.end', {});
+		await expect(value).toHaveText(idleText!);
+		await expectSameRegion();
+		await runTheTable(page, sceneId);
+		await expect(value).toContainText('Turn 1');
+		await expectSameRegion();
+		const combatants = await page.evaluate(() =>
+			Object.keys(window.__rt!.state.session.combat.combatants),
+		);
+		expect(combatants).toHaveLength(2);
+		for (const combatantId of combatants) {
+			await command('combat.remove-combatant', { combatantId });
+		}
+		await expect(value).toHaveText(idleText!);
+		await expectSameRegion();
+	});
+
 	test('atlas keeps the same live region through its first and last map', async ({ page }) => {
 		await openScene(page);
 		const actor = await actorId(page);

@@ -81,7 +81,8 @@ second; the status line under it announces the status and time left on explicit 
 clock ticks leave that live text unchanged. Count readouts keep the same live-region element mounted
 through empty and populated states, including removal of the last item.
 The phone initiative tile announces the turn by its place in the order, because the name is already
-in its row and a second copy in the DOM makes every by-name lookup ambiguous.
+in its row and a second copy in the DOM makes every by-name lookup ambiguous. Its value region
+retains the same DOM node through idle, running, ended and empty-order states.
 
 The contrast variables reach every frame, not only those declaring `host-theme-tokens`, because they
 are an accessibility signal and say nothing about the vault. `--host-high-contrast` is `on` for the
@@ -102,10 +103,8 @@ check. Evidence for the host column is `custom-widgets.spec.ts` › "widget acce
 axe on `/board` and `/scene/:id` with every builtin type placed and the table live, on both profiles;
 a Tab-only walk that drives every operate command the builtins declare; and the contrast forwarding.
 
-Known gap: the map tile's markers come from the shared `app/map/canvas/MapMarkers.tsx`, which draws
-every token and POI as a `<button>` even when the tile passes no select handler. On a phone board they
-paint under 24px (axe `target-size`). The e2e binds the tile to a map with no markers; the fix is "no
-handler, no control" in that shared renderer.
+The map tile renders token and POI markers as decorative glyphs, not controls. Its map canvas
+receives empty marker arrays, so scaled markers do not introduce undersized button targets.
 
 ## 4. The custom-widget host
 

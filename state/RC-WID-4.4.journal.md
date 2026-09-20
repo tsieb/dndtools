@@ -188,3 +188,36 @@ tests/e2e/custom-widgets.spec.ts --project=desktop-chromium --project=mobile-chr
 - Final diff/format checks passed. These are local DOM/browser checks, not measured screen-reader
   speech or fresh central approval. The central operator still owns wrapper gates and independent
   review. No push, promotion, dispatcher state changes, or additional agents. Logs are ephemeral.
+
+## Attempt 8 — compact initiative lifecycle review fix (2026-09-20)
+
+- Addressed the supplied independent review of `7935bb17`: the compact initiative idle/empty
+  branch now renders `LiveReadout` at the same React tree position as the running branch.
+  Its original DOM node survives start, end, restart and removal of the last combatant.
+  Both branches set `overflowY` explicitly, avoiding a shorthand/longhand style removal warning
+  when combat ends while the tile remains mounted.
+- Added a mobile browser lifecycle regression that checks updated text, node identity and atomic
+  announcements across those transitions. The desktop project skips this phone-renderer test.
+  This verifies the DOM announcement channel, not actual screen-reader speech.
+- Removed WIDGETS.md's obsolete populated-map target-size limitation after inspecting `Map.tsx`:
+  it supplies empty marker arrays to MapCanvas and draws decorative glyphs. Earlier journal
+  references to that limitation are historical and superseded by this correction.
+- The first regression setup incorrectly ended an idle fight (core correctly rejected it);
+  corrected the fixture to begin idle with an active workflow. The lifecycle probe then passed.
+- Validation in progress: both-profile custom-widget suite, widget unit tests, app typecheck,
+  focused lint and pinned visual comparison. Original logs use `/tmp/rc-wid-44-lifecycle-*`.
+- Widget unit tests: exit 0, 11 files / 224 tests passed (`lifecycle-unit.log`). App typecheck,
+  focused ESLint, boundary lint, raw-style count and Prettier passed.
+- First both-profile browser run: 19 passed, 1 expected desktop skip, 2 failures. Both failures
+  were the initial desktop sandbox tests timing out in `waitReady` before widget assertions;
+  all axe/keyboard/lifecycle checks passed. Original output: `lifecycle-e2e.log` under the prefix
+  above. Rerunning after the concurrent visual comparison finishes; no assertion was relaxed.
+- Final both-profile custom-widget run, two workers and retries disabled: exit 0, 21 passed,
+  1 expected desktop skip (`/tmp/rc-wid-44-lifecycle-e2e-rerun.log`). Includes both routes' axe
+  checks, declared keyboard operations, contrast forwarding and the strengthened lifecycle
+  regression asserting Turn 1 and removal of both combatants. Both earlier startup failures
+  passed in this run; no shared startup code was changed.
+- Pinned visual comparison (`--update-snapshots=none --workers=2`): exit 0, 135 passed
+  (`/tmp/rc-wid-44-lifecycle-visual.log`). No baselines changed. Final format/diff checks pass.
+- Full app suite and central wrapper gates remain for the operator. No push, promotion,
+  dispatcher state modification, or additional agents. All logs above are ephemeral local evidence.
