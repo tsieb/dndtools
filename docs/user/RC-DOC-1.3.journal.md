@@ -1,6 +1,67 @@
 # RC-DOC-1.3 run journal
 
-## Current run — 2026-09-20
+## Visual-gate investigation — 2026-09-20
+
+**Blocked on visual-baseline ownership; the visual gate is still failing.** Started clean
+at `e2338384728d59caeb5dee7fb79b29535e921e8f`. The current task owns the Help menu,
+top bar and user documentation, but not `apps/gm-react/tests/visual/__screenshots__/`.
+This investigation changes only this journal. No runtime changes, snapshot updates,
+dispatcher state changes, additional agents, push or promotion.
+
+### Evidence and cause
+
+- Read the original operator log for run `d382e8b2-53f2-4ee0-9bba-fb16c68e49a3`
+  (`output.log` under the supplied attempts directory), not compressed diagnostic output.
+  Its first failure is `command-center--tavern.png`, with 4,532 differing pixels.
+  The initial test-result lines report differences on the ten ordinary GM-shell routes
+  in each of three themes at desktop and rail widths; phone captures pass.
+- Inspected the expected, actual and diff images for desktop Command Center and the rail
+  diff. The expected desktop image has no Help control. The actual image adds the info
+  button and shifts the existing utility controls left. The content below the top bar
+  is unchanged in those captures.
+- Read `HelpLauncher`, its conditional mount in `TopBar.tsx`, the visual spec, the pinned
+  container wrapper and [the baseline-update policy](../development/TESTING.md).
+  The launcher is deliberately mounted only above phone width, where the footer is
+  absent. This minimal shell integration remains necessary for guide reachability.
+- Reproduced with the pinned image using the command below. All six failed image pairs
+  were compared directly with Pillow (`ImageChops.difference` on RGB images). Every
+  differing pixel is within the top 75 pixels: desktop bounds extend no lower than
+  y=65, rail bounds no lower than y=63. This is measured from the six fresh Command
+  Center pairs, not a claim that every original route image was inspected.
+
+### Fresh validation
+
+From the repository root:
+
+- `CI=1 DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh --grep ' /$' --retries=0`:
+  **exit 1; 6 failed, 3 passed**. Command Center differs in all three themes for desktop
+  and rail; all three phone captures pass. Full output: `/tmp/rc-doc-1.3-visual-repro.log`.
+- `pnpm gates`: exit 0; 266 files reachable and 336 relative links resolved. Existing
+  file-size warnings remain non-blocking. Output: `/tmp/rc-doc-1.3-gates-current.log`.
+- `CI=1 DNDTOOLS_E2E_PORT=15937 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/help-guides.spec.ts tests/e2e/help-menu.spec.ts --workers=2 --retries=0`:
+  exit 0; 12 passed. All eight guides remain reachable at desktop, rail and phone
+  widths in both Chromium projects. Output: `/tmp/rc-doc-1.3-help-current.log`.
+- Scoped Prettier and `git diff --check`: passed. Independent review is still pending.
+
+### Required operator handoff
+
+[TESTING.md](../development/TESTING.md) requires intentional pixel changes to update their
+baselines in the same PR and requires a reviewer to inspect those changes. The operator
+must assign the affected snapshot paths to this task or arrange a baseline-owner change:
+
+- `apps/gm-react/tests/visual/__screenshots__/visual-desktop/`
+- `apps/gm-react/tests/visual/__screenshots__/visual-rail/`
+
+The original log identifies these slugs in each theme (`tavern`, `parchment`,
+`high-contrast`): `command-center`, `board`, `scenes`, `characters`, `knowledge`,
+`campaign`, `session`, `player`, `settings`, `scene-editor` (60 PNGs total).
+Once scoped, run the existing wrapper with `--update-snapshots=changed`, inspect every
+rewritten image, run `node apps/gm-react/tests/visual/check-baseline-budget.mjs`, and
+rerun the wrapper without update mode. Do not treat regeneration alone as a passing gate.
+No baseline rewrite has been performed here. Hiding Help during screenshots, weakening
+comparison thresholds, or removing its visible entry point would not resolve the task.
+
+## Earlier source-reference run — 2026-09-20
 
 - Started clean at `45f59ee4`, with the eight guides and responsive Help launcher already
   committed. The operator's 2026-09-18 brief now owns `TopBar.tsx`. Its existing import and
@@ -18,7 +79,7 @@
 - The checker-unavailable statement in the historical record below is superseded:
   `scripts/validate/docs-links.ts` exists and `pnpm gates` invokes it in this checkout.
 
-### Current validation
+### Validation in that run
 
 Commands run from the repository root. These are local checks, not remote gates or
 independent review approval.
