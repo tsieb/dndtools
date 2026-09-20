@@ -99,6 +99,12 @@ function runParity() {
 				cwd: path.join(here, '..'),
 				timeout: 120000,
 			});
+			if (res.error || res.signal || res.status !== 0) {
+				console.error(
+					`✗ parity ${mode}: process failed (${res.error?.message ?? res.signal ?? res.status}). stderr:\n${(res.stderr || '').slice(-1600)}`,
+				);
+				return { ok: false };
+			}
 			const line = (res.stdout || '')
 				.split('\n')
 				.find((entry) => entry.startsWith('PARITY_SMOKE_RESULT '));

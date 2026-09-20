@@ -13,6 +13,12 @@ ipcMain.handle = (channel, handler) => {
 	handlers.set(channel, handler);
 	handle(channel, handler);
 };
+// Observe attempted registration without touching the host's protocol associations.
+const protocolClaims = [];
+app.setAsDefaultProtocolClient = (...args) => {
+	protocolClaims.push(args);
+	return true;
+};
 const verify = process.argv.includes('verify');
 process.argv.push('lamplight://join/smoke-token');
 const shell = require('./main.cjs');
@@ -62,7 +68,7 @@ app.whenReady().then(async () => {
 		// ...and that an unpackaged tree does NOT claim the scheme. A checkout moves or disappears;
 		// pointing a developer's mime database at this one would break invites for the installed app.
 		assert.equal(app.isPackaged, false);
-		assert.equal(app.isDefaultProtocolClient('lamplight'), false);
+		assert.deepEqual(protocolClaims, []);
 
 		await until(() =>
 			BrowserWindow.getAllWindows().some((win) =>
@@ -167,6 +173,7 @@ app.whenReady().then(async () => {
 			readWindowState(file, [{ workArea: { x: 10000, y: 10000, width: 1000, height: 800 } }]),
 			{},
 		);
+		assert.deepEqual(protocolClaims, []);
 		clearTimeout(timeout);
 		console.log(
 			'PARITY_SMOKE_RESULT ' +

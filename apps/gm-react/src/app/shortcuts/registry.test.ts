@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { en } from '../../i18n/messages/en';
 import {
 	SHORTCUTS,
-	getDesktopChrome,
 	matchesShortcut,
 	shortcut,
 	shortcutsForScope,
@@ -86,29 +85,5 @@ describe('the keyboard shortcut registry', () => {
 		expect(map.some((entry) => entry.id === 'map.zoom')).toBe(true);
 		expect(shortcutsForScope('canvas').length).toBeGreaterThan(0);
 		expect(shortcutsForScope('global').length).toBeGreaterThan(0);
-	});
-});
-
-describe('desktop chrome bridge lookup', () => {
-	it('is absent on every runtime but the Electron shell', () => {
-		// Web, Android and tests all run without the preload, so callers must get a plain null
-		// rather than an exception or a half-present object they then have to guard again.
-		// This suite runs without a DOM at all, which is the harshest form of "no shell".
-		expect(globalThis.window).toBeUndefined();
-		expect(getDesktopChrome()).toBe(null);
-		const bridge = {
-			setMenu: async () => true,
-			setLiveSession: async () => true,
-			onShortcut: () => () => {},
-		};
-		const scope = globalThis as { window?: Window };
-		scope.window = { lamplightDesktop: bridge } as unknown as Window;
-		try {
-			expect(getDesktopChrome()).toBe(bridge);
-			scope.window = {} as unknown as Window;
-			expect(getDesktopChrome()).toBe(null);
-		} finally {
-			delete scope.window;
-		}
 	});
 });

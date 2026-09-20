@@ -73,3 +73,36 @@ stated in `docs/architecture/PLATFORMS.md` rather than left implicit.
 
 The full Playwright suite was not run. `PlatformLifecycle`'s new effect renders nothing and returns
 early off Electron, so it is inert in a browser; the operator's browser acceptance gate covers it.
+
+## Run 3 — authorized scope and repeatable smoke (2026-09-20)
+
+The operator brief now explicitly owns the builder configuration, standard desktop smoke runner,
+and PlatformLifecycle. Their minimal integrations from Run 2 are retained for the reasons above;
+no further builder or lifecycle changes were necessary. The prior candidate also added a helper
+lookup test to `src/app/shortcuts/registry.test.ts`, which is still outside the claim. Removed only
+that candidate addition, restoring the pre-task contents so the aggregate candidate stays owned.
+
+- `electron/smoke-parity.cjs` now records protocol registration attempts instead of asserting the
+  machine has no existing default handler. This verifies that development never claims the scheme
+  without depending on or modifying the workstation's installed protocol associations.
+- `scripts/run-desktop-smoke.mjs` additionally requires the parity child process to exit cleanly:
+  a printed success marker cannot hide a crash, timeout, or nonzero exit. This small runner change
+  is necessary for the acceptance result to represent the actual desktop smoke outcome.
+- No Headroom tools were exposed in this run; command results are read directly.
+
+Current-run verification pending below; earlier results above are historical.
+
+Current-run results:
+
+- `pnpm --filter @dndtools/gm-react exec vite build`: exit 0 (existing bundle-size warning).
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- `pnpm --filter @dndtools/gm-react desktop:smoke` on DISPLAY=:0: exit 0. Origin write/verify,
+  interrupted migration, 12 updater checks, parity write and parity verify all passed. Read the
+  original complete output at `/tmp/rc-plt-1.3-smoke-current.log` before recording this result.
+- Exercised the actual `runParity` function in a Node VM with child-process results: clean success
+  passes; success markers followed by nonzero exit, SIGTERM, or timeout all fail; each cleans up.
+- Prettier check and `git diff --check`: passed. Targeted ESLint: exit 0; Electron CJS is ignored by
+  repository configuration, so `node --check` additionally verified the changed smoke's syntax.
+- Aggregate diff against pre-task `e86f14db` contains only the ten owned files. No dispatcher state,
+  remote publication, promotion, or other loop was touched. Full operator gates and independent
+  review remain external to this run; installed OS handoff/physical-display limits still apply.
