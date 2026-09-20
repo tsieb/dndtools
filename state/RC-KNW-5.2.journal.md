@@ -57,3 +57,28 @@ Fresh validation:
   2 tests passed. Each edits twice, restores the first edit, checks revision advancement and reloads.
 - No implementation changes were needed for the supplied fence feedback. The broader validation
   results above belong to the original attempt; only the acceptance checks were rerun in this retry.
+
+## Integration rebase retry (2026-09-20)
+
+Rebased both task commits onto the operator-specified integration commit
+`2d9f566d194d10e597c8001015b7e8be31811d59`. Resolved the two reported conflicts:
+
+- `NoteViewer.tsx`: retained integration's `useSingleColumn` import and layout decision for both
+  phones and rail detail panes, plus the history query state and RestoreNoteRevision import.
+  Integration's prose-width preference handling remains intact.
+- `packages/core/src/index.ts`: retained the entire integration screen export block and appended
+  the two history exports. Neither feature's exports were dropped.
+
+No dispatcher control state, unrelated implementation, or remote branch was changed.
+
+Fresh validation on the reconciled tree:
+
+- Targeted content-history/content-notes: 2 files, 19 tests passed.
+- History restore Playwright test: desktop-chromium and mobile-chromium, 2 passed.
+- `pnpm typecheck`: exit 0 across core, cloud-fns and gm-react.
+- ESLint and Prettier on both conflict-resolved files: exit 0.
+- `git diff --check`: clean; the specified integration commit is an ancestor of HEAD.
+- `git range-diff 4d551c9c..119c4150 2d9f566d..HEAD` confirms that the implementation
+  changes only in the two intended conflict contexts; the ownership-journal commit is unchanged.
+
+Rebased implementation commit: `4bd6dce7`; rebased ownership-journal commit: `8cef22cb`.
