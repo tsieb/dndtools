@@ -1,5 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { catalogCoverage, initialLocale, loadCatalog, normalizeLocale, translate } from './index';
+import {
+	catalogCoverage,
+	initialLocale,
+	loadCatalog,
+	normalizeLocale,
+	SUPPORTED_LOCALES,
+	translate,
+} from './index';
 import { en, type MessageKey } from './messages/en';
 import { es } from './messages/es';
 import {
@@ -199,11 +206,22 @@ describe('Intl formatting helpers', () => {
 
 describe('additional catalogs', () => {
 	it('discovers the empty French scaffold and falls back to English', async () => {
+		expect(SUPPORTED_LOCALES).toContainEqual({
+			code: 'fr',
+			label: 'French',
+			nativeLabel: 'français',
+		});
+		expect(initialLocale('fr-CA', ['en'])).toBe('fr');
 		await loadCatalog('fr');
 		expect(catalogCoverage('fr')).toBe(0);
 		expect(translate('fr', 'common.action.save')).toBe('Save');
 	});
 	it('loads the DEV pseudo locale including plural branches', async () => {
+		expect(SUPPORTED_LOCALES).toContainEqual({
+			code: 'qps-ploc',
+			label: 'Pseudo locale',
+			nativeLabel: 'Pseudo locale',
+		});
 		expect(normalizeLocale('qps-ploc')).toBe('qps-ploc');
 		await loadCatalog('qps-ploc');
 		expect(catalogCoverage('qps-ploc')).toBe(1);

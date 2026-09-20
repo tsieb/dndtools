@@ -38,7 +38,7 @@ was visibly cut off inside a control. Reproduced and fixed.
   naming all three real defects plus the planted probe; mobile-chromium stayed green (the sidebar and
   the wide search field are desktop-only chrome).
 
-## Shell fixes (outside `Owns`, minimal, flagged)
+## Shell fixes (originally outside `Owns`; authorized by the 2026-09-18 operator brief)
 
 The acceptance criterion is that the case PASSES, so the three defects it now catches had to be
 fixed. Both files are shell chrome, not i18n:
@@ -103,3 +103,28 @@ Re-baselining them belongs to that story, not this one.
 
 The 126 that pass include every desktop and rail route that draws the sidebar, which is the evidence
 that wrapping `SideRow` is pixel-identical in English.
+
+## Authorized resubmission — 2026-09-20
+
+- Started with a clean task branch containing the two implementation commits above. The operator
+  explicitly added `TopBar.tsx` and `rows.tsx` to ownership after the candidate was fenced.
+  Retained those minimal fixes: the search field's intrinsic minimum prevents translated-label
+  clipping, and the sidebar's two-line wrap makes expanded labels and captions readable. No
+  additional shell edits were needed. All candidate paths are now within the supplied ownership.
+- Strengthened the scaffold tests to assert the picker registry includes French and the DEV
+  pseudo locale, and that a saved regional French preference selects the scaffold. English
+  fallback alone would not prove a locale is selectable.
+- Fresh validation: i18n tests 38/38; translation tooling tests 8/8; app typecheck passed;
+  changed test ESLint and Prettier passed. Production app build passed and its checker confirmed
+  pseudo locale, runtime seam and gallery absent from all 84 JS assets. Separate synthetic
+  bundles containing the locale identifier or pseudo Save text were both rejected.
+- Full `responsive.spec.ts`: 106 passed (2.5m), including the eight-route pseudo-locale case on
+  both desktop-chromium and mobile-chromium. The deliberately clipped probe was detected before
+  each real-page audit.
+- Pinned-container visual suite: 126 passed, 9 failed (2.8m). Every failure is `/knowledge`, across
+  three tiers and three themes, matching the earlier journal's failure set. This run does not
+  independently re-establish the earlier baseline diagnosis; the visual gate remains failing.
+  No screenshots or unrelated Knowledge code were changed. Exact run output is retained locally
+  at `/tmp/rc-ux-1.5-visual.log`; responsive output is `/tmp/rc-ux-1.5-responsive.log`.
+- No available Headroom tools were exposed in this session; validation used exact native output.
+  No push, promotion, additional agents, or dispatcher control-state changes.
