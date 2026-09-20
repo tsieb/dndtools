@@ -128,3 +128,27 @@ that wrapping `SideRow` is pixel-identical in English.
   at `/tmp/rc-ux-1.5-visual.log`; responsive output is `/tmp/rc-ux-1.5-responsive.log`.
 - No available Headroom tools were exposed in this session; validation used exact native output.
   No push, promotion, additional agents, or dispatcher control-state changes.
+
+## Rebased candidate follow-up — typecheck feedback
+
+- Inspected the exact operator typecheck log for run
+  `4109a506-e515-4cf1-95bf-2f2c1640ea16` against `dd78fa29`, then reproduced both
+  TS7053 failures with `pnpm typecheck`. Newly integrated `AddWidgetGallery.tsx:77`
+  and `TemplatePicker.tsx:94` index English/Spanish-only local catalogs with the
+  extensible locale string. French/pseudo selection also risks an undefined-catalog
+  runtime error in those surfaces. The proper correction is a local English fallback,
+  not narrowing or falsifying the shared locale type.
+- Both canvas files are outside the supplied ownership list. Requested authorization
+  to include them; no answer received at this point. Prepared a two-expression patch
+  at `/tmp/rc-ux-1.5-canvas-fallback.patch` and verified it with `git apply --check`.
+  It remains unapplied. Typecheck is still blocked; this is not a completed gate repair.
+- Found a separate in-scope rebase regression: pseudo coverage had fallen to 96.23%
+  (5354 generated keys versus 5564 source keys). Regenerated with
+  `pnpm exec tsx scripts/i18n-catalog.ts pseudo`, preserving the generator's accents,
+  expansion and ICU syntax. Exact catalog drift and full-coverage assertions now pass.
+- Fresh checks after regeneration: 38/38 i18n tests; eight-route pseudo case passed
+  on desktop-chromium and mobile-chromium (2 tests); app production build passed and
+  checker found no pseudo locale in 87 JS assets. Generated file formatting and
+  `git diff --check` passed. The operator's latest supplied visual gate passed; the
+  earlier visual failures above describe the previous base, not this candidate.
+- No shell changes, unowned edits, dispatcher mutations, extra agents, push or promotion.
