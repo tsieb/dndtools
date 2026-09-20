@@ -29,3 +29,7 @@ or release-installation checks were run for this guide.
 - [widget-package.ts](../../packages/core/src/commands/widget-package.ts)
 - [widget-builder.spec.ts](../../apps/gm-react/tests/e2e/widget-builder.spec.ts)
 - [widget-trust-review.spec.ts](../../apps/gm-react/tests/e2e/widget-trust-review.spec.ts)
+
+Additional source check: 2026-09-20, task baseline `45f59ee4` (app 0.3.7).
+
+- [WorkerHost.ts](../../apps/gm-react/src/app/widgets/WorkerHost.ts)

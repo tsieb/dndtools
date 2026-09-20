@@ -1,5 +1,45 @@
 # RC-DOC-1.3 run journal
 
+## Current run — 2026-09-20
+
+- Started clean at `45f59ee4`, with the eight guides and responsive Help launcher already
+  committed. The operator's 2026-09-18 brief now owns `TopBar.tsx`. Its existing import and
+  non-phone `<HelpLauncher />` mount are the minimal shell integration: the footer is
+  phone-only. No further shell edits are needed. This run changes only `docs/README.md`
+  and `docs/user`; existing files outside the claim are left untouched.
+- Applied the supplied docs-research skill. No Headroom tools or natural-writer definition
+  are available. No agents spawned. Read the actual checker, Help menu, top bar, existing
+  Help browser specs, platform contract, and focused implementation/test sources for
+  onboarding, session lifecycle, maps, widget building, systems, joining and privacy.
+- Retained the eight guides after source review. Added direct references for Help access,
+  Android's minimum SDK and the packaged desktop worker limitation. Made the docs index
+  welcome users and explain where Help lives. Guide text remains bundled and English-only;
+  implementation references remain hidden from the in-app reader.
+- The checker-unavailable statement in the historical record below is superseded:
+  `scripts/validate/docs-links.ts` exists and `pnpm gates` invokes it in this checkout.
+
+### Current validation
+
+Commands run from the repository root. These are local checks, not remote gates or
+independent review approval.
+
+- `pnpm gates`: passed after the reference additions, exit 0; 263 documentation files
+  reachable, 326 relative links resolved. Existing file-size warnings are non-blocking.
+- `CI=1 DNDTOOLS_E2E_PORT=15937 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/help-guides.spec.ts tests/e2e/help-menu.spec.ts --workers=1 --retries=0`:
+  12 passed, exit 0. Every guide opens and returns to Help at desktop, rail and phone
+  widths in both Chromium projects. Each tier has exactly one Help trigger; maintainer
+  references are absent from the rendered articles.
+- `pnpm exec prettier --check docs/README.md docs/user apps/gm-react/src/app/help/HelpMenu.tsx apps/gm-react/src/app/shell/TopBar.tsx`:
+  passed. `git diff --check`: passed. No runtime code changed during this run.
+- Self-review completed against the sources above. Independent review remains the central
+  operator's next step. Native installation, real remote play, cloud recovery and an offline
+  reopen were not exercised in this run. Historical test counts below are not current results.
+
+## Historical run record
+
+The following records the previous attempts and their validation at the time. In particular,
+the old ownership boundary and missing-checker notes do not describe the current checkout.
+
 ## Scope and research
 
 - Baseline: `b54cf4c7`. Prior candidate on this branch: `d551054b` (guides + Help links), which an

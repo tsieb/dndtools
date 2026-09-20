@@ -27,3 +27,10 @@ or release-installation checks were run for this guide.
 - [Onboarding.tsx](../../apps/gm-react/src/app/Onboarding.tsx)
 - [nav.ts](../../apps/gm-react/src/app/nav.ts)
 - [onboarding-consent.spec.ts](../../apps/gm-react/tests/e2e/onboarding-consent.spec.ts)
+
+Additional source check: 2026-09-20, task baseline `45f59ee4` (app 0.3.7).
+
+- [HelpMenu.tsx](../../apps/gm-react/src/app/help/HelpMenu.tsx)
+- [TopBar.tsx](../../apps/gm-react/src/app/shell/TopBar.tsx)
+- [Footer.tsx](../../apps/gm-react/src/app/shell/Footer.tsx)
+- [help-guides.spec.ts](../../apps/gm-react/tests/e2e/help-guides.spec.ts)

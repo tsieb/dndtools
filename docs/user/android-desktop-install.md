@@ -31,3 +31,7 @@ or release-installation checks were run for this guide.
 - [build.gradle](../../apps/gm-react/android/app/build.gradle)
 - [service-worker.js](../../apps/gm-react/src/sw/service-worker.js)
 - [pwa-offline.spec.ts](../../apps/gm-react/tests/e2e/pwa-offline.spec.ts)
+
+Additional source check: 2026-09-20, task baseline `45f59ee4` (app 0.3.7).
+
+- [variables.gradle](../../apps/gm-react/android/variables.gradle)

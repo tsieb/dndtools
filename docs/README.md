@@ -1,15 +1,18 @@
 # Documentation
 
-Engineering reference for Lamplight: a canvas-first command platform for tabletop RPG play. The
-primary application is the React GM app (`apps/gm-react`); the platform-independent processing
+User guides and engineering reference for Lamplight, a canvas-first command platform for tabletop
+RPG play. Start with the guides below to prepare your first table.
+
+The primary application is the React GM app (`apps/gm-react`); the platform-independent processing
 core (`packages/core`) holds commands, reducers, permissions, and queries and is shared by every
 surface. The earlier SvelteKit app is archived at `archive/gm-svelte` (tag `svelte-gm-final`); the
 v1 document editor is preserved at tag `v1-final` only.
 
 ## User guides
 
-Open Help in the app to read these guides without leaving your table. The guides are
-in English; their implementation references below each page are for maintainers.
+Open the info button in the top bar, or Help above the tab bar on a phone, to read these
+guides without leaving your table. All eight guides ship with the app. They are in English;
+the implementation references below each page are for maintainers and are hidden in the app.
 
 - [Getting started](user/getting-started.md)
 - [Running a session](user/running-a-session.md)
