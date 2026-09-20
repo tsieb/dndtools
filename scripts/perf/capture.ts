@@ -86,6 +86,7 @@ interface Page {
 		url: string,
 		options?: { waitUntil?: 'domcontentloaded' | 'load' | 'commit' },
 	): Promise<unknown>;
+	reload(options?: { waitUntil?: 'domcontentloaded' | 'load' | 'commit' }): Promise<unknown>;
 	context(): BrowserContext;
 	url(): string;
 	evaluate<R, A = undefined>(fn: (arg: A) => R | Promise<R>, arg?: A): Promise<R>;
