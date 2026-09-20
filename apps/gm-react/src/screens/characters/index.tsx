@@ -5,7 +5,7 @@ import {
 	abilityModifier,
 	Button,
 	EmptyState,
-	Icon,
+	Callout,
 	IconButton,
 	Select,
 	Tabs,
@@ -14,6 +14,7 @@ import {
 import { CharBuilder } from '../../app/charBuilder';
 import { ListDetail, Page, T, srOnly } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { RosterActions } from './RosterActions';
 import { CharCard } from './CharCard';
 import { CharacterSheet } from './CharacterSheet';
 import {
@@ -80,7 +81,7 @@ const filterField = {
 	minWidth: 0,
 	maxWidth: '100%',
 } as const;
-const filterLabel = { font: `600 12px ${T.sans}`, color: T.ter } as const;
+const filterLabel = { font: `600 var(--text-xs) ${T.sans}`, color: T.ter } as const;
 
 export function Characters() {
 	const { t } = useI18n();
@@ -102,6 +103,7 @@ export function Characters() {
 	const [importIntent, setImportIntent] = useState(false);
 	// A rejection ("Start a session first") used to render in the same accent-tinted success chip as
 	// "Combat started", polite rather than assertive, so a refusal read as a confirmation.
+	const [starting, setStarting] = useState(false);
 	const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
 	// Create-intent handoff: "New character" launchers elsewhere (home hub, ⌘K) navigate here with
@@ -127,8 +129,13 @@ export function Characters() {
 			runtime.state.permissions,
 			runtime.state.session,
 		);
-		return { isDm: actor?.role === 'dm', characters, entries, facets: rosterFacets(entries) };
-	}, [runtime.state, actorId]);
+		return {
+			isDm: actor?.role === 'dm' && !runtime.readOnly,
+			characters,
+			entries,
+			facets: rosterFacets(entries),
+		};
+	}, [runtime.state, runtime.readOnly, actorId]);
 
 	// `key` is load-bearing, not decoration. CharacterSheet holds a dozen pieces of per-character
 	// draft state (shareDraft, attackRows, acDraft, xpInput, editMode, error) and has NO effect keyed
@@ -194,32 +201,40 @@ export function Characters() {
 	// Tracker. Dispatched here as a convenience over the party; the core rejection is surfaced (e.g.
 	// "start a session first" / "combat already running") rather than silently swallowed.
 	async function startCombat() {
+		if (starting) return;
+		setStarting(true);
 		setNotice(null);
-		const result = await runtime.dispatch({
-			type: 'combat.start',
-			actorId,
-			payload: {
-				// SES-002 combatant rows: a PC seeds as kind `character` (resources flow from its combat
-				// block) — `combatantKindSchema` is character/npc/monster, not the roster's `pc`.
-				combatants: partyPcs.map((c) => ({
-					kind: 'character',
-					name: c.name,
-					characterId: c.id,
-					ac: c.combat.ac,
-					maxHp: c.combat.maxHp,
-					// Was a flat 0 for every PC, producing a degenerate all-tied order with no reroll
-					// path. Use the same d20 + DEX roll EncounterBuilder already applies for exactly
-					// this reason, so this convenience button can't start a fight of all-0 initiative.
-					initiative:
-						1 + Math.floor(Math.random() * 20) + abilityModifier(c.abilityScores.dex ?? 10),
-				})),
-			},
-		});
-		setNotice(
-			result.status === 'rejected'
-				? { tone: 'error', text: result.rejection.message }
-				: { tone: 'ok', text: 'Combat started — open the Session screen to run it.' },
-		);
+		try {
+			const result = await runtime.dispatch({
+				type: 'combat.start',
+				actorId,
+				payload: {
+					// SES-002 combatant rows: a PC seeds as kind `character` (resources flow from its combat
+					// block) — `combatantKindSchema` is character/npc/monster, not the roster's `pc`.
+					combatants: partyPcs.map((c) => ({
+						kind: 'character',
+						name: c.name,
+						characterId: c.id,
+						ac: c.combat.ac,
+						maxHp: c.combat.maxHp,
+						// Was a flat 0 for every PC, producing a degenerate all-tied order with no reroll
+						// path. Use the same d20 + DEX roll EncounterBuilder already applies for exactly
+						// this reason, so this convenience button can't start a fight of all-0 initiative.
+						initiative:
+							1 + Math.floor(Math.random() * 20) + abilityModifier(c.abilityScores.dex ?? 10),
+					})),
+				},
+			});
+			setNotice(
+				result.status === 'rejected'
+					? { tone: 'error', text: result.rejection.message }
+					: { tone: 'ok', text: t('characters.combatStarted') },
+			);
+		} catch {
+			setNotice({ tone: 'error', text: t('characters.combatSaveFailed') });
+		} finally {
+			setStarting(false);
+		}
 	}
 
 	const roster = (
@@ -241,35 +256,17 @@ export function Characters() {
 					aria-label={t('characters.rosterFilter')}
 				/>
 				<div style={{ flex: 1 }} />
-				{data.isDm && partyPcs.length > 0 && (
-					<Button variant="ghost" size="sm" icon="sword" onClick={startCombat}>
-						{t('characters.startCombat')}
-					</Button>
-				)}
-				{/* REAL import (WS-4): opens the CharBuilder's file-import path — a D&D Beyond export or
-				    native JSON, previewed field-by-field (fail closed) before anything is created. */}
 				{data.isDm && (
-					<Button
-						variant="ghost"
-						size="sm"
-						icon="import"
-						onClick={() => {
+					<RosterActions
+						canStart={partyPcs.length > 0}
+						starting={starting}
+						onStart={startCombat}
+						onCreate={() => setCreating(true)}
+						onImport={() => {
 							setImportIntent(true);
 							setCreating(true);
 						}}
-					>
-						{t('characters.importJson')}
-					</Button>
-				)}
-				{data.isDm && (
-					<Button
-						variant="primary"
-						size="sm"
-						icon="new-character"
-						onClick={() => setCreating(true)}
-					>
-						{t('characters.newCharacter')}
-					</Button>
+					/>
 				)}
 			</div>
 
@@ -319,46 +316,34 @@ export function Characters() {
 						</Button>
 					)}
 					<div style={{ flex: 1 }} />
-					<span role="status" style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<span role="status" style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 						{t('characters.resultCount', { shown: list.length, total: data.characters.length })}
 					</span>
 				</div>
 			)}
 
-			{notice && (
-				<div
-					role={notice.tone === 'error' ? 'alert' : 'status'}
-					style={{
-						marginBottom: 14,
-						display: 'flex',
-						alignItems: 'flex-start',
-						gap: 8,
-						font: `13px ${T.sans}`,
-						color: notice.tone === 'error' ? 'var(--color-status-error-text)' : T.sub,
-						background: notice.tone === 'error' ? 'var(--color-status-error-subtle)' : T.accSub,
-						border: `1px solid ${
-							notice.tone === 'error' ? 'var(--color-status-error-border)' : T.accBd
-						}`,
-						borderRadius: 8,
-						padding: '8px 12px',
-					}}
-				>
-					<Icon name={notice.tone === 'error' ? 'warning' : 'check'} size={14} />
-					<span style={{ flex: 1, minWidth: 0 }}>{notice.text}</span>
+			<div role="status" aria-live="polite">
+				{starting && <Callout>{t('characters.startingCombat')}</Callout>}
+				{notice?.tone === 'ok' && <Callout tone="success">{notice.text}</Callout>}
+			</div>
+			{notice?.tone === 'error' && (
+				<Callout tone="error" role="alert">
+					{notice.text}
 					<IconButton
 						icon="close"
 						label={t('characters.dismissMessage')}
 						variant="ghost"
-						size="sm"
 						onClick={() => setNotice(null)}
 					/>
-				</div>
+				</Callout>
 			)}
 
 			<div {...tabPanelProps('characters', kind)}>
+				<h2 style={srOnly}>{t('characters.rosterHeading')}</h2>
 				{list.length === 0 ? (
 					<EmptyState
 						icon="characters-person"
+						illustration={data.characters.length === 0 ? 'characters-empty' : 'search-none'}
 						title={t(
 							data.characters.length === 0 ? 'characters.emptyRoster' : 'characters.noMatches',
 						)}

@@ -4246,6 +4246,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.filter.npcs': 'PNJ',
 	'characters.filter.bestiary': 'Bestiario',
 	'characters.rosterFilter': 'Filtro de la lista',
+	'characters.rosterHeading': 'Lista de personajes',
+	'characters.detailsHeading': 'Detalles del personaje',
+	'characters.moreActions': 'Más acciones de personajes',
+	'characters.startingCombat': 'Iniciando el combate…',
+	'characters.combatStarted': 'Combate iniciado. Abre la pantalla Sesión para dirigirlo.',
+	'characters.combatSaveFailed':
+		'No se pudo guardar el combate. Revisa el almacenamiento y vuelve a intentarlo.',
 	'characters.startCombat': 'Empezar el combate',
 	'characters.importJson': 'Importar personaje (JSON)',
 	'characters.newCharacter': 'Personaje nuevo',

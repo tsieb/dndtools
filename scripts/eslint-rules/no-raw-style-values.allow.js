@@ -130,7 +130,6 @@ export const allow = {
 	'apps/gm-react/src/screens/campaign/QuestEditor.tsx': 1,
 	'apps/gm-react/src/screens/campaign/Relationships.tsx': 11,
 	'apps/gm-react/src/screens/characters/CharacterSheet.tsx': 3,
-	'apps/gm-react/src/screens/characters/index.tsx': 4,
 	'apps/gm-react/src/screens/characters/shared.tsx': 2,
 	'apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx': 14,
 	'apps/gm-react/src/screens/characters/sheet/AdvancementPanel.tsx': 9,

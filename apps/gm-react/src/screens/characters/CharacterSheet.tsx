@@ -8,10 +8,9 @@ import {
 	passivePerception,
 	effectiveProficiencyBonus,
 	type CoreCommand,
-	type PreparedSpell,
 } from '@dndtools/core';
 import { EmptyState } from '../../ds';
-import { Page, T, useSingleColumn } from '../../app/screen-kit';
+import { Page, T, srOnly, useSingleColumn } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ABILITIES, BackBar, clamp } from './shared';
 import { SheetHeader } from './sheet/SheetHeader';
@@ -25,9 +24,9 @@ import { SharingPanel } from './sheet/SharingPanel';
 import { BioPanel } from './sheet/BioPanel';
 import { TagsPanel } from './sheet/TagsPanel';
 import { useAdvancementEditor } from './sheet/useAdvancementEditor';
+import { useSpellEditor } from './sheet/useSpellEditor';
 import { useI18n } from '../../i18n';
 
-// ── The live character sheet, bound to the redacted core view ───────────────────────────────────
 export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -36,18 +35,13 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 	const isPhone = useSingleColumn();
 	const actorId = runtime.defaultActorId;
 	const [editMode, setEditMode] = useState(false);
-	// A single screen-level `role="alert"` under the BackBar carried BOTH core rejections and the
-	// per-field validation messages — but every validation writer lives deep inside an edit-mode
-	// panel, so "Set AC" with a blank field printed its reason hundreds of pixels above the fold and
-	// read as a dead button. `field` routes a validation message to its own control instead.
+	// Route validation feedback to the field that caused it.
 	const [error, setError] = useState<{
 		text: string;
 		field?: 'ac' | 'slots' | 'xp';
 		seq?: number;
 	} | null>(null);
-	// `role="alert"` announces on INSERTION, and re-rendering the same node with byte-identical text
-	// is an `Object.is` bail-out — so a repeated refusal (press Damage twice at 0 HP) was announced
-	// exactly once. `seq` keys the alert node, so every raise really is a new node.
+	// A fresh alert key lets repeated refusals announce again.
 	const errSeq = useRef(0);
 	const raiseError = (next: { text: string; field?: 'ac' | 'slots' | 'xp' }) => {
 		errSeq.current += 1;
@@ -94,12 +88,6 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 	const [nameDraft, setNameDraft] = useState('');
 	const [editingName, setEditingName] = useState(false);
 
-	// Spellcasting local inputs (edit mode): add a known spell / declare a slot level (CHAR-008).
-	const [spellName, setSpellName] = useState('');
-	const [spellLevel, setSpellLevel] = useState('1');
-	const [slotLevel, setSlotLevel] = useState('1');
-	const [slotMax, setSlotMax] = useState('');
-
 	// Attack-list editor rows (null ⇒ not editing). Saved through `character.update-attacks`
 	// (full-replacement: the submitted rows ARE the new list; a row without an id is a new attack).
 	const [attackRows, setAttackRows] = useState<
@@ -120,16 +108,13 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 		id,
 	);
 	const actor = runtime.state.permissions.actors[actorId] ?? null;
-	const isDm = actor?.role === 'dm';
+	const isDm = actor?.role === 'dm' && !runtime.readOnly;
 	const record = view ? (runtime.state.characters.characters[id] ?? null) : null;
 	const resources = record ? resourcesOf(record) : null;
 	const advancement = record ? advancementStateOf(record) : null;
 	const players = runtime.actors.filter((a) => a.role === 'player');
 
-	// Structured proficiency slice (hydrated with safe defaults on the view) + the PURE derived
-	// queries: the effective proficiency bonus (explicit override, else derived from `data.level` by
-	// the standard 5e progression) and passive perception (10 + WIS mod + perception proficiency).
-	// Both derive on read — they can never drift from the stored scores/proficiencies.
+	// Proficiency bonuses are derived on read, never stored.
 	const prof = view?.proficiencies ?? null;
 	const profBonus = record ? effectiveProficiencyBonus(record) : null;
 	const passivePer = record ? passivePerception(record) : null;
@@ -169,10 +154,19 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 		setError,
 	});
 
+	const spellEditor = useSpellEditor({
+		actorId,
+		id,
+		newId: () => runtime.newId(),
+		dispatch,
+		setError,
+	});
+
 	if (!view) {
 		return (
 			<Page max={920}>
 				<BackBar onBack={onBack} />
+				<h2 style={srOnly}>{t('characters.detailsHeading')}</h2>
 				<EmptyState
 					icon="dm-only"
 					title={t('characters.unavailableTitle')}
@@ -294,65 +288,6 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 			},
 			`Renamed to ${next}.`,
 		);
-	}
-
-	// CHAR-008 spell/slot writes — DM or character owner, NOT session-gated (unlike CHAR-007's
-	// `update-combat-resource`), so the DM sheet can spend/restore slots outside a live session.
-	// Same command pattern as the /player resources tab.
-	async function toggleSlot(level: number, max: number, expended: number, filled: boolean) {
-		// Clicking a filled diamond expends a slot; a hollow one recovers it.
-		const nextExpended = filled ? Math.min(max, expended + 1) : Math.max(0, expended - 1);
-		await dispatch(
-			{
-				type: 'character.set-spell-slots',
-				actorId,
-				payload: { characterId: id, level, max, expended: nextExpended },
-			},
-			`Level ${level}: ${max - nextExpended} of ${max} slots remaining.`,
-		);
-	}
-	async function togglePrepared(s: PreparedSpell) {
-		await dispatch(
-			{
-				type: 'character.set-spell',
-				actorId,
-				payload: { characterId: id, id: s.id, name: s.name, level: s.level, prepared: !s.prepared },
-			},
-			`${s.name} ${s.prepared ? 'unprepared' : 'prepared'}.`,
-		);
-	}
-	async function addSpell() {
-		const trimmed = spellName.trim();
-		if (!trimmed) return;
-		const level = clamp(Math.trunc(Number(spellLevel) || 0), 0, 9);
-		if (
-			await dispatch(
-				{
-					type: 'character.set-spell',
-					actorId,
-					payload: { characterId: id, id: runtime.newId(), name: trimmed, level, prepared: true },
-				},
-				`${trimmed} added at level ${level}.`,
-			)
-		) {
-			setSpellName('');
-		}
-	}
-	async function declareSlots() {
-		const level = clamp(Math.trunc(Number(slotLevel) || 0), 0, 9);
-		const max = Math.max(0, Math.trunc(Number(slotMax)));
-		if (slotMax.trim() === '' || !Number.isFinite(Number(slotMax))) {
-			setError({ text: 'Enter how many slots this level has.', field: 'slots' });
-			return;
-		}
-		if (
-			await dispatch(
-				{ type: 'character.set-spell-slots', actorId, payload: { characterId: id, level, max } },
-				`Level ${level} now has ${max} slots.`,
-			)
-		) {
-			setSlotMax('');
-		}
 	}
 
 	// Post-create attack editing (owner-or-DM, `character.update-attacks`): the saved rows replace the
@@ -503,18 +438,18 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 							slots={slots}
 							classResources={classResources}
 							spells={spells}
-							spellName={spellName}
-							setSpellName={setSpellName}
-							spellLevel={spellLevel}
-							setSpellLevel={setSpellLevel}
-							slotLevel={slotLevel}
-							setSlotLevel={setSlotLevel}
-							slotMax={slotMax}
-							setSlotMax={setSlotMax}
-							toggleSlot={toggleSlot}
-							togglePrepared={togglePrepared}
-							addSpell={addSpell}
-							declareSlots={declareSlots}
+							spellName={spellEditor.spellName}
+							setSpellName={spellEditor.setSpellName}
+							spellLevel={spellEditor.spellLevel}
+							setSpellLevel={spellEditor.setSpellLevel}
+							slotLevel={spellEditor.slotLevel}
+							setSlotLevel={spellEditor.setSlotLevel}
+							slotMax={spellEditor.slotMax}
+							setSlotMax={spellEditor.setSlotMax}
+							toggleSlot={spellEditor.toggleSlot}
+							togglePrepared={spellEditor.togglePrepared}
+							addSpell={spellEditor.addSpell}
+							declareSlots={spellEditor.declareSlots}
 							fieldError={fieldError}
 						/>
 					)}
