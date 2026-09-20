@@ -306,3 +306,38 @@ and graph scenarios; samples still start at navigation, after page close/create.
 No failed sample is converted to a pass or omitted. Earlier failed captures stay
 in local `tmp/perf` as failed evidence. A fresh seven-batch standard/large capture
 of those four workflows is running against the final implementation.
+
+### Final local result
+
+The uninterrupted final selected capture exited **0**: standard and large vault
+open, search, graph indexing and sync each produced seven batches, **8 rows /
+56 batches / 462 raw samples**, with no missing observations. The committed
+[local report](reports/2026-09-20-large-vault/README.md) includes the raw capture
+(hostname redacted only) and the final fixture-build record: **614.3 ms**, exactly
+5,000 notes / 200 maps / 60 tiles / 40 characters and 200 update operations.
+
+The capture records `882a242bf7c2412b41f60b82c0599c15458cef03`. The last edit while
+it ran restored a TypeScript-only `Page.reload` interface member still used by
+the map scenario; it did not change measured runtime code. A direct TypeScript
+check of `capture.ts`, using app compiler options and core's Node type definitions,
+then passed. The final scoped perf suite passed 3 files / 16 tests; targeted
+ESLint and formatting passed. Earlier broad app/tooling/core and typecheck results
+remain above. All tracked changes are within the task claim.
+
+The other large scenarios also produced real samples in separate functional
+probes: smoke CI (1), startup (3), widget update (25), map desktop (46 frames),
+map slim (193 frames), scene render (seven batches / 21 samples), and local live
+delivery (15). These mixed development probes are not a complete hosted capture
+or stability verdict. The final report intentionally contains only its fresh
+selected eight rows. CI baseline-writing tests verify all 22 configured entries
+and fail closed on a missing row.
+
+Large graph indexing measured **3,258.5 ms** against the provisional **1,000 ms**
+absolute target. The other seven selected rows met their absolute targets. This
+is a reported performance finding, not a reason to raise the target or fabricate
+baseline data. Hosted same-runner drift, a complete 22-row baseline, central gates
+and independent review remain the operator's subsequent work. Nothing was pushed
+or promoted; no workflow, loop, sub-agent or dispatcher control-state change was
+launched. The task-created reference checkout and diagnostic servers were removed
+or stopped; original local failed diagnostics remain available under `tmp/perf`
+and the task-named `/tmp/rc-eng-3.3-*` logs.
