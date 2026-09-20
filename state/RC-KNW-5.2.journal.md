@@ -29,3 +29,31 @@ minimal edit script. Visibility and other metadata are deliberately not restored
 
 No Headroom tools were available. Commands used native tooling and retained test output in local
 /tmp/rc-knw-\*.log files. No agents, push, promotion, or dispatcher state changes.
+
+## Ownership-fence retry (2026-09-20)
+
+The operator's 2026-09-18 brief explicitly adds `packages/core/src/commands/content.ts`
+to Owns. The prior implementation commit `e6acd569` remains on this task branch unchanged;
+the reported rejection was the ownership fence, not a failed behavior test. No dispatcher state
+was edited to resolve it. This retry documents the now-authorized edits and reruns acceptance tests.
+
+The command file has exactly five one-line payload additions, preserving all prior payload keys:
+
+- Create records the initial text and visibility, which the old kind/visibility payload cannot recover.
+- Update records the resulting text and revision for each accepted edit, including history restores.
+- Set visibility records the resulting visibility and membership alongside the text, so historical
+  access is evaluated at that revision rather than inferred from the current sharing setting.
+- Remove records the tombstone revision so replay excludes deleted snapshots.
+- Restore records the live revision after undelete, retaining its actual sharing settings.
+
+No command authorization, validation, conflict handling, revision increments, or event delivery
+was changed. The previous companion export, translations and acceptance tests remain unchanged.
+
+Fresh validation:
+
+- `pnpm --filter @dndtools/core exec vitest run tests/content-history.test.ts tests/content-notes.test.ts`:
+  2 files, 19 tests passed, including replay determinism and player confidentiality.
+- Playwright `knowledge.spec.ts --grep 'history restores'`, desktop-chromium and mobile-chromium:
+  2 tests passed. Each edits twice, restores the first edit, checks revision advancement and reloads.
+- No implementation changes were needed for the supplied fence feedback. The broader validation
+  results above belong to the original attempt; only the acceptance checks were rerun in this retry.
