@@ -139,7 +139,7 @@ export const PERFORMANCE_BUDGET_REGISTRY_VERSION = 1 as const;
  * see `docs/development/PERFORMANCE.md` for values, sample counts, hardware, and coverage limits.
  * The provisional maturity variant remains supported for future budgets without measurements.
  */
-export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
+const STANDARD_PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 	{
 		id: 'smoke-ci',
 		workflow: 'Smoke CI',
@@ -296,6 +296,31 @@ export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 	},
 ];
 
+/** RC-ENG-3.3: separate IDs keep both fixture rows in capture, baseline and CI verdicts.
+ * These are provisional targets; no timings are invented when declaring the large row.
+ * Other workflows retain their existing target on the larger background vault.
+ */
+const LARGE_TARGETS: Readonly<Record<string, number>> = {
+	search: 500,
+	'graph-indexing': 1_000,
+	'vault-open': 5_000,
+	'scene-first-render': 2_500,
+};
+export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
+	...STANDARD_PERFORMANCE_BUDGETS,
+	...STANDARD_PERFORMANCE_BUDGETS.map(
+		(budget): PerformanceBudget => ({
+			...budget,
+			id: `${budget.id}:large`,
+			workflow: `${budget.workflow} (large vault)`,
+			dataset: '5,000 notes / 200 maps / 60 tiles / 40 characters',
+			metric: { ...budget.metric, target: LARGE_TARGETS[budget.id] ?? budget.metric.target },
+			// The standard rows' baselines were measured on the standard fixture, not this one.
+			maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		}),
+	),
+];
+
 /** The registry id of the budget that owns the COLLAB live-session p95 delivery target (see migration note). */
 export const LIVE_SESSION_DELIVERY_BUDGET_ID = 'live-session-delivery' as const;
 
@@ -317,13 +342,13 @@ export function budgetForId(
 }
 
 /**
- * Every declared budget owned by a domain, in registry order. Lets a planning review confirm the
- * relevant budgets exist before that domain starts implementation (PERF-001 AC1). Owner match is
- * case-insensitive so `Maps` and `maps` resolve the same.
+ * Workflow ownership lookup (PERF-001 AC1), in registry order. Defaults to one entry per
+ * workflow, preserving the planning API. Pass PERFORMANCE_BUDGETS explicitly to inspect every
+ * fixture target. Owner match is case-insensitive so `Maps` and `maps` resolve the same.
  */
 export function budgetsForOwner(
 	owner: string,
-	budgets: readonly PerformanceBudget[] = PERFORMANCE_BUDGETS,
+	budgets: readonly PerformanceBudget[] = STANDARD_PERFORMANCE_BUDGETS,
 ): PerformanceBudget[] {
 	const needle = owner.trim().toLowerCase();
 	return budgets.filter((budget) => budget.owner.trim().toLowerCase() === needle);

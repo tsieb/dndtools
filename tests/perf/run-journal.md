@@ -240,3 +240,34 @@ reference `48a82786`. The archive, checksums and analysis are in
 acceptance. `search` reads +67–117% in four runs, which is 6 ms rising to
 10–13 ms, inside the 25 ms floor. That is a small real offset between the two
 commits, not a verdict flip. Hosted five-run agreement remains RC-ENG-1.4's.
+
+## 2026-09-20 — RC-ENG-3.3 large-vault fixture
+
+Task branch started clean. No applicable AGENTS.md or callable Headroom tools
+were found. Implementation stays within the task's owned paths.
+
+Added a deterministic large snapshot profile (5,000 linked notes, 200 maps,
+60 home-board tiles, 40 characters) with a bounded 200-operation real delta.
+The capture harness installs the same snapshot through each revision's durable
+restore API before timing navigation. The eleven `:large` registry keys retain
+independent samples, baseline entries and verdicts alongside the standard row;
+the existing CI baseline/comparison/stability pipeline consumes the expanded
+registry without a separate workflow. Smoke CI remains a repository-wide check
+and its large-row fixture explicitly states that scope.
+
+Initial validation found the restore wire format must exclude the runtime-only
+`idempotencyKeys` Set. Capture now sends `{ operations }`, like a backup snapshot.
+The historical workstation baseline gained explicit unmeasured/null large rows;
+these are not fabricated timings or hosted CI evidence. Targeted tests, browser
+capture and type/lint checks are in progress; final results follow below.
+
+Local checks completed: scoped perf config 3 files / 16 tests; core perf suites
+3 files / 114 tests; tooling 26 files / 196 tests; app tests 144 files / 1,584 tests;
+core and app typechecks; targeted ESLint; boundary lint; formatting; diff check.
+The owner-planning lookup preserves one default entry per workflow; passing the
+expanded registry explicitly exposes all fixture targets. Tests cover both forms.
+A standalone full fixture construction measured 695.1 ms with exact counts and
+200 operations. Browser probing has recorded seven batches each for large vault
+open and scene render; search and graph indexing are still running. A temporary
+pinned-reference checkout is being prepared to verify the restore seam on the
+actual CI reference. These are local checks, not central or hosted gate results.
