@@ -6,6 +6,8 @@ import {
 	makeEnvironment,
 } from '../src/testing/fixtures';
 import { dispatchCommand, getContentHistoryForActor, type CoreCommand } from '../src';
+import { filterCatchUpStream, filterReplicationStream } from '../src/collab/replication-filter';
+import { contentItemVisibilityMetadata } from '../src/state/content';
 import { createOperationLog } from '../src/sync/operation-log';
 
 function fixture() {
@@ -99,6 +101,46 @@ describe('note revision history', () => {
 		expect(f.history('unknown')).toEqual([]);
 		f.run('content.set-item-visibility', { itemId: f.id, visibility: 'dm-only' });
 		expect(f.history(PLAYER_ACTOR.id)).toEqual([]);
+	});
+
+	it('keeps private snapshots out of serialized live and catch-up player streams', () => {
+		const f = fixture();
+		f.run('content.update-item', { itemId: f.id, body: 'PRIVATE-HISTORY-CANARY' });
+		f.run('content.update-item', { itemId: f.id, body: 'Public text' });
+		f.run('content.set-item-visibility', { itemId: f.id, visibility: 'player-visible' });
+		const streams = () => {
+			const metadata = contentItemVisibilityMetadata(f.state.content.items[f.id]!);
+			const resolve = (op: (typeof f.state.sync.operations)[number]) =>
+				op.entityType === metadata.entityType && op.entityId === metadata.entityId
+					? metadata
+					: undefined;
+			// Exercise the actual wire shape, including after durable serialization/reload.
+			const operations = JSON.parse(JSON.stringify(f.state.sync.operations));
+			return [
+				filterReplicationStream(operations, PLAYER_ACTOR, resolve, f.state.permissions),
+				filterCatchUpStream(operations, PLAYER_ACTOR, resolve, new Set(), f.state.permissions),
+			];
+		};
+		for (const stream of streams()) {
+			expect(stream.delivered.length).toBeGreaterThan(0);
+			expect(JSON.stringify(stream.delivered)).not.toContain('PRIVATE-HISTORY-CANARY');
+			expect(stream.delivered.every((op) => op.entityType === 'content-item')).toBe(true);
+		}
+		f.run('content.update-item', {
+			itemId: f.id,
+			body: 'Public text\n\n> [!Secret]\n> SECRET-CALLOUT-CANARY',
+		});
+		f.run('content.remove-item', { itemId: f.id });
+		f.run('content.restore-item', { itemId: f.id });
+		for (const stream of streams()) {
+			expect(JSON.stringify(stream.delivered)).not.toMatch(
+				/PRIVATE-HISTORY-CANARY|SECRET-CALLOUT-CANARY|snapshot/,
+			);
+		}
+		expect(JSON.stringify(f.history())).toContain('PRIVATE-HISTORY-CANARY');
+		expect(JSON.stringify(f.history(PLAYER_ACTOR.id))).not.toMatch(
+			/PRIVATE-HISTORY-CANARY|SECRET-CALLOUT-CANARY/,
+		);
 	});
 
 	it('bounds results to 50 revisions and 30 days, and omits metadata-only legacy entries', () => {

@@ -1,5 +1,9 @@
 import type { ActorId, OperationId } from '../state/ids';
 
+/** Private history targets deliberately have no player visibility metadata or grants.
+ * Keep snapshots off content-item operations: catch-up uses the item's CURRENT visibility. */
+export const CONTENT_HISTORY_ENTITY_TYPE = 'content-history';
+
 export const SYNC_OPERATION_SCHEMA_VERSION = 1 as const;
 
 export interface SyncOperation {

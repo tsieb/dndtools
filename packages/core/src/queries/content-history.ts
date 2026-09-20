@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import type { VaultContentState } from '../state/content';
-import { CONTENT_ITEM_ENTITY_TYPE } from '../state/content';
 import type { PermissionState } from '../state/permission-state';
 import { getContentItemsForActor } from './content-query';
-import { operationsForEntity, type OperationLog } from '../sync/operation-log';
+import {
+	CONTENT_HISTORY_ENTITY_TYPE,
+	operationsForEntity,
+	type OperationLog,
+} from '../sync/operation-log';
 
 const snapshotSchema = z.object({
 	id: z.string(),
@@ -63,7 +66,7 @@ export function getContentHistoryForActor(
 	if (!Number.isFinite(cutoff)) return [];
 	const revisions = new Map<number, ContentRevisionView>();
 	let previous = '';
-	for (const op of operationsForEntity(log, CONTENT_ITEM_ENTITY_TYPE, itemId)) {
+	for (const op of operationsForEntity(log, CONTENT_HISTORY_ENTITY_TYPE, itemId)) {
 		const parsed = snapshotSchema.safeParse(
 			(op.value as { snapshot?: unknown } | undefined)?.snapshot,
 		);

@@ -82,3 +82,46 @@ Fresh validation on the reconciled tree:
   changes only in the two intended conflict contexts; the ownership-journal commit is unchanged.
 
 Rebased implementation commit: `4bd6dce7`; rebased ownership-journal commit: `8cef22cb`.
+
+## Independent-review confidentiality correction (2026-09-20)
+
+The previous snapshot-in-item-value design was unsafe: catch-up checks current entity visibility,
+so revealing a note also released its earlier private snapshots. The earlier query-only privacy
+checks did not exercise the serialized replication boundary. This section supersedes the earlier
+claim that the five snapshot payload additions needed no implementation changes.
+
+Minimal authorized command changes replace those same five snapshot additions (create, update,
+visibility, remove, restore) with one shared append helper. Each appends a private `content-history`
+operation followed by the original metadata-only `content-item` mutation. Both are persisted in the
+existing atomic command commit, and both IDs are returned. The mutation stays last for existing
+consumers. History targets intentionally have no player visibility metadata or grants; the existing
+namespaced replication resolver therefore fails closed for them, even when the content item is
+revealed. No snapshot bytes enter the player-deliverable operations. DM replication remains complete.
+No command authority, conflict handling, note revision arithmetic, or UI restore behavior changed.
+
+The operation-log module names this separate entity type; the query folds only that namespace.
+The private operations use existing durable log persistence, so no storage schema or platform edits
+are needed. Player history remains an actor-filtered host query (including callout redaction), not a
+raw history replication stream. Metadata-only legacy records still cannot reconstruct old prose.
+The rejected, unshipped candidate's inline-snapshot format is not a supported history input.
+
+The existing history acceptance test file adds a serialized-stream regression covering both
+`filterReplicationStream` and `filterCatchUpStream`: private edit, replacement with public prose,
+reveal, secret-callout update, soft deletion and restoration. It checks actual serialized delivery
+while confirming DM history retains the canary and player history excludes it. This test companion
+and this required journal are the only edits outside the implementation Owns paths.
+
+Fresh verification (original uncompressed output in `/tmp/rc-knw-privacy-*.log`):
+
+- Initial targeted run exposed three last-operation-order assumptions; recording history before the
+  mutation resolved them. Final targeted history/notes/replication run: 3 files, 30 tests passed.
+- Full core suite: 282 files, 4,908 tests passed.
+- Full app suite: 144 files, 1,584 tests passed.
+- Desktop and mobile history restore e2e: 2 passed, including advancing revision and reload persistence.
+- Workspace typecheck: core, cloud-fns and gm-react passed. Core typecheck repeated after a helper
+  argument-order cleanup that reduced command-file diff noise; targeted tests repeated too.
+- Changed TypeScript ESLint and Prettier checks passed.
+- `pnpm gates`: 6 quality gates and docs reachability passed; existing file-size warnings only.
+
+No Headroom tools were exposed. No additional agents, dispatcher state changes, push or promotion.
+The central operator's exact-commit gates and independent review remain pending.

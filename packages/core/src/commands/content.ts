@@ -43,7 +43,30 @@ import {
 	reject,
 	requireActor,
 } from './helpers';
+import { CONTENT_HISTORY_ENTITY_TYPE } from '../sync/operation-log';
 import { actorMayEditItem } from './content-edit-authority';
+
+/** History has a separate, private target: never attach prose to a replicable item operation.
+ * No visibility metadata or grants are published for these targets, so replication fails closed.
+ * Both operations use the existing durable log and are committed atomically with the item. */
+function appendContentRevision(
+	env: CoreEnvironment,
+	state: CoreStateSlice,
+	actor: Actor,
+	snapshot: ContentItem,
+	draft: Parameters<typeof appendOperationDraft>[3],
+) {
+	const history = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: CONTENT_HISTORY_ENTITY_TYPE,
+		entityId: snapshot.id,
+		opType: 'content.record-revision',
+		value: { snapshot },
+		beforeRevision: draft.beforeRevision,
+		afterRevision: snapshot.revision,
+	});
+	const mutation = appendOperationDraft(env, history.log, actor.id, draft);
+	return { log: mutation.log, operationIds: [history.op.id, mutation.op.id] };
+}
 
 /**
  * CONTENT-011 — durable CALENDAR/CUSTOM-TIME CONTENT commands (Architecture Contract 1 / Contract 3).
@@ -240,12 +263,12 @@ export function handleCreateContentItem(
 	);
 
 	const nextContent = addContentItem(content, item);
-	const draft = appendOperationDraft(env, state.sync, actor.id, {
+	const draft = appendContentRevision(env, state, actor, item, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: item.id,
 		opType: 'content.create-item',
 		path: `content/items/${item.id}`,
-		value: { kind: item.kind, visibility: item.visibility, snapshot: item },
+		value: { kind: item.kind, visibility: item.visibility },
 		afterRevision: item.revision,
 	});
 
@@ -261,7 +284,7 @@ export function handleCreateContentItem(
 				actor.id,
 			),
 		],
-		operationIds: [draft.op.id],
+		operationIds: draft.operationIds,
 	};
 }
 
@@ -390,12 +413,12 @@ export function handleUpdateContentItem(
 		);
 	}
 	const updated = contentItemById(nextContent, parsed.data.itemId)!;
-	const draft = appendOperationDraft(env, state.sync, actor.id, {
+	const draft = appendContentRevision(env, state, actor, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: updated.id,
 		opType: 'content.update-item',
 		path: `content/items/${updated.id}`,
-		value: { kind: updated.kind, snapshot: updated },
+		value: { kind: updated.kind },
 		beforeRevision: existing.revision,
 		afterRevision: updated.revision,
 	});
@@ -412,7 +435,7 @@ export function handleUpdateContentItem(
 				actor.id,
 			),
 		],
-		operationIds: [draft.op.id],
+		operationIds: draft.operationIds,
 	};
 }
 
@@ -484,12 +507,12 @@ export function handleSetContentItemVisibility(
 		]),
 	];
 
-	const draft = appendOperationDraft(env, state.sync, actor.id, {
+	const draft = appendContentRevision(env, state, actor, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: updated.id,
 		opType: 'content.set-item-visibility',
 		path: `content/items/${updated.id}`,
-		value: { from: before.visibility, to: updated.visibility, snapshot: updated },
+		value: { from: before.visibility, to: updated.visibility },
 		beforeRevision: before.revision,
 		afterRevision: updated.revision,
 	});
@@ -500,7 +523,7 @@ export function handleSetContentItemVisibility(
 		events: [
 			itemChangedEvent(updated.id, 'set-visibility', updated.visibility, invalidated, actor.id),
 		],
-		operationIds: [draft.op.id],
+		operationIds: draft.operationIds,
 	};
 }
 
@@ -558,12 +581,12 @@ export function handleRemoveContentItem(
 		);
 	}
 	const updated = contentItemById(nextContent, parsed.data.itemId)!;
-	const draft = appendOperationDraft(env, state.sync, actor.id, {
+	const draft = appendContentRevision(env, state, actor, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: parsed.data.itemId,
 		opType: 'content.remove-item',
 		path: `content/items/${parsed.data.itemId}`,
-		value: { itemId: parsed.data.itemId, softDelete: true, snapshot: updated },
+		value: { itemId: parsed.data.itemId, softDelete: true },
 		beforeRevision: before.revision,
 		afterRevision: updated.revision,
 	});
@@ -580,7 +603,7 @@ export function handleRemoveContentItem(
 				actor.id,
 			),
 		],
-		operationIds: [draft.op.id],
+		operationIds: draft.operationIds,
 	};
 }
 
@@ -636,12 +659,12 @@ export function handleRestoreContentItem(
 		);
 	}
 	const updated = contentItemById(nextContent, parsed.data.itemId)!;
-	const draft = appendOperationDraft(env, state.sync, actor.id, {
+	const draft = appendContentRevision(env, state, actor, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: updated.id,
 		opType: 'content.restore-item',
 		path: `content/items/${updated.id}`,
-		value: { itemId: updated.id, snapshot: updated },
+		value: { itemId: updated.id },
 		beforeRevision: before.revision,
 		afterRevision: updated.revision,
 	});
@@ -660,6 +683,6 @@ export function handleRestoreContentItem(
 				actor.id,
 			),
 		],
-		operationIds: [draft.op.id],
+		operationIds: draft.operationIds,
 	};
 }
