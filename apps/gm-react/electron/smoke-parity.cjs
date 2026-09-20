@@ -1,7 +1,7 @@
 // Real production main/preload smoke. Run write then verify with the same SMOKE_USER_DATA.
 'use strict';
 const assert = require('node:assert/strict');
-const { app, BrowserWindow, Menu, ipcMain, dialog, screen } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, screen, nativeTheme } = require('electron');
 const { joinHash, readWindowState } = require('./parity.cjs');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -78,6 +78,12 @@ app.whenReady().then(async () => {
 		const win = BrowserWindow.getAllWindows()[0];
 		const event = { sender: win.webContents, senderFrame: win.webContents.mainFrame };
 		await until(() => Menu.getApplicationMenu()?.getMenuItemById('global.palette'));
+		// Keep integration's System theme semantics through the same IPC table as parity.
+		assert.equal(await handlers.get('window:set-theme')(event, 'scholar', true), true);
+		assert.equal(nativeTheme.themeSource, 'system');
+		assert.equal(await handlers.get('window:set-theme')(event, 'dungeon', false), true);
+		assert.equal(nativeTheme.themeSource, 'dark');
+		assert.equal(await handlers.get('window:set-theme')(event, 'tavern', false), true);
 		assert.equal(joinHash('lamplight://join/abc_123'), '#/join?token=abc_123');
 		for (const bad of [
 			'https://join/abc',
@@ -182,6 +188,7 @@ app.whenReady().then(async () => {
 					mode: verify ? 'verify' : 'write',
 					checks: [
 						'registry menu action',
+						'system and preset theme IPC',
 						'join cold/warm/second-instance',
 						'invalid links',
 						'IPC isolation',

@@ -106,3 +106,34 @@ Current-run results:
 - Aggregate diff against pre-task `e86f14db` contains only the ten owned files. No dispatcher state,
   remote publication, promotion, or other loop was touched. Full operator gates and independent
   review remain external to this run; installed OS handoff/physical-display limits still apply.
+
+## Run 4 — reconcile integration base (2026-09-20)
+
+Rebased the three candidate commits onto `2d9f566d194d10e597c8001015b7e8be31811d59`.
+Resolved the two reported conflicts without discarding either feature:
+
+- `electron/main.cjs`: retain the integration branch's `followSystem` theme IPC argument and its
+  propagation into `applyWindowTheme`, alongside the desktop ready/menu/live handlers. Scholar and
+  dungeon presets and both preload theme changes remain intact.
+- `src/app/shortcuts/registry.ts`: retain canvas selection/move/add and map-help shortcuts plus the
+  complete mounted-canvas subscription API; append the desktop bridge and registry menu adapter.
+- `electron/smoke-parity.cjs`: exercise System and explicit dungeon theme selection through the
+  production handler to detect a regression at the conflicted IPC boundary.
+
+No further changes to builder configuration, PlatformLifecycle, or standard smoke runner were
+needed. Their minimal integrations and reasons remain as documented in Runs 2 and 3. The aggregate
+candidate against the requested integration base still touches only the ten owned files.
+Current reconciliation checks are recorded below when complete.
+
+Reconciliation verification:
+
+- `pnpm --filter @dndtools/gm-react desktop:smoke`: exit 0, including a fresh Vite production build,
+  origin write/verify, migration, 12 updater checks, and both parity launches with the new System /
+  preset theme assertions. Original result lines read from `/tmp/rc-plt-1.3-rebase-smoke.log`.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- App Vitest registry/theme suites: 20 tests passed across two files; Electron hardening suite:
+  nine tests passed. Original outputs: `/tmp/rc-plt-1.3-rebase-tests.log` and
+  `/tmp/rc-plt-1.3-rebase-hardening.log`.
+- Prettier checks, `node --check` for main/smoke, and `git diff --check`: passed.
+- Verified the requested integration SHA is an ancestor and inspected the complete main/registry
+  diffs against it: the integration features are preserved. No unowned aggregate changes.
