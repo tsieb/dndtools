@@ -1,4 +1,6 @@
-import { Card } from '../../ds';
+import { useEffect, useState } from 'react';
+import { Button, Card, EmptyState } from '../../ds';
+import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { Page } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 
@@ -40,4 +42,71 @@ export function BoardPlayerNotice() {
 			</Card>
 		</Page>
 	);
+}
+
+/** Shared onboarding for the home board and authored scenes. */
+export function BoardEmptyState({
+	title,
+	repeat,
+	onAdd,
+	onTemplate,
+	testId,
+}: {
+	title: string;
+	repeat: boolean;
+	onAdd: () => void;
+	onTemplate: () => void;
+	testId: string;
+}) {
+	const { t } = useI18n();
+	return (
+		<EmptyState
+			data-testid={testId}
+			illustration="session-board-empty"
+			title={title}
+			inset
+			style={{
+				position: 'absolute',
+				inset: 0,
+				overflow: 'auto',
+				background: 'var(--color-bg)',
+			}}
+			action={
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+					<Button variant="primary" icon="plus" onClick={onAdd}>
+						{t('board.addFirstTile')}
+					</Button>
+					{!repeat && (
+						<Button variant="secondary" icon="layers" onClick={onTemplate}>
+							{t('board.applyTemplate')}
+						</Button>
+					)}
+				</div>
+			}
+		/>
+	);
+}
+
+function readFilledBoards(): Set<string> {
+	try {
+		const value: unknown = JSON.parse(readPreference(PREFERENCE_KEYS.boardFilled) ?? '[]');
+		return new Set(
+			Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [],
+		);
+	} catch {
+		return new Set();
+	}
+}
+
+/** Persist only successful content, never a dismissed gallery or a failed add. */
+export function useBoardPreviouslyFilled(sceneId: string | null, hasTiles: boolean) {
+	const [filled, setFilled] = useState<ReadonlySet<string>>(readFilledBoards);
+	useEffect(() => {
+		if (!sceneId || !hasTiles) return;
+		setFilled((previous) => (previous.has(sceneId) ? previous : new Set([...previous, sceneId])));
+		const stored = readFilledBoards();
+		stored.add(sceneId);
+		writePreference(PREFERENCE_KEYS.boardFilled, JSON.stringify([...stored]));
+	}, [sceneId, hasTiles]);
+	return (sceneId !== null && filled.has(sceneId)) || hasTiles;
 }

@@ -25,6 +25,8 @@ import { vaultPreferenceKey } from './storage/coreStore';
  * is a type error, and the whole set of things this app persists per-device is readable here.
  */
 export const PREFERENCE_KEYS = {
+	/** Scene ids that have contained tiles, for repeat-empty onboarding. */
+	boardFilled: 'dndtools:react:board-filled',
 	markGmOnly: 'dndtools:react:mark-gm-only',
 	/** Active theme preset — shared by Settings › Appearance and the Theme studio. */
 	theme: 'dndtools:react:theme',

@@ -32,7 +32,11 @@ import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
 import { registerCanvasSurface } from '../app/shortcuts/registry';
 import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
-import { BoardPlayerNotice } from './board/BoardPlayerNotice';
+import {
+	BoardEmptyState,
+	useBoardPreviouslyFilled,
+	BoardPlayerNotice,
+} from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
 import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
@@ -149,6 +153,11 @@ export function Board() {
 				ensuringRef.current = false;
 			});
 	}, [runtime, runtime.loaded, isDm, homeSceneId, summary, actorId]);
+
+	const previouslyFilled = useBoardPreviouslyFilled(
+		homeSceneId,
+		!!homeSceneId && (runtime.state.scenes.scenes[homeSceneId]?.widgets.length ?? 0) > 0,
+	);
 
 	const widgets: BoardWidget[] = useMemo(() => {
 		if (!ready || !homeSceneId) return [];
@@ -544,37 +553,6 @@ export function Board() {
 				</Callout>
 			)}
 
-			{/* RC-CAN-4.4 — the empty-state moment for templates. The canvas's empty message is
-			    `pointer-events: none`, so the offer sits in the page flow above the canvas. */}
-			{ready && widgets.length === 0 && (
-				<div
-					data-testid="board-empty-templates"
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						flexWrap: 'wrap',
-						gap: 'var(--space-2)',
-						flex: '0 0 auto',
-						font: 'var(--text-xs) var(--font-sans)',
-						color: 'var(--color-text-secondary)',
-					}}
-				>
-					<span>{t('board.emptyTemplatesHint')}</span>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="layers"
-						onClick={() => {
-							setTemplatesOpen(true);
-							setAddOpen(false);
-							setLayoutsOpen(false);
-						}}
-					>
-						{t('board.useTemplate')}
-					</Button>
-				</div>
-			)}
-
 			{/* RC-CAN-3.3/3.4: a widget dragged (or preset-applied) past the board's columns is clamped
 			    back onto the grid at the point it commits, but that snap can still land it on top of
 			    another widget. This banner names that honestly instead of leaving an invisible overlap,
@@ -695,27 +673,44 @@ export function Board() {
 					position: 'relative',
 				}}
 			>
-				<SceneBoardCanvas
-					widgets={widgets}
-					policy="bounded"
-					editing={editing}
-					snap={snap}
-					selectedId={selectedId}
-					onSelect={setSelectedId}
-					onMove={move}
-					onResize={resize}
-					focusOrder={focusOrder}
-					onRemove={remove}
-					onWidgetCommand={operateWidget}
-					emptyHint={ready ? t('board.emptyHint') : t('board.preparingHint')}
-					// Both branches are named: falling through to the canvas default meant a DM who removed
-					// every widget from the GM Screen was told "An empty scene" — scene vocabulary on a
-					// surface that is deliberately not a scene.
-					emptyTitle={ready ? t('board.emptyTitle') : t('board.preparingTitle')}
-					history={history}
-					zoomPreset={zoom}
-					onZoomPresetChange={setZoom}
-				/>
+				<div style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}>
+					<SceneBoardCanvas
+						widgets={widgets}
+						policy="bounded"
+						editing={editing}
+						snap={snap}
+						selectedId={selectedId}
+						onSelect={setSelectedId}
+						onMove={move}
+						onResize={resize}
+						focusOrder={focusOrder}
+						onRemove={remove}
+						onWidgetCommand={operateWidget}
+						emptyHint={ready ? '' : t('board.preparingHint')}
+						// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
+						emptyTitle={ready ? '' : t('board.preparingTitle')}
+						history={history}
+						zoomPreset={zoom}
+						onZoomPresetChange={setZoom}
+					/>
+					{ready && widgets.length === 0 && (
+						<BoardEmptyState
+							title={t('board.emptyTitle')}
+							repeat={previouslyFilled}
+							testId="board-empty-templates"
+							onAdd={() => {
+								setEditing(true);
+								setAddOpen(true);
+								setLayoutsOpen(false);
+							}}
+							onTemplate={() => {
+								setTemplatesOpen(true);
+								setAddOpen(false);
+								setLayoutsOpen(false);
+							}}
+						/>
+					)}
+				</div>
 
 				<AddWidgetGallery
 					open={addOpen}
