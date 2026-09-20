@@ -57,7 +57,7 @@ A ceiling is graded at its percentile; a floor at the complement (p95 ≥ 50 fps
 at or above); a `duration-ms` budget grades the worst run. `compare.ts` fails on a breached target,
 on drift past 20% against the baseline in the bad direction (ADR-009), or on an unmeasured budget,
 and grades drift only when the run's CPU matches the baseline's. The checked-in baseline was
-recorded on a 16-core desktop, so CI runs currently grade targets only; on 2026-09-09 two runs of
+recorded on a desktop with 16 logical CPUs, so CI runs currently grade targets only; on 2026-09-09 two runs of
 one unchanged commit swung `scene-first-render` between 1125 ms and 1621 ms at n=3. RC-ENG-1.3 owns
 a CI-hardware baseline and a larger sample; never loosen a budget to make a run pass.
 `.github/workflows/perf.yml` is path-filtered and uploads the run file and a report.
