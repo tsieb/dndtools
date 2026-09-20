@@ -337,3 +337,26 @@ file writes by the reviewer. Deployment/live drift remain unverified.
 
 This reconciliation changes only the two owned source files and the explicitly required journal
 relative to the prior task implementation. No push, promotion, dispatcher-state edit or deployment.
+
+## Tooling-gate diagnosis (2026-09-20)
+
+Read the original failed gate output for attempt `e068e78f-2761-4454-b057-a80b34e5a079`
+from the dispatcher's attempt log. The only failures are two assertions in
+`tests/unit/wiki-hosting.test.ts`: an exact header list excluding `x-app-client-ip`, and
+`ReadWikiDocument.Auth.Authorizer === 'NONE'`. Reproduced both with
+`pnpm exec vitest run tests/unit/wiki-hosting.test.ts` (2 failed, 2 passed).
+
+The implementation deliberately forwards an edge-overwritten viewer address for per-IP budgets
+and uses the origin-only authorizer for anonymous wiki reads. It does not forward Cognito tokens
+or cookies on that wiki behavior. Reverting these controls to satisfy the assertions would weaken
+the intended edge boundary. Prepared a narrow test patch outside the repository at
+`/tmp/RC-ENG-5.3-wiki-hosting-test.patch`: update those two expectations, retain cookie/JWT
+separation checks, and execute the shipped wiki viewer function to prove spoofed addresses are
+overwritten. A standalone read-only execution of the proposed assertions against both templates
+passed; this is NOT a passing tooling gate, whose file remains unchanged.
+
+The failing test file is outside the explicit owned paths. Requested operator authorization to
+add only `tests/unit/wiki-hosting.test.ts` to scope before applying the patch. No out-of-scope
+repository edits or production-control changes were made. Tooling gate remains failed pending
+that scope decision, application of the patch, and the full `pnpm test:tooling` rerun. Existing
+infra review remains applicable because no implementation or template changed in this diagnosis.
