@@ -1,7 +1,8 @@
 # RC-ENG-3.2 second-review recovery evidence
 
-**Acceptance remains unmet.** This complete paired run measures all eleven budgets
-on the current executable source. Ten absolute targets pass; graph indexing still
+**Historical capture after the recovery rebase; acceptance remains unmet.** See the
+[latest scope handoff](../2026-09-20-resolver-proposal/README.md). This paired run
+measures the recorded candidate below, not the current application tree. Ten absolute targets pass; graph indexing still
 breaches 500 ms. Scene first render improves only 2.3%, short of the requested
 approximately 20%. No target, tolerance, fixture size or aggregation policy changed.
 
@@ -36,10 +37,10 @@ verdict, not a dirty checkout.
   `world.continent` output. Other fixtures are stated in the comparison.
 - The capture ended at `2026-09-20T05:39:09.661Z` (September 19 locally).
   Hostname is `ci-runner`; local checkout paths in validation logs are sanitized.
-- The subsequent evidence commit changes documentation/artifacts only. The
-  application and measurement scripts remain identical to the captured revision;
-  the source-equivalence command below must remain empty. Any later executable
-  change requires a new capture.
+- The original evidence commit changed documentation/artifacts only. The later
+  interrupted-operator recovery rebased the branch onto unrelated atlas changes.
+  Executable-source equivalence no longer holds; the diff below exposes that drift.
+  A new full capture is required after the remaining recovery work.
 
 ## Changes and remaining blocker
 
@@ -86,7 +87,7 @@ From the repository root (absolute grading must exit **1**; CI drift grading **0
 ```sh
 pnpm exec tsx scripts/perf/compare.ts --run /tmp/runtime-second-review-evidence/current.json --baseline /tmp/runtime-second-review-evidence/baseline.json
 pnpm exec tsx scripts/perf/compare.ts --ci --run /tmp/runtime-second-review-evidence/current.json --baseline /tmp/runtime-second-review-evidence/baseline.json
-git diff --exit-code 67b57da06bab7d564ef0105a9af02d6134391eae HEAD -- apps packages scripts 'tests/perf/*.test.ts'
+git diff 67b57da06bab7d564ef0105a9af02d6134391eae HEAD -- apps packages scripts 'tests/perf/*.test.ts'
 ```
 
 For a new capture, prepare a detached reference at the recorded base and install

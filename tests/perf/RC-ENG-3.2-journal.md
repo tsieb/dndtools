@@ -1,10 +1,12 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status: acceptance unmet; resolver scope extension pending.** The latest
-[complete paired capture](reports/2026-09-19-runtime-second-review/README.md) has
-10 passing targets and a graph breach at 1238.0/500 ms. Scene recovery is 2.3%,
-short of approximately 20%. Search passes at 240.1/250 ms. Historical captures
-below do not establish acceptance for the current tree.
+**Current status: blocked on resolver scope authorization; acceptance unmet.**
+The recovered branch was rebased onto unrelated atlas changes. The prior complete
+capture is now historical, not current-candidate evidence. Its graph target breach
+and missing approximately 20% scene win were not fixed by that rebase. A
+[checked, unapplied resolver proposal](reports/2026-09-20-resolver-proposal/README.md)
+is ready; the three required state files are still outside the repeated ownership
+list. No fresh browser acceptance claim is made.
 
 ## 2026-09-19 implementation
 
@@ -247,3 +249,36 @@ Archive verification passed: archive plus all 13 member checksums, sanitized pat
 source trees and batch/sample integrity. Final formatting and whitespace checks
 passed. Quality/documentation gates reran successfully. The temporary reference
 checkout and task-owned capture servers were removed/stopped.
+
+## 2026-09-20 interrupted-operator recovery
+
+Resumed at `52070b7e`, clean worktree. Preserved task commits have new SHAs after a
+rebase that adds unrelated atlas library/thumbnail changes. Read the original
+journal and compared source to the previous evidence commit. Marked its report
+historical rather than presenting old measurements as current. No applicable
+AGENTS.md or Headroom tools were available, and no sub-agents were spawned.
+
+The repeated task scope still excludes `state/wikilink-graph.ts`,
+`state/graph-quality.ts`, and `state/graph-clusters.ts`. Requested that narrow
+extension through the user-input channel. While awaiting it, prepared a concrete
+unapplied patch and a reproducible checker that changes only temporary copies.
+Application files remain untouched. The draft indexes first-match names once per
+calculation and delegates availability/sections to the existing resolver, avoiding
+both duplicated resolution rules and a cache that could leak across actors.
+
+The checker passes 468 differential resolution checks and 12 complete quality/
+cluster report comparisons, including 2000 synthetic linked nodes. Seven alternating
+Node samples show a substantial engine-only speedup; raw samples and patch hash are
+retained in the proposal report. This is diagnostic evidence, not a browser budget
+capture or acceptance. An initial checker lint failure (function used only as a
+type) was fixed with a type-only signature, then the checker reran successfully.
+Scope authorization is still unanswered; no state-engine patch was applied. The
+approximately 20% scene recovery also remains unresolved.
+
+Recovery handoff validation: performance suite 21/21; proposal checker 468 resolution
+comparisons and 12 report comparisons; targeted ESLint, formatting, whitespace,
+patch applicability, and quality/documentation gates all pass. Verified the stored
+patch SHA-256 and seven samples per diagnostic series. `git diff HEAD -- apps
+packages` is empty: unrelated atlas work and all application source are preserved.
+No scope authorization arrived. This is a blocked handoff, not completed runtime
+recovery or all-green acceptance.
