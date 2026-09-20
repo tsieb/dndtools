@@ -1,6 +1,9 @@
 # Runtime recovery — local evidence, 2026-09-19
 
-**All 11 standard budgets pass**, with no target breaches, regressions, missing
+**Historical capture only.** This archive predates the reviewed rebased tree
+`3d73bff2` and is not acceptance evidence for that candidate or its descendants.
+
+**All 11 historical standard budgets pass**, with no target breaches, regressions, missing
 samples or missing baselines. Both absolute-target and CI-mode regression
 comparators exited 0. This is one complete paired workstation run, using
 RC-ENG-1.3's seven interleaved batches per budget. It is not hosted CI or the

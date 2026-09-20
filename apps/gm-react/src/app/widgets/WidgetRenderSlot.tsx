@@ -1,5 +1,7 @@
 import {
 	Component,
+	lazy,
+	Suspense,
 	useSyncExternalStore,
 	useEffect,
 	useRef,
@@ -18,8 +20,7 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
 import { TEMPLATE_RENDERER_ENTRIES } from './templates';
-import { SandboxHost } from './SandboxHost';
-import { WorkerHost } from './WorkerHost';
+
 import { WidgetPlaceholder } from './WidgetPlaceholder';
 import {
 	resolveWidgetRenderer,
@@ -71,8 +72,11 @@ export const TEMPLATE_RENDERERS = new Map<WidgetTemplateKind, WidgetRenderer>(
 	TEMPLATE_RENDERER_ENTRIES,
 );
 
+/** Load custom hosts (including iframe font payloads) only when a custom widget is present. */
 /** The sandboxed `custom-html-js` host, landed by RC-WID-1.3 (`SandboxHost`, ADR-031 §1). */
-export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = SandboxHost;
+export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = lazy(() =>
+	import('./SandboxHost').then((module) => ({ default: module.SandboxHost })),
+);
 
 /**
  * The DATA-ONLY host for the same runtime, landed by RC-WID-1.4. A package that pairs
@@ -80,7 +84,9 @@ export const CUSTOM_WIDGET_HOST: WidgetRenderer | null = SandboxHost;
  * with no DOM at all and its result is drawn by one of the eight templates. Same branch of the
  * resolver, same protocol, same policy — a different place for the code to run.
  */
-export const WORKER_WIDGET_HOST: WidgetRenderer | null = WorkerHost;
+export const WORKER_WIDGET_HOST: WidgetRenderer | null = lazy(() =>
+	import('./WorkerHost').then((module) => ({ default: module.WorkerHost })),
+);
 
 /**
  * Re-exported from its own module so the sandbox host can render the SAME "disabled, preserved" card
@@ -551,12 +557,14 @@ function renderPlan(
 			const worker = plan.entrypoint.sandbox === 'worker';
 			const Host = worker ? WORKER_WIDGET_HOST : CUSTOM_WIDGET_HOST;
 			return Host ? (
-				<ThemeAwareWidgetHost
-					Host={Host}
-					followsTheme={followsTheme && !worker}
-					followsContrast={!worker}
-					{...props}
-				/>
+				<Suspense fallback={null}>
+					<ThemeAwareWidgetHost
+						Host={Host}
+						followsTheme={followsTheme && !worker}
+						followsContrast={!worker}
+						{...props}
+					/>
+				</Suspense>
 			) : (
 				<WidgetPlaceholder diagnostic={WIDGET_PLACEHOLDER_COPY.customHostUnavailable} />
 			);

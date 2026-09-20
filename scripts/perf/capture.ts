@@ -42,6 +42,8 @@
  * that changes speed mid-job moves both revisions together instead of reading as drift.
  */
 
+import { captureRevision, assertSameRevision } from './provenance';
+import { seedLargeScene } from './scene-fixture';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs';
@@ -100,12 +102,14 @@ interface Page {
 }
 
 interface BrowserContext {
+	storageState(options: { indexedDB: true }): Promise<Record<string, unknown>>;
 	newPage(): Promise<Page>;
 	close(): Promise<void>;
 }
 
 interface Browser {
 	newContext(options?: {
+		storageState?: Record<string, unknown>;
 		baseURL?: string;
 		viewport?: { width: number; height: number };
 		deviceScaleFactor?: number;
@@ -142,6 +146,7 @@ export interface PerfRunFile {
 	readonly schemaVersion: 1;
 	readonly capturedAt: string;
 	readonly commit: string;
+	readonly sourceTree?: string;
 	readonly aggregation: 'median-of-batches-v1';
 	readonly host: {
 		readonly hostname: string;
@@ -299,8 +304,10 @@ async function newPage(
 	browser: Browser,
 	port: number,
 	profile: 'desktop' | 'slim',
+	storageState?: Record<string, unknown>,
 ): Promise<{ page: Page; close: () => Promise<void> }> {
 	const context = await browser.newContext({
+		storageState,
 		baseURL: `http://localhost:${port}`,
 		viewport: profile === 'desktop' ? { width: 1280, height: 800 } : { width: 390, height: 844 },
 		deviceScaleFactor: 1,
@@ -386,12 +393,34 @@ async function seedNotes(page: Page, count: number): Promise<number> {
 						visibility: i % 3 === 0 ? 'dm-only' : 'player-visible',
 					},
 				});
-				if (res.status === 'accepted') accepted += 1;
+				if (res.status !== 'accepted') throw new Error(`Fixture note ${i} rejected`);
+				accepted += 1;
 			}
 			return accepted;
 		},
 		{ actor, count },
 	);
+}
+
+// Reuse only the durable fixture, never a page or an in-memory index. Every batch
+// restores it into a fresh context, including the complete real command log.
+const noteCampaigns = new Map<string, { storageState: Record<string, unknown>; seeded: number }>();
+async function noteCampaign(browser: Browser, options: Options) {
+	const count = Math.max(2000, options.notes);
+	const key = `${options.port}:${count}`;
+	const existing = noteCampaigns.get(key);
+	if (existing) return existing;
+	const setup = await newPage(browser, options.port, 'desktop');
+	try {
+		await gotoRoute(setup.page, '/settings');
+		const seeded = await seedNotes(setup.page, count);
+		const storageState = await setup.page.context().storageState({ indexedDB: true });
+		const campaign = { storageState, seeded };
+		noteCampaigns.set(key, campaign);
+		return campaign;
+	} finally {
+		await setup.close();
+	}
 }
 
 // ── Scenarios ────────────────────────────────────────────────────────────────────────────────────
@@ -602,9 +631,24 @@ const sceneFirstRender: Scenario = {
 	run: async ({ browser, options }) => {
 		const samples: number[] = [];
 		let widgetCount = 0;
+		// Prepare the campaign once, then navigate in fresh browser contexts: no reload,
+		// warmed page modules or previously mounted widgets enter a measured sample.
+		const setup = await newPage(browser, options.port, 'desktop');
+		let storageState: Record<string, unknown>;
+		try {
+			await gotoRoute(setup.page, '/board');
+			await setup.page
+				.locator('[data-testid^="widget-"]')
+				.first()
+				.waitFor({ state: 'attached', timeout: READY_TIMEOUT });
+			await setup.page.evaluate(seedLargeScene);
+			storageState = await setup.page.context().storageState({ indexedDB: true });
+		} finally {
+			await setup.close();
+		}
 		// As in app-startup, the first navigation warms the dev server's module graph and is discarded.
 		for (let i = -1; i < 3; i += 1) {
-			const { page, close } = await newPage(browser, options.port, 'desktop');
+			const { page, close } = await newPage(browser, options.port, 'desktop', storageState);
 			try {
 				await page.goto('/#/board', { waitUntil: 'domcontentloaded' });
 				await page.waitForFunction(
@@ -615,7 +659,7 @@ const sceneFirstRender: Scenario = {
 									loaded?: boolean;
 									state: {
 										commandCenter: { homeSceneId: string | null };
-										scenes: { scenes: Record<string, { widgets: unknown[] }> };
+										scenes: { scenes: Record<string, { widgets: { binding: unknown }[] }> };
 									};
 								};
 							}
@@ -623,11 +667,17 @@ const sceneFirstRender: Scenario = {
 						if (!rt?.loaded) return false;
 						const id = rt.state.commandCenter.homeSceneId;
 						if (!id) return false;
-						if ((rt.state.scenes.scenes[id]?.widgets.length ?? 0) === 0) return false;
+						const widgets = rt.state.scenes.scenes[id]?.widgets;
+						if (widgets?.length !== 50 || widgets.filter((w) => w.binding).length !== 10)
+							return false;
 						// The painted widgets, not just the state: the board's own rendered children, which
 						// `SceneBoardCanvas` tags `data-testid="widget-<id>"`.
 						const board = document.querySelector('[data-testid="scene-board-bounded"]');
-						return !!board && board.querySelectorAll('[data-testid^="widget-"]').length > 0;
+						return (
+							!!board &&
+							board.querySelectorAll('[data-testid^="widget-"]').length === 50 &&
+							board.querySelectorAll('[data-testid="map-tile"]').length === 10
+						);
 					},
 					undefined,
 					{ timeout: READY_TIMEOUT, polling: 'raf' },
@@ -658,7 +708,7 @@ const sceneFirstRender: Scenario = {
 		return {
 			samples,
 			scenario: 'Cold context → /board → home scene widgets painted on the bounded GM Screen.',
-			fixture: `Demo-seeded home scene, ${widgetCount} painted widgets (budget dataset: 50 widgets / 10 active bindings)`,
+			fixture: `Cold context with prepared durable campaign, ${widgetCount} painted widgets / 10 active map bindings (budget dataset: 50 widgets / 10 active bindings)`,
 			profile: 'desktop',
 		};
 	},
@@ -808,12 +858,10 @@ const liveSessionDelivery: Scenario = {
 const search: Scenario = {
 	budgetId: 'search',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { storageState, seeded } = await noteCampaign(browser, options);
+		const { page, close } = await newPage(browser, options.port, 'desktop', storageState);
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes);
-			await page.reload({ waitUntil: 'domcontentloaded' });
-			await waitReady(page);
 			const box = page.getByRole('textbox', { name: 'Search the graph' });
 			await box.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const samples: number[] = [];
@@ -824,7 +872,6 @@ const search: Scenario = {
 					performance.mark('rc-perf:search:start');
 				});
 				await box.fill(query);
-				const started = Date.now();
 				await page.waitForFunction<string>(
 					(needle) => {
 						const main = document.querySelector('#main-content');
@@ -837,11 +884,15 @@ const search: Scenario = {
 					query,
 					{ timeout: 15_000, polling: 'raf' },
 				);
-				await page.evaluate<void>(() => {
+				const duration = await page.evaluate<number>(() => {
 					performance.mark('rc-perf:search:results');
-					performance.measure('rc-perf:search', 'rc-perf:search:start', 'rc-perf:search:results');
+					return performance.measure(
+						'rc-perf:search',
+						'rc-perf:search:start',
+						'rc-perf:search:results',
+					).duration;
 				});
-				samples.push(round(Date.now() - started));
+				samples.push(round(duration));
 			}
 			return {
 				samples,
@@ -863,12 +914,10 @@ const search: Scenario = {
 const graphIndexing: Scenario = {
 	budgetId: 'graph-indexing',
 	run: async ({ browser, options }) => {
-		const { page, close } = await newPage(browser, options.port, 'desktop');
+		const { storageState, seeded } = await noteCampaign(browser, options);
+		const { page, close } = await newPage(browser, options.port, 'desktop', storageState);
 		try {
 			await gotoRoute(page, '/graph');
-			const seeded = await seedNotes(page, options.notes);
-			await page.reload({ waitUntil: 'domcontentloaded' });
-			await waitReady(page);
 			const actor = await actorId(page);
 			const samples = await page.evaluate<number[], { actor: string; runs: number }>(
 				async ({ actor: a, runs }) => {
@@ -974,6 +1023,21 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 						unavailableReason: `map.create was ${created.status}${created.rejection?.message ? `: ${created.rejection.message}` : ''}; no map to pan.`,
 					};
 				}
+				const generated = await dispatch(page, {
+					type: 'map.generate',
+					actorId: actor,
+					payload: {
+						mapId,
+						generatorId: 'world.continent',
+						seed: 'runtime-recovery',
+						params: {},
+						idPrefix: 'perf-world',
+						visibility: 'dm-only',
+					},
+				});
+				if (generated.status !== 'accepted')
+					throw new Error(`World generation rejected: ${JSON.stringify(generated.rejection)}`);
+
 				const layerIds = await page.evaluate<string[], string>(
 					(id) =>
 						Object.values(
@@ -1053,7 +1117,7 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 					return {
 						samples: [],
 						scenario: 'Pan and zoom the full-screen map editor while sampling animation frames.',
-						fixture: `4 layers / ${poiCount} POIs`,
+						fixture: `world.continent default output (seed runtime-recovery) + 4 layers / ${poiCount} additional POIs`,
 						profile,
 						unavailableReason: 'the editor canvas had no layout box to pan.',
 					};
@@ -1112,7 +1176,7 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 					samples,
 					scenario:
 						'Drag-pan the full-screen map editor 8× across the canvas and wheel-zoom twice, sampling every animation frame.',
-					fixture: `4 layers / ${poiCount} POIs`,
+					fixture: `world.continent default output (seed runtime-recovery) + 4 layers / ${poiCount} additional POIs`,
 					profile,
 				};
 			} finally {
@@ -1240,6 +1304,7 @@ async function main(): Promise<void> {
 	}
 	sides.push({ label: 'candidate', root: REPO_ROOT, port: options.port, out: options.out });
 	const paired = sides.length > 1;
+	const revisions = new Map(sides.map((side) => [side.label, captureRevision(side.root)]));
 
 	const needsBrowser = selected.some((scenario) => scenario.budgetId !== 'smoke-ci');
 	const servers: Array<{ stop: () => Promise<void> }> = [];
@@ -1326,16 +1391,15 @@ async function main(): Promise<void> {
 		for (const server of servers) await server.stop();
 	}
 
+	for (const side of sides) assertSameRevision(side.root, revisions.get(side.label)!);
 	const capturedAt = new Date().toISOString();
 	for (const side of sides) {
 		const budgets = captured.get(side.label)!;
 		const run: PerfRunFile = {
 			schemaVersion: 1,
 			capturedAt,
-			commit: spawnSync('git', ['rev-parse', 'HEAD'], {
-				cwd: side.root,
-				encoding: 'utf8',
-			}).stdout.trim(),
+			commit: revisions.get(side.label)!.commit,
+			sourceTree: revisions.get(side.label)!.tree,
 			aggregation: 'median-of-batches-v1',
 			host: hostDescription(),
 			budgets,

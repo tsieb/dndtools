@@ -108,3 +108,19 @@ Final artifact replay through the CI-mode comparator also exited 0. The changed-
 formatting gate and explicit Prettier checks on all nine changed text/source files
 passed, as did the staged whitespace check. All twelve changed/new paths are within
 the task claim. The clean temporary reference worktree was removed after capture.
+
+## Review recovery, 2026-09-19
+
+Review correctly identified that the archive predates the rebased application tree
+and cannot establish acceptance for 3d73bff2. That archive is historical evidence.
+The new reference is the actual integration base dda3120a56153caab48207c8937cda65454cd35b,
+in an isolated detached checkout with frozen dependencies. No Headroom tools or
+applicable AGENTS.md were exposed. No agents or control-state changes used.
+
+Extending scene-first-render to a prepared 50-widget/10-binding campaign in NEW
+browser contexts (IndexedDB snapshot, no page/module cache), and graph/search to
+at least 2,000 linked notes. Setup rejects any failed fixture command. Initial
+fixture diagnostics exposed a setup race before home creation, then a tsx named
+function helper in page.evaluate; both were corrected before collecting samples.
+Diagnostic runs with uncommitted harness changes are not acceptance evidence.
+Fresh committed-code capture and grading remain pending.
