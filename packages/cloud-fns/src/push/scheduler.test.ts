@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	composeReminders,
 	deliverDueReminders,
@@ -16,6 +16,39 @@ const session = {
 	reminderMinutes: 60,
 };
 describe('push scheduler contract', () => {
+	beforeEach(() => {
+		vi.spyOn(Date, 'now').mockReturnValue(now);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+	it('scheduled ticks reconcile the calendar into the injected fake for consenting devices only', async () => {
+		const transport = new FakePushTransport();
+		const consent = new Set(['a']);
+		let calendar: ScheduledSession[] = [session];
+		const handler = createReminderHandler(
+			{
+				devices: async () => ['a', 'b'],
+				sessions: async () => calendar,
+				hasConsent: (id) => consent.has(id),
+			},
+			transport,
+		);
+		await handler();
+		await handler();
+		expect(transport.queued('a')).toEqual(composeReminders('a', [session], now));
+		expect(transport.queued('a')).toHaveLength(1);
+		expect(transport.queued('b')).toEqual([]);
+		calendar = [{ ...session, cancelled: true }];
+		await handler();
+		expect(transport.queued('a')).toEqual([]);
+		calendar = [session];
+		await handler();
+		expect(transport.queued('a')).toHaveLength(1);
+		consent.clear();
+		await handler();
+		expect(transport.queued('a')).toEqual([]);
+	});
 	it('composes metadata with offset-aware calendar time and ignores invalid, cancelled and past sessions', () => {
 		const reminders = composeReminders(
 			'device',

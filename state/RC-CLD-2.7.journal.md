@@ -11,10 +11,6 @@ fictional dates). Minimal companion wiring in settings/index.tsx and cloud/googl
 necessary to make the owned modules reachable. The SAM function uses its own esbuild metadata.
 Android already creates the updates channel natively; FCM metadata will reference that channel.
 
-## Validation
-
-Pending implementation and focused checks.
-
 ## Implemented
 
 - Pure metadata projection, `PushTransport`, replacement-based fake queue, per-device consent
@@ -55,3 +51,30 @@ This build only previews reminders in memory for the current app session. RC-CLD
 must provide authenticated calendar/consent persistence, a durable idempotent transport and Firebase
 credentials before enabling the deployed trigger. Existing preview consent must not authorize live
 notifications. No deployment, Firebase calls, native device test, push or promotion was performed.
+
+## Operator scope retry — 2026-09-20
+
+The current branch still contains candidate `b5abebec`; the worktree was clean on entry.
+The 2026-09-18 operator brief explicitly adds the two previously fenced integration files to
+ownership. Preserve their existing minimal edits:
+
+- `apps/gm-react/src/cloud/googleCalendar.ts`: reuse the already validated Calendar payload and
+  record only its id, title, start and reminder lead after successful event creation. This connects
+  reminders to the actual session calendar without copying notes, attendees or credentials.
+- `apps/gm-react/src/screens/settings/index.tsx`: import the new Notifications panel and render it
+  under Account. This makes the consent surface reachable without changing routing or other tabs.
+
+No additional product wiring is necessary for the ownership retry. Added a deterministic scheduled
+handler contract covering consenting versus nonconsenting devices, repeated ticks, cancellation and
+revocation. Freeze the contract clock so the fixture cannot silently expire and make consent tests
+pass for the wrong reason. Earlier results above are historical.
+
+Fresh retry validation:
+
+- Focused cloud tests: 4 files, 14 tests passed.
+- Push Playwright e2e: 2 passed (desktop and mobile Chromium), including opt-in, queued preview,
+  revocation and persisted opt-out after reload.
+- Cloud-fns and gm-react typechecks: exit 0.
+- Focused ESLint, boundary lint, SAM template lint and `git diff --check`: exit 0.
+- No new product changes, ownership/control-state edits, deployment or remote operations. The
+  operator still owns the full gate and independent review; this retry does not claim either ran.
