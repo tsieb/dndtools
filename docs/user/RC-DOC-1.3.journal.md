@@ -1,5 +1,33 @@
 # RC-DOC-1.3 run journal
 
+## Repeated gate failure — 2026-09-20
+
+At clean HEAD `cedc5f905652b4883f8c5407ffaaf6d8c75ab952`, the operator reran the
+unchanged candidate. Read the original logs supplied for quality run
+`9c639bbe-4c9e-4616-85e0-ff8ab40e1166`, format run
+`30862f77-e3da-4a93-af02-fd15a258f63e`, and visual run
+`4365537b-676a-4616-ba96-c8887585e97d`.
+
+- Quality passed: 266 documentation files reachable, 336 relative links resolved.
+- Changed-file formatting passed for 14 files.
+- Visual test-result lines show 60 failures and 75 passes. The first failure again has
+  4,532 differing pixels in desktop `command-center--tavern.png`.
+- Compared all 60 current expected/actual artifact pairs with Pillow: 30 desktop,
+  30 rail. In 56 pairs, every raw RGB difference is within the top 75 pixels. The three
+  rail board themes and rail tavern session also contain respectively 10/17/12 and 18
+  differing pixels below the header, all with a maximum channel delta of 1 (out of 255).
+  Inspected the rail board and session diff images; their visible changes are in the
+  header. These measurements extend the earlier six-pair investigation; no claim is
+  made that every PNG received human visual review.
+
+The task's owned paths still exclude both baseline directories identified below.
+The required operator handoff remains unchanged: assign those paths or arrange a
+baseline-owner update, review the images, then rerun the pinned comparison. Another
+unchanged retry cannot resolve the missing baseline update. No runtime or baseline
+changes were made, and no further full-suite rerun was needed to reproduce evidence
+already supplied for this exact HEAD. Independent review and visual validation remain
+pending. This commit only updates the journal with the repeated gate evidence.
+
 ## Visual-gate investigation — 2026-09-20
 
 **Blocked on visual-baseline ownership; the visual gate is still failing.** Started clean
