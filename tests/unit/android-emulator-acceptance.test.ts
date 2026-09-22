@@ -78,6 +78,27 @@ describe('Android emulator acceptance gate', () => {
 		}
 	});
 
+	it('waits for a rendered root destination before rotating and pressing the minimize Back', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+
+		// Rotating and pressing Back into a still-booting WebView tripped an input-dispatch ANR; the
+		// headless emulator kills the ANR'd process, which the minimize assertion misread as Back
+		// killing the app. The restart and the portrait restore must both settle first.
+		const lines = source.split('\n');
+		const restart = lines.findIndex((line) => line.startsWith('NEW_PID=$(wait_for_pid)'));
+		const rotateLandscape = lines.indexOf('adb shell settings put system user_rotation 1');
+		const rotatePortrait = lines.indexOf('adb shell settings put system user_rotation 0');
+		const minimizeBack = lines.indexOf('adb shell input keyevent KEYCODE_BACK', rotatePortrait);
+		expect(restart).toBeGreaterThan(-1);
+		expect(rotateLandscape).toBeGreaterThan(restart);
+		expect(minimizeBack).toBeGreaterThan(rotatePortrait);
+
+		const settles = (from: number, to: number) =>
+			lines.slice(from, to).some((line) => line.startsWith('wait_for_root_destination || fail'));
+		expect(settles(restart, rotateLandscape), 'rotated before the restart rendered').toBe(true);
+		expect(settles(rotatePortrait, minimizeBack), 'Back before portrait settled').toBe(true);
+	});
+
 	it('runs instrumentation and the shared script in CI and signed release emulators', () => {
 		const ci = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),

@@ -544,6 +544,11 @@ done
 launch_app
 NEW_PID=$(wait_for_pid) || fail 'process did not restart after force-stop'
 [[ "$NEW_PID" != "$OLD_PID" ]] || fail 'process restart reused the terminated pid'
+# A live pid only proves the process exists. Rotating and pressing Back while the fresh WebView is
+# still cold-booting blocked the main thread past the 5s input-dispatch deadline; the headless
+# emulator then kills the ANR'd process and the minimize assertion below misreports it as "Back
+# killed the app process". Require the restarted app to render its root destination first.
+wait_for_root_destination || fail 'new-process restart did not render the root destination'
 
 # Trigger a system rotation without coordinate gestures. MainActivity handles density/orientation
 # changes in place; the process and vault must remain available.
@@ -558,6 +563,10 @@ if [[ -n "$PRIVATE_ACCESS" ]]; then
 	private_path_exists "$VAULT_PATH" || fail 'vault disappeared during rotation'
 fi
 adb shell settings put system user_rotation 0
+[[ "$(adb shell settings get system user_rotation | tr -d '\r')" == 0 ]] \
+	|| fail 'portrait rotation setting was not restored'
+# Let the portrait relayout settle (uiautomator only dumps an idle UI) before the Back below.
+wait_for_root_destination || fail 'rotation back to portrait did not re-render the root destination'
 
 # At the root destination Android Back must move the task behind the launcher, not kill its process.
 # After process death + restore + rotation, WebView/router state can still carry one in-app history
