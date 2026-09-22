@@ -635,3 +635,35 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   `/tmp/rc-can-5.1-visual-68e8da50/phone-baselines.patch` before rerunning this gate.
 - Only this journal changes. No source workaround, assertion relaxation, dispatcher
   control mutation, additional agent, publishing or promotion.
+
+## Phone visual baselines applied — 2026-09-22
+
+- The worktree was clean at `34d50695`. The browser-test recovery the operator
+  brief describes (`preferPhoneCanvas` helper plus one `beforeEach` in `canvas.spec.ts`,
+  `canvas-keyboard.spec.ts` and `flow-layout.spec.ts`) had already been committed in
+  `0bb8a893`, so no uncommitted diff remained to review. Rebased cleanly onto `loop/rc`
+  `e1a2ba4b`. Since the previous base, `loop/rc` has not changed any visual baseline,
+  canvas file or screen file.
+- Read the original output of attempt `32758736-96cd-43b5-b5dc-e226d3e46b2d`: 129 passed.
+  The same six phone screenshots failed as before (`/board` and `/scene/:id` in tavern,
+  parchment and high-contrast). The failing baselines show the old spatial canvas, which
+  RC-CAN-5.1 intentionally replaces on phone.
+- **Boundary crossing, flagged for the operator:** applied the previously validated
+  six-PNG proposal `/tmp/rc-can-5.1-visual-68e8da50/phone-baselines.patch`. The six
+  files are `board--{tavern,parchment,high-contrast}.png` and
+  `scene-editor--{tavern,parchment,high-contrast}.png` under
+  `apps/gm-react/tests/visual/__screenshots__/visual-phone/`. They are outside the
+  listed owned paths. Without them, the pinned visual gate cannot pass while the
+  required stacked phone board is in place. No other baseline changed. All six
+  resulting SHA-256 values match the manifest's `after` hashes. Inspected the tavern
+  images. `/scene/:id` shows the scene editor's stacked panels, not the Command Center
+  hash-race capture, and `/board` shows the stacked home board.
+- Pinned-container visual gate, run exactly as the dispatcher runs it
+  (`bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2`)
+  against the repository baselines: **135 passed (4.2m), exit 0**. Exact output:
+  `/tmp/rc-can-5.1-20260922-visual-repo.log`.
+- Zero-retry mobile acceptance on port 15761: 3 passed (16.2s). It covered
+  `a11y axe gate: /board`, the 360×360 virtual-keyboard phone sweep, and the board at
+  320×640. Exact output: `/tmp/rc-can-5.1-20260922-acceptance-final.log`.
+- No source, assertion or dispatcher-control changes. No additional agents, publishing
+  or promotion.
