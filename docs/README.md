@@ -38,6 +38,7 @@ the implementation references below each page are for maintainers and are hidden
 | Design sources, tokens, components       | [design/README.md](design/README.md); the vendored package is `design-package/`       |
 | Component reference (DEV gallery)        | [design/COMPONENTS.md](design/COMPONENTS.md)                                          |
 | Icons                                    | [reference/ICON_VOCABULARY.md](reference/ICON_VOCABULARY.md)                          |
+| Feature complexity tiers                 | [reference/FEATURE_COMPLEXITY.md](reference/FEATURE_COMPLEXITY.md)                    |
 | Terms                                    | [GLOSSARY.md](GLOSSARY.md)                                                            |
 | Setup, standards, boundaries             | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)                              |
 | Branches, gates, CI, PRs                 | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)                            |
