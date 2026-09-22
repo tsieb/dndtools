@@ -252,3 +252,23 @@ This revision supersedes the earlier direct-dispatch and temporary-test decision
 - `git diff --check` passed; `a66f3475` is an ancestor of the rebased task branch. Only the
   existing six task files differ from that integration base. Full operator wrapper validation
   and independent review remain pending; no remote publication performed.
+
+## Operator ownership clarification (2026-09-22)
+
+- Started from clean candidate `4a2504a4`. The operator explicitly added
+  `apps/gm-react/src/screens/sceneEditor/index.tsx` to owns after the claim gate rejected it.
+  Its only task change is `history={history}` on Inspector, required for docking undo/redo.
+- Compared application source changes against the supplied owns list: all four changed source
+  paths are included. The other candidate files are the registered acceptance spec and this
+  run journal. This local comparison does not claim the central ownership gate has rerun.
+- No application changes were needed for this scope clarification. Preserved the existing
+  implementation and the integration branch's widget-definition editor.
+- Fresh validation:
+  `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/scene-surfaces.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=2`:
+  **4 passed (16.3s)**, exit 0. Includes background contrast, docking/undocking history,
+  section persistence and two-axis background scrolling. Original local output:
+  `/tmp/rc-can-46-scope-e2e.log`.
+- `git diff --check`: passed. Previous broader validation above applies to the unchanged
+  application source; it was not rerun in this scope-only revision.
+- Headroom tools unavailable. No agents, dispatcher state edits, other loops, pushes or
+  promotion. Central ownership/wrapper gates and independent review remain with the operator.
