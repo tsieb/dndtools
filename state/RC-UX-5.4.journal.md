@@ -324,3 +324,20 @@ store and cloud opt-in are isolated per vault. The original vault is registered 
 and cloud sync act on the active vault only (extra vaults stay device-only until the server accepts
 more ids). The unowned follow-ups are listed under "Remaining handoffs". No push, promotion, loops,
 extra agents or dispatcher-state edits.
+
+## Rebase onto a07a1b38 — 2026-09-22
+
+- Gate feedback: rebase conflicted in `i18n/messages/en.ts` and `es.ts`. Rebased the seven task
+  commits myself. Every i18n conflict was purely additive (upstream map-editor coach and push
+  notification keys vs. the `vaults.*` keys): kept both. `platform/preferences.ts` also conflicted
+  (upstream `proseWidth` helpers vs. `preferenceStorageKey`): kept both; `proseWidth` stays a
+  device-wide preference.
+- On rebased head `72495043`: `pnpm typecheck` exit 0; `pnpm lint` exit 0 (15 existing warnings);
+  `pnpm test:app` 146 files / 1638 tests exit 0; `pnpm test:cloud` 42 files / 534 tests exit 0;
+  Prettier clean on every file changed since the base.
+- e2e (`--workers=3`): local-vaults, settings, command-palette, responsive, feature-spotlight,
+  onboarding-consent — 189 passed, 1 failed: `responsive.spec.ts:242` `/scene/:id` canvas unused
+  (the known hash-goto race). Repeating it `--repeat-each=5`: 20/20 passed. Not claimed as fixed.
+- `scene-first-render` (declared 50 widgets / 10 bindings, `--workers=1`) on `72495043`: desktop
+  1012.3 / 1014.3 / 1070.1 ms (max 1070.1); phone 1037.1 / 1055.3 / 1006.9 ms (max 1055.3);
+  budget 1500 ms; 2 passed, exit 0. Workstation Vite measurement, not a physical phone.
