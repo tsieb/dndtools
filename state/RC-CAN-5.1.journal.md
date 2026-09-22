@@ -582,3 +582,38 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   requested journal. The full browser gate remains blocked on the three excluded test
   files; the validated proposal is ready for their owners or explicit claim expansion.
   This is not an inherited CI failure cured by another retry of the unchanged tests.
+
+## Pinned visual-gate diagnosis — 2026-09-22
+
+- Resumed at centrally rebased `68e8da50` with a clean tree. Read the original output
+  of attempt `bc9afe36-e17b-4f94-bca2-50a5d30287fc`: 129 visual tests passed and six
+  failed, exclusively phone `/board` and `/scene/:id` in tavern, parchment and
+  high-contrast. Desktop, rail and the other phone routes passed. No Headroom tools
+  or applicable AGENTS.md were available.
+- Inspected the committed and captured images. The baselines depict the old spatial
+  canvases and zoom UI; the captures depict the required stacked panels, disclosure
+  and full-screen controls, with the phone navigation preserved. These intentional
+  changes cannot match the old screenshots while retaining the accepted phone default.
+- Prepared a six-PNG binary patch outside the checkout at
+  `/tmp/rc-can-5.1-visual-68e8da50/phone-baselines.patch`, using the original pinned
+  container's actual captures. The proposal's `manifest.json` records before/after
+  SHA-256 values. `git apply --check` passes. No repository baseline changed: the
+  supplied owned paths exclude `tests/visual/__screenshots__/visual-phone`.
+- Checked all 135 visual cases using an external baseline mirror (only those six
+  replacements) and the repository's real visual specs/config, in the exact pinned
+  Playwright image `v1.61.1-noble` with digest
+  `sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48`.
+  Two workers, no retries, isolated port 15756. Configuration and exact output are
+  `/tmp/rc-can-5.1-visual-68e8da50/playwright.config.ts` and `validation.log`.
+  Fresh mobile acceptance on port 15757 is recorded in that directory's `acceptance.log`.
+- Proposal result: 135 passed (3.5m), exit 0, with no retries. All other 129 baseline
+  PNGs remained byte-identical to the repository copies. Fresh zero-retry mobile
+  acceptance: 3 passed (15.5s), including 320×640, 360×360 and `/board` axe.
+- Requested explicit ownership expansion for exactly the six proposal PNGs:
+  `board--{tavern,parchment,high-contrast}.png` and
+  `scene-editor--{tavern,parchment,high-contrast}.png` under
+  `apps/gm-react/tests/visual/__screenshots__/visual-phone/`. Pending that response,
+  only this journal changes. This is proposal validation, not a passing visual gate
+  against the committed baselines. The earlier three-file browser-test owner patch
+  also still passes `git apply --check` but remains outside the supplied claim.
+  No dispatcher control edits, agents, source workarounds, publishing or promotion.
