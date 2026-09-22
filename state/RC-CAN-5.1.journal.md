@@ -617,3 +617,21 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   against the committed baselines. The earlier three-file browser-test owner patch
   also still passes `git apply --check` but remains outside the supplied claim.
   No dispatcher control edits, agents, source workarounds, publishing or promotion.
+
+## Repeated visual gate; unchanged ownership blocker — 2026-09-22
+
+- Resumed at `9374820e` with a clean tree. Read original attempt
+  `f4756ab4-0545-4a1f-84c2-47b6f7d692df/output.log`: 129 passed, the same six phone
+  screenshots failed (3.4m), with exactly the same pixel differences as before.
+- All six current actual captures match the proposal manifest's after-SHA-256 values;
+  all six committed baselines match its before-SHA-256 values. The intervening rebase
+  added unrelated push-notification work; the stacked-board source and visual baselines
+  are unchanged. Both prepared owner patches still pass `git apply --check`.
+- The existing 135-pass pinned-container proposal validation remains relevant; no
+  duplicate run or product change is justified by this identical failure. This turn
+  does not claim a new passing repository visual gate. The explicit owned-path list
+  still excludes the six PNGs, and no answer authorizing the requested expansion has
+  arrived. The operator must expand the claim or have the baseline owner apply
+  `/tmp/rc-can-5.1-visual-68e8da50/phone-baselines.patch` before rerunning this gate.
+- Only this journal changes. No source workaround, assertion relaxation, dispatcher
+  control mutation, additional agent, publishing or promotion.
