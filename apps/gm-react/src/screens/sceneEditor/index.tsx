@@ -43,8 +43,8 @@ import { readPlayerPreview } from './playerPreview';
 /**
  * Actor-filtered scene widgets, edited through core commands. Canvas and flow policies share
  * instances and commands (ADR-041); phones read stacked panels outside layout editing.
- * Generated widgets stay staged for DM review. Player preview suspends editing under an
- * overlay explaining the previewed actor's withheld tiles; Escape restores the editor.
+ * Generated widgets stay staged: nothing is installed or placed without the DM.
+ * Player preview suspends editing and explains withheld tiles; Escape restores the editor.
  */
 export function SceneEditor() {
 	const { t } = useI18n();
@@ -414,8 +414,7 @@ export function SceneEditor() {
 				gap: 'var(--space-3)',
 				// Match the shell's pane, which already excludes the top and bottom navigation.
 				height: '100%',
-				// The stacked phone list scrolls itself; a floor here would only push a full-screen
-				// tile past `<main>`'s bottom edge, i.e. under the tab bar it must stay above.
+				// Stacked tiles scroll internally and must stay above the phone navigation.
 				minHeight: posture.stacked ? 0 : 360,
 				// Include gutters in the pane height; phones keep their full width for widget content.
 				boxSizing: 'border-box',

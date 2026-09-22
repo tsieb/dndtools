@@ -521,3 +521,64 @@ apps/gm-react/src/screens/sceneEditor/playerPreview.test.ts`: 7 files / 111 test
   code and repository tests remain unchanged, and the central browser gate remains
   blocked pending that expansion or application by the test owners. No agents,
   dispatcher control changes, push or promotion.
+
+## Rebase after integration CI recovery — 2026-09-22
+
+- Resumed at `b1693ef3` with a clean tree. Read original browser failure output from
+  attempt `82169932-4e82-4f26-a448-b054a66be4fa`: the same four mobile canvas/template
+  assumptions failed, with 1,203 passed and 11 skipped. Headroom tools remain unavailable.
+- Rebased onto the current local integration tip `370ab4c8`, preserving its CI recovery
+  and other integrated work. Resolved owned-file conflicts by keeping both preference
+  keys (`proseWidth` and `boardPhoneLayout`), both shortcut and stacked-board imports,
+  and the scene configuration queue. The newer `propertiesOpen` behavior now also
+  honors the stacked full-screen chrome suppression.
+- Condensed redundant scene-editor comments to retain the 800-line hard limit while
+  preserving the new properties panel, shortcut registration, preview and gallery.
+  Board is 795 lines; SceneEditor is 800. Frozen-lockfile install passed.
+- Running all seven non-browser wrapper commands plus full
+  `DNDTOOLS_E2E_PORT=15754 pnpm e2e --workers=2 --retries=2` on the rebased candidate.
+  Exact logs use `/tmp/rc-can-5.1-20260922-` with suffixes `quality.log`, `format.log`,
+  `typecheck.log`, `lint.log`, `app.log`, `build.log`, `audit.log`, and `browser.log`.
+  No additional agents, dispatcher control edits, publishing or promotion.
+
+### Rebased-candidate validation
+
+- Quality, changed formatting, full typecheck, full lint and build passed (exit 0).
+  App suite: 144 files / 1,584 tests passed. The requirements audit initially caught a
+  literal inventory anchor removed when condensing comments. Restored the still-accurate
+  phrase `nothing is installed or placed without the DM`; the audit now passes with
+  48 declared limits and zero stale anchors. Exact final audit output:
+  `/tmp/rc-can-5.1-20260922-audit-recheck.log`. Runtime behavior is unchanged by that repair.
+- External stacked-contract probes against the rebased candidate: 4 passed (26.1s),
+  covering both board hosts at both acceptance sizes, y/x order, exact header height,
+  collapse persistence, no canvas/zoom surface, full-screen bounds and axe, and Escape
+  focus return. Exact output: `/tmp/rc-can-5.1-20260922-stacked-probes.log`.
+- Refreshed the three-file test-owner proposal from the current integration sources;
+  `/tmp/rc-can-5.1-rebase-probes/complete-test-owner.patch` still passes
+  `git apply --check`. External copies of the four affected cases pass on both
+  profiles: 8 passed (1.3m), one worker, exact output
+  `/tmp/rc-can-5.1-20260922-owner-validation.log`. The proposal remains unapplied
+  because the supplied ownership still excludes those three test files.
+- Full browser gate completed: 1,253 passed, 16 skipped, 5 flaky, 4 failed (38.4m),
+  exit 1. Read the original final diagnostics in
+  `/tmp/rc-can-5.1-20260922-browser.log`. Persistent failures are unchanged:
+  `a11y-axe-gate.spec.ts:462`, `a11y-axe-gate.spec.ts:504`,
+  `canvas-arrange.spec.ts:32`, and `scene-templates.spec.ts:37`. Each still requires
+  an absent spatial-canvas selector on a phone reading stacked panels. Rebasing onto
+  the repaired integration branch did not resolve this ownership blocker.
+- The five cases passing on retry were Android quick-map double-tap zoom, canvas home
+  persistence, the 360×360 and 640px responsive route sweeps, and settings consent.
+  The canvas diagnostic was context-teardown timeout; the responsive/settings cases
+  timed out waiting for the runtime or main landmark. No timeout or assertion was
+  weakened. Serial, zero-retry acceptance and relevant flaky-case recheck: 5 passed
+  (22.9s), covering 320×640, 360×360, the 640px route sweep, `/board` mobile axe and
+  the owned canvas home-persistence case. Exact output:
+  `/tmp/rc-can-5.1-20260922-acceptance-recheck.log`. Command:
+  `DNDTOOLS_E2E_PORT=15755 pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.spec.ts
+--project=mobile-chromium --workers=1 --retries=0
+--grep '320x640|virtual-keyboard phone|at phone breakpoint$|a11y axe gate: /board$|materializes the home scene'`.
+- Final changes relative to `370ab4c8` remain within the supplied owned paths and
+  requested journal. The full browser gate remains blocked on the three excluded test
+  files; the validated proposal is ready for their owners or explicit claim expansion.
+  This is not an inherited CI failure cured by another retry of the unchanged tests.
