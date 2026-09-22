@@ -6,7 +6,10 @@ import { gotoRoute, markOnboarded } from './_helpers';
 
 // Opt-in because timing a browser while the full functional suite runs in parallel measures
 // contention, not the scene budget. Run on both profiles with --workers=1.
-test('scene-first-render with 50 widgets and 10 active bindings', async ({ page }, testInfo) => {
+test('scene-first-render with 50 widgets and 10 active bindings', async ({
+	context,
+	page,
+}, testInfo) => {
 	test.skip(process.env.DNDTOOLS_VAULT_PERF !== '1', 'Dedicated performance capture only');
 	test.setTimeout(120_000);
 	await markOnboarded(page);
@@ -69,11 +72,18 @@ test('scene-first-render with 50 widgets and 10 active bindings', async ({ page 
 	expect(fixture.widgetCount).toBe(50);
 	expect(fixture.bindingCount).toBe(10);
 	const samples: number[] = [];
-	// Discard one reload to warm the Vite module graph. Each sample then boots a new document
+	let viewport: { width: number; height: number } | null = null;
+	// Discard one boot to warm the Vite module graph. Each sample then boots a new document
 	// against the persisted fixture, including IndexedDB hydration and the local-vault lookup.
+	// Every boot gets a fresh page in the same context (same IndexedDB): repeated reloads of one
+	// renderer ran Chromium out of dev-server fetch resources (ERR_INSUFFICIENT_RESOURCES) on the
+	// fourth boot, on the parent commit as well, which measured nothing.
+	const url = page.url();
+	await page.close();
 	for (let repetition = -1; repetition < 3; repetition++) {
-		await page.reload({ waitUntil: 'domcontentloaded' });
-		await page.waitForFunction(
+		const sample = await context.newPage();
+		await sample.goto(url, { waitUntil: 'domcontentloaded' });
+		await sample.waitForFunction(
 			() => {
 				const rt = window.__rt as unknown as SceneRuntime | undefined;
 				if (!rt?.loaded) return false;
@@ -92,20 +102,22 @@ test('scene-first-render with 50 widgets and 10 active bindings', async ({ page 
 			undefined,
 			{ polling: 'raf' },
 		);
-		const duration = await page.evaluate(
+		const duration = await sample.evaluate(
 			() =>
 				new Promise<number>((resolve) => {
 					requestAnimationFrame(() => requestAnimationFrame(() => resolve(performance.now())));
 				}),
 		);
 		if (repetition >= 0) samples.push(duration);
+		if (repetition < 2) await sample.close();
+		else viewport = sample.viewportSize();
 	}
 	const evidence = {
 		budgetId: 'scene-first-render',
 		targetMs: 1500,
 		fixture: '50 widgets (10 bound maps, 40 dice widgets) / 10 active bindings',
 		profile: testInfo.project.name,
-		viewport: page.viewportSize(),
+		viewport,
 		commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
 		worktreeStatus: execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
 		samples,

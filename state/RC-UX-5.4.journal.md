@@ -299,3 +299,28 @@ reloadLocalVaultDocument)`; coreStore's reload lands on `#/` (routes name the de
   palette 5 s, context close 30 s) across 13 unrelated specs; none failed an assertion about vaults,
   preferences, rail or More sheet. NOT claimed green: a low-parallelism rerun of those 13 specs was
   interrupted when the session ended; see the next entry.
+
+### Post-commit verification — candidate `3abc72a3`
+
+- Low-parallelism rerun (`--workers=3`, load ≈11) of the 13 specs that timed out, plus
+  local-vaults: 395 passed, 4 skipped, 3 failed. None of the 28 earlier timeouts recurred. New
+  failures: `responsive.spec.ts:242` `/scene/:id` canvas 0 px (both profiles; matches the known
+  `/scene/:id` hash-goto race that is also red on base) and `map-editor.spec.ts:716` layer reorder.
+  Repeating both with `--repeat-each=5`: 30/30 passed, exit 0. Intermittent, not claimed as fixed.
+- `local-vault-performance.spec.ts` (declared 50 widgets / 10 bindings) failed on the fourth reload
+  of ONE renderer with Chromium `ERR_INSUFFICIENT_RESOURCES` (blank page). Identical failure with
+  the parent commit's `apps/gm-react/src` checked out (restored from HEAD afterwards; tree clean),
+  so it is environmental (swap exhausted, 10 GB available), not this change. The fixture now boots
+  each sample in a fresh page of the same context (same IndexedDB, same timing origin).
+  Result on `3abc72a3` (only that spec modified): desktop samples 996.6 / 1006.5 / 1044.7 ms,
+  max 1044.7; phone samples 1020.3 / 998.8 / 1014.8 ms, max 1020.3; budget 1500 ms. 2 passed,
+  exit 0. Workstation Vite measurement, not a physical reference phone.
+
+## Report
+
+RC-UX-5.4 is implemented. The GM can create, rename and switch vaults from the desktop chip, the
+tablet rail and the phone More sheet. Op log, search, keyring, preferences, privacy mode, private
+store and cloud opt-in are isolated per vault. The original vault is registered in place, and backup
+and cloud sync act on the active vault only (extra vaults stay device-only until the server accepts
+more ids). The unowned follow-ups are listed under "Remaining handoffs". No push, promotion, loops,
+extra agents or dispatcher-state edits.
