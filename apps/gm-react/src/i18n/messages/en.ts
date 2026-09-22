@@ -634,6 +634,8 @@ export const en = {
 	'session.combat.allConditionsApplied': 'Every condition is already applied.',
 	'session.combat.moveEarlier': 'Move {name} earlier in initiative',
 	'session.combat.moveLater': 'Move {name} later in initiative',
+	'session.combat.alreadyFirst': '{name} is already first in initiative',
+	'session.combat.alreadyLast': '{name} is already last in initiative',
 	'session.combat.movedEarlierAnnouncement': '{name} moved earlier in initiative.',
 	'session.combat.movedLaterAnnouncement': '{name} moved later in initiative.',
 	'session.combat.reveal': 'Reveal',

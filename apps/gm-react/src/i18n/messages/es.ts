@@ -645,6 +645,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.allConditionsApplied': 'Ya se han aplicado todos los estados.',
 	'session.combat.moveEarlier': 'Mover a {name} antes en la iniciativa',
 	'session.combat.moveLater': 'Mover a {name} después en la iniciativa',
+	'session.combat.alreadyFirst': '{name} ya ocupa el primer puesto de la iniciativa',
+	'session.combat.alreadyLast': '{name} ya ocupa el último puesto de la iniciativa',
 	'session.combat.movedEarlierAnnouncement': '{name} se movió antes en la iniciativa.',
 	'session.combat.movedLaterAnnouncement': '{name} se movió después en la iniciativa.',
 	'session.combat.reveal': 'Revelar',

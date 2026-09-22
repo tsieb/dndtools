@@ -95,6 +95,17 @@ export function CombatPanel({
 			null,
 		);
 	const selectedIndex = selected ? tracker.combatants.findIndex((c) => c.id === selected.id) : -1;
+	const atFirst = selectedIndex <= 0;
+	const atLast = selectedIndex < 0 || selectedIndex >= tracker.combatants.length - 1;
+	// The reorder buttons' tooltip: why the move is unavailable, else the move itself.
+	const reorderTitle = (
+		bound: boolean,
+		why: 'alreadyFirst' | 'alreadyLast',
+		move: 'moveEarlier' | 'moveLater',
+	) =>
+		t(previewing ? 'player.blockedPreview' : `session.combat.${bound ? why : move}`, {
+			name: selected?.name ?? '',
+		});
 	const viewport = useViewport();
 
 	// RC-SES-3.2 — the one-handed HP sheet. `±1` on the row stays (it is the fastest thing on the
@@ -695,29 +706,26 @@ export function CombatPanel({
 										<IconButton
 											icon="chevron-up"
 											label={t('session.combat.moveEarlier', { name: selected.name })}
+											title={reorderTitle(atFirst, 'alreadyFirst', 'moveEarlier')}
 											variant="ghost"
 											size="sm"
 											disabled={previewing}
-											aria-disabled={selectedIndex <= 0 || undefined}
+											aria-disabled={atFirst || undefined}
 											onClick={() => {
-												if (selectedIndex <= 0) return;
+												if (atFirst) return;
 												onReorder(selected.id, 'earlier');
 											}}
 										/>
 										<IconButton
 											icon="chevron-down"
 											label={t('session.combat.moveLater', { name: selected.name })}
+											title={reorderTitle(atLast, 'alreadyLast', 'moveLater')}
 											variant="ghost"
 											size="sm"
 											disabled={previewing}
-											aria-disabled={
-												selectedIndex < 0 ||
-												selectedIndex >= tracker.combatants.length - 1 ||
-												undefined
-											}
+											aria-disabled={atLast || undefined}
 											onClick={() => {
-												if (selectedIndex < 0 || selectedIndex >= tracker.combatants.length - 1)
-													return;
+												if (atLast) return;
 												onReorder(selected.id, 'later');
 											}}
 										/>

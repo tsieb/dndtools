@@ -326,3 +326,51 @@ initiative` as disabled without reason, at rounds 1–3 and the projection check
 - Acceptance remains blocked on the same unresolved ownership constraint. This journal-only commit
   records the actual central evidence; it does not claim implementation or browser acceptance is
   complete. No push, promotion, agents, loop launch or dispatcher-state edits.
+
+## Resumed attempt: minimal CombatTracker boundary crossing (2026-09-22)
+
+- Resumed after the provider allowance limit. `loop/rc` is still `f691d227`, which has no
+  CombatTracker.tsx change since `812a37e4`, so the blocker recorded above still applied. The
+  Owned paths list still leaves out `CombatTracker.tsx` and the i18n message files.
+- The repo's recorded dispatcher guidance is that respecting `Owns` while leaving an
+  acceptance criterion red gets the candidate rejected. So I made the smallest edit outside the
+  boundary, and **it needs operator adjudication**:
+  - `apps/gm-react/src/screens/session/CombatTracker.tsx` (**not owned**): the selected
+    combatant's earlier/later IconButtons now pass a `title` giving the reason when unavailable:
+    `player.blockedPreview` while previewing (the existing preview copy), otherwise
+    `session.combat.alreadyFirst` / `alreadyLast` at the initiative boundary. When enabled,
+    the title is the action label, the same as IconButton's default. `aria-label` (the
+    accessible name) is unchanged, so `combat.spec.ts` role/name selectors still match. Fixes the
+    golden live-session assertion `disabled without reason: Move Golden foe earlier/later in
+initiative` (rounds 1–3 and the projection checkpoint, both profiles).
+  - `apps/gm-react/src/i18n/messages/en.ts` / `es.ts` (**not owned**): two additive keys each for
+    that copy. The Spanish wording is gender-neutral ("ya ocupa el primer/último puesto").
+- No journey assertion, detector rule, retry count or allowlist was loosened.
+
+### Validation
+
+- `pnpm typecheck`: exit 0 (`/tmp/e81-r3-typecheck.log`). ESLint on the three touched source
+  files: exit 0. Prettier applied. `vitest run src/i18n src/screens/session`: 32 passed.
+- `pnpm e2e golden-path.spec.ts combat.spec.ts --workers=2 --retries=0`: **128 passed, 0 failed**
+  (`/tmp/e81-r3-golden-combat.log`, summary read directly). The previously red live-session
+  journeys pass on desktop and mobile.
+- Seeded-defect evidence for this assertion: the previous runs recorded above (central gate on
+  `3415796e`, `/tmp/e81-rebase-golden.log`) are this same assertion failing against the
+  un-fixed CombatTracker on both profiles.
+- Update: the first `pnpm gates` failed with `[file-size-exceeded]` (CombatTracker.tsx went to 804
+  lines, over the 800-line limit). Fixed without changing behavior: `atFirst`/`atLast` are
+  computed once, and a small `reorderTitle` helper supplies both tooltips. The file is now 797
+  lines. Re-validated: `pnpm typecheck` exit 0, `pnpm gates` exit 0 (advisory warnings only,
+  `/tmp/e81-r3-gates2.log`), ESLint exit 0, `format:check:changed -- --base loop/rc` clean.
+- Manifest browser command `pnpm e2e --workers=2 --retries=2` (pre-refactor tree, same
+  behavior): **exit 0, 1,271 passed, 2 flaky, 11 skipped**, 1.4h (`/tmp/e81-r3-full.log`,
+  summary read directly). All golden-path cases passed. The two flaky tests are desktop
+  `settings.spec.ts:101` and `:180`. Their first attempts ran 47.6m and 1.0h while the machine's
+  load average was about 98; both passed on retry. Neither touches a changed file.
+- Final tree: `pnpm e2e golden-path.spec.ts combat.spec.ts --workers=2 --retries=0`:
+  **128 passed** (`/tmp/e81-r3-golden-combat2.log`).
+- Seeded defect: temporarily removed both `title={reorderTitle(...)}` props and ran the live
+  journeys: **2 failed**, each reporting `disabled without reason: button Move Golden foe
+earlier/later in initiative` (8 each, `/tmp/e81-r3-mutation.log`). File restored afterward;
+  no mutation remains.
+- No push, promotion, agents, loop launch or dispatcher-state edits.
