@@ -1,3 +1,4 @@
+import type { SessionWorkflowStamp } from '../lifecycle/session-workflow';
 import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
@@ -110,8 +111,12 @@ export interface CombatantView {
 	token: CombatToken | null;
 }
 
-/** A read-only encounter-log entry view. */
-export interface CombatLogEntryView {
+/**
+ * A read-only encounter-log entry view. RC-SES-6.1 — carries the optional `workflow` the entry was
+ * recorded in, so history can label an entry made outside Go live "Outside a session"; absent on
+ * legacy entries, which read as live.
+ */
+export interface CombatLogEntryView extends SessionWorkflowStamp {
 	id: string;
 	round: number;
 	turn: number;
@@ -341,6 +346,7 @@ export function getCombatTrackerForActor(
 			delta: entry.delta,
 			at: entry.at,
 			rollId: entry.rollId ?? null,
+			...(entry.workflow !== undefined ? { workflow: entry.workflow } : {}),
 		}));
 
 	return {

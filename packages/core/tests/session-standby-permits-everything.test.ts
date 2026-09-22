@@ -8,6 +8,7 @@ import {
 	dispatchCommand,
 	ensureAudioState,
 	evaluateAudioAutomationRule,
+	getCombatTrackerForActor,
 	happenedLive,
 	getDiceHistoryForActor,
 	resolveAudioAutomationForActor,
@@ -650,6 +651,51 @@ describe('RC-SES-6.1: records carry the workflow they happened in', () => {
 			expect(handout!.deliveries.every(happenedLive)).toBe(live);
 		},
 	);
+
+	it.each([...SESSION_WORKFLOW_STATES])(
+		'the actor-filtered combat history keeps the workflow of entries made in %s without widening visibility',
+		(workflow) => {
+			let ctx = startCombat(inWorkflow(workflow));
+			const wolfId = ctx.state.session.combat.order[2]!;
+			ctx = run(ctx, {
+				type: 'combat.set-combatant-visibility',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: wolfId, hidden: true },
+			});
+			ctx = roll(ctx, 'Perception');
+			const { combat } = ctx.state.session;
+			const stored = new Map(combat.log.map((entry) => [entry.id, entry]));
+			const live = workflow === 'active';
+			for (const actor of [DM_ACTOR, PLAYER_ACTOR]) {
+				const view = getCombatTrackerForActor(combat, ctx.state.permissions, actor.id);
+				expect(view.log.length).toBeGreaterThan(0);
+				for (const row of view.log) {
+					expect(row.workflow).toBe(workflow);
+					expect(happenedLive(row)).toBe(live);
+					expect(happenedLive(row)).toBe(happenedLive(stored.get(row.id)!));
+				}
+				// Attribution does not widen the filter: the entry naming the hidden Wolf stays DM-only.
+				const namesWolf = view.log.some((row) => row.combatantId === wolfId);
+				expect(namesWolf).toBe(actor.id === DM_ACTOR.id);
+			}
+		},
+	);
+
+	it('a legacy encounter-log entry without a workflow projects without one and reads as live', () => {
+		const ctx = startCombat(inWorkflow('active'));
+		const legacyLog = ctx.state.session.combat.log.map(
+			({ workflow: _workflow, ...entry }) => entry,
+		);
+		const combat = { ...ctx.state.session.combat, log: legacyLog };
+		for (const actor of [DM_ACTOR, PLAYER_ACTOR]) {
+			const view = getCombatTrackerForActor(combat, ctx.state.permissions, actor.id);
+			expect(view.log.length).toBeGreaterThan(0);
+			for (const row of view.log) {
+				expect('workflow' in row).toBe(false);
+				expect(happenedLive(row)).toBe(true);
+			}
+		}
+	});
 
 	it('recover retains outside-session rolls, combat events and mixed handout deliveries without duplicates', () => {
 		let ctx = deliverLetter(startCombat(roll(inWorkflow('idle'), 'Standby check')), 'Mixed letter');
