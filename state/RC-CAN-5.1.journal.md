@@ -667,3 +667,28 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   320×640. Exact output: `/tmp/rc-can-5.1-20260922-acceptance-final.log`.
 - No source, assertion or dispatcher-control changes. No additional agents, publishing
   or promotion.
+
+## App-tests gate: environmental `/tmp` quota failure — 2026-09-22
+
+- Resumed at `33822322` with a clean tree. Visual regression, quality gates, format,
+  typecheck and lint all exited 0 in that run. Read the original output of the failing
+  "App tests" attempt `65acb55a-ec95-429d-b8d2-037d806186dd`. All 1,505 tests that ran
+  passed. Three suites (`tests/unit/ai-eval.test.ts`, `screens/Upgrade.test.tsx` and
+  `ds/components/ds-interaction-fixes.test.tsx`) failed to load while transforming
+  imports from `packages/core`, with `Unknown system error -122 ... write`. That is
+  `EDQUOT` (disk quota exceeded). None of the three touches this story's code.
+- A first local rerun of `pnpm test:app --maxWorkers=3` also failed across many suites,
+  and its log truncated at 125 lines, which is consistent with writes failing. A 200 MB
+  write test to `/tmp` then succeeded. A second rerun, with the `/tmp` tmpfs quota
+  sampled every 5s, passed: **145/145 files, 1,628/1,628 tests, exit 0**. Exact output:
+  `/tmp/rc-can-5.1-20260922-app-tests-2.log`.
+- During that run the fleet-wide usage on the user's `/tmp` tmpfs quota peaked at about
+  13.20M blocks, against a 13.11M limit. The limit is shared by every dispatcher
+  worktree. The main users are the shared caches `/tmp/claude-1000` (2.9G),
+  `/tmp/node-compile-cache` (2.4G) and `/tmp/playwright-transform-cache-1000` (1.1G),
+  plus other tasks' leftovers. This task's artifacts total about 16 MB. Not deleted:
+  concurrent sessions may be using them, and deciding that is for the operator.
+  **Operator note:** the App tests gate stays prone to spurious `-122` failures until
+  `/tmp` space is reclaimed.
+- No source, test or baseline changes this turn; only this journal. No agents,
+  dispatcher-control edits, publishing or promotion.
