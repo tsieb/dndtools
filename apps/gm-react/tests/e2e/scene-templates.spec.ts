@@ -38,7 +38,9 @@ test('applies a built-in template to a fresh scene from its empty state', async 
 	const sceneId = await freshScene(page);
 	await gotoRoute(page, `/scene/${sceneId}`);
 
-	const frames = page.getByTestId('scene-board-canvas').locator('[data-testid^="widget-"]');
+	const frames = page
+		.locator('[data-testid="scene-board-canvas"], [data-testid="stacked-board"]')
+		.locator('[data-testid^="widget-"]');
 	await expect(frames).toHaveCount(0);
 	await page
 		.getByTestId('scene-empty-templates')

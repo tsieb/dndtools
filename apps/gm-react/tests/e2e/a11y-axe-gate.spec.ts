@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
+import { preferPhoneCanvas } from './_helpers';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 // The automated accessibility release gate for the React GM app (ported from the archived Svelte
@@ -463,6 +464,7 @@ async function homeScene(page: Page) {
 test('a11y tree: /board names its surface, counts its widgets, and voices keyboard moves', async ({
 	page,
 }) => {
+	await preferPhoneCanvas(page);
 	await openRoute(page, '/board');
 	const { count } = await homeScene(page);
 	const board = page.getByTestId('scene-board-bounded');
@@ -503,6 +505,7 @@ test('a11y tree: /board names its surface, counts its widgets, and voices keyboa
 });
 
 test('a11y tree: scene editor names its surface and counts its widgets', async ({ page }) => {
+	await preferPhoneCanvas(page);
 	// `/board` is what seeds the home Scene (`command-center.ensure-home`); then open it as a Scene.
 	await openRoute(page, '/board');
 	const { id, count } = await homeScene(page);

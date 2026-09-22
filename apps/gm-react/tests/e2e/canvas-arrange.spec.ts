@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, seedFresh, waitReady, preferPhoneCanvas } from './_helpers';
 
 /** Only Tab changes focus: no pointer, locator.focus(), or DOM focus injection. */
 async function tabTo(page: Page, target: Locator) {
@@ -30,6 +30,7 @@ const geometry = (frames: Locator) =>
 	);
 
 test('RC-CAN-3.6: keyboard-only multi-select aligns and layers three tiles', async ({ page }) => {
+	await preferPhoneCanvas(page);
 	await markOnboarded(page);
 	await gotoRoute(page, '/board');
 	await seedFresh(page);

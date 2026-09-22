@@ -692,3 +692,47 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   `/tmp` space is reclaimed.
 - No source, test or baseline changes this turn; only this journal. No agents,
   dispatcher-control edits, publishing or promotion.
+
+## Browser acceptance: remaining spatial-canvas specs updated — 2026-09-22
+
+- Resumed at `0c301496` with a clean tree. In that gate run every other gate passed
+  (quality, format, visual, typecheck, lint, App tests, build, requirements audit).
+  Read the original output of the failing "Browser acceptance" attempt
+  `39d1cf4f-6426-4a9f-94f7-b60158c98114`: 1,260 passed, 6 failed, 9 flaky. Four were the
+  long-tracked ownership blocker: `a11y-axe-gate.spec.ts:462` and `:504`,
+  `canvas-arrange.spec.ts:32` and `scene-templates.spec.ts:37`. They look for the spatial
+  canvas on a phone, which now shows stacked panels by default. The other two were
+  mobile `settings.spec.ts` analytics-consent cases. They timed out waiting for
+  `#main-content`, then Chromium died at launch (`SIGTRAP`,
+  `browserType.launch: Target ... closed`). That is environmental.
+- **Boundary crossing, flagged for the operator:** applied the previously validated
+  test-owner patch (`/tmp/rc-can-5.1-rebase-probes/complete-test-owner.patch`) to three
+  spec files outside the listed owned paths. It is test-only; no assertion is weakened.
+  The two a11y-tree tests and the RC-CAN-3.6 arrange test call `preferPhoneCanvas`
+  (already in the owned `_helpers.ts`) first, like the owned canvas specs. The template
+  test counts frames in either board host (`scene-board-canvas` or `stacked-board`), so
+  it still proves five widgets land. The stacked phone default stays covered by
+  `a11y axe gate: /board` and `responsive.spec.ts`.
+- Targeted zero-retry run, both profiles, of the six failures plus `/board` axe:
+  14 passed (24.7s). Exact output: `/tmp/rc-can-5.1-20260922-owner-fix.log`.
+- Full gate command (`pnpm e2e --workers=2 --retries=2`, port 15772): 1,265 passed,
+  17 skipped, 9 flaky, 1 failed (23.3m), exit 1. Exact output:
+  `/tmp/rc-can-5.1-20260922-browser-full.log`. None of the four spatial-canvas specs
+  failed. What remained:
+  - `map-editor.spec.ts:289` failed all three attempts, and four other map-editor cases
+    were flaky. Every attempt was a 20s `waitReady` timeout: the runtime never loaded.
+    This story does not touch the Atlas. A zero-retry `--repeat-each=3` rerun of all
+    five cases passed 15/15 (20.1s, load average about 7). Output:
+    `/tmp/rc-can-5.1-map-editor.log`. Treated as load, not candidate.
+  - `responsive.spec.ts:242` ("bounded canvas routes fit the shell's main pane") was
+    flaky in three variants, all `/scene/:id left 555|725px of the main pane unused`
+    (measured height 0). That includes the desktop-window variant, where
+    `useStackedPosture(false)` leaves layout unchanged. A/B run concurrently, same load,
+    zero retries, `--repeat-each=10`: candidate **40/40 passed**; base `loop/rc`
+    `e1a2ba4b` **2/40 failed with the identical error**. So the race predates this story:
+    the overflow poll passes trivially before the lazy route mounts, then the height is
+    measured. Outputs: `/tmp/rc-can-5.1-ab-cand.log` and `/tmp/rc-can-5.1-ab-base.log`.
+    The fix belongs to the owner of `responsive.spec.ts`; not changed here.
+  - The two flaky `settings.spec.ts` cases passed on retry and are not board code.
+- Base worktree removed after the A/B. No source, baseline, dispatcher-control, agent,
+  publishing or promotion changes.
