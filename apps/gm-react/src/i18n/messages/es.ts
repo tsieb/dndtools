@@ -26,7 +26,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'vaults.renameNamed': 'Renombrar {name}',
 	'vaults.lastOpened': 'Última apertura: {date}',
 	'vaults.neverOpened': 'Aún no se ha abierto',
-	'vaults.openUnavailable': 'Abrir otra bóveda no está disponible en esta versión.',
+	'vaults.openNamed': 'Abrir {name}',
 	'vaults.demo': 'Probar la campaña de ejemplo',
 	'vaults.demoUnavailable': 'La campaña de ejemplo aún no está disponible aquí.',
 

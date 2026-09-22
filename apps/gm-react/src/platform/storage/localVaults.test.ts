@@ -28,6 +28,7 @@ import { getAssetBytes, putAssetBytes } from './assetStore';
 import { exportFullVault, importFullVault } from '../backup';
 import { setVaultPrivacyMode, vaultPrivacyMode } from '../../cloud/vaultMode';
 import { SceneRuntime } from '../../runtime/SceneRuntime';
+import { PREFERENCE_KEYS, readPreference, removePreference, writePreference } from '../preferences';
 
 beforeEach(() => {
 	window.localStorage.clear();
@@ -142,6 +143,45 @@ describe('local vault storage boundaries', () => {
 		expect((await loadCoreState()).sync.operations).toEqual(second.sync.operations);
 		expect((await listPrivateNotes('same-character'))[0].title).toBe('Mountain secret');
 		expect(localStorage.getItem(vaultPreferenceKey('test-preference'))).toBe('mountain');
+	});
+
+	it('isolates real campaign preference consumers both ways and keeps device preferences shared', async () => {
+		// Pre-switcher values stay under their released keys for the original vault.
+		localStorage.setItem(PREFERENCE_KEYS.paletteRecents, '["harbor"]');
+		writePreference(PREFERENCE_KEYS.seenSpotlights, '["graph"]');
+		writePreference(PREFERENCE_KEYS.partyNotes, '["ada@example.com"]');
+		writePreference(PREFERENCE_KEYS.vaultChoice, 'fresh');
+		writePreference(PREFERENCE_KEYS.theme, 'ember');
+		writePreference(PREFERENCE_KEYS.onboarded, 'done');
+		expect(localStorage.getItem(PREFERENCE_KEYS.seenSpotlights)).toBe('["graph"]');
+		const second = createLocalVault('Mountain');
+		await nextDocument(second.id);
+
+		for (const key of [
+			PREFERENCE_KEYS.paletteRecents,
+			PREFERENCE_KEYS.seenSpotlights,
+			PREFERENCE_KEYS.partyNotes,
+			PREFERENCE_KEYS.vaultChoice,
+		]) {
+			expect(readPreference(key)).toBeNull();
+		}
+		expect(readPreference(PREFERENCE_KEYS.theme)).toBe('ember');
+		expect(readPreference(PREFERENCE_KEYS.onboarded)).toBe('done');
+		writePreference(PREFERENCE_KEYS.paletteRecents, '["mountain"]');
+		writePreference(PREFERENCE_KEYS.seenSpotlights, '["dice"]');
+		removePreference(PREFERENCE_KEYS.partyNotes);
+		writePreference(PREFERENCE_KEYS.theme, 'slate');
+
+		await nextDocument('primary');
+		expect(readPreference(PREFERENCE_KEYS.paletteRecents)).toBe('["harbor"]');
+		expect(readPreference(PREFERENCE_KEYS.seenSpotlights)).toBe('["graph"]');
+		expect(readPreference(PREFERENCE_KEYS.partyNotes)).toBe('["ada@example.com"]');
+		expect(readPreference(PREFERENCE_KEYS.vaultChoice)).toBe('fresh');
+		expect(readPreference(PREFERENCE_KEYS.theme)).toBe('slate');
+
+		await nextDocument(second.id);
+		expect(readPreference(PREFERENCE_KEYS.paletteRecents)).toBe('["mountain"]');
+		expect(readPreference(PREFERENCE_KEYS.seenSpotlights)).toBe('["dice"]');
 	});
 
 	it('exports, restores, and resets only the document vault, leaving the other vault intact', async () => {

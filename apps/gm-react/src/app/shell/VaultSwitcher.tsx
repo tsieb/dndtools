@@ -5,12 +5,13 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import {
 	createLocalVault,
 	listLocalVaults,
+	reloadLocalVaultDocument,
 	renameLocalVault,
 	type LocalVault,
 } from '../../platform/storage/coreStore';
 
 /** Shared management body for the desktop chip, rail and phone More sheet.
- * Opening is supplied by the shell only after its preferences and cloud consumers are vault-scoped.
+ * Opening drains the runtime's writes, stages the choice and reloads the document into that vault.
  * UX-3.7 supplies the demo action; it must create a separate vault before populating it.
  */
 export function VaultSwitcher({
@@ -26,6 +27,8 @@ export function VaultSwitcher({
 }) {
 	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
+	const openVault =
+		onOpenVault ?? ((id: string) => runtime.openLocalVault(id, reloadLocalVaultDocument));
 	const [catalog] = useState(() => {
 		try {
 			return { vaults: listLocalVaults(), error: '' };
@@ -88,8 +91,9 @@ export function VaultSwitcher({
 							}}
 						>
 							<Button
-								disabled={busy || !onOpenVault || vault.id === runtime.vaultId}
-								onClick={() => onOpenVault && void run(() => onOpenVault(vault.id))}
+								disabled={busy || vault.id === runtime.vaultId}
+								aria-label={t('vaults.openNamed', { name: vault.name })}
+								onClick={() => void run(() => openVault(vault.id))}
 							>
 								{vault.name}
 							</Button>
@@ -118,7 +122,6 @@ export function VaultSwitcher({
 						</span>
 					</div>
 				))}
-				{!onOpenVault && <p>{t('vaults.openUnavailable')}</p>}
 				<form onSubmit={save} style={{ display: 'grid', gap: 'var(--space-3)' }}>
 					<Field label={editing ? t('vaults.rename') : t('vaults.name')}>
 						<Input

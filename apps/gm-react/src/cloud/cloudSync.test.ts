@@ -16,7 +16,8 @@ vi.mock('./secureStore', () => ({
 		return mocks.hasBridge;
 	},
 }));
-vi.mock('@dndtools/core', () => ({
+vi.mock('@dndtools/core', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@dndtools/core')>()),
 	DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL: {},
 	evaluateCloudSyncGate: ({ currentlyEnabled }: { currentlyEnabled: boolean }) => ({
 		canEnable: true,
@@ -37,9 +38,15 @@ import {
 	retryPendingCloudKeyDeletions,
 	setCloudSyncEnabled,
 } from './cloudSync';
+import {
+	__testing as coreStoreTesting,
+	createLocalVault,
+	selectLocalVaultForNextLoad,
+} from '../platform/storage/coreStore';
 
 beforeEach(() => {
 	window.localStorage.clear();
+	coreStoreTesting.resetVaultSession();
 	mocks.custodyAvailable.mockClear();
 	mocks.custodyAvailable.mockResolvedValue(true);
 	mocks.forget.mockReset();
@@ -131,6 +138,52 @@ describe('account-scoped cloud-backup opt-in', () => {
 
 		await expect(retryPendingCloudKeyDeletions()).resolves.toEqual({ removed: 1, remaining: 0 });
 		expect(mocks.forget).toHaveBeenCalledWith('account-a', 'primary');
+		expect(window.localStorage.getItem('dndtools:react:pending-vault-key-deletions')).toBeNull();
+	});
+});
+
+describe('local-vault-scoped cloud backup (RC-UX-5.4)', () => {
+	function openInNextDocument(id: string) {
+		selectLocalVaultForNextLoad(id);
+		coreStoreTesting.resetVaultSession();
+	}
+
+	it('keeps the original vault opt-in in place and never carries it into another local vault', async () => {
+		await setCloudSyncEnabled(true, 'account-a');
+		// Migration in place: the released, pre-switcher key still holds the original vault's opt-in.
+		expect(window.localStorage.getItem('dndtools:react:cloud-sync-enabled:account-a')).toBe('true');
+		const second = createLocalVault('Mountain');
+		openInNextDocument(second.id);
+
+		expect(cloudSyncIntent('account-a')).toBe(false);
+		const status = await getCloudSyncStatus('account-a');
+		expect(status.vaultSupported).toBe(false);
+		expect(status.canEnableOnThisDevice).toBe(false);
+		expect(status.gate.enabled).toBe(false);
+		// The sync API stores only the original vault, so this vault must not write into its copy.
+		await expect(setCloudSyncEnabled(true, 'account-a')).rejects.toThrow(/original campaign vault/);
+		expect(cloudSyncIntent('account-a')).toBe(false);
+
+		openInNextDocument('primary');
+		expect(cloudSyncIntent('account-a')).toBe(true);
+		expect((await getCloudSyncStatus('account-a')).gate.enabled).toBe(true);
+	});
+
+	it('fails closed when the document vault cannot be resolved', async () => {
+		await setCloudSyncEnabled(true, 'account-a');
+		window.localStorage.setItem('dndtools:react:selected-local-vault', 'missing');
+		coreStoreTesting.resetVaultSession();
+
+		expect(cloudSyncIntent('account-a')).toBe(false);
+		expect((await getCloudSyncStatus('account-a')).canEnableOnThisDevice).toBe(false);
+	});
+
+	it('forgets a deleted account in every local vault on the device', async () => {
+		const second = createLocalVault('Mountain');
+		await forgetCloudSyncAccount('account-a');
+
+		expect(mocks.forget).toHaveBeenCalledWith('account-a', 'primary');
+		expect(mocks.forget).toHaveBeenCalledWith('account-a', second.id);
 		expect(window.localStorage.getItem('dndtools:react:pending-vault-key-deletions')).toBeNull();
 	});
 });

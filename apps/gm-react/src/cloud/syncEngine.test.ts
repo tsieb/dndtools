@@ -27,6 +27,10 @@ vi.mock('./vaultKey', () => ({
 	},
 }));
 vi.mock('../platform/storage/coreStore', () => ({
+	activeLocalVaultId: () => 'primary',
+	LEGACY_LOCAL_VAULT_ID: 'primary',
+	listLocalVaults: () => [],
+	vaultPreferenceKey: (key: string) => key,
 	restoreCoreState: mocks.restore,
 	validateRestoredCoreState: mocks.validate,
 }));

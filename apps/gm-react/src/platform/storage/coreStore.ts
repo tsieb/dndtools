@@ -184,6 +184,13 @@ export function activeLocalVaultId(): string {
 	return documentVaultId;
 }
 
+/** Open the staged vault in a fresh document at the home route. Routes such as `/scene/:id` name
+ * records of the departing vault, so the reload never carries them across. */
+export function reloadLocalVaultDocument(): void {
+	window.location.replace(`${window.location.pathname}${window.location.search}#/`);
+	window.location.reload();
+}
+
 /** Stage selection for the NEXT document only. The runtime drains writes before calling this. */
 export function selectLocalVaultForNextLoad(id: string): () => void {
 	activeLocalVaultId(); // Pin the departing document before changing the next document's choice.

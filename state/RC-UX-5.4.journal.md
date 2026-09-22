@@ -237,3 +237,65 @@ playwright test tests/e2e/local-vault-performance.spec.ts --workers=1`.
 - BLOCKED: all four independent-review findings remain unresolved in production. No application
   tests or performance checks rerun because production is unchanged. Journal-only commit records
   the concrete handoff; it does not satisfy RC-UX-5.4. No push, promotion, loop or extra agents.
+
+## Integration pass — 2026-09-22 (operator brief widened Owns)
+
+Entry HEAD `f6f7c3c7`, tree clean. The operator brief added MoreSheet, RailNav, CloudSyncContext,
+cloudSync, syncEngine and preferences to Owns. The unapplied draft in `tmp/` was the starting point;
+SyncPrivacy.tsx is still NOT owned, so recovery export/import is scoped without editing it (below).
+
+### Ledger
+
+- DONE switching: VaultSwitcher opens by default via `runtime.openLocalVault(id,
+reloadLocalVaultDocument)`; coreStore's reload lands on `#/` (routes name the departing vault's
+  records). Buttons are labelled "Open {name}"; the "unavailable" copy is gone (EN/ES).
+- DONE entry points: RailNav's campaign mark is now a button (same pixels as the old decorative
+  badge, so rail golden routes should not move); MoreSheet lists "Local vaults" with the current
+  vault's name first. Sidebar chip unchanged.
+- DONE preferences: `preferenceStorageKey` routes vaultChoice, partyNotes, paletteRecents and
+  seenSpotlights through `vaultPreferenceKey`. Theme/density/motion/locale/tier/onboarded/what's-new
+  stay device-wide (person, not campaign). Primary keeps its released keys (migration in place).
+- DONE cloud: opt-in key is `vaultPreferenceKey(<account key>, vault)`; status/enable/disable take
+  the document vault; CloudSyncContext pins it once and passes `vaultId` to the engine.
+  The sync API accepts only `primary` (packages/cloud-fns/src/sync/handler.ts `requireVaultId`,
+  not owned), so `getCloudSyncStatus` reports `vaultSupported:false` and refuses enablement for
+  other vaults: they never write into or restore from the original vault's cloud copy.
+- DONE keys/recovery: `CLOUD_VAULT_ID` is now the document's vault (resolved once; a document never
+  changes vault without reloading). SyncPrivacy's unchanged import therefore exports/imports the
+  ACTIVE vault's keyring. An unreadable catalog yields `''`, which key custody and the engine refuse.
+- DONE account deletion: `forgetCloudSyncAccount(account)` without a vault forgets intent,
+  high-waters (incl. agreed-rev) and keys in EVERY local vault; pending-marker bound raised to 512.
+
+### Remaining handoffs (not owned)
+
+- HANDOFF RC-UX-5.4 → `apps/gm-react/src/cloud/googleCalendar.ts:171`: `rosterAttendeeEmails` reads
+  `dndtools:react:invites` raw; route it through `readPreference(PREFERENCE_KEYS.partyNotes)` so a
+  non-primary vault's calendar never suggests the original vault's roster. Primary unaffected.
+- HANDOFF RC-UX-5.4 → `apps/gm-react/src/screens/settings/SyncPrivacy.tsx`: surface
+  `gate.vaultSupported === false` as "cloud backup covers your original campaign vault" instead of
+  the generic enable error. Behaviour is already fail-closed.
+- HANDOFF RC-UX-5.4 → `packages/cloud-fns/src/sync/handler.ts`: per-vault cloud backup for extra
+  local vaults needs the server to accept more ids with a per-account vault cap.
+
+### Tests added
+
+- `localVaults.test.ts`: real preference consumers isolate both ways; device prefs stay shared.
+- `cloudSync.test.ts`: primary opt-in migrates in place and never leaks into vault B; B refuses
+  enablement; unreadable selection fails closed; account deletion covers every local vault.
+- `local-vaults.spec.ts` (desktop chip / phone More sheet by project viewport, plus a 834px rail
+  test): create a second vault, switch, and prove op-id sets, command-palette full-text search and
+  keyrings (Electron override + localStorage-backed secure-store bridge, production vaultKeyManager
+  and CLOUD_VAULT_ID) isolated both ways, then back again. Mutation check: pinning
+  `CLOUD_VAULT_ID = 'primary'` fails the journey at the keyring assertion (restored).
+
+### Validation (this pass, uncommitted tree before commit)
+
+- `pnpm typecheck`: exit 0. `pnpm lint`: exit 0 (15 existing warnings; raw-style ratchet respected).
+- `pnpm test:app`: exit 0, 142 files / 1548 tests. `pnpm test:cloud`: exit 0, 39 files / 525 tests.
+- Prettier check on all changed files: clean.
+- `local-vaults.spec.ts`: 4/4 passed on desktop-chromium and mobile-chromium (log `/tmp` run, exit 0).
+- Full Playwright suite (default workers, host load average 25→77 from other worktrees):
+  1197 passed, 13 skipped, 28 failed, exit 1. All 28 were timeouts (`waitReady` 20 s boot, lazy
+  palette 5 s, context close 30 s) across 13 unrelated specs; none failed an assertion about vaults,
+  preferences, rail or More sheet. NOT claimed green: a low-parallelism rerun of those 13 specs was
+  interrupted when the session ended; see the next entry.

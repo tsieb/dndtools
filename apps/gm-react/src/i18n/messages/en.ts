@@ -43,7 +43,7 @@ export const en = {
 	'vaults.renameNamed': 'Rename {name}',
 	'vaults.lastOpened': 'Last opened {date}',
 	'vaults.neverOpened': 'Not opened yet',
-	'vaults.openUnavailable': 'Opening another vault is unavailable in this version.',
+	'vaults.openNamed': 'Open {name}',
 	'vaults.demo': 'Try the sample campaign',
 	'vaults.demoUnavailable': 'The sample campaign is not available here yet.',
 

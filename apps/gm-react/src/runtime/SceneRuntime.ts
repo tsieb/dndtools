@@ -219,7 +219,8 @@ export class SceneRuntime {
 		return activeLocalVaultId();
 	}
 
-	/** Integration seam: callers must scope preferences and cloud services before exposing this. */
+	/** Drain queued writes, stage `id` for the next document and hand over to `reload` (the shell
+	 * passes `reloadLocalVaultDocument`). Preferences, cloud intent and keys follow the document vault. */
 	openLocalVault(id: string, reload: () => void | Promise<void>): Promise<void> {
 		if (this.vaultSwitchAttempt || this.departingVault) {
 			return Promise.reject(new Error('A local vault is already opening.'));
