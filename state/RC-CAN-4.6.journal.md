@@ -272,3 +272,33 @@ This revision supersedes the earlier direct-dispatch and temporary-test decision
   application source; it was not rerun in this scope-only revision.
 - Headroom tools unavailable. No agents, dispatcher state edits, other loops, pushes or
   promotion. Central ownership/wrapper gates and independent review remain with the operator.
+
+## Pinned visual gate repair (2026-09-22)
+
+- Started from clean, centrally rebased candidate `d84143b1`. Read the original failed gate log
+  at `/home/trinkle/Programming/agent-dispatcher/.state/attempts/a272a20c-25c6-46ec-8e60-1ddf322b1453/output.log`:
+  123 passed, 12 screenshot comparisons failed, all `/board` and `/scene/:id` under tavern and
+  high-contrast across desktop, rail and phone. No Headroom tools were available.
+- Inspected expected/actual captures: saved scene backgrounds now paint independently of the
+  application theme, as intended by this story. The home board's parchment and the editor's
+  paper replace the former inherited dark canvas; widget themes and positions remain intact.
+  Parchment-theme captures already match. This is missing visual baseline maintenance, not a
+  reason to remove the requested backgrounds or weaken screenshot comparisons.
+- Following `docs/development/TESTING.md` section 8, regenerate only board/editor captures in
+  the repository's digest-pinned Playwright container, inspect every changed PNG, and replay
+  the full visual gate without snapshot updates. No application source changes are required.
+
+### Visual gate replay (2026-09-22, resumed session)
+
+- The previous session was cut off by the provider allowance limit after regenerating the 12
+  board/editor baselines in the pinned container (`--update-snapshots=changed`). No other
+  baselines changed.
+- Reviewed the regenerated PNGs (desktop tavern board, desktop high-contrast editor, phone
+  high-contrast board, among others): the scene background (parchment on the board, paper in
+  the editor) now paints regardless of theme. Chrome, widgets and layout are unchanged.
+- `apps/gm-react/tests/visual/run-in-container.sh` (no update flags): **135 passed (2.9m)**,
+  exit 0. Original output: `/tmp/rc-can-46-visual-replay.log`.
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: 135 files, 12612.0 KiB of
+  32768.0 KiB.
+- Application source is unchanged in this revision. No agents, pushes, promotion or dispatcher
+  state edits.
