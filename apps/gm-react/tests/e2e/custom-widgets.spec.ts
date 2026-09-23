@@ -781,12 +781,16 @@ test.describe('widget accessibility contract', () => {
 
 		// timer.advance — paused, so the added minute is exact.
 		const paused = await timerState(page, timerId);
+		const pausedDisplay = (await timer.getByRole('timer').textContent())!.trim();
 		await tabTo(page, timer.getByRole('button', { name: 'Add 60 seconds to the timer' }));
 		await page.keyboard.press('Enter');
 		await expect
 			.poll(async () => (await timerState(page, timerId))?.durationSeconds)
 			.toBe((paused?.durationSeconds ?? 0) + 60);
 
+		// The runtime state lands before React commits the re-render, so a one-shot read of the
+		// figure here can still see the pre-advance time; wait for the tile to show the new figure.
+		await expect(timer.getByRole('timer')).not.toHaveText(pausedDisplay);
 		await expect(timer.locator(LIVE_REGION)).toContainText(
 			(await timer.getByRole('timer').textContent())!.trim(),
 		);
