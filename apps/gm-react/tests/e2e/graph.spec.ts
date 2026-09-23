@@ -25,6 +25,9 @@ test.describe('graph: relationship graph & search', () => {
 		page,
 	}) => {
 		const nodes = page.getByTestId('graph-node');
+		// /graph is a lazy route: #main-content attaches before the screen mounts, so a one-shot
+		// count can read 0. The vault is already loaded, so every node lands in the mounting commit.
+		await expect(nodes.first()).toBeAttached();
 		const total = await nodes.count();
 		expect(total).toBeGreaterThan(1);
 		await nodes.first().focus();
@@ -32,6 +35,7 @@ test.describe('graph: relationship graph & search', () => {
 		await expect(nodes.nth(1)).toBeFocused();
 		await page.keyboard.press('Enter');
 		await page.getByRole('button', { name: 'Focus neighborhood', exact: true }).click();
+		await expect.poll(() => nodes.count()).toBeLessThan(total);
 		const focusedCount = await nodes.count();
 		expect(focusedCount).toBeLessThan(total);
 		expect(focusedCount).toBeGreaterThan(0);
