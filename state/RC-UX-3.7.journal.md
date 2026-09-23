@@ -137,3 +137,19 @@ tiny helpers next to the vault catalog.
   The spec asserts the demo median ≤ 1500 ms and FAILED on this host, as the original vault would.
   NOT claimed in budget: the showcase costs ≈50–60 ms over the original vault's first load; an
   idle-host rerun is needed for an absolute verdict. Log `/tmp/rc-ux-3.7-perf-2.log`.
+- Rerun on the committed candidate `0a804fe9` (clean tree), load 12.8 → 22.2 during the run:
+  desktop demo median 2058.5 ms vs original 2233.5 ms; phone 2468.3 vs 2539 ms. Both far over the
+  budget and the difference is inside the noise (it came out negative). Host contention dominates;
+  this run is no evidence either way. Log `/tmp/rc-ux-3.7-perf-3.log`.
+
+## Report
+
+RC-UX-3.7 is implemented and committed (`bc7efcea`). The demo opens from the switcher on every
+viewport tier, is badged, resets, and returns to the GM's own vault with its op ids unchanged (e2e,
+both profiles). Sync and backup refuse the demo vault (unit + e2e), as do hosting and joining. The
+widened seed commits as one batch (unit tests). The original vault's seed is unchanged, so e2e that
+relied on it are unaffected; the affected-spec run is green apart from the known
+`responsive.spec.ts:242` base flake. OPEN for the operator: `scene-first-render` could not be
+graded in budget on this host; the original vault breaches too, and the interleaved A/B puts the
+showcase at ≈50–60 ms over the original vault's first load. Scope crossings are listed above.
+No push, promotion, loops, extra agents or dispatcher-state edits.
