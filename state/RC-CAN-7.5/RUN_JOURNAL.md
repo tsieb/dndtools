@@ -549,4 +549,12 @@ inside `state/RC-CAN-7.5/`. `docs/planning/README.md` was not touched in this re
   - Restoring the whole pre-recapture board set together with its matching crosswalk and hashes
     failed with `AssertionError: ('refresh-board-desktop-tavern', 'region "1. Map"')`, so a stale
     but self-consistent set no longer passes.
-- Gate results for this repair are recorded below once run.
+- After commit `1ff07586`:
+  - `pnpm gates` exited 0: 262 reachable documents, 338 relative links resolved.
+  - `pnpm format:check:changed -- --base loop/rc` passed for 185 files.
+  - `git diff --check loop/rc HEAD` passed, and `pnpm exec eslint state/RC-CAN-7.5/*.ts` exited 0.
+- Ownership: all 377 paths in `git diff --name-only loop/rc HEAD` sit under
+  `docs/planning/SCREENS_PARITY.md`, `docs/planning/README.md` or `state/RC-CAN-7.5/`.
+- Not run: full `pnpm check`, typecheck, the Playwright suites (`scene-surfaces.spec.ts` was read,
+  not run), a contrast measurement of the D-10 surface, and any real participant device. Operator
+  gates and independent review remain separate.
