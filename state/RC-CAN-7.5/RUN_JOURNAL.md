@@ -457,4 +457,15 @@ Session images are Combat-section or viewport (sheet) images. Board images are t
 - Negative checks on a /tmp copy: removing the SE-43 success mapping failed with
   `Unmapped/changed controls`; deleting the G-11 register row failed with `AssertionError: G-11`.
 - `pnpm exec eslint` on both capture harnesses: exit 0.
-- Format, gates and diff checks are recorded below after they ran.
+- `pnpm gates`: exit 0; 258 reachable documents, 333 resolved relative links (links to the new
+  source references included); existing product file-size warnings only.
+- Prettier `--check` on both planning files, this journal, the crosswalk, the new harness and all
+  177 ARIA files: passed before commit. After commit `47d90944`,
+  `pnpm format:check:changed --base loop/rc` passed for 185 files. That covers every
+  Prettier-eligible file changed against local `loop/rc` (`df379bf7`), including the 60 new YAML
+  files. `git diff --check eafbce28 HEAD` passed.
+- Ownership: no path in the base-to-candidate diff falls outside `docs/planning/SCREENS_PARITY.md`,
+  `docs/planning/README.md` and `state/RC-CAN-7.5/`.
+- Not run for this repair: full `pnpm check`, typecheck, the Playwright suites (`combat.spec.ts`
+  and `combat-tile.spec.ts` were read, not rerun) and any real participant device. The isolated
+  Vite server was stopped afterwards. Operator gates and independent review remain separate.
