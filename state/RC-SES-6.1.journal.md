@@ -179,3 +179,11 @@
   - 2 "Target page, context or browser has been closed".
   - No SFX or combat assertion failed. The flaky `sfx-events.spec.ts:104` was a boot timeout. The other flaky specs (`share-import`, `shortcuts`, `themes`) are outside this story.
 - Verdict unchanged since attempt 12: nothing in the browser gate belongs to this story. The gate needs `32ef11ad`/`c71169bb` on `loop/rc`.
+
+## Attempt 18 (unchanged base `df379bf7`; unchanged verdict)
+
+- Entry: clean branch at `9151b07b`. `loop/rc` and `origin/loop/rc` are both at `df379bf7`, 0 commits ahead of this branch. `vite.config.ts` there still has no `FULL_RESPONSES`, so neither `32ef11ad` nor its port `c71169bb` has been integrated. Headroom tools were unavailable, so I read the gate log directly: `.state/attempts/28922de4-…/output.log`. No code changed, and no agents, dispatcher writes, push, promotion or extra loop.
+- Gate result: 3 failed, 4 flaky, 1268 passed.
+  - Hard failures: `settings.spec.ts:101` on both profiles, plus `settings.spec.ts:180` on desktop. The `:180` failure is a `toContainText("Appearance")` on the settings section picker, which this story doesn't touch. It is the same environmental `settings :101/:180` stall that `32ef11ad`'s journal attributes to the shm exhaustion.
+  - Printed errors: 4 `waitReady` boot timeouts, 1 `locator.waitFor` timeout and 1 `page.goto: net::ERR_INSUFFICIENT_RESOURCES` (`#/session`). No SFX or combat assertion failed. The flaky `sfx-events` runs passed on retry.
+- Verdict as in attempts 12–17: the Browser acceptance gate is blocked outside this task's owned paths until `c71169bb`/`32ef11ad` lands on `loop/rc`. Requeueing without that change reproduces this result.
