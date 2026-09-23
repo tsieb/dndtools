@@ -54,7 +54,9 @@ def main():
         'capture-filter': ('combobox "Archived session"', 'textbox "Filter": zzzz-no-match', '[checked]'),
         'capture-continuity': ('button "Create"', 'button "Not now"', 'group "1 name mentioned without notes"'),
         'home': ('button "Open scene"',),
-        'board': ('button "Edit layout"',),
+        # Recaptured on 2fb670a4: numbered widget regions (RC-WID-4.4) and the timer role.
+        'board': ('button "Edit layout"', 'region "1. Map"', 'region "2. Initiative Tracker"',
+                  'region "7. Prep"', '- timer: 1:00'),
         'board-gallery': ('searchbox "Search widgets"', 'group "Filter by category"',
                           'button "Generate with assistant"', 'button "Build your own"'),
         'board-gallery-empty': ('No widgets match that search.',),
@@ -74,15 +76,15 @@ def main():
         'session-combat-preview': ('button "Record a death save success for Reed Stalker" [disabled]',
                                    'button "Keep concentration for Bog Lurker" [disabled]',
                                    'button "Unknown creature"'),
-        'board-combat-live': ('button "Next turn"',),
+        'board-combat-live': ('button "Next turn"', 'region "2. Initiative Tracker"'),
         'board-combat-preview': ('Only the DM can arrange it.',),
-        'board-combat-edit': ('button "Actions for Initiative Tracker"',),
+        'board-combat-edit': ('button "Actions for Initiative Tracker"', 'region "2. Initiative Tracker"'),
         'board-combat-tray': ('group "Quick actions — Bog Lurker"', 'button "Hide Bog Lurker from players"',
                               'button "Close quick actions — Bog Lurker"'),
         'board-combat-hp-sheet': ('dialog "Hit points — Bog Lurker"', 'button "Digit 5"'),
     }
     phone_tile = ('button "Adjust hit points — Reed Stalker"', 'button "More actions — Marsh Wisp"',
-                  'Swipe a row left for quick actions.')
+                  'Swipe a row left for quick actions.', 'initiative order · Turn 1')
     screenshots = 0
     for state in refreshed:
         for tier in ('phone',) if state in phone_only else ('desktop', 'rail', 'phone'):

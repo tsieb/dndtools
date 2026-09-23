@@ -469,3 +469,84 @@ Session images are Combat-section or viewport (sheet) images. Board images are t
 - Not run for this repair: full `pnpm check`, typecheck, the Playwright suites (`combat.spec.ts`
   and `combat-tile.spec.ts` were read, not rerun) and any real participant device. The isolated
   Vite server was stopped afterwards. Operator gates and independent review remain separate.
+
+## Integration-tip recapture — 2026-09-23
+
+Resumed after the previous session stopped on a provider allowance limit. Starting HEAD was
+`bf177185` (clean) on base `df379bf7`. Used the supplied docs-research skill. No Headroom tools were
+used, so all output below was read directly. No additional agents.
+
+**Why a recapture.** The 2026-09-22 section cites `47d90944` and base `eafbce28`. Those SHAs belong to
+the branch before it was rebased onto `df379bf7` (the patch of `47d90944` equals `c15fd363`'s).
+The evidence was therefore captured on `eafbce28` and never recaptured on the base it was committed
+against. `eafbce28..df379bf7` includes RC-WID-4.4 (`3fbef676`) and its follow-ups (`e0c4b9ed`,
+`d33e9a90`, `30db68d1`). Local `loop/rc` had since moved to `2fb670a4`, adding RC-CAN-4.6 scene
+backgrounds (`a88af2ae`, `1a6afbcc`, re-baselined in `2fb670a4`), which touches
+`SceneBoardCanvas.tsx` and `WidgetFrame.tsx`.
+
+Steps:
+
+1. `git merge-tree --write-tree loop/rc HEAD` was clean, so I rebased the task branch onto local
+   `loop/rc` (`2fb670a4`) without conflicts. Old → new SHAs: `bf177185` → `e87a5c85`, `c15fd363` →
+   `a800ca1e`; the earlier commits are listed by `git log loop/rc..HEAD`. The verifier passed
+   unchanged afterwards.
+2. Started the isolated, cloud-disabled Vite server from the refresh section on port 15771 and ran
+   `capture-refresh.ts`, `capture-conditional.ts` and `capture-combat.ts` without modification. All
+   three exited 0. Then `prettier --write` on the refresh YAML.
+3. Classified every changed file by comparing indentation-stripped lines:
+   - 30 board-route ARIA files (`refresh-board-*` ×9, `-combat-live` ×9, `-combat-edit` ×9,
+     `-combat-tray-phone` ×3). Each tile body is now wrapped in a numbered `region` (`WidgetRegion`,
+     `WidgetRenderSlot.tsx:252`). `1:00` is now `timer`. The phone header adds visually hidden
+     `· Turn 1`. Quick Reference and Prep text order moved (known D-05). A script checked that each
+     file's interactive-control sequence (the verifier's role regex) is identical before and after.
+   - 18 capture filter/continuity files: wall-clock titles and fixture checkbox order only.
+   - Every other ARIA file: byte-identical.
+4. Kept the 30 board ARIA files and every board-route image whose bytes changed (48). Restored the
+   capture ARIA files (noise) and every non-board image with `git checkout`.
+5. Re-anchored `control-coverage.json` with a script that maps old line → new line by position in
+   the identical control sequence (204 occurrences moved, 240 remapped entries). It asserts
+   sequence equality per file and refreshes the 30 SHA-256 values. Prettier then restored the file's
+   layout. Committed the evidence as a checkpoint (`71ffcedb`).
+6. Reran all three harnesses on the same server to measure image noise outside the board, comparing
+   each changed non-board image with the committed one (ImageMagick difference, thresholded):
+   - Capture images: clock-derived titles; five continuity images changed height.
+   - Session images: at most 0.57% of pixels differ. I inspected the three largest crops. They show
+     the elapsed `Session live` clock (00:00 vs 00:01, which also shifts the pill width) and one
+     hover-highlighted `Recap` radio. The hover is probably where the pointer rested (inference).
+
+   No product change was visible. Restored the tree to `71ffcedb` and stopped Vite (port free).
+
+7. Viewed the new board images: Tavern desktop and rail, High-contrast desktop and phone, and the
+   parchment phone next to its predecessor. Under Tavern and High contrast, the board surface
+   between tiles is now cream: `data-theme="parchment"` comes from the seed's `parchment` scene
+   background (`command-center-state.ts:145`). The phone layout itself is unchanged, so D-07 stands.
+
+Matrix changes (`SCREENS_PARITY.md`):
+
+- §0 gains a recapture subsection. It also states that the live-combat run was on `eafbce28` and was
+  not recaptured after the first rebase.
+- BD-11 records the numbered region. BD-23 records `role="timer"`. BD-29 records the hidden turn
+  suffix.
+- §2.2.2, §2.3 and D-02 now say landmark navigation reaches each tile, while heading navigation
+  still does not.
+- §2.4 gains the scene-background paragraph, and D-10 is new.
+- WID-5.10's rationale notes that the region already exists.
+- §5's "newer integration tip" limitation is resolved to `2fb670a4`. §6 gains source links.
+
+No WID gap changed. The region landmarks do not close G-06 or WID-5.10, which is about headings.
+D-10 is a CAN-7.6/7.7 decision, not a widget-surface gap, so no new WID story was filed.
+
+Verifier change: new required assertions for `board` (regions 1, 2 and 7, `timer: 1:00`),
+`board-combat-live` and `-edit` (region 2), and phone-only `initiative order · Turn 1`. This is
+inside `state/RC-CAN-7.5/`. `docs/planning/README.md` was not touched in this repair.
+
+### Recapture validation
+
+- `python3 state/RC-CAN-7.5/verify-evidence.py`: exit 0 (4,942 occurrences, 388 mapped controls, 177
+  ARIA captures, 27 + 150 screenshots, 11 gaps).
+- Negative checks on /tmp copies:
+  - Replacing one board file with its pre-recapture version failed with `Unmapped/changed controls`.
+  - Restoring the whole pre-recapture board set together with its matching crosswalk and hashes
+    failed with `AssertionError: ('refresh-board-desktop-tavern', 'region "1. Map"')`, so a stale
+    but self-consistent set no longer passes.
+- Gate results for this repair are recorded below once run.
