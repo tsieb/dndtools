@@ -8,15 +8,15 @@ import { BUILT_IN_SYSTEM_PACKAGES } from '../packages/core/src/systems';
 const root = new URL('../', import.meta.url);
 const levels = [1, 5, 10, 20];
 
-// Read the authoritative vocabulary without loading React or executing the JSX module.
+// Read the authoritative vocabulary without loading React or executing the DS module.
 function iconVocabulary(): Set<string> {
-	const path = new URL('apps/gm-react/src/ds/components/core/Icon.jsx', root);
+	const path = new URL('apps/gm-react/src/ds/components/core/icon-registry.ts', root);
 	const source = ts.createSourceFile(
 		path.pathname,
 		readFileSync(path, 'utf8'),
 		ts.ScriptTarget.Latest,
 		true,
-		ts.ScriptKind.JSX,
+		ts.ScriptKind.TS,
 	);
 	const names = new Set<string>();
 	function visit(node: ts.Node): void {

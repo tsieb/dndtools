@@ -1,5 +1,5 @@
 import { AbilityScore, abilityModifier, Stat } from '../../../ds';
-import { type CharacterView } from '@dndtools/core';
+import { abilityModifier as numericAbilityModifier, type CharacterView } from '@dndtools/core';
 import { ABILITY_IDS, SKILLS } from '../../../app/charImport/skills';
 import { Panel, T, eb, mono } from '../../../app/screen-kit';
 import { sgn } from '../shared';
@@ -75,7 +75,8 @@ export function AbilitiesPanel({
 							{ABILITY_IDS.map((a) => {
 								const proficient = prof.saves.includes(a);
 								const bonus =
-									abilityModifier(view.abilityScores[a] ?? 10) + (proficient ? profBonus : 0);
+									numericAbilityModifier(view.abilityScores[a] ?? 10) +
+									(proficient ? profBonus : 0);
 								return (
 									<span
 										key={a}
@@ -108,7 +109,7 @@ export function AbilitiesPanel({
 							{SKILLS.map((s) => {
 								const level = prof.skills[s.id] ?? 'none';
 								const bonus =
-									abilityModifier(view.abilityScores[s.ability] ?? 10) +
+									numericAbilityModifier(view.abilityScores[s.ability] ?? 10) +
 									(level === 'expertise' ? profBonus * 2 : level === 'proficient' ? profBonus : 0);
 								return (
 									<div

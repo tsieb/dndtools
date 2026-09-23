@@ -22,8 +22,15 @@ export async function run({ registry, defaultOutDir = 'dist' } = {}) {
 
 async function documentRegistry(registry, mode, prettier) {
 	if (!registry?.length) throw new Error('Gallery registry is missing or empty');
-	const facade = readFileSync(new URL('apps/gm-react/src/ds/index.d.ts', root), 'utf8');
-	const exported = [...facade.matchAll(/export const (\w+): DSComponent;/g)]
+	// Public components are the PascalCase functions exported by the modules the typed barrel re-exports.
+	const ds = new URL('apps/gm-react/src/ds/', root);
+	const barrel = readFileSync(new URL('index.ts', ds), 'utf8');
+	const exported = [...barrel.matchAll(/export \* from '\.\/([\w/]+)';/g)]
+		.flatMap(([, module]) => [
+			...readFileSync(new URL(`${module}.tsx`, ds), 'utf8').matchAll(
+				/^export function ([A-Z]\w*)/gm,
+			),
+		])
 		.map((match) => match[1])
 		.sort();
 	const registered = registry.map((entry) => entry.name).sort();
@@ -40,7 +47,7 @@ async function documentRegistry(registry, mode, prettier) {
 		'',
 		'Choose a component, example and any combination of variant/state controls. Theme (tavern, parchment, high-contrast) and density (comfortable, compact) apply to the specimen and overlays. They are temporary and restore on exit. Hover, press and Tab through real controls for pointer and focus states; open overlays to check Escape and focus return. Reset example restores its selected fixture. Actions use synthetic local state.',
 		'',
-		'Scope: every public component in `src/ds/index.d.ts`; helper functions and constants are not components. Icon names and default condition names are additionally selectable from their live registries. Example props below are merged with the selected axes and example overrides; event handlers and semantic wrappers are supplied by the gallery renderer.',
+		'Scope: every public component exported through `src/ds/index.ts`; helper functions and constants are not components. Icon names and default condition names are additionally selectable from their live registries. Example props below are merged with the selected axes and example overrides; event handlers and semantic wrappers are supplied by the gallery renderer.',
 		'',
 	];
 	for (const entry of registry) {
@@ -110,7 +117,7 @@ function checkProductionBundle(outDir) {
 	// Registry component source links are forbidden even if the data module leaks on its own.
 	// Require a category and component filename: production gate metadata includes DS test paths.
 	const forbidden =
-		/__rt\b|__ds\b|DsGallery|lamplight-ds-gallery|apps\/gm-react\/src\/ds\/components\/[a-z]+\/[A-Z]\w*\.jsx/;
+		/__rt\b|__ds\b|DsGallery|lamplight-ds-gallery|apps\/gm-react\/src\/ds\/components\/[a-z]+\/[A-Z]\w*\.[jt]sx/;
 	const offenders = [];
 	for (const f of files) {
 		const src = readFileSync(join(assetsDir, f), 'utf8');

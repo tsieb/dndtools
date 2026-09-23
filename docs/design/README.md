@@ -159,11 +159,12 @@ own those files.
 ## 3. Components
 
 The React design system is `apps/gm-react/src/ds/components/<group>/`, imported through the `../ds`
-barrel and typed loosely by `src/ds/index.d.ts`. Groups mirror the package: core, forms, feedback,
+barrel `src/ds/index.ts`. Every component is typed `.tsx` with exported props interfaces
+(RC-DSN-2.1); there is no separate declaration facade. Groups mirror the package: core, forms, feedback,
 overlay, navigation, command, domain, creature, condition, spell, campaign, map, data, system.
 The `creature`, `condition`, `spell`, and `domain` groups are the D&D 5e reference package's
 realization of the System Package contract; feed them another package's vocabulary for another game.
-`Dialog.jsx` owns modal semantics (trap, Escape, scroll lock, focus restore); `Icon.jsx` owns the
+`Dialog.tsx` owns modal semantics (trap, Escape, scroll lock, focus restore); `Icon.tsx` owns the
 Lucide registry ([`../reference/ICON_VOCABULARY.md`](../reference/ICON_VOCABULARY.md)).
 
 Content voice, visual foundations, and the iconography rules are in the vendored

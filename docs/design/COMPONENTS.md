@@ -8,13 +8,13 @@ Start `pnpm dev` and open `http://localhost:5273/#/__ds`. The gallery is DEV-onl
 
 Choose a component, example and any combination of variant/state controls. Theme (tavern, parchment, high-contrast) and density (comfortable, compact) apply to the specimen and overlays. They are temporary and restore on exit. Hover, press and Tab through real controls for pointer and focus states; open overlays to check Escape and focus return. Reset example restores its selected fixture. Actions use synthetic local state.
 
-Scope: every public component in `src/ds/index.d.ts`; helper functions and constants are not components. Icon names and default condition names are additionally selectable from their live registries. Example props below are merged with the selected axes and example overrides; event handlers and semantic wrappers are supplied by the gallery renderer.
+Scope: every public component exported through `src/ds/index.ts`; helper functions and constants are not components. Icon names and default condition names are additionally selectable from their live registries. Example props below are merged with the selected axes and example overrides; event handlers and semantic wrappers are supplied by the gallery renderer.
 
 ## NpcCard
 
 A character summary with disposition and visibility.
 
-[Source](../../apps/gm-react/src/ds/components/campaign/NpcCard.jsx)
+[Source](../../apps/gm-react/src/ds/components/campaign/NpcCard.tsx)
 
 ### Variants and states
 
@@ -43,7 +43,7 @@ A character summary with disposition and visibility.
 
 A quest with completed and pending objectives.
 
-[Source](../../apps/gm-react/src/ds/components/campaign/QuestCard.jsx)
+[Source](../../apps/gm-react/src/ds/components/campaign/QuestCard.tsx)
 
 ### Variants and states
 
@@ -81,7 +81,7 @@ A quest with completed and pending objectives.
 
 A chronological log with active and completed beats.
 
-[Source](../../apps/gm-react/src/ds/components/campaign/SessionTimeline.jsx)
+[Source](../../apps/gm-react/src/ds/components/campaign/SessionTimeline.tsx)
 
 ### Variants and states
 
@@ -147,7 +147,7 @@ Use the examples and native interactions below.
 
 Search, empty results, disabled commands and keyboard selection.
 
-[Source](../../apps/gm-react/src/ds/components/command/CommandPalette.jsx)
+[Source](../../apps/gm-react/src/ds/components/command/CommandPalette.tsx)
 
 ### Variants and states
 
@@ -186,7 +186,7 @@ Search, empty results, disabled commands and keyboard selection.
 
 A named condition with optional duration, level and removal.
 
-[Source](../../apps/gm-react/src/ds/components/condition/ConditionBadge.jsx)
+[Source](../../apps/gm-react/src/ds/components/condition/ConditionBadge.tsx)
 
 ### Variants and states
 
@@ -214,7 +214,7 @@ A named condition with optional duration, level and removal.
 
 An empty or populated condition list with an add action.
 
-[Source](../../apps/gm-react/src/ds/components/condition/ConditionTracker.jsx)
+[Source](../../apps/gm-react/src/ds/components/condition/ConditionTracker.tsx)
 
 ### Variants and states
 
@@ -248,7 +248,7 @@ An empty or populated condition list with an add action.
 
 Condition vocabulary supplied by an active game system.
 
-[Source](../../apps/gm-react/src/ds/components/condition/SystemProvider.jsx)
+[Source](../../apps/gm-react/src/ds/components/condition/SystemProvider.tsx)
 
 ### Variants and states
 
@@ -278,7 +278,7 @@ Use the examples and native interactions below.
 
 Initials or a portrait with a status ring.
 
-[Source](../../apps/gm-react/src/ds/components/core/Avatar.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Avatar.tsx)
 
 ### Variants and states
 
@@ -305,7 +305,7 @@ Initials or a portrait with a status ring.
 
 Lamplight mark, decorative or named.
 
-[Source](../../apps/gm-react/src/ds/components/core/Brand.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Brand.tsx)
 
 ### Variants and states
 
@@ -328,7 +328,7 @@ Lamplight mark, decorative or named.
 
 Lamplight wordmark.
 
-[Source](../../apps/gm-react/src/ds/components/core/Brand.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Brand.tsx)
 
 ### Variants and states
 
@@ -350,7 +350,7 @@ Lamplight wordmark.
 
 Combined mark and wordmark.
 
-[Source](../../apps/gm-react/src/ds/components/core/Brand.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Brand.tsx)
 
 ### Variants and states
 
@@ -371,7 +371,7 @@ Use the examples and native interactions below.
 
 Nested navigation with optional collapsed ancestors.
 
-[Source](../../apps/gm-react/src/ds/components/core/Breadcrumb.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Breadcrumb.tsx)
 
 ### Variants and states
 
@@ -414,7 +414,7 @@ Nested navigation with optional collapsed ancestors.
 
 An action with native or focusable disabled states.
 
-[Source](../../apps/gm-react/src/ds/components/core/Button.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Button.tsx)
 
 ### Variants and states
 
@@ -443,7 +443,7 @@ An action with native or focusable disabled states.
 
 Contextual feedback with a semantic status tone.
 
-[Source](../../apps/gm-react/src/ds/components/core/Callout.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Callout.tsx)
 
 ### Variants and states
 
@@ -468,7 +468,7 @@ Contextual feedback with a semantic status tone.
 
 A surface container with optional interactive treatment.
 
-[Source](../../apps/gm-react/src/ds/components/core/Card.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Card.tsx)
 
 ### Variants and states
 
@@ -495,7 +495,7 @@ A surface container with optional interactive treatment.
 
 A panel title with optional actions.
 
-[Source](../../apps/gm-react/src/ds/components/core/Card.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Card.tsx)
 
 ### Variants and states
 
@@ -519,7 +519,7 @@ A panel title with optional actions.
 
 An introduction with optional action and supporting content.
 
-[Source](../../apps/gm-react/src/ds/components/core/FeatureSpotlight.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/FeatureSpotlight.tsx)
 
 ### Variants and states
 
@@ -546,7 +546,7 @@ An introduction with optional action and supporting content.
 
 Short supporting guidance.
 
-[Source](../../apps/gm-react/src/ds/components/core/HelpTip.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/HelpTip.tsx)
 
 ### Variants and states
 
@@ -571,7 +571,7 @@ Short supporting guidance.
 
 The complete shipped icon vocabulary; choose a name below.
 
-[Source](../../apps/gm-react/src/ds/components/core/Icon.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Icon.tsx)
 
 ### Variants and states
 
@@ -597,7 +597,7 @@ The complete shipped icon vocabulary; choose a name below.
 
 An icon action with an accessible label.
 
-[Source](../../apps/gm-react/src/ds/components/core/IconButton.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/IconButton.tsx)
 
 ### Variants and states
 
@@ -625,7 +625,7 @@ An icon action with an accessible label.
 
 A keyboard shortcut token.
 
-[Source](../../apps/gm-react/src/ds/components/core/Kbd.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Kbd.tsx)
 
 ### Variants and states
 
@@ -649,7 +649,7 @@ A keyboard shortcut token.
 
 A semantic list row; interactive rows use a native toggle.
 
-[Source](../../apps/gm-react/src/ds/components/core/ListItem.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/ListItem.tsx)
 
 ### Variants and states
 
@@ -675,7 +675,7 @@ A semantic list row; interactive rows use a native toggle.
 
 An in-flow menu; use arrow keys, Home and End.
 
-[Source](../../apps/gm-react/src/ds/components/core/Menu.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Menu.tsx)
 
 ### Variants and states
 
@@ -699,7 +699,7 @@ An in-flow menu; use arrow keys, Home and End.
 
 Open the example to inspect focus, dismissal and focus return.
 
-[Source](../../apps/gm-react/src/ds/components/core/Popover.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Popover.tsx)
 
 ### Variants and states
 
@@ -726,7 +726,7 @@ Open the example to inspect focus, dismissal and focus return.
 
 A radio choice with a heading and supporting text.
 
-[Source](../../apps/gm-react/src/ds/components/core/RadioCard.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/RadioCard.tsx)
 
 ### Variants and states
 
@@ -754,7 +754,7 @@ A radio choice with a heading and supporting text.
 
 Completed, active and upcoming steps.
 
-[Source](../../apps/gm-react/src/ds/components/core/Stepper.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Stepper.tsx)
 
 ### Variants and states
 
@@ -782,7 +782,7 @@ Completed, active and upcoming steps.
 
 Keyboard selectable tabs with a corresponding panel.
 
-[Source](../../apps/gm-react/src/ds/components/core/Tabs.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Tabs.tsx)
 
 ### Variants and states
 
@@ -818,7 +818,7 @@ Use the examples and native interactions below.
 
 A group of related actions with roving keyboard focus.
 
-[Source](../../apps/gm-react/src/ds/components/core/Toolbar.jsx)
+[Source](../../apps/gm-react/src/ds/components/core/Toolbar.tsx)
 
 ### Variants and states
 
@@ -840,7 +840,7 @@ A group of related actions with roving keyboard focus.
 
 An ability score and its derived modifier.
 
-[Source](../../apps/gm-react/src/ds/components/creature/AbilityScore.jsx)
+[Source](../../apps/gm-react/src/ds/components/creature/AbilityScore.tsx)
 
 ### Variants and states
 
@@ -868,7 +868,7 @@ An ability score and its derived modifier.
 
 A creature reference, including optional live health and extra actions.
 
-[Source](../../apps/gm-react/src/ds/components/creature/StatBlock.jsx)
+[Source](../../apps/gm-react/src/ds/components/creature/StatBlock.tsx)
 
 ### Variants and states
 
@@ -918,7 +918,7 @@ A creature reference, including optional live health and extra actions.
 
 A populated or empty table with sorting and density controls.
 
-[Source](../../apps/gm-react/src/ds/components/data/DataTable.jsx)
+[Source](../../apps/gm-react/src/ds/components/data/DataTable.tsx)
 
 ### Variants and states
 
@@ -968,7 +968,7 @@ A populated or empty table with sorting and density controls.
 
 Label and value pairs.
 
-[Source](../../apps/gm-react/src/ds/components/data/DefinitionList.jsx)
+[Source](../../apps/gm-react/src/ds/components/data/DefinitionList.tsx)
 
 ### Variants and states
 
@@ -1002,7 +1002,7 @@ Label and value pairs.
 
 An image or custom figure with a caption.
 
-[Source](../../apps/gm-react/src/ds/components/data/Figure.jsx)
+[Source](../../apps/gm-react/src/ds/components/data/Figure.tsx)
 
 ### Variants and states
 
@@ -1029,7 +1029,7 @@ An image or custom figure with a caption.
 
 A metric with signed trend and optional unit.
 
-[Source](../../apps/gm-react/src/ds/components/data/Stat.jsx)
+[Source](../../apps/gm-react/src/ds/components/data/Stat.tsx)
 
 ### Variants and states
 
@@ -1059,7 +1059,7 @@ A metric with signed trend and optional unit.
 
 Roll readouts for every supported resolution model.
 
-[Source](../../apps/gm-react/src/ds/components/domain/DiceResult.jsx)
+[Source](../../apps/gm-react/src/ds/components/domain/DiceResult.tsx)
 
 ### Variants and states
 
@@ -1090,7 +1090,7 @@ Roll readouts for every supported resolution model.
 
 Health at full, wounded, critical and zero values.
 
-[Source](../../apps/gm-react/src/ds/components/domain/HPBar.jsx)
+[Source](../../apps/gm-react/src/ds/components/domain/HPBar.tsx)
 
 ### Variants and states
 
@@ -1117,7 +1117,7 @@ Health at full, wounded, critical and zero values.
 
 A turn row with health, conditions and action economy.
 
-[Source](../../apps/gm-react/src/ds/components/domain/InitiativeRow.jsx)
+[Source](../../apps/gm-react/src/ds/components/domain/InitiativeRow.tsx)
 
 ### Variants and states
 
@@ -1149,7 +1149,7 @@ A turn row with health, conditions and action economy.
 
 A compact statistic.
 
-[Source](../../apps/gm-react/src/ds/components/domain/StatPill.jsx)
+[Source](../../apps/gm-react/src/ds/components/domain/StatPill.tsx)
 
 ### Variants and states
 
@@ -1176,7 +1176,7 @@ A compact statistic.
 
 A short status label.
 
-[Source](../../apps/gm-react/src/ds/components/feedback/Badge.jsx)
+[Source](../../apps/gm-react/src/ds/components/feedback/Badge.tsx)
 
 ### Variants and states
 
@@ -1201,7 +1201,7 @@ A short status label.
 
 A tag, selected filter or removable token.
 
-[Source](../../apps/gm-react/src/ds/components/feedback/Chip.jsx)
+[Source](../../apps/gm-react/src/ds/components/feedback/Chip.tsx)
 
 ### Variants and states
 
@@ -1229,7 +1229,7 @@ A tag, selected filter or removable token.
 
 A reinforcing status cue with a visible label.
 
-[Source](../../apps/gm-react/src/ds/components/feedback/StatusDot.jsx)
+[Source](../../apps/gm-react/src/ds/components/feedback/StatusDot.tsx)
 
 ### Variants and states
 
@@ -1254,7 +1254,7 @@ A reinforcing status cue with a visible label.
 
 Safety labels for private and player-visible content.
 
-[Source](../../apps/gm-react/src/ds/components/feedback/VisibilityChip.jsx)
+[Source](../../apps/gm-react/src/ds/components/feedback/VisibilityChip.tsx)
 
 ### Variants and states
 
@@ -1277,7 +1277,7 @@ Safety labels for private and player-visible content.
 
 A labelled binary control.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Checkbox.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Checkbox.tsx)
 
 ### Variants and states
 
@@ -1302,7 +1302,7 @@ A labelled binary control.
 
 A label, control, help and validation message.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Field.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Field.tsx)
 
 ### Variants and states
 
@@ -1328,7 +1328,7 @@ A label, control, help and validation message.
 
 A labelled form control with validation and unavailable states.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Input.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Input.tsx)
 
 ### Variants and states
 
@@ -1357,7 +1357,7 @@ A labelled form control with validation and unavailable states.
 
 A labelled form control with validation and unavailable states.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Input.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Input.tsx)
 
 ### Variants and states
 
@@ -1385,7 +1385,7 @@ A labelled form control with validation and unavailable states.
 
 A compact single-choice group.
 
-[Source](../../apps/gm-react/src/ds/components/forms/SegmentedControl.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/SegmentedControl.tsx)
 
 ### Variants and states
 
@@ -1426,7 +1426,7 @@ A compact single-choice group.
 
 A labelled form control with validation and unavailable states.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Select.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Select.tsx)
 
 ### Variants and states
 
@@ -1468,7 +1468,7 @@ A labelled form control with validation and unavailable states.
 
 A bounded numeric control with optional steppers and stops.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Slider.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Slider.tsx)
 
 ### Variants and states
 
@@ -1496,7 +1496,7 @@ A bounded numeric control with optional steppers and stops.
 
 A labelled binary control.
 
-[Source](../../apps/gm-react/src/ds/components/forms/Switch.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/Switch.tsx)
 
 ### Variants and states
 
@@ -1521,7 +1521,7 @@ A labelled binary control.
 
 Add and remove tags with keyboard or pointer.
 
-[Source](../../apps/gm-react/src/ds/components/forms/TagInput.jsx)
+[Source](../../apps/gm-react/src/ds/components/forms/TagInput.tsx)
 
 ### Variants and states
 
@@ -1548,7 +1548,7 @@ Add and remove tags with keyboard or pointer.
 
 Fog modes, shapes, feathering and synchronization feedback.
 
-[Source](../../apps/gm-react/src/ds/components/map/FogControls.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/FogControls.tsx)
 
 ### Variants and states
 
@@ -1573,7 +1573,7 @@ Fog modes, shapes, feathering and synchronization feedback.
 
 Map generation configuration, progress and review.
 
-[Source](../../apps/gm-react/src/ds/components/map/GenerationPanel.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/GenerationPanel.tsx)
 
 ### Variants and states
 
@@ -1595,7 +1595,7 @@ Map generation configuration, progress and review.
 
 Interactive selection, preview and completion of a sample import.
 
-[Source](../../apps/gm-react/src/ds/components/map/ImportWizard.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/ImportWizard.tsx)
 
 ### Variants and states
 
@@ -1617,7 +1617,7 @@ Use the examples and native interactions below.
 
 An editable or read-only stack of map layers.
 
-[Source](../../apps/gm-react/src/ds/components/map/LayerPanel.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/LayerPanel.tsx)
 
 ### Variants and states
 
@@ -1657,7 +1657,7 @@ An editable or read-only stack of map layers.
 
 Layer display, visibility, opacity, lock, selection and rename controls.
 
-[Source](../../apps/gm-react/src/ds/components/map/LayerRow.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/LayerRow.tsx)
 
 ### Variants and states
 
@@ -1692,7 +1692,7 @@ Layer display, visibility, opacity, lock, selection and rename controls.
 
 Every shipped layer category.
 
-[Source](../../apps/gm-react/src/ds/components/map/LayerTypeBadge.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/LayerTypeBadge.tsx)
 
 ### Variants and states
 
@@ -1716,7 +1716,7 @@ Every shipped layer category.
 
 A local map form with validation and submitting state.
 
-[Source](../../apps/gm-react/src/ds/components/map/MapCreationForm.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/MapCreationForm.tsx)
 
 ### Variants and states
 
@@ -1738,7 +1738,7 @@ A local map form with validation and submitting state.
 
 A collapsible viewport preview with click-to-jump.
 
-[Source](../../apps/gm-react/src/ds/components/map/Minimap.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/Minimap.tsx)
 
 ### Variants and states
 
@@ -1759,7 +1759,7 @@ Use the examples and native interactions below.
 
 Point-of-interest categories, active state and DM-only cue.
 
-[Source](../../apps/gm-react/src/ds/components/map/POIMarker.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/POIMarker.tsx)
 
 ### Variants and states
 
@@ -1785,7 +1785,7 @@ Point-of-interest categories, active state and DM-only cue.
 
 Point-of-interest details and visibility actions.
 
-[Source](../../apps/gm-react/src/ds/components/map/POIPopover.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/POIPopover.tsx)
 
 ### Variants and states
 
@@ -1814,7 +1814,7 @@ Point-of-interest details and visibility actions.
 
 Map tools with orientation, history and overflow states.
 
-[Source](../../apps/gm-react/src/ds/components/map/ToolPalette.jsx)
+[Source](../../apps/gm-react/src/ds/components/map/ToolPalette.tsx)
 
 ### Variants and states
 
@@ -1841,7 +1841,7 @@ Map tools with orientation, history and overflow states.
 
 Navigation with an active destination.
 
-[Source](../../apps/gm-react/src/ds/components/navigation/BottomTabBar.jsx)
+[Source](../../apps/gm-react/src/ds/components/navigation/BottomTabBar.tsx)
 
 ### Variants and states
 
@@ -1878,7 +1878,7 @@ Navigation with an active destination.
 
 An expanded or collapsed navigation action.
 
-[Source](../../apps/gm-react/src/ds/components/navigation/NavItem.jsx)
+[Source](../../apps/gm-react/src/ds/components/navigation/NavItem.tsx)
 
 ### Variants and states
 
@@ -1906,7 +1906,7 @@ An expanded or collapsed navigation action.
 
 Navigation with an active destination.
 
-[Source](../../apps/gm-react/src/ds/components/navigation/NavRail.jsx)
+[Source](../../apps/gm-react/src/ds/components/navigation/NavRail.tsx)
 
 ### Variants and states
 
@@ -1943,7 +1943,7 @@ Navigation with an active destination.
 
 Navigation with an active destination.
 
-[Source](../../apps/gm-react/src/ds/components/navigation/NavSidebar.jsx)
+[Source](../../apps/gm-react/src/ds/components/navigation/NavSidebar.tsx)
 
 ### Variants and states
 
@@ -1980,7 +1980,7 @@ Navigation with an active destination.
 
 Open the example to inspect focus, dismissal and focus return.
 
-[Source](../../apps/gm-react/src/ds/components/overlay/Dialog.jsx)
+[Source](../../apps/gm-react/src/ds/components/overlay/Dialog.tsx)
 
 ### Variants and states
 
@@ -2009,7 +2009,7 @@ Open the example to inspect focus, dismissal and focus return.
 
 Open the example to inspect focus, dismissal and focus return.
 
-[Source](../../apps/gm-react/src/ds/components/overlay/Sheet.jsx)
+[Source](../../apps/gm-react/src/ds/components/overlay/Sheet.tsx)
 
 ### Variants and states
 
@@ -2036,7 +2036,7 @@ Open the example to inspect focus, dismissal and focus return.
 
 Dismissible feedback with an optional action.
 
-[Source](../../apps/gm-react/src/ds/components/overlay/Toast.jsx)
+[Source](../../apps/gm-react/src/ds/components/overlay/Toast.tsx)
 
 ### Variants and states
 
@@ -2063,7 +2063,7 @@ Dismissible feedback with an optional action.
 
 A live toast queue with hover/focus pause and dismissal.
 
-[Source](../../apps/gm-react/src/ds/components/overlay/Toast.jsx)
+[Source](../../apps/gm-react/src/ds/components/overlay/Toast.tsx)
 
 ### Variants and states
 
@@ -2085,7 +2085,7 @@ A live toast queue with hover/focus pause and dismissal.
 
 Hover or focus the trigger to inspect the tooltip.
 
-[Source](../../apps/gm-react/src/ds/components/overlay/Tooltip.jsx)
+[Source](../../apps/gm-react/src/ds/components/overlay/Tooltip.tsx)
 
 ### Variants and states
 
@@ -2110,7 +2110,7 @@ Hover or focus the trigger to inspect the tooltip.
 
 A spell reference with school, level, ritual and concentration.
 
-[Source](../../apps/gm-react/src/ds/components/spell/SpellCard.jsx)
+[Source](../../apps/gm-react/src/ds/components/spell/SpellCard.tsx)
 
 ### Variants and states
 
@@ -2143,7 +2143,7 @@ A spell reference with school, level, ritual and concentration.
 
 Available and spent spell resources with a read-only view.
 
-[Source](../../apps/gm-react/src/ds/components/spell/SpellSlots.jsx)
+[Source](../../apps/gm-react/src/ds/components/spell/SpellSlots.tsx)
 
 ### Variants and states
 
@@ -2179,7 +2179,7 @@ Available and spent spell resources with a read-only view.
 
 An empty surface with explanation and optional action.
 
-[Source](../../apps/gm-react/src/ds/components/system/EmptyState.jsx)
+[Source](../../apps/gm-react/src/ds/components/system/EmptyState.tsx)
 
 ### Variants and states
 
@@ -2204,7 +2204,7 @@ An empty surface with explanation and optional action.
 
 Determinate or indeterminate progress, with markers.
 
-[Source](../../apps/gm-react/src/ds/components/system/ProgressMeter.jsx)
+[Source](../../apps/gm-react/src/ds/components/system/ProgressMeter.tsx)
 
 ### Variants and states
 
@@ -2233,7 +2233,7 @@ Determinate or indeterminate progress, with markers.
 
 Loading placeholders for text, avatars and panels.
 
-[Source](../../apps/gm-react/src/ds/components/system/Skeleton.jsx)
+[Source](../../apps/gm-react/src/ds/components/system/Skeleton.tsx)
 
 ### Variants and states
 
@@ -2259,7 +2259,7 @@ Loading placeholders for text, avatars and panels.
 
 Game-system choice with active, current and compact states.
 
-[Source](../../apps/gm-react/src/ds/components/system/SystemPackageCard.jsx)
+[Source](../../apps/gm-react/src/ds/components/system/SystemPackageCard.tsx)
 
 ### Variants and states
 

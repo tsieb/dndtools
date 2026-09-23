@@ -115,7 +115,13 @@ function Specimen({ entry, initial }: { entry: GalleryEntry; initial: Props }) {
 		case 'Tabs':
 			specimen = (
 				<>
-					<DS.Tabs {...props} idBase={id} onChange={(value: string) => update('value', value)} />
+					<DS.Tabs
+						{...props}
+						tabs={props.tabs as DS.TabItem[]}
+						value={String(props.value)}
+						idBase={id}
+						onChange={(value: string) => update('value', value)}
+					/>
 					{(props.tabs as Props[]).length > 0 && (
 						<div {...DS.tabPanelProps(id, String(props.value))}>
 							Selected panel: {String(props.value)}
@@ -127,7 +133,11 @@ function Specimen({ entry, initial }: { entry: GalleryEntry; initial: Props }) {
 		case 'Field':
 			specimen = (
 				<DS.Field {...props} htmlFor={id}>
-					<DS.Input id={id} invalid={!!props.error} required={props.required} />
+					<DS.Input
+						id={id}
+						invalid={!!props.error}
+						required={props.required as boolean | undefined}
+					/>
 				</DS.Field>
 			);
 			break;

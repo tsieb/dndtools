@@ -5,7 +5,7 @@
 export const galleryRegistry = [
 	{
 		name: 'NpcCard',
-		source: 'apps/gm-react/src/ds/components/campaign/NpcCard.jsx',
+		source: 'apps/gm-react/src/ds/components/campaign/NpcCard.tsx',
 		description: 'A character summary with disposition and visibility.',
 		props: {
 			name: 'Mira Vale',
@@ -24,7 +24,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'QuestCard',
-		source: 'apps/gm-react/src/ds/components/campaign/QuestCard.jsx',
+		source: 'apps/gm-react/src/ds/components/campaign/QuestCard.tsx',
 		description: 'A quest with completed and pending objectives.',
 		props: {
 			title: 'Find the lantern',
@@ -54,7 +54,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'SessionTimeline',
-		source: 'apps/gm-react/src/ds/components/campaign/SessionTimeline.jsx',
+		source: 'apps/gm-react/src/ds/components/campaign/SessionTimeline.tsx',
 		description: 'A chronological log with active and completed beats.',
 		props: {
 			entries: [
@@ -112,7 +112,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'CommandPalette',
-		source: 'apps/gm-react/src/ds/components/command/CommandPalette.jsx',
+		source: 'apps/gm-react/src/ds/components/command/CommandPalette.tsx',
 		description: 'Search, empty results, disabled commands and keyboard selection.',
 		props: {
 			commands: [
@@ -143,7 +143,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ConditionBadge',
-		source: 'apps/gm-react/src/ds/components/condition/ConditionBadge.jsx',
+		source: 'apps/gm-react/src/ds/components/condition/ConditionBadge.tsx',
 		description: 'A named condition with optional duration, level and removal.',
 		props: {
 			condition: 'prone',
@@ -163,7 +163,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ConditionTracker',
-		source: 'apps/gm-react/src/ds/components/condition/ConditionTracker.jsx',
+		source: 'apps/gm-react/src/ds/components/condition/ConditionTracker.tsx',
 		description: 'An empty or populated condition list with an add action.',
 		props: {
 			entries: [
@@ -189,7 +189,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'SystemProvider',
-		source: 'apps/gm-react/src/ds/components/condition/SystemProvider.jsx',
+		source: 'apps/gm-react/src/ds/components/condition/SystemProvider.tsx',
 		description: 'Condition vocabulary supplied by an active game system.',
 		props: {
 			conditions: [
@@ -213,7 +213,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Avatar',
-		source: 'apps/gm-react/src/ds/components/core/Avatar.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Avatar.tsx',
 		description: 'Initials or a portrait with a status ring.',
 		props: {
 			name: 'Mira Vale',
@@ -234,7 +234,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'BrandMark',
-		source: 'apps/gm-react/src/ds/components/core/Brand.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Brand.tsx',
 		description: 'Lamplight mark, decorative or named.',
 		props: {},
 		axes: {
@@ -247,7 +247,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'BrandWordmark',
-		source: 'apps/gm-react/src/ds/components/core/Brand.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Brand.tsx',
 		description: 'Lamplight wordmark.',
 		props: {},
 		axes: {
@@ -259,7 +259,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'BrandLockup',
-		source: 'apps/gm-react/src/ds/components/core/Brand.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Brand.tsx',
 		description: 'Combined mark and wordmark.',
 		props: {},
 		axes: {},
@@ -273,7 +273,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Breadcrumb',
-		source: 'apps/gm-react/src/ds/components/core/Breadcrumb.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Breadcrumb.tsx',
 		description: 'Nested navigation with optional collapsed ancestors.',
 		props: {
 			items: [
@@ -320,7 +320,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Button',
-		source: 'apps/gm-react/src/ds/components/core/Button.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Button.tsx',
 		description: 'An action with native or focusable disabled states.',
 		props: {
 			children: 'Save example',
@@ -339,7 +339,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Callout',
-		source: 'apps/gm-react/src/ds/components/core/Callout.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Callout.tsx',
 		description: 'Contextual feedback with a semantic status tone.',
 		props: {
 			title: 'Example notice',
@@ -354,7 +354,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Card',
-		source: 'apps/gm-react/src/ds/components/core/Card.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Card.tsx',
 		description: 'A surface container with optional interactive treatment.',
 		props: {
 			children: 'A quiet place to prepare the next scene.',
@@ -371,7 +371,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'CardHeader',
-		source: 'apps/gm-react/src/ds/components/core/Card.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Card.tsx',
 		description: 'A panel title with optional actions.',
 		props: {
 			title: 'Scene notes',
@@ -385,7 +385,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'FeatureSpotlight',
-		source: 'apps/gm-react/src/ds/components/core/FeatureSpotlight.jsx',
+		source: 'apps/gm-react/src/ds/components/core/FeatureSpotlight.tsx',
 		description: 'An introduction with optional action and supporting content.',
 		props: {
 			title: 'Try scene notes',
@@ -404,7 +404,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'HelpTip',
-		source: 'apps/gm-react/src/ds/components/core/HelpTip.jsx',
+		source: 'apps/gm-react/src/ds/components/core/HelpTip.tsx',
 		description: 'Short supporting guidance.',
 		props: {
 			title: 'Tip',
@@ -419,7 +419,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Icon',
-		source: 'apps/gm-react/src/ds/components/core/Icon.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Icon.tsx',
 		description: 'The complete shipped icon vocabulary; choose a name below.',
 		props: {
 			name: 'check',
@@ -435,7 +435,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'IconButton',
-		source: 'apps/gm-react/src/ds/components/core/IconButton.jsx',
+		source: 'apps/gm-react/src/ds/components/core/IconButton.tsx',
 		description: 'An icon action with an accessible label.',
 		props: {
 			icon: 'edit',
@@ -453,7 +453,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Kbd',
-		source: 'apps/gm-react/src/ds/components/core/Kbd.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Kbd.tsx',
 		description: 'A keyboard shortcut token.',
 		props: {
 			children: 'Ctrl K',
@@ -467,7 +467,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ListItem',
-		source: 'apps/gm-react/src/ds/components/core/ListItem.jsx',
+		source: 'apps/gm-react/src/ds/components/core/ListItem.tsx',
 		description: 'A semantic list row; interactive rows use a native toggle.',
 		props: {
 			children: 'Lantern room',
@@ -483,7 +483,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Menu',
-		source: 'apps/gm-react/src/ds/components/core/Menu.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Menu.tsx',
 		description: 'An in-flow menu; use arrow keys, Home and End.',
 		props: {
 			title: 'Scene actions',
@@ -497,7 +497,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Popover',
-		source: 'apps/gm-react/src/ds/components/core/Popover.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Popover.tsx',
 		description: 'Open the example to inspect focus, dismissal and focus return.',
 		props: {
 			title: 'Example details',
@@ -519,7 +519,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'RadioCard',
-		source: 'apps/gm-react/src/ds/components/core/RadioCard.jsx',
+		source: 'apps/gm-react/src/ds/components/core/RadioCard.tsx',
 		description: 'A radio choice with a heading and supporting text.',
 		props: {
 			value: 'room',
@@ -537,7 +537,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Stepper',
-		source: 'apps/gm-react/src/ds/components/core/Stepper.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Stepper.tsx',
 		description: 'Completed, active and upcoming steps.',
 		props: {
 			steps: ['Choose', 'Preview', 'Confirm'],
@@ -557,7 +557,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Tabs',
-		source: 'apps/gm-react/src/ds/components/core/Tabs.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Tabs.tsx',
 		description: 'Keyboard selectable tabs with a corresponding panel.',
 		props: {
 			tabs: [
@@ -603,7 +603,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Toolbar',
-		source: 'apps/gm-react/src/ds/components/core/Toolbar.jsx',
+		source: 'apps/gm-react/src/ds/components/core/Toolbar.tsx',
 		description: 'A group of related actions with roving keyboard focus.',
 		props: {},
 		axes: {
@@ -615,7 +615,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'AbilityScore',
-		source: 'apps/gm-react/src/ds/components/creature/AbilityScore.jsx',
+		source: 'apps/gm-react/src/ds/components/creature/AbilityScore.tsx',
 		description: 'An ability score and its derived modifier.',
 		props: {
 			label: 'STR',
@@ -635,7 +635,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'StatBlock',
-		source: 'apps/gm-react/src/ds/components/creature/StatBlock.jsx',
+		source: 'apps/gm-react/src/ds/components/creature/StatBlock.tsx',
 		description: 'A creature reference, including optional live health and extra actions.',
 		props: {
 			name: 'Lantern keeper',
@@ -701,7 +701,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'DataTable',
-		source: 'apps/gm-react/src/ds/components/data/DataTable.jsx',
+		source: 'apps/gm-react/src/ds/components/data/DataTable.tsx',
 		description: 'A populated or empty table with sorting and density controls.',
 		props: {
 			columns: [
@@ -753,7 +753,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'DefinitionList',
-		source: 'apps/gm-react/src/ds/components/data/DefinitionList.jsx',
+		source: 'apps/gm-react/src/ds/components/data/DefinitionList.tsx',
 		description: 'Label and value pairs.',
 		props: {
 			items: [
@@ -779,7 +779,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Figure',
-		source: 'apps/gm-react/src/ds/components/data/Figure.jsx',
+		source: 'apps/gm-react/src/ds/components/data/Figure.tsx',
 		description: 'An image or custom figure with a caption.',
 		props: {
 			alt: 'Lamplight mark',
@@ -799,7 +799,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Stat',
-		source: 'apps/gm-react/src/ds/components/data/Stat.jsx',
+		source: 'apps/gm-react/src/ds/components/data/Stat.tsx',
 		description: 'A metric with signed trend and optional unit.',
 		props: {
 			label: 'Supplies',
@@ -819,7 +819,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'DiceResult',
-		source: 'apps/gm-react/src/ds/components/domain/DiceResult.jsx',
+		source: 'apps/gm-react/src/ds/components/domain/DiceResult.tsx',
 		description: 'Roll readouts for every supported resolution model.',
 		props: {
 			total: 17,
@@ -877,7 +877,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'HPBar',
-		source: 'apps/gm-react/src/ds/components/domain/HPBar.jsx',
+		source: 'apps/gm-react/src/ds/components/domain/HPBar.tsx',
 		description: 'Health at full, wounded, critical and zero values.',
 		props: {
 			max: 20,
@@ -894,7 +894,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'InitiativeRow',
-		source: 'apps/gm-react/src/ds/components/domain/InitiativeRow.jsx',
+		source: 'apps/gm-react/src/ds/components/domain/InitiativeRow.tsx',
 		description: 'A turn row with health, conditions and action economy.',
 		props: {
 			name: 'Mira',
@@ -916,7 +916,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'StatPill',
-		source: 'apps/gm-react/src/ds/components/domain/StatPill.jsx',
+		source: 'apps/gm-react/src/ds/components/domain/StatPill.tsx',
 		description: 'A compact statistic.',
 		props: {
 			label: 'AC',
@@ -933,7 +933,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Badge',
-		source: 'apps/gm-react/src/ds/components/feedback/Badge.jsx',
+		source: 'apps/gm-react/src/ds/components/feedback/Badge.tsx',
 		description: 'A short status label.',
 		props: {
 			children: 'Example status',
@@ -948,7 +948,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Chip',
-		source: 'apps/gm-react/src/ds/components/feedback/Chip.jsx',
+		source: 'apps/gm-react/src/ds/components/feedback/Chip.tsx',
 		description: 'A tag, selected filter or removable token.',
 		props: {
 			children: 'Lantern',
@@ -971,7 +971,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'StatusDot',
-		source: 'apps/gm-react/src/ds/components/feedback/StatusDot.jsx',
+		source: 'apps/gm-react/src/ds/components/feedback/StatusDot.tsx',
 		description: 'A reinforcing status cue with a visible label.',
 		props: {
 			label: 'Connection status',
@@ -986,7 +986,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'VisibilityChip',
-		source: 'apps/gm-react/src/ds/components/feedback/VisibilityChip.jsx',
+		source: 'apps/gm-react/src/ds/components/feedback/VisibilityChip.tsx',
 		description: 'Safety labels for private and player-visible content.',
 		props: {},
 		axes: {
@@ -999,7 +999,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Checkbox',
-		source: 'apps/gm-react/src/ds/components/forms/Checkbox.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Checkbox.tsx',
 		description: 'A labelled binary control.',
 		props: {
 			label: 'Enable example',
@@ -1014,7 +1014,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Field',
-		source: 'apps/gm-react/src/ds/components/forms/Field.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Field.tsx',
 		description: 'A label, control, help and validation message.',
 		props: {
 			label: 'Scene name',
@@ -1030,7 +1030,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Input',
-		source: 'apps/gm-react/src/ds/components/forms/Input.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Input.tsx',
 		description: 'A labelled form control with validation and unavailable states.',
 		props: {
 			'aria-label': 'Example Input',
@@ -1051,7 +1051,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Textarea',
-		source: 'apps/gm-react/src/ds/components/forms/Input.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Input.tsx',
 		description: 'A labelled form control with validation and unavailable states.',
 		props: {
 			'aria-label': 'Example Textarea',
@@ -1071,7 +1071,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'SegmentedControl',
-		source: 'apps/gm-react/src/ds/components/forms/SegmentedControl.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/SegmentedControl.tsx',
 		description: 'A compact single-choice group.',
 		props: {
 			options: [
@@ -1102,7 +1102,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Select',
-		source: 'apps/gm-react/src/ds/components/forms/Select.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Select.tsx',
 		description: 'A labelled form control with validation and unavailable states.',
 		props: {
 			'aria-label': 'Example Select',
@@ -1136,7 +1136,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Slider',
-		source: 'apps/gm-react/src/ds/components/forms/Slider.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Slider.tsx',
 		description: 'A bounded numeric control with optional steppers and stops.',
 		props: {
 			label: 'Example volume',
@@ -1154,7 +1154,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Switch',
-		source: 'apps/gm-react/src/ds/components/forms/Switch.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/Switch.tsx',
 		description: 'A labelled binary control.',
 		props: {
 			label: 'Enable example',
@@ -1169,7 +1169,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'TagInput',
-		source: 'apps/gm-react/src/ds/components/forms/TagInput.jsx',
+		source: 'apps/gm-react/src/ds/components/forms/TagInput.tsx',
 		description: 'Add and remove tags with keyboard or pointer.',
 		props: {
 			value: ['Lantern', 'Coast'],
@@ -1188,7 +1188,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'FogControls',
-		source: 'apps/gm-react/src/ds/components/map/FogControls.jsx',
+		source: 'apps/gm-react/src/ds/components/map/FogControls.tsx',
 		description: 'Fog modes, shapes, feathering and synchronization feedback.',
 		props: {},
 		axes: {
@@ -1203,7 +1203,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'GenerationPanel',
-		source: 'apps/gm-react/src/ds/components/map/GenerationPanel.jsx',
+		source: 'apps/gm-react/src/ds/components/map/GenerationPanel.tsx',
 		description: 'Map generation configuration, progress and review.',
 		props: {},
 		axes: {
@@ -1215,7 +1215,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ImportWizard',
-		source: 'apps/gm-react/src/ds/components/map/ImportWizard.jsx',
+		source: 'apps/gm-react/src/ds/components/map/ImportWizard.tsx',
 		description: 'Interactive selection, preview and completion of a sample import.',
 		props: {},
 		axes: {},
@@ -1231,7 +1231,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'LayerPanel',
-		source: 'apps/gm-react/src/ds/components/map/LayerPanel.jsx',
+		source: 'apps/gm-react/src/ds/components/map/LayerPanel.tsx',
 		description: 'An editable or read-only stack of map layers.',
 		props: {
 			layers: [
@@ -1263,7 +1263,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'LayerRow',
-		source: 'apps/gm-react/src/ds/components/map/LayerRow.jsx',
+		source: 'apps/gm-react/src/ds/components/map/LayerRow.tsx',
 		description: 'Layer display, visibility, opacity, lock, selection and rename controls.',
 		props: {
 			layer: {
@@ -1314,7 +1314,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'LayerTypeBadge',
-		source: 'apps/gm-react/src/ds/components/map/LayerTypeBadge.jsx',
+		source: 'apps/gm-react/src/ds/components/map/LayerTypeBadge.tsx',
 		description: 'Every shipped layer category.',
 		props: {},
 		axes: {
@@ -1342,7 +1342,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'MapCreationForm',
-		source: 'apps/gm-react/src/ds/components/map/MapCreationForm.jsx',
+		source: 'apps/gm-react/src/ds/components/map/MapCreationForm.tsx',
 		description: 'A local map form with validation and submitting state.',
 		props: {},
 		axes: {
@@ -1354,7 +1354,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Minimap',
-		source: 'apps/gm-react/src/ds/components/map/Minimap.jsx',
+		source: 'apps/gm-react/src/ds/components/map/Minimap.tsx',
 		description: 'A collapsible viewport preview with click-to-jump.',
 		props: {},
 		axes: {},
@@ -1367,7 +1367,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'POIMarker',
-		source: 'apps/gm-react/src/ds/components/map/POIMarker.jsx',
+		source: 'apps/gm-react/src/ds/components/map/POIMarker.tsx',
 		description: 'Point-of-interest categories, active state and DM-only cue.',
 		props: {
 			label: 'Lantern tower',
@@ -1383,7 +1383,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'POIPopover',
-		source: 'apps/gm-react/src/ds/components/map/POIPopover.jsx',
+		source: 'apps/gm-react/src/ds/components/map/POIPopover.tsx',
 		description: 'Point-of-interest details and visibility actions.',
 		props: {
 			poi: {
@@ -1402,7 +1402,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ToolPalette',
-		source: 'apps/gm-react/src/ds/components/map/ToolPalette.jsx',
+		source: 'apps/gm-react/src/ds/components/map/ToolPalette.tsx',
 		description: 'Map tools with orientation, history and overflow states.',
 		props: {
 			active: 'select',
@@ -1419,7 +1419,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'BottomTabBar',
-		source: 'apps/gm-react/src/ds/components/navigation/BottomTabBar.jsx',
+		source: 'apps/gm-react/src/ds/components/navigation/BottomTabBar.tsx',
 		description: 'Navigation with an active destination.',
 		props: {
 			items: [
@@ -1448,7 +1448,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'NavItem',
-		source: 'apps/gm-react/src/ds/components/navigation/NavItem.jsx',
+		source: 'apps/gm-react/src/ds/components/navigation/NavItem.tsx',
 		description: 'An expanded or collapsed navigation action.',
 		props: {
 			icon: 'scene',
@@ -1469,7 +1469,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'NavRail',
-		source: 'apps/gm-react/src/ds/components/navigation/NavRail.jsx',
+		source: 'apps/gm-react/src/ds/components/navigation/NavRail.tsx',
 		description: 'Navigation with an active destination.',
 		props: {
 			items: [
@@ -1498,7 +1498,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'NavSidebar',
-		source: 'apps/gm-react/src/ds/components/navigation/NavSidebar.jsx',
+		source: 'apps/gm-react/src/ds/components/navigation/NavSidebar.tsx',
 		description: 'Navigation with an active destination.',
 		props: {
 			items: [
@@ -1527,7 +1527,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Dialog',
-		source: 'apps/gm-react/src/ds/components/overlay/Dialog.jsx',
+		source: 'apps/gm-react/src/ds/components/overlay/Dialog.tsx',
 		description: 'Open the example to inspect focus, dismissal and focus return.',
 		props: {
 			title: 'Example details',
@@ -1546,7 +1546,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Sheet',
-		source: 'apps/gm-react/src/ds/components/overlay/Sheet.jsx',
+		source: 'apps/gm-react/src/ds/components/overlay/Sheet.tsx',
 		description: 'Open the example to inspect focus, dismissal and focus return.',
 		props: {
 			title: 'Example details',
@@ -1563,7 +1563,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Toast',
-		source: 'apps/gm-react/src/ds/components/overlay/Toast.jsx',
+		source: 'apps/gm-react/src/ds/components/overlay/Toast.tsx',
 		description: 'Dismissible feedback with an optional action.',
 		props: {
 			title: 'Example saved',
@@ -1580,7 +1580,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ToastViewport',
-		source: 'apps/gm-react/src/ds/components/overlay/Toast.jsx',
+		source: 'apps/gm-react/src/ds/components/overlay/Toast.tsx',
 		description: 'A live toast queue with hover/focus pause and dismissal.',
 		props: {},
 		axes: {
@@ -1592,7 +1592,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Tooltip',
-		source: 'apps/gm-react/src/ds/components/overlay/Tooltip.jsx',
+		source: 'apps/gm-react/src/ds/components/overlay/Tooltip.tsx',
 		description: 'Hover or focus the trigger to inspect the tooltip.',
 		props: {
 			label: 'More about this example',
@@ -1607,7 +1607,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'SpellCard',
-		source: 'apps/gm-react/src/ds/components/spell/SpellCard.jsx',
+		source: 'apps/gm-react/src/ds/components/spell/SpellCard.tsx',
 		description: 'A spell reference with school, level, ritual and concentration.',
 		props: {
 			name: 'Lantern light',
@@ -1641,7 +1641,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'SpellSlots',
-		source: 'apps/gm-react/src/ds/components/spell/SpellSlots.jsx',
+		source: 'apps/gm-react/src/ds/components/spell/SpellSlots.tsx',
 		description: 'Available and spent spell resources with a read-only view.',
 		props: {
 			levels: [
@@ -1669,7 +1669,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'EmptyState',
-		source: 'apps/gm-react/src/ds/components/system/EmptyState.jsx',
+		source: 'apps/gm-react/src/ds/components/system/EmptyState.tsx',
 		description: 'An empty surface with explanation and optional action.',
 		props: {
 			title: 'No scenes yet',
@@ -1684,7 +1684,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'ProgressMeter',
-		source: 'apps/gm-react/src/ds/components/system/ProgressMeter.jsx',
+		source: 'apps/gm-react/src/ds/components/system/ProgressMeter.tsx',
 		description: 'Determinate or indeterminate progress, with markers.',
 		props: {
 			value: 40,
@@ -1703,7 +1703,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'Skeleton',
-		source: 'apps/gm-react/src/ds/components/system/Skeleton.jsx',
+		source: 'apps/gm-react/src/ds/components/system/Skeleton.tsx',
 		description: 'Loading placeholders for text, avatars and panels.',
 		props: {
 			width: '100%',
@@ -1719,7 +1719,7 @@ export const galleryRegistry = [
 	},
 	{
 		name: 'SystemPackageCard',
-		source: 'apps/gm-react/src/ds/components/system/SystemPackageCard.jsx',
+		source: 'apps/gm-react/src/ds/components/system/SystemPackageCard.tsx',
 		description: 'Game-system choice with active, current and compact states.',
 		props: {
 			name: 'Example system',

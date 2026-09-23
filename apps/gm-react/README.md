@@ -29,7 +29,7 @@ checks against a running dev server (`pnpm verify` manages the server itself).
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `src/App.tsx`, `src/app/`           | Router, shell (`AppShell.tsx`, `shell/`), `nav.ts` (the only navigation source), canvases, editors, help, i18n-aware chrome |
 | `src/screens/<section>/`            | One directory or file per route surface                                                                                     |
-| `src/ds/`                           | The design-system components; import through the `../ds` barrel (typed by `index.d.ts`)                                     |
+| `src/ds/`                           | The design-system components; import through the typed `../ds` barrel (`index.ts`)                                          |
 | `src/styles/tokens/`                | The token layers; `src/app/screen-kit.tsx` exposes them as `T`                                                              |
 | `src/runtime/`                      | `SceneRuntime.ts` (the single durable write path), `RuntimeContext.tsx`, demo seed, audio engine                            |
 | `src/platform/`                     | Capabilities, lifecycle, preferences, export, secure store, `storage/coreStore.ts` and `privateStore.ts`, service worker    |

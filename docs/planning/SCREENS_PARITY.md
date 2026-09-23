@@ -329,7 +329,7 @@ are source observations, not a connected-player test.
 
 These appear inside an SE-11 row only when the combatant's resources call for them. Source:
 [CombatTracker](../../apps/gm-react/src/screens/session/CombatTracker.tsx) (condition, death-save
-and concentration blocks) and [ConditionBadge](../../apps/gm-react/src/ds/components/condition/ConditionBadge.jsx).
+and concentration blocks) and [ConditionBadge](../../apps/gm-react/src/ds/components/condition/ConditionBadge.tsx).
 Evidence: `refresh-session-combat-{conditional,preview}-*`. These are scoped to the Combat section,
 are byte-identical across all nine theme/tier combinations per state, and come from a live DM fight
 set up through accepted Core commands. The harness then clicked each DM control and checked the
@@ -648,7 +648,7 @@ Inspected locally on 2026-09-19, and on 2026-09-23 for the `2fb670a4` recapture;
   [NextTurnControl](../../apps/gm-react/src/app/widgets/builtin/NextTurnControl.tsx),
   [widget data projection](../../apps/gm-react/src/app/widgets/dataEnvironment.ts),
   [widget command reducer](../../packages/core/src/commands/widget-command.ts),
-  [Sheet](../../apps/gm-react/src/ds/components/overlay/Sheet.jsx).
+  [Sheet](../../apps/gm-react/src/ds/components/overlay/Sheet.tsx).
 - [Lifecycle spec](../../apps/gm-react/tests/e2e/session-lifecycle.spec.ts),
   [capture spec](../../apps/gm-react/tests/e2e/session-capture.spec.ts).
   These specify state arrangement and durable command outcomes; the ARIA evidence alone proves

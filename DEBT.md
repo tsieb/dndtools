@@ -74,7 +74,9 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 - DEBT-2026-001 — typed platform-preferences layer: resolved by RC-UX-4.1
   (`apps/gm-react/src/platform/preferences.ts`; the exception manifest went from 21 entries to 3).
 - DEBT-2026-002 — `any` in runtime and view-model seams: resolved by RC-ENG-4.1 (72 → 11 sites, all
-  in `app/compendium/*`; `ds/index.d.ts` publishes `DSChangeEvent`, `DSKeyboardEvent`, `DSBadgeStatus`).
+  in `app/compendium/*`). RC-DSN-2.1 then converted the design system to typed `.tsx`, deleted
+  the permissive `ds/index.d.ts` facade (every export was `any`-propped) and left `src/ds` with zero
+  `any`; the typed barrel `ds/index.ts` publishes `DSChangeEvent`, `DSKeyboardEvent`, `DSBadgeStatus`.
 - DEBT-2026-003 — port the Svelte e2e corpus: resolved; the React suite is now 70+ specs on both
   profiles.
 - DEBT-2026-005 — preview ("view as") edges: resolved by RC-CHR-4.3.

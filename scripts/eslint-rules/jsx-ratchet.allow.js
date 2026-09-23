@@ -10,31 +10,6 @@
  * Re-measure with `pnpm exec eslint . --no-cache` after removing an entry.
  */
 
-export const jsxRatchet = [
-	{
-		rule: '@typescript-eslint/no-unused-expressions',
-		// All of these are the legacy `fn && fn()` / `cond && setState(x)` expression-statement idiom.
-		// The fix is `fn?.()` / an `if`, done file by file (Dialog.jsx and Sheet.jsx already were).
-		files: [
-			'apps/gm-react/src/ds/components/command/CommandPalette.jsx',
-			'apps/gm-react/src/ds/components/core/Tabs.jsx',
-			'apps/gm-react/src/ds/components/forms/Checkbox.jsx',
-			'apps/gm-react/src/ds/components/forms/SegmentedControl.jsx',
-			'apps/gm-react/src/ds/components/map/GenerationPanel.jsx',
-			'apps/gm-react/src/ds/components/map/ImportWizard.jsx',
-			'apps/gm-react/src/ds/components/map/LayerPanel.jsx',
-			'apps/gm-react/src/ds/components/map/LayerRow.jsx',
-			'apps/gm-react/src/ds/components/map/MapCreationForm.jsx',
-			'apps/gm-react/src/ds/components/map/Minimap.jsx',
-		],
-	},
-	{
-		rule: '@typescript-eslint/no-unused-vars',
-		files: ['apps/gm-react/src/ds/components/core/Breadcrumb.jsx'],
-	},
-	{
-		// A local named `Infinity` shadows the global; RC-DSN-3.2 owns Icon.jsx.
-		rule: 'no-shadow-restricted-names',
-		files: ['apps/gm-react/src/ds/components/core/Icon.jsx'],
-	},
-];
+// RC-DSN-2.1 converted every design-system `.jsx` file to `.tsx` and fixed the listed violations,
+// so the ratchet is empty. Keep it that way: a new `.jsx` file gets full coverage.
+export const jsxRatchet = [];

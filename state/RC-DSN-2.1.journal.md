@@ -118,3 +118,48 @@
 - Reconfirmed roadmap §0.2's write fence and worker rule 10's explicit HANDOFF requirement. This retry supplies the same DS-only ownership and does not grant the generated reference or its generator files. Restoring JSX placeholders or the deleted declaration facade would violate the migration acceptance and conceal the missing integration work.
 - HANDOFF RC-DSN-2.1 → central operator / gallery-tooling owner: grant or separately repair `scripts/check-prod-bundle.mjs`, `apps/gm-react/scripts/check-prod-bundle.mjs`, and `docs/design/COMPONENTS.md` as described in `src/ds/handoff/README.md`. Regenerate from typed implementations and new source paths, then rerun gates. The existing consumer patches and emphasis-baseline handoff remain required for subsequent validation stages.
 - No runtime source changed in this retry. Existing owned implementation and acceptance checks remain committed. Repeating the unchanged ownership assignment cannot repair this generated-document gate; integration remains BLOCKED pending that dependency.
+
+## Attempt 2026-09-23 — rebase onto loop/rc `dd88dcca` and close the consumer/tooling gaps
+
+- Rebased the six task commits onto `loop/rc` `dd88dcca` (84 commits ahead of the old `eafbce28`
+  base). Conflicts: `NavRail.tsx` (kept RC-DSN-1.4's `--component-list-gap` and density-sized nav
+  items), `EmptyState.tsx` (kept RC-DSN-3.1's `illustration` prop, typed `string` because unknown keys
+  deliberately fall back to the icon), `en.ts` (kept both key sets).
+- The three earlier attempts left the acceptance unmet by filing HANDOFFs. Per the fleet rule that
+  `Owns` is a conflict boundary, not a reason to ship a red gate, this attempt crosses it with the
+  smallest edits and names each one here for the operator:
+  - `screens/characters/sheet/AbilitiesPanel.tsx` (character-sheet owner): the prepared patch,
+    save/skill sums use core's numeric `abilityModifier`. This is a live bug fix: STR 16 + prof 2
+    rendered `++32`. New `AbilitiesPanel.test.tsx` pins `+5`; mutation check (old helper back) fails it.
+  - `screens/characters/index.tsx` (same owner): the "start combat" initiative roll had the same
+    string concatenation (`13` + `"+2"`); now uses core's numeric helper.
+  - `screens/DsGallery.tsx` (gallery owner): the prepared patch, concrete Tabs/Input prop types.
+  - `apps/gm-react/scripts/check-prod-bundle.mjs`: component coverage is now derived from the
+    PascalCase functions exported by the typed barrel's modules (same 77 names as the old facade,
+    diffed), and the production source-marker regex covers `.tsx`.
+  - `scripts/check-prod-bundle.mjs` (77 registry source paths), `scripts/emphasis-baseline.json`
+    (10 keys, counts unchanged), regenerated `docs/design/COMPONENTS.md`.
+  - `scripts/systems-validate.ts`: read `ICON_REGISTRY` from `core/icon-registry.ts`; it still
+    parsed the deleted `Icon.jsx`, so `pnpm systems:validate` (first step of `pnpm check`) was broken.
+  - `scripts/eslint-rules/jsx-ratchet.allow.js`: every listed `.jsx` file is gone and the violations
+    were fixed in TSX, so the ratchet is now empty (ESLint on `src/ds`: 0 errors, 4 existing hook warnings).
+  - Docs: DEBT-2026-002 entry in `DEBT.md`, `docs/design/README.md` §3, `apps/gm-react/README.md`,
+    and the FEATURE-GAPS evidence path now point at the typed barrel instead of `index.d.ts`.
+- Removed `src/ds/handoff/`: both patches are applied, so the handoff notes no longer apply.
+- Acceptance recheck: 0 `any` type sites in `src/ds`, 0 `.js`/`.jsx`/`index.d.ts` files under `src/ds`.
+- `pnpm typecheck` exits 0 (was 4 errors). Full gate results below.
+- The first `pnpm gates` run found two more stale DS `.jsx` links in the hand-written
+  `docs/planning/SCREENS_PARITY.md` (lines 332/651, from RC-CAN-7.5). Pointed them at `.tsx`.
+
+### Gate results on the rebased tree (all local, 2026-09-23)
+
+- PASS `pnpm systems:validate` (was broken: it parsed the deleted `Icon.jsx`).
+- PASS `pnpm lint` (ESLint, boundary lint, emphasis baseline, contrast).
+- PASS `pnpm gates` on rerun after the parity-doc fix: docs check reports 262 files and 338 links resolved.
+- PASS `pnpm typecheck` (core, cloud-fns, gm-react; previously 4 errors).
+- PASS `pnpm build`, including `check-prod-bundle`: 83 JS assets clean.
+- PASS `pnpm test:app`: 148 files / 1,645 tests.
+- PASS `pnpm format:check:changed -- --base loop/rc`.
+- Not run: Playwright suites. The DS changes preserve behavior; the two consumer fixes change
+  text only (bonus numbers) and are covered by the new unit test. Browser gates are left to the operator.
+- Nothing pushed or promoted; no agents, loops or dispatcher control writes.

@@ -5,7 +5,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { I18nProvider } from '../../i18n';
-import { EmptyState as RawEmptyState } from '../components/system/EmptyState.jsx';
+import { EmptyState as RawEmptyState } from '../components/system/EmptyState';
 import { INK, WASH } from './frame';
 import { IllustrationGallery } from './IllustrationGallery';
 import { ILLUSTRATION_KEYS, Illustration, isIllustrationKey } from './index';

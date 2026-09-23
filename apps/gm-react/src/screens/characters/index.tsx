@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { listCharactersForActor } from '@dndtools/core';
+import { abilityModifier, listCharactersForActor } from '@dndtools/core';
 import {
-	abilityModifier,
 	Button,
 	EmptyState,
 	Callout,
