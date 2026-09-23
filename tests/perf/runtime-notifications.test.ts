@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 
 const storage = vi.hoisted(() => ({ load: vi.fn(), persist: vi.fn() }));
-vi.mock('../../apps/gm-react/src/platform/storage/coreStore', () => ({
+vi.mock('../../apps/gm-react/src/platform/storage/coreStore', async (importOriginal) => ({
+	...(await importOriginal<typeof import('../../apps/gm-react/src/platform/storage/coreStore')>()),
 	loadCoreState: storage.load,
 	persistFullState: storage.persist,
+	activeLocalVaultId: () => 'primary',
 }));
 import { SceneRuntime } from '../../apps/gm-react/src/runtime/SceneRuntime';
 

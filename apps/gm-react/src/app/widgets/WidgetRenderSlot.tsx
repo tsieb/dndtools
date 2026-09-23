@@ -20,7 +20,6 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
 import type { BoardWidget } from '../board-helpers';
 import { TEMPLATE_RENDERER_ENTRIES } from './templates';
-
 import { WidgetPlaceholder } from './WidgetPlaceholder';
 import {
 	resolveWidgetRenderer,
