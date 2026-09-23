@@ -374,3 +374,36 @@ No NavRail or screen-kit edit in this revision.
   `pnpm format:check:changed -- --base loop/rc` passes all five files; `git diff --check` clean.
 - `git merge-tree --write-tree loop/rc HEAD` merges cleanly (loop/rc is 57 commits ahead
   of this branch's base, including a 6-line `responsive.spec.ts` change).
+
+## Revision 8 — re-baseline the golden routes the density audit repaints (2026-09-23)
+
+The dispatcher rebased the branch onto `loop/rc` `2fb670a4` (head `40450fce`). Quality
+gates and the changed-file format check passed. The pinned-container visual gate failed:
+attempt `c5097b55-b8c8-4dec-9c9d-7175f816dbe0/output.log`. That log stops after 24
+failures, but the run left 45 failing results in `apps/gm-react/test-results`:
+
+- `visual-rail`, every rail route in tavern/parchment/high-contrast (30). About 1750–1800
+  pixels differ on routes where only the rail changed. The rail items now render the audited
+  48px comfortable square and the 8px list gap instead of the fixed 44px square (revision 2's
+  `NavRail.jsx` fix), so every rail icon moves down.
+- `visual-desktop` `/session`, `/player`, `/settings` (9) and `visual-phone` `/session`,
+  `/settings` (6). Panel's default padding went from a fixed 18px to the 16px density
+  card padding, so Panel content moves 2px up and left.
+
+Before re-baselining I viewed the gate's own diff images for rail `/`, rail `/scene/:id`,
+desktop `/settings`, desktop `/player` and phone `/session`. Each diff shows only those two
+shifts. No other layout, colour or content change appears.
+
+**Boundary crossing, flagged:** `apps/gm-react/tests/visual/__screenshots__/` is outside
+`Owns`. These baselines record exactly the rendering the owned token, Panel and NavRail
+changes produce. Leaving them stale keeps the visual gate red on an intended change.
+Only the 45 PNGs the gate failed are rewritten; no spec, config or other baseline changes.
+
+Method: `run-in-container.sh --update-snapshots=changed --workers=2` (same pinned image as
+the gate) rewrote exactly those 45 files; `git status` lists no others. All three rail
+`/scene/:id` baselines were viewed and show the scene editor. They do not show the Command
+Center frame of the known hash-only race.
+The gate's exact command, `run-in-container.sh --update-snapshots=none --workers=2`, then
+ran against the new baselines: **135 passed, exit 0**
+(`/tmp/rc-dsn14-rev8-visual-compare.log`; update log `/tmp/rc-dsn14-rev8-visual-update.log`).
+No token, component or spec change in this revision.
