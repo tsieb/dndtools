@@ -35,3 +35,15 @@
 - Final app typecheck, targeted ESLint, Prettier, and git diff whitespace checks passed.
 - Quality gates passed with existing file-size warnings. Central operator gates and independent
   review are still external. No push or promotion performed.
+
+## Retry 2026-09-23 (preferences.ts now owned)
+
+- Prior attempt stopped on a provider allowance limit after commit `3fa40a2e`; its work was intact.
+- Merged `loop/rc` (`dcd42b55`, 74 commits) into the task branch, with no conflicts. `loop/rc` had since
+  added RC-UX-5.4 vault-scoped preferences, so `boardFilled` (scene ids = campaign history) now
+  joins `VAULT_PREFERENCES`. That keeps one vault's repeat-empty memory out of another vault.
+- On the merged tree: gm-react typecheck, targeted ESLint, raw-style ratchet, boundary lint and
+  `format:check:changed -- --base loop/rc` passed. `localVaults` + i18n unit tests: 40/40.
+- E2E (desktop + mobile Chromium): `scene-templates.spec.ts` 10/10; `flow-layout`,
+  `player-preview`, `canvas-keyboard` 22/22.
+- Central gates and independent review are still pending. Nothing was pushed or promoted.

@@ -85,6 +85,7 @@ const VAULT_PREFERENCES: ReadonlySet<PreferenceKey> = new Set<PreferenceKey>([
 	PREFERENCE_KEYS.partyNotes,
 	PREFERENCE_KEYS.paletteRecents,
 	PREFERENCE_KEYS.seenSpotlights,
+	PREFERENCE_KEYS.boardFilled,
 ]);
 
 /** The storage key a preference lives under in this document. Exported for isolation tests. */
