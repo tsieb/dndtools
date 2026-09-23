@@ -282,3 +282,55 @@ patch SHA-256 and seven samples per diagnostic series. `git diff HEAD -- apps
 packages` is empty: unrelated atlas work and all application source are preserved.
 No scope authorization arrived. This is a blocked handoff, not completed runtime
 recovery or all-green acceptance.
+
+## 2026-09-23 graph and search recovery (operator brief)
+
+Resumed at `c3520139`, clean worktree, after a provider allowance stop. The operator brief
+(2026-09-22) directs optimising graph-indexing (1431/500 ms) and search (359/250 ms) without
+loosening budgets, which answers the pending resolver scope request. No Headroom tools were
+exposed; no sub-agents, pushes, promotions or dispatcher control-state edits.
+
+Profile (2,000 notes, workstation dev server, load average 15–25). Each graph-indexing dispatch
+spent ~850 ms synchronously: `useGraphHealth` and `useGraphClusters` each ~170 ms (linear
+`resolveWikilink` per link plus a sorted tally per note per round), and most of the rest in React
+and style/layout for ~1,400 canvas buttons, ~2,800 edge lines and ~1,400 rail rows. Edges were
+keyed by array index, so one inserted edge remounted thousands of `<line>`s. Search spent its time
+unmounting and re-laying-out the same DOM.
+
+Changes (commit `436a220f`):
+
+- `state/wikilink-graph.ts` `createWikilinkResolver` (the reviewed proposal patch, now applied);
+  `graph-quality.ts` and `graph-clusters.ts` resolve through it. Label propagation picks the
+  winning label by linear scan with the same tie-break the stable sort gave.
+- `queries/parsed-note-cache.ts`: text-keyed memo of `parseMarkdownNote` for the four graph
+  reads. No actor state; fresh copies per hit; bounded by cached characters.
+- `platform/service-boundary.ts`: exact UTF-8 count without encoding a copy of the ~1.6 M-char
+  state (`utf8ByteLength`, checked against `TextEncoder`).
+- Graph screen: memoized `GraphCanvasNode`/`GraphResultRow` (`screens/graph/nodes.tsx`), stable
+  handlers, insertion-stable edge keys, health/clusters from `useDeferredValue(runtime.state)`.
+  Above 150 nodes the canvas draws the most-connected nodes (the selection, plus the focus
+  anchor and its neighbourhood, always drawn) and the status line says so; the result list keeps
+  every match (rows use `content-visibility: auto` in that mode only). Under 150 nodes the code
+  path and DOM are as before. The inspector's connection list reads all results, so undrawn
+  neighbours still appear.
+- `scripts/perf/capture.ts`: graph-indexing waits for the Graph search box before its first timed
+  note, as search already did (see README, "Graph readiness before graph-indexing").
+
+**Scope overlap, for the operator to adjudicate:** `packages/core/src/state/{wikilink-graph,
+graph-quality,graph-clusters}.ts`, `apps/gm-react/src/screens/Graph.tsx`, `screens/graph/*`, the
+two message catalogues and the raw-style allow-list are outside this story's `Owns`. The Graph
+screen belongs to the KNW lane. The raw-style allowance moved 7 values from `Graph.tsx` (46→39)
+to the new `nodes.tsx` (7): net zero. The superseded proposal patch and its temp-copy checker
+are removed; their differential cases run in
+`packages/core/tests/rc-eng-3-2-graph-hot-paths.test.ts` (mutation-checked: flipping the
+tie-break fails it).
+
+Settled per-dispatch graph update in the diagnostic profile: ~850 → ~280–340 ms; search per
+query ~150–350 → ~140–300 ms. Diagnostic only, under heavy shared load; the paired capture below
+is the evidence.
+
+Validation so far: app typecheck; targeted ESLint; changed-file Prettier (`--base loop/rc`);
+graph/i18n unit tests 36/36; core graph + boundary tests 55/55 and 15/15; perf suite 23/23; e2e
+on desktop-chromium and mobile-chromium: new `graph-large-vault.spec.ts` plus graph (38 total),
+then graph-repair, a11y-axe-gate, responsive, ux-audit, maturity-signals and feature-spotlight
+(190), all passing.

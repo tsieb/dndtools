@@ -104,3 +104,13 @@ Seven alternating pairs follow one warmup per revision, at 2x CPU throttle. Raw
 samples and medians are retained. This is a persisted-vault reload through two
 paint frames, not the cold-context demo-first-render scenario, and does not replace
 the standard budget comparison or the hosted stability workflow.
+
+## Graph readiness before graph-indexing
+
+`gotoRoute` resolves once the runtime has loaded and the shell's main landmark exists. `/graph` is a
+lazy route, so at that point the Graph screen may not have fetched or rendered yet. `search` already
+waited for the graph's search box before its first query; since RC-ENG-3.2 `graph-indexing` waits
+for the same box before its first timed note. Before that, whichever part of the screen's first mount
+overlapped the first sample was timed as that note's update, and because the budget grades each
+batch's slowest sample, a race decided the batch. The five timed notes, the 10-second render
+deadline and the 500 ms target are unchanged, and both revisions run the candidate's harness.
