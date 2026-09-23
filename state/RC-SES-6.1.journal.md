@@ -187,3 +187,14 @@
   - Hard failures: `settings.spec.ts:101` on both profiles, plus `settings.spec.ts:180` on desktop. The `:180` failure is a `toContainText("Appearance")` on the settings section picker, which this story doesn't touch. It is the same environmental `settings :101/:180` stall that `32ef11ad`'s journal attributes to the shm exhaustion.
   - Printed errors: 4 `waitReady` boot timeouts, 1 `locator.waitFor` timeout and 1 `page.goto: net::ERR_INSUFFICIENT_RESOURCES` (`#/session`). No SFX or combat assertion failed. The flaky `sfx-events` runs passed on retry.
 - Verdict as in attempts 12–17: the Browser acceptance gate is blocked outside this task's owned paths until `c71169bb`/`32ef11ad` lands on `loop/rc`. Requeueing without that change reproduces this result.
+
+## Attempt 19 (browser gate killed by SIGTERM; unchanged base)
+
+- Entry: clean branch at `ab3ad7a0`. `loop/rc` and `origin/loop/rc` are both at `df379bf7`, 0 commits ahead of this branch, and `vite.config.ts` still has no `FULL_RESPONSES`. Headroom tools were unavailable, so I read the gate log directly: `.state/attempts/5d8bc6eb-…/output.log`. No code changed, and no agents, dispatcher writes, push, promotion or extra loop.
+- The Browser acceptance gate exited with `-15`: it was terminated from outside and did not finish. The log ends at test 1232 of 1292 with `ELIFECYCLE Command failed.` and has no Playwright summary. This attempt was not a completed red run. Why it was terminated is not visible from the task worktree.
+- Failures up to the kill, all on desktop. The mobile tests that ran before the kill logged no failures.
+  - `settings.spec.ts:101` (3 tries), `:180` (2) and `:217` (3).
+  - `themes.spec.ts:59` (1).
+  - `responsive.spec.ts:242` (2 viewports, a known base-red race).
+- All of these are settings, theme or layout specs this story doesn't touch. `settings:217` is new in this series: it failed right after `settings:101` in the same spec file on the same worker, and fits the shm stall in attempts 12–18. No SFX, combat, dice or handout spec failed.
+- Verdict unchanged: nothing left for this story in owned paths. The gate needs `c71169bb`/`32ef11ad` on `loop/rc`, and this run also needs to finish rather than be terminated.
