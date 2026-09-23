@@ -5354,6 +5354,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Añade un jugador en Configuración para previsualizar el punto de vista del jugador.',
 	'graph.showing':
 		'Se muestran {shown} de {total, plural, one {# nodo visible} other {# nodos visibles}}',
+	'graph.canvasLimited':
+		' · el lienzo dibuja los {count} más conectados; busca o enfoca para ver el resto',
 	'graph.partial': ' · algunas fuentes todavía no están cargadas del todo',
 	'graph.emptyPlayer': 'Ningún nodo visible para jugadores coincide con este filtro.',
 	'graph.emptyDm':

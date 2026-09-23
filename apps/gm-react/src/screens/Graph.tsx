@@ -2,7 +2,15 @@ import './graph/graph.css';
 import { GraphSearch } from './graph/Search';
 import { GraphInspector } from './graph/Inspector';
 import { GraphHealth } from './graph/Health';
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+	memo,
+	useDeferredValue,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent,
+} from 'react';
 import {
 	getGraphVisualizationForActor,
 	type GraphVisualization,
@@ -20,7 +28,8 @@ import {
 	useClusterHulls,
 	useGraphClusters,
 } from './graph/clusters';
-import { indexConnections, showNodeLabel, walkNode } from './graph/interaction';
+import { indexConnections, limitCanvasNodes, showNodeLabel, walkNode } from './graph/interaction';
+import { GraphCanvasNode, edgeKeys, type CanvasNodeHandlers } from './graph/nodes';
 import {
 	KIND_COLOR,
 	KIND_ICON,
@@ -42,6 +51,10 @@ import {
  */
 
 const DEFAULT_SOURCE_ID = 'local-vault';
+
+// Its props are the memoized read plus state setters, so hover, focus and keyboard walks on the
+// canvas no longer re-render every result row (RC-ENG-3.2).
+const MemoGraphSearch = memo(GraphSearch);
 
 export function Graph() {
 	const runtime = useRuntime();
@@ -86,15 +99,35 @@ export function Graph() {
 		[runtime.state, viewActorId, facet, query],
 	);
 
-	const health = useGraphHealth(view, dmId, playerId);
+	// Health and clusters are whole-vault reports for the side panels and hull washes. Reading them from
+	// a deferred state lets the graph itself commit first after a change; the panels follow in an
+	// interruptible render instead of holding every command's update on a large vault (RC-ENG-3.2).
+	const panelState = useDeferredValue(runtime.state);
+	const health = useGraphHealth(panelState, view, dmId, playerId);
 
-	const clusters = useGraphClusters(runtime.state, viewActorId);
+	const clusters = useGraphClusters(panelState, viewActorId);
 
-	const nodes = useMemo(() => positioned(viz.nodes), [viz.nodes]);
+	const connections = useMemo(() => indexConnections(viz), [viz]);
+	// A large vault draws only part of itself (see `limitCanvasNodes`). The selection stays drawn (a node
+	// clicked on the canvas already is, so nothing moves), and focus mode keeps its whole neighbourhood.
+	const canvasPool = useMemo(() => {
+		const pinned = new Set<string>(sel ? [sel] : []);
+		if (focusId) {
+			pinned.add(focusId);
+			for (const n of connections.get(focusId)?.neighbors ?? []) pinned.add(n);
+		}
+		return limitCanvasNodes(viz.nodes, pinned);
+	}, [viz.nodes, connections, sel, focusId]);
+	const nodes = useMemo(() => positioned(canvasPool), [canvasPool]);
 	const nodeById = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
+	// Every result, drawn or not: the inspector lists a selection's links even to undrawn neighbours.
+	const resultById = useMemo(
+		() =>
+			canvasPool === viz.nodes ? nodeById : Object.fromEntries(viz.nodes.map((n) => [n.id, n])),
+		[canvasPool, viz.nodes, nodeById],
+	);
 	const { hulls, hullsOn, toggleHulls } = useClusterHulls(clusters.clusters, nodeById);
 	const selNode = sel && nodeById[sel] ? nodeById[sel] : null;
-	const connections = useMemo(() => indexConnections(viz), [viz]);
 	const selectedConnections = selNode ? connections.get(selNode.id) : undefined;
 	const selEdges = selectedConnections?.edges ?? [];
 	const focusAnchor = focusId && nodeById[focusId] ? focusId : null;
@@ -107,8 +140,32 @@ export function Graph() {
 				: nodes,
 		[nodes, connections, focusAnchor],
 	);
-	const canvasIds = canvasNodes.map((n) => n.id);
+	const canvasIds = useMemo(() => canvasNodes.map((n) => n.id), [canvasNodes]);
 	const tabId = activeId && canvasIds.includes(activeId) ? activeId : canvasIds[0];
+	const edgeKey = useMemo(() => edgeKeys(viz.edges), [viz.edges]);
+	// Stable across renders so the memoized nodes only re-render when their own props change.
+	const walkIds = useRef(canvasIds);
+	useLayoutEffect(() => {
+		walkIds.current = canvasIds;
+	}, [canvasIds]);
+	const nodeHandlers = useMemo<CanvasNodeHandlers>(
+		() => ({
+			register: (id, el) => {
+				if (el) nodeButtons.current.set(id, el);
+				else nodeButtons.current.delete(id);
+			},
+			focus: setActiveId,
+			hover: setHoverId,
+			walk: (id, e) => {
+				const next = walkNode(walkIds.current, id, e.key);
+				if (!next) return;
+				e.preventDefault();
+				nodeButtons.current.get(next)?.focus();
+			},
+			toggle: (id) => setSel((cur) => (cur === id ? null : id)),
+		}),
+		[],
+	);
 	// The kinds the actor COULD filter by, straight from the live facets (never reveals hidden content).
 	const legendKinds = viz.facets.kinds;
 
@@ -156,6 +213,9 @@ export function Graph() {
 							shown: viz.nodes.length,
 							total: viz.totalVisibleNodes,
 						})}
+						{nodes.length < viz.nodes.length
+							? t('graph.canvasLimited', { count: nodes.length })
+							: ''}
 						{viz.partial ? t('graph.partial') : ''}
 					</span>
 					<Button
@@ -278,7 +338,7 @@ export function Graph() {
 								const hot = selNode != null && (e.fromId === sel || e.toId === sel);
 								return (
 									<line
-										key={`${e.fromId}-${e.toId}-${i}`}
+										key={edgeKey[i]}
 										x1={a.x}
 										y1={a.y}
 										x2={b.x}
@@ -296,93 +356,26 @@ export function Graph() {
 								);
 							})}
 						</svg>
-						{canvasNodes.map((n) => {
-							const col = KIND_COLOR[n.kind] ?? T.sub;
-							const dim =
-								selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id);
-							const d = Math.max(48, Math.min(70, 48 + n.degree * 4));
-							return (
-								<button
-									key={n.id}
-									data-testid="graph-node"
-									ref={(el: HTMLButtonElement | null) => {
-										if (el) nodeButtons.current.set(n.id, el);
-										else nodeButtons.current.delete(n.id);
-									}}
-									tabIndex={n.id === tabId ? 0 : -1}
-									onFocus={() => setActiveId(n.id)}
-									onMouseEnter={() => setHoverId(n.id)}
-									onMouseLeave={() => setHoverId(null)}
-									aria-describedby="graph-walk-help"
-									onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
-										const next = walkNode(canvasIds, n.id, e.key);
-										if (!next) return;
-										e.preventDefault();
-										nodeButtons.current.get(next)?.focus();
-									}}
-									type="button"
-									// Toggle, not latch. `setSel(null)` existed nowhere, so the first click on any
-									// node emphasized its neighbors and dimmed every non-incident edge to
-									// 0.22 for the rest of the session with no way back. Atlas's POI list already
-									// toggles the same way.
-									aria-pressed={n.id === sel}
-									onClick={() => setSel((cur) => (cur === n.id ? null : n.id))}
-									title={t('graph.nodeTitle', {
-										title: n.title,
-										kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
-										count: n.degree,
-									})}
-									aria-label={t('graph.nodeLabel', {
-										title: n.title,
-										kind: KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind,
-										count: n.degree,
-									})}
-									style={{
-										position: 'absolute',
-										left: `${n.x}%`,
-										top: `${(n.y / 70) * 100}%`,
-										transform: 'translate(-50%,-50%)',
-										width: d,
-										height: d,
-										borderRadius: 'var(--radius-full)',
-										cursor: 'pointer',
-										display: 'flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										textAlign: 'center',
-										padding: 'var(--space-1)',
-										opacity: 1,
-										filter: dim ? 'grayscale(1)' : undefined,
-										border: `0.09375rem solid ${n.id === sel ? T.acc : col}`,
-										background: `color-mix(in srgb, ${col} ${n.id === sel ? 28 : 16}%, ${T.surf})`,
-										color: T.ink,
-										boxShadow: n.id === sel ? T.smd : 'none',
-										transition: 'opacity var(--duration-fast) var(--easing-standard)',
-									}}
-								>
-									<span
-										style={{
-											pointerEvents: 'none',
-											// Labels use the readable metadata token; dense canvases reveal them on focus.
-											font: `600 var(--text-sm) ${T.sans}`,
-											lineHeight: 1.05,
-											overflow: 'hidden',
-											textOverflow: 'ellipsis',
-										}}
-									>
-										{showNodeLabel(
-											canvasNodes.length,
-											viewport !== 'desktop',
-											n.id === sel || n.id === activeId || n.id === hoverId,
-										) ? (
-											n.title
-										) : (
-											<Icon name={KIND_ICON[n.kind] ?? 'tag'} size={15} />
-										)}
-									</span>
-								</button>
-							);
-						})}
+						{canvasNodes.map((n) => (
+							<GraphCanvasNode
+								key={n.id}
+								id={n.id}
+								title={n.title}
+								kind={n.kind}
+								degree={n.degree}
+								x={n.x}
+								y={n.y}
+								selected={n.id === sel}
+								dim={selNode != null && n.id !== sel && !selectedConnections?.neighbors.has(n.id)}
+								tabbable={n.id === tabId}
+								labelled={showNodeLabel(
+									canvasNodes.length,
+									viewport !== 'desktop',
+									n.id === sel || n.id === activeId || n.id === hoverId,
+								)}
+								handlers={nodeHandlers}
+							/>
+						))}
 						{!focusAnchor && <ClusterToggle on={hullsOn} onToggle={toggleHulls} />}
 					</section>
 
@@ -392,7 +385,7 @@ export function Graph() {
 				    pointer — the next click landed on a different node. Keeping DOM order == visual order
 				    also keeps the tab sequence honest (an `order:` swap would not have). */}
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-						<GraphSearch
+						<MemoGraphSearch
 							view={view}
 							viz={viz}
 							query={query}
@@ -407,7 +400,7 @@ export function Graph() {
 							<GraphInspector
 								selNode={selNode}
 								selEdges={selEdges}
-								nodeById={nodeById}
+								nodeById={resultById}
 								facet={facet}
 								query={query}
 								setSel={setSel}

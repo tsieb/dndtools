@@ -1,5 +1,11 @@
 # RC-ENG-3.2 resolver scope handoff
 
+> **Superseded 2026-09-23.** The operator brief directed optimising the graph path, so the patch was
+> applied (with an equivalent tie-break fix in label propagation). The patch file and its temp-copy
+> checker were removed; both remain at commit `c3520139` (`scripts/perf/proposals/` and
+> `scripts/perf/check-resolver-proposal.ts`). Their differential cases now run as a regular test,
+> `packages/core/tests/rc-eng-3-2-graph-hot-paths.test.ts`. The record below is kept as written.
+
 **Blocked on scope authorization; acceptance is not met.** Recovery resumed at
 `52070b7e` with a clean worktree. The preserved implementation was rebased onto
 unrelated atlas changes, so the prior complete capture is historical. No current
@@ -13,14 +19,14 @@ callers. The scope request names exactly these files:
 - `packages/core/src/state/graph-quality.ts`
 - `packages/core/src/state/graph-clusters.ts`
 
-The [reviewable patch](../../../../scripts/perf/proposals/rc-eng-3.2-wikilink-index.patch)
+The reviewable patch (`scripts/perf/proposals/rc-eng-3.2-wikilink-index.patch` at `c3520139`)
 is **not applied**. It builds a first-match normalized title/alias index once per
 calculation, then delegates each lookup to the canonical resolver with its single
 matching candidate. The canonical availability and section rules remain intact.
 The index is local to the calculation; it is never cached across mutations or
 actor changes. Both engines still receive only actor-filtered candidates.
 
-The [checker](../../../../scripts/perf/check-resolver-proposal.ts) applies that patch
+The checker (`scripts/perf/check-resolver-proposal.ts` at `c3520139`) applied that patch
 only to three regular temporary copies, checks that its destinations are exactly
 the three expected files, and verifies that application source bytes remain
 unchanged. Other imports reference the original source. Temporary copies are

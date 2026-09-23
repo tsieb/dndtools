@@ -5324,6 +5324,8 @@ export const en = {
 	'graph.needPlayer': 'Add a player in Settings to preview the player viewpoint.',
 	'graph.showing':
 		'Showing {shown} of {total, plural, one {# visible node} other {# visible nodes}}',
+	'graph.canvasLimited':
+		' · the canvas draws the {count} most-connected; search or focus to see the rest',
 	'graph.partial': ' · some sources aren’t fully loaded yet',
 	'graph.emptyPlayer': 'No player-visible nodes match this filter.',
 	'graph.emptyDm':

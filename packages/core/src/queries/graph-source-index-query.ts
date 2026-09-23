@@ -2,7 +2,7 @@ import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
-import { parseMarkdownNote } from '../state/markdown';
+import { parseNoteCached } from './parsed-note-cache';
 import { outboundTargetsFromBody } from '../state/graph-index';
 import {
 	buildSourceGraphIndex,
@@ -123,7 +123,7 @@ function contentSourceNodeRecord(
 	defaultSourceId: string,
 	defaultSourceKind: GraphSourceKind,
 ): SourceGraphNodeRecord {
-	const parsed = parseMarkdownNote(view.body);
+	const parsed = parseNoteCached(view.body);
 	return {
 		id: view.id,
 		kind: view.kind === 'object' ? 'object' : 'note',

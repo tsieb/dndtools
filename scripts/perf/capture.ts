@@ -919,6 +919,12 @@ const graphIndexing: Scenario = {
 		const { page, close } = await newPage(browser, options.port, 'desktop', storageState);
 		try {
 			await gotoRoute(page, '/graph');
+			// `gotoRoute` resolves once the shell exists, before the lazy Graph screen has fetched and
+			// rendered. Wait for it as `search` does, so the first sample times one note's update, not
+			// however much of the screen's first mount happened to overlap it.
+			await page
+				.getByRole('textbox', { name: 'Search the graph' })
+				.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const actor = await actorId(page);
 			const samples = await page.evaluate<number[], { actor: string; runs: number }>(
 				captureGraphUpdates,

@@ -2,7 +2,7 @@ import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
-import { parseMarkdownNote } from '../state/markdown';
+import { parseNoteCached } from './parsed-note-cache';
 import type { GraphEdge, GraphNode, GraphNodeKind } from '../state/graph-index';
 import { GRAPH_NODE_KINDS } from '../state/graph-index';
 import type { GraphSourceKind } from '../state/graph-source-index';
@@ -213,7 +213,7 @@ export function getGraphVisualizationForActor(
 		folderById.set(view.id, itemFolder(view.fields));
 		tagsById.set(
 			view.id,
-			parseMarkdownNote(view.body).tags.map((tag) => tag.toLowerCase()),
+			parseNoteCached(view.body).tags.map((tag) => tag.toLowerCase()),
 		);
 	}
 

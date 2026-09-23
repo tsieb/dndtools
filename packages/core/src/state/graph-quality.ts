@@ -1,5 +1,5 @@
 import { extractWikilinks } from './markdown';
-import { resolveWikilink, type WikilinkTarget } from './wikilink-graph';
+import { createWikilinkResolver, type WikilinkTarget } from './wikilink-graph';
 import { editDistance } from './edit-distance';
 
 /**
@@ -250,6 +250,7 @@ export function computeGraphQuality(
 ): GraphQualityReport {
 	// Resolve each node's outbound links ONCE against the visible candidate index. Track, per note, the
 	// distinct resolved outbound target ids and the unresolved raw targets — the substrate every finding uses.
+	const resolveLink = createWikilinkResolver(candidates);
 	const resolvedOutbound = new Map<string, Set<string>>(); // sourceId -> set of resolved target ids
 	const inbound = new Map<string, Set<string>>(); // targetId -> set of source ids that link to it
 	const unresolvedLinks: UnresolvedLink[] = [];
@@ -257,7 +258,7 @@ export function computeGraphQuality(
 		const resolvedTargets = new Set<string>();
 		const reportedUnresolved = new Set<string>(); // one unresolved entry per (source, normalized target)
 		for (const rawTarget of node.outboundTargets) {
-			const resolution = resolveWikilink({ target: rawTarget }, candidates);
+			const resolution = resolveLink({ target: rawTarget });
 			if (resolution.status === 'resolved') {
 				// A self-link does not contribute to connectivity (a note is not connected to itself).
 				if (resolution.targetId === node.id) continue;

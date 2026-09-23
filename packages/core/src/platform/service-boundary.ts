@@ -132,11 +132,26 @@ function measurePayload(
 	// state just to read its length was most of a durable commit's boundary cost.
 	if (serialized.length * 3 <= limit) return { fits: true };
 	// Count UTF-8 bytes so multi-byte content is measured accurately against the limit.
-	const sizeBytes =
-		typeof TextEncoder !== 'undefined'
-			? new TextEncoder().encode(serialized).length
-			: serialized.length;
+	const sizeBytes = utf8ByteLength(serialized);
 	return sizeBytes > limit ? { fits: false, sizeBytes } : { fits: true };
+}
+
+// Code units that encode to 2 bytes, to 3 bytes, and surrogate halves (a pair encodes to 4 bytes).
+const TWO_BYTE_UNITS = /[\u0080-߿]/g;
+const THREE_BYTE_UNITS = /[ࠀ-퟿-￿]/g;
+const SURROGATE_UNITS = /[\ud800-\udfff]/g;
+
+/**
+ * The exact UTF-8 length of `text`, as `TextEncoder` would encode it, without encoding a copy (the
+ * persisted state is megabytes). JSON output carries no lone surrogates: `JSON.stringify` escapes them.
+ */
+export function utf8ByteLength(text: string): number {
+	return (
+		text.length +
+		(text.match(TWO_BYTE_UNITS)?.length ?? 0) +
+		2 * (text.match(THREE_BYTE_UNITS)?.length ?? 0) +
+		(text.match(SURROGATE_UNITS)?.length ?? 0)
+	);
 }
 
 /**

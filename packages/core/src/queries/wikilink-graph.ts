@@ -1,6 +1,6 @@
 import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
-import { parseMarkdownNote } from '../state/markdown';
+import { parseNoteCached } from './parsed-note-cache';
 import type { ContentSourceId } from '../state/content-constraints';
 import {
 	applyLinkRepair,
@@ -60,7 +60,7 @@ function itemAvailable(view: ContentItemView): boolean {
 }
 
 function itemAliases(view: ContentItemView): string[] {
-	const parsed = parseMarkdownNote(view.body);
+	const parsed = parseNoteCached(view.body);
 	return parsed.aliases;
 }
 
@@ -76,7 +76,7 @@ export function buildWikilinkCandidatesForActor(
 ): WikilinkTarget[] {
 	const visible = getContentItemsForActor(content, permissions, actorId);
 	return visible.map((view) => {
-		const parsed = parseMarkdownNote(view.body);
+		const parsed = parseNoteCached(view.body);
 		return {
 			id: view.id,
 			title: view.title,

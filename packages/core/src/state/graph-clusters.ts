@@ -1,4 +1,4 @@
-import { resolveWikilink, type WikilinkTarget } from './wikilink-graph';
+import { createWikilinkResolver, type WikilinkTarget } from './wikilink-graph';
 import type { QualityNode } from './graph-quality';
 
 /**
@@ -107,12 +107,13 @@ function buildUndirectedAdjacency(
 	nodes: readonly ClusterInputNode[],
 	candidates: readonly WikilinkTarget[],
 ): Map<string, Set<string>> {
+	const resolveLink = createWikilinkResolver(candidates);
 	const known = new Set(nodes.map((node) => node.id));
 	const adjacency = new Map<string, Set<string>>();
 	for (const node of nodes) adjacency.set(node.id, new Set<string>());
 	for (const node of nodes) {
 		for (const rawTarget of node.outboundTargets) {
-			const resolution = resolveWikilink({ target: rawTarget }, candidates);
+			const resolution = resolveLink({ target: rawTarget });
 			if (resolution.status !== 'resolved') continue;
 			const targetId = resolution.targetId;
 			if (targetId === node.id || !known.has(targetId)) continue;
@@ -145,10 +146,16 @@ function propagateLabels(adjacency: Map<string, Set<string>>): Map<string, strin
 				if (label === undefined) continue;
 				tally.set(label, (tally.get(label) ?? 0) + 1);
 			}
+			// Most-voted label, ties to the smallest label. A linear scan picks the same winner as sorting
+			// the tally by label first (a collator-equal pair keeps its first-seen entry, as a stable sort
+			// would) without a sort per note per round.
 			let best: string | null = null;
 			let bestCount = 0;
-			for (const [label, count] of [...tally].sort((a, b) => a[0].localeCompare(b[0]))) {
-				if (count > bestCount) {
+			for (const [label, count] of tally) {
+				if (
+					count > bestCount ||
+					(count === bestCount && best !== null && label.localeCompare(best) < 0)
+				) {
 					best = label;
 					bestCount = count;
 				}
