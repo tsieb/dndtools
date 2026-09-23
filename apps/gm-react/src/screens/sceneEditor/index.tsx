@@ -41,10 +41,9 @@ import { PlayerPreviewOverlay } from './PlayerPreviewOverlay';
 import { readPlayerPreview } from './playerPreview';
 
 /**
- * Actor-filtered scene widgets, edited through core commands. Canvas and flow policies share
- * instances and commands (ADR-041); phones read stacked panels outside layout editing.
- * Generated widgets stay staged: nothing is installed or placed without the DM.
- * Player preview suspends editing and explains withheld tiles; Escape restores the editor.
+ * Actor-filtered scene widgets edited through core commands; canvas and flow share instances
+ * (ADR-041), and phones read stacked panels outside layout editing. Generated widgets stay staged
+ * for the DM. Player preview suspends editing and explains withheld tiles; Escape restores it.
  */
 export function SceneEditor() {
 	const { t } = useI18n();
