@@ -736,3 +736,34 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   - The two flaky `settings.spec.ts` cases passed on retry and are not board code.
 - Base worktree removed after the A/B. No source, baseline, dispatcher-control, agent,
   publishing or promotion changes.
+
+## Rebase onto `c73572cf`; phone baselines re-checked — 2026-09-23
+
+- Resumed at `660f6ec8` with a clean tree. The operator brief's uncommitted
+  browser-test diff (`preferPhoneCanvas` plus one `beforeEach` in `canvas.spec.ts`,
+  `canvas-keyboard.spec.ts` and `flow-layout.spec.ts`) was already committed in
+  `5cef08f5`, so there was nothing uncommitted to review.
+- The rebase onto `loop/rc` `c73572cf` did **not** apply cleanly. `2fb670a4` (RC-CAN-4.6
+  scene backgrounds) had re-baselined the phone `board--{tavern,high-contrast}` and
+  `scene-editor--{tavern,high-contrast}` PNGs that this story also replaces. Took this
+  story's stacked-panel versions. `sceneEditor/index.tsx` merged automatically: the
+  base's added `history` prop on `Inspector` is kept.
+- Re-checked those PNGs in the pinned container with
+  `--project=visual-phone -g 'board|scene-editor|scene/' --update-snapshots=changed`:
+  6 passed, no file rewritten. The stacked phone view does not paint the scene
+  background, so the base's background change does not reach it. Inspected
+  `scene-editor--tavern.png`: stacked panels, not the Command Center race capture.
+  Output: `/tmp/rc-can-5.1-20260923-visual-update.log`.
+- Full pinned visual gate (`run-in-container.sh --update-snapshots=none --workers=2`):
+  **135 passed (2.8m), exit 0**. Output: `/tmp/rc-can-5.1-20260923-visual-repo.log`.
+- `tsc --noEmit` for gm-react: exit 0. ESLint on the story's source files and
+  `_helpers.ts`: exit 0.
+- Zero-retry mobile acceptance on port 15781 (320×640 board, 360×360 virtual-keyboard
+  sweep, `/board` and `/scene/:id` axe): 4 passed (15.1s). Output:
+  `/tmp/rc-can-5.1-20260923-acceptance.log`.
+- Zero-retry spatial-canvas specs on both profiles (`canvas`, `canvas-keyboard`,
+  `flow-layout`, `canvas-arrange`, `scene-templates`), port 15782: 106 passed (2.1m).
+  Output: `/tmp/rc-can-5.1-20260923-canvas-specs.log`.
+- Only this journal changes in this turn's commit. The full browser suite and the
+  central gates are left to the operator. No dispatcher-control edits, agents,
+  publishing or promotion.
