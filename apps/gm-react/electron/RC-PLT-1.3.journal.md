@@ -165,3 +165,20 @@ Validation results are recorded below after completion.
 - Only the owned smoke and this journal changed in this revision. Aggregate candidate paths
   against `2d9f566d194d10e597c8001015b7e8be31811d59` remain the ten owned files. Central gates
   and independent review remain the operator's next steps; OS handoff/display limits above apply.
+
+## Run 6 — resume after provider allowance stop (2026-09-23)
+
+The previous attempt stopped on a provider allowance limit with a clean worktree. Run 5's commits
+were intact, so this run changed no code and only re-verified the committed candidate.
+
+- `git merge-tree --write-tree origin/loop/rc HEAD` (tip `1e135396`): clean. None of the ten owned
+  files changed on `loop/rc` since the candidate's base `370ab4c8`.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0. Log: `/tmp/rc-plt-1.3-run6-typecheck.log`.
+- `pnpm --filter @dndtools/gm-react desktop:smoke`: exit 0 after a fresh production build. Origin
+  write/verify, migration, 12 updater checks, and parity write/verify passed, with all ten parity
+  checks each time. Log: `/tmp/rc-plt-1.3-run6-smoke.log`. The first attempt exited 1 with
+  `Missing X server or $DISPLAY`. This session has no Xvfb, and `DISPLAY=:0` needs the Xwayland
+  `XAUTHORITY` (`/run/user/1000/.mutter-Xwaylandauth.*`). That was an environment problem, not the
+  candidate.
+- Builder configuration, PlatformLifecycle, and the standard runner are unchanged since Run 3, and
+  the justifications above still hold. No Headroom tools were used; command output was read directly.
