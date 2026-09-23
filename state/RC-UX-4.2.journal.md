@@ -226,3 +226,23 @@ still owns the rest of the overlay's compact work.
   all passed. Verified the requested integration SHA is an ancestor of the rebased branch.
 - No push, promotion, dispatcher changes or additional agents. Central wrapper gates and
   independent review remain the operator's next step.
+
+## Revision 5 — reconcile with loop/rc dc3a5451 (2026-09-23)
+
+- The previous session ended on the provider allowance limit after committing revision 4; the tree
+  was clean. `git merge-tree` against `loop/rc` (`dc3a5451`, 65 commits past the old base
+  `370ab4c8`) showed a content conflict in `MoreSheet.tsx`: RC-UX-5.4 (`c7095846`) wrapped the sheet
+  in a fragment and added the vault-switcher row.
+- Rebased the four task commits onto `dc3a5451`. Resolved by taking loop/rc's MoreSheet verbatim
+  and re-adding only the `gridAutoRows: 'minmax(44px, auto)'` floor (plus its comment).
+  `responsive.spec.ts` auto-merged; no duplicate top-level declarations. Dialog, TopBar and
+  NAVIGATION.md applied cleanly with no changes.
+- The new vault row sits inside the audited "All sections" dialog, so the per-screen 44px row check
+  now covers it as well. No spec change was needed.
+- Validation on the rebased tree: `tsc --noEmit -p apps/gm-react/tsconfig.json` exit 0; ESLint
+  (MoreSheet, TopBar, spec) exit 0; Prettier (MoreSheet, spec, journal) clean. Full
+  `responsive.spec.ts`, desktop-chromium + mobile-chromium, two workers, worktree-derived port:
+  **158 passed, no failures or retries, exit 0 (5.1m)**. Local log:
+  `/tmp/rc-ux-4.2-rebase2-responsive.log`.
+- Headroom tools were not used. No push, promotion, dispatcher edits or extra agents. The full
+  browser suite and central gates are left to the operator.
