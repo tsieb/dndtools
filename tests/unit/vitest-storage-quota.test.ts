@@ -5,9 +5,29 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// Exercise the real core config and schema assertions without filling shared host storage.
+// Every Vitest config the `pnpm test` gate runs, each with one real test file as a probe. The core
+// suite failed promotion dda3120a5615 this way and the app suite failed 52161311fa13; cloud and
+// tooling share the same exposure.
+const SUITES = [
+	{ name: 'core', cwd: 'packages/core', config: [], probe: 'tests/schemas.test.ts' },
+	{
+		name: 'app',
+		cwd: '.',
+		config: ['--config', 'vitest.app.config.ts'],
+		probe: 'apps/gm-react/src/runtime/audio-starter-pack.test.ts',
+	},
+	{
+		name: 'cloud',
+		cwd: '.',
+		config: ['--config', 'vitest.cloud.config.ts'],
+		probe: 'apps/gm-react/src/cloud/vaultMode.test.ts',
+	},
+	{ name: 'tooling', cwd: '.', config: [], probe: 'tests/unit/format-changed.test.ts' },
+] as const;
+
+// Exercise the real configs and assertions without filling shared host storage.
 // Only the child runner's temporary writes fail; repository files and test assertions are intact.
-function runWithTemporaryQuota(pool?: 'forks') {
+function runWithTemporaryQuota(suite: (typeof SUITES)[number], pool?: 'forks') {
 	const directory = mkdtempSync(join(tmpdir(), 'dndtools-vitest-quota-'));
 	const temporary = join(directory, 'tmp');
 	const preload = join(directory, 'quota.mjs');
@@ -38,15 +58,16 @@ syncBuiltinESMExports();
 				pathToFileURL(preload).href,
 				resolve('node_modules/vitest/vitest.mjs'),
 				'run',
-				'tests/schemas.test.ts',
+				...suite.config,
+				suite.probe,
 				'--maxWorkers=1',
 				...(pool ? [`--pool=${pool}`] : []),
 			],
 			{
-				cwd: resolve('packages/core'),
+				cwd: resolve(suite.cwd),
 				env: { ...process.env, TMPDIR: temporary, NO_COLOR: '1' },
 				encoding: 'utf8',
-				timeout: 20_000,
+				timeout: 40_000,
 			},
 		);
 	} finally {
@@ -54,20 +75,20 @@ syncBuiltinESMExports();
 	}
 }
 
-describe('core test runner under temporary storage quota', () => {
+describe.each(SUITES)('$name test runner under temporary storage quota', (suite) => {
 	it('reproduces the promotion load failure with the forks disk transport', () => {
-		const result = runWithTemporaryQuota('forks');
+		const result = runWithTemporaryQuota(suite, 'forks');
 		expect(result.error).toBeUndefined();
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain('Injected EDQUOT on temporary module write');
-		expect(result.stderr).toContain('Unknown system error -122');
-	}, 30_000);
+		expect(result.stderr + result.stdout).toContain('Unknown system error -122');
+	}, 60_000);
 
-	it('runs the core schema assertions with the configured pool despite that quota', () => {
-		const result = runWithTemporaryQuota();
+	it('runs the probe assertions with the configured pool despite that quota', () => {
+		const result = runWithTemporaryQuota(suite);
 		expect(result.error).toBeUndefined();
 		expect(result.status, result.stdout + result.stderr).toBe(0);
 		expect(result.stdout).toMatch(/Test Files\s+1 passed/);
 		expect(result.stderr).not.toContain('Injected EDQUOT');
-	}, 30_000);
+	}, 60_000);
 });

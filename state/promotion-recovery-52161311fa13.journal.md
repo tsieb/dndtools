@@ -55,16 +55,50 @@ Until one of them lands, any e2e run on a `loop/rc`-based worktree can fill the 
 every other gate on the host that writes to `/tmp` can fail with `-122`, including this
 promotion's unit tests.
 
-## Outcome
+## Outcome (superseded, first attempt)
 
-No source or test change. The failing suites pass unchanged, and I found nothing in them to
-fix. I didn't port the e2e fix a third time: two sibling branches already carry it, and a
-third copy would only add another sibling race for the integrator to settle. I also didn't
-move Vitest's temp directory off `/tmp`. The suite writes only 54 MB, so that move would not
-address the cause, and changing `TMPDIR` for `pnpm test` would also affect tests that use
-`os.tmpdir()`.
+The first attempt changed no source or test and pointed at the e2e shm fix. Independent review
+rejected that: on this base, `ba5042a4`/`df379bf7` had already repaired the same `-122` load
+failure for the core suite by switching it to `pool: 'threads'`, and the recorded failure was
+in `test:app`, which still used Vitest's default forks pool.
 
-All assertions and workflow protections are unchanged. The central gate should re-run
-`CI: test` on this SHA. If it goes red with `-122` again, check `quota -w` and
-`pgrep -af "vite --port"` for concurrent e2e runs before looking at the code. The lasting fix
-is to integrate `4eb22d45` (or `92864f81`) into `loop/rc`.
+## Repair (second attempt, base `df379bf7`)
+
+Vitest's forks pool hands transformed modules to workers through files in its `os.tmpdir()`
+run directory, so a full `/tmp` quota fails suites at import time. The threads pool passes them
+in memory. The root configs (`vitest.app.config.ts`, `vitest.cloud.config.ts`,
+`vitest.config.ts`) now set `pool: 'threads'`, the same change core already carries. Worker
+caps, include/exclude, setupFiles and assertions are unchanged. No test in those suites uses
+`process.chdir`, `process.env.TZ`, `process.exit` or `worker_threads` (grep), which are the
+things that behave differently in a worker thread.
+
+Reproduction used the EDQUOT injector from the core regression, preloaded into a child Vitest
+with `TMPDIR` in a private scratch directory, so no shared storage was filled.
+
+| Suite (injected EDQUOT)      | forks pool (before)                      | threads pool (after)           |
+| ---------------------------- | ---------------------------------------- | ------------------------------ |
+| app, the four recorded files | exit 1, 4/4 files fail, no tests, `-122` | 4 files / 63 tests pass        |
+| app, full                    | not run                                  | exit 0, 145 files / 1628 tests |
+| cloud, full                  | 42/42 files fail, no tests               | exit 0, 42 / 530               |
+| tooling, full                | 28/28 files fail, no tests               | exit 0, 28 / 205               |
+
+No injected write was hit in any threads run.
+
+`tests/unit/vitest-core-storage.test.ts` is now `tests/unit/vitest-storage-quota.test.ts` and
+covers all four suites (core, app, cloud, tooling). Each has a forks negative control that must
+fail with `-122` and a configured-pool run that must pass one real probe file. Mutation check:
+deleting `pool: 'threads'` from `vitest.app.config.ts` fails the app case (`1 failed | 7
+passed`).
+
+Gates on the candidate: `pnpm test` exit 0 (critical 281/4902, cloud 42/530, app 145/1628,
+tooling 28/211, which is 205 plus the 6 new regression cases), `pnpm lint` exit 0,
+`pnpm typecheck` exit 0.
+
+## Still outside this task
+
+The threads pool stops `/tmp` quota from failing the unit gates. It does not stop other
+processes from filling the quota. The main consumer is Chromium shm from concurrent e2e runs,
+and the fix for that (`DNDTOOLS_E2E_FULL_RESPONSES`, `32ef11ad`/`4eb22d45` on
+`dispatch/dndtools/0266d1edb79db814617e`, or `92864f81`) is still not on this base
+(`git grep DNDTOOLS_E2E_FULL_RESPONSES` finds nothing). E2E gates can still fail on quota until
+it lands. If a gate goes red with `-122`, check `quota -w` and `pgrep -af "vite --port"` first.

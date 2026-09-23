@@ -20,6 +20,10 @@ export default defineConfig({
 		include: ['tests/unit/**/*.test.ts'],
 		environment: 'node',
 		maxWorkers: testWorkers(),
+		// Threads transfer transformed modules in memory; Vitest's forks pool writes them to
+		// temporary storage and can fail before assertions run on EDQUOT (promotion 52161311fa13).
+		// Tests needing native process state (e.g. TZ, cwd) must use a child with its startup env set.
+		pool: 'threads',
 	},
 	resolve: {
 		alias: [
