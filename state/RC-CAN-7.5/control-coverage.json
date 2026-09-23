@@ -117,7 +117,67 @@
 		"refresh-capture-filter-phone-tavern.yaml": "4ad1c52d25b10299a9d59fe4a1445a3abbc3c05dd0e4ab11a275b3b3adda9dc5",
 		"refresh-capture-filter-rail-high-contrast.yaml": "8ec3233cf07b1d7ea0c717d38b7bca77a848b1c636741f95489a40ba6da8035c",
 		"refresh-capture-filter-rail-parchment.yaml": "643b316acea3a99ba77e32aea55dfd51c9a4f8811016ee4c1515408abebc0107",
-		"refresh-capture-filter-rail-tavern.yaml": "74b31c16c7e26b831b8189e8c148ca453c31f5eac594d1f5e8612690807033e3"
+		"refresh-capture-filter-rail-tavern.yaml": "74b31c16c7e26b831b8189e8c148ca453c31f5eac594d1f5e8612690807033e3",
+		"refresh-board-combat-edit-desktop-high-contrast.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-edit-desktop-parchment.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-edit-desktop-tavern.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-edit-phone-high-contrast.yaml": "4a91d81a6529ab04fd3cbd566182a0601e3482e99cbf68bed43974d43d67fef1",
+		"refresh-board-combat-edit-phone-parchment.yaml": "4a91d81a6529ab04fd3cbd566182a0601e3482e99cbf68bed43974d43d67fef1",
+		"refresh-board-combat-edit-phone-tavern.yaml": "4a91d81a6529ab04fd3cbd566182a0601e3482e99cbf68bed43974d43d67fef1",
+		"refresh-board-combat-edit-rail-high-contrast.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-edit-rail-parchment.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-edit-rail-tavern.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-hp-sheet-phone-high-contrast.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-board-combat-hp-sheet-phone-parchment.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-board-combat-hp-sheet-phone-tavern.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-board-combat-live-desktop-high-contrast.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-live-desktop-parchment.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-live-desktop-tavern.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-live-phone-high-contrast.yaml": "c4c1eaa90e9a66c6cb8ceb33e9be5aa599ba0970685372c47feab2ebf75e3091",
+		"refresh-board-combat-live-phone-parchment.yaml": "c4c1eaa90e9a66c6cb8ceb33e9be5aa599ba0970685372c47feab2ebf75e3091",
+		"refresh-board-combat-live-phone-tavern.yaml": "c4c1eaa90e9a66c6cb8ceb33e9be5aa599ba0970685372c47feab2ebf75e3091",
+		"refresh-board-combat-live-rail-high-contrast.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-live-rail-parchment.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-live-rail-tavern.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-preview-desktop-high-contrast.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-desktop-parchment.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-desktop-tavern.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-phone-high-contrast.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-phone-parchment.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-phone-tavern.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-rail-high-contrast.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-rail-parchment.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-preview-rail-tavern.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
+		"refresh-board-combat-tray-phone-high-contrast.yaml": "4c44e7907c2bcd9a761755970d221b974a105138285cd64d177b57e85b09aba1",
+		"refresh-board-combat-tray-phone-parchment.yaml": "4c44e7907c2bcd9a761755970d221b974a105138285cd64d177b57e85b09aba1",
+		"refresh-board-combat-tray-phone-tavern.yaml": "4c44e7907c2bcd9a761755970d221b974a105138285cd64d177b57e85b09aba1",
+		"refresh-session-combat-conditional-desktop-high-contrast.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-desktop-parchment.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-desktop-tavern.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-phone-high-contrast.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-phone-parchment.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-phone-tavern.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-rail-high-contrast.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-rail-parchment.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-conditional-rail-tavern.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
+		"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-desktop-parchment.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-desktop-tavern.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-phone-high-contrast.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-phone-parchment.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-phone-tavern.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-rail-high-contrast.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-rail-parchment.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-hp-sheet-rail-tavern.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
+		"refresh-session-combat-preview-desktop-high-contrast.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-desktop-parchment.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-desktop-tavern.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-phone-high-contrast.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-phone-parchment.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-phone-tavern.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-rail-high-contrast.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-rail-parchment.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c",
+		"refresh-session-combat-preview-rail-tavern.yaml": "e29621090798acf1a6b72c0f3acbf5b2901eeda3231c29a0d0ef9291ad357c4c"
 	},
 	"controls": [
 		{
@@ -376,7 +436,16 @@
 			"occurrences": [
 				"aria-board-desktop-add-panel.yaml:22",
 				"aria-board-desktop-edit.yaml:22",
-				"aria-board-desktop-layouts-panel.yaml:22"
+				"aria-board-desktop-layouts-panel.yaml:22",
+				"refresh-board-combat-edit-desktop-high-contrast.yaml:7",
+				"refresh-board-combat-edit-desktop-parchment.yaml:7",
+				"refresh-board-combat-edit-desktop-tavern.yaml:7",
+				"refresh-board-combat-edit-phone-high-contrast.yaml:22",
+				"refresh-board-combat-edit-phone-parchment.yaml:22",
+				"refresh-board-combat-edit-phone-tavern.yaml:22",
+				"refresh-board-combat-edit-rail-high-contrast.yaml:7",
+				"refresh-board-combat-edit-rail-parchment.yaml:7",
+				"refresh-board-combat-edit-rail-tavern.yaml:7"
 			]
 		},
 		{
@@ -1287,7 +1356,16 @@
 				"refresh-session-call-phone-tavern.yaml:13",
 				"refresh-session-call-rail-high-contrast.yaml:13",
 				"refresh-session-call-rail-parchment.yaml:13",
-				"refresh-session-call-rail-tavern.yaml:13"
+				"refresh-session-call-rail-tavern.yaml:13",
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:2",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:2",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:2",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:2",
+				"refresh-session-combat-conditional-phone-parchment.yaml:2",
+				"refresh-session-combat-conditional-phone-tavern.yaml:2",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:2",
+				"refresh-session-combat-conditional-rail-parchment.yaml:2",
+				"refresh-session-combat-conditional-rail-tavern.yaml:2"
 			]
 		},
 		{
@@ -1356,7 +1434,16 @@
 				"refresh-session-call-phone-tavern.yaml:14",
 				"refresh-session-call-rail-high-contrast.yaml:14",
 				"refresh-session-call-rail-parchment.yaml:14",
-				"refresh-session-call-rail-tavern.yaml:14"
+				"refresh-session-call-rail-tavern.yaml:14",
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:3",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:3",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:3",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:3",
+				"refresh-session-combat-conditional-phone-parchment.yaml:3",
+				"refresh-session-combat-conditional-phone-tavern.yaml:3",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:3",
+				"refresh-session-combat-conditional-rail-parchment.yaml:3",
+				"refresh-session-combat-conditional-rail-tavern.yaml:3"
 			]
 		},
 		{
@@ -1365,7 +1452,16 @@
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:19",
 				"aria-session-desktop-rest-timeline.yaml:19",
-				"aria-session-phone-live-combat.yaml:19"
+				"aria-session-phone-live-combat.yaml:19",
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:8",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:8",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:8",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:8",
+				"refresh-session-combat-conditional-phone-parchment.yaml:8",
+				"refresh-session-combat-conditional-phone-tavern.yaml:8",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:8",
+				"refresh-session-combat-conditional-rail-parchment.yaml:8",
+				"refresh-session-combat-conditional-rail-tavern.yaml:8"
 			]
 		},
 		{
@@ -1374,7 +1470,16 @@
 			"occurrences": [
 				"aria-session-desktop-live-combat.yaml:18",
 				"aria-session-desktop-rest-timeline.yaml:18",
-				"aria-session-phone-live-combat.yaml:18"
+				"aria-session-phone-live-combat.yaml:18",
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:7",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:7",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:7",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:7",
+				"refresh-session-combat-conditional-phone-parchment.yaml:7",
+				"refresh-session-combat-conditional-phone-tavern.yaml:7",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:7",
+				"refresh-session-combat-conditional-rail-parchment.yaml:7",
+				"refresh-session-combat-conditional-rail-tavern.yaml:7"
 			]
 		},
 		{
@@ -5329,7 +5434,16 @@
 				"refresh-session-adjust-phone-tavern.yaml:49",
 				"refresh-session-adjust-rail-high-contrast.yaml:49",
 				"refresh-session-adjust-rail-parchment.yaml:49",
-				"refresh-session-adjust-rail-tavern.yaml:49"
+				"refresh-session-adjust-rail-tavern.yaml:49",
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:38",
+				"refresh-session-combat-preview-desktop-parchment.yaml:38",
+				"refresh-session-combat-preview-desktop-tavern.yaml:38",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:38",
+				"refresh-session-combat-preview-phone-parchment.yaml:38",
+				"refresh-session-combat-preview-phone-tavern.yaml:38",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:38",
+				"refresh-session-combat-preview-rail-parchment.yaml:38",
+				"refresh-session-combat-preview-rail-tavern.yaml:38"
 			]
 		},
 		{
@@ -6026,6 +6140,1131 @@
 			"row": "SE-40",
 			"control": "- checkbox \"Capture fixture 14\" [checked]",
 			"occurrences": ["refresh-capture-filter-rail-tavern.yaml:14"]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"Adjust hit points — Bog Lurker\" [disabled]: 16/22",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:9",
+				"refresh-board-combat-edit-phone-parchment.yaml:9",
+				"refresh-board-combat-edit-phone-tavern.yaml:9"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"More actions — Bog Lurker\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:10",
+				"refresh-board-combat-edit-phone-parchment.yaml:10",
+				"refresh-board-combat-edit-phone-tavern.yaml:10"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"Adjust hit points — Reed Stalker\" [disabled]: 0/14",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:13",
+				"refresh-board-combat-edit-phone-parchment.yaml:13",
+				"refresh-board-combat-edit-phone-tavern.yaml:13"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"More actions — Reed Stalker\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:14",
+				"refresh-board-combat-edit-phone-parchment.yaml:14",
+				"refresh-board-combat-edit-phone-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"Adjust hit points — Marsh Wisp\" [disabled]: 9/9",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:18",
+				"refresh-board-combat-edit-phone-parchment.yaml:18",
+				"refresh-board-combat-edit-phone-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"More actions — Marsh Wisp\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:19",
+				"refresh-board-combat-edit-phone-parchment.yaml:19",
+				"refresh-board-combat-edit-phone-tavern.yaml:19"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Close\"",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:4",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:4",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:4"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 1\": '1'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:7",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:7",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:7"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 2\": '2'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:8",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:8",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:8"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 3\": '3'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:9",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:9",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:9"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 4\": '4'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:10",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:10",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:10"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 5\": '5'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:11",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:11",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:11"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 6\": '6'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:12",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:12",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:12"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 7\": '7'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:13",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:13",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:13"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 8\": '8'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:14",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:14",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 9\": '9'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:15",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:15",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:15"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Clear amount\"",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:16",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:16",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:16"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Digit 0\": '0'",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:17",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:17",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:17"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Delete last digit\"",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:18",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:18",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Damage\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:19",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:19",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:19"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Heal\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:20",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:20",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:20"
+			]
+		},
+		{
+			"row": "BD-31",
+			"control": "- button \"Temp\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-hp-sheet-phone-high-contrast.yaml:21",
+				"refresh-board-combat-hp-sheet-phone-parchment.yaml:21",
+				"refresh-board-combat-hp-sheet-phone-tavern.yaml:21"
+			]
+		},
+		{
+			"row": "BD-21",
+			"control": "- button \"Next turn\"",
+			"occurrences": [
+				"refresh-board-combat-live-desktop-high-contrast.yaml:5",
+				"refresh-board-combat-live-desktop-parchment.yaml:5",
+				"refresh-board-combat-live-desktop-tavern.yaml:5",
+				"refresh-board-combat-live-phone-high-contrast.yaml:5",
+				"refresh-board-combat-live-phone-parchment.yaml:5",
+				"refresh-board-combat-live-phone-tavern.yaml:5",
+				"refresh-board-combat-live-rail-high-contrast.yaml:5",
+				"refresh-board-combat-live-rail-parchment.yaml:5",
+				"refresh-board-combat-live-rail-tavern.yaml:5",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:5",
+				"refresh-board-combat-tray-phone-parchment.yaml:5",
+				"refresh-board-combat-tray-phone-tavern.yaml:5"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"Adjust hit points — Bog Lurker\": 21/22",
+			"occurrences": [
+				"refresh-board-combat-live-phone-high-contrast.yaml:10",
+				"refresh-board-combat-live-phone-parchment.yaml:10",
+				"refresh-board-combat-live-phone-tavern.yaml:10"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"More actions — Bog Lurker\"",
+			"occurrences": [
+				"refresh-board-combat-live-phone-high-contrast.yaml:11",
+				"refresh-board-combat-live-phone-parchment.yaml:11",
+				"refresh-board-combat-live-phone-tavern.yaml:11"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"Adjust hit points — Reed Stalker\": 0/14",
+			"occurrences": [
+				"refresh-board-combat-live-phone-high-contrast.yaml:14",
+				"refresh-board-combat-live-phone-parchment.yaml:14",
+				"refresh-board-combat-live-phone-tavern.yaml:14",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:17",
+				"refresh-board-combat-tray-phone-parchment.yaml:17",
+				"refresh-board-combat-tray-phone-tavern.yaml:17"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"More actions — Reed Stalker\"",
+			"occurrences": [
+				"refresh-board-combat-live-phone-high-contrast.yaml:15",
+				"refresh-board-combat-live-phone-parchment.yaml:15",
+				"refresh-board-combat-live-phone-tavern.yaml:15",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:18",
+				"refresh-board-combat-tray-phone-parchment.yaml:18",
+				"refresh-board-combat-tray-phone-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"Adjust hit points — Marsh Wisp\": 9/9",
+			"occurrences": [
+				"refresh-board-combat-live-phone-high-contrast.yaml:19",
+				"refresh-board-combat-live-phone-parchment.yaml:19",
+				"refresh-board-combat-live-phone-tavern.yaml:19",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:22",
+				"refresh-board-combat-tray-phone-parchment.yaml:22",
+				"refresh-board-combat-tray-phone-tavern.yaml:22"
+			]
+		},
+		{
+			"row": "BD-29",
+			"control": "- button \"More actions — Marsh Wisp\"",
+			"occurrences": [
+				"refresh-board-combat-live-phone-high-contrast.yaml:20",
+				"refresh-board-combat-live-phone-parchment.yaml:20",
+				"refresh-board-combat-live-phone-tavern.yaml:20",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:23",
+				"refresh-board-combat-tray-phone-parchment.yaml:23",
+				"refresh-board-combat-tray-phone-tavern.yaml:23"
+			]
+		},
+		{
+			"row": "BD-30",
+			"control": "- button \"Damage\"",
+			"occurrences": [
+				"refresh-board-combat-tray-phone-high-contrast.yaml:11",
+				"refresh-board-combat-tray-phone-parchment.yaml:11",
+				"refresh-board-combat-tray-phone-tavern.yaml:11"
+			]
+		},
+		{
+			"row": "BD-30",
+			"control": "- button \"Heal\"",
+			"occurrences": [
+				"refresh-board-combat-tray-phone-high-contrast.yaml:12",
+				"refresh-board-combat-tray-phone-parchment.yaml:12",
+				"refresh-board-combat-tray-phone-tavern.yaml:12"
+			]
+		},
+		{
+			"row": "BD-30",
+			"control": "- button \"Hide Bog Lurker from players\"",
+			"occurrences": [
+				"refresh-board-combat-tray-phone-high-contrast.yaml:13",
+				"refresh-board-combat-tray-phone-parchment.yaml:13",
+				"refresh-board-combat-tray-phone-tavern.yaml:13"
+			]
+		},
+		{
+			"row": "BD-30",
+			"control": "- button \"Close quick actions — Bog Lurker\"",
+			"occurrences": [
+				"refresh-board-combat-tray-phone-high-contrast.yaml:14",
+				"refresh-board-combat-tray-phone-parchment.yaml:14",
+				"refresh-board-combat-tray-phone-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Bog Lurker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:12",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:12",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:12",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:12",
+				"refresh-session-combat-conditional-phone-parchment.yaml:12",
+				"refresh-session-combat-conditional-phone-tavern.yaml:12",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:12",
+				"refresh-session-combat-conditional-rail-parchment.yaml:12",
+				"refresh-session-combat-conditional-rail-tavern.yaml:12"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Adjust hit points — Bog Lurker\": 21/22",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:14",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:14",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:14",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:14",
+				"refresh-session-combat-conditional-phone-parchment.yaml:14",
+				"refresh-session-combat-conditional-phone-tavern.yaml:14",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:14",
+				"refresh-session-combat-conditional-rail-parchment.yaml:14",
+				"refresh-session-combat-conditional-rail-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "SE-42",
+			"control": "- button \"Clear Poisoned\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:18",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:18",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:18",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:18",
+				"refresh-session-combat-conditional-phone-parchment.yaml:18",
+				"refresh-session-combat-conditional-phone-tavern.yaml:18",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:18",
+				"refresh-session-combat-conditional-rail-parchment.yaml:18",
+				"refresh-session-combat-conditional-rail-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "SE-44",
+			"control": "- button \"Keep concentration for Bog Lurker\": Kept it",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:20",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:20",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:20",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:20",
+				"refresh-session-combat-conditional-phone-parchment.yaml:20",
+				"refresh-session-combat-conditional-phone-tavern.yaml:20",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:20",
+				"refresh-session-combat-conditional-rail-parchment.yaml:20",
+				"refresh-session-combat-conditional-rail-tavern.yaml:20"
+			]
+		},
+		{
+			"row": "SE-44",
+			"control": "- button \"Drop concentration for Bog Lurker\": Lost it",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:21",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:21",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:21",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:21",
+				"refresh-session-combat-conditional-phone-parchment.yaml:21",
+				"refresh-session-combat-conditional-phone-tavern.yaml:21",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:21",
+				"refresh-session-combat-conditional-rail-parchment.yaml:21",
+				"refresh-session-combat-conditional-rail-tavern.yaml:21"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Quick reference — Bog Lurker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:22",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:22",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:22",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:22",
+				"refresh-session-combat-conditional-phone-parchment.yaml:22",
+				"refresh-session-combat-conditional-phone-tavern.yaml:22",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:22",
+				"refresh-session-combat-conditional-rail-parchment.yaml:22",
+				"refresh-session-combat-conditional-rail-tavern.yaml:22",
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:19",
+				"refresh-session-combat-preview-desktop-parchment.yaml:19",
+				"refresh-session-combat-preview-desktop-tavern.yaml:19",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:19",
+				"refresh-session-combat-preview-phone-parchment.yaml:19",
+				"refresh-session-combat-preview-phone-tavern.yaml:19",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:19",
+				"refresh-session-combat-preview-rail-parchment.yaml:19",
+				"refresh-session-combat-preview-rail-tavern.yaml:19"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Heal 1 HP — Bog Lurker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:23",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:23",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:23",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:23",
+				"refresh-session-combat-conditional-phone-parchment.yaml:23",
+				"refresh-session-combat-conditional-phone-tavern.yaml:23",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:23",
+				"refresh-session-combat-conditional-rail-parchment.yaml:23",
+				"refresh-session-combat-conditional-rail-tavern.yaml:23"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Damage 1 HP — Bog Lurker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:24",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:24",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:24",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:24",
+				"refresh-session-combat-conditional-phone-parchment.yaml:24",
+				"refresh-session-combat-conditional-phone-tavern.yaml:24",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:24",
+				"refresh-session-combat-conditional-rail-parchment.yaml:24",
+				"refresh-session-combat-conditional-rail-tavern.yaml:24"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Reed Stalker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:27",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:27",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:27",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:27",
+				"refresh-session-combat-conditional-phone-parchment.yaml:27",
+				"refresh-session-combat-conditional-phone-tavern.yaml:27",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:27",
+				"refresh-session-combat-conditional-rail-parchment.yaml:27",
+				"refresh-session-combat-conditional-rail-tavern.yaml:27",
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:24",
+				"refresh-session-combat-preview-desktop-parchment.yaml:24",
+				"refresh-session-combat-preview-desktop-tavern.yaml:24",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:24",
+				"refresh-session-combat-preview-phone-parchment.yaml:24",
+				"refresh-session-combat-preview-phone-tavern.yaml:24",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:24",
+				"refresh-session-combat-preview-rail-parchment.yaml:24",
+				"refresh-session-combat-preview-rail-tavern.yaml:24"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Adjust hit points — Reed Stalker\": 0/14",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:29",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:29",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:29",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:29",
+				"refresh-session-combat-conditional-phone-parchment.yaml:29",
+				"refresh-session-combat-conditional-phone-tavern.yaml:29",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:29",
+				"refresh-session-combat-conditional-rail-parchment.yaml:29",
+				"refresh-session-combat-conditional-rail-tavern.yaml:29"
+			]
+		},
+		{
+			"row": "SE-43",
+			"control": "- button \"Record a death save success for Reed Stalker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:31",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:31",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:31",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:31",
+				"refresh-session-combat-conditional-phone-parchment.yaml:31",
+				"refresh-session-combat-conditional-phone-tavern.yaml:31",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:31",
+				"refresh-session-combat-conditional-rail-parchment.yaml:31",
+				"refresh-session-combat-conditional-rail-tavern.yaml:31"
+			]
+		},
+		{
+			"row": "SE-43",
+			"control": "- button \"Record a death save failure for Reed Stalker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:32",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:32",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:32",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:32",
+				"refresh-session-combat-conditional-phone-parchment.yaml:32",
+				"refresh-session-combat-conditional-phone-tavern.yaml:32",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:32",
+				"refresh-session-combat-conditional-rail-parchment.yaml:32",
+				"refresh-session-combat-conditional-rail-tavern.yaml:32"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Quick reference — Reed Stalker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:33",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:33",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:33",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:33",
+				"refresh-session-combat-conditional-phone-parchment.yaml:33",
+				"refresh-session-combat-conditional-phone-tavern.yaml:33",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:33",
+				"refresh-session-combat-conditional-rail-parchment.yaml:33",
+				"refresh-session-combat-conditional-rail-tavern.yaml:33",
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:30",
+				"refresh-session-combat-preview-desktop-parchment.yaml:30",
+				"refresh-session-combat-preview-desktop-tavern.yaml:30",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:30",
+				"refresh-session-combat-preview-phone-parchment.yaml:30",
+				"refresh-session-combat-preview-phone-tavern.yaml:30",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:30",
+				"refresh-session-combat-preview-rail-parchment.yaml:30",
+				"refresh-session-combat-preview-rail-tavern.yaml:30"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Heal 1 HP — Reed Stalker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:34",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:34",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:34",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:34",
+				"refresh-session-combat-conditional-phone-parchment.yaml:34",
+				"refresh-session-combat-conditional-phone-tavern.yaml:34",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:34",
+				"refresh-session-combat-conditional-rail-parchment.yaml:34",
+				"refresh-session-combat-conditional-rail-tavern.yaml:34"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Damage 1 HP — Reed Stalker\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:35",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:35",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:35",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:35",
+				"refresh-session-combat-conditional-phone-parchment.yaml:35",
+				"refresh-session-combat-conditional-phone-tavern.yaml:35",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:35",
+				"refresh-session-combat-conditional-rail-parchment.yaml:35",
+				"refresh-session-combat-conditional-rail-tavern.yaml:35"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Marsh Wisp\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:38",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:38",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:38",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:38",
+				"refresh-session-combat-conditional-phone-parchment.yaml:38",
+				"refresh-session-combat-conditional-phone-tavern.yaml:38",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:38",
+				"refresh-session-combat-conditional-rail-parchment.yaml:38",
+				"refresh-session-combat-conditional-rail-tavern.yaml:38"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Adjust hit points — Marsh Wisp\": 9/9",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:40",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:40",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:40",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:40",
+				"refresh-session-combat-conditional-phone-parchment.yaml:40",
+				"refresh-session-combat-conditional-phone-tavern.yaml:40",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:40",
+				"refresh-session-combat-conditional-rail-parchment.yaml:40",
+				"refresh-session-combat-conditional-rail-tavern.yaml:40"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Quick reference — Marsh Wisp\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:42",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:42",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:42",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:42",
+				"refresh-session-combat-conditional-phone-parchment.yaml:42",
+				"refresh-session-combat-conditional-phone-tavern.yaml:42",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:42",
+				"refresh-session-combat-conditional-rail-parchment.yaml:42",
+				"refresh-session-combat-conditional-rail-tavern.yaml:42"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Heal 1 HP — Marsh Wisp\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:43",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:43",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:43",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:43",
+				"refresh-session-combat-conditional-phone-parchment.yaml:43",
+				"refresh-session-combat-conditional-phone-tavern.yaml:43",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:43",
+				"refresh-session-combat-conditional-rail-parchment.yaml:43",
+				"refresh-session-combat-conditional-rail-tavern.yaml:43"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Damage 1 HP — Marsh Wisp\"",
+			"occurrences": [
+				"refresh-session-combat-conditional-desktop-high-contrast.yaml:44",
+				"refresh-session-combat-conditional-desktop-parchment.yaml:44",
+				"refresh-session-combat-conditional-desktop-tavern.yaml:44",
+				"refresh-session-combat-conditional-phone-high-contrast.yaml:44",
+				"refresh-session-combat-conditional-phone-parchment.yaml:44",
+				"refresh-session-combat-conditional-phone-tavern.yaml:44",
+				"refresh-session-combat-conditional-rail-high-contrast.yaml:44",
+				"refresh-session-combat-conditional-rail-parchment.yaml:44",
+				"refresh-session-combat-conditional-rail-tavern.yaml:44"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Close\"",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:4",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:4",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:4",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:4",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:4",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:4",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:4",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:4",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:4"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 1\": '1'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:7",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:7",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:7",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:7",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:7",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:7",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:7",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:7",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:7"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 2\": '2'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:8",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:8",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:8",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:8",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:8",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:8",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:8",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:8",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:8"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 3\": '3'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:9",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:9",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:9",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:9",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:9",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:9",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:9",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:9",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:9"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 4\": '4'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:10",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:10",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:10",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:10",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:10",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:10",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:10",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:10",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:10"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 5\": '5'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:11",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:11",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:11",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:11",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:11",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:11",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:11",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:11",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:11"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 6\": '6'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:12",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:12",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:12",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:12",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:12",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:12",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:12",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:12",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:12"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 7\": '7'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:13",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:13",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:13",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:13",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:13",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:13",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:13",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:13",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:13"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 8\": '8'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:14",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:14",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:14",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:14",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:14",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:14",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:14",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:14",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 9\": '9'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:15",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:15",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:15",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:15",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:15",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:15",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:15",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:15",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:15"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Clear amount\"",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:16",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:16",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:16",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:16",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:16",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:16",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:16",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:16",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:16"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Digit 0\": '0'",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:17",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:17",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:17",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:17",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:17",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:17",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:17",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:17",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:17"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Delete last digit\"",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:18",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:18",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:18",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:18",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:18",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:18",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:18",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:18",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Damage\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:19",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:19",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:19",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:19",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:19",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:19",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:19",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:19",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:19"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Heal\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:20",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:20",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:20",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:20",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:20",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:20",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:20",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:20",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:20"
+			]
+		},
+		{
+			"row": "SE-12",
+			"control": "- button \"Temp\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-hp-sheet-desktop-high-contrast.yaml:21",
+				"refresh-session-combat-hp-sheet-desktop-parchment.yaml:21",
+				"refresh-session-combat-hp-sheet-desktop-tavern.yaml:21",
+				"refresh-session-combat-hp-sheet-phone-high-contrast.yaml:21",
+				"refresh-session-combat-hp-sheet-phone-parchment.yaml:21",
+				"refresh-session-combat-hp-sheet-phone-tavern.yaml:21",
+				"refresh-session-combat-hp-sheet-rail-high-contrast.yaml:21",
+				"refresh-session-combat-hp-sheet-rail-parchment.yaml:21",
+				"refresh-session-combat-hp-sheet-rail-tavern.yaml:21"
+			]
+		},
+		{
+			"row": "SE-07",
+			"control": "- button \"End combat\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:2",
+				"refresh-session-combat-preview-desktop-parchment.yaml:2",
+				"refresh-session-combat-preview-desktop-tavern.yaml:2",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:2",
+				"refresh-session-combat-preview-phone-parchment.yaml:2",
+				"refresh-session-combat-preview-phone-tavern.yaml:2",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:2",
+				"refresh-session-combat-preview-rail-parchment.yaml:2",
+				"refresh-session-combat-preview-rail-tavern.yaml:2"
+			]
+		},
+		{
+			"row": "SE-10",
+			"control": "- button \"Previous turn\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:6",
+				"refresh-session-combat-preview-desktop-parchment.yaml:6",
+				"refresh-session-combat-preview-desktop-tavern.yaml:6",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:6",
+				"refresh-session-combat-preview-phone-parchment.yaml:6",
+				"refresh-session-combat-preview-phone-tavern.yaml:6",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:6",
+				"refresh-session-combat-preview-rail-parchment.yaml:6",
+				"refresh-session-combat-preview-rail-tavern.yaml:6"
+			]
+		},
+		{
+			"row": "SE-10",
+			"control": "- button \"Next turn\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:7",
+				"refresh-session-combat-preview-desktop-parchment.yaml:7",
+				"refresh-session-combat-preview-desktop-tavern.yaml:7",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:7",
+				"refresh-session-combat-preview-phone-parchment.yaml:7",
+				"refresh-session-combat-preview-phone-tavern.yaml:7",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:7",
+				"refresh-session-combat-preview-rail-parchment.yaml:7",
+				"refresh-session-combat-preview-rail-tavern.yaml:7"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Bog Lurker\" [pressed]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:11",
+				"refresh-session-combat-preview-desktop-parchment.yaml:11",
+				"refresh-session-combat-preview-desktop-tavern.yaml:11",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:11",
+				"refresh-session-combat-preview-phone-parchment.yaml:11",
+				"refresh-session-combat-preview-phone-tavern.yaml:11",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:11",
+				"refresh-session-combat-preview-rail-parchment.yaml:11",
+				"refresh-session-combat-preview-rail-tavern.yaml:11"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Adjust hit points — Bog Lurker\" [disabled]: 21/22",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:13",
+				"refresh-session-combat-preview-desktop-parchment.yaml:13",
+				"refresh-session-combat-preview-desktop-tavern.yaml:13",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:13",
+				"refresh-session-combat-preview-phone-parchment.yaml:13",
+				"refresh-session-combat-preview-phone-tavern.yaml:13",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:13",
+				"refresh-session-combat-preview-rail-parchment.yaml:13",
+				"refresh-session-combat-preview-rail-tavern.yaml:13"
+			]
+		},
+		{
+			"row": "SE-44",
+			"control": "- button \"Keep concentration for Bog Lurker\" [disabled]: Kept it",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:17",
+				"refresh-session-combat-preview-desktop-parchment.yaml:17",
+				"refresh-session-combat-preview-desktop-tavern.yaml:17",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:17",
+				"refresh-session-combat-preview-phone-parchment.yaml:17",
+				"refresh-session-combat-preview-phone-tavern.yaml:17",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:17",
+				"refresh-session-combat-preview-rail-parchment.yaml:17",
+				"refresh-session-combat-preview-rail-tavern.yaml:17"
+			]
+		},
+		{
+			"row": "SE-44",
+			"control": "- button \"Drop concentration for Bog Lurker\" [disabled]: Lost it",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:18",
+				"refresh-session-combat-preview-desktop-parchment.yaml:18",
+				"refresh-session-combat-preview-desktop-tavern.yaml:18",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:18",
+				"refresh-session-combat-preview-phone-parchment.yaml:18",
+				"refresh-session-combat-preview-phone-tavern.yaml:18",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:18",
+				"refresh-session-combat-preview-rail-parchment.yaml:18",
+				"refresh-session-combat-preview-rail-tavern.yaml:18"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Heal 1 HP — Bog Lurker\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:20",
+				"refresh-session-combat-preview-desktop-parchment.yaml:20",
+				"refresh-session-combat-preview-desktop-tavern.yaml:20",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:20",
+				"refresh-session-combat-preview-phone-parchment.yaml:20",
+				"refresh-session-combat-preview-phone-tavern.yaml:20",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:20",
+				"refresh-session-combat-preview-rail-parchment.yaml:20",
+				"refresh-session-combat-preview-rail-tavern.yaml:20"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Damage 1 HP — Bog Lurker\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:21",
+				"refresh-session-combat-preview-desktop-parchment.yaml:21",
+				"refresh-session-combat-preview-desktop-tavern.yaml:21",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:21",
+				"refresh-session-combat-preview-phone-parchment.yaml:21",
+				"refresh-session-combat-preview-phone-tavern.yaml:21",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:21",
+				"refresh-session-combat-preview-rail-parchment.yaml:21",
+				"refresh-session-combat-preview-rail-tavern.yaml:21"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Adjust hit points — Reed Stalker\" [disabled]: 0/14",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:26",
+				"refresh-session-combat-preview-desktop-parchment.yaml:26",
+				"refresh-session-combat-preview-desktop-tavern.yaml:26",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:26",
+				"refresh-session-combat-preview-phone-parchment.yaml:26",
+				"refresh-session-combat-preview-phone-tavern.yaml:26",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:26",
+				"refresh-session-combat-preview-rail-parchment.yaml:26",
+				"refresh-session-combat-preview-rail-tavern.yaml:26"
+			]
+		},
+		{
+			"row": "SE-43",
+			"control": "- button \"Record a death save success for Reed Stalker\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:28",
+				"refresh-session-combat-preview-desktop-parchment.yaml:28",
+				"refresh-session-combat-preview-desktop-tavern.yaml:28",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:28",
+				"refresh-session-combat-preview-phone-parchment.yaml:28",
+				"refresh-session-combat-preview-phone-tavern.yaml:28",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:28",
+				"refresh-session-combat-preview-rail-parchment.yaml:28",
+				"refresh-session-combat-preview-rail-tavern.yaml:28"
+			]
+		},
+		{
+			"row": "SE-43",
+			"control": "- button \"Record a death save failure for Reed Stalker\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:29",
+				"refresh-session-combat-preview-desktop-parchment.yaml:29",
+				"refresh-session-combat-preview-desktop-tavern.yaml:29",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:29",
+				"refresh-session-combat-preview-phone-parchment.yaml:29",
+				"refresh-session-combat-preview-phone-tavern.yaml:29",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:29",
+				"refresh-session-combat-preview-rail-parchment.yaml:29",
+				"refresh-session-combat-preview-rail-tavern.yaml:29"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Heal 1 HP — Reed Stalker\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:31",
+				"refresh-session-combat-preview-desktop-parchment.yaml:31",
+				"refresh-session-combat-preview-desktop-tavern.yaml:31",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:31",
+				"refresh-session-combat-preview-phone-parchment.yaml:31",
+				"refresh-session-combat-preview-phone-tavern.yaml:31",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:31",
+				"refresh-session-combat-preview-rail-parchment.yaml:31",
+				"refresh-session-combat-preview-rail-tavern.yaml:31"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Damage 1 HP — Reed Stalker\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:32",
+				"refresh-session-combat-preview-desktop-parchment.yaml:32",
+				"refresh-session-combat-preview-desktop-tavern.yaml:32",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:32",
+				"refresh-session-combat-preview-phone-parchment.yaml:32",
+				"refresh-session-combat-preview-phone-tavern.yaml:32",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:32",
+				"refresh-session-combat-preview-rail-parchment.yaml:32",
+				"refresh-session-combat-preview-rail-tavern.yaml:32"
+			]
+		},
+		{
+			"row": "SE-11",
+			"control": "- button \"Unknown creature\"",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:35",
+				"refresh-session-combat-preview-desktop-parchment.yaml:35",
+				"refresh-session-combat-preview-desktop-tavern.yaml:35",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:35",
+				"refresh-session-combat-preview-phone-parchment.yaml:35",
+				"refresh-session-combat-preview-phone-tavern.yaml:35",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:35",
+				"refresh-session-combat-preview-rail-parchment.yaml:35",
+				"refresh-session-combat-preview-rail-tavern.yaml:35"
+			]
+		},
+		{
+			"row": "SE-37",
+			"control": "- button \"Add condition\" [disabled]",
+			"occurrences": [
+				"refresh-session-combat-preview-desktop-high-contrast.yaml:39",
+				"refresh-session-combat-preview-desktop-parchment.yaml:39",
+				"refresh-session-combat-preview-desktop-tavern.yaml:39",
+				"refresh-session-combat-preview-phone-high-contrast.yaml:39",
+				"refresh-session-combat-preview-phone-parchment.yaml:39",
+				"refresh-session-combat-preview-phone-tavern.yaml:39",
+				"refresh-session-combat-preview-rail-high-contrast.yaml:39",
+				"refresh-session-combat-preview-rail-parchment.yaml:39",
+				"refresh-session-combat-preview-rail-tavern.yaml:39"
+			]
 		}
 	]
 }

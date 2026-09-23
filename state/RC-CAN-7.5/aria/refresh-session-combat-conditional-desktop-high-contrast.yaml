@@ -1,0 +1,44 @@
+- heading "Combat" [level=2]
+- button "Add"
+- button "End combat"
+- status: Round 1, turn 1 — Bog Lurker. 21 of 22 hit points.
+- status
+- text: Round 1 Turn 1 Lowest HP 0/14
+- button "Previous turn"
+- button "Next turn"
+- list:
+    - listitem:
+        - text: '18'
+        - button "Bog Lurker"
+        - text: Active Concentrating on Blur
+        - button "Adjust hit points — Bog Lurker": 21/22
+        - text: AC 13
+        - img "Poisoned"
+        - text: '2'
+        - button "Clear Poisoned"
+        - text: Concentration check, DC 10
+        - button "Keep concentration for Bog Lurker": Kept it
+        - button "Drop concentration for Bog Lurker": Lost it
+        - button "Quick reference — Bog Lurker"
+        - button "Heal 1 HP — Bog Lurker"
+        - button "Damage 1 HP — Bog Lurker"
+    - listitem:
+        - text: '9'
+        - button "Reed Stalker"
+        - text: Dying
+        - button "Adjust hit points — Reed Stalker": 0/14
+        - text: AC 12 Death saves 0 of 3 kept, 0 of 3 failed
+        - button "Record a death save success for Reed Stalker"
+        - button "Record a death save failure for Reed Stalker"
+        - button "Quick reference — Reed Stalker"
+        - button "Heal 1 HP — Reed Stalker"
+        - button "Damage 1 HP — Reed Stalker"
+    - listitem:
+        - text: '4'
+        - button "Marsh Wisp"
+        - img "DM only"
+        - button "Adjust hit points — Marsh Wisp": 9/9
+        - text: AC 15
+        - button "Quick reference — Marsh Wisp"
+        - button "Heal 1 HP — Marsh Wisp"
+        - button "Damage 1 HP — Marsh Wisp"

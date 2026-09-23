@@ -346,3 +346,115 @@ Validation from repository root:
 - Prettier initially flagged this appended journal; formatted it before the final changed-file
   check. No new browser run or full pnpm check is claimed for this type-only repair.
 - Final `pnpm format:check:changed` passed for both repair files; `git diff --check` passed.
+
+## Live conditional combat repair — 2026-09-22
+
+Starting HEAD: `29841decbafedd4ff258e03d3bcdd5886dcf7506`, clean worktree. The previous attempt
+stopped at a provider allowance limit and left no uncommitted work. Operator brief (2026-09-22):
+address the two high findings from the independent review of `29841dec` by capturing the live
+conditional controls, not only the saved snapshots. I read the review record directly. The
+dispatch Headroom tools were not loaded in this session, so I read command output directly and
+kept full logs under `/tmp/rc-can-7.5-*` while working. No additional agents were used.
+
+Before editing, I read `CombatTracker.tsx` (row, condition, death-save and concentration blocks),
+`ConditionBadge.jsx`, `InitiativeBody.tsx`, `InitiativeTracker.tsx`, `NextTurnControl.tsx`,
+`HpKeypadSheet.tsx`, `Sheet.jsx`, `dataEnvironment.ts` (the `current-combatants` projection),
+`widget-command.ts`, `combat.spec.ts` (setup and the RC-CHR-1.3 / RC-SES-3.1 tests) and
+`combat-tile.spec.ts`. No product file changed.
+
+- **Finding 1 (SE-11).** Added SE-42 (condition badges and `Clear <condition>`), SE-43 (death
+  saves) and SE-44 (concentration check) in a new §3.2.2. SE-11 now lists its text badges,
+  hidden-row behaviour and the player-preview redaction to `Unknown creature`. SE-12 now records its
+  captured keypad controls.
+- **Finding 2 (BD-21).** BD-21 now separates idle and live, desk/rail and phone, edit mode and player
+  preview. The earlier text described the idle phone text as if it were the whole phone contract.
+  Added BD-29 (phone live order), BD-30 (quick-action tray and swipe, with its keyboard equivalent)
+  and BD-31 (tile HP keypad and outcome announcement) in a new §2.2.2.
+- **Gap mapping.** `current-combatants` projects only initiative, HP, hidden and active, so G-02 now
+  names conditions, concentration and death-save reads. `widget.dispatch-command` has no combat
+  reducer, so no builder-made widget can write combat state. I filed that as G-11 → RC-WID-5.12 (M)
+  in §4.2, and extended G-05, G-07 and G-08 to the new rows. CombatBody is labelled summary-only.
+  Filing is not scheduler registration; that remains an operator handoff.
+- **Observed defects, not fixed here** (none is owned): D-08, where the phone tile at Fit zoom clips
+  its rows and the `Active` badge wraps one character per line; D-09, where the phone board keypad
+  paints inside the scaled canvas under sibling tiles in all three themes (the fixed-position,
+  no-portal cause is an inference from `Sheet.jsx`). Also observed: the phone tile omits the dying,
+  death-save, concentration and condition controls that /session has. Tray focus landed on
+  `Heal` after Enter on More actions; the source has no explicit focus move.
+- **README.** The only edit is the backlog range, 5.6–5.11 → 5.6–5.12, so the existing index link
+  still names every filed story. No other planning or control-state file changed.
+- **Integration drift, not recaptured.** Product source is identical to base `eafbce28` (no
+  `apps/` or `packages/` diff). `origin/loop/rc` is now `df379bf7` and adds RC-WID-4.4 live
+  readouts and density touch targets to `InitiativeBody.tsx` and `InitiativeTracker.tsx`. Source
+  inspection shows the same control names; SCREENS_PARITY §5 records the drift.
+
+### Capture procedure
+
+Start the isolated, cloud-disabled Vite command from the refresh section on an unused port (this
+run used 15761). Then, from the repository root:
+
+```sh
+PARITY_URL=http://127.0.0.1:15761 pnpm exec tsx state/RC-CAN-7.5/capture-combat.ts
+pnpm exec prettier --write 'state/RC-CAN-7.5/aria/refresh-*combat*.yaml'
+```
+
+Each of the nine theme/tier contexts gets a fresh local demo vault. Accepted Core commands take the
+session live and start a three-monster fight. Bog Lurker concentrates on Blur, takes 1 damage (DC 10
+check owed) and is Poisoned for two rounds. Reed Stalker is at 0 HP but not defeated, so it is
+dying. Marsh Wisp is hidden. The harness captures the Combat section, the HP sheet and a player
+preview. It then clicks death-save success and failure, Keep concentration and Clear Poisoned, and
+asserts the durable state: tally 1/1, check cleared, Blur kept, conditions empty. On `/board` it
+captures the Initiative tile live, then player preview, then edit mode. On phone only, it opens the
+tray by a synthetic touch swipe, closes it, reopens it with Enter on More actions (asserting focus on
+`Heal`), captures the keypad, types 5, applies Damage, and asserts HP 21→16 plus the tile's status
+text. Phone contexts use device scale 3; CSS layout and ARIA are unchanged. Snapshots are scoped to
+the section, tile, dialog or (for board preview) `#main-content`.
+
+Three earlier attempts stopped on harness errors I had made: a wrong durable field name, the
+preview tile locator, and an edit-mode Next-turn assertion. None was a product defect. The harness
+then completed three times, each with exit 0 and 60 captures: at device scale 1, at device scale 3,
+and at device scale 3 with the focus assertion added. Across the three successful runs the ARIA
+was byte-identical. Between the last two runs, 5 of the 60 images differed at pixel level; the final
+set is retained. Prettier then reformatted 51 YAML files (indentation and quoting only); a
+`yaml.parse` deep-equality check against the raw output passed for all 60. The crosswalk was built
+from the formatted files with explicit per-state mapping rules. Any unmapped control stops the
+build.
+
+### Live-combat screenshot index
+
+Session images are Combat-section or viewport (sheet) images. Board images are tile, viewport
+(sheet) or `#main-content` (preview) images.
+
+| State / tier                         | Tavern                                                                   | Parchment                                                                      | High contrast                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| session-combat-conditional / desktop | [tavern](screens/refresh-session-combat-conditional-desktop-tavern.webp) | [parchment](screens/refresh-session-combat-conditional-desktop-parchment.webp) | [high-contrast](screens/refresh-session-combat-conditional-desktop-high-contrast.webp) |
+| session-combat-conditional / rail    | [tavern](screens/refresh-session-combat-conditional-rail-tavern.webp)    | [parchment](screens/refresh-session-combat-conditional-rail-parchment.webp)    | [high-contrast](screens/refresh-session-combat-conditional-rail-high-contrast.webp)    |
+| session-combat-conditional / phone   | [tavern](screens/refresh-session-combat-conditional-phone-tavern.webp)   | [parchment](screens/refresh-session-combat-conditional-phone-parchment.webp)   | [high-contrast](screens/refresh-session-combat-conditional-phone-high-contrast.webp)   |
+| session-combat-hp-sheet / desktop    | [tavern](screens/refresh-session-combat-hp-sheet-desktop-tavern.webp)    | [parchment](screens/refresh-session-combat-hp-sheet-desktop-parchment.webp)    | [high-contrast](screens/refresh-session-combat-hp-sheet-desktop-high-contrast.webp)    |
+| session-combat-hp-sheet / rail       | [tavern](screens/refresh-session-combat-hp-sheet-rail-tavern.webp)       | [parchment](screens/refresh-session-combat-hp-sheet-rail-parchment.webp)       | [high-contrast](screens/refresh-session-combat-hp-sheet-rail-high-contrast.webp)       |
+| session-combat-hp-sheet / phone      | [tavern](screens/refresh-session-combat-hp-sheet-phone-tavern.webp)      | [parchment](screens/refresh-session-combat-hp-sheet-phone-parchment.webp)      | [high-contrast](screens/refresh-session-combat-hp-sheet-phone-high-contrast.webp)      |
+| session-combat-preview / desktop     | [tavern](screens/refresh-session-combat-preview-desktop-tavern.webp)     | [parchment](screens/refresh-session-combat-preview-desktop-parchment.webp)     | [high-contrast](screens/refresh-session-combat-preview-desktop-high-contrast.webp)     |
+| session-combat-preview / rail        | [tavern](screens/refresh-session-combat-preview-rail-tavern.webp)        | [parchment](screens/refresh-session-combat-preview-rail-parchment.webp)        | [high-contrast](screens/refresh-session-combat-preview-rail-high-contrast.webp)        |
+| session-combat-preview / phone       | [tavern](screens/refresh-session-combat-preview-phone-tavern.webp)       | [parchment](screens/refresh-session-combat-preview-phone-parchment.webp)       | [high-contrast](screens/refresh-session-combat-preview-phone-high-contrast.webp)       |
+| board-combat-live / desktop          | [tavern](screens/refresh-board-combat-live-desktop-tavern.webp)          | [parchment](screens/refresh-board-combat-live-desktop-parchment.webp)          | [high-contrast](screens/refresh-board-combat-live-desktop-high-contrast.webp)          |
+| board-combat-live / rail             | [tavern](screens/refresh-board-combat-live-rail-tavern.webp)             | [parchment](screens/refresh-board-combat-live-rail-parchment.webp)             | [high-contrast](screens/refresh-board-combat-live-rail-high-contrast.webp)             |
+| board-combat-live / phone            | [tavern](screens/refresh-board-combat-live-phone-tavern.webp)            | [parchment](screens/refresh-board-combat-live-phone-parchment.webp)            | [high-contrast](screens/refresh-board-combat-live-phone-high-contrast.webp)            |
+| board-combat-edit / desktop          | [tavern](screens/refresh-board-combat-edit-desktop-tavern.webp)          | [parchment](screens/refresh-board-combat-edit-desktop-parchment.webp)          | [high-contrast](screens/refresh-board-combat-edit-desktop-high-contrast.webp)          |
+| board-combat-edit / rail             | [tavern](screens/refresh-board-combat-edit-rail-tavern.webp)             | [parchment](screens/refresh-board-combat-edit-rail-parchment.webp)             | [high-contrast](screens/refresh-board-combat-edit-rail-high-contrast.webp)             |
+| board-combat-edit / phone            | [tavern](screens/refresh-board-combat-edit-phone-tavern.webp)            | [parchment](screens/refresh-board-combat-edit-phone-parchment.webp)            | [high-contrast](screens/refresh-board-combat-edit-phone-high-contrast.webp)            |
+| board-combat-preview / desktop       | [tavern](screens/refresh-board-combat-preview-desktop-tavern.webp)       | [parchment](screens/refresh-board-combat-preview-desktop-parchment.webp)       | [high-contrast](screens/refresh-board-combat-preview-desktop-high-contrast.webp)       |
+| board-combat-preview / rail          | [tavern](screens/refresh-board-combat-preview-rail-tavern.webp)          | [parchment](screens/refresh-board-combat-preview-rail-parchment.webp)          | [high-contrast](screens/refresh-board-combat-preview-rail-high-contrast.webp)          |
+| board-combat-preview / phone         | [tavern](screens/refresh-board-combat-preview-phone-tavern.webp)         | [parchment](screens/refresh-board-combat-preview-phone-parchment.webp)         | [high-contrast](screens/refresh-board-combat-preview-phone-high-contrast.webp)         |
+| board-combat-tray / phone            | [tavern](screens/refresh-board-combat-tray-phone-tavern.webp)            | [parchment](screens/refresh-board-combat-tray-phone-parchment.webp)            | [high-contrast](screens/refresh-board-combat-tray-phone-high-contrast.webp)            |
+| board-combat-hp-sheet / phone        | [tavern](screens/refresh-board-combat-hp-sheet-phone-tavern.webp)        | [parchment](screens/refresh-board-combat-hp-sheet-phone-parchment.webp)        | [high-contrast](screens/refresh-board-combat-hp-sheet-phone-high-contrast.webp)        |
+
+### Repair validation
+
+- `python3 state/RC-CAN-7.5/verify-evidence.py`: exit 0. 4,942 control occurrences, 388 mapped
+  records, 177 ARIA captures, 27 historical plus 150 refresh screenshots, 11 assigned gaps. New
+  required-control assertions cover every new state. They also check that the phone-only tile
+  controls appear on phone and are absent on desk/rail, and that edit mode has no Next turn button.
+- Negative checks on a /tmp copy: removing the SE-43 success mapping failed with
+  `Unmapped/changed controls`; deleting the G-11 register row failed with `AssertionError: G-11`.
+- `pnpm exec eslint` on both capture harnesses: exit 0.
+- Format, gates and diff checks are recorded below after they ran.

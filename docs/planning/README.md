@@ -16,7 +16,7 @@ the standing decisions the CLD workstream executes.
 screen board and Session as they shipped before the ADR-041 conversion, with the gap register
 RC-WID-5 works through. It is the row-by-row checklist RC-CAN-7.6 and RC-CAN-7.8 are measured
 against. Its [filed follow-up backlog](SCREENS_PARITY.md#filed-wid-stories)
-records open RC-WID-5.6–5.11 with acceptance criteria; operator registration in the execution
+records open RC-WID-5.6–5.12 with acceptance criteria; operator registration in the execution
 roadmap remains separate from this documentation filing.
 
 For what is actually built, read [`../requirements/FEATURE-GAPS.md`](../requirements/FEATURE-GAPS.md)
