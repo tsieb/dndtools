@@ -151,6 +151,7 @@ export const HOST_PERMISSION_LABEL: Record<WidgetHostPermission, MessageKey> = {
 	'source-adapter': 'builder.hostPermission.sourceAdapter',
 	asset: 'builder.hostPermission.asset',
 	'external-link': 'builder.hostPermission.externalLink',
+	navigate: 'builder.hostPermission.navigate',
 };
 
 export const HOST_PERMISSIONS: WidgetHostPermission[] = [...ALL_HOST_PERMISSIONS];

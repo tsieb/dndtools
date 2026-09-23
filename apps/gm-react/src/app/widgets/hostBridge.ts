@@ -4,12 +4,18 @@ import {
 	isolateWidgetFailure,
 	requestWidgetNetwork,
 	resolveHostCapability,
+	resolveWidgetIntent,
 	resolveWidgetStyleVariables,
 	validateWidgetSandboxDocument,
 	type WidgetDefinition,
 	type WidgetDestinationClass,
 	type WidgetHostCapability,
 	type WidgetHostPermission,
+	type WidgetIntentAudit,
+	type WidgetIntentDecision,
+	type WidgetIntentDestination,
+	type WidgetIntentRequest,
+	type WidgetIntentStateSlice,
 	type WidgetIsolationResult,
 	type WidgetPackageAsset,
 	type WidgetPackageDefinition,
@@ -27,7 +33,8 @@ import {
  * runtime and a frame that has finished loading before it will tell you anything.
  *
  * The rule that shapes every function below: **the core decides, the host relays.** `requestPermission`
- * calls `resolveHostCapability`, `outbound` calls `requestWidgetNetwork`, a failing frame goes through
+ * calls `resolveHostCapability`, `outbound` calls `requestWidgetNetwork`, `navigate` calls
+ * `resolveWidgetIntent` (RC-WID-5.1), a failing frame goes through
  * `isolateWidgetFailure`, and the frame's own configuration is checked against
  * `validateWidgetSandboxDocument`. Nothing here re-implements a policy, so there is no second one to
  * drift from the first — which matters more than usual, because the thing on the other side of this
@@ -77,6 +84,13 @@ export interface GuestOutbound {
 	destinationClass: string | null;
 	payload: unknown;
 }
+/** RC-WID-5.1 — follow one of the widget's DECLARED intents. Needs `navigate` approved. */
+export interface GuestNavigate {
+	kind: 'navigate';
+	requestId: string;
+	intentId: string;
+	targetId: string | null;
+}
 export interface GuestResize {
 	kind: 'resize';
 	height: number;
@@ -91,6 +105,7 @@ export type GuestMessage =
 	| GuestDispatch
 	| GuestRequestPermission
 	| GuestOutbound
+	| GuestNavigate
 	| GuestResize
 	| GuestError;
 
@@ -138,6 +153,16 @@ export function parseGuestMessage(data: unknown): GuestMessage | { drop: GuestMe
 				url: typeof raw.url === 'string' ? raw.url : null,
 				destinationClass: typeof raw.destinationClass === 'string' ? raw.destinationClass : null,
 				payload: raw.payload ?? null,
+			};
+		case 'navigate':
+			// An intent is named by id; a URL has no field to arrive in, so there is nothing to sanitize.
+			if (!requestId || typeof raw.intentId !== 'string' || raw.intentId === '')
+				return { drop: 'malformed' };
+			return {
+				kind: 'navigate',
+				requestId,
+				intentId: raw.intentId,
+				targetId: typeof raw.targetId === 'string' ? raw.targetId : null,
 			};
 		case 'resize':
 			if (typeof raw.height !== 'number' || !Number.isFinite(raw.height))
@@ -395,6 +420,7 @@ const KNOWN_CAPABILITIES: readonly WidgetHostCapability[] = [
 	'external-link',
 	'source-adapter',
 	'filesystem',
+	'navigate',
 	'storage-adapter',
 	'ipc',
 	'cloud-client',
@@ -509,6 +535,98 @@ export function decideDispatch(definition: WidgetDefinition, commandType: string
 		};
 	}
 	return { accepted: true, reason: 'Relayed to the campaign; the core decides whether it runs.' };
+}
+
+// --- Intents (RC-WID-5.1): the core resolves, the host navigates or drops and audits --------------
+
+export interface IntentAnswer {
+	decision: WidgetIntentDecision;
+	reason: string;
+}
+
+export interface IntentDecision {
+	answer: IntentAnswer;
+	/** Where to go. Null for every refusal: the request is dropped, never approximated. */
+	destination: WidgetIntentDestination | null;
+	audit: WidgetIntentAudit;
+}
+
+/**
+ * Decide one intent request — from a custom frame's `navigate` message or a template's button — by
+ * asking `resolveWidgetIntent`. That runs the declaration check, the `navigate` permission gate for
+ * custom code and the viewer's read gate; this function adds nothing to the policy. A refusal is
+ * recorded in the session audit log before it is returned, so no caller can forget to.
+ */
+export function decideIntent(
+	widgetInstanceId: string,
+	definition: WidgetDefinition,
+	request: WidgetIntentRequest,
+	approvedPermissions: readonly WidgetHostPermission[],
+	state: WidgetIntentStateSlice,
+	actorId: string,
+): IntentDecision {
+	const result = resolveWidgetIntent({
+		widgetInstanceId,
+		definition,
+		request,
+		approvedPermissions,
+		state,
+		actorId,
+	});
+	if (result.decision !== 'resolved') recordWidgetHostAudit(result.audit);
+	return {
+		answer: { decision: result.decision, reason: result.audit.reason },
+		destination: result.destination,
+		audit: result.audit,
+	};
+}
+
+/** How many refusals the session log keeps. A widget spinning on a denied intent can't grow it. */
+export const WIDGET_HOST_AUDIT_LIMIT = 100;
+
+export interface WidgetHostAuditEntry extends WidgetIntentAudit {
+	/** Monotonic within the session; the log is not persisted. */
+	sequence: number;
+}
+
+let auditSequence = 0;
+let auditLog: WidgetHostAuditEntry[] = [];
+const auditListeners = new Set<() => void>();
+
+/**
+ * Keep one refused host request. The record is the core's non-leaking audit — the declared intent
+ * and a coarse reason, never the target a widget asked for — so the log is safe to show the DM.
+ */
+export function recordWidgetHostAudit(audit: WidgetIntentAudit): WidgetHostAuditEntry {
+	auditSequence += 1;
+	const entry = { ...audit, sequence: auditSequence };
+	auditLog = [...auditLog, entry].slice(-WIDGET_HOST_AUDIT_LIMIT);
+	for (const listener of auditListeners) listener();
+	return entry;
+}
+
+/** The session's refused host requests, oldest first. The array is replaced, never mutated. */
+export function listWidgetHostAudit(): readonly WidgetHostAuditEntry[] {
+	return auditLog;
+}
+
+/** Subscribe to the log (`useSyncExternalStore`-shaped). */
+export function subscribeWidgetHostAudit(listener: () => void): () => void {
+	auditListeners.add(listener);
+	return () => auditListeners.delete(listener);
+}
+
+/** Test seam: forget every entry. */
+export function clearWidgetHostAudit(): void {
+	auditLog = [];
+	for (const listener of auditListeners) listener();
+}
+
+// The browser suite reads the log the way it reads `window.__rt`: a dev-only handle, compiled out of
+// production by the same `import.meta.env.DEV` guard.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+	(window as unknown as { __widgetHostAudit?: typeof listWidgetHostAudit }).__widgetHostAudit =
+		listWidgetHostAudit;
 }
 
 /** Isolate a frame that crashed or broke policy. The other widgets and the session are untouched. */

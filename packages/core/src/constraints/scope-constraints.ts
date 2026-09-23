@@ -174,7 +174,9 @@ export const PUBLIC_DISTRIBUTION_SIGNAL_TOKENS: readonly string[] = Object.freez
 	'registry',
 ]);
 
-const PUBLIC_DISTRIBUTION_SIGNAL_SET: ReadonlySet<string> = new Set(PUBLIC_DISTRIBUTION_SIGNAL_TOKENS);
+const PUBLIC_DISTRIBUTION_SIGNAL_SET: ReadonlySet<string> = new Set(
+	PUBLIC_DISTRIBUTION_SIGNAL_TOKENS,
+);
 
 /** Normalize a token for distribution/scope comparison: lower-cased with `-`/`_`/space removed. */
 function normalizeToken(token: string): string {
@@ -303,10 +305,7 @@ export function findScopeViolation(proposal: ScopeProposal): ScopeViolationFindi
 }
 
 /** Judge a widget distribution/author scope (CON-003 AC3); returns a finding when out of scope. */
-function judgeWidgetDistribution(
-	scope: string,
-	label: string,
-): ScopeViolationFinding | null {
+function judgeWidgetDistribution(scope: string, label: string): ScopeViolationFinding | null {
 	const normalized = normalizeToken(scope);
 	// A declared in-scope author scope (system/user/workspace) is fine.
 	if (DECLARED_WIDGET_DISTRIBUTION_SET.has(normalized)) return null;
@@ -375,6 +374,8 @@ export const DECLARED_WIDGET_HOST_PERMISSIONS: readonly WidgetHostPermission[] =
 	'source-adapter',
 	'asset',
 	'external-link',
+	// RC-WID-5.1 — follow a declared in-app intent (never a URL); approved per package at trust review.
+	'navigate',
 ]);
 
 const DECLARED_HOST_PERMISSION_SET: ReadonlySet<string> = new Set(DECLARED_WIDGET_HOST_PERMISSIONS);

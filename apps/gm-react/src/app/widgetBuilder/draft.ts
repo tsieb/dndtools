@@ -9,6 +9,7 @@ import {
 	type WidgetDataSchema,
 	type WidgetDefinition,
 	type WidgetHostPermission,
+	type WidgetIntentDescriptor,
 	type WidgetMigration,
 	type WidgetNetworkDestinationClass,
 	type WidgetPackageDefinition,
@@ -111,6 +112,8 @@ export interface WidgetDraft {
 	/* Config fields + commands */
 	configFields: WidgetConfigField[];
 	commands: WidgetCommandDescriptor[];
+	/** RC-WID-5.1 — where the widget can take its viewer (edited on the Commands step). */
+	intents: WidgetIntentDescriptor[];
 	/* Style */
 	styleTokens: WidgetStyleTokenDefinition[];
 	styleIsolation: WidgetStyleIsolation;
@@ -181,6 +184,7 @@ export function emptyDraft(): WidgetDraft {
 		optionalBindings: [],
 		configFields: [],
 		commands: [],
+		intents: [],
 		styleTokens: [],
 		styleIsolation: 'host-scoped',
 		styleCapabilities: ['css-variables', 'host-theme-tokens'],
@@ -291,6 +295,11 @@ function buildWidgetDefinition(draft: WidgetDraft): WidgetDefinition {
 		configurationSchema: configurationSchemaFor(configFields),
 		capabilitySets: ['manager', 'operator', 'viewer'],
 		commands: draft.commands.map((command) => ({ ...command })),
+		// Absent rather than empty when none are declared, so a package from before RC-WID-5.1 reads
+		// back byte-identical after an edit that did not touch intents.
+		...(draft.intents.length > 0
+			? { intents: draft.intents.map((intent) => ({ ...intent })) }
+			: {}),
 		events: [],
 		hostPermissions: [...draft.hostPermissions],
 		// Absent rather than empty when nothing is asked for: an empty array in the package would read
@@ -426,6 +435,7 @@ export function readPackage(
 			.filter((field) => field.key !== DOCK_PREFERENCE_KEY)
 			.map((field) => ({ ...field })),
 		commands: widget.commands.map((command) => ({ ...command })),
+		intents: (widget.intents ?? []).map((intent) => ({ ...intent })),
 		styleTokens: (widget.style?.tokens ?? []).map((token) => ({ ...token })),
 		styleIsolation: widget.style?.isolation ?? base.styleIsolation,
 		styleCapabilities: [...(widget.style?.capabilities ?? base.styleCapabilities)],

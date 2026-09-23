@@ -270,10 +270,19 @@ export function Campaign() {
 	// Create-intent handoff from "New faction" launchers (⌘K): land on the Factions tab with the
 	// editor already open. Consumed once, then cleared.
 	useEffect(() => {
-		const intent = (location.state ?? null) as { createFaction?: boolean } | null;
+		const intent = (location.state ?? null) as {
+			createFaction?: boolean;
+			openQuestId?: string;
+		} | null;
 		if (intent?.createFaction) {
 			setTab('factions');
 			setFactionEditor({ id: null });
+			navigate(location.pathname, { replace: true, state: null });
+		} else if (typeof intent?.openQuestId === 'string') {
+			// RC-WID-5.1 — a widget's "open quest" intent (already read-gated by the core): land on
+			// the Quests tab with that quest open. The editor itself still mounts only for an author.
+			setTab('quests');
+			setQuestEditor({ id: intent.openQuestId });
 			navigate(location.pathname, { replace: true, state: null });
 		}
 	}, [location.state, location.pathname, navigate]);

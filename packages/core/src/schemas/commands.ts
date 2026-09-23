@@ -3591,7 +3591,16 @@ export const reviewWidgetPackageInputSchema = z
 		trustState: z.enum(['trusted', 'denied']),
 		hostPermissions: z
 			.partialRecord(
-				z.enum(['filesystem', 'clipboard', 'network', 'source-adapter', 'asset', 'external-link']),
+				z.enum([
+					'filesystem',
+					'clipboard',
+					'network',
+					'source-adapter',
+					'asset',
+					'external-link',
+					// RC-WID-5.1
+					'navigate',
+				]),
 				z.enum(['approved', 'denied']),
 			)
 			.default({}),
