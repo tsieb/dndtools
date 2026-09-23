@@ -168,3 +168,14 @@
   - 1 `responsive.spec.ts:242`, which also fails on the base.
   - No SFX or combat assertion failed. The flaky specs this time include `knowledge.spec.ts` and `audio-presets.spec.ts`, which this story doesn't touch. That fits exhaustion shared across the whole host rather than anything specific to this branch.
 - Verdict as in attempts 12, 14 and 15: the Browser acceptance gate can't pass on any candidate until `32ef11ad` is on `loop/rc`. As of 2026-09-22 it existed only on `dispatch/dndtools/0266d1edb79db814617e`. Re-running this task without that change repeats this result. It needs operator action outside this task's owned paths.
+
+## Attempt 17 (rebased onto `loop/rc` `df379bf7`; e2e shm fix still not integrated)
+
+- Entry: clean branch at `19b7ed11`. As requested, rebased onto local `loop/rc` `df379bf7`. The rebase was clean. The two new commits there (`ba5042a4`, `df379bf7`) fix core Vitest storage and timezone coverage. Neither touches the e2e server: `vite.config.ts` still has no `FULL_RESPONSES`. The `32ef11ad` port `c71169bb` exists only on `dispatch/dndtools/ccc3c883bac6850e6e25`. `origin/loop/rc` is still at `f6a8aa36`. Headroom tools were unavailable, so I read the gate log directly: `.state/attempts/d75cf9da-…/output.log`. No code changed, and no agents, dispatcher writes, push, promotion or extra loop.
+- Re-ran the checks the new base could affect. Core suite: 282 files / 5153 tests passed. `tests/unit/vitest-core-storage.test.ts`: 2 tests passed. Core typecheck: exited 0. Logs: `/tmp/rc-ses-6-1-a17-*.log`.
+- Gate result for `19b7ed11`: 1 failed (`[mobile-chromium] settings.spec.ts:101`), 7 flaky, 1267 passed. The printed errors:
+  - 5 `waitReady` boot timeouts.
+  - 1 `page.goto: net::ERR_INSUFFICIENT_RESOURCES` (`#/settings?tab=appearance`).
+  - 2 "Target page, context or browser has been closed".
+  - No SFX or combat assertion failed. The flaky `sfx-events.spec.ts:104` was a boot timeout. The other flaky specs (`share-import`, `shortcuts`, `themes`) are outside this story.
+- Verdict unchanged since attempt 12: nothing in the browser gate belongs to this story. The gate needs `32ef11ad`/`c71169bb` on `loop/rc`.
