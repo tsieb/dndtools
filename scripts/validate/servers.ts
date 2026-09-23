@@ -35,6 +35,8 @@ export const SERVERS: Record<string, ServerSpec> = {
 			VITE_APP_API_URL: '',
 			VITE_PUBLIC_APP_URL: '',
 			VITE_GOOGLE_CLIENT_ID: '',
+			// 200s instead of 304s for the browser gates; see `e2eFullResponses()` in vite.config.ts.
+			DNDTOOLS_E2E_FULL_RESPONSES: '1',
 		},
 	},
 };
