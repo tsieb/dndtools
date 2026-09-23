@@ -782,3 +782,20 @@ tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/canvas.sp
   500-line warning). Output: `/tmp/rc-can-5.1-20260923-gates.log`. Prettier check and
   ESLint on the file: exit 0.
 - No other files changed. No dispatcher-control edits, agents, publishing or promotion.
+
+## Requirements audit: scene-editor anchor restored — 2026-09-23
+
+- Resumed at `3dc7e085` with a clean tree. In that run every other gate exited 0
+  (quality, format, pinned visual, typecheck, lint, App tests, build). Read the original
+  output of the failing "Requirements audit" attempt
+  `7e197b81-fcad-413a-8309-076d45f89670`. Its only failure was one stale honest-limit
+  anchor. `docs/requirements/FEATURE-GAPS.md`'s Scene editor row cites
+  `sceneEditor/index.tsx` › `nothing is installed or placed without the DM`, and
+  the previous turn's comment reflow had dropped that phrase.
+- Fix: rewrapped the same three-line doc comment so the exact phrase is back on one
+  line. The file stays at 800 lines. No code change.
+- `pnpm feature-audit`: exit 0, "48 declared limits (0 stale)". Output:
+  `/tmp/rc-can-5.1-20260923-feature-audit.log`. `pnpm gates`: exit 0. Output:
+  `/tmp/rc-can-5.1-20260923-gates-2.log`. Prettier check on the file: clean.
+- Lesson for this file: its doc comment carries an audit anchor. Trim lines elsewhere.
+- No other files changed. No dispatcher-control edits, agents, publishing or promotion.
