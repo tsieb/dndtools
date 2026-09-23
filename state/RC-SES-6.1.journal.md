@@ -133,3 +133,19 @@
 - The one hard failure was `[mobile-chromium] settings.spec.ts:101`, with a `waitReady` `__rt.loaded` timeout after reload. This is the spec that attempt 12 proved red 12/12 on the base without `32ef11ad` and green 12/12 on this branch with it.
 - `sfx-events.spec.ts:82` (mobile), in this story's area, was flaky and passed on its second retry. Neither failure was an assertion. The first try failed on `browserContext.close: Target page, context or browser has been closed`. Retry 1 hit the same boot timeout in `gotoRoute` → `waitReady`, before any SFX assertion ran. The whole file passed 3/3 on both profiles in attempt 12 with the memory fix applied. The other flaky specs (map onboarding, maturity signals, party stash, `responsive.spec.ts:242`, `settings.spec.ts:203`) are outside this story. The log has no `ERR_INSUFFICIENT_RESOURCES` line because Playwright doesn't print browser console output there. Without that line I attribute the boot timeouts only by their shape and by attempt 12's A/B.
 - Still blocked outside the owned paths: this gate can't go green until `32ef11ad` (the `vite.config.ts` + `playwright.config.ts` fix) lands on `loop/rc` and this branch is rebased. I have not cherry-picked it, because it would cross the write fence.
+
+## Attempt 14 (rebased onto repaired `loop/rc` `42c9f7ea`; browser gate still blocked by `32ef11ad`)
+
+- Entry: clean branch at `2240c5d6`. As requested, rebased onto the local integration branch `loop/rc` `42c9f7ea`. The rebase was clean. That tip adds only `state/ci-recovery-983ec990e3d6.journal.md` on top of `52161311`, and it still lacks `32ef11ad`: `vite.config.ts` has no `DNDTOOLS_E2E_FULL_RESPONSES`. `origin/loop/rc` is unchanged at `52161311`. Headroom tools were unavailable, so I read the originals directly: the gate log at `.state/attempts/e362a743-…/output.log` and local logs at `/tmp/rc-ses-6-1-a14-*.log`. No agents, dispatcher writes, push, promotion or extra loop. No code changed.
+- Gate feedback for `2240c5d6`: the only hard failure was `[mobile-chromium] settings.spec.ts:101` again. The flaky `sfx-events.spec.ts:104` (mobile) was a `waitReady` boot timeout, not an SFX assertion.
+- Local gates on the rebased head:
+  - Core suite: 282 files / 5153 tests passed.
+  - `pnpm test:app`: 146 files / 1644 tests passed.
+  - Root `pnpm typecheck`: exited 0.
+  - Full `pnpm lint`: exited 0.
+  - `format:check:changed -- --base loop/rc`: passed.
+- Browser, with `sfx-events.spec.ts` + `settings.spec.ts:101`, `--repeat-each=3` on both profiles:
+  - As committed, 11/24 failed. All 6 `settings:101` runs failed; the other 5 were SFX runs that shared the host with them (`/tmp/rc-ses-6-1-a14-e2e.log`).
+  - `sfx-events.spec.ts` alone passed 18/18 (`…-sfx-alone.log`).
+  - With `32ef11ad`'s config hunks applied uncommitted, 24/24 passed (`…-e2e-withfix.log`). The hunks were reverted afterwards.
+- So nothing left in the browser gate belongs to this story. It stays red until `32ef11ad` lands on `loop/rc`. That commit touches unowned `vite.config.ts` and `playwright.config.ts`, so it was not cherry-picked here.
