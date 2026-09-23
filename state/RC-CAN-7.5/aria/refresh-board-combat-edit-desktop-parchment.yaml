@@ -1,7 +1,8 @@
 - group "Initiative Tracker, Combat widget, position 288, 24, size 240 by 160":
     - text: Initiative Tracker Combat
     - group "Initiative Tracker content":
-        - text: Round 1 Turn Bog Lurker HP 21 / 22
-        - status
-        - text: Bog Lurker · Reed Stalker · Marsh Wisp
+        - region "2. Initiative Tracker":
+            - text: Round 1 Turn Bog Lurker HP 21 / 22
+            - status
+            - text: Bog Lurker · Reed Stalker · Marsh Wisp
     - button "Actions for Initiative Tracker"

@@ -28,9 +28,9 @@
 		"aria-session-phone-recap.yaml": "746b6a73687d9b443b28fc9463aa66dd35e8eee8df2f5b39bc5d3cc5041af397",
 		"aria-session-phone.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
 		"aria-session-rail.yaml": "b081770517ae4e9fce09412c63b01da7f0d479a55c41b831a97eb0bf42edd1a1",
-		"refresh-board-desktop-high-contrast.yaml": "33f6fe46360c4d1cfcc9f21fb6f278e451cb3b902407805d4f89812eca8eb16e",
-		"refresh-board-desktop-parchment.yaml": "8854ccd194f6014f5bf7237d3129f81c1c363e9e2d594d0dad128cc0cc0916dd",
-		"refresh-board-desktop-tavern.yaml": "05bec4fadf8be9068573f315918a642da2a192c30c4659d4fc704316414feaf7",
+		"refresh-board-desktop-high-contrast.yaml": "fcbd1ab875eaf97d3e770f9cdbb60710fc2c32a49e4ea947fa2a6d00832b7aec",
+		"refresh-board-desktop-parchment.yaml": "a876f430a2abcaa982392a6c3d646a83baf557d0ac1e9e1d92434e992fd7eee9",
+		"refresh-board-desktop-tavern.yaml": "b5dbacdb5ffbfc49d73bf2d729361ee72b146deaca807f6c0b7590155ee7b307",
 		"refresh-board-gallery-desktop-high-contrast.yaml": "b4a56ec9501723423eae50dc46b8d9ae4a7b4e3d5fc828e325f20baabca6e2a6",
 		"refresh-board-gallery-desktop-parchment.yaml": "b4a56ec9501723423eae50dc46b8d9ae4a7b4e3d5fc828e325f20baabca6e2a6",
 		"refresh-board-gallery-desktop-tavern.yaml": "b4a56ec9501723423eae50dc46b8d9ae4a7b4e3d5fc828e325f20baabca6e2a6",
@@ -49,12 +49,12 @@
 		"refresh-board-gallery-rail-high-contrast.yaml": "b4a56ec9501723423eae50dc46b8d9ae4a7b4e3d5fc828e325f20baabca6e2a6",
 		"refresh-board-gallery-rail-parchment.yaml": "b4a56ec9501723423eae50dc46b8d9ae4a7b4e3d5fc828e325f20baabca6e2a6",
 		"refresh-board-gallery-rail-tavern.yaml": "b4a56ec9501723423eae50dc46b8d9ae4a7b4e3d5fc828e325f20baabca6e2a6",
-		"refresh-board-phone-high-contrast.yaml": "35c90a8e1387835bbd896587085c9d6bb66df9d95155b1c130422143c3dc8343",
-		"refresh-board-phone-parchment.yaml": "40b1ce3bfac9ee601ed921ce84a821eb01002857b2fd7b422185f7f09ff0630a",
-		"refresh-board-phone-tavern.yaml": "f73d8d88d5ab7e35393bdec13473d2fe1ded1bc3f1e63dbc5ad1769835a97867",
-		"refresh-board-rail-high-contrast.yaml": "bc6260d7f04fbbcff22e90ec63ef8f361ab914f92533c01a90934b5c105204f5",
-		"refresh-board-rail-parchment.yaml": "da81c78477c3d4059eb01d5fc6047bf35efa343f01e3661e94864ce5ff6f51b6",
-		"refresh-board-rail-tavern.yaml": "9d1a6d04996f775a2124736ac99f167305ad8073aeb7a03c96254be86416b04c",
+		"refresh-board-phone-high-contrast.yaml": "d0bdc800ef65b3f79d54a5244a905d0eabe8e0f638f3fbedeb7e212564b1ddfb",
+		"refresh-board-phone-parchment.yaml": "c745f1290d9f4f3c3f3d52ed65c531e237dc12b1c7f227d5038c4ddee8512dca",
+		"refresh-board-phone-tavern.yaml": "ff92c53c15ef9bc637cc3a4b4dfb4e8f3612d3dbddb7faee6978d3189435feb0",
+		"refresh-board-rail-high-contrast.yaml": "6f4546c4a3d5de7d7978127a426766fafae667b091e3da7a9f479e793bc60e6e",
+		"refresh-board-rail-parchment.yaml": "b7be3d3819f7a38cd922d9c95c3de3497d38bbc427f94244913e42573aa77ccd",
+		"refresh-board-rail-tavern.yaml": "3abd3fd5568fa8e83dcd3cf13ca57b520c74eaaa34a56c198d9c5586faff83f5",
 		"refresh-home-desktop-high-contrast.yaml": "1bed24347bb8a3b4e107a2fbf1ed70df7c90d6c8bc81c9da0854c8d9b4deb47e",
 		"refresh-home-desktop-parchment.yaml": "1bed24347bb8a3b4e107a2fbf1ed70df7c90d6c8bc81c9da0854c8d9b4deb47e",
 		"refresh-home-desktop-tavern.yaml": "1bed24347bb8a3b4e107a2fbf1ed70df7c90d6c8bc81c9da0854c8d9b4deb47e",
@@ -118,27 +118,27 @@
 		"refresh-capture-filter-rail-high-contrast.yaml": "8ec3233cf07b1d7ea0c717d38b7bca77a848b1c636741f95489a40ba6da8035c",
 		"refresh-capture-filter-rail-parchment.yaml": "643b316acea3a99ba77e32aea55dfd51c9a4f8811016ee4c1515408abebc0107",
 		"refresh-capture-filter-rail-tavern.yaml": "74b31c16c7e26b831b8189e8c148ca453c31f5eac594d1f5e8612690807033e3",
-		"refresh-board-combat-edit-desktop-high-contrast.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
-		"refresh-board-combat-edit-desktop-parchment.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
-		"refresh-board-combat-edit-desktop-tavern.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
-		"refresh-board-combat-edit-phone-high-contrast.yaml": "4a91d81a6529ab04fd3cbd566182a0601e3482e99cbf68bed43974d43d67fef1",
-		"refresh-board-combat-edit-phone-parchment.yaml": "4a91d81a6529ab04fd3cbd566182a0601e3482e99cbf68bed43974d43d67fef1",
-		"refresh-board-combat-edit-phone-tavern.yaml": "4a91d81a6529ab04fd3cbd566182a0601e3482e99cbf68bed43974d43d67fef1",
-		"refresh-board-combat-edit-rail-high-contrast.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
-		"refresh-board-combat-edit-rail-parchment.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
-		"refresh-board-combat-edit-rail-tavern.yaml": "979e06b113d5f7ee9c8f1b227202d784ce1b6324f6e61ee5fb1144e61aa8aeb6",
+		"refresh-board-combat-edit-desktop-high-contrast.yaml": "d2c4e5a472828edf54344466d3b3a2c9fd4fc2eb593af6a48e4129194e800b59",
+		"refresh-board-combat-edit-desktop-parchment.yaml": "d2c4e5a472828edf54344466d3b3a2c9fd4fc2eb593af6a48e4129194e800b59",
+		"refresh-board-combat-edit-desktop-tavern.yaml": "d2c4e5a472828edf54344466d3b3a2c9fd4fc2eb593af6a48e4129194e800b59",
+		"refresh-board-combat-edit-phone-high-contrast.yaml": "4282cbc2f12536502b06c8c38282dd64990ace7f23f242e129d9827e1928d803",
+		"refresh-board-combat-edit-phone-parchment.yaml": "4282cbc2f12536502b06c8c38282dd64990ace7f23f242e129d9827e1928d803",
+		"refresh-board-combat-edit-phone-tavern.yaml": "4282cbc2f12536502b06c8c38282dd64990ace7f23f242e129d9827e1928d803",
+		"refresh-board-combat-edit-rail-high-contrast.yaml": "d2c4e5a472828edf54344466d3b3a2c9fd4fc2eb593af6a48e4129194e800b59",
+		"refresh-board-combat-edit-rail-parchment.yaml": "d2c4e5a472828edf54344466d3b3a2c9fd4fc2eb593af6a48e4129194e800b59",
+		"refresh-board-combat-edit-rail-tavern.yaml": "d2c4e5a472828edf54344466d3b3a2c9fd4fc2eb593af6a48e4129194e800b59",
 		"refresh-board-combat-hp-sheet-phone-high-contrast.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
 		"refresh-board-combat-hp-sheet-phone-parchment.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
 		"refresh-board-combat-hp-sheet-phone-tavern.yaml": "c656486bae044041d7296d2d2f12b8b041f3182d4e35690c24c0aff3585cba4d",
-		"refresh-board-combat-live-desktop-high-contrast.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
-		"refresh-board-combat-live-desktop-parchment.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
-		"refresh-board-combat-live-desktop-tavern.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
-		"refresh-board-combat-live-phone-high-contrast.yaml": "c4c1eaa90e9a66c6cb8ceb33e9be5aa599ba0970685372c47feab2ebf75e3091",
-		"refresh-board-combat-live-phone-parchment.yaml": "c4c1eaa90e9a66c6cb8ceb33e9be5aa599ba0970685372c47feab2ebf75e3091",
-		"refresh-board-combat-live-phone-tavern.yaml": "c4c1eaa90e9a66c6cb8ceb33e9be5aa599ba0970685372c47feab2ebf75e3091",
-		"refresh-board-combat-live-rail-high-contrast.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
-		"refresh-board-combat-live-rail-parchment.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
-		"refresh-board-combat-live-rail-tavern.yaml": "84a5058fb46dbda28b66ff33c51863c0ce5d5371ea3e5ed07a3526c24671c21f",
+		"refresh-board-combat-live-desktop-high-contrast.yaml": "d30cbdfa4f8c20fec674c73eab7b0157cad103aaafe6dbafd8b7daeab6bd852f",
+		"refresh-board-combat-live-desktop-parchment.yaml": "d30cbdfa4f8c20fec674c73eab7b0157cad103aaafe6dbafd8b7daeab6bd852f",
+		"refresh-board-combat-live-desktop-tavern.yaml": "d30cbdfa4f8c20fec674c73eab7b0157cad103aaafe6dbafd8b7daeab6bd852f",
+		"refresh-board-combat-live-phone-high-contrast.yaml": "fa7dedb709fbf8d66e9b88df084860ea1f81acd8df526226ede87be003453403",
+		"refresh-board-combat-live-phone-parchment.yaml": "fa7dedb709fbf8d66e9b88df084860ea1f81acd8df526226ede87be003453403",
+		"refresh-board-combat-live-phone-tavern.yaml": "fa7dedb709fbf8d66e9b88df084860ea1f81acd8df526226ede87be003453403",
+		"refresh-board-combat-live-rail-high-contrast.yaml": "d30cbdfa4f8c20fec674c73eab7b0157cad103aaafe6dbafd8b7daeab6bd852f",
+		"refresh-board-combat-live-rail-parchment.yaml": "d30cbdfa4f8c20fec674c73eab7b0157cad103aaafe6dbafd8b7daeab6bd852f",
+		"refresh-board-combat-live-rail-tavern.yaml": "d30cbdfa4f8c20fec674c73eab7b0157cad103aaafe6dbafd8b7daeab6bd852f",
 		"refresh-board-combat-preview-desktop-high-contrast.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
 		"refresh-board-combat-preview-desktop-parchment.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
 		"refresh-board-combat-preview-desktop-tavern.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
@@ -148,9 +148,9 @@
 		"refresh-board-combat-preview-rail-high-contrast.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
 		"refresh-board-combat-preview-rail-parchment.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
 		"refresh-board-combat-preview-rail-tavern.yaml": "e52c1e1715bdd41b785b9567ec2a45330c7b7fc6c1e422901d70d65c0ed5f81c",
-		"refresh-board-combat-tray-phone-high-contrast.yaml": "4c44e7907c2bcd9a761755970d221b974a105138285cd64d177b57e85b09aba1",
-		"refresh-board-combat-tray-phone-parchment.yaml": "4c44e7907c2bcd9a761755970d221b974a105138285cd64d177b57e85b09aba1",
-		"refresh-board-combat-tray-phone-tavern.yaml": "4c44e7907c2bcd9a761755970d221b974a105138285cd64d177b57e85b09aba1",
+		"refresh-board-combat-tray-phone-high-contrast.yaml": "c0c602ffe36407311825e5f9c081808231588878aea5b1a410d25641615f1707",
+		"refresh-board-combat-tray-phone-parchment.yaml": "c0c602ffe36407311825e5f9c081808231588878aea5b1a410d25641615f1707",
+		"refresh-board-combat-tray-phone-tavern.yaml": "c0c602ffe36407311825e5f9c081808231588878aea5b1a410d25641615f1707",
 		"refresh-session-combat-conditional-desktop-high-contrast.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
 		"refresh-session-combat-conditional-desktop-parchment.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
 		"refresh-session-combat-conditional-desktop-tavern.yaml": "2606bdbc4c838d0e46d1234e6f65f3233dd7da203c62a7d3d81b87c5d796b674",
@@ -437,15 +437,15 @@
 				"aria-board-desktop-add-panel.yaml:22",
 				"aria-board-desktop-edit.yaml:22",
 				"aria-board-desktop-layouts-panel.yaml:22",
-				"refresh-board-combat-edit-desktop-high-contrast.yaml:7",
-				"refresh-board-combat-edit-desktop-parchment.yaml:7",
-				"refresh-board-combat-edit-desktop-tavern.yaml:7",
-				"refresh-board-combat-edit-phone-high-contrast.yaml:22",
-				"refresh-board-combat-edit-phone-parchment.yaml:22",
-				"refresh-board-combat-edit-phone-tavern.yaml:22",
-				"refresh-board-combat-edit-rail-high-contrast.yaml:7",
-				"refresh-board-combat-edit-rail-parchment.yaml:7",
-				"refresh-board-combat-edit-rail-tavern.yaml:7"
+				"refresh-board-combat-edit-desktop-high-contrast.yaml:8",
+				"refresh-board-combat-edit-desktop-parchment.yaml:8",
+				"refresh-board-combat-edit-desktop-tavern.yaml:8",
+				"refresh-board-combat-edit-phone-high-contrast.yaml:23",
+				"refresh-board-combat-edit-phone-parchment.yaml:23",
+				"refresh-board-combat-edit-phone-tavern.yaml:23",
+				"refresh-board-combat-edit-rail-high-contrast.yaml:8",
+				"refresh-board-combat-edit-rail-parchment.yaml:8",
+				"refresh-board-combat-edit-rail-tavern.yaml:8"
 			]
 		},
 		{
@@ -491,15 +491,15 @@
 				"aria-board-desktop.yaml:18",
 				"aria-board-phone.yaml:18",
 				"aria-board-rail.yaml:18",
-				"refresh-board-desktop-high-contrast.yaml:25",
-				"refresh-board-desktop-parchment.yaml:25",
-				"refresh-board-desktop-tavern.yaml:25",
-				"refresh-board-phone-high-contrast.yaml:25",
-				"refresh-board-phone-parchment.yaml:25",
-				"refresh-board-phone-tavern.yaml:25",
-				"refresh-board-rail-high-contrast.yaml:25",
-				"refresh-board-rail-parchment.yaml:25",
-				"refresh-board-rail-tavern.yaml:25"
+				"refresh-board-desktop-high-contrast.yaml:26",
+				"refresh-board-desktop-parchment.yaml:26",
+				"refresh-board-desktop-tavern.yaml:26",
+				"refresh-board-phone-high-contrast.yaml:26",
+				"refresh-board-phone-parchment.yaml:26",
+				"refresh-board-phone-tavern.yaml:26",
+				"refresh-board-rail-high-contrast.yaml:26",
+				"refresh-board-rail-parchment.yaml:26",
+				"refresh-board-rail-tavern.yaml:26"
 			]
 		},
 		{
@@ -518,15 +518,15 @@
 				"aria-board-desktop.yaml:20",
 				"aria-board-phone.yaml:20",
 				"aria-board-rail.yaml:20",
-				"refresh-board-desktop-high-contrast.yaml:27",
-				"refresh-board-desktop-parchment.yaml:27",
-				"refresh-board-desktop-tavern.yaml:27",
-				"refresh-board-phone-high-contrast.yaml:27",
-				"refresh-board-phone-parchment.yaml:27",
-				"refresh-board-phone-tavern.yaml:27",
-				"refresh-board-rail-high-contrast.yaml:27",
-				"refresh-board-rail-parchment.yaml:27",
-				"refresh-board-rail-tavern.yaml:27"
+				"refresh-board-desktop-high-contrast.yaml:28",
+				"refresh-board-desktop-parchment.yaml:28",
+				"refresh-board-desktop-tavern.yaml:28",
+				"refresh-board-phone-high-contrast.yaml:28",
+				"refresh-board-phone-parchment.yaml:28",
+				"refresh-board-phone-tavern.yaml:28",
+				"refresh-board-rail-high-contrast.yaml:28",
+				"refresh-board-rail-parchment.yaml:28",
+				"refresh-board-rail-tavern.yaml:28"
 			]
 		},
 		{
@@ -536,15 +536,15 @@
 				"aria-board-desktop.yaml:13",
 				"aria-board-phone.yaml:13",
 				"aria-board-rail.yaml:13",
-				"refresh-board-desktop-high-contrast.yaml:21",
-				"refresh-board-desktop-parchment.yaml:21",
-				"refresh-board-desktop-tavern.yaml:21",
-				"refresh-board-phone-high-contrast.yaml:21",
-				"refresh-board-phone-parchment.yaml:21",
-				"refresh-board-phone-tavern.yaml:21",
-				"refresh-board-rail-high-contrast.yaml:21",
-				"refresh-board-rail-parchment.yaml:21",
-				"refresh-board-rail-tavern.yaml:21"
+				"refresh-board-desktop-high-contrast.yaml:22",
+				"refresh-board-desktop-parchment.yaml:22",
+				"refresh-board-desktop-tavern.yaml:22",
+				"refresh-board-phone-high-contrast.yaml:22",
+				"refresh-board-phone-parchment.yaml:22",
+				"refresh-board-phone-tavern.yaml:22",
+				"refresh-board-rail-high-contrast.yaml:22",
+				"refresh-board-rail-parchment.yaml:22",
+				"refresh-board-rail-tavern.yaml:22"
 			]
 		},
 		{
@@ -563,15 +563,15 @@
 				"aria-board-desktop.yaml:15",
 				"aria-board-phone.yaml:15",
 				"aria-board-rail.yaml:15",
-				"refresh-board-desktop-high-contrast.yaml:22",
-				"refresh-board-desktop-parchment.yaml:22",
-				"refresh-board-desktop-tavern.yaml:22",
-				"refresh-board-phone-high-contrast.yaml:22",
-				"refresh-board-phone-parchment.yaml:22",
-				"refresh-board-phone-tavern.yaml:22",
-				"refresh-board-rail-high-contrast.yaml:22",
-				"refresh-board-rail-parchment.yaml:22",
-				"refresh-board-rail-tavern.yaml:22"
+				"refresh-board-desktop-high-contrast.yaml:23",
+				"refresh-board-desktop-parchment.yaml:23",
+				"refresh-board-desktop-tavern.yaml:23",
+				"refresh-board-phone-high-contrast.yaml:23",
+				"refresh-board-phone-parchment.yaml:23",
+				"refresh-board-phone-tavern.yaml:23",
+				"refresh-board-rail-high-contrast.yaml:23",
+				"refresh-board-rail-parchment.yaml:23",
+				"refresh-board-rail-tavern.yaml:23"
 			]
 		},
 		{
@@ -590,15 +590,15 @@
 				"aria-board-desktop.yaml:17",
 				"aria-board-phone.yaml:17",
 				"aria-board-rail.yaml:17",
-				"refresh-board-desktop-high-contrast.yaml:24",
-				"refresh-board-desktop-parchment.yaml:24",
-				"refresh-board-desktop-tavern.yaml:24",
-				"refresh-board-phone-high-contrast.yaml:24",
-				"refresh-board-phone-parchment.yaml:24",
-				"refresh-board-phone-tavern.yaml:24",
-				"refresh-board-rail-high-contrast.yaml:24",
-				"refresh-board-rail-parchment.yaml:24",
-				"refresh-board-rail-tavern.yaml:24"
+				"refresh-board-desktop-high-contrast.yaml:25",
+				"refresh-board-desktop-parchment.yaml:25",
+				"refresh-board-desktop-tavern.yaml:25",
+				"refresh-board-phone-high-contrast.yaml:25",
+				"refresh-board-phone-parchment.yaml:25",
+				"refresh-board-phone-tavern.yaml:25",
+				"refresh-board-rail-high-contrast.yaml:25",
+				"refresh-board-rail-parchment.yaml:25",
+				"refresh-board-rail-tavern.yaml:25"
 			]
 		},
 		{
@@ -607,12 +607,12 @@
 			"occurrences": [
 				"aria-board-desktop.yaml:23",
 				"aria-board-rail.yaml:23",
-				"refresh-board-desktop-high-contrast.yaml:32",
-				"refresh-board-desktop-parchment.yaml:32",
-				"refresh-board-desktop-tavern.yaml:32",
-				"refresh-board-rail-high-contrast.yaml:32",
-				"refresh-board-rail-parchment.yaml:32",
-				"refresh-board-rail-tavern.yaml:32"
+				"refresh-board-desktop-high-contrast.yaml:34",
+				"refresh-board-desktop-parchment.yaml:34",
+				"refresh-board-desktop-tavern.yaml:34",
+				"refresh-board-rail-high-contrast.yaml:34",
+				"refresh-board-rail-parchment.yaml:34",
+				"refresh-board-rail-tavern.yaml:34"
 			]
 		},
 		{
@@ -622,15 +622,15 @@
 				"aria-board-desktop.yaml:28",
 				"aria-board-phone.yaml:24",
 				"aria-board-rail.yaml:28",
-				"refresh-board-desktop-high-contrast.yaml:39",
-				"refresh-board-desktop-parchment.yaml:39",
-				"refresh-board-desktop-tavern.yaml:39",
-				"refresh-board-phone-high-contrast.yaml:35",
-				"refresh-board-phone-parchment.yaml:35",
-				"refresh-board-phone-tavern.yaml:35",
-				"refresh-board-rail-high-contrast.yaml:39",
-				"refresh-board-rail-parchment.yaml:39",
-				"refresh-board-rail-tavern.yaml:39"
+				"refresh-board-desktop-high-contrast.yaml:42",
+				"refresh-board-desktop-parchment.yaml:42",
+				"refresh-board-desktop-tavern.yaml:42",
+				"refresh-board-phone-high-contrast.yaml:38",
+				"refresh-board-phone-parchment.yaml:38",
+				"refresh-board-phone-tavern.yaml:38",
+				"refresh-board-rail-high-contrast.yaml:42",
+				"refresh-board-rail-parchment.yaml:42",
+				"refresh-board-rail-tavern.yaml:42"
 			]
 		},
 		{
@@ -640,15 +640,15 @@
 				"aria-board-desktop.yaml:33",
 				"aria-board-phone.yaml:29",
 				"aria-board-rail.yaml:33",
-				"refresh-board-desktop-high-contrast.yaml:46",
-				"refresh-board-desktop-parchment.yaml:46",
-				"refresh-board-desktop-tavern.yaml:46",
-				"refresh-board-phone-high-contrast.yaml:42",
-				"refresh-board-phone-parchment.yaml:42",
-				"refresh-board-phone-tavern.yaml:42",
-				"refresh-board-rail-high-contrast.yaml:46",
-				"refresh-board-rail-parchment.yaml:46",
-				"refresh-board-rail-tavern.yaml:46"
+				"refresh-board-desktop-high-contrast.yaml:50",
+				"refresh-board-desktop-parchment.yaml:50",
+				"refresh-board-desktop-tavern.yaml:50",
+				"refresh-board-phone-high-contrast.yaml:46",
+				"refresh-board-phone-parchment.yaml:46",
+				"refresh-board-phone-tavern.yaml:46",
+				"refresh-board-rail-high-contrast.yaml:50",
+				"refresh-board-rail-parchment.yaml:50",
+				"refresh-board-rail-tavern.yaml:50"
 			]
 		},
 		{
@@ -658,15 +658,15 @@
 				"aria-board-desktop.yaml:32",
 				"aria-board-phone.yaml:28",
 				"aria-board-rail.yaml:32",
-				"refresh-board-desktop-high-contrast.yaml:45",
-				"refresh-board-desktop-parchment.yaml:45",
-				"refresh-board-desktop-tavern.yaml:45",
-				"refresh-board-phone-high-contrast.yaml:41",
-				"refresh-board-phone-parchment.yaml:41",
-				"refresh-board-phone-tavern.yaml:41",
-				"refresh-board-rail-high-contrast.yaml:45",
-				"refresh-board-rail-parchment.yaml:45",
-				"refresh-board-rail-tavern.yaml:45"
+				"refresh-board-desktop-high-contrast.yaml:49",
+				"refresh-board-desktop-parchment.yaml:49",
+				"refresh-board-desktop-tavern.yaml:49",
+				"refresh-board-phone-high-contrast.yaml:45",
+				"refresh-board-phone-parchment.yaml:45",
+				"refresh-board-phone-tavern.yaml:45",
+				"refresh-board-rail-high-contrast.yaml:49",
+				"refresh-board-rail-parchment.yaml:49",
+				"refresh-board-rail-tavern.yaml:49"
 			]
 		},
 		{
@@ -4697,21 +4697,6 @@
 			"row": "BD-20",
 			"control": "- button \"Zoom in\"",
 			"occurrences": [
-				"refresh-board-desktop-high-contrast.yaml:17",
-				"refresh-board-desktop-parchment.yaml:17",
-				"refresh-board-desktop-tavern.yaml:17",
-				"refresh-board-phone-high-contrast.yaml:17",
-				"refresh-board-phone-parchment.yaml:17",
-				"refresh-board-phone-tavern.yaml:17",
-				"refresh-board-rail-high-contrast.yaml:17",
-				"refresh-board-rail-parchment.yaml:17",
-				"refresh-board-rail-tavern.yaml:17"
-			]
-		},
-		{
-			"row": "BD-20",
-			"control": "- button \"Zoom out\" [disabled]",
-			"occurrences": [
 				"refresh-board-desktop-high-contrast.yaml:18",
 				"refresh-board-desktop-parchment.yaml:18",
 				"refresh-board-desktop-tavern.yaml:18",
@@ -4725,7 +4710,7 @@
 		},
 		{
 			"row": "BD-20",
-			"control": "- button \"Fit\"",
+			"control": "- button \"Zoom out\" [disabled]",
 			"occurrences": [
 				"refresh-board-desktop-high-contrast.yaml:19",
 				"refresh-board-desktop-parchment.yaml:19",
@@ -4740,32 +4725,47 @@
 		},
 		{
 			"row": "BD-20",
+			"control": "- button \"Fit\"",
+			"occurrences": [
+				"refresh-board-desktop-high-contrast.yaml:20",
+				"refresh-board-desktop-parchment.yaml:20",
+				"refresh-board-desktop-tavern.yaml:20",
+				"refresh-board-phone-high-contrast.yaml:20",
+				"refresh-board-phone-parchment.yaml:20",
+				"refresh-board-phone-tavern.yaml:20",
+				"refresh-board-rail-high-contrast.yaml:20",
+				"refresh-board-rail-parchment.yaml:20",
+				"refresh-board-rail-tavern.yaml:20"
+			]
+		},
+		{
+			"row": "BD-20",
 			"control": "- option \"Ruined Keep\" [selected]",
 			"occurrences": [
-				"refresh-board-desktop-high-contrast.yaml:23",
-				"refresh-board-desktop-parchment.yaml:23",
-				"refresh-board-desktop-tavern.yaml:23",
-				"refresh-board-phone-high-contrast.yaml:23",
-				"refresh-board-phone-parchment.yaml:23",
-				"refresh-board-phone-tavern.yaml:23",
-				"refresh-board-rail-high-contrast.yaml:23",
-				"refresh-board-rail-parchment.yaml:23",
-				"refresh-board-rail-tavern.yaml:23"
+				"refresh-board-desktop-high-contrast.yaml:24",
+				"refresh-board-desktop-parchment.yaml:24",
+				"refresh-board-desktop-tavern.yaml:24",
+				"refresh-board-phone-high-contrast.yaml:24",
+				"refresh-board-phone-parchment.yaml:24",
+				"refresh-board-phone-tavern.yaml:24",
+				"refresh-board-rail-high-contrast.yaml:24",
+				"refresh-board-rail-parchment.yaml:24",
+				"refresh-board-rail-tavern.yaml:24"
 			]
 		},
 		{
 			"row": "BD-20",
 			"control": "- button \"Open in editor\"",
 			"occurrences": [
-				"refresh-board-desktop-high-contrast.yaml:26",
-				"refresh-board-desktop-parchment.yaml:26",
-				"refresh-board-desktop-tavern.yaml:26",
-				"refresh-board-phone-high-contrast.yaml:26",
-				"refresh-board-phone-parchment.yaml:26",
-				"refresh-board-phone-tavern.yaml:26",
-				"refresh-board-rail-high-contrast.yaml:26",
-				"refresh-board-rail-parchment.yaml:26",
-				"refresh-board-rail-tavern.yaml:26"
+				"refresh-board-desktop-high-contrast.yaml:27",
+				"refresh-board-desktop-parchment.yaml:27",
+				"refresh-board-desktop-tavern.yaml:27",
+				"refresh-board-phone-high-contrast.yaml:27",
+				"refresh-board-phone-parchment.yaml:27",
+				"refresh-board-phone-tavern.yaml:27",
+				"refresh-board-rail-high-contrast.yaml:27",
+				"refresh-board-rail-parchment.yaml:27",
+				"refresh-board-rail-tavern.yaml:27"
 			]
 		},
 		{
@@ -6145,15 +6145,6 @@
 			"row": "BD-29",
 			"control": "- button \"Adjust hit points — Bog Lurker\" [disabled]: 16/22",
 			"occurrences": [
-				"refresh-board-combat-edit-phone-high-contrast.yaml:9",
-				"refresh-board-combat-edit-phone-parchment.yaml:9",
-				"refresh-board-combat-edit-phone-tavern.yaml:9"
-			]
-		},
-		{
-			"row": "BD-29",
-			"control": "- button \"More actions — Bog Lurker\" [disabled]",
-			"occurrences": [
 				"refresh-board-combat-edit-phone-high-contrast.yaml:10",
 				"refresh-board-combat-edit-phone-parchment.yaml:10",
 				"refresh-board-combat-edit-phone-tavern.yaml:10"
@@ -6161,16 +6152,16 @@
 		},
 		{
 			"row": "BD-29",
-			"control": "- button \"Adjust hit points — Reed Stalker\" [disabled]: 0/14",
+			"control": "- button \"More actions — Bog Lurker\" [disabled]",
 			"occurrences": [
-				"refresh-board-combat-edit-phone-high-contrast.yaml:13",
-				"refresh-board-combat-edit-phone-parchment.yaml:13",
-				"refresh-board-combat-edit-phone-tavern.yaml:13"
+				"refresh-board-combat-edit-phone-high-contrast.yaml:11",
+				"refresh-board-combat-edit-phone-parchment.yaml:11",
+				"refresh-board-combat-edit-phone-tavern.yaml:11"
 			]
 		},
 		{
 			"row": "BD-29",
-			"control": "- button \"More actions — Reed Stalker\" [disabled]",
+			"control": "- button \"Adjust hit points — Reed Stalker\" [disabled]: 0/14",
 			"occurrences": [
 				"refresh-board-combat-edit-phone-high-contrast.yaml:14",
 				"refresh-board-combat-edit-phone-parchment.yaml:14",
@@ -6179,20 +6170,29 @@
 		},
 		{
 			"row": "BD-29",
+			"control": "- button \"More actions — Reed Stalker\" [disabled]",
+			"occurrences": [
+				"refresh-board-combat-edit-phone-high-contrast.yaml:15",
+				"refresh-board-combat-edit-phone-parchment.yaml:15",
+				"refresh-board-combat-edit-phone-tavern.yaml:15"
+			]
+		},
+		{
+			"row": "BD-29",
 			"control": "- button \"Adjust hit points — Marsh Wisp\" [disabled]: 9/9",
 			"occurrences": [
-				"refresh-board-combat-edit-phone-high-contrast.yaml:18",
-				"refresh-board-combat-edit-phone-parchment.yaml:18",
-				"refresh-board-combat-edit-phone-tavern.yaml:18"
+				"refresh-board-combat-edit-phone-high-contrast.yaml:19",
+				"refresh-board-combat-edit-phone-parchment.yaml:19",
+				"refresh-board-combat-edit-phone-tavern.yaml:19"
 			]
 		},
 		{
 			"row": "BD-29",
 			"control": "- button \"More actions — Marsh Wisp\" [disabled]",
 			"occurrences": [
-				"refresh-board-combat-edit-phone-high-contrast.yaml:19",
-				"refresh-board-combat-edit-phone-parchment.yaml:19",
-				"refresh-board-combat-edit-phone-tavern.yaml:19"
+				"refresh-board-combat-edit-phone-high-contrast.yaml:20",
+				"refresh-board-combat-edit-phone-parchment.yaml:20",
+				"refresh-board-combat-edit-phone-tavern.yaml:20"
 			]
 		},
 		{
@@ -6343,32 +6343,23 @@
 			"row": "BD-21",
 			"control": "- button \"Next turn\"",
 			"occurrences": [
-				"refresh-board-combat-live-desktop-high-contrast.yaml:5",
-				"refresh-board-combat-live-desktop-parchment.yaml:5",
-				"refresh-board-combat-live-desktop-tavern.yaml:5",
-				"refresh-board-combat-live-phone-high-contrast.yaml:5",
-				"refresh-board-combat-live-phone-parchment.yaml:5",
-				"refresh-board-combat-live-phone-tavern.yaml:5",
-				"refresh-board-combat-live-rail-high-contrast.yaml:5",
-				"refresh-board-combat-live-rail-parchment.yaml:5",
-				"refresh-board-combat-live-rail-tavern.yaml:5",
-				"refresh-board-combat-tray-phone-high-contrast.yaml:5",
-				"refresh-board-combat-tray-phone-parchment.yaml:5",
-				"refresh-board-combat-tray-phone-tavern.yaml:5"
+				"refresh-board-combat-live-desktop-high-contrast.yaml:6",
+				"refresh-board-combat-live-desktop-parchment.yaml:6",
+				"refresh-board-combat-live-desktop-tavern.yaml:6",
+				"refresh-board-combat-live-phone-high-contrast.yaml:6",
+				"refresh-board-combat-live-phone-parchment.yaml:6",
+				"refresh-board-combat-live-phone-tavern.yaml:6",
+				"refresh-board-combat-live-rail-high-contrast.yaml:6",
+				"refresh-board-combat-live-rail-parchment.yaml:6",
+				"refresh-board-combat-live-rail-tavern.yaml:6",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:6",
+				"refresh-board-combat-tray-phone-parchment.yaml:6",
+				"refresh-board-combat-tray-phone-tavern.yaml:6"
 			]
 		},
 		{
 			"row": "BD-29",
 			"control": "- button \"Adjust hit points — Bog Lurker\": 21/22",
-			"occurrences": [
-				"refresh-board-combat-live-phone-high-contrast.yaml:10",
-				"refresh-board-combat-live-phone-parchment.yaml:10",
-				"refresh-board-combat-live-phone-tavern.yaml:10"
-			]
-		},
-		{
-			"row": "BD-29",
-			"control": "- button \"More actions — Bog Lurker\"",
 			"occurrences": [
 				"refresh-board-combat-live-phone-high-contrast.yaml:11",
 				"refresh-board-combat-live-phone-parchment.yaml:11",
@@ -6377,19 +6368,16 @@
 		},
 		{
 			"row": "BD-29",
-			"control": "- button \"Adjust hit points — Reed Stalker\": 0/14",
+			"control": "- button \"More actions — Bog Lurker\"",
 			"occurrences": [
-				"refresh-board-combat-live-phone-high-contrast.yaml:14",
-				"refresh-board-combat-live-phone-parchment.yaml:14",
-				"refresh-board-combat-live-phone-tavern.yaml:14",
-				"refresh-board-combat-tray-phone-high-contrast.yaml:17",
-				"refresh-board-combat-tray-phone-parchment.yaml:17",
-				"refresh-board-combat-tray-phone-tavern.yaml:17"
+				"refresh-board-combat-live-phone-high-contrast.yaml:12",
+				"refresh-board-combat-live-phone-parchment.yaml:12",
+				"refresh-board-combat-live-phone-tavern.yaml:12"
 			]
 		},
 		{
 			"row": "BD-29",
-			"control": "- button \"More actions — Reed Stalker\"",
+			"control": "- button \"Adjust hit points — Reed Stalker\": 0/14",
 			"occurrences": [
 				"refresh-board-combat-live-phone-high-contrast.yaml:15",
 				"refresh-board-combat-live-phone-parchment.yaml:15",
@@ -6401,19 +6389,19 @@
 		},
 		{
 			"row": "BD-29",
-			"control": "- button \"Adjust hit points — Marsh Wisp\": 9/9",
+			"control": "- button \"More actions — Reed Stalker\"",
 			"occurrences": [
-				"refresh-board-combat-live-phone-high-contrast.yaml:19",
-				"refresh-board-combat-live-phone-parchment.yaml:19",
-				"refresh-board-combat-live-phone-tavern.yaml:19",
-				"refresh-board-combat-tray-phone-high-contrast.yaml:22",
-				"refresh-board-combat-tray-phone-parchment.yaml:22",
-				"refresh-board-combat-tray-phone-tavern.yaml:22"
+				"refresh-board-combat-live-phone-high-contrast.yaml:16",
+				"refresh-board-combat-live-phone-parchment.yaml:16",
+				"refresh-board-combat-live-phone-tavern.yaml:16",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:19",
+				"refresh-board-combat-tray-phone-parchment.yaml:19",
+				"refresh-board-combat-tray-phone-tavern.yaml:19"
 			]
 		},
 		{
 			"row": "BD-29",
-			"control": "- button \"More actions — Marsh Wisp\"",
+			"control": "- button \"Adjust hit points — Marsh Wisp\": 9/9",
 			"occurrences": [
 				"refresh-board-combat-live-phone-high-contrast.yaml:20",
 				"refresh-board-combat-live-phone-parchment.yaml:20",
@@ -6424,17 +6412,20 @@
 			]
 		},
 		{
-			"row": "BD-30",
-			"control": "- button \"Damage\"",
+			"row": "BD-29",
+			"control": "- button \"More actions — Marsh Wisp\"",
 			"occurrences": [
-				"refresh-board-combat-tray-phone-high-contrast.yaml:11",
-				"refresh-board-combat-tray-phone-parchment.yaml:11",
-				"refresh-board-combat-tray-phone-tavern.yaml:11"
+				"refresh-board-combat-live-phone-high-contrast.yaml:21",
+				"refresh-board-combat-live-phone-parchment.yaml:21",
+				"refresh-board-combat-live-phone-tavern.yaml:21",
+				"refresh-board-combat-tray-phone-high-contrast.yaml:24",
+				"refresh-board-combat-tray-phone-parchment.yaml:24",
+				"refresh-board-combat-tray-phone-tavern.yaml:24"
 			]
 		},
 		{
 			"row": "BD-30",
-			"control": "- button \"Heal\"",
+			"control": "- button \"Damage\"",
 			"occurrences": [
 				"refresh-board-combat-tray-phone-high-contrast.yaml:12",
 				"refresh-board-combat-tray-phone-parchment.yaml:12",
@@ -6443,7 +6434,7 @@
 		},
 		{
 			"row": "BD-30",
-			"control": "- button \"Hide Bog Lurker from players\"",
+			"control": "- button \"Heal\"",
 			"occurrences": [
 				"refresh-board-combat-tray-phone-high-contrast.yaml:13",
 				"refresh-board-combat-tray-phone-parchment.yaml:13",
@@ -6452,11 +6443,20 @@
 		},
 		{
 			"row": "BD-30",
-			"control": "- button \"Close quick actions — Bog Lurker\"",
+			"control": "- button \"Hide Bog Lurker from players\"",
 			"occurrences": [
 				"refresh-board-combat-tray-phone-high-contrast.yaml:14",
 				"refresh-board-combat-tray-phone-parchment.yaml:14",
 				"refresh-board-combat-tray-phone-tavern.yaml:14"
+			]
+		},
+		{
+			"row": "BD-30",
+			"control": "- button \"Close quick actions — Bog Lurker\"",
+			"occurrences": [
+				"refresh-board-combat-tray-phone-high-contrast.yaml:15",
+				"refresh-board-combat-tray-phone-parchment.yaml:15",
+				"refresh-board-combat-tray-phone-tavern.yaml:15"
 			]
 		},
 		{
