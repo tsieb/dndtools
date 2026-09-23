@@ -158,3 +158,13 @@
   - Flaky `sfx-events.spec.ts:131` (mobile): its failed try logged `page.goto: net::ERR_INSUFFICIENT_RESOURCES at …/#/session`. This is the first gate log where the resource exhaustion that `32ef11ad` fixes shows up directly.
   - The other flaky failures match known issues: `settings.spec.ts:180` (the environmental stall noted in the /tmp-quota memory note) and `responsive.spec.ts:242` ("left 555px of the main pane unused", which also fails on the base).
 - Attempt 14's A/B holds, because only docs have changed since. As committed, 11 of 24 runs of `sfx-events` + `settings:101` failed. `sfx-events` alone passed 18/18. With the `32ef11ad` config hunks applied, all 24 passed. None of the browser gate failures belong to this story. The gate stays red until `32ef11ad` lands on `loop/rc`. It touches unowned files, so I have not cherry-picked it.
+
+## Attempt 16 (unchanged base; unchanged verdict)
+
+- Entry: clean branch at `bdaeaf7b`. `loop/rc` and `origin/loop/rc` are both still at `f6a8aa36`, 0 commits ahead of this branch. `vite.config.ts` there has no `FULL_RESPONSES`, so `32ef11ad` is still missing. Headroom tools were unavailable, so I read the gate log directly: `.state/attempts/533e3906-…/output.log`. No code changed, and no agents, dispatcher writes, push, promotion or extra loop.
+- Gate result: 1 failed (`[mobile-chromium] settings.spec.ts:101`), 12 flaky, 1262 passed. The printed errors:
+  - 9 `waitReady` `__rt.loaded` timeouts and 1 `locator.waitFor` timeout.
+  - 2 `page.goto: net::ERR_INSUFFICIENT_RESOURCES`, one at `#/session` and one at `#/settings`.
+  - 1 `responsive.spec.ts:242`, which also fails on the base.
+  - No SFX or combat assertion failed. The flaky specs this time include `knowledge.spec.ts` and `audio-presets.spec.ts`, which this story doesn't touch. That fits exhaustion shared across the whole host rather than anything specific to this branch.
+- Verdict as in attempts 12, 14 and 15: the Browser acceptance gate can't pass on any candidate until `32ef11ad` is on `loop/rc`. As of 2026-09-22 it existed only on `dispatch/dndtools/0266d1edb79db814617e`. Re-running this task without that change repeats this result. It needs operator action outside this task's owned paths.
