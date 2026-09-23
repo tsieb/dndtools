@@ -42,3 +42,22 @@
 - The recorded failure does not reproduce as a code defect once the quota is shared by runs that
   have the fix. Until this fix (or `b8ab2bf7`) lands on `loop/rc`, any gate that writes to `/tmp`
   can still fail with -122 when an unfixed e2e run is going elsewhere on the host.
+
+## Repair round 1 — post-rebase `Browser acceptance` exit -15
+
+- The post-rebase gate (attempt `bdd8af7b`, head `e77a61cc`) was stopped by SIGTERM at 23:26:37,
+  after 14 minutes, at test 667 of 1292. Its timeout is 5400 s. The browser gate for `RC-SES-6.1`
+  (`5d8bc6eb`) got SIGTERM 4 s earlier, at 23:26:33, so something outside both candidates stopped
+  them. The host was rebooted soon afterward (uptime at 02:29 was 2 h 40 min).
+- Before the kill, the first desktop axe tests (`/`, `/board`, `/scenes`, `/atlas`, system builder)
+  failed with ~20 s timeouts at 23:12–23:14. The journal shows `chrome-headless` SIGTRAP core
+  dumps in the same window, and the `RC-SES-6.1` gate (a base without the 304 fix) was running
+  alongside. `/atlas` failed all three tries, but the reporter was killed before it could print
+  the failure details.
+- Re-run on this branch at `e77a61cc` with the gate's own command, `pnpm e2e --workers=2 --retries=2`,
+  sampling `quota -w` every 20 s: exit 0, 1275 passed, 17 skipped, 0 failed, 0 flaky, in 19.3 min.
+  No `-122` and no `ERR_INSUFFICIENT_RESOURCES`. `/tmp` peaked at 266 MB.
+- Also: `a11y-axe-gate.spec.ts` on both projects passed 58/58. `/atlas`, `/scenes` and the system
+  builder, desktop, `--repeat-each=8`, passed 24/24.
+- No code change in this round. `loop/rc` is still at `df379bf7` (without the fix), and this branch
+  merges into it cleanly.
