@@ -333,3 +333,44 @@ being rerun with the final Panel fix.
 - `git diff --check`: clean. Final journal formatting and the changed-file format gate
   are checked again before commit. Only spacing.css, screen-kit.tsx and the requested
   journal change in this revision. No push, promotion or dispatcher state mutation.
+
+## Revision 7 — keep the DS Card in step with the sandbox kit (2026-09-23)
+
+Read the original gate failure in attempt `38e001fd-435c-4141-b7f7-714f938c5b88/output.log`.
+The full e2e run had 1238 passes and two failures, `widget-kit.spec.ts:238` on both
+profiles. In `tavern/compact`, the DS Card from the gallery rendered 12px of padding and
+the Torchlight kit Card rendered 16px. Revision 6 had set `--component-card-padding` in the
+comfortable/compact sets and the Android lock. The kit (`public/widget-kit.css`, not owned)
+copies each density set separately and has no such override, so the two copies diverged.
+
+Fix, inside owned paths only:
+
+- `spacing.css`: remove the three `--component-card-padding` density overrides. The DS
+  Card (and the kit copy) go back to their base 16px in every density. The story's card
+  density lives on `--density-card-padding`, which the Panel reads (the app's card, used by
+  every Settings section). The audit comment now says which token carries the 16/16/12.
+- `responsive.spec.ts`: the density probe reads `--density-card-padding` instead of
+  `--component-card-padding`. Everything else stays the same, including the Panel
+  `padding-top` checks (16/16/12, and 16 under the Android lock).
+
+Declined alternative: adding a compact card override to `widget-kit.css`. That would make
+the DS Card follow density too, but the file is outside `Owns`, and the acceptance
+criterion (`responsive.spec` target-size checks) is met without it. If the DS Card should
+also follow 16/12, that needs a follow-up that owns the kit and `widgetKit.test.ts` together.
+No NavRail or screen-kit edit in this revision.
+
+### Revision 7 verification
+
+- `pnpm test:app` (it ran the full app suite; the file filter was ignored): 142 files,
+  **1551 passed**, exit 0. This includes `widgetKit.test.ts`.
+- `widget-kit.spec.ts` + `responsive.spec.ts`, both Chromium projects, two workers, port
+  5611: **113 passed, 1 failed**, raw log `/tmp/rc-dsn14-rev7-e2e.log`. `widget-kit.spec.ts:238`
+  passed on both profiles, as did every density and target-size test. The one failure was
+  `responsive.spec.ts:1523` (standalone `/play` skip link, desktop): the first Tab press
+  left the link `inactive`. Re-run alone with `--repeat-each=3`, it passed **6/6**
+  across both profiles. `/play` renders neither the rail nor a Panel, so this is a
+  focus-timing flake on a loaded machine (load average ~9–11), not caused by this change.
+- `pnpm lint` exit 0 (`/tmp/rc-dsn14-rev7-lint.log`); `eslint` on the spec clean;
+  `pnpm format:check:changed -- --base loop/rc` passes all five files; `git diff --check` clean.
+- `git merge-tree --write-tree loop/rc HEAD` merges cleanly (loop/rc is 57 commits ahead
+  of this branch's base, including a 6-line `responsive.spec.ts` change).

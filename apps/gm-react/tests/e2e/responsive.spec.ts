@@ -519,7 +519,7 @@ async function densityTokenMetrics(page: Page) {
 		const probe = document.createElement('div');
 		probe.style.cssText =
 			'position:absolute;visibility:hidden;display:flex;row-gap:var(--component-list-gap);' +
-			'padding:var(--component-card-padding);min-height:var(--density-nav-item-height);' +
+			'padding:var(--density-card-padding);min-height:var(--density-nav-item-height);' +
 			// A gap, not a width: under border-box the card padding would clamp a 24px width to 32px.
 			'column-gap:var(--density-icon-size)';
 		document.body.append(probe);

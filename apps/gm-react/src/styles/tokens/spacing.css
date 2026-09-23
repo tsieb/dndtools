@@ -30,7 +30,7 @@
 	--component-button-py-sm: var(--space-1-5);
 	--component-input-px: var(--space-3);
 	--component-input-py: var(--space-2);
-	--component-card-padding: var(--space-4); /* 16px default; density sets override below */
+	--component-card-padding: var(--space-4);
 	--component-card-padding-dense: var(--space-3);
 	--component-dialog-padding: var(--space-6);
 	--component-nav-item-px: var(--space-3);
@@ -133,7 +133,9 @@
 	 * (no attribute) = standard (Desktop). public/prepaint.js locks every viewport under 1200px to
 	 * comfortable (>=44px) at boot; the Android runtime is locked below, whatever it stored.
 	 * Audited sizes (RC-DSN-1.4), comfortable / standard / compact:
-	 *   nav item 48 / 36 / 28 · card padding 16 / 16 / 12 · list gap 8 / 4 / 2 ------------- */
+	 *   nav item 48 / 36 / 28 · card padding 16 / 16 / 12 · list gap 8 / 4 / 2
+	 * Card padding is `--density-card-padding` (the app Panel). `--component-card-padding` (DS
+	 * Card) stays 16px because the sandbox widget kit copies it per density. ---------------- */
 	--density-card-padding-compact: var(--space-3);
 	--density-touch-target: 2rem; /* 32px visual (Desktop standard) */
 	--density-focus-target: 2.75rem; /* 44px focus-ring hit extent */
@@ -148,7 +150,6 @@
 }
 
 [data-density='comfortable'] {
-	--component-card-padding: var(--density-card-padding);
 	--density-touch-target: 2.75rem; /* 44px — touch */
 	--density-focus-target: 2.75rem;
 	--density-nav-height: 3rem;
@@ -162,7 +163,6 @@
 }
 
 [data-density='compact'] {
-	--component-card-padding: var(--density-card-padding);
 	--density-touch-target: 1.75rem; /* 28px visual */
 	--density-focus-target: 2.5rem;
 	--density-nav-height: 1.75rem;
@@ -182,7 +182,6 @@
  * rhythm, icons or type underneath it. `html[data-android]` (0,1,1) outranks
  * `[data-density='compact']` (0,1,0) whatever the source order. */
 html[data-android] {
-	--component-card-padding: var(--density-card-padding);
 	--density-nav-item-height: 3rem; /* 48dp */
 	--density-card-padding: var(--space-4);
 	--density-list-gap: var(--space-2);
