@@ -1,12 +1,17 @@
 import {
+	DND5E_SYSTEM_PACKAGE_ID,
 	VAULT_OBJECT_SUBTYPE_KEY,
+	characterLevel,
 	isLiveContentItem,
 	listWidgetLibrary,
 	resolveAddWidgetCommand,
 	type CommandResult,
 	type CoreCommand,
 	type CoreStateSlice,
+	type McpAgentInvocation,
+	type McpAgentToolResult,
 } from '@dndtools/core';
+import { activeLocalVaultId, listLocalVaults } from '../platform/storage/coreStore';
 
 /**
  * demo-seed — populate a FRESH vault with representative campaign content so the prototype resembles
@@ -29,6 +34,8 @@ interface Seedable {
 	readonly state: CoreStateSlice;
 	readonly defaultActorId: string;
 	dispatch(command: CoreCommand): Promise<CommandResult>;
+	/** The runtime's agent pipeline, for the showcase's one staged assistant proposal. */
+	invokeAgentTool?(invocation: McpAgentInvocation): Promise<McpAgentToolResult>;
 }
 
 // Player characters. A PC is authored ONLY through the guided draft flow — `character.quick-create`'s
@@ -313,7 +320,42 @@ function bindableEntity(
 	return null;
 }
 
-export async function seedDemoContent(rt: Seedable): Promise<boolean> {
+// Surface a swallowed rejection in dev so a mis-shaped seed datum is visible, not silently dropped.
+function expect(result: CommandResult, label: string): CommandResult {
+	if (result.status === 'rejected' && import.meta.env.DEV) {
+		console.warn(
+			`[demo-seed] "${label}" was rejected:`,
+			result.rejection?.message ?? result.rejection,
+		);
+	}
+	return result;
+}
+
+/** Whether this document opened the demo vault (RC-UX-3.7). An unreadable catalog is not the demo. */
+export function isDemoVaultDocument(): boolean {
+	try {
+		const id = activeLocalVaultId();
+		return listLocalVaults().some((vault) => vault.id === id && vault.kind === 'demo');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Seed a vault. Every vault that seeds gets the base content below; the demo vault the switcher opens
+ * (RC-UX-3.7) also gets the showcase layer, so every surface has real content to borrow from. The
+ * original vault never gets the showcase: its base seed is the e2e fixture every spec relies on.
+ */
+export async function seedDemoContent(
+	rt: Seedable,
+	options: { showcase?: boolean } = {},
+): Promise<boolean> {
+	const base = await seedBaseContent(rt);
+	const showcase = (options.showcase ?? isDemoVaultDocument()) && (await seedShowcase(rt));
+	return base || showcase;
+}
+
+async function seedBaseContent(rt: Seedable): Promise<boolean> {
 	const actorId = rt.defaultActorId;
 	// Capture emptiness UP FRONT so a partial seed never double-seeds on the next load. Each category
 	// guards independently — a vault seeded before these categories existed still backfills them.
@@ -379,17 +421,6 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		ownerGrantBackfill.length === 0
 	)
 		return false;
-
-	// Surface a swallowed rejection in dev so a mis-shaped seed datum is visible, not silently dropped.
-	const expect = (result: CommandResult, label: string): CommandResult => {
-		if (result.status === 'rejected' && import.meta.env.DEV) {
-			console.warn(
-				`[demo-seed] "${label}" was rejected:`,
-				result.rejection?.message ?? result.rejection,
-			);
-		}
-		return result;
-	};
 
 	try {
 		if (needCharacters) {
@@ -662,4 +693,630 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		return true;
 	}
 	return true;
+}
+
+// ── RC-UX-3.7 — the SHOWCASE layer: the demo vault only ─────────────────────────────────────────
+// The demo vault opened from the vault switcher is where a GM borrows ideas, so every surface gets
+// real content: a system-package switch, a screen with a map tile, a custom widget and a running
+// encounter with tokens, a scene package with audio, quests, typed relationships, saved searches, a
+// level-2 character with resources and one staged assistant proposal. Everything goes through the
+// same commands a GM would dispatch, inside the same single commit as the base seed, and each group
+// guards on its own absence so a partially seeded demo backfills instead of doubling up.
+
+/** A fork of 5e, selected: the Systems screen shows a switched campaign with 5e one click away. */
+const SHOWCASE_SYSTEM = {
+	packageId: 'custom:saltreach-house-rules',
+	displayName: 'Saltreach house rules (5e)',
+} as const;
+
+const SHOWCASE_WIDGET_PACKAGE_ID = 'workspace.tide-clock';
+const SHOWCASE_WIDGET_TYPE = 'tide-clock';
+
+/** A custom widget: sandboxed HTML/CSS/JS written against the documented host API. */
+const SHOWCASE_WIDGET_PACKAGE = {
+	id: SHOWCASE_WIDGET_PACKAGE_ID,
+	version: '1.0.0',
+	displayName: 'Tide clock',
+	widgets: [
+		{
+			type: SHOWCASE_WIDGET_TYPE,
+			version: '1.0.0',
+			displayName: 'Tide clock',
+			author: 'workspace',
+			description: 'A custom widget: when the water turns in the Sunken Crypt.',
+			placement: { surfaces: ['scene'], libraryListed: true },
+			renderEntrypoint: {
+				runtime: 'custom-html-js',
+				sandbox: 'iframe',
+				assetPath: `widgets/${SHOWCASE_WIDGET_TYPE}/index.html`,
+				hostApiVersion: 1,
+			},
+			style: {
+				isolation: 'iframe-document',
+				stylesheetAssetPaths: [`widgets/${SHOWCASE_WIDGET_TYPE}/styles.css`],
+				capabilities: ['css-variables', 'host-theme-tokens'],
+				tokens: [{ name: 'tide', value: '#5f8fa8' }],
+			},
+			supportedProfiles: ['desktop', 'tablet', 'mobile', 'web'],
+			defaultSize: { width: 280, height: 160 },
+			minSize: { width: 200, height: 120 },
+			resizePolicy: 'free',
+			requiredBindings: [],
+			optionalBindings: [],
+			configurationSchema: { type: 'object', additionalProperties: true },
+			capabilitySets: ['manager', 'operator', 'viewer'],
+			commands: [],
+			events: [],
+			hostPermissions: [],
+		},
+	],
+	migrations: [],
+	assets: [
+		{
+			path: `widgets/${SHOWCASE_WIDGET_TYPE}/index.html`,
+			kind: 'html',
+			entrypoint: true,
+			content:
+				'<!doctype html><html><head><link rel="stylesheet" href="./styles.css" /></head><body><h1>Tide clock</h1><p data-tide></p><script src="./main.js"></script></body></html>',
+		},
+		{
+			path: `widgets/${SHOWCASE_WIDGET_TYPE}/styles.css`,
+			kind: 'css',
+			content:
+				'h1 { margin: 0 0 4px; font: 600 14px system-ui, sans-serif; } p { margin: 0; color: var(--widget-tide, #5f8fa8); }',
+		},
+		{
+			path: `widgets/${SHOWCASE_WIDGET_TYPE}/main.js`,
+			kind: 'javascript',
+			content: [
+				'var api = window.dndtoolsWidget;',
+				"var out = api.root.querySelector('[data-tide]');",
+				"function draw(c) { out.textContent = (c && c.tide) || 'The water turns at the eleventh bell.'; }",
+				'api.onRender(function (props) { draw(props.configuration); });',
+				'api.onConfigChanged(draw);',
+			].join('\n'),
+		},
+	],
+	portabilityWarnings: [],
+};
+
+/** The "screen": a map tile, the initiative tracker and the custom widget around a running fight. */
+const SHOWCASE_SCREEN = {
+	name: 'Showdown at the reliquary',
+	description: 'The fight the party walked into: the map, the initiative order and the tide.',
+	visibility: 'dm-only',
+	tags: ['combat', 'showcase'],
+	widgetTypes: ['map', 'initiative-tracker', SHOWCASE_WIDGET_TYPE],
+} as const;
+
+const SHOWCASE_ENCOUNTER = {
+	title: 'Ambush at the reliquary',
+	terrainNotes:
+		'Knee-deep water across the antechamber: difficult terrain. The reliquary seal is warded.',
+	monsters: [
+		{
+			name: 'Drowned acolyte',
+			quantity: 2,
+			challengeRating: 0.5,
+			maxHp: 13,
+			ac: 12,
+			initiative: 12,
+		},
+		{ name: 'Mother Sild', quantity: 1, challengeRating: 3, maxHp: 45, ac: 14, initiative: 14 },
+	],
+	party: { size: 3, averageLevel: 2 },
+} as const;
+
+/**
+ * The package's track is one of the starter-pack loops the app already serves (RC-AUD-1.3), streamed
+ * from this origin: web streams must be http(s), so the base seed's `data:` loop is refused. The seed
+ * plays it only long enough to save the preset, then stops, so opening the demo never starts a drone.
+ */
+function starterTrackUrl(file: string): string | null {
+	if (typeof document === 'undefined') return null;
+	try {
+		const url = new URL(`audio/starter/${file}`, document.baseURI);
+		return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+	} catch {
+		return null;
+	}
+}
+
+const SHOWCASE_SCENE_PACKAGE = {
+	trackFile: 'cavern-drone.wav',
+	trackName: 'Cavern drone (starter pack)',
+	presetName: 'Tides beneath Saltreach',
+	title: 'Landfall at the pier',
+	mood: 'exploration',
+	lightingHint: 'dim',
+	flavorText:
+		'Bells toll across the grey water as the ferry bumps the pier. Somewhere under the planks, the tide is singing.',
+	visibility: 'player-visible',
+} as const;
+
+const SHOWCASE_QUESTS = [
+	{
+		title: 'The missing shipment',
+		status: 'active',
+		visibility: 'dm-only',
+		objectives: [
+			{
+				id: 'find-the-ledger',
+				text: 'Find the dock ledger that lists the lost crates',
+				done: true,
+			},
+			{
+				id: 'follow-the-tide',
+				text: 'Follow the low-tide route to the Sunken Outpost',
+				done: false,
+			},
+			{ id: 'confront-pell', text: 'Ask Dockmaster Pell who sold the tide schedule', done: false },
+		],
+		body: 'Captain Roese wants the crates back before the Watch loses face again. The Brine Hand wants them kept.',
+	},
+	{
+		title: 'Silence the second bell',
+		status: 'paused',
+		visibility: 'dm-only',
+		objectives: [
+			{ id: 'learn-the-rite', text: 'Learn what ringing the Bell twice would wake', done: false },
+			{
+				id: 'reach-the-bell',
+				text: 'Reach the bell tower before the high tide on the 14th',
+				done: false,
+			},
+		],
+		body: 'If the Bell rings twice, Mother Sild stops being in charge. Nobody wants to meet whoever is next.',
+	},
+] as const;
+
+/** Typed relationships are declared in a note's `relations:` front matter (RC-KNW-3.3, note→note). */
+const SHOWCASE_RELATIONS = [
+	{
+		source: 'Faction · The Ashen Hand',
+		relations: [
+			'serves :: The Hollow King stirs',
+			'performs rites in :: The Sunken Crypt — DM notes',
+		],
+	},
+] as const;
+
+/** A quest hook note, so the faction and the quest are connected by typed edges both ways. */
+const SHOWCASE_QUEST_HOOK = {
+	title: 'Quest hook · The missing shipment',
+	visibility: 'dm-only',
+	relations: ['stolen by :: Faction · The Ashen Hand', 'hidden in :: The Sunken Crypt — DM notes'],
+	body: 'Three crates of lamp oil vanished off the Saltreach pier on a moonless low tide. The Watch blames smugglers; the ledger says otherwise.',
+} as const;
+
+const SHOWCASE_SAVED_SEARCHES = [
+	{ name: 'Everything about the cult', filter: { query: 'cult' }, pinned: true },
+	{ name: 'The Sunken Crypt', filter: { query: 'crypt' }, pinned: false },
+] as const;
+
+/** The fighter reaches level 2 and gets his 5e fighter resources. */
+const SHOWCASE_LEVEL_UP = {
+	name: 'Tormund Ironfist',
+	className: 'Fighter',
+	hitPointsGained: 8,
+	resources: [
+		{ id: 'second-wind', name: 'Second Wind', max: 1, recharge: 'short' },
+		{ id: 'action-surge', name: 'Action Surge', max: 1, recharge: 'short' },
+	],
+} as const;
+
+const SHOWCASE_ASSISTANT = {
+	agentId: 'prep-assistant',
+	label: 'Prep assistant',
+	note: 'Campaign Primer',
+	addedParagraph:
+		'Twenty-five years after the Drowning, the bells still toll at low tide, and the Dockworkers’ Union charges double to row anyone past the old keep.',
+} as const;
+
+function withRelations(relations: readonly string[], body: string): string {
+	return `---\nrelations:\n${relations.map((line) => `  - ${line}`).join('\n')}\n---\n${body}`;
+}
+
+/** The first string `field` on any event of an accepted result (ids the command minted). */
+function eventString(result: CommandResult, field: string): string | null {
+	if (result.status !== 'accepted') return null;
+	for (const event of result.events) {
+		const value = (event as Record<string, unknown>)[field];
+		if (typeof value === 'string') return value;
+	}
+	return null;
+}
+
+function liveNoteByTitle(state: CoreStateSlice, title: string) {
+	return Object.values(state.content.items).find(
+		(item) => item.kind === 'note' && item.title === title && isLiveContentItem(item),
+	);
+}
+
+async function placeLibraryWidget(
+	rt: Seedable,
+	sceneId: string,
+	type: string,
+	position: { x: number; y: number },
+): Promise<void> {
+	const entry = listWidgetLibrary(rt.state.widgets, rt.state.permissions, rt.defaultActorId, {
+		profileId: 'desktop',
+		includeUnavailable: false,
+	}).find((candidate) => candidate.type === type);
+	if (!entry) return;
+	const command = resolveAddWidgetCommand(entry, sceneId, position);
+	if (!command) return;
+	const required = entry.requiredBindings[0];
+	const target = required ? bindableEntity(rt.state, required.entityTypes) : null;
+	if (required && !target) return;
+	const binding =
+		required && target
+			? { source: target, mode: required.mode, requiredCapability: required.requiredCapability }
+			: null;
+	expect(
+		await rt.dispatch({
+			type: command.type,
+			actorId: rt.defaultActorId,
+			payload: { ...command.payload, widget: { ...command.payload.widget, binding } },
+		}),
+		`showcase widget ${type}`,
+	);
+}
+
+async function seedShowcase(rt: Seedable): Promise<boolean> {
+	const actorId = rt.defaultActorId;
+	const state = () => rt.state;
+	let seeded = false;
+	const run = async (command: CoreCommand, label: string): Promise<CommandResult> => {
+		const result = expect(await rt.dispatch(command), label);
+		if (result.status === 'accepted') seeded = true;
+		return result;
+	};
+
+	try {
+		// A system-package switch: fork 5e into house rules and play them.
+		if (!state().systems.packages[SHOWCASE_SYSTEM.packageId]) {
+			const forked = await run(
+				{
+					type: 'system.fork',
+					actorId,
+					payload: { sourcePackageId: DND5E_SYSTEM_PACKAGE_ID, ...SHOWCASE_SYSTEM },
+				},
+				'showcase system fork',
+			);
+			if (forked.status === 'accepted') {
+				await run(
+					{ type: 'system.select', actorId, payload: { packageId: SHOWCASE_SYSTEM.packageId } },
+					'showcase system select',
+				);
+			}
+		}
+
+		// The custom widget package, installed and enabled like any workspace package.
+		if (!state().widgets.packages[SHOWCASE_WIDGET_PACKAGE_ID]) {
+			const installed = await run(
+				{
+					type: 'widget.package.install',
+					actorId,
+					payload: { package: SHOWCASE_WIDGET_PACKAGE },
+				},
+				'showcase widget install',
+			);
+			if (installed.status === 'accepted') {
+				await run(
+					{
+						type: 'widget.package.enable',
+						actorId,
+						payload: { packageId: SHOWCASE_WIDGET_PACKAGE_ID },
+					},
+					'showcase widget enable',
+				);
+			}
+		}
+
+		// The level-2 fighter with resources.
+		const fighter = Object.entries(state().characters.characters).find(
+			([, character]) => character.kind === 'pc' && character.name === SHOWCASE_LEVEL_UP.name,
+		);
+		const fighterOwner = DEMO_PCS.find((pc) => pc.name === SHOWCASE_LEVEL_UP.name)!.owner;
+		if (fighter && characterLevel(fighter[1]) < 2) {
+			await run(
+				{
+					type: 'character.apply-advancement',
+					actorId,
+					payload: {
+						characterId: fighter[0],
+						mode: 'milestone',
+						className: SHOWCASE_LEVEL_UP.className,
+						hitPointsGained: SHOWCASE_LEVEL_UP.hitPointsGained,
+					},
+				},
+				'showcase level up',
+			);
+		}
+		for (const resource of SHOWCASE_LEVEL_UP.resources) {
+			if (!fighter || fighter[1].resources?.classResources?.[resource.id]) continue;
+			await run(
+				{
+					type: 'character.set-class-resource',
+					actorId: fighterOwner,
+					payload: { characterId: fighter[0], ...resource },
+				},
+				`showcase resource ${resource.id}`,
+			);
+		}
+
+		// Quests on the Campaign → Quests tab.
+		const hasQuests = Object.values(state().content.items).some(
+			(item) => item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
+		);
+		if (!hasQuests) {
+			for (const quest of SHOWCASE_QUESTS) {
+				await run(
+					{
+						type: 'content.create-object',
+						actorId,
+						payload: {
+							subtype: 'quest',
+							title: quest.title,
+							fields: {
+								title: quest.title,
+								status: quest.status,
+								objectives: quest.objectives.map((objective) => ({ ...objective })),
+							},
+							body: quest.body,
+							visibility: quest.visibility,
+						},
+					},
+					`showcase quest ${quest.title}`,
+				);
+			}
+		}
+
+		// Typed relationships: the faction note declares its ties; the quest hook points back at it.
+		for (const declaration of SHOWCASE_RELATIONS) {
+			const source = liveNoteByTitle(state(), declaration.source);
+			if (!source || source.body.startsWith('---')) continue;
+			await run(
+				{
+					type: 'content.update-item',
+					actorId,
+					payload: { itemId: source.id, body: withRelations(declaration.relations, source.body) },
+				},
+				`showcase relations ${declaration.source}`,
+			);
+		}
+		if (!liveNoteByTitle(state(), SHOWCASE_QUEST_HOOK.title)) {
+			await run(
+				{
+					type: 'content.create-item',
+					actorId,
+					payload: {
+						kind: 'note',
+						title: SHOWCASE_QUEST_HOOK.title,
+						body: withRelations(SHOWCASE_QUEST_HOOK.relations, SHOWCASE_QUEST_HOOK.body),
+						visibility: SHOWCASE_QUEST_HOOK.visibility,
+					},
+				},
+				'showcase quest hook',
+			);
+		}
+
+		if (Object.keys(state().content.savedSearches).length === 0) {
+			for (const search of SHOWCASE_SAVED_SEARCHES) {
+				await run(
+					{
+						type: 'content.create-saved-search',
+						actorId,
+						payload: { name: search.name, filter: { ...search.filter }, pinned: search.pinned },
+					},
+					`showcase saved search ${search.name}`,
+				);
+			}
+		}
+
+		// A scene package: the now-playing track saved as a preset, carried by a scene card.
+		const trackUrl = starterTrackUrl(SHOWCASE_SCENE_PACKAGE.trackFile);
+		if (Object.keys(state().session.sceneCards.cards).length === 0 && trackUrl) {
+			const configured = await run(
+				{
+					type: 'audio.configure-source',
+					actorId,
+					payload: {
+						type: 'web-stream',
+						displayName: SHOWCASE_SCENE_PACKAGE.trackName,
+						url: trackUrl,
+						cacheBehavior: 'cache-required',
+						licenseNote: 'CC0 1.0 Universal (Lamplight starter pack)',
+					},
+				},
+				'showcase audio source',
+			);
+			const sourceId = sourceIdFromResult(configured);
+			let audioPresetId: string | null = null;
+			if (sourceId) {
+				await run(
+					{
+						type: 'session.audio.play',
+						actorId,
+						payload: { sourceId, volume: DEMO_AUDIO.volume, online: true },
+					},
+					'showcase audio play',
+				);
+				audioPresetId = eventString(
+					await run(
+						{
+							type: 'audio.save-preset',
+							actorId,
+							payload: { name: SHOWCASE_SCENE_PACKAGE.presetName, category: 'urban' },
+						},
+						'showcase audio preset',
+					),
+					'presetId',
+				);
+				await run({ type: 'session.audio.stop', actorId, payload: {} }, 'showcase audio stop');
+			}
+			await run(
+				{
+					type: 'scene-card.create',
+					actorId,
+					payload: {
+						title: SHOWCASE_SCENE_PACKAGE.title,
+						mood: SHOWCASE_SCENE_PACKAGE.mood,
+						flavorText: SHOWCASE_SCENE_PACKAGE.flavorText,
+						audioPresetId,
+						lightingHint: SHOWCASE_SCENE_PACKAGE.lightingHint,
+						visibility: SHOWCASE_SCENE_PACKAGE.visibility,
+					},
+				},
+				'showcase scene package',
+			);
+		}
+
+		// The screen: a map tile, the combat tracker and the custom widget, around a running fight.
+		const hasScreen = Object.values(state().scenes.scenes).some(
+			(scene) => scene.name === SHOWCASE_SCREEN.name,
+		);
+		if (!hasScreen) {
+			const created = await run(
+				{
+					type: 'scene.create',
+					actorId,
+					payload: {
+						name: SHOWCASE_SCREEN.name,
+						description: SHOWCASE_SCREEN.description,
+						visibility: SHOWCASE_SCREEN.visibility,
+						tags: [...SHOWCASE_SCREEN.tags],
+					},
+				},
+				'showcase screen',
+			);
+			const sceneId = sceneIdFromResult(created);
+			if (sceneId) {
+				let x = 48;
+				for (const type of SHOWCASE_SCREEN.widgetTypes) {
+					await placeLibraryWidget(rt, sceneId, type, { x, y: 48 });
+					x += 360;
+				}
+				await seedRunningEncounter(rt, run, sceneId);
+			}
+		}
+
+		await seedStagedProposal(rt, run);
+	} catch {
+		// Best-effort, like the base seed: whatever landed commits; the guards retry the rest.
+	}
+	return seeded;
+}
+
+async function seedRunningEncounter(
+	rt: Seedable,
+	run: (command: CoreCommand, label: string) => Promise<CommandResult>,
+	sceneId: string,
+): Promise<void> {
+	const actorId = rt.defaultActorId;
+	const map = Object.values(rt.state.maps.maps).sort((a, b) => a.name.localeCompare(b.name))[0];
+	if (Object.keys(rt.state.encounters.encounters).length > 0) return;
+	if (rt.state.session.combat.status === 'running') return;
+	const party = DEMO_PCS.flatMap((pc) => {
+		const found = Object.entries(rt.state.characters.characters).find(
+			([, character]) => character.kind === 'pc' && character.name === pc.name,
+		);
+		return found
+			? [
+					{
+						kind: 'character' as const,
+						name: pc.name,
+						characterId: found[0],
+						ac: pc.combat.ac,
+						maxHp: pc.combat.maxHp,
+					},
+				]
+			: [];
+	});
+	const built = await run(
+		{
+			type: 'encounter.build',
+			actorId,
+			payload: {
+				title: SHOWCASE_ENCOUNTER.title,
+				combatants: [
+					...party,
+					...SHOWCASE_ENCOUNTER.monsters.map((monster) => ({
+						kind: 'monster' as const,
+						...monster,
+					})),
+				],
+				party: { ...SHOWCASE_ENCOUNTER.party },
+				terrainNotes: SHOWCASE_ENCOUNTER.terrainNotes,
+			},
+		},
+		'showcase encounter',
+	);
+	const encounterId = eventString(built, 'encounterId');
+	if (!encounterId) return;
+	// Combat is live-session state: the session goes live on the screen, the map goes active (so the
+	// start places every combatant's token on it) and the encounter starts.
+	const live = await run(
+		{
+			type: 'session.set-workflow',
+			actorId,
+			payload: { workflow: 'active', activeSceneId: sceneId, title: SHOWCASE_ENCOUNTER.title },
+		},
+		'showcase session live',
+	);
+	if (live.status !== 'accepted') return;
+	if (map) {
+		// The active map lives on the Command Center home, which the Board would otherwise create on
+		// first paint; creating it here binds both map tiles to the same map.
+		if (!rt.state.commandCenter.homeSceneId) {
+			await run({ type: 'command-center.ensure-home', actorId, payload: {} }, 'showcase home');
+		}
+		await run(
+			{ type: 'session.set-active-map', actorId, payload: { mapId: map.id } },
+			'showcase active map',
+		);
+	}
+	await run({ type: 'combat.start', actorId, payload: { encounterId } }, 'showcase combat');
+}
+
+async function seedStagedProposal(
+	rt: Seedable,
+	run: (command: CoreCommand, label: string) => Promise<CommandResult>,
+): Promise<void> {
+	if (!rt.invokeAgentTool || Object.keys(rt.state.mcp.proposals).length > 0) return;
+	const actorId = rt.defaultActorId;
+	const note = liveNoteByTitle(rt.state, SHOWCASE_ASSISTANT.note);
+	if (!note) return;
+	await run({ type: 'mcp.set-enabled', actorId, payload: { enabled: true } }, 'showcase mcp');
+	await run(
+		{
+			type: 'mcp.set-agent-binding',
+			actorId,
+			payload: { agentId: SHOWCASE_ASSISTANT.agentId, actorId, label: SHOWCASE_ASSISTANT.label },
+		},
+		'showcase agent binding',
+	);
+	await run(
+		{
+			type: 'mcp.set-agent-policy',
+			actorId,
+			payload: {
+				agentId: SHOWCASE_ASSISTANT.agentId,
+				mode: 'strict_review',
+				allowedToolIds: ['note.update'],
+			},
+		},
+		'showcase agent policy',
+	);
+	const current = liveNoteByTitle(rt.state, SHOWCASE_ASSISTANT.note)!;
+	await rt.invokeAgentTool({
+		agentId: SHOWCASE_ASSISTANT.agentId,
+		toolId: 'note.update',
+		input: {
+			itemId: current.id,
+			baseRevision: current.revision,
+			body: `${current.body}\n\n${SHOWCASE_ASSISTANT.addedParagraph}`,
+		},
+	});
 }

@@ -40,14 +40,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const [vaultsOpen, setVaultsOpen] = useState(false);
-	const readVaultName = () => {
+	const readVault = () => {
 		try {
-			return listLocalVaults().find((vault) => vault.id === runtime.vaultId)?.name;
+			return listLocalVaults().find((vault) => vault.id === runtime.vaultId);
 		} catch {
 			return undefined;
 		}
 	};
-	const [vaultName, setVaultName] = useState(readVaultName);
+	const [vault, setVault] = useState(readVault);
 	const active = activeSectionId(location.pathname);
 	const go = (id: string) => navigate(SECTION_PATH[id] ?? '/');
 
@@ -210,15 +210,31 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				<span style={{ flex: 1, minWidth: 0 }}>
 					<span
 						style={{
-							display: 'block',
-							font: `600 12.5px ${T.sans}`,
-							color: T.ink,
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
-							whiteSpace: 'nowrap',
+							display: 'flex',
+							alignItems: 'center',
+							gap: T.space.oneHalf,
+							minWidth: 0,
 						}}
 					>
-						{vaultName ?? t('shell.yourCampaign')}
+						<span
+							style={{
+								display: 'block',
+								minWidth: 0,
+								font: `600 12.5px ${T.sans}`,
+								color: T.ink,
+								overflow: 'hidden',
+								textOverflow: 'ellipsis',
+								whiteSpace: 'nowrap',
+							}}
+						>
+							{vault?.name ?? t('shell.yourCampaign')}
+						</span>
+						{/* RC-UX-3.7 — the demo vault is badged wherever its name shows. */}
+						{vault?.kind === 'demo' && (
+							<span style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+								<Badge status="info">{t('vaults.demoBadge')}</Badge>
+							</span>
+						)}
 					</span>
 					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
 						{t('shell.campaignCounts', {
@@ -471,7 +487,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				<Suspense fallback={null}>
 					<VaultSwitcher
 						onClose={() => setVaultsOpen(false)}
-						onChanged={() => setVaultName(readVaultName())}
+						onChanged={() => setVault(readVault())}
 					/>
 				</Suspense>
 			)}

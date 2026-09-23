@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sheet } from '../../ds';
+import { Badge, Sheet } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { activeSectionId, isNavSectionVisible } from '../nav';
@@ -12,9 +12,9 @@ const VaultSwitcher = lazy(() =>
 	import('./VaultSwitcher').then((module) => ({ default: module.VaultSwitcher })),
 );
 
-function currentVaultName(vaultId: string): string | undefined {
+function currentVault(vaultId: string) {
 	try {
-		return listLocalVaults().find((vault) => vault.id === vaultId)?.name;
+		return listLocalVaults().find((vault) => vault.id === vaultId);
 	} catch {
 		return undefined;
 	}
@@ -29,6 +29,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 	const runtime = useRuntime();
 	const [vaultsOpen, setVaultsOpen] = useState(false);
 	const active = activeSectionId(location.pathname);
+	const vault = open ? currentVault(runtime.vaultId) : undefined;
 	const hotIds = new Set(PHONE_TABS.map((s) => s.id));
 	// RC-UX-3.5 — the phone sheet must not leak a usage-gated surface the desktop sidebar keeps
 	// hidden pending its signal (Graph before 3 links).
@@ -54,7 +55,13 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 					<SideRow
 						icon="campaign-scroll"
 						label={t('vaults.title')}
-						sub={open ? currentVaultName(runtime.vaultId) : undefined}
+						sub={vault?.name}
+						// RC-UX-3.7 — the demo vault is badged wherever its name shows.
+						badge={
+							vault?.kind === 'demo' ? (
+								<Badge status="info">{t('vaults.demoBadge')}</Badge>
+							) : undefined
+						}
 						onClick={() => {
 							onClose();
 							setVaultsOpen(true);

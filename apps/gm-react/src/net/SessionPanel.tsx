@@ -3,6 +3,8 @@ import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
 import { useSession } from './SessionContext';
+import { useI18n } from '../i18n';
+import { isDemoLocalVault } from '../platform/storage/coreStore';
 import { MAX_CONNECTION_CODE_CHARS } from './signaling';
 import { MAX_ONLINE_JOIN_CODE_CHARS, encodeJoinCode } from './cloudCrypto';
 import { connectionState, rosterPresence } from './sessionStatus';
@@ -167,6 +169,7 @@ export function JoinSessionButton() {
 }
 
 function JoinModal({ onClose }: { onClose: () => void }) {
+	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
 	const session = useSession();
 	const [offer, setOffer] = useState('');
@@ -237,6 +240,17 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 			setConnectingNearby(false);
 		}
 	};
+
+	// RC-UX-3.7 — the demo vault never joins a table; say so instead of offering dead controls.
+	if (isDemoLocalVault()) {
+		return (
+			<Modal title="Join a table" onClose={onClose}>
+				<p role="status" style={{ margin: 0, font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
+					{t('vaults.demoNoTable')}
+				</p>
+			</Modal>
+		);
+	}
 
 	return (
 		<Modal title="Join a table" onClose={onClose}>

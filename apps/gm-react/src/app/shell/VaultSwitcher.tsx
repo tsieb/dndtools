@@ -3,16 +3,33 @@ import { Badge, Button, Dialog, Field, Input, type DSChangeEvent } from '../../d
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
+	LEGACY_LOCAL_VAULT_ID,
 	createLocalVault,
+	findDemoLocalVault,
+	forgetLocalVaultPreferences,
 	listLocalVaults,
 	reloadLocalVaultDocument,
 	renameLocalVault,
+	resetCoreStorage,
 	type LocalVault,
 } from '../../platform/storage/coreStore';
 
+/** The campaign "Back to my campaign" returns to: the most recently opened one, else the original. */
+function ownCampaignVault(vaults: readonly LocalVault[]): LocalVault | undefined {
+	const campaigns = vaults.filter((vault) => vault.kind === 'campaign');
+	return (
+		[...campaigns]
+			.filter((vault) => vault.lastOpenedAt)
+			.sort((a, b) => b.lastOpenedAt!.localeCompare(a.lastOpenedAt!))[0] ??
+		campaigns.find((vault) => vault.id === LEGACY_LOCAL_VAULT_ID)
+	);
+}
+
 /** Shared management body for the desktop chip, rail and phone More sheet.
  * Opening drains the runtime's writes, stages the choice and reloads the document into that vault.
- * UX-3.7 supplies the demo action; it must create a separate vault before populating it.
+ * RC-UX-3.7: "Explore the demo campaign" opens ONE separate demo vault (created on first use and
+ * seeded on its first load), so the GM's own vaults are never touched. Inside the demo the dialog
+ * offers Reset (wipe it and reseed on reload) and the way back to the GM's own campaign.
  */
 export function VaultSwitcher({
 	onClose,
@@ -41,6 +58,34 @@ export function VaultSwitcher({
 	const [name, setName] = useState('');
 	const [editing, setEditing] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [confirmingReset, setConfirmingReset] = useState(false);
+	const current = vaults.find((vault) => vault.id === runtime.vaultId);
+	const inDemo = current?.kind === 'demo';
+	const home = ownCampaignVault(vaults);
+
+	async function exploreDemo() {
+		const demo = findDemoLocalVault() ?? createLocalVault(t('vaults.demoName'), 'demo');
+		setVaults(listLocalVaults());
+		onChanged();
+		await openVault(demo.id);
+	}
+
+	/** Wipe this document's demo vault, then reload: the next load finds it empty and reseeds it. */
+	async function resetDemo() {
+		const id = runtime.vaultId;
+		// Destructive: act only on a vault the catalog positively lists as the demo.
+		if (listLocalVaults().find((vault) => vault.id === id)?.kind !== 'demo') {
+			throw new Error('Only the demo campaign can be reset.');
+		}
+		await runtime.runExclusiveMaintenance(async () => {
+			await resetCoreStorage();
+			forgetLocalVaultPreferences(id);
+			// Keep later commands behind the lock until the runtime reflects the empty vault, so a
+			// queued write cannot persist the old demo before the reload.
+			await runtime.reloadFromStorage();
+		});
+		reloadLocalVaultDocument();
+	}
 
 	function save(event: FormEvent) {
 		event.preventDefault();
@@ -97,6 +142,7 @@ export function VaultSwitcher({
 							>
 								{vault.name}
 							</Button>
+							{vault.kind === 'demo' && <Badge status="info">{t('vaults.demoBadge')}</Badge>}
 							{vault.id === runtime.vaultId && <Badge>{t('vaults.current')}</Badge>}
 							<Button
 								variant="ghost"
@@ -149,12 +195,42 @@ export function VaultSwitcher({
 						)}
 					</div>
 				</form>
-				{onCreateDemo ? (
-					<Button disabled={busy} onClick={() => void run(onCreateDemo)}>
-						{t('vaults.demo')}
-					</Button>
+				{inDemo ? (
+					<div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+						<p>{t('vaults.demoHint')}</p>
+						{home && (
+							<Button disabled={busy} onClick={() => void run(() => openVault(home.id))}>
+								{t('vaults.demoLeave')}
+							</Button>
+						)}
+						{confirmingReset ? (
+							<div role="group" aria-label={t('vaults.demoReset')}>
+								<p>{t('vaults.demoResetConfirm')}</p>
+								<div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+									<Button variant="danger" disabled={busy} onClick={() => void run(resetDemo)}>
+										{t('vaults.demoResetAction')}
+									</Button>
+									<Button variant="ghost" disabled={busy} onClick={() => setConfirmingReset(false)}>
+										{t('common.action.cancel')}
+									</Button>
+								</div>
+							</div>
+						) : (
+							<Button variant="ghost" disabled={busy} onClick={() => setConfirmingReset(true)}>
+								{t('vaults.demoReset')}
+							</Button>
+						)}
+					</div>
 				) : (
-					<p>{t('vaults.demoUnavailable')}</p>
+					<div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+						<Button
+							disabled={busy || !!catalog.error}
+							onClick={() => void run(onCreateDemo ?? exploreDemo)}
+						>
+							{t('vaults.demo')}
+						</Button>
+						<p>{t('vaults.demoHint')}</p>
+					</div>
 				)}
 			</div>
 		</Dialog>

@@ -187,3 +187,24 @@ describe('local-vault-scoped cloud backup (RC-UX-5.4)', () => {
 		expect(window.localStorage.getItem('dndtools:react:pending-vault-key-deletions')).toBeNull();
 	});
 });
+
+describe('the demo vault is never synced (RC-UX-3.7)', () => {
+	it('refuses cloud backup in the demo vault, even with an opt-in recorded elsewhere', async () => {
+		await setCloudSyncEnabled(true, 'account-a');
+		const demo = createLocalVault('Demo campaign', 'demo');
+		selectLocalVaultForNextLoad(demo.id);
+		coreStoreTesting.resetVaultSession();
+
+		const status = await getCloudSyncStatus('account-a');
+		expect(status.vaultSupported).toBe(false);
+		expect(status.canEnableOnThisDevice).toBe(false);
+		expect(status.gate.enabled).toBe(false);
+		await expect(setCloudSyncEnabled(true, 'account-a')).rejects.toThrow(
+			/demo campaign is never synced or backed up/,
+		);
+		expect(cloudSyncIntent('account-a')).toBe(false);
+		// Asked about by id from another document, the answer is the same.
+		coreStoreTesting.resetVaultSession();
+		expect((await getCloudSyncStatus('account-a', demo.id)).vaultSupported).toBe(false);
+	});
+});

@@ -20,6 +20,7 @@ import { hasDurableSecretStoreBridge } from './secureStore';
 import { vaultKeyManager } from './vaultKey';
 import {
 	activeLocalVaultId,
+	isDemoLocalVault,
 	LEGACY_LOCAL_VAULT_ID,
 	listLocalVaults,
 	vaultPreferenceKey,
@@ -109,7 +110,8 @@ export function documentCloudVaultId(): string | null {
  * rather than writing into, or restoring from, the original vault's cloud copy.
  */
 export function cloudBackupSupportedFor(vaultId: string | null): boolean {
-	return vaultId === LEGACY_LOCAL_VAULT_ID;
+	// RC-UX-3.7 — the demo vault is never synced, even once the server accepts more vaults.
+	return vaultId === LEGACY_LOCAL_VAULT_ID && !isDemoLocalVault(vaultId);
 }
 
 function enableFlagFor(
@@ -203,11 +205,13 @@ export async function setCloudSyncEnabled(
 		const status = await getCloudSyncStatus(accountId, vaultId);
 		if (!status.canEnableOnThisDevice) {
 			throw new Error(
-				!status.vaultSupported
-					? 'Encrypted cloud backup covers your original campaign vault only. This vault stays on this device.'
-					: status.custodyAvailable
-						? 'Secure cloud backup is not available on this device.'
-						: 'Cloud backup needs the desktop app and an available operating-system credential store.',
+				vaultId !== null && vaultId !== LEGACY_LOCAL_VAULT_ID && isDemoLocalVault(vaultId)
+					? 'The demo campaign is never synced or backed up. Open your own campaign to turn on cloud backup.'
+					: !status.vaultSupported
+						? 'Encrypted cloud backup covers your original campaign vault only. This vault stays on this device.'
+						: status.custodyAvailable
+							? 'Secure cloud backup is not available on this device.'
+							: 'Cloud backup needs the desktop app and an available operating-system credential store.',
 			);
 		}
 	}
