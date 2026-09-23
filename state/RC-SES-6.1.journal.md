@@ -149,3 +149,12 @@
   - `sfx-events.spec.ts` alone passed 18/18 (`…-sfx-alone.log`).
   - With `32ef11ad`'s config hunks applied uncommitted, 24/24 passed (`…-e2e-withfix.log`). The hunks were reverted afterwards.
 - So nothing left in the browser gate belongs to this story. It stays red until `32ef11ad` lands on `loop/rc`. That commit touches unowned `vite.config.ts` and `playwright.config.ts`, so it was not cherry-picked here.
+
+## Attempt 15 (same base defect; now visible directly in the gate log)
+
+- Entry: clean branch at `37733d91`. Rebased onto `loop/rc` `f6a8aa36` (= `origin/loop/rc`). The rebase was clean. That tip adds only `promotion-recovery-f691d2271daa.md`, and it still lacks `32ef11ad`. No code changed; this commit adds only the journal. Headroom tools were unavailable, so I read the gate log directly: `.state/attempts/2a45f5f5-…/output.log`. No agents, dispatcher writes, push, promotion or extra loop.
+- Gate result: 2 failed, 7 flaky, 1266 passed.
+  - Hard failures: `settings.spec.ts:101` on both profiles. All four printed failure blocks with this signature are `waitReady` `__rt.loaded` timeouts.
+  - Flaky `sfx-events.spec.ts:131` (mobile): its failed try logged `page.goto: net::ERR_INSUFFICIENT_RESOURCES at …/#/session`. This is the first gate log where the resource exhaustion that `32ef11ad` fixes shows up directly.
+  - The other flaky failures match known issues: `settings.spec.ts:180` (the environmental stall noted in the /tmp-quota memory note) and `responsive.spec.ts:242` ("left 555px of the main pane unused", which also fails on the base).
+- Attempt 14's A/B holds, because only docs have changed since. As committed, 11 of 24 runs of `sfx-events` + `settings:101` failed. `sfx-events` alone passed 18/18. With the `32ef11ad` config hunks applied, all 24 passed. None of the browser gate failures belong to this story. The gate stays red until `32ef11ad` lands on `loop/rc`. It touches unowned files, so I have not cherry-picked it.
