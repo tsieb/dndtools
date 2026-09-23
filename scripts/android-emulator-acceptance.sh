@@ -19,6 +19,9 @@ fail() {
 	adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' >&2 || true
 	adb shell dumpsys activity activities 2>/dev/null | tail -120 >&2 || true
 	adb logcat -d -t 300 '*:E' >&2 || true
+	# The ANR report (reason, pending event, CPU load) is usually older than the last 300 lines.
+	adb logcat -d -b main,system,crash 2>/dev/null \
+		| grep -E -A40 'ANR in |Input dispatching timed out' | tail -120 >&2 || true
 	exit 1
 }
 
@@ -145,6 +148,28 @@ wait_for_root_destination() {
 				return 0
 			fi
 		done
+		sleep 1
+	done
+	return 1
+}
+
+# uiautomator stamps the display rotation on the dump root (`<hierarchy rotation="N">`) and only
+# dumps an idle UI. Require the app's own activity window (not the ANR dialog, whose title also
+# names the package) to hold focus and two consecutive dumps at the expected rotation, so the next
+# configuration change is not stacked on a relayout the WebView is still drawing.
+wait_for_settled_app_rotation() {
+	local expected=$1
+	local ui='' focus='' settled=0
+	for _ in {1..45}; do
+		focus=$(focused_window)
+		ui=$(dump_ui || true)
+		if [[ "$focus" == "$PACKAGE_ID/"* && "$ui" == *"rotation=\"$expected\""* \
+			&& "$ui" == *"package=\"$PACKAGE_ID\""* ]]; then
+			((settled += 1))
+			[[ "$settled" -ge 2 ]] && return 0
+		else
+			settled=0
+		fi
 		sleep 1
 	done
 	return 1
@@ -555,9 +580,12 @@ wait_for_root_destination || fail 'new-process restart did not render the root d
 step 'rotation and root Back minimize'
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
-sleep 2
 [[ "$(adb shell settings get system user_rotation | tr -d '\r')" == 1 ]] \
 	|| fail 'rotation setting was not applied'
+# A fixed 2s pause then an immediate portrait restore stacked two WebView relayouts on the
+# software-GPU emulator; the main thread stalled into an ANR dialog and the root destination never
+# re-rendered. Let landscape settle before restoring portrait.
+wait_for_settled_app_rotation 1 || fail 'the app did not settle in landscape'
 [[ "$(wait_for_pid)" == "$NEW_PID" ]] || fail 'rotation recreated the app process unexpectedly'
 if [[ -n "$PRIVATE_ACCESS" ]]; then
 	private_path_exists "$VAULT_PATH" || fail 'vault disappeared during rotation'
@@ -565,6 +593,7 @@ fi
 adb shell settings put system user_rotation 0
 [[ "$(adb shell settings get system user_rotation | tr -d '\r')" == 0 ]] \
 	|| fail 'portrait rotation setting was not restored'
+wait_for_settled_app_rotation 0 || fail 'the app did not settle back in portrait'
 # Let the portrait relayout settle (uiautomator only dumps an idle UI) before the Back below.
 wait_for_root_destination || fail 'rotation back to portrait did not re-render the root destination'
 

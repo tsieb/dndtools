@@ -99,6 +99,33 @@ describe('Android emulator acceptance gate', () => {
 		expect(settles(rotatePortrait, minimizeBack), 'Back before portrait settled').toBe(true);
 	});
 
+	it('lets each rotation settle in the app window before the next configuration change', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+
+		// Restoring portrait 2s after landscape stacked two WebView relayouts on the software-GPU
+		// emulator and raised an ANR dialog, so the root destination never re-rendered. Each rotation
+		// must be observed on the app's own window (the ANR dialog title also names the package).
+		expect(source).toContain('rotation=\\"$expected\\"');
+		expect(source).toContain('"$focus" == "$PACKAGE_ID/"*');
+		const lines = source.split('\n');
+		const rotateLandscape = lines.indexOf('adb shell settings put system user_rotation 1');
+		const rotatePortrait = lines.indexOf('adb shell settings put system user_rotation 0');
+		const minimizeBack = lines.indexOf('adb shell input keyevent KEYCODE_BACK', rotatePortrait);
+		const settledAt = (rotation: number) =>
+			lines.findIndex((line) =>
+				line.startsWith(`wait_for_settled_app_rotation ${rotation} || fail`),
+			);
+		expect(settledAt(1), 'portrait restored before landscape settled').toBeGreaterThan(
+			rotateLandscape,
+		);
+		expect(settledAt(1)).toBeLessThan(rotatePortrait);
+		expect(settledAt(0), 'Back before the portrait rotation settled').toBeGreaterThan(
+			rotatePortrait,
+		);
+		expect(settledAt(0)).toBeLessThan(minimizeBack);
+		expect(source).toContain('ANR in ');
+	});
+
 	it('runs instrumentation and the shared script in CI and signed release emulators', () => {
 		const ci = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
