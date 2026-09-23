@@ -70,9 +70,20 @@ export function BoardEmptyState({
 				inset: 0,
 				overflow: 'auto',
 				background: 'var(--color-bg)',
+				// Like the canvas's own empty message, the overlay lets pointers through: a click beside
+				// the actions still focuses the canvas, so its keyboard shortcuts (Ctrl+Z after removing
+				// the last tile) stay reachable. Only the actions take the pointer.
+				pointerEvents: 'none',
 			}}
 			action={
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+				<div
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 'var(--space-2)',
+						pointerEvents: 'auto',
+					}}
+				>
 					{/* The first action is the subtle accent, not the gold fill: the canvas's selected
 					    zoom step already holds this region's one primary (RC-ENG-8.4 emphasis rule). */}
 					<Button variant="accent" icon="plus" onClick={onAdd}>

@@ -59,3 +59,16 @@
   unchanged.
 - Full `pnpm lint` exits 0 (emphasis 61/61 at baseline). Typecheck, `format:check:changed
 -- --base loop/rc`, and e2e `scene-templates` + `canvas-keyboard` 14/14 (desktop + mobile) passed.
+
+## Retry 2026-09-23 — Browser acceptance
+
+- Gate run `981bdd02` (head `466b2e2a`): `canvas.spec.ts:393` failed on all 6 attempts (desktop +
+  mobile). The empty-state overlay (opaque, `inset: 0`) intercepted the click that focuses the
+  canvas after the last tile is removed, so Ctrl+Z was unreachable. This was a real regression
+  from this story. `custom-widgets:742` was flaky (passed on retry) with the known base signature
+  ("0:59" expected, "Paused 1:59" received), which is unrelated.
+- Fix: the overlay is `pointer-events: none` (as the canvas's own empty message was), and only the
+  action column takes pointer input. Clicks beside the actions reach and focus the canvas.
+- On the fixed tree: `canvas`, `scene-templates` and `canvas-keyboard` e2e passed 96/96 (desktop +
+  mobile). App typecheck and full `pnpm lint` passed. `custom-widgets:742` with repeat-each 3 failed
+  2/6, both with the known base-flake signature.
