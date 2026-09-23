@@ -73,7 +73,9 @@ export function BoardEmptyState({
 			}}
 			action={
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-					<Button variant="primary" icon="plus" onClick={onAdd}>
+					{/* The first action is the subtle accent, not the gold fill: the canvas's selected
+					    zoom step already holds this region's one primary (RC-ENG-8.4 emphasis rule). */}
+					<Button variant="accent" icon="plus" onClick={onAdd}>
 						{t('board.addFirstTile')}
 					</Button>
 					{!repeat && (

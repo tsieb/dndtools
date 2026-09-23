@@ -47,3 +47,15 @@
 - E2E (desktop + mobile Chromium): `scene-templates.spec.ts` 10/10; `flow-layout`,
   `player-preview`, `canvas-keyboard` 22/22.
 - Central gates and independent review are still pending. Nothing was pushed or promoted.
+
+## Retry 2026-09-23 — Lint gate (emphasis)
+
+- Gate run `b559b356` failed only on `lint:emphasis`, rule `multiple-accent-primaries`: Board.tsx
+  3 > 2 and sceneEditor/index.tsx 4 > 3. The cause was the gold "Add your first tile" button. The
+  canvas's selected zoom step already holds the region's one gold primary, so the empty state
+  added a second.
+- Fix: the first action now uses `variant="accent"` (subtle accent), following RC-ENG-8.4's "Done"
+  precedent in Board.tsx. It still outranks the secondary "Apply a template". The baseline is
+  unchanged.
+- Full `pnpm lint` exits 0 (emphasis 61/61 at baseline). Typecheck, `format:check:changed
+-- --base loop/rc`, and e2e `scene-templates` + `canvas-keyboard` 14/14 (desktop + mobile) passed.
