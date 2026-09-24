@@ -48,7 +48,7 @@ dispatcher state changes, additional agents, push or promotion.
   button and shifts the existing utility controls left. The content below the top bar
   is unchanged in those captures.
 - Read `HelpLauncher`, its conditional mount in `TopBar.tsx`, the visual spec, the pinned
-  container wrapper and [the baseline-update policy](../development/TESTING.md).
+  container wrapper and [the baseline-update policy](../TESTING.md).
   The launcher is deliberately mounted only above phone width, where the footer is
   absent. This minimal shell integration remains necessary for guide reachability.
 - Reproduced with the pinned image using the command below. All six failed image pairs
@@ -73,7 +73,7 @@ From the repository root:
 
 ### Required operator handoff
 
-[TESTING.md](../development/TESTING.md) requires intentional pixel changes to update their
+[TESTING.md](../TESTING.md) requires intentional pixel changes to update their
 baselines in the same PR and requires a reviewer to inspect those changes. The operator
 must assign the affected snapshot paths to this task or arrange a baseline-owner change:
 

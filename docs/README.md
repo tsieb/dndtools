@@ -23,8 +23,6 @@ the implementation references below each page are for maintainers and are hidden
 - [Privacy modes](user/privacy-modes.md)
 - [Android/desktop install](user/android-desktop-install.md)
 
-Source-review scope and validation: [RC-DOC-1.3 journal](user/RC-DOC-1.3.journal.md).
-
 ## Map
 
 | Question                                 | Read                                                                                  |

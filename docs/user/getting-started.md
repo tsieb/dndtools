@@ -8,6 +8,8 @@ A vault is the campaign stored on this device. On first launch, choose **Get sta
 
 Pick the amount of detail you want on screen and work through the remaining setup steps. You can change the experience level later in Settings. Start small if you are learning; advanced authoring does not need to be part of your first evening.
 
+Each campaign can live in its own vault. To add one or switch between them, open **Local vaults**: the campaign card near the top of the sidebar, the button at the top of the narrow rail, or **More** on a phone.
+
 ## Find your table
 
 **Command Center** is your starting point. **GM Screen** holds the widgets you want beside you. **Session** holds live play; **Characters**, **Maps**, and **Notes** hold your material. On a phone, use **More** for destinations that do not fit in the bottom bar. Your chosen game system may use a different name for the GM.
@@ -34,3 +36,10 @@ Additional source check: 2026-09-20, task baseline `45f59ee4` (app 0.3.7).
 - [TopBar.tsx](../../apps/gm-react/src/app/shell/TopBar.tsx)
 - [Footer.tsx](../../apps/gm-react/src/app/shell/Footer.tsx)
 - [help-guides.spec.ts](../../apps/gm-react/tests/e2e/help-guides.spec.ts)
+
+Vault switching check: 2026-09-23, merged `loop/rc` `74b4fb64` (RC-UX-5.4).
+
+- [VaultSwitcher.tsx](../../apps/gm-react/src/app/shell/VaultSwitcher.tsx)
+- [Sidebar.tsx](../../apps/gm-react/src/app/shell/Sidebar.tsx)
+- [RailNav.tsx](../../apps/gm-react/src/app/shell/RailNav.tsx)
+- [MoreSheet.tsx](../../apps/gm-react/src/app/shell/MoreSheet.tsx)
