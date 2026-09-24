@@ -16,7 +16,7 @@ Cloud-Enhanced records consent for future service-readable storage, encrypted in
 
 ## Change the choice or save a recovery key
 
-Open **Settings → Sync** to inspect the mode or request a switch. Read the dialog and type its confirmation phrase. Once service-readable storage becomes available, switching back cannot undo access that already happened.
+Open **Settings → Backup & history** to inspect the mode or request a switch. Read the dialog and type its confirmation phrase. Once service-readable storage becomes available, switching back cannot undo access that already happened.
 
 The same area holds recovery-key export and import. These controls require a signed-in account and available key custody. When available, export a recovery file with a passphrase and keep both safe. On a replacement device, import that file using the same passphrase. A recovery key unlocks an encrypted backup; it is not itself a copy of your campaign or its media.
 

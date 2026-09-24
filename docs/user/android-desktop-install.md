@@ -6,7 +6,7 @@ Choose the screen that suits your table. Lamplight has a browser app, a desktop 
 
 Use the installer supplied with your Lamplight release for your operating system. Close the running app before installing an upgrade, then reopen it and check that your vault is present. Keep a vault export before changing devices or replacing an installation.
 
-In the packaged desktop app, the App updates panel in Settings lets you check, download, and install an update explicitly. Wait for a break in play before installing. Some builds, including Linux distribution packages and development builds without an update feed, do not offer those buttons; use the distribution method that supplied your build. If verification fails, read the reported reason and keep the current version.
+In the packaged desktop app, the **App updates** panel in **Settings → About & diagnostics** lets you check, download, and install an update explicitly. Wait for a break in play before installing. Some builds, including Linux distribution packages and development builds without an update feed, do not offer those buttons; use the distribution method that supplied your build. If verification fails, read the reported reason and keep the current version.
 
 ## Android
 

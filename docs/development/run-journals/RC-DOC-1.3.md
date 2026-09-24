@@ -1,6 +1,65 @@
 # RC-DOC-1.3 run journal
 
-## Repeated gate failure — 2026-09-20
+## Baselines updated, visual gate green — 2026-09-23
+
+**The ownership blocker recorded below was wrong.** The dispatcher manifest
+(`~/Programming/agent-dispatcher/manifests/dndtools.json`, `companion_paths`) has granted
+`apps/gm-react/tests/visual/__screenshots__/*` to every task since the 2026-09-19 CI repair
+(`docs/CI-REPAIR-2026-09-19.md` in that repo: "Intentional baseline PNG updates are permitted as
+companion paths"). The two earlier runs checked only the story's `Owns` line. This run updates
+the 60 baselines itself. It did not touch dispatcher state.
+
+### What changed
+
+- Merged `loop/rc` twice: at `74b4fb64`, and again at `e21ec234` after RC-UX-4.4 landed its
+  copy pass and a 48-route re-baseline mid-run. Both merges were clean. The first set of
+  regenerated PNGs was thrown away before the second merge so it could not fight RC-UX-4.4's
+  baselines.
+- Regenerated with the pinned container wrapper (`--update-snapshots=changed`). Exactly the 60
+  predicted files changed: 10 routes × 3 themes at desktop and rail. Phone captures did not change.
+- Compared every old/new pair with Pillow (`ImageChops.difference`, run via
+  `uv run --with pillow`). In 58 pairs every differing pixel is within y ≤ 65, x ≥ 570: the
+  right-hand utility group, where the Help button appears and the other utilities shift left.
+  Two rail `/player` pairs also differ below the bar: 94 pixels around the Speed stat icon,
+  max channel delta 34 (most ≤ 9), and 1 on high contrast. I viewed the parchment pair side by
+  side; the content is identical, so this is anti-aliasing. I also viewed desktop Command Center
+  and Scene editor. The other PNGs were checked by pixel bounds only, not viewed one by one.
+- On the intermediate `74b4fb64` merge, desktop diffs also covered the sidebar campaign chip
+  (chevron `>` → `⌄`) and a white `scene-editor--parchment` canvas. Both came from `loop/rc`
+  being mid-change and are gone at `e21ec234`; nothing from that run was committed.
+- Moved this journal out of `docs/user/` (reader-facing) to `docs/development/run-journals/`,
+  a manifest journal path the docs checker covers by directory link. Removed its link from the
+  user-guide section of `docs/README.md`.
+- Re-checked the guides against the merged source. Fixed three wrong Settings paths:
+  privacy mode and vault export are in **Settings → Backup & history** (`SettingsSync` mounts
+  `VaultPrivacyPanel`; `settings.nav.sync`), and **App updates** is under **About & diagnostics**
+  (`About.tsx` mounts `AppUpdatesPanel`). "Settings → Sync" had been wrong since the first
+  candidate. Changed **GM Screen** to **GM screen** to match `nav.gmScreen`. Getting started now
+  says where **Local vaults** opens (sidebar campaign card, rail header button, More on a phone).
+  It does not mention the sample campaign: no shell caller passes `onCreateDemo`, so the switcher
+  shows "The sample campaign is not available here yet."
+- The join-flow strings (`Invite code from your DM`, `Tables on your network`, …) are not in
+  `en.ts`. They are literals in `net/SessionPanel.tsx`, where they still exist.
+- `NAVIGATION.md` §4 now says Help stays an icon-only 44px button at both tiers. The table's
+  "same controls with their labels" row would otherwise suggest it gains a label at ≥1280px.
+
+### Validation (repository root, at the final tree)
+
+- `CI=1 DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --retries=0`:
+  exit 0, **135 passed**. `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: 135 files,
+  12526 KiB of 32768 KiB.
+- `pnpm gates`: exit 0. "docs check passed: 273 file(s) reachable from docs/README.md, 390
+  relative link(s) resolved" (RC-DOC-2.2's checker).
+- `pnpm --filter @dndtools/gm-react typecheck`, ESLint on the three touched code files, and
+  Prettier on every changed doc and code file: passed.
+- `CI=1 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/help-guides.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/responsive.spec.ts tests/e2e/a11y-axe-gate.spec.ts tests/e2e/session-posture.spec.ts tests/e2e/ux-audit.spec.ts tests/e2e/authoring-layout.spec.ts --workers=2 --retries=0`:
+  exit 0, 257 passed, 1 skipped, both Chromium projects. Every guide opens from Help at desktop,
+  rail and phone widths.
+- The full Playwright suite was not rerun on this tree. Independent review is still the central
+  operator's step. Native installs, a live remote table, cloud recovery and offline reopen were
+  not exercised.
+
+## Repeated gate failure — 2026-09-20 (superseded: see above)
 
 At clean HEAD `cedc5f905652b4883f8c5407ffaaf6d8c75ab952`, the operator reran the
 unchanged candidate. Read the original logs supplied for quality run
@@ -28,7 +87,7 @@ changes were made, and no further full-suite rerun was needed to reproduce evide
 already supplied for this exact HEAD. Independent review and visual validation remain
 pending. This commit only updates the journal with the repeated gate evidence.
 
-## Visual-gate investigation — 2026-09-20
+## Visual-gate investigation — 2026-09-20 (superseded: see above)
 
 **Blocked on visual-baseline ownership; the visual gate is still failing.** Started clean
 at `e2338384728d59caeb5dee7fb79b29535e921e8f`. The current task owns the Help menu,
