@@ -10,6 +10,7 @@ import {
 	openExternalUrl,
 	platformNotifications,
 } from './capabilities';
+import { getDesktopChrome } from '../app/shortcuts/registry';
 import { ShareImportDialog } from './ShareImportDialog';
 import { offerSharedImport } from './shareTarget';
 import { useI18n } from '../i18n';
@@ -180,6 +181,20 @@ export function PlatformLifecycle() {
 			void platformNotifications.setLiveSession(null).catch(() => false);
 		};
 	}, [workflow, t]);
+
+	// RC-PLT-1.3 — the same posture on the desktop shell's OS chrome: a dock badge on macOS, a tray
+	// icon elsewhere. It reads the SAME `session.workflow` as the Android notification above rather
+	// than a second notion of "live", so the two platforms can never disagree, and it stands the
+	// badge down on unmount as well as on End session — a quit mid-session must not leave the OS
+	// advertising a table that is no longer running.
+	useEffect(() => {
+		const desktop = getDesktopChrome();
+		if (!desktop) return undefined;
+		void desktop.setLiveSession(workflow === 'active').catch(() => false);
+		return () => {
+			void desktop.setLiveSession(false).catch(() => false);
+		};
+	}, [workflow]);
 
 	useEffect(() => {
 		if (getPlatformCapabilities().runtimeKind !== 'android') return undefined;

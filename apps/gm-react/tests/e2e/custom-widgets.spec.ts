@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 /**
@@ -398,4 +399,467 @@ test('bounded board resize announces the width its columns allow', async ({ page
 			),
 		)
 		.toBe(320);
+});
+
+/*
+ * THE WIDGET ACCESSIBILITY CONTRACT — RC-WID-4.4 (docs/architecture/WIDGETS.md §3.1).
+ *
+ * Every builtin type is placed on a real scene and on the GM Screen's own board, the table is made
+ * live with a fight running, and axe reads the result on both profiles. The keyboard test then walks
+ * the page with Tab alone, no clicks and no `focus()`, and drives every operate command a builtin
+ * DECLARES; the list is read from the definitions, so a new declared command without a keyboard
+ * route fails here. The last test proves the sandbox host tells a frame the host's contrast state.
+ */
+
+/** The axe tag set the release gate runs (`a11y-axe-gate.spec.ts`), WCAG 2.2 AA included. */
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
+const BLOCKING_IMPACTS = new Set(['critical', 'serious']);
+
+/** A tile's value readout: a polite live region (`builtin/live.tsx`), not the canvas's `status`. */
+const LIVE_REGION = '[aria-live="polite"]';
+
+/**
+ * The packages the system widgets ship in. Every type in them is drawn by a builtin body, and
+ * `builtin-bodies.test.tsx` fails if the two lists ever disagree, so this IS "every builtin type".
+ */
+const SYSTEM_PACKAGE_IDS = ['system.scene-widgets', 'system.command-center-widgets'];
+
+/** The operate commands the keyboard test knows how to drive, by the control that runs each one. */
+const KEYBOARD_DRIVEN = [
+	'dice.roll',
+	'timer.advance',
+	'timer.pause',
+	'timer.reset',
+	'timer.resume',
+	'timer.start',
+];
+
+function builtinTypes(page: Page): Promise<string[]> {
+	return page.evaluate(
+		(ids) =>
+			ids.flatMap(
+				(id) => window.__rt!.state.widgets.packages[id]?.package.widgets.map((w) => w.type) ?? [],
+			),
+		SYSTEM_PACKAGE_IDS,
+	);
+}
+
+/** Every command a builtin declares for an `operator` — the operate half of the verb split. */
+function declaredOperateCommands(page: Page): Promise<string[]> {
+	return page.evaluate(
+		(ids) =>
+			ids
+				.flatMap((id) => window.__rt!.state.widgets.packages[id]?.package.widgets ?? [])
+				.flatMap((definition) => definition.commands)
+				.filter((command) => command.requiredCapability === 'operator')
+				.map((command) => command.type)
+				.sort(),
+		SYSTEM_PACKAGE_IDS,
+	);
+}
+
+async function createMap(page: Page, name: string): Promise<string> {
+	const created = await dispatch(page, {
+		type: 'map.create',
+		actorId: await actorId(page),
+		payload: { name, visibility: 'dm-only' },
+	});
+	expect(created.status, JSON.stringify(created.rejection)).toBe('accepted');
+	const event = created.events?.find((e) => e.kind === 'map.created') as
+		| { mapId?: string }
+		| undefined;
+	expect(event?.mapId).toBeTruthy();
+	return event!.mapId!;
+}
+
+/**
+ * Put one instance of each type on a scene, on a grid that never overlaps. The map is bound to a
+ * real map so its tile draws the real canvas and its controls, not the "No map linked" line.
+ */
+async function placeTypes(
+	page: Page,
+	sceneId: string,
+	types: readonly string[],
+	grid: { x: number; y: number; columns: number; w: number; h: number; gutter: number },
+) {
+	const actor = await actorId(page);
+	const mapId = types.includes('map') ? await createMap(page, `Contract Map ${Date.now()}`) : null;
+	for (const [index, type] of types.entries()) {
+		const added = await dispatch(page, {
+			type: 'scene.add-widget',
+			actorId: actor,
+			payload: {
+				sceneId,
+				widget: {
+					type,
+					version: '1.0.0',
+					layout: {
+						x: grid.x + (index % grid.columns) * (grid.w + grid.gutter),
+						y: grid.y + Math.floor(index / grid.columns) * (grid.h + grid.gutter),
+						w: grid.w,
+						h: grid.h,
+					},
+					configuration: {},
+					localState: {},
+					binding:
+						type === 'map' && mapId
+							? {
+									source: { entityType: 'map', entityId: mapId },
+									mode: 'read',
+									requiredCapability: 'viewer',
+								}
+							: null,
+				},
+			},
+		});
+		expect(added.status, `${type}: ${JSON.stringify(added.rejection)}`).toBe('accepted');
+	}
+}
+
+/** Go live on the scene and start a fight: the state the DM actually runs the table in. */
+async function runTheTable(page: Page, sceneId: string) {
+	const actor = await actorId(page);
+	const live = await dispatch(page, {
+		type: 'session.set-workflow',
+		actorId: actor,
+		payload: { workflow: 'active', activeSceneId: sceneId },
+	});
+	expect(live.status, JSON.stringify(live.rejection)).toBe('accepted');
+	const fight = await dispatch(page, {
+		type: 'combat.start',
+		actorId: actor,
+		payload: {
+			combatants: [
+				{ kind: 'monster', name: 'Bog Lurker', ac: 13, initiative: 18, maxHp: 22 },
+				{ kind: 'monster', name: 'Reed Stalker', ac: 12, initiative: 9, maxHp: 14 },
+			],
+		},
+	});
+	expect(fight.status, JSON.stringify(fight.rejection)).toBe('accepted');
+}
+
+/** Every placed widget's contents are one region, and every region has a name. */
+async function expectLabelledRegions(page: Page, count: number) {
+	const regions = page.locator('section[data-widget-region]');
+	await expect(regions).toHaveCount(count);
+	const names = await regions.evaluateAll((els) =>
+		els.map((el) => el.getAttribute('aria-label')?.trim() ?? ''),
+	);
+	expect(names.filter((name) => name === '')).toEqual([]);
+	expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(count);
+}
+
+/**
+ * The release gate's bar for the page (no critical or serious violation anywhere), and a stricter
+ * one for what this story owns: nothing at ANY impact inside a widget region.
+ */
+async function expectAxeClean(page: Page, where: string) {
+	// Let lazy chunks and the map canvas settle before contrast is measured.
+	await page.waitForTimeout(400);
+	const wholePage = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+	const blocking = wholePage.violations
+		.filter((violation) => BLOCKING_IMPACTS.has(violation.impact ?? ''))
+		.flatMap((violation) =>
+			violation.nodes.map((node) => `[${violation.impact}] ${violation.id} — ${node.target}`),
+		);
+	expect(blocking, `blocking axe violations on ${where}`).toEqual([]);
+
+	const widgets = await new AxeBuilder({ page })
+		.withTags(AXE_TAGS)
+		.include('section[data-widget-region]')
+		.analyze();
+	const inside = widgets.violations.flatMap((violation) =>
+		violation.nodes.map((node) => `[${violation.impact}] ${violation.id} — ${node.target}`),
+	);
+	expect(inside, `axe violations inside widget regions on ${where}`).toEqual([]);
+}
+
+/**
+ * Press Tab (or Shift+Tab) until `target` holds focus — the only way a keyboard user gets there.
+ * Wraps round the page if it has to, and fails if the control is not in the tab order at all.
+ */
+async function tabTo(page: Page, target: Locator, key: 'Tab' | 'Shift+Tab' = 'Tab') {
+	for (let presses = 0; presses < 400; presses += 1) {
+		if (await target.evaluate((el) => el === document.activeElement)) return;
+		await page.keyboard.press(key);
+	}
+	throw new Error(`${key} never reached ${target}`);
+}
+
+function timerState(page: Page, widgetId: string) {
+	return page.evaluate((id) => {
+		const timer = window.__rt!.state.session.timers[id];
+		return timer ? { status: timer.status, durationSeconds: timer.durationSeconds } : null;
+	}, widgetId);
+}
+
+function combatTurn(page: Page): Promise<number> {
+	return page.evaluate(() => window.__rt!.state.session.combat.turn);
+}
+
+test.describe('widget accessibility contract', () => {
+	test('axe is clean on /scene/:id with every builtin type placed and the table live', async ({
+		page,
+	}) => {
+		await openScene(page);
+		// Duplicate default titles must remain distinguishable as landmarks.
+		const types = [...(await builtinTypes(page)), 'note', 'note'];
+		expect(types.length).toBeGreaterThan(15);
+		const sceneId = await createScene(page, `Contract Scene ${Date.now()}`);
+		await placeTypes(page, sceneId, types, {
+			x: 40,
+			y: 40,
+			columns: 4,
+			w: 340,
+			h: 260,
+			gutter: 24,
+		});
+		await runTheTable(page, sceneId);
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		await expectLabelledRegions(page, types.length);
+		await expectAxeClean(page, '/scene/:id');
+	});
+
+	test('axe is clean on /board with every builtin type placed and the table live', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/board');
+		await seedFresh(page);
+		await gotoRoute(page, '/board');
+		// The board materialises its home scene after it mounts (`command-center.ensure-home`).
+		await page.waitForFunction(() => {
+			const state = window.__rt!.state;
+			const id = state.commandCenter.homeSceneId;
+			return id !== null && (state.scenes.scenes[id]?.widgets.length ?? 0) > 0;
+		});
+		const home = await page.evaluate(() => {
+			const state = window.__rt!.state;
+			const id = state.commandCenter.homeSceneId;
+			const widgets = id ? state.scenes.scenes[id]!.widgets : [];
+			return {
+				id,
+				types: widgets.map((widget) => widget.type),
+				bottom: Math.max(0, ...widgets.map((widget) => widget.layout.y + widget.layout.h)),
+			};
+		});
+		expect(home.id, 'the GM Screen has no home scene').toBeTruthy();
+		const missing = [
+			...(await builtinTypes(page)).filter((type) => !home.types.includes(type)),
+			'note',
+			'note',
+		];
+		// The board's own three-column grid (`board-helpers.ts`), below what the seed already placed.
+		await placeTypes(page, home.id!, missing, {
+			x: 24,
+			y: home.bottom + 24,
+			columns: 3,
+			w: 240,
+			h: 200,
+			gutter: 24,
+		});
+		await runTheTable(page, home.id!);
+
+		await gotoRoute(page, '/board');
+		await expectLabelledRegions(page, home.types.length + missing.length);
+		await expectAxeClean(page, '/board');
+	});
+
+	test('compact initiative preserves its value region through the combat lifecycle', async ({
+		page,
+		isMobile,
+	}) => {
+		test.skip(!isMobile, 'The compact tracker is the phone renderer.');
+		await openScene(page);
+		const actor = await actorId(page);
+		const command = async (type: string, payload: Record<string, unknown>) => {
+			const result = await dispatch(page, { type, actorId: actor, payload });
+			expect(result.status, JSON.stringify(result.rejection)).toBe('accepted');
+		};
+		const sceneId = await createScene(page, `Initiative lifecycle ${Date.now()}`);
+		await command('session.set-workflow', { workflow: 'active', activeSceneId: sceneId });
+		await placeWidget(page, sceneId, 'initiative-tracker', 40);
+		const id = (await instanceId(page, sceneId, 'initiative-tracker'))!;
+		await gotoRoute(page, `/scene/${sceneId}`);
+		const value = page.getByTestId(`widget-${id}`).locator(LIVE_REGION).first();
+		await expect(value).toContainText('No combat running');
+		const original = await value.elementHandle();
+		const idleText = await value.textContent();
+		const expectSameRegion = async () => {
+			expect(await value.evaluate((node, before) => node === before, original)).toBe(true);
+			await expect(value).toHaveAttribute('aria-atomic', 'true');
+		};
+		await runTheTable(page, sceneId);
+		await expect(value).toContainText('Turn 1');
+		await expectSameRegion();
+		await command('combat.end', {});
+		await expect(value).toHaveText(idleText!);
+		await expectSameRegion();
+		await runTheTable(page, sceneId);
+		await expect(value).toContainText('Turn 1');
+		await expectSameRegion();
+		const combatants = await page.evaluate(() =>
+			Object.keys(window.__rt!.state.session.combat.combatants),
+		);
+		expect(combatants).toHaveLength(2);
+		for (const combatantId of combatants) {
+			await command('combat.remove-combatant', { combatantId });
+		}
+		await expect(value).toHaveText(idleText!);
+		await expectSameRegion();
+	});
+
+	test('atlas keeps the same live region through its first and last map', async ({ page }) => {
+		await openScene(page);
+		const actor = await actorId(page);
+		const removeMap = async (mapId: string) => {
+			const result = await dispatch(page, {
+				type: 'map.delete',
+				actorId: actor,
+				payload: { mapId, force: true },
+			});
+			expect(result.status, JSON.stringify(result.rejection)).toBe('accepted');
+		};
+		const maps = await page.evaluate(() => Object.keys(window.__rt!.state.maps.maps));
+		for (const id of maps) await removeMap(id);
+		const sceneId = await createScene(page, `Empty atlas ${Date.now()}`);
+		await placeWidget(page, sceneId, 'atlas', 40);
+		const id = (await instanceId(page, sceneId, 'atlas'))!;
+		await gotoRoute(page, `/scene/${sceneId}`);
+		const live = page.getByTestId(`widget-${id}`).locator(LIVE_REGION);
+		await expect(live).toHaveCount(1);
+		const emptyText = await live.textContent();
+		const original = await live.elementHandle();
+		const mapId = await createMap(page, 'First map');
+		await expect(live).toContainText('Maps1');
+		expect(await live.evaluate((node, before) => node === before, original)).toBe(true);
+		await removeMap(mapId);
+		await expect(live).toHaveText(emptyText!);
+		expect(await live.evaluate((node, before) => node === before, original)).toBe(true);
+	});
+
+	test('every declared operate command runs from the keyboard alone', async ({ page }) => {
+		await openScene(page);
+		// The test drives exactly what the builtins declare: a new operate command fails it here.
+		expect(await declaredOperateCommands(page)).toEqual(KEYBOARD_DRIVEN);
+
+		const sceneId = await createScene(page, `Keyboard Scene ${Date.now()}`);
+		await placeTypes(page, sceneId, ['dice', 'timer', 'initiative-tracker'], {
+			x: 40,
+			y: 40,
+			columns: 3,
+			w: 300,
+			h: 220,
+			gutter: 24,
+		});
+		await runTheTable(page, sceneId);
+		const diceId = (await instanceId(page, sceneId, 'dice'))!;
+		const timerId = (await instanceId(page, sceneId, 'timer'))!;
+		const initiativeId = (await instanceId(page, sceneId, 'initiative-tracker'))!;
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		const dice = page.getByTestId(`widget-${diceId}`);
+		const timer = page.getByTestId(`widget-${timerId}`);
+		const initiative = page.getByTestId(`widget-${initiativeId}`);
+		await expect(timer).toBeVisible();
+
+		// dice.roll — and the result is announced through the tile's live region.
+		await tabTo(page, dice.getByRole('button', { name: /^Roll / }));
+		await page.keyboard.press('Enter');
+		await expect(dice.getByRole('status')).toContainText('Last result for 1d20');
+
+		// timer.start, then timer.pause with Space: the transport keeps focus as its command changes.
+		await tabTo(page, timer.getByRole('button', { name: /^Start \d+-second timer$/ }));
+		await page.keyboard.press('Enter');
+		await expect(timer.getByRole('button', { name: 'Pause', exact: true })).toBeFocused();
+		await expect(timer.locator(LIVE_REGION)).toContainText('Running');
+		await page.keyboard.press('Space');
+		const resume = timer.getByRole('button', { name: 'Resume', exact: true });
+		await expect(resume).toBeFocused();
+		await expect(timer.locator(LIVE_REGION)).toContainText('Paused');
+
+		// timer.advance — paused, so the added minute is exact.
+		const paused = await timerState(page, timerId);
+		const pausedDisplay = (await timer.getByRole('timer').textContent())!.trim();
+		await tabTo(page, timer.getByRole('button', { name: 'Add 60 seconds to the timer' }));
+		await page.keyboard.press('Enter');
+		await expect
+			.poll(async () => (await timerState(page, timerId))?.durationSeconds)
+			.toBe((paused?.durationSeconds ?? 0) + 60);
+
+		// The runtime state lands before React commits the re-render, so a one-shot read of the
+		// figure here can still see the pre-advance time; wait for the tile to show the new figure.
+		await expect(timer.getByRole('timer')).not.toHaveText(pausedDisplay);
+		await expect(timer.locator(LIVE_REGION)).toContainText(
+			(await timer.getByRole('timer').textContent())!.trim(),
+		);
+
+		// timer.resume, reached going back the way a keyboard user would.
+		await tabTo(page, resume, 'Shift+Tab');
+		await page.keyboard.press('Enter');
+		await expect(timer.locator(LIVE_REGION)).toContainText('Running');
+
+		// Running adjustments announce the new value even without an urgency transition.
+		const beforeAdvance = await timer.locator(LIVE_REGION).textContent();
+		await tabTo(page, timer.getByRole('button', { name: 'Add 60 seconds to the timer' }));
+		await page.keyboard.press('Enter');
+		await expect(timer.locator(LIVE_REGION)).not.toHaveText(beforeAdvance!);
+		const spoken = await timer.locator(LIVE_REGION).textContent();
+		await page.waitForTimeout(1200);
+		await expect(timer.locator(LIVE_REGION)).toHaveText(spoken!);
+
+		// timer.reset — and focus lands on the transport, not on <body>.
+		await tabTo(page, timer.getByRole('button', { name: 'Reset', exact: true }));
+		await page.keyboard.press('Enter');
+		const start = timer.getByRole('button', { name: /^Start \d+-second timer$/ });
+		await expect(start).toBeFocused();
+
+		// The initiative tile's own control: not a declared widget command, but its operate control.
+		const turn = await combatTurn(page);
+		await tabTo(page, initiative.getByRole('button', { name: 'Next turn', exact: true }));
+		await page.keyboard.press('Enter');
+		await expect.poll(() => combatTurn(page)).not.toBe(turn);
+		// The desk tile names the new turn; the phone tile gives its place in the order.
+		await expect(initiative.locator(LIVE_REGION).first()).toContainText(/Reed Stalker|Turn 2/);
+	});
+
+	test('the host tells every frame its contrast state, and again when it changes', async ({
+		page,
+	}) => {
+		await openScene(page);
+		const probe = widgetPackage({
+			id: 'workspace.contrastprobe',
+			type: 'contrastprobe',
+			displayName: 'Contrast probe',
+			javascript: `
+				var out = window.dndtoolsWidget.root.querySelector('[data-contrast]');
+				var root = getComputedStyle(document.documentElement);
+				out.textContent =
+					'forced: ' + root.getPropertyValue('--host-forced-colors').trim() +
+					' · high contrast: ' + root.getPropertyValue('--host-high-contrast').trim();
+			`,
+			markup: '<p data-contrast>pending</p>',
+		});
+		// No `host-theme-tokens`: the contrast state is sent to every frame, not only themed ones.
+		probe.widgets[0]!.style.capabilities = ['css-variables'];
+		await installAndEnable(page, probe, 'workspace.contrastprobe');
+		const sceneId = await createScene(page, `Contrast Scene ${Date.now()}`);
+		await placeWidget(page, sceneId, 'contrastprobe', 40);
+
+		await gotoRoute(page, `/scene/${sceneId}`);
+		const readout = page
+			.frameLocator('iframe[data-widget-sandbox="contrastprobe"]')
+			.locator('[data-contrast]');
+		await expect(readout).toHaveText('forced: none · high contrast: off');
+
+		// The OS forcing colours reaches a frame that was already running.
+		await page.emulateMedia({ forcedColors: 'active' });
+		await expect(readout).toHaveText('forced: active · high contrast: on');
+
+		// So does the app's own high-contrast theme, which a frame could never see for itself.
+		await page.emulateMedia({ forcedColors: 'none' });
+		await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'high-contrast'));
+		await expect(readout).toHaveText('forced: none · high contrast: on');
+	});
 });

@@ -43,9 +43,15 @@ import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { restoreCoreState, validateRestoredCoreState } from '../platform/storage/coreStore';
 import { vaultKeyManager } from './vaultKey';
 import { getIdToken } from './auth';
+import { documentCloudVaultId } from './cloudSync';
 
-/** The single cloud vault namespace for this account's primary vault (server also scopes by Cognito sub). */
-export const CLOUD_VAULT_ID = 'primary';
+/**
+ * The cloud vault namespace of the local vault this document is pinned to (server also scopes by
+ * Cognito sub). RC-UX-5.4: a document never changes vault without a reload, so resolving it once is
+ * exact; the original vault keeps its released `primary` id. An unreadable vault catalog yields an
+ * empty id, which key custody and the engine both refuse (fail closed, never another vault's key).
+ */
+export const CLOUD_VAULT_ID: string = documentCloudVaultId() ?? '';
 
 const PUSH_DEBOUNCE_MS = 1500;
 const MAX_OPS_PER_PUSH = 200;
@@ -151,6 +157,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 	const { runtime, apiUrl, onStatus } = opts;
 	const accountId = opts.accountId || 'anon';
 	const vaultId = opts.vaultId ?? CLOUD_VAULT_ID;
+	if (!vaultId) throw new Error('Encrypted cloud backup needs a readable local vault.');
 	const base = apiUrl.replace(/\/$/, '');
 
 	let unsubscribe: (() => void) | null = null;

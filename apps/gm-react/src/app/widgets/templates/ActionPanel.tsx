@@ -55,8 +55,28 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 				.filter(([, value]) => value !== undefined),
 		);
 
+	const controls =
+		actions.length === 0 ? (
+			<TemplateNote>{t('widgetTemplate.noActions')}</TemplateNote>
+		) : (
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+				{actions.map((command) => (
+					<Button
+						key={command.type}
+						size="sm"
+						variant="secondary"
+						aria-disabled={onCommand ? undefined : true}
+						title={onCommand ? undefined : t('widgetTemplate.finishEditing')}
+						onClick={onCommand ? () => onCommand(command.type, payloadFor(command)) : undefined}
+					>
+						{command.displayName}
+					</Button>
+				))}
+			</div>
+		);
+
 	return (
-		<TemplateShell testId="widget-template-action-panel">
+		<TemplateShell testId="widget-template-action-panel" controls={controls}>
 			{query?.header ? <TemplateNote>{query.header}</TemplateNote> : null}
 			<ComputedFields data={data} />
 			{query && query.rows.length > 0 ? (
@@ -65,24 +85,6 @@ export function ActionPanelTemplate({ widget, definition, data, onCommand }: Wid
 				</TemplateNote>
 			) : (
 				<TemplateEmpty query={query} />
-			)}
-			{actions.length === 0 ? (
-				<TemplateNote>{t('widgetTemplate.noActions')}</TemplateNote>
-			) : (
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-					{actions.map((command) => (
-						<Button
-							key={command.type}
-							size="sm"
-							variant="secondary"
-							aria-disabled={onCommand ? undefined : true}
-							title={onCommand ? undefined : t('widgetTemplate.finishEditing')}
-							onClick={onCommand ? () => onCommand(command.type, payloadFor(command)) : undefined}
-						>
-							{command.displayName}
-						</Button>
-					))}
-				</div>
 			)}
 		</TemplateShell>
 	);

@@ -2,6 +2,7 @@ import { getSessionStatusStrip } from '@dndtools/core';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import { Chip, Muted, StatPill, bodyWrap } from '../../widget-body-kit';
+import { LiveReadout, LiveStats, StateMark } from './live';
 
 /**
  * The `session` Command Center widget (RC-WID-4.1). Before this it had no body at all and the GM
@@ -19,16 +20,23 @@ export function SessionBody() {
 	if (strip.kind !== 'status-strip') return <Muted>{t('widgetBody.session.unavailable')}</Muted>;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill label={t('widgetBody.session.phase')} value={strip.phase.label} />
 				<StatPill label={t('widgetBody.session.turn')} value={strip.turn.label} />
-			</div>
-			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+			</LiveStats>
+			<LiveReadout style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{/* DM-only cell: `players` is null for a player or observer, so the roster count cannot
 				    leak through a widget a DM shared onto a player view. */}
 				{strip.players && <Chip>{strip.players.label}</Chip>}
-				<Chip tone={strip.audio.playing ? 'accent' : 'neutral'}>{strip.audio.label}</Chip>
-			</div>
+				{/* The DM's audio label is the track's source id, so only the accent tone said whether
+				    it was playing. A participant's label is already the word, and needs no mark. */}
+				<Chip tone={strip.audio.playing ? 'accent' : 'neutral'}>
+					{strip.audio.playing && strip.audio.sourceId !== null && (
+						<StateMark icon="play" label={t('session.audio.playing')} />
+					)}
+					{strip.audio.label}
+				</Chip>
+			</LiveReadout>
 			{strip.observerMode && <Muted>{t('widgetBody.session.observer')}</Muted>}
 		</div>
 	);

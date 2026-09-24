@@ -9,6 +9,7 @@ import { useI18n } from '../../../i18n';
 import type { MessageKey } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /** The three tabs the Data Hub can lead with, in each configured order (`tabOrder`). */
 const TAB_ORDERS: Record<string, readonly ('scenes' | 'parties' | 'campaign')[]> = {
@@ -67,11 +68,11 @@ export function DataHubBody({ widget }: { widget: BoardWidget }) {
 
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				{order.map((tab) => (
 					<StatPill key={tab} label={t(TAB_LABEL[tab])} value={String(counts[tab])} />
 				))}
-			</div>
+			</LiveStats>
 			<Muted>
 				{columns.length > 0
 					? t('widgetBody.dataHub.columns', { columns: columns.join(' · ') })

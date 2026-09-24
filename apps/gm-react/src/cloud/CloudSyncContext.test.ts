@@ -41,6 +41,7 @@ vi.mock('./config', () => ({
 }));
 vi.mock('./cloudSync', () => ({
 	cloudSyncIntent: mocks.cloudSyncIntent,
+	documentCloudVaultId: () => 'primary',
 	getCloudSyncStatus: mocks.getCloudSyncStatus,
 	retryPendingCloudKeyDeletions: mocks.retryPendingCloudKeyDeletions,
 	setCloudSyncEnabled: mocks.setCloudSyncEnabled,

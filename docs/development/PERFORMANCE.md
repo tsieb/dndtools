@@ -1,25 +1,42 @@
 # Performance
 
-## 1. Budgets
+## 1. Measured budgets
 
-`packages/core/src/perf/budget-registry.ts` (`performanceBudgets`, validated by
-`validateBudgetRegistry`) is the one registry. Each budget names the workflow it governs, an owning
-domain, a user-facing risk, and a measurement method (`latency-ms-p95`, `throughput-fps-p95`, or
-one-shot `duration-ms`). All eleven are still `provisional` with a `reviewDate`; RC-ENG-3.1 promotes
-them to `baseline` once CI measurements settle.
+`PERFORMANCE_BUDGETS` in `packages/core/src/perf/budget-registry.ts` is the authoritative
+registry. All eleven entries have `baseline` maturity with `measuredAt: '2026-09-06'`, matching
+[the RC-ENG-1.1 recorded artifact](../../tests/perf/baseline.json). Promotion records existing
+measurements; it does not change the targets or assert full reference-dataset coverage.
 
-| Budget                  | Target    | Budget                 | Target    |
-| ----------------------- | --------- | ---------------------- | --------- |
-| `smoke-ci`              | ≤ 3 min   | `map-pan-zoom-desktop` | ≥ 50 fps  |
-| `app-startup`           | ≤ 2000 ms | `map-pan-zoom-slim`    | ≥ 30 fps  |
-| `vault-open`            | ≤ 3000 ms | `search`               | ≤ 250 ms  |
-| `scene-first-render`    | ≤ 1500 ms | `graph-indexing`       | ≤ 500 ms  |
-| `widget-update`         | ≤ 100 ms  | `sync-reconciliation`  | ≤ 2000 ms |
-| `live-session-delivery` | ≤ 500 ms  |                        |           |
+The capture ran on Linux x64, AMD Ryzen 7 5700X (16 logical CPUs), 32,005 MiB RAM, outside CI.
+Browser scenarios used Chromium against the Vite development server. These are historical
+observations, not measurements of the current commit or production builds.
 
-Grading lives in `packages/core/src/perf/measurement.ts`; the initial-route bundle budget in
-`perf/bundle-budget.ts` (`pnpm check:bundle-budget`). `validateBudgetRegistry` fails closed on a
-budget with no owner, no risk, or a lapsed review date (`packages/core/tests/perf-budget-registry.test.ts`).
+| Budget                  | Target        | Observed   | Samples | Measured fixture / scope                                              |
+| ----------------------- | ------------- | ---------- | ------- | --------------------------------------------------------------------- |
+| `smoke-ci`              | ≤ 180000 ms   | 26913 ms   | 1       | Local runner, warm pnpm store; `pnpm test:smoke`                      |
+| `app-startup`           | ≤ 2000 ms     | 1006.1 ms  | 3       | Fresh browser context, warm dev-server module cache                   |
+| `vault-open`            | ≤ 3000 ms     | 676.7 ms   | 3       | 200 notes + demo content; target: 1,000 notes / 100 objects / 20 maps |
+| `scene-first-render`    | ≤ 1500 ms     | 1068.3 ms  | 3       | Demo home scene, 7 widgets; target: 50 widgets / 10 active bindings   |
+| `widget-update`         | p95 ≤ 100 ms  | 16.8 ms    | 25      | Accepted move command through repaint on demo home scene              |
+| `map-pan-zoom-desktop`  | ≥ 50 fps      | 59.524 fps | 196     | 4 layers / 100 POIs, desktop viewport                                 |
+| `map-pan-zoom-slim`     | ≥ 30 fps      | 59.88 fps  | 197     | 4 layers / 100 POIs, slim viewport on the same desktop host           |
+| `search`                | p95 ≤ 250 ms  | 13 ms      | 20      | 200 notes + demo content; target: 10,000 indexed records              |
+| `graph-indexing`        | ≤ 500 ms      | 248.4 ms   | 5       | One changed note in a 200-note vault; target: 10,000 records          |
+| `sync-reconciliation`   | p95 ≤ 2000 ms | 710.7 ms   | 5       | 241 queued operations; target: 1,000                                  |
+| `live-session-delivery` | p95 ≤ 500 ms  | 16.8 ms    | 15      | Local player-safe projection through paint; excludes network delivery |
+
+Every recorded value meets its target. The slim map run uses a 390×844 touch-enabled viewport;
+the desktop viewport is 1280×800. This does not establish physical mobile-device performance.
+Other browser scenarios use the desktop profile. Small samples, reduced fixtures, local session
+projection, and workstation hardware limit what these baselines demonstrate. Full-size datasets,
+physical mobile devices, network delivery, and a stable CI-hardware baseline need separate evidence;
+RC-ENG-1.3 owns the CI baseline and larger sample work.
+
+Each registry entry retains its accountable owner, user-facing risk, target dataset and device
+class, and measurement method. `validateBudgetRegistry` checks those fields and baseline dates.
+The schema still supports future provisional budgets with review dates; none of the current entries
+uses that maturity. Grading lives in `packages/core/src/perf/measurement.ts`; the separate
+initial-route bundle budget lives in `perf/bundle-budget.ts` (`pnpm check:bundle-budget`).
 
 ## 2. Measurement
 
@@ -40,7 +57,7 @@ A ceiling is graded at its percentile; a floor at the complement (p95 ≥ 50 fps
 at or above); a `duration-ms` budget grades the worst run. `compare.ts` fails on a breached target,
 on drift past 20% against the baseline in the bad direction (ADR-009), or on an unmeasured budget,
 and grades drift only when the run's CPU matches the baseline's. The checked-in baseline was
-recorded on a 16-core desktop, so CI runs currently grade targets only; on 2026-09-09 two runs of
+recorded on a desktop with 16 logical CPUs, so CI runs currently grade targets only; on 2026-09-09 two runs of
 one unchanged commit swung `scene-first-render` between 1125 ms and 1621 ms at n=3. RC-ENG-1.3 owns
 a CI-hardware baseline and a larger sample; never loosen a budget to make a run pass.
 `.github/workflows/perf.yml` is path-filtered and uploads the run file and a report.

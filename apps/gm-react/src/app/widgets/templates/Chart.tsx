@@ -1,3 +1,5 @@
+import { Badge } from '../../../ds';
+import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
 	TemplateEmpty,
@@ -16,8 +18,12 @@ import {
  * perception and a screen reader — no ARIA chart role, no invisible summary that can drift from the
  * bars. Rows without a numeric measure are listed without a bar rather than dropped, so the chart
  * never quietly omits part of its own data.
+ *
+ * The active row used to be told apart by its brighter bar alone, which is colour carrying a state
+ * (and forced-colors mode paints both bars the same). It now also says "Now", as `status-list` does.
  */
 export function ChartTemplate({ data }: WidgetTemplateProps) {
+	const { t } = useI18n();
 	const query = data.primary;
 	const rows = query?.rows ?? [];
 	const measured = rows.filter((row) => typeof row.value === 'number');
@@ -60,12 +66,22 @@ export function ChartTemplate({ data }: WidgetTemplateProps) {
 								>
 									<span
 										style={{
-											overflow: 'hidden',
-											textOverflow: 'ellipsis',
-											whiteSpace: 'nowrap',
+											display: 'inline-flex',
+											alignItems: 'center',
+											gap: 'var(--space-1)',
+											minWidth: 0,
 										}}
 									>
-										{row.primary}
+										<span
+											style={{
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+												whiteSpace: 'nowrap',
+											}}
+										>
+											{row.primary}
+										</span>
+										{row.active ? <Badge status="success">{t('widgetTemplate.now')}</Badge> : null}
 									</span>
 									<span style={{ font: 'var(--text-2xs) var(--font-mono)', flex: '0 0 auto' }}>
 										{value === null ? '—' : row.max != null ? `${value} / ${row.max}` : value}

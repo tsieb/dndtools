@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 const ROUTES = [
@@ -242,6 +242,15 @@ for (const viewport of [
 	test(`the bounded canvas routes fit the shell's main pane on ${viewport.name}`, async ({
 		page,
 	}) => {
+		// Exercise the lazy-route loading frame even with warm Vite caches. The shell heading
+		// is ready before this module; measuring it as though the canvas were ready is a race.
+		let sceneModuleDelivered = false;
+		await page.route('**/src/screens/sceneEditor/index.tsx*', async (route) => {
+			const response = await route.fetch();
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			sceneModuleDelivered = true;
+			await route.fulfill({ response });
+		});
 		await page.setViewportSize({ width: viewport.width, height: viewport.height });
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
@@ -263,37 +272,33 @@ for (const viewport of [
 
 		for (const route of ['/board', `/scene/${sceneId}`]) {
 			await gotoRoute(page, route);
-			// These routes are lazily loaded and `gotoRoute` only changes the hash, so its `h1` wait can
-			// resolve against the PREVIOUS route's heading. A fixed sleep here then raced the chunk load
-			// under parallel workers and measured a half-laid-out pane. Poll the measurement instead: a
-			// real overflow still fails, it just takes the retry budget to do it.
-			// A 2px tolerance absorbs sub-pixel rounding of the flex track, nothing more.
-			const measure = async () =>
-				page.locator('#main-content').evaluate((element) => ({
-					clientHeight: element.clientHeight,
-					scrollHeight: element.scrollHeight,
+			// The shell's h1 survives hash navigation. Wait for the requested canvas, otherwise
+			// the old board (or a Suspense-hidden div) can satisfy an overflow-only poll.
+			const canvas = page.getByRole('region', {
+				name: route === '/board' ? /^GM Screen,/ : /^Scene canvas,/,
+			});
+			await expect(canvas).toBeVisible({ timeout: 10_000 });
+			const pane = page.locator('#main-content > div').filter({ has: canvas });
+			// Read both bounds in one browser evaluation, then require them to pass together.
+			// A 2px tolerance absorbs sub-pixel rounding; overflow and underfill still fail.
+			await expect(async () => {
+				const { clientHeight, scrollHeight, canvasHeight } = await pane.evaluate((element) => ({
+					clientHeight: element.parentElement!.clientHeight,
+					scrollHeight: element.parentElement!.scrollHeight,
+					canvasHeight: element.getBoundingClientRect().height,
 				}));
-			await expect
-				.poll(
-					async () => {
-						const m = await measure();
-						return m.scrollHeight - m.clientHeight;
-					},
-					{ message: `${route} overflowed the shell's main pane`, timeout: 10_000 },
-				)
-				.toBeLessThanOrEqual(2);
-			const main = await measure();
-			// …and it must not shrink away from the pane either: a bounded canvas that only fills
-			// half of main is the same magic-number bug with the sign flipped.
-			const canvasHeight = await page
-				.locator('#main-content > div')
-				.first()
-				.evaluate((element) => element.getBoundingClientRect().height);
-			expect(
-				canvasHeight,
-				`${route} left ${main.clientHeight - canvasHeight}px of the main pane unused`,
-			).toBeGreaterThanOrEqual(main.clientHeight - 2);
+				expect(clientHeight, `${route} has no main pane height`).toBeGreaterThan(0);
+				expect(
+					scrollHeight - clientHeight,
+					`${route} overflowed the shell's main pane`,
+				).toBeLessThanOrEqual(2);
+				expect(
+					canvasHeight,
+					`${route} left ${clientHeight - canvasHeight}px of the main pane unused`,
+				).toBeGreaterThanOrEqual(clientHeight - 2);
+			}).toPass({ timeout: 10_000 });
 		}
+		expect(sceneModuleDelivered, 'the scene must load before its layout is measured').toBe(true);
 	});
 }
 
@@ -494,6 +499,238 @@ test('Settings category navigation stays touch-sized on the rail/tablet profile'
 		const box = await categories.nth(index).boundingBox();
 		expect(box, `Settings category ${index + 1} is not rendered`).not.toBeNull();
 		expect(box?.height, `Settings category ${index + 1} is undersized`).toBeGreaterThanOrEqual(44);
+	}
+});
+
+/**
+ * RC-DSN-1.4 — the audited density sets, comfortable / standard / compact: nav item 48/36/28, card
+ * padding 16/16/12, list gap 8/4/2. Nav rows are measured on the tablet rail, the one profile that
+ * renders the DS NavItem; cards on the Settings › Appearance Panel.
+ */
+const DENSITY_SETS = [
+	{ label: 'Comfortable', value: 'comfortable', navItem: 48, cardPad: 16, listGap: 8 },
+	{ label: 'Standard', value: 'standard', navItem: 36, cardPad: 16, listGap: 4 },
+	{ label: 'Compact', value: 'compact', navItem: 28, cardPad: 12, listGap: 2 },
+] as const;
+
+/** The density tokens as layout resolves them, read off a probe laid out with each one. */
+async function densityTokenMetrics(page: Page) {
+	return page.evaluate(() => {
+		const probe = document.createElement('div');
+		probe.style.cssText =
+			'position:absolute;visibility:hidden;display:flex;row-gap:var(--component-list-gap);' +
+			'padding:var(--density-card-padding);min-height:var(--density-nav-item-height);' +
+			// A gap, not a width: under border-box the card padding would clamp a 24px width to 32px.
+			'column-gap:var(--density-icon-size)';
+		document.body.append(probe);
+		const style = getComputedStyle(probe);
+		const metrics = {
+			navItem: parseFloat(style.minHeight),
+			cardPad: parseFloat(style.paddingTop),
+			listGap: parseFloat(style.rowGap),
+			icon: parseFloat(style.columnGap),
+		};
+		probe.remove();
+		return metrics;
+	});
+}
+
+/**
+ * The rail's destinations: the buttons in its scrolling list, not the palette button in its footer.
+ * `listGap` is the row gap of that real list container, so the density list-gap token is measured
+ * where the app actually lays rows out rather than on a synthetic probe.
+ */
+async function railNavItems(page: Page) {
+	return page.locator('nav[aria-label="Primary"] button').evaluateAll((buttons) =>
+		buttons
+			.filter((button) => {
+				const list = button.parentElement;
+				return !!list && getComputedStyle(list).overflowY === 'auto';
+			})
+			.map((button) => {
+				const rect = button.getBoundingClientRect();
+				return {
+					name: button.getAttribute('aria-label') ?? button.tagName,
+					minHeight: parseFloat(getComputedStyle(button).minHeight),
+					listGap: parseFloat(getComputedStyle(button.parentElement as Element).rowGap),
+					width: rect.width,
+					height: rect.height,
+				};
+			}),
+	);
+}
+
+async function targetSizes(page: Page, selector: string) {
+	return page.locator(selector).evaluateAll((controls) =>
+		controls
+			.filter((control) => control.getBoundingClientRect().height > 0)
+			.map((control) => {
+				const rect = control.getBoundingClientRect();
+				const name =
+					control.getAttribute('aria-label') || control.textContent?.trim() || control.tagName;
+				return {
+					name: name.replace(/\s+/g, ' ').slice(0, 40),
+					width: rect.width,
+					height: rect.height,
+				};
+			}),
+	);
+}
+
+test('each density set gives nav items, cards and list gaps their audited target sizes', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 800, height: 900 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	// Prepaint boots every viewport under 1200px as comfortable, so each set is chosen through the
+	// real Appearance control, which switches `data-density` live.
+	const density = page.getByRole('radiogroup', { name: 'Interface density' });
+	const appearance = density.locator('xpath=ancestor::section[1]');
+	for (const set of DENSITY_SETS) {
+		await density.getByRole('radio', { name: set.label, exact: true }).click();
+		await expect(page.locator('html')).toHaveAttribute('data-density', set.value);
+
+		const items = await railNavItems(page);
+		expect(items.length, 'the rail rendered no destinations').toBeGreaterThan(3);
+		for (const item of items) {
+			expect(item.minHeight, `${item.name} nav item min-height (${set.value})`).toBe(set.navItem);
+			// The RENDERED box, not just a floor: a fixed 44px square on the rail item previously sat
+			// above compact/standard's min-height and below comfortable's, so the rail measured
+			// 48/44/44 while every min-height assertion above still passed.
+			expect(item.height, `${item.name} rendered nav item height (${set.value})`).toBeCloseTo(
+				set.navItem,
+				1,
+			);
+			expect(item.width, `${item.name} rendered nav item width (${set.value})`).toBeCloseTo(
+				set.navItem,
+				1,
+			);
+			// The rail's own list — a production list — has to lay its rows out on the density gap.
+			expect(item.listGap, `the rail list gap (${set.value})`).toBe(set.listGap);
+			// WCAG 2.5.8's 24px floor holds at every density, compact included.
+			expect(
+				Math.min(item.width, item.height),
+				`${item.name} is under the 24px floor (${set.value})`,
+			).toBeGreaterThanOrEqual(24);
+		}
+
+		await expect(appearance).toHaveCSS('padding-top', `${set.cardPad}px`);
+		expect(await densityTokenMetrics(page)).toMatchObject({
+			navItem: set.navItem,
+			cardPad: set.cardPad,
+			listGap: set.listGap,
+		});
+
+		for (const radio of await targetSizes(
+			page,
+			'[role="radiogroup"][aria-label="Interface density"] [role="radio"]',
+		)) {
+			expect(
+				Math.min(radio.width, radio.height),
+				`density option ${radio.name} is under the 24px floor (${set.value})`,
+			).toBeGreaterThanOrEqual(24);
+		}
+	}
+});
+
+test('a stored density applies from 1200px; narrower viewports boot locked to comfortable', async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		try {
+			window.localStorage.setItem('dndtools:react:density', 'compact');
+		} catch {
+			/* storage may be unavailable in some contexts */
+		}
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+	expect(await densityTokenMetrics(page)).toMatchObject({ navItem: 28, cardPad: 12, listGap: 2 });
+	await expect(
+		page
+			.getByRole('radiogroup', { name: 'Interface density' })
+			.locator('xpath=ancestor::section[1]'),
+	).toHaveCSS('padding-top', '12px');
+
+	// The same stored choice on a tablet-width boot is overridden: touch profiles get comfortable.
+	await page.setViewportSize({ width: 800, height: 900 });
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+		timeout: 20_000,
+	});
+	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'comfortable');
+	const items = await railNavItems(page);
+	expect(items.length, 'the rail rendered no destinations').toBeGreaterThan(3);
+	for (const item of items) {
+		expect(item.height, `${item.name} is not the 48px comfortable nav item`).toBeCloseTo(48, 1);
+		expect(item.width, `${item.name} is not the 48px comfortable nav item`).toBeCloseTo(48, 1);
+		expect(item.listGap, 'the rail list gap under the comfortable boot lock').toBe(8);
+	}
+});
+
+test('Android holds the comfortable set even with compact stored at a wide viewport', async ({
+	page,
+}) => {
+	await page.addInitScript(() => {
+		(
+			globalThis as typeof globalThis & {
+				__DNDTOOLS_TEST_RUNTIME_KIND__?: 'android';
+			}
+		).__DNDTOOLS_TEST_RUNTIME_KIND__ = 'android';
+		try {
+			window.localStorage.setItem('dndtools:react:density', 'compact');
+		} catch {
+			/* storage may be unavailable in some contexts */
+		}
+	});
+	// 1280px is past prepaint's 1200px line, so the stored `compact` is what boots — a landscape
+	// Android tablet. The lock, not the viewport, has to hold the comfortable set here.
+	await page.setViewportSize({ width: 1280, height: 800 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/settings');
+	await seedFresh(page);
+
+	await expect(page.locator('html')).toHaveAttribute('data-runtime', 'android');
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+	expect(await densityTokenMetrics(page)).toEqual({
+		navItem: 48,
+		cardPad: 16,
+		listGap: 8,
+		icon: 24,
+	});
+	await expect(
+		page
+			.getByRole('radiogroup', { name: 'Interface density' })
+			.locator('xpath=ancestor::section[1]'),
+	).toHaveCSS('padding-top', '16px');
+
+	const undersized = [
+		...(await targetSizes(page, 'nav[aria-label="Primary"] button')),
+		...(await targetSizes(
+			page,
+			'[role="radiogroup"][aria-label="Interface density"] [role="radio"]',
+		)),
+		...(await targetSizes(page, 'nav[aria-label="Settings navigation"] button')),
+	].filter((control) => control.width < 47.5 || control.height < 47.5);
+	expect(undersized, 'controls under 48dp with compact stored on Android').toEqual([]);
+
+	// Resize without reloading: compact remains selected, so only the Android override can
+	// keep the actual rail comfortable. The short viewport also exercises its scrolling list.
+	await page.setViewportSize({ width: 800, height: 480 });
+	await expect.poll(async () => (await railNavItems(page)).length).toBeGreaterThan(3);
+	await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+	for (const item of await railNavItems(page)) {
+		expect(item.height, `${item.name} Android rail height`).toBeCloseTo(48, 1);
+		expect(item.width, `${item.name} Android rail width`).toBeCloseTo(48, 1);
+		expect(item.listGap, 'Android rail list gap').toBe(8);
 	}
 });
 
@@ -1515,3 +1752,399 @@ test('rotating across the split width keeps the open detail mounted', async ({ p
 		'true',
 	);
 });
+
+// RC-UX-4.2 — the mobile primary-action contract (UX-002; docs/architecture/NAVIGATION.md §4 and §8),
+// audited screen by screen. On a phone the top bar holds the title, ONE inline action (Search: the
+// palette reaches every destination and command) and ONE labelled overflow ("Table controls"). That
+// overflow's bounded sheet holds the table utilities, including the only primary-weight control the
+// top bar owns (Go live / End session). A screen's own first screenful keeps to one filled action.
+// The screens that still show more are listed with the POL story that owns the fix. A ceiling only
+// ever comes down.
+const PRIMARY_ACTION_DEBT: Record<string, { ceiling: number; owner: string }> = {
+	// "Go live" and the soft-disabled "Build encounter" both fill above the fold on a phone.
+	'/session': { ceiling: 2, owner: 'RC-POL-1.4' },
+};
+
+/**
+ * Every screen the shell renders — `ShelledRoutes` in App.tsx, minus the `*` redirect. `ROUTES`
+ * above is the older sweep's list of top-level destinations; the audit is per SCREEN, so the four
+ * sub-routes that render their own surface inside the same section (the scene editor, Story's
+ * calendar and relationships, the graph repair workspace) are audited in their own right — a screen
+ * reached only by a card or a link is exactly where a second primary action tends to hide.
+ * `:id` is resolved against the seeded vault by `openShellScreen`.
+ */
+const SHELL_SCREENS = [
+	...ROUTES,
+	'/scene/:id',
+	'/campaign/calendar',
+	'/campaign/relationships',
+	'/graph/repair',
+];
+
+/** Screens whose section is a row in the phone "All sections" sheet (not one of the four tabs). The
+ * sheet marks the active SECTION, so a sub-route marks its parent's row. Graph is usage-gated
+ * (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
+const MORE_SHEET_ROUTES = new Set([
+	'/board',
+	'/campaign',
+	'/campaign/calendar',
+	'/campaign/relationships',
+	'/knowledge',
+	'/graph',
+	'/graph/repair',
+	'/audio',
+	'/extensions',
+	'/community',
+	'/upgrade',
+	'/player',
+	'/settings',
+]);
+
+/** The id of a Scene the seeded vault already carries — the editor's not-found state is not a
+ * screen, so `/scene/:id` has to open on something real (mirrors the axe gate's resolver). */
+async function seededSceneId(page: Page): Promise<string> {
+	const id = await page.evaluate(() => {
+		const state = window.__rt!.state as unknown as {
+			commandCenter: { homeSceneId: string | null };
+			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+		};
+		return (
+			state.commandCenter.homeSceneId ??
+			Object.values(state.scenes.scenes).find((scene) => !scene.isTemplate)?.id ??
+			null
+		);
+	});
+	expect(id, 'the seeded vault has no Scene to open the editor on').not.toBeNull();
+	return id!;
+}
+
+/** Put the page on `screen` with a freshly seeded vault. A screen whose path carries a parameter is
+ * resolved AFTER the seed, because the wipe-and-reload would otherwise strand the editor on an id
+ * that no longer exists. */
+async function openShellScreen(page: Page, screen: string): Promise<void> {
+	if (!screen.includes(':')) {
+		await gotoRoute(page, screen);
+		await seedFresh(page);
+		return;
+	}
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+	await gotoRoute(page, screen.replace(':id', await seededSceneId(page)));
+}
+
+/** The shell's `*` route redirects an unknown path to `/`, which would silently turn a sub-route's
+ * audit into a second audit of the Command Center. Every assertion below is only worth what this
+ * check is. */
+async function expectStillOn(page: Page, screen: string): Promise<void> {
+	const hash = new URL(page.url()).hash.replace(/^#/, '');
+	const pattern = new RegExp(`^${screen.replace(':id', '[^/]+')}$`);
+	expect(hash, `${screen} redirected to ${hash}`).toMatch(pattern);
+}
+
+async function settleScreen(page: Page): Promise<void> {
+	// The top bar's own <h1> is attached before a lazy route's chunk has rendered anything, so wait
+	// for the main pane to hold something real before counting what it shows.
+	await expect(
+		page.locator('#main-content').locator(`${CONTROL_SELECTOR}, h2, [role="tab"]`).first(),
+	).toBeVisible({ timeout: 20_000 });
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) =>
+				// Settle from a fresh task (RC-ENG-2.6).
+				requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))),
+			),
+	);
+}
+
+/** Accessible names of the visible controls under `scope`, in DOM order. */
+async function visibleControlNames(scope: Locator): Promise<string[]> {
+	return scope.locator(CONTROL_SELECTOR).evaluateAll((elements) =>
+		elements.flatMap((element) => {
+			const rect = element.getBoundingClientRect();
+			const style = getComputedStyle(element);
+			if (rect.width === 0 || rect.height === 0 || style.visibility === 'hidden') return [];
+			return [(element.getAttribute('aria-label') || element.textContent || '').trim()];
+		}),
+	);
+}
+
+/**
+ * Visible filled (primary-weight) actions under `scope`: the Button `primary` and `danger` fills,
+ * resolved from the live tokens so a theme cannot break the comparison. A selected segment, tab or
+ * toggle paints the same accent to show STATE rather than invite an action, so those are left out.
+ * With `firstScreenful`, only controls that start above the scope's own bottom edge count.
+ */
+async function filledActions(scope: Locator, firstScreenful = false): Promise<string[]> {
+	return scope.evaluate((root, onlyFirstScreenful) => {
+		const probe = document.createElement('div');
+		document.body.appendChild(probe);
+		const fills = ['var(--color-accent)', 'var(--color-status-error)'].map((value) => {
+			probe.style.background = value;
+			return getComputedStyle(probe).backgroundColor;
+		});
+		probe.remove();
+		const fold = onlyFirstScreenful ? root.getBoundingClientRect().bottom : Number.MAX_VALUE;
+		return Array.from(root.querySelectorAll('button, a[href], [role="button"]')).flatMap(
+			(element) => {
+				if (
+					element.matches(
+						'[aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current]:not([aria-current="false"])',
+					)
+				) {
+					return [];
+				}
+				const rect = element.getBoundingClientRect();
+				const style = getComputedStyle(element);
+				if (rect.width === 0 || rect.height === 0 || style.visibility === 'hidden') return [];
+				if (rect.top >= fold || !fills.includes(style.backgroundColor)) return [];
+				const name = element.getAttribute('aria-label') || element.textContent || element.tagName;
+				return [name.replace(/\s+/g, ' ').trim().slice(0, 60)];
+			},
+		);
+	}, firstScreenful);
+}
+
+for (const route of SHELL_SCREENS) {
+	test(`${route} keeps one top-bar action, one overflow and one primary action on a phone`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 375, height: 812 });
+		await markOnboarded(page);
+		await openShellScreen(page, route);
+		await settleScreen(page);
+		await expectStillOn(page, route);
+
+		// The top bar: the title, Search and the Table controls overflow. Nothing else, on any screen,
+		// and nothing primary-weight: Go live lives inside the overflow.
+		const banner = page.getByRole('banner');
+		expect(await visibleControlNames(banner), `${route} top bar`).toEqual([
+			'Search',
+			'Table controls',
+		]);
+		expect(await filledActions(banner), `${route} top bar primary-weight controls`).toEqual([]);
+		const title = await banner.getByRole('heading', { level: 1 }).boundingBox();
+		expect(title?.width ?? 0, `${route} squeezed its title`).toBeGreaterThanOrEqual(375 / 2);
+		for (const name of ['Search', 'Table controls']) {
+			const box = await banner.getByRole('button', { name, exact: true }).boundingBox();
+			expect(box?.width ?? 0, `${route} ${name} width`).toBeGreaterThanOrEqual(44);
+			expect(box?.height ?? 0, `${route} ${name} height`).toBeGreaterThanOrEqual(44);
+		}
+
+		// The screen's own first screenful keeps to one filled action, or to its recorded ceiling.
+		const debt = PRIMARY_ACTION_DEBT[route];
+		const filled = await filledActions(page.locator('#main-content'), true);
+		expect(
+			filled.length,
+			`${route} fills ${filled.join(' + ')} above the fold${debt ? ` (${debt.owner} owns the fix)` : ''}`,
+		).toBeLessThanOrEqual(debt?.ceiling ?? 1);
+
+		// The overflow says what it opens, works from the keyboard, and gives focus back. CSS, not a
+		// role query, for the trigger: an open modal hides its siblings from the accessibility tree.
+		const trigger = page.locator('header [aria-label="Table controls"]');
+		await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
+		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+		await trigger.focus();
+		await page.keyboard.press('Enter');
+		const controls = page.getByRole('dialog', { name: 'Table controls' });
+		await expect(controls).toBeVisible();
+		await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+		await expect
+			.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')))
+			.toBe(true);
+		expect(await filledActions(controls), `${route} table controls primary action`).toEqual([
+			'Go live',
+		]);
+		await expectOverlayControlsReachable(page, `${route} table controls`);
+		await page.keyboard.press('Escape');
+		await expect(controls).toBeHidden();
+		await expect(trigger).toBeFocused();
+		await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+		// The navigation overflow: every section the tab bar cannot hold, touch-sized, with this
+		// screen marked when it is one of them.
+		const more = page.getByRole('navigation', { name: 'Primary' }).getByRole('button', {
+			name: 'More',
+		});
+		await more.focus();
+		await page.keyboard.press('Enter');
+		const sections = page.getByRole('dialog', { name: 'All sections' });
+		await expect(sections).toBeVisible();
+		await expectOverlayControlsReachable(page, `${route} all sections`);
+		const rowHeights = await sections
+			.locator('button:not([aria-label="Close"])')
+			.evaluateAll((rows) =>
+				rows.map(
+					(row) => `${row.textContent?.trim().slice(0, 30)}:${row.getBoundingClientRect().height}`,
+				),
+			);
+		expect(
+			rowHeights.filter((row) => Number(row.split(':').pop()) < 44),
+			`${route} all-sections rows under 44px`,
+		).toEqual([]);
+		await expect(sections.locator('[aria-current="page"]')).toHaveCount(
+			MORE_SHEET_ROUTES.has(route) ? 1 : 0,
+		);
+		await page.keyboard.press('Escape');
+		await expect(sections).toBeHidden();
+		await expect(
+			page.locator('nav[aria-label="Primary"] button', { hasText: 'More' }),
+		).toBeFocused();
+	});
+}
+
+// The only confirmation the phone top bar can raise is End session, from inside the Table controls
+// sheet. Both answers are measured against the viewport and `bottomInset` (the Android gesture bar).
+async function expectEndSessionConfirmOnScreen(
+	page: Page,
+	height: number,
+	bottomInset = 0,
+): Promise<{ controls: Locator; confirm: Locator }> {
+	await page.getByRole('button', { name: 'Table controls' }).click();
+	const controls = page.getByRole('dialog', { name: 'Table controls' });
+	await controls.getByRole('button', { name: 'Go live', exact: true }).click();
+	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+	await controls.getByRole('button', { name: 'End live session' }).click();
+
+	const confirm = page.getByRole('dialog', { name: 'End the live session?' });
+	await expect(confirm).toBeVisible();
+	await page.waitForTimeout(250); // the dialog's entrance transform
+	for (const name of ['Stay live', 'End session']) {
+		const answer = confirm.getByRole('button', { name, exact: true });
+		await expect(answer).toBeInViewport({ ratio: 1 });
+		const box = await answer.boundingBox();
+		expect(box, `${name} is not rendered`).not.toBeNull();
+		expect(box!.y + box!.height, `${name} sits under the gesture bar`).toBeLessThanOrEqual(
+			height - bottomInset + 0.5,
+		);
+	}
+	// The confirmation is the one dialog here with a description; the sheet under it has none.
+	expect(
+		await clippedControls(page, '[role="dialog"][aria-describedby]'),
+		'the End session confirmation clipped a control',
+	).toEqual([]);
+	return { controls, confirm };
+}
+
+test('End session from the phone overflow asks first, and Escape unwinds one layer at a time', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 375, height: 812 });
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	await seedFresh(page);
+
+	const { controls, confirm } = await expectEndSessionConfirmOnScreen(page, 812);
+	// Escape answers "stay" and closes only the confirmation; the next Escape closes the sheet and
+	// hands focus back to the overflow that opened it.
+	await page.keyboard.press('Escape');
+	await expect(confirm).toBeHidden();
+	await expect(controls).toBeVisible();
+	expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+	await page.keyboard.press('Escape');
+	await expect(controls).toBeHidden();
+	await expect(page.locator('header [aria-label="Table controls"]')).toBeFocused();
+});
+
+// …and the answers must stay on screen when ~360px is left: this file's software-keyboard fixture,
+// which is also every landscape phone, and on Android above the gesture bar too. This is the
+// regression guard on the Dialog layout fix that made the case pass: the panel's header used to be
+// unable to shrink (a column flex item's `min-height` is `auto`), so this confirmation's long
+// description pushed the footer out of the `overflow: hidden` panel and the DM was asked a
+// destructive question with neither answer on screen.
+for (const android of [false, true]) {
+	test(`the End session confirmation stays keyboard-safe at 360px${android ? ' inside the Android safe area' : ''}`, async ({
+		page,
+	}) => {
+		if (android) {
+			await page.addInitScript(() => {
+				(
+					globalThis as typeof globalThis & {
+						__DNDTOOLS_TEST_RUNTIME_KIND__?: 'android';
+					}
+				).__DNDTOOLS_TEST_RUNTIME_KIND__ = 'android';
+			});
+		}
+		await page.setViewportSize({ width: 360, height: 360 });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		if (android) {
+			await page.evaluate(() => {
+				const root = document.documentElement.style;
+				root.setProperty('--safe-area-inset-top', '24px');
+				root.setProperty('--safe-area-inset-right', '18px');
+				root.setProperty('--safe-area-inset-bottom', '30px');
+				root.setProperty('--safe-area-inset-left', '16px');
+			});
+		}
+		const { controls, confirm } = await expectEndSessionConfirmOnScreen(
+			page,
+			360,
+			android ? 30 : 0,
+		);
+		// Visibility alone does not prove the answers work with a keyboard in a nested overlay.
+		// Cancel preserves the session and returns focus to its opener inside the still-open sheet.
+		const stay = confirm.getByRole('button', { name: 'Stay live', exact: true });
+		await stay.focus();
+		await page.keyboard.press('Enter');
+		await expect(confirm).toBeHidden();
+		await expect(controls).toBeVisible();
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.state.session.workflow))
+			.toBe('active');
+		const endTrigger = controls.getByRole('button', { name: 'End live session' });
+		await expect(endTrigger).toBeFocused();
+
+		// Reopen from that restored focus, tab between the answers, and explicitly confirm.
+		await page.keyboard.press('Enter');
+		await expect(confirm).toBeVisible();
+		// Dialog assigns initial focus asynchronously; wait before navigating its footer.
+		await expect(confirm.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+		await stay.focus();
+		await page.keyboard.press('Tab');
+		const end = confirm.getByRole('button', { name: 'End session', exact: true });
+		await expect(end).toBeFocused();
+		await expect(end).toBeInViewport({ ratio: 1 });
+		await page.keyboard.press('Enter');
+		await expect(confirm).toBeHidden();
+		await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+		await expect(controls).toBeVisible();
+	});
+}
+
+// Wider compact top bars (the rail tier, and a desktop window under 1280px) have the width to keep the
+// table utilities inline as icons, so they carry no overflow, but they still hold the line on
+// primary weight: Go live is the one filled control, on every screen.
+for (const viewport of [
+	{ name: 'rail', width: 800, height: 700 },
+	{ name: 'compact desktop', width: 1100, height: 700 },
+]) {
+	test(`the ${viewport.name} top bar keeps one primary-weight action on every screen`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: viewport.width, height: viewport.height });
+		await markOnboarded(page);
+		await gotoRoute(page, '/');
+		await seedFresh(page);
+		const sceneId = await seededSceneId(page);
+
+		const banner = page.getByRole('banner');
+		for (const screen of SHELL_SCREENS) {
+			const route = screen.replace(':id', sceneId);
+			await page.evaluate((next) => {
+				window.location.hash = next;
+			}, route);
+			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+			await settleScreen(page);
+			await expectStillOn(page, screen);
+
+			const filled = await filledActions(banner);
+			expect(filled, `${screen} ${viewport.name} top bar`).toHaveLength(1);
+			expect(filled[0], `${screen} ${viewport.name} top bar`).toMatch(/^Go live/);
+			await expect(banner.getByRole('button', { name: 'Table controls' })).toHaveCount(0);
+			expect(await clippedControls(page, 'header'), `${screen} top bar clipped a control`).toEqual(
+				[],
+			);
+		}
+	});
+}

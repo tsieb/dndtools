@@ -71,85 +71,93 @@ export function FormPanelTemplate({ widget, definition, data, onCommand }: Widge
 	}
 
 	return (
-		<TemplateShell testId="widget-template-form-panel">
+		<TemplateShell
+			testId="widget-template-form-panel"
+			controls={
+				<>
+					{fields.map((field) => {
+						const value = valueOf(field.key);
+						if (field.control === 'toggle') {
+							return (
+								<Switch
+									key={field.key}
+									label={field.label}
+									checked={value === true}
+									onChange={(next: boolean) => set(field.key, next)}
+								/>
+							);
+						}
+						return (
+							<Field key={field.key} label={field.label} help={field.help}>
+								{field.control === 'select' ? (
+									<Select
+										options={field.options ?? []}
+										value={value == null ? '' : String(value)}
+										onChange={(event: { target: { value: string } }) =>
+											set(field.key, event.target.value)
+										}
+									/>
+								) : field.control === 'textarea' ? (
+									<Textarea
+										rows={2}
+										value={value == null ? '' : String(value)}
+										placeholder={field.placeholder}
+										onChange={(event: { target: { value: string } }) =>
+											set(field.key, event.target.value)
+										}
+									/>
+								) : (
+									<Input
+										type={
+											field.control === 'number'
+												? 'number'
+												: field.control === 'color'
+													? 'color'
+													: 'text'
+										}
+										value={value == null ? '' : String(value)}
+										placeholder={field.placeholder}
+										min={field.min}
+										max={field.max}
+										step={field.step}
+										onChange={(event: { target: { value: string } }) =>
+											set(
+												field.key,
+												field.control === 'number'
+													? Number(event.target.value)
+													: event.target.value,
+											)
+										}
+									/>
+								)}
+							</Field>
+						);
+					})}
+					{/* No local "Sent" confirmation: the dispatch is asynchronous and the core may reject
+					    it, so anything this component printed on click would be a guess. The screen that
+					    owns the dispatch reports the real outcome through its status channel. */}
+					<Button
+						size="sm"
+						variant="primary"
+						style={{ alignSelf: 'flex-start' }}
+						aria-disabled={onCommand ? undefined : true}
+						title={onCommand ? undefined : 'Finish editing the layout to use this.'}
+						onClick={
+							onCommand
+								? () =>
+										onCommand(
+											command.type,
+											Object.fromEntries(fields.map((field) => [field.key, valueOf(field.key)])),
+										)
+								: undefined
+						}
+					>
+						{command.displayName}
+					</Button>
+				</>
+			}
+		>
 			<ComputedFields data={data} />
-			{fields.map((field) => {
-				const value = valueOf(field.key);
-				if (field.control === 'toggle') {
-					return (
-						<Switch
-							key={field.key}
-							label={field.label}
-							checked={value === true}
-							onChange={(next: boolean) => set(field.key, next)}
-						/>
-					);
-				}
-				return (
-					<Field key={field.key} label={field.label} help={field.help}>
-						{field.control === 'select' ? (
-							<Select
-								options={field.options ?? []}
-								value={value == null ? '' : String(value)}
-								onChange={(event: { target: { value: string } }) =>
-									set(field.key, event.target.value)
-								}
-							/>
-						) : field.control === 'textarea' ? (
-							<Textarea
-								rows={2}
-								value={value == null ? '' : String(value)}
-								placeholder={field.placeholder}
-								onChange={(event: { target: { value: string } }) =>
-									set(field.key, event.target.value)
-								}
-							/>
-						) : (
-							<Input
-								type={
-									field.control === 'number'
-										? 'number'
-										: field.control === 'color'
-											? 'color'
-											: 'text'
-								}
-								value={value == null ? '' : String(value)}
-								placeholder={field.placeholder}
-								min={field.min}
-								max={field.max}
-								step={field.step}
-								onChange={(event: { target: { value: string } }) =>
-									set(
-										field.key,
-										field.control === 'number' ? Number(event.target.value) : event.target.value,
-									)
-								}
-							/>
-						)}
-					</Field>
-				);
-			})}
-			{/* No local "Sent" confirmation: the dispatch is asynchronous and the core may reject it, so
-			    anything this component printed on click would be a guess. The screen that owns the
-			    dispatch reports the real outcome through its status channel. */}
-			<Button
-				size="sm"
-				variant="primary"
-				style={{ alignSelf: 'flex-start' }}
-				aria-disabled={onCommand ? undefined : true}
-				title={onCommand ? undefined : 'Finish editing the layout to use this.'}
-				onClick={
-					onCommand
-						? () =>
-								onCommand(
-									command.type,
-									Object.fromEntries(fields.map((field) => [field.key, valueOf(field.key)])),
-								)
-						: undefined
-				}
-			>
-				{command.displayName}
-			</Button>
 		</TemplateShell>
 	);
 }

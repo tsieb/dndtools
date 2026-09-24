@@ -53,6 +53,59 @@ tracker, action panel, scene message, chart, stat block, form panel) read `dataQ
 honours `audience`. Built-in bodies (`app/widgets/builtin/`) cover the system widgets: Map, Audio,
 combat, notes, atlas, search, session, tools, player views, and the rest.
 
+### 3.1 Accessibility contract
+
+What every widget owes a keyboard or screen-reader user, and who supplies each part (RC-WID-4.4).
+
+| Obligation           | Builtin bodies and templates (the host)                                                                                                                                                                                                 | Custom `custom-html-js` frames (the package)                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A labelled region    | `WidgetRegion` (`WidgetRenderSlot.tsx`) wraps every branch, placeholder included, in a `<section>` named by the widget's title.                                                                                                         | The same region, plus the iframe `title`. Nothing to do.                                                                                               |
+| Keyboard operation   | Every operate control is a real `<button>` (`OpChip`, DS `Button`/`IconButton`) in the Tab order, run by Enter and Space. A soft-disabled control stays focusable and says why. A control that unmounts when pressed hands focus on.    | Native controls or named ARIA widgets; every operate control reachable by Tab; no `tabindex` above 0; no focus taken on load; no `role="application"`. |
+| Value changes spoken | The value readout is an `aria-live="polite"` region mounted with the readout: a stat row (`LiveStats`), a count line, the timer's status line, the map summary. A template's readout is `TemplateShell`'s region, its controls outside. | Mount an `aria-live="polite"` region at install, empty, and write changes into it. A region inserted together with its text is routinely not heard.    |
+| No colour-only state | An accent tone also carries a shape and a name: `StateMark` (done, pinned, playing), "Now" on the active chart and tracker row, a warning glyph on an urgent timer.                                                                     | Same rule. Honour the contrast state below.                                                                                                            |
+| Contrast             | Tokens remap under `forced-colors` (`styles/tokens/colors.css`).                                                                                                                                                                        | `init` sets `--host-forced-colors` (`active` \| `none`) and `--host-high-contrast` (`on` \| `off`) on the frame's root, whatever the package declares. |
+
+Placed regions prefix the title with their persisted scene-list position (for example, `1. Note`
+and `2. Note`). This keeps landmarks distinct when titles repeat, including across widget types.
+Moving or resizing a tile preserves its number; adding/removing tiles may renumber later entries.
+Unplaced previews use the title alone.
+
+The readouts are `aria-live`, not `role="status"`. The canvas's confirmation channel ("Undone: moved
+…") is the one status on a board; twenty tiles each claiming the role would bury it.
+
+What counts as a value is deliberate. It is what changes while the tile sits on the board: the
+round, a count, whether a track plays. Authored prose (a note or handout body) is content and is not
+announced. The countdown figure is `role="timer"`, readable on demand but never read out twice a
+second; the status line under it announces the status and time left on explicit timer operations
+(including duration adjustments while paused, running or stopped) and urgency transitions. Ordinary
+clock ticks leave that live text unchanged. Count readouts keep the same live-region element mounted
+through empty and populated states, including removal of the last item.
+The phone initiative tile announces the turn by its place in the order, because the name is already
+in its row and a second copy in the DOM makes every by-name lookup ambiguous. Its value region
+retains the same DOM node through idle, running, ended and empty-order states.
+
+The contrast variables reach every frame, not only those declaring `host-theme-tokens`, because they
+are an accessibility signal and say nothing about the vault. `--host-high-contrast` is `on` for the
+app's high-contrast theme or for the OS forcing colours. The OS mode also reaches the frame's own
+`@media (forced-colors: active)`; the app theme reaches it only through this variable. Both are set
+before the package's scripts run, and the host restarts the frame when either changes
+(`ThemeAwareWidgetHost`):
+
+```js
+var root = getComputedStyle(document.documentElement);
+if (root.getPropertyValue('--host-high-contrast').trim() === 'on') {
+	document.body.classList.add('high-contrast'); // drop decorative colour, keep shapes and words
+}
+```
+
+The host cannot enforce anything inside an opaque origin, so the package column is a contract, not a
+check. Evidence for the host column is `custom-widgets.spec.ts` › "widget accessibility contract":
+axe on `/board` and `/scene/:id` with every builtin type placed and the table live, on both profiles;
+a Tab-only walk that drives every operate command the builtins declare; and the contrast forwarding.
+
+The map tile renders token and POI markers as decorative glyphs, not controls. Its map canvas
+receives empty marker arrays, so scaled markers do not introduce undersized button targets.
+
 ## 4. The custom-widget host
 
 `custom-html-js` widgets render in an iframe with `sandbox="allow-scripts"` and no

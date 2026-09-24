@@ -3,6 +3,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Chip, Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * The `atlas` Command Center widget (RC-WID-4.1) — the active-map projection state plus the most
@@ -20,22 +21,27 @@ export function AtlasBody({ widget }: { widget: BoardWidget }) {
 	const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
 	const shown = Math.max(1, Number(cfg<string>(widget, 'thumbnails') ?? 3) || 3);
 	const projection = getActiveMapProjectionSummary(runtime.state, actorId);
-	if (maps.length === 0) return <Muted>{t('widgetBody.atlas.empty')}</Muted>;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-				<StatPill label={t('widgetBody.atlas.maps')} value={String(maps.length)} />
-				{projection && (
-					<StatPill
-						label={t('widgetBody.atlas.sharing')}
-						value={
-							projection.projecting
-								? String(projection.deliveredCount)
-								: t('widgetBody.atlas.noOne')
-						}
-					/>
+			<LiveStats>
+				{maps.length === 0 ? (
+					<Muted>{t('widgetBody.atlas.empty')}</Muted>
+				) : (
+					<>
+						<StatPill label={t('widgetBody.atlas.maps')} value={String(maps.length)} />
+						{projection && (
+							<StatPill
+								label={t('widgetBody.atlas.sharing')}
+								value={
+									projection.projecting
+										? String(projection.deliveredCount)
+										: t('widgetBody.atlas.noOne')
+								}
+							/>
+						)}
+					</>
 				)}
-			</div>
+			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{maps.slice(0, shown).map((map) => (
 					<Chip key={map.id}>{map.name}</Chip>

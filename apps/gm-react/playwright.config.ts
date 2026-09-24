@@ -186,6 +186,9 @@ export default defineConfig({
 			VITE_APP_API_URL: '',
 			VITE_PUBLIC_APP_URL: '',
 			VITE_GOOGLE_CLIENT_ID: '',
+			// Full 200s instead of 304s: Chromium keeps a 2 MB shared-memory pipe mapped per 304 until
+			// the context closes, gigabytes per reload. See `e2eFullResponses()` in vite.config.ts.
+			DNDTOOLS_E2E_FULL_RESPONSES: '1',
 		},
 	},
 });

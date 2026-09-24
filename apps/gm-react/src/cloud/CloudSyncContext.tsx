@@ -22,6 +22,7 @@ import { useEntitlements } from './entitlements';
 import { cloudConfig, isSyncConfigured } from './config';
 import {
 	cloudSyncIntent,
+	documentCloudVaultId,
 	getCloudSyncStatus,
 	retryPendingCloudKeyDeletions,
 	setCloudSyncEnabled,
@@ -71,6 +72,8 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 	const entitlements = useEntitlements();
 	const accountId = auth.status === 'signed-in' && auth.user?.sub ? auth.user.sub : null;
 	const includedInPlan = entitlements.plan !== 'hearth';
+	// RC-UX-5.4 — this document's local vault; opt-in, gate, engine and keys are all scoped to it.
+	const [vaultId] = useState(documentCloudVaultId);
 	const [gateState, setGateState] = useState<{
 		accountId: string | null;
 		gate: CloudSyncStatus | null;
@@ -78,7 +81,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 	const [intentState, setIntentState] = useState<{
 		accountId: string | null;
 		enabled: boolean;
-	}>(() => ({ accountId, enabled: cloudSyncIntent(accountId) }));
+	}>(() => ({ accountId, enabled: cloudSyncIntent(accountId, vaultId) }));
 	const [engineStatus, setEngineStatus] = useState<SyncEngineStatus | null>(null);
 	const engineRef = useRef<CloudSyncEngine | null>(null);
 	const engineAccountRef = useRef<string | null>(null);
@@ -102,7 +105,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 		try {
-			const next = await getCloudSyncStatus(accountId);
+			const next = await getCloudSyncStatus(accountId, vaultId);
 			if (requestId === gateRequestRef.current && activeAccountRef.current === accountId)
 				setGateState({ accountId, gate: next });
 		} catch (error) {
@@ -110,15 +113,15 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 				setGateState({ accountId, gate: null });
 			throw error;
 		}
-	}, [accountId]);
+	}, [accountId, vaultId]);
 
 	useEffect(() => {
-		setIntentState({ accountId, enabled: cloudSyncIntent(accountId) });
+		setIntentState({ accountId, enabled: cloudSyncIntent(accountId, vaultId) });
 		setGateState({ accountId, gate: null });
 		void refresh().catch(() => {
 			// Fail closed. A user-triggered refresh still receives the rejection.
 		});
-	}, [accountId, refresh]);
+	}, [accountId, vaultId, refresh]);
 
 	// Engine lifecycle: run only when configured + signed-in + opted-in. The gate's custody check is
 	// what makes this fail closed on the web (no OS keychain → canEnableOnThisDevice is false).
@@ -135,12 +138,13 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			engineAccountRef.current = null;
 			setEngineStatus(null);
 		}
-		if (canRun && accountId && !engineRef.current) {
+		if (canRun && accountId && vaultId && !engineRef.current) {
 			const engineAccountId = accountId;
 			const engine = createSyncEngine({
 				runtime,
 				apiUrl: cloudConfig.syncApiUrl,
 				accountId: engineAccountId,
+				vaultId,
 				onStatus: (s) => {
 					if (activeAccountRef.current === engineAccountId) setEngineStatus(s);
 				},
@@ -150,7 +154,15 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			setEngineStatus(engine.getStatus());
 			engine.start();
 		}
-	}, [runtime, accountId, auth.status, enabled, includedInPlan, gate?.canEnableOnThisDevice]);
+	}, [
+		runtime,
+		accountId,
+		vaultId,
+		auth.status,
+		enabled,
+		includedInPlan,
+		gate?.canEnableOnThisDevice,
+	]);
 
 	useEffect(
 		() => () => {
@@ -171,11 +183,11 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 		if (!ok) return;
 		const targetAccountId = activeAccountRef.current ?? (await currentUser())?.sub ?? null;
 		if (!targetAccountId) throw new Error('Sign in before enabling encrypted cloud backup.');
-		const nextGate = await setCloudSyncEnabled(true, targetAccountId);
+		const nextGate = await setCloudSyncEnabled(true, targetAccountId, vaultId);
 		setIntentState({ accountId: targetAccountId, enabled: true });
 		if (activeAccountRef.current === targetAccountId)
 			setGateState({ accountId: targetAccountId, gate: nextGate });
-	}, [auth, includedInPlan]);
+	}, [auth, includedInPlan, vaultId]);
 
 	const disable = useCallback(async () => {
 		const targetAccountId = activeAccountRef.current;
@@ -191,10 +203,10 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			setEngineStatus(null);
 		}
 		setIntentState({ accountId: targetAccountId, enabled: false });
-		const nextGate = await setCloudSyncEnabled(false, targetAccountId);
+		const nextGate = await setCloudSyncEnabled(false, targetAccountId, vaultId);
 		if (activeAccountRef.current === targetAccountId)
 			setGateState({ accountId: targetAccountId, gate: nextGate });
-	}, []);
+	}, [vaultId]);
 
 	// Compare BEFORE pushing. The engine refuses a push while it knows this device has diverged, but
 	// it only knows that once a comparison has run — so the user-facing "Sync now" always runs one

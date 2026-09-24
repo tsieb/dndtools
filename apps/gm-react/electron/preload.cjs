@@ -100,3 +100,38 @@ contextBridge.exposeInMainWorld('dndtoolsUpdates', {
 contextBridge.exposeInMainWorld('dndtoolsSceneDisplayControl', {
 	open: () => ipcRenderer.invoke('scene-display:open'),
 });
+
+// Desktop chrome is primary-only. No arbitrary navigation or command execution surface.
+let desktopInitialized = false;
+let desktopEntries = [];
+// The renderer reflects its state here as soon as it mounts, which can precede the shell's
+// `desktop:init`. Hold the latest value and flush it once, rather than reaching for main before it
+// has a menu or a badge to own — this is also what keeps a boot under a foreign main process (the
+// origin smoke) from tripping its "startup touched a privileged channel" guard.
+let desktopLiveSession = false;
+ipcRenderer.on('desktop:init', () => {
+	desktopInitialized = true;
+	void ipcRenderer.invoke('desktop:menu', desktopEntries);
+	if (desktopLiveSession) void ipcRenderer.invoke('desktop:live', true);
+});
+contextBridge.exposeInMainWorld('lamplightDesktop', {
+	setMenu: (entries) => {
+		desktopEntries = entries;
+		return desktopInitialized ? ipcRenderer.invoke('desktop:menu', entries) : Promise.resolve(true);
+	},
+	setLiveSession: (active) => {
+		desktopLiveSession = active === true;
+		return desktopInitialized ? ipcRenderer.invoke('desktop:live', active) : Promise.resolve(true);
+	},
+	onShortcut: (callback) => {
+		const handler = (_event, id) => callback(id);
+		ipcRenderer.on('desktop:shortcut', handler);
+		return () => ipcRenderer.removeListener('desktop:shortcut', handler);
+	},
+});
+const applyJoin = (hash) => {
+	if (typeof hash === 'string' && /^#\/join\?token=[A-Za-z0-9_-]{1,1024}$/.test(hash))
+		window.location.hash = hash;
+};
+ipcRenderer.on('desktop:join', (_event, hash) => applyJoin(hash));
+window.addEventListener('DOMContentLoaded', () => ipcRenderer.send('desktop:ready'));

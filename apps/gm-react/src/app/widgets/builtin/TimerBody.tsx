@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getTimerCountdown } from '@dndtools/core';
+import { Icon } from '../../../ds';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import { useI18n } from '../../../i18n';
 import {
 	Muted,
 	OpChip,
+	SR_ONLY,
 	cfg,
 	useSessionOnlyReason,
 	type WidgetCommandHandler,
 } from '../../widget-body-kit';
+import { LiveReadout } from './live';
 
 /**
  * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
@@ -55,10 +58,33 @@ export function TimerBody({
 		return () => window.clearInterval(id);
 	}, [ticking]);
 
+	// Freeze the spoken time on durable timer changes and urgency transitions. Ordinary clock
+	// ticks must not mutate the live text, but explicit adjustments must be announced even when
+	// paused or when the urgency stays the same. Revision also covers operations from other views.
+	const announcementKey = `${countdown.status}:${countdown.urgency}:${timer?.revision ?? 0}:${configured}`;
+	const [announced, setAnnounced] = useState({ key: announcementKey, display: countdown.display });
+	if (announced.key !== announcementKey) {
+		setAnnounced({ key: announcementKey, display: countdown.display });
+	}
+	const urgent = countdown.urgency !== 'normal';
+
 	const declares = (type: string) => !!onCommand && widget.commands.includes(type);
 	const op = (type: string, payload: Record<string, unknown> = {}) =>
 		declares(type) ? () => onCommand?.(type, payload) : undefined;
 	const sessionOnly = useSessionOnlyReason();
+
+	// RC-WID-4.4 — Reset stops the timer, and a stopped timer has no Reset control, so the button
+	// that was just pressed unmounted under the keyboard and focus fell to <body>. Hand focus to the
+	// transport instead: starting again is the next thing a DM does after a reset.
+	const controlsRef = useRef<HTMLDivElement | null>(null);
+	const refocusTransport = useRef(false);
+	useEffect(() => {
+		if (countdown.status !== 'stopped' || !refocusTransport.current) return;
+		refocusTransport.current = false;
+		controlsRef.current?.querySelector<HTMLElement>('button')?.focus();
+	}, [countdown.status]);
+	const reset = op('timer.reset');
+
 	const transport: {
 		icon: string;
 		label: string;
@@ -86,18 +112,30 @@ export function TimerBody({
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
 			<div style={{ minWidth: 0 }}>
+				{/* `timer` is a live region that is OFF by default: the figure is readable on demand
+				    without narrating every tick. Urgency was colour alone; the warning shape survives
+				    forced-colors mode, which repaints the red and the amber as one system colour. */}
 				<div
+					role="timer"
 					style={{
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--space-1-5)',
 						font: '700 26px var(--font-mono)',
 						color: URGENCY_COLOR[countdown.urgency] ?? 'var(--color-text-primary)',
 						letterSpacing: '.04em',
 					}}
 				>
+					{urgent && <Icon name="warning" size={18} />}
 					{countdown.display}
 				</div>
-				{countdown.status !== 'stopped' && <Muted>{countdown.statusLabel}</Muted>}
+				<LiveReadout>
+					{countdown.status !== 'stopped' && <Muted>{countdown.statusLabel}</Muted>}
+					{timer && <span style={SR_ONLY}> {announced.display}</span>}
+				</LiveReadout>
 			</div>
 			<div
+				ref={controlsRef}
 				style={{
 					marginLeft: 'auto',
 					display: 'flex',
@@ -123,7 +161,13 @@ export function TimerBody({
 						icon="retry"
 						label={t('widgetBody.timer.reset')}
 						unavailableReason={sessionOnly}
-						onPress={op('timer.reset')}
+						onPress={
+							reset &&
+							(() => {
+								refocusTransport.current = true;
+								reset();
+							})
+						}
 					/>
 				)}
 				{/* RC-WID-4.2 — `timer.advance` was a DECLARED operate command with no control anywhere on

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	listScenesForActor,
@@ -25,6 +25,10 @@ import { T } from '../screen-kit';
 import { SECTION_PATH } from './sections';
 import { SceneSideRow, SideGroup, SideRow, sceneStatus, usePresenceStatus } from './rows';
 import { useSessionPosture } from './session-posture';
+import { listLocalVaults } from '../../platform/storage/coreStore';
+const VaultSwitcher = lazy(() =>
+	import('./VaultSwitcher').then((module) => ({ default: module.VaultSwitcher })),
+);
 
 /* Desktop (≥1025px): the 264px sidebar — brand · campaign chip · Run the table / Scenes / Library /
  * Platform / Recent · player + settings + DM account. Extracted from AppShell.tsx unchanged
@@ -35,6 +39,15 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const location = useLocation();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
+	const [vaultsOpen, setVaultsOpen] = useState(false);
+	const readVaultName = () => {
+		try {
+			return listLocalVaults().find((vault) => vault.id === runtime.vaultId)?.name;
+		} catch {
+			return undefined;
+		}
+	};
+	const [vaultName, setVaultName] = useState(readVaultName);
 	const active = activeSectionId(location.pathname);
 	const go = (id: string) => navigate(SECTION_PATH[id] ?? '/');
 
@@ -173,11 +186,13 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				/>
 			</div>
 
-			{/* campaign chip — a "which campaign am I in" affordance; it goes HOME (the campaign hub),
-			    not to the Story section (sending it there read as a broken campaign switcher). */}
+			{/* The campaign chip opens the device-local vault catalog. */}
 			<button
 				type="button"
-				onClick={() => go('home')}
+				onClick={() => setVaultsOpen(true)}
+				aria-label={t('vaults.title')}
+				aria-haspopup="dialog"
+				aria-expanded={vaultsOpen}
 				style={{
 					margin: '0 12px 4px',
 					padding: '9px 11px',
@@ -193,8 +208,17 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			>
 				<Icon name="campaign-scroll" size="sm" color={T.acc} />
 				<span style={{ flex: 1, minWidth: 0 }}>
-					<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
-						{t('shell.yourCampaign')}
+					<span
+						style={{
+							display: 'block',
+							font: `600 12.5px ${T.sans}`,
+							color: T.ink,
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+							whiteSpace: 'nowrap',
+						}}
+					>
+						{vaultName ?? t('shell.yourCampaign')}
 					</span>
 					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
 						{t('shell.campaignCounts', {
@@ -203,8 +227,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						})}
 					</span>
 				</span>
-				{/* chevron-right = "this navigates"; chevron-down here implied a dropdown that never opened */}
-				<Icon name="chevron-right" size={13} color={T.ter} />
+				<Icon name="chevron-down" size={13} color={T.ter} />
 			</button>
 
 			<div
@@ -444,6 +467,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					<Icon name="chevron-right" size={13} color={T.ter} />
 				</button>
 			</div>
+			{vaultsOpen && (
+				<Suspense fallback={null}>
+					<VaultSwitcher
+						onClose={() => setVaultsOpen(false)}
+						onChanged={() => setVaultName(readVaultName())}
+					/>
+				</Suspense>
+			)}
 		</aside>
 	);
 }

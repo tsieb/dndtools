@@ -2,6 +2,7 @@ import { getPlayerViewController } from '@dndtools/core';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import { Chip, Muted, StatPill, bodyWrap } from '../../widget-body-kit';
+import { LiveStats } from './live';
 
 /**
  * The `player-views` Command Center widget (RC-WID-4.1) — who is at the table and what each of them
@@ -22,10 +23,10 @@ export function PlayerViewsBody() {
 	const assigned = participants.filter((p) => p.assignment?.kind === 'assigned').length;
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill label={t('widgetBody.playerViews.players')} value={String(participants.length)} />
 				<StatPill label={t('widgetBody.playerViews.assigned')} value={String(assigned)} />
-			</div>
+			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{participants.slice(0, 5).map((participant) => {
 					const assignment = participant.assignment;

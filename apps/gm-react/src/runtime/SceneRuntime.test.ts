@@ -5,11 +5,16 @@ const mocks = vi.hoisted(() => ({
 	loadCoreState: vi.fn(),
 	persistFullState: vi.fn(),
 	seedDemoContent: vi.fn(),
+	selectLocalVaultForNextLoad: vi.fn(() => () => {}),
 }));
 
 vi.mock('../platform/storage/coreStore', () => ({
+	activeLocalVaultId: () => 'primary',
+	LEGACY_LOCAL_VAULT_ID: 'primary',
+	vaultPreferenceKey: (key: string) => key,
 	loadCoreState: mocks.loadCoreState,
 	persistFullState: mocks.persistFullState,
+	selectLocalVaultForNextLoad: mocks.selectLocalVaultForNextLoad,
 }));
 vi.mock('./demo-seed', () => ({ seedDemoContent: mocks.seedDemoContent }));
 
@@ -61,9 +66,48 @@ beforeEach(() => {
 	mocks.loadCoreState.mockReset();
 	mocks.persistFullState.mockReset();
 	mocks.seedDemoContent.mockReset();
+	mocks.selectLocalVaultForNextLoad.mockClear();
 });
 
 describe('SceneRuntime durable-mutation serialization', () => {
+	it('waits for initial hydration and seeding before switching, and rejects competing switches', async () => {
+		const scene = countingRuntime();
+		const stored = structuredClone(scene.authoritativeState);
+		let releaseLoad!: (state: CoreStateSlice) => void;
+		mocks.loadCoreState.mockImplementationOnce(
+			() =>
+				new Promise<CoreStateSlice>((resolve) => {
+					releaseLoad = resolve;
+				}),
+		);
+		mocks.seedDemoContent.mockImplementationOnce(async (rt: SeedTarget) => {
+			await rt.dispatch(createScene(rt.defaultActorId, 'Saved before leaving'));
+		});
+		const reload = vi.fn();
+		const loading = scene.load();
+		const switching = scene.openLocalVault('second', reload);
+		await expect(scene.openLocalVault('third', reload)).rejects.toThrow(/already opening/);
+		expect(reload).not.toHaveBeenCalled();
+		expect(mocks.selectLocalVaultForNextLoad).not.toHaveBeenCalled();
+		releaseLoad(stored);
+		await Promise.all([loading, switching]);
+		expect(mocks.persistFullState).toHaveBeenCalledTimes(1);
+		expect(sceneNames(scene.authoritativeState)).toEqual(['Saved before leaving']);
+		expect(mocks.selectLocalVaultForNextLoad).toHaveBeenCalledExactlyOnceWith('second');
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('leaves selection unchanged when initial hydration fails', async () => {
+		const scene = runtime();
+		mocks.loadCoreState.mockRejectedValueOnce(new Error('Unreadable vault'));
+		const loading = scene.load();
+		const reload = vi.fn();
+		await expect(scene.openLocalVault('second', reload)).rejects.toThrow(/finish loading/);
+		await loading;
+		expect(reload).not.toHaveBeenCalled();
+		expect(mocks.selectLocalVaultForNextLoad).not.toHaveBeenCalled();
+	});
+
 	it('coalesces concurrent initial loads instead of racing hydration and demo seeding', async () => {
 		let rejectLoad!: (error: Error) => void;
 		mocks.loadCoreState.mockImplementationOnce(

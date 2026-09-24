@@ -42,7 +42,7 @@ test('applies a built-in template to a fresh scene from its empty state', async 
 	await expect(frames).toHaveCount(0);
 	await page
 		.getByTestId('scene-empty-templates')
-		.getByRole('button', { name: 'Use a template' })
+		.getByRole('button', { name: 'Apply a template' })
 		.click();
 
 	const picker = page.getByTestId('template-picker');
@@ -140,3 +140,60 @@ test('the gallery header offers templates on an empty scene, including a saved l
 	await expect(page.getByTestId('add-widget-gallery')).toBeVisible();
 	await expect(page.getByTestId('gallery-start-header')).toHaveCount(0);
 });
+
+for (const surface of ['scene', 'board', 'flow'] as const) {
+	test(`${surface}: first-tile onboarding and repeat-empty survive reload`, async ({ page }) => {
+		const freshId = await freshScene(page);
+		if (surface === 'flow') {
+			const result = await dispatch(page, {
+				type: 'scene.set-layout-policy',
+				actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+				payload: { sceneId: freshId, layoutPolicy: 'flow' },
+			});
+			expect(result.status).toBe('accepted');
+		}
+		const route = surface === 'board' ? '/board' : `/scene/${freshId}`;
+		await gotoRoute(page, route);
+		if (surface === 'board')
+			await expect(
+				page.getByTestId('scene-board-bounded').locator('[data-testid^="widget-"]').first(),
+			).toBeVisible();
+		const sceneId =
+			surface === 'board'
+				? await page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId!)
+				: freshId;
+		async function clearTiles() {
+			await page.evaluate(async (id) => {
+				const rt = window.__rt!;
+				for (const widget of [...rt.state.scenes.scenes[id]!.widgets]) {
+					const result = await rt.dispatch({
+						type: 'scene.destroy-widget',
+						actorId: rt.defaultActorId,
+						payload: { sceneId: id, widgetInstanceId: widget.id },
+					});
+					if (result.status !== 'accepted') throw new Error('Removal rejected');
+				}
+			}, sceneId);
+		}
+		// The home board starts seeded, so clearing it is already a repeat-empty visit.
+		if (surface === 'board') await clearTiles();
+		const empty = page.getByTestId(`${surface === 'board' ? 'board' : 'scene'}-empty-templates`);
+		await expect(empty).toBeVisible();
+		await expect(empty.locator('[data-illustration="session-board-empty"]')).toBeVisible();
+		await expect(empty.getByRole('button')).toHaveCount(surface === 'board' ? 1 : 2);
+		await empty.getByRole('button', { name: 'Add your first tile' }).click();
+		const gallery = page.getByTestId('add-widget-gallery');
+		await expect(gallery).toBeVisible();
+		await gallery.getByTestId('gallery-entry-note').click();
+		await expect(empty).toHaveCount(0);
+		await expect.poll(() => sceneWidgetTypes(page, sceneId)).toContain('note');
+		await clearTiles();
+		await expect(empty).toBeVisible();
+		await expect(empty.getByRole('button')).toHaveCount(1);
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await gotoRoute(page, route);
+		await expect(empty.getByRole('button')).toHaveCount(1);
+		await empty.getByRole('button', { name: 'Add your first tile' }).click();
+		await expect(gallery).toBeVisible();
+	});
+}

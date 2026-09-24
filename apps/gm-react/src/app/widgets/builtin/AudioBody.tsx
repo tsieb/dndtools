@@ -3,6 +3,7 @@ import { Icon } from '../../../ds';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import { Muted } from '../../widget-body-kit';
+import { LiveReadout } from './live';
 
 /**
  * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
@@ -24,8 +25,15 @@ export function AudioBody() {
 		runtime.defaultActorId,
 	);
 	const track = view.track;
+	// RC-WID-4.4 — BOTH branches return the same live region at the root, so React keeps it mounted
+	// and a track starting in an empty tile is announced. Returning a bare `Muted` here inserted the
+	// region together with its text the moment a track began, which is the insert that goes unheard.
 	if (!track) {
-		return <Muted>{t('widgetBody.audio.empty')}</Muted>;
+		return (
+			<LiveReadout>
+				<Muted>{t('widgetBody.audio.empty')}</Muted>
+			</LiveReadout>
+		);
 	}
 	const isDm = view.role === 'dm';
 	const title = isDm
@@ -36,7 +44,9 @@ export function AudioBody() {
 	const ambienceCount = isDm ? Object.keys(view.ambienceLayers).length : 0;
 	const playing = track.status === 'playing';
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
+		<LiveReadout
+			style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}
+		>
 			<span
 				style={{
 					display: 'inline-flex',
@@ -71,6 +81,6 @@ export function AudioBody() {
 					{ambienceCount > 0 ? t('widgetBody.audio.ambience', { count: ambienceCount }) : ''}
 				</Muted>
 			</div>
-		</div>
+		</LiveReadout>
 	);
 }

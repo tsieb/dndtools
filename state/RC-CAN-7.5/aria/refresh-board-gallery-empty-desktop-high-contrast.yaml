@@ -1,0 +1,18 @@
+- region "Add widget":
+    - heading "Add widget" [level=3]
+    - button "Close"
+    - searchbox "Search widgets": zzzz-no-widget
+    - group "Filter by category":
+        - button "All" [pressed]
+        - button "Atmosphere"
+        - button "Characters"
+        - button "Combat"
+        - button "Dice & Timers"
+        - button "Maps"
+        - button "Notes"
+        - button "Reference"
+    - group "Make something new":
+        - button "Generate with assistant": Generate with assistant Describe it, then review the draft before anything is installed.
+        - button "Build your own": Build your own Design a tile from scratch in the widget builder.
+    - status: 0 widgets shown
+    - text: No widgets match that search.

@@ -36,7 +36,7 @@
 	--component-nav-item-px: var(--space-3);
 	--component-nav-item-py: var(--space-1-5);
 	--component-section-gap: var(--space-8);
-	--component-list-gap: var(--space-1);
+	--component-list-gap: var(--density-list-gap); /* 4px, 8px comfortable, 2px compact */
 	--component-toast-gap: var(--space-2);
 
 	/* --- Border radius (UX-VIS-006) ------------------------------------------------------- */
@@ -130,11 +130,17 @@
 	--touch-target-floor: 1.5rem; /* 24px — hard minimum, all profiles */
 
 	/* --- Density (UX-VIS-011) — `data-density` on <html> selects the active set. Default
-	 * (no attribute) = standard (Desktop). Mobile/Tablet lock to comfortable (>=44px). ----- */
+	 * (no attribute) = standard (Desktop). public/prepaint.js locks every viewport under 1200px to
+	 * comfortable (>=44px) at boot; the Android runtime is locked below, whatever it stored.
+	 * Audited sizes (RC-DSN-1.4), comfortable / standard / compact:
+	 *   nav item 48 / 36 / 28 · card padding 16 / 16 / 12 · list gap 8 / 4 / 2
+	 * Card padding is `--density-card-padding` (the app Panel). `--component-card-padding` (DS
+	 * Card) stays 16px because the sandbox widget kit copies it per density. ---------------- */
 	--density-card-padding-compact: var(--space-3);
 	--density-touch-target: 2rem; /* 32px visual (Desktop standard) */
 	--density-focus-target: 2.75rem; /* 44px focus-ring hit extent */
 	--density-nav-height: 2.25rem; /* 36px */
+	--density-nav-item-height: 2.25rem; /* 36px — min-height of one navigation row (NavItem) */
 	--density-card-padding: var(--space-4); /* 16px */
 	--density-list-gap: var(--space-1); /* 4px */
 	--density-icon-size: var(--icon-size-md); /* 24px */
@@ -147,6 +153,7 @@
 	--density-touch-target: 2.75rem; /* 44px — touch */
 	--density-focus-target: 2.75rem;
 	--density-nav-height: 3rem;
+	--density-nav-item-height: 3rem; /* 48px */
 	--density-card-padding: var(--space-4);
 	--density-list-gap: var(--space-2);
 	--density-icon-size: var(--icon-size-md);
@@ -159,12 +166,27 @@
 	--density-touch-target: 1.75rem; /* 28px visual */
 	--density-focus-target: 2.5rem;
 	--density-nav-height: 1.75rem;
+	--density-nav-item-height: 1.75rem; /* 28px */
 	--density-card-padding: var(--density-card-padding-compact);
 	--density-list-gap: var(--space-0-5);
 	--density-icon-size: var(--icon-size-sm);
 	--density-input-height: 1.75rem;
 	--density-button-height: 1.75rem;
 	--density-font-size: var(--text-sm);
+}
+
+/* Touch lock (RC-DSN-1.4). Android is a touch runtime whatever density it stored, and prepaint
+ * honours a stored choice at >=1200px, which a landscape Android tablet reaches. The 48dp control
+ * floor (touch target, nav, input, button) sits with the other Android rules in styles/index.css;
+ * this block pins the rest of the comfortable set so `compact` cannot shrink card padding, list
+ * rhythm, icons or type underneath it. `html[data-android]` (0,1,1) outranks
+ * `[data-density='compact']` (0,1,0) whatever the source order. */
+html[data-android] {
+	--density-nav-item-height: 3rem; /* 48dp */
+	--density-card-padding: var(--space-4);
+	--density-list-gap: var(--space-2);
+	--density-icon-size: var(--icon-size-md);
+	--density-font-size: var(--text-base);
 }
 
 /* --- Motion preference contract (UX-VIS-010). A single resolved preference drives whether

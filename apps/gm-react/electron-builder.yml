@@ -29,6 +29,16 @@ files:
 npmRebuild: false
 asar: true
 
+# RC-PLT-1.3 — the `lamplight://join/<token>` invite scheme. This is the half the OS reads: it becomes
+# CFBundleURLTypes in the macOS Info.plist and the scheme's registry keys in the NSIS installer, and
+# `linux.desktop.entry.MimeType` below is the same declaration for the AppImage's desktop entry.
+# Without it `app.setAsDefaultProtocolClient` has nothing to claim and clicking an invite link does
+# nothing. The scheme carries ONE opaque invite token and never a destination (see `joinHash`).
+protocols:
+  - name: Lamplight invite
+    schemes:
+      - lamplight
+
 mac:
   target:
     - target: dmg
@@ -72,6 +82,9 @@ linux:
   desktop:
     entry:
       Name: Lamplight GM
+      # Registers the invite scheme with the desktop's mime database; the trailing `;` is required
+      # by the desktop-entry spec for a list value.
+      MimeType: x-scheme-handler/lamplight;
 
 win:
   target:

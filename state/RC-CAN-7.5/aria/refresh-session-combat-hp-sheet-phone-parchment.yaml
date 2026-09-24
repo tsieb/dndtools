@@ -1,0 +1,21 @@
+- dialog "Hit points — Bog Lurker":
+    - heading "Hit points — Bog Lurker" [level=2]
+    - paragraph: Enter an amount, then choose damage, heal or temporary hit points. Press d or h on the tracker to open this.
+    - button "Close"
+    - text: 21 of 22 HP
+    - status "Amount": '0'
+    - button "Digit 1": '1'
+    - button "Digit 2": '2'
+    - button "Digit 3": '3'
+    - button "Digit 4": '4'
+    - button "Digit 5": '5'
+    - button "Digit 6": '6'
+    - button "Digit 7": '7'
+    - button "Digit 8": '8'
+    - button "Digit 9": '9'
+    - button "Clear amount"
+    - button "Digit 0": '0'
+    - button "Delete last digit"
+    - button "Damage" [disabled]
+    - button "Heal" [disabled]
+    - button "Temp" [disabled]

@@ -1,0 +1,23 @@
+- group "Initiative Tracker, Combat widget":
+    - text: Initiative Tracker Combat
+    - group "Initiative Tracker content":
+        - region "2. Initiative Tracker":
+            - text: Round 1 · initiative order · Turn 1
+            - button "Next turn"
+            - status
+            - list:
+                - listitem:
+                    - text: Bog Lurker Active
+                    - button "Adjust hit points — Bog Lurker": 21/22
+                    - button "More actions — Bog Lurker"
+                - listitem:
+                    - text: Reed Stalker
+                    - button "Adjust hit points — Reed Stalker": 0/14
+                    - button "More actions — Reed Stalker"
+                - listitem:
+                    - text: Marsh Wisp
+                    - img "DM only"
+                    - button "Adjust hit points — Marsh Wisp": 9/9
+                    - button "More actions — Marsh Wisp"
+            - paragraph: Swipe a row left for quick actions.
+            - status

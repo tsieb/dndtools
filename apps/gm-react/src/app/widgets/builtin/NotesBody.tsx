@@ -3,6 +3,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import { Muted, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveReadout } from './live';
 
 /**
  * The `notes` Command Center widget (RC-WID-4.1) — the notes most recently touched, `count` deciding
@@ -18,7 +19,6 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 		runtime.state.permissions,
 		runtime.defaultActorId,
 	).filter((item) => item.kind === 'note');
-	if (notes.length === 0) return <Muted>{t('widgetBody.notes.empty')}</Muted>;
 	const shown = notes.slice(0, count);
 	return (
 		<div style={bodyWrap}>
@@ -36,7 +36,13 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 					{note.title}
 				</div>
 			))}
-			<Muted>{t('widgetBody.notes.count', { shown: shown.length, total: notes.length })}</Muted>
+			<LiveReadout>
+				<Muted>
+					{notes.length === 0
+						? t('widgetBody.notes.empty')
+						: t('widgetBody.notes.count', { shown: shown.length, total: notes.length })}
+				</Muted>
+			</LiveReadout>
 		</div>
 	);
 }

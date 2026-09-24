@@ -95,13 +95,7 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Install Android API 36 toolchain
         shell: bash
-        run: |
-          set +o pipefail
-          yes | sdkmanager --licenses >/dev/null
-          SDKMANAGER_STATUS=${PIPESTATUS[1]}
-          set -o pipefail
-          test "$SDKMANAGER_STATUS" -eq 0
-          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+        run: bash scripts/android-sdk-install.sh 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
       - name: Install dependencies
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'

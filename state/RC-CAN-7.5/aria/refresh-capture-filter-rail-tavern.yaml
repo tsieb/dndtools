@@ -1,0 +1,19 @@
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- combobox "Archived session":
+    - option "Sep 19 · 3:59 PM" [selected]
+    - option "Sep 19 · 3:59 PM"
+- textbox "Session log title":
+    - /placeholder: Session log — Sep 19 · 3:59 PM
+- text: What happened
+- textbox "What happened":
+    - /placeholder: The party bargained with the harbour master and burned the manifest…
+- text: What changed
+- textbox "Filter": zzzz-no-match
+- group "What changed":
+    - checkbox "Capture fixture 14" [checked]
+- text: Follow-ups
+- textbox "Follow-ups":
+    - /placeholder: "Send the guild’s reply\nName the harbour master"
+- text: One follow-up per line. Saves a DM-only session log note. Set the campaign date to place it on the timeline.
+- button "Save session log"

@@ -100,6 +100,36 @@ function lamplightServiceWorker(): Plugin {
 	};
 }
 
+/**
+ * E2E only — answer every dev-server request in full instead of `304 Not Modified`.
+ *
+ * Vite marks each source module `no-cache` with an ETag, so every navigation after a page's first
+ * revalidates ~550 modules and gets ~550 304s. Chromium serves each 304 body out of its HTTP cache
+ * through a 2 MB shared-memory data pipe, and the renderer keeps every one of them mapped until the
+ * browser context closes: a reload costs ~1.1 GB, and the three reloads of the Settings reduce-motion
+ * spec cost 3.4 GB. Playwright launches Chromium with `--disable-dev-shm-usage`, so that memory is
+ * files under `/tmp` — on the gate host, a per-user tmpfs quota shared with every other worktree.
+ * Hitting it fails pipe creation (`net::ERR_INSUFFICIENT_RESOURCES`, "Failed to fetch dynamically
+ * imported module") and crashes renderers in whatever spec runs alongside. A first load, which gets
+ * 200s, keeps none of them, so dropping the validators under the harness removes the retention
+ * without changing what any module contains. `playwright.config.ts` sets the flag on its webServer.
+ */
+function e2eFullResponses(): Plugin {
+	return {
+		name: 'e2e-full-responses',
+		apply: 'serve',
+		configureServer(server) {
+			if (process.env.DNDTOOLS_E2E_FULL_RESPONSES !== '1') return;
+			// Registered before Vite's own middlewares, so the transform middleware never sees a validator.
+			server.middlewares.use((req, _res, next) => {
+				delete req.headers['if-none-match'];
+				delete req.headers['if-modified-since'];
+				next();
+			});
+		},
+	};
+}
+
 function originOf(value: string, protocol: 'https:' | 'wss:'): string | null {
 	try {
 		const url = new URL(value);
@@ -209,7 +239,7 @@ export default defineConfig(({ mode }) => {
 		// Relative asset base so the built index.html references `./assets/…` instead of origin-absolute
 		// `/assets/…`. This resolves correctly from the Electron app document and a hosted web origin.
 		base: './',
-		plugins: [react(), electronNetworkPolicy(env), lamplightServiceWorker()],
+		plugins: [react(), electronNetworkPolicy(env), lamplightServiceWorker(), e2eFullResponses()],
 		define: {
 			'import.meta.env.VITE_DEMO_MODE': JSON.stringify(mode === 'demo' ? '1' : ''),
 			// The shipped release version, so the shell can tell "unseen release" apart from the seen

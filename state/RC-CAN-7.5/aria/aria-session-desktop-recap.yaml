@@ -1,0 +1,135 @@
+- main:
+    - text: Live session No active scene
+    - radiogroup "Session phase":
+        - radio "Standby"
+        - radio "Prep" [disabled]
+        - radio "Live" [disabled]
+        - radio "Recap" [checked]
+    - text: Recap Session is in Recap Return to Standby first — you cannot go live from Recap.
+    - button "Go live" [disabled]
+    - heading "Combat" [level=2]
+    - button "Build encounter (unavailable — go live first)" [disabled]: Build encounter
+    - status
+    - status
+    - heading "Go live to start combat" [level=3]
+    - paragraph: Combat is open only while the session is live.
+    - heading "Dice" [level=2]
+    - status
+    - text: Dice rolls record to the live session — go live to roll.
+    - button "1d20" [disabled]
+    - button "1d20+5" [disabled]
+    - button "2d6+3" [disabled]
+    - button "1d8+2" [disabled]
+    - button "4d6" [disabled]
+    - textbox "Dice expression":
+        - /placeholder: e.g. 3d6+2
+        - text: 1d20+7
+    - textbox "Roll label":
+        - /placeholder: Label (optional)
+    - button "Roll" [disabled]
+    - heading "Rollable tables" [level=2]
+    - heading "No rollable tables yet." [level=3]
+    - paragraph: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+    - heading "Handouts" [level=2]
+    - text: Handouts deliver to the live session — go live to push to players. Handout title
+    - textbox "Handout title"
+    - text: What the players read
+    - textbox "What the players read":
+        - /placeholder: What the players read…
+    - button "Push to players" [disabled]
+    - text: No handouts delivered yet.
+    - heading "Now playing" [level=2]
+    - text: Nothing playing. Start ambience from the Audio library.
+    - heading "Stage" [level=2]
+    - text: Active map What you stage for the table.
+    - combobox "Active map":
+        - option "— none —" [selected]
+        - option "Hidden Outpost"
+        - option "Ruined Keep"
+        - option "Western Reaches"
+    - button "Project to players" [disabled]
+    - text: Player views Demo Player
+    - combobox "Scene projected to Demo Player" [disabled]:
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - text: Demo Player 2
+    - combobox "Scene projected to Demo Player 2" [disabled]:
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - text: Demo Player 3
+    - combobox "Scene projected to Demo Player 3" [disabled]:
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - text: Demo Observer
+    - combobox "Scene projected to Demo Observer" [disabled]:
+        - option "— none —" [selected]
+        - option "Command Center"
+        - option "Harbor of Saltreach"
+        - option "The Sunken Crypt"
+    - heading "Campaign date" [level=2]
+    - text: No date set Reckoning of Saltreach · drives the Campaign timeline
+    - button "+1 day" [disabled]
+    - text: Month
+    - combobox "Month":
+        - option "Thawmonth" [selected]
+        - option "Tidemarch"
+        - option "Brightmoor"
+        - option "Highsun"
+        - option "Harvestwane"
+        - option "Mournfrost"
+    - text: Day
+    - spinbutton "Day": '1'
+    - text: Year
+    - spinbutton "Year": '1'
+    - button "Set date"
+    - button "Edit calendar"
+    - heading "Prep & recap" [level=2]
+    - img "DM only"
+    - text: What happened 10 recent changes to review. Session archives Sep 16 · 5:19 AM · no recap yet
+    - textbox "Session recap":
+        - /placeholder: What happened this session…
+    - text: Markdown supported. Saving replaces the recap for this archive.
+    - button "Save recap" [disabled]
+    - heading "End-of-session capture" [level=2]
+    - img "DM only"
+    - textbox "Session log title":
+        - /placeholder: Session log — Sep 16 · 5:19 AM
+    - text: What happened
+    - textbox "What happened":
+        - /placeholder: The party bargained with the harbour master and burned the manifest…
+    - text: What changed
+    - group "What changed":
+        - checkbox "Brother Calloway"
+        - checkbox "Mira the Ferryman"
+        - checkbox "Sera Duskwhisper"
+        - checkbox "The Hollow King"
+        - checkbox "Tormund Ironfist"
+        - checkbox "Brine Hand"
+        - checkbox "Faction · The Ashen Hand"
+        - checkbox "The Sunken Crypt — DM notes"
+        - checkbox "Saltmarsh Watch"
+        - checkbox "Dockworkers’ Union"
+        - checkbox "The Drowning of Saltreach"
+        - checkbox "The Hollow King stirs"
+        - checkbox "Campaign Primer"
+        - checkbox "The party makes landfall"
+    - text: Follow-ups
+    - textbox "Follow-ups":
+        - /placeholder: "Send the guild’s reply\nName the harbour master"
+    - text: One follow-up per line. Saves a DM-only session log note. Set the campaign date to place it on the timeline.
+    - button "Save session log" [disabled]
+    - heading "Table roster" [level=2]
+    - text: No live table yet. Use
+    - strong: Host
+    - text: in the top bar to open your table — players appear here as they connect.
+    - heading "Party" [level=2]
+    - text: Brother Calloway 31/31 Sera Duskwhisper 24/24 Tormund Ironfist 42/42
+    - heading "Schedule next session" [level=2]
+    - img "DM only"
+    - text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at docs/runbooks/google-oauth-setup.md.

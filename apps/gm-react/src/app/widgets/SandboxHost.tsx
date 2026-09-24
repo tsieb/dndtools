@@ -22,6 +22,7 @@ import {
 	type WidgetPackageDefinition,
 	type WidgetPackageRecord,
 } from '@dndtools/core';
+import { matchesMedia } from '../../platform/preferences';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { BoardWidget } from '../board-helpers';
 import type { WidgetCommandHandler } from '../widget-bodies';
@@ -71,6 +72,17 @@ import {
  * host API version this build does not speak is isolated through `isolateWidgetFailure` and replaced
  * by the same "disabled, preserved" card every other unavailable renderer shows. The widget's
  * configuration, binding and place on the board are untouched, and its neighbours never notice.
+ *
+ * Accessibility (RC-WID-4.4). The host supplies the parts a frame cannot: the labelled region
+ * around it (`WidgetRegion` in `WidgetRenderSlot.tsx`), the frame's `title`, and the host's contrast
+ * state on `init` — `--host-forced-colors` (`active` | `none`) and `--host-high-contrast` (`on` |
+ * `off`), sent to EVERY frame whatever capabilities it declares, because a frame cannot see the host's
+ * `data-theme`. Everything inside the frame is the package's to honour, and the host cannot enforce
+ * it from outside an opaque origin: every control a native element or a named ARIA widget, every
+ * operate control reachable by Tab and operable by Enter/Space, value changes announced through a
+ * live region the widget mounts at install (empty, never inserted together with its text), no state
+ * carried by colour alone, no `tabindex` above 0, no focus grabbed on load, and no `role="application"`.
+ * The full contract is in `docs/architecture/WIDGETS.md` §3.1.
  */
 
 /** What the frame is handed on `render`. Actor-filtered by construction — see the note below. */
@@ -200,9 +212,10 @@ function readHostLook(definition: WidgetDefinition): HostLook {
 	const root = document.documentElement;
 	const style = window.getComputedStyle(root);
 	return {
-		themeVariables: collectSandboxThemeVariables(definition, (token) =>
-			style.getPropertyValue(token),
-		),
+		themeVariables: {
+			...collectSandboxThemeVariables(definition, (token) => style.getPropertyValue(token)),
+			...collectSandboxContrastVariables(readHostContrast()),
+		},
 		hostDocument: usesHostTheme(definition)
 			? {
 					theme: root.getAttribute('data-theme'),
@@ -284,6 +297,39 @@ async function fetchWidgetKit(): Promise<string | null> {
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/** The host's contrast state, as the sandbox sees it on `init`. */
+export interface SandboxContrastState {
+	/** The OS is forcing colours (`@media (forced-colors: active)` matches in the HOST document). */
+	forcedColors: boolean;
+	/** The app's own high-contrast theme is on (`data-theme="high-contrast"`). */
+	highContrastTheme: boolean;
+}
+
+/**
+ * RC-WID-4.4 — the contrast state a frame is told on `init`. Unlike the theme tokens this is NOT
+ * gated on `host-theme-tokens`: it is an accessibility signal every widget must be able to honour,
+ * and it says nothing about the vault. `--host-high-contrast` is `on` for either cause, because a
+ * widget should respond the same way to both — drop decorative colour, keep every state in a shape
+ * or a word. The OS mode also reaches the frame's own `@media (forced-colors: active)`; the app theme
+ * reaches it only through this variable.
+ */
+export function collectSandboxContrastVariables(
+	state: SandboxContrastState,
+): Record<string, string> {
+	return {
+		'--host-forced-colors': state.forcedColors ? 'active' : 'none',
+		'--host-high-contrast': state.forcedColors || state.highContrastTheme ? 'on' : 'off',
+	};
+}
+
+function readHostContrast(): SandboxContrastState {
+	if (typeof document === 'undefined') return { forcedColors: false, highContrastTheme: false };
+	return {
+		forcedColors: matchesMedia('(forced-colors: active)'),
+		highContrastTheme: document.documentElement.getAttribute('data-theme') === 'high-contrast',
+	};
 }
 
 export function SandboxHost({

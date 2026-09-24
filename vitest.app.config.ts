@@ -26,11 +26,15 @@ export default defineConfig({
 		name: 'app',
 		// `.tsx` too, so the design-system components can be asserted against a real DOM (each such
 		// file opts into jsdom with its own `@vitest-environment` pragma).
-		include: ['apps/gm-react/src/**/*.test.{ts,tsx}'],
+		include: ['apps/gm-react/src/**/*.test.{ts,tsx}', 'tests/unit/ai-eval.test.ts'],
 		exclude: ['**/node_modules/**', 'apps/gm-react/src/net/**', 'apps/gm-react/src/cloud/**'],
 		environment: 'node',
 		globals: false,
 		setupFiles: ['fake-indexeddb/auto'],
 		maxWorkers: testWorkers(),
+		// Threads transfer transformed modules in memory; Vitest's forks pool writes them to
+		// temporary storage and can fail before assertions run on EDQUOT (promotion 52161311fa13).
+		// Tests needing native process state (e.g. TZ, cwd) must use a child with its startup env set.
+		pool: 'threads',
 	},
 });

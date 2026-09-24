@@ -1,0 +1,48 @@
+- main:
+    - toolbar "GM Screen":
+        - heading "GM Screen" [level=2]
+        - text: 7 widgets · your home board
+        - switch "Snap" [checked]
+        - text: Snap
+        - button "Add"
+        - button "Layouts" [expanded]
+        - group "Zoom":
+            - button "Fit" [pressed]
+            - button "Comfortable"
+            - button "Detail"
+        - button "Done"
+    - status
+    - group "Map, Maps widget, position 24, 24, size 240 by 160":
+        - text: Map Maps Not bound The linked map is missing or was removed. Choose another map in edit mode.
+        - button "Actions for Map"
+    - group "Initiative Tracker, Combat widget, position 288, 24, size 240 by 160":
+        - text: Initiative Tracker Combat Round — Turn —
+        - status
+        - text: No combat running · HP shown
+        - button "Actions for Initiative Tracker"
+    - group "Dice, Dice & Timers widget, position 552, 24, size 240 by 160":
+        - text: Dice Dice & Timers d20
+        - status
+        - button "Actions for Dice"
+    - group "Timer, Dice & Timers widget, position 24, 208, size 240 by 160":
+        - text: Timer Dice & Timers 1:00
+        - button "Actions for Timer"
+    - group "Audio, Atmosphere widget, position 288, 208, size 240 by 160":
+        - text: Audio Atmosphere Nothing playing — cue a track from the session audio controls.
+        - button "Actions for Audio"
+    - group "Quick Reference, Reference widget, position 552, 208, size 240 by 160":
+        - text: Quick Reference Reference Dockworkers’ Union Brine Hand Saltmarsh Watch 3 of 3 reference rows
+        - button "Actions for Quick Reference"
+    - group "Prep, Reference widget, position 24, 392, size 240 by 160":
+        - text: Prep Reference Campaign Primer The Drowning of Saltreach The Sunken Crypt — DM notes The party makes landfall The Hollow King stirs 5 of 6 prep notes
+        - button "Actions for Prep"
+    - button "Undo" [disabled]
+    - button "Redo" [disabled]
+    - status
+    - text: Layouts
+    - button "Close layouts"
+    - text: Save current layout
+    - textbox "Layout name":
+        - /placeholder: e.g. Combat night
+    - button "Save" [disabled]
+    - button "Restore previous layout"

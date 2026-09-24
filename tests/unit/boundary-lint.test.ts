@@ -133,10 +133,7 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 		expect(collectViolations(roots)).toEqual([]);
 
 		// Without the exception the same probe fails closed.
-		const rootsNoException = makeFixture(
-			{ [probe]: 'export const w = window.innerWidth;\n' },
-			[],
-		);
+		const rootsNoException = makeFixture({ [probe]: 'export const w = window.innerWidth;\n' }, []);
 		expect(collectViolations(rootsNoException).length).toBeGreaterThan(0);
 	});
 
@@ -173,6 +170,49 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 			[],
 		);
 		expect(collectViolations(roots)).toEqual([]);
+	});
+
+	it('handles an unmatched quote followed by regex escapes without backtracking', () => {
+		// Markdown regex literals can contain an unmatched quote followed by many escapes.
+		// Each escape used to match both branches of the string-stripping regex, making
+		// this small input exponential and the real-tree CI check exceed its 5s timeout.
+		const roots = makeFixture(
+			{
+				'apps/gm-react/src/ds/Pattern.tsx':
+					'export const pattern = /`' + '\\s'.repeat(28) + '/; const db = indexedDB;\n',
+			},
+			[],
+		);
+		expect(collectViolations(roots)).toEqual([
+			expect.objectContaining({
+				line: 1,
+				message: expect.stringContaining('accesses indexedDB directly'),
+			}),
+		]);
+	});
+
+	it('strips escaped quotes but still checks code after the closing quote', () => {
+		for (const quote of ["'", '"', '`']) {
+			const roots = makeFixture(
+				{
+					'apps/gm-react/src/ds/Quoted.tsx':
+						'const label = ' +
+						quote +
+						'escaped \\' +
+						quote +
+						' indexedDB' +
+						quote +
+						'; localStorage.clear();\n',
+				},
+				[],
+			);
+			expect(collectViolations(roots)).toEqual([
+				expect.objectContaining({
+					line: 1,
+					message: expect.stringContaining('accesses localStorage directly'),
+				}),
+			]);
+		}
 	});
 });
 
@@ -305,8 +345,7 @@ describe('MCP-012: MCP modules touch no filesystem API outside the allowlist', (
 	it('flags an MCP module that reaches a Node process global', () => {
 		const roots = makeFixture(
 			{
-				'packages/core/src/mcp/leaky.ts':
-					'export const home = process.env.HOME;\n',
+				'packages/core/src/mcp/leaky.ts': 'export const home = process.env.HOME;\n',
 			},
 			[],
 		);

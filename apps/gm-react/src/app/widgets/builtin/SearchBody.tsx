@@ -2,6 +2,7 @@ import { getSavedSearchesForActor } from '@dndtools/core';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
 import { Chip, Muted, StatPill, bodyWrap } from '../../widget-body-kit';
+import { LiveStats, StateMark } from './live';
 
 /**
  * The `search` Command Center widget (RC-WID-4.1) — the DM's saved searches, pinned ones first.
@@ -26,13 +27,14 @@ export function SearchBody() {
 	const ordered = [...pinned, ...saved.filter((entry) => !entry.pinned)];
 	return (
 		<div style={bodyWrap}>
-			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+			<LiveStats>
 				<StatPill label={t('widgetBody.search.saved')} value={String(saved.length)} />
 				<StatPill label={t('widgetBody.search.pinned')} value={String(pinned.length)} />
-			</div>
+			</LiveStats>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
 				{ordered.slice(0, 4).map((entry) => (
 					<Chip key={entry.id} tone={entry.pinned ? 'accent' : 'neutral'}>
+						{entry.pinned && <StateMark icon="pin" label={t('widgetBody.search.pinned')} />}
 						{entry.name}
 					</Chip>
 				))}

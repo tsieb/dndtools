@@ -6,6 +6,7 @@
 // Private — trust never widens by accident (fail closed).
 
 import { isVaultPrivacyMode, type VaultPrivacyMode } from '@dndtools/core';
+import { vaultPreferenceKey } from '../platform/storage/coreStore';
 
 export const VAULT_PRIVACY_MODE_KEY = 'dndtools:react:vault-privacy-mode';
 
@@ -13,7 +14,7 @@ export const VAULT_PRIVACY_MODE_KEY = 'dndtools:react:vault-privacy-mode';
 export function storedVaultPrivacyMode(): VaultPrivacyMode | null {
 	try {
 		if (typeof window === 'undefined') return null;
-		const raw = window.localStorage.getItem(VAULT_PRIVACY_MODE_KEY);
+		const raw = window.localStorage.getItem(vaultPreferenceKey(VAULT_PRIVACY_MODE_KEY));
 		return isVaultPrivacyMode(raw) ? raw : null;
 	} catch {
 		return null;
@@ -29,7 +30,8 @@ export function vaultPrivacyMode(): VaultPrivacyMode {
 export function setVaultPrivacyMode(mode: VaultPrivacyMode): void {
 	if (!isVaultPrivacyMode(mode)) return; // never persist an unrecognized value
 	try {
-		if (typeof window !== 'undefined') window.localStorage.setItem(VAULT_PRIVACY_MODE_KEY, mode);
+		if (typeof window !== 'undefined')
+			window.localStorage.setItem(vaultPreferenceKey(VAULT_PRIVACY_MODE_KEY), mode);
 	} catch {
 		/* private mode — the effective mode simply stays Private next boot (fail closed) */
 	}

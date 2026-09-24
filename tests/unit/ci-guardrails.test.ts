@@ -459,6 +459,29 @@ describe('CI guardrails', () => {
 		expect(setupSteps).toBeGreaterThan(0);
 	});
 
+	it('installs Android SDK packages only through the retrying install script', () => {
+		// A single truncated dl.google.com download used to fail the Android job outright
+		// (c73572cf). scripts/android-sdk-install.sh retries it; a bare `sdkmanager` call in a
+		// workflow step would quietly bring that single point of failure back.
+		const workflowsRoot = path.join(repoRoot, '.github', 'workflows');
+		let installSteps = 0;
+		for (const name of fs.readdirSync(workflowsRoot).filter((file) => file.endsWith('.yml'))) {
+			const workflow = YAML.parse(
+				fs.readFileSync(path.join(workflowsRoot, name), 'utf-8'),
+			) as WorkflowFile;
+			for (const job of Object.values(workflow.jobs ?? {})) {
+				for (const step of job.steps ?? []) {
+					const run = step.run ?? '';
+					expect(run, `${name} "${step.name}" calls sdkmanager directly`).not.toMatch(
+						/\bsdkmanager\b/,
+					);
+					if (run.includes('scripts/android-sdk-install.sh')) installSteps += 1;
+				}
+			}
+		}
+		expect(installSteps).toBeGreaterThan(0);
+	});
+
 	it('keeps the always-on TURN relay bounded and application-health monitored', () => {
 		const turn = fs.readFileSync(path.join(repoRoot, 'infra', 'turn', 'template.yaml'), 'utf-8');
 

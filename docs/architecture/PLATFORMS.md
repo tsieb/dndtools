@@ -29,6 +29,57 @@ Upgrades from the v0.2.0 `file://` origin export the legacy database through a h
 import it in bounded chunks, verify a digest, and write a completion marker. The source is never
 deleted and an interrupted move is retried.
 
+### Desktop parity (RC-PLT-1.3)
+
+The native application menu uses standard Edit, View, Window and application/quit roles.
+Session menu labels and shortcut legends come from `src/app/shortcuts/registry.ts`; clicks
+re-enter the existing keydown handlers so text-input and modal guards still apply. Accelerators
+are displayed without registering a second shortcut handler. On Windows/Linux, Alt reveals the
+menu; macOS uses the system menu bar.
+
+`electron/parity.cjs` saves normal window bounds and maximized state on close, using an atomic
+rename in userData. Invalid files and rectangles outside connected display work areas reset to
+window defaults. Minimized/fullscreen state is not restored. AUD-2.4 owns the native display
+chooser and isolated kiosk projector; Escape and display removal close that window.
+
+The main process accepts only `lamplight://join/<URL-safe-token>` and routes it to
+`#/join?token=…`, preserving the existing invite redemption flow. Cold-start arguments, macOS
+`open-url`, and repeat-launch arguments share validation; external URLs, extra path segments,
+queries and fragments are rejected. Delivery waits for the primary preload to be ready.
+
+Getting the OS to hand that link over takes two halves, and both must be present. The packaged
+bundle DECLARES the scheme — `protocols:` in `electron-builder.yml` becomes `CFBundleURLTypes` in
+the macOS `Info.plist` and the scheme's registry keys in the NSIS installer, while
+`linux.desktop.entry.MimeType: x-scheme-handler/lamplight;` puts it in the AppImage's desktop
+entry — and packaged startup then CLAIMS it via `app.setAsDefaultProtocolClient`. An unpackaged
+dev tree deliberately does not claim the scheme: a checkout moves or disappears, and pointing a
+developer's mime database at one would break invites for the installed app. Dev and CI exercise
+the same delivery path through argv / `open-url` / `second-instance` instead.
+
+The macOS LIVE dock badge and the Windows/Linux live-session tray icon follow Core's own
+`session.workflow`: `PlatformLifecycle` calls the primary-only
+`lamplightDesktop.setLiveSession(boolean)` bridge whenever the workflow changes, from the same
+state the Android live-session notification reads, so the two platforms cannot disagree and the
+badge cannot claim a table is live when it is not. It stands down on End session, on unmount, and
+when the primary window closes. A Linux session with no StatusNotifier host (minimal desktops,
+xvfb CI) logs a warning and keeps running without a tray icon.
+
+Parity runs as part of the standard desktop suite, so CI's `desktop-smoke` job and any release
+check cover it:
+
+```sh
+pnpm --filter @dndtools/gm-react desktop:smoke
+```
+
+After the origin, migration and auto-update passes it boots the production main/preload twice
+against a disposable profile. Assertions cover the registry-built menu action, cold / warm /
+second-instance links, rejected links and senders, the packaged protocol declaration for all three
+platforms, the live badge following a click on the real **Go live** control and standing down on
+**End session**, projector isolation/Escape, and window bounds across a genuine restart. A display
+is required. What a virtual display still cannot prove: physical monitor placement, visible OS
+badge rendering, and a genuine OS protocol hand-off — that last one needs an installed package and
+a real desktop session, which is why the declaration itself is asserted instead.
+
 ### Auto-update
 
 The packaged app updates from GitHub Releases through `electron-updater`

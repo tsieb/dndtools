@@ -44,7 +44,15 @@ import {
 	type ResolvedPreview,
 	type SyncOperation,
 } from '@dndtools/core';
-import { loadCoreState, persistFullState } from '../platform/storage/coreStore';
+import {
+	activeLocalVaultId,
+	LEGACY_LOCAL_VAULT_ID,
+	listLocalVaults,
+	loadCoreState,
+	persistFullState,
+	selectLocalVaultForNextLoad,
+	vaultPreferenceKey,
+} from '../platform/storage/coreStore';
 import { MAP_IMPORT_ADAPTERS } from './environment';
 
 /** Seat name minted for a vault whose DM never introduced themselves; surfaces that mean "you"
@@ -181,13 +189,15 @@ export class SceneRuntime {
 	private mutationTail: Promise<void> = Promise.resolve();
 	/** StrictMode/retry clicks share one initial hydration instead of racing duplicate demo seeding. */
 	private loadAttempt: Promise<void> | null = null;
+	private vaultSwitchAttempt: Promise<void> | null = null;
+	private departingVault = false;
 	// The Core's declared MCP tool allowlist — built once; construction fails closed on wiring errors.
 	private readonly mcpToolRegistry: McpToolRegistry = createBaselineMcpToolRegistry();
 	/** The procedural map generators, loaded the first time a `map.generate` command is dispatched. */
 	private mapGenerators: MapGeneratorRegistry | null = null;
 
 	constructor(options: RuntimeOptions) {
-		this.options = options;
+		this.options = { ...options, env: { ...options.env } };
 		this.activeActor = options.defaultActorId;
 	}
 
@@ -202,6 +212,41 @@ export class SceneRuntime {
 	private emit(): void {
 		this.version += 1;
 		for (const listener of this.listeners) listener();
+	}
+
+	/** The document's local storage identity; the original vault retains its cloud key identity. */
+	get vaultId(): string {
+		return activeLocalVaultId();
+	}
+
+	/** Drain queued writes, stage `id` for the next document and hand over to `reload` (the shell
+	 * passes `reloadLocalVaultDocument`). Preferences, cloud intent and keys follow the document vault. */
+	openLocalVault(id: string, reload: () => void | Promise<void>): Promise<void> {
+		if (this.vaultSwitchAttempt || this.departingVault) {
+			return Promise.reject(new Error('A local vault is already opening.'));
+		}
+		if (id === this.vaultId) return Promise.resolve();
+		const switching = async () => {
+			// Initial hydration is not itself a queued mutation; it may still enqueue its demo seed.
+			if (this.loadAttempt) await this.loadAttempt;
+			if (!this.loaded)
+				throw new Error('Wait for this vault to finish loading before opening another.');
+			await this.runExclusiveMaintenance(async () => {
+				const rollback = selectLocalVaultForNextLoad(id);
+				this.departingVault = true;
+				try {
+					await reload();
+				} catch (error) {
+					this.departingVault = false;
+					rollback();
+					throw error;
+				}
+			});
+		};
+		this.vaultSwitchAttempt = switching().finally(() => {
+			this.vaultSwitchAttempt = null;
+		});
+		return this.vaultSwitchAttempt;
 	}
 
 	// ── Public reads ──────────────────────────────────────────────────────────────────────────
@@ -356,6 +401,9 @@ export class SceneRuntime {
 	}
 
 	private async hydrateFromStorage(seedDemo: boolean): Promise<void> {
+		// Resolve inside the load error boundary, so unreadable selection offers the normal retry UI.
+		const vaultId = this.vaultId;
+		if (vaultId !== LEGACY_LOCAL_VAULT_ID) this.options.env.vaultId = vaultId;
 		const loaded = await loadCoreState();
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
 		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
@@ -415,7 +463,13 @@ export class SceneRuntime {
 	}
 
 	private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
-		const result = this.mutationTail.then(operation, operation);
+		const run = () => {
+			if (this.departingVault) {
+				throw new Error('Wait for the selected vault to open before making changes.');
+			}
+			return operation();
+		};
+		const result = this.mutationTail.then(run, run);
 		this.mutationTail = result.then(
 			() => undefined,
 			() => undefined,
@@ -435,10 +489,14 @@ export class SceneRuntime {
 	/** Onboarding's "Start fresh" records an explicit empty-vault choice (device-local); honor it on
 	 * every subsequent boot by skipping BOTH demo-population paths (command seed + demo map state). */
 	private freshVaultChosen(): boolean {
+		if (this.vaultId !== LEGACY_LOCAL_VAULT_ID) {
+			// New campaigns start empty. A broken catalog must never trigger demo writes.
+			return listLocalVaults().find((vault) => vault.id === this.vaultId)?.kind !== 'demo';
+		}
 		try {
 			return (
 				typeof window !== 'undefined' &&
-				window.localStorage.getItem('dndtools:react:vault-choice') === 'fresh'
+				window.localStorage.getItem(vaultPreferenceKey('dndtools:react:vault-choice')) === 'fresh'
 			);
 		} catch {
 			return false;

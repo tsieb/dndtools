@@ -1,0 +1,223 @@
+# RC-WID-4.4 run journal
+
+## Implementation
+
+- `WidgetRenderSlot.tsx`: every branch (builtin, template, custom frame, placeholder) renders
+  inside `WidgetRegion`, a `<section>` labelled with the widget title. Custom hosts now restart
+  when the contrast state changes (high-contrast theme or OS forced colours), not only frames that
+  declare `host-theme-tokens`.
+- `SandboxHost.tsx`: `init` carries `--host-forced-colors` and `--host-high-contrast` to every
+  frame (`collectSandboxContrastVariables`). The header comment records the aria contract.
+- Builtin bodies: new `builtin/live.tsx` (`LiveReadout`, `LiveStats`, `StateMark`). Stat rows,
+  count lines, the timer status line, the map summary and the compact initiative heading are
+  `aria-live="polite"` regions mounted with the readout. Done setup steps, pinned searches and the DM's
+  playing-audio chip carry an icon with a name. The urgent timer shows a warning glyph, and its
+  countdown is `role="timer"`. Timer Reset hands focus to the transport (the Reset button used to
+  unmount under the keyboard and drop focus to `<body>`).
+- Templates: `TemplateShell` owns a live readout region and a separate `controls` slot. Action
+  panel and form panel controls sit outside the region. The active chart and tracker rows say "Now".
+- No i18n keys added (catalogues are outside this story's paths); existing keys were reused.
+- `WIDGETS.md` §3.1 documents the contract and the known map-marker gap.
+
+## Fixes found by the gates
+
+- Boundary lint (PLAT-006) rejected direct `matchMedia` in `SandboxHost` and `WidgetRenderSlot`.
+  Both now read and subscribe through `platform/preferences` (`matchesMedia`, `subscribeMedia`).
+- First e2e pass: `canvas.spec.ts` undo/redo tests failed on both profiles. `canvas.getByRole('status')`
+  matched the canvas confirmation channel AND the new Audio live region (strict-mode violation). The
+  new readouts are now `aria-live="polite"` regions, not `role="status"`. The canvas keeps the one
+  status on a board. Pre-existing status regions (dice result, Next turn, compact HP) are unchanged.
+- First e2e pass: mobile `/board` axe found `target-size` on the compact initiative tile's
+  "More actions" button once combat runs (the existing gate scans an idle vault and never saw it).
+  Row icon buttons now take `--density-touch-target`, the size of the HP button beside them.
+- Keyboard walk: Timer Reset unmounted itself under focus. Focus now moves to the transport.
+- `/board` contract test read the home scene before `command-center.ensure-home` ran. It now waits.
+
+## Validation
+
+- App `tsc --noEmit`, ESLint and Prettier on changed files, boundary lint, raw-style count: pass.
+- Widget unit tests: 180/180 (32 new), no snapshot changes. Full app unit suite after the
+  aria-live switch: 126 files, 1366 tests passed.
+- `pnpm run build` (gm-react): pass, including `check-prod-bundle` (`__rt` and the gallery absent).
+  The >650 kB chunk warning predates this story.
+- Playwright, desktop-chromium + mobile-chromium, after all fixes: `custom-widgets`, `canvas`,
+  `combat-tile`, `map-tile`, `starter-widgets`, `widget-builder`, `a11y-axe-gate` — 185 passed,
+  0 failed, 5 skipped (the combat-tile desk/phone profile gates). `custom-widgets.spec.ts` re-run
+  after a final rename in the spec: 14/14.
+- Not run here: the full Playwright suite and the operator's gates and review.
+
+## Attempt 2 — App tests gate (run `a52ed2c3`)
+
+- The gate ran at `15e4a15c`: this story's commit rebased onto `66b7ab7f` ("docs: add RC release
+  notes and Lamplight marketing page"). 1365 of 1366 app tests passed. The one failure is
+  `apps/gm-react/src/app/help/changelog.test.ts` › "agree, so the badge and the release notes name
+  the same version": `expected 'Unreleased' to be '0.3.7'`.
+- Cause: `66b7ab7f` added bullets under `## [Unreleased]` in `CHANGELOG.md`. `latestRelease()`
+  skips only an EMPTY Unreleased section, so the latest release is now `Unreleased`, and the test
+  compares it with `apps/gm-react/package.json` version `0.3.7`.
+- Not caused by this story: between `66b7ab7f` and this commit, `git diff` is empty for all three
+  of the test's inputs (`CHANGELOG.md`, `apps/gm-react/package.json`, `apps/gm-react/src/app/help`).
+  Reproduced locally at `15e4a15c` with the same assertion.
+- Not fixed here: every fix is outside this story's owned paths and is a release-notes decision —
+  move the RC notes under a versioned heading, bump the app version, or change `latestRelease()`
+  or the test so unreleased notes don't count as the shipped release. No code change in this attempt.
+
+## Attempt 3 — App tests gate (run `b547911a`), same failure
+
+- Gate at `1bec109e` (journal-only commit): the same single failure, `changelog.test.ts`
+  `'Unreleased'` vs `'0.3.7'`; 1365 of 1366 app tests passed. The branch is unchanged, and no base
+  branch has touched the test's inputs since `66b7ab7f`, so retrying this branch as-is cannot pass.
+- Fleet impact: `66b7ab7f` is on local `loop/rc` only (no remote). Every task branch cut from it
+  fails App tests the same way; `dispatch/dndtools/70753c938c463ff01702` already contains it.
+  RC-DOC-1.4's journal shows it ran `pnpm gates`, which runs no tests, so the break went unseen.
+- Owners of the fix, per the roadmap: RC-UX-3.4 (`app/help/*`, the `CHANGELOG.md` parser),
+  RC-DOC-1.4 (the changelog RC entry), RC-ENG-7.2 (`CHANGELOG.md`, the version bump).
+- Smallest fix, in RC-UX-3.4's paths: make `latestRelease()` in `app/help/changelog.ts` skip the
+  `Unreleased` heading, not only an empty one, and add a fixture case for a non-empty Unreleased
+  section. The test's own comment says the badge compares against the BUILT version, and unreleased
+  notes are not in any built version. Not applied here: outside this story's owned paths.
+
+## Known gap (outside owned paths)
+
+- `app/map/canvas/MapMarkers.tsx` and the DS `POIMarker` always render markers as buttons. On a
+  mobile board a bound map with tokens or POIs fails axe `target-size`. The e2e binds the map tile
+  to a map with no markers. The fix belongs in the shared marker renderer.
+
+## Attempt 4 — current verification (2026-09-20)
+
+- Read the original supplied App tests log for run `6e685d0d-5263-4257-8877-2ff470e96fa5`.
+  It records 1365 passing tests and the same single changelog assertion failure at line 85.
+  This is still an unresolved gate failure, not a successful implementation retry.
+- Verified at `3a9ff68d` that `git diff 66b7ab7f HEAD -- CHANGELOG.md
+apps/gm-react/package.json apps/gm-react/src/app/help` is empty. The current parser still
+  chooses the first section with bullets, including `Unreleased`.
+- Ran `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/widgets
+apps/gm-react/src/app/help/changelog.test.ts`: exit 1, nine widget files pass (180 tests);
+  the changelog file has six passes and the reproduced `Unreleased` versus `0.3.7` failure.
+  Original output: `/tmp/rc-wid-44-unit.log` (ephemeral local evidence).
+- Ran `pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/custom-widgets.spec.ts --project=desktop-chromium --project=mobile-chromium
+--workers=2`: exit 0, 14 passed. This includes both routes' builtin axe checks, keyboard
+  operation, and forced-colors forwarding on both profiles. Original output:
+  `/tmp/rc-wid-44-e2e.log` (ephemeral local evidence).
+- No product changes in this attempt; the implementation remains in `15e4a15c`. No full app
+  suite or visual gate rerun: the supplied full app result remains failed, and this attempt
+  changes only this journal. The documented populated-map marker gap also remains.
+- Operator handoff: repair the changelog parser and add the non-empty Unreleased fixture in
+  the owning task, then integrate that prerequisite and rerun the central gates. Repeating
+  this unchanged candidate cannot resolve the App tests failure. No dispatcher state,
+  ownership-external source, remote branch, or integration branch was modified.
+
+## Attempt 5 — reconcile integration changes (2026-09-20)
+
+- Rebased the task branch onto `2d9f566d194d10e597c8001015b7e8be31811d59` as requested.
+  Resolved both conflicts; the implementation commit is now `b95157ca`.
+- `SandboxHost.tsx` retains the integration branch's kit loading, vendored fonts, host document
+  attributes and live theme messages. `readHostLook` now includes accessibility contrast variables,
+  so both asynchronous initialization and later appearance updates carry the combined contract.
+- `custom-widgets.spec.ts` retains both integration resize tests and all accessibility tests.
+  No integration source was discarded to resolve the conflicts.
+- The integration commit already fixes `latestRelease`; the previous changelog gate blocker is
+  resolved. Fresh `pnpm test:app`: exit 0, 144 files / 1616 tests passed.
+- Fresh custom-widgets plus widget-kit Playwright suites on desktop-chromium and mobile-chromium:
+  exit 0, 22 passed. Includes resize persistence/bounds, builtin axe on both routes, keyboard
+  operation, contrast forwarding, and kit theme/density/motion behavior.
+- App typecheck completed without diagnostics; focused ESLint completed with exit 0.
+- Original local logs: `/tmp/rc-wid-44-rebase-unit.log`, `/tmp/rc-wid-44-rebase-e2e.log`,
+  `/tmp/rc-wid-44-rebase-typecheck.log`, `/tmp/rc-wid-44-rebase-lint.log` (ephemeral).
+- Pinned visual gate: `bash apps/gm-react/tests/visual/run-in-container.sh
+--update-snapshots=none --workers=2`, exit 0, 135 passed. Original output:
+  `/tmp/rc-wid-44-rebase-visual.log`. No baselines changed.
+- Updated the appearance wrapper's comment to explain startup contrast handling alongside the
+  integration branch's live kit updates. Prettier and `git diff --check` pass.
+- The populated-map marker limitation documented above remains outside this conflict repair.
+  No push, promotion, dispatcher state changes, or additional agents.
+
+## Attempt 6 — distinguish repeated widget landmarks (2026-09-20)
+
+- Read the original browser acceptance log for `a50e5075-bcb8-40f0-b0cc-5bc7571f6f84`.
+  All four failures are `landmark-unique`: the canvas arrange and keyboard tests create multiple
+  default Note tiles, whose content regions all had the accessible name `Note`. The gate recorded
+  1266 passes, 16 skips, and these four failures across desktop and mobile (including retries).
+- `WidgetRenderSlot` now prefixes placed region names with the widget's persisted scene-list
+  position, e.g. `1. Note` and `2. Note`. This applies to every renderer branch and distinguishes
+  equal titles without exposing internal IDs. Moving/resizing leaves numbering unchanged;
+  insertion/removal can renumber later entries. Unplaced previews retain their title.
+- The owned custom-widget axe scenarios now place additional duplicate Note tiles on both routes.
+  Their shared region assertion rejects duplicate accessible names as well as empty names.
+  WIDGETS.md documents the naming contract.
+- Focused browser verification: custom-widgets, canvas-keyboard and canvas-arrange, both Chromium
+  profiles with two workers and no retries: exit 0, 24 passed. This includes all four previously
+  failing cases. Original log: `/tmp/rc-wid-44-landmarks-e2e.log`.
+- Full `pnpm test:app`: exit 0, 144 files / 1616 tests passed. Original log:
+  `/tmp/rc-wid-44-landmarks-unit.log`. App typecheck and focused ESLint both exit 0;
+  logs: `/tmp/rc-wid-44-landmarks-typecheck.log`, `/tmp/rc-wid-44-landmarks-lint.log`.
+- Pinned visual comparison (`--update-snapshots=none --workers=2`): exit 0, 135 passed;
+  `/tmp/rc-wid-44-landmarks-visual.log`. No baseline changes. Prettier and diff checks pass.
+- The full 1286-case browser acceptance command is left to the central operator; this attempt ran
+  the affected suites rather than claiming a new full browser result. Logs above are ephemeral
+  local evidence. No push, promotion, or dispatcher state changes.
+
+## Attempt 7 — independent review announcement regressions (2026-09-20)
+
+- Addressed both findings supplied for candidate `04412e70`: timer adjustments did not change
+  live text, and empty Atlas/Notes/Characters/List bodies removed their live region.
+- Timer announcements now freeze the remaining-time readout on durable timer revision, status,
+  or urgency changes. Periodic countdown ticks do not change the spoken text. This covers
+  adjustments while paused, running without an urgency transition, and stopped.
+- Empty readouts retain the same live-region DOM node when their first item appears and their
+  last item disappears; existing empty-state messages are preserved.
+- Added five empty/populated/empty identity regressions and three timer-state regressions with
+  a fake clock. Browser coverage checks paused/running keyboard adjustment announcements,
+  tick silence, and atlas live-node identity through real map creation/deletion on both profiles.
+- WIDGETS.md now explicitly describes duration adjustments and empty-state persistence.
+- Focused widget unit run: exit 0, 11 files / 224 tests passed. Original output:
+  `/tmp/rc-wid-44-announcements-unit.log`. Further verification in progress below.
+- Full app unit suite: exit 0, 144 files / 1624 tests passed;
+  `/tmp/rc-wid-44-announcements-app.log`.
+- Custom-widget browser suite, both Chromium profiles, two workers, retries disabled: exit 0,
+  20 passed. Includes builtin axe on both routes, all declared keyboard operations, first/last map
+  persistence, timer adjustment announcements and contrast forwarding;
+  `/tmp/rc-wid-44-announcements-e2e.log`.
+- App typecheck, focused ESLint and Prettier checks passed;
+  `/tmp/rc-wid-44-announcements-typecheck.log`, `/tmp/rc-wid-44-announcements-lint.log`.
+- Boundary lint and raw-style count passed; original logs:
+  `/tmp/rc-wid-44-announcements-boundary.log`, `/tmp/rc-wid-44-announcements-style.log`.
+- Pinned visual comparison (`--update-snapshots=none --workers=2`): exit 0, 135 passed;
+  `/tmp/rc-wid-44-announcements-visual.log`. No baseline changes.
+- Final diff/format checks passed. These are local DOM/browser checks, not measured screen-reader
+  speech or fresh central approval. The central operator still owns wrapper gates and independent
+  review. No push, promotion, dispatcher state changes, or additional agents. Logs are ephemeral.
+
+## Attempt 8 — compact initiative lifecycle review fix (2026-09-20)
+
+- Addressed the supplied independent review of `7935bb17`: the compact initiative idle/empty
+  branch now renders `LiveReadout` at the same React tree position as the running branch.
+  Its original DOM node survives start, end, restart and removal of the last combatant.
+  Both branches set `overflowY` explicitly, avoiding a shorthand/longhand style removal warning
+  when combat ends while the tile remains mounted.
+- Added a mobile browser lifecycle regression that checks updated text, node identity and atomic
+  announcements across those transitions. The desktop project skips this phone-renderer test.
+  This verifies the DOM announcement channel, not actual screen-reader speech.
+- Removed WIDGETS.md's obsolete populated-map target-size limitation after inspecting `Map.tsx`:
+  it supplies empty marker arrays to MapCanvas and draws decorative glyphs. Earlier journal
+  references to that limitation are historical and superseded by this correction.
+- The first regression setup incorrectly ended an idle fight (core correctly rejected it);
+  corrected the fixture to begin idle with an active workflow. The lifecycle probe then passed.
+- Validation in progress: both-profile custom-widget suite, widget unit tests, app typecheck,
+  focused lint and pinned visual comparison. Original logs use `/tmp/rc-wid-44-lifecycle-*`.
+- Widget unit tests: exit 0, 11 files / 224 tests passed (`lifecycle-unit.log`). App typecheck,
+  focused ESLint, boundary lint, raw-style count and Prettier passed.
+- First both-profile browser run: 19 passed, 1 expected desktop skip, 2 failures. Both failures
+  were the initial desktop sandbox tests timing out in `waitReady` before widget assertions;
+  all axe/keyboard/lifecycle checks passed. Original output: `lifecycle-e2e.log` under the prefix
+  above. Rerunning after the concurrent visual comparison finishes; no assertion was relaxed.
+- Final both-profile custom-widget run, two workers and retries disabled: exit 0, 21 passed,
+  1 expected desktop skip (`/tmp/rc-wid-44-lifecycle-e2e-rerun.log`). Includes both routes' axe
+  checks, declared keyboard operations, contrast forwarding and the strengthened lifecycle
+  regression asserting Turn 1 and removal of both combatants. Both earlier startup failures
+  passed in this run; no shared startup code was changed.
+- Pinned visual comparison (`--update-snapshots=none --workers=2`): exit 0, 135 passed
+  (`/tmp/rc-wid-44-lifecycle-visual.log`). No baselines changed. Final format/diff checks pass.
+- Full app suite and central wrapper gates remain for the operator. No push, promotion,
+  dispatcher state modification, or additional agents. All logs above are ephemeral local evidence.

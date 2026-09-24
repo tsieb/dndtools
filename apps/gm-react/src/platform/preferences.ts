@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { vaultPreferenceKey } from './storage/coreStore';
 
 /**
  * RC-UX-4.1 (DEBT-2026-001) — the device-preferences slice and platform capability layer.
@@ -24,6 +25,8 @@ import { useSyncExternalStore } from 'react';
  * is a type error, and the whole set of things this app persists per-device is readable here.
  */
 export const PREFERENCE_KEYS = {
+	/** Scene ids that have contained tiles, for repeat-empty onboarding. */
+	boardFilled: 'dndtools:react:board-filled',
 	markGmOnly: 'dndtools:react:mark-gm-only',
 	/** Active theme preset — shared by Settings › Appearance and the Theme studio. */
 	theme: 'dndtools:react:theme',
@@ -74,11 +77,27 @@ export function readProseWidthPreference(fallback: ProseWidth = 'comfortable'): 
 	return isProseWidth(candidate) ? candidate : fallback;
 }
 
+// RC-UX-5.4 — campaign history and choices follow the document's local vault (the original vault
+// keeps its released keys). Language, appearance, accessibility, feature tier and first-run
+// onboarding describe the person holding the device and stay device-wide.
+const VAULT_PREFERENCES: ReadonlySet<PreferenceKey> = new Set<PreferenceKey>([
+	PREFERENCE_KEYS.vaultChoice,
+	PREFERENCE_KEYS.partyNotes,
+	PREFERENCE_KEYS.paletteRecents,
+	PREFERENCE_KEYS.seenSpotlights,
+	PREFERENCE_KEYS.boardFilled,
+]);
+
+/** The storage key a preference lives under in this document. Exported for isolation tests. */
+export function preferenceStorageKey(key: PreferenceKey): string {
+	return VAULT_PREFERENCES.has(key) ? vaultPreferenceKey(key) : key;
+}
+
 /** Read a device preference. `null` when unset, unreadable (private mode) or off-browser. */
 export function readPreference(key: PreferenceKey): string | null {
 	try {
 		if (typeof window === 'undefined') return null;
-		return window.localStorage.getItem(key);
+		return window.localStorage.getItem(preferenceStorageKey(key));
 	} catch {
 		return null;
 	}
@@ -88,7 +107,7 @@ export function readPreference(key: PreferenceKey): string | null {
 export function writePreference(key: PreferenceKey, value: string): void {
 	try {
 		if (typeof window === 'undefined') return;
-		window.localStorage.setItem(key, value);
+		window.localStorage.setItem(preferenceStorageKey(key), value);
 	} catch {
 		/* private mode — the preference simply does not survive this session */
 	}
@@ -98,7 +117,7 @@ export function writePreference(key: PreferenceKey, value: string): void {
 export function removePreference(key: PreferenceKey): void {
 	try {
 		if (typeof window === 'undefined') return;
-		window.localStorage.removeItem(key);
+		window.localStorage.removeItem(preferenceStorageKey(key));
 	} catch {
 		/* nothing was persisted anyway */
 	}

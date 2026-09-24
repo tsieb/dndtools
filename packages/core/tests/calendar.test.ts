@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	absoluteDayIndex,
@@ -230,24 +232,42 @@ describe('stable display formatting (locale/clock independent — CONTENT-011 AC
 		const target = date(1372, 2, 5);
 		const baseline = formatCustomDate(HARPTOS, target, 'long');
 
-		const originalTZ = process.env.TZ;
-		const originalDateNow = Date.now;
-		try {
-			// Mutate the ambient environment a locale/timezone-dependent formatter would read.
-			process.env.TZ = 'Pacific/Kiritimati';
-			Date.now = () => 0;
-			const shiftedTz = formatCustomDate(HARPTOS, target, 'long');
+		// Worker-thread TZ mutations do not affect native Date/Intl. Set the environment
+		// before each child starts, and prove the native timezone/locale actually changed.
+		const runFormatter = (tz: string, locale: string, now: number) =>
+			JSON.parse(
+				execFileSync(
+					process.execPath,
+					[
+						'--import',
+						import.meta.resolve('tsx'),
+						fileURLToPath(new URL('./fixtures/calendar-format.ts', import.meta.url)),
+					],
+					{
+						env: {
+							...process.env,
+							TZ: tz,
+							LANG: locale,
+							LC_ALL: locale,
+							TSX_DISABLE_CACHE: '1',
+						},
+						input: JSON.stringify({ calendar: HARPTOS, target, now }),
+						encoding: 'utf8',
+						timeout: 10_000,
+					},
+				),
+			) as { formatted: string; offset: number; locale: string; now: number };
 
-			process.env.TZ = 'Etc/GMT+12';
-			Date.now = () => 9_999_999_999_999;
-			const shiftedTz2 = formatCustomDate(HARPTOS, target, 'long');
-
-			expect(shiftedTz).toBe(baseline);
-			expect(shiftedTz2).toBe(baseline);
-		} finally {
-			if (originalTZ === undefined) delete process.env.TZ;
-			else process.env.TZ = originalTZ;
-			Date.now = originalDateNow;
-		}
+		const shiftedTz = runFormatter('Pacific/Kiritimati', 'en_US.UTF-8', 0);
+		const shiftedTz2 = runFormatter('Etc/GMT+12', 'de_DE.UTF-8', 9_999_999_999_999);
+		expect(shiftedTz.offset).toBe(-840);
+		expect(shiftedTz2.offset).toBe(720);
+		expect(shiftedTz.offset).not.toBe(shiftedTz2.offset);
+		expect(shiftedTz.locale).toBe('en-US');
+		expect(shiftedTz2.locale).toBe('de-DE');
+		expect(shiftedTz.now).toBe(0);
+		expect(shiftedTz2.now).toBe(9_999_999_999_999);
+		expect(shiftedTz.formatted).toBe(baseline);
+		expect(shiftedTz2.formatted).toBe(baseline);
 	});
 });

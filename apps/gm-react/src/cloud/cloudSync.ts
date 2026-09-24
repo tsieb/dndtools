@@ -5,7 +5,8 @@
 // user's opt-in intent device-locally AND per Cognito account. The core clamps `enabled` to `canEnable`,
 // so a stored/forced flag can never bypass the model.
 //
-// Cloud backup is OFF by default and opt-in per account; the backup engine consumes this gate. Restoring
+// Cloud backup is OFF by default and opt-in per account AND local vault (RC-UX-5.4); the backup
+// engine consumes this gate. Restoring
 // requires a device that already holds the same client-side vault key; this is not key distribution or
 // automatic cross-device synchronization.
 
@@ -17,6 +18,12 @@ import {
 } from '@dndtools/core';
 import { hasDurableSecretStoreBridge } from './secureStore';
 import { vaultKeyManager } from './vaultKey';
+import {
+	activeLocalVaultId,
+	LEGACY_LOCAL_VAULT_ID,
+	listLocalVaults,
+	vaultPreferenceKey,
+} from '../platform/storage/coreStore';
 
 const ENABLE_FLAG = 'dndtools:react:cloud-sync-enabled';
 const PENDING_KEY_DELETIONS = 'dndtools:react:pending-vault-key-deletions';
@@ -45,9 +52,11 @@ function pendingKeyDeletions(): PendingKeyDeletion[] {
 	try {
 		if (typeof window === 'undefined') return [];
 		const raw = window.localStorage.getItem(PENDING_KEY_DELETIONS);
-		if (!raw || raw.length > 32 * 1024) return [];
+		// One marker per account and local vault (RC-UX-5.4), so the bound covers many vaults.
+		if (!raw || raw.length > 256 * 1024) return [];
 		const parsed: unknown = JSON.parse(raw);
-		if (!Array.isArray(parsed) || parsed.length > 32 || !parsed.every(validPendingEntry)) return [];
+		if (!Array.isArray(parsed) || parsed.length > 512 || !parsed.every(validPendingEntry))
+			return [];
 		return parsed;
 	} catch {
 		return [];
@@ -81,15 +90,48 @@ function dequeueKeyDeletion(entry: PendingKeyDeletion): void {
 	);
 }
 
-function enableFlagFor(accountId: string | null | undefined): string | null {
-	if (!accountId || !accountId.trim() || accountId.length > 256) return null;
-	return `${ENABLE_FLAG}:${encodeURIComponent(accountId)}`;
+/**
+ * RC-UX-5.4 — the local vault this document is pinned to, which is also its cloud vault namespace
+ * (the original vault keeps its released `primary` identity). `null` when the vault catalog or the
+ * selection is unreadable: every cloud caller then fails closed instead of guessing a vault.
+ */
+export function documentCloudVaultId(): string | null {
+	try {
+		return activeLocalVaultId();
+	} catch {
+		return null;
+	}
 }
 
-/** This account's device-local opt-in (a non-secret boolean; the core still gates its effect). */
-export function cloudSyncIntent(accountId: string | null | undefined): boolean {
+/**
+ * The sync API stores exactly one vault per account today (it rejects every other id so a paid
+ * account cannot multiply its storage ceiling). Other local vaults therefore stay device-only
+ * rather than writing into, or restoring from, the original vault's cloud copy.
+ */
+export function cloudBackupSupportedFor(vaultId: string | null): boolean {
+	return vaultId === LEGACY_LOCAL_VAULT_ID;
+}
+
+function enableFlagFor(
+	accountId: string | null | undefined,
+	vaultId: string | null,
+): string | null {
+	if (!accountId || !accountId.trim() || accountId.length > 256 || !vaultId) return null;
 	try {
-		const key = enableFlagFor(accountId);
+		return vaultPreferenceKey(`${ENABLE_FLAG}:${encodeURIComponent(accountId)}`, vaultId);
+	} catch {
+		return null;
+	}
+}
+
+/** This account's device-local opt-in for one local vault (a non-secret boolean; the core still
+ * gates its effect). Defaults to the vault this document is pinned to. */
+export function cloudSyncIntent(
+	accountId: string | null | undefined,
+	vaultId: string | null = documentCloudVaultId(),
+): boolean {
+	try {
+		const key = enableFlagFor(accountId, vaultId);
 		return Boolean(
 			key && typeof window !== 'undefined' && window.localStorage.getItem(key) === 'true',
 		);
@@ -98,8 +140,8 @@ export function cloudSyncIntent(accountId: string | null | undefined): boolean {
 	}
 }
 
-function setCloudSyncIntent(accountId: string, enabled: boolean): void {
-	const key = enableFlagFor(accountId);
+function setCloudSyncIntent(accountId: string, enabled: boolean, vaultId: string | null): void {
+	const key = enableFlagFor(accountId, vaultId);
 	if (!key) throw new Error('Sign in before changing encrypted cloud backup settings.');
 	try {
 		if (typeof window === 'undefined') return;
@@ -115,7 +157,10 @@ export interface CloudSyncStatus {
 	gate: CloudSyncGateResult;
 	/** Whether THIS device can durably hold the client-held key (OS credential store present). */
 	custodyAvailable: boolean;
-	/** canEnable AND the device can honor client-held key custody. Fail-closed on web (no keychain). */
+	/** Whether the cloud stores this local vault (only the original vault today — see above). */
+	vaultSupported: boolean;
+	/** canEnable AND the device can honor client-held key custody AND the cloud stores this vault.
+	 * Fail-closed on web (no keychain). */
 	canEnableOnThisDevice: boolean;
 }
 
@@ -126,17 +171,21 @@ export interface CloudSyncStatus {
  */
 export async function getCloudSyncStatus(
 	accountId: string | null | undefined,
+	vaultId: string | null = documentCloudVaultId(),
 ): Promise<CloudSyncStatus> {
 	const custodyAvailable = await vaultKeyManager.custodyAvailable();
+	const vaultSupported = cloudBackupSupportedFor(vaultId);
 	const gate = evaluateCloudSyncGate({
 		securityModel: DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL,
-		// Only claim "currently enabled" when the user opted in AND this device can hold the key.
-		currentlyEnabled: cloudSyncIntent(accountId) && custodyAvailable,
+		// Only claim "currently enabled" when the user opted in for THIS vault, the cloud stores it,
+		// AND this device can hold the key.
+		currentlyEnabled: vaultSupported && cloudSyncIntent(accountId, vaultId) && custodyAvailable,
 	});
 	return {
 		gate,
 		custodyAvailable,
-		canEnableOnThisDevice: gate.canEnable && custodyAvailable,
+		vaultSupported,
+		canEnableOnThisDevice: gate.canEnable && custodyAvailable && vaultSupported,
 	};
 }
 
@@ -148,19 +197,31 @@ export async function getCloudSyncStatus(
 export async function setCloudSyncEnabled(
 	enabled: boolean,
 	accountId: string,
+	vaultId: string | null = documentCloudVaultId(),
 ): Promise<CloudSyncStatus> {
 	if (enabled) {
-		const status = await getCloudSyncStatus(accountId);
+		const status = await getCloudSyncStatus(accountId, vaultId);
 		if (!status.canEnableOnThisDevice) {
 			throw new Error(
-				status.custodyAvailable
-					? 'Secure cloud backup is not available on this device.'
-					: 'Cloud backup needs the desktop app and an available operating-system credential store.',
+				!status.vaultSupported
+					? 'Encrypted cloud backup covers your original campaign vault only. This vault stays on this device.'
+					: status.custodyAvailable
+						? 'Secure cloud backup is not available on this device.'
+						: 'Cloud backup needs the desktop app and an available operating-system credential store.',
 			);
 		}
 	}
-	setCloudSyncIntent(accountId, enabled);
-	return getCloudSyncStatus(accountId);
+	setCloudSyncIntent(accountId, enabled, vaultId);
+	return getCloudSyncStatus(accountId, vaultId);
+}
+
+/** Every local vault id on this device; the original vault even when the catalog is unreadable. */
+function everyLocalVaultId(): string[] {
+	try {
+		return listLocalVaults().map((vault) => vault.id);
+	} catch {
+		return [LEGACY_LOCAL_VAULT_ID];
+	}
 }
 
 /**
@@ -168,41 +229,45 @@ export async function setCloudSyncEnabled(
  * This runs only after the server confirms deletion. Web builds cannot ever persist a vault key;
  * desktop builds fail loudly when their OS credential store is unavailable instead of claiming the
  * key was erased. The opt-in and push high-water are exact account/vault keys, so another signed-in
- * account on this installation is untouched.
+ * account on this installation is untouched. Without an explicit vault, the account is forgotten in
+ * EVERY local vault on this device, because a key could have been imported into any of them.
  */
-export async function forgetCloudSyncAccount(
-	accountId: string,
-	vaultId = 'primary',
-): Promise<void> {
-	const intentKey = enableFlagFor(accountId);
-	if (!intentKey || !vaultId.trim() || vaultId.length > 128)
+export async function forgetCloudSyncAccount(accountId: string, vaultId?: string): Promise<void> {
+	const vaultIds = vaultId === undefined ? everyLocalVaultId() : [vaultId];
+	const intentKeys = vaultIds.map((id) => enableFlagFor(accountId, id));
+	if (
+		intentKeys.some((key) => !key) ||
+		vaultIds.some((id) => !id.trim() || id.length > 128 || hasAsciiControlCharacter(id))
+	)
 		throw new Error('The deleted account has an invalid local cloud-backup namespace.');
 
 	try {
 		if (typeof window !== 'undefined') {
-			window.localStorage.removeItem(intentKey);
-			window.localStorage.removeItem(`dndtools:react:cloud-pushed-rev:${accountId}:${vaultId}`);
-			window.localStorage.removeItem(`dndtools:react:cloud-pushed-rev-v2:${accountId}:${vaultId}`);
+			for (const [index, id] of vaultIds.entries()) {
+				window.localStorage.removeItem(intentKeys[index]!);
+				window.localStorage.removeItem(`dndtools:react:cloud-pushed-rev:${accountId}:${id}`);
+				window.localStorage.removeItem(`dndtools:react:cloud-pushed-rev-v2:${accountId}:${id}`);
+				window.localStorage.removeItem(`dndtools:react:cloud-agreed-rev-v1:${accountId}:${id}`);
+			}
 		}
 	} catch {
 		// localStorage is best-effort metadata, never key custody. A disabled/private store cannot
 		// preserve these entries and therefore already has the desired post-deletion state.
 	}
 
-	const entry = { accountId, vaultId };
-	const custodyAvailable = await vaultKeyManager.custodyAvailable();
-	if (hasDurableSecretStoreBridge) {
-		// Persist a non-secret retry marker BEFORE attempting erasure. If the OS keychain is locked or
-		// Electron exits mid-write, the next launch retries without needing the now-deleted identity.
-		queueKeyDeletion(entry);
-		if (custodyAvailable) {
-			await vaultKeyManager.forget(accountId, vaultId);
-			dequeueKeyDeletion(entry);
-			return;
-		}
+	if (!hasDurableSecretStoreBridge) return;
+	const entries = vaultIds.map((id) => ({ accountId, vaultId: id }));
+	// Persist non-secret retry markers BEFORE attempting erasure. If the OS keychain is locked or
+	// Electron exits mid-write, the next launch retries without needing the now-deleted identity.
+	for (const entry of entries) queueKeyDeletion(entry);
+	if (!(await vaultKeyManager.custodyAvailable())) {
 		throw new Error(
 			'its local vault key could not be removed because the operating-system credential store is unavailable; removal is queued for the next app launch',
 		);
+	}
+	for (const entry of entries) {
+		await vaultKeyManager.forget(entry.accountId, entry.vaultId);
+		dequeueKeyDeletion(entry);
 	}
 }
 

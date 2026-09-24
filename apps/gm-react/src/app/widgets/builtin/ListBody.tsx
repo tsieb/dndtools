@@ -4,6 +4,7 @@ import type { BoardWidget } from '../../board-helpers';
 import { useI18n } from '../../../i18n';
 import type { MessageKey } from '../../../i18n';
 import { Muted, bodyWrap, cfg } from '../../widget-body-kit';
+import { LiveReadout } from './live';
 
 /**
  * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
@@ -31,13 +32,6 @@ export function ListBody({
 		runtime.state.permissions,
 		runtime.defaultActorId,
 	).filter((item) => item.kind === kind);
-	if (items.length === 0) {
-		return (
-			<Muted>
-				{kind === 'note' ? t('widgetBody.list.notesEmpty') : t('widgetBody.list.objectsEmpty')}
-			</Muted>
-		);
-	}
 	const shown = items.slice(0, count);
 	return (
 		<div style={bodyWrap}>
@@ -55,13 +49,19 @@ export function ListBody({
 					{item.title}
 				</div>
 			))}
-			<Muted>
-				{t('widgetBody.list.count', {
-					shown: shown.length,
-					total: items.length,
-					unit: t(unit),
-				})}
-			</Muted>
+			<LiveReadout>
+				<Muted>
+					{items.length === 0
+						? kind === 'note'
+							? t('widgetBody.list.notesEmpty')
+							: t('widgetBody.list.objectsEmpty')
+						: t('widgetBody.list.count', {
+								shown: shown.length,
+								total: items.length,
+								unit: t(unit),
+							})}
+				</Muted>
+			</LiveReadout>
 		</div>
 	);
 }

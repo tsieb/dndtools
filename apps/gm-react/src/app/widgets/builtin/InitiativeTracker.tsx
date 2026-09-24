@@ -7,6 +7,7 @@ import { T } from '../../screen-kit';
 import { SR_ONLY, bodyWrap } from '../../widget-body-kit';
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../combat/HpKeypadSheet';
 import { NextTurnControl } from './NextTurnControl';
+import { LiveReadout } from './live';
 
 /**
  * RC-CAN-5.3 — the touch-first combat tile: what the `initiative-tracker` widget draws on a phone.
@@ -31,6 +32,16 @@ import { NextTurnControl } from './NextTurnControl';
 const SWIPE_PX = 44;
 /** Past this much horizontal travel the gesture is a swipe, and the row must not also click. */
 const SWIPE_SLOP = 12;
+
+/**
+ * RC-WID-4.4 — a row's icon buttons get the density's touch target, the size the HP button beside
+ * them already has. At their bare `md` size the board's scale painted "More actions" under 24px on
+ * a phone (axe `target-size`), next to an HP button that passed.
+ */
+const ROW_TARGET = {
+	minWidth: 'var(--density-touch-target)',
+	minHeight: 'var(--density-touch-target)',
+} as const;
 
 export function InitiativeTrackerCompact({
 	showHp,
@@ -148,11 +159,15 @@ export function InitiativeTrackerCompact({
 
 	if (!running || tracker.combatants.length === 0) {
 		return (
-			<div style={bodyWrap}>
+			<div style={{ ...bodyWrap, overflowY: 'hidden' }}>
 				<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-					{showHp
-						? t('widgetBody.initiative.noneHpShown')
-						: t('widgetBody.initiative.noneHpHidden')}
+					{/* Keep the same div > div > LiveReadout position as the running branch so React
+					    updates the existing announcement channel through start, end and empty order. */}
+					<LiveReadout style={{ display: 'inline' }}>
+						{showHp
+							? t('widgetBody.initiative.noneHpShown')
+							: t('widgetBody.initiative.noneHpHidden')}
+					</LiveReadout>
 				</div>
 			</div>
 		);
@@ -175,7 +190,16 @@ export function InitiativeTrackerCompact({
 					letterSpacing: '0.06em',
 				}}
 			>
-				<span>{t('widgetBody.initiative.compactHeading', { round: tracker.round })}</span>
+				{/* RC-WID-4.4 — the order moving on is this tile's value, so the heading is a live
+				    readout. The turn is spoken as its place in the order, not the name: the name is
+				    already in its row, and a second copy in the DOM makes every by-name lookup ambiguous. */}
+				<LiveReadout style={{ display: 'inline' }}>
+					{t('widgetBody.initiative.compactHeading', { round: tracker.round })}
+					<span style={SR_ONLY}>
+						{' '}
+						· {t('widgetBody.initiative.turn')} {tracker.turn + 1}
+					</span>
+				</LiveReadout>
 				{/* RC-WID-4.2 — advancing the order is the phone tile's most-wanted action, so it sits in
 				    the header rather than behind a trip to /session. */}
 				{/* `dense`: the chip's board-scale touch-target compensation is deliberately off here. On
@@ -265,12 +289,14 @@ export function InitiativeTrackerCompact({
 									<IconButton
 										icon="sword"
 										size="md"
+										style={ROW_TARGET}
 										label={t('session.combat.hp.damage')}
 										onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'damage' })}
 									/>
 									<IconButton
 										icon="heart"
 										size="md"
+										style={ROW_TARGET}
 										label={t('session.combat.hp.heal')}
 										onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'heal' })}
 									/>
@@ -278,6 +304,7 @@ export function InitiativeTrackerCompact({
 										<IconButton
 											icon={c.hidden ? 'reveal' : 'conceal'}
 											size="md"
+											style={ROW_TARGET}
 											label={t(
 												c.hidden
 													? 'widgetBody.initiative.compactReveal'
@@ -290,6 +317,7 @@ export function InitiativeTrackerCompact({
 									<IconButton
 										icon="close"
 										size="md"
+										style={ROW_TARGET}
 										label={t('widgetBody.initiative.compactCloseActions', { name: c.name })}
 										onClick={() => setOpenTray(null)}
 									/>
@@ -322,6 +350,7 @@ export function InitiativeTrackerCompact({
 									<IconButton
 										icon="more"
 										size="md"
+										style={ROW_TARGET}
 										disabled={!interactive}
 										label={t('widgetBody.initiative.compactMore', { name: c.name })}
 										onClick={() => !swallowed() && setOpenTray(c.id)}

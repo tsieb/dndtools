@@ -1,0 +1,37 @@
+- main:
+    - toolbar "GM Screen":
+        - heading "GM Screen" [level=2]
+        - text: 7 widgets · your home board
+        - group "Zoom":
+            - button "Fit" [pressed]
+            - button "Comfortable"
+            - button "Detail"
+        - button "Edit layout"
+    - status
+    - group "Map, Maps widget":
+        - text: Map Maps Not bound The linked map is missing or was removed. Choose another map in edit mode.
+        - combobox "Change map":
+            - option "Choose a map…" [selected]
+            - option "Hidden Outpost"
+            - option "Ruined Keep"
+            - option "Western Reaches"
+        - button "Hide combat overlay"
+        - button "Open in editor" [disabled]
+        - button "Project to players" [disabled]
+    - group "Initiative Tracker, Combat widget":
+        - text: Initiative Tracker Combat Round — Turn —
+        - button "Next turn — Start combat in Session first — there is no turn to advance." [disabled]: Next turn
+        - status
+        - text: No combat running · HP shown
+    - group "Dice, Dice & Timers widget":
+        - text: Dice Dice & Timers d20
+        - button "Roll d20 — Go live in Session first — this reaches the table only during play." [disabled]: Roll
+        - status
+    - group "Timer, Dice & Timers widget":
+        - text: Timer Dice & Timers 1:00
+        - button "Start 60-second timer — Go live in Session first — this reaches the table only during play." [disabled]: Start
+        - button "Add 60 seconds to the timer — Go live in Session first — this reaches the table only during play." [disabled]: Add a minute
+    - group "Audio, Atmosphere widget": Audio Atmosphere Nothing playing — cue a track from the session audio controls.
+    - group "Quick Reference, Reference widget": Quick Reference Reference Saltmarsh Watch Dockworkers’ Union Brine Hand 3 of 3 reference rows
+    - group "Prep, Reference widget": Prep Reference The Sunken Crypt — DM notes Faction · The Ashen Hand The Drowning of Saltreach Campaign Primer The party makes landfall 5 of 6 prep notes
+    - status

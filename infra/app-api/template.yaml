@@ -101,6 +101,27 @@ Globals:
     PermissionsBoundary: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/meta/permissions-boundary-arn}}'
 
 Resources:
+  # RC-CLD-2.7: credential-free scheduler seam. Keep disabled until RC-CLD-2.3 wires
+  # authenticated calendar/consent persistence and a live transport. No send permissions.
+  PushReminderFn:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints: [handler.ts]
+        Format: esm
+        OutExtension: ['.js=.mjs']
+        Target: es2022
+    Properties:
+      CodeUri: ../../packages/cloud-fns/src/push
+      Handler: handler.handler
+      Events:
+        ReminderTick:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+            Enabled: false
+
   # --- Marketplace module payloads + wiki page bundles (`wikis/` prefix): -------
   # --- private, encrypted-at-rest S3; only the Lambda reads/writes it (wiki -----
   # --- reads are served THROUGH the handler, never as public bucket access). ----

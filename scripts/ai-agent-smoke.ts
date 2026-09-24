@@ -24,6 +24,7 @@
  * Run:  pnpm tsx scripts/ai-agent-smoke.ts   (or: OLLAMA_MODEL=llama3.1:8b pnpm tsx scripts/ai-agent-smoke.ts)
  * Pass a substring to run ONE scenario:  pnpm tsx scripts/ai-agent-smoke.ts quest.create
  */
+import { deepStrictEqual } from 'node:assert/strict';
 import { z } from 'zod';
 import {
 	MCP_BASELINE_TOOL_IDS,
@@ -48,7 +49,12 @@ import {
 } from '../packages/core/src/testing/fixtures';
 import { buildAiToolSpecs, runAssistantExchange } from '../apps/gm-react/src/ai/mcpBridge';
 import { LOCAL_OLLAMA } from '../apps/gm-react/src/ai/localLlmGuidance';
-import type { AiChatRequest, AiReply, AiToolCall } from '../apps/gm-react/src/ai/transport';
+import type {
+	AiChatProvider,
+	AiChatRequest,
+	AiReply,
+	AiToolCall,
+} from '../apps/gm-react/src/ai/transport';
 
 const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? new URL(LOCAL_OLLAMA.baseUrl).origin;
 const MODEL = process.env.OLLAMA_MODEL ?? LOCAL_OLLAMA.defaultModel;
@@ -108,7 +114,7 @@ function toOpenAiMessages(request: AiChatRequest): OpenAiMessage[] {
 	return messages;
 }
 
-async function sendOllama(request: AiChatRequest): Promise<AiReply> {
+const sendOllama: AiChatProvider = async (request) => {
 	const body = {
 		model: MODEL,
 		messages: toOpenAiMessages(request),
@@ -162,7 +168,7 @@ async function sendOllama(request: AiChatRequest): Promise<AiReply> {
 					? 'max-tokens'
 					: 'other';
 	return { text: choice?.message?.content ?? '', toolCalls, stopReason };
-}
+};
 
 // --- headless Core state: DM actor, MCP on, a staged DM-bound agent with the full tool surface -------
 
@@ -270,6 +276,8 @@ const SCENARIOS: Scenario[] = [
 async function runScenario(scenario: Scenario): Promise<boolean> {
 	const { state: seeded, env } = seedState();
 	let state = seeded;
+	const domainState = ({ mcp: _mcp, sync: _sync, ...domain }: CoreStateSlice) => domain;
+	const before = structuredClone(domainState(seeded));
 	const registry = createBaselineMcpToolRegistry();
 
 	const invoke = async (toolId: string, input: unknown): Promise<McpAgentToolResult> => {
@@ -279,6 +287,7 @@ async function runScenario(scenario: Scenario): Promise<boolean> {
 			input,
 		});
 		state = nextState;
+		deepStrictEqual(domainState(state), before, 'The assistant applied a change without approval');
 		return result;
 	};
 
@@ -298,6 +307,12 @@ async function runScenario(scenario: Scenario): Promise<boolean> {
 				`   · ${event.toolId} → ${event.outcome}${event.detail ? ` (${event.detail})` : ''}`,
 			);
 		}
+	}
+
+	deepStrictEqual(domainState(state), before, 'The assistant applied a change without approval');
+	if (Object.values(state.mcp.proposals).some((proposal) => proposal.status !== 'pending')) {
+		console.log('   ✗ FAIL — proposal was resolved without human approval');
+		return false;
 	}
 
 	// The proof: a staged proposal for the expected command whose captured payload is schema-valid.

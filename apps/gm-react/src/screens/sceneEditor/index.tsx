@@ -1,4 +1,5 @@
 import type React from 'react';
+import { BoardEmptyState, useBoardPreviouslyFilled } from '../board/BoardPlayerNotice';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -113,6 +114,8 @@ export function SceneEditor() {
 	// The previewed actor's read of this scene, tile by tile (playerPreview.ts).
 	const previewRead =
 		preview && rawScene ? readPlayerPreview(runtime.state, preview.actorId, id) : null;
+
+	const previouslyFilled = useBoardPreviouslyFilled(id, (rawScene?.widgets.length ?? 0) > 0);
 
 	const widgets: BoardWidget[] = useMemo(() => {
 		if ((denied && !previewBlocked) || !rawScene) return [];
@@ -573,37 +576,6 @@ export function SceneEditor() {
 				)}
 			</div>
 
-			{/* RC-CAN-4.4 — the empty-state moment for templates. The canvas's own empty message sits under
-			    `pointer-events: none`, so the offer lives in the page flow above it instead. */}
-			{widgets.length === 0 && !previewing && (
-				<div
-					data-testid="scene-empty-templates"
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						flexWrap: 'wrap',
-						gap: 'var(--space-2)',
-						flex: '0 0 auto',
-						font: 'var(--text-xs) var(--font-sans)',
-						color: 'var(--color-text-secondary)',
-					}}
-				>
-					<span>{t('sceneEditor.emptyTemplatesHint')}</span>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="layers"
-						onClick={() => {
-							setTemplatesOpen(true);
-							setAddOpen(false);
-							setMetaOpen(false);
-						}}
-					>
-						{t('sceneEditor.useTemplate')}
-					</Button>
-				</div>
-			)}
-
 			{error && (
 				<div
 					// Rejected layout writes were announced to nobody; Campaign.tsx already does this.
@@ -646,52 +618,77 @@ export function SceneEditor() {
 
 				    `focusOrder` goes only to the canvas. Flow's layout order IS its focus order, so it
 				    accepts no traversal override — see `FlowBoardProps`. */}
-					{layoutPolicy === 'flow' ? (
-						<FlowBoard
-							widgets={widgets}
-							tier={viewport}
-							editing={editing}
-							selectedId={selectedId}
-							onSelect={(id) => {
-								setSelectedId(id);
-								if (id) setPropertiesDismissed(false);
-								if (id) setMetaOpen(false);
-							}}
-							onMove={move}
-							onResize={resize}
-							onRemove={destroy}
-							onWidgetCommand={operateWidget}
-							history={history}
-							emptyHint={emptyHint}
-						/>
-					) : (
-						<SceneBoardCanvas
-							widgets={widgets}
-							policy="canvas"
-							editing={editing}
-							snap={snap}
-							selectedId={selectedId}
-							// The Inspector below is gated `!addOpen && !metaOpen`, but selection was not — so
-							// with "Scene details" open, clicking a widget painted its selection ring and title
-							// chip and opened no editor at all: a dead end with a visible selection and nothing
-							// to do with it. Selecting a widget is about that widget, so it closes the
-							// scene-level details panel.
-							onSelect={(id) => {
-								setSelectedId(id);
-								if (id) setPropertiesDismissed(false);
-								if (id) setMetaOpen(false);
-							}}
-							onMove={move}
-							onResize={resize}
-							focusOrder={
-								'kind' in summary ? [] : summary.focusOrder.map((entry) => entry.widgetInstanceId)
-							}
-							onRemove={destroy}
-							onWidgetCommand={operateWidget}
-							history={history}
-							emptyHint={emptyHint}
-						/>
-					)}
+					<div
+						style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}
+					>
+						{layoutPolicy === 'flow' ? (
+							<FlowBoard
+								widgets={widgets}
+								tier={viewport}
+								editing={editing}
+								selectedId={selectedId}
+								onSelect={(id) => {
+									setSelectedId(id);
+									if (id) setPropertiesDismissed(false);
+									if (id) setMetaOpen(false);
+								}}
+								onMove={move}
+								onResize={resize}
+								onRemove={destroy}
+								onWidgetCommand={operateWidget}
+								history={history}
+								emptyTitle={previewing ? undefined : ''}
+								emptyHint={previewing ? emptyHint : ''}
+							/>
+						) : (
+							<SceneBoardCanvas
+								widgets={widgets}
+								policy="canvas"
+								editing={editing}
+								snap={snap}
+								selectedId={selectedId}
+								// The Inspector below is gated `!addOpen && !metaOpen`, but selection was not — so
+								// with "Scene details" open, clicking a widget painted its selection ring and title
+								// chip and opened no editor at all: a dead end with a visible selection and nothing
+								// to do with it. Selecting a widget is about that widget, so it closes the
+								// scene-level details panel.
+								onSelect={(id) => {
+									setSelectedId(id);
+									if (id) setPropertiesDismissed(false);
+									if (id) setMetaOpen(false);
+								}}
+								onMove={move}
+								onResize={resize}
+								focusOrder={
+									'kind' in summary ? [] : summary.focusOrder.map((entry) => entry.widgetInstanceId)
+								}
+								onRemove={destroy}
+								onWidgetCommand={operateWidget}
+								history={history}
+								emptyTitle={previewing ? undefined : ''}
+								emptyHint={previewing ? emptyHint : ''}
+							/>
+						)}
+						{widgets.length === 0 && !previewing && (
+							<BoardEmptyState
+								title={t('board.emptySceneTitle')}
+								repeat={previouslyFilled}
+								testId="scene-empty-templates"
+								onAdd={() => {
+									setEditing(true);
+									setAddOpen(true);
+									setMetaOpen(false);
+									setPropertiesDismissed(true);
+								}}
+								onTemplate={() => {
+									setTemplatesOpen(true);
+									setAddOpen(false);
+									setMetaOpen(false);
+									setPropertiesDismissed(true);
+								}}
+							/>
+						)}
+					</div>
 
 					{propertiesOpen && (
 						<SceneMetaPanel
@@ -745,6 +742,7 @@ export function SceneEditor() {
 
 					{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 						<Inspector
+							history={history}
 							key={selectedInstance.id}
 							widget={selectedWidget}
 							phone={viewport === 'phone'}

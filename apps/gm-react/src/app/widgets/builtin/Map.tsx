@@ -489,7 +489,9 @@ export function MapTile({
 					color: T.ter,
 				}}
 			>
-				<span data-testid="map-tile-summary">
+				{/* RC-WID-4.4 — the tile's value readout: a fight joining the map or the view starting
+				    to follow the party is announced, not just redrawn. */}
+				<span aria-live="polite" aria-atomic="true" data-testid="map-tile-summary">
 					{view.name} · {t('widgetBody.map.pois', { count: view.pois.length })}
 					{overlayOn && view.combatTokens.length > 0
 						? ` · ${t('widgetBody.map.inFight', { count: view.combatTokens.length })}`
