@@ -7,6 +7,7 @@
 - Split the 728-line Upgrade into the route/controller, PlanCards, PlanComparison, PlanStatus and existing dialogs. Preserve server entitlement and Stripe decisions.
 - Token typography and grid spacing, supporting cards flat, recommended CTA gold, legal navigation 48px, legal main includes the heading and footer; small headings use Inter.
 - Added illustrated stale-account retry and initial skeleton, blocked modal dismissal while saving, localized plan card/dialog copy and new states in EN/ES.
+- 2026-09-24 resume: rebased the 2026-09-20 commit onto `loop/rc` 692b4e1c (119 commits newer; only FEATURE-GAPS conflicted, resolved by keeping loop/rc's table and re-applying the two row edits). Three follow-ups: (1) the 75 full-page PNGs (9,155 KiB) no longer fit the shared baseline cap, so the visual spec now pins one small crop per theme and tier (below); (2) the loop/rc vocabulary test rejected the literal `co-DM` in the new plan-card keys, so EN/ES now use `Co-{gm}`, the glossary form `session.roster.role.coDm` already uses; (3) the skeleton crop showed the Recommended badge (`top: -10`) overlapping the loading skeleton. The stale-account banner sits in the same slot with no margin either, so both `PlanStatus` states now have a `--space-5` bottom margin.
 
 ## Embedded §20.2–§20.5 checklist (checked or explicitly waived)
 
@@ -17,9 +18,9 @@
 - [x] One gold primary card action (recommended Lantern); supporting cards flat; recommended panel retains shadow-md.
 - [x] Four-step UI type hierarchy, display ≥24px, prices mono; legal prose has its own readable body size.
 - [x] Status icon shapes accompany color. DM stripe waived: these are account/public documents, no DM-only campaign data.
-- [x] All five themes × three tiers: 75 pinned PNGs cover route, dialog, comparison, privacy and terms. Reviewed contact sheets for every combination; full comparison result recorded below.
+- [x] All five themes × three tiers, with a budget-driven waiver on what gets pinned. Pinned: `plans-account-check--{theme}.png` in all three tiers (15 PNGs, 10.0 KiB): the first row of the account-check skeleton, served by the shared `tests/e2e/_accountFixture.ts` `loading` mode. Not pinned: the full route, the dialog, the comparison and both legal pages. The shared 32 MiB cap (`check-baseline-budget.mjs`) has 331 KiB left on `loop/rc` 692b4e1c and **23.2 KiB** once the in-flight RC-POL-1.19 branch (`dispatch/dndtools/182924ef…`, f4cb4a64) lands. Measured crops that include text cost 2–6.5 KiB per image (saving pill ~2.6, badge ~2.2, legal nav ~3.7, cycle row ~6.4), i.e. 33–97 KiB across fifteen, and the earlier full-page set cost 9,155 KiB. Those surfaces were instead rendered in the pinned container for all 5 themes × 3 tiers and reviewed as contact sheets (not committed). The review found the badge overlap fixed above; dialogs, cards and legal prose read correctly in every theme. Raising the cap is an owner decision (RC_ROADMAP §24); this story does not change it.
 - [x] No surface-owned motion. DS Skeleton/Dialog follow shared reduced-motion behavior.
-- [x] Loading skeleton, illustrated connection-lost retry, offline comparison and unavailable explanations. Empty waived: fixed plan inventory and bundled legal documents cannot be empty; provider substitutes offline matrix for empty server responses. No plan-specific empty illustration exists.
+- [x] Loading skeleton (now clear of the Recommended badge), illustrated connection-lost retry, offline comparison and unavailable explanations. Empty waived: fixed plan inventory and bundled legal documents cannot be empty; provider substitutes offline matrix for empty server responses. No plan-specific empty illustration exists.
 
 ### 20.3 Interaction and UX
 
@@ -52,19 +53,17 @@
 
 ## Validation evidence
 
-All commands run in the assigned worktree, using native exact output. No allowances or axe-register entries added.
+Re-run in full on 2026-09-24 after the rebase onto `loop/rc` 692b4e1c, in the assigned worktree. Exact logs are in `/tmp/pol16-*.log`. No allowances or axe-register entries added.
 
-- `pnpm gates`: exit 0, no owned-file warning. Other surfaces retain their existing file-size warnings. Owned maximum: Upgrade.tsx 440 lines (previously 728); legalContent.ts 359, PlanDialogs.tsx 291, all remaining files smaller.
-- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
-- ESLint on owned surface, new e2e and visual specs: exit 0. Removed Upgrade’s 56-value raw-style allowance; all owned surface files lint without allowances. `pnpm lint:raw-style-count`: 2,519 repository findings across 259 other files.
-- Prettier check on changed code/catalogs/docs: exit 0; `git diff --check`: exit 0.
-- `pnpm --filter @dndtools/gm-react exec vitest run src/screens/legal/legal.test.tsx src/cloud/entitlements.test.ts src/cloud/billing.test.ts`: **24 passed** (3 files). Public legal pages still render without auth/runtime providers.
-- `CI=1 DNDTOOLS_E2E_PORT=6042 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/upgrade.spec.ts tests/e2e/legal.spec.ts tests/e2e/upgrade-polish.spec.ts tests/e2e/upgrade-cloud-polish.spec.ts --workers=2 --retries=0`: **32 passed**. Focus/target assertions subsequently strengthened; `upgrade-polish.spec.ts` rerun: **12 passed**.
-- Browser fixture diagnosis: use Vite’s exact versioned React module URL, avoiding a second React instance; error toasts are `alert`, success is `status`. These corrections are in test code, not production seams. Separate local server port used for the final run.
-- Final baseline generation: `CI=1 DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh plans-legal.spec.ts --update-snapshots=changed --retries=0`: **45 passed**, writing **75** PNGs (5 views × 5 themes × 3 tiers). Final touch-target change intentionally moved Upgrade/dialog pixels; comparison captures added so the below-fold table is reviewed too. Every new PNG reviewed via contact sheets; phone matrix intentionally scrolls horizontally, with document overflow absent in e2e.
-- Baseline budget: **210 files, 22,036.4 KiB / 32,768 KiB**, passes per-file and total caps.
-- Final full pinned compare: `CI=1 DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --retries=0`: **180 passed (3.2m), exit 0**. Includes all 135 existing golden-route tests and 45 new tests producing 75 surface captures. No unrelated baseline was updated. Exact local output: `/tmp/pol16-visual-final-compare.log`.
+- `pnpm gates`: exit 0. No `file-size-warn` for `screens/Upgrade.tsx`, `screens/upgrade/*` or `screens/legal/*` (other surfaces keep their existing warnings). Owned maximum: Upgrade.tsx 440 lines (previously 728), legalContent.ts 359, PlanDialogs.tsx 291; all other owned files are smaller.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0. `pnpm lint` (full, incl. raw-style, emphasis and contrast lints): exit 0. Upgrade's 56-value raw-style allowance stays removed.
+- `pnpm format:check:changed -- --base loop/rc`: exit 0. `git diff --check loop/rc`: exit 0.
+- `vitest run src/i18n src/screens/legal src/cloud/entitlements.test.ts src/cloud/billing.test.ts`: **59 passed** (5 files), including `vocabulary.test.tsx` (it failed on `co-DM` before the fix above).
+- `CI=1 DNDTOOLS_E2E_PORT=6143 playwright test tests/e2e/upgrade.spec.ts tests/e2e/legal.spec.ts tests/e2e/upgrade-polish.spec.ts tests/e2e/upgrade-cloud-polish.spec.ts --workers=2 --retries=0`: **32 passed** on desktop-chromium and mobile-chromium.
+- `CI=1 DNDTOOLS_E2E_PORT=6144 playwright test tests/e2e/a11y-axe-gate.spec.ts -g "upgrade|legal|privacy|terms" --retries=0`: **2 passed** (`/upgrade`, both profiles). The legal routes, dialogs, checkout dialog and account-error state are scanned by the polish specs above.
+- Baselines: `run-in-container.sh plans-legal.spec.ts --update-snapshots=all` wrote the 15 crops. `node tests/visual/check-baseline-budget.mjs`: **405 files, 32,446.8 KiB / 32,768 KiB**. On top of RC-POL-1.19 this would be ~32,755 KiB, still under the cap.
+- Full pinned compare: `CI=1 DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --retries=0`: **315 passed (6.3m), exit 0**. No unrelated baseline changed (`PlanStatus` only renders in account-backed modes, which the golden routes never enter).
 
 ## Review boundaries
 
-Additional files outside the owned source directories are required acceptance support: EN/ES catalogs, two e2e specs, the visual spec and baselines, FEATURE-GAPS, removal of the existing lint allowance, and this journal. Legal obligations/placeholders, billing contracts, dispatcher controls and unrelated surfaces are unchanged. Remote publication, promotion and independent central review have not been performed.
+Additional files outside the owned source directories are required acceptance support: EN/ES catalogs, two e2e specs and their shared `_accountFixture.ts`, the visual spec and its 15 baselines, FEATURE-GAPS, removal of the existing lint allowance, and this journal. Legal obligations/placeholders, billing contracts, dispatcher controls and unrelated surfaces are unchanged. Remote publication, promotion and independent central review have not been performed.

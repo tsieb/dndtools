@@ -4,12 +4,15 @@ import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import type { EntitlementsValue } from '../../cloud/entitlements';
 
-/** Keep cached/offline prices readable while making their freshness explicit. */
+/**
+ * Keep cached/offline prices readable while making their freshness explicit. The bottom margin
+ * clears the Recommended badge, which rides 10px above the plan card below it.
+ */
 export function PlanStatus({ ent }: { ent: EntitlementsValue }) {
 	const { t } = useI18n();
 	if (ent.loading)
 		return (
-			<div role="status" aria-live="polite">
+			<div role="status" aria-live="polite" style={{ marginBottom: T.space.five }}>
 				<p>{t('upgrade.loading')}</p>
 				<Skeleton variant="list" rows={3} />
 			</div>
@@ -24,6 +27,7 @@ export function PlanStatus({ ent }: { ent: EntitlementsValue }) {
 				flexWrap: 'wrap',
 				gap: T.space.three,
 				padding: T.space.four,
+				marginBottom: T.space.five,
 				background: T.surf,
 				borderRadius: T.radius.md,
 			}}
