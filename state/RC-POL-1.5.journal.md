@@ -11,7 +11,8 @@ were not exposed in this session; command output is retained in local `/tmp/pol1
 - Roster empty and no-match states use the existing characters-empty and search-none illustrations.
 - Sheet spell editing extracted without changing command semantics; preview disables DM controls.
 - Added roster overlay axe, persistence failure/retry, preview and large-text reachability coverage.
-- Extended golden roster coverage to Scholar and Dungeon; existing three themes remain covered.
+- Golden roster captures (Tavern/Parchment/High contrast) re-baselined; the illustrated empty roster
+  is pinned in all five themes on every tier by `tests/visual/characters-polish.spec.ts`.
 
 ## Embedded §20.2–§20.5 checklist
 
@@ -36,8 +37,11 @@ were not exposed in this session; command output is retained in local `/tmp/pol1
 - [x] Feedback pairs success/check and failure/error icons with text; card kind badges and conditions
       retain labelled shapes. DM-only content remains marked by VisibilityChip. **Waiver:** no new purple
       stripe is added to character cards; the existing explicit visibility chip supplies that distinction.
-- [x] Five themes × three tiers captured in the pinned image. Scholar/Dungeon roster cases added;
-      existing Tavern/Parchment/High contrast captures updated. Review details below.
+- [x] Five themes × three tiers captured in the pinned image: the golden populated-roster captures
+      (three themes) are re-baselined, and a clipped, text-free band of the characters-empty
+      illustration is pinned in all five themes. **Waiver:** full-page Scholar/Dungeon roster
+      captures (~1 MB) do not fit the shared baseline budget (loop/rc stood at 32,737 of 32,768 KiB),
+      so the newer themes follow the RC-POL-1.21/1.22 crop pattern. Review details below.
 - [x] No new local animation. DS Sheet owns named motion tokens and reduced-motion handling.
 - [x] Empty roster uses characters-empty; filtered empty uses search-none. Persistence error has
       recoverable inline feedback; unavailable detail explains its absence. Loading and load-error
@@ -121,9 +125,10 @@ were not exposed in this session; command output is retained in local `/tmp/pol1
   best-practice findings, without the known-violations register.
 - Related surface specs (rest, resources, levelup, journal/downtime, history): **24 passed**,
   both profiles. Existing axe route + character-builder gate: **4 passed**, both profiles.
-- Baseline budget: **141 PNGs, 13,813.1 KiB / 32,768 KiB**, passed.
-- Full pinned-container strict comparison: **141 passed (2.6m), exit 0**, including all 15 roster
-  theme/tier combinations. Command: `CI=1 apps/gm-react/tests/visual/run-in-container.sh
+- Baseline budget after rebase: **444 PNGs, 32,746.4 KiB / 32,768 KiB**, passed. The nine
+  re-baselined roster captures shrink by 19.7 KiB; the 15 empty-state crops add 28.8 KiB.
+- Full pinned-container strict comparison after rebase: **366 passed (8.2m), exit 0**, including
+  the nine roster captures and all 15 empty-state crops. Command: `CI=1 apps/gm-react/tests/visual/run-in-container.sh
 --update-snapshots=none --retries=0 --workers=2`.
 
 ### Findings resolved during validation
@@ -140,16 +145,35 @@ were not exposed in this session; command output is retained in local `/tmp/pol1
    first two pages. That incomplete update is not counted as validation. Browser runs are now
    sequential; the strict comparison uses CI=1 and retries=0.
 
+### Retry: rebase onto loop/rc (2026-09-24)
+
+The first attempt was based on `2d9f566d`; loop/rc had since advanced 133 commits and conflicted on
+the roster baselines, `golden-routes.spec.ts` and FEATURE-GAPS. The commit was rebased onto loop/rc
+`69f40349`: loop/rc's spec and baselines were taken, the Characters FEATURE-GAPS row was re-applied
+to loop/rc's table, and the six full-page Scholar/Dungeon captures were dropped because loop/rc had
+only 31 KiB of baseline budget left. A whole-illustration crop (6.6 KiB each, 97 KiB for 15) also
+did not fit; the committed crop is an 80×48 band (about 2 KiB each). Re-run on the rebased tree:
+
+- `pnpm --filter @dndtools/gm-react typecheck`, ESLint (owned dir, both catalogs, both new specs),
+  `format:check:changed -- --base loop/rc`: passed.
+- `pnpm gates`: passed; **zero** file-size warnings under `screens/characters` (CharacterSheet 498,
+  index 446 lines are the largest).
+- Playwright on desktop-chromium + mobile-chromium, retries 0: characters-polish,
+  characters-roster, character-sheet, character-rest, character-levelup and the full
+  a11y-axe-gate: **102 passed**.
+- `pnpm test:app`: **146 files / 1,641 tests passed**.
+
 ### Visual review
 
-All 15 roster captures reviewed together by theme and tier. Phone keeps readable card content and
-one visible primary action, with the ellipsis beside the tabs; rail retains the two-column grid;
-desktop retains three columns and inline secondary actions. High contrast preserves boundaries,
-Scholar/Parchment retain legible light surfaces, and Dungeon/Tavern retain legible dark surfaces.
-The ellipsis replaced a long overflow label after visual review found an unnecessary extra row.
-The initial nine captures changed only for roster toolbar/type adjustments; six new captures cover
-Scholar/Dungeon. No other route baselines are changed.
+The first attempt reviewed all 15 full roster captures together by theme and tier, including
+Scholar/Dungeon, before they were dropped for budget. Phone keeps readable card content and one
+visible primary action, with the ellipsis beside the tabs; rail retains the two-column grid;
+desktop retains three columns and inline secondary actions. High contrast preserves boundaries and
+the light and dark themes stay legible. The ellipsis replaced a long overflow label after visual
+review found an unnecessary extra row. The nine committed captures changed only for roster
+toolbar/type adjustments. The empty-state crops show each theme's accent stroke, dashed figure and
+halo fill on its own surface. No other route baselines are changed.
 
-Local raw logs: `/tmp/pol15-{typecheck-final,lint-final,format,gates-final,app,focused-unit,e2e-final,
-polish-final,character-related,axe-gate,visual-compare,baseline-budget}.log`.
+Local raw logs (retry): `/tmp/pol15-{typecheck,lint,format,gates,e2e,app,visual-update,visual-crop,
+visual-compare}.log`.
 No hosted CI, push, promotion, or physical-device screen-reader result is claimed.
