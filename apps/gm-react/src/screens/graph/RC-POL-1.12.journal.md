@@ -7,7 +7,7 @@
 - Tokenized spacing/type, DS search and action controls, 48px minimum targets, illustrated graph/search/repair empties, clear filters, translated viewpoint label and recoverable repair errors.
 - Repair now handles thrown dispatch failures, exposes pending status and blocks overlapping fixes and preview writes.
 - Tests, snapshots, message catalogs and FEATURE-GAPS are roadmap §0.2 automatic grants. The three deleted raw-style allowance entries are required by the existing ratchet after token migration; no allowance added or gate weakened.
-- No Headroom tool is available; exact local gate logs retained under /tmp/graph-\*.log. No dispatcher control state touched.
+- The first attempt had no Headroom tool; its exact local gate logs are under /tmp/graph-\*.log. The 2026-09-23 re-verification logs are under /tmp/pol112-\*.log. No dispatcher control state touched.
 
 ## Validation ledger
 
@@ -74,7 +74,18 @@ Every item below is checked or explicitly waived. Waivers describe the actual bo
 - Repository `measureCapture` reports median batch durations **112.0 ms before, 125.3 ms after**, both below the 500 ms graph-indexing budget. `compareToBaseline` with its unchanged 20% tolerance grades **steady** (+11.875%); no baseline tolerance or budget changed. The 13.3 ms shift is also within the existing 25 ms resolution floor.
 - `polish-perf.json` retains sanitized exact samples, repetition arrays, host class, timestamps and computed comparison. Both captures actually used **200 notes** on a local desktop; the registry's 10,000-record dataset remains explicitly waived, not claimed as measured.
 
-## Final acceptance evidence (2026-09-20)
+## Rebase onto loop/rc `f7b289b6` (2026-09-23)
+
+The first attempt stopped at the provider allowance limit after committing on base `2d9f566d`. `loop/rc` had moved 107 commits ahead, and the commit no longer merged cleanly, so it was rebased onto `f7b289b6`. Everything below this section was re-run on the new base. The 2026-09-20 evidence that follows it predates this base and is kept only as history.
+
+- Conflicts: `en.ts`/`es.ts` kept the upstream RC-UX-4.4 `graph.view.dm` copy (`{gm} view` / `Vista de {gm}`) and added the seven new graph keys. `FEATURE-GAPS.md` took upstream's re-padded table and swapped in only this surface's row. Prettier re-padded the table.
+- `pnpm install --frozen-lockfile`, `pnpm --filter @dndtools/gm-react typecheck`, and surface/test/raw-style-rule ESLint all exit 0.
+- `pnpm gates`: exit 0. There are 57 `file-size-warn` lines elsewhere and **none for `Graph.tsx` or `graph/`**. The largest owned source is still Graph.tsx at 430 lines.
+- `DNDTOOLS_E2E_PORT=6197 DNDTOOLS_PW_WORKERS=2 … playwright test graph.spec graph-repair.spec graph-polish.spec ux-audit.spec a11y-axe-gate.spec --project=desktop-chromium --project=mobile-chromium`: **exit 0, 114 passed (2.2m)**. That run covers upstream's lazy-route wait in `graph.spec.ts`, the shared axe gate's `/graph` row, and the ux-audit More-disclosure check on arrival at `/graph`.
+- Visual: the first pinned container compare on the new base failed 15/15 with about 2% of pixels changed per image. The diff contact was the shell alone: top-bar actions, nav-rail icons, the title face, and DS Card padding from RC-DSN-1.4 and RC-UX-4.2. Graph content was unchanged. The 60 graph PNGs were re-baselined with `--update-snapshots=changed`, and a second run without update mode passed **15/15**. The rail Scholar diff, the phone High Contrast selected state, and the desktop Dungeon repair empty were inspected at full size. `check-baseline-budget.mjs` reports 195 files, 20,249.4 KiB of 32,768 KiB.
+- The perf evidence below was not re-captured. The surface source is byte-identical across the rebase; only the base moved.
+
+## Final acceptance evidence (2026-09-20, previous base `2d9f566d`)
 
 - `DNDTOOLS_E2E_PORT=6099 DNDTOOLS_PW_WORKERS=2 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/graph.spec.ts tests/e2e/graph-repair.spec.ts tests/e2e/graph-polish.spec.ts --project=desktop-chromium --project=mobile-chromium`: **exit 0; 48 passed (46.8s)**. Exact output `/tmp/graph-complete-e2e.log`.
 - This includes strict axe checks (no ignored violations) for route/selected/empty/player/repair/error/success-toast/preview states; repair storage failure and successful retry; keyboard traversal; 200% text; player canary; preview command rejection; selected-row pointer leave. Graph has no own dialog/sheet overlays to waive from the axe scan.
