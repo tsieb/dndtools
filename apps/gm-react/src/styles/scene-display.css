@@ -30,7 +30,11 @@
 	order: 2;
 }
 
+/* The mood palette arrives inline from sceneCardMood; these defaults only apply without it. */
 .scene-display__card {
+	--scene-from: var(--color-surface-sunken);
+	--scene-to: var(--color-surface);
+	--scene-ink: var(--color-text-primary);
 	position: relative;
 	min-height: 100%;
 	display: flex;

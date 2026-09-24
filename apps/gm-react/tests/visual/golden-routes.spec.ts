@@ -155,12 +155,6 @@ for (const theme of THEMES) {
 			await snap(page, theme, 'play');
 		});
 
-		test('/display', async ({ page }) => {
-			await page.goto('/#/display', { waitUntil: 'domcontentloaded' });
-			await page.locator('.app-fixed-viewport').waitFor({ state: 'attached', timeout: 20_000 });
-			await snap(page, theme, 'display');
-		});
-
 		// Offline, the public reader's only reachable phase is its "Wiki unavailable" notice.
 		test('/wiki', async ({ page }) => {
 			await page.goto('/#/wiki?id=golden-route-not-a-real-wiki', { waitUntil: 'domcontentloaded' });
@@ -180,6 +174,21 @@ for (const theme of THEMES) {
 			expect(page.url(), 'the DS gallery route redirected away from #/__ds').toContain('#/__ds');
 			await snap(page, theme, 'ds-gallery');
 		});
+	});
+}
+
+// RC-POL-1.20 — the projector pins its own dark palette (`data-theme="tavern"` on the surface), so
+// the app theme must not reach it. Every shipped theme compares against ONE baseline per tier: a
+// theme leaking into the projector fails here, and the visual budget pays for three images, not 15.
+for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
+	test(`/display — ${theme}`, async ({ page }) => {
+		await stage(page, theme);
+		await page.goto('/#/display', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByRole('heading', { level: 1, name: 'No scene on display' })).toBeVisible({
+			timeout: 20_000,
+		});
+		await settle(page, theme);
+		await expect(page).toHaveScreenshot('display.png');
 	});
 }
 
