@@ -125,3 +125,21 @@ Fresh verification (original uncompressed output in `/tmp/rc-knw-privacy-*.log`)
 
 No Headroom tools were exposed. No additional agents, dispatcher state changes, push or promotion.
 The central operator's exact-commit gates and independent review remain pending.
+
+## Allowance-limit resume (2026-09-23)
+
+The prior session stopped on the provider allowance limit after the operator rebased the four task
+commits onto `cf80fc6e` (2026-09-22). No code changed in this resume; it re-verifies the rebased
+tree. `git merge-tree --write-tree loop/rc HEAD` (loop/rc `9296a7a9`) is conflict-free.
+
+Fresh verification on HEAD `d78ad4d0` (Headroom `run_command` artifacts retained; e2e output in
+`/tmp/rc-knw-5-2-e2e-0923.log`):
+
+- content-history + content-notes: 2 files, 20 tests passed (replay determinism, player confidentiality).
+- All `tests/collab*` + `tests/content-*` core suites: 30 files, 389 tests passed (replication filters).
+- `pnpm typecheck`: exit 0 across core, cloud-fns and gm-react.
+- Playwright `knowledge.spec.ts --grep 'history restores'`, desktop-chromium and mobile-chromium:
+  2 passed (edit twice, restore the first, revision advances, reload persists).
+- ESLint and Prettier on every changed TS/TSX file plus this journal: exit 0; `git diff --check` clean.
+
+No agents, push, promotion or dispatcher state changes. Operator gates and review remain pending.
