@@ -241,3 +241,21 @@ for the next reader of this spec.
   Final app typecheck passed (`/tmp/rc-plt-reconcile-type-final.log`); focused ESLint,
   Prettier and whitespace checks passed. Verified the requested integration SHA is an ancestor
   of this branch. No publication or dispatcher mutations.
+
+## Attempt 6 — reconcile onto f7b289b6
+
+- The previous session hit the provider allowance limit before committing anything; the four task
+  commits were intact. `loop/rc` had moved 107 commits (to `f7b289b6`); `git merge-tree` showed
+  no textual conflict.
+- Checked the synthetic merge in a scratch worktree before rebasing: typecheck passed, but
+  `offline.configured.test.tsx` failed at import. Integration's `syncEngine.ts` now calls
+  `documentCloudVaultId()` from `cloudSync` at module load, and this test's `vi.mock` of
+  `cloudSync` only returned `forgetCloudSyncAccount`. Rebased the four commits onto `f7b289b6`
+  (clean) and added `documentCloudVaultId: () => null` to the mock. Test-only; no source change.
+- Integration's new `settings/Notifications.tsx` push-consent switch is local (fake transport,
+  consent in `deviceStorage`), not a cloud call, so it stays outside the offline rule.
+- Fresh results on the rebased tree: cloud Vitest (offline + syncEngine + CloudSyncContext) 34
+  passed; app Vitest (Discover + Upgrade) 25 passed; app typecheck exit 0; `pnpm gates` exit 0;
+  `format:check:changed --base loop/rc` clean (28 files); `pwa-offline.spec.ts` 18 passed on
+  desktop-chromium + mobile-chromium, exit 0 (`/tmp/rcplt24-pwa.log`). Full browser suite not
+  rerun; the saved-search result from attempt 4 still stands as recorded.

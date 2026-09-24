@@ -50,7 +50,10 @@ vi.mock('../cloud/appApi', () => ({
 	revokeAllSessions: vi.fn(),
 }));
 
-vi.mock('../cloud/cloudSync', () => ({ forgetCloudSyncAccount: vi.fn() }));
+vi.mock('../cloud/cloudSync', () => ({
+	documentCloudVaultId: () => null,
+	forgetCloudSyncAccount: vi.fn(),
+}));
 
 vi.mock('../cloud/CloudSyncContext', () => ({
 	useCloudSync: () => ({
