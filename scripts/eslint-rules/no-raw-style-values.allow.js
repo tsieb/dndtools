@@ -143,13 +143,6 @@ export const allow = {
 	'apps/gm-react/src/screens/atlas/MapHierarchyTree.tsx': 5,
 	'apps/gm-react/src/screens/atlas/NoticeBar.tsx': 4,
 	'apps/gm-react/src/screens/atlas/PoiPanel.tsx': 6,
-	'apps/gm-react/src/screens/audio/AutomationTab.tsx': 9,
-	'apps/gm-react/src/screens/audio/index.tsx': 2,
-	'apps/gm-react/src/screens/audio/NowPlaying.tsx': 15,
-	'apps/gm-react/src/screens/audio/panels/PlaybackLeft.tsx': 17,
-	'apps/gm-react/src/screens/audio/panels/PlaybackRight.tsx': 12,
-	'apps/gm-react/src/screens/audio/PresetsTab.tsx': 18,
-	'apps/gm-react/src/screens/audio/SfxEventsPanel.tsx': 11,
 	'apps/gm-react/src/screens/Board.tsx': 8,
 	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 3,
 	'apps/gm-react/src/screens/Campaign.tsx': 20,
@@ -267,4 +260,4 @@ export const allow = {
 	'apps/gm-react/src/screens/WikiReader.tsx': 21,
 };
 
-// Total current findings: 2514
+// Total current findings: 2430

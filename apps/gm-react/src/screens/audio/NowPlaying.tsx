@@ -48,21 +48,21 @@ export function NowPlaying({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 16,
-					padding: '14px 18px',
-					borderRadius: 12,
+					gap: 'var(--space-4)',
+					padding: 'var(--space-3) var(--space-4)',
+					borderRadius: 'var(--radius-lg)',
 					background: T.raised,
-					border: `1px solid ${track ? T.accBd : T.bd}`,
-					boxShadow: track ? T.smd : 'none',
-					marginBottom: 18,
+					border: `calc(var(--space-0-5) / 2) solid ${track ? T.accBd : T.bd}`,
+					boxShadow: T.smd,
+					marginBottom: 'var(--space-4)',
 					flexWrap: 'wrap',
 				}}
 			>
 				<span
 					style={{
-						width: 42,
-						height: 42,
-						borderRadius: 10,
+						width: 'var(--space-10)',
+						height: 'var(--space-10)',
+						borderRadius: 'var(--radius-lg)',
 						background: T.accSub,
 						color: T.acc,
 						display: 'inline-flex',
@@ -74,15 +74,15 @@ export function NowPlaying({
 					<Icon name="audio" size="lg" />
 				</span>
 				<div style={{ flex: 1, minWidth: 0 }}>
-					<div style={{ ...eb, marginBottom: 2 }}>{t('audio.nowPlaying')}</div>
-					<div style={{ font: `700 17px ${T.disp}` }}>{trackLabel}</div>
+					<div style={{ ...eb, marginBottom: 'var(--space-0-5)' }}>{t('audio.nowPlaying')}</div>
+					<div style={{ font: `700 var(--text-md) ${T.sans}` }}>{trackLabel}</div>
 				</div>
 				<div
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 8,
-						font: `12.5px ${T.sans}`,
+						gap: 'var(--space-2)',
+						font: `var(--text-sm) ${T.sans}`,
 						color: T.sub,
 					}}
 				>
@@ -90,7 +90,7 @@ export function NowPlaying({
 					{t(track ? (playing ? 'audio.playing' : 'audio.paused') : 'audio.idle')}
 				</div>
 				{track && (
-					<div style={{ display: 'flex', gap: 7 }}>
+					<div style={{ display: 'flex', gap: 'var(--space-1-5)' }}>
 						{playing ? (
 							<Button
 								variant="ghost"
@@ -131,12 +131,12 @@ export function NowPlaying({
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 10,
+						gap: 'var(--space-2)',
 						minWidth: 200,
-						padding: '7px 12px',
-						borderRadius: 9,
+						padding: 'var(--space-1-5) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: T.alt,
-						border: `1px solid ${T.bd}`,
+						border: `calc(var(--space-0-5) / 2) solid ${T.bd}`,
 					}}
 				>
 					<Icon name="audio" size={15} color={T.ter} />
@@ -170,11 +170,11 @@ export function NowPlaying({
 							role="alert"
 							style={{
 								flexBasis: '100%',
-								font: `11.5px/1.5 ${T.sans}`,
+								font: `var(--text-xs)/1.5 ${T.sans}`,
 								color: 'var(--color-status-warning-text)',
 								display: 'flex',
 								alignItems: 'center',
-								gap: 6,
+								gap: 'var(--space-1-5)',
 							}}
 						>
 							<Icon name="warning" size={13} color="var(--color-status-warning-text)" />{' '}
@@ -186,13 +186,20 @@ export function NowPlaying({
 				    and let the local ambience layers — already sounding independently — carry the table
 				    instead of showing a dead frame. */}
 				{track && embed && playbackState.status === 'embed' && (
-					<div style={{ flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+					<div
+						style={{
+							flexBasis: '100%',
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 'var(--space-1-5)',
+						}}
+					>
 						<div
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 6,
-								font: `11.5px/1.5 ${T.sans}`,
+								gap: 'var(--space-1-5)',
+								font: `var(--text-xs)/1.5 ${T.sans}`,
 								color: T.sub,
 							}}
 						>
@@ -221,13 +228,13 @@ export function NowPlaying({
 								referrerPolicy="strict-origin-when-cross-origin"
 								style={{
 									width: '100%',
-									height: 80,
-									border: `1px solid ${T.bd}`,
-									borderRadius: 8,
+									height: 'var(--space-20)',
+									border: `calc(var(--space-0-5) / 2) solid ${T.bd}`,
+									borderRadius: 'var(--radius-md)',
 								}}
 							/>
 						) : (
-							<div role="status" style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>
+							<div role="status" style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 								{online ? t('audio.embed.badUrl') : t('audio.embed.failover')}
 							</div>
 						)}

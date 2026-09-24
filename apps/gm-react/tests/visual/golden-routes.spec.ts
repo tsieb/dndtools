@@ -12,7 +12,7 @@ import '../e2e/_helpers';
 
 // RC-DSN-1.2 adds Scholar and Dungeon here, with their baselines, in the same change.
 const THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
-type Theme = (typeof THEMES)[number];
+type Theme = (typeof THEMES)[number] | 'scholar' | 'dungeon';
 
 // A fixed afternoon, so every "last played", calendar cell and relative time renders the same.
 const FIXED_TIME = new Date('2026-03-14T15:30:00Z');
@@ -179,6 +179,79 @@ for (const theme of THEMES) {
 			await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 			expect(page.url(), 'the DS gallery route redirected away from #/__ds').toContain('#/__ds');
 			await snap(page, theme, 'ds-gallery');
+		});
+	});
+}
+
+// RC-POL-1.13 — Audio is the first polish surface with all five shipped themes.
+for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
+	test.describe(`Audio polish — ${theme}`, () => {
+		test.beforeEach(async ({ page }) => {
+			await stage(page, theme);
+			await openShelled(page, '/audio');
+		});
+		for (const tab of ['Playback', 'Presets', 'Automation']) {
+			test(`/audio ${tab}`, async ({ page }) => {
+				await page.getByRole('tab', { name: tab, exact: true }).click();
+				await snap(page, theme, `audio-${tab.toLowerCase()}`);
+			});
+		}
+		test('/audio loading and failure', async ({ page }) => {
+			let release!: () => void;
+			const held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			await page.route('**/audio/starter/manifest.json', async (route) => {
+				await held;
+				await route.fulfill({ status: 503, body: 'Unavailable' });
+			});
+			await page.getByRole('button', { name: 'Add starter pack', exact: true }).first().click();
+			await expect(
+				page.getByRole('button', { name: 'Adding…', exact: true }).first(),
+			).toBeDisabled();
+			// The held request intentionally prevents networkidle; fonts and a painted frame suffice.
+			await page.evaluate(async () => {
+				await document.fonts.ready;
+				await new Promise(requestAnimationFrame);
+			});
+			await expect(page).toHaveScreenshot(`audio-loading--${theme}.png`);
+			release();
+			await expect(page.getByRole('alert').first()).toBeVisible();
+			await snap(page, theme, 'audio-error');
+		});
+		test('/audio named deletion', async ({ page }) => {
+			const status = await page.evaluate(async () => {
+				const rt = window.__rt!;
+				const source = await rt.dispatch({
+					type: 'audio.configure-source',
+					actorId: rt.defaultActorId,
+					payload: {
+						type: 'web-stream',
+						displayName: 'Quiet evening',
+						url: 'https://example.test/quiet.mp3',
+						cacheBehavior: 'cache-required',
+					},
+				});
+				const sourceId = source.events?.find(
+					(event) => event.kind === 'audio.source-configured',
+				)?.sourceId;
+				await rt.dispatch({
+					type: 'session.audio.play',
+					actorId: rt.defaultActorId,
+					payload: { sourceId, online: true },
+				});
+				const saved = await rt.dispatch({
+					type: 'audio.save-preset',
+					actorId: rt.defaultActorId,
+					payload: { name: 'Quiet evening', category: 'social' },
+				});
+				return saved.status;
+			});
+			expect(status).toBe('accepted');
+			await page.getByRole('tab', { name: 'Presets', exact: true }).click();
+			await page.getByRole('button', { name: 'Delete Quiet evening', exact: true }).click();
+			await expect(page.getByRole('dialog', { name: 'Delete “Quiet evening”?' })).toBeVisible();
+			await snap(page, theme, 'audio-delete');
 		});
 	});
 }

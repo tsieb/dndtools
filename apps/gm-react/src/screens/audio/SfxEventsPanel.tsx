@@ -1,3 +1,4 @@
+import { AudioPanel as Panel } from './AudioPanel';
 import { useMemo, useSyncExternalStore } from 'react';
 import {
 	AUDIO_SFX_EVENT_KINDS,
@@ -7,7 +8,7 @@ import {
 	type AudioSfxEventKind,
 } from '@dndtools/core';
 import { Badge, EmptyState, Switch } from '../../ds';
-import { Panel, T } from '../../app/screen-kit';
+import { T } from '../../app/screen-kit';
 import { TRIGGER_LABELS } from './shared';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -60,10 +61,17 @@ export function SfxEventsPanel({ canEdit }: { canEdit: boolean }) {
 
 	return (
 		<Panel title={t('audio.sfx.heading')}>
-			<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>{t('audio.sfx.intro')}</div>
+			<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
+				{t('audio.sfx.intro')}
+			</div>
 			<div
 				data-testid="sfx-events"
-				style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-2)',
+					marginTop: 'var(--space-2)',
+				}}
 			>
 				{AUDIO_SFX_EVENT_KINDS.map((event) => {
 					const name = t(TRIGGER_LABELS[event]);
@@ -75,23 +83,23 @@ export function SfxEventsPanel({ canEdit }: { canEdit: boolean }) {
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 10,
-								padding: '9px 12px',
-								border: `1px solid ${T.bd}`,
-								borderRadius: 9,
+								gap: 'var(--space-2)',
+								padding: 'var(--space-2) var(--space-3)',
+								border: `calc(var(--space-0-5) / 2) solid ${T.bd}`,
+								borderRadius: 'var(--radius-md)',
 								background: T.surf,
 							}}
 						>
 							<div style={{ flex: '1 1 auto', minWidth: 0 }}>
 								<div
 									style={{
-										font: `600 12.5px ${T.sans}`,
+										font: `600 var(--text-sm) ${T.sans}`,
 										color: settings[event] ? T.ink : T.ter,
 									}}
 								>
 									{name}
 								</div>
-								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 									{count > 0 ? t('audio.sfx.rulesArmed', { count }) : t('audio.sfx.noRules')}
 									{cues.length > 0 ? ` · ${cues.map((cue) => cue.name).join(', ')}` : ''}
 								</div>
@@ -108,11 +116,14 @@ export function SfxEventsPanel({ canEdit }: { canEdit: boolean }) {
 				})}
 			</div>
 
-			<div style={{ font: `600 11.5px ${T.sans}`, color: T.ter, marginTop: 14 }}>
+			<div
+				style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.ter, marginTop: 'var(--space-3)' }}
+			>
 				{t('audio.sfx.recentHeading')}
 			</div>
 			{firings.recent.length === 0 ? (
 				<EmptyState
+					illustration="audio-empty"
 					inset
 					icon="audio"
 					title={t('audio.sfx.recentHeading')}
@@ -121,12 +132,23 @@ export function SfxEventsPanel({ canEdit }: { canEdit: boolean }) {
 			) : (
 				<ul
 					data-testid="sfx-recent"
-					style={{ listStyle: 'none', margin: '6px 0 0', padding: 0, display: 'grid', gap: 4 }}
+					style={{
+						listStyle: 'none',
+						margin: 'var(--space-1-5) 0 0',
+						padding: 'var(--space-0)',
+						display: 'grid',
+						gap: 'var(--space-1)',
+					}}
 				>
 					{firings.recent.map((firing) => (
 						<li
 							key={firing.id}
-							style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, display: 'flex', gap: 8 }}
+							style={{
+								font: `var(--text-xs)/1.5 ${T.sans}`,
+								color: T.ter,
+								display: 'flex',
+								gap: 'var(--space-2)',
+							}}
 						>
 							<span style={{ color: T.ink }}>{t(TRIGGER_LABELS[firing.event])}</span>
 							<span>{statusLabel[firing.status]}</span>
@@ -136,8 +158,10 @@ export function SfxEventsPanel({ canEdit }: { canEdit: boolean }) {
 				</ul>
 			)}
 
-			<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginTop: 12 }}>
-				<strong style={{ color: T.ink, font: `600 11.5px ${T.sans}` }}>
+			<div
+				style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter, marginTop: 'var(--space-3)' }}
+			>
+				<strong style={{ color: T.ink, font: `600 var(--text-xs) ${T.sans}` }}>
 					{t('audio.sfx.starterHeading')}
 				</strong>
 				<div>{t('audio.sfx.starterIntro')}</div>

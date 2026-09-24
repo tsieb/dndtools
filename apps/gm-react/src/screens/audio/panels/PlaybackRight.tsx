@@ -1,6 +1,7 @@
+import { AudioPanel as Panel } from '../AudioPanel';
 import { type AudioSourceClassification } from '@dndtools/core';
 import { Badge, Button, EmptyState, Field, Icon, Select, StatusDot } from '../../../ds';
-import { Panel, T } from '../../../app/screen-kit';
+import { T } from '../../../app/screen-kit';
 import { CommitSlider, SUPPORTS_SINK_SELECTION } from '../shared';
 import {
 	type AmbienceLayerEntry,
@@ -43,7 +44,7 @@ export function PlaybackRight({
 	webStreamSource: AudioSourceClassification | undefined;
 	sceneAssociationsFor: (sceneId: string) => AudioAssociationView[];
 	bindScene: (sceneId: string, sceneName: string) => void;
-	unbindScene: (bound: Array<{ id: string }>, sceneName: string) => Promise<void>;
+	unbindScene: (bound: AudioAssociationView[], sceneName: string) => Promise<void>;
 	ambienceLayers: AmbienceLayerEntry[];
 	ambienceSourceId: string;
 	setAmbienceSourceId: (next: string) => void;
@@ -63,7 +64,7 @@ export function PlaybackRight({
 }) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			{/* ambience mixer — REAL session state (set-ambience-layer / remove-ambience-layer) */}
 			<Panel
 				title={t('audio.ambience.title')}
@@ -75,26 +76,37 @@ export function PlaybackRight({
 					</Badge>
 				}
 			>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
+				<div
+					style={{
+						font: `var(--text-xs)/1.5 ${T.sans}`,
+						color: T.ter,
+						marginBottom: 'var(--space-2)',
+					}}
+				>
 					{t('audio.ambience.intro')}
 				</div>
 				{ambienceLayers.length === 0 && (
 					<EmptyState
+						illustration="audio-empty"
 						inset
 						icon="audio"
 						title={t('audio.ambience.emptyTitle')}
 						description={t('audio.ambience.emptyBody')}
 					/>
 				)}
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					{ambienceLayers.map(([layerId, layer]) => {
 						const sourceName =
 							sources.find((s) => s.sourceId === layer.sourceId)?.displayName ?? layer.sourceId;
 						const device = playbackState.ambience.find((l) => l.layerId === layerId);
 						const on = !layer.muted;
 						return (
-							<div key={layerId} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-								<button
+							<div
+								key={layerId}
+								style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}
+							>
+								<Button
+									variant="ghost"
 									type="button"
 									disabled={!canEdit}
 									onClick={() => void setLayer(layerId, layer.sourceId, layer.volume, !layer.muted)}
@@ -102,26 +114,26 @@ export function PlaybackRight({
 										name: sourceName,
 									})}
 									style={{
-										width: 32,
-										height: 32,
-										borderRadius: 8,
+										minWidth: 'var(--touch-target-min)',
+										minHeight: 'var(--touch-target-min)',
+										borderRadius: 'var(--radius-md)',
 										flex: '0 0 auto',
 										cursor: canEdit ? 'pointer' : 'default',
 										display: 'inline-flex',
 										alignItems: 'center',
 										justifyContent: 'center',
-										border: `1px solid ${on ? T.accBd : T.bd}`,
+										border: `calc(var(--space-0-5) / 2) solid ${on ? T.accBd : T.bd}`,
 										background: on ? T.accSub : T.alt,
 										color: on ? T.acc : T.ter,
 									}}
 								>
 									<Icon name="audio" size="sm" />
-								</button>
+								</Button>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
 										<span
 											style={{
-												font: `600 12.5px ${T.sans}`,
+												font: `600 var(--text-sm) ${T.sans}`,
 												color: on ? T.ink : T.ter,
 												whiteSpace: 'nowrap',
 												overflow: 'hidden',
@@ -133,7 +145,7 @@ export function PlaybackRight({
 										{device && !device.sounding && device.detail && device.detail !== 'Muted.' && (
 											<span
 												style={{
-													font: `10.5px ${T.sans}`,
+													font: `var(--text-xs) ${T.sans}`,
 													color: T.ter,
 													whiteSpace: 'nowrap',
 													overflow: 'hidden',
@@ -173,12 +185,12 @@ export function PlaybackRight({
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							marginTop: 4,
+							gap: 'var(--space-2)',
+							marginTop: 'var(--space-1)',
 							flexWrap: 'wrap',
 						}}
 					>
-						<div style={{ flex: '1 1 220px', minWidth: 0 }}>
+						<div style={{ flex: '1 1 40%', minWidth: 0 }}>
 							<Select
 								aria-label={t('audio.ambience.layerSource')}
 								value={ambienceSourceId || layerSources[0]?.sourceId || ''}
@@ -202,14 +214,17 @@ export function PlaybackRight({
 					</div>
 				)}
 				{canEdit && layerSources.length === 0 && (
-					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 						{t(nativeDesktop ? 'audio.ambience.noSourcesDesktop' : 'audio.ambience.noSources')}
 					</div>
 				)}
 				{ambienceError && (
 					<div
 						role="alert"
-						style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+						style={{
+							font: `var(--text-xs)/1.5 ${T.sans}`,
+							color: 'var(--color-status-error-text)',
+						}}
 					>
 						{ambienceError}
 					</div>
@@ -219,7 +234,7 @@ export function PlaybackRight({
 			{/* output device — session.audio.set-output-device; the driver applies setSinkId */}
 			<Panel title={t('audio.output.title')}>
 				{!SUPPORTS_SINK_SELECTION ? (
-					<div style={{ font: `12px/1.55 ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs)/1.55 ${T.sans}`, color: T.ter }}>
 						{t('audio.output.noRoutingA')} <code>setSinkId</code> {t('audio.output.noRoutingB')}
 					</div>
 				) : (
@@ -238,14 +253,16 @@ export function PlaybackRight({
 							/>
 						</Field>
 						{outputsNote && (
-							<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>{outputsNote}</div>
+							<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
+								{outputsNote}
+							</div>
 						)}
 						<div
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 8,
-								font: `11.5px ${T.sans}`,
+								gap: 'var(--space-2)',
+								font: `var(--text-xs) ${T.sans}`,
 								color: T.sub,
 							}}
 						>
@@ -264,6 +281,7 @@ export function PlaybackRight({
 			<Panel title={t('audio.bindings.title')}>
 				{scenes.length === 0 && (
 					<EmptyState
+						illustration="audio-empty"
 						inset
 						icon="scene"
 						title={t('audio.bindings.emptyTitle')}
@@ -278,15 +296,15 @@ export function PlaybackRight({
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 11,
-								padding: '9px 0',
-								borderTop: i ? `1px solid ${T.bd}` : 'none',
+								gap: 'var(--space-3)',
+								padding: 'var(--space-2) var(--space-0-5)',
+								borderTop: i ? `calc(var(--space-0-5) / 2) solid ${T.bd}` : 'none',
 							}}
 						>
 							<Icon name="scene" size={16} color={bound.length ? T.acc : T.ter} />
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 12.5px ${T.sans}` }}>{s.name}</div>
-								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>{s.name}</div>
+								<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 									{t('audio.bindings.cues', { count: bound.length })}
 								</div>
 							</div>
@@ -318,7 +336,9 @@ export function PlaybackRight({
 					);
 				})}
 				{!webStreamSource && scenes.length > 0 && (
-					<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
+					<div
+						style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter, marginTop: 'var(--space-2)' }}
+					>
 						{t(
 							nativeDesktop
 								? 'audio.bindings.desktopUnavailable'

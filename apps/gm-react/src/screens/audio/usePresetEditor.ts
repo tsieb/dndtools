@@ -5,6 +5,7 @@ import {
 	type AudioPresetCategory,
 	type CoreCommand,
 } from '@dndtools/core';
+import { useI18n } from '../../i18n';
 import { Toaster } from '../../ds';
 import { isOnline } from '../../platform/preferences';
 import { type AmbienceLayerEntry, type AudioTrackView } from './types';
@@ -29,6 +30,7 @@ export function usePresetEditor({
 	ambienceLayers: AmbienceLayerEntry[];
 	failure: (command: CoreCommand) => Promise<string | null>;
 }) {
+	const { t } = useI18n();
 	// catalog of atmosphere recipes. Applying drives the real session track + ambience through the core
 	// gates — a preset whose layers aren't bound to a ready source reports honestly, never a guessed track.
 	const userPresets = useMemo(() => listUserAudioPresets(audioState), [audioState]);
@@ -49,7 +51,7 @@ export function usePresetEditor({
 			},
 		});
 		if (problem) Toaster.error(problem);
-		else Toaster.success(`Applied “${preset.name}”.`);
+		else Toaster.success(t('audio.presets.applied', { name: preset.name }));
 	};
 
 	const saveCurrentPreset = async (e: FormEvent) => {
@@ -66,7 +68,7 @@ export function usePresetEditor({
 			if (problem) {
 				setPresetError(problem);
 			} else {
-				Toaster.success(`Saved “${presetName.trim()}” as a scene package.`);
+				Toaster.success(t('audio.presets.saved', { name: presetName.trim() }));
 				setPresetName('');
 			}
 		} finally {
@@ -75,13 +77,14 @@ export function usePresetEditor({
 	};
 
 	const deletePreset = async (preset: AudioPreset) => {
+		if (!canEdit) return;
 		const problem = await failure({
 			type: 'audio.delete-preset',
 			actorId: dmId,
 			payload: { presetId: preset.id },
 		});
 		if (problem) Toaster.error(problem);
-		else Toaster.success(`Deleted “${preset.name}”.`);
+		else Toaster.success(t('audio.presets.deleted', { name: preset.name }));
 	};
 
 	return {

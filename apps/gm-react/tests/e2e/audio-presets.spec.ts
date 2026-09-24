@@ -161,6 +161,7 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 
 		// DELETE: removes the user package (the delete toast is shown after the awaited persist).
 		await page.getByRole('button', { name: `Delete ${name}` }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 		await expect(page.getByText(/Deleted/)).toBeVisible({ timeout: 10_000 });
 		expect(await findUserPreset(page, name)).toBeNull();
 		await expect(page.getByText(name, { exact: true })).toHaveCount(0);
@@ -293,5 +294,17 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 			)
 			.toBe(0);
 		await expect(page.getByRole('button', { name: `Link audio to ${scene.name}` })).toBeVisible();
+		await page.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect
+			.poll(() =>
+				page.evaluate((id) => {
+					const audio = window.__rt!.state.audio as {
+						associations: Record<string, { targetId: string }>;
+					};
+					return Object.values(audio.associations).filter((cue) => cue.targetId === id).length;
+				}, scene.id),
+			)
+			.toBe(2);
+		await expect(unbind).toBeVisible();
 	});
 });

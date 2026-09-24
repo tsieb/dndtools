@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { enterPreview, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // RC-AUD-1.3 — the bundled CC0 STARTER PACK, installed ON DEMAND from the Audio screen. The pack is
 // never pre-loaded: a fresh vault's library is empty until the DM asks for it, and then each track
@@ -81,6 +81,11 @@ test.describe('audio starter pack: install on demand', () => {
 
 		// And the real surface shows it: the tile is on the soundboard, playable like any other asset.
 		await expect(page.getByRole('button', { name: /Wind over stone/ }).first()).toBeVisible();
+		await enterPreview(page, 'player');
+		await expect(page.getByRole('button', { name: /Wind over stone/ })).toHaveCount(0);
+		await expect(
+			page.getByRole('button', { name: 'Add starter pack', exact: true }),
+		).toBeDisabled();
 	});
 
 	test('a second install adds nothing — content-addressed dedupe, reported honestly', async ({

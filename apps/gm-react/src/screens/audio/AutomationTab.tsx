@@ -1,3 +1,4 @@
+import { AudioPanel as Panel } from './AudioPanel';
 import { type FormEvent } from 'react';
 import {
 	AUDIO_AUTOMATION_ACTIONS,
@@ -19,7 +20,7 @@ import {
 	Switch,
 	tabPanelProps,
 } from '../../ds';
-import { Panel, T } from '../../app/screen-kit';
+import { T } from '../../app/screen-kit';
 import { ACTION_LABELS, RULE_EDITOR_TRIGGER_KINDS, TRIGGER_LABELS } from './shared';
 import { SfxEventsPanel } from './SfxEventsPanel';
 import { useI18n } from '../../i18n';
@@ -97,30 +98,31 @@ export function AutomationTab({
 			style={{
 				display: 'grid',
 				gridTemplateColumns: isDesktop ? '1.3fr 1fr' : 'minmax(0,1fr)',
-				gap: 18,
+				gap: 'var(--space-4)',
 				alignItems: 'start',
 			}}
 		>
 			<Panel
 				title={t('audio.automation.title')}
 				action={
-					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 						{t('audio.automation.count', { count: automationRules.length })}
 					</span>
 				}
 			>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 					{t('audio.automation.intro')}
 				</div>
 				{automationRules.length === 0 && (
 					<EmptyState
+						illustration="audio-empty"
 						inset
 						icon="wand"
 						title={t('audio.automation.emptyTitle')}
 						description={t('audio.automation.emptyBody')}
 					/>
 				)}
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 					{automationRules.map((rule) => {
 						const outcome = ruleOutcomes.get(rule.id);
 						const sourceName =
@@ -138,10 +140,10 @@ export function AutomationTab({
 								style={{
 									display: 'flex',
 									flexDirection: 'column',
-									gap: 6,
-									padding: '10px 12px',
-									border: `1px solid ${T.bd}`,
-									borderRadius: 9,
+									gap: 'var(--space-1-5)',
+									padding: 'var(--space-2) var(--space-3)',
+									border: `calc(var(--space-0-5) / 2) solid ${T.bd}`,
+									borderRadius: 'var(--radius-md)',
 									background: T.surf,
 								}}
 							>
@@ -154,7 +156,7 @@ export function AutomationTab({
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 10,
+										gap: 'var(--space-2)',
 										flexWrap: isPhone ? 'wrap' : 'nowrap',
 									}}
 								>
@@ -171,13 +173,13 @@ export function AutomationTab({
 									>
 										<div
 											style={{
-												font: `600 12.5px ${T.sans}`,
+												font: `600 var(--text-sm) ${T.sans}`,
 												color: rule.enabled ? T.ink : T.ter,
 											}}
 										>
 											{rule.label}
 										</div>
-										<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+										<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 											{t('audio.automation.ruleLine', {
 												trigger: t(TRIGGER_LABELS[rule.trigger]),
 												scope: scopeName ?? t('audio.automation.anyScope'),
@@ -230,7 +232,7 @@ export function AutomationTab({
 									<div
 										role="status"
 										style={{
-											font: `11px/1.5 ${T.sans}`,
+											font: `var(--text-xs)/1.5 ${T.sans}`,
 											color: 'var(--color-status-warning-text)',
 										}}
 									>
@@ -245,7 +247,10 @@ export function AutomationTab({
 
 			<Panel title={t('audio.automation.newRule')}>
 				{canEdit ? (
-					<form onSubmit={createRule} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+					<form
+						onSubmit={createRule}
+						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+					>
 						<Field
 							label={t('audio.automation.label')}
 							htmlFor="automation-label"
@@ -262,7 +267,7 @@ export function AutomationTab({
 							style={{
 								display: 'grid',
 								gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
-								gap: 10,
+								gap: 'var(--space-2)',
 							}}
 						>
 							<Field label={t('audio.automation.when')} htmlFor="automation-trigger">
@@ -345,10 +350,17 @@ export function AutomationTab({
 								/>
 							</Field>
 						)}
-						<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								flexWrap: 'wrap',
+							}}
+						>
 							<Button
 								type="submit"
-								variant="secondary"
+								variant="primary"
 								size="sm"
 								icon="add"
 								disabled={ruleBusy || usableSources.length === 0}
@@ -356,14 +368,17 @@ export function AutomationTab({
 								{ruleBusy ? t('audio.presets.saving') : t('audio.automation.addRule')}
 							</Button>
 							{usableSources.length === 0 && (
-								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 									{t('audio.automation.needsSource')}
 								</span>
 							)}
 							{ruleError && (
 								<span
 									role="alert"
-									style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}
+									style={{
+										font: `var(--text-xs) ${T.sans}`,
+										color: 'var(--color-status-error-text)',
+									}}
 								>
 									{ruleError}
 								</span>
@@ -371,7 +386,7 @@ export function AutomationTab({
 						</div>
 					</form>
 				) : (
-					<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 						{t(previewing ? 'audio.automation.dmOnlyPreviewing' : 'audio.automation.dmOnly')}
 					</div>
 				)}

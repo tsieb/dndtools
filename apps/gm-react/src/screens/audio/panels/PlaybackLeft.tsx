@@ -1,7 +1,9 @@
+import { AudioPanel as Panel } from '../AudioPanel';
+import { TrackSources } from './TrackSources';
 import { type FormEvent } from 'react';
 import { type AudioAssetView, type AudioSourceClassification } from '@dndtools/core';
 import { Badge, Button, EmptyState, Field, Icon, Input, Select } from '../../../ds';
-import { Panel, T } from '../../../app/screen-kit';
+import { T } from '../../../app/screen-kit';
 import { SOURCE_KINDS, formatAudioDuration, type BytesPresence, type SourceKind } from '../shared';
 import { useI18n } from '../../../i18n';
 import { AUDIO_EMBED_PROVIDER_LABEL, detectAudioEmbedProvider } from '../../../runtime/audio-embed';
@@ -79,13 +81,20 @@ export function PlaybackLeft({
 }) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			{/* soundboard — real library assets; each tile dispatches session.audio.play */}
 			<Panel
 				title={t('audio.soundboard.title')}
 				action={
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-						<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							flexWrap: 'wrap',
+							gap: 'var(--space-2)',
+						}}
+					>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{t('audio.soundboard.assets', { count: assets.length })}
 						</span>
 						<Button
@@ -99,7 +108,7 @@ export function PlaybackLeft({
 							{starterBusy ? t('audio.starter.installing') : t('audio.starter.install')}
 						</Button>
 						<Button
-							variant="secondary"
+							variant="primary"
 							size="sm"
 							icon="import"
 							disabled={!canEdit || importBusy}
@@ -110,80 +119,70 @@ export function PlaybackLeft({
 					</div>
 				}
 			>
+				<div role="status" aria-atomic="true">
+					{importBusy
+						? t('audio.soundboard.importing')
+						: starterBusy
+							? t('audio.starter.installing')
+							: null}
+				</div>
 				{importError && (
 					<div
 						role="alert"
-						style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+						style={{
+							font: `var(--text-xs)/1.5 ${T.sans}`,
+							color: 'var(--color-status-error-text)',
+						}}
 					>
-						{importError}
+						<Icon name="error" size="sm" /> {importError}
 					</div>
 				)}
 				{starterError && (
 					<div
 						role="alert"
-						style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+						style={{
+							font: `var(--text-xs)/1.5 ${T.sans}`,
+							color: 'var(--color-status-error-text)',
+						}}
 					>
-						{starterError}
+						<Icon name="error" size="sm" /> {starterError}
 					</div>
 				)}
 				{assets.length === 0 ? (
 					<EmptyState
+						illustration="audio-empty"
 						inset
 						icon="audio"
 						title={t('audio.soundboard.emptyTitle')}
 						description={t('audio.soundboard.emptyBody')}
-						action={
-							canEdit ? (
-								<div
-									style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}
-								>
-									<Button
-										variant="secondary"
-										size="sm"
-										icon="import"
-										disabled={importBusy}
-										onClick={() => void importAudio()}
-									>
-										{importBusy ? t('audio.soundboard.importing') : t('audio.soundboard.import')}
-									</Button>
-									<Button
-										variant="ghost"
-										size="sm"
-										icon="audio"
-										disabled={starterBusy}
-										onClick={() => void installStarter()}
-									>
-										{starterBusy ? t('audio.starter.installing') : t('audio.starter.install')}
-									</Button>
-								</div>
-							) : undefined
-						}
 					/>
 				) : (
 					<div
 						style={{
 							display: 'grid',
 							gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : 'repeat(2,1fr)',
-							gap: 10,
+							gap: 'var(--space-2)',
 						}}
 					>
 						{assets.map((a) => {
 							const lit = pulse === a.id;
 							const bytes = bytesPresence[a.id] ?? 'unknown';
 							return (
-								<button
+								<Button
+									variant="ghost"
+									disabled={!canEdit}
 									key={a.id}
 									type="button"
 									onClick={() => void playAsset(a)}
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 11,
-										padding: '13px 14px',
-										borderRadius: 11,
+										gap: 'var(--space-3)',
+										padding: 'var(--space-3) var(--space-3)',
+										borderRadius: 'var(--radius-lg)',
 										cursor: 'pointer',
 										textAlign: 'left',
-										border: `1px solid ${lit ? T.acc : T.bd}`,
+										border: `calc(var(--space-0-5) / 2) solid ${lit ? T.acc : T.bd}`,
 										background: lit ? `color-mix(in srgb, ${T.acc} 18%, ${T.surf})` : T.surf,
 										transition:
 											'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
@@ -191,9 +190,9 @@ export function PlaybackLeft({
 								>
 									<span
 										style={{
-											width: 34,
-											height: 34,
-											borderRadius: 9,
+											width: 'var(--space-8)',
+											height: 'var(--space-8)',
+											borderRadius: 'var(--radius-md)',
 											flex: '0 0 auto',
 											display: 'inline-flex',
 											alignItems: 'center',
@@ -208,7 +207,7 @@ export function PlaybackLeft({
 										<span
 											style={{
 												display: 'block',
-												font: `600 13px ${T.sans}`,
+												font: `600 var(--text-sm) ${T.sans}`,
 												whiteSpace: 'nowrap',
 												overflow: 'hidden',
 												textOverflow: 'ellipsis',
@@ -216,7 +215,9 @@ export function PlaybackLeft({
 										>
 											{a.title || a.fileName}
 										</span>
-										<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
+										<span
+											style={{ display: 'block', font: `var(--text-xs) ${T.sans}`, color: T.ter }}
+										>
 											{(() => {
 												const duration = formatAudioDuration(a.durationSeconds);
 												const detail =
@@ -234,7 +235,7 @@ export function PlaybackLeft({
 									{a.needsLicenseReview && (
 										<Badge status="warning">{t('audio.soundboard.reviewLicense')}</Badge>
 									)}
-								</button>
+								</Button>
 							);
 						})}
 					</div>
@@ -242,9 +243,12 @@ export function PlaybackLeft({
 				{playError && (
 					<div
 						role="alert"
-						style={{ font: `11.5px/1.5 ${T.sans}`, color: 'var(--color-status-error-text)' }}
+						style={{
+							font: `var(--text-xs)/1.5 ${T.sans}`,
+							color: 'var(--color-status-error-text)',
+						}}
 					>
-						{playError}
+						<Icon name="error" size="sm" /> {playError}
 					</div>
 				)}
 			</Panel>
@@ -253,18 +257,21 @@ export function PlaybackLeft({
 			<Panel
 				title={t('audio.tracks.title')}
 				action={
-					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 						{t('audio.tracks.count', { count: sources.length })}
 					</span>
 				}
 			>
 				{canEdit ? (
-					<form onSubmit={addTrack} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+					<form
+						onSubmit={addTrack}
+						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
+					>
 						<div
 							style={{
 								display: 'grid',
 								gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1.2fr 1fr',
-								gap: 10,
+								gap: 'var(--space-2)',
 							}}
 						>
 							<Field label={t('audio.tracks.name')} htmlFor="audio-track-name" required>
@@ -328,8 +335,8 @@ export function PlaybackLeft({
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 6,
-											font: `11px/1.5 ${T.sans}`,
+											gap: 'var(--space-1-5)',
+											font: `var(--text-xs)/1.5 ${T.sans}`,
 											color: T.ter,
 										}}
 									>
@@ -339,14 +346,21 @@ export function PlaybackLeft({
 								);
 							})()}
 						{nativeDesktop && (
-							<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 								{t('audio.tracks.desktopBlocksRemote')}
 							</div>
 						)}
-						<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								flexWrap: 'wrap',
+							}}
+						>
 							<Button
 								type="submit"
-								variant="secondary"
+								variant="primary"
 								size="sm"
 								icon="add"
 								disabled={addBusy || !trackName.trim()}
@@ -357,11 +371,11 @@ export function PlaybackLeft({
 								<span
 									role="alert"
 									style={{
-										font: `11.5px ${T.sans}`,
+										font: `var(--text-xs) ${T.sans}`,
 										color: 'var(--color-status-error-text)',
 									}}
 								>
-									{addError}
+									<Icon name="error" size="sm" /> {addError}
 								</span>
 							)}
 							{!addError && addedName && (
@@ -370,8 +384,8 @@ export function PlaybackLeft({
 									style={{
 										display: 'inline-flex',
 										alignItems: 'center',
-										gap: 5,
-										font: `11.5px ${T.sans}`,
+										gap: 'var(--space-1)',
+										font: `var(--text-xs) ${T.sans}`,
 										color: 'var(--color-status-success-text)',
 									}}
 								>
@@ -381,93 +395,21 @@ export function PlaybackLeft({
 						</div>
 					</form>
 				) : (
-					<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 						{t(previewing ? 'audio.tracks.dmOnlyPreviewing' : 'audio.tracks.dmOnly')}
 					</div>
 				)}
-				{sources.length > 0 && (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-						{sources.map((s) => {
-							const desktopBlocked = nativeDesktop && s.type === 'web-stream';
-							const androidBlocked = android && !streamIsAllowed(s);
-							const platformBlocked = desktopBlocked || androidBlocked;
-							const streamPlayable =
-								!platformBlocked && s.type === 'web-stream' && s.playbackEnabled;
-							const isActive = track?.sourceId === s.sourceId;
-							return (
-								<div
-									key={s.sourceId}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										// The fixed children — badge, Play/"Via soundboard" control and the
-										// gaps — take ~233px of a ~327px phone content box, leaving the
-										// source name and its type/cache/offline meta line under 100px.
-										// Same shape and same fix as the automation row below.
-										flexWrap: isPhone ? 'wrap' : 'nowrap',
-										gap: 10,
-										padding: '9px 11px',
-										border: `1px solid ${isActive ? T.accBd : T.bd}`,
-										borderRadius: 9,
-										background: T.surf,
-									}}
-								>
-									<Icon
-										name="audio"
-										size={15}
-										color={s.playbackEnabled && !platformBlocked ? T.acc : T.ter}
-									/>
-									{/* `flex: 1` is `1 1 0%`; a 0 basis makes flex-wrap a no-op for this
-												    item, so the basis must be `auto` for the controls to break line. */}
-									<div style={{ flex: isPhone ? '1 1 auto' : 1, minWidth: 0 }}>
-										<div style={{ font: `600 12.5px ${T.sans}` }}>{s.displayName}</div>
-										<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-											{s.type} · {s.cacheBehavior} · {s.offlineAvailability}
-										</div>
-									</div>
-									<Badge status={s.playbackEnabled && !platformBlocked ? 'success' : 'neutral'}>
-										{t(
-											desktopBlocked
-												? 'audio.tracks.blockedDesktop'
-												: androidBlocked
-													? 'audio.tracks.httpsRequired'
-													: s.playbackEnabled
-														? 'audio.tracks.playbackReady'
-														: 'audio.automation.disabled',
-										)}
-									</Badge>
-									{streamPlayable ? (
-										<Button
-											variant="ghost"
-											size="sm"
-											icon="play"
-											disabled={!canEdit || (isActive && playing)}
-											aria-label={t('audio.tracks.play', { name: s.displayName })}
-											onClick={() => playSource(s)}
-										>
-											{t(isActive && playing ? 'audio.playing' : 'audio.tracks.playAction')}
-										</Button>
-									) : (
-										<span
-											style={{ font: `10.5px ${T.sans}`, color: T.ter }}
-											title={t(
-												platformBlocked
-													? 'audio.tracks.remoteBlockedTitle'
-													: 'audio.tracks.viaSoundboardTitle',
-											)}
-										>
-											{t(
-												platformBlocked
-													? 'audio.tracks.importInstead'
-													: 'audio.tracks.viaSoundboard',
-											)}
-										</span>
-									)}
-								</div>
-							);
-						})}
-					</div>
-				)}
+				<TrackSources
+					sources={sources}
+					nativeDesktop={nativeDesktop}
+					android={android}
+					streamIsAllowed={streamIsAllowed}
+					track={track}
+					playing={playing}
+					isPhone={isPhone}
+					canEdit={canEdit}
+					playSource={playSource}
+				/>
 			</Panel>
 		</div>
 	);

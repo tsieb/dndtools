@@ -10,6 +10,7 @@ import {
 	type CommandResult,
 	type CoreCommand,
 } from '@dndtools/core';
+import { useI18n } from '../../i18n';
 import { Toaster } from '../../ds';
 import { isOnline } from '../../platform/preferences';
 import { type BytesPresence } from './shared';
@@ -44,6 +45,7 @@ export function useAutomationEditor({
 	failure: (command: CoreCommand) => Promise<string | null>;
 	runtime: { dispatch: (command: CoreCommand) => Promise<CommandResult> };
 }) {
+	const { t } = useI18n();
 	// Each ENABLED rule's deterministic resolution against the CURRENT library + this device's real
 	// byte presence — exactly what the core resolver would compute if the trigger fired now.
 	const ruleOutcomes = useMemo(() => {
@@ -108,7 +110,7 @@ export function useAutomationEditor({
 			if (problem) {
 				setRuleError(problem);
 			} else {
-				Toaster.success('Automation rule saved.');
+				Toaster.success(t('audio.automation.saved'));
 				setRuleLabel('');
 				setRuleScopeId('');
 				setRuleAssetId('');
@@ -147,8 +149,8 @@ export function useAutomationEditor({
 			return;
 		}
 		Toaster.show({
-			message: `Automation “${rule.label}” deleted.`,
-			action: 'Undo',
+			message: t('audio.automation.deleted', { name: rule.label }),
+			action: t('common.action.undo'),
 			onAction: () => {
 				void runtime
 					.dispatch({
@@ -167,8 +169,15 @@ export function useAutomationEditor({
 					})
 					.then((restored) => {
 						if (restored.status !== 'accepted')
-							Toaster.error(`Undo failed: ${restored.rejection.message}`);
-					});
+							Toaster.error(t('audio.undoFailed', { reason: restored.rejection.message }));
+					})
+					.catch((error: unknown) =>
+						Toaster.error(
+							t('audio.undoFailed', {
+								reason: error instanceof Error ? error.message : t('audio.changeFailed'),
+							}),
+						),
+					);
 			},
 		});
 	};
