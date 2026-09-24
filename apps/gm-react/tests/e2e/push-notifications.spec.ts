@@ -10,7 +10,7 @@ test('device opts in and sees a calendar reminder queued in the fake, then revok
 	const optIn = page.getByRole('switch', { name: 'Opt in to reminder previews on this device' });
 	await expect(optIn).toBeVisible();
 	await expect(optIn).not.toBeChecked();
-	await expect(page.getByText(/Push reminders are not delivered on this build/)).toBeVisible();
+	await expect(page.getByText(/Push reminders can’t be delivered yet/)).toBeVisible();
 	// Feed the same metadata seam as a successful Calendar creation; no credentials or Google calls.
 	await page.evaluate(async () => {
 		const { pushClient } = await import('/src/cloud/push.ts');

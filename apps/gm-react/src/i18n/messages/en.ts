@@ -24,12 +24,13 @@ export const en = {
 	'mapEditor.coach.skip': 'Skip tour',
 	'settings.push.title': 'Push notifications',
 	'settings.push.unavailable':
-		'Push reminders are not delivered on this build. Opt-in queues a local preview only; delivery will require a separate permission when available.',
+		'Push reminders can’t be delivered yet. Turning on previews only lists reminders on this device; real delivery will ask for its own permission when it arrives.',
 	'settings.push.previews': 'Session reminder previews',
 	'settings.push.help':
-		'Only on this device. Schedule a session in Google Calendar from the Session screen to queue its reminder. Previews last for this app session.',
+		'This device only. To queue a reminder, schedule a session in Google Calendar from the Session screen. Previews clear when you reload or close the app.',
 	'settings.push.optIn': 'Opt in to reminder previews on this device',
-	'settings.push.saveFailed': 'Could not save this device preference. Reminders are off.',
+	'settings.push.saveFailed':
+		'Could not save this preference, so reminders stay off. Try the switch again.',
 	'settings.push.queued':
 		'{count, plural, one {# queued reminder in local preview} other {# queued reminders in local preview}}',
 	'settings.push.queueLabel': 'Queued reminder previews',

@@ -17,6 +17,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapEditor.coach.dockCompactBody':
 		'Abre Paneles en la barra resaltada para inspeccionar selecciones, gestionar capas y explorar recursos. Pulsa ? para ver los atajos del mapa.',
 	'mapEditor.coach.skip': 'Omitir recorrido',
+	'settings.push.title': 'Notificaciones push',
+	'settings.push.unavailable':
+		'Los recordatorios push todavía no se pueden entregar. Activar las vistas previas solo muestra los recordatorios en este dispositivo; la entrega real pedirá su propio permiso cuando llegue.',
+	'settings.push.previews': 'Vistas previas de recordatorios de sesión',
+	'settings.push.help':
+		'Solo en este dispositivo. Para poner un recordatorio en cola, programa una sesión en Google Calendar desde la pantalla Sesión. Las vistas previas se borran al recargar o cerrar la app.',
+	'settings.push.optIn': 'Activar vistas previas de recordatorios en este dispositivo',
+	'settings.push.saveFailed':
+		'No se pudo guardar esta preferencia, así que los recordatorios siguen desactivados. Vuelve a probar el interruptor.',
+	'settings.push.queued':
+		'{count, plural, one {# recordatorio en cola en vista previa local} other {# recordatorios en cola en vista previa local}}',
+	'settings.push.queueLabel': 'Vistas previas de recordatorios en cola',
+	'settings.push.reminder': '{body} — recordatorio a las {time}',
 	'vaults.title': 'Bóvedas locales',
 	'vaults.description': 'Guarda cada campaña en su propia bóveda en este dispositivo.',
 	'vaults.current': 'Actual',
@@ -5021,7 +5034,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.editLayout': 'Editar el diseño',
 	'board.emptyHint': 'Pulsa Editar el diseño y luego Añadir para colocar un widget.',
 	'board.preparingHint': 'Preparando tu pantalla del {gm}…',
-	'board.addFirstTile': 'Añade tu primera ficha',
+	'board.addFirstTile': 'Añade tu primer mosaico',
 	'board.applyTemplate': 'Aplicar una plantilla',
 	'board.emptySceneTitle': 'Una escena vacía',
 	'board.emptyTitle': 'Tu pantalla del {gm} está vacía',

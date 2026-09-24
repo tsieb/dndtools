@@ -225,3 +225,24 @@
   changed; all document content and anchors are intact. No catalog or application behavior changes.
 - Re-ran the exact gate, `pnpm format:check:changed --base loop/rc`: passed all 30 candidate files.
   Independent reviewer sign-off remains pending. No push, promotion or dispatcher-state changes.
+
+## Integration reconciliation onto bd5fc667
+
+- Resumed after the provider-limit stop; the branch was clean and fully committed, but
+  `git merge-tree` showed catalog conflicts with the current `loop/rc` (72 commits past
+  `2d9f566d`). Rebased all eight task commits onto `bd5fc667`; only the first conflicted, in the
+  `board.*` block. Kept the task's `{gm}` role wording and the three new first-tile keys.
+  Pre-rebase tip kept as local branch `backup/rc-ux-44-pre-rebase-bd5fc667`.
+- Reviewed the 44 newly integrated catalog lines. Nine `settings.push.*` keys had no Spanish,
+  which breaks the exact-coverage guard; translated all nine. Rewrote three English push strings:
+  "on this build" and "Opt-in queues" were engine jargon, "this app session" collided with game
+  sessions, and the save failure now says what to do next. Spanish `board.addFirstTile` used
+  "ficha" (token); it now uses "mosaico", the word the catalog already uses for tiles. Updated the
+  one companion e2e regex for the rewritten notice; no behavior assertion changed.
+- Validation, original output read: `pnpm test:app` 146 files / 1,641 tests passed
+  (`/tmp/rc-ux-44-rebase2-app.log`); app typecheck passed; catalog + spec ESLint passed;
+  `pnpm format:check:changed -- --base loop/rc` and `git diff --check` passed. Browser:
+  push-notifications, scene-templates and local-vaults, 16 cases across desktop and mobile,
+  `--retries=0`, port 5347, all passed (`/tmp/rc-ux-44-rebase2-e2e.log`). Headroom tools unused.
+- Independent reviewer sign-off remains with the central operator. No push, promotion or
+  dispatcher-state changes.
