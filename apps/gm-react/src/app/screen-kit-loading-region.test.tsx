@@ -226,11 +226,12 @@ describe('no screen still hides a loading announcement behind aria-label', () =>
 	// RC-STB-2.6 split Community.tsx into screens/community/; the three tabs that load remote data
 	// are the ones this scan is about. Paths, not bare file names, so a later split re-points here.
 	// RC-STB-2.1 did the same to Settings.tsx: its three async panels each carry their own region.
+	// RC-POL-1.14 moved the Compendium's result list (and its loading region) into CompendiumResults.tsx.
 	const SCREENS = [
 		'community/Discover.tsx',
 		'community/Publish.tsx',
 		'community/Wiki.tsx',
-		'extensions/Compendium.tsx',
+		'extensions/CompendiumResults.tsx',
 		'settings/AccountDevices.tsx',
 		'settings/PlayerInvites.tsx',
 		'settings/Vault.tsx',

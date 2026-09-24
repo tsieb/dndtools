@@ -253,3 +253,19 @@ All results below come from original tool output in this worktree.
 
 Not claimed: GitHub CI, a human screen-reader pass, physical Android Back or 48 dp targets, or a
 measured 100 ms feedback bound. The waivers above stay explicit.
+
+## Gate retry: App tests (2026-09-24)
+
+The operator's App tests gate failed on `09b7338e` (the rebased commit): one of 1641 tests.
+`app/screen-kit-loading-region.test.tsx` reads `screens/extensions/Compendium.tsx` as source and
+expects `<LoadingRegion`. The Compendium split moved the result list and its loading region into
+`CompendiumResults.tsx`. The scan's own comment asks a later split to re-point it, as RC-STB-2.6 and
+RC-STB-2.1 did, so the entry now names `extensions/CompendiumResults.tsx`. This is a one-line edit
+in a shared test outside the owned paths, and nothing in the check itself is weakened. My earlier
+local unit run covered only the owned and design-system directories, which is how it slipped
+through. This time I ran the whole suite.
+
+| Check                                            | Result                       | Log                    |
+| ------------------------------------------------ | ---------------------------- | ---------------------- |
+| `screen-kit-loading-region.test.tsx`             | 24 passed                    | —                      |
+| `pnpm test:app` (the gate's command), full suite | 146 files, 1641 tests passed | /tmp/pol14-testapp.log |
