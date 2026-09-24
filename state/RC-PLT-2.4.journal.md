@@ -259,3 +259,13 @@ for the next reader of this spec.
   `format:check:changed --base loop/rc` clean (28 files); `pwa-offline.spec.ts` 18 passed on
   desktop-chromium + mobile-chromium, exit 0 (`/tmp/rcplt24-pwa.log`). Full browser suite not
   rerun; the saved-search result from attempt 4 still stands as recorded.
+
+## Attempt 7 — confirm after provider-limit interruption
+
+- Resumed at `b03f742b`; worktree clean and still based on `loop/rc` tip `f7b289b6`, so no
+  reconcile was needed and no source changed.
+- Fresh offline Vitest (configured controls + static import rule): 6 passed, exit 0
+  (`/tmp/rcplt24-a7-unit.log`).
+- Fresh `pwa-offline.spec.ts`, desktop-chromium + mobile-chromium, one worker: 18 passed, exit 0
+  (`/tmp/rcplt24-a7-pwa.log`). Full browser suite not rerun; the attempt-4 saved-search result
+  still stands as recorded.
