@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
 	activeSystemPackage,
 	isBuiltInSystemPackageId,
@@ -7,20 +6,9 @@ import {
 	STARTER_SYSTEM_LIBRARY,
 	type CommandResult,
 	type SystemPackage,
-	type SystemPackageSelectFinding,
-	type SystemPackageSelectPreviewResult,
 } from '@dndtools/core';
-import {
-	CATEGORY_LABEL,
-	FINDING_GROUP_LABEL,
-	FINDING_GROUP_ORDER,
-	FINDING_TONE,
-	chipsFor,
-	declaresFor,
-	sigilFor,
-	tierFor,
-} from './systemVocab';
-import { Badge, Button, Dialog, Field, Icon, Input, SystemPackageCard, Toaster } from '../../ds';
+import { chipsFor, sigilFor, tierFor } from './systemVocab';
+import { Button, SystemPackageCard, Toaster } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { ContextHelp } from '../../app/help/ContextHelp';
 import { useViewport } from '../../app/useViewport';
@@ -28,7 +16,9 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
 import { ExtSystemWidgetPackage } from './SystemWidgetSwitch';
 import { SystemBuilder } from './SystemBuilder';
-import { eventField } from './shared';
+import { SystemForkDialog, SystemSelectDialog } from './SystemDialogs';
+import { BuildYourOwnCard, SystemDetailPanel } from './SystemDetail';
+import { eventField, ReadOnlyNote } from './shared';
 
 /* ---- System package picker (RC-SYS-3.1 — the front door).
  *
@@ -42,293 +32,8 @@ import { eventField } from './shared';
  * built-in. RC-SYS-3.3 finished the thought: a fork drops the DM straight into the SYSTEM BUILDER
  * (`SystemBuilder.tsx`), and every DM-authored package in the gallery has an Edit entry back into
  * it. The builder saves through `system.define`/`system.update` and never activates — switching is
- * the dry-run above, the only path that can say what a switch would drop.
+ * the dry-run (`SystemDialogs.tsx`), the only path that can say what a switch would drop.
  */
-
-/* ---- the dry-run dialog ---------------------------------------------------------------------- */
-
-function SystemSelectDialog({
-	targetName,
-	preview,
-	busy,
-	canWrite,
-	onApply,
-	onClose,
-}: {
-	targetName: string;
-	preview: SystemPackageSelectPreviewResult;
-	busy: boolean;
-	canWrite: boolean;
-	onApply: (acknowledgeLoss: boolean) => void;
-	onClose: () => void;
-}) {
-	const { t } = useI18n();
-	const navigate = useNavigate();
-	const [phrase, setPhrase] = useState('');
-	const available = preview.kind === 'available';
-	const destructive = available && preview.destructive;
-	// RC-SYS-3.2 — a checkbox is a single click; the drop count on some switches runs into the
-	// dozens, so the acknowledgment is TYPED: the DM has to read and reproduce the word the dry-run
-	// itself is using ("drop"), the same self-documenting pattern account deletion already uses
-	// (`settings/Account.tsx`'s `deletePhrase`).
-	const dropPhrase = t('extensions.system.select.dropPhrase').trim().toLowerCase();
-	const ack = phrase.trim().toLowerCase() === dropPhrase;
-	const canApply = available && (!destructive || ack) && canWrite && !busy;
-	const allFindings: SystemPackageSelectFinding[] =
-		preview.kind === 'available' ? preview.findings : [];
-	const groups = FINDING_GROUP_ORDER.map((effect) => ({
-		effect,
-		findings: allFindings.filter((f) => f.effect === effect),
-	})).filter((group) => group.findings.length > 0);
-	return (
-		<Dialog
-			open
-			onClose={onClose}
-			title={t('extensions.system.select.title', { name: targetName })}
-			description={t('extensions.system.select.description', { name: targetName })}
-			tone={destructive ? 'danger' : undefined}
-			size="md"
-			footer={
-				<>
-					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-						{t('common.action.cancel')}
-					</Button>
-					<Button
-						variant={destructive ? 'danger' : 'primary'}
-						size="sm"
-						icon="check"
-						disabled={!canApply}
-						onClick={() => onApply(destructive && ack)}
-					>
-						{busy ? t('extensions.system.select.applying') : t('extensions.system.select.apply')}
-					</Button>
-				</>
-			}
-		>
-			{!available && (
-				// The verdict of the dry-run, announced rather than only painted (WCAG 4.1.3).
-				<div role="status" style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{t(
-						preview.reason === 'already-active'
-							? 'extensions.system.reason.alreadyActive'
-							: 'extensions.system.reason.notFound',
-					)}{' '}
-					{t('extensions.system.select.nothingChanged')}
-				</div>
-			)}
-			{available && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 8,
-							font: `12.5px ${T.sans}`,
-							color: T.sub,
-						}}
-					>
-						<Icon
-							name={destructive ? 'warning' : 'success'}
-							size={16}
-							color={destructive ? T.warn : T.ok}
-						/>
-						{destructive
-							? t('extensions.system.select.destructive', {
-									count: preview.droppedInstanceCount,
-								})
-							: t('extensions.system.select.safe')}
-					</div>
-					{allFindings.length === 0 ? (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-							{t('extensions.system.select.noFindings')}
-						</div>
-					) : (
-						// RC-SYS-3.2 — grouped as maps directly / carries over / drops (FINDING_GROUP_ORDER),
-						// each with its own instance counts, rather than one flat list a DM has to scan for
-						// the word "Dropped".
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-							{groups.map((group) => (
-								<div key={group.effect}>
-									<div
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 8,
-											marginBottom: 4,
-											font: `600 11px ${T.sans}`,
-											color: T.ter,
-											textTransform: 'uppercase',
-											letterSpacing: '0.04em',
-										}}
-									>
-										{t(FINDING_GROUP_LABEL[group.effect])}
-										<Badge status={FINDING_TONE[group.effect] ?? 'neutral'}>
-											{group.findings.length}
-										</Badge>
-									</div>
-									<div
-										style={{
-											display: 'flex',
-											flexDirection: 'column',
-											border: `1px solid ${T.bd}`,
-											borderRadius: 10,
-											overflow: 'hidden',
-											maxHeight: 220,
-											overflowY: 'auto',
-										}}
-									>
-										{group.findings.map((f, i) => (
-											<div
-												key={`${f.category}.${f.key}`}
-												style={{
-													display: 'flex',
-													alignItems: 'center',
-													flexWrap: 'wrap',
-													gap: 10,
-													padding: '9px 14px',
-													borderTop: i ? `1px solid ${T.bd}` : 'none',
-													background: i % 2 ? T.alt : 'transparent',
-												}}
-											>
-												<span style={{ ...eb, width: 78, flex: '0 0 auto' }}>
-													{t(CATEGORY_LABEL[f.category] ?? 'extensions.system.category.attribute')}
-												</span>
-												<span style={{ font: `600 12.5px ${T.sans}`, flex: '0 0 auto' }}>
-													{f.label}
-												</span>
-												<span
-													style={{
-														font: `11.5px ${T.mono}`,
-														color: T.ter,
-														width: 44,
-														flex: '0 0 auto',
-													}}
-												>
-													×{f.instanceCount}
-												</span>
-												<span
-													style={{
-														flex: '1 1 200px',
-														minWidth: 0,
-														font: `12px/1.4 ${T.sans}`,
-														color: T.sub,
-													}}
-												>
-													{f.note}
-												</span>
-											</div>
-										))}
-									</div>
-								</div>
-							))}
-						</div>
-					)}
-					{destructive && (
-						<div
-							style={{
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 10,
-								padding: '10px 12px',
-								borderRadius: 9,
-								border: `1px solid ${T.accBd}`,
-								background: T.accSub,
-							}}
-						>
-							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-								{t('extensions.system.select.destructiveBody')}
-							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								icon="download"
-								style={{ alignSelf: 'flex-start' }}
-								onClick={() => navigate('/settings?tab=sync')}
-							>
-								{t('extensions.system.select.backupLink')}
-							</Button>
-							<Field label={t('extensions.system.select.dropPhraseLabel', { phrase: dropPhrase })}>
-								<Input
-									id="system-select-drop-confirmation"
-									value={phrase}
-									onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhrase(e.target.value)}
-									placeholder={dropPhrase}
-									autoComplete="off"
-									disabled={busy}
-								/>
-							</Field>
-						</div>
-					)}
-					{preview.clean && (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>
-							{t('extensions.system.select.clean')}
-						</div>
-					)}
-				</div>
-			)}
-		</Dialog>
-	);
-}
-
-/* ---- fork ("build your own") ------------------------------------------------------------------ */
-
-function SystemForkDialog({
-	source,
-	busy,
-	canWrite,
-	onFork,
-	onClose,
-}: {
-	source: SystemPackage;
-	busy: boolean;
-	canWrite: boolean;
-	onFork: (displayName: string) => void;
-	onClose: () => void;
-}) {
-	const { t } = useI18n();
-	const [name, setName] = useState(
-		t('extensions.system.fork.defaultName', { name: source.displayName }),
-	);
-	const trimmed = name.trim();
-	return (
-		<Dialog
-			open
-			onClose={onClose}
-			title={t('extensions.system.fork.title')}
-			description={t('extensions.system.fork.description', { name: source.displayName })}
-			size="sm"
-			footer={
-				<>
-					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-						{t('common.action.cancel')}
-					</Button>
-					<Button
-						variant="primary"
-						size="sm"
-						icon="add"
-						disabled={!canWrite || busy || trimmed.length === 0}
-						onClick={() => onFork(trimmed)}
-					>
-						{t('extensions.system.fork.create')}
-					</Button>
-				</>
-			}
-		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-				<Field label={t('extensions.system.fork.nameLabel')}>
-					<Input
-						value={name}
-						maxLength={120}
-						onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-					/>
-				</Field>
-				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-					{t('extensions.system.fork.note')}
-				</div>
-			</div>
-		</Dialog>
-	);
-}
 
 /* ---- the screen -------------------------------------------------------------------------------- */
 
@@ -471,212 +176,57 @@ export function ExtSystem() {
 	);
 
 	/** The "build your own" entry, in both the gallery grid and the detail rail. */
+	/** The "build your own" entry, in both the gallery grid and the detail rail. */
 	const buildYourOwn = (compact: boolean) => (
-		<button
-			type="button"
+		<BuildYourOwnCard
+			compact={compact}
+			canWrite={canWrite}
 			onClick={() => setForkSourceId(detail?.id ?? active.id)}
-			disabled={!canWrite}
-			style={{
-				textAlign: 'left',
-				font: 'inherit',
-				color: T.ink,
-				cursor: canWrite ? 'pointer' : 'not-allowed',
-				background: 'transparent',
-				border: `1px dashed ${T.bdS}`,
-				borderRadius: 12,
-				padding: compact ? 12 : 16,
-				display: 'flex',
-				flexDirection: compact ? 'row' : 'column',
-				alignItems: compact ? 'center' : 'flex-start',
-				gap: 10,
-				opacity: canWrite ? 1 : 0.6,
-			}}
-		>
-			<span
-				style={{
-					display: 'inline-flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					width: compact ? 32 : 38,
-					height: compact ? 32 : 38,
-					borderRadius: 8,
-					border: `1px dashed ${T.bdS}`,
-					color: T.acc,
-					flex: '0 0 auto',
-				}}
-			>
-				<Icon name="add" size={compact ? 'micro' : 'sm'} aria-hidden="true" />
-			</span>
-			<span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-				<span style={{ font: `700 ${compact ? 13 : 17}px ${T.disp}` }}>
-					{t('extensions.system.build.title')}
-				</span>
-				{!compact && (
-					<span style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
-						{t('extensions.system.build.body')}
-					</span>
-				)}
-			</span>
-		</button>
+		/>
 	);
 
 	const detailPanel = detail && (
-		<section
-			style={{
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 18,
-				padding: 20,
-				borderRadius: 12,
-				border: `1px solid ${T.bd}`,
-				background: T.surf,
-				boxShadow: T.ssm,
-			}}
-		>
-			<div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-				<div style={{ flex: 1, minWidth: 0 }}>
-					<h2 style={{ margin: 0, font: `700 21px ${T.disp}`, color: T.ink }}>
-						{detail.displayName}
-					</h2>
-					<div style={{ ...eb, marginTop: 4 }}>
-						{tierFor(detail, t)} · v{detail.version}
-					</div>
-				</div>
-				{detail.id === active.id && (
-					<Badge status="accent" icon="check">
-						{t('extensions.system.activeSystem')}
-					</Badge>
-				)}
-			</div>
-			<p style={{ margin: 0, font: `13px/1.6 ${T.sans}`, color: T.sub }}>{detail.summary}</p>
-			<div>
-				<div style={{ ...eb, marginBottom: 10 }}>{t('extensions.system.declaresHeading')}</div>
-				<dl
-					style={{
-						margin: 0,
-						display: 'grid',
-						gridTemplateColumns: viewport === 'phone' ? '1fr' : 'repeat(2,minmax(0,1fr))',
-						gap: 1,
-						background: T.bd,
-						border: `1px solid ${T.bd}`,
-						borderRadius: 10,
-						overflow: 'hidden',
-					}}
-				>
-					{declaresFor(detail, t).map((row) => (
-						<div
-							key={row.term}
-							style={{
-								background: T.surf,
-								padding: '12px 14px',
-								display: 'flex',
-								alignItems: 'flex-start',
-								gap: 10,
-							}}
-						>
-							<Icon name={row.icon} size={16} color={T.acc} aria-hidden="true" />
-							<div style={{ minWidth: 0 }}>
-								<dt style={eb}>{row.term}</dt>
-								<dd style={{ margin: '3px 0 0', font: `12.5px/1.45 ${T.sans}`, color: T.ink }}>
-									{row.value}
-								</dd>
-							</div>
-						</div>
-					))}
-				</dl>
-			</div>
-			{detail.id !== active.id && (
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'flex-start',
-						gap: 10,
-						padding: '11px 13px',
-						borderRadius: 9,
-						border: `1px solid ${T.accBd}`,
-						background: T.accSub,
-						font: `12.5px/1.5 ${T.sans}`,
-						color: T.sub,
-					}}
-				>
-					<Icon name="info" size={16} color={T.acc} aria-hidden="true" />
-					<span>{t('extensions.system.dryRunNote', { name: active.displayName })}</span>
-				</div>
-			)}
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 10,
-					flexWrap: 'wrap',
-					borderTop: `1px solid ${T.bd}`,
-					paddingTop: 14,
-				}}
-			>
-				{detail.id === active.id ? (
-					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, flex: 1 }}>
-						{t('extensions.system.runningNow')}
-					</span>
-				) : (
-					<Button
-						variant="primary"
-						size="sm"
-						icon="retry"
-						disabled={!canWrite || busy}
-						onClick={() => setTargetId(detail.id)}
-					>
-						{t('extensions.system.previewSelect')}
-					</Button>
-				)}
-				{!isBuiltInSystemPackageId(detail.id) && (
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="edit"
-						disabled={!canWrite || busy}
-						onClick={() => setBuilderId(detail.id)}
-					>
-						{t('extensions.system.editAction')}
-					</Button>
-				)}
-				<Button
-					variant="ghost"
-					size="sm"
-					icon="duplicate"
-					disabled={!canWrite || busy}
-					onClick={() => setForkSourceId(detail.id)}
-				>
-					{t('extensions.system.forkAction')}
-				</Button>
-			</div>
-		</section>
+		<SystemDetailPanel
+			detail={detail}
+			active={active}
+			canWrite={canWrite}
+			busy={busy}
+			onPreviewSelect={() => setTargetId(detail.id)}
+			onEdit={() => setBuilderId(detail.id)}
+			onFork={() => setForkSourceId(detail.id)}
+		/>
 	);
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<Panel
 				title={t('extensions.system.pickerTitle')}
 				action={<ContextHelp topic="systemPicker" />}
 				accent
 			>
-				<div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-					<div style={{ flex: '1 1 320px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div
+					style={{
+						display: 'flex',
+						gap: 'var(--space-4)',
+						flexWrap: 'wrap',
+						alignItems: 'flex-start',
+					}}
+				>
+					<div style={{ flex: '1 1 320px', font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 						{t('extensions.system.pickerIntro')}
 					</div>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 						<span style={eb}>{t('extensions.system.activePackage')}</span>
-						<span style={{ font: `700 15px ${T.disp}`, color: T.ink }}>{active.displayName}</span>
+						<span style={{ font: `700 var(--text-base) ${T.sans}`, color: T.ink }}>
+							{active.displayName}
+						</span>
 					</div>
 				</div>
-				{!canWrite && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						{t('extensions.system.readOnly')}
-					</div>
-				)}
+				{!canWrite && <ReadOnlyNote>{t('extensions.system.readOnly')}</ReadOnlyNote>}
 			</Panel>
 
 			{detail ? (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					<div>
 						<Button
 							variant="secondary"
@@ -691,12 +241,12 @@ export function ExtSystem() {
 						style={{
 							display: 'grid',
 							gridTemplateColumns: viewport === 'desktop' ? '272px minmax(0,1fr)' : '1fr',
-							gap: 16,
+							gap: 'var(--space-4)',
 							alignItems: 'start',
 						}}
 					>
 						{viewport === 'desktop' && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 								{packages.map((pkg) => card(pkg, true))}
 								{buildYourOwn(true)}
 							</div>
@@ -710,7 +260,7 @@ export function ExtSystem() {
 						style={{
 							display: 'grid',
 							gridTemplateColumns: 'repeat(auto-fill,minmax(288px,1fr))',
-							gap: 14,
+							gap: 'var(--space-3)',
 						}}
 					>
 						{packages.map((pkg) => card(pkg, false))}
@@ -719,14 +269,14 @@ export function ExtSystem() {
 					{/* RC-SYS-3.5 — the starter library, below the gallery: these are not installed yet. */}
 					{library.length > 0 && (
 						<Panel title={t('extensions.system.library.title')}>
-							<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 								{t('extensions.system.library.body')}
 							</div>
 							<div
 								style={{
 									display: 'grid',
 									gridTemplateColumns: 'repeat(auto-fill,minmax(288px,1fr))',
-									gap: 14,
+									gap: 'var(--space-3)',
 								}}
 							>
 								{library.map((pkg) => (

@@ -55,7 +55,7 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 	}
 	const allowsRawValue = draft.styleCapabilities.includes('custom-stylesheet');
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<datalist id={tokenValuesId}>
 				{tokenValueOptions(t).map((option) => (
 					<option key={option.value} value={option.value} label={option.label} />
@@ -64,7 +64,7 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 			<StepHeader title={t('builder.style.title')} help={t('builder.style.help')} />
 			<StepSection title={t('builder.style.tokens')} help={t('builder.style.tokensHelp')}>
 				{issueFor(issues, 'styleTokens', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'styleTokens', t)}
 					</span>
 				)}
@@ -154,7 +154,7 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 					))}
 				</RowList>
 				{!allowsRawValue && (
-					<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 						{t('builder.style.semanticOnly')}
 					</span>
 				)}

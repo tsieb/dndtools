@@ -227,7 +227,7 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.step.commands')} help={t('builder.commands.help')} />
 			<StepSection
 				title={t('builder.commands.catalogTitle')}
@@ -239,11 +239,14 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 							classifyWidgetCommand(candidate.descriptor(draft.typeId || 'widget')) === group,
 					);
 					return (
-						<div key={group} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-							<span style={{ font: `600 11.5px ${T.sans}`, color: T.ter }}>
+						<div
+							key={group}
+							style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}
+						>
+							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t(KIND_COPY[group].label)} — {t(KIND_COPY[group].help)}
 							</span>
-							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
 								{entries.map((catalogEntry) => {
 									const type = catalogEntry.descriptor(draft.typeId || 'widget').type;
 									const already = draft.commands.some((command) => command.type === type);
@@ -254,10 +257,10 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											disabled={already}
 											onClick={() => addCommand(catalogEntry)}
 											style={{
-												font: `600 12px ${T.sans}`,
-												color: already ? T.ter : T.ink,
-												padding: '6px 11px',
-												borderRadius: 999,
+												font: `600 var(--text-xs) ${T.sans}`,
+												color: already ? T.sub : T.ink,
+												padding: 'var(--space-1-5) var(--space-3)',
+												borderRadius: 'var(--radius-full)',
 												border: `1px solid ${already ? T.bd : T.bdS}`,
 												background: already ? T.sunken : T.surf,
 												cursor: already ? 'default' : 'pointer',
@@ -276,7 +279,7 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 			</StepSection>
 			<StepSection title={t('builder.commands.declared')}>
 				{issueFor(issues, 'commands', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'commands', t)}
 					</span>
 				)}
@@ -313,11 +316,18 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 								})}
 								onRemove={() => patch({ commands: removeAt(draft.commands, index) })}
 							>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 'var(--space-2)',
+										flexWrap: 'wrap',
+									}}
+								>
 									<Badge status={kind === 'operate' ? 'info' : 'warning'}>
 										{t(KIND_COPY[kind].label)}
 									</Badge>
-									<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+									<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										{t(KIND_COPY[kind].help)}
 									</span>
 								</div>

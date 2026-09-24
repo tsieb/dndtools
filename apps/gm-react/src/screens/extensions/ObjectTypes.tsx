@@ -35,7 +35,7 @@ export function ExtObjects() {
 			: items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === subtype)
 					.length;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<Panel
 				title={t('extensions.objects.title')}
 				action={
@@ -44,10 +44,16 @@ export function ExtObjects() {
 					</Badge>
 				}
 			>
-				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
+				<div
+					style={{
+						font: `var(--text-xs)/1.6 ${T.sans}`,
+						color: T.sub,
+						marginBottom: 'var(--space-1-5)',
+					}}
+				>
 					{t('extensions.objects.intro')}
 				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 					{schemas.map((s) => {
 						const count = countFor(s.subtype);
 						return (
@@ -56,10 +62,10 @@ export function ExtObjects() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 12,
-									padding: 12,
+									gap: 'var(--space-3)',
+									padding: 'var(--space-3)',
 									border: `1px solid ${T.bd}`,
-									borderRadius: 10,
+									borderRadius: 'var(--radius-lg)',
 									background: T.surf,
 								}}
 							>
@@ -67,7 +73,7 @@ export function ExtObjects() {
 									style={{
 										width: 36,
 										height: 36,
-										borderRadius: 9,
+										borderRadius: 'var(--radius-md)',
 										background: T.alt,
 										color: T.acc,
 										display: 'inline-flex',
@@ -79,16 +85,23 @@ export function ExtObjects() {
 									<Icon name={SUBTYPE_ICON[s.subtype] ?? 'tag'} size="md" />
 								</span>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-										<span style={{ font: `600 13.5px ${T.sans}` }}>{s.displayName}</span>
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 'var(--space-2)',
+											flexWrap: 'wrap',
+										}}
+									>
+										<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{s.displayName}</span>
 										<Badge status="neutral">{t('extensions.objects.builtIn')}</Badge>
 										{s.dmOnlyFields.length > 0 && (
-											<Badge status="accent">
+											<Badge status="neutral" icon="dm-only">
 												{t('extensions.objects.dmOnlyFields', { count: s.dmOnlyFields.length })}
 											</Badge>
 										)}
 									</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										<span style={mono}>{s.subtype}</span>{' '}
 										{t('extensions.objects.schemaMeta', {
 											visibility: VISIBILITY_WORD[s.defaultVisibility]
@@ -98,7 +111,7 @@ export function ExtObjects() {
 										})}
 									</div>
 								</div>
-								<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>
+								<span style={{ font: `var(--text-xs) ${T.mono}`, color: count ? T.ink : T.sub }}>
 									{t('extensions.objects.inVault', { count })}
 								</span>
 							</div>

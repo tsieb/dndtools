@@ -1,58 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-	getActiveSystemForActor,
-	getContentItemsForActor,
-	listCharactersForActor,
-	VAULT_OBJECT_SUBTYPE_KEY,
-} from '@dndtools/core';
-import {
-	Badge,
-	Button,
-	EmptyState,
-	Icon,
-	Input,
-	SegmentedControl,
-	Select,
-	Skeleton,
-	Toaster,
-} from '../../ds';
-import { LoadingRegion, Panel, T } from '../../app/screen-kit';
+import { Badge, Icon, Input, SegmentedControl, Select } from '../../ds';
+import { Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
 	isAbortError,
-	listDocuments,
 	searchMonsters,
 	searchSpells,
-	SRD_DOCUMENT_KEY,
 	type Open5eDocument,
 } from '../../app/compendium/open5e';
-import {
-	formatCr,
-	monsterFieldReport,
-	monsterToQuickCreatePayload,
-	spellToCreateObjectPayload,
-	type ImportSourceMeta,
-} from '../../app/compendium/import';
+import { formatCr, type ImportSourceMeta } from '../../app/compendium/import';
 import type {
 	CompendiumKind,
 	CompendiumMonster,
 	CompendiumResult,
 	CompendiumSpell,
 } from '../../app/compendium/types';
-import { eventField } from './shared';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+import { MonsterDetail, SpellDetail } from './CompendiumEntry';
+import { CompendiumResults } from './CompendiumResults';
+import { CompendiumSourcePicker } from './CompendiumSourcePicker';
+import { ReadOnlyNote } from './shared';
+import { useCompendiumImport } from './useCompendiumImport';
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
-import {
-	ImportControl,
-	MonsterDetail,
-	monsterMeta,
-	SpellDetail,
-	spellMeta,
-	type EntryImportProps,
-} from './CompendiumEntry';
 
 /* ---- Compendium (real Open5e browse + import) --------------------------------------------------- */
 
@@ -78,11 +49,9 @@ export function ExtCompendium() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const isPhone = useViewport() === 'phone';
-	const navigate = useNavigate();
 	const dmId = runtime.defaultActorId;
-	const previewing = !!runtime.preview;
 	const isDm = runtime.state.permissions.actors[dmId]?.role === 'dm';
-	const canWrite = isDm && !previewing;
+	const canWrite = isDm && !runtime.preview;
 
 	const [kind, setKind] = useState<CompendiumKind>('monster');
 	const [search, setSearch] = useState('');
@@ -93,13 +62,6 @@ export function ExtCompendium() {
 		CompendiumMonster | CompendiumSpell
 	> | null>(null);
 	const [selKey, setSelKey] = useState<string | null>(null);
-	const [busyKey, setBusyKey] = useState<string | null>(null);
-	const [confirmKey, setConfirmKey] = useState<string | null>(null);
-	// Non-SRD sources: an explicit opt-in that shows each source's own license before any fetch.
-	const [sourceUiOpen, setSourceUiOpen] = useState(false);
-	const [docs, setDocs] = useState<Open5eDocument[] | null>(null);
-	const [docsError, setDocsError] = useState<string | null>(null);
-	const [pendingDocKey, setPendingDocKey] = useState(SRD_DOCUMENT_KEY);
 	const [activeDoc, setActiveDoc] = useState<Open5eDocument | null>(null); // null = the default SRD
 	const abortRef = useRef<AbortController | null>(null);
 	const crOpts = useMemo(() => crOptions(t), [t]);
@@ -140,153 +102,14 @@ export function ExtCompendium() {
 		};
 	}, [kind, search, cr, level, activeDoc]);
 
-	// Duplicate guards — what is ALREADY in the vault, by (case-insensitive) name.
-	const rosterNames = useMemo(
-		() =>
-			new Set(
-				listCharactersForActor(runtime.state.characters, runtime.state.permissions, dmId).map((c) =>
-					c.name.trim().toLowerCase(),
-				),
-			),
-		[runtime.state.characters, runtime.state.permissions, dmId],
-	);
-	const spellTitles = useMemo(
-		() =>
-			new Set(
-				getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId)
-					.filter(
-						(item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'spell',
-					)
-					.map((item) => item.title.trim().toLowerCase()),
-			),
-		[runtime.state.content, runtime.state.permissions, dmId],
-	);
-	const inVault = (name: string) =>
-		(kind === 'monster' ? rosterNames : spellTitles).has(name.trim().toLowerCase());
-
 	const sourceMeta: ImportSourceMeta | null = result
 		? { document: result.document, license: result.license, attribution: result.attribution }
 		: null;
-
-	// RC-SYS-2.5 — a monster is imported into the ACTIVE system's creature schema, so the schema
-	// decides what fits. The report drives both the preview's unmapped-field list and the refusal.
-	const creatureSchema = useMemo(
-		() =>
-			getActiveSystemForActor(
-				runtime.state.systems,
-				runtime.state.permissions,
-				dmId,
-			).activePackage.creatureSchema.map((field) => ({
-				key: field.key,
-				label: field.label,
-				required: field.required,
-			})),
-		[runtime.state.systems, runtime.state.permissions, dmId],
-	);
-	const monsterFit = (monster: CompendiumMonster) => monsterFieldReport(monster, creatureSchema);
-
-	const importEntry = async (entry: CompendiumMonster | CompendiumSpell) => {
-		if (!canWrite || busyKey !== null || !sourceMeta) return;
-		setBusyKey(entry.key);
-		try {
-			if (kind === 'monster') {
-				const monster = entry as CompendiumMonster;
-				// Fail closed: the active system requires creature fields a 5e statblock cannot answer.
-				const fit = monsterFit(monster);
-				if (!fit.canHold) {
-					Toaster.error(
-						t('extensions.compendium.importFailed', {
-							name: monster.name,
-							reason: t('extensions.compendium.fitMissing', {
-								fields: fit.missingRequired.map((f) => f.label).join(', '),
-							}),
-						}),
-					);
-					return;
-				}
-				const res = await runtime.dispatch({
-					type: 'character.quick-create',
-					actorId: dmId,
-					payload: monsterToQuickCreatePayload(monster, sourceMeta),
-				});
-				if (res.status === 'rejected') {
-					Toaster.error(
-						t('extensions.compendium.importFailed', {
-							name: monster.name,
-							reason: res.rejection.message,
-						}),
-					);
-					return;
-				}
-				const id = eventField(res, 'character.created', 'characterId');
-				Toaster.success(
-					t('extensions.compendium.monsterImported', { name: monster.name }),
-					id
-						? {
-								action: t('extensions.compendium.open'),
-								onAction: () => navigate(`/characters/${id}`),
-							}
-						: undefined,
-				);
-			} else {
-				const spell = entry as CompendiumSpell;
-				const res = await runtime.dispatch({
-					type: 'content.create-object',
-					actorId: dmId,
-					payload: spellToCreateObjectPayload(spell, sourceMeta),
-				});
-				if (res.status === 'rejected') {
-					Toaster.error(
-						t('extensions.compendium.importFailed', {
-							name: spell.name,
-							reason: res.rejection.message,
-						}),
-					);
-					return;
-				}
-				const id = eventField(res, 'content.object-changed', 'itemId');
-				Toaster.success(
-					t('extensions.compendium.spellImported', { name: spell.name }),
-					id
-						? {
-								action: t('extensions.compendium.open'),
-								onAction: () => navigate(`/knowledge/${id}`),
-							}
-						: undefined,
-				);
-			}
-		} catch (error) {
-			Toaster.error(error instanceof Error ? error.message : String(error));
-		} finally {
-			setBusyKey(null);
-			setConfirmKey(null);
-		}
-	};
-
-	const openSourcePicker = () => {
-		setSourceUiOpen(true);
-		if (docs) return;
-		// Was `if (docs || docsError) return`, which made a single failed fetch permanent: the error
-		// latched, so every later attempt short-circuited and the list could never load again even
-		// after the network came back.
-		setDocsError(null);
-		listDocuments()
-			.then(setDocs)
-			.catch(() => setDocsError(t('extensions.compendium.sourceListFailed')));
-	};
-	const pendingDoc = docs?.find((d) => d.key === pendingDocKey) ?? null;
+	const importProps = useCompendiumImport(kind, sourceMeta);
 
 	const entries = result?.entries ?? [];
 	const selected = entries.find((e) => e.key === selKey) ?? null;
-	const importProps: EntryImportProps = {
-		inVault,
-		busyKey,
-		confirmKey,
-		setConfirmKey,
-		importEntry,
-		canWrite,
-		monsterFit,
-	};
+
 	const sourceBadge = loading ? (
 		<Badge status="neutral">{t('extensions.compendium.searching')}</Badge>
 	) : result?.source === 'live' ? (
@@ -304,7 +127,7 @@ export function ExtCompendium() {
 	);
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			<div
 				// Two `fr` tracks squeeze rather than overflow, so this never tripped the overflow
 				// sweep — it just left the search field ~15px wide and the stat grid ~12px per cell
@@ -312,18 +135,14 @@ export function ExtCompendium() {
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? 'minmax(0, 1fr)' : '1.35fr 1fr',
-					gap: 18,
+					gap: 'var(--space-4)',
 					alignItems: 'start',
 				}}
 			>
 				<Panel title={t('extensions.compendium.title')} action={sourceBadge}>
-					{!canWrite && (
-						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-							{t('extensions.compendium.readOnly')}
-						</div>
-					)}
+					{!canWrite && <ReadOnlyNote>{t('extensions.compendium.readOnly')}</ReadOnlyNote>}
 					{/* kind selector */}
-					<div style={{ marginBottom: 10 }}>
+					<div style={{ marginBottom: 'var(--space-2)' }}>
 						<SegmentedControl
 							ariaLabel={t('extensions.compendium.kind')}
 							size="sm"
@@ -331,7 +150,7 @@ export function ExtCompendium() {
 							onChange={(id: string) => {
 								setKind(id as CompendiumKind);
 								setSelKey(null);
-								setConfirmKey(null);
+								importProps.setConfirmKey(null);
 							}}
 							options={[
 								{
@@ -341,7 +160,7 @@ export function ExtCompendium() {
 											<Icon name="monster-claw" size={14} />
 											{t('extensions.compendium.monsters')}
 											{kind === 'monster' && result ? (
-												<span style={{ opacity: 0.75 }}>{result.total}</span>
+												<span style={{ fontFamily: T.mono }}>{result.total}</span>
 											) : null}
 										</>
 									),
@@ -353,7 +172,7 @@ export function ExtCompendium() {
 											<Icon name="spell-sparkle" size={14} />
 											{t('extensions.compendium.spells')}
 											{kind === 'spell' && result ? (
-												<span style={{ opacity: 0.75 }}>{result.total}</span>
+												<span style={{ fontFamily: T.mono }}>{result.total}</span>
 											) : null}
 										</>
 									),
@@ -362,7 +181,7 @@ export function ExtCompendium() {
 						/>
 					</div>
 					{/* search + filter */}
-					<div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+					<div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
 						<span style={{ flex: 1, minWidth: 0 }}>
 							<Input
 								value={search}
@@ -393,228 +212,22 @@ export function ExtCompendium() {
 							)}
 						</span>
 					</div>
-					{/* source document (non-SRD needs an explicit opt-in that shows the source's license) */}
-					<div
-						style={{
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 8,
-							padding: '8px 10px',
-							border: `1px solid ${T.bd}`,
-							borderRadius: 9,
-							background: T.alt,
-							marginBottom: 12,
+					<CompendiumSourcePicker
+						activeDoc={activeDoc}
+						resultSource={result?.source}
+						onChoose={(doc) => {
+							setActiveDoc(doc);
+							setSelKey(null);
 						}}
-					>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-							<span style={{ font: `12px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>
-								{t('extensions.compendium.source')}{' '}
-								<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
-									{activeDoc ? activeDoc.name : 'SRD 5.1'}
-								</span>{' '}
-								<span style={{ color: T.ter }}>
-									·{' '}
-									{activeDoc
-										? activeDoc.licenses.map((l) => l.name).join(', ') ||
-											t('extensions.compendium.seePublisher')
-										: 'CC-BY-4.0'}
-								</span>
-							</span>
-							{!sourceUiOpen && (
-								<Button variant="ghost" size="sm" onClick={openSourcePicker}>
-									{t('extensions.compendium.otherSources')}
-								</Button>
-							)}
-						</div>
-						{sourceUiOpen && (
-							<>
-								{!docs && !docsError && <Skeleton height={30} />}
-								{docsError && (
-									// Cancel lives inside the `{docs && …}` branch below and the "Other sources…"
-									// trigger is hidden while the picker is open, so a failed fetch used to leave
-									// this panel stuck open forever — no way out, and no way to try again. The
-									// error state needs its own two exits.
-									<>
-										<div role="alert" style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-											{docsError}
-										</div>
-										<div style={{ display: 'flex', gap: 6 }}>
-											<Button variant="secondary" size="sm" onClick={openSourcePicker}>
-												{t('common.action.retry')}
-											</Button>
-											<Button variant="ghost" size="sm" onClick={() => setSourceUiOpen(false)}>
-												{t('common.action.cancel')}
-											</Button>
-										</div>
-									</>
-								)}
-								{docs && (
-									<>
-										<Select
-											aria-label={t('extensions.compendium.chooseSource')}
-											options={docs.map((d) => ({
-												value: d.key,
-												label: `${d.name} — ${d.publisher}`,
-											}))}
-											value={pendingDocKey}
-											onChange={(e: { target: { value: string } }) =>
-												setPendingDocKey(e.target.value)
-											}
-										/>
-										{pendingDoc && (
-											<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-												{t('extensions.compendium.license')}{' '}
-												<span style={{ color: T.sub }}>
-													{pendingDoc.licenses.map((l) => l.name).join(', ') ||
-														t('extensions.compendium.seeTerms')}
-												</span>
-												{pendingDoc.permalink ? ` · ${pendingDoc.permalink}` : ''}
-												{t('extensions.compendium.licenseNote')}
-											</div>
-										)}
-										<div style={{ display: 'flex', gap: 6 }}>
-											<Button
-												variant="secondary"
-												size="sm"
-												disabled={!pendingDoc}
-												onClick={() => {
-													setActiveDoc(
-														pendingDoc && pendingDoc.key !== SRD_DOCUMENT_KEY ? pendingDoc : null,
-													);
-													setSourceUiOpen(false);
-													setSelKey(null);
-												}}
-											>
-												{t('extensions.compendium.useSource')}
-											</Button>
-											<Button variant="ghost" size="sm" onClick={() => setSourceUiOpen(false)}>
-												{t('common.action.cancel')}
-											</Button>
-										</div>
-									</>
-								)}
-							</>
-						)}
-						{activeDoc && result?.source === 'bundled' && (
-							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.err }}>
-								{t('extensions.compendium.needsLiveApi', { name: activeDoc.name })}
-							</div>
-						)}
-					</div>
-					{/* results */}
-					{loading && (
-						// The region used to name itself with `aria-label` and hold nothing but
-						// `aria-hidden` Skeletons, so the debounced compendium search announced neither
-						// its loading nor its completion. LoadingRegion puts the text INSIDE.
-						<LoadingRegion
-							label={t('extensions.compendium.loadingResults')}
-							style={{ display: 'flex', flexDirection: 'column', gap: 9 }}
-						>
-							{[0, 1, 2, 3].map((i) => (
-								<Skeleton key={i} height={62} />
-							))}
-						</LoadingRegion>
-					)}
-					{!loading && !result && (
-						<EmptyState
-							icon="warning"
-							title={t('extensions.compendium.unavailableTitle')}
-							description={t('extensions.compendium.unavailableBody')}
-						/>
-					)}
-					{!loading && result && entries.length === 0 && (
-						<EmptyState
-							icon="search"
-							title={t('extensions.compendium.noMatchesTitle')}
-							description={t('extensions.compendium.noMatchesBody', {
-								document: result.document,
-							})}
-						/>
-					)}
-					{!loading && entries.length > 0 && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-							{entries.map((entry) => {
-								const dup = inVault(entry.name);
-								return (
-									// The row used to be a role="button" div WRAPPING the real Import buttons —
-									// nested interactive controls, which collapse the card and its action into
-									// one ambiguous control in AT browse mode. The selectable thing is now the
-									// text block below, a real <button> that is a SIBLING of the Import control.
-									<div
-										key={entry.key}
-										style={{
-											display: 'flex',
-											gap: 12,
-											padding: 12,
-											borderRadius: 10,
-											textAlign: 'left',
-											border: `1px solid ${selKey === entry.key ? T.accBd : T.bd}`,
-											background: selKey === entry.key ? T.accSub : T.surf,
-										}}
-									>
-										<button
-											type="button"
-											aria-pressed={selKey === entry.key}
-											aria-label={t('extensions.compendium.selectEntry', { name: entry.name })}
-											onClick={() => setSelKey(entry.key)}
-											style={{
-												flex: 1,
-												minWidth: 0,
-												display: 'block',
-												textAlign: 'left',
-												padding: 0,
-												border: 'none',
-												background: 'transparent',
-												color: 'inherit',
-												font: 'inherit',
-												cursor: 'pointer',
-											}}
-										>
-											<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-												<span style={{ font: `600 13.5px ${T.sans}` }}>{entry.name}</span>
-												{dup && (
-													<Badge status="success" icon="check">
-														{t('extensions.compendium.inVault')}
-													</Badge>
-												)}
-											</div>
-											<div style={{ font: `11.5px ${T.mono}`, color: T.ter, margin: '2px 0 0' }}>
-												{kind === 'monster'
-													? monsterMeta(entry as CompendiumMonster)
-													: spellMeta(entry as CompendiumSpell, t)}
-											</div>
-										</button>
-										<span onClick={(e) => e.stopPropagation()} style={{ alignSelf: 'center' }}>
-											<ImportControl
-												name={entry.name}
-												inVault={dup}
-												busy={busyKey === entry.key}
-												disabled={!canWrite || (busyKey !== null && busyKey !== entry.key)}
-												confirming={confirmKey === entry.key}
-												onConfirmChange={(on) => setConfirmKey(on ? entry.key : null)}
-												onImport={() => void importEntry(entry)}
-											/>
-										</span>
-									</div>
-								);
-							})}
-							{result && result.total > entries.length && (
-								<div
-									style={{
-										font: `11.5px ${T.sans}`,
-										color: T.ter,
-										textAlign: 'center',
-										padding: '2px 0 0',
-									}}
-								>
-									{t('extensions.compendium.showingFirst', {
-										shown: entries.length,
-										total: result.total,
-									})}
-								</div>
-							)}
-						</div>
-					)}
+					/>
+					<CompendiumResults
+						kind={kind}
+						loading={loading}
+						result={result}
+						selKey={selKey}
+						onSelect={setSelKey}
+						imports={importProps}
+					/>
 				</Panel>
 				{/* detail panel */}
 				<Panel
@@ -633,7 +246,7 @@ export function ExtCompendium() {
 					}
 				>
 					{!selected && (
-						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
 							{t('extensions.compendium.selectPrompt')}
 						</div>
 					)}
@@ -650,16 +263,18 @@ export function ExtCompendium() {
 				<div
 					style={{
 						display: 'flex',
-						gap: 10,
+						gap: 'var(--space-2)',
 						alignItems: 'flex-start',
-						padding: '10px 14px',
+						padding: 'var(--space-2) var(--space-3)',
 						border: `1px solid ${T.bd}`,
-						borderRadius: 10,
+						borderRadius: 'var(--radius-lg)',
 						background: T.alt,
 					}}
 				>
 					<Badge status="neutral">{result.license}</Badge>
-					<span style={{ font: `11px/1.6 ${T.sans}`, color: T.ter }}>{result.attribution}</span>
+					<span style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub }}>
+						{result.attribution}
+					</span>
 				</div>
 			)}
 		</div>

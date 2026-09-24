@@ -188,40 +188,10 @@ export function SystemBuilder({
 	};
 
 	const stepProps = { draft, patch, issues: stepIssues, t };
-	const stepBody =
-		step === 'identity' ? (
-			<IdentityStep {...stepProps} />
-		) : step === 'attributes' ? (
-			<AttributesStep {...stepProps} />
-		) : step === 'resources' ? (
-			<ResourcesStep {...stepProps} />
-		) : step === 'conditions' ? (
-			<ConditionsStep {...stepProps} />
-		) : step === 'dice' ? (
-			<DiceStep {...stepProps} />
-		) : step === 'creature' ? (
-			<CreatureStep {...stepProps} />
-		) : step === 'advancement' ? (
-			<AdvancementStep {...stepProps} />
-		) : (
-			<ReviewStep
-				draft={draft}
-				issues={issues}
-				mode={mode}
-				originName={originName}
-				busy={busy}
-				canWrite={canWrite}
-				rejection={rejection}
-				onGoToStep={goToStep}
-				onSubmit={submit}
-				t={t}
-			/>
-		);
-
 	/* The DS Stepper is the progress READ-OUT; the buttons under it are how a step is reached, so
 	   every step is one keyboard stop away rather than only reachable by walking Next. */
 	const stepNav = (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			{!narrow && (
 				<Stepper
 					steps={STEP_IDS.map((id) => ({ label: t(STEP_LABEL[id]) }))}
@@ -234,11 +204,11 @@ export function SystemBuilder({
 				<ol
 					style={{
 						listStyle: 'none',
-						margin: 0,
-						padding: 0,
+						margin: 'var(--space-0)',
+						padding: 'var(--space-0)',
 						display: 'flex',
 						flexWrap: 'wrap',
-						gap: 6,
+						gap: 'var(--space-1-5)',
 					}}
 				>
 					{STEP_IDS.map((id) => {
@@ -253,13 +223,13 @@ export function SystemBuilder({
 									style={{
 										display: 'inline-flex',
 										alignItems: 'center',
-										gap: 7,
-										padding: '6px 10px',
-										borderRadius: 999,
+										gap: 'var(--space-1-5)',
+										padding: 'var(--space-1-5) var(--space-2)',
+										borderRadius: 'var(--radius-full)',
 										border: `1px solid ${current ? T.accBd : T.bd}`,
 										background: current ? T.accSub : 'transparent',
 										color: current ? T.ink : T.sub,
-										font: `${current ? 600 : 400} 12px ${T.sans}`,
+										font: `${current ? 600 : 400} var(--text-xs) ${T.sans}`,
 										cursor: 'pointer',
 									}}
 								>
@@ -288,7 +258,7 @@ export function SystemBuilder({
 			style={{
 				position: 'fixed',
 				inset: 0,
-				zIndex: 300,
+				zIndex: T.z.overlay,
 				display: 'flex',
 				flexDirection: 'column',
 				background: T.bg,
@@ -301,8 +271,8 @@ export function SystemBuilder({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: narrow ? 6 : 10,
-					padding: narrow ? '7px 8px' : '8px 14px',
+					gap: narrow ? 'var(--space-1-5)' : 'var(--space-2)',
+					padding: narrow ? 'var(--space-1-5) var(--space-2)' : 'var(--space-2) var(--space-3)',
 					borderBottom: `1px solid ${T.bd}`,
 					background: T.surf,
 					flex: '0 0 auto',
@@ -319,8 +289,8 @@ export function SystemBuilder({
 				<div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
 					<h1
 						style={{
-							margin: 0,
-							font: `600 14px ${T.disp}`,
+							margin: 'var(--space-0)',
+							font: `600 var(--text-sm) ${T.sans}`,
 							color: T.ink,
 							whiteSpace: 'nowrap',
 							overflow: 'hidden',
@@ -329,7 +299,7 @@ export function SystemBuilder({
 					>
 						{draft.displayName || t('systemBuilder.untitled')}
 					</h1>
-					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('systemBuilder.stepOf', {
 							index: stepIndex + 1,
 							total: STEP_IDS.length,
@@ -347,7 +317,9 @@ export function SystemBuilder({
 					flex: 1,
 					minHeight: 0,
 					overflow: 'auto',
-					padding: narrow ? '14px 12px 32px' : '18px 22px 40px',
+					padding: narrow
+						? 'var(--space-3) var(--space-3) var(--space-8)'
+						: 'var(--space-4) var(--space-5) var(--space-10)',
 				}}
 			>
 				<div
@@ -356,23 +328,50 @@ export function SystemBuilder({
 						margin: '0 auto',
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 20,
+						gap: 'var(--space-5)',
 					}}
 				>
 					{stepNav}
 					{!canWrite && (
-						<div role="status" style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						<div role="status" style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{t('systemBuilder.readOnly')}
 						</div>
 					)}
-					{stepBody}
+					{step === 'identity' ? (
+						<IdentityStep {...stepProps} />
+					) : step === 'attributes' ? (
+						<AttributesStep {...stepProps} />
+					) : step === 'resources' ? (
+						<ResourcesStep {...stepProps} />
+					) : step === 'conditions' ? (
+						<ConditionsStep {...stepProps} />
+					) : step === 'dice' ? (
+						<DiceStep {...stepProps} />
+					) : step === 'creature' ? (
+						<CreatureStep {...stepProps} />
+					) : step === 'advancement' ? (
+						<AdvancementStep {...stepProps} />
+					) : (
+						<ReviewStep
+							draft={draft}
+							issues={issues}
+							mode={mode}
+							originName={originName}
+							busy={busy}
+							canWrite={canWrite}
+							rejection={rejection}
+							onGoToStep={goToStep}
+							onSubmit={submit}
+							t={t}
+						/>
+					)}
 					<div
 						style={{
 							display: 'flex',
-							gap: 8,
+							gap: 'var(--space-2)',
 							flexWrap: 'wrap',
 							borderTop: `1px solid ${T.bd}`,
-							paddingTop: 14,
+							paddingTop: 'var(--space-3)',
 						}}
 					>
 						<Button

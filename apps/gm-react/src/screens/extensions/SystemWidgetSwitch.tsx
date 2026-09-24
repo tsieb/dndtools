@@ -81,20 +81,20 @@ function SystemSwitchDialog({
 			{!available && (
 				// The verdict of an async preview, and the one sentence that says the vault was NOT
 				// touched — it has to be announced, not just painted (WCAG 4.1.3).
-				<div role="status" style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div role="status" style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t('extensions.system.unavailable', {
 						reason: t(SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'extensions.system.reason.other'),
 					})}
 				</div>
 			)}
 			{available && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					<div
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							font: `12.5px ${T.sans}`,
+							gap: 'var(--space-2)',
+							font: `var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -102,16 +102,16 @@ function SystemSwitchDialog({
 						{blocked ? t('extensions.system.blocked') : t('extensions.system.safetyPassed')}
 					</div>
 					{blocked && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 							{preview.vault.blockingIssues.map((issue, i) => (
-								<div key={i} style={{ font: `12px/1.5 ${T.sans}`, color: T.err }}>
+								<div key={i} style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.err }}>
 									{issue.documentId}: {issue.reason}
 								</div>
 							))}
 						</div>
 					)}
 					{preview.findings.length === 0 ? (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 							{t('extensions.system.noChanges')}
 						</div>
 					) : (
@@ -120,7 +120,7 @@ function SystemSwitchDialog({
 								display: 'flex',
 								flexDirection: 'column',
 								border: `1px solid ${T.bd}`,
-								borderRadius: 10,
+								borderRadius: 'var(--radius-lg)',
 								overflow: 'hidden',
 							}}
 						>
@@ -135,20 +135,27 @@ function SystemSwitchDialog({
 										// WHY a widget type is being Dropped — collapsed to nothing and was clipped
 										// out of a destructive confirmation. Let it drop to its own full-width line.
 										flexWrap: 'wrap',
-										gap: 12,
-										padding: '10px 14px',
+										gap: 'var(--space-3)',
+										padding: 'var(--space-2) var(--space-3)',
 										borderTop: i ? `1px solid ${T.bd}` : 'none',
 										background: i % 2 ? T.alt : 'transparent',
 									}}
 								>
-									<span style={{ font: `600 12.5px ${T.mono}`, width: 140, flex: '0 0 auto' }}>
+									<span
+										style={{ font: `600 var(--text-sm) ${T.mono}`, width: 140, flex: '0 0 auto' }}
+									>
 										{f.widgetType}
 									</span>
 									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>
 										{FINDING_LABEL[f.effect] ? t(FINDING_LABEL[f.effect]) : f.effect}
 									</Badge>
 									<span
-										style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 60, flex: '0 0 auto' }}
+										style={{
+											font: `var(--text-xs) ${T.mono}`,
+											color: T.sub,
+											width: 60,
+											flex: '0 0 auto',
+										}}
 									>
 										×{f.instanceCount}
 									</span>
@@ -156,7 +163,7 @@ function SystemSwitchDialog({
 										style={{
 											flex: '1 1 200px',
 											minWidth: 0,
-											font: `12px/1.4 ${T.sans}`,
+											font: `var(--text-xs)/1.4 ${T.sans}`,
 											color: T.sub,
 										}}
 									>
@@ -171,14 +178,14 @@ function SystemSwitchDialog({
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 10,
-								padding: '10px 12px',
-								borderRadius: 9,
+								gap: 'var(--space-2)',
+								padding: 'var(--space-2) var(--space-3)',
+								borderRadius: 'var(--radius-md)',
 								border: `1px solid ${T.accBd}`,
 								background: T.accSub,
 							}}
 						>
-							<div style={{ flex: 1, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+							<div style={{ flex: 1, font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 								{t('extensions.system.destructiveBody')}
 							</div>
 							<Checkbox
@@ -189,7 +196,7 @@ function SystemSwitchDialog({
 						</div>
 					)}
 					{preview.clean && (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>
+						<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ok }}>
 							{t('extensions.system.clean')}
 						</div>
 					)}
@@ -246,14 +253,14 @@ export function ExtSystemWidgetPackage() {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<Panel title={t('extensions.system.title')} accent>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t('extensions.system.intro')}
 					{activeId === null && ` ${t('extensions.system.noActive')}`}
 				</div>
 				{!canWrite && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('extensions.system.readOnly')}
 					</div>
 				)}
@@ -262,7 +269,7 @@ export function ExtSystemWidgetPackage() {
 				style={{
 					display: 'grid',
 					gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
-					gap: 14,
+					gap: 'var(--space-3)',
 				}}
 			>
 				{packages.map((rec) => {
@@ -274,9 +281,9 @@ export function ExtSystemWidgetPackage() {
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
-								gap: 10,
-								padding: 16,
-								borderRadius: 12,
+								gap: 'var(--space-2)',
+								padding: 'var(--space-4)',
+								borderRadius: 'var(--radius-lg)',
 								border: `1px solid ${active ? T.accBd : T.bd}`,
 								background: T.surf,
 								boxShadow: active ? T.smd : 'none',
@@ -287,14 +294,16 @@ export function ExtSystemWidgetPackage() {
 									display: 'flex',
 									alignItems: 'center',
 									justifyContent: 'space-between',
-									gap: 8,
+									gap: 'var(--space-2)',
 								}}
 							>
-								<span style={{ font: `700 15px ${T.disp}`, color: active ? T.acc : T.ink }}>
+								<span
+									style={{ font: `700 var(--text-base) ${T.sans}`, color: active ? T.acc : T.ink }}
+								>
 									{def.displayName}
 								</span>
 								{active ? (
-									<Badge status="accent" icon="check">
+									<Badge status="success" icon="check">
 										{t('extensions.system.active')}
 									</Badge>
 								) : rec.enabled ? (
@@ -303,8 +312,8 @@ export function ExtSystemWidgetPackage() {
 									<Badge status="warning">{t('extensions.system.disabled')}</Badge>
 								)}
 							</div>
-							<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{def.id}</div>
-							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>
+							<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>{def.id}</div>
+							<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>
 								{t('extensions.system.declares', { count: def.widgets.length })}
 							</div>
 							{active ? (
@@ -313,7 +322,7 @@ export function ExtSystemWidgetPackage() {
 								</Button>
 							) : (
 								<Button
-									variant="primary"
+									variant="secondary"
 									size="sm"
 									icon="retry"
 									disabled={busy}
@@ -326,7 +335,7 @@ export function ExtSystemWidgetPackage() {
 					);
 				})}
 			</div>
-			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+			<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 				{t('extensions.system.notListed')}
 			</div>
 			{targetId && preview && (

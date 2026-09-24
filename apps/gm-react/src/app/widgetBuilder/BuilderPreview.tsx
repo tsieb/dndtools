@@ -138,7 +138,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 	const withheldQueries = data.queries.filter((query) => query.withheld !== null);
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minHeight: 0 }}>
 			<Seg
 				ariaLabel={t('builder.preview.audience')}
 				value={effectiveAudience}
@@ -160,21 +160,28 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 				style={{
 					display: 'flex',
 					flexDirection: 'column',
-					gap: 8,
+					gap: 'var(--space-2)',
 					width: '100%',
 					maxWidth: Math.max(240, Math.min(560, definition.defaultSize.width)),
 					height: Math.max(160, Math.min(420, definition.defaultSize.height)),
-					padding: 12,
+					padding: 'var(--space-3)',
 					border: `1px solid ${T.bd}`,
-					borderRadius: 12,
+					borderRadius: 'var(--radius-lg)',
 					background: T.surf,
 					boxShadow: T.ssm,
 					overflow: 'hidden',
 				}}
 			>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: '0 0 auto' }}>
-					<span style={{ font: `600 13px ${T.sans}`, color: T.ink }}>{widget.title}</span>
-					<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{widget.typeLabel}</span>
+				<div
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 'var(--space-0)',
+						flex: '0 0 auto',
+					}}
+				>
+					<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{widget.title}</span>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>{widget.typeLabel}</span>
 				</div>
 				<div style={{ flex: 1, minHeight: 0 }}>
 					<WidgetErrorBoundary widgetId={`${widget.type}:${plan.kind}`}>
@@ -196,7 +203,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 					</WidgetErrorBoundary>
 				</div>
 			</div>
-			<p style={{ margin: 0, font: `12px/1.55 ${T.sans}`, color: T.ter }}>
+			<p style={{ margin: 'var(--space-0)', font: `var(--text-xs)/1.55 ${T.sans}`, color: T.sub }}>
 				{t(
 					isCustom
 						? 'builder.preview.drawnInSandbox'
@@ -213,16 +220,16 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 				<ul
 					data-testid="widget-builder-preview-withheld"
 					style={{
-						margin: 0,
-						padding: 0,
+						margin: 'var(--space-0)',
+						padding: 'var(--space-0)',
 						listStyle: 'none',
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 4,
+						gap: 'var(--space-1)',
 					}}
 				>
 					{withheldQueries.map((query) => (
-						<li key={query.id} style={{ font: `12px/1.55 ${T.sans}`, color: T.sub }}>
+						<li key={query.id} style={{ font: `var(--text-xs)/1.55 ${T.sans}`, color: T.sub }}>
 							{query.label} — {WITHHELD_COPY[query.withheld ?? 'audience']}
 						</li>
 					))}

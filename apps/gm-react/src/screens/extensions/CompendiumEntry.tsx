@@ -4,6 +4,7 @@ import { formatCr, spellDuration } from '../../app/compendium/import';
 import type { MonsterFieldReport } from '../../app/compendium/import';
 import type { CompendiumMonster, CompendiumSpell } from '../../app/compendium/types';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
+import { useFocusOnReveal } from './shared';
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
 
@@ -52,8 +53,8 @@ const ABILITY_COLUMNS: Array<[label: string, key: string]> = [
 export function DetailLine({ label, value }: { label: string; value?: string | null }) {
 	if (!value) return null;
 	return (
-		<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-			<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>{label}. </span>
+		<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+			<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.ink }}>{label}. </span>
 			{value}
 		</div>
 	);
@@ -83,18 +84,12 @@ export function ImportControl({
 	size?: 'sm' | 'md';
 }) {
 	const { t } = useI18n();
+	// The "Import again" button that raised the confirm unmounts itself; focus follows the prompt.
+	const confirmRef = useFocusOnReveal<HTMLSpanElement>(inVault && confirming);
 	if (inVault && confirming) {
 		return (
-			<span style={{ display: 'inline-flex', gap: 6 }}>
-				{/* The "Import again" button that raised this confirm unmounts itself, so focus fell to
-				    <body> and a keyboard user had to Tab in from the top of the page to answer it. */}
-				<Button
-					variant="danger"
-					size={size}
-					autoFocus
-					disabled={disabled || busy}
-					onClick={onImport}
-				>
+			<span ref={confirmRef} style={{ display: 'inline-flex', gap: 'var(--space-1-5)' }}>
+				<Button variant="danger" size={size} disabled={disabled || busy} onClick={onImport}>
 					{t('extensions.compendium.importCopy')}
 				</Button>
 				<Button variant="ghost" size={size} onClick={() => onConfirmChange(false)}>
@@ -123,6 +118,7 @@ export function ImportControl({
 			size={size}
 			icon="import"
 			disabled={disabled || busy}
+			aria-label={busy ? undefined : t('extensions.compendium.importLabel', { name })}
 			onClick={onImport}
 		>
 			{busy ? t('extensions.compendium.importing') : t('extensions.compendium.import')}
@@ -149,27 +145,27 @@ function FieldReport({ report }: { report: MonsterFieldReport }) {
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 4,
-				padding: '8px 10px',
+				gap: 'var(--space-1)',
+				padding: 'var(--space-2) var(--space-2)',
 				border: `1px solid ${refuses ? T.err : T.bd}`,
-				borderRadius: 10,
+				borderRadius: 'var(--radius-lg)',
 				background: T.surf,
 			}}
 		>
-			<div style={{ font: `600 12px ${T.sans}`, color: refuses ? T.err : T.ink }}>
+			<div style={{ font: `600 var(--text-xs) ${T.sans}`, color: refuses ? T.err : T.ink }}>
 				{refuses
 					? t('extensions.compendium.fitRefused')
 					: t('extensions.compendium.fitPartial', { count: report.unmapped.length })}
 			</div>
 			{refuses && (
-				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 					{t('extensions.compendium.fitMissing', {
 						fields: report.missingRequired.map((f) => f.label).join(', '),
 					})}
 				</div>
 			)}
 			{report.unmapped.length > 0 && (
-				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 					{t('extensions.compendium.fitUnmapped', {
 						fields: report.unmapped.map((f) => f.label).join(', '),
 					})}
@@ -192,30 +188,36 @@ export function MonsterDetail({
 	// RC-SYS-2.5 — what this campaign's rules system can actually keep of a 5e statblock.
 	const fit = monsterFit(m);
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-			<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+			<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 				{monsterMeta(m)} · {m.alignment}
 			</div>
 			{scores && (
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+				<div
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(6, 1fr)',
+						gap: 'var(--space-1-5)',
+					}}
+				>
 					{ABILITY_COLUMNS.map(([label, key]) => (
 						<div
 							key={key}
 							style={{
 								textAlign: 'center',
-								padding: '6px 2px',
+								padding: 'var(--space-1-5) var(--space-0-5)',
 								border: `1px solid ${T.bd}`,
-								borderRadius: 8,
+								borderRadius: 'var(--radius-md)',
 								background: T.surf,
 							}}
 						>
-							<div style={{ font: `600 10px ${T.sans}`, color: T.ter }}>{label}</div>
-							<div style={{ font: `600 13px ${T.mono}` }}>{scores[key] ?? '—'}</div>
+							<div style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>{label}</div>
+							<div style={{ font: `600 var(--text-sm) ${T.mono}` }}>{scores[key] ?? '—'}</div>
 						</div>
 					))}
 				</div>
 			)}
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 				<DetailLine
 					label={t('extensions.compendium.armorClass')}
 					value={m.ac != null ? `${m.ac}${m.acDetail ? ` (${m.acDetail})` : ''}` : undefined}
@@ -275,27 +277,32 @@ export function MonsterDetail({
 						overflowY: 'auto',
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 8,
-						padding: '10px 12px',
+						gap: 'var(--space-2)',
+						padding: 'var(--space-2) var(--space-3)',
 						border: `1px solid ${T.bd}`,
-						borderRadius: 10,
+						borderRadius: 'var(--radius-lg)',
 						background: T.surf,
 					}}
 				>
 					{(m.traits ?? []).map((trait) => (
-						<div key={`t-${trait.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-							<span style={{ font: `600 italic 12px ${T.sans}`, color: T.ink }}>
+						<div
+							key={`t-${trait.name}`}
+							style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}
+						>
+							<span style={{ font: `600 italic var(--text-xs) ${T.sans}`, color: T.ink }}>
 								{trait.name}.{' '}
 							</span>
 							{trait.desc}
 						</div>
 					))}
 					{(m.actions ?? []).length > 0 && (
-						<div style={{ ...eb, marginTop: 2 }}>{t('extensions.compendium.actions')}</div>
+						<div style={{ ...eb, marginTop: 'var(--space-0-5)' }}>
+							{t('extensions.compendium.actions')}
+						</div>
 					)}
 					{(m.actions ?? []).map((a) => (
-						<div key={`a-${a.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-							<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
+						<div key={`a-${a.name}`} style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.ink }}>
 								{a.name}
 								{a.actionType === 'LEGENDARY_ACTION'
 									? ` (${t('extensions.compendium.legendary')})`
@@ -332,12 +339,12 @@ export function SpellDetail({
 	const { t } = useI18n();
 	const s = spell;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-			<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+			<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 				{spellMeta(s, t)}
 				{s.ritual ? ` · ${t('extensions.compendium.ritual')}` : ''}
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 				<DetailLine label={t('extensions.compendium.castingTime')} value={s.castingTime} />
 				<DetailLine label={t('extensions.compendium.range')} value={s.range} />
 				<DetailLine label={t('extensions.compendium.components')} value={s.components} />
@@ -351,11 +358,11 @@ export function SpellDetail({
 				style={{
 					maxHeight: 300,
 					overflowY: 'auto',
-					font: `12.5px/1.6 ${T.sans}`,
+					font: `var(--text-sm)/1.6 ${T.sans}`,
 					color: T.sub,
-					padding: '10px 12px',
+					padding: 'var(--space-2) var(--space-3)',
 					border: `1px solid ${T.bd}`,
-					borderRadius: 10,
+					borderRadius: 'var(--radius-lg)',
 					background: T.surf,
 					whiteSpace: 'pre-line',
 				}}

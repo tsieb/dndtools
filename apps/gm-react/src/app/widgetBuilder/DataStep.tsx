@@ -24,18 +24,17 @@ import {
 	replaceAt,
 	type StepProps,
 } from './fields';
+import { QUERY_SOURCE_LABEL, TEMPLATE_HELP } from './vocabulary';
 import {
-	AUDIENCE_LABEL,
-	CAPABILITY_LABEL,
-	QUERY_SOURCES,
-	QUERY_SOURCE_LABEL,
-	TEMPLATE_HELP,
-	TEMPLATE_KINDS,
-	TEMPLATE_LABEL,
-} from './vocabulary';
-import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
-
-type Translate = (key: MessageKey, values?: MessageValues) => string;
+	COLUMN_HELP,
+	VALUE_TYPE_OPTIONS,
+	audienceOptions,
+	capabilityOptions,
+	nextQueryId,
+	sourceOptions,
+	templateOptions,
+} from './dataOptions';
+import { useI18n } from '../../i18n';
 
 /**
  * Data — which template kind draws the widget, what it draws FROM, and what it works out from that
@@ -57,42 +56,6 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
  *   to name an individual row, no call into the host. A withheld query contributes zeroes, so a
  *   player's total can never be derived from rows they never received.
  */
-
-const templateOptions = (t: Translate) =>
-	TEMPLATE_KINDS.map((kind) => ({ value: kind, label: t(TEMPLATE_LABEL[kind]) }));
-const sourceOptions = (t: Translate) =>
-	QUERY_SOURCES.map((source) => ({ value: source, label: t(QUERY_SOURCE_LABEL[source]) }));
-const audienceOptions = (t: Translate) =>
-	(['dm', 'shared', 'players'] as const).map((value) => ({
-		value,
-		label: t(AUDIENCE_LABEL[value]),
-	}));
-const capabilityOptions = (t: Translate) =>
-	(['viewer', 'operator', 'manager'] as const).map((value) => ({
-		value,
-		label: t(CAPABILITY_LABEL[value]),
-	}));
-// The five value types are schema words, not copy: they name the JSON type the field carries and
-// read the same in every locale.
-const VALUE_TYPE_OPTIONS = (['number', 'string', 'boolean', 'array', 'object'] as const).map(
-	(value) => ({ value, label: value }),
-);
-
-/** What each aggregate column means, so the formula reference does not need a manual. */
-const COLUMN_HELP: Record<(typeof WIDGET_QUERY_COLUMNS)[number], MessageKey> = {
-	count: 'builder.column.count',
-	sum: 'builder.column.sum',
-	max: 'builder.column.max',
-	active: 'builder.column.active',
-};
-
-function nextQueryId(queries: WidgetDataQueryDefinition[], source: WidgetDataQuerySource): string {
-	const base = source;
-	if (!queries.some((query) => query.id === base)) return base;
-	let index = 2;
-	while (queries.some((query) => query.id === `${base}-${index}`)) index += 1;
-	return `${base}-${index}`;
-}
 
 export function DataStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
@@ -146,7 +109,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.step.data')} help={t('builder.data.help')} />
 
 			<StepSection title={t('builder.data.template')}>
@@ -163,7 +126,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 
 			<StepSection title={t('builder.data.bindings')} help={t('builder.data.bindingsHelp')}>
 				{issueFor(issues, 'bindings', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'bindings', t)}
 					</span>
 				)}
@@ -195,7 +158,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 
 			<StepSection title={t('builder.data.queries')} help={t('builder.data.queriesHelp')}>
 				{issueFor(issues, 'dataQueries', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'dataQueries', t)}
 					</span>
 				)}
@@ -272,20 +235,27 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 								</Field>
 							</FieldGrid>
 							{query.source === 'binding' && (
-								<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+								<fieldset
+									style={{
+										border: 0,
+										margin: 'var(--space-0)',
+										padding: 'var(--space-0)',
+										minWidth: 0,
+									}}
+								>
 									<legend
 										style={{
-											font: `600 12px ${T.sans}`,
+											font: `600 var(--text-xs) ${T.sans}`,
 											color: T.sub,
-											padding: 0,
-											marginBottom: 6,
+											padding: 'var(--space-0)',
+											marginBottom: 'var(--space-1-5)',
 										}}
 									>
 										{t('builder.data.readsBindings')}
 									</legend>
-									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
 										{allBindings.length === 0 && (
-											<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+											<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 												{t('builder.data.declareBindingFirst')}
 											</span>
 										)}
@@ -315,7 +285,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 
 			<StepSection title={t('builder.data.computed')} help={t('builder.data.computedHelp')}>
 				{issueFor(issues, 'computedFields', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'computedFields', t)}
 					</span>
 				)}
@@ -361,20 +331,27 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										/>
 									</Field>
 								</FieldGrid>
-								<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+								<fieldset
+									style={{
+										border: 0,
+										margin: 'var(--space-0)',
+										padding: 'var(--space-0)',
+										minWidth: 0,
+									}}
+								>
 									<legend
 										style={{
-											font: `600 12px ${T.sans}`,
+											font: `600 var(--text-xs) ${T.sans}`,
 											color: T.sub,
-											padding: 0,
-											marginBottom: 6,
+											padding: 'var(--space-0)',
+											marginBottom: 'var(--space-1-5)',
 										}}
 									>
 										{t('builder.data.readsFrom')}
 									</legend>
-									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+									<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
 										{draft.dataQueries.length === 0 && (
-											<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+											<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 												{t('builder.data.addQueryFirst')}
 											</span>
 										)}
@@ -435,31 +412,31 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										{usesFormula && (
 											<div
 												data-testid={`widget-builder-formula-names-${index}`}
-												style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+												style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}
 											>
-												<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+												<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 													{t('builder.data.namesYouCanUse')}
 												</span>
 												{draft.dataQueries.length === 0 ? (
-													<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+													<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 														{t('builder.data.addQueryForNames')}
 													</span>
 												) : (
 													<ul
 														style={{
-															margin: 0,
-															padding: 0,
+															margin: 'var(--space-0)',
+															padding: 'var(--space-0)',
 															listStyle: 'none',
 															display: 'flex',
 															flexDirection: 'column',
-															gap: 3,
+															gap: 'var(--space-0-5)',
 														}}
 													>
 														{draft.dataQueries.map((query) =>
 															WIDGET_QUERY_COLUMNS.map((column) => (
 																<li
 																	key={`${query.id}-${column}`}
-																	style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}
+																	style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}
 																>
 																	<code style={{ fontFamily: T.mono, color: T.sub }}>
 																		{widgetQueryFormulaIdentifier(query.id, column)}
@@ -477,7 +454,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 										)}
 									</>
 								) : (
-									<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+									<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 										{t('builder.data.formulaNumbersOnly')}
 									</span>
 								)}

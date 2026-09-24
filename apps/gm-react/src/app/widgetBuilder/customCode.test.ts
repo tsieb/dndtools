@@ -15,7 +15,8 @@ import {
 	formatCode,
 	readCustomCode,
 } from './customCode';
-import { buildPackage, emptyDraft, readPackage, validateDraft, type WidgetDraft } from './draft';
+import { buildPackage, emptyDraft, readPackage, type WidgetDraft } from './draft';
+import { validateDraft } from './validate';
 
 /**
  * RC-WID-2.5 — the Advanced step's custom HTML/JS half.

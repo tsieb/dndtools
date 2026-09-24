@@ -44,7 +44,7 @@ export function CreatureStep({ draft, patch, issues, t }: SystemStepProps) {
 		);
 	});
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader
 				title={t('systemBuilder.step.creature')}
 				help={t('systemBuilder.creature.help')}

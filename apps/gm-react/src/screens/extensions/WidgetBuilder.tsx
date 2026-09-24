@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WidgetPackageDefinition } from '@dndtools/core';
-import { Badge, Button, IconButton, Textarea, Toaster } from '../../ds';
+import { Badge, Button, IconButton, Toaster } from '../../ds';
 import { Seg, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -11,13 +11,13 @@ import {
 	STEP_LABEL,
 	buildPackage,
 	emptyDraft,
-	firstBlockedStep,
 	readPackage,
-	validateDraft,
 	type BuilderStepId,
 	type WidgetDraft,
 } from '../../app/widgetBuilder/draft';
+import { firstBlockedStep, validateDraft } from '../../app/widgetBuilder/validate';
 import { BuilderPreview } from '../../app/widgetBuilder/BuilderPreview';
+import { BuilderStepRail, DefinitionPane } from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
 import { LayoutStep } from '../../app/widgetBuilder/LayoutStep';
 import { DataStep } from '../../app/widgetBuilder/DataStep';
@@ -91,7 +91,6 @@ export function WidgetBuilder({
 	const [rejection, setRejection] = useState<string | null>(null);
 
 	const rootRef = useRef<HTMLDivElement>(null);
-	const jsonRef = useRef<HTMLTextAreaElement>(null);
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
 
@@ -215,125 +214,9 @@ export function WidgetBuilder({
 	};
 
 	const stepProps = { draft, patch, issues: stepIssues };
-	const stepBody =
-		step === 'identity' ? (
-			<IdentityStep {...stepProps} />
-		) : step === 'layout' ? (
-			<LayoutStep {...stepProps} />
-		) : step === 'data' ? (
-			<DataStep {...stepProps} />
-		) : step === 'config' ? (
-			<ConfigStep {...stepProps} />
-		) : step === 'commands' ? (
-			<CommandsStep {...stepProps} />
-		) : step === 'style' ? (
-			<StyleStep {...stepProps} />
-		) : step === 'advanced' ? (
-			<AdvancedStep {...stepProps} />
-		) : (
-			<ReviewStep
-				draft={draft}
-				patch={patch}
-				issues={issues}
-				mode={mode}
-				busy={busy}
-				canWrite={canWrite}
-				rejection={rejection}
-				onGoToStep={goToStep}
-				onSubmit={submit}
-			/>
-		);
+	const stepRail = <BuilderStepRail step={step} issues={issues} onGoToStep={goToStep} />;
 
-	const stepRail = (
-		<nav aria-label={t('extensions.builder.steps')} data-testid="widget-builder-steps">
-			<ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
-				{STEP_IDS.map((id, index) => {
-					const current = id === step;
-					const blocked = issues.some((issue) => issue.step === id);
-					return (
-						<li key={id}>
-							<button
-								type="button"
-								onClick={() => goToStep(id)}
-								// The index badge is decoration; the step's NAME is the button's name.
-								aria-label={t(STEP_LABEL[id])}
-								aria-current={current ? 'step' : undefined}
-								style={{
-									width: '100%',
-									display: 'flex',
-									alignItems: 'center',
-									gap: 9,
-									padding: '7px 9px',
-									borderRadius: 8,
-									border: `1px solid ${current ? T.accBd : 'transparent'}`,
-									background: current ? T.accSub : 'transparent',
-									color: current ? T.ink : T.sub,
-									font: `${current ? 600 : 400} 12.5px ${T.sans}`,
-									textAlign: 'left',
-									cursor: 'pointer',
-								}}
-							>
-								<span
-									aria-hidden="true"
-									style={{
-										width: 20,
-										height: 20,
-										flex: '0 0 auto',
-										display: 'inline-flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										borderRadius: 999,
-										border: `1.5px solid ${current ? T.acc : T.bdS}`,
-										color: current ? T.acc : T.ter,
-										font: `600 10px ${T.mono}`,
-									}}
-								>
-									{index + 1}
-								</span>
-								<span style={{ flex: 1, minWidth: 0 }}>{t(STEP_LABEL[id])}</span>
-								{blocked && (
-									<Badge status="warning">{t('extensions.builder.needsAttention')}</Badge>
-								)}
-							</button>
-						</li>
-					);
-				})}
-			</ol>
-		</nav>
-	);
-
-	const jsonPane = (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-				<span style={{ flex: 1, font: `600 12px ${T.sans}`, color: T.sub }}>
-					{t('extensions.builder.definition')}
-				</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					icon="duplicate"
-					onClick={() => {
-						jsonRef.current?.focus();
-						jsonRef.current?.select();
-					}}
-				>
-					{t('extensions.builder.selectAll')}
-				</Button>
-			</div>
-			<Textarea
-				ref={jsonRef}
-				value={json}
-				readOnly
-				rows={narrow ? 14 : 26}
-				aria-label={t('extensions.builder.definitionField')}
-				data-testid="widget-builder-json"
-				style={{ fontFamily: T.mono, fontSize: 11.5, flex: 1, minHeight: 0 }}
-			/>
-			<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-				{t('extensions.builder.definitionHelp')}
-			</span>
-		</div>
-	);
+	const jsonPane = <DefinitionPane json={json} narrow={narrow} />;
 
 	const column = (children: React.ReactNode, extra?: React.CSSProperties) => (
 		<div
@@ -341,7 +224,9 @@ export function WidgetBuilder({
 				minWidth: 0,
 				minHeight: 0,
 				overflow: 'auto',
-				padding: narrow ? '14px 12px 28px' : '18px 20px 32px',
+				padding: narrow
+					? 'var(--space-3) var(--space-3) var(--space-6)'
+					: 'var(--space-4) var(--space-5) var(--space-8)',
 				...extra,
 			}}
 		>
@@ -357,11 +242,13 @@ export function WidgetBuilder({
 			role="dialog"
 			aria-modal="true"
 			data-fullscreen-overlay="widget-builder"
-			aria-label={`Widget builder — ${draft.name || 'new widget'}`}
+			aria-label={t('extensions.builder.dialogLabel', {
+				name: draft.name || t('extensions.builder.newWidget'),
+			})}
 			style={{
 				position: 'fixed',
 				inset: 0,
-				zIndex: 300,
+				zIndex: T.z.overlay,
 				display: 'flex',
 				flexDirection: 'column',
 				background: T.bg,
@@ -374,8 +261,8 @@ export function WidgetBuilder({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: narrow ? 6 : 10,
-					padding: narrow ? '7px 8px' : '8px 14px',
+					gap: narrow ? 'var(--space-1-5)' : 'var(--space-2)',
+					padding: narrow ? 'var(--space-1-5) var(--space-2)' : 'var(--space-2) var(--space-3)',
 					borderBottom: `1px solid ${T.bd}`,
 					background: T.surf,
 					flex: '0 0 auto',
@@ -392,8 +279,8 @@ export function WidgetBuilder({
 				<div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
 					<h1
 						style={{
-							margin: 0,
-							font: `600 14px ${T.disp}`,
+							margin: 'var(--space-0)',
+							font: `600 var(--text-sm) ${T.sans}`,
 							color: T.ink,
 							whiteSpace: 'nowrap',
 							overflow: 'hidden',
@@ -402,7 +289,7 @@ export function WidgetBuilder({
 					>
 						{draft.name || t('extensions.builder.newWidget')}
 					</h1>
-					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('extensions.builder.stepOf', {
 							index: stepIndex + 1,
 							total: STEP_IDS.length,
@@ -420,7 +307,7 @@ export function WidgetBuilder({
 			{narrow && (
 				<div
 					style={{
-						padding: '8px 10px',
+						padding: 'var(--space-2) var(--space-2)',
 						borderBottom: `1px solid ${T.bd}`,
 						background: T.surf,
 						flex: '0 0 auto',
@@ -451,10 +338,36 @@ export function WidgetBuilder({
 			>
 				{(!narrow || pane === 'edit') &&
 					column(
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 							{stepRail}
-							{stepBody}
-							<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+							{step === 'identity' ? (
+								<IdentityStep {...stepProps} />
+							) : step === 'layout' ? (
+								<LayoutStep {...stepProps} />
+							) : step === 'data' ? (
+								<DataStep {...stepProps} />
+							) : step === 'config' ? (
+								<ConfigStep {...stepProps} />
+							) : step === 'commands' ? (
+								<CommandsStep {...stepProps} />
+							) : step === 'style' ? (
+								<StyleStep {...stepProps} />
+							) : step === 'advanced' ? (
+								<AdvancedStep {...stepProps} />
+							) : (
+								<ReviewStep
+									draft={draft}
+									patch={patch}
+									issues={issues}
+									mode={mode}
+									busy={busy}
+									canWrite={canWrite}
+									rejection={rejection}
+									onGoToStep={goToStep}
+									onSubmit={submit}
+								/>
+							)}
+							<div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
 								<Button
 									variant="secondary"
 									size="sm"
@@ -479,8 +392,8 @@ export function WidgetBuilder({
 
 				{(!narrow || pane === 'preview') &&
 					column(
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('extensions.builder.panePreview')}
 							</span>
 							<BuilderPreview draft={draft} />

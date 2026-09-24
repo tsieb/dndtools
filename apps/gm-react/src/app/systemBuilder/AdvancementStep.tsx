@@ -22,7 +22,7 @@ const MODEL_LABEL: Record<string, MessageKey> = {
 export function AdvancementStep({ draft, patch, issues, t }: SystemStepProps) {
 	const advancement = draft.advancement;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader
 				title={t('systemBuilder.step.advancement')}
 				help={t('systemBuilder.advancement.help')}
@@ -78,7 +78,7 @@ export function AdvancementStep({ draft, patch, issues, t }: SystemStepProps) {
 					/>
 				)}
 				{advancement.model === 'xp-table' && advancement.xpThresholds.length > 0 && (
-					<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 						{t('systemBuilder.advancement.thresholdCount', {
 							count: advancement.xpThresholds.length,
 						})}

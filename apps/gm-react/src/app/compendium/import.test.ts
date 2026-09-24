@@ -19,7 +19,8 @@ import { loadBundledMonsters, loadBundledSpells } from './srd';
 const SOURCE: ImportSourceMeta = {
 	document: 'System Reference Document 5.1',
 	license: 'CC-BY-4.0',
-	attribution: 'This work includes material taken from the System Reference Document 5.1 by Wizards of the Coast LLC.',
+	attribution:
+		'This work includes material taken from the System Reference Document 5.1 by Wizards of the Coast LLC.',
 };
 
 describe('monsterToQuickCreatePayload', () => {
@@ -28,7 +29,10 @@ describe('monsterToQuickCreatePayload', () => {
 		for (const monster of entries) {
 			const payload = monsterToQuickCreatePayload(monster, SOURCE);
 			const parsed = quickCreateCharacterInputSchema.safeParse(payload);
-			expect(parsed.success, `${monster.name}: ${JSON.stringify(parsed.success ? '' : parsed.error.issues)}`).toBe(true);
+			expect(
+				parsed.success,
+				`${monster.name}: ${JSON.stringify(parsed.success ? '' : parsed.error.issues)}`,
+			).toBe(true);
 		}
 	});
 
@@ -71,9 +75,9 @@ describe('formatting helpers', () => {
 	});
 
 	it('actionDetail prefixes legendary cost and usage limits', () => {
-		expect(actionDetail({ name: 'Detect', desc: 'Looks around.', actionType: 'LEGENDARY_ACTION' })).toBe(
-			'Legendary. Looks around.',
-		);
+		expect(
+			actionDetail({ name: 'Detect', desc: 'Looks around.', actionType: 'LEGENDARY_ACTION' }),
+		).toBe('Legendary. Looks around.');
 		expect(
 			actionDetail({
 				name: 'Wing Attack',
@@ -83,7 +87,11 @@ describe('formatting helpers', () => {
 			}),
 		).toBe('Legendary (costs 2). Beats its wings.');
 		expect(
-			actionDetail({ name: 'Enslave', desc: 'Targets one creature.', usageLimits: { type: 'PER_DAY', param: 3 } }),
+			actionDetail({
+				name: 'Enslave',
+				desc: 'Targets one creature.',
+				usageLimits: { type: 'PER_DAY', param: 3 },
+			}),
 		).toBe('3/day. Targets one creature.');
 		expect(actionDetail({ name: 'Bite', desc: 'Bites.' })).toBe('Bites.');
 	});
@@ -131,10 +139,32 @@ describe('spellToCreateObjectPayload', () => {
 
 	it('spellDuration does not double-prefix an already-concentration duration', () => {
 		expect(
-			spellDuration({ key: 'x', name: 'X', level: 1, school: '', castingTime: '', range: '', components: '', duration: 'Concentration, up to 1 minute', concentration: true, desc: '' }),
+			spellDuration({
+				key: 'x',
+				name: 'X',
+				level: 1,
+				school: '',
+				castingTime: '',
+				range: '',
+				components: '',
+				duration: 'Concentration, up to 1 minute',
+				concentration: true,
+				desc: '',
+			}),
 		).toBe('Concentration, up to 1 minute');
 		expect(
-			spellDuration({ key: 'x', name: 'X', level: 1, school: '', castingTime: '', range: '', components: '', duration: '1 minute', concentration: true, desc: '' }),
+			spellDuration({
+				key: 'x',
+				name: 'X',
+				level: 1,
+				school: '',
+				castingTime: '',
+				range: '',
+				components: '',
+				duration: '1 minute',
+				concentration: true,
+				desc: '',
+			}),
 		).toBe('Concentration, up to 1 minute');
 	});
 });

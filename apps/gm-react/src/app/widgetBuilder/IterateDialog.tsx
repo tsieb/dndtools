@@ -224,7 +224,7 @@ export function IterateDialog({
 			backdropDismissible={false}
 			data-testid="widget-iterate-dialog"
 			footer={
-				<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
 					<Button variant="ghost" size="sm" onClick={close}>
 						{running ? t('widgetGen.cancel') : t('common.action.close')}
 					</Button>
@@ -257,31 +257,37 @@ export function IterateDialog({
 			{blockerKey ? (
 				<div
 					role="status"
-					style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}
+					style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}
 					data-testid="widget-iterate-blocker"
 				>
 					{t(blockerKey)}
 				</div>
 			) : revised ? (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 					{diffs.length === 0 ? (
-						<div role="status" style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
+						<div role="status" style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 							{t('widgetIterate.noChanges')}
 						</div>
 					) : (
 						<ul
 							data-testid="widget-iterate-diff"
-							style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}
+							style={{
+								margin: 'var(--space-0)',
+								padding: 'var(--space-0)',
+								listStyle: 'none',
+								display: 'grid',
+								gap: 'var(--space-2)',
+							}}
 						>
 							{diffs.map((diff) => (
 								<li
 									key={diff.field}
 									style={{
 										display: 'grid',
-										gap: 4,
-										padding: 9,
+										gap: 'var(--space-1)',
+										padding: 'var(--space-2)',
 										border: `1px solid ${T.bd}`,
-										borderRadius: 8,
+										borderRadius: 'var(--radius-md)',
 									}}
 								>
 									<Checkbox
@@ -289,10 +295,22 @@ export function IterateDialog({
 										onChange={() => toggle(diff.field)}
 										label={t(diff.label)}
 									/>
-									<div style={{ font: `12px/1.5 ${T.mono}`, color: T.ter, paddingLeft: 26 }}>
+									<div
+										style={{
+											font: `var(--text-xs)/1.5 ${T.mono}`,
+											color: T.sub,
+											paddingLeft: 'var(--space-6)',
+										}}
+									>
 										<span style={{ textDecoration: 'line-through' }}>{diff.before}</span>
 									</div>
-									<div style={{ font: `12px/1.5 ${T.mono}`, color: T.ink, paddingLeft: 26 }}>
+									<div
+										style={{
+											font: `var(--text-xs)/1.5 ${T.mono}`,
+											color: T.ink,
+											paddingLeft: 'var(--space-6)',
+										}}
+									>
 										{diff.after}
 									</div>
 								</li>
@@ -315,7 +333,7 @@ export function IterateDialog({
 					<div
 						role="status"
 						aria-live="polite"
-						style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, minHeight: 19 }}
+						style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub, minHeight: 19 }}
 						data-testid="widget-iterate-status"
 					>
 						{statusText ?? ''}
@@ -323,7 +341,7 @@ export function IterateDialog({
 					{failure && (
 						<div
 							role="alert"
-							style={{ font: `12px/1.6 ${T.sans}`, color: 'var(--color-status-error)' }}
+							style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: 'var(--color-status-error)' }}
 							data-testid="widget-iterate-failure"
 						>
 							{failure}

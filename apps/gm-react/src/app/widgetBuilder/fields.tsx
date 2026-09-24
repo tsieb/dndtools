@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Button, IconButton } from '../../ds';
 import { T } from '../screen-kit';
-import type { DraftIssue, WidgetDraft } from './draft';
+import type { WidgetDraft } from './draft';
+import type { DraftIssue } from './validate';
 import type { MessageKey, MessageValues } from '../../i18n';
 
 /** The catalog lookup the steps thread down, so this module renders no English of its own. */
@@ -18,9 +19,15 @@ export type Translate = (key: MessageKey, values?: MessageValues) => string;
 
 export function StepHeader({ title, help }: { title: string; help: string }) {
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-			<h2 style={{ margin: 0, font: `600 15px ${T.disp}`, color: T.ink }}>{title}</h2>
-			<p style={{ margin: 0, font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>{help}</p>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+			<h2
+				style={{ margin: 'var(--space-0)', font: `600 var(--text-base) ${T.sans}`, color: T.ink }}
+			>
+				{title}
+			</h2>
+			<p style={{ margin: 'var(--space-0)', font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
+				{help}
+			</p>
 		</div>
 	);
 }
@@ -35,10 +42,10 @@ export function StepSection({
 	children: ReactNode;
 }) {
 	return (
-		<section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-				<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>{title}</span>
-				{help && <span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>{help}</span>}
+		<section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}>
+				<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>{title}</span>
+				{help && <span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>{help}</span>}
 			</div>
 			{children}
 		</section>
@@ -52,7 +59,7 @@ export function FieldGrid({ children, columns = 2 }: { children: ReactNode; colu
 			style={{
 				display: 'grid',
 				gridTemplateColumns: `repeat(auto-fit, minmax(${columns > 1 ? 150 : 240}px, 1fr))`,
-				gap: 10,
+				gap: 'var(--space-2)',
 			}}
 		>
 			{children}
@@ -63,11 +70,20 @@ export function FieldGrid({ children, columns = 2 }: { children: ReactNode; colu
 /** A group of checkbox-like toggles rendered as a real fieldset, so the group has one name. */
 export function ToggleGroup({ legend, children }: { legend: string; children: ReactNode }) {
 	return (
-		<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
-			<legend style={{ font: `600 12px ${T.sans}`, color: T.sub, padding: 0, marginBottom: 8 }}>
+		<fieldset
+			style={{ border: 0, margin: 'var(--space-0)', padding: 'var(--space-0)', minWidth: 0 }}
+		>
+			<legend
+				style={{
+					font: `600 var(--text-xs) ${T.sans}`,
+					color: T.sub,
+					padding: 'var(--space-0)',
+					marginBottom: 'var(--space-2)',
+				}}
+			>
 				{legend}
 			</legend>
-			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{children}</div>
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>{children}</div>
 		</fieldset>
 	);
 }
@@ -88,15 +104,15 @@ export function RowCard({
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 10,
-				padding: 11,
+				gap: 'var(--space-2)',
+				padding: 'var(--space-3)',
 				border: `1px solid ${T.bd}`,
-				borderRadius: 10,
+				borderRadius: 'var(--radius-lg)',
 				background: T.surf,
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-				<span style={{ flex: 1, minWidth: 0, font: `600 12.5px ${T.sans}`, color: T.ink }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+				<span style={{ flex: 1, minWidth: 0, font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
 					{title}
 				</span>
 				<IconButton
@@ -126,8 +142,12 @@ export function RowList({
 	const items = Array.isArray(children) ? children : [children];
 	const isEmpty = items.filter(Boolean).length === 0;
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-			{isEmpty ? <div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>{empty}</div> : children}
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+			{isEmpty ? (
+				<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>{empty}</div>
+			) : (
+				children
+			)}
 			<div>
 				<Button variant="secondary" size="sm" icon="add" onClick={onAdd}>
 					{addLabel}

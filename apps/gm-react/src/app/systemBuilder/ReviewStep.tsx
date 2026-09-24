@@ -55,7 +55,7 @@ export function ReviewStep({
 		found: issues.filter((issue) => issue.step === step),
 	})).filter((group) => group.found.length > 0);
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader title={t('systemBuilder.step.review')} help={t('systemBuilder.review.help')} />
 
 			<StepSection title={t('systemBuilder.review.origin')}>
@@ -63,18 +63,18 @@ export function ReviewStep({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 4,
-						padding: '11px 13px',
-						borderRadius: 9,
+						gap: 'var(--space-1)',
+						padding: 'var(--space-3) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						border: `1px solid ${T.bd}`,
 						background: T.sunken,
 					}}
 				>
 					<span style={eb}>{t('systemBuilder.review.forkedFrom')}</span>
-					<span style={{ font: `600 13px ${T.sans}`, color: T.ink }}>
+					<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
 						{originName ?? t('systemBuilder.review.noOrigin')}
 					</span>
-					<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 						{t('systemBuilder.review.identity', { id: draft.id, version: draft.version })}
 					</span>
 				</div>
@@ -87,8 +87,8 @@ export function ReviewStep({
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							font: `12.5px ${T.sans}`,
+							gap: 'var(--space-2)',
+							font: `var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -98,9 +98,15 @@ export function ReviewStep({
 						<span>{t('systemBuilder.review.cleanBody')}</span>
 					</div>
 				) : (
-					<div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<div
+						role="status"
+						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+					>
 						{grouped.map((group) => (
-							<div key={group.step} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+							<div
+								key={group.step}
+								style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}
+							>
 								<div>
 									<Button
 										variant="ghost"
@@ -113,16 +119,18 @@ export function ReviewStep({
 								</div>
 								<ul
 									style={{
-										margin: 0,
-										padding: '0 0 0 26px',
-										font: `12px/1.55 ${T.sans}`,
+										margin: 'var(--space-0)',
+										padding: 'var(--space-0) var(--space-0) var(--space-0) var(--space-6)',
+										font: `var(--text-xs)/1.55 ${T.sans}`,
 										color: T.sub,
 									}}
 								>
 									{group.found.map((issue) => (
 										<li key={`${issue.path}:${issue.message}`}>
-											<code style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{issue.path}</code> —{' '}
-											{issueText(issue, t)}
+											<code style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
+												{issue.path}
+											</code>{' '}
+											— {issueText(issue, t)}
 										</li>
 									))}
 								</ul>
@@ -139,7 +147,7 @@ export function ReviewStep({
 					rows={16}
 					aria-label={t('systemBuilder.review.jsonField')}
 					data-testid="system-builder-json"
-					style={{ fontFamily: T.mono, fontSize: 11.5 }}
+					style={{ fontFamily: T.mono, fontSize: 'var(--text-xs)' }}
 				/>
 			</StepSection>
 
@@ -147,10 +155,10 @@ export function ReviewStep({
 				<div
 					role="alert"
 					style={{
-						padding: '11px 13px',
-						borderRadius: 9,
+						padding: 'var(--space-3) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						border: `1px solid ${T.err}`,
-						font: `12.5px/1.55 ${T.sans}`,
+						font: `var(--text-sm)/1.55 ${T.sans}`,
 						color: T.ink,
 					}}
 				>
@@ -158,7 +166,9 @@ export function ReviewStep({
 				</div>
 			)}
 
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+			<div
+				style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+			>
 				<Button
 					variant="primary"
 					size="sm"
@@ -172,7 +182,7 @@ export function ReviewStep({
 							? t('systemBuilder.review.save')
 							: t('systemBuilder.review.create')}
 				</Button>
-				<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, flex: '1 1 220px' }}>
+				<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub, flex: '1 1 220px' }}>
 					{canWrite ? t('systemBuilder.review.activateNote') : t('systemBuilder.review.readOnly')}
 				</span>
 			</div>

@@ -4,8 +4,8 @@ import {
 	type CommandResult,
 	type WidgetHostPermission,
 } from '@dndtools/core';
-import { Badge, Button, Checkbox, SegmentedControl, Sheet, Toaster } from '../../ds';
-import { T } from '../../app/screen-kit';
+import { Badge, Button, Checkbox, Sheet, Toaster } from '../../ds';
+import { Seg, T } from '../../app/screen-kit';
 import { HelpBeside } from '../../app/help/ContextHelp';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -54,8 +54,10 @@ const RECOMMENDATION_TONE: Record<string, 'success' | 'warning' | 'error'> = {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
-		<section style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-			<h3 style={{ margin: 0, font: `600 12.5px ${T.sans}`, color: T.ink }}>{title}</h3>
+		<section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
+			<h3 style={{ margin: 'var(--space-0)', font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
+				{title}
+			</h3>
 			{children}
 		</section>
 	);
@@ -153,7 +155,7 @@ export function TrustReviewSheet({
 			title={t('extensions.trust.title', { name: record.package.displayName })}
 			description={t('extensions.trust.description')}
 			footer={
-				<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
 					<Button variant="ghost" size="sm" onClick={onClose}>
 						{t('common.action.cancel')}
 					</Button>
@@ -176,9 +178,9 @@ export function TrustReviewSheet({
 				</div>
 			}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 				{!canWrite && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('extensions.trust.readOnly')}
 					</div>
 				)}
@@ -186,10 +188,10 @@ export function TrustReviewSheet({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 6,
-						padding: 12,
+						gap: 'var(--space-1-5)',
+						padding: 'var(--space-3)',
 						border: `1px solid ${T.bd}`,
-						borderRadius: 10,
+						borderRadius: 'var(--radius-lg)',
 						background: T.sunken,
 					}}
 				>
@@ -200,7 +202,7 @@ export function TrustReviewSheet({
 								: summary.trustRecommendation}
 						</Badge>
 					</HelpBeside>
-					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
 						{t('extensions.trust.version', { version: record.package.version })} ·{' '}
 						{t(
 							summary.customCodeWidgets.length > 0
@@ -214,7 +216,14 @@ export function TrustReviewSheet({
 						)}
 					</div>
 					{summary.runtimeIssues.length > 0 && (
-						<ul style={{ margin: 0, paddingLeft: 18, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+						<ul
+							style={{
+								margin: 'var(--space-0)',
+								paddingLeft: 'var(--space-4)',
+								font: `var(--text-xs)/1.5 ${T.sans}`,
+								color: T.sub,
+							}}
+						>
 							{summary.runtimeIssues.map((issue) => (
 								<li key={issue.code}>{issue.message}</li>
 							))}
@@ -224,32 +233,32 @@ export function TrustReviewSheet({
 
 				<Section title={t('extensions.trust.permsTitle')}>
 					{summary.requestedHostPermissions.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('extensions.trust.noPerms')}
 						</div>
 					) : (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 							{summary.requestedHostPermissions.map((permission: WidgetHostPermission) => (
 								<div
 									key={permission}
 									style={{
 										display: 'flex',
-										gap: 12,
+										gap: 'var(--space-3)',
 										alignItems: 'flex-start',
-										padding: 10,
+										padding: 'var(--space-2)',
 										border: `1px solid ${T.bd}`,
-										borderRadius: 10,
+										borderRadius: 'var(--radius-lg)',
 										background: T.surf,
 									}}
 								>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ font: `600 12.5px ${T.sans}` }}>
+										<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
 											{HOST_PERM_LABEL[permission] ? t(HOST_PERM_LABEL[permission]) : permission}
 										</div>
-										<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+										<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 											{t(HOST_PERM_MEANING[permission] ?? 'extensions.trust.meaning.other')}
 										</div>
-										<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+										<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 											{t('extensions.trust.askedFor', {
 												who:
 													(requestedBy.get(permission) ?? []).join(', ') ||
@@ -257,8 +266,7 @@ export function TrustReviewSheet({
 											})}
 										</div>
 									</div>
-									<SegmentedControl
-										size="sm"
+									<Seg
 										ariaLabel={t('extensions.trust.permissionControl', {
 											permission: HOST_PERM_LABEL[permission]
 												? t(HOST_PERM_LABEL[permission])
@@ -284,7 +292,7 @@ export function TrustReviewSheet({
 
 				{summary.requestedNetworkDestinations.length > 0 && (
 					<Section title={t('extensions.trust.connectTitle')}>
-						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}>
 							{summary.requestedNetworkDestinations.map((destination: string) => (
 								<Badge key={destination} status="warning">
 									{destination}
@@ -296,7 +304,14 @@ export function TrustReviewSheet({
 
 				{summary.playerVisibleOutputs.length > 0 && (
 					<Section title={t('extensions.trust.writeTitle')}>
-						<ul style={{ margin: 0, paddingLeft: 18, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+						<ul
+							style={{
+								margin: 'var(--space-0)',
+								paddingLeft: 'var(--space-4)',
+								font: `var(--text-xs)/1.5 ${T.sans}`,
+								color: T.sub,
+							}}
+						>
 							{summary.playerVisibleOutputs.map((output, index) => (
 								<li key={`${output.widgetType}-${output.destinationClass}-${index}`}>
 									{t('extensions.trust.writesTo', {
@@ -311,7 +326,14 @@ export function TrustReviewSheet({
 
 				{summary.requestedBindings.length > 0 && (
 					<Section title={t('extensions.trust.readTitle')}>
-						<ul style={{ margin: 0, paddingLeft: 18, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+						<ul
+							style={{
+								margin: 'var(--space-0)',
+								paddingLeft: 'var(--space-4)',
+								font: `var(--text-xs)/1.5 ${T.sans}`,
+								color: T.sub,
+							}}
+						>
 							{summary.requestedBindings.map((binding, index) => (
 								<li key={`${binding.widgetType}-${binding.bindingId}-${index}`}>
 									{binding.label} ({binding.modes.join(', ')}).
@@ -324,16 +346,16 @@ export function TrustReviewSheet({
 				{denyUntilFixed && (
 					<div
 						style={{
-							padding: 12,
+							padding: 'var(--space-3)',
 							border: `1px solid ${T.bd}`,
-							borderRadius: 10,
+							borderRadius: 'var(--radius-lg)',
 							background: T.sunken,
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 6,
+							gap: 'var(--space-1-5)',
 						}}
 					>
-						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
+						<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
 							{t('extensions.trust.ackBody')}
 						</div>
 						<Checkbox

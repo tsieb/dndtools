@@ -65,7 +65,7 @@ export function Extensions() {
 	];
 	return (
 		<Page max={1180}>
-			<div style={{ marginBottom: 18 }}>
+			<div style={{ marginBottom: 'var(--space-4)' }}>
 				<Tabs
 					value={tab}
 					onChange={setTab}

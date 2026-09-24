@@ -91,7 +91,7 @@ export function ExtTheme() {
 			style={{
 				display: 'grid',
 				gridTemplateColumns: isPhone ? 'minmax(0, 1fr)' : '1.1fr 1fr',
-				gap: 18,
+				gap: 'var(--space-4)',
 				alignItems: 'start',
 			}}
 		>
@@ -99,31 +99,46 @@ export function ExtTheme() {
 				title={t('extensions.theme.presetTitle')}
 				action={<Badge status="neutral">{t('extensions.theme.active', { theme })}</Badge>}
 			>
-				<div style={{ marginBottom: 14 }}>
+				<div style={{ marginBottom: 'var(--space-3)' }}>
 					<SegmentedControl
 						ariaLabel={t('extensions.theme.presetTitle')}
 						value={theme}
 						onChange={applyTheme}
 						options={THEME_PRESETS.map((p) => ({ value: p.id, label: t(p.label) }))}
 					/>
-					<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 6 }}>
+					<div
+						style={{
+							font: `var(--text-xs) ${T.sans}`,
+							color: T.sub,
+							marginTop: 'var(--space-1-5)',
+						}}
+					>
 						{t(THEME_PRESETS.find((p) => p.id === theme)?.desc ?? 'extensions.theme.tavernDesc')}
 					</div>
 				</div>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
+				<div
+					style={{
+						font: `var(--text-xs)/1.5 ${T.sans}`,
+						color: T.sub,
+						marginBottom: 'var(--space-3)',
+					}}
+				>
 					{t('extensions.theme.presetHelp')}
 				</div>
 				{TOKEN_GROUPS.map((g) => (
-					<div key={g.label} style={{ marginBottom: 14 }}>
-						<div style={{ ...eb, marginBottom: 8 }}>{t(g.label)}</div>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+					<div key={g.label} style={{ marginBottom: 'var(--space-3)' }}>
+						<div style={{ ...eb, marginBottom: 'var(--space-2)' }}>{t(g.label)}</div>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
 							{g.tokens.map((name) => (
-								<div key={name} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+								<div
+									key={name}
+									style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}
+								>
 									<span
 										style={{
 											width: 26,
 											height: 26,
-											borderRadius: 7,
+											borderRadius: 'var(--radius-md)',
 											flex: '0 0 auto',
 											background: `var(${name})`,
 											border: `1px solid ${T.bd}`,
@@ -132,7 +147,7 @@ export function ExtTheme() {
 									<span
 										style={{
 											flex: 1,
-											font: `11.5px ${T.mono}`,
+											font: `var(--text-xs) ${T.mono}`,
 											color: T.sub,
 											whiteSpace: 'nowrap',
 											overflow: 'hidden',
@@ -141,7 +156,9 @@ export function ExtTheme() {
 									>
 										{name}
 									</span>
-									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{tokenValue(name)}</span>
+									<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
+										{tokenValue(name)}
+									</span>
 								</div>
 							))}
 						</div>
@@ -150,22 +167,23 @@ export function ExtTheme() {
 			</Panel>
 			<Panel title={t('extensions.theme.previewTitle')}>
 				<div
+					data-testid="theme-preview-sample"
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 12,
-						padding: 16,
-						borderRadius: 12,
+						gap: 'var(--space-3)',
+						padding: 'var(--space-4)',
+						borderRadius: 'var(--radius-lg)',
 						background: T.bg,
 						border: `1px solid ${T.bd}`,
 					}}
 				>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 						<span
 							style={{
 								width: 30,
 								height: 30,
-								borderRadius: 7,
+								borderRadius: 'var(--radius-md)',
 								background: T.acc,
 								color: T.accFg,
 								display: 'inline-flex',
@@ -175,12 +193,12 @@ export function ExtTheme() {
 						>
 							<Icon name="dice" size="sm" />
 						</span>
-						<span style={{ font: `700 15px ${T.disp}` }}>
+						<span style={{ font: `700 var(--text-base) ${T.sans}` }}>
 							{t('extensions.theme.sampleSurface')}
 						</span>
 					</div>
 					<HPBar current={27} max={38} label={t('extensions.theme.sampleName')} />
-					<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+					<div style={{ display: 'flex', gap: 'var(--space-1-5)', flexWrap: 'wrap' }}>
 						<Badge status="success" icon="check">
 							{t('extensions.theme.sampleSaved')}
 						</Badge>
@@ -192,7 +210,7 @@ export function ExtTheme() {
 						</Badge>
 						<VisibilityChip level="dm-only" compact />
 					</div>
-					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
 						{t('extensions.theme.sampleBodyBefore')} <span style={mono}>1d20+7</span>{' '}
 						{t('extensions.theme.sampleBodyAfter')}
 					</div>

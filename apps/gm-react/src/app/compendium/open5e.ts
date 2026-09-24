@@ -60,7 +60,9 @@ export interface Open5eRequestOptions {
 /** Whether an error is an intentional `AbortController` abort (re-thrown, never a fallback). */
 export function isAbortError(error: unknown): boolean {
 	return (
-		(typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') ||
+		(typeof DOMException !== 'undefined' &&
+			error instanceof DOMException &&
+			error.name === 'AbortError') ||
 		(error instanceof Error && error.name === 'AbortError')
 	);
 }
@@ -76,7 +78,8 @@ export function documentAttribution(doc: Open5eDocument): string {
 
 // --- projections (exported for unit tests) -------------------------------------------------------
 
-const asString = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined);
+const asString = (v: unknown): string | undefined =>
+	typeof v === 'string' && v !== '' ? v : undefined;
 const asNumber = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 
 /** Project one `/v2/creatures/` row into the bundled-SRD monster shape. */
@@ -197,11 +200,18 @@ function resolveFetch(opts: Open5eRequestOptions): typeof fetch {
 
 async function fetchList(url: string, opts: Open5eRequestOptions): Promise<Open5eListResponse> {
 	const doFetch = resolveFetch(opts);
-	const response = await doFetch(url, { signal: opts.signal, headers: { Accept: 'application/json' } });
+	const response = await doFetch(url, {
+		signal: opts.signal,
+		headers: { Accept: 'application/json' },
+	});
 	if (!response.ok) throw new Error(`Open5e request failed: HTTP ${response.status}`);
 	const body = (await response.json()) as Partial<Open5eListResponse>;
 	if (!Array.isArray(body.results)) throw new Error('Open5e response had no results array');
-	return { count: typeof body.count === 'number' ? body.count : body.results.length, next: body.next ?? null, results: body.results };
+	return {
+		count: typeof body.count === 'number' ? body.count : body.results.length,
+		next: body.next ?? null,
+		results: body.results,
+	};
 }
 
 function listUrl(path: string, query: CompendiumQuery, kindParam: 'cr' | 'level'): string {
@@ -210,7 +220,8 @@ function listUrl(path: string, query: CompendiumQuery, kindParam: 'cr' | 'level'
 	params.set('limit', String(query.limit ?? DEFAULT_PAGE_LIMIT));
 	const search = query.search?.trim();
 	if (search) params.set('name__icontains', search);
-	if (kindParam === 'cr' && query.cr !== undefined) params.set('challenge_rating', String(query.cr));
+	if (kindParam === 'cr' && query.cr !== undefined)
+		params.set('challenge_rating', String(query.cr));
 	if (kindParam === 'level' && query.level !== undefined) params.set('level', String(query.level));
 	return `${OPEN5E_API_BASE}${path}?${params.toString()}`;
 }
@@ -291,9 +302,15 @@ export async function listDocuments(opts: Open5eRequestOptions = {}): Promise<Op
 	const docs: Open5eDocument[] = [];
 	let url: string | null = `${OPEN5E_API_BASE}/documents/?limit=100`;
 	while (url) {
-		const response = await doFetch(url, { signal: opts.signal, headers: { Accept: 'application/json' } });
+		const response = await doFetch(url, {
+			signal: opts.signal,
+			headers: { Accept: 'application/json' },
+		});
 		if (!response.ok) throw new Error(`Open5e documents request failed: HTTP ${response.status}`);
-		const body = (await response.json()) as { next?: string | null; results?: Array<Record<string, any>> };
+		const body = (await response.json()) as {
+			next?: string | null;
+			results?: Array<Record<string, any>>;
+		};
 		for (const r of body.results ?? []) {
 			docs.push({
 				key: String(r.key ?? ''),

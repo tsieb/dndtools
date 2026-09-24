@@ -48,7 +48,7 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.step.identity')} help={t('builder.identity.help')} />
 			<StepSection title={t('builder.identity.nameSection')}>
 				<Field label={t('builder.identity.name')} required error={issueFor(issues, 'name', t)}>
@@ -123,7 +123,7 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 					</Field>
 				</FieldGrid>
 				{draft.packageId && !SLUG_PATTERN.test(draft.packageId) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('builder.identity.suggested', {
 							id: slugify(draft.packageId) || 'workspace.my-widget',
 						})}
@@ -147,12 +147,12 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 					style={{
 						display: 'flex',
 						flexWrap: 'wrap',
-						gap: 6,
+						gap: 'var(--space-1-5)',
 						maxHeight: 168,
 						overflow: 'auto',
-						padding: 6,
+						padding: 'var(--space-1-5)',
 						border: `1px solid ${T.bd}`,
-						borderRadius: 9,
+						borderRadius: 'var(--radius-md)',
 						background: T.sunken,
 					}}
 				>
@@ -176,7 +176,7 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 									display: 'inline-flex',
 									alignItems: 'center',
 									justifyContent: 'center',
-									borderRadius: 8,
+									borderRadius: 'var(--radius-md)',
 									border: `1px solid ${selected ? T.accBd : T.bd}`,
 									background: selected ? T.accSub : T.surf,
 									color: selected ? T.acc : T.sub,
@@ -188,7 +188,7 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 						);
 					})}
 					{icons.length === 0 && (
-						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{t('builder.identity.noIconMatch')}
 						</span>
 					)}
@@ -207,7 +207,7 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 					))}
 				</ToggleGroup>
 				{issueFor(issues, 'surfaces', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'surfaces', t)}
 					</span>
 				)}
@@ -224,7 +224,7 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 					))}
 				</ToggleGroup>
 				{issueFor(issues, 'supportedProfiles', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'supportedProfiles', t)}
 					</span>
 				)}

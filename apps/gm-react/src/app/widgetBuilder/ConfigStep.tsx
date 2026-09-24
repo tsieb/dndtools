@@ -128,11 +128,11 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.step.config')} help={t('builder.config.help')} />
 			<StepSection title={t('builder.config.fields')}>
 				{issueFor(issues, 'configFields', t) && (
-					<span style={{ font: `12px ${T.sans}`, color: T.err }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 						{issueFor(issues, 'configFields', t)}
 					</span>
 				)}

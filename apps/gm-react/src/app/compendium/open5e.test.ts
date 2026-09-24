@@ -31,7 +31,14 @@ const RAW_CREATURE = {
 	hit_points: 7,
 	hit_dice: '2d6',
 	speed: { walk: 30, unit: 'feet' },
-	ability_scores: { strength: 8, dexterity: 14, constitution: 10, intelligence: 10, wisdom: 8, charisma: 8 },
+	ability_scores: {
+		strength: 8,
+		dexterity: 14,
+		constitution: 10,
+		intelligence: 10,
+		wisdom: 8,
+		charisma: 8,
+	},
 	saving_throws: {},
 	skill_bonuses: { stealth: 6 },
 	passive_perception: 9,
@@ -46,7 +53,12 @@ const RAW_CREATURE = {
 		damage_vulnerabilities_display: '',
 		condition_immunities_display: '',
 	},
-	traits: [{ name: 'Nimble Escape', desc: 'The goblin can take the Disengage or Hide action as a bonus action.' }],
+	traits: [
+		{
+			name: 'Nimble Escape',
+			desc: 'The goblin can take the Disengage or Hide action as a bonus action.',
+		},
+	],
 	actions: [
 		{
 			name: 'Scimitar',
@@ -81,7 +93,8 @@ const RAW_SPELL = {
 	concentration: false,
 	ritual: false,
 	desc: 'A shimmering green arrow streaks toward a target within range.',
-	higher_level: 'When you cast this spell using a spell slot of 3rd level or higher, the damage increases.',
+	higher_level:
+		'When you cast this spell using a spell slot of 3rd level or higher, the damage increases.',
 } as const;
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -135,7 +148,11 @@ describe('projectCreature', () => {
 
 	it('keeps legendaryCost only on legendary actions and carries usage limits', () => {
 		expect(monster.actions).toEqual([
-			{ name: 'Scimitar', desc: 'Melee Weapon Attack: +4 to hit, reach 5 ft., one target.', actionType: 'ACTION' },
+			{
+				name: 'Scimitar',
+				desc: 'Melee Weapon Attack: +4 to hit, reach 5 ft., one target.',
+				actionType: 'ACTION',
+			},
 			{
 				name: 'Tail Swipe',
 				desc: 'Sweeps its tail.',
@@ -176,7 +193,9 @@ describe('projectSpell', () => {
 
 describe('searchLiveMonsters', () => {
 	it('queries /v2/creatures/ with the SRD document filter, search, and CR params', async () => {
-		const fetchFn = vi.fn(async (_input: string | URL | Request) => jsonResponse(listBody([RAW_CREATURE], 2)));
+		const fetchFn = vi.fn(async (_input: string | URL | Request) =>
+			jsonResponse(listBody([RAW_CREATURE], 2)),
+		);
 		const result = await searchLiveMonsters({ search: 'gobl', cr: 0.25, limit: 10 }, { fetchFn });
 
 		expect(fetchFn).toHaveBeenCalledTimes(1);
@@ -216,7 +235,9 @@ describe('searchLiveMonsters', () => {
 
 describe('searchSpells (live)', () => {
 	it('queries /v2/spells/ with the level param', async () => {
-		const fetchFn = vi.fn(async (_input: string | URL | Request) => jsonResponse(listBody([RAW_SPELL])));
+		const fetchFn = vi.fn(async (_input: string | URL | Request) =>
+			jsonResponse(listBody([RAW_SPELL])),
+		);
 		const result = await searchSpells({ level: 2 }, { fetchFn });
 		const url = new URL(fetchFn.mock.calls[0]![0] as string);
 		expect(url.pathname).toBe('/v2/spells/');

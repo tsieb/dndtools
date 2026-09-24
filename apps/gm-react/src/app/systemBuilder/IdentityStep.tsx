@@ -31,7 +31,7 @@ export function IdentityStep({ draft, patch, issues, t }: SystemStepProps) {
 	const setVocabulary = (key: keyof SystemVocabulary, value: string) =>
 		patch({ vocabulary: { ...draft.vocabulary, [key]: value } });
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader
 				title={t('systemBuilder.step.identity')}
 				help={t('systemBuilder.identity.help')}

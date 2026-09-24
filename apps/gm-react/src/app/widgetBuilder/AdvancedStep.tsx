@@ -72,7 +72,7 @@ function CodeEditor({
 			style={{
 				display: 'flex',
 				border: `1px solid ${invalid ? T.err : T.bd}`,
-				borderRadius: 10,
+				borderRadius: 'var(--radius-lg)',
 				overflow: 'hidden',
 				background: T.surf,
 			}}
@@ -82,10 +82,10 @@ function CodeEditor({
 				aria-hidden="true"
 				style={{
 					flex: '0 0 auto',
-					padding: '9px 8px',
+					padding: 'var(--space-2) var(--space-2)',
 					textAlign: 'right',
-					font: `12px/${lineHeight}px ${T.mono}`,
-					color: T.ter,
+					font: `var(--text-xs)/${lineHeight}px ${T.mono}`,
+					color: T.sub,
 					background: T.bg,
 					borderRight: `1px solid ${T.bd}`,
 					overflow: 'hidden',
@@ -107,10 +107,10 @@ function CodeEditor({
 					flex: 1,
 					minWidth: 0,
 					border: 0,
-					borderRadius: 0,
+					borderRadius: 'var(--radius-none)',
 					background: 'transparent',
-					font: `12px/${lineHeight}px ${T.mono}`,
-					padding: '9px 10px',
+					font: `var(--text-xs)/${lineHeight}px ${T.mono}`,
+					padding: 'var(--space-2) var(--space-2)',
 					resize: 'vertical',
 				}}
 				onScroll={(e: { currentTarget: { scrollTop: number } }) => {
@@ -163,7 +163,7 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.advanced.title')} help={t('builder.advanced.help')} />
 
 			<StepSection
@@ -181,7 +181,7 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 						{ value: 'custom-html-js', label: t(RUNTIME_LABEL['custom-html-js']) },
 					]}
 				/>
-				<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+				<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 					{t(
 						isCustom
 							? 'builder.advanced.runtimeCustomNote'
@@ -192,7 +192,14 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 
 			{isCustom && (
 				<StepSection title={t('builder.advanced.codeTitle')} help={t('builder.advanced.codeHelp')}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 'var(--space-2)',
+							flexWrap: 'wrap',
+						}}
+					>
 						<Seg
 							ariaLabel={t('builder.advanced.codeTitle')}
 							value={part}
@@ -214,7 +221,7 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 						>
 							{t('builder.advanced.format')}
 						</Button>
-						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{t('builder.advanced.formatHelp')}
 						</span>
 					</div>
@@ -226,7 +233,7 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 						onChange={(next) => patch({ customCode: { ...draft.customCode, [part]: next } })}
 					/>
 					{issueFor(issues, 'customCode', t) && (
-						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+						<span role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 							{issueFor(issues, 'customCode', t)}
 						</span>
 					)}
@@ -256,7 +263,7 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 					))}
 				</ToggleGroup>
 				{draft.hostPermissions.includes('network') && (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 						<ToggleGroup legend={t('builder.advanced.destinationsLegend')}>
 							{NETWORK_DESTINATIONS.map((destination) => (
 								<Checkbox
@@ -267,16 +274,26 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 								/>
 							))}
 						</ToggleGroup>
-						<ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+						<ul
+							style={{
+								margin: 'var(--space-0)',
+								paddingLeft: 'var(--space-4)',
+								display: 'grid',
+								gap: 'var(--space-1)',
+							}}
+						>
 							{NETWORK_DESTINATIONS.map((destination) => (
-								<li key={destination} style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+								<li
+									key={destination}
+									style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}
+								>
 									{t(NETWORK_DESTINATION_LABEL[destination])} —{' '}
 									{t(NETWORK_DESTINATION_HELP[destination])}
 								</li>
 							))}
 						</ul>
 						{issueFor(issues, 'networkDestinations', t) && (
-							<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+							<span role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
 								{issueFor(issues, 'networkDestinations', t)}
 							</span>
 						)}
@@ -290,13 +307,20 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 			>
 				<div
 					data-testid="widget-builder-security-summary"
-					style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
 				>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 'var(--space-2)',
+							flexWrap: 'wrap',
+						}}
+					>
 						<Badge status={recommendation?.tone ?? 'warning'}>
 							{recommendation ? t(recommendation.label) : summary.trustRecommendation}
 						</Badge>
-						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{summary.customCodeWidgets.length > 0
 								? t('builder.advanced.summaryCustomCode')
 								: t('builder.advanced.summaryNoCustomCode')}
@@ -325,7 +349,7 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 						]}
 					/>
 					{summary.runtimeIssues.map((issue) => (
-						<span key={issue.code} style={{ font: `12px/1.5 ${T.sans}`, color: T.warn }}>
+						<span key={issue.code} style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.warn }}>
 							{issue.message}
 						</span>
 					))}

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
 	getContentItemsForActor,
 	listCustomObjectTypeSummaries,
@@ -8,11 +7,13 @@ import {
 	type CustomObjectTypeDefinition,
 	type VaultObjectFieldType,
 } from '@dndtools/core';
-import { Badge, Button, Checkbox, Dialog, Icon, Input, Select, Toaster } from '../../ds';
-import { Panel, T, mono } from '../../app/screen-kit';
+import { Badge, Button, Checkbox, EmptyState, Input, Select, Toaster } from '../../ds';
+import { Panel, T } from '../../app/screen-kit';
 import { HelpBeside } from '../../app/help/ContextHelp';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { eventField, VISIBILITY_WORD } from './shared';
+import { CustomObjectInstanceDialog } from './CustomObjectInstanceDialog';
+import { CustomTypeRow } from './CustomTypeRow';
+import { ReadOnlyNote } from './shared';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
@@ -164,149 +165,36 @@ export function CustomObjectTypes() {
 					</HelpBeside>
 				}
 			>
-				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
+				<div
+					style={{
+						font: `var(--text-xs)/1.6 ${T.sans}`,
+						color: T.sub,
+						marginBottom: 'var(--space-1-5)',
+					}}
+				>
 					{t('extensions.customTypes.intro')}
 				</div>
 				{summaries.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '4px 0' }}>
-						{t('extensions.customTypes.empty')}
-					</div>
+					<EmptyState icon="tag" title={t('extensions.customTypes.empty')} />
 				) : (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 						{summaries.map((s) => {
 							const def = runtime.state.content.customObjectTypes[s.id];
-							const count = countFor(s.id);
 							return (
-								<div
+								<CustomTypeRow
 									key={s.id}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										// A 36px glyph, the name/meta block, a count and up to three action buttons
-										// need ~350px of no-wrap width against ~327px of inner width on a 393px
-										// phone. DS Button wraps its own label rather than refusing to shrink, so
-										// without this the actions squeezed into unreadable slivers instead of
-										// dropping to a second line. Every sibling panel already wraps.
-										flexWrap: 'wrap',
-										gap: 12,
-										padding: 12,
-										border: `1px solid ${T.bd}`,
-										borderRadius: 10,
-										background: T.surf,
-									}}
-								>
-									<span
-										style={{
-											width: 36,
-											height: 36,
-											borderRadius: 9,
-											background: T.alt,
-											color: T.acc,
-											display: 'inline-flex',
-											alignItems: 'center',
-											justifyContent: 'center',
-											flex: '0 0 auto',
-										}}
-									>
-										<Icon name="tag" size="md" />
-									</span>
-									<div style={{ flex: 1, minWidth: 0 }}>
-										<div
-											style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
-										>
-											<span style={{ font: `600 13.5px ${T.sans}` }}>{s.label}</span>
-											<Badge status="neutral">{t('extensions.customTypes.custom')}</Badge>
-											{s.dmOnlyFields.length > 0 && (
-												<Badge status="accent">
-													{t('extensions.objects.dmOnlyFields', {
-														count: s.dmOnlyFields.length,
-													})}
-												</Badge>
-											)}
-										</div>
-										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-											<span style={mono}>{s.id}</span>{' '}
-											{t('extensions.customTypes.summaryMeta', {
-												fields: s.fieldCount,
-												visibility: VISIBILITY_WORD[s.defaultVisibility]
-													? t(VISIBILITY_WORD[s.defaultVisibility])
-													: s.defaultVisibility,
-											})}
-										</div>
-									</div>
-									<span
-										style={{
-											font: `12px ${T.mono}`,
-											color: count ? T.ink : T.ter,
-											flex: '0 0 auto',
-										}}
-									>
-										{t('extensions.objects.inVault', { count })}
-									</span>
-									<div
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 8,
-											flex: '0 0 auto',
-											flexWrap: 'wrap',
-										}}
-									>
-										{def && (
-											<Button
-												variant="secondary"
-												size="sm"
-												icon="add"
-												disabled={!canWrite || busy}
-												onClick={() => setInstanceOf(def)}
-											>
-												{t('extensions.customTypes.new')}
-											</Button>
-										)}
-										{def && (
-											<Button
-												variant="ghost"
-												size="sm"
-												icon="edit"
-												disabled={!canWrite || busy}
-												onClick={() => startEdit(def)}
-											>
-												{t('common.action.edit')}
-											</Button>
-										)}
-										{def && confirmDeleteId === def.id && (
-											<>
-												<Button
-													variant="danger"
-													size="sm"
-													// Same self-unmounting trigger as the package Remove above: without this the
-													// confirm renders with focus stranded on <body>.
-													autoFocus
-													disabled={!canWrite || busy}
-													onClick={() => deleteType(def)}
-												>
-													{count > 0
-														? t('extensions.customTypes.confirmDeleteCount', { count })
-														: t('extensions.customTypes.confirmDelete')}
-												</Button>
-												<Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
-													{t('extensions.compendium.keep')}
-												</Button>
-											</>
-										)}
-										{def && confirmDeleteId !== def.id && (
-											<Button
-												variant="ghost"
-												size="sm"
-												icon="delete"
-												disabled={!canWrite || busy}
-												onClick={() => setConfirmDeleteId(def.id)}
-											>
-												{t('common.action.delete')}
-											</Button>
-										)}
-									</div>
-								</div>
+									s={s}
+									def={def}
+									count={countFor(s.id)}
+									canWrite={canWrite}
+									busy={busy}
+									confirmingDelete={!!def && confirmDeleteId === def.id}
+									onNewInstance={() => def && setInstanceOf(def)}
+									onEdit={() => def && startEdit(def)}
+									onAskDelete={() => def && setConfirmDeleteId(def.id)}
+									onDelete={() => def && void deleteType(def)}
+									onKeep={() => setConfirmDeleteId(null)}
+								/>
 							);
 						})}
 					</div>
@@ -316,44 +204,77 @@ export function CustomObjectTypes() {
 			<Panel
 				title={
 					editId
-						? t('extensions.customTypes.editType', { id: editId })
+						? t('extensions.customTypes.editType', {
+								label: runtime.state.content.customObjectTypes[editId]?.label ?? editId,
+							})
 						: t('extensions.customTypes.defineTitle')
 				}
 				accent={!!editId}
 			>
 				{!canWrite && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					<ReadOnlyNote>
 						{t(previewing ? 'extensions.customTypes.exitPreview' : 'extensions.customTypes.dmOnly')}
-					</div>
+					</ReadOnlyNote>
 				)}
-				<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+				<div
+					style={{
+						display: 'flex',
+						gap: 'var(--space-2)',
+						alignItems: 'flex-end',
+						flexWrap: 'wrap',
+					}}
+				>
 					<span style={{ flex: 1, minWidth: 160 }}>
 						<label
-							style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
+							htmlFor="custom-type-label"
+							style={{
+								font: `var(--text-xs) ${T.sans}`,
+								color: T.sub,
+								display: 'block',
+								marginBottom: 'var(--space-1)',
+							}}
 						>
-							{t('extensions.customTypes.label')}
+							{t('extensions.customTypes.labelField')}
 						</label>
 						<Input
+							id="custom-type-label"
 							value={label}
 							onChange={(e: { target: { value: string } }) => setLabel(e.target.value)}
 							placeholder={t('extensions.customTypes.labelPlaceholder')}
-							aria-label={t('extensions.customTypes.labelField')}
 							disabled={!canWrite}
 						/>
 					</span>
-					<span style={{ font: `11.5px ${T.mono}`, color: T.ter, paddingBottom: 8 }}>
+					<span
+						style={{
+							font: `var(--text-xs) ${T.mono}`,
+							color: T.sub,
+							paddingBottom: 'var(--space-2)',
+						}}
+					>
 						{targetId}
 					</span>
 				</div>
 
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-					<span style={{ font: `11.5px ${T.sans}`, color: T.sub }}>
+				<div
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 'var(--space-2)',
+						marginTop: 'var(--space-2)',
+					}}
+				>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('extensions.customTypes.fields')}
 					</span>
 					{fields.map((f, i) => (
 						<div
 							key={i}
-							style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+							style={{
+								display: 'flex',
+								gap: 'var(--space-2)',
+								alignItems: 'center',
+								flexWrap: 'wrap',
+							}}
 						>
 							<span style={{ flex: 1, minWidth: 120 }}>
 								<Input
@@ -421,7 +342,7 @@ export function CustomObjectTypes() {
 					</span>
 				</div>
 
-				<div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
 					<Button
 						variant="primary"
 						size="sm"
@@ -447,183 +368,5 @@ export function CustomObjectTypes() {
 				<CustomObjectInstanceDialog def={instanceOf} onClose={() => setInstanceOf(null)} />
 			)}
 		</>
-	);
-}
-
-/* ---- Create an instance of a custom type (dispatches `content.create-object` with the custom subtype) */
-function CustomObjectInstanceDialog({
-	def,
-	onClose,
-}: {
-	def: CustomObjectTypeDefinition;
-	onClose: () => void;
-}) {
-	const { t } = useI18n();
-	const runtime = useRuntime();
-	const navigate = useNavigate();
-	const dmId = runtime.defaultActorId;
-	const [title, setTitle] = useState('');
-	const [values, setValues] = useState<Record<string, string>>({});
-	const [busy, setBusy] = useState(false);
-
-	const setValue = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }));
-
-	// Coerce a form string into the field's declared kind (fail-closed validation still runs in the Core).
-	const coerce = (type: VaultObjectFieldType, raw: string): unknown => {
-		const trimmed = raw.trim();
-		if (trimmed === '') return undefined;
-		// `Number('abc')` is NaN, and NaN passed straight through as the field value: the Core stored
-		// it, JSON-serialised it to `null`, and the user got no error. Treat unparseable as absent.
-		if (type === 'number') {
-			const n = Number(trimmed);
-			return Number.isFinite(n) ? n : undefined;
-		}
-		if (type === 'boolean') return trimmed === 'true';
-		if (type === 'string-array')
-			return trimmed
-				.split(',')
-				.map((s) => s.trim())
-				.filter(Boolean);
-		return trimmed;
-	};
-
-	const create = async () => {
-		if (busy || title.trim() === '') return;
-		setBusy(true);
-		try {
-			const built: Record<string, unknown> = {};
-			for (const f of def.fields) {
-				const v = coerce(f.type, values[f.key] ?? '');
-				if (v !== undefined) built[f.key] = v;
-			}
-			const res = await runtime.dispatch({
-				type: 'content.create-object',
-				actorId: dmId,
-				payload: { subtype: def.id, title: title.trim(), fields: built },
-			});
-			if (res.status === 'rejected') {
-				const issues = res.rejection.issues?.map((i) => `${i.path}: ${i.message}`).join(' · ');
-				Toaster.error(issues ? `${res.rejection.message} ${issues}` : res.rejection.message);
-				return;
-			}
-			const id = eventField(res, 'content.object-changed', 'itemId');
-			Toaster.success(
-				t('extensions.customTypes.instanceCreated', { title: title.trim() }),
-				id
-					? {
-							action: t('extensions.compendium.open'),
-							onAction: () => navigate(`/knowledge/${id}`),
-						}
-					: undefined,
-			);
-			onClose();
-		} catch (error) {
-			Toaster.error(error instanceof Error ? error.message : String(error));
-		} finally {
-			setBusy(false);
-		}
-	};
-
-	return (
-		<Dialog
-			open
-			onClose={onClose}
-			title={t('extensions.customTypes.newInstance', { label: def.label })}
-			description={def.id}
-			size="md"
-			footer={
-				<>
-					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-						{t('common.action.cancel')}
-					</Button>
-					<Button
-						variant="primary"
-						size="sm"
-						icon="add"
-						disabled={busy || title.trim() === ''}
-						onClick={create}
-					>
-						{busy ? t('extensions.customTypes.creating') : t('common.action.create')}
-					</Button>
-				</>
-			}
-		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-				<span>
-					{/* Orphan label — no `htmlFor`, not wrapping the control — so clicking "Title" focused
-					    nothing, the same gap already closed for the custom fields below. */}
-					<label
-						htmlFor="custom-object-title"
-						style={{ font: `11.5px ${T.sans}`, color: T.sub, display: 'block', marginBottom: 4 }}
-					>
-						{/* Reads "Object title", not "Title": an `aria-label` OVERRIDES a wired <label>, so the
-						    visible word and the accessible name disagreed — the label fixed above was
-						    announced to nobody, and voice control ("click Title") could not reach the
-						    field (WCAG 2.5.3). Matching the two lets the aria-label go. */}
-						{t('extensions.customTypes.objectTitle')}
-					</label>
-					<Input
-						id="custom-object-title"
-						value={title}
-						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-						placeholder={t('common.field.title')}
-					/>
-				</span>
-				{def.fields.map((f) => (
-					<span key={f.key}>
-						{/* The label was an ORPHAN (no htmlFor, not wrapping the control) while the control
-						 * carried `aria-label={f.key}` — which wins, so "required" and "DM-only" never
-						 * reached the accessible name and clicking the label focused nothing. DM-only in
-						 * particular decides whether the value reaches players, so it must be announced. */}
-						<label
-							htmlFor={`custom-field-${f.key}`}
-							style={{
-								font: `11.5px ${T.sans}`,
-								color: T.sub,
-								display: 'flex',
-								gap: 6,
-								marginBottom: 4,
-							}}
-						>
-							{f.key}
-							<span style={{ color: T.ter }}>· {f.type}</span>
-							{f.required && (
-								<span style={{ color: T.acc }}>{t('extensions.customTypes.requiredWord')}</span>
-							)}
-							{f.dmOnly && (
-								<span style={{ color: T.acc }}>{t('extensions.customTypes.dmOnlyWord')}</span>
-							)}
-						</label>
-						{f.type === 'boolean' ? (
-							<Select
-								id={`custom-field-${f.key}`}
-								aria-required={f.required || undefined}
-								options={[
-									{ value: '', label: '—' },
-									{ value: 'true', label: t('extensions.customTypes.true') },
-									{ value: 'false', label: t('extensions.customTypes.false') },
-								]}
-								value={values[f.key] ?? ''}
-								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
-							/>
-						) : (
-							<Input
-								id={`custom-field-${f.key}`}
-								aria-required={f.required || undefined}
-								// A `number` field was a plain text input: phones raised the alphabetic keyboard
-								// and there was no spinner, no step and no rejection of letters.
-								type={f.type === 'number' ? 'number' : 'text'}
-								inputMode={f.type === 'number' ? 'decimal' : undefined}
-								value={values[f.key] ?? ''}
-								onChange={(e: { target: { value: string } }) => setValue(f.key, e.target.value)}
-								placeholder={
-									f.type === 'string-array' ? t('extensions.customTypes.commaSeparated') : f.type
-								}
-							/>
-						)}
-					</span>
-				))}
-			</div>
-		</Dialog>
 	);
 }

@@ -209,7 +209,9 @@ test.describe('custom types: user-defined vault object types', () => {
 		// DELETE REFUSED — an honest fail-closed message while the instance still exists. Deleting a
 		// type is irreversible, so it takes a two-step confirm that also names the instance count.
 		await page.getByRole('button', { name: 'Delete' }).click();
-		await page.getByRole('button', { name: 'Confirm delete (1 in vault)' }).click();
+		await page
+			.getByRole('button', { name: `Yes, delete Guild ${stamp} (1 in vault)`, exact: true })
+			.click();
 		await expect(page.getByText(/still exist/i)).not.toHaveCount(0);
 		expect(await customType(page, id)).not.toBeNull(); // the type was NOT removed
 
@@ -223,7 +225,7 @@ test.describe('custom types: user-defined vault object types', () => {
 		await expect(page.getByText('0 in vault')).not.toHaveCount(0);
 
 		await page.getByRole('button', { name: 'Delete' }).click();
-		await page.getByRole('button', { name: 'Confirm delete', exact: true }).click();
+		await page.getByRole('button', { name: `Yes, delete Guild ${stamp}`, exact: true }).click();
 		await page.waitForFunction(
 			(tid) => {
 				const map = (window.__rt!.state.content as { customObjectTypes: Record<string, unknown> })

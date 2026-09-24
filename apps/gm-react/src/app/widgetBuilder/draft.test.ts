@@ -11,13 +11,12 @@ import {
 	bumpPatch,
 	buildPackage,
 	emptyDraft,
-	firstBlockedStep,
 	generateMigration,
 	readPackage,
 	slugify,
-	validateDraft,
 	type WidgetDraft,
 } from './draft';
+import { firstBlockedStep, validateDraft } from './validate';
 
 /**
  * RC-WID-2.1 — the builder's draft model.

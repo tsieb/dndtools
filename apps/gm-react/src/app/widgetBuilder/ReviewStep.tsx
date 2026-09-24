@@ -7,9 +7,9 @@ import {
 	buildPackage,
 	generateMigration,
 	type BuilderStepId,
-	type DraftIssue,
 	type WidgetDraft,
 } from './draft';
+import { type DraftIssue } from './validate';
 import { applyDraftDiff } from './draftDiff';
 import { IterateDialog } from './IterateDialog';
 import { StepHeader, StepSection } from './fields';
@@ -61,7 +61,7 @@ export function ReviewStep({
 	const recommendationTone = recommendation?.tone ?? 'warning';
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader
 				title={t('builder.step.review')}
 				help={t(mode === 'upgrade' ? 'builder.review.helpUpgrade' : 'builder.review.helpInstall')}
@@ -85,11 +85,18 @@ export function ReviewStep({
 
 			{issues.length > 0 && (
 				<StepSection title={t('builder.review.fixFirst')}>
-					<ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 6 }}>
+					<ul
+						style={{
+							margin: 'var(--space-0)',
+							paddingLeft: 'var(--space-4)',
+							display: 'grid',
+							gap: 'var(--space-1-5)',
+						}}
+					>
 						{issues.map((issue, index) => (
 							<li
 								key={`${issue.field}-${index}`}
-								style={{ font: `12.5px ${T.sans}`, color: T.ink }}
+								style={{ font: `var(--text-sm) ${T.sans}`, color: T.ink }}
 							>
 								{t(issue.message, issue.values)}{' '}
 								<Button variant="ghost" size="sm" onClick={() => onGoToStep(issue.step)}>
@@ -136,9 +143,11 @@ export function ReviewStep({
 			</StepSection>
 
 			<StepSection title={t('builder.review.asksFor')} help={t('builder.review.asksForHelp')}>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+				>
 					<Badge status={recommendationTone}>{recommendationLabel}</Badge>
-					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{summary.requestedHostPermissions.length === 0
 							? t('builder.review.noPermsRequested')
 							: t('builder.review.permsRequested', {
@@ -147,14 +156,14 @@ export function ReviewStep({
 					</span>
 				</div>
 				{summary.playerVisibleOutputs.length > 0 && (
-					<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 						{t('builder.review.playerVisibleWrites', {
 							count: summary.playerVisibleOutputs.length,
 						})}
 					</span>
 				)}
 				{summary.portabilityWarnings.map((warning) => (
-					<span key={warning} style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+					<span key={warning} style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 						{warning}
 					</span>
 				))}
@@ -171,7 +180,7 @@ export function ReviewStep({
 						/>
 					</Field>
 					{migration ? (
-						<span style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						<span style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 							{t('builder.review.migrationFromTo', {
 								from: migration.fromVersion,
 								to: migration.toVersion,
@@ -183,7 +192,7 @@ export function ReviewStep({
 								: '.'}
 						</span>
 					) : (
-						<span style={{ font: `12.5px/1.6 ${T.sans}`, color: T.warn }}>
+						<span style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.warn }}>
 							{t('builder.review.noVersionBump')}
 						</span>
 					)}
@@ -194,11 +203,11 @@ export function ReviewStep({
 				<div
 					role="alert"
 					style={{
-						font: `12.5px/1.6 ${T.sans}`,
+						font: `var(--text-sm)/1.6 ${T.sans}`,
 						color: T.ink,
-						padding: 11,
+						padding: 'var(--space-3)',
 						border: `1px solid ${T.err}`,
-						borderRadius: 10,
+						borderRadius: 'var(--radius-lg)',
 						background: T.surf,
 					}}
 				>
@@ -206,7 +215,9 @@ export function ReviewStep({
 				</div>
 			)}
 
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+			<div
+				style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+			>
 				<Button
 					variant="primary"
 					icon={mode === 'upgrade' ? 'retry' : 'check'}
@@ -216,7 +227,7 @@ export function ReviewStep({
 					{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
 				</Button>
 				{!canWrite && (
-					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('builder.review.readOnly')}
 					</span>
 				)}

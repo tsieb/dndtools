@@ -56,10 +56,10 @@ function IconPicker({
 			role="radiogroup"
 			aria-label={legend}
 			onKeyDown={radioGroupKeyDown}
-			style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
 		>
-			<span style={{ font: `600 12px ${T.sans}`, color: T.sub }}>{legend}</span>
-			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+			<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>{legend}</span>
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}>
 				{CONDITION_ICON_NAMES.map((name) => {
 					const selected = name === value;
 					return (
@@ -77,7 +77,7 @@ function IconPicker({
 								justifyContent: 'center',
 								width: 34,
 								height: 34,
-								borderRadius: 8,
+								borderRadius: 'var(--radius-md)',
 								border: `1px solid ${selected ? T.acc : T.bd}`,
 								background: selected ? T.accSub : T.surf,
 								color: selected ? T.acc : T.sub,
@@ -108,7 +108,7 @@ export function ConditionsStep({ draft, patch, issues, t }: SystemStepProps) {
 		);
 	});
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader
 				title={t('systemBuilder.step.conditions')}
 				help={t('systemBuilder.conditions.help')}

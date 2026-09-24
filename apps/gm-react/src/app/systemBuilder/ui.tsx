@@ -159,18 +159,18 @@ export function StepIssues({
 		<ul
 			role="status"
 			style={{
-				margin: 0,
-				padding: '10px 12px 10px 28px',
-				borderRadius: 9,
+				margin: 'var(--space-0)',
+				padding: 'var(--space-2) var(--space-3) var(--space-2) var(--space-6)',
+				borderRadius: 'var(--radius-md)',
 				border: `1px solid ${T.bd}`,
 				background: T.sunken,
-				font: `12px/1.55 ${T.sans}`,
+				font: `var(--text-xs)/1.55 ${T.sans}`,
 				color: T.sub,
 			}}
 		>
 			{orphans.map((issue) => (
 				<li key={`${issue.path}:${issue.message}`}>
-					<code style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{issue.path}</code> —{' '}
+					<code style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>{issue.path}</code> —{' '}
 					{issueText(issue, t)}
 				</li>
 			))}

@@ -42,7 +42,7 @@ export function AttributesStep({ draft, patch, issues, t }: SystemStepProps) {
 		claimed.push(`skills.${i}.key`, `skills.${i}.label`, `skills.${i}.attribute`);
 	});
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader
 				title={t('systemBuilder.step.attributes')}
 				help={t('systemBuilder.attributes.help')}

@@ -201,7 +201,7 @@ export function GenerateDialog({
 			backdropDismissible={false}
 			data-testid="widget-generate-dialog"
 			footer={
-				<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
 					<Button variant="ghost" size="sm" onClick={close}>
 						{running ? t('widgetGen.cancel') : t('common.action.close')}
 					</Button>
@@ -222,7 +222,7 @@ export function GenerateDialog({
 			{blockerKey ? (
 				<div
 					role="status"
-					style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}
+					style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}
 					data-testid="widget-generate-blocker"
 				>
 					{t(blockerKey)}
@@ -242,7 +242,7 @@ export function GenerateDialog({
 					<div
 						role="status"
 						aria-live="polite"
-						style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, minHeight: 19 }}
+						style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub, minHeight: 19 }}
 						data-testid="widget-generate-status"
 					>
 						{statusText ?? ''}
@@ -250,13 +250,13 @@ export function GenerateDialog({
 					{failure && (
 						<div
 							role="alert"
-							style={{ font: `12px/1.6 ${T.sans}`, color: 'var(--color-status-error)' }}
+							style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: 'var(--color-status-error)' }}
 							data-testid="widget-generate-failure"
 						>
 							{failure}
 						</div>
 					)}
-					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub }}>
 						{t('widgetGen.reviewNote')}
 					</div>
 				</>

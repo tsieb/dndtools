@@ -51,7 +51,7 @@ export const CUSTOM_CODE_SCAFFOLD: CustomCodeSource = {
 		'.card {',
 		'  box-sizing: border-box;',
 		'  padding: 12px;',
-		'  color: var(--widget-text, #e8e2d8);',
+		'  color: var(--widget-text, CanvasText);',
 		'  font: 13px/1.5 system-ui, sans-serif;',
 		'}',
 		'.card h1 { margin: 0 0 4px; font-size: 14px; }',

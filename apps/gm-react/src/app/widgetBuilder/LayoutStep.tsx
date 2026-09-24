@@ -52,7 +52,7 @@ function numberField(
 export function LayoutStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.layout.title')} help={t('builder.layout.help')} />
 			<StepSection
 				title={t('builder.layout.defaultSize')}

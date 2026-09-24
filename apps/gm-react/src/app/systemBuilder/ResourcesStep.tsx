@@ -57,29 +57,31 @@ function FormulaPreview({ formula, t }: { formula: string; t: Translate }) {
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 6,
-				padding: '9px 11px',
-				borderRadius: 9,
+				gap: 'var(--space-1-5)',
+				padding: 'var(--space-2) var(--space-3)',
+				borderRadius: 'var(--radius-md)',
 				border: `1px solid ${failure ? T.bdS : T.accBd}`,
 				background: failure ? T.sunken : T.accSub,
 			}}
 		>
-			<span style={{ font: `600 11.5px ${T.sans}`, color: T.sub }}>
+			<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 				{t('systemBuilder.resources.previewTitle')}
 			</span>
 			{failure ? (
-				<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ink }}>{failure.message}</span>
+				<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ink }}>
+					{failure.message}
+				</span>
 			) : (
-				<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
 					{rows.map((row) => (
-						<span key={row.level} style={{ font: `12px ${T.sans}`, color: T.ink }}>
+						<span key={row.level} style={{ font: `var(--text-xs) ${T.sans}`, color: T.ink }}>
 							{t('systemBuilder.resources.previewLevel', { level: row.level })}{' '}
-							<strong style={{ font: `600 13px ${T.mono}` }}>{row.value}</strong>
+							<strong style={{ font: `600 var(--text-sm) ${T.mono}` }}>{row.value}</strong>
 						</span>
 					))}
 				</div>
 			)}
-			<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+			<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 				{t('systemBuilder.resources.previewCaption', {
 					score: PREVIEW_ABILITY_SCORE,
 					modifier: PREVIEW_ABILITY_MODIFIER,
@@ -103,7 +105,7 @@ export function ResourcesStep({ draft, patch, issues, t }: SystemStepProps) {
 		);
 	});
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 			<StepHeader
 				title={t('systemBuilder.step.resources')}
 				help={t('systemBuilder.resources.help')}
@@ -113,24 +115,24 @@ export function ResourcesStep({ draft, patch, issues, t }: SystemStepProps) {
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 6,
-						padding: '10px 12px',
-						borderRadius: 9,
+						gap: 'var(--space-1-5)',
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						border: `1px solid ${T.bd}`,
 						background: T.sunken,
-						font: `12px/1.6 ${T.sans}`,
+						font: `var(--text-xs)/1.6 ${T.sans}`,
 						color: T.sub,
 					}}
 				>
 					<span>
 						{t('systemBuilder.resources.grammarIdentifiers')}{' '}
-						<code style={{ font: `11.5px ${T.mono}`, color: T.ink }}>
+						<code style={{ font: `var(--text-xs) ${T.mono}`, color: T.ink }}>
 							{RESOURCE_FORMULA_IDENTIFIERS.join(', ')}
 						</code>
 					</span>
 					<span>
 						{t('systemBuilder.resources.grammarFunctions')}{' '}
-						<code style={{ font: `11.5px ${T.mono}`, color: T.ink }}>
+						<code style={{ font: `var(--text-xs) ${T.mono}`, color: T.ink }}>
 							{FORMULA_FUNCTION_NAMES.join(', ')}
 						</code>
 					</span>
