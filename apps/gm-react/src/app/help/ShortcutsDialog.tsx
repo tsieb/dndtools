@@ -44,54 +44,62 @@ export function ShortcutsDialog({
 				tabIndex={0}
 				role="region"
 				aria-label={title ?? t('shortcuts.title')}
-				style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
+				style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
 			>
 				{scopes.map((scope) => (
 					<section key={scope} aria-label={scopeLabel[scope]}>
 						<h3
 							style={{
-								margin: '0 0 6px',
-								font: `600 12px ${T.sans}`,
-								letterSpacing: '.06em',
+								margin: '0 0 var(--space-1-5)',
+								font: `600 var(--text-xs) ${T.sans}`,
+								letterSpacing: 'var(--tracking-wide)',
 								textTransform: 'uppercase',
 								color: T.ter,
 							}}
 						>
 							{scopeLabel[scope]}
 						</h3>
-						<dl style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+						<dl
+							style={{
+								margin: 'var(--space-0)',
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 'var(--space-0-5)',
+							}}
+						>
 							{shortcutsForScope(scope).map((entry) => (
 								<div
 									key={entry.id}
 									style={{
 										display: 'flex',
-										gap: 12,
+										gap: 'var(--space-3)',
 										alignItems: 'baseline',
-										padding: '7px 0',
+										flexWrap: 'wrap',
+										padding: 'var(--space-2) 0',
 										borderBottom: `1px solid ${T.bd}`,
 									}}
 								>
-									<dt style={{ flex: '0 0 148px' }}>
-										<span
+									<dt style={{ flex: '1 1 40%', minWidth: 0 }}>
+										<kbd
 											style={{
-												font: `12px ${T.mono}`,
+												font: `var(--text-xs) ${T.mono}`,
 												color: T.ink,
 												border: `1px solid ${T.bd}`,
-												borderRadius: 5,
-												padding: '2px 7px',
+												borderRadius: 'var(--radius-md)',
+												padding: 'var(--space-0-5) var(--space-2)',
 												background: T.alt,
-												whiteSpace: 'nowrap',
+												overflowWrap: 'anywhere',
 											}}
 										>
 											{entry.keys}
-										</span>
+										</kbd>
 									</dt>
 									<dd
 										style={{
-											margin: 0,
-											flex: 1,
+											margin: 'var(--space-0)',
+											flex: '1 1 50%',
 											minWidth: 0,
-											font: `12.5px ${T.sans}`,
+											font: `var(--text-sm) ${T.sans}`,
 											color: T.sub,
 											overflowWrap: 'anywhere',
 										}}

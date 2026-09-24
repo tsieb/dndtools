@@ -1,0 +1,173 @@
+# RC-POL-1.22 — Command palette, shortcuts and help
+
+## Implementation
+
+- Split palette presentation metadata and command dispatch/canvas actions into owned shortcut modules; preserve actor-filtered core reads and runtime dispatch.
+- Hide Create launchers and mutation actions in read-only player preview.
+- Add Help as a palette destination on every tier; preserve nested shortcut focus return.
+- Wrap shortcut key/description rows and use semantic `kbd` plus spacing/type tokens.
+- Handle release-note loading, empty, failure and retry explicitly; guard late async responses on unmount. Add EN/ES copy.
+- Supporting DS palette change is necessary for overlay acceptance: accessible empty listbox, readable hint contrast, localized labels and the existing search-none illustration. No vendored design-package files changed.
+
+## Checklist review — each item checked or explicitly waived
+
+### 20.2 Design fidelity
+
+- [x] Composed only from `src/ds` primitives and `screen-kit`; zero raw hex/rgba/px literals (DSN-1.1 lint clean for this directory).
+  - PASS with scoped waiver: changed help dialogs use spacing/type tokens; raw-style allowances removed. Existing Spotlight safe-area offsets and structural semantic HTML remain, because changing shell positioning or replacing dl/section semantics is not part of this overlay repair.
+- [x] Matches the prototype view for this section (`docs/design/README.md` §4) and the design-package template where one exists; deviations listed with rationale.
+  - WAIVED live prototype comparison: design project is not available through this session. Reviewed the vendored content fundamentals and existing DS CommandPalette/Dialog composition. Deviations: responsive wrapping and a search illustration improve narrow-screen use.
+- [x] One primary action per region in gold; supporting tiles flat/sunken; the primary panel raised with `--shadow-md`.
+  - PASS with waiver: selected palette row and Done use the DS primary accent. Shared modal chrome retains shadow-lg rather than shadow-md; changing global modal elevation would affect unrelated surfaces.
+- [x] Type hierarchy uses 3–4 sizes; Cinzel only ≥ 24px; numbers in mono.
+  - PASS: shared title plus base/small/meta scale; Inter for small text and mono for kbd/counts. No new small Cinzel.
+- [x] Every status color paired with a distinct icon shape; DM-only purple stripe where applicable.
+  - PASS with waiver: warning/search/info icons accompany state text. Actor visibility remains spelled out on scene/map rows; no DM-only panel is introduced that requires a purple stripe.
+- [x] Renders correctly in all themes and all three tiers; visual snapshots updated and reviewed.
+  - PASS with budget waiver: one pinned state per theme and tier (15 PNGs, 8.3 KiB): the palette's `esc` key chip, whose text token this pass raised. The first attempt pinned four whole surfaces (60 PNGs, ~2.6 MiB), reviewed then as contact sheets; after rebasing, the shared 32 MiB baseline cap had ~33 KiB left, so those full-surface baselines were dropped. The overlay, illustrated no-results, Help and Shortcuts stay covered by e2e and unfiltered axe on both profiles.
+- [x] Motion uses named tokens; nothing animates under `data-motion='reduced'`.
+  - PASS: shared DS named animation tokens and reduced-motion policy retained; pinned visual projects run with reduced motion. No new animation.
+- [x] Empty, loading, error, and "unavailable because…" states all present and illustrated where the key exists.
+  - PASS: search-none illustration, release loading skeleton, empty release copy, load error plus Retry, and blocked action reasons. No release-note-specific illustration key exists.
+
+### 20.3 Interaction and UX
+
+- [x] Every action has feedback within 100 ms (optimistic or skeleton) and a completion toast or inline state.
+  - PASS with waiver: input echo/navigation/closing are immediate; async dispatch has success/error toast; release fetch has skeleton and retry state. Existing 150ms search debounce is intentional, not a promise of sub-100ms full-text completion.
+- [x] Every destructive action is undoable or confirmed; every confirm names the thing.
+  - PASS: no new destructive command; existing canvas undo is covered in command-palette.spec.ts. Create launchers still open destination forms.
+- [x] Save status visible on auto-persisted surfaces; failures say what to do next.
+  - WAIVED durable save indicator: these overlays do not edit durable documents. Recent ids/seen badges are best-effort device preferences; failed commands retain existing actionable toast.
+- [x] One clear route back; browser back works; Android Back follows the documented order.
+  - PASS: Escape unwinds shortcuts to Help, then Help to route; actual nesting now participates in shared Escape ownership. Shared Android Back registration remains unchanged; no native device run claimed.
+- [x] No hover-only or gesture-only discovery; touch targets ≥ 44 px (48 dp Android).
+  - PASS with scoped waiver: search/Help are click/tap targets; Retry and help-to-shortcuts are at least 48px. Existing shared close/ContextHelp density targets are retained (44px comfortable; smaller desktop density) to avoid changing the global sizing contract.
+- [x] The compact tier exposes one primary top-bar action; overflow in a bounded sheet.
+  - WAIVED top-bar policy: this task adds no top bar. The existing compact search trigger opens a bounded palette; Help and shortcuts use bounded Dialog bodies.
+- [x] Copy follows the content fundamentals; strings via `t()`; ES present.
+  - PASS with source-content waiver: new palette labels, hints, empty state and release loading/error copy use t() with ES. Core-authored action/onboarding labels and shipped CHANGELOG bullets remain source text, outside GUI catalog ownership.
+- [x] Contextual help (HelpTip) beside any non-obvious control; shortcuts in tooltips.
+  - PASS: Help is searchable on all tiers, shortcut reference comes from the registry, and contextual HelpTip/popovers remain covered by help-tips.spec.ts. Plain Search/Retry controls do not require extra explanatory tips.
+
+### 20.4 Accessibility
+
+- [x] axe clean (desktop + mobile) for this route and its open overlays; register unchanged.
+  - PASS: unfiltered axe WCAG 2/2.1/2.2 violations array empty for route, normal/empty palette, Help and nested shortcuts on desktop/mobile; register unchanged.
+- [x] Keyboard-only walkthrough of the primary task recorded in the PR; focus visible everywhere.
+  - PASS: recorded keyboard flow is Control+K → type destination/query → Enter or select → Escape; in Help, Tab past the user guides to Keyboard shortcuts → Enter → shortcut region → Tab/Done. Nested Escape returns focus to the Help shortcut trigger. Existing tests exercise arrows and canvas undo.
+- [x] Landmarks and headings correct (`<h1>` once, from `SECTION_TITLES`); `nav` labelled.
+  - PASS: overlays retain labelled dialog/listbox/region semantics and do not add a second route h1. Shortcut groups use labelled sections with semantic dl/kbd.
+- [x] Live regions announce operations; no announcement spam.
+  - PASS: one palette count status and one polite release-state region; decorative icons/illustrations are hidden from assistive technology.
+- [x] Screen-reader spot check on one platform noted.
+  - WAIVED audible screen-reader spot check: no native screen-reader application is available. Automated accessibility-tree, focus, live-region and axe checks are performed; no audible test is claimed.
+- [x] 200% zoom / large text: no clipping; reachability spec case added if new scroll regions.
+  - PASS: 200% root text test scrolls every shortcut row, checks horizontal overflow and reaches Done on both profiles. Focusable labelled region fixes the previously inaccessible scroll body.
+
+### 20.5 Core discipline and correctness
+
+- [x] No state mutation outside `runtime.dispatch`; no client-side visibility filtering.
+  - PASS: commands continue through runtime.dispatch; core actor-filtered scene/character/map/saved-search/search/action reads retained. Only device-local GUI preferences use preference writes.
+- [x] Preview-as-player: writes rejected read-only and controls hidden/disabled accordingly.
+  - PASS: readOnly hides Create and mutation rows; preview e2e dispatch is rejected by the runtime, not just hidden by the GUI.
+- [x] Player projection of this surface verified through an actor read in an e2e.
+  - PASS: e2e enters a generic player preview, reads the projected actor role through runtime.state, verifies no executable action rows, and observes runtime write rejection.
+- [x] e2e on both profiles covers the primary task and one failure path.
+  - PASS: both profiles cover primary navigation, canvas add/undo, help nesting, no matches, release-asset failure, retry reachability and preview refusal.
+- [x] Perf: the surface's budget measured before/after (ENG-1.1); no regression.
+  - WAIVED quantitative before/after budget: no dedicated palette ENG-1.1 baseline exists in this checkout. Search debounce and result caps remain unchanged, no new core scans were added, and Help mounts only when opened. Test durations below are validation durations, not a performance benchmark.
+- [x] Docs: FEATURE-GAPS inventory row updated; architecture doc updated if a contract moved.
+  - PASS: FEATURE-GAPS includes the global palette/help row. No architecture contract moved; optional DS localization/illustration props preserve existing consumers.
+
+## Validation evidence
+
+- Initial axe run found palette key/footer contrast failures; corrected the shared component's text token.
+- The empty palette then exposed an ARIA listbox without an option; represent the no-results message as a disabled option, never a runnable command.
+- Focused app tests: 5 files / 55 tests passed, including deferred release load failure/retry and existing help/registry tests.
+- Final verification results are appended below after the fresh runs complete.
+
+## Scope notes
+
+- No native screen-reader application is available in this automation session. Accessibility-tree semantics, actual focus and axe are automated; an audible platform spot check is not claimed.
+- Changelog bullets and core-owned action titles remain source-authored content; translating generated release history/core catalogs is outside this GUI surface. All newly authored GUI labels have ES entries.
+- No release-note-specific illustration exists; use the shared loading skeleton and a warning icon with actionable text. Search empty state uses `search-none`.
+- Help has no durable autosave or destructive command. Device-local recent ids and seen badges remain best-effort preferences.
+- No architecture contract moves; the new palette label props are optional, preserving other DS consumers.
+
+## Additional regressions found and fixed
+
+- Help rendered Shortcuts as a sibling modal, so one Escape closed both. Nesting the overlay now follows the shared containment-based Escape contract and restores focus to its opener.
+- Shortcut reference content could scroll but had no focusable element. Its labelled region now participates in keyboard navigation and passes axe.
+- Axe scans wait for finite entrance animations to finish, avoiding contrast readings taken through a partially transparent transition. Rules and the known-violation register were not weakened.
+- Legacy no-action assertions now require exactly one disabled No matches option instead of an invalid empty listbox with arbitrary text children.
+- Typecheck caught a local state-name collision during cleanup; the runtime snapshot is explicitly named vaultState. Fresh full runs supersede intermediate runs during editing.
+
+- Recovery e2e exposed cached dynamic-import rejection after a restored connection. ReleaseNotes now fetches its bundled local asset on each attempt, with an HTTP-status guard; no external service is involved. The recovery test requires actual version content after Retry.
+
+## Final validation — 2026-09-20
+
+Commands run from this task worktree; no push, promotion, dispatcher-state change or extra agent.
+
+| Check                                                                                                                                                                                                                      | Result                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts tests/e2e/command-palette.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/help-tips.spec.ts --workers=2` | 66 passed, both profiles (1.0m).                                                                                                                                                                                |
+| Final affected test rerun: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts --workers=2`                                                                                            | 8 passed (15.2s), after the asset-fetch recovery fix. Includes actual keyboard-only Help opening, axe, nested Escape/focus, 200% text, player projection/refusal and successful Retry after restoring requests. |
+| `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/help apps/gm-react/src/app/shortcuts`                                                                                                            | 5 files, 55 passed (5.26s) on final source.                                                                                                                                                                     |
+| `bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2`                                                                                                                                  | Full pinned suite: 150 passed (2.7m).                                                                                                                                                                           |
+| Final affected visual rerun: `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts --update-snapshots=none --workers=2`                                                                                | 15 passed (23.4s), after the asset-fetch recovery fix; all 60 surface PNGs unchanged.                                                                                                                           |
+| `node apps/gm-react/tests/visual/check-baseline-budget.mjs`                                                                                                                                                                | 195 baseline files, 15256.4 KiB / 32768 KiB.                                                                                                                                                                    |
+| `pnpm --filter @dndtools/gm-react typecheck`                                                                                                                                                                               | Passed on final source.                                                                                                                                                                                         |
+| Targeted ESLint: owned palette/help/shortcuts plus the shared DS palette                                                                                                                                                   | Passed with zero errors or warnings. Removed both obsolete help raw-style allowances.                                                                                                                           |
+| `pnpm --filter @dndtools/gm-react build`                                                                                                                                                                                   | Passed; production bundle check excludes runtime test seams and component gallery. Existing chunk-size advisories remain outside this surface.                                                                  |
+| `pnpm gates`                                                                                                                                                                                                               | Passed: 6 gates owned/budgeted/wired; 257 docs reachable, 287 relative links resolved. No size warning for owned paths. Existing warnings elsewhere are not changed.                                            |
+| Prettier and `git diff --check`                                                                                                                                                                                            | Passed for intended changes.                                                                                                                                                                                    |
+
+Owned maximum: CommandPalette.tsx 443 lines; paletteActions.ts 295; palettePresentation.ts 144; largest existing help file Spotlight.tsx 259. Journal and every remaining owned file are below 500.
+
+Visual review: reviewed all five themes across desktop/rail/phone for populated palette, illustrated no-results, Help and Shortcuts. Re-reviewed the shortcut contact sheet after adding keyboard focus: the bounded content scrolls, focus is visible, footer Done remains reachable, and the longer phone rows wrap. Source release notes remain deliberately source-authored rather than pretending they have been translated.
+
+## Rebase onto loop/rc `01a2077e` — 2026-09-24
+
+The first attempt (2026-09-20, base `2d9f566d`) ran out of provider allowance before handoff. Its
+branch was 128 commits behind `loop/rc`, so the commit was rebased onto `01a2077e` and everything
+above that cites a validation run was re-run on the new base. The 2026-09-20 table is superseded by
+the one below.
+
+- Conflicts: `HelpMenu.tsx` against RC-DOC-1.3 (bundled user guides and the `HelpLauncher` top-bar
+  trigger). Kept both: the guides, the guide dialog and the launcher from `loop/rc`, plus this
+  story's `ReleaseNotes` lifecycle, nested `ShortcutsDialog` and spacing tokens. `FEATURE-GAPS.md`:
+  took `loop/rc`'s table and re-added the Palette and help row.
+- Visual budget: `loop/rc` sat at 32734.9 of 32768 KiB, so the 60 full-surface PNGs (2.6 MiB) would
+  have failed `check-baseline-budget.mjs`. Probed crops in the pinned container: the whole
+  no-results row cost 11 KiB/image, the illustration 5 KiB, the active row 2.3 KiB, the key chip
+  0.5–0.6 KiB. `palette-help.spec.ts` now pins the search row's `esc` chip (the phone tier hides the
+  footer) in 5 themes × 3 tiers; the budget ends at 32743.2 KiB.
+- RC-DOC-1.3 put the guide buttons before Keyboard shortcuts, so Help's first focus is now a guide.
+  The axe walk in `palette-polish.spec.ts` tabs forward to the trigger instead of expecting it
+  focused; every axe scan passed before and after.
+- The operator brief (2026-09-22) added `ds/components/command/CommandPalette.jsx` to owns. It was
+  604 lines. `Kbd` and the result row now live in a new sibling,
+  `ds/components/command/CommandPaletteRow.jsx` (175 lines), leaving the palette at 446. **Boundary
+  crossing, flagged:** the new sibling sits outside the owned paths. It is the smallest move that
+  gets the owned file under 500 lines without having the DS import from `app/`. `ds/index.js` is
+  unchanged: `Kbd` was never exported, and `CommandPalette` is re-exported as before.
+- Also removed an empty fragment and a stray blank prop line left in the DS palette by the first
+  attempt.
+
+## Final validation — 2026-09-24 (base `01a2077e`)
+
+| Check                                                                                                                                                                                                                      | Result                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts tests/e2e/command-palette.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/help-tips.spec.ts --workers=3` | 66 passed, desktop-chromium + mobile-chromium (1.4m), after the row split. Includes the unfiltered axe walk (route, palette, no-results, Help, nested Shortcuts). |
+| `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts --update-snapshots=none --workers=2`                                                                                                             | 15 passed (46.5s) after the row split.                                                                                                                            |
+| `node apps/gm-react/tests/visual/check-baseline-budget.mjs`                                                                                                                                                                | 429 files, 32743.2 of 32768.0 KiB.                                                                                                                                |
+| `pnpm exec vitest run --config vitest.app.config.ts` over `app/help`, `app/shortcuts`, `ds`, `token-references`, `prepaint-motion`                                                                                         | 344 passed. `src/i18n`: 35 passed.                                                                                                                                |
+| `pnpm --filter @dndtools/gm-react typecheck`                                                                                                                                                                               | Passed.                                                                                                                                                           |
+| `pnpm lint` (raw-style count, full ESLint, boundary, emphasis, non-text contrast)                                                                                                                                          | Exit 0.                                                                                                                                                           |
+| `pnpm --filter @dndtools/gm-react build`                                                                                                                                                                                   | Passed; `check-prod-bundle` OK.                                                                                                                                   |
+| `pnpm gates`                                                                                                                                                                                                               | Exit 0. No `file-size-warn` for any owned path; the warnings it prints are for files outside this surface.                                                        |
+| `pnpm format:check:changed -- --base origin/loop/rc`                                                                                                                                                                       | 16 changed files, all Prettier-clean.                                                                                                                             |
+
+Owned files by size: DS `CommandPalette.jsx` 446 lines, app `CommandPalette.tsx` 443,
+`shortcuts/registry.ts` 311, `shortcuts/paletteActions.ts` 295, `help/HelpMenu.tsx` 261. Every file
+in the surface is under 500 lines, `CommandPaletteRow.jsx` (175) included.

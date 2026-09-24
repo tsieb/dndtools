@@ -22,8 +22,6 @@ export const allow = {
 	'apps/gm-react/src/app/ConnectedSources.tsx': 13,
 	'apps/gm-react/src/app/EncounterBuilder.tsx': 12,
 	'apps/gm-react/src/app/EncounterDraftRoster.tsx': 8,
-	'apps/gm-react/src/app/help/HelpMenu.tsx': 14,
-	'apps/gm-react/src/app/help/ShortcutsDialog.tsx': 9,
 	'apps/gm-react/src/app/Onboarding.tsx': 9,
 	'apps/gm-react/src/app/onboarding/ChoiceCard.tsx': 9,
 	'apps/gm-react/src/app/onboarding/StepRail.tsx': 11,

@@ -291,7 +291,12 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await openViaKeyboard(page, 'Meta+k');
 		const here = page.getByRole('group', { name: 'On this screen' });
 		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>scene');
-		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(1);
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveAttribute(
+			'aria-disabled',
+			'true',
+		);
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toContainText('No matches');
 		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>board');
 		// Undo is offered but blocked (with its reason) until the layout has a step to take back.
 		const undo = here.getByRole('option', { name: /Undo last change/ });
@@ -383,7 +388,14 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await openViaKeyboard(page, 'Meta+k');
 		for (const prefix of ['>board', '>scene']) {
 			await page.getByRole('dialog', PALETTE).getByRole('combobox').fill(prefix);
-			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(1);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveAttribute(
+				'aria-disabled',
+				'true',
+			);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toContainText(
+				'No matches',
+			);
 		}
 		await page.getByRole('combobox').fill('>add tile');
 		await expect(page.getByRole('option', { name: /^Add tile:/ })).toHaveCount(0);

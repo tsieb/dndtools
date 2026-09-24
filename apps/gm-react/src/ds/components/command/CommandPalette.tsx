@@ -40,32 +40,28 @@ export interface CommandPaletteProps extends Omit<
 	emptyDescription?: React.ReactNode;
 	/** Show the ↑↓ / ↵ / esc hint bar. Default true. */
 	showFooter?: boolean;
+	labels?: {
+		title?: string;
+		results?: string;
+		recent?: string;
+		navigate?: string;
+		select?: string;
+		close?: string;
+		resultCount?: (count: number) => string;
+	};
+	emptyIllustration?: React.ComponentProps<typeof Illustration>['name'];
 }
 
 import React from 'react';
+import { Illustration } from '../../illustrations';
 import { Icon } from '../core/Icon';
+import { Kbd, PaletteRow } from './CommandPaletteRow.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
 import { restoreReturnFocus } from '../../../platform/returnFocus';
 
-/**
- * CommandPalette — the ⌘K hot path. One overlay that lets the DM jump to a destination or fire
- * an action by typing, without leaving the table. It is the keyboard spine of the seven-section
- * IA the voice guide already promises ("⌘K on desktop") and the reserved `--z-command` token was
- * always waiting for.
- *
- * Behaviour & a11y contract:
- *  - role=dialog, aria-modal, labelled by the search box; opens focused on the input.
- *  - A combobox/listbox pairing: the input owns aria-activedescendant; ↑/↓ move the active row
- *    (wrapping, skipping disabled), Home/End jump, Enter runs it, Esc closes. Pointer hover also
- *    sets active so mouse and keyboard never disagree.
- *  - Substring match over each command's label + keywords; empty query surfaces a Recent section
- *    (from `recentIds`) above the authored groups, then a calm empty state when nothing matches.
- *  - Active row uses the system's selected treatment — gold tint + a gold left rail — never colour
- *    alone; group headers are UPPERCASE tracked eyebrows; command labels stay sentence case.
- *  - Top-anchored (not centred) so the eye lands where typing happens; scrim click + Esc close.
- *
- * Renders inline (fixed-position, token z-index) like Dialog/Popover — no portal, no ReactDOM dep.
- */
+/** Keyboard-driven modal combobox: arrows skip disabled rows, Enter runs, Escape closes.
+ * Recent commands precede authored groups; active rows use both tint and a rail.
+ * Fixed-position inline rendering follows the shared Dialog focus/back contract. */
 function matches(q: string, c: Command) {
 	if (!q) return true;
 	const hay = (
@@ -88,6 +84,7 @@ function buildSections(
 	q: string,
 	recentIds: string[] | undefined,
 	groupOrder: string[] | undefined,
+	recentLabel: string,
 ): CommandSection[] {
 	const visible = commands.filter((c) => matches(q, c));
 	const order = (items: Command[]) => {
@@ -114,46 +111,12 @@ function buildSections(
 		const recent = recentIds.map((id) => byId.get(id)).filter(Boolean) as Command[];
 		const recentSet = new Set(recentIds);
 		const rest = visible.filter((c) => !recentSet.has(c.id));
-		return [{ label: 'Recent', icon: 'recent', items: recent }, ...order(rest)].filter(
+		return [{ label: recentLabel, icon: 'recent', items: recent }, ...order(rest)].filter(
 			(s) => s.items.length,
 		);
 	}
 	return order(visible).filter((s) => s.items.length);
 }
-
-function Kbd({ children }: { children?: React.ReactNode }) {
-	return (
-		<kbd
-			style={{
-				display: 'inline-flex',
-				alignItems: 'center',
-				justifyContent: 'center',
-				minWidth: 18,
-				height: 18,
-				padding: '0 5px',
-				fontFamily: 'var(--font-mono)',
-				fontSize: 'var(--text-2xs)',
-				fontWeight: 'var(--font-weight-medium)',
-				lineHeight: 1,
-				color: 'var(--color-text-tertiary)',
-				background: 'var(--color-surface-sunken)',
-				border: '1px solid var(--color-border)',
-				borderRadius: 'var(--radius-sm)',
-			}}
-		>
-			{children}
-		</kbd>
-	);
-}
-
-const TONE_COLOR = {
-	accent: 'var(--color-accent)',
-	danger: 'var(--color-status-error)',
-	warning: 'var(--color-status-warning)',
-	success: 'var(--color-status-success)',
-	info: 'var(--color-status-info)',
-	'dm-only': 'var(--color-dm-only-badge, #a763e8)',
-};
 
 export function CommandPalette({
 	open = false,
@@ -165,6 +128,8 @@ export function CommandPalette({
 	emptyTitle = 'No matches',
 	emptyDescription = 'Try a different word, or check your spelling.',
 	showFooter = true,
+	labels = {},
+	emptyIllustration,
 	style,
 	...rest
 }: CommandPaletteProps) {
@@ -181,8 +146,8 @@ export function CommandPalette({
 
 	const q = query.trim().toLowerCase();
 	const sections = React.useMemo(
-		() => buildSections(commands, q, recentIds, groupOrder),
-		[commands, q, recentIds, groupOrder],
+		() => buildSections(commands, q, recentIds, groupOrder, labels.recent ?? 'Recent'),
+		[commands, q, recentIds, groupOrder, labels.recent],
 	);
 	const flat = React.useMemo(() => sections.flatMap((s) => s.items), [sections]);
 
@@ -317,7 +282,7 @@ export function CommandPalette({
 				ref={panelRef}
 				role="dialog"
 				aria-modal="true"
-				aria-label={dsCopy['ds.commandPalette.commandPalette']}
+				aria-label={labels.title ?? dsCopy['ds.commandPalette.commandPalette']}
 				style={{
 					width: 620,
 					maxWidth: '100%',
@@ -348,7 +313,7 @@ export function CommandPalette({
 					<Icon
 						name="search"
 						size="sm"
-						style={{ color: 'var(--color-text-tertiary)', flex: '0 0 auto' }}
+						style={{ color: 'var(--color-text-secondary)', flex: '0 0 auto' }}
 					/>
 					<input
 						ref={inputRef}
@@ -387,7 +352,7 @@ export function CommandPalette({
 					ref={listRef}
 					id={`${baseId}-list`}
 					role="listbox"
-					aria-label={dsCopy['ds.commandPalette.results']}
+					aria-label={labels.results ?? dsCopy['ds.commandPalette.results']}
 					style={{
 						position: 'relative',
 						overflowY: 'auto',
@@ -397,6 +362,9 @@ export function CommandPalette({
 				>
 					{flat.length === 0 ? (
 						<div
+							role="option"
+							aria-disabled="true"
+							aria-selected="false"
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
@@ -404,10 +372,14 @@ export function CommandPalette({
 								textAlign: 'center',
 								gap: 'var(--space-2)',
 								padding: 'var(--space-6) var(--space-5)',
-								color: 'var(--color-text-tertiary)',
+								color: 'var(--color-text-secondary)',
 							}}
 						>
-							<Icon name="search" size="lg" style={{ opacity: 0.5 }} />
+							{emptyIllustration ? (
+								<Illustration name={emptyIllustration} />
+							) : (
+								<Icon name="search" size="lg" />
+							)}
 							<div
 								style={{
 									fontFamily: 'var(--font-sans)',
@@ -443,7 +415,7 @@ export function CommandPalette({
 										fontWeight: 'var(--font-weight-semibold)',
 										letterSpacing: 'var(--tracking-wider)',
 										textTransform: 'uppercase',
-										color: 'var(--color-text-tertiary)',
+										color: 'var(--color-text-secondary)',
 									}}
 								>
 									{sec.icon && <Icon name={sec.icon} size="micro" />}
@@ -452,143 +424,18 @@ export function CommandPalette({
 								{sec.items.map((cmd) => {
 									counter += 1;
 									const idx = counter;
-									const isActive = idx === active;
-									const tone = TONE_COLOR[cmd.tone!] || 'var(--color-accent)';
 									return (
-										<div
+										<PaletteRow
 											key={cmd.id}
-											ref={(el) => {
+											cmd={cmd}
+											id={`${baseId}-opt-${idx}`}
+											isActive={idx === active}
+											rowRef={(el: HTMLDivElement | null) => {
 												itemRefs.current[idx] = el;
 											}}
-											id={`${baseId}-opt-${idx}`}
-											role="option"
-											aria-selected={isActive}
-											aria-disabled={cmd.disabled || undefined}
-											onMouseMove={() => {
-												if (!cmd.disabled) setActive(idx);
-											}}
-											onClick={() => run(cmd)}
-											style={{
-												position: 'relative',
-												display: 'flex',
-												alignItems: 'center',
-												gap: 'var(--space-3)',
-												padding: 'var(--space-2) var(--space-3)',
-												borderRadius: 'var(--radius-md)',
-												cursor: cmd.disabled ? 'not-allowed' : 'pointer',
-												opacity: cmd.disabled ? 0.45 : 1,
-												background: isActive ? 'var(--color-interactive-selected)' : 'transparent',
-												transition: 'background var(--duration-fast) var(--easing-standard)',
-											}}
-										>
-											{isActive && (
-												<span
-													aria-hidden="true"
-													style={{
-														position: 'absolute',
-														left: 0,
-														top: 6,
-														bottom: 6,
-														width: 3,
-														borderRadius: 'var(--radius-full)',
-														background: 'var(--color-accent)',
-													}}
-												/>
-											)}
-											{cmd.icon && (
-												<span
-													style={{
-														display: 'inline-flex',
-														alignItems: 'center',
-														justifyContent: 'center',
-														width: 30,
-														height: 30,
-														flex: '0 0 auto',
-														borderRadius: 'var(--radius-md)',
-														background: isActive
-															? 'color-mix(in srgb, ' + tone + ' 16%, transparent)'
-															: 'var(--color-surface-sunken)',
-														color: isActive ? tone : 'var(--color-text-secondary)',
-														transition:
-															'background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard)',
-													}}
-												>
-													<Icon name={cmd.icon} size="sm" />
-												</span>
-											)}
-											<div
-												style={{
-													flex: 1,
-													minWidth: 0,
-													display: 'flex',
-													flexDirection: 'column',
-													gap: 1,
-												}}
-											>
-												<span
-													style={{
-														fontFamily: 'var(--font-sans)',
-														fontSize: 'var(--text-base)',
-														fontWeight: 'var(--font-weight-medium)',
-														color: 'var(--color-text-primary)',
-														whiteSpace: 'nowrap',
-														overflow: 'hidden',
-														textOverflow: 'ellipsis',
-													}}
-												>
-													{cmd.label}
-												</span>
-												{cmd.description && (
-													<span
-														style={{
-															fontFamily: 'var(--font-sans)',
-															fontSize: 'var(--text-xs)',
-															color: 'var(--color-text-tertiary)',
-															whiteSpace: 'nowrap',
-															overflow: 'hidden',
-															textOverflow: 'ellipsis',
-														}}
-													>
-														{cmd.description}
-													</span>
-												)}
-											</div>
-											{cmd.meta && (
-												<span
-													style={{
-														fontFamily: 'var(--font-sans)',
-														fontSize: 'var(--text-xs)',
-														color: 'var(--color-text-tertiary)',
-														flex: '0 0 auto',
-													}}
-												>
-													{cmd.meta}
-												</span>
-											)}
-											{cmd.shortcut && (
-												<span
-													style={{
-														display: 'inline-flex',
-														alignItems: 'center',
-														gap: 3,
-														flex: '0 0 auto',
-													}}
-												>
-													{(Array.isArray(cmd.shortcut) ? cmd.shortcut : [cmd.shortcut]).map(
-														(k, i) => (
-															<Kbd key={i}>{k}</Kbd>
-														),
-													)}
-												</span>
-											)}
-											{cmd.trailing && (
-												<span
-													style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center' }}
-												>
-													{cmd.trailing}
-												</span>
-											)}
-										</div>
+											onActivate={() => setActive(idx)}
+											onRun={() => run(cmd)}
+										/>
 									);
 								})}
 							</div>
@@ -609,21 +456,18 @@ export function CommandPalette({
 							background: 'var(--color-surface)',
 							fontFamily: 'var(--font-sans)',
 							fontSize: 'var(--text-xs)',
-							color: 'var(--color-text-tertiary)',
+							color: 'var(--color-text-secondary)',
 						}}
 					>
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
 							<Kbd>↑</Kbd>
-							<Kbd>↓</Kbd>
-							{dsCopy['ds.commandPalette.navigate']}
+							<Kbd>↓</Kbd> {labels.navigate ?? dsCopy['ds.commandPalette.navigate']}
 						</span>
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
-							<Kbd>↵</Kbd>
-							{dsCopy['ds.commandPalette.select']}
+							<Kbd>↵</Kbd> {labels.select ?? dsCopy['ds.commandPalette.select']}
 						</span>
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
-							<Kbd>esc</Kbd>
-							{dsCopy['ds.commandPalette.close']}
+							<Kbd>esc</Kbd> {labels.close ?? dsCopy['ds.commandPalette.close']}
 						</span>
 						<span
 							// The app's primary search returned its result count as plain text, so a screen-reader
@@ -639,7 +483,9 @@ export function CommandPalette({
 								letterSpacing: 'var(--tracking-wide)',
 							}}
 						>
-							{flat.length} {flat.length === 1 ? 'result' : 'results'}
+							{labels.resultCount
+								? labels.resultCount(flat.length)
+								: `${flat.length} ${flat.length === 1 ? 'result' : 'results'}`}
 						</span>
 					</div>
 				)}
