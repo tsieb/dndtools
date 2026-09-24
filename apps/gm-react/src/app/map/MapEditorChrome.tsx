@@ -48,7 +48,7 @@ export function QuickToolStrip({ editor }: { editor: MapEditorApi }) {
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 10,
+				gap: 'var(--space-2)',
 				flexWrap: 'wrap',
 				minHeight: 50,
 				padding:
@@ -62,7 +62,7 @@ export function QuickToolStrip({ editor }: { editor: MapEditorApi }) {
 				style={{
 					display: 'inline-flex',
 					alignItems: 'center',
-					gap: 6,
+					gap: 'var(--space-1-5)',
 					font: `700 12px ${T.sans}`,
 					color: editing ? T.acc : T.ink,
 					whiteSpace: 'nowrap',
@@ -115,9 +115,9 @@ export function HeaderMenuItem({
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 9,
-				padding: '8px 10px',
-				borderRadius: 7,
+				gap: 'var(--space-2)',
+				padding: 'var(--space-2) var(--space-2)',
+				borderRadius: 'var(--radius-md)',
 				border: 'none',
 				background: hov ? T.hover : 'transparent',
 				cursor: 'pointer',

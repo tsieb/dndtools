@@ -39,7 +39,13 @@ export function ShortcutsDialog({
 				</Button>
 			}
 		>
-			<div data-shortcuts-overlay style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+			<div
+				data-shortcuts-overlay
+				tabIndex={0}
+				role="region"
+				aria-label={title ?? t('shortcuts.title')}
+				style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
+			>
 				{scopes.map((scope) => (
 					<section key={scope} aria-label={scopeLabel[scope]}>
 						<h3

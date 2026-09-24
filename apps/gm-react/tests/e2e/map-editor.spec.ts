@@ -1703,11 +1703,7 @@ test.describe('map editor: fog brush ergonomics and polygon lasso (RC-MAP-3.9)',
 
 		const canvas = page.getByRole('application');
 		const hasRing = () =>
-			canvas.evaluate((el) =>
-				[...el.querySelectorAll('div')].some(
-					(node) => getComputedStyle(node).borderRadius === '50%',
-				),
-			);
+			canvas.evaluate((el) => el.querySelector('[data-brush-preview]') !== null);
 
 		// Rect is the fog tool's default shape and has no brush radius, so no ring is drawn for it.
 		await page.keyboard.press('f');

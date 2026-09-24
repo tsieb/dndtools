@@ -76,10 +76,10 @@ export function ImportSourcePanel({
 						display: 'flex',
 						flexDirection: 'column',
 						alignItems: 'center',
-						gap: 8,
-						padding: '26px 16px',
+						gap: 'var(--space-2)',
+						padding: 'var(--space-6) var(--space-4)',
 						border: `1.5px dashed ${T.bdS}`,
-						borderRadius: 11,
+						borderRadius: 'var(--radius-lg)',
 						background: T.sunken,
 						cursor: 'pointer',
 						textAlign: 'center',
@@ -102,12 +102,12 @@ export function ImportSourcePanel({
 					) : (
 						<span style={{ font: `13px ${T.sans}`, color: T.sub }}>{t('mapImport.choose')}</span>
 					)}
-					<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `11px ${T.sans}`, color: T.sub }}>
 						{t('mapImport.accepted', {
 							mb: Math.round(MAP_IMPORT_MAX_ASSET_BYTES / (1024 * 1024)),
 						})}
 					</span>
-					<span style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `11px/1.5 ${T.sans}`, color: T.sub }}>
 						{t('mapImport.sizeNote', {
 							mb: Math.round(MAP_IMPORT_MAX_ASSET_BYTES / (1024 * 1024)),
 						})}
@@ -125,7 +125,7 @@ export function ImportSourcePanel({
 					</Field>
 					<div>
 						<PanelLabel>{t('mapImport.elements')}</PanelLabel>
-						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-1)' }}>
 							{IMPORT_ELEMENT_KINDS.map((k) => {
 								const on = declared.includes(k);
 								return (
@@ -134,9 +134,9 @@ export function ImportSourcePanel({
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 8,
-											padding: '6px 8px',
-											borderRadius: 8,
+											gap: 'var(--space-2)',
+											padding: 'var(--space-1-5) var(--space-2)',
+											borderRadius: 'var(--radius-md)',
 											border: `1px solid ${on ? T.accBd : T.bd}`,
 											background: on ? T.accSub : 'transparent',
 											cursor: 'pointer',
@@ -157,13 +157,13 @@ export function ImportSourcePanel({
 								);
 							})}
 						</div>
-						<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+						<div style={{ marginTop: 'var(--space-2)', font: `11px/1.5 ${T.sans}`, color: T.sub }}>
 							{t('mapImport.declareHint')}
 						</div>
 					</div>
 				</>
 			)}
-			<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+			<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
 				<Button variant="ghost" size="sm" onClick={onCancel}>
 					{t('common.action.cancel')}
 				</Button>
@@ -207,9 +207,9 @@ export function ImportPreviewPanel({
 				<div
 					style={{
 						display: 'flex',
-						gap: 8,
-						padding: 12,
-						borderRadius: 9,
+						gap: 'var(--space-2)',
+						padding: 'var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'var(--color-status-error-subtle)',
 						border: `1px solid ${T.err}`,
 					}}
@@ -251,7 +251,13 @@ export function ImportPreviewPanel({
 						</div>
 					)}
 					{preview.diagnostics.length > 0 && (
-						<div style={{ border: `1px solid ${T.bd}`, borderRadius: 9, overflow: 'hidden' }}>
+						<div
+							style={{
+								border: `1px solid ${T.bd}`,
+								borderRadius: 'var(--radius-md)',
+								overflow: 'hidden',
+							}}
+						>
 							{preview.diagnostics.map((d, i) => {
 								const s = SUPPORT_PILL[d.support] ?? SUPPORT_PILL.unsupported!;
 								return (
@@ -261,8 +267,8 @@ export function ImportPreviewPanel({
 											display: 'flex',
 											alignItems: 'center',
 											justifyContent: 'space-between',
-											gap: 8,
-											padding: '7px 11px',
+											gap: 'var(--space-2)',
+											padding: 'var(--space-1-5) var(--space-3)',
 											background: i % 2 ? T.alt : 'transparent',
 										}}
 									>
@@ -271,9 +277,9 @@ export function ImportPreviewPanel({
 											style={{
 												display: 'inline-flex',
 												alignItems: 'center',
-												gap: 4,
-												padding: '2px 8px',
-												borderRadius: 999,
+												gap: 'var(--space-1)',
+												padding: 'var(--space-0-5) var(--space-2)',
+												borderRadius: 'var(--radius-full)',
 												background: s.bg,
 												color: s.tone,
 												border: `1px solid ${s.tone}`,
@@ -296,9 +302,9 @@ export function ImportPreviewPanel({
 					<div
 						style={{
 							display: 'flex',
-							gap: 8,
-							padding: '9px 12px',
-							borderRadius: 9,
+							gap: 'var(--space-2)',
+							padding: 'var(--space-2) var(--space-3)',
+							borderRadius: 'var(--radius-md)',
 							background: T.alt,
 							border: `1px solid ${T.bd}`,
 							font: `12px/1.5 ${T.sans}`,
@@ -311,11 +317,11 @@ export function ImportPreviewPanel({
 				</>
 			)}
 			{commitError && <div style={{ font: `12.5px ${T.sans}`, color: T.err }}>{commitError}</div>}
-			<div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+			<div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
 				<Button variant="ghost" size="sm" icon="chevron-left" onClick={onBack}>
 					{t('mapImport.back')}
 				</Button>
-				<div style={{ display: 'flex', gap: 8 }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 					<Button variant="ghost" size="sm" onClick={onCancel}>
 						{t('common.action.cancel')}
 					</Button>
@@ -354,9 +360,9 @@ export function ImportResultPanel({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 10,
-					padding: 12,
-					borderRadius: 9,
+					gap: 'var(--space-2)',
+					padding: 'var(--space-3)',
+					borderRadius: 'var(--radius-md)',
 					background: 'var(--color-status-success-subtle)',
 					border: `1px solid ${T.ok}`,
 				}}
@@ -379,8 +385,8 @@ export function ImportResultPanel({
 			{(result.gridApplied || result.scaleApplied || result.wallsApplied > 0) && (
 				<ul
 					style={{
-						margin: 0,
-						paddingLeft: 18,
+						margin: 'var(--space-0)',
+						paddingLeft: 'var(--space-4)',
 						font: `12.5px/1.7 ${T.sans}`,
 						color: T.sub,
 					}}
@@ -411,9 +417,9 @@ export function ImportResultPanel({
 				<div
 					style={{
 						display: 'flex',
-						gap: 8,
-						padding: '9px 12px',
-						borderRadius: 9,
+						gap: 'var(--space-2)',
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'var(--color-status-warning-subtle)',
 						border: `1px solid ${T.warn}`,
 						font: `12px/1.5 ${T.sans}`,
@@ -423,7 +429,12 @@ export function ImportResultPanel({
 					<Icon name="warning" size={15} color={T.warn} />
 					<div>
 						<div>{t('mapImport.result.followUpFailed')}</div>
-						<ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+						<ul
+							style={{
+								margin: 'var(--space-1) var(--space-0) var(--space-0)',
+								paddingLeft: 'var(--space-4)',
+							}}
+						>
 							{result.followUpErrors.map((message) => (
 								<li key={message}>{message}</li>
 							))}
@@ -435,9 +446,9 @@ export function ImportResultPanel({
 				<div
 					style={{
 						display: 'flex',
-						gap: 8,
-						padding: '9px 12px',
-						borderRadius: 9,
+						gap: 'var(--space-2)',
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'var(--color-status-warning-subtle)',
 						border: `1px solid ${T.warn}`,
 						font: `12px/1.5 ${T.sans}`,

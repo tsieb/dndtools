@@ -77,7 +77,7 @@ export function FogBrushHandle({
 				justifyContent: 'center',
 				width: 48,
 				height: 48,
-				borderRadius: 24,
+				borderRadius: 'var(--radius-xl)',
 				border: `1px solid ${T.accBd}`,
 				background: T.surf,
 				color: T.acc,

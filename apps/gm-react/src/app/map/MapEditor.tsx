@@ -1,73 +1,37 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { exportUvttJson, getMapBreadcrumbForActor } from '@dndtools/core';
-import { GENERATORS } from '@dndtools/core/map-generators';
 import {
 	Button,
+	EmptyState,
 	CommandPalette,
-	Icon,
 	IconButton,
-	Popover,
 	Sheet,
-	Tabs,
 	tabPanelProps,
-	VisibilityChip,
+	Tabs,
 } from '../../ds';
-import { T } from '../screen-kit';
-import { useViewport, useViewportHeight } from '../useViewport';
-import { useRuntime } from '../../runtime/RuntimeContext';
-import { ImportMapDialog } from './ImportMapDialog';
-import { VIS_CHIP } from './mapVisibility';
-import { useMapEditor, type FogMode, type MapNoticeTone } from './useMapEditor';
-import { TOOLS_BY_ID, type ToolId } from './tools';
-import { useI18n } from '../../i18n';
-import { useMapKeyboard } from './keyboard';
-import { ToolRail } from './ToolRail';
-import { ToolOptionsBar } from './ToolOptionsBar';
-import { StatusBar } from './StatusBar';
+import { T, srOnly } from '../screen-kit';
+import { MapEditorNotice } from './MapEditorNotice';
+import { EditorCanvas } from './canvas/EditorCanvas';
+import { AssetsPanel } from './dock/AssetsPanel';
+import { GraphPanel } from './dock/GraphPanel';
+import { HistoryPanel } from './dock/HistoryPanel';
 import { InspectorPanel } from './dock/InspectorPanel';
 import { LayersPanel } from './dock/LayersPanel';
-import { AssetsPanel } from './dock/AssetsPanel';
-import { HistoryPanel } from './dock/HistoryPanel';
-import { GraphPanel } from './dock/GraphPanel';
+import { GeneratePanel } from './generate/GeneratePanel';
+import { ImportMapDialog } from './ImportMapDialog';
+import { ListView } from './ListView';
 import {
-	HeaderMenuItem,
 	MapEditorCoach,
 	MapViewToggle,
 	QuickMapActions,
 	QuickToolStrip,
 	ShortcutOverlay,
 } from './MapEditorChrome';
-
-/** A11Y-011: severity must survive grayscale, so each notice tone gets a DISTINCT glyph shape. */
-const NOTICE_ICON: Record<MapNoticeTone, string> = {
-	warning: 'warning',
-	success: 'check',
-	info: 'info',
-};
-import { GeneratePanel, type GenPreview } from './generate/GeneratePanel';
-import { EditorCanvas } from './canvas/EditorCanvas';
-import { pickRasterAssetId } from '../mapGeometry';
-import { usePlatformCapabilities } from '../../platform/capabilities';
-import { registerBackHandler } from '../../platform/backNavigation';
-import { ListView } from './ListView';
-import { isQuickMapTool, normalizeQuickMapTool } from './quickMap';
-import { exportFile, FileExportError } from '../../platform/download';
-import { isolateModalSiblings } from '../../platform/modalIsolation';
-
-const FOCUSABLE =
-	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-const srOnly: React.CSSProperties = {
-	position: 'absolute',
-	width: 1,
-	height: 1,
-	padding: 0,
-	margin: -1,
-	overflow: 'hidden',
-	clip: 'rect(0,0,0,0)',
-	whiteSpace: 'nowrap',
-	border: 0,
-};
+import { MapEditorHeader } from './MapEditorHeader';
+import { StatusBar } from './StatusBar';
+import { ToolOptionsBar } from './ToolOptionsBar';
+import { ToolRail } from './ToolRail';
+import { type ToolId } from './tools';
+import { type FogMode } from './useMapEditor';
+import { useMapEditorShell } from './useMapEditorShell';
 
 /**
  * MAP-021 — the rebuilt map editor shell. A professional creative-app layout: header (Back · breadcrumb
@@ -92,375 +56,42 @@ export function MapEditor({
 	 * the breadcrumb then shows the current map's name alone, same as before this story. */
 	onNavigateToMap?: (mapId: string) => void;
 }) {
-	const { t } = useI18n();
-	const capabilities = usePlatformCapabilities();
-	const quickMapMode = capabilities.quickMapMode;
-	const editor = useMapEditor(
-		mapId,
-		quickMapMode
-			? initialTool === 'select'
-				? 'pan'
-				: normalizeQuickMapTool(initialTool)
-			: initialTool,
-	);
-	const runtime = useRuntime();
-	// RC-MAP-2.5 — the palette's "Mark party here" reads the LIVE viewport center, not the one
-	// baked into the palette-items memo (which does not depend on `editor.center` so it is not
-	// rebuilt on every pan/zoom).
-	const centerRef = useRef(editor.center);
-	centerRef.current = editor.center;
-	const viewport = useViewport();
-	const viewportHeight = useViewportHeight();
-	const isPhone = viewport === 'phone';
-
-	const [preview, setPreview] = useState<GenPreview | null>(null);
-	const [announcement, setAnnouncement] = useState('');
-	const [paletteOpen, setPaletteOpen] = useState(false);
-	const [helpOpen, setHelpOpen] = useState(false);
-	const [importOpen, setImportOpen] = useState(false);
-	const [exportOpen, setExportOpen] = useState(false);
-	const exportTriggerRef = useRef<HTMLSpanElement>(null);
-	const [mobileDock, setMobileDock] = useState(false);
-	// RC-MAP-4.1 — the canvas well shows either the drawing surface or the accessible inventory. It is
-	// a swap, not an overlay: two views of the same map are two `role="application"`/table readings of
-	// the same content, and leaving both mounted would make a screen reader walk the map twice.
-	const [listView, setListView] = useState(false);
-	// `projectToPlayers` does not go through `editor.run`, so `editor.busy` never latched for it and
-	// the button's own `disabled` was decorative — a double-click projected twice.
-	const [projecting, setProjecting] = useState(false);
-	// AssetsPanel is one of four dock TABS, so it unmounts on every tab change. Its Recents and
-	// Favorites lists therefore have to live out here or they wipe each time you glance at Layers.
-	const [assetRecent, setAssetRecent] = useState<string[]>([]);
-	const [assetFavorites, setAssetFavorites] = useState<string[]>([]);
-	const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
-	const [primeGen, setPrimeGen] = useState<string | undefined>(undefined);
-	const [quickSheetHeight, setQuickSheetHeight] = useState(() =>
-		Math.max(240, Math.round(viewportHeight * 0.56)),
-	);
-	const sheetResizeRef = useRef<{ startY: number; startHeight: number } | null>(null);
-	const rootRef = useRef<HTMLDivElement>(null);
-	const onCloseRef = useRef(onClose);
-	onCloseRef.current = onClose;
-
-	useEffect(
-		() =>
-			registerBackHandler('fullscreen', () => {
-				if (quickMapMode && editor.tool !== 'pan') {
-					setPreview(null);
-					editor.setTool('pan');
-					return true;
-				}
-				onCloseRef.current();
-				return true;
-			}),
-		[quickMapMode, editor.tool, editor.setTool],
-	);
-
-	const announce = useCallback((message: string) => {
-		// Toggle a trailing space so an identical consecutive message still re-announces.
-		setAnnouncement((prev) =>
-			prev === message ? message + String.fromCharCode(32) + String.fromCharCode(8203) : message,
-		);
-	}, []);
-
-	// Seed the fog mode the fog tool starts in (Atlas's Conceal shortcut opens straight into conceal).
-	const seededFog = useRef(false);
-	useEffect(() => {
-		if (seededFog.current) return;
-		seededFog.current = true;
-		editor.setOption('fogMode', initialFogMode);
-	}, [editor, initialFogMode]);
-
-	// The editor keymap is a `document`-level listener, so while the command palette, the shortcut
-	// overlay or the import/export dialogs were up, `v`/`b`/`[`/`0` still armed tools and moved the
-	// viewport BEHIND them — and Escape raced the dialog's own handler. A dialog owns the keyboard.
-	const dialogUp = paletteOpen || helpOpen || importOpen || exportOpen;
-	useMapKeyboard(editor, {
-		suspended: dialogUp,
-		onClose,
-		openPalette: () => {
-			if (!quickMapMode) setPaletteOpen(true);
-		},
-		openHelp: () => setHelpOpen(true),
+	const model = useMapEditorShell({ mapId, initialTool, initialFogMode, onClose, onNavigateToMap });
+	const {
+		t,
+		quickMapMode,
+		editor,
+		viewportHeight,
+		isPhone,
+		preview,
+		setPreview,
+		announcement,
+		paletteOpen,
+		setPaletteOpen,
+		helpOpen,
+		setHelpOpen,
+		importOpen,
+		setImportOpen,
+		mobileDock,
+		setMobileDock,
+		listView,
+		setListView,
+		assetRecent,
+		setAssetRecent,
+		assetFavorites,
+		setAssetFavorites,
+		cursor,
+		setCursor,
+		primeGen,
+		quickSheetHeight,
+		setQuickSheetHeight,
+		sheetResizeRef,
+		rootRef,
 		announce,
-		...(quickMapMode ? { isToolAllowed: isQuickMapTool, navigationTool: 'pan' as const } : {}),
-	});
-
-	// Quick map has no side dock, so a selection (or arming Generate) raises the bottom sheet that
-	// stands in for it — on the TRANSITION only. Re-asserting it on every render where a selection
-	// merely exists put the sheet back up the moment the DM changed tool with a marker still
-	// selected: the sheet they had just closed sprang back, and its scrim — a modal layer above the
-	// editor — swallowed the next press on the canvas, so the marker could not be dragged at all.
-	const dockTrigger = useRef({ selected: false, generating: false });
-	useEffect(() => {
-		if (!quickMapMode) return;
-		if (!isQuickMapTool(editor.tool)) editor.setTool('pan');
-		const now = { selected: editor.selection.length > 0, generating: editor.tool === 'generate' };
-		const was = dockTrigger.current;
-		if ((now.selected && !was.selected) || (now.generating && !was.generating)) setMobileDock(true);
-		dockTrigger.current = now;
-	}, [quickMapMode, editor.tool, editor.selection.length, editor.setTool]);
-
-	useEffect(() => {
-		if (!quickMapMode) return;
-		setQuickSheetHeight((height) =>
-			Math.min(Math.max(260, Math.round(viewportHeight * 0.82)), Math.max(220, height)),
-		);
-	}, [quickMapMode, viewportHeight]);
-
-	// Focus containment (dialog semantics): focus the shell on open, restore the opener on close.
-	useEffect(() => {
-		const opener = document.activeElement as HTMLElement | null;
-		const root = rootRef.current;
-		const restoreIsolation = root ? isolateModalSiblings(root) : () => {};
-		root?.focus();
-		return () => {
-			restoreIsolation();
-			opener?.focus?.();
-		};
-	}, []);
-
-	// aria-modal Tab trap — keep Tab inside the shell (AppShell stays mounted underneath). Open
-	// dialogs/palette/sheets own their own Tab cycle, so skip the trap while one is up.
-	const overlayUp = dialogUp || ((quickMapMode || isPhone) && mobileDock);
-	useEffect(() => {
-		if (overlayUp) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== 'Tab') return;
-			const root = rootRef.current;
-			if (!root) return;
-			const nodes = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-				(n) => n.offsetParent !== null,
-			);
-			if (nodes.length === 0) {
-				e.preventDefault();
-				root.focus();
-				return;
-			}
-			const first = nodes[0]!;
-			const last = nodes[nodes.length - 1]!;
-			const active = document.activeElement;
-			if (e.shiftKey && (active === first || active === root)) {
-				e.preventDefault();
-				last.focus();
-			} else if (!e.shiftKey && active === last) {
-				e.preventDefault();
-				first.focus();
-			} else if (active instanceof HTMLElement && !root.contains(active)) {
-				e.preventDefault();
-				first.focus();
-			}
-		};
-		document.addEventListener('keydown', onKey);
-		return () => document.removeEventListener('keydown', onKey);
-	}, [overlayUp]);
-
-	const rasterAssetId = useMemo(() => {
-		const entity = runtime.state.maps.maps[mapId];
-		return entity ? pickRasterAssetId(entity.assetIds, runtime.state.maps.assets) : null;
-	}, [runtime.state.maps, mapId]);
-
-	const activeLayerName = useMemo(() => {
-		const id = editor.activeLayerId;
-		return editor.layers.find((l) => l.layerId === id)?.name ?? editor.layers[0]?.name ?? null;
-	}, [editor.activeLayerId, editor.layers]);
-
-	// RC-MAP-3.8 — the full nesting ancestry for the breadcrumb (root-first). Falls back to just this
-	// map's name when the map is unavailable (should not happen while the editor has it open) so the
-	// header never renders an empty trail.
-	const breadcrumb = useMemo(() => {
-		const result = getMapBreadcrumbForActor(
-			runtime.state.maps,
-			runtime.state.permissions,
-			editor.actorId,
-			mapId,
-		);
-		return result.kind === 'available'
-			? result.crumbs
-			: [{ mapId, name: editor.map?.name ?? mapId }];
-	}, [runtime.state.maps, runtime.state.permissions, editor.actorId, mapId, editor.map?.name]);
-
-	async function exportUvtt() {
-		const entity = runtime.state.maps.maps[mapId];
-		if (!entity) return;
-		const blob = new Blob([exportUvttJson(entity)], { type: 'application/json' });
-		const filename = `${(editor.map?.name ?? 'map').replace(/[^a-z0-9-]+/gi, '-').toLowerCase() || 'map'}.dd2vtt`;
-		try {
-			const result = await exportFile({
-				filename,
-				blob,
-				title: `Export ${editor.map?.name ?? 'map'}`,
-			});
-			announce(
-				result.status === 'cancelled'
-					? 'Map export cancelled.'
-					: quickMapMode
-						? 'Map sent to the Android share/save sheet.'
-						: 'Map exported for other VTTs (.dd2vtt).',
-			);
-			// Export is not a command, so `editor.run`'s notice-clearing never applied to it — a failed
-			// export left its warning banner standing over every later SUCCESSFUL one.
-			editor.setNotice(null);
-			setExportOpen(false);
-		} catch (error) {
-			// …and the popover stayed open on failure, covering the very notice this writes.
-			setExportOpen(false);
-			editor.setNotice(
-				error instanceof FileExportError
-					? error.message
-					: 'The map could not be exported. Check available storage and try again.',
-			);
-		}
-	}
-
-	async function projectToPlayers() {
-		const players = Object.values(runtime.state.permissions.actors).filter(
-			(a) => a.role === 'player',
-		);
-		if (players.length === 0) {
-			editor.setNotice(
-				'No players yet — add players in Settings → Players before projecting a map.',
-			);
-			return;
-		}
-		// These were the last two bare dispatches in the editor. `runtime.dispatch` THROWS while
-		// previewing (PREVIEW_READONLY_MESSAGE) and rethrows on a persist failure, and this button
-		// renders regardless of preview state — so Project used to do nothing at all, print nothing,
-		// and leave an unhandled rejection. It also bypasses `editor.run`, so the `disabled={busy}`
-		// on the button was dead and a double-click fired the projection twice; `projecting` is the
-		// real latch.
-		if (projecting) return;
-		setProjecting(true);
-		try {
-			const staged = await runtime.dispatch({
-				type: 'session.set-active-map',
-				actorId: editor.actorId,
-				payload: { mapId },
-			} as never);
-			if (staged.status !== 'accepted') {
-				editor.setNotice(staged.rejection.message);
-				return;
-			}
-			const projected = await runtime.dispatch({
-				type: 'session.project-active-map',
-				actorId: editor.actorId,
-				payload: { playerActorIds: players.map((p) => p.id) },
-			} as never);
-			if (projected.status === 'accepted') {
-				announce(`Projected to ${players.length} player${players.length === 1 ? '' : 's'}.`);
-				editor.setNotice(
-					`Projected “${editor.map?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'}.`,
-					'success',
-				);
-			} else {
-				editor.setNotice(projected.rejection.message);
-			}
-		} catch (err) {
-			editor.setNotice(
-				err instanceof Error ? err.message : 'The map couldn’t be projected — try again.',
-			);
-		} finally {
-			setProjecting(false);
-		}
-	}
-
-	// ── command palette entries: tools · layers · generators · actions ────────────────────────────
-	const paletteCommands = useMemo(() => {
-		const tools = [...TOOLS_BY_ID.values()]
-			.filter((tool) => !quickMapMode || isQuickMapTool(tool.id))
-			.map((tool) => ({
-				id: `tool-${tool.id}`,
-				label: t('mapEditor.palette.tool', { name: t(tool.label) }),
-				group: t('mapEditor.palette.group.tools'),
-				icon: tool.icon,
-				shortcut: tool.shortcut ? tool.shortcut.toUpperCase() : undefined,
-				keywords: t(tool.hint),
-				run: () => editor.setTool(tool.id),
-			}));
-		const layerCmds = editor.layers.map((l) => ({
-			id: `layer-${l.layerId}`,
-			label: t('mapEditor.palette.layer', { name: l.name }),
-			group: t('mapEditor.palette.group.layers'),
-			icon: 'layers',
-			run: () => {
-				editor.setActiveLayerId(l.layerId);
-				editor.setDock('layers');
-			},
-		}));
-		const genCmds = GENERATORS.map((g) => ({
-			id: `gen-${g.id}`,
-			label: t('mapEditor.palette.generate', { name: g.label }),
-			group: t('mapEditor.palette.group.generators'),
-			icon: 'tool-generate',
-			keywords: `${g.description} ${g.bestFor}`,
-			run: () => {
-				setPrimeGen(g.id);
-				editor.setTool('generate');
-			},
-		}));
-		const actions = [
-			{
-				id: 'act-undo',
-				label: t('common.action.undo'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'undo',
-				shortcut: ['⌘', 'Z'],
-				disabled: !editor.canUndo,
-				run: () => void editor.undo(),
-			},
-			{
-				id: 'act-redo',
-				label: t('mapEditor.redo'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'redo',
-				disabled: !editor.canRedo,
-				run: () => void editor.redo(),
-			},
-			{
-				id: 'act-export',
-				label: t('mapEditor.exportUvtt'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'download',
-				run: () => void exportUvtt(),
-			},
-			{
-				id: 'act-import',
-				label: t('mapEditor.palette.import'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'import',
-				run: () => setImportOpen(true),
-			},
-			{
-				id: 'act-project',
-				label: t('mapEditor.projectToPlayers'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'visibility-players',
-				run: () => void projectToPlayers(),
-			},
-			{
-				id: 'act-help',
-				label: t('mapEditor.shortcuts'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'info',
-				shortcut: '?',
-				run: () => setHelpOpen(true),
-			},
-		];
-		// RC-MAP-2.5 — the keyboard equivalent (WCAG 2.5.7 / guardrail #7) of the canvas's right-click
-		// "Mark party here": no pointer position to anchor to from the keyboard, so it marks the
-		// current viewport center — the same point the canvas is scrolled to look at.
-		if (editor.isDm) {
-			actions.push({
-				id: 'act-mark-party',
-				label: t('mapEditor.markPartyHere'),
-				group: t('mapEditor.palette.group.actions'),
-				icon: 'pin',
-				run: () => void editor.markPartyHere(centerRef.current),
-			});
-		}
-		return [...tools, ...layerCmds, ...genCmds, ...actions];
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editor.layers, editor.canUndo, editor.canRedo, quickMapMode]);
+		rasterAssetId,
+		activeLayerName,
+		paletteCommands,
+	} = model;
 
 	if (!editor.map) {
 		return (
@@ -479,13 +110,17 @@ export function MapEditor({
 					flexDirection: 'column',
 					alignItems: 'center',
 					justifyContent: 'center',
-					gap: 14,
+					gap: 'var(--space-3)',
 					background: T.bg,
 					color: T.sub,
 					font: `13px ${T.sans}`,
 				}}
 			>
-				{t('mapEditor.unavailable')}
+				<EmptyState
+					illustration="map-library"
+					title={t('mapEditor.unavailable')}
+					description={t('mapEditor.unavailableHint')}
+				/>
 				<Button variant="secondary" size="sm" icon="arrow-left" onClick={onClose}>
 					{t('mapEditor.backToAtlas')}
 				</Button>
@@ -519,7 +154,7 @@ export function MapEditor({
 	const listToggle = (
 		<MapViewToggle
 			listView={listView}
-			compact={isPhone || quickMapMode}
+			compact={model.compactHeader || quickMapMode}
 			onChange={setListView}
 			announce={announce}
 		/>
@@ -584,7 +219,7 @@ export function MapEditor({
 			/>
 			<div
 				{...tabPanelProps('map-dock', editor.dock)}
-				style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 14 }}
+				style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--space-3)' }}
 			>
 				{editor.dock === 'inspector' && <InspectorPanel editor={editor} announce={announce} />}
 				{editor.dock === 'layers' && <LayersPanel editor={editor} announce={announce} />}
@@ -612,7 +247,7 @@ export function MapEditor({
 			aria-modal="true"
 			data-fullscreen-overlay="map-editor"
 			data-quick-map={quickMapMode ? 'true' : undefined}
-			aria-label={`Map editor — ${map.name}`}
+			aria-label={t('mapEditor.namedDialog', { name: map.name })}
 			style={{
 				position: 'fixed',
 				inset: 0,
@@ -630,277 +265,13 @@ export function MapEditor({
 			</div>
 
 			{/* ── header ── */}
-			<header
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: isPhone ? 4 : 10,
-					padding: quickMapMode
-						? 'calc(6px + var(--safe-area-top, 0px)) max(8px, var(--safe-area-right, 0px)) 6px max(8px, var(--safe-area-left, 0px))'
-						: isPhone
-							? '7px 6px'
-							: '8px 14px',
-					borderBottom: `1px solid ${T.bd}`,
-					background: T.surf,
-					flex: '0 0 auto',
-					minWidth: 0,
-				}}
-			>
-				<IconButton
-					icon="arrow-left"
-					label={t('mapEditor.backToAtlas')}
-					variant="ghost"
-					size="sm"
-					onClick={onClose}
-				/>
-				<nav
-					aria-label={t('mapEditor.breadcrumb')}
-					// RC-MAP-3.8 — Escape/Backspace, while focus is anywhere in the trail, climbs one level:
-					// to the immediate parent map if the breadcrumb has ancestors, else all the way out to
-					// Atlas. Only fires from a plain key press (no modifier), so it never eats a text-field
-					// Backspace or a browser shortcut.
-					onKeyDown={(event) => {
-						if (event.key !== 'Escape' && event.key !== 'Backspace') return;
-						if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-						event.preventDefault();
-						const parent = breadcrumb[breadcrumb.length - 2];
-						if (parent) onNavigateToMap?.(parent.mapId);
-						else onClose();
-					}}
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 7,
-						minWidth: 0,
-						flex: isPhone ? 1 : undefined,
-						overflow: 'hidden',
-					}}
-				>
-					{!isPhone && (
-						<>
-							<button
-								type="button"
-								onClick={onClose}
-								style={{
-									border: 'none',
-									background: 'transparent',
-									cursor: 'pointer',
-									padding: 0,
-									font: `12px ${T.sans}`,
-									color: T.ter,
-								}}
-							>
-								{t('mapEditor.atlas')}
-							</button>
-							<Icon name="chevron-right" size={13} color={T.ter} />
-						</>
-					)}
-					{/* Ancestor crumbs (root-first, excluding the current map) — a live drill-down trail,
-					    not just a static "Atlas > name". Hidden on phone: there is no width budget for it
-					    there and the flat back button already reaches the parent. */}
-					{!isPhone &&
-						breadcrumb.slice(0, -1).map((crumb) => (
-							<span
-								key={crumb.mapId}
-								style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}
-							>
-								<button
-									type="button"
-									aria-label={t('mapEditor.goToMap', { name: crumb.name })}
-									onClick={() => onNavigateToMap?.(crumb.mapId)}
-									disabled={!onNavigateToMap}
-									style={{
-										border: 'none',
-										background: 'transparent',
-										cursor: onNavigateToMap ? 'pointer' : 'default',
-										padding: 0,
-										font: `12px ${T.sans}`,
-										color: T.ter,
-										whiteSpace: 'nowrap',
-										overflow: 'hidden',
-										textOverflow: 'ellipsis',
-										maxWidth: 140,
-									}}
-								>
-									{crumb.name}
-								</button>
-								<Icon name="chevron-right" size={13} color={T.ter} />
-							</span>
-						))}
-					<h1
-						style={{
-							margin: 0,
-							font: `700 14px ${T.disp}`,
-							color: T.ink,
-							whiteSpace: 'nowrap',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
-							minWidth: 0,
-						}}
-					>
-						{map.name}
-					</h1>
-				</nav>
-				{/* Compact on a phone: the full "DM ONLY" pill is ~97px, and the header's other six
-				    children all have hard minimums, so on a 393px handset it left the map-name <h1>
-				    about 46px — four characters and an ellipsis. `clippedControls()` cannot see an
-				    element that merely SHRINKS, so no gate was ever going to catch it. Compact keeps
-				    the icon (and moves the label onto `title` + the icon's accessible name). */}
-				{!quickMapMode && (
-					<VisibilityChip level={VIS_CHIP[map.visibility] ?? 'dm-only'} compact={isPhone} />
-				)}
-				{!isPhone && <div style={{ flex: 1 }} />}
-				{!isPhone && (
-					<span
-						style={{
-							display: 'inline-flex',
-							alignItems: 'center',
-							gap: 6,
-							font: `11.5px ${T.sans}`,
-							color: T.ter,
-						}}
-					>
-						<Icon
-							name={editor.busy ? 'loading' : 'success'}
-							size={13}
-							color={editor.busy ? T.ter : T.ok}
-						/>
-						{editor.busy ? t('mapEditor.saving') : t('mapEditor.saved')}
-					</span>
-				)}
-				{!quickMapMode && (
-					<>
-						<button
-							type="button"
-							onClick={() => setPaletteOpen(true)}
-							aria-label={t('mapEditor.searchPalette')}
-							style={{
-								display: 'inline-flex',
-								alignItems: 'center',
-								gap: 8,
-								padding: '6px 10px',
-								borderRadius: 8,
-								border: `1px solid ${T.bd}`,
-								background: T.raised,
-								color: T.sub,
-								cursor: 'pointer',
-								font: `12px ${T.sans}`,
-							}}
-						>
-							<Icon name="search" size={14} />
-							{!isPhone && <span>{t('mapEditor.search')}</span>}
-							{!isPhone && (
-								<kbd
-									style={{
-										font: `10px ${T.mono}`,
-										color: T.ter,
-										border: `1px solid ${T.bd}`,
-										borderRadius: 5,
-										padding: '0 4px',
-									}}
-								>
-									⌘K
-								</kbd>
-							)}
-						</button>
-						<div style={{ display: 'flex', gap: 2 }}>
-							<IconButton
-								icon="undo"
-								label={t('common.action.undo')}
-								variant="ghost"
-								size="sm"
-								disabled={!editor.canUndo}
-								onClick={() => void editor.undo()}
-							/>
-							<IconButton
-								icon="redo"
-								label={t('mapEditor.redo')}
-								variant="ghost"
-								size="sm"
-								disabled={!editor.canRedo}
-								onClick={() => void editor.redo()}
-							/>
-						</div>
-					</>
-				)}
-				{!phoneBar && listToggle}
-				<div style={{ position: 'relative' }}>
-					{/* display:contents adds no box of its own — it exists only to give the Popover a handle
-					    on its own trigger, so an outside-pointerdown close cannot race the button's click. */}
-					<span ref={exportTriggerRef} style={{ display: 'contents' }}>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon={quickMapMode ? 'more' : 'download'}
-							iconRight="chevron-down"
-							onClick={() => setExportOpen((v) => !v)}
-							aria-expanded={exportOpen}
-							aria-label={quickMapMode ? t('mapEditor.moreActions') : t('mapEditor.export')}
-						>
-							{isPhone || quickMapMode ? '' : t('mapEditor.export')}
-						</Button>
-					</span>
-					{exportOpen && (
-						<Popover
-							open
-							onClose={() => setExportOpen(false)}
-							triggerRef={exportTriggerRef}
-							// Named without a visible header, exactly as the two sibling map popovers are:
-							// `Popover` derives its accessible name only from a STRING `title`, so this one
-							// rendered an unnamed `role="dialog"` (axe `aria-dialog-name`). The axe gate never
-							// opens a popover, so nothing was going to catch it.
-							aria-label={quickMapMode ? t('mapEditor.moreActions') : t('mapEditor.exportMenu')}
-							width={220}
-							placement="bottom"
-							style={{
-								position: 'absolute',
-								right: 0,
-								top: 'calc(100% + 6px)',
-								transform: 'none',
-								zIndex: 30,
-							}}
-						>
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-								<HeaderMenuItem
-									icon="download"
-									label={t('mapEditor.exportUvtt')}
-									onClick={() => void exportUvtt()}
-								/>
-								<HeaderMenuItem
-									icon="import"
-									label={t('mapEditor.importMap')}
-									onClick={() => {
-										setExportOpen(false);
-										setImportOpen(true);
-									}}
-								/>
-								{quickMapMode && (
-									<HeaderMenuItem
-										icon="info"
-										label={t('mapEditor.aboutAdvanced')}
-										onClick={() => {
-											setExportOpen(false);
-											editor.setNotice(t('mapEditor.advancedNotice'), 'info');
-										}}
-									/>
-								)}
-							</div>
-						</Popover>
-					)}
-				</div>
-				{editor.isDm && (
-					<Button
-						variant="primary"
-						size="sm"
-						icon="visibility-players"
-						onClick={() => void projectToPlayers()}
-						disabled={editor.busy || projecting}
-						aria-label={t('mapEditor.projectToPlayers')}
-					>
-						{isPhone ? '' : t('mapEditor.project')}
-					</Button>
-				)}
-			</header>
+			<MapEditorHeader
+				model={model}
+				onClose={onClose}
+				onNavigateToMap={onNavigateToMap}
+				phoneBar={phoneBar}
+				listToggle={listToggle}
+			/>
 
 			<MapEditorCoach
 				rootRef={rootRef}
@@ -909,49 +280,7 @@ export function MapEditor({
 				activity={`${editor.tool}:${editor.selection.join(',')}`}
 			/>
 
-			{editor.notice && (
-				<div
-					// `setNotice` is where useMapEditor funnels EVERY command rejection and thrown error,
-					// and the editor's only live region is fed by `announce()`, which setNotice never
-					// calls — so "layer is locked" was silent to AT and looked like a neutral FYI.
-					// The skin used to be hard-coded to WARNING, but `projectToPlayers` reports its success
-					// through the same banner: "Projected “Docks” to 3 players." arrived yellow, behind a
-					// warning triangle, indistinguishable from a refusal. Tone now travels with the text.
-					role={editor.noticeTone === 'warning' ? 'alert' : 'status'}
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 10,
-						padding: '8px 14px',
-						background: `var(--color-status-${editor.noticeTone}-subtle)`,
-						borderBottom: `1px solid var(--color-status-${editor.noticeTone}-border)`,
-						font: `12.5px ${T.sans}`,
-						color: `var(--color-status-${editor.noticeTone}-text)`,
-					}}
-				>
-					<Icon name={NOTICE_ICON[editor.noticeTone]} size={15} />
-					<span style={{ flex: 1 }}>{editor.notice}</span>
-					<button
-						type="button"
-						onClick={() => editor.setNotice(null)}
-						aria-label={t('mapEditor.dismiss')}
-						// ~18px around a 14px glyph — under the 24px WCAG 2.5.8 minimum.
-						style={{
-							border: 'none',
-							background: 'transparent',
-							cursor: 'pointer',
-							display: 'inline-flex',
-							alignItems: 'center',
-							justifyContent: 'center',
-							minWidth: 24,
-							minHeight: 24,
-							padding: 2,
-						}}
-					>
-						<Icon name="close" size={14} color={T.ter} />
-					</button>
-				</div>
-			)}
+			<MapEditorNotice editor={editor} />
 
 			{/* ── workspace ── */}
 			{quickMapMode ? (
@@ -965,8 +294,8 @@ export function MapEditor({
 						<Sheet
 							open
 							side="bottom"
-							title={generating ? 'Generate map' : 'Map details'}
-							description="Drag the resize handle or use the arrow keys. Back closes this sheet first."
+							title={t(generating ? 'mapEditor.generateSheet' : 'mapEditor.detailsSheet')}
+							description={t('mapEditor.resizeHint')}
 							size={`${quickSheetHeight}px`}
 							onClose={() => {
 								setMobileDock(false);
@@ -1000,14 +329,19 @@ export function MapEditor({
 									alignItems: 'center',
 									justifyContent: 'center',
 									height: 48,
-									margin: '-20px -20px 8px',
+									margin: 'calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-2)',
 									cursor: 'ns-resize',
 									touchAction: 'none',
 								}}
 							>
 								<span
 									aria-hidden
-									style={{ width: 64, height: 5, borderRadius: 999, background: T.bdS }}
+									style={{
+										width: 64,
+										height: 5,
+										borderRadius: 'var(--radius-full)',
+										background: T.bdS,
+									}}
 								/>
 							</div>
 							<div
@@ -1031,7 +365,7 @@ export function MapEditor({
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
+							gap: 'var(--space-2)',
 							borderTop: `1px solid ${T.bd}`,
 							background: T.surf,
 						}}

@@ -27,12 +27,12 @@ function ParamRow({
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 6,
-				padding: '10px 0',
+				gap: 'var(--space-1-5)',
+				padding: 'var(--space-2) var(--space-0)',
 				borderBottom: `1px solid ${T.bd}`,
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+			<div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
 				<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{spec.label}</span>
 				<span
 					title={
@@ -44,8 +44,8 @@ function ParamRow({
 						font: `10px ${T.sans}`,
 						color: appliesImmediate ? T.info : T.ter,
 						border: `1px solid ${T.bd}`,
-						borderRadius: 6,
-						padding: '0 5px',
+						borderRadius: 'var(--radius-sm)',
+						padding: 'var(--space-0) var(--space-1)',
 					}}
 				>
 					{appliesImmediate ? 'live' : 're-run'}
@@ -87,7 +87,7 @@ function ParamControl({
 			if (draft.trim() !== '') commit(parsed);
 		};
 		return (
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<Slider
 					min={spec.min}
 					max={spec.max}
@@ -128,8 +128,8 @@ function ParamControl({
 						color: T.ink,
 						background: T.sunken,
 						border: `1px solid ${T.bdS}`,
-						borderRadius: 7,
-						padding: '5px 7px',
+						borderRadius: 'var(--radius-md)',
+						padding: 'var(--space-1) var(--space-1-5)',
 					}}
 				/>
 				<button
@@ -182,7 +182,11 @@ function ParamControl({
 		onChange([...set].sort());
 	};
 	return (
-		<div role="group" aria-label={spec.label} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+		<div
+			role="group"
+			aria-label={spec.label}
+			style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}
+		>
 			{spec.options.map((o) => {
 				const on = selected.includes(o.value);
 				return (
@@ -193,7 +197,12 @@ function ParamControl({
 						aria-checked={on}
 						title={o.help}
 						onClick={() => toggle(o.value)}
-						style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
+						style={{
+							border: 'none',
+							background: 'transparent',
+							padding: 'var(--space-0)',
+							cursor: 'pointer',
+						}}
 					>
 						<Chip tone={on ? 'accent' : 'neutral'} selected={on} icon={on ? 'check' : undefined}>
 							{o.label}
@@ -212,12 +221,12 @@ const stepBtn = {
 	width: 28,
 	height: 28,
 	flex: '0 0 auto',
-	borderRadius: 7,
+	borderRadius: 'var(--radius-md)',
 	border: `1px solid ${T.bdS}`,
 	background: T.raised,
 	color: T.sub,
 	cursor: 'pointer',
-	padding: 0,
+	padding: 'var(--space-0)',
 } as const;
 
 /**
@@ -265,7 +274,7 @@ export function ParamControls({
 		groups.set(key, bucket);
 	}
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 			{[...groups.entries()].map(([group, groupSpecs]) => (
 				<Accordion key={group} title={group} count={groupSpecs.length}>
 					{groupSpecs.map((spec) => (
@@ -293,7 +302,9 @@ function Accordion({
 }) {
 	const [open, setOpen] = useState(false);
 	return (
-		<div style={{ border: `1px solid ${T.bd}`, borderRadius: 9, overflow: 'hidden' }}>
+		<div
+			style={{ border: `1px solid ${T.bd}`, borderRadius: 'var(--radius-md)', overflow: 'hidden' }}
+		>
 			<button
 				type="button"
 				aria-expanded={open}
@@ -301,9 +312,9 @@ function Accordion({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 8,
+					gap: 'var(--space-2)',
 					width: '100%',
-					padding: '9px 11px',
+					padding: 'var(--space-2) var(--space-3)',
 					border: 'none',
 					background: T.alt,
 					cursor: 'pointer',
@@ -316,7 +327,11 @@ function Accordion({
 				<span style={{ flex: 1 }}>{title}</span>
 				<span style={{ font: `11px ${T.mono}`, color: T.ter }}>{count}</span>
 			</button>
-			{open && <div style={{ padding: '2px 11px 6px' }}>{children}</div>}
+			{open && (
+				<div style={{ padding: 'var(--space-0-5) var(--space-3) var(--space-1-5)' }}>
+					{children}
+				</div>
+			)}
 		</div>
 	);
 }

@@ -101,17 +101,19 @@ export function GraphPanel({
 
 	if (graph.nodes.length === 0) {
 		return (
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 				<div style={eb}>{t('mapGraph.title')}</div>
-				<p style={{ margin: 0, font: `12px ${T.sans}`, color: T.sub }}>{t('mapGraph.empty')}</p>
+				<p style={{ margin: 'var(--space-0)', font: `12px ${T.sans}`, color: T.sub }}>
+					{t('mapGraph.empty')}
+				</p>
 			</div>
 		);
 	}
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			<div style={eb}>{t('mapGraph.title')}</div>
-			<p style={{ margin: 0, font: `11px ${T.mono}`, color: T.ter }}>
+			<p style={{ margin: 'var(--space-0)', font: `11px ${T.mono}`, color: T.ter }}>
 				{t('mapGraph.summary', {
 					rooms: graph.roomCount,
 					corridors: graph.corridorCount,
@@ -119,7 +121,7 @@ export function GraphPanel({
 				})}
 			</p>
 			{graph.unreachable.length > 0 && (
-				<p style={{ margin: 0, font: `11.5px ${T.sans}`, color: T.warn }}>
+				<p style={{ margin: 'var(--space-0)', font: `11.5px ${T.sans}`, color: T.warn }}>
 					{t('mapGraph.unreachable', { count: graph.unreachable.length })}
 				</p>
 			)}
@@ -137,7 +139,7 @@ export function GraphPanel({
 					height: 160,
 					background: T.sunken,
 					border: `1px solid ${T.bd}`,
-					borderRadius: 6,
+					borderRadius: 'var(--radius-sm)',
 				}}
 			>
 				{graph.edges.map((edge) => {
@@ -176,7 +178,13 @@ export function GraphPanel({
 
 			<ul
 				aria-label={t('mapGraph.nodesLabel')}
-				style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: 0, padding: 0 }}
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-1-5)',
+					margin: 'var(--space-0)',
+					padding: 'var(--space-0)',
+				}}
 			>
 				{graph.nodes.map((node) => {
 					const selected = node.id === selectedId;
@@ -188,9 +196,9 @@ export function GraphPanel({
 								listStyle: 'none',
 								display: 'flex',
 								alignItems: 'center',
-								gap: 8,
-								padding: 6,
-								borderRadius: 6,
+								gap: 'var(--space-2)',
+								padding: 'var(--space-1-5)',
+								borderRadius: 'var(--radius-sm)',
 								border: `1px solid ${selected ? T.acc : T.bd}`,
 								background: selected ? T.alt : T.surf,
 							}}
@@ -201,7 +209,7 @@ export function GraphPanel({
 									flex: '0 0 auto',
 									width: 8,
 									height: 8,
-									borderRadius: '50%',
+									borderRadius: 'var(--radius-full)',
 									background: node.stocking ? STOCKING_COLOR[node.stocking] : UNKEYED_COLOR,
 								}}
 							/>
@@ -215,7 +223,7 @@ export function GraphPanel({
 									textAlign: 'left',
 									background: 'none',
 									border: 'none',
-									padding: 0,
+									padding: 'var(--space-0)',
 									cursor: 'pointer',
 									color: T.ink,
 									font: `12px ${T.sans}`,
@@ -255,7 +263,9 @@ export function GraphPanel({
 				})}
 			</ul>
 			{!editor.isDm && (
-				<p style={{ margin: 0, font: `11.5px ${T.sans}`, color: T.ter }}>{t('mapGraph.dmOnly')}</p>
+				<p style={{ margin: 'var(--space-0)', font: `11.5px ${T.sans}`, color: T.ter }}>
+					{t('mapGraph.dmOnly')}
+				</p>
 			)}
 		</div>
 	);

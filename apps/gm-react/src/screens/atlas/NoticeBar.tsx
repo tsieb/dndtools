@@ -22,16 +22,16 @@ export function NoticeBar({
 			role={notice.tone === 'error' ? 'alert' : 'status'}
 			aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
 			style={{
-				marginBottom: 14,
-				padding: '9px 12px',
-				borderRadius: 9,
+				marginBottom: 'var(--space-3)',
+				padding: 'var(--space-2) var(--space-3)',
+				borderRadius: 'var(--radius-md)',
 				background: notice.tone === 'error' ? 'var(--color-status-warning-subtle)' : T.alt,
 				border: `1px solid ${notice.tone === 'error' ? 'var(--color-status-warning-border)' : T.bd}`,
 				font: `12.5px ${T.sans}`,
 				color: notice.tone === 'error' ? 'var(--color-status-warning-text)' : T.sub,
 				display: 'flex',
 				alignItems: 'center',
-				gap: 10,
+				gap: 'var(--space-2)',
 			}}
 		>
 			<Icon

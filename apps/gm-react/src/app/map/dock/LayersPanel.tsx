@@ -1,11 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
 import type { MapLayerQueryEntry, SceneVisibility } from '@dndtools/core';
-import { Button, Chip, Dialog, EmptyState, Icon, Input, LayerRow, Popover } from '../../../ds';
-import { T, eb } from '../../screen-kit';
-import type { MapEditorApi } from '../useMapEditor';
-import { CATEGORY_TO_BADGE, VIS_CORE_TO_DS, VIS_DS_TO_CORE } from '../mapVocab';
-import { categoryForTool } from '../useMapEditor';
+import { useMemo, useRef, useState } from 'react';
+import { Button, Chip, Dialog, EmptyState, Input, LayerRow, Popover } from '../../../ds';
 import { useI18n } from '../../../i18n';
+import { T, eb } from '../../screen-kit';
+import { CATEGORY_TO_BADGE, VIS_CORE_TO_DS, VIS_DS_TO_CORE } from '../mapVocab';
+import type { MapEditorApi } from '../useMapEditor';
+import { categoryForTool } from '../useMapEditor';
+import { MenuItem, TagsDialog } from './LayerDialogs';
 
 /**
  * MAP-021 — the real Layers panel. A tag/category filter bar, then the render-ordered list built on the
@@ -79,8 +80,10 @@ export function LayersPanel({
 	}
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+		<div
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', height: '100%' }}
+		>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<span style={eb}>{t('mapDock.layers', { count: layers.length })}</span>
 				<span style={{ flex: 1 }} />
 				{isDm && (
@@ -104,7 +107,7 @@ export function LayersPanel({
 				onChange={(e: { target: { value: string } }) => setFilter(e.target.value)}
 			/>
 			{allTags.length > 0 && (
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
 					{allTags.map((tag) => {
 						const on = filter.trim().toLowerCase() === tag.toLowerCase();
 						return (
@@ -112,7 +115,12 @@ export function LayersPanel({
 								key={tag}
 								type="button"
 								onClick={() => setFilter(on ? '' : tag)}
-								style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
+								style={{
+									border: 'none',
+									background: 'transparent',
+									padding: 'var(--space-0)',
+									cursor: 'pointer',
+								}}
 							>
 								<Chip tone={on ? 'accent' : 'neutral'} selected={on}>
 									{tag}
@@ -126,13 +134,21 @@ export function LayersPanel({
 			<div
 				role="list"
 				aria-label={t('mapDock.layerList')}
-				style={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', flex: 1 }}
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-0)',
+					overflowY: 'auto',
+					flex: 1,
+				}}
 			>
 				{shown.map((l) => {
 					const index = layers.findIndex((x) => x.layerId === l.layerId);
 					return (
 						<div
 							key={l.layerId}
+							role="listitem"
+							aria-label={`${l.name}, type ${CATEGORY_TO_BADGE[l.category] ?? 'custom'}, ${VIS_CORE_TO_DS[l.visibility] ?? 'dm-only'}, ${l.locked ? 'locked' : 'unlocked'}`}
 							draggable={isDm}
 							onDragStart={(e) => {
 								setDragIndex(index);
@@ -174,7 +190,7 @@ export function LayersPanel({
 							onKeyDown={(e) => {
 								if (
 									e.target !== e.currentTarget &&
-									!(e.target as HTMLElement).matches('[role="listitem"]')
+									!(e.target as HTMLElement).matches('[data-map-layer-row]')
 								)
 									return;
 								if (e.key === 'Enter' || e.key === ' ') {
@@ -184,7 +200,7 @@ export function LayersPanel({
 							}}
 							style={{
 								position: 'relative',
-								borderRadius: 8,
+								borderRadius: 'var(--radius-md)',
 								background: activeId === l.layerId ? T.accSub : 'transparent',
 								// Emitted only while this row is actually hovered as a drop target — an
 								// `outline: cond ? x : 'none'` inline branch would beat the app's global
@@ -195,6 +211,9 @@ export function LayersPanel({
 							}}
 						>
 							<LayerRow
+								role="group"
+								data-map-layer-row
+								style={{ '--color-text-tertiary': 'var(--color-text-secondary)' }}
 								layer={{
 									name: l.name,
 									type: CATEGORY_TO_BADGE[l.category] ?? 'custom',
@@ -268,7 +287,9 @@ export function LayersPanel({
 										zIndex: 20,
 									}}
 								>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+									<div
+										style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
+									>
 										<MenuItem
 											icon="chevron-up"
 											label={t('mapDock.moveUp')}
@@ -388,116 +409,5 @@ export function LayersPanel({
 				/>
 			)}
 		</div>
-	);
-}
-
-function MenuItem({
-	icon,
-	label,
-	onClick,
-	disabled,
-	danger,
-}: {
-	icon: string;
-	label: string;
-	onClick: () => void;
-	disabled?: boolean;
-	danger?: boolean;
-}) {
-	// There is no global `button:hover` rule anywhere in this app and an inline style cannot express
-	// `:hover`, so this menu had ZERO pointer feedback: the row under the cursor looked exactly like
-	// the other four. A menu you cannot see yourself pointing at is genuinely hard to operate.
-	// `ds/components/map/LayerRow.jsx` is the in-repo pattern.
-	const [hov, setHov] = useState(false);
-	const highlight = hov && !disabled;
-	return (
-		<button
-			type="button"
-			disabled={disabled}
-			onClick={onClick}
-			onMouseEnter={() => setHov(true)}
-			onMouseLeave={() => setHov(false)}
-			onFocus={() => setHov(true)}
-			onBlur={() => setHov(false)}
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 9,
-				padding: '8px 10px',
-				borderRadius: 7,
-				border: 'none',
-				background: highlight
-					? danger
-						? 'var(--color-status-error-subtle)'
-						: T.hover
-					: 'transparent',
-				cursor: disabled ? 'not-allowed' : 'pointer',
-				opacity: disabled ? 0.4 : 1,
-				color: danger ? T.err : T.ink,
-				font: `12.5px ${T.sans}`,
-				textAlign: 'left',
-			}}
-		>
-			<Icon name={icon} size={14} color={danger ? T.err : T.ter} />
-			{label}
-		</button>
-	);
-}
-
-function TagsDialog({
-	editor,
-	layer,
-	onClose,
-}: {
-	editor: MapEditorApi;
-	layer: MapLayerQueryEntry;
-	onClose: () => void;
-}) {
-	const { t } = useI18n();
-	const [draft, setDraft] = useState(layer.tags.join(', '));
-	return (
-		<Dialog
-			open
-			onClose={onClose}
-			title={t('mapDock.tagsTitle', { name: layer.name })}
-			icon="tag"
-			size="sm"
-			footer={
-				<>
-					<Button variant="ghost" size="sm" onClick={onClose}>
-						{t('common.action.cancel')}
-					</Button>
-					<Button
-						variant="primary"
-						size="sm"
-						icon="check"
-						onClick={() => {
-							const tags = draft
-								.split(',')
-								.map((t) => t.trim())
-								.filter(Boolean);
-							void editor.run({
-								type: 'map.set-layer-tags',
-								actorId: editor.actorId,
-								payload: { mapId: editor.mapId, layerId: layer.layerId, tags, query: layer.query },
-							} as never);
-							onClose();
-						}}
-					>
-						{t('common.action.save')}
-					</Button>
-				</>
-			}
-		>
-			<Input
-				value={draft}
-				aria-label={t('mapDock.tagsLabel')}
-				placeholder={t('mapDock.tagsPlaceholder')}
-				onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
-			/>
-			<div style={{ marginTop: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
-				{t('mapDock.tagsHelp')}
-			</div>
-		</Dialog>
 	);
 }

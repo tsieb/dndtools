@@ -64,7 +64,7 @@ export function CombatOverlay({
 							display: 'flex',
 							flexDirection: 'column',
 							alignItems: 'center',
-							gap: 2,
+							gap: 'var(--space-0-5)',
 							zIndex: token.isActive ? 2 : 1,
 						}}
 					>
@@ -72,7 +72,7 @@ export function CombatOverlay({
 							style={{
 								width: diameter,
 								height: diameter,
-								borderRadius: '50%',
+								borderRadius: 'var(--radius-full)',
 								border: `1px solid ${T.bdS}`,
 								outline: token.isActive ? `3px solid ${T.acc}` : 'none',
 								outlineOffset: -1,
@@ -91,8 +91,8 @@ export function CombatOverlay({
 									font: `600 10px ${T.sans}`,
 									color: T.ink,
 									background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
-									padding: '1px 5px',
-									borderRadius: 4,
+									padding: 'var(--space-0) var(--space-1)',
+									borderRadius: 'var(--radius-sm)',
 									maxWidth: 96,
 									overflow: 'hidden',
 									textOverflow: 'ellipsis',

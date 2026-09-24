@@ -25,7 +25,7 @@ function Readout({ label, children }: { label: string; children: ReactNode }) {
 				display: 'flex',
 				alignItems: 'baseline',
 				justifyContent: 'space-between',
-				gap: 12,
+				gap: 'var(--space-3)',
 				font: `13px ${T.sans}`,
 			}}
 		>
@@ -41,9 +41,9 @@ function HelpNote({ tone = 'info', children }: { tone?: 'info' | 'warn'; childre
 		<div
 			style={{
 				display: 'flex',
-				gap: 8,
-				padding: '9px 12px',
-				borderRadius: 9,
+				gap: 'var(--space-2)',
+				padding: 'var(--space-2) var(--space-3)',
+				borderRadius: 'var(--radius-md)',
 				background: tone === 'warn' ? 'var(--color-status-warning-subtle)' : T.alt,
 				border: `1px solid ${border}`,
 				font: `12px/1.5 ${T.sans}`,
@@ -145,7 +145,7 @@ export function ImportAlignPanel({
 					aspectRatio:
 						imageWidth > 0 && imageHeight > 0 ? `${imageWidth} / ${imageHeight}` : '3 / 2',
 					maxHeight: 260,
-					borderRadius: 10,
+					borderRadius: 'var(--radius-md)',
 					border: `1px solid ${T.bd}`,
 					background: T.sunken,
 					overflow: 'hidden',
@@ -192,7 +192,7 @@ export function ImportAlignPanel({
 				]}
 			/>
 
-			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
 				<Field label={t('mapImport.align.cellWidth')}>
 					<Input
 						type="number"
@@ -262,7 +262,7 @@ export function ImportScalePanel({
 	return (
 		<>
 			<HelpNote>{t('mapImport.scale.help')}</HelpNote>
-			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
 				<Field label={t('mapImport.scale.perCell')}>
 					<Input
 						type="number"
@@ -364,10 +364,10 @@ export function ImportWallsPanel({
 							</Readout>
 							<div
 								style={{
-									borderRadius: 10,
+									borderRadius: 'var(--radius-md)',
 									border: `1px solid ${T.bd}`,
 									background: T.sunken,
-									padding: 6,
+									padding: 'var(--space-1-5)',
 								}}
 							>
 								<svg
@@ -416,11 +416,11 @@ export function WizardNav({
 }) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+		<div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
 			<Button variant="ghost" size="sm" icon="chevron-left" onClick={onBack}>
 				{t('mapImport.back')}
 			</Button>
-			<div style={{ display: 'flex', gap: 8 }}>
+			<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 				<Button variant="ghost" size="sm" onClick={onCancel}>
 					{t('common.action.cancel')}
 				</Button>

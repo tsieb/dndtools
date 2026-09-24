@@ -19,7 +19,7 @@ import type { CombatRosterEntry } from '../canvas/useCombatTokens';
 /** A labelled group inside the inspector. */
 export function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 			<div style={eb}>{title}</div>
 			{children}
 		</div>
@@ -117,7 +117,7 @@ export function MultiInspector({
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			<Section title={t('mapInspector.selectedCount', { count: editor.selection.length })}>
 				<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
 					{t('mapInspector.selectionBreakdown', {
@@ -125,7 +125,7 @@ export function MultiInspector({
 						tokens: selectedTokens.length,
 					})}
 				</div>
-				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-1-5)', flexWrap: 'wrap' }}>
 					<Button
 						variant="secondary"
 						size="sm"
@@ -180,7 +180,13 @@ export function CombatRosterSection({
 			<div style={{ font: `12px ${T.sans}`, color: T.sub }}>{t(tokenToolHint(true))}</div>
 			<ul
 				aria-label={t('mapInspector.combat')}
-				style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}
+				style={{
+					listStyle: 'none',
+					margin: 'var(--space-0)',
+					padding: 'var(--space-0)',
+					display: 'grid',
+					gap: 'var(--space-1)',
+				}}
 			>
 				{combat.roster.map((row) => {
 					const on = row.combatantId === selectedCombatantId;
@@ -194,11 +200,11 @@ export function CombatRosterSection({
 									width: '100%',
 									display: 'flex',
 									alignItems: 'center',
-									gap: 8,
+									gap: 'var(--space-2)',
 									minHeight: 44,
-									padding: '6px 8px',
+									padding: 'var(--space-1-5) var(--space-2)',
 									textAlign: 'left',
-									borderRadius: 8,
+									borderRadius: 'var(--radius-md)',
 									border: `1px solid ${on ? T.accBd : T.bd}`,
 									background: on ? T.accSub : T.surf,
 									color: T.ink,
@@ -212,7 +218,7 @@ export function CombatRosterSection({
 										flex: '0 0 auto',
 										width: 6,
 										height: 6,
-										borderRadius: '50%',
+										borderRadius: 'var(--radius-full)',
 										background: row.isActive ? T.acc : 'transparent',
 									}}
 								/>
@@ -261,7 +267,7 @@ export function CombatantInspector({
 }) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<Section title={t('mapInspector.combatant')}>
 				<div style={{ font: `600 15px ${T.sans}`, color: T.ink }}>{row.name}</div>
 				{row.isActive && (
@@ -273,7 +279,7 @@ export function CombatantInspector({
 					<HPBar current={row.hp} max={row.maxHp} label={t('mapInspector.combatantHp')} />
 				)}
 				{row.conditions.length > 0 && (
-					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
 						{row.conditions.map((condition) => (
 							<ConditionBadge key={condition} condition={condition} />
 						))}

@@ -196,7 +196,7 @@ export function useMapKeyboard(
 						e.preventDefault();
 						lastPoiOriginRef.current = target.position;
 						editor.setSelection([target.id]);
-						handlers.announce(`Selected “${target.label}”.`);
+						handlers.announce(editor.t('mapEdit.selectedName', { name: target.label }));
 					}
 				}
 				return;

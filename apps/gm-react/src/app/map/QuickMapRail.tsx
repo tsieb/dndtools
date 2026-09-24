@@ -29,7 +29,7 @@ export function QuickMapRail({
 			style={{
 				display: 'flex',
 				alignItems: 'stretch',
-				gap: 4,
+				gap: 'var(--space-1)',
 				overflowX: 'auto',
 				padding:
 					'6px max(8px, var(--safe-area-left, 0px)) calc(6px + var(--safe-area-bottom, 0px)) max(8px, var(--safe-area-right, 0px))',
@@ -53,12 +53,12 @@ export function QuickMapRail({
 							flexDirection: 'column',
 							alignItems: 'center',
 							justifyContent: 'center',
-							gap: 2,
+							gap: 'var(--space-0-5)',
 							minWidth: 58,
 							height: 52,
-							padding: '4px 7px',
+							padding: 'var(--space-1) var(--space-1-5)',
 							flex: '0 0 auto',
-							borderRadius: 10,
+							borderRadius: 'var(--radius-md)',
 							border: `1px solid ${active ? T.accBd : 'transparent'}`,
 							background: active ? T.accSub : 'transparent',
 							color: active ? T.acc : T.sub,
@@ -79,7 +79,12 @@ export function QuickMapRail({
 			})}
 			<span
 				aria-hidden
-				style={{ width: 1, margin: '5px 2px', background: T.bd, flex: '0 0 auto' }}
+				style={{
+					width: 1,
+					margin: 'var(--space-1) var(--space-0-5)',
+					background: T.bd,
+					flex: '0 0 auto',
+				}}
 			/>
 			<QuickAction icon="undo" label={t('mapEditor.undo')} disabled={!canUndo} onClick={onUndo} />
 			<QuickAction icon="redo" label={t('mapEditor.redo')} disabled={!canRedo} onClick={onRedo} />
@@ -110,12 +115,12 @@ function QuickAction({
 				flexDirection: 'column',
 				alignItems: 'center',
 				justifyContent: 'center',
-				gap: 2,
+				gap: 'var(--space-0-5)',
 				minWidth: 54,
 				height: 52,
-				padding: '4px 7px',
+				padding: 'var(--space-1) var(--space-1-5)',
 				flex: '0 0 auto',
-				borderRadius: 10,
+				borderRadius: 'var(--radius-md)',
 				border: '1px solid transparent',
 				background: 'transparent',
 				color: T.sub,

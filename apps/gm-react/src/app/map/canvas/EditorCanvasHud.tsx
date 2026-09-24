@@ -52,7 +52,7 @@ export function EditorCanvasHud({
 					bottom: quickMapMode ? 16 : 170,
 					display: 'flex',
 					flexDirection: 'column',
-					gap: 6,
+					gap: 'var(--space-1-5)',
 					zIndex: 6,
 				}}
 			>
@@ -83,8 +83,8 @@ export function EditorCanvasHud({
 				<span
 					style={{
 						textAlign: 'center',
-						padding: '2px 0',
-						borderRadius: 7,
+						padding: 'var(--space-0-5) var(--space-0)',
+						borderRadius: 'var(--radius-md)',
 						background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)',
 						font: `10.5px ${T.mono}`,
 						color: T.ink,
@@ -115,8 +115,8 @@ export function EditorCanvasHud({
 						top: 14,
 						transform: 'translateX(-50%)',
 						zIndex: 6,
-						padding: '5px 12px',
-						borderRadius: 8,
+						padding: 'var(--space-1) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)',
 						border: `1px solid ${T.accBd}`,
 						font: `600 12.5px ${T.mono}`,
@@ -133,8 +133,8 @@ export function EditorCanvasHud({
 						left: 14,
 						bottom: 16,
 						zIndex: 6,
-						padding: '5px 11px',
-						borderRadius: 8,
+						padding: 'var(--space-1) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)',
 						border: `1px solid ${T.bd}`,
 						font: `11.5px ${T.sans}`,
@@ -151,8 +151,8 @@ export function EditorCanvasHud({
 						left: 14,
 						bottom: 16,
 						zIndex: 6,
-						padding: '5px 11px',
-						borderRadius: 8,
+						padding: 'var(--space-1) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)',
 						border: `1px solid ${T.bd}`,
 						font: `11.5px ${T.sans}`,
@@ -185,11 +185,12 @@ export function EditorCanvasHud({
 								justifyContent: 'center',
 								width: 26,
 								height: 26,
-								borderRadius: '50% 50% 50% 0',
+								borderRadius:
+									'var(--radius-full) var(--radius-full) var(--radius-full) var(--radius-none)',
 								transform: 'rotate(-45deg)',
 								background: 'var(--color-accent)',
 								color: 'var(--color-text-inverse)',
-								border: '2px solid rgba(255,255,255,0.7)',
+								border: '2px solid var(--color-border-strong)',
 								boxShadow: 'var(--shadow-md)',
 							}}
 						>

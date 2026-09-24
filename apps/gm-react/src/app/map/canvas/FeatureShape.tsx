@@ -118,7 +118,7 @@ export function FeatureShape({ feature, color }: { feature: MapFeature; color: s
 		case 'light': {
 			const p = feature.points[0]!;
 			const radius = typeof props.radius === 'number' ? props.radius * 100 : 6;
-			const lightColor = typeof props.color === 'string' ? props.color : '#ffd6aa';
+			const lightColor = typeof props.color === 'string' ? props.color : 'var(--color-accent)';
 			return (
 				<g>
 					<circle

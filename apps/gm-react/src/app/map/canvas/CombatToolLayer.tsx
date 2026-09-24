@@ -308,7 +308,7 @@ export function CombatToolLayer({
 						position: 'absolute',
 						inset: 0,
 						zIndex: 4,
-						padding: 0,
+						padding: 'var(--space-0)',
 						border: 'none',
 						background: 'transparent',
 						cursor: 'crosshair',

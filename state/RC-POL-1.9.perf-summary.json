@@ -1,0 +1,42 @@
+{
+	"baseCommit": "2d9f566d194d10e597c8001015b7e8be31811d59",
+	"scope": "ENG-1.1 map-pan-zoom-desktop and map-pan-zoom-slim only",
+	"method": "Same workstation, interleaved revisions, median of seven independent batch statistics; grading uses scripts/perf/compare.ts measureCapture and core compareToBaseline with the default 20% drift tolerance.",
+	"limitations": "Desktop Chromium and slim emulation; 4 layers/100 POIs. Not a physical Android or dense-map hardware certification.",
+	"budgets": [
+		{
+			"budgetId": "map-pan-zoom-desktop",
+			"before": 59.88,
+			"after": 59.524,
+			"unit": "fps",
+			"target": 50,
+			"targetVerdict": "pass",
+			"batches": 7,
+			"comparison": {
+				"budgetId": "map-pan-zoom-desktop",
+				"verdict": "steady",
+				"observedValue": 59.524,
+				"baselineValue": 59.88,
+				"driftRatio": 0.005945223780895151,
+				"message": "Budget \"map-pan-zoom-desktop\" STEADY: 59.524fps is 0.6% worse than the 59.88fps baseline (tolerance 20.0%)."
+			}
+		},
+		{
+			"budgetId": "map-pan-zoom-slim",
+			"before": 59.88,
+			"after": 59.88,
+			"unit": "fps",
+			"target": 30,
+			"targetVerdict": "pass",
+			"batches": 7,
+			"comparison": {
+				"budgetId": "map-pan-zoom-slim",
+				"verdict": "steady",
+				"observedValue": 59.88,
+				"baselineValue": 59.88,
+				"driftRatio": 0,
+				"message": "Budget \"map-pan-zoom-slim\" STEADY: 59.88fps is 0.0% level with the 59.88fps baseline (tolerance 20.0%)."
+			}
+		}
+	]
+}

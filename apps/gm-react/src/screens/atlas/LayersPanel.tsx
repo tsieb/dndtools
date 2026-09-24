@@ -34,7 +34,7 @@ export function LayersPanel({
 	return (
 		<Panel
 			title={
-				<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+				<span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
 					{t('atlas.layers')}
 					<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 						{layers.length}
@@ -57,16 +57,16 @@ export function LayersPanel({
 				) : undefined
 			}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}>
 				{layers.map((l, i) => (
 					<div
 						key={l.layerId}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 9,
-							padding: '8px 6px',
-							borderRadius: 8,
+							gap: 'var(--space-2)',
+							padding: 'var(--space-2) var(--space-1-5)',
+							borderRadius: 'var(--radius-md)',
 							background: l.enabled ? 'transparent' : T.alt,
 						}}
 					>
@@ -74,7 +74,7 @@ export function LayersPanel({
 							// A gap between the two: they are opposite, irreversible-ish writes stacked
 							// directly on top of each other, so touching edges make a near-miss land on
 							// the wrong one.
-							<span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+							<span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 								<button
 									type="button"
 									title={t('atlas.moveUp')}
@@ -108,7 +108,7 @@ export function LayersPanel({
 							style={{
 								width: 10,
 								height: 10,
-								borderRadius: 3,
+								borderRadius: 'var(--radius-sm)',
 								background: `var(${CATEGORY_VAR[l.category] ?? '--layer-base'})`,
 								flex: '0 0 auto',
 							}}

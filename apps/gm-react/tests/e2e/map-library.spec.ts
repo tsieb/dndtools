@@ -70,7 +70,7 @@ test('gallery thumbnails, keyboard preview, region filtering and illustrated emp
 	await expect(cards).not.toHaveCount(0);
 	await page.getByRole('searchbox').fill('no-map-has-this-name-44');
 	await expect(page.getByText('No matching maps', { exact: true })).toBeVisible();
-	await expect(page.locator('[data-illustration="map-library"]')).toBeVisible();
+	await expect(page.locator('[data-illustration="search-none"]')).toBeVisible();
 	await page.getByRole('button', { name: 'Clear filter' }).click();
 	await expect(cards).not.toHaveCount(0);
 });

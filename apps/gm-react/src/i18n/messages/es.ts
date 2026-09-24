@@ -3,6 +3,58 @@ import type { MessageKey } from './en';
 /** Spanish. A `Partial` of `en`: an untranslated key renders its English source rather than a
  * blank or a bare identifier, so a partly translated locale degrades honestly. */
 export const es: Partial<Record<MessageKey, string>> = {
+	'mapEdit.newPoi': 'Nuevo punto de interés',
+	'mapEdit.newToken': 'Ficha {count}',
+	'mapEdit.poiPlaced': 'Punto de interés colocado.',
+	'mapEdit.tokenPlaced': 'Ficha colocada.',
+	'mapEdit.fogRevealed': 'Niebla despejada.',
+	'mapEdit.fogConcealed': 'Niebla oculta.',
+	'mapEdit.wallAdded': 'Muro añadido ({count} puntos).',
+	'mapEdit.routeAdded': 'Ruta añadida.',
+	'mapEdit.erased': '{count} elementos borrados.',
+	'mapEdit.scattered': '{count} objetos dispersados.',
+	'mapEdit.painted': 'Terreno pintado.',
+	'mapEdit.roomAdded': 'Sala añadida.',
+	'mapEdit.objectPlaced': 'Objeto colocado.',
+	'mapEdit.lightPlaced': 'Luz colocada.',
+	'mapEdit.doorPlaced': 'Puerta colocada.',
+	'mapEdit.labelPlaced': 'Etiqueta colocada.',
+	'mapEdit.cellFilled': 'Celda rellenada.',
+	'mapEdit.selected': '{count} seleccionados.',
+	'mapEdit.noFloor':
+		'No hay suelo del que derivar elementos. Pinta salas o genera un mapa primero.',
+	'mapEdit.exported': 'Escena UVTT exportada.',
+	'mapEdit.selectedName': '«{name}» seleccionado.',
+
+	'atlas.noMapSelected': 'Ningún mapa seleccionado',
+	'atlas.noDescription': 'Sin descripción',
+	'atlas.linkUnavailable': 'Este enlace apunta a un mapa al que no tienes acceso.',
+	'atlas.actionFailed': 'No se pudo completar la acción. Inténtalo de nuevo.',
+	'atlas.poiDeleted': 'Punto de interés «{name}» eliminado',
+	'atlas.poiRestored': '«{name}» restaurado',
+	'atlas.restoreFailed': 'No se pudo restaurar el punto de interés. Inténtalo de nuevo.',
+	'atlas.linkCopied': 'Enlace copiado. Al abrirlo se destaca este punto de interés en el mapa.',
+	'atlas.linkCopyFailed': 'No se pudo copiar el enlace. Cópialo manualmente: {url}',
+	'atlas.noPlayers':
+		'Aún no hay jugadores. Añádelos en Ajustes → Jugadores antes de proyectar un mapa.',
+	'atlas.projected': '«{name}» proyectado a {count, plural, one {# jugador} other {# jugadores}}.',
+	'atlas.layerName': 'Capa {count}',
+	'mapEditor.namedDialog': 'Editor de mapas — {name}',
+	'mapEditor.generateSheet': 'Generar mapa',
+	'mapEditor.detailsSheet': 'Detalles del mapa',
+	'mapEditor.resizeHint':
+		'Arrastra el control de tamaño o usa las flechas. Atrás cierra primero este panel.',
+	'mapEditor.unavailableHint': 'Vuelve al Atlas para elegir un mapa al que tengas acceso.',
+	'mapEditor.exportCancelled': 'Exportación del mapa cancelada.',
+	'mapEditor.exportShared': 'Mapa enviado al panel de Android para compartir o guardar.',
+	'mapEditor.exported': 'Mapa exportado para otras mesas virtuales (.dd2vtt).',
+	'mapEditor.exportFailed':
+		'No se pudo exportar el mapa. Revisa el espacio disponible e inténtalo de nuevo.',
+	'mapEditor.projectFailed': 'No se pudo proyectar el mapa. Inténtalo de nuevo.',
+	'mapEditor.projectAnnounced':
+		'Proyectado a {count, plural, one {# jugador} other {# jugadores}}.',
+	'mapEditor.exportTitle': 'Exportar {name}',
+
 	'mapEditor.coach.quickRailBody':
 		'Elige una herramienta en la barra resaltada. Usa Navegar para moverte por el mapa sin editarlo.',
 	'mapEditor.coach.rail': 'Elige una herramienta',

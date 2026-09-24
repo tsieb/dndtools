@@ -27,8 +27,10 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 	const empty = history.length === 0 && redo.length === 0;
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+		<div
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', height: '100%' }}
+		>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<span style={eb}>{t('mapDock.history')}</span>
 				<span style={{ flex: 1 }} />
 				<button
@@ -51,7 +53,15 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 				</button>
 			</div>
 
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', flex: 1 }}>
+			<div
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-0-5)',
+					overflowY: 'auto',
+					flex: 1,
+				}}
+			>
 				{redo.map((entry, i) => (
 					<Row
 						key={`r-${i}`}
@@ -67,8 +77,8 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 8,
-						padding: '6px 10px',
+						gap: 'var(--space-2)',
+						padding: 'var(--space-1-5) var(--space-2)',
 						font: `11px ${T.mono}`,
 						color: T.acc,
 						borderTop: redo.length ? `1px dashed ${T.bd}` : 'none',
@@ -89,7 +99,13 @@ export function HistoryPanel({ editor }: { editor: MapEditorApi }) {
 				))}
 
 				{empty && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '10px 4px' }}>
+					<div
+						style={{
+							font: `12px ${T.sans}`,
+							color: T.ter,
+							padding: 'var(--space-2) var(--space-1)',
+						}}
+					>
 						{t('mapDock.noActions')}
 					</div>
 				)}
@@ -118,9 +134,9 @@ function Row({
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 9,
-				padding: '7px 10px',
-				borderRadius: 7,
+				gap: 'var(--space-2)',
+				padding: 'var(--space-1-5) var(--space-2)',
+				borderRadius: 'var(--radius-md)',
 				border: 'none',
 				background: 'transparent',
 				cursor: 'pointer',

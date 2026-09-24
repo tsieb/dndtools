@@ -15,7 +15,13 @@ function MapChipThumb({ assetId, active }: { assetId: string | null; active: boo
 		<img
 			src={url}
 			alt=""
-			style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' }}
+			style={{
+				width: 18,
+				height: 18,
+				borderRadius: 'var(--radius-sm)',
+				objectFit: 'cover',
+				flex: '0 0 auto',
+			}}
 		/>
 	);
 }
@@ -29,6 +35,7 @@ export function MapChips({
 	selectedId,
 	delivered,
 	loading,
+	busy = false,
 	isDm,
 	creating,
 	onSelect,
@@ -41,6 +48,7 @@ export function MapChips({
 	selectedId: string | null;
 	delivered: Set<string>;
 	loading: boolean;
+	busy?: boolean;
 	isDm: boolean;
 	creating: boolean;
 	onSelect: (mapId: string) => void;
@@ -49,7 +57,14 @@ export function MapChips({
 }) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+		<div
+			style={{
+				display: 'flex',
+				gap: 'var(--space-2)',
+				flexWrap: 'wrap',
+				marginBottom: 'var(--space-4)',
+			}}
+		>
 			{!controlsOnly &&
 				maps.map((mp) => {
 					const on = mp.id === selectedId;
@@ -63,9 +78,9 @@ export function MapChips({
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 8,
-								padding: '7px 12px',
-								borderRadius: 9,
+								gap: 'var(--space-2)',
+								padding: 'var(--space-1-5) var(--space-3)',
+								borderRadius: 'var(--radius-md)',
 								cursor: 'pointer',
 								border: `1px solid ${on ? T.accBd : T.bd}`,
 								background: on ? T.accSub : T.surf,
@@ -103,17 +118,38 @@ export function MapChips({
 				</>
 			)}
 			{!controlsOnly && maps.length === 0 && !loading && (
-				<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>
+				<span
+					style={{
+						font: `13px ${T.sans}`,
+						color: T.ter,
+						padding: 'var(--space-1-5) var(--space-1)',
+					}}
+				>
 					{t(isDm ? 'atlas.noMapsDm' : 'atlas.noMapsPlayer')}
 				</span>
 			)}
+			{selectedId && (
+				<span
+					role="status"
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 'var(--space-1)',
+						font: `var(--text-xs) ${T.sans}`,
+						color: T.sub,
+					}}
+				>
+					<Icon name={busy ? 'loading' : 'success'} size={14} />
+					{t(busy ? 'mapEditor.saving' : 'mapEditor.saved')}
+				</span>
+			)}
 			<div style={{ flex: 1 }} />
-			<Button variant="ghost" size="sm" icon="edit" disabled={!selectedId} onClick={onOpenEditor}>
+			<Button variant="primary" size="sm" icon="edit" disabled={!selectedId} onClick={onOpenEditor}>
 				{t('atlas.openInEditor')}
 			</Button>
 			{isDm && (
 				<Button
-					variant="secondary"
+					variant={selectedId ? 'secondary' : 'primary'}
 					size="sm"
 					icon="new-map"
 					aria-expanded={creating}

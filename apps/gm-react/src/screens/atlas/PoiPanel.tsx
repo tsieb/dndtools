@@ -32,7 +32,7 @@ export function PoiPanel({
 	return (
 		<Panel
 			title={
-				<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+				<span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
 					{t('atlas.pois')}
 					<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 						{mapView?.pois.length ?? 0}
@@ -48,8 +48,8 @@ export function PoiPanel({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 6,
-						paddingBottom: 10,
+						gap: 'var(--space-1-5)',
+						paddingBottom: 'var(--space-2)',
 						borderBottom: `1px solid ${T.bd}`,
 					}}
 				>
@@ -59,11 +59,16 @@ export function PoiPanel({
 					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>{t('atlas.placePoiHint')}</div>
 				</div>
 			)}
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
 				{mapView?.pois.map((poi) => (
 					<div
 						key={poi.id}
-						style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px' }}
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 'var(--space-2)',
+							padding: 'var(--space-1-5) var(--space-1)',
+						}}
 					>
 						<button
 							type="button"

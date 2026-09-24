@@ -12,7 +12,7 @@ export function PanelLabel({ children, action }: { children: ReactNode; action?:
 				display: 'flex',
 				alignItems: 'center',
 				justifyContent: 'space-between',
-				margin: '2px 0 8px',
+				margin: 'var(--space-0-5) var(--space-0) var(--space-2)',
 			}}
 		>
 			<span style={eb}>{children}</span>

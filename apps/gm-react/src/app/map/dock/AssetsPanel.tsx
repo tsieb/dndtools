@@ -85,7 +85,9 @@ export function AssetsPanel({
 	const shelfTitle = category ? t(PROP_CATEGORY_LABEL_KEYS[category]) : t('mapDock.allObjects');
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+		<div
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', height: '100%' }}
+		>
 			{/* No `autoFocus`: the dock tabs use selection-follows-focus (ds/core/Tabs.jsx calls onChange
 			    from moveFocus), so arrowing ONTO the Assets tab yanked focus straight into this text
 			    field and a keyboard user could not arrow on to History. */}
@@ -96,7 +98,7 @@ export function AssetsPanel({
 				aria-label={t('mapDock.searchAssets')}
 				onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}
 			/>
-			<div style={{ display: 'flex', gap: 10, minHeight: 0, flex: 1 }}>
+			<div style={{ display: 'flex', gap: 'var(--space-2)', minHeight: 0, flex: 1 }}>
 				{/* category rail — one shelf at a time, because a prop belongs to exactly one shelf */}
 				<div
 					role="group"
@@ -104,7 +106,7 @@ export function AssetsPanel({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 3,
+						gap: 'var(--space-0-5)',
 						flex: '0 0 auto',
 						overflowY: 'auto',
 					}}
@@ -118,8 +120,8 @@ export function AssetsPanel({
 								aria-pressed={on}
 								onClick={() => setCategory(id)}
 								style={{
-									padding: '5px 9px',
-									borderRadius: 7,
+									padding: 'var(--space-1) var(--space-2)',
+									borderRadius: 'var(--radius-md)',
 									border: `1px solid ${on ? T.accBd : 'transparent'}`,
 									background: on ? T.accSub : 'transparent',
 									color: on ? T.acc : T.sub,
@@ -143,7 +145,7 @@ export function AssetsPanel({
 						overflowY: 'auto',
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 12,
+						gap: 'var(--space-3)',
 					}}
 				>
 					{favAssets.length > 0 && (
@@ -170,7 +172,7 @@ export function AssetsPanel({
 					    opens, and a DM who stamps this one and then wonders why it will not open has been
 					    misled by us, not by themselves. */}
 					{category === 'doors' && (
-						<p style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, margin: 0 }}>
+						<p style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, margin: 'var(--space-0)' }}>
 							{t('mapDock.doorsNote')}
 						</p>
 					)}
@@ -230,14 +232,14 @@ function AssetGrid({
 	const { t } = useI18n();
 	return (
 		<div>
-			<div style={{ ...eb, marginBottom: 6 }}>
+			<div style={{ ...eb, marginBottom: 'var(--space-1-5)' }}>
 				{title} · {assets.length}
 			</div>
 			<div
 				style={{
 					display: 'grid',
 					gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))',
-					gap: 6,
+					gap: 'var(--space-1-5)',
 				}}
 			>
 				{assets.map((a) => {
@@ -255,10 +257,10 @@ function AssetGrid({
 									display: 'flex',
 									flexDirection: 'column',
 									alignItems: 'center',
-									gap: 4,
+									gap: 'var(--space-1)',
 									width: '100%',
-									padding: '10px 4px',
-									borderRadius: 10,
+									padding: 'var(--space-2) var(--space-1)',
+									borderRadius: 'var(--radius-md)',
 									border: `1px solid ${on ? T.accBd : T.bd}`,
 									background: on ? T.accSub : T.raised,
 									color: on ? T.acc : T.ink,
@@ -298,7 +300,7 @@ function AssetGrid({
 									border: 'none',
 									background: 'transparent',
 									cursor: 'pointer',
-									padding: 2,
+									padding: 'var(--space-0-5)',
 									display: 'inline-flex',
 									alignItems: 'center',
 									justifyContent: 'center',

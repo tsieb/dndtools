@@ -1,76 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-	createRngStreams,
-	resolveParams,
-	type GeneratorDefinition,
-	type GeneratorGroup,
-	type GeneratorOutput,
-	type MapLayer,
-	type ParamValue,
-} from '@dndtools/core';
-import {
-	GENERATOR_GROUPS,
-	generatorsByGroup,
-	getGenerator,
-	isImmediateParamChange,
-} from '@dndtools/core/map-generators';
+import { type ParamValue } from '@dndtools/core';
+import { generatorsByGroup } from '@dndtools/core/map-generators';
 import { Button, Chip, Icon, Input } from '../../../ds';
+import { copyToClipboard } from '../../../platform/preferences';
 import { T, eb } from '../../screen-kit';
 import type { MapEditorApi } from '../useMapEditor';
-import { ParamControls, defaultOf } from './ParamControls';
-import { useI18n } from '../../../i18n';
-import { copyToClipboard } from '../../../platform/preferences';
-
-/** The ghost the canvas paints while a generation is being tuned. */
-export interface GenPreview {
-	layers: MapLayer[];
-}
-
-type Params = Record<string, ParamValue>;
-
-function paramsFromDefaults(def: GeneratorDefinition): Params {
-	const out: Params = {};
-	for (const spec of def.params) out[spec.id] = defaultOf(spec);
-	return out;
-}
-
-/**
- * A fresh seed string. Entropy is minted through the editor's runtime/platform seam (PLAT-006)
- * — this GUI module must not reach `crypto` directly. We keep just the 8-char random segment so
- * the seed stays short and copy-pasteable.
- */
-function randomSeed(mint: (prefix?: string) => string): string {
-	const raw = mint('seed');
-	const segment = raw.split('-')[1];
-	return segment && segment.length >= 6 ? segment : raw.replace(/[^a-z0-9]/gi, '').slice(0, 8);
-}
-
-/** Run a generator locally for the preview — no dispatch, no durable state. */
-function runLocal(
-	def: GeneratorDefinition,
-	seed: string,
-	params: Params,
-	idPrefix: string,
-	actorId: string,
-	/** The copy for a generator that throws. Passed in because this runs outside the component,
-	 * where `useI18n` is not available (RC-UX-1.2). */
-	failureText: string,
-): { output: GeneratorOutput } | { error: string } {
-	const resolved = resolveParams(def, params);
-	if ('error' in resolved) return { error: `${resolved.error.message}` };
-	try {
-		const output = def.run({
-			params: resolved.params,
-			rng: createRngStreams(seed),
-			idPrefix,
-			visibility: 'dm-only',
-			stamp: { actorId, now: new Date(0).toISOString() },
-		});
-		return { output };
-	} catch (err) {
-		return { error: err instanceof Error ? err.message : failureText };
-	}
-}
+import { GenPreview, paramsFromDefaults, randomSeed, runLocal } from './generationPreview';
+import { ParamControls } from './ParamControls';
+import { useGenerationPreview } from './useGenerationPreview';
 
 export function GeneratePanel({
 	editor,
@@ -89,123 +25,37 @@ export function GeneratePanel({
 	/** Android accepts a preset as one explicit edit, then returns to navigation. */
 	quickMapMode?: boolean;
 }) {
-	const { t } = useI18n();
-	const groupsWithGenerators = useMemo(
-		() => GENERATOR_GROUPS.filter((g) => generatorsByGroup(g.id).length > 0),
-		[],
-	);
-	const [group, setGroup] = useState<GeneratorGroup>(groupsWithGenerators[0]?.id ?? 'dungeon');
-	const generators = useMemo(() => generatorsByGroup(group), [group]);
-	const [generatorId, setGeneratorId] = useState<string>(generators[0]?.id ?? '');
-	const definition = getGenerator(generatorId) ?? generators[0];
-
-	// A ⌘K "Generate: …" entry primes a specific generator: jump to its group + select it.
-	useEffect(() => {
-		if (!initialGeneratorId) return;
-		const def = getGenerator(initialGeneratorId);
-		if (!def) return;
-		setGroup(def.group);
-		setGeneratorId(def.id);
-	}, [initialGeneratorId]);
-
-	const [params, setParams] = useState<Params>(() =>
-		definition ? paramsFromDefaults(definition) : {},
-	);
-	const [seed, setSeed] = useState<string>(() => randomSeed(editor.nextId));
-	const [presetId, setPresetId] = useState<string | null>(null);
-	const [showAdvanced, setShowAdvanced] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	/** After accept: the run's summary/notes + the layer ids for the Derive offer. */
-	const [accepted, setAccepted] = useState<{
-		summary: string | null;
-		notes: GeneratorOutput['notes'];
-		layerIds: string[];
-		seed: string;
-	} | null>(null);
-	const seedRef = useRef<HTMLInputElement>(null);
-
-	// Switching generator resets its knobs to defaults and clears any preset selection + preview.
-	useEffect(() => {
-		if (!definition) return;
-		setParams(paramsFromDefaults(definition));
-		setPresetId(null);
-		setAccepted(null);
-	}, [definition]);
-
-	// RC-MAP-3.5 — the params that fed the LAST preview run, so a change can be classified as
-	// immediate-only (every differing param is `applies: 'immediate'`) vs. regenerate-required.
-	const lastRunParamsRef = useRef<Params | null>(null);
-	const lastRunGeneratorIdRef = useRef<string | null>(null);
-	const rafRef = useRef<number | null>(null);
-
-	// Live preview: re-run the generator into the ghost whenever the generator/seed/params change. An
-	// immediate-only edit (e.g. dragging "size variation") is coalesced to one run per animation frame
-	// instead of one per input event, which is what a raw `<input type=range>` fires while dragging —
-	// without this, tuning a heavy generator (thousands of scattered props) pegs the main thread well
-	// past the `widget-update` budget (<= 100ms p95, PERFORMANCE.md). A regenerate-required edit (a new
-	// generator, seed, or a non-immediate param) always runs synchronously: it is not a drag gesture and
-	// must never be dropped or feel debounced.
-	useEffect(() => {
-		if (rafRef.current != null) {
-			cancelAnimationFrame(rafRef.current);
-			rafRef.current = null;
-		}
-		if (!definition) {
-			lastRunParamsRef.current = null;
-			setPreview(null);
-			return;
-		}
-		const runNow = () => {
-			rafRef.current = null;
-			lastRunParamsRef.current = params;
-			lastRunGeneratorIdRef.current = definition.id;
-			const result = runLocal(
-				definition,
-				seed,
-				params,
-				'preview',
-				editor.actorId,
-				t('mapGenerate.generatorFailed'),
-			);
-			if ('error' in result) {
-				setError(result.error);
-				setPreview(null);
-				return;
-			}
-			setError(null);
-			setPreview({ layers: result.output.layers });
-		};
-		const prev = lastRunParamsRef.current;
-		const coalesce =
-			prev !== null &&
-			lastRunGeneratorIdRef.current === definition.id &&
-			isImmediateParamChange(definition, prev, params);
-		if (coalesce) {
-			rafRef.current = requestAnimationFrame(runNow);
-			return () => {
-				if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-			};
-		}
-		runNow();
-	}, [definition, seed, params, editor.actorId, setPreview, t]);
-
-	// Clear the ghost when the panel unmounts (tool switched away).
-	useEffect(() => () => setPreview(null), [setPreview]);
-
-	const localOutput = useMemo(
-		() =>
-			definition
-				? runLocal(
-						definition,
-						seed,
-						params,
-						`gen-${seed}`,
-						editor.actorId,
-						t('mapGenerate.generatorFailed'),
-					)
-				: { error: t('mapGenerate.noGenerator') },
-		[definition, seed, params, editor.actorId, t],
-	);
+	const {
+		t,
+		groupsWithGenerators,
+		group,
+		setGroup,
+		generators,
+		generatorId,
+		setGeneratorId,
+		definition,
+		params,
+		setParams,
+		seed,
+		setSeed,
+		presetId,
+		setPresetId,
+		showAdvanced,
+		setShowAdvanced,
+		error,
+		setError,
+		accepted,
+		setAccepted,
+		seedRef,
+		localOutput,
+	} = useGenerationPreview({
+		editor,
+		setPreview,
+		announce,
+		onExit,
+		initialGeneratorId,
+		quickMapMode,
+	});
 
 	if (!definition) {
 		return <div style={{ font: `13px ${T.sans}`, color: T.sub }}>{t('mapGenerate.none')}</div>;
@@ -299,10 +149,10 @@ export function GeneratePanel({
 			: 0;
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<Icon name="tool-generate" size={16} color={T.acc} />
-				<span style={{ font: `700 14px ${T.disp}`, color: T.ink, flex: 1 }}>
+				<span style={{ font: `700 14px ${T.sans}`, color: T.ink, flex: 1 }}>
 					{t('mapGenerate.generate')}
 				</span>
 				<Button variant="ghost" size="sm" icon="close" onClick={onExit}>
@@ -312,8 +162,8 @@ export function GeneratePanel({
 
 			{/* group picker */}
 			<div>
-				<div style={{ ...eb, marginBottom: 6 }}>{t('mapGenerate.category')}</div>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+				<div style={{ ...eb, marginBottom: 'var(--space-1-5)' }}>{t('mapGenerate.category')}</div>
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}>
 					{groupsWithGenerators.map((g) => {
 						const on = g.id === group;
 						return (
@@ -327,7 +177,12 @@ export function GeneratePanel({
 									const first = generatorsByGroup(g.id)[0];
 									if (first) setGeneratorId(first.id);
 								}}
-								style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
+								style={{
+									border: 'none',
+									background: 'transparent',
+									padding: 'var(--space-0)',
+									cursor: 'pointer',
+								}}
 							>
 								<Chip tone={on ? 'accent' : 'neutral'} selected={on}>
 									{g.label}
@@ -339,7 +194,7 @@ export function GeneratePanel({
 			</div>
 
 			{/* generator picker (flagship first) */}
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
 				{generators.map((g) => {
 					const on = g.id === generatorId;
 					return (
@@ -351,9 +206,9 @@ export function GeneratePanel({
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
-								gap: 2,
-								padding: '9px 11px',
-								borderRadius: 9,
+								gap: 'var(--space-0-5)',
+								padding: 'var(--space-2) var(--space-3)',
+								borderRadius: 'var(--radius-md)',
 								textAlign: 'left',
 								cursor: 'pointer',
 								background: on ? T.accSub : T.raised,
@@ -375,8 +230,8 @@ export function GeneratePanel({
 			{/* preset chips — the primary interaction */}
 			{definition.presets.length > 0 && (
 				<div>
-					<div style={{ ...eb, marginBottom: 6 }}>{t('mapGenerate.presets')}</div>
-					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+					<div style={{ ...eb, marginBottom: 'var(--space-1-5)' }}>{t('mapGenerate.presets')}</div>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}>
 						{definition.presets.map((p) => {
 							const on = p.id === presetId;
 							return (
@@ -387,8 +242,8 @@ export function GeneratePanel({
 									title={p.description}
 									onClick={() => applyPreset(p.id)}
 									style={{
-										padding: '8px 12px',
-										borderRadius: 999,
+										padding: 'var(--space-2) var(--space-3)',
+										borderRadius: 'var(--radius-full)',
 										cursor: 'pointer',
 										background: on ? T.acc : T.raised,
 										color: on ? T.accFg : T.ink,
@@ -406,8 +261,8 @@ export function GeneratePanel({
 
 			{/* seed */}
 			<div>
-				<div style={{ ...eb, marginBottom: 6 }}>{t('mapGenerate.seed')}</div>
-				<div style={{ display: 'flex', gap: 6 }}>
+				<div style={{ ...eb, marginBottom: 'var(--space-1-5)' }}>{t('mapGenerate.seed')}</div>
+				<div style={{ display: 'flex', gap: 'var(--space-1-5)' }}>
 					<Input
 						ref={seedRef}
 						value={seed}
@@ -439,7 +294,7 @@ export function GeneratePanel({
 						onClick={() => void copyToClipboard(seed)}
 					/>
 				</div>
-				<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 4 }}>
+				<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 'var(--space-1)' }}>
 					{t('mapGenerate.seedHintFull')}
 				</div>
 			</div>
@@ -462,9 +317,9 @@ export function GeneratePanel({
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 6,
+							gap: 'var(--space-1-5)',
 							width: '100%',
-							padding: '8px 0',
+							padding: 'var(--space-2) var(--space-0)',
 							border: 'none',
 							background: 'transparent',
 							cursor: 'pointer',
@@ -492,9 +347,9 @@ export function GeneratePanel({
 				<div
 					style={{
 						display: 'flex',
-						gap: 8,
-						padding: '9px 12px',
-						borderRadius: 9,
+						gap: 'var(--space-2)',
+						padding: 'var(--space-2) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'var(--color-status-error-subtle)',
 						border: `1px solid ${T.err}`,
 						font: `12px ${T.sans}`,
@@ -513,8 +368,8 @@ export function GeneratePanel({
 					bottom: 0,
 					display: 'flex',
 					flexDirection: 'column',
-					gap: 8,
-					padding: '12px 0 2px',
+					gap: 'var(--space-2)',
+					padding: 'var(--space-3) var(--space-0) var(--space-0-5)',
 					borderTop: `1px solid ${T.bd}`,
 					background: T.surf,
 				}}
@@ -524,7 +379,7 @@ export function GeneratePanel({
 						? t('mapGenerate.fixSetting')
 						: t('mapGenerate.ghostPreview', { count: previewCount })}
 				</div>
-				<div style={{ display: 'flex', gap: 8 }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 					<Button
 						variant="primary"
 						size="sm"
@@ -553,14 +408,14 @@ export function GeneratePanel({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 10,
-						padding: 12,
-						borderRadius: 10,
+						gap: 'var(--space-2)',
+						padding: 'var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'var(--color-status-success-subtle)',
 						border: `1px solid ${T.ok}`,
 					}}
 				>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 						<Icon name="success" size={16} color={T.ok} />
 						<span style={{ font: `600 13px ${T.sans}`, color: T.ink }}>
 							{accepted.summary
@@ -578,7 +433,7 @@ export function GeneratePanel({
 						{t('mapGenerate.derive')}
 					</Button>
 					{accepted.notes && accepted.notes.length > 0 && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
 							{accepted.notes.slice(0, 6).map((n) => (
 								<div key={n.key} style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>
 									<strong style={{ color: T.ink }}>{n.title}</strong> — {n.body}
@@ -591,3 +446,5 @@ export function GeneratePanel({
 		</div>
 	);
 }
+
+export type { GenPreview } from './generationPreview';

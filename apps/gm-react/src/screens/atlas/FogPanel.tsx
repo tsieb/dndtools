@@ -21,7 +21,7 @@ export function FogPanel({
 	return (
 		<Panel
 			title={
-				<span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+				<span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
 					{t('atlas.fogOfWar')}
 					<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
 						{t('atlas.fogChanges', { count: mapView?.fog.length ?? 0 })}
@@ -34,7 +34,7 @@ export function FogPanel({
 		>
 			<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>{t('atlas.fogIntro')}</div>
 			{isDm && mapView && (
-				<div style={{ display: 'flex', gap: 8 }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 					<Button
 						variant="secondary"
 						size="sm"
@@ -56,14 +56,14 @@ export function FogPanel({
 				</div>
 			)}
 			{mapView && mapView.fog.length > 0 && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 					{mapView.fog.slice(-4).map((op) => (
 						<div
 							key={op.id}
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 8,
+								gap: 'var(--space-2)',
 								font: `11px ${T.mono}`,
 								color: T.ter,
 							}}

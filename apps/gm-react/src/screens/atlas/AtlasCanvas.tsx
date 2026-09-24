@@ -109,9 +109,9 @@ export function AtlasCanvas({
 						maxWidth: 'calc(100% - 190px)',
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 2,
-						padding: '5px 11px',
-						borderRadius: 8,
+						gap: 'var(--space-0-5)',
+						padding: 'var(--space-1) var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
 						backdropFilter: 'blur(2px)',
 						border: `1px solid ${T.bd}`,
@@ -119,21 +119,21 @@ export function AtlasCanvas({
 				>
 					<span
 						style={{
-							font: `700 16px ${T.disp}`,
+							font: `700 16px ${T.sans}`,
 							color: T.ink,
 							whiteSpace: 'nowrap',
 							overflow: 'hidden',
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{mapView?.name ?? selectedEntry?.name ?? 'No map selected'}
+						{mapView?.name ?? selectedEntry?.name ?? t('atlas.noMapSelected')}
 					</span>
 					{selectedEntry && (
 						<span
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 7,
+								gap: 'var(--space-1-5)',
 								font: `11px ${T.sans}`,
 								color: T.sub,
 								whiteSpace: 'nowrap',
@@ -142,11 +142,19 @@ export function AtlasCanvas({
 							}}
 						>
 							<VisibilityChip level={VIS_CHIP[selectedEntry.visibility] ?? 'dm-only'} />
-							{selectedEntry.description || 'No description'}
+							{selectedEntry.description || t('atlas.noDescription')}
 						</span>
 					)}
 				</div>
-				<div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
+				<div
+					style={{
+						position: 'absolute',
+						top: 12,
+						right: 12,
+						display: 'flex',
+						gap: 'var(--space-1-5)',
+					}}
+				>
 					<IconButton
 						icon="zoom-in"
 						label={t('atlas.zoomIn')}
@@ -172,8 +180,8 @@ export function AtlasCanvas({
 						style={{
 							display: 'inline-flex',
 							alignItems: 'center',
-							padding: '0 8px',
-							borderRadius: 7,
+							padding: 'var(--space-0) var(--space-2)',
+							borderRadius: 'var(--radius-md)',
 							background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)',
 							font: `11px ${T.mono}`,
 							color: T.ink,
@@ -207,7 +215,7 @@ export function AtlasCanvas({
 						bottom: 12,
 						left: 14,
 						display: 'flex',
-						gap: 8,
+						gap: 'var(--space-2)',
 						flexWrap: 'wrap',
 					}}
 				>

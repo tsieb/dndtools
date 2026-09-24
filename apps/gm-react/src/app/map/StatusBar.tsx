@@ -60,8 +60,8 @@ export function StatusBar({
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 16,
-				padding: '5px 14px',
+				gap: 'var(--space-4)',
+				padding: 'var(--space-1) var(--space-3)',
 				borderTop: `1px solid ${T.bd}`,
 				background: T.surf,
 				font: `10.5px ${T.mono}`,
@@ -70,7 +70,7 @@ export function StatusBar({
 				flexWrap: 'wrap',
 			}}
 		>
-			<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+			<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
 				<Icon name={def?.icon ?? 'tool-select'} size={12} color={T.ter} />
 				{def ? t(def.label) : editor.tool}
 			</span>
@@ -87,7 +87,12 @@ export function StatusBar({
 			{latest && (
 				<span
 					aria-label={t('mapCombat.areaReadout')}
-					style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.ink }}
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 'var(--space-1-5)',
+						color: T.ink,
+					}}
 				>
 					<Icon name="tool-aoe" size={12} color={T.ter} />
 					{t('mapCombat.areaCells', {
@@ -105,7 +110,12 @@ export function StatusBar({
 			{travel && (
 				<span
 					aria-label={t('mapEditor.travelReadout')}
-					style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.ink }}
+					style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 'var(--space-1-5)',
+						color: T.ink,
+					}}
 				>
 					<Icon name="tool-route" size={12} color={T.ter} />
 					{distanceText}

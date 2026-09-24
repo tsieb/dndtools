@@ -1,6 +1,7 @@
+import { srOnly } from '../../app/screen-kit';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { getMapViewForActor, queryMapLayers, type MapListEntry } from '@dndtools/core';
-import { Button, EmptyState } from '../../ds';
+import { Button, EmptyState, Skeleton } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
 import { MapThumbnailClient, type ThumbnailModel } from '../../app/map/thumbnail';
@@ -103,16 +104,24 @@ export function MapLibrary({
 	const tabId = filtered.some(({ map }) => map.id === focused) ? focused : filtered[0]?.map.id;
 	return (
 		<section className="map-library" aria-label={t('atlas.library.title')}>
+			<h2 style={srOnly}>{t('atlas.library.title')}</h2>
 			<label className="map-library-search">
 				{t('atlas.library.search')}
 				<input type="search" value={query} onChange={(e) => setQuery(e.target.value)} />
 			</label>
 			<p className="map-library-help">{t('atlas.library.help')}</p>
 			{!runtime.loaded ? (
-				<p role="status">{t('atlas.library.loading')}</p>
+				<div aria-busy="true" aria-label={t('atlas.library.loading')}>
+					<p role="status">{t('atlas.library.loading')}</p>
+					<div className="map-library-grid">
+						{[0, 1, 2].map((key) => (
+							<Skeleton key={key} variant="rect" height={140} />
+						))}
+					</div>
+				</div>
 			) : filtered.length === 0 ? (
 				<EmptyState
-					illustration="map-library"
+					illustration={entries.length ? 'search-none' : 'map-library'}
 					title={t(entries.length ? 'atlas.library.noMatches' : 'atlas.library.empty')}
 					description={t(entries.length ? 'atlas.library.filterHint' : 'atlas.library.emptyHint')}
 					action={

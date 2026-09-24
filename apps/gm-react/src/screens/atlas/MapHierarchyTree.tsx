@@ -148,14 +148,14 @@ export function MapHierarchyTree({
 				onChange={(e: { target: { value: string } }) => setFilter(e.target.value)}
 				placeholder={t('atlas.mapHierarchyFilter')}
 				aria-label={t('atlas.mapHierarchyFilter')}
-				style={{ marginBottom: 8 }}
+				style={{ marginBottom: 'var(--space-2)' }}
 			/>
 			<div
 				ref={treeRef}
 				role="tree"
 				aria-label={t('atlas.mapHierarchy')}
 				onKeyDown={onTreeKeyDown}
-				style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+				style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
 			>
 				{rows.map((row) => {
 					const isSelected = row.node.mapId === selectedId;
@@ -175,7 +175,7 @@ export function MapHierarchyTree({
 								...ghostBtn,
 								display: 'flex',
 								alignItems: 'center',
-								gap: 6,
+								gap: 'var(--space-1-5)',
 								width: '100%',
 								paddingLeft: 6 + row.depth * 16,
 								cursor: 'pointer',
@@ -199,7 +199,7 @@ export function MapHierarchyTree({
 										border: 'none',
 										background: 'transparent',
 										cursor: 'pointer',
-										padding: 0,
+										padding: 'var(--space-0)',
 									}}
 								>
 									<Icon
@@ -225,7 +225,13 @@ export function MapHierarchyTree({
 					);
 				})}
 				{rows.length === 0 && query !== '' && (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '4px 6px' }}>
+					<div
+						style={{
+							font: `12px ${T.sans}`,
+							color: T.ter,
+							padding: 'var(--space-1) var(--space-1-5)',
+						}}
+					>
 						{t('atlas.mapHierarchyEmpty', { query: filter.trim() })}
 					</div>
 				)}

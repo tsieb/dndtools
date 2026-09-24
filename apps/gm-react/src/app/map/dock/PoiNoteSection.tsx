@@ -77,7 +77,7 @@ function fieldsFor(card: NoteTypeCard, title: string): Record<string, unknown> {
 /** The local twin of the Inspector's section heading (the panel keeps its own copy). */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 			<div style={eb}>{title}</div>
 			{children}
 		</div>
@@ -110,7 +110,7 @@ export function PoiLinkSection({ editor, poi }: { editor: MapEditorApi; poi: Map
 
 	return (
 		<Section title={t('mapInspector.link')}>
-			<div style={{ display: 'flex', gap: 8 }}>
+			<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 				<Field label={t('mapInspector.entityType')} style={{ flex: 1 }}>
 					<Input
 						value={linkType}
@@ -151,7 +151,7 @@ export function PoiLinkSection({ editor, poi }: { editor: MapEditorApi; poi: Map
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 8,
+						gap: 'var(--space-2)',
 						font: `12px ${T.sans}`,
 						color: T.sub,
 					}}
@@ -278,14 +278,14 @@ function CreateNoteDialog({
 				</>
 			}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 				<Field label={t('mapPoiNote.title')}>
 					<Input
 						value={title}
 						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 					/>
 				</Field>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 					<div style={eb}>{t('mapPoiNote.type')}</div>
 					<div
 						role="radiogroup"
@@ -294,7 +294,7 @@ function CreateNoteDialog({
 						style={{
 							display: 'grid',
 							gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-							gap: 8,
+							gap: 'var(--space-2)',
 						}}
 					>
 						{NOTE_TYPES.map((c) => {
@@ -310,9 +310,9 @@ function CreateNoteDialog({
 									style={{
 										display: 'flex',
 										alignItems: 'flex-start',
-										gap: 10,
-										padding: 12,
-										borderRadius: 10,
+										gap: 'var(--space-2)',
+										padding: 'var(--space-3)',
+										borderRadius: 'var(--radius-md)',
 										cursor: 'pointer',
 										textAlign: 'left',
 										border: `1px solid ${on ? T.accBd : T.bd}`,
@@ -322,7 +322,9 @@ function CreateNoteDialog({
 									<span style={{ color: on ? T.acc : T.sub, flex: '0 0 auto' }}>
 										<Icon name={c.icon} size="sm" />
 									</span>
-									<span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+									<span
+										style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
+									>
 										<span style={{ font: `600 13px ${T.sans}`, color: T.ink }}>
 											{t(c.labelKey)}
 										</span>
@@ -338,14 +340,14 @@ function CreateNoteDialog({
 				<div
 					role="group"
 					aria-label={t('mapPoiNote.starter')}
-					style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}
 				>
 					<div style={eb}>{t('mapPoiNote.starter')}</div>
 					<pre
 						style={{
-							margin: 0,
-							padding: 10,
-							borderRadius: 8,
+							margin: 'var(--space-0)',
+							padding: 'var(--space-2)',
+							borderRadius: 'var(--radius-md)',
 							border: `1px solid ${T.bd}`,
 							background: T.sunken,
 							font: `12px ${T.mono}`,
@@ -360,7 +362,10 @@ function CreateNoteDialog({
 					</span>
 				</div>
 				{error !== null && (
-					<p role="alert" style={{ margin: 0, font: `12px ${T.sans}`, color: T.err }}>
+					<p
+						role="alert"
+						style={{ margin: 'var(--space-0)', font: `12px ${T.sans}`, color: T.err }}
+					>
 						{error}
 					</p>
 				)}

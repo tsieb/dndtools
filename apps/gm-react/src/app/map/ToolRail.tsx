@@ -49,7 +49,7 @@ export function ToolRail({
 				// two competing tiny scrollers. The flyout's borderTop assumes it sits BELOW.
 				// (Vertical orientation is unaffected: its flyout is absolutely positioned.)
 				flexDirection: 'column',
-				gap: 0,
+				gap: 'var(--space-0)',
 				height: '100%',
 				position: 'relative',
 			}}
@@ -59,8 +59,8 @@ export function ToolRail({
 					display: 'flex',
 					flexDirection: horizontal ? 'row' : 'column',
 					alignItems: 'center',
-					gap: 4,
-					padding: horizontal ? '4px 8px' : '10px 6px',
+					gap: 'var(--space-1)',
+					padding: horizontal ? 'var(--space-1) var(--space-2)' : 'var(--space-2) var(--space-1-5)',
 					overflowX: horizontal ? 'auto' : 'visible',
 					overflowY: horizontal ? 'visible' : 'auto',
 				}}
@@ -100,11 +100,11 @@ export function ToolRail({
 								flexDirection: 'column',
 								alignItems: 'center',
 								justifyContent: 'center',
-								gap: 2,
+								gap: 'var(--space-0-5)',
 								width: 44,
 								height: 44,
 								flex: '0 0 auto',
-								borderRadius: 10,
+								borderRadius: 'var(--radius-md)',
 								border: `1px solid ${isActiveGroup ? T.accBd : 'transparent'}`,
 								background: isActiveGroup ? T.accSub : isOpen ? T.alt : 'transparent',
 								color: isActiveGroup ? T.acc : T.sub,
@@ -127,8 +127,8 @@ export function ToolRail({
 						horizontal
 							? {
 									display: 'flex',
-									gap: 4,
-									padding: '4px 8px',
+									gap: 'var(--space-1)',
+									padding: 'var(--space-1) var(--space-2)',
 									borderTop: `1px solid ${T.bd}`,
 									background: T.raised,
 									overflowX: 'auto',
@@ -144,9 +144,9 @@ export function ToolRail({
 									top: 54,
 									display: 'flex',
 									flexDirection: 'column',
-									gap: 3,
-									padding: 6,
-									borderRadius: 12,
+									gap: 'var(--space-0-5)',
+									padding: 'var(--space-1-5)',
+									borderRadius: 'var(--radius-lg)',
 									background: T.overlay,
 									border: `1px solid ${T.bdS}`,
 									boxShadow: T.smd,
@@ -162,7 +162,7 @@ export function ToolRail({
 								letterSpacing: '.09em',
 								textTransform: 'uppercase',
 								color: T.sub,
-								padding: '2px 8px 4px',
+								padding: 'var(--space-0-5) var(--space-2) var(--space-1)',
 							}}
 						>
 							{t(group.label)}
@@ -188,9 +188,11 @@ export function ToolRail({
 								style={{
 									display: 'inline-flex',
 									alignItems: 'center',
-									gap: 8,
-									padding: horizontal ? '7px 10px' : '7px 8px',
-									borderRadius: 8,
+									gap: 'var(--space-2)',
+									padding: horizontal
+										? 'var(--space-1-5) var(--space-2)'
+										: 'var(--space-1-5) var(--space-2)',
+									borderRadius: 'var(--radius-md)',
 									border: `1px solid ${on ? T.accBd : 'transparent'}`,
 									background: on ? T.accSub : 'transparent',
 									color: on ? T.acc : T.ink,
@@ -209,8 +211,8 @@ export function ToolRail({
 											font: `10px ${T.mono}`,
 											color: T.ter,
 											border: `1px solid ${T.bd}`,
-											borderRadius: 5,
-											padding: '0 4px',
+											borderRadius: 'var(--radius-sm)',
+											padding: 'var(--space-0) var(--space-1)',
 											background: T.sunken,
 										}}
 									>

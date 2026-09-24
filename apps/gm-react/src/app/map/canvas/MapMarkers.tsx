@@ -82,7 +82,7 @@ export function MapMarkers({
 								display: 'flex',
 								flexDirection: 'column',
 								alignItems: 'center',
-								gap: 4,
+								gap: 'var(--space-1)',
 								pointerEvents: markersInteractive ? 'auto' : 'none',
 								cursor: canDrag ? (dragging ? 'grabbing' : 'grab') : 'pointer',
 								zIndex: on ? 3 : 2,
@@ -97,7 +97,7 @@ export function MapMarkers({
 								style={{
 									width: d,
 									height: d,
-									borderRadius: '50%',
+									borderRadius: 'var(--radius-full)',
 									border: `2.5px solid ${t.linkedActorId ? T.ok : T.err}`,
 									background: T.bg,
 									display: 'flex',
@@ -107,7 +107,7 @@ export function MapMarkers({
 									color: T.ink,
 									cursor: 'inherit',
 									boxShadow: on ? `0 0 0 3px var(--color-interactive-selected), ${T.ssm}` : T.ssm,
-									padding: 0,
+									padding: 'var(--space-0)',
 								}}
 							>
 								{t.label[0]}
@@ -116,12 +116,12 @@ export function MapMarkers({
 								style={{
 									display: 'inline-flex',
 									alignItems: 'center',
-									gap: 4,
+									gap: 'var(--space-1)',
 									font: `10px ${T.sans}`,
 									color: T.sub,
 									background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
-									padding: '1px 5px',
-									borderRadius: 4,
+									padding: 'var(--space-0) var(--space-1)',
+									borderRadius: 'var(--radius-sm)',
 									whiteSpace: 'nowrap',
 								}}
 							>
@@ -169,10 +169,10 @@ export function MapMarkers({
 									font: `10px ${T.sans}`,
 									color: T.ink,
 									background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)',
-									padding: '1px 6px',
-									borderRadius: 5,
+									padding: 'var(--space-0) var(--space-1-5)',
+									borderRadius: 'var(--radius-sm)',
 									whiteSpace: 'nowrap',
-									marginTop: -6,
+									marginTop: 'calc(-1 * var(--space-1-5))',
 								}}
 							>
 								{p.label}

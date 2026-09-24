@@ -96,8 +96,8 @@ function Section({
 }) {
 	const { t } = useI18n();
 	return (
-		<section style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-			<h2 style={{ ...eb, margin: 0 }}>
+		<section style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+			<h2 style={{ ...eb, margin: 'var(--space-0)' }}>
 				{title}
 				{' · '}
 				{count}
@@ -370,14 +370,14 @@ export function ListView({
 				position: 'absolute',
 				inset: 0,
 				overflowY: 'auto',
-				padding: 16,
+				padding: 'var(--space-4)',
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 20,
+				gap: 'var(--space-5)',
 				background: T.bg,
 			}}
 		>
-			<p style={{ margin: 0, font: `13px ${T.sans}`, color: T.sub }}>
+			<p style={{ margin: 'var(--space-0)', font: `13px ${T.sans}`, color: T.sub }}>
 				{t('mapList.summary', {
 					pois: counts.pois,
 					tokens: counts.tokens,

@@ -30,7 +30,7 @@ export function MapContextMenu({
 	if (!open) return null;
 
 	const items = (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
 			<HeaderMenuItem
 				icon="pin"
 				label={t('mapEditor.markPartyHere')}
