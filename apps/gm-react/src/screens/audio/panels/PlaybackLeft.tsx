@@ -360,7 +360,7 @@ export function PlaybackLeft({
 						>
 							<Button
 								type="submit"
-								variant="primary"
+								variant="secondary"
 								size="sm"
 								icon="add"
 								disabled={addBusy || !trackName.trim()}

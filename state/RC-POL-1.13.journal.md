@@ -16,7 +16,7 @@
 - [x] Matches the prototype view for this section (`docs/design/README.md` §4) and the design-package template where one exists; deviations listed with rationale.
   - **Waived:** No Audio template is vendored in docs/design-package/templates. The remote prototype requires DesignSync, which is unavailable here. Retained the established now-playing / tabs / two-column structure, with the documented typography, spacing, emphasis and empty-state rules.
 - [x] One primary action per region in gold; supporting tiles flat/sunken; the primary panel raised with `--shadow-md`.
-  - **Evidence:** Import, Add track, Save current audio and Add rule each carry primary emphasis in their own region. Recipe and source tiles are flat; now-playing uses shadow-md even while idle.
+  - **Evidence:** Import audio (Playback), Save current audio (Presets) and Add rule (Automation) are the only gold primaries, one per tab. Add track in Tracks & sources is secondary because it shares the Playback view with Import; `pnpm lint:emphasis` (RC-ENG-8.4) holds PlaybackLeft at 0. Recipe and source tiles are flat; now-playing uses shadow-md even while idle.
 - [x] Type hierarchy uses 3–4 sizes; Cinzel only ≥ 24px; numbers in mono.
   - **Evidence:** Owned text uses xs/sm/base/md. AudioPanel replaces the shared small Cinzel heading with Inter; the shell retains its large display h1. Slider readouts use the DS numeric presentation. Mixed counts/duration metadata retain readable inline text (waiver: these are labels, not aligned numeric columns).
 - [x] Every status color paired with a distinct icon shape; DM-only purple stripe where applicable.
@@ -147,3 +147,20 @@ Playback, parchment phone Presets and high-contrast rail deletion by eye.
 | Container visual, strict compare `CI=1 --update-snapshots=none --retries=0` | 75 passed, exit 0                                | /tmp/pol13-visual-compare.log |
 | Baseline budget                                                             | 285 files, 29722.2 KiB of 32768 KiB              | check-baseline-budget.mjs     |
 | `pnpm gates`                                                                | exit 0; no Audio file-size warning (largest 479) | /tmp/pol13-gates.log          |
+
+## Gate retry — emphasis lint (2026-09-24)
+
+The operator's Lint gate failed on `6bb3be38`. ESLint was clean, but `pnpm lint:emphasis` (RC-ENG-8.4, which
+arrived with the loop/rc merge) reported `PlaybackLeft.tsx` multiple-accent-primaries 1 > 0: Import audio
+and Add track were both gold primaries in the same Playback view. My reconcile pass had run ESLint on the
+Audio paths rather than the full `pnpm lint`, so it never ran this check. Fix: Add track is now
+`variant="secondary"`. In an empty library, importing audio is the main action; adding a stream track is supporting.
+
+| Check                                                                           | Result                                                             | Log                                       |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
+| Full `pnpm lint` (raw-style, ESLint, boundary, emphasis, non-text contrast)     | exit 0; multiple-accent-primaries 61 = baseline 61                 | /tmp/pol13-full-lint.log                  |
+| Container visual, strict compare before re-baseline                             | 10 failed, all visual-rail Playback + loading (Add track now flat) | /tmp/pol13-visual2.log                    |
+| Container visual, `--update-snapshots=changed`                                  | 75 passed; 15 rail PNGs rewritten, Audio only                      | /tmp/pol13-visual2-update.log             |
+| Container visual, strict compare `CI=1 --update-snapshots=none --retries=0`     | 75 passed, exit 0                                                  | /tmp/pol13-visual2-compare.log            |
+| Audio e2e (six specs) + `/audio` axe gate + strict overlay scans, both profiles | 38 passed, exit 0                                                  | /tmp/pol13-e2e2.log                       |
+| gm-react typecheck; `pnpm gates`; `format:check:changed --base loop/rc`         | exit 0; exit 0 with no `screens/audio` warning; clean              | /tmp/pol13-tc2.log, /tmp/pol13-gates2.log |
