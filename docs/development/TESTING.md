@@ -222,7 +222,10 @@ node apps/gm-react/tests/visual/check-baseline-budget.mjs                     # 
 ```
 
 The script uses podman or docker (`CONTAINER_ENGINE` overrides the choice), mounts the checkout at
-its own path, and passes its arguments to `playwright test`. After a failure,
+its own path, and passes its arguments to `playwright test`. The container runs with
+`--network=none`. A bridged container adds a network interface to the host, and each change makes
+every Chromium on the host abort its in-flight requests (`net::ERR_NETWORK_CHANGED`). Any e2e run on
+the machine then lost page boots whenever a visual run started or stopped. After a failure,
 `apps/gm-react/test-results/` holds the `-actual`, `-expected` and `-diff` PNG for each screenshot.
 
 **Updating baselines.** A change that moves pixels on purpose re-baselines in the same PR. Run the

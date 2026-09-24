@@ -33,7 +33,12 @@ else
 	identity=(--user "$(id -u):$(id -g)")
 fi
 
-exec "$engine" run --rm --init --ipc=host "${identity[@]}" \
+# No network: the dev server and the browser talk over the container's own loopback, and the run
+# must not reach anything else. It also keeps the engine from plugging a bridge interface into the
+# host. Every interface change makes each Chromium on the host abort its in-flight requests with
+# net::ERR_NETWORK_CHANGED, so any e2e run on the machine would lose page boots whenever a visual
+# run started (docs/development/TESTING.md §8).
+exec "$engine" run --rm --init --ipc=host --network=none "${identity[@]}" \
 	--security-opt label=disable \
 	-v "$root:$root" -w "$root/apps/gm-react" \
 	-e HOME=/tmp -e CI -e DNDTOOLS_VISUAL=1 -e DNDTOOLS_PW_WORKERS \
