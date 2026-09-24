@@ -291,7 +291,7 @@ CONFIG
     rm -f "$EDGE_CONFIG_FILE"
     for i in "${!PARAM_OVERRIDES[@]}"; do
       pair="${PARAM_OVERRIDES[$i]}"
-      PARAM_OVERRIDES[$i]="${pair%%=*}=$(sam_quote_override_value "${pair#*=}")"
+      PARAM_OVERRIDES[i]="${pair%%=*}=$(sam_quote_override_value "${pair#*=}")"
     done
   fi
   PARAM_OVERRIDES+=("WebAclArn=$(sam_quote_override_value "$EDGE_ACL_ARN")")

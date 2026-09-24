@@ -216,12 +216,8 @@ export function Graph() {
 							setFocusId(null);
 						}
 					}}
-					style={{
-						display: 'grid',
-						gridTemplateColumns: isPhone ? '1fr' : 'minmax(0, 1fr) minmax(0, 20rem)',
-						gap: 'var(--space-5)',
-						alignItems: 'start',
-					}}
+					className="graph-layout"
+					style={isPhone ? { gridTemplateColumns: '1fr' } : undefined}
 				>
 					{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
 					<section

@@ -1,5 +1,10 @@
-/* Graph geometry stays in viewBox coordinates; controls scale with text and density. */
-.graph-surface button,
+/* Graph geometry stays in viewBox coordinates; controls scale with text and density. Canvas nodes
+   are the exception: they sit at fixed ring positions and are already sized 48px and up, so a
+   text-scaled minimum (96px at 200% text) would stack them on top of each other. */
+.graph-surface {
+	container-type: inline-size;
+}
+.graph-surface button:not([data-testid='graph-node']),
 .graph-surface input {
 	min-height: max(var(--space-12), var(--density-touch-target));
 	min-width: var(--space-12);
@@ -15,6 +20,19 @@
 }
 .graph-surface [data-testid='graph-node']:focus-visible {
 	z-index: var(--z-raised);
+}
+/* Canvas beside a 20rem rail. Rem-sized, so large text grows the rail too; below room for an
+   18rem canvas the rail stacks under it instead of squeezing the canvas to nothing. */
+.graph-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+	gap: var(--space-5);
+	align-items: start;
+}
+@container (width < 39.25rem) {
+	.graph-layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 .graph-facets {
 	display: flex;
