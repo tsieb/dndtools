@@ -9,11 +9,13 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 				localStorage.setItem('dndtools:react:onboarded', 'gate');
 			}, theme);
 			await page.goto(state === 'missing' ? '/#/join' : '/#/join?token=visual-invalid');
-			await expect(page.getByRole('main', { name: 'Campaign invite' })).toBeVisible();
+			const card = page.getByRole('main', { name: 'Campaign invite' });
+			await expect(card).toBeVisible();
 			if (state === 'unavailable') await expect(page.getByRole('alert')).toBeVisible();
 			await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 			await page.evaluate(() => document.fonts.ready);
-			await expect(page).toHaveScreenshot(`join-${state}--${theme}.png`);
+			// The card is the whole surface; cropping to it keeps the baselines inside the shared budget.
+			await expect(card).toHaveScreenshot(`join-${state}--${theme}.png`);
 		});
 	}
 }

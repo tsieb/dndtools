@@ -30,7 +30,8 @@ Checked entries include explicit scoped waivers, not claims of unperformed check
 - [x] Failure has a broken-chain shape, missing/loading an envelope. Co-DM warning has
       its existing session icon and explicit role text. Purple secrecy stripe waived:
       this is a public invitation, not hidden DM content.
-- [x] Five themes × desktop/rail/phone: 30 pinned-container missing/unavailable snapshots.
+- [x] Five themes × desktop/rail/phone: 30 pinned-container missing/unavailable snapshots,
+      cropped to the invite card (the whole surface) to fit the shared baseline budget.
       Reviewed a contact sheet of all 30 plus full-size phone/parchment unavailable state.
       Ready/auth screenshots waived for this local-edition suite: cloud is fail-closed,
       and live invitations/accounts are not provisioned by this task.
@@ -102,3 +103,30 @@ promotion, loop launch or dispatcher-state edit performed.
   finding was heading margin 0; changed to T.space.zero and removed Join from the
   allowance entirely. Final focused lint and no-allowance lint pass.
 - Final typecheck and gates re-run passed; no owned-file size warning.
+
+## Rebase onto loop/rc `acde3cf9` (2026-09-24)
+
+The first attempt's commit was based on `2d9f566d`; `loop/rc` has since moved 118 commits.
+Rebased the single commit and resolved two conflicts in `loop/rc`'s favour:
+
+- `no-raw-style-values.allow.js`: kept `loop/rc`'s list (other POL stories had already removed
+  their entries) and removed only the `Join.tsx: 13` line.
+- `FEATURE-GAPS.md`: kept `loop/rc`'s table and rewrote only the Invite redeem "What it does"
+  cell; Prettier now changes that single row (the first attempt reflowed the whole table).
+
+The visual baseline budget went red after the rebase: `check-baseline-budget.mjs` reported
+32,786.1 of 32,768 KiB, because later POL stories used the headroom the full-page Join captures
+had assumed. `tests/visual/join.spec.ts` now screenshots the `main` card locator instead of the
+page. Join baselines went from 927 KB to 706 KB and the total to **32,569.9 KiB (pass,
+~198 KiB left)**. The shared cap was not raised.
+
+Re-run on the rebased tree:
+
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: pass, 390 files, 32,569.9 KiB.
+- `run-in-container.sh join.spec.ts --update-snapshots=all`, then compare with no update: **30 passed**.
+- `playwright test tests/e2e/join.spec.ts --workers=2`: **16 passed**, desktop + mobile.
+- `playwright test tests/e2e/a11y-axe-gate.spec.ts --grep /join`: **4 passed** (`/join` and
+  `/join?token=axe-invalid` on both profiles).
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0. ESLint on Join.tsx, both Join specs and
+  EN/ES messages: exit 0. `pnpm format:check:changed -- --base loop/rc`: 9 files, clean.
+- `pnpm gates`: exit 0; 52 `file-size-warn` lines, none for Join.tsx (229 lines).
