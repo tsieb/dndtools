@@ -220,6 +220,9 @@ for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
 			await snap(page, theme, 'audio-error');
 		});
 		test('/audio named deletion', async ({ page }) => {
+			// The stream must fail at once, not whenever CI's DNS gives up on example.test: a failure that
+			// lands after the Delete click has scrolled the list shifts everything under the dialog.
+			await page.route('https://example.test/**', (route) => route.abort());
 			const status = await page.evaluate(async () => {
 				const rt = window.__rt!;
 				const source = await rt.dispatch({
@@ -248,7 +251,11 @@ for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
 				return saved.status;
 			});
 			expect(status).toBe('accepted');
+			// Autoplay is blocked until this click, which retries playback; wait for that retry to fail.
 			await page.getByRole('tab', { name: 'Presets', exact: true }).click();
+			await expect(
+				page.getByText('The stream could not be played (unreachable URL or unsupported format).'),
+			).toBeVisible();
 			await page.getByRole('button', { name: 'Delete Quiet evening', exact: true }).click();
 			await expect(page.getByRole('dialog', { name: 'Delete “Quiet evening”?' })).toBeVisible();
 			await snap(page, theme, 'audio-delete');
