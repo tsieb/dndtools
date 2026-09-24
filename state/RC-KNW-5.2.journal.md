@@ -143,3 +143,23 @@ Fresh verification on HEAD `d78ad4d0` (Headroom `run_command` artifacts retained
 - ESLint and Prettier on every changed TS/TSX file plus this journal: exit 0; `git diff --check` clean.
 
 No agents, push, promotion or dispatcher state changes. Operator gates and review remain pending.
+
+## App-tests gate fix (2026-09-23)
+
+Gate run `3ef12851` (HEAD `741d3edd`) failed `tests/unit/ai-eval.test.ts` (RC-AI-5.1): its inline
+snapshot expected `cardId: "id-0003"` / `characterId: "id-0005"` and received `id-0004` / `id-0006`.
+This was caused by this branch, not a flake: the private `content-history` operation called `env.ids()`
+(and `env.clock()`) a second time per content command, shifting every later deterministic ID.
+
+Fix, confined to the owned `commands/content.ts` helper: the history operation now reuses the item
+mutation's `issuedAt` and takes the derived id `<mutation id>:history`, so each content command
+consumes exactly one id and one clock read, as on `loop/rc`. The history op is still appended before
+the mutation, keeps no grants or visibility metadata, and is committed atomically. The unrelated
+snapshot was not re-baselined. `SyncOperation.id` is a plain string with no format validation.
+
+Verification (logs `/tmp/rc-knw-5-2-{app,core,e2e}-0923b.log`):
+
+- `pnpm test:app`: 146 files, 1,641 tests passed (ai-eval included).
+- `pnpm test:critical` (full core): 282 files, 4,908 tests passed.
+- Core typecheck exit 0; ESLint + Prettier on `content.ts` exit 0.
+- History restore e2e, desktop-chromium and mobile-chromium: 2 passed.

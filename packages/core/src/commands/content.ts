@@ -43,12 +43,16 @@ import {
 	reject,
 	requireActor,
 } from './helpers';
-import { CONTENT_HISTORY_ENTITY_TYPE } from '../sync/operation-log';
+import {
+	appendOperation,
+	CONTENT_HISTORY_ENTITY_TYPE,
+	type SyncOperation,
+} from '../sync/operation-log';
 import { actorMayEditItem } from './content-edit-authority';
 
 /** History has a separate, private target: never attach prose to a replicable item operation.
  * No visibility metadata or grants are published for these targets, so replication fails closed.
- * Both operations use the existing durable log and are committed atomically with the item. */
+ * Its id and time derive from the mutation so env ids/clock advance exactly as before. */
 function appendContentRevision(
 	env: CoreEnvironment,
 	state: CoreStateSlice,
@@ -56,16 +60,22 @@ function appendContentRevision(
 	snapshot: ContentItem,
 	draft: Parameters<typeof appendOperationDraft>[3],
 ) {
-	const history = appendOperationDraft(env, state.sync, actor.id, {
+	const { op } = appendOperationDraft(env, state.sync, actor.id, draft);
+	const history: SyncOperation = {
+		...op,
+		id: `${op.id}:history`,
 		entityType: CONTENT_HISTORY_ENTITY_TYPE,
 		entityId: snapshot.id,
 		opType: 'content.record-revision',
+		path: undefined,
 		value: { snapshot },
-		beforeRevision: draft.beforeRevision,
 		afterRevision: snapshot.revision,
-	});
-	const mutation = appendOperationDraft(env, history.log, actor.id, draft);
-	return { log: mutation.log, operationIds: [history.op.id, mutation.op.id] };
+		dependencies: [],
+	};
+	return {
+		log: appendOperation(appendOperation(state.sync, history), op),
+		operationIds: [history.id, op.id],
+	};
 }
 
 /**
