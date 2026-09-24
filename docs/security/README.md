@@ -105,8 +105,9 @@ The handler contract suite verifies 20 successful listing writes followed by a 4
 additional listing/S3 writes, window reset, tenant isolation, and concurrent quota admission
 using the in-memory AWS layer.
 
-Both unauthenticated app-api routes — `GET /invites/resolve/{token}` and `GET /wikis/{wikiId}` —
-share a per-source-IP budget of 60 requests per UTC minute, keyed by an unsalted SHA-256 hash of the
+The three unauthenticated app-api routes — `GET /invites/resolve/{token}`, `GET /wikis/{wikiId}`
+and `GET /wikis/{wikiId}/{document}` — share a per-source-IP budget of 60 requests per UTC minute
+whenever the handler has a trusted viewer address (see the edge section below), keyed by an unsalted SHA-256 hash of the
 address, so no raw address is persisted or logged. The hash is a storage-hygiene measure, not an
 anonymisation claim: IPv4 space is small enough to enumerate, so anyone holding both the table and
 the intent could reverse a key. What limits the exposure is lifetime — the rows carry a TTL of two
@@ -130,12 +131,22 @@ from that value when activating the edge. The hosted CSP reads the corresponding
 All methods, Authorization, cookies and query strings reach the HTTP API with caching disabled.
 The web distribution's `/wikis/*` origin remains supported and uses the same origin credential.
 
-CloudFront overwrites `x-app-origin` with a generated Secrets Manager credential. Public routes
-(including telemetry and the Stripe webhook) use an uncached Lambda origin authorizer; JWT routes
-retain Cognito authentication and verify the credential before handler work. Direct API calls
+CloudFront overwrites `x-app-origin` with a generated Secrets Manager credential. The app
+handler checks it first, before routing, so every route it serves is covered, whether Cognito
+authenticates the route or it is anonymous (wiki reads, invite resolve). Those anonymous routes
+stay `Authorizer: NONE`. Telemetry and the Stripe webhook run in separate functions that lack
+this check, so they use an uncached Lambda origin authorizer instead. Direct API calls
 therefore fail before business operations. Gateway-generated OPTIONS responses may remain public.
-Viewer-request functions overwrite `x-app-client-ip`; the handler trusts it only after verifying
-the credential, so its public/wiki-password budgets count viewers rather than CloudFront servers.
+`AppEdge`'s viewer-request function overwrites `x-app-client-ip`; the handler trusts it only after
+verifying the credential, so its public/wiki-password budgets count viewers rather than CloudFront
+servers. The web distribution's `/wikis/*` behaviour forwards only `x-wiki-password`, so no viewer
+address reaches the handler there. The handler then skips its per-IP public budget and leaves the
+per-IP bound to that distribution's WAF rule, rather than pooling every reader behind one
+CloudFront edge into a single budget. The wiki-password limiter has no such escape: on that path it
+falls back to the CloudFront egress address, as it did before this story, so failed guesses from
+one reader can lock out a protected wiki for everyone behind the same edge until the window ends.
+Closing that needs the viewer address forwarded on `/wikis/*`, which `tests/unit/wiki-hosting.test.ts`
+currently forbids.
 Never log or expose the credential. Rotation requires refreshing both distributions and the app
 functions together; changing only the secret value does not refresh CloudFormation dynamic references.
 
@@ -151,7 +162,10 @@ DynamoDB quota, not the WAF rule. WAF evaluates its rate budget separately for e
 Activation is a coordinated release: deploy edge-waf, app-api, then web-hosting; rebuild clients,
 update Stripe's webhook URL to the protected API URL, and verify both normal requests and direct
 origin rejection. Existing client binaries embedding the old URL need an update. This task does
-not perform that release or claim any deployed protection.
+not perform that release or claim any deployed protection. Wiki custom-domain distributions
+(`infra/web-hosting/wiki/custom-domain.yaml`) still point straight at execute-api without the
+origin credential, so they return 403 once production enforces it; give that template the
+credential and the ACL before activation if any such distribution exists.
 
 Cost is why the ACL is prod-only. AWS WAF bills $5/month per web ACL plus $1/month per rule
 regardless of traffic, plus $0.60 per million requests inspected — so ~$6 is a floor, not a flat

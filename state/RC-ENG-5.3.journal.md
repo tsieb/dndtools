@@ -360,3 +360,77 @@ add only `tests/unit/wiki-hosting.test.ts` to scope before applying the patch. N
 repository edits or production-control changes were made. Tooling gate remains failed pending
 that scope decision, application of the patch, and the full `pnpm test:tooling` rerun. Existing
 infra review remains applicable because no implementation or template changed in this diagnosis.
+
+## 2026-09-23 — pass the tooling gate inside the owned paths
+
+The scope request above was not granted: this attempt's `Owns` list still excludes
+`tests/unit/wiki-hosting.test.ts`. The implementation now meets that test unchanged instead
+of editing it. The two failing assertions were each satisfiable without weakening the edge
+boundary:
+
+- **`ReadWikiDocument` back to `Authorizer: NONE`** (and `ReadWiki`, `ResolveInvite`, for
+  consistency). All three are AppFn routes, and AppFn's handler already rejects any request
+  lacking the CloudFront origin credential before routing whenever `ORIGIN_SECRET` is set. The
+  `OriginOnly` authorizer on them was a second Lambda invocation that bought no protection.
+  `TelemetryFn` and `BillingWebhookFn` have no handler guard, so they keep `OriginOnly`. A new
+  handler test covers the anonymous route: 403 without the credential, 404 (route work) with it.
+- **Wiki request policy back to `[x-wiki-password]`**, and the `WikiViewerIp` function was
+  removed from web-hosting. CloudFront's docs do not say whether a header a viewer function adds
+  bypasses the origin-request-policy allowlist, so I did not rely on it. Without a trusted viewer
+  address, the handler now **skips** its per-IP public budget instead of keying it on
+  `'unknown'`, which would have pooled every web-host wiki reader worldwide into a single
+  60/minute budget (a latent bug in the previous candidate). On that path the per-IP bound is the
+  web distribution's WAF rate rule. `AppEdge` still sets `x-app-client-ip`, so the in-handler
+  budget still applies there. New tests cover this: the budget is keyed per edge-set viewer, not
+  per CloudFront hop, and nothing is pooled when no address arrives. I mutation-checked the
+  pooling test by reverting the guard, and it failed as it should.
+
+The acceptance criteria are unchanged. Throttle and alarm parity already held. The WAF rate rule
+fronts `AppEdge` and the web distribution in prod, with blank ACLs rejected by template rules and
+`deploy.sh`. The contract test (20 listing writes, 429 on the 21st) is unchanged and passing.
+
+Owned-path justification for this delta: `infra/app-api/template.yaml` (authorizer revert
+plus comment), `infra/web-hosting/template.yaml` (function removal, policy revert plus comment),
+`packages/cloud-fns/src/app-api/handler{,.test}.ts` (viewer-address guard and contracts), and
+`docs/security/README.md` (corrected edge description and the caveats below). No
+`.claude/agent-memory/` changes; `git diff 2d9f566d --stat -- .claude/agent-memory` is empty.
+
+### Validation (this worktree, before commit)
+
+- `pnpm test:tooling`: 26 files, 196 tests passed, exit 0. This includes
+  `tests/unit/wiki-hosting.test.ts` 4/4 with the file unmodified.
+- `pnpm exec vitest run --config vitest.cloud.config.ts`: 40 files, 537 tests passed.
+- `pnpm --filter @dndtools/cloud-fns typecheck` and `pnpm exec eslint packages/cloud-fns/src/app-api`: exit 0.
+- `sam validate --lint`: app-api and web-hosting (ca-central-1) and edge-waf (us-east-1) all valid, exit 0.
+- Prettier on the changed files and `git diff --check`: clean.
+
+### infra-ops-reviewer pass (2026-09-23)
+
+Invoked as the `infra-ops-reviewer` agent, static only (no AWS calls, no file writes, no
+agent memory). **Verdict: PASS.** It confirmed each of the following:
+
+- No prod execute-api route bypasses the origin check.
+- There is no spoofable client-IP path.
+- WAF still fronts both distributions, and `ProductionRequiresWaf` plus `deploy.sh` refuse a blank prod ACL.
+- app-api burst 20 / rate 10 and its Errors, 5xx and Throttles alarms match sync-api and signaling.
+- All three templates pass `sam validate --lint`, and `wiki-hosting.test.ts` passes 4/4.
+
+Findings and disposition:
+
+1. Major, pre-existing in the committed half: `infra/web-hosting/wiki/custom-domain.yaml`
+   points at execute-api without `x-app-origin`, so custom-domain wikis would get 403 once prod
+   enforcement is active. The failure is closed, not a hole. That file is outside `Owns` and is
+   read by the tooling test, so it is **not changed here**. It is documented as an activation
+   prerequisite in `docs/security/README.md`. Follow-up story needed.
+2. Minor: on the web-host `/wikis/*` path the wiki-password limiter keys on the CloudFront egress
+   address, the same as before this story. Documented. Fixing it needs the tooling-test contract
+   changed.
+3. Minor: the web-host path's per-IP bound is the WAF rule only. Accepted and documented.
+4. Minor, pre-existing: `WikiApiId` is absent from web-hosting `parameter_overrides`, so updates
+   keep the last deployed value. Not changed, because pinning it alters deployed state. Check the
+   deployed value before activation.
+5. Minor: brief `/wikis/*` 403 window between the prod app-api and web-hosting deploys. Run the
+   two deploys back to back (already the documented order).
+6. Nit: in dev (no secret) the web-host wiki path's budget keys on the CloudFront egress address. Dev only.
+
+Deployment and live drift remain unverified. No push, promotion, deploy or dispatcher-state change.

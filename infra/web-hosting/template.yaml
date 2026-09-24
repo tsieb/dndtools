@@ -108,19 +108,6 @@ Conditions:
   HasWebAcl: !Not [!Equals [!Ref WebAclArn, '']]
 
 Resources:
-  WikiViewerIp:
-    Type: AWS::CloudFront::Function
-    Properties:
-      Name: !Sub '${ProjectName}-${Stage}-wiki-viewer-ip'
-      AutoPublish: true
-      FunctionConfig:
-        Comment: Pass the verified viewer address to the protected wiki origin.
-        Runtime: cloudfront-js-2.0
-      FunctionCode: |
-        function handler(event) {
-          event.request.headers['x-app-client-ip'] = { value: event.viewer.ip };
-          return event.request;
-        }
   WikiNoCachePolicy:
     Type: AWS::CloudFront::CachePolicy
     Properties:
@@ -140,9 +127,12 @@ Resources:
       OriginRequestPolicyConfig:
         Name: !Sub '${ProjectName}-${Stage}-wiki-request'
         CookiesConfig: { CookieBehavior: none }
+        # No viewer-address header: this behaviour's per-IP bound is the distribution's WAF rate
+        # rule, and the handler skips its own per-IP budget for origin-verified requests that
+        # carry no edge-set address (RC-ENG-5.3).
         HeadersConfig:
           HeaderBehavior: whitelist
-          Headers: [x-wiki-password, x-app-client-ip]
+          Headers: [x-wiki-password]
         QueryStringsConfig: { QueryStringBehavior: all }
   # --- Private origin bucket: holds dist/ assets; only CloudFront (OAC) may read. -----
   # Versioned so a bad deploy can be rolled back; noncurrent versions expire in 30 days
@@ -297,9 +287,6 @@ Resources:
               Compress: true
               CachePolicyId: !Ref WikiNoCachePolicy
               OriginRequestPolicyId: !Ref WikiRequestPolicy
-              FunctionAssociations:
-                - EventType: viewer-request
-                  FunctionARN: !GetAtt WikiViewerIp.FunctionMetadata.FunctionARN
           - !Ref AWS::NoValue
         DefaultCacheBehavior:
           TargetOriginId: web-s3-origin

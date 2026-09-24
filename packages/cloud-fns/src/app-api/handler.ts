@@ -418,10 +418,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 			return { statusCode: 403, body: JSON.stringify({ error: 'forbidden' }) };
 		}
 	}
-	// Only trust the overwritten viewer header after verifying the origin credential.
-	const sourceIp = originSecret
-		? event.headers?.['x-app-client-ip'] || 'unknown'
-		: event.requestContext.http.sourceIp || 'unknown';
+	// Only trust the overwritten viewer header after verifying the origin credential. The app
+	// distribution sets it; the web-hosting `/wikis/*` behaviour does not forward it, so there the
+	// viewer address is unknown and the distribution's WAF rate rule is the per-IP bound.
+	const viewerIp = originSecret
+		? event.headers?.['x-app-client-ip']
+		: event.requestContext.http.sourceIp;
+	const sourceIp = viewerIp || event.requestContext.http.sourceIp || 'unknown';
 	const routeKey = event.routeKey;
 	try {
 		// The UNAUTHENTICATED routes — handled before any claims are required.
@@ -430,13 +433,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 		// bound them; a per-IP budget is the only caller identity available. It is charged once,
 		// here, rather than inside each route — `GET /wikis/{wikiId}/{document}` calls readWiki
 		// itself, and charging per call would bill that route twice. This deterministic minute budget supplements
-		// the approximate CloudFront WAF rule and also covers the direct dev endpoint.
+		// the approximate CloudFront WAF rule and also covers the direct dev endpoint. Without a
+		// trusted viewer address it is skipped rather than keyed on the CloudFront edge address,
+		// which would make every reader behind one edge location share a single budget.
 		if (
-			routeKey === 'GET /invites/resolve/{token}' ||
-			routeKey === 'GET /wikis/{wikiId}' ||
-			routeKey === 'GET /wikis/{wikiId}/{document}'
+			viewerIp &&
+			(routeKey === 'GET /invites/resolve/{token}' ||
+				routeKey === 'GET /wikis/{wikiId}' ||
+				routeKey === 'GET /wikis/{wikiId}/{document}')
 		) {
-			await consumePublicIpBudget(sourceIp);
+			await consumePublicIpBudget(viewerIp);
 		}
 		if (routeKey === 'GET /invites/resolve/{token}') {
 			return await resolveInvite(event.pathParameters?.token);

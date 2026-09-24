@@ -2386,4 +2386,46 @@ describe('CloudFront origin boundary', () => {
 		request.headers['x-app-origin'] = 'trusted-edge-secret';
 		expect((await call(request)).status).toBe(200);
 	});
+
+	it('guards the anonymous routes too, since they carry no API Gateway authorizer', async () => {
+		process.env.ORIGIN_SECRET = 'trusted-edge-secret';
+		const request = event('GET /invites/resolve/{token}', { sub: null, params: { token: 'nope' } });
+		expect((await call(request)).status).toBe(403);
+		request.headers = { 'x-app-origin': 'trusted-edge-secret' };
+		expect((await call(request)).status).toBe(404);
+	});
+
+	it('budgets by the edge-set viewer address, not the CloudFront hop', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-09-12T12:00:10Z'));
+		process.env.ORIGIN_SECRET = 'trusted-edge-secret';
+		const resolve = (viewer: string) => {
+			const request = event('GET /invites/resolve/{token}', {
+				sub: null,
+				params: { token: 'nope' },
+				sourceIp: '130.176.0.1',
+			});
+			request.headers = { 'x-app-origin': 'trusted-edge-secret', 'x-app-client-ip': viewer };
+			return call(request);
+		};
+		for (let i = 0; i < 60; i++) expect((await resolve('192.0.2.1')).status).toBe(404);
+		expect((await resolve('192.0.2.1')).status).toBe(429);
+		// Same edge hop, different viewer: its own budget.
+		expect((await resolve('192.0.2.2')).status).toBe(404);
+		vi.useRealTimers();
+	});
+
+	it('does not pool viewers into one budget when the edge supplies no address', async () => {
+		// The web-hosting `/wikis/*` behaviour forwards only x-wiki-password, so the per-IP bound
+		// there is its WAF rate rule; keying on the edge hop would throttle every reader behind it.
+		process.env.ORIGIN_SECRET = 'trusted-edge-secret';
+		const request = event('GET /invites/resolve/{token}', {
+			sub: null,
+			params: { token: 'nope' },
+			sourceIp: '130.176.0.1',
+		});
+		request.headers = { 'x-app-origin': 'trusted-edge-secret' };
+		for (let i = 0; i < 61; i++) expect((await call(request)).status).toBe(404);
+		expect([...store.items.values()].some((row) => row.pk?.startsWith('ip-rate#'))).toBe(false);
+	});
 });
