@@ -434,3 +434,40 @@ Findings and disposition:
 6. Nit: in dev (no secret) the web-host wiki path's budget keys on the CloudFront egress address. Dev only.
 
 Deployment and live drift remain unverified. No push, promotion, deploy or dispatcher-state change.
+
+## Reconcile onto integration e21ec234 (2026-09-23)
+
+The gate's rebase onto `e21ec234d291b5f68d79754cc55467f9e6d092ef` conflicted in
+`infra/app-api/template.yaml`. Only one integration commit (`6a84596d`, RC-CLD-2.7) touched an
+owned path. It added a disabled `PushReminderFn` (Schedule event, `Enabled: false`) at the top of
+`Resources`, which is exactly where this story inserts `OriginSecret`, `OriginAuthorizerFn`,
+`AppEdge` and `AppViewerIp`. I resolved it additively: integration's resource first and verbatim,
+then this story's resources. The story's added and removed lines against the new base are
+identical to its diff against the old base (checked by diffing the two hunk sets). The other two
+story commits rebased without conflicts. No other owned path, and neither
+`tests/unit/wiki-hosting.test.ts` nor `.claude/agent-memory/`, differs from the integration branch
+except by this story's intended changes.
+
+Validation on the rebased candidate:
+
+- `pnpm test:tooling`: 29 files, 218 tests passed, exit 0 (includes `wiki-hosting.test.ts`, unmodified).
+- `pnpm exec vitest run --config vitest.cloud.config.ts`: 43 files, 550 tests passed, exit 0.
+- cloud-fns typecheck and app-api ESLint: exit 0.
+- `sam validate --lint` on app-api, web-hosting (ca-central-1) and edge-waf (us-east-1): all valid.
+- `format:check:changed -- --base e21ec234`, `git diff --check` and `bash -n` on `deploy.sh` and the
+  drift script: clean.
+
+**infra-ops-reviewer refresh: PASS.** It was static, made no AWS calls, and wrote no files or
+agent memory. It confirmed:
+
+- The resolution has no conflict markers, `PushReminderFn` matches `6a84596d`, and the story's
+  resources and parameters, rules, conditions and outputs are intact.
+- There is no interaction hazard. `ORIGIN_SECRET` is set per function, `PushReminderFn` has no
+  HttpApi event, and `Globals` is unchanged.
+- app-api `sam validate --lint` passes.
+- The acceptance properties still hold: throttles 20/10 and alarms match sync-api and signaling,
+  and the WAF per-IP rule is attached to `AppEdge` and the web distribution in prod, with blank
+  ACLs refused. It reported no new findings. The earlier reviewer findings recorded above are
+  unchanged.
+
+No push, promotion, deploy or dispatcher-state change. Deployment and live drift remain unverified.
