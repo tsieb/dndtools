@@ -5007,9 +5007,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	/* Unirse › la página de aterrizaje de la invitación por correo */
 	'join.unavailable':
-		'Los servicios de cuenta en línea no están disponibles en esta edición. Pide a tu DM un código de mesa para unirte desde la app de jugador.',
+		'Los servicios de cuenta en línea no están disponibles en esta edición. Pide a tu {gm} un código de mesa para unirte desde la app de jugador.',
 	'join.expired':
-		'Este enlace de invitación no es válido o ha caducado. Pide a tu DM que te envíe un enlace nuevo.',
+		'Este enlace de invitación no es válido o ha caducado. Pide a tu {gm} que te envíe un enlace nuevo.',
 	'join.invite': 'Invitación de campaña',
 	'join.heading': 'Te han invitado',
 	'join.checking': 'Comprobando tu invitación…',

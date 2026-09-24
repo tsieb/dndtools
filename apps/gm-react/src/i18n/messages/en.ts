@@ -4955,8 +4955,8 @@ export const en = {
 
 	/* Join › the emailed invite landing page */
 	'join.unavailable':
-		'Online account services are not available in this edition. Ask your DM for a table code to join in the player app.',
-	'join.expired': 'This invite link is invalid or has expired. Ask your DM to send a new link.',
+		'Online account services are not available in this edition. Ask your {gm} for a table code to join in the player app.',
+	'join.expired': 'This invite link is invalid or has expired. Ask your {gm} to send a new link.',
 	'join.invite': 'Campaign invite',
 	'join.heading': 'You’re invited',
 	'join.checking': 'Checking your invite…',
