@@ -269,3 +269,16 @@ for the next reader of this spec.
 - Fresh `pwa-offline.spec.ts`, desktop-chromium + mobile-chromium, one worker: 18 passed, exit 0
   (`/tmp/rcplt24-a7-pwa.log`). Full browser suite not rerun; the attempt-4 saved-search result
   still stands as recorded.
+
+## Attempt 8 — reconcile onto 5b2fe580
+
+- Resumed at `3a6c726c` after a provider-limit interruption; worktree clean. `loop/rc` had moved
+  three commits (RC-POL-1.12 graph polish + its CI repair, tip `5b2fe580`). None adds a cloud-only
+  control (`Graph.tsx` and `screens/graph/*` are local); `git merge-tree` was clean. Rebased the six
+  task commits onto `5b2fe580` without conflict. No source change.
+- Fresh results on the rebased tree: cloud Vitest (configured controls + static import rule) 6
+  passed (`/tmp/rcplt24-a8-unit.log`); app Vitest (Discover + i18n) 44 passed
+  (`/tmp/rcplt24-a8-app.log`); app typecheck exit 0; `pnpm gates` exit 0;
+  `format:check:changed --base loop/rc` clean (28 files); `pwa-offline.spec.ts` 18 passed on
+  desktop-chromium + mobile-chromium, one worker, exit 0 (`/tmp/rcplt24-a8-pwa.log`).
+  Full browser suite not rerun; the attempt-4 saved-search result still stands as recorded.
