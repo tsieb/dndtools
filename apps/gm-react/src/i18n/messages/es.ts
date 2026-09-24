@@ -924,7 +924,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Puedes probar la vista previa de Lantern o Beacon sin coste para ascender a un jugador de confianza.',
 	'settings.players.planChangesUnavailable':
 		'Los cambios de plan no están disponibles en esta versión.',
-	'settings.players.role.dm': '{gm}',
+	'settings.players.role.dm': 'Director de juego',
 	'settings.players.role.coDm': 'Co-{gm}',
 	'settings.players.role.player': 'Jugador',
 	'settings.players.role.observer': 'Observador',

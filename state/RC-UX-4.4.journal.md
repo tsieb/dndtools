@@ -246,3 +246,28 @@
   `--retries=0`, port 5347, all passed (`/tmp/rc-ux-44-rebase2-e2e.log`). Headroom tools unused.
 - Independent reviewer sign-off remains with the central operator. No push, promotion or
   dispatcher-state changes.
+
+## Visual regression gate follow-up (head 8398b241, base 0b6f2f98)
+
+- Read the original gate log `ab387172-…/output.log` and its artifacts: 48 golden routes failed
+  (30 desktop, 12 rail, 6 phone), 301–1,569 px each, against `maxDiffPixels: 40`. Headroom tools
+  were not used; diagnostics come from the original log and PNGs.
+- Proved the base clean first: a `loop/rc` worktree at `0b6f2f98` passed all 15 desktop tavern
+  routes in the pinned container with the same baselines (`~/.cache/rc-ux-44-base-visual.log`).
+  The sub-threshold campaign-chip chevron difference exists on base too, so it was not the cause.
+- Every diff was this pass's copy: "DM Screen" → "DM screen", "HIT POINTS" → "Hit points", the
+  player subtitle, `{gm}` wording in Settings/Command Center help, and on every desktop route the
+  sidebar account name. That last one was a regression, not intended copy: the sidebar falls back
+  to `settings.players.role.dm` for an unnamed GM, and `{gm}` resolves to the short `DM`, so the
+  account read "DM" with a one-letter "D" avatar. The label is now `Game master` /
+  `Director de juego` (the Spanish is base's own value). It names the role without the fixed
+  `Dungeon Master`, which the vocabulary guard rejects; the account shows "Game master" / "GM".
+  Permissions keeps `{gm}` so a custom package's name (e.g. Keeper) still reaches the role table.
+- Re-baselined with the pinned container (`--update-snapshots=changed`): exactly the 48 failing
+  PNGs changed, nothing else. Inspected `/scene/:id` to rule out the known Command Center capture
+  race; it shows the scene editor. Re-ran the exact gate command in compare mode:
+  135/135 passed (`~/.cache/rc-ux-44-visual-verify.log`).
+- Also passed: i18n/settings/shell vitest (63 tests), settings e2e (16), co-dm + player-view
+  e2e (26), desktop and mobile, zero retries.
+- Independent reviewer sign-off remains with the central operator. No push, promotion or
+  dispatcher-state changes.

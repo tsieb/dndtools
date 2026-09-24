@@ -898,7 +898,7 @@ export const en = {
 	'settings.players.tryPlanPreview':
 		'You can try the Lantern or Beacon preview at no charge to promote a trusted player.',
 	'settings.players.planChangesUnavailable': 'Plan changes are unavailable in this release.',
-	'settings.players.role.dm': '{gm}',
+	'settings.players.role.dm': 'Game master',
 	'settings.players.role.coDm': 'Co-{gm}',
 	'settings.players.role.player': 'Player',
 	'settings.players.role.observer': 'Observer',
