@@ -30,8 +30,10 @@ Checked entries include explicit scoped waivers, not claims of unperformed check
 - [x] Failure has a broken-chain shape, missing/loading an envelope. Co-DM warning has
       its existing session icon and explicit role text. Purple secrecy stripe waived:
       this is a public invitation, not hidden DM content.
-- [x] Five themes × desktop/rail/phone: 30 pinned-container missing/unavailable snapshots,
-      cropped to the invite card (the whole surface) to fit the shared baseline budget.
+- [x] Five themes × desktop/rail/phone: 15 pinned-container snapshots of the illustrated
+      missing-link state, cropped to the invite card (the whole surface). The error state's
+      snapshots were dropped to fit the shared baseline budget (see the second rebase below);
+      its alert, retry and exit are covered by join e2e and the axe gate on both profiles.
       Reviewed a contact sheet of all 30 plus full-size phone/parchment unavailable state.
       Ready/auth screenshots waived for this local-edition suite: cloud is fail-closed,
       and live invitations/accounts are not provisioned by this task.
@@ -130,3 +132,29 @@ Re-run on the rebased tree:
 - `pnpm --filter @dndtools/gm-react typecheck`: exit 0. ESLint on Join.tsx, both Join specs and
   EN/ES messages: exit 0. `pnpm format:check:changed -- --base loop/rc`: 9 files, clean.
 - `pnpm gates`: exit 0; 52 `file-size-warn` lines, none for Join.tsx (229 lines).
+
+## Gate feedback and second rebase onto loop/rc `692b4e1c` (2026-09-24)
+
+Operator gate "App tests" failed on `6ff4b8ca`: `vocabulary.test.tsx` › "keeps fixed game-master
+names out of both message catalogs" rejected `join.unavailable` (and `join.expired` would follow)
+for a hard-coded "DM". Both keys now use `{gm}` in EN and ES, like `join.incomplete`; `t()` fills
+it from the active system package, so the rendered text on the default system is unchanged.
+
+`loop/rc` then gained RC-POL-1.15 (Community). The rebase hit the same two conflicts, resolved the
+same way (loop/rc's side; drop only the Join allowance line; rewrite only the Invite redeem cell).
+The budget went red again: **33,126.0 of 32,768 KiB**. Join's 30 card crops were 689 KiB. Only
+one state per theme × tier fits: the missing state is 308 KiB, the unavailable state 381 KiB. The
+spec now pins only the illustrated missing state, and the 15 unavailable PNGs were deleted. Total:
+**32,744.8 KiB (pass, 23 KiB left)**. The shared cap was not raised; the next story that adds
+baselines needs an owner decision on it.
+
+Re-run on `692b4e1c` + this branch:
+
+- `check-baseline-budget.mjs`: pass, 405 files, 32,744.8 KiB.
+- `run-in-container.sh join.spec.ts`: **15 passed**, no updates.
+- `pnpm test:app`: **1641 passed** (146 files), including the vocabulary test.
+- `playwright test tests/e2e/join.spec.ts tests/e2e/a11y-axe-gate.spec.ts --grep join`: **20 passed**
+  (16 Join e2e + axe on `/join` and `/join?token=axe-invalid`, desktop and mobile).
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0. ESLint on Join.tsx and the visual spec: exit 0.
+- `pnpm format:check:changed -- --base loop/rc`: clean. `pnpm gates`: exit 0, no file-size warning
+  for Join.tsx.
