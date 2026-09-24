@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import {
 	buildContentModuleBundle,
 	exportSystemPackageBundle,
@@ -6,20 +5,21 @@ import {
 	type ContentExport,
 	type CoreEvent,
 } from '@dndtools/core';
-import { Button, Dialog, Input, Select, Toaster } from '../../ds';
+import { useMemo, useState } from 'react';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
-import { useRuntime } from '../../runtime/RuntimeContext';
+import { Button, Dialog, Input, Select, Toaster } from '../../ds';
+import { useI18n, type MessageKey } from '../../i18n';
 import { downloadJsonFile } from '../../platform/download';
 import { pickTextFile } from '../../platform/filePick';
-import { errText, representativePlayerActorId, slugify } from './shared';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import {
 	installPlanCommand,
 	installPlanItemCount,
 	planModuleInstall,
 	type InstallPlan,
 } from './moduleInstall';
-import { useI18n, type MessageKey } from '../../i18n';
+import { errText, representativePlayerActorId, slugify } from './shared';
 
 /**
  * RC-CLD-4.1 — the `.dndmodule` bundle as a FILE, without the marketplace.
@@ -212,13 +212,13 @@ export function ModuleFilePanel() {
 	const files = review?.plan.kind === 'content-module' ? review.plan.files : [];
 
 	return (
-		<Panel title={t('community.moduleFile.title')} style={{ marginTop: 18 }}>
+		<Panel title={t('community.moduleFile.title')} style={{ marginTop: T.space.five }}>
 			<div style={{ ...eb }}>{t('community.moduleFile.hint')}</div>
 			<div
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr 140px',
-					gap: 10,
+					gap: T.space.three,
 				}}
 			>
 				<Input
@@ -243,7 +243,7 @@ export function ModuleFilePanel() {
 					maxLength={40}
 				/>
 			</div>
-			<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+			<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: T.space.three }}>
 				<Button
 					variant="secondary"
 					size="md"
@@ -270,10 +270,13 @@ export function ModuleFilePanel() {
 					display: 'flex',
 					flexWrap: 'wrap',
 					alignItems: 'center',
-					gap: 10,
+					gap: T.space.three,
 				}}
 			>
-				<label htmlFor="module-file-system" style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
+				<label
+					htmlFor="module-file-system"
+					style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}
+				>
 					{t('community.moduleFile.systemLabel')}
 				</label>
 				<Select
@@ -327,8 +330,8 @@ export function ModuleFilePanel() {
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 8,
-							font: `12.5px/1.6 ${T.sans}`,
+							gap: T.space.two,
+							font: `var(--text-sm)/1.6 ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -345,25 +348,25 @@ export function ModuleFilePanel() {
 						</div>
 						<div>
 							{t('community.moduleFile.fromFile')}{' '}
-							<code style={{ font: `11.5px ${T.mono}` }}>{review.fileName}</code> ·{' '}
+							<code style={{ font: `var(--text-xs) ${T.mono}` }}>{review.fileName}</code> ·{' '}
 							{t('community.moduleFile.itemCount', { count: installPlanItemCount(review.plan) })}
 						</div>
 						{/* What lands, named, before anything is written. The DM reviews, then disposes. */}
 						{files.length > 0 && (
-							<ul style={{ margin: 0, paddingInlineStart: 18, color: T.ter }}>
+							<ul style={{ margin: T.space.zero, paddingInlineStart: T.space.five, color: T.ter }}>
 								{files.slice(0, 8).map((file) => (
-									<li key={file.path} style={{ font: `11.5px/1.6 ${T.mono}` }}>
+									<li key={file.path} style={{ font: `var(--text-xs)/1.6 ${T.mono}` }}>
 										{file.path}
 									</li>
 								))}
 								{files.length > 8 && (
-									<li style={{ font: `11.5px/1.6 ${T.sans}` }}>
+									<li style={{ font: `var(--text-xs)/1.6 ${T.sans}` }}>
 										{t('community.discover.moreFiles', { count: files.length - 8 })}
 									</li>
 								)}
 							</ul>
 						)}
-						<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
+						<div style={{ color: T.ter, font: `var(--text-xs)/1.5 ${T.sans}` }}>
 							{t(
 								review.plan.kind === 'unsupported'
 									? 'community.discover.sceneUnsupported'

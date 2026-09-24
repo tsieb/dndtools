@@ -3104,12 +3104,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'community.tab.wiki': 'Wiki de campaña',
 	'community.error': 'Eso no salió — revisa tu conexión e inténtalo de nuevo.',
 
+	'community.preview.title': 'Comunidad está en pausa en la vista previa de jugador',
 	'community.market.title': 'Mercado de módulos',
 	'community.market.localOnly': 'Compilación solo local',
 	'community.market.signedOut': 'Sesión cerrada',
 	'community.market.signIn': 'Iniciar sesión',
 	'community.market.unavailable':
-		'El mercado de la comunidad no está disponible en esta edición. Aún puedes instalar un archivo de paquete a mano desde Extensiones → Complementos.',
+		'El mercado no está disponible en esta edición. Abre Exportar para guardar o instalar un archivo de módulo, sin necesidad de una cuenta.',
 	'community.market.signInBrowse':
 		'Inicia sesión para explorar e instalar módulos de la comunidad. Todo lo demás en la aplicación funciona sin cuenta.',
 	'community.market.signInPublish':

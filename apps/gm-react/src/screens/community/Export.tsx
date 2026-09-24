@@ -1,9 +1,15 @@
-import { useMemo, useState } from 'react';
 import { getContentItemsForActor, listSceneCardsForActor, type CoreEvent } from '@dndtools/core';
-import { Button, Icon, Select, Switch, Toaster, VisibilityChip } from '../../ds';
-import { Panel, T, eb } from '../../app/screen-kit';
+import { useMemo, useState } from 'react';
+import { eb, Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
-import { useRuntime } from '../../runtime/RuntimeContext';
+import { Button, Icon, Select, Switch, Toaster, VisibilityChip } from '../../ds';
+import { useI18n } from '../../i18n';
+import {
+	exportScenePackage,
+	materializeScenePackage,
+	validateScenePackage,
+	VaultBackupValidationError,
+} from '../../platform/backup';
 import {
 	downloadJsonFile,
 	downloadTextFile,
@@ -11,15 +17,9 @@ import {
 	type ExportResult,
 } from '../../platform/download';
 import { pickTextFile } from '../../platform/filePick';
-import {
-	exportScenePackage,
-	materializeScenePackage,
-	validateScenePackage,
-	VaultBackupValidationError,
-} from '../../platform/backup';
-import { errText, representativePlayerActorId, slugify } from './shared';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { ModuleFilePanel } from './ModuleFile';
-import { useI18n } from '../../i18n';
+import { errText, representativePlayerActorId, slugify } from './shared';
 
 const MAX_SCENE_PACKAGE_FILE_BYTES = 16 * 1024 * 1024;
 
@@ -203,20 +203,20 @@ export function CommExport() {
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? '1fr' : '1fr 1fr',
-					gap: 18,
+					gap: T.space.five,
 					alignItems: 'start',
 				}}
 			>
 				<Panel title={t('community.export.whatTitle')}>
 					<div style={{ ...eb }}>
 						{t('community.export.contentTypes')}{' '}
-						<span style={{ color: T.ter, font: `11px ${T.sans}` }}>
+						<span style={{ color: T.ter, font: `var(--text-xs) ${T.sans}` }}>
 							{t('community.export.counts')}
 						</span>
 					</div>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 						{kinds.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 								{t('community.export.empty')}
 							</div>
 						) : (
@@ -226,10 +226,10 @@ export function CommExport() {
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 11,
-										padding: '9px 11px',
+										gap: T.space.three,
+										padding: `${T.space.two} ${T.space.three}`,
 										border: `1px solid ${T.bd}`,
-										borderRadius: 9,
+										borderRadius: T.radius.md,
 										cursor: 'pointer',
 									}}
 								>
@@ -238,10 +238,16 @@ export function CommExport() {
 										aria-label={t('community.export.includeKind', { kind })}
 										onChange={() => setOffKinds((s) => ({ ...s, [kind]: !s[kind] }))}
 									/>
-									<span style={{ flex: 1, font: `12.5px ${T.sans}`, textTransform: 'capitalize' }}>
+									<span
+										style={{
+											flex: 1,
+											font: `var(--text-sm) ${T.sans}`,
+											textTransform: 'capitalize',
+										}}
+									>
 										{kind}
 									</span>
-									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{count}</span>
+									<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>{count}</span>
 								</label>
 							))
 						)}
@@ -250,13 +256,13 @@ export function CommExport() {
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 11,
-							padding: '10px 11px',
-							borderRadius: 9,
+							gap: T.space.three,
+							padding: `${T.space.three} ${T.space.three}`,
+							borderRadius: T.radius.md,
 							background: priv ? 'var(--color-dm-only-subtle)' : T.alt,
 							border: `1px solid ${priv ? 'var(--color-dm-only-badge)' : T.bd}`,
 							cursor: 'pointer',
-							marginTop: 4,
+							marginTop: T.space.one,
 						}}
 					>
 						<Switch
@@ -269,13 +275,13 @@ export function CommExport() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 6,
-									font: `600 12.5px ${T.sans}`,
+									gap: T.space.oneHalf,
+									font: `600 var(--text-sm) ${T.sans}`,
 								}}
 							>
 								{t('community.export.includeDmOnly')} <VisibilityChip level="dm-only" compact />
 							</span>
-							<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+							<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 								{t('community.export.includeDmOnlyHelp')}
 							</span>
 						</span>
@@ -286,8 +292,8 @@ export function CommExport() {
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 10,
-							font: `12.5px ${T.sans}`,
+							gap: T.space.three,
+							font: `var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -304,19 +310,19 @@ export function CommExport() {
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							padding: '10px 12px',
-							borderRadius: 9,
+							gap: T.space.two,
+							padding: `${T.space.three} ${T.space.three}`,
+							borderRadius: T.radius.md,
 							background: T.sunken,
 							border: `1px solid ${T.bd}`,
-							marginTop: 6,
+							marginTop: T.space.oneHalf,
 						}}
 					>
 						<Icon name="download" size={16} color={T.acc} />
 						<span
 							style={{
 								flex: 1,
-								font: `12px ${T.mono}`,
+								font: `var(--text-xs) ${T.mono}`,
 								color: T.sub,
 								whiteSpace: 'nowrap',
 								overflow: 'hidden',
@@ -351,8 +357,8 @@ export function CommExport() {
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							font: `12px ${T.sans}`,
+							gap: T.space.two,
+							font: `var(--text-xs) ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -361,7 +367,7 @@ export function CommExport() {
 								<Icon name="check" size={15} color={T.ok} />
 								<span>
 									{t('community.export.doneBefore')}{' '}
-									<code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code>{' '}
+									<code style={{ font: `var(--text-xs) ${T.mono}` }}>{result.file}</code>{' '}
 									{t('community.export.doneMiddle', { count: result.exported })}{' '}
 									<strong>{result.mode}</strong>{' '}
 									{t('community.export.doneAfter', { omitted: result.omitted })}
@@ -370,24 +376,24 @@ export function CommExport() {
 						) : null}
 					</div>
 					{result ? null : (
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{t('community.export.hint')}
 						</div>
 					)}
 				</Panel>
 			</div>
-			<Panel title={t('community.scenePackage.title')} style={{ marginTop: 18 }}>
+			<Panel title={t('community.scenePackage.title')} style={{ marginTop: T.space.five }}>
 				<div style={{ ...eb }}>{t('community.scenePackage.hint')}</div>
 				<div
 					style={{
 						display: 'flex',
 						flexWrap: 'wrap',
 						alignItems: 'center',
-						gap: 10,
+						gap: T.space.three,
 					}}
 				>
 					{sceneCards.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 							{t('community.scenePackage.empty')}
 						</div>
 					) : (

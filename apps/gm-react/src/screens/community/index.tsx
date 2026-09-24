@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Tabs, tabPanelProps } from '../../ds';
-import { Page } from '../../app/screen-kit';
+import { Page, Panel, T } from '../../app/screen-kit';
+import { EmptyState, Tabs, tabPanelProps } from '../../ds';
+import { useI18n } from '../../i18n';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { CommDiscover } from './Discover';
 import { CommExport } from './Export';
 import { CommPublish } from './Publish';
 import { CommWiki } from './Wiki';
-import { useI18n } from '../../i18n';
 
 /**
  * Community — discover/publish marketplace modules and export your work.
@@ -30,15 +31,25 @@ import { useI18n } from '../../i18n';
 export function Community() {
 	const { t } = useI18n();
 	const [tab, setTab] = useState('discover');
+	const runtime = useRuntime();
 	const tabs = [
 		{ id: 'discover', label: t('community.tab.discover'), icon: 'globe' },
 		{ id: 'export', label: t('community.tab.export'), icon: 'send' },
 		{ id: 'publish', label: t('community.tab.publish'), icon: 'upload' },
 		{ id: 'wiki', label: t('community.tab.wiki'), icon: 'knowledge-book' },
 	];
+	if (runtime.readOnly)
+		return (
+			<Page max={1200}>
+				<Panel title={t('community.preview.title')}>
+					<EmptyState illustration="community-empty" description={t('player.blockedPreview')} />
+				</Panel>
+			</Page>
+		);
+
 	return (
 		<Page max={1200}>
-			<div style={{ marginBottom: 18 }}>
+			<div style={{ marginBottom: T.space.five }}>
 				<Tabs
 					value={tab}
 					onChange={setTab}
@@ -49,7 +60,7 @@ export function Community() {
 			</div>
 			{/* One panel element, re-labelled per active tab — only one body is ever mounted, so a
 			    single wrapper completes the tab/panel relationship without four near-identical divs. */}
-			<div {...tabPanelProps('community', tab)}>
+			<div style={{ minWidth: 0, overflowWrap: 'anywhere' }} {...tabPanelProps('community', tab)}>
 				{tab === 'discover' && <CommDiscover />}
 				{tab === 'export' && <CommExport />}
 				{tab === 'publish' && <CommPublish />}

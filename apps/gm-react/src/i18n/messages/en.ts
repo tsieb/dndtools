@@ -3036,12 +3036,13 @@ export const en = {
 	'community.tab.wiki': 'Campaign wiki',
 	'community.error': 'That didn’t go through — check your connection and try again.',
 
+	'community.preview.title': 'Community is paused in player preview',
 	'community.market.title': 'Module marketplace',
 	'community.market.localOnly': 'Local-only build',
 	'community.market.signedOut': 'Signed out',
 	'community.market.signIn': 'Sign in',
 	'community.market.unavailable':
-		'The community marketplace is not available in this edition. You can still install a package file manually from Extensions → Plugins.',
+		'The marketplace is not available in this edition. Open Export to save or install a module file — no account needed.',
 	'community.market.signInBrowse':
 		'Sign in to browse and install community modules. Everything else in the app works without an account.',
 	'community.market.signInPublish':

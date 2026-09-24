@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import { communityAxe } from './_communityAxe';
 import { expect, test } from '@playwright/test';
 import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 import { promises as fs } from 'node:fs';
@@ -80,6 +82,19 @@ test.describe('community: .dndmodule content module round trip', () => {
 
 		// The privacy guarantee the portable export carries: no DM-only note reaches a published module.
 		const serialized = JSON.stringify(bundle.payload);
+		const visibleNoteTitles = await page.evaluate(
+			async (queryPath) => {
+				const { getContentItemsForActor } = await import(/* @vite-ignore */ queryPath);
+				const rt = window.__rt!;
+				return getContentItemsForActor(rt.state.content, rt.state.permissions, 'actor-player')
+					.filter((item: { kind: string }) => item.kind === 'note')
+					.map((item: { title: string }) => item.title) as string[];
+			},
+			`/@fs${fileURLToPath(new URL('../../../../packages/core/src/queries/content-query.ts', import.meta.url))}`,
+		);
+		expect(visibleNoteTitles.length).toBeGreaterThan(0);
+		for (const title of visibleNoteTitles) expect(serialized).toContain(title);
+
 		const hidden = await dmOnlyTitles(page);
 		// The seeded vault must actually HAVE DM-only content, or the check below proves nothing.
 		expect(hidden.length).toBeGreaterThan(0);
@@ -114,6 +129,7 @@ test.describe('community: .dndmodule content module round trip', () => {
 		// anything enters the vault (ADR-002 — a publisher proposes, the DM disposes).
 		const review = page.getByRole('dialog', { name: 'Install this module?' });
 		await expect(review).toBeVisible();
+		await communityAxe(page);
 		await expect(review.getByText('Content module')).not.toHaveCount(0);
 		await expect(review.getByText(notePath)).not.toHaveCount(0);
 
@@ -182,6 +198,7 @@ test.describe('community: .dndmodule system package round trip', () => {
 
 		const review = page.getByRole('dialog', { name: 'Install this module?' });
 		await expect(review).toBeVisible();
+		await communityAxe(page);
 		await expect(review.getByText('System package')).not.toHaveCount(0);
 		await review.getByRole('button', { name: 'Install module' }).click();
 

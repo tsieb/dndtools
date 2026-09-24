@@ -228,7 +228,7 @@ describe('no screen still hides a loading announcement behind aria-label', () =>
 	// RC-STB-2.1 did the same to Settings.tsx: its three async panels each carry their own region.
 	// RC-POL-1.14 moved the Compendium's result list (and its loading region) into CompendiumResults.tsx.
 	const SCREENS = [
-		'community/Discover.tsx',
+		'community/DiscoverShelf.tsx',
 		'community/Publish.tsx',
 		'community/Wiki.tsx',
 		'extensions/CompendiumResults.tsx',

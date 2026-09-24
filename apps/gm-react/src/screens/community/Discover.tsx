@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Badge, Button, Dialog, EmptyState, Input, Select, Skeleton, Toaster } from '../../ds';
-import { LoadingRegion, Panel, T } from '../../app/screen-kit';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
+import { Badge, Button, Dialog, Toaster } from '../../ds';
+import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { MODULE_KINDS, type ModuleKind } from '@dndtools/core';
+import { DiscoverShelf } from './DiscoverShelf';
 import {
-	FeaturedRow,
+	installPlanCommand,
+	installPlanItemCount,
+	planModuleInstall,
+	type InstallPlan,
+} from './moduleInstall';
+import {
 	KIND_LABEL,
 	ListingRatings,
 	MarketplaceGate,
-	RatingText,
 	errText,
 	fetchListingPackage,
 	getFeaturedListings,
@@ -22,25 +27,11 @@ import {
 	type ListingQuery,
 	type ListingSearch,
 } from './shared';
-import {
-	installPlanCommand,
-	installPlanItemCount,
-	planModuleInstall,
-	type InstallPlan,
-} from './moduleInstall';
-import { useI18n } from '../../i18n';
-
-/** RC-SYS-3.4 — the kind filter's options: every listing kind, plus "all". */
-const KIND_FILTERS: Array<'all' | ModuleKind> = ['all', ...MODULE_KINDS];
 
 /** RC-CLD-4.5 — how long typing has to settle before the shelf asks the server again. */
 const SEARCH_DEBOUNCE_MS = 250;
 
 const NO_FILTERS: ListingQuery = { q: '', kind: 'all', system: '', license: '' };
-
-/** A chosen value stays in its menu even when the shelf no longer offers it. */
-const withChosen = (values: string[], chosen: string) =>
-	chosen && !values.includes(chosen) ? [chosen, ...values] : values;
 
 export function CommDiscover() {
 	const { t, formatDate } = useI18n();
@@ -219,210 +210,29 @@ export function CommDiscover() {
 			.finally(() => setBusy(false));
 	};
 
-	const facets = result?.facets ?? { systems: [], licenses: [] };
-	const filterControl = (
-		id: string,
-		label: string,
-		value: string,
-		options: Array<{ value: string; label: string }>,
-		onChange: (value: string) => void,
-	) => (
-		<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
-			<label htmlFor={id} style={{ font: `600 12px ${T.sans}`, color: T.sub }}>
-				{label}
-			</label>
-			<Select
-				id={id}
-				value={value}
-				onChange={(e: { target: { value: string } }) => onChange(e.target.value)}
-				style={{ maxWidth: 200 }}
-				options={options}
-			/>
-		</div>
-	);
-	const toolbar = (
-		<div
-			role="search"
-			aria-label={t('community.discover.searchLabel')}
-			style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}
-		>
-			<div style={{ flex: '1 1 220px', minWidth: 0 }}>
-				<Input
-					type="search"
-					icon="search"
-					value={query.q}
-					maxLength={100}
-					aria-label={t('community.discover.searchLabel')}
-					placeholder={t('community.discover.searchPlaceholder')}
-					onChange={(e: { target: { value: string } }) =>
-						setQuery((current) => ({ ...current, q: e.target.value }))
-					}
-				/>
-			</div>
-			{filterControl(
-				'community-kind-filter',
-				t('community.discover.filterKind'),
-				query.kind,
-				KIND_FILTERS.map((kind) => ({
-					value: kind,
-					label: kind === 'all' ? t('community.discover.kindAll') : t(KIND_LABEL[kind]),
-				})),
-				(kind) => setQuery((current) => ({ ...current, kind: kind as 'all' | ModuleKind })),
-			)}
-			{filterControl(
-				'community-system-filter',
-				t('community.discover.filterSystem'),
-				query.system,
-				[
-					{ value: '', label: t('community.discover.systemAny') },
-					...withChosen(facets.systems, query.system).map((s) => ({ value: s, label: s })),
-				],
-				(system) => setQuery((current) => ({ ...current, system })),
-			)}
-			{filterControl(
-				'community-license-filter',
-				t('community.discover.filterLicense'),
-				query.license,
-				[
-					{ value: '', label: t('community.discover.licenseAny') },
-					...withChosen(facets.licenses, query.license).map((l) => ({ value: l, label: l })),
-				],
-				(license) => setQuery((current) => ({ ...current, license })),
-			)}
-		</div>
-	);
-
-	let shelf: ReactNode;
-	if (failed) {
-		shelf = (
-			<Panel title={t('community.discover.modules')}>
-				<EmptyState
-					inset
-					icon="warning"
-					title={t('community.discover.loadFailed')}
-					description={t('community.discover.loadFailedBody')}
-					action={
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="retry"
-							onClick={() => {
-								load();
-								loadFeatured();
-							}}
-						>
-							{t('common.action.retry')}
-						</Button>
-					}
-				/>
-			</Panel>
-		);
-	} else if (result === null) {
-		shelf = (
-			<Panel title={t('community.discover.modules')}>
-				<LoadingRegion
-					label={t('community.discover.loading')}
-					style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
-				>
-					<Skeleton height={96} />
-					<Skeleton height={96} />
-				</LoadingRegion>
-			</Panel>
-		);
-	} else if (listings.length === 0) {
-		shelf = !filtersActive ? (
-			<EmptyState
-				icon="globe"
-				title={t('community.discover.emptyTitle')}
-				description={t('community.discover.emptyBody')}
-			/>
-		) : (
-			<EmptyState
-				icon="globe"
-				title={t(
-					onlyKindFilter
-						? 'community.discover.emptyKindTitle'
-						: 'community.discover.emptySearchTitle',
-				)}
-				description={t(
-					onlyKindFilter
-						? 'community.discover.emptyKindBody'
-						: 'community.discover.emptySearchBody',
-				)}
-			/>
-		);
-	} else {
-		shelf = (
-			<div
-				data-testid="discover-shelf"
-				style={{
-					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 250px),1fr))',
-					gap: 14,
-				}}
-			>
-				{listings.map((m) => (
-					<button
-						key={m.moduleId}
-						type="button"
-						// Selection was border+shadow only, so a screen-reader user pressing these cards
-						// got no confirmation that anything changed (the detail panel is elsewhere in
-						// the DOM). `aria-pressed` makes the toggle state part of the button's name.
-						aria-pressed={sel?.moduleId === m.moduleId}
-						onClick={() => setSelId(m.moduleId)}
-						style={{
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 8,
-							padding: 14,
-							borderRadius: 12,
-							cursor: 'pointer',
-							textAlign: 'left',
-							border: `1px solid ${sel?.moduleId === m.moduleId ? T.accBd : T.bd}`,
-							background: T.surf,
-							boxShadow: sel?.moduleId === m.moduleId ? T.smd : 'none',
-						}}
-					>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-							<span style={{ font: `700 14px ${T.disp}`, flex: 1, minWidth: 0 }}>{m.name}</span>
-							{m.featured && <Badge status="info">{t('community.discover.featuredBadge')}</Badge>}
-							{m.owned && <Badge status="accent">{t('community.discover.yours')}</Badge>}
-						</div>
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							{t(KIND_LABEL[m.kind] ?? 'community.discover.kindWidget')} · v{m.version} ·{' '}
-							{kb(m.size)} · {formatDate(new Date(m.publishedAt))}
-						</div>
-						<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub, flex: 1 }}>{m.summary}</div>
-						<RatingText rating={m.rating} />
-					</button>
-				))}
-			</div>
-		);
-	}
-	// The toolbar stays mounted while a query is in play, so typing never loses focus to a reload.
-	const showToolbar = filtersActive || listings.length > 0;
-
 	return (
 		<div
 			style={{
 				display: 'grid',
 				gridTemplateColumns: isPhone ? '1fr' : '1.5fr 1fr',
-				gap: 18,
+				gap: T.space.five,
 				alignItems: 'start',
 			}}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
-				{featured.length > 0 && (
-					<FeaturedRow listings={featured} selectedId={sel?.moduleId ?? null} onSelect={setSelId} />
-				)}
-				{showToolbar && toolbar}
-				{showToolbar && result !== null && (
-					<div aria-live="polite" style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						{t('community.discover.resultCount', { count: result.total })}
-					</div>
-				)}
-				{shelf}
-			</div>
+			<DiscoverShelf
+				query={query}
+				setQuery={setQuery}
+				result={result}
+				featured={featured}
+				failed={failed}
+				listings={listings}
+				sel={sel}
+				filtersActive={filtersActive}
+				onlyKindFilter={onlyKindFilter}
+				setSelId={setSelId}
+				load={load}
+				loadFeatured={loadFeatured}
+			/>
 			{sel && (
 				<Panel
 					accent
@@ -433,7 +243,7 @@ export function CommDiscover() {
 						</Badge>
 					}
 				>
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 						v{sel.version} ·{' '}
 						{t('community.discover.listingMeta', {
 							date: formatDate(new Date(sel.publishedAt)),
@@ -442,7 +252,7 @@ export function CommDiscover() {
 						})}
 					</div>
 					{(sel.systems.length > 0 || sel.license) && (
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{[
 								sel.systems.length > 0
 									? t('community.discover.systemsMeta', { systems: sel.systems.join(', ') })
@@ -453,14 +263,14 @@ export function CommDiscover() {
 								.join(' · ')}
 						</div>
 					)}
-					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>{sel.summary}</div>
-					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>{sel.summary}</div>
+					<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 						{t('community.discover.installNote')}
 					</div>
 					{/* Fail closed: a scene package has no installer in this release, so the screen says so
 					    rather than offering a button that could only fail. */}
 					{sel.kind === 'scene-package' ? (
-						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}>
 							{t('community.discover.sceneUnsupported')}
 						</div>
 					) : (
@@ -521,7 +331,7 @@ export function CommDiscover() {
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					<strong style={{ color: T.ink }}>{confirmRemove?.name}</strong>{' '}
 					{t('community.discover.removeBody')}
 				</div>
@@ -565,8 +375,8 @@ export function CommDiscover() {
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 8,
-							font: `12.5px/1.6 ${T.sans}`,
+							gap: T.space.two,
+							font: `var(--text-sm)/1.6 ${T.sans}`,
 							color: T.sub,
 						}}
 					>
@@ -581,9 +391,11 @@ export function CommDiscover() {
 								<div>
 									{t('community.discover.widgetCount', { count: review.plan.itemCount })} ·{' '}
 									{t('community.discover.packageId')}{' '}
-									<code style={{ font: `11.5px ${T.mono}` }}>{review.plan.definition.id}</code>
+									<code style={{ font: `var(--text-xs) ${T.mono}` }}>
+										{review.plan.definition.id}
+									</code>
 								</div>
-								<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
+								<div style={{ color: T.ter, font: `var(--text-xs)/1.5 ${T.sans}` }}>
 									{t(
 										review.isUpgrade
 											? 'community.discover.upgradeNote'
@@ -605,18 +417,22 @@ export function CommDiscover() {
 										? t('community.discover.contentFileCount', { count: review.plan.files.length })
 										: t('community.discover.systemPackageNote')}{' '}
 									· {t('community.discover.packageId')}{' '}
-									<code style={{ font: `11.5px ${T.mono}` }}>{review.plan.bundle.manifest.id}</code>
+									<code style={{ font: `var(--text-xs) ${T.mono}` }}>
+										{review.plan.bundle.manifest.id}
+									</code>
 								</div>
 								{/* What lands, named, before anything is written. The DM reviews, then disposes. */}
 								{review.plan.kind === 'content-module' && (
-									<ul style={{ margin: 0, paddingInlineStart: 18, color: T.ter }}>
+									<ul
+										style={{ margin: T.space.zero, paddingInlineStart: T.space.five, color: T.ter }}
+									>
 										{review.plan.files.slice(0, 8).map((file) => (
-											<li key={file.path} style={{ font: `11.5px/1.6 ${T.mono}` }}>
+											<li key={file.path} style={{ font: `var(--text-xs)/1.6 ${T.mono}` }}>
 												{file.path}
 											</li>
 										))}
 										{review.plan.files.length > 8 && (
-											<li style={{ font: `11.5px/1.6 ${T.sans}` }}>
+											<li style={{ font: `var(--text-xs)/1.6 ${T.sans}` }}>
 												{t('community.discover.moreFiles', {
 													count: review.plan.files.length - 8,
 												})}
@@ -631,7 +447,7 @@ export function CommDiscover() {
 										})}
 									</div>
 								)}
-								<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
+								<div style={{ color: T.ter, font: `var(--text-xs)/1.5 ${T.sans}` }}>
 									{t(
 										review.plan.kind === 'content-module'
 											? 'community.discover.contentInstallNote'
