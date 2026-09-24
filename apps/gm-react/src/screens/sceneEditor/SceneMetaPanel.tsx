@@ -1,12 +1,21 @@
 import { findWidgetDefinition, type Scene, type SceneBackground } from '@dndtools/core';
 import type React from 'react';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Button, Card, Field, IconButton, Input, Select, Textarea } from '../../ds';
 import { parseTags } from '../../app/scene-helpers';
 import { Section } from './fields';
-import { inspectorLabels, PHONE_PANEL_OVERLAY } from './shared';
+import { PHONE_PANEL_OVERLAY, usePhonePanelBack } from './shared';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
+
+const NOTE: CSSProperties = {
+	font: 'var(--text-sm)/1.5 var(--font-sans)',
+	color: 'var(--color-text-secondary)',
+};
+
+const TERTIARY_AS_SECONDARY = {
+	'--color-text-tertiary': 'var(--color-text-secondary)',
+} as CSSProperties;
 
 /**
  * SceneMetaPanel — rename / re-describe / re-tag the scene AFTER creation, round-tripped through
@@ -37,8 +46,8 @@ export function SceneMetaPanel({
 	}) => void;
 	onClose: () => void;
 }) {
-	const { t, locale } = useI18n();
-	const labels = inspectorLabels(locale);
+	const { t } = useI18n();
+	usePhonePanelBack(phone, onClose);
 	const runtime = useRuntime();
 	const sourceId = scene.templateMeta.instantiatedFromTemplateSceneId;
 	const [background, setBackground] = useState(scene.visualSettings.background);
@@ -64,6 +73,8 @@ export function SceneMetaPanel({
 				gap: 'var(--space-3)',
 				maxHeight: '100%',
 				overflow: 'auto',
+				// DS Field help text is tertiary, which measured below 4.5:1 on this raised panel.
+				...TERTIARY_AS_SECONDARY,
 				...(belowCanvas
 					? { width: '100%', maxHeight: '40%', minHeight: 0, flex: '0 1 auto' }
 					: phone
@@ -72,20 +83,22 @@ export function SceneMetaPanel({
 			}}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<span
+				{/* Cinzel starts at --text-xl, so a panel title stays in the sans face. */}
+				<h3
 					style={{
 						flex: 1,
-						font: '700 var(--text-md) var(--font-display)',
+						margin: 'var(--space-0)',
+						font: '700 var(--text-md) var(--font-sans)',
 						color: 'var(--color-text-primary)',
 					}}
 				>
 					{t('sceneEditor.sceneDetails')}
-				</span>
+				</h3>
 				<IconButton
 					icon="close"
 					label={t('sceneEditor.closeDetails')}
 					variant="ghost"
-					size="sm"
+					size={phone ? 'lg' : 'sm'}
 					onClick={onClose}
 				/>
 			</div>
@@ -116,57 +129,65 @@ export function SceneMetaPanel({
 					placeholder={t('sceneEditor.tagsPlaceholder')}
 				/>
 			</Field>
-			<Field label={labels.background}>
+			<Field label={t('sceneEditor.background')} htmlFor="scene-meta-background">
 				<Select
+					id="scene-meta-background"
 					value={background}
 					onChange={(e: { target: { value: string } }) =>
 						setBackground(e.target.value as SceneBackground)
 					}
 					options={(['paper', 'parchment', 'dark', 'grid'] as const).map((value) => ({
 						value,
-						label: labels[value],
+						label: t(`sceneEditor.background.${value}`),
 					}))}
 				/>
 			</Field>
-			<Section label={labels.docks}>
-				{scene.widgets.some((widget) => widget.layout.dock)
-					? scene.widgets
-							.filter((widget) => widget.layout.dock)
-							.map((widget) => (
-								<div key={widget.id}>
-									{String(
-										widget.configuration.title ??
-											findWidgetDefinition(runtime.state.widgets, widget.type)?.displayName ??
-											widget.type,
-									)}
-									:{' '}
-									{widget.layout.dock === 'top'
-										? labels.topDock
-										: widget.layout.dock && t(`builder.dock.${widget.layout.dock}`)}
-								</div>
-							))
-					: labels.none}
-			</Section>
-			<Section label={labels.sections}>
-				{scene.sections.length
-					? scene.sections.map((section) => (
-							<div key={section.id}>
-								{section.name} ({section.widgetInstanceIds.length})
+			<Section label={t('sceneEditor.docks')}>
+				{scene.widgets.some((widget) => widget.layout.dock) ? (
+					scene.widgets
+						.filter((widget) => widget.layout.dock)
+						.map((widget) => (
+							<div key={widget.id} style={NOTE}>
+								{String(
+									widget.configuration.title ??
+										findWidgetDefinition(runtime.state.widgets, widget.type)?.displayName ??
+										widget.type,
+								)}
+								:{' '}
+								{widget.layout.dock === 'top'
+									? t('sceneEditor.topDock')
+									: widget.layout.dock && t(`builder.dock.${widget.layout.dock}`)}
 							</div>
 						))
-					: labels.none}
+				) : (
+					<div style={NOTE}>{t('sceneEditor.none')}</div>
+				)}
 			</Section>
-			<Section label={labels.template}>
-				<div>{scene.templateMeta.isTemplate ? labels.yes : labels.no}</div>
-				<div>
-					{labels.source}:{' '}
+			<Section label={t('sceneEditor.sections')}>
+				{scene.sections.length ? (
+					scene.sections.map((section) => (
+						<div key={section.id} style={NOTE}>
+							{section.name} ({section.widgetInstanceIds.length})
+						</div>
+					))
+				) : (
+					<div style={NOTE}>{t('sceneEditor.none')}</div>
+				)}
+			</Section>
+			<Section label={t('sceneEditor.template')}>
+				<div style={NOTE}>
+					{t(scene.templateMeta.isTemplate ? 'sceneEditor.isTemplate' : 'sceneEditor.notTemplate')}
+				</div>
+				<div style={NOTE}>
+					{t('sceneEditor.sourceTemplate')}:{' '}
 					{sourceId
-						? (runtime.state.scenes.scenes[sourceId]?.name ?? labels.unavailable)
-						: labels.none}
+						? (runtime.state.scenes.scenes[sourceId]?.name ?? t('sceneEditor.notAvailable'))
+						: t('sceneEditor.none')}
 				</div>
 			</Section>
+			{/* The subtle accent, like the toolbar's Done: one gold primary per region (RC-ENG-8.4). */}
 			<Button
-				variant="primary"
+				variant="accent"
 				size="sm"
 				icon="check"
 				disabled={!draftName.trim()}

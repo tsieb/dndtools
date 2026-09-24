@@ -238,7 +238,14 @@ test.describe('generate a widget (RC-WID-3.2)', () => {
 
 		await gotoRoute(page, `/scene/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
-		await page.getByRole('button', { name: 'Generate a widget' }).click();
+		// RC-POL-1.3: a phone keeps Generate in the tools row's bounded "More editing tools" menu.
+		const more = page.getByRole('button', { name: 'More editing tools' });
+		if (await more.isVisible()) {
+			await more.click();
+			await page.getByRole('menuitem', { name: 'Generate a widget' }).click();
+		} else {
+			await page.getByRole('button', { name: 'Generate a widget' }).click();
+		}
 		await page.getByLabel('What should the widget do?').fill(PROMPT);
 		await page.getByRole('button', { name: 'Generate' }).click();
 

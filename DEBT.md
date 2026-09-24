@@ -69,6 +69,20 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
   `packages/core/src/systems/`.
 - Status: open — neither file is inside RC-UX-4.4's claim, so this needs its own story.
 
+### DEBT-2026-008 — parchment's accent text on the accent tint is 4.43:1
+
+- Severity: medium · Owner: design system · Resolution window: 2026 Q4
+- Impact: in the parchment theme, `--color-accent` (#9a5418) on `--color-accent-subtle` (#f0e0c8)
+  measures 4.43:1, under WCAG AA's 4.5:1 for small text. Everything that paints that pair fails axe
+  `color-contrast` on parchment: the DS `Button variant="accent"` (Done on the scene editor and the
+  GM Screen) and the widget-body kit's accent `Chip` (the Dice and Character tiles). The per-surface
+  fix would drift from the tokens; the pair itself needs a darker accent or a lighter tint, which
+  re-baselines every parchment capture.
+- Targets: `apps/gm-react/src/styles/tokens/colors.css` (parchment block),
+  `apps/gm-react/src/app/widget-body-kit.tsx`, `scripts/token-contrast-lint.ts` (add the pair).
+- Status: open — found by RC-POL-1.3, whose axe spec (`scene-editor-polish.spec.ts`) names this one
+  pair as its only exception, on parchment only.
+
 ## Resolved
 
 - DEBT-2026-001 — typed platform-preferences layer: resolved by RC-UX-4.1

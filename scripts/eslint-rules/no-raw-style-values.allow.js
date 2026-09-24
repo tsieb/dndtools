@@ -100,9 +100,6 @@ export const allow = {
 	'apps/gm-react/src/screens/player/Sheet.tsx': 6,
 	'apps/gm-react/src/screens/player/Vitals.tsx': 23,
 	'apps/gm-react/src/screens/SceneCardsPanel.tsx': 1,
-	'apps/gm-react/src/screens/sceneEditor/fields.tsx': 2,
-	'apps/gm-react/src/screens/sceneEditor/index.tsx': 4,
-	'apps/gm-react/src/screens/sceneEditor/Inspector.tsx': 3,
 	'apps/gm-react/src/screens/SceneQueuePanel.tsx': 1,
 	'apps/gm-react/src/screens/session/ActiveMap.tsx': 1,
 	'apps/gm-react/src/screens/session/CampaignDate.tsx': 5,
@@ -148,4 +145,4 @@ export const allow = {
 	'apps/gm-react/src/screens/settings/Vault.tsx': 5,
 };
 
-// Total current findings: 1404
+// Total current findings: 1227

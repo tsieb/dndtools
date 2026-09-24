@@ -1,44 +1,36 @@
 import type React from 'react';
 import { BoardEmptyState, useBoardPreviouslyFilled } from '../board/BoardPlayerNotice';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
-	resolveAddWidgetCommand,
 	screenLayoutPolicy,
 	type ScreenLayoutPolicy,
-	type SceneBackground,
-	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Button, Card, Icon, IconButton, Switch, Toaster } from '../../ds';
+import { Icon } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { widgetRejectionMessage } from '../../app/widget-rejection';
 import { SceneBoardCanvas } from '../../app/SceneBoardCanvas';
 import { FlowBoard } from '../../app/canvas/FlowBoard';
-import { useLayoutHistory } from '../../app/canvas/useLayoutHistory';
 import { registerCanvasSurface } from '../../app/shortcuts/registry';
-import {
-	StackedBoard,
-	StackedLayoutToggle,
-	useStackedPosture,
-} from '../../app/canvas/StackedBoard';
+import { StackedBoard, useStackedPosture } from '../../app/canvas/StackedBoard';
 import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../../app/board-helpers';
-import { Seg } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { usePanelFocusReturn } from '../../app/usePanelFocusReturn';
 import { AddWidgetGallery } from '../../app/canvas/AddWidgetGallery';
 import { TemplatePicker, TemplateStartEntry } from '../../app/canvas/TemplatePicker';
-import { type Visibility } from './shared';
 import { SceneMetaPanel } from './SceneMetaPanel';
 import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from '../extensions/WidgetBuilder';
 import { Inspector } from './Inspector';
 import { useI18n } from '../../i18n';
-import { ViewAsControl, usePreviewActions } from '../../app/ViewAsControl';
+import { usePreviewActions } from '../../app/ViewAsControl';
 import { PlayerPreviewOverlay } from './PlayerPreviewOverlay';
 import { readPlayerPreview } from './playerPreview';
+import { SceneToolbar } from './SceneToolbar';
+import { SceneUnavailable } from './SceneUnavailable';
+import { useSceneCommands, type SceneMetadataDraft } from './useSceneCommands';
 
 /**
  * Actor-filtered widgets edited via core commands; canvas and flow share instances (ADR-041), and
@@ -48,10 +40,10 @@ import { readPlayerPreview } from './playerPreview';
 export function SceneEditor() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
-	const navigate = useNavigate();
 	const { id = '' } = useParams();
 	const actorId = runtime.defaultActorId;
 	const viewport = useViewport();
+	const phone = viewport === 'phone';
 	const preview = runtime.preview;
 	const previewActions = usePreviewActions();
 	const stageRef = useRef<HTMLDivElement>(null);
@@ -72,24 +64,8 @@ export function SceneEditor() {
 	useEffect(() => setPropertiesDismissed(false), [editing, id]);
 	// RC-CAN-4.4 — the scene-template picker, opened from the empty canvas or the gallery header.
 	const [templatesOpen, setTemplatesOpen] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const configQueue = useRef(Promise.resolve());
-	// RC-CAN-5.1 — a phone defaults to the stacked panel list (List); editing stays spatial.
+	// RC-CAN-5.1: reading is stacked on phones; editing keeps the durable layout policy.
 	const posture = useStackedPosture(viewport === 'phone' && !editing);
-
-	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
-	// never unmounts it on a scene→scene navigation (the sidebar and ⌘K both do exactly that). Every
-	// piece of per-scene UI state below therefore leaked onto the next scene: an open details panel
-	// kept showing — and SAVING — the previous scene's name/description/tags, and a rejection from
-	// scene A was displayed under scene B's header.
-	useEffect(() => {
-		setMetaOpen(false);
-		setAddOpen(false);
-		setTemplatesOpen(false);
-		setSelectedId(null);
-		setEditing(false);
-		setError(null);
-	}, [id]);
 
 	const summary = getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, id, {
 		widgetPackages: runtime.state.widgets,
@@ -120,6 +96,24 @@ export function SceneEditor() {
 		// reducer updates), so this recomputes whenever the scene or widget packages change.
 	}, [denied, previewBlocked, rawScene, runtime.state.widgets, summary]);
 
+	const commands = useSceneCommands({ runtime, sceneId: id, scene: rawScene, widgets });
+	const { history, error } = commands;
+
+	// `/scene/:id` is ONE route element, so React Router reuses this component across param changes and
+	// never unmounts it on a scene→scene navigation (the sidebar and ⌘K both do exactly that). Every
+	// piece of per-scene UI state below therefore leaked onto the next scene: an open details panel
+	// kept showing — and SAVING — the previous scene's name/description/tags, and a rejection from
+	// scene A was displayed under scene B's header.
+	useEffect(() => {
+		setMetaOpen(false);
+		setAddOpen(false);
+		setTemplatesOpen(false);
+		setSelectedId(null);
+		setEditing(false);
+		commands.clearError();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- reset on scene change only
+	}, [id]);
+
 	// ADR-041 — which engine this scene renders in. `screenMetaOf` defaults to `canvas`, so every
 	// scene authored before screens existed keeps exactly the surface it had.
 	const layoutPolicy: ScreenLayoutPolicy = rawScene ? screenLayoutPolicy(rawScene) : 'canvas';
@@ -130,7 +124,7 @@ export function SceneEditor() {
 	const propertiesOpen =
 		metaOpen || (editing && !selectedWidget && !addOpen && !propertiesDismissed);
 
-	const propertiesBelow = viewport === 'phone' && propertiesOpen && !metaOpen;
+	const propertiesBelow = phone && propertiesOpen && !metaOpen;
 	// Each of these panels has a path that unmounts it while focus is still inside: a successful Add,
 	// a saved metadata edit, the Inspector's Close, a deselect. See usePanelFocusReturn.
 	usePanelFocusReturn(propertiesOpen || addOpen);
@@ -144,152 +138,20 @@ export function SceneEditor() {
 		stageRef.current?.toggleAttribute('inert', previewing);
 	});
 
-	// `SceneRuntime.dispatchNow` RETHROWS after a failed `persistFullState`, and every caller here is
-	// fire-and-forget (`void onMove(...)`, `onClick={savePreset}`), so an IndexedDB quota or
-	// private-mode failure produced an unhandled rejection, no message at all, and the optimistic
-	// draft was dropped — the widget silently snapped back to where it had been.
-	const PERSIST_FAILED =
-		"That change couldn't be saved to this device. Check storage space and try again.";
-	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
-		// Clear before the attempt: `error` lives in a `role="alert"`, which announces on INSERTION,
-		// and re-setting the identical string is an `Object.is` bail-out — so a REPEATED identical
-		// failure re-rendered nothing and was announced only the first time.
-		setError(null);
-		let result;
-		try {
-			result = await runtime.dispatch(command);
-		} catch {
-			setError(PERSIST_FAILED);
-			return false;
-		}
-		if (result.status === 'rejected') {
-			setError(widgetRejectionMessage(result.rejection));
-			return false;
-		}
-		setError(null);
-		return true;
-	}
-
-	// RC-CAN-1.3: the local, never-synced undo stack for this scene. It is cleared whenever `id`
-	// changes, so Ctrl+Z on one scene can never dispatch an inverse addressed to the previous one.
-	const history = useLayoutHistory({ sceneId: id ?? null, runtime, dispatch });
-	// The Undo toast's callback outlives the render that raised it (the toast store is outside React),
-	// so it reads the stack through a ref rather than closing over one render's copy.
-	const historyRef = useRef(history);
-	historyRef.current = history;
-	const titleOf = (widgetInstanceId: string) =>
-		widgets.find((w) => w.id === widgetInstanceId)?.title ?? 'widget';
-
-	function move(widgetInstanceId: string, x: number, y: number) {
-		return history.run(
-			{
-				type: 'scene.move-widget',
-				actorId,
-				payload: { sceneId: id, widgetInstanceId, x, y },
-			},
-			`Moved ${titleOf(widgetInstanceId)}`,
-		);
-	}
-	// The policy is durable scene state, not a view toggle: `scene.set-layout-policy` writes the
-	// policy and nothing else, so widget identity, configuration and bindings come through untouched.
-	function setLayoutPolicy(next: string) {
-		if (next === layoutPolicy) return;
-		return dispatch({
-			type: 'scene.set-layout-policy',
-			actorId,
-			payload: { sceneId: id, layoutPolicy: next },
-		});
-	}
-	function resize(widgetInstanceId: string, w: number, h: number) {
-		return history.run(
-			{
-				type: 'scene.resize-widget',
-				actorId,
-				payload: { sceneId: id, widgetInstanceId, w, h },
-			},
-			`Resized ${titleOf(widgetInstanceId)}`,
-		);
-	}
-	// RC-CAN-4.1: the gallery picks the first open slot and focuses the placed tile.
-	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
-		const command = resolveAddWidgetCommand(entry, id, position);
-		if (!command) return false;
-		const ok = await dispatch({ type: command.type, actorId, payload: command.payload });
+	async function addWidget(...args: Parameters<typeof commands.addWidget>) {
+		const ok = await commands.addWidget(...args);
 		if (ok && !editing) setEditing(true);
 		return ok;
 	}
-	// Removing a widget used to stage a confirm dialog, because a destroy took the instance's
-	// configuration with it for good. RC-CAN-1.2 gave the core `scene.restore-widget`, so both entry
-	// points (the Inspector's Remove button and Delete/Backspace on a focused frame) now just do it
-	// and offer Undo — in a toast that holds open until it is taken or dismissed, and on Ctrl+Z.
 	async function destroy(widgetInstanceId: string) {
-		const title = titleOf(widgetInstanceId);
 		setSelectedId(null);
-		const ok = await history.run(
-			{
-				type: 'scene.destroy-widget',
-				actorId,
-				payload: { sceneId: id, widgetInstanceId },
-			},
-			`Removed ${title}`,
-		);
-		if (ok) {
-			Toaster.show({
-				message: `Removed ${title}`,
-				action: 'Undo',
-				onAction: () => {
-					void historyRef.current.undo();
-				},
-			});
-		}
+		await commands.destroy(widgetInstanceId);
 	}
-	// VIEW-mode widget operation (SES-005/SES-003): dispatch a widget-DECLARED durable command through
-	// the one envelope the core accepts — fresh idempotencyKey per press + the scene's current revision
-	// (`expectedRevision`, packages/core/src/commands/widget-command.ts).
-	function operateWidget(
-		widgetInstanceId: string,
-		commandType: string,
-		payload: Record<string, unknown>,
-	) {
-		if (!rawScene) return;
-		return dispatch({
-			type: 'widget.dispatch-command',
-			actorId,
-			idempotencyKey: crypto.randomUUID(),
-			payload: {
-				sceneId: id,
-				widgetInstanceId,
-				commandType,
-				payload,
-				expectedRevision: rawScene.ownership.revision,
-			},
-		});
-	}
-	// SCENE METADATA (scene.update-metadata) — scenes are no longer permanently named at creation.
-	async function saveMetadata(meta: {
-		name: string;
-		description: string;
-		tags: string[];
-		visualSettings: { background: SceneBackground };
-	}) {
-		const ok = await dispatch({
-			type: 'scene.update-metadata',
-			actorId,
-			payload: { sceneId: id, ...meta },
-		});
-		if (ok) {
+	async function saveMetadata(meta: SceneMetadataDraft) {
+		if (await commands.saveMetadata(meta)) {
 			setMetaOpen(false);
 			setPropertiesDismissed(true);
 		}
-	}
-	// CANVAS-016 — pin the selected widget's explicit keyboard traversal position (null clears it back
-	// to the core's derived order).
-	function setFocusOrder(widgetInstanceId: string, focusOrder: number | null) {
-		return dispatch({
-			type: 'scene.set-focus-order',
-			actorId,
-			payload: { sceneId: id, widgetInstanceId, focusOrder },
-		});
 	}
 	// Escape and "Exit preview" both land here. The overlay — and the button that may hold focus —
 	// unmounts on exit, so focus goes to this scene's own switcher instead of falling to <body>.
@@ -299,33 +161,15 @@ export function SceneEditor() {
 			previewTriggerRef.current?.querySelector('button')?.focus();
 		}
 	}
-	function setVisibility(visibility: Visibility) {
-		return setConfig('visibility', visibility);
-	}
-	// Round-trip a single declared config field through the core. A free-form configuration merge —
-	// exactly what `scene.configure-widget` persists — so the canvas body re-renders from the new value
-	// and the edit survives reload identically to any other authored change.
-	function setConfig(key: string, value: unknown) {
-		if (!selectedInstance) return;
-		const widgetInstanceId = selectedInstance.id;
-		// A blur and a discrete field change can arrive before persistence re-renders the panel.
-		// Read the latest configuration after prior edits commit so one tab cannot erase another.
-		configQueue.current = configQueue.current.then(async () => {
-			const latest = runtime.state.scenes.scenes[id]?.widgets.find(
-				(w) => w.id === widgetInstanceId,
-			);
-			if (!latest) return;
-			await dispatch({
-				type: 'scene.configure-widget',
-				actorId,
-				payload: {
-					sceneId: id,
-					widgetInstanceId,
-					configuration: { ...latest.configuration, [key]: value },
-				},
-			});
-		});
-		return configQueue.current;
+	// Selecting a widget is about that widget, so it closes the scene-level details panel. With the
+	// panel left open, a click painted a selection ring and opened no editor: the Inspector below is
+	// gated `!addOpen && !metaOpen`.
+	function select(widgetInstanceId: string | null) {
+		setSelectedId(widgetInstanceId);
+		if (widgetInstanceId) {
+			setPropertiesDismissed(false);
+			setMetaOpen(false);
+		}
 	}
 
 	// The Edit-layout / Done button's handler, shared with the command palette's Toggle edit row.
@@ -351,59 +195,30 @@ export function SceneEditor() {
 			setEditing: enterEditing,
 			canUndo: history.canUndo,
 			undoLabel: history.undoLabel,
-			undo: () => void historyRef.current.undo(),
+			undo: commands.undo,
 		});
 	});
 
 	if ((denied && !previewBlocked) || !rawScene) {
-		return (
-			<div style={{ maxWidth: 720, margin: '0 auto' }}>
-				<Card
-					elevation="raised"
-					padding="lg"
-					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
-				>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 'var(--space-2)',
-							color: 'var(--color-status-error-text)',
-						}}
-					>
-						<Icon name="error" size="sm" />
-						<span style={{ font: '700 var(--text-lg) var(--font-display)' }}>
-							{t('sceneEditor.unavailable')}
-						</span>
-					</div>
-					<div
-						style={{
-							font: 'var(--text-sm) var(--font-sans)',
-							color: 'var(--color-text-secondary)',
-						}}
-					>
-						{denied && 'kind' in summary
-							? t('sceneEditor.cannotOpen', { reason: summary.reason })
-							: t('sceneEditor.noLongerExists')}
-					</div>
-					<Button
-						variant="secondary"
-						icon="arrow-left"
-						onClick={() => navigate('/scenes')}
-						style={{ alignSelf: 'flex-start' }}
-					>
-						{t('sceneEditor.backToScenes')}
-					</Button>
-				</Card>
-			</div>
-		);
+		return <SceneUnavailable reason={denied ? summary.reason : null} />;
 	}
 
-	const emptyHint = editing
-		? 'Press Add to place your first widget.'
-		: 'Press Edit layout, then Add to place a widget.';
+	const emptyHint = t(editing ? 'sceneEditor.emptyHintEditing' : 'sceneEditor.emptyHintViewing');
 	// A preview-blocked scene has no actor summary; its header and details come from the raw scene.
 	const shown = 'kind' in summary ? rawScene : summary;
+	const canvasProps = {
+		widgets,
+		editing,
+		selectedId,
+		onSelect: select,
+		onMove: commands.move,
+		onResize: commands.resize,
+		onRemove: destroy,
+		onWidgetCommand: commands.operateWidget,
+		history,
+		emptyTitle: previewing ? undefined : '',
+		emptyHint: previewing ? emptyHint : '',
+	};
 
 	return (
 		<div
@@ -417,152 +232,38 @@ export function SceneEditor() {
 				minHeight: posture.stacked ? 0 : 360,
 				// Include gutters in the pane height; phones keep their full width for widget content.
 				boxSizing: 'border-box',
-				padding: viewport === 'phone' ? 0 : '16px 28px',
+				padding: phone ? 'var(--space-0)' : 'var(--space-4) calc(var(--space-6) + var(--space-1))',
 			}}
 		>
-			{/* edit toolbar — hidden while a stacked tile is full screen (it has its own way back) */}
-			<div
-				style={{
-					display: posture.hideChrome ? 'none' : 'flex',
-					alignItems: 'center',
-					gap: 'var(--space-2)',
-					// Without wrapping, edit mode's back + edit + snap + add + done controls consumed the
-					// whole 393px phone width and ellipsised the scene name to a couple of glyphs.
-					// Board.tsx's equivalent toolbar row already wraps.
-					flexWrap: 'wrap',
-					flex: '0 0 auto',
+			<SceneToolbar
+				posture={posture}
+				name={shown.name}
+				widgetCount={widgets.length}
+				viewport={viewport}
+				layoutPolicy={layoutPolicy}
+				previewing={previewing}
+				editing={editing}
+				metaOpen={metaOpen}
+				addOpen={addOpen}
+				snap={snap}
+				previewTriggerRef={previewTriggerRef}
+				onToggleMeta={() => {
+					setMetaOpen((v) => !v);
+					setAddOpen(false);
 				}}
-			>
-				<IconButton
-					icon="arrow-left"
-					label={t('sceneEditor.backToScenes')}
-					variant="ghost"
-					onClick={() => navigate('/scenes')}
-				/>
-				<div style={{ minWidth: 0 }}>
-					{/* The shell's only <h1> is the section label ("Scenes"), so without a heading here
-					    the page announced no way to tell WHICH scene is open. */}
-					<h2
-						style={{
-							margin: 0,
-							font: '700 var(--text-xl) var(--font-display)',
-							color: 'var(--color-text-primary)',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
-							whiteSpace: 'nowrap',
-						}}
-					>
-						{shown.name}
-					</h2>
-					<div
-						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
-						}}
-					>
-						{t(posture.stacked ? 'home.scene.widgets' : 'sceneEditor.widgetSummary', {
-							count: widgets.length,
-						})}
-					</div>
-				</div>
-				{!previewing && (
-					<IconButton
-						icon="edit"
-						label={t('sceneEditor.editMeta')}
-						variant="ghost"
-						size="sm"
-						// Both of this toolbar's disclosures were silent about their own state, unlike the
-						// equivalent controls on /board. The label is left alone deliberately —
-						// canvas.spec.ts locates this button and the Add button by name.
-						aria-expanded={metaOpen}
-						onClick={() => {
-							setMetaOpen((v) => !v);
-							setAddOpen(false);
-						}}
-					/>
-				)}
-				<div style={{ flex: 1 }} />
-				{editing && !previewing && (
-					<>
-						{/* ADR-041 — the policy picker. It is a durable scene property, so it lives beside
-						    the other layout controls rather than in a settings dialog. */}
-						<Seg
-							ariaLabel={t('sceneEditor.layout')}
-							value={layoutPolicy}
-							onChange={setLayoutPolicy}
-							options={[
-								{
-									value: 'flow',
-									label: t('sceneEditor.layoutFlow'),
-									title: t('sceneEditor.layoutFlowHint'),
-								},
-								{
-									value: 'canvas',
-									label: t('sceneEditor.layoutCanvas'),
-									title: t('sceneEditor.layoutCanvasHint'),
-								},
-							]}
-						/>
-						{/* Snap is a CANVAS affordance: flow has no free coordinates to snap to. */}
-						{layoutPolicy === 'canvas' && (
-							<Switch
-								checked={snap}
-								onChange={setSnap}
-								label={
-									<span
-										style={{
-											font: 'var(--text-2xs) var(--font-sans)',
-											color: 'var(--color-text-secondary)',
-										}}
-									>
-										{t('sceneEditor.snap')}
-									</span>
-								}
-							/>
-						)}
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="add"
-							aria-expanded={addOpen}
-							onClick={() => {
-								setAddOpen((v) => !v);
-								setMetaOpen(false);
-							}}
-						>
-							{t('sceneEditor.add')}
-						</Button>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="sparkle"
-							onClick={() => {
-								setGenerateOpen(true);
-								setAddOpen(false);
-								setMetaOpen(false);
-							}}
-						>
-							{t('widgetGen.title')}
-						</Button>
-					</>
-				)}
-				{/* RC-CAN-6.1 — this canvas's own "what player X sees" switcher. */}
-				{!previewing && <StackedLayoutToggle posture={posture} />}
-				<div ref={previewTriggerRef} style={{ display: 'contents' }}>
-					<ViewAsControl placement="scene" compact={viewport === 'phone'} />
-				</div>
-				{/* The subtle accent, as on the GM Screen: one gold primary per region (RC-ENG-8.4). */}
-				{!previewing && (
-					<Button
-						variant={editing ? 'accent' : 'secondary'}
-						size="sm"
-						icon={editing ? 'check' : 'edit'}
-						onClick={() => enterEditing(!editing)}
-					>
-						{editing ? 'Done' : 'Edit layout'}
-					</Button>
-				)}
-			</div>
+				onToggleAdd={() => {
+					setAddOpen((v) => !v);
+					setMetaOpen(false);
+				}}
+				onGenerate={() => {
+					setGenerateOpen(true);
+					setAddOpen(false);
+					setMetaOpen(false);
+				}}
+				onEditing={enterEditing}
+				onLayoutPolicy={(next) => commands.setLayoutPolicy(layoutPolicy, next)}
+				onSnap={setSnap}
+			/>
 
 			{error && (
 				<div
@@ -571,8 +272,8 @@ export function SceneEditor() {
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',
-						gap: 6,
-						font: 'var(--text-xs) var(--font-sans)',
+						gap: 'var(--space-1-5)',
+						font: 'var(--text-sm) var(--font-sans)',
 						color: 'var(--color-status-error-text)',
 						flex: '0 0 auto',
 					}}
@@ -620,57 +321,21 @@ export function SceneEditor() {
 							<StackedBoard
 								sceneId={id}
 								widgets={widgets}
-								onWidgetCommand={operateWidget}
+								onWidgetCommand={commands.operateWidget}
 								emptyTitle={previewing ? shown.name : ''}
 								emptyHint={previewing ? emptyHint : ''}
 								onMaximizedChange={posture.onMaximizedChange}
 							/>
 						) : layoutPolicy === 'flow' ? (
-							<FlowBoard
-								widgets={widgets}
-								tier={viewport}
-								editing={editing}
-								selectedId={selectedId}
-								onSelect={(id) => {
-									setSelectedId(id);
-									if (id) setPropertiesDismissed(false);
-									if (id) setMetaOpen(false);
-								}}
-								onMove={move}
-								onResize={resize}
-								onRemove={destroy}
-								onWidgetCommand={operateWidget}
-								history={history}
-								emptyTitle={previewing ? undefined : ''}
-								emptyHint={previewing ? emptyHint : ''}
-							/>
+							<FlowBoard {...canvasProps} tier={viewport} />
 						) : (
 							<SceneBoardCanvas
-								widgets={widgets}
+								{...canvasProps}
 								policy="canvas"
-								editing={editing}
 								snap={snap}
-								selectedId={selectedId}
-								// The Inspector below is gated `!addOpen && !metaOpen`, but selection was not — so
-								// with "Scene details" open, clicking a widget painted its selection ring and title
-								// chip and opened no editor at all: a dead end with a visible selection and nothing
-								// to do with it. Selecting a widget is about that widget, so it closes the
-								// scene-level details panel.
-								onSelect={(id) => {
-									setSelectedId(id);
-									if (id) setPropertiesDismissed(false);
-									if (id) setMetaOpen(false);
-								}}
-								onMove={move}
-								onResize={resize}
 								focusOrder={
 									'kind' in summary ? [] : summary.focusOrder.map((entry) => entry.widgetInstanceId)
 								}
-								onRemove={destroy}
-								onWidgetCommand={operateWidget}
-								history={history}
-								emptyTitle={previewing ? undefined : ''}
-								emptyHint={previewing ? emptyHint : ''}
 							/>
 						)}
 						{widgets.length === 0 && !previewing && (
@@ -703,7 +368,7 @@ export function SceneEditor() {
 							name={shown.name}
 							description={shown.description}
 							tags={shown.tags}
-							phone={viewport === 'phone'}
+							phone={phone}
 							onSave={saveMetadata}
 							onClose={() => {
 								setMetaOpen(false);
@@ -745,13 +410,13 @@ export function SceneEditor() {
 							history={history}
 							key={selectedInstance.id}
 							widget={selectedWidget}
-							phone={viewport === 'phone'}
+							phone={phone}
 							focusOrder={selectedInstance.layout.focusOrder}
-							onVisibility={setVisibility}
-							onConfigure={setConfig}
-							onResize={(w, h) => resize(selectedInstance.id, w, h)}
-							onMove={(x, y) => move(selectedInstance.id, x, y)}
-							onFocusOrder={(order) => setFocusOrder(selectedInstance.id, order)}
+							onVisibility={(v) => commands.setConfig(selectedInstance.id, 'visibility', v)}
+							onConfigure={(key, value) => commands.setConfig(selectedInstance.id, key, value)}
+							onResize={(w, h) => commands.resize(selectedInstance.id, w, h)}
+							onMove={(x, y) => commands.move(selectedInstance.id, x, y)}
+							onFocusOrder={(order) => commands.setFocusOrder(selectedInstance.id, order)}
 							onRemove={() => destroy(selectedInstance.id)}
 							onClose={() => setSelectedId(null)}
 						/>
@@ -762,7 +427,7 @@ export function SceneEditor() {
 						widgets={widgets}
 						read={previewRead}
 						label={preview.label}
-						phone={viewport === 'phone'}
+						phone={phone}
 						onExit={exitPreview}
 					/>
 				)}

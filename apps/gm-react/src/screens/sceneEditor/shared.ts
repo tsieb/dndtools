@@ -1,7 +1,9 @@
 import type React from 'react';
+import { useEffect, useRef } from 'react';
+import { registerBackHandler } from '../../platform/backNavigation';
 
-/* The scene editor's shared visibility type + the phone side-panel overlay style. Extracted from
- * SceneEditor.tsx (RC-STB-2.6) so each panel can live in its own file. */
+/* The scene editor's shared visibility type, the phone side-panel overlay style and its Android Back
+ * hook. Extracted from SceneEditor.tsx (RC-STB-2.6) so each panel can live in its own file. */
 
 export type Visibility = 'dm-only' | 'shared' | 'player-visible';
 
@@ -29,61 +31,19 @@ export type BindingResolverState =
 	| { state: 'available' | 'unbound' | 'missing' | 'conflicted' | 'degraded' }
 	| { state: 'hidden'; reason: 'dm-only' | 'not-shared' | 'field-hidden' };
 
-/** Local copy stays with this panel's owned surface. */
-export function inspectorLabels(locale: string) {
-	return locale === 'es'
-		? {
-				content: 'Contenido',
-				display: 'Presentación',
-				style: 'Estilo',
-				binding: 'Vínculo',
-				transform: 'Transformación',
-				visibility: 'Visibilidad',
-				properties: 'Propiedades',
-				noFields: 'No hay opciones en esta pestaña.',
-				noBinding: 'Este elemento no usa un vínculo.',
-				whoSees: 'Quién ve esto',
-				players: 'Cualquier jugador',
-				unavailable: 'No disponible',
-				background: 'Fondo',
-				paper: 'Papel',
-				parchment: 'Pergamino',
-				dark: 'Oscuro',
-				grid: 'Cuadrícula',
-				docks: 'Anclajes',
-				topDock: 'Anclaje superior',
-				sections: 'Secciones',
-				template: 'Plantilla',
-				none: 'Ninguno',
-				source: 'Plantilla de origen',
-				yes: 'Sí',
-				no: 'No',
-			}
-		: {
-				content: 'Content',
-				display: 'Display',
-				style: 'Style',
-				binding: 'Binding',
-				transform: 'Transform',
-				visibility: 'Visibility',
-				properties: 'Properties',
-				noFields: 'No settings in this tab.',
-				noBinding: 'This tile does not use a binding.',
-				whoSees: 'Who sees this',
-				players: 'Any player',
-				unavailable: 'Unavailable',
-				background: 'Background',
-				paper: 'Paper',
-				parchment: 'Parchment',
-				dark: 'Dark',
-				grid: 'Grid',
-				docks: 'Docks',
-				topDock: 'Top dock',
-				sections: 'Sections',
-				template: 'Template',
-				none: 'None',
-				source: 'Source template',
-				yes: 'Yes',
-				no: 'No',
-			};
+/**
+ * RC-POL-1.3 — on a phone the Inspector and the details panel float over the canvas, so Android
+ * Back closes them before it leaves the scene (the documented order: top overlay, then history).
+ * Leaving instead dropped the details panel's unsaved draft along with the route.
+ */
+export function usePhonePanelBack(phone: boolean, onClose: () => void): void {
+	const onCloseRef = useRef(onClose);
+	onCloseRef.current = onClose;
+	useEffect(() => {
+		if (!phone) return undefined;
+		return registerBackHandler('overlay', () => {
+			onCloseRef.current();
+			return true;
+		});
+	}, [phone]);
 }

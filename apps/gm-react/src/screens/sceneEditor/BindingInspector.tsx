@@ -187,7 +187,7 @@ function StateRow({
 					style={{
 						flex: 1,
 						minWidth: 0,
-						font: '600 var(--text-2xs) var(--font-sans)',
+						font: '600 var(--text-xs) var(--font-sans)',
 						color: 'var(--color-text-primary)',
 					}}
 				>
@@ -199,7 +199,7 @@ function StateRow({
 			</div>
 			<span
 				style={{
-					font: 'var(--text-2xs)/1.4 var(--font-sans)',
+					font: 'var(--text-xs)/1.4 var(--font-sans)',
 					color: 'var(--color-text-secondary)',
 				}}
 			>
@@ -333,8 +333,8 @@ export function BindingInspector({ widget }: { widget: BoardWidget }) {
 				{candidates.length === 0 ? (
 					<span
 						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
+							font: 'var(--text-xs) var(--font-sans)',
+							color: 'var(--color-text-secondary)',
 						}}
 					>
 						{t('sceneEditor.binding.nothing', { noun: slot.label.toLowerCase() })}
@@ -342,8 +342,8 @@ export function BindingInspector({ widget }: { widget: BoardWidget }) {
 				) : matches.length === 0 ? (
 					<span
 						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
+							font: 'var(--text-xs) var(--font-sans)',
+							color: 'var(--color-text-secondary)',
 						}}
 					>
 						{t('sceneEditor.binding.noMatches', { query: query.trim() })}

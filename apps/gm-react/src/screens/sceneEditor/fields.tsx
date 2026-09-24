@@ -19,7 +19,7 @@ export function Section({ label, children }: { label: string; children: React.Re
 		>
 			<span
 				style={{
-					font: '600 var(--text-2xs) var(--font-sans)',
+					font: '600 var(--text-xs) var(--font-sans)',
 					letterSpacing: 'var(--tracking-wider)',
 					textTransform: 'uppercase',
 					color: 'var(--color-text-secondary)',
@@ -92,14 +92,16 @@ export function FieldControl({
 	if (field.control === 'color') {
 		return (
 			<Field label={field.label}>
+				{/* An empty value is sanitised to black by the browser, which was the old literal default.
+				    44px tall so it meets the touch-target floor like every other control here. */}
 				<input
 					type="color"
-					value={String(current ?? '#000000')}
+					value={current == null ? '' : String(current)}
 					onChange={(e) => onCommit(e.target.value)}
 					style={{
-						width: 44,
-						height: 28,
-						padding: 0,
+						width: 48,
+						height: 44,
+						padding: 'var(--space-0-5)',
 						border: '1px solid var(--color-border)',
 						borderRadius: 'var(--radius-sm)',
 						background: 'transparent',

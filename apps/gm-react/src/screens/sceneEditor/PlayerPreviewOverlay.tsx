@@ -189,7 +189,7 @@ export function PlayerPreviewOverlay({
 						style={{
 							margin: 'var(--space-0)',
 							// Cinzel starts at --text-xl; a compact overlay title stays in the sans face.
-							font: '700 var(--text-lg) var(--font-sans)',
+							font: '700 var(--text-md) var(--font-sans)',
 							color: 'var(--color-text-primary)',
 						}}
 					>
@@ -386,7 +386,7 @@ function PreviewTile({
 					border: `1px solid ${chip.bd}`,
 					background: chip.bg,
 					color: chip.fg,
-					font: '600 var(--text-2xs) var(--font-sans)',
+					font: '600 var(--text-xs) var(--font-sans)',
 				}}
 			>
 				<Icon name={chip.icon} size={11} />

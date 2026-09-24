@@ -30,9 +30,10 @@ function code(...segments: string[]): string {
 }
 
 describe('a repeated identical failure re-announces', () => {
-	// RC-STB-2.6 split SceneEditor.tsx into screens/sceneEditor/; the dispatch helper lives in its
-	// index. Paths, not bare file names, so a later split re-points here rather than silently passing.
-	for (const screen of ['Board.tsx', 'sceneEditor/index.tsx']) {
+	// RC-STB-2.6 split SceneEditor.tsx into screens/sceneEditor/, and RC-POL-1.3 moved its dispatch
+	// helper into the folder's command hook. Paths, not bare file names, so a later split re-points
+	// here rather than silently passing.
+	for (const screen of ['Board.tsx', 'sceneEditor/useSceneCommands.ts']) {
 		it(`${screen}'s dispatch helper clears its alert before the attempt`, () => {
 			const source = code('screens', screen);
 			const helper = /async function dispatch\([\s\S]*?\n\t\}\n/.exec(source)?.[0];
@@ -42,7 +43,8 @@ describe('a repeated identical failure re-announces', () => {
 			const body = helper!.slice(helper!.indexOf('{') + 1).trimStart();
 			expect(body.startsWith('setError(null);')).toBe(true);
 			// …and the failure paths still set it.
-			expect(helper).toMatch(/setError\(PERSIST_FAILED\)/);
+			// A constant on the Board, a catalog key in the scene editor (RC-POL-1.3).
+			expect(helper).toMatch(/setError\((PERSIST_FAILED|t\('sceneEditor\.persistFailed'\))\)/);
 			expect(helper).toMatch(/setError\(widgetRejectionMessage/);
 		});
 	}
