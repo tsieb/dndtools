@@ -120,8 +120,8 @@ or whole-app axe in every theme; the applicable checklist waivers above remain e
 ## Reconcile onto loop/rc df073f66 — 2026-09-24
 
 The previous session ended at the provider allowance limit after committing `b86b7ecb`. By then loop/rc
-had moved 109 commits ahead, and a trial merge conflicted in three files. I merged loop/rc into the task
-branch (no rebase, so the dispatcher commits are kept) and resolved the conflicts:
+had moved 109 commits ahead, and a trial merge conflicted in three files. I first merged loop/rc into
+the task branch and resolved the conflicts there (the history is now linear; see "Linear rebuild" below):
 
 - `audio-presets.spec.ts`: kept this task's Undo-restores-both-cues assertions and adopted loop/rc's
   RC-UX-4.4 copy (`Link audio to …` / `Unlink audio from …`).
@@ -164,3 +164,21 @@ Audio paths rather than the full `pnpm lint`, so it never ran this check. Fix: A
 | Container visual, strict compare `CI=1 --update-snapshots=none --retries=0`     | 75 passed, exit 0                                                  | /tmp/pol13-visual2-compare.log            |
 | Audio e2e (six specs) + `/audio` axe gate + strict overlay scans, both profiles | 38 passed, exit 0                                                  | /tmp/pol13-e2e2.log                       |
 | gm-react typecheck; `pnpm gates`; `format:check:changed --base loop/rc`         | exit 0; exit 0 with no `screens/audio` warning; clean              | /tmp/pol13-tc2.log, /tmp/pol13-gates2.log |
+
+## Linear rebuild onto 5b2fe580 (2026-09-24)
+
+The operator integrates by rebasing, and a rebase drops merge commits and replays `b86b7ecb` by itself, so
+the same three conflicts came back against `5b2fe580`. Because `5b2fe580` is a single commit on top of the
+merged `df073f66` and touches only Graph, `infra/deploy.sh` and a CI journal, I rebuilt the branch as two
+linear commits on it. The first carries the polish plus the conflict resolutions above; the second is the
+emphasis-lint fix. Their trees are the old merged trees merged with `5b2fe580`
+(`git merge-tree`, no conflicts). The old tip `0b5c3205` differs from the new tip only by `5b2fe580`'s four
+files. `5b2fe580` was also origin/loop/rc's tip when I checked.
+
+| Check on the rebuilt branch                                                     | Result                                    | Log                    |
+| ------------------------------------------------------------------------------- | ----------------------------------------- | ---------------------- |
+| Full `pnpm lint`                                                                | exit 0                                    | /tmp/pol13-lint3.log   |
+| gm-react typecheck                                                              | exit 0                                    | /tmp/pol13-tc3.log     |
+| Audio e2e (six specs) + `/audio` axe gate + strict overlay scans, both profiles | 38 passed, exit 0                         | /tmp/pol13-e2e3.log    |
+| Container visual strict compare `CI=1 --update-snapshots=none --retries=0`      | 75 passed, exit 0                         | /tmp/pol13-visual3.log |
+| `pnpm gates`; `format:check:changed --base 5b2fe580`                            | exit 0, no `screens/audio` warning; clean | /tmp/pol13-gates3.log  |
