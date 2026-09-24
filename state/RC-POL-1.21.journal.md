@@ -26,7 +26,10 @@ Checked items include explicit, scoped waivers below; a waiver is not a claim th
       a raised article panel: an unframed reading measure avoids nesting a card around published prose.
 - [x] 3–4 type sizes, Cinzel at least 24px, numeric metadata in mono.
 - [x] Status icon shapes; DM stripe waived: public server-projected reader has no DM controls.
-- [x] All five themes × desktop/rail/phone screenshots updated and reviewed.
+- [x] All five themes × desktop/rail/phone screenshots updated and reviewed. Committed baselines
+      are budget-limited (see "Rebase onto loop/rc 75fef2be"): the nine `wiki--*` golden routes
+      (offline notice, three themes) plus a text-free reader-mark crop in all five themes × three
+      tiers. The full six-state matrix was reviewed and strict-compared but not committed.
 - [x] Named motion tokens and reduced-motion behavior.
 - [x] Empty/loading/error/unavailable present; publish-empty, knowledge-empty and search-none
       drawings used. Loading/error/unavailable have icon shapes; their illustration keys do not exist.
@@ -108,3 +111,36 @@ tests/e2e/wiki-reader-polish.spec.ts tests/e2e/wiki.spec.ts tests/e2e/a11y-axe-g
   isolated mobile diagnostic passed; both full repetitions without concurrent rendering passed.
   Concurrent Vite startup/cache contention is a hypothesis, not a diagnosed application fault.
   Browser error diagnostics remain in the test; no retry or automatic reload masks a failure.
+
+## Rebase onto loop/rc 75fef2be (2026-09-24)
+
+The first candidate (3826890f) was based on 2d9f566d, 125 commits behind `loop/rc`, and conflicted
+in FEATURE-GAPS.md (table re-padded upstream) and the raw-style allowlist. Resolved by taking
+`loop/rc`'s side and re-applying only this story's hunks: the Public wiki row text, and removing
+the `WikiReader.tsx: 21` allowance (total comment 2085 → 2064). WikiReader.tsx itself had no
+upstream changes; the only nearby upstream edits were `a11y-axe-gate.spec.ts` and `spacing.css`.
+
+- **Baseline budget blocker.** `loop/rc` now sits at 32,754.8 / 32,768 KiB (420 files, ~13 KiB
+  free). The first candidate's 90 new state captures (1,982 KiB) put the tree at 34,732.4 KiB,
+  so `check-baseline-budget.mjs` failed. Leaving the shared cap alone, I:
+  - ran the strict pinned compare of the full 90-image matrix on the rebased tree **before**
+    deleting it: `run-in-container.sh --update-snapshots=none --retries=0 -g wiki --workers=2`
+    gave **99 passed**, exit 0. The six states × five themes × three tiers therefore render within
+    tolerance of the contact sheets reviewed on the old base;
+  - dropped the matrix and replaced `tests/visual/wiki-reader.spec.ts` with a text-free crop of
+    the ready reader's header mark (`header svg`), in five themes × three tiers: 15 PNGs, 430–476 B
+    each, ~6.8 KiB in total. The nine `wiki-reader-error--{parchment,tavern,high-contrast}` captures were
+    byte-identical (`cmp`) to the updated `wiki--*` golden routes, so nothing unique was lost there;
+  - budget now **435 files, 32,756.9 / 32,768 KiB**, exit 0. Re-capturing the full state matrix in
+    git needs the owner to raise the cap; that decision is outside this story.
+- Strict pinned compare after the change (`-g wiki`, retries 0): **24 passed**, exit 0 (9 golden
+  routes + 15 reader marks).
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0. Targeted ESLint on the screen, fixture and
+  specs: exit 0. `WikiReader.test.tsx`: **15 passed**.
+- `pnpm gates`: exit 0; the log does not mention WikiReader (the screen is 499 lines). Other files
+  still warn about size, as they did before.
+- `pnpm run format:check:changed -- --base loop/rc`: all changed files pass Prettier.
+- `node scripts/raw-style-count.js`: 1917 findings across 206 files (it reports only; exit 0).
+- E2E: `playwright test tests/e2e/wiki-reader-polish.spec.ts tests/e2e/wiki.spec.ts
+tests/e2e/a11y-axe-gate.spec.ts -g wiki --workers=2 --retries=0`: **18 passed** (9 desktop-chromium,
+  9 mobile-chromium), exit 0.

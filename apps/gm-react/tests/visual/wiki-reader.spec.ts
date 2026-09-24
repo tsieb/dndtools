@@ -1,32 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { mockWiki } from '../e2e/_wikiFixture';
 
-// RC-POL-1.21: unlike the legacy offline-only golden route, these captures exercise the reader
-// itself in every shipped theme. Fixtures are served entirely inside this browser context.
+// RC-POL-1.21: the golden-route `wiki` captures pin the offline notice in three themes. This pins
+// the reader itself in all five, as a text-free crop of its header mark: the shared baseline
+// budget (check-baseline-budget.mjs) has no room for full-state captures, and any crop with text
+// costs several KiB per image. The e2e and axe specs cover the other states in every theme.
 for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast']) {
-	for (const mode of ['ready', 'empty', 'password', 'loading', 'error', 'missing'] as const) {
-		test(`wiki reader ${theme} ${mode}`, async ({ page }) => {
-			await page.addInitScript((applied) => {
-				localStorage.setItem('dndtools:react:theme', applied);
-				localStorage.setItem('dndtools:react:onboarded', 'visual');
-			}, theme);
-			if (mode !== 'error' && mode !== 'missing') await mockWiki(page, mode);
-			await page.goto(mode === 'missing' ? '/#/wiki' : '/#/wiki?id=fixture');
-			const title =
-				mode === 'password'
-					? 'This wiki is protected'
-					: mode === 'loading'
-						? 'Opening wiki…'
-						: mode === 'error'
-							? 'Wiki unavailable'
-							: mode === 'missing'
-								? 'No wiki link'
-								: 'The Copper Coast';
-			await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-			await expect(page.locator('main, [role="main"]').first()).toBeVisible();
-			await expect(page.locator('[data-theme]').last()).toHaveAttribute('data-theme', theme);
-			await page.evaluate(() => document.fonts.ready);
-			await expect(page).toHaveScreenshot(`wiki-reader-${mode}--${theme}.png`);
-		});
-	}
+	test(`wiki reader ${theme}`, async ({ page }) => {
+		await page.addInitScript((applied) => {
+			localStorage.setItem('dndtools:react:theme', applied);
+			localStorage.setItem('dndtools:react:onboarded', 'visual');
+		}, theme);
+		await mockWiki(page, 'ready');
+		await page.goto('/#/wiki?id=fixture');
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('The Copper Coast');
+		await expect(page.locator('[data-theme]').last()).toHaveAttribute('data-theme', theme);
+		await page.evaluate(() => document.fonts.ready);
+		await expect(page.locator('header svg').first()).toHaveScreenshot(
+			`wiki-reader-mark--${theme}.png`,
+		);
+	});
 }
