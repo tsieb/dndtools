@@ -63,6 +63,10 @@ The first attempt (57ac4c5a, base 2d9f566d) stopped at a provider limit, and `lo
 - `token-references.test.ts` flagged `--scene-from/--scene-to/--scene-ink` (the CSS reads them and the TSX sets them inline). `.scene-display__card` now declares theme-token defaults; the inline mood palette still wins.
 - Out of scope, noted: the comment above `a11y axe gate: /display` in `a11y-axe-gate.spec.ts` still says the route has no `role="main"`. It now has one. The test still passes.
 
+## Second rebase onto loop/rc 75fef2be (2026-09-24)
+
+The integration rebase onto 75fef2be (RC-POL-1.16 Plans/legal) conflicted only in FEATURE-GAPS. That was resolved in `loop/rc`'s favour: 1.16's Plans & cloud and Legal rows were kept, then this story's Second display row edit was reapplied. The owned source, specs and baselines did not conflict. After the rebase the budget stands at **414 files, 32,734.9 KiB / 32,768 KiB** (both 1.16 and 1.20 fit). Re-run on 75fef2be: `/display` pinned visual 15 passed; `scene-cards.spec.ts` 30 passed on both profiles; `a11y axe gate: /display` 2 passed (both profiles); `pnpm test:app` 1641 passed; `pnpm test:tooling` 218 passed; `pnpm gates` passed with no warning naming an owned file; `format:check:changed -- --base 75fef2be` clean.
+
 ## Reproduce final checks
 
 ```sh
