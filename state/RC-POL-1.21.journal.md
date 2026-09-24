@@ -144,3 +144,18 @@ upstream changes; the only nearby upstream edits were `a11y-axe-gate.spec.ts` an
 - E2E: `playwright test tests/e2e/wiki-reader-polish.spec.ts tests/e2e/wiki.spec.ts
 tests/e2e/a11y-axe-gate.spec.ts -g wiki --workers=2 --retries=0`: **18 passed** (9 desktop-chromium,
   9 mobile-chromium), exit 0.
+
+## Rebase onto loop/rc 01a2077e (2026-09-24)
+
+The integration rebase onto 01a2077e (RC-POL-1.20) conflicted in FEATURE-GAPS.md again: 1.20
+re-padded the inventory table. I kept the integration side and re-applied only the Public wiki
+row text, then ran Prettier. The allowlist and every other file rebased cleanly. RC-POL-1.20's
+golden-routes edit only reformats the `/wiki` block; the `wiki--*` baselines are unchanged.
+
+- Baseline budget: **429 files, 32,737.0 / 32,768 KiB**, exit 0 (1.20 freed space upstream).
+- Strict pinned compare (`run-in-container.sh --update-snapshots=none --retries=0 -g wiki
+--workers=2`): **24 passed**, exit 0.
+- E2E (`wiki-reader-polish`, `wiki`, `a11y-axe-gate`, `-g wiki --workers=2 --retries=0`):
+  **18 passed** (9 desktop-chromium, 9 mobile-chromium), exit 0.
+- Typecheck exit 0; targeted ESLint exit 0; `WikiReader.test.tsx` **15 passed**; `pnpm gates`
+  exit 0 with no WikiReader line (499 lines); `format:check:changed --base 01a2077e` clean.
