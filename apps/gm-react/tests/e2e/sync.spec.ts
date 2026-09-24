@@ -22,9 +22,14 @@ test.describe('sync: local-first op-log persistence', () => {
 		await page.fill('#scene-name', sceneName);
 		await page.click('button[type="submit"]');
 
-		// The command reached Core state...
+		// The command reached Core state and its durable write finished. The runtime shows the new
+		// state before `persistFullState` resolves and only moves the lifecycle off `pending` once
+		// the write has committed (or rolled the scene back), so a reload right after the scene
+		// appears could otherwise outrun the IndexedDB transaction.
 		await page.waitForFunction(
-			(name) => Object.values(window.__rt!.state.scenes.scenes).some((s) => s.name === name),
+			(name) =>
+				Object.values(window.__rt!.state.scenes.scenes).some((s) => s.name === name) &&
+				window.__rt!.lastLifecycle?.status !== 'pending',
 			sceneName,
 			{ timeout: 10_000 },
 		);

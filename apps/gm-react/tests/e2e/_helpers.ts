@@ -34,6 +34,9 @@ interface DevRuntime {
 	 *  this rather than inventing one (PLAT-006). */
 	newId: () => string;
 	defaultActorId: string;
+	/** The last command's lifecycle. `state` changes before the durable write; `status` leaves
+	 *  `pending` only after it has committed or rolled back. */
+	lastLifecycle: { commandType: string; status: string } | null;
 	enterPreview: (selection: { role: 'player' | 'observer'; playerActorId?: string | null }) => void;
 	exitPreview: () => void;
 	preview: { role: 'player' | 'observer'; actorId: string } | null;
