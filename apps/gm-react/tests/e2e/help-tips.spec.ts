@@ -24,7 +24,7 @@ test.describe('contextual help tips', () => {
 		await page.keyboard.press('Enter');
 		const tip = page.getByRole('dialog', { name: 'Vault privacy mode' });
 		await expect(tip).toBeVisible();
-		await expect(tip).toContainText('keys held only on your devices');
+		await expect(tip).toContainText('only your devices hold the keys');
 		await expect(trigger).toHaveAttribute('aria-expanded', 'true');
 
 		await page.keyboard.press('Escape');

@@ -271,3 +271,18 @@
   e2e (26), desktop and mobile, zero retries.
 - Independent reviewer sign-off remains with the central operator. No push, promotion or
   dispatcher-state changes.
+
+## Browser acceptance follow-up (head 67dda32c)
+
+- Read the original gate log `b0af1bc6-…/output.log`: 1,293 passed, 19 skipped, 2 failed. The one
+  failing case was `help-tips.spec.ts:17` on both profiles, all three attempts, expecting
+  "keys held only on your devices" in the vault privacy tip. Headroom tools were not used.
+- Cause: a stale companion edit. An early commit on this branch rewrote that tip and its spec. The
+  reconciliation onto `2d9f566d` kept the integration branch's newer privacy disclosure for
+  `help.tip.vaultPrivacy.body`, but the spec hunk survived. The catalog string is now
+  byte-identical to `loop/rc`, so the spec is restored to `loop/rc`'s version rather than the copy
+  changed again. No other spec in the full run failed.
+- `help-tips.spec.ts` passed 4/4 on desktop and mobile with zero retries
+  (`/tmp/rc-ux-44-helptips.log`). `git merge-tree` with the current `loop/rc` (`74b4fb64`) is clean.
+- Independent reviewer sign-off remains with the central operator. No push, promotion or
+  dispatcher-state changes.
