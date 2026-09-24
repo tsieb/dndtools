@@ -364,9 +364,18 @@ test.describe('map editor', () => {
 		await page.mouse.up();
 		await expect.poll(async () => (await readMap(page, mapId))!.featureCount).toBe(feats0 + 1);
 
+		// The polls here satisfy on the in-memory state, which lands before the durable write settles
+		// and clears the editor's `busy` guard — and while busy the canvas is not editable, so a click
+		// is dropped silently (the promotion gate lost the POI click below this way under load). The
+		// header Undo/Redo buttons enable in the same render that clears `busy`, so wait on them.
+		const undoButton = editorRoot(page).getByRole('button', { name: 'Undo', exact: true });
+		const redoButton = editorRoot(page).getByRole('button', { name: 'Redo', exact: true });
+		await expect(undoButton).toBeEnabled();
+
 		// Undo removes the room.
 		await undoRedo(page, 'Control+z');
 		await expect.poll(async () => (await readMap(page, mapId))!.featureCount).toBe(feats0);
+		await expect(redoButton).toBeEnabled();
 
 		// Place a POI with a single click of the POI tool.
 		await focusEditor(page);
