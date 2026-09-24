@@ -169,7 +169,9 @@ describe('the map tile draws the viewing actor’s own view', () => {
 	it('tells a player a map they may not see is unavailable rather than drawing an empty frame', () => {
 		const { state, hiddenMapId } = fixture();
 		const host = renderAs(state, PLAYER_ACTOR.id, tile(hiddenMapId));
-		expect(host.textContent).toContain('isn’t available to you');
+		expect(host.textContent).toContain(
+			'This map is unavailable to you. Ask your DM to share a map.',
+		);
 		expect(host.querySelector('[data-testid="map-canvas-well"]')).toBeNull();
 	});
 

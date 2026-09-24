@@ -141,7 +141,9 @@ test.describe('Android share target', () => {
 		const dialog = page.getByRole('dialog');
 		await expect(dialog).toBeVisible();
 		await expect(dialog).toContainText('Not a module');
-		await expect(dialog).toContainText('not JSON');
+		await expect(dialog).toContainText(
+			'That file could not be read. Share a Lamplight module file instead.',
+		);
 		await expect(dialog.getByRole('button', { name: 'Import', exact: true })).toHaveCount(0);
 
 		// The dialog's dismiss affordance is also labelled Close; the footer control is the last one.

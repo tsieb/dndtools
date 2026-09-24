@@ -38,4 +38,4 @@ exports[`every system widget type has a body > session renders a body the DM can
 
 exports[`every system widget type has a body > timer renders a body the DM can read 1`] = `"1:00 Start"`;
 
-exports[`every system widget type has a body > tools renders a body the DM can read 1`] = `"Widgets7Layouts0Save a layout from the GM Screen toolbar to restore it later."`;
+exports[`every system widget type has a body > tools renders a body the DM can read 1`] = `"Widgets7Layouts0Save a layout from the DM screen toolbar to restore it later."`;

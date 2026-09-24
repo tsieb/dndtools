@@ -64,7 +64,7 @@ describe('the active system package names things', () => {
 
 	it('renames the chrome across sections without a single call-site change', () => {
 		expect(show(GENERIC_SYSTEM_PACKAGE.vocabulary, 'session.header.blockedNotDm')).toBe(
-			'Only the GM can change the session phase.',
+			'Ask your GM to change the session phase.',
 		);
 		expect(show(GENERIC_SYSTEM_PACKAGE.vocabulary, 'characters.dmNotes')).toBe('GM notes');
 		expect(show(GENERIC_SYSTEM_PACKAGE.vocabulary, 'common.visibility.dmOnly')).toBe('GM only');
@@ -72,7 +72,7 @@ describe('the active system package names things', () => {
 
 	it('keeps a proper noun capitalized and lowercases a common noun mid-sentence', () => {
 		expect(show(DND5E_SYSTEM_PACKAGE.vocabulary, 'session.header.blockedNotDm')).toBe(
-			'Only the DM can change the session phase.',
+			'Ask your DM to change the session phase.',
 		);
 		expect(show(GENERIC_SYSTEM_PACKAGE.vocabulary, 'player.vitals.noSlotsTitle')).toBe(
 			'No ability slots',
@@ -92,6 +92,23 @@ describe('the active system package names things', () => {
 
 	it('falls back to the default 5e vocabulary outside a provider, never to bare braces', () => {
 		expect(show(null, 'common.visibility.dmOnly')).toBe('DM only');
+	});
+
+	it('uses a custom game-master name in board, safety and recovery instructions', () => {
+		const vocabulary = { ...GENERIC_SYSTEM_PACKAGE.vocabulary, gameMaster: 'Keeper' };
+		expect(show(vocabulary, 'board.title')).toBe('Keeper screen');
+		expect(show(vocabulary, 'markdown.dmOnly')).toBe('Keeper only');
+		expect(show(vocabulary, 'calendar.readOnly')).toBe(
+			'Ask your Keeper to edit the campaign calendar.',
+		);
+	});
+
+	it('keeps fixed game-master names out of both message catalogs', () => {
+		for (const catalog of [en, es]) {
+			for (const [key, message] of Object.entries(catalog)) {
+				expect(message, key).not.toMatch(/\b(?:DM|DMs|GM|DJ|Dungeon Master)\b/);
+			}
+		}
 	});
 
 	it('exposes both cases of every renameable word', () => {

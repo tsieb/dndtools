@@ -177,11 +177,11 @@ test.describe('system package picker', () => {
 	test('build your own forks the package into the gallery', async ({ page }) => {
 		await page.getByRole('button', { name: /Build your own/ }).click();
 		const dialog = page.getByRole('dialog');
-		await expect(dialog.getByText('Fork a system')).toBeVisible();
+		await expect(dialog.getByText('Copy a system')).toBeVisible();
 
 		const name = dialog.getByRole('textbox').first();
 		await name.fill('Table rules');
-		await dialog.getByRole('button', { name: 'Create the fork' }).click();
+		await dialog.getByRole('button', { name: 'Create copy' }).click();
 
 		// A fork is a real, durable package in the `custom:` namespace — not a placeholder.
 		await page.waitForFunction(
@@ -199,7 +199,7 @@ test.describe('system package picker', () => {
 		await builder.getByRole('button', { name: 'Close the builder' }).click();
 		await expect(builder).toHaveCount(0);
 		await page.getByRole('button', { name: 'All systems' }).click();
-		await expect(page.getByRole('button', { name: /^Table rules/ })).toContainText('Forked');
+		await expect(page.getByRole('button', { name: /^Table rules/ })).toContainText('Your copy');
 	});
 
 	// RC-SYS-3.3 — the system builder's acceptance path, end to end and through the real UI: fork
@@ -213,7 +213,7 @@ test.describe('system package picker', () => {
 		await page.getByRole('button', { name: /Build your own/ }).click();
 		const forkDialog = page.getByRole('dialog');
 		await forkDialog.getByRole('textbox').first().fill('Keeper rules');
-		await forkDialog.getByRole('button', { name: 'Create the fork' }).click();
+		await forkDialog.getByRole('button', { name: 'Create copy' }).click();
 
 		// A fork exists to be edited, so it opens straight into the builder.
 		const builder = page.locator('[data-fullscreen-overlay="system-builder"]');
@@ -233,7 +233,7 @@ test.describe('system package picker', () => {
 
 		// ── Review: the origin is read off the durable fork op, and the JSON is what will be saved.
 		await builder.getByRole('button', { name: 'Review', exact: true }).click();
-		await expect(builder.getByText('Forked from')).toBeVisible();
+		await expect(builder.getByText('Copied from')).toBeVisible();
 		await expect(builder.getByText('D&D 5e', { exact: true })).toBeVisible();
 		await expect(builder.getByTestId('system-builder-json')).toContainText('"key": "sanity"');
 		await builder.getByRole('button', { name: 'Save the system' }).click();
@@ -390,7 +390,7 @@ test.describe('system builder: accessibility', () => {
 		await page.getByRole('button', { name: /Build your own/ }).click();
 		const forkDialog = page.getByRole('dialog');
 		await forkDialog.getByRole('textbox').first().fill('Keeper rules');
-		await forkDialog.getByRole('button', { name: 'Create the fork' }).click();
+		await forkDialog.getByRole('button', { name: 'Create copy' }).click();
 		const builder = page.locator('[data-fullscreen-overlay="system-builder"]');
 		await expect(builder).toBeVisible();
 
@@ -410,7 +410,7 @@ test.describe('system builder: accessibility', () => {
 			.last()
 			.selectOption({ label: 'A number of rounds' });
 		await builder.getByRole('button', { name: 'Dice and turns', exact: true }).click();
-		await builder.getByRole('button', { name: 'Creature schema', exact: true }).click();
+		await builder.getByRole('button', { name: 'Creature fields', exact: true }).click();
 		await builder.getByRole('button', { name: 'Add a field' }).click();
 		await builder
 			.getByLabel('Holds', { exact: true })

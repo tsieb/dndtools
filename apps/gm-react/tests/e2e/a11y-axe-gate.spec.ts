@@ -385,8 +385,8 @@ test('a11y axe gate: system builder (open state)', async ({ page }, testInfo) =>
 	await expect(page.getByText('Choose a system')).not.toHaveCount(0);
 	await page.getByRole('button', { name: /Build your own/ }).click();
 	const forkDialog = page.getByRole('dialog');
-	await expect(forkDialog.getByText('Fork a system')).toBeVisible();
-	await forkDialog.getByRole('button', { name: 'Create the fork' }).click();
+	await expect(forkDialog.getByText('Copy a system')).toBeVisible();
+	await forkDialog.getByRole('button', { name: 'Create copy' }).click();
 	const builder = page.getByRole('dialog', { name: /^System builder/ });
 	await expect(builder).toBeVisible();
 	await page.waitForTimeout(250);

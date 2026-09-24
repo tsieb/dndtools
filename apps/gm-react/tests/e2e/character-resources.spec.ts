@@ -92,7 +92,7 @@ test.describe('class resources come from the active system package', () => {
 
 		await openAddForm(page);
 		// Nothing is carried yet: the panel says so rather than drawing an empty economy.
-		await expect(page.getByText('No class resources')).toBeVisible();
+		await expect(page.getByText('No character resources')).toBeVisible();
 		await addSystemResource(page, 'Ki points');
 
 		// The package's formula gave the maximum — five pips at level five, none of them spent.

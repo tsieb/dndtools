@@ -43,7 +43,7 @@ test('a corrupted fixture opens the vault and exports its quarantined original',
 	await page.goto('/#/settings?tab=vault');
 	await page.reload();
 	await waitReady(page);
-	await expect(page.getByText('Quarantined documents', { exact: true })).toBeVisible();
+	await expect(page.getByText('Documents needing recovery', { exact: true })).toBeVisible();
 	await expect(page.getByText('content-state', { exact: true })).toBeVisible();
 	await expect(page.getByText('systems-state', { exact: true })).toBeVisible();
 	await expect(page.getByRole('alert').filter({ hasText: '80%' })).toBeVisible();

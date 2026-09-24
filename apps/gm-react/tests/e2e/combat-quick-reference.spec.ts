@@ -146,7 +146,7 @@ test.describe('combat quick reference', () => {
 
 		const sheet = page.getByRole('dialog');
 		await expect(sheet).toBeVisible();
-		await expect(sheet.getByText(/No character is bound/)).toBeVisible();
+		await expect(sheet.getByText(/No character sheet is linked/)).toBeVisible();
 		await expect(sheet.getByRole('heading', { name: 'Bog Lurker', exact: true })).toBeVisible();
 		// Nothing was invented: an unbound row has no attack list, so no actions toggle is offered.
 		await expect(sheet.getByRole('button', { name: /^Actions \(/ })).toHaveCount(0);

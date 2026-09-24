@@ -413,7 +413,7 @@ test.describe('Android quick map', () => {
 		await importDialog.getByRole('button', { name: 'Next' }).click();
 		await expect(importDialog.getByText('File fingerprint')).toBeVisible();
 		await importDialog.getByRole('button', { name: 'Import', exact: true }).click();
-		await expect(importDialog.getByText(`Import committed to “${name}”`)).toBeVisible();
+		await expect(importDialog.getByText(`Imported to “${name}”`)).toBeVisible();
 		await expect
 			.poll(async () => (await rawMap(page, mapId)).assetIds.length)
 			.toBe(assetsBefore + 1);

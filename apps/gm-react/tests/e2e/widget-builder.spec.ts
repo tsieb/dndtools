@@ -234,7 +234,7 @@ test.describe('widget builder: data step (RC-WID-2.2)', () => {
 
 		// ── A required binding: what a placed copy is pointed at, and what it asks to do with it.
 		await dialog.getByRole('button', { name: 'Add required binding' }).click();
-		await dialog.getByLabel('Entity types', { exact: true }).fill('character, npc');
+		await dialog.getByLabel('Item types', { exact: true }).fill('character, npc');
 		await dialog.getByLabel('Mode', { exact: true }).selectOption({ label: 'Read and act on it' });
 
 		// ── A DM-only data query.
@@ -302,9 +302,11 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 		await dialog.getByLabel('Step', { exact: true }).fill('1');
 		// A default the range could never hold is refused where it is typed.
 		await dialog.getByLabel('Default value', { exact: true }).fill('20');
-		await expect(dialog.getByText('The default is above the most.')).toBeVisible();
+		await expect(dialog.getByText('Lower the default value to the maximum or less.')).toBeVisible();
 		await dialog.getByLabel('Default value', { exact: true }).fill('4');
-		await expect(dialog.getByText('The default is above the most.')).toHaveCount(0);
+		await expect(dialog.getByText('Lower the default value to the maximum or less.')).toHaveCount(
+			0,
+		);
 
 		// ── Commands: one operate verb from the catalogue, and one configure verb that can only be
 		//    declared for a manager.

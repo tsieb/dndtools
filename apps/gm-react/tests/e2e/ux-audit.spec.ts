@@ -81,7 +81,7 @@ test.describe('shell: the sidebar More disclosure is a real toggle', () => {
 		// Never hide the row you are ON: landing on /graph opens the group.
 		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
 		const nav = page.getByRole('navigation', { name: 'Primary' });
-		const graphRow = nav.getByText('Graph & Search', { exact: true });
+		const graphRow = nav.getByText('Graph & search', { exact: true });
 		await expect(graphRow).toBeVisible();
 
 		// …and pressing it actually collapses the group, which is the part that was dead.

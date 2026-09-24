@@ -239,8 +239,8 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 		);
 	});
 
-	// "Unbind" sat on a row reading "N cues" but only ever removed `bound[0]`, so the DM pressed an
-	// unchanging button once per cue; and neither it nor "Bind" was named for its scene.
+	// "Unlink" sat on a row reading "N cues" but only ever removed `bound[0]`, so the DM pressed an
+	// unchanging button once per cue; and neither it nor "Link" was named for its scene.
 	test('unbinding a scene clears every cue on it and both controls name their scene', async ({
 		page,
 	}) => {
@@ -273,7 +273,7 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 			expect(bound.status, JSON.stringify(bound)).toBe('accepted');
 		}
 
-		const unbind = page.getByRole('button', { name: `Unbind audio from ${scene.name}` });
+		const unbind = page.getByRole('button', { name: `Unlink audio from ${scene.name}` });
 		await expect(unbind).toBeVisible({ timeout: 10_000 });
 		await unbind.click();
 
@@ -292,6 +292,6 @@ test.describe('audio presets: atmosphere library + scene packages', () => {
 				{ timeout: 10_000 },
 			)
 			.toBe(0);
-		await expect(page.getByRole('button', { name: `Bind audio to ${scene.name}` })).toBeVisible();
+		await expect(page.getByRole('button', { name: `Link audio to ${scene.name}` })).toBeVisible();
 	});
 });

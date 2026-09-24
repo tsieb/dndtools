@@ -43,6 +43,32 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
   `packages/core/src/schemas/commands.ts`, `apps/gm-react/src/app/charBuilder/`.
 - Status: open — the builder side is shipped and honest; the core rule is untouched.
 
+### DEBT-2026-007 — a system package's vocabulary has no translation
+
+- Severity: medium · Owner: platform · Resolution window: 2026 Q4
+- Impact: `SystemVocabulary` is ten plain string fields, so a package speaks exactly one language.
+  Both built-in packages were authored in English — 5e says `Spell`, `Spells`, `Hit points`,
+  `Level up`; Generic says `Ability`, `Advance`, `Milestone`, `Story`. Nothing translates them:
+  `SystemContext.tsx` passes `activePackage.vocabulary` through untouched and `vocabularyValues()`
+  uses its `locale` argument only to lowercase. So every vocabulary placeholder a Spanish string
+  carries renders an English word mid-sentence: `Espacios de Spell`, `Sin spells registrados`,
+  `Añadir spell`, `Level up (PX)`. Fourteen Spanish strings render that way today across the player
+  vitals panel, the level-up flow and the character sheet.
+- Consequence for the copy pass: RC-UX-4.4 could not extend `{hitPoints}` and `{spell*}` to the
+  hit-points and spell-slot labels it swept, because in Spanish that trades a correct translation
+  for an English word. Those keys kept their nouns in both catalogs. The same limit applies to
+  `{gm}`, which the pass did extend — a Spanish reader now sees the abbreviation `DM` (or `GM` under
+  Generic) where the catalog used to spell out `DJ`. An abbreviation survives the language boundary
+  where a full noun does not, so that one shipped; it is still the owner's call to keep.
+- Suggested shape: a locale-keyed translation for the words the SHIPPED packages use, applied in
+  `vocabularyValues()` per field, with a DM-authored package passed through untouched — guessing a
+  translation for `Keeper` would invent vocabulary its author never chose. Localizing
+  `SystemVocabulary` in the core instead would push UI locales into a storable, syncable, DM-editable
+  data shape, which is the worse of the two.
+- Targets: `apps/gm-react/src/i18n/vocabulary.tsx`, `apps/gm-react/src/i18n/messages/es.ts`,
+  `packages/core/src/systems/`.
+- Status: open — neither file is inside RC-UX-4.4's claim, so this needs its own story.
+
 ## Resolved
 
 - DEBT-2026-001 — typed platform-preferences layer: resolved by RC-UX-4.1

@@ -163,7 +163,7 @@ test.describe('player-private notes', () => {
 		await page.getByRole('button', { name: `Share your impression of ${NPC} with the DM` }).click();
 
 		await expect(page.getByTestId('private-journal-status')).toContainText(
-			'The table declined the share',
+			'Your impression was not shared',
 		);
 		await expect(page.getByTestId('private-impression').first()).not.toContainText(
 			'Shared with the DM',

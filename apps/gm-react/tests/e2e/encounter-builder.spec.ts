@@ -129,5 +129,7 @@ test('the place-on-map toggle refuses honestly with no active map', async ({ pag
 	const toggle = dialog.getByRole('switch', { name: 'Place tokens on the map' });
 	await expect(toggle).toHaveAttribute('aria-disabled', 'true');
 	await expect(toggle).toHaveAttribute('aria-checked', 'false');
-	await expect(dialog.getByText(/No active map in this session/)).toBeVisible();
+	await expect(
+		dialog.getByText(/Choose an active map in Session to place combat tokens/),
+	).toBeVisible();
 });

@@ -800,7 +800,7 @@ test.describe('canvas: the spatial surfaces carry a heading inside <main>', () =
 		await waitReady(page);
 
 		await expect(
-			page.locator('#main-content').getByRole('heading', { name: 'GM Screen' }).first(),
+			page.locator('#main-content').getByRole('heading', { name: 'DM screen' }).first(),
 		).toBeVisible();
 	});
 });

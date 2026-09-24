@@ -94,12 +94,12 @@ test.describe('ai audit trail: browser + export (RC-AI-2.3)', () => {
 		await seedAuditTrail(page);
 		const panel = auditPanel(page);
 
-		await expect(panel.getByText('Staged', { exact: true })).not.toHaveCount(0);
-		await expect(panel.getByText('Committed', { exact: true })).not.toHaveCount(0);
+		await expect(panel.getByText('Proposed', { exact: true })).not.toHaveCount(0);
+		await expect(panel.getByText('Saved', { exact: true })).not.toHaveCount(0);
 		await expect(panel.getByText('Prep ·')).not.toHaveCount(0);
 		await expect(panel.getByText('Scout ·')).not.toHaveCount(0);
 
-		await panel.getByRole('radio', { name: 'Committed', exact: true }).click();
+		await panel.getByRole('radio', { name: 'Saved', exact: true }).click();
 		await expect(panel.getByText('Prep ·')).toHaveCount(0);
 		await expect(panel.getByText('Scout ·')).not.toHaveCount(0);
 	});
@@ -121,7 +121,7 @@ test.describe('ai audit trail: browser + export (RC-AI-2.3)', () => {
 		const panel = auditPanel(page);
 
 		// Narrow the view to one outcome before exporting.
-		await panel.getByRole('radio', { name: 'Committed', exact: true }).click();
+		await panel.getByRole('radio', { name: 'Saved', exact: true }).click();
 		await expect(panel.getByText('Prep ·')).toHaveCount(0);
 
 		const downloadPromise = page.waitForEvent('download');
@@ -137,7 +137,7 @@ test.describe('ai audit trail: browser + export (RC-AI-2.3)', () => {
 			entries: { toolId: string; mode: string; agentId: string }[];
 		};
 		// The export is the WHOLE trail — both entries — even though the browser's own filter above
-		// was narrowed to "Committed" only.
+		// was narrowed to "Saved" only.
 		expect(raw.entryCount).toBe(2);
 		expect(raw.entries.map((e) => e.agentId).sort()).toEqual(['prep-assistant', 'scout-bot']);
 		expect(raw.entries.map((e) => e.mode).sort()).toEqual(['direct', 'staged']);

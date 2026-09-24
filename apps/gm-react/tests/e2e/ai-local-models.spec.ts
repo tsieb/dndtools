@@ -82,8 +82,8 @@ test.describe('ai settings: local models (RC-AI-3.3)', () => {
 		const panel = localModelsPanel(page);
 
 		// Opening Settings never probes the daemon on its own — the list starts unfetched.
-		await expect(panel.getByText('No models pulled yet.')).toHaveCount(0);
-		await expect(panel.getByText('Check what is pulled and how much disk it uses.')).toBeVisible();
+		await expect(panel.getByText('No models downloaded yet.')).toHaveCount(0);
+		await expect(panel.getByText('Check downloaded models and the space they use.')).toBeVisible();
 
 		await panel.getByRole('button', { name: 'Refresh' }).click();
 		await expect(panel.getByText('qwen2.5:7b', { exact: true })).toBeVisible();
@@ -107,9 +107,9 @@ test.describe('ai settings: local models (RC-AI-3.3)', () => {
 		});
 		await stubTags(page, [MODEL_A, MODEL_B]);
 
-		await panel.getByLabel('Model name to pull').fill('nomic-embed-text');
-		await panel.getByRole('button', { name: 'Pull' }).click();
-		await expect(page.getByText('Pulled nomic-embed-text.')).toBeVisible();
+		await panel.getByLabel('Model name to download').fill('nomic-embed-text');
+		await panel.getByRole('button', { name: 'Download' }).click();
+		await expect(page.getByText('Downloaded nomic-embed-text.')).toBeVisible();
 		expect(pullBody).toEqual({ name: 'nomic-embed-text' });
 		await expect(panel.getByText('nomic-embed-text', { exact: true })).toBeVisible();
 		await expect(panel.getByText('4.6 GB on disk', { exact: true })).toBeVisible();
