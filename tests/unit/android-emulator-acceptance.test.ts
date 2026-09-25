@@ -99,6 +99,37 @@ describe('Android emulator acceptance gate', () => {
 		expect(settles(rotatePortrait, minimizeBack), 'Back before portrait settled').toBe(true);
 	});
 
+	it('relaunches offline only after the network is gone and settles before tapping Session', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+
+		// Relaunching while the radios were still tearing down starved the cold WebView into a
+		// FocusEvent ANR, and until the default network is gone the relaunch does not prove offline boot.
+		expect(source).toContain('Active default network: ');
+		const lines = source.split('\n');
+		const offline = lines.indexOf("step 'offline process-death recovery'");
+		const at = (predicate: (line: string) => boolean) =>
+			lines.findIndex((line, index) => index > offline && predicate(line));
+		const wifiOff = at((line) => line.startsWith("\t|| fail 'Wi-Fi remained enabled"));
+		const noNetwork = at((line) => line.startsWith(`[[ "$(default_network)" == none ]] || fail '`));
+		const broadcastIdle = at((line) => line.includes('am wait-for-broadcast-idle'));
+		const relaunch = at((line) => line === 'adb shell am force-stop "$PACKAGE_ID"');
+		const rootRendered = at((line) =>
+			line.startsWith("wait_for_root_destination || fail 'offline cold relaunch"),
+		);
+		const settled = at((line) => line.startsWith('wait_for_settled_app_rotation 0 || fail'));
+		const tapSession = at((line) => line.startsWith("tap_ui_button 'Session' || fail"));
+		expect(offline).toBeGreaterThan(-1);
+		expect(wifiOff).toBeGreaterThan(offline);
+		expect(noNetwork, 'relaunched before the default network was gone').toBeGreaterThan(wifiOff);
+		expect(broadcastIdle).toBeGreaterThan(noNetwork);
+		expect(relaunch).toBeGreaterThan(broadcastIdle);
+		expect(rootRendered).toBeGreaterThan(relaunch);
+		expect(settled, 'tapped Session before the offline relaunch settled').toBeGreaterThan(
+			rootRendered,
+		);
+		expect(settled).toBeLessThan(tapSession);
+	});
+
 	it('lets each rotation settle in the app window before the next configuration change', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
 

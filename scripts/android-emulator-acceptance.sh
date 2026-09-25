@@ -279,6 +279,12 @@ wait_for_ui_control_enabled() {
 	return 1
 }
 
+# ConnectivityService's dump prints `Active default network: none` once no network remains.
+default_network() {
+	adb shell dumpsys connectivity 2>/dev/null | tr -d '\r' \
+		| sed -n 's/^[[:space:]]*Active default network: //p' | head -1
+}
+
 launch_app() {
 	local output
 	output=$(adb shell am start -W -n "$COMPONENT" | tr -d '\r')
@@ -533,12 +539,29 @@ for _ in {1..10}; do
 done
 [[ "$(adb shell settings get global wifi_on | tr -d '\r')" == 0 ]] \
 	|| fail 'Wi-Fi remained enabled during offline acceptance'
+# The airplane-mode and wifi_on settings flip as soon as the toggles are accepted. The radios and the
+# default network tear down after that, and so do the AIRPLANE_MODE/CONNECTIVITY_CHANGE broadcasts
+# that wake every registered receiver. The script used to relaunch in the middle of that. Then the cold
+# WebView's first frames competed with the teardown on the 2-core software-GPU guest, the main
+# thread missed the 5s deadline for the window's FocusEvent, and the ANR dialog kept focus, so
+# Session never rendered. That run also proved nothing about offline boot while a default network
+# might still exist. Require the network to be gone, then let the broadcast fan-out drain (a load
+# precondition only, so it proceeds after 120s; every assertion below is unchanged).
+for _ in {1..30}; do
+	[[ "$(default_network)" == none ]] && break
+	sleep 1
+done
+[[ "$(default_network)" == none ]] || fail 'a default network remained during offline acceptance'
+timeout 120 adb shell am wait-for-broadcast-idle >/dev/null 2>&1 || true
 adb shell am force-stop "$PACKAGE_ID"
 launch_app
 if [[ -n "$PRIVATE_ACCESS" ]]; then
 	private_path_exists "$VAULT_PATH" || fail 'vault disappeared during offline relaunch'
 fi
 wait_for_root_destination || fail 'offline cold relaunch did not render the root destination'
+# As after the new-process restart below: a rendered root does not prove the cold process is idle.
+# Tap Session only once the app's own window holds focus in two consecutive idle dumps.
+wait_for_settled_app_rotation 0 || fail 'the offline relaunch did not settle before Session'
 tap_ui_button 'Session' || fail 'Session was not reachable after offline process death'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session did not render after offline process death'
 wait_for_ui_text 'Players see' \
