@@ -166,3 +166,49 @@ that wrapping `SideRow` is pixel-identical in English.
   and `apps/gm-react/src/app/canvas/TemplatePicker.tsx` to ownership, or integrate
   equivalent safe English fallbacks separately before rerunning this candidate.
   Repeating the same typecheck against unchanged sources cannot resolve this blocker.
+
+### Resumed after provider allowance limit — 2026-09-24
+
+- Resumed the preserved worktree on `54f71b6d` (clean). Ownership is unchanged: the two canvas
+  files are still not listed, so the blocker from the preceding entry still applies.
+- Re-ran `pnpm --filter @dndtools/gm-react typecheck` through the dispatch Headroom command tool
+  (artifact `43d1d2d9cfc64e6b9aea7c20d7708097`): exit 2, the same two TS7053 errors at
+  `AddWidgetGallery.tsx:77` and `TemplatePicker.tsx:94`, and no others. `loop/rc` (`24984b6c`)
+  still carries the same `[locale]` indexing in both files, so a rebase won't clear it.
+- The `/tmp` copy of the fallback patch was gone. Rebuilt it, applied it to the working tree only,
+  and re-ran typecheck (artifact `b1ada3db030b40ee8b03d5f9bfa41bab`): exit 0. Prettier passes
+  on both files. Reverted immediately; neither canvas file is modified in any commit. No owned-path
+  fix is honest here: making `locale` index `{ en, es }` would mean narrowing the type back to
+  `'en' | 'es'`, which lies about runtime values and leaves French/pseudo users with an
+  `undefined[key]` crash when they open the add-widget gallery or template picker.
+- The patch, recorded here so it outlives `/tmp`. Local English fallback, so these two surfaces
+  render English under French or the pseudo locale, the same way a missing key behaves in the
+  shared catalogs:
+
+```diff
+--- a/apps/gm-react/src/app/canvas/AddWidgetGallery.tsx
++++ b/apps/gm-react/src/app/canvas/AddWidgetGallery.tsx
+@@ -74,7 +74,11 @@ const galleryMessages = {
+ 	return (key: keyof typeof galleryMessages.en, values?: MessageValues) =>
+-		formatMessage(locale, galleryMessages[locale][key], values);
++		formatMessage(
++			locale,
++			(galleryMessages[locale as keyof typeof galleryMessages] ?? galleryMessages.en)[key],
++			values,
++		);
+--- a/apps/gm-react/src/app/canvas/TemplatePicker.tsx
++++ b/apps/gm-react/src/app/canvas/TemplatePicker.tsx
+@@ -91,7 +91,11 @@ type PickerKey = keyof typeof pickerMessages.en;
+ 	return (key: PickerKey, values?: MessageValues) =>
+-		formatMessage(locale, pickerMessages[locale][key], values);
++		formatMessage(
++			locale,
++			(pickerMessages[locale as keyof typeof pickerMessages] ?? pickerMessages.en)[key],
++			values,
++		);
+```
+
+- Operator action still required: grant `apps/gm-react/src/app/canvas/AddWidgetGallery.tsx` and
+  `apps/gm-react/src/app/canvas/TemplatePicker.tsx`, or land the diff above separately. Then this
+  candidate should typecheck as it stands. No push, promotion, extra agents or dispatcher
+  mutations.
