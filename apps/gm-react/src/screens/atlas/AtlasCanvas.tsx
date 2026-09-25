@@ -221,7 +221,7 @@ export function AtlasCanvas({
 				>
 					{isDm && mapView && (
 						<Button
-							variant="primary"
+							variant="secondary"
 							size="sm"
 							icon="layer-fog"
 							onClick={() => onOpenFog('reveal')}

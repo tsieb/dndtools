@@ -144,19 +144,45 @@ export function MapChips({
 				</span>
 			)}
 			<div style={{ flex: 1 }} />
-			<Button variant="primary" size="sm" icon="edit" disabled={!selectedId} onClick={onOpenEditor}>
-				{t('atlas.openInEditor')}
-			</Button>
-			{isDm && (
-				<Button
-					variant={selectedId ? 'secondary' : 'primary'}
-					size="sm"
-					icon="new-map"
-					aria-expanded={creating}
-					onClick={onToggleCreate}
-				>
-					{t('atlas.newMap')}
-				</Button>
+			{/* One gold action: Open for a selected map, New map while a DM has nothing selected. */}
+			{isDm && !selectedId ? (
+				<>
+					<Button variant="secondary" size="sm" icon="edit" disabled onClick={onOpenEditor}>
+						{t('atlas.openInEditor')}
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="new-map"
+						aria-expanded={creating}
+						onClick={onToggleCreate}
+					>
+						{t('atlas.newMap')}
+					</Button>
+				</>
+			) : (
+				<>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="edit"
+						disabled={!selectedId}
+						onClick={onOpenEditor}
+					>
+						{t('atlas.openInEditor')}
+					</Button>
+					{isDm && (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="new-map"
+							aria-expanded={creating}
+							onClick={onToggleCreate}
+						>
+							{t('atlas.newMap')}
+						</Button>
+					)}
+				</>
 			)}
 		</div>
 	);

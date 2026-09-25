@@ -66,6 +66,19 @@
   suite (378 passed) and the surface e2e set on both profiles (167 passed / 5 profile-specific skips,
   `--retries=0`, 5.6 min).
 
+### Gate feedback: Lint (candidate `ff4ca07f`)
+
+- The central Lint gate failed on `pnpm lint:emphasis` (not ESLint): `MapChips.tsx` could show two gold
+  primaries (Open was always `primary` and New map was `primary` with nothing selected, so an empty DM
+  Atlas really did show both), and the Atlas region's surplus rose from 2 to 3. My earlier check had
+  run ESLint on the owned files only, not the full `pnpm lint` chain.
+- Fix: the chips bar renders one gold action per branch (Open for a selection, New map for a DM with
+  none), and the canvas Fog of war overlay button is `secondary`. The emphasis baseline is unchanged
+  (it may only shrink and is outside this claim). `multiple-accent-primaries` total is now 53 (was 55 on the candidate).
+- Re-verified: full `pnpm lint` exit 0 (13 pre-existing warnings elsewhere); surface e2e on both profiles
+  167 passed / 5 profile-specific skips with `--retries=0`; the 21 Atlas visual captures (9 golden +
+  12 crops) match with `--update-snapshots=none`.
+
 ## Embedded §20.2–§20.5 audit
 
 Checked boxes mean reviewed with the stated evidence or explicit waiver; they do not erase the
@@ -78,7 +91,7 @@ limitations written beneath them.
 - [x] Matches the prototype view for this section (`docs/design/README.md` §4) and the design-package template where one exists; deviations listed with rationale.
       Checked against the vendored `templates/map-editor/MapEditor.dc.html`: breadcrumb, visibility, projection action, tool rail, canvas, layers and minimap remain. Deviations: accessible list view, Android navigation-first rail and bounded phone sheets implement later requirements. Live external prototype comparison waived: no DesignSync provider is available in this task.
 - [x] One primary action per region in gold; supporting tiles flat/sunken; the primary panel raised with `--shadow-md`.
-      Open editor (or New map in an empty Atlas) is the top-region primary action; Project is the editor header primary action. Supporting library cards stay flat. The map canvas uses the shared DS surface/border treatment; a full-window workspace does not need a floating-card shadow (waived for the viewport itself).
+      Open editor (or New map while a DM has nothing selected) is the top-region primary action, rendered as whole-element branches so only one gold button can show; the canvas Fog of war overlay is secondary; Project is the editor header primary action. Supporting library cards stay flat. The map canvas uses the shared DS surface/border treatment; a full-window workspace does not need a floating-card shadow (waived for the viewport itself).
 - [x] Type hierarchy uses 3–4 sizes; Cinzel only ≥ 24px; numbers in mono.
       No owned Cinzel text remains below 24px; editor/map/generation headings use sans. Numeric status and coordinates use mono. Partial waiver: the established dense tool/metadata hierarchy retains 10.5–13px steps; collapsing every specialized numeric readout to a single size would increase wrapping in the existing control set.
 - [x] Every status color paired with a distinct icon shape; DM-only purple stripe where applicable.
