@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useLayoutEffect, type RefObject } from 'react';
 import type { CombatTrackerView } from '@dndtools/core';
 import { useI18n } from '../../i18n';
 import type { HpIntent } from '../../app/combat/HpKeypadSheet';
@@ -47,7 +47,11 @@ export function useCombatKeyboard({
 	//                    on the stat block the story asked it to open.
 	//   Alt+ArrowUp/Down — DM-only: reorder the selected combatant earlier/later (mirrors the
 	//                    chevron buttons below), announced since a reorder has no dispatch toast.
-	useEffect(() => {
+	// Bound in a LAYOUT effect so the keys work from the commit that paints the tracker. When that
+	// commit is not a sync render (a freshly booted /session), React defers passive effects to a
+	// later task and Chromium dispatches queued input ahead of it: an arrow press ~240 ms after the
+	// tracker was on screen was measured landing before a passive-effect listener existed, and lost.
+	useLayoutEffect(() => {
 		if (!running || previewing) return undefined;
 		function onKey(e: KeyboardEvent) {
 			const el = e.target as HTMLElement | null;
