@@ -79,6 +79,28 @@
   167 passed / 5 profile-specific skips with `--retries=0`; the 21 Atlas visual captures (9 golden +
   12 crops) match with `--update-snapshots=none`.
 
+### Repair: rebase onto RC-POL-1.6 (`loop/rc` `24984b6c`)
+
+- Review approved `fcb35c6c` on its base, but RC-POL-1.6 landed first. Merged onto `24984b6c` this
+  candidate projected to 32,781.2 KiB, 13.2 KiB over the shared cap: the 9 re-rendered golden Atlas
+  images grew 5.4 KiB, the 12 Scholar/Dungeon bands add 10.6 KiB, and only 2.7 KiB was left. The
+  FEATURE-GAPS table also conflicted.
+- FEATURE-GAPS: took `loop/rc`'s file and replaced only the `Maps (Atlas)` row with this story's
+  row; Prettier left every other line untouched (1-line diff against `loop/rc`).
+- Budget: re-deflated the IDAT stream of this surface's own 21 baselines (`atlas-*.png`) at zlib
+  level 9 (best of default/filtered/RLE strategies). This is lossless. IHDR and the filtered
+  scanline bytes are unchanged, and the script asserts the decompressed stream is byte-identical
+  before writing, so every image decodes to the same pixels that Playwright compares. Chromium's
+  encoder had left ~10% on the table: 1,507,401 → 1,362,033 bytes (−142 KiB). Budget:
+  **32,639.2 KiB of 32,768 KiB (471 images), 128.8 KiB free**. The cap, the capture regions and
+  the theme/tier coverage are unchanged. Other surfaces' baselines are untouched. The same pass
+  would free ~10% repo-wide, but those files belong to other stories.
+- `loop/rc` advanced to `d50b657a` (the `ci-recovery-24984b6c7654` Android emulator fix: workflows, one script
+  and its unit test) during verification. The final squash rebased onto it. It changes no app, e2e or visual file,
+  so the evidence below (gathered on `24984b6c`) covers the same app tree.
+- Caveat for future re-baselines: `--update-snapshots=all` rewrites these files with Chromium's
+  encoder, so they grow back ~10%. Re-deflate them again before committing.
+
 ## Embedded §20.2–§20.5 audit
 
 Checked boxes mean reviewed with the stated evidence or explicit waiver; they do not erase the
@@ -97,7 +119,7 @@ limitations written beneath them.
 - [x] Every status color paired with a distinct icon shape; DM-only purple stripe where applicable.
       Notice severity has distinct warning/info/check icons, visibility has labelled chips and DM styling, and selected library cards expose aria-current. Layer selected/locked state remains named.
 - [x] Renders correctly in all themes and all three tiers; visual snapshots updated and reviewed.
-      Every theme on every tier, within the shared baseline budget: the golden-route `atlas-map-editor` full captures (Tavern/Parchment/High Contrast × desktop/rail/phone, 9 images re-baselined for the polished header) plus `tests/visual/atlas.spec.ts` clipped, text-free bands for Scholar and Dungeon on every tier (editor tool rail with the gold active tool, and the map-library empty illustration; 12 images, ~0.9 KiB each). Waiver: the 45 full-page captures from the first attempt (5.5 MiB) no longer fit — `loop/rc` holds 32,746 of 32,768 KiB — so library/search-none/loading states are covered by `tests/e2e/atlas-polish.spec.ts` assertions and axe scans rather than pixels. Raising the cap is an owner decision outside this story. Reviewed; the rail header defect found in the first attempt's review stays fixed in the golden captures.
+      Every theme on every tier, within the shared baseline budget: the golden-route `atlas-map-editor` full captures (Tavern/Parchment/High Contrast × desktop/rail/phone, 9 images re-baselined for the polished header) plus `tests/visual/atlas.spec.ts` clipped, text-free bands for Scholar and Dungeon on every tier (editor tool rail with the gold active tool, and the map-library empty illustration; 12 images, ~0.9 KiB each). Waiver: the 45 full-page captures from the first attempt (5.5 MiB) did not fit (`loop/rc` then held 32,746 of 32,768 KiB), so library/search-none/loading states are covered by `tests/e2e/atlas-polish.spec.ts` assertions and axe scans rather than pixels. Raising the cap is an owner decision outside this story. Reviewed; the rail header defect found in the first attempt's review stays fixed in the golden captures.
 - [x] Motion uses named tokens; nothing animates under `data-motion='reduced'`.
       No new animation added. Shared Skeleton and overlay motion use the app motion preference/clamp; visual tests set reduced motion. Existing renderer reveal motion stays in its shared hook.
 - [x] Empty, loading, error, and "unavailable because…" states all present and illustrated where the key exists.
@@ -166,6 +188,12 @@ limitations written beneath them.
 - `bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2`: **378 passed**, exit 0, no
   retries, including the 9 golden `atlas-map-editor` images carried from the first attempt. No other surface's baseline changed.
 - `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: 456 images, 32762.4 KiB of 32768 KiB; per-image limits pass.
+- Repair on `loop/rc` `24984b6c` (after the lossless re-deflate): `bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2`
+  **393 passed** in 7.5 min, exit 0, no failures or retries, and no baseline rewritten. The 21 Atlas images match
+  as re-deflated. `check-baseline-budget.mjs`: 471 images, **32,639.2 KiB of 32,768 KiB**; per-image limits pass.
+- Repair re-verification on the same tree: full `pnpm lint` exit 0; `pnpm typecheck` exit 0; owned unit suite 9 files /
+  93 tests passed; `pnpm gates` exit 0 with no warning on `app/map`, `screens/atlas` or `ShortcutsDialog.tsx`; surface
+  e2e command below with `--retries=0` on both profiles: **167 passed / 5 profile-specific skips**, exit 0 (3.3 min).
 
 Functional suite command (both profiles, no retries):
 
