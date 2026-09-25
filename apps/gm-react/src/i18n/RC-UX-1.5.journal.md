@@ -212,3 +212,28 @@ that wrapping `SideRow` is pixel-identical in English.
   `apps/gm-react/src/app/canvas/TemplatePicker.tsx`, or land the diff above separately. Then this
   candidate should typecheck as it stands. No push, promotion, extra agents or dispatcher
   mutations.
+
+## Rebase onto 24984b6c (RC-POL-1.6 tip) — 2026-09-24
+
+- The operator's rebase stopped at one conflict at the tail of `responsive.spec.ts`: RC-UX-4.2
+  appended its mobile primary-action audit where the pseudo case sits. Kept both, pseudo last. No
+  other commit conflicted. Pre-rebase head kept locally as `backup/rc-ux-1.5-pre-rebase-79e986f9`.
+- RC-UX-4.4's copy pass rewrote much of `messages/en.ts`, so `dev/qps-ploc.ts` was stale.
+  Regenerated with `pnpm exec tsx scripts/i18n-catalog.ts pseudo`; the exact-drift test would
+  otherwise fail.
+- `src/app/shell/` is unchanged on the new base apart from this story's two edits, which applied
+  clean. No new shell edits.
+
+Verification on the rebased branch:
+
+- i18n unit tests: 3 files / 41 tests passed, including generated-catalog drift and full coverage.
+- Eight-route pseudo case: 2 passed (desktop-chromium and mobile-chromium, 5.0s).
+- Full `responsive.spec.ts`: 160 passed across both profiles (3.4m), including RC-UX-4.2's new
+  block. Log: `/tmp/rc-ux-1.5-responsive-24984b6c.log`.
+- `pnpm build` (app): passed; `check-prod-bundle: OK — __rt, pseudo locale and component gallery
+absent from 84 JS asset(s)`. A grep of `dist/assets` for `qps-ploc` found nothing.
+- ESLint on `src/i18n`, both shell files and the spec: 0 problems. Prettier: clean.
+- App typecheck: STILL FAILS with only the two TS7053 errors at `AddWidgetGallery.tsx:77` and
+  `TemplatePicker.tsx:94`. The canvas fallback diff recorded in the previous entry still applies
+  cleanly to this base (`git apply --check`) and remains unapplied because those paths are not
+  owned. Operator action is unchanged: grant both canvas files or land that diff separately.
