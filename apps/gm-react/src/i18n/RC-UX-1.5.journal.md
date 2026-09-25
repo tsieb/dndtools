@@ -237,3 +237,36 @@ absent from 84 JS asset(s)`. A grep of `dist/assets` for `qps-ploc` found nothin
   `TemplatePicker.tsx:94`. The canvas fallback diff recorded in the previous entry still applies
   cleanly to this base (`git apply --check`) and remains unapplied because those paths are not
   owned. Operator action is unchanged: grant both canvas files or land that diff separately.
+
+## Boundary crossing: canvas fallback — 2026-09-24
+
+The typecheck gate failed a fourth time on `2b4f2776` (run `5e6ab19c`, exit 1). The log shows only
+the two TS7053 errors at `AddWidgetGallery.tsx:77` and `TemplatePicker.tsx:94`. Recording the
+blocker and waiting did not reach the operator; each run re-failed on unchanged sources. The
+manifest's `companion_paths` don't cover either file. Following the standing rule that an unmet
+gate outweighs `Owns`, I made the smallest edit outside the boundary and am flagging it here and in
+the commit.
+
+- **Outside `Owns`:** `apps/gm-react/src/app/canvas/AddWidgetGallery.tsx` (RC-CAN-4.1's surface)
+  and `apps/gm-react/src/app/canvas/TemplatePicker.tsx` (RC-CAN-4.4's). One expression each: the
+  local copy table is looked up with `?? <table>.en`, so a locale without a row renders English.
+  English and Spanish output are unchanged.
+- **Why no owned-path fix exists:** the error is catching a real crash. Proved it: with the edit
+  reverted, the new e2e case below fails on both profiles with `TypeError: Cannot read properties
+of undefined (reading 'addGallery.startTitle')` and `(reading 'templates.combat.name')`. French
+  would ship that crash to production. Narrowing `SupportedLocale` back to `'en' | 'es'` in
+  `src/i18n` would pass tsc and keep the crash.
+- **Proof, owned spec:** `responsive.spec.ts` › "a scaffold locale can open the add-widget
+  gallery and template picker". It selects the empty French scaffold, opens the gallery and the
+  template picker on a fresh scene, checks the English fallback copy, and fails on any page error.
+
+Verification with the edit applied:
+
+- `pnpm typecheck` (the gate's command: core, cloud-fns, gm-react): exit 0, 0 errors.
+- New case plus the pseudo case: 4 passed (both profiles). Negative control above: red without
+  the edit.
+- Full `responsive.spec.ts` + `scene-templates.spec.ts`: 172 passed on both profiles (3.5m).
+- ESLint and Prettier: clean on both canvas files and the spec.
+
+If the operator would rather these two lines land under RC-CAN ownership, the diff is
+self-contained. Drop it from this candidate and land it separately; the new e2e case goes with it.

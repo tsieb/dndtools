@@ -2289,3 +2289,34 @@ test('pseudo locale keeps eight primary routes free of clipping and overflow', a
 		).toEqual([]);
 	}
 });
+
+// A locale with no row in a surface's local copy table must fall back to English there, not throw.
+// French is the empty scaffold, so shared labels stay English and the selectors below still hold.
+test('a scaffold locale can open the add-widget gallery and template picker', async ({ page }) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await markOnboarded(page);
+	await page.addInitScript(() => localStorage.setItem('dndtools:locale', 'fr'));
+	await gotoRoute(page, '/scenes');
+	await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+	const sceneName = `Scaffold Scene ${Date.now()}`;
+	const created = await dispatch(page, {
+		type: 'scene.create',
+		actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+		payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+	});
+	expect(created.status).toBe('accepted');
+	const sceneId = await page.evaluate(
+		(name) => Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id,
+		sceneName,
+	);
+	await gotoRoute(page, `/scene/${sceneId}`);
+	await page.getByRole('button', { name: 'Edit layout' }).click();
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	const header = page.getByTestId('gallery-start-header');
+	await expect(header).toContainText('Start from a template');
+	await header.getByRole('button', { name: 'Use a scene template' }).click();
+	const picker = page.getByTestId('template-picker');
+	await expect(picker.getByTestId('template-card-builtin-combat')).toContainText('Combat scene');
+	expect(errors).toEqual([]);
+});

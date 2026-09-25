@@ -91,7 +91,11 @@ type PickerKey = keyof typeof pickerMessages.en;
 function usePickerCopy() {
 	const { locale } = useI18n();
 	return (key: PickerKey, values?: MessageValues) =>
-		formatMessage(locale, pickerMessages[locale][key], values);
+		formatMessage(
+			locale,
+			(pickerMessages[locale as keyof typeof pickerMessages] ?? pickerMessages.en)[key],
+			values,
+		);
 }
 
 /** The miniature's box. A layout is scaled down into it, never up. */

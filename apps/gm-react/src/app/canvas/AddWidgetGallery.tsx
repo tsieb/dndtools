@@ -74,7 +74,11 @@ const galleryMessages = {
 function useGalleryCopy() {
 	const { locale } = useI18n();
 	return (key: keyof typeof galleryMessages.en, values?: MessageValues) =>
-		formatMessage(locale, galleryMessages[locale][key], values);
+		formatMessage(
+			locale,
+			(galleryMessages[locale as keyof typeof galleryMessages] ?? galleryMessages.en)[key],
+			values,
+		);
 }
 
 /**
