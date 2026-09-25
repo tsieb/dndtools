@@ -578,6 +578,12 @@ wait_for_root_destination || fail 'new-process restart did not render the root d
 # Trigger a system rotation without coordinate gestures. MainActivity handles density/orientation
 # changes in place; the process and vault must remain available.
 step 'rotation and root Back minimize'
+# A rendered root proves the WebView painted, not that the fresh process is idle. Rotating while
+# the cold process was still busy (JIT, first-run work) queued the rotation relayout behind it: one
+# 6.4s frame held the main thread past the 5s input deadline for the window's focus event, and the
+# ANR dialog then kept focus. uiautomator dumps are served on the app's main thread, so two
+# consecutive idle portrait dumps on the app's own window prove it is responsive before rotating.
+wait_for_settled_app_rotation 0 || fail 'the restarted app did not settle in portrait before rotation'
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
 [[ "$(adb shell settings get system user_rotation | tr -d '\r')" == 1 ]] \

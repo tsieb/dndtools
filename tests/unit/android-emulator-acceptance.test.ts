@@ -10,7 +10,7 @@ const scriptPath = path.join(repoRoot, 'scripts', 'android-emulator-acceptance.s
 type WorkflowStep = {
 	uses?: string;
 	env?: Record<string, string>;
-	with?: { script?: string };
+	with?: { script?: string; 'ram-size'?: string };
 };
 
 type Workflow = {
@@ -111,18 +111,27 @@ describe('Android emulator acceptance gate', () => {
 		const rotateLandscape = lines.indexOf('adb shell settings put system user_rotation 1');
 		const rotatePortrait = lines.indexOf('adb shell settings put system user_rotation 0');
 		const minimizeBack = lines.indexOf('adb shell input keyevent KEYCODE_BACK', rotatePortrait);
-		const settledAt = (rotation: number) =>
-			lines.findIndex((line) =>
-				line.startsWith(`wait_for_settled_app_rotation ${rotation} || fail`),
+		const restart = lines.findIndex((line) => line.startsWith('NEW_PID=$(wait_for_pid)'));
+		const settledAt = (rotation: number, from = 0) =>
+			lines.findIndex(
+				(line, index) =>
+					index >= from && line.startsWith(`wait_for_settled_app_rotation ${rotation} || fail`),
 			);
+		// A rendered root did not mean the cold process was idle: the landscape relayout queued behind
+		// it stalled one frame past the focus-event deadline. Settle in portrait before rotating too.
+		expect(settledAt(0, restart), 'rotated before the restarted app settled').toBeGreaterThan(
+			restart,
+		);
+		expect(settledAt(0, restart)).toBeLessThan(rotateLandscape);
 		expect(settledAt(1), 'portrait restored before landscape settled').toBeGreaterThan(
 			rotateLandscape,
 		);
 		expect(settledAt(1)).toBeLessThan(rotatePortrait);
-		expect(settledAt(0), 'Back before the portrait rotation settled').toBeGreaterThan(
-			rotatePortrait,
-		);
-		expect(settledAt(0)).toBeLessThan(minimizeBack);
+		expect(
+			settledAt(0, rotatePortrait),
+			'Back before the portrait rotation settled',
+		).toBeGreaterThan(rotatePortrait);
+		expect(settledAt(0, rotatePortrait)).toBeLessThan(minimizeBack);
 		expect(source).toContain('ANR in ');
 	});
 
@@ -147,6 +156,10 @@ describe('Android emulator acceptance gate', () => {
 		}
 		expect(ciEmulator?.with?.script).toContain('app-debug.apk');
 		expect(releaseEmulator?.with?.script).toContain('app-release.apk');
+		// The 2560M default paged API 36 system code in and out under the acceptance script.
+		for (const step of [ciEmulator, releaseEmulator]) {
+			expect(Number.parseInt(String(step?.with?.['ram-size']), 10)).toBeGreaterThanOrEqual(4096);
+		}
 		expect(ciEmulator?.env?.ANDROID_EXPECT_PRIVATE_DATA).toBe('1');
 		expect(releaseEmulator?.env?.ANDROID_EXPECT_PRIVATE_DATA).toBe('1');
 		expect(releaseEmulator?.env?.ANDROID_EXPECTED_SIGNER_SHA256).toBe(
