@@ -271,8 +271,10 @@ permission existed has no `navigate` key, and the host reads approvals only from
   reachable through the explicit Advanced step, where code, requested permissions, and the SEC-011
   destination picker live with the review summary recomputed live. The Commands step also declares
   intents ("Open and create"). Open intents pick their target from the author's actor-filtered
-  reads. A template's open intent must name a target, and a custom widget that declares intents must
-  request `navigate`.
+  reads; a template's starts on the first one the author can see. Adding an intent to a custom
+  widget requests `navigate`. The step itself names a template open intent with no target, an
+  unlabelled intent, and a custom widget whose intents lack `navigate` (`validateIntents`, in `draft.ts`); the core
+  schema refuses duplicate ids and empty labels on Review.
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;

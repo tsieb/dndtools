@@ -27,6 +27,7 @@ import {
 	type CustomCodeSource,
 } from './customCode';
 import type { MessageKey } from '../../i18n';
+import type { DraftIssue } from './validate';
 
 /**
  * The widget builder's draft model (RC-WID-2.1) — the whole of the builder that is not React.
@@ -451,4 +452,45 @@ export function readPackage(
 		baseConfigKeys: proposed ? [] : (widget.configFields ?? []).map((field) => field.key),
 		...authoring,
 	};
+}
+
+/**
+ * The intent problems the step names itself. Duplicate ids and empty names are also refused by the
+ * core schema on Review; these two are not, and would otherwise ship a button nobody can follow.
+ */
+export function validateIntents(draft: WidgetDraft): DraftIssue[] {
+	const issues: DraftIssue[] = [];
+	for (const intent of draft.intents) {
+		if (!intent.displayName.trim())
+			issues.push({
+				step: 'commands',
+				field: 'intents',
+				message: 'builder.issue.intentName',
+				values: { id: intent.id },
+			});
+		// A template has no code to supply a target at press time, so its open button must carry one.
+		else if (
+			draft.runtime === 'template' &&
+			(intent.kind === 'open-entity' || intent.kind === 'open-screen') &&
+			!intent.targetId
+		)
+			issues.push({
+				step: 'commands',
+				field: 'intents',
+				message: 'builder.issue.intentTarget',
+				values: { name: intent.displayName },
+			});
+	}
+	// Without `navigate` the host drops every request a custom widget makes.
+	if (
+		draft.runtime === 'custom-html-js' &&
+		draft.intents.length > 0 &&
+		!draft.hostPermissions.includes('navigate')
+	)
+		issues.push({
+			step: 'commands',
+			field: 'intents',
+			message: 'builder.issue.intentsNeedNavigate',
+		});
+	return issues;
 }

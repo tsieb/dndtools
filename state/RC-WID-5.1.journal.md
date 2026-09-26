@@ -74,6 +74,65 @@ Each is the smallest additive edit the acceptance needs; none changes existing b
 - New files: `packages/core/tests/widget-intents.test.ts`,
   `apps/gm-react/tests/e2e/widget-intents.spec.ts`.
 
+## Session 2 (2026-09-26): ownership widened, rebase onto loop/rc 7c587494
+
+The first candidate (`e6d9ad09`, base `c73572cf`) was fenced for nine paths outside Owns. The
+operator added exactly those nine to Owns; everything else it touched (i18n catalogs, core barrel,
+`schemas/commands.ts`, tests, e2e spec, WIDGETS.md) is a manifest companion path. Each owned-path
+edit and the reason for it:
+
+- `public/widget-host.html`: `dndtoolsWidget.navigate(intent)` on the guest API, the only way custom
+  code can send an intent. CSP meta untouched.
+- `widgets/SandboxHost.tsx`: the `navigate` case (route a resolved intent; drop + audit a refused
+  one; `data-dropped-intents` on the frame). This is where the "denied intent is dropped and
+  audited" acceptance lives.
+- `widgetBuilder/draft.ts`: the draft carries `intents` (empty default, build, read-back). The
+  Commands step edits the draft, so it cannot hold intents without this.
+- `widgetBuilder/draftDiff.ts`: printer + label for `intents`, so the Review diff shows them.
+- `widgetBuilder/vocabulary.ts`: `navigate` label. The map is typed
+  `Record<WidgetHostPermission, …>`, so tsc fails without it.
+- `screens/extensions/TrustReviewSheet.tsx`: `navigate` label, so trust review shows what it approves
+  or denies.
+- `screens/Campaign.tsx`: consumes `openQuestId` router state. This is the "open a quest by id"
+  destination.
+- `constraints/scope-constraints.ts`: `navigate` in `DECLARED_WIDGET_HOST_PERMISSIONS`. The CON-006
+  audit requires it to mirror `ALL_HOST_PERMISSIONS`.
+- `screens/extensions/Plugins.tsx`: **no longer edited.** RC-POL-1.14 (`09b7338e`) moved its
+  permission-label map into `PluginPackageCard.tsx`.
+
+Rebase conflicts and how they were resolved. RC-POL-1.14 split the builder and restyled it:
+
+- `CommandsStep.tsx`: kept upstream's tokenized styles and `CatalogChip`, and moved the intents
+  section to the same tokens (`var(--text-xs)`, `T.sub`, `var(--space-*)`, `var(--radius-full)`).
+  No raw-style growth (`lint:raw-style-count` passes).
+- `draft.ts`: upstream moved `validateDraft` / `firstBlockedStep` into `widgetBuilder/validate.ts`,
+  which is **not** owned. Rather than cross into it, intent validation moved into the owned
+  `validateIntents(draft)` (now in `draft.ts`, see below), rendered in the Commands step's intents section. Invalid states
+  are also prevented where they start: seed ids are generated unique and cannot be edited (so the
+  old "missing id" and "duplicate id" issues and their catalog keys are gone; the core schema still
+  refuses duplicates); a template's open intent starts on the first visible target; adding an
+  intent to a custom widget adds `navigate` to its requested permissions. Trade-off: these issues
+  no longer block the Review step's "first blocked step" jump. The core still refuses an empty
+  label or duplicate id on Review; a template open intent with no target installs, and the action
+  panel hides it (the resolver returns `missing-target`).
+- `en.ts` / `es.ts`: kept upstream's rewritten `extensions.trust.meaning.other` copy and added
+  `…meaning.navigate`.
+- `Plugins.tsx`: took upstream (see above). Known gap: `PluginPackageCard.tsx` (not owned, not a
+  companion) falls back to the raw token, so a package card lists `navigate` untranslated. Its map is
+  `Record<string, MessageKey>`, so nothing fails; the fix is one line
+  (`navigate: 'extensions.trust.perm.navigate'`), for whoever owns that file.
+
+File-size gate: after the rebase `CommandsStep.tsx` was 820 lines, over RC-STB-2.7's 800-line hard
+limit (`tests/unit/file-size-gate.test.ts` went red). A new module would be outside the fence, so
+the pure parts moved into owned files: the intent catalogue, `uniqueIntentId` and the route /
+Settings-tab / create label maps into `vocabulary.ts` (the builder's picker vocabularies), and
+`validateIntents` into `draft.ts` (type-only import of `DraftIssue` from `validate.ts`, no runtime
+cycle). `CommandsStep.tsx` is now 681 lines.
+
+New companion test: `apps/gm-react/src/app/widgetBuilder/intents.test.ts` (every catalogue seed
+installs through the core and reads back; `uniqueIntentId`; `validateIntents` for template and
+custom drafts).
+
 ## Changes
 
 - Core: `WidgetIntentDescriptor` union + closed target sets (`WIDGET_INTENT_ROUTES`,
@@ -122,3 +181,22 @@ Each is the smallest additive edit the acceptance needs; none changes existing b
   `custom-widgets`, `widget-builder`, `widget-trust-review`, `widget-kit`, `campaign` and
   `starter-widgets`: 67 passed, 1 skipped (`custom-widgets.spec.ts:673`, the existing phone-only
   skip) (`/tmp/rc-wid51-e2e-3.log`).
+
+### Session 2 validation (rebased on loop/rc `7c587494`)
+
+- `pnpm typecheck` (core, cloud-fns, gm-react): clean.
+- ESLint on every changed TS/TSX file: clean. `lint:raw-style-count`, `lint:boundary`: pass.
+- `format:check:changed -- --base origin/loop/rc`: clean.
+- Core vitest (full): 284 files / 5182 tests passed.
+- App vitest (full): 148 files / 1672 tests passed, before the file split. After it, the
+  widget-builder directory (5 files / 53 tests, incl. the new `intents.test.ts` 6/6) passes, plus
+  typecheck.
+- Tooling vitest: 29 files / 221 tests passed after the split. Before it,
+  `file-size-gate.test.ts` failed at 820 lines; that failure is why the split was made.
+- `scripts/quality-gates.ts`: passed.
+- Playwright desktop-chromium + mobile-chromium, port 4731, 3 workers: `widget-intents`,
+  `widget-builder`, `widget-trust-review`, `custom-widgets`, `extensions-polish`,
+  `starter-widgets`, `widget-kit`, `campaign`: 79 passed, 1 skipped (`custom-widgets.spec.ts:673`,
+  phone-only by design). `widget-intents.spec.ts` 4/4 (`/tmp/rc-wid51-e2e.log`).
+- Fence simulated against the manifest (Owns + journal + companion paths): 25 changed files, none
+  outside.

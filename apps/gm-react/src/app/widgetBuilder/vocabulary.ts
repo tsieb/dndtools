@@ -1,10 +1,16 @@
 import {
 	ALL_HOST_PERMISSIONS,
 	WIDGET_DESTINATION_CLASSES,
+	WIDGET_INTENT_CREATE_TARGETS,
 	type PlatformProfileId,
 	type WidgetConfigControl,
 	type WidgetDataQuerySource,
 	type WidgetHostPermission,
+	type WidgetIntentCreateTarget,
+	type WidgetIntentDescriptor,
+	type WidgetIntentEntityKind,
+	type WidgetIntentRoute,
+	type WidgetIntentSettingsTab,
 	type WidgetNetworkDestinationClass,
 	type WidgetStyleCapability,
 	type WidgetStyleIsolation,
@@ -270,4 +276,112 @@ export const TRUST_RECOMMENDATION: Record<
 	'trusted-after-review': { label: 'extensions.plugins.recommendTrust', tone: 'success' },
 	'requires-review': { label: 'extensions.trust.recommend.review', tone: 'warning' },
 	'deny-until-fixed': { label: 'extensions.trust.recommend.deny', tone: 'error' },
+};
+
+// --- RC-WID-5.1: intents -----------------------------------------------------------------------
+
+/**
+ * A catalogue row for an intent. `displayName` is stored text, like a command's, so it stays in the
+ * source language until the author renames it; `label` names the chip and is translated.
+ */
+export interface IntentSeed {
+	label: MessageKey;
+	group: 'open' | 'create';
+	seed: WidgetIntentDescriptor;
+}
+
+const OPEN_ENTITY_SEEDS: [WidgetIntentEntityKind, MessageKey, string][] = [
+	['character', 'builder.intents.openCharacter', 'Open character'],
+	['map', 'builder.intents.openMap', 'Open map'],
+	['note', 'builder.intents.openNote', 'Open note'],
+	['quest', 'builder.intents.openQuest', 'Open quest'],
+];
+
+export const CREATE_LABEL: Record<WidgetIntentCreateTarget, [MessageKey, string]> = {
+	scene: ['home.create.scene', 'New scene'],
+	screen: ['builder.intents.newScreen', 'New screen'],
+	character: ['home.create.character', 'New character'],
+	map: ['home.create.map', 'New map'],
+	note: ['home.create.note', 'New note'],
+	widget: ['home.create.widget', 'New widget'],
+};
+
+export const INTENT_CATALOG: IntentSeed[] = [
+	...OPEN_ENTITY_SEEDS.map(([entityKind, label, displayName]) => ({
+		label,
+		group: 'open' as const,
+		seed: { id: `open-${entityKind}`, displayName, kind: 'open-entity' as const, entityKind },
+	})),
+	{
+		label: 'builder.intents.openScreen',
+		group: 'open',
+		seed: { id: 'open-screen', displayName: 'Open screen', kind: 'open-screen' },
+	},
+	{
+		label: 'builder.intents.openRoute',
+		group: 'open',
+		seed: { id: 'open-page', displayName: 'Open page', kind: 'open-route', route: '/characters' },
+	},
+	{
+		label: 'builder.intents.openSettings',
+		group: 'open',
+		seed: {
+			id: 'open-settings',
+			displayName: 'Open Settings',
+			kind: 'open-settings',
+			tab: 'appearance',
+		},
+	},
+	...WIDGET_INTENT_CREATE_TARGETS.map((target) => ({
+		label: CREATE_LABEL[target][0],
+		group: 'create' as const,
+		seed: {
+			id: `new-${target}`,
+			displayName: CREATE_LABEL[target][1],
+			kind: 'create' as const,
+			target,
+		},
+	})),
+];
+
+/** The seed's id, suffixed until it is unique in the draft (two "Open character" buttons are fine). */
+export function uniqueIntentId(base: string, intents: readonly WidgetIntentDescriptor[]): string {
+	const taken = new Set(intents.map((intent) => intent.id));
+	if (!taken.has(base)) return base;
+	let index = 2;
+	while (taken.has(`${base}-${index}`)) index += 1;
+	return `${base}-${index}`;
+}
+
+export const ROUTE_LABEL: Record<WidgetIntentRoute, MessageKey> = {
+	'/': 'nav.home',
+	'/scenes': 'nav.scenes',
+	'/session': 'nav.session',
+	'/board': 'nav.gmScreen',
+	'/characters': 'nav.characters',
+	'/atlas': 'nav.maps',
+	'/campaign': 'nav.story',
+	'/campaign/calendar': 'builder.intents.route.calendar',
+	'/campaign/relationships': 'builder.intents.route.relationships',
+	'/knowledge': 'nav.notes',
+	'/graph': 'nav.graph',
+	'/audio': 'nav.audio',
+	'/extensions': 'nav.extensions',
+};
+
+export const SETTINGS_TAB_LABEL: Record<WidgetIntentSettingsTab, MessageKey> = {
+	appearance: 'settings.nav.appearance',
+	language: 'settings.nav.language',
+	account: 'settings.nav.account',
+	subscription: 'settings.nav.subscription',
+	players: 'settings.nav.players',
+	permissions: 'settings.nav.permissions',
+	vault: 'settings.nav.vault',
+	sync: 'settings.nav.sync',
+	tools: 'settings.nav.tools',
+	ai: 'settings.nav.ai',
+	plugins: 'settings.nav.plugins',
+	systems: 'settings.nav.systems',
+	accessibility: 'settings.nav.accessibility',
+	about: 'settings.nav.about',
 };
