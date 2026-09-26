@@ -210,3 +210,17 @@
   - Full `pnpm lint`: exited 0.
   - `format:check:changed -- --base loop/rc`: 36 files passed.
 - Browser, both profiles, 2 workers: `sfx-events`, `inline-roll`, `settings` (including the formerly base-red `:101`/`:180`/`:217`) and `combat`. 98/98 passed (`/tmp/rc-ses-6-1-a20-e2e.log`).
+
+## Attempt 21 (browser gate collected no tests: fixed an import this branch introduced)
+
+- Entry: clean branch at `026e0098`. Headroom tools were unavailable, so I read the gate log directly: `.state/attempts/b3694323-…/output.log`. Every other gate passed. No agents, dispatcher writes, push, promotion or extra loop.
+- The Browser acceptance gate failed before running a single test. Playwright stopped at collection with `TypeError: Module ".../packages/core/src/systems/samples/pf2e.json" needs an import attribute of "type: json"`. `npx playwright test --list` reproduced it locally: 0 tests in 0 files. Listing the specs one at a time narrowed it to `tests/e2e/audio-polish.spec.ts`, which imports `queries/session-audio-query` directly under Node.
+- Cause, from this branch: `state/audio-automation.ts` had gained a value import of `isLiveWorkflow` from `lifecycle/session-workflow`. That module loads `state/session-state` at runtime, and that graph reaches the bundled system JSON. On the base, `audio-automation.ts` imported `session-state` as a type only. Attempt 20's targeted browser run named its spec files explicitly, so Playwright never loaded `audio-polish.spec.ts` and the break went unseen.
+- Fix (`audio-automation.ts`, owned): dropped the value import and compared `trigger.sessionWorkflow !== 'active'` inline, with a comment explaining why it mirrors `isLiveWorkflow` instead of importing it. Behaviour is unchanged.
+- Verification:
+  - `playwright test --list`: 1464 tests in 117 files.
+  - Mutation check: changing the inline check to a non-live state fails 2 tests in `session-standby-permits-everything.test.ts`. Restored afterwards.
+  - Core `session-standby-permits-everything` + automation tests: 290 passed.
+  - App `combat-audio-automation` + `sfx-events` tests: 24 passed.
+  - Core typecheck and eslint on the file: exit 0.
+  - Full browser suite exactly as the gate runs it (`pnpm e2e`, 2 workers, 2 retries): 1445 passed, 19 skipped, 0 failed, 0 flaky, in 33.0 min (`/tmp/rc-ses-6-1-a21-e2e.log`).
