@@ -260,11 +260,19 @@ for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
 				return saved.status;
 			});
 			expect(status).toBe('accepted');
-			// Autoplay is blocked until this click, which retries playback; wait for that retry to fail.
-			await page.getByRole('tab', { name: 'Presets', exact: true }).click();
+			// Autoplay is blocked until the first gesture, which retries playback; wait for that retry to
+			// fail. The gesture is a bare key press, not the tab click: the retry re-lays out the Now
+			// Playing card above the tablist inside the click's own pointerdown, and when the mouseup then
+			// misses the moved tab, Presets is focused but never selected.
+			await page.keyboard.press('Shift');
 			await expect(
 				page.getByText('The stream could not be played (unreachable URL or unsupported format).'),
 			).toBeVisible();
+			await page.getByRole('tab', { name: 'Presets', exact: true }).click();
+			await expect(page.getByRole('tab', { name: 'Presets', exact: true })).toHaveAttribute(
+				'aria-selected',
+				'true',
+			);
 			await page.getByRole('button', { name: 'Delete Quiet evening', exact: true }).click();
 			await expect(page.getByRole('dialog', { name: 'Delete “Quiet evening”?' })).toBeVisible();
 			await snap(page, theme, 'audio-delete');
