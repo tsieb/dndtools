@@ -1070,6 +1070,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.quick.handout': 'Enviar un documento',
 	'session.quick.handoutPlaceholder': 'Título del documento',
 	'session.quick.push': 'Enviar',
+	// RC-CAN-5.2 — la barra flotante de acciones de sesión del tablero en el teléfono.
+	'session.actionBar.label': 'Acciones de sesión',
+	'session.actionBar.handout': 'Documento',
+	'session.actionBar.rolled': 'Tirada {expression}: {total}',
 	// RC-SES-4.4 — el temporizador del panel rápido.
 	'session.quick.timer': 'Temporizador',
 	'session.quick.timerModeCountdown': 'Cuenta atrás',

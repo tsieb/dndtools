@@ -1040,6 +1040,10 @@ export const en = {
 	'session.quick.handout': 'Push a handout',
 	'session.quick.handoutPlaceholder': 'Handout title',
 	'session.quick.push': 'Push',
+	// RC-CAN-5.2 — the phone board's floating session action bar.
+	'session.actionBar.label': 'Session actions',
+	'session.actionBar.handout': 'Handout',
+	'session.actionBar.rolled': 'Rolled {expression}: {total}',
 	// RC-SES-4.4 — the quick-panel timer: DM countdown/break with lap marks, plus a "Back in M:SS"
 	// break card projected to players.
 	'session.quick.timer': 'Timer',

@@ -31,6 +31,7 @@ import { usePanelFocusReturn } from '../app/usePanelFocusReturn';
 import { useLayoutHistory } from '../app/canvas/useLayoutHistory';
 import { registerCanvasSurface } from '../app/shortcuts/registry';
 import { StackedBoard, StackedLayoutToggle, useStackedPosture } from '../app/canvas/StackedBoard';
+import { SessionActionBar } from '../app/canvas/SessionActionBar';
 import { srOnly } from '../app/screen-kit';
 import { useI18n } from '../i18n';
 import {
@@ -765,6 +766,8 @@ export function Board() {
 					/>
 				)}
 			</div>
+			{/* RC-CAN-5.2 — the phone's live-session bar; renders nothing unless the session is live. */}
+			{viewport === 'phone' && !editing && <SessionActionBar />}
 			<TemplatePicker
 				open={templatesOpen}
 				onClose={() => setTemplatesOpen(false)}
