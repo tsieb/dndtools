@@ -105,13 +105,22 @@ export function mdToNodes(
 function NoteAssetImage({ assetId, alt }: { assetId: string; alt: string }) {
 	const url = useAssetObjectUrl(assetId);
 	if (!url) {
-		return <span style={{ font: `12px ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>{alt}</span>;
+		return (
+			<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
+				{alt}
+			</span>
+		);
 	}
 	return (
 		<img
 			src={url}
 			alt={alt}
-			style={{ display: 'block', maxWidth: '100%', borderRadius: 8, border: `1px solid ${T.bd}` }}
+			style={{
+				display: 'block',
+				maxWidth: '100%',
+				borderRadius: T.radius.md,
+				border: `1px solid ${T.bd}`,
+			}}
 		/>
 	);
 }

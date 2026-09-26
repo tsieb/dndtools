@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Card, Input } from '../../ds';
+import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 
 export function Composer({
@@ -17,7 +18,13 @@ export function Composer({
 		<Card
 			elevation="flat"
 			padding="md"
-			style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}
+			style={{
+				marginBottom: T.space.four,
+				display: 'flex',
+				flexWrap: 'wrap',
+				gap: T.space.three,
+				alignItems: 'center',
+			}}
 		>
 			<Input
 				value={title}
@@ -25,7 +32,7 @@ export function Composer({
 				aria-label={t('knowledge.newNoteTitle')}
 				onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 				placeholder={t('knowledge.newNoteTitlePlaceholder')}
-				style={{ flex: 1 }}
+				style={{ flex: '1 1 12rem', minWidth: 0 }}
 				onKeyDown={(e: { key: string }) => {
 					// The Create button is gated on `busy`; Enter was not, so holding it (or a fast
 					// double press) fired overlapping creates and produced duplicate notes.

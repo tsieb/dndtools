@@ -1,76 +1,24 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
 	buildQuickSwitcher,
-	getContentHistoryForActor,
 	getNoteRelationshipsForActor,
 	resolveWikilinkForActor,
 	type ContentItemView,
 } from '@dndtools/core';
 import { Button, Dialog, Icon, IconButton, Toaster, VisibilityChip } from '../../ds';
-import { BackBar, Page, Panel, Seg, T, useSingleColumn } from '../../app/screen-kit';
-import { NoteEditor, RestoreNoteRevision, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
+import { BackBar, Page, Panel, T, useSingleColumn } from '../../app/screen-kit';
+import { NoteEditor, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
 import type { WikilinkSuggestion } from '../../app/editor/Autocomplete';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { VIS_CHIP, visibilityOptions } from './shared';
+import { META, VIS_CHIP } from './shared';
+import { HistoryPanel, LinkPanels, SharingPanel } from './NoteSidePanels';
 import { useI18n } from '../../i18n';
 import { formatStamp, mdToNodes, parseWikilink } from './markdown';
 import { readProseWidthPreference } from '../../platform/preferences';
 
 /** How many switcher hits are examined before the resolvable ones are kept (RC-KNW-1.2). */
 const WIKILINK_CANDIDATE_LIMIT = 40;
-
-function RelRow({
-	icon,
-	title,
-	kind,
-	onClick,
-}: {
-	icon: string;
-	title: string;
-	kind: string;
-	onClick?: () => void;
-}) {
-	const [hov, setHov] = useState(false);
-	// Clickable rows read as LINKS (accent + hover underline) — as plain grey text nobody tried them.
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			disabled={!onClick}
-			onMouseEnter={() => setHov(true)}
-			onMouseLeave={() => setHov(false)}
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 8,
-				padding: '6px 0',
-				width: '100%',
-				border: 'none',
-				background: 'transparent',
-				textAlign: 'left',
-				cursor: onClick ? 'pointer' : 'default',
-				font: `12.5px ${T.sans}`,
-				color: onClick ? T.acc : T.sub,
-			}}
-		>
-			<Icon name={icon} size={14} color={T.ter} />
-			<span
-				style={{
-					flex: 1,
-					minWidth: 0,
-					overflow: 'hidden',
-					textOverflow: 'ellipsis',
-					whiteSpace: 'nowrap',
-					textDecoration: onClick && hov ? 'underline' : 'none',
-				}}
-			>
-				{title}
-			</span>
-			<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{kind}</span>
-		</button>
-	);
-}
 
 export function NoteViewer({
 	note,
@@ -89,21 +37,6 @@ export function NoteViewer({
 	// One column on a phone AND in the rail tier's detail pane (RC-UX-4.3): the 280px side column
 	// beside the note body would leave the body ~160px wide there.
 	const isPhone = useSingleColumn();
-	const [showHistory, setShowHistory] = useState(false);
-	const history = useMemo(
-		() =>
-			showHistory
-				? getContentHistoryForActor(
-						runtime.state.content,
-						runtime.state.permissions,
-						runtime.state.sync,
-						actorId,
-						note.id,
-						new Date().toISOString(),
-					)
-				: [],
-		[showHistory, runtime.state, actorId, note.id],
-	);
 	const [editing, setEditing] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
@@ -330,14 +263,31 @@ export function NoteViewer({
 				style={{
 					display: 'grid',
 					gridTemplateColumns: isPhone ? '1fr' : 'minmax(0,1fr) 280px',
-					gap: 20,
+					gap: T.space.five,
 					alignItems: 'start',
 				}}
 			>
-				<Panel pad={26}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+				{/* The reading panel is the region's primary surface: raised, with the medium shadow; the
+				    supporting column beside it stays flat. */}
+				<Panel
+					pad={`min(${T.space.six}, 24px)`}
+					style={{
+						boxShadow: T.shadow.md,
+						...(note.visibility === 'dm-only'
+							? { borderInlineStart: `${T.space.one} solid ${T.dm}` }
+							: {}),
+					}}
+				>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							flexWrap: 'wrap',
+							gap: T.space.two,
+						}}
+					>
 						<VisibilityChip level={VIS_CHIP[note.visibility] || 'dm-only'} />
-						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+						<span style={META}>
 							{t('knowledge.noteUpdated', {
 								when: formatStamp(note.updatedAt, formatDate),
 							})}
@@ -394,7 +344,16 @@ export function NoteViewer({
 						/>
 					) : (
 						<>
-							<h2 style={{ font: `700 22px ${T.disp}`, margin: '0 0 12px' }}>{note.title}</h2>
+							<h2
+								style={{
+									font: `700 var(--text-xl)/var(--leading-tight) ${T.disp}`,
+									color: T.ink,
+									margin: T.space.zero,
+									overflowWrap: 'anywhere',
+								}}
+							>
+								{note.title}
+							</h2>
 							{/* ABOVE the body, not below it: the actions that set `err` (Push to players,
 							    Delete) live in the header, and a note body is arbitrarily long — an error
 							    after it sat below the fold, so a rejected push looked like a successful
@@ -402,8 +361,15 @@ export function NoteViewer({
 							{err && (
 								<div
 									role="alert"
-									style={{ marginBottom: 10, font: `12px ${T.sans}`, color: T.err }}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: T.space.oneHalf,
+										font: `var(--text-sm) ${T.sans}`,
+										color: T.err,
+									}}
 								>
+									<Icon name="warning" size="micro" />
 									{err}
 								</div>
 							)}
@@ -417,131 +383,20 @@ export function NoteViewer({
 					)}
 				</Panel>
 
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<Panel title={t('knowledge.sharing')}>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-							<VisibilityChip level={VIS_CHIP[note.visibility] || 'dm-only'} />
-							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-								{t(
-									note.visibility === 'dm-only'
-										? 'knowledge.onlyYou'
-										: 'knowledge.visibleToPlayers',
-								)}
-							</span>
-						</div>
-						{canAuthor ? (
-							<>
-								<Seg
-									ariaLabel={t('knowledge.noteVisibility')}
-									options={visibilityOptions(t)}
-									value={note.visibility}
-									onChange={setVisibility}
-								/>
-								{note.visibility !== 'player-visible' && (
-									<Button
-										variant="secondary"
-										size="sm"
-										icon="send"
-										disabled={busy}
-										onClick={() => setVisibility('player-visible')}
-										style={{ width: '100%' }}
-									>
-										{t('knowledge.push')}
-									</Button>
-								)}
-							</>
-						) : (
-							<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-								{t('knowledge.sharedByDm')}
-							</span>
-						)}
-						{/* no core command — real-time multi-user editing PRESENCE (the prototype's live-collab
-						    panel) is not modeled by the Processing Core; this panel surfaces the real,
-						    backed visibility/sharing controls instead of a faked presence list. */}
-					</Panel>
-
-					<Panel title={t('knowledge.history')}>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => setShowHistory(!showHistory)}
-							aria-expanded={showHistory}
-						>
-							{t(showHistory ? 'knowledge.historyHide' : 'knowledge.historyShow')}
-						</Button>
-						{showHistory && (
-							<>
-								<p>{t('knowledge.historyLimit')}</p>
-								{history.length === 0 && <p>{t('knowledge.historyEmpty')}</p>}
-								<ol aria-label={t('knowledge.history')}>
-									{history.map((entry) => (
-										<li key={entry.revision}>
-											<p>{t('knowledge.historyRevision', { revision: entry.revision })}</p>
-											<p>
-												<time dateTime={entry.issuedAt}>
-													{formatDate(new Date(entry.issuedAt), {
-														dateStyle: 'medium',
-														timeStyle: 'short',
-													})}
-												</time>{' '}
-												· {entry.actorId}
-											</p>
-											<p>
-												{t('knowledge.historyDelta', {
-													added: entry.lineDelta.added,
-													removed: entry.lineDelta.removed,
-												})}
-											</p>
-											{canAuthor && entry.revision !== note.revision && (
-												<RestoreNoteRevision
-													snapshot={entry}
-													revision={note.revision}
-													busy={busy || editing}
-													onSave={saveDraft}
-												/>
-											)}
-										</li>
-									))}
-								</ol>
-							</>
-						)}
-					</Panel>
-
-					<Panel title={t('knowledge.backlinks')}>
-						{rel.backlinks.length === 0 ? (
-							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-								{t('knowledge.noBacklinks')}
-							</span>
-						) : (
-							rel.backlinks.map((b) => (
-								<RelRow
-									key={b.sourceId}
-									icon="link"
-									title={b.sourceTitle}
-									kind={t('knowledge.note')}
-									onClick={() => onOpen(b.sourceId)}
-								/>
-							))
-						)}
-					</Panel>
-
-					<Panel title={t('knowledge.related')}>
-						{rel.related.length === 0 ? (
-							<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-								{t('knowledge.noRelated')}
-							</span>
-						) : (
-							rel.related.map((r) => (
-								<RelRow
-									key={r.relatedId}
-									icon="knowledge-book"
-									title={r.relatedTitle}
-									kind={t('knowledge.note')}
-									onClick={() => onOpen(r.relatedId)}
-								/>
-							))
-						)}
-					</Panel>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
+					<SharingPanel
+						note={note}
+						canAuthor={canAuthor}
+						busy={busy}
+						onSetVisibility={(visibility) => void setVisibility(visibility)}
+					/>
+					<HistoryPanel
+						note={note}
+						canAuthor={canAuthor}
+						busy={busy || editing}
+						onSave={saveDraft}
+					/>
+					<LinkPanels rel={rel} onOpen={onOpen} />
 				</div>
 			</div>
 

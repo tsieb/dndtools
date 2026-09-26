@@ -100,21 +100,27 @@ export function SuggestionList({
 		<div
 			style={{
 				position: 'absolute',
-				zIndex: 40,
+				zIndex: T.z.dropdown,
 				left: 0,
 				right: 0,
 				maxHeight: 220,
 				overflowY: 'auto',
 				background: T.overlay,
 				border: `1px solid ${T.bdS}`,
-				borderRadius: 8,
-				boxShadow: T.smd,
-				padding: 4,
+				borderRadius: T.radius.md,
+				boxShadow: T.shadow.md,
+				padding: T.space.one,
 			}}
 		>
 			<div id={listId} role="listbox" aria-label={label}>
 				{rows.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter, padding: '8px 10px' }}>
+					<div
+						style={{
+							font: `var(--text-xs) ${T.sans}`,
+							color: T.ter,
+							padding: `${T.space.two} ${T.space.three}`,
+						}}
+					>
 						{emptyLabel}
 					</div>
 				) : (
@@ -135,9 +141,9 @@ export function SuggestionList({
 							style={{
 								display: 'flex',
 								alignItems: 'baseline',
-								gap: 8,
-								padding: '6px 10px',
-								borderRadius: 6,
+								gap: T.space.two,
+								padding: `${T.space.oneHalf} ${T.space.three}`,
+								borderRadius: T.radius.md,
 								cursor: 'pointer',
 								background: index === activeIndex ? T.accSub : 'transparent',
 							}}
@@ -146,7 +152,7 @@ export function SuggestionList({
 								<span
 									style={{
 										display: 'block',
-										font: `12.5px ${T.sans}`,
+										font: `var(--text-sm) ${T.sans}`,
 										color: T.ink,
 										overflow: 'hidden',
 										textOverflow: 'ellipsis',
@@ -156,12 +162,16 @@ export function SuggestionList({
 									{row.label}
 								</span>
 								{row.hint && (
-									<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter }}>
+									<span
+										style={{ display: 'block', font: `var(--text-xs) ${T.sans}`, color: T.ter }}
+									>
 										{row.hint}
 									</span>
 								)}
 							</span>
-							{row.meta && <span style={{ font: `11px ${T.sans}`, color: T.ter }}>{row.meta}</span>}
+							{row.meta && (
+								<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>{row.meta}</span>
+							)}
 						</div>
 					))
 				)}

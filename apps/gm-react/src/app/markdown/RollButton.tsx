@@ -96,23 +96,28 @@ export function RollButton({
 				title={t('markdown.rollTitle', { expression })}
 				style={{
 					font: `inherit`,
-					padding: '1px 6px',
+					padding: `${T.space.zero} ${T.space.oneHalf}`,
 					border: `1px solid ${T.bdS}`,
-					borderRadius: 6,
+					borderRadius: T.radius.md,
 					background: T.alt,
 					color: T.acc,
 					cursor: 'pointer',
 					verticalAlign: 'baseline',
 				}}
 			>
-				<Icon name="dice" size="sm" style={{ marginRight: 4, verticalAlign: '-2px' }} />
+				<Icon name="dice" size="sm" style={{ marginRight: T.space.one, verticalAlign: '-2px' }} />
 				<span style={{ whiteSpace: 'normal' }}>{text}</span>
 				<span style={srOnly}> {t('markdown.rollAria', { expression })}</span>
 			</button>
 			{invalid && (
 				<span
 					role="status"
-					style={{ font: `12px ${T.sans}`, color: T.warn, marginLeft: 6, fontStyle: 'italic' }}
+					style={{
+						font: `var(--text-xs) ${T.sans}`,
+						color: T.warn,
+						marginLeft: T.space.oneHalf,
+						fontStyle: 'italic',
+					}}
 				>
 					{t('markdown.rollInvalid')}
 				</span>
@@ -122,13 +127,13 @@ export function RollButton({
 					role="status"
 					title={breakdown}
 					style={{
-						font: `600 12.5px ${T.mono}`,
+						font: `600 var(--text-xs) ${T.mono}`,
 						color: T.ink,
 						background: T.alt,
 						border: `1px solid ${chip.logged ? T.acc : T.bdS}`,
-						borderRadius: 6,
-						padding: '1px 6px',
-						marginLeft: 6,
+						borderRadius: T.radius.md,
+						padding: `${T.space.zero} ${T.space.oneHalf}`,
+						marginLeft: T.space.oneHalf,
 					}}
 				>
 					{chip.total}
@@ -139,7 +144,12 @@ export function RollButton({
 					{!chip.logged && (
 						<span
 							aria-hidden="true"
-							style={{ font: `11px ${T.sans}`, color: T.ter, marginLeft: 5, fontWeight: 400 }}
+							style={{
+								font: `var(--text-xs) ${T.sans}`,
+								color: T.ter,
+								marginLeft: T.space.one,
+								fontWeight: 400,
+							}}
 						>
 							{t('markdown.rollLocal')}
 						</span>

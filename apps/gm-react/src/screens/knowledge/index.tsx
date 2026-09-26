@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { actorCanAuthorContent, getContentItemsForActor } from '@dndtools/core';
 import { Button, Card, EmptyState, Icon, Toaster, VisibilityChip } from '../../ds';
-import { ListDetail, Page, T } from '../../app/screen-kit';
+import { ListDetail, Page, T, srOnly } from '../../app/screen-kit';
+import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
-import { VIS_CHIP } from './shared';
+import { META, VIS_CHIP } from './shared';
 import { parseArchive, snippetOf } from './markdown';
 import { useI18n } from '../../i18n';
 import { NoteListMetadata } from './NoteListMetadata';
@@ -28,6 +29,9 @@ export { parseWikilink } from './markdown';
  * Mirrors the production `routes/knowledge` NotesWorkbench wiring.
  */
 
+/** The five disclosures above the note list. At most one is open at a time. */
+type LibraryPanel = 'filters' | 'sources' | 'import' | 'templates' | 'compose';
+
 export function Knowledge() {
 	const { t, formatDate, formatRelativeTime } = useI18n();
 	const runtime = useRuntime();
@@ -47,20 +51,24 @@ export function Knowledge() {
 		[runtime.state, actorId],
 	);
 
-	const [composing, setComposing] = useState(false);
-	// RC-KNW-1.3 — the templates/snippets disclosure, mutually exclusive with the other three.
-	const [templating, setTemplating] = useState(false);
-	// RC-KNW-2.1 — the filters + saved-searches disclosure. Unlike the other four this one is NOT
-	// author-gated: a player can search what they can see and run a saved search shared with them.
-	const [filtering, setFiltering] = useState(false);
+	// One state for the five mutually exclusive disclosures, so opening one closes the rest by
+	// construction (they used to be five booleans, each toggle resetting the other four by hand, and
+	// a missed reset left two stacked open against their own aria-expanded). Filters is the one that
+	// is NOT author-gated: a player can search what they can see and run a saved search shared with
+	// them (RC-KNW-2.1). Templates is RC-KNW-1.3; Sources is WS-7.
+	const [panel, setPanel] = useState<LibraryPanel | null>(null);
+	const toggle = (next: LibraryPanel) => setPanel((current) => (current === next ? null : next));
+	// On a phone the four secondary toggles show their icon only, so the header stays one row with
+	// New note; the word stays the accessible name and the tooltip.
+	const iconOnly = useViewport() === 'phone';
+	const toggleLabel = (text: string) =>
+		iconOnly ? { children: <span style={srOnly}>{text}</span>, title: text } : { children: text };
 	const [filterSeed, setFilterSeed] = useState('');
 	// RC-KNW-2.1 — the palette's `>search saved` handoff names a stored saved search to restore into
 	// the filter editor. The nonce remounts the panel even when the same saved search is picked
 	// twice, so re-running it from the palette always puts its criteria back.
 	const [filterSavedId, setFilterSavedId] = useState('');
 	const [filterNonce, setFilterNonce] = useState(0);
-	const [importing, setImporting] = useState(false);
-	const [showSources, setShowSources] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [importMsg, setImportMsg] = useState<string | null>(null);
 	const [importFailed, setImportFailed] = useState(false);
@@ -74,8 +82,7 @@ export function Knowledge() {
 			savedSearchId?: string;
 		} | null;
 		if (intent?.create) {
-			setComposing(true);
-			setImporting(false);
+			setPanel('compose');
 			navigate(location.pathname, { replace: true, state: null });
 		} else if (typeof intent?.savedSearchId === 'string' && intent.savedSearchId !== '') {
 			// ⌘K `>search saved` picked a stored search: open the panel with its criteria restored,
@@ -83,9 +90,7 @@ export function Knowledge() {
 			setFilterSeed('');
 			setFilterSavedId(intent.savedSearchId);
 			setFilterNonce((n) => n + 1);
-			setFiltering(true);
-			setComposing(false);
-			setImporting(false);
+			setPanel('filters');
 			navigate(location.pathname, { replace: true, state: null });
 		} else if (typeof intent?.search === 'string') {
 			// The Graph hands its typed query over to the vault search rather than dropping the user
@@ -93,7 +98,7 @@ export function Knowledge() {
 			setFilterSeed(intent.search);
 			setFilterSavedId('');
 			setFilterNonce((n) => n + 1);
-			setFiltering(true);
+			setPanel('filters');
 			navigate(location.pathname, { replace: true, state: null });
 		}
 	}, [location.state, location.pathname, navigate]);
@@ -123,7 +128,7 @@ export function Knowledge() {
 				payload: { kind: 'note', title, body: '', visibility: 'dm-only' },
 			});
 			if (result.status === 'accepted') {
-				setComposing(false);
+				setPanel(null);
 				const created = result.events.find(
 					(e) => (e as { kind?: string }).kind === 'content.item-changed',
 				) as { itemId?: string } | undefined;
@@ -190,93 +195,69 @@ export function Knowledge() {
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					justifyContent: 'flex-end',
 					flexWrap: 'wrap',
-					gap: 12,
-					marginBottom: 18,
+					gap: T.space.three,
+					marginBottom: T.space.four,
 				}}
 			>
-				{/* RC-KNW-2.1 — faceted search + saved searches. Available to every actor: the read is
-				    actor-filtered, so a player searches only what they can already see. */}
-				<Button
-					variant={filtering ? 'secondary' : 'ghost'}
-					size="sm"
-					icon="search"
-					aria-expanded={filtering}
-					data-testid="knowledge-filters-toggle"
-					onClick={() => {
-						setFiltering((v) => !v);
-						setComposing(false);
-						setImporting(false);
-						setShowSources(false);
-						setTemplating(false);
+				{/* The list's own heading, under the shell's <h1>: how many notes this reader can see. */}
+				<h2
+					style={{
+						flex: '1 1 auto',
+						margin: T.space.zero,
+						font: `600 var(--text-sm) ${T.sans}`,
+						color: T.sub,
 					}}
 				>
-					{t('knowledge.filters.open')}
-				</Button>
+					{t('knowledge.listHeading', { count: notes.length })}
+				</h2>
+				{/* Disclosure toggles: each carries aria-expanded, since the open state was otherwise
+				    invisible to assistive tech. Only New note is gold; the rest are quiet until open. */}
+				<Button
+					variant={panel === 'filters' ? 'secondary' : 'ghost'}
+					size="sm"
+					icon="search"
+					aria-expanded={panel === 'filters'}
+					data-testid="knowledge-filters-toggle"
+					onClick={() => toggle('filters')}
+					{...toggleLabel(t('knowledge.filters.open'))}
+				/>
 				{canAuthor && (
 					<>
-						{/* These three are disclosure toggles that mutually collapse each other, so each
-						    needs aria-expanded — open state was otherwise invisible to assistive tech. */}
 						<Button
-							variant={showSources ? 'secondary' : 'ghost'}
+							variant={panel === 'sources' ? 'secondary' : 'ghost'}
 							size="sm"
 							icon="vault"
-							aria-expanded={showSources}
-							onClick={() => {
-								setShowSources((v) => !v);
-								setComposing(false);
-								setImporting(false);
-								setTemplating(false);
-								setFiltering(false);
-							}}
-						>
-							{t('knowledge.sources')}
-						</Button>
+							aria-expanded={panel === 'sources'}
+							onClick={() => toggle('sources')}
+							{...toggleLabel(t('knowledge.sources'))}
+						/>
 						<Button
-							variant={importing ? 'secondary' : 'ghost'}
+							variant={panel === 'import' ? 'secondary' : 'ghost'}
 							size="sm"
 							icon="import"
-							aria-expanded={importing}
-							onClick={() => {
-								setImporting((v) => !v);
-								setComposing(false);
-								setShowSources(false);
-								setTemplating(false);
-								setFiltering(false);
-							}}
-						>
-							{t('knowledge.importVault')}
-						</Button>
+							aria-expanded={panel === 'import'}
+							onClick={() => toggle('import')}
+							{...toggleLabel(t('knowledge.importVault'))}
+						/>
 						{/* RC-KNW-1.3 — start a note from a template, keep your own, insert a snippet. */}
 						<Button
-							variant={templating ? 'secondary' : 'ghost'}
+							variant={panel === 'templates' ? 'secondary' : 'ghost'}
 							size="sm"
 							icon="duplicate"
-							aria-expanded={templating}
+							aria-expanded={panel === 'templates'}
 							data-testid="knowledge-templates-toggle"
-							onClick={() => {
-								setTemplating((v) => !v);
-								setComposing(false);
-								setImporting(false);
-								setShowSources(false);
-								setFiltering(false);
-							}}
-						>
-							{t('knowledge.templates')}
-						</Button>
+							onClick={() => toggle('templates')}
+							{...toggleLabel(t('knowledge.templates'))}
+						/>
+						{/* Gold only while nothing is open: an open disclosure brings its own primary
+						    (Create, Import, Save), and one gold action per region is the rule. */}
 						<Button
-							variant="primary"
+							variant={panel === null ? 'primary' : 'secondary'}
 							size="sm"
 							icon="note-edit"
-							aria-expanded={composing}
-							onClick={() => {
-								setComposing((v) => !v);
-								setImporting(false);
-								setShowSources(false);
-								setTemplating(false);
-								setFiltering(false);
-							}}
+							aria-expanded={panel === 'compose'}
+							onClick={() => toggle('compose')}
 						>
 							{t('knowledge.newNote')}
 						</Button>
@@ -284,38 +265,38 @@ export function Knowledge() {
 				)}
 			</div>
 
-			{filtering && (
+			{panel === 'filters' && (
 				<FiltersPanel
 					key={`${filterNonce}:${filterSavedId}:${filterSeed}`}
 					initialQuery={filterSeed}
 					initialSavedSearchId={filterSavedId}
 				/>
 			)}
-			{canAuthor && composing && (
-				<Composer busy={busy} onCreate={createNote} onCancel={() => setComposing(false)} />
+			{canAuthor && panel === 'compose' && (
+				<Composer busy={busy} onCreate={createNote} onCancel={() => setPanel(null)} />
 			)}
-			{canAuthor && templating && (
+			{canAuthor && panel === 'templates' && (
 				<TemplatesPanel onCreated={(id) => navigate(`/knowledge/${id}`)} />
 			)}
-			{canAuthor && importing && (
+			{canAuthor && panel === 'import' && (
 				<ImportPanel
 					busy={busy}
 					message={importMsg}
 					failed={importFailed}
 					onImport={runImport}
 					onCancel={() => {
-						setImporting(false);
+						setPanel(null);
 						setImportMsg(null);
 						setImportFailed(false);
 					}}
 				/>
 			)}
 			{/* WS-7 — connected vault sources (local folder / Google Docs) pull+push panel. */}
-			{canAuthor && showSources && <ConnectedSourcesPanel />}
+			{canAuthor && panel === 'sources' && <ConnectedSourcesPanel />}
 
 			{notes.length === 0 ? (
 				<EmptyState
-					icon="knowledge-book"
+					illustration="knowledge-empty"
 					// A non-author sees this screen through the actor filter, so "Nothing written down"
 					// is simply false for them — the DM has written plenty, none of it shared yet. It is
 					// also the surface a DM checks with "view as player". Atlas already branches this way.
@@ -325,21 +306,13 @@ export function Knowledge() {
 						canAuthor ? (
 							// Secondary, not a second gold button: the header already offers this same "New
 							// note" in accent, and on the rail tier the open note in the detail pane beside
-							// this list owns an accent primary of its own (RC-UX-4.3).
+							// this list owns an accent primary of its own (RC-UX-4.3). It opens the SAME
+							// disclosure, so it closes whichever one was open, like the header toggle.
 							<Button
 								variant="secondary"
 								size="sm"
 								icon="note-edit"
-								// The three disclosures are mutually exclusive, but this second entry point
-								// only ever opened the composer — so Import vault + the composer could be
-								// stacked open at once, contradicting their own aria-expanded state.
-								onClick={() => {
-									setComposing(true);
-									setImporting(false);
-									setShowSources(false);
-									setTemplating(false);
-									setFiltering(false);
-								}}
+								onClick={() => setPanel('compose')}
 							>
 								{t('knowledge.newNote')}
 							</Button>
@@ -347,71 +320,99 @@ export function Knowledge() {
 					}
 				/>
 			) : (
-				<div
+				<ul
+					aria-label={t('knowledge.notes')}
 					style={{
+						listStyle: 'none',
+						margin: T.space.zero,
+						padding: T.space.zero,
 						display: 'grid',
 						// A 320px phone has only 292px after the page gutters.  A fixed 300px
 						// minimum track made every populated vault horizontally unreachable there.
 						gridTemplateColumns: 'repeat(auto-fill,minmax(min(100%, 300px),1fr))',
-						gap: 14,
+						gap: T.space.three,
 					}}
 				>
 					{notes.map((n) => (
-						<Card
-							key={n.id}
-							style={{ minWidth: 0, overflowWrap: 'anywhere' }}
-							elevation="flat"
-							interactive
-							// The note open in the rail tier's detail pane beside this list (RC-UX-4.3).
-							accent={n.id === open?.id}
-							aria-current={n.id === open?.id ? 'true' : undefined}
-							onClick={() => navigate(`/knowledge/${n.id}`)}
-						>
-							<div
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									justifyContent: 'space-between',
-									gap: 8,
-									marginBottom: 7,
-								}}
+						<li key={n.id} style={{ minWidth: 0, display: 'grid', position: 'relative' }}>
+							<Card
+								style={{ minWidth: 0, overflowWrap: 'anywhere' }}
+								elevation="flat"
+								interactive
+								// The note open in the rail tier's detail pane beside this list (RC-UX-4.3).
+								accent={n.id === open?.id}
+								aria-current={n.id === open?.id ? 'true' : undefined}
+								onClick={() => navigate(`/knowledge/${n.id}`)}
 							>
-								<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-									<Icon name="knowledge-book" size={15} color={T.acc} />
-									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-										{t('knowledge.note')}
-									</span>
-								</span>
-								<VisibilityChip level={VIS_CHIP[n.visibility] || 'dm-only'} compact />
-							</div>
-							<div style={{ font: `600 14.5px ${T.sans}`, marginBottom: 5 }}>{n.title}</div>
-							<NoteListMetadata note={n} />
-							<div
-								style={{
-									font: `12.5px/1.55 ${T.sans}`,
-									color: T.ter,
-									display: '-webkit-box',
-									WebkitLineClamp: 2,
-									WebkitBoxOrient: 'vertical',
-									overflow: 'hidden',
-								}}
-							>
-								{snippetOf(n.body, t)}
-							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 9 }}>
-								<time
-									dateTime={n.updatedAt}
-									title={formatDate(new Date(n.updatedAt), {
-										dateStyle: 'long',
-										timeStyle: 'short',
-									})}
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'space-between',
+										gap: T.space.two,
+										marginBottom: T.space.two,
+									}}
 								>
-									{t('knowledge.updated', { when: formatRelativeTime(new Date(n.updatedAt)) })}
-								</time>
-							</div>
-						</Card>
+									<span style={{ display: 'flex', alignItems: 'center', gap: T.space.oneHalf }}>
+										<Icon name="knowledge-book" size="micro" color={T.acc} />
+										<span style={META}>{t('knowledge.note')}</span>
+									</span>
+									<VisibilityChip level={VIS_CHIP[n.visibility] || 'dm-only'} compact />
+								</div>
+								<div
+									style={{
+										font: `600 var(--text-base)/var(--leading-snug) ${T.sans}`,
+										color: T.ink,
+										marginBottom: T.space.one,
+									}}
+								>
+									{n.title}
+								</div>
+								<NoteListMetadata note={n} />
+								<div
+									style={{
+										font: `var(--text-sm)/1.55 ${T.sans}`,
+										color: T.ter,
+										display: '-webkit-box',
+										WebkitLineClamp: 2,
+										WebkitBoxOrient: 'vertical',
+										overflow: 'hidden',
+									}}
+								>
+									{snippetOf(n.body, t)}
+								</div>
+								<div style={{ ...META, marginTop: T.space.two }}>
+									<time
+										dateTime={n.updatedAt}
+										title={formatDate(new Date(n.updatedAt), {
+											dateStyle: 'long',
+											timeStyle: 'short',
+										})}
+									>
+										{t('knowledge.updated', { when: formatRelativeTime(new Date(n.updatedAt)) })}
+									</time>
+								</div>
+							</Card>
+							{/* The DM-only stripe, drawn over the card's inline-start edge rather than as its
+							    border: the DS Card repaints every border colour on hover. */}
+							{n.visibility === 'dm-only' && (
+								<span
+									aria-hidden="true"
+									style={{
+										position: 'absolute',
+										insetBlock: 0,
+										insetInlineStart: 0,
+										width: T.space.one,
+										background: T.dm,
+										borderStartStartRadius: T.radius.md,
+										borderEndStartRadius: T.radius.md,
+										pointerEvents: 'none',
+									}}
+								/>
+							)}
+						</li>
 					))}
-				</div>
+				</ul>
 			)}
 		</Page>
 	);

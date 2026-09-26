@@ -132,7 +132,7 @@ test.describe('knowledge: notes workbench', () => {
 		await history
 			.getByRole('listitem')
 			.nth(1)
-			.getByRole('button', { name: 'Restore', exact: true })
+			.getByRole('button', { name: /^Restore revision \d+$/ })
 			.click();
 		await expect
 			.poll(() =>
@@ -354,7 +354,10 @@ test.describe('knowledge: notes workbench', () => {
 		);
 
 		await gotoRoute(page, `/knowledge/${sourceId}`);
-		const link = page.getByRole('button', { name: targetTitle, exact: true });
+		// Scoped to the body: the Related panel beside it lists the same note under the same name.
+		const link = page
+			.locator('.knowledge-prose')
+			.getByRole('button', { name: targetTitle, exact: true });
 		await expect(link).toHaveCount(1);
 		await link.click();
 

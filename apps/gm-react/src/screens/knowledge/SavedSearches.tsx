@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { actorCanAuthorContent, getSavedSearchesForActor, type SearchFilter } from '@dndtools/core';
-import { Button, Checkbox, Chip, Field, Icon, Input, Select, Toaster } from '../../ds';
+import { Button, Checkbox, Chip, Dialog, Field, Icon, Input, Select, Toaster } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { VIS_CHIP, visibilityOptions } from './shared';
+import { BODY, VIS_CHIP, visibilityOptions } from './shared';
 import { useI18n, type MessageKey } from '../../i18n';
 
 /**
@@ -37,6 +37,8 @@ export function SavedSearches({
 	// Renaming happens inline — a modal prompt would take the list away from the DM mid-edit.
 	const [renamingId, setRenamingId] = useState<string | null>(null);
 	const [renameValue, setRenameValue] = useState('');
+	// A deleted saved search has no undo, so Delete asks first and names it.
+	const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
 	const saved = useMemo(
 		() =>
@@ -103,7 +105,16 @@ export function SavedSearches({
 		if (!ok) {
 			setSaveName(typed);
 			setSavePinned(pinned);
-		}
+		} else Toaster.success(t('knowledge.filters.savedToast', { name: typed.trim() }));
+	}
+
+	async function deleteSaved(target: { id: string; name: string }) {
+		const ok = await run(
+			'content.delete-saved-search',
+			{ searchId: target.id },
+			'knowledge.filters.deleteFailed',
+		);
+		if (ok) Toaster.success(t('knowledge.filters.deletedToast', { name: target.name }));
 	}
 
 	async function commitRename(searchId: string) {
@@ -120,7 +131,14 @@ export function SavedSearches({
 	return (
 		<>
 			{canAuthor && (
-				<div style={{ display: 'grid', gap: 10, borderTop: `1px solid ${T.bd}`, paddingTop: 12 }}>
+				<div
+					style={{
+						display: 'grid',
+						gap: T.space.three,
+						borderTop: `1px solid ${T.bd}`,
+						paddingTop: T.space.three,
+					}}
+				>
 					<Field label={t('knowledge.filters.saveName')} required>
 						<Input
 							value={saveName}
@@ -157,27 +175,47 @@ export function SavedSearches({
 				</div>
 			)}
 
-			<div style={{ display: 'grid', gap: 8, borderTop: `1px solid ${T.bd}`, paddingTop: 12 }}>
-				<span style={{ font: `600 13px ${T.sans}` }}>{t('knowledge.filters.saved')}</span>
+			<div
+				style={{
+					display: 'grid',
+					gap: T.space.two,
+					borderTop: `1px solid ${T.bd}`,
+					paddingTop: T.space.three,
+				}}
+			>
+				<h2 style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink, margin: T.space.zero }}>
+					{t('knowledge.filters.saved')}
+				</h2>
 				{ordered.length === 0 ? (
 					<p
-						style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter, margin: 0 }}
+						style={{ ...BODY, color: T.ter, margin: T.space.zero }}
 						data-testid="filters-saved-empty"
 					>
 						{t('knowledge.filters.savedEmpty')}
 					</p>
 				) : (
 					<ul
-						style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}
+						style={{
+							listStyle: 'none',
+							margin: T.space.zero,
+							padding: T.space.zero,
+							display: 'grid',
+							gap: T.space.two,
+						}}
 						data-testid="filters-saved-list"
 					>
 						{ordered.map((entry) => (
 							<li
 								key={entry.id}
 								data-testid={`filters-saved-${entry.id}`}
-								style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: T.space.two,
+									flexWrap: 'wrap',
+								}}
 							>
-								{entry.pinned && <Icon name="pin" size={14} color={T.acc} />}
+								{entry.pinned && <Icon name="pin" size="micro" color={T.acc} />}
 								{renamingId === entry.id ? (
 									<>
 										<Input
@@ -209,11 +247,11 @@ export function SavedSearches({
 									</>
 								) : (
 									<>
-										<span style={{ font: `600 13px ${T.sans}`, flex: 1, minWidth: 120 }}>
+										<span style={{ font: `600 var(--text-sm) ${T.sans}`, flex: 1, minWidth: 120 }}>
 											{entry.name}
 										</span>
 										{/* The count is the LIVE re-run of the stored filter for this actor. */}
-										<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+										<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 											{t('knowledge.filters.matches', { count: entry.result.totalCount })}
 										</span>
 										<Chip tone="neutral">
@@ -270,13 +308,7 @@ export function SavedSearches({
 													icon="delete"
 													disabled={busy}
 													data-testid={`filters-delete-${entry.id}`}
-													onClick={() =>
-														run(
-															'content.delete-saved-search',
-															{ searchId: entry.id },
-															'knowledge.filters.deleteFailed',
-														)
-													}
+													onClick={() => setConfirmDelete({ id: entry.id, name: entry.name })}
 												>
 													{t('common.action.delete')}
 												</Button>
@@ -289,6 +321,36 @@ export function SavedSearches({
 					</ul>
 				)}
 			</div>
+			<Dialog
+				open={confirmDelete !== null}
+				onClose={() => setConfirmDelete(null)}
+				tone="danger"
+				icon="delete"
+				size="sm"
+				title={t('knowledge.filters.deleteTitle', { name: confirmDelete?.name ?? '' })}
+				description={t('knowledge.filters.deleteBody')}
+				footer={
+					<>
+						<Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>
+							{t('common.action.cancel')}
+						</Button>
+						<Button
+							variant="danger"
+							size="sm"
+							icon="delete"
+							disabled={busy}
+							data-testid="filters-delete-confirm"
+							onClick={() => {
+								const target = confirmDelete;
+								setConfirmDelete(null);
+								if (target) void deleteSaved(target);
+							}}
+						>
+							{t('knowledge.filters.deleteConfirm')}
+						</Button>
+					</>
+				}
+			/>
 		</>
 	);
 }

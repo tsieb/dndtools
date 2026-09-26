@@ -20,15 +20,10 @@ export const allow = {
 	'apps/gm-react/src/app/combat/HpKeypadSheet.tsx': 5,
 	'apps/gm-react/src/app/combat/StatBlockSheet.tsx': 2,
 	'apps/gm-react/src/app/ConnectedSources.tsx': 13,
-	'apps/gm-react/src/app/editor/Autocomplete.tsx': 6,
-	'apps/gm-react/src/app/editor/NoteEditor.tsx': 10,
-	'apps/gm-react/src/app/editor/Toolbar.tsx': 3,
 	'apps/gm-react/src/app/EncounterBuilder.tsx': 12,
 	'apps/gm-react/src/app/EncounterDraftRoster.tsx': 8,
 	'apps/gm-react/src/app/help/HelpMenu.tsx': 14,
 	'apps/gm-react/src/app/help/ShortcutsDialog.tsx': 9,
-	'apps/gm-react/src/app/markdown/render.tsx': 32,
-	'apps/gm-react/src/app/markdown/RollButton.tsx': 8,
 	'apps/gm-react/src/app/Onboarding.tsx': 9,
 	'apps/gm-react/src/app/onboarding/ChoiceCard.tsx': 9,
 	'apps/gm-react/src/app/onboarding/StepRail.tsx': 11,
@@ -89,14 +84,6 @@ export const allow = {
 	'apps/gm-react/src/screens/characters/sheet/SheetHeader.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SpellsPanel.tsx': 20,
 	'apps/gm-react/src/screens/CommandCenter.tsx': 33,
-	'apps/gm-react/src/screens/knowledge/Composer.tsx': 2,
-	'apps/gm-react/src/screens/knowledge/Filters.tsx': 20,
-	'apps/gm-react/src/screens/knowledge/ImportPanel.tsx': 5,
-	'apps/gm-react/src/screens/knowledge/index.tsx': 8,
-	'apps/gm-react/src/screens/knowledge/markdown.tsx': 1,
-	'apps/gm-react/src/screens/knowledge/NoteViewer.tsx': 9,
-	'apps/gm-react/src/screens/knowledge/SavedSearches.tsx': 9,
-	'apps/gm-react/src/screens/knowledge/Templates.tsx': 14,
 	'apps/gm-react/src/screens/play/Dice.tsx': 15,
 	'apps/gm-react/src/screens/play/Elevated.tsx': 20,
 	'apps/gm-react/src/screens/play/Frame.tsx': 28,
@@ -162,4 +149,4 @@ export const allow = {
 	'apps/gm-react/src/screens/settings/Vault.tsx': 5,
 };
 
-// Total current findings: 1531
+// Total current findings: 1404

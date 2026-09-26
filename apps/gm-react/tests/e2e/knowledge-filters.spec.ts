@@ -93,7 +93,12 @@ test.describe('knowledge: filters and saved searches', () => {
 		await page.getByTestId(`filters-apply-${created.id}`).click();
 		await expect(page.getByTestId('filters-query')).toHaveValue('Hollow King');
 
+		// Delete asks first and names the search (RC-POL-1.11).
 		await page.getByTestId(`filters-delete-${created.id}`).click();
+		await expect(
+			page.getByRole('dialog', { name: 'Delete the search “Hollow King leads”?' }),
+		).toBeVisible();
+		await page.getByTestId('filters-delete-confirm').click();
 		await expect.poll(async () => (await savedSearches(page)).length).toBe(0);
 		await expect(page.getByTestId('filters-saved-empty')).toBeVisible();
 	});

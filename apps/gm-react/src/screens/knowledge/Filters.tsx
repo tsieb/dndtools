@@ -6,14 +6,37 @@ import {
 	searchVaultForActor,
 	SEARCH_CONTENT_TYPES,
 	type SearchContentType,
-	type SearchFilter,
-	type SearchHit,
 } from '@dndtools/core';
-import { Button, Card, Chip, Field, Input, Select } from '../../ds';
+import { Button, Card, Chip, EmptyState, Field, Input, Select } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n, type MessageKey } from '../../i18n';
 import { SavedSearches } from './SavedSearches';
+import { BODY, META } from './shared';
+import {
+	draftToFilter,
+	EMPTY_DRAFT,
+	filterToDraft,
+	HIT_LIMIT,
+	routeForHit,
+	TYPE_ICON,
+	TYPE_LABEL,
+	type DateBoundDraft,
+	type FilterDraft,
+} from './filterModel';
+
+const FIELDSET = {
+	border: 0,
+	margin: T.space.zero,
+	padding: T.space.zero,
+	minWidth: 0,
+} as const;
+const LEGEND = {
+	font: `600 var(--text-xs) ${T.sans}`,
+	color: T.sub,
+	padding: T.space.zero,
+	marginBottom: T.space.oneHalf,
+} as const;
 
 /**
  * RC-KNW-2.1 — faceted vault search + saved searches, wired to the live Processing Core.
@@ -34,128 +57,6 @@ import { SavedSearches } from './SavedSearches';
  * `content.delete-saved-search` commands; a rejection is shown, never swallowed.
  */
 
-/** Facet labels for the searchable domains. `poi` is the ON-MAP facet — a POI is the only artifact
- *  that lives on a map (`SearchHit.mapId` is non-null for POIs alone), so one honest chip covers both
- *  the "type" and "on map" facets instead of two controls whose intersection could be provably empty. */
-const TYPE_LABEL: Record<SearchContentType, MessageKey> = {
-	note: 'knowledge.filters.typeNote',
-	object: 'knowledge.filters.typeObject',
-	poi: 'knowledge.filters.typeOnMap',
-	handout: 'knowledge.filters.typeHandout',
-	'session-artifact': 'knowledge.filters.typeRoll',
-};
-
-const TYPE_ICON: Record<SearchContentType, string> = {
-	note: 'knowledge-book',
-	object: 'scroll',
-	poi: 'poi',
-	handout: 'scroll',
-	'session-artifact': 'dice',
-};
-
-/** A note hit deep-links the exact note; a POI hit deep-links its map and marker. Same URL contract
- *  as the command palette's `routeForHit` so a hit opens the same place from either surface. */
-function routeForHit(hit: SearchHit): string {
-	if (hit.type === 'note') return `/knowledge/${hit.id}`;
-	if (hit.type === 'object') return '/campaign';
-	if (hit.type === 'poi' && hit.mapId) {
-		return `/atlas?map=${encodeURIComponent(hit.mapId)}&poi=${encodeURIComponent(hit.id)}`;
-	}
-	if (hit.type === 'poi') return '/atlas';
-	return '/session';
-}
-
-/** One open date bound, held as free text so a half-typed date never coerces to a wrong number. */
-interface DateBoundDraft {
-	year: string;
-	month: string;
-	day: string;
-}
-
-const EMPTY_BOUND: DateBoundDraft = { year: '', month: '', day: '' };
-
-interface FilterDraft {
-	query: string;
-	contentTypes: SearchContentType[];
-	/** Comma-separated; normalized (trim/lowercase/dedupe) by the core. */
-	tags: string;
-	folder: string;
-	/** The `linked to` anchor — a visible content item id, or '' for no relationship constraint. */
-	anchorId: string;
-	calendarId: string;
-	from: DateBoundDraft;
-	to: DateBoundDraft;
-}
-
-const EMPTY_DRAFT: FilterDraft = {
-	query: '',
-	contentTypes: [],
-	tags: '',
-	folder: '',
-	anchorId: '',
-	calendarId: '',
-	from: { ...EMPTY_BOUND },
-	to: { ...EMPTY_BOUND },
-};
-
-/** A bound is used only when all three parts parse as integers; a partial bound stays open. */
-function toCustomDate(calendarId: string, bound: DateBoundDraft) {
-	const year = Number.parseInt(bound.year, 10);
-	const month = Number.parseInt(bound.month, 10);
-	const day = Number.parseInt(bound.day, 10);
-	if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
-	return { calendarId, year, month, day };
-}
-
-/** Project the draft into the core's canonical {@link SearchFilter}. Empty facets are omitted, so an
- *  untouched panel sends `{}` — "everything I can see" — rather than a set of empty constraints. */
-function draftToFilter(draft: FilterDraft): SearchFilter {
-	const filter: SearchFilter = {};
-	const query = draft.query.trim();
-	if (query) filter.query = query;
-	if (draft.contentTypes.length > 0) filter.contentTypes = [...draft.contentTypes];
-	const tags = draft.tags
-		.split(',')
-		.map((tag) => tag.trim())
-		.filter((tag) => tag !== '');
-	if (tags.length > 0) filter.tags = tags;
-	const folder = draft.folder.trim();
-	if (folder) filter.folder = folder;
-	if (draft.anchorId) filter.relationship = { anchorKind: 'content', anchorId: draft.anchorId };
-	if (draft.calendarId) {
-		const from = toCustomDate(draft.calendarId, draft.from);
-		const to = toCustomDate(draft.calendarId, draft.to);
-		if (from || to) filter.dateRange = { calendarId: draft.calendarId, from, to };
-	}
-	return filter;
-}
-
-/** Restore a saved search's persisted criteria back into the editable draft. */
-function filterToDraft(filter: SearchFilter): FilterDraft {
-	return {
-		query: filter.query ?? '',
-		contentTypes: [...(filter.contentTypes ?? [])],
-		tags: (filter.tags ?? []).join(', '),
-		folder: filter.folder ?? '',
-		anchorId: filter.relationship?.anchorKind === 'content' ? filter.relationship.anchorId : '',
-		calendarId: filter.dateRange?.calendarId ?? '',
-		from: filter.dateRange?.from
-			? {
-					year: String(filter.dateRange.from.year),
-					month: String(filter.dateRange.from.month),
-					day: String(filter.dateRange.from.day),
-				}
-			: { ...EMPTY_BOUND },
-		to: filter.dateRange?.to
-			? {
-					year: String(filter.dateRange.to.year),
-					month: String(filter.dateRange.to.month),
-					day: String(filter.dateRange.to.day),
-				}
-			: { ...EMPTY_BOUND },
-	};
-}
-
 /** The three-part editor for one inclusive date bound. */
 function DateBound({
 	legend,
@@ -175,11 +76,9 @@ function DateBound({
 		{ key: 'day', label: 'knowledge.filters.day' },
 	];
 	return (
-		<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
-			<legend style={{ font: `600 12px ${T.sans}`, color: T.ter, padding: 0, marginBottom: 6 }}>
-				{legend}
-			</legend>
-			<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+		<fieldset style={FIELDSET}>
+			<legend style={LEGEND}>{legend}</legend>
+			<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
 				{parts.map((part) => (
 					<Field key={part.key} label={t(part.label)} style={{ flex: 1, minWidth: 78 }}>
 						<Input
@@ -275,8 +174,13 @@ export function FiltersPanel({
 	}
 
 	return (
-		<Card elevation="flat" padding="md" style={{ marginBottom: 14 }} data-testid="filters-panel">
-			<div style={{ display: 'grid', gap: 14 }}>
+		<Card
+			elevation="flat"
+			padding="md"
+			style={{ marginBottom: T.space.four }}
+			data-testid="filters-panel"
+		>
+			<div style={{ display: 'grid', gap: T.space.four }}>
 				<Field label={t('knowledge.filters.query')}>
 					<Input
 						value={draft.query}
@@ -288,11 +192,9 @@ export function FiltersPanel({
 					/>
 				</Field>
 
-				<fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
-					<legend style={{ font: `600 12px ${T.sans}`, color: T.ter, padding: 0, marginBottom: 6 }}>
-						{t('knowledge.filters.types')}
-					</legend>
-					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+				<fieldset style={FIELDSET}>
+					<legend style={LEGEND}>{t('knowledge.filters.types')}</legend>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.oneHalf }}>
 						{SEARCH_CONTENT_TYPES.map((type) => (
 							<Chip
 								key={type}
@@ -308,7 +210,7 @@ export function FiltersPanel({
 					</div>
 				</fieldset>
 
-				<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: T.space.three, flexWrap: 'wrap' }}>
 					<Field
 						label={t('knowledge.filters.tags')}
 						help={t('knowledge.filters.tagsHelp')}
@@ -351,13 +253,13 @@ export function FiltersPanel({
 				    nothing honest to offer, so say that instead of shipping a control that cannot run. */}
 				{calendars.length === 0 ? (
 					<p
-						style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter, margin: 0 }}
+						style={{ ...BODY, color: T.ter, margin: T.space.zero }}
 						data-testid="filters-no-calendar"
 					>
 						{t('knowledge.filters.noCalendar')}
 					</p>
 				) : (
-					<div style={{ display: 'grid', gap: 10 }}>
+					<div style={{ display: 'grid', gap: T.space.three }}>
 						<Field label={t('knowledge.filters.calendar')}>
 							<Select
 								value={draft.calendarId}
@@ -372,7 +274,7 @@ export function FiltersPanel({
 							/>
 						</Field>
 						{draft.calendarId !== '' && (
-							<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+							<div style={{ display: 'flex', gap: T.space.three, flexWrap: 'wrap' }}>
 								<div style={{ flex: 1, minWidth: 240 }}>
 									<DateBound
 										legend={t('knowledge.filters.dateFrom')}
@@ -394,13 +296,19 @@ export function FiltersPanel({
 					</div>
 				)}
 
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<span style={{ font: `600 13px ${T.sans}` }} data-testid="filters-count">
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}
+				>
+					{/* The result count is the one line that answers every keystroke, so it is the
+					    panel's polite live region; the list below it is not announced row by row. */}
+					<span
+						role="status"
+						style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}
+						data-testid="filters-count"
+					>
 						{t('knowledge.filters.matches', { count: result.totalCount })}
 					</span>
-					<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-						{t('knowledge.filters.facetsApplied', { count: facetCount })}
-					</span>
+					<span style={META}>{t('knowledge.filters.facetsApplied', { count: facetCount })}</span>
 					<Button
 						variant="ghost"
 						size="sm"
@@ -413,25 +321,50 @@ export function FiltersPanel({
 					</Button>
 				</div>
 
-				<ul
-					style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}
-					data-testid="filters-results"
-				>
-					{result.hits.slice(0, 40).map((hit) => (
-						<li key={`${hit.type}:${hit.id}`}>
-							<Button
-								variant="ghost"
-								size="sm"
-								icon={TYPE_ICON[hit.type]}
-								data-testid={`filters-hit-${hit.id}`}
-								style={{ width: '100%', justifyContent: 'flex-start' }}
-								onClick={() => navigate(routeForHit(hit))}
-							>
-								{hit.title}
-							</Button>
-						</li>
-					))}
-				</ul>
+				{result.totalCount === 0 ? (
+					<EmptyState
+						inset
+						illustration="search-none"
+						title={t('knowledge.filters.noResults')}
+						description={t(
+							facetCount > 0
+								? 'knowledge.filters.noResultsBody'
+								: 'knowledge.filters.nothingVisible',
+						)}
+						data-testid="filters-no-results"
+					/>
+				) : (
+					<ul
+						style={{
+							listStyle: 'none',
+							margin: T.space.zero,
+							padding: T.space.zero,
+							display: 'grid',
+							gap: T.space.one,
+						}}
+						data-testid="filters-results"
+					>
+						{result.hits.slice(0, HIT_LIMIT).map((hit) => (
+							<li key={`${hit.type}:${hit.id}`}>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={TYPE_ICON[hit.type]}
+									data-testid={`filters-hit-${hit.id}`}
+									style={{ width: '100%', justifyContent: 'flex-start' }}
+									onClick={() => navigate(routeForHit(hit))}
+								>
+									{hit.title}
+								</Button>
+							</li>
+						))}
+					</ul>
+				)}
+				{result.totalCount > HIT_LIMIT && (
+					<p style={{ ...META, margin: T.space.zero }} data-testid="filters-truncated">
+						{t('knowledge.filters.showingFirst', { shown: HIT_LIMIT, count: result.totalCount })}
+					</p>
+				)}
 
 				<SavedSearches filter={filter} onApply={(saved) => setDraft(filterToDraft(saved))} />
 			</div>

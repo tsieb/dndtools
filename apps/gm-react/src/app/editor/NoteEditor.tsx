@@ -1,6 +1,4 @@
 import {
-	useCallback,
-	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -9,6 +7,8 @@ import {
 	type ReactNode,
 } from 'react';
 import { Button, Input } from '../../ds';
+import { ConflictNotice } from './ConflictNotice';
+import { useNoteAutosave, type NoteSaveOutcome } from './useNoteAutosave';
 import { Seg, T } from '../screen-kit';
 import { useViewport } from '../useViewport';
 import { useI18n } from '../../i18n';
@@ -50,16 +50,7 @@ import {
  * the choice, rather than reporting a save that did not happen.
  */
 
-/** What the host's dispatch made of the write. `conflict` means NOTHING was written. */
-export type NoteSaveOutcome =
-	| { status: 'saved' }
-	| { status: 'conflict' }
-	| { status: 'rejected'; message: string };
-
-type SaveState = 'clean' | 'dirty' | 'saving' | 'saved' | 'conflict' | 'failed';
-
-/** Idle time after the last keystroke before the draft is written. */
-const AUTOSAVE_MS = 1200;
+export type { NoteSaveOutcome } from './useNoteAutosave';
 
 export interface NoteEditorProps {
 	/** The PERSISTED title/body/revision, straight off the actor-filtered read. */
@@ -100,10 +91,6 @@ export function NoteEditor({
 
 	const [draftTitle, setDraftTitle] = useState(title);
 	const [draftBody, setDraftBody] = useState(body);
-	const [base, setBase] = useState(revision);
-	const [state, setState] = useState<SaveState>('clean');
-	const [savedAt, setSavedAt] = useState<Date | null>(null);
-	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<'write' | 'preview'>('write');
 	const [trigger, setTrigger] = useState<{ kind: 'wikilink' | 'slash'; at: EditorTrigger } | null>(
 		null,
@@ -113,26 +100,18 @@ export function NoteEditor({
 	const areaRef = useRef<HTMLTextAreaElement>(null);
 	const caretRef = useRef<number | null>(null);
 	const caretEndRef = useRef<number | null>(null);
-	const dirty = draftTitle !== title || draftBody !== body;
-
-	// The save path runs from refs, never from a render closure: an autosave that fires 1.2s after
-	// the last keystroke, and a manual save that waits for it, must both write the CURRENT draft
-	// against the CURRENT base — a stale closure here would silently save the wrong revision.
-	const live = useRef({ title, body, revision, draftTitle, draftBody, base, dirty, onSave, t });
-	live.current = { title, body, revision, draftTitle, draftBody, base, dirty, onSave, t };
-	const pendingRef = useRef<Promise<void> | null>(null);
-	const discardRef = useRef(false);
-
-	// Adopt the persisted revision only while the draft MATCHES what is stored. A note that moves
-	// underneath an unsaved draft leaves `base` stale on purpose — that staleness is precisely what
-	// makes the next write conflict instead of quietly overwriting the other author.
-	useEffect(() => {
-		if (!dirty && base !== revision) setBase(revision);
-	}, [dirty, base, revision]);
-
-	useEffect(() => {
-		if (dirty && state === 'clean') setState('dirty');
-	}, [dirty, state]);
+	const {
+		dirty,
+		state,
+		setState,
+		savedAt,
+		error,
+		setError,
+		setBase,
+		write,
+		saveAndClose,
+		discard,
+	} = useNoteAutosave({ title, body, revision, draftTitle, draftBody, onSave, onCancel, busy });
 
 	const items = useMemo(
 		() => slashItems(t, formatDate(new Date(), { year: 'numeric', month: 'long', day: 'numeric' })),
@@ -219,88 +198,6 @@ export function NoteEditor({
 		area.focus();
 	}
 
-	/** One write. Returns true when the note was actually persisted. */
-	const write = useCallback(async (rebase: boolean): Promise<boolean> => {
-		const now = live.current;
-		if (!now.draftTitle.trim()) return false;
-		const baseRevision = rebase ? now.revision : now.base;
-		setError(null);
-		setState('saving');
-		let ok = false;
-		const run = (async () => {
-			try {
-				const outcome = await now.onSave({
-					title: now.draftTitle,
-					body: now.draftBody,
-					baseRevision,
-				});
-				if (outcome.status === 'saved') {
-					setBase(baseRevision);
-					setSavedAt(new Date());
-					setState('saved');
-					ok = true;
-				} else if (outcome.status === 'conflict') {
-					setState('conflict');
-				} else {
-					setState('failed');
-					setError(outcome.message);
-				}
-			} catch (err) {
-				setState('failed');
-				setError(err instanceof Error ? err.message : now.t('knowledge.saveFailed'));
-			}
-		})();
-		pendingRef.current = run;
-		try {
-			await run;
-		} finally {
-			pendingRef.current = null;
-		}
-		return ok;
-	}, []);
-
-	// AUTOSAVE — debounced, armed only while there is something to write. It stops dead on a
-	// conflict: retrying on a timer would either spam the conflict log or, worse, look like it had
-	// succeeded. The DM picks a side first.
-	useEffect(() => {
-		if (!dirty || busy || state === 'conflict' || !draftTitle.trim()) return;
-		const timer = setTimeout(() => {
-			if (!pendingRef.current) void write(false);
-		}, AUTOSAVE_MS);
-		return () => clearTimeout(timer);
-	}, [dirty, busy, state, draftTitle, draftBody, write]);
-
-	// Leaving the editor while a debounce is still counting down must not throw the paragraph away.
-	// Cancel and Delete set `discardRef` first, so only an incidental unmount — a preview wikilink
-	// opening another note, a route change — flushes.
-	useEffect(
-		() => () => {
-			if (!discardRef.current && live.current.dirty && live.current.draftTitle.trim()) {
-				void write(false);
-			}
-		},
-		[write],
-	);
-
-	/** Save now and leave. Waits out an autosave already on the wire so the two cannot race. */
-	async function saveAndClose() {
-		if (!draftTitle.trim()) {
-			// The core would reject it anyway; saying so here keeps the typed body on screen.
-			setError(t('knowledge.needsTitle'));
-			return;
-		}
-		if (pendingRef.current) await pendingRef.current;
-		if (!live.current.dirty) {
-			discardRef.current = true;
-			onCancel();
-			return;
-		}
-		if (await write(false)) {
-			discardRef.current = true;
-			onCancel();
-		}
-	}
-
 	function onAreaKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
 		if (trigger && rows.length > 0) {
 			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -349,9 +246,9 @@ export function NoteEditor({
 			aria-label={t('editor.preview')}
 			style={{
 				border: `1px solid ${T.bd}`,
-				borderRadius: 8,
+				borderRadius: T.radius.md,
 				background: T.surf,
-				padding: '12px 14px',
+				padding: `${T.space.three} ${T.space.four}`,
 				minHeight: 180,
 				overflowWrap: 'anywhere',
 			}}
@@ -368,8 +265,10 @@ export function NoteEditor({
 				aria-label={t('knowledge.noteBody')}
 				placeholder={t('knowledge.notePlaceholder')}
 				rows={splitPane ? 18 : 12}
-				role="combobox"
-				aria-expanded={trigger !== null && rows.length > 0}
+				// A multiline textbox with list autocompletion, not a `combobox`: ARIA allows no role
+				// override on <textarea> (axe `aria-allowed-role`), and a combobox is single-line.
+				// `aria-controls` + `aria-activedescendant` still name the open list and its active
+				// option while focus stays in the text.
 				aria-autocomplete="list"
 				{...(trigger && rows.length > 0
 					? { 'aria-controls': LIST_ID, 'aria-activedescendant': `${LIST_ID}-opt-${active}` }
@@ -390,7 +289,7 @@ export function NoteEditor({
 				style={{
 					width: '100%',
 					boxSizing: 'border-box',
-					font: `13px/1.6 ${T.mono}`,
+					font: `var(--text-sm)/1.6 ${T.mono}`,
 					color: T.ink,
 					background: 'var(--color-surface-sunken)',
 					border: '1px solid var(--color-border-strong)',
@@ -413,7 +312,7 @@ export function NoteEditor({
 	);
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 			<Input
 				value={draftTitle}
 				aria-label={t('knowledge.noteTitle')}
@@ -421,14 +320,14 @@ export function NoteEditor({
 				placeholder={t('knowledge.noteTitle')}
 			/>
 
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}>
 				<EditorToolbar onAction={runAction} disabled={busy} />
 				<div style={{ flex: 1 }} />
 				{/* Live status, never a toast: an autosave that fired while you were typing has to be
 				    readable at a glance, and role=status announces it without stealing focus. */}
 				<span
 					role="status"
-					style={{ font: `11.5px ${T.sans}`, color: state === 'failed' ? T.err : T.ter }}
+					style={{ font: `var(--text-xs) ${T.sans}`, color: state === 'failed' ? T.err : T.ter }}
 				>
 					{statusText}
 				</span>
@@ -436,7 +335,12 @@ export function NoteEditor({
 
 			{splitPane ? (
 				<div
-					style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+						gap: T.space.three,
+						alignItems: 'start',
+					}}
 				>
 					{writer}
 					{preview}
@@ -456,49 +360,29 @@ export function NoteEditor({
 				</>
 			)}
 
-			<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t('editor.hint')}</div>
+			<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>{t('editor.hint')}</div>
 
 			{state === 'conflict' && (
-				<div
-					style={{
-						border: `1px solid ${T.warn}`,
-						borderRadius: 8,
-						padding: '10px 12px',
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 8,
+				<ConflictNotice
+					busy={busy}
+					onKeepMine={() => void write(true)}
+					onUseSaved={() => {
+						setDraftTitle(title);
+						setDraftBody(body);
+						setBase(revision);
+						setState('clean');
+						setError(null);
 					}}
-				>
-					<span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>{t('editor.conflictBody')}</span>
-					<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={() => void write(true)}>
-							{t('editor.keepMine')}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							disabled={busy}
-							onClick={() => {
-								setDraftTitle(title);
-								setDraftBody(body);
-								setBase(revision);
-								setState('clean');
-								setError(null);
-							}}
-						>
-							{t('editor.useSaved')}
-						</Button>
-					</div>
-				</div>
+				/>
 			)}
 
 			{error && (
-				<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+				<span role="alert" style={{ font: `var(--text-sm) ${T.sans}`, color: T.err }}>
 					{error}
 				</span>
 			)}
 
-			<div style={{ display: 'flex', gap: 8 }}>
+			<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
 				<Button
 					variant="primary"
 					size="sm"
@@ -513,7 +397,7 @@ export function NoteEditor({
 					size="sm"
 					disabled={busy}
 					onClick={() => {
-						discardRef.current = true;
+						discard();
 						setError(null);
 						onCancel();
 					}}
@@ -528,7 +412,7 @@ export function NoteEditor({
 						icon="delete"
 						disabled={busy}
 						onClick={() => {
-							discardRef.current = true;
+							discard();
 							onDelete();
 						}}
 					>
@@ -537,47 +421,5 @@ export function NoteEditor({
 				)}
 			</div>
 		</div>
-	);
-}
-
-/** Restore goes through the same conflict-aware write as an ordinary editor save. */
-export function RestoreNoteRevision({
-	snapshot,
-	revision,
-	busy,
-	onSave,
-}: {
-	snapshot: { title: string; body: string };
-	revision: number;
-	busy: boolean;
-	onSave: NoteEditorProps['onSave'];
-}) {
-	const { t } = useI18n();
-	const [error, setError] = useState<string | null>(null);
-	return (
-		<>
-			<Button
-				size="sm"
-				variant="secondary"
-				disabled={busy}
-				onClick={async () => {
-					setError(null);
-					try {
-						const result = await onSave({
-							title: snapshot.title,
-							body: snapshot.body,
-							baseRevision: revision,
-						});
-						if (result.status === 'conflict') setError(t('editor.conflictBody'));
-						else if (result.status === 'rejected') setError(result.message);
-					} catch (cause) {
-						setError(cause instanceof Error ? cause.message : t('knowledge.saveFailed'));
-					}
-				}}
-			>
-				{t('knowledge.historyRestore')}
-			</Button>
-			{error && <span role="alert">{error}</span>}
-		</>
 	);
 }

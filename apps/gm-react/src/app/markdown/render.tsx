@@ -1,10 +1,10 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
-import type { CalloutKind } from '@dndtools/core';
+import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '../../ds';
 import { T, srOnly } from '../screen-kit';
 import type { MessageKey, MessageValues } from '../../i18n';
 import { parseBlocks, type ImageSource, type InlineToken, type MdBlock } from './plugins';
 import { RollButton, type InlineRollLogger } from './RollButton';
+import { renderCallout } from './callouts';
 
 /**
  * RC-KNW-1.1 — THE markdown renderer. Every prose surface (Knowledge, the public wiki reader,
@@ -55,36 +55,53 @@ export interface MarkdownRenderOptions {
 	emptyKey?: MessageKey;
 }
 
-const CALLOUT_ICON: Record<CalloutKind, string> = {
-	lore: 'scroll',
-	warning: 'warning',
-	tip: 'sparkle',
-	secret: 'dm-only',
+/*
+ * The prose type scale (RC-POL-1.11), all on the DS tokens. Body text is --text-sm at the relaxed
+ * long-form leading; headings step down --text-xl, lg, md, base, sm. Cinzel is kept for the one
+ * heading size that reaches --text-xl, the display floor; the smaller headings are Inter semibold,
+ * where a 15px Cinzel was hard to read at the table.
+ */
+const BODY_FONT = `var(--text-sm)/var(--leading-relaxed) ${T.sans}`;
+const P_STYLE: CSSProperties = {
+	font: BODY_FONT,
+	color: T.sub,
+	margin: `${T.space.zero} ${T.space.zero} ${T.space.two}`,
 };
-
-const CALLOUT_ACCENT: Record<CalloutKind, string> = {
-	lore: T.acc,
-	warning: T.warn,
-	tip: T.info,
-	secret: T.dm,
-};
-
-const CALLOUT_LABEL: Record<CalloutKind, MessageKey> = {
-	lore: 'markdown.calloutLore',
-	warning: 'markdown.calloutWarning',
-	tip: 'markdown.calloutTip',
-	secret: 'markdown.calloutSecret',
-};
-
-const P_STYLE: CSSProperties = { font: `13.5px/1.7 ${T.sans}`, color: T.sub, margin: '0 0 8px' };
+const headingMargin = (above: string, below: string) =>
+	`${above} ${T.space.zero} ${below} ${T.space.zero}`;
 const HEADING_STYLE: Record<number, CSSProperties> = {
-	1: { font: `700 22px ${T.disp}`, color: T.ink, margin: '18px 0 8px' },
-	2: { font: `700 18px ${T.disp}`, color: T.ink, margin: '16px 0 8px' },
-	3: { font: `700 15px ${T.disp}`, color: T.ink, margin: '14px 0 4px' },
-	4: { font: `700 14px ${T.disp}`, color: T.ink, margin: '12px 0 4px' },
-	5: { font: `700 13px ${T.disp}`, color: T.ink, margin: '12px 0 4px' },
-	6: { font: `700 12px ${T.disp}`, color: T.sub, margin: '12px 0 4px' },
+	1: {
+		font: `700 var(--text-xl)/var(--leading-tight) ${T.disp}`,
+		color: T.ink,
+		margin: headingMargin(T.space.five, T.space.two),
+	},
+	2: {
+		font: `600 var(--text-lg)/var(--leading-snug) ${T.sans}`,
+		color: T.ink,
+		margin: headingMargin(T.space.four, T.space.two),
+	},
+	3: {
+		font: `600 var(--text-md)/var(--leading-snug) ${T.sans}`,
+		color: T.ink,
+		margin: headingMargin(T.space.three, T.space.one),
+	},
+	4: {
+		font: `600 var(--text-base)/var(--leading-snug) ${T.sans}`,
+		color: T.ink,
+		margin: headingMargin(T.space.three, T.space.one),
+	},
+	5: {
+		font: `600 var(--text-sm)/var(--leading-snug) ${T.sans}`,
+		color: T.ink,
+		margin: headingMargin(T.space.three, T.space.one),
+	},
+	6: {
+		font: `600 var(--text-sm)/var(--leading-snug) ${T.sans}`,
+		color: T.sub,
+		margin: headingMargin(T.space.three, T.space.one),
+	},
 };
+const BLOCK_MARGIN = `${T.space.three} ${T.space.zero}`;
 
 /* -------------------------------------------------------------------------------------------- */
 /* Inline                                                                                         */
@@ -106,7 +123,7 @@ function ImageNode({
 		if (rendered !== undefined && rendered !== null) return <>{rendered}</>;
 		// No resolver, or the bytes are gone. Say so instead of showing a broken-image glyph.
 		return (
-			<span style={{ font: `12px ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
+			<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
 				{alt || options.t('markdown.imageUnavailable')}
 			</span>
 		);
@@ -133,11 +150,11 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 					<code
 						key={index}
 						style={{
-							font: `12.5px ${T.mono}`,
+							font: `var(--text-xs) ${T.mono}`,
 							background: T.alt,
 							border: `1px solid ${T.bd}`,
-							borderRadius: 4,
-							padding: '1px 4px',
+							borderRadius: T.radius.sm,
+							padding: `${T.space.zero} ${T.space.one}`,
 						}}
 					>
 						{token.text}
@@ -150,7 +167,7 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 						src={token.src}
 						alt={token.alt}
 						options={options}
-						style={{ maxWidth: '100%', verticalAlign: 'middle', borderRadius: 4 }}
+						style={{ maxWidth: '100%', verticalAlign: 'middle', borderRadius: T.radius.sm }}
 					/>
 				);
 			case 'link':
@@ -170,7 +187,11 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 						}}
 					>
 						<span style={{ whiteSpace: 'normal' }}>{token.label}</span>
-						<Icon name="link" size="sm" style={{ marginLeft: 3, verticalAlign: '-2px' }} />
+						<Icon
+							name="link"
+							size="sm"
+							style={{ marginLeft: T.space.half, verticalAlign: '-2px' }}
+						/>
 						<span style={srOnly}> {options.t('markdown.opensExternally')}</span>
 					</a>
 				);
@@ -209,7 +230,7 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 						onClick={go}
 						style={{
 							font: 'inherit',
-							padding: 0,
+							padding: T.space.zero,
 							border: 'none',
 							background: 'none',
 							color: T.acc,
@@ -232,110 +253,6 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 /* Blocks                                                                                         */
 /* -------------------------------------------------------------------------------------------- */
 
-/**
- * A `[!Secret]` block on the DM's screen. Blurred until the DM presses "Show", because the DM's
- * screen is regularly mirrored to a TV at the table. The control is a real button, so the keyboard
- * path and the pointer path are identical (WCAG 2.2 AA).
- */
-function SecretCallout({ title, body, t }: { title: string; body: ReactNode; t: Translate }) {
-	const [shown, setShown] = useState(false);
-	return (
-		<>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-				<span style={{ color: T.dm, display: 'inline-flex' }}>
-					<Icon name={CALLOUT_ICON.secret} size="sm" />
-				</span>
-				<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>
-					{title || t('markdown.calloutSecret')}
-				</span>
-				<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{t('markdown.dmOnly')}</span>
-				<button
-					type="button"
-					onClick={() => setShown((value) => !value)}
-					aria-expanded={shown}
-					style={{
-						marginLeft: 'auto',
-						font: `600 11.5px ${T.sans}`,
-						color: T.acc,
-						background: 'none',
-						border: 'none',
-						padding: '2px 4px',
-						cursor: 'pointer',
-					}}
-				>
-					{shown ? t('markdown.hideSecret') : t('markdown.showSecret')}
-				</button>
-			</div>
-			<div
-				data-secret={shown ? 'shown' : 'blurred'}
-				style={{
-					filter: shown ? 'none' : 'blur(5px)',
-					userSelect: shown ? 'auto' : 'none',
-					transition: 'filter var(--duration-fast) var(--easing-standard)',
-				}}
-				aria-hidden={!shown}
-			>
-				{body}
-			</div>
-		</>
-	);
-}
-
-function renderCallout(
-	block: Extract<MdBlock, { type: 'callout' }>,
-	key: number,
-	options: MarkdownRenderOptions,
-): ReactNode {
-	const accent = CALLOUT_ACCENT[block.kind];
-	const wrapper: CSSProperties = {
-		margin: '12px 0',
-		padding: '10px 14px',
-		borderLeft: `3px solid ${accent}`,
-		background: T.alt,
-		borderRadius: '0 8px 8px 0',
-	};
-	if (block.kind === 'secret') {
-		// A non-DM must not receive the secret's text at all. The core already stripped it upstream;
-		// if one arrives here anyway, drop the body and say plainly that something is withheld.
-		if (options.isDm !== true) {
-			return (
-				<aside key={key} style={wrapper}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-						<span style={{ color: T.dm, display: 'inline-flex' }}>
-							<Icon name={CALLOUT_ICON.secret} size="sm" />
-						</span>
-						<span style={{ font: `13px ${T.sans}`, color: T.ter }}>
-							{options.t('markdown.secretWithheld')}
-						</span>
-					</div>
-				</aside>
-			);
-		}
-		return (
-			<aside key={key} style={wrapper}>
-				<SecretCallout
-					title={block.title}
-					t={options.t}
-					body={block.blocks.map((child, index) => renderBlock(child, index, options))}
-				/>
-			</aside>
-		);
-	}
-	return (
-		<aside key={key} style={wrapper}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-				<span style={{ color: accent, display: 'inline-flex' }}>
-					<Icon name={CALLOUT_ICON[block.kind]} size="sm" />
-				</span>
-				<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>
-					{block.title || options.t(CALLOUT_LABEL[block.kind])}
-				</span>
-			</div>
-			{block.blocks.map((child, index) => renderBlock(child, index, options))}
-		</aside>
-	);
-}
-
 function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions): ReactNode {
 	switch (block.type) {
 		case 'heading': {
@@ -357,11 +274,14 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 			);
 		case 'list': {
 			const items = block.items.map((item, index) => (
-				<li key={index} style={{ font: `13.5px/1.7 ${T.sans}`, color: T.sub }}>
+				<li key={index} style={{ font: BODY_FONT, color: T.sub }}>
 					{renderInline(item, options)}
 				</li>
 			));
-			const listStyle: CSSProperties = { margin: '4px 0 10px', paddingLeft: 22 };
+			const listStyle: CSSProperties = {
+				margin: `${T.space.one} ${T.space.zero} ${T.space.three}`,
+				paddingLeft: T.space.six,
+			};
 			return block.ordered ? (
 				<ol key={key} style={listStyle}>
 					{items}
@@ -377,36 +297,38 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 				<blockquote
 					key={key}
 					style={{
-						margin: '10px 0',
-						padding: '10px 14px',
+						margin: BLOCK_MARGIN,
+						padding: `${T.space.three} ${T.space.four}`,
 						borderLeft: `3px solid ${T.accBd}`,
 						background: T.alt,
-						borderRadius: '0 8px 8px 0',
-						font: `italic 13.5px/1.6 ${T.sans}`,
+						borderRadius: `${T.radius.none} ${T.radius.md} ${T.radius.md} ${T.radius.none}`,
+						font: `italic var(--text-sm)/1.6 ${T.sans}`,
 						color: T.sub,
 					}}
 				>
 					{block.lines.map((line, index) => (
-						<p key={index} style={{ margin: 0 }}>
+						<p key={index} style={{ margin: T.space.zero }}>
 							{renderInline(line, options)}
 						</p>
 					))}
 				</blockquote>
 			);
 		case 'callout':
-			return renderCallout(block, key, options);
+			return renderCallout(block, key, options, (children) =>
+				children.map((child, index) => renderBlock(child, index, options)),
+			);
 		case 'code':
 			return (
 				<pre
 					key={key}
 					style={{
-						margin: '10px 0',
-						padding: '10px 12px',
+						margin: BLOCK_MARGIN,
+						padding: T.space.three,
 						background: T.sunken,
 						border: `1px solid ${T.bd}`,
-						borderRadius: 8,
+						borderRadius: T.radius.md,
 						overflowX: 'auto',
-						font: `12.5px/1.6 ${T.mono}`,
+						font: `var(--text-xs)/1.6 ${T.mono}`,
 						color: T.sub,
 					}}
 				>
@@ -417,12 +339,16 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 			return (
 				<hr
 					key={key}
-					style={{ border: 'none', borderTop: `1px solid ${T.bd}`, margin: '16px 0' }}
+					style={{
+						border: 'none',
+						borderTop: `1px solid ${T.bd}`,
+						margin: `${T.space.four} ${T.space.zero}`,
+					}}
 				/>
 			);
 		case 'figure':
 			return (
-				<figure key={key} style={{ margin: '12px 0' }}>
+				<figure key={key} style={{ margin: BLOCK_MARGIN }}>
 					<ImageNode
 						src={block.src}
 						alt={block.alt}
@@ -430,16 +356,16 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 						style={{
 							display: 'block',
 							maxWidth: '100%',
-							borderRadius: 8,
+							borderRadius: T.radius.md,
 							border: `1px solid ${T.bd}`,
 						}}
 					/>
 					{block.caption !== '' && (
 						<figcaption
 							style={{
-								font: `12px/1.5 ${T.sans}`,
+								font: `var(--text-xs)/1.5 ${T.sans}`,
 								color: T.ter,
-								marginTop: 6,
+								marginTop: T.space.oneHalf,
 								fontStyle: 'italic',
 							}}
 						>
@@ -459,13 +385,15 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 					tabIndex={0}
 					aria-label={options.t('markdown.tableLabel')}
 					style={{
-						margin: '12px 0',
+						margin: BLOCK_MARGIN,
 						overflowX: 'auto',
 						border: `1px solid ${T.bd}`,
-						borderRadius: 8,
+						borderRadius: T.radius.md,
 					}}
 				>
-					<table style={{ borderCollapse: 'collapse', width: '100%', font: `13px ${T.sans}` }}>
+					<table
+						style={{ borderCollapse: 'collapse', width: '100%', font: `var(--text-sm) ${T.sans}` }}
+					>
 						<thead>
 							<tr>
 								{block.head.map((cell, index) => (
@@ -477,13 +405,13 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 											// while a long table scrolls past.
 											position: 'sticky',
 											top: 0,
-											zIndex: 1,
+											zIndex: T.z.raised,
 											textAlign: block.align[index] ?? 'left',
-											font: `600 12.5px ${T.sans}`,
+											font: `600 var(--text-sm) ${T.sans}`,
 											color: T.ink,
 											background: T.raised,
 											borderBottom: `1px solid ${T.bdS}`,
-											padding: '8px 10px',
+											padding: `${T.space.two} ${T.space.three}`,
 											whiteSpace: 'nowrap',
 										}}
 									>
@@ -502,7 +430,7 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 												textAlign: block.align[cellIndex] ?? 'left',
 												color: T.sub,
 												borderTop: rowIndex === 0 ? 'none' : `1px solid ${T.bd}`,
-												padding: '7px 10px',
+												padding: `${T.space.two} ${T.space.three}`,
 												verticalAlign: 'top',
 											}}
 										>
@@ -528,7 +456,7 @@ function renderBlock(block: MdBlock, key: number, options: MarkdownRenderOptions
 export function renderMarkdown(markdown: string, options: MarkdownRenderOptions): ReactNode {
 	if (!markdown.trim()) {
 		return (
-			<p style={{ font: `13.5px/1.7 ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
+			<p style={{ font: BODY_FONT, color: T.ter, fontStyle: 'italic', margin: T.space.zero }}>
 				{options.t(options.emptyKey ?? 'markdown.empty')}
 			</p>
 		);

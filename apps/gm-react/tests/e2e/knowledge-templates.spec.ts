@@ -101,7 +101,12 @@ test.describe('knowledge: templates and snippets', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 		await openTemplates(page);
 		await page.getByRole('tab', { name: 'Your templates' }).click();
-		await page.getByRole('button', { name: 'Delete' }).first().click();
+		// Delete asks first and names the template (RC-POL-1.11); nothing goes until it is confirmed.
+		await page.getByRole('button', { name: 'Delete Tavern' }).click();
+		const confirm = page.getByRole('dialog', { name: /Delete the template/ });
+		await expect(confirm).toBeVisible();
+		expect(await userTemplateIds(page)).toEqual(['user:tavern']);
+		await confirm.getByRole('button', { name: 'Delete template' }).click();
 		await expect.poll(() => userTemplateIds(page)).toEqual([]);
 	});
 

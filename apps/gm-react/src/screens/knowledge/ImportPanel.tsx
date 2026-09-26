@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card, Dialog, Icon, Select, Textarea } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { pickTextFiles } from '../../platform/filePick';
-import { importPolicies } from './shared';
+import { META, importPolicies } from './shared';
 import { useI18n } from '../../i18n';
 
 /** Turn picked files into paste-box archive text. A `.json` export bundle (the shape Community's
@@ -74,12 +74,24 @@ export function ImportPanel({
 		<Card
 			elevation="flat"
 			padding="md"
-			style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}
+			style={{
+				marginBottom: T.space.four,
+				display: 'flex',
+				flexDirection: 'column',
+				gap: T.space.three,
+			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-				<div style={{ flex: 1, font: `600 13px ${T.sans}`, color: T.ink }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}>
+				<h2
+					style={{
+						flex: 1,
+						margin: T.space.zero,
+						font: `600 var(--text-sm) ${T.sans}`,
+						color: T.ink,
+					}}
+				>
 					{t('knowledge.importTitle')}
-				</div>
+				</h2>
 				<Button
 					variant="secondary"
 					size="sm"
@@ -90,7 +102,7 @@ export function ImportPanel({
 					{t('knowledge.importFiles')}
 				</Button>
 			</div>
-			<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+			<div style={META}>
 				{t('knowledge.importIntroA')} <code style={{ fontFamily: T.mono }}>.md</code>{' '}
 				{t('knowledge.importIntroB')} <code style={{ fontFamily: T.mono }}>.json</code>{' '}
 				{t('knowledge.importIntroC')}{' '}
@@ -105,12 +117,12 @@ export function ImportPanel({
 				onChange={(e: { target: { value: string } }) => setText(e.target.value)}
 				rows={8}
 				placeholder={t('knowledge.importPlaceholder')}
-				style={{ fontFamily: T.mono, fontSize: 12.5 }}
+				style={{ fontFamily: T.mono, fontSize: 'var(--text-xs)' }}
 			/>
 			{/* flexWrap because this row carries a Select, a status message and two buttons — on a
 			    393px phone it overflowed the card, and a page-level overflow here also shifts
 			    `.app-main`. The sibling rows in this file already wrap. */}
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}>
 				<Select
 					aria-label={t('knowledge.importPolicy')}
 					options={importPolicies(t)}
@@ -124,14 +136,14 @@ export function ImportPanel({
 				<span
 					role="status"
 					style={{
-						font: `12px ${T.sans}`,
+						font: `var(--text-xs) ${T.sans}`,
 						color: failed ? 'var(--color-status-error-text)' : T.sub,
 						display: 'inline-flex',
 						alignItems: 'center',
-						gap: 5,
+						gap: T.space.one,
 					}}
 				>
-					{message && failed && <Icon name="warning" size={13} />}
+					{message && <Icon name={failed ? 'warning' : 'check'} size="micro" />}
 					{message}
 				</span>
 				<Button

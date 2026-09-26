@@ -240,6 +240,12 @@ const ACTION_ORDER: ToolbarAction[] = [
 	'table',
 ];
 
+/** The two actions with a keyboard shortcut, in the palette registry's legend style. */
+const SHORTCUT: Partial<Record<ToolbarAction, { legend: string; aria: string }>> = {
+	bold: { legend: 'Ctrl/⌘+B', aria: 'Control+B Meta+B' },
+	italic: { legend: 'Ctrl/⌘+I', aria: 'Control+I Meta+I' },
+};
+
 const FACE_STYLE: Partial<Record<ToolbarAction, CSSProperties>> = {
 	bold: { fontWeight: 700 },
 	italic: { fontStyle: 'italic' },
@@ -288,7 +294,7 @@ export function EditorToolbar({
 			aria-label={t('editor.toolbar')}
 			aria-orientation="horizontal"
 			onKeyDown={onKeyDown}
-			style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}
+			style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.oneHalf }}
 		>
 			{ACTION_ORDER.map((action, index) => (
 				<button
@@ -298,13 +304,24 @@ export function EditorToolbar({
 					tabIndex={index === focused ? 0 : -1}
 					onFocus={() => setFocused(index)}
 					onClick={() => onAction(action)}
+					// The shortcut is in the tooltip; the visible word stays the accessible name.
+					title={
+						SHORTCUT[action]
+							? `${t(ACTION_LABELS[action])} (${SHORTCUT[action]!.legend})`
+							: undefined
+					}
+					aria-keyshortcuts={SHORTCUT[action]?.aria}
 					style={{
-						font: `12px ${T.sans}`,
+						font: `var(--text-xs) ${T.sans}`,
 						color: T.sub,
 						background: T.surf,
 						border: `1px solid ${T.bd}`,
-						borderRadius: 6,
-						padding: '5px 9px',
+						borderRadius: T.radius.md,
+						// The density touch target: 32px at Standard, 44px under the comfortable set
+						// every viewport under 1200px is locked to, 48dp on Android.
+						minHeight: T.density.touch,
+						minWidth: T.density.touch,
+						padding: `${T.space.one} ${T.space.two}`,
 						cursor: disabled ? 'default' : 'pointer',
 						opacity: disabled ? 0.5 : 1,
 						...FACE_STYLE[action],
