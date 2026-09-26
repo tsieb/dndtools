@@ -115,9 +115,36 @@ wait_for_settled_system_focus() {
 	return 1
 }
 
+# A cold-booted API 36 emulator can ANR one of its OWN processes before the app ever launches: CI
+# run 36220588362 logged `ANR in com.android.systemui` (KeyguardService waited 20077ms, CPU PSI
+# some avg10=86) during instrumentation, and that "System UI isn't responding" dialog then held
+# focus over the freshly launched app for the whole first-run wait. Choose Wait on such a dialog,
+# which leaves the stalled process alone. The app's own ANR dialog is never touched: it still
+# fails whichever assertion it blocks, and `fail` prints its ANR report.
+dismiss_foreign_anr_dialog() {
+	local ui=$1
+	local focus node bounds left top right bottom
+	[[ "$ui" == *'resource-id="android:id/aerr_wait"'* ]] || return 1
+	focus=$(focused_window)
+	[[ "$focus" == 'Application Not Responding: '* ]] || return 1
+	[[ "$focus" != "Application Not Responding: $PACKAGE_ID"* ]] || return 1
+	node=$(sed 's/></>\n</g' <<<"$ui" | grep -F 'resource-id="android:id/aerr_wait"' | head -1)
+	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
+	read -r left top right bottom <<<"$bounds"
+	[[ -n "${bottom:-}" ]] || return 1
+	echo "Android acceptance: choosing Wait on a system ANR dialog (${focus})" >&2
+	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
+	sleep 1
+}
+
 dump_ui() {
-	adb shell uiautomator dump /sdcard/dndtools-window.xml >/dev/null 2>&1 || return 1
-	adb exec-out cat /sdcard/dndtools-window.xml 2>/dev/null | tr -d '\r'
+	local ui=''
+	for _ in {1..3}; do
+		adb shell uiautomator dump /sdcard/dndtools-window.xml >/dev/null 2>&1 || return 1
+		ui=$(adb exec-out cat /sdcard/dndtools-window.xml 2>/dev/null | tr -d '\r')
+		dismiss_foreign_anr_dialog "$ui" || break
+	done
+	printf '%s\n' "$ui"
 }
 
 wait_for_ui_text() {
