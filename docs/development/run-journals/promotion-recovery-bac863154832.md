@@ -43,3 +43,23 @@ deletion`, which timed out waiting for the `Delete Quiet evening` button.
   y=365, the tab's centre). Before the fix the same trace showed the tab moving to y=325 inside
   `pointerdown`.
 - `prettier --check`, `eslint` and `tsc --noEmit` on the spec are clean.
+
+## Second attempt: `Browser acceptance` attached to Postgres
+
+- Validation of `c598989f` passed every gate except `Browser acceptance` (attempt `2876688b`,
+  `pnpm e2e --workers=2 --retries=2`): 4 passed, almost everything else failed in ~300 ms with
+  `page.goto: net::ERR_EMPTY_RESPONSE at http://localhost:5432/...`.
+- Cause: `playwright.config.ts` derives a linked worktree's port from its path (5300–5899), and this
+  worktree's path hashes to 5432, where the gate host's `jam-postgres` container listens. Outside
+  CI `reuseExistingServer` is true, so Playwright attached to Postgres instead of starting Vite. Any
+  change on this worktree would have failed the gate the same way. 5355 (systemd-resolved LLMNR) is
+  also in the range.
+- Reproduced: `DNDTOOLS_E2E_PORT=5432 playwright test tests/e2e/wiki.spec.ts` fails with the same
+  `ERR_EMPTY_RESPONSE`.
+- Repair: a derived port that already answers on 127.0.0.1 or ::1 is skipped for the next free one
+  in the range. The runner pins its pick in `DNDTOOLS_E2E_PORT`, so workers that re-read the config
+  after Vite is up keep the same port. An explicit `DNDTOOLS_E2E_PORT`, the primary checkout, CI and
+  the managed harness behave as before. `TESTING.md` notes the skip.
+- Verified: this worktree now picks 5433. `wiki.spec.ts` + `a11y-axe-gate.spec.ts` pass 66/0 with
+  every request on :5433, and the pinned visual container passes the `wiki reader|named deletion`
+  subset 30/0 with the new config.

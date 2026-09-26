@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +20,31 @@ const reuseValidationServer = process.env.DNDTOOLS_PLAYWRIGHT_REUSE_MANAGED_SERV
 // suite at once. Each one gets its own stable port derived from its path, so two overlapping gates
 // cannot attach to each other's server (and die with ERR_CONNECTION_REFUSED when the other run
 // stops it). The primary checkout, CI and the managed validation harness keep 5273.
+//
+// The range also holds ports other services own: one worktree path hashed to 5432, where the
+// machine's Postgres listens, and `reuseExistingServer` attached every test to it
+// (net::ERR_EMPTY_RESPONSE on each goto). So a derived port that already answers is skipped for the
+// next one that does not. The runner pins its pick in DNDTOOLS_E2E_PORT because the workers re-read
+// this file after its dev server is up, and they must not walk past it.
+const LINKED_WORKTREE_PORTS = { first: 5300, count: 600 };
+const PORT_ANSWERS = `const net = require('node:net');
+const port = Number(process.argv[1]);
+let pending = 2;
+for (const host of ['127.0.0.1', '::1']) {
+	const socket = net.connect({ host, port, timeout: 500 });
+	socket.once('connect', () => process.exit(0));
+	const miss = () => { socket.destroy(); if (--pending === 0) process.exit(1); };
+	socket.once('error', miss);
+	socket.once('timeout', miss);
+}`;
+function portAnswers(port: number): boolean {
+	try {
+		execFileSync(process.execPath, ['-e', PORT_ANSWERS, String(port)], { stdio: 'ignore' });
+		return true;
+	} catch {
+		return false;
+	}
+}
 function linkedWorktreePort(): number | undefined {
 	if (reuseValidationServer) return undefined;
 	const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -29,9 +55,15 @@ function linkedWorktreePort(): number | undefined {
 	}
 	let hash = 2166136261;
 	for (const ch of root) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
-	return 5300 + (hash % 600);
+	const { first, count } = LINKED_WORKTREE_PORTS;
+	for (let step = 0; step < count; step += 1) {
+		const candidate = first + ((hash + step) % count);
+		if (!portAnswers(candidate)) return candidate;
+	}
+	return first + (hash % count);
 }
 const port = Number(process.env.DNDTOOLS_E2E_PORT ?? linkedWorktreePort() ?? 5273);
+process.env.DNDTOOLS_E2E_PORT = String(port);
 
 // Worker cap. Playwright's default is half the logical CPUs — 8 Chromium instances on a 16-core
 // box — and several concurrent runs (the RC loop's slots, the promotion gate, an interactive run)

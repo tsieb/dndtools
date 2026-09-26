@@ -24,7 +24,8 @@ shared route runs the full suite, because a mobile overflow on one route breaks 
 
 `DNDTOOLS_TEST_WORKERS` and `DNDTOOLS_PW_WORKERS` cap Vitest and Playwright workers (the loop sets
 them per slot). `DNDTOOLS_E2E_PORT` isolates the Vite port; Playwright otherwise reuses whatever is
-already listening on :5273.
+already listening on :5273. A linked worktree derives its own port in 5300–5899 from its path and
+skips any port that already answers (Postgres holds 5432 on the gate host).
 
 Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
 raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
