@@ -188,9 +188,8 @@ custom drafts).
 - ESLint on every changed TS/TSX file: clean. `lint:raw-style-count`, `lint:boundary`: pass.
 - `format:check:changed -- --base origin/loop/rc`: clean.
 - Core vitest (full): 284 files / 5182 tests passed.
-- App vitest (full): 148 files / 1672 tests passed, before the file split. After it, the
-  widget-builder directory (5 files / 53 tests, incl. the new `intents.test.ts` 6/6) passes, plus
-  typecheck.
+- App vitest (full), after the file split: 149 files / 1678 tests passed
+  (`/tmp/rc-wid51-app-vitest-2.log`), incl. the new `intents.test.ts` (6).
 - Tooling vitest: 29 files / 221 tests passed after the split. Before it,
   `file-size-gate.test.ts` failed at 820 lines; that failure is why the split was made.
 - `scripts/quality-gates.ts`: passed.
