@@ -55,7 +55,7 @@
   EQUAL to the settled baseline, and re-exploring reopens the same demo. Runs on the profile's own
   viewport: desktop via the sidebar chip/top bar, phone via More sheet/Table controls.
 
-## Scope crossings (outside Owns — flag for the operator)
+## Paths beyond the original Owns (owned since the 2026-09-26 operator brief)
 
 Each is the minimum to make an acceptance criterion hold; the logic lives in owned files or in
 tiny helpers next to the vault catalog.
@@ -137,14 +137,14 @@ tiny helpers next to the vault catalog.
   The spec asserts the demo median ≤ 1500 ms and FAILED on this host, as the original vault would.
   NOT claimed in budget: the showcase costs ≈50–60 ms over the original vault's first load; an
   idle-host rerun is needed for an absolute verdict. Log `/tmp/rc-ux-3.7-perf-2.log`.
-- Rerun on the committed candidate `0a804fe9` (clean tree), load 12.8 → 22.2 during the run:
+- Rerun on the committed candidate (then `0a804fe9`) (clean tree), load 12.8 → 22.2 during the run:
   desktop demo median 2058.5 ms vs original 2233.5 ms; phone 2468.3 vs 2539 ms. Both far over the
   budget and the difference is inside the noise (it came out negative). Host contention dominates;
   this run is no evidence either way. Log `/tmp/rc-ux-3.7-perf-3.log`.
 
 ## Report
 
-RC-UX-3.7 is implemented and committed (`bc7efcea`). The demo opens from the switcher on every
+RC-UX-3.7 is implemented and committed (now `47a46b2b`). The demo opens from the switcher on every
 viewport tier, is badged, resets, and returns to the GM's own vault with its op ids unchanged (e2e,
 both profiles). Sync and backup refuse the demo vault (unit + e2e), as do hosting and joining. The
 widened seed commits as one batch (unit tests). The original vault's seed is unchanged, so e2e that
@@ -153,3 +153,42 @@ relied on it are unaffected; the affected-spec run is green apart from the known
 graded in budget on this host; the original vault breaches too, and the interleaved A/B puts the
 showcase at ≈50–60 ms over the original vault's first load. Scope crossings are listed above.
 No push, promotion, loops, extra agents or dispatcher-state edits.
+
+## Entry — 2026-09-26 (resumed after a provider allowance stop)
+
+- HEAD `cda7e28e`, tree clean. The feature commit is `47a46b2b`. The operator brief now owns every
+  file listed under "Paths beyond the original Owns"; each edit there is justified in that section
+  and none changed. The tests, e2e spec and message catalogs fall under the manifest's
+  `companion_paths` (`*.test.ts`, `tests/e2e/*.spec.ts`, `i18n/messages/*.ts`).
+- `git merge-tree --write-tree HEAD origin/loop/rc` (138 commits ahead): clean, no conflicts. Not
+  rebased; integration is the operator's.
+- Host: four `yes`/`cat` processes (a stuck `yes | sdkmanager --licenses` from worktree
+  `1a84010a8d4b06cc6042`, running since 2026-09-23 08:21) each hold one core at ~97%. Not this
+  task's, so I left them running. They explain part of the persistent load behind the earlier perf
+  breaches.
+
+### scene-first-render, graded
+
+- `pnpm perf:capture --only scene-first-render --port 15681` (original vault, base seed unchanged):
+  the first two batches ran at load ≈8 and gave 1166–1200.4 ms. Load then rose to ≈12, and the
+  remaining five batches gave 1588.8–1938.8 ms. The same code, with only host load changing, moved
+  by about 500 ms. Output `/tmp/rc-ux-3.7-perf-4.json`.
+- Interleaved A/B at load 13 → 18: desktop demo 2646.6 vs original 2527.5 ms, phone 1743 vs
+  1810.8 ms. Contended again, so no verdict. Log `/tmp/rc-ux-3.7-perf-5.log`.
+- Interleaved A/B, started once the 1-min load was < 9 (8.91 → 7.73), `--workers=1`, both profiles:
+  **PASSED** (exit 0; the spec asserts the demo median ≤ 1500 ms).
+  - desktop-chromium: demo median **1230.2 ms** (max 1264.9) vs original 1202.1 ms (max 1249),
+    showcase cost +28.1 ms;
+  - mobile-chromium: demo median **1201.5 ms** (max 1222.8) vs original 1198.8 ms (max 1203.9),
+    showcase cost +2.7 ms.
+    Log `/tmp/rc-ux-3.7-perf-6.log`. The widened seed still commits as one batch (74 operations), and
+    its first render is within budget on both profiles. The earlier breaches came from host load.
+- Each run logs the known base-seed `data:` audio rejection (`[demo-seed] "audio source" was
+rejected`, see RC-ENG-8.2). It is unchanged by this story.
+
+## Report (2026-09-26, supersedes the OPEN item above)
+
+The perf item is closed. With the host at load < 9, `scene-first-render` for the demo vault passes on
+both profiles, and the showcase adds ≈3–28 ms over the original vault. All other acceptance
+evidence above stands. The branch merges cleanly into `origin/loop/rc`. I did no push, promotion,
+loop, extra agent or dispatcher-state edit.
