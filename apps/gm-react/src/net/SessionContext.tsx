@@ -19,6 +19,11 @@ import { getDiscovery, type DiscoveryBridge, type DiscoveredService } from './di
 import { createCloudBridge, type CloudBridge } from './cloudBridge';
 import { generateJoinPin, encodeJoinCode, decodeJoinCode } from './cloudCrypto';
 import { clearRtcIceServers } from './signaling';
+import { isDemoLocalVault } from '../platform/storage/coreStore';
+
+/** RC-UX-3.7 — the demo vault is a sandbox; a table is always the GM's own campaign. */
+export const DEMO_VAULT_TABLE_REFUSAL =
+	'The demo campaign can’t host or join a table. Open your own campaign to play with your group.';
 
 /**
  * The P2P session role of THIS device:
@@ -187,6 +192,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	// rendezvous; every request still waits for the DM to select a registered participant explicitly.
 	const ensureHost = useCallback((): SessionHost => {
 		if (hostRef.current) return hostRef.current;
+		if (isDemoLocalVault(runtime.vaultId)) throw new Error(DEMO_VAULT_TABLE_REFUSAL);
 		const host = new SessionHost(runtime, randomSessionId());
 		host.onChange(() => setPeers(host.connectedPeers));
 		hostRef.current = host;
@@ -249,17 +255,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	);
 
 	const startHosting = useCallback(() => {
-		if (hostRef.current) return;
+		if (hostRef.current || isDemoLocalVault(runtime.vaultId)) return;
 		const host = ensureHost();
 		// LAN advertise is fire-and-forget; swallow its rejection so it can't become
 		// an unhandled promise rejection.
 		if (discovery) void wireHost(host, discovery, 'Lamplight table', '', 'nearby').catch(() => {});
-	}, [discovery, ensureHost, wireHost]);
+	}, [discovery, ensureHost, wireHost, runtime]);
 
 	// Make the table joinable over the internet (auth-gated). Can be combined with LAN
 	// hosting. Returns true only once the table is actually advertised online.
 	const startHostingOnline = useCallback(async (): Promise<boolean> => {
 		if (!isCloudConfigured || !cloudIncludedInPlan) return false;
+		if (isDemoLocalVault(runtime.vaultId)) throw new Error(DEMO_VAULT_TABLE_REFUSAL);
 		if (cloudWiredRef.current) return true; // already joinable online — don't double-wire
 		if (onlineStartRef.current) return onlineStartRef.current;
 		const lifecycle = lifecycleRef.current;
@@ -304,7 +311,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		} finally {
 			if (onlineStartRef.current === start) onlineStartRef.current = null;
 		}
-	}, [auth, cloudIncludedInPlan, ensureHost, wireHost, getCloudBridge, teardownCloudBridge]);
+	}, [
+		auth,
+		cloudIncludedInPlan,
+		ensureHost,
+		wireHost,
+		getCloudBridge,
+		teardownCloudBridge,
+		runtime,
+	]);
 
 	const invite = useCallback(async (actorId: string) => {
 		if (!hostRef.current) throw new Error('Start hosting first.');
@@ -404,18 +419,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		setDiscovered([]);
 	}, [discovery]);
 
-	const join = useCallback(async (offerCode: string) => {
-		let c = clientRef.current;
-		if (!c) {
-			c = new SessionClient();
-			c.onChange((s) => setClient({ ...s }));
-			clientRef.current = c;
-		}
-		const result = await c.join(offerCode);
-		setRole('joined');
-		setClient(c.getState());
-		return result;
-	}, []);
+	const join = useCallback(
+		async (offerCode: string) => {
+			if (isDemoLocalVault(runtime.vaultId)) throw new Error(DEMO_VAULT_TABLE_REFUSAL);
+			let c = clientRef.current;
+			if (!c) {
+				c = new SessionClient();
+				c.onChange((s) => setClient({ ...s }));
+				clientRef.current = c;
+			}
+			const result = await c.join(offerCode);
+			setRole('joined');
+			setClient(c.getState());
+			return result;
+		},
+		[runtime],
+	);
 
 	const requestCommand = useCallback(async (command: CommandRequest) => {
 		if (!clientRef.current) return { ok: false, message: 'Not connected to a table.' };
@@ -484,6 +503,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	// The joiner must hold the DM's join code (session id + PIN); the PIN gates admission.
 	const connectOnlineByCode = useCallback(
 		async (joinCode: string) => {
+			if (isDemoLocalVault(runtime.vaultId)) throw new Error(DEMO_VAULT_TABLE_REFUSAL);
 			if (!isCloudConfigured) throw new Error('Online play isn’t set up for this install.');
 			if (!cloudIncludedInPlan) {
 				throw new Error(
@@ -567,7 +587,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 				cloudErrorOffRef.current = null;
 			}
 		},
-		[auth, cloudIncludedInPlan, getCloudBridge, join, teardownCloudBridge],
+		[auth, cloudIncludedInPlan, getCloudBridge, join, teardownCloudBridge, runtime],
 	);
 
 	useEffect(() => {

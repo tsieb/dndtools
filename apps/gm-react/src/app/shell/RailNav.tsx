@@ -7,6 +7,7 @@ import { activeSectionId, isNavSectionVisible } from '../nav';
 import { T } from '../screen-kit';
 import { ALL_SECTIONS, SECTION_PATH } from './sections';
 import { useSessionPosture } from './session-posture';
+import { isDemoLocalVault } from '../../platform/storage/coreStore';
 
 const VaultSwitcher = lazy(() =>
 	import('./VaultSwitcher').then((module) => ({ default: module.VaultSwitcher })),
@@ -20,6 +21,9 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const runtime = useRuntime();
 	// RC-UX-5.4 — the rail's campaign mark is the tablet form of the sidebar's campaign chip.
 	const [vaultsOpen, setVaultsOpen] = useState(false);
+	// RC-UX-3.7 — the rail shows no vault name, so the demo is named in the mark's label and badged.
+	const [demo] = useState(() => isDemoLocalVault(runtime.vaultId));
+	const vaultsLabel = demo ? `${t('vaults.title')} · ${t('vaults.demoBadge')}` : t('vaults.title');
 	const active = activeSectionId(location.pathname);
 	// RC-SES-1.1 — one source for "live" across all three navigations: the session workflow.
 	const live = useSessionPosture().live;
@@ -45,8 +49,8 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 				header={
 					<button
 						type="button"
-						aria-label={t('vaults.title')}
-						title={t('vaults.title')}
+						aria-label={vaultsLabel}
+						title={vaultsLabel}
 						aria-haspopup="dialog"
 						aria-expanded={vaultsOpen}
 						onClick={() => setVaultsOpen(true)}
@@ -57,6 +61,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 							background: 'transparent',
 							cursor: 'pointer',
 							display: 'inline-flex',
+							position: 'relative',
 						}}
 					>
 						<span
@@ -74,6 +79,25 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 						>
 							<Icon name="dice" size="sm" />
 						</span>
+						{demo && (
+							<span
+								aria-hidden="true"
+								style={{
+									position: 'absolute',
+									bottom: -6,
+									left: '50%',
+									transform: 'translateX(-50%)',
+									padding: '0 var(--space-1)',
+									borderRadius: 'var(--radius-sm)',
+									background: 'var(--color-status-info-subtle)',
+									color: 'var(--color-status-info-text)',
+									font: `600 9px ${T.sans}`,
+									lineHeight: '14px',
+								}}
+							>
+								{t('vaults.demoBadge')}
+							</span>
+						)}
 					</button>
 				}
 				footer={

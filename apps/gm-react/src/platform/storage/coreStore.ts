@@ -228,6 +228,42 @@ export function vaultPreferenceKey(key: string, id = activeLocalVaultId()): stri
 	return requireVaultId(id) === LEGACY_LOCAL_VAULT_ID ? key : `dndtools:local-vault:${id}:${key}`;
 }
 
+/**
+ * RC-UX-3.7 — the demo vault is a sandbox: it is never synced or backed up and never hosts or joins
+ * a table. Fails closed: an extra vault whose catalog entry cannot be read counts as the demo, so a
+ * damaged catalog can only withhold those features, never grant them. The original vault is never
+ * the demo.
+ */
+export function isDemoLocalVault(id?: string): boolean {
+	try {
+		const vaultId = id ?? activeLocalVaultId();
+		if (vaultId === LEGACY_LOCAL_VAULT_ID) return false;
+		return listLocalVaults().find((vault) => vault.id === vaultId)?.kind !== 'campaign';
+	} catch {
+		return true;
+	}
+}
+
+/** The demo vault's id, or null. There is at most one; the switcher opens it rather than adding more. */
+export function findDemoLocalVault(): LocalVault | null {
+	return listLocalVaults().find((vault) => vault.kind === 'demo') ?? null;
+}
+
+/** Forget a vault's own preference keys (its tips, recents and cloud intent) without touching others. */
+export function forgetLocalVaultPreferences(id: string): void {
+	if (requireVaultId(id) === LEGACY_LOCAL_VAULT_ID) {
+		throw new Error('The original vault keeps its preferences.');
+	}
+	const storage = catalogStorage();
+	const prefix = `dndtools:local-vault:${id}:`;
+	const keys: string[] = [];
+	for (let index = 0; index < storage.length; index += 1) {
+		const key = storage.key(index);
+		if (key?.startsWith(prefix)) keys.push(key);
+	}
+	for (const key of keys) storage.removeItem(key);
+}
+
 const SCENE_STATE_KEY = 'scene-state';
 const MAP_STATE_KEY = 'map-state';
 const PERMISSION_STATE_KEY = 'permission-state';

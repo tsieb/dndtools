@@ -93,8 +93,19 @@ export const en = {
 	'vaults.lastOpened': 'Last opened {date}',
 	'vaults.neverOpened': 'Not opened yet',
 	'vaults.openNamed': 'Open {name}',
-	'vaults.demo': 'Try the sample campaign',
-	'vaults.demoUnavailable': 'The sample campaign is not available here yet.',
+	'vaults.demo': 'Explore the demo campaign',
+	'vaults.demoHint':
+		'A finished campaign to borrow ideas from. It stays on this device: never synced or backed up, and it can’t host or join a table.',
+	'vaults.demoName': 'Demo campaign',
+	'vaults.demoBadge': 'Demo',
+	'vaults.demoNamed': '{name} (demo)',
+	'vaults.demoReset': 'Reset the demo',
+	'vaults.demoResetConfirm':
+		'Put the demo back the way it started? Your edits in the demo are erased. Your own campaigns are untouched.',
+	'vaults.demoResetAction': 'Reset demo',
+	'vaults.demoLeave': 'Back to my campaign',
+	'vaults.demoNoTable':
+		'The demo campaign can’t host or join a table. Open your own campaign to play with your group.',
 
 	'common.action.save': 'Save',
 	'common.action.cancel': 'Cancel',

@@ -218,6 +218,63 @@ describe('SceneRuntime first-run demo seed', () => {
 		expect(replicated).toEqual([appended]);
 	});
 
+	it('stages the demo vault’s assistant proposal inside the same single commit (RC-UX-3.7)', async () => {
+		mocks.loadCoreState.mockResolvedValueOnce(structuredClone(runtime().authoritativeState));
+		mocks.seedDemoContent.mockImplementationOnce(
+			async (
+				rt: SeedTarget & {
+					invokeAgentTool(invocation: unknown): Promise<{ status: string }>;
+				},
+			) => {
+				const actorId = rt.defaultActorId;
+				const commands: CoreCommand[] = [
+					{
+						type: 'content.create-item',
+						actorId,
+						payload: { kind: 'note', title: 'Primer', body: 'Saltreach.', visibility: 'dm-only' },
+					},
+					{ type: 'mcp.set-enabled', actorId, payload: { enabled: true } },
+					{
+						type: 'mcp.set-agent-binding',
+						actorId,
+						payload: { agentId: 'prep-assistant', actorId, label: 'Prep' },
+					},
+					{
+						type: 'mcp.set-agent-policy',
+						actorId,
+						payload: {
+							agentId: 'prep-assistant',
+							mode: 'strict_review',
+							allowedToolIds: ['note.update'],
+						},
+					},
+				];
+				for (const command of commands)
+					expect((await rt.dispatch(command)).status).toBe('accepted');
+				const note = Object.values(rt.state.content.items)[0]!;
+				const staged = await rt.invokeAgentTool({
+					agentId: 'prep-assistant',
+					toolId: 'note.update',
+					input: { itemId: note.id, baseRevision: note.revision, body: 'Saltreach, rewritten.' },
+				});
+				expect(staged.status).toBe('staged');
+				// Staging parks the write: the note itself is unchanged until the GM approves.
+				expect(Object.values(rt.state.content.items)[0]!.body).toBe('Saltreach.');
+				return true;
+			},
+		);
+		const scene = countingRuntime();
+
+		await scene.load();
+
+		expect(mocks.persistFullState).toHaveBeenCalledTimes(1);
+		const [, next] = mocks.persistFullState.mock.calls[0] as [CoreStateSlice, CoreStateSlice];
+		expect(next).toBe(scene.authoritativeState);
+		const proposals = Object.values(next.mcp.proposals);
+		expect(proposals).toHaveLength(1);
+		expect(proposals[0]!.status).toBe('pending');
+	});
+
 	it('leaves the vault as it was when the seed commit fails', async () => {
 		mocks.loadCoreState.mockResolvedValueOnce(structuredClone(runtime().authoritativeState));
 		mocks.seedDemoContent.mockImplementationOnce(async (rt: SeedTarget) => {

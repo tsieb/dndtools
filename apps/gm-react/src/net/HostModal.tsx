@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useI18n } from '../i18n';
+import { isDemoLocalVault } from '../platform/storage/coreStore';
 import { useSession } from './SessionContext';
 import { qrDataUrl } from './qr';
 import type { HostInvitation } from './SessionHost';
@@ -26,6 +28,7 @@ import {
  * file-size limit). The handshake, the approvals and the markup are unchanged.
  */
 export function HostModal({ onClose }: { onClose: () => void }) {
+	const { t } = useI18n();
 	const session = useSession();
 	const runtime = useRuntime();
 	const [selected, setSelected] = useState('');
@@ -93,6 +96,17 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 			setError(e instanceof Error ? e.message : 'Could not approve that device.');
 		}
 	};
+
+	// RC-UX-3.7 — the demo vault never hosts a table; say so instead of offering dead controls.
+	if (isDemoLocalVault(runtime.vaultId)) {
+		return (
+			<Modal title="Host a live table" onClose={onClose}>
+				<p role="status" style={{ margin: 0, font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
+					{t('vaults.demoNoTable')}
+				</p>
+			</Modal>
+		);
+	}
 
 	return (
 		<Modal title="Host a live table" onClose={onClose}>

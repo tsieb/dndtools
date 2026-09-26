@@ -8,6 +8,8 @@ import {
 	activeLocalVaultId,
 	coreDatabaseName,
 	createLocalVault,
+	forgetLocalVaultPreferences,
+	isDemoLocalVault,
 	listLocalVaults,
 	loadCoreState,
 	markLocalVaultOpened,
@@ -25,7 +27,7 @@ import {
 	resetPrivateStore,
 } from './privateStore';
 import { getAssetBytes, putAssetBytes } from './assetStore';
-import { exportFullVault, importFullVault } from '../backup';
+import { DEMO_VAULT_BACKUP_REFUSAL, exportFullVault, importFullVault } from '../backup';
 import { setVaultPrivacyMode, vaultPrivacyMode } from '../../cloud/vaultMode';
 import { SceneRuntime } from '../../runtime/SceneRuntime';
 import { PREFERENCE_KEYS, readPreference, removePreference, writePreference } from '../preferences';
@@ -299,5 +301,52 @@ describe('local vault storage boundaries', () => {
 		localStorage.setItem(__testing.SELECTED_LOCAL_VAULT_KEY, 'missing');
 		__testing.resetVaultSession();
 		expect(() => activeLocalVaultId()).toThrow(/not found/);
+	});
+});
+
+describe('the demo vault is never backed up (RC-UX-3.7)', () => {
+	it('refuses a full backup and a restore in the demo vault and leaves it unchanged', async () => {
+		await note('Original campaign note');
+		const backup = await exportFullVault();
+		const demo = createLocalVault('Demo campaign', 'demo');
+		await nextDocument(demo.id);
+		expect(isDemoLocalVault()).toBe(true);
+		await note('Demo note');
+		const before = (await loadCoreState()).sync.operations.length;
+
+		await expect(exportFullVault()).rejects.toThrow(DEMO_VAULT_BACKUP_REFUSAL);
+		await expect(importFullVault(backup)).rejects.toThrow(DEMO_VAULT_BACKUP_REFUSAL);
+		expect((await loadCoreState()).sync.operations.length).toBe(before);
+
+		// Back in the GM's own vault both still work.
+		await nextDocument('primary');
+		expect(isDemoLocalVault()).toBe(false);
+		await expect(exportFullVault()).resolves.toMatchObject({ format: 'dndtools-vault-backup' });
+	});
+
+	it('treats an extra vault missing from the catalog as the demo (fail closed)', () => {
+		expect(isDemoLocalVault('primary')).toBe(false);
+		expect(isDemoLocalVault(createLocalVault('Mountain').id)).toBe(false);
+		expect(isDemoLocalVault(createLocalVault('Demo campaign', 'demo').id)).toBe(true);
+		expect(isDemoLocalVault('local-unknown')).toBe(true);
+	});
+
+	it('forgets only the demo vault’s own preferences', () => {
+		const demo = createLocalVault('Demo campaign', 'demo');
+		const other = createLocalVault('Mountain');
+		window.localStorage.setItem(vaultPreferenceKey('dndtools:react:recents', demo.id), '["a"]');
+		window.localStorage.setItem(vaultPreferenceKey('dndtools:react:recents', other.id), '["b"]');
+		window.localStorage.setItem('dndtools:react:recents', '["c"]');
+
+		forgetLocalVaultPreferences(demo.id);
+
+		expect(window.localStorage.getItem(vaultPreferenceKey('dndtools:react:recents', demo.id))).toBe(
+			null,
+		);
+		expect(
+			window.localStorage.getItem(vaultPreferenceKey('dndtools:react:recents', other.id)),
+		).toBe('["b"]');
+		expect(window.localStorage.getItem('dndtools:react:recents')).toBe('["c"]');
+		expect(() => forgetLocalVaultPreferences('primary')).toThrow();
 	});
 });

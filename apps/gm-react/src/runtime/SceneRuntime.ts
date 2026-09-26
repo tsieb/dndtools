@@ -428,12 +428,19 @@ export class SceneRuntime {
 	private async seedDemoInOneCommit(): Promise<void> {
 		const before = this.innerState;
 		const env = this.options.env;
+		const registry = this.mcpToolRegistry;
 		const staged = {
 			state: before,
 			defaultActorId: this.defaultActorId,
 			async dispatch(command: CoreCommand): Promise<CommandResult> {
 				const result = dispatchCommand(staged.state, env, command);
 				if (result.status === 'accepted') staged.state = result.nextState;
+				return result;
+			},
+			// RC-UX-3.7 — the demo vault's staged assistant proposal takes the agent pipeline, as live.
+			async invokeAgentTool(invocation: McpAgentInvocation): Promise<McpAgentToolResult> {
+				const { result, nextState } = invokeMcpToolAsAgent(staged.state, env, registry, invocation);
+				staged.state = nextState;
 				return result;
 			},
 		};

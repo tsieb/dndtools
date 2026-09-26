@@ -92,8 +92,19 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'vaults.lastOpened': 'Última apertura: {date}',
 	'vaults.neverOpened': 'Aún no se ha abierto',
 	'vaults.openNamed': 'Abrir {name}',
-	'vaults.demo': 'Probar la campaña de ejemplo',
-	'vaults.demoUnavailable': 'La campaña de ejemplo aún no está disponible aquí.',
+	'vaults.demo': 'Explorar la campaña de demostración',
+	'vaults.demoHint':
+		'Una campaña terminada para tomar ideas. Se queda en este dispositivo: nunca se sincroniza ni se respalda, y no puede organizar ni unirse a una mesa.',
+	'vaults.demoName': 'Campaña de demostración',
+	'vaults.demoBadge': 'Demo',
+	'vaults.demoNamed': '{name} (demo)',
+	'vaults.demoReset': 'Restablecer la demostración',
+	'vaults.demoResetConfirm':
+		'¿Devolver la demostración a su estado inicial? Se borran tus cambios en la demostración. Tus propias campañas no se tocan.',
+	'vaults.demoResetAction': 'Restablecer demostración',
+	'vaults.demoLeave': 'Volver a mi campaña',
+	'vaults.demoNoTable':
+		'La campaña de demostración no puede organizar ni unirse a una mesa. Abre tu propia campaña para jugar con tu grupo.',
 
 	'common.action.save': 'Guardar',
 	'common.action.cancel': 'Cancelar',

@@ -37,6 +37,7 @@ import {
 	loadCoreState,
 	restoreFullVaultState,
 	validateRestoredCoreState,
+	isDemoLocalVault,
 	type AssetBlobRecord,
 } from './storage/coreStore';
 import { getAssetBytes, listAssetBytes, putAssetBytes } from './storage/assetStore';
@@ -130,7 +131,16 @@ const REQUIRED_SLICE_KEYS = [
 	'sync',
 ] as const;
 
+/** RC-UX-3.7 — the demo vault is a sandbox: nothing is backed up from it or restored into it. */
+export const DEMO_VAULT_BACKUP_REFUSAL =
+	'The demo campaign is never backed up. Open your own campaign to back it up or restore it.';
+
+function refuseDemoVault(): void {
+	if (isDemoLocalVault()) throw new VaultBackupValidationError(DEMO_VAULT_BACKUP_REFUSAL);
+}
+
 export async function exportFullVault(): Promise<VaultBackup> {
+	refuseDemoVault();
 	const slice = await loadCoreState();
 	const assets = await listAssetBytes();
 	const rawAssetBytes = assets.reduce((total, entry) => total + entry.bytes.byteLength, 0);
@@ -321,6 +331,7 @@ export interface VaultRestoreResult {
  * corrupt media fails before mutation and unrelated blobs from the prior vault do not survive.
  */
 export async function importFullVault(backup: VaultBackup): Promise<VaultRestoreResult> {
+	refuseDemoVault();
 	const prepared = prepareVaultBackup(backup);
 	await restoreFullVaultState(prepared.backup.slice, prepared.assetRecords);
 	return { restoredAssets: prepared.assetRecords.length, skippedAssets: 0 };
