@@ -210,3 +210,17 @@
 - loop/rc moved to `9cf8265e` (RC-ENG-8.1, six commits, no `src/ds` changes) during validation; the
   rebase was clean. Reran on `9cf8265e` + task: typecheck, lint, systems:validate, gates, build
   (82 assets clean), test:app (152 files / 1,698 tests) and format:check:changed all PASS.
+
+## Central gate retry — 1da5a55c (Tooling tests red)
+
+- Read the full original log for run `7983cc23-12ca-4c58-a77b-e9457a9fd061`. All other gates were
+  green, including the pinned visual container. `pnpm test:tooling` failed 4 of 221 tests, all in
+  `tests/unit/emphasis-lint.test.ts` › "counts DS inline fills with the real Button", with ENOENT
+  on the deleted `ds/components/core/Button.jsx`. The local runs above never covered `test:tooling`.
+- Crossing (test file, not in the granted list): the fixture now reads `Button.tsx` under the key
+  `Button.tsx` and imports `./Button`, three lines. The test feeds the real Button source to
+  the lint so scanning Button's own internals cannot add or mask findings. The fix keeps that intent;
+  the synthetic `ds/Cards.jsx` fixture at line 71 is not a real file and stays unchanged.
+- Note: `multiple-accent-primaries` matches `<Button>` by tag name, so an unresolvable import still
+  passes (checked by mutation). The fixture's value is the real-source scan, and that still holds.
+- PASS `pnpm test:tooling`: 29 files / 221 tests. No `src/ds` or runtime change in this retry.

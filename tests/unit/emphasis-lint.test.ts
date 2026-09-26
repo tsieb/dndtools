@@ -339,11 +339,11 @@ describe('review regressions', () => {
 	])('counts DS inline fills with the real Button: %s', (props, count) => {
 		const findings = lint(
 			{
-				'Button.jsx': fs
-					.readFileSync(path.join(REPO_ROOT, SRC, 'ds/components/core/Button.jsx'), 'utf8')
+				'Button.tsx': fs
+					.readFileSync(path.join(REPO_ROOT, SRC, 'ds/components/core/Button.tsx'), 'utf8')
 					.split('\n'),
 				'Page.tsx': [
-					"import { Button } from './Button.jsx';",
+					"import { Button } from './Button';",
 					`export const Page = () => <div><Button ${props}>One</Button><Button ${props}>Two</Button></div>;`,
 				],
 			},
