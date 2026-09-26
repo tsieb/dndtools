@@ -86,3 +86,15 @@ clean on mobile. No agents, dispatcher mutations, push or promotion.
 /board --update-snapshots=changed`), inspected tavern (List | Layout pair, 12px text), then
   losslessly re-deflated IDAT with zlib level 9 (decompressed bytes identical; −1.4 KiB). Budget:
   32,664.5 of 32,768 KiB. Container compare, `/board` on all visual projects: 9/9 passed.
+
+## Session 4 — 2026-09-26
+
+- Session 3 ended on a provider allowance limit after committing the re-baselines. `loop/rc` had
+  moved to `4ba1e9bf` (RC-CAN-5.2 session action bar), which conflicted in `Board.tsx` imports.
+  Rebased onto it: kept `SessionActionBar` and dropped `StackedLayoutToggle` (replaced by
+  `Phone.PhoneViewSwitch`). Board is 788 lines. Typecheck clean.
+- Browser run, both projects: `phone-navigator`, `session-action-bar`, `a11y-axe-gate`, `canvas`:
+  173 passed, 9 skipped, exit 0. `ux-audit` + `widget-trust-review`, both projects: 14/14.
+- ESLint on the touched files clean; `format:check:changed -- --base loop/rc` clean (10 files).
+- The visual baselines are unaffected: the session bar renders only while the session is live, and
+  the golden `/board` route isn't live.
