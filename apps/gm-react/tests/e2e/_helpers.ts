@@ -217,10 +217,21 @@ export function dispatch(
 	}, command);
 }
 
-/** Collect every runtime/network failure from installation until the page closes. No allowlist. */
+/**
+ * Chromium's own console error when the host has no audio output device (GitHub's hosted runners
+ * have none). It describes the machine, not the app, so it is the one console message not counted.
+ */
+const HOST_AUDIO_DEVICE_ERROR =
+	'The AudioContext encountered an error from the audio device or the WebAudio renderer.';
+
+/**
+ * Collect every runtime/network failure from installation until the page closes. No allowlist
+ * beyond the host's missing audio device.
+ */
 export function watchJourney(page: Page) {
 	const failures: string[] = [];
 	page.on('console', (message) => {
+		if (message.text() === HOST_AUDIO_DEVICE_ERROR) return;
 		if (['error', 'warning'].includes(message.type()))
 			failures.push(`console ${message.type()}: ${message.text()}`);
 	});

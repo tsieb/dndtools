@@ -544,8 +544,11 @@ const syncReconciliation: Scenario = {
 			);
 			return {
 				samples,
-				scenario: 'Reload → hydrate storage and replay the durable op log to a loaded runtime.',
-				fixture: `${ops} queued operations (${seeded} seeded notes) (budget dataset: 1,000 queued operations)`,
+				scenario: `Reload → hydrate storage and replay the durable op log (${ops} operations) to a loaded runtime.`,
+				// The fixture names the input only. The op count is what the revision under test writes for
+				// that input, so it differs between reference and candidate whenever seeding records more
+				// ops (RC-KNW-5.2 note history), and CI treats a fixture mismatch as an invalid baseline.
+				fixture: `${seeded} seeded notes (budget dataset: 1,000 queued operations)`,
 				profile: 'desktop',
 			};
 		} finally {

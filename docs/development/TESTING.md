@@ -293,7 +293,8 @@ run. It tests no real LAN connectivity, cloud service or native discovery.
 
 `watchJourney` attaches **before navigation** and retains console warnings/errors, uncaught page
 errors, failed requests and HTTP responses >=400 for the entire journey. It has no warning or URL
-allowlist. Named `checkpoint` calls retain surface defects while allowing the rest of a journey to
+allowlist; the one message it drops is Chromium's own "AudioContext encountered an error from the
+audio device" line, which hosted CI runners (no audio output device) print on every page. Named `checkpoint` calls retain surface defects while allowing the rest of a journey to
 run; `assertHealthy` fails with all accumulated diagnostics. A successful domain flow is therefore
 not a passing journey when its health diagnostics fail.
 

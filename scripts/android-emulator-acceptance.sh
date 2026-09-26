@@ -163,7 +163,7 @@ wait_for_ui_text() {
 
 # The Command Center's primary CTA is state-dependent (CommandCenter.tsx): "Open scene" with no
 # live session, "Enter scene" when live on a table scene, and "Enter GM Screen" when the live scene
-# is the GM Screen's own home scene. `Session`'s "Go live" falls back to that home scene when
+# is the GM Screen's own home scene. `Session`'s "Start session" falls back to that home scene when
 # nothing else is active — which is exactly what happens on the fresh install this script drives —
 # so an assertion that only means "we are back on the root destination" must accept any of them.
 wait_for_root_destination() {
@@ -398,11 +398,17 @@ wait_for_ui_text 'Open scene' || fail 'root destination did not render after fir
 step 'accepted session command and router Back'
 tap_ui_button 'Session' || fail 'Session navigation control was not reachable'
 wait_for_ui_text 'LIVE SESSION' || fail 'Session destination did not render'
-tap_ui_button 'Go live' || {
-	echo 'Android acceptance: accessibility tree before Go live tap failure:' >&2
+# RC-SES-6.2 renamed the header primary "Go live" to "Start session". It opens the start dialog,
+# whose confirm button carries the same label. The dialog's own description says "the scene players
+# see", so "Players see" only proves the command once the dialog has closed.
+tap_ui_button 'Start session' || {
+	echo 'Android acceptance: accessibility tree before Start session tap failure:' >&2
 	dump_ui >&2 || true
 	fail 'the session.set-workflow command was not reachable'
 }
+wait_for_ui_text 'Start a session' || fail 'the start-session dialog did not open'
+tap_ui_button 'Start session' || fail 'the start-session dialog could not be confirmed'
+wait_for_ui_text_absent 'Start a session' || fail 'the start-session dialog did not close'
 wait_for_ui_text 'Players see' \
 	|| fail 'the session.set-workflow command was not accepted'
 adb shell input keyevent KEYCODE_BACK
