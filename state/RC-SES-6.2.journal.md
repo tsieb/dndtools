@@ -42,3 +42,17 @@
 - `desktop:smoke` (DISPLAY=:0 with the mutter Xauthority): PASS, including "Go live drives the OS badge" (the check's label; it now clicks Start session). Log: `/tmp/rc-ses-6-2-desktop-smoke.log`.
 - gm-react typecheck exit 0; ESLint on changed files exit 0; boundary lint passed; raw-style count and emphasis lint within baseline; Prettier `--check` on every changed file passed. `format:check:changed --base loop/rc` reported "no supported files changed" before committing (it diffs commits, so an uncommitted tree is a false green), so the direct Prettier check above is the one that counts.
 - Browser acceptance and the independent central gates are left to the central operator.
+
+## Attempt 2 (2026-09-26: claim fence on two paths, now owned)
+
+- Gate feedback: "candidate changes paths outside its claim: `apps/gm-react/electron/smoke-parity.cjs`, `docs/user/running-a-session.md`". The operator brief of 2026-09-26 adds both to `Owns`. The candidate (`0c9e4e2d`, rebased by the operator onto `81b17c78`) is unchanged. This attempt adds only the justification below and fresh verification. No implementation was rewritten.
+- Minimal-change justification:
+  - `apps/gm-react/electron/smoke-parity.cjs` (2 lines): `clickControl(win, 'Go live')` → `'Start session'`, plus the comment naming the control. `clickControl` matches the button's accessible name exactly (or `name — …`). The top bar control reads `session.goLive.label`, which this story rewords, so without this line `desktop:smoke` loops until timeout and never reaches the OS-badge check. The check's own label ("Go live drives the OS badge") was left as is: it is the name of a check in the report, not UI copy.
+  - `docs/user/running-a-session.md` (1 paragraph): this is the in-app Help guide (`HelpMenu.tsx` bundles it with `?raw`). It told users to press **Go live**, a control that no longer exists by that name. It now says **Start session**, that dice, tables, combat and handouts work beforehand, that a roll made then is marked "Outside a session" and left out of the log and recap, and that starting starts the log, the clock and the automations. Nothing else in the guide changed.
+- Base check: `81b17c78` differs from `6fd96887` (where the full validation above ran) by one docs journal only, so that validation covers identical code. `loop/rc` has since moved to `4b688ef5`. `git merge-tree --write-tree loop/rc HEAD` merges clean, and the merged tree's EN/ES catalogs contain no "go live" / "entrar en vivo" copy.
+- Fresh validation on `0c9e4e2d`:
+  - gm-react typecheck: exit 0.
+  - Vitest over i18n, screens/session and app/widgets: 16 files / 293 tests passed (`/tmp/rc-ses-6-2-a2-vitest.log`).
+  - Acceptance e2e `session-standby.spec.ts` + `session-lifecycle.spec.ts` on desktop and mobile: 18 passed (`/tmp/rc-ses-6-2-a2-e2e.log`).
+  - The `desktop:smoke` PASS recorded above ran with this exact `smoke-parity.cjs` content.
+- No push, promotion, delegation or dispatcher-state edits.
