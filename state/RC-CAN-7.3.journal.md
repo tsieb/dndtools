@@ -98,3 +98,49 @@
   (the `/scenes` alias bug above, fixed; co-dm + collab + screens then 32/32), responsive.spec:1552
   (/play skip link, the known ~30% base flake). The machine is loaded (load average ~15), so the run
   was at 629/1468 after an hour.
+
+## 2026-09-26 — attempt 3 (resumed after a second provider allowance stop)
+
+- Found both commits (`c4b06afe`, `3d7ac752`) in place. loop/rc had moved 20 commits (RC-CAN-5.2
+  session action bar, RC-CAN-5.4 phone navigator, knowledge polish) and conflicted, so merged
+  `origin/loop/rc` (`bbbbbd85`) in as `41ae7c61`:
+  - `Board.tsx`: kept the flow branch and `BoardLayoutBanner`, took loop/rc's `ZoomPresetGroup`
+    (still hidden for flow), `PhoneNavigator`, `SessionActionBar` and `chromeHidden` (the banner now
+    hides on it). Raw-style allow-list: Board 3 (loop/rc had 7, this branch 4, the merge counts 3).
+  - Phone `board--*` baselines: re-captured in the pinned container
+    (`run-in-container.sh tests/visual/golden-routes.spec.ts --update-snapshots=changed`, 216
+    passed, only those 3 rewritten), IDAT re-deflated losslessly, then re-compared: 18/18 board/scenes
+    captures pass. Budget **32,427.4 KiB of 32,768 KiB**.
+- Post-merge e2e fallout, fixed:
+  - `session-action-bar.spec:161` (new on loop/rc) asserted the URL contains `/board`; `/board`
+    now resolves to `/screen/:home`, so it asserts the URL is unchanged by Next turn.
+  - `canvas.spec` "Move, Visibility and Remove" (mobile, 3/3): the screen header's extra row pushed
+    the tile action menu's open Visibility group past the bottom of the phone viewport ("Players"
+    unreachable; on base it only just fit — screenshot compared on a /tmp loop/rc worktree, 3/3
+    pass there). Crossed into `app/canvas/TileActionMenu.tsx`: the fixed panel now caps its height
+    to the side it opens on and scrolls, and its scroll-dismiss listener ignores the panel's own
+    scroll (without that, End → Remove scrolled the panel and closed it). Tile-menu tests 24/24
+    (repeat-each 2, both profiles).
+  - `command-palette.spec:410` (this story's New screen test) failed 3/20: Escape pressed the moment
+    the dialog was visible was dropped. It now waits for the palette to close and Name to be
+    focused: 30/30.
+- Validation on the merged tree: typecheck clean; `pnpm lint` exit 0 (0 errors);
+  `format:check:changed -- --base origin/loop/rc` clean; `pnpm test:app`: 148 files / 1672 passed.
+  Targeted e2e, both profiles (screens, phone-navigator, session-action-bar, canvas,
+  command-palette, systems, missing-primitives, sync, co-dm, collab, responsive, a11y-axe-gate,
+  widget-kit): 429 passed, 2 failed — palette:410 (fixed above) and `responsive.spec:1552`
+  (/play skip link, the known ~30% base flake). The full `pnpm e2e` was not re-run.
+
+## 2026-09-26 — attempt 4 (rebase conflict on 4b688ef5)
+
+- Gate feedback: rebasing onto `4b688ef5` conflicted in `Board.tsx` and the raw-style allow-list.
+  Cause: the rebase replays the pre-merge feature commits and drops `41ae7c61` (the loop/rc merge
+  that had already reconciled them), so it re-met the same conflicts.
+- Fix: rebuilt the branch linearly on `4b688ef5` (the loop/rc tip, one Android CI commit past the
+  merged `bbbbbd85`). `6e298cc9` carries the reconciled tree (`git merge-tree 41ae7c61 4b688ef5`,
+  clean) as the one feature commit; the post-merge fix is cherry-picked on top. The resulting tree
+  differs from the old tip `769ad1b8` only by `4b688ef5`'s own three files, and
+  `git rebase 4b688ef5` now reports up to date. Old tip kept locally as `can73-backup-769ad1b8`.
+- Rechecked on the rebuilt tree: gm-react typecheck clean; eslint on the changed app code 0 errors;
+  `android-emulator-acceptance.test.ts` 8 passed. The attempt-3 e2e/visual/unit evidence covers the
+  same app tree.

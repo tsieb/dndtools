@@ -415,6 +415,10 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		// The launcher opened the New screen dialog; a modal owns the keyboard, so close it first.
 		const createDialog = page.getByRole('dialog', { name: 'New screen' });
 		await expect(createDialog).toBeVisible();
+		// Wait for the palette to be gone and the dialog to have sent focus in: an Escape pressed the
+		// moment the dialog became visible was dropped in ~15% of runs and left it open.
+		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+		await expect(createDialog.getByRole('textbox', { name: 'Name' })).toBeFocused();
 		await page.keyboard.press('Escape');
 		await expect(createDialog).toHaveCount(0);
 

@@ -156,9 +156,11 @@ test.describe('phone session action bar', () => {
 		expect(colours.border).toBe(colours.combat);
 
 		const before = await turnCursor(page);
+		// `/board` resolves to the GM screen's `/screen/:id` (RC-CAN-7.3); the bar must not leave it.
+		const onBoard = page.url();
 		await next.click();
 		await expect.poll(() => turnCursor(page)).not.toBe(before);
-		expect(page.url()).toContain('/board');
+		expect(page.url()).toBe(onBoard);
 
 		const ended = await dispatch(page, { type: 'combat.end', actorId: 'dm-1', payload: {} });
 		expect(ended.status, ended.rejection?.message ?? '').toBe('accepted');

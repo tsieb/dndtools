@@ -157,10 +157,15 @@ export function TileActionMenu({
 	const widgetDefs = runtime.state.widgets;
 	const bindable = useMemo(() => !!bindingSlot(widgetDefs, w.type), [widgetDefs, w.type]);
 
-	// A fixed panel cannot follow a scrolling canvas, so a scroll anywhere dismisses it.
+	// A fixed panel cannot follow a scrolling canvas, so a scroll anywhere dismisses it — except the
+	// panel's own, which a capped-height menu does when focus walks to a row below its fold.
 	useEffect(() => {
 		if (!box) return;
-		const dismiss = () => setBox(null);
+		const dismiss = (e: Event) => {
+			if (e.target instanceof Element && e.target.closest('[data-testid="tile-actions-menu"]'))
+				return;
+			setBox(null);
+		};
 		window.addEventListener('scroll', dismiss, true);
 		return () => window.removeEventListener('scroll', dismiss, true);
 	}, [box]);
@@ -280,13 +285,17 @@ export function TileActionMenu({
 	const onSceneEditor = globalThis.location.hash.startsWith('#/scene/');
 	const configurable = onSceneEditor || settingsFields(w).length > 0;
 	// Right-aligned to the trigger, clamped to the layout viewport as the DS Popover clamps itself.
+	// It opens on the roomier side and scrolls inside that room: on a phone the open Visibility
+	// group made it taller than the space under a tile near the top, leaving its last rows unreachable.
 	const vp = document.documentElement;
+	const below = vp.clientHeight - (box?.bottom ?? 0);
 	const panelStyle = box && {
 		position: 'fixed',
 		left: Math.max(8, Math.min(box.right - MENU_WIDTH, vp.clientWidth - MENU_WIDTH - 8)),
-		...(vp.clientHeight - box.bottom >= box.top
-			? { top: box.bottom + 4 }
-			: { bottom: vp.clientHeight - box.top + 4 }),
+		...(below >= box.top
+			? { top: box.bottom + 4, maxHeight: below - 12 }
+			: { bottom: vp.clientHeight - box.top + 4, maxHeight: box.top - 12 }),
+		overflowY: 'auto' as const,
 	};
 
 	return (
