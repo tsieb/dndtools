@@ -27,7 +27,7 @@ import {
 	CallRestDialog,
 	RestTimelinePanel,
 	SessionHeader,
-	StandbyCard,
+	StandbyStatus,
 	StartSessionDialog,
 	type SessionStartChoice,
 } from './Lifecycle';
@@ -51,9 +51,9 @@ import { useSessionView } from './useSessionView';
  * (`session.set-active-map/project-active-map`), the campaign date (`session.set-campaign-date`
  * over `getCalendarContinuityForActor` — the control the Campaign timeline points at), and the
  * SES-009 prep/recap panel (the `getPrepRecapDigest` continuity digest, the session archives, and
- * recap authoring via `session.author-recap`). Combat, dice,
- * and delivery are Processing-Core gated to the live (`active`) workflow, so the console guides the
- * DM to go live first. Reads are actor-filtered, so previewing as a player projects the player-safe
+ * recap authoring via `session.author-recap`). Combat, dice, tables
+ * and delivery work in every workflow state (RC-SES-6.1/6.2); starting the session starts the log,
+ * the clock and the automations, so a roll made outside it is kept but not logged. Reads are actor-filtered, so previewing as a player projects the player-safe
  * view; every durable write is rejected read-only while previewing. Tracker rows follow the DS
  * InitiativeRow anatomy (mono initiative · avatar with gold turn ring · gold active left rail ·
  * HPBar) with per-condition ConditionBadge chips from the CONDITIONS registry (distinct icon per
@@ -302,8 +302,15 @@ export function Session() {
 	async function deliverHandout(): Promise<void> {
 		const title = handoutTitle.trim();
 		if (!title) return;
-		if (!activeSceneId) {
-			Toaster.warning(t('session.goLive.needsSceneShort'));
+		// RC-SES-6.2 — a push works outside a session too, where no scene is active: it lands on the
+		// scene a "Continue" start would resume, else the first scene the DM can see.
+		const sceneId =
+			activeSceneId ??
+			startableScenes.find((scene) => scene.id === continueSceneId())?.id ??
+			startableScenes[0]?.id ??
+			null;
+		if (!sceneId) {
+			Toaster.warning(t('session.goLive.needsScene'));
 			return;
 		}
 		if (players.length === 0) {
@@ -319,7 +326,7 @@ export function Session() {
 					sections: [
 						{ heading: title, body: handoutBody.trim(), visibility: 'player-visible' as const },
 					],
-					sceneId: activeSceneId,
+					sceneId,
 					recipientActorIds: players.map((p) => p.id),
 				},
 			},
@@ -333,10 +340,11 @@ export function Session() {
 
 	const selected = tracker.combatants.find((c) => c.id === selectedId) ?? null;
 	const condPickTarget = tracker.combatants.find((c) => c.id === condPickFor) ?? null;
-	// `canDeliver` gates only on DM-ness + being live: requiring `activeSceneId`/`players.length` here
+	// `canDeliver` gates only on DM-ness + not previewing: requiring a scene/`players.length` here
 	// too made `deliverHandout`'s two Toaster.warning branches DEAD, so a DM with no registered players
-	// saw a permanently greyed "Push to players" and was never told why.
-	const canDeliver = isDm && isLive;
+	// saw a permanently greyed "Push to players" and was never told why. RC-SES-6.2 — a push works in
+	// every workflow state, so being live is no longer part of it.
+	const canDeliver = isDm && !previewing;
 
 	return (
 		<Page max={1280}>
@@ -346,21 +354,14 @@ export function Session() {
 				sessionTitle={runtime.state.session.title}
 				previewing={previewing}
 				isDm={isDm}
+				canStart={canGoLive}
 				onSetWorkflow={(w) => setWorkflow(w)}
+				onStart={openStart}
 				onEnd={() => setStandbyConfirmOpen(true)}
 				onCallRest={() => setRestOpen(true)}
 			/>
 
-			{!isLive && (
-				<StandbyCard
-					workflow={workflow}
-					canGoLive={canGoLive}
-					previewing={previewing}
-					isDm={isDm}
-					onGoLive={openStart}
-					t={t}
-				/>
-			)}
+			{!isLive && <StandbyStatus workflow={workflow} canStart={canGoLive} t={t} />}
 
 			<div
 				style={{
@@ -373,7 +374,6 @@ export function Session() {
 			>
 				<CombatPanel
 					tracker={tracker}
-					isLive={isLive}
 					isDm={isDm}
 					selectedId={selectedId}
 					selected={selected}
@@ -461,7 +461,6 @@ export function Session() {
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<DicePanel
 						rolls={dice.rolls}
-						isLive={isLive}
 						previewing={previewing}
 						expr={diceExpr}
 						onExpr={setDiceExpr}
@@ -480,7 +479,6 @@ export function Session() {
 						draws={tableDraws}
 						pins={quickPins}
 						isDm={isDm}
-						isLive={isLive}
 						previewing={previewing}
 						onRoll={(table: TableView) =>
 							void dispatch({
@@ -510,7 +508,6 @@ export function Session() {
 						handouts={handouts}
 						status={handoutStatus}
 						isDm={isDm}
-						isLive={isLive}
 						previewing={previewing}
 						canDeliver={canDeliver}
 						title={handoutTitle}
@@ -549,7 +546,10 @@ export function Session() {
 						maps={maps}
 						activeMapId={activeMapId}
 						isDm={isDm}
-						isLive={isLive}
+						// RC-SES-6.2 — projecting works in every workflow state (RC-SES-6.1 made
+						// `session.project-active-map`/`project-player-view` always available), so the
+						// Stage panel's live gate is held open.
+						isLive
 						previewing={previewing}
 						onSelect={(mapId) =>
 							dispatch(

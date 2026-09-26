@@ -8,7 +8,7 @@ import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 // reachable only by moving the phase rail onto a radio labelled "Standby" — whose one outcome threw
 // the whole session away with no archive. This spec drives both flows through the UI and asserts the
 // durable core state that comes out, including that the core's `allowedTransitionsFrom` gating is
-// still what decides which endings are offered.
+// still what decides which endings are offered. RC-SES-6.2 renamed the control "Start session".
 
 const phases = (page: Page) => page.getByRole('radiogroup', { name: 'Session phase' });
 const startDialog = (page: Page) => page.getByRole('dialog', { name: 'Start a session' });
@@ -63,9 +63,11 @@ test.describe('starting a session is a flow, not a silent press', () => {
 		await setWorkflow(page, 'prep');
 	});
 
-	test('Go live asks which scene, and continuing keeps the session unnamed', async ({ page }) => {
+	test('Start session asks which scene, and continuing keeps the session unnamed', async ({
+		page,
+	}) => {
 		expect((await session(page)).workflow).toBe('prep');
-		await page.getByRole('button', { name: 'Go live', exact: true }).click();
+		await page.getByRole('button', { name: 'Start session', exact: true }).click();
 
 		const dialog = startDialog(page);
 		await expect(dialog).toBeVisible();
@@ -73,7 +75,7 @@ test.describe('starting a session is a flow, not a silent press', () => {
 		expect((await session(page)).workflow).toBe('prep');
 		await expect(dialog.getByText(/^Continue .+\?$/)).toBeVisible();
 
-		await dialog.getByRole('button', { name: 'Go live', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 		await expect(dialog).toBeHidden();
 		await expect.poll(async () => (await session(page)).workflow).toBe('active');
 		const live = await session(page);
@@ -82,7 +84,7 @@ test.describe('starting a session is a flow, not a silent press', () => {
 	});
 
 	test('a new session takes the scene and the name it was given', async ({ page }) => {
-		await page.getByRole('button', { name: 'Go live', exact: true }).click();
+		await page.getByRole('button', { name: 'Start session', exact: true }).click();
 		const dialog = startDialog(page);
 		await dialog.getByRole('radio', { name: 'New session' }).click();
 
@@ -90,7 +92,7 @@ test.describe('starting a session is a flow, not a silent press', () => {
 		await expect(scene).toBeVisible();
 		const sceneId = await scene.inputValue();
 		await dialog.getByLabel('Session name').fill('  Session 12 — the drowned vault  ');
-		await dialog.getByRole('button', { name: 'Go live', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 
 		await expect.poll(async () => (await session(page)).workflow).toBe('active');
 		const live = await session(page);
@@ -102,7 +104,7 @@ test.describe('starting a session is a flow, not a silent press', () => {
 	});
 
 	test('cancelling leaves the session exactly where it was', async ({ page }) => {
-		await page.getByRole('button', { name: 'Go live', exact: true }).click();
+		await page.getByRole('button', { name: 'Start session', exact: true }).click();
 		await startDialog(page).getByRole('button', { name: 'Cancel' }).click();
 		await expect(startDialog(page)).toHaveCount(0);
 		expect((await session(page)).workflow).toBe('prep');
@@ -123,13 +125,13 @@ test('with nothing to continue, the start flow opens straight on the scene picke
 	page,
 }) => {
 	expect((await session(page)).workflow).toBe('idle');
-	await page.getByRole('button', { name: 'Go live', exact: true }).click();
+	await page.getByRole('button', { name: 'Start session', exact: true }).click();
 	const dialog = startDialog(page);
 	await expect(dialog).toBeVisible();
 	await expect(dialog.getByRole('radiogroup', { name: 'How to start' })).toHaveCount(0);
 	await expect(dialog.getByLabel('Scene')).toBeVisible();
 	await dialog.getByLabel('Session name').fill('The drowned vault');
-	await dialog.getByRole('button', { name: 'Go live', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect.poll(async () => (await session(page)).workflow).toBe('active');
 	expect((await session(page)).title).toBe('The drowned vault');
 });
@@ -183,9 +185,9 @@ test.describe('ending a session offers both honest outcomes', () => {
 		// table says. Assert the gating the story must retain.
 		await setWorkflow(page, 'recap');
 		await expect(page.getByRole('button', { name: 'End session', exact: true })).toHaveCount(0);
-		const goLive = page.getByRole('button', { name: 'Go live', exact: true });
-		await expect(goLive).toHaveAttribute('aria-disabled', 'true');
-		await goLive.dispatchEvent('click');
+		const start = page.getByRole('button', { name: 'Start session', exact: true });
+		await expect(start).toHaveAttribute('aria-disabled', 'true');
+		await start.dispatchEvent('click');
 		await expect(startDialog(page)).toHaveCount(0);
 		expect((await session(page)).workflow).toBe('recap');
 	});

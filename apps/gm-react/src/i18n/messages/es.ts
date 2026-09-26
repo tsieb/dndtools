@@ -214,23 +214,24 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.state.wrappingUp': 'Finalizando',
 	'session.state.recap': 'Resumen',
 	'session.state.archived': 'Archivada',
-	'session.state.current': 'La sesión está en {state}',
 	'session.live.badge': 'Sesión en vivo',
-	'session.goLive.label': 'Entrar en vivo',
-	'session.goLive.blockedState': 'Entrar en vivo (no disponible — vuelve primero a En espera)',
+	// RC-SES-6.2 — the quiet status /session shows while no session is running.
+	'session.standby.notRecording':
+		'No se está registrando. Las tiradas y el combate se registran en cuanto empiezas la sesión.',
+	'session.goLive.label': 'Empezar la sesión',
+	'session.goLive.blockedState': 'Empezar la sesión (no disponible — vuelve primero a En espera)',
 	'session.goLive.blockedPreview':
-		'Entrar en vivo (no disponible — sal primero de la vista previa de jugador)',
+		'Empezar la sesión (no disponible — sal primero de la vista previa de jugador)',
 	'session.goLive.needsScene':
-		'Crea una escena primero — una sesión en vivo necesita una escena activa.',
-	'session.goLive.needsSceneShort': 'Entra en vivo con una escena primero.',
-	'session.goLive.exitPreview': 'Sal de la vista previa antes de entrar en vivo',
-	'session.goLive.finishState': 'Termina {state} y vuelve a En espera antes de entrar en vivo',
+		'Crea una escena primero — una sesión necesita una escena que mostrar a los jugadores.',
+	'session.goLive.needsSceneShort': 'Elige primero una escena activa.',
+	'session.goLive.exitPreview': 'Sal de la vista previa antes de empezar la sesión',
+	'session.goLive.finishState': 'Termina {state} y vuelve a En espera antes de empezar una sesión',
 	'session.goLive.returnToStandby':
-		'Vuelve primero a En espera — no puedes entrar en vivo desde {state}.',
-	'session.goLive.hint':
-		'Entra en vivo para abrir el combate, los dados, el material y lo que ven los jugadores.',
+		'Vuelve primero a En espera — una sesión no puede empezar desde {state}.',
+	'session.goLive.hint': 'Empieza el registro de la sesión, el reloj y las automatizaciones.',
 	'session.goLive.announcement':
-		'Estás en vivo — el combate, los dados y los mapas ya llegan a los jugadores',
+		'Sesión empezada — el registro, el reloj y las automatizaciones están en marcha',
 	'session.end.label': 'Terminar',
 	'session.end.liveLabel': 'Terminar la sesión en vivo',
 	'session.end.announcement': 'Sesión terminada — los jugadores volvieron a espera',
@@ -242,7 +243,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.start.newOption': 'Sesión nueva',
 	'session.start.continueQuestion': '¿Continuar {scene}?',
 	'session.start.continueBody':
-		'Los jugadores vuelven a {scene}, y el combate, los dados, los documentos y el mapa se abren de nuevo.',
+		'Los jugadores vuelven a {scene}, y empiezan el registro, el reloj y las automatizaciones.',
 	'session.start.scene': 'Escena',
 	'session.start.name': 'Nombre de la sesión',
 	'session.start.namePlaceholder': 'Sesión 12 — la cripta anegada',
@@ -251,7 +252,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.start.cancel': 'Cancelar',
 	'session.start.noScenes':
 		'Crea una escena primero — una sesión en vivo necesita una escena activa.',
-	'session.start.confirm': 'Ponerse en vivo',
+	'session.start.confirm': 'Empezar la sesión',
 	'session.header.sessionScene': 'Escena: {scene}',
 	'session.end.chooseBody':
 		'Terminar en Resumen archiva esta sesión — la escena y el mapa, el orden de iniciativa, los documentos y el registro de dados — para que puedas redactarla. Terminar sin registro lo borra todo y no archiva nada.',
@@ -492,7 +493,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.ready.partyRostered': 'El grupo está en la lista',
 	'onboarding.ready.mapInAtlas': 'Hay un mapa en el atlas',
 	'onboarding.ready.notesStarted': 'Notas de sesión empezadas',
-	'onboarding.ready.goLive': 'Entrar en vivo desde Sesión',
+	'onboarding.ready.goLive': 'Empieza una sesión desde Sesión',
 	'onboarding.ready.tourBoardTitle': 'Este es tu Centro de comandos',
 	'onboarding.ready.tourBoardBody':
 		'El tablero de widgets de juego en vivo — sesión, combate, dados, mapas. Todo lo que diriges en la mesa empieza aquí.',
@@ -514,8 +515,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.playerViews.assignAria': 'Escena proyectada a {name}',
 	'session.dice.title': 'Dados',
 	'session.dice.announcement': 'Tirada de {expression} — total {total}.',
-	'session.dice.goLive':
-		'Las tiradas se registran en la sesión en vivo — entra en vivo para tirar.',
 	'session.dice.expression': 'Expresión de dados',
 	'session.dice.expressionPlaceholder': 'p. ej. 3d6+2',
 	'session.dice.roll': 'Tirar',
@@ -528,8 +527,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.dice.breakdown.dropped': '{value} (descartado)',
 	// RC-SES-2.3 — la pestaña de tablas aleatorias.
 	'session.tables.title': 'Tablas aleatorias',
-	'session.tables.goLive':
-		'Las tiradas de tabla se registran en la sesión en vivo: inicia la sesión para tirar.',
 	'session.tables.roll': 'Tirar',
 	'session.tables.rowCount': '{count} filas',
 	'session.tables.pin': 'Fijar {title} en la referencia rápida',
@@ -568,18 +565,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.buildBlockedPreview':
 		'Sal de la vista previa de jugador para montar un encuentro',
 	'session.combat.buildBlockedNotDm': 'Pide a tu {gm} que prepare un encuentro.',
-	'session.combat.buildBlockedNotLive': 'Entra en vivo antes de montar un encuentro',
 	'session.combat.buildLabelPreview':
 		'Montar el encuentro (no disponible — sal primero de la vista previa de jugador)',
 	'session.combat.buildLabelNotDm': 'Montar el encuentro (no disponible — solo el {gm})',
-	'session.combat.buildLabelNotLive': 'Montar el encuentro (no disponible — entra en vivo primero)',
 	'session.combat.turnAnnouncement': 'Ronda {round}, turno {turn} — {name}.',
 	'session.combat.hitPointsAnnouncement': '{hp} de {max} puntos de golpe.',
 	'session.combat.noneRunning': 'No hay combate en curso',
-	'session.combat.goLiveTitle': 'Entra en vivo para empezar el combate',
 	'session.combat.noneRunningHelp':
 		'Monta un encuentro con tu lista — grupo, PNJ, monstruos —, fija la iniciativa y dirígelo.',
-	'session.combat.goLiveHelp': 'El combate solo está abierto mientras la sesión está en vivo.',
 	'session.combat.round': 'Ronda',
 	'session.combat.turn': 'Turno',
 	'session.combat.lowestHp': 'PG más bajos',
@@ -686,12 +679,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.handouts.kind.mapFragment': 'Fragmento de mapa',
 	'session.handouts.kind.cipher': 'Cifrado',
 	'session.handouts.kind.rumor': 'Rumor',
-	'session.handouts.goLive':
-		'Los documentos se entregan en la sesión en vivo — entra en vivo para enviarlos.',
 	'session.handouts.titleField': 'Título del documento',
 	'session.handouts.bodyField': 'Lo que leen los jugadores',
 	'session.handouts.bodyPlaceholder': 'Lo que leen los jugadores…',
-	'session.handouts.blockedNotLive': 'Entra en vivo para enviar documentos a los jugadores',
+	'session.handouts.blockedPreview':
+		'Sal de la vista previa de jugador para enviar documentos a los jugadores',
 	'session.handouts.blockedNoTitle': 'Ponle antes un título al documento',
 	'session.handouts.push': 'Enviar a los jugadores',
 	'session.handouts.playerIntro': 'Aquí aparecen los documentos que el {gm} comparte contigo.',
@@ -803,8 +795,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.header.theScene': 'la escena',
 	'session.phase.standbyReason': 'Termina la sesión en vivo para volver a En espera.',
 	'session.phase.prepReason': 'Vuelve a En espera antes de regresar a Preparación.',
-	'session.phase.liveReason': 'Vuelve a En espera antes de entrar en vivo otra vez.',
-	'session.phase.recapReason': 'Inicia una sesión en vivo y luego termínala con Resumen.',
+	'session.phase.liveReason': 'Vuelve a En espera antes de empezar otra sesión.',
+	'session.phase.recapReason': 'Empieza la sesión primero y luego termínala con Resumen.',
 	'session.endCombat.title': '¿Terminar este combate?',
 	'session.endCombat.body':
 		'La ronda {round} y el orden de iniciativa se descartan, junto con los PG actuales y los estados de cada combatiente. No hay deshacer — tendrías que volver a montar el encuentro desde tu lista.',
@@ -5413,7 +5405,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
 	'widgetBody.sessionOnly':
-		'Ponte en vivo en Sesión primero — esto solo llega a la mesa durante el juego.',
+		'Empieza la sesión en Sesión primero — esto solo llega a la mesa durante el juego.',
 	'widgetBody.note.empty': 'Nota vacía — selecciona el widget para añadir texto.',
 	'widgetBody.note.untitled': 'Nota sin título',
 	'widgetBody.note.depthBadge': 'Detalle: {depth}',

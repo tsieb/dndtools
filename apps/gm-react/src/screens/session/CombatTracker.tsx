@@ -30,7 +30,6 @@ import * as Initiative from '../../net/InitiativeCallParts';
 
 export function CombatPanel({
 	tracker,
-	isLive,
 	isDm,
 	selectedId,
 	selected,
@@ -52,7 +51,6 @@ export function CombatPanel({
 	onVisibility,
 }: {
 	tracker: CombatTrackerView;
-	isLive: boolean;
 	isDm: boolean;
 	selectedId: string | null;
 	selected: CombatantRow | null;
@@ -80,7 +78,8 @@ export function CombatPanel({
 	const { conditions: systemConditions } = useConditionCatalog();
 	const running = tracker.status === 'running';
 	// RC-SES-5.1 — during an initiative call (before round 1) nobody is active yet.
-	const call = Initiative.useCall(tracker, { isDm, isLive, previewing });
+	// RC-SES-6.2 — combat works in every workflow state, so the call's live gate is held open here.
+	const call = Initiative.useCall(tracker, { isDm, isLive: true, previewing });
 	const activeCombatant = call.calling
 		? null
 		: (tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ?? null);
@@ -208,24 +207,20 @@ export function CombatPanel({
 						// natively disabled button leaves the tab order — so the DM arrived at a mute dead
 						// control. The EmptyState below explains it, but only to sighted users who scroll;
 						// the reason belongs on the control that refuses.
-						aria-disabled={!isLive || previewing || !isDm || undefined}
+						aria-disabled={previewing || !isDm || undefined}
 						title={
 							previewing
 								? t('session.combat.buildBlockedPreview')
 								: !isDm
 									? t('session.combat.buildBlockedNotDm')
-									: !isLive
-										? t('session.combat.buildBlockedNotLive')
-										: t('session.combat.build')
+									: t('session.combat.build')
 						}
 						aria-label={
 							previewing
 								? t('session.combat.buildLabelPreview')
 								: !isDm
 									? t('session.combat.buildLabelNotDm')
-									: !isLive
-										? t('session.combat.buildLabelNotLive')
-										: t('session.combat.build')
+									: t('session.combat.build')
 						}
 						onClick={onStart}
 					>
@@ -265,8 +260,8 @@ export function CombatPanel({
 			{!running ? (
 				<EmptyState
 					icon="sword"
-					title={t(isLive ? 'session.combat.noneRunning' : 'session.combat.goLiveTitle')}
-					description={t(isLive ? 'session.combat.noneRunningHelp' : 'session.combat.goLiveHelp')}
+					title={t('session.combat.noneRunning')}
+					description={t('session.combat.noneRunningHelp')}
 				/>
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

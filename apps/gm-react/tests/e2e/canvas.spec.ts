@@ -741,15 +741,13 @@ test.describe('canvas: per-scene editor state does not bleed between scenes', ()
 	});
 });
 
-// The GM Screen ships seeded Dice and Timer widgets, and every dice/timer operate command declares
-// `writesTo: 'session'` — which the core refuses unless `session.workflow === 'active'`. The chips
-// were rendered fully live (accent-toned, keyboard operable) on a fresh, idle install, and the first
-// press printed the raw internal string "Session widget commands require an active workflow; current
-// workflow is idle." into the board's alert region.
-test.describe('canvas: session-only widget operations explain themselves', () => {
-	test('the GM Screen dice chip is soft-disabled with a reason while the session is idle', async ({
-		page,
-	}) => {
+// The GM Screen ships seeded Dice and Timer widgets. Their operate commands used to be refused unless
+// `session.workflow === 'active'`, so the chips were soft-disabled with a "go live" reason on a fresh
+// install. RC-SES-6.1 made them work in every workflow state and RC-SES-6.2 removed the gate from the
+// tiles: in Standby the chip is a real control, and the roll lands in the history marked with the
+// workflow it was made in (so it stays out of the session log).
+test.describe('canvas: widget dice roll outside a session', () => {
+	test('the GM Screen dice chip rolls while the session is idle', async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/board');
 		await seedFresh(page);
@@ -757,28 +755,25 @@ test.describe('canvas: session-only widget operations explain themselves', () =>
 		await waitReady(page);
 
 		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).not.toBe('active');
+		const before = await page.evaluate(() => window.__rt!.state.session.diceHistory.length);
 
-		// Scoped to the widget: once live, the session quick panel (RC-SES-1.2) puts its own
-		// "Roll 1dN" quick dice on every route, and they are not the GM Screen's chip.
 		const roll = page.locator('[data-testid^="widget-"]').getByRole('button', { name: /^Roll / });
 		await expect(roll).toHaveCount(1);
-		// Soft-disabled: it keeps its place in the tab order and carries its own explanation, rather
-		// than being natively `disabled` (unreachable) or silently live (rejected on press).
-		await expect(roll).toHaveAttribute('aria-disabled', 'true');
-		await expect(roll).toHaveAccessibleName(/Go live in Session/);
-		await roll.focus();
-		await expect(roll).toBeFocused();
-
-		// Pressing it is swallowed — no raw core rejection reaches the alert region. `locator.click()`
-		// refuses an `aria-disabled` target outright (which is itself the point), so dispatch the event
-		// directly to prove the handler, not just the actionability check, declines it.
-		await roll.dispatchEvent('click');
-		await expect(page.getByText(/current workflow is/)).toHaveCount(0);
-
-		// Going live turns the same chip into a real, unqualified control.
-		await goLive(page);
 		await expect(roll).not.toHaveAttribute('aria-disabled', 'true');
-		await expect(roll).toHaveAccessibleName(/^Roll /);
+		await expect(roll).not.toHaveAccessibleName(/go live|start the session/i);
+		await roll.click();
+
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.state.session.diceHistory.length))
+			.toBe(before + 1);
+		const last = await page.evaluate(() => {
+			const history = window.__rt!.state.session.diceHistory as unknown as Array<{
+				workflow?: string;
+			}>;
+			return history[history.length - 1]!.workflow;
+		});
+		expect(last).not.toBe('active');
+		await expect(page.getByText(/current workflow is/)).toHaveCount(0);
 	});
 });
 

@@ -1759,11 +1759,11 @@ test('rotating across the split width keeps the open detail mounted', async ({ p
 // audited screen by screen. On a phone the top bar holds the title, ONE inline action (Search: the
 // palette reaches every destination and command) and ONE labelled overflow ("Table controls"). That
 // overflow's bounded sheet holds the table utilities, including the only primary-weight control the
-// top bar owns (Go live / End session). A screen's own first screenful keeps to one filled action.
+// top bar owns (Start session / End session). A screen's own first screenful keeps to one filled action.
 // The screens that still show more are listed with the POL story that owns the fix. A ceiling only
 // ever comes down.
 const PRIMARY_ACTION_DEBT: Record<string, { ceiling: number; owner: string }> = {
-	// "Go live" and the soft-disabled "Build encounter" both fill above the fold on a phone.
+	// "Start session" and "Build encounter" both fill above the fold on a phone.
 	'/session': { ceiling: 2, owner: 'RC-POL-1.4' },
 };
 
@@ -1917,7 +1917,7 @@ for (const route of SHELL_SCREENS) {
 		await expectStillOn(page, route);
 
 		// The top bar: the title, Search and the Table controls overflow. Nothing else, on any screen,
-		// and nothing primary-weight: Go live lives inside the overflow.
+		// and nothing primary-weight: Start session lives inside the overflow.
 		const banner = page.getByRole('banner');
 		expect(await visibleControlNames(banner), `${route} top bar`).toEqual([
 			'Search',
@@ -1954,7 +1954,7 @@ for (const route of SHELL_SCREENS) {
 			.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')))
 			.toBe(true);
 		expect(await filledActions(controls), `${route} table controls primary action`).toEqual([
-			'Go live',
+			'Start session',
 		]);
 		await expectOverlayControlsReachable(page, `${route} table controls`);
 		await page.keyboard.press('Escape');
@@ -2003,7 +2003,7 @@ async function expectEndSessionConfirmOnScreen(
 ): Promise<{ controls: Locator; confirm: Locator }> {
 	await page.getByRole('button', { name: 'Table controls' }).click();
 	const controls = page.getByRole('dialog', { name: 'Table controls' });
-	await controls.getByRole('button', { name: 'Go live', exact: true }).click();
+	await controls.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
 	await controls.getByRole('button', { name: 'End live session' }).click();
 
@@ -2116,7 +2116,7 @@ for (const android of [false, true]) {
 
 // Wider compact top bars (the rail tier, and a desktop window under 1280px) have the width to keep the
 // table utilities inline as icons, so they carry no overflow, but they still hold the line on
-// primary weight: Go live is the one filled control, on every screen.
+// primary weight: Start session is the one filled control, on every screen.
 for (const viewport of [
 	{ name: 'rail', width: 800, height: 700 },
 	{ name: 'compact desktop', width: 1100, height: 700 },
@@ -2142,7 +2142,7 @@ for (const viewport of [
 
 			const filled = await filledActions(banner);
 			expect(filled, `${screen} ${viewport.name} top bar`).toHaveLength(1);
-			expect(filled[0], `${screen} ${viewport.name} top bar`).toMatch(/^Go live/);
+			expect(filled[0], `${screen} ${viewport.name} top bar`).toMatch(/^Start session/);
 			await expect(banner.getByRole('button', { name: 'Table controls' })).toHaveCount(0);
 			expect(await clippedControls(page, 'header'), `${screen} top bar clipped a control`).toEqual(
 				[],

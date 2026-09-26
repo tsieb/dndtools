@@ -119,10 +119,10 @@ app.whenReady().then(async () => {
 		win.focus();
 		await delay(200);
 		// The badge has to follow the app's OWN session lifecycle, not a test-only IPC call — so drive
-		// the production Go live control in the real renderer and watch the OS chrome follow it. This
+		// the production Start session control in the real renderer and watch the OS chrome follow it. This
 		// is the end-to-end proof that `session.workflow` reaches the dock badge / tray icon.
 		assert.equal(shell.isLiveSessionBadgeShown(), false);
-		await until(() => clickControl(win, 'Go live'));
+		await until(() => clickControl(win, 'Start session'));
 		await until(() => shell.isLiveSessionBadgeShown() === true);
 		await until(() => clickControl(win, 'End live session'));
 		await until(() =>

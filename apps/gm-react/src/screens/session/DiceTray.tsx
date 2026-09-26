@@ -103,7 +103,6 @@ function exportRollLogText(rolls: TrayRoll[]): string {
 
 export function DicePanel({
 	rolls,
-	isLive,
 	previewing,
 	expr,
 	onExpr,
@@ -112,7 +111,6 @@ export function DicePanel({
 	onRoll,
 }: {
 	rolls: TrayRoll[];
-	isLive: boolean;
 	previewing: boolean;
 	expr: string;
 	onExpr: (v: string) => void;
@@ -137,7 +135,9 @@ export function DicePanel({
 	// `getDiceHistoryForActor` returns rolls oldest-first (appended), so the newest is the LAST element.
 	const recent = [...rolls].reverse();
 	const last = recent[0];
-	const disabled = !isLive || previewing;
+	// RC-SES-6.2 — rolling works in every workflow state. A roll outside a live session is kept in
+	// the history, labelled "Outside a session", and stays out of the session log.
+	const disabled = previewing;
 	return (
 		<Panel
 			title={t('session.dice.title')}
@@ -168,9 +168,6 @@ export function DicePanel({
 					? t('session.dice.announcement', { expression: last.expression, total: last.total })
 					: ''}
 			</div>
-			{!isLive && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('session.dice.goLive')}</div>
-			)}
 			<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
 				{presets.map((p) => (
 					<Button

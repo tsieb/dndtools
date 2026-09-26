@@ -18,6 +18,10 @@ branch. Installers still come from the alpha releases.
   the authoring guide in `docs/architecture/SYSTEM_PACKAGES.md`.
 - Board widgets hide repeated GM-only badges by default. Shared, hidden, and mixed visibility
   remain marked; a preference restores the GM-only labels.
+- Dice, rollable tables, combat and handouts work on the Session screen before a session starts.
+  Rolls made then stay in the roll history, marked "Outside a session", and are left out of the
+  session log. The button that used to read "Go live" is now **Start session**: it starts the log,
+  the clock and the automations.
 
 For available installers and upgrade steps, use the [alpha install guide](apps/gm-react/INSTALL-ALPHA.md).
 Export a vault backup before updating, especially on Android, where uninstalling removes local data.

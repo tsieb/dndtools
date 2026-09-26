@@ -15,7 +15,7 @@ import { OpChip, SR_ONLY } from '../../widget-body-kit';
  *
  * The control is a real button, so Enter and Space operate it with no pointer equivalent to match.
  * It fails closed and honest: while no combat is running it soft-disables with the reason (the
- * pattern `OpChip` uses for session-only commands) rather than sending a command the core rejects,
+ * pattern `OpChip` uses for any unavailable command) rather than sending a command the core rejects,
  * and a rejection that does happen is announced verbatim instead of being swallowed.
  */
 export function NextTurnControl({

@@ -20,7 +20,6 @@ export function HandoutsPanel({
 	handouts,
 	status,
 	isDm,
-	isLive,
 	previewing,
 	canDeliver,
 	title,
@@ -34,8 +33,8 @@ export function HandoutsPanel({
 	handouts: HandoutView[];
 	status: HandoutStatusView[];
 	isDm: boolean;
-	isLive: boolean;
 	previewing: boolean;
+	/** RC-SES-6.2 — a push works in every workflow state; only preview and player seats block it. */
 	canDeliver: boolean;
 	title: string;
 	body: string;
@@ -51,11 +50,6 @@ export function HandoutsPanel({
 		<Panel title={t('session.handouts.title')}>
 			{isDm ? (
 				<>
-					{!isLive && (
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{t('session.handouts.goLive')}
-						</div>
-					)}
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 						{/* These were the only two unlabelled fields on the screen: a `placeholder` is
 						    not a label, and it disappears the moment the DM types (WCAG 3.3.2). axe
@@ -88,7 +82,7 @@ export function HandoutsPanel({
 							aria-disabled={!canDeliver || !title.trim() || undefined}
 							title={
 								!canDeliver
-									? t('session.handouts.blockedNotLive')
+									? t('session.handouts.blockedPreview')
 									: !title.trim()
 										? t('session.handouts.blockedNoTitle')
 										: undefined

@@ -1,16 +1,6 @@
 import { useState } from 'react';
 import { allowedTransitionsFrom, type SessionWorkflowState } from '@dndtools/core';
-import {
-	Button,
-	Card,
-	Dialog,
-	Field,
-	Icon,
-	Input,
-	Select,
-	SessionTimeline,
-	StatusDot,
-} from '../../ds';
+import { Button, Dialog, Field, Icon, Input, Select, SessionTimeline, StatusDot } from '../../ds';
 import { Panel, Seg, T, eb } from '../../app/screen-kit';
 import { WORKFLOW_LABEL } from '../../app/ProjectionControl';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -21,7 +11,9 @@ export function SessionHeader({
 	sessionTitle,
 	previewing,
 	isDm,
+	canStart,
 	onSetWorkflow,
+	onStart,
 	onEnd,
 	onCallRest,
 }: {
@@ -31,7 +23,11 @@ export function SessionHeader({
 	sessionTitle: string | null;
 	previewing: boolean;
 	isDm: boolean;
+	/** Whether the core allows `→ active` from the current workflow (`recap → active` is illegal). */
+	canStart: boolean;
 	onSetWorkflow: (w: 'idle' | 'prep' | 'active' | 'recap') => void;
+	/** RC-SES-6.2 — open the start flow. The header's one primary while the session is not live. */
+	onStart: () => void;
 	/** RC-SES-1.3 — open the end-of-session dialog. Only offered while the session is live. */
 	onEnd: () => void;
 	/** RC-CHR-1.2 — open the party rest dialog. Omitted ⇒ the control is not offered at all. */
@@ -102,6 +98,34 @@ export function SessionHeader({
 					option('recap', t('session.state.recap'), t('session.phase.recapReason')),
 				]}
 			/>
+			{/* RC-SES-6.2 — every table tool already works outside a session, so starting one is not
+			    what unlocks them. The primary says what it does: it starts the log, the clock and the
+			    automations. aria-disabled, not `disabled`, so the reason stays announceable — from
+			    `recap` the core forbids `→ active`, and a press would only produce a rejection. */}
+			{workflow !== 'active' ? (
+				<Button
+					variant="primary"
+					size="sm"
+					icon="visibility-players"
+					aria-disabled={previewing || !isDm || !canStart || undefined}
+					title={
+						previewing
+							? t('session.goLive.exitPreview')
+							: !isDm
+								? t('session.header.blockedNotDm')
+								: !canStart
+									? t('session.goLive.finishState', {
+											state: t(
+												WORKFLOW_LABEL[workflow as SessionWorkflowState] ?? 'session.state.standby',
+											),
+										})
+									: t('session.goLive.hint')
+					}
+					onClick={onStart}
+				>
+					{t('session.goLive.label')}
+				</Button>
+			) : null}
 			{/* RC-CHR-1.2 — the DM calls the party's rest from the same place they end the session: a
 			    rest is a table-level beat, not something six players remember to press separately. */}
 			{workflow === 'active' && !previewing && isDm && onCallRest ? (
@@ -144,79 +168,40 @@ export function SessionHeader({
 }
 
 /**
- * The standby card — the one route back to a live session. Shown for every non-live workflow, it
- * names the real state and either offers "Go live" or says which state has to be left first.
+ * RC-SES-6.2 — the quiet status shown while the session is not live. Dice, tables, combat and
+ * handouts all work here, so this is not a gate: it says only that nothing is being logged yet, and,
+ * from a state a session cannot start from, which state has to be left first.
  */
-export function StandbyCard({
+export function StandbyStatus({
 	workflow,
-	canGoLive,
-	previewing,
-	isDm,
-	onGoLive,
+	canStart,
 	t,
 }: {
 	workflow: SessionWorkflowState;
-	canGoLive: boolean;
-	previewing: boolean;
-	isDm: boolean;
-	onGoLive: () => void;
+	canStart: boolean;
 	t: (key: MessageKey, vars?: Record<string, string | number>) => string;
 }) {
 	return (
-		<Card
-			elevation="flat"
-			padding="md"
+		<div
 			style={{
 				display: 'flex',
-				alignItems: 'center',
-				gap: 14,
+				alignItems: 'flex-start',
+				gap: 8,
 				marginBottom: 18,
-				borderColor: T.accBd,
-				background: T.accSub,
-				flexWrap: 'wrap',
+				font: `12.5px ${T.sans}`,
+				color: T.sub,
 			}}
 		>
-			<Icon name="info" size="md" color={T.acc} />
-			<div style={{ flex: 1 }}>
-				<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>
-					{/* This used to read "Session is on standby" for EVERY non-live workflow, so
-					    the one state you cannot go live from — Recap — described itself as the
-					    one state you can. Name the real state, as ProjectionControl does. */}
-					{t('session.state.current', {
-						state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
-					})}
-				</div>
-				<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
-					{canGoLive
-						? t('session.goLive.hint')
-						: t('session.goLive.returnToStandby', {
-								state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
-							})}
-				</div>
-			</div>
-			<Button
-				variant="primary"
-				size="sm"
-				icon="visibility-players"
-				// aria-disabled, not `disabled`: the reason has to stay announceable. And
-				// `canGoLive` is the fix for the real defect — from `recap` this button was
-				// fully enabled while the core forbids recap→active, so every press produced a
-				// guaranteed rejection toast and the screen offered no other way out.
-				aria-disabled={previewing || !isDm || !canGoLive || undefined}
-				title={
-					previewing
-						? t('session.goLive.exitPreview')
-						: !canGoLive
-							? t('session.goLive.finishState', {
-									state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
-								})
-							: t('session.goLive.label')
-				}
-				onClick={onGoLive}
-			>
-				{t('session.goLive.label')}
-			</Button>
-		</Card>
+			<Icon name="info" size="sm" color={T.ter} />
+			<span>
+				{t('session.standby.notRecording')}
+				{canStart
+					? null
+					: ` ${t('session.goLive.returnToStandby', {
+							state: t(WORKFLOW_LABEL[workflow] ?? 'session.state.standby'),
+						})}`}
+			</span>
+		</div>
 	);
 }
 

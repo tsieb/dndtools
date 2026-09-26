@@ -4,14 +4,7 @@ import { Icon } from '../../../ds';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import { useI18n } from '../../../i18n';
-import {
-	Muted,
-	OpChip,
-	SR_ONLY,
-	cfg,
-	useSessionOnlyReason,
-	type WidgetCommandHandler,
-} from '../../widget-body-kit';
+import { Muted, OpChip, SR_ONLY, cfg, type WidgetCommandHandler } from '../../widget-body-kit';
 import { LiveReadout } from './live';
 
 /**
@@ -71,7 +64,8 @@ export function TimerBody({
 	const declares = (type: string) => !!onCommand && widget.commands.includes(type);
 	const op = (type: string, payload: Record<string, unknown> = {}) =>
 		declares(type) ? () => onCommand?.(type, payload) : undefined;
-	const sessionOnly = useSessionOnlyReason();
+	// RC-SES-6.2 — a table timer is a table tool, not the session clock, so it runs in every workflow
+	// state; the controls carry no "start the session first" reason any more.
 
 	// RC-WID-4.4 — Reset stops the timer, and a stopped timer has no Reset control, so the button
 	// that was just pressed unmounted under the keyboard and focus fell to <body>. Hand focus to the
@@ -153,14 +147,12 @@ export function TimerBody({
 					icon={transport.icon}
 					label={transport.label}
 					ariaLabel={transport.ariaLabel}
-					unavailableReason={sessionOnly}
 					onPress={op(transport.command, transport.payload)}
 				/>
 				{countdown.status !== 'stopped' && declares('timer.reset') && (
 					<OpChip
 						icon="retry"
 						label={t('widgetBody.timer.reset')}
-						unavailableReason={sessionOnly}
 						onPress={
 							reset &&
 							(() => {
@@ -179,7 +171,6 @@ export function TimerBody({
 						icon="add"
 						label={t('widgetBody.timer.advance')}
 						ariaLabel={t('widgetBody.timer.advanceAria', { seconds: ADVANCE_SECONDS })}
-						unavailableReason={sessionOnly}
 						onPress={op('timer.advance', { deltaSeconds: ADVANCE_SECONDS })}
 					/>
 				)}

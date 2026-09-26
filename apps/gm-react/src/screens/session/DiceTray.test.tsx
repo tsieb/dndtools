@@ -33,7 +33,6 @@ describe('roll history workflow attribution', () => {
 								workflow,
 							},
 						]}
-						isLive={true}
 						previewing={false}
 						expr="1d20"
 						label=""

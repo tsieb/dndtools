@@ -74,7 +74,7 @@ pnpm --filter @dndtools/gm-react desktop:smoke
 After the origin, migration and auto-update passes it boots the production main/preload twice
 against a disposable profile. Assertions cover the registry-built menu action, cold / warm /
 second-instance links, rejected links and senders, the packaged protocol declaration for all three
-platforms, the live badge following a click on the real **Go live** control and standing down on
+platforms, the live badge following a click on the real **Start session** control and standing down on
 **End session**, projector isolation/Escape, and window bounds across a genuine restart. A display
 is required. What a virtual display still cannot prove: physical monitor placement, visible OS
 badge rendering, and a genuine OS protocol hand-off — that last one needs an installed package and

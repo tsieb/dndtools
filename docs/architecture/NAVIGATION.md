@@ -115,7 +115,7 @@ The action budget depends on the tier, and it is the same on every route:
 | Rail and desktop under 1280px | Search and the utilities inline as 44px icon buttons, with no overflow.                                                                                                                                                                                            |
 | Desktop from 1280px           | The same controls with their labels.                                                                                                                                                                                                                               |
 
-On every tier the only primary-weight (filled) control the top bar owns is Go live / End session.
+On every tier the only primary-weight (filled) control the top bar owns is Start session / End session.
 On a phone it is the one filled action inside the Table controls sheet.
 
 ## 5. Icons
@@ -181,6 +181,6 @@ recorded in the spec and may only come down.
 
 | Where                       | Gap (found 2026-09-12)                                                                                                                                                                                                                                                 | Owner       |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `/session`                  | Go live and the soft-disabled Build encounter both fill the first phone screenful (ceiling 2).                                                                                                                                                                         | RC-POL-1.4  |
+| `/session`                  | Start session and Build encounter both fill the first phone screenful (ceiling 2).                                                                                                                                                                                     | RC-POL-1.4  |
 | `/scenes` on phone and rail | The tab bar marks More as current, but Scenes is not a row in All sections, and the rail has no Scenes entry either. Of the three navigations only the desktop sidebar's Scenes group reaches it (Command Center and the palette still do), which breaks rule 4 of §1. | RC-POL-1.23 |
 | Phone tab bar More          | The button opens the All sections sheet but announces no `aria-haspopup` / `aria-expanded`, unlike Table controls. `app/shell/Footer.tsx` builds the item, but `BottomTabBar` (`ds/components/navigation`) has no prop to carry either attribute yet.                  | RC-POL-1.23 |

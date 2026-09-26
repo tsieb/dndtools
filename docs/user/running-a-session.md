@@ -6,7 +6,7 @@ Set the table before you bring it live. A little preparation leaves more room fo
 
 Open **Session**. Gather your characters, map, and handouts before presenting anything to players.
 
-The session controls distinguish preparation, preview, and live play. Preview lets you inspect what you are about to show. When ready, choose **Go live** to open the start dialog. Continue the current session, or choose **New session**, select a scene, and optionally name the evening. Confirm **Go live** in the dialog to start. If an action is unavailable, check its explanation and make sure you have left any player-view preview before trying a GM action.
+The session controls distinguish preparation, preview, and live play. Preview lets you inspect what you are about to show. Dice, rollable tables, combat and handouts all work before the session starts: a roll made then stays in the roll history, marked "Outside a session", and is left out of the session log and recap. When ready, choose **Start session** to open the start dialog. Continue the current session, or choose **New session**, select a scene, and optionally name the evening. Confirm **Start session** in the dialog. Starting the session starts the log, the clock and the automations. If an action is unavailable, check its explanation and make sure you have left any player-view preview before trying a GM action.
 
 ## Keep play moving
 

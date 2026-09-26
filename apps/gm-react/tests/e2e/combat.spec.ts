@@ -271,7 +271,7 @@ test('the tracker announces whose turn it is, and the HP controls name their com
 // standby card's "Go live" was fully enabled and every press produced a guaranteed core rejection.
 // A DM who ended one session into Recap could not start another without editing IndexedDB.
 test.describe('session: Recap is not a dead end', () => {
-	test('offers Standby as a real exit and explains why Go live is unavailable', async ({
+	test('offers Standby as a real exit and explains why Start session is unavailable', async ({
 		page,
 	}) => {
 		await markOnboarded(page);
@@ -314,16 +314,16 @@ test.describe('session: Recap is not a dead end', () => {
 		const standby = phases.getByRole('radio', { name: 'Standby' });
 		await expect(standby).toBeEnabled();
 
-		// The card names the state it is actually in, and Go live explains itself rather than firing
-		// a transition the core forbids. Soft-disabled: still focusable, still announced.
-		await expect(page.getByText(/Session is in Recap/)).toHaveCount(1);
-		const goLive = page.getByRole('button', { name: 'Go live', exact: true });
-		await expect(goLive).toHaveAttribute('aria-disabled', 'true');
-		expect(await goLive.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
-		await expect(goLive).toHaveAttribute('title', /return to Standby/i);
+		// The status names the state it is actually in, and Start session explains itself rather than
+		// firing a transition the core forbids. Soft-disabled: still focusable, still announced.
+		await expect(page.getByText(/a session cannot start from Recap/)).toHaveCount(1);
+		const start = page.getByRole('button', { name: 'Start session', exact: true });
+		await expect(start).toHaveAttribute('aria-disabled', 'true');
+		expect(await start.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
+		await expect(start).toHaveAttribute('title', /return to Standby/i);
 
 		// It really is swallowed: no rejection toast, and the workflow does not move.
-		await goLive.dispatchEvent('click');
+		await start.dispatchEvent('click');
 		await page.waitForTimeout(200);
 		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('recap');
 

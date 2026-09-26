@@ -196,7 +196,6 @@ export function TablesPanel({
 	draws,
 	pins,
 	isDm,
-	isLive,
 	previewing,
 	onRoll,
 	onPin,
@@ -206,7 +205,6 @@ export function TablesPanel({
 	draws: Map<string, TableDrawView>;
 	pins: QuickReferencePanelView[];
 	isDm: boolean;
-	isLive: boolean;
 	previewing: boolean;
 	onRoll: (table: TableView) => void;
 	onPin: (table: TableView) => void;
@@ -214,7 +212,8 @@ export function TablesPanel({
 }) {
 	const { t } = useI18n();
 	if (!isDm) return null;
-	const disabled = !isLive || previewing;
+	// RC-SES-6.2 — a draw is a table tool, so it works in every workflow state.
+	const disabled = previewing;
 	const pinByTable = new Map<string, QuickReferencePanelView>();
 	for (const panel of pins) {
 		if (panel.kind === 'dice-table' && panel.targetId) pinByTable.set(panel.targetId, panel);
@@ -230,25 +229,20 @@ export function TablesPanel({
 					description={t('session.tables.empty.description')}
 				/>
 			) : (
-				<>
-					{!isLive && (
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('session.tables.goLive')}</div>
-					)}
-					<div style={{ display: 'flex', flexDirection: 'column' }}>
-						{tables.map((table) => (
-							<TableRow
-								key={table.id}
-								table={table}
-								draw={draws.get(table.id)}
-								pin={pinByTable.get(table.id)}
-								disabled={disabled}
-								onRoll={onRoll}
-								onPin={onPin}
-								onUnpin={onUnpin}
-							/>
-						))}
-					</div>
-				</>
+				<div style={{ display: 'flex', flexDirection: 'column' }}>
+					{tables.map((table) => (
+						<TableRow
+							key={table.id}
+							table={table}
+							draw={draws.get(table.id)}
+							pin={pinByTable.get(table.id)}
+							disabled={disabled}
+							onRoll={onRoll}
+							onPin={onPin}
+							onUnpin={onUnpin}
+						/>
+					))}
+				</div>
 			)}
 		</Panel>
 	);

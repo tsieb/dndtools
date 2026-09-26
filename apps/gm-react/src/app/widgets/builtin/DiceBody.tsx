@@ -8,7 +8,6 @@ import {
 	SR_ONLY,
 	bodyWrap,
 	cfg,
-	useSessionOnlyReason,
 	type WidgetCommandHandler,
 } from '../../widget-body-kit';
 
@@ -54,9 +53,9 @@ export function DiceBody({
 		}
 	}
 
-	// Only a widget whose definition DECLARES dice.roll gets a live affordance.
+	// Only a widget whose definition DECLARES dice.roll gets a live affordance. RC-SES-6.2 — it rolls
+	// in every workflow state; a roll outside a live session is kept but stays out of the session log.
 	const canRoll = !!onCommand && widget.commands.includes('dice.roll') && formulas.length > 0;
-	const sessionOnly = useSessionOnlyReason();
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -73,7 +72,6 @@ export function DiceBody({
 					ariaLabel={t('widgetBody.dice.rollAria', {
 						expression: formulas[0] ?? t('widgetBody.dice.dice'),
 					})}
-					unavailableReason={sessionOnly}
 					onPress={canRoll ? () => onCommand('dice.roll', { expression: formulas[0] }) : undefined}
 				/>
 				{/* The readout used to be a bare <span> carrying an `aria-label`. `role=generic`
