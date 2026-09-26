@@ -155,3 +155,25 @@ cd apps/gm-react && DNDTOOLS_E2E_PORT=<free port> pnpm exec playwright test \
 bash apps/gm-react/tests/visual/run-in-container.sh -g knowledge --update-snapshots=none
 node apps/gm-react/tests/visual/check-baseline-budget.mjs
 ```
+
+## Gate retry: browser acceptance (2026-09-26)
+
+The operator's full e2e run on `f479e572` (1498 tests, `--retries=2`) failed one test on all three
+tries: `widget-kit.spec.ts:238` "Torchlight, restyled with the kit, matches the DS Button…" on
+mobile-chromium, `kit Button in high-contrast/compact`, background `rgb(18, 18, 18)` expected and
+`rgb(0, 0, 0)` received. 1470 passed. All the Knowledge specs passed.
+
+- The change touches nothing outside the Knowledge surface, the catalogs, specs and docs, so I
+  checked the base first. On a `/tmp` worktree at `ddd2498e`, `--repeat-each=4` of that test failed
+  **2 of 4 on mobile** with the same message. On this branch it failed 2 of 4 as well, once as
+  `tavern/compact`. It is a pre-existing flake.
+- Cause: the expected value is read from the DS gallery's Button specimen, and DS `Button` paints
+  its hover background from `onMouseEnter` (`--color-surface-overlay`, rgb(18,18,18) in
+  high-contrast). A density switch reflows the gallery under the stationary pointer, Chromium fires
+  a synthetic mouseenter, and the reference is sometimes the hover look while the kit button inside
+  the frame is at rest.
+- Fix, in the spec only (`tests/e2e/*.spec.ts` is a companion path): before each reference
+  reading, move the pointer to a corner the specimen does not cover and wait until the inline hover
+  background is gone. No product code or expectation changed.
+- After the fix: `widget-kit.spec.ts --repeat-each=8` on both profiles **32 passed**; the
+  Torchlight case alone `--repeat-each=12` on mobile **12 passed**. The base worktree was removed.

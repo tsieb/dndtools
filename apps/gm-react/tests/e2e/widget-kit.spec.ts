@@ -188,6 +188,24 @@ async function placeTorchlight(page: Page): Promise<string> {
 	return sceneId!;
 }
 
+/**
+ * Take the pointer off the specimen before reading it. DS Button paints its hover look from
+ * `onMouseEnter`, and a theme or density switch reflows the gallery under the stationary pointer;
+ * Chromium then fires a synthetic mouseenter, so the reference was sometimes the HOVER background
+ * (`--color-surface-overlay`) while the kit frame showed the resting one. It failed about half the
+ * mobile runs, on the base too.
+ */
+async function unhover(page: Page, specimen: Locator): Promise<void> {
+	const box = await specimen.boundingBox();
+	const viewport = page.viewportSize();
+	// A corner the specimen does not cover: below it if there is room, otherwise the top-left pixel.
+	const y = box && viewport && box.y + box.height + 8 < viewport.height ? viewport.height - 2 : 1;
+	await page.mouse.move(1, y);
+	await expect
+		.poll(() => specimen.evaluate((element) => (element as HTMLElement).style.background))
+		.not.toBe('var(--color-surface-overlay)');
+}
+
 /** Snapshot the DS Button, Card and Badge in every theme and density, from the gallery. */
 async function snapshotDesignSystem(page: Page): Promise<{ looks: Snapshot; rings: Snapshot }> {
 	await page.goto('/#/__ds', { waitUntil: 'domcontentloaded' });
@@ -209,6 +227,7 @@ async function snapshotDesignSystem(page: Page): Promise<{ looks: Snapshot; ring
 			for (const density of DENSITIES) {
 				await page.getByLabel('Density', { exact: true }).selectOption(density);
 				await expect(page.locator('html')).toHaveAttribute('data-density', density);
+				await unhover(page, specimen);
 				looks[key(theme, density, reference.component)] = await readLook(
 					specimen,
 					reference.properties,
