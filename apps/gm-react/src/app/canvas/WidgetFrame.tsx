@@ -587,6 +587,7 @@ export function WidgetFrame({
 					<NoteFrameContext.Provider value={true}>
 						<WidgetRenderSlot
 							widget={w}
+							keyboardScrollable={!editing}
 							onCommand={onCommand}
 							onRestore={!editing && fitHeight > 0 ? () => setFitHeight(0) : undefined}
 							onGrow={

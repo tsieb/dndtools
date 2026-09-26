@@ -95,5 +95,9 @@ for (const title of ['Initiative Tracker', 'Prep']) {
 		await expect
 			.poll(() => tile.evaluate((el) => el.getBoundingClientRect().height))
 			.toBe(original);
+		await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+		await expect(region).toHaveAttribute('tabindex', '-1');
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
+		await expect(region).toHaveAttribute('tabindex', '0');
 	});
 }

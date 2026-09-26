@@ -54,6 +54,8 @@ export interface WidgetRendererProps {
 	/** Expand the containing canvas tile without changing its saved layout. */
 	onGrow?: (extraHeight: number) => void;
 	onRestore?: () => void;
+	/** Layout editing owns frame keys; reading mode owns body scrolling. */
+	keyboardScrollable?: boolean;
 }
 
 type WidgetRenderer = ComponentType<WidgetRendererProps>;
@@ -150,11 +152,13 @@ export function WidgetRegion({
 	children,
 	onGrow,
 	onRestore,
+	keyboardScrollable = true,
 }: {
 	label: string;
 	children: ReactNode;
 	onGrow?: (extraHeight: number) => void;
 	onRestore?: () => void;
+	keyboardScrollable?: boolean;
 }) {
 	const { t } = useI18n();
 	const scrollRef = useRef<HTMLElement>(null);
@@ -226,8 +230,9 @@ export function WidgetRegion({
 				ref={scrollRef}
 				aria-label={label}
 				data-widget-region=""
-				tabIndex={0}
+				tabIndex={keyboardScrollable ? 0 : -1}
 				onKeyDown={(event) => {
+					if (!keyboardScrollable) return;
 					if (
 						[
 							'ArrowUp',
@@ -243,7 +248,7 @@ export function WidgetRegion({
 					)
 						event.stopPropagation();
 				}}
-				style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain' }}
+				style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}
 			>
 				<div ref={contentRef} style={{ height: '100%', minHeight: '100%' }}>
 					{children}
@@ -408,7 +413,13 @@ function renderPlan(
 	}
 }
 
-export function WidgetRenderSlot({ widget, onCommand, onGrow, onRestore }: WidgetRendererProps) {
+export function WidgetRenderSlot({
+	widget,
+	onCommand,
+	onGrow,
+	onRestore,
+	keyboardScrollable,
+}: WidgetRendererProps) {
 	const runtime = useRuntime();
 	// Titles are editable and repeated types often share one (e.g. three "Note" tiles). Prefix the
 	// persisted scene-list position so each landmark has a distinct, readable name without exposing
@@ -447,7 +458,12 @@ export function WidgetRenderSlot({ widget, onCommand, onGrow, onRestore }: Widge
 		<WidgetStyleScope
 			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
 		>
-			<WidgetRegion label={regionLabel} onGrow={onGrow} onRestore={onRestore}>
+			<WidgetRegion
+				label={regionLabel}
+				onGrow={onGrow}
+				onRestore={onRestore}
+				keyboardScrollable={keyboardScrollable}
+			>
 				<WidgetErrorBoundary widgetId={widget.id}>
 					{renderPlan(
 						plan,
