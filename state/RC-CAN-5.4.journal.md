@@ -83,6 +83,6 @@ clean on mobile. No agents, dispatcher mutations, push or promotion.
   `visual-phone` `/board` × tavern/parchment/high-contrast (5,912 px, ratio 0.02), 390 passed.
   Expected: the phone toolbar now carries List | Layout and the 10px subtitle/chips paint at 12px.
 - Re-baselined those three in the pinned container (`run-in-container.sh --project=visual-phone -g
-  /board --update-snapshots=changed`), inspected tavern (List | Layout pair, 12px text), then
+/board --update-snapshots=changed`), inspected tavern (List | Layout pair, 12px text), then
   losslessly re-deflated IDAT with zlib level 9 (decompressed bytes identical; −1.4 KiB). Budget:
   32,664.5 of 32,768 KiB. Container compare, `/board` on all visual projects: 9/9 passed.
