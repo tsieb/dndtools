@@ -258,7 +258,7 @@ export function PlayerViewAssignments({
 								previewing
 									? t('player.blockedPreview')
 									: !isLive
-										? t('session.goLive.hint')
+										? t('widgetBody.sessionOnly')
 										: undefined
 							}
 							options={[

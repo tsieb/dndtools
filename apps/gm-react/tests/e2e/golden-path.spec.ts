@@ -55,11 +55,11 @@ async function prepare(page: Page) {
 
 async function live(page: Page, activeSceneId: string) {
 	await gotoRoute(page, '/session');
-	await page.getByRole('button', { name: 'Go live', exact: true }).click();
+	await page.getByRole('button', { name: 'Start session', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Start a session' });
 	await dialog.getByLabel('Scene', { exact: true }).selectOption(activeSceneId);
 	await dialog.getByLabel('Session name').fill('Golden session');
-	await dialog.getByRole('button', { name: 'Go live', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect(dialog).toBeHidden();
 }
 

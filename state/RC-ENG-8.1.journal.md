@@ -374,3 +374,57 @@ initiative` (rounds 1–3 and the projection checkpoint, both profiles).
 earlier/later in initiative` (8 each, `/tmp/e81-r3-mutation.log`). File restored afterward;
   no mutation remains.
 - No push, promotion, agents, loop launch or dispatcher-state edits.
+
+## Ownership resolved; rebased onto loop/rc 975fbfdc (2026-09-26)
+
+- The operator's 2026-09-26 brief now owns `CombatTracker.tsx`. The dispatcher's only recorded
+  fence (`attempt.failed`, tasks.sqlite3) named that file alone: `apps/gm-react/src/i18n/messages/*.ts`
+  is a manifest `companion_paths` entry, so the two additive en/es keys
+  (`session.combat.alreadyFirst` / `alreadyLast`) are granted, not outside the claim. The "not
+  owned" notes in the 2026-09-22 section and in commit `1063f542` are superseded.
+- `git merge-tree` against `loop/rc` 975fbfdc showed conflicts, so the branch was rebased onto
+  it (the dispatcher's post-session rebase would otherwise have bounced the candidate).
+  Resolutions and the follow-on fixes, each tied to what required it:
+  - `Tables.tsx` (conflict): RC-SES-6.2 removed the go-live gate, so `disabled` is only
+    `previewing`. Kept loop/rc's structure and dropped the go-live note; the row controls'
+    `disabledReason` is now just the preview reason. Still fixes `disabled without reason: Roll /
+Pin <table>` under player preview.
+  - `AtlasCanvas.tsx` (conflict): kept this branch's clip fix (the wrapping row plus a titled,
+    ellipsised description span) and loop/rc's localized fallbacks. The name `title` now uses
+    `t('atlas.noMapSelected')` instead of an English literal. Still fixes the atlas header clip.
+  - `DiceTray.tsx`: `isLive` and `session.dice.goLive` no longer exist on loop/rc (typecheck
+    failure). The preset and Roll titles keep only the preview and empty-expression reasons.
+  - `ActiveMap.tsx`, `ProjectionControl.tsx`: these controls still disable outside a live
+    session, but `session.goLive.hint` now reads "Starts the session log, the clock and the
+    automations.", which describes the Start button, not a reason. It was replaced with the existing
+    `widgetBody.sessionOnly` ("Start the session in Session first — this reaches the table only
+    during play."). No new catalog keys.
+  - `demo-seed.ts`: loop/rc's RC-UX-3.7 showcase layer reuses `sourceIdFromResult` and
+    `DEMO_AUDIO.volume`, which this branch had deleted with the base audio auto-seed (typecheck
+    failure). Restored the helper and inlined the showcase's 0.5 volume. The base seed's
+    synthetic data-URL source and autoplay remain removed, which is the journey's console-warning fix.
+  - `golden-path.spec.ts`: RC-SES-6.2 renamed the header primary and the dialog confirm from
+    "Go live" to "Start session". Only the two selectors changed. No assertion, detector
+    rule or allowlist was loosened.
+
+### Validation (rebased tree)
+
+- `pnpm typecheck` (root): exit 0. `pnpm gates`: exit 0. ESLint on every changed TS/TSX file:
+  exit 0. `pnpm format:check:changed -- --base loop/rc`: 23 files clean.
+- `vitest run --config vitest.app.config.ts` over runtime, i18n, session, atlas and app/session:
+  **200 passed** (`/tmp/e81-r4-vitest2.log`). Running vitest from `apps/gm-react` without the app
+  config reports 4 audio-import/starter-pack failures ("IndexedDB API missing"). That comes from
+  skipping the config's setup, not from this change.
+- `pnpm e2e golden-path.spec.ts --workers=2 --retries=0`: before the selector rename, 4 failed
+  (the two live journeys per profile timed out on `Go live`, `/tmp/e81-r4-golden.log`). After it:
+  **60 passed** (`/tmp/e81-r4-golden2.log`).
+- Neighbouring specs (atlas-polish, atlas, combat, demo-vault, dice-tray, session-capture,
+  session-lifecycle, session-standby, session-tables), both profiles, retries 0: **147 passed,
+  3 skipped, 0 failed** (`/tmp/e81-r4-neighbours.log`).
+- Seeded defect on the rebased tree: with both `title={reorderTitle(...)}` props removed, the two
+  live journeys fail (8 × `disabled without reason: button Move Golden foe earlier in initiative`,
+  8 × `... later ...`, `/tmp/e81-r4-mutation.log`). The file was restored byte-for-byte.
+- I did not re-run the full manifest browser command (`pnpm e2e --workers=2 --retries=2`) on this
+  rebased tree. The central gate owns that run.
+- No push, promotion, agents, loop launch or dispatcher-state edits. The dispatcher DB was only
+  read, read-only.

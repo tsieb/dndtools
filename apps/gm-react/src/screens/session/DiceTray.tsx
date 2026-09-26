@@ -175,13 +175,7 @@ export function DicePanel({
 						variant="secondary"
 						size="sm"
 						disabled={disabled}
-						title={
-							previewing
-								? t('player.blockedPreview')
-								: !isLive
-									? t('session.dice.goLive')
-									: undefined
-						}
+						title={previewing ? t('player.blockedPreview') : undefined}
 						onClick={() => onRoll(p, label.trim() || undefined)}
 					>
 						{p}
@@ -220,11 +214,9 @@ export function DicePanel({
 					title={
 						previewing
 							? t('player.blockedPreview')
-							: !isLive
-								? t('session.dice.goLive')
-								: !expr.trim()
-									? `${t('session.dice.expression')} · ${t('extensions.customTypes.required')}`
-									: undefined
+							: !expr.trim()
+								? `${t('session.dice.expression')} · ${t('extensions.customTypes.required')}`
+								: undefined
 					}
 				>
 					{t('session.dice.roll')}

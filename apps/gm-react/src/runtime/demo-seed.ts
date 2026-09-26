@@ -248,6 +248,15 @@ function eventField(result: CommandResult, kind: string, field: string): string 
 	return null;
 }
 
+function sourceIdFromResult(result: CommandResult): string | null {
+	if (result.status !== 'accepted') return null;
+	for (const event of result.events) {
+		const sourceId = (event as { sourceId?: unknown }).sourceId;
+		if (typeof sourceId === 'string') return sourceId;
+	}
+	return null;
+}
+
 /** The first entity (by name) of one of `entityTypes` that a seeded widget can bind to, if any. */
 function bindableEntity(
 	state: CoreStateSlice,
@@ -1062,7 +1071,7 @@ async function seedShowcase(rt: Seedable): Promise<boolean> {
 					{
 						type: 'session.audio.play',
 						actorId,
-						payload: { sourceId, volume: DEMO_AUDIO.volume, online: true },
+						payload: { sourceId, volume: 0.5, online: true },
 					},
 					'showcase audio play',
 				);

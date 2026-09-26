@@ -72,7 +72,7 @@ export function StagePanel({
 							previewing
 								? t('player.blockedPreview')
 								: !isLive
-									? t('session.goLive.hint')
+									? t('widgetBody.sessionOnly')
 									: !activeMapId
 										? `${t('session.stage.activeMap')} · ${t('extensions.customTypes.required')}`
 										: undefined
