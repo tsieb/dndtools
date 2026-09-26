@@ -49,27 +49,32 @@ import {
 	type SyncOperation,
 } from '../sync/operation-log';
 import { actorMayEditItem } from './content-edit-authority';
+import { contentRevisionValue } from '../queries/content-history';
 
 /** History has a separate, private target: never attach prose to a replicable item operation.
  * No visibility metadata or grants are published for these targets, so replication fails closed.
+ * Its value is a size-capped reverse delta (never a whole body) and only notes record one.
  * Its id and time derive from the mutation so env ids/clock advance exactly as before. */
 function appendContentRevision(
 	env: CoreEnvironment,
 	state: CoreStateSlice,
 	actor: Actor,
-	snapshot: ContentItem,
+	before: ContentItem | undefined,
+	after: ContentItem,
 	draft: Parameters<typeof appendOperationDraft>[3],
 ) {
-	const { op } = appendOperationDraft(env, state.sync, actor.id, draft);
+	const { op, log } = appendOperationDraft(env, state.sync, actor.id, draft);
+	const value = contentRevisionValue(before, after);
+	if (!value) return { log, operationIds: [op.id] };
 	const history: SyncOperation = {
 		...op,
 		id: `${op.id}:history`,
 		entityType: CONTENT_HISTORY_ENTITY_TYPE,
-		entityId: snapshot.id,
+		entityId: after.id,
 		opType: 'content.record-revision',
 		path: undefined,
-		value: { snapshot },
-		afterRevision: snapshot.revision,
+		value,
+		afterRevision: after.revision,
 		dependencies: [],
 	};
 	return {
@@ -273,7 +278,7 @@ export function handleCreateContentItem(
 	);
 
 	const nextContent = addContentItem(content, item);
-	const draft = appendContentRevision(env, state, actor, item, {
+	const draft = appendContentRevision(env, state, actor, undefined, item, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: item.id,
 		opType: 'content.create-item',
@@ -423,7 +428,7 @@ export function handleUpdateContentItem(
 		);
 	}
 	const updated = contentItemById(nextContent, parsed.data.itemId)!;
-	const draft = appendContentRevision(env, state, actor, updated, {
+	const draft = appendContentRevision(env, state, actor, existing, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: updated.id,
 		opType: 'content.update-item',
@@ -517,7 +522,7 @@ export function handleSetContentItemVisibility(
 		]),
 	];
 
-	const draft = appendContentRevision(env, state, actor, updated, {
+	const draft = appendContentRevision(env, state, actor, before, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: updated.id,
 		opType: 'content.set-item-visibility',
@@ -591,7 +596,7 @@ export function handleRemoveContentItem(
 		);
 	}
 	const updated = contentItemById(nextContent, parsed.data.itemId)!;
-	const draft = appendContentRevision(env, state, actor, updated, {
+	const draft = appendContentRevision(env, state, actor, before, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: parsed.data.itemId,
 		opType: 'content.remove-item',
@@ -669,7 +674,7 @@ export function handleRestoreContentItem(
 		);
 	}
 	const updated = contentItemById(nextContent, parsed.data.itemId)!;
-	const draft = appendContentRevision(env, state, actor, updated, {
+	const draft = appendContentRevision(env, state, actor, before, updated, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: updated.id,
 		opType: 'content.restore-item',

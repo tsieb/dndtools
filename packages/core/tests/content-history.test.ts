@@ -8,7 +8,8 @@ import {
 import { dispatchCommand, getContentHistoryForActor, type CoreCommand } from '../src';
 import { filterCatchUpStream, filterReplicationStream } from '../src/collab/replication-filter';
 import { contentItemVisibilityMetadata } from '../src/state/content';
-import { createOperationLog } from '../src/sync/operation-log';
+import { CONTENT_REVISION_PATCH_MAX_BYTES } from '../src/queries/content-history';
+import { CONTENT_HISTORY_ENTITY_TYPE, createOperationLog } from '../src/sync/operation-log';
 
 function fixture() {
 	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
@@ -176,5 +177,65 @@ describe('note revision history', () => {
 		expect(f.history()).toEqual([]);
 		f.run('content.restore-item', { itemId: f.id });
 		expect(f.history(PLAYER_ACTOR.id)).toHaveLength(2);
+	});
+
+	it('stores bounded reverse deltas, never whole bodies, so cloud-backup caps hold', () => {
+		const f = fixture();
+		const historyOps = () =>
+			f.state.sync.operations.filter((op) => op.entityType === CONTENT_HISTORY_ENTITY_TYPE);
+		const bytes = (ops: readonly unknown[]) => new TextEncoder().encode(JSON.stringify(ops)).length;
+		// A 60 KB paste records nothing of the pasted text (its reverse is a deletion).
+		const big = 'lorem ipsum dolor sit amet\n'.repeat(2300);
+		f.run('content.update-item', { itemId: f.id, body: big });
+		expect(bytes([historyOps().at(-1)])).toBeLessThan(1024);
+		// 200 autosaves while typing into a 60 KB note stay tiny (was ~20 KB per save as snapshots).
+		const baseline = bytes(historyOps());
+		let body = big;
+		for (let i = 0; i < 200; i++) {
+			body = `${body.slice(0, 30_000)}x${body.slice(30_000)}`;
+			f.run('content.update-item', { itemId: f.id, body });
+		}
+		expect(bytes(historyOps()) - baseline).toBeLessThan(200 * 1024);
+		expect(f.history()[0]!.body).toBe(body);
+		expect(f.history()[1]!.body).toBe(body.replace('x', ''));
+		// Deleting more than the cap records a gap; history stops there instead of storing the body.
+		f.run('content.update-item', { itemId: f.id, body: 'short' });
+		const gap = historyOps().at(-1)!;
+		expect((gap.value as { back: unknown }).back).toBeNull();
+		expect(bytes([gap])).toBeLessThan(1024);
+		expect(f.history().map((row) => row.body)).toEqual(['short']);
+		// Every recorded op stays far below the 64 KiB per-op ciphertext cap.
+		for (const op of historyOps())
+			expect(bytes([op])).toBeLessThan(CONTENT_REVISION_PATCH_MAX_BYTES + 1024);
+	});
+
+	it('restores exact prose across titles and astral characters', () => {
+		const f = fixture();
+		f.run('content.update-item', { itemId: f.id, title: 'Log 🐉', body: 'a🐉b\nline two' });
+		f.run('content.update-item', { itemId: f.id, body: 'a🐲b\nline 2' });
+		f.run('content.update-item', { itemId: f.id, title: 'Log', body: '' });
+		expect(f.history().map((row) => [row.title, row.body])).toEqual([
+			['Log', ''],
+			['Log 🐉', 'a🐲b\nline 2'],
+			['Log 🐉', 'a🐉b\nline two'],
+			['Journal', 'Original'],
+		]);
+	});
+
+	it('ends history at an unrecorded prose change instead of reconstructing wrong text', () => {
+		const f = fixture();
+		f.run('content.update-item', { itemId: f.id, body: 'one' });
+		const item = f.state.content.items[f.id]!;
+		const tampered = { ...f.state.content, items: { [f.id]: { ...item, body: 'elsewhere' } } };
+		expect(
+			getContentHistoryForActor(
+				tampered,
+				f.state.permissions,
+				f.state.sync,
+				DM_ACTOR.id,
+				f.id,
+				f.state.sync.operations.at(-1)!.issuedAt,
+			),
+		).toEqual([]);
 	});
 });

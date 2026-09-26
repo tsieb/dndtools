@@ -163,3 +163,45 @@ Verification (logs `/tmp/rc-knw-5-2-{app,core,e2e}-0923b.log`):
 - `pnpm test:critical` (full core): 282 files, 4,908 tests passed.
 - Core typecheck exit 0; ESLint + Prettier on `content.ts` exit 0.
 - History restore e2e, desktop-chromium and mobile-chromium: 2 passed.
+
+## Cloud-backup cap rejection fix (2026-09-26)
+
+Candidate `76c98beb` was rejected on review: each content mutation appended a `content-history` op
+carrying the whole `ContentItem` snapshot. A 60 KB note produced a ~81 KB ciphertext op, above the
+64 KiB per-op cap in `apps/gm-react/src/cloud/syncEngine.ts`, which wedges cloud backup. 200 saves of
+a 20 KB note added 4.2 MB to the op log, which also exceeds the 4 MiB snapshot request cap. Query-time
+bounds (50 revisions or 30 days) do not bound storage. Green gates did not measure this.
+
+The history op now stores a reverse delta instead of a snapshot. The implementation is in the owned
+`queries/content-history.ts` and the owned `commands/content.ts` helper:
+
+- Value: `{ format: 'reverse-delta-v1', prose: hash, visibility, sharedWith, deletedAt, back? }`.
+  `back` contains only the replaced span, as `{ title?, at, remove, insert }`. It turns this revision's
+  prose back into the previous revision's. A paste costs 0 bytes because its reverse is a deletion.
+  Typing costs a few bytes per save. Surrogate pairs are never split.
+- If the reverse patch is over `CONTENT_REVISION_PATCH_MAX_BYTES` (16 KiB UTF-8), it is dropped and
+  recorded as `back: null`, a gap. History stops at a gap. It never stores a large deletion.
+- The query anchors on the live note and walks backwards. Every step checks the recorded prose hash,
+  so if a path that records no history changes a note's prose (for example, vault-object rename link
+  propagation or wikilink repair), history ends there. It does not reconstruct wrong text. Those
+  command files are not owned and are unchanged.
+- Only notes record history ops. Other content kinds append exactly the `loop/rc` operation again.
+- Unchanged: the private entity type and player fail-closed replication, per-revision visibility
+  checks, callout redaction, id/clock reuse (`<op id>:history`), the query signature and the UI.
+
+Measured with a throwaway test that was not committed, using the real `dispatchCommand` and fixtures:
+creating a 60 KB note gives a 387 B history op. Replacing it with 20 KB (a gap) gives 418 B.
+200 typing saves into a 20 KB note add 90,711 B of history in total (about 450 B per save). The
+`content-history.test.ts` file now asserts these bounds. It also tests exact title/astral-character
+round trips and the fail-safe stop at an unrecorded prose change.
+
+Verification (logs `/tmp/rc-knw-5-2-{core,app,tc,e2e,gates,boundary}-0926.log`):
+
+- content-history + content-notes: 2 files, 23 tests passed.
+- `pnpm test:critical` (full core): 282 files, 4,911 tests passed.
+- `pnpm test:app`: 146 files, 1,641 tests passed.
+- `pnpm typecheck`: exit 0. ESLint and Prettier on the changed files: exit 0. `git diff --check` clean.
+- History restore e2e on desktop-chromium and mobile-chromium: 2 passed.
+- `pnpm gates` passed with the existing file-size warnings only. `pnpm lint:boundary` passed.
+
+No agents, push, promotion or dispatcher state changes.
