@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferPhoneCanvas, seedFresh } from './_helpers';
 
 const ROUTES = [
 	'/',
@@ -252,6 +252,8 @@ for (const viewport of [
 			await route.fulfill({ response });
 		});
 		await page.setViewportSize({ width: viewport.width, height: viewport.height });
+		// This measures the spatial canvas; a phone defaults to stacked panels (RC-CAN-5.1).
+		await preferPhoneCanvas(page);
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
 		await seedFresh(page);

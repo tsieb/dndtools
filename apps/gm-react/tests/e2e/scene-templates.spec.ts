@@ -157,8 +157,12 @@ for (const surface of ['scene', 'board', 'flow'] as const) {
 		const route = surface === 'board' ? '/board' : `/scene/${freshId}`;
 		await gotoRoute(page, route);
 		if (surface === 'board')
+			// Phones read the home board as stacked panels (RC-CAN-5.1); wait in either host.
 			await expect(
-				page.getByTestId('scene-board-bounded').locator('[data-testid^="widget-"]').first(),
+				page
+					.locator('[data-testid="scene-board-bounded"], [data-testid="stacked-board"]')
+					.locator('[data-testid^="widget-"]')
+					.first(),
 			).toBeVisible();
 		const sceneId =
 			surface === 'board'
