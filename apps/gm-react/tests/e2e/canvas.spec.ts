@@ -1225,8 +1225,12 @@ test.describe('canvas: the GM Screen status region exists before it speaks', () 
 // dashboard. The compensation is now `density-target / scale`, ungated, which leaves desktop (scale 1)
 // at exactly the value the chip's own fallback chain already resolved.
 test.describe('canvas: board operation chips survive the bounded fit scale', () => {
-	test('the dice chip keeps a density-sized hit area on a phone-width board', async ({ page }) => {
-		await page.setViewportSize({ width: 393, height: 851 });
+	// RC-CAN-5.4: a phone never paints the board below 1:1 any more (its Fit is a titles-only
+	// overview), so the scaled-down board this guards lives at the rail tier now.
+	test('the dice chip keeps a density-sized hit area on a rail-width fitted board', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 700, height: 900 });
 		await markOnboarded(page);
 		await gotoRoute(page, '/board');
 		await seedFresh(page);
@@ -1243,7 +1247,7 @@ test.describe('canvas: board operation chips survive the bounded fit scale', () 
 			return Number(layer?.style.getPropertyValue('--scene-board-scale') ?? '1');
 		});
 		expect(scale).toBeGreaterThan(0);
-		expect(scale, 'the phone board should be fitted, not 1:1').toBeLessThan(0.8);
+		expect(scale, 'the rail board should be fitted, not 1:1').toBeLessThan(0.8);
 
 		// Scoped to the widget: once live, the session quick panel (RC-SES-1.2) puts its own
 		// "Roll 1dN" quick dice on every route, and they are not the GM Screen's chip.
@@ -1330,6 +1334,10 @@ test.describe('canvas: named zoom presets on the bounded board', () => {
 			return Number(layer?.style.getPropertyValue('--scene-board-scale') ?? '1');
 		});
 
+	// RC-CAN-5.4: a phone's Layout opens at Comfortable and its Fit is a titles-only overview
+	// (`PhoneNavigator`), so the canvas itself is never painted at Fit there.
+	const onPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) <= 640;
+
 	async function openBoard(page: Page): Promise<void> {
 		await markOnboarded(page);
 		await gotoRoute(page, '/board');
@@ -1357,11 +1365,16 @@ test.describe('canvas: named zoom presets on the bounded board', () => {
 		const comfortable = group.getByRole('button', { name: 'Comfortable' });
 		const detail = group.getByRole('button', { name: 'Detail' });
 
-		// The board opens fitted: that is the glanceable default, and the step says so.
-		await expect(fit).toHaveAttribute('aria-pressed', 'true');
-		// Fit is a real fit — it never shrinks the layout past the 0.5 floor.
-		expect(await layerScale(page)).toBeGreaterThanOrEqual(0.5);
-		expect(await layerScale(page)).toBeLessThanOrEqual(1);
+		if (onPhone(page)) {
+			await expect(comfortable).toHaveAttribute('aria-pressed', 'true');
+			expect(await layerScale(page)).toBeCloseTo(1, 2);
+		} else {
+			// The board opens fitted: that is the glanceable default, and the step says so.
+			await expect(fit).toHaveAttribute('aria-pressed', 'true');
+			// Fit is a real fit — it never shrinks the layout past the 0.5 floor.
+			expect(await layerScale(page)).toBeGreaterThanOrEqual(0.5);
+			expect(await layerScale(page)).toBeLessThanOrEqual(1);
+		}
 
 		await detail.click();
 		await expect(detail).toHaveAttribute('aria-pressed', 'true');
@@ -1372,7 +1385,8 @@ test.describe('canvas: named zoom presets on the bounded board', () => {
 		await expect.poll(() => layerScale(page)).toBeCloseTo(1, 2);
 
 		await fit.click();
-		await expect.poll(() => layerScale(page)).toBeLessThanOrEqual(1);
+		if (onPhone(page)) await expect(page.getByTestId('phone-layout-overview')).toBeVisible();
+		else await expect.poll(() => layerScale(page)).toBeLessThanOrEqual(1);
 	});
 
 	test('the 0/1/2 keys and +/- reach every step from the canvas, and announce it', async ({
@@ -1398,6 +1412,11 @@ test.describe('canvas: named zoom presets on the bounded board', () => {
 		await expect.poll(() => layerScale(page)).toBeCloseTo(1, 2);
 
 		await page.keyboard.press('0');
+		if (onPhone(page)) {
+			// The overview replaces the canvas; its steps are the toolbar's (and a pinch).
+			await expect(page.getByTestId('phone-layout-overview')).toBeVisible();
+			return;
+		}
 		await expect.poll(() => layerScale(page)).toBeLessThanOrEqual(1);
 		await page.keyboard.press('+');
 		await expect.poll(() => layerScale(page)).toBeCloseTo(1, 2);
