@@ -1,6 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, waitReady, preferPhoneCanvas } from './_helpers';
+
+// Docks, section bands and the bounded background belong to the spatial canvas; phones default to
+// stacked panels (RC-CAN-5.1), so select the canvas explicitly.
+test.beforeEach(async ({ page }) => preferPhoneCanvas(page));
 
 test('backgrounds, docks and section bands persist', async ({ page }) => {
 	await markOnboarded(page);
