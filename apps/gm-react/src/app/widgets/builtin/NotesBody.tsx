@@ -21,7 +21,9 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 	).filter((item) => item.kind === 'note');
 	const shown = notes.slice(0, count);
 	return (
-		<div style={bodyWrap}>
+		<div
+			style={{ ...bodyWrap, height: 'auto', minHeight: '100%', overflow: 'visible', flexShrink: 0 }}
+		>
 			{shown.map((note) => (
 				<div
 					key={note.id}
@@ -29,9 +31,8 @@ export function NotesBody({ widget }: { widget: BoardWidget }) {
 					style={{
 						font: 'var(--text-xs)/1.4 var(--font-sans)',
 						color: 'var(--color-text-secondary)',
-						whiteSpace: 'nowrap',
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
+						overflowWrap: 'anywhere',
+						flexShrink: 0,
 					}}
 				>
 					{note.title}

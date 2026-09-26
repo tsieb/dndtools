@@ -1,6 +1,9 @@
 import {
 	Component,
 	useSyncExternalStore,
+	useEffect,
+	useRef,
+	useState,
 	type ComponentType,
 	type CSSProperties,
 	type ReactNode,
@@ -10,6 +13,7 @@ import {
 	resolveWidgetStyleVariables,
 	type WidgetTemplateKind,
 } from '@dndtools/core';
+import { useI18n } from '../../i18n';
 import { matchesMedia, subscribeMedia } from '../../platform/preferences';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
@@ -47,6 +51,9 @@ export type { WidgetCommandHandler };
 export interface WidgetRendererProps {
 	widget: BoardWidget;
 	onCommand?: WidgetCommandHandler;
+	/** Expand the containing canvas tile without changing its saved layout. */
+	onGrow?: (extraHeight: number) => void;
+	onRestore?: () => void;
 }
 
 type WidgetRenderer = ComponentType<WidgetRendererProps>;
@@ -138,11 +145,174 @@ export function WidgetStyleScope({
  * The frame around it (`WidgetFrame`) is the focusable group that carries the layout chrome; this is
  * the content inside it.
  */
-export function WidgetRegion({ label, children }: { label: string; children: ReactNode }) {
+export function WidgetRegion({
+	label,
+	children,
+	onGrow,
+	onRestore,
+}: {
+	label: string;
+	children: ReactNode;
+	onGrow?: (extraHeight: number) => void;
+	onRestore?: () => void;
+}) {
+	const { t } = useI18n();
+	const scrollRef = useRef<HTMLElement>(null);
+	const contentRef = useRef<HTMLDivElement>(null);
+	const [overflow, setOverflow] = useState({ total: 0, remaining: 0, lines: 0 });
+	useEffect(() => {
+		const node = scrollRef.current;
+		const content = contentRef.current;
+		if (!node || !content || typeof ResizeObserver === 'undefined') return;
+		let frame = 0;
+		const measure = () => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(() => {
+				const total = Math.max(0, node.scrollHeight - node.clientHeight);
+				const remaining = Math.max(0, total - node.scrollTop);
+				const bottom = node.getBoundingClientRect().bottom;
+				const hiddenLines = new Set<number>();
+				const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+				while (walker.nextNode()) {
+					if (!walker.currentNode.textContent?.trim()) continue;
+					const range = document.createRange();
+					range.selectNodeContents(walker.currentNode);
+					for (const rect of range.getClientRects()) {
+						if (rect.bottom > bottom + 1) hiddenLines.add(Math.round(rect.bottom));
+					}
+				}
+				const lines = hiddenLines.size;
+				setOverflow((old) =>
+					old.total === total && old.remaining === remaining && old.lines === lines
+						? old
+						: { total, remaining, lines },
+				);
+			});
+		};
+		const resize = new ResizeObserver(measure);
+		resize.observe(node);
+		resize.observe(content);
+		const refresh = () => {
+			for (const child of content.children) resize.observe(child);
+			measure();
+		};
+		const mutation = new MutationObserver(refresh);
+		mutation.observe(content, {
+			childList: true,
+			subtree: true,
+			characterData: true,
+			attributes: true,
+		});
+		node.addEventListener('scroll', measure);
+		refresh();
+		return () => {
+			cancelAnimationFrame(frame);
+			resize.disconnect();
+			mutation.disconnect();
+			node.removeEventListener('scroll', measure);
+		};
+	}, []);
 	return (
-		<section aria-label={label} data-widget-region="" style={{ height: '100%', minHeight: 0 }}>
-			{children}
-		</section>
+		<div
+			style={{
+				height: '100%',
+				minHeight: 0,
+				display: 'flex',
+				flexDirection: 'column',
+				position: 'relative',
+			}}
+		>
+			<section
+				ref={scrollRef}
+				aria-label={label}
+				data-widget-region=""
+				tabIndex={0}
+				onKeyDown={(event) => {
+					if (
+						[
+							'ArrowUp',
+							'ArrowDown',
+							'ArrowLeft',
+							'ArrowRight',
+							'PageUp',
+							'PageDown',
+							'Home',
+							'End',
+							' ',
+						].includes(event.key)
+					)
+						event.stopPropagation();
+				}}
+				style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto', overscrollBehavior: 'contain' }}
+			>
+				<div ref={contentRef} style={{ height: '100%', minHeight: '100%' }}>
+					{children}
+				</div>
+			</section>
+			{(overflow.total > 1 || onRestore) && (
+				<div
+					style={{
+						flex: '0 0 auto',
+						position: 'relative',
+						display: 'flex',
+						flexWrap: 'wrap',
+						gap: 'var(--space-1)',
+						justifyContent: 'space-between',
+						font: 'var(--text-xs) var(--font-sans)',
+						color: 'var(--color-text-secondary)',
+					}}
+				>
+					{overflow.remaining > 1 && (
+						<span
+							aria-hidden
+							style={{
+								position: 'absolute',
+								bottom: '100%',
+								left: 0,
+								right: 0,
+								height: 12,
+								pointerEvents: 'none',
+								background: 'linear-gradient(transparent, var(--color-surface-raised))',
+							}}
+						/>
+					)}
+					<span>
+						{overflow.lines
+							? t('widgetBody.overflow.lines', { count: overflow.lines })
+							: overflow.remaining > 1
+								? t('widgetBody.overflow.more')
+								: t('widgetBody.overflow.end')}
+					</span>
+					{(onGrow || onRestore) && (
+						<button
+							type="button"
+							aria-label={
+								onRestore
+									? t('widgetBody.overflow.restore')
+									: t('widgetBody.overflow.growLabel', { title: label })
+							}
+							onClick={() => {
+								scrollRef.current?.focus();
+								if (onRestore) onRestore();
+								else if (scrollRef.current)
+									onGrow?.(scrollRef.current.scrollHeight - scrollRef.current.clientHeight);
+							}}
+							style={{
+								font: 'inherit',
+								color: 'inherit',
+								border: '1px solid var(--color-border-strong)',
+								borderRadius: 'var(--radius-sm)',
+								background: 'var(--color-surface-raised)',
+								padding: '0 var(--space-2)',
+								cursor: 'pointer',
+							}}
+						>
+							{t(onRestore ? 'widgetBody.overflow.restore' : 'widgetBody.overflow.grow')}
+						</button>
+					)}
+				</div>
+			)}
+		</div>
 	);
 }
 
@@ -238,7 +408,7 @@ function renderPlan(
 	}
 }
 
-export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
+export function WidgetRenderSlot({ widget, onCommand, onGrow, onRestore }: WidgetRendererProps) {
 	const runtime = useRuntime();
 	// Titles are editable and repeated types often share one (e.g. three "Note" tiles). Prefix the
 	// persisted scene-list position so each landmark has a distinct, readable name without exposing
@@ -277,7 +447,7 @@ export function WidgetRenderSlot({ widget, onCommand }: WidgetRendererProps) {
 		<WidgetStyleScope
 			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
 		>
-			<WidgetRegion label={regionLabel}>
+			<WidgetRegion label={regionLabel} onGrow={onGrow} onRestore={onRestore}>
 				<WidgetErrorBoundary widgetId={widget.id}>
 					{renderPlan(
 						plan,

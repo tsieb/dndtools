@@ -1,5 +1,5 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useId, useMemo, useRef, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { WidgetLibraryEntry } from '@dndtools/core';
 import { Badge, Icon, VisibilityChip } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -21,13 +21,9 @@ import type { ArrangeAction, Box } from './geometry';
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
  * explicit stack indices let the canvas change DOM order without changing visual overlap. */
 
-// Kept with the tile chrome copy, like TileActionMenu's local TEXT catalog.
 const RESIZE_HELP =
 	'Click to cycle small, medium and large. Focus and use arrow keys to resize; Escape returns to the tile.';
 
-// Widget definition icons are normally semantic registry keys ('map', 'dice', …). Third-party
-// packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
-// fallback instead of replacing persisted package content with a broken square.
 const isRegistryKey = (icon: string) => /^[a-z0-9-]+$/i.test(icon);
 
 const NOTE_DEPTH_LABEL: Record<NoteDepth, MessageKey> = {
@@ -407,8 +403,7 @@ export function WidgetFrame({
 }: WidgetFrameProps) {
 	const { t } = useI18n();
 	const placeholder = w.status !== 'available';
-	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
-	// icon, the label, who can see it, and what it is bound to.
+	const [fitHeight, setFitHeight] = useState(0);
 	const meta = tileMetadataForWidget(w);
 	const binding = tileBindingState(w);
 	const glyph = binding ? BINDING_GLYPH[binding] : null;
@@ -455,11 +450,11 @@ export function WidgetFrame({
 			onFocus={onFocusIn}
 			style={{
 				position: 'absolute',
-				zIndex: stackOrder,
+				zIndex: !editing && fitHeight ? 100001 : stackOrder,
 				left: x,
 				top: y,
 				width,
-				height,
+				height: editing ? height : Math.max(height, fitHeight),
 				borderRadius: 'var(--radius-md)',
 				// `outline`, NOT `box-shadow`: forced-colors mode suppresses box-shadow outright, so
 				// the selected widget had NO ring at all in Windows High Contrast — and the only
@@ -511,16 +506,17 @@ export function WidgetFrame({
 						alignItems: 'center',
 						gap: 'var(--space-2)',
 						flex: '0 0 auto',
-						// Room for the edit-mode menu trigger, held at screen size (hence ÷ scale).
 						...(editing ? { paddingRight: `calc(${TRIGGER_SIZE} / ${scale})` } : {}),
 					}}
 				>
 					<WidgetGlyph icon={meta.icon} size={16} color={accent} />
 					<span
+						title={w.title}
+						aria-label={w.title}
 						style={{
 							flex: 1,
 							minWidth: 0,
-							font: '700 var(--text-sm) var(--font-display)',
+							font: '700 var(--text-sm) var(--font-sans)',
 							color: 'var(--color-text-primary)',
 							overflow: 'hidden',
 							textOverflow: 'ellipsis',
@@ -589,7 +585,14 @@ export function WidgetFrame({
 					style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
 				>
 					<NoteFrameContext.Provider value={true}>
-						<WidgetRenderSlot widget={w} onCommand={onCommand} />
+						<WidgetRenderSlot
+							widget={w}
+							onCommand={onCommand}
+							onRestore={!editing && fitHeight > 0 ? () => setFitHeight(0) : undefined}
+							onGrow={
+								editing ? undefined : (extra) => setFitHeight(Math.max(height, fitHeight) + extra)
+							}
+						/>
 					</NoteFrameContext.Provider>
 				</div>
 				{w.statusNote && (
@@ -696,8 +699,6 @@ export function WidgetFrame({
 								padding: 0,
 								touchAction: 'none',
 								borderRadius: 'var(--radius-sm)',
-								// A tinted handle, not a gold fill: the canvas's one accent-filled primary
-								// belongs to the zoom cluster (RC-ENG-8.4 emphasis lint).
 								background: 'var(--color-accent-subtle)',
 								border: '2px solid var(--color-accent-border)',
 								cursor: 'nwse-resize',
@@ -742,7 +743,6 @@ export function WidgetLibraryCard({ entry, children, onPick }: CardProps) {
 				gap: 'var(--space-2)',
 				padding: 'var(--space-3)',
 				border: '1px solid var(--color-border)',
-				// The accent rail is a border, not a background: forced-colors keeps it (as WidgetFrame's).
 				borderLeft: `4px solid ${accent}`,
 				borderRadius: 'var(--radius-md)',
 				background: reason ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
@@ -779,7 +779,6 @@ export function WidgetLibraryCard({ entry, children, onPick }: CardProps) {
 				data-category={entry.category ?? ''}
 				aria-labelledby={nameId}
 				aria-describedby={reason ? `${descId} ${reasonId}` : descId}
-				// `aria-disabled`, not `disabled`, keeps the reason reachable by keyboard (tab order).
 				aria-disabled={reason ? true : undefined}
 				onClick={() => reason || onPick()}
 				style={{
@@ -791,7 +790,6 @@ export function WidgetLibraryCard({ entry, children, onPick }: CardProps) {
 					borderRadius: 'var(--radius-md)',
 					background: 'transparent',
 					cursor: reason ? 'not-allowed' : 'pointer',
-					// Inside the edge: the card's `overflow: hidden` clips an outset ring (WCAG 2.4.7).
 					outlineOffset: 'calc(-1 * var(--focus-ring-width) - 2px)',
 				}}
 			/>

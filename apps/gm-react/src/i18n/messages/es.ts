@@ -3,6 +3,12 @@ import type { MessageKey } from './en';
 /** Spanish. A `Partial` of `en`: an untranslated key renders its English source rather than a
  * blank or a bare identifier, so a partly translated locale degrades honestly. */
 export const es: Partial<Record<MessageKey, string>> = {
+	'widgetBody.overflow.lines': '{count, plural, one {# línea más} other {# líneas más}}',
+	'widgetBody.overflow.more': 'Más abajo',
+	'widgetBody.overflow.end': 'Fin del contenido',
+	'widgetBody.overflow.grow': 'Ampliar al contenido',
+	'widgetBody.overflow.growLabel': 'Ampliar {title} al contenido',
+	'widgetBody.overflow.restore': 'Restaurar tamaño',
 	'mapEdit.newPoi': 'Nuevo punto de interés',
 	'mapEdit.newToken': 'Ficha {count}',
 	'mapEdit.poiPlaced': 'Punto de interés colocado.',

@@ -62,7 +62,9 @@ export function InitiativeBody({
 	const orderNames = tracker.combatants.map((c) => c.name);
 	if (compact) return <InitiativeTrackerCompact showHp={showHp} interactive={!!onCommand} />;
 	return (
-		<div style={bodyWrap}>
+		<div
+			style={{ ...bodyWrap, height: 'auto', minHeight: '100%', overflow: 'visible', flexShrink: 0 }}
+		>
 			{/* RC-WID-4.4 — the round and whose turn it is ARE this tile's value: announce them. */}
 			<LiveStats>
 				{turnModel.rounds && (
