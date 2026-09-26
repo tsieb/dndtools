@@ -73,3 +73,16 @@ clean on mobile. No agents, dispatcher mutations, push or promotion.
     branch on the phone tier: Layout opens at Comfortable (scale 1) and Fit / `0` shows the
     overview. Desktop assertions unchanged. Re-run on both projects: 8/8 passed.
 - Browser run 2 (desktop-chromium, same 15 specs) + `ux-audit` / `widget-trust-review` on both.
+- Browser run 2 (desktop-chromium, 15 board-touching specs): 269/269, exit 0. The session ended
+  before `ux-audit` / `widget-trust-review` finished; re-run in session 3 (below).
+
+## Session 3 — 2026-09-26
+
+- Resumed after the operator's rebase (commits now `76928c9c`, `e15738af` on `8dd5f664`). Gate
+  feedback: quality gates and format passed; visual regression (pinned container) failed only on
+  `visual-phone` `/board` × tavern/parchment/high-contrast (5,912 px, ratio 0.02), 390 passed.
+  Expected: the phone toolbar now carries List | Layout and the 10px subtitle/chips paint at 12px.
+- Re-baselined those three in the pinned container (`run-in-container.sh --project=visual-phone -g
+  /board --update-snapshots=changed`), inspected tavern (List | Layout pair, 12px text), then
+  losslessly re-deflated IDAT with zlib level 9 (decompressed bytes identical; −1.4 KiB). Budget:
+  32,664.5 of 32,768 KiB. Container compare, `/board` on all visual projects: 9/9 passed.
