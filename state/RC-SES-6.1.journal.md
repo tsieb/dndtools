@@ -198,3 +198,15 @@
   - `responsive.spec.ts:242` (2 viewports, a known base-red race).
 - All of these are settings, theme or layout specs this story doesn't touch. `settings:217` is new in this series: it failed right after `settings:101` in the same spec file on the same worker, and fits the shm stall in attempts 12–18. No SFX, combat, dice or handout spec failed.
 - Verdict unchanged: nothing left for this story in owned paths. The gate needs `c71169bb`/`32ef11ad` on `loop/rc`, and this run also needs to finish rather than be terminated.
+
+## Attempt 20 (rebased onto `loop/rc` `bac86315`, which carries the shm fix)
+
+- Entry: clean branch at `bf7dde2c`. The previous run stopped at the provider allowance limit. `loop/rc` and `origin/loop/rc` are both at `bac86315`, 117 commits past the old base `df379bf7`. That range includes `25c1a8b8` ("stop 304 revalidation exhausting Chromium shared memory"): `playwright.config.ts` now sets `DNDTOOLS_E2E_FULL_RESPONSES`, the fix attempts 12–19 were waiting for. Headroom tools were unavailable, so I read the original logs directly (`/tmp/rc-ses-6-1-a20-*.log`). No agents, dispatcher writes, push, promotion or extra loop.
+- Rebased onto `loop/rc`. One conflict, in `3e74150d` (the inline-roll copy), in `en.ts`/`es.ts`. Upstream's copy pass had rewritten `markdown.rollInvalid`, `rollRecorded` and `rollNotRecorded`. Resolution: kept upstream's `rollInvalid` wording. Kept this story's `rollRecorded` ("Recorded in the roll history.") and `rollNotRecorded` ("Not recorded."), because upstream's "Start a live session to record future rolls" is false once Standby rolls are recorded. No production or test code changed beyond that resolution.
+- Local gates on the rebased head (`43109c7a`):
+  - Root `pnpm typecheck`: exited 0.
+  - Core suite: 282 files / 5153 tests passed.
+  - `pnpm test:app`: 147 files / 1657 tests passed.
+  - Full `pnpm lint`: exited 0.
+  - `format:check:changed -- --base loop/rc`: 36 files passed.
+- Browser, both profiles, 2 workers: `sfx-events`, `inline-roll`, `settings` (including the formerly base-red `:101`/`:180`/`:217`) and `combat`. 98/98 passed (`/tmp/rc-ses-6-1-a20-e2e.log`).
