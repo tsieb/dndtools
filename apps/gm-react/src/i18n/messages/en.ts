@@ -5292,6 +5292,15 @@ export const en = {
 	'boardCanvas.zoomComfortable': 'Comfortable',
 	'boardCanvas.zoomDetail': 'Detail',
 	'boardCanvas.zoomAnnouncement': 'Zoom {preset}, {percent}%.',
+	/* Board canvas › moving around it on a phone (RC-CAN-5.4) */
+	'phoneNavigator.viewGroup': 'Board view',
+	'phoneNavigator.list': 'List',
+	'phoneNavigator.layout': 'Layout',
+	'phoneNavigator.overview': 'Layout overview',
+	'phoneNavigator.jump': 'Jump to tile',
+	'phoneNavigator.jumpHint':
+		'Every tile on this screen. Go to one in the layout, or open it full screen.',
+	'phoneNavigator.goTo': 'Go to {name}',
 	/* Board canvas › arranging a multi-selection (RC-CAN-3.6) */
 	'boardCanvas.arrange.toolbar': 'Arrange {count} selected tiles',
 	'boardCanvas.arrange.done': 'Arranged {count} tiles.',

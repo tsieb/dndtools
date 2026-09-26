@@ -1,3 +1,4 @@
+import { Button } from '../../ds';
 import { ZoomBtn } from './WidgetFrame';
 import { useI18n } from '../../i18n';
 import { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from '../SceneBoardModel';
@@ -97,5 +98,51 @@ function PresetBtn({
 		>
 			{label}
 		</button>
+	);
+}
+
+/**
+ * The bounded board's named zoom steps, drawn in the host's toolbar (RC-CAN-3.1) where they cannot
+ * scroll away with the canvas they apply to. Moved here from `screens/Board.tsx` (RC-CAN-5.4) so the
+ * phone can offer a subset: a phone in edit mode never paints the board at Fit, where tile text
+ * would drop under 12px.
+ */
+export function ZoomPresetGroup({
+	value,
+	presets = ZOOM_PRESETS,
+	onChange,
+}: {
+	value: ZoomPreset;
+	presets?: readonly ZoomPreset[];
+	onChange: (preset: ZoomPreset) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<div
+			role="group"
+			aria-label={t('boardCanvas.zoomGroup')}
+			data-testid="board-zoom-presets"
+			// Wraps INSIDE the group: at 200% text "Comfortable" alone is a third of a 360px phone, and
+			// a group that could only wrap as a unit widened `#main-content`.
+			style={{
+				display: 'flex',
+				flexWrap: 'wrap',
+				gap: 'var(--space-0-5)',
+				flex: '0 1 auto',
+				minWidth: 0,
+			}}
+		>
+			{presets.map((preset) => (
+				<Button
+					key={preset}
+					variant={value === preset ? 'primary' : 'ghost'}
+					size="sm"
+					aria-pressed={value === preset}
+					onClick={() => onChange(preset)}
+				>
+					{t(ZOOM_PRESET_KEY[preset])}
+				</Button>
+			))}
+		</div>
 	);
 }

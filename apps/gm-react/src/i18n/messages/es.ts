@@ -5359,6 +5359,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.zoomComfortable': 'Cómodo',
 	'boardCanvas.zoomDetail': 'Detalle',
 	'boardCanvas.zoomAnnouncement': 'Zoom {preset}, {percent} %.',
+	'phoneNavigator.viewGroup': 'Vista del tablero',
+	'phoneNavigator.list': 'Lista',
+	'phoneNavigator.layout': 'Diseño',
+	'phoneNavigator.overview': 'Vista general del diseño',
+	'phoneNavigator.jump': 'Ir a un mosaico',
+	'phoneNavigator.jumpHint':
+		'Todos los mosaicos de esta pantalla. Ve a uno en el diseño o ábrelo a pantalla completa.',
+	'phoneNavigator.goTo': 'Ir a {name}',
 	/* Lienzo del tablero › organizar una selección múltiple (RC-CAN-3.6) */
 	'boardCanvas.arrange.toolbar': 'Organizar {count} widgets seleccionados',
 	'boardCanvas.arrange.done': '{count} widgets organizados.',

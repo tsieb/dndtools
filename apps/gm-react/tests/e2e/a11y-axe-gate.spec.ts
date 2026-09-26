@@ -285,6 +285,36 @@ test('a11y axe gate: /scene/:id', async ({ page }, testInfo) => {
 	await assertAxeState(page, testInfo, '/scene/:id', 'scene-editor');
 });
 
+// RC-CAN-5.4 — a phone reads `/board` as a panel list (scanned by the route loop above) and offers a
+// Layout view: the canvas at a legible step, a titles-only overview at Fit, the "Jump to tile" sheet
+// and a full-screen tile. Each of those is its own interactive state, so each is scanned.
+test('a11y axe gate: /board phone Layout, overview, jump sheet and full-screen tile', async ({
+	page,
+}, testInfo) => {
+	test.skip(testInfo.project.name !== 'mobile-chromium', 'the Layout view is the phone tier');
+	await openRoute(page, '/board');
+	await page
+		.getByRole('group', { name: 'Board view' })
+		.getByRole('button', { name: 'Layout' })
+		.click();
+	await expect(page.getByTestId('scene-board-bounded')).toBeVisible();
+	await assertAxeState(page, testInfo, '/board (phone layout)', 'board-phone-layout');
+	const zoom = page.getByTestId('board-zoom-presets');
+	await zoom.getByRole('button', { name: 'Fit', exact: true }).click();
+	await expect(page.getByTestId('phone-layout-overview')).toBeVisible();
+	await assertAxeState(page, testInfo, '/board (phone overview)', 'board-phone-overview');
+	await page.getByTestId('phone-jump-open').click();
+	const sheet = page.getByRole('dialog', { name: 'Jump to tile' });
+	await expect(sheet).toBeVisible();
+	await assertAxeState(page, testInfo, '/board (phone jump sheet)', 'board-phone-jump');
+	await sheet
+		.getByRole('button', { name: /^Expand / })
+		.first()
+		.click();
+	await expect(page.getByTestId('phone-fullscreen')).toBeVisible();
+	await assertAxeState(page, testInfo, '/board (phone full-screen tile)', 'board-phone-fullscreen');
+});
+
 // RC-UX-2.1 — `/display` (I11 S11.2.2's second-screen projector) is chrome-less like `/play` and
 // `/join`, but unlike them it carries no shell OR `role="main"` landmark at all: it is a single fixed
 // full-bleed surface (`SceneDisplay.tsx`), so `openStandaloneRoute`'s landmark wait can never resolve

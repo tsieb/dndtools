@@ -69,7 +69,7 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/templates/SceneMessage.tsx': 1,
 	'apps/gm-react/src/app/widgets/templates/shared.tsx': 3,
 	'apps/gm-react/src/app/widgets/templates/StatusList.tsx': 3,
-	'apps/gm-react/src/screens/Board.tsx': 8,
+	'apps/gm-react/src/screens/Board.tsx': 7,
 	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 3,
 	'apps/gm-react/src/screens/Campaign.tsx': 20,
 	'apps/gm-react/src/screens/campaign/Calendar.tsx': 8,
