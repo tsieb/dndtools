@@ -34,7 +34,7 @@ import { SceneQueuePanel } from './SceneQueuePanel';
 
 /**
  * I11 S11.2.1–S11.2.3 — the DM authoring + control surface for ATMOSPHERE SCENE CARDS, embedded in
- * ScenesCreator (`/scenes`). Create a card (title/mood/hero image URL/flavor/visibility), then from the
+ * ScenesCreator (`/screens`). Create a card (title/mood/hero image URL/flavor/visibility), then from the
  * card list activate it onto the display, queue it, toggle its player visibility, edit, or delete. The
  * queue panel reorders/advances and picks the transition. All actions dispatch `scene-card.*` commands
  * through the single runtime write path; the fullscreen display (Ctrl+Shift+S) and the second-screen

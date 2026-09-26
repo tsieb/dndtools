@@ -545,3 +545,20 @@ export async function installFakeLan(page: Page, peers: Page[]): Promise<void> {
 		Object.defineProperty(window, 'RTCPeerConnection', { value: Connection });
 	});
 }
+
+/**
+ * RC-CAN-7.3 — create a screen through the Screens library's "New screen" dialog, the real UI path
+ * that replaced the old `/scenes` create form. The page must already be on `/screens`. On success the
+ * app navigates to the new screen's `/screen/:id`.
+ */
+export async function createScreenInLibrary(
+	page: Page,
+	name: string,
+	template = 'Blank',
+): Promise<void> {
+	await page.getByRole('button', { name: 'New screen', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'New screen' });
+	await dialog.getByRole('radio', { name: template, exact: true }).click();
+	await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
+	await dialog.getByRole('button', { name: 'Create screen', exact: true }).click();
+}

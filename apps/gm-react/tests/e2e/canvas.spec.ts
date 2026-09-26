@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
+	createScreenInLibrary,
 	dispatch,
 	gotoRoute,
 	markOnboarded,
@@ -1258,28 +1259,21 @@ test.describe('canvas: board operation chips survive the bounded fit scale', () 
 	});
 });
 
-// The /scenes create form derived its "✓ Saved" tick from `runtime.lastLifecycle` — GLOBAL runtime
-// state that outlives the screen. So a scene created anywhere in the app (⌘K, the hub, a previous
-// visit) left an untouched, empty form wearing a green success tick, claiming work it had not done.
-// The tick is now the outcome of THIS form's own submit, it names the scene it saved, it retires when
-// the next draft starts, and it surfaces the rejection reason instead of swallowing it.
-test.describe('scenes: the create form only claims its own saves', () => {
-	test('a scene created elsewhere leaves the untouched form with no success tick', async ({
+// The old /scenes create form derived its "✓ Saved" tick from `runtime.lastLifecycle` — GLOBAL
+// runtime state — so a scene created anywhere claimed a save the form had not made. RC-CAN-7.3
+// replaced the form with the Screens library: a screen created elsewhere simply appears as a card,
+// and New screen's only confirmation is landing on the screen it made, named as typed.
+test.describe('screens: the library only claims its own creates', () => {
+	test('a screen created elsewhere appears in the library, and New screen lands on its own', async ({
 		page,
 	}) => {
 		await markOnboarded(page);
-		await gotoRoute(page, '/scenes');
+		await gotoRoute(page, '/screens');
 		await seedFresh(page);
-		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await page.goto('/#/screens', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 
-		const feedback = page.getByTestId('scene-create-feedback');
-		// Present and EMPTY before any submit: a permanent host, so the later text change is the one
-		// mutation a screen reader hears.
-		await expect(feedback).toHaveCount(1);
-		await expect(feedback).toHaveText('');
-
-		// Create a scene WITHOUT touching this form — exactly what ⌘K "New scene" or the hub does.
+		// Create a scene WITHOUT touching the library — exactly what the hub or an import does.
 		const elsewhere = `Elsewhere ${Date.now()}`;
 		const created = await dispatch(page, {
 			type: 'scene.create',
@@ -1287,34 +1281,17 @@ test.describe('scenes: the create form only claims its own saves', () => {
 			payload: { name: elsewhere, description: '', visibility: 'dm-only', tags: [] },
 		});
 		expect(created.status).toBe('accepted');
-		await expect(page.getByRole('button', { name: elsewhere })).not.toHaveCount(0);
+		const library = page.getByTestId('screens-library');
+		await expect(library.getByRole('link', { name: elsewhere })).toBeVisible();
+		// No dialog opened and no success was announced for work the library did not do.
+		await expect(page.getByRole('dialog', { name: 'New screen' })).toHaveCount(0);
 
-		// The form said nothing, because the form did nothing.
-		await expect(feedback).toHaveText('');
-	});
-
-	test('submitting the form reports the scene it saved, then retires on the next draft', async ({
-		page,
-	}) => {
-		await markOnboarded(page);
-		await gotoRoute(page, '/scenes');
-		await seedFresh(page);
-		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
-		await waitReady(page);
-
-		// `Create scene` is a SUBSTRING of the SceneCardsPanel's `Create scene card` on this same
-		// route, and `Name` of its `Name` field — both need exact matching here.
 		const mine = `Mine ${Date.now()}`;
-		await page.getByLabel('Name', { exact: true }).first().fill(mine);
-		await page.getByRole('button', { name: 'Create scene', exact: true }).click();
-
-		const feedback = page.getByTestId('scene-create-feedback');
-		// It names the scene rather than a bare "Saved", so the confirmation is checkable.
-		await expect(feedback).toHaveText(new RegExp(mine));
-
-		// Starting the next draft retires it — the tick can never sit above a form it does not describe.
-		await page.getByLabel('Name', { exact: true }).first().fill('A');
-		await expect(feedback).toHaveText('');
+		await createScreenInLibrary(page, mine);
+		await page.waitForURL((url) => url.hash.startsWith('#/screen/'), { timeout: 10_000 });
+		await expect(
+			page.locator('#main-content').getByRole('heading', { level: 2, name: mine }),
+		).toBeVisible();
 	});
 });
 

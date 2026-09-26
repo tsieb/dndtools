@@ -6,7 +6,6 @@ import {
 	getSceneDisplayForActor,
 	listCanvasCommandActions,
 	listCommandActions,
-	listScenesForActor,
 	listCharactersForActor,
 	listMapsForActor,
 	parseQuickSwitcherQuery,
@@ -38,6 +37,9 @@ import {
 	SETTINGS_SECTION,
 	isNavSectionVisible,
 } from './nav';
+import { screenCanvasRoute, SCREENS_PATH } from '../screens/screen/screenModel';
+import { screenPaletteRows } from '../screens/screen/paletteRows';
+import { useScreens } from '../screens/screen/useScreens';
 
 /**
  * One palette row. `kind` is the v2 addition: an ACTION does something (a Create launcher, a core
@@ -213,6 +215,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 	const [recentIds, setRecentIds] = useState<string[]>(readRecentIds);
 	// RC-CAN-4.3 — the canvas behind the palette (its edit toggle + undo stack), if one is mounted.
 	const canvasSurface = useSyncExternalStore(subscribeCanvasSurface, activeCanvasSurface);
+	// RC-CAN-7.3 — the same actor-filtered screens read the library and the header switcher use.
+	const screens = useScreens();
 
 	useEffect(() => {
 		// The DS palette clears its own input on open; keep the mirror in sync so stale hits never flash.
@@ -365,7 +369,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		// RC-CAN-4.3 — on /board and /scene/:id the canvas's own provider supplies Add tile / Apply
 		// template for THAT canvas, which supersedes the global catalog's home-scene "Add <widget>" and
 		// "Apply preset" rows there (on a scene route those would have added to a different scene).
-		const canvasRoute = canvasSurfaceForRoute(location.pathname);
+		const canvasRoute =
+			screenCanvasRoute(location.pathname, runtime.state.commandCenter.homeSceneId) ??
+			canvasSurfaceForRoute(location.pathname);
 		const superseded: readonly CommandActionGroup[] = canvasRoute ? ['widget', 'preset'] : [];
 		const catalog = listCommandActions(runtime.state, actorId, { profileId })
 			// An action that needs a typed value (a preset name) has no field to collect it here, and
@@ -541,7 +547,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			};
 		};
 		const creates: PaletteCommand[] = [
-			create('new:scene', 'palette.new.scene', 'palette.new.sceneKeywords', 'add', '/scenes'),
+			create(
+				'new:screen',
+				'palette.new.screen',
+				'palette.new.screenKeywords',
+				'add',
+				SCREENS_PATH,
+				{
+					createScreen: true,
+				},
+			),
 			create(
 				'new:character',
 				'palette.new.character',
@@ -651,25 +666,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				keywords: s.subKey ? t(s.subKey) : '',
 				run: goTo(`nav:${s.id}`, s.path),
 			}));
-		// The GM Screen's backing home scene is its own "Go to" destination — as a scene row it reads
-		// as a mystery scene named "Command Center".
-		const homeSceneId = runtime.state.commandCenter.homeSceneId;
-		const scenes: PaletteCommand[] = listScenesForActor(
-			runtime.state.scenes,
-			runtime.state.permissions,
-			actorId,
-		)
-			.filter((s) => !s.isTemplate && s.id !== homeSceneId)
-			.map((s) => ({
-				id: `scene:${s.id}`,
-				kind: 'destination' as const,
-				label: s.name,
-				icon: 'scene',
-				group: t('palette.group.scenes'),
-				keywords: s.tags.join(' '),
-				description: t(s.visibility === 'dm-only' ? 'common.visibility.dmOnly' : 'palette.shared'),
-				run: goTo(`scene:${s.id}`, `/scene/${s.id}`),
-			}));
+		// RC-CAN-7.3 — "All screens" joins Go to, and every screen is a jump target.
+		const screenRows = screenPaletteRows(screens.entries, screens.nameOf, t, goTo);
+		sections.push(screenRows.library);
+		const scenes: PaletteCommand[] = screenRows.screens;
 		const characters: PaletteCommand[] = listCharactersForActor(
 			runtime.state.characters,
 			runtime.state.permissions,
@@ -757,6 +757,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		canvasPrefix,
 		remember,
 		t,
+		screens,
 	]);
 
 	return (
@@ -778,7 +779,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 					t('palette.group.actions'),
 					t('palette.group.savedSearches'),
 					t('palette.group.goTo'),
-					t('palette.group.scenes'),
+					t('palette.group.screens'),
 					t('palette.group.characters'),
 					t('palette.group.maps'),
 					t('palette.group.notes'),

@@ -1,26 +1,37 @@
 import { expect, test } from '@playwright/test';
-import { gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	createScreenInLibrary,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
-// SYNC — local-first persistence + op-log growth. A real UI action (the Scenes create form) flows
+// SYNC — local-first persistence + op-log growth. A real UI action (the Screens library's New screen
+// dialog, which replaced the Scenes create form in RC-CAN-7.3) flows
 // through the runtime's single dispatch choke point, appends to the durable op-log, and the change
 // survives a full reload round-trip against real IndexedDB (Dexie DB `dndtools-v2`).
 
 test.describe('sync: local-first op-log persistence', () => {
 	test('a UI-authored scene grows the op-log and survives reload', async ({ page }) => {
 		await markOnboarded(page);
-		await gotoRoute(page, '/scenes');
+		await gotoRoute(page, '/screens');
 		await seedFresh(page);
 
-		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await page.goto('/#/screens', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
+		// The library provisions the GM screen in a fresh vault; let that write land first so the
+		// op-log baseline below is not racing it.
+		await page.waitForFunction(() => !!window.__rt!.state.commandCenter.homeSceneId);
+		await page.waitForFunction(() => window.__rt!.lastLifecycle?.status !== 'pending');
 
 		const sceneName = `Sync Crypt ${Date.now()}`;
 		const before = await ops(page);
 		expect(before).toBeGreaterThanOrEqual(0);
 
-		// Real UI action: fill the create form and submit (no __rt.dispatch shortcut).
-		await page.fill('#scene-name', sceneName);
-		await page.click('button[type="submit"]');
+		// Real UI action: create a blank screen from the library (no __rt.dispatch shortcut).
+		await createScreenInLibrary(page, sceneName);
 
 		// The command reached Core state and its durable write finished. The runtime shows the new
 		// state before `persistFullState` resolves and only moves the lifecycle off `pending` once
@@ -63,16 +74,18 @@ test.describe('sync: cross-device merge', () => {
 		page,
 	}) => {
 		await markOnboarded(page);
-		await gotoRoute(page, '/scenes');
+		await gotoRoute(page, '/screens');
 		await seedFresh(page);
 
-		await page.goto('/#/scenes', { waitUntil: 'domcontentloaded' });
+		await page.goto('/#/screens', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
+		await page.waitForFunction(() => !!window.__rt!.state.commandCenter.homeSceneId);
+		await page.waitForFunction(() => window.__rt!.lastLifecycle?.status !== 'pending');
 
-		// Device A (this one): author a scene through the real create form.
+		// Device A (this one): author a scene through the real library dialog (a blank screen is one
+		// `scene.create`, so it is the last operation in the log).
 		const sceneName = `Merge Hall ${Date.now()}`;
-		await page.fill('#scene-name', sceneName);
-		await page.click('button[type="submit"]');
+		await createScreenInLibrary(page, sceneName);
 		await page.waitForFunction(
 			(name) => Object.values(window.__rt!.state.scenes.scenes).some((s) => s.name === name),
 			sceneName,

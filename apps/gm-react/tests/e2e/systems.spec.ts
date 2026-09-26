@@ -157,9 +157,12 @@ test.describe('system package picker', () => {
 	// the table the DM; Generic calls them the GM. Neither word is written into a screen: the
 	// catalog carries `{gm}` and the ACTIVE package fills it, so the chrome renames itself.
 	test('the chrome takes its words from the active package', async ({ page }) => {
+		// `/board` resolves to the GM screen (RC-CAN-7.3), whose own heading names it.
 		await gotoRoute(page, '/board');
 		await waitReady(page);
-		await expect(page.getByRole('heading', { level: 1, name: 'DM screen' })).toBeVisible();
+		await expect(
+			page.locator('#main-content').getByRole('heading', { level: 2, name: 'DM screen' }),
+		).toBeVisible();
 
 		await gotoRoute(page, '/extensions');
 		await waitReady(page);
@@ -168,7 +171,9 @@ test.describe('system package picker', () => {
 
 		await gotoRoute(page, '/board');
 		await waitReady(page);
-		await expect(page.getByRole('heading', { level: 1, name: 'GM screen' })).toBeVisible();
+		await expect(
+			page.locator('#main-content').getByRole('heading', { level: 2, name: 'GM screen' }),
+		).toBeVisible();
 		// Not just the top bar: the same word reaches the sidebar/rail destination and the safety
 		// vocabulary on the surfaces underneath it.
 		await expect(page.getByText('DM screen')).toHaveCount(0);

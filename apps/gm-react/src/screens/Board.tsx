@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
 	resolveAddWidgetCommand,
+	screenLayoutPolicy,
 	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Button, Card, Icon, Menu, Callout, Toolbar, Switch, Toaster } from '../ds';
+import { Button, Icon, Callout, Toolbar, Switch, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, type ZoomPreset } from '../app/SceneBoardCanvas';
@@ -38,6 +39,9 @@ import {
 } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
 import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
+import { FlowBoard } from '../app/canvas/FlowBoard';
+import { BoardHeading } from './board/BoardHeading';
+import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
 import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
@@ -71,7 +75,20 @@ import { WidgetBuilder } from './extensions/WidgetBuilder';
 const PERSIST_FAILED =
 	"That change couldn't be saved to this device. Check storage space and try again.";
 
-export function Board() {
+/**
+ * RC-CAN-7.3 — the screen a `/screen/:id` route hands the board engine: which scene to render, what
+ * to call it, and the header actions (the switcher, the pin) that sit beside its name. Without one,
+ * the board renders the vault's home scene as `/board` always has.
+ */
+export interface BoardScreen {
+	id: string;
+	title: string;
+	summary: string;
+	icon: string;
+	actions: ReactNode;
+}
+
+export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const viewport = useViewport();
@@ -105,10 +122,6 @@ export function Board() {
 	const [layoutsOpen, setLayoutsOpen] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	// RC-CAN-3.4 — the layout quality indicator's own popover, separate from Add/Layouts so opening
-	// it does not fight their shared side slot.
-	const [qualityOpen, setQualityOpen] = useState(false);
-	const qualityTriggerRef = useRef<HTMLButtonElement>(null);
 	const ensuringRef = useRef(false);
 
 	// A successful Add, or a saved layout preset, unmounts the panel with focus still inside it — the
@@ -128,7 +141,12 @@ export function Board() {
 		}
 	}, [location.state, location.pathname, navigate]);
 
-	const homeSceneId = runtime.state.commandCenter.homeSceneId;
+	// The home scene backs `/board`; a screen route names its own scene and never provisions one.
+	const homeSceneId = screen ? screen.id : runtime.state.commandCenter.homeSceneId;
+	const boardScene = homeSceneId ? runtime.state.scenes.scenes[homeSceneId] : undefined;
+	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
+	const isHomeBoard = homeSceneId === runtime.state.commandCenter.homeSceneId;
+	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
 	const summary = homeSceneId
 		? getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, homeSceneId, {
 				widgetPackages: runtime.state.widgets,
@@ -142,7 +160,7 @@ export function Board() {
 
 	// CMD-001: create the DM's home Scene from the system template the first time the board loads.
 	useEffect(() => {
-		if (!runtime.loaded || !isDm || ensuringRef.current) return;
+		if (screen || !runtime.loaded || !isDm || ensuringRef.current) return;
 		const danglingHome = !!homeSceneId && !!summary && 'kind' in summary;
 		if (homeSceneId && !danglingHome) return;
 		ensuringRef.current = true;
@@ -158,7 +176,7 @@ export function Board() {
 			.finally(() => {
 				ensuringRef.current = false;
 			});
-	}, [runtime, runtime.loaded, isDm, homeSceneId, summary, actorId]);
+	}, [runtime, runtime.loaded, isDm, homeSceneId, summary, actorId, screen]);
 
 	const previouslyFilled = useBoardPreviouslyFilled(
 		homeSceneId,
@@ -242,7 +260,8 @@ export function Board() {
 	function move(widgetInstanceId: string, x: number, y: number) {
 		if (!homeSceneId) return;
 		const widget = widgets.find((w) => w.id === widgetInstanceId);
-		const clampedX = widget ? clampToColumns(x, widget.w) : x;
+		// Flow has no columns to fall off: its x is an order key (FlowBoard computes it).
+		const clampedX = widget && !flow ? clampToColumns(x, widget.w) : x;
 		return history.run(
 			{
 				type: 'scene.move-widget',
@@ -255,7 +274,7 @@ export function Board() {
 	function resize(widgetInstanceId: string, w: number, h: number) {
 		if (!homeSceneId) return;
 		const widget = widgets.find((wid) => wid.id === widgetInstanceId);
-		const clampedW = widget ? clampWidthToColumns(widget.x, w) : w;
+		const clampedW = widget && !flow ? clampWidthToColumns(widget.x, w) : w;
 		return history.run(
 			{
 				type: 'scene.resize-widget',
@@ -268,7 +287,7 @@ export function Board() {
 	// The banner's fix: a deterministic greedy repack of every widget back into the board's columns,
 	// each changed position committed as its own `scene.move-widget` (the same undoable path a drag
 	// takes), so "Fix layout" is a real durable action rather than a client-only visual snap.
-	const layoutIssues = boardLayoutIssues(widgets);
+	const layoutIssues = flow ? [] : boardLayoutIssues(widgets);
 	async function fixLayout() {
 		if (!homeSceneId) return;
 		const next = repackBoardColumns(widgets);
@@ -277,7 +296,6 @@ export function Board() {
 			if (!pos || (pos.x === widget.x && pos.y === widget.y)) continue;
 			await move(widget.id, pos.x, pos.y);
 		}
-		setQualityOpen(false);
 		setStatus(t('board.layoutFixed'));
 	}
 	// RC-CAN-3.4 — "Select" on a listed issue puts the offender under the SAME selection state a
@@ -287,7 +305,6 @@ export function Board() {
 	function selectIssue(widgetId: string) {
 		setSelectedId(widgetId);
 		if (!editing) setEditing(true);
-		setQualityOpen(false);
 	}
 	// Delete/Backspace on a focused widget frame is the ONLY widget-lifecycle operation on `/board`
 	// (there is no Inspector here). It used to stage a confirm dialog, because a destroy could not be
@@ -343,7 +360,7 @@ export function Board() {
 
 	// The Edit-layout / Done button's handler, shared with the command palette's Toggle edit row.
 	function enterEditing(next: boolean) {
-		if (next) void snapshotSafePoint();
+		if (next && isHomeBoard) void snapshotSafePoint();
 		setEditing(next);
 		setSelectedId(null);
 		setAddOpen(false);
@@ -355,7 +372,7 @@ export function Board() {
 		if (!isDm || !homeSceneId) return;
 		return registerCanvasSurface({
 			sceneId: homeSceneId,
-			policy: 'bounded',
+			policy: flow ? 'flow' : 'bounded',
 			widgets,
 			editable: true,
 			editing,
@@ -396,7 +413,7 @@ export function Board() {
 			}}
 		>
 			<Toolbar
-				ariaLabel={t('board.title')}
+				ariaLabel={screen?.title ?? t('board.title')}
 				style={{
 					display: chromeHidden ? 'none' : 'flex',
 					alignItems: 'center',
@@ -405,42 +422,12 @@ export function Board() {
 					flexWrap: 'wrap',
 				}}
 			>
-				<span
-					style={{
-						display: 'inline-flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						width: 30,
-						height: 30,
-						borderRadius: 'var(--radius-md)',
-						background: 'var(--color-accent)',
-						color: 'var(--color-accent-foreground)',
-						flex: '0 0 auto',
-					}}
-				>
-					<Icon name="home" size="sm" />
-				</span>
-				<div style={{ minWidth: 0, flex: '1 1 160px' }}>
-					{/* The shell's <h1> lives in the top bar, outside <main>, so heading navigation
-					    found nothing inside the board pane. */}
-					<h2
-						style={{
-							margin: 0,
-							font: '700 var(--text-xl) var(--font-display)',
-							color: 'var(--color-text-primary)',
-						}}
-					>
-						{t('board.title')}
-					</h2>
-					<div
-						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
-						}}
-					>
-						{t('board.widgetCount', { count: widgets.length })}
-					</div>
-				</div>
+				<BoardHeading
+					icon={screen?.icon ?? 'home'}
+					title={screen?.title ?? t('board.title')}
+					summary={screen?.summary ?? t('board.widgetCount', { count: widgets.length })}
+				/>
+				{screen?.actions}
 				<div style={{ flex: 1 }} />
 				{editing && (
 					<>
@@ -471,23 +458,25 @@ export function Board() {
 							{t('board.add')}
 						</Button>
 						{/* Add and Layouts share the same side slot, so opening one closes the other. */}
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="scene"
-							aria-expanded={layoutsOpen}
-							onClick={() => {
-								setLayoutsOpen((v) => !v);
-								setAddOpen(false);
-							}}
-						>
-							{t('board.layouts')}
-						</Button>
+						{isHomeBoard && (
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="scene"
+								aria-expanded={layoutsOpen}
+								onClick={() => {
+									setLayoutsOpen((v) => !v);
+									setAddOpen(false);
+								}}
+							>
+								{t('board.layouts')}
+							</Button>
+						)}
 					</>
 				)}
 				<Phone.PhoneViewSwitch posture={posture} />
 				{/* The named zoom steps, in both modes — but not on the stacked list, which has none. */}
-				{!posture.stacked && (
+				{!posture.stacked && !flow && (
 					<ZoomPresetGroup value={steps.pressed} presets={steps.presets} onChange={setZoom} />
 				)}
 				<Button
@@ -541,115 +530,13 @@ export function Board() {
 				</Callout>
 			)}
 
-			{/* RC-CAN-3.3/3.4: a widget dragged (or preset-applied) past the board's columns is clamped
-			    back onto the grid at the point it commits, but that snap can still land it on top of
-			    another widget. This banner names that honestly instead of leaving an invisible overlap,
-			    and its own text is the quality indicator's trigger: a Popover lists every offender by
-			    name (shape — warning triangle for an overflow, error circle for an overlap — carries
-			    the distinction, not colour alone) with a "Select" that jumps the DM straight to it,
-			    alongside the one-click "Fix layout". */}
 			{layoutIssues.length > 0 && !chromeHidden && (
-				<Card
-					elevation="flat"
-					padding="sm"
-					data-testid="board-layout-banner"
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 'var(--space-2)',
-						flex: '0 0 auto',
-						position: 'relative',
-						borderColor: 'var(--color-status-warning)',
-					}}
-				>
-					<Icon name="warning" size="sm" />
-					<button
-						type="button"
-						ref={qualityTriggerRef}
-						aria-haspopup="menu"
-						aria-expanded={qualityOpen}
-						data-testid="board-layout-quality-trigger"
-						onClick={() => setQualityOpen((v) => !v)}
-						style={{
-							flex: 1,
-							textAlign: 'left',
-							background: 'transparent',
-							border: 'none',
-							padding: 0,
-							cursor: 'pointer',
-							font: 'var(--text-xs) var(--font-sans)',
-							color: 'var(--color-text-primary)',
-							textDecoration: 'underline',
-							textUnderlineOffset: 2,
-						}}
-					>
-						{t('board.layoutIssues', { count: layoutIssues.length })}
-					</button>
-					<Button variant="secondary" size="sm" onClick={() => void fixLayout()}>
-						{t('board.fixLayout')}
-					</Button>
-					{qualityOpen && (
-						<Menu
-							triggerRef={qualityTriggerRef}
-							title={t('board.layoutIssuesTitle')}
-							onClose={() => setQualityOpen(false)}
-							style={{ position: 'absolute', top: '100%', left: 0, marginTop: 'var(--space-1)' }}
-						>
-							<div
-								data-testid="board-layout-issue-list"
-								style={{
-									margin: 0,
-									padding: 0,
-									display: 'flex',
-									flexDirection: 'column',
-									gap: 'var(--space-2)',
-								}}
-							>
-								{layoutIssues.map((issue, index) => {
-									const text =
-										issue.kind === 'overflow'
-											? t('board.layoutIssueOverflow', { widget: titleOf(issue.widgetId) })
-											: t('board.layoutIssueOverlap', {
-													widget: titleOf(issue.widgetId),
-													other: titleOf(issue.otherWidgetId!),
-												});
-									return (
-										<Button
-											key={`${issue.kind}-${issue.widgetId}-${issue.otherWidgetId ?? index}`}
-											role="menuitem"
-											variant="ghost"
-											size="sm"
-											onClick={() => selectIssue(issue.widgetId)}
-											style={{
-												width: '100%',
-												justifyContent: 'space-between',
-												textAlign: 'left',
-												gap: 'var(--space-2)',
-											}}
-										>
-											<span
-												style={{
-													display: 'flex',
-													alignItems: 'center',
-													gap: 'var(--space-2)',
-													minWidth: 0,
-												}}
-											>
-												<Icon name={issue.kind === 'overflow' ? 'warning' : 'error'} size="sm" />
-												<span style={{ flex: 1, font: 'var(--text-xs) var(--font-sans)' }}>
-													{text}
-												</span>
-											</span>
-											<span style={{ font: 'var(--text-xs) var(--font-sans)' }}>
-												{t('board.selectIssue')}
-											</span>
-										</Button>
-									);
-								})}
-							</div>
-						</Menu>
-					)}
-				</Card>
+				<BoardLayoutBanner
+					issues={layoutIssues}
+					titleOf={titleOf}
+					onFix={fixLayout}
+					onSelect={selectIssue}
+				/>
 			)}
 
 			<div
@@ -670,6 +557,21 @@ export function Board() {
 							emptyHint={ready ? '' : t('board.preparingHint')}
 							emptyTitle={ready ? '' : t('board.preparingTitle')}
 							onMaximizedChange={posture.onMaximizedChange}
+						/>
+					) : flow ? (
+						<FlowBoard
+							widgets={widgets}
+							tier={viewport}
+							editing={editing}
+							selectedId={selectedId}
+							onSelect={setSelectedId}
+							onMove={move}
+							onResize={resize}
+							onRemove={remove}
+							onWidgetCommand={operateWidget}
+							history={history}
+							emptyTitle=""
+							emptyHint=""
 						/>
 					) : (
 						<Phone.PhoneNavigator
@@ -725,7 +627,7 @@ export function Board() {
 					open={addOpen}
 					onClose={() => setAddOpen(false)}
 					viewport={viewport}
-					policy="bounded"
+					policy={flow ? 'flow' : 'bounded'}
 					widgets={widgets}
 					onDone={() => {
 						setEditing(false);
@@ -746,7 +648,7 @@ export function Board() {
 					}
 				/>
 
-				{editing && layoutsOpen && (
+				{editing && layoutsOpen && isHomeBoard && (
 					<BoardLayoutsPanel
 						t={t}
 						viewport={viewport}
@@ -770,7 +672,7 @@ export function Board() {
 				sceneId={ready ? homeSceneId : null}
 				// The applied layout is a good checkpoint to fall back to, and the DM picked it to adjust it.
 				onApplied={() => {
-					void snapshotSafePoint();
+					if (isHomeBoard) void snapshotSafePoint();
 					setEditing(true);
 				}}
 			/>

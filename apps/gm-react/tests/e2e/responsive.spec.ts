@@ -4,7 +4,8 @@ import { dispatch, gotoRoute, markOnboarded, preferPhoneCanvas, seedFresh } from
 const ROUTES = [
 	'/',
 	'/session',
-	'/scenes',
+	// RC-CAN-7.3 — the Screens library; `/scenes` resolves to it.
+	'/screens',
 	'/characters',
 	'/atlas',
 	'/campaign',
@@ -18,6 +19,24 @@ const ROUTES = [
 	'/settings',
 	'/board',
 ];
+
+/**
+ * RC-CAN-7.3 — the path a route settles on. ADR-041's `/board` alias resolves to the GM screen's
+ * `/screen/:id` by REPLACING its history entry; every other route settles on itself (a `:id` segment
+ * matches any id).
+ */
+function settledPattern(route: string): string {
+	if (route === '/board') return '^/screen/[^/]+$';
+	return `^${route.replace(':id', '[^/]+')}$`;
+}
+
+/** Wait until the hash route has settled on `route` — through its alias, if it has one. */
+async function waitForRouteHash(page: Page, route: string): Promise<void> {
+	await page.waitForFunction(
+		(pattern) => new RegExp(pattern).test(window.location.hash.replace(/^#/, '')),
+		settledPattern(route),
+	);
+}
 
 const CONTROL_SELECTOR =
 	'button, a[href], input, select, textarea, [role="button"], [role="option"], [role="menuitem"], [role="radio"], [role="checkbox"], [role="tab"], [role="switch"]';
@@ -216,7 +235,7 @@ for (const viewport of [
 			await page.evaluate((next) => {
 				window.location.hash = next;
 			}, route);
-			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+			await waitForRouteHash(page, route);
 			await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 			await page.waitForTimeout(100);
 
@@ -823,13 +842,16 @@ test('starting fresh can reload directly into a HashRouter destination', async (
 	await dialog.getByRole('button', { name: 'Continue' }).click();
 
 	await Promise.all([
-		page.waitForURL(/#\/scenes$/, { timeout: 20_000 }),
+		// The step's `/scenes` resolves to the Screens library (RC-CAN-7.3).
+		page.waitForURL(/#\/screens$/, { timeout: 20_000 }),
 		dialog.getByRole('button', { name: 'A scene is staged' }).click(),
 	]);
 	await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
 
 	await expect(dialog).toHaveCount(0);
-	await expect(page.getByText('Scenes · 0', { exact: true })).toBeVisible();
+	await expect(
+		page.getByTestId('screens-library').getByRole('heading', { level: 2, name: 'Screens' }),
+	).toBeVisible();
 	await expect(
 		page.locator('#main-content').getByText('Command Center', { exact: true }),
 	).toHaveCount(0);
@@ -999,7 +1021,7 @@ async function settleRoute(page: Page, route: string): Promise<void> {
 	await page.evaluate((next) => {
 		window.location.hash = next;
 	}, route);
-	await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+	await waitForRouteHash(page, route);
 	await nextFrames(page);
 	await expect(page.getByText('Loading your vault…', { exact: true })).toHaveCount(0, {
 		timeout: 20_000,
@@ -1180,7 +1202,7 @@ for (const mode of ['reduced motion', 'forced colors'] as const) {
 			await page.evaluate((next) => {
 				window.location.hash = next;
 			}, route);
-			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+			await waitForRouteHash(page, route);
 			await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 			await page.evaluate(
 				() =>
@@ -1232,7 +1254,7 @@ test('Android routes consume native safe areas and keep 48dp controls keyboard-v
 		await page.evaluate((next) => {
 			window.location.hash = next;
 		}, route);
-		await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+		await waitForRouteHash(page, route);
 		await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 		await page.evaluate(
 			() =>
@@ -1459,8 +1481,8 @@ test('toasts stack above the phone bottom tab bar, never over it', async ({ page
 // route (dumping the user on Command Center).
 test('the skip link moves focus to main without clobbering the hash route', async ({ page }) => {
 	await markOnboarded(page);
-	await gotoRoute(page, '/scenes');
-	expect(new URL(page.url()).hash).toBe('#/scenes');
+	await gotoRoute(page, '/screens');
+	expect(new URL(page.url()).hash).toBe('#/screens');
 
 	const skip = page.getByRole('link', { name: 'Skip to content' });
 	await skip.focus();
@@ -1470,7 +1492,7 @@ test('the skip link moves focus to main without clobbering the hash route', asyn
 	// Focus lands on the main landmark …
 	await expect(page.locator('#main-content')).toBeFocused();
 	// … and the route is untouched, so Back and reload still work.
-	expect(new URL(page.url()).hash).toBe('#/scenes');
+	expect(new URL(page.url()).hash).toBe('#/screens');
 	await expect(page.locator('#main-content')).toBeVisible();
 
 	// … and the skip actually SHOWS. `<main>` carried an inline `outline: 'none'`, which beats the
@@ -1511,7 +1533,7 @@ test('primary routes stay reachable and unclipped with the document mirrored rtl
 		await page.evaluate((next) => {
 			window.location.hash = next;
 		}, route);
-		await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+		await waitForRouteHash(page, route);
 		await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 		await page.waitForTimeout(100);
 
@@ -1786,8 +1808,9 @@ const SHELL_SCREENS = [
 /** Screens whose section is a row in the phone "All sections" sheet (not one of the four tabs). The
  * sheet marks the active SECTION, so a sub-route marks its parent's row. Graph is usage-gated
  * (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
+// `/board` is not listed: it settles on the GM screen's `/screen/:id` (RC-CAN-7.3), and a screen is
+// user content rather than a section, so no row claims it (CAN-7.4 adds pinned screens to the sheet).
 const MORE_SHEET_ROUTES = new Set([
-	'/board',
 	'/campaign',
 	'/campaign/calendar',
 	'/campaign/relationships',
@@ -1839,7 +1862,7 @@ async function openShellScreen(page: Page, screen: string): Promise<void> {
  * check is. */
 async function expectStillOn(page: Page, screen: string): Promise<void> {
 	const hash = new URL(page.url()).hash.replace(/^#/, '');
-	const pattern = new RegExp(`^${screen.replace(':id', '[^/]+')}$`);
+	const pattern = new RegExp(settledPattern(screen));
 	expect(hash, `${screen} redirected to ${hash}`).toMatch(pattern);
 }
 
@@ -2136,7 +2159,7 @@ for (const viewport of [
 			await page.evaluate((next) => {
 				window.location.hash = next;
 			}, route);
-			await page.waitForFunction((next) => window.location.hash === `#${next}`, route);
+			await waitForRouteHash(page, route);
 			await settleScreen(page);
 			await expectStillOn(page, screen);
 

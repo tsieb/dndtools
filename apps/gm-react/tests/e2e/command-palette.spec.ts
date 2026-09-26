@@ -87,15 +87,16 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 	test('searching a section destination and selecting it navigates there', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
 
-		// "Go to" launchers are static section destinations. The GM Screen is distinctive (→ /board); its
-		// name follows the system package's vocabulary, so under 5e it reads "DM screen" (RC-SYS-2.6).
+		// "Go to" launchers are static section destinations. The GM Screen is distinctive (→ /board, which
+		// resolves to the home screen's /screen/:id — RC-CAN-7.3); its name follows the system package's
+		// vocabulary, so under 5e it reads "DM screen" (RC-SYS-2.6).
 		await page.getByRole('combobox').fill('DM screen');
 		const option = page.getByRole('option', { name: 'DM screen' });
 		await expect(option).toBeVisible();
 		await option.click();
 
 		// Selecting a result RUNS its command (navigate) and closes the overlay.
-		await page.waitForURL((url) => url.hash === '#/board', { timeout: 10_000 });
+		await page.waitForURL((url) => url.hash.startsWith('#/screen/'), { timeout: 10_000 });
 		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
@@ -181,14 +182,16 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 	test('a Create action lands on the right screen', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
 
-		// The "Create" launchers open the create flow on the owning screen. "New scene" → /scenes.
-		await page.getByRole('combobox').fill('New scene');
-		const create = page.getByRole('option', { name: 'New scene' });
+		// The "Create" launchers open the create flow on the owning screen. "New screen" → the /screens
+		// library with its New screen dialog open (RC-CAN-7.3).
+		await page.getByRole('combobox').fill('New screen');
+		const create = page.getByRole('option', { name: 'New screen' });
 		await expect(create).toBeVisible();
 		await create.click();
 
-		await page.waitForURL((url) => url.hash === '#/scenes', { timeout: 10_000 });
+		await page.waitForURL((url) => url.hash === '#/screens', { timeout: 10_000 });
 		await expect(page.getByRole('dialog', PALETTE)).toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: 'New screen' })).toBeVisible();
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
@@ -237,7 +240,7 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await expect(page.getByRole('group', { name: 'Actions' })).not.toHaveCount(0);
 		// Destinations are gone entirely — no "Go to", no scene/character/map rows.
 		await expect(page.getByRole('group', { name: 'Go to' })).toHaveCount(0);
-		await expect(page.getByRole('group', { name: 'Scenes' })).toHaveCount(0);
+		await expect(page.getByRole('group', { name: 'Screens' })).toHaveCount(0);
 		await expect(page.getByRole('group', { name: 'Maps' })).toHaveCount(0);
 
 		// The residual text after the sigil still filters the actions.
@@ -406,14 +409,19 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 	// command is one keystroke rather than a re-typed query.
 	test('a command that was just run comes back under Recent', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
-		await page.getByRole('combobox').fill('New scene');
-		await page.getByRole('option', { name: 'New scene' }).click();
-		await page.waitForURL((url) => url.hash === '#/scenes', { timeout: 10_000 });
+		await page.getByRole('combobox').fill('New screen');
+		await page.getByRole('option', { name: 'New screen' }).click();
+		await page.waitForURL((url) => url.hash === '#/screens', { timeout: 10_000 });
+		// The launcher opened the New screen dialog; a modal owns the keyboard, so close it first.
+		const createDialog = page.getByRole('dialog', { name: 'New screen' });
+		await expect(createDialog).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(createDialog).toHaveCount(0);
 
 		await openViaKeyboard(page, 'Meta+k');
 		const recent = page.getByRole('group', { name: 'Recent' });
 		await expect(recent).toBeVisible();
-		await expect(recent.getByRole('option', { name: 'New scene' })).toBeVisible();
+		await expect(recent.getByRole('option', { name: 'New screen' })).toBeVisible();
 	});
 
 	// The DM's landing surface contained NO heading of any level: the 23px hero was a styled <div>

@@ -12,7 +12,7 @@ Routes are `react-router-dom` v6 HashRouter paths. Every screen lives under
 | Group    | Destination    | Route         | Owns                                                    |
 | -------- | -------------- | ------------- | ------------------------------------------------------- |
 | Run      | Command Center | `/`           | Campaign hub: resume the live scene, jump anywhere      |
-| Run      | GM Screen      | `/board`      | The table dashboard of widget tiles                     |
+| Run      | GM Screen      | `/board`      | The GM screen; resolves to its `/screen/:id`            |
 | Run      | Session        | `/session`    | Live play: combat, dice, handouts, projection           |
 | Library  | Characters     | `/characters` | PCs, NPCs, bestiary, sheets and builders                |
 | Library  | Maps           | `/atlas`      | Maps, fog, layers, points of interest, the map editor   |
@@ -28,8 +28,9 @@ Routes are `react-router-dom` v6 HashRouter paths. Every screen lives under
 
 Chrome-less routes sit outside the shell: `/play` (player companion), `/join` (invite redeem),
 `/wiki` (published wiki reader), `/display` (second-screen scene display), and `/legal/*`. The
-scene library (`/scenes`) and editor (`/scene/:id`) render inside the shell as a `scenes`
-pseudo-section: `activeSectionId` titles them, but they are not a `nav.ts` destination.
+scene editor (`/scene/:id`) renders inside the shell as a `scenes` pseudo-section, and the Screens
+library (`/screens`) and every screen (`/screen/:id`) as a `screens` pseudo-section:
+`activeSectionId` titles them, but they are not `nav.ts` destinations.
 
 Rules:
 
@@ -48,6 +49,13 @@ with `/screens` as the library and `/screen/:id` for one screen, while `/`, `/bo
 user-defined Screens group under [ADR-013](../adr/013-three-layer-navigation-contract.md) rather than
 new hard-coded destinations, and `nav.ts` stays the source of global IA. The tables above describe
 the destinations and routes that ship today; the conversion lands in CAN-7.2 onward.
+
+As of RC-CAN-7.3 the library and the screen route ship: `/screens` lists screens (search, sort,
+tags, thumbnails, visibility, the live marker; new from template, pin, rename, duplicate, delete
+with undo), and `/screen/:id` renders any screen by its layout policy with a header switcher.
+`/board` resolves to the GM screen's `/screen/:id` and `/scenes` to `/screens`, each by replacing
+the history entry, so a switch from the library, the switcher or the palette is one push. `/`,
+`/session` and `/scene/:id` still render their own screens until CAN-7.6 and CAN-7.8.
 
 ## 2. Navigation layers
 

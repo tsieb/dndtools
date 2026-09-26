@@ -29,6 +29,7 @@ import { ONBOARDED_KEY, REPLAY_EVENT, readStorage } from './app/onboarding/share
 import { CommandCenter } from './screens/CommandCenter';
 import { SceneDisplay } from './screens/SceneDisplay';
 import { PlatformLifecycle } from './platform/PlatformLifecycle';
+import { ScreenRouteAliases } from './screens/screen/routeAliases';
 import { registerBackHandler } from './platform/backNavigation';
 
 // Route-level code-splitting: every section except the landing Command Center is a lazy chunk, so
@@ -44,7 +45,13 @@ const ScenesCreator = lazy(() =>
 const SceneEditor = lazy(() =>
 	import('./screens/sceneEditor').then((m) => ({ default: m.SceneEditor })),
 );
-const Board = lazy(() => import('./screens/Board').then((m) => ({ default: m.Board })));
+// RC-CAN-7.3 / ADR-041 — `/screen/:id` renders any screen; `/board` resolves to the GM screen's.
+const ScreenView = lazy(() =>
+	import('./screens/screen/ScreenView').then((m) => ({ default: m.ScreenView })),
+);
+const BoardAlias = lazy(() =>
+	import('./screens/screen/ScreenView').then((m) => ({ default: m.BoardAlias })),
+);
 const Session = lazy(() => import('./screens/session').then((m) => ({ default: m.Session })));
 const Characters = lazy(() =>
 	import('./screens/characters').then((m) => ({ default: m.Characters })),
@@ -428,13 +435,18 @@ function ShelledRoutes() {
 	return (
 		<AppShell>
 			<OnboardingGate />
+			<ScreenRouteAliases />
 			<Suspense fallback={<Boot />}>
 				<Routes>
 					<Route path="/" element={<CommandCenter />} />
+					{/* ADR-041 routes: `/screens` is the library. `/scenes` renders it too while
+					    `ScreenRouteAliases` (outside this boundary) replaces the entry with `/screens`. */}
+					<Route path="/screens" element={<ScenesCreator />} />
 					<Route path="/scenes" element={<ScenesCreator />} />
+					<Route path="/screen/:id" element={<ScreenView />} />
 					<Route path="/scene/:id" element={<SceneEditor />} />
 					<Route path="/session" element={<Session />} />
-					<Route path="/board" element={<Board />} />
+					<Route path="/board" element={<BoardAlias />} />
 					{/* `:id?` — the roster and the sheet share one screen; a present id deep-links the
 					    sheet so cross-links (Story cards, palette hits, note mentions) can target an
 					    entity instead of dumping the user on the list. */}

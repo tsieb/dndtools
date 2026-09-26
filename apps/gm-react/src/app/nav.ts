@@ -154,6 +154,7 @@ export const SECTION_TITLES: Record<string, [MessageKey, MessageKey]> = {
 	campaign: ['nav.story', 'section.sub.campaign'],
 	knowledge: ['nav.notes', 'section.sub.knowledge'],
 	scenes: ['nav.scenes', 'section.sub.scenes'],
+	screens: ['nav.screens', 'section.sub.screens'],
 	graph: ['nav.graph', 'section.sub.graph'],
 	audio: ['section.audio', 'section.sub.audio'],
 	extensibility: ['section.extensibility', 'section.sub.extensibility'],
@@ -169,6 +170,9 @@ export function activeSectionId(pathname: string): string {
 	// this the fallback is 'home' and the top bar claims "Command Center" while editing a scene.
 	if (pathname === '/scenes' || pathname === '/scene' || pathname.startsWith('/scene/'))
 		return 'scenes';
+	// RC-CAN-7.3 — the Screens library and every screen (ADR-041). A screen is user content, not a
+	// global destination, so no nav row claims it; the screen names itself in its own header.
+	if (pathname === '/screens' || pathname.startsWith('/screen/')) return 'screens';
 	let best: NavSection | null = null;
 	for (const section of ALL) {
 		if (section.path === '/') {
