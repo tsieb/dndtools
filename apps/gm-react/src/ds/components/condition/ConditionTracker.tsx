@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface ConditionEntry {
 	key: string;
@@ -68,7 +68,7 @@ export function ConditionTracker({
 						color: 'var(--color-text-tertiary)',
 					}}
 				>
-					{en['ds.conditionTracker.noConditions']}
+					{dsCopy['ds.conditionTracker.noConditions']}
 				</span>
 			)}
 			{norm.map((e, i) => (
@@ -90,7 +90,7 @@ export function ConditionTracker({
 						color: 'var(--color-text-tertiary)',
 					}}
 				>
-					{en['ds.conditionTracker.thisSystemHasNoConditions']}
+					{dsCopy['ds.conditionTracker.thisSystemHasNoConditions']}
 				</span>
 			)}
 			{canAdd && (
@@ -99,7 +99,7 @@ export function ConditionTracker({
 					onClick={onAdd}
 					// The whole accessible name was the noun "Condition" — the `add` Icon carries no label,
 					// so there was no verb anywhere and it read as a status chip rather than a control.
-					aria-label={en['ds.conditionTracker.addCondition']}
+					aria-label={dsCopy['ds.conditionTracker.addCondition']}
 					// ~21px tall from `2px` padding + --text-xs, under the WCAG 2.5.8 floor, while every
 					// migrated sibling (Checkbox, Switch, Chip, Slider's steppers) follows the density token.
 					// There is no global `button:hover` in this app and an inline style cannot express one,
@@ -129,7 +129,7 @@ export function ConditionTracker({
 					}}
 				>
 					<Icon name="add" size={12} />
-					{en['ds.conditionTracker.condition']}
+					{dsCopy['ds.conditionTracker.condition']}
 				</button>
 			)}
 		</div>

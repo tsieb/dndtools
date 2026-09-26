@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 /**
  * Popover — floating panel primitive with leak-safe dismissal (outside pointerdown only, never
@@ -237,7 +237,7 @@ export function Popover({
 					{onClose && (
 						<button
 							type="button"
-							aria-label={en['ds.popover.close']}
+							aria-label={dsCopy['ds.popover.close']}
 							onClick={onClose}
 							style={{
 								display: 'inline-flex',

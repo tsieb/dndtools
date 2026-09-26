@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 import type { LayerType } from './LayerTypeBadge';
 
 export interface Layer {
@@ -17,7 +17,12 @@ export interface Layer {
  * LayerRow — canonical layer-panel row. Three independent controls (DM display, visibility,
  * opacity) plus lock, inline rename, and actions. `readOnly` = the player/observer actor view.
  */
-export interface LayerRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
+export interface LayerRowProps extends Omit<
+	React.HTMLAttributes<HTMLDivElement>,
+	'onChange' | 'style'
+> {
+	/** Inline styles, including CSS custom properties (the map dock re-points a colour token). */
+	style?: React.CSSProperties & Record<`--${string}`, string | number>;
 	actionRef?: React.Ref<HTMLButtonElement>;
 	actionExpanded?: boolean;
 	layer: Omit<Layer, 'id'> & { id?: string };
@@ -332,7 +337,7 @@ export function LayerRow({
 								onPointerUp={commitOpacity}
 								onKeyUp={commitOpacity}
 								onBlur={commitOpacity}
-								label={en['ds.layerRow.opacity']}
+								label={dsCopy['ds.layerRow.opacity']}
 								valueLabel={`${opacityDraft ?? opacity}%`}
 								aria-label={`${name} opacity`}
 							/>

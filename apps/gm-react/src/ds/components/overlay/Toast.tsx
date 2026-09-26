@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export type ToastStatus = 'success' | 'warning' | 'error' | 'info';
 
@@ -275,7 +275,7 @@ export function Toast({
 			{onDismiss && (
 				<button
 					type="button"
-					aria-label={en['ds.toast.dismiss']}
+					aria-label={dsCopy['ds.toast.dismiss']}
 					onClick={onDismiss}
 					style={{
 						flex: '0 0 auto',

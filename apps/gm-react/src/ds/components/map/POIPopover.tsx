@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface POI {
 	notePreview?: React.ReactNode;
@@ -113,11 +113,11 @@ export function POIPopover({
 			footer={
 				<>
 					<Button size="sm" variant="primary" icon="tool-crosshair" onClick={onFocus}>
-						{en['ds.pOIPopover.focusOnMap']}
+						{dsCopy['ds.pOIPopover.focusOnMap']}
 					</Button>
 					{!readOnly && (
 						<Button size="sm" variant="ghost" icon="edit" onClick={onEdit}>
-							{en['ds.pOIPopover.edit']}
+							{dsCopy['ds.pOIPopover.edit']}
 						</Button>
 					)}
 					<Button
@@ -127,7 +127,7 @@ export function POIPopover({
 						onClick={onDeepLink}
 						aria-label={`Copy link to ${name}`}
 					>
-						{en['ds.pOIPopover.copyLink']}
+						{dsCopy['ds.pOIPopover.copyLink']}
 					</Button>
 					{!readOnly && (
 						<Button
@@ -138,7 +138,7 @@ export function POIPopover({
 							aria-label={`Delete ${name}`}
 							style={{ marginLeft: 'auto' }}
 						>
-							{en['ds.pOIPopover.delete']}
+							{dsCopy['ds.pOIPopover.delete']}
 						</Button>
 					)}
 				</>
@@ -158,7 +158,7 @@ export function POIPopover({
 						>
 							<Icon name="link" size={13} />
 							<span style={{ color: 'var(--color-text-tertiary)' }}>
-								{en['ds.pOIPopover.linkedNote']}
+								{dsCopy['ds.pOIPopover.linkedNote']}
 							</span>
 							<span style={{ color: 'var(--color-text-primary)' }}>{linkedNote}</span>
 						</div>
@@ -188,7 +188,7 @@ export function POIPopover({
 								onClick={onOpenNote}
 								aria-label={`Read note ${linkedNote}`}
 							>
-								{en['ds.pOIPopover.readNote']}
+								{dsCopy['ds.pOIPopover.readNote']}
 							</Button>
 						)}
 					</div>
@@ -204,7 +204,7 @@ export function POIPopover({
 								textTransform: 'uppercase',
 							}}
 						>
-							{en['ds.pOIPopover.visibility']}
+							{dsCopy['ds.pOIPopover.visibility']}
 						</span>
 						<SegmentedControl
 							fullWidth
@@ -225,7 +225,7 @@ export function POIPopover({
 								color: 'var(--color-text-tertiary)',
 							}}
 						>
-							{en['ds.pOIPopover.independentOfTheLayerADmOnlyPoiNever']}
+							{dsCopy['ds.pOIPopover.independentOfTheLayerADmOnlyPoiNever']}
 						</span>
 					</div>
 				)}

@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 /**
  * FogControls — the contextual fog-of-war options strip (reveal/conceal, shape, brush size,
@@ -92,7 +92,7 @@ export function FogControls({
 				}}
 			>
 				<Icon name="layer-fog" size={14} />
-				{en['ds.fogControls.fogOfWar']}
+				{dsCopy['ds.fogControls.fogOfWar']}
 			</div>
 
 			<SegmentedControl
@@ -106,7 +106,7 @@ export function FogControls({
 						label: (
 							<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
 								<Icon name="reveal" size={14} />
-								{en['ds.fogControls.reveal']}
+								{dsCopy['ds.fogControls.reveal']}
 							</span>
 						),
 					},
@@ -115,7 +115,7 @@ export function FogControls({
 						label: (
 							<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
 								<Icon name="conceal" size={14} />
-								{en['ds.fogControls.conceal']}
+								{dsCopy['ds.fogControls.conceal']}
 							</span>
 						),
 					},
@@ -163,9 +163,9 @@ export function FogControls({
 					step={5}
 					value={brushSize}
 					onChange={onBrushSize}
-					label={en['ds.fogControls.brushSize']}
+					label={dsCopy['ds.fogControls.brushSize']}
 					valueLabel={`${brushSize} ${unit}`}
-					aria-label={en['ds.fogControls.fogBrushSize']}
+					aria-label={dsCopy['ds.fogControls.fogBrushSize']}
 				/>
 			)}
 
@@ -174,7 +174,7 @@ export function FogControls({
 				onChange={onFeather}
 				label={
 					<span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-						{en['ds.fogControls.featherEdge']}
+						{dsCopy['ds.fogControls.featherEdge']}
 					</span>
 				}
 			/>
@@ -184,7 +184,7 @@ export function FogControls({
 			<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 				<button type="button" onClick={onRevealAll} style={presetBtn}>
 					<Icon name="reveal" size={14} />
-					{en['ds.fogControls.revealAll']}
+					{dsCopy['ds.fogControls.revealAll']}
 				</button>
 				<button
 					type="button"
@@ -196,7 +196,7 @@ export function FogControls({
 					}}
 				>
 					<Icon name="retry" size={14} />
-					{en['ds.fogControls.resetFog']}
+					{dsCopy['ds.fogControls.resetFog']}
 				</button>
 			</div>
 

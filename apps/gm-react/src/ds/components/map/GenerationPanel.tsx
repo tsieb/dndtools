@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 /**
  * GenerationPanel — procedural generation UI: ≤8 primary params + seed/dice, advanced disclosure,
@@ -103,7 +103,7 @@ export function GenerationPanel({
 						color: 'var(--color-text-primary)',
 					}}
 				>
-					{en['ds.generationPanel.generateMapLayers']}
+					{dsCopy['ds.generationPanel.generateMapLayers']}
 				</h3>
 			</div>
 
@@ -119,18 +119,18 @@ export function GenerationPanel({
 				]}
 			/>
 
-			<Field label={en['ds.generationPanel.seed']}>
+			<Field label={dsCopy['ds.generationPanel.seed']}>
 				<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 					<Input
 						value={seed}
 						onChange={(e) => setSeed(e.target.value)}
-						placeholder={en['ds.generationPanel.eGCrypt1']}
+						placeholder={dsCopy['ds.generationPanel.eGCrypt1']}
 						style={{ flex: 1 }}
 					/>
 					<button
 						type="button"
-						aria-label={en['ds.generationPanel.randomizeSeed']}
-						title={en['ds.generationPanel.randomizeSeed']}
+						aria-label={dsCopy['ds.generationPanel.randomizeSeed']}
+						title={dsCopy['ds.generationPanel.randomizeSeed']}
 						onClick={randomize}
 						style={{
 							display: 'inline-flex',
@@ -154,7 +154,7 @@ export function GenerationPanel({
 				stops={['Small', 'Medium', 'Large', 'Huge']}
 				value={size}
 				onChange={setSize}
-				label={en['ds.generationPanel.size']}
+				label={dsCopy['ds.generationPanel.size']}
 			/>
 			<Slider
 				min={0}
@@ -180,12 +180,12 @@ export function GenerationPanel({
 					step={5}
 					value={water}
 					onChange={setWater}
-					label={en['ds.generationPanel.waterCoverage']}
+					label={dsCopy['ds.generationPanel.waterCoverage']}
 					valueLabel={`${water}%`}
 				/>
 			)}
 			{type === 'terrain' && (
-				<Field label={en['ds.generationPanel.elevationProfile']}>
+				<Field label={dsCopy['ds.generationPanel.elevationProfile']}>
 					<SegmentedControl
 						fullWidth
 						size="sm"
@@ -207,7 +207,7 @@ export function GenerationPanel({
 					step={5}
 					value={hazard}
 					onChange={setHazard}
-					label={en['ds.generationPanel.trapHazardDensity']}
+					label={dsCopy['ds.generationPanel.trapHazardDensity']}
 					valueLabel={`${hazard}%`}
 				/>
 			)}
@@ -231,7 +231,7 @@ export function GenerationPanel({
 				}}
 			>
 				<Icon name={advanced ? 'chevron-down' : 'chevron-right'} size={16} />
-				{en['ds.generationPanel.advancedSettings']}
+				{dsCopy['ds.generationPanel.advancedSettings']}
 			</button>
 			{advanced && (
 				<div
@@ -250,7 +250,7 @@ export function GenerationPanel({
 						step={5}
 						value={60}
 						onChange={() => {}}
-						label={en['ds.generationPanel.riverDensity']}
+						label={dsCopy['ds.generationPanel.riverDensity']}
 						valueLabel="60%"
 					/>
 					<Slider
@@ -259,7 +259,7 @@ export function GenerationPanel({
 						step={5}
 						value={30}
 						onChange={() => {}}
-						label={en['ds.generationPanel.roadDensity']}
+						label={dsCopy['ds.generationPanel.roadDensity']}
 						valueLabel="30%"
 					/>
 					<Slider
@@ -268,7 +268,7 @@ export function GenerationPanel({
 						step={1}
 						value={5}
 						onChange={() => {}}
-						label={en['ds.generationPanel.biomeCount']}
+						label={dsCopy['ds.generationPanel.biomeCount']}
 						valueLabel="5"
 					/>
 				</div>
@@ -296,7 +296,7 @@ export function GenerationPanel({
 						color: 'var(--color-text-tertiary)',
 					}}
 				>
-					{en['ds.generationPanel.preview']}
+					{dsCopy['ds.generationPanel.preview']}
 					{seed}
 				</span>
 				{running && (
@@ -313,7 +313,7 @@ export function GenerationPanel({
 							fontSize: 'var(--text-sm)',
 						}}
 					>
-						{en['ds.generationPanel.generating']}
+						{dsCopy['ds.generationPanel.generating']}
 					</div>
 				)}
 			</div>
@@ -325,7 +325,7 @@ export function GenerationPanel({
 						aria-valuenow={Math.round(progress * 100)}
 						aria-valuemin={0}
 						aria-valuemax={100}
-						aria-label={en['ds.generationPanel.generationProgress']}
+						aria-label={dsCopy['ds.generationPanel.generationProgress']}
 						style={{
 							height: 6,
 							borderRadius: 'var(--radius-full)',
@@ -367,10 +367,10 @@ export function GenerationPanel({
 						onAccept({ type, seed, size, density, style: styleSel, water, elevation, hazard })
 					}
 				>
-					{en['ds.generationPanel.acceptAmpAdd']}
+					{dsCopy['ds.generationPanel.acceptAmpAdd']}
 				</Button>
 				<Button variant="ghost" onClick={onDiscard}>
-					{en['ds.generationPanel.discard']}
+					{dsCopy['ds.generationPanel.discard']}
 				</Button>
 			</div>
 		</div>

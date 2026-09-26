@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface ImportCapability {
 	element: string;
@@ -117,7 +117,7 @@ export function ImportWizard({
 						fontWeight: 'var(--font-weight-bold)',
 					}}
 				>
-					{en['ds.importWizard.importMap']}
+					{dsCopy['ds.importWizard.importMap']}
 				</h2>
 			</div>
 			<Stepper steps={['Source', 'Preview', 'Result']} current={step} />
@@ -158,9 +158,9 @@ export function ImportWizard({
 								}}
 							>
 								<strong style={{ color: 'var(--color-text-primary)' }}>
-									{en['ds.importWizard.silverdaleRegionPng']}
+									{dsCopy['ds.importWizard.silverdaleRegionPng']}
 								</strong>
-								{en['ds.importWizard.42Mb']}
+								{dsCopy['ds.importWizard.42Mb']}
 							</span>
 							<span
 								style={{
@@ -169,27 +169,27 @@ export function ImportWizard({
 									color: 'var(--color-text-tertiary)',
 								}}
 							>
-								{en['ds.importWizard.pngJpgSvgUpTo50Mb']}
+								{dsCopy['ds.importWizard.pngJpgSvgUpTo50Mb']}
 							</span>
 						</label>
 					) : (
 						<Field
-							label={en['ds.importWizard.adapterFormat']}
+							label={dsCopy['ds.importWizard.adapterFormat']}
 							help="External formats need a declared adapter before import."
 						>
 							<Input
 								value={adapter}
 								onChange={(e) => setAdapter(e.target.value)}
-								placeholder={en['ds.importWizard.eGFoundryScene']}
+								placeholder={dsCopy['ds.importWizard.eGFoundryScene']}
 							/>
 						</Field>
 					)}
 					<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
 						<Button variant="ghost" onClick={onCancel}>
-							{en['ds.importWizard.cancel']}
+							{dsCopy['ds.importWizard.cancel']}
 						</Button>
 						<Button variant="primary" icon="preview" onClick={() => go(1)}>
-							{en['ds.importWizard.preview']}
+							{dsCopy['ds.importWizard.preview']}
 						</Button>
 					</div>
 				</div>
@@ -216,7 +216,7 @@ export function ImportWizard({
 									color: 'var(--color-status-error-text)',
 								}}
 							>
-								{en['ds.importWizard.unsupportedFormatNoAdapterDeclaredThereIsNoCommit']}
+								{dsCopy['ds.importWizard.unsupportedFormatNoAdapterDeclaredThereIsNoCommit']}
 							</span>
 						</div>
 					) : source === 'native' ? (
@@ -310,7 +310,7 @@ export function ImportWizard({
 										color: 'var(--color-text-secondary)',
 									}}
 								>
-									{en['ds.importWizard.theseElementsWillNotBeImported']}
+									{dsCopy['ds.importWizard.theseElementsWillNotBeImported']}
 									<strong style={{ color: 'var(--color-text-primary)' }}>
 										{dropped.join(', ')}
 									</strong>
@@ -321,11 +321,11 @@ export function ImportWizard({
 					)}
 					<div style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
 						<Button variant="ghost" icon="chevron-left" onClick={() => go(0)}>
-							{en['ds.importWizard.back']}
+							{dsCopy['ds.importWizard.back']}
 						</Button>
 						<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 							<Button variant="ghost" onClick={onCancel}>
-								{en['ds.importWizard.cancelRollback']}
+								{dsCopy['ds.importWizard.cancelRollback']}
 							</Button>
 							{hasAdapter && (
 								<Button
@@ -336,7 +336,7 @@ export function ImportWizard({
 										go(2);
 									}}
 								>
-									{en['ds.importWizard.commitImport']}
+									{dsCopy['ds.importWizard.commitImport']}
 								</Button>
 							)}
 						</div>
@@ -366,19 +366,19 @@ export function ImportWizard({
 									color: 'var(--color-text-primary)',
 								}}
 							>
-								{en['ds.importWizard.silverdaleRegionImported']}
+								{dsCopy['ds.importWizard.silverdaleRegionImported']}
 							</div>
 							<div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-								{en['ds.importWizard.5LayersCreatedBaseImageWallsGridLightsRegions']}
+								{dsCopy['ds.importWizard.5LayersCreatedBaseImageWallsGridLightsRegions']}
 							</div>
 						</div>
 					</div>
 					<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
 						<Button variant="ghost" onClick={onCancel}>
-							{en['ds.importWizard.close']}
+							{dsCopy['ds.importWizard.close']}
 						</Button>
 						<Button variant="primary" icon="enter" onClick={onOpenMap}>
-							{en['ds.importWizard.openMap']}
+							{dsCopy['ds.importWizard.openMap']}
 						</Button>
 					</div>
 				</div>

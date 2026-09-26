@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 import React from 'react';
 
@@ -79,7 +79,7 @@ export function BrandWordmark({ size = 15, style, ...rest }: BrandWordmarkProps)
 			}}
 			{...rest}
 		>
-			{en['ds.brand.lamp']}
+			{dsCopy['ds.brand.lamp']}
 			<span
 				style={{
 					backgroundImage: FALLOFF,
@@ -88,7 +88,7 @@ export function BrandWordmark({ size = 15, style, ...rest }: BrandWordmarkProps)
 					color: 'transparent',
 				}}
 			>
-				{en['ds.brand.light']}
+				{dsCopy['ds.brand.light']}
 			</span>
 		</span>
 	);
@@ -109,7 +109,7 @@ export function BrandLockup({
 	return (
 		<span
 			role="img"
-			aria-label={en['ds.brand.lamplight']}
+			aria-label={dsCopy['ds.brand.lamplight']}
 			style={{ display: 'inline-flex', alignItems: 'center', gap, ...style }}
 			{...rest}
 		>

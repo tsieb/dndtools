@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface QuestObjective {
 	label: React.ReactNode;
@@ -286,7 +286,7 @@ export function QuestCard({
 								fontWeight: 'var(--font-weight-semibold)',
 							}}
 						>
-							{en['ds.questCard.reward']}{' '}
+							{dsCopy['ds.questCard.reward']}{' '}
 						</strong>
 						{reward}
 					</span>

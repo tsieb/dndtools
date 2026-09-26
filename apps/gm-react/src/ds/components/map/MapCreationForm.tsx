@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface MapDraft {
 	name: string;
@@ -101,15 +101,15 @@ export function MapCreationForm({
 						color: 'var(--color-text-primary)',
 					}}
 				>
-					{en['ds.mapCreationForm.createANewMap']}
+					{dsCopy['ds.mapCreationForm.createANewMap']}
 				</h2>
 			</div>
 
-			<Field label={en['ds.mapCreationForm.name']} required error={nameError}>
+			<Field label={dsCopy['ds.mapCreationForm.name']} required error={nameError}>
 				<Input
 					autoFocus
 					value={name}
-					placeholder={en['ds.mapCreationForm.eGSunlessCitadel']}
+					placeholder={dsCopy['ds.mapCreationForm.eGSunlessCitadel']}
 					invalid={!!nameError}
 					onChange={(e) => setName(e.target.value)}
 					onBlur={() => setTouched(true)}
@@ -117,7 +117,7 @@ export function MapCreationForm({
 			</Field>
 
 			<Field
-				label={en['ds.mapCreationForm.scale']}
+				label={dsCopy['ds.mapCreationForm.scale']}
 				help="Used for distance measurement and travel time."
 			>
 				<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -128,20 +128,20 @@ export function MapCreationForm({
 						placeholder="120"
 						onChange={(e) => setScale(e.target.value)}
 						style={{ flex: '1 1 0' }}
-						aria-label={en['ds.mapCreationForm.unitsPerMap']}
+						aria-label={dsCopy['ds.mapCreationForm.unitsPerMap']}
 					/>
 					<Input
 						value={unit}
-						placeholder={en['ds.mapCreationForm.miles']}
+						placeholder={dsCopy['ds.mapCreationForm.miles']}
 						onChange={(e) => setUnit(e.target.value)}
 						style={{ flex: '1 1 0' }}
-						aria-label={en['ds.mapCreationForm.unitLabel']}
+						aria-label={dsCopy['ds.mapCreationForm.unitLabel']}
 					/>
 				</div>
 			</Field>
 
 			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-				<Field label={en['ds.mapCreationForm.projection']}>
+				<Field label={dsCopy['ds.mapCreationForm.projection']}>
 					<Select
 						value={projection}
 						onChange={(e) => setProjection(e.target.value as MapDraft['projection'])}
@@ -152,7 +152,7 @@ export function MapCreationForm({
 						]}
 					/>
 				</Field>
-				<Field label={en['ds.mapCreationForm.defaultVisibility']}>
+				<Field label={dsCopy['ds.mapCreationForm.defaultVisibility']}>
 					<Select
 						value={visibility}
 						onChange={(e) => setVisibility(e.target.value as MapDraft['visibility'])}
@@ -184,11 +184,11 @@ export function MapCreationForm({
 						color: 'var(--color-text-secondary)',
 					}}
 				>
-					{en['ds.mapCreationForm.newMapsDefaultTo']}{' '}
+					{dsCopy['ds.mapCreationForm.newMapsDefaultTo']}{' '}
 					<strong style={{ color: 'var(--color-text-primary)' }}>
-						{en['ds.mapCreationForm.dmOnly']}
+						{dsCopy['ds.mapCreationForm.dmOnly']}
 					</strong>
-					{en['ds.mapCreationForm.safeToShareWhenReady']}
+					{dsCopy['ds.mapCreationForm.safeToShareWhenReady']}
 				</span>
 			</div>
 
@@ -201,7 +201,7 @@ export function MapCreationForm({
 				}}
 			>
 				<Button variant="ghost" type="button" onClick={onCancel}>
-					{en['ds.mapCreationForm.cancel']}
+					{dsCopy['ds.mapCreationForm.cancel']}
 				</Button>
 				{/* NOT `disabled={!name.trim()}`: `submit()` already handles the empty case by setting
 				    `touched`, which renders the Field's "A map name is required." alert — but a natively

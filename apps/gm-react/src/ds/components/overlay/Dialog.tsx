@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 /**
  * Dialog — modal chrome (scrim + one centered panel) for confirms and short forms. role=dialog,
@@ -352,7 +352,7 @@ export function Dialog({
 						{dismissible && (
 							<button
 								type="button"
-								aria-label={en['ds.dialog.close']}
+								aria-label={dsCopy['ds.dialog.close']}
 								onClick={() => onClose?.()}
 								style={{
 									display: 'inline-flex',

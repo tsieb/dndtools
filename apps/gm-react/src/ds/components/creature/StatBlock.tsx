@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface Feature {
 	name: React.ReactNode;
@@ -290,7 +290,7 @@ export function StatBlock({
 									color: 'var(--color-text-tertiary)',
 								}}
 							>
-								{en['ds.statBlock.cr']}
+								{dsCopy['ds.statBlock.cr']}
 							</span>
 							<span
 								style={{
@@ -321,9 +321,14 @@ export function StatBlock({
 					border: '1px solid var(--color-border)',
 				}}
 			>
-				<Defense icon="shield" label={en['ds.statBlock.armorClass']} value={ac} note={acNote} />
-				<Defense icon="heart" label={en['ds.statBlock.hitPoints']} value={hp} note={hpFormula} />
-				<Defense icon="travel" label={en['ds.statBlock.speed']} value={speed} />
+				<Defense icon="shield" label={dsCopy['ds.statBlock.armorClass']} value={ac} note={acNote} />
+				<Defense
+					icon="heart"
+					label={dsCopy['ds.statBlock.hitPoints']}
+					value={hp}
+					note={hpFormula}
+				/>
+				<Defense icon="travel" label={dsCopy['ds.statBlock.speed']} value={speed} />
 			</div>
 
 			{/* Live HP track (combat) */}
@@ -339,7 +344,7 @@ export function StatBlock({
 					<HPBar
 						current={live.current}
 						max={(live.max ?? hp) as number}
-						label={en['ds.statBlock.thisCombatant']}
+						label={dsCopy['ds.statBlock.thisCombatant']}
 						size="md"
 					/>
 				</div>
@@ -378,20 +383,22 @@ export function StatBlock({
 						marginTop: 'var(--space-1)',
 					}}
 				>
-					<Property label={en['ds.statBlock.savingThrows']}>{saves}</Property>
-					<Property label={en['ds.statBlock.skills']}>{skills}</Property>
-					<Property label={en['ds.statBlock.damageResistances']}>{resistances}</Property>
-					<Property label={en['ds.statBlock.damageImmunities']}>{immunities}</Property>
-					<Property label={en['ds.statBlock.conditionImmunities']}>{conditionImmunities}</Property>
-					<Property label={en['ds.statBlock.senses']}>{senses}</Property>
-					<Property label={en['ds.statBlock.languages']}>{languages}</Property>
+					<Property label={dsCopy['ds.statBlock.savingThrows']}>{saves}</Property>
+					<Property label={dsCopy['ds.statBlock.skills']}>{skills}</Property>
+					<Property label={dsCopy['ds.statBlock.damageResistances']}>{resistances}</Property>
+					<Property label={dsCopy['ds.statBlock.damageImmunities']}>{immunities}</Property>
+					<Property label={dsCopy['ds.statBlock.conditionImmunities']}>
+						{conditionImmunities}
+					</Property>
+					<Property label={dsCopy['ds.statBlock.senses']}>{senses}</Property>
+					<Property label={dsCopy['ds.statBlock.languages']}>{languages}</Property>
 					{cr != null && xp && (
-						<Property label={en['ds.statBlock.challenge']}>
+						<Property label={dsCopy['ds.statBlock.challenge']}>
 							{cr} ({xp}
-							{en['ds.statBlock.xp']}
+							{dsCopy['ds.statBlock.xp']}
 						</Property>
 					)}
-					<Property label={en['ds.statBlock.proficiencyBonus']}>{proficiency}</Property>
+					<Property label={dsCopy['ds.statBlock.proficiencyBonus']}>{proficiency}</Property>
 				</div>
 			)}
 
@@ -406,25 +413,25 @@ export function StatBlock({
 			{/* Actions */}
 			{actions.length > 0 && (
 				<>
-					<SectionLabel>{en['ds.statBlock.actions']}</SectionLabel>
+					<SectionLabel>{dsCopy['ds.statBlock.actions']}</SectionLabel>
 					<FeatureList items={actions} />
 				</>
 			)}
 			{bonusActions.length > 0 && (
 				<>
-					<SectionLabel>{en['ds.statBlock.bonusActions']}</SectionLabel>
+					<SectionLabel>{dsCopy['ds.statBlock.bonusActions']}</SectionLabel>
 					<FeatureList items={bonusActions} />
 				</>
 			)}
 			{reactions.length > 0 && (
 				<>
-					<SectionLabel>{en['ds.statBlock.reactions']}</SectionLabel>
+					<SectionLabel>{dsCopy['ds.statBlock.reactions']}</SectionLabel>
 					<FeatureList items={reactions} />
 				</>
 			)}
 			{legendaryActions.length > 0 && (
 				<>
-					<SectionLabel>{en['ds.statBlock.legendaryActions']}</SectionLabel>
+					<SectionLabel>{dsCopy['ds.statBlock.legendaryActions']}</SectionLabel>
 					{legendaryIntro && (
 						<p
 							style={{

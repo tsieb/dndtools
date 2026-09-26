@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 import type { Layer } from './LayerRow';
 
 /**
@@ -142,7 +142,7 @@ export function LayerPanel({
 							style={{ cursor: 'pointer' }}
 							onRemove={() => setFilter(null)}
 						>
-							{en['ds.layerPanel.clear']}
+							{dsCopy['ds.layerPanel.clear']}
 						</Chip>
 					)}
 				</div>
@@ -214,7 +214,7 @@ export function LayerPanel({
 					}}
 				>
 					<Icon name="add" size={16} />
-					{en['ds.layerPanel.addLayer']}
+					{dsCopy['ds.layerPanel.addLayer']}
 				</button>
 			)}
 		</div>

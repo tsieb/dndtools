@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface MapTool {
 	id: string;
@@ -71,7 +71,7 @@ export function ToolPalette({
 	return (
 		<div
 			role="toolbar"
-			aria-label={en['ds.toolPalette.drawingTools']}
+			aria-label={dsCopy['ds.toolPalette.drawingTools']}
 			aria-orientation={orientation}
 			style={{
 				display: 'flex',
@@ -118,8 +118,8 @@ export function ToolPalette({
 			{overflow && (
 				<button
 					type="button"
-					aria-label={en['ds.toolPalette.moreTools']}
-					title={en['ds.toolPalette.moreTools']}
+					aria-label={dsCopy['ds.toolPalette.moreTools']}
+					title={dsCopy['ds.toolPalette.moreTools']}
 					onClick={() => onSelect && onSelect('more')}
 					style={toolBtn(active === 'more')}
 				>
@@ -129,8 +129,8 @@ export function ToolPalette({
 			<Divider />
 			<button
 				type="button"
-				aria-label={en['ds.toolPalette.undoLastStroke']}
-				title={en['ds.toolPalette.undoZ']}
+				aria-label={dsCopy['ds.toolPalette.undoLastStroke']}
+				title={dsCopy['ds.toolPalette.undoZ']}
 				onClick={onUndo}
 				disabled={!canUndo}
 				style={toolBtn(false, !canUndo)}
@@ -139,8 +139,8 @@ export function ToolPalette({
 			</button>
 			<button
 				type="button"
-				aria-label={en['ds.toolPalette.redo']}
-				title={en['ds.toolPalette.redoZ']}
+				aria-label={dsCopy['ds.toolPalette.redo']}
+				title={dsCopy['ds.toolPalette.redoZ']}
 				onClick={onRedo}
 				disabled={!canRedo}
 				style={toolBtn(false, !canRedo)}

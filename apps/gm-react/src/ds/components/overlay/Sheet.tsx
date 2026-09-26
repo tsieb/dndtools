@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 /**
  * Sheet — edge-anchored overlay (the touch-first sibling of Dialog). `bottom` is the mobile
@@ -323,7 +323,7 @@ export function Sheet({
 						{dismissible && (
 							<button
 								type="button"
-								aria-label={en['ds.sheet.close']}
+								aria-label={dsCopy['ds.sheet.close']}
 								onClick={() => onClose?.()}
 								style={{
 									display: 'inline-flex',

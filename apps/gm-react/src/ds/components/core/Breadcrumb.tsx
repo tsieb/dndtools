@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface BreadcrumbItem {
 	ellipsis?: boolean;
@@ -88,7 +88,7 @@ export function Breadcrumb({
 						>
 							{it.unavailable ? (
 								<span
-									title={en['ds.breadcrumb.areaUnavailable']}
+									title={dsCopy['ds.breadcrumb.areaUnavailable']}
 									style={{
 										...crumbBase,
 										color: 'var(--color-text-tertiary)',
@@ -97,7 +97,7 @@ export function Breadcrumb({
 									}}
 								>
 									<Icon name="lock" size={13} />
-									{en['ds.breadcrumb.unavailable']}
+									{dsCopy['ds.breadcrumb.unavailable']}
 								</span>
 							) : last ? (
 								<span

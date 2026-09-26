@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 import type { NavEntry } from './NavSidebar';
 
 export interface NavRailProps extends Omit<React.HTMLAttributes<HTMLElement>, 'onSelect'> {
@@ -31,7 +31,7 @@ export function NavRail({
 }: NavRailProps) {
 	return (
 		<nav
-			aria-label={en['ds.navRail.primary']}
+			aria-label={dsCopy['ds.navRail.primary']}
 			style={{
 				display: 'flex',
 				flexDirection: 'column',

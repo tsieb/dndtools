@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface Command {
 	id: string;
@@ -317,7 +317,7 @@ export function CommandPalette({
 				ref={panelRef}
 				role="dialog"
 				aria-modal="true"
-				aria-label={en['ds.commandPalette.commandPalette']}
+				aria-label={dsCopy['ds.commandPalette.commandPalette']}
 				style={{
 					width: 620,
 					maxWidth: '100%',
@@ -387,7 +387,7 @@ export function CommandPalette({
 					ref={listRef}
 					id={`${baseId}-list`}
 					role="listbox"
-					aria-label={en['ds.commandPalette.results']}
+					aria-label={dsCopy['ds.commandPalette.results']}
 					style={{
 						position: 'relative',
 						overflowY: 'auto',
@@ -615,15 +615,15 @@ export function CommandPalette({
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
 							<Kbd>↑</Kbd>
 							<Kbd>↓</Kbd>
-							{en['ds.commandPalette.navigate']}
+							{dsCopy['ds.commandPalette.navigate']}
 						</span>
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
 							<Kbd>↵</Kbd>
-							{en['ds.commandPalette.select']}
+							{dsCopy['ds.commandPalette.select']}
 						</span>
 						<span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1-5)' }}>
 							<Kbd>esc</Kbd>
-							{en['ds.commandPalette.close']}
+							{dsCopy['ds.commandPalette.close']}
 						</span>
 						<span
 							// The app's primary search returned its result count as plain text, so a screen-reader

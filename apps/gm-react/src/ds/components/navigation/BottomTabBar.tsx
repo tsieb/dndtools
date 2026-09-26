@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 import type { NavEntry } from './NavSidebar';
 
 export interface BottomTabBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'onSelect'> {
@@ -19,7 +19,7 @@ import { Icon } from '../core/Icon';
 export function BottomTabBar({ items = [], active, onSelect, style, ...rest }: BottomTabBarProps) {
 	return (
 		<nav
-			aria-label={en['ds.bottomTabBar.primary']}
+			aria-label={dsCopy['ds.bottomTabBar.primary']}
 			style={{
 				display: 'flex',
 				alignItems: 'stretch',

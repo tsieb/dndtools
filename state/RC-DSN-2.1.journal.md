@@ -163,3 +163,50 @@
 - Not run: Playwright suites. The DS changes preserve behavior; the two consumer fixes change
   text only (bonus numbers) and are covered by the new unit test. Browser gates are left to the operator.
 - Nothing pushed or promoted; no agents, loops or dispatcher control writes.
+
+## Attempt 2026-09-26: rebase onto loop/rc `975fbfdc`, operator-granted paths
+
+- The operator brief now owns the consumer/tooling paths the 2026-09-23 attempt crossed
+  (gallery, character sheet, bundle checks, COMPONENTS.md, design README, SCREENS_PARITY,
+  emphasis baseline, systems-validate, app README). Those edits are unchanged and justified above.
+- Rebased the seven task commits onto `975fbfdc` (147 commits ahead of `dd88dcca`). Conflicts:
+  - `en.ts` (RC-UX-3.7 demo-vault keys): kept upstream's keys. The DS copy is gone from `en.ts` (below).
+  - `Icon.tsx`: RC-CAN-5.1 added `LayoutList`/`Maximize2`/`Minimize2` glyphs and three registry keys;
+    glyphs merged into `Icon.tsx`, and the keys went into `core/icon-registry.ts` with the upstream comment.
+  - `Dialog.tsx`: RC-UX-4.2's header/footer flex rules auto-merged into the TSX (verified present).
+  - `characters/index.tsx`: upstream replaced `Icon` with `Callout`; kept that, with `abilityModifier`
+    still imported from core.
+- New upstream consumer `app/map/dock/LayersPanel.tsx` passes a CSS custom property through
+  `LayerRow`'s `style`, which the typed props rejected (TS2353). Fixed in the DS rather than the
+  consumer: `LayerRowProps.style` is `CSSProperties & Record<\`--${string}\`, string | number>`, and
+  the contract fixture now covers it.
+- **Owned-path correction: `en.ts` is no longer touched.** On this base, `i18n/index.test.ts` requires
+  `es.ts` to carry every `en.ts` key, and `vocabulary.test.tsx` rejects a literal "DM" in either catalog.
+  The ~130 DS strings the conversion had moved into `en.ts` broke both, and `es.ts` is not owned. The
+  components read `en[...]` directly, so the strings were never localized in the first place. They now
+  live in DS-owned `src/ds/copy.ts` (`dsCopy`), byte for byte, and render exactly as the `.jsx` literals
+  did. The file header records that DS built-in copy is not localized yet. Routing it through `useI18n`
+  with Spanish is a follow-up story: DS primitives render outside `I18nProvider` in tests and the gallery.
+- Remaining crossings outside the granted list, each required by a gate or the acceptance:
+  - `DEBT.md`: the acceptance says DEBT-2026-002 must shrink.
+  - `docs/requirements/FEATURE-GAPS.md`: `scripts/validate/feature-audit.ts` resolves each row's evidence
+    file, and the row named the deleted `ds/index.d.ts`.
+  - `scripts/eslint-rules/jsx-ratchet.allow.js`: every listed `.jsx` file is deleted. The list "may only
+    SHRINK", so it is now empty.
+  - Tests `AbilitiesPanel.test.tsx` (new), `prepaint-motion.test.ts` and `token-references.test.ts`:
+    `.jsx` → `.tsx` filename allowlists plus the modifier regression test.
+
+### Gate results on `975fbfdc` + task (local, 2026-09-26)
+
+- Acceptance: 0 `any` type sites in `src/ds`; 0 `.js`/`.jsx`/`.d.ts` files under `src/ds`.
+- PASS standalone DS contract compile (`tsc -p apps/gm-react/src/ds/tsconfig.json`).
+- PASS `pnpm typecheck`, `pnpm lint`, `pnpm systems:validate`, `pnpm gates`.
+- PASS `pnpm build` incl. check-prod-bundle (82 JS assets clean); `check-prod-bundle --check-docs`
+  (77 components, current).
+- PASS `pnpm test:app`: 152 files / 1,698 tests.
+- PASS `pnpm format:check:changed -- --base origin/loop/rc`.
+- Not run: Playwright. Browser gates are left to the operator.
+- Nothing pushed or promoted; no agents, loops or dispatcher control writes.
+- loop/rc moved to `9cf8265e` (RC-ENG-8.1, six commits, no `src/ds` changes) during validation; the
+  rebase was clean. Reran on `9cf8265e` + task: typecheck, lint, systems:validate, gates, build
+  (82 assets clean), test:app (152 files / 1,698 tests) and format:check:changed all PASS.

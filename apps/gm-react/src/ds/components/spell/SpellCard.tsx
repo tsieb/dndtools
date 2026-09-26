@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export type SpellSchool =
 	| 'abjuration'
@@ -139,9 +139,13 @@ export function SpellCard({
 					</h3>
 					<div style={{ display: 'flex', gap: 'var(--space-1)', flex: '0 0 auto' }}>
 						{concentration && (
-							<Tag icon="concentration" label={en['ds.spellCard.concentration']} tone="warning" />
+							<Tag
+								icon="concentration"
+								label={dsCopy['ds.spellCard.concentration']}
+								tone="warning"
+							/>
 						)}
-						{ritual && <Tag icon="ritual" label={en['ds.spellCard.ritual']} tone="info" />}
+						{ritual && <Tag icon="ritual" label={dsCopy['ds.spellCard.ritual']} tone="info" />}
 					</div>
 				</div>
 				<span
@@ -167,10 +171,10 @@ export function SpellCard({
 					border: '1px solid var(--color-border)',
 				}}
 			>
-				<MetaCell label={en['ds.spellCard.castingTime']} value={castingTime} />
-				<MetaCell label={en['ds.spellCard.range']} value={range} />
-				<MetaCell label={en['ds.spellCard.components']} value={components} />
-				<MetaCell label={en['ds.spellCard.duration']} value={duration} />
+				<MetaCell label={dsCopy['ds.spellCard.castingTime']} value={castingTime} />
+				<MetaCell label={dsCopy['ds.spellCard.range']} value={range} />
+				<MetaCell label={dsCopy['ds.spellCard.components']} value={components} />
+				<MetaCell label={dsCopy['ds.spellCard.duration']} value={duration} />
 			</div>
 
 			{description && (
@@ -203,7 +207,7 @@ export function SpellCard({
 							fontWeight: 'var(--font-weight-semibold)',
 						}}
 					>
-						{en['ds.spellCard.atHigherLevels']}
+						{dsCopy['ds.spellCard.atHigherLevels']}
 					</strong>
 					{higherLevels}
 				</p>

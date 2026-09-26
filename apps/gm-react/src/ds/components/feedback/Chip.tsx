@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface ChipProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'onClick'> {
 	onClick?: (
@@ -93,7 +93,7 @@ export function Chip({
 			{onRemove && (
 				<button
 					type="button"
-					aria-label={en['ds.chip.remove']}
+					aria-label={dsCopy['ds.chip.remove']}
 					onClick={(e) => {
 						e.stopPropagation();
 						onRemove();

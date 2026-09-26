@@ -14,6 +14,7 @@ import {
 	Skeleton,
 	ProgressMeter,
 	abilityModifier,
+	LayerRow,
 	type ButtonProps,
 	type DSChangeEvent,
 	type DSBadgeStatus,
@@ -39,6 +40,16 @@ export function consumerContracts(onChoice: (value: 'map' | 'scene') => void) {
 			<Skeleton variant="list" rows={3} avatar />
 			<Skeleton variant="canvas" />
 			<ProgressMeter value={42} eta="About one minute left" />
+			<LayerRow
+				layer={{
+					name: 'Walls',
+					type: 'custom',
+					opacity: 100,
+					dmDisplay: true,
+					visibility: 'shared',
+				}}
+				style={{ '--color-text-tertiary': 'var(--color-text-secondary)', flex: '0 0 auto' }}
+			/>
 			<Button icon="add" onClick={(event) => event.currentTarget.focus()} />
 			<Input onChange={onField} onKeyDown={(event) => event.currentTarget.select()} />
 			<Select options={['one']} onChange={onField} />

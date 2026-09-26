@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 /**
  * Minimap — spatial-context overlay showing the viewport rectangle within the full map extent.
@@ -66,8 +66,8 @@ export function Minimap({
 			<button
 				type="button"
 				ref={toggleRef}
-				aria-label={en['ds.minimap.expandMinimap']}
-				title={en['ds.minimap.expandMinimap']}
+				aria-label={dsCopy['ds.minimap.expandMinimap']}
+				title={dsCopy['ds.minimap.expandMinimap']}
 				onClick={toggle}
 				style={{
 					display: 'inline-flex',
@@ -128,7 +128,7 @@ export function Minimap({
 	return (
 		<div
 			role="group"
-			aria-label={en['ds.minimap.minimapCurrentViewportHighlighted']}
+			aria-label={dsCopy['ds.minimap.minimapCurrentViewportHighlighted']}
 			style={{
 				width,
 				borderRadius: 'var(--radius-md)',
@@ -158,13 +158,13 @@ export function Minimap({
 						color: 'var(--color-text-secondary)',
 					}}
 				>
-					{en['ds.minimap.minimap']}
+					{dsCopy['ds.minimap.minimap']}
 				</span>
 				<button
 					type="button"
 					ref={toggleRef}
-					aria-label={en['ds.minimap.collapseMinimap']}
-					title={en['ds.minimap.collapseMinimap']}
+					aria-label={dsCopy['ds.minimap.collapseMinimap']}
+					title={dsCopy['ds.minimap.collapseMinimap']}
 					onClick={toggle}
 					style={{
 						display: 'inline-flex',
@@ -184,7 +184,7 @@ export function Minimap({
 			</div>
 			<button
 				type="button"
-				aria-label={en['ds.minimap.jumpViewportClickASpotOrUseTheArrow']}
+				aria-label={dsCopy['ds.minimap.jumpViewportClickASpotOrUseTheArrow']}
 				onClick={jump}
 				onKeyDown={onJumpKeyDown}
 				style={{

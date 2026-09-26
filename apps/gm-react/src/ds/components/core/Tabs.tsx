@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export type TabItem = string | { id: string; label: string; icon?: string; disabled?: boolean };
 
@@ -61,7 +61,7 @@ export function Tabs({ tabs = [], value, onChange, style, idBase, ...rest }: Tab
 			role="tablist"
 			// A fallback only: `{...rest}` is spread AFTER this, so every call site names its own tablist
 			// (seven of them are live, and they all used to announce as an identical "Sections").
-			aria-label={en['ds.tabs.sections']}
+			aria-label={dsCopy['ds.tabs.sections']}
 			aria-orientation="horizontal"
 			style={{
 				display: 'flex',

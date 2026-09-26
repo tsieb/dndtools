@@ -1,4 +1,4 @@
-import { en } from '../../../i18n/messages/en';
+import { dsCopy } from '../../copy';
 
 export interface NavEntry {
 	key: string;
@@ -40,7 +40,7 @@ export function NavSidebar({
 }: NavSidebarProps) {
 	return (
 		<nav
-			aria-label={en['ds.navSidebar.primary']}
+			aria-label={dsCopy['ds.navSidebar.primary']}
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
