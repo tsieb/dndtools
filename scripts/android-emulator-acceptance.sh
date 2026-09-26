@@ -312,8 +312,33 @@ default_network() {
 		| sed -n 's/^[[:space:]]*Active default network: //p' | head -1
 }
 
+# Choosing Wait on a foreign ANR dialog is a touch, and a touch on a display that is not in touch
+# mode (the emulator is driven by key events until then) switches it into touch mode. Once the
+# dialog closes, that TouchModeEvent is dispatched to whichever window takes focus next. CI run 36255858538 tapped Wait on a System UI
+# dialog (raised during instrumentation) seven seconds into the cold launch; the TouchModeEvent went
+# to MainActivity while its main thread was still starting the WebView under CPU PSI 94%, and five
+# seconds later the app itself ANR'd. Clear such dialogs before the app starts, so the touch lands
+# on the launcher and the cold start is judged on its own. The app's own ANR dialog is still never
+# dismissed: it keeps focus here and fails the launch.
+clear_foreign_anr_dialogs() {
+	local focus='' clear=0
+	for _ in {1..30}; do
+		focus=$(focused_window)
+		if [[ "$focus" == 'Application Not Responding: '* ]]; then
+			clear=0
+			dump_ui >/dev/null || true
+		else
+			((clear += 1))
+			[[ "$clear" -ge 2 ]] && return 0
+		fi
+		sleep 1
+	done
+	return 1
+}
+
 launch_app() {
 	local output
+	clear_foreign_anr_dialogs || fail 'an ANR dialog still held focus before the app launched'
 	output=$(adb shell am start -W -n "$COMPONENT" | tr -d '\r')
 	grep -q 'Status: ok' <<<"$output" || fail "activity launch did not report Status: ok"
 	wait_for_pid >/dev/null || fail "app process did not start"

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -235,6 +235,80 @@ describe('Android emulator acceptance gate', () => {
 			expect(appAnr.taps, `the app's own ANR dialog (${own}) was dismissed`).toBe('');
 			expect(appAnr.ui).toContain('android:id/aerr_wait');
 		}
+	});
+
+	it('clears a foreign ANR dialog before the cold launch, never after it', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+		const helper = (name: string) => {
+			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
+			expect(match, `missing helper ${name}`).not.toBeNull();
+			return match?.[0] ?? '';
+		};
+		// Tapping Wait seven seconds into the cold launch handed the resulting TouchModeEvent to a
+		// MainActivity still starting its WebView, and the app itself ANR'd (CI run 36255858538).
+		const anrDialog =
+			'<hierarchy rotation="0"><node text="System UI isn\'t responding" package="android" bounds="[0,0][1080,600]" />' +
+			'<node text="Wait" resource-id="android:id/aerr_wait" class="android.widget.Button" package="android" bounds="[100,500][500,600]" /></hierarchy>';
+
+		const run = (focusedPackage: string) => {
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-anr-launch-'));
+			try {
+				fs.writeFileSync(path.join(dir, 'anr.xml'), anrDialog);
+				fs.writeFileSync(path.join(dir, 'events'), '');
+				// Fake adb: the dialog holds focus over the launcher until something taps the screen.
+				fs.writeFileSync(
+					path.join(dir, 'adb'),
+					[
+						'#!/usr/bin/env bash',
+						`dir=${JSON.stringify(dir)}`,
+						'case "$*" in',
+						'  "shell input tap "*) echo tap >>"$dir/events"; touch "$dir/tapped" ;;',
+						'  "shell dumpsys window"*)',
+						'    if [[ -f "$dir/tapped" ]]; then echo "  mCurrentFocus=Window{1 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity}"',
+						`    else echo "  mCurrentFocus=Window{1 u0 Application Not Responding: ${focusedPackage}}"; fi ;;`,
+						'  "exec-out cat "*) cat "$dir/anr.xml" ;;',
+						'  "shell am start "*) echo launch >>"$dir/events"; echo "Status: ok" ;;',
+						'  "shell pidof "*) echo 4044 ;;',
+						'esac',
+					].join('\n'),
+					{ mode: 0o755 },
+				);
+				const script = [
+					'set -Eeuo pipefail',
+					'PACKAGE_ID=com.dndtools.gm',
+					'COMPONENT=com.dndtools.gm/.MainActivity',
+					'sleep() { :; }',
+					helper('fail'),
+					helper('wait_for_pid'),
+					helper('focused_window'),
+					helper('dismiss_foreign_anr_dialog'),
+					helper('dump_ui'),
+					helper('clear_foreign_anr_dialogs'),
+					helper('launch_app'),
+					'launch_app',
+				].join('\n');
+				const result = spawnSync('bash', ['-c', script], {
+					env: { ...process.env, PATH: `${dir}:${process.env.PATH}` },
+					encoding: 'utf-8',
+				});
+				const events = fs.readFileSync(path.join(dir, 'events'), 'utf-8').trim().split('\n');
+				return { status: result.status, stderr: result.stderr, events: events.filter(Boolean) };
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
+			}
+		};
+
+		const systemAnr = run('com.android.systemui');
+		expect(systemAnr.status, systemAnr.stderr).toBe(0);
+		expect(systemAnr.events, 'Wait must be chosen before the app starts').toEqual([
+			'tap',
+			'launch',
+		]);
+
+		const appAnr = run('com.dndtools.gm');
+		expect(appAnr.status).toBe(1);
+		expect(appAnr.stderr).toContain('an ANR dialog still held focus before the app launched');
+		expect(appAnr.events, "the app's own ANR dialog was dismissed or launched over").toEqual([]);
 	});
 
 	it('runs instrumentation and the shared script in CI and signed release emulators', () => {
