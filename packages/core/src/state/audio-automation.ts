@@ -10,7 +10,6 @@ import {
 } from './audio-source';
 import type { AudioState } from './audio-state';
 import type { SessionWorkflowState } from './session-state';
-import { isLiveWorkflow } from '../lifecycle/session-workflow';
 
 /**
  * AUDIO-005 — ATMOSPHERE AUTOMATION: rule/trigger-driven audio behavior.
@@ -504,9 +503,10 @@ export function evaluateAudioAutomationRule(
 	if (!rule.enabled) return null;
 	if (rule.trigger !== trigger.kind) return null;
 	// RC-SES-6.1 — outside a live session no automation fires (the rule is not muted or blocked, it
-	// simply never saw a live event).
-	if (trigger.sessionWorkflow !== undefined && !isLiveWorkflow(trigger.sessionWorkflow))
-		return null;
+	// simply never saw a live event). This mirrors `isLiveWorkflow` rather than importing it: that
+	// module loads `session-state` at runtime, whose graph reaches the bundled system JSON, which the
+	// Playwright specs importing the audio queries cannot load.
+	if (trigger.sessionWorkflow !== undefined && trigger.sessionWorkflow !== 'active') return null;
 	// A scoped rule fires only for its exact scope; an unscoped rule fires for any occurrence.
 	if (rule.triggerScopeId !== null && rule.triggerScopeId !== trigger.scopeId) return null;
 
