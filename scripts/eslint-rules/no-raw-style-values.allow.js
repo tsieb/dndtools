@@ -75,15 +75,7 @@ export const allow = {
 	'apps/gm-react/src/screens/characters/sheet/SheetHeader.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SpellsPanel.tsx': 20,
 	'apps/gm-react/src/screens/CommandCenter.tsx': 33,
-	'apps/gm-react/src/screens/play/Dice.tsx': 15,
-	'apps/gm-react/src/screens/play/Elevated.tsx': 20,
-	'apps/gm-react/src/screens/play/Frame.tsx': 28,
-	'apps/gm-react/src/screens/play/Handouts.tsx': 9,
-	'apps/gm-react/src/screens/play/Home.tsx': 50,
-	'apps/gm-react/src/screens/play/Inbox.tsx': 8,
-	'apps/gm-react/src/screens/play/Journal.tsx': 27,
-	'apps/gm-react/src/screens/play/shared.tsx': 12,
-	'apps/gm-react/src/screens/play/Sheet.tsx': 18,
+	'apps/gm-react/src/screens/play/Home.tsx': 10,
 	'apps/gm-react/src/screens/player/Equipment.tsx': 18,
 	'apps/gm-react/src/screens/player/index.tsx': 17,
 	'apps/gm-react/src/screens/player/Journal.tsx': 30,
@@ -136,4 +128,4 @@ export const allow = {
 	'apps/gm-react/src/screens/settings/Vault.tsx': 5,
 };
 
-// Total current findings: 1227
+// Total current findings: 882

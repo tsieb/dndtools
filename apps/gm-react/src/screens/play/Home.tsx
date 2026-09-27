@@ -1,134 +1,13 @@
 import { useEffect, useState } from 'react';
-import type { SceneCardView } from '@dndtools/core';
-import { Badge, Icon, IconButton } from '../../ds';
+import { Badge, Icon } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
-import { moodTheme } from '../../app/sceneCardMood';
 import { useAssetObjectUrl } from '../../platform/assetUrl';
 import { useViewport } from '../../app/useViewport';
-import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../../platform/capabilities';
 import { PartyBoardTiles } from '../../app/character/PartyPanel';
 import { InitiativeCallCard, Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { Illustration } from '../../ds/illustrations';
 import { StageMap } from './StageMap';
 import { useI18n } from '../../i18n';
-
-/**
- * I11 S11.2.4 — the dismissible SCENE PUSH banner. When the DM activates a player-visible scene card the
- * actor-filtered view-model carries it here, and this hero+flavor banner appears over the player's screen.
- * It auto-dismisses after 5s (and is manually dismissible immediately); a NEW push (different card or
- * revision) re-shows. `aria-live="polite"` announces it without stealing focus.
- */
-export function SceneBanner({ card }: { card: SceneCardView | null }) {
-	const { t } = useI18n();
-	const viewport = useViewport();
-	const capabilities = usePlatformCapabilities();
-	const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-	// WCAG 2.2.1: a 5s auto-dismiss with no way to pause it is a time limit on reading. Worse, the
-	// Dismiss button lives INSIDE the region that unmounts, so a player who tabbed to it and paused
-	// to read had the banner vanish under them and focus fall to `<body>` mid-interaction. Pointer
-	// hover and keyboard focus both hold the timer open — the standard toast affordance. Unpausing
-	// restarts the full 5s rather than resuming the remainder, which errs toward more reading time.
-	// Hover and focus are tracked SEPARATELY: with one shared flag, moving the mouse away while the
-	// Dismiss button still held keyboard focus cleared the hold and the banner vanished anyway.
-	const [hovered, setHovered] = useState(false);
-	const [focused, setFocused] = useState(false);
-	const paused = hovered || focused;
-	const key = card ? `${card.id}:${card.revision}` : null;
-	useEffect(() => {
-		if (!key || paused) return;
-		const timer = window.setTimeout(() => setDismissedKey(key), 5000);
-		return () => window.clearTimeout(timer);
-	}, [key, paused]);
-
-	const vaultAssetId = card?.heroImage?.kind === 'vault-asset' ? card.heroImage.ref : null;
-	const resolvedAsset = useAssetObjectUrl(vaultAssetId);
-	const heroUrl = card?.heroImage
-		? card.heroImage.kind === 'url'
-			? capabilities.runtimeKind !== 'android' ||
-				isNetworkDestinationAllowed(card.heroImage.ref, capabilities.runtimeKind)
-				? card.heroImage.ref
-				: null
-			: resolvedAsset
-		: null;
-
-	if (!card || !key || dismissedKey === key) return null;
-	const theme = moodTheme(card.mood);
-	return (
-		<div
-			role="status"
-			aria-live="polite"
-			data-testid="scene-banner"
-			onMouseEnter={() => setHovered(true)}
-			onMouseLeave={() => setHovered(false)}
-			// React's onFocus/onBlur are focusin/focusout, so they fire for the nested Dismiss button.
-			onFocus={() => setFocused(true)}
-			onBlur={() => setFocused(false)}
-			style={{
-				display: 'flex',
-				alignItems: 'stretch',
-				gap: 0,
-				margin: viewport === 'phone' ? '12px 14px 0' : '14px 28px 0',
-				borderRadius: 14,
-				overflow: 'hidden',
-				border: `1px solid ${theme.accent}`,
-				background: `linear-gradient(120deg, ${theme.from}, ${theme.to})`,
-				boxShadow: T.smd,
-			}}
-		>
-			{heroUrl ? (
-				<img src={heroUrl} alt="" style={{ width: 132, flex: '0 0 auto', objectFit: 'cover' }} />
-			) : null}
-			<div
-				style={{
-					flex: 1,
-					minWidth: 0,
-					padding: '14px 16px',
-					display: 'flex',
-					flexDirection: 'column',
-					gap: 6,
-				}}
-			>
-				<span
-					style={{
-						alignSelf: 'flex-start',
-						padding: '2px 9px',
-						borderRadius: 999,
-						background: `${theme.accent}22`,
-						border: `1px solid ${theme.accent}`,
-						color: theme.accent,
-						font: `700 10px ${T.sans}`,
-						letterSpacing: '0.1em',
-						textTransform: 'uppercase',
-					}}
-				>
-					{t('play.stage.nowOnScene', { mood: theme.label })}
-				</span>
-				<div style={{ font: `800 19px ${T.disp}`, color: theme.ink, lineHeight: 1.15 }}>
-					{card.title}
-				</div>
-				{card.flavorText ? (
-					<div
-						style={{
-							font: `13px/1.5 ${T.sans}`,
-							color: theme.ink,
-							opacity: 0.92,
-							whiteSpace: 'pre-wrap',
-						}}
-					>
-						{card.flavorText}
-					</div>
-				) : null}
-			</div>
-			<IconButton
-				icon="close"
-				label={t('play.stage.dismissBanner')}
-				variant="ghost"
-				size="sm"
-				onClick={() => setDismissedKey(key)}
-				style={{ flex: '0 0 auto', margin: 8, color: theme.ink }}
-			/>
-		</div>
-	);
-}
 
 // 1 · NOW PLAYING — the live stage the DM is projecting + the player's presence row.
 export function StageSection({
@@ -170,15 +49,13 @@ export function StageSection({
 		if (presenceShared) {
 			onPresence(next, ready);
 			toast(
-				next ? 'Hand raised — your DM can see it' : 'Hand lowered',
+				next ? t('play.polish.handUpLive') : t('play.polish.handDownLive'),
 				next ? 'info' : 'neutral',
 				'flag',
 			);
 		} else {
 			toast(
-				next
-					? 'Hand raised on this device — join a table to share it with your DM'
-					: 'Hand lowered (this device only)',
+				next ? t('play.polish.handUpLocal') : t('play.polish.handDownLocal'),
 				next ? 'info' : 'neutral',
 				'flag',
 			);
@@ -211,9 +88,9 @@ export function StageSection({
 						style={{
 							display: 'inline-flex',
 							alignItems: 'center',
-							gap: 8,
-							padding: '6px 12px',
-							borderRadius: 20,
+							gap: T.space.two,
+							padding: `${T.space.oneHalf} ${T.space.three}`,
+							borderRadius: T.radius.xl,
 							background: live ? 'var(--color-status-success-subtle)' : T.alt,
 							border: `1px solid ${live ? 'var(--color-status-success-border)' : T.bd}`,
 						}}
@@ -222,7 +99,7 @@ export function StageSection({
 							style={{
 								width: 8,
 								height: 8,
-								borderRadius: '50%',
+								borderRadius: T.radius.full,
 								background: live ? 'var(--color-status-success-text)' : T.ter,
 							}}
 						/>
@@ -250,13 +127,13 @@ export function StageSection({
 					display: 'grid',
 					gridTemplateColumns:
 						viewport === 'phone' ? 'minmax(0,1fr)' : 'minmax(0,1.55fr) minmax(0,1fr)',
-					gap: 18,
+					gap: T.space.four,
 					alignItems: 'start',
 				}}
 			>
 				<div
 					style={{
-						borderRadius: 12,
+						borderRadius: T.radius.lg,
 						overflow: 'hidden',
 						border: `1px solid ${T.bd}`,
 						boxShadow: T.smd,
@@ -307,9 +184,9 @@ export function StageSection({
 									right: 14,
 									display: 'inline-flex',
 									alignItems: 'center',
-									gap: 6,
-									padding: '4px 10px',
-									borderRadius: 8,
+									gap: T.space.oneHalf,
+									padding: `${T.space.one} ${T.space.two}`,
+									borderRadius: T.radius.md,
 									background: 'rgba(8,5,3,.6)',
 									font: `11px ${T.sans}`,
 									color: 'rgba(243,231,210,.75)',
@@ -317,8 +194,8 @@ export function StageSection({
 							>
 								<Icon name="info" size={12} />
 								{projected.rasterAssetId
-									? 'Map image not on this device — showing the map name'
-									: 'Geometric map (no image layer)'}
+									? t('play.polish.mapMissing')
+									: t('play.polish.mapGeometry')}
 							</div>
 						)}
 						{sceneName || projected ? (
@@ -329,7 +206,7 @@ export function StageSection({
 									left: 0,
 									right: 0,
 									bottom: 0,
-									padding: '20px 22px',
+									padding: `${T.space.five} ${T.space.five}`,
 									background: 'linear-gradient(transparent, rgba(8,5,3,.85))',
 								}}
 							>
@@ -338,13 +215,21 @@ export function StageSection({
 								</div>
 								{projected && sceneName && (
 									<div
-										style={{ marginTop: 2, font: `13px ${T.sans}`, color: 'rgba(243,231,210,.85)' }}
+										style={{
+											marginTop: T.space.half,
+											font: `13px ${T.sans}`,
+											color: 'rgba(243,231,210,.85)',
+										}}
 									>
 										{t('play.stage.map', { name: projected.name })}
 									</div>
 								)}
 								<div
-									style={{ marginTop: 3, font: `13px ${T.sans}`, color: 'rgba(243,231,210,.7)' }}
+									style={{
+										marginTop: T.space.half,
+										font: `13px ${T.sans}`,
+										color: 'rgba(243,231,210,.7)',
+									}}
 								>
 									{t('play.stage.projectedByDm')}
 								</div>
@@ -358,7 +243,7 @@ export function StageSection({
 									flexDirection: 'column',
 									alignItems: 'center',
 									justifyContent: 'center',
-									gap: 10,
+									gap: T.space.two,
 									// The stage's own `#0d0906` is unconditional, but T.ter follows the THEME —
 									// parchment's `#837057` measures 4.23:1 on it, under WCAG 1.4.3. The
 									// populated branch above already paints this backdrop with a fixed light
@@ -366,7 +251,7 @@ export function StageSection({
 									color: 'rgba(243,231,210,.7)',
 								}}
 							>
-								<Icon name="atlas-map" size="xl" color="rgba(243,231,210,.7)" />
+								<Illustration name="play-waiting" size={80} />
 								<span style={{ font: `14px ${T.sans}` }}>{t('play.stage.nothingShown')}</span>
 							</div>
 						)}
@@ -375,8 +260,8 @@ export function StageSection({
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 10,
-							padding: '12px 16px',
+							gap: T.space.two,
+							padding: `${T.space.three} ${T.space.four}`,
 							background: T.surf,
 							borderTop: `1px solid ${T.bd}`,
 							flexWrap: 'wrap',
@@ -394,9 +279,9 @@ export function StageSection({
 									style={{
 										display: 'inline-flex',
 										alignItems: 'center',
-										gap: 7,
-										padding: '8px 13px',
-										borderRadius: 9,
+										gap: T.space.oneHalf,
+										padding: `${T.space.two} ${T.space.three}`,
+										borderRadius: T.radius.lg,
 										cursor: 'pointer',
 										font: `600 12.5px ${T.sans}`,
 										border: `1px solid ${hand ? T.accBd : T.bd}`,
@@ -405,7 +290,7 @@ export function StageSection({
 									}}
 								>
 									<Icon name="flag" size={15} />
-									{hand ? 'Hand raised' : 'Raise hand'}
+									{hand ? t('play.polish.handRaised') : t('play.polish.raiseHand')}
 								</button>
 								<button
 									type="button"
@@ -414,9 +299,9 @@ export function StageSection({
 									style={{
 										display: 'inline-flex',
 										alignItems: 'center',
-										gap: 7,
-										padding: '8px 13px',
-										borderRadius: 9,
+										gap: T.space.oneHalf,
+										padding: `${T.space.two} ${T.space.three}`,
+										borderRadius: T.radius.lg,
 										cursor: 'pointer',
 										font: `600 12.5px ${T.sans}`,
 										border: `1px solid ${ready ? 'var(--color-status-success-border)' : T.bd}`,
@@ -425,12 +310,10 @@ export function StageSection({
 									}}
 								>
 									<Icon name="check" size={15} />
-									{ready ? "I'm ready" : 'Not ready'}
+									{ready ? t('play.polish.ready') : t('play.polish.notReady')}
 								</button>
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-									{presenceShared
-										? 'Shared live with your DM'
-										: 'Device-local — join a table to share'}
+									{presenceShared ? t('play.polish.presenceLive') : t('play.polish.presenceLocal')}
 								</span>
 							</>
 						) : (
@@ -438,7 +321,7 @@ export function StageSection({
 								style={{
 									display: 'inline-flex',
 									alignItems: 'center',
-									gap: 7,
+									gap: T.space.oneHalf,
 									font: `12.5px ${T.sans}`,
 									color: T.ter,
 								}}
@@ -454,7 +337,7 @@ export function StageSection({
 					</div>
 				</div>
 
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 					<Panel
 						title={t('play.stage.thisTurn')}
 						accent
@@ -471,16 +354,16 @@ export function StageSection({
 									: t('play.stage.noCombat')}
 							</div>
 						) : (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
 								{data.turnOrder.map((c) => (
 									<div
 										key={c.id}
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 9,
-											padding: '6px 9px',
-											borderRadius: 8,
+											gap: T.space.two,
+											padding: `${T.space.oneHalf} ${T.space.two}`,
+											borderRadius: T.radius.md,
 											background: c.active ? T.accSub : 'transparent',
 											border: `1px solid ${c.active ? T.accBd : 'transparent'}`,
 										}}
@@ -522,15 +405,18 @@ export function StageSection({
 								{t('play.stage.nothingShared')}
 							</div>
 						) : (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 								{data.handouts.slice(0, 3).map((h) => (
-									<div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+									<div
+										key={h.id}
+										style={{ display: 'flex', gap: T.space.two, alignItems: 'center' }}
+									>
 										<div
 											style={{
 												width: 40,
 												height: 40,
 												flex: '0 0 auto',
-												borderRadius: 9,
+												borderRadius: T.radius.lg,
 												display: 'flex',
 												alignItems: 'center',
 												justifyContent: 'center',

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Icon } from '../../ds';
+import { Badge, EmptyState, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
@@ -39,10 +39,10 @@ export function HandoutsSection({
 			/>
 			{shared.length === 0 ? (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.handouts.empty')}</div>
+					<EmptyState inset illustration="knowledge-empty" description={t('play.handouts.empty')} />
 				</Panel>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					{shared.map((n) => {
 						const isOpen = openId === n.id;
 						return (
@@ -50,7 +50,7 @@ export function HandoutsSection({
 								key={n.id}
 								style={{
 									border: `1px solid ${isOpen ? T.accBd : T.bd}`,
-									borderRadius: 10,
+									borderRadius: T.radius.lg,
 									background: T.surf,
 									boxShadow: isOpen ? T.ssm : 'none',
 									overflow: 'hidden',
@@ -65,8 +65,8 @@ export function HandoutsSection({
 										width: '100%',
 										display: 'flex',
 										alignItems: 'center',
-										gap: 12,
-										padding: '13px 16px',
+										gap: T.space.three,
+										padding: `${T.space.three} ${T.space.four}`,
 										cursor: 'pointer',
 										border: 'none',
 										background: 'transparent',
@@ -78,7 +78,7 @@ export function HandoutsSection({
 											width: 40,
 											height: 40,
 											flex: '0 0 auto',
-											borderRadius: 9,
+											borderRadius: T.radius.lg,
 											display: 'flex',
 											alignItems: 'center',
 											justifyContent: 'center',
@@ -89,11 +89,11 @@ export function HandoutsSection({
 										<Icon name={HANDOUT_ICON[n.kind] || 'knowledge-book'} size={20} color={T.acc} />
 									</div>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+										<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
 											<span style={{ font: `600 14px ${T.sans}`, color: T.ink }}>{n.title}</span>
 											<Badge status="info">{n.kind}</Badge>
 										</div>
-										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: T.space.half }}>
 											{t('play.handouts.updated', {
 												date: new Date(n.updatedAt).toLocaleDateString(),
 											})}
@@ -109,8 +109,8 @@ export function HandoutsSection({
 										<div
 											style={{
 												minWidth: 0,
-												padding: '12px 16px',
-												borderRadius: 9,
+												padding: `${T.space.three} ${T.space.four}`,
+												borderRadius: T.radius.lg,
 												background: T.alt,
 												borderLeft: `3px solid ${T.acc}`,
 												font: `13.5px/1.6 ${T.sans}`,

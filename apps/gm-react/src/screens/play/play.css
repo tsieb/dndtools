@@ -1,0 +1,7 @@
+/* Dense companion labels need text contrast on the light themes' sunken panels.
+   Keep this scoped to the companion until the shared palette receives its own audit. */
+[data-theme='parchment'] .player-view-shell,
+[data-theme='scholar'] .player-view-shell {
+	--color-text-tertiary: var(--color-text-secondary);
+	--color-accent-subtle: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+}

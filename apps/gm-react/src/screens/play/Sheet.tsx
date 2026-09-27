@@ -29,8 +29,8 @@ export function SheetSection({ data }: { data: LiveData }) {
 	const clsLabel = cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : t('play.sheet.adventurer');
 	const cardBox: CSSProperties = {
 		textAlign: 'center',
-		padding: '10px 6px',
-		borderRadius: 11,
+		padding: `${T.space.two} ${T.space.oneHalf}`,
+		borderRadius: T.radius.lg,
 		border: `1px solid ${T.bd}`,
 		background: T.surf,
 	};
@@ -43,8 +43,11 @@ export function SheetSection({ data }: { data: LiveData }) {
 					zIndex: 5,
 					display: 'flex',
 					alignItems: 'center',
-					gap: 16,
-					padding: viewport === 'phone' ? '12px 14px' : '12px 28px',
+					gap: T.space.four,
+					padding:
+						viewport === 'phone'
+							? `${T.space.three} ${T.space.four}`
+							: `${T.space.three} ${T.space.eight}`,
 					background: 'color-mix(in srgb, var(--color-surface) 94%, transparent)',
 					backdropFilter: 'blur(6px)',
 					borderBottom: `1px solid ${T.bd}`,
@@ -53,10 +56,12 @@ export function SheetSection({ data }: { data: LiveData }) {
 			>
 				<Avatar name={C.name} size="md" ring="active" />
 				<div style={{ minWidth: 0 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
 						{/* Every other section renders SectionHead's <h1>; the sheet jumped straight to this
 						    strip, so the ONE section a player lives in had no heading at all. */}
-						<h1 style={{ margin: 0, font: `700 16px ${T.disp}`, color: T.ink }}>{C.name}</h1>
+						<h1 style={{ margin: T.space.zero, font: `700 16px ${T.sans}`, color: T.ink }}>
+							{C.name}
+						</h1>
 						<Badge status="success">{t('play.sheet.pc')}</Badge>
 					</div>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
@@ -68,8 +73,8 @@ export function SheetSection({ data }: { data: LiveData }) {
 					style={{
 						textAlign: 'center',
 						minWidth: 70,
-						padding: '6px 12px',
-						borderRadius: 11,
+						padding: `${T.space.oneHalf} ${T.space.three}`,
+						borderRadius: T.radius.lg,
 						background: T.alt,
 						border: `1px solid ${T.bd}`,
 					}}
@@ -87,7 +92,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 					<div style={{ ...eb, color: T.ter }}>{t('play.sheet.hitPoints')}</div>
 				</div>
 				<Stat label={t('play.sheet.armorClass')} value={String(C.combat.ac)} icon="shield" />
-				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: T.space.oneHalf, flexWrap: 'wrap' }}>
 					{C.combat.conditions.map((c) => {
 						const k = condKey(c);
 						return k ? (
@@ -105,7 +110,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: viewport === 'phone' ? 'minmax(0,1fr)' : 'auto minmax(0,1fr)',
-						gap: 18,
+						gap: T.space.four,
 						alignItems: 'start',
 					}}
 				>
@@ -114,7 +119,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 							display: viewport === 'phone' ? 'grid' : 'flex',
 							gridTemplateColumns: viewport === 'phone' ? 'repeat(3,1fr)' : undefined,
 							flexDirection: 'column',
-							gap: 10,
+							gap: T.space.two,
 							width: viewport === 'phone' ? 'auto' : 116,
 						}}
 					>
@@ -126,29 +131,32 @@ export function SheetSection({ data }: { data: LiveData }) {
 									<div style={{ font: `700 24px ${T.mono}`, lineHeight: 1, color: T.ink }}>
 										{sgn(abilMod(score))}
 									</div>
-									<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: 2 }}>
+									<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: T.space.half }}>
 										{score ?? '—'}
 									</div>
 								</div>
 							);
 						})}
 					</div>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 						<Panel title={t('play.sheet.spellSlots')}>
 							{slots.length === 0 ? (
 								<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
 									{t('play.sheet.noSpellSlots')}
 								</div>
 							) : (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+								<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 									{slots.map((s) => {
 										const avail = availableSlots(s);
 										return (
-											<div key={s.level} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+											<div
+												key={s.level}
+												style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}
+											>
 												<span style={{ font: `600 12px ${T.sans}`, color: T.sub, width: 48 }}>
 													{t('play.sheet.slotLevel', { level: s.level })}
 												</span>
-												<div style={{ display: 'flex', gap: 7, flex: 1 }}>
+												<div style={{ display: 'flex', gap: T.space.oneHalf, flex: 1 }}>
 													{Array.from({ length: s.max }).map((_, i) => (
 														<span
 															key={i}
@@ -156,7 +164,7 @@ export function SheetSection({ data }: { data: LiveData }) {
 																width: 18,
 																height: 18,
 																transform: 'rotate(45deg)',
-																borderRadius: 3,
+																borderRadius: T.radius.sm,
 																background: i < avail ? T.acc : 'transparent',
 																border: `1.5px solid ${i < avail ? T.acc : T.bdS}`,
 															}}

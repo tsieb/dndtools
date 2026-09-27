@@ -250,7 +250,7 @@ describe('private store: the host never receives private content', () => {
 			'platform/storage/privateStore.test.ts',
 			// Test-only isolation coverage; the production import allowlist stays unchanged.
 			'platform/storage/localVaults.test.ts',
-			'screens/play/Journal.tsx',
+			'screens/play/PrivateJournal.tsx',
 		]);
 
 		const importers: string[] = [];

@@ -73,12 +73,12 @@ export function DiceSection({
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 10,
-						padding: '10px 14px',
-						borderRadius: 10,
+						gap: T.space.two,
+						padding: `${T.space.two} ${T.space.three}`,
+						borderRadius: T.radius.lg,
 						background: 'var(--color-status-warning-subtle)',
 						border: `1px solid var(--color-status-warning-border)`,
-						marginBottom: 16,
+						marginBottom: T.space.four,
 					}}
 				>
 					<Icon name="hidden" size={15} color="var(--color-status-warning-text)" />
@@ -97,12 +97,12 @@ export function DiceSection({
 					display: 'grid',
 					gridTemplateColumns:
 						viewport === 'phone' ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)',
-					gap: 18,
+					gap: T.space.four,
 					alignItems: 'start',
 				}}
 			>
 				<Panel title={t('play.dice.roll')} pad={16}>
-					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: T.space.two }}>
 						{DICE.map((f) => (
 							<button
 								key={f}
@@ -110,8 +110,8 @@ export function DiceSection({
 								disabled={!sessionActive}
 								onClick={() => rollOne(f)}
 								style={{
-									padding: '16px 0',
-									borderRadius: 11,
+									padding: `${T.space.four} ${T.space.zero}`,
+									borderRadius: T.radius.lg,
 									cursor: sessionActive ? 'pointer' : 'not-allowed',
 									border: `1px solid ${T.bd}`,
 									background: T.alt,
@@ -124,8 +124,8 @@ export function DiceSection({
 							</button>
 						))}
 					</div>
-					<div style={{ marginTop: 14 }}>
-						<div style={{ ...eb, marginBottom: 6 }}>{t('play.dice.d20Mode')}</div>
+					<div style={{ marginTop: T.space.three }}>
+						<div style={{ ...eb, marginBottom: T.space.oneHalf }}>{t('play.dice.d20Mode')}</div>
 						<Seg
 							ariaLabel={t('play.dice.d20Mode')}
 							value={mode}
@@ -137,7 +137,14 @@ export function DiceSection({
 							]}
 						/>
 					</div>
-					<div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+					<div
+						style={{
+							marginTop: T.space.three,
+							display: 'flex',
+							alignItems: 'center',
+							gap: T.space.two,
+						}}
+					>
 						<span style={eb}>{t('play.dice.modifier')}</span>
 						<IconButton
 							icon="chevron-down"
@@ -176,7 +183,7 @@ export function DiceSection({
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 9,
+							gap: T.space.two,
 							maxHeight: 460,
 							overflow: 'auto',
 						}}
@@ -186,7 +193,7 @@ export function DiceSection({
 								style={{
 									font: `12.5px ${T.sans}`,
 									color: T.ter,
-									padding: '14px 0',
+									padding: `${T.space.three} ${T.space.zero}`,
 									textAlign: 'center',
 								}}
 							>
@@ -195,7 +202,7 @@ export function DiceSection({
 						)}
 						{recent.map((d) => (
 							<div key={d.id}>
-								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: 3 }}>
+								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: T.space.half }}>
 									{d.actorId === viewer ? t('play.dice.you') : actorName(d.actorId)}
 									{d.label ? ` · ${d.label}` : ''}
 								</div>

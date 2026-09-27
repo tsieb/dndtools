@@ -1,0 +1,163 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+import { markOnboarded } from './_helpers';
+
+async function open(page: Page) {
+	await markOnboarded(page);
+	await page.goto('/#/play');
+	await page.waitForFunction(() => window.__rt?.loaded === true);
+	await expect(page.locator('#player-main h1')).toBeVisible();
+}
+async function axe(page: Page) {
+	await page.evaluate(async () => {
+		await document.fonts.ready;
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+				.map((a) => a.finished.catch(() => {})),
+		);
+	});
+	const scan = await new AxeBuilder({ page })
+		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+		.analyze();
+	expect(
+		scan.violations.map((v) => ({
+			id: v.id,
+			nodes: v.nodes.map((n) => ({ target: n.target, failure: n.failureSummary })),
+		})),
+	).toEqual([]);
+}
+
+test('all companion sections and join overlay are axe clean', async ({ page }) => {
+	test.setTimeout(120_000);
+	await open(page);
+	await axe(page);
+	for (const name of ['My character', 'Dice', 'Party', 'Handouts', 'Journal', 'Inbox']) {
+		await page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+		await expect(page.locator('#player-main h1')).toHaveCount(1);
+		await axe(page);
+	}
+	await page.getByRole('button', { name: 'Join a table', exact: true }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	await axe(page);
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('private deletion names its target, cancels with focus restored, and confirms', async ({
+	page,
+}) => {
+	await open(page);
+	await page.getByRole('button', { name: 'Journal', exact: true }).click();
+	const form = page.getByTestId('private-note-form');
+	await form.getByLabel('Title', { exact: true }).fill('Gate watch');
+	await form.getByLabel('Note', { exact: true }).fill('Keep the north gate closed.');
+	await page.getByRole('button', { name: 'Save note', exact: true }).click();
+	const row = page.getByTestId('private-note');
+	await expect(row).toHaveCount(1);
+	const remove = row.getByRole('button');
+	await remove.focus();
+	await page.keyboard.press('Enter');
+	const dialog = page.getByRole('dialog', { name: 'Delete “Gate watch”?' });
+	await expect(dialog).toBeVisible();
+	await axe(page);
+	await page.keyboard.press('Escape');
+	await expect(remove).toBeFocused();
+	await expect(row).toHaveCount(1);
+	await remove.click();
+	await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+	await expect(row).toHaveCount(0);
+	await expect(page.getByTestId('private-journal-status')).toHaveText('Removed from this device.');
+});
+
+test('200 percent layout keeps navigation and private forms reachable', async ({ page }) => {
+	await open(page);
+	await page.evaluate(() => {
+		document.documentElement.style.zoom = '2';
+	});
+	const journal = page.getByRole('button', { name: 'Journal', exact: true });
+	await journal.focus();
+	await page.keyboard.press('Enter');
+	await page
+		.getByTestId('private-note-form')
+		.getByLabel('Title', { exact: true })
+		.fill('Large text');
+	await page.getByRole('button', { name: 'Save note', exact: true }).click();
+	await expect(page.getByTestId('private-note')).toContainText('Large text');
+	expect(
+		await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+	).toBe(true);
+});
+
+test('private storage failures offer retry and preserve an unsaved draft', async ({ page }) => {
+	await open(page);
+	await page.evaluate(() => {
+		const original = IDBDatabase.prototype.transaction;
+		const flags = window as unknown as { failPrivateRead: boolean; failPrivateWrite: boolean };
+		flags.failPrivateRead = true;
+		flags.failPrivateWrite = false;
+		IDBDatabase.prototype.transaction = function (...args) {
+			if (
+				(this.name.includes('private-') || this.name.includes('vault-private:')) &&
+				(args[1] === 'readwrite' ? flags.failPrivateWrite : flags.failPrivateRead)
+			) {
+				throw new DOMException('Storage unavailable for test', 'UnknownError');
+			}
+			return original.apply(this, args);
+		};
+	});
+	await page.getByRole('button', { name: 'Journal', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Could not open your private journal');
+	await axe(page);
+	await page.evaluate(() => {
+		(window as unknown as { failPrivateRead: boolean }).failPrivateRead = false;
+	});
+	await page.getByRole('button', { name: 'Try again', exact: true }).click();
+	const form = page.getByTestId('private-note-form');
+	await form.getByLabel('Title', { exact: true }).fill('Still here');
+	await form.getByLabel('Note', { exact: true }).fill('Do not lose this draft.');
+	await page.evaluate(() => {
+		(window as unknown as { failPrivateWrite: boolean }).failPrivateWrite = true;
+	});
+	await page.getByRole('button', { name: 'Save note', exact: true }).click();
+	await expect(page.getByRole('alert')).toContainText('Could not save the change');
+	await expect(form.getByLabel('Note', { exact: true })).toHaveValue('Do not lose this draft.');
+	await axe(page);
+	await page.evaluate(() => {
+		(window as unknown as { failPrivateWrite: boolean }).failPrivateWrite = false;
+	});
+	await page.getByRole('button', { name: 'Save note', exact: true }).click();
+	await expect(page.getByTestId('private-note')).toContainText('Do not lose this draft.');
+});
+
+test('stage and journal clear axe in every theme', async ({ page }) => {
+	test.setTimeout(120_000);
+	await open(page);
+	for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast']) {
+		await page.evaluate(
+			(theme) => document.documentElement.setAttribute('data-theme', theme),
+			theme,
+		);
+		await page
+			.getByRole('navigation')
+			.getByRole('button', { name: 'Now playing', exact: true })
+			.click();
+		await axe(page);
+		await page
+			.getByRole('navigation')
+			.getByRole('button', { name: 'Journal', exact: true })
+			.click();
+		await axe(page);
+	}
+});
+
+test('Co-DM sections are axe clean without changing actor visibility', async ({ page }) => {
+	await open(page);
+	await page.evaluate(() => window.__rt!.enterPreview({ role: 'co-dm' }));
+	await page.waitForFunction(() => window.__rt?.preview?.role === 'co-dm');
+	for (const name of ['Maps', 'Bestiary', 'Combat assist']) {
+		await page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+		await axe(page);
+	}
+});
