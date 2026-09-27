@@ -12,7 +12,8 @@ import {
 	type KeyboardEvent,
 } from 'react';
 import {
-	getGraphVisualizationForActor,
+	buildGraphVisualizationBase,
+	filterGraphVisualization,
 	type GraphVisualization,
 	type GraphVizNode,
 } from '@dndtools/core';
@@ -41,7 +42,7 @@ import {
 
 /**
  * Graph & Search — the relationship graph canvas + faceted search, wired to the live Processing
- * Core. Every node/edge/facet comes from `getGraphVisualizationForActor`,
+ * Core. Every node/edge/facet comes from `getGraphVisualizationForActor` (its base + filter halves),
  * the actor-filtered GRAPH-004 read model: the DM/Player toggle simply re-runs the read AS a different
  * actor, so a player view drops every DM-only node the data layer hides (the leak-proofing contract,
  * proven by the read itself, not by client-side filtering). Health is the DM-only GRAPH-007 report;
@@ -82,21 +83,28 @@ export function Graph() {
 
 	const viewActorId = view === 'dm' ? dmId : playerId;
 
-	const viz: GraphVisualization = useMemo(
+	const { content, maps, session, permissions } = runtime.state;
+	// The vault-dependent half of the read is rebuilt only when the vault or viewpoint changes; each
+	// search keystroke or facet click runs just the filter pass over it (RC-ENG-3.2).
+	const vizBase = useMemo(
 		() =>
-			getGraphVisualizationForActor(
-				runtime.state.content,
-				runtime.state.maps,
-				runtime.state.session,
-				runtime.state.permissions,
+			buildGraphVisualizationBase(
+				content,
+				maps,
+				session,
+				permissions,
 				viewActorId,
 				DEFAULT_SOURCE_ID,
-				{
-					kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
-					text: query.trim() || undefined,
-				},
 			),
-		[runtime.state, viewActorId, facet, query],
+		[content, maps, session, permissions, viewActorId],
+	);
+	const viz: GraphVisualization = useMemo(
+		() =>
+			filterGraphVisualization(vizBase, {
+				kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
+				text: query.trim() || undefined,
+			}),
+		[vizBase, facet, query],
 	);
 
 	// Health and clusters are whole-vault reports for the side panels and hull washes. Reading them from

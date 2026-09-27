@@ -3813,10 +3813,13 @@ export type {
 	GraphVizFacets,
 	GraphVizFilter,
 	GraphVizNode,
+	GraphVisualizationBase,
 } from './queries/graph-visualization-query';
 export {
 	GRAPH_RELATIONSHIP_KINDS,
+	buildGraphVisualizationBase,
 	emptyGraphVisualization,
+	filterGraphVisualization,
 	getGraphVisualizationForActor,
 } from './queries/graph-visualization-query';
 

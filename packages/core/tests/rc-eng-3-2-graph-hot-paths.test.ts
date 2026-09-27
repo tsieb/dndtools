@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
 	CLUSTER_THRESHOLDS,
+	GRAPH_NODE_KINDS,
+	buildGraphVisualizationBase,
 	computeGraphClusters,
 	computeGraphQuality,
+	dispatchCommand,
+	filterGraphVisualization,
+	getGraphVisualizationForActor,
 	parseMarkdownNote,
 	resolveWikilink,
 	type ClusterInputNode,
+	type CoreStateSlice,
+	type GraphVisualization,
+	type GraphVizFilter,
 	type WikilinkTarget,
 } from '../src';
+import {
+	DM_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '../src/testing/fixtures';
 import { parseNoteCached } from '../src/queries/parsed-note-cache';
 import { createWikilinkResolver } from '../src/state/wikilink-graph';
 
@@ -215,5 +229,153 @@ describe('RC-ENG-3.2 graph hot paths', () => {
 		expect(second).toEqual(parseMarkdownNote(text));
 		expect(second.aliases).not.toBe(first.aliases);
 		expect(parseNoteCached('plain body')).toEqual(parseMarkdownNote('plain body'));
+	});
+});
+
+/** A linked vault with mixed-case and accented titles, folders, tags and hidden notes. */
+function vizVault(): CoreStateSlice {
+	const env = makeEnvironment();
+	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+	const titles = Array.from(
+		{ length: 40 },
+		(_, i) => [`note ${i}`, `Note ${i}`, `École ${i}`, `zeta ${i}`][i % 4]!,
+	);
+	titles.forEach((title, i) => {
+		const result = dispatchCommand(state, env, {
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: {
+				kind: 'note',
+				title,
+				body: `${i % 3 === 0 ? '#lore ' : ''}See [[${titles[(i + 1) % 40]}]] and [[${titles[(i * 7) % 40]}]].`,
+				visibility: i % 5 === 0 ? 'dm-only' : 'player-visible',
+				fields: i % 2 === 0 ? { 'dndtools.folder': i % 4 === 0 ? 'Places' : 'People' } : {},
+			},
+		} as Parameters<typeof dispatchCommand>[2]);
+		if (result.status !== 'accepted') throw new Error(JSON.stringify(result.rejection));
+		state = result.nextState;
+	});
+	return state;
+}
+
+/**
+ * The pre-split semantics, written out independently: filter the unfiltered read's nodes, keep edges
+ * between survivors, recount degree, then sort (kind, title, id) and (from, to, via).
+ */
+function filteredAfterTheFact(
+	full: GraphVisualization,
+	filter: GraphVizFilter,
+): GraphVisualization {
+	const needle = filter.text?.trim().toLowerCase() ?? '';
+	const nodes = full.nodes.filter(
+		(n) =>
+			(filter.folder === undefined || n.folder === filter.folder) &&
+			(filter.tags ?? []).every((tag) => n.tags.includes(tag)) &&
+			(!filter.kinds || filter.kinds.includes(n.kind)) &&
+			(needle === '' ||
+				n.title.toLowerCase().includes(needle) ||
+				(n.folder ?? '').toLowerCase().includes(needle) ||
+				n.tags.some((tag) => tag.includes(needle))),
+	);
+	const ids = new Set(nodes.map((n) => n.id));
+	const edges = full.edges.filter(
+		(e) =>
+			ids.has(e.fromId) &&
+			ids.has(e.toId) &&
+			(!filter.relationships || filter.relationships.includes(e.relationship)),
+	);
+	const degree = (id: string) => edges.filter((e) => e.fromId === id || e.toId === id).length;
+	return {
+		...full,
+		nodes: nodes
+			.map((n) => ({ ...n, degree: degree(n.id) }))
+			.sort(
+				(a, b) =>
+					GRAPH_NODE_KINDS.indexOf(a.kind) - GRAPH_NODE_KINDS.indexOf(b.kind) ||
+					a.title.localeCompare(b.title) ||
+					a.id.localeCompare(b.id),
+			),
+		edges: [...edges].sort(
+			(a, b) =>
+				a.fromId.localeCompare(b.fromId) ||
+				a.toId.localeCompare(b.toId) ||
+				a.via.localeCompare(b.via),
+		),
+	};
+}
+
+describe('RC-ENG-3.2 graph visualization base + filter', () => {
+	const filters: GraphVizFilter[] = [
+		{},
+		{ text: 'note 1' },
+		{ text: '  ÉCOLE ' },
+		{ text: 'places' },
+		{ kinds: ['note'] },
+		{ kinds: ['map'] },
+		{ tags: ['lore'] },
+		{ folder: 'People', text: 'zeta' },
+		{ relationships: ['poi-link'] },
+		{ text: 'no such node' },
+	];
+
+	it('filters a reused base exactly as a fresh read, for every actor and filter', () => {
+		const state = vizVault();
+		for (const actorId of [DM_ACTOR.id, PLAYER_ACTOR.id, 'actor-unknown']) {
+			const base = buildGraphVisualizationBase(
+				state.content,
+				state.maps,
+				state.session,
+				state.permissions,
+				actorId,
+				'local-vault',
+			);
+			const full = getGraphVisualizationForActor(
+				state.content,
+				state.maps,
+				state.session,
+				state.permissions,
+				actorId,
+				'local-vault',
+			);
+			if (actorId === DM_ACTOR.id) expect(full.nodes.length).toBe(40);
+			if (actorId === PLAYER_ACTOR.id) expect(full.nodes.length).toBe(32);
+			for (const filter of filters) {
+				const result = filterGraphVisualization(base, filter);
+				expect(result).toEqual(filteredAfterTheFact(full, filter));
+				expect(result).toEqual(
+					getGraphVisualizationForActor(
+						state.content,
+						state.maps,
+						state.session,
+						state.permissions,
+						actorId,
+						'local-vault',
+						filter,
+					),
+				);
+			}
+		}
+	});
+
+	it('returns fresh results that cannot change the base or each other', () => {
+		const state = vizVault();
+		const base = buildGraphVisualizationBase(
+			state.content,
+			state.maps,
+			state.session,
+			state.permissions,
+			DM_ACTOR.id,
+			'local-vault',
+		);
+		const first = filterGraphVisualization(base, {});
+		const snapshot = structuredClone(first);
+		const tagged = first.nodes.find((n) => n.tags.length > 0)!;
+		tagged.tags.push('mutated');
+		tagged.title = 'mutated';
+		first.nodes.reverse();
+		first.edges[0]!.via = 'mutated';
+		first.facets.tags.push('mutated');
+		first.sourceDiagnostics.push({ ...first.sourceDiagnostics[0]! });
+		expect(filterGraphVisualization(base, {})).toEqual(snapshot);
 	});
 });
