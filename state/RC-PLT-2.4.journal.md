@@ -339,3 +339,29 @@ for the next reader of this spec.
   unchanged by the gate (empty props/style), and the only online DOM change is two wrapper
   `<div>`s in Discover with the same single child each.
 - No push, promotion, loop, delegation, or dispatcher control-state mutation.
+
+## Attempt 10 — visual regression gate (pinned container)
+
+- Gate feedback on `d2773ebb`: quality gates and changed-file format passed; the visual suite
+  failed. Read the original log: community marketplace (15, all tiers/themes) could not find the
+  shelf cards; golden-routes `/wiki` (9) and `join missing` (15) differed by an added block;
+  `plans account check — high-contrast` on phone differed by a skeleton-row border.
+- Cause, confirmed from the captured `join-missing--tavern-actual.png`: the offline notice is in
+  the capture. `tests/visual/run-in-container.sh` runs the container with `--network=none`, so
+  Chromium reports `navigator.onLine === false` there. Every request a visual spec makes is
+  answered by the dev server or a route mock, but the RC-PLT-2.4 gate trusts that flag, so
+  Join/community wiki rendered their notice and Discover deferred its search (empty shelf).
+  The product behaviour is correct; the harness was presenting a network-less browser as a live
+  server.
+- Fix (test harness only, all in `companion_paths`): `presentOnline(page)` in
+  `tests/e2e/_helpers.ts` overrides `Navigator.prototype.onLine` before navigation; the four visual
+  specs that capture gated surfaces call it (`community`, `golden-routes` via their `stage`,
+  `join`, `plans-legal`). No baseline was rewritten, so the shared baseline budget is untouched.
+  `pwa-offline.spec.ts` does not call it. `PLATFORMS.md` records the rule.
+- Visual results in the pinned container (original logs under `/tmp/rcplt24-a10-*`):
+  affected specs (community, golden-routes, join, plans-legal, wiki-reader) on all three tiers:
+  291 passed, exit 0 — including the phone high-contrast plans capture, so that diff did not
+  reproduce. A full-suite run then reached 372/408 with no failure before the session ended and
+  it was stopped; the phone tail it did not reach is re-run below.
+- Committed as `test(visual): present the network as online…`; branch still merges cleanly with
+  `loop/rc` `cc47d694` (`git merge-tree`, no conflicts). No source file changed in this attempt.
