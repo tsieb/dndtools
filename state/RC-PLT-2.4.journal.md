@@ -282,3 +282,60 @@ for the next reader of this spec.
   `format:check:changed --base loop/rc` clean (28 files); `pwa-offline.spec.ts` 18 passed on
   desktop-chromium + mobile-chromium, one worker, exit 0 (`/tmp/rcplt24-a8-pwa.log`).
   Full browser suite not rerun; the attempt-4 saved-search result still stands as recorded.
+
+## Attempt 9 — reconcile onto 6992b502, gate online play (operator brief 2026-09-26)
+
+- Resumed at `a9bd208b` after a provider-limit interruption; worktree clean. `loop/rc` had moved
+  126 commits to `6992b502`. `git merge-tree` reported 8 conflicted files, all from RC-POL polish
+  passes that split screens into new children: Join, Upgrade (→ `upgrade/PlanCards.tsx`),
+  WikiReader, Discover (→ `DiscoverShelf.tsx`), Publish (→ `usePublishModel.ts`), Wiki
+  (→ `useWikiModel.ts`), shared (→ `Ratings.tsx`), PlanDialogs (→ `usePlanCards`). Rebased the seven
+  task commits; resolved each by keeping integration's structure and re-applying only the gate.
+- **No path outside Owns was edited.** The five split-out files are new since the Owns list was
+  written and are not in it or in `companion_paths`, so each is gated from its owning screen:
+  - `Upgrade.tsx` drives `PlanCards`' existing `busy` prop from the gate (live-billing CTAs and a
+    signed-in plan change are disabled offline, notice above the cards). Native `disabled`, not
+    soft, because `PlanCards` does not accept extra props — recorded as the one place the
+    soft-disable rule could not be kept without crossing Owns.
+  - `Discover.tsx`: search/filters stay editable (local state; `load` is gated and re-runs on
+    `online`), and a Discover-specific notice says so. The load-failed retry is withheld offline
+    (`failed && !offline`) because it could only fail. The ratings section (`Ratings.tsx`, every
+    control a round trip) is `hidden` — not unmounted — behind one line, so an unsent draft
+    survives. Previous behaviour (aria-disabled on the search input/selects/rating buttons) needed
+    edits inside the split-out files.
+  - Publish/Wiki: the gate stayed in the owned component files; the handlers moved to the hooks,
+    but `Button` swallows its own soft-disabled click, and neither screen has an Enter path.
+  - `offline.gate.test.ts`: the three hooks/PlanCards join `NO_CLOUD_CONTROLS` with reasons.
+- `shared.tsx`: `MarketplaceGate`'s sign-in opener now wears `cloud.offline.signIn`, matching the
+  Join/Upgrade sign-in openers (it was the one ungated one).
+- **Online play (the newly owned `net/` files).** Justification per file:
+  - `net/HostModal.tsx` — "Host online" and "Also make joinable online" call the relay; gated with
+    a notice. LAN hosting is untouched.
+  - `net/SessionPanel.tsx` — "Join online" and "Join with room and PIN" gated with a notice; the
+    pasted-connection-code and nearby routes untouched. `AccountButton` gates only signing in
+    (sign-out forgets this device's session either way).
+  - `cloud/offline.tsx` — added `offlineStyle` because these are native `<button>`s, which get
+    neither the dimmed look nor swallowed activation from `aria-disabled`; each handler also
+    refuses on `blocked`.
+  - `net/cloudBridge.ts`, `net/SessionContext.tsx` — **not edited**. The UI gate is sufficient;
+    `cloudBridge` joins the static rule's `NETWORK_MODULES`, and `SessionContext.tsx` is
+    allowlisted (context, renders no control).
+  - `en.ts`/`es.ts` — 4 keys: `cloud.offline.onlinePlay`, `.ratings`, `.discoverNotice`,
+    `.playNotice`. The play notice deliberately does NOT claim LAN still works: `onLine === false`
+    means no interface at all.
+  - `Discover.test.tsx` — the offline case rewritten for the new split (install gated, notice copy,
+    ratings hidden-not-unmounted, filter edit kept, deferred search runs with it on reconnect,
+    draft intact). `offline.configured.test.tsx` — two new cases for the host and join dialogs
+    (exact gated set, soft-disabled, handler refuses, LAN route stays live).
+- Mutation checks: removing the ratings `hidden`, the `load` gate, the `hostOnline` guard or the
+  `connectOnline` guard each turns its test red; restored.
+- Fresh results on the final tree (original logs under `/tmp/rcplt24-a9-*`): app typecheck exit 0;
+  `pnpm lint` exit 0 (17 pre-existing warnings, none in task files); `pnpm gates` exit 0
+  (`SessionPanel.tsx` 570 lines — warn-only file-size target); Prettier clean on all changed files;
+  `test:app` 1700 passed; `test:cloud` 559 passed; `pwa-offline.spec.ts` 18 passed on
+  desktop-chromium + mobile-chromium, exit 0; related specs (collab, community-_, wiki_, join,
+  demo-vault, upgrade\*, module-file) 90 passed / 2 skipped on both profiles, exit 0.
+  Not run: full Playwright suite, `a11y-axe-gate`, `responsive`, visual. Online renders are
+  unchanged by the gate (empty props/style), and the only online DOM change is two wrapper
+  `<div>`s in Discover with the same single child each.
+- No push, promotion, loop, delegation, or dispatcher control-state mutation.
