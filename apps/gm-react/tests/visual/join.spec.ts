@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import '../e2e/_helpers';
+import { presentOnline } from '../e2e/_helpers';
 
 // One state per theme and tier: the shared baseline budget has no room for a second. The illustrated
 // empty state is pinned here; the error state's alert, retry and exit are covered by
 // tests/e2e/join.spec.ts and the axe gate on both profiles.
 for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon']) {
 	test(`join missing ${theme}`, async ({ page }) => {
+		await presentOnline(page);
 		await page.addInitScript((value) => {
 			localStorage.setItem('dndtools:react:theme', value);
 			localStorage.setItem('dndtools:react:onboarded', 'gate');

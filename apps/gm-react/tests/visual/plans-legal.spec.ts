@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { serveAccountFixture } from '../e2e/_accountFixture';
-import { waitReady } from '../e2e/_helpers';
+import { presentOnline, waitReady } from '../e2e/_helpers';
 
 // RC-DSN-4.1 — see golden-routes.spec.ts for the suite, its determinism rules and the container
 // commands (docs/development/TESTING.md §8).
@@ -18,6 +18,7 @@ type Theme = (typeof THEMES)[number];
 /** Pin theme, onboarding and time before the first document loads. */
 async function stage(page: Page, theme: Theme): Promise<void> {
 	await page.clock.setFixedTime(new Date('2026-03-14T15:30:00Z'));
+	await presentOnline(page);
 	await page.addInitScript((applied) => {
 		window.localStorage.setItem('dndtools:react:onboarded', 'gate');
 		window.localStorage.setItem('dndtools:react:theme', applied);

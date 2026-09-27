@@ -205,6 +205,12 @@ test by design — the same split `Discover.test.tsx` and `WikiReader.test.tsx` 
 e2e routes that do exercise a real cloud-only control (`/join`, `/wiki`) reach it legitimately: the
 server fetch fails, the shipping component offers a retry, and that retry is the gated control.
 
+The visual suite is the opposite case. Its container runs with `--network=none`, so Chromium there
+reports `navigator.onLine === false` while every request is answered by the dev server or a route
+mock. Visual specs that capture a gated surface call `presentOnline(page)` (`tests/e2e/_helpers.ts`)
+before navigating, so the baselines show the online render. `pwa-offline.spec.ts` must never call
+it.
+
 Run all three with:
 `pnpm --filter @dndtools/gm-react exec vitest run src/cloud/offline` and
 `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pwa-offline.spec.ts --workers=1`.

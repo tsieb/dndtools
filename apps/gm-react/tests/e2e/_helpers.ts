@@ -95,6 +95,21 @@ export async function markOnboarded(page: Page): Promise<void> {
 }
 
 /**
+ * Report the browser as online, whatever its interfaces say. The visual container runs with
+ * `--network=none` (`tests/visual/run-in-container.sh`), so Chromium there reports
+ * `navigator.onLine === false` although every request a visual spec makes is answered by the local
+ * dev server or a route mock. RC-PLT-2.4's offline gate (`src/cloud/offline.tsx`) trusts exactly
+ * that flag, so without this each gated surface would be captured wearing its offline notice.
+ * Must be called BEFORE the first navigation. The offline state itself is covered for real in
+ * `pwa-offline.spec.ts`, which must never call this.
+ */
+export async function presentOnline(page: Page): Promise<void> {
+	await page.addInitScript(() => {
+		Object.defineProperty(Navigator.prototype, 'onLine', { configurable: true, get: () => true });
+	});
+}
+
+/**
  * Phones read `/board` and `/scene/:id` as stacked panels by default (RC-CAN-5.1). Specs that
  * exercise the spatial canvas on a phone (fit scale, zoom presets, pan, frame focus, flow reflow)
  * save the explicit canvas preference first, exactly as a user who chose it would have. Must be

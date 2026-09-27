@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import '../e2e/_helpers';
+import { presentOnline } from '../e2e/_helpers';
 
 // RC-DSN-4.1 — the golden-route visual regression suite. Every durable surface a polish pass
 // (RC-POL-*) touches is captured in every theme on every layout tier (`visual-desktop`,
@@ -20,6 +20,7 @@ const FIXED_TIME = new Date('2026-03-14T15:30:00Z');
 /** Pin theme, onboarding, time and randomness before the first document loads. */
 async function stage(page: Page, theme: Theme): Promise<void> {
 	await page.clock.setFixedTime(FIXED_TIME);
+	await presentOnline(page);
 	await page.addInitScript((applied) => {
 		try {
 			window.localStorage.setItem('dndtools:react:onboarded', 'gate');
