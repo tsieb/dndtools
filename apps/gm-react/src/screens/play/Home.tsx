@@ -274,6 +274,7 @@ export function StageSection({
 							<>
 								<button
 									type="button"
+									className="player-presence-action"
 									aria-pressed={hand}
 									onClick={toggleHand}
 									style={{
@@ -294,6 +295,7 @@ export function StageSection({
 								</button>
 								<button
 									type="button"
+									className="player-presence-action"
 									aria-pressed={ready}
 									onClick={toggleReady}
 									style={{

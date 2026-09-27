@@ -29,6 +29,39 @@ async function axe(page: Page) {
 	).toEqual([]);
 }
 
+test('presence and join actions keep their touch floor in both toggle states', async ({ page }) => {
+	await open(page);
+	await page.evaluate(() => document.fonts.ready);
+	const hand = page.getByRole('button', { name: 'Raise hand', exact: true });
+	const ready = page.getByRole('button', { name: "I'm ready", exact: true });
+	const join = page.getByRole('button', { name: 'Join a table', exact: true });
+	const presence = page.locator('#player-main button[aria-pressed]');
+	for (const android of [false, true]) {
+		await page.evaluate((android) => {
+			document.documentElement.toggleAttribute('data-android', android);
+		}, android);
+		for (const pressed of [false, true]) {
+			if (pressed) {
+				await hand.click();
+				await ready.click();
+			}
+			await expect(presence).toHaveCount(2);
+			for (const action of [presence.nth(0), presence.nth(1), join]) {
+				const bounds = await action.boundingBox();
+				expect(bounds).not.toBeNull();
+				expect(bounds!.width).toBeGreaterThanOrEqual(android ? 48 : 44);
+				expect(bounds!.height).toBeGreaterThanOrEqual(android ? 48 : 44);
+			}
+			await expect(presence.nth(0)).toHaveAttribute('aria-pressed', String(pressed));
+			await expect(presence.nth(1)).toHaveAttribute('aria-pressed', String(!pressed));
+		}
+		await presence.nth(0).click();
+		await presence.nth(1).click();
+	}
+	await join.click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+});
+
 test('all companion sections and join overlay are axe clean', async ({ page }) => {
 	test.setTimeout(120_000);
 	await open(page);

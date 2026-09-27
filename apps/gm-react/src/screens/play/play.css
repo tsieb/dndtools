@@ -5,3 +5,11 @@
 	--color-text-tertiary: var(--color-text-secondary);
 	--color-accent-subtle: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
 }
+
+/* Raw presence actions and the shared Join trigger do not consume DS button density.
+   Use the touch floor directly: 44px on web and the shared 48dp Android override. */
+.player-presence-action,
+.player-view-toolbar > button {
+	min-width: var(--touch-target-min);
+	min-height: var(--touch-target-min);
+}

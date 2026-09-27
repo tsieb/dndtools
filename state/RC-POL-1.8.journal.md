@@ -64,7 +64,7 @@ commands used native execution and their complete output is retained in local `/
 - [x] One clear route back; browser back works; Android Back follows the documented order.
       Navigation stays in the standalone companion; browser Back leaves the route. Shared Dialog owns Escape/Android Back ordering. Waiver: sections are existing local navigation state, not new browser-history entries.
 - [x] No hover-only or gesture-only discovery; touch targets ≥ 44 px (48 dp Android).
-      All actions remain visible buttons with labels and keyboard activation. Existing shared responsive density supplies phone targets; no new gesture-only interaction.
+      All actions remain visible buttons with labels and keyboard activation. Review correction: shared responsive density did not size the raw presence buttons or shared Join trigger. Owned CSS now applies `--touch-target-min` explicitly to both presence actions and the toolbar Join trigger (44px web, 48dp via the existing Android override), independent of density. Route coverage measures both dimensions after fonts load, before/after toggling presence, on both browser profiles and with the Android attribute. No sizing waiver for Join is needed; its shared implementation stays unchanged. No new gesture-only interaction.
 - [x] The compact tier exposes one primary top-bar action; overflow in a bounded sheet.
       Existing compact horizontal navigation is bounded and scrollable. Join remains the sole top-bar action; modal join and destructive confirmation use bounded shared overlays.
 - [x] Copy follows the content fundamentals; strings via `t()`; ES present.
@@ -133,3 +133,15 @@ private-journal importer; the replication boundary was not broadened. No archite
 
 Local implementation and validation only. The central operator still owns independent review,
 integration and publication.
+
+## Independent-review correction (2026-09-27)
+
+- Review of `e10cee076a9f9fb1649324037ecf64043c9cb4c2` found 33px presence actions and a 31px Join trigger on Pixel 5. The prior density claim above was incorrect and is now corrected.
+- Added scoped token-based minimum dimensions and a route regression checking web/Android floors, both presence states, and opening Join. No behavior or translation change.
+- Initial combined browser run: 84 existing tests passed, including strict route/overlay axe on both profiles; only the two new target cases failed because the test incorrectly expected Ready to start unpressed. Corrected that assertion to match the existing initially-ready behavior. The application source was unchanged during validation. Original output: `/tmp/pol18-review-e2e.log` (exit 1; not represented as a green command).
+- Corrected target regression: 2 passed, both profiles, no retries; dispatch artifact `03dfbfc1f53b4bc186c9360c7bc98bae` (exact output retrieved). Command: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/play-polish.spec.ts -g 'presence and join' --workers=2 --retries=0 --output=/tmp/pol18-review-target-results`.
+- Full corrected polish spec rerun: 14 passed, both profiles, no retries, exit 0 (53.1s), including strict axe for sections, overlays, failures and all five themes. Command: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/play-polish.spec.ts --workers=2 --retries=0 --output=/tmp/pol18-review-polish-results`. Dispatch artifact `ff01b0b334b3429a8fbf35aafd9ecb8a` (exact output retrieved).
+- Pinned visual update: 15 passed; comparison: 15 passed, no retries. Commands are the visual commands above; comparison additionally uses `--output=/tmp/pol18-review-visual-results`. Logs: `/tmp/pol18-review-visual-update.log`, `/tmp/pol18-review-visual-compare.log`. Reviewed all refreshed captures in contact sheets: controls fit without label clipping or overlap. Baseline budget: 492 images, 32,487.2 / 32,768 KiB.
+- `pnpm gates`, `pnpm lint`, and `pnpm --filter @dndtools/gm-react typecheck`: exit 0. Original logs: `/tmp/pol18-review-{gates,lint,typecheck}.log`. No owned file-size warnings; 19 owned files, maximum still 489 lines. Existing unrelated warnings remain.
+- Formatting and `git diff --check` pass. No copy changes; existing EN/ES and FEATURE-GAPS edits remain in the candidate.
+- Dispatch output-retention tools were discovered during this correction after the initial Headroom-name search returned none; later checks use them. Earlier checks retain exact local logs.
