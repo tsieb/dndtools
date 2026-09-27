@@ -224,3 +224,21 @@
 - Note: `multiple-accent-primaries` matches `<Button>` by tag name, so an unresolvable import still
   passes (checked by mutation). The fixture's value is the real-source scan, and that still holds.
 - PASS `pnpm test:tooling`: 29 files / 221 tests. No `src/ds` or runtime change in this retry.
+
+## Central gate retry — e982dd12 (Browser acceptance red)
+
+- Read the full original log for run `9aafd14c-b124-4468-a5a9-7c3e52532cbb`. Every other gate was
+  green. The browser run had 1,554 passed and 2 failed: `characters-polish.spec.ts:46` "failed combat
+  write shows recovery and can be retried", on both profiles and all three retries (deterministic, not a flake).
+  It timed out at line 68 waiting for a `role=alert` after the second "Start combat".
+- Cause: the test asserted the bug this task fixed. On the base, `characters/index.tsx` summed the
+  initiative with the DS signed-string `abilityModifier`, so `13 + "+2"` became the string `"13+2"`, which
+  failed `combat.start`'s payload validation (`initiative: number`), and that rejection was the alert
+  the test waited for. Its comment ("requires an active session") is stale: RC-SES-6.1 made
+  `combat.start` available in every workflow. With core's numeric helper the retry now succeeds.
+- Crossing (e2e test, not in the granted list): the last two assertions now expect the
+  "Combat started — open the Session screen" status and no alert. The first half of the test is
+  unchanged: the injected storage failure still shows the recovery alert and can be dismissed.
+- PASS `characters-polish.spec.ts` on both profiles with `--repeat-each=3`: 30/30.
+- Mutation: with the DS signed-string `abilityModifier` restored in `characters/index.tsx`, the test fails
+  on desktop (line 68, success status never appears), so it now guards the initiative fix.

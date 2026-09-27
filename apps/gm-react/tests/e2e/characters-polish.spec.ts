@@ -64,9 +64,12 @@ test('roster polish: failed combat write shows recovery and can be retried', asy
 	await page.getByRole('button', { name: 'Dismiss message' }).click();
 	await expect(page.getByRole('alert')).toHaveCount(0);
 	await secondary(page, 'Start combat');
-	// The retry reaches the real core, which requires an active session.
-	await expect(page.getByRole('alert')).toBeVisible();
-	await expect(page.getByRole('alert')).not.toContainText('Check your storage');
+	// The retry reaches the real core. Combat starts in any session state (RC-SES-6.1), and the
+	// initiative is now a number (RC-DSN-2.1), so the retry succeeds instead of failing again.
+	await expect(
+		page.getByRole('status').filter({ hasText: 'Combat started — open the Session screen' }),
+	).toBeVisible();
+	await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 test('roster polish: preview projects actor-visible characters and rejects writes', async ({
