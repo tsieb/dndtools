@@ -199,10 +199,10 @@ html[data-electron='true'] .app-fixed-viewport {
 
 @media (max-width: 640px) {
 	.player-view-shell {
-		/* Six primary destinations plus the three Co-DM tools need two rows at phone widths. Keeping
+		/* Seven primary destinations plus the three Co-DM tools need multiple rows at phone widths. Keeping
 		   every 44px target visible is more discoverable than a bottom bar whose final action starts
 		   off-screen with no scroll affordance. */
-		padding-bottom: calc(107px + env(safe-area-inset-bottom, 0px));
+		padding-bottom: var(--player-navigation-height, calc(107px + env(safe-area-inset-bottom, 0px)));
 	}
 
 	.player-view-sidebar {
@@ -242,9 +242,13 @@ html[data-electron='true'] .app-fixed-viewport {
 	/* The page, not a pane, scrolls here, and the fixed nav above covers its bottom edge. A scroll that
 	   brings a control to the nearest edge (`scrollIntoView({ block: 'nearest' })`) stopped it right
 	   under the nav — found at 200% zoom, where the stage grows tall enough to push Raise hand below
-	   the fold (RC-UX-2.4). Same reservation as the shell's bottom padding. */
+	   the fold (RC-UX-2.4). The measured height follows large-text target growth and row wrapping;
+	   it includes the safe area and is shared with the shell's bottom padding. */
 	html:has(.player-view-shell) {
-		scroll-padding-bottom: calc(107px + env(safe-area-inset-bottom, 0px));
+		scroll-padding-bottom: var(
+			--player-navigation-height,
+			calc(107px + env(safe-area-inset-bottom, 0px))
+		);
 	}
 
 	.player-view-toolbar > span:nth-child(2) {

@@ -134,6 +134,58 @@ test('private deletion names its target, cancels with focus restored, and confir
 	await expect(page.getByTestId('private-journal-status')).toHaveText('Removed from this device.');
 });
 
+test('large text and Android navigation leave scrolled presence controls reachable', async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 360, height: 640 });
+	await open(page);
+	const session = await page.context().newCDPSession(page);
+	for (const fontSize of [32, 16]) {
+		await session.send('Page.setFontSizes', { fontSizes: { standard: fontSize } });
+		for (const android of [false, true]) {
+			await page.evaluate((android) => {
+				document.documentElement.toggleAttribute('data-android', android);
+			}, android);
+			await expect
+				.poll(() =>
+					page.evaluate(() => {
+						const height = document
+							.querySelector('.player-view-sidebar')!
+							.getBoundingClientRect().height;
+						return Math.abs(
+							parseFloat(getComputedStyle(document.documentElement).scrollPaddingBottom) - height,
+						);
+					}),
+				)
+				.toBeLessThan(1);
+			const hand = page.locator('.player-presence-action').first();
+			await page.evaluate(() => window.scrollTo(0, 0));
+			await hand.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
+			expect(
+				await hand.evaluate((element) => {
+					const bounds = element.getBoundingClientRect();
+					return element.contains(
+						document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2),
+					);
+				}),
+			).toBe(true);
+			const pressed = await hand.getAttribute('aria-pressed');
+			await hand.click();
+			await expect(hand).toHaveAttribute('aria-pressed', String(pressed !== 'true'));
+			// Let the confirmation clear before testing another layout's hit target.
+			await expect(page.locator('.player-view-toast-viewport > div')).toHaveCount(0);
+		}
+	}
+	await page.goto('/#/join');
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				document.documentElement.style.getPropertyValue('--player-navigation-height'),
+			),
+		)
+		.toBe('');
+});
+
 test('200 percent layout keeps navigation and private forms reachable', async ({ page }) => {
 	await open(page);
 	await page.evaluate(() => {

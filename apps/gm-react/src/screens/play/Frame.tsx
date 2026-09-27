@@ -22,6 +22,7 @@ import { StageSection } from './Home';
 import { SceneBanner } from './SceneBanner';
 import { PlayerToasts } from './Toasts';
 import { PlayerNavRow } from './Navigation';
+import { useNavigationInset } from './useNavigationInset';
 import { SheetSection } from './Sheet';
 import { critOf, DiceSection } from './Dice';
 import { PartySection } from './Presence';
@@ -33,6 +34,7 @@ import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
 /** Standalone actor-filtered player companion; all table writes retain core authority. */
 export function PlayerView() {
 	const { t } = useI18n();
+	const navigationRef = useNavigationInset();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const session = useSession();
@@ -266,6 +268,7 @@ export function PlayerView() {
 			</a>
 			{/* sidebar */}
 			<aside
+				ref={navigationRef}
 				className="player-view-sidebar"
 				style={{
 					width: 248,
