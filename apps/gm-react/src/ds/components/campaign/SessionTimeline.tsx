@@ -11,6 +11,8 @@ export interface TimelineEntry {
 
 export interface SessionTimelineProps extends React.HTMLAttributes<HTMLOListElement> {
 	entries: TimelineEntry[];
+	/** Arc strip for campaign prep; the default log remains suitable for live feeds. */
+	layout?: 'log' | 'arc';
 }
 
 import React from 'react';
@@ -32,9 +34,26 @@ const TONES = {
  * NPC, milestone). The most recent entry can be emphasized with `active`. Reads top-down, newest
  * first or oldest first — you order the array.
  */
-export function SessionTimeline({ entries = [], style, ...rest }: SessionTimelineProps) {
+export function SessionTimeline({
+	entries = [],
+	layout = 'log',
+	style,
+	...rest
+}: SessionTimelineProps) {
+	const arc = layout === 'arc';
 	return (
-		<ol style={{ margin: 0, padding: 0, listStyle: 'none', ...style }} {...rest}>
+		<ol
+			tabIndex={arc ? 0 : undefined}
+			style={{
+				margin: 0,
+				padding: arc ? 'var(--space-1)' : 0,
+				listStyle: 'none',
+				display: arc ? 'flex' : undefined,
+				overflowX: arc ? 'auto' : undefined,
+				...style,
+			}}
+			{...rest}
+		>
 			{entries.map((e, i) => {
 				const last = i === entries.length - 1;
 				const color = TONES[e.tone!] || TONES.default;
@@ -42,13 +61,22 @@ export function SessionTimeline({ entries = [], style, ...rest }: SessionTimelin
 				return (
 					<li
 						key={i}
+						aria-current={active ? 'step' : undefined}
 						style={{
 							display: 'grid',
-							gridTemplateColumns: '28px 1fr',
+							gridTemplateColumns: arc ? '1fr' : '28px 1fr',
+							flex: arc ? '0 0 min(240px, 85%)' : undefined,
+							minWidth: 0,
 							columnGap: 'var(--space-3)',
 						}}
 					>
-						<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: arc ? 'row' : 'column',
+								alignItems: 'center',
+							}}
+						>
 							<span
 								style={{
 									width: 28,
@@ -71,15 +99,24 @@ export function SessionTimeline({ entries = [], style, ...rest }: SessionTimelin
 									aria-hidden="true"
 									style={{
 										flex: 1,
-										width: 2,
-										minHeight: 16,
+										width: arc ? undefined : 2,
+										height: arc ? 2 : undefined,
+										minHeight: arc ? undefined : 16,
 										background: 'var(--color-border)',
 										margin: '2px 0',
 									}}
 								/>
 							)}
 						</div>
-						<div style={{ paddingBottom: last ? 0 : 'var(--space-4)', minWidth: 0 }}>
+						<div
+							style={{
+								paddingBottom: arc || last ? 0 : 'var(--space-4)',
+								paddingTop: arc ? 'var(--space-3)' : undefined,
+								paddingRight: arc ? 'var(--space-4)' : undefined,
+								minWidth: 0,
+								overflowWrap: 'anywhere',
+							}}
+						>
 							{e.time && (
 								<div
 									style={{

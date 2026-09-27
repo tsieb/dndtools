@@ -13,6 +13,8 @@ export interface QuestCardProps extends Omit<React.HTMLAttributes<HTMLElement>, 
 	objectives?: QuestObjective[];
 	reward?: React.ReactNode;
 	dmOnly?: boolean;
+	/** Visibility and author controls, kept inside the card boundary. */
+	footer?: React.ReactNode;
 	/** (index) — toggle an objective done. Omit for a read-only card. */
 	onToggleObjective?: (index: number) => void;
 }
@@ -66,6 +68,7 @@ export function QuestCard({
 	objectives = [],
 	reward,
 	dmOnly = false,
+	footer,
 	onToggleObjective,
 	style,
 	...rest
@@ -85,6 +88,8 @@ export function QuestCard({
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-3)',
+				minWidth: 0,
+				overflowWrap: 'anywhere',
 				color: 'var(--color-text-primary)',
 				...style,
 			}}
@@ -291,6 +296,13 @@ export function QuestCard({
 						{reward}
 					</span>
 				</div>
+			)}
+			{footer && (
+				<footer
+					style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}
+				>
+					{footer}
+				</footer>
 			)}
 		</article>
 	);

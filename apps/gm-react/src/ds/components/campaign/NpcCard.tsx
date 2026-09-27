@@ -78,6 +78,8 @@ export function NpcCard({
 				display: 'flex',
 				flexDirection: 'column',
 				gap: 'var(--space-3)',
+				minWidth: 0,
+				overflowWrap: 'anywhere',
 				color: 'var(--color-text-primary)',
 				cursor: interactive ? 'pointer' : 'default',
 				transition: interactive
@@ -126,9 +128,6 @@ export function NpcCard({
 								fontWeight: 'var(--font-weight-bold)',
 								lineHeight: 1.15,
 								color: 'var(--color-text-primary)',
-								textOverflow: 'ellipsis',
-								whiteSpace:
-									'nowrap' /* `overflow:hidden` here clipped the 2px+2px-offset global focus ring on the card's ONLY tab stop (WCAG 2.4.11). The inner button already owns the ellipsis clipping, so the h3 does not need it. */,
 							}}
 						>
 							{interactive ? (
@@ -140,6 +139,7 @@ export function NpcCard({
 									}}
 									style={{
 										font: 'inherit',
+										textAlign: 'left',
 										color: 'inherit',
 										background: 'none',
 										border: 'none',
@@ -149,7 +149,7 @@ export function NpcCard({
 										maxWidth: '100%',
 										overflow: 'hidden',
 										textOverflow: 'ellipsis',
-										whiteSpace: 'nowrap',
+										whiteSpace: 'normal',
 										display: 'block',
 									}}
 								>
@@ -170,7 +170,7 @@ export function NpcCard({
 								color: 'var(--color-text-tertiary)',
 								overflow: 'hidden',
 								textOverflow: 'ellipsis',
-								whiteSpace: 'nowrap',
+								whiteSpace: 'normal',
 							}}
 						>
 							{role}

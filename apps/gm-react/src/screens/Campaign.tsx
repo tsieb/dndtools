@@ -112,33 +112,35 @@ function QuestCardRow({
 								})
 						: undefined
 				}
-			/>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-				{/* EVERY quest carries the safety-critical visibility cue (not only dm-only ones) — the
+				footer={
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+						{/* EVERY quest carries the safety-critical visibility cue (not only dm-only ones) — the
 				    same always-on chip FactionCard shows, so a mis-set visibility is visible at a glance. */}
-				<VisibilityChip level={VIS_CHIP[row.view.visibility] || 'dm-only'} compact />
-				{canAuthor && (
-					<>
-						<div style={{ flex: 1 }} />
-						<IconButton
-							icon="note-edit"
-							label={t('campaign.edit', { title: row.view.title })}
-							variant="ghost"
-							size="sm"
-							onClick={onEdit}
-						/>
-						<span style={{ ...eb }}>{t('campaign.status')}</span>
-						<Select
-							aria-label={t('campaign.statusOf', { title: row.view.title })}
-							options={options(QUEST_STATUS_OPTIONS, t)}
-							value={status}
-							onChange={(e: { target: { value: string } }) =>
-								void update({ status: e.target.value })
-							}
-						/>
-					</>
-				)}
-			</div>
+						<VisibilityChip level={VIS_CHIP[row.view.visibility] || 'dm-only'} compact />
+						{canAuthor && (
+							<>
+								<div style={{ flex: 1 }} />
+								<IconButton
+									icon="note-edit"
+									label={t('campaign.edit', { title: row.view.title })}
+									variant="ghost"
+									size="sm"
+									onClick={onEdit}
+								/>
+								<span style={{ ...eb }}>{t('campaign.status')}</span>
+								<Select
+									aria-label={t('campaign.statusOf', { title: row.view.title })}
+									options={options(QUEST_STATUS_OPTIONS, t)}
+									value={status}
+									onChange={(e: { target: { value: string } }) =>
+										void update({ status: e.target.value })
+									}
+								/>
+							</>
+						)}
+					</div>
+				}
+			/>
 		</div>
 	);
 }
@@ -161,7 +163,13 @@ function FactionCard({
 	// Only present at all for the DM — `projectObjectFieldsForRole` omits dm-only fields for others.
 	const secret = str(fields.secret);
 	return (
-		<Panel style={{ gap: 10 }}>
+		<Panel
+			style={{
+				gap: 10,
+				borderLeft: `3px solid ${T.accBd}`,
+				overflowWrap: 'anywhere',
+			}}
+		>
 			<div
 				style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
 			>
@@ -170,11 +178,8 @@ function FactionCard({
 				<h3
 					style={{
 						margin: 0,
-						font: `700 15px ${T.disp}`,
+						font: `var(--font-weight-bold) var(--text-md)/1.15 ${T.disp}`,
 						minWidth: 0,
-						overflow: 'hidden',
-						textOverflow: 'ellipsis',
-						whiteSpace: 'nowrap',
 					}}
 				>
 					{view.title}
@@ -563,7 +568,7 @@ export function Campaign() {
 				)}
 
 				{tab === 'timeline' && (
-					<Panel title={t('campaign.timeline.title')} style={{ maxWidth: 680 }}>
+					<Panel title={t('campaign.timeline.title')}>
 						<div style={{ font: `12.5px ${T.sans}`, color: T.sub, marginBottom: 4 }}>
 							{data.currentDate ? (
 								<>
@@ -584,6 +589,8 @@ export function Campaign() {
 							/>
 						) : (
 							<SessionTimeline
+								layout="arc"
+								aria-label={t('campaign.timeline.title')}
 								entries={data.timeline.map((row, i) => ({
 									time: row.date.display,
 									title: row.title,
