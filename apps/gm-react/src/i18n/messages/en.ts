@@ -827,6 +827,7 @@ export const en = {
 	'settings.nav.systems': 'Extensions & systems',
 	'settings.nav.accessibility': 'Accessibility',
 	'settings.nav.about': 'About & diagnostics',
+	'settings.gated.showAdvanced': 'Show advanced settings',
 	'settings.gated.title': 'Hidden at your experience level',
 	'settings.gated.thisPanel': 'This panel',
 	'settings.gated.body':

@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useEffect, useState } from 'react';
 import { Badge, Button, Dialog, Icon, StatusDot, Switch, Toaster } from '../../ds';
 import { Panel, SetRow, T } from '../../app/screen-kit';
@@ -66,24 +67,26 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 
 	if (!cloud.available) {
 		return (
-			<Panel title={t('settings.sync.cloudTitle')}>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-					<StatusDot status={online ? 'live' : 'error'} pulse={online} />
-					<div style={{ flex: 1 }}>
-						<div style={{ font: `600 13.5px ${T.sans}` }}>
-							{t('settings.sync.localOnlyState', {
-								state: t(online ? 'settings.sync.online' : 'settings.sync.offline'),
-							})}
+			<SettingsSection gateKey="settings.sync.cloudTitle">
+				<Panel title={t('settings.sync.cloudTitle')}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+						<StatusDot status={online ? 'live' : 'error'} pulse={online} />
+						<div style={{ flex: 1 }}>
+							<div style={{ font: `600 13.5px ${T.sans}` }}>
+								{t('settings.sync.localOnlyState', {
+									state: t(online ? 'settings.sync.online' : 'settings.sync.offline'),
+								})}
+							</div>
+							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+								{t('settings.sync.localOnlyCount', { count: localChanges })}
+							</div>
 						</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{t('settings.sync.localOnlyCount', { count: localChanges })}
-						</div>
+						<Button variant="secondary" size="sm" icon="retry" disabled>
+							{t('settings.sync.syncNow')}
+						</Button>
 					</div>
-					<Button variant="secondary" size="sm" icon="retry" disabled>
-						{t('settings.sync.syncNow')}
-					</Button>
-				</div>
-			</Panel>
+				</Panel>
+			</SettingsSection>
 		);
 	}
 
@@ -133,161 +136,168 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 	};
 
 	return (
-		<Panel
-			title={t('settings.sync.cloudTitle')}
-			action={
-				<Badge status={cloud.enabled ? 'success' : 'neutral'}>
-					{t(cloud.enabled ? 'settings.sync.on' : 'settings.sync.off')}
-				</Badge>
-			}
-		>
-			<SetRow
-				label={t('settings.sync.cloudRow')}
-				help={t(
-					!cloud.includedInPlan
-						? ent.canChangePlan
-							? 'settings.sync.helpNotInPlan'
-							: 'settings.sync.helpNotInPlanLocked'
-						: canEnable
-							? 'settings.sync.help'
-							: gate?.custodyAvailable === false
-								? 'settings.sync.helpNoCustody'
-								: 'settings.sync.helpUnavailable',
-				)}
-				control={
-					<Switch
-						checked={cloud.enabled}
-						// `busy` flips synchronously inside this switch's own change handler, so a hard
-						// `disabled` disabled the control under the user's focus and the browser dropped
-						// focus to `<body>` mid-toggle. The durable `!canEnable` gate stays native.
-						disabled={!canEnable}
-						aria-disabled={busy || cloudActions.offline || undefined}
-						title={cloudActions.offlineProps.title}
-						data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
-						aria-label={t('settings.sync.cloudRow')}
-						onChange={() => {
-							// Switch is not a DS Button, so it does not swallow its own activation when
-							// soft-disabled — the offline guard has to live in the handler.
-							if (cloudActions.blocked) return;
-							void run(
-								() => (cloud.enabled ? cloud.disable() : cloud.enable()),
-								t(cloud.enabled ? 'settings.sync.turnedOff' : 'settings.sync.turnedOn'),
-							);
-						}}
-					/>
+		<SettingsSection gateKey="settings.sync.cloudTitle">
+			<Panel
+				title={t('settings.sync.cloudTitle')}
+				action={
+					<Badge status={cloud.enabled ? 'success' : 'neutral'}>
+						{t(cloud.enabled ? 'settings.sync.on' : 'settings.sync.off')}
+					</Badge>
 				}
-			/>
-			<CloudOfflineNotice />
-			{cloud.enabled && canEnable ? (
-				<div
-					role="status"
-					aria-live="polite"
-					aria-atomic="true"
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 12,
-						marginTop: 12,
-						flexWrap: 'wrap',
-					}}
-				>
-					<StatusDot
-						status={es?.lastError ? 'error' : es?.busy || busy ? 'pending' : 'live'}
-						pulse={es?.busy}
-					/>
-					<div style={{ flex: 1, minWidth: 180 }}>
-						<div style={{ font: `600 13px ${T.sans}` }}>
-							{t(
-								es?.busy || busy
-									? 'settings.sync.stateBusy'
-									: es?.lastError
-										? 'settings.sync.stateError'
-										: es?.lastSyncedAt
-											? 'settings.sync.stateUpToDate'
-											: 'settings.sync.stateWaiting',
-							)}
-						</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{es?.lastError ? es.lastError : t('settings.sync.lastBackedUp', { when: lastSynced })}
-						</div>
-						{es?.merge && !es.lastError ? (
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }} data-testid="sync-merge-state">
-								{es.merge.outcome === 'diverged'
-									? es.merge.conflictCount > 0
-										? t('settings.sync.diverged', { count: es.merge.conflictCount })
-										: t('settings.sync.divergedNoOverlap')
-									: es.merge.outcome === 'fast-forward'
-										? t('settings.sync.fastForward', { count: es.merge.incomingCount })
-										: es.merge.outcome === 'push-only'
-											? t('settings.sync.pushOnly', { count: es.merge.outgoingCount })
-											: t('settings.sync.upToDate')}
+			>
+				<SetRow
+					label={t('settings.sync.cloudRow')}
+					help={t(
+						!cloud.includedInPlan
+							? ent.canChangePlan
+								? 'settings.sync.helpNotInPlan'
+								: 'settings.sync.helpNotInPlanLocked'
+							: canEnable
+								? 'settings.sync.help'
+								: gate?.custodyAvailable === false
+									? 'settings.sync.helpNoCustody'
+									: 'settings.sync.helpUnavailable',
+					)}
+					control={
+						<Switch
+							checked={cloud.enabled}
+							// `busy` flips synchronously inside this switch's own change handler, so a hard
+							// `disabled` disabled the control under the user's focus and the browser dropped
+							// focus to `<body>` mid-toggle. The durable `!canEnable` gate stays native.
+							disabled={!canEnable}
+							aria-disabled={busy || cloudActions.offline || undefined}
+							title={cloudActions.offlineProps.title}
+							data-cloud-offline={cloudActions.offlineProps['data-cloud-offline']}
+							aria-label={t('settings.sync.cloudRow')}
+							onChange={() => {
+								// Switch is not a DS Button, so it does not swallow its own activation when
+								// soft-disabled — the offline guard has to live in the handler.
+								if (cloudActions.blocked) return;
+								void run(
+									() => (cloud.enabled ? cloud.disable() : cloud.enable()),
+									t(cloud.enabled ? 'settings.sync.turnedOff' : 'settings.sync.turnedOn'),
+								);
+							}}
+						/>
+					}
+				/>
+				<CloudOfflineNotice />
+				{cloud.enabled && canEnable ? (
+					<div
+						role="status"
+						aria-live="polite"
+						aria-atomic="true"
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 12,
+							marginTop: 12,
+							flexWrap: 'wrap',
+						}}
+					>
+						<StatusDot
+							status={es?.lastError ? 'error' : es?.busy || busy ? 'pending' : 'live'}
+							pulse={es?.busy}
+						/>
+						<div style={{ flex: 1, minWidth: 180 }}>
+							<div style={{ font: `600 13px ${T.sans}` }}>
+								{t(
+									es?.busy || busy
+										? 'settings.sync.stateBusy'
+										: es?.lastError
+											? 'settings.sync.stateError'
+											: es?.lastSyncedAt
+												? 'settings.sync.stateUpToDate'
+												: 'settings.sync.stateWaiting',
+								)}
 							</div>
-						) : null}
-					</div>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="retry"
-						disabled={busy || es?.busy}
-						{...cloudActions.offlineProps}
-						onClick={() => void syncNow()}
-					>
-						{t('settings.sync.syncNow')}
-					</Button>
-					<Button
-						variant="ghost"
-						size="sm"
-						icon="download"
-						disabled={busy || es?.busy}
-						{...cloudActions.offlineProps}
-						onClick={() => setRestoreOpen(true)}
-					>
-						{t('settings.sync.restoreDevice')}
-					</Button>
-					<Dialog
-						open={restoreOpen}
-						onClose={() => setRestoreOpen(false)}
-						title={t('settings.sync.restoreTitle')}
-						description={t('settings.sync.restoreDescription')}
-						tone="danger"
-						size="sm"
-						dismissible={!busy}
-						initialFocus="#cancel-cloud-restore"
-						role="alertdialog"
-						aria-busy={busy}
-						footer={
-							<>
-								<Button
-									id="cancel-cloud-restore"
-									variant="secondary"
-									size="sm"
-									disabled={busy}
-									onClick={() => setRestoreOpen(false)}
+							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+								{es?.lastError
+									? es.lastError
+									: t('settings.sync.lastBackedUp', { when: lastSynced })}
+							</div>
+							{es?.merge && !es.lastError ? (
+								<div
+									style={{ font: `12px ${T.sans}`, color: T.ter }}
+									data-testid="sync-merge-state"
 								>
-									{t('common.action.cancel')}
-								</Button>
-								<Button
-									variant="danger"
-									size="sm"
-									disabled={busy}
-									{...cloudActions.offlineProps}
-									onClick={() => {
-										setRestoreOpen(false);
-										void run(cloud.restore, t('settings.sync.restored'));
-									}}
-								>
-									{t('settings.sync.replaceLocal')}
-								</Button>
-							</>
-						}
-					>
-						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-							{t('settings.sync.restoreBody')}
+									{es.merge.outcome === 'diverged'
+										? es.merge.conflictCount > 0
+											? t('settings.sync.diverged', { count: es.merge.conflictCount })
+											: t('settings.sync.divergedNoOverlap')
+										: es.merge.outcome === 'fast-forward'
+											? t('settings.sync.fastForward', { count: es.merge.incomingCount })
+											: es.merge.outcome === 'push-only'
+												? t('settings.sync.pushOnly', { count: es.merge.outgoingCount })
+												: t('settings.sync.upToDate')}
+								</div>
+							) : null}
 						</div>
-					</Dialog>
-				</div>
-			) : null}
-		</Panel>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="retry"
+							disabled={busy || es?.busy}
+							{...cloudActions.offlineProps}
+							onClick={() => void syncNow()}
+						>
+							{t('settings.sync.syncNow')}
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="download"
+							disabled={busy || es?.busy}
+							{...cloudActions.offlineProps}
+							onClick={() => setRestoreOpen(true)}
+						>
+							{t('settings.sync.restoreDevice')}
+						</Button>
+						<Dialog
+							open={restoreOpen}
+							onClose={() => setRestoreOpen(false)}
+							title={t('settings.sync.restoreTitle')}
+							description={t('settings.sync.restoreDescription')}
+							tone="danger"
+							size="sm"
+							dismissible={!busy}
+							initialFocus="#cancel-cloud-restore"
+							role="alertdialog"
+							aria-busy={busy}
+							footer={
+								<>
+									<Button
+										id="cancel-cloud-restore"
+										variant="secondary"
+										size="sm"
+										disabled={busy}
+										onClick={() => setRestoreOpen(false)}
+									>
+										{t('common.action.cancel')}
+									</Button>
+									<Button
+										variant="danger"
+										size="sm"
+										disabled={busy}
+										{...cloudActions.offlineProps}
+										onClick={() => {
+											setRestoreOpen(false);
+											void run(cloud.restore, t('settings.sync.restored'));
+										}}
+									>
+										{t('settings.sync.replaceLocal')}
+									</Button>
+								</>
+							}
+						>
+							<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+								{t('settings.sync.restoreBody')}
+							</div>
+						</Dialog>
+					</div>
+				) : null}
+			</Panel>
+		</SettingsSection>
 	);
 }
 export function SettingsSync() {
@@ -313,48 +323,52 @@ export function SettingsSync() {
 			    backup button's tap target under the fixed navigation. The ADR-026 consent and
 			    recovery panels are set-once controls and read fine below it. */}
 			<CloudSyncPanel online={online} localChanges={ops.length} />
-			<SyncConflictsPanel />
+			<SettingsSection gateKey="settings.sync.conflictsTitle">
+				<SyncConflictsPanel />
+			</SettingsSection>
 			<LocalBackupPanel />
 			<VaultPrivacyPanel />
 			<RecoveryKeyPanel />
 			<ProductAnalyticsPanel />
-			<Panel
-				title={t('settings.sync.recentChanges')}
-				action={<Badge status="neutral">{ops.length}</Badge>}
-			>
-				{recent.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t('settings.sync.noChanges')}
-					</div>
-				) : (
-					recent.map((q) => (
-						<div
-							key={q.id}
-							title={t('settings.sync.changeTitle', { entity: humanizeEntity(q.entityType) })}
-							style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: 10,
-								padding: '7px 0',
-								font: `12.5px ${T.sans}`,
-								color: T.sub,
-								flexWrap: 'wrap',
-							}}
-						>
-							<Icon name="connection" size={15} color={T.ter} />
-							<Badge status="info">{humanizeOp(q.opType)}</Badge>
-							<span style={{ flex: '1 1 150px', font: `11.5px ${T.sans}`, color: T.ter }}>
-								{t('settings.sync.saved', {
-									when: formatDate(new Date(q.issuedAt), {
-										dateStyle: 'medium',
-										timeStyle: 'short',
-									}),
-								})}
-							</span>
+			<SettingsSection gateKey="settings.sync.recentChanges">
+				<Panel
+					title={t('settings.sync.recentChanges')}
+					action={<Badge status="neutral">{ops.length}</Badge>}
+				>
+					{recent.length === 0 ? (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('settings.sync.noChanges')}
 						</div>
-					))
-				)}
-			</Panel>
+					) : (
+						recent.map((q) => (
+							<div
+								key={q.id}
+								title={t('settings.sync.changeTitle', { entity: humanizeEntity(q.entityType) })}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '7px 0',
+									font: `12.5px ${T.sans}`,
+									color: T.sub,
+									flexWrap: 'wrap',
+								}}
+							>
+								<Icon name="connection" size={15} color={T.ter} />
+								<Badge status="info">{humanizeOp(q.opType)}</Badge>
+								<span style={{ flex: '1 1 150px', font: `11.5px ${T.sans}`, color: T.ter }}>
+									{t('settings.sync.saved', {
+										when: formatDate(new Date(q.issuedAt), {
+											dateStyle: 'medium',
+											timeStyle: 'short',
+										}),
+									})}
+								</span>
+							</div>
+						))
+					)}
+				</Panel>
+			</SettingsSection>
 		</div>
 	);
 }
@@ -432,63 +446,65 @@ function LocalBackupPanel() {
 		: '';
 	const [restoreBefore, restoreAfter = ''] = restoreSentence.split(restoreStamp ?? '\u0000');
 	return (
-		<Panel title={t('settings.backup.title')}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-				<div style={{ flex: '1 1 260px' }}>
-					<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.backup.heading')}</div>
-					<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-						{t('settings.backup.body')}
+		<SettingsSection gateKey="settings.backup.title">
+			<Panel title={t('settings.backup.title')}>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+					<div style={{ flex: '1 1 260px' }}>
+						<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.backup.heading')}</div>
+						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+							{t('settings.backup.body')}
+						</div>
 					</div>
+					<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>
+						{t('settings.backup.download')}
+					</Button>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="import"
+						disabled={busy}
+						onClick={() => void pickBackup()}
+					>
+						{t('settings.backup.restore')}
+					</Button>
 				</div>
-				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>
-					{t('settings.backup.download')}
-				</Button>
-				<Button
-					variant="secondary"
-					size="sm"
-					icon="import"
-					disabled={busy}
-					onClick={() => void pickBackup()}
+				<Dialog
+					open={pendingRestore !== null}
+					onClose={() => setPendingRestore(null)}
+					title={t('settings.backup.replaceTitle')}
+					description={t('settings.backup.replaceDescription')}
+					icon="warning"
+					size="md"
+					dismissible={!busy}
+					initialFocus="#cancel-local-restore"
+					role="alertdialog"
+					aria-busy={busy}
+					footer={
+						<>
+							<Button
+								id="cancel-local-restore"
+								variant="secondary"
+								size="sm"
+								disabled={busy}
+								onClick={() => setPendingRestore(null)}
+							>
+								{t('common.action.cancel')}
+							</Button>
+							<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>
+								{busy ? t('settings.backup.restoring') : t('settings.backup.replaceReload')}
+							</Button>
+						</>
+					}
 				>
-					{t('settings.backup.restore')}
-				</Button>
-			</div>
-			<Dialog
-				open={pendingRestore !== null}
-				onClose={() => setPendingRestore(null)}
-				title={t('settings.backup.replaceTitle')}
-				description={t('settings.backup.replaceDescription')}
-				icon="warning"
-				size="md"
-				dismissible={!busy}
-				initialFocus="#cancel-local-restore"
-				role="alertdialog"
-				aria-busy={busy}
-				footer={
-					<>
-						<Button
-							id="cancel-local-restore"
-							variant="secondary"
-							size="sm"
-							disabled={busy}
-							onClick={() => setPendingRestore(null)}
-						>
-							{t('common.action.cancel')}
-						</Button>
-						<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>
-							{busy ? t('settings.backup.restoring') : t('settings.backup.replaceReload')}
-						</Button>
-					</>
-				}
-			>
-				{pendingRestore && restoreStamp && (
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						{restoreBefore}
-						<strong style={{ color: T.ink }}>{restoreStamp}</strong>
-						{restoreAfter}
-					</div>
-				)}
-			</Dialog>
-		</Panel>
+					{pendingRestore && restoreStamp && (
+						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							{restoreBefore}
+							<strong style={{ color: T.ink }}>{restoreStamp}</strong>
+							{restoreAfter}
+						</div>
+					)}
+				</Dialog>
+			</Panel>
+		</SettingsSection>
 	);
 }

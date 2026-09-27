@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useEffect, useState } from 'react';
 import {
 	exportSupportBundle,
@@ -56,12 +57,14 @@ const STORAGE_CATEGORY_LABEL: Record<StorageCategory, MessageKey> = {
 function LegalPanel() {
 	const { t } = useI18n();
 	return (
-		<Panel title={t('settings.about.legal')}>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 8 }}>
-				{t('settings.about.legalBody')}
-			</div>
-			<LegalLinks style={{ font: `13px ${T.sans}` }} />
-		</Panel>
+		<SettingsSection gateKey="settings.about.legal">
+			<Panel title={t('settings.about.legal')}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 8 }}>
+					{t('settings.about.legalBody')}
+				</div>
+				<LegalLinks style={{ font: `13px ${T.sans}` }} />
+			</Panel>
+		</SettingsSection>
 	);
 }
 
@@ -125,14 +128,18 @@ export function SettingsAbout() {
 	if (diagnostics.kind !== 'available') {
 		return (
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-				<Panel title={t('settings.about.title')}>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						{t('settings.about.denied')}
-					</div>
-				</Panel>
+				<SettingsSection gateKey="settings.about.title">
+					<Panel title={t('settings.about.title')}>
+						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							{t('settings.about.denied')}
+						</div>
+					</Panel>
+				</SettingsSection>
 				{/* Keeping the app current is not a DM-only concern — a player on this desktop install
 				    still needs to be able to update it. */}
-				<AppUpdatesPanel />
+				<SettingsSection gateKey="settings.updates.title">
+					<AppUpdatesPanel />
+				</SettingsSection>
 				<LegalPanel />
 			</div>
 		);
@@ -171,115 +178,127 @@ export function SettingsAbout() {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<AppUpdatesPanel />
+			<SettingsSection gateKey="settings.updates.title">
+				<AppUpdatesPanel />
+			</SettingsSection>
 
-			<Panel
-				title={t('settings.about.title')}
-				action={
-					<Badge status={HEALTH_TONE[diagnostics.health]}>
-						{t(`settings.about.health.${diagnostics.health}` as MessageKey)}
-					</Badge>
-				}
-			>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-						gap: 12,
-					}}
+			<SettingsSection gateKey="settings.about.title">
+				<Panel
+					title={t('settings.about.title')}
+					action={
+						<Badge status={HEALTH_TONE[diagnostics.health]}>
+							{t(`settings.about.health.${diagnostics.health}` as MessageKey)}
+						</Badge>
+					}
 				>
-					<Stat label={t('settings.about.appVersion')} value={diagnostics.appVersion} />
-					<Stat label={t('settings.about.platform')} value={diagnostics.platformProfileId} />
-					<Stat
-						label={t('settings.about.lastSync')}
-						value={
-							diagnostics.lastSyncAt
-								? formatDate(new Date(diagnostics.lastSyncAt), {
-										dateStyle: 'medium',
-										timeStyle: 'short',
-									})
-								: t('settings.about.never')
-						}
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+							gap: 12,
+						}}
+					>
+						<Stat label={t('settings.about.appVersion')} value={diagnostics.appVersion} />
+						<Stat label={t('settings.about.platform')} value={diagnostics.platformProfileId} />
+						<Stat
+							label={t('settings.about.lastSync')}
+							value={
+								diagnostics.lastSyncAt
+									? formatDate(new Date(diagnostics.lastSyncAt), {
+											dateStyle: 'medium',
+											timeStyle: 'short',
+										})
+									: t('settings.about.never')
+							}
+						/>
+						<Stat
+							label={t('settings.about.storageTotal')}
+							value={formatBytes(diagnostics.storageUsage.totalBytes)}
+						/>
+					</div>
+				</Panel>
+			</SettingsSection>
+
+			<SettingsSection gateKey="settings.about.storage">
+				<Panel title={t('settings.about.storage')}>
+					<DataTable
+						ariaLabel={t('settings.about.storage')}
+						columns={[
+							{
+								key: 'category',
+								header: t('settings.about.colCategory'),
+								strong: true,
+								render: (c: StorageCategory) => t(STORAGE_CATEGORY_LABEL[c]),
+							},
+							{
+								key: 'bytes',
+								header: t('settings.about.colSize'),
+								align: 'right',
+								render: (b: number) => formatBytes(b),
+							},
+						]}
+						rows={(Object.keys(diagnostics.storageUsage.byCategory) as StorageCategory[]).map(
+							(category) => ({
+								category,
+								bytes: diagnostics.storageUsage.byCategory[category],
+							}),
+						)}
+						rowKey={(r: { category: StorageCategory }) => r.category}
+						empty={t('settings.about.noStorage')}
 					/>
-					<Stat
-						label={t('settings.about.storageTotal')}
-						value={formatBytes(diagnostics.storageUsage.totalBytes)}
+				</Panel>
+			</SettingsSection>
+
+			<SettingsSection gateKey="settings.about.errors">
+				<Panel title={t('settings.about.errors')}>
+					<DataTable
+						ariaLabel={t('settings.about.errors')}
+						columns={[
+							{
+								key: 'category',
+								header: t('settings.about.colCategory'),
+								strong: true,
+								render: (c: ErrorTaxonomyCategory) => t(ERROR_CATEGORY_LABEL[c]),
+							},
+							{ key: 'count', header: t('settings.about.colCount'), align: 'right' },
+						]}
+						rows={errorRows}
+						rowKey={(r: { category: ErrorTaxonomyCategory }) => r.category}
+						empty={t('settings.about.noErrors')}
 					/>
-				</div>
-			</Panel>
+				</Panel>
+			</SettingsSection>
 
-			<Panel title={t('settings.about.storage')}>
-				<DataTable
-					ariaLabel={t('settings.about.storage')}
-					columns={[
-						{
-							key: 'category',
-							header: t('settings.about.colCategory'),
-							strong: true,
-							render: (c: StorageCategory) => t(STORAGE_CATEGORY_LABEL[c]),
-						},
-						{
-							key: 'bytes',
-							header: t('settings.about.colSize'),
-							align: 'right',
-							render: (b: number) => formatBytes(b),
-						},
-					]}
-					rows={(Object.keys(diagnostics.storageUsage.byCategory) as StorageCategory[]).map(
-						(category) => ({
-							category,
-							bytes: diagnostics.storageUsage.byCategory[category],
-						}),
-					)}
-					rowKey={(r: { category: StorageCategory }) => r.category}
-					empty={t('settings.about.noStorage')}
-				/>
-			</Panel>
+			<SettingsSection gateKey="settings.about.perf">
+				<Panel title={t('settings.about.perf')}>
+					<DataTable
+						ariaLabel={t('settings.about.perf')}
+						columns={[
+							{ key: 'metricId', header: t('settings.about.colMetric'), strong: true },
+							{
+								key: 'value',
+								header: t('settings.about.colDuration'),
+								align: 'right',
+								render: (v: number) => `${v.toFixed(1)} ms`,
+							},
+						]}
+						rows={perfRows}
+						rowKey={(r: { key: string }) => r.key}
+						empty={t('settings.about.noPerf')}
+					/>
+				</Panel>
+			</SettingsSection>
 
-			<Panel title={t('settings.about.errors')}>
-				<DataTable
-					ariaLabel={t('settings.about.errors')}
-					columns={[
-						{
-							key: 'category',
-							header: t('settings.about.colCategory'),
-							strong: true,
-							render: (c: ErrorTaxonomyCategory) => t(ERROR_CATEGORY_LABEL[c]),
-						},
-						{ key: 'count', header: t('settings.about.colCount'), align: 'right' },
-					]}
-					rows={errorRows}
-					rowKey={(r: { category: ErrorTaxonomyCategory }) => r.category}
-					empty={t('settings.about.noErrors')}
-				/>
-			</Panel>
-
-			<Panel title={t('settings.about.perf')}>
-				<DataTable
-					ariaLabel={t('settings.about.perf')}
-					columns={[
-						{ key: 'metricId', header: t('settings.about.colMetric'), strong: true },
-						{
-							key: 'value',
-							header: t('settings.about.colDuration'),
-							align: 'right',
-							render: (v: number) => `${v.toFixed(1)} ms`,
-						},
-					]}
-					rows={perfRows}
-					rowKey={(r: { key: string }) => r.key}
-					empty={t('settings.about.noPerf')}
-				/>
-			</Panel>
-
-			<Panel title={t('settings.about.export')}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}>
-					{t('settings.about.exportBody')}
-				</div>
-				<Button variant="secondary" size="sm" icon="download" onClick={() => void exportBundle()}>
-					{t('settings.about.exportButton')}
-				</Button>
-			</Panel>
+			<SettingsSection gateKey="settings.about.export">
+				<Panel title={t('settings.about.export')}>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}>
+						{t('settings.about.exportBody')}
+					</div>
+					<Button variant="secondary" size="sm" icon="download" onClick={() => void exportBundle()}>
+						{t('settings.about.exportButton')}
+					</Button>
+				</Panel>
+			</SettingsSection>
 
 			<LegalPanel />
 		</div>

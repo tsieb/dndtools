@@ -1,3 +1,4 @@
+import { settingsGateVisible, useSettingsTier } from '../../screens/settings/Experience';
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -59,6 +60,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	// the Core was refusing every session command.
 	const posture = useSessionPosture();
 	const { t } = useI18n();
+	const tier = useSettingsTier();
+	const canManageSeat = settingsGateVisible('settings.nav.players', tier);
 	const dmName =
 		dmActor && !isPlaceholderActorName(dmActor.displayName)
 			? dmActor.displayName
@@ -366,9 +369,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				    A never-renamed seat shows the role rather than the seeded "Default DM" placeholder. */}
 				<button
 					type="button"
-					onClick={() => navigate('/settings?tab=players')}
-					title={t('shell.accountOpen')}
-					aria-label={t('shell.accountLabel', { name: dmName, presence: presence.label })}
+					disabled={!canManageSeat}
+					onClick={canManageSeat ? () => navigate('/settings?tab=players') : undefined}
+					title={canManageSeat ? t('shell.accountOpen') : dmName}
+					aria-label={
+						canManageSeat
+							? t('shell.accountLabel', { name: dmName, presence: presence.label })
+							: dmName
+					}
 					style={{
 						display: 'flex',
 						alignItems: 'center',

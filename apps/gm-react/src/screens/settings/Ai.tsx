@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useState } from 'react';
 import {
 	MCP_BASELINE_TOOL_IDS,
@@ -106,66 +107,68 @@ export function SettingsAI() {
 			{!canWrite && (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('settings.ai.dmOnly')}</div>
 			)}
-			<Panel
-				title={t('settings.ai.title')}
-				action={
-					<Switch
-						checked={mcp.enabled}
-						// Soft for the transient `busy` (it flips inside this switch's own handler, so a
-						// native disable strands focus on `<body>`); native for the durable permission.
-						disabled={!canWrite}
-						aria-disabled={busy || undefined}
-						// Without this the accessible name of the campaign-wide AI kill switch was just its
-						// own state word — a screen reader announced "Off, switch, off".
-						aria-label={t('settings.ai.switchLabel')}
-						label={t(mcp.enabled ? 'settings.ai.enabled' : 'settings.ai.off')}
-						onChange={() =>
-							run(
-								{ type: 'mcp.set-enabled', actorId, payload: { enabled: !mcp.enabled } },
-								t(mcp.enabled ? 'settings.ai.turnedOff' : 'settings.ai.turnedOn'),
-							)
-						}
-					/>
-				}
-			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.ai.intro')}</div>
-				<div
-					style={{
-						marginTop: 8,
-						padding: '9px 12px',
-						borderRadius: 9,
-						border: `1px solid ${T.bd}`,
-						background: T.alt,
-						font: `12px/1.6 ${T.sans}`,
-						color: T.ter,
-					}}
-				>
-					{t('settings.ai.providerNote')}
-				</div>
-				<SetRow
-					label={t('settings.ai.defaultPosture')}
-					help={t('settings.ai.defaultPostureHelp')}
-					control={
-						<Seg
-							value={mcp.vaultDefaultMode}
-							ariaLabel={t('settings.ai.defaultPostureAria')}
-							onChange={(v) => {
-								if (!canWrite || busy) return;
+			<SettingsSection gateKey="settings.ai.title">
+				<Panel
+					title={t('settings.ai.title')}
+					action={
+						<Switch
+							checked={mcp.enabled}
+							// Soft for the transient `busy` (it flips inside this switch's own handler, so a
+							// native disable strands focus on `<body>`); native for the durable permission.
+							disabled={!canWrite}
+							aria-disabled={busy || undefined}
+							// Without this the accessible name of the campaign-wide AI kill switch was just its
+							// own state word — a screen reader announced "Off, switch, off".
+							aria-label={t('settings.ai.switchLabel')}
+							label={t(mcp.enabled ? 'settings.ai.enabled' : 'settings.ai.off')}
+							onChange={() =>
 								run(
-									{ type: 'mcp.set-vault-default', actorId, payload: { mode: v } },
-									t('settings.ai.defaultChanged', {
-										mode: t(MCP_MODE_LABEL[v as McpPolicyMode]),
-									}),
-								);
-							}}
-							options={[
-								{ value: 'strict_review', label: t('settings.ai.mode.strictReview') },
-								{ value: 'disabled', label: t('settings.ai.mode.disabled') },
-							]}
+									{ type: 'mcp.set-enabled', actorId, payload: { enabled: !mcp.enabled } },
+									t(mcp.enabled ? 'settings.ai.turnedOff' : 'settings.ai.turnedOn'),
+								)
+							}
 						/>
 					}
-				/>
-			</Panel>
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.ai.intro')}</div>
+					<div
+						style={{
+							marginTop: 8,
+							padding: '9px 12px',
+							borderRadius: 9,
+							border: `1px solid ${T.bd}`,
+							background: T.alt,
+							font: `12px/1.6 ${T.sans}`,
+							color: T.ter,
+						}}
+					>
+						{t('settings.ai.providerNote')}
+					</div>
+					<SetRow
+						label={t('settings.ai.defaultPosture')}
+						help={t('settings.ai.defaultPostureHelp')}
+						control={
+							<Seg
+								value={mcp.vaultDefaultMode}
+								ariaLabel={t('settings.ai.defaultPostureAria')}
+								onChange={(v) => {
+									if (!canWrite || busy) return;
+									run(
+										{ type: 'mcp.set-vault-default', actorId, payload: { mode: v } },
+										t('settings.ai.defaultChanged', {
+											mode: t(MCP_MODE_LABEL[v as McpPolicyMode]),
+										}),
+									);
+								}}
+								options={[
+									{ value: 'strict_review', label: t('settings.ai.mode.strictReview') },
+									{ value: 'disabled', label: t('settings.ai.mode.disabled') },
+								]}
+							/>
+						}
+					/>
+				</Panel>
+			</SettingsSection>
 
 			<AiProviderPanel onConfiguredChange={() => bumpAiConfig((v) => v + 1)} />
 
@@ -175,203 +178,211 @@ export function SettingsAI() {
 
 			<AiAssistantPanel canWrite={canWrite} />
 
-			<Panel
-				title={t('settings.ai.connections')}
-				action={<Badge status="neutral">{bindings.length}</Badge>}
-			>
-				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					{t('settings.ai.connectionsIntro')}
-				</div>
-				{bindings.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t('settings.ai.noConnections')}
+			<SettingsSection gateKey="settings.ai.connections">
+				<Panel
+					title={t('settings.ai.connections')}
+					action={<Badge status="neutral">{bindings.length}</Badge>}
+				>
+					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+						{t('settings.ai.connectionsIntro')}
 					</div>
-				) : (
-					<div style={{ display: 'flex', flexDirection: 'column' }}>
-						{bindings.map((b, i) => {
-							const policy = mcp.policies[b.agentId] ?? null;
-							const mode: McpPolicyMode = policy?.mode ?? mcp.vaultDefaultMode;
-							const allowedToolIds = policy?.allowedToolIds ?? [];
-							const baselineMembership = baselineAllowlistMembership(allowedToolIds);
-							return (
-								<div
-									key={b.agentId}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 10,
-										padding: '11px 0',
-										borderTop: i ? `1px solid ${T.bd}` : 'none',
-										flexWrap: 'wrap',
-									}}
-								>
-									<Icon name="sparkle" size={16} color={T.acc} />
-									<div style={{ flex: '1 1 180px', minWidth: 0 }}>
-										<div style={{ font: `600 13px ${T.sans}` }}>{b.label || b.agentId}</div>
-										<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
-											{b.agentId} → {actorName(b.actorId)}
+					{bindings.length === 0 ? (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t('settings.ai.noConnections')}
+						</div>
+					) : (
+						<div style={{ display: 'flex', flexDirection: 'column' }}>
+							{bindings.map((b, i) => {
+								const policy = mcp.policies[b.agentId] ?? null;
+								const mode: McpPolicyMode = policy?.mode ?? mcp.vaultDefaultMode;
+								const allowedToolIds = policy?.allowedToolIds ?? [];
+								const baselineMembership = baselineAllowlistMembership(allowedToolIds);
+								return (
+									<div
+										key={b.agentId}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 10,
+											padding: '11px 0',
+											borderTop: i ? `1px solid ${T.bd}` : 'none',
+											flexWrap: 'wrap',
+										}}
+									>
+										<Icon name="sparkle" size={16} color={T.acc} />
+										<div style={{ flex: '1 1 180px', minWidth: 0 }}>
+											<div style={{ font: `600 13px ${T.sans}` }}>{b.label || b.agentId}</div>
+											<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+												{b.agentId} → {actorName(b.actorId)}
+											</div>
 										</div>
-									</div>
-									{/* `policy` is null for a freshly registered binding, and the registration's
+										{/* `policy` is null for a freshly registered binding, and the registration's
 									    own success message says it "starts with the campaign default until you
 									    set a policy" — so an unconditional "Policy saved" contradicted the
 									    toast sitting beside it. */}
-									<Badge status={policy ? 'neutral' : 'warning'}>
-										{t(policy ? 'settings.ai.policySaved' : 'settings.ai.usingDefault')}
-									</Badge>
-									<span style={{ flex: '0 0 150px' }}>
-										<Select
-											aria-label={t('settings.ai.policyModeFor', {
-												agent: b.label || b.agentId,
-											})}
-											value={mode}
-											disabled={!canWrite || busy}
-											onChange={(e: { target: { value: string } }) =>
+										<Badge status={policy ? 'neutral' : 'warning'}>
+											{t(policy ? 'settings.ai.policySaved' : 'settings.ai.usingDefault')}
+										</Badge>
+										<span style={{ flex: '0 0 150px' }}>
+											<Select
+												aria-label={t('settings.ai.policyModeFor', {
+													agent: b.label || b.agentId,
+												})}
+												value={mode}
+												disabled={!canWrite || busy}
+												onChange={(e: { target: { value: string } }) =>
+													run(
+														{
+															type: 'mcp.set-agent-policy',
+															actorId,
+															payload: {
+																agentId: b.agentId,
+																mode: e.target.value,
+																allowedToolIds: policy?.allowedToolIds ?? [],
+																auditVisible: policy?.auditVisible ?? true,
+															},
+														},
+														t('settings.ai.policyChanged', {
+															agent: b.label || b.agentId,
+															mode: t(MCP_MODE_LABEL[e.target.value as McpPolicyMode]),
+														}),
+													)
+												}
+												options={MCP_POLICY_MODES.map((m) => ({
+													value: m,
+													label: t(MCP_MODE_LABEL[m]),
+												}))}
+											/>
+										</span>
+										<Switch
+											checked={baselineMembership.all}
+											// Soft for the transient `busy` — see the AI kill switch above.
+											disabled={!canWrite}
+											aria-disabled={busy || undefined}
+											label={
+												baselineMembership.some && !baselineMembership.all
+													? t('settings.ai.baselineToolsSome', {
+															count: baselineMembership.count,
+															total: baselineMembership.total,
+														})
+													: t('settings.ai.baselineTools')
+											}
+											onChange={() =>
 												run(
 													{
 														type: 'mcp.set-agent-policy',
 														actorId,
 														payload: {
 															agentId: b.agentId,
-															mode: e.target.value,
-															allowedToolIds: policy?.allowedToolIds ?? [],
+															mode,
+															allowedToolIds: toggleBaselineToolAllowlist(allowedToolIds),
 															auditVisible: policy?.auditVisible ?? true,
 														},
 													},
-													t('settings.ai.policyChanged', {
-														agent: b.label || b.agentId,
-														mode: t(MCP_MODE_LABEL[e.target.value as McpPolicyMode]),
-													}),
+													t(
+														baselineMembership.all
+															? 'settings.ai.baselineRemoved'
+															: 'settings.ai.baselineGranted',
+													),
 												)
 											}
-											options={MCP_POLICY_MODES.map((m) => ({
-												value: m,
-												label: t(MCP_MODE_LABEL[m]),
-											}))}
 										/>
-									</span>
-									<Switch
-										checked={baselineMembership.all}
-										// Soft for the transient `busy` — see the AI kill switch above.
-										disabled={!canWrite}
-										aria-disabled={busy || undefined}
-										label={
-											baselineMembership.some && !baselineMembership.all
-												? t('settings.ai.baselineToolsSome', {
-														count: baselineMembership.count,
-														total: baselineMembership.total,
-													})
-												: t('settings.ai.baselineTools')
-										}
-										onChange={() =>
-											run(
-												{
-													type: 'mcp.set-agent-policy',
-													actorId,
-													payload: {
-														agentId: b.agentId,
-														mode,
-														allowedToolIds: toggleBaselineToolAllowlist(allowedToolIds),
-														auditVisible: policy?.auditVisible ?? true,
-													},
-												},
-												t(
-													baselineMembership.all
-														? 'settings.ai.baselineRemoved'
-														: 'settings.ai.baselineGranted',
-												),
-											)
-										}
-									/>
-									{confirmRemoveAgentId === b.agentId ? (
-										<>
-											<Button
-												variant="danger"
-												size="sm"
-												disabled={!canWrite || busy}
-												onClick={() => {
-													setConfirmRemoveAgentId(null);
-													run(
-														{
-															type: 'mcp.remove-agent-binding',
-															actorId,
-															payload: { agentId: b.agentId },
-														},
-														t('settings.ai.agentRemoved', {
-															agent: b.label || b.agentId,
-														}),
-													);
-												}}
-											>
-												{t('settings.ai.confirmRemove')}
-											</Button>
+										{confirmRemoveAgentId === b.agentId ? (
+											<>
+												<Button
+													variant="danger"
+													size="sm"
+													disabled={!canWrite || busy}
+													onClick={() => {
+														setConfirmRemoveAgentId(null);
+														run(
+															{
+																type: 'mcp.remove-agent-binding',
+																actorId,
+																payload: { agentId: b.agentId },
+															},
+															t('settings.ai.agentRemoved', {
+																agent: b.label || b.agentId,
+															}),
+														);
+													}}
+												>
+													{t('settings.ai.confirmRemove')}
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() => setConfirmRemoveAgentId(null)}
+												>
+													{t('settings.ai.keep')}
+												</Button>
+											</>
+										) : (
 											<Button
 												variant="ghost"
 												size="sm"
-												onClick={() => setConfirmRemoveAgentId(null)}
+												icon="trash"
+												disabled={!canWrite || busy}
+												onClick={() => setConfirmRemoveAgentId(b.agentId)}
 											>
-												{t('settings.ai.keep')}
+												{t('common.action.remove')}
 											</Button>
-										</>
-									) : (
-										<Button
-											variant="ghost"
-											size="sm"
-											icon="trash"
-											disabled={!canWrite || busy}
-											onClick={() => setConfirmRemoveAgentId(b.agentId)}
-										>
-											{t('common.action.remove')}
-										</Button>
-									)}
-								</div>
-							);
-						})}
-					</div>
-				)}
-				<div
-					style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}
-				>
-					<span style={{ flex: '1 1 140px', minWidth: 120 }}>
-						<Input
-							value={newAgentId}
-							onChange={(e: { target: { value: string } }) => setNewAgentId(e.target.value)}
-							placeholder={t('settings.ai.agentIdPlaceholder')}
-							aria-label={t('settings.ai.agentIdLabel')}
-							maxLength={60}
-						/>
-					</span>
-					<span style={{ flex: '1 1 140px', minWidth: 120 }}>
-						<Input
-							value={newLabel}
-							onChange={(e: { target: { value: string } }) => setNewLabel(e.target.value)}
-							placeholder={t('settings.ai.agentLabelPlaceholder')}
-							aria-label={t('settings.ai.agentLabelLabel')}
-							maxLength={80}
-						/>
-					</span>
-					<span style={{ flex: '0 0 170px' }}>
-						<Select
-							aria-label={t('settings.ai.identityLabel')}
-							value={selectedNewActorId}
-							onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)}
-							options={actors.map((a) => ({
-								value: a.id,
-								label: t('settings.ai.actorOption', { name: a.displayName, role: a.role }),
-							}))}
-						/>
-					</span>
-					<Button
-						variant="primary"
-						size="sm"
-						icon="add"
-						disabled={!canWrite || busy}
-						onClick={registerAgent}
+										)}
+									</div>
+								);
+							})}
+						</div>
+					)}
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 8,
+							marginTop: 10,
+							flexWrap: 'wrap',
+						}}
 					>
-						{t('settings.ai.register')}
-					</Button>
-				</div>
-			</Panel>
+						<span style={{ flex: '1 1 140px', minWidth: 120 }}>
+							<Input
+								value={newAgentId}
+								onChange={(e: { target: { value: string } }) => setNewAgentId(e.target.value)}
+								placeholder={t('settings.ai.agentIdPlaceholder')}
+								aria-label={t('settings.ai.agentIdLabel')}
+								maxLength={60}
+							/>
+						</span>
+						<span style={{ flex: '1 1 140px', minWidth: 120 }}>
+							<Input
+								value={newLabel}
+								onChange={(e: { target: { value: string } }) => setNewLabel(e.target.value)}
+								placeholder={t('settings.ai.agentLabelPlaceholder')}
+								aria-label={t('settings.ai.agentLabelLabel')}
+								maxLength={80}
+							/>
+						</span>
+						<span style={{ flex: '0 0 170px' }}>
+							<Select
+								aria-label={t('settings.ai.identityLabel')}
+								value={selectedNewActorId}
+								onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)}
+								options={actors.map((a) => ({
+									value: a.id,
+									label: t('settings.ai.actorOption', { name: a.displayName, role: a.role }),
+								}))}
+							/>
+						</span>
+						<Button
+							variant="primary"
+							size="sm"
+							icon="add"
+							disabled={!canWrite || busy}
+							onClick={registerAgent}
+						>
+							{t('settings.ai.register')}
+						</Button>
+					</div>
+				</Panel>
+			</SettingsSection>
 
 			<AiBatchReviewPanel
 				pending={pending}
@@ -383,18 +394,20 @@ export function SettingsAI() {
 				setBusy={setBusy}
 			/>
 
-			<Panel title={t('settings.ai.registryTitle')}>
-				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					{t('settings.ai.registryIntro')}
-				</div>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-					{MCP_BASELINE_TOOL_IDS.map((toolId) => (
-						<Chip key={toolId} tone="neutral">
-							{toolId}
-						</Chip>
-					))}
-				</div>
-			</Panel>
+			<SettingsSection gateKey="settings.ai.registryTitle">
+				<Panel title={t('settings.ai.registryTitle')}>
+					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
+						{t('settings.ai.registryIntro')}
+					</div>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+						{MCP_BASELINE_TOOL_IDS.map((toolId) => (
+							<Chip key={toolId} tone="neutral">
+								{toolId}
+							</Chip>
+						))}
+					</div>
+				</Panel>
+			</SettingsSection>
 
 			<AiAuditBrowser entries={mcp.auditEntries} bindings={bindings} actorName={actorName} />
 		</div>

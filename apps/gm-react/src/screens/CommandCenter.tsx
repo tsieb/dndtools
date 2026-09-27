@@ -1,3 +1,4 @@
+import { settingsGateVisible, useSettingsTier } from './settings/Experience';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -301,6 +302,7 @@ export function CommandCenter() {
 		},
 	];
 
+	const tier = useSettingsTier();
 	const manage = [
 		{
 			id: 'players',
@@ -320,7 +322,7 @@ export function CommandCenter() {
 			label: t('home.manage.vault'),
 			meta: t('home.manage.vaultMeta'),
 		},
-	];
+	].filter((item) => settingsGateVisible(`settings.nav.${item.id}`, tier));
 
 	const libraryCounts: Record<string, string> = {
 		characters: t('home.count.characters', { pcs: data.pcCount, npcs: data.npcCount }),
@@ -528,45 +530,49 @@ export function CommandCenter() {
 							))}
 						</div>
 					</div>
-					<div>
-						<HubLabel>{t('home.manage')}</HubLabel>
-						<Card
-							elevation="flat"
-							padding="sm"
-							style={{ display: 'flex', flexDirection: 'column' }}
-						>
-							{manage.map((m, i) => (
-								<button
-									key={m.id}
-									type="button"
-									// Deep-link the exact Settings subpage (Settings reads `?tab=`), not the section root.
-									onClick={() => navigate(`/settings?tab=${m.id}`)}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 11,
-										padding: '10px 8px',
-										border: 'none',
-										borderTop: i ? `1px solid ${T.bd}` : 'none',
-										background: 'transparent',
-										cursor: 'pointer',
-										textAlign: 'left',
-									}}
-								>
-									<Icon name={m.icon} size="sm" color={T.sub} />
-									<span style={{ flex: 1, minWidth: 0 }}>
-										<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
-											{m.label}
+					{manage.length > 0 && (
+						<div>
+							<HubLabel>{t('home.manage')}</HubLabel>
+							<Card
+								elevation="flat"
+								padding="sm"
+								style={{ display: 'flex', flexDirection: 'column' }}
+							>
+								{manage.map((m, i) => (
+									<button
+										key={m.id}
+										type="button"
+										// Deep-link the exact Settings subpage (Settings reads `?tab=`), not the section root.
+										onClick={() => navigate(`/settings?tab=${m.id}`)}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 11,
+											padding: '10px 8px',
+											border: 'none',
+											borderTop: i ? `1px solid ${T.bd}` : 'none',
+											background: 'transparent',
+											cursor: 'pointer',
+											textAlign: 'left',
+										}}
+									>
+										<Icon name={m.icon} size="sm" color={T.sub} />
+										<span style={{ flex: 1, minWidth: 0 }}>
+											<span
+												style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}
+											>
+												{m.label}
+											</span>
+											<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter }}>
+												{m.meta}
+											</span>
 										</span>
-										<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter }}>
-											{m.meta}
-										</span>
-									</span>
-									<Icon name="chevron-right" size="sm" color={T.ter} />
-								</button>
-							))}
-						</Card>
-					</div>
+										<Icon name="chevron-right" size="sm" color={T.ter} />
+									</button>
+								))}
+							</Card>
+						</div>
+					)}
 				</div>
 			</div>
 
