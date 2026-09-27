@@ -2249,6 +2249,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Esto elimina la clave asociada a {origin} de esta sesión y, cuando esté disponible, del almacenamiento cifrado del sistema.',
 
 	/* Jugador (superficie de personaje del lado del DM) */
+	'player.portrait.label': 'Retrato',
+	'player.portrait.invalid': 'Elige una imagen PNG, JPEG o WebP de hasta 5 MB.',
+	'player.portrait.failed': 'No se pudo guardar el retrato. Prueba otra imagen.',
+	'player.portrait.saving': 'Guardando retrato…',
 	'player.empty.title': 'Todavía no hay personaje',
 	'player.empty.body':
 		'En esta vista todavía no hay ningún personaje jugador. Crea uno en Personajes para empezar.',

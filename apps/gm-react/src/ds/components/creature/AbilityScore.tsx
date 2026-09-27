@@ -2,7 +2,7 @@ export interface AbilityScoreProps extends React.HTMLAttributes<HTMLDivElement> 
 	/** Ability abbreviation, e.g. "STR". */
 	label: React.ReactNode;
 	/** Raw ability score, e.g. 16. */
-	score: number;
+	score: number | null;
 	/** Override the derived modifier (otherwise computed from `score`). */
 	modifier?: string;
 	/** `accent` highlights a relevant save/check in gold. */
@@ -33,7 +33,7 @@ export function AbilityScore({
 	style,
 	...rest
 }: AbilityScoreProps) {
-	const mod = modifier !== undefined ? modifier : abilityModifier(score);
+	const mod = modifier !== undefined ? modifier : score === null ? '—' : abilityModifier(score);
 	const accent = tone === 'accent';
 	const scoreSize =
 		size === 'sm' ? 'var(--text-md)' : size === 'lg' ? 'var(--text-2xl)' : 'var(--text-xl)';
@@ -75,7 +75,7 @@ export function AbilityScore({
 					color: 'var(--color-text-primary)',
 				}}
 			>
-				{score}
+				{score ?? '—'}
 			</span>
 			<span
 				style={{

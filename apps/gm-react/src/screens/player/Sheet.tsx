@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { CharacterInventory, CharacterView, EncumbranceState } from '@dndtools/core';
 import { ABILITY_IDS, SKILLS } from '../../app/charImport/skills';
-import { Button, DefinitionList, Field, Icon, Input, Stat, Textarea } from '../../ds';
+import { AbilityScore, Button, DefinitionList, Field, Icon, Input, Textarea } from '../../ds';
 import type { DSChangeEvent } from '../../ds';
-import { Panel, T, eb } from '../../app/screen-kit';
+import { Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useViewport } from '../../app/useViewport';
 import { ABIL_ORDER, abilMod, sgn } from '../../app/character/abilities';
 import { ABIL_FULL, ABIL_LABEL, cap, type Dispatch } from './shared';
 import { PlayerEquipment } from './Equipment';
+import './sheet.css';
 
 // ── Sheet — real abilities, attacks, identity fields (edit-field) + one labeled honest gap ────────
 const IDENTITY_FIELDS: { key: string; label: MessageKey; hint?: MessageKey }[] = [
@@ -31,7 +32,11 @@ export function PlayerSheet({
 	encumbrance,
 	canManageInventory,
 	dispatch,
+	combat,
+	spellcasting,
 }: {
+	combat?: ReactNode;
+	spellcasting?: ReactNode;
 	C: CharacterView;
 	level: number | null;
 	isDm: boolean;
@@ -109,54 +114,77 @@ export function PlayerSheet({
 		(C.abilityScores as Record<string, number | undefined>)[id] ?? 10;
 
 	return (
-		<div
-			style={{
-				display: 'grid',
-				gridTemplateColumns: isPhone ? '1fr' : 'auto 1fr',
-				gap: 18,
-				alignItems: 'start',
-			}}
-		>
-			<div
-				style={{
-					display: isPhone ? 'grid' : 'flex',
-					gridTemplateColumns: isPhone ? 'repeat(3, 1fr)' : undefined,
-					flexDirection: 'column',
-					gap: 10,
-					width: isPhone ? 'auto' : 120,
-				}}
-			>
-				{abilities.map((a) => (
-					<div
-						key={a.key}
-						style={{
-							minWidth: 0,
-							textAlign: 'center',
-							padding: '10px 6px',
-							borderRadius: 11,
-							border: `1px solid ${T.bd}`,
-							background: T.surf,
-						}}
-					>
-						<div style={{ ...eb, color: T.ter, overflowWrap: 'anywhere' }}>{ABIL_FULL[a.key]}</div>
-						<div style={{ font: `700 24px ${T.mono}`, lineHeight: 1 }}>
-							{a.score !== undefined ? sgn(abilMod(a.score)) : '—'}
-						</div>
-						<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: 2 }}>
-							{a.score ?? '—'}
-						</div>
+		<div className="character-sheet" data-testid="character-sheet">
+			<div className="character-sheet-column">
+				<Panel title={t('characters.abilityScores')} pad={18}>
+					<div className="character-sheet-abilities">
+						{abilities.map((a) => (
+							<AbilityScore
+								key={a.key}
+								label={a.key}
+								score={a.score ?? null}
+								aria-label={ABIL_FULL[a.key]}
+							/>
+						))}
 					</div>
-				))}
+					<dl className="character-sheet-summary">
+						<div>
+							<dt>{t('player.sheet.proficiency')}</dt>
+							<dd>{profBonus === null ? '—' : sgn(profBonus)}</dd>
+						</div>
+						<div>
+							<dt>{t('player.sheet.passivePerception')}</dt>
+							<dd>{passive ?? '—'}</dd>
+						</div>
+						<div>
+							<dt>{t('player.sheet.hitDice')}</dt>
+							<dd>
+								{prof.hitDice.total - prof.hitDice.spent}/{prof.hitDice.total} {prof.hitDice.die}
+							</dd>
+						</div>
+					</dl>
+				</Panel>
+				<Panel title={t('player.sheet.savingThrows')} pad={18}>
+					<DefinitionList
+						items={ABILITY_IDS.map((a) => ({
+							label: ABIL_FULL[a.toUpperCase()],
+							value:
+								C.abilityScores[a] == null
+									? '—'
+									: sgn(abilMod(abilScore(a)) + (prof.saves.includes(a) ? (profBonus ?? 0) : 0)),
+							mono: true,
+						}))}
+					/>
+				</Panel>
+				<Panel title={t('player.sheet.skills')} pad={18}>
+					{hasProficiencyData ? (
+						<DefinitionList
+							items={SKILLS.map((skill) => {
+								const rank = prof.skills[skill.id] ?? 'none';
+								return {
+									label: `${skill.label}${rank === 'expertise' ? ' ★' : rank === 'proficient' ? ' •' : ''}`,
+									value:
+										C.abilityScores[skill.ability] == null
+											? '—'
+											: sgn(
+													abilMod(abilScore(skill.ability)) +
+														(rank === 'expertise' ? 2 : rank === 'proficient' ? 1 : 0) *
+															(profBonus ?? 0),
+												),
+									mono: true,
+								};
+							})}
+						/>
+					) : (
+						<p>{t('player.sheet.noProficiencies')}</p>
+					)}
+					<p className="character-sheet-hint">{t('player.sheet.proficiencyLegend')}</p>
+				</Panel>
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: isPhone ? '1fr' : '1.1fr 1fr',
-						gap: 16,
-						alignItems: 'start',
-					}}
-				>
+			<div className="character-sheet-column">
+				{combat}
+				{spellcasting}
+				<div className="character-sheet-column">
 					<Panel
 						title={t('player.sheet.identity')}
 						pad={14}
@@ -260,6 +288,7 @@ export function PlayerSheet({
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 							<Textarea
 								rows={4}
+								aria-label={t('player.sheet.backstory')}
 								value={backstoryDraft}
 								onChange={(e: DSChangeEvent) => setBackstoryDraft(e.target.value)}
 								placeholder={t('player.sheet.backstoryPlaceholder')}
@@ -286,108 +315,7 @@ export function PlayerSheet({
 				{/* Skills / saves / hit dice / passive perception — the view's structured `proficiencies`
 				    block (player-safe: read through the redacted view + post-gate pure queries), the same
 				    slice the roster sheet renders. */}
-				<Panel title={t('player.sheet.skillsAndSaves')}>
-					{hasProficiencyData && profBonus !== null ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-								<Stat label={t('player.sheet.proficiency')} value={sgn(profBonus)} />
-								{passive !== null && (
-									<Stat
-										label={t('player.sheet.passivePerception')}
-										value={String(passive)}
-										icon="visibility-players"
-									/>
-								)}
-								{prof.hitDice.total > 0 && (
-									<Stat
-										label={t('player.sheet.hitDice')}
-										value={`${prof.hitDice.total - prof.hitDice.spent}/${prof.hitDice.total} ${prof.hitDice.die}`}
-									/>
-								)}
-							</div>
-							<div>
-								<div style={{ ...eb, marginBottom: 6 }}>{t('player.sheet.savingThrows')}</div>
-								<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-									{ABILITY_IDS.map((a) => {
-										const proficient = prof.saves.includes(a);
-										const bonus = abilMod(abilScore(a)) + (proficient ? profBonus : 0);
-										return (
-											<span
-												key={a}
-												style={{
-													display: 'inline-flex',
-													alignItems: 'center',
-													gap: 6,
-													padding: '4px 10px',
-													borderRadius: 16,
-													font: `12px ${T.sans}`,
-													border: `1px solid ${proficient ? T.accBd : T.bd}`,
-													background: proficient ? T.accSub : T.surf,
-													color: proficient ? T.acc : T.ter,
-												}}
-											>
-												{a.toUpperCase()}
-												<span style={{ font: `12px ${T.mono}` }}>{sgn(bonus)}</span>
-											</span>
-										);
-									})}
-								</div>
-							</div>
-							<div>
-								<div style={{ ...eb, marginBottom: 6 }}>{t('player.sheet.skills')}</div>
-								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 18px' }}>
-									{SKILLS.map((s) => {
-										const skillLevel = prof.skills[s.id] ?? 'none';
-										const bonus =
-											abilMod(abilScore(s.ability)) +
-											(skillLevel === 'expertise'
-												? profBonus * 2
-												: skillLevel === 'proficient'
-													? profBonus
-													: 0);
-										return (
-											<div
-												key={s.id}
-												style={{
-													display: 'flex',
-													alignItems: 'center',
-													gap: 8,
-													font: `12.5px ${T.sans}`,
-													color: skillLevel === 'none' ? T.ter : T.ink,
-												}}
-											>
-												<span
-													aria-hidden
-													style={{
-														width: 8,
-														height: 8,
-														borderRadius: '50%',
-														flex: '0 0 auto',
-														background: skillLevel === 'none' ? 'transparent' : T.acc,
-														border: `1.5px solid ${skillLevel === 'none' ? T.bdS : T.acc}`,
-													}}
-												/>
-												<span style={{ flex: 1, minWidth: 0 }}>
-													{s.label}
-													{skillLevel === 'expertise' ? ' ★' : ''}
-												</span>
-												<span style={{ font: `12px ${T.mono}` }}>{sgn(bonus)}</span>
-											</div>
-										);
-									})}
-								</div>
-								<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-									{t('player.sheet.proficiencyLegend')}
-								</div>
-							</div>
-						</div>
-					) : (
-						// Honest empty state — no proficiency data on this character yet, nothing is faked.
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							{t('player.sheet.noProficiencies')}
-						</div>
-					)}
-				</Panel>
+
 				{/* I10 S10.1.3 / S10.4.2 — REAL structured equipment / currency / encumbrance, core-backed. */}
 				<PlayerEquipment
 					charId={charId}

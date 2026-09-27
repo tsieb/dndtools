@@ -2193,6 +2193,10 @@ export const en = {
 		'This removes the key scoped to {origin} from this session and, when available, OS-encrypted storage.',
 
 	/* Player (DM-side character surface) */
+	'player.portrait.label': 'Portrait',
+	'player.portrait.invalid': 'Choose a PNG, JPEG or WebP image up to 5 MB.',
+	'player.portrait.failed': 'Unable to store this portrait. Try another image.',
+	'player.portrait.saving': 'Saving portrait…',
 	'player.empty.title': 'No character yet',
 	'player.empty.body':
 		'No player character is available in this view yet. Create one in Characters to get started.',

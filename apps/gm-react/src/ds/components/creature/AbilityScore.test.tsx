@@ -17,6 +17,11 @@ describe('AbilityScore package contract', () => {
 		);
 	});
 
+	it('renders unknown scores without inventing a modifier', () => {
+		const markup = renderToStaticMarkup(<AbilityScore label="STR" score={null} />);
+		expect(markup.match(/>—<\/span>/g)).toHaveLength(2);
+	});
+
 	it('keeps an authored modifier instead of deriving a replacement', () => {
 		const markup = renderToStaticMarkup(<AbilityScore label="STR" score={16} modifier="+7" />);
 		expect(markup).toContain('>+7</span>');

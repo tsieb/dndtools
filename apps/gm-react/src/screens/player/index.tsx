@@ -16,7 +16,8 @@ import {
 	CHARACTER_ENTITY_TYPE,
 } from '@dndtools/core';
 import {
-	Avatar,
+	HPBar,
+	Button,
 	Badge,
 	Chip,
 	ConditionBadge,
@@ -34,7 +35,10 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { useViewport } from '../../app/useViewport';
 import { cap, condKey, type PlayerData } from './shared';
 import { PrintableSheet } from '../../app/character/PrintableSheet';
+import { Portrait } from './Portrait';
+import { SheetSpellcasting } from './SheetSpellcasting';
 import { PlayerSheet } from './Sheet';
+import { RestDialog } from '../../app/character/RestDialog';
 import { PlayerResources } from './Vitals';
 import { PlayerParty } from './Party';
 import { PlayerLevelUp } from './Advancement';
@@ -179,6 +183,7 @@ export function Player() {
 	// full-state persist + op-log entry), and a SUCCESSFUL write announced nothing at all — the number
 	// changed silently for anyone not looking at it. The amount is a string draft so backspacing to
 	// empty doesn't snap to a coerced value mid-edit.
+	const [restKind, setRestKind] = useState<'short' | 'long' | null>(null);
 	const [hpAmount, setHpAmount] = useState('1');
 	const [hpNote, setHpNote] = useState<string | null>(null);
 
@@ -197,7 +202,7 @@ export function Player() {
 
 	if (!C || !data.characterId) {
 		return (
-			<Page max={1180}>
+			<Page max={1080}>
 				<Panel title={t('player.empty.title')}>
 					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('player.empty.body')}</div>
 				</Panel>
@@ -265,50 +270,20 @@ export function Player() {
 		.filter(Boolean)
 		.join(' · ');
 
-	return (
-		<div>
-			<PrintableSheet character={C} inventory={data.inventory} level={level} />
-			{/* persistent vitals bar */}
-			<div
-				style={{
-					position: 'sticky',
-					top: 0,
-					zIndex: 5,
-					display: 'flex',
-					alignItems: 'center',
-					gap: viewport === 'phone' ? 10 : 18,
-					padding: viewport === 'phone' ? '10px 14px' : '13px 28px',
-					background: 'color-mix(in srgb, var(--color-surface) 94%, transparent)',
-					backdropFilter: 'blur(6px)',
-					borderBottom: `1px solid ${T.bd}`,
-					flexWrap: 'wrap',
-				}}
-			>
-				<Avatar name={name} size="md" ring="active" />
-				<div style={{ minWidth: 0 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-						<span style={{ font: `700 17px ${T.disp}` }}>{name}</span>
-						<Badge status="success">{t('player.pcBadge')}</Badge>
-					</div>
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{identityLine}</div>
-				</div>
-				{/* PC switcher — a signed-in player may control multiple PCs (the actor-filtered list);
-				    the whole surface (sheet/resources/level-up/journal) follows the selection. */}
-				{data.pcs.length > 1 && (
-					<Select
-						value={charId}
-						onChange={(e: DSChangeEvent) => {
-							// The error banner is screen-level and was only ever cleared by the NEXT
-							// successful dispatch, so a rejected write kept accusing the user from the top
-							// of an unrelated character or tab.
-							setErr(null);
-							setHpNote(null);
-							setPcChoice(e.target.value);
-						}}
-						options={data.pcs.map((p) => ({ value: p.id, label: p.name }))}
-						aria-label={t('player.switchCharacter')}
-					/>
-				)}
+	const combatPanel = (
+		<section className="character-sheet-combat" aria-label={t('mapInspector.combat')}>
+			<h2>{t('mapInspector.combat')}</h2>
+			<div className="character-sheet-combat-stats">
+				<Stat label={t('player.stat.ac')} value={String(C.combat.ac)} icon="shield" />
+				{/* speed / initiative — `data.*` sheet strings (edited on the Sheet tab); '—' until authored */}
+				<Stat
+					label={t('player.stat.speed')}
+					value={ds('speed') ? t('player.stat.speedValue', { feet: ds('speed') ?? '' }) : '—'}
+					icon="travel"
+				/>
+				<Stat label={t('player.stat.init')} value={ds('init') ?? '—'} icon="session-bolt" />
+			</div>
+			<div className="character-sheet-combat-controls">
 				{/* HP stepper — real combat-resource write */}
 				<div
 					style={{
@@ -331,7 +306,7 @@ export function Player() {
 						variant="ghost"
 						size="sm"
 						aria-disabled={data.readOnlyPreview}
-						onClick={() => void stepHp(-1)}
+						onClick={data.readOnlyPreview ? undefined : () => void stepHp(-1)}
 					/>
 					<div style={{ textAlign: 'center', minWidth: 74 }}>
 						<div
@@ -358,7 +333,7 @@ export function Player() {
 						variant="ghost"
 						size="sm"
 						aria-disabled={data.readOnlyPreview}
-						onClick={() => void stepHp(1)}
+						onClick={data.readOnlyPreview ? undefined : () => void stepHp(1)}
 					/>
 					<input
 						type="text"
@@ -379,14 +354,7 @@ export function Player() {
 						}}
 					/>
 				</div>
-				<Stat label={t('player.stat.ac')} value={String(C.combat.ac)} icon="shield" />
-				{/* speed / initiative — `data.*` sheet strings (edited on the Sheet tab); '—' until authored */}
-				<Stat
-					label={t('player.stat.speed')}
-					value={ds('speed') ? t('player.stat.speedValue', { feet: ds('speed') ?? '' }) : '—'}
-					icon="travel"
-				/>
-				<Stat label={t('player.stat.init')} value={ds('init') ?? '—'} icon="session-bolt" />
+
 				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 					{conditions.map((c: string) => {
 						const k = condKey(c);
@@ -399,6 +367,77 @@ export function Player() {
 						);
 					})}
 				</div>
+			</div>
+			<HPBar current={hp} max={maxHp} size="lg" />
+		</section>
+	);
+
+	return (
+		<div>
+			<PrintableSheet character={C} inventory={data.inventory} level={level} />
+			{/* persistent vitals bar */}
+			<div
+				style={{
+					maxWidth: 1080,
+					margin: '20px auto',
+					borderRadius: 6,
+					boxShadow: 'var(--shadow-sm)',
+					top: 0,
+					zIndex: 5,
+					display: 'flex',
+					alignItems: 'center',
+					gap: viewport === 'phone' ? 10 : 18,
+					padding: viewport === 'phone' ? '10px 14px' : '13px 28px',
+					background: 'color-mix(in srgb, var(--color-surface) 94%, transparent)',
+					backdropFilter: 'blur(6px)',
+					borderBottom: `1px solid ${T.bd}`,
+					flexWrap: 'wrap',
+				}}
+			>
+				<Portrait
+					key={charId}
+					character={C}
+					actorId={actorId}
+					canEdit={data.isDm && !data.readOnlyPreview}
+					dispatch={dispatch}
+				/>
+				<div style={{ minWidth: 0 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+						<span style={{ font: `700 26px ${T.disp}` }}>{name}</span>
+						<Badge status="success">{t('player.pcBadge')}</Badge>
+					</div>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{identityLine}</div>
+				</div>
+				{/* PC switcher — a signed-in player may control multiple PCs (the actor-filtered list);
+				    the whole surface (sheet/resources/level-up/journal) follows the selection. */}
+				{data.pcs.length > 1 && (
+					<Select
+						value={charId}
+						onChange={(e: DSChangeEvent) => {
+							// The error banner is screen-level and was only ever cleared by the NEXT
+							// successful dispatch, so a rejected write kept accusing the user from the top
+							// of an unrelated character or tab.
+							setErr(null);
+							setHpNote(null);
+							setRestKind(null);
+							setPcChoice(e.target.value);
+						}}
+						options={data.pcs.map((p) => ({ value: p.id, label: p.name }))}
+						aria-label={t('player.switchCharacter')}
+					/>
+				)}
+
+				{activeTab === 'sheet' && data.canManageResources && (
+					<div className="character-sheet-rest">
+						<Button variant="ghost" size="sm" onClick={() => setRestKind('short')}>
+							{t('player.vitals.shortRest')}
+						</Button>
+						<Button variant="secondary" size="sm" onClick={() => setRestKind('long')}>
+							{t('player.vitals.longRest')}
+						</Button>
+					</div>
+				)}
+
 				<button
 					type="button"
 					aria-pressed={insp}
@@ -425,6 +464,29 @@ export function Player() {
 				</button>
 			</div>
 
+			<RestDialog
+				open={restKind !== null && data.canManageResources}
+				defaultRest={restKind ?? 'short'}
+				subject={{
+					id: charId,
+					name,
+					hp,
+					maxHp,
+					hitDice: C.proficiencies.hitDice,
+					conMod: Math.floor(((C.abilityScores.con ?? 10) - 10) / 2),
+					exhaustion: data.resources?.exhaustion ?? 0,
+				}}
+				onClose={() => setRestKind(null)}
+				onConfirm={(choice) => {
+					setRestKind(null);
+					void dispatch({
+						type: 'character.rest',
+						actorId,
+						payload: { characterId: charId, ...choice },
+					});
+				}}
+			/>
+
 			{/* A successful HP write used to change only the number, which announces nothing. */}
 			<div role="status" className="visually-hidden">
 				{hpNote ?? ''}
@@ -446,7 +508,7 @@ export function Player() {
 				</div>
 			)}
 
-			<Page max={1180}>
+			<Page max={1080}>
 				<div style={{ marginBottom: 18 }}>
 					<Tabs
 						aria-label={t('player.sections')}
@@ -471,7 +533,17 @@ export function Player() {
 							key={charId}
 							C={C}
 							level={level}
-							isDm={data.isDm}
+							isDm={data.isDm && !data.readOnlyPreview}
+							combat={combatPanel}
+							spellcasting={
+								<SheetSpellcasting
+									resources={data.resources}
+									charId={charId}
+									actorId={actorId}
+									canManage={data.canManageResources}
+									dispatch={dispatch}
+								/>
+							}
 							charId={charId}
 							actorId={actorId}
 							passive={data.passive}
@@ -511,7 +583,7 @@ export function Player() {
 						/>
 					)}
 					{activeTab === 'party' && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 							<PlayerParty
 								party={data.party}
 								selfId={charId}

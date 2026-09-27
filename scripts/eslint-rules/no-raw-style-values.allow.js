@@ -97,7 +97,7 @@ export const allow = {
 	'apps/gm-react/src/screens/player/index.tsx': 17,
 	'apps/gm-react/src/screens/player/Journal.tsx': 30,
 	'apps/gm-react/src/screens/player/Party.tsx': 13,
-	'apps/gm-react/src/screens/player/Sheet.tsx': 25,
+	'apps/gm-react/src/screens/player/Sheet.tsx': 6,
 	'apps/gm-react/src/screens/player/Vitals.tsx': 23,
 	'apps/gm-react/src/screens/SceneCardsPanel.tsx': 1,
 	'apps/gm-react/src/screens/sceneEditor/fields.tsx': 2,
