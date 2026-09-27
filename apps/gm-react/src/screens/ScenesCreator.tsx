@@ -120,7 +120,13 @@ export function ScenesCreator() {
 						{t('screens.title')}
 					</h2>
 					{isDm && (
-						<Button variant="primary" size="sm" icon="add" onClick={() => setCreating(true)}>
+						<Button
+							variant="primary"
+							size="sm"
+							icon="add"
+							data-testid="screens-new"
+							onClick={() => setCreating(true)}
+						>
 							{t('screens.new.open')}
 						</Button>
 					)}

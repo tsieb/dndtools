@@ -210,19 +210,38 @@ app.whenReady().then(async () => {
 			if (!fonts.inter || !fonts.cinzel || !fonts.mono)
 				return fail('fonts not loaded: ' + JSON.stringify(fonts));
 
-			// Create a uniquely-named scene through the real form (React-controlled input).
-			await win.webContents.executeJavaScript(`location.hash = '#/scenes'`);
-			await waitFor(win, `document.querySelector('#scene-name')`, 10000, 'scene-name input');
+			// Create a uniquely-named scene through the real UI: the Screens library's "New screen"
+			// dialog (RC-CAN-7.3 replaced the old `/scenes` create form). A Blank screen is a single
+			// `scene.create`; the name input is React-controlled.
+			await win.webContents.executeJavaScript(`location.hash = '#/screens'`);
+			await waitFor(
+				win,
+				`document.querySelector('[data-testid="screens-new"]')`,
+				10000,
+				'new-screen button',
+			);
+			await win.webContents.executeJavaScript(
+				`document.querySelector('[data-testid="screens-new"]').click()`,
+			);
+			await waitFor(win, `document.querySelector('#screen-name')`, 10000, 'screen-name input');
 			await win.webContents.executeJavaScript(
 				`(() => {
-					const input = document.querySelector('#scene-name');
+					document.querySelector('[data-testid="screen-template-blank"]').click();
+					const input = document.querySelector('#screen-name');
 					const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
 					setter.call(input, ${NAME_JS});
 					input.dispatchEvent(new Event('input', { bubbles: true }));
-					const form = input.closest('form');
-					const submit = (form || document).querySelector('button[type="submit"]');
-					submit.click();
 				})()`,
+			);
+			// Submit on a later task so React has committed the template choice and the typed name.
+			await waitFor(
+				win,
+				`document.querySelector('[data-testid="screen-template-blank"]')?.getAttribute('aria-checked') === 'true' && document.querySelector('#screen-name').value === ${NAME_JS}`,
+				5000,
+				'new-screen form filled',
+			);
+			await win.webContents.executeJavaScript(
+				`document.querySelector('button[type="submit"][form="new-screen-form"]').click()`,
 			);
 			// The new scene must render (applied to Core state), then flush to IndexedDB.
 			await waitFor(win, bodyHas(NAME_JS), 10000, 'created scene renders');
@@ -232,8 +251,13 @@ app.whenReady().then(async () => {
 		}
 
 		// verify: the scene created by the previous process must reappear from IndexedDB.
-		await win.webContents.executeJavaScript(`location.hash = '#/scenes'`);
-		await waitFor(win, `document.querySelector('#scene-name')`, 10000, 'scenes screen');
+		await win.webContents.executeJavaScript(`location.hash = '#/screens'`);
+		await waitFor(
+			win,
+			`document.querySelector('[data-testid="screens-library"]')`,
+			10000,
+			'screens library',
+		);
 		let survived = false;
 		try {
 			await waitFor(win, bodyHas(NAME_JS), 6000, 'persisted scene renders');

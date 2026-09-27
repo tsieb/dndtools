@@ -36,15 +36,18 @@ try {
 	// Clean slate: drop the IndexedDB so the run is deterministic.
 	await page.goto(URL, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(
-		() => new Promise((res) => {
-			const req = indexedDB.deleteDatabase('dndtools-v2');
-			req.onsuccess = req.onerror = req.onblocked = () => res(true);
-		}),
+		() =>
+			new Promise((res) => {
+				const req = indexedDB.deleteDatabase('dndtools-v2');
+				req.onsuccess = req.onerror = req.onblocked = () => res(true);
+			}),
 	);
 	await page.reload({ waitUntil: 'domcontentloaded' });
 
 	const waitForRuntime = () =>
-		page.waitForFunction(() => window.__rt && window.__rt.loaded === true, null, { timeout: 15000 });
+		page.waitForFunction(() => window.__rt && window.__rt.loaded === true, null, {
+			timeout: 15000,
+		});
 	await waitForRuntime();
 	check('app boots and Core loads', true);
 
@@ -54,17 +57,25 @@ try {
 
 	// --- Round-trip: create a scene through the real UI form. ---
 	const SCENE_NAME = `Crypt ${Date.now()}`;
-	await page.goto(`${URL}#/scenes`, { waitUntil: 'domcontentloaded' });
+	// The Screens library's "New screen" dialog replaced the `/scenes` create form (RC-CAN-7.3); a
+	// Blank screen is a single `scene.create`.
+	await page.goto(`${URL}#/screens`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
-	await page.fill('#scene-name', SCENE_NAME);
-	await page.click('button[type="submit"]');
+	await page.click('[data-testid="screens-new"]');
+	await page.click('[data-testid="screen-template-blank"]');
+	await page.fill('#screen-name', SCENE_NAME);
+	await page.click('button[type="submit"][form="new-screen-form"]');
 	await page.waitForFunction(
-		(name) =>
-			Object.values(window.__rt.state.scenes.scenes).some((s) => s?.name === name),
+		(name) => Object.values(window.__rt.state.scenes.scenes).some((s) => s?.name === name),
 		SCENE_NAME,
 		{ timeout: 10000 },
 	);
 	check('scene.create dispatched + applied to Core state', true, SCENE_NAME);
+	// `__rt.state` shows the scene before `persistFullState` resolves; the lifecycle leaves `pending`
+	// only once the durable write finished, so reloading earlier can lose it.
+	await page.waitForFunction(() => window.__rt.lastLifecycle?.status !== 'pending', null, {
+		timeout: 10000,
+	});
 
 	// Reload the actual tab — the scene must come back from IndexedDB.
 	await page.reload({ waitUntil: 'domcontentloaded' });
@@ -76,7 +87,7 @@ try {
 	check('scene SURVIVES reload (persistFullState round-trip)', persisted, SCENE_NAME);
 
 	// And it's visible in the rendered scenes list after reload.
-	await page.goto(`${URL}#/scenes`, { waitUntil: 'domcontentloaded' });
+	await page.goto(`${URL}#/screens`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
 	const inDom = (await page.textContent('body')).includes(SCENE_NAME);
 	check('persisted scene renders in the DOM after reload', inDom);
@@ -105,7 +116,11 @@ try {
 			ops: rt.state.sync.operations.length,
 		};
 	});
-	check('second command type (dice.roll) accepted through dispatch+persist', rollResult.status === 'accepted', rollResult.message || `${rollResult.ops} ops`);
+	check(
+		'second command type (dice.roll) accepted through dispatch+persist',
+		rollResult.status === 'accepted',
+		rollResult.message || `${rollResult.ops} ops`,
+	);
 
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
@@ -114,7 +129,11 @@ try {
 		return { isSet: log.idempotencyKeys instanceof Set, ops: log.operations.length };
 	});
 	check('sync.idempotencyKeys is a real Set after reload (not flattened to {})', opLog.isSet);
-	check('op-log operations persisted + rebuilt across reload', opLog.ops > 0 && opLog.ops >= rollResult.ops, `${opLog.ops} ops`);
+	check(
+		'op-log operations persisted + rebuilt across reload',
+		opLog.ops > 0 && opLog.ops >= rollResult.ops,
+		`${opLog.ops} ops`,
+	);
 
 	// --- Preview read-only: every mutation is rejected before reaching the Core. ---
 	const preview = await page.evaluate(async () => {
@@ -131,7 +150,11 @@ try {
 		return { status: res.status, message: res.rejection?.message ?? '', before, after };
 	});
 	check('preview mode REJECTS a mutation', preview.status === 'rejected', preview.message);
-	check('preview rejection did not change scene count', preview.before === preview.after, `${preview.before} → ${preview.after}`);
+	check(
+		'preview rejection did not change scene count',
+		preview.before === preview.after,
+		`${preview.before} → ${preview.after}`,
+	);
 
 	// Confirm preview did not persist anything: reload and ensure the rejected scene is absent.
 	await page.reload({ waitUntil: 'domcontentloaded' });
