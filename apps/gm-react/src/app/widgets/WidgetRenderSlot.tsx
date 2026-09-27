@@ -1,5 +1,6 @@
 import {
 	Component,
+	memo,
 	lazy,
 	Suspense,
 	useSyncExternalStore,
@@ -573,7 +574,7 @@ function renderPlan(
 	}
 }
 
-export function WidgetRenderSlot({
+export const WidgetRenderSlot = memo(function WidgetRenderSlot({
 	widget,
 	onCommand,
 	...fit
@@ -627,4 +628,4 @@ export function WidgetRenderSlot({
 			</WidgetRegion>
 		</WidgetStyleScope>
 	);
-}
+});

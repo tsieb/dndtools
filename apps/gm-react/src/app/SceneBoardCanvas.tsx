@@ -57,14 +57,13 @@ import {
 	type ZoomPreset,
 } from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
-
 export { WidgetGlyph } from './canvas/WidgetFrame';
+import { useWidgetCommands } from './widgets/useWidgetCommands';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
 
 const NO_SECTIONS: SectionLayoutRegion[] = [];
 
-// Dock to the authored board extent; retain free coordinates for undocking.
 function dockedPosition(
 	position: { x: number; y: number; w: number; h: number },
 	dock: string | null,
@@ -137,14 +136,18 @@ export function SceneBoardCanvas({
 			),
 		[runtime.state, authoredWidgets, routeSceneId, policy],
 	);
-	const summary = scene
-		? getSceneForActor(
-				runtime.state.scenes,
-				runtime.state.permissions,
-				runtime.defaultActorId,
-				scene.id,
-			)
-		: null;
+	const summary = useMemo(
+		() =>
+			scene
+				? getSceneForActor(
+						runtime.state.scenes,
+						runtime.state.permissions,
+						runtime.defaultActorId,
+						scene.id,
+					)
+				: null,
+		[scene, runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId],
+	);
 	const sections = summary && !('kind' in summary) ? summary.sections : NO_SECTIONS;
 	const background = summary && !('kind' in summary) ? summary.visualSettings.background : 'paper';
 	const surfaceTheme =
@@ -600,6 +603,7 @@ export function SceneBoardCanvas({
 		}
 	};
 
+	const commands = useWidgetCommands(authoredWidgets, onWidgetCommand);
 	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
@@ -636,11 +640,7 @@ export function SceneBoardCanvas({
 				onStartResize={(e) => startResize(e, w)}
 				onCycleSize={() => cycleSize(w)}
 				onResizeStep={(dx, dy) => resizeWidget(w, size.w + dx * GRID, size.h + dy * GRID)}
-				onCommand={
-					!editing && onWidgetCommand
-						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
-						: undefined
-				}
+				onCommand={editing ? undefined : commands.get(w.id)}
 			/>
 		);
 	});

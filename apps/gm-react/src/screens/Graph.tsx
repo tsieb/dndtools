@@ -117,7 +117,7 @@ export function Graph() {
 
 	const connections = useMemo(() => indexConnections(viz), [viz]);
 	// A large vault draws only part of itself (see `limitCanvasNodes`). The selection stays drawn (a node
-	// clicked on the canvas already is, so nothing moves), and focus mode keeps its whole neighbourhood.
+	// clicked on the canvas already is). Admit the selection and focus anchor before capped neighbours.
 	const canvasPool = useMemo(() => {
 		const pinned = new Set<string>(sel ? [sel] : []);
 		if (focusId) {

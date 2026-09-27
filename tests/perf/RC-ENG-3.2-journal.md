@@ -496,3 +496,31 @@ dev-server logs, CPU profiles, scratch scripts, and the detached 2026-09-23 refe
 `tmp/perf/ref-1e13`. I removed it and pruned that one stale worktree registration (a dry run
 confirmed nothing else). `pnpm lint` now exits 0 with 0 errors; its 17 warnings are all
 pre-existing. No source change.
+
+## 2026-09-27 third independent-review recovery
+
+Starting head `517e1e19`, clean worktree. The review's exact-candidate capture breaches
+scene (2259.3/1500 ms) and graph (554.8/500 ms), and correctly reproduces a selected
+hub disappearing when more than 150 neighbours are pinned. No Headroom tools or
+applicable AGENTS.md were exposed. All new edits stay within the explicit owned paths.
+No agents, dispatcher changes, push, promotion or extra loop.
+
+- `graph/interaction.ts` admits pinned IDs in priority insertion order, ignoring
+  unavailable IDs, before filling remaining slots by degree. `Graph.tsx` already inserts
+  selection and focus anchor before neighbours; its comment now describes the bounded
+  neighbourhood honestly. Tests cover 160 alphabetically earlier neighbours, a distinct
+  selection, deterministic order, and missing/filtered anchors.
+- `SceneBoardCanvas.tsx` memoizes the actor-aware summary across geometry-only renders
+  and uses stable per-widget command callbacks. `widgets/WidgetRenderSlot.tsx` memoizes
+  props while retaining its runtime subscription, so size/focus changes do not render
+  every body again. `widgets/useWidgetCommands.ts` replaces callbacks whenever the host
+  closure changes (including scene revision) and removes destroyed-widget callbacks.
+  Its DOM hook test checks identity reuse, host replacement, removal and inert mode.
+- Browser CPU/network diagnostics show substantial first-navigation module loading plus
+  repeated React work. These are diagnostics, not qualifying budget evidence. The graph
+  result list remains outside scope (`graph/Search.tsx`); requested its ownership extension
+  through the user-input channel and have not changed it.
+
+Validation before committed capture: performance suite 25/25, focused app widget/graph
+suite 229/229, app typecheck and targeted ESLint pass. Fresh paired timing against review
+base `6dd4f09c` and functional browser verification follow. No all-green acceptance claim.

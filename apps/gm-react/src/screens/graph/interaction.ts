@@ -50,7 +50,7 @@ export const CANVAS_NODE_LIMIT = 150;
 
 /**
  * The nodes the canvas draws. At or under the limit, exactly `nodes`. Over it, the pinned nodes (the
- * selection, the focus anchor and their neighbours) first, then the most-connected rest (ties keep
+ * selection, the focus anchor and their neighbours) in priority insertion order, then the rest (ties keep
  * list order), returned in list order so the layout stays deterministic.
  */
 export function limitCanvasNodes<N extends { id: string; degree: number }>(
@@ -60,7 +60,11 @@ export function limitCanvasNodes<N extends { id: string; degree: number }>(
 ): readonly N[] {
 	if (nodes.length <= limit) return nodes;
 	const keep = new Set<string>();
-	for (const n of nodes) if (keep.size < limit && pinned.has(n.id)) keep.add(n.id);
+	const available = new Set(nodes.map((n) => n.id));
+	for (const id of pinned) {
+		if (keep.size >= limit) break;
+		if (available.has(id)) keep.add(id);
+	}
 	const ranked = nodes
 		.map((n, i) => ({ n, i }))
 		.sort((a, b) => b.n.degree - a.n.degree || a.i - b.i);
