@@ -303,3 +303,16 @@ asset(s)`. A grep of `dist/assets` for `qps-ploc` or the pseudo alphabet found n
 - Full `responsive.spec.ts` + `scene-templates.spec.ts`: 172 passed on desktop-chromium and
   mobile-chromium (4.8m). Log: `/tmp/rc-ux-1.5-responsive-6dd4f09c-r2.log`.
 - No push, promotion, extra agents or dispatcher mutations.
+
+### Resume 2026-09-27: post-rebase App tests red on `6f8e448d`
+
+- The gate failed with `pseudo.test.ts` (drift) and `index.test.ts` (qps-ploc coverage 0.9917 ≠ 1).
+  The branch was already on `loop/rc` `6f8e448d`, whose scene-editor commits added new
+  `sceneEditor.*` keys (`anyPlayer`, `background.*`, …) to `en.ts`. The pseudo catalog was
+  stale, not wrong.
+- Regenerated `dev/qps-ploc.ts` with `pnpm exec tsx scripts/i18n-catalog.ts pseudo` and ran Prettier on it.
+  No source changes.
+- Full App tests (`vitest run --config vitest.app.config.ts --maxWorkers=3`): 154 files /
+  1721 tests passed. `format:check:changed -- --base loop/rc`: clean.
+- The pseudo, scaffold and neighbouring `responsive.spec` cases with `--repeat-each=2` on
+  desktop-chromium + mobile-chromium: 20/20 passed.
