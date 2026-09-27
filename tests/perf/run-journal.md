@@ -458,3 +458,20 @@ typecheck of `capture.ts` with both perf tests; opt-in Chromium navigation
 regression 4/4. These are local results, not hosted or wrapper gates. The
 task-created reference worktree and dev servers were removed. No push,
 promotion, workflow dispatch, loop, sub-agent or dispatcher control-state edit.
+
+## 2026-09-27 — Lint gate failure on 701956fb: task scratch files
+
+The Lint wrapper gate (attempt `5d9e4cad`) exited 1 with 18 errors and 17
+warnings. I read the original log. All 18 errors were
+`@typescript-eslint/no-explicit-any` in three untracked probe scripts this task
+created under the ignored `tmp/` directory: `rc-eng-3.3-probe.ts` (8),
+`rc-eng-3.3-shrink.ts` (7) and `rc-eng-3.3-size.ts` (3). Repository-wide ESLint
+scans `tmp/`, so leftover scratch TypeScript fails the gate even though it is
+never committed. No committed file had an error.
+
+I deleted those three probes plus two other task scratch files
+(`tmp/large-vault.new.ts`, `tmp/tsconfig.capture.json`). Rerunning the full
+`pnpm lint` on the unchanged committed code exited 0: 0 errors, 17 warnings.
+All 17 warnings are in loop/rc files this task does not change (`CommandPalette`,
+compendium, overlay components, `useCombatKeyboard`). No source or measured code
+changed. This is a local rerun, not a wrapper gate result.
