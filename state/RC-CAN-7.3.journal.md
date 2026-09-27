@@ -144,3 +144,33 @@
 - Rechecked on the rebuilt tree: gm-react typecheck clean; eslint on the changed app code 0 errors;
   `android-emulator-acceptance.test.ts` 8 passed. The attempt-3 e2e/visual/unit evidence covers the
   same app tree.
+
+## 2026-09-26 — attempt 5 (TileActionMenu now owned; rebased onto loop/rc a347e2c0)
+
+- Gate feedback: `apps/gm-react/src/app/canvas/TileActionMenu.tsx` was outside the claim; the
+  operator brief now owns it. **Why the edit is needed** (unchanged from attempt 3, 11 lines): the
+  screen header adds a row (switcher + pin) above the bounded board, which pushed the tile action
+  menu's open Visibility group past the bottom of a phone viewport, so "Players" could not be
+  reached (`canvas.spec` "Move, Visibility and Remove", mobile, 3/3; on base it only just fit). The
+  edit (1) caps the fixed panel's `maxHeight` to the room on the side it opens and sets
+  `overflowY: auto`, and (2) makes the "dismiss on any scroll" listener ignore scrolls inside the
+  panel itself; without (2), keyboard End → Remove scrolled the capped panel and closed it
+  (`canvas.spec` keyboard-pattern test). Nothing else in the file changed.
+- Rebased onto `origin/loop/rc` `a347e2c0` (19 commits: RC-ENG-8.1 golden-path journeys + journey
+  health detector, RC-UX-3.7 demo vault, RC-SES-6.2, onboarding complexity). Conflicts:
+  - `ScenesCreator.tsx`: loop/rc gave the old create form's disabled "Create scene" a reason
+    `title`; that form is gone (the library replaced it), so this branch's file is kept as is.
+  - `tests/e2e/_helpers.ts`: both sides appended; kept loop/rc's journey helpers and this branch's
+    `createScreenInLibrary`.
+  - Following the journey rule "disabled without reason", the rename editor's Save (disabled while
+    the name is empty) now carries the same kind of reason title (`ScreenMetaEditor.tsx`). The
+    other disabled states in `screens/screen` are the in-flight `busy` flags only.
+- Validation on the rebased tree: gm-react typecheck clean; `pnpm lint` exit 0 (0 errors);
+  `format:check:changed -- --base origin/loop/rc` clean; `pnpm test:app` 151 files / 1706 passed.
+  Visual: `run-in-container.sh tests/visual/golden-routes.spec.ts` 216 passed with no baseline
+  change; budget 32,392.7 KiB of 32,768.
+  E2E both profiles: golden-path, demo-vault, session-standby, session-lifecycle, screens —
+  86 passed, 2 skipped (golden-path visits `/scenes` → `/screens` and runs the health checkpoint
+  there); phone-navigator, session-action-bar, canvas, command-palette, systems,
+  missing-primitives, sync, co-dm, collab, responsive, a11y-axe-gate, combat — 489 passed,
+  9 skipped, 0 failed. The full `pnpm e2e` was not run.

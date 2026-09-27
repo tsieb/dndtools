@@ -117,6 +117,14 @@ export function ScreenMetaEditor({
 					size="sm"
 					icon="check"
 					disabled={saving || !draftName.trim()}
+					// A disabled control names its reason (the RC-ENG-8.1 journey health rule).
+					title={
+						saving
+							? t('scenes.saving')
+							: !draftName.trim()
+								? `${t('scenes.name')} · ${t('extensions.customTypes.required')}`
+								: undefined
+					}
 					onClick={() => void save()}
 				>
 					{saving ? t('scenes.saving') : t('scenes.saveDetails')}
