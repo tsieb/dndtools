@@ -1,12 +1,13 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status: blocked on resolver scope authorization; acceptance unmet.**
-The recovered branch was rebased onto unrelated atlas changes. The prior complete
-capture is now historical, not current-candidate evidence. Its graph target breach
-and missing approximately 20% scene win were not fixed by that rebase. A
-[checked, unapplied resolver proposal](reports/2026-09-20-resolver-proposal/README.md)
-is ready; the three required state files are still outside the repeated ownership
-list. No fresh browser acceptance claim is made.
+**Current status (2026-09-27): graph and search recovered; scene first render unmet.** The branch
+is rebased onto `loop/rc` `cc47d694`. In paired local captures against that commit, search and
+graph-indexing pass in every run, while the reference breaches both
+([evidence](reports/2026-09-27-rebased-recovery/README.md)). Scene first render breaches on both
+sides on this loaded host, and its candidate/reference gap swung between −18% and 0%, so the
+approximately 20% win is not demonstrated. The remaining large graph/search lever is the result
+list in `graph/Search.tsx`, which is not owned; see the scope request below. Earlier sections are
+historical.
 
 ## 2026-09-19 implementation
 
@@ -437,3 +438,51 @@ Scene first render still breaches on both sides: the reference measured 3.3 s on
 1068 ms on the desktop baseline. That makes it a host-load reading, not a verdict on the code. The
 candidate is 18.1% faster than `loop/rc` (17.6% in capture 1). A full 11-budget paired capture
 follows.
+
+### Last change and final evidence
+
+`9a332698`: `buildQualityNode` (`state/graph-quality.ts`) takes the parsed note's `wikilinks`
+when the caller has them. The health and cluster reads both run after every change, and each
+re-extracted every note's links although the memoized parse already carried them. The result is
+identical by construction (`extractWikilinks` of the same body), and a test pins it. The
+changed-files Prettier gate checks whole files, so `graph-quality.ts` and
+`graph-source-index-query.ts` were formatted in full: both carried formatting drift from `loop/rc`.
+`pnpm format:check:changed -- --base loop/rc` passes.
+
+Justification for each newly owned file this pass:
+
+- `Graph.tsx`: needed to re-apply the perf work onto RC-POL-1.12's rewrite, memoize the
+  visualization base, and memoize `GraphSearch`.
+- `graph/nodes.tsx`: restyled to RC-POL-1.12's markup, with the unused row component removed.
+- `graph/interaction.ts` and `graph/presentation.ts`: unchanged since the 2026-09-23 commit.
+- `state/graph-quality.ts`: the optional `wikilinks` input above.
+- `state/graph-clusters.ts` and `state/wikilink-graph.ts`: unchanged this pass.
+
+Validation on the final code: core suite 284 files / 5170 tests plus the new hot-path tests
+(8/8); app suite 153 / 1715; perf suite 23/23; `pnpm typecheck`; targeted ESLint; raw-style count;
+changed-files Prettier. Browser checks on desktop-chromium and mobile-chromium: graph, large
+vault, graph polish, graph repair, map room graph, screens and canvas specs, 150/150.
+a11y-axe-gate, responsive, canvas keyboard and arrange, and golden path: 284/285. The one failure
+was `a11y-axe-gate.spec.ts:291`, phone jump-sheet color contrast, the recorded base flake. Six
+repeats pass on both the candidate and `loop/rc`, and this branch does not touch the jump sheet.
+
+Full eleven-budget capture (`1da4d6a3`, code identical to `f2b4a205`): ten of eleven pass. Scene
+first render breaches on both sides: reference 1898.4 ms, candidate 1855.3 ms. Search is 339.1 →
+211.8 ms and graph-indexing 1359.8 → 450.5 ms; everything else is within noise. Final four-budget
+capture (`9a332698`): search 276.9 → 174.3 ms, graph-indexing 1194.9 → 380.6 ms, scene first render
+1745.2 → 1743.3 ms, widget update 34.7 → 35.9 ms. The raw captures, derived baseline, logs and
+checksums are in `reports/2026-09-27-rebased-recovery/`.
+
+Not done, and why: the ~130 ms result-list cost stays until `graph/Search.tsx` is owned. The
+approximately 20% scene-first-render win is not demonstrated. This host's load (reference 1.7–3.3
+s against a 1068 ms desktop baseline) swamps the signal, so that budget needs a quiet host or the
+hosted Performance workflow (`gh workflow run perf.yml --ref main -f ref=<sha>`). No acceptance
+claim is made. No push, promotion, extra loop, sub-agent or dispatcher control-state change. The
+`/tmp` reference worktree and capture servers were removed.
+
+`pnpm gates` then failed: `loop/rc` has `SceneBoardCanvas.tsx` at exactly the 800-line hard limit,
+and this branch's forced-layout fix (the observer's `contentRect` width instead of a `clientWidth`
+read after every tile mounts) added three lines. The callback now reads the single observed entry,
+which is equivalent because only the wrapper is observed, and the explanatory comment lives here
+instead. The file is back to 800 lines. `pnpm gates` passes (quality and docs), and `canvas.spec`
+is 80/80 on both projects.
