@@ -27,28 +27,11 @@ async function axe(page: Page, label: string) {
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
 		.exclude('[data-axe-shell]')
 		.analyze();
-	const theme = await page.evaluate(() => document.documentElement.dataset.theme);
-	const found = result.violations
-		.map((v) => ({
-			id: v.id,
-			impact: v.impact,
-			nodes: v.nodes
-				// DEBT-2026-008, owned by the design system: parchment's accent on its accent tint is
-				// 4.43:1, so the DS accent Button (Done) and the widget-body kit's accent Chip fail. Only
-				// that token pair, only on parchment, only for contrast; anything else still fails.
-				.filter(
-					(n) =>
-						!(
-							theme === 'parchment' &&
-							v.id === 'color-contrast' &&
-							/foreground color: #9a5418, background color: #f0e0c8/.test(
-								n.any.map((check) => check.message).join(' '),
-							)
-						),
-				)
-				.map((n) => n.target.join(' ')),
-		}))
-		.filter((v) => v.nodes.length > 0);
+	const found = result.violations.map((violation) => ({
+		id: violation.id,
+		impact: violation.impact,
+		nodes: violation.nodes.map((node) => node.target.join(' ')),
+	}));
 	expect(found, label).toEqual([]);
 }
 
@@ -114,6 +97,8 @@ for (const theme of THEMES) {
 		await axe(page, `${theme}: view`);
 		await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 		await expect(page.getByRole('group', { name: 'Layout tools' })).toBeVisible();
+		await axe(page, `${theme}: scene details top`);
+		await page.getByRole('button', { name: 'Save details', exact: true }).scrollIntoViewIfNeeded();
 		await axe(page, `${theme}: editing with scene details`);
 		await selectFirstTile(page);
 		await axe(page, `${theme}: inspector`);
@@ -130,6 +115,7 @@ test('every overlay the editor opens is axe clean', async ({ page }, testInfo) =
 	await gotoRoute(page, `/scene/${scene.id}`);
 	await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
 	await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
+	await page.getByRole('button', { name: 'Save details', exact: true }).scrollIntoViewIfNeeded();
 	await axe(page, 'scene details');
 	await page.getByRole('button', { name: 'Close scene details' }).click();
 
@@ -329,7 +315,20 @@ test('phone: every editing control is at least 44px on both axes', async ({ page
 	const found: string[] = [];
 	found.push(...(await small(`[data-testid="scene-editor-toolbar"] :is(${CONTROLS})`)));
 	await page.getByRole('button', { name: 'More editing tools' }).click();
-	found.push(...(await small(`[role="menu"] :is(${CONTROLS})`)));
+	const dialog = page.getByRole('dialog', { name: 'More editing tools', exact: true });
+	const close = dialog.getByRole('button', { name: 'Close', exact: true });
+	await expect(dialog).toBeVisible();
+	await expect(close).toBeVisible();
+	for (const control of [dialog, close]) {
+		const bounds = await control.boundingBox();
+		expect(bounds).not.toBeNull();
+		const viewport = page.viewportSize()!;
+		expect(bounds!.x).toBeGreaterThanOrEqual(0);
+		expect(bounds!.y).toBeGreaterThanOrEqual(0);
+		expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+		expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
+	}
+	found.push(...(await small(`[role="dialog"] :is(${CONTROLS})`)));
 	await page.keyboard.press('Escape');
 	await selectFirstTile(page);
 	for (const tab of ['Content', 'Transform', 'Visibility']) {

@@ -1,6 +1,63 @@
 # RC-POL-1.3 — Scene editor polish
 
-## Review corrections — 2026-09-27
+## Retained review corrections — 2026-09-27
+
+Started at `86d1a36b` with a clean tracked tree. This section supersedes the historical
+ownership blocker, glyph waiver, filtered axe claims, and incomplete acceptance below.
+Read-only inspection of the central `manifests/dndtools.json` confirmed its `companion_paths`
+authorize `apps/gm-react/tests/e2e/*.spec.ts`, `apps/gm-react/tests/visual/*.ts`,
+`apps/gm-react/tests/visual/__screenshots__/*`, and `docs/requirements/FEATURE-GAPS.md`.
+No additional permission or dispatcher mutation is needed for these acceptance artifacts.
+
+- [x] Retain the embedded §20.2–§20.5 checklist; the corrections here govern its older entries.
+- [x] Remove every contrast-violation suppression from the committed polish axe helper.
+      Scan scene details at the top and again after scrolling Save details into view.
+      Existing shell exclusions remain: this is surface and overlay coverage, not a whole-app audit.
+- [x] Retain phone dialog and Close assertions for all four viewport edges; measure every
+      dialog control, including Close, against the 44px target floor.
+- [x] Replace all 15 obsolete 20×20 glyph PNGs with 60 meaningful pinned captures:
+      toolbar, inspector, and details at Save in all five themes × three tiers;
+      details at the top on desktop and phone (rail fits the whole panel); phone tools dialog
+      in all five themes. Existing nine whole-route scene baselines remain in place.
+      Inspected every new capture in tier contact sheets and a details-top sheet: readable
+      controls, intentional scroll boundaries, complete inspector and tools header/Close.
+- [x] Keep the existing 32 MiB / 320 KiB baseline caps. The first retained set exceeded the
+      total cap. Losslessly recompress the minimum number of PNGs under a largest-saving-first
+      zlib-level-9 selection: 102 files, 1,110,802 bytes saved. Their inflated IDAT data and
+      every non-IDAT chunk were asserted byte-identical before writing. No rendered content
+      or screenshot threshold changes. Exact per-file rationale/byte savings are retained in
+      [PNG budget evidence](RC-POL-1.3-png-budget.md). These companion edits solely fund
+      the required editor snapshots; no unrelated application source changed.
+- [x] FEATURE-GAPS Scene editor row now links the unfiltered e2e and retained visual coverage.
+- [x] EN/ES copy and illustrated states remain as implemented; no new product copy in this repair.
+      Loading remains shell-owned and synchronous scene reads add no local loading state.
+- [x] No new emphasis-baseline change is necessary; preserve the five previously justified deletions.
+- [x] Strict pinned comparison: 24 passed (45.9s), exit 0, with
+      `CONTAINER_ENGINE=docker bash apps/gm-react/tests/visual/run-in-container.sh --grep 'scene/:id|scene editor' --update-snapshots=none --retries=0 --workers=2 --reporter=line`.
+      Exact Headroom artifact: `7bc061e644974a8984c5831f43fcb29d`.
+- [x] Budget checker: 556 PNGs, 32763.2 / 32768.0 KiB, exit 0
+      (`861ecea8a1194d89bd8554645329b4e9`). Independent comparison to starting HEAD confirmed
+      all 102 modified tracked PNGs have identical inflated IDAT and non-IDAT chunks
+      (`64933bdfdc4a44aa991b4d2e25ec67bf`). New captures and glyph deletions are separate.
+- [x] `pnpm gates`: exit 0, no owned-file warning; largest owned file `index.tsx`, 464 lines
+      (`f57a7a028a174d67b5c3ac5fd7a26d43`). App typecheck and ESLint on both edited specs: exit 0.
+- [x] Final surface e2e: **132 passed, 2 expected desktop skips** (4.2m), exit 0.
+      `pnpm --filter @dndtools/gm-react exec playwright test` with
+      `tests/e2e/{scene-editor-polish,canvas,flow-layout,scene-surfaces,player-preview,scene-templates}.spec.ts`
+      expanded to six arguments, `--project=desktop-chromium --project=mobile-chromium --workers=2 --retries=0 --reporter=line`. Includes the final top-and-scrolled axe assertions.
+      Exact original summary retrieved from `ae6f6a5aafbd4452bb7b663ab10121e1`;
+      full local log `/tmp/rc-pol-1.3-final-e2e.log`. The long run used a native exec session
+      because the Headroom command wrapper has a 120-second timeout limit.
+- [x] Formatting and `git diff --check` passed. A multiline inline command in this journal
+      initially failed Prettier; keeping it on one line corrected the formatting.
+- [x] All 182 changed/new paths are owned or manifest-authorized companions; no application
+      code changed in this repair. Largest owned file remains 464 lines.
+
+Validation above was read from exact originals, not compressed previews. Initial revised
+polish e2e run: 20 passed, 2 expected desktop skips, both Chromium profiles, retries disabled.
+No push, promotion, loop launch, or dispatcher control-state edit.
+
+## Earlier review corrections — 2026-09-27
 
 This section supersedes the historical acceptance claims below. Starting commit: `46e8fa48`.
 The review correctly rejected the filtered axe results and glyph-only visual coverage. Those
