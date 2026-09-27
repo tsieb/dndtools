@@ -43,7 +43,7 @@ export const allow = {
 	'apps/gm-react/src/app/shell/RailNav.tsx': 1,
 	'apps/gm-react/src/app/shell/rows.tsx': 11,
 	'apps/gm-react/src/app/shell/SessionRail.tsx': 3,
-	'apps/gm-react/src/app/shell/Sidebar.tsx': 24,
+	'apps/gm-react/src/app/shell/Sidebar.tsx': 20,
 	'apps/gm-react/src/app/shell/TopBar.tsx': 14,
 	'apps/gm-react/src/app/ViewAsControl.tsx': 13,
 	'apps/gm-react/src/app/widget-body-kit.tsx': 4,

@@ -1,3 +1,5 @@
+import { useScreens } from '../../screens/screen/useScreens';
+import { screenPath, SCREENS_PATH } from '../../screens/screen/screenModel';
 import { lazy, Suspense, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton, NavRail } from '../../ds';
@@ -5,7 +7,7 @@ import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { activeSectionId, isNavSectionVisible } from '../nav';
 import { T } from '../screen-kit';
-import { ALL_SECTIONS, SECTION_PATH } from './sections';
+import { ALL_SECTIONS, sectionPath } from './sections';
 import { useSessionPosture } from './session-posture';
 import { isDemoLocalVault } from '../../platform/storage/coreStore';
 
@@ -24,7 +26,10 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	// RC-UX-3.7 — the rail shows no vault name, so the demo is named in the mark's label and badged.
 	const [demo] = useState(() => isDemoLocalVault(runtime.vaultId));
 	const vaultsLabel = demo ? `${t('vaults.title')} · ${t('vaults.demoBadge')}` : t('vaults.title');
-	const active = activeSectionId(location.pathname);
+	const { entries, nameOf } = useScreens();
+	const pins = entries.filter((entry) => entry.pinned);
+	const selectedPin = pins.find((entry) => location.pathname === screenPath(entry.id));
+	const active = selectedPin ? `pin:${selectedPin.id}` : activeSectionId(location.pathname);
 	// RC-SES-1.1 — one source for "live" across all three navigations: the session workflow.
 	const live = useSessionPosture().live;
 	// RC-UX-3.5 — the tablet rail must not leak a usage-gated surface either (Graph before 3 links).
@@ -38,14 +43,36 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 					padding:
 						'calc(var(--space-2) + var(--safe-area-top, 0px)) var(--space-2) calc(var(--space-2) + var(--safe-area-bottom, 0px)) calc(var(--space-2) + var(--safe-area-left, 0px))',
 				}}
-				items={visibleSections.map((s) => ({
-					key: s.id,
-					icon: s.icon,
-					label: t(s.labelKey),
-					badge: s.liveBadge === true && live ? '•' : undefined,
-				}))}
+				items={[
+					...visibleSections
+						.filter((s) => ['home', 'board', 'session'].includes(s.id))
+						.map((s) => ({
+							key: s.id,
+							icon: s.icon,
+							label: t(s.labelKey),
+							badge: s.liveBadge && live ? '•' : undefined,
+						})),
+					...pins.map((entry) => ({
+						key: `pin:${entry.id}`,
+						icon: entry.layoutPolicy === 'flow' ? 'layout-list' : 'widget',
+						label: `${nameOf(entry)}${entry.isLive && live ? ` · ${t('screens.live')}` : ''}`,
+						badge: entry.isLive && live ? '•' : undefined,
+					})),
+					{ key: 'screens', icon: 'layout-list', label: t('screens.all') },
+					...visibleSections
+						.filter((s) => !['home', 'board', 'session'].includes(s.id))
+						.map((s) => ({ key: s.id, icon: s.icon, label: t(s.labelKey) })),
+				]}
 				active={active}
-				onSelect={(id: string) => navigate(SECTION_PATH[id] ?? '/')}
+				onSelect={(id: string) =>
+					navigate(
+						id.startsWith('pin:')
+							? screenPath(id.slice(4))
+							: id === 'screens'
+								? SCREENS_PATH
+								: sectionPath(id, runtime.state, runtime.defaultActorId),
+					)
+				}
 				header={
 					<button
 						type="button"

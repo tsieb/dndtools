@@ -1,0 +1,45 @@
+# RC-CAN-7.4 run journal
+
+## 2026-09-26 — implementation
+
+- Starting from a clean task branch. No Headroom tools are available in this session; direct tool output is used.
+- Core already owns `scene.set-pinned`, `scene.reorder-pins`, actor-filtered screen queries and durable order. CAN-7.3 already supplies library/header pin controls and the create-intent dialog.
+- Implement shared pin rows, canonical screen navigation, accessible rail entries, and pins first in phone More. Keep the global IA intact and preserve uniquely labelled landmarks.
+- Default screen provisioning is a later story: resolve recorded default origins when present and retain existing route aliases otherwise. The current home pointer still represents the old GM board, so do not reinterpret it as the new Command Center.
+- The owned BottomTabBar.jsx has migrated to BottomTabBar.tsx. Phone route selection actually belongs to shell/Footer.tsx; a minimal resolver call there is required for consistent default destinations.
+- Validation results are recorded below.
+
+## Implementation and functional evidence
+
+- Sidebar Screens and phone More share `PinnedScreenRows`, using CAN-7.3's actor-filtered names and pin order. Rows open the canonical `/screen/:id` route. More lists this group before the existing sections. Create passes the existing library intent; All screens is always available.
+- Rail inserts accessible icon rows between Run and Library, with canonical selected state and a textual Live accessible name. No new global primary sections or nested navigation landmarks.
+- Alt+Up/Down, row-menu Move up/down, and drag all use one `scene.reorder-pins` dispatch carrying the complete current pin set. Boundary moves are no-ops, focus follows stable keyed rows, results are announced, and rejected/persist-failed writes show errors. Row menus unpin with the same command used by library/header controls.
+- Live requires both the active scene and active session workflow; idle/standby rows name visibility instead of inventing Draft/Ready editorial status.
+- Run resolves default origins `command-center`, `gm-screen`, `session` when provisioned; existing aliases remain until later default-provisioning stories supply them. `Footer.tsx` is the actual phone route owner and needed the same resolver. No change was needed in the migrated BottomTabBar.tsx presentation primitive.
+- Removed four raw style values from Sidebar; lowered its mandatory lint allowance from 24 to 20.
+- Browser suite: 14 passed (both Chromium projects), including explicit 1440/900/390px cases, single-operation keyboard/drag assertions, retained keyboard focus, header/library/row unpin, create dialog, navigation, live/idle posture, and axe `landmark-unique`.
+- Earlier run: two existing CAN-7.3 selectors became ambiguous with the new shell controls; scoped them to the content region. One startup timeout occurred during concurrent browser/container runs; the subsequent complete run passed. No application behavior was changed to mask it.
+- Default resolver unit tests: 4 passed, including actor filtering and pre-provisioning aliases.
+- App typecheck, full lint (existing emphasis warnings only), and `pnpm gates` passed.
+
+## Visual verification
+
+- The first whole visual run was stopped to focus on golden routes. Focused home checks: six expected desktop/rail shell differences, all three phone checks passed.
+- A broad golden update exposed minor non-shell pixel differences. To check attribution, temporarily restored the six shell source files to HEAD and ran the original desktop tavern board baseline: passed. An exact baseline capture at that same HEAD also contains the board button pixel differences (bbox 476x206+440+287); those are within existing screenshot tolerance and do not originate in this implementation. Restored all implementation files afterward.
+- Regenerated affected golden-route baselines while retaining prior pixels outside the shell; final comparison results follow below.
+
+- Golden-route regeneration completed: 216 passed across the three visual projects. Retained HEAD pixels outside the sidebar/rail; a pixel-boundary audit confirmed all 116 modified PNGs differ only inside the shell (264px desktop, 64px rail), with zero changes outside it. No phone baseline changed.
+- Added explicit phone 44px checks for New screen, All screens and row actions; shared row buttons can shrink beside their action control so long names truncate within the available width. Keyboard shortcuts are exposed through `aria-keyshortcuts`.
+- Final shell unit run: 10 tests / 2 files passed. Full lint exited 0; targeted lint after the last touch-target change exited 0. Final typecheck exited 0.
+- ImageMagick's default encoding pushed the refreshed set over the 32 MiB baseline budget. Applied lossless PNG compression only to the 116 changed baselines, reducing the full set to 30,321.5 KiB / 32,768 KiB. Budget check passed. Repeated the pixel-boundary audit after compression: 116 checked, zero differences outside the shell.
+
+- Final pinned-container comparison without snapshot updates: **216 passed (5.0m)** across desktop, rail and phone. Exit 0.
+
+## Final verification and handoff
+
+- Final functional suite, `pinned-screens.spec.ts` plus `screens.spec.ts`, both Chromium projects: **14 passed (42.5s)**. Includes the added rail-order, phone pins-first and 44px control assertions. Persistent captures are saved by the focused tier tests for review.
+- Pinned-container golden-route comparison: **216 passed**, no snapshot-update flag. Baseline size budget passes; only shell pixels changed.
+- `pnpm gates` rerun passed, `git diff --check` clean, final app typecheck passed, shell unit tests 10 passed, full lint passed (existing warnings only).
+- Scope additions needed for this implementation: phone route owner Footer.tsx, regression tests, mandatory shrinking style allowance, and affected screenshot baselines. No core/IA/provisioning changes; no dispatcher control state edits, agents, push, promotion, or additional loop.
+- Implementation is ready for the central operator's independent gates and review. Existing aliases remain the fallback until CAN-7.6/7.8 provisions recorded default screens.
+- Final capture run: 3 tier cases passed (10.7s), after waiting for the library and disabling capture-time animations. Inspected desktop, rail and phone captures: pins and controls fit their navigation surfaces; phone controls remain above the sheet's scrolling content.

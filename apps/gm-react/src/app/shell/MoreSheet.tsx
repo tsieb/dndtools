@@ -4,8 +4,8 @@ import { Badge, Sheet } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { activeSectionId, isNavSectionVisible } from '../nav';
-import { ALL_SECTIONS, PHONE_TABS, SECTION_PATH } from './sections';
-import { SideRow } from './rows';
+import { ALL_SECTIONS, PHONE_TABS, sectionPath } from './sections';
+import { PinnedScreenRows, SideRow } from './rows';
 import { listLocalVaults } from '../../platform/storage/coreStore';
 
 const VaultSwitcher = lazy(() =>
@@ -51,6 +51,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 						paddingBottom: 8,
 					}}
 				>
+					<PinnedScreenRows onOpen={onClose} />
 					{/* RC-UX-5.4 — the phone form of the sidebar's campaign chip. */}
 					<SideRow
 						icon="campaign-scroll"
@@ -76,7 +77,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 							active={active === s.id}
 							onClick={() => {
 								onClose();
-								navigate(SECTION_PATH[s.id] ?? '/');
+								navigate(sectionPath(s.id, runtime.state, runtime.defaultActorId));
 							}}
 						/>
 					))}

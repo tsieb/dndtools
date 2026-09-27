@@ -1,3 +1,4 @@
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomTabBar, IconButton } from '../../ds';
@@ -5,13 +6,14 @@ import { useI18n } from '../../i18n';
 import { activeSectionId } from '../nav';
 import { T } from '../screen-kit';
 import { hasUnseenWhatsNew, HelpMenu } from '../help/HelpMenu';
-import { PHONE_TABS, SECTION_PATH } from './sections';
+import { PHONE_TABS, sectionPath } from './sections';
 import { MoreSheet } from './MoreSheet';
 import { useSessionPosture } from './session-posture';
 
 /** Phone (≤640px): the 4 hot destinations + "More". Extracted from AppShell.tsx's PhoneNav
  * unchanged (RC-STB-2.6). */
 export function Footer() {
+	const runtime = useRuntime();
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -106,7 +108,7 @@ export function Footer() {
 						setMoreOpen(true);
 						return;
 					}
-					navigate(SECTION_PATH[id] ?? '/');
+					navigate(sectionPath(id, runtime.state, runtime.defaultActorId));
 				}}
 			/>
 			<MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />

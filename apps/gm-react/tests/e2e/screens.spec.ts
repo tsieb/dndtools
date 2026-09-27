@@ -74,7 +74,7 @@ test('create from a template, rename, pin, and switch by library, header switche
 	await expect(library.getByText(/^(Draft|Ready)$/)).toHaveCount(0);
 
 	// ── Create from a template ────────────────────────────────────────────────────────────────
-	await page.getByRole('button', { name: 'New screen' }).click();
+	await library.getByRole('button', { name: 'New screen' }).click();
 	const dialog = page.getByRole('dialog', { name: 'New screen' });
 	await expect(dialog).toBeVisible();
 	for (const template of [
@@ -228,6 +228,6 @@ test('a screen that does not exist says so and leads back to the library', async
 	await markOnboarded(page);
 	await gotoRoute(page, '/screen/no-such-screen');
 	await expect(page.getByText('This screen isn’t available')).toBeVisible();
-	await page.getByRole('button', { name: 'All screens' }).click();
+	await page.locator('#main-content').getByRole('button', { name: 'All screens' }).click();
 	await page.waitForURL((url) => url.hash === '#/screens', { timeout: 10_000 });
 });

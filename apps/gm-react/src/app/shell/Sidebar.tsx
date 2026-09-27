@@ -22,15 +22,15 @@ import {
 	type NavSection,
 } from '../nav';
 import { T } from '../screen-kit';
-import { SECTION_PATH } from './sections';
-import { SceneSideRow, SideGroup, SideRow, sceneStatus, usePresenceStatus } from './rows';
+import { sectionPath } from './sections';
+import { PinnedScreenRows, SideGroup, SideRow, usePresenceStatus } from './rows';
 import { useSessionPosture } from './session-posture';
 import { listLocalVaults } from '../../platform/storage/coreStore';
 const VaultSwitcher = lazy(() =>
 	import('./VaultSwitcher').then((module) => ({ default: module.VaultSwitcher })),
 );
 
-/* Desktop (≥1025px): the 264px sidebar — brand · campaign chip · Run the table / Scenes / Library /
+/* Desktop (≥1025px): the 264px sidebar — brand · campaign chip · Run the table / Screens / Library /
  * Platform / Recent · player + settings + DM account. Extracted from AppShell.tsx unchanged
  * (RC-STB-2.6). */
 
@@ -49,7 +49,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	};
 	const [vault, setVault] = useState(readVault);
 	const active = activeSectionId(location.pathname);
-	const go = (id: string) => navigate(SECTION_PATH[id] ?? '/');
+	const go = (id: string) => navigate(sectionPath(id, runtime.state, actorId));
 
 	const activeSceneId = runtime.state.session.activeSceneId;
 	const dmActor = runtime.state.permissions.actors[actorId];
@@ -143,9 +143,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		() => PLATFORM.filter((s) => isNavSectionVisible(s.id, runtime.state)),
 		[runtime.state],
 	);
-	const [showAllScenes, setShowAllScenes] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
-	const visibleScenes = showAllScenes ? scenes : scenes.slice(0, 5);
 	// Never hide the row you're ON: arriving at a platform section OPENS the group. It stays a real
 	// disclosure though — OR-ing `platformActive` into the expanded flag made the toggle a no-op on
 	// every platform route and pinned aria-expanded to true.
@@ -154,8 +152,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 		if (platformActive) setMoreOpen(true);
 	}, [platformActive]);
 	const moreExpanded = moreOpen;
-	// "Recent scenes" earns its keep only once the Scenes list truncates — below that it just
-	// mirrors the same handful of scenes twice in one sidebar.
+	// Keep the existing recent-scene shortcuts for larger scene collections.
 	const showRecent = recent.length > 0 && scenes.length > 5;
 
 	return (
@@ -278,64 +275,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						)}
 					</SideGroup>
 
-					<SideGroup
-						label={t('shell.groupScenes')}
-						action={
-							<IconButton
-								icon="add"
-								label={t('shell.newScene')}
-								variant="ghost"
-								size="sm"
-								onClick={() => navigate('/scenes')}
-							/>
-						}
-					>
-						{visibleScenes.length === 0 && (
-							<div style={{ padding: '6px 10px', font: `11.5px ${T.sans}`, color: T.ter }}>
-								{t('shell.noScenes')}
-							</div>
-						)}
-						{visibleScenes.map((s) => {
-							const status = sceneStatus(s, activeSceneId);
-							return (
-								<SceneSideRow
-									key={s.id}
-									scene={s}
-									status={status}
-									active={location.pathname === `/scene/${s.id}`}
-									onOpen={() => navigate(`/scene/${s.id}`)}
-								/>
-							);
-						})}
-						{scenes.length > 5 && (
-							<button
-								type="button"
-								onClick={() => setShowAllScenes((v) => !v)}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 8,
-									width: '100%',
-									padding: '7px 10px',
-									border: 'none',
-									borderRadius: 8,
-									cursor: 'pointer',
-									background: 'transparent',
-									color: T.ter,
-									font: `12px ${T.sans}`,
-								}}
-							>
-								<Icon
-									name={showAllScenes ? 'chevron-up' : 'chevron-down'}
-									size={14}
-									color={T.ter}
-								/>
-								{showAllScenes
-									? t('shell.showFewer')
-									: t('shell.allScenes', { count: scenes.length })}
-							</button>
-						)}
-					</SideGroup>
+					<PinnedScreenRows />
 
 					<SideGroup label={t('shell.groupLibrary')}>{LIBRARY.map((s) => row(s))}</SideGroup>
 

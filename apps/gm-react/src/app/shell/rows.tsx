@@ -1,9 +1,16 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { listPinnedScreens } from '@dndtools/core';
+import { useI18n } from '../../i18n';
+import { useRuntime } from '../../runtime/RuntimeContext';
+import { useScreens, useScreenActions } from '../../screens/screen/useScreens';
+import { screenPath, SCREENS_PATH, visibilityLabelKey } from '../../screens/screen/screenModel';
+import { useSessionPosture } from './session-posture';
+import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { type SceneListEntry } from '@dndtools/core';
-import { Icon, StatusDot } from '../../ds';
+import { Icon, IconButton, Menu, StatusDot, Toaster } from '../../ds';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
 import { useSession } from '../../net/SessionContext';
-import { T } from '../screen-kit';
+import { T, srOnly } from '../screen-kit';
 
 /* The shared sidebar row vocabulary: a section row, a scene row, a group heading, and the DM
  * presence hook the sidebar footer reads. Extracted from AppShell.tsx unchanged (RC-STB-2.6);
@@ -160,6 +167,7 @@ export function SideRow({
 				alignItems: 'center',
 				gap: 10,
 				width: '100%',
+				minWidth: 0,
 				padding: '8px 10px',
 				border: 'none',
 				borderRadius: 8,
@@ -266,5 +274,217 @@ export function SideGroup({
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>{children}</div>
 		</div>
+	);
+}
+
+// The same actor-filtered, durable order as the library and header switcher.
+const PIN_TEXT = {
+	actions: (name: string) => `Actions for ${name}`,
+	up: 'Move up',
+	down: 'Move down',
+	keys: 'Reorder with Alt+ArrowUp or Alt+ArrowDown',
+	moved: (name: string, index: number, count: number) =>
+		`${name}, position ${index + 1} of ${count}`,
+};
+
+export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
+	const runtime = useRuntime();
+	const { t } = useI18n();
+	const { entries, nameOf } = useScreens();
+	const { setPinned } = useScreenActions();
+	const pins = entries.filter((entry) => entry.pinned);
+	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
+	const navigate = useNavigate();
+	const location = useLocation();
+	const posture = useSessionPosture();
+	const busy = useRef(false);
+	const dragged = useRef<string | null>(null);
+	const [notice, setNotice] = useState('');
+	const [menu, setMenu] = useState<string | null>(null);
+	const triggerRef = useRef<HTMLButtonElement | null>(null);
+	const open = (path: string, createScreen = false) => {
+		onOpen?.();
+		navigate(path, createScreen ? { state: { createScreen: true } } : undefined);
+	};
+	async function reorder(id: string, target: string) {
+		if (!isDm || busy.current || id === target) return;
+		// Core requires the COMPLETE pin set, including pins outside an actor-filtered view.
+		const ids = listPinnedScreens(runtime.state.scenes).map((entry) => entry.id);
+		const from = ids.indexOf(id),
+			to = ids.indexOf(target);
+		if (from < 0 || to < 0) return;
+		ids.splice(from, 1);
+		ids.splice(to, 0, id);
+		busy.current = true;
+		try {
+			const result = await runtime.dispatch({
+				type: 'scene.reorder-pins',
+				actorId: runtime.defaultActorId,
+				payload: { sceneIds: ids },
+			});
+			if (result.status === 'rejected')
+				Toaster.error(result.rejection.message ?? t('screens.failed'));
+			else
+				setNotice(PIN_TEXT.moved(nameOf(pins.find((entry) => entry.id === id)!), to, ids.length));
+		} catch {
+			Toaster.error(t('screens.notSaved'));
+		} finally {
+			busy.current = false;
+		}
+	}
+	async function unpin(id: string) {
+		if (busy.current) return;
+		busy.current = true;
+		const error = await setPinned(id, false);
+		busy.current = false;
+		if (error) Toaster.error(error);
+		else setMenu(null);
+	}
+	return (
+		<SideGroup
+			label={t('screens.title')}
+			action={
+				isDm ? (
+					<IconButton
+						icon="add"
+						label={t('screens.new.open')}
+						variant="ghost"
+						size="sm"
+						style={onOpen ? { minWidth: 44, minHeight: 44 } : undefined}
+						onClick={() => open(SCREENS_PATH, true)}
+					/>
+				) : undefined
+			}
+		>
+			<div data-testid="pinned-screens" role="list" aria-label={t('screens.pinned')}>
+				{pins.map((entry, index) => {
+					const name = nameOf(entry);
+					const live = entry.isLive && posture.live;
+					return (
+						<div
+							key={entry.id}
+							role="listitem"
+							data-screen-pin={entry.id}
+							aria-keyshortcuts={isDm ? 'Alt+ArrowUp Alt+ArrowDown' : undefined}
+							draggable={isDm}
+							onDragStart={(event) => {
+								dragged.current = entry.id;
+								event.dataTransfer.setData('text/plain', entry.id);
+								event.dataTransfer.effectAllowed = 'move';
+							}}
+							onDragEnd={() => {
+								dragged.current = null;
+							}}
+							onDragOver={(event) => {
+								if (isDm && dragged.current) event.preventDefault();
+							}}
+							onDrop={(event) => {
+								event.preventDefault();
+								const id = dragged.current;
+								dragged.current = null;
+								if (id) void reorder(id, entry.id);
+							}}
+							onKeyDown={(event) => {
+								if (!isDm || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+								event.preventDefault();
+								const target = pins[index + (event.key === 'ArrowUp' ? -1 : 1)];
+								if (target) void reorder(entry.id, target.id);
+							}}
+						>
+							<div
+								className={live ? 'session-live-ring' : undefined}
+								style={{ display: 'flex', alignItems: 'center', minHeight: 44 }}
+							>
+								<SideRow
+									icon={entry.layoutPolicy === 'flow' ? 'layout-list' : 'widget'}
+									label={name}
+									sub={
+										live
+											? [t('screens.live'), posture.elapsed].filter(Boolean).join(' · ')
+											: t(visibilityLabelKey(entry.visibility))
+									}
+									active={location.pathname === screenPath(entry.id)}
+									onClick={() => open(screenPath(entry.id))}
+								/>
+								{isDm && (
+									<IconButton
+										icon="more"
+										label={PIN_TEXT.actions(name)}
+										title={PIN_TEXT.keys}
+										aria-haspopup="menu"
+										aria-expanded={menu === entry.id}
+										variant="ghost"
+										style={{ minWidth: 44, minHeight: 44 }}
+										onClick={(event) => {
+											triggerRef.current = event.currentTarget;
+											setMenu(menu === entry.id ? null : entry.id);
+										}}
+									/>
+								)}
+							</div>
+							{menu === entry.id && (
+								<Menu
+									title={PIN_TEXT.actions(name)}
+									width={220}
+									triggerRef={triggerRef}
+									onClose={() => setMenu(null)}
+								>
+									{[
+										{
+											label: PIN_TEXT.up,
+											disabled: index === 0,
+											run: () => reorder(entry.id, pins[index - 1]!.id),
+										},
+										{
+											label: PIN_TEXT.down,
+											disabled: index === pins.length - 1,
+											run: () => reorder(entry.id, pins[index + 1]!.id),
+										},
+										{
+											label: t('screens.unpinNamed', { name }),
+											disabled: false,
+											run: () => unpin(entry.id),
+										},
+									].map((action) => (
+										<button
+											key={action.label}
+											type="button"
+											role="menuitem"
+											disabled={action.disabled}
+											onClick={() => {
+												void action.run();
+											}}
+											style={{
+												display: 'block',
+												width: '100%',
+												minHeight: 44,
+												color: T.ink,
+												background: T.surf,
+												border: 0,
+												textAlign: 'left',
+												padding: T.space.two,
+											}}
+										>
+											{action.label}
+										</button>
+									))}
+								</Menu>
+							)}
+						</div>
+					);
+				})}
+			</div>
+			<span role="status" style={srOnly}>
+				{notice}
+			</span>
+			<div style={{ display: 'flex', minHeight: onOpen ? 44 : undefined }}>
+				<SideRow
+					icon="layout-list"
+					label={t('screens.all')}
+					active={location.pathname === SCREENS_PATH}
+					onClick={() => open(SCREENS_PATH)}
+				/>
+			</div>
+		</SideGroup>
 	);
 }
