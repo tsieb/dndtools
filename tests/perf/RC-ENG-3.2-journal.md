@@ -361,3 +361,79 @@ rebased onto it by hand:
   read and state setters, so canvas hover, focus and keyboard walks no longer re-render every row.
 - Allow-list: `loop/rc` already removed the Graph entries (its Graph screen has no raw style
   values), and the new `nodes.tsx` has none either, so the branch no longer changes the file.
+
+### Paired capture after the rebase, and the remaining owned-path work
+
+Capture 1: candidate `9b01ee1b` (the rebased branch) against a `/tmp` reference worktree at `loop/rc`
+`cc47d694`, with four budgets (`scene-first-render`, `widget-update`, `search`, `graph-indexing`),
+seven interleaved batches each and `taskset -c 0-7`. The host was shared and heavily loaded (load average 13–18 on 16 cores),
+so absolute values run high on both sides. The first attempt was discarded because I edited this
+journal mid-run and the harness refused the dirty tree, as designed. The rerun (`perf:compare
+--compare-across-hardware`, median of seven batch statistics):
+
+| budget             | reference | candidate | target |
+| ------------------ | --------- | --------- | ------ |
+| scene-first-render | 2498.8 ms | 2058.4 ms | 1500   |
+| widget-update      | 44.6 ms   | 48.6 ms   | 100    |
+| search (p95)       | 420.5 ms  | 245.9 ms  | 250    |
+| graph-indexing     | 1401.1 ms | 461.3 ms  | 500    |
+
+Graph and search pass, but the margins are too thin to trust on this host. Scene first render
+breaches on both sides under this load. The candidate is 17.6% faster than the reference.
+
+Browser CPU profile (2,000 notes, five graph-indexing updates, CDP sampling): about 250 ms per
+update. The row appears within 2 ms of `dispatch` resolving, because `SceneRuntime` persists and then
+emits synchronously, so the timed interval is core + persist + one urgent React render. As an A/B, I
+temporarily passed `GraphSearch` an empty result list (reverted, never committed). That cut each
+update to about 115 ms: **the 2,000-row result list is about 130 ms of every update**. The rows are
+unmemoized DS `Button`s in `graph/Search.tsx`, which RC-POL-1.12 created after this story's earlier
+row memo, and that file is neither owned nor a companion path. I left it alone.
+`Graph.tsx` now wraps `GraphSearch` in `memo`, so canvas hover and focus no longer re-render the
+rows, but any change to the result set still re-renders all of them.
+
+**Scope request for the operator:** add `apps/gm-react/src/screens/graph/Search.tsx` to `Owns` so
+the rows can become a memoized row component with stable handlers, plus `content-visibility: auto`
+for long lists (the same change the pre-RC-POL-1.12 `GraphResultRow` made). That is the remaining
+large graph/search lever.
+
+The rest of each update: boundary stringify and UTF-8 count about 31 ms, `sliceChanged` in
+`coreStore.ts` about 12 ms (not owned), Dexie about 10 ms, and the visualization read about 21 ms.
+The deferred health and cluster panels take about 53 ms after the commit. For search, each query
+spent about 17 of its 23 ms visualization read rebuilding the source graph index, which does not
+depend on the query at all.
+
+Changes (`f2b4a205`):
+
+- `queries/graph-visualization-query.ts`: split into `buildGraphVisualizationBase`, which covers
+  the vault and actor only (source index, folder/tag join, facets, classified edges, all in order),
+  and `filterGraphVisualization`, which returns fresh objects every time.
+  `getGraphVisualizationForActor` composes the two, so its results are unchanged. Exported from
+  `packages/core/src/index.ts` (companion path).
+- `Graph.tsx`: memoizes the base on `content`/`maps`/`session`/`permissions`/viewpoint, so a search
+  keystroke or facet click runs only the filter.
+- `platform/service-boundary.ts`: `utf8ByteLength` makes one pass over the code units, replacing
+  three regex scans that each allocated a match array.
+- Tests: base + filter checked against an independently written filter-then-sort reference, for DM,
+  player and unknown actors across ten filters, plus a freshness test. Mutation check: sharing
+  `tags` with the base fails the freshness test. Removing either pre-sort changes nothing, because
+  the source index already emits nodes and edges in that order. The sorts are defensive and cost
+  O(n) on sorted input.
+
+Validation: `pnpm typecheck`; targeted ESLint; raw-style count; app unit suite 153 files / 1715
+tests; core suite 284 files / 5170 tests; perf suite 6 files / 23 tests.
+
+Capture 2: candidate `f2b4a205` against the same reference, same four budgets and protocol (load
+average 11–15):
+
+| budget             | reference | candidate | target |
+| ------------------ | --------- | --------- | ------ |
+| scene-first-render | 3323.1 ms | 2723.2 ms | 1500   |
+| widget-update      | 46.8 ms   | 48.8 ms   | 100    |
+| search (p95)       | 283.5 ms  | 200.8 ms  | 250    |
+| graph-indexing     | 1077.7 ms | 366.8 ms  | 500    |
+
+Search and graph-indexing now pass with margin on a loaded host where the reference breaches both.
+Scene first render still breaches on both sides: the reference measured 3.3 s on this host, against
+1068 ms on the desktop baseline. That makes it a host-load reading, not a verdict on the code. The
+candidate is 18.1% faster than `loop/rc` (17.6% in capture 1). A full 11-budget paired capture
+follows.
