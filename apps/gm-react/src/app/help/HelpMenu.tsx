@@ -53,7 +53,6 @@ export function hasUnseenWhatsNew(): boolean {
 }
 
 /**
-/**
  * The Help trigger for the tiers that have no phone tab bar (RC-DOC-1.3). `Footer.tsx` owns the
  * phone's own trigger in the slim row above the tab bar; desktop and rail never mount that footer,
  * so without this button the Help menu — and with it every user guide — is unreachable above 640px.

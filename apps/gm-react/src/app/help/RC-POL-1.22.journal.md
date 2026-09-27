@@ -148,7 +148,8 @@ the one below.
 - The operator brief (2026-09-22) added `ds/components/command/CommandPalette.jsx` to owns. It was
   604 lines. `Kbd` and the result row now live in a new sibling,
   `ds/components/command/CommandPaletteRow.jsx` (175 lines), leaving the palette at 446. **Boundary
-  crossing, flagged:** the new sibling sits outside the owned paths. It is the smallest move that
+  crossing, originally flagged (resolved by the 2026-09-26 operator brief):** the new sibling was
+  outside the original owned paths and is now explicitly owned. It is the smallest move that
   gets the owned file under 500 lines without having the DS import from `app/`. `ds/index.js` is
   unchanged: `Kbd` was never exported, and `CommandPalette` is re-exported as before.
 - Also removed an empty fragment and a stray blank prop line left in the DS palette by the first
@@ -171,3 +172,39 @@ the one below.
 Owned files by size: DS `CommandPalette.jsx` 446 lines, app `CommandPalette.tsx` 443,
 `shortcuts/registry.ts` 311, `shortcuts/paletteActions.ts` 295, `help/HelpMenu.tsx` 261. Every file
 in the surface is under 500 lines, `CommandPaletteRow.jsx` (175) included.
+
+## Resumed verification — 2026-09-27
+
+- The preserved candidate is `9c44ea3d`; the worktree was clean on resumption. The operator now
+  explicitly owns `CommandPaletteRow.jsx`, resolving the reported scope rejection. Its extraction
+  keeps the DS palette below 500 lines without introducing a DS-to-app dependency. `Kbd` retains
+  the contrast correction and the result row retains the existing rendering and event contract;
+  no further edits to that file are needed in this pass.
+- Preserved the candidate's EN/ES catalog entries, FEATURE-GAPS row, supporting tests and all
+  15 pinned theme/tier baselines. The visual budget waiver and native screen-reader waiver above
+  remain explicit; no full-overlay pixel coverage or audible screen-reader check is claimed.
+- Removed one duplicate documentation-comment opener in `HelpMenu.tsx` left by the earlier merge;
+  this changes no runtime behavior. All resumed edits remain inside the owned help directory.
+- Headroom tools are unavailable in this session. Validation uses native commands and original
+  logs; fresh results are recorded below.
+
+### Fresh validation results
+
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts tests/e2e/command-palette.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/help-tips.spec.ts --workers=2`:
+  exit 0, **66 passed (1.3m)** across desktop-chromium and mobile-chromium. The unfiltered axe
+  walkthrough passed on both profiles for the route, palette, no-results, Help and nested Shortcuts.
+  Release-note failure/retry, player preview rejection and 200% text reachability also passed.
+- `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/help apps/gm-react/src/app/shortcuts`:
+  exit 0, **5 files / 55 tests passed**.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- `pnpm gates`: exit 0. Read the original output: all file-size warnings concern other surfaces.
+  Current owned-file maximum is 446 lines (`CommandPalette.jsx`); the app palette has 443,
+  `HelpMenu.tsx` 260, and `CommandPaletteRow.jsx` 172. Every owned file is below 500 lines.
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: exit 0,
+  **444 files, 32745.3 KiB of 32768.0 KiB**.
+- `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts --update-snapshots=none --workers=2`:
+  exit 0, **15 passed (21.0s)** in the repository's pinned Playwright container. All five themes
+  across desktop, rail and phone match the committed key-chip baselines; no baseline regeneration
+  was needed. The documented full-overlay baseline budget waiver remains in effect.
+- `pnpm exec prettier --check apps/gm-react/src/app/help/HelpMenu.tsx apps/gm-react/src/app/help/RC-POL-1.22.journal.md`:
+  exit 0.
