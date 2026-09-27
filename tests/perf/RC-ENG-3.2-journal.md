@@ -486,3 +486,13 @@ read after every tile mounts) added three lines. The callback now reads the sing
 which is equivalent because only the wrapper is observed, and the explanatory comment lives here
 instead. The file is back to 800 lines. `pnpm gates` passes (quality and docs), and `canvas.spec`
 is 80/80 on both projects.
+
+### 2026-09-27 lint gate
+
+The operator's Lint gate failed with one error, `no-explicit-any` in `tmp/perf/payload-size.ts`.
+That is a gitignored scratch script from the 2026-09-23 profiling session, not part of the branch,
+but `eslint .` lints whatever is on disk. `tmp/` held only this task's disposable output: capture
+dev-server logs, CPU profiles, scratch scripts, and the detached 2026-09-23 reference checkout
+`tmp/perf/ref-1e13`. I removed it and pruned that one stale worktree registration (a dry run
+confirmed nothing else). `pnpm lint` now exits 0 with 0 errors; its 17 warnings are all
+pre-existing. No source change.
