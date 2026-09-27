@@ -10,7 +10,7 @@ import path from 'node:path';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const gmPkg = path.resolve(here, '../package.json');
 const require = createRequire(gmPkg);
-const { chromium } = require('playwright');
+const { chromium } = require('@playwright/test');
 
 const URL = process.env.REACT_URL ?? 'http://localhost:5273/';
 const results = [];
@@ -55,27 +55,26 @@ try {
 	const heroText = await page.textContent('body');
 	check('Command Center hero renders', /Command Center|Your campaign|Session live/.test(heroText));
 
-	// --- Round-trip: create a scene through the real UI form. ---
+	// --- Round-trip: create a scene through the real UI (the Screens library's New screen dialog,
+	// which replaced the old /scenes create form in RC-CAN-7.3; a blank screen is one scene.create). ---
 	const SCENE_NAME = `Crypt ${Date.now()}`;
-	// The Screens library's "New screen" dialog replaced the `/scenes` create form (RC-CAN-7.3); a
-	// Blank screen is a single `scene.create`.
 	await page.goto(`${URL}#/screens`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
-	await page.click('[data-testid="screens-new"]');
-	await page.click('[data-testid="screen-template-blank"]');
-	await page.fill('#screen-name', SCENE_NAME);
-	await page.click('button[type="submit"][form="new-screen-form"]');
+	await page.getByRole('button', { name: 'New screen', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'New screen' });
+	await dialog.getByRole('radio', { name: 'Blank', exact: true }).click();
+	await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(SCENE_NAME);
+	await dialog.getByRole('button', { name: 'Create screen', exact: true }).click();
+	// SceneRuntime publishes state before persistFullState resolves, so also wait for the command
+	// lifecycle to leave pending — otherwise the reload below can outrun the IndexedDB write.
 	await page.waitForFunction(
-		(name) => Object.values(window.__rt.state.scenes.scenes).some((s) => s?.name === name),
+		(name) =>
+			Object.values(window.__rt.state.scenes.scenes).some((s) => s?.name === name) &&
+			window.__rt.lastLifecycle?.status !== 'pending',
 		SCENE_NAME,
 		{ timeout: 10000 },
 	);
 	check('scene.create dispatched + applied to Core state', true, SCENE_NAME);
-	// `__rt.state` shows the scene before `persistFullState` resolves; the lifecycle leaves `pending`
-	// only once the durable write finished, so reloading earlier can lose it.
-	await page.waitForFunction(() => window.__rt.lastLifecycle?.status !== 'pending', null, {
-		timeout: 10000,
-	});
 
 	// Reload the actual tab — the scene must come back from IndexedDB.
 	await page.reload({ waitUntil: 'domcontentloaded' });
@@ -86,9 +85,14 @@ try {
 	);
 	check('scene SURVIVES reload (persistFullState round-trip)', persisted, SCENE_NAME);
 
-	// And it's visible in the rendered scenes list after reload.
+	// And it's visible in the rendered screens library after reload.
 	await page.goto(`${URL}#/screens`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
+	await page
+		.getByTestId('screens-library')
+		.getByText(SCENE_NAME)
+		.first()
+		.waitFor({ timeout: 10000 });
 	const inDom = (await page.textContent('body')).includes(SCENE_NAME);
 	check('persisted scene renders in the DOM after reload', inDom);
 
