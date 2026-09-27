@@ -208,3 +208,53 @@ in the surface is under 500 lines, `CommandPaletteRow.jsx` (175) included.
   was needed. The documented full-overlay baseline budget waiver remains in effect.
 - `pnpm exec prettier --check apps/gm-react/src/app/help/HelpMenu.tsx apps/gm-react/src/app/help/RC-POL-1.22.journal.md`:
   exit 0.
+
+## Integration reconciliation — base `6dd4f09c1a0873491cb51a5c8f9da1367103e8f7`
+
+The operator requested reconciliation after the integration rebase conflicted. Rebased the two
+preserved task commits onto that exact integration commit, resolving all five conflicts:
+
+- App palette: preserve RC-CAN-7.3's actor-filtered `useScreens`/`screenPaletteRows`, All screens,
+  New screen intent, screen groups and screen destinations. Carry `screenCanvasRoute` into the
+  extracted `shortcuts/paletteActions.ts` so canvas verbs still target the new `/screen/:id` routes.
+- Shortcuts: retain the shared focusable labelled region and this task's token spacing/wrapping.
+- DS palette: preserve the integration branch's `.jsx` → `.tsx` migration, exported command/props
+  types, typed refs and shared `dsCopy` defaults. Add types for this task's optional localized labels
+  and illustration; retain the disabled empty option, contrast fixes and extracted row. Condense
+  the introductory comment to keep the typed component under 500 lines (495). The operator's
+  explicit request to reconcile `CommandPalette.tsx` is the scope basis for editing the migrated
+  owned component; the obsolete `.jsx` is not recreated.
+- `CommandPaletteRow.jsx`: only the Icon import changes during reconciliation, from the removed
+  `.jsx` filename to the extensionless import used by the migrated DS. Rendering stays unchanged.
+- FEATURE-GAPS: retain every integration row and insert only this surface's Palette and help row.
+- Raw-style allowlist: retain the integration branch's removals for other surfaces and remove only
+  the two help entries made obsolete by this task. No old allowances are restored.
+
+Fresh checks below supersede pre-rebase results. The existing visual-budget and native
+screen-reader waivers remain explicit. No push, promotion, dispatcher-state edit or extra agent.
+
+### Post-rebase validation
+
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0, including the migrated DS palette's props
+  and typed ref callback.
+- `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/help apps/gm-react/src/app/shortcuts apps/gm-react/src/screens/screen apps/gm-react/src/ds apps/gm-react/src/i18n`:
+  exit 0, **40 files / 382 tests passed**.
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts tests/e2e/command-palette.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/help-tips.spec.ts tests/e2e/screens.spec.ts --workers=2`:
+  exit 0, **72 passed (1.5m)** on desktop and mobile. Both unfiltered axe walks passed; screen
+  creation/switching through the palette, legacy board routing, canvas add/undo, preview refusal,
+  release-note retry, nested focus return and large-text reachability passed.
+- `pnpm lint`: exit 0; existing emphasis warnings remain within their baseline. Boundary and
+  non-text contrast gates pass without widening any allowances.
+- `pnpm --filter @dndtools/gm-react build`: exit 0; production bundle guard passes.
+- `pnpm gates`: passed. Original output has 35 file-size warnings, all outside this surface.
+  Independently counted all 20 owned files: maximum 495 lines (DS palette), app palette 442,
+  shortcut registry 311, row 172.
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: exit 0,
+  **511 files, 32582.5 KiB of 32768.0 KiB**.
+- `pnpm format:check:changed -- --base 6dd4f09c`: exit 0, 17 changed files checked.
+- `git diff --check`: clean. Range-diff reviewed against the preserved commits; integration's
+  screen navigation, DS typing/copy defaults, inventory rows and unrelated lint removals retained.
+- `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts --update-snapshots=none --workers=2`:
+  exit 0, **15 passed (24.3s)**. All five themes × three tiers match the pinned key-chip baselines;
+  no baseline regeneration needed after reconciliation. Full-overlay pixel coverage remains waived
+  as documented above.
