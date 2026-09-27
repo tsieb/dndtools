@@ -63,15 +63,16 @@ import { getMapViewForActor, deliveredMapIdsForActor } from './map-query';
 /** The namespaced `dndtools.*` keys a content item carries source provenance under (GRAPH-008). */
 const SOURCE_ID_KEYS = ['dndtools.sourceId', 'dndtools.source-id'] as const;
 const SOURCE_KIND_KEYS = ['dndtools.sourceKind', 'dndtools.source-kind'] as const;
-const DOCUMENT_ID_KEYS = ['dndtools.documentId', 'dndtools.document-id', 'dndtools.fileId'] as const;
+const DOCUMENT_ID_KEYS = [
+	'dndtools.documentId',
+	'dndtools.document-id',
+	'dndtools.fileId',
+] as const;
 const REVISION_ID_KEYS = ['dndtools.revisionId', 'dndtools.revision-id'] as const;
 const SOURCE_PATH_KEYS = ['sourcePath', 'dndtools.sourcePath'] as const;
 
 /** Read a string field from a content item's open `fields` map, trying each key in order. Pure. */
-function readStringField(
-	fields: Record<string, unknown>,
-	keys: readonly string[],
-): string | null {
+function readStringField(fields: Record<string, unknown>, keys: readonly string[]): string | null {
 	for (const key of keys) {
 		const value = fields[key];
 		if (typeof value === 'string' && value.trim() !== '') return value.trim();
@@ -108,7 +109,10 @@ function sourceRefForContentItem(
 ): GraphSourceRef {
 	const fields = view.fields;
 	const sourceId = readStringField(fields, SOURCE_ID_KEYS) ?? defaultSourceId;
-	const sourceKind = normalizeSourceKind(readStringField(fields, SOURCE_KIND_KEYS), defaultSourceKind);
+	const sourceKind = normalizeSourceKind(
+		readStringField(fields, SOURCE_KIND_KEYS),
+		defaultSourceKind,
+	);
 	const documentId = readStringField(fields, DOCUMENT_ID_KEYS);
 	const revisionId = readStringField(fields, REVISION_ID_KEYS);
 	const sourcePath = readStringField(fields, SOURCE_PATH_KEYS);
@@ -205,13 +209,16 @@ function buildSourceGraphRecordsForActor(
 				revision: 0,
 				source: localRef(poi.id),
 			});
-			if (poi.linkedEntityId !== null) poiLinks.push({ poiId: poi.id, linkedEntityId: poi.linkedEntityId });
+			if (poi.linkedEntityId !== null)
+				poiLinks.push({ poiId: poi.id, linkedEntityId: poi.linkedEntityId });
 		}
 	}
 
 	// POI→linked-entity edges encoded as the linked entity's TITLE so the SAME name index resolves them. A
 	// POI whose linked entity is not in the visible set contributes NO edge (fail closed).
-	const recordById = new Map<string, SourceGraphNodeRecord>(records.map((record) => [record.id, record]));
+	const recordById = new Map<string, SourceGraphNodeRecord>(
+		records.map((record) => [record.id, record]),
+	);
 	for (const { poiId, linkedEntityId } of poiLinks) {
 		if (!visibleIds.has(linkedEntityId)) continue;
 		const linkedTitle = titleById.get(linkedEntityId);
@@ -296,7 +303,9 @@ export function getSourceGraphIndexForActor(
 	// without blocking the cached relationships (GRAPH-001 AC3).
 	for (const source of availability.configuredSources ?? []) {
 		if (seen.has(source.sourceId)) continue;
-		configured.push(configuredSourceFromRecords(source.sourceId, source.kind, [], source.available));
+		configured.push(
+			configuredSourceFromRecords(source.sourceId, source.kind, [], source.available),
+		);
 		seen.add(source.sourceId);
 	}
 
@@ -317,7 +326,10 @@ export function getSourceGraphNodesForActor(index: SourceGraphIndex): SourceGrap
  * when the node is not visible (hidden / deleted / never indexed). Fail-closed: a node the actor cannot see
  * is indistinguishable from one that does not exist. Pure.
  */
-export function getSourceRefForActor(index: SourceGraphIndex, nodeId: string): GraphSourceRef | null {
+export function getSourceRefForActor(
+	index: SourceGraphIndex,
+	nodeId: string,
+): GraphSourceRef | null {
 	return sourceRefForNode(index, nodeId);
 }
 

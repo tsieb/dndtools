@@ -82,6 +82,7 @@ function buildQualityNodesForActor(
 				title: view.title,
 				aliases: parsed.aliases,
 				body: parsed.body,
+				wikilinks: parsed.wikilinks,
 			});
 		});
 }
@@ -148,6 +149,7 @@ export function getGraphClustersForActor(
 					title: view.title,
 					aliases: parsed.aliases,
 					body: parsed.body,
+					wikilinks: parsed.wikilinks,
 				}),
 				updatedAt: view.updatedAt,
 			};

@@ -1,4 +1,4 @@
-import { extractWikilinks } from './markdown';
+import { extractWikilinks, type ParsedWikilink } from './markdown';
 import { createWikilinkResolver, type WikilinkTarget } from './wikilink-graph';
 import { editDistance } from './edit-distance';
 
@@ -91,12 +91,14 @@ export function buildQualityNode(input: {
 	title: string;
 	aliases: readonly string[];
 	body: string;
+	/** `extractWikilinks(body)` when the caller already has it (a parsed note's `wikilinks`). */
+	wikilinks?: readonly ParsedWikilink[];
 }): QualityNode {
 	return {
 		id: input.id,
 		title: input.title,
 		aliases: [...input.aliases],
-		outboundTargets: extractWikilinks(input.body).map((link) => link.target),
+		outboundTargets: (input.wikilinks ?? extractWikilinks(input.body)).map((link) => link.target),
 	};
 }
 
@@ -302,7 +304,9 @@ export function computeGraphQuality(
 		const outboundResolved = resolvedOutbound.get(node.id) ?? new Set<string>();
 		const inboundCount = inboundSources.size;
 		const outboundResolvedCount = outboundResolved.size;
-		const outboundUnresolvedCount = unresolvedLinks.filter((link) => link.sourceId === node.id).length;
+		const outboundUnresolvedCount = unresolvedLinks.filter(
+			(link) => link.sourceId === node.id,
+		).length;
 
 		if (inboundCount === 0 && outboundResolvedCount === 0) {
 			orphans.push({ itemId: node.id, title: node.title });

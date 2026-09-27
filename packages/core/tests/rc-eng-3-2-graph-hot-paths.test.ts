@@ -3,6 +3,7 @@ import {
 	CLUSTER_THRESHOLDS,
 	GRAPH_NODE_KINDS,
 	buildGraphVisualizationBase,
+	buildQualityNode,
 	computeGraphClusters,
 	computeGraphQuality,
 	dispatchCommand,
@@ -377,5 +378,21 @@ describe('RC-ENG-3.2 graph visualization base + filter', () => {
 		first.facets.tags.push('mutated');
 		first.sourceDiagnostics.push({ ...first.sourceDiagnostics[0]! });
 		expect(filterGraphVisualization(base, {})).toEqual(snapshot);
+	});
+});
+
+describe('RC-ENG-3.2 quality nodes from parsed links', () => {
+	it('builds the same node from a parsed note as from its body', () => {
+		for (const text of [
+			'---\naliases: [Old Name]\n---\nSee [[A]], [[B#Part|b]] and [[A]].',
+			'No links here.',
+			'`[[not code]]` [[École]] [[ spaced ]] [[x|y]]',
+		]) {
+			const parsed = parseMarkdownNote(text);
+			const input = { id: 'n', title: 'N', aliases: parsed.aliases, body: parsed.body };
+			expect(buildQualityNode({ ...input, wikilinks: parsed.wikilinks })).toEqual(
+				buildQualityNode(input),
+			);
+		}
 	});
 });
