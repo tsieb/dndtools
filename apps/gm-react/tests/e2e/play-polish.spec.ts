@@ -29,6 +29,36 @@ async function axe(page: Page) {
 	).toEqual([]);
 }
 
+async function checkNavigationTargets(page: Page) {
+	await open(page);
+	await page.evaluate(() => document.fonts.ready);
+	const navigation = page.locator('.player-view-nav-row');
+	await expect(navigation).toHaveCount(10);
+	for (const android of [false, true]) {
+		await page.evaluate((android) => {
+			document.documentElement.toggleAttribute('data-android', android);
+		}, android);
+		for (const action of await navigation.all()) {
+			const bounds = await action.boundingBox();
+			expect(bounds).not.toBeNull();
+			expect(bounds!.width).toBeGreaterThanOrEqual(android ? 48 : 44);
+			expect(bounds!.height).toBeGreaterThanOrEqual(android ? 48 : 44);
+		}
+	}
+}
+
+test('navigation keeps web and Android touch floors', async ({ page }) => {
+	await checkNavigationTargets(page);
+});
+
+test.describe('wide touch viewport', () => {
+	test.use({ viewport: { width: 1280, height: 800 }, hasTouch: true, isMobile: false });
+	test('navigation keeps web and Android touch floors', async ({ page }) => {
+		await checkNavigationTargets(page);
+		expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+	});
+});
+
 test('presence and join actions keep their touch floor in both toggle states', async ({ page }) => {
 	await open(page);
 	await page.evaluate(() => document.fonts.ready);
