@@ -297,3 +297,19 @@ Reconciled-tree validation (exact Headroom output retrieved):
 
 The rebase completed with no unmerged paths, and `6dd4f09c` is an ancestor of the task branch.
 Final formatting and whitespace checks passed. No push, promotion or dispatcher-state change.
+
+## Boundary lint repair — 2026-09-27
+
+The operator's full lint gate on `2b6e67c5` failed PLAT-006 at `useSceneCommands.ts:138`:
+the extracted widget-operation hook called the browser crypto primitive directly. Surface ESLint
+alone did not cover this separate boundary gate. Replaced that call with `runtime.newId()`, the
+existing runtime entry point backed by the injected environment ID generator. Each operation
+still requests a fresh idempotency key. No exception, baseline or shared-runtime change is needed.
+
+Validation: full `pnpm lint` exited 0, including the boundary and non-text contrast gates;
+existing unrelated warnings remain. `starter-widgets.spec.ts` passed on desktop and mobile
+(2/2, retries disabled); this places widgets on `/scene/:id` and asserts a Table Roller command
+adds a roll to session history through the repaired hook. App typecheck and formatting passed.
+`pnpm gates` passed with no owned-file size warnings (exact stderr retrieved and checked).
+This is an ID-provider correction with no visual change; the operator's already-passing pinned
+visual result is retained, not claimed as a new run. Only this hook and the owned journal changed.

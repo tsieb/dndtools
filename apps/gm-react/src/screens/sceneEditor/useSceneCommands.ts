@@ -135,7 +135,7 @@ export function useSceneCommands({
 		return dispatch({
 			type: 'widget.dispatch-command',
 			actorId,
-			idempotencyKey: crypto.randomUUID(),
+			idempotencyKey: runtime.newId(),
 			payload: {
 				sceneId,
 				widgetInstanceId,
