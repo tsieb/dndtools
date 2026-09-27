@@ -275,5 +275,25 @@ No unrelated integration changes were discarded.
   scene-editor entries justified above; no new allowance or unrelated removal.
 - Re-rendered the conflicting phone goldens in the pinned container, retaining stacked tiles and
   the polished toolbar together. The 24 scene visual cases rendered successfully; all baselines
-  total 511 files, 32,588.3 / 32,768 KiB. Strict comparison and functional checks are pending.
+  total 511 files, 32,588.3 / 32,768 KiB. All three updated phone images were visually inspected.
+  Strict pinned-container comparison (`--update-snapshots=none --retries=0
+-g 'scene/:id|scene editor' --workers=2`) passed all 24 cases (42.9s).
 - Reconciled `index.tsx` is 462 lines. Typecheck and surface ESLint passed; fresh gates passed.
+
+Reconciled-tree validation (exact Headroom output retrieved):
+
+- Both Chromium profiles, no retries, two workers: **132 passed, 2 skipped** (3.5m).
+  Specs: `scene-editor-polish`, `canvas`, `flow-layout`, `scene-surfaces`, `player-preview`,
+  `scene-templates`. The two skips are the desktop instances of phone-only polish checks.
+  Axe scans retain the previously documented shell exclusions and DEBT-2026-008 token waiver;
+  this reconciliation does not claim to fix those shared-surface findings.
+- A separate Playwright phone check at 393×851 against the task's Vite server passed: default
+  stacked reader; maximize first tile hides the toolbar; Escape restores it; List switches to
+  spatial and back; Edit layout removes the stacked reader; Done restores it. This directly
+  exercises the semantics that overlapped in the source conflict.
+- Focused app unit tests (`playerPreview`, `board-resizable`, `feedback-hygiene`): 14 passed.
+- `pnpm gates`: exit 0, no scene-editor file-size warning; typecheck, surface ESLint and
+  `pnpm lint:emphasis --quiet`: exit 0. Unrelated baseline slack is preserved.
+
+The rebase completed with no unmerged paths, and `6dd4f09c` is an ancestor of the task branch.
+Final formatting and whitespace checks passed. No push, promotion or dispatcher-state change.
