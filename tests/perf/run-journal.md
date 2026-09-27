@@ -414,3 +414,47 @@ the linked report gives the exact-SHA publication/capture/artifact handoff for
 the central operator. This evidence-only retry respects the explicit no-push
 restriction. No promotion, remote workflow dispatch, extra loop, dispatcher
 control-state edit or sub-agent was used.
+
+## 2026-09-27 — hosted-capture rework (storage cap and runtime)
+
+Starting candidate: `2c2ac85e`, on base `2d9f566d`. The owner's hosted run
+36282130325 found two defects; details and evidence are in
+[the rework report](reports/2026-09-27-hosted-rework/README.md).
+
+Rebased the series onto loop/rc `6dd4f09c`. `demo-seed.ts` kept the showcase layer
+and appended the large profile. `budget-registry.ts` kept loop/rc's measured
+standard maturity; the `:large` rows are now explicitly provisional (review
+2026-12-31), because those baselines were not measured on the large fixture.
+`capture.ts` kept `a347e2c0`'s input-only sync fixture label.
+
+**Storage cap.** The map rows failed on the pinned reference, not on the
+candidate: `48a82786` validates `{ previous, next }`, so each commit costs twice
+the vault. A live reference probe after the rebase rejected any dispatch at
+5,343,213 B. The platform limit is unchanged. The fixture now has short ids and
+bodies and 100 note edits (2,354,674 B), and its pan/zoom map (4 layers / 100
+POIs) is one of the 200 maps, so the large map rows commit nothing. The new
+payload test replays every `:large` scenario's commits. It requires 384 KiB of
+headroom on both boundary shapes. The peak is 4,726,918 B on the reference and
+2,364,007 B here. The previous fixture fails it at 5,342,569 B.
+
+**Runtime.** Measured hosted per-run time was 65.0 / 63.8 / 63.6 / 63.4 min:
+standard ~1,285 s, large ~2,505 s. Changes: build the snapshot once; share
+`smoke-ci` batches with `smoke-ci:large`; restore once per batch for large
+startup and scene; drop a redundant reopen in large search and graph; reset
+large search to a no-match query. The workflow and `ci.sh` were not changed.
+
+One full paired local capture of `1d7de2da` took **47.2 min** at load ~15. Its
+standard rows ran 1.19× slower than hosted, which projects ~40 min per hosted
+run and ~200 min for five. At the local pace, five runs would take 236 min.
+Large rows took 1,303 s. Every one of the 22 rows had seven nonempty batches on
+both revisions, including 356 / 1,360 map frames. `perf:baseline --ci` wrote all
+22 rows. `perf:compare --ci` flagged `search:large` (+48.5%) and
+`graph-indexing:large` (+23.5%). Search drift also appears in the hosted runs
+on the old fixture. Neither verdict was adjusted.
+
+Checks on this revision: scoped perf suite 3 files / 18 tests; `pnpm typecheck`
+exit 0; `pnpm test:tooling` 30 files / 228 tests; targeted ESLint and Prettier;
+typecheck of `capture.ts` with both perf tests; opt-in Chromium navigation
+regression 4/4. These are local results, not hosted or wrapper gates. The
+task-created reference worktree and dev servers were removed. No push,
+promotion, workflow dispatch, loop, sub-agent or dispatcher control-state edit.
