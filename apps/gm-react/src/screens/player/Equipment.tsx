@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import type { CharacterInventory, EncumbranceState, EquipmentItem } from '@dndtools/core';
-import { Badge, Button, Field, Icon, IconButton, Input, ProgressMeter, Stat } from '../../ds';
+import {
+	Badge,
+	Button,
+	EmptyState,
+	Field,
+	Icon,
+	IconButton,
+	Input,
+	ProgressMeter,
+	Stat,
+} from '../../ds';
 import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -117,15 +127,17 @@ export function PlayerEquipment({
 			style={{
 				display: 'grid',
 				gridTemplateColumns: viewport === 'phone' ? '1fr' : '1.4fr 1fr',
-				gap: 16,
+				gap: 'var(--space-4)',
 				alignItems: 'start',
 			}}
 		>
 			<Panel title={t('player.equipment.title', { count: items.length })}>
 				{items.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t('player.equipment.empty')}
-					</div>
+					<EmptyState
+						inset
+						illustration="inventory-empty"
+						description={t('player.equipment.empty')}
+					/>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{items.map((item, i) => (
@@ -134,8 +146,8 @@ export function PlayerEquipment({
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '8px 0',
+									gap: 'var(--space-2)',
+									padding: 'var(--space-2) 0',
 									borderTop: i ? `1px solid ${T.bd}` : 'none',
 								}}
 							>
@@ -145,15 +157,15 @@ export function PlayerEquipment({
 									color={item.equipped ? T.acc : T.ter}
 								/>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `600 12.5px ${T.sans}` }}>
+									<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
 										{item.name}
 										{item.equipped && (
-											<span style={{ marginLeft: 6 }}>
+											<span style={{ marginLeft: 'var(--space-1-5)' }}>
 												<Badge status="accent">{t('player.equipment.equippedBadge')}</Badge>
 											</span>
 										)}
 									</div>
-									<div style={{ font: `11px ${T.mono}`, color: T.ter }}>
+									<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 										{t('player.equipment.weights', {
 											each: lb(item.weight),
 											total: lb(item.quantity * item.weight),
@@ -162,7 +174,7 @@ export function PlayerEquipment({
 									</div>
 								</div>
 								{canManage ? (
-									<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
 										<IconButton
 											icon="chevron-down"
 											// At 1, stepping down clamped to 0 and left a `×0` ghost row that stayed in
@@ -179,7 +191,13 @@ export function PlayerEquipment({
 											size="sm"
 											onClick={() => void stepQty(item, -1)}
 										/>
-										<span style={{ font: `700 12px ${T.mono}`, minWidth: 22, textAlign: 'center' }}>
+										<span
+											style={{
+												font: `700 var(--text-xs) ${T.mono}`,
+												minWidth: 22,
+												textAlign: 'center',
+											}}
+										>
 											{item.quantity}
 										</span>
 										<IconButton
@@ -196,12 +214,12 @@ export function PlayerEquipment({
 											style={{
 												// 3px + an 11px line + 3px is a ~21px target, under the WCAG 2.5.8
 												// floor, wedged between icon buttons that DO meet it.
-												padding: '6px 10px',
+												padding: 'var(--space-1-5) var(--space-2)',
 												minHeight: 24,
 												boxSizing: 'border-box',
-												borderRadius: 14,
+												borderRadius: 'var(--radius-lg)',
 												cursor: 'pointer',
-												font: `11px ${T.sans}`,
+												font: `var(--text-xs) ${T.sans}`,
 												border: `1px solid ${item.equipped ? T.accBd : T.bd}`,
 												background: item.equipped ? T.accSub : T.surf,
 												color: item.equipped ? T.acc : T.ter,
@@ -218,7 +236,9 @@ export function PlayerEquipment({
 										/>
 									</div>
 								) : (
-									<span style={{ font: `12px ${T.mono}`, color: T.ter }}>×{item.quantity}</span>
+									<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
+										×{item.quantity}
+									</span>
 								)}
 							</div>
 						))}
@@ -228,9 +248,9 @@ export function PlayerEquipment({
 					<div
 						style={{
 							display: 'flex',
-							gap: 8,
-							marginTop: 12,
-							paddingTop: 12,
+							gap: 'var(--space-2)',
+							marginTop: 'var(--space-3)',
+							paddingTop: 'var(--space-3)',
 							borderTop: `1px solid ${T.bd}`,
 							alignItems: 'flex-end',
 							flexWrap: 'wrap',
@@ -272,14 +292,14 @@ export function PlayerEquipment({
 					</div>
 				)}
 			</Panel>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 				<Panel title={t('player.equipment.encumbrance')}>
 					{enc && encMeta ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 								<Badge status={encMeta.status}>{t(encMeta.label)}</Badge>
 								{enc.speedPenalty !== 0 && (
-									<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 										{t('player.equipment.speedPenalty', {
 											amount: formatDistance(enc.speedPenalty),
 										})}
@@ -294,14 +314,14 @@ export function PlayerEquipment({
 									capacity: lb(enc.carryCapacity),
 								})}
 							/>
-							<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+							<div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
 								<Stat label={t('player.equipment.itemsStat')} value={lb(enc.itemWeight)} />
 								<Stat label={t('player.equipment.coinsStat')} value={lb(enc.coinWeight)} />
 								<Stat label={t('player.equipment.capacityStat')} value={lb(enc.carryCapacity)} />
 							</div>
 						</div>
 					) : (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 							{t('player.equipment.noEncumbrance')}
 						</div>
 					)}
@@ -316,18 +336,25 @@ export function PlayerEquipment({
 						) : undefined
 					}
 				>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
 						{COIN_ORDER.map((coin) => (
 							<div
 								key={coin.key}
-								style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 'var(--space-2)',
+									padding: 'var(--space-1) 0',
+								}}
 							>
-								<span style={{ font: `700 12px ${T.mono}`, color: T.acc, width: 26 }}>
+								<span style={{ font: `700 var(--text-xs) ${T.mono}`, color: T.acc, width: 26 }}>
 									{t(coin.label)}
 								</span>
-								<span style={{ flex: 1, font: `13px ${T.mono}` }}>{currency[coin.key]}</span>
+								<span style={{ flex: 1, font: `var(--text-sm) ${T.mono}` }}>
+									{currency[coin.key]}
+								</span>
 								{canManage && (
-									<div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
 										<IconButton
 											icon="chevron-down"
 											label={t('player.equipment.spendCoin', { coin: t(coin.label) })}

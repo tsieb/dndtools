@@ -192,16 +192,23 @@ export function CharacterResourcesPanel({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 12,
-						marginTop: 4,
-						padding: 14,
-						borderRadius: 10,
+						gap: 'var(--space-3)',
+						marginTop: 'var(--space-1)',
+						padding: 'var(--space-3)',
+						borderRadius: 'var(--radius-md)',
 						border: `1px solid ${T.bd}`,
 						background: T.alt,
 					}}
 				>
 					{offered.length > 0 && (
-						<div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+						<div
+							style={{
+								display: 'flex',
+								gap: 'var(--space-2)',
+								alignItems: 'flex-end',
+								flexWrap: 'wrap',
+							}}
+						>
 							<Field label={t('character.resources.fromSystem')} style={{ flex: '1 1 180px' }}>
 								<Select
 									value={offeredKey}
@@ -225,7 +232,14 @@ export function CharacterResourcesPanel({
 							</Button>
 						</div>
 					)}
-					<div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+					<div
+						style={{
+							display: 'flex',
+							gap: 'var(--space-2)',
+							alignItems: 'flex-end',
+							flexWrap: 'wrap',
+						}}
+					>
 						<Field label={t('character.resources.customName')} style={{ flex: '1 1 160px' }}>
 							<Input
 								value={homebrewName}
@@ -262,7 +276,9 @@ export function CharacterResourcesPanel({
 							{t('character.resources.addCustom')}
 						</Button>
 					</div>
-					<p style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, margin: 0 }}>
+					<p
+						style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub, margin: 'var(--space-0)' }}
+					>
 						{t('character.resources.customHelp')}
 					</p>
 				</div>
@@ -303,22 +319,29 @@ function ResourceRow({
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 11,
+				gap: 'var(--space-3)',
 				flexWrap: compact ? 'wrap' : 'nowrap',
-				padding: '9px 0',
+				padding: 'var(--space-2) 0',
 				borderTop: index ? `1px solid ${T.bd}` : 'none',
 			}}
 		>
 			<Icon name="sparkle" size={17} color={T.acc} />
 			<div style={{ flex: '1 1 120px', minWidth: 0 }}>
-				<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{resource.label}</div>
-				<div style={{ font: `10.5px ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{resource.label}</div>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t(RECOVERY_LABEL[resource.recovery])}
 					{resource.diceNotation ? ` · ${resource.diceNotation}` : ''}
 				</div>
 			</div>
 			{usePips ? (
-				<div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+				<div
+					style={{
+						display: 'flex',
+						gap: 'var(--space-1)',
+						flexWrap: 'wrap',
+						justifyContent: 'flex-end',
+					}}
+				>
 					{Array.from({ length: resource.max }).map((_, pip) => {
 						// Filled means "spent" on a track and "still available" on a pool; either way a
 						// click moves this pip's own state, so the pointer and the keyboard do the same.
@@ -351,8 +374,8 @@ function ResourceRow({
 									width: PIP_SIZE,
 									height: PIP_SIZE,
 									flex: '0 0 auto',
-									padding: 0,
-									borderRadius: '50%',
+									padding: 'var(--space-0)',
+									borderRadius: 'var(--radius-full)',
 									cursor: canManage ? 'pointer' : 'default',
 									background: filled ? T.acc : 'transparent',
 									border: `1.5px solid ${filled ? T.acc : T.bdS}`,
@@ -362,7 +385,7 @@ function ResourceRow({
 					})}
 				</div>
 			) : (
-				<div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-1-5)', alignItems: 'center' }}>
 					<Button
 						variant="ghost"
 						size="sm"
@@ -382,7 +405,9 @@ function ResourceRow({
 				</div>
 			)}
 			{/* Inside the row's named group, so "4/5" is read as this resource's own count. */}
-			<span style={{ font: `12px ${T.mono}`, color: T.sub, minWidth: 44, textAlign: 'right' }}>
+			<span
+				style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub, minWidth: 44, textAlign: 'right' }}
+			>
 				{available}/{resource.max}
 			</span>
 		</div>

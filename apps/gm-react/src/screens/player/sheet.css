@@ -1,38 +1,38 @@
 .character-sheet {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-	gap: 20px;
+	gap: var(--space-5);
 	align-items: start;
 }
 .character-sheet-column {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: var(--space-5);
 	min-width: 0;
 }
 .character-sheet-abilities {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 8px;
+	gap: var(--space-2);
 }
 .character-sheet-combat {
 	background: var(--color-surface-raised);
 	border: 1px solid var(--color-accent-border);
-	border-radius: 6px;
-	padding: 20px;
+	border-radius: var(--radius-md);
+	padding: var(--space-5);
 	box-shadow: var(--shadow-md);
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--space-4);
 }
 .character-sheet-combat h2 {
 	margin: 0;
-	font: 700 20px var(--font-display);
+	font: 700 var(--text-lg) var(--font-sans);
 }
 .character-sheet-combat-controls {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 14px;
+	gap: var(--space-3);
 	align-items: center;
 }
 @media (max-width: 767px) {
@@ -44,9 +44,9 @@
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: space-between;
-	gap: 12px;
-	margin-top: 14px;
-	padding-top: 14px;
+	gap: var(--space-3);
+	margin-top: var(--space-3);
+	padding-top: var(--space-3);
 	border-top: 1px solid var(--color-border);
 }
 .character-sheet-hint {
@@ -56,19 +56,19 @@
 .character-sheet-combat-stats {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 14px;
+	gap: var(--space-3);
 }
 .character-sheet-combat-stats > * {
 	background: var(--color-surface-sunken);
 	border: 1px solid var(--color-border);
-	border-radius: 4px;
-	padding: 10px;
+	border-radius: var(--radius-sm);
+	padding: var(--space-2);
 	text-align: center;
 }
 .character-sheet-rest {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px;
+	gap: var(--space-2);
 }
 .character-sheet-portrait {
 	flex: 0 0 64px;
@@ -98,12 +98,43 @@
 	border-left: 1px solid var(--color-border);
 }
 .character-sheet-summary dt {
-	font: 600 10px var(--font-sans);
+	font: 600 var(--text-xs) var(--font-sans);
 	text-transform: uppercase;
 	color: var(--color-text-tertiary);
 	overflow-wrap: anywhere;
 }
 .character-sheet-summary dd {
-	margin: 4px 0 0;
-	font: 700 20px var(--font-mono);
+	margin: var(--space-1) 0 0;
+	font: 700 var(--text-lg) var(--font-mono);
+}
+
+.player-save-status {
+	min-height: var(--space-6);
+	padding-inline: var(--space-6);
+	color: var(--color-text-secondary);
+	font: var(--text-sm) var(--font-sans);
+}
+.character-sheet-portrait-upload {
+	min-height: var(--space-12);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.character-sheet input {
+	min-height: var(--space-12);
+}
+
+/* Table controls remain comfortably reachable with a mouse, touch or large text. */
+.player-surface {
+	--density-button-height: var(--space-12);
+	--density-input-height: var(--space-12);
+	--density-touch-target: var(--space-12);
+}
+.player-surface button {
+	min-width: var(--space-12);
+	min-height: var(--space-12);
+}
+.character-sheet-combat-controls > div {
+	flex-wrap: wrap;
+	max-width: 100%;
 }

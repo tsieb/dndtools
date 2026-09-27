@@ -127,7 +127,7 @@ export function CharacterHistoryTimeline({
 			{entries.length === 0 ? (
 				<EmptyState
 					inset
-					icon="recent"
+					illustration="timeline-empty"
 					title={t('character.history.emptyTitle')}
 					description={t('character.history.emptyBody')}
 				/>
@@ -138,22 +138,37 @@ export function CharacterHistoryTimeline({
 							key={entry.id}
 							style={{
 								display: 'flex',
-								gap: 10,
-								padding: '10px 0',
+								gap: 'var(--space-2)',
+								padding: 'var(--space-2) 0',
 								borderTop: i ? `1px solid ${T.bd}` : 'none',
 							}}
 						>
 							<Icon name={KIND_ICON[entry.kind] ?? 'note-edit'} size={15} color={T.acc} />
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-									<span style={{ font: `600 12.5px ${T.sans}` }}>{entry.title}</span>
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 'var(--space-2)',
+										flexWrap: 'wrap',
+									}}
+								>
+									<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{entry.title}</span>
 									<Badge status="neutral">{kindLabel(entry.kind)}</Badge>
-									<span style={{ marginLeft: 'auto', font: `10.5px ${T.mono}`, color: T.ter }}>
+									<span
+										style={{ marginLeft: 'auto', font: `var(--text-xs) ${T.mono}`, color: T.ter }}
+									>
 										{formatDate(new Date(entry.updatedAt))}
 									</span>
 								</div>
 								{entry.kind === 'downtime' && entry.downtime && (
-									<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+									<div
+										style={{
+											font: `var(--text-xs) ${T.sans}`,
+											color: T.ter,
+											marginTop: 'var(--space-0-5)',
+										}}
+									>
 										{t('character.history.downtimeSummary', {
 											activity: entry.downtime.activityType,
 											days: entry.downtime.days,
@@ -161,7 +176,13 @@ export function CharacterHistoryTimeline({
 									</div>
 								)}
 								{entry.body && (
-									<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, marginTop: 4 }}>
+									<div
+										style={{
+											font: `var(--text-xs)/1.5 ${T.sans}`,
+											color: T.sub,
+											marginTop: 'var(--space-1)',
+										}}
+									>
 										{entry.body}
 									</div>
 								)}

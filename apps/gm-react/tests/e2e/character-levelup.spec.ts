@@ -108,6 +108,7 @@ test.describe('guided level-up wizard', () => {
 
 		// Discarding leaves the character exactly where it was.
 		await page.getByRole('button', { name: 'Discard level-up' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Discard level-up' }).click();
 		await expect(page.getByRole('button', { name: 'Level up (milestone)' })).toBeVisible();
 		expect((await stored(page, pc)).level).toBe(1);
 	});

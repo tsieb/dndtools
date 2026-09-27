@@ -144,7 +144,7 @@ function RestForm({
 				</>
 			}
 		>
-			<div style={{ display: 'grid', gap: 14 }}>
+			<div style={{ display: 'grid', gap: 'var(--space-3)' }}>
 				<Seg
 					value={rest}
 					ariaLabel={t('character.rest.kindLabel')}
@@ -157,7 +157,7 @@ function RestForm({
 				{rest === 'short' ? (
 					faces === null || subject.hitDice.total === 0 ? (
 						// Honest empty state: no stepper, and the reason the rest cannot spend anything.
-						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
+						<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
 							{t('character.rest.noHitDice')}
 						</div>
 					) : (
@@ -192,7 +192,7 @@ function RestForm({
 						</>
 					)
 				) : null}
-				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>{summary}</div>
+				<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>{summary}</div>
 			</div>
 		</Dialog>
 	);

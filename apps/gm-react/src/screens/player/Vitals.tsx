@@ -95,29 +95,29 @@ export function PlayerResources({
 			style={{
 				display: 'grid',
 				gridTemplateColumns: compact ? 'minmax(0,1fr)' : 'repeat(2,minmax(0,1fr))',
-				gap: 18,
+				gap: 'var(--space-4)',
 				alignItems: 'start',
 			}}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 				{con && (
 					<div
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 12,
-							padding: '13px 16px',
-							borderRadius: 12,
+							gap: 'var(--space-3)',
+							padding: 'var(--space-3) var(--space-4)',
+							borderRadius: 'var(--radius-lg)',
 							background: T.accSub,
 							border: `1px solid ${T.accBd}`,
 						}}
 					>
 						<Icon name="concentration" size="lg" color={T.acc} />
 						<div style={{ flex: 1 }}>
-							<div style={{ font: `700 14px ${T.disp}` }}>
+							<div style={{ font: `700 var(--text-sm) ${T.sans}` }}>
 								{t('player.vitals.concentrating', { effect: con.effect ?? '' })}
 							</div>
-							<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('player.vitals.maintainedEffect')}
 							</div>
 						</div>
@@ -132,18 +132,18 @@ export function PlayerResources({
 							display: 'flex',
 							alignItems: 'center',
 							flexWrap: 'wrap',
-							gap: 12,
-							padding: '13px 16px',
-							borderRadius: 12,
+							gap: 'var(--space-3)',
+							padding: 'var(--space-3) var(--space-4)',
+							borderRadius: 'var(--radius-lg)',
 							background: T.accSub,
 							border: `1px solid ${T.accBd}`,
 						}}
 					>
 						<div style={{ flex: 1, minWidth: 160 }}>
-							<div style={{ font: `700 14px ${T.disp}` }}>
+							<div style={{ font: `700 var(--text-sm) ${T.sans}` }}>
 								{t('player.vitals.concCheck', { dc: concentrationCheck.dc })}
 							</div>
-							<div style={{ font: `12px ${T.sans}`, color: T.sub }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('player.vitals.concCheckHelp', { damage: concentrationCheck.damage })}
 							</div>
 						</div>
@@ -159,7 +159,7 @@ export function PlayerResources({
 					{slots.length === 0 ? (
 						<EmptyState
 							inset
-							icon="sparkle"
+							illustration="spells-empty"
 							title={t('player.vitals.noSlotsTitle')}
 							description={t('player.vitals.noSlotsBody')}
 						/>
@@ -191,7 +191,7 @@ export function PlayerResources({
 					dispatch={dispatch}
 				/>
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 				<Panel
 					title={t('player.vitals.deathSaves')}
 					action={
@@ -200,10 +200,16 @@ export function PlayerResources({
 						</Badge>
 					}
 				>
-					<div style={{ display: 'flex', gap: 24 }}>
+					<div style={{ display: 'flex', gap: 'var(--space-6)' }}>
 						{(['successes', 'failures'] as const).map((k) => (
 							<div key={k}>
-								<div style={{ ...eb, color: k === 'failures' ? T.err : T.ok, marginBottom: 6 }}>
+								<div
+									style={{
+										...eb,
+										color: k === 'failures' ? T.err : T.ok,
+										marginBottom: 'var(--space-1-5)',
+									}}
+								>
 									{t(
 										k === 'failures'
 											? 'player.vitals.deathFailures'
@@ -223,7 +229,7 @@ export function PlayerResources({
 											: 'player.vitals.deathSuccessesCount',
 										{ count: death[k] },
 									)}
-									style={{ display: 'flex', gap: 7, alignItems: 'center' }}
+									style={{ display: 'flex', gap: 'var(--space-1-5)', alignItems: 'center' }}
 								>
 									{Array.from({ length: 3 }).map((_, i) => (
 										<span
@@ -231,14 +237,17 @@ export function PlayerResources({
 											style={{
 												width: 18,
 												height: 18,
-												borderRadius: '50%',
+												borderRadius: 'var(--radius-full)',
 												background:
 													i < death[k] ? (k === 'failures' ? T.err : T.ok) : 'transparent',
 												border: `1.5px solid ${k === 'failures' ? T.err : T.ok}`,
 											}}
 										/>
 									))}
-									<span aria-hidden="true" style={{ font: `12px ${T.mono}`, color: T.ter }}>
+									<span
+										aria-hidden="true"
+										style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}
+									>
 										{death[k]}/3
 									</span>
 								</div>
@@ -249,7 +258,7 @@ export function PlayerResources({
 				<Panel
 					title={t('player.vitals.rest')}
 					action={
-						<div style={{ display: 'flex', gap: 7 }}>
+						<div style={{ display: 'flex', gap: 'var(--space-1-5)' }}>
 							<Button
 								variant="secondary"
 								size="sm"
@@ -271,7 +280,7 @@ export function PlayerResources({
 						</div>
 					}
 				>
-					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
 						{t('player.vitals.restHelp')}
 					</div>
 				</Panel>
@@ -283,21 +292,21 @@ export function PlayerResources({
 					{spells.length === 0 ? (
 						<EmptyState
 							inset
-							icon="knowledge-book"
+							illustration="spells-empty"
 							title={t('player.vitals.noSpellsTitle')}
 							description={t('player.vitals.noSpellsBody')}
 						/>
 					) : (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
 							{spells.map((s) => (
 								<div
 									key={s.id}
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 10,
-										padding: '8px 10px',
-										borderRadius: 9,
+										gap: 'var(--space-2)',
+										padding: 'var(--space-2) var(--space-2)',
+										borderRadius: 'var(--radius-md)',
 										border: `1px solid ${T.bd}`,
 										background: T.surf,
 									}}
@@ -306,12 +315,12 @@ export function PlayerResources({
 										style={{
 											width: 24,
 											height: 24,
-											borderRadius: 6,
+											borderRadius: 'var(--radius-md)',
 											flex: '0 0 auto',
 											display: 'flex',
 											alignItems: 'center',
 											justifyContent: 'center',
-											font: `700 12px ${T.mono}`,
+											font: `700 var(--text-xs) ${T.mono}`,
 											background: T.alt,
 											color: T.acc,
 										}}
@@ -319,15 +328,17 @@ export function PlayerResources({
 										{s.level}
 									</span>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<span style={{ display: 'block', font: `600 12.5px ${T.sans}` }}>{s.name}</span>
+										<span style={{ display: 'block', font: `600 var(--text-sm) ${T.sans}` }}>
+											{s.name}
+										</span>
 										{/* extended PreparedSpell detail fields — shown only when the record carries them */}
 										{(s.school || s.castingTime || s.range || s.components || s.duration) && (
 											<span
 												style={{
 													display: 'block',
-													font: `11px ${T.sans}`,
+													font: `var(--text-xs) ${T.sans}`,
 													color: T.ter,
-													marginTop: 1,
+													marginTop: 'var(--space-0-5)',
 												}}
 											>
 												{[s.school, s.castingTime, s.range, s.components, s.duration]
@@ -344,11 +355,11 @@ export function PlayerResources({
 										style={{
 											display: 'inline-flex',
 											alignItems: 'center',
-											gap: 5,
-											padding: '3px 9px',
-											borderRadius: 14,
+											gap: 'var(--space-1)',
+											padding: 'var(--space-0-5) var(--space-2)',
+											borderRadius: 'var(--radius-lg)',
 											cursor: 'pointer',
-											font: `11px ${T.sans}`,
+											font: `var(--text-xs) ${T.sans}`,
 											border: `1px solid ${s.prepared ? T.accBd : T.bd}`,
 											background: s.prepared ? T.accSub : T.surf,
 											color: s.prepared ? T.acc : T.ter,

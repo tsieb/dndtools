@@ -96,7 +96,6 @@ const SHELLED_ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/characters', slug: 'characters' },
 	{ path: '/knowledge', slug: 'knowledge' },
 	{ path: '/session', slug: 'session' },
-	{ path: '/player', slug: 'player' },
 	{ path: '/settings', slug: 'settings' },
 ];
 

@@ -1,4 +1,4 @@
-/* eslint-disable i18n/no-literal-jsx-text -- Printable export copy is colocated within RC-CHR-2.4 ownership; translation catalog follow-up required. */
+import { useI18n } from '../../i18n';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { CharacterView, CharacterInventory } from '@dndtools/core';
@@ -16,43 +16,45 @@ export function PrintableSheet({
 	inventory: CharacterInventory | null;
 	level: number | null;
 }) {
+	const { t } = useI18n();
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState('');
 	const value = (key: string) => (typeof c.data[key] === 'string' ? String(c.data[key]) : '—');
 	const sections = [
 		[
-			'Identity',
-			`Class: ${value('class')}   Level: ${level ?? '—'}   Race: ${value('race')}`,
-			`Background: ${value('background')}   Subclass: ${value('subclass')}`,
+			t('player.sheet.identity'),
+			`${t('player.sheet.class')}: ${value('class')}   ${t('player.sheet.level')}: ${level ?? '—'}   ${t('player.sheet.race')}: ${value('race')}`,
+			`${t('player.sheet.background')}: ${value('background')}   ${t('player.sheet.subclass')}: ${value('subclass')}`,
 		],
 		[
-			'Combat',
-			`HP: ${c.combat.hp ?? '—'} / ${c.combat.maxHp ?? '—'}   AC: ${c.combat.ac ?? '—'}   Speed: ${value('speed')}   Initiative: ${value('init')}`,
-			`Conditions: ${c.combat.conditions?.join(', ') || '—'}`,
+			t('mapInspector.combat'),
+			`${t('player.print.hp')}: ${c.combat.hp ?? '—'} / ${c.combat.maxHp ?? '—'}   ${t('player.stat.ac')}: ${c.combat.ac ?? '—'}   ${t('player.stat.speed')}: ${value('speed')}   ${t('player.print.initiative')}: ${value('init')}`,
+			`${t('player.print.conditions')}: ${c.combat.conditions?.join(', ') || '—'}`,
 		],
 		[
-			'Abilities',
+			t('player.print.abilities'),
 			Object.entries(c.attributes)
 				.map(([key, score]) => `${key.toUpperCase()}: ${score}`)
 				.join('   ') || '—',
 		],
 		[
-			'Proficiencies',
-			`Saving throws: ${c.proficiencies.saves.join(', ') || '—'}`,
-			`Skills: ${
+			t('player.print.proficiencies'),
+			`${t('player.sheet.savingThrows')}: ${c.proficiencies.saves.join(', ') || '—'}`,
+			`${t('player.sheet.skills')}: ${
 				Object.entries(c.proficiencies.skills)
 					.map(([key, rank]) => `${key}: ${rank}`)
 					.join(', ') || '—'
 			}`,
 		],
-		['Attacks', ...c.attacks.map((a) => `${a.name}: ${a.detail}`)],
+		[t('player.sheet.attacks'), ...c.attacks.map((a) => `${a.name}: ${a.detail}`)],
 		[
-			'Equipment',
+			t('player.print.equipment'),
 			...(inventory?.items.map(
-				(i) => `${i.quantity} × ${i.name}${i.equipped ? ' (equipped)' : ''}`,
+				(i) =>
+					`${i.quantity} × ${i.name}${i.equipped ? ` (${t('player.equipment.equippedBadge')})` : ''}`,
 			) ?? []),
-			`Currency: ${
+			`${t('player.equipment.currency')}: ${
 				inventory
 					? Object.entries(inventory.currency)
 							.map(([coin, count]) => `${count} ${coin}`)
@@ -60,7 +62,7 @@ export function PrintableSheet({
 					: '—'
 			}`,
 		],
-		['Backstory', value('backstory')],
+		[t('player.sheet.backstory'), value('backstory')],
 	];
 	// A compact summary has explicit per-section bounds; long records cannot silently add pages.
 	const rows = sections.flatMap(([heading, ...lines]) => {
@@ -80,18 +82,17 @@ export function PrintableSheet({
 		try {
 			const result = await exportFile({
 				filename: 'character-sheet.pdf',
-				title: `${c.name} — Character sheet`,
-				blob: sheetPdf(canvas.current, c.name, rows),
+				title: `${c.name} — ${t('player.print.title')}`,
+				blob: sheetPdf(canvas.current, c.name, rows, {
+					summary: t('player.print.summary'),
+					footer: t('player.print.footer'),
+				}),
 			});
 			setMessage(
-				result.status === 'cancelled'
-					? 'Export cancelled.'
-					: 'Character sheet exported. Open the PDF to print.',
+				result.status === 'cancelled' ? t('player.print.cancelled') : t('player.print.exported'),
 			);
-		} catch (error) {
-			setMessage(
-				error instanceof Error ? error.message : 'Could not export the character sheet. Try again.',
-			);
+		} catch {
+			setMessage(t('player.print.failed'));
 		} finally {
 			setBusy(false);
 		}
@@ -99,20 +100,18 @@ export function PrintableSheet({
 	return (
 		<>
 			<Button variant="secondary" disabled={busy} onClick={save}>
-				Print / Save PDF
+				{t('player.print.action')}
 			</Button>
 			{message && <span role="status">{message}</span>}
 			<canvas ref={canvas} hidden />
 			{createPortal(
-				<article className="character-print-sheet" aria-label="Printable character sheet">
+				<article className="character-print-sheet" aria-label={t('player.print.label')}>
 					<h1>{c.name}</h1>
-					<p>Character sheet · Compact summary</p>
+					<p>{t('player.print.summary')}</p>
 					{rows.map((row, i) => (
 						<p key={i}>{row}</p>
 					))}
-					<footer>
-						Long sections are abbreviated with …; full details remain in the character sheet.
-					</footer>
+					<footer>{t('player.print.footer')}</footer>
 				</article>,
 				document.body,
 			)}

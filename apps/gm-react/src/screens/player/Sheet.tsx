@@ -1,7 +1,16 @@
 import { useState, type ReactNode } from 'react';
 import type { CharacterInventory, CharacterView, EncumbranceState } from '@dndtools/core';
 import { ABILITY_IDS, SKILLS } from '../../app/charImport/skills';
-import { AbilityScore, Button, DefinitionList, Field, Icon, Input, Textarea } from '../../ds';
+import {
+	AbilityScore,
+	Button,
+	DefinitionList,
+	Field,
+	HelpTip,
+	Icon,
+	Input,
+	Textarea,
+} from '../../ds';
 import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -191,7 +200,7 @@ export function PlayerSheet({
 						action={
 							isDm ? (
 								editing ? (
-									<div style={{ display: 'flex', gap: 6 }}>
+									<div style={{ display: 'flex', gap: 'var(--space-1-5)' }}>
 										<Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
 											{t('common.action.cancel')}
 										</Button>
@@ -208,7 +217,7 @@ export function PlayerSheet({
 						}
 					>
 						{editing ? (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 								{IDENTITY_FIELDS.map((f) => (
 									<Field key={f.key} label={t(f.label)}>
 										<Input
@@ -220,9 +229,7 @@ export function PlayerSheet({
 										/>
 									</Field>
 								))}
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									{t('player.sheet.editNote')}
-								</div>
+								<HelpTip>{t('player.sheet.editNote')}</HelpTip>
 							</div>
 						) : (
 							<DefinitionList
@@ -244,7 +251,7 @@ export function PlayerSheet({
 					</Panel>
 					<Panel title={t('player.sheet.attacks')} pad={14}>
 						{C.attacks.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 								{t('player.sheet.noAttacks')}
 							</div>
 						) : (
@@ -255,14 +262,16 @@ export function PlayerSheet({
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 10,
-											padding: '8px 2px',
+											gap: 'var(--space-2)',
+											padding: 'var(--space-2) var(--space-0-5)',
 											borderTop: i ? `1px solid ${T.bd}` : 'none',
 										}}
 									>
 										<Icon name="session-bolt" size={15} color={T.acc} />
-										<span style={{ flex: 1, font: `600 12.5px ${T.sans}` }}>{a.name}</span>
-										<span style={{ font: `11.5px ${T.mono}`, color: T.sub }}>{a.detail}</span>
+										<span style={{ flex: 1, font: `600 var(--text-sm) ${T.sans}` }}>{a.name}</span>
+										<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
+											{a.detail}
+										</span>
 									</div>
 								))}
 							</div>
@@ -285,7 +294,7 @@ export function PlayerSheet({
 					}
 				>
 					{backstoryDraft !== null ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 							<Textarea
 								rows={4}
 								aria-label={t('player.sheet.backstory')}
@@ -293,7 +302,7 @@ export function PlayerSheet({
 								onChange={(e: DSChangeEvent) => setBackstoryDraft(e.target.value)}
 								placeholder={t('player.sheet.backstoryPlaceholder')}
 							/>
-							<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+							<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-1-5)' }}>
 								<Button variant="ghost" size="sm" onClick={() => setBackstoryDraft(null)}>
 									{t('common.action.cancel')}
 								</Button>
@@ -303,11 +312,13 @@ export function PlayerSheet({
 							</div>
 						</div>
 					) : backstory ? (
-						<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub, whiteSpace: 'pre-wrap' }}>
+						<div
+							style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub, whiteSpace: 'pre-wrap' }}
+						>
 							{backstory}
 						</div>
 					) : (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 							{t('player.sheet.noBackstory')}
 						</div>
 					)}

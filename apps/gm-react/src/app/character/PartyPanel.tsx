@@ -27,12 +27,12 @@ import type { PartyMemberVitals } from '../../net/viewModels';
 function Vitals({ m, size }: { m: PartyMemberVitals; size: 'sm' | 'md' }) {
 	const { t } = useI18n();
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
 			<div style={{ flex: 1, minWidth: 0 }}>
 				<HPBar current={m.hp} max={m.maxHp} size={size} />
 			</div>
 			{m.tempHp > 0 && (
-				<span style={{ font: `11px ${T.mono}`, color: T.info, whiteSpace: 'nowrap' }}>
+				<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.info, whiteSpace: 'nowrap' }}>
 					{t('play.party.tempHp', { value: m.tempHp })}
 				</span>
 			)}
@@ -44,7 +44,14 @@ function Vitals({ m, size }: { m: PartyMemberVitals; size: 'sm' | 'md' }) {
 function Conditions({ conditions }: { conditions: string[] }) {
 	if (conditions.length === 0) return null;
 	return (
-		<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'flex-end' }}>
+		<div
+			style={{
+				display: 'flex',
+				flexWrap: 'wrap',
+				gap: 'var(--space-1)',
+				justifyContent: 'flex-end',
+			}}
+		>
 			{conditions.map((c) => {
 				const k = condKey(c);
 				return k ? (
@@ -68,8 +75,8 @@ function Concentration({ effect }: { effect: string | null }) {
 			style={{
 				display: 'inline-flex',
 				alignItems: 'center',
-				gap: 5,
-				font: `11px ${T.sans}`,
+				gap: 'var(--space-1)',
+				font: `var(--text-xs) ${T.sans}`,
 				color: T.sub,
 			}}
 		>
@@ -87,7 +94,7 @@ function ConcentrationCheck({ dc }: { dc: number | null }) {
 	const { t } = useI18n();
 	if (dc === null) return null;
 	return (
-		<span style={{ font: `600 11px ${T.sans}`, color: T.acc }}>
+		<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.acc }}>
 			{t('play.party.concCheck', { dc })}
 		</span>
 	);
@@ -99,7 +106,7 @@ function DeathSaves({ m }: { m: PartyMemberVitals }) {
 	// Only while actually down: a full-health character's stale tally is noise, not information.
 	if (!d || m.hp > 0 || d.successes + d.failures === 0) return null;
 	return (
-		<span style={{ font: `11px ${T.mono}`, color: d.stable ? T.ok : T.err }}>
+		<span style={{ font: `var(--text-xs) ${T.mono}`, color: d.stable ? T.ok : T.err }}>
 			{d.stable
 				? t('play.party.stable')
 				: t('play.party.deathSaves', { successes: d.successes, failures: d.failures })}
@@ -113,7 +120,7 @@ function SlotSummary({ m }: { m: PartyMemberVitals }) {
 	if (m.spellSlots.length === 0) return null;
 	const max = m.spellSlots.reduce((sum, s) => sum + s.max, 0);
 	return (
-		<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+		<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 			{t('play.party.slotsSummary', { available: m.availableSpellSlots, max })}
 		</span>
 	);
@@ -124,9 +131,9 @@ const rowStyle = (m: PartyMemberVitals) => {
 	return {
 		display: 'flex',
 		alignItems: 'center' as const,
-		gap: 13,
-		padding: 12,
-		borderRadius: 11,
+		gap: 'var(--space-3)',
+		padding: 'var(--space-3)',
+		borderRadius: 'var(--radius-lg)',
 		border: `1px solid ${downed ? 'var(--color-status-error-border)' : m.isSelf ? T.accBd : T.bd}`,
 		background: downed ? 'var(--color-status-error-subtle)' : m.isSelf ? T.accSub : T.surf,
 	};
@@ -143,7 +150,7 @@ export function PartyBoardTiles({ members }: { members: PartyMemberVitals[] }) {
 	if (members.length === 0) return null;
 	return (
 		<div
-			style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
+			style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}
 			aria-label={t('play.party.vitals')}
 			role="group"
 		>
@@ -156,16 +163,23 @@ export function PartyBoardTiles({ members }: { members: PartyMemberVitals[] }) {
 						style={{
 							flex: '1 1 160px',
 							minWidth: 0,
-							padding: '8px 10px',
-							borderRadius: 9,
+							padding: 'var(--space-2) var(--space-2)',
+							borderRadius: 'var(--radius-md)',
 							border: `1px solid ${downed ? 'var(--color-status-error-border)' : m.isSelf ? T.accBd : T.bd}`,
 							background: downed ? 'var(--color-status-error-subtle)' : T.surf,
 						}}
 					>
-						<div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-1-5)',
+								minWidth: 0,
+							}}
+						>
 							<span
 								style={{
-									font: `600 12px ${T.sans}`,
+									font: `600 var(--text-xs) ${T.sans}`,
 									color: T.ink,
 									overflow: 'hidden',
 									textOverflow: 'ellipsis',
@@ -178,12 +192,15 @@ export function PartyBoardTiles({ members }: { members: PartyMemberVitals[] }) {
 							<div style={{ flex: 1 }} />
 							{m.concentration && <Icon name="concentration" size={12} color={T.acc} />}
 							{m.conditions.length > 0 && (
-								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+								<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 									{t('play.party.conditionCount', { count: m.conditions.length })}
 								</span>
 							)}
 						</div>
-						<div style={{ marginTop: 5 }} data-testid={`party-tile-hp-${m.characterId}`}>
+						<div
+							style={{ marginTop: 'var(--space-1)' }}
+							data-testid={`party-tile-hp-${m.characterId}`}
+						>
 							<HPBar current={m.hp} max={m.maxHp} size="sm" />
 						</div>
 					</div>
@@ -204,31 +221,41 @@ function MemberRow({ m, detail }: { m: PartyMemberVitals; detail?: ReactNode }) 
 			data-testid={`party-row-${m.characterId}`}
 			style={{ ...rowStyle(m), flexDirection: 'column', alignItems: 'stretch' }}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
 				<Avatar name={m.name} size="sm" ring={downed ? 'danger' : m.isSelf ? 'active' : 'none'} />
 				<div style={{ flex: 1, minWidth: 0 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-						<span style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{m.name}</span>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: 'var(--space-2)',
+							flexWrap: 'wrap',
+						}}
+					>
+						<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{m.name}</span>
 						{m.isSelf && <Badge status="accent">{t('play.party.you')}</Badge>}
-						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{t('play.party.armorClass', { value: m.ac })}
 						</span>
 						{m.marchingPosition != null && (
-							<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+							<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
 								{t('play.party.orderPosition', { position: m.marchingPosition })}
 							</span>
 						)}
 					</div>
-					<div style={{ marginTop: 5, maxWidth: 260 }} data-testid={`party-hp-${m.characterId}`}>
+					<div
+						style={{ marginTop: 'var(--space-1)', maxWidth: 260 }}
+						data-testid={`party-hp-${m.characterId}`}
+					>
 						<Vitals m={m} size="sm" />
 					</div>
 					<div
 						style={{
-							marginTop: 4,
+							marginTop: 'var(--space-1)',
 							display: 'flex',
 							flexWrap: 'wrap',
 							alignItems: 'center',
-							gap: 10,
+							gap: 'var(--space-2)',
 						}}
 					>
 						<Concentration effect={m.concentration} />
@@ -248,10 +275,12 @@ function MemberRow({ m, detail }: { m: PartyMemberVitals; detail?: ReactNode }) 
 export function PartyQuickPanel({ members }: { members: PartyMemberVitals[] }) {
 	const { t } = useI18n();
 	if (members.length === 0) {
-		return <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('play.party.empty')}</div>;
+		return (
+			<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>{t('play.party.empty')}</div>
+		);
 	}
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			{members.map((m) => (
 				<MemberRow key={m.characterId} m={m} />
 			))}
@@ -268,7 +297,7 @@ function SheetRow({ m }: { m: PartyMemberVitals }) {
 	const panelId = `party-slots-${m.characterId}`;
 	const detail =
 		m.spellSlots.length === 0 ? undefined : (
-			<div style={{ marginTop: 9 }}>
+			<div style={{ marginTop: 'var(--space-2)' }}>
 				<button
 					type="button"
 					aria-expanded={open}
@@ -277,13 +306,13 @@ function SheetRow({ m }: { m: PartyMemberVitals }) {
 					style={{
 						display: 'inline-flex',
 						alignItems: 'center',
-						gap: 6,
-						font: `11px ${T.sans}`,
+						gap: 'var(--space-1-5)',
+						font: `var(--text-xs) ${T.sans}`,
 						color: T.sub,
 						background: 'transparent',
 						border: `1px solid ${T.bd}`,
-						borderRadius: 999,
-						padding: '3px 9px',
+						borderRadius: 'var(--radius-full)',
+						padding: 'var(--space-0-5) var(--space-2)',
 						cursor: 'pointer',
 					}}
 				>
@@ -291,19 +320,27 @@ function SheetRow({ m }: { m: PartyMemberVitals }) {
 					{t(open ? 'play.party.slotsHide' : 'play.party.slotsShow', { name: m.name })}
 				</button>
 				{open && (
-					<div id={panelId} style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+					<div
+						id={panelId}
+						style={{
+							display: 'flex',
+							flexWrap: 'wrap',
+							gap: 'var(--space-1-5)',
+							marginTop: 'var(--space-2)',
+						}}
+					>
 						{m.spellSlots.map((slot) => (
 							<span
 								key={slot.level}
 								style={{
 									display: 'inline-flex',
 									alignItems: 'center',
-									gap: 5,
-									font: `11px ${T.mono}`,
+									gap: 'var(--space-1)',
+									font: `var(--text-xs) ${T.mono}`,
 									color: slot.available === 0 ? T.ter : T.ink,
 									border: `1px solid ${T.bd}`,
-									borderRadius: 8,
-									padding: '3px 8px',
+									borderRadius: 'var(--radius-md)',
+									padding: 'var(--space-0-5) var(--space-2)',
 									background: T.sunken,
 								}}
 							>
@@ -326,10 +363,12 @@ function SheetRow({ m }: { m: PartyMemberVitals }) {
 export function PartySheet({ members }: { members: PartyMemberVitals[] }) {
 	const { t } = useI18n();
 	if (members.length === 0) {
-		return <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('play.party.empty')}</div>;
+		return (
+			<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>{t('play.party.empty')}</div>
+		);
 	}
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			{members.map((m) => (
 				<SheetRow key={m.characterId} m={m} />
 			))}

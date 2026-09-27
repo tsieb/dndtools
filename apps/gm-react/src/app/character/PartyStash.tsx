@@ -184,7 +184,7 @@ export function PartyStash({
 	const recent = [...party.inventory].reverse();
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<Panel
 				title={t('player.stash.title')}
 				action={
@@ -203,7 +203,7 @@ export function PartyStash({
 				{party.inventory.length === 0 ? (
 					<EmptyState
 						inset
-						icon="tag"
+						illustration="inventory-empty"
 						title={t('player.stash.emptyTitle')}
 						description={t('player.stash.emptyBody')}
 					/>
@@ -215,19 +215,21 @@ export function PartyStash({
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '8px 0',
+									gap: 'var(--space-2)',
+									padding: 'var(--space-2) 0',
 									borderTop: i ? `1px solid ${T.bd}` : 'none',
 								}}
 							>
 								<Icon name="tag" size={14} color={T.ter} />
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `12.5px ${T.sans}` }}>
+									<div style={{ font: `var(--text-sm) ${T.sans}` }}>
 										{item.name}
 										{item.quantity !== 1 && <span style={{ color: T.ter }}> ×{item.quantity}</span>}
 									</div>
 									{item.detail && (
-										<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{item.detail}</div>
+										<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
+											{item.detail}
+										</div>
 									)}
 								</div>
 								{isDm && item.visibility === 'dm-only' && (
@@ -258,13 +260,13 @@ export function PartyStash({
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 8,
-							marginTop: 10,
-							paddingTop: 12,
+							gap: 'var(--space-2)',
+							marginTop: 'var(--space-2)',
+							paddingTop: 'var(--space-3)',
 							borderTop: `1px solid ${T.bd}`,
 						}}
 					>
-						<div style={{ display: 'flex', gap: 8 }}>
+						<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 							<Input
 								value={name}
 								aria-label={t('player.stash.itemName')}
@@ -310,10 +312,10 @@ export function PartyStash({
 					<div
 						style={{
 							display: 'flex',
-							gap: 8,
+							gap: 'var(--space-2)',
 							alignItems: 'center',
-							marginTop: 10,
-							paddingTop: 12,
+							marginTop: 'var(--space-2)',
+							paddingTop: 'var(--space-3)',
 							borderTop: `1px solid ${T.bd}`,
 						}}
 					>
@@ -350,19 +352,24 @@ export function PartyStash({
 			</Panel>
 			<Panel title={t('player.stash.recentActivity')}>
 				{recent.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('player.stash.emptyBody')}</div>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
+						{t('player.stash.emptyBody')}
+					</div>
 				) : (
 					recent.slice(0, 10).map((item, i) => (
 						<div
 							key={item.id}
-							style={{ padding: '7px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
+							style={{ padding: 'var(--space-1-5) 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
 						>
-							<span style={{ font: `12px ${T.sans}` }}>
+							<span style={{ font: `var(--text-xs) ${T.sans}` }}>
 								{item.name}
 								{item.quantity !== 1 ? ` ×${item.quantity}` : ''}
 							</span>
 							{item.detail && (
-								<span style={{ font: `11px ${T.sans}`, color: T.ter }}> — {item.detail}</span>
+								<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
+									{' '}
+									— {item.detail}
+								</span>
 							)}
 						</div>
 					))

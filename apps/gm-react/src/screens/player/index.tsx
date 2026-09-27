@@ -1,39 +1,13 @@
-import { useMemo, useState } from 'react';
-import {
-	advancementStateOf,
-	checkAdvancementEligibility,
-	computeEncumbrance,
-	effectiveProficiencyBonus,
-	getActiveSystemForActor,
-	getCharacterForActor,
-	getCharacterJournalForActor,
-	getPartyOverviewForActor,
-	hasGrantedCapability,
-	inventoryOf,
-	listCharactersForActor,
-	passivePerception,
-	resourcesOf,
-	CHARACTER_ENTITY_TYPE,
-} from '@dndtools/core';
-import {
-	HPBar,
-	Button,
-	Badge,
-	Chip,
-	ConditionBadge,
-	Icon,
-	IconButton,
-	Select,
-	Stat,
-	Tabs,
-	tabPanelProps,
-} from '../../ds';
+import { PlayerCombat } from './Combat';
+import { usePlayerData } from './usePlayerData';
+import { useState } from 'react';
+import { Button, Badge, EmptyState, Icon, Select, Tabs, tabPanelProps } from '../../ds';
 import type { DSChangeEvent } from '../../ds';
-import { Page, Panel, T } from '../../app/screen-kit';
+import { Page, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useViewport } from '../../app/useViewport';
-import { cap, condKey, type PlayerData } from './shared';
+import { cap } from './shared';
 import { PrintableSheet } from '../../app/character/PrintableSheet';
 import { Portrait } from './Portrait';
 import { SheetSpellcasting } from './SheetSpellcasting';
@@ -46,139 +20,22 @@ import { PlayerJournal } from './Journal';
 import { CharacterHistoryTimeline } from '../../app/character/History';
 import { PartyStash } from '../../app/character/PartyStash';
 
-/**
- * Player — the second-persona character surface, fully core-backed (the last `DNDPlayer` mock
- * remnants are gone). The active actor is `runtime.defaultActorId` (the device owner / view-as
- * actor, exactly like CommandCenter): when that is the DM (or a granted character owner) the writes
- * below succeed; if the DM is previewing as a player, the Core faithfully rejects them read-only.
- *
- * RC-CHR-4.3 (DEBT-2026-005) — `runtime.readOnly` is ANDed into every `canAuthor…`/`canManage…` flag
- * (and the inline HP stepper / inspiration toggle) so the manage controls are HIDDEN or disabled the
- * moment a preview starts, rather than shown live and rejected on click: a preview blocks every write
- * regardless of the previewed role's authority, so leaving a control clickable there is always a dead
- * control (guardrail #8).
- *
- * REAL (actor-filtered) reads: the player's PC via {@link getCharacterForActor} (name, HP, AC,
- * conditions, ability scores, attacks, `data.*` sheet fields), its resource block via
- * {@link resourcesOf}, the advancement standing via {@link advancementStateOf} +
- * {@link checkAdvancementEligibility}, the party via {@link getPartyOverviewForActor}, and the
- * character journal via {@link getCharacterJournalForActor}.
- *
- * REAL writes (dispatched as the active actor): HP (`character.update-combat-resource`), spell-slot /
- * class-resource / prepared-spell toggles + rest (`character.set-spell-slots` /
- * `character.set-class-resource` / `character.set-spell` / `character.rest`), the STAGED LEVEL-UP
- * (`character.open-advancement` / `set-advancement-choices` / `commit-advancement` /
- * `cancel-advancement` — the same CHAR-009 flow as /characters), sheet identity fields through
- * `character.edit-field` (`data.race/subclass/background/speed/init/backstory/inspiration` — string
- * fields the core model carries generically), the journal (`character.add/update/remove-journal-entry`
- * + `set-journal-entry-visibility`, including the `personal-quest` / `session-highlight` entry kinds
- * that feed the side panels), and DM-only party logistics (`character.set-marching-order` /
- * `upsert-party-inventory-item` / `remove-party-inventory-item`).
- *
- * WS-4: the sheet mirrors the roster's proficiency panels — skills / saves / hit dice / passive
- * perception from the view's structured `proficiencies` block, with the PURE core queries
- * `effectiveProficiencyBonus` / `passivePerception` (derived on read after the visibility gate, the
- * same player-safe pattern as `resourcesOf`). A signed-in player may control MULTIPLE PCs: the
- * vitals bar carries a PC switcher (the actor-filtered PC list; the hardcoded first-PC pick is gone).
- *
- * I10 S10.1.3 / S10.4.2: the structured EQUIPMENT / CURRENCY / ENCUMBRANCE panel is now REAL — items
- * (name/qty/weight/equipped) and the five-coin purse are read from the durable character's `inventory`
- * via {@link inventoryOf}, the encumbrance band + carry capacity are DERIVED on read via
- * {@link computeEncumbrance}, and every mutation dispatches a `character.upsert/remove-equipment-item`
- * / `character.set-currency` command (owner-or-DM authority, re-enforced by the core).
- */
-
 export function Player() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const actorId = runtime.defaultActorId;
-	const state = runtime.state;
 
 	// The switcher's selection — null falls back to the first visible PC. A signed-in player may
 	// control multiple PCs (multiple `owner` grants / shared PCs), so the pick is theirs, not `pcs[0]`.
 	const [pcChoice, setPcChoice] = useState<string | null>(null);
 
-	const data = useMemo<PlayerData>(() => {
-		// The player's PCs: every player-visible PC the actor may see (finalized PCs are `shared`
-		// with their owning player actor, so a player sees their own; the DM sees the whole roster).
-		// RC-CHR-1.1 — the reads are package-scoped: `CharacterView.resources` is every resource the
-		// ACTIVE package declares for this character, so a campaign on Generic reads a stress clock
-		// where a 5e one reads ki, without either name appearing on this screen.
-		const activePackage = getActiveSystemForActor(
-			state.systems,
-			state.permissions,
-			actorId,
-		).activePackage;
-		const pcs = listCharactersForActor(
-			state.characters,
-			state.permissions,
-			actorId,
-			activePackage,
-		).filter((c) => c.kind === 'pc');
-		const chosen = pcs.find((c) => c.id === pcChoice) ?? pcs[0] ?? null;
-		const view = chosen
-			? getCharacterForActor(state.characters, state.permissions, actorId, chosen.id, activePackage)
-			: null;
-		const record = chosen ? state.characters.characters[chosen.id] : undefined;
-		const resources = record ? resourcesOf(record) : null;
-		const journalView = chosen
-			? getCharacterJournalForActor(state.characters, state.permissions, actorId, chosen.id)
-			: null;
-		const actor = state.permissions.actors[actorId] ?? null;
-		const isDm = actor?.role === 'dm';
-		// Journal + advancement authority: the DM, or a granted character `owner` (mirrors the
-		// command-layer checks in character-journal.ts / character-advancement.ts — re-enforced there).
-		const isOwner = !!(
-			actor &&
-			chosen &&
-			!isDm &&
-			hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, chosen.id, 'owner')
-		);
-		// RC-CHR-4.3 (DEBT-2026-005) — while the DM is previewing (any role), EVERY write is rejected
-		// read-only by the runtime regardless of who would otherwise be authorized, so an authority check
-		// alone leaves a dead control behind. Fold `runtime.readOnly` into every manage-capability flag so
-		// the DM never sees a "canAuthor…" affordance the click can't actually honor.
-		const readOnlyPreview = runtime.readOnly;
-		const party = getPartyOverviewForActor(state.characters, state.permissions, actorId);
-		// RC-CHR-3.2 — the party's aggregate STR (defaulting each member to 10), for the stash's
-		// encumbrance BASELINE (`encumbranceLevelFor(stashWeight, partyStrength)`). `pcs` is the exact
-		// same actor-filtered visible-PC set `party.members` derives from, so this never over-counts a
-		// member the DM can see but the viewer cannot.
-		const partyStrength = pcs.reduce((sum, c) => sum + (c.abilityScores.str ?? 10), 0) || 10;
-		return {
-			characterId: chosen?.id ?? null,
-			view,
-			resources,
-			pcs: pcs.map((c) => ({ id: c.id, name: c.name })),
-			partyStrength,
-			// Pure derived queries, computed AFTER the actor-filtered gate passed (same pattern as
-			// `resourcesOf` above) — they read only abilityScores / proficiencies / data.level.
-			passive: record ? passivePerception(record) : null,
-			profBonus: record ? effectiveProficiencyBonus(record) : null,
-			journal: journalView?.entries ?? [],
-			canAuthorJournal: (isDm || isOwner) && !readOnlyPreview,
-			// Structured inventory + encumbrance from the durable record (same post-gate pattern as
-			// `resourcesOf`); encumbrance is derived on read so it can never drift from items/coins/STR.
-			inventory: record ? inventoryOf(record) : null,
-			encumbrance: record ? computeEncumbrance(record) : null,
-			canManageInventory: (isDm || isOwner) && !readOnlyPreview,
-			// RC-CHR-1.1 — the package's own resource rules fused with this sheet's counters.
-			resourceInstances: view?.resources ?? [],
-			canManageResources: (isDm || isOwner) && !readOnlyPreview,
-			party,
-			advancement: record ? advancementStateOf(record) : null,
-			xpEligible: record ? checkAdvancementEligibility(record, 'xp') : null,
-			milestoneEligible: record ? checkAdvancementEligibility(record, 'milestone') : null,
-			canAdvance: (isDm || isOwner) && !readOnlyPreview,
-			isDm,
-			readOnlyPreview,
-		};
-	}, [state, actorId, pcChoice, runtime.readOnly]);
+	const data = usePlayerData(pcChoice);
 
 	const C = data.view;
 	const [tab, setTab] = useState('sheet');
 	const [err, setErr] = useState<string | null>(null);
+	const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
 	// The HP stepper was ±1-only, so taking 27 damage meant 27 separate durable commands (each one a
 	// full-state persist + op-log entry), and a SUCCESSFUL write announced nothing at all — the number
 	// changed silently for anyone not looking at it. The amount is a string draft so backspacing to
@@ -195,17 +52,32 @@ export function Player() {
 	};
 
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
-		const result = await runtime.dispatch(command);
-		setErr(result.status === 'rejected' ? result.rejection.message : null);
-		return result.status === 'accepted';
+		setErr(null);
+		setHpNote(null);
+		setSaveState('saving');
+		try {
+			const result = await runtime.dispatch(command);
+			if (result.status === 'rejected') {
+				setErr(result.rejection.message);
+				setSaveState('idle');
+				return false;
+			}
+			setSaveState('saved');
+			return true;
+		} catch {
+			setSaveState('idle');
+			setErr(t('player.saveFailed'));
+			return false;
+		}
 	}
 
 	if (!C || !data.characterId) {
 		return (
 			<Page max={1080}>
-				<Panel title={t('player.empty.title')}>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('player.empty.body')}</div>
-				</Panel>
+				<section aria-labelledby="player-empty-title">
+					<h2 id="player-empty-title">{t('player.empty.title')}</h2>
+					<EmptyState illustration="characters-empty" description={t('player.empty.body')} />
+				</section>
 			</Page>
 		);
 	}
@@ -270,124 +142,22 @@ export function Player() {
 		.filter(Boolean)
 		.join(' · ');
 
-	const combatPanel = (
-		<section className="character-sheet-combat" aria-label={t('mapInspector.combat')}>
-			<h2>{t('mapInspector.combat')}</h2>
-			<div className="character-sheet-combat-stats">
-				<Stat label={t('player.stat.ac')} value={String(C.combat.ac)} icon="shield" />
-				{/* speed / initiative — `data.*` sheet strings (edited on the Sheet tab); '—' until authored */}
-				<Stat
-					label={t('player.stat.speed')}
-					value={ds('speed') ? t('player.stat.speedValue', { feet: ds('speed') ?? '' }) : '—'}
-					icon="travel"
-				/>
-				<Stat label={t('player.stat.init')} value={ds('init') ?? '—'} icon="session-bolt" />
-			</div>
-			<div className="character-sheet-combat-controls">
-				{/* HP stepper — real combat-resource write */}
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 9,
-						padding: '7px 12px',
-						borderRadius: 11,
-						background: T.alt,
-						border: `1px solid ${T.bd}`,
-					}}
-				>
-					<IconButton
-						icon="chevron-down"
-						label={
-							data.readOnlyPreview
-								? t('player.blockedPreview')
-								: t('player.hp.damageBy', { amount: hpStep() })
-						}
-						variant="ghost"
-						size="sm"
-						aria-disabled={data.readOnlyPreview}
-						onClick={data.readOnlyPreview ? undefined : () => void stepHp(-1)}
-					/>
-					<div style={{ textAlign: 'center', minWidth: 74 }}>
-						<div
-							style={{
-								font: `700 18px ${T.mono}`,
-								color: maxHp > 0 && hp / maxHp < 0.3 ? T.err : T.ink,
-								lineHeight: 1,
-							}}
-						>
-							{hp}
-							<span style={{ font: `13px ${T.mono}`, color: T.ter }}> / {maxHp}</span>
-						</div>
-						<div style={{ font: `9.5px ${T.sans}`, letterSpacing: '.08em', color: T.ter }}>
-							{t('player.hp.label')}
-						</div>
-					</div>
-					<IconButton
-						icon="chevron-up"
-						label={
-							data.readOnlyPreview
-								? t('player.blockedPreview')
-								: t('player.hp.healBy', { amount: hpStep() })
-						}
-						variant="ghost"
-						size="sm"
-						aria-disabled={data.readOnlyPreview}
-						onClick={data.readOnlyPreview ? undefined : () => void stepHp(1)}
-					/>
-					<input
-						type="text"
-						inputMode="numeric"
-						aria-label={t('player.hp.amountLabel')}
-						value={hpAmount}
-						onChange={(e) => setHpAmount(e.target.value)}
-						onBlur={() => setHpAmount(String(hpStep()))}
-						style={{
-							width: 38,
-							textAlign: 'center',
-							font: `600 13px ${T.mono}`,
-							color: T.ink,
-							background: T.surf,
-							border: `1px solid ${T.bd}`,
-							borderRadius: 7,
-							padding: '4px 2px',
-						}}
-					/>
-				</div>
-
-				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-					{conditions.map((c: string) => {
-						const k = condKey(c);
-						return k ? (
-							<ConditionBadge key={c} condition={k} compact />
-						) : (
-							<Chip key={c} tone="accent">
-								{c}
-							</Chip>
-						);
-					})}
-				</div>
-			</div>
-			<HPBar current={hp} max={maxHp} size="lg" />
-		</section>
-	);
-
 	return (
-		<div>
+		<div className="player-surface">
 			<PrintableSheet character={C} inventory={data.inventory} level={level} />
 			{/* persistent vitals bar */}
 			<div
 				style={{
 					maxWidth: 1080,
-					margin: '20px auto',
-					borderRadius: 6,
+					margin: 'var(--space-5) auto',
+					borderRadius: 'var(--radius-md)',
 					boxShadow: 'var(--shadow-sm)',
 					top: 0,
 					zIndex: 5,
 					display: 'flex',
 					alignItems: 'center',
-					gap: viewport === 'phone' ? 10 : 18,
-					padding: viewport === 'phone' ? '10px 14px' : '13px 28px',
+					gap: 'var(--space-4)',
+					padding: 'var(--space-3) var(--space-6)',
 					background: 'color-mix(in srgb, var(--color-surface) 94%, transparent)',
 					backdropFilter: 'blur(6px)',
 					borderBottom: `1px solid ${T.bd}`,
@@ -402,11 +172,11 @@ export function Player() {
 					dispatch={dispatch}
 				/>
 				<div style={{ minWidth: 0 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-						<span style={{ font: `700 26px ${T.disp}` }}>{name}</span>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+						<span style={{ font: `700 var(--text-xl) ${T.disp}` }}>{name}</span>
 						<Badge status="success">{t('player.pcBadge')}</Badge>
 					</div>
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{identityLine}</div>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>{identityLine}</div>
 				</div>
 				{/* PC switcher — a signed-in player may control multiple PCs (the actor-filtered list);
 				    the whole surface (sheet/resources/level-up/journal) follows the selection. */}
@@ -438,7 +208,8 @@ export function Player() {
 					</div>
 				)}
 
-				<button
+				<Button
+					variant="secondary"
 					type="button"
 					aria-pressed={insp}
 					aria-disabled={data.readOnlyPreview || undefined}
@@ -448,20 +219,20 @@ export function Player() {
 						marginLeft: 'auto',
 						display: 'inline-flex',
 						alignItems: 'center',
-						gap: 7,
-						padding: '7px 12px',
-						borderRadius: 20,
+						gap: 'var(--space-1-5)',
+						padding: 'var(--space-1-5) var(--space-3)',
+						borderRadius: 'var(--radius-full)',
 						cursor: data.readOnlyPreview ? 'not-allowed' : 'pointer',
 						opacity: data.readOnlyPreview ? 0.6 : 1,
 						border: `1px solid ${insp ? T.accBd : T.bd}`,
 						background: insp ? T.accSub : T.surf,
 						color: insp ? T.acc : T.ter,
-						font: `600 12px ${T.sans}`,
+						font: `600 var(--text-xs) ${T.sans}`,
 					}}
 				>
 					<Icon name="sparkle" size={15} />
 					{t(insp ? 'player.inspiration.on' : 'player.inspiration.off')}
-				</button>
+				</Button>
 			</div>
 
 			<RestDialog
@@ -488,8 +259,10 @@ export function Player() {
 			/>
 
 			{/* A successful HP write used to change only the number, which announces nothing. */}
-			<div role="status" className="visually-hidden">
-				{hpNote ?? ''}
+			<div role="status" className="player-save-status">
+				{saveState === 'saving'
+					? t('player.saving')
+					: (hpNote ?? (saveState === 'saved' ? t('player.saved') : ''))}
 			</div>
 
 			{err && (
@@ -497,19 +270,21 @@ export function Player() {
 					role="alert"
 					aria-live="assertive"
 					style={{
-						padding: '8px 28px',
+						padding: 'var(--space-2) var(--space-6)',
 						background: 'var(--color-status-warning-subtle)',
 						borderBottom: `1px solid var(--color-status-warning-border)`,
 					}}
 				>
-					<span style={{ font: `12px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
+					<span
+						style={{ font: `var(--text-xs) ${T.sans}`, color: 'var(--color-status-warning-text)' }}
+					>
 						<Icon name="warning" size={13} /> {err}
 					</span>
 				</div>
 			)}
 
 			<Page max={1080}>
-				<div style={{ marginBottom: 18 }}>
+				<div style={{ marginBottom: 'var(--space-4)' }}>
 					<Tabs
 						aria-label={t('player.sections')}
 						value={activeTab}
@@ -534,7 +309,21 @@ export function Player() {
 							C={C}
 							level={level}
 							isDm={data.isDm && !data.readOnlyPreview}
-							combat={combatPanel}
+							combat={
+								<PlayerCombat
+									hp={hp}
+									maxHp={maxHp}
+									ac={C.combat.ac}
+									speed={ds('speed')}
+									initiative={ds('init')}
+									conditions={conditions}
+									readOnly={data.readOnlyPreview}
+									hpAmount={hpAmount}
+									setHpAmount={setHpAmount}
+									hpStep={hpStep}
+									stepHp={stepHp}
+								/>
+							}
 							spellcasting={
 								<SheetSpellcasting
 									resources={data.resources}

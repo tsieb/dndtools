@@ -12,7 +12,7 @@ Template sample values (Mara Quill, spells and combat values) are illustrative, 
 
 ## Verification
 
-The `player--*.png` golden-route baselines cover tavern, parchment and high-contrast at desktop, rail and phone sizes in the pinned Playwright image. Review these against the template's hierarchy and proportions; they contain the application's seeded character, rather than the template's fictional character. Compare with:
+The `player--*.png` baselines in `tests/visual/player-polish.spec.ts` cover tavern, parchment, high-contrast, scholar and dungeon at desktop, rail and phone sizes in the pinned Playwright image. RC-POL-1.7 captures the top 500px of the owned main viewport, the complete combat panel, and the illustrated empty history panel. Shared shell chrome is excluded to fit the existing baseline budget. Review these against the template's hierarchy and proportions; they contain the application's seeded character, rather than the template's fictional character. Compare with:
 
 ```sh
 bash apps/gm-react/tests/visual/run-in-container.sh -g player --update-snapshots=none --workers=2

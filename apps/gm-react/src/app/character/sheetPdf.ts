@@ -1,6 +1,11 @@
 /* eslint-disable dsn/no-raw-style-values -- PDF paper colors must be literal canvas colors, independent of the screen theme. */
 /** Rasterize at 2× for Unicode-safe native exports without a WebView print dependency. */
-export function sheetPdf(canvas: HTMLCanvasElement, name: string, rows: string[]): Blob {
+export function sheetPdf(
+	canvas: HTMLCanvasElement,
+	name: string,
+	rows: string[],
+	copy: { summary: string; footer: string },
+): Blob {
 	canvas.width = 1190;
 	canvas.height = 1684;
 	const ctx = canvas.getContext('2d');
@@ -11,15 +16,10 @@ export function sheetPdf(canvas: HTMLCanvasElement, name: string, rows: string[]
 	ctx.font = 'bold 36px sans-serif';
 	ctx.fillText(name, 72, 90, 1046);
 	ctx.font = '22px sans-serif';
-	ctx.fillText('Character sheet · Compact summary', 72, 132);
+	ctx.fillText(copy.summary, 72, 132);
 	rows.forEach((row, i) => ctx.fillText(row, 72, 190 + i * 34, 1046));
 	ctx.font = '18px sans-serif';
-	ctx.fillText(
-		'Long sections are abbreviated with …; full details remain in the character sheet.',
-		72,
-		1598,
-		1046,
-	);
+	ctx.fillText(copy.footer, 72, 1598, 1046);
 	const jpeg = Uint8Array.from(atob(canvas.toDataURL('image/jpeg', 0.95).split(',')[1]), (c) =>
 		c.charCodeAt(0),
 	);

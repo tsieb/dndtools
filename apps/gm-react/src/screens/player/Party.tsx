@@ -62,7 +62,7 @@ export function PlayerParty({
 			style={{
 				display: 'grid',
 				gridTemplateColumns: compact ? 'minmax(0,1fr)' : 'minmax(0,1.4fr) minmax(0,1fr)',
-				gap: 18,
+				gap: 'var(--space-4)',
 				alignItems: 'start',
 			}}
 		>
@@ -72,7 +72,7 @@ export function PlayerParty({
 					<Badge status="neutral">{t('player.party.memberCount', { count: members.length })}</Badge>
 				}
 			>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					{members.map((p) => {
 						const downed = p.hp === 0;
 						const self = p.characterId === selfId;
@@ -82,9 +82,9 @@ export function PlayerParty({
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 13,
-									padding: 12,
-									borderRadius: 11,
+									gap: 'var(--space-3)',
+									padding: 'var(--space-3)',
+									borderRadius: 'var(--radius-lg)',
 									border: `1px solid ${downed ? 'var(--color-status-error-border)' : self ? T.accBd : T.bd}`,
 									background: downed
 										? 'var(--color-status-error-subtle)'
@@ -99,17 +99,23 @@ export function PlayerParty({
 									ring={downed ? 'danger' : self ? 'active' : 'none'}
 								/>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-										<span style={{ font: `600 13.5px ${T.sans}` }}>{p.name}</span>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+										<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{p.name}</span>
 										{self && <Badge status="accent">{t('player.party.you')}</Badge>}
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+										<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 											{t('player.party.ac', { ac: p.ac })}
 										</span>
 									</div>
-									<div style={{ marginTop: 5, maxWidth: 240 }}>
+									<div style={{ marginTop: 'var(--space-1)', maxWidth: 240 }}>
 										<HPBar current={p.hp} max={p.maxHp} size="sm" />
 									</div>
-									<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: 4 }}>
+									<div
+										style={{
+											font: `var(--text-xs) ${T.mono}`,
+											color: T.ter,
+											marginTop: 'var(--space-1)',
+										}}
+									>
 										{t('player.party.slotsAndResources', {
 											slots: p.availableSpellSlots,
 											resources: p.availableClassResources,
@@ -120,7 +126,7 @@ export function PlayerParty({
 									style={{
 										display: 'flex',
 										flexDirection: 'column',
-										gap: 5,
+										gap: 'var(--space-1)',
 										alignItems: 'flex-end',
 									}}
 								>
@@ -136,7 +142,7 @@ export function PlayerParty({
 											);
 										})
 									) : (
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>—</span>
+										<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>—</span>
 									)}
 								</div>
 							</div>
@@ -144,7 +150,7 @@ export function PlayerParty({
 					})}
 				</div>
 			</Panel>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 				<Panel
 					title={t('player.party.marchingOrder')}
 					action={
@@ -156,8 +162,8 @@ export function PlayerParty({
 					}
 				>
 					{party.marchingOrder.length === 0 ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 								{t('player.party.noOrder')}
 							</div>
 							{isDm && members.length > 0 && (
@@ -181,14 +187,14 @@ export function PlayerParty({
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 9,
-											padding: '5px 0',
+											gap: 'var(--space-2)',
+											padding: 'var(--space-1) 0',
 											borderTop: i ? `1px solid ${T.bd}` : 'none',
 										}}
 									>
 										<span
 											style={{
-												font: `700 12px ${T.mono}`,
+												font: `700 var(--text-xs) ${T.mono}`,
 												color: T.acc,
 												width: 18,
 												textAlign: 'center',
@@ -196,7 +202,9 @@ export function PlayerParty({
 										>
 											{i + 1}
 										</span>
-										<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{m?.name ?? id}</span>
+										<span style={{ flex: 1, font: `var(--text-sm) ${T.sans}` }}>
+											{m?.name ?? id}
+										</span>
 										{/* RENDERED-and-disabled at the ends, not omitted: dropping the control off row 1
 										    collapsed that row's right gutter, so its name column ran ~28px wider
 										    than every other row and the list visibly stepped in at the top. Same

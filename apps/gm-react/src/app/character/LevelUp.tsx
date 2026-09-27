@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { LevelUpEntry, WizardHeader, ChoiceInput, ChangeList } from './LevelUpParts';
+import { useMemo, useState } from 'react';
 import {
 	evaluateFormula,
 	getActiveSystemForActor,
@@ -6,14 +7,12 @@ import {
 	getDiceHistoryForActor,
 	resourceMaxFromPackage,
 	validateAdvancement,
-	xpForLevel,
-	type AdvancementDraft,
 	type AdvancementState,
 	type CoreCommand,
 	type EligibilityResult,
 	type SystemPackage,
 } from '@dndtools/core';
-import { Badge, Button, Icon, Input, ProgressMeter, Stepper, type DSChangeEvent } from '../../ds';
+import { Badge, Button, Stepper } from '../../ds';
 import { Panel, T } from '../screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -73,7 +72,7 @@ const STEP_DETAIL: Record<StepId, MessageKey> = {
 export type LevelUpDispatch = (command: CoreCommand) => Promise<boolean> | boolean;
 
 /** One package rule whose value moves between the two levels. */
-interface Change {
+export interface Change {
 	key: string;
 	label: string;
 	from: number;
@@ -281,25 +280,42 @@ export function CharacterLevelUpWizard({
 
 	return (
 		<div style={{ maxWidth: 680, margin: '0 auto' }}>
-			<WizardHeader draft={draft} onCancel={cancel} />
+			<WizardHeader draft={draft} name={read.view?.name ?? characterId} onCancel={cancel} />
 			<Stepper
 				steps={steps.map((id) => t(STEP_TITLE[id]))}
 				current={index}
 				ariaLabel={t('character.levelUp.stepsLabel')}
-				style={{ overflowX: 'auto', paddingBottom: 6, marginBottom: 14 }}
+				style={{
+					overflowX: 'auto',
+					paddingBottom: 'var(--space-1-5)',
+					marginBottom: 'var(--space-3)',
+				}}
 			/>
-			<div role="status" style={{ font: `12px ${T.sans}`, color: T.ok, minHeight: 16 }}>
+			<div role="status" style={{ font: `var(--text-xs) ${T.sans}`, color: T.ok, minHeight: 16 }}>
 				{note}
 			</div>
 
-			<Panel title={t(STEP_TITLE[step])} pad={16} style={{ marginTop: 6 }}>
-				<p style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, margin: '0 0 12px' }}>
+			<Panel title={t(STEP_TITLE[step])} pad={16} style={{ marginTop: 'var(--space-1-5)' }}>
+				<p
+					style={{
+						font: `var(--text-sm)/1.6 ${T.sans}`,
+						color: T.sub,
+						margin: '0 0 var(--space-3)',
+					}}
+				>
 					{t(STEP_DETAIL[step])}
 				</p>
 
 				{step === 'hitPointsGained' ? (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-						<div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+						<div
+							style={{
+								display: 'flex',
+								gap: 'var(--space-2)',
+								alignItems: 'center',
+								flexWrap: 'wrap',
+							}}
+						>
 							<Badge status="neutral">
 								{hitDie
 									? t('character.levelUp.hitDie', { die: hitDie })
@@ -325,13 +341,20 @@ export function CharacterLevelUpWizard({
 							</Button>
 						</div>
 						{!read.sessionLive && (
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 								{t('character.levelUp.rollNeedsSession')}
 							</div>
 						)}
 						{lastRoll && (
-							<div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-								<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+							<div
+								style={{
+									display: 'flex',
+									gap: 'var(--space-2)',
+									alignItems: 'center',
+									flexWrap: 'wrap',
+								}}
+							>
+								<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 									{t('character.levelUp.rollResult', {
 										die: lastRoll.expression,
 										total: lastRoll.total,
@@ -363,28 +386,34 @@ export function CharacterLevelUpWizard({
 				) : step === 'resources' ? (
 					<>
 						<ChangeList rows={changes.increased} empty={t('character.levelUp.noResourceChange')} />
-						<p style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, margin: '10px 0 0' }}>
+						<p
+							style={{
+								font: `var(--text-xs)/1.6 ${T.sans}`,
+								color: T.ter,
+								margin: 'var(--space-2) 0 0',
+							}}
+						>
 							{t('character.levelUp.slotsAreAuthored')}
 						</p>
 					</>
 				) : step === 'review' ? (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 						{choiceSteps.map((field) => (
 							<div
 								key={field}
 								style={{
 									display: 'flex',
 									justifyContent: 'space-between',
-									gap: 12,
-									padding: '8px 10px',
-									borderRadius: 9,
+									gap: 'var(--space-3)',
+									padding: 'var(--space-2) var(--space-2)',
+									borderRadius: 'var(--radius-md)',
 									background: T.alt,
 								}}
 							>
-								<span style={{ font: `600 12.5px ${T.sans}` }}>{t(STEP_TITLE[field])}</span>
+								<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{t(STEP_TITLE[field])}</span>
 								<span
 									style={{
-										font: `12.5px ${T.mono}`,
+										font: `var(--text-sm) ${T.mono}`,
 										color: pending.has(field) ? T.warn : T.ink,
 										textAlign: 'right',
 									}}
@@ -401,7 +430,7 @@ export function CharacterLevelUpWizard({
 							icon="flag"
 							disabled={!validation.complete}
 							onClick={() => void finish()}
-							style={{ marginTop: 6 }}
+							style={{ marginTop: 'var(--space-1-5)' }}
 						>
 							{validation.complete
 								? t('character.levelUp.finish', { level: draft.toLevel })
@@ -419,7 +448,9 @@ export function CharacterLevelUpWizard({
 				)}
 
 				{pending.has(step) && (
-					<div style={{ font: `12px ${T.sans}`, color: T.warn, marginTop: 10 }}>
+					<div
+						style={{ font: `var(--text-xs) ${T.sans}`, color: T.warn, marginTop: 'var(--space-2)' }}
+					>
 						{pending.get(step)}
 					</div>
 				)}
@@ -429,8 +460,8 @@ export function CharacterLevelUpWizard({
 				style={{
 					display: 'flex',
 					justifyContent: 'space-between',
-					gap: 8,
-					marginTop: 14,
+					gap: 'var(--space-2)',
+					marginTop: 'var(--space-3)',
 					flexWrap: 'wrap',
 				}}
 			>
@@ -448,232 +479,14 @@ export function CharacterLevelUpWizard({
 			</div>
 			<p
 				style={{
-					font: `12px/1.6 ${T.sans}`,
+					font: `var(--text-xs)/1.6 ${T.sans}`,
 					color: T.ter,
 					textAlign: 'center',
-					margin: '12px 0 0',
+					margin: 'var(--space-3) 0 0',
 				}}
 			>
 				{t('character.levelUp.resumeHint')}
 			</p>
 		</div>
-	);
-}
-
-/** The level card + the two ways in, shown while no advancement is open. */
-function LevelUpEntry({
-	level,
-	xp,
-	xpEligible,
-	milestoneEligible,
-	onOpen,
-}: {
-	level: number;
-	xp: number;
-	xpEligible: EligibilityResult | null;
-	milestoneEligible: EligibilityResult | null;
-	onOpen: (mode: 'xp' | 'milestone') => void;
-}) {
-	const { t, formatNumber } = useI18n();
-	const nextXp = xpForLevel(level + 1);
-	return (
-		<div style={{ maxWidth: 680, margin: '0 auto' }}>
-			<LevelBadgeRow
-				badge={level}
-				title={t('character.levelUp.level', { level })}
-				subtitle={
-					nextXp === null
-						? t('character.levelUp.maxLevel')
-						: t('character.levelUp.next', { level: level + 1 })
-				}
-			/>
-			{nextXp !== null && (
-				<Panel title={t('character.levelUp.experience')} pad={14} style={{ marginBottom: 16 }}>
-					<ProgressMeter
-						value={Math.min(xp, nextXp)}
-						max={nextXp}
-						label={t('character.levelUp.xpMeter', {
-							xp: formatNumber(xp),
-							next: formatNumber(nextXp),
-						})}
-					/>
-					{xpEligible && !xpEligible.eligible && (
-						<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 6 }}>
-							{xpEligible.message}
-						</div>
-					)}
-				</Panel>
-			)}
-			<div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-				<Button
-					variant="primary"
-					size="md"
-					icon="flag"
-					disabled={!xpEligible?.eligible}
-					onClick={() => onOpen('xp')}
-				>
-					{t('character.levelUp.byXp')}
-				</Button>
-				<Button
-					variant="secondary"
-					size="md"
-					disabled={!milestoneEligible?.eligible}
-					onClick={() => onOpen('milestone')}
-				>
-					{t('character.levelUp.byMilestone')}
-				</Button>
-			</div>
-			{milestoneEligible && !milestoneEligible.eligible && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter, textAlign: 'center', marginTop: 10 }}>
-					{milestoneEligible.message}
-				</div>
-			)}
-		</div>
-	);
-}
-
-function WizardHeader({ draft, onCancel }: { draft: AdvancementDraft; onCancel: () => void }) {
-	const { t } = useI18n();
-	return (
-		<LevelBadgeRow
-			badge={draft.toLevel}
-			title={t('character.levelUp.fromTo', { from: draft.fromLevel, to: draft.toLevel })}
-			subtitle={t(
-				draft.mode === 'xp' ? 'character.levelUp.modeXp' : 'character.levelUp.modeMilestone',
-			)}
-			action={
-				<Button variant="ghost" size="sm" onClick={onCancel}>
-					{t('character.levelUp.discard')}
-				</Button>
-			}
-		/>
-	);
-}
-
-function LevelBadgeRow({
-	badge,
-	title,
-	subtitle,
-	action,
-}: {
-	badge: number;
-	title: string;
-	subtitle: string;
-	action?: ReactNode;
-}) {
-	return (
-		<div
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: 16,
-				padding: '16px 20px',
-				borderRadius: 14,
-				background: `linear-gradient(135deg, ${T.accSub}, ${T.surf})`,
-				border: `1px solid ${T.accBd}`,
-				marginBottom: 18,
-			}}
-		>
-			<span
-				style={{
-					width: 50,
-					height: 50,
-					borderRadius: 12,
-					flex: '0 0 auto',
-					background: T.acc,
-					color: T.accFg,
-					display: 'inline-flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					font: `700 20px ${T.mono}`,
-				}}
-			>
-				{badge}
-			</span>
-			<div style={{ flex: 1, minWidth: 0 }}>
-				<div style={{ font: `700 18px ${T.disp}` }}>{title}</div>
-				<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{subtitle}</div>
-			</div>
-			{action}
-		</div>
-	);
-}
-
-/** One choice field: what is stored now, a field to change it, and a Save that dispatches. */
-function ChoiceInput({
-	label,
-	value,
-	saved,
-	numeric,
-	onChange,
-	onSave,
-}: {
-	label: string;
-	value: string;
-	saved: unknown;
-	numeric?: boolean;
-	onChange: (next: string) => void;
-	onSave: (value: string) => void;
-}) {
-	const { t } = useI18n();
-	const stored = saved === undefined || saved === null ? null : String(saved);
-	return (
-		<div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-			<Input
-				type={numeric ? 'number' : 'text'}
-				value={value}
-				placeholder={stored ?? label}
-				aria-label={label}
-				onChange={(e: DSChangeEvent) => onChange(e.target.value)}
-				style={{ maxWidth: 220 }}
-			/>
-			<Button variant="secondary" size="sm" disabled={!value.trim()} onClick={() => onSave(value)}>
-				{stored === null ? t('character.levelUp.choose') : t('character.levelUp.change')}
-			</Button>
-			{stored !== null && (
-				<span
-					style={{
-						font: `12.5px ${T.sans}`,
-						color: T.acc,
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: 5,
-					}}
-				>
-					<Icon name="check" size={14} />
-					{stored}
-				</span>
-			)}
-		</div>
-	);
-}
-
-/** A derived from → to list, or an honest line when the package declares no change. */
-function ChangeList({ rows, empty }: { rows: Change[]; empty: string }) {
-	const { t } = useI18n();
-	if (rows.length === 0) {
-		return <p style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter, margin: 0 }}>{empty}</p>;
-	}
-	return (
-		<ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 7 }}>
-			{rows.map((row) => (
-				<li
-					key={row.key}
-					style={{
-						display: 'flex',
-						justifyContent: 'space-between',
-						gap: 12,
-						padding: '8px 10px',
-						borderRadius: 9,
-						background: T.alt,
-					}}
-				>
-					<span style={{ font: `12.5px ${T.sans}` }}>{row.label}</span>
-					<span style={{ font: `12.5px ${T.mono}`, color: T.acc }}>
-						{t('character.levelUp.fromToValue', { from: row.from, to: row.to })}
-					</span>
-				</li>
-			))}
-		</ul>
 	);
 }

@@ -2363,6 +2363,28 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'player.portrait.invalid': 'Elige una imagen PNG, JPEG o WebP de hasta 5 MB.',
 	'player.portrait.failed': 'No se pudo guardar el retrato. Prueba otra imagen.',
 	'player.portrait.saving': 'Guardando retrato…',
+	'player.print.abilities': 'Características',
+	'player.print.equipment': 'Equipo',
+	'player.print.initiative': 'Iniciativa',
+	'player.levelUp.discardTitle': '¿Descartar la subida de nivel de {name}?',
+	'player.levelUp.discardBody':
+		'Se eliminarán las opciones guardadas para esta subida de nivel. El nivel actual del personaje no cambiará.',
+	'player.print.proficiencies': 'Competencias',
+	'player.print.hp': 'PG',
+	'player.print.conditions': 'Estados',
+	'player.print.title': 'Ficha de personaje',
+	'player.print.summary': 'Ficha de personaje · Resumen compacto',
+	'player.print.footer':
+		'Las secciones largas se abrevian con …; los detalles completos quedan en la ficha de personaje.',
+	'player.print.cancelled': 'Exportación cancelada.',
+	'player.print.exported': 'Ficha de personaje exportada. Abre el PDF para imprimir.',
+	'player.print.failed': 'No se pudo exportar la ficha de personaje. Inténtalo de nuevo.',
+	'player.print.action': 'Imprimir / Guardar PDF',
+	'player.print.label': 'Ficha de personaje imprimible',
+	'player.saving': 'Guardando personaje…',
+	'player.saved': 'Personaje guardado.',
+	'player.saveFailed':
+		'No se pudo guardar el cambio. Comprueba el almacenamiento e inténtalo de nuevo.',
 	'player.empty.title': 'Todavía no hay personaje',
 	'player.empty.body':
 		'En esta vista todavía no hay ningún personaje jugador. Crea uno en Personajes para empezar.',

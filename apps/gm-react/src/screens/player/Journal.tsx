@@ -1,3 +1,4 @@
+import { JournalHighlights } from './JournalHighlights';
 import { useState } from 'react';
 import type { JournalEntryView } from '@dndtools/core';
 import {
@@ -32,7 +33,7 @@ export function PlayerJournal({
 	compact: boolean;
 	dispatch: Dispatch;
 }) {
-	const { t, formatDate } = useI18n();
+	const { t } = useI18n();
 	const [title, setTitle] = useState('');
 	const [body, setBody] = useState('');
 	const [kind, setKind] = useState('note');
@@ -156,16 +157,16 @@ export function PlayerJournal({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 10,
-					padding: '10px 14px',
-					borderRadius: 10,
+					gap: 'var(--space-2)',
+					padding: 'var(--space-2) var(--space-3)',
+					borderRadius: 'var(--radius-md)',
 					background: 'var(--color-dm-only-subtle)',
 					border: `1px solid var(--color-dm-only-badge)`,
-					marginBottom: 18,
+					marginBottom: 'var(--space-4)',
 				}}
 			>
 				<Icon name="hidden" size={16} color="var(--color-dm-only-badge)" />
-				<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+				<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{t('player.journal.privateNote')}
 				</span>
 			</div>
@@ -173,16 +174,16 @@ export function PlayerJournal({
 				style={{
 					display: 'grid',
 					gridTemplateColumns: compact ? 'minmax(0,1fr)' : 'repeat(2,minmax(0,1fr))',
-					gap: 18,
+					gap: 'var(--space-4)',
 					alignItems: 'start',
 				}}
 			>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 					<Panel title={t('player.journal.entries', { count: entries.length })}>
 						{entries.length === 0 ? (
 							<EmptyState
 								inset
-								icon="note-edit"
+								illustration="journal-empty"
 								title={t('player.journal.noEntriesTitle')}
 								description={t('player.journal.noEntriesBody')}
 							/>
@@ -194,10 +195,23 @@ export function PlayerJournal({
 									return (
 										<div
 											key={im.id}
-											style={{ padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
+											style={{
+												padding: 'var(--space-2) 0',
+												borderTop: i ? `1px solid ${T.bd}` : 'none',
+												borderInlineStart: shared
+													? undefined
+													: 'var(--space-1) solid var(--color-dm-only-badge)',
+												paddingInlineStart: 'var(--space-2)',
+											}}
 										>
 											{isEditing ? (
-												<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+												<div
+													style={{
+														display: 'flex',
+														flexDirection: 'column',
+														gap: 'var(--space-2)',
+													}}
+												>
 													<Input
 														value={editTitle}
 														aria-label={t('player.journal.entryTitle')}
@@ -209,7 +223,13 @@ export function PlayerJournal({
 														aria-label={t('player.journal.entryBody')}
 														onChange={(e: DSChangeEvent) => setEditBody(e.target.value)}
 													/>
-													<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+													<div
+														style={{
+															display: 'flex',
+															justifyContent: 'flex-end',
+															gap: 'var(--space-1-5)',
+														}}
+													>
 														<Button variant="ghost" size="sm" onClick={() => setEditId(null)}>
 															{t('common.action.cancel')}
 														</Button>
@@ -229,11 +249,11 @@ export function PlayerJournal({
 														style={{
 															display: 'flex',
 															alignItems: 'center',
-															gap: 8,
-															marginBottom: 4,
+															gap: 'var(--space-2)',
+															marginBottom: 'var(--space-1)',
 														}}
 													>
-														<span style={{ font: `600 13px ${T.sans}` }}>{im.title}</span>
+														<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{im.title}</span>
 														<Badge status="neutral">{kindLabel(im.kind)}</Badge>
 														{canAuthor && (
 															<span
@@ -241,7 +261,7 @@ export function PlayerJournal({
 																	marginLeft: 'auto',
 																	display: 'inline-flex',
 																	alignItems: 'center',
-																	gap: 4,
+																	gap: 'var(--space-1)',
 																}}
 															>
 																<button
@@ -262,15 +282,15 @@ export function PlayerJournal({
 																	style={{
 																		display: 'inline-flex',
 																		alignItems: 'center',
-																		gap: 5,
+																		gap: 'var(--space-1)',
 																		// ~21px before (3px round an 11px line) — under WCAG
 																		// 2.5.8. Grown with padding, as the Equip pill was.
-																		padding: '6px 10px',
+																		padding: 'var(--space-1-5) var(--space-2)',
 																		minHeight: 24,
 																		boxSizing: 'border-box',
-																		borderRadius: 16,
+																		borderRadius: 'var(--radius-lg)',
 																		cursor: 'pointer',
-																		font: `11px ${T.sans}`,
+																		font: `var(--text-xs) ${T.sans}`,
 																		border: `1px solid ${shared ? T.accBd : T.bd}`,
 																		background: shared ? T.accSub : T.surf,
 																		color: shared ? T.acc : T.ter,
@@ -297,7 +317,7 @@ export function PlayerJournal({
 														)}
 													</div>
 													{im.body && (
-														<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+														<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 															{im.body}
 														</div>
 													)}
@@ -313,13 +333,13 @@ export function PlayerJournal({
 								style={{
 									display: 'flex',
 									flexDirection: 'column',
-									gap: 8,
-									marginTop: 14,
-									paddingTop: 14,
+									gap: 'var(--space-2)',
+									marginTop: 'var(--space-3)',
+									paddingTop: 'var(--space-3)',
 									borderTop: `1px solid ${T.bd}`,
 								}}
 							>
-								<div style={{ display: 'flex', gap: 8 }}>
+								<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 									<Input
 										value={title}
 										aria-label={t('player.journal.entryTitle')}
@@ -338,7 +358,7 @@ export function PlayerJournal({
 								{/* RC-CHR-2.2 — the downtime activity's structured fields; only rendered (and
 								    only required) while the picked kind is `downtime`. */}
 								{isDowntime && (
-									<div style={{ display: 'flex', gap: 8 }}>
+									<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
 										<Input
 											value={dtActivity}
 											aria-label={t('player.journal.downtime.activity')}
@@ -393,105 +413,11 @@ export function PlayerJournal({
 						)}
 					</Panel>
 				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					{/* Real projections of the journal's `personal-quest` / `session-highlight` entry kinds. */}
-					<Panel title={t('player.journal.quests', { count: quests.length })}>
-						{quests.length === 0 ? (
-							<EmptyState
-								inset
-								icon="flag"
-								title={t('player.journal.noQuestsTitle')}
-								description={t('player.journal.noQuestsBody')}
-							/>
-						) : (
-							quests.map((q, i) => (
-								<div
-									key={q.id}
-									style={{
-										display: 'flex',
-										gap: 10,
-										padding: '9px 0',
-										borderTop: i ? `1px solid ${T.bd}` : 'none',
-									}}
-								>
-									<Icon name="flag" size={15} color={T.acc} />
-									<div style={{ flex: 1 }}>
-										<div style={{ font: `12.5px ${T.sans}`, color: T.ink }}>{q.title}</div>
-										{q.body && (
-											<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-												{q.body}
-											</div>
-										)}
-									</div>
-								</div>
-							))
-						)}
-					</Panel>
-					<Panel title={t('player.journal.highlights', { count: highlights.length })}>
-						{highlights.length === 0 ? (
-							<EmptyState
-								inset
-								icon="sparkle"
-								title={t('player.journal.noHighlightsTitle')}
-								description={t('player.journal.noHighlightsBody')}
-							/>
-						) : (
-							highlights.map((h, i) => (
-								<div
-									key={h.id}
-									style={{ padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
-								>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-										<Badge status="accent">{t('player.journal.highlightBadge')}</Badge>
-										<span style={{ marginLeft: 'auto', font: `10.5px ${T.mono}`, color: T.ter }}>
-											{formatDate(new Date(h.updatedAt))}
-										</span>
-									</div>
-									<div style={{ font: `600 12.5px ${T.sans}` }}>{h.title}</div>
-									{h.body && (
-										<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>{h.body}</div>
-									)}
-								</div>
-							))
-						)}
-					</Panel>
-					{/* RC-CHR-2.2 — the `downtime` entry kind's structured activity/days/cost/outcome fields. */}
-					<Panel title={t('player.journal.downtime.section', { count: downtimeEntries.length })}>
-						{downtimeEntries.length === 0 ? (
-							<EmptyState
-								inset
-								icon="session-bolt"
-								title={t('player.journal.downtime.noEntriesTitle')}
-								description={t('player.journal.downtime.noEntriesBody')}
-							/>
-						) : (
-							downtimeEntries.map((d, i) => (
-								<div
-									key={d.id}
-									style={{ padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}
-								>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-										<Badge status="neutral">{d.downtime?.activityType ?? '—'}</Badge>
-										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-											{t('player.journal.downtime.daysValue', { days: d.downtime?.days ?? 0 })}
-										</span>
-										{d.downtime?.cost !== undefined && (
-											<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
-												{t('player.journal.downtime.costValue', { cost: d.downtime.cost })}
-											</span>
-										)}
-									</div>
-									<div style={{ font: `600 12.5px ${T.sans}` }}>{d.title}</div>
-									{d.downtime?.outcome && (
-										<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-											{d.downtime.outcome}
-										</div>
-									)}
-								</div>
-							))
-						)}
-					</Panel>
-				</div>
+				<JournalHighlights
+					quests={quests}
+					highlights={highlights}
+					downtimeEntries={downtimeEntries}
+				/>
 			</div>
 		</div>
 	);

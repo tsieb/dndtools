@@ -72,3 +72,29 @@ test('long Unicode content remains a single printable page', async ({ page }, in
 	await page.pdf({ path, preferCSSPageSize: true });
 	expect(execFileSync('pdfinfo', [path], { encoding: 'utf8' })).toMatch(/Pages:\s+1/);
 });
+
+test('Spanish copy reaches the printable summary and export feedback', async ({ page }, info) => {
+	await markOnboarded(page);
+	await gotoRoute(page, '/player');
+	await page.evaluate(async () => {
+		const preferences = await new Function('return import("/src/platform/preferences.ts")')();
+		preferences.writePreference(preferences.PREFERENCE_KEYS.locale, 'es');
+	});
+	await page.reload();
+	await seedFresh(page);
+	await waitReady(page);
+	const downloadPromise = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Imprimir / Guardar PDF' }).click();
+	const download = await downloadPromise;
+	const exported = info.outputPath('personaje.pdf');
+	await download.saveAs(exported);
+	expect(execFileSync('pdfinfo', [exported], { encoding: 'utf8' })).toMatch(/Pages:\s+1/);
+	await expect(
+		page.getByRole('status').filter({ hasText: 'Ficha de personaje exportada.' }),
+	).toBeVisible();
+	await page.emulateMedia({ media: 'print' });
+	const sheet = page.getByRole('article', { name: 'Ficha de personaje imprimible' });
+	await expect(sheet).toContainText('Resumen compacto');
+	await expect(sheet).toContainText('Equipo');
+	await expect(sheet).not.toContainText('Character sheet');
+});
