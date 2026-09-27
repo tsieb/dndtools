@@ -334,3 +334,30 @@ graph/i18n unit tests 36/36; core graph + boundary tests 55/55 and 15/15; perf s
 on desktop-chromium and mobile-chromium: new `graph-large-vault.spec.ts` plus graph (38 total),
 then graph-repair, a11y-axe-gate, responsive, ux-audit, maturity-signals and feature-spotlight
 (190), all passing.
+
+## 2026-09-26 rebase onto loop/rc and scope reconciliation
+
+Resumed at `7bf2f85b` (clean) after a provider allowance stop. The operator brief of 2026-09-26
+says the previous candidate was fenced for paths outside `Owns` and now grants `Graph.tsx`,
+`screens/graph/{interaction,nodes,presentation}.ts(x)` and `state/{graph-clusters,graph-quality,
+wikilink-graph}.ts`. Everything else the branch touches outside `Owns` is a manifest companion path:
+the two message catalogues, `*.test.ts`, `apps/gm-react/tests/e2e/*.spec.ts` and
+`scripts/eslint-rules/*.allow.js`. No sub-agents, pushes, promotions or dispatcher control edits.
+
+The branch base was 174 commits behind `loop/rc` (`cc47d694`), and three files conflicted, so I
+rebased onto it by hand:
+
+- `Board.tsx`: `loop/rc` added screen routes (`screen ? screen.id : homeSceneId`) and flow layout.
+  Kept both: the memoized `getSceneForActor` read now keys on the screen-aware `homeSceneId`.
+- `Graph.tsx`: RC-POL-1.12 (`7920b173`) split the screen into `graph/{Search,Inspector,Health}.tsx`
+  and restyled the canvas nodes onto tokens. Took `loop/rc`'s file and re-applied the perf changes
+  to it: deferred panel state for health and clusters, the bounded canvas pool, insertion-stable
+  edge keys, and stable node handlers with the memoized `GraphCanvasNode`. The inspector now gets
+  every result (`resultById`), so neighbours that are not drawn still list.
+- `nodes.tsx`: `GraphCanvasNode` now uses the RC-POL-1.12 styling (48–70 px, token padding and
+  radius, grayscale dimming, `--text-sm` label), so the markup matches `loop/rc` exactly. I deleted
+  `GraphResultRow`. The result rows now live in `graph/Search.tsx`, which is not owned, so I left
+  that file alone. Instead, `Graph.tsx` wraps `GraphSearch` in `memo`: its props are the memoized
+  read and state setters, so canvas hover, focus and keyboard walks no longer re-render every row.
+- Allow-list: `loop/rc` already removed the Graph entries (its Graph screen has no raw style
+  values), and the new `nodes.tsx` has none either, so the branch no longer changes the file.
