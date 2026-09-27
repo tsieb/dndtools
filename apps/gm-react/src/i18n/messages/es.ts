@@ -400,6 +400,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'cloud.offline.docs': 'Los documentos conectados necesitan conexión: estás sin conexión',
 	'cloud.offline.calendar': 'Programar necesita conexión: estás sin conexión',
 	'cloud.offline.wiki': 'El wiki de jugadores necesita conexión: estás sin conexión',
+	'cloud.offline.onlinePlay': 'El juego en línea necesita conexión: estás sin conexión',
+	'cloud.offline.ratings': 'Las valoraciones y reseñas necesitan conexión: estás sin conexión.',
+	'cloud.offline.discoverNotice':
+		'Estás sin conexión. Descubrir muestra lo último que cargó; las búsquedas y los filtros se actualizarán cuando vuelvas a conectarte. Tu bóveda sigue funcionando.',
+	'cloud.offline.playNotice':
+		'Estás sin conexión. El juego en línea necesita conexión a internet; tu bóveda sigue funcionando.',
 	'onboarding.dialogLabel': 'Configuración inicial',
 	'onboarding.skip': 'Omitir la configuración',
 	'onboarding.stepCounter': 'Paso {current} de {total}',

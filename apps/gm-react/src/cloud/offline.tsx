@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Callout } from '../ds';
 import { isOnline, subscribeOnline } from '../platform/preferences';
 import { useI18n, type MessageKey } from '../i18n';
@@ -60,9 +60,17 @@ export interface CloudActions {
 	 * so this is only for the paths that bypass it.
 	 */
 	blocked: boolean;
+	/**
+	 * The look `Button` gives itself when soft-disabled, for the native `<button>`s that do not
+	 * (the live-table dialogs in `net/`). Empty while online. Pair it with `offlineProps` and a
+	 * `blocked` guard in the handler — a native button swallows nothing on its own.
+	 */
+	offlineStyle: CSSProperties;
 }
 
 const NO_PROPS: Record<string, never> = {};
+const NO_STYLE: CSSProperties = {};
+const SOFT_DISABLED: CSSProperties = { opacity: 0.5, cursor: 'not-allowed' };
 
 function actionsFor(online: boolean, reason: string): CloudActions {
 	return {
@@ -71,6 +79,7 @@ function actionsFor(online: boolean, reason: string): CloudActions {
 		offlineProps: online
 			? NO_PROPS
 			: { 'aria-disabled': true, 'data-cloud-offline': 'true', title: reason },
+		offlineStyle: online ? NO_STYLE : SOFT_DISABLED,
 	};
 }
 

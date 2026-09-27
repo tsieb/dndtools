@@ -32,6 +32,8 @@ const NETWORK_MODULES = [
 	'cloud/googleDocs',
 	'cloud/syncEngine',
 	'cloud/CloudSyncContext',
+	// The internet-play relay (signaling + TURN over the cloud API); LAN play never touches it.
+	'net/cloudBridge',
 ];
 
 /**
@@ -52,6 +54,14 @@ const NO_CLOUD_CONTROLS: Record<string, string> = {
 		'Auth provider and modal host. Renders no control of its own; AuthModal.tsx carries the gate.',
 	'cloud/CloudSyncContext.tsx':
 		'Sync engine context. Exposes state and methods to callers; renders no control.',
+	'net/SessionContext.tsx':
+		'Live-table context. Exposes the relay to callers and renders no control; HostModal.tsx and SessionPanel.tsx gate the online-play buttons.',
+	'screens/community/usePublishModel.ts':
+		'State-and-handlers hook split out of Publish.tsx. Renders nothing; Publish.tsx spreads the gate on every control that calls it.',
+	'screens/community/useWikiModel.ts':
+		'State-and-handlers hook split out of Wiki.tsx. Renders nothing; Wiki.tsx spreads the gate on every control that calls it.',
+	'screens/upgrade/PlanCards.tsx':
+		'Plan CTAs split out of Upgrade.tsx. Its every cloud CTA is disabled by the `busy` prop, which Upgrade.tsx drives from the gate (with the offline notice above the cards).',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

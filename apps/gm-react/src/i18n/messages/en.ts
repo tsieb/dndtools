@@ -398,6 +398,12 @@ export const en = {
 	'cloud.offline.docs': 'Connected documents need a connection — you’re offline',
 	'cloud.offline.calendar': 'Scheduling needs a connection — you’re offline',
 	'cloud.offline.wiki': 'The player wiki needs a connection — you’re offline',
+	'cloud.offline.onlinePlay': 'Online play needs a connection — you’re offline',
+	'cloud.offline.ratings': 'Ratings and reviews need a connection — you’re offline.',
+	'cloud.offline.discoverNotice':
+		'You’re offline. Discover shows what it last loaded; searches and filters update when you reconnect. Your vault keeps working.',
+	'cloud.offline.playNotice':
+		'You’re offline. Online play needs an internet connection; your vault keeps working.',
 	'onboarding.dialogLabel': 'First-run setup',
 	'onboarding.skip': 'Skip setup',
 	'onboarding.stepCounter': 'Step {current} of {total}',

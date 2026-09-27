@@ -319,7 +319,7 @@ describe('RC-SYS-3.4 / RC-CLD-4.5 Community › Discover', () => {
 		expect(container.querySelector('textarea')).toBeNull();
 	});
 
-	it('marks server filters, install, rating and report offline without blocking local drafts', async () => {
+	it('offline: marks install, defers the server search, and parks the ratings with their draft', async () => {
 		server.listings = [listing({ moduleId: 'm1', installed: true })];
 		server.reviews = [
 			{
@@ -335,34 +335,50 @@ describe('RC-SYS-3.4 / RC-CLD-4.5 Community › Discover', () => {
 		try {
 			await mount();
 			await click(button('4 ★'));
+			await type(container.querySelector('textarea')!, 'A local draft');
 			online.mockReturnValue(false);
 			await act(async () => window.dispatchEvent(new Event('offline')));
-			const controls = [
-				container.querySelector('input[type="search"]')!,
-				select('community-kind-filter'),
-				select('community-system-filter'),
-				select('community-license-filter'),
-				button('Install to vault'),
-				button('Save rating'),
-				container.querySelector('button[aria-label="Report this review to the maintainers"]')!,
-			];
-			for (const control of controls) {
-				expect(control).not.toBeNull();
-				expect(control.getAttribute('data-cloud-offline')).toBe('true');
-				expect(control.getAttribute('title')).toMatch(/offline/i);
-			}
+
+			// Install is a DS button in this file: it wears the gate itself.
+			const install = button('Install to vault');
+			expect(install.getAttribute('data-cloud-offline')).toBe('true');
+			expect(install.getAttribute('title')).toMatch(/offline/i);
+			// The shelf's search and filters live in DiscoverShelf; the notice above it says what
+			// offline means for them.
+			expect(container.querySelector('[data-cloud-offline-notice="true"]')?.textContent).toMatch(
+				/searches and filters update when you reconnect/i,
+			);
+			// Every ratings control is a round trip: the section is hidden, not unmounted, and a line
+			// says why.
+			expect(container.querySelector('textarea')!.closest('[hidden]')).not.toBeNull();
+			expect(container.querySelector('[data-cloud-offline-ratings="true"]')?.textContent).toMatch(
+				/ratings and reviews need a connection/i,
+			);
+
 			const requests = server.requests.length;
-			await choose('community-kind-filter', 'system-package');
-			await click(button('Save rating'));
-			await click(controls[6] as HTMLElement);
-			await click(button('Install to vault'));
-			await type(container.querySelector('textarea')!, 'A local draft');
+			// A kind the open listing still matches, so its detail panel (and the draft) stay mounted.
+			await choose('community-kind-filter', 'widget-package');
+			await click(install);
+			await settle();
 			expect(server.requests).toHaveLength(requests);
-			expect(container.querySelector('textarea')!.value).toBe('A local draft');
+			// The filter edit is kept, not swallowed.
+			expect(select('community-kind-filter').value).toBe('widget-package');
+
 			online.mockReturnValue(true);
 			await act(async () => window.dispatchEvent(new Event('online')));
 			await settle();
 			expect(container.querySelectorAll('[data-cloud-offline]')).toHaveLength(0);
+			expect(container.querySelector('[data-cloud-offline-ratings]')).toBeNull();
+			// Reconnecting runs the deferred search with the filter chosen offline…
+			expect(
+				server.requests.some(
+					(r) => r.path === '/listings' && r.params.get('kind') === 'widget-package',
+				),
+			).toBe(true);
+			// …and the draft typed before the drop is still there.
+			const draft = container.querySelector('textarea')!;
+			expect(draft.closest('[hidden]')).toBeNull();
+			expect(draft.value).toBe('A local draft');
 		} finally {
 			online.mockRestore();
 		}

@@ -3,6 +3,7 @@ import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useI18n } from '../i18n';
+import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 import { isDemoLocalVault } from '../platform/storage/coreStore';
 import { useSession } from './SessionContext';
 import { qrDataUrl } from './qr';
@@ -37,8 +38,11 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 	const [answer, setAnswer] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const onlineActive = session.onlineJoinCode !== null;
+	// RC-PLT-2.4 — only the internet table crosses the relay; a local-network table does not.
+	const onlinePlay = useCloudActions('cloud.offline.onlinePlay');
 
 	const hostOnline = async () => {
+		if (onlinePlay.blocked) return;
 		setError(null);
 		try {
 			// Only reflect "joinable online" when hosting actually started — a
@@ -114,6 +118,11 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 				Host nearby without an account, or sign in for internet play. Every joining device waits for
 				your approval and can use only the participant you choose.
 			</p>
+			{session.cloudAvailable && !onlineActive && onlinePlay.offline && (
+				<div style={{ marginBottom: 14 }}>
+					<CloudOfflineNotice body="cloud.offline.playNotice" />
+				</div>
+			)}
 			{session.role !== 'host' ? (
 				<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
 					<button type="button" style={btn(true)} onClick={() => session.startHosting()}>
@@ -121,7 +130,12 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 						Host on local network
 					</button>
 					{session.cloudAvailable && (
-						<button type="button" style={btn()} onClick={() => void hostOnline()}>
+						<button
+							type="button"
+							style={{ ...btn(), ...onlinePlay.offlineStyle }}
+							{...onlinePlay.offlineProps}
+							onClick={() => void hostOnline()}
+						>
 							<Icon name="players" size={14} />
 							Host online
 						</button>
@@ -148,7 +162,12 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 									{session.onlineJoinCode && <OnlineJoinShare code={session.onlineJoinCode} />}
 								</>
 							) : (
-								<button type="button" style={btn()} onClick={() => void hostOnline()}>
+								<button
+									type="button"
+									style={{ ...btn(), ...onlinePlay.offlineStyle }}
+									{...onlinePlay.offlineProps}
+									onClick={() => void hostOnline()}
+								>
 									<Icon name="players" size={14} />
 									Also make joinable online
 								</button>

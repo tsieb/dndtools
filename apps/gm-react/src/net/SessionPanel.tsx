@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
 import { useAuth } from '../cloud/AuthContext';
+import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 import { useSession } from './SessionContext';
 import { useI18n } from '../i18n';
 import { isDemoLocalVault } from '../platform/storage/coreStore';
@@ -26,9 +27,12 @@ import { usePlatformCapabilities } from '../platform/capabilities';
 
 export function AccountButton({ compact = false }: { compact?: boolean } = {}) {
 	const auth = useAuth();
+	const signIn = useCloudActions('cloud.offline.signIn');
 	if (!auth.isConfigured) return null; // local-first: hidden when cloud isn't configured
 	const signedIn = auth.status === 'signed-in';
 	const label = signedIn ? (auth.user?.email ?? 'Account').split('@')[0] : 'Sign in';
+	// Only signing IN needs the network; signing out forgets this device's session either way.
+	const gate = signedIn ? null : signIn;
 	return (
 		<button
 			type="button"
@@ -42,8 +46,13 @@ export function AccountButton({ compact = false }: { compact?: boolean } = {}) {
 					? `Signed in as ${auth.user?.email ?? ''} — click to sign out`
 					: 'Sign in for online play & encrypted cloud backup'
 			}
-			onClick={() => (signedIn ? void auth.signOut() : auth.openAuthModal())}
+			{...gate?.offlineProps}
+			onClick={() => {
+				if (signedIn) void auth.signOut();
+				else if (!signIn.blocked) auth.openAuthModal();
+			}}
 			style={{
+				...gate?.offlineStyle,
 				display: 'inline-flex',
 				alignItems: 'center',
 				justifyContent: 'center',
@@ -181,11 +190,15 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 	const [dictated, setDictated] = useState(false);
 	const [room, setRoom] = useState('');
 	const [pin, setPin] = useState('');
+	// RC-PLT-2.4 — the join code and room/PIN routes go through the internet relay; the nearby and
+	// pasted-connection-code routes below do not, so they stay live.
+	const onlinePlay = useCloudActions('cloud.offline.onlinePlay');
 	const status = session.client?.status ?? 'idle';
 	const visibleError = error ?? session.client?.error;
 	const roster = session.client?.presence ?? [];
 
 	const connectOnline = async (joinCode: string) => {
+		if (onlinePlay.blocked) return;
 		setError(null);
 		setConnectingOnline(true);
 		try {
@@ -200,6 +213,7 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 	// The dictated path rebuilds the SAME one-string join code from the two halves the DM read out,
 	// so it goes through exactly one join route. A mistyped half fails here rather than on the wire.
 	const connectDictated = async () => {
+		if (onlinePlay.blocked) return;
 		let joinCode: string;
 		try {
 			joinCode = encodeJoinCode(room.trim(), pin.trim());
@@ -341,6 +355,11 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 								Paste the online join code your DM sent you. It connects you to their table over the
 								internet after the DM approves your request and chooses your participant.
 							</p>
+							{onlinePlay.offline && (
+								<div style={{ marginBottom: 6 }}>
+									<CloudOfflineNotice body="cloud.offline.playNotice" />
+								</div>
+							)}
 							<textarea
 								// The section heading above is a <span>, not a <label htmlFor>, so this field
 								// had no accessible name — and a placeholder is not a name (it also vanishes
@@ -355,7 +374,8 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 							/>
 							<button
 								type="button"
-								style={{ ...btn(true), marginTop: 8 }}
+								style={{ ...btn(true), marginTop: 8, ...onlinePlay.offlineStyle }}
+								{...onlinePlay.offlineProps}
 								onClick={() => void connectOnlineNow()}
 								disabled={!onlineCode.trim() || connectingOnline || status === 'connecting'}
 							>
@@ -403,7 +423,8 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 										</label>
 										<button
 											type="button"
-											style={{ ...btn(), alignSelf: 'flex-start' }}
+											style={{ ...btn(), alignSelf: 'flex-start', ...onlinePlay.offlineStyle }}
+											{...onlinePlay.offlineProps}
 											onClick={() => void connectDictated()}
 											disabled={!room.trim() || !pin.trim() || connectingOnline}
 										>

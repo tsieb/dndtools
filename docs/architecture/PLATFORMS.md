@@ -209,8 +209,25 @@ Run all three with:
 `pnpm --filter @dndtools/gm-react exec vitest run src/cloud/offline` and
 `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pwa-offline.spec.ts --workers=1`.
 
-Discovery server-side search and facet filters carry the same offline state as install and
-remove actions. Rating submission and review reporting are guarded in the shared discovery
-components; selecting cached cards and editing an unsent rating draft remain local actions.
-`Discover.test.tsx` verifies these controls across disconnect and reconnect, including that
-blocked activations issue no requests.
+Some cloud-only controls live in presentational children split out of their screen
+(`DiscoverShelf.tsx`, `Ratings.tsx`, `upgrade/PlanCards.tsx`). The screen owns the network calls,
+so it gates them from above:
+
+- **Discover.** Install and remove wear the gate. The shelf's search and filters stay editable: the
+  query is local state and the server search waits for the `online` event, which the notice above
+  the shelf says. The load-failed retry is withheld offline, since reconnecting re-runs the search
+  on its own. The ratings section is hidden (not unmounted) behind one line saying ratings need a
+  connection, so an unsent draft survives the drop. Selecting a cached card stays live.
+- **Plans.** `Upgrade.tsx` feeds the gate into `PlanCards`' `busy` prop, disabling every
+  live-billing CTA and a signed-in plan change; the notice above the cards says why. A signed-out
+  preview plan change stays live.
+
+**Online play** (`net/`). "Host online", "Also make joinable online", "Join online" and "Join with
+room and PIN" go through the internet relay (`net/cloudBridge.ts`, now on the static rule's network
+list), so they are gated, with a notice in the host and join dialogs. They are native `<button>`s,
+so they spread `offlineStyle` for the look and refuse in the handler. Local-network hosting, pasted
+connection codes and nearby tables are not relay calls and stay live. The top-bar account button
+gates only signing in.
+
+`Discover.test.tsx` and `offline.configured.test.tsx` cover these across disconnect and reconnect,
+including that blocked activations issue no requests.

@@ -227,8 +227,9 @@ export function CommDiscover() {
 			}}
 		>
 			{/* The search, filters and retry live in `DiscoverShelf`. Offline, a query edit is kept
-			    locally and the server search waits for the `online` event (`load` is gated), so
-			    the one thing to say is that — once, above the shelf. */}
+			    locally and the server search waits for the `online` event (`load` is gated), so the
+			    notice says that once, and the load-failed retry — which could only fail — is withheld
+			    until reconnecting re-runs the search on its own. */}
 			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four, minWidth: 0 }}>
 				<CloudOfflineNotice body="cloud.offline.discoverNotice" />
 				<DiscoverShelf
@@ -236,7 +237,7 @@ export function CommDiscover() {
 					setQuery={setQuery}
 					result={result}
 					featured={featured}
-					failed={failed}
+					failed={failed && !cloudActions.offline}
 					listings={listings}
 					sel={sel}
 					filtersActive={filtersActive}
@@ -310,11 +311,23 @@ export function CommDiscover() {
 							{t('community.discover.removeListing')}
 						</Button>
 					)}
-					<ListingRatings
-						key={sel.moduleId}
-						listing={sel}
-						onRated={(next) => patchListing(next.moduleId, next)}
-					/>
+					{/* Every ratings control is a round trip (`Ratings.tsx`). Offline the section stays
+					    mounted but hidden, so an unsent draft survives the drop, and one line says why. */}
+					{cloudActions.offline && (
+						<div
+							data-cloud-offline-ratings="true"
+							style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.ter }}
+						>
+							{t('cloud.offline.ratings')}
+						</div>
+					)}
+					<div hidden={cloudActions.offline}>
+						<ListingRatings
+							key={sel.moduleId}
+							listing={sel}
+							onRated={(next) => patchListing(next.moduleId, next)}
+						/>
+					</div>
 				</Panel>
 			)}
 			<Dialog

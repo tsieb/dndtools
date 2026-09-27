@@ -88,9 +88,31 @@ vi.mock('../cloud/entitlements', async (importOriginal) => {
 	};
 });
 
+// The live-table dialogs read only the session's shape; nothing here opens a connection.
+const session = {
+	role: 'idle' as const,
+	client: null,
+	cloudAvailable: true,
+	onlineJoinCode: null,
+	peers: [],
+	pendingJoins: [],
+	discoveryAvailable: false,
+	discovered: [],
+	browseTables: vi.fn(),
+	stopBrowseTables: vi.fn(),
+	startHosting: vi.fn(),
+	startHostingOnline: vi.fn(async () => true),
+	connectOnlineByCode: vi.fn(async () => undefined),
+	join: vi.fn(),
+};
+vi.mock('../net/SessionContext', () => ({ useSession: () => session }));
+
 vi.mock('../runtime/RuntimeContext', () => ({
 	useRuntime: () => ({
 		defaultActorId: 'dm',
+		actors: [],
+		// The legacy single-vault id: a real campaign, so HostModal does not take its demo-vault branch.
+		vaultId: 'primary',
 		dispatch: vi.fn(),
 		reloadFromStorage: vi.fn(),
 		runExclusiveMaintenance: vi.fn(),
@@ -105,6 +127,8 @@ vi.mock('../runtime/RuntimeContext', () => ({
 
 const { SettingsSync } = await import('../screens/settings/Sync');
 const { SettingsAccount } = await import('../screens/settings/Account');
+const { HostModal } = await import('../net/HostModal');
+const { JoinSessionButton } = await import('../net/SessionPanel');
 
 let root: Root;
 let container: HTMLDivElement;
@@ -196,6 +220,61 @@ describe('RC-PLT-2.4 configured cloud surfaces show the offline state', () => {
 			expect(el.getAttribute('aria-disabled')).toBe('true');
 			expect(el.getAttribute('title')).toMatch(/offline/i);
 		}
+	});
+
+	it('Host a live table gates the internet table and leaves the local one live', async () => {
+		await mount(<HostModal onClose={() => undefined} />);
+		expect(gatedLabels()).toEqual([]);
+
+		await goOffline();
+		expect(gatedLabels()).toEqual(['Host online']);
+		const hostOnline = container.querySelector<HTMLButtonElement>('[data-cloud-offline="true"]')!;
+		expect(hostOnline.getAttribute('aria-disabled')).toBe('true');
+		expect(hostOnline.disabled).toBe(false);
+		expect(hostOnline.getAttribute('title')).toMatch(/online play needs a connection/i);
+		expect(hostOnline.style.cursor).toBe('not-allowed');
+		expect(container.querySelector('[data-cloud-offline-notice="true"]')?.textContent).toMatch(
+			/online play needs an internet connection/i,
+		);
+
+		// A native button swallows nothing by itself; the handler has to refuse.
+		await act(async () => hostOnline.click());
+		expect(session.startHostingOnline).not.toHaveBeenCalled();
+		const local = [...container.querySelectorAll('button')].find((b) =>
+			b.textContent?.includes('Host on local network'),
+		)!;
+		await act(async () => local.click());
+		expect(session.startHosting).toHaveBeenCalledTimes(1);
+	});
+
+	it('Join a table gates the join-code routes and leaves the nearby ones live', async () => {
+		await mount(<JoinSessionButton />);
+		await act(async () => container.querySelector('button')!.click());
+		const field = container.querySelector<HTMLTextAreaElement>('[aria-label="Online join code"]')!;
+		await act(async () => {
+			const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+			setter.call(field, 'room.pin');
+			field.dispatchEvent(new Event('input', { bubbles: true }));
+		});
+		const dictated = [...container.querySelectorAll('button')].find(
+			(b) => b.textContent === 'Type the room and PIN instead',
+		)!;
+		await act(async () => dictated.click());
+		expect(gatedLabels()).toEqual([]);
+
+		await goOffline();
+		expect(gatedLabels().sort()).toEqual(['Join online', 'Join with room and PIN']);
+		for (const el of container.querySelectorAll('[data-cloud-offline="true"]')) {
+			expect(el.getAttribute('aria-disabled')).toBe('true');
+			expect(el.getAttribute('title')).toMatch(/offline/i);
+		}
+		await act(async () =>
+			container.querySelector<HTMLButtonElement>('[data-cloud-offline="true"]')!.click(),
+		);
+		expect(session.connectOnlineByCode).not.toHaveBeenCalled();
+
+		await goOnline();
+		expect(gatedLabels()).toEqual([]);
 	});
 
 	it('restores every control the moment the network returns', async () => {
