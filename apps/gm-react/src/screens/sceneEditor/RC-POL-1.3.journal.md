@@ -1,5 +1,50 @@
 # RC-POL-1.3 — Scene editor polish
 
+## Resumed verification — 2026-09-27
+
+Resumed on preserved candidate `c909f7ea3a3c4642de78c1698da3e570df3708eb`, with a clean
+worktree. The implementation and evidence below predate this resumption; their historical
+cross-surface changes are preserved, not repeated. Current ownership is the scene editor folder
+and `scripts/emphasis-baseline.json`; this continuation changes only the owned journal.
+
+The operator's newly owned emphasis baseline already contains exactly five scene-editor entry
+deletions. Each tightens the ratchet: the small-display-face allowances for `Inspector.tsx`,
+`SceneMetaPanel.tsx`, and `index.tsx` are obsolete after correcting the type hierarchy; the
+`AddWidgetPanel.tsx` small-display-face allowance names a removed file; the `index.tsx` allowance
+for three multiple-accent-primary findings is obsolete after the supporting-action changes.
+No unrelated allowance is changed and
+no budget is increased. There is no further baseline edit to make.
+
+Fresh verification (Headroom exact originals retrieved before recording results):
+
+- `pnpm gates`: exit 0, no owned-file size warning. Largest owned source: `index.tsx`, 465 lines.
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- `pnpm lint:emphasis --quiet`: exit 0. The 21 remaining loose entries are unrelated;
+  deliberately did not run a repository-wide baseline rewrite.
+- Focused app unit checks (`playerPreview`, `board-resizable`, `feedback-hygiene`): 3 files,
+  14 tests passed.
+- Pinned-container visual comparison, `CONTAINER_ENGINE=docker bash
+apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --retries=0
+-g 'scene/:id|scene editor' --workers=2`: 24 passed (41.5s). No snapshots changed.
+- Baseline budget: 444 files, 32,736.3 / 32,768.0 KiB.
+- Browser suite: **359 passed, 2 skipped, 3 failed** (9.4m), exit 1.
+  `pnpm --filter @dndtools/gm-react exec playwright test` with
+  `tests/e2e/{scene-editor-polish,canvas,binding-inspector,scene-templates,flow-layout,
+scene-surfaces,widget-generate,responsive,player-preview,a11y-axe-gate}.spec.ts`, both
+  Chromium projects, `--retries=0 --workers=2 --reporter=line` (brace list expanded to arguments).
+  All scene-editor cases passed, including both profiles' polish/overlay checks. Three desktop
+  axe cases (`/`, `/board`, `/player`) timed out at the runtime-loaded wait, before axe ran
+  (`a11y-axe-gate.spec.ts:85`, 20s). The pinned visual run overlapped the beginning of this run;
+  contention is a possibility, not a demonstrated cause. An isolated one-worker rerun of these
+  three cases passed (3/3, 9.8s), with `--retries=0 --workers=1 --project=desktop-chromium
+--grep 'a11y axe gate: /(board|player)?$'` on `a11y-axe-gate.spec.ts`. No code changed between
+  runs. This does not establish a durable startup fix; the initial full command remains non-green.
+
+The existing axe spec excludes shell chrome and filters the precise parchment token pair in
+DEBT-2026-008. A passing result therefore means the scoped suite passes with that documented
+waiver, not that the entire route has zero unfiltered axe violations. That limitation remains
+for independent review; shared tokens and the external spec are outside this continuation's claim.
+
 ## Scope and starting point
 
 Owned surface: `apps/gm-react/src/screens/sceneEditor/`. The task branch started at `2fb670a4`,
