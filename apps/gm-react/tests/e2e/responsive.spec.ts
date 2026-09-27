@@ -150,6 +150,9 @@ async function controlsClippingTranslatedText(page: Page): Promise<string[]> {
 					continue;
 				}
 				for (const node of [control, ...Array.from(control.querySelectorAll('*'))]) {
+					// A 1x1 box is the visually-hidden idiom (screen-kit `srOnly`): an icon-only control's
+					// accessible name, never painted, so there is no visible label to cut off.
+					if (node.clientWidth <= 1 && node.clientHeight <= 1) continue;
 					const style = getComputedStyle(node);
 					// `hidden`/`clip` destroy the overflowing text outright. `auto`/`scroll` do not: the
 					// reader can still reach it, and those are audited as reachability by clippedControls.

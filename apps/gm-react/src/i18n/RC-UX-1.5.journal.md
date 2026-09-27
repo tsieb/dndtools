@@ -270,3 +270,36 @@ Verification with the edit applied:
 
 If the operator would rather these two lines land under RC-CAN ownership, the diff is
 self-contained. Drop it from this candidate and land it separately; the new e2e case goes with it.
+
+## Canvas paths now owned; rebase onto 6dd4f09c — 2026-09-27
+
+- Resumed after the provider allowance limit on `c3858a7d` (clean). The 2026-09-26 operator brief
+  adds `AddWidgetGallery.tsx` and `TemplatePicker.tsx` to `Owns`, so the canvas fallback from the
+  previous entry is no longer a boundary crossing. It stays at one expression per file: a locale
+  with no row in the surface's local copy table falls back to `.en` instead of throwing. English
+  and Spanish output are unchanged, and no other canvas edits were made. Justification and the
+  negative control (TypeError on both profiles without it) are in the entry above.
+- `loop/rc` had moved 115 commits. Rebased onto `6dd4f09c` (pre-rebase head kept locally as
+  `backup/rc-ux-1.5-pre-rebase-c3858a7d`). One conflict: `check-prod-bundle.mjs`'s forbidden
+  regex, where `loop/rc` widened the DS source-link match to `.[jt]sx`. Kept both, so the pseudo
+  tokens sit in front of the widened pattern.
+- `messages/en.ts` gained ~280 lines on `loop/rc`, so `dev/qps-ploc.ts` was regenerated with
+  `pnpm exec tsx scripts/i18n-catalog.ts pseudo`.
+- The pseudo case then failed on mobile `/knowledge` only: four header buttons reported "cut off
+  … inside 1x1". RC-POL-1.11 (`02653a4a`) made that header icon-only on phones, with its labels in
+  screen-kit `srOnly` (1x1, `overflow: hidden`). That is an accessible name that is never painted,
+  not clipped copy. The audit now skips nodes whose box is ≤1x1. The planted 20px probe still
+  trips it on every route, and reverting the two shell fixes still turns desktop-chromium red on
+  the same three real defects (two `SideRow` captions and the ⌘K field).
+
+Verification on the rebased branch:
+
+- `pnpm typecheck` (core, cloud-fns, gm-react): exit 0.
+- i18n unit tests: 4 files / 47 tests passed (drift, coverage, ICU, scaffold registration).
+- `pnpm lint`: passed. Prettier: clean on every owned path touched.
+- App build: `check-prod-bundle: OK — __rt, pseudo locale and component gallery absent from 84 JS
+asset(s)`. A grep of `dist/assets` for `qps-ploc` or the pseudo alphabet found nothing.
+- Pseudo and scaffold cases with `--repeat-each=3`: 12/12 passed on both profiles.
+- Full `responsive.spec.ts` + `scene-templates.spec.ts`: 172 passed on desktop-chromium and
+  mobile-chromium (4.8m). Log: `/tmp/rc-ux-1.5-responsive-6dd4f09c-r2.log`.
+- No push, promotion, extra agents or dispatcher mutations.
