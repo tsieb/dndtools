@@ -43,3 +43,11 @@
 - DONE RC-KNW-3.2: integrated quest footer, readable NPC references, faction card alignment and keyboard-scrollable campaign arc; visual acceptance captured and compared in the pinned container.
 - Ten new snapshots, scoped component contract documentation and this journal accompany the implementation commit on the current task branch.
 - Central operator gates and independent review remain separate. No push, promotion, loop launch, agents or dispatcher control writes.
+
+## Independent review correction
+
+- Reproduced the review failure on `7e821605`: 496 baseline files total 33,556,290 bytes, exceeding the unchanged 33,554,432-byte cap by 1,858 bytes. The earlier final budget claim above does not describe that committed candidate and is superseded by this correction.
+- Recompress only this task's ten new campaign PNGs using Zopfli DEFLATE. Preserve every snapshot, dimensions, PNG filter bytes and decompressed scanline bytes, and all non-IDAT chunks. No application code, test coverage or budget limits change.
+- PASS: independent PNG parsing verifies valid CRCs, identical decompressed scanlines and identical non-IDAT chunks for all ten changed baselines versus `7e821605`. Saved 7,259 bytes; final baseline total is 33,549,031 bytes, 5,401 bytes below the unchanged cap. All 496 baselines retained.
+- PASS: `node apps/gm-react/tests/visual/check-baseline-budget.mjs`; pinned-container `--update-snapshots=none --workers=2 -g campaign` comparison, 12/12 tests (`/tmp/knw-review-visual.log`, original output inspected); journal Prettier and `git diff --check`.
+- Final commit verification uses the same budget and pinned comparison commands, with exact-SHA output retained in `/tmp/knw-review-final.log` for operator review. Application code is unchanged by this repair.
