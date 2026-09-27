@@ -475,3 +475,24 @@ I deleted those three probes plus two other task scratch files
 All 17 warnings are in loop/rc files this task does not change (`CommandPalette`,
 compendium, overlay components, `useCombatKeyboard`). No source or measured code
 changed. This is a local rerun, not a wrapper gate result.
+
+## 2026-09-27 — Review of 624715c1: waiting on the hosted capture
+
+The independent review found no implementation defect. It withheld approval
+only because the hosted five-run capture has not run on this candidate. I
+checked before changing anything. `gh api .../actions/runs?head_sha=624715c1`
+returns zero runs. The newest Performance `workflow_dispatch` is still
+36282130325 on `2c2ac85e`, the pre-fix commit. `~/.cache/perf-evidence/rc-eng-3.3/`
+holds only that run's four partial current/reference pairs.
+
+This worker cannot push or dispatch a workflow, so nothing local can close the
+gap. No source, fixture, registry, capture or workflow code changed. Measured
+code is still `1d7de2da`. I did not rebase onto newer loop/rc (`e50c13b9`)
+because that would move the SHA under the pending capture.
+
+For the owner's capture of this candidate, acceptance needs: current/reference
+1..5 with 22 rows and seven nonempty batches per row; numeric baseline-1..5;
+the comparison and stability output; and total and per-run wall times under the
+300-minute timeout. Check `search:large` (+48.5% locally) and
+`graph-indexing:large` (+23.5% locally) against the hosted comparison without
+changing targets or comparison rules.
