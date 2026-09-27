@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+	actorCanAuthorContent,
 	getContentItemsForActor,
 	getTypedRelationshipEdgesForActor,
 	parseMarkdownNote,
@@ -9,7 +10,17 @@ import {
 	type ContentItemView,
 	type TypedRelationEdge,
 } from '@dndtools/core';
-import { Badge, Button, Field, IconButton, Input, Select, Toaster } from '../../ds';
+import {
+	Badge,
+	Button,
+	Dialog,
+	EmptyState,
+	Field,
+	IconButton,
+	Input,
+	Select,
+	Toaster,
+} from '../../ds';
 import { BackBar, Page, Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
@@ -61,6 +72,8 @@ export function Relationships() {
 	const [verb, setVerb] = useState('');
 	const [targetId, setTargetId] = useState('');
 	const [busy, setBusy] = useState(false);
+	const [pendingRemove, setPendingRemove] = useState<TypedRelationEdge | null>(null);
+	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
 	const notes: ContentItemView[] = useMemo(
 		() =>
@@ -143,6 +156,8 @@ export function Relationships() {
 				setVerb('');
 				setTargetId('');
 			}
+		} catch {
+			Toaster.error(t('campaign.relationships.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -161,7 +176,12 @@ export function Relationships() {
 						),
 				),
 			);
-			if (ok) Toaster.success(t('campaign.relationships.removed'));
+			if (ok) {
+				Toaster.success(t('campaign.relationships.removed'));
+				setPendingRemove(null);
+			}
+		} catch {
+			Toaster.error(t('campaign.relationships.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -170,23 +190,27 @@ export function Relationships() {
 	return (
 		<Page max={1000}>
 			<BackBar to="/campaign" label={t('campaign.relationships.back')} />
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 				<Panel
 					title={t('campaign.relationships.title')}
 					action={<Badge status="neutral">{edges.length}</Badge>}
 				>
-					<div style={{ font: `12px ${T.sans}`, color: T.sub, marginBottom: 12 }}>
+					<div
+						style={{
+							font: `var(--text-sm) ${T.sans}`,
+							color: T.sub,
+							marginBottom: 'var(--space-3)',
+						}}
+					>
 						{t('campaign.relationships.intro')}
 					</div>
 					{edges.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							{t('campaign.relationships.empty')}
-						</div>
+						<EmptyState illustration="graph-empty" title={t('campaign.relationships.empty')} />
 					) : (
 						<div
 							style={{
 								position: 'relative',
-								borderRadius: 14,
+								borderRadius: 'var(--space-3)',
 								border: `1px solid ${T.bd}`,
 								background: `radial-gradient(680px 360px at 60% 0%, ${T.accSub}, ${T.sunken} 70%)`,
 								overflow: 'hidden',
@@ -226,11 +250,11 @@ export function Relationships() {
 										left: `${n.x}%`,
 										top: `${(n.y / 70) * 100}%`,
 										transform: 'translate(-50%,-50%)',
-										padding: '6px 10px',
-										borderRadius: 20,
+										padding: 'var(--space-1-5) var(--space-2)',
+										borderRadius: 'var(--space-5)',
 										border: `1.5px solid ${T.accBd}`,
 										background: `color-mix(in srgb, ${T.acc} 14%, ${T.surf})`,
-										font: `600 11px ${T.sans}`,
+										font: `600 var(--text-xs) ${T.sans}`,
 										color: T.ink,
 										whiteSpace: 'nowrap',
 									}}
@@ -241,93 +265,139 @@ export function Relationships() {
 						</div>
 					)}
 					{edges.length > 0 && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 'var(--space-1-5)',
+								marginTop: 'var(--space-3)',
+							}}
+						>
 							{edges.map((edge, i) => (
 								<div
 									key={`${edge.sourceId}-${edge.verb}-${edge.targetId}-${i}`}
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 8,
-										padding: '8px 10px',
+										gap: 'var(--space-2)',
+										padding: 'var(--space-2) var(--space-2)',
 										border: `1px solid ${T.bd}`,
-										borderRadius: 8,
+										borderRadius: 'var(--space-2)',
 										background: T.surf,
 									}}
 								>
-									<span style={{ font: `12.5px ${T.sans}`, flex: 1, minWidth: 0 }}>
+									<span style={{ font: `var(--text-sm) ${T.sans}`, flex: 1, minWidth: 0 }}>
 										<strong>{edge.sourceTitle}</strong> — {edge.verb} →{' '}
 										<strong>{edge.targetTitle}</strong>
 									</span>
-									<IconButton
-										icon="delete"
-										label={t('campaign.relationships.remove', {
-											source: edge.sourceTitle,
-											target: edge.targetTitle,
-										})}
-										variant="ghost"
-										size="sm"
-										disabled={busy}
-										onClick={() => removeEdge(edge)}
-									/>
+									{canAuthor && (
+										<IconButton
+											style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
+											icon="delete"
+											label={t('campaign.relationships.remove', {
+												source: edge.sourceTitle,
+												target: edge.targetTitle,
+											})}
+											variant="ghost"
+											size="sm"
+											disabled={busy}
+											onClick={() => setPendingRemove(edge)}
+										/>
+									)}
 								</div>
 							))}
 						</div>
 					)}
 				</Panel>
 
-				<Panel title={t('campaign.relationships.addTitle')}>
-					<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-						<Field label={t('campaign.relationships.source')} style={{ flex: '1 1 200px' }}>
-							<Select
-								value={sourceId}
-								onChange={(e: { target: { value: string } }) => setSourceId(e.target.value)}
-								options={[
-									{ value: '', label: t('campaign.relationships.choose') },
-									...notes.map((n) => ({ value: n.id, label: n.title })),
-								]}
-							/>
-						</Field>
-						<Field label={t('campaign.relationships.verb')} style={{ flex: '1 1 160px' }}>
-							<Input
-								value={verb}
-								list="campaign-relationships-verbs"
-								placeholder={t('campaign.relationships.verbPlaceholder')}
-								onChange={(e: { target: { value: string } }) => setVerb(e.target.value)}
-							/>
-						</Field>
-						{/* Sibling of the Field, not a child of it — Field only auto-associates its label with
+				{canAuthor && (
+					<Panel title={t('campaign.relationships.addTitle')}>
+						<div
+							style={{
+								display: 'flex',
+								gap: 'var(--space-2)',
+								flexWrap: 'wrap',
+								alignItems: 'flex-end',
+							}}
+						>
+							<Field label={t('campaign.relationships.source')} style={{ flex: '1 1 200px' }}>
+								<Select
+									value={sourceId}
+									onChange={(e: { target: { value: string } }) => setSourceId(e.target.value)}
+									options={[
+										{ value: '', label: t('campaign.relationships.choose') },
+										...notes.map((n) => ({ value: n.id, label: n.title })),
+									]}
+								/>
+							</Field>
+							<Field label={t('campaign.relationships.verb')} style={{ flex: '1 1 160px' }}>
+								<Input
+									value={verb}
+									list="campaign-relationships-verbs"
+									placeholder={t('campaign.relationships.verbPlaceholder')}
+									onChange={(e: { target: { value: string } }) => setVerb(e.target.value)}
+								/>
+							</Field>
+							{/* Sibling of the Field, not a child of it — Field only auto-associates its label with
 						    a SINGLE child element; a second child (this datalist) would silently break that
 						    association and leave the verb input unlabeled for assistive tech (WCAG 4.1.2). The
 						    `list` attribute finds it by id regardless of where it sits in the document. */}
-						<datalist id="campaign-relationships-verbs">
-							{SUGGESTED_VERBS.map((v) => (
-								<option key={v} value={v} />
-							))}
-						</datalist>
-						<Field label={t('campaign.relationships.target')} style={{ flex: '1 1 200px' }}>
-							<Select
-								value={targetId}
-								onChange={(e: { target: { value: string } }) => setTargetId(e.target.value)}
-								options={[
-									{ value: '', label: t('campaign.relationships.choose') },
-									...notes.map((n) => ({ value: n.id, label: n.title })),
-								]}
-							/>
-						</Field>
-						<Button
-							variant="secondary"
-							icon="add"
-							disabled={
-								busy || !sourceId || !targetId || verb.trim() === '' || sourceId === targetId
-							}
-							onClick={addEdge}
-						>
-							{t('campaign.relationships.add')}
-						</Button>
-					</div>
-				</Panel>
+							<datalist id="campaign-relationships-verbs">
+								{SUGGESTED_VERBS.map((v) => (
+									<option key={v} value={v} />
+								))}
+							</datalist>
+							<Field label={t('campaign.relationships.target')} style={{ flex: '1 1 200px' }}>
+								<Select
+									value={targetId}
+									onChange={(e: { target: { value: string } }) => setTargetId(e.target.value)}
+									options={[
+										{ value: '', label: t('campaign.relationships.choose') },
+										...notes.map((n) => ({ value: n.id, label: n.title })),
+									]}
+								/>
+							</Field>
+							<Button
+								variant="secondary"
+								icon="add"
+								disabled={
+									busy || !sourceId || !targetId || verb.trim() === '' || sourceId === targetId
+								}
+								onClick={addEdge}
+							>
+								{t('campaign.relationships.add')}
+							</Button>
+						</div>
+					</Panel>
+				)}
 			</div>
+			<Dialog
+				open={!!pendingRemove}
+				onClose={() => setPendingRemove(null)}
+				title={t('campaign.relationships.confirmRemove', {
+					source: pendingRemove?.sourceTitle ?? '',
+					verb: pendingRemove?.verb ?? '',
+					target: pendingRemove?.targetTitle ?? '',
+				})}
+				description={t('campaign.relationships.removeHelp')}
+				tone="danger"
+				size="sm"
+				dismissible={!busy}
+				initialFocus="[data-cancel-remove]"
+				footer={
+					<>
+						<Button data-cancel-remove disabled={busy} onClick={() => setPendingRemove(null)}>
+							{t('common.action.cancel')}
+						</Button>
+						<Button
+							disabled={busy || !canAuthor}
+							onClick={() => pendingRemove && void removeEdge(pendingRemove)}
+						>
+							{t('campaign.relationships.confirmAction')}
+						</Button>
+					</>
+				}
+			/>
 		</Page>
 	);
 }

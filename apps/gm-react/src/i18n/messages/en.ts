@@ -5046,6 +5046,10 @@ export const en = {
 	'campaign.relationships.add': 'Add',
 	'campaign.relationships.added': 'Relationship added.',
 	'campaign.relationships.removed': 'Relationship removed.',
+	'campaign.relationships.confirmRemove': 'Remove “{source} — {verb} → {target}”?',
+	'campaign.relationships.removeHelp':
+		'The notes stay in your vault. You can add this relationship again.',
+	'campaign.relationships.confirmAction': 'Remove relationship',
 	'campaign.relationships.remove': 'Remove: {source} → {target}',
 	'campaign.relationships.saveFailed': "Couldn't save this relationship. Try again.",
 

@@ -5239,6 +5239,10 @@ export default {
 	'campaign.relationships.add': '[Áďď~~]',
 	'campaign.relationships.added': '[Ŕéľáţíóñšĥíƥ áďďéď.~~~~ ~~~]',
 	'campaign.relationships.removed': '[Ŕéľáţíóñšĥíƥ ŕéḿóṽéď.~~~~ ~~~~]',
+	'campaign.relationships.confirmRemove': '[Ŕéḿóṽé “~~~~{source} — ~~{verb} → ~~{target}”?~]',
+	'campaign.relationships.removeHelp':
+		'[Ţĥé ñóţéš šţáý íñ ýóúŕ ṽáúľţ. Ýóú çáñ áďď ţĥíš ŕéľáţíóñšĥíƥ áğáíñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'campaign.relationships.confirmAction': '[Ŕéḿóṽé ŕéľáţíóñšĥíƥ~~~~ ~~~]',
 	'campaign.relationships.remove': '[Ŕéḿóṽé: ~~~~{source} → ~~{target}]',
 	'campaign.relationships.saveFailed':
 		"[Çóúľďñ'ţ šáṽé ţĥíš ŕéľáţíóñšĥíƥ. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~]",

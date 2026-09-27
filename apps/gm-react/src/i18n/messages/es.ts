@@ -5065,6 +5065,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'campaign.relationships.add': 'Añadir',
 	'campaign.relationships.added': 'Relación añadida.',
 	'campaign.relationships.removed': 'Relación eliminada.',
+	'campaign.relationships.confirmRemove': '¿Eliminar «{source} — {verb} → {target}»?',
+	'campaign.relationships.removeHelp':
+		'Las notas seguirán en tu bóveda. Puedes volver a añadir esta relación.',
+	'campaign.relationships.confirmAction': 'Eliminar relación',
 	'campaign.relationships.remove': 'Eliminar: {source} → {target}',
 	'campaign.relationships.saveFailed': 'No se pudo guardar esta relación. Inténtalo de nuevo.',
 

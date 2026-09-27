@@ -22,16 +22,16 @@ export function CalendarForm({
 	const set = (patch: Partial<Draft>) => onChange({ ...draft, ...patch });
 	const rowStyle = {
 		display: 'flex',
-		gap: 8,
+		gap: 'var(--space-2)',
 		alignItems: 'flex-end',
 		flexWrap: 'wrap' as const,
-		paddingBottom: 10,
+		paddingBottom: 'var(--space-2)',
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 			<Panel title={draft.id ? t('calendar.form.editTitle') : t('calendar.form.newTitle')}>
-				<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
 					<Field label={t('calendar.field.name')} style={{ flex: '2 1 240px' }}>
 						<Input
 							value={draft.name}
@@ -114,6 +114,7 @@ export function CalendarForm({
 							/>
 						</Field>
 						<IconButton
+							style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
 							icon="trash"
 							size="sm"
 							variant="ghost"
@@ -150,9 +151,11 @@ export function CalendarForm({
 					</Button>
 				}
 			>
-				<div style={{ ...eb, marginBottom: 2 }}>{t('calendar.moons.hint')}</div>
+				<div style={{ ...eb, marginBottom: 'var(--space-0)' }}>{t('calendar.moons.hint')}</div>
 				{draft.moons.length === 0 && (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('calendar.moons.none')}</div>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
+						{t('calendar.moons.none')}
+					</div>
 				)}
 				{draft.moons.map((moon, index) => (
 					<div key={moon.id} style={rowStyle}>
@@ -198,6 +201,7 @@ export function CalendarForm({
 							/>
 						</Field>
 						<IconButton
+							style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
 							icon="trash"
 							size="sm"
 							variant="ghost"
@@ -229,7 +233,7 @@ export function CalendarForm({
 				}
 			>
 				{draft.holidays.length === 0 && (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 						{t('calendar.holidays.none')}
 					</div>
 				)}
@@ -281,6 +285,7 @@ export function CalendarForm({
 							/>
 						</Field>
 						<IconButton
+							style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
 							icon="trash"
 							size="sm"
 							variant="ghost"
@@ -291,7 +296,7 @@ export function CalendarForm({
 				))}
 			</Panel>
 
-			<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+			<div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
 				<Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
 					{t('calendar.cancel')}
 				</Button>
