@@ -1,5 +1,57 @@
 # RC-POL-1.3 — Scene editor polish
 
+## Review corrections — 2026-09-27
+
+This section supersedes the historical acceptance claims below. Starting commit: `46e8fa48`.
+The review correctly rejected the filtered axe results and glyph-only visual coverage. Those
+are not acceptable waivers. Current ownership permits only this folder and the emphasis baseline.
+Permission to edit the existing external polish specs and scene-editor PNGs was requested; until
+it arrives those files remain unchanged. This is a partial repair, not completed acceptance.
+
+- Done and Save details use the neutral secondary Button: readable text with no additional primary.
+- Parchment's scene-editor subtree maps accent ink to its existing darker text-link token. This
+  also fixes the shared widget chips rendered inside this surface without changing global tokens.
+- The phone tools Menu now supplies an anchor and bottom placement, enabling the shared Popover's
+  horizontal viewport correction. Its width accommodates the heading, and its Close control has
+  a 44px target using existing spacing tokens.
+- The emphasis baseline needs no further edits; the earlier five removals remain justified above.
+
+Acceptance status:
+
+- [x] Embedded §20.2–§20.5 checklist retained below, with these corrections taking precedence.
+- [ ] Remove the external e2e contrast suppression and retain regression assertions for the complete
+      phone dialog and Close control. These test paths are outside current ownership.
+- [ ] Replace the external glyph captures with meaningful five-theme/three-tier surface captures,
+      update affected scene-editor goldens, inspect and strictly compare them within the budget.
+      Snapshot paths and the visual spec are outside current ownership. Old captures do not verify
+      this correction, and discarded review captures do not satisfy retained visual coverage.
+- [x] Unfiltered verification: a temporary copy of `scene-editor-polish.spec.ts` replaced the
+      violation filter with a direct assertion over all returned violations; shell exclusions
+      remained unchanged. Each theme scrolled Save details into view before scanning. The phone
+      overlay test checked every edge of the outer dialog and Close against the viewport, plus
+      Close's 44px width/height. Both Chromium profiles, two workers, retries disabled: **20 passed,
+      2 expected desktop skips** (1.3m). No violations were discarded by this verification.
+      The temporary spec/config were moved to `/tmp/scene-editor-review.spec.ts` and
+      `/tmp/scene-editor-review.config.ts` afterward; they are not retained regression coverage.
+- [x] Phone overlay check repeated for visual inspection: **1 passed** (8.3s). Inspected
+      `/tmp/scene-editor-tools-menu.png`: heading, Close, Snap and Generate are fully visible.
+      This host capture is diagnostic only, not a retained or pinned visual baseline.
+- [x] App typecheck, surface ESLint, emphasis lint and formatting passed. `pnpm gates` passed
+      with no owned-file warning; largest owned source is `index.tsx`, 464 lines. Exact command
+      output was read directly; Headroom tools were unavailable.
+- [x] Broader functional run: `pnpm --filter @dndtools/gm-react exec playwright test` with
+      `tests/e2e/{scene-editor-polish,canvas,flow-layout,scene-surfaces,player-preview,scene-templates}.spec.ts`
+      (expanded to individual paths), both Chromium projects, `--workers=2 --retries=0 --reporter=line`:
+      **132 passed, 2 expected desktop skips** (3.2m), exit 0. This existing polish spec still contains
+      its filter; the independent temporary unfiltered run above supplies the contrast evidence.
+- [x] Full `pnpm lint`: exit 0, including boundary and non-text contrast gates. Unrelated warnings
+      remain. Final app typecheck, surface ESLint, formatting and `git diff --check` also passed.
+
+Exact local logs: `/tmp/scene-editor-review-e2e.log`, `/tmp/scene-editor-review-menu.log`,
+`/tmp/scene-editor-review-functional.log`, `/tmp/scene-editor-review-gates.log`,
+`/tmp/scene-editor-review-full-lint.log`. These are local diagnostics, not retained visual evidence.
+No out-of-scope tracked files changed; no push, promotion, loop launch or dispatcher-state edits.
+
 ## Resumed verification — 2026-09-27
 
 Resumed on preserved candidate `c909f7ea3a3c4642de78c1698da3e570df3708eb`, with a clean

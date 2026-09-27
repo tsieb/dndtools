@@ -185,9 +185,9 @@ export function SceneMetaPanel({
 						: t('sceneEditor.none')}
 				</div>
 			</Section>
-			{/* The subtle accent, like the toolbar's Done: one gold primary per region (RC-ENG-8.4). */}
+			{/* Save is local to this panel; the neutral treatment keeps its label readable. */}
 			<Button
-				variant="accent"
+				variant="secondary"
 				size="sm"
 				icon="check"
 				disabled={!draftName.trim()}

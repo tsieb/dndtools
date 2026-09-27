@@ -1,4 +1,5 @@
 import type React from 'react';
+import './sceneEditor.css';
 import { BoardEmptyState, useBoardPreviouslyFilled } from '../board/BoardPlayerNotice';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -222,6 +223,7 @@ export function SceneEditor() {
 
 	return (
 		<div
+			className="scene-editor"
 			style={{
 				display: 'flex',
 				flexDirection: 'column',

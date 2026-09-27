@@ -1,0 +1,12 @@
+/* The shared parchment accent/subtle pair misses AA for widget chip text. Reuse the
+   theme's darker text-link ink within this surface, without changing shared tokens. */
+[data-theme='parchment'] .scene-editor {
+	--color-accent: var(--color-text-link);
+}
+
+/* Popover supplies positioning and dismissal; its compact header needs phone targets here. */
+.scene-editor-tools-menu > div:first-child > button {
+	min-width: calc(var(--space-10) + var(--space-1));
+	min-height: calc(var(--space-10) + var(--space-1));
+	flex-shrink: 0;
+}

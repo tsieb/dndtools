@@ -85,10 +85,10 @@ export function SceneToolbar({
 			text
 		);
 
-	// The subtle accent, as on the GM Screen: one gold primary per region (RC-ENG-8.4).
+	// Completing layout editing is a supporting action; use the readable neutral treatment.
 	const modeButton = previewing ? null : (
 		<Button
-			variant={editing ? 'accent' : 'secondary'}
+			variant="secondary"
 			size="sm"
 			icon={editing ? 'check' : 'edit'}
 			onClick={() => onEditing(!editing)}
@@ -161,13 +161,13 @@ export function SceneToolbar({
 					{moreOpen && (
 						<Menu
 							triggerRef={moreRef}
+							className="scene-editor-tools-menu"
+							anchor={{ x: '50%', y: '100%' }}
+							placement="bottom"
 							title={t('sceneEditor.moreTools')}
-							width={240}
+							width={300}
 							onClose={() => setMoreOpen(false)}
 							style={{
-								position: 'absolute',
-								top: '100%',
-								left: 0,
 								marginTop: 'var(--space-1)',
 							}}
 						>
