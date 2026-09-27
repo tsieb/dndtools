@@ -32,7 +32,12 @@ describe('navigation measurement boundaries in Chromium', () => {
 							const evaluate = page.evaluate.bind(page);
 							page.evaluate = async (fn, arg) => {
 								const result = await evaluate(fn, arg);
-								if (arg && typeof arg === 'object' && 'content' in arg && 'sync' in arg) {
+								// The large restore receives the serialized snapshot.
+								if (
+									typeof arg === 'string' &&
+									arg.includes('"content"') &&
+									arg.includes('"sync"')
+								) {
 									// Deliberately add setup overhead: it must precede the measured time origin.
 									await page.waitForTimeout(100);
 									setupFinished = await evaluate(() => performance.timeOrigin + performance.now());

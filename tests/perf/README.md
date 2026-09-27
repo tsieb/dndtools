@@ -82,14 +82,27 @@ Every capture now records 22 entries: the eleven standard budget IDs and their
 `:large` counterparts. Each large browser context receives the same deterministic
 5,000-note / 200-map / 60-tile / 40-character snapshot via the app's validated
 storage restore, before the measured navigation. Notes have two resolvable links
-each; the compacted snapshot has a 200-operation real update delta. Construction
-is checked against a ten-second ceiling. Setup, restore and initial hydration are
-outside the measured workflow; subsequent opens read the actual durable vault.
-Repeated opens use a new page in the same browser context, preserving IndexedDB
-and cache while releasing Chromium module-loader resources from the previous page.
-Page creation and close are outside the navigation-based sample.
-Scenario mutations (extra map/POIs or indexed notes) run on top of this background
-fixture. Smoke CI is repository-wide and explicitly labels that distinction.
+each; the compacted snapshot has a real delta of 100 note edits. One of the 200
+maps is built by the standard map scenario's commands (4 layers / 100 POIs), and
+the large map rows pan it instead of creating another. Construction is checked
+against a ten-second ceiling. The snapshot is built and serialized once per
+capture; each restore parses its own copy in the page. Setup, restore and initial
+hydration are outside the measured workflow; subsequent opens read the actual
+durable vault. Repeated opens use a new page in the same browser context,
+preserving IndexedDB and cache while releasing Chromium module-loader resources
+from the previous page. Page creation and close are outside the navigation-based
+sample. Widget moves and indexed notes run on top of this background fixture.
+
+Every accepted command sends the whole durable state through
+`storage.persistFullState`, which rejects payloads over 5 MiB. The pinned
+reference sends the previous _and_ next state, so it pays twice the vault's
+size. Ids and note bodies are therefore short. `large-vault.test.ts` replays each
+`:large` scenario's commits and fails unless both boundary shapes stay at least
+384 KiB under the cap. A new `:large` scenario must declare its commits there.
+
+Smoke CI never opens a vault. `smoke-ci:large` records the seven `smoke-ci`
+batches measured in the same capture, and its fixture says so. It runs on its own
+only when `smoke-ci` is not part of the capture.
 
 `search:large`, `graph-indexing:large`, `vault-open:large`, and
 `scene-first-render:large` have provisional targets of 500 ms, 1,000 ms,
