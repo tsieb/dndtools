@@ -1,13 +1,12 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status (2026-09-27): graph and search recovered; scene first render unmet.** The branch
-is rebased onto `loop/rc` `cc47d694`. In paired local captures against that commit, search and
-graph-indexing pass in every run, while the reference breaches both
-([evidence](reports/2026-09-27-rebased-recovery/README.md)). Scene first render breaches on both
-sides on this loaded host, and its candidate/reference gap swung between −18% and 0%, so the
-approximately 20% win is not demonstrated. The remaining large graph/search lever is the result
-list in `graph/Search.tsx`, which is not owned; see the scope request below. Earlier sections are
-historical.
+**Current status (2026-09-27): 10/11 budgets pass; scene first render remains unmet.**
+The latest full paired capture measures executable commit `864b5e15` against review
+base `6dd4f09c`: scene 1684.9/1500 ms (reference 1805.1 ms, only 6.7% faster), graph
+302.2/500 ms, search 175.6/250 ms. The high-degree focus regression is fixed and
+reproduced successfully in the browser. See the third-review recovery section below
+and [current evidence](reports/2026-09-27-focus-recovery/README.md). Earlier sections
+and captures are historical. No all-green or five-run stability claim.
 
 ## 2026-09-19 implementation
 
@@ -524,3 +523,44 @@ No agents, dispatcher changes, push, promotion or extra loop.
 Validation before committed capture: performance suite 25/25, focused app widget/graph
 suite 229/229, app typecheck and targeted ESLint pass. Fresh paired timing against review
 base `6dd4f09c` and functional browser verification follow. No all-green acceptance claim.
+
+### Third-review result and handoff
+
+Committed executable source `864b5e15` was captured against review base `6dd4f09c`:
+all eleven budgets, seven alternating batches per revision, with all 154 batch groups
+populated and flattening exactly to the raw samples. Both recorded source trees match
+Git. Absolute comparator exits **1** for scene alone: **1684.9/1500 ms**, reference
+1805.1 ms (-6.7%, not approximately 20%). Graph **302.2/500 ms** and search
+**175.6/250 ms** pass; widget update **33.5/100 ms**. All ten other targets pass.
+CI drift comparator exits 0 with no missing measurements/baselines or regressions;
+that does not override the scene breach. This is one full paired local run, not the
+five-run stability gate. Host load moved during the run; all slow and fast batches
+are retained. No code-regression attribution is made from the absolute breach.
+
+A five-pair browser-only experiment applied `content-visibility: auto` to widget
+regions without unmounting bodies/bindings. Plain median 1563.9 ms, contained 1583.3 ms:
+no useful gain, so no containment change was applied. These diagnostic samples do
+not replace or supplement any batch in the full capture.
+
+Browser star reproduction passes: 160 earlier-sorted neighbours cannot evict `Z Hub`;
+selection, inspector and active focus remain present with exactly 150 drawn nodes.
+Functional canvas/large-graph/custom-widget browser suite: **107 passed, 1 skipped**
+across desktop and mobile. Pinned-container board/scene/graph visuals: **33/33 pass**.
+Full lint exits 0. App typecheck, focused app tests **229/229**, perf tests **25/25**,
+and quality/documentation gates pass. The reference checkout and task-owned manual
+server were removed/stopped; harness-owned servers and the visual container exited.
+
+[Evidence](reports/2026-09-27-focus-recovery/README.md) preserves both complete raw
+captures, comparator verdicts, checksums, validation logs and the browser reproduction.
+The evidence follow-up changes documentation/artifacts only; executable application
+and capture/comparator source is identical to measured `864b5e15`. No response to the
+`graph/Search.tsx` ownership request arrived, and that file remains untouched. The task
+is **not ready for all-green acceptance**: scene target and approximately 20% recovery
+remain unmet. No budgets were relaxed, and no push, promotion, loop, sub-agent or
+dispatcher control-state edit occurred.
+
+Archive verification: archive plus all 22 member checksums, both Git source trees,
+all 154 nonempty batch groups and exact raw-sample flattening passed. Executable
+source diff from `864b5e15` is empty. Final changed-file formatting and whitespace
+checks pass. The one browser skip is the existing desktop exclusion for the compact
+initiative lifecycle test; its mobile case passes.
