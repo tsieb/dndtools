@@ -277,9 +277,21 @@ test.describe('system package picker', () => {
 		await switchTo(page, 'Keeper rules', customId);
 
 		// The vocabulary reaches the chrome (the RC-SYS-2.6 contract, driven by a DM-authored package).
+		// `/board` is ADR-041's alias for the GM screen: it resolves to `/screen/<home>`, where the
+		// screen names itself in its own header (the shell's h1 there is the Screens section). Checking
+		// the h1 on `/board` only ever caught the moment before that redirect landed.
 		await gotoRoute(page, '/board');
 		await waitReady(page);
-		await expect(page.getByRole('heading', { level: 1, name: 'Keeper screen' })).toBeVisible();
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId))
+			.not.toBeNull();
+		const homeId = await page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId);
+		await page.waitForURL((url) => url.hash === `#/screen/${homeId}`, { timeout: 10_000 });
+		await expect(
+			page
+				.locator('#main-content')
+				.getByRole('heading', { level: 2, name: 'Keeper screen', exact: true }),
+		).toBeVisible();
 
 		// ── The player sheet shows Sanity. Adding it to a character is `character.add-system-resource`
 		// (RC-SYS-2.2), which has no screen of its own yet — so the setup is dispatched and the

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { isLiveScene } from '@dndtools/core';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button, EmptyState, IconButton, Toaster } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { Page } from '../../app/screen-kit';
 import { Board } from '../Board';
-import { screenPath, SCREENS_PATH, visibilityLabelKey } from './screenModel';
+import { SCREENS_PATH, visibilityLabelKey } from './screenModel';
 import { ScreenSwitcher } from './ScreenSwitcher';
 import { useEnsureHomeScreen, useScreenActions, useScreens } from './useScreens';
 
@@ -120,18 +119,15 @@ export function ScreenView() {
  * renders meanwhile, so the board mounts ONCE, on the screen route, rather than here and then again
  * there. A non-GM actor, or a provisioning write that failed to persist, gets the board as it always
  * rendered here: the player notice, or the board's own retry and storage error.
+ *
+ * The redirect itself is `ScreenRouteAliases`: a `<Navigate>` here never fired again when `/board` was
+ * re-entered before the first redirect had committed, and left the pane empty (see that file).
  */
 export function BoardAlias() {
 	const runtime = useRuntime();
-	const location = useLocation();
 	const { failed } = useEnsureHomeScreen();
-	const homeSceneId = runtime.state.commandCenter.homeSceneId;
-	const home = homeSceneId ? runtime.state.scenes.scenes[homeSceneId] : undefined;
 	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
 	if (!runtime.loaded) return null;
 	if (!isDm || failed) return <Board />;
-	if (homeSceneId && home && isLiveScene(home)) {
-		return <Navigate to={screenPath(homeSceneId)} replace state={location.state} />;
-	}
 	return null;
 }

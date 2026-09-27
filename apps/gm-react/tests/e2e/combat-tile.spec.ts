@@ -11,41 +11,53 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 const ROW_MIN_HEIGHT = 56;
 
-/** Go live on the home scene, place an initiative tracker on it, and roll a two-creature order. */
+/**
+ * Go live on the home scene, place an initiative tracker on it unless the home board already seeds
+ * one, and roll a two-creature order.
+ *
+ * `/board` provisions the home board (`command-center.ensure-home`) after boot, and `seedFresh` only
+ * reloads when that write has already landed. So wait for it: arranging before it lands put the
+ * tracker on another scene, and arranging after it stacked a second tracker beside the one the home
+ * board seeds.
+ */
 async function boardWithTracker(page: Page): Promise<void> {
+	await page.waitForFunction(() => window.__rt!.state.commandCenter.homeSceneId !== null, null, {
+		timeout: 10_000,
+	});
 	const result = await page.evaluate(async () => {
 		const rt = window.__rt!;
 		const state = rt.state as unknown as {
-			session: { activeSceneId: string | null };
-			commandCenter: { homeSceneId: string | null };
-			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			commandCenter: { homeSceneId: string };
+			scenes: { scenes: Record<string, { widgets: Array<{ type: string }> }> };
 		};
-		const sceneId =
-			state.commandCenter.homeSceneId ??
-			state.session.activeSceneId ??
-			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+		const sceneId = state.commandCenter.homeSceneId;
 		const live = await rt.dispatch({
 			type: 'session.set-workflow',
 			actorId: rt.defaultActorId,
 			payload: { workflow: 'active', activeSceneId: sceneId },
 		});
 		if (live.status !== 'accepted') return { step: 'go live', ...live };
-		const placed = await rt.dispatch({
-			type: 'scene.add-widget',
-			actorId: rt.defaultActorId,
-			payload: {
-				sceneId,
-				widget: {
-					type: 'initiative-tracker',
-					version: '1.0.0',
-					layout: { x: 0, y: 0, w: 360, h: 320 },
-					configuration: {},
-					localState: {},
-					binding: null,
+		const seeded = state.scenes.scenes[sceneId].widgets.some(
+			(w) => w.type === 'initiative-tracker',
+		);
+		if (!seeded) {
+			const placed = await rt.dispatch({
+				type: 'scene.add-widget',
+				actorId: rt.defaultActorId,
+				payload: {
+					sceneId,
+					widget: {
+						type: 'initiative-tracker',
+						version: '1.0.0',
+						layout: { x: 0, y: 0, w: 360, h: 320 },
+						configuration: {},
+						localState: {},
+						binding: null,
+					},
 				},
-			},
-		});
-		if (placed.status !== 'accepted') return { step: 'place widget', ...placed };
+			});
+			if (placed.status !== 'accepted') return { step: 'place widget', ...placed };
+		}
 		return {
 			step: 'start combat',
 			...(await rt.dispatch({

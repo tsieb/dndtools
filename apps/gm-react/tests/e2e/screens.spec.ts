@@ -201,6 +201,29 @@ test('an old /board bookmark opens the GM screen without leaving the alias in hi
 	await expect(page.getByTestId('screens-library')).toBeVisible();
 });
 
+test('re-entering /board before its redirect has settled still lands on the GM screen', async ({
+	page,
+}) => {
+	await markOnboarded(page);
+	await gotoRoute(page, '/screens');
+	const homeId = await homeSceneId(page);
+	// A slow phone: the redirect's render is still pending when `/board` is asked for again. The
+	// second `/board` used to settle equal to the first, so nothing redirected it and the pane stayed
+	// empty for good (a CI run of combat-tile.spec.ts sat there for 30s).
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+	await page.evaluate(() => {
+		window.location.hash = '#/board';
+	});
+	await page.waitForURL((url) => url.hash === `#/screen/${homeId}`, { timeout: 10_000 });
+	await page.evaluate(() => {
+		window.location.hash = '#/board';
+	});
+	await page.waitForURL((url) => url.hash === `#/screen/${homeId}`, { timeout: 10_000 });
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+	await expect(screenHeading(page, 'DM screen')).toBeVisible();
+});
+
 test('a screen that does not exist says so and leads back to the library', async ({ page }) => {
 	await markOnboarded(page);
 	await gotoRoute(page, '/screen/no-such-screen');
