@@ -49,3 +49,9 @@ export function parseNoteCached(text: string): ParsedMarkdownNote {
 	}
 	return copyParsed(parsed);
 }
+
+/** Drop every cached parse. A host calls this when the vault's content is replaced wholesale. */
+export function clearParsedNoteCache(): void {
+	cache.clear();
+	cachedChars = 0;
+}

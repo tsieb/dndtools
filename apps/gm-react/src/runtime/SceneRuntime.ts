@@ -1,5 +1,6 @@
 import { unstable_batchedUpdates } from 'react-dom';
 import {
+	clearParsedNoteCache,
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
@@ -394,6 +395,8 @@ export class SceneRuntime {
 	 */
 	async reloadFromStorage(): Promise<void> {
 		this.loadFailed = false;
+		// The replaced vault's note bodies must not stay resident in the graph reads' parse memo.
+		clearParsedNoteCache();
 		try {
 			await this.hydrateFromStorage(false);
 		} catch (error) {

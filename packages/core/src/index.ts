@@ -3510,6 +3510,8 @@ export {
 // actor's visible content items, so resolve/rename-propagation/repair operate ONLY over targets the editor may
 // see. Pure + deterministic.
 export type { WikilinkRenamePropagation } from './queries/wikilink-graph';
+// RC-ENG-3.2: the graph reads' note-parse memo; a host clears it when it replaces the vault's content.
+export { clearParsedNoteCache } from './queries/parsed-note-cache';
 export {
 	applyLinkRepairForActor,
 	buildWikilinkCandidatesForActor,
