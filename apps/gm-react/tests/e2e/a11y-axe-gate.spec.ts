@@ -95,6 +95,16 @@ async function openRoute(page: Page, path: string) {
 
 /** Run the same release gate against an interactive state, not only a route shell. */
 async function assertAxeState(page: Page, testInfo: TestInfo, route: string, slug: string) {
+	// Scan the settled state, not a translucent frame of an overlay's entry (the phone "Jump to tile"
+	// Sheet's scrim/slide-up measured its category labels mid-fade as color-contrast failures).
+	await page.evaluate(async () => {
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter((a) => a.effect?.getTiming().iterations !== Infinity)
+				.map((a) => a.finished.catch(() => {})),
+		);
+	});
 	const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
 	const project = testInfo.project.name;
 	const nodes: ViolationNode[] = [];

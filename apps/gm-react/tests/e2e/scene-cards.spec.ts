@@ -127,7 +127,14 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		page,
 	}) => {
 		await page.setViewportSize({ width: 360, height: 360 });
-		const launcher = page.getByRole('button', { name: /Search/ }).first();
+		// The shell only drops to the phone tier when its media-query `change` listener commits, a
+		// frame or more after the resize on a loaded host. Until then the desktop Sidebar's
+		// "Search (⌘K)" also matches /Search/ and comes first, so the test focused a button the flip
+		// then unmounted and the display restored focus to a detached node. Wait for the flip, then
+		// take the phone top bar's launcher.
+		await expect(page.getByRole('button', { name: 'Search (⌘K)' })).toHaveCount(0);
+		const launcher = page.getByRole('button', { name: 'Search', exact: true });
+		await expect(launcher).toBeVisible();
 		await launcher.focus();
 		await expect(launcher).toBeFocused();
 
