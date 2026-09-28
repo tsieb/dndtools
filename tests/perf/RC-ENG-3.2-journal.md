@@ -1,12 +1,14 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status (2026-09-27): 10/11 budgets pass; scene first render remains unmet.**
-The latest full paired capture measures executable commit `864b5e15` against review
-base `6dd4f09c`: scene 1684.9/1500 ms (reference 1805.1 ms, only 6.7% faster), graph
-302.2/500 ms, search 175.6/250 ms. The high-degree focus regression is fixed and
-reproduced successfully in the browser. See the third-review recovery section below
-and [current evidence](reports/2026-09-27-focus-recovery/README.md). Earlier sections
-and captures are historical. No all-green or five-run stability claim.
+**Current status (2026-09-27, fourth recovery): 11/11 targets pass in one local paired
+capture; the ~20% scene win is not achieved.** Executable commit `a916eddf` against
+review base `6f8e448d`: scene 1409.7/1500 ms (reference 1539.8 ms, 8.4% faster; every
+candidate batch under target), graph 249.6/500 ms (reference 820.9), search 129.7/250 ms.
+The board's own work is under 20% of the scene interval, so a board-only change cannot
+reach the anticipated win; the rest is dev-server module transport outside this story's
+paths. See the fourth-review section below and
+[current evidence](reports/2026-09-27-scene-settle/README.md). One local run on a lightly
+loaded host, not the five-run hosted gate. Earlier sections and captures are historical.
 
 ## 2026-09-19 implementation
 
@@ -564,3 +566,100 @@ all 154 nonempty batch groups and exact raw-sample flattening passed. Executable
 source diff from `864b5e15` is empty. Final changed-file formatting and whitespace
 checks pass. The one browser skip is the existing desktop exclusion for the compact
 initiative lifecycle test; its mobile case passes.
+
+## 2026-09-27 fourth independent-review recovery
+
+Starting head `96b2c726`, clean worktree. The review rejected it because scene first
+render breached (1590.2/1500 ms paired against `6f8e448d`, only 3.8% faster), and
+because graph indexing had a thin margin on a loaded host. It also asked for the
+parse memo to be cleared when a vault is replaced. No Headroom tools were exposed. No
+agents, dispatcher changes, push, promotion or extra loop. The two reference
+checkouts (base and previous candidate) lived under `tmp/perf/` and were removed
+afterwards.
+
+### Where the scene time goes
+
+Browser probes on a cold `/board` open (fresh context, 50 frames / 10 map bindings,
+dev server), recorded in the [evidence](reports/2026-09-27-scene-settle/README.md):
+
+- 658 module requests over HTTP/1.1, 354 of them `@dndtools/core` sources (the whole
+  barrel). Requests wait a median 199 ms (p90 473 ms) for one of six connections, for a
+  3 ms server response. The main thread is about 80% idle until DCL (about 880 ms on a
+  quiet host). A 124 ms evaluation task and about 130 ms of hydration follow.
+- The board's own share (route chunk, 50-frame render, commit, layout) is about
+  200–250 ms, under 20% of the interval. Nothing in App.tsx's eager imports holds a
+  large unique module set (AppShell's 38 are needed to paint).
+- Diagnostic only, not interleaved and not applied: prebundling `@dndtools/core` in
+  the dev server took 658 requests to 305 and about 1250 to 846 ms. The lever sits
+  in `apps/gm-react/vite.config.ts` or in RC-ENG-1.3's scene definition, both
+  outside this story's paths.
+
+### Changes, with the scope each needs
+
+- `app/SceneBoardCanvas.tsx`, new `app/widgets/boardFrames.ts`, and
+  `app/widgets/useWidgetCommands.ts` (owned). After mount, two commits re-rendered all
+  50 frames and their bodies: the layout history's mount reset (26 ms) and the first
+  ResizeObserver width (9 ms, and a first paint at 100%). Frames are now `memo`
+  behind per-widget handlers that last as long as the widget. In view mode they ignore
+  `scale` and `history`, which only edit chrome reads. The pane is measured in a layout
+  effect before paint. Command callbacks keep their identity and call the latest host.
+  The follow-up commits now cost 0.7 and 4.3 ms. SceneBoardCanvas is 787 lines.
+  `useLayoutHistory` (app/canvas) is outside the claim and was not touched.
+- `App.tsx` (manifest companion): routes render only after the vault loads, so a
+  cold board open fetched its chunk after hydration. It is now fetched at App
+  evaluation when the hash is `/board` or `/screen/…`. Three lines; no other route
+  changes.
+- `runtime/SceneRuntime.ts` (owned): the demo-seed module is fetched alongside
+  the storage read. A demo boot always runs the seed, whose guards decide what is
+  missing. `reloadFromStorage` clears the parse memo, as the review suggested. A
+  local vault switch already reloads the document.
+- `queries/parsed-note-cache.ts` (owned) gains `clearParsedNoteCache`.
+  `packages/core/src/index.ts` (companion) exports it on one line.
+- `platform/service-boundary.ts` (owned): every durable commit serialized the whole
+  vault to check the 5 MiB limit (about 20 ms per note command at 2,000 notes). It now
+  computes the exact UTF-8 JSON length, memoized by object identity. Undefined and
+  throw behaviour match `JSON.stringify`. It is about 13 ms per content command
+  now, because of the debt below, and near-free for commands that leave content alone.
+- `DEBT.md` (companion) records `DEBT-2026-009`: every content command runs the
+  hydration backfill and copies all 2,010 items, so nothing keyed by identity survives
+  a note command. The fix belongs in `state/content.ts`, outside the claim.
+
+Tests: `boardFrames.test.tsx` covers handler identity and latest-host calls,
+detach after removal, the view/edit comparator, and a pre-paint width read. The
+width check is mutation-checked: a passive effect fails it. `useWidgetCommands.test.tsx`
+is updated for identity kept across host replacement. `tests/perf/boundary-size.test.ts`
+compares every value kind, failure modes, and a commit-by-commit shared state
+against `JSON.stringify` plus `TextEncoder`. `packages/core/tests/parsed-note-cache.test.ts`
+loads its own module graph because the core suite runs with `isolate: false`.
+
+### Measurements
+
+- Interleaved 16-pair browser A/B against the previous candidate: 1284 → 1271 ms
+  (-1%). The removed commits are real render work but small in this metric.
+- Four-budget paired capture of `63a3631e` (before the boundary change) against the base: scene
+  1349.5 vs 1447.1 ms (-6.7%), graph 285.2 vs 898.9, search 143.6 vs 212.8 (graded values).
+- Final full paired capture, `a916eddf` against `6f8e448d`, all eleven budgets with
+  seven batches each, load 3.8–4.4: **0 target breaches**. Scene 1409.7 ms (reference
+  1539.8, which breaches; candidate batch maxima 1350.1–1480.5), graph 249.6 (reference
+  820.9 breaches), search 129.7, widget update 33.2. The paired comparator exits 0. The
+  default comparator exits 1 on drift against the committed baseline only, and the
+  reference drifts the same way.
+
+### Verdict and handoff
+
+All targets are green in this local capture. The story's ~20% board win is not
+achieved (8.4%), and the evidence says it cannot come from the board alone. On a
+host loaded like the last review's (9–19), the dev-server share grows. The scene
+target could breach again even though the candidate beats the base there. Options for
+the operator, none taken here:
+
+1. Grant `apps/gm-react/vite.config.ts` to prebundle `@dndtools/core` for the dev
+   server. The trade-off: core edits then need a dev-server restart.
+2. Under RC-ENG-1.3, measure scene render from route entry (app-startup already
+   budgets boot), or against a prebundled core, and re-baseline.
+3. Fix DEBT-2026-009 in the content state module.
+
+Validation: app 1720/1720, core 5173/5173 (also shuffled), perf 29/29, typecheck,
+lint (0 errors), gates, and changed-file formatting against `loop/rc`. Board browser
+specs 147 passed / 1 existing desktop skip, on both projects. Evidence archive and
+member checksums verified.
