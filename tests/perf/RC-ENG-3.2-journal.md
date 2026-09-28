@@ -663,3 +663,20 @@ Validation: app 1720/1720, core 5173/5173 (also shuffled), perf 29/29, typecheck
 lint (0 errors), gates, and changed-file formatting against `loop/rc`. Board browser
 specs 147 passed / 1 existing desktop skip, on both projects. Evidence archive and
 member checksums verified.
+
+### 2026-09-27 app-test gate after the rebase onto `09347dc8`
+
+The operator's App tests gate failed on `87229a26`, the rebased form of `5eba8831`. Two
+failures, both i18n: `i18n/dev/pseudo.test.ts` ("matches the current source catalog
+exactly") and `i18n/index.test.ts` (pseudo-locale coverage 5884/5885). `loop/rc` gained
+RC-UX-1.5's generated DEV pseudo locale (`apps/gm-react/src/i18n/dev/qps-ploc.ts`) after
+this story's last base. It must mirror every `en.ts` key, and this story's own
+`graph.canvasLimited` key, which explains the 150-node canvas cap, was missing from it.
+
+Fix: `tsx scripts/i18n-catalog.ts pseudo`, which adds exactly that one key (two lines).
+**Scope note:** `i18n/dev/qps-ploc.ts` is neither owned nor in the manifest's companion
+paths (those cover `i18n/messages/*.ts` only). It is the generated mirror of a companion
+catalog, so every story that adds a message key needs it; the alternative was deleting the
+canvas-cap notice, which would leave capped nodes undrawn without saying so. If the fence
+rejects it, the fix is to add `apps/gm-react/src/i18n/dev/qps-ploc.ts` to `companion_paths`.
+No code changed. App tests 1726/1726; the generated file passes Prettier.
