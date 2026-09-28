@@ -83,6 +83,21 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 - Status: open — found by RC-POL-1.3, whose axe spec (`scene-editor-polish.spec.ts`) names this one
   pair as its only exception, on parchment only.
 
+### DEBT-2026-009 — every content command copies every content item
+
+- Severity: medium · Owner: core · Resolution window: 2026 Q4
+- Impact: the content reducers open with `ensureContentStateSlice(state.content)`, which runs the
+  hydration backfill `ensureVaultContentState` and returns a shallow copy of every item (and a
+  re-migrated calendar map) even when nothing needed backfilling. On a 2,000-note vault one
+  `content.create-item` hands back 2,010 new item objects with identical fields. Nothing that keys
+  on item identity can then reuse work across a command: the persistence boundary re-measures every
+  item (RC-ENG-3.2 memoizes by identity), and every memo downstream starts cold. The work is
+  proportional to the vault, per command.
+- Targets: `packages/core/src/state/content.ts` (`ensureVaultContentState`: keep an item, and the
+  item map, when no field needs a default), `packages/core/src/commands/helpers.ts`.
+- Status: open — measured by RC-ENG-3.2 (`tests/perf/RC-ENG-3.2-journal.md`), whose owned paths do
+  not include the content state module.
+
 ## Resolved
 
 - DEBT-2026-001 — typed platform-preferences layer: resolved by RC-UX-4.1
