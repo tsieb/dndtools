@@ -15,6 +15,15 @@ async function secondary(page: Page, name: string) {
 	await page.getByRole('button', { name, exact: true }).click();
 }
 async function axe(page: Page) {
+	// Scan the settled overlay, not a translucent frame of the sheet's slide-up/scrim entry.
+	await page.evaluate(async () => {
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter((a) => a.effect?.getTiming().iterations !== Infinity)
+				.map((a) => a.finished.catch(() => {})),
+		);
+	});
 	const results = await new AxeBuilder({ page })
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice'])
 		.analyze();
