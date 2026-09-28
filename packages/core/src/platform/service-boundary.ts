@@ -118,22 +118,112 @@ function measurePayload(
 	payload: unknown,
 	limit: number,
 ): { fits: true } | { fits: false; sizeBytes: number } | null {
-	let serialized: string;
+	let sizeBytes: number | undefined;
 	try {
-		serialized = JSON.stringify(payload);
+		sizeBytes = jsonUtf8Length(payload);
 	} catch {
 		return null;
 	}
 	// JSON.stringify returns undefined for values like a bare `undefined`.
-	if (serialized === undefined) return null;
-	// UTF-8 spends one to three bytes per UTF-16 code unit (a surrogate pair is two units and four
-	// bytes), so a payload that fits at three bytes per unit fits outright. Only a payload near or
-	// over the limit is encoded to count its bytes exactly: encoding a full copy of every persisted
-	// state just to read its length was most of a durable commit's boundary cost.
-	if (serialized.length * 3 <= limit) return { fits: true };
-	// Count UTF-8 bytes so multi-byte content is measured accurately against the limit.
-	const sizeBytes = utf8ByteLength(serialized);
+	if (sizeBytes === undefined) return null;
 	return sizeBytes > limit ? { fits: false, sizeBytes } : { fits: true };
+}
+
+/** Measured objects and arrays, by identity. See {@link jsonUtf8Length}. */
+const measuredContainers = new WeakMap<object, number>();
+
+/**
+ * The UTF-8 byte length of `JSON.stringify(value)`, without building the string. It returns
+ * `undefined` where `JSON.stringify` returns `undefined`, and throws where it throws (a cycle, a
+ * BigInt, a throwing `toJSON` or getter).
+ *
+ * RC-ENG-3.2 — every durable commit sends the whole next state across the boundary, so stringifying
+ * it to check the size limit cost time in proportion to the vault on every command. Core state is
+ * immutable and structurally shared: a command replaces the objects on the path it changed and keeps
+ * the rest. Each object and array's length is therefore remembered by identity, and a commit measures
+ * only the objects it replaced. Objects with a `toJSON` are measured through it and not remembered.
+ */
+export function jsonUtf8Length(value: unknown): number | undefined {
+	return propertyBytes(value, '', new Set());
+}
+
+function propertyBytes(input: unknown, key: string, path: Set<object>): number | undefined {
+	let value = input;
+	if ((typeof value === 'object' && value !== null) || typeof value === 'bigint') {
+		const toJSON = (value as { toJSON?: unknown }).toJSON;
+		if (typeof toJSON === 'function') value = toJSON.call(value, key);
+	}
+	if (value instanceof Number) value = Number(value);
+	else if (value instanceof String) value = String(value);
+	else if (value instanceof Boolean) value = value.valueOf();
+	switch (typeof value) {
+		case 'string':
+			return stringBytes(value);
+		case 'number':
+			return Number.isFinite(value) ? String(value).length : 4;
+		case 'boolean':
+			return value ? 4 : 5;
+		case 'bigint':
+			throw new TypeError('Do not know how to serialize a BigInt');
+		case 'object':
+			if (value === null) return 4;
+			return containerBytes(value, value !== input, path);
+		default:
+			// undefined, a function or a symbol: dropped from an object, `null` in an array.
+			return undefined;
+	}
+}
+
+function containerBytes(value: object, transient: boolean, path: Set<object>): number {
+	const known = transient ? undefined : measuredContainers.get(value);
+	if (known !== undefined) return known;
+	if (path.has(value)) throw new TypeError('Converting circular structure to JSON');
+	path.add(value);
+	let bytes = 2;
+	if (Array.isArray(value)) {
+		for (let i = 0; i < value.length; i += 1) {
+			bytes += (i > 0 ? 1 : 0) + (propertyBytes(value[i], String(i), path) ?? 4);
+		}
+	} else {
+		let members = 0;
+		for (const key of Object.keys(value)) {
+			const member = propertyBytes((value as Record<string, unknown>)[key], key, path);
+			if (member === undefined) continue;
+			bytes += (members > 0 ? 1 : 0) + stringBytes(key) + 1 + member;
+			members += 1;
+		}
+	}
+	path.delete(value);
+	if (!transient) measuredContainers.set(value, bytes);
+	return bytes;
+}
+
+/** Bytes of `JSON.stringify(text)`: quotes, two-character and `\u` escapes, then UTF-8. */
+function stringBytes(text: string): number {
+	let bytes = 2;
+	for (let i = 0; i < text.length; i += 1) {
+		const unit = text.charCodeAt(i);
+		if (unit < 0x80) {
+			if (unit === 0x22 || unit === 0x5c) bytes += 2;
+			else if (unit >= 0x20) bytes += 1;
+			else if (unit === 0x08 || unit === 0x09 || unit === 0x0a || unit === 0x0c || unit === 0x0d)
+				bytes += 2;
+			else bytes += 6;
+		} else if (unit < 0x800) {
+			bytes += 2;
+		} else if (unit >= 0xd800 && unit <= 0xdbff) {
+			const next = text.charCodeAt(i + 1);
+			if (next >= 0xdc00 && next <= 0xdfff) {
+				bytes += 4;
+				i += 1;
+			} else bytes += 6;
+		} else if (unit >= 0xdc00 && unit <= 0xdfff) {
+			bytes += 6;
+		} else {
+			bytes += 3;
+		}
+	}
+	return bytes;
 }
 
 /**
