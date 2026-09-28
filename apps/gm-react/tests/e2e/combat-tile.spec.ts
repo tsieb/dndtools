@@ -97,6 +97,10 @@ test.beforeEach(async ({ page }) => {
 	await seedFresh(page);
 	await boardWithTracker(page);
 	await gotoRoute(page, '/board');
+	// `gotoRoute` settles on the shell, but `/board` is only an alias: wait for it to land on the home
+	// screen, or a test can measure a tile the redirect is about to swap out.
+	const homeId = await page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId);
+	await page.waitForURL((url) => url.hash === `#/screen/${homeId}`, { timeout: 10_000 });
 });
 
 test.describe('touch-first combat tile', () => {
@@ -186,6 +190,9 @@ test.describe('touch-first combat tile', () => {
 	test('a swipe left on a row reveals the same quick actions', async ({ page }) => {
 		const tile = page.getByTestId('initiative-tile-compact');
 		const row = tile.getByRole('listitem').first();
+		// `boundingBox()` does not wait for visibility: it reads null for a row that is attached but not
+		// yet laid out.
+		await expect(row).toBeVisible();
 		const box = await row.boundingBox();
 		expect(box).not.toBeNull();
 		const y = box!.y + box!.height / 2;
