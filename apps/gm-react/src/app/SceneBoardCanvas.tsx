@@ -7,13 +7,7 @@ import {
 } from './board-helpers';
 import { getSceneForActor, type CoreCommand, type SectionLayoutRegion } from '@dndtools/core';
 import { useParams } from 'react-router-dom';
-import {
-	ArrangeBar,
-	EmptyCanvas,
-	HistoryCluster,
-	Marquee,
-	WidgetFrame,
-} from './canvas/WidgetFrame';
+import { ArrangeBar, EmptyCanvas, HistoryCluster, Marquee } from './canvas/WidgetFrame';
 import {
 	arrangeCommand,
 	arrangeShortcut,
@@ -59,6 +53,7 @@ import {
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { useWidgetCommands } from './widgets/useWidgetCommands';
+import { BoardFrame, useFrameHandlers, usePaneWidth } from './widgets/boardFrames';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
 
@@ -96,7 +91,6 @@ export function SceneBoardCanvas({
 	onZoomPresetChange,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
-	const [wrapWidth, setWrapWidth] = useState(0);
 	const dragRef = useRef<Drag | null>(null);
 	const resizeMoved = useRef(false);
 	const [notice, announce] = A11y.useOperationNotice();
@@ -225,16 +219,7 @@ export function SceneBoardCanvas({
 		);
 	}, [authoredWidgets]);
 
-	useEffect(() => {
-		const node = wrapRef.current;
-		if (!node) return;
-		const observer = new ResizeObserver(([entry]) => {
-			if (entry) setWrapWidth(Math.round(entry.contentRect.width));
-		});
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, []);
-
+	const wrapWidth = usePaneWidth(wrapRef);
 	const contentExtent = extentOf([...authoredWidgets, ...rects, ...sections.map((s) => s.bounds)]);
 
 	const fitScale = wrapWidth > 0 ? clamp((wrapWidth - 16) / contentExtent.width, FIT_FLOOR, 1) : 1;
@@ -604,13 +589,24 @@ export function SceneBoardCanvas({
 	};
 
 	const commands = useWidgetCommands(authoredWidgets, onWidgetCommand);
+	const frameHandlers = useFrameHandlers(widgets, frameRefs, {
+		onKeyDown: (w, e) => frameKeyDown(e, w),
+		onFocusIn: (w) => setFocusedId(w.id),
+		onStartMove: (w, e) => startMove(e, w),
+		onStartResize: (w, e) => startResize(e, w),
+		onCycleSize: cycleSize,
+		onResizeStep: (w, dx, dy) => {
+			const size = sizeDraftRef.current[w.id] ?? w;
+			resizeWidget(w, size.w + dx * GRID, size.h + dy * GRID);
+		},
+	});
 	const frames = orderedWidgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const selected = editing && selection.includes(w.id);
 		const resizable = editing && (canResize ? canResize(w) : isWidgetResizable(w));
 		return (
-			<WidgetFrame
+			<BoardFrame
 				key={w.id}
 				history={history}
 				w={w}
@@ -630,16 +626,7 @@ export function SceneBoardCanvas({
 						? `${w.title}, ${w.typeLabel} widget${selected && multi.length ? ', selected' : ''}, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`
 						: `${w.title}, ${w.typeLabel} widget`
 				}
-				onKeyDown={(e) => frameKeyDown(e, w)}
-				onFocusIn={() => setFocusedId(w.id)}
-				registerRef={(el) => {
-					if (el) frameRefs.current.set(w.id, el);
-					else frameRefs.current.delete(w.id);
-				}}
-				onStartMove={(e) => startMove(e, w)}
-				onStartResize={(e) => startResize(e, w)}
-				onCycleSize={() => cycleSize(w)}
-				onResizeStep={(dx, dy) => resizeWidget(w, size.w + dx * GRID, size.h + dy * GRID)}
+				{...frameHandlers(w.id)}
 				onCommand={editing ? undefined : commands.get(w.id)}
 			/>
 		);

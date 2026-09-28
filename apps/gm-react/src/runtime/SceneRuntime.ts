@@ -409,11 +409,15 @@ export class SceneRuntime {
 		// Resolve inside the load error boundary, so unreadable selection offers the normal retry UI.
 		const vaultId = this.vaultId;
 		if (vaultId !== LEGACY_LOCAL_VAULT_ID) this.options.env.vaultId = vaultId;
+		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
+		// The seed's own guards decide what is missing, so a demo boot always runs it: fetch the module
+		// while storage is read instead of after (RC-ENG-3.2). A failed fetch still fails the load below.
+		const seedModule = seedDemo && !this.freshVaultChosen() ? import('./demo-seed') : null;
+		seedModule?.catch(() => {});
 		const loaded = await loadCoreState();
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
-		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
-		if (seedDemo && !this.freshVaultChosen()) {
-			await this.enqueueMutation(() => this.seedDemoInOneCommit());
+		if (seedModule && !this.freshVaultChosen()) {
+			await this.enqueueMutation(() => this.seedDemoInOneCommit(seedModule));
 		}
 		this.lifecycle = null;
 		this.error = null;
@@ -430,7 +434,9 @@ export class SceneRuntime {
 	 * A failed commit leaves the vault as it was; the seed's per-slice emptiness guards retry on the
 	 * next load, exactly as they do for a rejected seed command.
 	 */
-	private async seedDemoInOneCommit(): Promise<void> {
+	private async seedDemoInOneCommit(
+		seedModule: Promise<typeof import('./demo-seed')>,
+	): Promise<void> {
 		const before = this.innerState;
 		const env = this.options.env;
 		const registry = this.mcpToolRegistry;
@@ -449,9 +455,9 @@ export class SceneRuntime {
 				return result;
 			},
 		};
-		// The seed module (its fixtures and the command sequence) is only needed by a vault that has
-		// never been seeded, so a returning DM's boot never loads it.
-		const { seedDemoContent } = await import('./demo-seed');
+		// The seed module (its fixtures and the command sequence) is only needed by a demo vault; a
+		// fresh or campaign vault never loads it.
+		const { seedDemoContent } = await seedModule;
 		await seedDemoContent(staged);
 		const seeded = staged.state;
 		if (seeded === before) return;
