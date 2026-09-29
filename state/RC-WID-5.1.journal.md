@@ -240,3 +240,16 @@ Validation (session 3):
 - Playwright desktop-chromium + mobile-chromium, port 4733, 3 workers: `widget-intents`,
   `campaign`, `widget-builder`, `widget-trust-review`, `player-preview`: 46 passed. The new player
   test with `--repeat-each=4` on both projects: 8/8.
+
+## Session 4 — App tests red after the rebase onto `7fab0ebd`
+
+The operator's App tests gate on `580e1614` failed 2 of 1736: `i18n/dev/pseudo.test.ts` ("matches
+the current source catalog exactly") and `i18n/index.test.ts` (pseudo locale coverage 0.9946). The
+generated DEV pseudo catalog `apps/gm-react/src/i18n/dev/qps-ploc.ts` did not have the 35
+`builder.intents.*` / `widgetTemplate.*` / `extensions.trust.perm.*` keys this story added to
+`en.ts`. That file is outside `Owns`. It is generated from `en.ts`, and every story that adds a
+message key has to regenerate it (see `e50c13b9`, `60272d08`). Regenerated with
+`npx tsx scripts/i18n-catalog.ts pseudo`: 35 insertions, no other lines changed.
+
+Validation: i18n tests 47/47; app vitest (full) 155 files / 1736 tests passed
+(`/tmp/rc-wid51-app-vitest-4.log`); Prettier clean on the regenerated file.
