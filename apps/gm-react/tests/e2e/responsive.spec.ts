@@ -1873,8 +1873,10 @@ const SHELL_SCREENS = [
  * sheet marks the active SECTION, so a sub-route marks its parent's row. Graph is usage-gated
  * (RC-UX-3.5), and the seeded vault already holds the linked notes that reveal it. */
 // `/board` is not listed: it settles on the GM screen's `/screen/:id` (RC-CAN-7.3), and a screen is
-// user content rather than a section, so no row claims it (CAN-7.4 adds pinned screens to the sheet).
+// user content rather than a section, and the seeded GM screen is not pinned. CAN-7.4 adds
+// the All screens library row and user-pinned screens to the sheet.
 const MORE_SHEET_ROUTES = new Set([
+	'/screens',
 	'/campaign',
 	'/campaign/calendar',
 	'/campaign/relationships',

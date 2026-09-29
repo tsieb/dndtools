@@ -101,7 +101,7 @@ test('pressing it in a live session records an inline roll in the session histor
 
 	// The chip shows the SAME total the log recorded — the control hands its seed to the command,
 	// so the number the presser sees is never a second, different roll.
-	const chip = page.locator('[role="status"]').first();
+	const chip = page.getByRole('main').getByRole('status');
 	await expect(chip).toContainText(String(last?.total));
 });
 
@@ -143,7 +143,7 @@ test('outside a session it rolls and records the roll as outside a session', asy
 	expect(last?.sourceKind).toBe('inline');
 	expect(last?.workflow).toBe(workflow);
 
-	const chip = page.locator('[role="status"]').first();
+	const chip = page.getByRole('main').getByRole('status');
 	await expect(chip).toContainText(String(last?.total));
 	await expect(chip).toContainText('Recorded in the roll history');
 	// It never claims a session-log entry, which a Standby roll does not get.

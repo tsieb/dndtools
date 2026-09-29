@@ -665,7 +665,9 @@ test.describe('knowledge: notes workbench', () => {
 		const area = await openEditor(page, noteId);
 
 		await area.fill('The tide turns at moonrise.');
-		await expect(page.getByRole('status')).toHaveText(/Unsaved changes|Saving|Saved/);
+		await expect(page.getByRole('main').getByRole('status')).toHaveText(
+			/Unsaved changes|Saving|Saved/,
+		);
 
 		// Nothing is pressed: the debounce writes it through content.update-item.
 		await page.waitForFunction(
@@ -680,7 +682,7 @@ test.describe('knowledge: notes workbench', () => {
 			{ title: `Tide Table ${stamp}` },
 			{ timeout: 10_000 },
 		);
-		await expect(page.getByRole('status')).toHaveText(/^Saved /);
+		await expect(page.getByRole('main').getByRole('status')).toHaveText(/^Saved /);
 		// An autosave does NOT close the editor — the DM keeps writing.
 		await expect(page.getByRole('button', { name: 'Save note' })).toBeVisible();
 	});
@@ -715,7 +717,7 @@ test.describe('knowledge: notes workbench', () => {
 		await expect(page.getByText(/changed somewhere else while you were writing/)).toBeVisible();
 		expect((await findItem(page, title))?.body).toBe('their paragraph');
 		await expect(area).toHaveValue('my unsaved paragraph');
-		await expect(page.getByRole('status')).toHaveText(/changed elsewhere/);
+		await expect(page.getByRole('main').getByRole('status')).toHaveText(/changed elsewhere/);
 
 		// Taking the other version replaces the draft — an explicit choice, never an automatic one.
 		await page.getByRole('button', { name: 'Use the other version' }).click();

@@ -571,7 +571,11 @@ export async function createScreenInLibrary(
 	name: string,
 	template = 'Blank',
 ): Promise<void> {
-	await page.getByRole('button', { name: 'New screen', exact: true }).click();
+	// The shell also offers New screen; exercise the library's own create action.
+	await page
+		.getByTestId('screens-library')
+		.getByRole('button', { name: 'New screen', exact: true })
+		.click();
 	const dialog = page.getByRole('dialog', { name: 'New screen' });
 	await dialog.getByRole('radio', { name: template, exact: true }).click();
 	await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
