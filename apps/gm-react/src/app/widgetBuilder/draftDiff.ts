@@ -30,6 +30,24 @@ function joinOrNone(values: string[]): string {
 /** Human-readable summaries for the fields worth showing a diff for. Identity fields the DM
  * controls directly (packageId, typeId, version) are compared too, but sizing/style plumbing that
  * is rarely the target of a "change X" ask is left out to keep the diff readable. */
+/** RC-WID-5.1 — an intent is printed with its destination, not just its label: a re-run that keeps
+ * "Open quest" but points it at another quest (or turns it into "New map") is a real change the
+ * DM has to see and be able to apply. */
+function printIntent(intent: WidgetDraft['intents'][number]): string {
+	switch (intent.kind) {
+		case 'open-screen':
+			return `${intent.displayName} → screen ${intent.targetId ?? '?'}`;
+		case 'open-entity':
+			return `${intent.displayName} → ${intent.entityKind} ${intent.targetId ?? '?'}`;
+		case 'open-route':
+			return `${intent.displayName} → ${intent.route}`;
+		case 'create':
+			return `${intent.displayName} → new ${intent.target}`;
+		case 'open-settings':
+			return `${intent.displayName} → settings ${intent.tab}`;
+	}
+}
+
 const FIELD_PRINTERS: Partial<{
 	[K in keyof WidgetDraft]: (draft: WidgetDraft) => string;
 }> = {
@@ -43,7 +61,7 @@ const FIELD_PRINTERS: Partial<{
 	computedFields: (d) => joinOrNone(d.computedFields.map((f) => f.label)),
 	configFields: (d) => joinOrNone(d.configFields.map((f) => f.key)),
 	commands: (d) => joinOrNone(d.commands.map((c) => c.displayName)),
-	intents: (d) => joinOrNone(d.intents.map((i) => i.displayName)),
+	intents: (d) => joinOrNone(d.intents.map(printIntent)),
 	styleTokens: (d) => joinOrNone(d.styleTokens.map((t) => `${t.name}: ${t.value}`)),
 	hostPermissions: (d) => joinOrNone(d.hostPermissions),
 	networkDestinations: (d) => joinOrNone(d.networkDestinations),

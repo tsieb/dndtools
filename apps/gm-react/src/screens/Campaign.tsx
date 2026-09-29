@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
@@ -75,10 +75,13 @@ import { QuestEditor, type QuestDraft } from './campaign/QuestEditor';
 function QuestCardRow({
 	row,
 	canAuthor,
+	targeted,
 	onEdit,
 }: {
 	row: QuestRow;
 	canAuthor: boolean;
+	/** RC-WID-5.1 — this quest is where an "open quest" intent landed and no editor is showing it. */
+	targeted: boolean;
 	onEdit: () => void;
 }) {
 	const runtime = useRuntime();
@@ -86,6 +89,13 @@ function QuestCardRow({
 	const actorId = runtime.defaultActorId;
 	const status = str(row.fields.status) || 'active';
 	const objectives = objectiveArray(row.fields.objectives);
+	const rowRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!targeted) return;
+		rowRef.current?.scrollIntoView({ block: 'center' });
+		rowRef.current?.focus({ preventScroll: true });
+	}, [targeted]);
 
 	async function update(fields: Record<string, unknown>) {
 		// content.update-object — authorized-editor edit; merged frontmatter is re-validated fail-closed.
@@ -98,7 +108,18 @@ function QuestCardRow({
 	}
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+		<div
+			ref={rowRef}
+			data-quest-id={row.view.id}
+			tabIndex={targeted ? -1 : undefined}
+			aria-current={targeted ? 'true' : undefined}
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 8,
+				...(targeted ? { outline: `2px solid ${T.acc}`, outlineOffset: 4 } : null),
+			}}
+		>
 			<QuestCard
 				title={row.view.title}
 				status={QUEST_CARD_STATUS[status] ?? 'active'}
@@ -263,6 +284,9 @@ export function Campaign() {
 	const [factionEditor, setFactionEditor] = useState<{ id: string | null } | null>(null);
 	// null = closed · { id: null } = composing a new quest · { id } = editing that quest.
 	const [questEditor, setQuestEditor] = useState<{ id: string | null } | null>(null);
+	// RC-WID-5.1 — the quest an "open quest" intent asked for. A reader who cannot author it has no
+	// editor to land in, so the card itself is scrolled to, focused and marked current.
+	const [questTarget, setQuestTarget] = useState<string | null>(null);
 
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 	const split = useListDetailSplit();
@@ -280,9 +304,11 @@ export function Campaign() {
 			navigate(location.pathname, { replace: true, state: null });
 		} else if (typeof intent?.openQuestId === 'string') {
 			// RC-WID-5.1 — a widget's "open quest" intent (already read-gated by the core): land on
-			// the Quests tab with that quest open. The editor itself still mounts only for an author.
+			// the Quests tab with that quest open. The editor itself still mounts only for an author;
+			// everyone else gets the card (`questTarget`).
 			setTab('quests');
 			setQuestEditor({ id: intent.openQuestId });
+			setQuestTarget(intent.openQuestId);
 			navigate(location.pathname, { replace: true, state: null });
 		}
 	}, [location.state, location.pathname, navigate]);
@@ -372,7 +398,10 @@ export function Campaign() {
 			>
 				<Tabs
 					value={tab}
-					onChange={setTab}
+					onChange={(next: string) => {
+						setTab(next);
+						setQuestTarget(null);
+					}}
 					tabs={tabs}
 					idBase="campaign"
 					aria-label={t('campaign.sections')}
@@ -450,6 +479,7 @@ export function Campaign() {
 											key={q.view.id}
 											row={q}
 											canAuthor={canAuthor}
+											targeted={questKey === null && questTarget === q.view.id}
 											onEdit={() => setQuestEditor({ id: q.view.id })}
 										/>
 									))}

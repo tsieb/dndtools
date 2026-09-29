@@ -199,3 +199,44 @@ custom drafts).
   phone-only by design). `widget-intents.spec.ts` 4/4 (`/tmp/rc-wid51-e2e.log`).
 - Fence simulated against the manifest (Owns + journal + companion paths): 25 changed files, none
   outside.
+
+## Session 3 — review findings on `6166ff52`
+
+Independent review withheld approval for two medium defects. Both fixed.
+
+1. **Player quest navigation lost its target.** `Campaign.tsx` only turned `openQuestId` into
+   `questEditor`, and the editor mounts only for an author, so a player landed on `/campaign` with
+   nothing selected. Fix (owned path `Campaign.tsx`, justified: it is the quest destination the
+   resolver emits): a `questTarget` state set by the handoff. When no editor is showing the quest,
+   `QuestCardRow` gets `targeted`, scrolls itself to the centre, takes focus (`tabIndex=-1` only
+   while targeted), carries `aria-current="true"` and an accent outline. The outline is merged into
+   the row's existing style object, so the raw-style count did not grow. Switching tabs clears the
+   target. Authors keep the old behaviour (editor opens; the card is not focused, so focus is not
+   pulled away from the editor).
+2. **Target-only intent edits were invisible to the iteration diff.** `draftDiff.ts` printed
+   intents by `displayName` only. It now prints each intent with its destination
+   (`Open quest → quest <id>`, `→ new map`, `→ /characters`, `→ settings <tab>`,
+   `→ screen <id>`), so a change of target, kind, route, tab or creation target is a diff and
+   `applyDraftDiff` can apply it.
+
+Tests added:
+
+- `intents.test.ts`: target-only change is one `intents` diff with before/after destinations and
+  applies; a same-label kind change is a diff; an identical descriptor in a fresh array is not.
+- `widget-intents.spec.ts`: "a player following an "Open quest" intent lands on that quest". 30
+  player-visible quests; the target is the LAST card the Story page renders (page order is not
+  creation order — the first draft of this test assumed it and failed once under 3 workers). In
+  player preview the panel's quest button is pressed with `dispatchEvent`, because the scene
+  editor's preview overlay intentionally covers the board; the test covers the destination handoff
+  with the player as the reading actor. Asserts `aria-current`, focus, in-viewport, no editor, only
+  one card marked, and the first card scrolled out of view. Mutation check: with `Campaign.tsx`
+  from `6166ff52` the test fails (no `[data-quest-id]` card is marked).
+
+Validation (session 3):
+
+- `pnpm typecheck`: clean. ESLint on changed files: clean. Prettier: clean.
+  `lint:raw-style-count`, `lint:boundary`: exit 0.
+- App vitest (full): 151 files / 1706 tests passed.
+- Playwright desktop-chromium + mobile-chromium, port 4733, 3 workers: `widget-intents`,
+  `campaign`, `widget-builder`, `widget-trust-review`, `player-preview`: 46 passed. The new player
+  test with `--repeat-each=4` on both projects: 8/8.

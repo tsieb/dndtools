@@ -60,6 +60,10 @@ Every variant is a strict schema, so no descriptor has a field a URL could hide 
 unique within a definition. An open intent may fix its `targetId`; a custom widget may leave it out
 and supply one when it asks, but a fixed target is never replaced by the requested one.
 
+On `/campaign`, `openQuestId` opens the quest editor for an author. A reader who cannot author
+the quest has no editor, so the page scrolls to that quest's card, focuses it and marks it
+`aria-current` instead.
+
 `resolveWidgetIntent` (`security/widget-host-api.ts`) decides every request, in this order:
 
 1. The definition must declare the intent (`undeclared`).
@@ -274,7 +278,9 @@ permission existed has no `navigate` key, and the host reads approvals only from
   reads; a template's starts on the first one the author can see. Adding an intent to a custom
   widget requests `navigate`. The step itself names a template open intent with no target, an
   unlabelled intent, and a custom widget whose intents lack `navigate` (`validateIntents`, in `draft.ts`); the core
-  schema refuses duplicate ids and empty labels on Review.
+  schema refuses duplicate ids and empty labels on Review. The iteration diff (`draftDiff.ts`)
+  prints each intent with its destination, so a re-run that keeps a label but changes the target,
+  kind, route, tab or creation target shows up as a change and can be applied.
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;

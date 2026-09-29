@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { dispatch, enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 /**
  * WIDGET INTENTS — RC-WID-5.1. A widget can take its viewer somewhere without writing anything:
@@ -12,6 +12,9 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
  * 2. A custom widget whose trust review DENIED `navigate` asks the host to start "New map". The host
  *    drops the request (the viewer stays where they were), the frame is told why, and the refusal is
  *    in the host's audit log.
+ * 3. A player (the DM's "view as player" preview) follows an "Open quest" intent to a player-visible
+ *    quest. A player has no quest editor to land in, so the Story page scrolls to that quest's card,
+ *    focuses it and marks it current.
  */
 
 interface IntentLite {
@@ -26,11 +29,15 @@ async function actorId(page: Page): Promise<string> {
 	return page.evaluate(() => window.__rt!.defaultActorId);
 }
 
-async function createScene(page: Page, name: string): Promise<string> {
+async function createScene(
+	page: Page,
+	name: string,
+	visibility: 'dm-only' | 'player-visible' = 'dm-only',
+): Promise<string> {
 	const created = await dispatch(page, {
 		type: 'scene.create',
 		actorId: await actorId(page),
-		payload: { name, description: '', visibility: 'dm-only', tags: [] },
+		payload: { name, description: '', visibility, tags: [] },
 	});
 	expect(created.status, created.rejection?.message ?? '').toBe('accepted');
 	const id = await page.evaluate(
@@ -276,5 +283,120 @@ test.describe('widget intents: open and create', () => {
 				decision: 'permission-denied',
 			}),
 		);
+	});
+
+	test('a player following an "Open quest" intent lands on that quest', async ({ page }) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/campaign');
+		await seedFresh(page);
+
+		// Enough player-visible quests that the requested one starts well below the fold.
+		const dm = await actorId(page);
+		const titles = Array.from({ length: 30 }, (_, i) => `Thread ${String(i + 1).padStart(2, '0')}`);
+		for (const title of titles) {
+			const result = await dispatch(page, {
+				type: 'content.create-object',
+				actorId: dm,
+				payload: {
+					subtype: 'quest',
+					title,
+					fields: { title, status: 'active', objectives: [] },
+					body: 'A thread for the table.',
+					visibility: 'player-visible',
+				},
+			});
+			expect(result.status, result.rejection?.message ?? '').toBe('accepted');
+		}
+		// The Story page's own order decides which quest is furthest down: target the last card it
+		// renders and keep the first one to prove the page actually moved.
+		await gotoRoute(page, '/campaign');
+		const threads = page.locator('[data-quest-id]').filter({ hasText: /Thread \d\d/ });
+		await expect(threads).toHaveCount(titles.length);
+		const rendered = await threads.evaluateAll((cards) =>
+			cards.map((card) => card.getAttribute('data-quest-id')!),
+		);
+		const firstId = rendered[0]!;
+		const targetId = rendered[rendered.length - 1]!;
+		const targetTitle = await page.evaluate(
+			(id) =>
+				(window.__rt!.state.content as { items: Record<string, { title: string }> }).items[id]
+					?.title ?? null,
+			targetId,
+		);
+		expect(targetTitle).toMatch(/^Thread \d\d$/);
+
+		const packageId = 'workspace.quest-launcher';
+		const pkg = {
+			id: packageId,
+			version: '1.0.0',
+			displayName: 'Quest launcher',
+			widgets: [
+				{
+					type: 'quest-launcher',
+					version: '1.0.0',
+					displayName: 'Quest launcher',
+					author: 'workspace',
+					placement: { surfaces: ['scene'], libraryListed: true },
+					renderEntrypoint: { runtime: 'template', template: 'action-panel', hostApiVersion: 1 },
+					supportedProfiles: ['desktop', 'tablet', 'mobile', 'web'],
+					defaultSize: { width: 320, height: 200 },
+					minSize: { width: 200, height: 120 },
+					resizePolicy: 'free',
+					requiredBindings: [],
+					optionalBindings: [],
+					configurationSchema: { type: 'object', additionalProperties: true },
+					capabilitySets: ['manager', 'operator', 'viewer'],
+					commands: [],
+					intents: [
+						{
+							id: 'open-quest',
+							displayName: 'Open quest',
+							kind: 'open-entity',
+							entityKind: 'quest',
+							targetId,
+						},
+					],
+					events: [],
+					hostPermissions: [],
+				},
+			],
+			migrations: [],
+			assets: [],
+			portabilityWarnings: [],
+		};
+		for (const command of [
+			{ type: 'widget.package.install', payload: { package: pkg } },
+			{ type: 'widget.package.review', payload: { packageId, trustState: 'trusted' } },
+			{ type: 'widget.package.enable', payload: { packageId } },
+		]) {
+			const result = await dispatch(page, { ...command, actorId: dm });
+			expect(result.status, `${command.type}: ${result.rejection?.message ?? ''}`).toBe('accepted');
+		}
+		const sceneId = await createScene(page, `Quest Scene ${Date.now()}`, 'player-visible');
+		const widgetId = await placeWidget(page, sceneId, 'quest-launcher');
+
+		await enterPreview(page, 'player');
+		await gotoRoute(page, `/scene/${sceneId}`);
+		// The panel re-resolves the intent for the previewed player before drawing it. The scene
+		// editor's preview overlay sits over the live board on purpose (the DM is looking, not
+		// operating), so the press is delivered to the button itself: what is under test is the
+		// destination handoff, with the player as the reading actor.
+		const button = page
+			.getByTestId(`widget-${widgetId}`)
+			.getByRole('button', { name: 'Open quest', exact: true });
+		await expect(button).toHaveCount(1);
+		await button.dispatchEvent('click');
+
+		await expect(page).toHaveURL(/#\/campaign$/);
+		expect(await page.evaluate(() => window.__rt!.preview?.role)).toBe('player');
+		const card = page.locator(`[data-quest-id="${targetId}"]`);
+		await expect(card).toHaveAttribute('aria-current', 'true');
+		await expect(card).toBeFocused();
+		await expect(card).toBeInViewport();
+		await expect(card).toContainText(targetTitle!);
+		// A player gets no editor, and only the requested quest is marked.
+		await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0);
+		await expect(page.locator('[data-quest-id][aria-current="true"]')).toHaveCount(1);
+		await expect(page.locator(`[data-quest-id="${firstId}"]`)).not.toBeInViewport();
 	});
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dispatchCommand, type WidgetIntentDescriptor } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { buildPackage, emptyDraft, readPackage, validateIntents, type WidgetDraft } from './draft';
+import { applyDraftDiff, diffDrafts } from './draftDiff';
 import { INTENT_CATALOG, uniqueIntentId } from './vocabulary';
 
 /**
@@ -102,5 +103,35 @@ describe('RC-WID-5.1 builder intents', () => {
 			'builder.issue.intentsNeedNavigate',
 		]);
 		expect(validateIntents({ ...custom, hostPermissions: ['navigate'] })).toEqual([]);
+	});
+
+	it('diffs an intent by its destination, so a target-only change can be reviewed and applied', () => {
+		const openQuest: WidgetIntentDescriptor = {
+			id: 'open-quest',
+			displayName: 'Open quest',
+			kind: 'open-entity',
+			entityKind: 'quest',
+			targetId: 'quest-1',
+		};
+		const before = launcherDraft({ intents: [openQuest] });
+		const after = launcherDraft({ intents: [{ ...openQuest, targetId: 'quest-2' }] });
+		const diffs = diffDrafts(before, after);
+		expect(diffs).toEqual([
+			{
+				field: 'intents',
+				label: 'builder.intents.title',
+				before: 'Open quest → quest quest-1',
+				after: 'Open quest → quest quest-2',
+			},
+		]);
+		expect(applyDraftDiff(before, after, ['intents']).intents).toEqual(after.intents);
+
+		// Same label, different kind: still a change.
+		const retargeted = launcherDraft({
+			intents: [{ id: 'open-quest', displayName: 'Open quest', kind: 'create', target: 'map' }],
+		});
+		expect(diffDrafts(before, retargeted)[0]?.after).toBe('Open quest → new map');
+		// Same descriptor in a fresh array: no change.
+		expect(diffDrafts(before, launcherDraft({ intents: [{ ...openQuest }] }))).toEqual([]);
 	});
 });
