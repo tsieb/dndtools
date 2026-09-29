@@ -876,6 +876,7 @@ export default {
 	'settings.nav.systems': '[Éẋţéñšíóñš & šýšţéḿš~~~~ ~~~]',
 	'settings.nav.accessibility': '[Áççéššíƀíľíţý~~~~ ~]',
 	'settings.nav.about': '[Áƀóúţ & ďíáğñóšţíçš~~~~ ~~~]',
+	'settings.gated.showAdvanced': '[Šĥóŵ áďṽáñçéď šéţţíñğš~~~~ ~~~~]',
 	'settings.gated.title': '[Ĥíďďéñ áţ ýóúŕ éẋƥéŕíéñçé ľéṽéľ~~~~ ~~~~ ~~~]',
 	'settings.gated.thisPanel': '[Ţĥíš ƥáñéľ~~~~]',
 	'settings.gated.body':

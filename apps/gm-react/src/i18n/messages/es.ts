@@ -841,6 +841,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.nav.systems': 'Extensiones y sistemas',
 	'settings.nav.accessibility': 'Accesibilidad',
 	'settings.nav.about': 'Acerca de y diagnóstico',
+	'settings.gated.showAdvanced': 'Mostrar ajustes avanzados',
 	'settings.gated.title': 'Oculto en tu nivel de experiencia',
 	'settings.gated.thisPanel': 'Este panel',
 	'settings.gated.body':
