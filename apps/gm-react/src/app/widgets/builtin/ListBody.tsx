@@ -34,8 +34,17 @@ export function ListBody({
 	).filter((item) => item.kind === kind);
 	const shown = items.slice(0, count);
 	return (
+		// Natural height, not the tile's: rows past the tile edge scroll in the frame's region rather
+		// than squeezing (and clipping mid-line). Rows sit tighter than the kit's gap so the default
+		// tile shows whole lines.
 		<div
-			style={{ ...bodyWrap, height: 'auto', minHeight: '100%', overflow: 'visible', flexShrink: 0 }}
+			style={{
+				...bodyWrap,
+				gap: 'var(--space-1)',
+				height: 'auto',
+				minHeight: '100%',
+				overflow: 'visible',
+			}}
 		>
 			{shown.map((item) => (
 				<div

@@ -95,3 +95,64 @@
   central hard failures are fixed; the separate intermittent `/play` skip-link failure is recorded
   above rather than represented as a clean full browser gate. Central full rerun/review remains the
   operator's responsibility. No push, promotion, agents, loop or dispatcher-state mutation.
+
+## Review round 3 — overflow must not cost fitting tiles (2026-09-29)
+
+Independent review of `efbc55da` rejected: the ~17px footer was a flex sibling shown whenever
+`scrollHeight > clientHeight`, so tiles that overflowed by padding lost space. That cut
+Initiative's "Next turn" and Timer's "Add a minute" at the rail tier, hid Quick Reference's count,
+and hid Initiative's empty copy. Grow did not converge for Timer. Every region was a tab stop. The
+change also deleted frame comments and put `aria-label` on a generic span.
+
+- Measured first (`/tmp/can55-r3-probe1.log`): body regions were 73px with the footer and 90px
+  without. Base (`/tmp/can55-r3-probe-base.log`, owned files temporarily restored and then
+  copied back): Initiative's empty copy was already cut at 1280 and 834. Timer "Add a minute" was
+  already 37/44 at 834, so the rail baseline was not whole there either. Map's zoom buttons are
+  clipped inside Map's own viewport on base and candidate. Map.tsx is not in scope; see below.
+- A sibling footer oscillated. Removing it lets a centred 100%-height body (Timer) move down, and
+  that re-triggers the footer. Replaced it with an **overlaid** footer (absolute, 22px, opaque).
+  The body layout never depends on it. It appears only when real content is hidden or the tile is
+  grown. When content is hidden, a spacer inside the content lets the last line scroll clear of it.
+- "Hidden" is measured from text line boxes and controls (the ENG-8.1 detector's selector), in
+  layout px (divided by canvas zoom), clipped at any inner overflow box. `scrollHeight` is not
+  used, so trailing padding never earns a footer.
+- Grow adds `extent + footer clearance - view` and then re-measures. It repeats (at most 8 passes)
+  while content is still short, which converges for bodies that grow with the tile.
+- Region `tabIndex` is 0 only when it actually scrolls (−1 while editing, absent otherwise). Scroll
+  keys are stopped only when the region itself is focused.
+- Frame: restored every deleted comment (the file now equals base plus the fit wiring, 793 lines).
+  Grow state lives in `useTileFit` and the title in `TileTitle` (sans face, `title` tooltip, no
+  `aria-label`), both in `WidgetRenderSlot.tsx`.
+- Bodies: Initiative puts the stat pills and Next turn on one wrapping row, so the empty copy fits.
+  List and Notes rows use `--space-1` gaps (3 rows plus the count needed 92.4px of 90).
+- Crossed ownership into `TimerBody.tsx` (minimal, required for "render whole"). The canvas keeps
+  touch targets at 44 screen px, so at Fit zoom two stacked controls need about 102 layout px in a
+  90px region, and they can never fit. The controls are now a wrapping row that drops under the
+  clock when the tile is narrow. The root uses `minHeight` so a too-tall body cannot overflow
+  upward, where scrolling never reaches.
+- Probe after the rework (`/tmp/can55-r3-probe7.log`, 1280/834/900/1440): Initiative, Dice, Timer,
+  Audio and Quick Reference have no clipped text or controls, no footer and no tab stop. Prep shows
+  the fade, "3 more lines" and Grow.
+- Spec rewritten. Initiative now renders whole, so it is asserted whole at 1280 and 834 instead of
+  being grown. Prep covers keyboard scroll, End clears the footer, Grow makes it whole, then
+  Restore and the edit/view tab stop. A new case shrinks the Timer with `scene.resize-widget` and
+  asserts that Grow converges. It was mutation-checked: `GROW_PASSES = 0` fails with 9px still
+  hidden (`/tmp/can55-r3-spec-mut.log`). With the real value, full spec: **14 passed** on both
+  profiles (`/tmp/can55-r3-spec3.log`, `/tmp/can55-r3-spec5.log`).
+- `pnpm test:app` 1699/1699 (`/tmp/can55-r3-testapp.log`); tsc and targeted eslint clean;
+  `pnpm gates` passed; `format:check:changed -- --base 6992b502` clean.
+- Focus: Grow and Restore are one button, so focus stays on it. Restore keeps the footer mounted
+  until the next measure, so focus never drops to `<body>`. Entering edit mode clears the grown size.
+  The spec asserts focus through both clicks: **14 passed** (`/tmp/can55-r3-spec6.log`).
+- Neighbouring e2e (a11y-axe-gate, canvas, canvas-keyboard, canvas-arrange, flow-layout,
+  phone-navigator, golden-path, starter-widgets, widget-kit, custom-widgets, session-quick-timer,
+  tile-content-recovery), both profiles, no retries: **294 passed, 2 skipped**
+  (`/tmp/can55-r3-neighbours.log`).
+- Visual: reset every baseline to base `6992b502` and compared in the pinned container
+  (`/tmp/can55-r3-visual1.log`). The session ended at 386/408. There were exactly 12 differences,
+  all desktop/rail `/board` and `/scene/:id` (sans titles and the new layouts, inspected). Phone
+  images were unchanged. Regenerated only those 12 with `-g "golden routes .* (/board|/scene/:id)"
+  --update-snapshots=changed` (`/tmp/can55-r3-visual-update.log`, 18 passed). Baseline budget:
+  32636.6 of 32768 KiB.
+- Not fixed, outside owned scope: the home Map tile's zoom buttons are clipped by Map's own
+  viewport (pre-existing, identical on base). The ENG-8.1 detector does not flag them.
