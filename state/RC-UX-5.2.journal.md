@@ -23,3 +23,11 @@
 - Final fragment/containing-panel browser regression passed 2/2 (desktop and mobile); final React typecheck passed.
 - Pinned-container comparison with snapshot updates disabled: 25/27 passed initially; the first two desktop Tavern cases timed out waiting for `window.__rt.loaded` before screenshot comparison. Read the original diagnostics and reran exactly those two serially with unchanged timeouts and baselines: 2/2 passed. Thus all 27 selected comparisons (Settings, Command Center and the unchanged Board route across three themes/layouts) passed, with the startup retry explicitly recorded. This is focused visual evidence, not the full 408-case suite.
 - Final `git diff --check` and formatting checks passed. Ready for task-branch commit and central independent review; no publication or promotion performed.
+
+## Ownership retry — 2026-09-29
+
+- The new operator brief explicitly owns all four paths named in the prior rejection: `apps/gm-react/src/app/shell/Sidebar.tsx`, `apps/gm-react/src/screens/extensions/SystemDialogs.tsx`, `apps/gm-react/src/screens/settings/About.tsx`, and `apps/gm-react/src/screens/settings/Sync.tsx`. The implementation is intact as `277664dc`; the worktree started clean. No application changes are required to address this ownership feedback.
+- Compared the candidate's actual changed implementation TSX paths against the supplied Owned paths: all 13 are explicitly owned. Supporting tests, catalog entry, goldens and journal remain as in the existing candidate. This verifies the supplied ownership list locally; the central operator's wrapper rerun remains downstream.
+- Headroom tools are unavailable. No agents, dispatcher control changes, publication, promotion or loop launches. This retry changes only the required run journal.
+- Fresh fixture tests passed 6/6; the inventory suite passed 7/7. Settings browser suites passed 20/20 across desktop and mobile Chromium, including hidden sections, deep-link unlocking and live cross-window tier changes. Journal formatting and `git diff --check` passed.
+- The earlier visual/type/lint/gate results above remain prior-run evidence. They were not rerun for this journal-only ownership retry.
