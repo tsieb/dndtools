@@ -4,6 +4,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
+import { TIER_ATTR, TIER_KEY, setDocAttr } from '../screens/settings/shared';
+import { removePreference } from '../platform/preferences';
 
 /**
  * RC-PLT-2.4 — the configured-cloud half of "every cloud-only control shows the offline state".
@@ -163,6 +165,8 @@ function gatedLabels(): string[] {
 
 describe('RC-PLT-2.4 configured cloud surfaces show the offline state', () => {
 	beforeEach(() => {
+		// Exercise offline behavior with all Settings sections disclosed.
+		setDocAttr(TIER_ATTR, TIER_KEY, 'advanced');
 		container = document.createElement('div');
 		document.body.appendChild(container);
 		root = createRoot(container);
@@ -171,6 +175,8 @@ describe('RC-PLT-2.4 configured cloud surfaces show the offline state', () => {
 		await goOnline();
 		await act(async () => root.unmount());
 		container.remove();
+		document.documentElement.removeAttribute(TIER_ATTR);
+		removePreference(TIER_KEY);
 		vi.clearAllMocks();
 	});
 

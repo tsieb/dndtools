@@ -130,6 +130,11 @@ test.describe('sync: cross-device merge', () => {
 		expect(merged.event).toMatchObject({ outcome: 'diverged', conflictCount: 1 });
 
 		// The conflict is durable campaign state, so it is on the screen after a real reload.
+		await gotoRoute(page, '/settings');
+		await page
+			.getByRole('radiogroup', { name: 'Experience complexity' })
+			.getByRole('radio', { name: /Expert/ })
+			.click();
 		await page.goto('/#/settings?tab=sync', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 		await expect(page.getByText('Sync conflicts', { exact: true })).toBeVisible();
