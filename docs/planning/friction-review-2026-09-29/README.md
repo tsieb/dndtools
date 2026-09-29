@@ -7,10 +7,10 @@ verdict, numbered findings with severity and evidence, and the stories it propos
 plan of record; where a story here and the roadmap differ, the roadmap wins. Screenshot filenames
 refer to the review session's capture set and are not committed.
 
-| File            | Surface                                              | Findings |
-| --------------- | ---------------------------------------------------- | -------- |
-| `onboarding.md` | First run, help, spotlights, vault switcher, imports | ONB-1–18 |
-| `canvas.md`     | Screens library, board, scene editor, phone and rail | CAN-1–17 |
-| `widgets.md`    | Widget builder, gallery, install and trust           | WID-1–18 |
-| `knowledge.md`  | Notes, Story, Graph, search                          | KNW-1–21 |
-| `player.md`     | Companion, sheets, preview, projection, join         | PLY-1–16 |
+| File                           | Surface                                              | Findings |
+| ------------------------------ | ---------------------------------------------------- | -------- |
+| [onboarding.md](onboarding.md) | First run, help, spotlights, vault switcher, imports | ONB-1–18 |
+| [canvas.md](canvas.md)         | Screens library, board, scene editor, phone and rail | CAN-1–17 |
+| [widgets.md](widgets.md)       | Widget builder, gallery, install and trust           | WID-1–18 |
+| [knowledge.md](knowledge.md)   | Notes, Story, Graph, search                          | KNW-1–21 |
+| [player.md](player.md)         | Companion, sheets, preview, projection, join         | PLY-1–16 |

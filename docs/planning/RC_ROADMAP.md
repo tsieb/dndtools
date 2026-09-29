@@ -227,7 +227,7 @@ and add milestone M2.5. Stories cite them as D1–D7.
 With 355 of 372 stories merged, five surface reviews of `loop/rc` (`7fab0ebd`: onboarding and help,
 canvas and screens, the widget builder, the knowledge base, the player views; desktop, rail and phone,
 keyboard-only passes, click counts per job) found that the primary paths are built but not yet
-convenient. The findings are recorded in `docs/planning/friction-review-2026-09-29/` and summarized in the epics named below; each story cites its finding id. The
+convenient. The findings are recorded in [the review reports](friction-review-2026-09-29/README.md) and summarized in the epics named below; each story cites its finding id. The
 directions add epics WID-6, CAN-8, KNW-6, CHR-6, SES-7, UX-6 and ENG-9, rewrite UX-3.6, add
 milestone M2.6, and edit the `Deps:` lines of POL-1.2, POL-1.18 and ENG-8.3.
 
