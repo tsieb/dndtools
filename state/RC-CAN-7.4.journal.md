@@ -43,3 +43,13 @@
 - Scope additions needed for this implementation: phone route owner Footer.tsx, regression tests, mandatory shrinking style allowance, and affected screenshot baselines. No core/IA/provisioning changes; no dispatcher control state edits, agents, push, promotion, or additional loop.
 - Implementation is ready for the central operator's independent gates and review. Existing aliases remain the fallback until CAN-7.6/7.8 provisions recorded default screens.
 - Final capture run: 3 tier cases passed (10.7s), after waiting for the library and disabling capture-time animations. Inspected desktop, rail and phone captures: pins and controls fit their navigation surfaces; phone controls remain above the sheet's scrolling content.
+
+## 2026-09-29 — retry after ownership rejection
+
+- Starting at implementation commit `5f6a1382c5abbee2216b57a27838106a374229b0` on the same task branch, with a clean working tree.
+- The supplied gate feedback was solely: `candidate changes paths outside its claim: apps/gm-react/src/app/shell/Footer.tsx`.
+- The reissued task explicitly includes that exact path in its Owned paths. The existing Footer change is the phone Run-tab call to the shared, actor-filtered default-screen resolver, as required for consistent destinations across tiers. Retained that implementation; no application code or baseline change is needed for this ownership correction.
+- No Headroom tools are available in this session. Inspected the actual commit and source using native tool output. No dispatcher claim/control state was edited; the current task's supplied ownership is the authorization, and the central operator must rerun its claim gate.
+- Rechecking the two acceptance e2e files and shell unit tests below. The prior visual/typecheck/lint results above are historical evidence from the unchanged implementation, not newly executed gates in this retry. A journal-only follow-up does not change pixels, so the visual suite is not rerun.
+- Fresh retry results: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/pinned-screens.spec.ts tests/e2e/screens.spec.ts --workers=1` exited 0, **14 passed (35.7s)**; includes all three tiers, one-command keyboard reorder, and axe `landmark-unique`. `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/shell` exited 0, **10 passed / 2 files**. Journal formatting and `git diff --check` passed.
+- This follow-up changes only the run journal. The original implementation remains committed and intact, including the now-owned Footer.tsx. No push, promotion, new loop, or dispatcher mutation was performed.
