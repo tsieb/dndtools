@@ -173,7 +173,9 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 		abortRef.current = controller;
 		const config = resolveAiProviderConfig();
 		void runAssistantExchange({
-			send: (req) => sendAiChat(config, req),
+			// The options carry the run's abort signal and token callback: dropping them left Cancel
+			// waiting for the in-flight request to land (RC-ENG-10.4).
+			send: (req, options) => sendAiChat(config, req, options),
 			invoke: (toolId, toolInput) =>
 				runtime.invokeAgentTool({
 					agentId: selectedAgent,
@@ -383,7 +385,7 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 					)}
 					{asking && (
 						// The "static structure while the model processes" (ADR-025): a skeleton stands in for
-						// the forthcoming answer, with a live phase line and a Cancel that aborts between steps.
+						// the forthcoming answer, with a live phase line and a Cancel that aborts the run.
 						<div
 							style={{
 								display: 'flex',

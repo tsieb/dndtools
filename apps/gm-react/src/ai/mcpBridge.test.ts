@@ -12,7 +12,8 @@ import {
 	MAX_TOOL_PASSES,
 	type AssistantExchangeOptions,
 } from './mcpBridge';
-import { AiTransportError, type AiReply } from './transport';
+import { AiTransportError, type AiReply, type AiTurn } from './transport';
+import { createFakeAiProvider } from './fakeProvider';
 
 // mcpBridge.ts is the ONLY door from the model to the vault. These tests prove: tool specs are
 // projected from the real Core registry (name-sanitized, write tools announce staging), every
@@ -435,6 +436,136 @@ describe('runAssistantExchange — live run protocol (ADR-025)', () => {
 
 		expect(result.status).toBe('cancelled');
 		expect(invoke).not.toHaveBeenCalled();
+	});
+
+	// RC-ENG-10.4 — the caller replays `result.turns` on the next ask, and both provider APIs reject an
+	// assistant tool call with no result, so a cancel must never leave one unanswered.
+	const everyToolCallAnswered = (turns: AiTurn[]): boolean =>
+		turns.every((turn, i) => {
+			if (turn.role !== 'assistant') return true;
+			const next = turns[i + 1];
+			const ids = next?.role === 'tool-results' ? next.results.map((r) => r.toolCallId) : [];
+			return turn.toolCalls.every((call) => ids.includes(call.id));
+		});
+
+	it('answers every pending tool call when the cancel lands between the reply and the tool run', async () => {
+		const controller = new AbortController();
+		const send: AssistantExchangeOptions['send'] = async () => {
+			controller.abort();
+			return {
+				text: 'Let me look.',
+				toolCalls: [
+					{ id: 'tu1', name: 'note__read', input: {} },
+					{ id: 'tu2', name: 'note__read', input: { id: 'n2' } },
+				],
+				stopReason: 'tool-use',
+			};
+		};
+		const invoke = vi.fn();
+
+		const result = await runAssistantExchange({
+			send,
+			invoke,
+			tools: specs,
+			turns: [],
+			userText: 'go',
+			signal: controller.signal,
+		});
+
+		expect(result.status).toBe('cancelled');
+		expect(invoke).not.toHaveBeenCalled();
+		expect(everyToolCallAnswered(result.turns)).toBe(true);
+		expect(result.turns.at(-1)).toEqual({
+			role: 'tool-results',
+			results: [
+				expect.objectContaining({ toolCallId: 'tu1', isError: true }),
+				expect.objectContaining({ toolCallId: 'tu2', isError: true }),
+			],
+		});
+		expect(result.events.filter((e) => e.type === 'tool')).toEqual([
+			{ type: 'tool', toolId: 'note.read', outcome: 'error', detail: 'Cancelled before it ran' },
+			{ type: 'tool', toolId: 'note.read', outcome: 'error', detail: 'Cancelled before it ran' },
+		]);
+	});
+
+	it('stops between tool calls on cancel: the run tool keeps its result, the rest are answered', async () => {
+		const controller = new AbortController();
+		const { send } = scriptedSend([
+			{
+				text: '',
+				toolCalls: [
+					{ id: 'tu1', name: 'note__read', input: {} },
+					{ id: 'tu2', name: 'note__read', input: {} },
+				],
+				stopReason: 'tool-use',
+			},
+		]);
+		const invoke = vi.fn(async (): Promise<McpAgentToolResult> => {
+			controller.abort();
+			return { status: 'read-ok', toolId: 'note.read', data: { ok: 1 } } as McpAgentToolResult;
+		});
+
+		const result = await runAssistantExchange({
+			send,
+			invoke,
+			tools: specs,
+			turns: [],
+			userText: 'go',
+			signal: controller.signal,
+		});
+
+		expect(result.status).toBe('cancelled');
+		expect(invoke).toHaveBeenCalledTimes(1);
+		expect(everyToolCallAnswered(result.turns)).toBe(true);
+		expect(result.turns.at(-1)).toEqual({
+			role: 'tool-results',
+			results: [
+				{ toolCallId: 'tu1', content: '{"ok":1}', isError: false },
+				expect.objectContaining({ toolCallId: 'tu2', isError: true }),
+			],
+		});
+	});
+
+	it('replays a cancelled run so the next ask succeeds against the fake provider', async () => {
+		const toolReply: AiReply = {
+			text: '',
+			toolCalls: [{ id: 'tu1', name: 'note__read', input: {} }],
+			stopReason: 'tool-use',
+		};
+		const controller = new AbortController();
+		const first = createFakeAiProvider({ prompt: 'Read my notes', replies: [toolReply] });
+		const cancelled = await runAssistantExchange({
+			send: async (request, options) => {
+				const reply = await first.send(request, options);
+				controller.abort();
+				return reply;
+			},
+			invoke: vi.fn(),
+			tools: specs,
+			turns: [],
+			userText: 'Read my notes',
+			signal: controller.signal,
+		});
+		expect(cancelled.status).toBe('cancelled');
+
+		// The fake provider refuses a history with an unanswered tool call, as both real APIs do; the
+		// pre-fix transcript (ending on the bare assistant tool call) fails this replay.
+		const next = createFakeAiProvider({
+			priorTurns: cancelled.turns,
+			prompt: 'Never mind — what should I prep?',
+			replies: [textReply('Prep the fen encounter.')],
+		});
+		const result = await runAssistantExchange({
+			send: next.send,
+			invoke: vi.fn(),
+			tools: specs,
+			turns: cancelled.turns,
+			userText: 'Never mind — what should I prep?',
+		});
+
+		expect(result.status).toBe('completed');
+		expect(result.events).toEqual([{ type: 'text', text: 'Prep the fen encounter.' }]);
+		next.assertComplete();
 	});
 
 	it('does not even start when the signal is already aborted', async () => {

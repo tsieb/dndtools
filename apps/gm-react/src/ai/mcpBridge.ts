@@ -32,6 +32,7 @@ import {
 	type AiChatOptions,
 	type AiChatRequest,
 	type AiReply,
+	type AiToolCall,
 	type AiToolResult,
 	type AiToolSpec,
 	type AiTurn,
@@ -293,9 +294,11 @@ export interface AssistantExchangeOptions {
 	 */
 	onEvent?: (event: AssistantRunEvent) => void;
 	/**
-	 * Cancels the run BETWEEN passes: a request already in flight completes (the transport takes no
-	 * signal), then the loop stops and resolves with status `cancelled`. Lets the UI's Cancel button
-	 * halt a runaway multi-step run without a dangling promise.
+	 * Cancels the run: the loop stops before its next provider request or tool call and resolves with
+	 * status `cancelled` (a `send` that forwards it also aborts the in-flight request). Tool calls the
+	 * model already asked for but that never ran are answered with a cancelled result, so the returned
+	 * `turns` stay replayable. Lets the UI's Cancel button halt a runaway multi-step run without a
+	 * dangling promise.
 	 */
 	signal?: AbortSignal;
 }
@@ -314,8 +317,8 @@ export interface AssistantExchangeResult {
  * text. Bounded by `maxToolPasses`; when the budget runs out the pending calls are answered with an
  * explicit budget error and then receives one tools-disabled final model response (keeping the transcript
  * wire-valid) instead of silently dropping them. Every status transition and display event is streamed
- * through `onEvent` as it happens (ADR-025). An aborted `signal` always stops the loop between passes;
- * a caller whose `send` forwards the signal into the transport's `fetch` (RC-AI-1.1) also gets an
+ * through `onEvent` as it happens (ADR-025). An aborted `signal` always stops the loop between passes
+ * and between tool calls, answering any call that did not run so the transcript stays wire-valid; a caller whose `send` forwards the signal into the transport's `fetch` (RC-AI-1.1) also gets an
  * immediate mid-flight cancel instead of waiting for the in-flight request to land. Always resolves
  * (never rejects): transport and observer failures are isolated so the caller can notify without a
  * try/catch around this call.
@@ -356,6 +359,29 @@ export async function runAssistantExchange(
 	const finish = (status: AssistantRunStatus): AssistantExchangeResult => {
 		emitStatus(status);
 		return { turns, events, status };
+	};
+	// Both provider APIs reject a transcript whose assistant turn has a tool call with no result, and
+	// the caller replays these turns on the next ask. A cancel that lands after the model asked for
+	// tools therefore answers every call that did not run before the run ends.
+	const cancelPending = (
+		pending: readonly AiToolCall[],
+		results: AiToolResult[],
+	): AssistantExchangeResult => {
+		for (const call of pending) {
+			results.push({
+				toolCallId: call.id,
+				content: 'Cancelled by the user before this tool ran — nothing was read or changed.',
+				isError: true,
+			});
+			pushEvent({
+				type: 'tool',
+				toolId: toolIdFromProviderName(call.name),
+				outcome: 'error',
+				detail: 'Cancelled before it ran',
+			});
+		}
+		turns.push({ role: 'tool-results', results });
+		return finish('cancelled');
 	};
 
 	if (signal?.aborted) return finish('cancelled');
@@ -401,11 +427,10 @@ export async function runAssistantExchange(
 			return finish('completed');
 		}
 
-		if (signal?.aborted) return finish('cancelled');
-
 		const lastPass = pass === maxToolPasses - 1;
 		const results: AiToolResult[] = [];
-		for (const call of reply.toolCalls) {
+		for (const [index, call] of reply.toolCalls.entries()) {
+			if (signal?.aborted) return cancelPending(reply.toolCalls.slice(index), results);
 			const toolId = toolIdFromProviderName(call.name);
 			if (lastPass) {
 				// Answer (wire-valid) but stop the loop: the model must conclude with what it has.
