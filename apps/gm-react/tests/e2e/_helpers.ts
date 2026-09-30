@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { errors, test, type Page } from '@playwright/test';
 
 // Shared drivers for the React GM e2e suite. These mirror the idioms proven in the repo's
 // `scripts/verify-*.mjs` gates: bypass the first-run onboarding overlay, navigate under the
@@ -58,6 +58,7 @@ const DB_NAME = 'dndtools-v2';
  * navigation, the Vite client's console lines, and the JS stack that started each unload.
  */
 async function instrument(page: Page): Promise<void> {
+	watchNetworkChanges(page);
 	const rate = Number(process.env.DNDTOOLS_E2E_CPU_THROTTLE);
 	if (Number.isFinite(rate) && rate > 1) {
 		const cdp = await page.context().newCDPSession(page);
@@ -134,11 +135,71 @@ export async function preferPhoneCanvas(page: Page): Promise<void> {
  */
 const pristineOps = new WeakMap<Page, number>();
 
+/**
+ * What Chromium fails every in-flight request with, loopback ones included, when an interface on
+ * the host changes: a Wi-Fi switch, a VPN, a bridged container starting (docs/development/TESTING.md
+ * §8). A module request aborted mid-boot leaves the page blank for good.
+ */
+const NETWORK_CHANGED = 'net::ERR_NETWORK_CHANGED';
+
+/** Module requests a host network change aborted during each watched page's current boot. */
+const networkAborts = new WeakMap<Page, number>();
+
+/**
+ * Start counting the module requests a host network change aborts, for the navigation about to
+ * begin. Playwright reports a request's failure only while something listens for `requestfailed`,
+ * so this must run before that navigation, not after it.
+ */
+function watchNetworkChanges(page: Page): void {
+	const watched = networkAborts.has(page);
+	networkAborts.set(page, 0);
+	if (watched) return;
+	page.on('requestfailed', (request) => {
+		if (request.failure()?.errorText !== NETWORK_CHANGED || request.resourceType() !== 'script') {
+			return;
+		}
+		networkAborts.set(page, (networkAborts.get(page) ?? 0) + 1);
+	});
+}
+
+/**
+ * Wait up to 20 s for `window.__rt.loaded`. A boot whose module graph the host's network change
+ * aborted is reloaded once within the same budget; the reload is annotated on the test. Any other
+ * slow or stalled boot still fails.
+ */
+async function waitForBoot(page: Page): Promise<void> {
+	const deadline = Date.now() + 20_000;
+	let reloaded = false;
+	for (;;) {
+		try {
+			await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+				timeout: Math.max(1, Math.min(1_000, deadline - Date.now())),
+			});
+			break;
+		} catch (error) {
+			if (!(error instanceof errors.TimeoutError)) throw error;
+			if (Date.now() >= deadline) {
+				throw new errors.TimeoutError(
+					'page.waitForFunction: Timeout 20000ms exceeded waiting for window.__rt.loaded',
+				);
+			}
+		}
+		if (!reloaded && (networkAborts.get(page) ?? 0) > 0) {
+			reloaded = true;
+			const description = `${NETWORK_CHANGED} aborted the boot's module requests; reloaded once`;
+			test.info().annotations.push({ type: 'network-changed', description });
+			console.warn(`[e2e] ${description}`);
+			watchNetworkChanges(page);
+			await page.reload({ waitUntil: 'domcontentloaded' });
+		}
+	}
+	// A booted page's aborts (a lazy chunk, say) must not read as a later boot's.
+	if (networkAborts.has(page)) networkAborts.set(page, 0);
+}
+
 /** Resolve once the runtime has loaded and the shell's main landmark is present. */
 export async function waitReady(page: Page): Promise<void> {
-	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
-		timeout: 20_000,
-	});
+	await waitForBoot(page);
 	await page.locator('#main-content').waitFor({ state: 'attached', timeout: 20_000 });
 	if (!pristineOps.has(page)) {
 		const count = await ops(page);
@@ -152,6 +213,7 @@ export async function waitReady(page: Page): Promise<void> {
  * chunks have begun mounting.
  */
 export async function gotoRoute(page: Page, path: string): Promise<void> {
+	watchNetworkChanges(page);
 	await page.goto(`/#${path}`, { waitUntil: 'domcontentloaded' });
 	await waitReady(page);
 	// The per-route <h1> is always in the DOM but is visually hidden in the compact/mobile layout,
@@ -183,6 +245,7 @@ export async function seedFresh(page: Page): Promise<void> {
 			}),
 		DB_NAME,
 	);
+	watchNetworkChanges(page);
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);
 	const reseeded = await ops(page);

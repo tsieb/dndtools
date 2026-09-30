@@ -229,6 +229,14 @@ every Chromium on the host abort its in-flight requests (`net::ERR_NETWORK_CHANG
 the machine then lost page boots whenever a visual run started or stopped. After a failure,
 `apps/gm-react/test-results/` holds the `-actual`, `-expected` and `-diff` PNG for each screenshot.
 
+Other host network changes, such as a Wi-Fi switch or a VPN coming up, abort requests the same way.
+`waitReady` in `tests/e2e/_helpers.ts` reloads a page once when Chromium fails one of its boot's
+module requests with `net::ERR_NETWORK_CHANGED`. The reload stays inside the 20 s boot budget and
+adds a `network-changed` annotation to the test. It covers boots that `markOnboarded`, `gotoRoute`
+or `seedFresh` started, because Playwright only reports a failed request to a listener attached
+before the navigation. Any other stalled boot still fails, and so does a lazy route chunk aborted
+after boot, since the app has no chunk retry.
+
 **Updating baselines.** A change that moves pixels on purpose re-baselines in the same PR. Run the
 update command, open every rewritten PNG (`git status` lists them), and commit them with the change;
 the reviewer reads a baseline diff as part of the change. Without a container engine, run the CI
