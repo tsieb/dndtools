@@ -20,6 +20,86 @@ type Workflow = {
 };
 
 describe('Android emulator acceptance gate', () => {
+	it.each(['[0,0][0,0]', '[52,2339][1002,2339]'])(
+		'does not tap an offscreen button with empty accessibility bounds %s',
+		(bounds) => {
+			const source = fs.readFileSync(scriptPath, 'utf-8');
+			const helper = /^tap_ui_button\(\) \{\n[\s\S]*?^\}$/m.exec(source)?.[0];
+			expect(helper).toBeTruthy();
+			const result = spawnSync(
+				'bash',
+				[
+					'-c',
+					[
+						'set -Eeuo pipefail',
+						`dump_ui() { printf '%s' '<hierarchy><node text="Settings" class="android.widget.Button" clickable="true" enabled="true" bounds="${bounds}" /></hierarchy>'; }`,
+						'adb() { echo "unexpected tap: $*"; }',
+						'sleep() { :; }',
+						helper,
+						"tap_ui_button 'Settings'",
+					].join('\n'),
+				],
+				{ encoding: 'utf-8' },
+			);
+			expect(result.stdout).toBe('');
+			expect(result.status).toBe(1);
+		},
+	);
+
+	it.each([true, false])(
+		'scrolls to Settings and fails closed if absent (present=%s)',
+		(present) => {
+			const source = fs.readFileSync(scriptPath, 'utf-8');
+			const helpers = ['tap_ui_button', 'tap_ui_button_scrolling'].map((name) => {
+				const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
+				expect(match, `missing helper ${name}`).not.toBeNull();
+				return match?.[0] ?? '';
+			});
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-scroll-'));
+			try {
+				const node = (bounds: string) =>
+					`<node text="Settings" class="android.widget.Button" clickable="true" enabled="true" bounds="${bounds}" />`;
+				const tree = (button: string) =>
+					`<hierarchy><node scrollable="true" enabled="true" bounds="[20,400][1060,2200]">${button}</node></hierarchy>`;
+				fs.writeFileSync(path.join(dir, 'before.xml'), tree(node('[55,2200][1026,2200]')));
+				fs.writeFileSync(
+					path.join(dir, 'after.xml'),
+					tree(present ? node('[55,1800][1025,1920]') : ''),
+				);
+				const result = spawnSync(
+					'bash',
+					[
+						'-c',
+						[
+							'set -Eeuo pipefail',
+							'dump_ui() { if [[ -f scrolled ]]; then cat after.xml; else cat before.xml; fi; }',
+							'adb() { echo "$*"; if [[ "$3" == swipe ]]; then touch scrolled; fi; }',
+							'sleep() { :; }',
+							...helpers,
+							"tap_ui_button_scrolling 'Settings'",
+						].join('\n'),
+					],
+					{ cwd: dir, encoding: 'utf-8' },
+				);
+				const events = result.stdout.trim().split('\n');
+				expect(result.status, result.stderr).toBe(present ? 0 : 1);
+				if (present) {
+					expect(events).toEqual([
+						'shell input swipe 540 1750 540 850 300',
+						'shell input tap 540 1860',
+					]);
+				} else {
+					expect(events).toHaveLength(11);
+					expect(events.every((event) => event === 'shell input swipe 540 1750 540 850 300')).toBe(
+						true,
+					);
+				}
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
+			}
+		},
+	);
+
 	it('fails closed across install, lifecycle, native surfaces, persistence, Back, and same-key upgrade checks', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
 

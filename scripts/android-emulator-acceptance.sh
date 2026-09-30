@@ -237,8 +237,34 @@ tap_ui_button() {
 	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
 	read -r left top right bottom <<<"$bounds"
 	[[ -n "${bottom:-}" ]] || return 1
+	# WebView retains offscreen nodes with bounds collapsed at the clipping edge. Tapping that
+	# edge reports success to adb but never activates the button (Settings after the pinned rows).
+	((right > left && bottom > top)) || return 1
 	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
 	sleep 0.25
+}
+
+# Reveal a button in a scrollable surface before tapping it. Derive the swipe from the native
+# accessibility bounds of the innermost scroll region, so the gesture stays inside the sheet.
+# The bounded search still fails when a destination is absent or the surface cannot scroll.
+tap_ui_button_scrolling() {
+	local label=$1
+	local node bounds left top right bottom x attempt
+	for attempt in {1..12}; do
+		tap_ui_button "$label" && return 0
+		[[ "$attempt" -lt 12 ]] || return 1
+		node=$(dump_ui | sed 's/></>\n</g' | grep -F 'scrollable="true"' \
+			| grep -F 'enabled="true"' | tail -1 || true)
+		bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
+		read -r left top right bottom <<<"$bounds"
+		[[ -n "${bottom:-}" ]] || return 1
+		((right > left && bottom > top)) || return 1
+		x=$(((left + right) / 2))
+		adb shell input swipe "$x" "$((top + (bottom - top) * 3 / 4))" \
+			"$x" "$((top + (bottom - top) / 4))" 300 || return 1
+		sleep 0.25
+	done
+	return 1
 }
 
 # Tap any accessibility node containing the label (class-agnostic — the WebView surfaces
@@ -452,7 +478,7 @@ wait_for_root_destination || fail 'app state was lost after external HTTPS navig
 step 'native share and file-picker cancellation'
 tap_ui_button 'More' || fail 'More navigation control was not reachable'
 wait_for_ui_text 'All sections' || fail 'More sheet did not open'
-tap_ui_button 'Settings' || fail 'Settings destination was not reachable from the More sheet'
+tap_ui_button_scrolling 'Settings' || fail 'Settings destination was not reachable from the More sheet'
 wait_for_ui_text 'Settings section' || fail 'Settings destination did not render'
 tap_ui_control 'Settings section' || fail 'Settings section selector was not reachable'
 wait_for_ui_text 'Backup' || fail 'Settings section choices did not open'
