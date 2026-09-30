@@ -165,6 +165,60 @@ export const eb: CSSProperties = {
 
 export const mono: CSSProperties = { fontFamily: T.mono };
 
+/** The tab title for a route: the product name, then the heading the route shows. */
+export function documentTitle(heading: string): string {
+	return `Lamplight — ${heading}`;
+}
+
+/**
+ * useDocumentTitle — RC-ENG-9.1. Names the browser tab (and the window title a screen reader reads
+ * first) after the route's visible heading: "Lamplight — <heading>". `index.html` ships "Lamplight —
+ * Command Center" and nothing ever changed it, so `/screens`, `/scene/:id`, `/play`, `/join` and
+ * `/display` all claimed to be the Command Center.
+ *
+ * Inside the shell every `Page` sits under the top bar's `<h1>`, the section title, so the shell
+ * feeds that (`App.tsx`). A standalone route (`/play`, `/join`, `/display`) has no shell and sits
+ * inside `TitleFromHeading` below, which feeds its own `<h1>`. An empty heading (still loading)
+ * leaves the title alone. Unmounting restores whatever the title was, so a route that does not
+ * call this (the DEV galleries) never inherits a stale one from the route before it.
+ */
+export function useDocumentTitle(heading: string | null | undefined) {
+	const text = heading?.trim();
+	useEffect(() => {
+		if (!text) return;
+		const previous = document.title;
+		document.title = documentTitle(text);
+		return () => {
+			document.title = previous;
+		};
+	}, [text]);
+}
+
+/**
+ * TitleFromHeading — titles the tab after the first `<h1>` rendered inside it, and follows that
+ * heading as it changes: `/play` swaps its section heading as the player moves between sections,
+ * and `/display` shows each pushed card's title. The wrapper generates no box of its own.
+ */
+export function TitleFromHeading({ children }: { children?: ReactNode }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const [heading, setHeading] = useState<string | null>(null);
+	useEffect(() => {
+		const root = ref.current;
+		if (!root) return;
+		const read = () => setHeading(root.querySelector('h1')?.textContent ?? null);
+		read();
+		const observer = new MutationObserver(read);
+		observer.observe(root, { childList: true, subtree: true, characterData: true });
+		return () => observer.disconnect();
+	}, []);
+	useDocumentTitle(heading);
+	return (
+		<div ref={ref} style={CONTENTS}>
+			{children}
+		</div>
+	);
+}
+
 /** Present to assistive tech, absent from the layout. */
 export const srOnly: CSSProperties = {
 	position: 'absolute',

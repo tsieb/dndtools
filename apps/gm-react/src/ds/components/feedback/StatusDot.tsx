@@ -8,9 +8,16 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 import React from 'react';
 
+const PULSE = '1.8s var(--easing-accelerate) infinite reverse';
+
 /**
  * StatusDot — a tiny pulsing/solid dot for live state (session live, syncing, offline). Always
  * pair with an adjacent text label; the dot is a reinforcing cue, never the sole signal.
+ *
+ * The pulse ring animates with keyframes from the motion stylesheet (styles/index.css). It used to
+ * carry its own as an inline `<style>` child, and a `<style>`'s text is text content: the sidebar
+ * rows that hold a dot, when named from their content, announced `@keyframes dndPulse{…}` before
+ * their real name (RC-ENG-9.1).
  */
 export function StatusDot({
 	status = 'idle',
@@ -40,24 +47,25 @@ export function StatusDot({
 		>
 			{pulse && (
 				<span
-					style={{
-						position: 'absolute',
-						inset: 0,
-						borderRadius: '50%',
-						background: c,
-						opacity: 0.5,
-						animation: 'dndPulse 1.8s var(--easing-standard) infinite',
-					}}
+					style={
+						{
+							position: 'absolute',
+							inset: 0,
+							borderRadius: '50%',
+							// Half strength in the colour, not in `opacity`: the fade below animates opacity.
+							background: `color-mix(in srgb, ${c} 50%, transparent)`,
+							// Two entrances from the motion vocabulary, played backwards: the sheet slide from
+							// `--motion-sheet-from` (a scale here, not an edge) grows the ring, the fade-in
+							// fades it. `accelerate` reversed is a fast start that settles, like a ripple.
+							'--motion-sheet-from': 'scale(2.6)',
+							animation: `${PULSE} motion-sheet-slide, ${PULSE} motion-fade-in`,
+						} as React.CSSProperties
+					}
 				/>
 			)}
 			<span
 				style={{ position: 'relative', width: 9, height: 9, borderRadius: '50%', background: c }}
 			/>
-			<style>
-				{
-					'@keyframes dndPulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(2.6);opacity:0}100%{opacity:0}}'
-				}
-			</style>
 		</span>
 	);
 	if (!label) return dot;

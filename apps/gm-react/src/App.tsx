@@ -11,7 +11,7 @@ import {
 // HashRouter (not BrowserRouter): the static build is served by Electron's `dndtools://app` protocol
 // as well as CloudFront/Vite. Hash routing keeps deep links inside that single static entry document
 // in every runtime; the only web-visible difference is a cosmetic `#` in the URL.
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
 import { useProductAnalytics } from './cloud/useAnalytics';
 import type { SceneRuntime } from './runtime/SceneRuntime';
@@ -25,6 +25,9 @@ import { ensureSfxEvents } from './runtime/sfx-events';
 import { ensureCombatAudioAutomation } from './runtime/combat-audio-automation';
 import { AppShell } from './app/AppShell';
 import { AppSystemProvider } from './app/SystemContext';
+import { activeSectionId, sectionLabelKey } from './app/nav';
+import { TitleFromHeading, useDocumentTitle } from './app/screen-kit';
+import { useI18n } from './i18n';
 import { ONBOARDED_KEY, REPLAY_EVENT, readStorage } from './app/onboarding/shared';
 import { CommandCenter } from './screens/CommandCenter';
 import { SceneDisplay } from './screens/SceneDisplay';
@@ -431,9 +434,19 @@ function OnboardingGate() {
 	);
 }
 
+/** RC-ENG-9.1 — the tab title for every shelled route: the top bar's <h1>, which every `Page` sits
+ * under. Computed from the same section key the top bar renders, so the two cannot disagree. */
+function SectionDocumentTitle() {
+	const { t } = useI18n();
+	const location = useLocation();
+	useDocumentTitle(t(sectionLabelKey(activeSectionId(location.pathname))));
+	return null;
+}
+
 function ShelledRoutes() {
 	return (
 		<AppShell>
+			<SectionDocumentTitle />
 			<OnboardingGate />
 			<ScreenRouteAliases />
 			<Suspense fallback={<Boot />}>
@@ -492,15 +505,19 @@ function Shell() {
 	}
 	if (!runtime.loaded) return <Boot />;
 	// `/play` is the standalone player-view app: it renders its own chrome, so it sits OUTSIDE the
-	// DM AppShell. Everything else mounts inside the shell via the splat route below.
+	// DM AppShell. Everything else mounts inside the shell via the splat route below. With no shell
+	// <h1> to name the tab, each chrome-less route is titled after its own (RC-ENG-9.1); `/wiki` and
+	// the legal pages already title themselves.
 	return (
 		<Routes>
 			<Route
 				path="/play"
 				element={
-					<Suspense fallback={<Boot />}>
-						<PlayerView />
-					</Suspense>
+					<TitleFromHeading>
+						<Suspense fallback={<Boot />}>
+							<PlayerView />
+						</Suspense>
+					</TitleFromHeading>
 				}
 			/>
 			{/* invite-redeem landing: chrome-less like /play — an invitee has no vault and must
@@ -508,9 +525,11 @@ function Shell() {
 			<Route
 				path="/join"
 				element={
-					<Suspense fallback={<Boot />}>
-						<Join />
-					</Suspense>
+					<TitleFromHeading>
+						<Suspense fallback={<Boot />}>
+							<Join />
+						</Suspense>
+					</TitleFromHeading>
 				}
 			/>
 			{/* public campaign-wiki reader: chrome-less like /join — a reader has no vault and reads a
@@ -546,9 +565,11 @@ function Shell() {
 			<Route
 				path="/display"
 				element={
-					<Suspense fallback={<Boot />}>
-						<SceneDisplay />
-					</Suspense>
+					<TitleFromHeading>
+						<Suspense fallback={<Boot />}>
+							<SceneDisplay />
+						</Suspense>
+					</TitleFromHeading>
 				}
 			/>
 			{/* RC-DSN-3.1 — DEV-only, chrome-less design reference (see the lazy import above). */}
