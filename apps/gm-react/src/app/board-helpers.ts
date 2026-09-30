@@ -110,7 +110,8 @@ export const TIER_LABEL: Record<WidgetTier, string> = {
 };
 
 function statusNoteFor(payload: WidgetBindingPayload | undefined): string | null {
-	if (!payload) return null;
+	// No payload: the actor read did not deliver this instance (see `boardWidgetsOf`).
+	if (!payload) return 'Hidden from this viewer';
 	switch (payload.kind) {
 		case 'degraded':
 			return 'Some host permissions are unavailable here';
@@ -129,17 +130,34 @@ function statusNoteFor(payload: WidgetBindingPayload | undefined): string | null
 	}
 }
 
+export interface BoardWidgetsOptions {
+	/**
+	 * RC-ENG-10.2 — keep instances the actor summary did not deliver. Only the DM's own edit view
+	 * asks for this: it has to list every placed widget, and each one it would otherwise lack a
+	 * payload for is painted `hidden`, never `available`.
+	 */
+	includeUndelivered?: boolean;
+}
+
 /**
  * Map raw widget instances (authoritative layout) + the actor-scoped binding payloads (availability)
  * into the flat board view-model. `defOf` resolves a widget definition for chrome (title / icon /
  * tier); pass `findWidgetDefinition(runtime.state.widgets, type)`.
+ *
+ * The raw scene lists every instance, but `getSceneForActor` leaves out the ones outside the actor's
+ * sections — so an instance with no payload is one this actor was not given, and by default it is
+ * dropped rather than drawn with its title and configuration (RC-ENG-10.2).
  */
 export function boardWidgetsOf(
 	instances: readonly WidgetInstance[],
 	payloadById: Map<string, WidgetBindingPayload>,
 	defOf: (type: string) => WidgetDefinition | null,
+	options: BoardWidgetsOptions = {},
 ): BoardWidget[] {
-	return instances.map((instance) => {
+	const shown = options.includeUndelivered
+		? instances
+		: instances.filter((instance) => payloadById.has(instance.id));
+	return shown.map((instance) => {
 		const def = defOf(instance.type);
 		const payload = payloadById.get(instance.id);
 		const visibility =
@@ -176,7 +194,7 @@ export function boardWidgetsOf(
 			y: instance.layout.y,
 			w: instance.layout.w,
 			h: instance.layout.h,
-			status: payload?.kind ?? 'available',
+			status: payload?.kind ?? 'hidden',
 			statusNote: statusNoteFor(payload),
 		};
 	});

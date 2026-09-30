@@ -187,12 +187,14 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		if (!ready || !homeSceneId) return [];
 		const rawScene = runtime.state.scenes.scenes[homeSceneId];
 		if (!rawScene) return [];
+		// RC-ENG-10.2 — outside the DM's own edit view, only what this actor's read delivered.
 		return boardWidgetsOf(
 			rawScene.widgets,
 			payloadIndex(summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
+			{ includeUndelivered: isDm && editing },
 		);
-	}, [ready, homeSceneId, runtime.state.scenes, runtime.state.widgets, summary]);
+	}, [ready, homeSceneId, runtime.state.scenes, runtime.state.widgets, summary, isDm, editing]);
 
 	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
 		a.name.localeCompare(b.name),

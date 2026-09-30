@@ -86,16 +86,22 @@ export function SceneEditor() {
 
 	const previouslyFilled = useBoardPreviouslyFilled(id, (rawScene?.widgets.length ?? 0) > 0);
 
+	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 	const widgets: BoardWidget[] = useMemo(() => {
 		if ((denied && !previewBlocked) || !rawScene) return [];
 		return boardWidgetsOf(
 			rawScene.widgets,
 			payloadIndex('kind' in summary ? [] : summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
+			// RC-ENG-10.2 — a previewed actor gets only the tiles their read delivered: one outside
+			// their sections is not in the DOM at all, not merely dimmed under the overlay. The two
+			// exceptions keep every tile: the DM's own edit view, and a scene the previewed actor
+			// cannot open, whose overlay names each withheld tile (painted `hidden`, never `available`).
+			{ includeUndelivered: previewBlocked || (isDm && editing && !preview) },
 		);
 		// `rawScene` + `runtime.state.widgets` are fresh references after each dispatch (immutable
 		// reducer updates), so this recomputes whenever the scene or widget packages change.
-	}, [denied, previewBlocked, rawScene, runtime.state.widgets, summary]);
+	}, [denied, previewBlocked, rawScene, runtime.state.widgets, summary, isDm, editing, preview]);
 
 	const commands = useSceneCommands({ runtime, sceneId: id, scene: rawScene, widgets });
 	const { history, error } = commands;
