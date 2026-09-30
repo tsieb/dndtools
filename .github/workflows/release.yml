@@ -170,7 +170,7 @@ jobs:
     name: package (${{ matrix.label }})
     needs: [verify, production-cloud-config]
     if: >-
-      always() && needs.verify.result == 'success' &&
+      !cancelled() && needs.verify.result == 'success' &&
       ((github.event_name == 'workflow_dispatch' && inputs.channel == 'production' &&
         needs.production-cloud-config.result == 'success') ||
        ((github.event_name != 'workflow_dispatch' || inputs.channel != 'production') &&

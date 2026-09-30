@@ -242,6 +242,7 @@ describe('CI guardrails', () => {
 		);
 		expect(configJob?.environment).toBe('production');
 		expect(packageJob?.needs).toEqual(['verify', 'production-cloud-config']);
+		expect(packageJob?.if).toMatch(/^!cancelled\(\) && /);
 		expect(packageJob?.if).toContain("needs.verify.result == 'success'");
 		expect(packageJob?.if).toContain(
 			"github.event_name == 'workflow_dispatch' && inputs.channel == 'production'",
@@ -331,6 +332,28 @@ describe('CI guardrails', () => {
 			(step) => step.name === 'Sign build provenance for installers, checksums, and SBOM',
 		);
 		expect(provenance?.uses).toMatch(/^actions\/attest-build-provenance@[0-9a-f]{40}$/);
+	});
+
+	it('lets a cancelled run stop every job that runs in a secret-bearing environment', () => {
+		// `always()` starts a job even after the run is cancelled, so a cancelled release could
+		// still open the `desktop-release` signing secrets. Environment jobs use `!cancelled()`.
+		const workflowsRoot = path.join(repoRoot, '.github', 'workflows');
+		let environmentJobs = 0;
+		for (const name of fs
+			.readdirSync(workflowsRoot)
+			.filter((file) => file.endsWith('.yml') || file.endsWith('.yaml'))) {
+			const workflow = YAML.parse(
+				fs.readFileSync(path.join(workflowsRoot, name), 'utf-8'),
+			) as WorkflowFile;
+			for (const [jobName, job] of Object.entries(workflow.jobs ?? {})) {
+				if (!job.environment) continue;
+				environmentJobs += 1;
+				expect(job.if ?? '', `${name} job ${jobName} runs in an environment`).not.toMatch(
+					/\balways\s*\(\s*\)/,
+				);
+			}
+		}
+		expect(environmentJobs).toBeGreaterThan(0);
 	});
 
 	it('pins third-party actions to immutable commits and keeps foundation bootstrap-only', () => {
