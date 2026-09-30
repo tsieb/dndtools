@@ -224,6 +224,38 @@ test('re-entering /board before its redirect has settled still lands on the GM s
 	await expect(screenHeading(page, 'DM screen')).toBeVisible();
 });
 
+test('/board re-entered the moment its redirect is written still lands on the GM screen', async ({
+	page,
+}) => {
+	await markOnboarded(page);
+	await gotoRoute(page, '/screens');
+	const homeId = await homeSceneId(page);
+	// The test above re-enters `/board` over a Playwright round-trip, so it only loses the race when
+	// the host is slow enough. Here `/board` comes back in the microtask after the redirect's
+	// `replaceState`, before React can render the redirect: both router updates settle together on a
+	// location equal to the committed `/board`, and nothing re-renders the aliases unless the app
+	// listens for the browser's own URL change (a promotion run sat on the empty pane for 10s).
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+	await page.evaluate(() => {
+		const replaceState = history.replaceState.bind(history);
+		let armed = true;
+		history.replaceState = (data, unused, url) => {
+			replaceState(data, unused, url);
+			if (armed && String(url).includes('#/screen/')) {
+				armed = false;
+				queueMicrotask(() => {
+					window.location.hash = '#/board';
+				});
+			}
+		};
+		window.location.hash = '#/board';
+	});
+	await expect.poll(() => hash(page), { timeout: 10_000 }).toBe(`#/screen/${homeId}`);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+	await expect(screenHeading(page, 'DM screen')).toBeVisible();
+});
+
 test('a screen that does not exist says so and leads back to the library', async ({ page }) => {
 	await markOnboarded(page);
 	await gotoRoute(page, '/screen/no-such-screen');
