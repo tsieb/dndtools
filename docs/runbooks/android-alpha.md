@@ -86,9 +86,17 @@ one transaction; on any interruption reopen the app, verify the prior vault, and
 storage or uninstall as a recovery step.
 
 Upgrade in place with `adb install --replace`. `INSTALL_FAILED_UPDATE_INCOMPATIBLE` means the
-signing identities differ; stop and check the fingerprint. Android system backup is not the recovery
-contract: Keystore-encrypted preferences are excluded, so after a device transfer expect to sign in
-again and re-enter AI credentials.
+signing identities differ; stop and check the fingerprint.
+
+Android system backup is off and is not the recovery contract. The manifest sets
+`android:allowBackup="false"`, and because Android 12+ still runs device-to-device transfer with that
+flag, `res/xml/data_extraction_rules.xml` (cloud backup and device transfer) and
+`res/xml/backup_rules.xml` (Android 11 and older) exclude every storage domain. The WebView IndexedDB
+vault, the ADR-035 player-private store, databases, and Keystore-encrypted preferences leave the
+device only through the E2EE cloud backup and explicit exports. A new phone restored from Google
+backup or a transfer cable starts empty: import the vault export, sign in again, and re-enter AI
+credentials. Never add an `<include>`, narrow an exclude, or declare a backup agent;
+`tests/unit/android-backup-rules.test.ts` fails if WebView or database storage becomes backable.
 
 ## 5. Alpha behaviour and limits
 

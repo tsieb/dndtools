@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- RC-ENG-10.3 — Android 11 and older. allowBackup="false" already disables system backup; these
+     rules keep it off if that flag is ever flipped. The WebView IndexedDB vault, the ADR-035
+     player-private store, and Keystore ciphertext leave the device only through the E2EE backup
+     and explicit exports, so every domain is excluded. -->
 <full-backup-content>
-    <!-- Keystore keys are not portable. Never restore ciphertext without its key. -->
-    <exclude domain="sharedpref" path="dndtools_secure_store.xml" />
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+    <exclude domain="device_root" path="." />
+    <exclude domain="device_file" path="." />
+    <exclude domain="device_database" path="." />
+    <exclude domain="device_sharedpref" path="." />
 </full-backup-content>
