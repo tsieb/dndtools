@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { resolveOnboarding } from '@dndtools/core';
 import { Button, Dialog, Icon, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
@@ -52,25 +52,58 @@ export function hasUnseenWhatsNew(): boolean {
 	return readSeenWhatsNewVersion() !== latest;
 }
 
+// RC-UX-6.1 — one Help menu per shell. Every trigger flips this shared flag and `HelpHost` renders
+// the only instance, so the phone footer and the desktop top bar can never open two copies or
+// mount the dialog inside their own (possibly transformed) chrome.
+let helpOpen = false;
+const helpListeners = new Set<() => void>();
+function setHelpOpen(next: boolean): void {
+	if (helpOpen === next) return;
+	helpOpen = next;
+	for (const listener of helpListeners) listener();
+}
+function subscribeHelp(listener: () => void): () => void {
+	helpListeners.add(listener);
+	return () => helpListeners.delete(listener);
+}
+export function openHelp(): void {
+	setHelpOpen(true);
+}
+
+/** The shell's single Help menu. Mount once; every `HelpTrigger` opens it. */
+export function HelpHost() {
+	const open = useSyncExternalStore(subscribeHelp, () => helpOpen);
+	// A host that unmounts (shell teardown, tests) must not leave the next one opening pre-opened.
+	useEffect(() => () => setHelpOpen(false), []);
+	return <HelpMenu open={open} onClose={() => setHelpOpen(false)} />;
+}
+
 /**
- * The Help trigger for the tiers that have no phone tab bar (RC-DOC-1.3). `Footer.tsx` owns the
- * phone's own trigger in the slim row above the tab bar; desktop and rail never mount that footer,
- * so without this button the Help menu — and with it every user guide — is unreachable above 640px.
- * The trigger and its unseen-release dot live here beside the menu they open, so the shell only has
- * to mount one element: WCAG 3.2.6 asks for Help in a CONSISTENT place on every screen, and the top
- * bar is the one piece of chrome that follows the DM onto every route at these widths.
+ * A Help trigger with its unseen-release dot. The top bar mounts the `outline`/`lg` one on the tiers
+ * with no phone tab bar (RC-DOC-1.3); `Footer.tsx` mounts the `ghost`/`sm` one above the phone tab
+ * bar. WCAG 3.2.6 asks for Help in a CONSISTENT place on every screen; both open `HelpHost`.
  */
-export function HelpLauncher() {
+export function HelpTrigger({
+	variant = 'outline',
+	size = 'lg',
+	style,
+}: {
+	variant?: 'outline' | 'ghost';
+	size?: 'sm' | 'lg';
+	style?: CSSProperties;
+}) {
 	const { t } = useI18n();
-	const [open, setOpen] = useState(false);
+	const open = useSyncExternalStore(subscribeHelp, () => helpOpen);
 	return (
-		<div style={{ position: 'relative', flex: '0 0 auto' }}>
+		<div style={{ position: 'relative', ...style }}>
 			<IconButton
 				icon="info"
 				label={t('shell.help')}
-				variant="outline"
-				size="lg"
-				onClick={() => setOpen(true)}
+				variant={variant}
+				size={size}
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				onClick={openHelp}
 			/>
 			{hasUnseenWhatsNew() && (
 				<span
@@ -88,7 +121,6 @@ export function HelpLauncher() {
 					}}
 				/>
 			)}
-			<HelpMenu open={open} onClose={() => setOpen(false)} />
 		</div>
 	);
 }

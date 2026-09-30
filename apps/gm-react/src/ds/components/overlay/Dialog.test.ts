@@ -64,7 +64,7 @@ describe('Dialog focus', () => {
 		await act(async () => {
 			vi.runAllTimers();
 		});
-		expect(document.activeElement).toBe(container.querySelector('#cancel'));
+		expect(document.activeElement).toBe(document.querySelector('#cancel'));
 	});
 
 	it('keeps focus in place across rerenders and invokes the latest close callback', async () => {
@@ -81,7 +81,7 @@ describe('Dialog focus', () => {
 
 		await act(async () => renderDialog(firstClose));
 		await act(async () => vi.runAllTimers());
-		const focused = container.querySelector<HTMLButtonElement>('#stay-focused')!;
+		const focused = document.querySelector<HTMLButtonElement>('#stay-focused')!;
 		focused.focus();
 
 		await act(async () => renderDialog(latestClose));
@@ -110,9 +110,9 @@ for (const Overlay of [TestDialog, Sheet as typeof TestDialog]) {
 			),
 		);
 		await act(async () => vi.runAllTimers());
-		const action = container.querySelector<HTMLButtonElement>('#eligible')!;
+		const action = document.querySelector<HTMLButtonElement>('#eligible')!;
 		expect(document.activeElement).toBe(action);
-		const panel = container.querySelector<HTMLElement>('[role="dialog"]')!;
+		const panel = document.querySelector<HTMLElement>('[role="dialog"]')!;
 		expect(document.getElementById(panel.getAttribute('aria-labelledby')!)?.textContent).toBe(
 			'Actions',
 		);
@@ -147,11 +147,11 @@ for (const Overlay of [TestDialog, Sheet as typeof TestDialog]) {
 			),
 		);
 		await act(async () => vi.runAllTimers());
-		const menuItem = container.querySelector<HTMLButtonElement>('#menu-last')!;
+		const menuItem = document.querySelector<HTMLButtonElement>('#menu-last')!;
 		expect(document.activeElement).toBe(menuItem);
 		const forward = tab();
 		expect(forward.defaultPrevented).toBe(true);
-		expect(document.activeElement).toBe(container.querySelector('#outer-first'));
+		expect(document.activeElement).toBe(document.querySelector('#outer-first'));
 		const backward = tab(true);
 		expect(backward.defaultPrevented).toBe(true);
 		expect(document.activeElement).toBe(menuItem);
@@ -171,7 +171,7 @@ for (const Overlay of [TestDialog, Sheet as typeof TestDialog]) {
 			),
 		);
 		await act(async () => vi.runAllTimers());
-		expect(document.activeElement).toBe(container.querySelector('#outer-first'));
+		expect(document.activeElement).toBe(document.querySelector('#outer-first'));
 	});
 
 	// Focusable-but-not-tabbable descendants (tabindex=-1 rows, <iframe>, media with controls) are
@@ -189,7 +189,7 @@ for (const Overlay of [TestDialog, Sheet as typeof TestDialog]) {
 			),
 		);
 		await act(async () => vi.runAllTimers());
-		const row = container.querySelector<HTMLElement>('#row')!;
+		const row = document.querySelector<HTMLElement>('#row')!;
 		row.focus();
 		expect(document.activeElement).toBe(row);
 		const forward = tab();
@@ -241,10 +241,47 @@ it('leaves Tab and initial focus to a simultaneously mounted nested sheet', asyn
 		),
 	);
 	await act(async () => vi.runAllTimers());
-	const inner = container.querySelector<HTMLButtonElement>('#inner-action')!;
+	const inner = document.querySelector<HTMLButtonElement>('#inner-action')!;
 	expect(document.activeElement).toBe(inner);
 	document.dispatchEvent(
 		new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }),
 	);
 	expect(document.activeElement).toBe(inner.closest('[role="dialog"]')!.querySelector('button'));
+});
+
+// jsdom has no layout engine: assert the viewport-containing-block contract here;
+// help-menu.spec.ts checks actual panel and scrim geometry in Chromium.
+it('portals outside a transformed launcher and constrains the panel to the viewport', async () => {
+	container.style.transform = 'translateZ(0)';
+	container.style.height = '26px';
+	await act(async () =>
+		root.render(
+			createElement(
+				TestDialog,
+				{
+					open: true,
+					title: 'Viewport dialog',
+					onClose: vi.fn(),
+				},
+				createElement('div', { style: { height: 600 } }, 'Tall content'),
+			),
+		),
+	);
+	const panel = document.querySelector<HTMLElement>('[role="dialog"]')!;
+	const scrim = panel.parentElement!;
+	expect(container.contains(panel)).toBe(false);
+	expect(scrim.parentElement).toBe(document.body);
+	// No ancestor may establish a containing block for fixed descendants, so the scrim resolves
+	// against the viewport and the panel is bounded by it rather than by the 26px launcher.
+	for (let node = scrim.parentElement; node; node = node.parentElement) {
+		const style = getComputedStyle(node);
+		expect(style.transform === '' || style.transform === 'none').toBe(true);
+		expect(style.filter === '' || style.filter === 'none').toBe(true);
+	}
+	expect(scrim.style.position).toBe('fixed');
+	expect(scrim.style.inset).toBe('0px');
+	expect(panel.style.maxHeight).toBe('100%');
+	expect(panel.style.maxWidth).toBe('100%');
+	await act(async () => root.render(null));
+	expect(document.querySelector('[role="dialog"]')).toBeNull();
 });

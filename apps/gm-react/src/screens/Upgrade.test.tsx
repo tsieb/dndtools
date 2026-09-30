@@ -168,7 +168,7 @@ function button(label: string, scope: ParentNode = container): HTMLButtonElement
 	if (!match) throw new Error(`Button not found: ${label}`);
 	return match;
 }
-const dialog = () => container.querySelector<HTMLElement>('[role="dialog"]');
+const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
 function dialogTitle(): string {
 	const id = dialog()?.getAttribute('aria-labelledby');
 	// `useId` ids carry colons, and jsdom ships no `CSS.escape`, so look the node up by id directly.

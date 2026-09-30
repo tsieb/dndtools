@@ -36,7 +36,7 @@ export const allow = {
 	'apps/gm-react/src/app/sceneCardMood.ts': 20,
 	'apps/gm-react/src/app/screen-kit.tsx': 20,
 	'apps/gm-react/src/app/session/QuickPanel.tsx': 17,
-	'apps/gm-react/src/app/shell/Footer.tsx': 2,
+	'apps/gm-react/src/app/shell/Footer.tsx': 1,
 	'apps/gm-react/src/app/shell/MoreSheet.tsx': 2,
 	'apps/gm-react/src/app/shell/RailNav.tsx': 1,
 	'apps/gm-react/src/app/shell/rows.tsx': 11,

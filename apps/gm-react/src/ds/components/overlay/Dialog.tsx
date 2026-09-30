@@ -29,6 +29,7 @@ export interface DialogProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
 }
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { ownsFocusTrap, popTrapLayer, pushTrapLayer, tabbableElements } from './focus';
 import { Icon } from '../core/Icon';
 import { registerBackHandler } from '../../../platform/backNavigation';
@@ -56,8 +57,8 @@ import { restoreReturnFocus } from '../../../platform/returnFocus';
  *  - `tone="danger"` colours the header mark + primary affordance for destructive confirms; the
  *    distinct status-icon shape carries severity without relying on colour (A11Y-011).
  *
- * Renders inline (fixed-position, token z-index) — no portal — mirroring Popover, so it needs no
- * ReactDOM dependency from the bundle.
+ * Portals the scrim to body so transformed or filtered launchers cannot become its containing
+ * block and collapse the panel to the dimensions of the launcher.
  */
 const SIZES = { sm: 400, md: 540, lg: 760 };
 const TONE_ICON = {
@@ -217,7 +218,7 @@ export function Dialog({
 	const accent = TONE_COLOR[tone];
 	const markName = icon || TONE_ICON[tone];
 
-	return (
+	return createPortal(
 		<div
 			className="app-fixed-viewport"
 			style={{
@@ -418,6 +419,7 @@ export function Dialog({
 					</div>
 				)}
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 }

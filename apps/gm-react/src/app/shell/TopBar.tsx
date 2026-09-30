@@ -6,7 +6,7 @@ import { ViewAsControl } from '../ViewAsControl';
 import { ProjectionControl } from '../ProjectionControl';
 import { HostSessionButton, AccountButton } from '../../net/SessionPanel';
 import { useViewport } from '../useViewport';
-import { HelpLauncher } from '../help/HelpMenu';
+import { HelpHost, HelpTrigger } from '../help/HelpMenu';
 import { activeSectionId, sectionLabelKey, sectionSubtitleKey } from '../nav';
 import { T } from '../screen-kit';
 import { useSessionPosture } from './session-posture';
@@ -49,6 +49,9 @@ export function TopBar({
 			: null;
 	return (
 		<>
+			{/* RC-UX-6.1 — the shell's one Help menu. The top bar is the only chrome every tier mounts, so
+			    it hosts the instance both triggers open; the Dialog portals to body, outside this bar. */}
+			<HelpHost />
 			<header
 				style={{
 					display: 'flex',
@@ -194,7 +197,7 @@ export function TopBar({
 						<ProjectionControl compact />
 						{/* RC-DOC-1.3 — Help's consistent location above 640px. The phone reaches the same
 						    menu from `Footer.tsx`, which desktop and rail never mount. */}
-						<HelpLauncher />
+						<HelpTrigger style={{ flex: '0 0 auto' }} />
 						<AccountButton compact />
 					</>
 				)}

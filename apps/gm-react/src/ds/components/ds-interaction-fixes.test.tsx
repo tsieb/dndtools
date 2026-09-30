@@ -554,7 +554,7 @@ describe('Popover keeps the keyboard user oriented', () => {
 describe('Dialog can refuse the stray backdrop click without becoming inescapable', () => {
 	/** The scrim is the Dialog's outermost element; a click on the panel targets a descendant. */
 	function backdrop(): HTMLElement {
-		return container.firstElementChild as HTMLElement;
+		return document.querySelector('[role="dialog"]')!.parentElement!;
 	}
 	function mouseDownOn(el: HTMLElement) {
 		act(() => {
@@ -603,9 +603,9 @@ describe('Dialog can refuse the stray backdrop click without becoming inescapabl
 		expect(closed).toBe(1);
 
 		// So must the header Close button — `dismissible={false}` would have removed it entirely.
-		const close = Array.from(container.querySelectorAll('button')).find((b) =>
-			(b.getAttribute('aria-label') ?? '').toLowerCase().includes('close'),
-		);
+		const close = Array.from(
+			document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+		).find((b) => (b.getAttribute('aria-label') ?? '').toLowerCase().includes('close'));
 		expect(close, 'the header Close button must still be rendered').toBeTruthy();
 		act(() => close!.click());
 		expect(closed).toBe(2);
