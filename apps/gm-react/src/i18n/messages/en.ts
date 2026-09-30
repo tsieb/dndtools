@@ -5542,6 +5542,8 @@ export const en = {
 	'boardCanvas.binding.boundTo': 'Bound to {name}',
 	'boardCanvas.tile.content': '{title} content',
 	'boardCanvas.tile.resize': 'Resize {title}',
+	'boardCanvas.tile.resizeHelp':
+		'Click to cycle small, medium and large. Focus and use arrow keys to resize; Escape returns to the tile.',
 
 	/* Widget bodies › the hand-drawn built-in widget contents on the GM Screen */
 	'widgetBody.sessionOnly':

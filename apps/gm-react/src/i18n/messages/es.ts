@@ -5581,6 +5581,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.binding.boundTo': 'Vinculado a {name}',
 	'boardCanvas.tile.content': 'Contenido de {title}',
 	'boardCanvas.tile.resize': 'Redimensionar {title}',
+	'boardCanvas.tile.resizeHelp':
+		'Haz clic para alternar entre pequeño, mediano y grande. Enfoca y usa las flechas para redimensionar; Escape vuelve al mosaico.',
 
 	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
 	'widgetBody.sessionOnly':

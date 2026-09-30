@@ -26,10 +26,6 @@ import type { ArrangeAction, Box } from './geometry';
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
  * explicit stack indices let the canvas change DOM order without changing visual overlap. */
 
-// Kept with the tile chrome copy, like TileActionMenu's local TEXT catalog.
-const RESIZE_HELP =
-	'Click to cycle small, medium and large. Focus and use arrow keys to resize; Escape returns to the tile.';
-
 // Widget definition icons are normally semantic registry keys ('map', 'dice', …). Third-party
 // packages created by older builds may still contain an emoji glyph, so retain a decorative legacy
 // fallback instead of replacing persisted package content with a broken square.
@@ -350,28 +346,14 @@ export function ZoomBtn(props: { icon: string; label: string; onClick: () => voi
 }
 
 /** The header's binding glyph: a word as well as a shape, so no state rests on colour alone. */
+const QUIET = 'var(--color-text-secondary)';
+const WARN = 'var(--color-status-warning-text)';
 const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: MessageKey; tone: string }> = {
-	bound: { icon: 'link', label: 'boardCanvas.binding.bound', tone: 'var(--color-text-secondary)' },
-	unbound: {
-		icon: 'link',
-		label: 'boardCanvas.binding.unbound',
-		tone: 'var(--color-text-secondary)',
-	},
-	missing: {
-		icon: 'warning',
-		label: 'boardCanvas.binding.missing',
-		tone: 'var(--color-status-warning-text)',
-	},
-	conflicted: {
-		icon: 'warning',
-		label: 'boardCanvas.binding.conflicted',
-		tone: 'var(--color-status-warning-text)',
-	},
-	hidden: {
-		icon: 'visibility-hidden',
-		label: 'boardCanvas.binding.hidden',
-		tone: 'var(--color-text-secondary)',
-	},
+	bound: { icon: 'link', label: 'boardCanvas.binding.bound', tone: QUIET },
+	unbound: { icon: 'link', label: 'boardCanvas.binding.unbound', tone: QUIET },
+	missing: { icon: 'warning', label: 'boardCanvas.binding.missing', tone: WARN },
+	conflicted: { icon: 'warning', label: 'boardCanvas.binding.conflicted', tone: WARN },
+	hidden: { icon: 'visibility-hidden', label: 'boardCanvas.binding.hidden', tone: QUIET },
 };
 
 export interface WidgetFrameProps {
@@ -673,8 +655,8 @@ export function WidgetFrame({
 						<button
 							type="button"
 							aria-label={t('boardCanvas.tile.resize', { title: w.title })}
-							title={RESIZE_HELP}
-							aria-description={RESIZE_HELP}
+							title={t('boardCanvas.tile.resizeHelp')}
+							aria-description={t('boardCanvas.tile.resizeHelp')}
 							onClick={(e) => {
 								e.stopPropagation();
 								if (e.detail === 0) onCycleSize?.();

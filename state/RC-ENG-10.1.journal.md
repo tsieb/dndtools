@@ -1,0 +1,23 @@
+# RC-ENG-10.1 run journal
+
+## 2026-09-30 — implementation
+
+- Started from a clean task branch at `a0c885f9`. No Headroom tools were called; this journal cites native tool output.
+- **WidgetFrame.** `BINDING_GLYPH` now holds message keys (`boardCanvas.binding.{bound,unbound,missing,conflicted,hidden}`), and the bound tooltip is `t('boardCanvas.binding.boundTo', { name })`. Once the rule started reading templates, the frame's own `${title} content` region and `Resize ${title}` handle were flagged, so they moved to `boardCanvas.tile.content` / `boardCanvas.tile.resize`. The English text is unchanged, so e2e role names such as `Resize Torchlight` still match. The `RESIZE_HELP` constant also became `boardCanvas.tile.resizeHelp`.
+- **File-size gate.** The first cut pushed WidgetFrame to 818 lines, which failed `tests/unit/file-size-gate.test.ts` (800-line hard limit). The glyph tones became two local constants and `RESIZE_HELP` went to the catalogue. The file is now exactly 800 lines, so the next addition has to split it.
+- **TagInput.** New `removeTagLabel?: (tag) => string` prop with an English default (`Remove ${tag}`, kept out of JSX as a module constant). ScreenMetaEditor and TagsPanel pass `t('common.action.removeTag', { tag })`.
+- **Lint rule.** `no-literal-jsx-text` now also checks template literals in `title`, `aria-label` and `alt`, directly or in either branch of a `?:`/`&&`/`||`/`??`. A template is flagged when any static part carries language. A part that starts a CSS custom property (`--widget-${name}`, StyleStep) is skipped as code. The widened rule found 32 hits: 3 in WidgetFrame (fixed) and 29 in 16 files outside the claim. Those 16 are ratcheted in `no-literal-jsx-text.allow.js`, with a comment saying they are old English the widening surfaced, not new copy.
+- **Catalogues.** en and es gained the same 10 keys, and the es↔en key-equality test passes. fr stays the empty scaffold on purpose: `index.test.ts` asserts `catalogCoverage('fr') === 0`, and it adds no orphan keys. `qps-ploc.ts` was regenerated with `tsx scripts/i18n-catalog.ts pseudo`.
+- **Outside the claim (acceptance needed it):** `tests/unit/no-literal-jsx-text.test.ts` (lint fixtures), `WidgetFrame.test.tsx` and `TagInput.test.tsx` (companions), `i18n/messages/{en,es}.ts` and `i18n/dev/qps-ploc.ts` (catalogue keys).
+
+## Evidence
+
+- New tests:
+  - WidgetFrame renders each of the five states under `es` (`Vinculado`, `Sin vincular`, `Ausente`, `En conflicto`, `Oculto`), checking both text and `title`, with no English label present. It also checks the `Vinculado a Old mill` tooltip and the `Contenido de …` region name.
+  - TagInput asserts that the formatter names each remove button, and that the English default applies when no formatter is passed.
+  - The lint fixtures `aria-label={`Remove ${tag}`}`, `alt={`${name} portrait`}` and a conditional `title` all fail. `${a} / ${b}`, `--widget-${x}` and a `placeholder` template pass.
+- Mutation check: restoring the pre-story WidgetFrame, TagInput and rule turns every new test red (8 app tests and the lint fixture test).
+- `pnpm test:app`: 156 files / 1736 tests passed, before the file-size fix. After the fix, the canvas/forms/i18n app tests (186) and file-size + lint-rule tooling tests (4) passed. The full `pnpm test:tooling` run before the fix showed the file-size failure and nothing else (231/232).
+- `pnpm lint` exit 0; its warnings are pre-existing emphasis-lint ones. `pnpm typecheck` passed. `format:check:changed -- --base loop/rc` passed.
+- Not run: Playwright. No rendered English changed; only `es` output changed.
+- No push, promotion, loop launch or dispatcher state edits.
