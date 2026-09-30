@@ -168,9 +168,12 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.tier == 'full' && (github.ref == 'refs/heads/loop/rc' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
-    # RC-ENG-2.2: the shard budget is 12 minutes; 20 leaves room for a retry without letting a
-    # silent slowdown ride for half an hour.
-    timeout-minutes: 20
+    # RC-ENG-2.2: the shard budget is 12 minutes. The Playwright step keeps its own 19-minute cap
+    # (what it had inside the old 20-minute job) so a silent test slowdown still cannot ride for
+    # half an hour. The job total also covers a browser setup capped at 10 minutes: on
+    # b25ec1e8 a slow Ubuntu mirror stretched `playwright install --with-deps` from ~30 s to
+    # 7.7 minutes and the shard was killed at 536/550 with every test green.
+    timeout-minutes: 32
     strategy:
       fail-fast: false
       matrix:
@@ -199,8 +202,10 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
       - name: Set up browser tests
+        timeout-minutes: 10
         uses: ./.github/actions/setup-e2e
       - name: Run Playwright shard
+        timeout-minutes: 19
         env:
           PLAYWRIGHT_HTML_OPEN: never
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
@@ -241,6 +246,7 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: pnpm install --frozen-lockfile
       - name: Set up browser tests
+        timeout-minutes: 10
         uses: ./.github/actions/setup-e2e
       - name: Run axe scan
         run: pnpm a11y:axe

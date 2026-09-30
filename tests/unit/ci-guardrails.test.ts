@@ -14,6 +14,7 @@ interface WorkflowStep {
 	run?: string;
 	env?: Record<string, string>;
 	with?: Record<string, unknown>;
+	'timeout-minutes'?: number;
 }
 
 interface WorkflowJob {
@@ -21,6 +22,7 @@ interface WorkflowJob {
 	if?: string;
 	outputs?: Record<string, string>;
 	environment?: string | { name?: string };
+	'timeout-minutes'?: number;
 	steps?: WorkflowStep[];
 }
 
@@ -354,6 +356,33 @@ describe('CI guardrails', () => {
 			}
 		}
 		expect(environmentJobs).toBeGreaterThan(0);
+	});
+
+	it('keeps a slow browser setup from spending the browser test time budget', () => {
+		// On b25ec1e8 a slow Ubuntu mirror stretched `playwright install --with-deps` to 7.7
+		// minutes inside a 20-minute job, and a green shard was killed at 536/550. Setup gets its
+		// own cap; the test step keeps the cap it effectively had inside the old job.
+		const ci = YAML.parse(
+			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
+		) as WorkflowFile;
+		for (const [jobName, testStep, testCap] of [
+			['browser-e2e', 'Run Playwright shard', 19],
+			['accessibility', 'Run axe scan', undefined],
+		] as const) {
+			const job = ci.jobs?.[jobName];
+			const steps = job?.steps ?? [];
+			const setup = steps.find((step) => step.uses === './.github/actions/setup-e2e');
+			const tests = steps.find((step) => step.name === testStep);
+			expect(setup?.['timeout-minutes'], `${jobName} caps browser setup`).toBe(10);
+			expect(tests, `${jobName} runs ${testStep}`).toBeDefined();
+			expect(tests?.['timeout-minutes'], `${jobName} test cap`).toBe(testCap);
+			const jobCap = job?.['timeout-minutes'] ?? 0;
+			const testBudget = tests?.['timeout-minutes'] ?? 0;
+			// Room for checkout, install and upload besides a worst-case setup and a full test run.
+			expect(jobCap, `${jobName} job fits setup plus tests`).toBeGreaterThanOrEqual(
+				10 + testBudget + 2,
+			);
+		}
 	});
 
 	it('pins third-party actions to immutable commits and keeps foundation bootstrap-only', () => {

@@ -29,7 +29,9 @@ skips any port that already answers (Postgres holds 5432 on the gate host).
 
 Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
 raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
-12 min, `accessibility` 5 min, `visual-regression` 10 min. The core suite runs with `isolate: false` because it is framework-free
+12 min, `accessibility` 5 min, `visual-regression` 10 min. Browser setup (`setup-e2e`, whose apt
+step depends on the runner's Ubuntu mirror) is capped at 10 min as its own step so it never spends
+the test step's cap. The core suite runs with `isolate: false` because it is framework-free
 and each isolated file re-imported the whole module graph.
 
 ## 2. Mandatory rules
