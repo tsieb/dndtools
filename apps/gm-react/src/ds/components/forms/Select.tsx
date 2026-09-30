@@ -1,4 +1,4 @@
-export type SelectOption = string | { value: string | number; label: string };
+export type SelectOption = string | { value: string | number; label: string; group?: string };
 
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 	options: SelectOption[];
@@ -69,15 +69,27 @@ export function Select({
 				onFocus={handleFocus}
 				onBlur={handleBlur}
 			>
-				{options.map((o) => {
-					const value = typeof o === 'string' ? o : o.value;
-					const label = typeof o === 'string' ? o : o.label;
-					return (
-						<option key={value} value={value}>
-							{label}
-						</option>
-					);
-				})}
+				{Array.from(new Set(options.map((o) => (typeof o === 'string' ? undefined : o.group)))).map(
+					(group) => {
+						const rows = options
+							.filter((o) => (typeof o === 'string' ? undefined : o.group) === group)
+							.map((o) => {
+								const value = typeof o === 'string' ? o : o.value;
+								return (
+									<option key={value} value={value}>
+										{typeof o === 'string' ? o : o.label}
+									</option>
+								);
+							});
+						return group === undefined ? (
+							rows
+						) : (
+							<optgroup key={group} label={group}>
+								{rows}
+							</optgroup>
+						);
+					},
+				)}
 			</select>
 			<span
 				style={{

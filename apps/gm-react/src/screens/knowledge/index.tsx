@@ -103,7 +103,12 @@ export function Knowledge() {
 		}
 	}, [location.state, location.pathname, navigate]);
 
-	const open = detailId ? (notes.find((n) => n.id === detailId) ?? null) : null;
+	// Objects share the note body renderer even though the library list remains note-only.
+	const open = detailId
+		? (getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).find(
+				(item) => item.id === detailId,
+			) ?? null)
+		: null;
 	// `key={open.id}` REMOUNTS the editor when navigating between notes (e.g. via a backlink/related
 	// row), resetting the draft/edit state — without it React reuses the instance and a Save could
 	// persist note A's draft into note B. Same-note re-renders keep the instance (id unchanged).

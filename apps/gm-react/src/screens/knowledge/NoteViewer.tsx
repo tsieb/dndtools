@@ -1,6 +1,8 @@
+import { useNavigate } from 'react-router-dom';
 import { useCallback, useMemo, useState } from 'react';
 import {
-	buildQuickSwitcher,
+	buildWikilinkCandidatesForActor,
+	suggestWikilinkTargetsForActor,
 	getNoteRelationshipsForActor,
 	resolveWikilinkForActor,
 	type ContentItemView,
@@ -8,17 +10,13 @@ import {
 import { Button, Dialog, Icon, IconButton, Toaster, VisibilityChip } from '../../ds';
 import { BackBar, Page, Panel, T, useSingleColumn } from '../../app/screen-kit';
 import { NoteEditor, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
-import type { WikilinkSuggestion } from '../../app/editor/Autocomplete';
-import { widgetProfileForRuntime } from '../../platform/capabilities';
+import { wikilinkKindLabel, type WikilinkSuggestion } from '../../app/editor/Autocomplete';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { META, VIS_CHIP } from './shared';
 import { HistoryPanel, LinkPanels, SharingPanel } from './NoteSidePanels';
 import { useI18n } from '../../i18n';
 import { formatStamp, mdToNodes, parseWikilink } from './markdown';
 import { readProseWidthPreference } from '../../platform/preferences';
-
-/** How many switcher hits are examined before the resolvable ones are kept (RC-KNW-1.2). */
-const WIKILINK_CANDIDATE_LIMIT = 40;
 
 export function NoteViewer({
 	note,
@@ -33,6 +31,7 @@ export function NoteViewer({
 }) {
 	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
+	const navigate = useNavigate();
 	const actorId = runtime.defaultActorId;
 	// One column on a phone AND in the rail tier's detail pane (RC-UX-4.3): the 280px side column
 	// beside the note body would leave the body ~160px wide there.
@@ -47,15 +46,29 @@ export function NoteViewer({
 
 	// CONTENT-006: resolve through the core's ACTOR-FILTERED candidate index, so a wikilink can never
 	// open — or even reveal the existence of — a note this actor is not allowed to see.
-	const resolveLink = (raw: string): (() => void) | null => {
+	const resolveLink = (raw: string): ((() => void) & { href?: string }) | null => {
 		const { target, section } = parseWikilink(raw);
 		if (!target) return null;
-		const res = resolveWikilinkForActor(runtime.state.content, runtime.state.permissions, actorId, {
-			target,
-			section,
-		});
+		const res = resolveWikilinkForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+			{
+				target,
+				section,
+			},
+			runtime.state,
+		);
 		if (res.status !== 'resolved' || res.targetId === note.id) return null;
-		return () => onOpen(res.targetId);
+		const targetView = buildWikilinkCandidatesForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+			runtime.state,
+		).find((candidate) => candidate.id === res.targetId);
+		if (!targetView) return null;
+		if (targetView.storage === 'content') return () => onOpen(res.targetId);
+		return Object.assign(() => navigate(targetView.route), { href: `#${targetView.route}` });
 	};
 
 	/**
@@ -90,6 +103,7 @@ export function NoteViewer({
 				runtime.state.permissions,
 				actorId,
 				note.id,
+				runtime.state,
 			),
 		[runtime.state, actorId, note.id],
 	);
@@ -99,38 +113,32 @@ export function NoteViewer({
 		setEditing(true);
 	}
 
-	/**
-	 * RC-KNW-1.2 — `[[` candidates. The ranking comes from the core's quick switcher
-	 * (`quick-switcher-query`), which is already ACTOR-FILTERED; every hit is then put back through
-	 * `resolveWikilinkForActor`, so the menu offers only titles that will genuinely resolve when the
-	 * link is written. A note the actor may not see never reaches either step, and a suggestion can
-	 * never insert a dead link.
-	 */
+	/** RC-KNW-6.1: the shared actor-visible target list, including domain kind words.
+	 * Reject shadowed duplicate titles so a choice always opens the advertised entity. */
 	const suggestWikilinks = useCallback(
 		(query: string): WikilinkSuggestion[] => {
-			const entries = buildQuickSwitcher(
-				runtime.state,
+			return suggestWikilinkTargetsForActor(
+				runtime.state.content,
+				runtime.state.permissions,
 				actorId,
-				{ profileId: widgetProfileForRuntime() },
 				query,
-				{ navigationLimit: WIKILINK_CANDIDATE_LIMIT },
-			);
-			const seen = new Set<string>();
-			const out: WikilinkSuggestion[] = [];
-			for (const entry of entries) {
-				if (entry.kind !== 'navigation') continue;
-				if (seen.has(entry.title)) continue;
-				const resolution = resolveWikilinkForActor(
-					runtime.state.content,
-					runtime.state.permissions,
-					actorId,
-					{ target: entry.title },
-				);
-				if (resolution.status !== 'resolved') continue;
-				seen.add(entry.title);
-				out.push({ id: entry.id, title: entry.title, kind: t('knowledge.note') });
-			}
-			return out;
+				runtime.state,
+			)
+				.filter((entry) => {
+					const resolution = resolveWikilinkForActor(
+						runtime.state.content,
+						runtime.state.permissions,
+						actorId,
+						{ target: entry.title },
+						runtime.state,
+					);
+					return resolution.status === 'resolved' && resolution.targetId === entry.itemId;
+				})
+				.map((entry) => ({
+					id: entry.itemId,
+					title: entry.title,
+					kind: wikilinkKindLabel(entry.kind, t),
+				}));
 		},
 		[runtime.state, actorId, t],
 	);
@@ -396,7 +404,19 @@ export function NoteViewer({
 						busy={busy || editing}
 						onSave={saveDraft}
 					/>
-					<LinkPanels rel={rel} onOpen={onOpen} />
+					<LinkPanels
+						rel={rel}
+						onOpen={(id) => {
+							const target = buildWikilinkCandidatesForActor(
+								runtime.state.content,
+								runtime.state.permissions,
+								actorId,
+								runtime.state,
+							).find((candidate) => candidate.id === id);
+							if (target?.storage === 'content') onOpen(id);
+							else if (target) navigate(target.route);
+						}}
+					/>
 				</div>
 			</div>
 

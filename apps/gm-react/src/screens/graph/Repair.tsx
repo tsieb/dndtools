@@ -143,7 +143,13 @@ export function Repair() {
 	// Recomputed on every state change — a row for a link someone already fixed (here or elsewhere)
 	// simply stops appearing; there is no local "already handled" list to fall out of sync.
 	const preview = useMemo(
-		() => previewBulkLinkRepairForActor(runtime.state.content, runtime.state.permissions, actorId),
+		() =>
+			previewBulkLinkRepairForActor(
+				runtime.state.content,
+				runtime.state.permissions,
+				actorId,
+				runtime.state,
+			),
 		[runtime.state, actorId],
 	);
 
@@ -160,6 +166,7 @@ export function Repair() {
 				row.itemId,
 				row.brokenTarget,
 				fixTitle,
+				runtime.state,
 			);
 			if (authorized.status !== 'authorized' || authorized.result.status !== 'repaired') {
 				setError(t('graph.repair.fixFailed', { title: row.itemTitle }));

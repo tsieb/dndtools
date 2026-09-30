@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { EmptyState } from '../../ds';
-import { Page, srOnly, useSingleColumn } from '../../app/screen-kit';
+import { useNavigate } from 'react-router-dom';
+import { buildWikilinkCandidatesForActor, getNoteRelationshipsForActor } from '@dndtools/core';
+import { Button, EmptyState } from '../../ds';
+import { Page, Panel, srOnly, useSingleColumn } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
 import { BackBar } from './shared';
@@ -18,6 +20,7 @@ import { buildSheetSubject } from './sheet/subject';
 export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
+	const navigate = useNavigate();
 	// Also true in the rail tier's detail pane (RC-UX-4.3), which is phone-width by construction.
 	const singleColumn = useSingleColumn();
 	const actorId = runtime.defaultActorId;
@@ -42,6 +45,14 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 		() => buildSheetSubject(runtime.state, actorId, id),
 		[runtime.state, actorId, id],
 	);
+	// RC-KNW-6.1: notes that link this character, through the same actor-scoped relationship read.
+	const backlinks = getNoteRelationshipsForActor(
+		runtime.state.content,
+		runtime.state.permissions,
+		actorId,
+		id,
+		runtime.state,
+	).backlinks;
 
 	if (!subject) {
 		return (
@@ -97,6 +108,26 @@ export function CharacterSheet({ id, onBack }: { id: string; onBack: () => void 
 				idBase="character-sheet"
 				onSectionChange={feedback.clear}
 			/>
+			<Panel title={t('knowledge.backlinks')}>
+				{backlinks.map((link) => (
+					<Button
+						key={link.sourceId}
+						variant="ghost"
+						onClick={() =>
+							navigate(
+								buildWikilinkCandidatesForActor(
+									runtime.state.content,
+									runtime.state.permissions,
+									actorId,
+									runtime.state,
+								).find((target) => target.id === link.sourceId)?.route ?? '/knowledge',
+							)
+						}
+					>
+						{link.sourceTitle}
+					</Button>
+				))}
+			</Panel>
 		</Page>
 	);
 }

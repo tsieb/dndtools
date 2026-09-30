@@ -173,18 +173,14 @@ export function computeNoteRelationships(
 		return { targetId, backlinks: [], related: [] };
 	}
 
-	// The names that resolve to the TARGET (title + aliases), for backlink matching.
-	const targetNames = new Set<string>([
-		normalizeName(target.title),
-		...target.aliases.map(normalizeName),
-	]);
-	targetNames.delete('');
-
 	// An id index by name, so the target's forward links resolve to visible related notes.
 	const idByName = new Map<string, string>();
 	for (const record of records) {
-		idByName.set(normalizeName(record.title), record.id);
-		for (const alias of record.aliases) idByName.set(normalizeName(alias), record.id);
+		if (!idByName.has(normalizeName(record.title)))
+			idByName.set(normalizeName(record.title), record.id);
+		for (const alias of record.aliases) {
+			if (!idByName.has(normalizeName(alias))) idByName.set(normalizeName(alias), record.id);
+		}
 	}
 	idByName.delete('');
 
@@ -194,7 +190,7 @@ export function computeNoteRelationships(
 		if (source.id === targetId) continue;
 		let matched: { crossSection: CrossSectionResolution; snippet: string | null } | null = null;
 		for (const link of extractWikilinks(source.body)) {
-			if (!targetNames.has(normalizeName(link.target))) continue;
+			if (idByName.get(normalizeName(link.target)) !== targetId) continue;
 			// FIRST matching link in the source supplies the cross-section + snippet (deterministic). The
 			// snippet is suppressed for a partially-hidden source so we never quote a redacted section.
 			matched = {
@@ -313,8 +309,11 @@ export function computeTypedRelationshipEdges(
 ): TypedRelationEdge[] {
 	const idByName = new Map<string, string>();
 	for (const record of records) {
-		idByName.set(normalizeName(record.title), record.id);
-		for (const alias of record.aliases) idByName.set(normalizeName(alias), record.id);
+		if (!idByName.has(normalizeName(record.title)))
+			idByName.set(normalizeName(record.title), record.id);
+		for (const alias of record.aliases) {
+			if (!idByName.has(normalizeName(alias))) idByName.set(normalizeName(alias), record.id);
+		}
 	}
 	idByName.delete('');
 

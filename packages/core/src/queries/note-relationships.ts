@@ -1,10 +1,11 @@
+import { buildWikilinkCandidatesForActor, type WikilinkDomains } from './wikilink-graph';
 import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { ContentItem, VaultContentState } from '../state/content';
 import { contentItemVisibilityMetadata } from '../state/content';
 import { asList, parseMarkdownNote } from '../state/markdown';
 import { filterEntityForActor } from '../permissions/visibility-filter';
-import { getContentItemsForActor, contentFieldPath, type ContentItemView } from './content-query';
+import { contentFieldPath } from './content-query';
 import {
 	computeNoteRelationships,
 	computeTypedRelationshipEdges,
@@ -96,9 +97,10 @@ function buildRelationshipRecords(
 	content: VaultContentState,
 	permissions: PermissionState,
 	actorId: string,
+	domains: WikilinkDomains,
 ): NoteRelationshipRecord[] {
-	const visible: ContentItemView[] = getContentItemsForActor(content, permissions, actorId).filter(
-		(view) => view.kind === 'note',
+	const visible = buildWikilinkCandidatesForActor(content, permissions, actorId, domains).filter(
+		(target) => target.available,
 	);
 	return visible.map((view) => {
 		const item = content.items[view.id];
@@ -106,7 +108,8 @@ function buildRelationshipRecords(
 		// The note is actor-visible, so detecting its link EDGES (whose targets are titles/ids) leaks nothing.
 		// A context SNIPPET, however, may only be drawn when the actor sees the WHOLE body — a partially-redacted
 		// note keeps its edges for the relationship graph but yields no snippet text (fail closed).
-		const snippetable = item ? actorSeesFullBody(item, permissions, actorId) : false;
+		const snippetable =
+			view.storage === 'content' && item ? actorSeesFullBody(item, permissions, actorId) : true;
 		return {
 			id: view.id,
 			title: view.title,
@@ -131,8 +134,9 @@ export function getNoteRelationshipsForActor(
 	permissions: PermissionState,
 	actorId: string,
 	targetId: string,
+	domains: WikilinkDomains = {},
 ): NoteRelationships {
-	const records = buildRelationshipRecords(content, permissions, actorId);
+	const records = buildRelationshipRecords(content, permissions, actorId, domains);
 	// The target must be one of the actor's VISIBLE notes; otherwise fail closed (no leak, graceful degrade).
 	if (!records.some((record) => record.id === targetId)) return hiddenResult(targetId);
 	return computeNoteRelationships(targetId, records);
@@ -148,8 +152,9 @@ export function getTypedRelationshipEdgesForActor(
 	content: VaultContentState,
 	permissions: PermissionState,
 	actorId: string,
+	domains: WikilinkDomains = {},
 ): TypedRelationEdge[] {
 	if (!permissions.actors[actorId]) return [];
-	const records = buildRelationshipRecords(content, permissions, actorId);
+	const records = buildRelationshipRecords(content, permissions, actorId, domains);
 	return computeTypedRelationshipEdges(records);
 }

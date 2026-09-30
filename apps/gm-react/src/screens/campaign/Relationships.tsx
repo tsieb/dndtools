@@ -1,13 +1,15 @@
+import { wikilinkKindLabel } from '../../app/editor/Autocomplete';
 import { useMemo, useState } from 'react';
 import {
 	actorCanAuthorContent,
-	getContentItemsForActor,
+	buildWikilinkCandidatesForActor,
 	getTypedRelationshipEdgesForActor,
 	parseMarkdownNote,
 	parseRelationDeclarations,
 	serializeMarkdownNote,
 	serializeRelationDeclaration,
-	type ContentItemView,
+	type ActorWikilinkTarget,
+	type CoreCommand,
 	type TypedRelationEdge,
 } from '@dndtools/core';
 import {
@@ -75,17 +77,25 @@ export function Relationships() {
 	const [pendingRemove, setPendingRemove] = useState<TypedRelationEdge | null>(null);
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
-	const notes: ContentItemView[] = useMemo(
+	const notes: ActorWikilinkTarget[] = useMemo(
 		() =>
-			getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId)
-				.filter((view) => view.kind === 'note')
-				.sort((a, b) => a.title.localeCompare(b.title)),
+			buildWikilinkCandidatesForActor(
+				runtime.state.content,
+				runtime.state.permissions,
+				actorId,
+				runtime.state,
+			).sort((a, b) => a.title.localeCompare(b.title)),
 		[runtime.state, actorId],
 	);
 
 	const edges: TypedRelationEdge[] = useMemo(
 		() =>
-			getTypedRelationshipEdgesForActor(runtime.state.content, runtime.state.permissions, actorId),
+			getTypedRelationshipEdgesForActor(
+				runtime.state.content,
+				runtime.state.permissions,
+				actorId,
+				runtime.state,
+			),
 		[runtime.state, actorId],
 	);
 
@@ -108,10 +118,11 @@ export function Relationships() {
 		itemId: string,
 		mutate: (declarations: string[]) => string[],
 	): Promise<boolean> => {
-		const view = getContentItemsForActor(
+		const view = buildWikilinkCandidatesForActor(
 			runtime.state.content,
 			runtime.state.permissions,
 			actorId,
+			runtime.state,
 		).find((v) => v.id === itemId);
 		if (!view) {
 			Toaster.error(t('campaign.relationships.saveFailed'));
@@ -126,11 +137,38 @@ export function Relationships() {
 		if (nextRaw.length === 0) delete nextProperties['relations'];
 		else nextProperties['relations'] = nextRaw;
 		const body = serializeMarkdownNote(nextProperties, parsed.body);
-		const result = await runtime.dispatch({
-			type: 'content.update-item',
-			actorId,
-			payload: { itemId, title: view.title, body, baseRevision: view.revision },
-		});
+		let command: CoreCommand;
+		switch (view.storage) {
+			case 'character':
+				command = {
+					type: 'character.edit-field',
+					actorId,
+					payload: { characterId: view.entityId, path: 'data.body', value: body },
+				};
+				break;
+			case 'map':
+				command = {
+					type: 'map.update-metadata',
+					actorId,
+					payload: { mapId: view.entityId, description: body },
+				};
+				break;
+			case 'poi':
+				command = {
+					type: 'map.update-poi',
+					actorId,
+					payload: { mapId: view.mapId!, poiId: view.entityId, notes: body },
+				};
+				break;
+			case 'content':
+				command = {
+					type: 'content.update-item',
+					actorId,
+					payload: { itemId, title: view.title, body, baseRevision: view.revision },
+				};
+				break;
+		}
+		const result = await runtime.dispatch(command);
 		if (result.status !== 'accepted') {
 			Toaster.error(result.rejection.message ?? t('campaign.relationships.saveFailed'));
 			return false;
@@ -326,7 +364,11 @@ export function Relationships() {
 									onChange={(e: { target: { value: string } }) => setSourceId(e.target.value)}
 									options={[
 										{ value: '', label: t('campaign.relationships.choose') },
-										...notes.map((n) => ({ value: n.id, label: n.title })),
+										...notes.map((n) => ({
+											value: n.id,
+											label: n.title,
+											group: wikilinkKindLabel(n.kind, t),
+										})),
 									]}
 								/>
 							</Field>
@@ -353,7 +395,11 @@ export function Relationships() {
 									onChange={(e: { target: { value: string } }) => setTargetId(e.target.value)}
 									options={[
 										{ value: '', label: t('campaign.relationships.choose') },
-										...notes.map((n) => ({ value: n.id, label: n.title })),
+										...notes.map((n) => ({
+											value: n.id,
+											label: n.title,
+											group: wikilinkKindLabel(n.kind, t),
+										})),
 									]}
 								/>
 							</Field>

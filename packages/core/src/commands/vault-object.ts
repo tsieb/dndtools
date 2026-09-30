@@ -25,13 +25,22 @@ import {
 	type VaultObjectSchemaRegistry,
 } from '../state/vault-object-schema';
 import { buildCustomObjectTypeSchemaRegistry } from '../state/custom-object-type';
-import {
-	applyLinkRepairForActor,
-	propagateRenameForActor,
-} from '../queries/wikilink-graph';
+import { applyLinkRepairForActor, propagateRenameForActor } from '../queries/wikilink-graph';
 import type { Actor } from '../state/permission-state';
-import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
-import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
+import type {
+	CommandRejection,
+	CommandResult,
+	CoreEnvironment,
+	CoreEvent,
+	CoreStateSlice,
+} from './types';
+import {
+	appendOperationDraft,
+	ensureContentStateSlice,
+	parseInput,
+	reject,
+	requireActor,
+} from './helpers';
 import { actorMayEditItem } from './content-edit-authority';
 
 /**
@@ -67,7 +76,6 @@ function contentWith(state: CoreStateSlice, content: VaultContentState): CoreSta
 function actorMayAuthorVault(actor: Actor): boolean {
 	return hasDmAuthority(actor.role);
 }
-
 
 /** The cross-surface invalidation audience for a content item, by visibility (mirrors `commands/content.ts`). */
 function deliveryAudience(visibility: string, sharedWith: readonly string[]): string[] {
@@ -143,7 +151,11 @@ export function handleCreateVaultObject(
 	const customTypes = buildCustomObjectTypeSchemaRegistry(content.customObjectTypes);
 
 	// SCHEMA-VALIDATE the frontmatter BEFORE any state change (fail closed; no invalid revision committed).
-	const validation = validateObjectFrontmatter(parsed.data.subtype, parsed.data.fields, customTypes);
+	const validation = validateObjectFrontmatter(
+		parsed.data.subtype,
+		parsed.data.fields,
+		customTypes,
+	);
 	if (!validation.valid) return reject(objectInvalidRejection(validation), state);
 
 	const subtype = validation.subtype!;
@@ -214,7 +226,10 @@ export function handleUpdateVaultObject(
 	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!existing) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -233,7 +248,10 @@ export function handleUpdateVaultObject(
 	const subtype = storedSubtype(existing, customTypes);
 	if (subtype === null) {
 		return reject(
-			{ code: 'not-a-vault-object', message: `Content item ${parsed.data.itemId} is not a structured object.` },
+			{
+				code: 'not-a-vault-object',
+				message: `Content item ${parsed.data.itemId} is not a structured object.`,
+			},
 			state,
 		);
 	}
@@ -242,7 +260,9 @@ export function handleUpdateVaultObject(
 	// before committing (fail closed: an edit can never persist an invalid object).
 	const mergedDeclared: Record<string, unknown> = {
 		...declaredFields(subtype, existing.fields, customTypes),
-		...(parsed.data.fields !== undefined ? declaredFields(subtype, parsed.data.fields, customTypes) : {}),
+		...(parsed.data.fields !== undefined
+			? declaredFields(subtype, parsed.data.fields, customTypes)
+			: {}),
 	};
 	const validation = validateObjectFrontmatter(subtype, mergedDeclared, customTypes);
 	if (!validation.valid) return reject(objectInvalidRejection(validation), state);
@@ -260,7 +280,10 @@ export function handleUpdateVaultObject(
 	);
 	if (!nextContent) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -312,7 +335,10 @@ export function handleRenameWikilinkTarget(
 	const target: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!target) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -332,7 +358,10 @@ export function handleRenameWikilinkTarget(
 	const toTitle = parsed.data.newTitle.trim();
 	if (toTitle === fromTitle) {
 		return reject(
-			{ code: 'wikilink-target-unchanged', message: 'The new title is identical to the current title.' },
+			{
+				code: 'wikilink-target-unchanged',
+				message: 'The new title is identical to the current title.',
+			},
 			state,
 		);
 	}
@@ -361,7 +390,12 @@ export function handleRenameWikilinkTarget(
 	for (const propagation of propagations) {
 		// Skip the target itself if it self-referenced; its title is already updated and the body rewrite is
 		// applied here so a self-link tracks the new title too.
-		const rewritten = updateContentItem(working, propagation.itemId, { body: propagation.body }, now);
+		const rewritten = updateContentItem(
+			working,
+			propagation.itemId,
+			{ body: propagation.body },
+			now,
+		);
 		if (rewritten) working = rewritten;
 	}
 
@@ -414,7 +448,10 @@ export function handleRepairWikilink(
 	const item: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!item) {
 		return reject(
-			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			{
+				code: 'content-item-not-found',
+				message: `Content item ${parsed.data.itemId} does not exist.`,
+			},
 			state,
 		);
 	}
@@ -438,6 +475,7 @@ export function handleRepairWikilink(
 		item.body,
 		parsed.data.brokenTarget,
 		parsed.data.fixTargetTitle,
+		state,
 	);
 	// FAIL CLOSED: an unavailable source ⇒ no destructive offline rewrite; an unresolved fix ⇒ refuse. Neither
 	// mutates durable state or the local draft (CONTENT-006 AC3).

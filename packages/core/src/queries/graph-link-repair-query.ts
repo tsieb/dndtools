@@ -14,7 +14,7 @@ import {
 	type DeadLinkOccurrence,
 	type LinkPickerSuggestion,
 } from '../state/graph-link-repair';
-import { buildWikilinkCandidatesForActor } from './wikilink-graph';
+import { buildWikilinkCandidatesForActor, type WikilinkDomains } from './wikilink-graph';
 import { applyLinkRepairForActor } from './wikilink-graph';
 import { getContentItemsForActor, type ContentItemView } from './content-query';
 
@@ -71,7 +71,13 @@ function actorCanEditItem(permissions: PermissionState, actor: Actor, itemId: st
 	if (actor.role === 'observer') return false;
 	// `section-editor` is the note/object authoring capability; it implies `contributor`+`viewer`, but a
 	// bare `contributor`/`viewer` may NOT rewrite an existing link, so we require `section-editor` here.
-	return hasGrantedCapability(permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor');
+	return hasGrantedCapability(
+		permissions,
+		actor,
+		CONTENT_ITEM_ENTITY_TYPE,
+		itemId,
+		'section-editor',
+	);
 }
 
 /**
@@ -100,9 +106,10 @@ export function getLinkPickerSuggestionsForActor(
 	permissions: PermissionState,
 	actorId: string,
 	target: string,
+	domains: WikilinkDomains = {},
 ): LinkPickerSuggestion[] {
 	if (!permissions.actors[actorId]) return [];
-	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
 	return buildLinkPickerSuggestions(target, candidates);
 }
 
@@ -118,6 +125,7 @@ export function previewBulkLinkRepairForActor(
 	content: VaultContentState,
 	permissions: PermissionState,
 	actorId: string,
+	domains: WikilinkDomains = {},
 ): BulkRepairPreview {
 	const actor = permissions.actors[actorId];
 	if (!actor) {
@@ -129,13 +137,11 @@ export function previewBulkLinkRepairForActor(
 			blockedCount: 0,
 		};
 	}
-	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
 	const occurrences: DeadLinkOccurrence[] = [];
 	for (const view of editableItemsForActor(content, permissions, actor)) {
 		const body = parseMarkdownNote(view.body).body;
-		occurrences.push(
-			...deadLinksInBody(view.id, view.title, itemSource(view), body, candidates),
-		);
+		occurrences.push(...deadLinksInBody(view.id, view.title, itemSource(view), body, candidates));
 	}
 	return buildBulkRepairPreview(occurrences, candidates);
 }
@@ -178,6 +184,7 @@ export function authorizeLinkRepairForActor(
 	itemId: string,
 	brokenTarget: string,
 	fixTitle: string,
+	domains: WikilinkDomains = {},
 ): RepairAuthorizationResult {
 	const actor = permissions.actors[actorId];
 	if (!actor) return { status: 'rejected', reason: 'unknown-actor' };
@@ -191,6 +198,14 @@ export function authorizeLinkRepairForActor(
 		return { status: 'rejected', reason: 'not-authorized' };
 	}
 	const body = parseMarkdownNote(visible.body).body;
-	const result = applyLinkRepairForActor(content, permissions, actorId, body, brokenTarget, fixTitle);
+	const result = applyLinkRepairForActor(
+		content,
+		permissions,
+		actorId,
+		body,
+		brokenTarget,
+		fixTitle,
+		domains,
+	);
 	return { status: 'authorized', itemId, result };
 }

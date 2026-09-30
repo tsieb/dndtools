@@ -14,6 +14,31 @@ import {
 } from '../state/wikilink-graph';
 import { getContentItemsForActor, type ContentItemView } from './content-query';
 
+import type { CharacterState } from '../state/character-state';
+import type { MapState } from '../state/map-state';
+import type { SessionState } from '../state/session-state';
+import { listCharactersForActor } from './character-query';
+import { deliveredMapIdsForActor, getMapViewForActor } from './map-query';
+import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
+
+/** Optional domains preserve the existing content-only API for older callers. */
+export interface WikilinkDomains {
+	characters?: CharacterState;
+	maps?: MapState;
+	session?: SessionState;
+}
+
+/** Actor-safe navigation and authored body; storage identifies the existing command to use. */
+export interface ActorWikilinkTarget extends WikilinkTarget {
+	kind: string;
+	route: string;
+	body: string;
+	storage: 'content' | 'character' | 'map' | 'poi';
+	entityId: string;
+	mapId?: string;
+	revision?: number;
+}
+
 /**
  * CONTENT-006 — the ACTOR-FILTERED WIKILINK GRAPH read/repair surface.
  *
@@ -73,12 +98,20 @@ export function buildWikilinkCandidatesForActor(
 	content: VaultContentState,
 	permissions: PermissionState,
 	actorId: string,
-): WikilinkTarget[] {
+	domains: WikilinkDomains = {},
+): ActorWikilinkTarget[] {
 	const visible = getContentItemsForActor(content, permissions, actorId);
-	return visible.map((view) => {
+	const targets: ActorWikilinkTarget[] = visible.map((view) => {
 		const parsed = parseMarkdownNote(view.body);
 		return {
 			id: view.id,
+			entityId: view.id,
+			storage: 'content',
+			kind:
+				view.kind === 'object' ? String(view.fields[VAULT_OBJECT_SUBTYPE_KEY] ?? 'object') : 'note',
+			route: `/knowledge/${encodeURIComponent(view.id)}`,
+			body: view.body,
+			revision: view.revision,
 			title: view.title,
 			aliases: itemAliases(view),
 			sections: extractSections(parsed.body),
@@ -86,6 +119,67 @@ export function buildWikilinkCandidatesForActor(
 			available: itemAvailable(view),
 		};
 	});
+	if (domains.characters) {
+		for (const character of listCharactersForActor(domains.characters, permissions, actorId)) {
+			const body = typeof character.data.body === 'string' ? character.data.body : '';
+			const parsed = parseMarkdownNote(body);
+			targets.push({
+				id: character.id,
+				entityId: character.id,
+				storage: 'character',
+				kind: 'character',
+				title: character.name,
+				aliases: parsed.aliases,
+				sections: extractSections(parsed.body),
+				source: 'local-markdown',
+				available: true,
+				body,
+				revision: character.revision,
+				route: `/characters/${encodeURIComponent(character.id)}`,
+			});
+		}
+	}
+	if (domains.maps) {
+		for (const mapId of Object.keys(domains.maps.maps).sort()) {
+			const map = getMapViewForActor(domains.maps, permissions, actorId, mapId, {
+				deliveredMapIds: deliveredMapIdsForActor(domains.session, actorId),
+			});
+			if (map.kind !== 'available') continue;
+			const route = `/atlas?map=${encodeURIComponent(mapId)}`;
+			const parsedMap = parseMarkdownNote(map.description);
+			targets.push({
+				id: mapId,
+				entityId: mapId,
+				storage: 'map',
+				kind: 'map',
+				title: map.name,
+				aliases: parsedMap.aliases,
+				sections: extractSections(parsedMap.body),
+				source: 'local-markdown',
+				available: true,
+				body: map.description,
+				route,
+			});
+			for (const poi of map.pois) {
+				const parsedPoi = parseMarkdownNote(poi.notes);
+				targets.push({
+					id: `poi:${mapId}:${poi.id}`,
+					entityId: poi.id,
+					mapId,
+					storage: 'poi',
+					kind: 'poi',
+					title: poi.label,
+					aliases: parsedPoi.aliases,
+					sections: extractSections(parsedPoi.body),
+					source: 'local-markdown',
+					available: true,
+					body: poi.notes,
+					route: `${route}&poi=${encodeURIComponent(poi.id)}`,
+				});
+			}
+		}
+	}
+	return targets;
 }
 
 /**
@@ -98,8 +192,9 @@ export function resolveWikilinkForActor(
 	permissions: PermissionState,
 	actorId: string,
 	link: { target: string; section?: string },
+	domains: WikilinkDomains = {},
 ): WikilinkResolution {
-	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
 	return resolveWikilink(link, candidates);
 }
 
@@ -113,8 +208,9 @@ export function detectBrokenLinksForActor(
 	permissions: PermissionState,
 	actorId: string,
 	body: string,
+	domains: WikilinkDomains = {},
 ): BrokenWikilink[] {
-	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
 	return detectBrokenLinks(body, candidates);
 }
 
@@ -130,8 +226,9 @@ export function applyLinkRepairForActor(
 	body: string,
 	brokenTarget: string,
 	fixTargetTitle: string,
+	domains: WikilinkDomains = {},
 ): LinkRepairResult {
-	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId);
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
 	return applyLinkRepair(body, brokenTarget, fixTargetTitle, candidates);
 }
 

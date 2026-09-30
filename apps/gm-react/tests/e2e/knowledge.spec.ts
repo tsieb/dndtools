@@ -631,6 +631,58 @@ test.describe('knowledge: notes workbench', () => {
 		await expect(preview.getByRole('button', { name: targetTitle, exact: true })).toHaveCount(1);
 	});
 
+	test('RC-KNW-6.1 completes an NPC, follows its link and shows the note in Backlinks', async ({
+		page,
+	}) => {
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		const result = await dispatch(page, {
+			type: 'character.quick-create',
+			actorId,
+			payload: { kind: 'npc', name: 'Mira the Ferryman', visibility: 'player-visible' },
+		});
+		expect(result.status).toBe('accepted');
+		const sourceId = await createNoteViaCore(page, 'Ferry crossing', '', 'player-visible');
+		const area = await openEditor(page, sourceId);
+		await area.pressSequentially('Ask [[Mi');
+		const option = page.getByRole('option').filter({ hasText: 'Mira the Ferryman' });
+		await expect(option).toContainText('Character');
+		await option.click();
+		await expect(area).toHaveValue('Ask [[Mira the Ferryman]]');
+		await page.getByRole('button', { name: 'Save note', exact: true }).click();
+		const link = page.getByRole('link', { name: 'Mira the Ferryman', exact: true });
+		await expect(link).toHaveAttribute('href', /#\/characters\//);
+		await link.click();
+		await expect(page).toHaveURL(/#\/characters\//);
+		await expect(page.getByText('Backlinks', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Ferry crossing', exact: true }).first().click();
+		await expect(page).toHaveURL(new RegExp(sourceId));
+	});
+
+	test('RC-KNW-6.1 opens faction and quest object bodies from note links', async ({ page }) => {
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		for (const kind of ['faction', 'quest']) {
+			const title = `Linked ${kind}`;
+			expect(
+				(
+					await dispatch(page, {
+						type: 'content.create-item',
+						actorId,
+						payload: {
+							kind: 'object',
+							title,
+							body: `Dossier for ${title}`,
+							fields: { 'dndtools.objectSubtype': kind },
+						},
+					})
+				).status,
+			).toBe('accepted');
+			const sourceId = await createNoteViaCore(page, `Source ${kind}`, `[[${title}]]`, 'dm-only');
+			await gotoRoute(page, `/knowledge/${sourceId}`);
+			await page.getByRole('button', { name: title, exact: true }).first().click();
+			await expect(page.getByText(`Dossier for ${title}`, { exact: true })).toBeVisible();
+		}
+	});
+
 	test('the / menu inserts real core blocks, and the preview renders them', async ({ page }) => {
 		const noteId = await createNoteViaCore(page, `Crypt Plan ${Date.now()}`, '', 'dm-only');
 		const area = await openEditor(page, noteId);

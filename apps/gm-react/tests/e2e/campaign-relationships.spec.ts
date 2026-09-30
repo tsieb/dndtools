@@ -69,6 +69,55 @@ test.describe('campaign: relationship editor', () => {
 		await expect(page.getByText('No relationships declared yet.')).not.toHaveCount(0);
 	});
 
+	test('RC-KNW-6.1 NPC leads faction persists through body and graph', async ({ page }) => {
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		for (const command of [
+			{
+				type: 'character.quick-create',
+				actorId,
+				payload: { kind: 'npc', name: 'Mira the Ferryman' },
+			},
+			{
+				type: 'content.create-item',
+				actorId,
+				payload: {
+					kind: 'object',
+					title: 'Ferry Guild',
+					fields: { 'dndtools.objectSubtype': 'faction' },
+				},
+			},
+		])
+			expect((await dispatch(page, command)).status).toBe('accepted');
+		await gotoRoute(page, '/campaign/relationships');
+		await expect(page.getByLabel('From').locator('optgroup[label="Character"]')).toHaveCount(1);
+		await expect(page.getByLabel('To').locator('optgroup[label="Factions"]')).toHaveCount(1);
+		await page.getByLabel('From').selectOption({ label: 'Mira the Ferryman' });
+		await page.getByLabel('To').selectOption({ label: 'Ferry Guild' });
+		await page.getByLabel('Relationship').fill('leads');
+		await expect(page.locator('#campaign-relationships-verbs option[value="leads"]')).toHaveCount(
+			1,
+		);
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		const remove = page.getByRole('button', { name: 'Remove: Mira the Ferryman → Ferry Guild' });
+		await expect(remove).toBeVisible();
+		const body = await page.evaluate(
+			() =>
+				Object.values(
+					(
+						window.__rt!.state.characters as {
+							characters: Record<string, { name: string; data: Record<string, unknown> }>;
+						}
+					).characters,
+				).find((c) => c.name === 'Mira the Ferryman')?.data.body,
+		);
+		expect(body).toContain('leads :: Ferry Guild');
+		await page.reload();
+		await waitReady(page);
+		await expect(remove).toBeVisible();
+		await remove.click();
+		await expect(remove).toHaveCount(0);
+	});
+
 	test('the Add control stays disabled until source, verb and target are all set', async ({
 		page,
 	}) => {

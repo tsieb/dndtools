@@ -3511,7 +3511,11 @@ export {
 // CONTENT-006: the ACTOR-FILTERED wikilink graph read/repair surface. Builds the candidate index from the
 // actor's visible content items, so resolve/rename-propagation/repair operate ONLY over targets the editor may
 // see. Pure + deterministic.
-export type { WikilinkRenamePropagation } from './queries/wikilink-graph';
+export type {
+	ActorWikilinkTarget,
+	WikilinkDomains,
+	WikilinkRenamePropagation,
+} from './queries/wikilink-graph';
 export {
 	applyLinkRepairForActor,
 	buildWikilinkCandidatesForActor,

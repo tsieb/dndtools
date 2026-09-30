@@ -36,7 +36,7 @@ export interface MarkdownRenderOptions {
 	 * resolver is ACTOR-SCOPED in the core, so "does not resolve" legitimately means "not yours to
 	 * see" as well as "no such note" — the rendering is the same broken-link styling either way.
 	 */
-	resolveWikilink?: (raw: string) => (() => void) | null;
+	resolveWikilink?: (raw: string) => ((() => void) & { href?: string }) | null;
 	/**
 	 * Render an `asset:<id>` image. Injected rather than imported so this module never touches the
 	 * platform asset store directly (PLAT-006) and surfaces without a vault — the public wiki reader —
@@ -223,6 +223,27 @@ function renderInline(tokens: InlineToken[], options: MarkdownRenderOptions): Re
 						</span>
 					);
 				}
+				if (go.href)
+					return (
+						<a
+							key={index}
+							href={go.href}
+							onClick={(event) => {
+								if (
+									event.button === 0 &&
+									!event.metaKey &&
+									!event.ctrlKey &&
+									!event.shiftKey &&
+									!event.altKey
+								) {
+									event.preventDefault();
+									go();
+								}
+							}}
+						>
+							{token.label}
+						</a>
+					);
 				return (
 					<button
 						key={index}

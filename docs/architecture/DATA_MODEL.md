@@ -52,6 +52,28 @@ with `dmOnly` fields projected per role. A subtype may also ride on a `note` via
 moon phases and holidays are derived per date, never stored. Templates, snippets, saved searches,
 and relationship edges are content-slice records too.
 
+### Wikilinks and typed relationships (RC-KNW-6.1)
+
+`buildWikilinkCandidatesForActor` is the shared target list for resolution, autocomplete,
+backlinks and relationship endpoints. Content notes and objects (including faction and quest
+subtypes) come from `getContentItemsForActor`; characters from `listCharactersForActor`; maps and
+POIs from `getMapViewForActor`, with the actor's delivered-map context. Hidden or deleted targets
+never enter the list. An unknown actor gets no targets. Optional character/map/session slices
+extend the existing content-only query signatures; full-vault callers pass the current state.
+
+Candidates carry the kind word and destination: `/knowledge/:id`, `/characters/:id`, or
+`/atlas?map=:id&poi=:poiId` (omit `poi` for a map). POI graph identifiers include the parent map ID.
+Titles and aliases retain the existing case-insensitive matching; the first visible candidate
+wins a name collision in resolution and the relationship graph. Unresolved links retain the
+existing repair workflow. Character Backlinks use resolved edges, separately from prose mentions.
+
+Typed edges remain `relations:` frontmatter entries in the form `leads :: Ferry Guild`.
+The authored body lives in the content item's `body`, character `data.body`, map `description`,
+or POI `notes`. The Relationships editor preserves other frontmatter and prose and writes through
+`content.update-item`, `character.edit-field`, `map.update-metadata`, or `map.update-poi`.
+The graph is derived from actor-visible bodies; no new relationship store or schema version is
+introduced. A redacted character body contributes no private declarations or aliases.
+
 ## 4. Persistence (Dexie)
 
 `coreStore.ts` implements the type-only `StoragePort` contract. Database `dndtools-v2`, version 3:

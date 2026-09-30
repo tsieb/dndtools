@@ -1,3 +1,4 @@
+import type { MessageKey } from '../../i18n';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { T } from '../screen-kit';
 
@@ -6,7 +7,7 @@ import { T } from '../screen-kit';
  * the slash menu render.
  *
  * The CANDIDATES are not decided here. The screen builds them from the core's actor-scoped
- * `buildQuickSwitcher` read and keeps only the ones `resolveWikilinkForActor` actually resolves, so
+ * `suggestWikilinkTargetsForActor` read and keeps only the ones `resolveWikilinkForActor` actually resolves, so
  * the menu can never advertise — or even name — a note this actor may not open, and a chosen
  * suggestion can never insert a dead link (guardrails 2 and 8).
  */
@@ -178,4 +179,19 @@ export function SuggestionList({
 			</div>
 		</div>
 	);
+}
+
+/** Shared kind words for link menus and grouped relationship endpoints. */
+export function wikilinkKindLabel(kind: string, t: (key: MessageKey) => string): string {
+	const keys: Record<string, MessageKey> = {
+		note: 'palette.kind.note',
+		character: 'play.kind.character',
+		poi: 'palette.kind.poi',
+		object: 'extensions.customTypes.kind.object',
+		map: 'graph.kind.map',
+		location: 'mapPoiNote.type.location',
+		faction: 'campaign.tab.factions',
+		quest: 'campaign.tab.quests',
+	};
+	return keys[kind] ? t(keys[kind]) : kind.charAt(0).toUpperCase() + kind.slice(1);
 }

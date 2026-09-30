@@ -1,3 +1,5 @@
+import { resolveWikilink } from '../state/wikilink-graph';
+import { buildWikilinkCandidatesForActor, type WikilinkDomains } from './wikilink-graph';
 import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import { parseMarkdownNote } from '../state/markdown';
@@ -84,12 +86,16 @@ export function searchContentForActor(
 			snippet: titleMatch ? null : snippet,
 		});
 	}
-	return hits.sort((a, b) => (a.score === b.score ? a.item.id.localeCompare(b.item.id) : b.score - a.score));
+	return hits.sort((a, b) =>
+		a.score === b.score ? a.item.id.localeCompare(b.item.id) : b.score - a.score,
+	);
 }
 
 /** One wikilink autocomplete suggestion: the target note's title (and id), all actor-visible. */
 export interface WikilinkSuggestion {
 	itemId: string;
+	kind: string;
+	route: string;
 	/** The note title — the text inserted into `[[...]]`. */
 	title: string;
 }
@@ -108,10 +114,13 @@ export function suggestWikilinkTargetsForActor(
 	permissions: PermissionState,
 	actorId: string,
 	query: string,
+	domains: WikilinkDomains = {},
 ): WikilinkSuggestion[] {
-	const visible = getContentItemsForActor(content, permissions, actorId).filter(
-		(item) => item.kind === 'note',
-	);
+	const candidates = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
+	const visible = candidates.filter((item) => {
+		const resolved = resolveWikilink({ target: item.title }, candidates);
+		return resolved.status === 'resolved' && resolved.targetId === item.id;
+	});
 	const needle = query.trim().toLowerCase();
 	const ranked = visible
 		.map((item) => {
@@ -121,7 +130,14 @@ export function suggestWikilinkTargetsForActor(
 			return { item, matches, rank: prefix ? 0 : 1 };
 		})
 		.filter((entry) => entry.matches)
-		.sort((a, b) => (a.rank === b.rank ? a.item.title.localeCompare(b.item.title) : a.rank - b.rank))
+		.sort((a, b) =>
+			a.rank === b.rank ? a.item.title.localeCompare(b.item.title) : a.rank - b.rank,
+		)
 		.slice(0, MAX_WIKILINK_SUGGESTIONS);
-	return ranked.map((entry) => ({ itemId: entry.item.id, title: entry.item.title }));
+	return ranked.map((entry) => ({
+		itemId: entry.item.id,
+		title: entry.item.title,
+		kind: entry.item.kind,
+		route: entry.item.route,
+	}));
 }
