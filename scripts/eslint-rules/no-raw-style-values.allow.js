@@ -8,7 +8,6 @@
  */
 
 export const allow = {
-	'apps/gm-react/src/app/AppShell.tsx': 3,
 	'apps/gm-react/src/app/canvas/WidgetFrame.tsx': 6,
 	'apps/gm-react/src/app/canvas/ZoomCluster.tsx': 2,
 	'apps/gm-react/src/app/character/History.tsx': 5,
@@ -35,13 +34,6 @@ export const allow = {
 	'apps/gm-react/src/app/sceneCardMood.ts': 20,
 	'apps/gm-react/src/app/screen-kit.tsx': 20,
 	'apps/gm-react/src/app/session/QuickPanel.tsx': 17,
-	'apps/gm-react/src/app/shell/Footer.tsx': 1,
-	'apps/gm-react/src/app/shell/MoreSheet.tsx': 2,
-	'apps/gm-react/src/app/shell/RailNav.tsx': 1,
-	'apps/gm-react/src/app/shell/rows.tsx': 11,
-	'apps/gm-react/src/app/shell/SessionRail.tsx': 3,
-	'apps/gm-react/src/app/shell/Sidebar.tsx': 20,
-	'apps/gm-react/src/app/shell/TopBar.tsx': 14,
 	'apps/gm-react/src/app/ViewAsControl.tsx': 13,
 	'apps/gm-react/src/app/widget-body-kit.tsx': 4,
 	'apps/gm-react/src/app/widgets/builtin/AtlasBody.tsx': 1,

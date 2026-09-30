@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Badge, Button, Dialog, Field, Input, type DSChangeEvent } from '../../ds';
+import { Badge, Button, Dialog, Field, Icon, Input, type DSChangeEvent } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
@@ -49,8 +49,8 @@ export function VaultSwitcher({
 	const [catalog] = useState(() => {
 		try {
 			return { vaults: listLocalVaults(), error: '' };
-		} catch (error) {
-			return { vaults: [] as LocalVault[], error: String(error) };
+		} catch {
+			return { vaults: [] as LocalVault[], error: t('vaults.catalogFailed') };
 		}
 	});
 	const [vaults, setVaults] = useState(catalog.vaults);
@@ -58,6 +58,7 @@ export function VaultSwitcher({
 	const [name, setName] = useState('');
 	const [editing, setEditing] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [notice, setNotice] = useState('');
 	const [confirmingReset, setConfirmingReset] = useState(false);
 	const current = vaults.find((vault) => vault.id === runtime.vaultId);
 	const inDemo = current?.kind === 'demo';
@@ -89,6 +90,7 @@ export function VaultSwitcher({
 
 	function save(event: FormEvent) {
 		event.preventDefault();
+		setNotice('');
 		try {
 			if (editing) renameLocalVault(editing, name);
 			else createLocalVault(name);
@@ -96,20 +98,22 @@ export function VaultSwitcher({
 			setName('');
 			setEditing(null);
 			setError('');
+			setNotice(t('vaults.saved'));
 			onChanged();
-		} catch (failure) {
-			setError(String(failure));
+		} catch {
+			setError(t('vaults.failed'));
 		}
 	}
 
 	async function run(action: () => Promise<void>) {
 		setBusy(true);
+		setNotice('');
 		setError('');
 		try {
 			await action();
 			onClose();
-		} catch (failure) {
-			setError(String(failure));
+		} catch {
+			setError(t('vaults.failed'));
 		} finally {
 			setBusy(false);
 		}
@@ -124,7 +128,15 @@ export function VaultSwitcher({
 			dismissible={!busy}
 		>
 			<div style={{ display: 'grid', gap: 'var(--space-4)' }}>
-				{error && <p role="alert">{error}</p>}
+				{error && (
+					<p role="alert" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+						<Icon name="warning" />
+						{error}
+					</p>
+				)}
+				<p role="status" style={{ margin: 'var(--space-0)' }}>
+					{busy ? t('vaults.working') : notice}
+				</p>
 				{vaults.map((vault) => (
 					<div key={vault.id} style={{ display: 'grid', gap: 'var(--space-2)' }}>
 						<div

@@ -1,5 +1,5 @@
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomTabBar } from '../../ds';
 import { useI18n } from '../../i18n';
@@ -35,7 +35,7 @@ export function Footer() {
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
-						gap: 6,
+						gap: 'var(--space-1-5)',
 						background: T.acc,
 						color: T.accFg,
 						font: `600 10px ${T.sans}`,
@@ -66,6 +66,7 @@ export function Footer() {
 				<HelpTrigger variant="ghost" size="sm" />
 			</div>
 			<BottomTabBar
+				style={{ '--color-text-tertiary': T.sub } as CSSProperties}
 				items={[
 					...PHONE_TABS.map((s) => ({
 						key: s.id,
@@ -73,7 +74,13 @@ export function Footer() {
 						label: s.id === 'home' ? t('nav.home') : t(s.labelKey),
 						badge: s.liveBadge === true && posture.live ? '•' : undefined,
 					})),
-					{ key: 'more', icon: 'chevron-up', label: t('shell.more') },
+					{
+						key: 'more',
+						icon: 'chevron-up',
+						label: t('shell.more'),
+						'aria-haspopup': 'dialog',
+						'aria-expanded': moreOpen,
+					},
 				]}
 				active={hotIds.has(active) ? active : 'more'}
 				onSelect={(id: string) => {

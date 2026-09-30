@@ -1,0 +1,236 @@
+# RC-POL-1.23 — App shell polish
+
+## Scope
+
+AppShell, sidebar, rail, tabs, top bar, footer and shared vault dialog. Supporting EN/ES
+copy, regression specs and pinned visual baselines belong to this change. No Headroom tools
+are available; validation uses original local output. No dispatcher changes or remote delivery.
+
+## Implementation
+
+- Replaced undersized display type in the top bar with the sans heading token; secondary
+  header text now uses the stronger secondary color. Added target floors to rail vault,
+  desktop search and shared navigation rows.
+- Extracted translated presence text from rows.tsx; translated scene statuses, pin actions,
+  reorder announcements and scene-card shortcut feedback into EN/ES.
+- Lazy vault opening now immediately shows a dismissible labelled loading dialog.
+  Vault errors use actionable localized copy, while save/open progress has a live region.
+- Every original owned file was below 500 lines; retain that boundary.
+
+## Embedded §20.2–§20.5 checklist
+
+Checked means reviewed and either verified or explicitly waived in the evidence below; waived checks are not claims of execution.
+
+### 20.2 Design fidelity
+
+- [x] Composed only from `src/ds` primitives and `screen-kit`; zero raw hex/rgba/px literals (DSN-1.1 lint clean for this directory).
+- [x] Matches the prototype view for this section (`docs/design/README.md` §4) and the design-package template where one exists; deviations listed with rationale.
+- [x] One primary action per region in gold; supporting tiles flat/sunken; the primary panel raised with `--shadow-md`.
+- [x] Type hierarchy uses 3–4 sizes; Cinzel only ≥ 24px; numbers in mono.
+- [x] Every status color paired with a distinct icon shape; DM-only purple stripe where applicable.
+- [x] Renders correctly in all themes and all three tiers; visual snapshots updated and reviewed.
+- [x] Motion uses named tokens; nothing animates under `data-motion='reduced'`.
+- [x] Empty, loading, error, and "unavailable because…" states all present and illustrated where the key exists.
+
+### 20.3 Interaction and UX
+
+- [x] Every action has feedback within 100 ms (optimistic or skeleton) and a completion toast or inline state.
+- [x] Every destructive action is undoable or confirmed; every confirm names the thing.
+- [x] Save status visible on auto-persisted surfaces; failures say what to do next.
+- [x] One clear route back; browser back works; Android Back follows the documented order.
+- [x] No hover-only or gesture-only discovery; touch targets ≥ 44 px (48 dp Android).
+- [x] The compact tier exposes one primary top-bar action; overflow in a bounded sheet.
+- [x] Copy follows the content fundamentals; strings via `t()`; ES present.
+- [x] Contextual help (HelpTip) beside any non-obvious control; shortcuts in tooltips.
+
+### 20.4 Accessibility
+
+- [x] axe clean (desktop + mobile) for this route and its open overlays; register unchanged.
+- [x] Keyboard-only walkthrough of the primary task recorded in the PR; focus visible everywhere.
+- [x] Landmarks and headings correct (`<h1>` once, from `SECTION_TITLES`); `nav` labelled.
+- [x] Live regions announce operations; no announcement spam.
+- [x] Screen-reader spot check on one platform noted.
+- [x] 200% zoom / large text: no clipping; reachability spec case added if new scroll regions.
+
+### 20.5 Core discipline and correctness
+
+- [x] No state mutation outside `runtime.dispatch`; no client-side visibility filtering.
+- [x] Preview-as-player: writes rejected read-only and controls hidden/disabled accordingly.
+- [x] Player projection of this surface verified through an actor read in an e2e.
+- [x] e2e on both profiles covers the primary task and one failure path.
+- [x] Perf: the surface's budget measured before/after (ENG-1.1); no regression.
+- [x] Docs: FEATURE-GAPS inventory row updated; architecture doc updated if a contract moved.
+
+## Checklist evidence and scoped exceptions
+
+### Design fidelity (§20.2)
+
+- DS composition: shared NavRail, BottomTabBar, Dialog, Sheet, Icon, Button, Avatar,
+  Badge and status controls retained. Shell spacing and radii migrated to existing tokens;
+  eight allowlist entries removed. Remaining literal geometry is a scoped waiver: navigation
+  widths/breakpoints, safe-area/viewport calculations, decorative hairlines and existing dense
+  caption sizes preserve shared layout contracts. No new color literals or style allowances.
+- Prototype: DesignSync is unavailable in this session. Waive a fresh remote comparison;
+  retain the shipped 264px sidebar / 64px rail / phone tabs composition documented in
+  AppShell and docs/design/README.md §4. The live application’s extra vault and session
+  controls are intentional functional extensions.
+- Emphasis: navigation stays sunken/flat, dialogs retain DS elevation, selected navigation
+  retains its accent icon and marker. Primary workspace panels belong to their screens.
+- Type: top-bar h1 now uses 24px-equivalent sans token; no undersized Cinzel added.
+  Waive a wholesale micro-caption/brand/number typography rewrite: compact navigation counts,
+  presence sentences and the shared BrandLockup retain their established metrics. The
+  top-bar shortcut remains mono. This avoids changing the cross-surface density contract.
+- Status: text labels and icons accompany live, draft, backup and error states. Existing
+  Core-projected visibility labels and lock shapes remain. No new DM-only content is introduced.
+- Five-theme, three-tier shell and overlay baselines updated and reviewed; strict full-suite result is recorded below.
+- Named motion tokens retained; reduced-motion tests use the production media preference.
+- Shell navigation is always present; no invented empty/loading screen blocks navigation.
+  Vault catalog always contains the legacy campaign on a valid device; a malformed catalog
+  fails closed. Lazy vault loading is visible and dismissible; catalog errors explain recovery;
+  busy/save feedback has a status region. Illustration inventory has no vault-loading/error
+  key, so these use campaign/warning icons. Queue-empty feedback names the next action.
+
+### Interaction (§20.3)
+
+- Navigation and dialog disclosure use immediate local state. Async vault opening disables
+  duplicate actions, announces progress and catches failures; create/rename confirms inline.
+- Existing demo reset names the demo, requires confirmation and uses exclusive maintenance.
+  Unpin is reversible through the screens library; reordering remains reversible.
+- Vault saves have an inline confirmation; device storage errors explain what to check.
+  Broader campaign save chrome is owned by Runtime/App and remains unchanged.
+- Existing hash routes/back behavior retained. Skip link changes focus without mutating the
+  route. The pending palette registers as an overlay in the existing platform Back stack;
+  browser-driven coverage checks dismissal before navigation and launcher focus restoration.
+  No native-device smoke test is claimed.
+- Shared navigation rows and rail vault/search have target floors; touch DS controls remain
+  density-aware. Waive forcing all desktop icon controls to 44px: existing DS density specs
+  explicitly require 28/36/48px visual boxes with larger focus/hit extents. Android’s global
+  48dp floor remains. No gesture-only controls; pin menus accompany drag/keyboard reorder.
+- Phone retains search plus one bounded Table controls overflow sheet. Rail/desktop retain
+  the documented compact icon controls rather than moving familiar tablet actions.
+- New and formerly hardcoded shell copy uses t(); EN/ES updated and DEV pseudo regenerated.
+- Search and pin reorder retain shortcut tooltips; Help is available in every tier. Vault
+  and navigation labels are self-explanatory, so no additional HelpTip is added.
+
+### Accessibility (§20.4)
+
+- Initial new spec: 8/8 passed across desktop/mobile, with all five themes scanned for
+  shell route /screens, palette, Help, shortcuts, vaults, plus phone More/Table controls.
+  Catalog error and tablet vault dialog also scan clean. Known-violations register unchanged.
+- Keyboard walkthrough in spec: focus skip link → Enter → main retains route; empty-queue
+  shortcut announces next step; Tab-equivalent focus on search → Enter → palette → Escape
+  restores search focus. Existing navigation/pin/shortcuts suites passed; details below.
+- Existing labelled nav landmarks and one h1 sourced from SECTION_TITLES remain. Invalid
+  aria-controls reference removed when the sidebar More panel is unmounted.
+- Save/open/error and pin reorder announcements are event driven; the elapsed clock is not
+  made live. No periodic announcement added.
+- Screen-reader audio spot check waived: no screen reader is available in the headless
+  runner. Axe/focus assertions are not claimed as spoken-output evidence.
+- New regression checks 200% root text, search/vault reachability and page-width overflow.
+  No new scroll regions introduced; existing responsive boundary/zoom cases passed.
+
+### Core discipline (§20.5)
+
+- Domain writes still use runtime.dispatch; shell counts and pins use actor reads. Local
+  device vault catalog operations use the pre-existing platform API, an explicit exception
+  to domain dispatch because device preferences/catalogs are not shared campaign state.
+- Preview behavior and player projection are covered by existing player-preview/pinned-screen
+  specs, run below; no permission or projection implementation changed.
+- Both profiles exercise navigation and malformed-catalog recovery. Lazy loading, durable
+  create feedback and Spanish copy regressions pass on both profiles.
+- Performance before/after measurement waived for this bounded style/copy change: ENG-1.1 has
+  app-startup/vault-open scenarios but no isolated shell budget. No new domain reads, network
+  calls, dependencies or eager vault imports. Full paired performance capture requires quiet
+  reference/candidate runs; central performance gates remain independent evidence. No numeric
+  no-regression claim is made.
+- FEATURE-GAPS Command Center row updated with shell polish and regression coverage. The navigation audit now records the /scenes alias and More disclosure fixes.
+
+## Validation log
+
+- `pnpm gates`: exit 0; no owned file-size warnings. Other existing warnings remain.
+- Targeted ESLint: exit 0 after removing all shell/AppShell legacy style allowances.
+- App typecheck: exit 0.
+- Viewport, navigation sections, session posture and i18n unit tests: 43 passed.
+  Initial i18n failure correctly detected stale generated pseudo copy; regenerated with
+  `pnpm exec tsx scripts/i18n-catalog.ts pseudo` and reran the same suite successfully.
+- Initial axe failures exposed tertiary text on parchment and selected More-sheet rows,
+  plus palette captions. Fixed shell caption colors, avatar initials, bottom-tab caption
+  inheritance and scoped palette/shortcuts inheritance; the same five-theme scans now pass.
+- Full pinned-container update completed; strict comparison is the final visual gate.
+
+- Navigation audit follow-up: the `/scenes` gap was already resolved by its `/screens` alias
+  and All screens links; retained and covered by the existing pin-navigation tests.
+  The still-open More disclosure gap is fixed by optional per-item aria-haspopup/expanded
+  props in the DS BottomTabBar (a necessary ancillary change), supplied by Footer and
+  covered by a new keyboard/focus regression. NAVIGATION.md records both closures.
+
+- Source-frozen regression pass before the final loader adjustment: 130 passed, three existing
+  skips, and one mobile palette return-focus failure. A modal palette-loading fallback captured
+  its temporary Close button as the real palette's return target. Replaced that fallback with
+  a nonmodal status/cancel panel that leaves launcher focus alone; Cancel uses the shared
+  return-focus policy. Cold cancellation, completion and Escape return now have explicit tests.
+- Test corrections: scoped the Spanish error assertion to its dialog (the shortcut toast also
+  uses role=alert); waited for the rail's own navigation landmark before measuring its vault
+  button; the vault-ready dialog focuses its first available action, so the handoff test now
+  checks focus inside the dialog rather than incorrectly requiring the name field.
+- Existing command-palette suite: all 42 cases passed after the loader change. Existing
+  vault/demo/pin/help/shortcut/session/permission/scene-card/player-preview cases passed in the
+  broader runs. Three existing skips are the two opt-in demo performance cases and the
+  desktop-only rail-collapse case on the mobile profile.
+- Responsive/formal axe run: 26 checks outside the new shell spec passed, covering compact-phone,
+  minimum-window, rail and compact-desktop reachability, bounded canvases, 640/641 navigation,
+  200% zoom on all tiers, compact overlay footers, and the registered /scenes and palette/table
+  controls axe cases. The two failures in that run were the corrected vault-field focus
+  assertion described above; no responsive/registered axe case failed.
+- First complete visual update: 439 passed; /play and /wiki desktop tavern readiness timeouts
+  occurred while implementation/generated-source edits were still ongoing. No root cause is
+  claimed. Both chrome-less routes are included in the final source-frozen strict comparison.
+- Reviewed shell chrome in all five themes × all three tiers (15 captures): complete controls,
+  readable caption colors, active accent markers, bounded sidebar/rail and intact phone footer.
+  The main workspace is masked only in these shell-specific captures; existing full-route
+  snapshots remain. Added cropped More and vault loading/ready/error captures for overlay review.
+- Lossless optimization of the first 252 changed/new PNGs: 27,528,303 → 20,990,678 bytes;
+  decoded RGBA pixels checked for equality before each replacement. Used zopfli.png.optimize
+  with use_zopfli=False and Pillow for comparison in a temporary uv environment; no repository
+  dependency or tolerance/budget change. Initial optimized total: 571 PNGs, 28,113.7 KiB.
+
+- Final new shell acceptance command: `pnpm --filter @dndtools/gm-react exec playwright test
+tests/e2e/shell-polish.spec.ts --workers=2 --retries=0`: **20 passed**, exit 0 (44.8s).
+  Axe uses the release-gate tag set, including WCAG 2.2 AA and best-practice, without exclusions.
+- Final typecheck, ESLint and Prettier source checks: exit 0. Unit suite repeated on final source:
+  **43 passed**, exit 0. `pnpm gates` on final source: exit 0; no owned size warnings;
+  largest owned file is rows.tsx at **457 lines**.
+- Overlay snapshot update in the pinned container: **15 tests passed**, exit 0, adding
+  45 vault loading/ready/error crops (five themes × three tiers) and five phone More crops.
+  All 50 overlay captures reviewed: bounded content, clear warning shape/copy, disabled writes
+  on catalog failure, and reachable Close/action controls. The 15 full-shell captures plus
+  these 50 crops make **65 shell-specific images**; full-route goldens were also refreshed.
+- Additional 50 overlay PNGs optimized losslessly: 1,378,795 → 1,006,953 bytes, all decoded
+  RGBA pixels equal. Final baseline budget: **621 files, 29,097.1 KiB / 32,768 KiB**, exit 0.
+  Image-size caps and screenshot tolerances are unchanged in configuration.
+
+- First strict full-suite comparison (`--update-snapshots=none --workers=4 --retries=0`):
+  **441 assertions/tests passed** (5.6m), but the container/tool wrapper returned **143**
+  after the success summary. The original log contains no test failure or signal diagnostic.
+  This is not recorded as a successful wrapper gate; a two-worker repeat with an explicit
+  captured exit status is required below before commit.
+- The five-theme axe matrix has a 60-second test budget because it performs up to 35 serial
+  audits; this changes neither axe exclusions nor assertions and avoids using the default
+  single-journey timeout for a whole matrix. Functional retries remain zero.
+
+- Full strict pinned-container repeat (`--update-snapshots=none --workers=2 --retries=0`):
+  **441 passed (7.0m), exit 0**, independently captured in `/tmp/shell-visual-final.exit`.
+  The prior wrapper exit 143 did not recur; no claim is made about its cause.
+- Final event-only adjustment registers the nonmodal palette loader with platform Back and
+  shares launcher focus restoration across Cancel, Escape and Back. The cold-loading test
+  focuses Cancel, invokes the real platform Back dispatcher, and checks that no history/root
+  navigation occurred before reopening and completing the lazy load.
+
+- Final-source acceptance repeat after Back integration: **20 passed (46.0s), exit 0**,
+  including all five-theme axe scans and platform Back/focus checks on both profiles.
+- Final-source pinned shell comparison: **15 passed (27.5s), exit 0**; all 65 captures match.
+  The event-only adjustment required no further baseline changes.
+- Final-source app typecheck, targeted ESLint and `pnpm gates`: **exit 0**. Gates have no
+  file-size warning for any owned file; unrelated pre-existing warnings remain.
+- Checklist complete with scoped waivers above. No remote publication or native-device,
+  spoken screen-reader, or paired performance verification is claimed.

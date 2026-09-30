@@ -1067,6 +1067,36 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.systems.body':
 		'Cambia el sistema de reglas de la campaña en {location}. Lamplight comprueba el cambio antes de modificar tu campaña y lo bloquea si encuentra un problema.',
 	'settings.systems.location': 'Extensiones → Sistema',
+	'shell.sceneLive': 'En directo',
+	'shell.sceneReady': 'Lista',
+	'shell.sceneDraft': 'Borrador',
+	'shell.hostingPlayers':
+		'Anfitrión — {count, plural, one {# jugador conectado} other {# jugadores conectados}}',
+	'shell.hostingWaiting': 'Anfitrión — esperando jugadores',
+	'shell.connected': 'Conectado a una mesa',
+	'shell.backupError': 'Error de copia en la nube — abre Ajustes → Copias e historial',
+	'shell.backingUp': 'Guardando copia…',
+	'shell.backupCurrent': 'Copia en la nube al día',
+	'shell.backupOn': 'Copia en la nube activada',
+	'shell.localOnly': 'Solo local — este dispositivo',
+	'shell.pinActions': 'Acciones de {name}',
+	'shell.pinKeys': 'Reordena con Alt+Flecha arriba o Alt+Flecha abajo',
+	'shell.pinUp': 'Subir',
+	'shell.pinDown': 'Bajar',
+	'shell.pinMoved': '{name}, posición {position} de {count}',
+	'shell.cardFailed': 'No se pudo mostrar esa tarjeta. Inténtalo desde la cola de escenas.',
+	'shell.cardShown': 'Mostrando la siguiente tarjeta.',
+	'shell.cardNotSaved':
+		'No se pudo guardar el cambio en este dispositivo. Revisa el almacenamiento en Ajustes e inténtalo de nuevo.',
+	'shell.cardQueueFirst': 'Añade primero una tarjeta de escena a la cola.',
+	'vaults.loading': 'Cargando tus bóvedas…',
+	'vaults.working': 'Abriendo tu bóveda…',
+	'vaults.failed':
+		'No se pudo guardar el cambio. Revisa el almacenamiento del dispositivo e inténtalo de nuevo.',
+	'vaults.catalogFailed':
+		'No se pudo leer la lista de bóvedas. Cierra este diálogo y revisa el almacenamiento del dispositivo antes de intentarlo de nuevo.',
+	'vaults.saved': 'Bóveda guardada.',
+
 	'shell.search': 'Buscar',
 	'shell.searchShortcut': 'Buscar (⌘K)',
 	'shell.searchEverything': 'Buscar en todo…',

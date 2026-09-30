@@ -37,7 +37,7 @@ export function SessionRail() {
 					flex: '0 0 auto',
 					display: 'flex',
 					alignItems: 'flex-start',
-					padding: '10px 8px',
+					padding: 'var(--space-2) var(--space-2)',
 					borderLeft: `1px solid ${T.bd}`,
 					background: T.surf,
 				}}
@@ -62,14 +62,14 @@ export function SessionRail() {
 				width: RAIL_WIDTH,
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 12,
+				gap: 'var(--space-3)',
 				padding: `calc(14px + var(--safe-area-top, 0px)) 14px 14px`,
 				borderLeft: `1px solid ${T.bd}`,
 				background: T.surf,
 				overflowY: 'auto',
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<Icon name="session-bolt" size="sm" color={T.acc} />
 				<span style={{ flex: 1, font: `600 13px ${T.sans}`, color: T.ink }}>
 					{t('shell.sessionLive')}

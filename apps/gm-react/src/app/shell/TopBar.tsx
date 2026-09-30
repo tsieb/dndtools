@@ -56,7 +56,7 @@ export function TopBar({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: compact ? 6 : 14,
+					gap: compact ? 'var(--space-1-5)' : 'var(--space-3)',
 					padding:
 						viewport === 'phone'
 							? 'calc(10px + var(--safe-area-top, 0px)) max(12px, var(--safe-area-right, 0px)) 10px max(12px, var(--safe-area-left, 0px))'
@@ -73,8 +73,8 @@ export function TopBar({
 					<h1
 						title={title}
 						style={{
-							margin: 0,
-							font: `700 ${viewport === 'phone' ? 17 : 21}px ${T.disp}`,
+							margin: 'var(--space-0)',
+							font: '700 var(--text-xl) var(--font-sans)',
 							letterSpacing: '-.01em',
 							lineHeight: 1.15,
 							whiteSpace: 'nowrap',
@@ -89,8 +89,8 @@ export function TopBar({
 							title={sub}
 							style={{
 								font: `12.5px ${T.sans}`,
-								color: T.ter,
-								marginTop: 1,
+								color: T.sub,
+								marginTop: 'var(--space-0-5)',
 								whiteSpace: 'nowrap',
 								overflow: 'hidden',
 								textOverflow: 'ellipsis',
@@ -106,13 +106,13 @@ export function TopBar({
 						style={{
 							display: 'inline-flex',
 							alignItems: 'center',
-							gap: 6,
+							gap: 'var(--space-1-5)',
 							flex: '0 0 auto',
-							padding: '3px 9px',
-							borderRadius: 20,
+							padding: 'var(--space-1) var(--space-2)',
+							borderRadius: 'var(--radius-full)',
 							background: T.accSub,
 							border: `1px solid ${T.accBd}`,
-							color: T.acc,
+							color: T.ink,
 							font: `600 12px ${T.sans}`,
 							whiteSpace: 'nowrap',
 						}}
@@ -136,19 +136,20 @@ export function TopBar({
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							padding: '8px 12px',
+							gap: 'var(--space-2)',
+							padding: 'var(--space-2) var(--space-3)',
 							flex: '1 1 150px',
 							// The field shares the bar with a title block that grows with its translation, so a
 							// bare 46px floor let a long locale squeeze it to a stub: RC-UX-1.5's pseudo locale
 							// cut "Search everything…" to under half. `fit-content` only binds while shrinking —
 							// English still grows past it — and the title beside it ellipsizes by design.
 							minWidth: 'fit-content',
+							minHeight: 'var(--touch-target-min)',
 							background: T.surf,
 							border: `1px solid ${T.bd}`,
-							borderRadius: 9,
+							borderRadius: 'var(--radius-md)',
 							cursor: 'pointer',
-							color: T.ter,
+							color: T.sub,
 						}}
 					>
 						<Icon name="search" size="sm" />
@@ -167,10 +168,10 @@ export function TopBar({
 						<span
 							style={{
 								font: `11px ${T.mono}`,
-								color: T.ter,
+								color: T.sub,
 								border: `1px solid ${T.bd}`,
-								borderRadius: 5,
-								padding: '1px 5px',
+								borderRadius: 'var(--radius-sm)',
+								padding: 'var(--space-0-5) var(--space-1)',
 							}}
 						>
 							⌘K
@@ -215,8 +216,8 @@ export function TopBar({
 							display: 'flex',
 							alignItems: 'center',
 							flexWrap: 'wrap',
-							gap: 10,
-							paddingBottom: 8,
+							gap: 'var(--space-2)',
+							paddingBottom: 'var(--space-2)',
 						}}
 					>
 						<HostSessionButton />

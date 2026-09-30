@@ -1,3 +1,4 @@
+import { ShellLoading } from './ShellLoading';
 import { lazy, Suspense, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Badge, Sheet } from '../../ds';
@@ -47,8 +48,8 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 						// on its own, but Settings has none and rendered 36px tall; the track floor stretches
 						// every row's button to 44px without touching the shared SideRow.
 						gridAutoRows: 'minmax(44px, auto)',
-						gap: 4,
-						paddingBottom: 8,
+						gap: 'var(--space-1)',
+						paddingBottom: 'var(--space-2)',
 					}}
 				>
 					<PinnedScreenRows onOpen={onClose} />
@@ -84,7 +85,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 				</div>
 			</Sheet>
 			{vaultsOpen && (
-				<Suspense fallback={null}>
+				<Suspense fallback={<ShellLoading onClose={() => setVaultsOpen(false)} />}>
 					<VaultSwitcher onClose={() => setVaultsOpen(false)} onChanged={() => {}} />
 				</Suspense>
 			)}

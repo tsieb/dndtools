@@ -1,8 +1,14 @@
 import { dsCopy } from '../../copy';
 import type { NavEntry } from './NavSidebar';
 
+/** A tab may disclose a sheet instead of navigating directly. */
+export interface BottomTabEntry extends NavEntry {
+	'aria-haspopup'?: React.AriaAttributes['aria-haspopup'];
+	'aria-expanded'?: boolean;
+}
+
 export interface BottomTabBarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'onSelect'> {
-	items?: NavEntry[];
+	items?: BottomTabEntry[];
 	active?: string;
 	onSelect?: (key: string) => void;
 }
@@ -40,6 +46,8 @@ export function BottomTabBar({ items = [], active, onSelect, style, ...rest }: B
 						key={it.key}
 						type="button"
 						aria-current={on ? 'page' : undefined}
+						aria-haspopup={it['aria-haspopup']}
+						aria-expanded={it['aria-expanded']}
 						onClick={() => onSelect && onSelect(it.key)}
 						style={{
 							flex: 1,

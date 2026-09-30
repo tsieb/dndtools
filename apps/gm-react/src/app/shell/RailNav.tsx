@@ -1,3 +1,4 @@
+import { ShellLoading } from './ShellLoading';
 import { useScreens } from '../../screens/screen/useScreens';
 import { screenPath, SCREENS_PATH } from '../../screens/screen/screenModel';
 import { lazy, Suspense, useState } from 'react';
@@ -83,6 +84,10 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 						onClick={() => setVaultsOpen(true)}
 						style={{
 							padding: 'var(--space-0)',
+							minWidth: 'var(--touch-target-min)',
+							minHeight: 'var(--touch-target-min)',
+							alignItems: 'center',
+							justifyContent: 'center',
 							border: 0,
 							borderRadius: 'var(--radius-md)',
 							background: 'transparent',
@@ -95,7 +100,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 							style={{
 								width: 30,
 								height: 30,
-								borderRadius: 7,
+								borderRadius: 'var(--radius-md)',
 								background: T.acc,
 								color: T.accFg,
 								display: 'inline-flex',
@@ -138,7 +143,7 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 				}
 			/>
 			{vaultsOpen && (
-				<Suspense fallback={null}>
+				<Suspense fallback={<ShellLoading onClose={() => setVaultsOpen(false)} />}>
 					<VaultSwitcher onClose={() => setVaultsOpen(false)} onChanged={() => {}} />
 				</Suspense>
 			)}

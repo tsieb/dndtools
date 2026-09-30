@@ -1,4 +1,6 @@
 import { settingsGateVisible, useSettingsTier } from '../../screens/settings/Experience';
+import { ShellLoading } from './ShellLoading';
+import { usePresenceStatus } from './presence';
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -24,7 +26,7 @@ import {
 } from '../nav';
 import { T } from '../screen-kit';
 import { sectionPath } from './sections';
-import { PinnedScreenRows, SideGroup, SideRow, usePresenceStatus } from './rows';
+import { PinnedScreenRows, SideGroup, SideRow } from './rows';
 import { useSessionPosture } from './session-posture';
 import { listLocalVaults } from '../../platform/storage/coreStore';
 const VaultSwitcher = lazy(() =>
@@ -175,7 +177,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			}}
 		>
 			{/* brand */}
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px' }}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: 'var(--space-2)',
+					padding: 'var(--space-4) var(--space-4) var(--space-3)',
+				}}
+			>
 				<BrandLockup markSize={30} wordSize={15} gap={10} style={{ flex: 1, minWidth: 0 }} />
 				<IconButton
 					icon="search"
@@ -194,14 +203,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				aria-haspopup="dialog"
 				aria-expanded={vaultsOpen}
 				style={{
-					margin: '0 12px 4px',
-					padding: '9px 11px',
+					margin: 'var(--space-0) var(--space-3) var(--space-1)',
+					padding: 'var(--space-2) var(--space-3)',
 					display: 'flex',
 					alignItems: 'center',
-					gap: 9,
+					gap: 'var(--space-2)',
 					background: T.alt,
 					border: `1px solid ${T.bd}`,
-					borderRadius: 9,
+					borderRadius: 'var(--radius-md)',
 					cursor: 'pointer',
 					textAlign: 'left',
 				}}
@@ -236,7 +245,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							</span>
 						)}
 					</span>
-					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
+					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.sub }}>
 						{t('shell.campaignCounts', {
 							scenes: scenes.length,
 							characters: counts.characters,
@@ -252,7 +261,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					minHeight: 0,
 					overflowY: 'auto',
 					overflowX: 'hidden',
-					padding: '4px 12px 8px',
+					padding: 'var(--space-1) var(--space-3) var(--space-2)',
 				}}
 			>
 				<nav role="navigation" aria-label={t('shell.navPrimary')}>
@@ -267,8 +276,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 											letterSpacing: '.08em',
 											color: T.ok,
 											background: 'var(--color-status-success-subtle)',
-											padding: '2px 6px',
-											borderRadius: 20,
+											padding: 'var(--space-0-5) var(--space-1-5)',
+											borderRadius: 'var(--radius-full)',
 										}}
 									>
 										{t('shell.live')}
@@ -284,22 +293,22 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 					{/* The whole header is the toggle — a label-plus-tiny-chevron where only the chevron
 					    worked made the group look empty and unclickable. */}
-					<div style={{ marginTop: 14 }}>
+					<div style={{ marginTop: 'var(--space-3)' }}>
 						<button
 							type="button"
 							aria-expanded={moreExpanded}
-							aria-controls="nav-more-panel"
+							aria-controls={moreExpanded ? 'nav-more-panel' : undefined}
 							onClick={() => setMoreOpen((v) => !v)}
 							style={{
 								display: 'flex',
 								alignItems: 'center',
 								justifyContent: 'space-between',
 								width: '100%',
-								padding: '4px 10px 6px',
+								padding: 'var(--space-1) var(--space-2) var(--space-1-5)',
 								border: 'none',
 								background: 'transparent',
 								cursor: 'pointer',
-								borderRadius: 8,
+								borderRadius: 'var(--radius-md)',
 							}}
 						>
 							<span
@@ -307,7 +316,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 									font: `600 11px ${T.sans}`,
 									letterSpacing: '.09em',
 									textTransform: 'uppercase',
-									color: T.ter,
+									color: T.sub,
 								}}
 							>
 								{t('shell.groupMore')}
@@ -315,7 +324,10 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
 						</button>
 						{moreExpanded && (
-							<div id="nav-more-panel" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+							<div
+								id="nav-more-panel"
+								style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
+							>
 								{visiblePlatform.map((s) =>
 									row(
 										s,
@@ -348,7 +360,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			</div>
 
 			{/* footer: player view + settings + account */}
-			<div style={{ borderTop: `1px solid ${T.bd}`, padding: '10px 12px' }}>
+			<div style={{ borderTop: `1px solid ${T.bd}`, padding: 'var(--space-2) var(--space-3)' }}>
 				<nav aria-label={t('shell.navSettings')}>
 					<SideRow
 						icon={PLAYER_SECTION.icon}
@@ -382,12 +394,12 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 10,
+						gap: 'var(--space-2)',
 						width: '100%',
-						marginTop: 4,
-						padding: '8px 10px',
+						marginTop: 'var(--space-1)',
+						padding: 'var(--space-2) var(--space-2)',
 						border: 'none',
-						borderRadius: 8,
+						borderRadius: 'var(--radius-md)',
 						background: 'transparent',
 						color: T.ink,
 						cursor: canManageSeat ? 'pointer' : 'default',
@@ -398,7 +410,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					}}
 					onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
 				>
-					<Avatar name={dmName} size="sm" ring="active" />
+					<Avatar name={dmName} size="sm" ring="active" style={{ color: T.ink }} />
 					<span style={{ flex: 1, minWidth: 0 }}>
 						<span
 							style={{
@@ -416,10 +428,10 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 6,
-								marginTop: 2,
+								gap: 'var(--space-1-5)',
+								marginTop: 'var(--space-0-5)',
 								font: `11px ${T.sans}`,
-								color: T.ter,
+								color: T.sub,
 								minWidth: 0,
 							}}
 						>
@@ -436,7 +448,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				</button>
 			</div>
 			{vaultsOpen && (
-				<Suspense fallback={null}>
+				<Suspense fallback={<ShellLoading onClose={() => setVaultsOpen(false)} />}>
 					<VaultSwitcher
 						onClose={() => setVaultsOpen(false)}
 						onChanged={() => setVault(readVault())}

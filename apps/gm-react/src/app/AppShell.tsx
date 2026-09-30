@@ -1,3 +1,5 @@
+import { ShellLoading } from './shell/ShellLoading';
+import { OverlayChrome } from './shell/OverlayChrome';
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { Toaster, ToastViewport } from '../ds';
 import { useI18n } from '../i18n';
@@ -123,10 +125,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 								actorId: runtime.defaultActorId,
 								payload: {},
 							});
-							if (result.status === 'rejected') Toaster.error("That card couldn't be shown.");
-							else Toaster.success('Showing the next card.');
+							if (result.status === 'rejected') Toaster.error(t('shell.cardFailed'));
+							else Toaster.success(t('shell.cardShown'));
 						} catch {
-							Toaster.error("That change couldn't be saved to this device.");
+							Toaster.error(t('shell.cardNotSaved'));
 						}
 					})();
 				} else {
@@ -134,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 					// is on a second screen — so an empty queue used to make it indistinguishable from
 					// a dead key. Say why rather than swallowing the press.
 					e.preventDefault();
-					Toaster.error('Queue a scene card first.');
+					Toaster.error(t('shell.cardQueueFirst'));
 				}
 				return;
 			}
@@ -148,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [runtime, displayOpen, paletteOpen]);
+	}, [runtime, displayOpen, paletteOpen, t]);
 	return (
 		<div
 			className="app-shell"
@@ -181,8 +183,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 					left: 8,
 					top: 'calc(var(--native-titlebar-height) + var(--safe-area-top, 0px) - 48px)',
 					zIndex: 100,
-					padding: '8px 14px',
-					borderRadius: 8,
+					padding: 'var(--space-2) var(--space-3)',
+					borderRadius: 'var(--radius-md)',
 					background: 'var(--color-accent)',
 					color: 'var(--color-accent-foreground)',
 					font: '600 13px var(--font-sans)',
@@ -228,7 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 						// viewport-filling box and never paint).
 						outlineOffset: '-3px',
 						boxSizing: 'border-box',
-						paddingLeft: viewport === 'phone' ? 'var(--safe-area-left, 0px)' : 0,
+						paddingLeft: viewport === 'phone' ? 'var(--safe-area-left, 0px)' : 'var(--space-0)',
 						paddingRight: 'var(--safe-area-right, 0px)',
 					}}
 				>
@@ -248,12 +250,30 @@ export function AppShell({ children }: { children: ReactNode }) {
 				<SessionQuickSheet bottomOffset={viewport === 'phone' ? 92 : 16} />
 			)}
 			{paletteMounted && (
-				<Suspense fallback={null}>
-					<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+				<Suspense
+					fallback={
+						paletteOpen ? (
+							<ShellLoading
+								titleKey="shell.search"
+								messageKey="common.state.loading"
+								icon="search"
+								modal={false}
+								onClose={() => setPaletteOpen(false)}
+							/>
+						) : null
+					}
+				>
+					<OverlayChrome>
+						<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+					</OverlayChrome>
 				</Suspense>
 			)}
 			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
-			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+			{shortcutsOpen && (
+				<OverlayChrome>
+					<ShortcutsDialog onClose={() => setShortcutsOpen(false)} />
+				</OverlayChrome>
+			)}
 			{/* RC-UX-3.2 — one-time feature spotlights, queued to idle moments. */}
 			<Spotlight />
 			{/* On phone the tab bar owns the bottom edge (52px buttons + --space-1 padding + 1px

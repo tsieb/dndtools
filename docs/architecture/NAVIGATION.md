@@ -187,8 +187,12 @@ reached only by a card or a link is where a second primary action tends to hide:
 A screen that breaks a rule gets fixed by the POL story that owns it. Until then its ceiling is
 recorded in the spec and may only come down.
 
-| Where                       | Gap (found 2026-09-12)                                                                                                                                                                                                                                                 | Owner       |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `/session`                  | Start session and Build encounter both fill the first phone screenful (ceiling 2).                                                                                                                                                                                     | RC-POL-1.4  |
-| `/scenes` on phone and rail | The tab bar marks More as current, but Scenes is not a row in All sections, and the rail has no Scenes entry either. Of the three navigations only the desktop sidebar's Scenes group reaches it (Command Center and the palette still do), which breaks rule 4 of §1. | RC-POL-1.23 |
-| Phone tab bar More          | The button opens the All sections sheet but announces no `aria-haspopup` / `aria-expanded`, unlike Table controls. `app/shell/Footer.tsx` builds the item, but `BottomTabBar` (`ds/components/navigation`) has no prop to carry either attribute yet.                  | RC-POL-1.23 |
+| Where      | Gap (found 2026-09-12)                                                             | Owner      |
+| ---------- | ---------------------------------------------------------------------------------- | ---------- |
+| `/session` | Start session and Build encounter both fill the first phone screenful (ceiling 2). | RC-POL-1.4 |
+
+RC-POL-1.23 closes the two shell entries from the September 12 audit: `/scenes` now
+aliases `/screens`, whose All screens entry is available in sidebar, rail and phone More;
+`pinned-screens.spec.ts` checks all three. Phone More now supplies `aria-haspopup="dialog"`
+and its live `aria-expanded` state through BottomTabBar's optional per-entry disclosure
+attributes. `shell-polish.spec.ts` checks keyboard opening, closing and focus restoration.

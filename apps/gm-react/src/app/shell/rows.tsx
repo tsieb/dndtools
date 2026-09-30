@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { listPinnedScreens } from '@dndtools/core';
-import { useI18n } from '../../i18n';
+import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useScreens, useScreenActions } from '../../screens/screen/useScreens';
 import { screenPath, SCREENS_PATH, visibilityLabelKey } from '../../screens/screen/screenModel';
@@ -8,8 +8,6 @@ import { useSessionPosture } from './session-posture';
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { type SceneListEntry } from '@dndtools/core';
 import { Icon, IconButton, Menu, StatusDot, Toaster } from '../../ds';
-import { useCloudSync } from '../../cloud/CloudSyncContext';
-import { useSession } from '../../net/SessionContext';
 import { T, srOnly } from '../screen-kit';
 
 /* The shared sidebar row vocabulary: a section row, a scene row, a group heading, and the DM
@@ -17,10 +15,10 @@ import { T, srOnly } from '../screen-kit';
  * the phone "More" sheet reuses SideRow so the two navigations stay one IA. */
 
 export type SceneStatus = 'live' | 'ready' | 'draft';
-const SCENE_STATUS: Record<SceneStatus, { dot: 'live' | 'idle' | 'off'; label: string }> = {
-	live: { dot: 'live', label: 'Live' },
-	ready: { dot: 'idle', label: 'Ready' },
-	draft: { dot: 'off', label: 'Draft' },
+const SCENE_STATUS: Record<SceneStatus, { dot: 'live' | 'idle' | 'off'; label: MessageKey }> = {
+	live: { dot: 'live', label: 'shell.sceneLive' },
+	ready: { dot: 'idle', label: 'shell.sceneReady' },
+	draft: { dot: 'off', label: 'shell.sceneDraft' },
 };
 
 export function sceneStatus(scene: SceneListEntry, activeSceneId: string | null): SceneStatus {
@@ -44,8 +42,9 @@ export function SceneSideRow({
 	onOpen: () => void;
 }) {
 	const [hov, setHov] = useState(false);
+	const { t } = useI18n();
 	const st = SCENE_STATUS[status];
-	const sub = scene.tags[0] ? `${st.label} · ${scene.tags[0]}` : st.label;
+	const sub = scene.tags[0] ? `${t(st.label)} · ${scene.tags[0]}` : t(st.label);
 	return (
 		<div
 			onMouseEnter={() => setHov(true)}
@@ -59,11 +58,12 @@ export function SceneSideRow({
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 10,
+					gap: 'var(--space-2)',
 					width: '100%',
-					padding: '7px 10px',
+					minHeight: 'var(--touch-target-min)',
+					padding: 'var(--space-2) var(--space-2)',
 					border: 'none',
-					borderRadius: 8,
+					borderRadius: 'var(--radius-md)',
 					cursor: 'pointer',
 					textAlign: 'left',
 					position: 'relative',
@@ -79,7 +79,7 @@ export function SceneSideRow({
 							top: 7,
 							bottom: 7,
 							width: 3,
-							borderRadius: 3,
+							borderRadius: 'var(--radius-sm)',
 							background: T.acc,
 						}}
 					/>
@@ -96,7 +96,7 @@ export function SceneSideRow({
 						style={{
 							display: 'block',
 							font: `${active ? 600 : 500} 13px ${T.sans}`,
-							color: active ? T.acc : T.ink,
+							color: T.ink,
 							whiteSpace: 'nowrap',
 							overflow: 'hidden',
 							textOverflow: 'ellipsis',
@@ -108,7 +108,7 @@ export function SceneSideRow({
 						style={{
 							display: 'block',
 							font: `10.5px ${T.sans}`,
-							color: T.ter,
+							color: T.sub,
 							whiteSpace: 'nowrap',
 							overflow: 'hidden',
 							textOverflow: 'ellipsis',
@@ -165,12 +165,13 @@ export function SideRow({
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 10,
+				gap: 'var(--space-2)',
 				width: '100%',
+				minHeight: 'var(--touch-target-min)',
 				minWidth: 0,
-				padding: '8px 10px',
+				padding: 'var(--space-2) var(--space-2)',
 				border: 'none',
-				borderRadius: 8,
+				borderRadius: 'var(--radius-md)',
 				cursor: 'pointer',
 				textAlign: 'left',
 				position: 'relative',
@@ -188,7 +189,7 @@ export function SideRow({
 						top: 8,
 						bottom: 8,
 						width: 3,
-						borderRadius: 3,
+						borderRadius: 'var(--radius-sm)',
 						background: T.acc,
 					}}
 				/>
@@ -199,49 +200,17 @@ export function SideRow({
 					style={{
 						...ROW_TEXT,
 						font: `${active ? 600 : 500} 13.5px ${T.sans}`,
-						color: active ? T.acc : T.ink,
+						color: T.ink,
 					}}
 				>
 					{label}
 				</span>
-				{sub && <span style={{ ...ROW_TEXT, font: `11px ${T.sans}`, color: T.ter }}>{sub}</span>}
+				{sub && <span style={{ ...ROW_TEXT, font: `11px ${T.sans}`, color: T.sub }}>{sub}</span>}
 			</span>
 			{badge}
 			{right}
 		</button>
 	);
-}
-
-/**
- * The DM-footer presence dot — REAL state, not a hardcoded "Online": the live P2P session role wins
- * (hosting / joined), then the cloud-backup engine (error / backing up / current), else the honest
- * local-only baseline. The label doubles as the row's status caption.
- */
-export function usePresenceStatus(): { dot: 'live' | 'idle' | 'error' | 'pending'; label: string } {
-	const session = useSession();
-	const cloud = useCloudSync();
-	if (session.role === 'host') {
-		const n = session.peers.length;
-		return {
-			dot: 'live',
-			label:
-				n > 0
-					? `Hosting — ${n} ${n === 1 ? 'player' : 'players'} connected`
-					: 'Hosting — waiting for players',
-		};
-	}
-	if (session.role === 'joined') return { dot: 'live', label: 'Connected to a table' };
-	if (cloud.available && cloud.enabled) {
-		const es = cloud.engineStatus;
-		if (es?.lastError)
-			return { dot: 'error', label: 'Cloud backup error — see Settings → Backup & history' };
-		if (es?.busy) return { dot: 'pending', label: 'Backing up…' };
-		return {
-			dot: 'live',
-			label: es?.lastSyncedAt ? 'Cloud backup up to date' : 'Cloud backup on',
-		};
-	}
-	return { dot: 'idle', label: 'Local-only — this device' };
 }
 
 export function SideGroup({
@@ -257,35 +226,27 @@ export function SideGroup({
 		font: `600 11px ${T.sans}`,
 		letterSpacing: '.09em',
 		textTransform: 'uppercase',
-		color: T.ter,
+		color: T.sub,
 	};
 	return (
-		<div style={{ marginTop: 14 }}>
+		<div style={{ marginTop: 'var(--space-3)' }}>
 			<div
 				style={{
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'space-between',
-					padding: '0 10px 6px',
+					padding: 'var(--space-0) var(--space-2) var(--space-1-5)',
 				}}
 			>
 				<span style={eb}>{label}</span>
 				{action}
 			</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>{children}</div>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}>
+				{children}
+			</div>
 		</div>
 	);
 }
-
-// The same actor-filtered, durable order as the library and header switcher.
-const PIN_TEXT = {
-	actions: (name: string) => `Actions for ${name}`,
-	up: 'Move up',
-	down: 'Move down',
-	keys: 'Reorder with Alt+ArrowUp or Alt+ArrowDown',
-	moved: (name: string, index: number, count: number) =>
-		`${name}, position ${index + 1} of ${count}`,
-};
 
 export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
 	const runtime = useRuntime();
@@ -325,7 +286,13 @@ export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
 			if (result.status === 'rejected')
 				Toaster.error(result.rejection.message ?? t('screens.failed'));
 			else
-				setNotice(PIN_TEXT.moved(nameOf(pins.find((entry) => entry.id === id)!), to, ids.length));
+				setNotice(
+					t('shell.pinMoved', {
+						name: nameOf(pins.find((entry) => entry.id === id)!),
+						position: to + 1,
+						count: ids.length,
+					}),
+				);
 		} catch {
 			Toaster.error(t('screens.notSaved'));
 		} finally {
@@ -409,8 +376,8 @@ export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
 								{isDm && (
 									<IconButton
 										icon="more"
-										label={PIN_TEXT.actions(name)}
-										title={PIN_TEXT.keys}
+										label={t('shell.pinActions', { name })}
+										title={t('shell.pinKeys')}
 										aria-haspopup="menu"
 										aria-expanded={menu === entry.id}
 										variant="ghost"
@@ -424,19 +391,19 @@ export function PinnedScreenRows({ onOpen }: { onOpen?: () => void }) {
 							</div>
 							{menu === entry.id && (
 								<Menu
-									title={PIN_TEXT.actions(name)}
+									title={t('shell.pinActions', { name })}
 									width={220}
 									triggerRef={triggerRef}
 									onClose={() => setMenu(null)}
 								>
 									{[
 										{
-											label: PIN_TEXT.up,
+											label: t('shell.pinUp'),
 											disabled: index === 0,
 											run: () => reorder(entry.id, pins[index - 1]!.id),
 										},
 										{
-											label: PIN_TEXT.down,
+											label: t('shell.pinDown'),
 											disabled: index === pins.length - 1,
 											run: () => reorder(entry.id, pins[index + 1]!.id),
 										},
