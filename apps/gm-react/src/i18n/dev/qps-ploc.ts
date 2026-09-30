@@ -558,6 +558,7 @@ export default {
 	'onboarding.ready.tourPlayerSafeBody':
 		'[Ƥŕéṽíéŵ áš áñý ƥľáýéŕ ƒŕóḿ ţĥé ţóƥ ƀáŕ. ~~~~ ~~~~ ~~~~ ~{gm}-óñľý çóñţéñţ šţáýš ĥíďďéñ íñ ţĥáţ ƥľáýéŕ’š ṽíéŵ.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'common.action.remove': '[Ŕéḿóṽé~~~]',
+	'common.action.removeTag': '[Ŕéḿóṽé ~~~{tag}]',
 	'session.stage.title': '[Šţáğé~~]',
 	'session.stage.noMaps': '[Ñó ḿáƥš ýéţ — çŕéáţé óñé íñ ţĥé Áţľáš.~~~~ ~~~~ ~~~~ ~]',
 	'session.stage.activeMap': '[Áçţíṽé ḿáƥ~~~~]',
@@ -5733,6 +5734,14 @@ export default {
 	'boardCanvas.arrange.groupFull': '[Ğŕóúƥ ţíľéš~~~~ ]',
 	'boardCanvas.arrange.ungroup': '[Úñğŕóúƥ~~~]',
 	'boardCanvas.arrange.ungroupFull': '[Úñğŕóúƥ ţíľéš~~~~ ~]',
+	'boardCanvas.binding.bound': '[Ɓóúñď~~]',
+	'boardCanvas.binding.unbound': '[Ñóţ ƀóúñď~~~~]',
+	'boardCanvas.binding.missing': '[Ḿíššíñğ~~~]',
+	'boardCanvas.binding.conflicted': '[Çóñƒľíçţ~~~~]',
+	'boardCanvas.binding.hidden': '[Ĥíďďéñ~~~]',
+	'boardCanvas.binding.boundTo': '[Ɓóúñď ţó ~~~~{name}]',
+	'boardCanvas.tile.content': '[{title} çóñţéñţ~~~~]',
+	'boardCanvas.tile.resize': '[Ŕéšížé ~~~{title}]',
 	'widgetBody.sessionOnly':
 		'[Šţáŕţ ţĥé šéššíóñ íñ Šéššíóñ ƒíŕšţ — ţĥíš ŕéáçĥéš ţĥé ţáƀľé óñľý ďúŕíñğ ƥľáý.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
 	'widgetBody.note.empty': '[Éḿƥţý ñóţé — šéľéçţ ţĥé ŵíďğéţ ţó áďď ţéẋţ.~~~~ ~~~~ ~~~~ ~~~]',

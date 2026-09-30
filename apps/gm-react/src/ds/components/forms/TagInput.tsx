@@ -9,10 +9,14 @@ export interface TagInputProps extends Omit<
 	disabled?: boolean;
 	inputStyle?: React.CSSProperties;
 	chipStyle?: React.CSSProperties;
+	/** Names each chip's remove button. English by default; app callers pass a catalogue message. */
+	removeTagLabel?: (tag: string) => string;
 }
 
 import React from 'react';
 import { Icon } from '../core/Icon';
+
+const defaultRemoveTagLabel = (tag: string) => `Remove ${tag}`;
 
 function normalizeTags(raw: readonly unknown[] = []) {
 	const seen = new Set();
@@ -65,6 +69,7 @@ export function TagInput({
 	style,
 	inputStyle,
 	chipStyle,
+	removeTagLabel = defaultRemoveTagLabel,
 	onBlur,
 	onFocus,
 	onKeyDown,
@@ -149,7 +154,7 @@ export function TagInput({
 						<span>{tag}</span>
 						<button
 							type="button"
-							aria-label={`Remove ${tag}`}
+							aria-label={removeTagLabel(tag)}
 							onClick={() => remove(index)}
 							disabled={disabled}
 							style={{

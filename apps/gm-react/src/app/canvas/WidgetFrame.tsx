@@ -350,12 +350,28 @@ export function ZoomBtn(props: { icon: string; label: string; onClick: () => voi
 }
 
 /** The header's binding glyph: a word as well as a shape, so no state rests on colour alone. */
-const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: string; tone: string }> = {
-	bound: { icon: 'link', label: 'Bound', tone: 'var(--color-text-secondary)' },
-	unbound: { icon: 'link', label: 'Not bound', tone: 'var(--color-text-secondary)' },
-	missing: { icon: 'warning', label: 'Missing', tone: 'var(--color-status-warning-text)' },
-	conflicted: { icon: 'warning', label: 'Conflict', tone: 'var(--color-status-warning-text)' },
-	hidden: { icon: 'visibility-hidden', label: 'Hidden', tone: 'var(--color-text-secondary)' },
+const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: MessageKey; tone: string }> = {
+	bound: { icon: 'link', label: 'boardCanvas.binding.bound', tone: 'var(--color-text-secondary)' },
+	unbound: {
+		icon: 'link',
+		label: 'boardCanvas.binding.unbound',
+		tone: 'var(--color-text-secondary)',
+	},
+	missing: {
+		icon: 'warning',
+		label: 'boardCanvas.binding.missing',
+		tone: 'var(--color-status-warning-text)',
+	},
+	conflicted: {
+		icon: 'warning',
+		label: 'boardCanvas.binding.conflicted',
+		tone: 'var(--color-status-warning-text)',
+	},
+	hidden: {
+		icon: 'visibility-hidden',
+		label: 'boardCanvas.binding.hidden',
+		tone: 'var(--color-text-secondary)',
+	},
 };
 
 export interface WidgetFrameProps {
@@ -557,7 +573,9 @@ export function WidgetFrame({
 						<span
 							data-testid="tile-binding"
 							data-binding-state={binding}
-							title={entityName ? `Bound to ${entityName}` : glyph.label}
+							title={
+								entityName ? t('boardCanvas.binding.boundTo', { name: entityName }) : t(glyph.label)
+							}
 							style={{
 								display: 'inline-flex',
 								alignItems: 'center',
@@ -569,7 +587,7 @@ export function WidgetFrame({
 						>
 							<Icon name={glyph.icon} size={12} />
 							<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-								{entityName ?? glyph.label}
+								{entityName ?? t(glyph.label)}
 							</span>
 						</span>
 					)}
@@ -578,7 +596,7 @@ export function WidgetFrame({
 					data-tile-content
 					tabIndex={-1}
 					role="group"
-					aria-label={`${w.title} content`}
+					aria-label={t('boardCanvas.tile.content', { title: w.title })}
 					style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
 				>
 					<NoteFrameContext.Provider value={true}>
@@ -654,7 +672,7 @@ export function WidgetFrame({
 					{resizable && (
 						<button
 							type="button"
-							aria-label={`Resize ${w.title}`}
+							aria-label={t('boardCanvas.tile.resize', { title: w.title })}
 							title={RESIZE_HELP}
 							aria-description={RESIZE_HELP}
 							onClick={(e) => {

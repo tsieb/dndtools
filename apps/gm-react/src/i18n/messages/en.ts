@@ -526,6 +526,7 @@ export const en = {
 	'onboarding.ready.tourPlayerSafeBody':
 		'Preview as any player from the top bar. {gm}-only content stays hidden in that player’s view.',
 	'common.action.remove': 'Remove',
+	'common.action.removeTag': 'Remove {tag}',
 	'session.stage.title': 'Stage',
 	'session.stage.noMaps': 'No maps yet — create one in the Atlas.',
 	'session.stage.activeMap': 'Active map',
@@ -5532,6 +5533,15 @@ export const en = {
 	'boardCanvas.arrange.groupFull': 'Group tiles',
 	'boardCanvas.arrange.ungroup': 'Ungroup',
 	'boardCanvas.arrange.ungroupFull': 'Ungroup tiles',
+	/* Board canvas › the tile header's binding glyph and the frame's own labels (RC-ENG-10.1) */
+	'boardCanvas.binding.bound': 'Bound',
+	'boardCanvas.binding.unbound': 'Not bound',
+	'boardCanvas.binding.missing': 'Missing',
+	'boardCanvas.binding.conflicted': 'Conflict',
+	'boardCanvas.binding.hidden': 'Hidden',
+	'boardCanvas.binding.boundTo': 'Bound to {name}',
+	'boardCanvas.tile.content': '{title} content',
+	'boardCanvas.tile.resize': 'Resize {title}',
 
 	/* Widget bodies › the hand-drawn built-in widget contents on the GM Screen */
 	'widgetBody.sessionOnly':

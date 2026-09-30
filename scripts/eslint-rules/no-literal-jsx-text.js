@@ -4,7 +4,10 @@
  * Every user-visible string in the GM app has to come out of a message catalog, so that a locale
  * other than English renders a translation instead of hard-coded English. This rule catches the
  * two places a literal survives a migration: text between JSX tags, and the handful of JSX
- * attributes a screen reader or tooltip reads aloud.
+ * attributes a screen reader or tooltip reads aloud. For the three attributes that most often
+ * interpolate a name into English — `title`, `aria-label` and `alt` — it also reads template
+ * literals, so `aria-label={`Remove ${tag}`}` fails where a catalogue message with a `{tag}`
+ * argument belongs (RC-ENG-10.1).
  *
  * It is deliberately narrow about what counts as user-visible text. Punctuation, arithmetic
  * symbols, single glyphs and bare numbers carry no language and are never flagged, so a migrated
@@ -27,6 +30,12 @@ const TRANSLATABLE_ATTRIBUTES = new Set([
 	'title',
 ]);
 
+/**
+ * Attributes whose template literals are checked too. Kept to the three that name something for a
+ * screen reader or tooltip; `placeholder` and `label` templates are rare and usually build ids.
+ */
+const TEMPLATE_ATTRIBUTES = new Set(['alt', 'aria-label', 'title']);
+
 /** Elements whose text content is code, markup or data rather than prose. */
 const VERBATIM_ELEMENTS = new Set(['code', 'kbd', 'pre', 'samp', 'script', 'style', 'var']);
 
@@ -41,6 +50,36 @@ function carriesLanguage(raw) {
 	const text = raw.trim();
 	if (text.length === 0) return false;
 	return /\p{L}\p{L}/u.test(text);
+}
+
+/**
+ * The template literals an attribute expression can evaluate to: the expression itself, or a branch
+ * of a conditional or logical expression — `name ? `Bound to ${name}` : label` hides its English in
+ * the consequent.
+ */
+function templateLiteralsOf(expression) {
+	if (!expression) return [];
+	if (expression.type === 'TemplateLiteral') return [expression];
+	if (expression.type === 'ConditionalExpression') {
+		return [
+			...templateLiteralsOf(expression.consequent),
+			...templateLiteralsOf(expression.alternate),
+		];
+	}
+	if (expression.type === 'LogicalExpression') {
+		return [...templateLiteralsOf(expression.left), ...templateLiteralsOf(expression.right)];
+	}
+	return [];
+}
+
+/**
+ * A template's static text, with each interpolation shown as `${…}`, when any part is prose. A part
+ * that starts a CSS custom property (`--widget-${key}`) names a token, not a sentence.
+ */
+function templateText(template) {
+	const parts = template.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw);
+	if (!parts.some((part) => carriesLanguage(part) && !/^--[\w-]*$/.test(part))) return null;
+	return parts.join('${…}');
 }
 
 function elementNameOf(node) {
@@ -137,11 +176,22 @@ const rule = {
 					typeof value.expression.value === 'string'
 				)
 					text = value.expression.value;
-				if (text === null || !carriesLanguage(text)) return;
-				record(node, 'literalAttribute', {
-					attribute: name,
-					text: JSON.stringify(text.trim().slice(0, 40)),
-				});
+				if (text !== null && carriesLanguage(text)) {
+					record(node, 'literalAttribute', {
+						attribute: name,
+						text: JSON.stringify(text.trim().slice(0, 40)),
+					});
+					return;
+				}
+				if (!TEMPLATE_ATTRIBUTES.has(name) || value?.type !== 'JSXExpressionContainer') return;
+				for (const template of templateLiteralsOf(value.expression)) {
+					const prose = templateText(template);
+					if (prose === null) continue;
+					record(template, 'literalAttribute', {
+						attribute: name,
+						text: JSON.stringify(prose.trim().slice(0, 40)),
+					});
+				}
 			},
 			'Program:exit'(program) {
 				if (allowance === null) {

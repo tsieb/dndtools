@@ -35,6 +35,7 @@ export function TagsPanel({
 						onChange={setDraft}
 						placeholder={t('characters.tagsPlaceholder')}
 						aria-label={t('characters.tags')}
+						removeTagLabel={(tag) => t('common.action.removeTag', { tag })}
 					/>
 					<div>
 						<Button

@@ -531,6 +531,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.ready.tourPlayerSafeBody':
 		'Previsualiza como cualquier jugador desde la barra superior. El contenido solo para el {gm} sigue oculto en la vista de ese jugador.',
 	'common.action.remove': 'Quitar',
+	'common.action.removeTag': 'Quitar {tag}',
 	'session.stage.title': 'Escenario',
 	'session.stage.noMaps': 'Aún no hay mapas — crea uno en el Atlas.',
 	'session.stage.activeMap': 'Mapa activo',
@@ -5571,6 +5572,15 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.arrange.groupFull': 'Agrupar widgets',
 	'boardCanvas.arrange.ungroup': 'Desagrupar',
 	'boardCanvas.arrange.ungroupFull': 'Desagrupar widgets',
+	/* Lienzo del tablero › el glifo de vinculación de la cabecera y las etiquetas del marco (RC-ENG-10.1) */
+	'boardCanvas.binding.bound': 'Vinculado',
+	'boardCanvas.binding.unbound': 'Sin vincular',
+	'boardCanvas.binding.missing': 'Ausente',
+	'boardCanvas.binding.conflicted': 'En conflicto',
+	'boardCanvas.binding.hidden': 'Oculto',
+	'boardCanvas.binding.boundTo': 'Vinculado a {name}',
+	'boardCanvas.tile.content': 'Contenido de {title}',
+	'boardCanvas.tile.resize': 'Redimensionar {title}',
 
 	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
 	'widgetBody.sessionOnly':

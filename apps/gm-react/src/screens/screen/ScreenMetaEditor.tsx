@@ -95,6 +95,7 @@ export function ScreenMetaEditor({
 					value={draftTags}
 					onChange={setDraftTags}
 					placeholder={t('scenes.tagsPlaceholder')}
+					removeTagLabel={(tag) => t('common.action.removeTag', { tag })}
 				/>
 			</Field>
 			{error && (

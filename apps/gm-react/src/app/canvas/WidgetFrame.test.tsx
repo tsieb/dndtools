@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	createSystemWidgetPackages,
 	dispatchCommand,
@@ -13,8 +13,8 @@ import {
 } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import type { BoardWidget } from '../board-helpers';
-import { I18nProvider } from '../../i18n';
-import { PREFERENCE_KEYS, removePreference } from '../../platform/preferences';
+import { I18nProvider, LOCALE_STORAGE_KEY, loadCatalog } from '../../i18n';
+import { PREFERENCE_KEYS, removePreference, writePreference } from '../../platform/preferences';
 
 /**
  * RC-CAN-2.2 — the tile header, per system widget type, in every theme.
@@ -341,5 +341,81 @@ describe('the header never names what the viewer may not see', () => {
 		const note = SYSTEM_DEFINITIONS.find((d) => d.type === 'note')!;
 		const frame = renderFrame(boardWidget(note), DM_ACTOR.id);
 		expect(frame.querySelector('[data-testid="tile-binding"]')).toBeNull();
+	});
+});
+
+/**
+ * RC-ENG-10.1 — the binding glyph's word and tooltip, and the frame's own labels, come out of the
+ * catalogue. Rendered under Spanish, no state may fall back to the English it used to hard-code.
+ */
+describe('the tile frame speaks the reader’s language', () => {
+	const mapDefinition = SYSTEM_DEFINITIONS.find((d) => d.type === 'map')!;
+	const sharedMap = { entityType: 'map', entityId: CAMPAIGN.sharedMapId };
+	const hiddenMap = { entityType: 'map', entityId: CAMPAIGN.hiddenMapId };
+	const ENGLISH = ['Bound', 'Not bound', 'Missing', 'Conflict', 'Hidden', 'Bound to'];
+
+	beforeAll(async () => {
+		await loadCatalog('es');
+	});
+	beforeEach(() => writePreference(LOCALE_STORAGE_KEY, 'es'));
+	afterEach(() => removePreference(LOCALE_STORAGE_KEY));
+
+	function bindingOf(frame: HTMLElement) {
+		const el = frame.querySelector<HTMLElement>('[data-testid="tile-binding"]')!;
+		return {
+			state: el.getAttribute('data-binding-state'),
+			text: el.textContent,
+			title: el.getAttribute('title'),
+		};
+	}
+
+	it.each([
+		['bound', boardWidget(mapDefinition, hiddenMap), PLAYER_ACTOR.id, 'Vinculado', 'Vinculado'],
+		['unbound', boardWidget(mapDefinition, null), DM_ACTOR.id, 'Sin vincular', 'Sin vincular'],
+		[
+			'missing',
+			{ ...boardWidget(mapDefinition, sharedMap), status: 'missing' as const },
+			DM_ACTOR.id,
+			'Ausente',
+			'Ausente',
+		],
+		[
+			'conflicted',
+			{ ...boardWidget(mapDefinition, sharedMap), status: 'conflicted' as const },
+			DM_ACTOR.id,
+			'En conflicto',
+			'En conflicto',
+		],
+		[
+			'hidden',
+			{ ...boardWidget(mapDefinition, hiddenMap), status: 'hidden' as const },
+			PLAYER_ACTOR.id,
+			'Oculto',
+			'Oculto',
+		],
+	])('labels a %s binding in Spanish', (state, widget, actorId, text, title) => {
+		const frame = renderFrame(widget, actorId);
+		const binding = bindingOf(frame);
+		expect(binding).toEqual({ state, text, title });
+		for (const english of ENGLISH) {
+			expect(binding.text, state).not.toContain(english);
+			expect(binding.title, state).not.toContain(english);
+		}
+	});
+
+	it('names the bound entity in a Spanish tooltip', () => {
+		const frame = renderFrame(boardWidget(mapDefinition, sharedMap), DM_ACTOR.id);
+		expect(bindingOf(frame)).toEqual({
+			state: 'bound',
+			text: 'Old mill',
+			title: 'Vinculado a Old mill',
+		});
+	});
+
+	it('names the tile content region in Spanish', () => {
+		const frame = renderFrame(boardWidget(mapDefinition, sharedMap), DM_ACTOR.id);
+		expect(frame.querySelector('[data-tile-content]')?.getAttribute('aria-label')).toBe(
+			`Contenido de ${mapDefinition.displayName}`,
+		);
 	});
 });

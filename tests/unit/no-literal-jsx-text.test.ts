@@ -30,6 +30,12 @@ describe('no-literal-jsx-text', () => {
 				// Attributes that are not read aloud carry ids and CSS, not copy.
 				{ code: 'const a = <div className="scene card" data-testid="scene card" />;' },
 				{ code: 'const a = <input aria-label={t("common.action.search")} />;' },
+				// RC-ENG-10.1: a template with no prose between its interpolations carries no language,
+				{ code: 'const a = <span title={`${count} / ${total}`} />;' },
+				// nor does one naming a CSS custom property,
+				{ code: 'const a = <Row title={`--widget-${name}`} />;' },
+				// and attributes outside title/aria-label/alt still ignore templates.
+				{ code: 'const a = <input placeholder={`${noun} name`} />;' },
 			],
 			invalid: [
 				{
@@ -46,6 +52,20 @@ describe('no-literal-jsx-text', () => {
 				},
 				{
 					code: 'const a = <img alt="A dark forest" />;',
+					errors: [{ messageId: 'literalAttribute' }],
+				},
+				// RC-ENG-10.1: English interpolated around a name is still English.
+				{
+					code: 'const a = <button aria-label={`Remove ${tag}`} />;',
+					errors: [{ messageId: 'literalAttribute' }],
+				},
+				{
+					code: 'const a = <img alt={`${name} portrait`} />;',
+					errors: [{ messageId: 'literalAttribute' }],
+				},
+				// A template in either branch of a conditional is found too.
+				{
+					code: 'const a = <span title={name ? `Bound to ${name}` : label} />;',
 					errors: [{ messageId: 'literalAttribute' }],
 				},
 			],

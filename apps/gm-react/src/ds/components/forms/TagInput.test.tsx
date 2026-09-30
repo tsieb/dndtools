@@ -74,3 +74,19 @@ it('commits comma-separated tags on blur, deduplicates and respects the limit', 
 	act(() => container.querySelector('button')!.click());
 	expect(container.querySelector('[data-testid="value"]')?.textContent).toBe('[]');
 });
+
+// RC-ENG-10.1 — the remove button's name is the caller's to translate.
+it('names each remove button with the removeTagLabel formatter', () => {
+	act(() =>
+		root.render(
+			<TagInput value={['Goblin', 'Cave']} removeTagLabel={(tag: string) => `Quitar ${tag}`} />,
+		),
+	);
+	const names = [...container.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
+	expect(names).toEqual(['Quitar Goblin', 'Quitar Cave']);
+});
+
+it('falls back to an English remove label without a formatter', () => {
+	act(() => root.render(<TagInput value={['Goblin']} />));
+	expect(container.querySelector('button')?.getAttribute('aria-label')).toBe('Remove Goblin');
+});
