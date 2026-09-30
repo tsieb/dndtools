@@ -104,7 +104,9 @@ The `VaultPrivacyMode` values and fail-closed reader remain compatible. The curr
 localStorage key is not a per-vault registration schema; creation must gain vault-scoped persistence
 before applying a default across multiple vaults. Existing recorded modes are preserved, including
 Cloud-Enhanced choices. No runtime, storage schema or cloud configuration changes ship in this docs
-task. Server-readable enablement remains dependent on RC-CLD-2.2's separate security review.
+task. Server-readable enablement remains dependent on the phase-2 security sign-off, RC-CLD-6.5
+(re-scoped from RC-CLD-2.2 on 2026-09-18; RC-CLD-2.2 closes the gate and leaves the record
+unapproved).
 
 Required implementation validation: simple-tier creation records the disclosed default, including
 skip paths; Expert requires a choice and Private acknowledgment; legacy/invalid/unreadable storage
