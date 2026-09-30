@@ -1620,8 +1620,11 @@ test('the standalone player view has its own skip link into main', async ({ page
 	await seedFresh(page);
 	await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 	// NOT `waitReady`: it waits for `#main-content`, which is AppShell's landmark, and /play renders
-	// outside the shell. Wait for /play's own main instead.
-	await page.getByRole('main').first().waitFor({ state: 'visible', timeout: 20_000 });
+	// outside the shell. Wait for /play's own main instead — by id, not by role: `seedFresh` usually
+	// leaves the page on `#/`, so this goto is a same-document hash change and AppShell's `<main>`
+	// still matches the role while the lazy /play chunk loads. A Tab pressed mid-swap found no
+	// focusable ahead of it and left the document (window blur), so the skip link never took focus.
+	await page.locator('#player-main').waitFor({ state: 'visible', timeout: 20_000 });
 	expect(new URL(page.url()).hash).toBe('#/play');
 
 	// It is the first tab stop, and it is only visible once focused.
