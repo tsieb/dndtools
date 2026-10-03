@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
+	dockedPosition,
 	fitWidgetSize,
+	frameName,
 	isWidgetResizable,
 	nextSizePreset,
 	type BoardWidget,
@@ -10,7 +12,6 @@ import { useParams } from 'react-router-dom';
 import {
 	ArrangeBar,
 	EmptyCanvas,
-	frameName,
 	HistoryCluster,
 	Marquee,
 	WidgetFrame,
@@ -31,10 +32,13 @@ import {
 } from './canvas/geometry';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
+	canvasKey,
 	enterTileContent,
 	frameKey,
 	openGallery,
 	spatialNeighbour,
+	useDragOverlay,
+	useNudges,
 	useReadingOrder,
 } from './canvas/keyboard';
 import { matchesShortcut } from './shortcuts/registry';
@@ -46,9 +50,7 @@ import {
 	FIT_FLOOR,
 	FIXED_PRESET_SCALE,
 	GRID,
-	omitKey,
 	snapTo,
-	ZOOM_KEY,
 	ZOOM_PRESETS,
 	ZOOM_PRESET_KEY,
 	type Drag,
@@ -63,19 +65,6 @@ import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
 
 const NO_SECTIONS: SectionLayoutRegion[] = [];
-
-// Dock to the authored board extent; retain free coordinates for undocking.
-function dockedPosition(
-	position: { x: number; y: number; w: number; h: number },
-	dock: string | null,
-	extent: { width: number; height: number },
-) {
-	return {
-		x: dock === 'left' ? 0 : dock === 'right' ? Math.max(0, extent.width - position.w) : position.x,
-		y:
-			dock === 'top' ? 0 : dock === 'bottom' ? Math.max(0, extent.height - position.h) : position.y,
-	};
-}
 
 export function SceneBoardCanvas({
 	widgets: authoredWidgets,
@@ -104,6 +93,10 @@ export function SceneBoardCanvas({
 	// The undo stack, read from inside the window pointer listeners without re-subscribing them.
 	const historyRef = useRef(history);
 	historyRef.current = history;
+	const { posDraft, sizeDraft, overlay } = useDragOverlay(
+		history?.announcement?.seq,
+		() => dragRef.current !== null,
+	);
 	const resizeWidget = useCallback(
 		(w: BoardWidget, width: number, height: number) => {
 			const next = fitWidgetSize(w, width, height, policy === 'bounded');
@@ -114,10 +107,10 @@ export function SceneBoardCanvas({
 	);
 	const cycleSize = useCallback(
 		(w: BoardWidget) => {
-			const next = nextSizePreset(w, sizeDraftRef.current[w.id] ?? w, policy === 'bounded');
+			const next = nextSizePreset(w, overlay.sizeRef.current[w.id] ?? w, policy === 'bounded');
 			return resizeWidget(w, next.w, next.h);
 		},
-		[resizeWidget, policy],
+		[resizeWidget, policy, overlay],
 	);
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -193,36 +186,7 @@ export function SceneBoardCanvas({
 		percent: number;
 	} | null>(null);
 	const zoomSeq = useRef(0);
-	// RC-CAN-8.1 — the DRAG OVERLAY: where a tile under the pointer is painted while the gesture is
-	// live. It is never a second source of truth. Each entry is cleared once its commit settles
-	// (accepted, clamped or refused alike) and every entry on any undo/redo, so a frame always comes
-	// back to the layout the board receives — before this, a drop the board clamped never matched
-	// the committed layout, so the draft outlived the commit and an Undo rewound the state while the
-	// frame stayed where it was dropped.
-	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
-	const [sizeDraft, setSizeDraft] = useState<Record<string, { w: number; h: number }>>({});
-	const posDraftRef = useRef(posDraft);
-	const sizeDraftRef = useRef(sizeDraft);
-	posDraftRef.current = posDraft;
-	sizeDraftRef.current = sizeDraft;
-	// Where a keyboard-nudged tile is HEADED while its commit is still queued. The runtime applies
-	// commands one at a time and re-renders after each persist, so a second arrow press inside that
-	// window read the old layout and committed the same target again: three presses moved the tile
-	// one step, and Ctrl+Z reversed a step that changed nothing on screen. Never painted; each entry
-	// drops once its commit settles, and the next press reads the layout the board received.
-	const nudgeRef = useRef<Record<string, Partial<Box> & { seq: number }>>({});
-	const nudgeSeq = useRef(0);
-	const nudge = (id: string, to: Partial<Box>, commit: Promise<unknown>) => {
-		const seq = ++nudgeSeq.current;
-		nudgeRef.current[id] = { ...nudgeRef.current[id], ...to, seq };
-		void commit.finally(() => {
-			if (nudgeRef.current[id]?.seq === seq) delete nudgeRef.current[id];
-		});
-	};
-	const clearDrafts = useCallback((ids: readonly string[]) => {
-		setPosDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
-		setSizeDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
-	}, []);
+	const { pending, nudge } = useNudges();
 	const rects = useMemo(
 		() =>
 			widgets.map((w) => ({
@@ -240,25 +204,6 @@ export function SceneBoardCanvas({
 		},
 		[onMove],
 	);
-	/** One gesture, one undo step: a group drag or an arrange folds its per-tile moves together. */
-	const asOneStep = useCallback(async (work: () => Promise<unknown>) => {
-		const stack = historyRef.current;
-		stack?.settle();
-		stack?.beginBurst();
-		try {
-			await work();
-		} finally {
-			stack?.settle();
-		}
-	}, []);
-
-	// Any undo or redo rewinds the layout the board receives; no overlay may outlive it.
-	const historySeq = history?.announcement?.seq;
-	useEffect(() => {
-		if (historySeq === undefined || dragRef.current) return;
-		setPosDraft((prev) => (Object.keys(prev).length ? {} : prev));
-		setSizeDraft((prev) => (Object.keys(prev).length ? {} : prev));
-	}, [historySeq]);
 
 	useEffect(() => {
 		const node = wrapRef.current;
@@ -429,7 +374,7 @@ export function SceneBoardCanvas({
 			if (d.mode === 'move') {
 				const x = Math.max(0, snapTo(d.ox + dx, snap));
 				const y = Math.max(0, snapTo(d.oy + dy, snap));
-				setPosDraft((prev) => {
+				overlay.setPos((prev) => {
 					const next = { ...prev, [d.id]: { x, y } };
 					for (const [id, o] of Object.entries(groupDrag.current))
 						next[id] = { x: Math.max(0, o.x + x - d.ox), y: Math.max(0, o.y + y - d.oy) };
@@ -442,7 +387,7 @@ export function SceneBoardCanvas({
 				if (!widget) return;
 				const width = snapTo(d.ow + dx, snap);
 				const next = fitWidgetSize(widget, width, snapTo(d.oh + dy, snap), policy === 'bounded');
-				setSizeDraft((prev) => ({ ...prev, [d.id]: next }));
+				overlay.setSize((prev) => ({ ...prev, [d.id]: next }));
 			}
 		};
 		const up = (e: PointerEvent) => {
@@ -459,24 +404,23 @@ export function SceneBoardCanvas({
 			if (d.mode === 'move') {
 				const ids = [d.id, ...Object.keys(groupDrag.current)];
 				groupDrag.current = {};
-				const drafts = posDraftRef.current;
+				const drafts = overlay.posRef.current;
 				const p = drafts[d.id];
 				const list = ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : []));
 				// The overlay clears when the commit settles, so the frame lands on the committed
 				// (possibly clamped) layout rather than on the pointer's drop point.
-				if (p) void asOneStep(() => moveAll(list)).finally(() => clearDrafts(ids));
+				const step = () => moveAll(list);
+				if (p) void (historyRef.current?.oneStep(step) ?? step()).finally(() => overlay.clear(ids));
 				const w = widgets.find((c) => c.id === d.id);
 				if (p && w) announce(A11y.OPERATION_TEXT.moved(w.title, p.x, p.y));
 			} else if (d.mode === 'resize') {
-				const s = sizeDraftRef.current[d.id];
+				const s = overlay.sizeRef.current[d.id];
 				const widget = widgets.find((w) => w.id === d.id);
 				if (widget) {
-					const commit = !resizeMoved.current
-						? cycleSize(widget)
-						: s
-							? resizeWidget(widget, s.w, s.h)
-							: null;
-					void commit?.finally(() => clearDrafts([d.id]));
+					const commit = resizeMoved.current
+						? s && resizeWidget(widget, s.w, s.h)
+						: cycleSize(widget);
+					void commit?.finally(() => overlay.clear([d.id]));
 				}
 			}
 		};
@@ -487,11 +431,8 @@ export function SceneBoardCanvas({
 			setMarquee(null);
 			document.body.style.userSelect = '';
 			if (!d || d.mode === 'pan' || d.mode === 'scroll-pan') return;
-			if (d.mode === 'move') {
-				const ids = [d.id, ...Object.keys(groupDrag.current)];
-				groupDrag.current = {};
-				setPosDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
-			} else setSizeDraft((prev) => omitKey(prev, d.id));
+			overlay.clear([d.id, ...Object.keys(groupDrag.current)]);
+			groupDrag.current = {};
 		};
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);
@@ -501,18 +442,7 @@ export function SceneBoardCanvas({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [
-		scale,
-		snap,
-		policy,
-		moveAll,
-		asOneStep,
-		clearDrafts,
-		widgets,
-		cycleSize,
-		resizeWidget,
-		announce,
-	]);
+	}, [scale, snap, policy, moveAll, overlay, widgets, cycleSize, resizeWidget, announce]);
 
 	const onWheel = useCallback(
 		(e: React.WheelEvent) => {
@@ -542,12 +472,12 @@ export function SceneBoardCanvas({
 	/** One Shift+Arrow (or resize-handle arrow) step, folded into the keyboard burst. */
 	const keyboardResize = (w: BoardWidget, dx: number, dy: number) => {
 		history?.beginBurst();
-		const pending = nudgeRef.current[w.id];
+		const headed = pending(w.id);
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const next = fitWidgetSize(
 			w,
-			(pending?.w ?? size.w) + dx * GRID,
-			(pending?.h ?? size.h) + dy * GRID,
+			(headed?.w ?? size.w) + dx * GRID,
+			(headed?.h ?? size.h) + dy * GRID,
 			policy === 'bounded',
 		);
 		nudge(w.id, next, resizeWidget(w, next.w, next.h));
@@ -602,7 +532,7 @@ export function SceneBoardCanvas({
 				});
 				const moved = selection
 					.flatMap(rectOf)
-					.map((r) => ({ ...r, ...nudgeRef.current[r.id] }))
+					.map((r) => ({ ...r, ...pending(r.id) }))
 					.map(step);
 				const commit = moveAll(moved);
 				for (const m of moved) nudge(m.id, { x: m.x, y: m.y }, commit);
@@ -621,12 +551,13 @@ export function SceneBoardCanvas({
 		if (action.kind === 'select-all') return select(widgets.map((w) => w.id));
 		const placed = planPlacements(action, selection.flatMap(rectOf));
 		const resolved = scene ? arrangeCommand(action, scene, selection) : null;
-		await asOneStep(async () => {
+		const step = async () => {
 			await moveAll(placed);
 			if (!resolved) return;
 			const command = { ...resolved, actorId: runtime.defaultActorId } as CoreCommand;
 			await (history ? history.run(command, 'Arranged tiles') : runtime.dispatch(command));
-		});
+		};
+		await (history ? history.oneStep(step) : step());
 		if (resolved) {
 			requestAnimationFrame(() => {
 				if (document.activeElement === document.body && focusedId)
@@ -652,34 +583,12 @@ export function SceneBoardCanvas({
 			openGallery(e.currentTarget, t(policy === 'bounded' ? 'board.add' : 'sceneEditor.add'));
 			return;
 		}
-		if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-			const direct = ZOOM_KEY[e.key];
-			if (direct) {
-				e.preventDefault();
-				applyPreset(direct);
-				return;
-			}
-			if (e.key === '+' || e.key === '=') {
-				e.preventDefault();
-				cyclePreset(1);
-				return;
-			}
-			if (e.key === '-' || e.key === '_') {
-				e.preventDefault();
-				cyclePreset(-1);
-				return;
-			}
-		}
-		if (!history) return;
-		if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-		const key = e.key.toLowerCase();
-		if (key === 'z' && !e.shiftKey) {
-			e.preventDefault();
-			void history.undo();
-		} else if ((key === 'z' && e.shiftKey) || key === 'y') {
-			e.preventDefault();
-			void history.redo();
-		}
+		const key = canvasKey(e);
+		if (!key || ((key.kind === 'undo' || key.kind === 'redo') && !history)) return;
+		e.preventDefault();
+		if (key.kind === 'zoom') applyPreset(key.preset);
+		else if (key.kind === 'step') cyclePreset(key.by);
+		else void (key.kind === 'undo' ? history?.undo() : history?.redo());
 	};
 
 	const frames = orderedWidgets.map((w) => {

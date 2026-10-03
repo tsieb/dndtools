@@ -1,4 +1,5 @@
-import { useEffect, useMemo, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { omitKey, ZOOM_KEY, type ZoomPreset } from '../SceneBoardModel';
 
 /** Metadata order is authoritative; ignore stale/duplicate ids and include newly mounted tiles. */
 export function readingOrder(ids: readonly string[], metadata: readonly string[] = []): string[] {
@@ -105,4 +106,98 @@ const CONTENT_CONTROL =
 export function enterTileContent(frame: HTMLElement): void {
 	const content = frame.querySelector<HTMLElement>('[data-tile-content]');
 	(content?.querySelector<HTMLElement>(CONTENT_CONTROL) ?? content)?.focus();
+}
+
+/** A canvas key that needs no tile: a named zoom step, a step through them, undo or redo. */
+export type CanvasKey =
+	| { kind: 'zoom'; preset: ZoomPreset }
+	| { kind: 'step'; by: 1 | -1 }
+	| { kind: 'undo' }
+	| { kind: 'redo' };
+
+export function canvasKey(e: {
+	key: string;
+	ctrlKey: boolean;
+	metaKey: boolean;
+	altKey: boolean;
+	shiftKey: boolean;
+}): CanvasKey | null {
+	if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+		const preset = ZOOM_KEY[e.key];
+		if (preset) return { kind: 'zoom', preset };
+		if (e.key === '+' || e.key === '=') return { kind: 'step', by: 1 };
+		if (e.key === '-' || e.key === '_') return { kind: 'step', by: -1 };
+		return null;
+	}
+	if (!(e.ctrlKey || e.metaKey) || e.altKey) return null;
+	const key = e.key.toLowerCase();
+	if (key === 'z') return { kind: e.shiftKey ? 'redo' : 'undo' };
+	return key === 'y' ? { kind: 'redo' } : null;
+}
+
+type Nudged = Partial<Omit<SpatialTile, 'id'>>;
+
+/**
+ * RC-CAN-8.1 — where a keyboard-nudged tile is HEADED while its commit is still queued. The runtime
+ * applies commands one at a time and re-renders after each persist, so a second arrow press inside
+ * that window read the old layout and committed the same target again: three presses moved the tile
+ * one step, and Ctrl+Z reversed a step that changed nothing on screen. Never painted; each entry
+ * drops once its commit settles, and the next press reads the layout the board received.
+ */
+export function useNudges() {
+	const pending = useRef<Record<string, Nudged & { seq: number }>>({});
+	const seq = useRef(0);
+	return useMemo(
+		() => ({
+			pending: (id: string): Nudged | undefined => pending.current[id],
+			nudge(id: string, to: Nudged, commit: Promise<unknown>) {
+				const mine = ++seq.current;
+				pending.current[id] = { ...pending.current[id], ...to, seq: mine };
+				void commit.finally(() => {
+					if (pending.current[id]?.seq === mine) delete pending.current[id];
+				});
+			},
+		}),
+		[],
+	);
+}
+
+/**
+ * RC-CAN-8.1 — the DRAG OVERLAY: where a tile under the pointer is painted while the gesture is
+ * live. It is never a second source of truth. The canvas clears each entry once its commit settles
+ * (accepted, clamped or refused alike), and every entry goes on any undo/redo (`historySeq`), so a
+ * frame always comes back to the layout the board receives. Before this, a drop the board clamped
+ * never matched the committed layout, so the draft outlived the commit and an Undo rewound the
+ * state while the frame stayed where it was dropped.
+ */
+export function useDragOverlay(historySeq: number | undefined, dragging: () => boolean) {
+	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
+	const [sizeDraft, setSizeDraft] = useState<Record<string, { w: number; h: number }>>({});
+	const posDraftRef = useRef(posDraft);
+	const sizeDraftRef = useRef(sizeDraft);
+	posDraftRef.current = posDraft;
+	sizeDraftRef.current = sizeDraft;
+	const clearDrafts = useCallback((ids: readonly string[]) => {
+		setPosDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
+		setSizeDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
+	}, []);
+	const draggingRef = useRef(dragging);
+	draggingRef.current = dragging;
+	useEffect(() => {
+		if (historySeq === undefined || draggingRef.current()) return;
+		setPosDraft((prev) => (Object.keys(prev).length ? {} : prev));
+		setSizeDraft((prev) => (Object.keys(prev).length ? {} : prev));
+	}, [historySeq]);
+	// One stable handle, so pointer listeners can name it as a single dependency.
+	const overlay = useMemo(
+		() => ({
+			setPos: setPosDraft,
+			setSize: setSizeDraft,
+			posRef: posDraftRef,
+			sizeRef: sizeDraftRef,
+			clear: clearDrafts,
+		}),
+		[clearDrafts],
+	);
+	return { posDraft, sizeDraft, overlay };
 }

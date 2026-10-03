@@ -79,3 +79,18 @@ criteria):
   scanned clean in view mode afterwards. That finding belongs to the body (and to CAN-8.2's resize).
 - Second pass: `vitest --config vitest.app.config.ts` 162 files, 1763 tests passed; `tsc --noEmit`,
   `eslint` and `prettier --check` on every path changed from `6dcb0a00` pass.
+
+## Third pass: file-size gate
+
+`pnpm gates` failed on `63702075`: `SceneBoardCanvas.tsx` was 879 lines and `WidgetFrame.tsx` 815,
+over the 800-line hard limit (RC-STB-2.7). Code moved between owned files, no behaviour change:
+
+- `canvas/keyboard.ts` now holds `canvasKey` (the zoom/undo/redo key classifier), `useNudges` (the
+  pending keyboard targets) and `useDragOverlay` (the pointer drafts, cleared on any undo/redo,
+  returned as one stable `overlay` handle).
+- `board-helpers.ts` now holds `dockedPosition` and `frameName`.
+- `useLayoutHistory` gained `oneStep(work)`, which replaces the canvas's local `asOneStep`.
+
+After: `SceneBoardCanvas.tsx` 788 lines, `WidgetFrame.tsx` 800. `pnpm gates` passes; `tsc --noEmit`,
+`eslint` (no warnings) and `prettier --check` on every changed path pass;
+`vitest --config vitest.app.config.ts` 162 files, 1763 tests passed.

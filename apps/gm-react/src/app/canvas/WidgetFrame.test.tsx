@@ -12,7 +12,7 @@ import {
 	type WidgetDefinition,
 } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
-import type { BoardWidget } from '../board-helpers';
+import { frameName, type BoardWidget } from '../board-helpers';
 import { I18nProvider, LOCALE_STORAGE_KEY, loadCatalog } from '../../i18n';
 import { PREFERENCE_KEYS, removePreference, writePreference } from '../../platform/preferences';
 
@@ -50,7 +50,7 @@ vi.mock('../../platform/assetUrl', () => ({
 	createAssetObjectUrl: async () => null,
 }));
 
-const { WidgetFrame, frameName } = await import('./WidgetFrame');
+const { WidgetFrame } = await import('./WidgetFrame');
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

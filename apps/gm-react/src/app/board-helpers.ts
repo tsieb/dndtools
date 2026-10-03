@@ -290,6 +290,33 @@ export function addTileCommand(
 	};
 }
 
+/** Dock to the authored board extent; free coordinates are kept for undocking. */
+export function dockedPosition(
+	position: { x: number; y: number; w: number; h: number },
+	dock: string | null,
+	extent: { width: number; height: number },
+) {
+	return {
+		x: dock === 'left' ? 0 : dock === 'right' ? Math.max(0, extent.width - position.w) : position.x,
+		y:
+			dock === 'top' ? 0 : dock === 'bottom' ? Math.max(0, extent.height - position.h) : position.y,
+	};
+}
+
+/**
+ * RC-CAN-8.1 — a frame's accessible name. In edit mode it reads the position and size of the layout
+ * the board RECEIVED — the committed tile, never a pointer draft or a definition default — so a
+ * screen reader hears "size 240 by 160" for the 240×160 tile on screen.
+ */
+export function frameName(
+	w: Pick<BoardWidget, 'title' | 'typeLabel' | 'x' | 'y' | 'w' | 'h'>,
+	options: { editing: boolean; selected?: boolean },
+): string {
+	if (!options.editing) return `${w.title}, ${w.typeLabel} widget`;
+	const selected = options.selected ? ', selected' : '';
+	return `${w.title}, ${w.typeLabel} widget${selected}, position ${w.x}, ${w.y}, size ${w.w} by ${w.h}`;
+}
+
 export interface BoardLayoutRect {
 	id: string;
 	x: number;

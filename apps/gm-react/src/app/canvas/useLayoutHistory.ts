@@ -52,6 +52,8 @@ export interface LayoutHistory {
 	beginBurst: () => void;
 	/** Close the open burst, if any — Escape, blur, pointer-up. The next `run` starts a new step. */
 	settle: () => void;
+	/** One gesture, one step: every `run` inside `work` (a group drag, an arrange) folds together. */
+	oneStep: (work: () => Promise<unknown>) => Promise<void>;
 	undo: () => Promise<boolean>;
 	redo: () => Promise<boolean>;
 	canUndo: boolean;
@@ -253,6 +255,18 @@ export function useLayoutHistory(options: {
 	const beginBurst = useCallback(() => {
 		burstOpenRef.current = true;
 	}, []);
+	const oneStep = useCallback(
+		async (work: () => Promise<unknown>) => {
+			settle();
+			beginBurst();
+			try {
+				await work();
+			} finally {
+				settle();
+			}
+		},
+		[beginBurst, settle],
+	);
 
 	useEffect(() => {
 		commitPast([]);
@@ -407,6 +421,7 @@ export function useLayoutHistory(options: {
 		run,
 		beginBurst,
 		settle,
+		oneStep,
 		undo,
 		redo,
 		canUndo: past.length > 0,
