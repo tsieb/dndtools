@@ -193,6 +193,52 @@ describe('RC-KNW-6.1 actor-scoped link targets', () => {
 		).toHaveLength(1);
 	});
 
+	it.each(['title', 'alias'])('does not fall through an unavailable %s collision', (match) => {
+		const f = fixture();
+		f.run('content.create-item', {
+			kind: 'note',
+			title: match === 'title' ? 'Mira the Ferryman' : 'Unavailable ferry record',
+			visibility: 'player-visible',
+			fields: { 'dndtools.source': 'obsidian', 'dndtools.sourceUnavailable': true },
+			body: serializeMarkdownNote(
+				{ aliases: ['Mira the Ferryman'], relations: ['leads :: faction'] },
+				'[[faction]]',
+			),
+		});
+		f.run('content.create-item', {
+			kind: 'note',
+			title: 'Voyage',
+			visibility: 'player-visible',
+			body: serializeMarkdownNote(
+				{ relations: ['leads :: Mira the Ferryman'] },
+				'[[Mira the Ferryman]]',
+			),
+		});
+		const s = f.state;
+		const npc = Object.values(s.characters.characters).find((c) => c.name === 'Mira the Ferryman')!;
+		const voyage = Object.values(s.content.items).find((c) => c.title === 'Voyage')!;
+		const unavailable = Object.values(s.content.items).find(
+			(c) => c.fields['dndtools.sourceUnavailable'] === true,
+		)!;
+		const faction = Object.values(s.content.items).find((c) => c.title === 'faction')!;
+		for (const actorId of [DM_ACTOR.id, PLAYER_ACTOR.id]) {
+			expect(
+				resolveWikilinkForActor(s.content, s.permissions, actorId, { target: npc.name }, s).status,
+			).toBe('source-unavailable');
+			expect(
+				suggestWikilinkTargetsForActor(s.content, s.permissions, actorId, 'Mi', s).some(
+					(target) => target.itemId === npc.id || target.itemId === unavailable.id,
+				),
+			).toBe(false);
+			for (const target of [npc, voyage, unavailable, faction]) {
+				expect(
+					getNoteRelationshipsForActor(s.content, s.permissions, actorId, target.id, s),
+				).toEqual({ targetId: target.id, backlinks: [], related: [] });
+			}
+			expect(getTypedRelationshipEdgesForActor(s.content, s.permissions, actorId, s)).toEqual([]);
+		}
+	});
+
 	it('keeps valid character links out of repair and repairs unresolved links to visible characters', () => {
 		const f = fixture();
 		f.run('content.create-item', {

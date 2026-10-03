@@ -99,9 +99,8 @@ function buildRelationshipRecords(
 	actorId: string,
 	domains: WikilinkDomains,
 ): NoteRelationshipRecord[] {
-	const visible = buildWikilinkCandidatesForActor(content, permissions, actorId, domains).filter(
-		(target) => target.available,
-	);
+	// Keep unavailable candidates in resolution order so their names cannot fall through to another entity.
+	const visible = buildWikilinkCandidatesForActor(content, permissions, actorId, domains);
 	return visible.map((view) => {
 		const item = content.items[view.id];
 		const parsed = parseMarkdownNote(view.body);
@@ -112,6 +111,7 @@ function buildRelationshipRecords(
 			view.storage === 'content' && item ? actorSeesFullBody(item, permissions, actorId) : true;
 		return {
 			id: view.id,
+			available: view.available,
 			title: view.title,
 			aliases: parsed.aliases,
 			sectionAnchors: noteSectionAnchors(parsed.body),

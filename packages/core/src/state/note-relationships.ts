@@ -43,6 +43,8 @@ export const NOTE_RELATIONSHIPS_SCHEMA_VERSION = 1 as const;
 export interface NoteRelationshipRecord {
 	/** The content item id the note resolves to. */
 	id: string;
+	/** Unavailable records reserve their names but contribute no edges. Omitted means available. */
+	available?: boolean;
 	/** The canonical title a link names. */
 	title: string;
 	/** Alternate names (Obsidian `aliases`) that also resolve to this note. */
@@ -167,9 +169,8 @@ export function computeNoteRelationships(
 	records: readonly NoteRelationshipRecord[],
 ): NoteRelationships {
 	const target = records.find((record) => record.id === targetId);
-	if (!target) {
-		// Defensive: a target not in the visible set yields no relationships (the query layer fails closed
-		// before reaching here, but never derive relationships against an unknown/hidden target).
+	if (!target || target.available === false) {
+		// Missing or unavailable targets contribute no relationships, even when their names are indexed.
 		return { targetId, backlinks: [], related: [] };
 	}
 
@@ -187,7 +188,7 @@ export function computeNoteRelationships(
 	// --- BACKLINKS: visible notes that link TO the target (one entry per source note). ---
 	const backlinks: NoteBacklink[] = [];
 	for (const source of records) {
-		if (source.id === targetId) continue;
+		if (source.id === targetId || source.available === false) continue;
 		let matched: { crossSection: CrossSectionResolution; snippet: string | null } | null = null;
 		for (const link of extractWikilinks(source.body)) {
 			if (idByName.get(normalizeName(link.target)) !== targetId) continue;
@@ -219,7 +220,7 @@ export function computeNoteRelationships(
 		if (relatedId === undefined || relatedId === targetId) continue;
 		if (relatedIds.has(relatedId)) continue;
 		const related = records.find((record) => record.id === relatedId);
-		if (related) relatedIds.set(relatedId, related.title);
+		if (related && related.available !== false) relatedIds.set(relatedId, related.title);
 	}
 	const related: RelatedNoteJump[] = [...relatedIds.entries()].map(([relatedId, relatedTitle]) => ({
 		relatedId,
@@ -320,11 +321,12 @@ export function computeTypedRelationshipEdges(
 	const seen = new Set<string>();
 	const edges: TypedRelationEdge[] = [];
 	for (const source of records) {
+		if (source.available === false) continue;
 		for (const declaration of source.relations) {
 			const targetId = idByName.get(normalizeName(declaration.targetName));
 			if (targetId === undefined || targetId === source.id) continue;
 			const target = records.find((record) => record.id === targetId);
-			if (!target) continue;
+			if (!target || target.available === false) continue;
 			const key = `${source.id} ${declaration.verb} ${targetId}`;
 			if (seen.has(key)) continue;
 			seen.add(key);

@@ -100,3 +100,21 @@ independent review remain separate from this implementation commit.
   - Workspace typecheck, changed-code ESLint, changed-file Prettier, `pnpm gates` and
     `git diff --check` passed. Quality gates emitted existing file-size warnings only.
 - Central wrapper gates and independent review remain separate. No push or promotion.
+
+## Independent-review unavailable-target collision repair (2026-10-03)
+
+- Started from clean candidate a683d41e. No Headroom tools exposed; inspected native exact output.
+- Reproduced the review defect with title and alias collisions: an unavailable actor-visible
+  Obsidian note shadowed a visible NPC in the resolver but incorrectly gave that NPC backlinks.
+  Both regression cases failed against the original implementation after correcting the fixture's
+  autocomplete assertion to allow the distinct DM-only NPC in DM reads.
+- Relationship records now retain the complete actor-visible candidate order and availability.
+  Unavailable records reserve their first-match names, while backlinks, related jumps and typed
+  edges suppress unavailable sources and targets. Existing pure callers default to available.
+- Regression coverage checks DM and player reads, resolver status, autocomplete identity,
+  backlinks, forward jumps, unavailable-source suppression and typed declarations.
+- Focused core validation passed: 5 files / 70 tests, including both new regressions.
+- Changed-code ESLint, Prettier, git diff --check, workspace typecheck and quality gates passed.
+  Quality gates emitted existing file-size warnings only. Browser/visual suites were not rerun for
+  this core resolution repair; central wrapper gates and independent review remain separate.
+- No agents, push, promotion, new loop or dispatcher control changes.
