@@ -189,7 +189,7 @@ export function FactionCard({
 					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1-5)', flexShrink: 0 }}
 				>
 					<Badge
-						icon={stance === 'neutral' ? 'minus' : stance === 'allied' ? 'group' : undefined}
+						icon={stance === 'neutral' ? 'remove' : stance === 'allied' ? 'group' : undefined}
 						status={STANCE_TONE[stance] || 'neutral'}
 					>
 						{optionLabel(STANCE_OPTIONS, stance, t)}

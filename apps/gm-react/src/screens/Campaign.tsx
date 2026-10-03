@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
@@ -51,6 +51,16 @@ export function Campaign() {
 	// RC-WID-5.1 — the quest an "open quest" intent asked for. A reader who cannot author it has no
 	// editor to land in, so the card itself is scrolled to, focused and marked current.
 	const [questTarget, setQuestTarget] = useState<string | null>(null);
+
+	const restoreLauncher = useRef<'quest' | 'faction' | null>(null);
+	// Restore after React commits the closed editor and mounts its launcher. A frame queued
+	// from onClose can run before that commit, especially after an asynchronous save.
+	useEffect(() => {
+		const target = restoreLauncher.current;
+		if (!target || (target === 'quest' ? questEditor : factionEditor)) return;
+		restoreLauncher.current = null;
+		document.querySelector<HTMLButtonElement>(`[data-story-${target}-launch]`)?.focus();
+	}, [questEditor, factionEditor]);
 
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 	const split = useListDetailSplit();
@@ -132,10 +142,8 @@ export function Campaign() {
 			quest={editingQuest}
 			draft={questDraft}
 			onClose={() => {
+				restoreLauncher.current = 'quest';
 				setQuestEditor(null);
-				requestAnimationFrame(() =>
-					document.querySelector<HTMLButtonElement>('[data-story-quest-launch]')?.focus(),
-				);
 			}}
 		/>
 	);
@@ -145,10 +153,8 @@ export function Campaign() {
 			faction={editingFaction}
 			draft={factionDraft}
 			onClose={() => {
+				restoreLauncher.current = 'faction';
 				setFactionEditor(null);
-				requestAnimationFrame(() =>
-					document.querySelector<HTMLButtonElement>('[data-story-faction-launch]')?.focus(),
-				);
 			}}
 		/>
 	);

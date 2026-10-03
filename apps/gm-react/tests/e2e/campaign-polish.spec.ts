@@ -27,6 +27,7 @@ test('Story tabs, editors, calendar and relationship dialog are axe clean', asyn
 	await page.getByRole('button', { name: 'Create the first quest' }).click();
 	await axe(page);
 	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Create the first quest' })).toBeFocused();
 	for (const name of ['NPCs', 'Factions', 'Timeline']) {
 		await page.getByRole('tab', { name, exact: true }).click();
 		await axe(page);
@@ -89,6 +90,20 @@ test('keyboard quest creation retains the draft after a failed save and recovers
 	await expect(page.getByRole('button', { name: 'New quest', exact: true })).toBeFocused();
 	await expect(page.getByRole('heading', { name: 'The lantern road', exact: true })).toBeVisible();
 	await axe(page);
+});
+
+test('faction save and cancel return focus to the mounted launcher', async ({ page }) => {
+	await page.getByRole('tab', { name: 'Factions', exact: true }).click();
+	const launcher = page.getByRole('button', { name: 'New faction', exact: true });
+	await launcher.focus();
+	await page.keyboard.press('Enter');
+	await page.getByLabel('Name', { exact: true }).fill('Lantern keepers');
+	await page.getByRole('button', { name: 'Create faction', exact: true }).click();
+	await expect(launcher).toBeFocused();
+	await expect(page.getByRole('heading', { name: 'Lantern keepers', exact: true })).toBeVisible();
+	await page.keyboard.press('Enter');
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(launcher).toBeFocused();
 });
 
 test('large text keeps the Story editor reachable', async ({ page }) => {

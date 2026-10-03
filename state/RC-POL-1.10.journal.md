@@ -154,3 +154,40 @@ identical).
   this tree still apply.
 
 No push, promotion, dispatcher state change or additional agent.
+
+## Attempt 4 — independent review corrections
+
+Review of 06c63172 found an intermittent focus failure after keyboard quest creation/retry
+and an unregistered neutral-faction icon name. Both findings are addressed:
+
+- Quest and faction close handlers record the intended launcher. A React effect keyed to the
+  editor state restores focus after the closed editor and its launcher commit; it consumes the
+  request once. Removed the frame callback that could run before the launcher mounted.
+- Kept the failed-save/retry focus assertion. Added first-quest Cancel focus coverage and a
+  faction save/reopen/Cancel focus test on both profiles.
+- Changed the neutral icon to the registered `remove` (Minus). Updated and visually inspected
+  both affected faction baselines: the badge now shows a minus and text remains unclipped.
+  Rail shares the phone faction capture by the existing visual spec contract.
+
+The embedded §20.2–§20.5 checklist and waivers above remain applicable. No copy changed in this
+correction, so the existing EN/ES and FEATURE-GAPS updates remain current.
+
+### Verification on the corrected tree
+
+All commands exited 0. Headroom retained output and exact result text was retrieved before
+recording the results; raw runner logs remain outside the repository in `/tmp/rcpol110-*4.log`.
+
+- Keyboard quest failure/retry, `--repeat-each=10 --workers=2`, both profiles: **20 passed (43.0s)**.
+- Campaign, calendar, relationships, polish and widget-intents specs, `--workers=2`, both profiles:
+  **44 passed (1.2m)**, including axe for the route, tabs, editors and relationship removal dialog.
+- Pinned visual container, `-g 'campaign cards|Story polish' --update-snapshots=changed`:
+  **18 passed (28.4s)**. Only the desktop/phone faction PNGs changed.
+- Separate pinned comparison with `--update-snapshots=none`: **18 passed (26.3s)**, covering
+  all five Story themes across desktop/rail/phone plus populated cards on the three tiers.
+- Baseline budget: **562 files, 30044.0 KiB / 32768.0 KiB**.
+- App typecheck, scoped ESLint, changed source/test Prettier and `git diff --check`: passed.
+- `pnpm gates`: passed; all file-size warnings belong to other surfaces. Owned files range from
+  **32 to 454 lines** (Campaign.tsx 454, largest campaign child Relationships.tsx 403).
+
+These are local targeted results; the central operator's complete wrapper gates and independent
+review remain separate. No push, promotion, dispatcher control change or additional agent.
