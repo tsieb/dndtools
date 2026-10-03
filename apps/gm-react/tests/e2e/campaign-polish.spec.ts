@@ -92,6 +92,39 @@ test('keyboard quest creation retains the draft after a failed save and recovers
 	await axe(page);
 });
 
+test('objective toggle keeps keyboard focus through the save', async ({ page }) => {
+	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+	const result = await dispatch(page, {
+		type: 'content.create-object',
+		actorId,
+		payload: {
+			subtype: 'quest',
+			title: 'Focus quest',
+			visibility: 'dm-only',
+			body: '',
+			fields: {
+				title: 'Focus quest',
+				status: 'active',
+				objectives: [
+					{ id: 'focus-one', text: 'First objective', done: false },
+					{ id: 'focus-two', text: 'Second objective', done: false },
+				],
+			},
+		},
+	});
+	expect(result.status).toBe('accepted');
+	const objective = page.getByRole('button', { name: 'First objective', exact: true });
+	await objective.focus();
+	await page.keyboard.press('Enter');
+	await expect(objective).toHaveAttribute('aria-pressed', 'true');
+	await expect(objective).toBeFocused();
+	await page.keyboard.press('Space');
+	await expect(objective).toHaveAttribute('aria-pressed', 'false');
+	await expect(objective).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(page.getByRole('button', { name: 'Second objective', exact: true })).toBeFocused();
+});
+
 test('faction save and cancel return focus to the mounted launcher', async ({ page }) => {
 	await page.getByRole('tab', { name: 'Factions', exact: true }).click();
 	const launcher = page.getByRole('button', { name: 'New faction', exact: true });

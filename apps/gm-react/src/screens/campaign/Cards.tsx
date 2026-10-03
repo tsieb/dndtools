@@ -44,6 +44,8 @@ export function QuestCardRow({
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const [busy, setBusy] = useState(false);
+	// A ref, not `busy`, gates re-entry: two presses inside one render both see `busy === false`.
+	const writing = useRef(false);
 	const status = str(row.fields.status) || 'active';
 	const objectives = objectiveArray(row.fields.objectives);
 	const rowRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,8 @@ export function QuestCardRow({
 	}, [targeted]);
 
 	async function update(fields: Record<string, unknown>) {
-		if (busy) return;
+		if (writing.current) return;
+		writing.current = true;
 		setBusy(true);
 		try {
 			const result = await runtime.dispatch({
@@ -68,6 +71,7 @@ export function QuestCardRow({
 		} catch {
 			Toaster.error(t('campaign.saveFailed'));
 		} finally {
+			writing.current = false;
 			setBusy(false);
 		}
 	}
@@ -90,8 +94,10 @@ export function QuestCardRow({
 				status={QUEST_CARD_STATUS[status] ?? 'active'}
 				hook={bodySummary(row.view.body, t('campaign.quest.noHook'))}
 				objectives={objectives.map((o) => ({ label: o.text, done: o.done }))}
+				// Stays mounted while a write is in flight: dropping the handler swaps each objective
+				// <button> for plain text, which throws keyboard focus to <body>. `update` drops repeats.
 				onToggleObjective={
-					canAuthor && !busy
+					canAuthor
 						? (i: number) =>
 								void update({
 									objectives: objectives.map((o, j) => (j === i ? { ...o, done: !o.done } : o)),

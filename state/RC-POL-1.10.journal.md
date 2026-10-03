@@ -191,3 +191,32 @@ recording the results; raw runner logs remain outside the repository in `/tmp/rc
 
 These are local targeted results; the central operator's complete wrapper gates and independent
 review remain separate. No push, promotion, dispatcher control change or additional agent.
+
+## Attempt 5 — objective focus retention
+
+Review of fb807022 reproduced a keyboard-focus loss on both profiles: Enter on a quest objective
+saved it, but focus dropped to `<body>`. `QuestCardRow` passed `onToggleObjective` only while
+`!busy`, so during the write the DS QuestCard swapped every objective `<button>` for plain list text
+(its read-only branch) and the focused element left the DOM.
+
+- `Cards.tsx`: the handler now stays mounted for authors, whatever the busy state. A `writing` ref
+  blocks repeat writes instead (two presses in one render would both read `busy === false`). The
+  status Select still disables while busy, as before.
+- `campaign-polish.spec.ts`: new "objective toggle keeps keyboard focus through the save". It seeds
+  a two-objective quest, presses Enter and then Space on the first objective, and checks
+  `aria-pressed` plus focus after each save. It then Tabs to the second objective.
+
+### Verification
+
+Raw logs are in `/tmp/pol110-*.log`, outside the repository.
+
+- New test against fb807022's `Cards.tsx`: **2 failed** (desktop and mobile, `toBeFocused`
+  received inactive). This confirms it catches the reported defect.
+- New test with the fix, `--repeat-each=10 --retries=0 --workers=2`, both profiles: **20 passed**.
+- Campaign, calendar, relationships, polish and widget-intents specs, both profiles: **46 passed
+  (1.3m)**, including route, editor and dialog axe.
+- App typecheck, scoped ESLint and Prettier on both changed files: passed.
+- `pnpm gates`: passed. No file-size warning for owned files (Cards.tsx is 270 lines).
+
+No visible styling changed, so visual baselines and copy/ES/FEATURE-GAPS are unaffected. The
+§20.2–§20.5 checklist above still applies; the §20.4 keyboard item now covers objective toggling.
