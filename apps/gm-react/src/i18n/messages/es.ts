@@ -1332,8 +1332,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.dice.title': 'Dados',
 	'play.dice.sub':
 		'Las tiradas se registran en el registro de sesión compartido de la mesa, a tu nombre',
-	'play.dice.needsSession':
-		'Para tirar hace falta una sesión en vivo — los dados se desbloquean cuando tu {gm} empiece una.',
+	'play.dice.standbyNote':
+		'Solo las tiradas hechas durante una sesión en vivo llegan al registro de la mesa.',
 	'play.dice.roll': 'Tirar',
 	'play.dice.d20Mode': 'Modo de d20',
 	'play.dice.normal': 'Normal',
@@ -1347,7 +1347,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.dice.log': 'Registro de tiradas de la mesa',
 	'play.dice.recorded': '{count} registradas',
 	'play.dice.noRolls': 'Aún no hay tiradas — elige un dado.',
-	'play.dice.logFillsUp': 'El registro compartido de tiradas se llena durante una sesión en vivo.',
 	'play.dice.you': 'Tú',
 	'play.party.title': 'Grupo',
 	'play.party.sub': 'Constantes en vivo según las comparte el {gm}',

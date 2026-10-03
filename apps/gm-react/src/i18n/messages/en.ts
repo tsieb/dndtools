@@ -1309,8 +1309,7 @@ export const en = {
 		'This is your live sheet as the table sees it. Edits are made in your full character app.',
 	'play.dice.title': 'Dice',
 	'play.dice.sub': "Rolls are recorded to the table's shared session log, attributed to you",
-	'play.dice.needsSession':
-		'Rolling needs a live session — the dice unlock when your {gm} starts one.',
+	'play.dice.standbyNote': 'Only rolls made during a live session reach the table log.',
 	'play.dice.roll': 'Roll',
 	'play.dice.d20Mode': 'd20 mode',
 	'play.dice.normal': 'Normal',
@@ -1324,7 +1323,6 @@ export const en = {
 	'play.dice.log': 'Table roll log',
 	'play.dice.recorded': '{count} recorded',
 	'play.dice.noRolls': 'No rolls yet — pick a die.',
-	'play.dice.logFillsUp': 'The shared roll log fills up during a live session.',
 	'play.dice.you': 'You',
 	'play.party.title': 'Party',
 	'play.party.sub': 'Live vitals as the {gm} shares them',

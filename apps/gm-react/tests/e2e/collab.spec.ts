@@ -1,5 +1,5 @@
 import { openDemoVault } from './_helpers';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -523,5 +523,123 @@ test.describe('collab: player-rolled initiative', () => {
 			() => (window.__rt!.state.session as unknown as { combat: { round: number } }).combat.round,
 		);
 		expect(round).toBe(1);
+	});
+});
+
+// RC-SES-7.1 — ROLLING IN STANDBY FROM THE COMPANION. The dice on `/play` no longer wait for the DM to
+// start a session. A Standby roll is recorded stamped `idle`, shows on the companion with a one-line
+// note, and stays out of the live session log; once the DM goes live, the same die lands in the DM's
+// session log within the live-delivery budget. `/play` renders as the demo's real player actor (no
+// preview mode), so each roll is a genuine `dice.roll` AS that player, accepted by the DM's runtime.
+test.describe('collab: companion dice in Standby', () => {
+	type Roll = { actorId: string; label?: string; workflow?: string };
+	const rolls = (page: Page) =>
+		page.evaluate(
+			() =>
+				(window.__rt!.state.session as unknown as { diceHistory: Roll[] }).diceHistory.map((r) => ({
+					actorId: r.actorId,
+					label: r.label,
+					workflow: r.workflow,
+				})) as Roll[],
+		);
+	// The session log, capture and recap keep only rolls made live (`happenedLive` in the Core).
+	const liveLog = async (page: Page) =>
+		(await rolls(page)).filter((r) => r.workflow === undefined || r.workflow === 'active');
+
+	async function openDice(page: Page) {
+		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
+			timeout: 20_000,
+		});
+		await page.getByRole('navigation').getByRole('button', { name: 'Dice', exact: true }).click();
+		const roller = page.locator('#player-main');
+		await expect(roller.getByRole('heading', { level: 1, name: 'Dice' })).toBeVisible();
+		return roller;
+	}
+
+	test('a Standby roll stays off the live log; a live roll reaches the DM within budget', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await seedFresh(page);
+		await openDemoVault(page);
+		// The demo opens mid-session; the DM resets to Standby, which clears the live log.
+		const standbyReset = await dispatch(page, {
+			type: 'session.set-workflow',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: { workflow: 'idle' },
+		});
+		expect(standbyReset.status, standbyReset.rejection?.message ?? '').toBe('accepted');
+		expect(
+			await page.evaluate(
+				() => (window.__rt!.state.session as unknown as { workflow: string }).workflow,
+			),
+		).toBe('idle');
+		expect(await liveLog(page)).toEqual([]);
+
+		// 1 · Standby: the d20 is enabled, the note says where the roll goes, and the roll is recorded.
+		let roller = await openDice(page);
+		const note = page.getByTestId('play-dice-standby-note');
+		await expect(note).toHaveText('Only rolls made during a live session reach the table log.');
+		await expect(roller).not.toContainText(/needs a live session/i);
+		const d20 = roller.getByRole('button', { name: 'd20', exact: true });
+		await expect(d20).toBeEnabled();
+		const before = (await rolls(page)).length;
+		await d20.click();
+		await expect.poll(async () => (await rolls(page)).length).toBe(before + 1);
+		const standby = (await rolls(page)).at(-1)!;
+		expect(standby).toMatchObject({ actorId: 'actor-player', label: 'd20', workflow: 'idle' });
+		// The result shows on the companion, marked as made outside a session.
+		await expect(roller.getByText(/ · Outside a session · d20$/)).toBeVisible();
+		await expect(roller).toContainText('1 recorded');
+		// And the live session log stays empty.
+		expect(await liveLog(page)).toEqual([]);
+
+		// The DM's tray keeps the roll, labelled as outside the session.
+		await gotoRoute(page, '/session');
+		await expect(
+			page.locator('#main-content').getByText('Outside a session · d20').first(),
+		).toBeVisible();
+
+		// 2 · The DM goes live; the note is gone and the same die reaches the session log within budget.
+		const live = await page.evaluate(async () => {
+			const rt = window.__rt!;
+			const state = rt.state as unknown as {
+				session: { activeSceneId: string | null };
+				commandCenter: { homeSceneId: string | null };
+				scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			};
+			const activeSceneId =
+				state.session.activeSceneId ??
+				state.commandCenter.homeSceneId ??
+				Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id;
+			return rt.dispatch({
+				type: 'session.set-workflow',
+				actorId: rt.defaultActorId,
+				payload: { workflow: 'active', activeSceneId },
+			});
+		});
+		expect(live.status, JSON.stringify(live.rejection ?? {})).toBe('accepted');
+		roller = await openDice(page);
+		await expect(note).toHaveCount(0);
+		const started = Date.now();
+		await roller.getByRole('button', { name: 'd20', exact: true }).click();
+		await expect
+			.poll(async () => (await liveLog(page)).length, { timeout: DELIVERY_BUDGET_MS })
+			.toBe(1);
+		expect(Date.now() - started).toBeLessThanOrEqual(DELIVERY_BUDGET_MS);
+		expect((await liveLog(page))[0]).toMatchObject({
+			actorId: 'actor-player',
+			label: 'd20',
+			workflow: 'active',
+		});
+
+		// On the DM's session screen the newest roll is the player's, with no "outside" label.
+		await gotoRoute(page, '/session');
+		const last = page.locator('#main-content').getByTestId('dice-last-roll').first();
+		await expect(last).toBeVisible();
+		const caption = last.locator('xpath=following-sibling::div[1]');
+		await expect(caption).toHaveText('d20');
 	});
 });
