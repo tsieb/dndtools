@@ -225,7 +225,7 @@ export function SettingsVault() {
 							variant="secondary"
 							size="sm"
 							icon="arrow-right"
-							onClick={() => navigate('/knowledge', { state: { sources: true } })}
+							onClick={() => navigate('/knowledge')}
 						>
 							{t('settings.vault.manageInKnowledge')}
 						</Button>
@@ -268,7 +268,7 @@ export function SettingsVault() {
 									variant="secondary"
 									size="sm"
 									icon="import"
-									onClick={() => navigate('/knowledge', { state: { sources: true } })}
+									onClick={() => navigate('/knowledge')}
 								>
 									{t('settings.vault.openSources')}
 								</Button>

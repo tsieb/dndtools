@@ -1715,7 +1715,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Conecta una carpeta de Markdown en Conocimiento → Fuentes para importar o exportar notas.',
 	'settings.vault.emptyBodyWithDocs':
 		'Conecta una carpeta de Markdown o un Google Doc en Conocimiento → Fuentes para importar o exportar notas.',
-	'settings.vault.openSources': 'Abrir Conocimiento → Fuentes',
+	'settings.vault.openSources': 'Abrir Conocimiento',
 	'settings.vault.disconnectTitle': '¿Desconectar esta carpeta?',
 	'settings.vault.disconnectDescription': 'La carpeta y todo lo ya importado quedan intactos.',
 	'settings.vault.disconnectBody':

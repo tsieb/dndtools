@@ -3,8 +3,8 @@
 Run journal, attempt 1 (base `2450f59c`). Scope: `screens/settings/` (every category),
 `app/ConnectedSources.tsx` and `app/connectedSourcesVocab.ts`, plus the companions they need (EN/ES
 catalogs, the pseudo catalog, e2e and visual specs, baselines, the raw-style ratchet, FEATURE-GAPS,
-DEBT). One edit outside the claim, flagged below. No push, promotion, dispatcher-state change or
-additional agent.
+DEBT). No path outside the claim (attempt 2 reverted the one edit attempt 1 made). No push,
+promotion, dispatcher-state change or additional agent.
 
 ## Progress log
 
@@ -36,10 +36,12 @@ additional agent.
 - Illustrated states: the empty invite list uses `invites-empty`; the profile, device and invite load
   failures are `connection-lost` empty states that keep their Retry. Loading states were already
   skeletons in a labelled `LoadingRegion`.
-- **Outside the claim (flag for the operator):** `screens/knowledge/index.tsx` gained a four-line
-  `sources` route intent so Settings → Vault's "Open Knowledge → Sources" / "Manage in Knowledge"
-  open the Sources panel they name. That file belongs to RC-POL-1.11 (landed); the edit is additive
-  and mirrors the existing `create` intent.
+- Vault's empty-state action is now labelled "Open Knowledge" and opens Knowledge; its body copy
+  still names "Knowledge → Sources" as the next step. Attempt 1 instead added a `sources` route
+  intent to `screens/knowledge/index.tsx` so the button could open the Sources panel directly; the
+  claim fence refused that path, the acceptance criteria do not require it, and attempt 2 reverted it
+  to base. HANDOFF (Knowledge owner): a `{ sources: true }` location-state intent beside the existing
+  `create` intent would let Settings deep-link the Sources panel.
 - Specs updated for copy changes: `cloud-enhanced-honest-limit.spec.ts` (curly quotes in the
   Settings consent label), `ai-proposal-conflict.spec.ts` (typographic apostrophe) and
   `markdown-folder.spec.ts` ("Imported 1 note." is now singular). An early edit to
@@ -99,8 +101,8 @@ additional agent.
       "Check that Ollama is running"). A thrown grant keeps the list unchanged and the retry succeeds
       (spec).
 - [x] One clear route back; browser back works; Android Back follows the documented order. — The tab
-      is in the URL (`?tab=`, `replace`), so Back leaves Settings. The Vault CTA now lands on the Sources
-      panel it names. Waiver: physical Android Back is not exercised by Chromium emulation; no handler
+      is in the URL (`?tab=`, `replace`), so Back leaves Settings. The Vault CTA is labelled for the route it
+      actually opens (Knowledge) and its copy names the Sources step. Waiver: physical Android Back is not exercised by Chromium emulation; no handler
       changed.
 - [x] No hover-only or gesture-only discovery; touch targets ≥ 44 px (48 dp Android). — Category rows
       use `--touch-target-min`; the roster's rename button now has the same hit area. Waiver: DS `sm`
@@ -209,3 +211,18 @@ pnpm gates && pnpm lint && pnpm typecheck && pnpm test:app --maxWorkers=3
 ```
 
 These are local results; the central operator's wrapper gates and independent review are separate.
+
+## Attempt 2 — claim fence
+
+Gate feedback: the candidate changed `apps/gm-react/src/screens/knowledge/index.tsx`, outside the
+claim. It is not required by any acceptance criterion, so it is reverted to `2450f59c`. Inside the
+claim: `settings.vault.openSources` reads "Open Knowledge" / "Abrir Conocimiento" (pseudo catalog
+regenerated), Vault's two Knowledge buttons navigate to `/knowledge` without the dropped intent, and
+`settings-polish.spec.ts` follows the honest path (Open Knowledge → the page's own Sources toggle).
+The 15 vault empty-state crops carry the button label, so they were regenerated in the container,
+reviewed and re-deflated (222,214 → 213,577 B).
+
+- `settings-polish`, `knowledge-polish`, `knowledge` e2e, both profiles: **76 passed**.
+- Visual `-g settings --update-snapshots=none`: **24 passed**; budget **643 files, 32,166.6 KiB**.
+- `pnpm gates`: exit 0, no file-size warning for an owned file. Vitest `src/i18n` +
+  `screens/settings`: 77 passed. ESLint and Prettier on the changed files: clean.

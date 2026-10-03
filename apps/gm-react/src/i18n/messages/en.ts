@@ -1678,7 +1678,7 @@ export const en = {
 		'Connect a Markdown folder in Knowledge → Sources to import or export notes.',
 	'settings.vault.emptyBodyWithDocs':
 		'Connect a Markdown folder or Google Doc in Knowledge → Sources to import or export notes.',
-	'settings.vault.openSources': 'Open Knowledge → Sources',
+	'settings.vault.openSources': 'Open Knowledge',
 	'settings.vault.disconnectTitle': 'Disconnect this folder?',
 	'settings.vault.disconnectDescription':
 		'The folder and everything already imported stay untouched.',

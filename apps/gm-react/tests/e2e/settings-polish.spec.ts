@@ -168,8 +168,11 @@ test('Knowledge sources: a folder connects, exports, and disconnects by name', a
 	await stubFolderPicker(page);
 	await gotoRoute(page, '/settings?tab=vault');
 	await expect(page.getByText('No sources connected')).toBeVisible();
-	// "Open Knowledge → Sources" lands on the Sources panel itself, not the note list.
-	await page.getByRole('button', { name: 'Open Knowledge → Sources' }).click();
+	// The empty state's action opens Knowledge; its copy names Sources as the next step there.
+	await expect(page.getByText(/Connect a Markdown folder in Knowledge → Sources/)).toBeVisible();
+	await page.getByRole('button', { name: 'Open Knowledge', exact: true }).click();
+	await expect(page).toHaveURL(/#\/knowledge/);
+	await page.getByRole('button', { name: 'Sources', exact: true }).click();
 	const sources = page.locator('section').filter({
 		has: page.getByRole('heading', { name: 'Connected sources' }),
 	});
