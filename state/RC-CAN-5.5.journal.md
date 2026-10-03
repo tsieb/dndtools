@@ -183,3 +183,14 @@ change also deleted frame comments and put `aria-label` on a generic span.
   Pinned comparison with `--update-snapshots=none`: 18 passed (`/tmp/can55-r6-visual-verify.log`).
 - Earlier full-suite visual and neighbour e2e runs were cut off when sessions ended (30/408 and
   15/334, no failures up to that point). They are re-run below if this session survives.
+
+## Rebase onto 1d4f6c4c (2026-10-02)
+
+- Rebased onto `1d4f6c4c`. One round of conflicts, all 12 board/scene baselines, resolved to the
+  integration branch. No source conflicts. Upstream changed no claimed file, and `en.ts`/`es.ts`
+  /`qps-ploc.ts` are untouched by this branch.
+- Regenerated the same 12 images in the pinned container on top of upstream's shell changes
+  (`/tmp/can55-r7-visual-update.log`, 18 passed, phone unchanged). Recompressed them losslessly
+  (re-filter + Zopfli, decoded pixels asserted identical; `/tmp/can55-r7-repng.log`). Budget
+  29938.8 of 32768 KiB. Pinned comparison with `--update-snapshots=none`: 18 passed
+  (`/tmp/can55-r7-visual-verify.log`).
