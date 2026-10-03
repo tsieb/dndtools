@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
+	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_INTENT_CREATE_TARGETS,
 	WIDGET_INTENT_ROUTES,
 	WIDGET_INTENT_SETTINGS_TABS,
@@ -10,6 +11,8 @@ import {
 	listMapsForActor,
 	listScreensForActor,
 	type WidgetCommandDescriptor,
+	type WidgetCommandExecutor,
+	type WidgetConfigField,
 	type WidgetIntentCreateTarget,
 	type WidgetIntentDescriptor,
 	type WidgetIntentEntityKind,
@@ -69,6 +72,12 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
 export interface CatalogEntry {
 	label: MessageKey;
 	descriptor: (typeId: string) => WidgetCommandDescriptor;
+	/**
+	 * RC-WID-6.1 — the setting the command's payload reads, added with the command when the draft has
+	 * no field under that key yet, so a picked Roll has a formula to roll instead of a button that is
+	 * unavailable until the author finds out it needs one. Stored text, so source language.
+	 */
+	field?: WidgetConfigField;
 }
 
 /** Shorthand for a catalogue row: everything a descriptor needs beyond its verb and wording. */
@@ -76,11 +85,13 @@ function entry(
 	verb: string,
 	label: MessageKey,
 	displayName: string,
-	rest: Omit<WidgetCommandDescriptor, 'type' | 'displayName'>,
+	rest: Omit<WidgetCommandDescriptor, 'type' | 'displayName'> & { executor: WidgetCommandExecutor },
+	field?: WidgetConfigField,
 ): CatalogEntry {
 	return {
 		label,
 		descriptor: (typeId) => ({ type: `${typeId}.${verb}`, displayName, ...rest }),
+		...(field ? { field } : {}),
 	};
 }
 
@@ -91,92 +102,147 @@ const OPERATE_PAYLOAD: WidgetCommandDescriptor['payloadSchema'] = { type: 'objec
  * decides the authority (`OPERATE_ACTION_VERBS` / `CONFIGURE_ACTION_VERBS`), `writesTo` and
  * `destinationClass` say what it reaches, and `payloadSchema` names the configuration keys the
  * templates read off a placed copy before dispatching.
+ *
+ * RC-WID-6.1 — every entry names the `executor` the core runs it with, and the catalogue offers only
+ * verbs that have one: a template widget has no code of its own, so a verb the core cannot run would
+ * be a button that fails at the table (Draw, Rename and Set duration were, and are gone).
  */
 export const CATALOG: CatalogEntry[] = [
-	entry('roll', 'builder.catalog.roll', 'Roll', {
-		requiredCapability: 'operator',
-		payloadSchema: { type: 'object', properties: { formula: { type: 'string' } } },
-		writesTo: 'session',
-		destinationClass: 'session',
-	}),
-	entry('draw', 'builder.catalog.draw', 'Draw', {
-		requiredCapability: 'operator',
-		payloadSchema: OPERATE_PAYLOAD,
-		writesTo: 'session',
-		destinationClass: 'session',
-	}),
-	entry('start', 'builder.catalog.start', 'Start', {
-		requiredCapability: 'operator',
-		payloadSchema: OPERATE_PAYLOAD,
-		writesTo: 'scene',
-		destinationClass: 'scene',
-	}),
+	entry(
+		'roll',
+		'builder.catalog.roll',
+		'Roll',
+		{
+			requiredCapability: 'operator',
+			payloadSchema: { type: 'object', properties: { formula: { type: 'string' } } },
+			writesTo: 'session',
+			destinationClass: 'session',
+			executor: 'roll',
+		},
+		{ key: 'formula', label: 'Dice formula', control: 'text', group: 'content', default: '1d20' },
+	),
+	entry(
+		'start',
+		'builder.catalog.start',
+		'Start',
+		{
+			requiredCapability: 'operator',
+			payloadSchema: { type: 'object', properties: { durationSeconds: { type: 'number' } } },
+			writesTo: 'session',
+			destinationClass: 'session',
+			executor: 'start',
+		},
+		{
+			key: 'durationSeconds',
+			label: 'Timer length (seconds)',
+			control: 'number',
+			group: 'content',
+			default: 60,
+			min: 1,
+			step: 1,
+		},
+	),
 	entry('pause', 'builder.catalog.pause', 'Pause', {
 		requiredCapability: 'operator',
 		payloadSchema: OPERATE_PAYLOAD,
-		writesTo: 'scene',
-		destinationClass: 'scene',
+		writesTo: 'session',
+		destinationClass: 'session',
+		executor: 'pause',
 	}),
 	entry('resume', 'builder.catalog.resume', 'Resume', {
 		requiredCapability: 'operator',
 		payloadSchema: OPERATE_PAYLOAD,
-		writesTo: 'scene',
-		destinationClass: 'scene',
+		writesTo: 'session',
+		destinationClass: 'session',
+		executor: 'resume',
 	}),
 	entry('advance', 'builder.catalog.advance', 'Advance', {
 		requiredCapability: 'operator',
 		payloadSchema: { type: 'object', properties: { by: { type: 'number' } } },
 		writesTo: 'scene',
 		destinationClass: 'scene',
+		executor: 'advance',
 	}),
 	entry('tick', 'builder.catalog.tick', 'Tick', {
 		requiredCapability: 'operator',
 		payloadSchema: OPERATE_PAYLOAD,
 		writesTo: 'scene',
 		destinationClass: 'scene',
+		executor: 'tick',
 	}),
 	entry('reset', 'builder.catalog.reset', 'Reset', {
 		requiredCapability: 'operator',
 		payloadSchema: OPERATE_PAYLOAD,
 		writesTo: 'scene',
 		destinationClass: 'scene',
+		executor: 'reset',
 	}),
 	entry('mark-complete', 'builder.catalog.markComplete', 'Mark complete', {
 		requiredCapability: 'operator',
 		payloadSchema: OPERATE_PAYLOAD,
-		writesTo: 'scene',
-		destinationClass: 'scene',
-	}),
-	entry('write-note-line', 'builder.catalog.writeNoteLine', 'Write a note line', {
-		requiredCapability: 'operator',
-		payloadSchema: { type: 'object', properties: { line: { type: 'string' } } },
 		writesTo: 'entity',
 		destinationClass: 'entity',
+		executor: 'mark-complete',
 	}),
-	entry('show', 'builder.catalog.show', 'Show to players', {
-		requiredCapability: 'operator',
-		payloadSchema: { type: 'object', properties: { text: { type: 'string' } } },
-		writesTo: 'scene',
-		destinationClass: 'player-visible-state',
-	}),
-	entry('set-config', 'builder.catalog.setValue', 'Set value', {
-		requiredCapability: 'manager',
-		payloadSchema: { type: 'object', properties: { value: { type: 'string' } } },
-		writesTo: 'scene',
-		destinationClass: 'scene',
-	}),
-	entry('rename', 'builder.catalog.rename', 'Rename', {
-		requiredCapability: 'manager',
-		payloadSchema: { type: 'object', properties: { name: { type: 'string' } } },
-		writesTo: 'scene',
-		destinationClass: 'scene',
-	}),
-	entry('set-duration', 'builder.catalog.setDuration', 'Set duration', {
-		requiredCapability: 'manager',
-		payloadSchema: { type: 'object', properties: { seconds: { type: 'number' } } },
-		writesTo: 'scene',
-		destinationClass: 'scene',
-	}),
+	entry(
+		'write-note-line',
+		'builder.catalog.writeNoteLine',
+		'Write a note line',
+		{
+			requiredCapability: 'operator',
+			payloadSchema: { type: 'object', properties: { line: { type: 'string' } } },
+			writesTo: 'entity',
+			destinationClass: 'entity',
+			executor: 'write-note-line',
+		},
+		{ key: 'line', label: 'Line to write', control: 'text', group: 'content' },
+	),
+	entry(
+		'show',
+		'builder.catalog.show',
+		'Show to players',
+		{
+			requiredCapability: 'operator',
+			payloadSchema: { type: 'object', properties: { text: { type: 'string' } } },
+			writesTo: 'scene',
+			destinationClass: 'player-visible-state',
+			executor: 'show',
+		},
+		{ key: 'text', label: 'Message to show', control: 'textarea', group: 'content' },
+	),
+	entry(
+		'set-config',
+		'builder.catalog.setValue',
+		'Set value',
+		{
+			requiredCapability: 'manager',
+			payloadSchema: { type: 'object', properties: { value: { type: 'number' } } },
+			writesTo: 'scene',
+			destinationClass: 'scene',
+			executor: 'set-value',
+		},
+		{ key: 'value', label: 'Value to set', control: 'number', group: 'content', default: 0 },
+	),
+];
+
+/** The label each executor goes by in the "Runs" picker — the catalogue chip that adds it. */
+const EXECUTOR_LABEL: Record<WidgetCommandExecutor, MessageKey> = {
+	roll: 'builder.catalog.roll',
+	advance: 'builder.catalog.advance',
+	tick: 'builder.catalog.tick',
+	reset: 'builder.catalog.reset',
+	'set-value': 'builder.catalog.setValue',
+	show: 'builder.catalog.show',
+	'mark-complete': 'builder.catalog.markComplete',
+	'write-note-line': 'builder.catalog.writeNoteLine',
+	start: 'builder.catalog.start',
+	pause: 'builder.catalog.pause',
+	resume: 'builder.catalog.resume',
+};
+
+const executorOptions = (t: Translate) => [
+	{ value: '', label: t('builder.commands.runsNothing') },
+	...WIDGET_COMMAND_EXECUTORS.map((value) => ({ value, label: t(EXECUTOR_LABEL[value]) })),
 ];
 
 /**
@@ -248,7 +314,12 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 	const addCommand = (entry: CatalogEntry) => {
 		const descriptor = reconcileCommandAuthority(entry.descriptor(draft.typeId || 'widget'));
 		if (draft.commands.some((command) => command.type === descriptor.type)) return;
-		patch({ commands: [...draft.commands, descriptor] });
+		const seed = entry.field;
+		const seeded = seed && !draft.configFields.some((field) => field.key === seed.key);
+		patch({
+			commands: [...draft.commands, descriptor],
+			...(seeded ? { configFields: [...draft.configFields, { ...seed }] } : {}),
+		});
 	};
 
 	return (
@@ -358,6 +429,17 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											onChange={(e: { target: { value: string } }) =>
 												setCommand(index, { ...command, type: e.target.value.trim() })
 											}
+										/>
+									</Field>
+									<Field label={t('builder.commands.runs')} help={t('builder.commands.runsHelp')}>
+										<Select
+											value={command.executor ?? ''}
+											options={executorOptions(t)}
+											onChange={(e: { target: { value: string } }) => {
+												const { executor: _previous, ...rest } = command;
+												const value = e.target.value as WidgetCommandExecutor | '';
+												setCommand(index, value === '' ? rest : { ...rest, executor: value });
+											}}
 										/>
 									</Field>
 									<Field

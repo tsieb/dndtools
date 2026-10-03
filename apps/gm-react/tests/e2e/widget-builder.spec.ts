@@ -312,7 +312,7 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 		//    declared for a manager.
 		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
 		await dialog.getByRole('button', { name: 'Roll', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Set value', exact: true }).click();
 		await expect(dialog.getByText('Operate', { exact: true })).toBeVisible();
 		await expect(
 			dialog.getByText('This verb changes the widget, so only a campaign manager can fire it.'),
@@ -334,8 +334,8 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 			step: 1,
 			default: 4,
 		});
-		const rename = definition.commands.find((command) => command.type.endsWith('.rename'));
-		expect(rename?.requiredCapability).toBe('manager');
+		const setValue = definition.commands.find((command) => command.type.endsWith('.set-config'));
+		expect(setValue?.requiredCapability).toBe('manager');
 		expect(
 			definition.commands.find((command) => command.type.endsWith('.roll'))?.requiredCapability,
 		).toBe('operator');
@@ -499,7 +499,7 @@ test.describe('widget builder: accessibility', () => {
 		await dialog.getByRole('button', { name: 'Add config field' }).click();
 		await dialog.getByLabel('Control', { exact: true }).selectOption({ label: 'Number' });
 		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Rename', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Set value', exact: true }).click();
 
 		const results = await new AxeBuilder({ page })
 			.withTags(AXE_TAGS)

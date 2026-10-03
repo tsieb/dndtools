@@ -564,6 +564,10 @@ export type {
 	WidgetIntentKind,
 	WidgetIntentRoute,
 	WidgetIntentSettingsTab,
+	// RC-WID-6.1 — what runs a template widget's command.
+	WidgetCommandExecutor,
+	WidgetLastRoll,
+	WidgetShownMessage,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -597,7 +601,26 @@ export {
 	WIDGET_INTENT_ENTITY_KINDS,
 	WIDGET_INTENT_ROUTES,
 	WIDGET_INTENT_SETTINGS_TABS,
+	// RC-WID-6.1 — declared command executors and the per-instance state they keep.
+	CORE_NAMED_WIDGET_COMMANDS,
+	WIDGET_COMMAND_EXECUTORS,
+	WIDGET_COUNTER_EXECUTORS,
+	WIDGET_COUNTER_RESTORE_COMMAND,
+	WIDGET_COUNTER_STATE_KEY,
+	WIDGET_LAST_ROLL_STATE_KEY,
+	WIDGET_SHOWN_MESSAGE_STATE_KEY,
+	inferWidgetCommandExecutor,
+	readWidgetCounter,
+	readWidgetLastRoll,
+	readWidgetShownMessage,
+	widgetCommandHasExecutor,
 } from './state/widget-package-state';
+export type {
+	WidgetCommandAvailability,
+	WidgetCommandAvailabilityInput,
+	WidgetCommandUnavailableReason,
+} from './commands/widget-command';
+export { buildWidgetCommandInverse, widgetCommandAvailability } from './commands/widget-command';
 
 export type {
 	ActorId,

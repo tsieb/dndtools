@@ -57,16 +57,19 @@ export const LOOT_LEDGER_STARTER: StarterWidgetEntry = {
 			],
 			commands: [
 				{
-					type: 'content.update-item',
+					type: 'loot-ledger.write-note-line',
 					displayName: 'Write a split to the ledger',
 					requiredCapability: 'manager',
 					writesTo: 'entity',
 					destinationClass: 'entity',
 					targetBindingId: 'ledger',
+					// RC-WID-6.1 — appends one line to the bound ledger note through the note's own
+					// `content.update-item`, so the write is still the core's, under its edit check.
+					executor: 'write-note-line',
 					payloadSchema: {
 						type: 'object',
-						required: ['itemId', 'body'],
-						properties: { itemId: { type: 'string' }, body: { type: 'string' } },
+						required: ['line'],
+						properties: { line: { type: 'string' } },
 						additionalProperties: false,
 					},
 				},
@@ -75,13 +78,13 @@ export const LOOT_LEDGER_STARTER: StarterWidgetEntry = {
 				{
 					id: 'append-split',
 					label: 'Write a split to the ledger note',
-					commandType: 'content.update-item',
+					commandType: 'loot-ledger.write-note-line',
 					destinationClass: 'entity',
 					requiresConfirmation: true,
 					payloadSchema: {
 						type: 'object',
-						required: ['itemId', 'body'],
-						properties: { itemId: { type: 'string' }, body: { type: 'string' } },
+						required: ['line'],
+						properties: { line: { type: 'string' } },
 						additionalProperties: false,
 					},
 				},

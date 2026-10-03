@@ -73,6 +73,12 @@ export interface BoardWidget {
 	 */
 	bindingRef: { entityType: string; entityId: string } | null;
 	/**
+	 * RC-WID-6.1 — the instance's own runtime state (`WidgetInstance.localState`): the counter a
+	 * template's advance/tick/reset buttons move, the message `show` put up, the last roll. Optional so
+	 * hand-built view-models (the builder preview, fixtures) need not carry one.
+	 */
+	localState?: Record<string, unknown>;
+	/**
 	 * The `--widget-*` style tokens the definition DECLARES (`WidgetDefinition.style.tokens`,
 	 * RC-WID-2.4), listed in the scene Inspector's Style group. Optional so hand-built view-models
 	 * (the builder preview, test fixtures) that declare none need not spell out an empty list.
@@ -181,6 +187,7 @@ export function boardWidgetsOf(
 			description: def?.description ?? '',
 			visibility,
 			configuration: instance.configuration,
+			localState: instance.localState,
 			configFields: def?.configFields ?? [],
 			requiresBinding: (def?.requiredBindings?.length ?? 0) > 0,
 			commands: (def?.commands ?? []).map((command) => command.type),

@@ -93,7 +93,7 @@ const LOOT_LEDGER = {
 		{ id: 'party', label: 'Party', source: 'visible-characters' },
 	],
 	configFields: [{ key: 'show-value', label: 'Show gold value', control: 'toggle' }],
-	commands: [{ type: 'mark-sold', displayName: 'Mark as sold', writesTo: 'entity' }],
+	commands: [{ type: 'mark-complete', displayName: 'Mark as sold', writesTo: 'entity' }],
 	styleTokens: [{ name: 'accent', value: 'var(--color-accent)' }],
 } as const;
 
@@ -134,7 +134,8 @@ describe('widget.package.propose — a structured draft becomes a staged, instal
 			control: 'toggle',
 		});
 		expect(definition.widgets[0]!.commands[0]).toMatchObject({
-			type: 'mark-sold',
+			type: 'mark-complete',
+			executor: 'mark-complete',
 			writesTo: 'entity',
 		});
 	});

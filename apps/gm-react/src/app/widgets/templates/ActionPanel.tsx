@@ -1,13 +1,20 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+	WIDGET_COUNTER_EXECUTORS,
 	classifyWidgetCommand,
+	readWidgetCounter,
+	readWidgetLastRoll,
+	readWidgetShownMessage,
 	resolveWidgetIntent,
+	widgetCommandAvailability,
+	type WidgetCommandDescriptor,
+	type WidgetCommandUnavailableReason,
 	type WidgetDefinition,
 	type WidgetIntentDescriptor,
 } from '@dndtools/core';
 import { Button, Toaster } from '../../../ds';
-import { useI18n } from '../../../i18n';
+import { useI18n, type MessageKey } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import { decideIntent } from '../hostBridge';
@@ -50,6 +57,13 @@ import {
  * the viewer could not follow is not rendered at all (a player's panel has no button for a DM-only
  * character), and a press resolves again in case the campaign changed in between — a refusal is
  * dropped, audited by the host bridge, and said out loud rather than doing nothing.
+ *
+ * RC-WID-6.1 — every command a template declares names the executor the core runs it with, and a
+ * button whose executor reports UNAVAILABLE (no dice formula set, no note bound) is disabled with the
+ * reason as its tooltip — the same `widgetCommandAvailability` check the core runs before it
+ * executes, so the panel never offers a press the core will refuse for want of a setting. What the
+ * presses leave on the placed widget (the counter, the last roll, the message shown to players) is
+ * part of the readout.
  */
 export function ActionPanelTemplate({
 	widget,
@@ -82,24 +96,51 @@ export function ActionPanelTemplate({
 		);
 
 	const intents = definition?.intents ?? [];
+	// Why a button cannot run right now, or null. While the layout is being edited every button is
+	// inert for that reason first.
+	const blockedReason = (command: WidgetCommandDescriptor): string | null => {
+		if (!onCommand) return t('widgetTemplate.finishEditing');
+		const availability = widgetCommandAvailability({
+			descriptor: command,
+			payload: payloadFor(command),
+			binding: widget.bindingRef,
+			configuration: widget.configuration,
+		});
+		return availability.available
+			? null
+			: t(unavailableCopy(availability.reason, command.executor === 'mark-complete'));
+	};
+	const counted = declared.some(
+		(command) =>
+			command.executor !== undefined && WIDGET_COUNTER_EXECUTORS.includes(command.executor),
+	);
+	const lastRoll = readWidgetLastRoll(widget.localState);
+	const shown = readWidgetShownMessage(widget.localState);
 
 	const controls =
 		actions.length === 0 && intents.length === 0 ? (
 			<TemplateNote>{t('widgetTemplate.noActions')}</TemplateNote>
 		) : (
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-				{actions.map((command) => (
-					<Button
-						key={command.type}
-						size="sm"
-						variant="secondary"
-						aria-disabled={onCommand ? undefined : true}
-						title={onCommand ? undefined : t('widgetTemplate.finishEditing')}
-						onClick={onCommand ? () => onCommand(command.type, payloadFor(command)) : undefined}
-					>
-						{command.displayName}
-					</Button>
-				))}
+				{actions.map((command) => {
+					const blocked = blockedReason(command);
+					return (
+						<Button
+							key={command.type}
+							size="sm"
+							variant="secondary"
+							aria-disabled={blocked ? true : undefined}
+							title={blocked ?? undefined}
+							onClick={
+								blocked || !onCommand
+									? undefined
+									: () => onCommand(command.type, payloadFor(command))
+							}
+						>
+							{command.displayName}
+						</Button>
+					);
+				})}
 				{intents.length === 0 ? null : onIntent || !onCommand || !definition ? (
 					intents.map((intent) => (
 						<IntentButton
@@ -118,6 +159,28 @@ export function ActionPanelTemplate({
 	return (
 		<TemplateShell testId="widget-template-action-panel" controls={controls}>
 			{query?.header ? <TemplateNote>{query.header}</TemplateNote> : null}
+			{counted ? (
+				<TemplateNote>
+					<span data-widget-counter>
+						{t('widgetTemplate.counter')}: {readWidgetCounter(widget.localState)}
+					</span>
+				</TemplateNote>
+			) : null}
+			{lastRoll ? (
+				<TemplateNote>
+					<span data-widget-last-roll>
+						{t('widgetTemplate.lastRoll', {
+							expression: lastRoll.expression,
+							total: lastRoll.total,
+						})}
+					</span>
+				</TemplateNote>
+			) : null}
+			{shown ? (
+				<TemplateNote>
+					{t('widgetTemplate.shownToPlayers')}: {shown.text}
+				</TemplateNote>
+			) : null}
 			<ComputedFields data={data} />
 			{query && query.rows.length > 0 ? (
 				<TemplateNote>
@@ -128,6 +191,36 @@ export function ActionPanelTemplate({
 			)}
 		</TemplateShell>
 	);
+}
+
+/** The tooltip copy for each reason a command is unavailable. A missing binding names what to bind. */
+function unavailableCopy(reason: WidgetCommandUnavailableReason, wantsQuest: boolean): MessageKey {
+	switch (reason) {
+		case 'no-executor':
+			return 'widgetTemplate.unavailable.noExecutor';
+		case 'no-formula':
+			return 'widgetTemplate.unavailable.noFormula';
+		case 'bad-formula':
+			return 'widgetTemplate.unavailable.badFormula';
+		case 'no-bound-entity':
+			return wantsQuest
+				? 'widgetTemplate.unavailable.noBoundQuest'
+				: 'widgetTemplate.unavailable.noBoundNote';
+		case 'bound-entity-missing':
+			return 'widgetTemplate.unavailable.boundMissing';
+		case 'bound-entity-not-note':
+			return 'widgetTemplate.unavailable.noBoundNote';
+		case 'bound-entity-not-quest':
+			return 'widgetTemplate.unavailable.noBoundQuest';
+		case 'no-text':
+			return 'widgetTemplate.unavailable.noText';
+		case 'no-line':
+			return 'widgetTemplate.unavailable.noLine';
+		case 'no-value':
+			return 'widgetTemplate.unavailable.noValue';
+		case 'no-duration':
+			return 'widgetTemplate.unavailable.noDuration';
+	}
 }
 
 function IntentButton({

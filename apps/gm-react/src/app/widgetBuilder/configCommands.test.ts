@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	classifyWidgetCommand,
 	dispatchCommand,
+	widgetCommandHasExecutor,
 	type CoreCommand,
 	type WidgetConfigField,
 } from '@dndtools/core';
@@ -9,6 +10,7 @@ import { DM_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/tes
 import { configFieldProblems } from './ConfigStep';
 import { CATALOG, reconcileCommandAuthority, verbForcesConfigure } from './CommandsStep';
 import { buildPackage, emptyDraft } from './draft';
+import { firstBlockedStep, validateDraft } from './validate';
 
 /**
  * RC-WID-2.3 — the Config-fields and Commands steps.
@@ -150,5 +152,86 @@ describe('what the built package carries', () => {
 		expect(segments).toMatchObject({ min: 1, max: 12, step: 1, default: 4 });
 		// The catalogue's first entry is `roll`, an operate verb: reconciling leaves it alone.
 		expect(definition.commands[0]?.requiredCapability).toBe('operator');
+	});
+});
+
+describe('RC-WID-6.1: only commands something can run', () => {
+	it('names an executor on every catalogue entry, so nothing it offers fails at the table', () => {
+		for (const entry of CATALOG) {
+			expect(widgetCommandHasExecutor(entry.descriptor('fixture')), entry.label).toBe(true);
+		}
+		const types = CATALOG.map((entry) => entry.descriptor('fixture').type);
+		for (const gone of ['fixture.draw', 'fixture.rename', 'fixture.set-duration']) {
+			expect(types).not.toContain(gone);
+		}
+	});
+
+	it('seeds the setting a payload reads (Roll brings a dice formula)', () => {
+		const roll = CATALOG.find((entry) => entry.label === 'builder.catalog.roll')!;
+		expect(roll.field).toMatchObject({ key: 'formula', default: '1d20' });
+		expect(Object.keys(roll.descriptor('fixture').payloadSchema.properties ?? {})).toContain(
+			'formula',
+		);
+	});
+
+	it('flags a blank command on the Commands step, and the core refuses the same package', () => {
+		const blank = {
+			type: 'watch-clock.action-1',
+			displayName: 'Action 1',
+			requiredCapability: 'operator' as const,
+			payloadSchema: { type: 'object' as const },
+			writesTo: 'scene' as const,
+		};
+		const draft = {
+			...emptyDraft(),
+			name: 'Watch clock',
+			packageId: 'workspace.watch-clock',
+			typeId: 'watch-clock',
+			template: 'action-panel' as const,
+			commands: [blank],
+		};
+		const issues = validateDraft(draft);
+		expect(issues).toContainEqual({
+			step: 'commands',
+			field: 'commands',
+			message: 'builder.issue.commandNoExecutor',
+			values: { name: 'Action 1' },
+		});
+		expect(firstBlockedStep(issues)).toBe('commands');
+		const rejected = dispatchCommand(buildInitialState(DM_ACTOR), makeEnvironment(), {
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: buildPackage(draft) },
+		});
+		expect(rejected.status).toBe('rejected');
+
+		// Naming what it runs clears both.
+		const fixed = { ...draft, commands: [{ ...blank, executor: 'tick' as const }] };
+		expect(validateDraft(fixed).filter((issue) => issue.step === 'commands')).toEqual([]);
+		const accepted = dispatchCommand(buildInitialState(DM_ACTOR), makeEnvironment(), {
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: buildPackage(fixed) },
+		});
+		expect(accepted.status).toBe('accepted');
+	});
+
+	it('leaves a custom-code widget to its own code', () => {
+		const draft = {
+			...emptyDraft(),
+			runtime: 'custom-html-js' as const,
+			commands: [
+				{
+					type: 'watch-clock.ping',
+					displayName: 'Ping',
+					requiredCapability: 'operator' as const,
+					payloadSchema: { type: 'object' as const },
+					writesTo: 'scene' as const,
+				},
+			],
+		};
+		expect(
+			validateDraft(draft).some((issue) => issue.message === 'builder.issue.commandNoExecutor'),
+		).toBe(false);
 	});
 });

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isValidFormula } from '../state/system-package';
 import {
 	ALL_HOST_PERMISSIONS,
+	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_CREATE_TARGETS,
 	WIDGET_INTENT_ENTITY_KINDS,
@@ -62,6 +63,9 @@ const widgetCommandDescriptorSchema = z
 			])
 			.optional(),
 		targetBindingId: idSchema.optional(),
+		// RC-WID-6.1 — what in the core runs it. Whether a template widget's command NEEDS one is a
+		// package-level rule (`schema.command-no-executor` at install); here only the value is closed.
+		executor: z.enum(WIDGET_COMMAND_EXECUTORS).optional(),
 	})
 	.strict();
 

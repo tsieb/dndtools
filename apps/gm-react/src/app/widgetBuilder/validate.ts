@@ -1,5 +1,6 @@
 import {
 	isValidFormula,
+	widgetCommandHasExecutor,
 	widgetFormulaIdentifiers,
 	widgetQueryFormulaIdentifier,
 } from '@dndtools/core';
@@ -127,6 +128,13 @@ export function validateDraft(draft: WidgetDraft): DraftIssue[] {
 		else if (commandTypes.has(command.type))
 			add('commands', 'commands', 'builder.issue.commandDuplicate', { type: command.type });
 		commandTypes.add(command.type);
+		// RC-WID-6.1 — a template widget has no code to answer a press, so a command with nothing in
+		// the core to run it would install as a button that fails at the table. The core refuses it
+		// at install (`schema.command-no-executor`); this names it on the Commands step first.
+		if (command.type && draft.runtime === 'template' && !widgetCommandHasExecutor(command))
+			add('commands', 'commands', 'builder.issue.commandNoExecutor', {
+				name: command.displayName || command.type,
+			});
 	}
 
 	if (draft.runtime === 'custom-html-js') {

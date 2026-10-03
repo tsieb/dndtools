@@ -282,13 +282,15 @@ describe('each template renders its fixture package', () => {
 		renderTemplate(
 			ActionPanelTemplate,
 			fixturePackage('action-panel', {
+				configFields: [{ key: 'formula', label: 'Dice formula', control: 'text', default: '1d6' }],
 				commands: [
 					{
 						type: 'fixture.roll',
 						displayName: 'Roll the table',
 						requiredCapability: 'operator',
-						payloadSchema: { type: 'object' },
+						payloadSchema: { type: 'object', properties: { formula: { type: 'string' } } },
 						writesTo: 'session',
+						executor: 'roll',
 					},
 				],
 			}),
@@ -297,7 +299,79 @@ describe('each template renders its fixture package', () => {
 		const button = container.querySelector('button');
 		expect(button?.textContent).toContain('Roll the table');
 		act(() => button?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-		expect(dispatched).toEqual([['fixture.roll', {}]]);
+		expect(dispatched).toEqual([['fixture.roll', { formula: '1d6' }]]);
+	});
+
+	// RC-WID-6.1 — a button whose executor cannot run (no formula to roll, no note to write to) is
+	// disabled with the reason as its tooltip, and a press does nothing, rather than reaching the core
+	// only to be refused.
+	it('action-panel disables a command its executor reports unavailable, saying why', () => {
+		const dispatched: string[] = [];
+		renderTemplate(
+			ActionPanelTemplate,
+			fixturePackage('action-panel', {
+				commands: [
+					{
+						type: 'fixture.roll',
+						displayName: 'Roll',
+						requiredCapability: 'operator',
+						payloadSchema: { type: 'object', properties: { formula: { type: 'string' } } },
+						writesTo: 'session',
+						executor: 'roll',
+					},
+					{
+						type: 'fixture.write-note-line',
+						displayName: 'Write it down',
+						requiredCapability: 'operator',
+						payloadSchema: { type: 'object', properties: { line: { type: 'string' } } },
+						writesTo: 'entity',
+						executor: 'write-note-line',
+					},
+				],
+			}),
+			{
+				widget: { configuration: { line: 'Rang the bell.' } },
+				onCommand: (type) => dispatched.push(type),
+			},
+		);
+		const [roll, write] = Array.from(container.querySelectorAll('button'));
+		expect(roll?.getAttribute('aria-disabled')).toBe('true');
+		expect(roll?.getAttribute('title')).toBe('Set a dice formula in this widget’s settings first.');
+		expect(write?.getAttribute('aria-disabled')).toBe('true');
+		expect(write?.getAttribute('title')).toBe('Bind this widget to a note first.');
+		act(() => roll?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+		act(() => write?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+		expect(dispatched).toEqual([]);
+	});
+
+	it('action-panel reads out the counter and the last roll the presses left on the widget', () => {
+		const text = renderTemplate(
+			ActionPanelTemplate,
+			fixturePackage('action-panel', {
+				commands: [
+					{
+						type: 'fixture.advance',
+						displayName: 'Advance',
+						requiredCapability: 'operator',
+						payloadSchema: { type: 'object' },
+						writesTo: 'scene',
+						executor: 'advance',
+					},
+				],
+			}),
+			{
+				widget: {
+					localState: {
+						counter: 3,
+						lastRoll: { expression: '2d6', total: 9, rolledAt: '2026-10-03T00:00:00.000Z' },
+					},
+				},
+				onCommand: () => {},
+			},
+		);
+		expect(text).toContain('Count: 3');
+		expect(text).toContain('Rolled 2d6: 9');
+		expect(container.querySelector('button')?.getAttribute('aria-disabled')).toBeNull();
 	});
 
 	// RC-WID-1.6 — the starter Table Roller declares `dice.roll`, whose payload schema REQUIRES an
@@ -382,6 +456,7 @@ describe('each template renders its fixture package', () => {
 						requiredCapability: 'manager',
 						payloadSchema: { type: 'object' },
 						writesTo: 'session',
+						executor: 'reset',
 					},
 				],
 			}),
@@ -403,6 +478,7 @@ describe('each template renders its fixture package', () => {
 					requiredCapability: 'operator',
 					payloadSchema: { type: 'object' },
 					writesTo: 'scene',
+					executor: 'set-value',
 				},
 			],
 		});
@@ -477,21 +553,22 @@ describe('each template renders its fixture package', () => {
 			FormPanelTemplate,
 			fixturePackage('form-panel', {
 				configFields: [
-					{ key: 'entry', label: 'Loot entry', control: 'text', group: 'content' },
+					{ key: 'line', label: 'Loot entry', control: 'text', group: 'content' },
 					{ key: 'accent', label: 'Accent', control: 'color', group: 'style' },
 				],
 				commands: [
 					{
-						type: 'fixture.record',
+						type: 'fixture.write-note-line',
 						displayName: 'Record it',
 						requiredCapability: 'operator',
-						payloadSchema: { type: 'object', properties: { entry: { type: 'string' } } },
-						writesTo: 'session',
+						payloadSchema: { type: 'object', properties: { line: { type: 'string' } } },
+						writesTo: 'entity',
+						executor: 'write-note-line',
 					},
 				],
 			}),
 			{
-				widget: { configuration: { entry: 'A cracked signet ring' } },
+				widget: { configuration: { line: 'A cracked signet ring' } },
 				onCommand: (type, payload) => dispatched.push([type, payload]),
 			},
 		);
@@ -501,7 +578,7 @@ describe('each template renders its fixture package', () => {
 		expect(container.textContent).not.toContain('Accent');
 		const button = container.querySelector('button');
 		act(() => button?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-		expect(dispatched).toEqual([['fixture.record', { entry: 'A cracked signet ring' }]]);
+		expect(dispatched).toEqual([['fixture.write-note-line', { line: 'A cracked signet ring' }]]);
 	});
 
 	it('form-panel with no declared command shows settings instead of a dead form', () => {
@@ -579,6 +656,7 @@ describe('the widget accessibility contract', () => {
 						requiredCapability: 'operator',
 						payloadSchema: { type: 'object' },
 						writesTo: 'session',
+						executor: 'roll',
 					},
 				],
 			}),
@@ -592,14 +670,15 @@ describe('the widget accessibility contract', () => {
 		renderTemplate(
 			FormPanelTemplate,
 			fixturePackage('form-panel', {
-				configFields: [{ key: 'entry', label: 'Loot entry', control: 'text', group: 'content' }],
+				configFields: [{ key: 'line', label: 'Loot entry', control: 'text', group: 'content' }],
 				commands: [
 					{
-						type: 'fixture.record',
+						type: 'fixture.write-note-line',
 						displayName: 'Record it',
 						requiredCapability: 'operator',
-						payloadSchema: { type: 'object', properties: { entry: { type: 'string' } } },
-						writesTo: 'session',
+						payloadSchema: { type: 'object', properties: { line: { type: 'string' } } },
+						writesTo: 'entity',
+						executor: 'write-note-line',
 					},
 				],
 			}),

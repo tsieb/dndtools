@@ -83,6 +83,45 @@ target. The action-panel template renders one button per intent after its comman
 surface it omits any intent the viewer could not follow, resolves again on press, and reports a
 refusal. While the layout is being edited, the buttons are inert.
 
+### 2.2 Commands and executors
+
+A command a template widget declares is only a button if something in the core runs it. Each
+descriptor names that thing in `executor` (RC-WID-6.1), and `widget.dispatch-command`
+(`packages/core/src/commands/widget-command.ts`) routes a press to it after the authority and
+payload checks:
+
+| Executor                                | What a press does                                                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `roll`                                  | The session dice engine (`handleRollDice`) with the payload's `formula`; the result is also kept on the instance as `lastRoll`.        |
+| `advance`, `tick`, `reset`, `set-value` | A per-instance counter in the instance's `localState.counter` (`advance` adds `by`, default 1). Scene state: the scene revision moves. |
+| `show`                                  | A message for the players, kept on the instance as `localState.shownMessage`.                                                          |
+| `write-note-line`, `mark-complete`      | The bound entity through its own command (`content.update-item` appends a line to a note; `content.update-object` completes a quest).  |
+| `start`, `pause`, `resume`              | The session timer keyed by the instance; `start` takes the payload's `durationSeconds`, else the configured one.                       |
+
+The system Timer's `timer.*` and the Dice widget's `dice.roll` predate executors and are still run
+by name (`CORE_NAMED_WIDGET_COMMANDS`). Anything else is refused.
+
+**Install refuses what nothing can run.** `widget.package.install` and `widget.package.upgrade`
+reject a `template` widget that declares a command with no executor
+(`schema.command-no-executor`, naming the command). A custom widget is exempt: its code answers its
+own buttons. The builder names the same problem on the Commands step (`validate.ts`), so Review
+never offers to install it, and its catalogue only offers verbs that have an executor (Draw, Rename
+and Set duration had none and were removed). A catalogue pick also adds the setting its payload
+reads, so Roll arrives with a `formula` field defaulting to `1d20`. The MCP propose tool records the
+executor the command's verb names (`inferWidgetCommandExecutor`).
+
+**Unavailable is said before the press.** `widgetCommandAvailability()` reports why a command
+cannot run right now: no formula, a formula the dice parser rejects, no bound note or quest, nothing
+to show, no line, no value, no timer length. The action panel runs it on the payload it would send
+and disables the button with the reason as its tooltip; the core runs it again, with the vault, before
+executing, so the panel and the core cannot disagree.
+
+**Counter presses are undoable.** `buildWidgetCommandInverse()` turns an accepted counter press into
+the core-reserved `widget.counter-restore` command carrying the previous value, and
+`buildWidgetInverse()` hands it to the layout history. The restore is reachable only on a widget that
+declares a counter command, under that command's authority. A roll, a shown message or a note line
+has no inverse.
+
 ## 3. Rendering
 
 `WidgetRenderSlot.tsx` (`apps/gm-react/src/app/widgets/`) is the single render path on every
@@ -344,7 +383,8 @@ permission existed has no `navigate` key, and the host reads approvals only from
   unlabelled intent, and a custom widget whose intents lack `navigate` (`validateIntents`, in `draft.ts`); the core
   schema refuses duplicate ids and empty labels on Review. The iteration diff (`draftDiff.ts`)
   prints each intent with its destination, so a re-run that keeps a label but changes the target,
-  kind, route, tab or creation target shows up as a change and can be applied.
+  kind, route, tab or creation target shows up as a change and can be applied. Each command row
+  has a "Runs" picker for its executor; a template command without one blocks Review (§2.2).
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;
@@ -367,21 +407,22 @@ instances, the same render resolver and the same core mutation path; flow is not
 
 ## 8. Where to look
 
-| Concern                                  | Location                                                                                                                                                                                |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                       |
-| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                |
-| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                  |
-| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                           |
-| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                            |
-| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                 |
-| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                             |
-| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                                                                      |
-| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                        |
-| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                           |
-| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                |
-| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                          |
-| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts` |
+| Concern                                  | Location                                                                                                                                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                                                  |
+| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                                           |
+| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                                             |
+| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                                                      |
+| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                                                       |
+| Command executors and availability       | `packages/core/src/commands/widget-command.ts` (`widgetCommandAvailability`, `buildWidgetCommandInverse`)                                                                                                          |
+| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                                            |
+| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                                                        |
+| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                                                                                                 |
+| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                                                   |
+| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                                                      |
+| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                           |
+| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                     |
+| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts` |
 
 ## 9. Widget gallery
 

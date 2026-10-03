@@ -156,6 +156,169 @@ export interface WidgetCommandDescriptor {
 	writesTo: 'scene' | 'session' | 'entity';
 	destinationClass?: WidgetOutputDestinationClass;
 	targetBindingId?: string;
+	/**
+	 * RC-WID-6.1 — what in the core runs this command when it is pressed. A template widget has no
+	 * code of its own, so a command it declares is only a button if one of these stands behind it;
+	 * install refuses a template command that names none (see {@link widgetCommandHasExecutor}).
+	 */
+	executor?: WidgetCommandExecutor;
+}
+
+/**
+ * RC-WID-6.1 — the closed set of things the core can do when a template widget's button is pressed.
+ *
+ * - `roll` — the session dice engine, with the formula the payload carries (`formula`).
+ * - `advance` / `tick` / `reset` / `set-value` — a per-instance counter kept in the placed widget's
+ *   `localState` (`advance` adds `by`, default 1; `tick` adds 1; `reset` returns to 0; `set-value`
+ *   sets `value`). Undoable through {@link WIDGET_COUNTER_RESTORE_COMMAND}.
+ * - `show` — a message the players can see, kept on the placed widget (`text`).
+ * - `mark-complete` / `write-note-line` — the BOUND entity, through its own existing commands
+ *   (`content.update-object` on a quest, `content.update-item` on a note), so the presser needs the
+ *   same edit right they would need anywhere else.
+ * - `start` / `pause` / `resume` — the session timer keyed by the placed widget.
+ */
+export type WidgetCommandExecutor =
+	| 'roll'
+	| 'advance'
+	| 'tick'
+	| 'reset'
+	| 'set-value'
+	| 'show'
+	| 'mark-complete'
+	| 'write-note-line'
+	| 'start'
+	| 'pause'
+	| 'resume';
+
+export const WIDGET_COMMAND_EXECUTORS = [
+	'roll',
+	'advance',
+	'tick',
+	'reset',
+	'set-value',
+	'show',
+	'mark-complete',
+	'write-note-line',
+	'start',
+	'pause',
+	'resume',
+] as const satisfies readonly WidgetCommandExecutor[];
+
+/** The executors that write the per-instance counter. */
+export const WIDGET_COUNTER_EXECUTORS: readonly WidgetCommandExecutor[] = Object.freeze([
+	'advance',
+	'tick',
+	'reset',
+	'set-value',
+]);
+
+/**
+ * Command types the core runs BY NAME, from before executors were declared: the system Timer's
+ * `timer.*` and the Dice widget's `dice.roll`. A descriptor carrying one of these needs no executor.
+ */
+export const CORE_NAMED_WIDGET_COMMANDS: readonly string[] = Object.freeze([
+	'timer.start',
+	'timer.pause',
+	'timer.resume',
+	'timer.reset',
+	'timer.advance',
+	'timer.set-duration',
+	'dice.roll',
+]);
+
+/**
+ * The core-reserved command type that puts a widget's counter back to a given value — the inverse
+ * of a counter press. Only a widget that declares a counter command accepts it, under that
+ * command's own authority; it is never declared by a package.
+ */
+export const WIDGET_COUNTER_RESTORE_COMMAND = 'widget.counter-restore';
+
+/** Where the counter and the shown message live in a placed widget's `localState`. */
+export const WIDGET_COUNTER_STATE_KEY = 'counter';
+export const WIDGET_SHOWN_MESSAGE_STATE_KEY = 'shownMessage';
+export const WIDGET_LAST_ROLL_STATE_KEY = 'lastRoll';
+
+/** The last `roll` a placed widget made, kept so the panel that rolled can say what came up. */
+export interface WidgetLastRoll {
+	expression: string;
+	total: number;
+	rolledAt: string;
+}
+
+export interface WidgetShownMessage {
+	text: string;
+	shownAt: string;
+	shownBy: ActorId;
+}
+
+/** Whether pressing this command would reach something in the core that can run it. */
+export function widgetCommandHasExecutor(
+	descriptor: Pick<WidgetCommandDescriptor, 'type' | 'executor'>,
+): boolean {
+	if (descriptor.executor !== undefined) {
+		return (WIDGET_COMMAND_EXECUTORS as readonly string[]).includes(descriptor.executor);
+	}
+	return CORE_NAMED_WIDGET_COMMANDS.includes(descriptor.type);
+}
+
+const EXECUTOR_BY_VERB: Readonly<Record<string, WidgetCommandExecutor>> = Object.freeze({
+	roll: 'roll',
+	advance: 'advance',
+	tick: 'tick',
+	reset: 'reset',
+	'set-value': 'set-value',
+	'set-config': 'set-value',
+	show: 'show',
+	'mark-complete': 'mark-complete',
+	'write-note-line': 'write-note-line',
+	start: 'start',
+	pause: 'pause',
+	resume: 'resume',
+});
+
+/**
+ * The executor a command type's trailing verb names (`encounter.roll` → `roll`), or `null` when the
+ * verb names none. For producers that only have a verb to go on (the MCP draft); an author's own
+ * declaration always wins over it.
+ */
+export function inferWidgetCommandExecutor(commandType: string): WidgetCommandExecutor | null {
+	const verb = commandType.slice(commandType.lastIndexOf('.') + 1);
+	return EXECUTOR_BY_VERB[verb] ?? null;
+}
+
+/** The counter on a placed widget; 0 until something has moved it. */
+export function readWidgetCounter(localState: Record<string, unknown> | undefined): number {
+	const value = localState?.[WIDGET_COUNTER_STATE_KEY];
+	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+/** The last roll a placed widget made, or `null`. */
+export function readWidgetLastRoll(
+	localState: Record<string, unknown> | undefined,
+): WidgetLastRoll | null {
+	const value = localState?.[WIDGET_LAST_ROLL_STATE_KEY] as Partial<WidgetLastRoll> | undefined;
+	if (!value || typeof value.expression !== 'string' || typeof value.total !== 'number')
+		return null;
+	return {
+		expression: value.expression,
+		total: value.total,
+		rolledAt: typeof value.rolledAt === 'string' ? value.rolledAt : '',
+	};
+}
+
+/** The message a placed widget is showing the players, or `null`. */
+export function readWidgetShownMessage(
+	localState: Record<string, unknown> | undefined,
+): WidgetShownMessage | null {
+	const value = localState?.[WIDGET_SHOWN_MESSAGE_STATE_KEY] as
+		| Partial<WidgetShownMessage>
+		| undefined;
+	if (!value || typeof value.text !== 'string' || value.text === '') return null;
+	return {
+		text: value.text,
+		shownAt: typeof value.shownAt === 'string' ? value.shownAt : '',
+		shownBy: typeof value.shownBy === 'string' ? value.shownBy : '',
+	};
 }
 
 /**

@@ -3820,6 +3820,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'La clave de ajuste {key} aparece dos veces. Renombra o quita una.',
 	'builder.issue.commandType': 'Cada comando necesita un tipo.',
 	'builder.issue.commandDuplicate': 'La acción {type} aparece dos veces. Renombra o quita una.',
+	'builder.issue.commandNoExecutor':
+		'{name} no tiene nada que lo ejecute en la mesa. Elige qué ejecuta o quítalo.',
 	'builder.issue.tokenName': 'Cada token de estilo necesita un nombre.',
 	'builder.issue.tokenDuplicate':
 		'El token de estilo {name} aparece dos veces. Renombra o quita uno.',
@@ -3981,6 +3983,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.commands.writesTo': 'Escribe en',
 	'builder.commands.destination': 'Destino',
 	'builder.commands.destinationHelp': 'A qué clase de datos llega este comando.',
+	'builder.commands.runs': 'Ejecuta',
+	'builder.commands.runsHelp': 'Lo que pasa en la mesa al pulsar este botón.',
+	'builder.commands.runsNothing': 'Nada todavía: elige una',
 	'builder.intents.title': 'Abrir y crear',
 	'builder.intents.help':
 		'Botones que llevan a quien los pulsa a otro sitio: una pantalla, un personaje, un mapa, una nota, una misión, una página, una pestaña de Ajustes o el inicio de algo nuevo. No cambian nada por sí mismos y cada persona solo recibe los que ya podría abrir.',
@@ -4031,14 +4036,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.config.defaultAboveMax': 'Reduce el valor predeterminado hasta el máximo o menos.',
 	'builder.config.defaultNotAChoice': 'Elige un valor predeterminado de la lista de opciones.',
 	'builder.config.choicesEmpty': 'Añade al menos una opción.',
-	'builder.catalog.draw': 'Robar',
 	'builder.catalog.start': 'Iniciar',
 	'builder.catalog.pause': 'Pausar',
 	'builder.catalog.resume': 'Reanudar',
 	'builder.catalog.markComplete': 'Marcar como completado',
 	'builder.catalog.writeNoteLine': 'Escribir una línea de nota',
-	'builder.catalog.rename': 'Renombrar',
-	'builder.catalog.setDuration': 'Fijar la duración',
 	'builder.commands.verbForcesManager':
 		'Este verbo cambia el widget, así que solo un gestor de campaña puede ejecutarlo.',
 	'builder.commandKind.operate': 'Operación',
@@ -5072,6 +5074,24 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetTemplate.noActions': 'Este widget todavía no declara ninguna acción.',
 	'widgetTemplate.finishEditing': 'Termina de editar la disposición para usar esto.',
 	'widgetTemplate.intentUnavailable': 'Eso ya no está disponible para abrir.',
+	'widgetTemplate.counter': 'Cuenta',
+	'widgetTemplate.lastRoll': 'Tirada {expression}: {total}',
+	'widgetTemplate.shownToPlayers': 'Mostrado a los jugadores',
+	'widgetTemplate.unavailable.noExecutor': 'Nada en Lamplight ejecuta esta acción.',
+	'widgetTemplate.unavailable.noFormula':
+		'Primero fija una fórmula de dados en los ajustes de este widget.',
+	'widgetTemplate.unavailable.badFormula':
+		'La fórmula de dados de los ajustes de este widget no se puede tirar.',
+	'widgetTemplate.unavailable.noBoundNote': 'Primero vincula este widget a una nota.',
+	'widgetTemplate.unavailable.noBoundQuest': 'Primero vincula este widget a una misión.',
+	'widgetTemplate.unavailable.boundMissing': 'La entidad vinculada ya no existe.',
+	'widgetTemplate.unavailable.noText':
+		'Primero escribe el mensaje que mostrar en los ajustes de este widget.',
+	'widgetTemplate.unavailable.noLine':
+		'Primero escribe la línea que añadir en los ajustes de este widget.',
+	'widgetTemplate.unavailable.noValue': 'Primero fija el valor en los ajustes de este widget.',
+	'widgetTemplate.unavailable.noDuration':
+		'Primero fija la duración del temporizador en los ajustes de este widget.',
 	'widgetTemplate.noFields': 'Este formulario todavía no tiene campos.',
 	'widgetTemplate.noAction':
 		'Este formulario todavía no tiene acción, así que muestra sus ajustes actuales.',

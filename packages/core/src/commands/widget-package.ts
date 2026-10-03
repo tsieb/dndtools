@@ -23,7 +23,9 @@ import type {
 } from '../state/widget-package-state';
 import {
 	ALL_HOST_PERMISSIONS,
+	WIDGET_COMMAND_EXECUTORS,
 	findPackageRecordForWidgetType,
+	widgetCommandHasExecutor,
 } from '../state/widget-package-state';
 import type { SystemsState } from '../state/system-package';
 import { resolveCustomWidgetRuntimePolicy } from '../security/custom-widget-runtime';
@@ -187,6 +189,18 @@ function validateWidgetPackageDefinition(
 			}
 		}
 		for (const command of widget.commands) {
+			// RC-WID-6.1 — a template widget has no code to handle a press itself, so every command it
+			// declares must name something in the core that runs it. Without one the button would
+			// install, render, and fail at the table; refuse it here, with the reason, instead.
+			if (widget.renderEntrypoint?.runtime === 'template' && !widgetCommandHasExecutor(command)) {
+				diagnostics.push(
+					diagnostic(
+						env,
+						'schema.command-no-executor',
+						`Command ${command.type} on template widget ${widget.type} has nothing in the core to run it. Declare an executor (${WIDGET_COMMAND_EXECUTORS.join(', ')}) or remove the command.`,
+					),
+				);
+			}
 			if (
 				command.targetBindingId &&
 				![...widget.requiredBindings, ...widget.optionalBindings].some(

@@ -3893,6 +3893,8 @@ export default {
 	'builder.issue.commandType': '[Éṽéŕý çóḿḿáñď ñééďš á ţýƥé.~~~~ ~~~~ ~]',
 	'builder.issue.commandDuplicate':
 		'[Áçţíóñ ~~~{type} íš ľíšţéď ţŵíçé. Ŕéñáḿé óŕ ŕéḿóṽé óñé.~~~~ ~~~~ ~~~~ ~]',
+	'builder.issue.commandNoExecutor':
+		'[{name} ĥáš ñóţĥíñğ ţó ŕúñ íţ áţ ţĥé ţáƀľé. Ƥíçķ ŵĥáţ íţ ŕúñš, óŕ ŕéḿóṽé íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'builder.issue.tokenName': '[Éṽéŕý šţýľé ţóķéñ ñééďš á ñáḿé.~~~~ ~~~~ ~~~]',
 	'builder.issue.tokenDuplicate':
 		'[Šţýľé ţóķéñ ~~~~ {name} íš ľíšţéď ţŵíçé. Ŕéñáḿé óŕ ŕéḿóṽé óñé.~~~~ ~~~~ ~~~~ ~]',
@@ -4051,6 +4053,10 @@ export default {
 	'builder.commands.writesTo': '[Ŵŕíţéš ţó~~~~]',
 	'builder.commands.destination': '[Ďéšţíñáţíóñ~~~~ ]',
 	'builder.commands.destinationHelp': '[Ŵĥáţ çľášš óƒ ďáţá ţĥíš çóḿḿáñď ŕéáçĥéš.~~~~ ~~~~ ~~~~ ~]',
+	'builder.commands.runs': '[Ŕúñš~~]',
+	'builder.commands.runsHelp':
+		'[Ŵĥáţ ĥáƥƥéñš áţ ţĥé ţáƀľé ŵĥéñ ţĥíš ƀúţţóñ íš ƥŕéššéď.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'builder.commands.runsNothing': '[Ñóţĥíñğ ýéţ — ƥíçķ óñé~~~~ ~~~~]',
 	'builder.intents.title': '[Óƥéñ áñď çŕéáţé~~~~ ~]',
 	'builder.intents.help':
 		'[Ɓúţţóñš ţĥáţ ţáķé ŵĥóéṽéŕ ƥŕéššéš ţĥéḿ šóḿéŵĥéŕé: á šçŕééñ, á çĥáŕáçţéŕ, á ḿáƥ, á ñóţé, á ɋúéšţ, á ƥáğé, á Šéţţíñğš ţáƀ, óŕ ţĥé šţáŕţ óƒ šóḿéţĥíñğ ñéŵ. Ţĥéý çĥáñğé ñóţĥíñğ ţĥéḿšéľṽéš, áñď éáçĥ ṽíéŵéŕ óñľý ğéţš ţĥé óñéš ţĥéý çóúľď áľŕéáďý óƥéñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
@@ -4106,14 +4112,11 @@ export default {
 	'builder.config.defaultNotAChoice':
 		'[Çĥóóšé á ďéƒáúľţ ṽáľúé ƒŕóḿ ţĥé ľíšţéď çĥóíçéš.~~~~ ~~~~ ~~~~ ~~~~]',
 	'builder.config.choicesEmpty': '[Áďď áţ ľéášţ óñé çĥóíçé.~~~~ ~~~~ ]',
-	'builder.catalog.draw': '[Ďŕáŵ~~]',
 	'builder.catalog.start': '[Šţáŕţ~~]',
 	'builder.catalog.pause': '[Ƥáúšé~~]',
 	'builder.catalog.resume': '[Ŕéšúḿé~~~]',
 	'builder.catalog.markComplete': '[Ḿáŕķ çóḿƥľéţé~~~~ ~]',
 	'builder.catalog.writeNoteLine': '[Ŵŕíţé á ñóţé ľíñé~~~~ ~~]',
-	'builder.catalog.rename': '[Ŕéñáḿé~~~]',
-	'builder.catalog.setDuration': '[Šéţ ďúŕáţíóñ~~~~ ]',
 	'builder.commands.verbForcesManager':
 		'[Ţĥíš ṽéŕƀ çĥáñğéš ţĥé ŵíďğéţ, šó óñľý á çáḿƥáíğñ ḿáñáğéŕ çáñ ƒíŕé íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'builder.commandKind.operate': '[Óƥéŕáţé~~~]',
@@ -5247,6 +5250,26 @@ export default {
 	'widgetTemplate.noActions': '[Ţĥíš ŵíďğéţ ďéçľáŕéš ñó áçţíóñš ýéţ.~~~~ ~~~~ ~~~~ ]',
 	'widgetTemplate.finishEditing': '[Ƒíñíšĥ éďíţíñğ ţĥé ľáýóúţ ţó úšé ţĥíš.~~~~ ~~~~ ~~~~ ~]',
 	'widgetTemplate.intentUnavailable': "[Ţĥáţ íšñ'ţ áṽáíľáƀľé ţó óƥéñ áñý ḿóŕé.~~~~ ~~~~ ~~~~ ~]",
+	'widgetTemplate.counter': '[Çóúñţ~~]',
+	'widgetTemplate.lastRoll': '[Ŕóľľéď ~~~{expression}: ~{total}]',
+	'widgetTemplate.shownToPlayers': '[Šĥóŵñ ţó ƥľáýéŕš~~~~ ~~]',
+	'widgetTemplate.unavailable.noExecutor':
+		'[Ñóţĥíñğ íñ Ľáḿƥľíğĥţ ŕúñš ţĥíš áçţíóñ.~~~~ ~~~~ ~~~~ ~]',
+	'widgetTemplate.unavailable.noFormula':
+		'[Šéţ á ďíçé ƒóŕḿúľá íñ ţĥíš ŵíďğéţ’š šéţţíñğš ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'widgetTemplate.unavailable.badFormula':
+		'[Ţĥé ďíçé ƒóŕḿúľá íñ ţĥíš ŵíďğéţ’š šéţţíñğš çáñ’ţ ƀé ŕóľľéď.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'widgetTemplate.unavailable.noBoundNote': '[Ɓíñď ţĥíš ŵíďğéţ ţó á ñóţé ƒíŕšţ.~~~~ ~~~~ ~~~~]',
+	'widgetTemplate.unavailable.noBoundQuest': '[Ɓíñď ţĥíš ŵíďğéţ ţó á ɋúéšţ ƒíŕšţ.~~~~ ~~~~ ~~~~]',
+	'widgetTemplate.unavailable.boundMissing': '[Ţĥé ƀóúñď éñţíţý ñó ľóñğéŕ éẋíšţš.~~~~ ~~~~ ~~~~]',
+	'widgetTemplate.unavailable.noText':
+		'[Ŵŕíţé ţĥé ḿéššáğé ţó šĥóŵ íñ ţĥíš ŵíďğéţ’š šéţţíñğš ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'widgetTemplate.unavailable.noLine':
+		'[Ŵŕíţé ţĥé ľíñé ţó áďď íñ ţĥíš ŵíďğéţ’š šéţţíñğš ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'widgetTemplate.unavailable.noValue':
+		'[Šéţ ţĥé ṽáľúé íñ ţĥíš ŵíďğéţ’š šéţţíñğš ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~]',
+	'widgetTemplate.unavailable.noDuration':
+		'[Šéţ ţĥé ţíḿéŕ ľéñğţĥ íñ ţĥíš ŵíďğéţ’š šéţţíñğš ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'widgetTemplate.noFields': '[Ţĥíš ƒóŕḿ ĥáš ñó ƒíéľďš ýéţ.~~~~ ~~~~ ~~]',
 	'widgetTemplate.noAction':
 		'[Ţĥíš ƒóŕḿ ĥáš ñó áçţíóñ ýéţ, šó íţ šĥóŵš íţš çúŕŕéñţ šéţţíñğš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',

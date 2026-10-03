@@ -19,6 +19,16 @@ import {
 	scaffoldCustomWidgetPackageDraft,
 } from '../queries/widget-package-review';
 import type { mcpWidgetPackageProposeInputSchema } from './tool-registry';
+import {
+	inferWidgetCommandExecutor,
+	type WidgetCommandExecutor,
+} from '../state/widget-package-state';
+
+/** The executor a drafted command's verb names, spread into its descriptor only when there is one. */
+function executorFor(commandType: string): { executor?: WidgetCommandExecutor } {
+	const executor = inferWidgetCommandExecutor(commandType);
+	return executor ? { executor } : {};
+}
 
 /**
  * MCP-004 / MCP-011 (composition seam) — the SINGLE, FAIL-CLOSED ENTRY POINT for every MCP tool call.
@@ -652,6 +662,10 @@ export function writeCommandPayload(
 					// derived: it defaults to `writesTo`, which is never a lower-privilege destination.
 					payloadSchema: { type: 'object' as const, additionalProperties: true },
 					writesTo: command.writesTo,
+					// RC-WID-6.1 — the draft names a verb, not an executor; record the one the verb
+					// names. A verb that names none stays without, and install refuses the package
+					// with the reason rather than installing a button that cannot run.
+					...executorFor(command.type),
 				})),
 				...(draft.styleTokens.length > 0
 					? { styleTokens: draft.styleTokens.map((token) => ({ ...token })) }
