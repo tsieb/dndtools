@@ -64,6 +64,24 @@ export const QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, MessageKey> = {
 	maps: 'builder.source.maps',
 	'content-objects': 'builder.source.contentObjects',
 	binding: 'builder.source.binding',
+	// RC-WID-5.2 — the hub sources, in `ALL_WIDGET_DATA_QUERY_SOURCES` order.
+	screens: 'builder.source.screens',
+	'vault-counts': 'builder.source.vaultCounts',
+	party: 'builder.source.party',
+	campaign: 'builder.source.campaign',
+	'dice-history': 'builder.source.diceHistory',
+	handouts: 'builder.source.handouts',
+	'rollable-tables': 'builder.source.rollableTables',
+	'quick-reference': 'builder.source.quickReference',
+	'session-archives': 'builder.source.sessionArchives',
+	'continuity-digest': 'builder.source.continuityDigest',
+	'rest-log': 'builder.source.restLog',
+	presence: 'builder.source.presence',
+	'player-projections': 'builder.source.playerProjections',
+	'initiative-call': 'builder.source.initiativeCall',
+	'combatant-status': 'builder.source.combatantStatus',
+	'capture-candidates': 'builder.source.captureCandidates',
+	'widget-library': 'builder.source.widgetLibrary',
 };
 
 export const QUERY_SOURCES = Object.keys(QUERY_SOURCE_LABEL) as WidgetDataQuerySource[];

@@ -46,7 +46,27 @@ export type WidgetDataQuerySource =
 	| 'notes'
 	| 'maps'
 	| 'content-objects'
-	| 'binding';
+	| 'binding'
+	// RC-WID-5.2 — the hub sources the SCREENS_PARITY matrix (§4.1 G-02) needs to rebuild the Command
+	// Center and the Session console out of templates. Each resolves through an existing actor-scoped
+	// core read; none adds a read of its own.
+	| 'screens'
+	| 'vault-counts'
+	| 'party'
+	| 'campaign'
+	| 'dice-history'
+	| 'handouts'
+	| 'rollable-tables'
+	| 'quick-reference'
+	| 'session-archives'
+	| 'continuity-digest'
+	| 'rest-log'
+	| 'presence'
+	| 'player-projections'
+	| 'initiative-call'
+	| 'combatant-status'
+	| 'capture-candidates'
+	| 'widget-library';
 export type WidgetOutputDestinationClass =
 	| 'scene'
 	| 'session'
@@ -494,6 +514,23 @@ export const ALL_WIDGET_DATA_QUERY_SOURCES = [
 	'maps',
 	'content-objects',
 	'binding',
+	'screens',
+	'vault-counts',
+	'party',
+	'campaign',
+	'dice-history',
+	'handouts',
+	'rollable-tables',
+	'quick-reference',
+	'session-archives',
+	'continuity-digest',
+	'rest-log',
+	'presence',
+	'player-projections',
+	'initiative-call',
+	'combatant-status',
+	'capture-candidates',
+	'widget-library',
 ] as const satisfies readonly WidgetDataQuerySource[];
 
 export const EMPTY_WIDGET_PACKAGE_STATE: WidgetPackageState = Object.freeze({

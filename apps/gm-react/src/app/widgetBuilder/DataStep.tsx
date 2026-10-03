@@ -11,7 +11,13 @@ import {
 } from '@dndtools/core';
 import { Checkbox, Field, Input, Select } from '../../ds';
 import { T } from '../screen-kit';
-import { BindingRows, nextBindingId } from './DataStepBindings';
+import {
+	BindingRows,
+	QueryPreview,
+	SourceCatalogue,
+	nextBindingId,
+	useQueryReadings,
+} from './DataStepBindings';
 import { slugify } from './draft';
 import {
 	FieldGrid,
@@ -49,7 +55,9 @@ import { useI18n } from '../../i18n';
  *   query is a declaration, not a fetch: `app/widgets/dataEnvironment.ts` resolves it per viewer at
  *   render time, so a `DM only` query yields no rows at all to a player and the template says so
  *   rather than looking empty. That is why the audience picker matters more than it looks — and why
- *   the preview's "Preview as player" is the control to check it with.
+ *   the preview's "Preview as player" is the control to check it with. Each query card also shows
+ *   its live reading, for the author and for a player, and "Every source" lists all of them with
+ *   what each holds right now (RC-WID-5.2).
  * - COMPUTED FIELDS reduce those queries to one value. Left automatic, each value type has a
  *   declared reduction. Given a formula, it is the SYS-1.1 declarative grammar over the four
  *   aggregate columns every query exposes — arithmetic and nothing else: no property access, no way
@@ -66,6 +74,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 
 	const allBindings = [...draft.requiredBindings, ...draft.optionalBindings];
 	const identifiers = widgetFormulaIdentifiers(draft.dataQueries);
+	const readings = useQueryReadings(draft.dataQueries);
 
 	// The seed labels below are written into the built package, so like every other stored label
 	// they stay in the source language until the author renames them.
@@ -278,9 +287,19 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									</div>
 								</fieldset>
 							)}
+							<QueryPreview
+								you={readings.you[index]}
+								player={readings.player[index]}
+								testId={`widget-builder-query-preview-${index}`}
+								title={t('builder.data.preview')}
+							/>
 						</RowCard>
 					))}
 				</RowList>
+			</StepSection>
+
+			<StepSection title={t('builder.data.sources')} help={t('builder.data.sourcesHelp')}>
+				<SourceCatalogue />
 			</StepSection>
 
 			<StepSection title={t('builder.data.computed')} help={t('builder.data.computedHelp')}>

@@ -90,8 +90,8 @@ surface. `resolveRenderer()` picks `builtin` | `template` | `custom` | `placehol
 throws; a failing renderer yields `WidgetPlaceholder.tsx` with the diagnostic and
 `coreStateAvailable: true`. Template renderers (`app/widgets/templates/`: data table, status list,
 tracker, action panel, scene message, chart, stat block, form panel) read `dataQueries` through
-`dataEnvironment.ts`, which resolves the eight query sources against actor-filtered core reads and
-honours `audience`. Built-in bodies (`app/widgets/builtin/`) cover the system widgets: Map, Audio,
+`dataEnvironment.ts`, which resolves every query source (§3.2) against actor-filtered core reads
+and honours `audience`. Built-in bodies (`app/widgets/builtin/`) cover the system widgets: Map, Audio,
 combat, notes, atlas, search, session, tools, player views, and the rest.
 
 ### 3.1 Accessibility contract
@@ -146,6 +146,56 @@ a Tab-only walk that drives every operate command the builtins declare; and the 
 
 The map tile renders token and POI markers as decorative glyphs, not controls. Its map canvas
 receives empty marker arrays, so scaled markers do not introduce undersized button targets.
+
+### 3.2 Query sources
+
+`ALL_WIDGET_DATA_QUERY_SOURCES` (`packages/core/src/state/widget-package-state.ts`) is the one list
+of sources. The persisted schema, the `widget.package.propose` tool and the builder's source picker
+all read it. `resolveWidgetTemplateData` maps each source onto an existing actor-scoped core read
+and adds no filtering of its own. Where it touches a record directly, it does so only for an id that
+read has just returned. A query declared `audience: 'dm'` (or `requiredCapability: 'manager'`)
+returns no rows to a non-DM viewer, whatever the read would have returned. RC-WID-5.2 added the hub
+sources the SCREENS_PARITY gap register (§4.1 G-02) lists.
+
+| Source               | Core read                                                       | A player receives                                                       |
+| -------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `current-combatants` | `getCombatTrackerForActor`                                      | Visible combatants; vitals only where the tracker exposes them          |
+| `visible-characters` | `getPartyOverviewForActor`                                      | The characters they may see                                             |
+| `selected-scene`     | `listScenesForActor`                                            | Scenes they may open                                                    |
+| `session-state`      | workflow + `listScenesForActor` + tracker                       | Active scene named only if visible                                      |
+| `notes`              | `getContentItemsForActor` (notes)                               | Visible notes                                                           |
+| `maps`               | `listMapsForActor`                                              | Visible maps                                                            |
+| `content-objects`    | `getContentItemsForActor` (objects)                             | Visible objects                                                         |
+| `binding`            | the board's binding status                                      | The board's own availability verdict                                    |
+| `screens`            | `listScreensForActor`                                           | Visible screens; widget count scoped to their sections; live flag       |
+| `vault-counts`       | characters, maps and content `*ForActor`                        | Counts of what they may list, never vault totals                        |
+| `party`              | `getPartyOverviewForActor` (PCs)                                | Visible PCs with initials (`avatar`) and vitals                         |
+| `campaign`           | `getActiveSystemForActor`, scenes, `getCalendarContextForActor` | Name, system, live screen only if visible, workflow, date, own identity |
+| `dice-history`       | `getDiceHistoryForActor`                                        | Rolls they may see; the hidden count is never surfaced                  |
+| `handouts`           | `getHandoutsForActor`                                           | Handouts delivered to them                                              |
+| `rollable-tables`    | content `*ForActor` (`dice-table`) + dice history               | Visible tables and the latest draw they may see                         |
+| `quick-reference`    | `getQuickReferencePanelsForActor`                               | Nothing (DM-only read)                                                  |
+| `session-archives`   | archives (DM) / `getSessionRecapFeedForActor`                   | Only archived sessions whose recap the feed delivers                    |
+| `continuity-digest`  | `getPrepRecapDigest`                                            | Nothing (DM-only read)                                                  |
+| `rest-log`           | ledger of characters `listCharactersForActor` returned          | Rests of characters they may see                                        |
+| `presence`           | `projectSessionPresence` with scene-hint stripping              | Participants; a hint naming a hidden screen is removed                  |
+| `player-projections` | `session.playerViewAssignments` (DM) / `getPlayerViewForActor`  | Their own row only                                                      |
+| `initiative-call`    | `getCombatTrackerForActor` log                                  | Awaiting / rolled / adjusted for visible combatants                     |
+| `combatant-status`   | `getCombatTrackerForActor`                                      | Conditions, concentration, death saves only where vitals are exposed    |
+| `capture-candidates` | `listCharactersForActor` + `getContentItemsForActor`            | References to what they may list                                        |
+| `widget-library`     | `listWidgetLibrary`                                             | Nothing (scene authors only)                                            |
+
+A row may also carry `avatar` (initials) and `thumbnail` (the scene background token: screens
+carry no image). `WidgetHostContext` passes in the two device-local values: the vault's name from
+this device's catalog (`campaign`) and the platform profile (`widget-library`). Two G-02 items are
+not core reads, so no source covers them. Live P2P peers and initiative readiness belong to the host
+transport (`apps/gm-react/src/net/`). Post-save continuity mentions are transient Session UI state.
+
+The builder's Data step previews every source live (`DataStepBindings.tsx`). Each query card
+shows its reading for the author and for the reserved preview player. "Every source" lists the
+whole catalogue the same way. Isolation tests: `app/widgets/dataEnvironment.hub.test.ts` (one case
+per source, for a player, an observer and the preview player). Browser:
+`tests/e2e/widget-query-sources.spec.ts`.
 
 ## 4. The custom-widget host
 
