@@ -258,3 +258,52 @@ screen-reader waivers remain explicit. No push, promotion, dispatcher-state edit
   exit 0, **15 passed (24.3s)**. All five themes × three tiers match the pinned key-chip baselines;
   no baseline regeneration needed after reconciliation. Full-overlay pixel coverage remains waived
   as documented above.
+
+## Claim-gate retry — base `6dec65df` (loop/rc)
+
+Gate feedback: "candidate changes paths outside its claim:
+`apps/gm-react/src/ds/components/command/CommandPalette.tsx`". The task's Owns list now includes
+that file, the typed DS palette that the integration branch migrated from `.jsx`. The edit
+described in the reconciliation section above is therefore in scope, and its content is unchanged.
+
+- Rebased the three task commits onto `loop/rc` `6dec65df` (67 commits newer than `6dd4f09c`). The
+  rebase applied with no conflicts. Integration's `preferTier` change to `command-palette.spec.ts`
+  and its FEATURE-GAPS, en/es and raw-style allowlist edits all merged alongside this task's.
+- New on the base: RC-UX-1.5's DEV pseudo catalog must match `en.ts` key for key
+  (`pseudo.test.ts`, `catalogCoverage('qps-ploc') === 1`). This task adds 11 palette/help keys, so
+  `apps/gm-react/src/i18n/dev/qps-ploc.ts` was regenerated with
+  `npx tsx scripts/i18n-catalog.ts pseudo`. The generator added 11 lines and no hand edits were
+  made. The file is in the manifest's `companion_paths`, so no claim expansion was needed.
+- No other files changed. Every owned file stays under 500 lines: DS palette 495, app palette
+  442, `paletteActions.ts` 298, `HelpMenu.tsx` 260, row 172.
+
+### Post-retry validation (on `6dec65df` + this branch)
+
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0.
+- `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/app/help apps/gm-react/src/app/shortcuts apps/gm-react/src/screens/screen apps/gm-react/src/ds apps/gm-react/src/i18n`:
+  2 failures before the pseudo regeneration (`pseudo.test.ts` exact match, `index.test.ts`
+  coverage 0.998). After it: exit 0, **42 files / 390 tests passed**.
+- `pnpm lint`: exit 0 (boundary and non-text contrast gates pass, allowances not widened).
+- `pnpm --filter @dndtools/gm-react build`: exit 0; `check-prod-bundle` OK (pseudo locale absent
+  from production assets).
+- `DNDTOOLS_E2E_PORT=44201 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts tests/e2e/command-palette.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/help-tips.spec.ts tests/e2e/screens.spec.ts --workers=2`:
+  exit 0, **76 passed (1.6m)** on desktop-chromium and mobile-chromium, including both axe walks
+  (route, palette failure, help and nested shortcuts).
+- `pnpm gates`: exit 0. It printed 36 `file-size-warn` lines, none for an owned file (checked by
+  grepping for `src/app/CommandPalette`, `src/app/help`, `src/app/shortcuts`,
+  `ds/components/command`).
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: **571 files, 29947.1 KiB of
+  32768.0 KiB**.
+- `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts --update-snapshots=none --workers=2`:
+  exit 0, **15 passed (19.1s)**. All five themes on all three tiers match the committed baselines
+  with no regeneration.
+- `pnpm format:check:changed -- --base loop/rc`: exit 0. `git diff --check`: clean.
+
+The visual-budget and native screen-reader waivers documented above still apply. No push,
+promotion, dispatcher-state edit or extra agent.
+
+`loop/rc` advanced to `e63f961e` while the checks above ran. That commit changes only
+`scripts/android-emulator-acceptance.sh`, its unit test and a `state/` journal, none of which this
+surface touches. I rebased onto it without conflicts and did not re-run the checks, since nothing
+they cover changed. `git diff --name-only loop/rc..HEAD` lists only owned files and manifest
+companion paths.
