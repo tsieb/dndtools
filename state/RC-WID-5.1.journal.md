@@ -253,3 +253,49 @@ message key has to regenerate it (see `e50c13b9`, `60272d08`). Regenerated with
 
 Validation: i18n tests 47/47; app vitest (full) 155 files / 1736 tests passed
 (`/tmp/rc-wid51-app-vitest-4.log`); Prettier clean on the regenerated file.
+
+## Session 5 — 2026-10-02: verify candidate; ownership blocker remains
+
+Started on `dispatch/dndtools/108ca3fa59e2c20706b8` at
+`9ea8e1fa3f4ce0f4fae4729b0c8547f1c0741580`, with a clean working tree. The implementation
+and review repairs are already committed. No additional implementation edits were necessary for
+the focused acceptance checks below. No Headroom tools were exposed in this session; native
+commands captured the original logs, which were read directly.
+
+The supplied gate feedback explicitly rejects `apps/gm-react/src/i18n/dev/qps-ploc.ts`.
+The current Owns list still excludes that file. Inspection of `9ea8e1fa` confirms that its
+catalog change is 35 added lines representing **32 message entries**, not 35 entries as the
+previous journal wording implied. `scripts/i18n-catalog.ts pseudo` generates this file from
+`messages/en.ts`; `i18n/dev/pseudo.test.ts` requires exact equality with that generated catalog.
+The new permission descriptions and builder labels are used by the existing implementation.
+Removing the generated entries alone would reintroduce the previously reported i18n failure.
+Moving strings out of localization or weakening the catalog tests would hide the dependency.
+
+Requested authorization to add this single generated catalog path to ownership. No authorization
+has arrived as of this journal entry. No dispatcher state or claim was changed. Existing commits,
+including the generated catalog change, were preserved; this session changes only the journal.
+**The ownership rejection is not fixed, and this candidate is not ready for integration under the
+current claim.** The operator must authorize the generated catalog companion path before
+rerunning its ownership gate. A passing test run does not establish a passing ownership gate.
+
+Fresh validation of implementation SHA `9ea8e1fa` (all commands exited 0):
+
+- `pnpm --filter @dndtools/core exec vitest run tests/widget-intents.test.ts`:
+  1 file, 20 tests passed; `/tmp/rc-wid51-current-core.log`.
+- `pnpm exec vitest run --config vitest.app.config.ts` with
+  `apps/gm-react/src/app/widgetBuilder/intents.test.ts`,
+  `apps/gm-react/src/app/widgets/hostBridge.test.ts`,
+  `apps/gm-react/src/app/widgets/templates/templates.test.tsx`,
+  `apps/gm-react/src/i18n/dev/pseudo.test.ts`, and
+  `apps/gm-react/src/i18n/index.test.ts`: 5 files, 100 tests passed;
+  `/tmp/rc-wid51-current-app.log`.
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/widget-intents.spec.ts
+--project=desktop-chromium --project=mobile-chromium --workers=2`: 6 passed;
+  `/tmp/rc-wid51-current-e2e.log`. Covers builder-created character navigation and New map,
+  denied custom intent drop/audit, and player quest targeting on both profiles.
+- `pnpm typecheck`: core, cloud-fns, and gm-react passed;
+  `/tmp/rc-wid51-current-typecheck.log`.
+- `git diff --check`: passed before the journal update.
+
+Full suites, pinned visual regression, central ownership validation, and independent review were
+not run in this session. No push, promotion, additional agents, or scheduler loop was started.
