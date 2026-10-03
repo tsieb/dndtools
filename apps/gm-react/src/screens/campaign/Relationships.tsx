@@ -6,6 +6,7 @@ import {
 	getTypedRelationshipEdgesForActor,
 	parseMarkdownNote,
 	parseRelationDeclarations,
+	resolveWikilink,
 	serializeMarkdownNote,
 	serializeRelationDeclaration,
 	type ActorWikilinkTarget,
@@ -77,15 +78,30 @@ export function Relationships() {
 	const [pendingRemove, setPendingRemove] = useState<TypedRelationEdge | null>(null);
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
-	const notes: ActorWikilinkTarget[] = useMemo(
+	const candidates: ActorWikilinkTarget[] = useMemo(
 		() =>
 			buildWikilinkCandidatesForActor(
 				runtime.state.content,
 				runtime.state.permissions,
 				actorId,
 				runtime.state,
-			).sort((a, b) => a.title.localeCompare(b.title)),
+			),
 		[runtime.state, actorId],
+	);
+
+	const notes = useMemo(
+		() => [...candidates].sort((a, b) => a.title.localeCompare(b.title)),
+		[candidates],
+	);
+	// Titles are the persisted references. Match against the original candidate order, just as
+	// autocomplete and the graph do, before offering a target whose title could name another entity.
+	const targets = useMemo(
+		() =>
+			notes.filter((target) => {
+				const resolved = resolveWikilink({ target: target.title }, candidates);
+				return resolved.status === 'resolved' && resolved.targetId === target.id;
+			}),
+		[notes, candidates],
 	);
 
 	const edges: TypedRelationEdge[] = useMemo(
@@ -177,9 +193,20 @@ export function Relationships() {
 	};
 
 	const addEdge = async () => {
-		const target = notes.find((n) => n.id === targetId);
+		const currentCandidates = buildWikilinkCandidatesForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			actorId,
+			runtime.state,
+		);
+		const target = currentCandidates.find((n) => n.id === targetId);
 		const trimmedVerb = verb.trim().toLowerCase();
 		if (!sourceId || !target || trimmedVerb === '' || sourceId === targetId) return;
+		const resolved = resolveWikilink({ target: target.title }, currentCandidates);
+		if (resolved.status !== 'resolved' || resolved.targetId !== targetId) {
+			Toaster.error(t('campaign.relationships.saveFailed'));
+			return;
+		}
 		setBusy(true);
 		try {
 			const declaration = serializeRelationDeclaration({
@@ -395,7 +422,7 @@ export function Relationships() {
 									onChange={(e: { target: { value: string } }) => setTargetId(e.target.value)}
 									options={[
 										{ value: '', label: t('campaign.relationships.choose') },
-										...notes.map((n) => ({
+										...targets.map((n) => ({
 											value: n.id,
 											label: n.title,
 											group: wikilinkKindLabel(n.kind, t),
@@ -407,7 +434,11 @@ export function Relationships() {
 								variant="secondary"
 								icon="add"
 								disabled={
-									busy || !sourceId || !targetId || verb.trim() === '' || sourceId === targetId
+									busy ||
+									!sourceId ||
+									!targets.some((target) => target.id === targetId) ||
+									verb.trim() === '' ||
+									sourceId === targetId
 								}
 								onClick={addEdge}
 							>

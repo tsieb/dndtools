@@ -78,3 +78,25 @@ independent review remain separate from this implementation commit.
   e2e `campaign-relationships.spec.ts` + `knowledge.spec.ts` 56 passed on desktop-chromium and
   mobile-chromium (DNDTOOLS_E2E_PORT=43255); ESLint and Prettier clean on the changed files.
 - No agents, push, promotion, dispatcher control changes or new loop.
+
+## Independent-review collision repair (2026-10-03)
+
+- Review reproduced a faction selection resolving to a same-title note because declarations store
+  titles. To now filters with autocomplete's resolution-identity check against the original actor
+  candidate order; From retains ID-addressed sources. Add revalidates the current target identity
+  and disables stale selections after a collision appears.
+- Added browser regressions for cross-kind title and alias collisions, including a selected target
+  becoming shadowed, reload, and renaming the shadowed target to restore a valid persistent relationship.
+- No Headroom tools exposed; native command output used. No agents or dispatcher control changes.
+- First browser run exposed random UUID ordering in the fixture: creation order does not determine
+  content resolution priority. The regression now explicitly selects the later-ID note/faction and
+  introduces a collision on the earlier-ID entity, including an alias sorted after the target title.
+- Read original local logs under `/tmp/rc-knw-6.1-collision-*.log`. Final verification:
+  - Core link-kind/isolation and relationship suites: 28 tests passed.
+  - Relationship editor: 12 browser tests passed across desktop-chromium and mobile-chromium.
+  - NPC completion/navigation/Backlinks and faction/quest navigation: 4 browser tests passed across
+    both profiles.
+  - Pinned-container campaign-card visual comparisons: 3 tests passed, no snapshot updates.
+  - Workspace typecheck, changed-code ESLint, changed-file Prettier, `pnpm gates` and
+    `git diff --check` passed. Quality gates emitted existing file-size warnings only.
+- Central wrapper gates and independent review remain separate. No push or promotion.

@@ -122,6 +122,96 @@ test.describe('campaign: relationship editor', () => {
 		await expect(remove).toHaveCount(0);
 	});
 
+	for (const collision of ['title', 'alias'] as const) {
+		test(`RC-KNW-6.1 rejects cross-kind target ${collision} collisions`, async ({ page }) => {
+			const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+			for (const command of [
+				{
+					type: 'character.quick-create',
+					actorId,
+					payload: { kind: 'npc', name: 'Mira the Ferryman' },
+				},
+				{
+					type: 'content.create-item',
+					actorId,
+					payload: {
+						kind: 'object',
+						title: 'Ferry Guild',
+						fields: { 'dndtools.objectSubtype': 'faction' },
+					},
+				},
+			])
+				expect((await dispatch(page, command)).status).toBe('accepted');
+			const ids = await page.evaluate((noteTitle) => {
+				const items = Object.values(
+					(
+						window.__rt!.state.content as {
+							items: Record<string, { id: string; title: string }>;
+						}
+					).items,
+				);
+				// Content resolution is ordered by ID, not creation time; UUIDs are random here.
+				const pair = items
+					.filter((item) => [noteTitle, 'Ferry Guild'].includes(item.title))
+					.sort((a, b) => a.id.localeCompare(b.id));
+				return { winner: pair[0]!.id, shadowed: pair[1]!.id, title: pair[1]!.title };
+			}, FACTION_TITLE);
+			await gotoRoute(page, '/campaign/relationships');
+			await page.getByLabel('From').selectOption({ label: 'Mira the Ferryman' });
+			await page.getByLabel('To').selectOption(ids.shadowed);
+			await page.getByLabel('Relationship').fill('leads');
+			const add = page.getByRole('button', { name: 'Add', exact: true });
+			await expect(add).toBeEnabled();
+
+			// An earlier candidate now owns the selected target's name. The alias case deliberately
+			// sorts AFTER Ferry Guild, so presentation order cannot determine resolution priority.
+			expect(
+				(
+					await dispatch(page, {
+						type: 'content.update-item',
+						actorId,
+						payload: {
+							itemId: ids.winner,
+							title: collision === 'title' ? ids.title : 'Zebra Guild',
+							body: collision === 'alias' ? `---\naliases: [${ids.title}]\n---\n` : '',
+						},
+					})
+				).status,
+			).toBe('accepted');
+			await expect(page.getByLabel('To').locator(`option[value="${ids.shadowed}"]`)).toHaveCount(0);
+			await expect(page.getByLabel('From').locator(`option[value="${ids.shadowed}"]`)).toHaveCount(
+				1,
+			);
+			await expect(add).toBeDisabled();
+			await page.reload();
+			await waitReady(page);
+			await expect(page.getByLabel('To').locator(`option[value="${ids.shadowed}"]`)).toHaveCount(0);
+			await expect(page.getByText('No relationships declared yet.')).toBeVisible();
+
+			// Renaming the shadowed entity makes its title representable again.
+			expect(
+				(
+					await dispatch(page, {
+						type: 'content.update-item',
+						actorId,
+						payload: { itemId: ids.shadowed, title: 'River Ferry Guild' },
+					})
+				).status,
+			).toBe('accepted');
+			await page.getByLabel('From').selectOption({ label: 'Mira the Ferryman' });
+			await page.getByLabel('To').selectOption(ids.shadowed);
+			await page.getByLabel('Relationship').fill('leads');
+			await add.click();
+			const edge = page.getByRole('button', {
+				name: 'Remove: Mira the Ferryman → River Ferry Guild',
+			});
+			await expect(edge).toBeVisible();
+			await page.reload();
+			await waitReady(page);
+			await expect(edge).toBeVisible();
+		});
+	}
+
 	test('the Add control stays disabled until source, verb and target are all set', async ({
 		page,
 	}) => {

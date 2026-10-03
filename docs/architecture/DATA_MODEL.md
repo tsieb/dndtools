@@ -67,6 +67,11 @@ Titles and aliases retain the existing case-insensitive matching; the first visi
 wins a name collision in resolution and the relationship graph. Unresolved links retain the
 existing repair workflow. Character Backlinks use resolved edges, separately from prose mentions.
 
+The Relationships editor offers a To target only when its title resolves to that same entity,
+matching autocomplete, and revalidates that identity before saving. A title shadowed by another
+entity's title or alias must be renamed before it can be selected as a target. From remains keyed
+by entity ID and includes shadowed entities.
+
 Typed edges remain `relations:` frontmatter entries in the form `leads :: Ferry Guild`.
 The authored body lives in the content item's `body`, character `data.body`, map `description`,
 or POI `notes`. The Relationships editor preserves other frontmatter and prose and writes through
