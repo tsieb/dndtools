@@ -1,8 +1,12 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status:** rebased onto `6dec65df` for the integration conflict recovery
-below. Earlier timing captures describe their recorded commits, not this rebased
-application tree; fresh central performance gates remain required.
+**Current status (2026-10-03, fifth recovery): 11/11 targets pass in a paired local capture of
+`42d518fd` against review base `f9ab3d74`.** Scene 1408.9/1500 ms against the reference's
+1538.1 ms, with every candidate batch below every reference batch (−8.4%). Graph 277.4/500
+(reference 867.4) and search 149.0/250 (reference 224.5). The paired comparator exits 0.
+That run sat at load 2.7–9.0. The ~20% scene win is still not achieved, and a host as busy
+as the last review's (load 9–15) can push the scene past 1500 ms on both revisions. See
+the fifth-recovery section and [its evidence](reports/2026-10-03-fifth-recovery/README.md).
 
 **Historical status (2026-09-27, fourth recovery): 11/11 targets pass in one local paired
 capture; the ~20% scene win is not achieved.** Executable commit `a916eddf` against
@@ -746,3 +750,89 @@ phone. [Validation logs and range-diff](reports/2026-10-02-rebase/validation.tar
 are retained with archive and member checksums verified. Earlier captures remain unchanged
 historical evidence; a rebase incorporating new rendering behavior is not the
 same measured source tree. No new all-budget timing claim is made by this repair.
+
+## 2026-10-03 fifth independent-review recovery
+
+Starting head `638d7b81`, clean worktree. The review accepted the boundary fix and found
+no code defect; it rejected acceptance because `scene-first-render` graded 1968/1500 ms
+in an unpaired capture at load 9–15. No Headroom tools were exposed in this session. No
+agents, dispatcher state edits, push or promotion. Budgets, targets, scenarios, sample
+counts and the comparator are unchanged.
+
+### Where the remaining scene time went
+
+Resource timing plus a CPU profile of a cold `/board` on the 50-widget / 10-map fixture
+(probe scripts outside the worktree, interleaved against a `638d7b81` checkout on its own
+dev server):
+
+- 0 → ~770 ms: shell and the 354-module core barrel over six HTTP/1.1 connections, as
+  recorded in the fourth recovery. Not changed here.
+- ~770 → ~870 ms: evaluating that graph. About 40 ms of it is eager zod construction in
+  `schemas/commands.ts` (3,751 lines). Making those lazy is a core-wide refactor of a
+  companion file for ~3%, so it was left.
+- ~870 → ~1050 ms: the board chunk. It was discovered one import level at a time: screen
+  view → board → render slot → widget bodies → builtin index → map tile → map canvas →
+  its layers, eight round trips, each stretched by main-thread work in between.
+- ~1050 → ~1160 ms: React render and commit (mostly dev-mode React overhead spread over
+  50 frames), then the first layout of the board, forced by the pane-width read.
+- Before the harness can take its mark, the next frame ran 50 `regionFit` text walks
+  (~20 ms light load, ~40 ms at load 17).
+
+### Changes, with the scope each needs
+
+- `App.tsx` (manifest companion). The existing `/board` prefetch now also calls `import()`
+  for `screens/Board`, `app/widget-bodies` and `app/map/canvas/MapCanvas`, so the three
+  deep chains load in parallel. Four lines. It only affects a cold open whose hash is
+  `/board` or `/screen/…`. The production build adds no eager bytes (core bundle 633.3 KiB
+  gzipped, budget pass).
+- `app/widgets/WidgetRenderSlot.tsx` (owned). A region whose `scrollHeight` fits its
+  `clientHeight` cannot hide content. Every rect the walk could find ends inside that
+  scroll height. So it skips the text walk unless a Grow pass is running or the tile is
+  grown (that footer reads line positions). On the large scene 43 of 50 regions take the
+  fast path. The scrollable and tab-stop counts match the reference (7 and 7).
+- `tests/e2e/_helpers.ts` (manifest companion `apps/gm-react/tests/e2e/_*.ts`). With the
+  board loading sooner, `/board` redirected to `/screen/<home id>` before a spec's
+  `seedFresh` deleted the vault. The reload then landed on a screen the fresh vault does not
+  have, which shows "screen unavailable" and never provisions a home scene. `map-tile` and
+  `combat-tile` went red (3/6 `map-tile` desktop failed on the candidate, 6/6 passed on the
+  reference). `seedFresh` now rewrites a `/screen/…` URL back to `/board` without a
+  navigation event when the spec asked `gotoRoute` for `/board`, then reloads. About 30
+  specs share that pattern.
+
+A dead end, recorded so it is not retried: moving the measurement past paint
+(rAF + `setTimeout`, one shared flush) measured no change (paired median +18 ms, 5/12),
+because the mark's CDP round trip lands after the deferred task anyway. Reverted.
+
+### Measurements
+
+- Paired full capture, `42d518fd` against `f9ab3d74`, all eleven budgets with seven
+  interleaved batches each, load 2.7–9.0: **0 target breaches on the candidate.** Scene
+  1408.9 ms (reference 1538.1, which breaches; candidate batches 1361.9–1453.4, reference
+  batches 1514.4–1562.1), graph 277.4 (reference 867.4, which breaches), search 149.0
+  (reference 224.5), widget update 33.0 (reference 34.3). Local paired comparator, with
+  the baseline written from that run's reference capture: 11 budgets, 0 breaches, 0
+  regressed, exit 0.
+- Scene/widget paired capture against the previous head `638d7b81`, load 4.9–8.9: scene
+  1399.4 against 1437.7 ms (−2.7%, faster in six of seven batch pairs), widget update 31.8
+  against 37.2 ms. This is this attempt's increment.
+- Interleaved probes against `638d7b81` using the harness's exact mark, at load 10–17:
+  prefetch alone −67 ms paired median (10/14 faster), prefetch plus fast path −174 ms
+  (10/14). The gain grows with load because both changes remove main-thread or
+  round-trip work that contention stretches.
+
+### Verdict and handoff
+
+All targets are green in this paired run, and the scene improvement over the base is
+consistent batch for batch. Two limits remain. The scene gain against the base is 8.4%,
+not the anticipated ~20%. And at the last review's load (9–15) both revisions slow down
+enough that the ~90 ms margin can disappear. Further scene gains need the levers recorded
+in the fourth recovery, outside this story's paths: prebundling `@dndtools/core` in
+`vite.config.ts`, an RC-ENG-1.3 decision on what the scene interval measures, or lazy zod
+schemas in `schemas/commands.ts`. None was taken.
+
+Validation on `42d518fd`: full browser suite 1654 passed / 32 skipped on both projects.
+App tests 1756/1756, perf-harness tests 25/25, app typecheck, production build with
+`check-prod-bundle`, and the core bundle budget (633.3 KiB gzipped). Pinned-container
+board/screen/scene visuals 42/42, plus targeted ESLint and Prettier. Evidence archive,
+35 member checksums and the provenance of all 77 batch groups per side were verified.
+No push, promotion, extra loop, agent, budget change or dispatcher control-state edit.
