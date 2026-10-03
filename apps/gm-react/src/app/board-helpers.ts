@@ -1,9 +1,12 @@
-import type {
-	WidgetBindingPayload,
-	WidgetConfigField,
-	WidgetDefinition,
-	WidgetInstance,
-	WidgetStyleTokenDefinition,
+import {
+	resolveAddWidgetCommand,
+	type ResolvedAddWidgetCommand,
+	type WidgetBindingPayload,
+	type WidgetConfigField,
+	type WidgetDefinition,
+	type WidgetInstance,
+	type WidgetLibraryEntry,
+	type WidgetStyleTokenDefinition,
 } from '@dndtools/core';
 
 /**
@@ -242,6 +245,50 @@ const BOARD_ROW_GUTTER = 24;
 /** The board's right edge: the x a widget's `x + w` may never cross. */
 export const BOARD_RIGHT_BOUND =
 	BOARD_MARGIN + BOARD_COLUMNS * BOARD_COLUMN_STEP - BOARD_ROW_GUTTER;
+
+/** The size the core seeds every one-column board tile at (`command-center-state.ts`
+ *  `DEFAULT_WIDGET_SIZE`). */
+export const BOARD_TILE_SIZE = { w: 240, h: 160 } as const;
+
+/**
+ * RC-CAN-8.1 — THE default-size table. Every add (the gallery, the palette's "Add tile") sizes its
+ * tile here, so a new tile matches the seeded ones beside it instead of landing at a definition's
+ * 220×160 next to 240×160 siblings. The board and flow lay tiles on the board's 240px columns: the
+ * declared width picks how many columns the tile spans, and it is never shorter than a seeded tile.
+ * The free canvas has no columns, so it keeps the definition's own default.
+ */
+export function defaultTileSize(
+	declared: { width: number; height: number } | undefined,
+	policy: 'bounded' | 'flow' | 'canvas',
+	minimum?: { width: number; height: number },
+): { w: number; h: number } {
+	if (policy === 'canvas' && declared) return { w: declared.width, h: declared.height };
+	const span = Math.min(
+		BOARD_COLUMNS,
+		Math.max(1, Math.round((declared?.width ?? BOARD_TILE_SIZE.w) / BOARD_COLUMN_STEP)),
+	);
+	return {
+		w: Math.max(span * BOARD_COLUMN_STEP - BOARD_ROW_GUTTER, minimum?.width ?? 0),
+		h: Math.max(BOARD_TILE_SIZE.h, declared?.height ?? 0, minimum?.height ?? 0),
+	};
+}
+
+/** The library's `scene.add-widget` for `entry`, sized from {@link defaultTileSize}. */
+export function addTileCommand(
+	entry: WidgetLibraryEntry,
+	sceneId: string,
+	position: { x: number; y: number },
+	policy: 'bounded' | 'flow' | 'canvas',
+): ResolvedAddWidgetCommand | null {
+	const command = resolveAddWidgetCommand(entry, sceneId, position);
+	if (!command) return null;
+	const size = defaultTileSize(entry.defaultSize, policy, entry.minSize);
+	const { widget } = command.payload;
+	return {
+		...command,
+		payload: { ...command.payload, widget: { ...widget, layout: { ...widget.layout, ...size } } },
+	};
+}
 
 export interface BoardLayoutRect {
 	id: string;

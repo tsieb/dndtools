@@ -50,7 +50,7 @@ vi.mock('../../platform/assetUrl', () => ({
 	createAssetObjectUrl: async () => null,
 }));
 
-const { WidgetFrame } = await import('./WidgetFrame');
+const { WidgetFrame, frameName } = await import('./WidgetFrame');
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -417,5 +417,22 @@ describe('the tile frame speaks the reader’s language', () => {
 		expect(frame.querySelector('[data-tile-content]')?.getAttribute('aria-label')).toBe(
 			`Contenido de ${mapDefinition.displayName}`,
 		);
+	});
+});
+
+describe('frame accessible name (RC-CAN-8.1)', () => {
+	const tile = { title: 'Dice', typeLabel: 'Dice', x: 24, y: 392, w: 240, h: 160 };
+
+	it('reads the size of the layout the board received', () => {
+		expect(frameName(tile, { editing: true })).toBe(
+			'Dice, Dice widget, position 24, 392, size 240 by 160',
+		);
+	});
+
+	it('marks a multi-selected tile and drops the geometry outside edit mode', () => {
+		expect(frameName(tile, { editing: true, selected: true })).toContain(
+			'widget, selected, position 24, 392, size 240 by 160',
+		);
+		expect(frameName(tile, { editing: false })).toBe('Dice, Dice widget');
 	});
 });

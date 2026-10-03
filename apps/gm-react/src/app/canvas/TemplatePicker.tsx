@@ -14,6 +14,7 @@ import { tileMetadataForDefinition } from '../widgets/tileMeta';
 import type { Viewport } from '../useViewport';
 import { WidgetGlyph } from './WidgetFrame';
 import { CreateEntry } from './AddWidgetGallery';
+import type { LayoutHistory } from './useLayoutHistory';
 
 // Feature-local translations, the same pattern as AddWidgetGallery: the built-in names come from the
 // core in English, so their localized copy lives here keyed by template id.
@@ -325,6 +326,8 @@ export interface TemplatePickerProps {
 	sceneId: string | null;
 	/** Called once the core accepted the template, after the picker has closed. */
 	onApplied?: () => void;
+	/** RC-CAN-8.1 — the canvas's undo stack: the applied tiles come back off with one Ctrl+Z. */
+	history?: Pick<LayoutHistory, 'record'>;
 }
 
 /**
@@ -346,6 +349,7 @@ export function TemplatePicker({
 	viewport,
 	sceneId,
 	onApplied,
+	history,
 }: TemplatePickerProps) {
 	const copy = usePickerCopy();
 	const runtime = useRuntime();
@@ -432,15 +436,18 @@ export function TemplatePicker({
 		setBusy(true);
 		setError(null);
 		try {
-			const result = await runtime.dispatch({
+			const stateBefore = runtime.state;
+			const command = {
 				type: 'scene.apply-template',
 				actorId,
 				payload: { sceneId, source: option.source },
-			});
+			} as const;
+			const result = await runtime.dispatch(command);
 			if (result.status === 'rejected') {
 				setError(result.rejection.message);
 				return;
 			}
+			history?.record(command, stateBefore, copy('templates.applied', { name: option.name }));
 			const event = result.events.find((e) => e.kind === 'scene.template-applied');
 			const missing =
 				event && event.kind === 'scene.template-applied' ? event.missingWidgetTypes : [];

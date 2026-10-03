@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
-	resolveAddWidgetCommand,
 	screenLayoutPolicy,
 	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
@@ -15,6 +14,7 @@ import { SceneBoardCanvas, type ZoomPreset } from '../app/SceneBoardCanvas';
 import { ZoomPresetGroup } from '../app/canvas/ZoomCluster';
 import { BoardLayoutsPanel } from './BoardLayoutsPanel';
 import {
+	addTileCommand,
 	boardLayoutIssues,
 	boardWidgetsOf,
 	clampToColumns,
@@ -351,11 +351,15 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	}
 	// RC-CAN-4.1: the gallery chooses the slot (the first open spot on the board's columns, where the
 	// old cascade stacked each new widget over the seeded ones) and focuses the placed tile.
+	// RC-CAN-8.1: sized from the one default-size table, and an undo step like every other edit.
 	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
 		if (!homeSceneId) return false;
-		const command = resolveAddWidgetCommand(entry, homeSceneId, position);
+		const command = addTileCommand(entry, homeSceneId, position, flow ? 'flow' : 'bounded');
 		if (!command) return false;
-		const ok = await dispatch({ type: command.type, actorId, payload: command.payload });
+		const ok = await history.run(
+			{ type: command.type, actorId, payload: command.payload },
+			`Added ${entry.displayName}`,
+		);
 		if (ok && !editing) setEditing(true);
 		return ok;
 	}
@@ -382,6 +386,8 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 			canUndo: history.canUndo,
 			undoLabel: history.undoLabel,
 			undo: () => void historyRef.current.undo(),
+			record: (command, stateBefore, label) =>
+				historyRef.current.record(command, stateBefore, label),
 		});
 	});
 
@@ -672,6 +678,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 				onClose={() => setTemplatesOpen(false)}
 				viewport={viewport}
 				sceneId={ready ? homeSceneId : null}
+				history={history}
 				// The applied layout is a good checkpoint to fall back to, and the DM picked it to adjust it.
 				onApplied={() => {
 					if (isHomeBoard) void snapshotSafePoint();

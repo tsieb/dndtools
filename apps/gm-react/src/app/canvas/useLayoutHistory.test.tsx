@@ -41,7 +41,12 @@ function accept(result: ReturnType<typeof dispatchCommand>): CoreStateSlice {
 }
 
 /** A campaign whose home scene holds at least one widget. */
-function campaign(): { state: CoreStateSlice; sceneId: string; widgetId: string } {
+function campaign(): {
+	env: ReturnType<typeof makeEnvironment>;
+	state: CoreStateSlice;
+	sceneId: string;
+	widgetId: string;
+} {
 	const env = makeEnvironment();
 	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 	state = accept(
@@ -53,7 +58,7 @@ function campaign(): { state: CoreStateSlice; sceneId: string; widgetId: string 
 	);
 	const sceneId = state.commandCenter.homeSceneId as string;
 	const widgetId = state.scenes.scenes[sceneId].widgets[0].id;
-	return { state, sceneId, widgetId };
+	return { env, state, sceneId, widgetId };
 }
 
 /**
@@ -62,8 +67,9 @@ function campaign(): { state: CoreStateSlice; sceneId: string; widgetId: string 
  * once — `persist` lets a test hold that gap open.
  */
 function harness(options: { persist?: () => Promise<void> } = {}) {
-	const env = makeEnvironment();
+	// The campaign's own environment: a second one would mint ids that collide with the seed's.
 	const start = campaign();
+	const env = start.env;
 	const holder = { state: start.state };
 	let api: LayoutHistory | null = null;
 
@@ -94,6 +100,10 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 	act(() => root.render(<Host />));
 	return {
 		holder,
+		/** Dispatch past the stack, as the palette and the template picker do. */
+		dispatchOutside(command: CoreCommand) {
+			holder.state = accept(dispatchCommand(holder.state, env, command));
+		},
 		sceneId: start.sceneId,
 		widgetId: start.widgetId,
 		get history(): LayoutHistory {
@@ -288,5 +298,146 @@ describe('useLayoutHistory', () => {
 		// `scene.group-widgets` mints a fresh group id, so no command can put the previous grouping
 		// back. Pushing a wrong inverse would be worse than offering no undo.
 		expect(t.history.canUndo).toBe(false);
+	});
+});
+
+describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
+	const moveTo = (t: ReturnType<typeof harness>, x: number, y: number): CoreCommand => ({
+		type: 'scene.move-widget',
+		actorId: DM_ACTOR.id,
+		payload: { sceneId: t.sceneId, widgetInstanceId: t.widgetId, x, y },
+	});
+
+	it('folds a burst of nudges into one step, and the next burst starts another', async () => {
+		const t = harness();
+		const start = { x: t.layout().x, y: t.layout().y };
+		await act(async () => {
+			t.history.beginBurst();
+			for (let i = 1; i <= 3; i += 1)
+				await t.history.run(moveTo(t, start.x, start.y + i * 20), 'Moved Timer');
+			t.history.settle();
+		});
+		// A second burst after Escape is its own step.
+		await act(async () => {
+			t.history.beginBurst();
+			await t.history.run(moveTo(t, start.x + 20, start.y + 60), 'Moved Timer');
+			t.history.settle();
+		});
+
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect({ x: t.layout().x, y: t.layout().y }).toEqual({ x: start.x, y: start.y + 60 });
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect({ x: t.layout().x, y: t.layout().y }).toEqual(start);
+		expect(t.history.canUndo).toBe(false);
+
+		await act(async () => {
+			await t.history.redo();
+		});
+		expect({ x: t.layout().x, y: t.layout().y }).toEqual({ x: start.x, y: start.y + 60 });
+	});
+
+	it('an undo in the middle of a burst ends it', async () => {
+		const t = harness();
+		const start = { x: t.layout().x, y: t.layout().y };
+		await act(async () => {
+			t.history.beginBurst();
+			await t.history.run(moveTo(t, start.x, start.y + 20), 'Moved Timer');
+			await t.history.undo();
+			await t.history.run(moveTo(t, start.x, start.y + 40), 'Moved Timer');
+		});
+		// The run after the undo is a fresh step, not folded into the one already undone.
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect({ x: t.layout().x, y: t.layout().y }).toEqual(start);
+	});
+
+	it('an add through run is undoable, and its redo restores the same instance', async () => {
+		const t = harness();
+		const ids = () => t.holder.state.scenes.scenes[t.sceneId].widgets.map((w) => w.id);
+		const before = ids();
+		await act(async () => {
+			await t.history.run(
+				{
+					type: 'scene.add-widget',
+					actorId: DM_ACTOR.id,
+					payload: {
+						sceneId: t.sceneId,
+						widget: {
+							type: 'dice',
+							version: '1.0.0',
+							layout: { x: 24, y: 900, w: 240, h: 160 },
+							configuration: {},
+							localState: {},
+							binding: null,
+						},
+					},
+				},
+				'Added Dice',
+			);
+		});
+		const added = ids().filter((id) => !before.includes(id));
+		expect(added).toHaveLength(1);
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect(ids()).toEqual(before);
+		await act(async () => {
+			await t.history.redo();
+		});
+		expect(ids()).toContain(added[0]);
+	});
+
+	it('records a template applied outside the stack, and takes all its tiles back in one step', async () => {
+		const t = harness();
+		const ids = () => t.holder.state.scenes.scenes[t.sceneId].widgets.map((w) => w.id);
+		const before = ids();
+		const command: CoreCommand = {
+			type: 'scene.apply-template',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId: t.sceneId, source: { kind: 'builtin', templateId: 'combat' } },
+		};
+		const stateBefore = t.holder.state;
+		t.dispatchOutside(command);
+		expect(ids().length).toBeGreaterThan(before.length + 1);
+		act(() => t.history.record(command, stateBefore, 'Applied Combat scene'));
+		expect(t.history.undoLabel).toBe('Applied Combat scene');
+
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect(ids()).toEqual(before);
+	});
+
+	it('undoing a template on an empty scene puts the old background back too', async () => {
+		const t = harness();
+		const scene = () => t.holder.state.scenes.scenes[t.sceneId];
+		for (const widget of [...scene().widgets])
+			t.dispatchOutside({
+				type: 'scene.destroy-widget',
+				actorId: DM_ACTOR.id,
+				payload: { sceneId: t.sceneId, widgetInstanceId: widget.id },
+			});
+		const background = scene().visualSettings.background;
+		const command: CoreCommand = {
+			type: 'scene.apply-template',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId: t.sceneId, source: { kind: 'builtin', templateId: 'combat' } },
+		};
+		await act(async () => {
+			await t.history.run(command, 'Applied Combat scene');
+		});
+		expect(scene().visualSettings.background).toBe('dark');
+		expect(background).not.toBe('dark');
+
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect(scene().widgets).toHaveLength(0);
+		expect(scene().visualSettings.background).toBe(background);
 	});
 });

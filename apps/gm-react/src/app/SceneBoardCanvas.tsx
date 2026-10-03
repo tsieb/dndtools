@@ -10,6 +10,7 @@ import { useParams } from 'react-router-dom';
 import {
 	ArrangeBar,
 	EmptyCanvas,
+	frameName,
 	HistoryCluster,
 	Marquee,
 	WidgetFrame,
@@ -18,7 +19,6 @@ import {
 	arrangeCommand,
 	arrangeShortcut,
 	boxFromPoints,
-	dropSettled,
 	enclosedIds,
 	extentOf,
 	planPlacements,
@@ -101,18 +101,21 @@ export function SceneBoardCanvas({
 	const dragRef = useRef<Drag | null>(null);
 	const resizeMoved = useRef(false);
 	const [notice, announce] = A11y.useOperationNotice();
+	// The undo stack, read from inside the window pointer listeners without re-subscribing them.
+	const historyRef = useRef(history);
+	historyRef.current = history;
 	const resizeWidget = useCallback(
 		(w: BoardWidget, width: number, height: number) => {
 			const next = fitWidgetSize(w, width, height, policy === 'bounded');
-			void onResize(w.id, next.w, next.h);
 			announce(A11y.OPERATION_TEXT.resized(w.title, next.w, next.h));
+			return Promise.resolve(onResize(w.id, next.w, next.h));
 		},
 		[onResize, policy, announce],
 	);
 	const cycleSize = useCallback(
 		(w: BoardWidget) => {
 			const next = nextSizePreset(w, sizeDraftRef.current[w.id] ?? w, policy === 'bounded');
-			resizeWidget(w, next.w, next.h);
+			return resizeWidget(w, next.w, next.h);
 		},
 		[resizeWidget, policy],
 	);
@@ -190,12 +193,36 @@ export function SceneBoardCanvas({
 		percent: number;
 	} | null>(null);
 	const zoomSeq = useRef(0);
+	// RC-CAN-8.1 — the DRAG OVERLAY: where a tile under the pointer is painted while the gesture is
+	// live. It is never a second source of truth. Each entry is cleared once its commit settles
+	// (accepted, clamped or refused alike) and every entry on any undo/redo, so a frame always comes
+	// back to the layout the board receives — before this, a drop the board clamped never matched
+	// the committed layout, so the draft outlived the commit and an Undo rewound the state while the
+	// frame stayed where it was dropped.
 	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
 	const [sizeDraft, setSizeDraft] = useState<Record<string, { w: number; h: number }>>({});
 	const posDraftRef = useRef(posDraft);
 	const sizeDraftRef = useRef(sizeDraft);
 	posDraftRef.current = posDraft;
 	sizeDraftRef.current = sizeDraft;
+	// Where a keyboard-nudged tile is HEADED while its commit is still queued. The runtime applies
+	// commands one at a time and re-renders after each persist, so a second arrow press inside that
+	// window read the old layout and committed the same target again: three presses moved the tile
+	// one step, and Ctrl+Z reversed a step that changed nothing on screen. Never painted; each entry
+	// drops once its commit settles, and the next press reads the layout the board received.
+	const nudgeRef = useRef<Record<string, Partial<Box> & { seq: number }>>({});
+	const nudgeSeq = useRef(0);
+	const nudge = (id: string, to: Partial<Box>, commit: Promise<unknown>) => {
+		const seq = ++nudgeSeq.current;
+		nudgeRef.current[id] = { ...nudgeRef.current[id], ...to, seq };
+		void commit.finally(() => {
+			if (nudgeRef.current[id]?.seq === seq) delete nudgeRef.current[id];
+		});
+	};
+	const clearDrafts = useCallback((ids: readonly string[]) => {
+		setPosDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
+		setSizeDraft((prev) => ids.reduce((acc, id) => omitKey(acc, id), prev));
+	}, []);
 	const rects = useMemo(
 		() =>
 			widgets.map((w) => ({
@@ -206,21 +233,32 @@ export function SceneBoardCanvas({
 		[widgets, posDraft, sizeDraft],
 	);
 	const rectOf = (id: string) => rects.filter((r) => r.id === id);
-	/** One `scene.move-widget` per tile, in sequence, so each lands as its own undo step. */
+	/** One `scene.move-widget` per tile, in sequence. */
 	const moveAll = useCallback(
 		async (list: Placement[]) => {
 			for (const p of list) await onMove(p.id, p.x, p.y);
 		},
 		[onMove],
 	);
+	/** One gesture, one undo step: a group drag or an arrange folds its per-tile moves together. */
+	const asOneStep = useCallback(async (work: () => Promise<unknown>) => {
+		const stack = historyRef.current;
+		stack?.settle();
+		stack?.beginBurst();
+		try {
+			await work();
+		} finally {
+			stack?.settle();
+		}
+	}, []);
 
+	// Any undo or redo rewinds the layout the board receives; no overlay may outlive it.
+	const historySeq = history?.announcement?.seq;
 	useEffect(() => {
-		// Commands persist free coordinates, even when docking derives a different painted position.
-		setPosDraft((prev) => dropSettled(prev, authoredWidgets, (d, w) => d.x === w.x && d.y === w.y));
-		setSizeDraft((prev) =>
-			dropSettled(prev, authoredWidgets, (d, w) => d.w === w.w && d.h === w.h),
-		);
-	}, [authoredWidgets]);
+		if (historySeq === undefined || dragRef.current) return;
+		setPosDraft((prev) => (Object.keys(prev).length ? {} : prev));
+		setSizeDraft((prev) => (Object.keys(prev).length ? {} : prev));
+	}, [historySeq]);
 
 	useEffect(() => {
 		const node = wrapRef.current;
@@ -319,6 +357,7 @@ export function SceneBoardCanvas({
 		groupDrag.current = Object.fromEntries(
 			moving.flatMap(rectOf).flatMap((r) => (r.id === w.id ? [] : [[r.id, { x: r.x, y: r.y }]])),
 		);
+		history?.settle();
 		const cur = posDraft[w.id] ?? { x: w.x, y: w.y };
 		begin(e, { mode: 'move', id: w.id, sx: e.clientX, sy: e.clientY, ox: cur.x, oy: cur.y });
 	};
@@ -326,6 +365,7 @@ export function SceneBoardCanvas({
 		if (e.button !== 0) return;
 		resizeMoved.current = false;
 		e.stopPropagation();
+		history?.settle();
 		const cur = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		begin(e, { mode: 'resize', id: w.id, sx: e.clientX, sy: e.clientY, ow: cur.w, oh: cur.h });
 	};
@@ -421,15 +461,22 @@ export function SceneBoardCanvas({
 				groupDrag.current = {};
 				const drafts = posDraftRef.current;
 				const p = drafts[d.id];
-				if (p) void moveAll(ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : [])));
+				const list = ids.flatMap((id) => (drafts[id] ? [{ id, ...drafts[id] }] : []));
+				// The overlay clears when the commit settles, so the frame lands on the committed
+				// (possibly clamped) layout rather than on the pointer's drop point.
+				if (p) void asOneStep(() => moveAll(list)).finally(() => clearDrafts(ids));
 				const w = widgets.find((c) => c.id === d.id);
 				if (p && w) announce(A11y.OPERATION_TEXT.moved(w.title, p.x, p.y));
 			} else if (d.mode === 'resize') {
 				const s = sizeDraftRef.current[d.id];
 				const widget = widgets.find((w) => w.id === d.id);
 				if (widget) {
-					if (!resizeMoved.current) cycleSize(widget);
-					else if (s) resizeWidget(widget, s.w, s.h);
+					const commit = !resizeMoved.current
+						? cycleSize(widget)
+						: s
+							? resizeWidget(widget, s.w, s.h)
+							: null;
+					void commit?.finally(() => clearDrafts([d.id]));
 				}
 			}
 		};
@@ -454,7 +501,18 @@ export function SceneBoardCanvas({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [scale, snap, policy, moveAll, widgets, cycleSize, resizeWidget, announce]);
+	}, [
+		scale,
+		snap,
+		policy,
+		moveAll,
+		asOneStep,
+		clearDrafts,
+		widgets,
+		cycleSize,
+		resizeWidget,
+		announce,
+	]);
 
 	const onWheel = useCallback(
 		(e: React.WheelEvent) => {
@@ -481,12 +539,28 @@ export function SceneBoardCanvas({
 
 	const orderedWidgets = useReadingOrder(widgets, focusOrder, focusedId, frameRefs, wrapRef);
 
+	/** One Shift+Arrow (or resize-handle arrow) step, folded into the keyboard burst. */
+	const keyboardResize = (w: BoardWidget, dx: number, dy: number) => {
+		history?.beginBurst();
+		const pending = nudgeRef.current[w.id];
+		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
+		const next = fitWidgetSize(
+			w,
+			(pending?.w ?? size.w) + dx * GRID,
+			(pending?.h ?? size.h) + dy * GRID,
+			policy === 'bounded',
+		);
+		nudge(w.id, next, resizeWidget(w, next.w, next.h));
+	};
+
 	const frameKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, w: BoardWidget) => {
 		const key = frameKey(e);
 		if (!key) return;
 		if (key === 'leave') {
 			e.preventDefault();
 			e.stopPropagation();
+			// RC-CAN-8.1 — Escape ends the keyboard burst: its nudges are now ONE undo step.
+			history?.settle();
 			if (editing && selectedId === w.id) announce(A11y.OPERATION_TEXT.dropped(w.title));
 			onSelect(null);
 			e.currentTarget.focus();
@@ -514,19 +588,24 @@ export function SceneBoardCanvas({
 		if (!delta) return;
 		e.preventDefault();
 		if (editing && selection.includes(w.id)) {
-			const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 			if (e.shiftKey) {
 				const resizable = canResize ? canResize(w) : isWidgetResizable(w);
 				if (!resizable) return;
-				resizeWidget(w, size.w + delta[0] * GRID, size.h + delta[1] * GRID);
+				keyboardResize(w, delta[0], delta[1]);
 			} else {
+				// RC-CAN-8.1 — a run of nudges is one burst, ONE undo step, closed on Escape or blur.
+				history?.beginBurst();
 				const step = ({ id, x, y }: Placement) => ({
 					id,
 					x: Math.max(0, x + delta[0] * GRID),
 					y: Math.max(0, y + delta[1] * GRID),
 				});
-				const moved = selection.flatMap(rectOf).map(step);
-				void moveAll(moved);
+				const moved = selection
+					.flatMap(rectOf)
+					.map((r) => ({ ...r, ...nudgeRef.current[r.id] }))
+					.map(step);
+				const commit = moveAll(moved);
+				for (const m of moved) nudge(m.id, { x: m.x, y: m.y }, commit);
 				const own = moved.find((m) => m.id === w.id);
 				if (own) announce(A11y.OPERATION_TEXT.moved(w.title, own.x, own.y));
 			}
@@ -541,11 +620,14 @@ export function SceneBoardCanvas({
 	const arrange = async (action: ArrangeAction) => {
 		if (action.kind === 'select-all') return select(widgets.map((w) => w.id));
 		const placed = planPlacements(action, selection.flatMap(rectOf));
-		await moveAll(placed);
 		const resolved = scene ? arrangeCommand(action, scene, selection) : null;
-		if (resolved) {
+		await asOneStep(async () => {
+			await moveAll(placed);
+			if (!resolved) return;
 			const command = { ...resolved, actorId: runtime.defaultActorId } as CoreCommand;
 			await (history ? history.run(command, 'Arranged tiles') : runtime.dispatch(command));
+		});
+		if (resolved) {
 			requestAnimationFrame(() => {
 				if (document.activeElement === document.body && focusedId)
 					frameRefs.current.get(focusedId)?.focus();
@@ -621,21 +703,18 @@ export function SceneBoardCanvas({
 				resizable={resizable}
 				tabbable
 				stackOrder={widgets.indexOf(w)}
-				ariaLabel={
-					editing
-						? `${w.title}, ${w.typeLabel} widget${selected && multi.length ? ', selected' : ''}, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`
-						: `${w.title}, ${w.typeLabel} widget`
-				}
+				ariaLabel={frameName(w, { editing, selected: selected && multi.length > 0 })}
 				onKeyDown={(e) => frameKeyDown(e, w)}
 				onFocusIn={() => setFocusedId(w.id)}
+				onSettle={() => history?.settle()}
 				registerRef={(el) => {
 					if (el) frameRefs.current.set(w.id, el);
 					else frameRefs.current.delete(w.id);
 				}}
 				onStartMove={(e) => startMove(e, w)}
 				onStartResize={(e) => startResize(e, w)}
-				onCycleSize={() => cycleSize(w)}
-				onResizeStep={(dx, dy) => resizeWidget(w, size.w + dx * GRID, size.h + dy * GRID)}
+				onCycleSize={() => void cycleSize(w)}
+				onResizeStep={(dx, dy) => keyboardResize(w, dx, dy)}
 				onCommand={
 					!editing && onWidgetCommand
 						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)

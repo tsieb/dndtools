@@ -356,6 +356,20 @@ const BINDING_GLYPH: Record<TileBindingState, { icon: string; label: MessageKey;
 	hidden: { icon: 'visibility-hidden', label: 'boardCanvas.binding.hidden', tone: QUIET },
 };
 
+/**
+ * RC-CAN-8.1 — a frame's accessible name. In edit mode it reads the position and size of the layout
+ * the board RECEIVED — the committed tile, never a pointer draft or a definition default — so a
+ * screen reader hears "size 240 by 160" for the 240×160 tile on screen.
+ */
+export function frameName(
+	w: Pick<BoardWidget, 'title' | 'typeLabel' | 'x' | 'y' | 'w' | 'h'>,
+	options: { editing: boolean; selected?: boolean },
+): string {
+	if (!options.editing) return `${w.title}, ${w.typeLabel} widget`;
+	const selected = options.selected ? ', selected' : '';
+	return `${w.title}, ${w.typeLabel} widget${selected}, position ${w.x}, ${w.y}, size ${w.w} by ${w.h}`;
+}
+
 export interface WidgetFrameProps {
 	history?: LayoutHistory;
 	w: BoardWidget;
@@ -375,6 +389,9 @@ export interface WidgetFrameProps {
 	ariaLabel: string;
 	onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 	onFocusIn: () => void;
+	/** Focus left the frame (and everything inside it), or Escape left its resize handle: the
+	 *  keyboard burst is over. */
+	onSettle?: () => void;
 	registerRef: (el: HTMLDivElement | null) => void;
 	onStartMove: (e: React.PointerEvent) => void;
 	onStartResize: (e: React.PointerEvent) => void;
@@ -400,6 +417,7 @@ export function WidgetFrame({
 	ariaLabel,
 	onKeyDown,
 	onFocusIn,
+	onSettle,
 	registerRef,
 	onStartMove,
 	onStartResize,
@@ -457,6 +475,9 @@ export function WidgetFrame({
 			}}
 			onContextMenu={openMenu}
 			onFocus={onFocusIn}
+			onBlur={(e) => {
+				if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onSettle?.();
+			}}
 			style={{
 				position: 'absolute',
 				...fit.box,
@@ -676,6 +697,7 @@ export function WidgetFrame({
 								if (e.key === 'Escape') {
 									e.preventDefault();
 									e.stopPropagation();
+									onSettle?.();
 									e.currentTarget.closest<HTMLElement>('[role="group"]')?.focus();
 								}
 							}}

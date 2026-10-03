@@ -8,6 +8,7 @@ import { formatMessage } from '../../i18n/format';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
 import {
 	BOARD_RIGHT_BOUND,
+	defaultTileSize,
 	flowKeyBetween,
 	flowOrder,
 	tierOf,
@@ -541,7 +542,7 @@ export function AddWidgetGallery({
 		const position =
 			policy === 'flow'
 				? (flowKeyBetween(ordered[ordered.length - 1] ?? null, null) ?? { x: 0, y: 0 })
-				: nextFreeSlot(widgets, { w: entry.defaultSize.width, h: entry.defaultSize.height }, bound);
+				: nextFreeSlot(widgets, defaultTileSize(entry.defaultSize, policy, entry.minSize), bound);
 		const before = new Set(widgets.map((widget) => widget.id));
 		setBusy(true);
 		try {

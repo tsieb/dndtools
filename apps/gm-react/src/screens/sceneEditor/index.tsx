@@ -203,6 +203,7 @@ export function SceneEditor() {
 			canUndo: history.canUndo,
 			undoLabel: history.undoLabel,
 			undo: commands.undo,
+			record: history.record,
 		});
 	});
 
@@ -445,6 +446,7 @@ export function SceneEditor() {
 				onClose={() => setTemplatesOpen(false)}
 				viewport={viewport}
 				sceneId={id}
+				history={history}
 				// The DM picked a starting layout to adjust it: land in edit mode, as a gallery add does.
 				onApplied={() => setEditing(true)}
 			/>

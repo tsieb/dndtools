@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import {
-	resolveAddWidgetCommand,
+	screenLayoutPolicy,
 	type Scene,
 	type SceneBackground,
 	type WidgetLibraryEntry,
@@ -9,7 +9,7 @@ import { Toaster } from '../../ds';
 import type { SceneRuntime } from '../../runtime/SceneRuntime';
 import { widgetRejectionMessage } from '../../app/widget-rejection';
 import { useLayoutHistory } from '../../app/canvas/useLayoutHistory';
-import type { BoardWidget } from '../../app/board-helpers';
+import { addTileCommand, type BoardWidget } from '../../app/board-helpers';
 import { useI18n } from '../../i18n';
 
 export interface SceneMetadataDraft {
@@ -98,10 +98,15 @@ export function useSceneCommands({
 		});
 	}
 	// RC-CAN-4.1: the gallery picks the first open slot and focuses the placed tile.
+	// RC-CAN-8.1: sized from the shared default-size table, and undoable like every other edit.
 	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
-		const command = resolveAddWidgetCommand(entry, sceneId, position);
+		const policy = scene && screenLayoutPolicy(scene) === 'flow' ? 'flow' : 'canvas';
+		const command = addTileCommand(entry, sceneId, position, policy);
 		if (!command) return false;
-		return dispatch({ type: command.type, actorId, payload: command.payload });
+		return history.run(
+			{ type: command.type, actorId, payload: command.payload },
+			t('sceneEditor.history.added', { name: entry.displayName }),
+		);
 	}
 	// Removing a widget used to stage a confirm dialog, because a destroy took the instance's
 	// configuration with it for good. RC-CAN-1.2 gave the core `scene.restore-widget`, so both entry
