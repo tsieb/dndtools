@@ -244,14 +244,17 @@ tap_ui_button() {
 	sleep 0.25
 }
 
-# Reveal a button in a scrollable surface before tapping it. Derive the swipe from the native
-# accessibility bounds of the innermost scroll region, so the gesture stays inside the sheet.
+# Reveal a control in a scrollable surface before tapping it with the given tap helper. Derive the
+# swipe from the native accessibility bounds of the innermost scroll region, so the gesture stays
+# inside the sheet or page. `down` reveals content below the fold; `up` returns toward the top.
 # The bounded search still fails when a destination is absent or the surface cannot scroll.
-tap_ui_button_scrolling() {
-	local label=$1
-	local node bounds left top right bottom x attempt
+tap_ui_scrolling() {
+	local tap=$1
+	local label=$2
+	local direction=${3:-down}
+	local node bounds left top right bottom x from to attempt
 	for attempt in {1..12}; do
-		tap_ui_button "$label" && return 0
+		"$tap" "$label" && return 0
 		[[ "$attempt" -lt 12 ]] || return 1
 		node=$(dump_ui | sed 's/></>\n</g' | grep -F 'scrollable="true"' \
 			| grep -F 'enabled="true"' | tail -1 || true)
@@ -260,11 +263,17 @@ tap_ui_button_scrolling() {
 		[[ -n "${bottom:-}" ]] || return 1
 		((right > left && bottom > top)) || return 1
 		x=$(((left + right) / 2))
-		adb shell input swipe "$x" "$((top + (bottom - top) * 3 / 4))" \
-			"$x" "$((top + (bottom - top) / 4))" 300 || return 1
+		from=$((top + (bottom - top) * 3 / 4))
+		to=$((top + (bottom - top) / 4))
+		[[ "$direction" == up ]] && read -r from to <<<"$to $from"
+		adb shell input swipe "$x" "$from" "$x" "$to" 300 || return 1
 		sleep 0.25
 	done
 	return 1
+}
+
+tap_ui_button_scrolling() {
+	tap_ui_scrolling tap_ui_button "$1" down
 }
 
 # Tap any accessibility node containing the label (class-agnostic — the WebView surfaces
@@ -314,6 +323,8 @@ tap_ui_control() {
 	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
 	read -r left top right bottom <<<"$bounds"
 	[[ -n "${bottom:-}" ]] || return 1
+	# An offscreen WebView node keeps bounds collapsed at the clipping edge (see tap_ui_button).
+	((right > left && bottom > top)) || return 1
 	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
 	sleep 0.25
 }
@@ -480,7 +491,12 @@ tap_ui_button 'More' || fail 'More navigation control was not reachable'
 wait_for_ui_text 'All sections' || fail 'More sheet did not open'
 tap_ui_button_scrolling 'Settings' || fail 'Settings destination was not reachable from the More sheet'
 wait_for_ui_text 'Settings section' || fail 'Settings destination did not render'
-tap_ui_control 'Settings section' || fail 'Settings section selector was not reachable'
+# A fresh install reads Settings at the Beginner tier, which leaves Backup & history out of the
+# section picker (RC-UX-5.2). Choose Expert at the bottom of Appearance, as a user would, then
+# return to the picker at the top of the page.
+tap_ui_scrolling tap_ui_control 'Expert' down || fail 'Expert experience level was not reachable'
+tap_ui_scrolling tap_ui_control 'Settings section' up \
+	|| fail 'Settings section selector was not reachable'
 wait_for_ui_text 'Backup' || fail 'Settings section choices did not open'
 tap_ui_control 'Backup' || fail 'Backup & history choice was not reachable'
 wait_for_ui_text 'Local backup' || fail 'Backup & history did not render the local backup panel'

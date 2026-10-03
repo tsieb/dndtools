@@ -50,11 +50,13 @@ describe('Android emulator acceptance gate', () => {
 		'scrolls to Settings and fails closed if absent (present=%s)',
 		(present) => {
 			const source = fs.readFileSync(scriptPath, 'utf-8');
-			const helpers = ['tap_ui_button', 'tap_ui_button_scrolling'].map((name) => {
-				const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
-				expect(match, `missing helper ${name}`).not.toBeNull();
-				return match?.[0] ?? '';
-			});
+			const helpers = ['tap_ui_button', 'tap_ui_scrolling', 'tap_ui_button_scrolling'].map(
+				(name) => {
+					const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
+					expect(match, `missing helper ${name}`).not.toBeNull();
+					return match?.[0] ?? '';
+				},
+			);
 			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-scroll-'));
 			try {
 				const node = (bounds: string) =>
@@ -99,6 +101,85 @@ describe('Android emulator acceptance gate', () => {
 			}
 		},
 	);
+
+	it('does not tap an offscreen select or option with empty accessibility bounds', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+		const helper = /^tap_ui_control\(\) \{\n[\s\S]*?^\}$/m.exec(source)?.[0];
+		expect(helper).toBeTruthy();
+		const result = spawnSync(
+			'bash',
+			[
+				'-c',
+				[
+					'set -Eeuo pipefail',
+					`dump_ui() { printf '%s' '<hierarchy><node text="Settings section" class="android.widget.Spinner" clickable="true" enabled="true" bounds="[52,280][1002,280]" /></hierarchy>'; }`,
+					'adb() { echo "unexpected tap: $*"; }',
+					'sleep() { :; }',
+					helper,
+					"tap_ui_control 'Settings section'",
+				].join('\n'),
+			],
+			{ encoding: 'utf-8' },
+		);
+		expect(result.stdout).toBe('');
+		expect(result.status).toBe(1);
+	});
+
+	it('scrolls back up to a control above the fold', () => {
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+		const helpers = ['tap_ui_control', 'tap_ui_scrolling'].map((name) => {
+			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
+			expect(match, `missing helper ${name}`).not.toBeNull();
+			return match?.[0] ?? '';
+		});
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-scroll-up-'));
+		try {
+			const node = (bounds: string) =>
+				`<node text="Settings section" class="android.widget.Spinner" clickable="true" enabled="true" bounds="${bounds}" />`;
+			const tree = (control: string) =>
+				`<hierarchy><node scrollable="true" enabled="true" bounds="[20,400][1060,2200]">${control}</node></hierarchy>`;
+			fs.writeFileSync(path.join(dir, 'before.xml'), tree(node('[55,400][1026,400]')));
+			fs.writeFileSync(path.join(dir, 'after.xml'), tree(node('[55,440][1025,560]')));
+			const result = spawnSync(
+				'bash',
+				[
+					'-c',
+					[
+						'set -Eeuo pipefail',
+						'dump_ui() { if [[ -f scrolled ]]; then cat after.xml; else cat before.xml; fi; }',
+						'adb() { echo "$*"; if [[ "$3" == swipe ]]; then touch scrolled; fi; }',
+						'sleep() { :; }',
+						...helpers,
+						"tap_ui_scrolling tap_ui_control 'Settings section' up",
+					].join('\n'),
+				],
+				{ cwd: dir, encoding: 'utf-8' },
+			);
+			expect(result.status, result.stderr).toBe(0);
+			expect(result.stdout.trim().split('\n')).toEqual([
+				'shell input swipe 540 850 540 1750 300',
+				'shell input tap 540 500',
+			]);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it('raises a fresh install to the Expert tier before choosing Backup & history', () => {
+		// RC-UX-5.2 hides Backup & history below the advanced tier, and a fresh install starts at
+		// Beginner, so the section picker has no Backup choice until the level is raised.
+		const lines = fs.readFileSync(scriptPath, 'utf-8').split('\n');
+		const expert = lines.findIndex((line) =>
+			line.startsWith("tap_ui_scrolling tap_ui_control 'Expert' down"),
+		);
+		const picker = lines.findIndex((line) =>
+			line.startsWith("tap_ui_scrolling tap_ui_control 'Settings section' up"),
+		);
+		const backup = lines.findIndex((line) => line.startsWith("tap_ui_control 'Backup'"));
+		expect(expert).toBeGreaterThan(-1);
+		expect(picker).toBeGreaterThan(expert);
+		expect(backup).toBeGreaterThan(picker);
+	});
 
 	it('fails closed across install, lifecycle, native surfaces, persistence, Back, and same-key upgrade checks', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
