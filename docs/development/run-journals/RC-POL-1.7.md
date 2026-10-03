@@ -95,3 +95,12 @@ node apps/gm-react/tests/visual/check-baseline-budget.mjs
 - Final owned-source ESLint, gm-react typecheck, formatting and whitespace checks passed. Full lint (including boundary, emphasis, non-text contrast), app unit suite (1,715 tests) and tooling suite (228 tests) passed during this task.
 - Final `pnpm gates` passed; **no file-size warning names an owned path**. All 27 owned text files remain below 500 lines; largest is LevelUp.tsx at 492. Unrelated existing warnings remain outside ownership.
 - No push, promotion, additional loop/agent, or dispatcher control-state edit. Central independent review and integration remain the operator's next step.
+
+## Scope-only retry — 2026-10-03
+
+- Previous gate feedback: `candidate changes paths outside its claim: docs/design-package/templates/character-sheet/IMPLEMENTATION.md, scripts/emphasis-baseline.json`.
+- The revised task explicitly owns both named paths. Retained their intended changes from implementation commit `19c4d8b7bfe92120a0dead1f555b9aabdeae685e`: the template implementation document describes the five-theme/three-tier snapshot coverage; the emphasis baseline removes only the obsolete small-display-face allowances for LevelUp, Vitals and Player. No dispatcher claim or other control state was edited.
+- Started this retry with a clean worktree at that implementation commit. Application code, tests and snapshots remain unchanged; this retry adds only this journal record. The browser, axe, print and pinned-visual results above remain prior-run evidence, not newly executed tests. The reported rejection was ownership-only, so those unchanged suites were not repeated.
+- Fresh `pnpm gates`: exit 0, with **zero owned-file size warnings**. All 27 owned text files remain below 500 lines; LevelUp.tsx remains the largest at 492 lines.
+- Fresh `pnpm lint:emphasis`: exit 0; existing baseline warnings remain. Fresh visual baseline budget check: exit 0, **522 files / 32,570.4 KiB of 32,768 KiB**.
+- Headroom tools are still unavailable; verification used original native command output. Central scope validation and independent review remain operator-run gates; this entry does not claim those remote stages passed.
