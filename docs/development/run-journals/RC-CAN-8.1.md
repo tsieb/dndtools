@@ -94,3 +94,7 @@ over the 800-line hard limit (RC-STB-2.7). Code moved between owned files, no be
 After: `SceneBoardCanvas.tsx` 788 lines, `WidgetFrame.tsx` 800. `pnpm gates` passes; `tsc --noEmit`,
 `eslint` (no warnings) and `prettier --check` on every changed path pass;
 `vitest --config vitest.app.config.ts` 162 files, 1763 tests passed.
+
+- Playwright on `bd6862fb`, desktop-chromium and mobile-chromium: `canvas`, `canvas-keyboard`,
+  `canvas-arrange`, `command-palette`, `flow-layout`, `scene-surfaces` and `canvas-history`, 150
+  passed (3.2 min).
