@@ -501,9 +501,11 @@ export const ALL_WIDGET_TEMPLATE_KINDS = [
 ] as const satisfies readonly WidgetTemplateKind[];
 
 /**
- * Every declared data-query source, in a stable order. Each resolves against an ACTOR-FILTERED core
- * read, so a declared query can never widen what its viewer may see. Shares one source of truth with
- * the builder and the `widget.package.propose` tool schema for the same reason as the template list.
+ * The original data-query sources (RC-WID-1.2), in a stable order. Each resolves against an
+ * ACTOR-FILTERED core read, so a declared query can never widen what its viewer may see. This is also
+ * the set the `widget.package.propose` tool teaches and accepts; the hub sources below are not offered
+ * to the model until that tool's owner extends its glosses. Use {@link WIDGET_DATA_QUERY_SOURCES} for
+ * every source a definition may declare.
  */
 export const ALL_WIDGET_DATA_QUERY_SOURCES = [
 	'current-combatants',
@@ -514,6 +516,13 @@ export const ALL_WIDGET_DATA_QUERY_SOURCES = [
 	'maps',
 	'content-objects',
 	'binding',
+] as const satisfies readonly WidgetDataQuerySource[];
+
+/**
+ * RC-WID-5.2 — the hub sources the SCREENS_PARITY gap register (§4.1 G-02) needs, in a stable order.
+ * Each resolves through an existing actor-scoped core read, exactly like the originals.
+ */
+export const ALL_WIDGET_HUB_QUERY_SOURCES = [
 	'screens',
 	'vault-counts',
 	'party',
@@ -531,6 +540,12 @@ export const ALL_WIDGET_DATA_QUERY_SOURCES = [
 	'combatant-status',
 	'capture-candidates',
 	'widget-library',
+] as const satisfies readonly WidgetDataQuerySource[];
+
+/** Every source a definition may declare: the persisted schema's enum and the builder's catalogue. */
+export const WIDGET_DATA_QUERY_SOURCES = [
+	...ALL_WIDGET_DATA_QUERY_SOURCES,
+	...ALL_WIDGET_HUB_QUERY_SOURCES,
 ] as const satisfies readonly WidgetDataQuerySource[];
 
 export const EMPTY_WIDGET_PACKAGE_STATE: WidgetPackageState = Object.freeze({

@@ -737,23 +737,6 @@ const WIDGET_QUERY_SOURCE_GUIDANCE: Record<(typeof ALL_WIDGET_DATA_QUERY_SOURCES
 		maps: 'the maps and their pins',
 		'content-objects': 'quests, factions, items, roll tables',
 		binding: 'what the DM points a copy at (declare the binding first)',
-		screens: 'the screens library, live one marked',
-		'vault-counts': 'how many characters, maps, notes, quests, factions',
-		party: 'the player characters and their vitals',
-		campaign: 'name, rules system, live screen, session phase',
-		'dice-history': 'recent rolls',
-		handouts: 'handouts delivered',
-		'rollable-tables': 'the roll tables',
-		'quick-reference': 'the DM\u2019s pinned references',
-		'session-archives': 'past sessions',
-		'continuity-digest': 'what to carry into the next session',
-		'rest-log': 'rests taken',
-		presence: 'who is at the table',
-		'player-projections': 'what each player is shown',
-		'initiative-call': 'who still owes an initiative roll',
-		'combatant-status': 'conditions, concentration, death saves',
-		'capture-candidates': 'what a session log can mark as changed',
-		'widget-library': 'the widgets the DM can add',
 	};
 
 /** `name (gloss)` for each entry of a guidance table, comma-joined. */
@@ -763,7 +746,7 @@ function guidanceLine<K extends string>(keys: readonly K[], gloss: Record<K, str
 
 /**
  * The model-facing description for `widget.package.propose`. Built from the shared const arrays so
- * the templates and sources it teaches are exactly the ones the input schema accepts.
+ * the eight templates and eight sources it teaches are the SAME eight the input schema accepts.
  *
  * It opens by NARROWING the tool and naming the tools that are not it. The live smoke against a 7B
  * local model proved why: an earlier, broader phrasing ("design a widget from what the DM wants to

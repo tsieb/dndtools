@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-	ALL_WIDGET_DATA_QUERY_SOURCES,
+	WIDGET_DATA_QUERY_SOURCES,
 	PREVIEW_PLAYER_ACTOR_ID,
 	permissionsWithPreviewActors,
 	type WidgetBindingDefinition,
@@ -346,15 +346,13 @@ export function QueryPreview({
 }
 
 /** Every source the builder offers, declared as an open query so the reading shows the core's filter. */
-const CATALOGUE_QUERIES: WidgetDataQueryDefinition[] = ALL_WIDGET_DATA_QUERY_SOURCES.map(
-	(source) => ({
-		id: source,
-		label: source,
-		source,
-		requiredCapability: 'viewer',
-		audience: 'shared',
-	}),
-);
+const CATALOGUE_QUERIES: WidgetDataQueryDefinition[] = WIDGET_DATA_QUERY_SOURCES.map((source) => ({
+	id: source,
+	label: source,
+	source,
+	requiredCapability: 'viewer',
+	audience: 'shared',
+}));
 
 /**
  * The catalogue of every source with its live reading. Closed by default and resolved only once

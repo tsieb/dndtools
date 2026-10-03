@@ -9,7 +9,7 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 // The previews run the same resolver a placed widget uses, so the DM-only screen created below
 // must be counted for the DM and not for the player, in the catalogue and on a query card alike.
 
-/** `ALL_WIDGET_DATA_QUERY_SOURCES`, in order. Repeated here because e2e specs import core types only. */
+/** `WIDGET_DATA_QUERY_SOURCES`, in order. Repeated here because e2e specs import core types only. */
 const SOURCES = [
 	'current-combatants',
 	'visible-characters',

@@ -149,9 +149,12 @@ receives empty marker arrays, so scaled markers do not introduce undersized butt
 
 ### 3.2 Query sources
 
-`ALL_WIDGET_DATA_QUERY_SOURCES` (`packages/core/src/state/widget-package-state.ts`) is the one list
-of sources. The persisted schema, the `widget.package.propose` tool and the builder's source picker
-all read it. `resolveWidgetTemplateData` maps each source onto an existing actor-scoped core read
+`WIDGET_DATA_QUERY_SOURCES` (`packages/core/src/state/widget-package-state.ts`) lists every
+source: the original eight (`ALL_WIDGET_DATA_QUERY_SOURCES`) followed by the hub sources
+(`ALL_WIDGET_HUB_QUERY_SOURCES`). The persisted schema and the builder's catalogue read the full
+list, and the source picker labels every member of the union. The `widget.package.propose` tool
+still teaches and accepts only the original eight. The hub sources reach the model once that tool's
+glosses are extended in `mcp/tool-registry.ts`. `resolveWidgetTemplateData` maps each source onto an existing actor-scoped core read
 and adds no filtering of its own. Where it touches a record directly, it does so only for an id that
 read has just returned. A query declared `audience: 'dm'` (or `requiredCapability: 'manager'`)
 returns no rows to a non-DM viewer, whatever the read would have returned. RC-WID-5.2 added the hub

@@ -570,6 +570,8 @@ export {
 	// RC-WID-3.1 — the eight template kinds and the eight data-query sources, as one source of truth
 	// shared by the builder, the MCP propose tool's schema, and its model-facing description.
 	ALL_WIDGET_DATA_QUERY_SOURCES,
+	ALL_WIDGET_HUB_QUERY_SOURCES,
+	WIDGET_DATA_QUERY_SOURCES,
 	ALL_WIDGET_TEMPLATE_KINDS,
 	DEFAULT_WIDGET_SURFACES,
 	EMPTY_WIDGET_PACKAGE_STATE,

@@ -84,3 +84,43 @@ The following G-02 items do not come from a core read, so no query source can ho
 
 The full wrapper gates, pinned visual regression and independent review are left to the central
 operator. No push, promotion, dispatcher-state edit or additional agent was used.
+
+## Session 2 — 2026-10-02: claim-fence repair
+
+The gate rejected `42f59ae9` for touching `apps/gm-react/src/app/widgetBuilder/vocabulary.ts` and
+`packages/core/src/mcp/tool-registry.ts`, neither of which is in the claim. No Headroom tools were
+exposed, so output went to `/tmp/rc-wid52-r2-*.log` and I read those logs directly.
+
+- `tool-registry.ts`: **reverted to base `5611f236`** (now byte-identical). The source list is split
+  in the owned `widget-package-state.ts`. `ALL_WIDGET_DATA_QUERY_SOURCES` is back to the original
+  eight, which is the list the propose tool's `z.enum` and its exhaustive gloss `Record` are keyed
+  on. The new `ALL_WIDGET_HUB_QUERY_SOURCES` holds the 17 hub sources, and
+  `WIDGET_DATA_QUERY_SOURCES` is both lists together. The persisted schema and the builder catalogue
+  read `WIDGET_DATA_QUERY_SOURCES`. Consequence: the `widget.package.propose` tool still teaches and
+  accepts only the original eight, and WIDGETS.md §3.2 says so.
+- `vocabulary.ts`: **kept** (18 added lines: entries only, plus one comment). The acceptance
+  criterion needs the builder's Data step to list every source, so the hub sources must be members
+  of the query `source` type. Two files outside the claim then constrain that type:
+  - `vocabulary.ts`: `QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, MessageKey>` is exhaustive,
+    so widening `WidgetDataQuerySource` fails typecheck without the new entries;
+  - `WorkerHost.ts:430`: `const source: WidgetDataQuerySource = definition?.dataQueries?.[0]?.source …`.
+    Keeping the exported union narrow and widening only the field makes this fail instead. I ran
+    that experiment and restored the file afterwards: `error TS2322: Type 'WidgetQuerySourceAll' is
+not assignable to type 'WidgetDataQuerySource'` (`/tmp/rc-wid52-r2-optionC.log`).
+
+  So one file outside the claim has to change either way. The entries-only `vocabulary.ts` edit is
+  the smaller of the two. **The operator needs to decide whether to widen the claim to that file.**
+
+- Companion `packages/core/src/index.ts` exports the two new constants. The hub test, the e2e spec
+  comment, `DataStepBindings.tsx` and `dataEnvironment.ts` now use the split names.
+
+Validation after the repair:
+
+- `pnpm typecheck` exit 0 (`/tmp/rc-wid52-r2-typecheck.log`).
+- App vitest over `app/widgets`, `app/widgetBuilder`, `i18n` and the file-size gate: 21 files, 432
+  tests passed, including the 99 hub isolation tests (`/tmp/rc-wid52-r2-app.log`).
+- Full core vitest: 284 files, 5184 tests passed, including `mcp-widget-package-propose`
+  (`/tmp/rc-wid52-r2-core.log`).
+- `widget-query-sources.spec.ts` + `widget-builder.spec.ts` + `widget-generate.spec.ts` on
+  desktop-chromium and mobile-chromium: 28 passed (`/tmp/rc-wid52-r2-e2e.log`).
+- ESLint and Prettier `--check` on the changed files, and `git diff --check`, all passed.

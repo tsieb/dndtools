@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	ALL_WIDGET_DATA_QUERY_SOURCES,
+	ALL_WIDGET_HUB_QUERY_SOURCES,
 	PREVIEW_PLAYER_ACTOR_ID,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	dispatchCommand,
@@ -255,9 +255,7 @@ function hubCampaign() {
 	return { state, env, openScene, secretScene };
 }
 
-const HUB_SOURCES = ALL_WIDGET_DATA_QUERY_SOURCES.slice(
-	ALL_WIDGET_DATA_QUERY_SOURCES.indexOf('screens'),
-);
+const HUB_SOURCES = ALL_WIDGET_HUB_QUERY_SOURCES;
 
 function query(
 	source: WidgetDataQueryDefinition['source'],

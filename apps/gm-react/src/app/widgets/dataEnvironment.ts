@@ -42,7 +42,7 @@ import type { BoardWidget } from '../board-helpers';
  * dataEnvironment — what a TEMPLATE widget is allowed to see (RC-WID-1.2).
  *
  * A `template` widget declares `dataQueries` (one of the named sources in
- * `ALL_WIDGET_DATA_QUERY_SOURCES`) and `computedFields`
+ * `WIDGET_DATA_QUERY_SOURCES`) and `computedFields`
  * instead of shipping code. This module is the ONLY place those declarations turn into values, and
  * it does so by calling the actor-filtered core reads (`*ForActor`) and rendering whatever they
  * return. It never reads a raw state slice and filters it itself: the core decides what a player

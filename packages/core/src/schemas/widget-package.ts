@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { isValidFormula } from '../state/system-package';
 import {
 	ALL_HOST_PERMISSIONS,
-	ALL_WIDGET_DATA_QUERY_SOURCES,
+	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_CREATE_TARGETS,
 	WIDGET_INTENT_ENTITY_KINDS,
 	WIDGET_INTENT_ROUTES,
@@ -172,7 +172,7 @@ const widgetDataQueryDefinitionSchema = z
 		id: idSchema,
 		label: z.string().min(1),
 		// One list with the type and the builder, so a source cannot be offered and then refused here.
-		source: z.enum(ALL_WIDGET_DATA_QUERY_SOURCES),
+		source: z.enum(WIDGET_DATA_QUERY_SOURCES),
 		bindingIds: z.array(idSchema).optional(),
 		requiredCapability: z.enum(['manager', 'operator', 'viewer']),
 		audience: z.enum(['dm', 'players', 'shared']),
