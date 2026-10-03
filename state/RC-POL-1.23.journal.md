@@ -234,3 +234,54 @@ tests/e2e/shell-polish.spec.ts --workers=2 --retries=0`: **20 passed**, exit 0 (
   file-size warning for any owned file; unrelated pre-existing warnings remain.
 - Checklist complete with scoped waivers above. No remote publication or native-device,
   spoken screen-reader, or paired performance verification is claimed.
+
+## Scheduled follow-up — 2026-10-03
+
+This section supersedes earlier final-source claims wherever the scope correction changes
+that evidence. The earlier implementation and embedded §20.2–§20.5 checklist remain above.
+
+- Gate feedback explicitly rejected BottomTabBar.tsx and i18n/dev/qps-ploc.ts as outside
+  the claim. The new task now owns BottomTabBar.tsx, so that required disclosure change stays.
+  The pseudo catalog is still excluded: restored it exactly to the pre-task parent of
+  73a07863, removing that path from the cumulative candidate diff. No dispatcher state edited.
+- This scope correction creates a verified integration blocker: the existing i18n unit test
+  requires complete pseudo coverage, but the restored catalog omits the 25 new EN/ES keys.
+  `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/i18n/index.test.ts`:
+  27 passed, 1 failed at index.test.ts:227, expected coverage 1, actual 0.995769165679472.
+  No test/coverage threshold was weakened and no runtime localization workaround was added.
+  The central claim must include this generated file, followed by the existing
+  `pnpm exec tsx scripts/i18n-catalog.ts pseudo` generator and the same unit check.
+  Asked for that scope correction; no authorization inferred from elapsed time.
+- Added shell-pin-bounds.spec.ts covering long pin names and a long-named Demo campaign
+  at sidebar (1280px), rail (900px), and phone (390px) widths on both browser profiles.
+  Checks each pin, campaign control and available pin action against every horizontally
+  clipping ancestor, scrolls controls into view and opens the pin action menu. All three
+  existing navigation implementations already show the Demo badge; no duplicate badge
+  or unrelated live-row style fix added (RC-ENG-9.1 remains separate).
+- Initial test fixture was rejected by local-vault validation because its ID lacked the
+  local- prefix. Corrected the fixture to use the valid demo/primary catalog shape already
+  used by demo-vault.spec.ts. With the valid fixture: 6 passed, exit 0. No production geometry
+  change was required; the existing shell visual baselines remain applicable.
+- FEATURE-GAPS row now names the new clipping/Demo coverage.
+
+- Follow-up pinned-container strict shell comparison: 15 tests passed (34.2s), exit 0,
+  covering all 65 existing captures across five themes and three tiers. No pixel-producing
+  source changed in this follow-up, so the previous full 441-test baseline comparison remains
+  the broader visual evidence; this run refreshes the shell-specific check.
+- Follow-up `pnpm gates`, app typecheck, targeted ESLint and Prettier: exit 0.
+  All owned files remain below 500 lines (largest: rows.tsx, 457). The cumulative diff against
+  73a07863^ is empty for qps-ploc.ts, confirming the rejected generated path is removed.
+
+- Broad follow-up shell regressions: 138 passed, 3 expected skips, 1 cold-palette test
+  failure. The failing assertion was search return focus after sending Escape immediately on
+  dialog visibility. The DS palette focuses its input in a deferred callback, so visibility
+  alone does not establish keyboard readiness. Added an assertion that the combobox actually
+  has focus before Escape, plus a hidden-dialog assertion afterward. Kept return-focus checks
+  and zero retries. No production behavior or snapshot changed.
+
+- Final shell-polish + shell-pin-bounds acceptance run: **26 passed (1.1m), exit 0**,
+  including five-theme route/overlay axe on desktop and mobile, long pins and Demo badges.
+- Cold palette readiness/focus regression repeated five times per profile: **10 passed
+  (24.2s), exit 0**, retries disabled. Final targeted ESLint: exit 0.
+- Remaining blocker: generated pseudo catalog ownership/completeness, as detailed above.
+  Implementation follow-up is committed for review; full integration readiness is not claimed.

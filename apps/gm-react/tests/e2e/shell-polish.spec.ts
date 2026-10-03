@@ -244,8 +244,12 @@ test('cold palette opening announces loading and remains dismissible', async ({ 
 		await expect(search).toBeFocused();
 		await page.keyboard.press('Enter');
 		release();
-		await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
+		const palette = page.getByRole('dialog', { name: 'Command palette' });
+		await expect(palette).toBeVisible();
+		// Lazy mounting paints the dialog before the palette's deferred autofocus settles.
+		await expect(palette.getByRole('combobox')).toBeFocused();
 		await page.keyboard.press('Escape');
+		await expect(palette).toBeHidden();
 		await expect(search).toBeFocused();
 	} finally {
 		release();
