@@ -152,7 +152,7 @@ change also deleted frame comments and put `aria-label` on a generic span.
   (`/tmp/can55-r3-visual1.log`). The session ended at 386/408. There were exactly 12 differences,
   all desktop/rail `/board` and `/scene/:id` (sans titles and the new layouts, inspected). Phone
   images were unchanged. Regenerated only those 12 with `-g "golden routes .* (/board|/scene/:id)"
-  --update-snapshots=changed` (`/tmp/can55-r3-visual-update.log`, 18 passed). Baseline budget:
+--update-snapshots=changed` (`/tmp/can55-r3-visual-update.log`, 18 passed). Baseline budget:
   32636.6 of 32768 KiB.
 - Not fixed, outside owned scope: the home Map tile's zoom buttons are clipped by Map's own
   viewport (pre-existing, identical on base). The ENG-8.1 detector does not flag them.
@@ -175,7 +175,7 @@ change also deleted frame comments and put `aria-label` on a generic span.
   (`/tmp/can55-r5-testapp.log`), recovery spec 14/14 on both profiles (`/tmp/can55-r5-spec.log`).
 - Baselines: regenerated the 12 desktop/rail `/board` and `/scene/:id` images in the pinned
   container on top of `7fab0ebd` (`-g "golden routes .* (/board|/scene/:id)"
-  --update-snapshots=changed`, 18 passed; phone unchanged; `/tmp/can55-r6-visual-update.log`).
+--update-snapshots=changed`, 18 passed; phone unchanged; `/tmp/can55-r6-visual-update.log`).
   Inspected: Screens header, fitting tiles whole, Prep with fade, count and Grow. Raw output put the
   budget at 32991.3 of 32768 KiB. Recompressed only these 12 losslessly: unfiltered the scanlines,
   re-filtered (filter 0 compressed best for every file) and Zopfli-deflated. Each file's decoded
@@ -194,3 +194,8 @@ change also deleted frame comments and put `aria-label` on a generic span.
   (re-filter + Zopfli, decoded pixels asserted identical; `/tmp/can55-r7-repng.log`). Budget
   29938.8 of 32768 KiB. Pinned comparison with `--update-snapshots=none`: 18 passed
   (`/tmp/can55-r7-visual-verify.log`).
+- On `e921cdde`: tsc clean; `pnpm lint` 0 errors (17 warnings, none in this task's files);
+  `pnpm test:app` 1736/1736 (`/tmp/can55-r7-testapp.log`); recovery spec 14/14 on both profiles,
+  no retries (`/tmp/can55-r7-spec.log`): detector on `/board`, `/scene/:id` and `/screen/:id` for
+  every template scene at 1440/900/375; the fitting tiles whole at 1280/834; Prep
+  scroll/Grow/Restore; Grow converges.
