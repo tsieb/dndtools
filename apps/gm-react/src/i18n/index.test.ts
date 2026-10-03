@@ -10,7 +10,6 @@ import {
 import { en, type MessageKey } from './messages/en';
 import { es } from './messages/es';
 import { fr } from './messages/fr';
-import pseudo from './dev/qps-ploc';
 import {
 	formatDistance,
 	formatList,
@@ -229,11 +228,8 @@ describe('additional catalogs', () => {
 		});
 		expect(normalizeLocale('qps-ploc')).toBe('qps-ploc');
 		await loadCatalog('qps-ploc');
-		// Generated pseudo catalogue is maintained separately; missing entries use the source.
-		expect(catalogCoverage('qps-ploc')).toBe(Object.keys(pseudo).length / Object.keys(en).length);
-		expect(translate('qps-ploc', 'boardCanvas.binding.bound')).toBe(
-			en['boardCanvas.binding.bound'],
-		);
+		expect(catalogCoverage('qps-ploc')).toBe(1);
+		expect(translate('qps-ploc', 'boardCanvas.binding.bound')).toBe('[Ɓóúñď~~]');
 		expect(translate('qps-ploc', 'common.action.save')).toBe('[Šáṽé~~]');
 		expect(translate('qps-ploc', 'projection.pushed', { title: 'Map', count: 3 })).toContain(
 			'3 ƥľáýéŕš',
