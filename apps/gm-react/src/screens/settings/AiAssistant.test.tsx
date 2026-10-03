@@ -66,12 +66,6 @@ async function ask(text: string) {
 }
 
 beforeEach(() => {
-	(window as unknown as { matchMedia: unknown }).matchMedia = (query: string) => ({
-		matches: false,
-		media: query,
-		addEventListener: () => {},
-		removeEventListener: () => {},
-	});
 	(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 	mocks.sendAiChat.mockReset();
 	Toaster.clear();

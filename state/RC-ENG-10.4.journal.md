@@ -20,3 +20,11 @@
 - Pinned targeted visual command completed with exit 0: **24 passed (1.4m)**, including both previously failing cases twice. Exact command: `bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2 tests/visual/palette-help.spec.ts tests/visual/campaign-cards.spec.ts --project=visual-desktop --project=visual-rail --repeat-each=2`. Original local output: `/tmp/rc-eng-10.4-visual-focused.log`.
 - The visual failures did not reproduce without any source or baseline edits. This supports intermittent failures, not a verified permanent repair. Full 453-test gate remains for the central operator; this retry does not claim that gate passed.
 - Journal formatting and `git diff --check` passed. This retry commits only the diagnostic evidence; the cancellation implementation remains in the preceding two commits. No push, promotion, loop launch, or dispatcher control-state writes.
+
+## 2026-10-03 — boundary lint repair
+
+- Read the original lint log for attempt `d548ebd9-ce0c-4f4e-a20a-517f0a58a263`. ESLint had zero errors; the boundary checker rejected the raw viewport stub in `AiAssistant.test.tsx:69` (PLAT-001/006).
+- Removed the unnecessary browser API stub. The existing platform preferences adapter already handles an unavailable media-query API; the cancellation test now uses that supported fallback without bypassing the boundary rule.
+- Full `pnpm lint` passed (exit 0), including the boundary, emphasis and contrast checks; ESLint retains 16 existing warnings and zero errors. Original local output: `/tmp/rc-eng-10.4-lint.log`.
+- Focused bridge, Settings assistant and AI evaluation tests passed: 3 files, 34 tests. Changed-file Prettier and `git diff --check` passed. No production behavior or unrelated files changed.
+- No push, promotion, loop launch, or dispatcher control-state writes.
