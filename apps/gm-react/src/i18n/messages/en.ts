@@ -4773,7 +4773,6 @@ export const en = {
 	'sceneEditor.widgetFallback': 'widget',
 	'sceneEditor.history.moved': 'Moved {name}',
 	'sceneEditor.history.resized': 'Resized {name}',
-	'sceneEditor.history.added': 'Added {name}',
 	'sceneEditor.history.removed': 'Removed {name}',
 	'sceneEditor.history.docked': 'Docked {name}',
 	'sceneEditor.history.undocked': 'Undocked {name}',

@@ -4784,7 +4784,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.widgetFallback': 'widget',
 	'sceneEditor.history.moved': 'Movido {name}',
 	'sceneEditor.history.resized': 'Redimensionado {name}',
-	'sceneEditor.history.added': 'Añadido {name}',
 	'sceneEditor.history.removed': 'Quitado {name}',
 	'sceneEditor.history.docked': 'Acoplado {name}',
 	'sceneEditor.history.undocked': 'Desacoplado {name}',

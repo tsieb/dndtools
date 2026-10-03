@@ -3,7 +3,12 @@
 import { act, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { dispatchCommand, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
+import {
+	dispatchCommand,
+	type CoreCommand,
+	type CoreStateSlice,
+	type SyncOperation,
+} from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { MAX_LAYOUT_HISTORY, useLayoutHistory, type LayoutHistory } from './useLayoutHistory';
 
@@ -70,7 +75,24 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 	// The campaign's own environment: a second one would mint ids that collide with the seed's.
 	const start = campaign();
 	const env = start.env;
-	const holder = { state: start.state };
+	// Shaped like `SceneRuntime`: accepted dispatches are signalled with the operations they logged.
+	const listeners = new Set<(ops: SyncOperation[], next: CoreStateSlice) => void>();
+	const holder = {
+		state: start.state,
+		defaultActorId: DM_ACTOR.id,
+		onDispatched(listener: (ops: SyncOperation[], next: CoreStateSlice) => void) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		},
+	};
+	const apply = (command: CoreCommand) => {
+		const result = dispatchCommand(holder.state, env, command);
+		if (result.status !== 'accepted') return result;
+		const ops = result.nextState.sync.operations.slice(holder.state.sync.operations.length);
+		holder.state = result.nextState;
+		for (const listener of listeners) listener(ops, result.nextState);
+		return result;
+	};
 	let api: LayoutHistory | null = null;
 
 	function Probe({ scene }: { scene: string | null }) {
@@ -78,9 +100,7 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 			sceneId: scene,
 			runtime: holder,
 			dispatch: async (command: CoreCommand) => {
-				const result = dispatchCommand(holder.state, env, command);
-				if (result.status !== 'accepted') return false;
-				holder.state = result.nextState;
+				if (apply(command).status !== 'accepted') return false;
 				await options.persist?.();
 				return true;
 			},
@@ -102,7 +122,7 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 		holder,
 		/** Dispatch past the stack, as the palette and the template picker do. */
 		dispatchOutside(command: CoreCommand) {
-			holder.state = accept(dispatchCommand(holder.state, env, command));
+			act(() => void accept(apply(command)));
 		},
 		sceneId: start.sceneId,
 		widgetId: start.widgetId,
@@ -382,17 +402,19 @@ describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
 		});
 		const added = ids().filter((id) => !before.includes(id));
 		expect(added).toHaveLength(1);
+		// Signalled by the runtime AND returned to `run`: still exactly one step.
 		await act(async () => {
 			await t.history.undo();
 		});
 		expect(ids()).toEqual(before);
+		expect(t.history.canUndo).toBe(false);
 		await act(async () => {
 			await t.history.redo();
 		});
 		expect(ids()).toContain(added[0]);
 	});
 
-	it('records a template applied outside the stack, and takes all its tiles back in one step', async () => {
+	it('records a template applied past the stack, and takes all its tiles back in one step', async () => {
 		const t = harness();
 		const ids = () => t.holder.state.scenes.scenes[t.sceneId].widgets.map((w) => w.id);
 		const before = ids();
@@ -401,11 +423,10 @@ describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
 			actorId: DM_ACTOR.id,
 			payload: { sceneId: t.sceneId, source: { kind: 'builtin', templateId: 'combat' } },
 		};
-		const stateBefore = t.holder.state;
+		// The template picker dispatches straight to the runtime; the stack records it off the signal.
 		t.dispatchOutside(command);
 		expect(ids().length).toBeGreaterThan(before.length + 1);
-		act(() => t.history.record(command, stateBefore, 'Applied Combat scene'));
-		expect(t.history.undoLabel).toBe('Applied Combat scene');
+		expect(t.history.undoLabel).toBe('Applied template');
 
 		await act(async () => {
 			await t.history.undo();

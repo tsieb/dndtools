@@ -19,6 +19,7 @@ import {
 	boardWidgetsOf,
 	clampToColumns,
 	clampWidthToColumns,
+	defaultTileSize,
 	payloadIndex,
 	repackBoardColumns,
 	type BoardWidget,
@@ -38,7 +39,7 @@ import {
 	BoardPlayerNotice,
 } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
-import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
+import { AddWidgetGallery, nextFreeSlot } from '../app/canvas/AddWidgetGallery';
 import { FlowBoard } from '../app/canvas/FlowBoard';
 import { BoardHeading } from './board/BoardHeading';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
@@ -351,10 +352,16 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	}
 	// RC-CAN-4.1: the gallery chooses the slot (the first open spot on the board's columns, where the
 	// old cascade stacked each new widget over the seeded ones) and focuses the placed tile.
-	// RC-CAN-8.1: sized from the one default-size table, and an undo step like every other edit.
+	// RC-CAN-8.1: sized from the one default-size table, and an undo step like every other edit. The
+	// gallery searched its slot at the definition's own size; the board's columns need the table's,
+	// so a bounded board re-finds the first open spot for the size the tile will really have.
 	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
 		if (!homeSceneId) return false;
-		const command = addTileCommand(entry, homeSceneId, position, flow ? 'flow' : 'bounded');
+		const policy = flow ? 'flow' : 'bounded';
+		const at = flow
+			? position
+			: nextFreeSlot(widgets, defaultTileSize(entry.defaultSize, policy, entry.minSize));
+		const command = addTileCommand(entry, homeSceneId, at, policy);
 		if (!command) return false;
 		const ok = await history.run(
 			{ type: command.type, actorId, payload: command.payload },
@@ -386,8 +393,6 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 			canUndo: history.canUndo,
 			undoLabel: history.undoLabel,
 			undo: () => void historyRef.current.undo(),
-			record: (command, stateBefore, label) =>
-				historyRef.current.record(command, stateBefore, label),
 		});
 	});
 
@@ -678,7 +683,6 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 				onClose={() => setTemplatesOpen(false)}
 				viewport={viewport}
 				sceneId={ready ? homeSceneId : null}
-				history={history}
 				// The applied layout is a good checkpoint to fall back to, and the DM picked it to adjust it.
 				onApplied={() => {
 					if (isHomeBoard) void snapshotSafePoint();

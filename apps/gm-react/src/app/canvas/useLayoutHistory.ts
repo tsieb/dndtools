@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { buildWidgetInverse, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
+import {
+	buildWidgetInverse,
+	findWidgetDefinition,
+	type CoreCommand,
+	type CoreStateSlice,
+	type SyncOperation,
+} from '@dndtools/core';
 
 /**
  * RC-CAN-1.3 / ADR-029 §2 — the SCENE CANVAS UNDO STACK, and it lives here on purpose.
@@ -42,9 +48,6 @@ export interface LayoutHistory {
 	/** Dispatch `command` and, if the core accepts it and it can be inverted, remember it as one undo
 	 *  step — or fold it into the open burst's step (see `beginBurst`). */
 	run: (command: CoreCommand, label: string) => Promise<boolean>;
-	/** Remember a command someone else already dispatched against `stateBefore` (the palette's
-	 *  "Add tile", the template picker), so it is undoable like one that went through `run`. */
-	record: (command: CoreCommand, stateBefore: CoreStateSlice, label: string) => void;
 	/** Open a burst: every `run` until `settle` folds into ONE step (a keyboard nudge run, a drag). */
 	beginBurst: () => void;
 	/** Close the open burst, if any — Escape, blur, pointer-up. The next `run` starts a new step. */
@@ -80,6 +83,7 @@ export function inverseCommands(
 ): CoreCommand[] | null {
 	const built = buildWidgetInverse(command, before);
 	if (built) return [built.command];
+	if (command.type === 'scene.update-metadata') return backgroundInverse(command, before);
 	if (!PLACING.has(command.type)) return null;
 	const sceneId = (command.payload as { sceneId?: unknown } | undefined)?.sceneId;
 	if (typeof sceneId !== 'string') return null;
@@ -94,15 +98,97 @@ export function inverseCommands(
 		payload: { sceneId, widgetInstanceId: w.id },
 	}));
 	// A template applied to an EMPTY scene brings its background too; put the old one back.
-	const { background, accentColor } = was.visualSettings;
-	if (now && now.visualSettings.background !== background)
-		inverse.push({
-			type: 'scene.update-metadata',
-			actorId: command.actorId,
-			payload: { sceneId, visualSettings: { background, ...(accentColor ? { accentColor } : {}) } },
-		});
+	if (now && now.visualSettings.background !== was.visualSettings.background)
+		inverse.push(restoreBackground(command.actorId, sceneId, was.visualSettings));
 	return inverse;
 }
+
+function restoreBackground(
+	actorId: string,
+	sceneId: string,
+	{ background, accentColor }: { background: string; accentColor?: string },
+): CoreCommand {
+	return {
+		type: 'scene.update-metadata',
+		actorId,
+		payload: { sceneId, visualSettings: { background, ...(accentColor ? { accentColor } : {}) } },
+	};
+}
+
+/** Only the background restore this stack itself issues is invertible; any other metadata edit
+ *  belongs to the scene's details panel, not to the layout history. */
+function backgroundInverse(command: CoreCommand, before: CoreStateSlice): CoreCommand[] | null {
+	const payload = command.payload as {
+		sceneId?: unknown;
+		visualSettings?: unknown;
+		[key: string]: unknown;
+	};
+	const fields = Object.keys(payload ?? {}).filter((key) => key !== 'sceneId');
+	if (typeof payload?.sceneId !== 'string' || fields.join() !== 'visualSettings') return null;
+	const was = before.scenes.scenes[payload.sceneId];
+	return was ? [restoreBackground(command.actorId, payload.sceneId, was.visualSettings)] : null;
+}
+
+/**
+ * RC-CAN-8.1 — the undo step for tiles placed by a dispatch that did NOT come through `run`: the
+ * palette's "Add tile" and the template picker dispatch straight to the runtime. Read off the
+ * operation the core logged (an add names its instance; a template appends its tiles last) and the
+ * state the screen last rendered (the background a template replaced). `null` for anything else.
+ */
+function placementStep(
+	op: SyncOperation,
+	sceneId: string,
+	seen: CoreStateSlice,
+	after: CoreStateSlice,
+): { command: CoreCommand; inverse: CoreCommand[]; label: string } | null {
+	if (op.entityType !== 'scene' || op.entityId !== sceneId) return null;
+	const now = after.scenes.scenes[sceneId];
+	if (!now) return null;
+	let placed: string[] = [];
+	let label = 'Applied template';
+	if (op.opType === 'scene.add-widget') {
+		const widget = op.value as {
+			id?: unknown;
+			type?: unknown;
+			configuration?: { title?: unknown };
+		} | null;
+		if (typeof widget?.id !== 'string') return null;
+		placed = [widget.id];
+		const title =
+			typeof widget.configuration?.title === 'string' && widget.configuration.title.trim()
+				? widget.configuration.title
+				: typeof widget.type === 'string'
+					? (findWidgetDefinition(after.widgets, widget.type)?.displayName ?? widget.type)
+					: 'tile';
+		label = `Added ${title}`;
+	} else if (op.opType === 'scene.apply-template') {
+		const count = (op.value as { appliedWidgetCount?: unknown } | null)?.appliedWidgetCount;
+		if (typeof count !== 'number' || count < 1) return null;
+		placed = now.widgets.slice(-count).map((w) => w.id);
+	} else return null;
+	if (!placed.every((id) => now.widgets.some((w) => w.id === id))) return null;
+	const command: CoreCommand = {
+		type: op.opType,
+		actorId: op.actorId,
+		payload: { sceneId },
+	} as CoreCommand;
+	const inverse: CoreCommand[] = [...placed].reverse().map((id) => ({
+		type: 'scene.destroy-widget',
+		actorId: op.actorId,
+		payload: { sceneId, widgetInstanceId: id },
+	}));
+	const was = seen.scenes.scenes[sceneId];
+	if (
+		was &&
+		!was.widgets.some((w) => placed.includes(w.id)) &&
+		was.visualSettings.background !== now.visualSettings.background
+	)
+		inverse.push(restoreBackground(op.actorId, sceneId, was.visualSettings));
+	return { command, inverse, label };
+}
+
+const sameCommands = (a: readonly CoreCommand[], b: readonly CoreCommand[]) =>
+	JSON.stringify(a) === JSON.stringify(b);
 
 /** Move and resize overwrite their field outright, so within one step only the LAST command per
  *  widget matters — forward keeps the newest, inverse (in undo order) the oldest. */
@@ -123,7 +209,14 @@ export function useLayoutHistory(options: {
 	/** The live Core state, read the instant before (and after) each dispatch. The screen passes its
 	 *  own `SceneRuntime` rather than the hook reaching for the context, so the stack can be
 	 *  exercised against a plain state holder in a test. */
-	runtime: { readonly state: CoreStateSlice };
+	runtime: {
+		readonly state: CoreStateSlice;
+		/** `SceneRuntime`'s "accepted local dispatch" signal. With it, tiles placed by a dispatch that
+		 *  bypassed `run` (palette Add tile, template picker) still become one undo step. */
+		onDispatched?: (listener: (ops: SyncOperation[], next: CoreStateSlice) => void) => () => void;
+		/** Only this device's own placements are recorded — never a co-DM's or the assistant's. */
+		readonly defaultActorId?: string;
+	};
 	/** The screen's own guarded dispatch — it owns rejection and persist-failure messaging. */
 	dispatch: (command: CoreCommand) => Promise<boolean>;
 }): LayoutHistory {
@@ -177,6 +270,9 @@ export function useLayoutHistory(options: {
 	const remember = useCallback(
 		(command: CoreCommand, inverse: CoreCommand[], label: string) => {
 			const stack = pastRef.current;
+			// A placement `run` dispatched was already recorded off the runtime's dispatch signal.
+			const top = stack[stack.length - 1];
+			if (PLACING.has(command.type) && top && sameCommands(top.inverse, inverse)) return;
 			const open = burstEntryRef.current;
 			const folding = burstOpenRef.current && open !== null && stack[stack.length - 1] === open;
 			const entry: LayoutHistoryEntry = folding
@@ -220,14 +316,23 @@ export function useLayoutHistory(options: {
 		[dispatch, remember, runtime, sceneId],
 	);
 
-	const record = useCallback(
-		(command: CoreCommand, stateBefore: CoreStateSlice, label: string) => {
-			if (!sceneId) return;
-			const inverse = inverseCommands(command, stateBefore, runtime.state);
-			if (inverse) remember(command, inverse, label);
-		},
-		[remember, runtime, sceneId],
-	);
+	// The state the screen last rendered: the runtime signals a dispatch before it re-renders, so
+	// this is still the scene as it stood before a placement.
+	const seenRef = useRef(runtime.state);
+	seenRef.current = runtime.state;
+	useEffect(() => {
+		if (!sceneId || !runtime.onDispatched) return;
+		return runtime.onDispatched((ops, next) => {
+			// An undo/redo replay is not a new action.
+			if (busyRef.current) return;
+			for (const op of ops) {
+				if (runtime.defaultActorId && op.actorId !== runtime.defaultActorId) continue;
+				const step = placementStep(op, sceneId, seenRef.current, next);
+				if (step) remember(step.command, step.inverse, step.label);
+			}
+			seenRef.current = next;
+		});
+	}, [remember, runtime, sceneId]);
 
 	/** Dispatch `commands` in order. `inverse` is the exact undo of what ran (in undo order), or
 	 *  `null` when some step could not be inverted against the state it ran on. */
@@ -300,7 +405,6 @@ export function useLayoutHistory(options: {
 
 	return {
 		run,
-		record,
 		beginBurst,
 		settle,
 		undo,

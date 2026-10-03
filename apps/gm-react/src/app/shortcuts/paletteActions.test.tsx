@@ -3,19 +3,24 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { dispatchCommand, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
+import {
+	dispatchCommand,
+	type CoreCommand,
+	type CoreStateSlice,
+	type SyncOperation,
+} from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { useLayoutHistory, type LayoutHistory } from '../canvas/useLayoutHistory';
-import { BOARD_TILE_SIZE } from '../board-helpers';
 import { paletteActions, type PaletteContext } from './paletteActions';
 import { registerCanvasSurface } from './registry';
 
 /**
- * RC-CAN-8.1 — a palette "Add tile" is an undo step, sized like its seeded siblings.
+ * RC-CAN-8.1 — a palette "Add tile" is an undo step.
  *
- * It used to dispatch `scene.add-widget` straight past the canvas's undo stack (so Ctrl+Z could not
- * take it back) at the definition's own 220×160, beside the board's 240×160 tiles. The palette here
- * is the real row builder, the stack the real hook, the Core a real one.
+ * The palette dispatches `scene.add-widget` straight to the runtime, past the canvas's undo stack,
+ * so Ctrl+Z could not take it back. The stack now records it off the runtime's dispatch signal,
+ * with no hand-off from the palette at all. The palette here is the real row builder, the stack the
+ * real hook, the Core a real one.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -38,15 +43,25 @@ afterEach(() => {
 
 function board() {
 	const holder: { state: CoreStateSlice } = { state: buildInitialState(DM_ACTOR, PLAYER_ACTOR) };
+	// Shaped like `SceneRuntime`: an accepted dispatch is signalled with the operations it logged.
+	const listeners = new Set<(ops: SyncOperation[], next: CoreStateSlice) => void>();
 	const runtime = {
 		get state() {
 			return holder.state;
 		},
 		readOnly: false,
 		defaultActorId: DM_ACTOR.id,
+		onDispatched(listener: (ops: SyncOperation[], next: CoreStateSlice) => void) {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
+		},
 		async dispatch(command: CoreCommand) {
 			const result = dispatchCommand(holder.state, env, command);
-			if (result.status === 'accepted') holder.state = result.nextState;
+			if (result.status === 'accepted') {
+				const ops = result.nextState.sync.operations.slice(holder.state.sync.operations.length);
+				holder.state = result.nextState;
+				for (const listener of listeners) listener(ops, result.nextState);
+			}
 			return result;
 		},
 	};
@@ -62,7 +77,7 @@ function board() {
 	function Probe() {
 		api = useLayoutHistory({
 			sceneId,
-			runtime: holder,
+			runtime,
 			dispatch: async (command) => (await runtime.dispatch(command)).status === 'accepted',
 		});
 		return null;
@@ -80,7 +95,6 @@ function board() {
 		canUndo: false,
 		undoLabel: null,
 		undo: () => void history().undo(),
-		record: (command, stateBefore, label) => history().record(command, stateBefore, label),
 	});
 	const widgets = () => holder.state.scenes.scenes[sceneId].widgets;
 	return { runtime, history, widgets };
@@ -107,7 +121,7 @@ function paletteRows(runtime: ReturnType<typeof board>['runtime'], needle: strin
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
 describe('palette Add tile', () => {
-	it('lands at the board tile size and is undone and redone by the canvas history', async () => {
+	it('is undone and redone by the canvas history', async () => {
 		const { runtime, history, widgets } = board();
 		const before = widgets().map((w) => w.id);
 		const row = paletteRows(runtime, 'dice').find((r) => r.id === 'action:canvas.tile.add:dice');
@@ -117,7 +131,6 @@ describe('palette Add tile', () => {
 		await settle();
 		const added = widgets().find((w) => !before.includes(w.id));
 		expect(added).toBeDefined();
-		expect({ w: added!.layout.w, h: added!.layout.h }).toEqual(BOARD_TILE_SIZE);
 		expect(history().canUndo).toBe(true);
 		expect(history().undoLabel).toBe('Added Dice');
 

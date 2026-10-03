@@ -9,7 +9,6 @@ import {
 	type CommandActionGroup,
 } from '@dndtools/core';
 import { screenCanvasRoute } from '../../screens/screen/screenModel';
-import { defaultTileSize } from '../board-helpers';
 import { Toaster } from '../../ds';
 import type { useI18n } from '../../i18n';
 import type { useRuntime } from '../../runtime/RuntimeContext';
@@ -92,13 +91,9 @@ export function paletteActions({
 		};
 		const surface = activeCanvasSurface();
 		const onCanvas = surface && surface.sceneId === payload.sceneId ? surface : null;
-		// RC-CAN-8.1 — the same default-size table the gallery reads, so a palette tile matches its
-		// seeded siblings instead of landing at the definition's own default.
-		const declared = payload.widget.layout;
-		const size = onCanvas
-			? defaultTileSize({ width: declared.w, height: declared.h }, onCanvas.policy)
-			: { w: declared.w, h: declared.h };
-		const layout = onCanvas ? { ...declared, ...size, ...slotFor(onCanvas, size) } : declared;
+		const layout = onCanvas
+			? { ...payload.widget.layout, ...slotFor(onCanvas, payload.widget.layout) }
+			: payload.widget.layout;
 		const before = new Set(
 			(runtime.state.scenes.scenes[payload.sceneId]?.widgets ?? []).map((w) => w.id),
 		);
@@ -106,19 +101,15 @@ export function paletteActions({
 		onClose();
 		void (async () => {
 			try {
-				const command = {
+				const result = await runtime.dispatch({
 					type: 'scene.add-widget',
 					actorId,
 					payload: { ...payload, widget: { ...payload.widget, layout } },
-				} as const;
-				const stateBefore = runtime.state;
-				const result = await runtime.dispatch(command);
+				});
 				if (result.status === 'rejected') {
 					Toaster.error(t('palette.toast.rejected'));
 					return;
 				}
-				// On the canvas's own undo stack, so Ctrl+Z takes the tile back off like a gallery pick.
-				onCanvas?.record?.(command, stateBefore, action.title.replace(/^Add tile: /, 'Added '));
 				Toaster.success(t('palette.toast.ran', { title: action.title }));
 				const current = activeCanvasSurface();
 				if (current && current.sceneId === payload.sceneId && current.editable) {

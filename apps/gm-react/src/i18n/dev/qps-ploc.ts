@@ -4951,7 +4951,6 @@ export default {
 	'sceneEditor.widgetFallback': '[ŵíďğéţ~~~]',
 	'sceneEditor.history.moved': '[Ḿóṽéď ~~~{name}]',
 	'sceneEditor.history.resized': '[Ŕéšížéď ~~~~{name}]',
-	'sceneEditor.history.added': '[Áďďéď ~~~{name}]',
 	'sceneEditor.history.removed': '[Ŕéḿóṽéď ~~~~{name}]',
 	'sceneEditor.history.docked': '[Ďóçķéď ~~~{name}]',
 	'sceneEditor.history.undocked': '[Úñďóçķéď ~~~~{name}]',

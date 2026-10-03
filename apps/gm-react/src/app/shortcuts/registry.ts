@@ -14,7 +14,6 @@
  * (Tab focus order, the browser's own Escape) — it can be listed, never matched.
  */
 
-import type { CoreCommand, CoreStateSlice } from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
 import { TOOL_GROUPS } from '../map/tools';
 import { en } from '../../i18n/messages/en';
@@ -213,9 +212,6 @@ export interface CanvasSurfaceHandle {
 	/** "Moved Timer" — what Undo would reverse. */
 	undoLabel: string | null;
 	undo: () => void;
-	/** RC-CAN-8.1 — put a command the palette dispatched itself (Add tile) on this canvas's undo
-	 *  stack, so a palette add is reversed by the same Ctrl+Z as a gallery pick. */
-	record?: (command: CoreCommand, stateBefore: CoreStateSlice, label: string) => void;
 }
 
 let canvasSurface: CanvasSurfaceHandle | null = null;
