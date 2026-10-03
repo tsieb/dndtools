@@ -564,3 +564,39 @@ earlier local search/graph breaches using that hosted evidence without weakening
 the comparison. Further local implementation retries cannot supply this external
 dependency. No push, promotion, workflow dispatch, loop, additional agent or
 dispatcher control-state edit occurred.
+
+## 2026-10-03 — Review of 09d09c3d: commit list derived from the capture
+
+Starting candidate: `09d09c3db308b3960f789baf286a37042f13879e`; clean tree.
+The review again found no implementation defect and withheld approval for the
+missing hosted capture. At 13:09 UTC, `gh api` showed `total_count: 0` runs for
+that SHA. The latest manual Performance run is still cancelled pre-fix run
+36282130325 on `2c2ac85e`.
+
+The review's low-severity maintenance finding was fixable here. The storage-cap
+test (`tests/perf/large-vault.test.ts`) had its own copy of each :large
+scenario's commits, so a change to the commands the capture sends would not have
+reached it. `scripts/perf/capture.ts` now exports `WIDGET_UPDATE_ROWS` (25 rows)
+and `GRAPH_INDEXING_NOTES` (5 notes). The `widget-update` and `graph-indexing`
+scenarios dispatch from those two values. The new
+`largeScenarioCommits(state, actorId)` builds every :large row's command list
+from the same data. The test replays that list through the real
+`storage.persistFullState` validator. It also asserts that only those two rows
+write, with exactly those counts. The commands match the earlier commit
+byte for byte (same titles, bodies, y rows), so measured behaviour does not
+change.
+
+Local checks on the edited tree: `pnpm exec vitest run --config
+tests/perf/vitest.config.ts` passed 3 files / 18 tests. `eslint` passed on both
+files. A scratch `tsc --noEmit` (core tsconfig plus DOM lib, outside the
+worktree) found no errors in either file.
+
+Acceptance still depends on the operator. Publish the new candidate SHA and
+dispatch the Performance workflow. That run must keep five current/reference
+pairs, each with all 22 rows and seven nonempty batches. It must also produce the
+CI baseline, the compare/stability output, and per-run and total wall time, with
+margin under `timeout-minutes: 300`. It should also give a hosted reading of
+the local search:large / graph-indexing:large drift. This worker did not push,
+dispatch a workflow, launch a loop, spawn agents or edit dispatcher state. No
+Headroom tools were used; all output cited here is the original, uncompressed
+output.

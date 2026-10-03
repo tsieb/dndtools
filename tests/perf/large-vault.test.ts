@@ -19,7 +19,12 @@ import {
 	validateBudgetRegistry,
 } from '../../packages/core/src/perf/budget-registry';
 import { buildDemoSeedProfile } from '../../apps/gm-react/src/runtime/demo-seed';
-import { SCENARIOS } from '../../scripts/perf/capture';
+import {
+	GRAPH_INDEXING_NOTES,
+	largeScenarioCommits,
+	SCENARIOS,
+	WIDGET_UPDATE_ROWS,
+} from '../../scripts/perf/capture';
 import { validateRestoredCoreState } from '../../apps/gm-react/src/platform/storage/coreStore';
 
 describe('large vault performance fixture', () => {
@@ -82,45 +87,10 @@ describe('large vault performance fixture', () => {
 		// before a hosted capture can lose a :large row to a rejected commit.
 		const headroom = 384 * 1024;
 
-		// The commits each :large scenario makes after its snapshot is restored, as dispatched by
-		// `scripts/perf/capture.ts`. A new :large scenario must declare its writes here.
-		const largeScenarioCommits: Record<string, (state: CoreStateSlice) => CoreCommand[]> = {
-			'smoke-ci:large': () => [],
-			'app-startup:large': () => [],
-			'vault-open:large': () => [],
-			'scene-first-render:large': () => [],
-			'widget-update:large': (state) => {
-				const sceneId = state.commandCenter.homeSceneId!;
-				const widget = state.scenes.scenes[sceneId].widgets[0];
-				return Array.from({ length: 25 }, (_, i) => ({
-					type: 'scene.move-widget',
-					actorId: DM_ACTOR.id,
-					payload: {
-						sceneId,
-						widgetInstanceId: widget.id,
-						x: widget.layout.x,
-						y: 40 + (i % 8) * 30,
-					},
-				}));
-			},
-			// The map rows open the snapshot's pan/zoom map; they create nothing.
-			'map-pan-zoom-desktop:large': () => [],
-			'map-pan-zoom-slim:large': () => [],
-			'search:large': () => [],
-			'graph-indexing:large': () =>
-				Array.from({ length: 5 }, (_, i) => ({
-					type: 'content.create-item',
-					actorId: DM_ACTOR.id,
-					payload: {
-						kind: 'note',
-						title: `Perf indexed note ${i}`,
-						body: 'Linked to [[Perf note 1]] and [[Perf note 2]].',
-						visibility: 'player-visible',
-					},
-				})),
-			'sync-reconciliation:large': () => [],
-			'live-session-delivery:large': () => [],
-		};
+		// The commits each :large scenario makes after its snapshot is restored, built by
+		// `scripts/perf/capture.ts` from the same data its scenarios dispatch.
+		const commitsFor = (state: CoreStateSlice) =>
+			largeScenarioCommits(state, DM_ACTOR.id) as Record<string, CoreCommand[]>;
 
 		function uuidSizedIds() {
 			let n = 0;
@@ -131,24 +101,31 @@ describe('large vault performance fixture', () => {
 		const bytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value), 'utf8');
 
 		it('declares the commits of every :large scenario', () => {
-			expect(Object.keys(largeScenarioCommits).sort()).toEqual(
+			const commits = commitsFor(buildLargeVault());
+			expect(Object.keys(commits).sort()).toEqual(
 				SCENARIOS.map((scenario) => scenario.budgetId)
 					.filter((id) => id.endsWith(':large'))
 					.sort(),
 			);
+			// Only these two rows write on the large vault; every other row reads the snapshot.
+			const writers = Object.entries(commits).filter(([, list]) => list.length > 0);
+			expect(Object.fromEntries(writers.map(([id, list]) => [id, list.length]))).toEqual({
+				'widget-update:large': WIDGET_UPDATE_ROWS.length,
+				'graph-indexing:large': GRAPH_INDEXING_NOTES.length,
+			});
 		});
 
 		it('keeps every :large scenario commit under the cap on both boundary shapes, with headroom', () => {
 			const registry = createStoragePlatformServiceRegistry();
 			expect(registry.get('storage.persistFullState')?.maxPayloadBytes).toBeUndefined();
 			const peaks: Record<string, { current: number; reference: number }> = {};
-			for (const [scenarioId, commits] of Object.entries(largeScenarioCommits)) {
+			for (const [scenarioId, commits] of Object.entries(commitsFor(buildLargeVault()))) {
 				let state = buildLargeVault();
 				// A scenario that commits nothing still holds the restored snapshot as its durable state.
 				let current = bytes({ next: state, appended: [] });
 				let reference = bytes({ previous: state, next: state });
 				const env = makeEnvironment({ ids: uuidSizedIds() });
-				for (const command of commits(state)) {
+				for (const command of commits) {
 					const result = dispatchCommand(state, env, command);
 					expect(result.status, `${scenarioId}: ${command.type}`).toBe('accepted');
 					if (result.status !== 'accepted') break;

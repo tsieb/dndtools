@@ -792,6 +792,54 @@ const sceneFirstRender: Scenario = {
  * inside the page across a rAF so the sample includes the render the DM waits for, not just the
  * command's promise.
  */
+/** `widget-update` moves the home scene's first widget to each of these rows, one command per sample. */
+export const WIDGET_UPDATE_ROWS: readonly number[] = Array.from(
+	{ length: 25 },
+	(_, i) => 40 + (i % 8) * 30,
+);
+
+/** `graph-indexing` adds each of these linked notes, one `content.create-item` per sample. */
+export const GRAPH_INDEXING_NOTES: readonly {
+	kind: 'note';
+	title: string;
+	body: string;
+	visibility: 'player-visible';
+}[] = Array.from({ length: 5 }, (_, i) => ({
+	kind: 'note',
+	title: `Perf indexed note ${i}`,
+	body: 'Linked to [[Perf note 1]] and [[Perf note 2]].',
+	visibility: 'player-visible',
+}));
+
+/**
+ * The commands each :large scenario dispatches after its snapshot is restored, built from the same
+ * data the scenarios send. `seedNotes` and the map rows write nothing on the large profile; only
+ * `widget-update` and `graph-indexing` commit. `tests/perf/large-vault.test.ts` replays these through
+ * the storage boundary, so a scenario that starts writing on the large vault must be listed here.
+ */
+export function largeScenarioCommits(
+	state: CoreStateSlice,
+	actorId: string,
+): Record<string, { type: string; actorId: string; payload: Record<string, unknown> }[]> {
+	const sceneId = state.commandCenter.homeSceneId!;
+	const widget = state.scenes.scenes[sceneId].widgets[0];
+	const commits: Record<
+		string,
+		{ type: string; actorId: string; payload: Record<string, unknown> }[]
+	> = Object.fromEntries(STANDARD_SCENARIOS.map((scenario) => [`${scenario.budgetId}:large`, []]));
+	commits['widget-update:large'] = WIDGET_UPDATE_ROWS.map((y) => ({
+		type: 'scene.move-widget',
+		actorId,
+		payload: { sceneId, widgetInstanceId: widget.id, x: widget.layout.x, y },
+	}));
+	commits['graph-indexing:large'] = GRAPH_INDEXING_NOTES.map((payload) => ({
+		type: 'content.create-item',
+		actorId,
+		payload: { ...payload },
+	}));
+	return commits;
+}
+
 const widgetUpdate: Scenario = {
 	budgetId: 'widget-update',
 	run: async ({ browser, options }) => {
@@ -817,7 +865,7 @@ const widgetUpdate: Scenario = {
 				undefined,
 				{ timeout: READY_TIMEOUT },
 			);
-			const samples = await page.evaluate<number[], number>(async (runs) => {
+			const samples = await page.evaluate<number[], readonly number[]>(async (rows) => {
 				interface Widget {
 					id: string;
 					layout: { x: number; y: number };
@@ -837,8 +885,7 @@ const widgetUpdate: Scenario = {
 				const sceneId = rt.state.commandCenter.homeSceneId!;
 				const widget = rt.state.scenes.scenes[sceneId].widgets[0];
 				const out: number[] = [];
-				for (let i = 0; i < runs; i += 1) {
-					const y = 40 + (i % 8) * 30;
+				for (const y of rows) {
 					const started = performance.now();
 					performance.mark('rc-perf:widget-update:start');
 					const res = await rt.dispatch({
@@ -858,7 +905,7 @@ const widgetUpdate: Scenario = {
 					out.push(Math.round((performance.now() - started) * 1000) / 1000);
 				}
 				return out;
-			}, 25);
+			}, WIDGET_UPDATE_ROWS);
 			return {
 				samples,
 				scenario: 'Dispatch scene.move-widget 25× and time command acceptance → repainted frame.',
@@ -1022,27 +1069,25 @@ const graphIndexing: Scenario = {
 				await waitReady(page);
 			}
 			const actor = await actorId(page);
-			const samples = await page.evaluate<number[], { actor: string; runs: number }>(
-				async ({ actor: a, runs }) => {
+			const samples = await page.evaluate<
+				number[],
+				{ actor: string; notes: typeof GRAPH_INDEXING_NOTES }
+			>(
+				async ({ actor: a, notes }) => {
 					const rt = (
 						window as unknown as {
 							__rt: { dispatch: (c: unknown) => Promise<{ status: string }> };
 						}
 					).__rt;
 					const out: number[] = [];
-					for (let i = 0; i < runs; i += 1) {
-						const title = `Perf indexed note ${i}`;
+					for (const note of notes) {
+						const title = note.title;
 						const started = performance.now();
 						performance.mark('rc-perf:graph-indexing:start');
 						const res = await rt.dispatch({
 							type: 'content.create-item',
 							actorId: a,
-							payload: {
-								kind: 'note',
-								title,
-								body: `Linked to [[Perf note 1]] and [[Perf note 2]].`,
-								visibility: 'player-visible',
-							},
+							payload: note,
 						});
 						if (res.status !== 'accepted') continue;
 						// Wait for the graph rail to show the changed note — the affected-node update.
@@ -1072,7 +1117,7 @@ const graphIndexing: Scenario = {
 					}
 					return out;
 				},
-				{ actor, runs: 5 },
+				{ actor, notes: GRAPH_INDEXING_NOTES },
 			);
 			return {
 				samples,
