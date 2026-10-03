@@ -55,3 +55,16 @@ tests/e2e/player-join-first.spec.ts tests/e2e/player-view.spec.ts tests/e2e/gold
 - Camera scanning requires a camera and native QR decoding support; otherwise the paste path
   remains available. No permission prompt occurs before the explicit Scan action.
 - No push, promotion, remote CI claim, or dispatcher control changes.
+
+## Attempt 2 — generated pseudo-locale repair
+
+- Read the original app-gate failure log for run `5df32461-212a-4ae0-8808-fead2ec26e70`.
+  The two failures were pseudo-catalog equality and coverage: the five new `play.join.*`
+  messages were missing from the generated DEV catalog; 1,750 other app tests passed.
+- Ran `pnpm exec tsx scripts/i18n-catalog.ts pseudo`. Reviewed the resulting diff: only the
+  five join-stage messages were added to `src/i18n/dev/qps-ploc.ts` using the existing generator.
+- Full `pnpm test:app --maxWorkers=3` passed: 160 files, 1,752 tests, exit 0.
+  Headroom artifact `22285d8b829e47a3aba61d6c943d1e5d`; retrieved original stdout to verify results.
+- Prettier check and `git diff --check` passed. No product behavior or test assertions changed.
+- Headroom tools were available for this repair. No agents, push, promotion, loop launch,
+  or dispatcher control mutations.
