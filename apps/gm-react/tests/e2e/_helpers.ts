@@ -666,3 +666,15 @@ export async function createScreenInLibrary(
 	await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
 	await dialog.getByRole('button', { name: 'Create screen', exact: true }).click();
 }
+
+/** Use the supported local demo posture for companion tests that also write table state. */
+export async function openDemoVault(page: Page): Promise<void> {
+	await page.evaluate(async () => {
+		const path = '/src/platform/storage/coreStore.ts';
+		const store = await import(path);
+		const vault = store.findDemoLocalVault() ?? store.createLocalVault('Companion demo', 'demo');
+		store.selectLocalVaultForNextLoad(vault.id);
+	});
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await waitReady(page);
+}

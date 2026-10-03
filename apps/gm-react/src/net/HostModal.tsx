@@ -71,6 +71,8 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 			}
 			const inv = await session.invite(actorId);
 			setInvitation(inv);
+			setQr(null);
+			setAnswer('');
 			setQr(await qrDataUrl(inv.offerCode));
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Could not create the invitation.');
@@ -115,8 +117,10 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 	return (
 		<Modal title="Host a live table" onClose={onClose}>
 			<p style={{ margin: '0 0 14px', font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
-				Host nearby without an account, or sign in for internet play. Every joining device waits for
-				your approval and can use only the participant you choose.
+				{session.cloudAvailable
+					? 'Host nearby without an account, or sign in for internet play.'
+					: 'Host a table on your local network without an account.'}{' '}
+				Choose which participant each joining device will use.
 			</p>
 			{session.cloudAvailable && !onlineActive && onlinePlay.offline && (
 				<div style={{ marginBottom: 14 }}>
@@ -283,23 +287,34 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 							<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>
 								Invite for {invitation.displayName}
 							</div>
-							{qr && (
-								<img
-									src={qr}
-									alt="Session invite QR code"
-									style={{
-										display: 'block',
-										margin: '12px auto 4px',
-										width: 180,
-										height: 180,
-										imageRendering: 'pixelated',
-										background: '#fff',
-										borderRadius: 8,
-										padding: 6,
-									}}
-								/>
-							)}
-							<CopyField label="Invite code — send to the player" value={invitation.offerCode} />
+							<p>
+								Keep the player on the same network. Share this invite, then paste their reply below
+								to connect them.
+							</p>
+							<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+								{qr && (
+									<img
+										src={qr}
+										alt="Session invite QR code"
+										style={{
+											display: 'block',
+											margin: '12px 0 4px',
+											width: 180,
+											height: 180,
+											imageRendering: 'pixelated',
+											background: '#fff',
+											borderRadius: 8,
+											padding: 6,
+										}}
+									/>
+								)}
+								<div style={{ flex: 1, minWidth: 180 }}>
+									<CopyField
+										label="Invite code — send to the player"
+										value={invitation.offerCode}
+									/>
+								</div>
+							</div>
 							<div style={{ marginTop: 12 }}>
 								<span
 									style={{
@@ -312,6 +327,7 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 									Paste the player’s reply code
 								</span>
 								<textarea
+									aria-label="Paste the player’s reply code"
 									maxLength={MAX_CONNECTION_CODE_CHARS}
 									value={answer}
 									onChange={(e) => setAnswer(e.target.value)}
@@ -338,7 +354,9 @@ export function HostModal({ onClose }: { onClose: () => void }) {
 						</div>
 						{session.peers.length === 0 ? (
 							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-								No one has joined yet. Create an invite above, or share the online join code.
+								{onlineActive
+									? 'No one has joined yet. Create an invite above, or share the online join code.'
+									: 'No one has joined yet. Create an invite above.'}
 							</div>
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

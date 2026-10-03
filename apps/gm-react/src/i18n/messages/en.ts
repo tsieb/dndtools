@@ -8,6 +8,13 @@
  * Values may use ICU syntax — plural, select, number, date, time, unit — rendered by `format.ts`.
  * Every key a locale translates must exist here; a locale catalog is a `Partial` of this one. */
 export const en = {
+	'play.join.title': 'Join your table',
+	'play.join.about':
+		'Lamplight keeps your character, dice and shared notes together while you play.',
+	'play.join.invite':
+		'Ask your {gm} for an invite. They can send you a code to paste or show you a QR code to scan.',
+	'play.join.action': 'Join a table',
+	'play.join.preview': 'Preview · {name}',
 	'mapEdit.newPoi': 'New POI',
 	'mapEdit.newToken': 'Token {count}',
 	'mapEdit.poiPlaced': 'POI placed.',

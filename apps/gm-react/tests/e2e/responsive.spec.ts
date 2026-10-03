@@ -989,6 +989,7 @@ test('a Co-DM can reach every elevated standalone player tool at compact phone s
 	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 		timeout: 20_000,
 	});
+	await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 	await page.getByText('Player view').first().waitFor({ state: 'attached', timeout: 20_000 });
 	await expectNoHorizontalOverflow(page, 'compact Co-DM player view');
 
@@ -1624,6 +1625,8 @@ test('the standalone player view has its own skip link into main', async ({ page
 	// leaves the page on `#/`, so this goto is a same-document hash change and AppShell's `<main>`
 	// still matches the role while the lazy /play chunk loads. A Tab pressed mid-swap found no
 	// focusable ahead of it and left the document (window blur), so the skip link never took focus.
+	await page.waitForFunction(() => window.__rt?.loaded);
+	await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 	await page.locator('#player-main').waitFor({ state: 'visible', timeout: 20_000 });
 	expect(new URL(page.url()).hash).toBe('#/play');
 

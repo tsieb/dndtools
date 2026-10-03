@@ -14,8 +14,8 @@ import type { InitiativeCallView, PlayerData } from '../../net/viewModels';
  * `screens/PlayerView.tsx` unchanged.
  */
 
-// The player's device identity. The runtime seeds `actor-player` (Demo Player) as a participant; the
-// DM-side ViewAs/Projection controls project the live table to exactly this actor.
+// The seeded participant used by local companion previews, never a fresh device's identity.
+// Joined devices get their actor identity from the host's invitation.
 export const PLAYER_ACTOR_ID = 'actor-player';
 
 // RC-CHR-4.4 — a fourth "Trusted player" tier (index 2, between `player` and `codm`) used to sit

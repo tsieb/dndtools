@@ -3,6 +3,13 @@ import type { MessageKey } from './en';
 /** Spanish. A `Partial` of `en`: an untranslated key renders its English source rather than a
  * blank or a bare identifier, so a partly translated locale degrades honestly. */
 export const es: Partial<Record<MessageKey, string>> = {
+	'play.join.title': 'Únete a tu mesa',
+	'play.join.about':
+		'Lamplight reúne tu personaje, tus dados y las notas compartidas mientras juegas.',
+	'play.join.invite':
+		'Pide una invitación a tu {gm}. Puede enviarte un código para pegar o mostrarte un código QR para escanear.',
+	'play.join.action': 'Unirse a una mesa',
+	'play.join.preview': 'Vista previa · {name}',
 	'mapEdit.newPoi': 'Nuevo punto de interés',
 	'mapEdit.newToken': 'Ficha {count}',
 	'mapEdit.poiPlaced': 'Punto de interés colocado.',

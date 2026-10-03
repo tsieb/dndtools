@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Icon } from '../../ds';
+import { Badge, Button, Icon } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useAssetObjectUrl } from '../../platform/assetUrl';
 import { useViewport } from '../../app/useViewport';
@@ -8,6 +8,28 @@ import { InitiativeCallCard, Panel, PvPage, SectionHead, type LiveData } from '.
 import { Illustration } from '../../ds/illustrations';
 import { StageMap } from './StageMap';
 import { useI18n } from '../../i18n';
+
+/** Fresh devices have no seat or character until the host accepts their invite. */
+export function JoinFirstStage({ onJoin }: { onJoin: () => void }) {
+	const { t } = useI18n();
+	return (
+		<main
+			id="player-main"
+			className="player-view-shell"
+			style={{ minHeight: '100%', background: T.bg, color: T.ink }}
+		>
+			<PvPage max={720}>
+				<SectionHead title={t('play.join.title')} sub={t('play.join.about')} />
+				<Panel>
+					<p>{t('play.join.invite')}</p>
+					<Button variant="primary" icon="players" onClick={onJoin}>
+						{t('play.join.action')}
+					</Button>
+				</Panel>
+			</PvPage>
+		</main>
+	);
+}
 
 // 1 · NOW PLAYING — the live stage the DM is projecting + the player's presence row.
 export function StageSection({

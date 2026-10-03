@@ -1,3 +1,4 @@
+import { openDemoVault } from './_helpers';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
@@ -20,13 +21,14 @@ const NPC = 'zz-private-warden-harrow';
  *
  * `preview` drives the two REAL device postures this screen has. In DM preview the Core is
  * deliberately read-only (`actor-not-authorized`: "Preview mode is read-only"), which is right for
- * table state but means no share can be accepted; without preview the device runs as the seated
- * player actor, which is the solo posture, and a share the player owns is authorised for real.
+ * table state but means no share can be accepted; without read-only preview the demo vault runs as its demo
+ * player actor, and a share the player owns is authorised for real.
  */
 async function openPrivateJournal(page: Page, opts: { preview: boolean }): Promise<void> {
 	await markOnboarded(page);
 	await gotoRoute(page, '/session');
 	await seedFresh(page);
+	await openDemoVault(page);
 	await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 		timeout: 20_000,

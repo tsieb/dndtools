@@ -56,6 +56,7 @@ test.describe('player companion: the between-session inbox', () => {
 		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 			timeout: 20_000,
 		});
+		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 		await page.getByRole('button', { name: 'Inbox', exact: true }).click();
 
@@ -76,6 +77,7 @@ test.describe('player companion: the between-session inbox', () => {
 		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 			timeout: 20_000,
 		});
+		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 		await page.getByRole('button', { name: 'Inbox', exact: true }).click();
 

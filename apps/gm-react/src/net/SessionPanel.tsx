@@ -5,6 +5,7 @@ import { useAuth } from '../cloud/AuthContext';
 import { CloudOfflineNotice, useCloudActions } from '../cloud/offline';
 import { useSession } from './SessionContext';
 import { useI18n } from '../i18n';
+import { useVocabulary } from '../i18n/vocabulary';
 import { isDemoLocalVault } from '../platform/storage/coreStore';
 import { MAX_CONNECTION_CODE_CHARS } from './signaling';
 import { MAX_ONLINE_JOIN_CODE_CHARS, encodeJoinCode } from './cloudCrypto';
@@ -19,6 +20,7 @@ import {
 	fieldStyle,
 	Modal,
 	PresenceTag,
+	InviteScanner,
 	TONE,
 } from './SessionPanelParts';
 import { usePlatformCapabilities } from '../platform/capabilities';
@@ -141,7 +143,7 @@ export function HostSessionButton({ compact = false }: { compact?: boolean } = {
 
 // --- Player join control ---------------------------------------------------------------------------
 
-export function JoinSessionButton() {
+export function JoinSessionButton({ onOpen }: { onOpen?: () => void } = {}) {
 	const [open, setOpen] = useState(false);
 	const session = useSession();
 	const status = session.client?.status ?? 'idle';
@@ -155,7 +157,7 @@ export function JoinSessionButton() {
 		<>
 			<button
 				type="button"
-				onClick={() => setOpen(true)}
+				onClick={() => (onOpen ? onOpen() : setOpen(true))}
 				style={{
 					display: 'inline-flex',
 					alignItems: 'center',
@@ -177,7 +179,8 @@ export function JoinSessionButton() {
 	);
 }
 
-function JoinModal({ onClose }: { onClose: () => void }) {
+export function JoinModal({ onClose }: { onClose: () => void }) {
+	const { gm } = useVocabulary();
 	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
 	const session = useSession();
@@ -495,9 +498,10 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 						</p>
 					)}
 					<p style={{ margin: '0 0 12px', font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
-						Or paste the invite code your DM shared. You’ll get a reply code to send back — then
-						you’re connected directly, over the local network.
+						Stay on the same network as your {gm}. Paste their invite code or scan their QR, then
+						send the reply code back so they can connect you.
 					</p>
+					<InviteScanner onScan={setOffer} />
 					<span
 						style={{
 							font: `600 11px ${T.sans}`,
@@ -506,10 +510,10 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 							letterSpacing: '.04em',
 						}}
 					>
-						Invite code from your DM
+						Invite code from your {gm}
 					</span>
 					<textarea
-						aria-label="Invite code from your DM"
+						aria-label={`Invite code from your ${gm}`}
 						maxLength={MAX_CONNECTION_CODE_CHARS}
 						value={offer}
 						onChange={(e) => setOffer(e.target.value)}
@@ -537,11 +541,11 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 							}}
 						>
 							<div style={{ font: `12.5px ${T.sans}`, color: T.ink }}>
-								Send this reply code back to your DM to finish connecting:
+								Send this reply code back to your {gm} to finish connecting:
 							</div>
 							<CopyField label="Your reply code" value={answerCode} />
 							<div style={{ marginTop: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
-								Waiting for the DM to connect you…
+								Waiting for your {gm} to connect you…
 							</div>
 						</div>
 					)}

@@ -1,3 +1,4 @@
+import { openDemoVault } from './_helpers';
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +107,7 @@ test.describe('collab: live party panel', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/session');
 		await seedFresh(page);
+		await openDemoVault(page);
 
 		// Take the table live — the Core gates combat-resource updates on an active Session workflow,
 		// which is exactly the state this panel is for.
@@ -142,7 +144,7 @@ test.describe('collab: live party panel', () => {
 		});
 		expect(pc, 'the seeded vault must carry a PC with hit points').toBeTruthy();
 
-		// `/play` renders as the PLAYER actor (`actor-player`) without preview mode, so the panel is a
+		// The demo companion renders as its PLAYER actor without read-only preview mode, so the panel is a
 		// real actor-filtered read AND the DM can still dispatch (preview mode rejects every mutation).
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
@@ -207,6 +209,7 @@ test.describe('collab: live fog reveal', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/session');
 		await seedFresh(page);
+		await openDemoVault(page);
 
 		const setup = await page.evaluate(async () => {
 			const rt = window.__rt!;
@@ -361,6 +364,15 @@ test.describe('collab: player-rolled initiative', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/session');
 		await seedFresh(page);
+		await openDemoVault(page);
+
+		// The demo opens with a showcase fight; this journey starts a new initiative call.
+		const ended = await dispatch(page, {
+			type: 'combat.end',
+			actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+			payload: {},
+		});
+		expect(ended.status).toBe('accepted');
 
 		const party = await page.evaluate(async () => {
 			const rt = window.__rt!;

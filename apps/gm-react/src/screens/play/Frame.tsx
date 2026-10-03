@@ -6,7 +6,7 @@ import { T, eb } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSession } from '../../net/SessionContext';
 import { buildPlayerData } from '../../net/viewModels';
-import { JoinSessionButton } from '../../net/SessionPanel';
+import { JoinModal, JoinSessionButton } from '../../net/SessionPanel';
 import { useViewport } from '../../app/useViewport';
 import { useI18n } from '../../i18n';
 import {
@@ -18,7 +18,8 @@ import {
 	useToasts,
 	type LiveData,
 } from './shared';
-import { StageSection } from './Home';
+import { isDemoLocalVault } from '../../platform/storage/coreStore';
+import { JoinFirstStage, StageSection } from './Home';
 import { SceneBanner } from './SceneBanner';
 import { PlayerToasts } from './Toasts';
 import { PlayerNavRow } from './Navigation';
@@ -33,6 +34,25 @@ import { AssistSection, AtlasSection, BestiarySection } from './Elevated';
 
 /** Standalone actor-filtered player companion; all table writes retain core authority. */
 export function PlayerView() {
+	const runtime = useRuntime();
+	const session = useSession();
+	const [joining, setJoining] = useState(false);
+	// A local seed is a preview, never the identity of a fresh player device.
+	const joined = session.role === 'joined' && session.client?.data != null;
+	const preview = runtime.preview !== null || isDemoLocalVault();
+	return (
+		<>
+			{joined || preview ? (
+				<PlayerCompanion onJoin={() => setJoining(true)} />
+			) : (
+				<JoinFirstStage onJoin={() => setJoining(true)} />
+			)}
+			{joining && <JoinModal onClose={() => setJoining(false)} />}
+		</>
+	);
+}
+
+function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 	const { t } = useI18n();
 	const navigationRef = useNavigationInset();
 	const runtime = useRuntime();
@@ -43,7 +63,7 @@ export function PlayerView() {
 
 	// Two data sources, one shape (PlayerData):
 	//  - JOINED over P2P → the host's replicated, player-safe snapshot (never the local vault),
-	//  - otherwise (solo / DM previewing this route on their own device) → computed locally from the
+	//  - explicit preview or demo vault → computed locally from the
 	//    actor-filtered Core, exactly as before.
 	const joined = session.role === 'joined' && session.client?.data != null;
 	const remoteData = session.client?.data ?? null;
@@ -61,7 +81,13 @@ export function PlayerView() {
 			: PLAYER_ACTOR_ID;
 
 	const state = runtime.state;
-	const localData = useMemo<LiveData>(() => buildPlayerData(state, viewer), [state, viewer]);
+	const localData = useMemo<LiveData>(() => {
+		const previewData = buildPlayerData(state, viewer);
+		return {
+			...previewData,
+			partyVitals: previewData.partyVitals.map((member) => ({ ...member, isSelf: false })),
+		};
+	}, [state, viewer]);
 	const data: LiveData = joined && remoteData ? remoteData : localData;
 
 	const role = data.role;
@@ -161,7 +187,7 @@ export function PlayerView() {
 	// Resolve a roller's display name. Joined devices have no full roster, so map self → t('play.polish.you') and fall
 	// back to the presence roster / the roll's own attribution; solo reads the local actor roster.
 	const actorName = (id: string): string => {
-		if (id === viewer) return t('play.polish.you');
+		if (joined && id === viewer) return t('play.polish.you');
 		if (joined) {
 			const entry = session.client?.presence.find((p) => p.actorId === id);
 			return entry?.displayName ?? t('play.polish.player');
@@ -204,7 +230,7 @@ export function PlayerView() {
 			<DiceSection
 				rolls={data.diceRolls}
 				sessionActive={data.sessionActive}
-				viewer={viewer}
+				viewer={joined ? viewer : ''}
 				actorName={actorName}
 				onRoll={rollDice}
 				initiativeCall={data.initiativeCall}
@@ -426,12 +452,14 @@ export function PlayerView() {
 						}}
 					>
 						<Icon name={meta.icon} size={15} color={T.acc} />
-						<span style={{ font: `600 12.5px ${T.sans}`, color: T.acc }}>{t(meta.label)}</span>
+						<span style={{ font: `600 12.5px ${T.sans}`, color: T.acc }}>
+							{joined ? t(meta.label) : t('play.join.preview', { name: data.displayName })}
+						</span>
 					</span>
 					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>
 						{t(meta.blurb)}
 					</span>
-					<JoinSessionButton />
+					<JoinSessionButton onOpen={onJoin} />
 					<span style={{ display: 'inline-flex', alignItems: 'center', gap: T.space.oneHalf }}>
 						<span
 							style={{

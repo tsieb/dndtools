@@ -13,6 +13,7 @@ for (const theme of ['scholar', 'dungeon']) {
 		}, theme);
 		await page.goto('/#/play');
 		await page.waitForFunction(() => window.__rt?.loaded === true);
+		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 		await page.evaluate(() => document.fonts.ready);
 		await expect(page.getByTestId('player-stage')).toHaveScreenshot(`play-stage--${theme}.png`);

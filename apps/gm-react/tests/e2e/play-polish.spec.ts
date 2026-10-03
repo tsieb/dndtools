@@ -6,6 +6,7 @@ async function open(page: Page) {
 	await markOnboarded(page);
 	await page.goto('/#/play');
 	await page.waitForFunction(() => window.__rt?.loaded === true);
+	await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 	await expect(page.locator('#player-main h1')).toBeVisible();
 }
 async function axe(page: Page) {

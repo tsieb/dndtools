@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
-import { qrDataUrl } from './qr';
+import { canScanQr, createQrDetector, qrDataUrl } from './qr';
 import type { ClientStatus } from './SessionClient';
 import { decodeJoinCode } from './cloudCrypto';
 import { connectionState, type PresenceReading, type StatusTone } from './sessionStatus';
@@ -187,7 +187,7 @@ export function CopyField({ label, value }: { label: string; value: string }) {
 					{copied ? 'Copied' : 'Copy'}
 				</button>
 			</div>
-			<textarea readOnly value={value} rows={3} style={fieldStyle} />
+			<textarea aria-label={label} readOnly value={value} rows={3} style={fieldStyle} />
 		</div>
 	);
 }
@@ -373,5 +373,104 @@ export function OnlineJoinShare({ code }: { code: string }) {
 				that has it still waits for your approval below.
 			</div>
 		</>
+	);
+}
+
+/** Camera access is scoped to this mounted scanner, including an in-flight permission prompt. */
+export function InviteScanner({ onScan }: { onScan: (code: string) => void }) {
+	const [available, setAvailable] = useState(false);
+	const [scanning, setScanning] = useState(false);
+	const [message, setMessage] = useState('');
+	const video = useRef<HTMLVideoElement>(null);
+	const onScanRef = useRef(onScan);
+	onScanRef.current = onScan;
+	useEffect(() => {
+		let cancelled = false;
+		void canScanQr().then((supported) => {
+			if (!cancelled) setAvailable(supported);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+	useEffect(() => {
+		if (!scanning) return;
+		let cancelled = false;
+		let stream: MediaStream | undefined;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const stop = () => stream?.getTracks().forEach((track) => track.stop());
+		const fail = () => {
+			stop();
+			if (cancelled) return;
+			setMessage(
+				'Could not read the QR code. Allow camera access and try again, or paste the invite code.',
+			);
+			setScanning(false);
+		};
+		void (async () => {
+			try {
+				const detector = createQrDetector();
+				stream = await navigator.mediaDevices.getUserMedia({
+					video: { facingMode: 'environment' },
+					audio: false,
+				});
+				if (cancelled || !video.current) {
+					stop();
+					return;
+				}
+				const element = video.current;
+				element.srcObject = stream;
+				await element.play();
+				const read = async () => {
+					if (cancelled) return;
+					try {
+						const codes = await detector.detect(element);
+						if (cancelled) return;
+						const code = codes.find((item) => item.rawValue)?.rawValue;
+						if (code) {
+							stop();
+							onScanRef.current(code);
+							setMessage('QR code read. Choose Join to use this invite.');
+							setScanning(false);
+						} else timer = setTimeout(() => void read(), 200);
+					} catch {
+						fail();
+					}
+				};
+				void read();
+			} catch {
+				fail();
+			}
+		})();
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+			stop();
+		};
+	}, [scanning]);
+	if (!available) return null;
+	return (
+		<div>
+			<button
+				type="button"
+				style={btn()}
+				onClick={() => {
+					setMessage('');
+					setScanning(!scanning);
+				}}
+			>
+				{scanning ? 'Stop scanning' : 'Scan a QR code'}
+			</button>
+			{scanning && (
+				<video
+					ref={video}
+					aria-label="Invite QR camera"
+					muted
+					playsInline
+					style={{ width: '100%', maxHeight: 240 }}
+				/>
+			)}
+			<p role="status">{scanning ? 'Point your camera at the invite QR code.' : message}</p>
+		</div>
 	);
 }
