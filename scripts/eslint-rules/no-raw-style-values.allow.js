@@ -128,4 +128,4 @@ export const allow = {
 	'apps/gm-react/src/screens/settings/Vault.tsx': 5,
 };
 
-// Total current findings: 882
+// Total current findings: 966
