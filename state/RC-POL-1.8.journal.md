@@ -2,7 +2,8 @@
 
 Base: `225aac8328bbcbae6634802a8ec263d219470935`.
 Branch: `dispatch/dndtools/cb7b542f17647634ef30`; initial working tree clean.
-Owned surface: `apps/gm-react/src/screens/play`; supporting translations, tests, snapshots,
+Owned surface: `apps/gm-react/src/screens/play`; the current claim also includes
+`apps/gm-react/src/styles/index.css`. Supporting translations, tests, snapshots,
 style ratchet, FEATURE-GAPS and this journal implement the explicit acceptance requirements.
 No push, promotion, dispatcher writes or additional agents. Headroom tools were unavailable;
 commands used native execution and their complete output is retained in local `/tmp/pol18-*.log`.
@@ -174,3 +175,9 @@ integration and publication.
 - Corrected skip-link case: 10 passed (five repetitions on each profile), zero retries, exit 0 (18.3s). Command: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.ts -g 'standalone player view has its own skip' --workers=2 --retries=0 --repeat-each=5`. Exact output retrieved: `c42e6474331a447091330b15b09766e7`; log `/tmp/pol18-inset-skip.log`. The expanded run is not represented as a single green command.
 - Pinned visual comparison: 15 passed, zero retries, exit 0 (27.5s). Command: `bash apps/gm-react/tests/visual/run-in-container.sh -g '/play$|play stage' --update-snapshots=none --workers=2 --retries=0`. Exact output retrieved: `f833b9329f67428fb5eafa3af747fcde`; log `/tmp/pol18-inset-visual.log`. Existing five-theme/three-tier baselines remain valid; no PNG refresh was needed for this correction.
 - Formatting and `git diff --check` pass. No copy or translation change. No application edits overlapped the expanded browser or visual comparisons. Local correction only; the central operator retains full wrapper validation and independent review.
+
+## Expanded claim handoff (2026-10-03)
+
+- Resumed at `b2450bb1c5453fb7b5558c1b85912771f70a5020` with a clean working tree. The latest feedback identifies only a claim mismatch for `apps/gm-react/src/styles/index.css`; the current task instruction explicitly includes that path. The large-text reservation correction is already committed and is retained unchanged. No dispatcher control state was read or edited to change ownership.
+- Fresh `pnpm gates`: exit 0, no file-size warning for either currently owned path. Exact stdout and stderr retrieved from dispatch artifact `90cfa78e859a49708f083b9a22054e2c`. Existing unrelated warnings remain. The shared stylesheet is 543 lines; the surface's 20 files remain below 500 lines as documented above. The gate emits no warning for the shared stylesheet.
+- This handoff changes only the journal to reflect the expanded claim. The earlier browser/axe and pinned-visual evidence above describes the unchanged implementation; those suites were not rerun for this documentation-only handoff. Formatting and `git diff --check` passed. Central claim validation and independent review remain the operator's responsibility; no push or promotion performed.
