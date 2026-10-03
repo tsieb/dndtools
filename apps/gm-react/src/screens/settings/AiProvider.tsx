@@ -18,36 +18,18 @@ import {
 	saveAiProviderSettings,
 	setAiProviderKey,
 	type AiProviderKind,
-	type AiProviderSettings,
 } from '../../ai/providerConfig';
 import { LOCAL_OLLAMA } from '../../ai/localLlmGuidance';
-import { buildAiProviderPresets, type AiProviderPreset } from './AiPresets';
+import {
+	AiPresetCard,
+	buildAiProviderPresets,
+	matchingPresetId,
+	type AiProviderPreset,
+	type OllamaProbe,
+} from './AiPresets';
 /* ---- AI provider setup (ADR-021 — the BYO-key transport half of the AI & tools subpage) ---------- */
-/** Which preset the current settings match (for the "selected" chip). Anthropic matches by kind. */
-function matchingPresetId(
-	presets: AiProviderPreset[],
-	settings: AiProviderSettings,
-): string | null {
-	for (const preset of presets) {
-		if (preset.provider === 'anthropic' && settings.provider === 'anthropic') return preset.id;
-		if (
-			preset.provider === 'openai-compatible' &&
-			settings.provider === 'openai-compatible' &&
-			settings.baseUrl.replace(/\/+$/, '') === preset.baseUrl
-		) {
-			return preset.id;
-		}
-	}
-	return null;
-}
-
-type OllamaProbe =
-	| { status: 'unknown' }
-	| { status: 'running'; models: string[] }
-	| { status: 'down' };
-
-export /** Provider configuration — BYO key, device-local custody, fail-closed until complete. */
-function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
+/** Provider configuration — BYO key, device-local custody, fail-closed until complete. */
+export function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
 	const { t } = useI18n();
 	const capabilities = usePlatformCapabilities();
 	const [settings, setSettings] = useState(() => getAiProviderSettings());
@@ -189,18 +171,20 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				</Badge>
 			}
 		>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+			<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 				{t('settings.provider.intro')}
 			</div>
-			<div style={{ marginTop: 14 }}>
-				<div style={{ font: `600 12px ${T.sans}`, color: T.ink, marginBottom: 8 }}>
+			<div style={{ marginTop: T.space.four }}>
+				<div
+					style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.ink, marginBottom: T.space.two }}
+				>
 					{t('settings.provider.connect')}
 				</div>
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))',
-						gap: 10,
+						gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
+						gap: T.space.three,
 					}}
 				>
 					{presets.map((preset) => {
@@ -218,79 +202,34 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 								? 'settings.provider.forgetBeforeSwitch'
 								: null;
 						const lockReason = lockReasonKey ? t(lockReasonKey) : null;
-						const locked = lockReason !== null;
 						return (
-							<button
+							<AiPresetCard
 								key={preset.id}
-								type="button"
-								aria-disabled={locked || undefined}
-								title={lockReason ?? undefined}
-								onClick={() => {
+								preset={preset}
+								selected={selected}
+								platformUnsupported={platformUnsupported}
+								lockReason={lockReason}
+								ollama={isOllama ? ollama : null}
+								onPick={() => {
 									if (lockReason) {
 										Toaster.warning(lockReason);
 										return;
 									}
 									applyPreset(preset);
 								}}
-								style={{
-									textAlign: 'left',
-									padding: '11px 12px',
-									borderRadius: 10,
-									border: `1px solid ${selected ? T.accBd : T.bd}`,
-									background: selected ? T.accSub : T.alt,
-									cursor: locked ? 'not-allowed' : 'pointer',
-									opacity: locked ? 0.55 : 1,
-									display: 'flex',
-									flexDirection: 'column',
-									gap: 6,
-								}}
-							>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-									<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{preset.label}</span>
-									{selected && <Badge status="success">{t('settings.provider.selected')}</Badge>}
-									{platformUnsupported && (
-										<Badge status="neutral">{t('settings.provider.desktopOnly')}</Badge>
-									)}
-									{isOllama && ollama.status !== 'unknown' && (
-										<Badge status={ollama.status === 'running' ? 'success' : 'neutral'}>
-											{ollama.status === 'running'
-												? t('settings.provider.ollamaDetected', {
-														count: ollama.models.length,
-													})
-												: t('settings.provider.ollamaDown')}
-										</Badge>
-									)}
-								</div>
-								<ol
-									style={{
-										margin: 0,
-										paddingLeft: 16,
-										font: `11px/1.5 ${T.sans}`,
-										color: T.ter,
-									}}
-								>
-									{preset.steps.map((step, i) => (
-										<li key={i}>{step}</li>
-									))}
-								</ol>
-								{(platformUnsupported || preset.note) && (
-									<div style={{ font: `10.5px ${T.sans}`, color: T.ter, fontStyle: 'italic' }}>
-										{platformUnsupported ? LOCAL_OLLAMA.desktopOnlyNote : preset.note}
-									</div>
-								)}
-								{isOllama &&
-									ollama.status === 'running' &&
-									!ollama.models.includes(preset.model) && (
-										<div style={{ font: `10.5px ${T.mono}`, color: T.warn }}>
-											{t('settings.provider.ollamaPull', { model: preset.model })}
-										</div>
-									)}
-							</button>
+							/>
 						);
 					})}
 				</div>
 				{activePresetId === 'ollama' && capabilities.allowHttpLoopbackAi && (
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							gap: T.space.two,
+							marginTop: T.space.three,
+						}}
+					>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -299,7 +238,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 						>
 							{ollamaBusy ? t('settings.provider.checking') : t('settings.provider.checkOllama')}
 						</Button>
-						<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{t('settings.provider.detectionNote')}
 						</span>
 					</div>
@@ -308,12 +247,12 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 			{hasLegacyKey && (
 				<div
 					style={{
-						marginTop: 12,
-						padding: '10px 12px',
-						borderRadius: 8,
+						marginTop: T.space.three,
+						padding: `${T.space.three} ${T.space.three}`,
+						borderRadius: T.radius.md,
 						border: `1px solid ${T.warn}`,
 						background: `color-mix(in srgb, ${T.warn} 10%, transparent)`,
-						font: `12px/1.55 ${T.sans}`,
+						font: `var(--text-xs)/1.55 ${T.sans}`,
 						color: T.sub,
 					}}
 				>
@@ -398,7 +337,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 							display: 'block',
 							maxWidth: 360,
 							wordBreak: 'break-word',
-							font: `12px/1.5 ${T.mono}`,
+							font: `var(--text-xs)/1.5 ${T.mono}`,
 							color: destination ? T.ink : T.err,
 						}}
 					>
@@ -410,7 +349,9 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 				label={t('settings.provider.keyRow')}
 				help={t(hasKey ? 'settings.provider.keyHelpStored' : 'settings.provider.keyHelp')}
 				control={
-					<span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+					<span
+						style={{ display: 'flex', gap: T.space.two, alignItems: 'center', flexWrap: 'wrap' }}
+					>
 						<span style={{ flex: '1 1 220px', minWidth: 180 }}>
 							<Input
 								type="password"
@@ -471,7 +412,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{scopeBefore}
 					<strong style={{ color: T.ink }}>{destinationProviderLabel}</strong>
 					{scopeMiddle}
@@ -504,7 +445,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{forgetBefore}
 					<strong style={{ color: T.ink }}>{destination?.origin}</strong>
 					{forgetAfter}
@@ -538,7 +479,7 @@ function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => voi
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t('settings.provider.legacyBody')}
 				</div>
 			</Dialog>

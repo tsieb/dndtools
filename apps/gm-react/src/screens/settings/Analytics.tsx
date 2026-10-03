@@ -31,9 +31,11 @@ const EVENT_LABEL = {
 
 function Note({ title, body }: { title: string; body: string }) {
 	return (
-		<div style={{ marginTop: 10 }}>
-			<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{title}</div>
-			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.sub, marginTop: 2 }}>{body}</div>
+		<div style={{ marginTop: T.space.three }}>
+			<div style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{title}</div>
+			<div style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub, marginTop: T.space.half }}>
+				{body}
+			</div>
 		</div>
 	);
 }
@@ -84,13 +86,18 @@ export function ProductAnalyticsPanel() {
 				}
 			/>
 			<Note title={t('settings.analytics.whatTitle')} body={t('settings.analytics.whatBody')} />
-			<div style={{ marginTop: 10 }}>
-				<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>
+			<div style={{ marginTop: T.space.three }}>
+				<div style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
 					{t('settings.analytics.eventsTitle')}
 				</div>
-				<ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+				<ul
+					style={{
+						margin: `${T.space.one} ${T.space.zero} ${T.space.zero}`,
+						paddingLeft: T.space.five,
+					}}
+				>
 					{PRODUCT_ANALYTICS_EVENT_NAMES.map((name) => (
-						<li key={name} style={{ font: `12px/1.7 ${T.sans}`, color: T.sub }}>
+						<li key={name} style={{ font: `var(--text-xs)/1.7 ${T.sans}`, color: T.sub }}>
 							{t(EVENT_LABEL[name])}
 						</li>
 					))}

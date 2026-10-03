@@ -1,7 +1,7 @@
 import { SettingsSection } from './Experience';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, FeatureSpotlight, HelpTip, RadioCard, Toaster } from '../../ds';
+import { Button, HelpTip, RadioCard, Toaster } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import {
@@ -40,8 +40,8 @@ export function SettingsToolPreferences() {
 					onKeyDown={radioGroupKeyDown}
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
-						gap: 10,
+						gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
+						gap: T.space.three,
 					}}
 				>
 					{(
@@ -70,17 +70,21 @@ export function SettingsToolPreferences() {
 								value={option.id}
 								checked={selected}
 								onChange={choose}
-								heading={t(option.title)}
 								style={{
-									padding: 12,
-									borderRadius: 10,
+									padding: T.space.three,
+									borderRadius: T.radius.md,
 									border: `1px solid ${selected ? T.accBd : T.bd}`,
 									background: selected ? T.accSub : T.alt,
 									textAlign: 'left',
 									cursor: 'pointer',
 								}}
 							>
-								<div style={{ marginTop: 4, font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+								{/* Heading in primary ink: the DS heading paints accent on the accent tint, which
+								    is 4.43:1 on parchment (DEBT-2026-008). The border carries the selection. */}
+								<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
+									{t(option.title)}
+								</span>
+								<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 									{t(option.desc)}
 								</div>
 							</RadioCard>
@@ -101,16 +105,28 @@ export function SettingsPlugins() {
 	const { t } = useI18n();
 	const navigate = useNavigate();
 	const extensions = t('settings.plugins.extensions');
+	const [pluginsBefore, pluginsAfter = ''] = t('settings.plugins.body', { extensions }).split(
+		extensions,
+	);
 	return (
 		<SettingsSection gateKey="settings.plugins.title">
 			<Panel title={t('settings.plugins.title')}>
-				<FeatureSpotlight
-					title={extensions}
-					description={t('settings.plugins.body', { extensions })}
+				{/* Same pointer shape as Systems below: a nested accent callout inside the panel made a
+				    second landmark and painted its action in the parchment accent pair. */}
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
+					{pluginsBefore}
+					<strong style={{ color: T.ink }}>{extensions}</strong>
+					{pluginsAfter}
+				</div>
+				<Button
+					variant="secondary"
+					size="sm"
 					icon="widget"
-					actionLabel={t('settings.openExtensions')}
-					onAction={() => navigate('/extensions')}
-				/>
+					onClick={() => navigate('/extensions')}
+					style={{ alignSelf: 'flex-start' }}
+				>
+					{t('settings.openExtensions')}
+				</Button>
 			</Panel>
 		</SettingsSection>
 	);
@@ -127,7 +143,7 @@ export function SettingsSystems() {
 	return (
 		<SettingsSection gateKey="settings.systems.title">
 			<Panel title={t('settings.systems.title')}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{bodyBefore}
 					<strong style={{ color: T.ink }}>{location}</strong>
 					{bodyAfter}

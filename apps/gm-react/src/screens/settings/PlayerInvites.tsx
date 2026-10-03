@@ -158,7 +158,7 @@ export function InvitesPanel({
 		<Panel title={t('settings.invites.title')}>
 			{cloudReady ? <CloudOfflineNotice /> : null}
 			{!cloudReady ? (
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t('settings.invites.beforeAppIntro')}{' '}
 					{t(
 						isAccountApiConfigured
@@ -167,28 +167,30 @@ export function InvitesPanel({
 					)}
 				</div>
 			) : failed ? (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t('settings.invites.loadFailed')}
-					</span>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="retry"
-						{...cloudActions.offlineProps}
-						onClick={() => {
-							setFailed(false);
-							setInvites(null);
-							setReloadNonce((n) => n + 1);
-						}}
-					>
-						{t('common.action.retry')}
-					</Button>
-				</div>
+				<EmptyState
+					inset
+					illustration="connection-lost"
+					title={t('settings.invites.loadFailed')}
+					action={
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="retry"
+							{...cloudActions.offlineProps}
+							onClick={() => {
+								setFailed(false);
+								setInvites(null);
+								setReloadNonce((n) => n + 1);
+							}}
+						>
+							{t('common.action.retry')}
+						</Button>
+					}
+				/>
 			) : invites === null ? (
 				<LoadingRegion
 					label={t('settings.invites.loading')}
-					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+					style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}
 				>
 					<Skeleton height={44} />
 					<Skeleton height={44} />
@@ -196,7 +198,7 @@ export function InvitesPanel({
 			) : invites.length === 0 ? (
 				<EmptyState
 					inset
-					icon="send"
+					illustration="invites-empty"
 					title={t('settings.invites.emptyTitle')}
 					description={t('settings.invites.emptyBody')}
 				/>
@@ -210,20 +212,20 @@ export function InvitesPanel({
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '10px 0',
+									gap: T.space.three,
+									padding: `${T.space.three} ${T.space.zero}`,
 									borderTop: i ? `1px solid ${T.bd}` : 'none',
 								}}
 							>
 								<Icon name="send" size={15} color={T.ter} />
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-										<span style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</span>
+									<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
+										<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{v.campaignName}</span>
 										{v.role === 'co-dm' && (
 											<Badge status="accent">{t('settings.invites.coDm')}</Badge>
 										)}
 									</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+									<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										{t(v.note ? 'settings.invites.noteAndExpiry' : 'settings.invites.expiry', {
 											note: v.note ?? '',
 											date: formatDate(new Date(v.expiresAt * 1000)),
@@ -295,7 +297,7 @@ export function InvitesPanel({
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{revokeBefore}
 					<strong style={{ color: T.ink }}>{revokeName}</strong>
 					{revokeAfter}
@@ -335,7 +337,14 @@ export function InvitesPanel({
 				}
 			>
 				{minted ? (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+					<div
+						style={{
+							display: 'flex',
+							flexDirection: 'column',
+							gap: T.space.three,
+							alignItems: 'center',
+						}}
+					>
 						{minted.emailStatus !== 'none' && (
 							<div
 								role="status"
@@ -343,12 +352,12 @@ export function InvitesPanel({
 									width: '100%',
 									display: 'flex',
 									alignItems: 'flex-start',
-									gap: 8,
-									padding: '8px 10px',
-									borderRadius: 8,
+									gap: T.space.two,
+									padding: `${T.space.two} ${T.space.three}`,
+									borderRadius: T.radius.md,
 									border: `1px solid ${T.bd}`,
-									font: `12px/1.5 ${T.sans}`,
-									color: minted.emailStatus === 'sent' ? T.sub : T.ter,
+									font: `var(--text-xs)/1.5 ${T.sans}`,
+									color: T.sub,
 								}}
 							>
 								<Icon
@@ -363,7 +372,7 @@ export function InvitesPanel({
 								</span>
 							</div>
 						)}
-						{/* deliberate literal #fff: a QR quiet zone must stay white for scanners, whatever the theme */}
+						{/* `qrDataUrl` renders its own four-module white quiet zone, so no theme can tint it. */}
 						{qr && (
 							<img
 								src={qr}
@@ -371,16 +380,14 @@ export function InvitesPanel({
 								style={{
 									width: 168,
 									height: 168,
-									borderRadius: 10,
+									borderRadius: T.radius.md,
 									border: `1px solid ${T.bd}`,
-									background: '#fff',
-									padding: 8,
 								}}
 							/>
 						)}
 						<code
 							style={{
-								font: `11.5px ${T.mono}`,
+								font: `var(--text-xs) ${T.mono}`,
 								color: T.sub,
 								wordBreak: 'break-all',
 								textAlign: 'center',
@@ -406,7 +413,7 @@ export function InvitesPanel({
 						</Button>
 					</div>
 				) : (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 						<Input
 							value={campaignName}
 							onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)}
@@ -422,11 +429,11 @@ export function InvitesPanel({
 							rows={2}
 							maxLength={200}
 						/>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
 							<span
 								style={{
-									font: `600 11.5px ${T.sans}`,
-									color: T.ter,
+									font: `600 var(--text-xs) ${T.sans}`,
+									color: T.sub,
 									textTransform: 'uppercase',
 									letterSpacing: '.06em',
 								}}
@@ -447,7 +454,7 @@ export function InvitesPanel({
 									},
 								]}
 							/>
-							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+							<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 								{t(role === 'co-dm' ? 'settings.invites.coDmHelp' : 'settings.invites.playerHelp')}
 							</span>
 						</div>
@@ -460,7 +467,7 @@ export function InvitesPanel({
 							autoComplete="off"
 							maxLength={254}
 						/>
-						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 							{t('settings.invites.emailHelp')}
 						</div>
 					</div>

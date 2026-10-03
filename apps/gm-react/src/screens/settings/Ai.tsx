@@ -33,6 +33,14 @@ const MCP_MODE_LABEL: Record<McpPolicyMode, MessageKey> = {
 	trusted_direct: 'settings.ai.mode.trustedDirect',
 };
 
+/** A campaign identity's role, in words, for the agent-identity picker. */
+const ROLE_NAME: Record<string, MessageKey> = {
+	dm: 'settings.players.role.dm',
+	'co-dm': 'settings.players.role.coDm',
+	player: 'settings.players.role.player',
+	observer: 'settings.players.role.observer',
+};
+
 export function SettingsAI() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -103,9 +111,11 @@ export function SettingsAI() {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			{!canWrite && (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('settings.ai.dmOnly')}</div>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+					{t('settings.ai.dmOnly')}
+				</div>
 			)}
 			<SettingsSection gateKey="settings.ai.title">
 				<Panel
@@ -130,16 +140,18 @@ export function SettingsAI() {
 						/>
 					}
 				>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.ai.intro')}</div>
+					<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
+						{t('settings.ai.intro')}
+					</div>
 					<div
 						style={{
-							marginTop: 8,
-							padding: '9px 12px',
-							borderRadius: 9,
+							marginTop: T.space.two,
+							padding: `${T.space.two} ${T.space.three}`,
+							borderRadius: T.radius.md,
 							border: `1px solid ${T.bd}`,
 							background: T.alt,
-							font: `12px/1.6 ${T.sans}`,
-							color: T.ter,
+							font: `var(--text-xs)/1.6 ${T.sans}`,
+							color: T.sub,
 						}}
 					>
 						{t('settings.ai.providerNote')}
@@ -183,11 +195,17 @@ export function SettingsAI() {
 					title={t('settings.ai.connections')}
 					action={<Badge status="neutral">{bindings.length}</Badge>}
 				>
-					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					<div
+						style={{
+							font: `var(--text-xs)/1.6 ${T.sans}`,
+							color: T.sub,
+							marginBottom: T.space.one,
+						}}
+					>
 						{t('settings.ai.connectionsIntro')}
 					</div>
 					{bindings.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('settings.ai.noConnections')}
 						</div>
 					) : (
@@ -203,16 +221,18 @@ export function SettingsAI() {
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 10,
-											padding: '11px 0',
+											gap: T.space.three,
+											padding: `${T.space.three} ${T.space.zero}`,
 											borderTop: i ? `1px solid ${T.bd}` : 'none',
 											flexWrap: 'wrap',
 										}}
 									>
 										<Icon name="sparkle" size={16} color={T.acc} />
 										<div style={{ flex: '1 1 180px', minWidth: 0 }}>
-											<div style={{ font: `600 13px ${T.sans}` }}>{b.label || b.agentId}</div>
-											<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+											<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
+												{b.label || b.agentId}
+											</div>
+											<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 												{b.agentId} → {actorName(b.actorId)}
 											</div>
 										</div>
@@ -337,12 +357,12 @@ export function SettingsAI() {
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 8,
-							marginTop: 10,
+							gap: T.space.two,
+							marginTop: T.space.three,
 							flexWrap: 'wrap',
 						}}
 					>
-						<span style={{ flex: '1 1 140px', minWidth: 120 }}>
+						<span style={{ flex: '1 1 200px', minWidth: 160 }}>
 							<Input
 								value={newAgentId}
 								onChange={(e: { target: { value: string } }) => setNewAgentId(e.target.value)}
@@ -360,14 +380,17 @@ export function SettingsAI() {
 								maxLength={80}
 							/>
 						</span>
-						<span style={{ flex: '0 0 170px' }}>
+						<span style={{ flex: '1 1 200px', minWidth: 160 }}>
 							<Select
 								aria-label={t('settings.ai.identityLabel')}
 								value={selectedNewActorId}
 								onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)}
 								options={actors.map((a) => ({
 									value: a.id,
-									label: t('settings.ai.actorOption', { name: a.displayName, role: a.role }),
+									label: t('settings.ai.actorOption', {
+										name: a.displayName,
+										role: ROLE_NAME[a.role] ? t(ROLE_NAME[a.role]) : a.role,
+									}),
 								}))}
 							/>
 						</span>
@@ -396,10 +419,16 @@ export function SettingsAI() {
 
 			<SettingsSection gateKey="settings.ai.registryTitle">
 				<Panel title={t('settings.ai.registryTitle')}>
-					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
+					<div
+						style={{
+							font: `var(--text-xs)/1.6 ${T.sans}`,
+							color: T.sub,
+							marginBottom: T.space.oneHalf,
+						}}
+					>
 						{t('settings.ai.registryIntro')}
 					</div>
-					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.two }}>
 						{MCP_BASELINE_TOOL_IDS.map((toolId) => (
 							<Chip key={toolId} tone="neutral">
 								{toolId}

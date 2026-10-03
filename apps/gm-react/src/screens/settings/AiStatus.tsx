@@ -45,23 +45,32 @@ function BackendRow({ status, first }: { status: AiBackendStatus; first: boolean
 			style={{
 				display: 'flex',
 				alignItems: 'flex-start',
-				gap: 10,
-				padding: '11px 0',
+				gap: T.space.three,
+				padding: `${T.space.three} ${T.space.zero}`,
 				borderTop: first ? 'none' : `1px solid ${T.bd}`,
 				flexWrap: 'wrap',
 			}}
 		>
 			<div style={{ flex: '1 1 220px', minWidth: 0 }}>
-				<div style={{ font: `600 13px ${T.sans}` }}>{t(BACKEND_LABEL[status.id])}</div>
-				<div style={{ font: `11.5px ${T.mono}`, color: T.ter, wordBreak: 'break-word' }}>
+				<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>{t(BACKEND_LABEL[status.id])}</div>
+				<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub, wordBreak: 'break-word' }}>
 					{status.destination ? `${status.destination.baseUrl} · ${status.model}` : status.model}
 				</div>
 				{!status.available && status.reason && (
-					<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginTop: 3 }}>
+					<div
+						style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub, marginTop: T.space.one }}
+					>
 						{t(REASON_LABEL[status.reason])}
 					</div>
 				)}
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+				<div
+					style={{
+						display: 'flex',
+						flexWrap: 'wrap',
+						gap: T.space.oneHalf,
+						marginTop: T.space.oneHalf,
+					}}
+				>
 					{capabilities.generation && (
 						<Chip tone="neutral">{t('settings.router.capability.generation')}</Chip>
 					)}
@@ -126,14 +135,16 @@ export function AiRouterPanel({ onRoutingChange }: { onRoutingChange?: () => voi
 
 	return (
 		<Panel title={t('settings.router.title')}>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{t('settings.router.intro')}</div>
+			<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
+				{t('settings.router.intro')}
+			</div>
 			<div
 				style={{
-					font: `600 11px ${T.sans}`,
+					font: `600 var(--text-xs) ${T.sans}`,
 					letterSpacing: '.08em',
 					textTransform: 'uppercase',
-					color: T.ter,
-					margin: '14px 0 2px',
+					color: T.sub,
+					margin: `${T.space.four} ${T.space.zero} ${T.space.half}`,
 				}}
 			>
 				{t('settings.router.backendsHeading')}
@@ -181,7 +192,7 @@ export function AiRouterPanel({ onRoutingChange }: { onRoutingChange?: () => voi
 				label={t('settings.router.embeddingsRow')}
 				help={t('settings.router.embeddingsHelp')}
 				control={
-					<span style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, maxWidth: 260 }}>
+					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub, maxWidth: 260 }}>
 						{embeddingsState}
 					</span>
 				}

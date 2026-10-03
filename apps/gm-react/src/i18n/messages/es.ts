@@ -947,6 +947,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.about.health.unhealthy': 'No saludable',
 	'settings.about.appVersion': 'Versión de la app',
 	'settings.about.platform': 'Plataforma',
+	'settings.about.platformName.web': 'Navegador web',
+	'settings.about.platformName.mobile': 'Teléfono',
+	'settings.about.platformName.tablet': 'Tableta',
+	'settings.about.platformName.desktop': 'App de escritorio',
 	'settings.about.lastSync': 'Última sincronización',
 	'settings.about.never': 'Nunca',
 	'settings.about.storageTotal': 'Almacenamiento usado',
@@ -1035,7 +1039,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.players.renameFor': 'Nuevo nombre para {name}',
 	'settings.players.renamed': 'Renombrado a {name}.',
 	'settings.players.renameFailed': 'No se pudo renombrar a ese participante. Inténtalo de nuevo.',
-	'settings.players.yourNameHint': 'Este eres tú: pulsa el lápiz para poner tu nombre.',
+	'settings.players.yourNameHint': 'Este eres tú. Selecciona el lápiz para poner tu nombre.',
 	'settings.tools.title': 'Preferencias de herramientas',
 	'settings.tools.intro':
 		'Controla las herramientas opcionales de este dispositivo. Cualquier opción distinta de “Asistente y generadores” oculta al momento el asistente y su configuración, y bloquea las peticiones al modelo aunque siga guardada una clave.',
@@ -1671,7 +1675,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.folder.importZip': 'Importar carpeta ZIP',
 	'settings.folder.importFolder': 'Importar carpeta Markdown',
 	'settings.folder.exported': 'Carpeta Markdown exportada.',
-	'settings.folder.imported': 'Se importaron {count} notas.',
+	'settings.folder.imported': 'Se importaron {count, plural, one {# nota} other {# notas}}.',
 	'settings.folder.failed':
 		'No se pudo completar la transferencia de la carpeta Markdown. Inténtalo de nuevo.',
 
@@ -1692,7 +1696,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.vault.quarantineBody':
 		'No se pudieron leer estos documentos. Puedes seguir usando el resto de tu bóveda. Exporta cada original y guárdalo hasta que hayas recuperado su contenido.',
 	'settings.vault.exportRecovery': 'Exportar {name} para su recuperación',
-	'settings.vault.pruned': 'Se liberaron {bytes} bytes de datos de búsqueda guardados en caché.',
+	'settings.vault.pruned': 'Se liberaron {size} de datos de búsqueda en caché.',
 	'settings.vault.title': 'Conexiones de bóveda',
 	'settings.vault.manageInKnowledge': 'Gestionar en Conocimiento',
 	'settings.vault.loading': 'Cargando las conexiones de la bóveda',
@@ -1700,7 +1704,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.vault.kindFolder': 'Carpeta local',
 	'settings.vault.kindDoc': 'Documento de Google',
 	'settings.vault.pulledPushed': 'importado {pulled} · exportado {pushed}',
-	'settings.vault.connected': 'conectado',
+	'settings.vault.connected': 'Conectado',
 	'settings.vault.disconnect': 'Desconectar',
 	'settings.vault.readFailedTitle': 'No se pudieron leer tus carpetas conectadas',
 	'settings.vault.readFailedBody':
@@ -1851,7 +1855,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.privacy.phrasePrivate': 'yo tengo las llaves',
 	'settings.privacy.phraseCloud': 'lee mi bóveda',
 	'settings.privacy.ackPrompt': 'Escribe {phrase} para confirmar.',
-	'settings.privacy.ackFieldLabel': 'Escribe "{phrase}" para confirmar',
+	'settings.privacy.ackFieldLabel': 'Escribe «{phrase}» para confirmar',
 	'settings.privacy.makePrivate': 'Hacerlo privado',
 	'settings.privacy.recordConsent': 'Registrar mi consentimiento',
 	'settings.privacy.nowPrivate':
@@ -1930,10 +1934,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.permissions.colEntity': 'Elemento',
 	'settings.permissions.colGrantedTo': 'Concedido a',
 	'settings.permissions.colExpires': 'Caduca',
+	'settings.permissions.colActions': 'Acciones',
 	'settings.permissions.revoke': 'Revocar',
+	'settings.permissions.revokeFor': 'Revocar {access} en {item} para {name}',
+	'settings.permissions.grantLine': '{access} · {type} · {name}',
 	'settings.permissions.noGrants':
 		'No hay permisos activos. Usa el formulario de arriba para dar acceso a un jugador a una escena.',
 	'settings.permissions.thePlayer': 'el jugador',
+	'settings.permissions.unnamedItem': 'Elemento sin nombre',
 	'settings.permissions.granted': 'Acceso concedido a {name}.',
 	'settings.permissions.revoked': 'Acceso revocado a {name}.',
 	'settings.permissions.regranted': 'Acceso concedido de nuevo a {name}.',
@@ -2242,10 +2250,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.provider.noteGemini': 'Usa el punto final compatible con OpenAI de Google.',
 	'settings.provider.noteOpenRouter':
 		'Una clave, muchos modelos: cambia el id del modelo para enrutar.',
-	'settings.provider.selected': 'seleccionado',
-	'settings.provider.desktopOnly': 'solo escritorio',
-	'settings.provider.ollamaDetected': 'detectado · {count}',
-	'settings.provider.ollamaDown': 'no está en marcha',
+	'settings.provider.selected': 'Seleccionado',
+	'settings.provider.desktopOnly': 'Solo escritorio',
+	'settings.provider.ollamaDetected': 'Detectado · {count}',
+	'settings.provider.ollamaDown': 'No está en marcha',
 	'settings.provider.ollamaPull': 'Ejecuta: ollama pull {model}',
 	'settings.provider.checking': 'Comprobando…',
 	'settings.provider.checkOllama': 'Buscar Ollama local',
@@ -5818,6 +5826,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Se importaron {created} nuevas y se sobrescribieron {over} desde el Doc.',
 	'sources.noNotesToPush': 'Aún no hay notas que exportar. Escribe una nota primero.',
 	'sources.pushEntryError': '«{title}»: {message}',
+	'sources.pushPrepareFailed': 'No se pudo preparar «{title}» para exportarla. Inténtalo de nuevo.',
 	'sources.pushed':
 		'Se exportaron {written} de {total, plural, one {# nota} other {# notas}} a «{label}».',
 	'sources.pushedWithProblem':
@@ -5831,7 +5840,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sources.pickNote': 'Elige primero una nota para exportar a este Doc.',
 	'sources.signInExpired':
 		'Tu sesión de Google caducó. Inicia sesión de nuevo para exportar notas.',
-	'sources.disconnected': 'Se desconectó «{name}»',
+	'sources.disconnected': 'Se desconectó «{name}».',
 	'sources.chooseNote': 'Elige una nota…',
 	'sources.pushLossyTitle':
 		'Exportar a «{label}» cambia el formato de {lossy} de {total, plural, one {# nota} other {# notas}}',
@@ -5856,8 +5865,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Este navegador no puede conectar una carpeta local. Usa la app de escritorio o un navegador Chromium compatible.',
 	'sources.folderMeta': 'Carpeta local · importado {pulled} · exportado {pushed}',
 	'sources.docMeta': 'Google Doc · importado {pulled} · exportado {pushed}',
-	'sources.connected': 'conectada',
-	'sources.needsSignIn': 'falta iniciar sesión',
+	'sources.connected': 'Conectada',
+	'sources.needsSignIn': 'Falta iniciar sesión',
 	'sources.pullNotes': 'Importar notas',
 	'sources.pushNotes': 'Exportar notas',
 	'sources.noFolders':
@@ -5872,6 +5881,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sources.scopeBefore': 'Inicia sesión para conectar Docs. El acceso usa el ámbito por archivo',
 	'sources.scopeAfter': '— solo se puede llegar a los Docs creados aquí.',
 	'sources.newDocTitle': 'Título de un Google Doc nuevo',
+	'sources.defaultDocTitle': 'Notas de Lamplight',
 	'sources.createDoc': 'Crear un Doc nuevo',
 	'sources.existingDocsNote':
 		'Esta versión no puede conectar Google Docs existentes. Para conectarlos hace falta un selector de archivos de Google que no está disponible aquí. Lamplight no solicita acceso al resto de tu Drive.',

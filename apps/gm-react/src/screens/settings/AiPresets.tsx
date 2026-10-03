@@ -1,6 +1,12 @@
-import { DEFAULT_ANTHROPIC_MODEL, type AiProviderKind } from '../../ai/providerConfig';
+import { Badge } from '../../ds';
+import { T } from '../../app/screen-kit';
+import {
+	DEFAULT_ANTHROPIC_MODEL,
+	type AiProviderKind,
+	type AiProviderSettings,
+} from '../../ai/providerConfig';
 import { LOCAL_OLLAMA } from '../../ai/localLlmGuidance';
-import type { MessageKey } from '../../i18n';
+import { useI18n, type MessageKey } from '../../i18n';
 /* ---- AI provider presets (authored connect cards; the key is always the user's own) -------------- */
 /**
  * Guided connect presets — one card per provider. Selecting a card sets the non-secret provider
@@ -74,4 +80,109 @@ export function buildAiProviderPresets(t: (key: MessageKey) => string): AiProvid
 			note: LOCAL_OLLAMA.note,
 		},
 	];
+}
+
+export type OllamaProbe =
+	| { status: 'unknown' }
+	| { status: 'running'; models: string[] }
+	| { status: 'down' };
+
+/** Which preset the current settings match (for the "selected" chip). Anthropic matches by kind. */
+export function matchingPresetId(
+	presets: AiProviderPreset[],
+	settings: AiProviderSettings,
+): string | null {
+	for (const preset of presets) {
+		if (preset.provider === 'anthropic' && settings.provider === 'anthropic') return preset.id;
+		if (
+			preset.provider === 'openai-compatible' &&
+			settings.provider === 'openai-compatible' &&
+			settings.baseUrl.replace(/\/+$/, '') === preset.baseUrl
+		) {
+			return preset.id;
+		}
+	}
+	return null;
+}
+
+/** One connect card. A locked card stays focusable and says why when pressed (`aria-disabled`). */
+export function AiPresetCard({
+	preset,
+	selected,
+	platformUnsupported,
+	lockReason,
+	ollama,
+	onPick,
+}: {
+	preset: AiProviderPreset;
+	selected: boolean;
+	platformUnsupported: boolean;
+	lockReason: string | null;
+	/** The local runner's probe result; null on every other card. */
+	ollama: OllamaProbe | null;
+	onPick: () => void;
+}) {
+	const { t } = useI18n();
+	const locked = lockReason !== null;
+	return (
+		<button
+			type="button"
+			aria-disabled={locked || undefined}
+			title={lockReason ?? undefined}
+			onClick={onPick}
+			style={{
+				textAlign: 'left',
+				padding: `${T.space.three} ${T.space.three}`,
+				borderRadius: T.radius.md,
+				border: `1px solid ${selected ? T.accBd : T.bd}`,
+				background: selected ? T.accSub : T.alt,
+				cursor: locked ? 'not-allowed' : 'pointer',
+				opacity: locked ? 0.55 : 1,
+				display: 'flex',
+				flexDirection: 'column',
+				gap: T.space.oneHalf,
+			}}
+		>
+			<div
+				style={{ display: 'flex', alignItems: 'center', gap: T.space.oneHalf, flexWrap: 'wrap' }}
+			>
+				<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{preset.label}</span>
+				{selected && <Badge status="success">{t('settings.provider.selected')}</Badge>}
+				{platformUnsupported && (
+					<Badge status="neutral">{t('settings.provider.desktopOnly')}</Badge>
+				)}
+				{ollama && ollama.status !== 'unknown' && (
+					<Badge status={ollama.status === 'running' ? 'success' : 'neutral'}>
+						{ollama.status === 'running'
+							? t('settings.provider.ollamaDetected', {
+									count: ollama.models.length,
+								})
+							: t('settings.provider.ollamaDown')}
+					</Badge>
+				)}
+			</div>
+			<ol
+				style={{
+					margin: T.space.zero,
+					paddingLeft: T.space.four,
+					font: `var(--text-xs)/1.5 ${T.sans}`,
+					color: T.sub,
+				}}
+			>
+				{preset.steps.map((step, i) => (
+					<li key={i}>{step}</li>
+				))}
+			</ol>
+			{(platformUnsupported || preset.note) && (
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub, fontStyle: 'italic' }}>
+					{platformUnsupported ? LOCAL_OLLAMA.desktopOnlyNote : preset.note}
+				</div>
+			)}
+			{ollama && ollama.status === 'running' && !ollama.models.includes(preset.model) && (
+				<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.warn }}>
+					{t('settings.provider.ollamaPull', { model: preset.model })}
+				</div>
+			)}
+		</button>
+	);
 }

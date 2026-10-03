@@ -97,12 +97,12 @@ export function AppUpdatesPanel() {
 				</Badge>
 			}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-						gap: 12,
+						gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 9rem), 1fr))',
+						gap: T.space.three,
 					}}
 				>
 					<Stat label={t('settings.updates.installedVersion')} value={state.currentVersion} />
@@ -122,7 +122,7 @@ export function AppUpdatesPanel() {
 					/>
 				</div>
 
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>{body}</div>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>{body}</div>
 
 				{state.status === 'downloading' ? (
 					<ProgressMeter
@@ -135,12 +135,12 @@ export function AppUpdatesPanel() {
 
 				{state.releaseNotes && state.availableVersion ? (
 					<div>
-						<div style={{ font: `600 12.5px/1.5 ${T.sans}`, marginBottom: 4 }}>
+						<div style={{ font: `600 var(--text-sm)/1.5 ${T.sans}`, marginBottom: T.space.one }}>
 							{t('settings.updates.releaseNotes', { version: state.availableVersion })}
 						</div>
 						<div
 							style={{
-								font: `12.5px/1.6 ${T.sans}`,
+								font: `var(--text-sm)/1.6 ${T.sans}`,
 								color: T.sub,
 								whiteSpace: 'pre-wrap',
 								maxHeight: 200,
@@ -153,7 +153,7 @@ export function AppUpdatesPanel() {
 				) : null}
 
 				{state.status !== 'unsupported' ? (
-					<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+					<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -163,6 +163,7 @@ export function AppUpdatesPanel() {
 						>
 							{t('settings.updates.check')}
 						</Button>
+						{/* One gold action at a time: download, then restart once it is verified. */}
 						{state.status === 'available' ? (
 							<Button
 								variant="primary"
@@ -172,8 +173,7 @@ export function AppUpdatesPanel() {
 							>
 								{t('settings.updates.download')}
 							</Button>
-						) : null}
-						{state.status === 'downloaded' ? (
+						) : state.status === 'downloaded' ? (
 							<Button variant="primary" size="sm" onClick={run(() => bridge.install())}>
 								{t('settings.updates.restart')}
 							</Button>

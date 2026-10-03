@@ -126,7 +126,13 @@ export function VaultPrivacyPanel() {
 						</>
 					}
 				>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
+					<div
+						style={{
+							font: `var(--text-sm)/1.6 ${T.sans}`,
+							color: T.sub,
+							marginBottom: T.space.three,
+						}}
+					>
 						{t(
 							target === 'private-e2ee'
 								? 'settings.privacy.bodyToPrivate'
@@ -231,7 +237,7 @@ export function RecoveryKeyPanel() {
 								: 'settings.recovery.helpNoCustody',
 					)}
 					control={
-						<span style={{ display: 'inline-flex', gap: 8 }}>
+						<span style={{ display: 'inline-flex', gap: T.space.two }}>
 							<Button
 								variant="secondary"
 								size="sm"
@@ -301,8 +307,8 @@ export function RecoveryKeyPanel() {
 						</>
 					}
 				>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
+						<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 							{exportOpen
 								? t('settings.recovery.exportBody', { min: MIN_RECOVERY_PASSPHRASE_CHARS })
 								: t('settings.recovery.importBody')}
@@ -331,7 +337,7 @@ export function RecoveryKeyPanel() {
 						{exportOpen && passIssueText && (
 							<div
 								role="alert"
-								style={{ font: `12px/1.5 ${T.sans}`, color: 'var(--color-status-error)' }}
+								style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: 'var(--color-status-error)' }}
 							>
 								{passIssueText}
 							</div>

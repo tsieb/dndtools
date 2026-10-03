@@ -83,7 +83,7 @@ test('folder ZIP keeps private notes opt-in and re-imports a note with its image
 	await (
 		await chooser
 	).setFiles({ name: 'folder.zip', mimeType: 'application/zip', buffer: zipBytes });
-	await expect(page.getByText(/Imported \d+ notes\./)).toBeVisible();
+	await expect(page.getByText(/Imported \d+ notes?\./)).toBeVisible();
 	const imported = await page.evaluate(async (assetId) => {
 		const items = (
 			window.__rt!.state.content as {
@@ -138,7 +138,7 @@ test('imports an ordinary markdown folder written by another tool without losing
 	await (
 		await chooser
 	).setFiles({ name: 'foreign.zip', mimeType: 'application/zip', buffer: zipBytes });
-	await expect(page.getByText(/Imported \d+ notes\./)).toBeVisible();
+	await expect(page.getByText(/Imported \d+ notes?\./)).toBeVisible();
 	const imported = await page.evaluate(() => {
 		const items = (
 			window.__rt!.state.content as {

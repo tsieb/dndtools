@@ -28,6 +28,10 @@ export function SettingsSubscription() {
 	// shows the last-known plan from cache.
 	const cloudActions = useCloudActions('cloud.offline.billing');
 	const current = PLAN_CARDS.find((p) => p.id === ent.plan) ?? PLAN_CARDS[0];
+	// One gold action per region: the recommended plan when it is an upgrade, else the first plan
+	// above the current one. Every other card's action stays secondary.
+	const upgrades = PLAN_CARDS.filter((p) => p.cloud && p.price > (current.price || 0));
+	const primaryPlanId = (upgrades.find((p) => p.popular) ?? upgrades[0])?.id ?? null;
 	const live = billingConfigured(ent);
 	const checkoutMode = canStartCheckout(ent);
 	const portalMode = canOpenPortal(ent);
@@ -92,14 +96,14 @@ export function SettingsSubscription() {
 						? t('settings.subscription.endedOn')
 						: t('settings.subscription.noSubscription');
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<div
 				style={{
 					display: 'flex',
 					alignItems: 'center',
-					gap: 16,
-					padding: '18px 20px',
-					borderRadius: 14,
+					gap: T.space.four,
+					padding: `${T.space.five} ${T.space.five}`,
+					borderRadius: T.radius.lg,
 					border: `1px solid ${T.accBd}`,
 					background: `linear-gradient(135deg, ${T.accSub}, ${T.raised})`,
 					boxShadow: T.smd,
@@ -110,7 +114,7 @@ export function SettingsSubscription() {
 					style={{
 						width: 46,
 						height: 46,
-						borderRadius: 12,
+						borderRadius: T.radius.lg,
 						flex: '0 0 auto',
 						background: T.acc,
 						color: T.accFg,
@@ -122,14 +126,18 @@ export function SettingsSubscription() {
 					<Icon name={current.cloud ? 'connection' : 'home'} size="lg" />
 				</span>
 				<div style={{ flex: '1 1 220px' }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-						<span style={{ font: `700 19px ${T.disp}` }}>{ent.loading ? '…' : current.name}</span>
+					<div
+						style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}
+					>
+						<span style={{ font: `600 var(--text-lg) ${T.sans}` }}>
+							{ent.loading ? '…' : current.name}
+						</span>
 						{sourceBadge}
 						{live && ent.billing && !ent.billing.livemode && (
 							<Badge status="warning">{t('settings.subscription.testMode')}</Badge>
 						)}
 					</div>
-					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 						{live
 							? t('settings.subscription.planLineLive', {
 									tagline: current.tagline,
@@ -169,14 +177,20 @@ export function SettingsSubscription() {
 					<div
 						data-testid="billing-phase"
 						style={{
-							font: `12.5px/1.6 ${T.sans}`,
+							font: `var(--text-sm)/1.6 ${T.sans}`,
 							color: phase === 'past-due' ? T.warn : T.sub,
 						}}
 					>
 						{phaseLine}
 					</div>
 					{informsOnly && (
-						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 6 }}>
+						<div
+							style={{
+								font: `var(--text-xs)/1.5 ${T.sans}`,
+								color: T.sub,
+								marginTop: T.space.oneHalf,
+							}}
+						>
 							{t('settings.subscription.manageOnWeb', { host: billingWebHost() })}
 						</div>
 					)}
@@ -200,7 +214,7 @@ export function SettingsSubscription() {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
-						gap: 14,
+						gap: T.space.four,
 					}}
 				>
 					{PLAN_CARDS.map((pl) => {
@@ -211,9 +225,9 @@ export function SettingsSubscription() {
 								style={{
 									display: 'flex',
 									flexDirection: 'column',
-									gap: 12,
-									padding: 16,
-									borderRadius: 13,
+									gap: T.space.three,
+									padding: T.space.four,
+									borderRadius: T.radius.lg,
 									position: 'relative',
 									border: `1px solid ${on ? T.accBd : pl.popular ? T.bdS : T.bd}`,
 									background: on ? T.accSub : T.surf,
@@ -226,43 +240,50 @@ export function SettingsSubscription() {
 											position: 'absolute',
 											top: -9,
 											right: 14,
-											font: `600 10px ${T.sans}`,
+											font: `600 var(--text-xs) ${T.sans}`,
 											letterSpacing: '.06em',
 											textTransform: 'uppercase',
 											color: T.accFg,
 											background: T.acc,
-											padding: '2px 8px',
-											borderRadius: 20,
+											padding: `${T.space.half} ${T.space.two}`,
+											borderRadius: T.radius.xl,
 										}}
 									>
 										{t('common.badge.recommended')}
 									</span>
 								)}
 								<div>
-									<div style={{ font: `700 16px ${T.disp}`, color: on ? T.acc : T.ink }}>
+									<div style={{ font: `600 var(--text-base) ${T.sans}`, color: T.ink }}>
 										{pl.name}
 									</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{pl.tagline}</div>
+									<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>{pl.tagline}</div>
 								</div>
-								<div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-									<span style={{ font: `700 26px ${T.mono}`, color: T.ink }}>
+								<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.one }}>
+									<span style={{ font: `700 var(--text-xl) ${T.mono}`, color: T.ink }}>
 										{pl.price ? price(pl.price) : t('settings.subscription.free')}
 									</span>
 									{pl.price > 0 && (
-										<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+										<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 											{t('settings.subscription.perMonth')}
 										</span>
 									)}
 								</div>
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+								<div
+									style={{
+										display: 'flex',
+										flexDirection: 'column',
+										gap: T.space.oneHalf,
+										flex: 1,
+									}}
+								>
 									{pl.features.map((f: string) => (
 										<span
 											key={f}
 											style={{
 												display: 'flex',
 												alignItems: 'flex-start',
-												gap: 7,
-												font: `11.5px/1.4 ${T.sans}`,
+												gap: T.space.two,
+												font: `var(--text-xs)/1.4 ${T.sans}`,
 												color: T.sub,
 											}}
 										>
@@ -295,7 +316,7 @@ export function SettingsSubscription() {
 										</Button>
 									) : (
 										<Button
-											variant={pl.cloud ? 'primary' : 'secondary'}
+											variant={pl.id === primaryPlanId ? 'primary' : 'secondary'}
 											size="sm"
 											icon={pl.cloud ? 'arrow-up' : undefined}
 											onClick={() => navigate('/upgrade')}
@@ -307,7 +328,7 @@ export function SettingsSubscription() {
 									)
 								) : (
 									<Button
-										variant={pl.price > (current.price || 0) ? 'primary' : 'secondary'}
+										variant={pl.id === primaryPlanId ? 'primary' : 'secondary'}
 										size="sm"
 										icon={pl.price > (current.price || 0) ? 'arrow-up' : undefined}
 										onClick={() => navigate('/upgrade')}
@@ -334,7 +355,7 @@ export function SettingsSubscription() {
 							: 'settings.subscription.previewTitle',
 				)}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{live ? (
 						t('settings.subscription.billingBodyLive')
 					) : ent.serverBacked && !ent.canChangePlan ? (

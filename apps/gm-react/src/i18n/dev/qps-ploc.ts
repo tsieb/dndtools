@@ -988,6 +988,10 @@ export default {
 	'settings.about.health.unhealthy': '[Úñĥéáľţĥý~~~~]',
 	'settings.about.appVersion': '[Áƥƥ ṽéŕšíóñ~~~~ ]',
 	'settings.about.platform': '[Ƥľáţƒóŕḿ~~~~]',
+	'settings.about.platformName.web': '[Ŵéƀ ƀŕóŵšéŕ~~~~ ]',
+	'settings.about.platformName.mobile': '[Ƥĥóñé~~]',
+	'settings.about.platformName.tablet': '[Ţáƀľéţ~~~]',
+	'settings.about.platformName.desktop': '[Ďéšķţóƥ áƥƥ~~~~ ]',
 	'settings.about.lastSync': '[Ľášţ šýñç~~~~]',
 	'settings.about.never': '[Ñéṽéŕ~~]',
 	'settings.about.storageTotal': '[Šţóŕáğé úšéď~~~~ ]',
@@ -1022,7 +1026,7 @@ export default {
 	'settings.about.exportFileTitle': '[Šáṽé ďíáğñóšţíçš ƀúñďľé~~~~ ~~~~ ]',
 	'settings.about.exported': '[Ďíáğñóšţíçš ƀúñďľé ďóŵñľóáďéď~~~~ ~~~~ ~~]',
 	'settings.about.exportFailed':
-		"[Çóúľďñ'ţ éẋƥóŕţ ţĥé ďíáğñóšţíçš ƀúñďľé. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~~ ]",
+		'[Çóúľďñ’ţ éẋƥóŕţ ţĥé ďíáğñóšţíçš ƀúñďľé. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'settings.updates.title': '[Áƥƥ úƥďáţéš~~~~ ]',
 	'settings.updates.body':
 		'[Ľáḿƥľíğĥţ çĥéçķš ĞíţĤúƀ Ŕéľéášéš ƒóŕ á šíğñéď ƀúíľď. Ñóţĥíñğ ďóŵñľóáďš óŕ íñšţáľľš úñţíľ ýóú ášķ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
@@ -1033,7 +1037,7 @@ export default {
 	'settings.updates.check': '[Çĥéçķ ƒóŕ úƥďáţéš~~~~ ~~]',
 	'settings.updates.download': '[Ďóŵñľóáď úƥďáţé~~~~ ~]',
 	'settings.updates.restart': '[Ŕéšţáŕţ ţó úƥďáţé~~~~ ~~]',
-	'settings.updates.releaseNotes': "[Ŵĥáţ'š ñéŵ íñ ~~~~ ~{version}]",
+	'settings.updates.releaseNotes': '[Ŵĥáţ’š ñéŵ íñ ~~~~ ~{version}]',
 	'settings.updates.status.unsupported': '[Úƥďáţéš úñáṽáíľáƀľé~~~~ ~~~]',
 	'settings.updates.status.idle': '[Ŕéáďý ţó çĥéçķ~~~~ ~]',
 	'settings.updates.status.checking': '[Çĥéçķíñğ~~~~]',
@@ -1078,7 +1082,7 @@ export default {
 	'settings.players.renameFailed':
 		'[Çóúľď ñóţ ŕéñáḿé ţĥáţ ƥáŕţíçíƥáñţ. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~]',
 	'settings.players.yourNameHint':
-		'[Ţĥíš íš ýóú — çľíçķ ţĥé ƥéñçíľ ţó šéţ ýóúŕ ñáḿé.~~~~ ~~~~ ~~~~ ~~~~ ]',
+		'[Ţĥíš íš ýóú. Šéľéçţ ţĥé ƥéñçíľ ţó šéţ ýóúŕ ñáḿé.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'settings.tools.title': '[Ţóóľ ƥŕéƒéŕéñçéš~~~~ ~~]',
 	'settings.tools.intro':
 		'[Çóñţŕóľ óƥţíóñáľ ţóóľš ƒóŕ ţĥíš ďéṽíçé. Áñýţĥíñğ éẋçéƥţ “Áššíšţáñţ áñď ğéñéŕáţóŕš” íḿḿéďíáţéľý ĥíďéš ţĥé áššíšţáñţ áñď íţš šéţúƥ, áñď ƀľóçķš ḿóďéľ ŕéɋúéšţš éṽéñ íƒ á ķéý ŕéḿáíñš šţóŕéď.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
@@ -1718,7 +1722,8 @@ export default {
 	'settings.folder.importZip': '[Íḿƥóŕţ ƒóľďéŕ ŽÍƤ~~~~ ~~]',
 	'settings.folder.importFolder': '[Íḿƥóŕţ ḿáŕķďóŵñ ƒóľďéŕ~~~~ ~~~~]',
 	'settings.folder.exported': '[Ḿáŕķďóŵñ ƒóľďéŕ éẋƥóŕţéď.~~~~ ~~~~ ]',
-	'settings.folder.imported': '[Íḿƥóŕţéď ~~~~{count} ñóţéš.~~~]',
+	'settings.folder.imported':
+		'[Íḿƥóŕţéď ~~~~{count, plural, one {# ñóţé~~~} other {# ñóţéš~~~}}.~]',
 	'settings.folder.failed':
 		'[Çóúľď ñóţ çóḿƥľéţé ţĥé ḿáŕķďóŵñ ƒóľďéŕ ţŕáñšƒéŕ. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'settings.vault.recoveryReadFailed':
@@ -1737,7 +1742,7 @@ export default {
 	'settings.vault.quarantineBody':
 		'[Ţĥéšé ďóçúḿéñţš çóúľď ñóţ ƀé ŕéáď. Ýóú çáñ šţíľľ úšé ţĥé ŕéšţ óƒ ýóúŕ ṽáúľţ. Éẋƥóŕţ éáçĥ óŕíğíñáľ áñď ķééƥ íţ úñţíľ ýóú ĥáṽé ŕéçóṽéŕéď íţš çóñţéñţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'settings.vault.exportRecovery': '[Éẋƥóŕţ ~~~{name} ƒóŕ ŕéçóṽéŕý~~~~ ~]',
-	'settings.vault.pruned': '[Ƒŕééď ~~~{bytes} ƀýţéš óƒ çáçĥéď šéáŕçĥ ďáţá.~~~~ ~~~~ ~~]',
+	'settings.vault.pruned': '[Ƒŕééď ~~~{size} óƒ çáçĥéď šéáŕçĥ ďáţá.~~~~ ~~~~ ]',
 	'settings.vault.title': '[Ṽáúľţ çóññéçţíóñš~~~~ ~~]',
 	'settings.vault.manageInKnowledge': '[Ḿáñáğé íñ Ķñóŵľéďğé~~~~ ~~~]',
 	'settings.vault.loading': '[Ľóáďíñğ ṽáúľţ çóññéçţíóñš~~~~ ~~~~ ]',
@@ -1745,7 +1750,7 @@ export default {
 	'settings.vault.kindFolder': '[Ľóçáľ ƒóľďéŕ~~~~ ]',
 	'settings.vault.kindDoc': '[Ğóóğľé Ďóç~~~~]',
 	'settings.vault.pulledPushed': '[íḿƥóŕţéď ~~~~{pulled} · éẋƥóŕţéď ~~~~ {pushed}]',
-	'settings.vault.connected': '[çóññéçţéď~~~~]',
+	'settings.vault.connected': '[Çóññéçţéď~~~~]',
 	'settings.vault.disconnect': '[Ďíšçóññéçţ~~~~]',
 	'settings.vault.readFailedTitle': '[Çóúľď ñóţ ŕéáď ýóúŕ çóññéçţéď ƒóľďéŕš~~~~ ~~~~ ~~~~ ]',
 	'settings.vault.readFailedBody':
@@ -1891,7 +1896,7 @@ export default {
 	'settings.privacy.phrasePrivate': '[í ĥóľď ţĥé ķéýš~~~~ ~]',
 	'settings.privacy.phraseCloud': '[ŕéáď ḿý ṽáúľţ~~~~ ~]',
 	'settings.privacy.ackPrompt': '[Ţýƥé ~~{phrase} ţó çóñƒíŕḿ.~~~~ ]',
-	'settings.privacy.ackFieldLabel': '[Ţýƥé "~~~{phrase}" ţó çóñƒíŕḿ~~~~ ]',
+	'settings.privacy.ackFieldLabel': '[Ţýƥé “~~~{phrase}” ţó çóñƒíŕḿ~~~~ ]',
 	'settings.privacy.makePrivate': '[Ḿáķé íţ Ƥŕíṽáţé~~~~ ~]',
 	'settings.privacy.recordConsent': '[Ŕéçóŕď ḿý çóñšéñţ~~~~ ~~]',
 	'settings.privacy.nowPrivate':
@@ -1968,10 +1973,14 @@ export default {
 	'settings.permissions.colEntity': '[Íţéḿ~~]',
 	'settings.permissions.colGrantedTo': '[Ğŕáñţéď ţó~~~~]',
 	'settings.permissions.colExpires': '[Éẋƥíŕéš~~~]',
+	'settings.permissions.colActions': '[Áçţíóñš~~~]',
 	'settings.permissions.revoke': '[Ŕéṽóķé~~~]',
+	'settings.permissions.revokeFor': '[Ŕéṽóķé ~~~{access} óñ ~~{item} ƒóŕ ~~{name}]',
+	'settings.permissions.grantLine': '[{access} · ~~{type} · ~~{name}]',
 	'settings.permissions.noGrants':
 		'[Ñó áçţíṽé ğŕáñţš. Úšé ţĥé ƒóŕḿ áƀóṽé ţó ğŕáñţ á ƥľáýéŕ šçéñé áççéšš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'settings.permissions.thePlayer': '[ţĥé ƥľáýéŕ~~~~]',
+	'settings.permissions.unnamedItem': '[Úññáḿéď íţéḿ~~~~ ]',
 	'settings.permissions.granted': '[Áççéšš ğŕáñţéď ţó ~~~~ ~~~{name}.~]',
 	'settings.permissions.revoked': '[Áççéšš ŕéṽóķéď ƒóŕ ~~~~ ~~~{name}.~]',
 	'settings.permissions.regranted': '[Áççéšš ŕé-ğŕáñţéď ţó ~~~~ ~~~~{name}.~]',
@@ -2077,7 +2086,7 @@ export default {
 	'settings.ai.conflictKind.mineOnly': '[Óñľý ýóú çĥáñğéď ţĥíš~~~~ ~~~~]',
 	'settings.ai.conflictKind.agreed': '[Ɓóţĥ ḿáďé ţĥé šáḿé çĥáñğé~~~~ ~~~~ ]',
 	'settings.ai.conflictKind.conflicting': '[Ɓóţĥ çĥáñğéď ţĥíš ƥáššáğé~~~~ ~~~~ ]',
-	'settings.ai.conflictKeepAi': "[Ķééƥ ţĥé áššíšţáñţ'š ṽéŕšíóñ~~~~ ~~~~ ~~]",
+	'settings.ai.conflictKeepAi': '[Ķééƥ ţĥé áššíšţáñţ’š ṽéŕšíóñ~~~~ ~~~~ ~~]',
 	'settings.ai.conflictKeepMine': '[Ķééƥ ţĥé ñóţé áš íţ íš~~~~ ~~~~]',
 	'settings.ai.conflictMerge': '[Ḿéŕğé ƀóţĥ~~~~]',
 	'settings.ai.conflictMergeHint':
@@ -2275,10 +2284,10 @@ export default {
 	'settings.provider.noteGemini': '[Úšéš Ğóóğľé’š ÓƥéñÁÍ-çóḿƥáţíƀľé éñďƥóíñţ.~~~~ ~~~~ ~~~~ ~~]',
 	'settings.provider.noteOpenRouter':
 		'[Óñé ķéý, ḿáñý ḿóďéľš — çĥáñğé ţĥé ḿóďéľ íď ţó ŕóúţé.~~~~ ~~~~ ~~~~ ~~~~ ~]',
-	'settings.provider.selected': '[šéľéçţéď~~~~]',
-	'settings.provider.desktopOnly': '[ďéšķţóƥ-óñľý~~~~ ]',
-	'settings.provider.ollamaDetected': '[ďéţéçţéď · ~~~~ {count}]',
-	'settings.provider.ollamaDown': '[ñóţ ŕúññíñğ~~~~ ]',
+	'settings.provider.selected': '[Šéľéçţéď~~~~]',
+	'settings.provider.desktopOnly': '[Ďéšķţóƥ óñľý~~~~ ]',
+	'settings.provider.ollamaDetected': '[Ďéţéçţéď · ~~~~ {count}]',
+	'settings.provider.ollamaDown': '[Ñóţ ŕúññíñğ~~~~ ]',
 	'settings.provider.ollamaPull': '[Ŕúñ: óľľáḿá ƥúľľ ~~~~ ~~{model}]',
 	'settings.provider.checking': '[Çĥéçķíñğ…~~~~]',
 	'settings.provider.checkOllama': '[Çĥéçķ ƒóŕ ľóçáľ Óľľáḿá~~~~ ~~~~]',
@@ -5977,6 +5986,8 @@ export default {
 		'[Íḿƥóŕţéď ~~~~{created} ñéŵ, ~~~{over} óṽéŕŵŕíţţéñ ƒŕóḿ ţĥé Ďóç.~~~~ ~~~~ ~]',
 	'sources.noNotesToPush': '[Ñó ñóţéš ţó éẋƥóŕţ ýéţ. Ŵŕíţé á ñóţé ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~~]',
 	'sources.pushEntryError': '[“~{title}”: ~~{message}]',
+	'sources.pushPrepareFailed':
+		'[“~{title}” çóúľď ñóţ ƀé ƥŕéƥáŕéď ƒóŕ éẋƥóŕţ. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~~]',
 	'sources.pushed':
 		'[Éẋƥóŕţéď ~~~~{written} óƒ ~~{total, plural, one {# ñóţé~~~} other {# ñóţéš~~~}} ţó “~~{label}”.~]',
 	'sources.pushedWithProblem':
@@ -5991,7 +6002,7 @@ export default {
 	'sources.pickNote': '[Çĥóóšé á ñóţé ţó éẋƥóŕţ ţó ţĥíš Ďóç ƒíŕšţ.~~~~ ~~~~ ~~~~ ~~]',
 	'sources.signInExpired':
 		'[Ğóóğľé šíğñ-íñ éẋƥíŕéď. Šíğñ íñ áğáíñ ţó éẋƥóŕţ ñóţéš.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
-	'sources.disconnected': '[Ďíšçóññéçţéď “~~~~ ~{name}”~]',
+	'sources.disconnected': '[Ďíšçóññéçţéď “~~~~ ~{name}”.~]',
 	'sources.chooseNote': '[Çĥóóšé á ñóţé…~~~~ ~]',
 	'sources.pushLossyTitle':
 		'[Éẋƥóŕţíñğ ţó “~~~~ ~{label}” çĥáñğéš ƒóŕḿáţţíñğ íñ ~~~~ ~~~~ {lossy} óƒ ~~{total, plural, one {# ñóţé~~~} other {# ñóţéš~~~}}]',
@@ -6018,8 +6029,8 @@ export default {
 		'[Ţĥíš ƀŕóŵšéŕ çáññóţ çóññéçţ á ľóçáľ ƒóľďéŕ. Úšé ţĥé ďéšķţóƥ áƥƥ óŕ á šúƥƥóŕţéď Çĥŕóḿíúḿ ƀŕóŵšéŕ íñšţéáď.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'sources.folderMeta': '[Ľóçáľ ƒóľďéŕ · íḿƥóŕţéď ~~~~ ~~~~ {pulled} · éẋƥóŕţéď ~~~~ {pushed}]',
 	'sources.docMeta': '[Ğóóğľé Ďóç · íḿƥóŕţéď ~~~~ ~~~~{pulled} · éẋƥóŕţéď ~~~~ {pushed}]',
-	'sources.connected': '[çóññéçţéď~~~~]',
-	'sources.needsSignIn': '[ñééďš šíğñ-íñ~~~~ ~]',
+	'sources.connected': '[Çóññéçţéď~~~~]',
+	'sources.needsSignIn': '[Ñééďš šíğñ-íñ~~~~ ~]',
 	'sources.pullNotes': '[Íḿƥóŕţ ñóţéš~~~~ ]',
 	'sources.pushNotes': '[Éẋƥóŕţ ñóţéš~~~~ ]',
 	'sources.noFolders':
@@ -6034,6 +6045,7 @@ export default {
 	'sources.scopeBefore': '[Šíğñ íñ ţó çóññéçţ Ďóçš. Áççéšš úšéš ţĥé ƥéŕ-ƒíľé~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'sources.scopeAfter': '[šçóƥé — óñľý Ďóçš çŕéáţéď ĥéŕé áŕé ŕéáçĥáƀľé.~~~~ ~~~~ ~~~~ ~~~]',
 	'sources.newDocTitle': '[Ţíţľé ƒóŕ á ñéŵ Ğóóğľé Ďóç~~~~ ~~~~ ~]',
+	'sources.defaultDocTitle': '[Ľáḿƥľíğĥţ ñóţéš~~~~ ~]',
 	'sources.createDoc': '[Çŕéáţé ñéŵ Ďóç~~~~ ~]',
 	'sources.existingDocsNote':
 		'[Ţĥíš ṽéŕšíóñ çáññóţ çóññéçţ éẋíšţíñğ Ğóóğľé Ďóçš. Çóññéçţíñğ ţĥéḿ ñééďš á Ğóóğľé ƒíľé ƥíçķéŕ ţĥáţ íš ñóţ áṽáíľáƀľé ĥéŕé. Ľáḿƥľíğĥţ ďóéš ñóţ ŕéɋúéšţ áççéšš ţó ţĥé ŕéšţ óƒ ýóúŕ Ďŕíṽé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',

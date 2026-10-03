@@ -78,11 +78,16 @@ export function Knowledge() {
 	useEffect(() => {
 		const intent = (location.state ?? null) as {
 			create?: boolean;
+			sources?: boolean;
 			search?: string;
 			savedSearchId?: string;
 		} | null;
 		if (intent?.create) {
 			setPanel('compose');
+			navigate(location.pathname, { replace: true, state: null });
+		} else if (intent?.sources) {
+			// Settings → Vault connections promises "Open Knowledge → Sources" (RC-POL-1.17).
+			setPanel('sources');
 			navigate(location.pathname, { replace: true, state: null });
 		} else if (typeof intent?.savedSearchId === 'string' && intent.savedSearchId !== '') {
 			// ⌘K `>search saved` picked a stored search: open the panel with its criteria restored,

@@ -78,9 +78,11 @@ export function SettingsAccessibility() {
 		return checks;
 	})();
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<Panel title={t('settings.a11y.displayMotion')}>
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+				<div
+					style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.sub, marginBottom: T.space.one }}
+				>
 					{t('settings.a11y.intro')}
 				</div>
 				<SetRow
@@ -123,14 +125,18 @@ export function SettingsAccessibility() {
 			    fire on, so this page can no longer advertise a key the build does not implement. */}
 			<Panel title={t('settings.a11y.shortcuts')}>
 				{SHORTCUT_SCOPES.map((scope) => (
-					<section key={scope} aria-label={t(SCOPE_LABEL[scope])} style={{ marginBottom: 14 }}>
+					<section
+						key={scope}
+						aria-label={t(SCOPE_LABEL[scope])}
+						style={{ marginBottom: T.space.four }}
+					>
 						<h3
 							style={{
-								margin: '0 0 6px',
-								font: `600 12px ${T.sans}`,
+								margin: `${T.space.zero} ${T.space.zero} ${T.space.oneHalf}`,
+								font: `600 var(--text-xs) ${T.sans}`,
 								letterSpacing: '.06em',
 								textTransform: 'uppercase',
-								color: T.ter,
+								color: T.sub,
 							}}
 						>
 							{t(SCOPE_LABEL[scope])}
@@ -139,31 +145,46 @@ export function SettingsAccessibility() {
 							style={{
 								display: 'grid',
 								gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))',
-								gap: '8px 24px',
+								gap: `${T.space.two} ${T.space.six}`,
 							}}
 						>
 							{shortcutsForScope(scope).map((s) => (
 								<div
 									key={s.id}
-									style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}
+									style={{
+										display: 'flex',
+										alignItems: 'flex-start',
+										gap: T.space.three,
+										minWidth: 0,
+									}}
 								>
 									<Kbd
 										style={{
-											font: `12px ${T.mono}`,
+											font: `var(--text-xs) ${T.mono}`,
 											color: T.ink,
 											border: `1px solid ${T.bd}`,
-											borderRadius: 5,
-											padding: '2px 7px',
+											borderRadius: T.radius.md,
+											padding: `${T.space.half} ${T.space.two}`,
 											background: T.alt,
-											whiteSpace: 'nowrap',
+											// A two-chord entry ("Ctrl/⌘+Z · Ctrl/⌘+Shift+Z") is wider than its column, and
+											// `nowrap` painted it over its own description. Break between chords instead.
+											flex: '0 1 auto',
+											maxWidth: '60%',
+											whiteSpace: 'normal',
 										}}
 									>
-										{s.keys}
+										{s.keys.split(' · ').map((chord, i) => (
+											<span key={`${i}-${chord}`}>
+												{i > 0 && ' · '}
+												<span style={{ whiteSpace: 'nowrap' }}>{chord}</span>
+											</span>
+										))}
 									</Kbd>
 									<span
 										style={{
+											flex: '1 1 0',
 											minWidth: 0,
-											font: `12.5px ${T.sans}`,
+											font: `var(--text-sm) ${T.sans}`,
 											color: T.sub,
 											overflowWrap: 'anywhere',
 										}}
@@ -177,7 +198,9 @@ export function SettingsAccessibility() {
 				))}
 			</Panel>
 			<Panel title={t('settings.a11y.safetyChecks')}>
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+				<div
+					style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.sub, marginBottom: T.space.one }}
+				>
 					{t('settings.a11y.safetyIntro')}
 				</div>
 				{leakChecks.map((c) => (
@@ -186,9 +209,9 @@ export function SettingsAccessibility() {
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 10,
-							padding: '6px 0',
-							font: `12.5px ${T.sans}`,
+							gap: T.space.three,
+							padding: `${T.space.oneHalf} ${T.space.zero}`,
+							font: `var(--text-sm) ${T.sans}`,
 							color: T.sub,
 						}}
 					>

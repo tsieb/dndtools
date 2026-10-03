@@ -81,7 +81,9 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 - Targets: `apps/gm-react/src/styles/tokens/colors.css` (parchment block),
   `apps/gm-react/src/app/widget-body-kit.tsx`, `scripts/token-contrast-lint.ts` (add the pair).
 - Status: open — found by RC-POL-1.3, whose axe spec (`scene-editor-polish.spec.ts`) names this one
-  pair as its only exception, on parchment only.
+  pair as its only exception, on parchment only. RC-POL-1.17 (Settings) moved every inline use of
+  the pair to primary ink; on parchment the selected screen-kit `Seg` option, the DS `Avatar`
+  initials and the accent role `Badge` on the Players roster still paint it.
 
 ## Resolved
 

@@ -11,6 +11,7 @@ import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { humanizeEntity } from './shared';
+import { SettingsSection } from './Experience';
 
 /**
  * RC-CLD-2.4 — the sync conflicts a cross-device comparison recorded, and the DM's choice between the
@@ -62,77 +63,94 @@ export function SyncConflictsPanel() {
 	};
 
 	return (
-		<Panel
-			title={t('settings.sync.conflictsTitle')}
-			action={<Badge status="warning">{conflicts.length}</Badge>}
-		>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 12 }}>
-				{t('settings.sync.conflictsBody')}
-			</div>
-			<ul
-				aria-label={t('settings.sync.conflictsTitle')}
-				style={{ display: 'flex', flexDirection: 'column', gap: 12, margin: 0, padding: 0 }}
+		<SettingsSection gateKey="settings.sync.conflictsTitle">
+			<Panel
+				title={t('settings.sync.conflictsTitle')}
+				action={<Badge status="warning">{conflicts.length}</Badge>}
 			>
-				{conflicts.map((entry) => (
-					<li
-						key={entry.conflictId}
-						data-testid="sync-conflict"
-						style={{
-							listStyle: 'none',
-							border: `1px solid ${T.bd}`,
-							borderRadius: 8,
-							padding: 12,
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 8,
-						}}
-					>
-						<div style={{ font: `600 13px ${T.sans}` }}>
-							{entry.path
-								? t('settings.sync.conflictEntity', {
-										entity: humanizeEntity(entry.entityType),
-										path: entry.path,
-									})
-								: t('settings.sync.conflictWhole', {
-										entity: humanizeEntity(entry.entityType),
-									})}
-						</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{t('settings.sync.conflictFound', {
-								when: formatDate(new Date(entry.detectedAt), { dateStyle: 'medium' }),
-							})}
-						</div>
-						<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-							<ConflictSide label={t('settings.sync.conflictSideThis')} value={entry.local.value} />
-							<ConflictSide
-								label={t('settings.sync.conflictSideOther')}
-								value={entry.remote.value}
-							/>
-						</div>
-						<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-							<Button
-								variant="secondary"
-								size="sm"
-								icon="check"
-								disabled={busyId !== null}
-								onClick={() => void choose(entry, 'local')}
-							>
-								{t('settings.sync.keepThisDevice')}
-							</Button>
-							<Button
-								variant="secondary"
-								size="sm"
-								icon="check"
-								disabled={busyId !== null}
-								onClick={() => void choose(entry, 'remote')}
-							>
-								{t('settings.sync.keepOtherDevice')}
-							</Button>
-						</div>
-					</li>
-				))}
-			</ul>
-		</Panel>
+				<div
+					style={{
+						font: `var(--text-sm)/1.6 ${T.sans}`,
+						color: T.sub,
+						marginBottom: T.space.three,
+					}}
+				>
+					{t('settings.sync.conflictsBody')}
+				</div>
+				<ul
+					aria-label={t('settings.sync.conflictsTitle')}
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						gap: T.space.three,
+						margin: T.space.zero,
+						padding: T.space.zero,
+					}}
+				>
+					{conflicts.map((entry) => (
+						<li
+							key={entry.conflictId}
+							data-testid="sync-conflict"
+							style={{
+								listStyle: 'none',
+								border: `1px solid ${T.bd}`,
+								borderRadius: T.radius.md,
+								padding: T.space.three,
+								display: 'flex',
+								flexDirection: 'column',
+								gap: T.space.two,
+							}}
+						>
+							<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
+								{entry.path
+									? t('settings.sync.conflictEntity', {
+											entity: humanizeEntity(entry.entityType),
+											path: entry.path,
+										})
+									: t('settings.sync.conflictWhole', {
+											entity: humanizeEntity(entry.entityType),
+										})}
+							</div>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+								{t('settings.sync.conflictFound', {
+									when: formatDate(new Date(entry.detectedAt), { dateStyle: 'medium' }),
+								})}
+							</div>
+							<div style={{ display: 'flex', gap: T.space.three, flexWrap: 'wrap' }}>
+								<ConflictSide
+									label={t('settings.sync.conflictSideThis')}
+									value={entry.local.value}
+								/>
+								<ConflictSide
+									label={t('settings.sync.conflictSideOther')}
+									value={entry.remote.value}
+								/>
+							</div>
+							<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="check"
+									disabled={busyId !== null}
+									onClick={() => void choose(entry, 'local')}
+								>
+									{t('settings.sync.keepThisDevice')}
+								</Button>
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="check"
+									disabled={busyId !== null}
+									onClick={() => void choose(entry, 'remote')}
+								>
+									{t('settings.sync.keepOtherDevice')}
+								</Button>
+							</div>
+						</li>
+					))}
+				</ul>
+			</Panel>
+		</SettingsSection>
 	);
 }
 
@@ -150,8 +168,8 @@ function ConflictSide({ label, value }: { label: string; value: unknown }) {
 	})();
 	return (
 		<div style={{ flex: '1 1 200px', minWidth: 180 }}>
-			<div style={{ font: `600 12px ${T.sans}`, color: T.sub }}>{label}</div>
-			<div style={{ font: `12px/1.5 ${T.mono}`, color: T.ter, wordBreak: 'break-word' }}>
+			<div style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>{label}</div>
+			<div style={{ font: `var(--text-xs)/1.5 ${T.mono}`, color: T.sub, wordBreak: 'break-word' }}>
 				{preview}
 			</div>
 		</div>

@@ -17,6 +17,13 @@ const ROLE_LABEL: Record<string, MessageKey> = {
 	player: 'settings.players.role.player',
 	observer: 'settings.players.role.observer',
 };
+/** What each role can reach, shown under the name. */
+const ROLE_REACH: Record<string, MessageKey> = {
+	dm: 'settings.permissions.role.dmDesc',
+	'co-dm': 'settings.permissions.role.coDmDesc',
+	player: 'settings.permissions.role.playerDesc',
+	observer: 'settings.permissions.role.observerDesc',
+};
 /** Badge tone per role — the Co-DM shares the DM's accent (elevated), players `info`, observers neutral. */
 const roleBadgeTone = (role: string): 'accent' | 'info' | 'neutral' =>
 	role === 'dm' || role === 'co-dm' ? 'accent' : role === 'observer' ? 'neutral' : 'info';
@@ -102,7 +109,7 @@ export function SettingsPlayers() {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<Panel
 				title={t('settings.players.title')}
 				action={
@@ -121,10 +128,14 @@ export function SettingsPlayers() {
 					</Button>
 				}
 			>
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+				<div
+					style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.sub, marginBottom: T.space.one }}
+				>
 					{t('settings.players.count', { count: sorted.length })}
 				</div>
-				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+				<div
+					style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}
+				>
 					{coDmSeats > 0 ? (
 						<>
 							{seatsBefore}
@@ -162,9 +173,12 @@ export function SettingsPlayers() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 12,
-									padding: '10px 0',
+									gap: T.space.three,
+									padding: `${T.space.three} ${T.space.zero}`,
 									borderTop: i ? `1px solid ${T.bd}` : 'none',
+									// On a phone the role picker took the row and cut every name to "Demo Ob…";
+									// it now drops below the name instead.
+									flexWrap: 'wrap',
 								}}
 							>
 								<Avatar
@@ -172,7 +186,7 @@ export function SettingsPlayers() {
 									size="sm"
 									ring={a.role === 'dm' || a.role === 'co-dm' ? 'active' : undefined}
 								/>
-								<div style={{ flex: 1, minWidth: 0 }}>
+								<div style={{ flex: '1 1 160px', minWidth: 0 }}>
 									{renaming?.id === a.id ? (
 										<Input
 											autoFocus
@@ -195,10 +209,17 @@ export function SettingsPlayers() {
 											style={{ maxWidth: 320 }}
 										/>
 									) : (
-										<div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+										<div
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: T.space.oneHalf,
+												minWidth: 0,
+											}}
+										>
 											<span
 												style={{
-													font: `600 13px ${T.sans}`,
+													font: `600 var(--text-sm) ${T.sans}`,
 													whiteSpace: 'nowrap',
 													overflow: 'hidden',
 													textOverflow: 'ellipsis',
@@ -211,6 +232,12 @@ export function SettingsPlayers() {
 												size="sm"
 												variant="ghost"
 												label={t('settings.players.rename', { name: a.displayName })}
+												// The 28px glyph keeps its look; the hit area meets the shared touch floor.
+												style={{
+													width: 'var(--touch-target-min)',
+													height: 'var(--touch-target-min)',
+													flex: '0 0 auto',
+												}}
 												onClick={() =>
 													setRenaming({
 														id: a.id,
@@ -220,16 +247,20 @@ export function SettingsPlayers() {
 											/>
 										</div>
 									)}
-									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+									{/* The role's reach, in words; the raw actor id this line used to print is engine
+									    vocabulary the person never needs (content fundamentals). */}
+									<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 										{a.id === dmActorId && isPlaceholderActorName(a.displayName)
 											? t('settings.players.yourNameHint')
-											: a.id}
+											: ROLE_REACH[a.role]
+												? t(ROLE_REACH[a.role])
+												: null}
 									</div>
 								</div>
 								{/* No presence dot here: this roster has no live session/connection state to derive one
 								    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}
 								{promotable ? (
-									<span style={{ minWidth: 150 }}>
+									<span style={{ flex: '0 1 200px', minWidth: 150, marginLeft: 'auto' }}>
 										<Select
 											aria-label={t('settings.players.roleFor', { name: a.displayName })}
 											value={a.role}

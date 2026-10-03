@@ -19,7 +19,7 @@ import { collectStorageUsage } from '../../diagnostics/storageUsage';
 import { collectPerfMarks } from '../../diagnostics/perfMarks';
 import pkg from '../../../package.json';
 import { AppUpdatesPanel } from './AppUpdates';
-import { errMsg } from './shared';
+import { errMsg, formatBytes } from './shared';
 import { LegalLinks } from '../legal/LegalLinks';
 
 /* ---- About / Diagnostics (RC-ENG-6.1 — REAL core diagnostics view, wired to the DM/admin
@@ -59,21 +59,15 @@ function LegalPanel() {
 	return (
 		<SettingsSection gateKey="settings.about.legal">
 			<Panel title={t('settings.about.legal')}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 8 }}>
+				<div
+					style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}
+				>
 					{t('settings.about.legalBody')}
 				</div>
-				<LegalLinks style={{ font: `13px ${T.sans}` }} />
+				<LegalLinks style={{ font: `var(--text-sm) ${T.sans}` }} />
 			</Panel>
 		</SettingsSection>
 	);
-}
-
-function formatBytes(bytes: number): string {
-	if (bytes <= 0) return '0 B';
-	const units = ['B', 'KB', 'MB', 'GB'];
-	const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-	const value = bytes / 1024 ** exp;
-	return `${exp === 0 ? value : value.toFixed(1)} ${units[exp]}`;
 }
 
 export function SettingsAbout() {
@@ -127,10 +121,10 @@ export function SettingsAbout() {
 
 	if (diagnostics.kind !== 'available') {
 		return (
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 				<SettingsSection gateKey="settings.about.title">
 					<Panel title={t('settings.about.title')}>
-						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 							{t('settings.about.denied')}
 						</div>
 					</Panel>
@@ -177,7 +171,7 @@ export function SettingsAbout() {
 	}));
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<SettingsSection gateKey="settings.updates.title">
 				<AppUpdatesPanel />
 			</SettingsSection>
@@ -194,27 +188,43 @@ export function SettingsAbout() {
 					<div
 						style={{
 							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-							gap: 12,
+							gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 9rem), 1fr))',
+							gap: T.space.three,
 						}}
 					>
-						<Stat label={t('settings.about.appVersion')} value={diagnostics.appVersion} />
-						<Stat label={t('settings.about.platform')} value={diagnostics.platformProfileId} />
-						<Stat
-							label={t('settings.about.lastSync')}
-							value={
+						{[
+							[t('settings.about.appVersion'), diagnostics.appVersion],
+							[
+								t('settings.about.platform'),
+								t(`settings.about.platformName.${diagnostics.platformProfileId}` as MessageKey),
+							],
+							[
+								t('settings.about.lastSync'),
 								diagnostics.lastSyncAt
 									? formatDate(new Date(diagnostics.lastSyncAt), {
-											dateStyle: 'medium',
-											timeStyle: 'short',
+											month: 'short',
+											day: 'numeric',
+											hour: 'numeric',
+											minute: '2-digit',
 										})
-									: t('settings.about.never')
-							}
-						/>
-						<Stat
-							label={t('settings.about.storageTotal')}
-							value={formatBytes(diagnostics.storageUsage.totalBytes)}
-						/>
+									: t('settings.about.never'),
+							],
+							[t('settings.about.storageTotal'), formatBytes(diagnostics.storageUsage.totalBytes)],
+						].map(([label, value]) => (
+							// The DS Stat figure is sized for a short number; a date or a platform name wrapped
+							// to four lines at that size, so these values use the sub-heading step instead.
+							<Stat
+								key={label}
+								// The DS label is tertiary text, 4.49:1 on parchment's raised surface; secondary
+								// passes in every theme.
+								label={<span style={{ color: T.sub }}>{label}</span>}
+								value={
+									<span style={{ fontSize: 'var(--text-lg)', overflowWrap: 'anywhere' }}>
+										{value}
+									</span>
+								}
+							/>
+						))}
 					</div>
 				</Panel>
 			</SettingsSection>
@@ -291,7 +301,13 @@ export function SettingsAbout() {
 
 			<SettingsSection gateKey="settings.about.export">
 				<Panel title={t('settings.about.export')}>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}>
+					<div
+						style={{
+							font: `var(--text-sm)/1.6 ${T.sans}`,
+							color: T.sub,
+							marginBottom: T.space.two,
+						}}
+					>
 						{t('settings.about.exportBody')}
 					</div>
 					<Button variant="secondary" size="sm" icon="download" onClick={() => void exportBundle()}>

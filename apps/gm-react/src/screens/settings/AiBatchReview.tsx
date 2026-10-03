@@ -180,7 +180,7 @@ export function AiBatchReviewPanel({
 			}
 		>
 			{pending.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{t('settings.ai.nothingStaged')}
 				</div>
 			) : (
@@ -190,9 +190,9 @@ export function AiBatchReviewPanel({
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 10,
+								gap: T.space.three,
 								flexWrap: 'wrap',
-								marginBottom: 10,
+								marginBottom: T.space.three,
 							}}
 						>
 							<span style={{ flex: '0 0 170px' }}>
@@ -243,7 +243,7 @@ export function AiBatchReviewPanel({
 						</div>
 					)}
 					{visible.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('settings.ai.batchNoMatch')}
 						</div>
 					) : (
@@ -251,15 +251,15 @@ export function AiBatchReviewPanel({
 							const groupIds = groupProposals.map((pr) => pr.id);
 							const groupAllSelected = groupIds.every((id) => selected.has(id));
 							return (
-								<div key={groupAgentId} style={{ marginBottom: 10 }}>
+								<div key={groupAgentId} style={{ marginBottom: T.space.three }}>
 									{showBatchControls && (
 										<div
 											style={{
 												display: 'flex',
 												alignItems: 'center',
-												gap: 8,
-												padding: '6px 0',
-												font: `600 12px ${T.sans}`,
+												gap: T.space.two,
+												padding: `${T.space.oneHalf} ${T.space.zero}`,
+												font: `600 var(--text-xs) ${T.sans}`,
 												color: T.sub,
 											}}
 										>
@@ -287,8 +287,8 @@ export function AiBatchReviewPanel({
 												style={{
 													display: 'flex',
 													alignItems: 'center',
-													gap: 10,
-													padding: '10px 0',
+													gap: T.space.three,
+													padding: `${T.space.three} ${T.space.zero}`,
 													borderTop: i ? `1px solid ${T.bd}` : 'none',
 													flexWrap: 'wrap',
 												}}
@@ -305,8 +305,10 @@ export function AiBatchReviewPanel({
 												)}
 												<Icon name="warning" size={15} color={T.warn} />
 												<div style={{ flex: '1 1 200px', minWidth: 0 }}>
-													<div style={{ font: `600 13px ${T.sans}` }}>{pr.commandType}</div>
-													<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+													<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
+														{pr.commandType}
+													</div>
+													<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 														{t('settings.ai.proposalMeta', {
 															agent: pr.agentId,
 															actor: actorName(pr.actorId),

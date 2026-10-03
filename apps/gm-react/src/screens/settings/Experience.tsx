@@ -65,7 +65,9 @@ export function ExperienceComplexity() {
 			title={t('settings.experience.title')}
 			action={<Badge status="neutral">{t(activeLvl.name)}</Badge>}
 		>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 4 }}>
+			<div
+				style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.one }}
+			>
 				{t('settings.experience.intro')}
 			</div>
 			<div
@@ -78,8 +80,8 @@ export function ExperienceComplexity() {
 				onKeyDown={radioGroupKeyDown}
 				style={{
 					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
-					gap: 12,
+					gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
+					gap: T.space.three,
 				}}
 			>
 				{COMPLEXITY_LEVELS.map((l) => {
@@ -99,8 +101,8 @@ export function ExperienceComplexity() {
 								minWidth: 0,
 								maxWidth: '100%',
 								textAlign: 'left',
-								padding: 14,
-								borderRadius: 12,
+								padding: T.space.four,
+								borderRadius: T.radius.lg,
 								cursor: 'pointer',
 								border: `1px solid ${on ? T.accBd : T.bd}`,
 								background: on ? T.accSub : T.surf,
@@ -112,11 +114,11 @@ export function ExperienceComplexity() {
 									display: 'flex',
 									minWidth: 0,
 									alignItems: 'center',
-									gap: 9,
+									gap: T.space.two,
 									flexWrap: 'wrap',
 								}}
 							>
-								<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
+								<span style={{ font: `600 var(--text-base) ${T.sans}`, color: T.ink }}>
 									{t(l.name)}
 								</span>
 								{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
@@ -126,8 +128,15 @@ export function ExperienceComplexity() {
 									</span>
 								)}
 							</div>
-							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t(l.blurb)}</div>
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+							<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>{t(l.blurb)}</div>
+							<div
+								style={{
+									display: 'flex',
+									flexDirection: 'column',
+									gap: T.space.one,
+									marginTop: T.space.half,
+								}}
+							>
 								{reveals.map((r) => (
 									<span
 										key={r}
@@ -135,9 +144,9 @@ export function ExperienceComplexity() {
 											display: 'flex',
 											minWidth: 0,
 											alignItems: 'center',
-											gap: 6,
-											font: `11px ${T.sans}`,
-											color: T.ter,
+											gap: T.space.oneHalf,
+											font: `var(--text-xs) ${T.sans}`,
+											color: T.sub,
 											overflowWrap: 'anywhere',
 										}}
 									>
@@ -153,27 +162,29 @@ export function ExperienceComplexity() {
 			{maturitySignals.length > 0 && (
 				<div
 					style={{
-						marginTop: 14,
-						paddingTop: 14,
+						marginTop: T.space.four,
+						paddingTop: T.space.four,
 						borderTop: `1px solid ${T.bd}`,
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 8,
+						gap: T.space.two,
 					}}
 				>
-					<div style={{ font: `600 11.5px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('settings.experience.growingInto')}
 					</div>
 					{maturitySignals.map(({ signal, count, reached }) => (
 						<div
 							key={signal.id}
-							style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
+							style={{ display: 'flex', alignItems: 'center', gap: T.space.two, minWidth: 0 }}
 						>
 							<Icon name={reached ? 'check' : 'lock'} size={13} color={reached ? T.acc : T.ter} />
-							<span style={{ font: `12px ${T.sans}`, color: T.sub, overflowWrap: 'anywhere' }}>
+							<span
+								style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub, overflowWrap: 'anywhere' }}
+							>
 								{signal.label}
 							</span>
-							<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>
+							<span style={{ marginLeft: 'auto', font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 								{Math.min(count, signal.threshold)}/{signal.threshold}
 							</span>
 						</div>

@@ -42,8 +42,8 @@ const CHANGE_LABEL: Record<McpProposalPreview['fields'][number]['change'], Messa
 function LinkRow({ label, links }: { label: string; links: string[] }) {
 	if (links.length === 0) return null;
 	return (
-		<div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-			<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{label}</span>
+		<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.two, flexWrap: 'wrap' }}>
+			<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>{label}</span>
 			{links.map((link) => (
 				<Chip key={link} tone="neutral">
 					{link}
@@ -72,9 +72,16 @@ export function AiProposalPreview({ proposal }: { proposal: McpStagedProposal })
 		preview.backlinks.incoming.length > 0;
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-				<span style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ink }}>
+		<div
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: T.space.oneHalf,
+				marginTop: T.space.one,
+			}}
+		>
+			<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}>
+				<span style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.ink }}>
 					{t(CHANGE_KIND_LABEL[preview.changeKind], { target })}
 				</span>
 				{delta !== null && (
@@ -100,8 +107,8 @@ export function AiProposalPreview({ proposal }: { proposal: McpStagedProposal })
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 6,
-						font: `11.5px ${T.sans}`,
+						gap: T.space.oneHalf,
+						font: `var(--text-xs) ${T.sans}`,
 						color: T.warn,
 					}}
 				>
@@ -114,29 +121,34 @@ export function AiProposalPreview({ proposal }: { proposal: McpStagedProposal })
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 8,
-						padding: '9px 11px',
-						borderRadius: 9,
+						gap: T.space.two,
+						padding: `${T.space.two} ${T.space.three}`,
+						borderRadius: T.radius.md,
 						border: `1px solid ${T.bd}`,
 						background: T.alt,
 					}}
 				>
 					<span style={srOnly}>{t('settings.ai.previewRegion', { target })}</span>
 					{preview.fields.map((field) => (
-						<div key={field.path} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-							<div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-								<span style={{ font: `600 11.5px ${T.mono}`, color: T.ink }}>{field.path}</span>
-								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+						<div
+							key={field.path}
+							style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}
+						>
+							<div style={{ display: 'flex', alignItems: 'baseline', gap: T.space.two }}>
+								<span style={{ font: `600 var(--text-xs) ${T.mono}`, color: T.ink }}>
+									{field.path}
+								</span>
+								<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 									{t(CHANGE_LABEL[field.change])}
 								</span>
 							</div>
 							{field.before !== null && (
-								<div style={{ font: `11.5px/1.5 ${T.mono}`, color: T.ter }}>
+								<div style={{ font: `var(--text-xs)/1.5 ${T.mono}`, color: T.sub }}>
 									{t('settings.ai.previewBefore')}: {field.before}
 								</div>
 							)}
 							{field.after !== null && (
-								<div style={{ font: `11.5px/1.5 ${T.mono}`, color: T.ink }}>
+								<div style={{ font: `var(--text-xs)/1.5 ${T.mono}`, color: T.ink }}>
 									{t('settings.ai.previewAfter')}: {field.after}
 								</div>
 							)}

@@ -6,14 +6,15 @@ import {
 	type CommandResult,
 } from '@dndtools/core';
 import { Badge, Button, DataTable, Select, Toaster } from '../../ds';
-import { Panel, Seg, T } from '../../app/screen-kit';
+import { Panel, Seg, T, srOnly, useSingleColumn } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { errMsg } from './shared';
+import { errMsg, humanizeEntity } from './shared';
 /* ---- Permissions (REAL — real grant list + grant/revoke commands; DM-authored, fail-closed in core) -- */
 export function SettingsPermissions() {
 	const { t, formatDate } = useI18n();
 	const runtime = useRuntime();
+	const singleColumn = useSingleColumn();
 	const actorId = runtime.defaultActorId;
 	const actors = runtime.state.permissions.actors as Record<
 		string,
@@ -65,14 +66,28 @@ export function SettingsPermissions() {
 		? grantScene
 		: (scenes[0]?.id ?? '');
 
-	const grantRows = grants.map((g) => ({
-		grantId: g.id,
-		set: describeCapabilitySet(g.entityType, g.capabilitySet)?.label ?? g.capabilitySet,
-		type: g.entityType,
-		entity: runtime.state.scenes.scenes[g.entityId]?.name ?? g.entityId,
-		to: actors[g.playerActorId]?.displayName ?? g.playerActorId,
-		expires: g.expiresAt ? formatDate(new Date(g.expiresAt)) : null,
-	}));
+	// A grant names its target by id; the table names it the way the rest of the app does. An id the
+	// vault no longer resolves reads as an unnamed item rather than printing the raw UUID.
+	const entityName = (entityType: string, entityId: string): string =>
+		(entityType === 'scene'
+			? runtime.state.scenes.scenes[entityId]?.name
+			: entityType === 'character'
+				? runtime.state.characters.characters[entityId]?.name
+				: runtime.state.content.items[entityId]?.title) || t('settings.permissions.unnamedItem');
+	const grantRows = grants.map((g) => {
+		const set = describeCapabilitySet(g.entityType, g.capabilitySet)?.label ?? g.capabilitySet;
+		const entity = entityName(g.entityType, g.entityId);
+		const to = actors[g.playerActorId]?.displayName ?? t('settings.permissions.thePlayer');
+		return {
+			grantId: g.id,
+			set,
+			type: humanizeEntity(g.entityType),
+			entity,
+			to,
+			expires: g.expiresAt ? formatDate(new Date(g.expiresAt)) : null,
+			revokeLabel: t('settings.permissions.revokeFor', { access: set, item: entity, name: to }),
+		};
+	});
 	/** One row of the active-grants table; `DataTable`'s props are untyped, so `rowKey` says so. */
 	type GrantRow = (typeof grantRows)[number];
 
@@ -145,22 +160,22 @@ export function SettingsPermissions() {
 	};
 
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<SettingsSection gateKey="settings.permissions.roles">
 				<Panel title={t('settings.permissions.roles')}>
 					<div
 						style={{
 							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-							gap: 12,
+							gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+							gap: T.space.three,
 						}}
 					>
 						{roleCards.map((r) => (
 							<div
 								key={r.id}
 								style={{
-									padding: 13,
-									borderRadius: 10,
+									padding: T.space.three,
+									borderRadius: T.radius.md,
 									border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`,
 									background: T.surf,
 								}}
@@ -170,17 +185,23 @@ export function SettingsPermissions() {
 								>
 									<span
 										style={{
-											font: `600 13.5px ${T.sans}`,
+											font: `600 var(--text-sm) ${T.sans}`,
 											color: r.tone === 'accent' ? T.acc : T.ink,
 										}}
 									>
 										{t(r.name)}
 									</span>
-									<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+									<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 										×{roleCounts[r.id] ?? 0}
 									</span>
 								</div>
-								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 4 }}>
+								<div
+									style={{
+										font: `var(--text-xs)/1.5 ${T.sans}`,
+										color: T.sub,
+										marginTop: T.space.one,
+									}}
+								>
 									{t(r.desc)}
 								</div>
 							</div>
@@ -191,11 +212,11 @@ export function SettingsPermissions() {
 
 			<SettingsSection gateKey="settings.permissions.grantTitle">
 				<Panel title={t('settings.permissions.grantTitle')}>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 						{t('settings.permissions.grantIntro')}
 					</div>
 					{players.length === 0 || scenes.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t(
 								players.length === 0
 									? 'settings.permissions.needPlayer'
@@ -203,7 +224,14 @@ export function SettingsPermissions() {
 							)}
 						</div>
 					) : (
-						<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: T.space.three,
+								flexWrap: 'wrap',
+							}}
+						>
 							<span style={{ flex: 1, minWidth: 140 }}>
 								<Select
 									aria-label={t('settings.permissions.player')}
@@ -239,34 +267,91 @@ export function SettingsPermissions() {
 					title={t('settings.permissions.activeGrants')}
 					action={<Badge status="neutral">{grants.length}</Badge>}
 				>
-					<DataTable
-						ariaLabel={t('settings.permissions.activeGrants')}
-						columns={[
-							{ key: 'set', header: t('settings.permissions.colAccess'), strong: true },
-							{ key: 'type', header: t('settings.permissions.colType') },
-							{ key: 'entity', header: t('settings.permissions.colEntity') },
-							{ key: 'to', header: t('settings.permissions.colGrantedTo') },
-							{
-								key: 'expires',
-								header: t('settings.permissions.colExpires'),
-								align: 'right',
-								render: (v: string | null) => v || '—',
-							},
-							{
-								key: 'grantId',
-								header: '',
-								align: 'right',
-								render: (id: string) => (
-									<Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>
-										{t('settings.permissions.revoke')}
-									</Button>
-								),
-							},
-						]}
-						rows={grantRows}
-						rowKey={(r: GrantRow) => r.grantId}
-						empty={t('settings.permissions.noGrants')}
-					/>
+					{singleColumn ? (
+						// A six-column table cannot fit a phone: "Granted to" and Revoke were cut off the
+						// right edge. The phone reads one grant per row instead.
+						grantRows.length === 0 ? (
+							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+								{t('settings.permissions.noGrants')}
+							</div>
+						) : (
+							<ul
+								aria-label={t('settings.permissions.activeGrants')}
+								style={{ listStyle: 'none', margin: T.space.zero, padding: T.space.zero }}
+							>
+								{grantRows.map((row, i) => (
+									<li
+										key={row.grantId}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: T.space.three,
+											padding: `${T.space.three} ${T.space.zero}`,
+											borderTop: i ? `1px solid ${T.bd}` : 'none',
+										}}
+									>
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<div style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
+												{row.entity}
+											</div>
+											<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+												{t('settings.permissions.grantLine', {
+													access: row.set,
+													type: row.type,
+													name: row.to,
+												})}
+												{row.expires ? ` · ${row.expires}` : ''}
+											</div>
+										</div>
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="trash"
+											aria-label={row.revokeLabel}
+											onClick={() => revoke(row.grantId)}
+										>
+											{t('settings.permissions.revoke')}
+										</Button>
+									</li>
+								))}
+							</ul>
+						)
+					) : (
+						<DataTable
+							ariaLabel={t('settings.permissions.activeGrants')}
+							columns={[
+								{ key: 'set', header: t('settings.permissions.colAccess'), strong: true },
+								{ key: 'type', header: t('settings.permissions.colType') },
+								{ key: 'entity', header: t('settings.permissions.colEntity') },
+								{ key: 'to', header: t('settings.permissions.colGrantedTo') },
+								{
+									key: 'expires',
+									header: t('settings.permissions.colExpires'),
+									align: 'right',
+									render: (v: string | null) => v || '—',
+								},
+								{
+									key: 'grantId',
+									header: <span style={srOnly}>{t('settings.permissions.colActions')}</span>,
+									align: 'right',
+									render: (id: string, row: GrantRow) => (
+										<Button
+											variant="ghost"
+											size="sm"
+											icon="trash"
+											aria-label={row.revokeLabel}
+											onClick={() => revoke(id)}
+										>
+											{t('settings.permissions.revoke')}
+										</Button>
+									),
+								},
+							]}
+							rows={grantRows}
+							rowKey={(r: GrantRow) => r.grantId}
+							empty={t('settings.permissions.noGrants')}
+						/>
+					)}
 				</Panel>
 			</SettingsSection>
 		</div>

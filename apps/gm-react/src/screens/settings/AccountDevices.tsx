@@ -103,33 +103,37 @@ export function AccountDevicesPanel() {
 				</Button>
 			}
 		>
-			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+			<div
+				style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub, marginBottom: T.space.one }}
+			>
 				{t('settings.devices.intro')}
 			</div>
 			<CloudOfflineNotice />
 			{failed ? (
 				// Was dead text telling the user to reopen the tab; `load` is right here.
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t('settings.devices.loadFailed')}
-					</span>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="retry"
-						{...cloudActions.offlineProps}
-						onClick={() => {
-							setFailed(false);
-							load();
-						}}
-					>
-						{t('common.action.retry')}
-					</Button>
-				</div>
+				<EmptyState
+					inset
+					illustration="connection-lost"
+					title={t('settings.devices.loadFailed')}
+					action={
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="retry"
+							{...cloudActions.offlineProps}
+							onClick={() => {
+								setFailed(false);
+								load();
+							}}
+						>
+							{t('common.action.retry')}
+						</Button>
+					}
+				/>
 			) : devices === null ? (
 				<LoadingRegion
 					label={t('settings.devices.loading')}
-					style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+					style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}
 				>
 					<Skeleton height={46} />
 					<Skeleton height={46} />
@@ -149,8 +153,8 @@ export function AccountDevicesPanel() {
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 12,
-								padding: '11px 0',
+								gap: T.space.three,
+								padding: `${T.space.three} ${T.space.zero}`,
 								borderTop: i ? `1px solid ${T.bd}` : 'none',
 							}}
 						>
@@ -158,7 +162,7 @@ export function AccountDevicesPanel() {
 								style={{
 									width: 34,
 									height: 34,
-									borderRadius: 8,
+									borderRadius: T.radius.md,
 									flex: '0 0 auto',
 									display: 'inline-flex',
 									alignItems: 'center',
@@ -170,8 +174,10 @@ export function AccountDevicesPanel() {
 								<Icon name="Monitor" size="sm" />
 							</span>
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{friendlyDeviceName(d.name, t)}</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+								<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
+									{friendlyDeviceName(d.name, t)}
+								</div>
+								<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 									{d.lastSeen
 										? t('settings.devices.lastSeen', {
 												when: formatDate(new Date(d.lastSeen), {
@@ -224,7 +230,7 @@ export function AccountDevicesPanel() {
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{forgetBefore}
 					<strong style={{ color: T.ink }}>{pendingName}</strong>
 					{forgetAfter}
@@ -259,7 +265,7 @@ export function AccountDevicesPanel() {
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t('settings.devices.signOutBody')}
 				</div>
 			</Dialog>

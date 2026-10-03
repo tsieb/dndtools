@@ -1,6 +1,6 @@
 import { SettingsSection } from './Experience';
 import { useEffect, useState } from 'react';
-import { Avatar, Badge, Button, Dialog, Input, Toaster } from '../../ds';
+import { Avatar, Badge, Button, Dialog, EmptyState, Input, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
@@ -80,29 +80,32 @@ function AccountProfilePanel() {
 				{failed ? (
 					// "reopen this tab" was the only way out of this state, while the sibling device and
 					// export panels in this same file both offer a Retry. Now it does too.
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-						<div
-							role="alert"
-							style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}
-						>
-							{t('settings.account.loadFailed')}
-						</div>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="retry"
-							{...cloudActions.offlineProps}
-							onClick={() => setReloadKey((n) => n + 1)}
-						>
-							{t('common.action.retry')}
-						</Button>
+					<div role="alert">
+						<EmptyState
+							inset
+							illustration="connection-lost"
+							title={t('settings.account.loadFailed')}
+							action={
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="retry"
+									{...cloudActions.offlineProps}
+									onClick={() => setReloadKey((n) => n + 1)}
+								>
+									{t('common.action.retry')}
+								</Button>
+							}
+						/>
 					</div>
 				) : (
-					<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: T.space.four }}>
 						<Avatar name={shownName} size="lg" ring="active" />
 						<div style={{ flex: 1, minWidth: 0 }}>
 							{editing ? (
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
+								<div
+									style={{ display: 'flex', alignItems: 'center', gap: T.space.two, maxWidth: 380 }}
+								>
 									<Input
 										value={draft}
 										onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
@@ -130,11 +133,20 @@ function AccountProfilePanel() {
 									</Button>
 								</div>
 							) : (
-								<div style={{ font: `700 18px ${T.disp}` }}>{shownName}</div>
+								<div style={{ font: `600 var(--text-lg) ${T.sans}` }}>{shownName}</div>
 							)}
-							<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{profile?.email ?? ''}</div>
+							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+								{profile?.email ?? ''}
+							</div>
 							{profile?.createdAt && (
-								<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+								<div
+									style={{
+										display: 'flex',
+										gap: T.space.two,
+										marginTop: T.space.two,
+										flexWrap: 'wrap',
+									}}
+								>
 									<Badge status="neutral">
 										{t('settings.account.memberSince', {
 											date: formatDate(new Date(profile.createdAt)),
@@ -247,10 +259,14 @@ function AccountDangerPanel() {
 				style={{ borderColor: 'var(--color-status-error-border)' }}
 			>
 				<CloudOfflineNotice />
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}
+				>
 					<div style={{ flex: '1 1 240px' }}>
-						<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.account.dangerHeading')}</div>
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
+							{t('settings.account.dangerHeading')}
+						</div>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{t('settings.account.dangerBody')}
 						</div>
 					</div>
@@ -312,7 +328,13 @@ function AccountDangerPanel() {
 						</>
 					}
 				>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
+					<div
+						style={{
+							font: `var(--text-sm)/1.6 ${T.sans}`,
+							color: T.sub,
+							marginBottom: T.space.three,
+						}}
+					>
 						{confirmBefore}
 						<strong style={{ color: T.ink }}>{deletePhrase}</strong>
 						{confirmAfter}
@@ -344,7 +366,7 @@ function CloudAccountGate() {
 					title={t('settings.account.cloudAccount')}
 					action={<Badge status="neutral">{t('settings.account.localOnly')}</Badge>}
 				>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 						{t('settings.account.localOnlyBody')}
 					</div>
 				</Panel>
@@ -358,8 +380,10 @@ function CloudAccountGate() {
 				action={<Badge status="neutral">{t('settings.account.signedOut')}</Badge>}
 			>
 				<CloudOfflineNotice />
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-					<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}
+				>
+					<div style={{ flex: '1 1 240px', font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 						{t('settings.account.signedOutBody')}
 					</div>
 					<Button
@@ -384,7 +408,7 @@ export function SettingsAccount() {
 	// in; otherwise it shows an honest gate — no fake profile pretending to be yours.
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			{cloudReady ? (
 				<>
 					<AccountProfilePanel />
@@ -412,7 +436,7 @@ export function SettingsAccount() {
 						</Button>
 					}
 				>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 						{t('settings.account.onboardingBody')}
 					</div>
 				</Panel>

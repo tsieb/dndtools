@@ -27,9 +27,11 @@ export function SettingsAppearance() {
 	);
 	const [proseWidth, setProseWidth] = useState<ProseWidth>(readProseWidthPreference);
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title={t('settings.appearance.title')} style={{ gap: 0 }}>
-				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
+			<Panel title={t('settings.appearance.title')} style={{ gap: T.space.zero }}>
+				<div
+					style={{ font: `var(--text-sm)/1.5 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}
+				>
 					{t('settings.appearance.intro')}
 				</div>
 				<SetRow

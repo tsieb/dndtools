@@ -1,26 +1,18 @@
 import { SettingsSection } from './Experience';
 import { useEffect, useState } from 'react';
-import { Badge, Button, Dialog, Icon, StatusDot, Switch, Toaster } from '../../ds';
+import { Badge, Button, Dialog, StatusDot, Switch, Toaster } from '../../ds';
 import { Panel, SetRow, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useCloudSync } from '../../cloud/CloudSyncContext';
-import { downloadJsonFile, fileDateStamp } from '../../platform/download';
-import { pickTextFile } from '../../platform/filePick';
 import { isOnline } from '../../platform/preferences';
 import { CloudOfflineNotice, useCloudActions } from '../../cloud/offline';
-import {
-	MAX_VAULT_BACKUP_FILE_BYTES,
-	exportFullVault,
-	importFullVault,
-	validateVaultBackup,
-	type VaultBackup,
-} from '../../platform/backup';
 import { useEntitlements } from '../../cloud/entitlements';
-import { errMsg, humanizeEntity } from './shared';
+import { humanizeEntity } from './shared';
 import { RecoveryKeyPanel, VaultPrivacyPanel } from './SyncPrivacy';
 import { SyncConflictsPanel } from './SyncConflicts';
 import { ProductAnalyticsPanel } from './Analytics';
+import { LocalBackupPanel } from './LocalBackup';
 /* ---- Backup activity: local operation history + optional encrypted off-device copy. -------------- */
 /* The two `humanize*` helpers below read a core command id ('scene.create') and spell it as English
  * prose ('Scene created'). They are the one thing on this screen the catalog cannot reach: the words
@@ -69,15 +61,15 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 		return (
 			<SettingsSection gateKey="settings.sync.cloudTitle">
 				<Panel title={t('settings.sync.cloudTitle')}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}>
 						<StatusDot status={online ? 'live' : 'error'} pulse={online} />
 						<div style={{ flex: 1 }}>
-							<div style={{ font: `600 13.5px ${T.sans}` }}>
+							<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
 								{t('settings.sync.localOnlyState', {
 									state: t(online ? 'settings.sync.online' : 'settings.sync.offline'),
 								})}
 							</div>
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('settings.sync.localOnlyCount', { count: localChanges })}
 							</div>
 						</div>
@@ -190,8 +182,8 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 12,
-							marginTop: 12,
+							gap: T.space.three,
+							marginTop: T.space.three,
 							flexWrap: 'wrap',
 						}}
 					>
@@ -200,7 +192,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 							pulse={es?.busy}
 						/>
 						<div style={{ flex: 1, minWidth: 180 }}>
-							<div style={{ font: `600 13px ${T.sans}` }}>
+							<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
 								{t(
 									es?.busy || busy
 										? 'settings.sync.stateBusy'
@@ -211,14 +203,14 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 												: 'settings.sync.stateWaiting',
 								)}
 							</div>
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{es?.lastError
 									? es.lastError
 									: t('settings.sync.lastBackedUp', { when: lastSynced })}
 							</div>
 							{es?.merge && !es.lastError ? (
 								<div
-									style={{ font: `12px ${T.sans}`, color: T.ter }}
+									style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}
 									data-testid="sync-merge-state"
 								>
 									{es.merge.outcome === 'diverged'
@@ -290,7 +282,7 @@ function CloudSyncPanel({ online, localChanges }: { online: boolean; localChange
 								</>
 							}
 						>
-							<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 								{t('settings.sync.restoreBody')}
 							</div>
 						</Dialog>
@@ -317,16 +309,15 @@ export function SettingsSync() {
 	}, []);
 	const recent = [...ops].slice(-8).reverse();
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			{/* Local backup stays first: it is the section's daily-use action, and on the compact
 			    shell the Android acceptance run proved that panels stacked above it push the
 			    backup button's tap target under the fixed navigation. The ADR-026 consent and
 			    recovery panels are set-once controls and read fine below it. */}
-			<CloudSyncPanel online={online} localChanges={ops.length} />
-			<SettingsSection gateKey="settings.sync.conflictsTitle">
-				<SyncConflictsPanel />
-			</SettingsSection>
 			<LocalBackupPanel />
+			<CloudSyncPanel online={online} localChanges={ops.length} />
+			{/* Gates itself, so an empty conflict list leaves no empty flex item (and no double gap). */}
+			<SyncConflictsPanel />
 			<VaultPrivacyPanel />
 			<RecoveryKeyPanel />
 			<ProductAnalyticsPanel />
@@ -336,7 +327,7 @@ export function SettingsSync() {
 					action={<Badge status="neutral">{ops.length}</Badge>}
 				>
 					{recent.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('settings.sync.noChanges')}
 						</div>
 					) : (
@@ -347,16 +338,15 @@ export function SettingsSync() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '7px 0',
-									font: `12.5px ${T.sans}`,
+									gap: T.space.three,
+									padding: `${T.space.two} ${T.space.zero}`,
+									font: `var(--text-sm) ${T.sans}`,
 									color: T.sub,
 									flexWrap: 'wrap',
 								}}
 							>
-								<Icon name="connection" size={15} color={T.ter} />
 								<Badge status="info">{humanizeOp(q.opType)}</Badge>
-								<span style={{ flex: '1 1 150px', font: `11.5px ${T.sans}`, color: T.ter }}>
+								<span style={{ flex: '1 1 150px', font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 									{t('settings.sync.saved', {
 										when: formatDate(new Date(q.issuedAt), {
 											dateStyle: 'medium',
@@ -370,141 +360,5 @@ export function SettingsSync() {
 				</Panel>
 			</SettingsSection>
 		</div>
-	);
-}
-
-/** Full local vault backup + restore (WS-1): the whole persisted core slice + every stored asset
- * byte in one JSON file. Restore is authoritative and destructive — it replaces the current vault
- * (validated fail-closed first), then hard-reloads so every runtime rebuilds from the restored data. */
-function LocalBackupPanel() {
-	const { t, formatDate } = useI18n();
-	const runtime = useRuntime();
-	const [busy, setBusy] = useState(false);
-	const [pendingRestore, setPendingRestore] = useState<VaultBackup | null>(null);
-	const backup = async () => {
-		setBusy(true);
-		try {
-			const data = await exportFullVault();
-			const result = await downloadJsonFile(
-				`dndtools-vault-backup-${fileDateStamp()}.json`,
-				data,
-				t('settings.backup.fileTitle'),
-			);
-			if (result.status === 'exported') {
-				Toaster.success(
-					t(
-						result.method === 'download'
-							? 'settings.backup.downloaded'
-							: 'settings.backup.exported',
-						{ count: data.assets.length },
-					),
-				);
-			}
-		} catch (e: unknown) {
-			Toaster.error(errMsg(e, t('settings.backup.exportFailed')));
-		} finally {
-			setBusy(false);
-		}
-	};
-	const pickBackup = async () => {
-		try {
-			const file = await pickTextFile('.json', MAX_VAULT_BACKUP_FILE_BYTES);
-			if (!file) return;
-			// validateVaultBackup is fail-closed: anything structurally off is rejected with a reason
-			// BEFORE the confirm dialog ever offers to overwrite the current vault.
-			setPendingRestore(validateVaultBackup(JSON.parse(file.text)));
-		} catch (e: unknown) {
-			Toaster.error(errMsg(e, t('settings.backup.invalidFile')));
-		}
-	};
-	const restore = () => {
-		if (!pendingRestore) return;
-		setBusy(true);
-		runtime
-			.runExclusiveMaintenance(async () => {
-				await importFullVault(pendingRestore);
-				// Keep later commands behind the maintenance lock until the runtime reflects the restored
-				// vault. Otherwise a queued command could persist stale in-memory state before reload.
-				await runtime.reloadFromStorage();
-			})
-			.then(() => window.location.reload())
-			.catch((e: unknown) => {
-				Toaster.error(errMsg(e, t('settings.backup.restoreFailed')));
-				setBusy(false);
-			});
-	};
-	// The backup's timestamp is emphasised mid-sentence, so format the whole sentence and split it
-	// around that value rather than freezing English word order into two fragments.
-	const restoreStamp = pendingRestore
-		? formatDate(new Date(pendingRestore.createdAt), { dateStyle: 'medium', timeStyle: 'short' })
-		: null;
-	const restoreSentence = pendingRestore
-		? t('settings.backup.replaceBody', {
-				when: restoreStamp ?? '',
-				count: pendingRestore.assets.length,
-			})
-		: '';
-	const [restoreBefore, restoreAfter = ''] = restoreSentence.split(restoreStamp ?? '\u0000');
-	return (
-		<SettingsSection gateKey="settings.backup.title">
-			<Panel title={t('settings.backup.title')}>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-					<div style={{ flex: '1 1 260px' }}>
-						<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.backup.heading')}</div>
-						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-							{t('settings.backup.body')}
-						</div>
-					</div>
-					<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>
-						{t('settings.backup.download')}
-					</Button>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="import"
-						disabled={busy}
-						onClick={() => void pickBackup()}
-					>
-						{t('settings.backup.restore')}
-					</Button>
-				</div>
-				<Dialog
-					open={pendingRestore !== null}
-					onClose={() => setPendingRestore(null)}
-					title={t('settings.backup.replaceTitle')}
-					description={t('settings.backup.replaceDescription')}
-					icon="warning"
-					size="md"
-					dismissible={!busy}
-					initialFocus="#cancel-local-restore"
-					role="alertdialog"
-					aria-busy={busy}
-					footer={
-						<>
-							<Button
-								id="cancel-local-restore"
-								variant="secondary"
-								size="sm"
-								disabled={busy}
-								onClick={() => setPendingRestore(null)}
-							>
-								{t('common.action.cancel')}
-							</Button>
-							<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>
-								{busy ? t('settings.backup.restoring') : t('settings.backup.replaceReload')}
-							</Button>
-						</>
-					}
-				>
-					{pendingRestore && restoreStamp && (
-						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-							{restoreBefore}
-							<strong style={{ color: T.ink }}>{restoreStamp}</strong>
-							{restoreAfter}
-						</div>
-					)}
-				</Dialog>
-			</Panel>
-		</SettingsSection>
 	);
 }

@@ -83,20 +83,24 @@ export function AiAuditBrowser({
 			title={t('settings.ai.auditTitle')}
 			action={<Badge status="neutral">{entries.length}</Badge>}
 		>
-			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+			<div
+				style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub, marginBottom: T.space.two }}
+			>
 				{t('settings.ai.auditIntro')}
 			</div>
 			{entries.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('settings.ai.auditEmpty')}</div>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+					{t('settings.ai.auditEmpty')}
+				</div>
 			) : (
 				<>
 					<div
 						style={{
 							display: 'flex',
 							alignItems: 'center',
-							gap: 10,
+							gap: T.space.three,
 							flexWrap: 'wrap',
-							marginBottom: 10,
+							marginBottom: T.space.three,
 						}}
 					>
 						<Seg
@@ -133,7 +137,7 @@ export function AiAuditBrowser({
 						</Button>
 					</div>
 					{filtered.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('settings.ai.auditNoMatch')}
 						</div>
 					) : (
@@ -151,21 +155,23 @@ export function AiAuditBrowser({
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 8,
-										padding: '6px 0',
+										gap: T.space.two,
+										padding: `${T.space.oneHalf} ${T.space.zero}`,
 										borderTop: i ? `1px solid ${T.bd}` : 'none',
-										font: `12px ${T.sans}`,
+										font: `var(--text-xs) ${T.sans}`,
 										color: T.sub,
 									}}
 								>
 									<Badge status={AUDIT_MODE_BADGE[a.mode]}>{t(AUDIT_MODE_LABEL[a.mode])}</Badge>
-									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+									<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 										{agentLabel(a.agentId)} · {a.toolId}
 									</span>
-									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										{t('settings.ai.auditAsActor', { actor: actorName(a.actorId) })}
 									</span>
-									<span style={{ marginLeft: 'auto', font: `11px ${T.sans}`, color: T.ter }}>
+									<span
+										style={{ marginLeft: 'auto', font: `var(--text-xs) ${T.sans}`, color: T.sub }}
+									>
 										{formatDate(new Date(a.recordedAt), {
 											dateStyle: 'medium',
 											timeStyle: 'short',

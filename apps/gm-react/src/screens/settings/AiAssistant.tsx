@@ -258,18 +258,18 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 				) : undefined
 			}
 		>
-			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+			<div style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub }}>
 				{t('settings.assistant.intro')}
 			</div>
 			{blocker !== null ? (
 				<div
 					style={{
-						padding: '9px 12px',
-						borderRadius: 9,
+						padding: `${T.space.two} ${T.space.three}`,
+						borderRadius: T.radius.md,
 						border: `1px solid ${T.bd}`,
 						background: T.alt,
-						font: `12px/1.6 ${T.sans}`,
-						color: T.ter,
+						font: `var(--text-xs)/1.6 ${T.sans}`,
+						color: T.sub,
 					}}
 				>
 					{blocker}
@@ -289,10 +289,10 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
-								gap: 8,
+								gap: T.space.two,
 								maxHeight: 320,
 								overflowY: 'auto',
-								padding: '4px 0',
+								padding: `${T.space.one} ${T.space.zero}`,
 							}}
 						>
 							{feed.map((item, i) => {
@@ -303,11 +303,11 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 											style={{
 												alignSelf: 'flex-end',
 												maxWidth: '85%',
-												padding: '7px 11px',
-												borderRadius: 10,
+												padding: `${T.space.two} ${T.space.three}`,
+												borderRadius: T.radius.md,
 												background: T.accSub,
 												border: `1px solid ${T.accBd}`,
-												font: `12.5px/1.55 ${T.sans}`,
+												font: `var(--text-sm)/1.55 ${T.sans}`,
 												color: T.ink,
 												whiteSpace: 'pre-wrap',
 											}}
@@ -326,11 +326,11 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 											style={{
 												alignSelf: 'flex-start',
 												maxWidth: '85%',
-												padding: '7px 11px',
-												borderRadius: 10,
+												padding: `${T.space.two} ${T.space.three}`,
+												borderRadius: T.radius.md,
 												background: T.alt,
 												border: `1px solid ${T.bd}`,
-												font: `12.5px/1.55 ${T.sans}`,
+												font: `var(--text-sm)/1.55 ${T.sans}`,
 												color: T.ink,
 												whiteSpace: 'pre-wrap',
 											}}
@@ -342,18 +342,21 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 								}
 								const badge = TOOL_OUTCOME_BADGE[item.outcome] ?? TOOL_OUTCOME_BADGE.error;
 								return (
-									<div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+									<div
+										key={i}
+										style={{ display: 'flex', flexDirection: 'column', gap: T.space.half }}
+									>
 										<div
 											style={{
 												display: 'flex',
 												alignItems: 'center',
-												gap: 8,
-												font: `11.5px ${T.sans}`,
-												color: T.ter,
+												gap: T.space.two,
+												font: `var(--text-xs) ${T.sans}`,
+												color: T.sub,
 											}}
 										>
 											<Icon name="sparkle" size={13} color={T.ter} />
-											<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
+											<span style={{ font: `var(--text-xs) ${T.mono}` }}>{item.toolId}</span>
 											<Badge status={badge.status}>{t(badge.label)}</Badge>
 											<span
 												style={{
@@ -369,7 +372,13 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 										{item.issues && item.issues.length > 0 && (
 											// Inline validation: the exact fields the Core rejected, so the user watches
 											// the model fix its input on the next step.
-											<div style={{ marginLeft: 21, font: `11px ${T.mono}`, color: T.err }}>
+											<div
+												style={{
+													marginLeft: T.space.five,
+													font: `var(--text-xs) ${T.mono}`,
+													color: T.err,
+												}}
+											>
 												{item.issues.map((issue, k) => (
 													<div key={k}>
 														{issue.path ? `${issue.path}: ` : ''}
@@ -390,14 +399,14 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 							style={{
 								display: 'flex',
 								flexDirection: 'column',
-								gap: 8,
-								padding: '10px 12px',
-								borderRadius: 9,
+								gap: T.space.two,
+								padding: `${T.space.three} ${T.space.three}`,
+								borderRadius: T.radius.md,
 								border: `1px solid ${T.bd}`,
 								background: T.alt,
 							}}
 						>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+							<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
 								<Badge status="info">{statusText ?? t('settings.assistant.workingShort')}</Badge>
 								<div style={{ flex: 1 }} />
 								<Button
@@ -423,7 +432,9 @@ export function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
 								: t('settings.assistant.notifyLabel')
 						}
 					/>
-					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+					<div
+						style={{ display: 'flex', gap: T.space.two, alignItems: 'flex-end', flexWrap: 'wrap' }}
+					>
 						<span style={{ flex: '0 0 200px' }}>
 							<Select
 								aria-label={t('settings.assistant.agentSelect')}

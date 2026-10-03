@@ -32,10 +32,16 @@ const WARNING_LABEL: Record<string, MessageKey> = {
 function SideLines({ label, lines }: { label: string; lines: string[] }) {
 	return (
 		<div
-			style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 180px' }}
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: T.space.half,
+				minWidth: 0,
+				flex: '1 1 180px',
+			}}
 		>
-			<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{label}</span>
-			<span style={{ font: `11.5px/1.5 ${T.mono}`, color: T.ink, wordBreak: 'break-word' }}>
+			<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>{label}</span>
+			<span style={{ font: `var(--text-xs)/1.5 ${T.mono}`, color: T.ink, wordBreak: 'break-word' }}>
 				{lines.length === 0 ? '—' : lines.join('\n')}
 			</span>
 		</div>
@@ -67,17 +73,19 @@ export function AiProposalConflict({
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 8,
-				marginTop: 8,
-				padding: '10px 11px',
-				borderRadius: 9,
+				gap: T.space.two,
+				marginTop: T.space.two,
+				padding: `${T.space.three} ${T.space.three}`,
+				borderRadius: T.radius.md,
 				border: `1px solid ${T.warn}`,
 				background: T.alt,
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+			<div
+				style={{ display: 'flex', alignItems: 'center', gap: T.space.oneHalf, flexWrap: 'wrap' }}
+			>
 				<Icon name="warning" size={14} color={T.warn} />
-				<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>
+				<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
 					{t('settings.ai.conflictHeading')}
 				</span>
 				{conflict.hunks.length > 0 && (
@@ -92,34 +100,44 @@ export function AiProposalConflict({
 					</Button>
 				)}
 			</div>
-			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+			<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 				{t('settings.ai.conflictIntro')}
 			</div>
 			{conflict.warnings.map((warning) => (
-				<div key={warning.code} style={{ font: `11.5px ${T.sans}`, color: T.warn }}>
+				<div key={warning.code} style={{ font: `var(--text-xs) ${T.sans}`, color: T.warn }}>
 					{WARNING_LABEL[warning.code] ? t(WARNING_LABEL[warning.code]!) : warning.message}
 				</div>
 			))}
 			{open && conflict.hunks.length > 0 && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					<span style={srOnly}>{t('settings.ai.conflictRegion', { target: conflict.label })}</span>
 					{conflict.titleConflict && (
-						<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+						<div style={{ display: 'flex', gap: T.space.three, flexWrap: 'wrap' }}>
 							<SideLines label={t('settings.ai.conflictTitleRow')} lines={[conflict.ai.title]} />
 							<SideLines label={t('settings.ai.conflictMine')} lines={[conflict.current.title]} />
 						</div>
 					)}
 					{conflict.hunks.map((hunk) => (
-						<div key={hunk.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-							<div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+						<div
+							key={hunk.id}
+							style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}
+						>
+							<div
+								style={{
+									display: 'flex',
+									alignItems: 'baseline',
+									gap: T.space.two,
+									flexWrap: 'wrap',
+								}}
+							>
+								<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
 									{t('settings.ai.conflictLine', { line: hunk.line })}
 								</span>
 								<Chip tone={hunk.kind === 'conflicting' ? 'danger' : 'neutral'}>
 									{t(KIND_LABEL[hunk.kind])}
 								</Chip>
 							</div>
-							<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+							<div style={{ display: 'flex', gap: T.space.three, flexWrap: 'wrap' }}>
 								{conflict.base.available && (
 									<SideLines label={t('settings.ai.conflictBase')} lines={hunk.base} />
 								)}
@@ -130,7 +148,7 @@ export function AiProposalConflict({
 					))}
 				</div>
 			)}
-			<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
 				<Button
 					variant="secondary"
 					size="sm"
@@ -161,7 +179,7 @@ export function AiProposalConflict({
 				)}
 			</div>
 			{canMerge && (
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t('settings.ai.conflictMergeHint')}
 				</div>
 			)}

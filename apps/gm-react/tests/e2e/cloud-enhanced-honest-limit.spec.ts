@@ -83,7 +83,7 @@ test.describe('Cloud-Enhanced states its limit (RC-CLD-2.2)', () => {
 		const dialog = page.getByRole('alertdialog', { name: 'Switch to Cloud-Enhanced?' });
 		await expectHonestLimit(dialog);
 
-		await dialog.getByLabel('Type "read my vault" to confirm').fill('read my vault');
+		await dialog.getByLabel('Type “read my vault” to confirm').fill('read my vault');
 		await dialog.getByRole('button', { name: 'Record my consent' }).click();
 		await expect(dialog).toHaveCount(0);
 		const toast = page.getByText(/^Cloud-Enhanced recorded\./);

@@ -20,7 +20,7 @@ import {
 	removeGdocConnection,
 	type GdocConnection,
 } from '../../cloud/googleDocs';
-import { errMsg } from './shared';
+import { errMsg, formatBytes } from './shared';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { hasDmAuthority } from '@dndtools/core';
 import {
@@ -37,6 +37,8 @@ import {
 	type QuarantinedDocument,
 } from '../../platform/storage/coreStore';
 import { pruneAssetCache } from '../../platform/storage/assetStore';
+
+const BODY = { margin: T.space.zero, font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub } as const;
 
 function VaultIntegrity() {
 	const { t } = useI18n();
@@ -71,7 +73,7 @@ function VaultIntegrity() {
 		try {
 			const result = await pruneAssetCache();
 			setPressure(await collectStoragePressure());
-			Toaster.success(t('settings.vault.pruned', { bytes: result.freedBytes.toLocaleString() }));
+			Toaster.success(t('settings.vault.pruned', { size: formatBytes(result.freedBytes) }));
 		} catch {
 			Toaster.error(t('settings.vault.pruneFailed'));
 		} finally {
@@ -98,11 +100,11 @@ function VaultIntegrity() {
 				<SettingsSection gateKey="settings.vault.pressureTitle">
 					<Panel title={t('settings.vault.pressureTitle')}>
 						<div role="alert">
-							<p>
+							<p style={BODY}>
 								{t('settings.vault.pressureBody', { percent: Math.floor(pressure.ratio * 100) })}
 							</p>
-							<p>{t('settings.vault.pressureGuidance')}</p>
-							<Button variant="secondary" disabled={busy} onClick={() => void prune()}>
+							<p style={BODY}>{t('settings.vault.pressureGuidance')}</p>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={() => void prune()}>
 								{t('settings.vault.freeSpace')}
 							</Button>
 						</div>
@@ -112,8 +114,8 @@ function VaultIntegrity() {
 			{quarantined.length > 0 && (
 				<SettingsSection gateKey="settings.vault.quarantineTitle">
 					<Panel title={t('settings.vault.quarantineTitle')}>
-						<p>{t('settings.vault.quarantineBody')}</p>
-						<ul>
+						<p style={BODY}>{t('settings.vault.quarantineBody')}</p>
+						<ul style={{ ...BODY, paddingLeft: T.space.five }}>
 							{quarantined.map((item) => (
 								<li key={item.key}>
 									<span>{item.documentKey}</span>{' '}
@@ -212,7 +214,7 @@ export function SettingsVault() {
 		})),
 	];
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<VaultIntegrity />
 			<MarkdownFolderPanel />
 			<SettingsSection gateKey="settings.vault.title">
@@ -222,8 +224,8 @@ export function SettingsVault() {
 						<Button
 							variant="secondary"
 							size="sm"
-							icon="import"
-							onClick={() => navigate('/knowledge')}
+							icon="arrow-right"
+							onClick={() => navigate('/knowledge', { state: { sources: true } })}
 						>
 							{t('settings.vault.manageInKnowledge')}
 						</Button>
@@ -234,7 +236,7 @@ export function SettingsVault() {
 					{loading ? (
 						<LoadingRegion
 							label={t('settings.vault.loading')}
-							style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+							style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}
 						>
 							<Skeleton height={52} />
 							<Skeleton height={52} />
@@ -266,7 +268,7 @@ export function SettingsVault() {
 									variant="secondary"
 									size="sm"
 									icon="import"
-									onClick={() => navigate('/knowledge')}
+									onClick={() => navigate('/knowledge', { state: { sources: true } })}
 								>
 									{t('settings.vault.openSources')}
 								</Button>
@@ -280,8 +282,8 @@ export function SettingsVault() {
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 12,
-										padding: '12px 0',
+										gap: T.space.three,
+										padding: `${T.space.three} ${T.space.zero}`,
 										borderTop: i ? `1px solid ${T.bd}` : 'none',
 									}}
 								>
@@ -289,7 +291,7 @@ export function SettingsVault() {
 										style={{
 											width: 36,
 											height: 36,
-											borderRadius: 8,
+											borderRadius: T.radius.md,
 											background: T.alt,
 											display: 'inline-flex',
 											alignItems: 'center',
@@ -301,8 +303,8 @@ export function SettingsVault() {
 										<Icon name="vault" size="md" />
 									</span>
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ font: `600 13px ${T.sans}` }}>{s.name}</div>
-										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+										<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>{s.name}</div>
+										<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 											{s.kind} · {s.meta}
 										</div>
 									</div>
@@ -337,19 +339,19 @@ export function SettingsVault() {
 							</>
 						}
 					>
-						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 							{disconnectBefore}
 							<strong style={{ color: T.ink }}>{disconnectName}</strong>
 							{disconnectAfter}
 						</div>
 					</Dialog>
 					{!isFsSourceSupported() && (
-						<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub }}>
 							{t('settings.vault.noFolderSupport')}
 						</div>
 					)}
 					{!isGoogleDocsConfigured && (
-						<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-xs)/1.6 ${T.sans}`, color: T.sub }}>
 							{t('settings.vault.noGoogleDocs')}
 						</div>
 					)}
@@ -379,7 +381,7 @@ function MarkdownFolderPanel() {
 	return (
 		<SettingsSection gateKey="settings.folder.title">
 			<Panel title={t('settings.folder.title')}>
-				<p>{t('settings.folder.description')}</p>
+				<p style={BODY}>{t('settings.folder.description')}</p>
 				<Checkbox
 					checked={includeDmOnly}
 					onChange={setIncludeDmOnly}
@@ -390,12 +392,14 @@ function MarkdownFolderPanel() {
 					style={{
 						display: 'flex',
 						flexWrap: 'wrap',
-						gap: 'var(--space-2)',
-						marginTop: 'var(--space-3)',
+						gap: T.space.two,
+						marginTop: T.space.one,
 					}}
 				>
 					<Button
 						variant="secondary"
+						size="sm"
+						icon="download"
 						disabled={busy}
 						onClick={() =>
 							void run(async () => {
@@ -410,6 +414,8 @@ function MarkdownFolderPanel() {
 					{isFsSourceSupported() && (
 						<Button
 							variant="secondary"
+							size="sm"
+							icon="download"
 							disabled={busy}
 							onClick={() =>
 								void run(async () => {
@@ -430,6 +436,8 @@ function MarkdownFolderPanel() {
 					)}
 					<Button
 						variant="secondary"
+						size="sm"
+						icon="import"
 						disabled={busy}
 						onClick={() =>
 							void run(async () => {
@@ -445,6 +453,8 @@ function MarkdownFolderPanel() {
 					{isFsSourceSupported() && (
 						<Button
 							variant="secondary"
+							size="sm"
+							icon="import"
 							disabled={busy}
 							onClick={() =>
 								void run(async () => {

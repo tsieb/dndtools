@@ -41,7 +41,7 @@ export function AiLocalModelsPanel() {
 	if (desktopOnly) {
 		return (
 			<Panel title={t('settings.localModels.title')}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{LOCAL_OLLAMA.desktopOnlyNote}
 				</div>
 			</Panel>
@@ -104,11 +104,17 @@ export function AiLocalModelsPanel() {
 				) : null
 			}
 		>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+			<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 				{t('settings.localModels.intro')}
 			</div>
 			<div
-				style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: T.space.two,
+					marginTop: T.space.three,
+					flexWrap: 'wrap',
+				}}
 			>
 				<Button
 					variant="secondary"
@@ -122,20 +128,22 @@ export function AiLocalModelsPanel() {
 						: t('settings.localModels.refresh')}
 				</Button>
 				{list.status === 'idle' && (
-					<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('settings.localModels.refreshHint')}
 					</span>
 				)}
 			</div>
 			{list.status === 'error' && (
-				<div style={{ marginTop: 10, font: `12px/1.5 ${T.sans}`, color: T.err }}>
+				<div
+					style={{ marginTop: T.space.three, font: `var(--text-xs)/1.5 ${T.sans}`, color: T.err }}
+				>
 					{list.message}
 				</div>
 			)}
 			{list.status === 'loaded' && (
-				<div style={{ marginTop: 10, display: 'flex', flexDirection: 'column' }}>
+				<div style={{ marginTop: T.space.three, display: 'flex', flexDirection: 'column' }}>
 					{list.models.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 							{t('settings.localModels.empty')}
 						</div>
 					) : (
@@ -145,17 +153,17 @@ export function AiLocalModelsPanel() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '9px 0',
+									gap: T.space.three,
+									padding: `${T.space.two} ${T.space.zero}`,
 									borderTop: i ? `1px solid ${T.bd}` : 'none',
 									flexWrap: 'wrap',
 								}}
 							>
 								<div style={{ flex: '1 1 200px', minWidth: 0 }}>
-									<div style={{ font: `600 12.5px ${T.mono}`, wordBreak: 'break-word' }}>
+									<div style={{ font: `600 var(--text-sm) ${T.mono}`, wordBreak: 'break-word' }}>
 										{model.name}
 									</div>
-									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										{formatModelSize(model.sizeBytes)}
 									</div>
 								</div>
@@ -174,7 +182,13 @@ export function AiLocalModelsPanel() {
 				</div>
 			)}
 			<div
-				style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+				style={{
+					marginTop: T.space.four,
+					display: 'flex',
+					alignItems: 'center',
+					gap: T.space.two,
+					flexWrap: 'wrap',
+				}}
 			>
 				<span style={{ flex: '1 1 220px', minWidth: 160 }}>
 					<Input
@@ -199,7 +213,7 @@ export function AiLocalModelsPanel() {
 				</Button>
 			</div>
 			{pulling && (
-				<div style={{ marginTop: 8 }}>
+				<div style={{ marginTop: T.space.two }}>
 					<Chip tone="neutral">
 						{pulling.percent === null
 							? pulling.status || t('settings.localModels.pullStarting')
@@ -238,7 +252,7 @@ export function AiLocalModelsPanel() {
 					</>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 					{t('settings.localModels.deleteBody', { model: deleteTarget ?? '' })}
 				</div>
 			</Dialog>

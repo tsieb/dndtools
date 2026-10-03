@@ -71,10 +71,10 @@ const SUBPAGES: Record<string, () => JSX.Element> = {
 	appearance: SettingsAppearance,
 	language: SettingsLanguage,
 	account: () => (
-		<>
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 			<SettingsAccount />
 			<SettingsNotifications />
-		</>
+		</div>
 	),
 	subscription: SettingsSubscription,
 	players: SettingsPlayers,
@@ -107,7 +107,7 @@ function GatedTab({ gateId, tier }: { gateId: string; tier: FeatureTier }) {
 	const [bodyBefore, bodyAfter = ''] = body.split(panel);
 	return (
 		<Panel title={t('settings.gated.title')}>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+			<div style={{ font: `var(--text-sm)/1.6 ${T.sans}`, color: T.sub }}>
 				{bodyBefore}
 				<strong style={{ color: T.ink }}>{panel}</strong>
 				{bodyAfter}
@@ -189,7 +189,7 @@ export function Settings() {
 						: viewport === 'rail'
 							? '190px minmax(0,1fr)'
 							: '232px minmax(0,1fr)',
-				gap: viewport === 'phone' ? 16 : 24,
+				gap: viewport === 'phone' ? T.space.four : T.space.six,
 				alignItems: 'start',
 			}}
 		>
@@ -200,7 +200,7 @@ export function Settings() {
 					top: 0,
 					display: viewport === 'phone' ? 'block' : 'flex',
 					flexDirection: 'column',
-					gap: 2,
+					gap: T.space.half,
 				}}
 			>
 				{viewport === 'phone' && (
@@ -223,8 +223,8 @@ export function Settings() {
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '9px 11px',
+									gap: T.space.three,
+									padding: `${T.space.two} ${T.space.three}`,
 									// The rail profile is used on touch-capable tablets and foldables too.
 									// Keep every category row at the shared primary touch-target minimum.
 									// The literal 44 was a trap: an INLINE minHeight beats the stylesheet in
@@ -232,7 +232,7 @@ export function Settings() {
 									// `html[data-android]` (styles/index.css:41) mandates. The token is 44px
 									// normally and 48px under the Android runtime.
 									minHeight: 'var(--touch-target-min)',
-									borderRadius: 8,
+									borderRadius: T.radius.md,
 									border: 'none',
 									cursor: 'pointer',
 									textAlign: 'left',
@@ -249,15 +249,13 @@ export function Settings() {
 											top: 8,
 											bottom: 8,
 											width: 3,
-											borderRadius: 3,
+											borderRadius: T.radius.sm,
 											background: T.acc,
 										}}
 									/>
 								)}
 								<Icon name={s.icon} size="sm" color={on ? T.acc : 'currentColor'} />
-								<span
-									style={{ font: `${on ? 600 : 500} 13px ${T.sans}`, color: on ? T.acc : T.ink }}
-								>
+								<span style={{ font: `${on ? 600 : 500} var(--text-sm) ${T.sans}`, color: T.ink }}>
 									{t(s.label)}
 								</span>
 							</button>

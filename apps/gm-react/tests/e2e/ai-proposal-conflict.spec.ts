@@ -134,7 +134,7 @@ test.describe('ai proposals: three-way conflict (RC-AI-2.2)', () => {
 		).not.toHaveCount(0);
 		// Approving as staged would write nothing, so that control is not offered at all.
 		await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0);
-		await expect(page.getByRole('button', { name: "Keep the assistant's version" })).toHaveCount(1);
+		await expect(page.getByRole('button', { name: 'Keep the assistant’s version' })).toHaveCount(1);
 		await expect(page.getByRole('button', { name: 'Keep the note as it is' })).toHaveCount(1);
 		// The two edits touch different lines, so a clean merge exists and is offered.
 		await expect(page.getByRole('button', { name: 'Merge both' })).toHaveCount(1);
@@ -193,6 +193,6 @@ test.describe('ai proposals: three-way conflict (RC-AI-2.2)', () => {
 			page.getByText('Both versions changed the same lines. Choose which version to use.'),
 		).not.toHaveCount(0);
 		await expect(page.getByRole('button', { name: 'Merge both' })).toHaveCount(0);
-		await expect(page.getByRole('button', { name: "Keep the assistant's version" })).toHaveCount(1);
+		await expect(page.getByRole('button', { name: 'Keep the assistant’s version' })).toHaveCount(1);
 	});
 });
