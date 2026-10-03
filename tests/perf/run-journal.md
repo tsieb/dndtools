@@ -530,3 +530,37 @@ and stability output, and measured per-run/total wall times with margin under
 large search and graph breaches. This worker did not push, promote, dispatch a
 workflow, launch a loop, or change dispatcher control state. The journal-only
 commit records the dependency; it does not close acceptance.
+
+## 2026-10-02 — Review of 1d21cf20: hosted dependency reconfirmed
+
+Starting candidate: `1d21cf20e374c9eaacdd61080f7888ce1a3c39e1`; clean tree.
+The supplied review found no additional implementation defect and withheld
+approval for missing hosted evidence. At approximately 2026-10-03 05:10 UTC,
+these read-only queries both exited 0:
+
+```sh
+gh api 'repos/tsieb/dndtools/actions/runs?head_sha=1d21cf20e374c9eaacdd61080f7888ce1a3c39e1&per_page=100'
+gh api 'repos/tsieb/dndtools/actions/workflows/perf.yml/runs?event=workflow_dispatch&per_page=5'
+```
+
+The candidate response contains `total_count: 0` and no runs. The manual
+Performance response contains two runs; the latest remains cancelled run
+[36282130325](https://github.com/tsieb/dndtools/actions/runs/36282130325)
+on pre-fix `2c2ac85edfdc8ee775817d8d71337c96dc1d2e0f`.
+No Headroom tools were available; these findings use the original, uncompressed
+command output, with run metadata selected by `gh --jq`.
+
+Preserved the reviewed implementation and input-only sync label. No rebase,
+source change, substitute baseline or repeat local capture was warranted.
+The previously recorded 47.2-minute local pair remains evidence for its earlier
+revision only. No tests were rerun for this journal-only change; `git diff
+--check` passed before commit.
+
+Acceptance remains incomplete. The operator must publish and capture the final
+candidate SHA, retain five current/reference pairs with all 22 rows and seven
+nonempty batches per row, numeric baselines, comparison/stability outputs, and
+measured per-run and total duration with margin under 300 minutes. Assess the
+earlier local search/graph breaches using that hosted evidence without weakening
+the comparison. Further local implementation retries cannot supply this external
+dependency. No push, promotion, workflow dispatch, loop, additional agent or
+dispatcher control-state edit occurred.
