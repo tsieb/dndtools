@@ -696,3 +696,21 @@ The task's large-vault browser regression now checks that count both above and b
 the cap, while retaining full-list access and selection tests. No new localization
 key or generated-file claim is needed. Existing runtime/query optimizations,
 measurement scenarios and budgets are unchanged. Validation pending.
+
+Scope recovery validation completed on executable commit `955c5420`. Localization
+32/32, perf unit tests 29/29, large-vault browser tests 6/6 (desktop/mobile), pinned
+container graph visuals 15/15, app typecheck, targeted ESLint, formatting and
+quality/documentation gates pass. `git diff 09347dc8 HEAD -- apps/gm-react/src/i18n`
+is empty, including the formerly rejected pseudo catalog.
+
+Fresh complete local capture: **11/11 absolute targets pass**, seven nonempty
+batches each. Scene **1485.1/1500 ms**, widget **33.5/100 ms**, graph
+**346.2/500 ms**, search **160.6/250 ms**. The default comparator exits **1** on
+six drift regressions against the static September 6 baseline; this unpaired run
+cannot establish a passing paired drift gate or the expected 20% scene gain.
+Scene retains very little margin. All raw samples and failing comparator output
+are retained in [scope recovery evidence](reports/2026-10-02-scope-recovery/README.md).
+Commit/tree identity, 77 batch groups, exact sample flattening and archive/member
+checksums verified. This follow-up changes only journal/evidence files, with no
+executable diff from the measured commit. No push, promotion, extra loop, agent,
+budget relaxation or dispatcher control-state edit occurred.
