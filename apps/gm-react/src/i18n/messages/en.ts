@@ -8,12 +8,6 @@
  * Values may use ICU syntax — plural, select, number, date, time, unit — rendered by `format.ts`.
  * Every key a locale translates must exist here; a locale catalog is a `Partial` of this one. */
 export const en = {
-	'widgetBody.overflow.lines': '{count, plural, one {# more line} other {# more lines}}',
-	'widgetBody.overflow.more': 'More below',
-	'widgetBody.overflow.end': 'End of content',
-	'widgetBody.overflow.grow': 'Grow to fit',
-	'widgetBody.overflow.growLabel': 'Grow {title} to fit content',
-	'widgetBody.overflow.restore': 'Restore tile size',
 	'mapEdit.newPoi': 'New POI',
 	'mapEdit.newToken': 'Token {count}',
 	'mapEdit.poiPlaced': 'POI placed.',

@@ -13,7 +13,6 @@ import {
 	resolveWidgetStyleVariables,
 	type WidgetTemplateKind,
 } from '@dndtools/core';
-import { useI18n } from '../../i18n';
 import { matchesMedia, subscribeMedia } from '../../platform/preferences';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { WidgetBody, hasBuiltinBody, type WidgetCommandHandler } from '../widget-bodies';
@@ -142,6 +141,17 @@ export function WidgetStyleScope({
 		</div>
 	);
 }
+
+/** Overflow-footer copy — English-only for now, like the tile menu's TEXT catalog
+ * (`TileActionMenu`) and the frame's resize help: canvas tile chrome keeps its strings local. */
+const TEXT = {
+	lines: (count: number) => `${count} more ${count === 1 ? 'line' : 'lines'}`,
+	more: 'More below',
+	end: 'End of content',
+	grow: 'Grow to fit',
+	growLabel: (title: string) => `Grow ${title} to fit content`,
+	restore: 'Restore tile size',
+};
 
 /** Keys a focused, scrollable region consumes (the browser scrolls it natively). */
 const SCROLL_KEYS = new Set([
@@ -305,7 +315,6 @@ export function WidgetRegion({
 	onRestore,
 	keyboardScrollable = true,
 }: TileFitProps & { label: string; children: ReactNode }) {
-	const { t } = useI18n();
 	const scrollRef = useRef<HTMLElement>(null);
 	const contentRef = useRef<HTMLDivElement>(null);
 	const [fit, setFit] = useState<RegionFit>(NO_OVERFLOW);
@@ -428,20 +437,12 @@ export function WidgetRegion({
 							textOverflow: 'ellipsis',
 						}}
 					>
-						{below
-							? t('widgetBody.overflow.lines', { count: below })
-							: remaining
-								? t('widgetBody.overflow.more')
-								: t('widgetBody.overflow.end')}
+						{below ? TEXT.lines(below) : remaining ? TEXT.more : TEXT.end}
 					</span>
 					{(onRestore || (onGrow && fit.hidden)) && (
 						<button
 							type="button"
-							aria-label={
-								onRestore
-									? t('widgetBody.overflow.restore')
-									: t('widgetBody.overflow.growLabel', { title: label })
-							}
+							aria-label={onRestore ? TEXT.restore : TEXT.growLabel(label)}
 							// Focus stays on this button: it is the same element as Grow and as Restore.
 							onClick={() => {
 								if (onRestore) {
@@ -464,7 +465,7 @@ export function WidgetRegion({
 								cursor: 'pointer',
 							}}
 						>
-							{t(onRestore ? 'widgetBody.overflow.restore' : 'widgetBody.overflow.grow')}
+							{onRestore ? TEXT.restore : TEXT.grow}
 						</button>
 					)}
 				</div>
