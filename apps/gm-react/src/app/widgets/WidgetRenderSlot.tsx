@@ -328,8 +328,10 @@ export function WidgetRegion({
 	// with the tile, so one measured delta is not always the last. Bounded, so it cannot loop.
 	const growPasses = useRef(0);
 	const grow = useRef(onGrow);
+	const restoring = useRef(false);
 	useEffect(() => {
 		grow.current = onGrow;
+		restoring.current = !!onRestore;
 	});
 	useEffect(() => {
 		const node = scrollRef.current;
@@ -339,7 +341,15 @@ export function WidgetRegion({
 		const measure = () => {
 			cancelAnimationFrame(raf);
 			raf = requestAnimationFrame(() => {
-				const next = regionFit(node, content);
+				// RC-ENG-3.2 — a region with nothing to scroll hides nothing: every rect the walk could
+				// find ends inside its scroll height. Only a grown tile's footer and a Grow pass need
+				// the line positions, so a fitting tile skips the walk (a board mounts fifty at once).
+				const next =
+					growPasses.current === 0 &&
+					!restoring.current &&
+					node.scrollHeight - node.clientHeight <= 1
+						? { ...NO_OVERFLOW, top: node.scrollTop, view: node.clientHeight }
+						: regionFit(node, content);
 				const short = Math.ceil(next.extent + FOOTER_CLEARANCE - next.view);
 				if (growPasses.current > 0 && short > 1 && grow.current) {
 					growPasses.current -= 1;
