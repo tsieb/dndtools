@@ -59,13 +59,15 @@ import type { CommandRequest } from './messages';
  * gradient bar), conditions, concentration, and the per-level spellcaster slot summary the panel keeps
  * collapsed.
  *
- * Derived ONLY for characters {@link getPartyOverviewForActor} already admitted for this viewer, so the
+ * Public identity/vitals come from {@link getPartyOverviewForActor} for every PC at the table, so the
  * visibility decision stays in the Processing Core. The two fields the overview does not carry
  * (concentration, per-level slots) honour the character's declared `dmOnlyFields` the same way
  * `CharacterView` does — redaction by OMISSION (`null` / `[]`), never a placeholder that announces
  * something was withheld.
  */
 export interface PartyMemberVitals {
+	portraitAssetId?: string | null;
+	level?: number;
 	characterId: string;
 	name: string;
 	/** True for the viewer's own PC — the panel marks it rather than sorting it to the top. */
@@ -272,9 +274,9 @@ export interface ElevatedData {
  * RC-CHR-3.1 — derive the party vitals for `viewer` from the ALREADY-FILTERED overview members.
  *
  * The visibility decision is NOT made here: `members` is whatever {@link getPartyOverviewForActor}
- * returned, so a character the viewer may not see cannot enter this list. What is added is the two
+ * returned. Extra resource details additionally require full-sheet access. What is added is the two
  * summaries the overview does not carry — concentration and the per-level slot breakdown — read off
- * the character record the overview already admitted. Both honour the character's declared
+ * the character record only when its full sheet is readable. Both honour the character's declared
  * `dmOnlyFields` (`resources.concentration` / `resources.spellSlots`, the prefix convention
  * `CharacterView` redaction already uses) for a non-DM viewer, by omission.
  */
@@ -282,6 +284,7 @@ function buildPartyVitals(
 	state: CoreStateSlice,
 	members: PartyMemberSummary[],
 	selfId: string | null,
+	viewer: ActorId,
 	isDm: boolean,
 ): PartyMemberVitals[] {
 	return members
@@ -289,7 +292,13 @@ function buildPartyVitals(
 		.map((member) => {
 			const record = state.characters.characters[member.characterId];
 			const hiddenFields = isDm ? new Set<string>() : new Set(record?.dmOnlyFields ?? []);
-			const resources = record ? resourcesOf(record) : null;
+			const sheet = getCharacterForActor(
+				state.characters,
+				state.permissions,
+				viewer,
+				member.characterId,
+			);
+			const resources = record && sheet ? resourcesOf(record) : null;
 
 			const concentrationVisible = !!resources && !hiddenFields.has('resources.concentration');
 			const concentration = concentrationVisible ? (resources?.concentration.effect ?? null) : null;
@@ -314,6 +323,8 @@ function buildPartyVitals(
 			return {
 				characterId: member.characterId,
 				name: member.name,
+				portraitAssetId: member.portraitAssetId,
+				level: member.level,
 				isSelf: member.characterId === selfId,
 				hp: member.hp,
 				maxHp: member.maxHp,
@@ -505,6 +516,7 @@ export function buildPlayerData(
 			state,
 			party.members,
 			chosen?.id ?? null,
+			viewer,
 			hasDmAuthority(actor?.role),
 		),
 		journal,

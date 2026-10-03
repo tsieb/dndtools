@@ -171,3 +171,17 @@ the migrator, then atomically commits documents and the committed marker. Any th
 write error invokes snapshot rollback, preserving original documents and exact absence; restart
 recovery handles a process interrupted before rollback. The core planner rejects present documents
 with unreadable versions, and `beginMigration` snapshots nested payloads without aliasing the caller.
+
+### Party summaries and full sheets (RC-CHR-6.3)
+
+Party visibility is independent of full-sheet sharing: every registered player receives every
+PC's name, portrait asset ID, level, HP/max/temp HP, AC and conditions through the core party
+overview. This applies even when the PC sheet is shared only with its owner or is DM-only.
+Observers and unknown actors receive an empty overview. Non-PCs retain their existing visibility;
+a DM-only NPC never appears to players. Drafts are not party members.
+
+The projection explicitly selects public fields; it never includes the character data bag,
+journal, notes, inventory or backstory. Additional resource summaries require sheet access and
+respect DM-only resource fields. Party stash items retain their separate item permissions.
+Finalization continues to share the full sheet with its owner only. No persisted field or schema
+version changes.

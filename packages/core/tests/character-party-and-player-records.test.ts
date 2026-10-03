@@ -9,6 +9,7 @@ import {
 import {
 	dispatchCommand,
 	getCharacterJournalForActor,
+	getCharacterForActor,
 	getPartyOverviewForActor,
 	type Actor,
 	type CharacterState,
@@ -741,5 +742,78 @@ describe('RC-CHR-2.2 — downtime journal entries', () => {
 			id,
 		);
 		expect(view.entries[0]!.downtime).toBeUndefined();
+	});
+});
+
+describe('RC-CHR-6.3 — public PC summaries, private sheets', () => {
+	it('projects every PC for every player without private fields or hidden NPCs', () => {
+		const env = makeEnvironment();
+		let state = base();
+		const ids: string[] = [];
+		for (const visibility of ['shared', 'dm-only', 'player-visible'] as const) {
+			const created = createCharacter(state, env, visibility, visibility);
+			state = created.state;
+			ids.push(created.id);
+			const pc = state.characters.characters[created.id]!;
+			pc.kind = 'pc';
+			pc.sharedWith = [PLAYER_ACTOR.id];
+			pc.data = {
+				level: 4,
+				portraitAssetId: 'portrait-id',
+				notes: 'PRIVATE',
+				backstory: 'PRIVATE',
+				journal: 'PRIVATE',
+				inventory: 'PRIVATE',
+			};
+			pc.dmOnlyFields = ['combat.hp'];
+		}
+		state = createCharacter(state, env, 'Hidden NPC', 'dm-only').state;
+		for (const actor of [PLAYER_ACTOR, PLAYER_B]) {
+			const overview = getPartyOverviewForActor(state.characters, state.permissions, actor.id);
+			expect(overview.members).toHaveLength(3);
+			expect(overview.marchingOrder.sort()).toEqual([...ids].sort());
+			for (const member of overview.members) {
+				expect(member).toMatchObject({
+					level: 4,
+					portraitAssetId: 'portrait-id',
+					hp: 10,
+					maxHp: 10,
+					ac: 12,
+				});
+				expect(Object.keys(member).sort()).toEqual(
+					[
+						'characterId',
+						'name',
+						'kind',
+						'visibility',
+						'portraitAssetId',
+						'level',
+						'hp',
+						'maxHp',
+						'tempHp',
+						'ac',
+						'conditions',
+						'availableSpellSlots',
+						'availableClassResources',
+						'marchingPosition',
+					].sort(),
+				);
+			}
+			expect(JSON.stringify(overview)).not.toMatch(/PRIVATE|Hidden NPC|backstory|journal|notes/);
+		}
+		expect(
+			getCharacterForActor(state.characters, state.permissions, PLAYER_B.id, ids[0]!),
+		).toBeNull();
+		expect(
+			getCharacterForActor(state.characters, state.permissions, PLAYER_ACTOR.id, ids[1]!),
+		).toBeNull();
+		for (const actorId of [OBSERVER_ACTOR.id, 'unknown']) {
+			expect(getPartyOverviewForActor(state.characters, state.permissions, actorId)).toEqual({
+				members: [],
+				marchingOrder: [],
+				inventory: [],
+				hidden: { members: 0, inventory: 0 },
+			});
+		}
 	});
 });

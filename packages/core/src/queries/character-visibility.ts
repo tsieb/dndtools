@@ -27,3 +27,14 @@ export function characterVisibleToActor(
 	if (character.sharedWith.includes(actor.id)) return true;
 	return hasGrantedCapability(permissions, actor, CHARACTER_ENTITY_TYPE, character.id, 'viewer');
 }
+
+/** Public PC identity/vitals are available to the table independently of full-sheet sharing. */
+export function characterSummaryVisibleToActor(
+	character: Character,
+	actor: Actor,
+	permissions: PermissionState,
+): boolean {
+	if (hasDmAuthority(actor.role)) return true;
+	if (actor.role !== 'player') return false;
+	return character.kind === 'pc' || characterVisibleToActor(character, actor, permissions);
+}

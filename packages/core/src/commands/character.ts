@@ -589,9 +589,8 @@ export function handleFinalizeCharacterDraft(
 		id: env.ids(),
 		kind: 'pc',
 		name,
-		// A finalized PC is `shared` with its creating player, so the owner can see and use their own
-		// character (CHAR-002 AC1 "usable in session widgets") without it becoming visible to the whole
-		// party. Broader party visibility and the `owner` grant are later CHAR epics (CHAR-003/011).
+		// Full-sheet access starts with the owner. The independent party-summary read exposes
+		// every PC's identity and vitals to players without widening this sheet permission.
 		visibility: 'shared',
 		sharedWith: [existing.ownerActorId],
 		abilityScores: finalizedAbilityScores,

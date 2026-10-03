@@ -4,7 +4,7 @@ import { PartyQuickPanel, PartySheet } from '../../app/character/PartyPanel';
 import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 
-// 4 · PARTY — the visible party (PCs), from the actor-filtered overview.
+// 4 · PARTY — every PC’s public vitals, independently of full-sheet sharing.
 //
 // RC-CHR-3.1: the rows themselves live in `app/character/PartyPanel.tsx` so the board tile, this
 // section and the sheet all paint ONE shape (`data.partyVitals`) — the DM device computes it through

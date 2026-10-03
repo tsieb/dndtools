@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Avatar, Badge, Chip, ConditionBadge, HPBar, Icon } from '../../ds';
 import { T } from '../screen-kit';
+import { useAssetObjectUrl } from '../../platform/assetUrl';
 import { useI18n } from '../../i18n';
 import { condKey } from '../../screens/play/shared';
 import type { PartyMemberVitals } from '../../net/viewModels';
@@ -188,7 +189,11 @@ export function PartyBoardTiles({ members }: { members: PartyMemberVitals[] }) {
 							>
 								{m.name}
 							</span>
-							{m.isSelf && <Badge status="accent">{t('play.party.you')}</Badge>}
+							{m.isSelf && (
+								<Badge status="accent" style={{ flexShrink: 0 }}>
+									{t('play.party.you')}
+								</Badge>
+							)}
 							<div style={{ flex: 1 }} />
 							{m.concentration && <Icon name="concentration" size={12} color={T.acc} />}
 							{m.conditions.length > 0 && (
@@ -216,13 +221,19 @@ export function PartyBoardTiles({ members }: { members: PartyMemberVitals[] }) {
 function MemberRow({ m, detail }: { m: PartyMemberVitals; detail?: ReactNode }) {
 	const { t } = useI18n();
 	const downed = m.hp === 0;
+	const portrait = useAssetObjectUrl(m.portraitAssetId ?? null);
 	return (
 		<div
 			data-testid={`party-row-${m.characterId}`}
 			style={{ ...rowStyle(m), flexDirection: 'column', alignItems: 'stretch' }}
 		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-				<Avatar name={m.name} size="sm" ring={downed ? 'danger' : m.isSelf ? 'active' : 'none'} />
+				<Avatar
+					src={portrait ?? undefined}
+					name={m.name}
+					size="sm"
+					ring={downed ? 'danger' : m.isSelf ? 'active' : 'none'}
+				/>
 				<div style={{ flex: 1, minWidth: 0 }}>
 					<div
 						style={{
@@ -233,6 +244,11 @@ function MemberRow({ m, detail }: { m: PartyMemberVitals; detail?: ReactNode }) 
 						}}
 					>
 						<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{m.name}</span>
+						{m.level != null && (
+							<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
+								{t('characters.levelValue', { level: m.level })}
+							</span>
+						)}
 						{m.isSelf && <Badge status="accent">{t('play.party.you')}</Badge>}
 						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
 							{t('play.party.armorClass', { value: m.ac })}

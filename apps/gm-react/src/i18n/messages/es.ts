@@ -4679,17 +4679,20 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.noAttacks': 'No hay ataques registrados.',
 	'characters.noAttacksDm': 'No hay ataques registrados. Usa Editar para añadirlos.',
 
+	'characters.partyVitalsAlways':
+		'El grupo siempre ve las estadísticas vitales; esto decide quién abre la ficha completa.',
 	'characters.sharing': 'Uso compartido',
 	'characters.change': 'Cambiar',
-	'characters.whoCanSee': 'Quién puede ver este personaje',
+	'characters.whoCanSee': 'Quién puede abrir la ficha completa',
 	'characters.allPlayers': 'Todos los jugadores',
 	'characters.specificPlayers': 'Jugadores concretos',
 	'characters.noPlayersYet': 'Todavía no hay jugadores — añade uno en Configuración primero.',
 	'characters.applySharing': 'Aplicar',
-	'characters.shareHidden': 'Oculto para los jugadores hasta que lo compartas.',
-	'characters.sharedWith': 'Compartido con {names}.',
-	'characters.sharedWithNobody': 'Compartido, pero todavía no se ha entregado a nadie.',
-	'characters.shareAllPlayers': 'Visible para todos los jugadores.',
+	'characters.shareHidden': 'Solo el DM puede abrir la ficha completa.',
+	'characters.sharedWith': 'Ficha completa compartida con {names}.',
+	'characters.sharedWithNobody':
+		'Solo el DM puede abrir la ficha completa hasta que selecciones jugadores.',
+	'characters.shareAllPlayers': 'Todo el grupo puede abrir la ficha completa.',
 
 	'characters.advancement': 'Progresión',
 	'characters.finishLevelUp': 'Terminar {levelUpLower}',

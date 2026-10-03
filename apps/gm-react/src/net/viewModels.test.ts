@@ -192,3 +192,23 @@ describe('fogRevealDelta', () => {
 		);
 	});
 });
+
+it('summary-only peers receive public vitals without sheet resource enrichment', () => {
+	const { state, characterId } = campaignWithSpellcastingPc();
+	state.permissions.actors['peer'] = { id: 'peer', role: 'player', displayName: 'Peer' };
+	const data = buildPlayerData(state, 'peer');
+	expect(data.pc).toBeNull();
+	expect(data.partyVitals).toHaveLength(1);
+	expect(data.partyVitals[0]).toMatchObject({
+		characterId,
+		hp: 8,
+		level: 1,
+		portraitAssetId: null,
+		concentration: null,
+		concentrationCheckDc: null,
+		deathSaves: null,
+		spellSlots: [],
+		availableSpellSlots: 0,
+		availableClassResources: 0,
+	});
+});
