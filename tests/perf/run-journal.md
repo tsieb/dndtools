@@ -496,3 +496,37 @@ the comparison and stability output; and total and per-run wall times under the
 300-minute timeout. Check `search:large` (+48.5% locally) and
 `graph-indexing:large` (+23.5% locally) against the hosted comparison without
 changing targets or comparison rules.
+
+## 2026-10-02 — Review of 3c88f8bc: hosted evidence still unavailable
+
+Starting candidate: `3c88f8bc234dc461987b7dbd31ac137da63c68e3`; clean tree.
+The supplied independent review reports no further implementation defect and
+withholds approval solely for hosted acceptance evidence. This retry made
+read-only GitHub queries at approximately 2026-10-03 02:21 UTC:
+
+```sh
+gh api 'repos/tsieb/dndtools/actions/runs?head_sha=3c88f8bc234dc461987b7dbd31ac137da63c68e3&per_page=100'
+gh api 'repos/tsieb/dndtools/actions/workflows/perf.yml/runs?event=workflow_dispatch&per_page=5'
+```
+
+Both queries exited 0. Retrieved the exact original Headroom output before
+recording these findings: the candidate query returned `total_count: 0` and
+no runs. The manual Performance query returned two runs, with the newest still
+the cancelled pre-fix run
+[36282130325](https://github.com/tsieb/dndtools/actions/runs/36282130325)
+on `2c2ac85edfdc8ee775817d8d71337c96dc1d2e0f`. Newer Performance runs exist
+on other SHAs, but do not provide exact-candidate acceptance evidence.
+
+No source changes or repeat local capture were warranted by this feedback.
+The storage/runtime fixes and input-only sync fixture label remain unchanged.
+The recorded 47.2-minute local capture remains an earlier-revision measurement,
+not a hosted per-run time for this candidate. No tests were rerun for this
+journal-only update; prior review results are not claimed as new verification.
+
+Acceptance remains blocked on the owner-dispatched hosted capture: five paired
+captures, all 22 rows with seven nonempty batches, numeric baselines, comparison
+and stability output, and measured per-run/total wall times with margin under
+300 minutes. The hosted comparisons must also assess the previously recorded
+large search and graph breaches. This worker did not push, promote, dispatch a
+workflow, launch a loop, or change dispatcher control state. The journal-only
+commit records the dependency; it does not close acceptance.
