@@ -115,6 +115,10 @@ test.describe('campaign: relationship editor', () => {
 		await waitReady(page);
 		await expect(remove).toBeVisible();
 		await remove.click();
+		await page
+			.getByRole('dialog')
+			.getByRole('button', { name: 'Remove relationship', exact: true })
+			.click();
 		await expect(remove).toHaveCount(0);
 	});
 

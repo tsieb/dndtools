@@ -64,3 +64,17 @@ independent review remain separate from this implementation commit.
   changes and this task's grouped From/To options. I didn't rebase, so the claim diff stays against
   the recorded base.
 - No agents, push, promotion, dispatcher control changes or new loop.
+
+## Rebase onto integration 6dcb0a00 (2026-10-03)
+
+- Gate feedback: rebasing onto 6dcb0a00 conflicted in `campaign/Relationships.tsx`. I rebased the
+  branch myself and fixed it by taking the integration version (canAuthor gating, remove-confirm
+  Dialog, EmptyState, spacing tokens) and re-applying this task's hunks on top: actor-scoped
+  `buildWikilinkCandidatesForActor` endpoints, `runtime.state` passed to the edge query, per-storage
+  write commands, and kind-grouped From/To options.
+- Removing a relationship now asks for confirmation, so the RC-KNW-6.1 NPC → faction e2e confirms
+  through the dialog before it asserts the edge is gone.
+- Verified after the rebase: `pnpm typecheck` exit 0; full core suite 285 files / 5,194 tests passed;
+  e2e `campaign-relationships.spec.ts` + `knowledge.spec.ts` 56 passed on desktop-chromium and
+  mobile-chromium (DNDTOOLS_E2E_PORT=43255); ESLint and Prettier clean on the changed files.
+- No agents, push, promotion, dispatcher control changes or new loop.
