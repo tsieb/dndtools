@@ -41,3 +41,15 @@
 - Outside-click audit: Popover is the only document pointerdown listener; no Dialog is nested
   inside a Popover (ToolOptionControls and LayersPanel render them as siblings), so portaling does
   not make in-dialog clicks dismiss a parent popover.
+
+## 2026-10-03 gate follow-up
+
+- Gate feedback: "candidate changes paths outside its claim: Footer.tsx". The claim now owns
+  `apps/gm-react/src/app/shell/Footer.tsx`. Every other changed path matches a manifest companion
+  glob (`*.test.ts(x)`, `apps/gm-react/tests/e2e/*.spec.ts`, `scripts/eslint-rules/*.allow.js`)
+  or the journal paths.
+- Branch was rebased onto `01583e91` (RC-ENG-9.1). Replaced Footer's stale Help comment (it still
+  pointed desktop Help at a journal HANDOFF) with a note that both triggers open `HelpHost`.
+- Re-verified on the new base: gm-react `tsc --noEmit` clean; eslint 0 errors; `pnpm test:app`
+  156 files / 1728 tests passed; help-menu + a11y-axe-gate on desktop and mobile: 71 passed,
+  1 skipped.

@@ -52,9 +52,8 @@ export function Footer() {
 			{/* RC-UX-3.4 — an always-reachable Help affordance in the SAME location on every phone screen
 			    (WCAG 3.2.6 consistent help): a slim row directly above the tab bar, in-flow so it never
 			    overlaps the top bar's own controls (RC-STB-2.6's "Table controls" sheet trigger sits in
-			    that corner already). Desktop/tablet/rail need the equivalent trigger in their own chrome
-			    (Sidebar.tsx / RailNav.tsx / TopBar.tsx) — see the run journal HANDOFF; those files are
-			    not this story's Owns. */}
+			    that corner already). Desktop and rail reach the same menu from the top bar; both triggers
+			    open the shell's one `HelpHost` (RC-UX-6.1). */}
 			<div
 				style={{
 					flex: '0 0 auto',
