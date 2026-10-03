@@ -32,6 +32,7 @@ import {
 	canvasKey,
 	enterTileContent,
 	frameKey,
+	isTileContentKey,
 	openGallery,
 	spatialNeighbour,
 	useDragOverlay,
@@ -56,7 +57,6 @@ import {
 	type ZoomPreset,
 } from './SceneBoardModel';
 export { ZOOM_PRESETS, ZOOM_PRESET_KEY, type ZoomPreset } from './SceneBoardModel';
-
 export { WidgetGlyph } from './canvas/WidgetFrame';
 import { srOnly } from './screen-kit';
 import { useI18n } from '../i18n';
@@ -582,7 +582,7 @@ export function SceneBoardCanvas({
 	const canvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
 		const target = e.target as HTMLElement | null;
 		if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
-		if (target?.closest('[data-tile-content]') && !target.hasAttribute('data-tile-content')) return;
+		if (isTileContentKey(e)) return;
 		const action = editing ? arrangeShortcut(e) : null;
 		if (action && (action.kind === 'select-all' || selection.length)) {
 			e.preventDefault();

@@ -8,6 +8,9 @@ import {
 import {
 	WIDGET_COUNTER_RESTORE_COMMAND,
 	buildWidgetCommandInverse,
+	buildWidgetInverse,
+	inferWidgetCommandExecutor,
+	widgetCommandHasExecutor,
 	dispatchCommand,
 	readWidgetCounter,
 	readWidgetLastRoll,
@@ -225,6 +228,23 @@ function widgetOf(t: Table, state: CoreStateSlice) {
 }
 
 describe('RC-WID-6.1: install refuses a template command that nothing can run', () => {
+	it.each(['constructor', 'toString', 'valueOf', '__proto__', 'hasOwnProperty'])(
+		'refuses inherited object member %s as an executor',
+		(verb) => {
+			const descriptor = command(verb, undefined);
+			expect(inferWidgetCommandExecutor(descriptor.type)).toBeNull();
+			expect(widgetCommandHasExecutor(descriptor)).toBe(false);
+			const state = buildInitialState(DM_ACTOR);
+			const result = install(state, templatePackage([descriptor]));
+			expect(result.status).toBe('rejected');
+			if (result.status !== 'rejected') return;
+			expect(result.rejection.issues).toEqual(
+				expect.arrayContaining([expect.objectContaining({ path: 'schema.command-no-executor' })]),
+			);
+			expect(() => structuredClone(state)).not.toThrow();
+		},
+	);
+
 	it('rejects a template widget declaring a command with no executor, naming the command', () => {
 		const result = install(
 			buildInitialState(DM_ACTOR),
@@ -410,14 +430,19 @@ describe('RC-WID-6.1: the per-instance counter', () => {
 		expect(result.status).toBe('rejected');
 	});
 
-	it('a counter press is undone by the counter restore the inverse builder returns', () => {
+	it.each([
+		{ verb: 'advance', payload: { by: 2 }, value: 7 },
+		{ verb: 'tick', payload: {}, value: 6 },
+		{ verb: 'reset', payload: {}, value: 0 },
+		{ verb: 'set-config', payload: { value: '12' }, value: 12 },
+	])('$verb is undoable through the public inverse builder', ({ verb, payload, value }) => {
 		const t = table();
 		const advanced = accept(press(t, t.state, 'advance', { by: 5 })).nextState;
-		const forward = pressCommand(t, advanced, 'advance', { by: 2 });
+		const forward = pressCommand(t, advanced, verb, payload);
 		const after = accept(dispatchCommand(advanced, env, forward)).nextState;
-		expect(readWidgetCounter(widgetOf(t, after).configuration)).toBe(7);
+		expect(readWidgetCounter(widgetOf(t, after).configuration)).toBe(value);
 
-		const inverse = buildWidgetCommandInverse(forward, advanced)!;
+		const inverse = buildWidgetInverse(forward, advanced)!.command;
 		expect(inverse.payload).toMatchObject({
 			commandType: WIDGET_COUNTER_RESTORE_COMMAND,
 			payload: { value: 5 },
@@ -425,9 +450,9 @@ describe('RC-WID-6.1: the per-instance counter', () => {
 		const undone = accept(dispatchCommand(after, env, inverse)).nextState;
 		expect(readWidgetCounter(widgetOf(t, undone).configuration)).toBe(5);
 		// …and the restore is itself undoable (redo).
-		const redo = buildWidgetCommandInverse(inverse, after)!;
+		const redo = buildWidgetInverse(inverse, after)!.command;
 		const redone = accept(dispatchCommand(undone, env, redo)).nextState;
-		expect(readWidgetCounter(widgetOf(t, redone).configuration)).toBe(7);
+		expect(readWidgetCounter(widgetOf(t, redone).configuration)).toBe(value);
 	});
 
 	it('offers no inverse for a press that is not a counter write', () => {

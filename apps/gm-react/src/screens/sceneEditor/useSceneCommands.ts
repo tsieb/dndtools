@@ -132,18 +132,21 @@ export function useSceneCommands({
 		payload: Record<string, unknown>,
 	) {
 		if (!scene) return;
-		return dispatch({
-			type: 'widget.dispatch-command',
-			actorId,
-			idempotencyKey: runtime.newId(),
-			payload: {
-				sceneId,
-				widgetInstanceId,
-				commandType,
-				payload,
-				expectedRevision: scene.ownership.revision,
+		return history.run(
+			{
+				type: 'widget.dispatch-command',
+				actorId,
+				idempotencyKey: runtime.newId(),
+				payload: {
+					sceneId,
+					widgetInstanceId,
+					commandType,
+					payload,
+					expectedRevision: scene.ownership.revision,
+				},
 			},
-		});
+			`Changed ${titleOf(widgetInstanceId)}`,
+		);
 	}
 	// SCENE METADATA (scene.update-metadata) — scenes are no longer permanently named at creation.
 	async function saveMetadata(meta: SceneMetadataDraft) {

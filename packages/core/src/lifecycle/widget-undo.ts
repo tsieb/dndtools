@@ -1,3 +1,4 @@
+import { buildWidgetCommandInverse } from '../commands/widget-command';
 import { undoableDuplicateWidgetInputSchema } from '../commands/widget';
 import type { ZodType } from 'zod';
 import type { CoreCommand, CoreStateSlice } from '../commands/types';
@@ -105,6 +106,10 @@ export function buildWidgetInverse(
 	const actorId = command.actorId;
 
 	switch (command.type) {
+		case 'widget.dispatch-command': {
+			const inverse = buildWidgetCommandInverse(command, stateBefore);
+			return inverse ? undoable(inverse, 'Changed widget counter') : null;
+		}
 		case 'scene.move-widget': {
 			const payload = parse(moveWidgetInputSchema, command.payload);
 			if (!payload) return null;

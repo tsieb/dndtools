@@ -83,3 +83,45 @@ Validation: core tsc + vitest 5213/5213; app tsc + vitest 1767/1767. Playwright 
 and mobile-chromium passes 71/71: `widget-commands` 4/4, plus widget-builder, widget-intents,
 starter-widgets, widget-generate, widget-trust-review, custom-widgets and widget-kit. Prettier and
 ESLint are clean on every changed file.
+
+## Independent-review repair — 2026-10-03
+
+The previous claim that acceptance was met without app undo integration was incorrect. This repair
+supersedes that claim and intentionally restores the necessary cross-file integration requested by
+independent review; it does not change dispatcher ownership or control state.
+
+- Executor inference now checks own properties and the closed executor enum before returning a
+  value. Regression cases cover constructor, toString, valueOf, **proto** and hasOwnProperty;
+  each is refused at install with schema.command-no-executor.
+- The public buildWidgetInverse delegates counter commands to buildWidgetCommandInverse. Both
+  actual press paths (scene editor and home board) now record accepted commands in useLayoutHistory.
+- History serializes consecutive writes before capturing their prior state and refreshes widget
+  command revisions and idempotency keys on undo/redo. An older inverse cannot be rejected merely
+  because intervening presses moved the scene revision or mistaken for an already-applied operation.
+- The canvas permits history shortcuts from panel buttons while preserving native text-field undo.
+  The phone's separate StackedBoard receives the same history, keyboard shortcuts and touch buttons.
+- Browser acceptance now covers both scene and home board, two presses, two undos, two redos and
+  another undo, on desktop and mobile. Desktop uses keyboard shortcuts; mobile uses touch controls.
+- Necessary integration paths beyond the original owned list: lifecycle/widget-undo.ts,
+  useLayoutHistory.ts, SceneBoardCanvas.tsx, canvas/keyboard.ts, StackedBoard.tsx, Board.tsx, and sceneEditor's index.tsx
+  and useSceneCommands.ts; regression tests accompany these changes. No unrelated files changed.
+
+Validation in progress: focused core 50/50 and app 67/67 passed. Initial checks exposed a queued-write
+microtask regression (fixed by awaiting only an existing write), the canvas key guard, and the
+missing mobile history path. Final browser, type and lint results will be recorded below. Headroom
+is not available in this tool inventory; native tool outputs and local log files are used directly.
+
+Final validation (native output inspected):
+
+- Core executor/inverse suites: 53/53, including all four counter verbs through buildWidgetInverse.
+- App history, templates and builder suites: 67/67; after extracting the canvas key guard into the
+  existing keyboard module, keyboard/history suites: 10/10.
+- Browser widget-commands plus canvas-keyboard: 10/10 across desktop-chromium/mobile-chromium,
+  including the keyboard-only axe check. Final widget-commands rerun after helper extraction: 6/6.
+- Core and app typechecks passed; ESLint on changed source/tests and Prettier passed.
+- Quality/docs gates passed. The added canvas guard initially exceeded the 800-line hard limit;
+  extraction into canvas/keyboard.ts restored the limit without a grandfather exception.
+- Full repository suites, build and pinned-container visual gate are left to the central operator's
+  post-commit gates and independent review, as requested; no prior-candidate gate result is claimed
+  as verification of this repair.
+- No push, promotion, additional agent, loop launch or dispatcher control-state mutation.

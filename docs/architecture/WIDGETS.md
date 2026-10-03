@@ -129,8 +129,10 @@ executing, so the panel and the core cannot disagree.
 the core-reserved `widget.counter-restore` command carrying the previous value, under the same pure
 (command, state before) contract as `buildWidgetInverse()`. The restore is reachable only on a widget
 that declares a counter command, under that command's authority. A roll, a shown message or a note
-line has no inverse. The table's buttons are not on the layout history yet, so nothing in the app
-offers this undo today.
+line has no inverse. `buildWidgetInverse()` delegates counter commands to this builder. Both the
+scene editor and home board record presses in their local history, exposing Ctrl+Z and redo from
+the panel's buttons in Standby. History serializes consecutive writes and refreshes the scene
+revision and idempotency key for each replay; the core still authorizes every restore.
 
 ## 3. Rendering
 

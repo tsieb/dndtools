@@ -35,116 +35,147 @@ async function openBuilder(page: Page) {
 }
 
 test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
-	test('a builder-made action panel rolls and advances in Standby with no error', async ({
-		page,
-	}) => {
-		const dialog = await openBuilder(page);
-		await dialog.getByLabel('Name', { exact: true }).fill('Bell ringer');
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
-		await dialog.getByLabel('Template kind').selectOption('action-panel');
-		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Roll', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Advance', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
-		await expect(dialog).toHaveCount(0);
+	for (const surface of ['scene', 'board'] as const) {
+		test(`a builder-made action panel rolls, advances and undoes in Standby on ${surface}`, async ({
+			page,
+			isMobile,
+		}) => {
+			const dialog = await openBuilder(page);
+			await dialog.getByLabel('Name', { exact: true }).fill('Bell ringer');
+			await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+			await dialog.getByLabel('Template kind').selectOption('action-panel');
+			await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
+			await dialog.getByRole('button', { name: 'Roll', exact: true }).click();
+			await dialog.getByRole('button', { name: 'Advance', exact: true }).click();
+			await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+			await dialog.getByRole('button', { name: 'Install widget' }).click();
+			await expect(dialog).toHaveCount(0);
 
-		// What was installed: each command names what runs it, and Roll brought its formula.
-		const widget = await page.evaluate(
-			() =>
-				window.__rt!.state.widgets.packages['workspace.bell-ringer']?.package.widgets[0] as
-					| {
-							commands: Array<{ type: string; executor?: string }>;
-							configFields?: Array<{ key: string; default?: unknown }>;
-					  }
-					| undefined,
-		);
-		expect(widget?.commands.map((command) => [command.type, command.executor])).toEqual([
-			['bell-ringer.roll', 'roll'],
-			['bell-ringer.advance', 'advance'],
-		]);
-		expect(widget?.configFields?.find((field) => field.key === 'formula')?.default).toBe('1d20');
-
-		await page.getByRole('switch', { name: 'Enable Bell ringer' }).click();
-		await expect
-			.poll(() =>
-				page.evaluate(
-					() => window.__rt!.state.widgets.packages['workspace.bell-ringer']?.enabled ?? false,
-				),
-			)
-			.toBe(true);
-
-		// ── Place it on a scene.
-		const sceneName = `Bell Tower ${Date.now()}`;
-		const created = await dispatch(page, {
-			type: 'scene.create',
-			actorId: await actorId(page),
-			payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
-		});
-		expect(created.status, created.rejection?.message ?? '').toBe('accepted');
-		const sceneId = await page.evaluate(
-			(name) =>
-				Object.values(window.__rt!.state.scenes.scenes).find((scene) => scene.name === name)?.id ??
-				null,
-			sceneName,
-		);
-		expect(sceneId).toBeTruthy();
-		const added = await dispatch(page, {
-			type: 'scene.add-widget',
-			actorId: await actorId(page),
-			payload: {
-				sceneId,
-				widget: {
-					type: 'bell-ringer',
-					version: '1.0.0',
-					layout: { x: 40, y: 40, w: 360, h: 240 },
-					configuration: {},
-					localState: {},
-					binding: null,
-				},
-			},
-		});
-		expect(added.status, added.rejection?.message ?? '').toBe('accepted');
-		const widgetOnScene = () =>
-			page.evaluate(
-				(id) =>
-					(window.__rt!.state.scenes.scenes[id!]!.widgets as unknown as WidgetLite[]).find(
-						(candidate) => candidate.type === 'bell-ringer',
-					) ?? null,
-				sceneId,
+			// What was installed: each command names what runs it, and Roll brought its formula.
+			const widget = await page.evaluate(
+				() =>
+					window.__rt!.state.widgets.packages['workspace.bell-ringer']?.package.widgets[0] as
+						| {
+								commands: Array<{ type: string; executor?: string }>;
+								configFields?: Array<{ key: string; default?: unknown }>;
+						  }
+						| undefined,
 			);
-		const widgetId = (await widgetOnScene())!.id;
+			expect(widget?.commands.map((command) => [command.type, command.executor])).toEqual([
+				['bell-ringer.roll', 'roll'],
+				['bell-ringer.advance', 'advance'],
+			]);
+			expect(widget?.configFields?.find((field) => field.key === 'formula')?.default).toBe('1d20');
 
-		// ── Standby: the session was never started.
-		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
-		await gotoRoute(page, `/scene/${sceneId}`);
-		const panel = page.getByTestId(`widget-${widgetId}`);
-		// A first click that is also the page's first gesture can land mid-relayout (the audio
-		// autoplay retry); a key press takes the first gesture instead.
-		await page.keyboard.press('Shift');
+			await page.getByRole('switch', { name: 'Enable Bell ringer' }).click();
+			await expect
+				.poll(() =>
+					page.evaluate(
+						() => window.__rt!.state.widgets.packages['workspace.bell-ringer']?.enabled ?? false,
+					),
+				)
+				.toBe(true);
 
-		const rollsBefore = await page.evaluate(() => window.__rt!.state.session.diceHistory.length);
-		await panel.getByRole('button', { name: 'Roll', exact: true }).click();
-		await expect(panel.getByText(/^Rolled 1d20: \d+$/)).toBeVisible();
-		await expect
-			.poll(() => page.evaluate(() => window.__rt!.state.session.diceHistory.length))
-			.toBe(rollsBefore + 1);
-		const roll = await page.evaluate(() => window.__rt!.state.session.diceHistory.at(-1)!);
-		expect(roll.expression).toBe('1d20');
-		await expect(panel.getByText(`Rolled 1d20: ${roll.total}`, { exact: true })).toBeVisible();
+			// ── Place it on a scene.
+			const sceneName = `Bell Tower ${Date.now()}`;
+			const created = await dispatch(page, {
+				type: 'scene.create',
+				actorId: await actorId(page),
+				payload: { name: sceneName, description: '', visibility: 'dm-only', tags: [] },
+			});
+			expect(created.status, created.rejection?.message ?? '').toBe('accepted');
+			let sceneId = await page.evaluate(
+				(name) =>
+					Object.values(window.__rt!.state.scenes.scenes).find((scene) => scene.name === name)
+						?.id ?? null,
+				sceneName,
+			);
+			if (surface === 'board') {
+				const home = await dispatch(page, {
+					type: 'command-center.ensure-home',
+					actorId: await actorId(page),
+					payload: {},
+				});
+				expect(home.status).toBe('accepted');
+				sceneId = await page.evaluate(() => window.__rt!.state.commandCenter.homeSceneId);
+			}
+			expect(sceneId).toBeTruthy();
+			const added = await dispatch(page, {
+				type: 'scene.add-widget',
+				actorId: await actorId(page),
+				payload: {
+					sceneId,
+					widget: {
+						type: 'bell-ringer',
+						version: '1.0.0',
+						layout: { x: 40, y: 40, w: 360, h: 240 },
+						configuration: {},
+						localState: {},
+						binding: null,
+					},
+				},
+			});
+			expect(added.status, added.rejection?.message ?? '').toBe('accepted');
+			const widgetOnScene = () =>
+				page.evaluate(
+					(id) =>
+						(window.__rt!.state.scenes.scenes[id!]!.widgets as unknown as WidgetLite[]).find(
+							(candidate) => candidate.type === 'bell-ringer',
+						) ?? null,
+					sceneId,
+				);
+			const widgetId = (await widgetOnScene())!.id;
 
-		await expect(panel.getByText('Count: 0', { exact: true })).toBeVisible();
-		await panel.getByRole('button', { name: 'Advance', exact: true }).click();
-		await expect(panel.getByText('Count: 1', { exact: true })).toBeVisible();
-		await expect
-			.poll(async () => (await widgetOnScene())?.configuration['executor.counter'])
-			.toBe(1);
+			// ── Standby: the session was never started.
+			expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+			await gotoRoute(page, surface === 'board' ? '/board' : `/scene/${sceneId}`);
+			const panel = page.getByTestId(`widget-${widgetId}`);
+			// A first click that is also the page's first gesture can land mid-relayout (the audio
+			// autoplay retry); a key press takes the first gesture instead.
+			await page.keyboard.press('Shift');
 
-		// No error banner, and still in Standby.
-		await expect(page.getByRole('alert')).toHaveCount(0);
-		await expect(page.locator('main')).not.toContainText('has no reducer');
-		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
-	});
+			const rollsBefore = await page.evaluate(() => window.__rt!.state.session.diceHistory.length);
+			await panel.getByRole('button', { name: 'Roll', exact: true }).click();
+			await expect(panel.getByText(/^Rolled 1d20: \d+$/)).toBeVisible();
+			await expect
+				.poll(() => page.evaluate(() => window.__rt!.state.session.diceHistory.length))
+				.toBe(rollsBefore + 1);
+			const roll = await page.evaluate(() => window.__rt!.state.session.diceHistory.at(-1)!);
+			expect(roll.expression).toBe('1d20');
+			await expect(panel.getByText(`Rolled 1d20: ${roll.total}`, { exact: true })).toBeVisible();
+
+			await expect(panel.getByText('Count: 0', { exact: true })).toBeVisible();
+			await panel.getByRole('button', { name: 'Advance', exact: true }).click();
+			await expect(panel.getByText('Count: 1', { exact: true })).toBeVisible();
+			await expect
+				.poll(async () => (await widgetOnScene())?.configuration['executor.counter'])
+				.toBe(1);
+
+			// Consecutive presses must each keep their own inverse. Replaying old scene revisions
+			// or idempotency keys would reject or silently skip the second undo/redo cycle.
+			await panel.getByRole('button', { name: 'Advance', exact: true }).click();
+			await expect(panel.getByText('Count: 2', { exact: true })).toBeVisible();
+			await panel.getByRole('button', { name: 'Advance', exact: true }).focus();
+			for (const count of [1, 0]) {
+				if (isMobile) await page.getByRole('button', { name: /^Undo changed/ }).click();
+				else await page.keyboard.press('Control+z');
+				await expect(panel.getByText(`Count: ${count}`, { exact: true })).toBeVisible();
+			}
+			for (const count of [1, 2]) {
+				if (isMobile) await page.getByRole('button', { name: /^Redo changed/ }).click();
+				else await page.keyboard.press('Control+Shift+z');
+				await expect(panel.getByText(`Count: ${count}`, { exact: true })).toBeVisible();
+			}
+			if (isMobile) await page.getByRole('button', { name: /^Undo changed/ }).click();
+			else await page.keyboard.press('Control+z');
+			await expect(panel.getByText('Count: 1', { exact: true })).toBeVisible();
+
+			// No error banner, and still in Standby.
+			await expect(page.getByRole('alert')).toHaveCount(0);
+			await expect(page.locator('main')).not.toContainText('has no reducer');
+			expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
+		});
+	}
 
 	test('a blank command is named on the Commands step and cannot pass Review', async ({ page }) => {
 		const dialog = await openBuilder(page);

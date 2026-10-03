@@ -146,6 +146,28 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 }
 
 describe('useLayoutHistory', () => {
+	it('captures each pre-dispatch state when consecutive writes overlap persistence', async () => {
+		const t = harness();
+		const startX = t.layout().x;
+		const move = (x: number): CoreCommand => ({
+			type: 'scene.move-widget',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId: t.sceneId, widgetInstanceId: t.widgetId, x, y: 0 },
+		});
+		await act(async () => {
+			const first = t.history.run(move(startX + 10), 'First move');
+			const second = t.history.run(move(startX + 20), 'Second move');
+			expect(await first).toBe(true);
+			expect(await second).toBe(true);
+		});
+		for (const x of [startX + 10, startX]) {
+			await act(async () => {
+				expect(await t.history.undo()).toBe(true);
+			});
+			expect(t.layout().x).toBe(x);
+		}
+	});
+
 	it('undoes a resize back to the exact size the widget had, and announces it', async () => {
 		const t = harness();
 		const before = { w: t.layout().w, h: t.layout().h };

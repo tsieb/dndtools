@@ -309,7 +309,9 @@ const EXECUTOR_BY_VERB: Readonly<Record<string, WidgetCommandExecutor>> = Object
  */
 export function inferWidgetCommandExecutor(commandType: string): WidgetCommandExecutor | null {
 	const verb = commandType.slice(commandType.lastIndexOf('.') + 1);
-	return EXECUTOR_BY_VERB[verb] ?? null;
+	if (!Object.prototype.hasOwnProperty.call(EXECUTOR_BY_VERB, verb)) return null;
+	const executor = EXECUTOR_BY_VERB[verb];
+	return executor !== undefined && WIDGET_COMMAND_EXECUTORS.includes(executor) ? executor : null;
 }
 
 /** The counter on a placed widget; 0 until something has moved it. */

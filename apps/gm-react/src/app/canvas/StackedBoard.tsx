@@ -14,6 +14,7 @@ import type { SceneBoardCanvasProps } from '../SceneBoardModel';
 import { useDirection } from '../useViewport';
 import { tileMetadataForWidget } from '../widgets/tileMeta';
 import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
+import type { LayoutHistory } from './useLayoutHistory';
 import { WidgetGlyph } from './WidgetFrame';
 import {
 	PREFERENCE_KEYS,
@@ -137,6 +138,7 @@ export interface StackedBoardProps {
 	sceneId: string | null | undefined;
 	widgets: BoardWidget[];
 	onWidgetCommand?: SceneBoardCanvasProps['onWidgetCommand'];
+	history?: LayoutHistory;
 	emptyTitle: string;
 	emptyHint: string;
 	onMaximizedChange?: (maximized: boolean) => void;
@@ -152,6 +154,7 @@ function StackedList({
 	sceneId,
 	widgets,
 	onWidgetCommand,
+	history,
 	emptyTitle,
 	emptyHint,
 	onMaximizedChange,
@@ -223,9 +226,38 @@ function StackedList({
 		<div
 			ref={listRef}
 			data-testid="stacked-board"
+			onKeyDown={(e) => {
+				if (!history || e.defaultPrevented || e.altKey || !(e.ctrlKey || e.metaKey)) return;
+				if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable="true"]'))
+					return;
+				const key = e.key.toLowerCase();
+				if (key === 'z' && !e.shiftKey) {
+					e.preventDefault();
+					void history.undo();
+				} else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+					e.preventDefault();
+					void history.redo();
+				}
+			}}
 			data-fullscreen={maximized ?? undefined}
 			style={{ ...LIST, overflowY: maximized ? 'hidden' : 'auto' }}
 		>
+			{history && (history.canUndo || history.canRedo) && (
+				<div>
+					<IconButton
+						icon="undo"
+						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+						disabled={!history.canUndo}
+						onClick={() => void history.undo()}
+					/>
+					<IconButton
+						icon="redo"
+						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+						disabled={!history.canRedo}
+						onClick={() => void history.redo()}
+					/>
+				</div>
+			)}
 			{ordered.map((w) => (
 				<StackedTile
 					key={w.id}

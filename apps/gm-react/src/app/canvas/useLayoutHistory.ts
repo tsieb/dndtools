@@ -237,6 +237,21 @@ function lastPerWidget(commands: readonly CoreCommand[]): CoreCommand[] {
 	});
 }
 
+/** History replay is a new operation against the current revision, never an idempotent retry. */
+function prepareWidgetCommand(command: CoreCommand, state: CoreStateSlice): CoreCommand {
+	if (command.type !== 'widget.dispatch-command') return command;
+	const payload = command.payload as { sceneId: string; expectedRevision: number };
+	return {
+		...command,
+		idempotencyKey: crypto.randomUUID(),
+		payload: {
+			...payload,
+			expectedRevision:
+				state.scenes.scenes[payload.sceneId]?.ownership.revision ?? payload.expectedRevision,
+		},
+	};
+}
+
 export function useLayoutHistory(options: {
 	/** The scene the stack belongs to. A change clears it. `null` disables recording. */
 	sceneId: string | null;
@@ -374,13 +389,14 @@ export function useLayoutHistory(options: {
 				// Read the state BEFORE dispatching: every layout command overwrites its field outright,
 				// so the value to restore only exists in the state the command was dispatched against.
 				const stateBefore = runtime.state;
-				const ok = await dispatch(command);
+				const prepared = prepareWidgetCommand(command, stateBefore);
+				const ok = await dispatch(prepared);
 				if (!ok) return false;
 				if (!sceneId) return true;
-				const inverse = inverseCommands(command, stateBefore, runtime.state);
+				const inverse = inverseCommands(prepared, stateBefore, runtime.state);
 				// Honestly not undoable (`scene.group-widgets` mints a group id no command can take
 				// back): leave the stack alone rather than pushing a wrong inverse.
-				if (inverse) remember(command, inverse, label, burst);
+				if (inverse) remember(prepared, inverse, label, burst);
 				return true;
 			});
 		},
@@ -420,8 +436,9 @@ export function useLayoutHistory(options: {
 			commands: readonly CoreCommand[],
 		): Promise<{ ok: boolean; inverse: CoreCommand[] | null }> => {
 			let inverse: CoreCommand[] | null = [];
-			for (const command of commands) {
+			for (const queued of commands) {
 				const before = runtime.state;
+				const command = prepareWidgetCommand(queued, before);
 				const claim: Claim = { command, label: null, burst: null };
 				if (PLACING.has(command.type)) claimsRef.current.push(claim);
 				try {

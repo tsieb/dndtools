@@ -336,18 +336,21 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		payload: Record<string, unknown>,
 	) {
 		if (!homeSceneId) return;
-		const ok = await dispatch({
-			type: 'widget.dispatch-command',
-			actorId,
-			idempotencyKey: crypto.randomUUID(),
-			payload: {
-				sceneId: homeSceneId,
-				widgetInstanceId,
-				commandType,
-				payload,
-				expectedRevision: sceneRevision,
+		const ok = await history.run(
+			{
+				type: 'widget.dispatch-command',
+				actorId,
+				idempotencyKey: crypto.randomUUID(),
+				payload: {
+					sceneId: homeSceneId,
+					widgetInstanceId,
+					commandType,
+					payload,
+					expectedRevision: sceneRevision,
+				},
 			},
-		});
+			`Changed ${titleOf(widgetInstanceId)}`,
+		);
 		if (ok) setStatus(null);
 	}
 	// RC-CAN-4.1: the gallery chooses the slot (the first open spot on the board's columns, where the
@@ -564,6 +567,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 				<div style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}>
 					{posture.stacked ? (
 						<StackedBoard
+							history={history}
 							sceneId={homeSceneId}
 							widgets={widgets}
 							onWidgetCommand={operateWidget}

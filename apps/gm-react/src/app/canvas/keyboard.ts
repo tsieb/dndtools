@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent,
+	type RefObject,
+} from 'react';
 import { omitKey, ZOOM_KEY, type ZoomPreset } from '../SceneBoardModel';
 
 /** Metadata order is authoritative; ignore stale/duplicate ids and include newly mounted tiles. */
@@ -106,6 +114,18 @@ const CONTENT_CONTROL =
 export function enterTileContent(frame: HTMLElement): void {
 	const content = frame.querySelector<HTMLElement>('[data-tile-content]');
 	(content?.querySelector<HTMLElement>(CONTENT_CONTROL) ?? content)?.focus();
+}
+
+/** Leave content keys with the widget, but let panel buttons reach the canvas undo history. */
+export function isTileContentKey(e: KeyboardEvent): boolean {
+	const target = e.target as HTMLElement | null;
+	const historyShortcut =
+		(e.ctrlKey || e.metaKey) && !e.altKey && ['z', 'y'].includes(e.key.toLowerCase());
+	return (
+		!!target?.closest('[data-tile-content]') &&
+		!target.hasAttribute('data-tile-content') &&
+		!historyShortcut
+	);
 }
 
 /** A canvas key that needs no tile: a named zoom step, a step through them, undo or redo. */

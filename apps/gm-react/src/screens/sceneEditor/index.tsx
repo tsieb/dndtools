@@ -327,6 +327,7 @@ export function SceneEditor() {
 					>
 						{posture.stacked ? (
 							<StackedBoard
+								history={history}
 								sceneId={id}
 								widgets={widgets}
 								onWidgetCommand={commands.operateWidget}
