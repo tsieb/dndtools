@@ -17,6 +17,11 @@ esac
 fail() {
 	echo "Android emulator acceptance failed: $*" >&2
 	adb shell dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' >&2 || true
+	# The accessibility tree the last helper saw: which labels and bounds were actually on screen.
+	echo 'UI hierarchy at failure:' >&2
+	{ dump_ui 2>/dev/null || true; } | sed 's/></>\n</g' | grep -F 'bounds="' \
+		| sed -E 's/ (index|resource-id|package|focusable|focused|long-clickable|password|selected)="[^"]*"//g' \
+		| cut -c1-400 | head -200 >&2 || true
 	adb shell dumpsys activity activities 2>/dev/null | tail -120 >&2 || true
 	adb logcat -d -t 300 '*:E' >&2 || true
 	# The ANR report (reason, pending event, CPU load) is usually older than the last 300 lines.
@@ -315,18 +320,62 @@ tap_ui_button_until_text() {
 # Coordinates still come from the matching accessibility node, never from a fixed screen position.
 tap_ui_control() {
 	local label=$1
-	local node bounds left top right bottom
-	node=$(dump_ui | sed 's/></>\n</g' \
-		| grep -E 'clickable="true"|class="android.widget.CheckedTextView"' \
+	local ui match n node region bounds left top right bottom scroll_top scroll_bottom height
+	ui=$(dump_ui | sed 's/></>\n</g')
+	match=$(grep -nE 'clickable="true"|class="android.widget.CheckedTextView"' <<<"$ui" \
 		| grep -F 'enabled="true"' | grep -F "$label" | tail -1 || true)
-	[[ -n "$node" ]] || return 1
+	[[ -n "$match" ]] || return 1
+	n=${match%%:*}
+	node=${match#*:}
 	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
 	read -r left top right bottom <<<"$bounds"
 	[[ -n "${bottom:-}" ]] || return 1
 	# An offscreen WebView node keeps bounds collapsed at the clipping edge (see tap_ui_button).
 	((right > left && bottom > top)) || return 1
+	# A node inside a scroll region can be reported whole while the sticky top bar covers most of it:
+	# the Settings section picker read [198,327] under a scroll region starting at 306, and its centre
+	# landed on the header. Clip to the innermost scrolling ancestor and refuse a sliver, so
+	# tap_ui_scrolling reveals more of the control before the tap.
+	region=$(awk -v n="$n" '
+		/^<node / {
+			depth++
+			if ($0 ~ /scrollable="true"/) scroll[depth] = $0; else delete scroll[depth]
+		}
+		NR == n { for (d = depth - 1; d >= 1; d--) if (d in scroll) { print scroll[d]; exit } }
+		/^<node .*\/>$/ || /^<\/node>/ { delete scroll[depth]; depth-- }
+	' <<<"$ui")
+	if [[ -n "$region" ]]; then
+		read -r _ scroll_top _ scroll_bottom < <(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$region")
+		height=$((bottom - top))
+		((top < scroll_top)) && top=$scroll_top
+		((bottom > scroll_bottom)) && bottom=$scroll_bottom
+		((bottom - top >= height || bottom - top >= 96)) || return 1
+	fi
 	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
 	sleep 0.25
+}
+
+# Choose an Experience complexity card and confirm the choice took. The WebView does not surface the
+# cards' aria-checked as checked="true" (API 36), so confirm through the panel's status badge, the
+# only node whose text is exactly the level name (each card's text runs on into its blurb). Tap the
+# card's leading row rather than its centre: a tall card scrolled in from the bottom is only partly
+# revealed, and the centre of that clipped box can sit under the fixed bottom navigation.
+choose_experience_level() {
+	local label=$1
+	local ui node bounds left top right bottom
+	ui=$(dump_ui | sed 's/></>\n</g')
+	grep -qF "text=\"$label\"" <<<"$ui" && return 0
+	node=$(grep -F 'clickable="true"' <<<"$ui" | grep -F 'enabled="true"' \
+		| grep -F "text=\"$label " | tail -1 || true)
+	[[ -n "$node" ]] || return 1
+	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
+	read -r left top right bottom <<<"$bounds"
+	[[ -n "${bottom:-}" ]] || return 1
+	# Too little of the card is on screen to tap its leading row safely; scroll further first.
+	((right > left && bottom - top >= 96)) || return 1
+	adb shell input tap "$(((left + right) / 2))" "$((top + 48))"
+	sleep 0.5
+	dump_ui | grep -qF "text=\"$label\""
 }
 
 wait_for_ui_control_enabled() {
@@ -494,7 +543,8 @@ wait_for_ui_text 'Settings section' || fail 'Settings destination did not render
 # A fresh install reads Settings at the Beginner tier, which leaves Backup & history out of the
 # section picker (RC-UX-5.2). Choose Expert at the bottom of Appearance, as a user would, then
 # return to the picker at the top of the page.
-tap_ui_scrolling tap_ui_control 'Expert' down || fail 'Expert experience level was not reachable'
+tap_ui_scrolling choose_experience_level 'Expert' down \
+	|| fail 'Expert experience level was not reachable'
 tap_ui_scrolling tap_ui_control 'Settings section' up \
 	|| fail 'Settings section selector was not reachable'
 wait_for_ui_text 'Backup' || fail 'Settings section choices did not open'

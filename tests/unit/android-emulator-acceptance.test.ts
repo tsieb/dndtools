@@ -169,16 +169,129 @@ describe('Android emulator acceptance gate', () => {
 		// RC-UX-5.2 hides Backup & history below the advanced tier, and a fresh install starts at
 		// Beginner, so the section picker has no Backup choice until the level is raised.
 		const lines = fs.readFileSync(scriptPath, 'utf-8').split('\n');
-		const expert = lines.findIndex((line) =>
-			line.startsWith("tap_ui_scrolling tap_ui_control 'Expert' down"),
-		);
-		const picker = lines.findIndex((line) =>
-			line.startsWith("tap_ui_scrolling tap_ui_control 'Settings section' up"),
-		);
-		const backup = lines.findIndex((line) => line.startsWith("tap_ui_control 'Backup'"));
+		const at = (prefix: string, from = 0) =>
+			lines.findIndex((line, i) => i >= from && line.startsWith(prefix));
+		const expert = at("tap_ui_scrolling choose_experience_level 'Expert' down");
+		const picker = at("tap_ui_scrolling tap_ui_control 'Settings section' up", expert);
+		const backup = at("tap_ui_control 'Backup'", picker);
 		expect(expert).toBeGreaterThan(-1);
-		expect(picker).toBeGreaterThan(expert);
-		expect(backup).toBeGreaterThan(picker);
+		expect(picker).toBe(expert + 2);
+		expect(backup).toBe(picker + 3);
+	});
+
+	it('scrolls a control out from under the sticky header before tapping it', () => {
+		// The API 36 dump that failed: the picker reported [198,327] while its scroll region starts
+		// at 306, so its centre (262) was on the top bar and the native dropdown never opened.
+		const source = fs.readFileSync(scriptPath, 'utf-8');
+		const helpers = ['tap_ui_control', 'tap_ui_scrolling'].map((name) => {
+			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
+			expect(match, `missing helper ${name}`).not.toBeNull();
+			return match?.[0] ?? '';
+		});
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-sticky-'));
+		try {
+			const tree = (picker: string) =>
+				[
+					'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">',
+					'<node text="" class="android.webkit.WebView" scrollable="false" enabled="true" bounds="[0,128][1080,2339]">',
+					'<node text="Settings" class="android.widget.TextView" clickable="false" enabled="true" bounds="[28,191][769,243]" />',
+					'<node text="" class="android.view.View" scrollable="true" enabled="true" bounds="[0,306][1080,1989]">',
+					'<node text="Settings navigation" class="android.view.View" enabled="true" bounds="[34,198][1021,327]">',
+					`<node text="Appearance" class="android.view.View" clickable="true" enabled="true" bounds="${picker}" hint="Settings section" />`,
+					'</node>',
+					'</node>',
+					'<node text="Home" class="android.widget.Button" clickable="true" enabled="true" bounds="[7,2191][223,2330]" />',
+					'</node>',
+					'</hierarchy>',
+				].join('');
+			fs.writeFileSync(path.join(dir, 'before.xml'), tree('[34,198][1021,327]'));
+			fs.writeFileSync(path.join(dir, 'after.xml'), tree('[34,330][1021,459]'));
+			const result = spawnSync(
+				'bash',
+				[
+					'-c',
+					[
+						'set -Eeuo pipefail',
+						'dump_ui() { if [[ -f scrolled ]]; then cat after.xml; else cat before.xml; fi; }',
+						'adb() { echo "$*"; if [[ "$3" == swipe ]]; then touch scrolled; fi; }',
+						'sleep() { :; }',
+						...helpers,
+						"tap_ui_scrolling tap_ui_control 'Settings section' up",
+					].join('\n'),
+				],
+				{ cwd: dir, encoding: 'utf-8' },
+			);
+			expect(result.status, result.stderr).toBe(0);
+			expect(result.stdout.trim().split('\n')).toEqual([
+				'shell input swipe 540 726 540 1568 300',
+				'shell input tap 527 394',
+			]);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	describe('choose_experience_level', () => {
+		const run = (states: string[]) => {
+			const source = fs.readFileSync(scriptPath, 'utf-8');
+			const helper = /^choose_experience_level\(\) \{\n[\s\S]*?^\}$/m.exec(source)?.[0];
+			expect(helper).toBeTruthy();
+			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-level-'));
+			try {
+				states.forEach((xml, i) => fs.writeFileSync(path.join(dir, `${i}.xml`), xml));
+				const result = spawnSync(
+					'bash',
+					[
+						'-c',
+						[
+							'set -Eeuo pipefail',
+							// Each dump returns the next recorded state, holding at the last one.
+							`dump_ui() { local n; n=$(cat n 2>/dev/null || echo 0); cat "$n.xml"; ((n < ${states.length - 1})) && echo $((n + 1)) > n; return 0; }`,
+							'adb() { echo "$*"; }',
+							'sleep() { :; }',
+							helper,
+							"choose_experience_level 'Expert'",
+						].join('\n'),
+					],
+					{ cwd: dir, encoding: 'utf-8' },
+				);
+				return { status: result.status, events: result.stdout.trim(), stderr: result.stderr };
+			} finally {
+				fs.rmSync(dir, { recursive: true, force: true });
+			}
+		};
+		// Shaped on the API 36 dump: the panel badge names the active level exactly, each card's
+		// text runs on into its blurb, and aria-checked never surfaces as checked="true".
+		const screen = (active: string, bounds: string) =>
+			`<hierarchy><node text="${active}" class="android.widget.TextView" checked="false" clickable="false" enabled="true" bounds="[850,128][955,128]" /><node text="Expert Everything on, nothing hidden" class="android.widget.Button" checked="false" clickable="true" enabled="true" bounds="${bounds}" /></hierarchy>`;
+
+		it('taps the leading row of a card clipped by the fold and confirms it through the badge', () => {
+			// Only the top 300px of the card is revealed: its centre (2050) is where the bottom
+			// navigation sits, so the tap must land near the top edge instead.
+			const result = run([
+				screen('Beginner', '[55,1900][1025,2200]'),
+				screen('Expert', '[55,1900][1025,2200]'),
+			]);
+			expect(result.status, result.stderr).toBe(0);
+			expect(result.events).toBe('shell input tap 540 1948');
+		});
+
+		it('fails when the tap did not change the level', () => {
+			const result = run([screen('Beginner', '[55,1000][1025,1500]')]);
+			expect(result.events).toBe('shell input tap 540 1048');
+			expect(result.status).toBe(1);
+		});
+
+		it('does not tap a sliver of a card and leaves an already-chosen level alone', () => {
+			expect(run([screen('Beginner', '[55,2150][1025,2200]')])).toMatchObject({
+				status: 1,
+				events: '',
+			});
+			expect(run([screen('Expert', '[55,1000][1025,1500]')])).toMatchObject({
+				status: 0,
+				events: '',
+			});
+		});
 	});
 
 	it('fails closed across install, lifecycle, native surfaces, persistence, Back, and same-key upgrade checks', () => {
