@@ -12,9 +12,9 @@ additional agent.
   `T.radius.*` (ties round up, as RC-POL-1.11 did: 10→`space-3`, 14→`space-4`). The one raw colour,
   the QR image's `#fff` padding, is gone: `qrDataUrl` already draws a four-module white quiet zone.
   Every owned entry left `scripts/eslint-rules/no-raw-style-values.allow.js` (966 → 727 total).
-- File size: `app/ConnectedSources.tsx` 885 → 481 (its pull/push controller moved to
-  `useConnectedSources` in the owned `connectedSourcesVocab.ts`, 496), `AiProvider.tsx` 547 → 486
-  (preset card → `AiPresets.tsx`), `Sync.tsx` 510 → 365 (local backup → `LocalBackup.tsx`).
+- File size: `app/ConnectedSources.tsx` 885 → 488 (its pull/push controller moved to
+  `useConnectedSources` in the owned `connectedSourcesVocab.ts`, 496), `AiProvider.tsx` 547 → 488
+  (preset card → `AiPresets.tsx`), `Sync.tsx` 510 → 364 (local backup → `LocalBackup.tsx`).
 - Two hard-coded English strings in the push flow moved into the catalog (EN + ES).
 - Contrast: an all-theme `color-contrast` probe of `#main-content` on every category found
   parchment tertiary text (4.49:1 on the raised surface) and scholar tertiary-on-tint (4.28:1).
@@ -41,7 +41,10 @@ additional agent.
   open the Sources panel they name. That file belongs to RC-POL-1.11 (landed); the edit is additive
   and mirrors the existing `create` intent.
 - Specs updated for copy changes: `cloud-enhanced-honest-limit.spec.ts` (curly quotes in the
-  Settings consent label) and `ai-proposal-conflict.spec.ts` (typographic apostrophe).
+  Settings consent label), `ai-proposal-conflict.spec.ts` (typographic apostrophe) and
+  `markdown-folder.spec.ts` ("Imported 1 note." is now singular). An early edit to
+  `golden-path.spec.ts` was wrong (onboarding has its own straight-quoted label) and was reverted
+  before the commit.
 
 ## §20.2 Design fidelity
 
@@ -161,3 +164,48 @@ additional agent.
       code between modules without new queries or network calls.
 - [x] Docs: FEATURE-GAPS inventory row updated; architecture doc updated if a contract moved. — Row
       lists `settings-polish.spec.ts` and the Recent-changes language limit. No core contract moved.
+
+## Verification (on `c724f230` + `da199c8a`, base `2450f59c`; `loop/rc` unchanged)
+
+Raw logs stay outside the tree in `/tmp/pol117-*.log`. Two background runs were cut off when the
+worker session ended (a 958-test e2e sweep at 395 and a full visual run at 24); both were re-run in
+foreground chunks below rather than counted.
+
+- New `settings-polish.spec.ts`, both profiles: first runs failed on the spec's own mistakes (mobile
+  category switching, a race on the lossy-export dialog, the consent dialog being an `alertdialog`,
+  a DM-only scene in the projection test) and on one real defect, About overflowing by 17px at 200%
+  text on the phone (fixed: rem column minimum, wrapping values). Now green with the rest of chunk 1.
+- E2E, desktop-chromium + mobile-chromium, `--workers=3 --retries=1`:
+  - settings-polish, settings, settings-tiers, permissions, co-dm, push-notifications,
+    cloud-enhanced-honest-limit, backup-restore, sync, markdown-folder: **78 passed**.
+  - ai-assistant, ai-audit-browser, ai-batch-review, ai-local-models, ai-proposal-conflict,
+    ai-proposal-preview, a11y-axe-gate, route-titles, help-tips, themes, golden-path, upgrade:
+    **194 passed, 6 skipped** (existing per-profile skips).
+  - knowledge, knowledge-filters, knowledge-polish, knowledge-reading-width, knowledge-templates,
+    local-vaults, demo-vault, storage-integrity, shortcuts, command-palette: **138 passed, 2 skipped**.
+  - responsive, widget-generate, dice-tray, canvas, knowledge-reading-width: **268 passed**.
+- Visual, the gate's own command split by tier (`run-in-container.sh --update-snapshots=none
+--workers=2 --project=…`): desktop **156 passed**, rail **156 passed**, phone **156 passed**.
+  Re-baselined in the container with `-g settings --update-snapshots=changed` (9 goldens changed,
+  15 new crops), reviewed as contact sheets, then losslessly re-deflated (decoded rows asserted
+  identical; 1,410,792 → 1,352,474 B). `check-baseline-budget.mjs`: **643 files, 32,180.4 KiB of
+  32,768.0 KiB** (base 31,985.6).
+- `pnpm gates`: exit 0; 30 file-size warnings, **none for an owned file** (owned maximum 496 lines,
+  `connectedSourcesVocab.ts`; then `ConnectedSources.tsx` and `AiProvider.tsx` at 488).
+- `pnpm lint` (raw-style count, ESLint, boundary, emphasis, contrast): exit 0, 0 errors.
+- `pnpm typecheck`, `pnpm build` (incl. `check-prod-bundle`), `pnpm feature-audit` (42 limits,
+  0 stale), `pnpm format:check:changed --base loop/rc`: all exit 0.
+- `pnpm test:app --maxWorkers=3`: **161 files, 1,767 tests passed** (includes the pseudo-catalog,
+  i18n argument and token-reference checks).
+
+### Reproduction
+
+```sh
+cd apps/gm-react
+DNDTOOLS_E2E_PORT=5392 npx playwright test tests/e2e/settings-polish.spec.ts --workers=3
+cd ../.. && bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2
+node apps/gm-react/tests/visual/check-baseline-budget.mjs
+pnpm gates && pnpm lint && pnpm typecheck && pnpm test:app --maxWorkers=3
+```
+
+These are local results; the central operator's wrapper gates and independent review are separate.
