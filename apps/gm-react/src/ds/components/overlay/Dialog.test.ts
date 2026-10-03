@@ -50,6 +50,35 @@ afterEach(async () => {
 });
 
 describe('Dialog focus', () => {
+	it('stacks simultaneous nested portals above their launcher stacking context', async () => {
+		await act(async () => {
+			root.render(
+				createElement(
+					'div',
+					{ style: { zIndex: 500, position: 'fixed' } },
+					createElement(
+						TestDialog,
+						{ open: true, title: 'Parent', onClose: vi.fn() },
+						createElement(
+							TestDialog,
+							{ open: true, title: 'Child', onClose: vi.fn() },
+							createElement(TestDialog, { open: true, title: 'Grandchild', onClose: vi.fn() }),
+						),
+					),
+				),
+			);
+		});
+		const panels = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]'));
+		for (const [title, level] of [
+			['Parent', 501],
+			['Child', 502],
+			['Grandchild', 503],
+		] as const) {
+			const panel = panels.find((element) => element.querySelector('h2')?.textContent === title)!;
+			expect(panel.parentElement!.style.zIndex).toBe(`max(var(--z-modal), ${level})`);
+		}
+	});
+
 	it('focuses an explicitly selected safe action on open', async () => {
 		await act(async () => {
 			root.render(

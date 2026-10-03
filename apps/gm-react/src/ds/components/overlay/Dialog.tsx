@@ -94,6 +94,23 @@ function isolateOutside(scrim: HTMLElement): () => void {
 	};
 }
 
+/** Resolve logical ancestors too: a portaled parent is no longer above its child in the DOM.
+ * Compute recursively instead of relying on effect order (child layout effects run first).
+ */
+function launcherStackLevel(anchor: HTMLElement | null): number {
+	let level = 0;
+	for (let element = anchor?.parentElement; element; element = element.parentElement) {
+		const z = Number.parseInt(getComputedStyle(element).zIndex, 10);
+		if (Number.isFinite(z)) level = Math.max(level, z);
+		const id = element.getAttribute('data-dialog-scrim');
+		if (id) {
+			const parentAnchor = document.querySelector<HTMLElement>(`[data-dialog-anchor="${id}"]`);
+			level = Math.max(level, launcherStackLevel(parentAnchor) + 1);
+		}
+	}
+	return level;
+}
+
 /**
  * Dialog — the modal chrome the system has long delegated to ("drop it inside a Dialog (desktop)…"
  * — MapCreationForm, ImportWizard). A scrim over the page plus one centered panel: title,
@@ -162,6 +179,14 @@ export function Dialog({
 	onCloseRef.current = onClose;
 	dismissibleRef.current = dismissible;
 	initialFocusRef.current = initialFocus;
+
+	React.useLayoutEffect(() => {
+		if (!open) return;
+		const scrim = panelRef.current?.parentElement;
+		if (!scrim) return;
+		// Retain the design-system floor; lift only above this launcher's stacking ancestors.
+		scrim.style.zIndex = `max(var(--z-modal), ${launcherStackLevel(anchorRef.current) + 1})`;
+	}, [open]);
 
 	React.useEffect(() => {
 		if (!open) return undefined;

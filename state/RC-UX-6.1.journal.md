@@ -96,3 +96,25 @@
   eslint 0 errors; `pnpm test:app` 160 files / 1757 tests passed.
 - Full browser suite at `d2cb9bb6` (`tests/e2e`, desktop-chromium + mobile-chromium, local):
   1706 passed, 32 skipped, 0 failed, 0 flaky (37.1m).
+
+## 2026-10-03 independent-review stacking follow-up
+
+- Reproduced the review's paint-order failure by disabling the fix below: at 360x360 the new
+  occlusion probe reports the End-session title, close control, Stay live and End session covered.
+- Dialog now resolves launcher ancestor z-index values before paint and uses the higher of the
+  modal token and launcher level + 1. It follows other Dialogs' portal anchors recursively, so
+  simultaneous nested mounts do not depend on child/parent layout-effect ordering. The default
+  modal token remains the floor for root dialogs; no global sheet/modal token change is needed.
+- Added a unit regression for three simultaneous nested portals above a z-index 500 launcher.
+- Extended existing End-session browser regressions with actual paint-order checks for the prompt
+  and controls, plus attached screenshots. The probe temporarily removes inert synchronously:
+  inert otherwise excludes the covering sheet from hit testing while it still paints over the
+  confirmation. Original inert attributes are restored before returning from the probe.
+- Local checks: Dialog unit tests 19/19 passed; Help and End-session browser tests 16/16 passed
+  across desktop and mobile, including Help axe checks and 360px Android safe-area cases.
+  TypeScript completed without diagnostics. Mutation run failed at the intended occlusion
+  assertion (1/1), confirming geometry/keyboard success cannot bypass this regression guard.
+- No Headroom tools were available; exact native output was inspected. Central full wrapper gates
+  and independent review remain the operator's responsibility. No dispatcher control state changed.
+- Restored-fix rerun: 360px desktop regression 1/1 passed. Final changed-file ESLint: 0 errors,
+  one existing effect-cleanup ref warning. `git diff --check` clean.

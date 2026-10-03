@@ -2114,6 +2114,29 @@ async function expectEndSessionConfirmOnScreen(
 			height - bottomInset + 0.5,
 		);
 	}
+	// Inert suppresses hit testing, but not painting. Remove it synchronously for this probe so
+	// a covering parent Sheet cannot masquerade as a visible confirmation. Restore before yielding.
+	const occluded = await confirm.evaluate((panel) => {
+		const inert = Array.from(document.querySelectorAll<HTMLElement>('[inert]'));
+		inert.forEach((element) => element.removeAttribute('inert'));
+		try {
+			return Array.from(panel.querySelectorAll('h2, button'))
+				.filter((element) => {
+					const rect = element.getBoundingClientRect();
+					return !element.contains(
+						document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+					);
+				})
+				.map((element) => element.textContent);
+		} finally {
+			inert.forEach((element) => element.setAttribute('inert', ''));
+		}
+	});
+	expect(occluded, 'confirmation prompt and answers must paint above Table controls').toEqual([]);
+	await test.info().attach('end-session-stacking', {
+		body: await page.screenshot(),
+		contentType: 'image/png',
+	});
 	// The confirmation is the one dialog here with a description; the sheet under it has none.
 	expect(
 		await clippedControls(page, '[role="dialog"][aria-describedby]'),
