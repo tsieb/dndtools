@@ -24,7 +24,7 @@
 - [x] Every status color paired with a distinct icon shape; DM-only purple stripe where applicable.
   - PASS with waiver: warning/search/info icons accompany state text. Actor visibility remains spelled out on scene/map rows; no DM-only panel is introduced that requires a purple stripe.
 - [x] Renders correctly in all themes and all three tiers; visual snapshots updated and reviewed.
-  - PASS with budget waiver: one pinned state per theme and tier (15 PNGs, 8.3 KiB): the palette's `esc` key chip, whose text token this pass raised. The first attempt pinned four whole surfaces (60 PNGs, ~2.6 MiB), reviewed then as contact sheets; after rebasing, the shared 32 MiB baseline cap had ~33 KiB left, so those full-surface baselines were dropped. The overlay, illustrated no-results, Help and Shortcuts stay covered by e2e and unfiltered axe on both profiles.
+  - PASS: 60 complete visible-dialog baselines cover populated palette, illustrated no-results, Help and Shortcuts in all five themes × desktop/rail/phone. The 2026-10-03 review revision below supersedes the historical budget waiver; the current baseline budget fits all four surfaces.
 - [x] Motion uses named tokens; nothing animates under `data-motion='reduced'`.
   - PASS: shared DS named animation tokens and reduced-motion policy retained; pinned visual projects run with reduced motion. No new animation.
 - [x] Empty, loading, error, and "unavailable because…" states all present and illustrated where the key exists.
@@ -299,7 +299,8 @@ described in the reconciliation section above is therefore in scope, and its con
   with no regeneration.
 - `pnpm format:check:changed -- --base loop/rc`: exit 0. `git diff --check`: clean.
 
-The visual-budget and native screen-reader waivers documented above still apply. No push,
+At this historical checkpoint, the visual-budget and native screen-reader waivers still applied.
+The 2026-10-03 revision below removes the visual-budget waiver. No push,
 promotion, dispatcher-state edit or extra agent.
 
 `loop/rc` advanced to `e63f961e` while the checks above ran. That commit changes only
@@ -307,3 +308,42 @@ promotion, dispatcher-state edit or extra agent.
 surface touches. I rebased onto it without conflicts and did not re-run the checks, since nothing
 they cover changed. `git diff --name-only loop/rc..HEAD` lists only owned files and manifest
 companion paths.
+
+## Independent-review revision — 2026-10-03 (candidate `e523337f`)
+
+The reviewer correctly identified that the old ~33 KiB headroom rationale was stale: the
+current base used 29947.1 / 32768.0 KiB, leaving 2820.9 KiB. The visual-budget waiver is
+withdrawn. Historical runs above describe earlier candidates, not current visual coverage.
+
+- Replaced the 15 key-chip PNGs with 60 full visible-dialog PNGs: populated palette, illustrated
+  no-results, Help with loaded release notes, and nested Shortcuts, each in tavern, parchment,
+  scholar, dungeon and high-contrast at desktop, rail and phone sizes.
+- `tests/visual/palette-help.spec.ts` uses real keyboard palette navigation, waits for release
+  content, and focuses the labelled shortcut region. Fixed time, awaited fonts and the pinned
+  projects' reduced motion/render settings retain deterministic capture. Dialog crops include
+  the entire visible surface rather than unrelated shell chrome; existing scroll bounds stay
+  intact. Offscreen shortcut rows remain covered by the 200% text reachability e2e.
+- Scope: only the supporting visual spec/baselines and this owned journal change. These companion
+  test assets directly implement the review request. No runtime/DS row edits are necessary;
+  EN/ES/pseudo copy and the previously updated FEATURE-GAPS inventory remain unchanged.
+- Visual review: inspected contact sheets for all 60 PNGs. Theme colors, selected palette rows,
+  input focus, key hints, empty illustration and explanatory copy are visible. Help guide buttons
+  and release text wrap within the phone dialog. Shortcuts retain two-column wrapping, bounded
+  scrolling and visible Done; rail shows the complete list. Desktop/phone intentionally scroll
+  longer content. No overlap or horizontal clipping of dialog content observed.
+- The first generation run failed because an unqualified `region` locator matched the shortcut
+  container and its two named sections. Qualifying it by `Keyboard shortcuts` fixed the spec;
+  the corrected generation run passed all 15 cases (52.6s). No app behavior changed.
+
+### Current validation
+
+- `bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts --update-snapshots=none --workers=2`:
+  exit 0, **15 passed (33.5s)**, comparing all 60 committed surface images without regeneration.
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs`: exit 0, **616 files,
+  32511.2 / 32768.0 KiB**, leaving 256.8 KiB. Budget limits are unchanged.
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/palette-polish.spec.ts tests/e2e/command-palette.spec.ts tests/e2e/help-menu.spec.ts tests/e2e/shortcuts.spec.ts tests/e2e/help-tips.spec.ts tests/e2e/screens.spec.ts --workers=2`:
+  exit 0, **76 passed (2.1m)**, including route/normal palette/no-results/Help/nested Shortcuts axe
+  scans on both desktop-chromium and mobile-chromium, failure/retry and large-text reachability.
+- `pnpm gates`: exit 0. Original output reviewed: 36 file-size warnings, all outside owned paths.
+  Largest owned source remains the DS palette at 495 lines. No allowance or limit changed.
+- Targeted Prettier and ESLint: exit 0. `git diff --check`: clean.
