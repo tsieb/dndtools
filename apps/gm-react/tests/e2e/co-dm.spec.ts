@@ -5,6 +5,7 @@ import {
 	gotoRoute,
 	markOnboarded,
 	ops,
+	preferTier,
 	seedFresh,
 	waitReady,
 } from './_helpers';
@@ -98,6 +99,7 @@ async function createScene(
 /** Boot a fresh, demo-seeded vault on a DM shell route, optionally pinning the device-local plan first. */
 async function bootShell(page: Page, route: string, plan?: string): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	if (plan) {
 		await page.addInitScript((p) => {
 			try {

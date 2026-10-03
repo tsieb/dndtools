@@ -371,12 +371,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					type="button"
 					disabled={!canManageSeat}
 					onClick={canManageSeat ? () => navigate('/settings?tab=players') : undefined}
-					title={canManageSeat ? t('shell.accountOpen') : dmName}
+					// Below Players' tier the seat stays visible but names why it doesn't open (RC-UX-5.2).
+					title={canManageSeat ? t('shell.accountOpen') : t('shell.accountGated')}
 					aria-label={
 						canManageSeat
 							? t('shell.accountLabel', { name: dmName, presence: presence.label })
 							: dmName
 					}
+					aria-description={canManageSeat ? undefined : t('shell.accountGated')}
 					style={{
 						display: 'flex',
 						alignItems: 'center',
@@ -388,10 +390,12 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						borderRadius: 8,
 						background: 'transparent',
 						color: T.ink,
-						cursor: 'pointer',
+						cursor: canManageSeat ? 'pointer' : 'default',
 						textAlign: 'left',
 					}}
-					onMouseEnter={(e) => (e.currentTarget.style.background = T.hover)}
+					onMouseEnter={(e) => {
+						if (canManageSeat) e.currentTarget.style.background = T.hover;
+					}}
 					onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
 				>
 					<Avatar name={dmName} size="sm" ring="active" />

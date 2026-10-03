@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-AI-2.1 — SEMANTIC DIFF PREVIEW FOR PROPOSALS. A staged write used to read as
 // "content.update-item · note.update · durable", which tells a DM nothing about what approving it
@@ -31,6 +31,7 @@ function invokeAgentTool(
 /** Seed a note, turn on agent access, and stage a rewrite of that note as a pending proposal. */
 async function stageNoteRewrite(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});

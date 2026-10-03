@@ -1099,6 +1099,8 @@ export const en = {
 	'shell.allScenes': 'All scenes ({count})',
 	'shell.accountOpen': 'Your seat — open Settings › Players to change your name',
 	'shell.accountLabel': '{name} · {presence} · open player settings',
+	'shell.accountGated':
+		'Player settings appear at the Standard experience level. Change it in Settings › Appearance.',
 	'shell.breadcrumb': 'Breadcrumb',
 	'shell.help': 'Help',
 	'viewAs.dmView': '{gm} view',

@@ -1,5 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
+import {
+	dispatch,
+	gotoRoute,
+	markOnboarded,
+	ops,
+	preferTier,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
 // AI ASSISTANT — the client-side, BYO-key provider transport (ADR-021, closing the ADR-014 deferral),
 // driven through Settings → AI & tools. The provider key is the USER'S OWN, held device-local (memory
@@ -23,6 +31,7 @@ async function guardProviderNetwork(page: Page): Promise<() => number> {
 /** Navigate to the AI & tools settings subpage (deep-linked via `?tab=ai`). */
 async function gotoAiTab(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});
@@ -54,6 +63,7 @@ test.describe('ai assistant: client-side BYO-key provider (ADR-021)', () => {
 		page,
 	}) => {
 		await markOnboarded(page);
+		await preferTier(page);
 		await gotoRoute(page, '/settings?tab=ai');
 		await seedFresh(page);
 

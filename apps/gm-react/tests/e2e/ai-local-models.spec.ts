@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-AI-3.3 — Settings › AI › Local models. Desktop-only management of the models pulled onto the
 // Ollama daemon the router (RC-AI-3.1) and embeddings (RC-AI-3.2) already speak to: list, pull,
@@ -18,6 +18,7 @@ async function enableElectronRuntime(page: Page): Promise<void> {
 
 async function gotoAiTab(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});

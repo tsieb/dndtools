@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-CLD-2.2 — the honest limit. The Cloud-Enhanced decision record ships `approved: false`, so no
 // server-readable path exists in this edition (the platform is deferred to epic CLD-6). Every
@@ -29,6 +29,7 @@ async function expectHonestLimit(region: Locator): Promise<void> {
 
 async function openSyncSettings(page: Page, mode: 'cloud-enhanced' | 'private-e2ee') {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(
 		([key, value]) => {
 			try {

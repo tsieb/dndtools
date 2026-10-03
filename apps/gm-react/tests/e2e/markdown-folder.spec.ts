@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 import { decodeFolderZip, encodeFolderZip } from '../../../../packages/core/src/export/folder-zip';
 
 const PNG =
@@ -10,6 +10,7 @@ test('folder ZIP keeps private notes opt-in and re-imports a note with its image
 	page,
 }) => {
 	await markOnboarded(page);
+	await preferTier(page);
 	await gotoRoute(page, '/settings?tab=vault');
 	await seedFresh(page);
 	await page.goto('/#/settings?tab=vault', { waitUntil: 'domcontentloaded' });
@@ -115,6 +116,7 @@ test('imports an ordinary markdown folder written by another tool without losing
 	page,
 }) => {
 	await markOnboarded(page);
+	await preferTier(page);
 	await gotoRoute(page, '/settings?tab=vault');
 	await seedFresh(page);
 	await page.goto('/#/settings?tab=vault', { waitUntil: 'domcontentloaded' });

@@ -1120,6 +1120,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shell.allScenes': 'Todas las escenas ({count})',
 	'shell.accountOpen': 'Tu asiento: abre Configuración › Jugadores para cambiar tu nombre',
 	'shell.accountLabel': '{name} · {presence} · abrir ajustes de jugadores',
+	'shell.accountGated':
+		'Los ajustes de jugadores aparecen en el nivel de experiencia Estándar. Cámbialo en Configuración › Apariencia.',
 	'shell.breadcrumb': 'Ruta de navegación',
 	'shell.help': 'Ayuda',
 	'viewAs.dmView': 'Vista del {gm}',

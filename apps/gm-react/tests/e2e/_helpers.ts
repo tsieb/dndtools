@@ -127,6 +127,28 @@ export async function preferPhoneCanvas(page: Page): Promise<void> {
 }
 
 /**
+ * A fresh profile reads Settings at the Beginner tier, which leaves advanced sections (AI, backup,
+ * privacy, players, diagnostics) out of the page (RC-UX-5.2). Specs that exercise those controls
+ * save the experience level first, exactly as a user who chose it would have. Must be called
+ * BEFORE the first navigation. The value is only written when none is stored yet, so a tier the
+ * test then picks in the UI survives its reloads. Per-tier disclosure is covered in
+ * `settings-tiers.spec.ts`.
+ */
+export async function preferTier(
+	page: Page,
+	tier: 'core' | 'intermediate' | 'advanced' = 'advanced',
+): Promise<void> {
+	await page.addInitScript((value) => {
+		try {
+			if (window.localStorage.getItem('dndtools:react:tier') === null)
+				window.localStorage.setItem('dndtools:react:tier', value);
+		} catch {
+			/* storage may be unavailable in some contexts */
+		}
+	}, tier);
+}
+
+/**
  * Op-log length recorded the first time a page reached a ready app boot (RC-ENG-2.2). Playwright
  * gives every test its own browser context, so that first boot starts from an empty IndexedDB and
  * therefore already IS a freshly seeded vault. While the count is unchanged nothing durable has

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-WID-3.2 — "GENERATE A WIDGET". The DM describes a widget; the assistant is offered exactly one
 // tool (`widget.package.propose`, RC-WID-3.1), which STAGES a proposal; the manual builder then
@@ -79,6 +79,7 @@ async function stubProvider(page: Page): Promise<() => number> {
 /** A fresh vault on the AI settings page with the consent choice already made. */
 async function openAiSettings(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});

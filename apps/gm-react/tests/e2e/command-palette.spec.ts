@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // COMMAND PALETTE — the ⌘K quick-switcher (app/CommandPalette.tsx on the DS CommandPalette). The
 // overlay is the keyboard spine of the seven-section IA: it opens on Meta/Control+K (and from the
@@ -433,6 +433,10 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 	// screen-reader user could not navigate `/` by heading or rotor and the groupings were conveyed
 	// by typography alone (WCAG 1.3.1 / 2.4.6). Every sibling surface already emits real headings.
 	test('the hub is navigable by heading', async ({ page }) => {
+		// Manage only lists surfaces the active tier shows (RC-UX-5.2), so read the full hub.
+		await preferTier(page);
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
 		const main = page.locator('#main-content');
 		// AppShell owns the route <h1>; the hub's own hero and section labels are <h2>s under it.
 		await expect(main.getByRole('heading', { level: 2, name: 'Your campaign' })).toBeVisible();
