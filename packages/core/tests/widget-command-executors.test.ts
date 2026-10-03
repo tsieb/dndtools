@@ -8,9 +8,9 @@ import {
 import {
 	WIDGET_COUNTER_RESTORE_COMMAND,
 	buildWidgetCommandInverse,
-	buildWidgetInverse,
 	dispatchCommand,
 	readWidgetCounter,
+	readWidgetLastRoll,
 	readWidgetShownMessage,
 	widgetCommandAvailability,
 	type CommandResult,
@@ -76,6 +76,15 @@ const COMMANDS: WidgetCommandDescriptor[] = [
 	command('start', 'start', { durationSeconds: 'number' }),
 	command('pause', 'pause'),
 	command('resume', 'resume'),
+	// Run by name, not by executor: the Loot Ledger starter's write to its bound note.
+	{
+		type: 'content.update-item',
+		displayName: 'Write the ledger',
+		requiredCapability: 'operator',
+		payloadSchema: object({ itemId: 'string', body: 'string' }),
+		writesTo: 'entity',
+		destinationClass: 'entity',
+	},
 ];
 
 function templatePackage(commands: WidgetCommandDescriptor[]): WidgetPackageDefinition {
@@ -269,6 +278,68 @@ describe('RC-WID-6.1: install refuses a template command that nothing can run', 
 	});
 });
 
+describe('RC-WID-6.1: install records the executor a verb names', () => {
+	it('writes the inferred executor onto a template command that declared none', () => {
+		const installed = accept(
+			install(
+				buildInitialState(DM_ACTOR),
+				templatePackage([
+					command('roll', undefined, { formula: 'string' }),
+					command('mark-complete', undefined),
+				]),
+			),
+		).nextState;
+		const commands =
+			installed.widgets.packages['workspace.table-panel']!.package.widgets[0]!.commands;
+		expect(commands.map((c) => c.executor)).toEqual(['roll', 'mark-complete']);
+	});
+
+	it('leaves a command the core runs by name without one', () => {
+		const installed = accept(
+			install(buildInitialState(DM_ACTOR), templatePackage(COMMANDS.slice(-1))),
+		).nextState;
+		const [write] =
+			installed.widgets.packages['workspace.table-panel']!.package.widgets[0]!.commands;
+		expect(write!.type).toBe('content.update-item');
+		expect(write!.executor).toBeUndefined();
+	});
+});
+
+describe('RC-WID-6.1: content.update-item writes only the bound note', () => {
+	const write = (t: Table, itemId: string) =>
+		dispatchCommand(t.state, env, {
+			type: 'widget.dispatch-command',
+			actorId: DM_ACTOR.id,
+			idempotencyKey: `ledger-${++keyCounter}`,
+			payload: {
+				sceneId: t.sceneId,
+				widgetInstanceId: t.widgetId,
+				commandType: 'content.update-item',
+				payload: { itemId, body: 'Split: 40 gp each.' },
+				expectedRevision: t.state.scenes.scenes[t.sceneId]!.ownership.revision,
+			},
+		});
+
+	it('updates the bound note through its own command', () => {
+		const t = table('note');
+		const next = accept(write(t, t.noteId)).nextState;
+		expect(next.content.items[t.noteId]!.body).toBe('Split: 40 gp each.');
+	});
+
+	it('refuses any other item, and a widget with no bound note', () => {
+		const t = table('note');
+		const elsewhere = write(t, t.questId);
+		expect(elsewhere.status).toBe('rejected');
+		if (elsewhere.status === 'rejected')
+			expect(elsewhere.rejection.code).toBe('actor-not-authorized');
+		const unbound = table();
+		const none = write(unbound, unbound.noteId);
+		expect(none.status).toBe('rejected');
+		if (none.status === 'rejected')
+			expect(none.rejection.message).toBe('Bind a note to this widget first.');
+	});
+});
+
 describe('RC-WID-6.1: roll', () => {
 	it('rolls the formula on the session dice engine and keeps the result on the widget', () => {
 		const t = table();
@@ -278,7 +349,7 @@ describe('RC-WID-6.1: roll', () => {
 		const roll = next.session.diceHistory.at(-1)!;
 		expect(roll.expression).toBe('2d6+1');
 		expect(roll.total).toBeGreaterThanOrEqual(3);
-		expect(widgetOf(t, next).localState.lastRoll).toMatchObject({
+		expect(readWidgetLastRoll(widgetOf(t, next).configuration)).toMatchObject({
 			expression: '2d6+1',
 			total: roll.total,
 		});
@@ -312,15 +383,15 @@ describe('RC-WID-6.1: the per-instance counter', () => {
 		const t = table();
 		let state = t.state;
 		state = accept(press(t, state, 'advance', {})).nextState;
-		expect(readWidgetCounter(widgetOf(t, state).localState)).toBe(1);
+		expect(readWidgetCounter(widgetOf(t, state).configuration)).toBe(1);
 		state = accept(press(t, state, 'advance', { by: 3 })).nextState;
-		expect(readWidgetCounter(widgetOf(t, state).localState)).toBe(4);
+		expect(readWidgetCounter(widgetOf(t, state).configuration)).toBe(4);
 		state = accept(press(t, state, 'tick')).nextState;
-		expect(readWidgetCounter(widgetOf(t, state).localState)).toBe(5);
+		expect(readWidgetCounter(widgetOf(t, state).configuration)).toBe(5);
 		state = accept(press(t, state, 'set-config', { value: '12' })).nextState;
-		expect(readWidgetCounter(widgetOf(t, state).localState)).toBe(12);
+		expect(readWidgetCounter(widgetOf(t, state).configuration)).toBe(12);
 		state = accept(press(t, state, 'reset')).nextState;
-		expect(readWidgetCounter(widgetOf(t, state).localState)).toBe(0);
+		expect(readWidgetCounter(widgetOf(t, state).configuration)).toBe(0);
 	});
 
 	it('is scene state: each press moves the scene revision and logs previous and next', () => {
@@ -344,21 +415,19 @@ describe('RC-WID-6.1: the per-instance counter', () => {
 		const advanced = accept(press(t, t.state, 'advance', { by: 5 })).nextState;
 		const forward = pressCommand(t, advanced, 'advance', { by: 2 });
 		const after = accept(dispatchCommand(advanced, env, forward)).nextState;
-		expect(readWidgetCounter(widgetOf(t, after).localState)).toBe(7);
+		expect(readWidgetCounter(widgetOf(t, after).configuration)).toBe(7);
 
 		const inverse = buildWidgetCommandInverse(forward, advanced)!;
 		expect(inverse.payload).toMatchObject({
 			commandType: WIDGET_COUNTER_RESTORE_COMMAND,
 			payload: { value: 5 },
 		});
-		// The layout undo builder hands back the same inverse for a widget command.
-		expect(buildWidgetInverse(forward, advanced)?.command).toEqual(inverse);
 		const undone = accept(dispatchCommand(after, env, inverse)).nextState;
-		expect(readWidgetCounter(widgetOf(t, undone).localState)).toBe(5);
+		expect(readWidgetCounter(widgetOf(t, undone).configuration)).toBe(5);
 		// …and the restore is itself undoable (redo).
 		const redo = buildWidgetCommandInverse(inverse, after)!;
 		const redone = accept(dispatchCommand(undone, env, redo)).nextState;
-		expect(readWidgetCounter(widgetOf(t, redone).localState)).toBe(7);
+		expect(readWidgetCounter(widgetOf(t, redone).configuration)).toBe(7);
 	});
 
 	it('offers no inverse for a press that is not a counter write', () => {
@@ -416,7 +485,7 @@ describe('RC-WID-6.1: show', () => {
 	it('keeps the message on the placed widget for the players to see', () => {
 		const t = table();
 		const next = accept(press(t, t.state, 'show', { text: 'The bell tolls thrice.' })).nextState;
-		expect(readWidgetShownMessage(widgetOf(t, next).localState)).toMatchObject({
+		expect(readWidgetShownMessage(widgetOf(t, next).configuration)).toMatchObject({
 			text: 'The bell tolls thrice.',
 			shownBy: DM_ACTOR.id,
 		});

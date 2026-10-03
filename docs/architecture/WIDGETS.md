@@ -90,16 +90,23 @@ descriptor names that thing in `executor` (RC-WID-6.1), and `widget.dispatch-com
 (`packages/core/src/commands/widget-command.ts`) routes a press to it after the authority and
 payload checks:
 
-| Executor                                | What a press does                                                                                                                      |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `roll`                                  | The session dice engine (`handleRollDice`) with the payload's `formula`; the result is also kept on the instance as `lastRoll`.        |
-| `advance`, `tick`, `reset`, `set-value` | A per-instance counter in the instance's `localState.counter` (`advance` adds `by`, default 1). Scene state: the scene revision moves. |
-| `show`                                  | A message for the players, kept on the instance as `localState.shownMessage`.                                                          |
-| `write-note-line`, `mark-complete`      | The bound entity through its own command (`content.update-item` appends a line to a note; `content.update-object` completes a quest).  |
-| `start`, `pause`, `resume`              | The session timer keyed by the instance; `start` takes the payload's `durationSeconds`, else the configured one.                       |
+| Executor                                | What a press does                                                                                                                                        |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roll`                                  | The session dice engine (`handleRollDice`) with the payload's `formula`; the result is also kept on the instance as `executor.lastRoll`.                 |
+| `advance`, `tick`, `reset`, `set-value` | A per-instance counter kept in the instance configuration as `executor.counter` (`advance` adds `by`, default 1). Scene state: the scene revision moves. |
+| `show`                                  | A message for the players, kept on the instance as `executor.shownMessage`.                                                                              |
+| `write-note-line`, `mark-complete`      | The bound entity through its own command (`content.update-item` appends a line to a note; `content.update-object` completes a quest).                    |
+| `start`, `pause`, `resume`              | The session timer keyed by the instance; `start` takes the payload's `durationSeconds`, else the configured one.                                         |
 
-The system Timer's `timer.*` and the Dice widget's `dice.roll` predate executors and are still run
-by name (`CORE_NAMED_WIDGET_COMMANDS`). Anything else is refused.
+What a press leaves behind lives in the instance **configuration** under the namespaced
+`executor.*` keys, because that is the record every surface already carries to the templates (the
+board view-model's `configuration`). No declared setting can use those keys, so the Inspector never
+offers them.
+
+The system Timer's `timer.*`, the Dice widget's `dice.roll`, and `content.update-item` predate
+executors and are still run by name (`CORE_NAMED_WIDGET_COMMANDS`). `content.update-item` (the Loot
+Ledger starter's write) is pinned to the widget's bound note: a payload naming any other item is
+refused. Anything else is refused.
 
 **Install refuses what nothing can run.** `widget.package.install` and `widget.package.upgrade`
 reject a `template` widget that declares a command with no executor
@@ -107,8 +114,10 @@ reject a `template` widget that declares a command with no executor
 own buttons. The builder names the same problem on the Commands step (`validate.ts`), so Review
 never offers to install it, and its catalogue only offers verbs that have an executor (Draw, Rename
 and Set duration had none and were removed). A catalogue pick also adds the setting its payload
-reads, so Roll arrives with a `formula` field defaulting to `1d20`. The MCP propose tool records the
-executor the command's verb names (`inferWidgetCommandExecutor`).
+reads, so Roll arrives with a `formula` field defaulting to `1d20`. A template command that declares
+no executor but whose verb names one (`encounter.roll`, `quest.mark-complete`) gets that executor
+recorded at install (`effectiveWidgetCommandExecutor`), which is how the MCP propose tool's drafts
+get theirs; a verb that names none is refused. Custom widgets are never inferred for.
 
 **Unavailable is said before the press.** `widgetCommandAvailability()` reports why a command
 cannot run right now: no formula, a formula the dice parser rejects, no bound note or quest, nothing
@@ -117,10 +126,11 @@ and disables the button with the reason as its tooltip; the core runs it again, 
 executing, so the panel and the core cannot disagree.
 
 **Counter presses are undoable.** `buildWidgetCommandInverse()` turns an accepted counter press into
-the core-reserved `widget.counter-restore` command carrying the previous value, and
-`buildWidgetInverse()` hands it to the layout history. The restore is reachable only on a widget that
-declares a counter command, under that command's authority. A roll, a shown message or a note line
-has no inverse.
+the core-reserved `widget.counter-restore` command carrying the previous value, under the same pure
+(command, state before) contract as `buildWidgetInverse()`. The restore is reachable only on a widget
+that declares a counter command, under that command's authority. A roll, a shown message or a note
+line has no inverse. The table's buttons are not on the layout history yet, so nothing in the app
+offers this undo today.
 
 ## 3. Rendering
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
 	WIDGET_COUNTER_EXECUTORS,
 	classifyWidgetCommand,
+	effectiveWidgetCommandExecutor,
 	readWidgetCounter,
 	readWidgetLastRoll,
 	readWidgetShownMessage,
@@ -108,14 +109,19 @@ export function ActionPanelTemplate({
 		});
 		return availability.available
 			? null
-			: t(unavailableCopy(availability.reason, command.executor === 'mark-complete'));
+			: t(
+					unavailableCopy(
+						availability.reason,
+						effectiveWidgetCommandExecutor(command) === 'mark-complete',
+					),
+				);
 	};
-	const counted = declared.some(
-		(command) =>
-			command.executor !== undefined && WIDGET_COUNTER_EXECUTORS.includes(command.executor),
-	);
-	const lastRoll = readWidgetLastRoll(widget.localState);
-	const shown = readWidgetShownMessage(widget.localState);
+	const counted = declared.some((command) => {
+		const executor = effectiveWidgetCommandExecutor(command);
+		return executor !== null && WIDGET_COUNTER_EXECUTORS.includes(executor);
+	});
+	const lastRoll = readWidgetLastRoll(widget.configuration);
+	const shown = readWidgetShownMessage(widget.configuration);
 
 	const controls =
 		actions.length === 0 && intents.length === 0 ? (
@@ -162,7 +168,7 @@ export function ActionPanelTemplate({
 			{counted ? (
 				<TemplateNote>
 					<span data-widget-counter>
-						{t('widgetTemplate.counter')}: {readWidgetCounter(widget.localState)}
+						{t('widgetTemplate.counter')}: {readWidgetCounter(widget.configuration)}
 					</span>
 				</TemplateNote>
 			) : null}

@@ -361,9 +361,13 @@ describe('each template renders its fixture package', () => {
 			}),
 			{
 				widget: {
-					localState: {
-						counter: 3,
-						lastRoll: { expression: '2d6', total: 9, rolledAt: '2026-10-03T00:00:00.000Z' },
+					configuration: {
+						'executor.counter': 3,
+						'executor.lastRoll': {
+							expression: '2d6',
+							total: 9,
+							rolledAt: '2026-10-03T00:00:00.000Z',
+						},
 					},
 				},
 				onCommand: () => {},

@@ -17,7 +17,7 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 interface WidgetLite {
 	id: string;
 	type: string;
-	localState: Record<string, unknown>;
+	configuration: Record<string, unknown>;
 }
 
 async function actorId(page: Page): Promise<string> {
@@ -136,7 +136,9 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 		await expect(panel.getByText('Count: 0', { exact: true })).toBeVisible();
 		await panel.getByRole('button', { name: 'Advance', exact: true }).click();
 		await expect(panel.getByText('Count: 1', { exact: true })).toBeVisible();
-		await expect.poll(async () => (await widgetOnScene())?.localState.counter).toBe(1);
+		await expect
+			.poll(async () => (await widgetOnScene())?.configuration['executor.counter'])
+			.toBe(1);
 
 		// No error banner, and still in Standby.
 		await expect(page.getByRole('alert')).toHaveCount(0);

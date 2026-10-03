@@ -609,6 +609,7 @@ export {
 	WIDGET_COUNTER_STATE_KEY,
 	WIDGET_LAST_ROLL_STATE_KEY,
 	WIDGET_SHOWN_MESSAGE_STATE_KEY,
+	effectiveWidgetCommandExecutor,
 	inferWidgetCommandExecutor,
 	readWidgetCounter,
 	readWidgetLastRoll,

@@ -17,10 +17,12 @@ import {
 	WIDGET_SHOWN_MESSAGE_STATE_KEY,
 	findWidgetDefinition,
 	findPackageRecordForWidgetType,
+	effectiveWidgetCommandExecutor,
 	readWidgetCounter,
 	widgetCommandHasExecutor,
 	type WidgetCommandDescriptor,
 	type WidgetCommandExecutor,
+	type WidgetDefinition,
 	type WidgetLastRoll,
 	type WidgetShownMessage,
 } from '../state/widget-package-state';
@@ -171,10 +173,7 @@ export function handleDispatchWidgetCommand(
 	// exactly as that command is, so undoing a press needs no more authority than making it.
 	const restoring = parsed.data.commandType === WIDGET_COUNTER_RESTORE_COMMAND;
 	const descriptor = restoring
-		? definition?.commands.find(
-				(command) =>
-					command.executor !== undefined && WIDGET_COUNTER_EXECUTORS.includes(command.executor),
-			)
+		? definition?.commands.find((command) => isCounterCommand(definition, command))
 		: definition?.commands.find((command) => command.type === parsed.data.commandType);
 	if (!definition || !descriptor) {
 		return reject(
@@ -234,16 +233,22 @@ export function handleDispatchWidgetCommand(
 	if (parsed.data.commandType === 'dice.roll') {
 		return handleRollDice(state, env, actor.id, parsed.data.payload, idempotencyKey);
 	}
-	// RC-WID-6.1 — everything else runs through the executor the descriptor declares. Install refuses
-	// a template command without one, so reaching the end of this chain means a package installed
-	// before executors existed, or custom code naming a command it never gave the core a way to run.
-	if (descriptor.executor) {
+	// RC-WID-6.1 — `content.update-item` (the Loot Ledger starter's write) runs the note's own command,
+	// but only against the note the widget is BOUND to: the payload's `itemId` cannot reach elsewhere.
+	if (parsed.data.commandType === 'content.update-item') {
+		return writeBoundNote(state, env, actor.id, scene, widget, parsed.data, idempotencyKey);
+	}
+	// RC-WID-6.1 — everything else runs through the command's executor. Install refuses a template
+	// command without one, so reaching the end of this chain means a package installed before
+	// executors existed, or custom code naming a command it never gave the core a way to run.
+	const executor = executorFor(definition, descriptor);
+	if (executor) {
 		return runWidgetCommandExecutor(state, env, {
 			actorId: actor.id,
 			scene,
 			widget,
 			descriptor,
-			executor: descriptor.executor,
+			executor,
 			data: parsed.data,
 			idempotencyKey,
 		});
@@ -625,7 +630,7 @@ export function widgetCommandAvailability(
 			`Command ${descriptor.type} has nothing in the core to run it.`,
 		);
 	}
-	switch (descriptor.executor) {
+	switch (effectiveWidgetCommandExecutor(descriptor)) {
 		case 'roll': {
 			const formula = nonEmptyText(payload.formula);
 			if (!formula) return unavailable('no-formula', 'Set a dice formula for this roll first.');
@@ -662,6 +667,65 @@ export function widgetCommandAvailability(
 	}
 }
 
+/**
+ * The executor a declared command runs with. A TEMPLATE widget's command runs the one it declares or,
+ * failing that, the one its verb names (install records that on the descriptor; packages installed
+ * before executors existed are read the same way). A custom widget's command runs only the executor
+ * it declares: its verbs are its own code's business, never guessed at.
+ */
+function executorFor(
+	definition: WidgetDefinition,
+	descriptor: WidgetCommandDescriptor,
+): WidgetCommandExecutor | null {
+	if (definition.renderEntrypoint?.runtime === 'template') {
+		return effectiveWidgetCommandExecutor(descriptor);
+	}
+	return descriptor.executor ?? null;
+}
+
+function isCounterCommand(
+	definition: WidgetDefinition,
+	descriptor: WidgetCommandDescriptor,
+): boolean {
+	const executor = executorFor(definition, descriptor);
+	return executor !== null && WIDGET_COUNTER_EXECUTORS.includes(executor);
+}
+
+/**
+ * `content.update-item` from a widget: the bound note's own command, with the payload's `itemId`
+ * pinned to the binding. A widget with no bound note, or a payload naming any other item, is
+ * refused; the write itself runs under the presser's edit check, as it would anywhere else.
+ */
+function writeBoundNote(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	scene: Scene,
+	widget: WidgetInstance,
+	data: DispatchData,
+	idempotencyKey: string,
+): CommandResult {
+	const boundId = widget.binding?.source.entityId;
+	if (!boundId) {
+		return reject({ code: 'invalid-state', message: 'Bind a note to this widget first.' }, state);
+	}
+	if (data.payload.itemId !== boundId) {
+		return reject(
+			{
+				code: 'actor-not-authorized',
+				message: `Widget ${widget.id} may only write to the note it is bound to.`,
+			},
+			state,
+		);
+	}
+	return recordDelegatedPress(
+		state,
+		env,
+		{ actorId, scene, widget, data, idempotencyKey, executor: 'write-note-line' },
+		handleUpdateContentItem(state, env, actorId, data.payload),
+	);
+}
+
 interface ExecutorContext {
 	actorId: string;
 	scene: Scene;
@@ -680,7 +744,7 @@ function runWidgetCommandExecutor(
 	const { data, widget } = ctx;
 	const content = ensureContentStateSlice(state.content);
 	const availability = widgetCommandAvailability({
-		descriptor: ctx.descriptor,
+		descriptor: { type: ctx.descriptor.type, executor: ctx.executor },
 		payload: data.payload,
 		binding: widget.binding?.source ?? null,
 		configuration: widget.configuration,
@@ -689,12 +753,12 @@ function runWidgetCommandExecutor(
 	if (!availability.available) {
 		return reject({ code: 'invalid-state', message: availability.message }, state);
 	}
-	const counter = readWidgetCounter(widget.localState);
+	const counter = readWidgetCounter(widget.configuration);
 	switch (ctx.executor) {
 		case 'roll':
 			return executeRoll(state, env, ctx, nonEmptyText(data.payload.formula)!);
 		case 'advance':
-			return writeWidgetLocalState(
+			return writeWidgetState(
 				state,
 				env,
 				ctx,
@@ -702,11 +766,11 @@ function runWidgetCommandExecutor(
 				counter + (finiteNumber(data.payload.by) ?? 1),
 			);
 		case 'tick':
-			return writeWidgetLocalState(state, env, ctx, WIDGET_COUNTER_STATE_KEY, counter + 1);
+			return writeWidgetState(state, env, ctx, WIDGET_COUNTER_STATE_KEY, counter + 1);
 		case 'reset':
-			return writeWidgetLocalState(state, env, ctx, WIDGET_COUNTER_STATE_KEY, 0);
+			return writeWidgetState(state, env, ctx, WIDGET_COUNTER_STATE_KEY, 0);
 		case 'set-value':
-			return writeWidgetLocalState(
+			return writeWidgetState(
 				state,
 				env,
 				ctx,
@@ -719,7 +783,7 @@ function runWidgetCommandExecutor(
 				shownAt: env.clock(),
 				shownBy: ctx.actorId,
 			};
-			return writeWidgetLocalState(state, env, ctx, WIDGET_SHOWN_MESSAGE_STATE_KEY, message);
+			return writeWidgetState(state, env, ctx, WIDGET_SHOWN_MESSAGE_STATE_KEY, message);
 		}
 		case 'write-note-line': {
 			const item = contentItemById(content, widget.binding!.source.entityId)!;
@@ -801,7 +865,7 @@ function executeRoll(
 	);
 	if (rolled.status !== 'accepted') return rolled;
 	const record = rolled.nextState.session.diceHistory.at(-1)!;
-	const kept = writeWidgetLocalState(
+	const kept = writeWidgetState(
 		rolled.nextState,
 		env,
 		{ ...ctx, idempotencyKey: '' },
@@ -821,11 +885,11 @@ function executeRoll(
 }
 
 /**
- * Write one key of the placed widget's `localState` (the counter, the shown message, the last
+ * Write one key of the placed widget's configuration (the counter, the shown message, the last
  * roll). Scene state, so the scene revision moves and the op is on the scene; the op carries the
  * previous value beside the next so the write can be read back, and undone, from the log alone.
  */
-function writeWidgetLocalState(
+function writeWidgetState(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
 	ctx: Pick<ExecutorContext, 'actorId' | 'scene' | 'widget' | 'data' | 'idempotencyKey'>,
@@ -836,7 +900,7 @@ function writeWidgetLocalState(
 	const current = findWidget(sceneEntity, ctx.widget.id)!;
 	const nextWidget: WidgetInstance = {
 		...current,
-		localState: { ...current.localState, [key]: value },
+		configuration: { ...current.configuration, [key]: value },
 	};
 	const updatedScene = bumpRevision(replaceWidget(sceneEntity, nextWidget), env);
 	const nextScenes = withScene(state.scenes, ctx.scene.id, () => updatedScene);
@@ -844,11 +908,11 @@ function writeWidgetLocalState(
 		entityType: 'scene',
 		entityId: ctx.scene.id,
 		opType: 'widget.dispatch-command',
-		path: `widgets/${ctx.widget.id}/localState/${key}`,
+		path: `widgets/${ctx.widget.id}/configuration/${key}`,
 		value: {
 			widgetInstanceId: ctx.widget.id,
 			commandType: ctx.data.commandType,
-			previous: current.localState[key] ?? null,
+			previous: current.configuration[key] ?? null,
 			next: value,
 			...(ctx.idempotencyKey ? { idempotencyKey: ctx.idempotencyKey } : {}),
 		},
@@ -878,7 +942,10 @@ function writeWidgetLocalState(
 function recordDelegatedPress(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
-	ctx: ExecutorContext,
+	ctx: Pick<
+		ExecutorContext,
+		'actorId' | 'scene' | 'widget' | 'data' | 'idempotencyKey' | 'executor'
+	>,
 	result: CommandResult,
 ): CommandResult {
 	if (result.status !== 'accepted') return result;
@@ -925,7 +992,7 @@ function restoreWidgetCounter(
 			state,
 		);
 	}
-	return writeWidgetLocalState(
+	return writeWidgetState(
 		state,
 		env,
 		{ actorId, scene, widget, data, idempotencyKey },
@@ -936,7 +1003,8 @@ function restoreWidgetCounter(
 
 /**
  * The command that exactly undoes an accepted counter press (or a counter restore), built from the
- * state BEFORE it — the same pure contract `buildWidgetInverse` keeps for layout commands. Any other
+ * state BEFORE it — the same pure contract `buildWidgetInverse` keeps for layout commands, so a
+ * caller keeping an undo stack dispatches it like any other command. Any other
  * widget command returns `null`: a roll, a shown message or a note line is not taken back by
  * pretending it never happened.
  *
@@ -955,12 +1023,11 @@ export function buildWidgetCommandInverse(
 	const widget = scene ? findWidget(scene, parsed.data.widgetInstanceId) : undefined;
 	if (!scene || !widget) return null;
 	if (parsed.data.commandType !== WIDGET_COUNTER_RESTORE_COMMAND) {
-		const descriptor = findWidgetDefinition(stateBefore.widgets, widget.type)?.commands.find(
+		const definition = findWidgetDefinition(stateBefore.widgets, widget.type);
+		const descriptor = definition?.commands.find(
 			(candidate) => candidate.type === parsed.data.commandType,
 		);
-		if (!descriptor?.executor || !WIDGET_COUNTER_EXECUTORS.includes(descriptor.executor)) {
-			return null;
-		}
+		if (!definition || !descriptor || !isCounterCommand(definition, descriptor)) return null;
 	}
 	return {
 		type: 'widget.dispatch-command',
@@ -970,7 +1037,7 @@ export function buildWidgetCommandInverse(
 			sceneId: scene.id,
 			widgetInstanceId: widget.id,
 			commandType: WIDGET_COUNTER_RESTORE_COMMAND,
-			payload: { value: readWidgetCounter(widget.localState) },
+			payload: { value: readWidgetCounter(widget.configuration) },
 			expectedRevision: scene.ownership.revision + 1,
 		},
 	};

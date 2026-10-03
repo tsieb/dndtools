@@ -169,8 +169,9 @@ export interface WidgetCommandDescriptor {
  *
  * - `roll` — the session dice engine, with the formula the payload carries (`formula`).
  * - `advance` / `tick` / `reset` / `set-value` — a per-instance counter kept in the placed widget's
- *   `localState` (`advance` adds `by`, default 1; `tick` adds 1; `reset` returns to 0; `set-value`
- *   sets `value`). Undoable through {@link WIDGET_COUNTER_RESTORE_COMMAND}.
+ *   configuration under {@link WIDGET_COUNTER_STATE_KEY} (`advance` adds `by`, default 1; `tick` adds
+ *   1; `reset` returns to 0; `set-value` sets `value`). Undoable through
+ *   {@link WIDGET_COUNTER_RESTORE_COMMAND}.
  * - `show` — a message the players can see, kept on the placed widget (`text`).
  * - `mark-complete` / `write-note-line` — the BOUND entity, through its own existing commands
  *   (`content.update-object` on a quest, `content.update-item` on a note), so the presser needs the
@@ -214,7 +215,9 @@ export const WIDGET_COUNTER_EXECUTORS: readonly WidgetCommandExecutor[] = Object
 
 /**
  * Command types the core runs BY NAME, from before executors were declared: the system Timer's
- * `timer.*` and the Dice widget's `dice.roll`. A descriptor carrying one of these needs no executor.
+ * `timer.*`, the Dice widget's `dice.roll`, and `content.update-item` (a write to the widget's
+ * BOUND note, and only that note — the Loot Ledger starter's). A descriptor carrying one of these
+ * needs no executor.
  */
 export const CORE_NAMED_WIDGET_COMMANDS: readonly string[] = Object.freeze([
 	'timer.start',
@@ -224,6 +227,7 @@ export const CORE_NAMED_WIDGET_COMMANDS: readonly string[] = Object.freeze([
 	'timer.advance',
 	'timer.set-duration',
 	'dice.roll',
+	'content.update-item',
 ]);
 
 /**
@@ -233,10 +237,15 @@ export const CORE_NAMED_WIDGET_COMMANDS: readonly string[] = Object.freeze([
  */
 export const WIDGET_COUNTER_RESTORE_COMMAND = 'widget.counter-restore';
 
-/** Where the counter and the shown message live in a placed widget's `localState`. */
-export const WIDGET_COUNTER_STATE_KEY = 'counter';
-export const WIDGET_SHOWN_MESSAGE_STATE_KEY = 'shownMessage';
-export const WIDGET_LAST_ROLL_STATE_KEY = 'lastRoll';
+/**
+ * Where the executors keep what a press leaves behind: in the placed widget's CONFIGURATION, the
+ * instance record every surface already reads (the board view-model carries it to the templates).
+ * The keys are namespaced so they never collide with a setting an author declares, and no declared
+ * config field can name them, so the Inspector never offers them as settings.
+ */
+export const WIDGET_COUNTER_STATE_KEY = 'executor.counter';
+export const WIDGET_SHOWN_MESSAGE_STATE_KEY = 'executor.shownMessage';
+export const WIDGET_LAST_ROLL_STATE_KEY = 'executor.lastRoll';
 
 /** The last `roll` a placed widget made, kept so the panel that rolled can say what came up. */
 export interface WidgetLastRoll {
@@ -251,14 +260,31 @@ export interface WidgetShownMessage {
 	shownBy: ActorId;
 }
 
+/**
+ * The executor a command runs with: the one it declares, else the one its verb names
+ * ({@link inferWidgetCommandExecutor}). A command the core runs by name has none — `dice.roll` is
+ * the Dice widget's own payload shape, not the `roll` executor's.
+ */
+export function effectiveWidgetCommandExecutor(
+	descriptor: Pick<WidgetCommandDescriptor, 'type' | 'executor'>,
+): WidgetCommandExecutor | null {
+	if (descriptor.executor !== undefined) {
+		return (WIDGET_COMMAND_EXECUTORS as readonly string[]).includes(descriptor.executor)
+			? descriptor.executor
+			: null;
+	}
+	if (CORE_NAMED_WIDGET_COMMANDS.includes(descriptor.type)) return null;
+	return inferWidgetCommandExecutor(descriptor.type);
+}
+
 /** Whether pressing this command would reach something in the core that can run it. */
 export function widgetCommandHasExecutor(
 	descriptor: Pick<WidgetCommandDescriptor, 'type' | 'executor'>,
 ): boolean {
-	if (descriptor.executor !== undefined) {
-		return (WIDGET_COMMAND_EXECUTORS as readonly string[]).includes(descriptor.executor);
-	}
-	return CORE_NAMED_WIDGET_COMMANDS.includes(descriptor.type);
+	return (
+		effectiveWidgetCommandExecutor(descriptor) !== null ||
+		(descriptor.executor === undefined && CORE_NAMED_WIDGET_COMMANDS.includes(descriptor.type))
+	);
 }
 
 const EXECUTOR_BY_VERB: Readonly<Record<string, WidgetCommandExecutor>> = Object.freeze({
@@ -278,8 +304,8 @@ const EXECUTOR_BY_VERB: Readonly<Record<string, WidgetCommandExecutor>> = Object
 
 /**
  * The executor a command type's trailing verb names (`encounter.roll` → `roll`), or `null` when the
- * verb names none. For producers that only have a verb to go on (the MCP draft); an author's own
- * declaration always wins over it.
+ * verb names none. For producers that only have a verb to go on (the MCP propose tool's draft);
+ * install records it on a template widget's descriptor, and an author's own declaration always wins.
  */
 export function inferWidgetCommandExecutor(commandType: string): WidgetCommandExecutor | null {
 	const verb = commandType.slice(commandType.lastIndexOf('.') + 1);
@@ -287,16 +313,16 @@ export function inferWidgetCommandExecutor(commandType: string): WidgetCommandEx
 }
 
 /** The counter on a placed widget; 0 until something has moved it. */
-export function readWidgetCounter(localState: Record<string, unknown> | undefined): number {
-	const value = localState?.[WIDGET_COUNTER_STATE_KEY];
+export function readWidgetCounter(configuration: Record<string, unknown> | undefined): number {
+	const value = configuration?.[WIDGET_COUNTER_STATE_KEY];
 	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 /** The last roll a placed widget made, or `null`. */
 export function readWidgetLastRoll(
-	localState: Record<string, unknown> | undefined,
+	configuration: Record<string, unknown> | undefined,
 ): WidgetLastRoll | null {
-	const value = localState?.[WIDGET_LAST_ROLL_STATE_KEY] as Partial<WidgetLastRoll> | undefined;
+	const value = configuration?.[WIDGET_LAST_ROLL_STATE_KEY] as Partial<WidgetLastRoll> | undefined;
 	if (!value || typeof value.expression !== 'string' || typeof value.total !== 'number')
 		return null;
 	return {
@@ -308,9 +334,9 @@ export function readWidgetLastRoll(
 
 /** The message a placed widget is showing the players, or `null`. */
 export function readWidgetShownMessage(
-	localState: Record<string, unknown> | undefined,
+	configuration: Record<string, unknown> | undefined,
 ): WidgetShownMessage | null {
-	const value = localState?.[WIDGET_SHOWN_MESSAGE_STATE_KEY] as
+	const value = configuration?.[WIDGET_SHOWN_MESSAGE_STATE_KEY] as
 		| Partial<WidgetShownMessage>
 		| undefined;
 	if (!value || typeof value.text !== 'string' || value.text === '') return null;

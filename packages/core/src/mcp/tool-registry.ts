@@ -2,7 +2,6 @@ import { z } from 'zod';
 import {
 	ALL_WIDGET_DATA_QUERY_SOURCES,
 	ALL_WIDGET_TEMPLATE_KINDS,
-	WIDGET_COMMAND_EXECUTORS,
 } from '../state/widget-package-state';
 
 /**
@@ -765,8 +764,6 @@ const WIDGET_PACKAGE_PROPOSE_DESCRIPTION = [
 	`  ${guidanceLine(ALL_WIDGET_DATA_QUERY_SOURCES, WIDGET_QUERY_SOURCE_GUIDANCE)}.`,
 	'A query\u2019s `audience` is dm (the default), players, or shared — widen it only when the DM asked',
 	'for something the table should see. Pass their request verbatim as `prompt`.',
-	// RC-WID-6.1 — a command the core cannot run is refused at install, so name the verbs it can.
-	`A command\u2019s \`type\` ends in one of: ${WIDGET_COMMAND_EXECUTORS.join(', ')}.`,
 	'Staged for DM approval; the widget arrives switched off, awaiting their trust review.',
 ].join('\n');
 

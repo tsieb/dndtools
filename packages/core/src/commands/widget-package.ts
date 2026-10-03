@@ -24,6 +24,7 @@ import type {
 import {
 	ALL_HOST_PERMISSIONS,
 	WIDGET_COMMAND_EXECUTORS,
+	effectiveWidgetCommandExecutor,
 	findPackageRecordForWidgetType,
 	widgetCommandHasExecutor,
 } from '../state/widget-package-state';
@@ -247,6 +248,17 @@ function normalizeDefinition(definition: WidgetPackageDefinitionParsed): WidgetP
 			...widget,
 			author: widget.author,
 			configurationSchema: widget.configurationSchema as WidgetDataSchema,
+			// RC-WID-6.1 — a template command that names no executor runs the one its verb names
+			// (validation already refused one whose verb names none); record it, so what the core
+			// runs is on the descriptor rather than re-derived from a string at every press.
+			commands:
+				widget.renderEntrypoint?.runtime === 'template'
+					? widget.commands.map((command) => {
+							if (command.executor !== undefined) return command;
+							const executor = effectiveWidgetCommandExecutor(command);
+							return executor ? { ...command, executor } : command;
+						})
+					: widget.commands,
 		})) as WidgetDefinition[],
 	};
 }

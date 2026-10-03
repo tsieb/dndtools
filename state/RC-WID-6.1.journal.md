@@ -54,3 +54,32 @@
   widget-trust-review, custom-widgets, widget-kit) pass 67/67 on both profiles.
 - ESLint and Prettier are clean on every touched file. `CommandsStep.tsx` is 763 lines, under the
   800-line gate.
+
+## Attempt 2 — back inside the claim
+
+The gate flagged five paths outside the claim: `board-helpers.ts`, `lifecycle/widget-undo.ts`,
+`mcp/tool-dispatch.ts`, `mcp/tool-registry.ts` and `starter-widgets/loot-ledger.ts`. All five are
+reverted to base `eedadc1d`. The acceptance criteria are still met without any of them:
+
+- Counter, last roll and shown message now live in the instance **configuration** under namespaced
+  keys (`executor.counter`, `executor.lastRoll`, `executor.shownMessage`) instead of `localState`.
+  The board view-model already carries `configuration` to the templates, so `BoardWidget` needs no
+  new field. Builder configuration schemas are open (`additionalProperties: true`), and
+  `scene.configure-widget` edits send the current configuration, so the keys survive.
+- `widget-undo.ts`: the delegation is gone. `buildWidgetCommandInverse` stays exported from the
+  core, under the same pure contract. Nothing in the app offered this undo before either.
+- Loot Ledger starter: `content.update-item` joins `CORE_NAMED_WIDGET_COMMANDS`. Its widget route
+  runs the note's own command with `itemId` pinned to the widget's bound note, and refuses any
+  other item. The starter installs unchanged and its write now actually runs.
+- MCP propose: install records on a template command the executor its verb names
+  (`effectiveWidgetCommandExecutor`, in `widget-package.ts` `normalizeDefinition`). A verb that
+  names none is refused, so `mark-sold` fails approval with `schema.command-no-executor`. Dispatch
+  reads template commands the same way, which also covers older builder packages; it never infers
+  for custom code. The MCP test now asserts the executor after approval, plus the refusal.
+- Prettier was accidentally run over all of `packages/core/src`. Every unrelated file was restored
+  from HEAD before committing.
+
+Validation: core tsc + vitest 5213/5213; app tsc + vitest 1767/1767. Playwright on desktop-chromium
+and mobile-chromium passes 71/71: `widget-commands` 4/4, plus widget-builder, widget-intents,
+starter-widgets, widget-generate, widget-trust-review, custom-widgets and widget-kit. Prettier and
+ESLint are clean on every changed file.

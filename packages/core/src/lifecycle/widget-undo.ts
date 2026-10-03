@@ -1,5 +1,4 @@
 import { undoableDuplicateWidgetInputSchema } from '../commands/widget';
-import { buildWidgetCommandInverse } from '../commands/widget-command';
 import type { ZodType } from 'zod';
 import type { CoreCommand, CoreStateSlice } from '../commands/types';
 import {
@@ -220,13 +219,6 @@ export function buildWidgetInverse(
 				},
 				'Changed focus order',
 			);
-		}
-
-		// RC-WID-6.1 — a counter press on a template widget is undone by the counter's restore; every
-		// other widget command is refused (`buildWidgetCommandInverse` says why).
-		case 'widget.dispatch-command': {
-			const inverse = buildWidgetCommandInverse(command, stateBefore);
-			return inverse ? undoable(inverse, 'Changed counter') : null;
 		}
 
 		case 'scene.configure-widget': {

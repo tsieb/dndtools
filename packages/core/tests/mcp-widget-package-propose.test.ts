@@ -135,7 +135,6 @@ describe('widget.package.propose — a structured draft becomes a staged, instal
 		});
 		expect(definition.widgets[0]!.commands[0]).toMatchObject({
 			type: 'mark-complete',
-			executor: 'mark-complete',
 			writesTo: 'entity',
 		});
 	});
@@ -183,6 +182,22 @@ describe('widget.package.propose — a structured draft becomes a staged, instal
 		expect(record!.enabled).toBe(false);
 		expect(record!.trust.state).toBe('unreviewed');
 		expect(Object.values(record!.trust.hostPermissions)).not.toContain('approved');
+		// RC-WID-6.1 — install records the executor the drafted verb names, so the button can run.
+		expect(record!.package.widgets[0]!.commands[0]!.executor).toBe('mark-complete');
+	});
+
+	it('approval refuses a drafted command no executor can run (RC-WID-6.1)', () => {
+		const { state, proposalId } = propose(seedAgent(), {
+			...LOOT_LEDGER,
+			commands: [{ type: 'mark-sold', displayName: 'Mark as sold', writesTo: 'entity' }],
+		});
+		const result = dispatchCommand(state, env, {
+			type: 'mcp.approve-proposal',
+			actorId: DM_ACTOR.id,
+			payload: { proposalId },
+		});
+		expect(JSON.stringify(result)).toContain('schema.command-no-executor');
+		expect(state.widgets.packages['workspace.party-loot-ledger']).toBeUndefined();
 	});
 
 	it.each([
