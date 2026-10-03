@@ -104,3 +104,16 @@ node apps/gm-react/tests/visual/check-baseline-budget.mjs
 - Fresh `pnpm gates`: exit 0, with **zero owned-file size warnings**. All 27 owned text files remain below 500 lines; LevelUp.tsx remains the largest at 492 lines.
 - Fresh `pnpm lint:emphasis`: exit 0; existing baseline warnings remain. Fresh visual baseline budget check: exit 0, **522 files / 32,570.4 KiB of 32,768 KiB**.
 - Headroom tools are still unavailable; verification used original native command output. Central scope validation and independent review remain operator-run gates; this entry does not claim those remote stages passed.
+
+## Integration reconciliation — 2026-10-03
+
+- Rebased onto the requested integration commit `532ad0830d70286a0b09e12b6e92c691011a9aed`. Preserved integration's scene-editor emphasis allowance removals and removed only the three obsolete Player/LevelUp entries from that baseline.
+- Resolved six binary Player snapshot conflicts provisionally using this task's owned-content captures; regenerating all 45 Player captures against the reconciled source in the pinned container. Unrelated integration snapshots are retained.
+- Earlier validation above describes the original implementation. Fresh post-rebase validation is recorded below as it completes.
+- Fresh pinned regeneration: **15 passed**, exit 0; all 45 Player PNGs are byte-identical to the task captures. Fresh comparison with `--update-snapshots=none`: **15 passed**, exit 0. Reviewed desktop parchment identity/columns and phone high-contrast combat; no integration-induced content regression. Baseline budget passes: **598 files / 30,336.9 KiB of 32,768 KiB**.
+- Fresh `pnpm gates`, `pnpm lint:emphasis` and gm-react typecheck passed (exit 0). Gates contains zero owned file-size warnings; the largest owned source remains LevelUp.tsx (492 lines).
+- Full `pnpm lint` was terminated with exit 143 during ESLint, after the raw-style count passed; this is not a completed lint gate. Running scoped ESLint and the remaining boundary/contrast checks separately.
+- Fresh focused polish/axe suite: **12 passed**, desktop + mobile, exit 0. Route tabs and rest/discard overlays remain axe clean; failure/retry, preview authorization, keyboard restoration and large-text/touch checks passed.
+- Fresh scoped ESLint, boundary lint and five-theme non-text contrast passed (exit 0; 319 contrast pairs plus 16 forced-colors checks). Confirmed all **27 owned text files** remain below 500 lines.
+- Fresh existing surface suite: **54 passed**, desktop + mobile, exit 0. Confirmed the requested integration commit is an ancestor of this task branch. Snapshot changes relative to integration are limited to the 45 Player captures; emphasis JSON differs only by the three intended owned allowance removals.
+- Fresh print/export suite: **3 passed**, exit 0, including original rasterized PDFs, long Unicode content and Spanish output. Formatting and `git diff --check` pass. No application changes were needed after rebase; binary regeneration confirmed the selected captures. Reconciliation changes and this fresh evidence are committed on the task branch; independent central review remains pending. No push, promotion, new loop/agent or dispatcher state edit.
