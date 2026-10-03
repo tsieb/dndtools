@@ -54,9 +54,9 @@ gallery slot itself.
 What this leaves undone, because only unowned files can do it (none of it is in the acceptance
 criteria):
 
-- A palette "Add tile" is undoable but still lands at the definition's own size (220×160 for most
-  tiles): `paletteActions.ts` builds that layout. Sizing it from `defaultTileSize` is a two-line
-  change there.
+- ~~A palette "Add tile" is undoable but still lands at the definition's own size (220×160 for most
+  tiles).~~ Fixed in the fourth pass (below): independent review held that the story text requires
+  it regardless of the claim.
 - `/scene/:id` gallery adds are undoable through the same signal but keep the definition size, as
   before (`useSceneCommands.ts` builds them).
 
@@ -98,3 +98,52 @@ After: `SceneBoardCanvas.tsx` 788 lines, `WidgetFrame.tsx` 800. `pnpm gates` pas
 - Playwright on `bd6862fb`, desktop-chromium and mobile-chromium: `canvas`, `canvas-keyboard`,
   `canvas-arrange`, `command-palette`, `flow-layout`, `scene-surfaces` and `canvas-history`, 150
   passed (3.2 min).
+
+## Fourth pass: independent review findings on `7720111d`
+
+Two findings, both reproduced with the reviewer's own regression tests
+(`history-review.test.tsx`, `palette-review.test.tsx`) before changing anything: 2 failed / 12 passed.
+
+- **Burst grouping lost when Escape/blur lands during pending persistence (high).** `settle()`
+  cleared the burst, but `run` only decided which burst owned a command after `dispatch` resolved, so
+  nudges still queued behind the vault persist became steps of their own. Now:
+  - `run` captures the burst open at the moment it is CALLED and folds into that burst's step
+    whenever it completes. `settle` only stops later calls joining.
+  - `run`, undo and redo share one serial queue inside the hook (an idle queue starts the job at
+    once, so the core still holds the edit the instant `run` is called). Each run reads its
+    before-state when its own dispatch is about to land, not while an earlier nudge is still queued,
+    and undo waits for every run in flight rather than only the latest.
+  - `SceneBoardCanvas.moveAll` issues every selected tile's `onMove` at once. Before this, a group
+    nudge's second tile joined whatever burst was open once the first tile had persisted.
+- **Palette Add tile still landed at 220×160 (medium).** I crossed the claim minimally into
+  `app/shortcuts/paletteActions.ts`, because the requirement is in the story text and the owned files
+  can't satisfy it. `placeTile` now sizes from `defaultTileSize` (the definition's declared and
+  minimum sizes, with the mounted canvas's policy, or off the canvas the policy the scene's own
+  canvas would use), then finds the slot at that size. Dice on `/board` lands at 240×160.
+
+The edit-mode axe scan in `canvas-history.spec.ts` no longer excludes tile bodies. It scans the
+whole board and lets through only `scrollable-region-focusable` whose every node is a
+`[data-widget-region]` element. That's the known body finding from `WidgetRenderSlot`, which is out
+of claim. The view-mode scan still has no exceptions. The keyboard e2e now presses Escape right after
+the three nudges, without waiting for them to commit.
+
+New tests, each confirmed to fail against `7720111d`'s code and pass now:
+
+- `useLayoutHistory.test.tsx`: a nudge still persisting when Escape settles the burst folds into it;
+  an undo right after Escape waits for every nudge still persisting.
+- `SceneBoardCanvas.test.tsx` (its runtime stand-in now queues dispatches behind a persist the way
+  `SceneRuntime` does): two selected tiles, two ArrowDowns and Escape while persistence is held, then
+  one Ctrl+Z restores both tiles and their painted frames.
+- `paletteActions.test.tsx`: palette Add tile: Dice lands at 240×160.
+
+Evidence on the working tree before commit:
+
+- Reviewer's regression config: 14/14 passed.
+- `vitest --config vitest.app.config.ts`: 162 files, 1767 tests passed.
+- `pnpm gates`: exit 0.
+- `tsc --noEmit` (gm-react), `eslint` on changed files, `format:check:changed --base 6dcb0a00`: clean.
+- Playwright, desktop-chromium and mobile-chromium: `canvas-history`, `canvas-keyboard`, `canvas`
+  and `command-palette` (130 passed); `canvas-arrange`, `flow-layout`, `scene-surfaces`,
+  `custom-widgets` and `screen` (59 passed); `starter-widgets` and `custom-widgets` on desktop
+  (11 passed). The parallel run printed some `[WebServer] … ErrorBoundary` stack lines that I could
+  not reproduce in serial reruns on either profile (19 and 30 passed, no such lines). No test failed.

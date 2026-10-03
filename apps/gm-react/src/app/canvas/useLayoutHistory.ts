@@ -189,6 +189,11 @@ function placementStep(
 	return { command, inverse, label };
 }
 
+/** A keyboard burst or one gesture, and the step it has written so far. */
+interface Burst {
+	entry: LayoutHistoryEntry | null;
+}
+
 const sameCommands = (a: readonly CoreCommand[], b: readonly CoreCommand[]) =>
 	JSON.stringify(a) === JSON.stringify(b);
 
@@ -230,16 +235,22 @@ export function useLayoutHistory(options: {
 	// read them inside async callbacks, so they must not close over a stale render's array (the map
 	// editor learned that the same way) — and `run` writes them the moment the core accepts, BEFORE
 	// the re-render, so a Ctrl+Z that lands right behind an arrow-key nudge still finds the entry
-	// instead of silently doing nothing. Undo/redo also wait for a `run` still in flight.
+	// instead of silently doing nothing.
+	//
+	// RC-CAN-8.1 — `run`, undo and redo go through ONE queue, so each reads the state its own
+	// dispatch lands on (the runtime queues dispatches behind the vault persist: a nudge read the
+	// instant its key went down would invert against a layout the previous nudge is about to
+	// replace), and an undo waits for every run still in flight.
 	const pastRef = useRef<LayoutHistoryEntry[]>([]);
 	const futureRef = useRef<LayoutHistoryEntry[]>([]);
-	const inflightRef = useRef<Promise<boolean> | null>(null);
+	const queueRef = useRef<Promise<unknown>>(Promise.resolve());
 	const busyRef = useRef(false);
 	const seqRef = useRef(0);
-	// RC-CAN-8.1 — the open burst: whether one is open, and the step it has written so far (only
-	// that step may be extended; anything pushed over it ends the fold).
-	const burstOpenRef = useRef(false);
-	const burstEntryRef = useRef<LayoutHistoryEntry | null>(null);
+	// RC-CAN-8.1 — the open burst. A `run` captures the burst open at the moment it is CALLED, so a
+	// nudge still persisting when Escape or blur settles the burst folds into that burst's step rather
+	// than becoming a step of its own. `entry` is the step the burst has written so far: only that
+	// step may be extended; anything pushed over it ends the fold.
+	const burstRef = useRef<Burst | null>(null);
 	const commitPast = useCallback((next: LayoutHistoryEntry[]) => {
 		pastRef.current = next;
 		setPast(next);
@@ -248,12 +259,22 @@ export function useLayoutHistory(options: {
 		futureRef.current = next;
 		setFuture(next);
 	}, []);
+	const queuedRef = useRef(0);
+	const enqueue = useCallback(<T>(job: () => Promise<T>): Promise<T> => {
+		// An idle queue starts the job NOW, so the core holds the edit the moment `run` is called.
+		const idle = queuedRef.current === 0;
+		queuedRef.current += 1;
+		const task = (idle ? job() : queueRef.current.then(job, job)).finally(() => {
+			queuedRef.current -= 1;
+		});
+		queueRef.current = task.catch(() => undefined);
+		return task;
+	}, []);
 	const settle = useCallback(() => {
-		burstOpenRef.current = false;
-		burstEntryRef.current = null;
+		burstRef.current = null;
 	}, []);
 	const beginBurst = useCallback(() => {
-		burstOpenRef.current = true;
+		burstRef.current ??= { entry: null };
 	}, []);
 	const oneStep = useCallback(
 		async (work: () => Promise<unknown>) => {
@@ -282,13 +303,13 @@ export function useLayoutHistory(options: {
 
 	/** Push one accepted command (with its inverse) — or fold it into the open burst's step. */
 	const remember = useCallback(
-		(command: CoreCommand, inverse: CoreCommand[], label: string) => {
+		(command: CoreCommand, inverse: CoreCommand[], label: string, burst: Burst | null) => {
 			const stack = pastRef.current;
 			// A placement `run` dispatched was already recorded off the runtime's dispatch signal.
 			const top = stack[stack.length - 1];
 			if (PLACING.has(command.type) && top && sameCommands(top.inverse, inverse)) return;
-			const open = burstEntryRef.current;
-			const folding = burstOpenRef.current && open !== null && stack[stack.length - 1] === open;
+			const open = burst?.entry ?? null;
+			const folding = open !== null && top === open;
 			const entry: LayoutHistoryEntry = folding
 				? {
 						forward: lastPerWidget([...open.forward, command]),
@@ -296,7 +317,7 @@ export function useLayoutHistory(options: {
 						label,
 					}
 				: { forward: [command], inverse, label };
-			if (burstOpenRef.current) burstEntryRef.current = entry;
+			if (burst) burst.entry = entry;
 			commitPast([...(folding ? stack.slice(0, -1) : stack), entry].slice(-MAX_LAYOUT_HISTORY));
 			// Any new action invalidates the redo branch — redoing onto a diverged layout would be
 			// a different edit than the one the user reversed.
@@ -306,28 +327,24 @@ export function useLayoutHistory(options: {
 	);
 
 	const run = useCallback(
-		async (command: CoreCommand, label: string): Promise<boolean> => {
-			// Read the state BEFORE dispatching: every layout command overwrites its field outright, so
-			// the value to restore only exists in the state the command was dispatched against.
-			const stateBefore = runtime.state;
-			const task = (async (): Promise<boolean> => {
+		(command: CoreCommand, label: string): Promise<boolean> => {
+			// The burst is the one open when the edit was MADE, not when its turn in the queue comes.
+			const burst = burstRef.current;
+			return enqueue(async () => {
+				// Read the state BEFORE dispatching: every layout command overwrites its field outright,
+				// so the value to restore only exists in the state the command was dispatched against.
+				const stateBefore = runtime.state;
 				const ok = await dispatch(command);
 				if (!ok) return false;
 				if (!sceneId) return true;
 				const inverse = inverseCommands(command, stateBefore, runtime.state);
 				// Honestly not undoable (`scene.group-widgets` mints a group id no command can take
 				// back): leave the stack alone rather than pushing a wrong inverse.
-				if (inverse) remember(command, inverse, label);
+				if (inverse) remember(command, inverse, label, burst);
 				return true;
-			})();
-			inflightRef.current = task;
-			try {
-				return await task;
-			} finally {
-				if (inflightRef.current === task) inflightRef.current = null;
-			}
+			});
 		},
-		[dispatch, remember, runtime, sceneId],
+		[dispatch, enqueue, remember, runtime, sceneId],
 	);
 
 	// The state the screen last rendered: the runtime signals a dispatch before it re-renders, so
@@ -342,7 +359,7 @@ export function useLayoutHistory(options: {
 			for (const op of ops) {
 				if (runtime.defaultActorId && op.actorId !== runtime.defaultActorId) continue;
 				const step = placementStep(op, sceneId, seenRef.current, next);
-				if (step) remember(step.command, step.inverse, step.label);
+				if (step) remember(step.command, step.inverse, step.label, null);
 			}
 			seenRef.current = next;
 		});
@@ -366,56 +383,58 @@ export function useLayoutHistory(options: {
 		[dispatch, runtime],
 	);
 
-	const undo = useCallback(async (): Promise<boolean> => {
-		if (busyRef.current) return false;
-		busyRef.current = true;
-		settle();
-		try {
-			await inflightRef.current;
-			const entry = pastRef.current[pastRef.current.length - 1];
-			if (!entry) return false;
-			const { ok, inverse: redone } = await replay(entry.inverse);
-			if (!ok) return false;
-			// Re-derive the forward commands against the state the UNDO ran on, so a redo can itself
-			// be undone exactly (revisions and neighbouring widgets have moved on) — and so the redo of
-			// an add RESTORES the destroyed instances instead of placing fresh ones.
-			commitPast(pastRef.current.slice(0, -1));
-			commitFuture(
-				[
-					...futureRef.current,
-					{ forward: redone ?? entry.forward, inverse: entry.inverse, label: entry.label },
-				].slice(-MAX_LAYOUT_HISTORY),
-			);
-			announce(`Undone: ${asPhrase(entry.label)}`);
-			return true;
-		} finally {
-			busyRef.current = false;
-		}
-	}, [announce, commitFuture, commitPast, replay, settle]);
+	/** Reverse the top step. Runs in the queue, after every edit made before it. */
+	const undoTop = useCallback(async (): Promise<boolean> => {
+		const entry = pastRef.current[pastRef.current.length - 1];
+		if (!entry) return false;
+		const { ok, inverse: redone } = await replay(entry.inverse);
+		if (!ok) return false;
+		// Re-derive the forward commands against the state the UNDO ran on, so a redo can itself
+		// be undone exactly (revisions and neighbouring widgets have moved on) — and so the redo of
+		// an add RESTORES the destroyed instances instead of placing fresh ones.
+		commitPast(pastRef.current.slice(0, -1));
+		commitFuture(
+			[
+				...futureRef.current,
+				{ forward: redone ?? entry.forward, inverse: entry.inverse, label: entry.label },
+			].slice(-MAX_LAYOUT_HISTORY),
+		);
+		announce(`Undone: ${asPhrase(entry.label)}`);
+		return true;
+	}, [announce, commitFuture, commitPast, replay]);
 
-	const redo = useCallback(async (): Promise<boolean> => {
-		if (busyRef.current) return false;
-		busyRef.current = true;
-		settle();
-		try {
-			await inflightRef.current;
-			const entry = futureRef.current[futureRef.current.length - 1];
-			if (!entry) return false;
-			const { ok, inverse } = await replay(entry.forward);
-			if (!ok) return false;
-			commitFuture(futureRef.current.slice(0, -1));
-			commitPast(
-				[
-					...pastRef.current,
-					{ forward: entry.forward, inverse: inverse ?? entry.inverse, label: entry.label },
-				].slice(-MAX_LAYOUT_HISTORY),
-			);
-			announce(`Redone: ${asPhrase(entry.label)}`);
-			return true;
-		} finally {
-			busyRef.current = false;
-		}
-	}, [announce, commitFuture, commitPast, replay, settle]);
+	const redoTop = useCallback(async (): Promise<boolean> => {
+		const entry = futureRef.current[futureRef.current.length - 1];
+		if (!entry) return false;
+		const { ok, inverse } = await replay(entry.forward);
+		if (!ok) return false;
+		commitFuture(futureRef.current.slice(0, -1));
+		commitPast(
+			[
+				...pastRef.current,
+				{ forward: entry.forward, inverse: inverse ?? entry.inverse, label: entry.label },
+			].slice(-MAX_LAYOUT_HISTORY),
+		);
+		announce(`Redone: ${asPhrase(entry.label)}`);
+		return true;
+	}, [announce, commitFuture, commitPast, replay]);
+
+	/** Undo/redo end the open burst, and refuse while another undo/redo is still replaying. */
+	const step = useCallback(
+		async (work: () => Promise<boolean>): Promise<boolean> => {
+			if (busyRef.current) return false;
+			busyRef.current = true;
+			settle();
+			try {
+				return await enqueue(work);
+			} finally {
+				busyRef.current = false;
+			}
+		},
+		[enqueue, settle],
+	);
+	const undo = useCallback(() => step(undoTop), [step, undoTop]);
+	const redo = useCallback(() => step(redoTop), [step, redoTop]);
 
 	return {
 		run,

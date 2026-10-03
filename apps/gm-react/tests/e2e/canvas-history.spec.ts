@@ -85,19 +85,32 @@ async function differingPixels(page: Page, a: Buffer, b: Buffer, tolerance = 8):
 }
 
 /**
- * Axe over the edited canvas. A tile body whose text overflows its tile is a scroll region; in edit
- * mode the frame owns the keys, so `WidgetRenderSlot` takes that region out of the tab order and axe
- * reports `scrollable-region-focusable` on it (the phone's Prep tile). That is the body's finding,
- * not this surface's, and the same with or without any move — so the bodies are scanned in VIEW mode
- * (`expectBoardAxeClean`), and everything the edit chrome adds is scanned here.
+ * Axe over the edited canvas, tile bodies included. One finding is the body's, not this surface's: a
+ * body whose text overflows its tile is a scroll region, and in edit mode the frame owns the keys, so
+ * `WidgetRenderSlot` takes that region out of the tab order and axe reports
+ * `scrollable-region-focusable` on it (the phone's Prep tile) — with or without any move. Only that
+ * rule, and only on a body region itself, is let through here; the same bodies are then scanned with
+ * no exception at all in VIEW mode (`expectBoardAxeClean`).
  */
 async function expectCanvasAxeClean(page: Page) {
 	const result = await new AxeBuilder({ page })
 		.include('[data-testid="scene-board-bounded"]')
-		.exclude('[data-widget-region]')
 		.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
 		.analyze();
-	expect(result.violations).toEqual([]);
+	const isBodyRegion = (selector: string) =>
+		page.evaluate(
+			(css) => document.querySelector(css)?.matches('[data-widget-region]') ?? false,
+			selector,
+		);
+	const remaining = [];
+	for (const violation of result.violations) {
+		const targets = violation.nodes.map((node) => String(node.target.at(-1)));
+		const bodyOnly =
+			violation.id === 'scrollable-region-focusable' &&
+			(await Promise.all(targets.map(isBodyRegion))).every(Boolean);
+		if (!bodyOnly) remaining.push(violation);
+	}
+	expect(remaining).toEqual([]);
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Edit layout' })).toBeVisible();
 	await expectBoardAxeClean(page);
@@ -174,13 +187,15 @@ test.describe('canvas history: the frame follows the layout', () => {
 		await page.keyboard.press('ArrowDown');
 		await page.keyboard.press('ArrowDown');
 		await page.keyboard.press('ArrowDown');
+		// Escape straight away, while the nudges may still be queued behind the vault persist: each
+		// belongs to the burst it was pressed in, not to whatever is open when its turn comes.
+		await page.keyboard.press('Escape');
 		await expect
 			.poll(() => layoutOf(page, sceneId, widgetId))
 			.toEqual({
 				x: start.x,
 				y: start.y + 60,
 			});
-		await page.keyboard.press('Escape');
 		await expect(frame).toBeFocused();
 
 		// One burst, one step: Ctrl+Z from the focused frame undoes all three nudges.

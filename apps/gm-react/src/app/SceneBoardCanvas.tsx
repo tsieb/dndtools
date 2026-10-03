@@ -199,8 +199,10 @@ export function SceneBoardCanvas({
 	const rectOf = (id: string) => rects.filter((r) => r.id === id);
 	/** One `scene.move-widget` per tile, in sequence. */
 	const moveAll = useCallback(
+		// Every tile's move is issued at once, so each joins the burst open at the gesture (the undo
+		// stack and the runtime both keep them in order) — not whichever one is open by its turn.
 		async (list: Placement[]) => {
-			for (const p of list) await onMove(p.id, p.x, p.y);
+			await Promise.all(list.map((p) => onMove(p.id, p.x, p.y)));
 		},
 		[onMove],
 	);

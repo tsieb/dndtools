@@ -1,9 +1,11 @@
 import {
 	canvasSurfaceForRoute,
+	findWidgetDefinition,
 	getSceneDisplayForActor,
 	listCanvasCommandActions,
 	listCommandActions,
 	resolveCommandAction,
+	screenLayoutPolicy,
 	searchCommandActions,
 	type CommandAction,
 	type CommandActionGroup,
@@ -13,6 +15,7 @@ import { Toaster } from '../../ds';
 import type { useI18n } from '../../i18n';
 import type { useRuntime } from '../../runtime/RuntimeContext';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
+import { defaultTileSize } from '../board-helpers';
 import { activeCanvasSurface, shortcut, type CanvasSurfaceHandle } from './registry';
 import {
 	ACTION_GROUP_ICON,
@@ -78,7 +81,8 @@ export function paletteActions({
 	// RC-CAN-4.3 — "Add tile: X" dispatches the provider's `scene.add-widget` unchanged except for
 	// WHERE: on the mounted canvas it takes the gallery's next free slot instead of the library
 	// default (which stacks every new tile on the first one), then enters edit mode and focuses
-	// the new tile, exactly as a gallery pick does.
+	// the new tile, exactly as a gallery pick does. RC-CAN-8.1: and at the SIZE a gallery pick gets,
+	// from the one default-size table, so it matches its seeded 240×160 siblings on the board.
 	const placeTile = (action: CommandAction) => () => {
 		const resolved = resolveCommandAction(action);
 		if (!resolved || resolved.type !== 'scene.add-widget') {
@@ -87,13 +91,20 @@ export function paletteActions({
 		}
 		const payload = resolved.payload as {
 			sceneId: string;
-			widget: { layout: { x: number; y: number; w: number; h: number } };
+			widget: { type: string; layout: { x: number; y: number; w: number; h: number } };
 		};
 		const surface = activeCanvasSurface();
 		const onCanvas = surface && surface.sceneId === payload.sceneId ? surface : null;
+		const definition = findWidgetDefinition(runtime.state.widgets, payload.widget.type);
+		const provided = payload.widget.layout;
+		const size = defaultTileSize(
+			definition?.defaultSize ?? { width: provided.w, height: provided.h },
+			onCanvas?.policy ?? addPolicyFor(payload.sceneId),
+			definition?.minSize,
+		);
 		const layout = onCanvas
-			? { ...payload.widget.layout, ...slotFor(onCanvas, payload.widget.layout) }
-			: payload.widget.layout;
+			? { ...provided, ...size, ...slotFor(onCanvas, size) }
+			: { ...provided, ...size };
 		const before = new Set(
 			(runtime.state.scenes.scenes[payload.sceneId]?.widgets ?? []).map((w) => w.id),
 		);
@@ -123,6 +134,13 @@ export function paletteActions({
 				Toaster.error(t('palette.toast.notSaved'));
 			}
 		})();
+	};
+	// Off the canvas, the policy the scene's own canvas would place it under: `/board` lays the home
+	// scene on columns unless it flows; any other screen is free.
+	const addPolicyFor = (sceneId: string): 'bounded' | 'flow' | 'canvas' => {
+		const scene = runtime.state.scenes.scenes[sceneId];
+		if (scene && screenLayoutPolicy(scene) === 'flow') return 'flow';
+		return sceneId === runtime.state.commandCenter.homeSceneId ? 'bounded' : 'canvas';
 	};
 	const actionRow = (action: CommandAction, contextualRow: boolean): PaletteCommand => {
 		const blocked =

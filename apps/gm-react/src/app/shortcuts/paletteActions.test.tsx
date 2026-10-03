@@ -146,4 +146,18 @@ describe('palette Add tile', () => {
 		});
 		expect(widgets().some((w) => w.id === added!.id)).toBe(true);
 	});
+
+	it('lands at the 240 by 160 default its board siblings have', async () => {
+		// Dice declares 220×160; the board's one default-size table puts every add on its 240px
+		// columns, the same size a gallery pick and the seeded tiles get.
+		const { runtime, widgets } = board();
+		const before = widgets().map((w) => w.id);
+		const row = paletteRows(runtime, 'dice').find((r) => r.id === 'action:canvas.tile.add:dice');
+		act(() => row!.run());
+		await settle();
+		const added = widgets().find((w) => !before.includes(w.id));
+		expect({ w: added?.layout.w, h: added?.layout.h }).toEqual({ w: 240, h: 160 });
+		const sibling = widgets().find((w) => w.type === 'dice' && before.includes(w.id));
+		if (sibling) expect(sibling.layout.w).toBe(added?.layout.w);
+	});
 });

@@ -28,18 +28,27 @@ import { useLayoutHistory, type LayoutHistory } from './canvas/useLayoutHistory'
 const env = makeEnvironment();
 const holder: { state: CoreStateSlice } = { state: buildInitialState(DM_ACTOR, PLAYER_ACTOR) };
 const listeners = new Set<() => void>();
+/** Shaped like `SceneRuntime`: dispatches take turns, each waiting out its vault persist. A test
+ *  holds `persisting` open to keep the queue busy. */
+let persisting: Promise<void> | null = null;
+let turns: Promise<unknown> = Promise.resolve();
 const runtimeRef = {
 	get state() {
 		return holder.state;
 	},
 	defaultActorId: DM_ACTOR.id,
-	async dispatch(command: CoreCommand) {
-		const result = dispatchCommand(holder.state, env, command);
-		if (result.status === 'accepted') {
-			holder.state = result.nextState;
-			for (const listener of listeners) listener();
-		}
-		return result;
+	dispatch(command: CoreCommand) {
+		const turn = turns.then(async () => {
+			const result = dispatchCommand(holder.state, env, command);
+			if (result.status === 'accepted') {
+				holder.state = result.nextState;
+				for (const listener of listeners) listener();
+				await persisting;
+			}
+			return result;
+		});
+		turns = turn.catch(() => undefined);
+		return turn;
 	},
 };
 
@@ -87,6 +96,7 @@ afterEach(() => {
 	host.remove();
 	vi.unstubAllGlobals();
 	history = null;
+	persisting = null;
 });
 
 /** `/board` in miniature: the same widgets view-model, the same clamped `move`, the same stack. */
@@ -249,5 +259,52 @@ describe('SceneBoardCanvas draws the layout it receives', () => {
 		expect({ x: firstWidget().layout.x, y: firstWidget().layout.y }).toEqual(before);
 		expect(history!.canUndo).toBe(false);
 		expect(painted(frameOf(widget.id))).toMatchObject(before);
+	});
+
+	it('Escape while a group nudge is still persisting: one Ctrl+Z restores every tile', async () => {
+		mount();
+		const sceneId = holder.state.commandCenter.homeSceneId!;
+		const [a, b] = holder.state.scenes.scenes[sceneId].widgets;
+		const layoutOf = (id: string) => {
+			const w = holder.state.scenes.scenes[sceneId].widgets.find((x) => x.id === id)!;
+			return { x: w.layout.x, y: w.layout.y };
+		};
+		const before = { a: layoutOf(a.id), b: layoutOf(b.id) };
+		const key = (id: string, k: string, init: KeyboardEventInit = {}) =>
+			act(async () => {
+				frameOf(id).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...init }));
+				await new Promise((resolve) => setTimeout(resolve, 0));
+			});
+		act(() => frameOf(a.id).focus());
+		await key(a.id, ' ');
+		act(() => frameOf(b.id).focus());
+		await key(b.id, ' ', { shiftKey: true });
+
+		// The vault is slow: both tiles' moves of both presses are still queued when Escape lands.
+		let release!: () => void;
+		persisting = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await key(b.id, 'ArrowDown');
+		await key(b.id, 'ArrowDown');
+		await key(b.id, 'Escape');
+		await act(async () => {
+			release();
+			await turns;
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+		expect(layoutOf(a.id)).toEqual({ x: before.a.x, y: before.a.y + 40 });
+		expect(layoutOf(b.id)).toEqual({ x: before.b.x, y: before.b.y + 40 });
+
+		await key(b.id, 'z', { ctrlKey: true });
+		await act(async () => {
+			await turns;
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+		expect(layoutOf(a.id)).toEqual(before.a);
+		expect(layoutOf(b.id)).toEqual(before.b);
+		expect(history!.canUndo).toBe(false);
+		expect(painted(frameOf(a.id))).toMatchObject(before.a);
+		expect(painted(frameOf(b.id))).toMatchObject(before.b);
 	});
 });

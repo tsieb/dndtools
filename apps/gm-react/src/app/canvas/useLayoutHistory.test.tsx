@@ -376,6 +376,59 @@ describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
 		expect({ x: t.layout().x, y: t.layout().y }).toEqual(start);
 	});
 
+	it('a nudge still persisting when Escape settles the burst folds into that burst', async () => {
+		// Escape or blur can arrive while the last nudges are still queued behind the vault persist.
+		// Each `run` belongs to the burst open when it was CALLED, so one Ctrl+Z still takes back the
+		// whole burst instead of only its last two nudges.
+		let release!: () => void;
+		const persisted = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let hold = false;
+		const t = harness({ persist: () => (hold ? persisted : Promise.resolve()) });
+		const start = { x: t.layout().x, y: t.layout().y };
+		await act(async () => {
+			t.history.beginBurst();
+			await t.history.run(moveTo(t, start.x, start.y + 20), 'Moved Timer');
+		});
+		await act(async () => {
+			hold = true;
+			const second = t.history.run(moveTo(t, start.x, start.y + 40), 'Moved Timer');
+			const third = t.history.run(moveTo(t, start.x, start.y + 60), 'Moved Timer');
+			t.history.settle();
+			release();
+			await Promise.all([second, third]);
+		});
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect({ x: t.layout().x, y: t.layout().y }).toEqual(start);
+		expect(t.history.canUndo).toBe(false);
+	});
+
+	it('an undo right after Escape waits for every nudge still persisting', async () => {
+		let release!: () => void;
+		const persisted = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const t = harness({ persist: () => persisted });
+		const start = { x: t.layout().x, y: t.layout().y };
+		let undone: Promise<boolean> = Promise.resolve(false);
+		await act(async () => {
+			t.history.beginBurst();
+			const runs = [1, 2, 3].map((i) =>
+				t.history.run(moveTo(t, start.x, start.y + i * 20), 'Moved Timer'),
+			);
+			t.history.settle();
+			undone = t.history.undo();
+			release();
+			await Promise.all([...runs, undone]);
+		});
+		expect(await undone).toBe(true);
+		expect({ x: t.layout().x, y: t.layout().y }).toEqual(start);
+		expect(t.history.canUndo).toBe(false);
+	});
+
 	it('an add through run is undoable, and its redo restores the same instance', async () => {
 		const t = harness();
 		const ids = () => t.holder.state.scenes.scenes[t.sceneId].widgets.map((w) => w.id);
