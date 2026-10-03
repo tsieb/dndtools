@@ -23,3 +23,28 @@
 - Formatting and `git diff --check` passed. The central operator retains full-gate/independent-review responsibility.
 - Portrait summaries carry the existing content-addressed asset ID; rendering uses the existing asset resolver with initials when local asset bytes are absent. This task adds no asset-transfer protocol.
 - Integration-path additions outside the listed production paths: companion adapter, shared party panel, locale catalogs, and tests are necessary to carry/render public summaries safely. No dispatcher state edits, push, promotion or additional agents.
+
+## Claim-gate follow-up
+
+The claim gate rejected `apps/gm-react/src/net/viewModels.ts` and
+`apps/gm-react/src/app/character/PartyPanel.tsx`. Retain these changes for an explicit operator
+claim decision, using the exception provided in the follow-up instruction; this does not widen
+ownership or mark the gate passed.
+
+- **Companion adapter (`viewModels.ts`):** expanding the core party membership exposes a previously
+  unreachable path in `buildPartyVitals`: it reads resources directly from the full character
+  record. Reverting this adapter to base `6dcb0a00303bffac6a9c53a3d1f40ec4caffeadf` while keeping the
+  new core projection makes the summary-only peer regression fail. The peer receives `Hold person`,
+  death saves and per-level spell slots despite having no sheet access; portrait and level are also
+  absent from the vitals payload. The adapter must check sheet access before resource enrichment
+  and carry the projected portrait/level. Hiding these in `Presence.tsx` would leave them in the
+  transmitted payload. Verified by temporarily loading the base adapter, running the focused
+  regression (expected exit 1), and restoring the implementation byte-for-byte in a `finally` block.
+- **Shared Party rows (`PartyPanel.tsx`):** `Presence.tsx` delegates its phone and desktop rows to
+  `PartyQuickPanel` and `PartySheet`. Their shared `MemberRow` is where the required portrait and
+  level are rendered. Reverting removes both from that existing presentation path. Keeping this
+  small shared-renderer change avoids introducing duplicate party rows in `Presence.tsx`; the badge
+  shrink fix keeps the newly expanded three-PC summary readable.
+- After restoring the adapter, all 11 companion projection tests passed. No production code changed
+  during this follow-up; prior browser/visual evidence remains recorded above. Full acceptance is
+  still subject to the operator's ownership decision and independent gates/review.
