@@ -94,3 +94,5 @@
 - Verified locally: `Dialog.test.ts` 18/18 and overlay + ds-interaction tests 122/122 pass. The previously failing specs plus
   help-menu and a11y-axe-gate on both profiles: 257 passed, 1 skipped, 0 flaky. gm-react tsc clean;
   eslint 0 errors; `pnpm test:app` 160 files / 1757 tests passed.
+- Full browser suite at `d2cb9bb6` (`tests/e2e`, desktop-chromium + mobile-chromium, local):
+  1706 passed, 32 skipped, 0 failed, 0 flaky (37.1m).
