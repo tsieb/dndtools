@@ -21,3 +21,11 @@
 - `pnpm lint` exit 0; its warnings are pre-existing emphasis-lint ones. `pnpm typecheck` passed. `format:check:changed -- --base loop/rc` passed.
 - Not run: Playwright. No rendered English changed; only `es` output changed.
 - No push, promotion, loop launch or dispatcher state edits.
+
+## 2026-10-03 — ownership feedback and French catalogue correction
+
+- Continued the existing implementation commits on the task branch. No Headroom tools were available in this session.
+- Restored `i18n/dev/qps-ploc.ts` exactly to the pre-task `a0c885f9` version, removing that file from the aggregate candidate diff as requested by gate feedback. The pseudo-locale test now checks its actual generated key coverage and verifies English fallback for a newly added key; no generated catalogue edits remain.
+- Corrected the earlier French omission: the French scaffold now declares the full English key space through explicit source fallbacks, with French translations for all ten messages introduced by this task. Key equality does not imply full French translation coverage: unrelated messages still use English. The catalogue test asserts en/es/fr key equality and French bound-to/remove-tag interpolation.
+- Fresh native-tool evidence: focused WidgetFrame, TagInput and i18n tests passed (3 files, 106 tests); lint-rule fixtures and file-size gate passed (2 files, 4 tests). Targeted ESLint, GM app TypeScript checking (`tsc --noEmit`), and `git diff --check` passed. The aggregate diff for `qps-ploc.ts` against `a0c885f9` is empty.
+- Full repository gates and pinned-container visual regression are left to the central operator as instructed. No push, promotion, new loop, additional agent, or dispatcher control-state edit.

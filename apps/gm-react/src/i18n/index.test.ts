@@ -9,6 +9,8 @@ import {
 } from './index';
 import { en, type MessageKey } from './messages/en';
 import { es } from './messages/es';
+import { fr } from './messages/fr';
+import pseudo from './dev/qps-ploc';
 import {
 	formatDistance,
 	formatList,
@@ -99,6 +101,7 @@ describe('message catalogs', () => {
 
 	it('includes Spanish for every key reviewed in the copy pass', () => {
 		expect(Object.keys(es).sort()).toEqual(Object.keys(en).sort());
+		expect(Object.keys(fr).sort()).toEqual(Object.keys(en).sort());
 	});
 
 	// RC-UX-1.2's second acceptance criterion. Migrating a screen adds English keys, so this is the
@@ -205,7 +208,7 @@ describe('Intl formatting helpers', () => {
 });
 
 describe('additional catalogs', () => {
-	it('discovers the empty French scaffold and falls back to English', async () => {
+	it('loads French tile labels and retains English for untranslated scaffold entries', async () => {
 		expect(SUPPORTED_LOCALES).toContainEqual({
 			code: 'fr',
 			label: 'French',
@@ -213,7 +216,9 @@ describe('additional catalogs', () => {
 		});
 		expect(initialLocale('fr-CA', ['en'])).toBe('fr');
 		await loadCatalog('fr');
-		expect(catalogCoverage('fr')).toBe(0);
+		expect(catalogCoverage('fr')).toBe(1);
+		expect(translate('fr', 'boardCanvas.binding.boundTo', { name: 'Tour' })).toBe('Lié à Tour');
+		expect(translate('fr', 'common.action.removeTag', { tag: 'Lieu' })).toBe('Supprimer Lieu');
 		expect(translate('fr', 'common.action.save')).toBe('Save');
 	});
 	it('loads the DEV pseudo locale including plural branches', async () => {
@@ -224,7 +229,11 @@ describe('additional catalogs', () => {
 		});
 		expect(normalizeLocale('qps-ploc')).toBe('qps-ploc');
 		await loadCatalog('qps-ploc');
-		expect(catalogCoverage('qps-ploc')).toBe(1);
+		// Generated pseudo catalogue is maintained separately; missing entries use the source.
+		expect(catalogCoverage('qps-ploc')).toBe(Object.keys(pseudo).length / Object.keys(en).length);
+		expect(translate('qps-ploc', 'boardCanvas.binding.bound')).toBe(
+			en['boardCanvas.binding.bound'],
+		);
 		expect(translate('qps-ploc', 'common.action.save')).toBe('[Šáṽé~~]');
 		expect(translate('qps-ploc', 'projection.pushed', { title: 'Map', count: 3 })).toContain(
 			'3 ƥľáýéŕš',
