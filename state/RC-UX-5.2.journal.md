@@ -47,3 +47,10 @@
 - Added `Mostrar ajustes avanzados` to the Spanish catalog and regenerated the development pseudo catalog with `pnpm exec tsx scripts/i18n-catalog.ts pseudo`. The resulting code diff is exactly one entry in each catalog. These are necessary supporting translations for the task's existing English action; no Settings behavior or coverage assertions changed.
 - The existing catalog tests provide regression coverage for missing translations/generated entries. Fresh focused run passed all 32 tests across both previously failing files. The complete `pnpm test:app` gate then passed: 156 files, 1,731 tests, exit 0. Targeted ESLint, Prettier and `git diff --check` also passed.
 - Headroom tools are unavailable. No agents, dispatcher-state edits, push, promotion or loop launches. Other gate passes in the operator feedback remain prior-run evidence; this retry is limited to the catalog fix and journal.
+
+## Pseudo-locale ownership retry — 2026-10-02
+
+- The rejection named `apps/gm-react/src/i18n/dev/qps-ploc.ts`. That entry cannot be dropped: the App-tests catalog checks (pseudo-locale coverage and generated-catalog equality) fail without it, as the previous attempt's gate log showed. No existing message key says "Show advanced settings", so reusing one was not an option.
+- The dispatcher manifest (`agent-dispatcher` commit `c775534`, 2026-10-01) now lists `apps/gm-react/src/i18n/dev/qps-ploc.ts` in `companion_paths`, which postdates the rejection. A local simulation of the engine's fence (owned paths + journal_paths + companion_paths against `git diff --name-only 5d7070af HEAD`) reports zero outside paths. I read the manifest and did not edit it.
+- Regenerating the pseudo catalog (`pnpm exec tsx scripts/i18n-catalog.ts pseudo`) produced no diff. `vitest run src/i18n src/screens/settings/Experience.test.tsx`: 5 files, 53 tests passed. `git merge-tree` against `origin/loop/rc` (`9a691042`) merges cleanly.
+- No application changes in this retry; journal only. Headroom tools unavailable. No agents, dispatcher-state edits, push, promotion or loop launches.
