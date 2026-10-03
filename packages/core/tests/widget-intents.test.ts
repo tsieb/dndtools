@@ -414,6 +414,23 @@ describe('RC-WID-5.1: the intent resolver', () => {
 		expect(resolve(state, PLAYER_ACTOR.id, 'new-map').decision).toBe('not-authorized');
 	});
 
+	it.each(['scene', 'screen'] as const)(
+		'starts the %s creation dialog only for an author',
+		(target) => {
+			const { state } = vault();
+			const intents: WidgetIntentDescriptor[] = [
+				{ id: 'new-screen', displayName: 'Create', kind: 'create', target },
+			];
+			expect(resolve(state, DM_ACTOR.id, 'new-screen', { intents }).destination).toEqual({
+				path: '/scenes',
+				state: { createScreen: true },
+			});
+			const denied = resolve(state, PLAYER_ACTOR.id, 'new-screen', { intents });
+			expect(denied.decision).toBe('not-authorized');
+			expect(denied.destination).toBeNull();
+		},
+	);
+
 	it('opens a Settings tab, keeping the campaign-administration tabs for the DM', () => {
 		const { state } = vault();
 		expect(resolve(state, PLAYER_ACTOR.id, 'appearance').destination).toEqual({

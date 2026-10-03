@@ -168,6 +168,60 @@ test.describe('widget intents: open and create', () => {
 		await expect(page.getByPlaceholder('e.g. Sunless Citadel')).toBeVisible();
 	});
 
+	for (const intentName of ['New scene', 'New screen']) {
+		test(`a builder-made action panel starts the ${intentName} creation dialog`, async ({
+			page,
+		}) => {
+			await markOnboarded(page);
+			await gotoRoute(page, '/extensions');
+			await seedFresh(page);
+			await page.getByRole('button', { name: 'Build a widget' }).click();
+			const builder = page.getByRole('dialog', { name: /Widget builder/ });
+			await builder.getByLabel('Name', { exact: true }).fill('Screen launcher');
+			await builder.getByRole('button', { name: 'Data', exact: true }).click();
+			await builder.getByLabel('Template kind').selectOption('action-panel');
+			await builder.getByRole('button', { name: 'Commands', exact: true }).click();
+			await builder.getByRole('button', { name: intentName, exact: true }).click();
+			await builder.getByRole('button', { name: 'Review', exact: true }).click();
+			await builder.getByRole('button', { name: 'Install widget' }).click();
+			await expect(builder).toHaveCount(0);
+			await page.getByRole('switch', { name: 'Enable Screen launcher' }).click();
+			await expect
+				.poll(() =>
+					page.evaluate(
+						() =>
+							window.__rt!.state.widgets.packages['workspace.screen-launcher']?.enabled ?? false,
+					),
+				)
+				.toBe(true);
+
+			const sceneId = await createScene(page, 'Launcher screen');
+			const widgetId = await placeWidget(page, sceneId, 'screen-launcher');
+			await gotoRoute(page, `/scene/${sceneId}`);
+			await page
+				.getByTestId(`widget-${widgetId}`)
+				.getByRole('button', { name: intentName, exact: true })
+				.click();
+			await expect(page).toHaveURL(/#\/scenes$/);
+			const creation = page.getByRole('dialog', { name: 'New screen', exact: true });
+			await expect(creation).toBeVisible();
+			await creation
+				.getByRole('textbox', { name: 'Name', exact: true })
+				.fill('Created from intent');
+			await creation.getByRole('button', { name: 'Create screen', exact: true }).click();
+			await expect(creation).toHaveCount(0);
+			await expect
+				.poll(() =>
+					page.evaluate(() =>
+						Object.values(window.__rt!.state.scenes.scenes).some(
+							(screen) => screen.name === 'Created from intent',
+						),
+					),
+				)
+				.toBe(true);
+		});
+	}
+
 	test("a denied custom widget's intent is dropped and audited", async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');

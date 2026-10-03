@@ -443,7 +443,7 @@ function destinationFor(
 			switch (intent.target) {
 				case 'scene':
 				case 'screen':
-					return { path: '/scenes', state: null };
+					return { path: '/scenes', state: { createScreen: true } };
 				case 'character':
 					return { path: '/characters', state: { create: true } };
 				case 'map':

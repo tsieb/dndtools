@@ -48,13 +48,13 @@ checked against `now`.
 A command writes to the campaign. An **intent** writes nothing: it takes the viewer somewhere
 (RC-WID-5.1). `WidgetDefinition.intents` is optional and is a closed union on `kind`:
 
-| `kind`          | Target                                                                       | Destination                                                                                                                                  |
-| --------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `open-screen`   | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                 |
-| `open-entity`   | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                           |
-| `open-route`    | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                    |
-| `create`        | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes`, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
-| `open-settings` | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                             |
+| `kind`          | Target                                                                       | Destination                                                                                                                                                                                 |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open-screen`   | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                                                                |
+| `open-entity`   | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                                                                          |
+| `open-route`    | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                                                                   |
+| `create`        | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes` with `{ createScreen: true }` for scene/screen, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
+| `open-settings` | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                                                                            |
 
 Every variant is a strict schema, so no descriptor has a field a URL could hide in. Intent ids are
 unique within a definition. An open intent may fix its `targetId`; a custom widget may leave it out

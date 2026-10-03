@@ -299,3 +299,41 @@ Fresh validation of implementation SHA `9ea8e1fa` (all commands exited 0):
 
 Full suites, pinned visual regression, central ownership validation, and independent review were
 not run in this session. No push, promotion, additional agents, or scheduler loop was started.
+
+## Session 6 — 2026-10-02: creation-flow review repair
+
+Started at `396146badebed8e9bf98736f347b7adbd99afae2` with a clean working tree. The
+current operator feedback identifies the missing scene/screen creation handoff as the remaining
+review defect and explicitly does not treat the historical ownership entry above as a current
+failure. No Headroom tools were available; validation output was saved and read directly.
+
+- Owned `packages/core/src/security/widget-host-api.ts`: the shared scene/screen creation branch
+  now supplies `{ createScreen: true }` to `/scenes`, matching the existing CommandPalette handoff
+  consumed by ScenesCreator. The author permission check remains before this branch.
+- Companion `packages/core/tests/widget-intents.test.ts`: parameterized coverage for both targets
+  asserts the creation flag for the DM and a refused destination for the player.
+- Companion `apps/gm-react/tests/e2e/widget-intents.spec.ts`: both targets are built through the
+  real widget builder, installed, enabled and pressed on a live panel. Each test requires the
+  New screen dialog on arrival, fills its name and creates a persisted screen through the form.
+- Owned `docs/architecture/WIDGETS.md`: documents the required router state. No additional edits
+  to the widened owned paths were needed; no destination screen implementation changed.
+
+Regression evidence on the original resolver: 20 core tests passed and the two added tests failed
+because state was null (`/tmp/rc-wid51-revision-core-before.log`). Both new desktop browser cases
+failed at the missing New screen dialog after successfully reaching `/scenes`
+(`/tmp/rc-wid51-revision-browser-before.log`).
+
+Validation after the fix:
+
+- Resolver/permission tests: 22 passed (`/tmp/rc-wid51-revision-core.log`).
+- Complete widget-intents browser spec on desktop-chromium and mobile-chromium: 10 passed,
+  including character/New map, both new creation regressions, denied-custom drop/audit and
+  player quest targeting (`/tmp/rc-wid51-revision-browser.log`).
+
+- `pnpm typecheck`: core, cloud-fns and gm-react passed (exit 0;
+  `/tmp/rc-wid51-revision-typecheck.log`).
+- ESLint on changed TypeScript files, Prettier on all five changed files, and `git diff --check`:
+  passed. Formatting initially flagged the widened documentation table; formatted and rechecked.
+
+Full wrapper gates, pinned visual regression and independent review are left to the central
+operator as requested. No push, promotion, dispatcher-state edit or additional agent was used.
