@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // RC-ENG-3.2 — a vault larger than the canvas limit (150). The canvas draws the most-connected nodes
-// and says so; the result list still lists every node; a node picked from the list is pinned onto the
+// and reports the drawn count; the result list still lists every node; a node picked from the list is pinned onto the
 // canvas; clicking a drawn node moves nothing; and a search small enough to fit draws all its matches.
 
 const RING = 180;
@@ -42,8 +42,8 @@ test.describe('graph: large vault canvas', () => {
 	}) => {
 		const nodes = page.getByTestId('graph-node');
 		await expect(nodes).toHaveCount(150);
-		await expect(page.getByRole('status').filter({ hasText: 'most-connected' })).toContainText(
-			'the canvas draws the 150 most-connected',
+		await expect(page.getByRole('status').filter({ hasText: 'Showing' })).toHaveText(
+			/^Showing 150 of \d+ visible nodes$/,
 		);
 		await expect(page.getByTestId('graph-node').filter({ hasText: LONER })).toHaveCount(0);
 		await expect(
@@ -82,8 +82,10 @@ test.describe('graph: large vault canvas', () => {
 
 	test('a search that fits under the limit draws every match', async ({ page }) => {
 		await page.getByRole('textbox', { name: 'Search the graph' }).fill('Ring 1');
-		// Ring 1, Ring 10–19, Ring 100–179: 91 matches, all drawn, and the limit note is gone.
+		// Ring 1, Ring 10–19, Ring 100–179: 91 matches, all drawn and counted.
 		await expect(page.getByTestId('graph-node')).toHaveCount(91);
-		await expect(page.getByText('most-connected')).toHaveCount(0);
+		await expect(page.getByRole('status').filter({ hasText: 'Showing' })).toHaveText(
+			/^Showing 91 of \d+ visible nodes$/,
+		);
 	});
 });

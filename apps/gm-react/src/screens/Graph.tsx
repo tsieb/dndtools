@@ -218,12 +218,9 @@ export function Graph() {
 				    did anything. It is present from mount, so role=status announces each change. */}
 					<span role="status" style={{ font: `var(--text-base) ${T.sans}`, color: T.ter }}>
 						{t('graph.showing', {
-							shown: viz.nodes.length,
+							shown: nodes.length,
 							total: viz.totalVisibleNodes,
 						})}
-						{nodes.length < viz.nodes.length
-							? t('graph.canvasLimited', { count: nodes.length })
-							: ''}
 						{viz.partial ? t('graph.partial') : ''}
 					</span>
 					<Button

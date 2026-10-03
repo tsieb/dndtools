@@ -680,3 +680,19 @@ catalog, so every story that adds a message key needs it; the alternative was de
 canvas-cap notice, which would leave capped nodes undrawn without saying so. If the fence
 rejects it, the fix is to add `apps/gm-react/src/i18n/dev/qps-ploc.ts` to `companion_paths`.
 No code changed. App tests 1726/1726; the generated file passes Prettier.
+
+## 2026-10-02 scope-fence recovery
+
+Starting head `2f28bdfa`, clean worktree. The reported rejection is the generated
+pseudo catalog outside the claim. No Headroom tools or applicable AGENTS.md were
+available. No agents or dispatcher state changes used.
+
+Remove only this task's `graph.canvasLimited` additions from English, Spanish and
+the generated pseudo catalog. This restores those files to the integration base
+`09347dc8`; no unrelated catalog changes are removed. In owned `screens/Graph.tsx`,
+reuse `graph.showing` with the actual drawn node count instead of the uncapped query
+count, so the bounded canvas still reports its limit in every existing locale.
+The task's large-vault browser regression now checks that count both above and below
+the cap, while retaining full-list access and selection tests. No new localization
+key or generated-file claim is needed. Existing runtime/query optimizations,
+measurement scenarios and budgets are unchanged. Validation pending.
