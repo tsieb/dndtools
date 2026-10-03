@@ -1,6 +1,10 @@
 # RC-ENG-3.2 runtime performance recovery
 
-**Current status (2026-09-27, fourth recovery): 11/11 targets pass in one local paired
+**Current status:** rebased onto `6dec65df` for the integration conflict recovery
+below. Earlier timing captures describe their recorded commits, not this rebased
+application tree; fresh central performance gates remain required.
+
+**Historical status (2026-09-27, fourth recovery): 11/11 targets pass in one local paired
 capture; the ~20% scene win is not achieved.** Executable commit `a916eddf` against
 review base `6f8e448d`: scene 1409.7/1500 ms (reference 1539.8 ms, 8.4% faster; every
 candidate batch under target), graph 249.6/500 ms (reference 820.9), search 129.7/250 ms.
@@ -714,3 +718,31 @@ Commit/tree identity, 77 batch groups, exact sample flattening and archive/membe
 checksums verified. This follow-up changes only journal/evidence files, with no
 executable diff from the measured commit. No push, promotion, extra loop, agent,
 budget relaxation or dispatcher control-state edit occurred.
+
+## 2026-10-02 integration conflict recovery
+
+Starting head `0dc0bd50`, clean worktree. Rebased all 30 task commits onto the
+operator-specified `6dec65dfe18995ac00f485efad223e0e94699c45`. No Headroom tools
+were exposed. No additional agents, dispatcher state edits, push or promotion.
+
+The conflict in owned `app/widgets/WidgetRenderSlot.tsx` combined this task's
+memo wrapper with RC-CAN-5.5's expanded `TileFitProps` signature. Retain both:
+`memo` wraps the component, which accepts `WidgetRendererProps & TileFitProps`
+and forwards `...fit` to `WidgetRegion`. Preserve the integration branch's entire
+overflow measurement, grow/restore, keyboard scrolling and title implementation,
+and this task's lazy custom hosts and Suspense boundary. Resolve the intermediate
+historical memo/revert/reapply commits consistently, rather than dropping commits.
+`git range-diff` confirms all 30 commits retained; patch differences are confined
+to that widget-slot context/signature reconciliation. The integration SHA is now
+an ancestor. The pseudo catalog still has no net diff against the new base.
+
+Rebased executable head: `0a104e46`. Widget tests 236/236 and performance-harness
+tests 29/29 pass; targeted ESLint, formatting and quality/documentation gates pass.
+App typecheck passes. Browser tests: 35 passed, one existing desktop skip for
+the compact initiative lifecycle (its mobile case passes). This covers tile
+scrolling, grow/restore convergence, custom-host loading, commands, accessibility
+and resizing. Pinned-container board visuals: 9/9 pass across desktop, rail and
+phone. [Validation logs and range-diff](reports/2026-10-02-rebase/validation.tar.gz)
+are retained with archive and member checksums verified. Earlier captures remain unchanged
+historical evidence; a rebase incorporating new rendering behavior is not the
+same measured source tree. No new all-budget timing claim is made by this repair.
