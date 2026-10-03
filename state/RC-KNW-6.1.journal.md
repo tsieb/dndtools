@@ -48,3 +48,19 @@ Exact local output was read from `/tmp/rc-knw-6.1-*.log`:
 
 No agents, push, promotion, dispatcher control changes or new loop. Central operator gates and
 independent review remain separate from this implementation commit.
+
+## Retry after claim gate (2026-10-03)
+
+- Gate feedback: the eight companion paths from the first attempt were outside the claim. The task
+  claim now lists all eight (render.tsx, Select.tsx, CharacterSheet.tsx, graph/Repair.tsx,
+  knowledge/index.tsx, vault-object.ts, graph-link-repair-query.ts, state/note-relationships.ts),
+  so commit dbb857db stays as it is with no code changes. The only other changed paths are tests,
+  the core barrel export and this journal, and the gate didn't flag those.
+- Re-verified on this branch: `packages/core/tests/wikilink-target-kinds.test.ts` 10/10 passed;
+  `pnpm typecheck` (core, cloud-fns, gm-react) exit 0.
+- Integration note: `git merge-tree loop/rc HEAD` reports one content conflict, in
+  `apps/gm-react/src/screens/campaign/Relationships.tsx`, against c876b757 (Story polish: canAuthor
+  gating, remove-confirm Dialog, spacing tokens). Resolving it means keeping loop/rc's canAuthor/Dialog/token
+  changes and this task's grouped From/To options. I didn't rebase, so the claim diff stays against
+  the recorded base.
+- No agents, push, promotion, dispatcher control changes or new loop.
