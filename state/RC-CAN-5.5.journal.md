@@ -156,3 +156,20 @@ change also deleted frame comments and put `aria-label` on a generic span.
   32636.6 of 32768 KiB.
 - Not fixed, outside owned scope: the home Map tile's zoom buttons are clipped by Map's own
   viewport (pre-existing, identical on base). The ENG-8.1 detector does not flag them.
+
+## Rebase onto 7fab0ebd and claim fix (2026-10-02)
+
+- Rebased onto `7fab0ebd`. The only conflicts were the 12 board/scene baselines, resolved to the
+  integration branch's images (to be regenerated, below). Upstream added Screens (RC-CAN-7.3,
+  `/board` → `/screen/:id`; a screen is a scene, ADR-041) and a generated pseudo-locale catalog.
+- The detector spec now also visits each scene's `/screen/:id` surface. 6/6 detector cases pass.
+- Claim feedback: `TimerBody.tsx` is now claimed. `qps-ploc.ts` is not, and it must equal `en.ts`
+  key for key (`pseudo.test`, and `catalogCoverage('qps-ploc') === 1` in `index.test`). Any new
+  `en.ts` key therefore forces an unclaimed edit. The six overflow strings now live in an
+  English-only `TEXT` const in `WidgetRenderSlot.tsx`, the pattern TileActionMenu and the frame's
+  `RESIZE_HELP` already use for canvas chrome. `en.ts`, `es.ts` and `qps-ploc.ts` match the base.
+  The diff against `7fab0ebd` is now the six claimed source files, the recovery spec, this
+  journal, and the visual baselines.
+- On `70297f9d`: tsc clean, `pnpm lint` 0 errors (the only warning in this area is
+  `CharacterBody.tsx:62`, which this task does not touch), `pnpm test:app` 1721/1721
+  (`/tmp/can55-r5-testapp.log`), recovery spec 14/14 on both profiles (`/tmp/can55-r5-spec.log`).
