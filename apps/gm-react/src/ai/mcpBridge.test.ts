@@ -488,6 +488,37 @@ describe('runAssistantExchange — live run protocol (ADR-025)', () => {
 		]);
 	});
 
+	it('honours cancellation from the tool-start observer before invoking the tool', async () => {
+		const controller = new AbortController();
+		const { send } = scriptedSend([
+			{
+				text: '',
+				toolCalls: [{ id: 'tu1', name: 'note__read', input: {} }],
+				stopReason: 'tool-use',
+			},
+		]);
+		const invoke = vi.fn();
+		const result = await runAssistantExchange({
+			send,
+			invoke,
+			tools: specs,
+			turns: [],
+			userText: 'go',
+			signal: controller.signal,
+			onEvent: (event) => {
+				if (event.type === 'status' && event.activeToolId) controller.abort();
+			},
+		});
+
+		expect(result.status).toBe('cancelled');
+		expect(invoke).not.toHaveBeenCalled();
+		expect(everyToolCallAnswered(result.turns)).toBe(true);
+		expect(result.turns.at(-1)).toEqual({
+			role: 'tool-results',
+			results: [expect.objectContaining({ toolCallId: 'tu1', isError: true })],
+		});
+	});
+
 	it('stops between tool calls on cancel: the run tool keeps its result, the rest are answered', async () => {
 		const controller = new AbortController();
 		const { send } = scriptedSend([

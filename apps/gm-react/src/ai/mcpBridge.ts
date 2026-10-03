@@ -448,6 +448,8 @@ export async function runAssistantExchange(
 				continue;
 			}
 			emitStatus('working', toolId);
+			// An observer can cancel synchronously while receiving the tool-start status.
+			if (signal?.aborted) return cancelPending(reply.toolCalls.slice(index), results);
 			let mapped: MappedResult;
 			try {
 				mapped = mapAgentResult(await invoke(toolId, call.input));
