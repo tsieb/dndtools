@@ -173,3 +173,13 @@ change also deleted frame comments and put `aria-label` on a generic span.
 - On `70297f9d`: tsc clean, `pnpm lint` 0 errors (the only warning in this area is
   `CharacterBody.tsx:62`, which this task does not touch), `pnpm test:app` 1721/1721
   (`/tmp/can55-r5-testapp.log`), recovery spec 14/14 on both profiles (`/tmp/can55-r5-spec.log`).
+- Baselines: regenerated the 12 desktop/rail `/board` and `/scene/:id` images in the pinned
+  container on top of `7fab0ebd` (`-g "golden routes .* (/board|/scene/:id)"
+  --update-snapshots=changed`, 18 passed; phone unchanged; `/tmp/can55-r6-visual-update.log`).
+  Inspected: Screens header, fitting tiles whole, Prep with fade, count and Grow. Raw output put the
+  budget at 32991.3 of 32768 KiB. Recompressed only these 12 losslessly: unfiltered the scanlines,
+  re-filtered (filter 0 compressed best for every file) and Zopfli-deflated. Each file's decoded
+  pixels were asserted identical and all other chunks were kept. Budget is now 32610.8 KiB.
+  Pinned comparison with `--update-snapshots=none`: 18 passed (`/tmp/can55-r6-visual-verify.log`).
+- Earlier full-suite visual and neighbour e2e runs were cut off when sessions ended (30/408 and
+  15/334, no failures up to that point). They are re-run below if this session survives.
