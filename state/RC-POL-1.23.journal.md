@@ -330,3 +330,28 @@ that evidence. The earlier implementation and embedded §20.2–§20.5 checklist
   conflicts are renderer-derived and reviewed, and no conflict markers/unmerged entries remain.
   The generated pseudo-catalog scope/completeness issue remains the only recorded integration
   blocker; this rebase does not claim to resolve it. No push or promotion performed.
+
+## App-test gate repair — 2026-10-03
+
+- Read the original failed gate log for run `ed48f6ab-573b-4a76-995f-ceba9fdc97c7`
+  at candidate `a62bf92a`. It reports 1,749 passes and exactly two failures:
+  i18n/index.test.ts:227 requires full pseudo coverage; i18n/dev/pseudo.test.ts requires
+  exact equality to the current EN catalog. The generated catalog had 5,918 entries against
+  5,943 source entries: exactly the 25 shell/vault keys introduced by this task.
+- Ran the repository generator, `pnpm exec tsx scripts/i18n-catalog.ts pseudo`.
+  The only code artifact changed is i18n/dev/qps-ploc.ts: 25 generated entries, 31 added lines.
+  Existing translations and integration additions are preserved. No generator, test assertion,
+  coverage threshold, runtime fallback, or dispatcher control was changed.
+- This repair supersedes the earlier decision to leave the generated artifact stale. The latest
+  explicit App-tests gate feedback requires this derived artifact alongside the task's EN/ES
+  changes. Earlier path-claim feedback excluded this file; the candidate now includes it as a
+  necessary generated dependency. Central ownership validation is not claimed as locally run,
+  and no dispatcher claim metadata was edited to bypass it.
+- The operator reported quality gates, changed formatting, pinned visuals, typecheck and lint
+  passing at a62bf92a. This repair affects only the DEV pseudo catalog, not the EN/ES rendering
+  or production shell behavior captured by those visual/browser checks.
+- Full `pnpm test:app`: **159 files / 1,751 tests passed (51.03s), exit 0**, including
+  both previously failing catalog tests. Original result: /tmp/shell-catalog-app-tests.log.
+- `pnpm gates`, generated-file ESLint and Prettier: **exit 0**. No new owned size warning.
+  The code failure is resolved; central claim acceptance and independent review remain the
+  operator's checks. This commit contains only the required generated catalog and this journal.
