@@ -29,15 +29,15 @@ export function AtlasSection({ data }: { data: LiveData }) {
 					style={{
 						display: 'grid',
 						gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-						gap: 12,
+						gap: T.space.three,
 					}}
 				>
 					{scenes.map((s) => (
 						<div
 							key={s.id}
 							style={{
-								padding: 14,
-								borderRadius: 11,
+								padding: T.space.three,
+								borderRadius: T.radius.lg,
 								border: `1px solid ${s.visibility === 'dm-only' ? T.accBd : T.bd}`,
 								background: s.visibility === 'dm-only' ? T.accSub : T.surf,
 							}}
@@ -47,7 +47,7 @@ export function AtlasSection({ data }: { data: LiveData }) {
 									display: 'flex',
 									alignItems: 'center',
 									justifyContent: 'space-between',
-									gap: 8,
+									gap: T.space.two,
 								}}
 							>
 								<span
@@ -63,13 +63,20 @@ export function AtlasSection({ data }: { data: LiveData }) {
 								</span>
 								<VisibilityChip level={s.visibility} compact />
 							</div>
-							<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 6 }}>
+							<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: T.space.oneHalf }}>
 								{t('play.handouts.updated', {
 									date: new Date(s.updatedAt).toLocaleDateString(),
 								})}
 							</div>
 							{s.tags.length > 0 && (
-								<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+								<div
+									style={{
+										display: 'flex',
+										flexWrap: 'wrap',
+										gap: T.space.one,
+										marginTop: T.space.two,
+									}}
+								>
 									{s.tags.slice(0, 4).map((t) => (
 										<Chip key={t} tone="neutral">
 											{t}
@@ -112,7 +119,7 @@ export function BestiarySection({ data }: { data: LiveData }) {
 					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.bestiary.empty')}</div>
 				</Panel>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 					{creatures.map((c) => {
 						const isOpen = openId === c.id;
 						const res = c.combat;
@@ -121,7 +128,7 @@ export function BestiarySection({ data }: { data: LiveData }) {
 								key={c.id}
 								style={{
 									border: `1px solid ${isOpen ? T.accBd : T.bd}`,
-									borderRadius: 10,
+									borderRadius: T.radius.lg,
 									background: T.surf,
 									overflow: 'hidden',
 								}}
@@ -135,8 +142,8 @@ export function BestiarySection({ data }: { data: LiveData }) {
 										width: '100%',
 										display: 'flex',
 										alignItems: 'center',
-										gap: 12,
-										padding: '12px 15px',
+										gap: T.space.three,
+										padding: `${T.space.three} ${T.space.four}`,
 										cursor: 'pointer',
 										border: 'none',
 										background: 'transparent',
@@ -145,14 +152,16 @@ export function BestiarySection({ data }: { data: LiveData }) {
 								>
 									<Avatar name={c.name} size="sm" />
 									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+										<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
 											<span style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{c.name}</span>
 											<Badge status="neutral">
 												{kindLabelKey(c.kind) ? t(kindLabelKey(c.kind)!) : c.kind}
 											</Badge>
 										</div>
 										{res && (
-											<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+											<div
+												style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: T.space.half }}
+											>
 												{t('play.bestiary.stats', {
 													hp: res.hp,
 													maxHp: res.maxHp,
@@ -167,10 +176,10 @@ export function BestiarySection({ data }: { data: LiveData }) {
 									<div
 										id={`bestiary-${c.id}-panel`}
 										style={{
-											padding: '0 15px 15px 15px',
+											padding: `${T.space.zero} ${T.space.four} ${T.space.four} ${T.space.four}`,
 											display: 'flex',
 											flexWrap: 'wrap',
-											gap: 14,
+											gap: T.space.three,
 										}}
 									>
 										{ABIL_ORDER.map((a) => (
@@ -226,7 +235,7 @@ export function AssistSection({ data }: { data: LiveData }) {
 				</Panel>
 			) : (
 				<Panel title={t('play.assist.initiativeOrder')}>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 						{combatants.map((c) => (
 							<div
 								key={c.id}
@@ -234,9 +243,9 @@ export function AssistSection({ data }: { data: LiveData }) {
 									display: 'flex',
 									alignItems: 'center',
 									flexWrap: 'wrap',
-									gap: 12,
-									padding: 11,
-									borderRadius: 10,
+									gap: T.space.three,
+									padding: T.space.three,
+									borderRadius: T.radius.lg,
 									border: `1px solid ${c.isActive ? T.accBd : T.bd}`,
 									background: c.isActive ? T.accSub : c.hidden ? T.alt : T.surf,
 								}}
@@ -252,7 +261,14 @@ export function AssistSection({ data }: { data: LiveData }) {
 									{c.statBlock.initiative ?? '—'}
 								</div>
 								<div style={{ flex: '1 1 180px', minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+									<div
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											flexWrap: 'wrap',
+											gap: T.space.two,
+										}}
+									>
 										<span
 											style={{
 												minWidth: 0,

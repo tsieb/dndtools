@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useState } from 'react';
 import { MIN_RECOVERY_PASSPHRASE_CHARS, type VaultPrivacyMode } from '@dndtools/core';
 import { Badge, Button, Dialog, Input, Toaster } from '../../ds';
@@ -54,94 +55,98 @@ export function VaultPrivacyPanel() {
 	const ackPrompt = t('settings.privacy.ackPrompt', { phrase: targetPhrase });
 	const [ackBefore, ackAfter = ''] = ackPrompt.split(targetPhrase);
 	return (
-		<Panel
-			title={t('settings.privacy.title')}
-			action={
-				<HelpBeside topic="vaultPrivacy">
-					<Badge status={isPrivate ? 'success' : 'info'}>
-						{t(isPrivate ? 'settings.privacy.badgePrivate' : 'settings.privacy.badgeCloud')}
-					</Badge>
-				</HelpBeside>
-			}
-		>
-			<SetRow
-				label={t(isPrivate ? 'settings.privacy.rowPrivate' : 'settings.privacy.rowCloud')}
-				help={
-					isPrivate
-						? t('settings.privacy.helpPrivate', {
-								chose: t(explicit ? 'settings.privacy.youChose' : 'settings.privacy.thisVaultUses'),
-							})
-						: t('settings.privacy.helpCloud')
-				}
-				control={
-					<Button variant="secondary" size="sm" onClick={() => setSwitchOpen(true)}>
-						{t(isPrivate ? 'settings.privacy.switchToCloud' : 'settings.privacy.switchToPrivate')}
-					</Button>
-				}
-			/>
-			<Dialog
-				open={switchOpen}
-				onClose={() => {
-					setSwitchOpen(false);
-					setPhrase('');
-				}}
-				title={t(
-					target === 'private-e2ee'
-						? 'settings.privacy.dialogPrivateTitle'
-						: 'settings.privacy.dialogCloudTitle',
-				)}
-				description={t(
-					target === 'private-e2ee'
-						? 'settings.privacy.dialogPrivateDescription'
-						: 'settings.privacy.dialogCloudDescription',
-				)}
-				tone="danger"
-				size="sm"
-				role="alertdialog"
-				initialFocus="#cancel-vault-mode-switch"
-				footer={
-					<>
-						<Button
-							id="cancel-vault-mode-switch"
-							variant="secondary"
-							size="sm"
-							onClick={() => {
-								setSwitchOpen(false);
-								setPhrase('');
-							}}
-						>
-							{t('common.action.cancel')}
-						</Button>
-						<Button variant="danger" size="sm" disabled={!phraseOk} onClick={applySwitch}>
-							{t(
-								target === 'private-e2ee'
-									? 'settings.privacy.makePrivate'
-									: 'settings.privacy.recordConsent',
-							)}
-						</Button>
-					</>
+		<SettingsSection gateKey="settings.privacy.title">
+			<Panel
+				title={t('settings.privacy.title')}
+				action={
+					<HelpBeside topic="vaultPrivacy">
+						<Badge status={isPrivate ? 'success' : 'info'}>
+							{t(isPrivate ? 'settings.privacy.badgePrivate' : 'settings.privacy.badgeCloud')}
+						</Badge>
+					</HelpBeside>
 				}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
-					{t(
-						target === 'private-e2ee'
-							? 'settings.privacy.bodyToPrivate'
-							: 'settings.privacy.bodyToCloud',
-					)}{' '}
-					{ackBefore}
-					<strong style={{ color: T.ink }}>{targetPhrase}</strong>
-					{ackAfter}
-				</div>
-				<Input
-					value={phrase}
-					onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhrase(e.target.value)}
-					placeholder={targetPhrase}
-					aria-label={t('settings.privacy.ackFieldLabel', { phrase: targetPhrase })}
-					maxLength={targetPhrase.length}
-					style={{ width: '100%' }}
+				<SetRow
+					label={t(isPrivate ? 'settings.privacy.rowPrivate' : 'settings.privacy.rowCloud')}
+					help={
+						isPrivate
+							? t('settings.privacy.helpPrivate', {
+									chose: t(
+										explicit ? 'settings.privacy.youChose' : 'settings.privacy.thisVaultUses',
+									),
+								})
+							: t('settings.privacy.helpCloud')
+					}
+					control={
+						<Button variant="secondary" size="sm" onClick={() => setSwitchOpen(true)}>
+							{t(isPrivate ? 'settings.privacy.switchToCloud' : 'settings.privacy.switchToPrivate')}
+						</Button>
+					}
 				/>
-			</Dialog>
-		</Panel>
+				<Dialog
+					open={switchOpen}
+					onClose={() => {
+						setSwitchOpen(false);
+						setPhrase('');
+					}}
+					title={t(
+						target === 'private-e2ee'
+							? 'settings.privacy.dialogPrivateTitle'
+							: 'settings.privacy.dialogCloudTitle',
+					)}
+					description={t(
+						target === 'private-e2ee'
+							? 'settings.privacy.dialogPrivateDescription'
+							: 'settings.privacy.dialogCloudDescription',
+					)}
+					tone="danger"
+					size="sm"
+					role="alertdialog"
+					initialFocus="#cancel-vault-mode-switch"
+					footer={
+						<>
+							<Button
+								id="cancel-vault-mode-switch"
+								variant="secondary"
+								size="sm"
+								onClick={() => {
+									setSwitchOpen(false);
+									setPhrase('');
+								}}
+							>
+								{t('common.action.cancel')}
+							</Button>
+							<Button variant="danger" size="sm" disabled={!phraseOk} onClick={applySwitch}>
+								{t(
+									target === 'private-e2ee'
+										? 'settings.privacy.makePrivate'
+										: 'settings.privacy.recordConsent',
+								)}
+							</Button>
+						</>
+					}
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
+						{t(
+							target === 'private-e2ee'
+								? 'settings.privacy.bodyToPrivate'
+								: 'settings.privacy.bodyToCloud',
+						)}{' '}
+						{ackBefore}
+						<strong style={{ color: T.ink }}>{targetPhrase}</strong>
+						{ackAfter}
+					</div>
+					<Input
+						value={phrase}
+						onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhrase(e.target.value)}
+						placeholder={targetPhrase}
+						aria-label={t('settings.privacy.ackFieldLabel', { phrase: targetPhrase })}
+						maxLength={targetPhrase.length}
+						style={{ width: '100%' }}
+					/>
+				</Dialog>
+			</Panel>
+		</SettingsSection>
 	);
 }
 
@@ -214,122 +219,126 @@ export function RecoveryKeyPanel() {
 	};
 
 	return (
-		<Panel title={t('settings.recovery.title')} action={<ContextHelp topic="recoveryKey" />}>
-			<SetRow
-				label={t('settings.recovery.custody')}
-				help={t(
-					!accountId
-						? 'settings.recovery.helpSignedOut'
-						: custodyAvailable
-							? 'settings.recovery.help'
-							: 'settings.recovery.helpNoCustody',
-				)}
-				control={
-					<span style={{ display: 'inline-flex', gap: 8 }}>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="download"
-							disabled={!accountId || !custodyAvailable || busy}
-							onClick={() => setExportOpen(true)}
-						>
-							{t('settings.recovery.export')}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							icon="import"
-							disabled={!accountId || !custodyAvailable || busy}
-							onClick={() => setImportOpen(true)}
-						>
-							{t('settings.recovery.import')}
-						</Button>
-					</span>
-				}
-			/>
-			<Dialog
-				open={exportOpen || importOpen}
-				onClose={closeDialogs}
-				title={t(exportOpen ? 'settings.recovery.exportTitle' : 'settings.recovery.importTitle')}
-				description={t(
-					exportOpen
-						? 'settings.recovery.exportDescription'
-						: 'settings.recovery.importDescription',
-				)}
-				size="sm"
-				dismissible={!busy}
-				aria-busy={busy}
-				footer={
-					<>
-						<Button variant="secondary" size="sm" disabled={busy} onClick={closeDialogs}>
-							{t('common.action.cancel')}
-						</Button>
-						{exportOpen ? (
+		<SettingsSection gateKey="settings.recovery.title">
+			<Panel title={t('settings.recovery.title')} action={<ContextHelp topic="recoveryKey" />}>
+				<SetRow
+					label={t('settings.recovery.custody')}
+					help={t(
+						!accountId
+							? 'settings.recovery.helpSignedOut'
+							: custodyAvailable
+								? 'settings.recovery.help'
+								: 'settings.recovery.helpNoCustody',
+					)}
+					control={
+						<span style={{ display: 'inline-flex', gap: 8 }}>
 							<Button
-								variant="primary"
+								variant="secondary"
 								size="sm"
-								disabled={busy}
-								aria-disabled={!passOk || undefined}
-								title={
-									passOk
-										? undefined
-										: (passIssueText ??
-											t('settings.recovery.needPassphrase', {
-												min: MIN_RECOVERY_PASSPHRASE_CHARS,
-											}))
-								}
-								onClick={() => void doExport()}
+								icon="download"
+								disabled={!accountId || !custodyAvailable || busy}
+								onClick={() => setExportOpen(true)}
 							>
-								{t('settings.recovery.exportFile')}
+								{t('settings.recovery.export')}
 							</Button>
-						) : (
 							<Button
-								variant="primary"
+								variant="ghost"
 								size="sm"
-								disabled={busy || pass.length === 0}
-								onClick={() => void doImport()}
+								icon="import"
+								disabled={!accountId || !custodyAvailable || busy}
+								onClick={() => setImportOpen(true)}
 							>
-								{t('settings.recovery.chooseFile')}
+								{t('settings.recovery.import')}
 							</Button>
-						)}
-					</>
-				}
-			>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						{exportOpen
-							? t('settings.recovery.exportBody', { min: MIN_RECOVERY_PASSPHRASE_CHARS })
-							: t('settings.recovery.importBody')}
-					</div>
-					<Input
-						type="password"
-						value={pass}
-						onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPass(e.target.value)}
-						placeholder={t('settings.recovery.passphrase')}
-						aria-label={t('settings.recovery.passphrase')}
-						style={{ width: '100%' }}
-					/>
-					{exportOpen && (
+						</span>
+					}
+				/>
+				<Dialog
+					open={exportOpen || importOpen}
+					onClose={closeDialogs}
+					title={t(exportOpen ? 'settings.recovery.exportTitle' : 'settings.recovery.importTitle')}
+					description={t(
+						exportOpen
+							? 'settings.recovery.exportDescription'
+							: 'settings.recovery.importDescription',
+					)}
+					size="sm"
+					dismissible={!busy}
+					aria-busy={busy}
+					footer={
+						<>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={closeDialogs}>
+								{t('common.action.cancel')}
+							</Button>
+							{exportOpen ? (
+								<Button
+									variant="primary"
+									size="sm"
+									disabled={busy}
+									aria-disabled={!passOk || undefined}
+									title={
+										passOk
+											? undefined
+											: (passIssueText ??
+												t('settings.recovery.needPassphrase', {
+													min: MIN_RECOVERY_PASSPHRASE_CHARS,
+												}))
+									}
+									onClick={() => void doExport()}
+								>
+									{t('settings.recovery.exportFile')}
+								</Button>
+							) : (
+								<Button
+									variant="primary"
+									size="sm"
+									disabled={busy || pass.length === 0}
+									onClick={() => void doImport()}
+								>
+									{t('settings.recovery.chooseFile')}
+								</Button>
+							)}
+						</>
+					}
+				>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							{exportOpen
+								? t('settings.recovery.exportBody', { min: MIN_RECOVERY_PASSPHRASE_CHARS })
+								: t('settings.recovery.importBody')}
+						</div>
 						<Input
 							type="password"
-							value={passConfirm}
-							invalid={passConfirm.length > 0 && pass !== passConfirm}
-							onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassConfirm(e.target.value)}
-							placeholder={t('settings.recovery.repeat')}
-							aria-label={t('settings.recovery.repeatLabel')}
+							value={pass}
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPass(e.target.value)}
+							placeholder={t('settings.recovery.passphrase')}
+							aria-label={t('settings.recovery.passphrase')}
 							style={{ width: '100%' }}
 						/>
-					)}
-					{exportOpen && passIssueText && (
-						<div
-							role="alert"
-							style={{ font: `12px/1.5 ${T.sans}`, color: 'var(--color-status-error)' }}
-						>
-							{passIssueText}
-						</div>
-					)}
-				</div>
-			</Dialog>
-		</Panel>
+						{exportOpen && (
+							<Input
+								type="password"
+								value={passConfirm}
+								invalid={passConfirm.length > 0 && pass !== passConfirm}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+									setPassConfirm(e.target.value)
+								}
+								placeholder={t('settings.recovery.repeat')}
+								aria-label={t('settings.recovery.repeatLabel')}
+								style={{ width: '100%' }}
+							/>
+						)}
+						{exportOpen && passIssueText && (
+							<div
+								role="alert"
+								style={{ font: `12px/1.5 ${T.sans}`, color: 'var(--color-status-error)' }}
+							>
+								{passIssueText}
+							</div>
+						)}
+					</div>
+				</Dialog>
+			</Panel>
+		</SettingsSection>
 	);
 }

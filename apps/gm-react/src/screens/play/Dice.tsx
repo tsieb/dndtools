@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DiceRollView, EvaluatedDiceTerm } from '@dndtools/core';
+import { happenedLive, type DiceRollView, type EvaluatedDiceTerm } from '@dndtools/core';
 import { Badge, DiceResult, Icon, IconButton } from '../../ds';
 import { Seg, T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -11,8 +11,9 @@ import { useI18n } from '../../i18n';
 // 3 · DICE — the REAL table roller: every roll dispatches `dice.roll` AS the player actor and is
 // recorded in the shared, durable session log (the same history the DM's /session panel reads). The
 // log below is the actor-filtered `getDiceHistoryForActor` view — the player's own rolls plus every
-// session-visible roll at the table. Rolling is session-gated by the Core: on standby the dice
-// disable with the honest reason instead of pretending to roll.
+// session-visible roll at the table. RC-SES-7.1 — the dice roll in Standby too: the Core records the
+// roll stamped with the workflow it was made in, the result shows here, and a one-line note says that
+// only rolls made during a live session reach the table log.
 const DICE = [20, 12, 10, 8, 6, 4];
 
 /** Natural 20/1 detection on a RECORDED roll: exactly one d20 term keeping a single die. */
@@ -70,21 +71,18 @@ export function DiceSection({
 			<SectionHead title={t('play.dice.title')} sub={t('play.dice.sub')} />
 			{!sessionActive && (
 				<div
+					data-testid="play-dice-standby-note"
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 10,
-						padding: '10px 14px',
-						borderRadius: 10,
-						background: 'var(--color-status-warning-subtle)',
-						border: `1px solid var(--color-status-warning-border)`,
-						marginBottom: 16,
+						gap: T.space.two,
+						marginBottom: T.space.four,
+						font: `12.5px ${T.sans}`,
+						color: T.sub,
 					}}
 				>
-					<Icon name="hidden" size={15} color="var(--color-status-warning-text)" />
-					<span style={{ font: `12.5px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
-						{t('play.dice.needsSession')}
-					</span>
+					<Icon name="info" size={14} color={T.ter} />
+					<span>{t('play.dice.standbyNote')}</span>
 				</div>
 			)}
 			{initiativeCall && (
@@ -97,26 +95,24 @@ export function DiceSection({
 					display: 'grid',
 					gridTemplateColumns:
 						viewport === 'phone' ? 'minmax(0,1fr)' : 'minmax(0,1fr) minmax(0,1fr)',
-					gap: 18,
+					gap: T.space.four,
 					alignItems: 'start',
 				}}
 			>
 				<Panel title={t('play.dice.roll')} pad={16}>
-					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: T.space.two }}>
 						{DICE.map((f) => (
 							<button
 								key={f}
 								type="button"
-								disabled={!sessionActive}
 								onClick={() => rollOne(f)}
 								style={{
-									padding: '16px 0',
-									borderRadius: 11,
-									cursor: sessionActive ? 'pointer' : 'not-allowed',
+									padding: `${T.space.four} ${T.space.zero}`,
+									borderRadius: T.radius.lg,
+									cursor: 'pointer',
 									border: `1px solid ${T.bd}`,
 									background: T.alt,
-									color: sessionActive ? T.ink : T.ter,
-									opacity: sessionActive ? 1 : 0.55,
+									color: T.ink,
 									font: `700 17px ${T.mono}`,
 								}}
 							>
@@ -124,8 +120,8 @@ export function DiceSection({
 							</button>
 						))}
 					</div>
-					<div style={{ marginTop: 14 }}>
-						<div style={{ ...eb, marginBottom: 6 }}>{t('play.dice.d20Mode')}</div>
+					<div style={{ marginTop: T.space.three }}>
+						<div style={{ ...eb, marginBottom: T.space.oneHalf }}>{t('play.dice.d20Mode')}</div>
 						<Seg
 							ariaLabel={t('play.dice.d20Mode')}
 							value={mode}
@@ -137,7 +133,14 @@ export function DiceSection({
 							]}
 						/>
 					</div>
-					<div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+					<div
+						style={{
+							marginTop: T.space.three,
+							display: 'flex',
+							alignItems: 'center',
+							gap: T.space.two,
+						}}
+					>
 						<span style={eb}>{t('play.dice.modifier')}</span>
 						<IconButton
 							icon="chevron-down"
@@ -176,7 +179,7 @@ export function DiceSection({
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 9,
+							gap: T.space.two,
 							maxHeight: 460,
 							overflow: 'auto',
 						}}
@@ -186,17 +189,18 @@ export function DiceSection({
 								style={{
 									font: `12.5px ${T.sans}`,
 									color: T.ter,
-									padding: '14px 0',
+									padding: `${T.space.three} ${T.space.zero}`,
 									textAlign: 'center',
 								}}
 							>
-								{t(sessionActive ? 'play.dice.noRolls' : 'play.dice.logFillsUp')}
+								{t('play.dice.noRolls')}
 							</div>
 						)}
 						{recent.map((d) => (
 							<div key={d.id}>
-								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: 3 }}>
+								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: T.space.half }}>
 									{d.actorId === viewer ? t('play.dice.you') : actorName(d.actorId)}
+									{!happenedLive(d) ? ` · ${t('session.dice.outsideSession')}` : ''}
 									{d.label ? ` · ${d.label}` : ''}
 								</div>
 								<DiceResult

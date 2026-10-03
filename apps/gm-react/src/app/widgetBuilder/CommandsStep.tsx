@@ -1,9 +1,24 @@
+import { useMemo } from 'react';
 import {
+	VAULT_OBJECT_SUBTYPE_KEY,
+	WIDGET_INTENT_CREATE_TARGETS,
+	WIDGET_INTENT_ROUTES,
+	WIDGET_INTENT_SETTINGS_TABS,
 	classifyWidgetCommand,
+	getContentItemsForActor,
+	listCharactersForActor,
+	listMapsForActor,
+	listScreensForActor,
 	type WidgetCommandDescriptor,
+	type WidgetIntentCreateTarget,
+	type WidgetIntentDescriptor,
+	type WidgetIntentEntityKind,
+	type WidgetIntentRoute,
+	type WidgetIntentSettingsTab,
 	type WidgetOutputDestinationClass,
 } from '@dndtools/core';
 import { Badge, Field, Input, Select } from '../../ds';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
 import {
 	FieldGrid,
@@ -16,7 +31,17 @@ import {
 	replaceAt,
 	type StepProps,
 } from './fields';
-import { CAPABILITY_LABEL, WRITES_TO_LABEL } from './vocabulary';
+import { validateIntents } from './draft';
+import {
+	CAPABILITY_LABEL,
+	CREATE_LABEL,
+	INTENT_CATALOG,
+	ROUTE_LABEL,
+	SETTINGS_TAB_LABEL,
+	WRITES_TO_LABEL,
+	uniqueIntentId,
+	type IntentSeed,
+} from './vocabulary';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 
 type Translate = (key: MessageKey, values?: MessageValues) => string;
@@ -251,25 +276,12 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 									const type = catalogEntry.descriptor(draft.typeId || 'widget').type;
 									const already = draft.commands.some((command) => command.type === type);
 									return (
-										<button
+										<CatalogChip
 											key={catalogEntry.label}
-											type="button"
-											disabled={already}
-											onClick={() => addCommand(catalogEntry)}
-											style={{
-												font: `600 var(--text-xs) ${T.sans}`,
-												color: already ? T.sub : T.ink,
-												padding: 'var(--space-1-5) var(--space-3)',
-												borderRadius: 'var(--radius-full)',
-												border: `1px solid ${already ? T.bd : T.bdS}`,
-												background: already ? T.sunken : T.surf,
-												cursor: already ? 'default' : 'pointer',
-											}}
-										>
-											{already
-												? t('builder.commands.alreadyAdded', { label: t(catalogEntry.label) })
-												: t(catalogEntry.label)}
-										</button>
+											label={t(catalogEntry.label)}
+											already={already}
+											onAdd={() => addCommand(catalogEntry)}
+										/>
 									);
 								})}
 							</div>
@@ -397,6 +409,273 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 					})}
 				</RowList>
 			</StepSection>
+			<IntentsSection draft={draft} patch={patch} issues={issues} />
 		</div>
 	);
+}
+
+/** One catalogue pick. Shared by commands and intents so the two pickers read as one control. */
+function CatalogChip({
+	label,
+	already,
+	onAdd,
+}: {
+	label: string;
+	already: boolean;
+	onAdd: () => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<button
+			type="button"
+			disabled={already}
+			onClick={onAdd}
+			style={{
+				font: `600 var(--text-xs) ${T.sans}`,
+				color: already ? T.sub : T.ink,
+				padding: 'var(--space-1-5) var(--space-3)',
+				borderRadius: 'var(--radius-full)',
+				border: `1px solid ${already ? T.bd : T.bdS}`,
+				background: already ? T.sunken : T.surf,
+				cursor: already ? 'default' : 'pointer',
+			}}
+		>
+			{already ? t('builder.commands.alreadyAdded', { label }) : label}
+		</button>
+	);
+}
+
+// --- RC-WID-5.1: intents -----------------------------------------------------------------------
+
+interface TargetOption {
+	value: string;
+	label: string;
+}
+
+/**
+ * What an open intent can point at, read the way the author sees the vault. These are the same
+ * actor-filtered reads the destinations use; the viewer's own gate is applied again at press time.
+ */
+function useIntentTargets(): Record<WidgetIntentEntityKind | 'screen', TargetOption[]> {
+	const runtime = useRuntime();
+	const state = runtime.state;
+	const actorId = runtime.defaultActorId;
+	return useMemo(() => {
+		const { characters, maps, permissions, content, scenes } = state;
+		const items = getContentItemsForActor(content, permissions, actorId);
+		const byName = (a: TargetOption, b: TargetOption) => a.label.localeCompare(b.label);
+		return {
+			character: listCharactersForActor(characters, permissions, actorId).map((c) => ({
+				value: c.id,
+				label: c.name,
+			})),
+			map: listMapsForActor(maps, permissions, actorId).map((m) => ({
+				value: m.id,
+				label: m.name,
+			})),
+			note: items
+				.filter((item) => item.kind === 'note')
+				.map((item) => ({ value: item.id, label: item.title }))
+				.sort(byName),
+			quest: items
+				.filter(
+					(item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
+				)
+				.map((item) => ({ value: item.id, label: item.title }))
+				.sort(byName),
+			screen: listScreensForActor(scenes, permissions, actorId).map((screen) => ({
+				value: screen.id,
+				label: screen.name,
+			})),
+		};
+	}, [state, actorId]);
+}
+
+/**
+ * Open and create — the intents a placed copy offers (RC-WID-5.1). An intent writes nothing: it takes
+ * whoever presses it to a screen, an entity, a page, a Settings tab or a creation flow, and only ever
+ * one that viewer could already open. A template's open button carries its target here; a custom
+ * widget's may leave it to the code, which then needs the `navigate` permission at review.
+ */
+function IntentsSection({ draft, patch, issues }: StepProps) {
+	const { t } = useI18n();
+	const targets = useIntentTargets();
+	const custom = draft.runtime === 'custom-html-js';
+	const intentIssues = [...issues, ...validateIntents(draft)];
+	const setIntent = (index: number, next: WidgetIntentDescriptor) =>
+		patch({ intents: replaceAt(draft.intents, index, next) });
+	const addIntent = (entry: IntentSeed) => {
+		const seed = { ...entry.seed, id: uniqueIntentId(entry.seed.id, draft.intents) };
+		// A template's open button has no code to pick a target, so it starts on the first one the
+		// author can see rather than on nothing.
+		if (!custom && (seed.kind === 'open-entity' || seed.kind === 'open-screen')) {
+			const first = targets[seed.kind === 'open-screen' ? 'screen' : seed.entityKind][0];
+			if (first) seed.targetId = first.value;
+		}
+		patch({
+			intents: [...draft.intents, seed],
+			// Custom code follows an intent only with `navigate` approved at review, so declaring one
+			// asks for it; the author can still take it back on Advanced.
+			...(custom && !draft.hostPermissions.includes('navigate')
+				? { hostPermissions: [...draft.hostPermissions, 'navigate' as const] }
+				: {}),
+		});
+	};
+	const createAdded = (entry: IntentSeed) =>
+		entry.seed.kind === 'create' &&
+		draft.intents.some(
+			(intent) =>
+				intent.kind === 'create' &&
+				entry.seed.kind === 'create' &&
+				intent.target === entry.seed.target,
+		);
+
+	return (
+		<StepSection title={t('builder.intents.title')} help={t('builder.intents.help')}>
+			{(['open', 'create'] as const).map((group) => (
+				<div key={group} style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
+					<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
+						{t(group === 'open' ? 'builder.intents.groupOpen' : 'builder.intents.groupCreate')}
+					</span>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.two }}>
+						{INTENT_CATALOG.filter((entry) => entry.group === group).map((entry) => (
+							<CatalogChip
+								key={entry.label}
+								label={t(entry.label)}
+								already={createAdded(entry)}
+								onAdd={() => addIntent(entry)}
+							/>
+						))}
+					</div>
+				</div>
+			))}
+			{issueFor(intentIssues, 'intents', t) && (
+				<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+					{issueFor(intentIssues, 'intents', t)}
+				</span>
+			)}
+			{draft.intents.length === 0 ? (
+				<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+					{t('builder.intents.empty')}
+				</span>
+			) : (
+				draft.intents.map((intent, index) => (
+					<RowCard
+						key={`intent-${index}`}
+						title={intent.displayName || intent.id}
+						removeLabel={t('builder.intents.remove', { name: intent.displayName || intent.id })}
+						onRemove={() => patch({ intents: removeAt(draft.intents, index) })}
+					>
+						<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
+							<Badge status="neutral">{t('builder.intents.badge')}</Badge>
+							<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+								{t('builder.intents.badgeHelp')}
+							</span>
+						</div>
+						<FieldGrid>
+							<Field label={t('builder.intents.name')}>
+								<Input
+									value={intent.displayName}
+									onChange={(e: { target: { value: string } }) =>
+										setIntent(index, { ...intent, displayName: e.target.value })
+									}
+								/>
+							</Field>
+							<IntentTargetField
+								intent={intent}
+								custom={custom}
+								targets={targets}
+								onChange={(next) => setIntent(index, next)}
+							/>
+						</FieldGrid>
+					</RowCard>
+				))
+			)}
+		</StepSection>
+	);
+}
+
+/** The one field that differs by kind: what to open, which page, which tab, or what to create. */
+function IntentTargetField({
+	intent,
+	custom,
+	targets,
+	onChange,
+}: {
+	intent: WidgetIntentDescriptor;
+	custom: boolean;
+	targets: Record<WidgetIntentEntityKind | 'screen', TargetOption[]>;
+	onChange: (next: WidgetIntentDescriptor) => void;
+}) {
+	const { t } = useI18n();
+	const onValue =
+		(apply: (value: string) => WidgetIntentDescriptor) => (e: { target: { value: string } }) =>
+			onChange(apply(e.target.value));
+
+	switch (intent.kind) {
+		case 'open-entity':
+		case 'open-screen': {
+			const list = targets[intent.kind === 'open-screen' ? 'screen' : intent.entityKind];
+			// A custom widget may leave the target to its code (checked at press time); a template
+			// has no code, so the empty option is only a prompt and the draft reports it as missing.
+			const none = {
+				value: '',
+				label: t(custom ? 'builder.intents.widgetChooses' : 'builder.intents.pickTarget'),
+			};
+			return (
+				<Field label={t('builder.intents.target')}>
+					<Select
+						value={intent.targetId ?? ''}
+						options={[none, ...list]}
+						onChange={onValue((value) => {
+							const { targetId: _previous, ...rest } = intent;
+							return value === '' ? rest : { ...rest, targetId: value };
+						})}
+					/>
+				</Field>
+			);
+		}
+		case 'open-route':
+			return (
+				<Field label={t('builder.intents.page')}>
+					<Select
+						value={intent.route}
+						options={WIDGET_INTENT_ROUTES.map((route) => ({
+							value: route,
+							label: t(ROUTE_LABEL[route]),
+						}))}
+						onChange={onValue((value) => ({ ...intent, route: value as WidgetIntentRoute }))}
+					/>
+				</Field>
+			);
+		case 'open-settings':
+			return (
+				<Field label={t('builder.intents.tab')}>
+					<Select
+						value={intent.tab}
+						options={WIDGET_INTENT_SETTINGS_TABS.map((tab) => ({
+							value: tab,
+							label: t(SETTINGS_TAB_LABEL[tab]),
+						}))}
+						onChange={onValue((value) => ({ ...intent, tab: value as WidgetIntentSettingsTab }))}
+					/>
+				</Field>
+			);
+		case 'create':
+			return (
+				<Field label={t('builder.intents.creates')}>
+					<Select
+						value={intent.target}
+						options={WIDGET_INTENT_CREATE_TARGETS.map((target) => ({
+							value: target,
+							label: t(CREATE_LABEL[target][0]),
+						}))}
+						onChange={onValue((value) => ({
+							...intent,
+							target: value as WidgetIntentCreateTarget,
+						}))}
+					/>
+				</Field>
+			);
+	}
 }

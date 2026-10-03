@@ -14,8 +14,8 @@ import type { InitiativeCallView, PlayerData } from '../../net/viewModels';
  * `screens/PlayerView.tsx` unchanged.
  */
 
-// The player's device identity. The runtime seeds `actor-player` (Demo Player) as a participant; the
-// DM-side ViewAs/Projection controls project the live table to exactly this actor.
+// The seeded participant used by local companion previews, never a fresh device's identity.
+// Joined devices get their actor identity from the host's invitation.
 export const PLAYER_ACTOR_ID = 'actor-player';
 
 // RC-CHR-4.4 — a fourth "Trusted player" tier (index 2, between `player` and `codm`) used to sit
@@ -190,7 +190,7 @@ export function Panel({
 				minWidth: 0,
 				background: T.surf,
 				border: `1px solid ${accent ? T.accBd : T.bd}`,
-				borderRadius: 8,
+				borderRadius: T.radius.md,
 				boxShadow: accent ? T.smd : T.ssm,
 			}}
 		>
@@ -200,8 +200,8 @@ export function Panel({
 						display: 'flex',
 						alignItems: 'center',
 						flexWrap: 'wrap',
-						gap: 10,
-						padding: '10px 14px',
+						gap: T.space.two,
+						padding: `${T.space.two} ${T.space.three}`,
 						borderBottom: `1px solid ${T.bd}`,
 					}}
 				>
@@ -221,8 +221,11 @@ export function PvPage({ children, max = 1140 }: { children?: ReactNode; max?: n
 				width: '100%',
 				minWidth: 0,
 				maxWidth: max,
-				margin: '0 auto',
-				padding: viewport === 'phone' ? '18px 14px 76px' : '26px 28px 60px',
+				margin: `${T.space.zero} auto`,
+				padding:
+					viewport === 'phone'
+						? `${T.space.five} ${T.space.four} ${T.space.twenty}`
+						: `${T.space.six} ${T.space.eight} ${T.space.sixteen}`,
 			}}
 		>
 			{children}
@@ -243,14 +246,16 @@ export function SectionHead({
 			style={{
 				display: 'flex',
 				alignItems: 'flex-end',
-				gap: 14,
-				marginBottom: 20,
+				gap: T.space.three,
+				marginBottom: T.space.five,
 				flexWrap: 'wrap',
 			}}
 		>
 			<div style={{ flex: 1, minWidth: 0 }}>
-				<h1 style={{ margin: 0, font: `600 26px ${T.disp}`, color: T.ink }}>{title}</h1>
-				{sub && <div style={{ marginTop: 4, font: `13px ${T.sans}`, color: T.ter }}>{sub}</div>}
+				<h1 style={{ margin: T.space.zero, font: `600 26px ${T.disp}`, color: T.ink }}>{title}</h1>
+				{sub && (
+					<div style={{ marginTop: T.space.one, font: `13px ${T.sans}`, color: T.ter }}>{sub}</div>
+				)}
 			</div>
 			{action}
 		</div>
@@ -266,9 +271,9 @@ export function LockedNote({ what }: { what: string }) {
 			style={{
 				display: 'flex',
 				alignItems: 'center',
-				gap: 10,
-				padding: '11px 14px',
-				borderRadius: 10,
+				gap: T.space.two,
+				padding: `${T.space.three} ${T.space.three}`,
+				borderRadius: T.radius.lg,
 				background: 'var(--color-dm-only-subtle)',
 				border: `1px solid var(--color-dm-only-badge)`,
 			}}

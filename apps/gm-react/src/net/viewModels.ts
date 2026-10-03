@@ -163,7 +163,10 @@ export interface PlayerData {
 	handouts: ContentItemView[];
 	/** The actor-filtered SHARED session roll log (own + session-visible rolls), oldest-first. */
 	diceRolls: DiceRollView[];
-	/** Whether the Session workflow is `active` — the Core's gate for `dice.roll`. */
+	/**
+	 * Whether the Session workflow is `active`. Not a gate: `dice.roll` works in Standby too
+	 * (RC-SES-7.1). The Dice section reads it only to say that Standby rolls stay off the table log.
+	 */
 	sessionActive: boolean;
 	/**
 	 * RC-SES-5.1 — the DM's open initiative call (null when none is open). While it is open nobody is

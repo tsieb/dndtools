@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Icon } from '../../ds';
+import { Badge, EmptyState, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
@@ -37,10 +37,10 @@ export function InboxSection({ data }: { data: LiveData }) {
 			/>
 			{feed.length === 0 ? (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('play.inbox.empty')}</div>
+					<EmptyState inset illustration="journal-empty" description={t('play.inbox.empty')} />
 				</Panel>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					{feed.map((entry) => {
 						const isOpen = openId === entry.archiveId;
 						const title = entry.title ?? t('play.inbox.untitledSession');
@@ -50,7 +50,7 @@ export function InboxSection({ data }: { data: LiveData }) {
 								data-testid="inbox-recap"
 								style={{
 									border: `1px solid ${isOpen ? T.accBd : T.bd}`,
-									borderRadius: 10,
+									borderRadius: T.radius.lg,
 									background: T.surf,
 									boxShadow: isOpen ? T.ssm : 'none',
 									overflow: 'hidden',
@@ -65,8 +65,8 @@ export function InboxSection({ data }: { data: LiveData }) {
 										width: '100%',
 										display: 'flex',
 										alignItems: 'center',
-										gap: 12,
-										padding: '13px 16px',
+										gap: T.space.three,
+										padding: `${T.space.three} ${T.space.four}`,
 										cursor: 'pointer',
 										border: 'none',
 										background: 'transparent',
@@ -78,7 +78,7 @@ export function InboxSection({ data }: { data: LiveData }) {
 											width: 40,
 											height: 40,
 											flex: '0 0 auto',
-											borderRadius: 9,
+											borderRadius: T.radius.lg,
 											display: 'flex',
 											alignItems: 'center',
 											justifyContent: 'center',
@@ -100,7 +100,7 @@ export function InboxSection({ data }: { data: LiveData }) {
 										>
 											{title}
 										</div>
-										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: T.space.half }}>
 											{t('play.inbox.archivedOn', { date: formatArchivedAt(entry.archivedAt) })}
 										</div>
 									</div>
@@ -114,8 +114,8 @@ export function InboxSection({ data }: { data: LiveData }) {
 										<div
 											style={{
 												minWidth: 0,
-												padding: '12px 16px',
-												borderRadius: 9,
+												padding: `${T.space.three} ${T.space.four}`,
+												borderRadius: T.radius.lg,
 												background: T.alt,
 												borderLeft: `3px solid ${T.acc}`,
 												font: `13.5px/1.6 ${T.sans}`,

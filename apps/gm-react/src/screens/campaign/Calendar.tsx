@@ -122,6 +122,8 @@ export function Calendar() {
 			setSelectedId(id);
 			setDraft(null);
 			Toaster.success(t('calendar.savedOk'));
+		} catch {
+			Toaster.error(t('campaign.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -130,21 +132,36 @@ export function Calendar() {
 	return (
 		<Page max={980}>
 			<BackBar to="/campaign" label={t('calendar.back')} />
-			<h1 style={{ font: `700 22px ${T.disp}`, color: T.ink, margin: '0 0 4px' }}>
+			<h2
+				style={{
+					font: `700 var(--text-xl) ${T.sans}`,
+					color: T.ink,
+					margin: 'var(--space-0, 0) var(--space-0, 0) var(--space-1)',
+				}}
+			>
 				{t('calendar.title')}
-			</h1>
-			<p style={{ font: `13px ${T.sans}`, color: T.sub, margin: '0 0 18px', maxWidth: 620 }}>
+			</h2>
+			<p
+				style={{
+					font: `var(--text-sm) ${T.sans}`,
+					color: T.sub,
+					margin: 'var(--space-0, 0) var(--space-0, 0) var(--space-5)',
+					maxWidth: 620,
+				}}
+			>
 				{t('calendar.blurb')}
 			</p>
 
 			{!canAuthor && (
 				<Panel>
-					<div style={{ font: `13px ${T.sans}`, color: T.sub }}>{t('calendar.readOnly')}</div>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+						{t('calendar.readOnly')}
+					</div>
 				</Panel>
 			)}
 
 			{canAuthor && !draft && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
 					<Panel
 						title={t('calendar.list.title')}
 						action={
@@ -158,28 +175,35 @@ export function Calendar() {
 						{calendars.length === 0 ? (
 							<EmptyState
 								icon="recent"
+								illustration="calendar-empty"
 								title={t('calendar.empty.title')}
 								description={t('calendar.empty.body')}
 							/>
 						) : (
-							<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+							<ul
+								style={{
+									listStyle: 'none',
+									margin: 'var(--space-0, 0)',
+									padding: 'var(--space-0, 0)',
+								}}
+							>
 								{calendars.map((calendar) => (
 									<li
 										key={calendar.id}
 										style={{
 											display: 'flex',
 											alignItems: 'center',
-											gap: 10,
-											padding: '10px 0',
+											gap: 'var(--space-2)',
+											padding: 'var(--space-2) var(--space-0, 0)',
 											borderBottom: `1px solid ${T.bd}`,
 										}}
 									>
 										<Icon name="recent" size="sm" color={T.acc} />
 										<div style={{ flex: '1 1 auto', minWidth: 0 }}>
-											<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>
+											<div style={{ font: `600 var(--text-md) ${T.sans}`, color: T.ink }}>
 												{calendar.name}
 											</div>
-											<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+											<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 												{t('calendar.summary', {
 													months: calendar.months.length,
 													moons: calendar.moons?.length ?? 0,
@@ -241,7 +265,7 @@ export function Calendar() {
 
 			{/* A calendar is only useful once the Session points at a date in it. */}
 			{canAuthor && !draft && selected && (
-				<div style={{ marginTop: 14 }}>
+				<div style={{ marginTop: 'var(--space-3)' }}>
 					<Button variant="ghost" size="sm" icon="arrow-right" onClick={() => navigate('/session')}>
 						{t('calendar.toSession')}
 					</Button>

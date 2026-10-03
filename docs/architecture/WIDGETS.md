@@ -18,7 +18,8 @@ layout policies).
 A definition declares `placement.surfaces` (`scene`, `command-center`, `player-view`), sizes and
 `resizePolicy`, `requiredBindings` / `optionalBindings` / `dataQueries` / `computedFields`, a
 `renderEntrypoint` runtime (`template` | `builtin` | `custom-html-js`), `configFields`, command
-descriptors, `capabilitySets` (`manager` | `operator` | `viewer`), and `hostPermissions`.
+descriptors, intent descriptors, `capabilitySets` (`manager` | `operator` | `viewer`), and
+`hostPermissions`.
 
 `computedFields` may carry a formula in the same expression grammar System Packages use, evaluated
 over the four aggregate columns of each declared query (`_count`, `_sum`, `_max`, `_active`). A
@@ -41,6 +42,46 @@ Two command classes are separated by verb in `permissions/widget-operator-author
 (`start`, `pause`, `roll`, `advance`, …) needs an `operator` grant; **configure** (`set-duration`,
 `rename`, `bind`, …) needs `manager`. The DM is always authorized, an observer never, and grants are
 checked against `now`.
+
+### 2.1 Intents: navigation and creation
+
+A command writes to the campaign. An **intent** writes nothing: it takes the viewer somewhere
+(RC-WID-5.1). `WidgetDefinition.intents` is optional and is a closed union on `kind`:
+
+| `kind`          | Target                                                                       | Destination                                                                                                                                                                                 |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open-screen`   | `targetId` (a scene; ADR-041)                                                | `/scene/:id`                                                                                                                                                                                |
+| `open-entity`   | `entityKind` (`character` \| `map` \| `note` \| `quest`) and `targetId`      | `/characters/:id`, `/atlas?map=`, `/knowledge/:id`, `/campaign` with `openQuestId`                                                                                                          |
+| `open-route`    | `route`, one of `WIDGET_INTENT_ROUTES` (section roots only)                  | that path                                                                                                                                                                                   |
+| `create`        | `target` (`scene` \| `screen` \| `character` \| `map` \| `note` \| `widget`) | the existing creation flow: `/scenes` with `{ createScreen: true }` for scene/screen, or `/characters`, `/atlas`, `/knowledge` with `{ create: true }`, `/board` with `{ addWidget: true }` |
+| `open-settings` | `tab`, one of `WIDGET_INTENT_SETTINGS_TABS`                                  | `/settings?tab=`                                                                                                                                                                            |
+
+Every variant is a strict schema, so no descriptor has a field a URL could hide in. Intent ids are
+unique within a definition. An open intent may fix its `targetId`; a custom widget may leave it out
+and supply one when it asks, but a fixed target is never replaced by the requested one.
+
+On `/campaign`, `openQuestId` opens the quest editor for an author. A reader who cannot author
+the quest has no editor, so the page scrolls to that quest's card, focuses it and marks it
+`aria-current` instead.
+
+`resolveWidgetIntent` (`security/widget-host-api.ts`) decides every request, in this order:
+
+1. The definition must declare the intent (`undeclared`).
+2. A `custom-html-js` widget must hold the `navigate` host permission, approved at trust review
+   (`permission-denied`). Template and builtin intents are data drawn by first-party code, so
+   declaring them is the grant.
+3. The viewer's read gate decides the target through the existing actor-filtered reads
+   (`listScreensForActor`, `getCharacterForActor`, `listMapsForActor`,
+   `getContentItemDetailForActor`, `resolveSectionRouteAccess`). A hidden target and a missing one
+   both return `not-visible`, so a widget cannot probe for ids. Creation flows require authoring
+   authority. The Settings tabs `players`, `permissions`, `plugins` and `systems` require DM
+   authority (`not-authorized`).
+4. Only then is an in-app destination built.
+
+Each outcome carries a non-leaking audit record naming the declared intent, never the requested
+target. The action-panel template renders one button per intent after its commands. On a live
+surface it omits any intent the viewer could not follow, resolves again on press, and reports a
+refusal. While the layout is being edited, the buttons are inert.
 
 ## 3. Rendering
 
@@ -125,11 +166,16 @@ The protocol (`app/widgets/hostBridge.ts`) mirrors `security/widget-host-api.ts`
 | widget → host | `dispatch(commandDescriptor)`               | `widget.dispatch-command` + operator-authority check |
 | widget → host | `requestPermission(kind)`                   | `resolveHostCapability` against the approved grant   |
 | widget → host | `outbound(request)`                         | `evaluateWidgetOutboundRequest` (SEC-011)            |
+| widget → host | `navigate({ intentId, targetId? })`         | `resolveWidgetIntent` (§2.1); needs `navigate`       |
 | widget → host | `resize { height }`                         | clamped frame height (iframe only)                   |
 | host → widget | `theme { themeVariables, hostDocument }`    | the host's live look; themed packages only (§4.1)    |
 
-The core decides, the host relays: `hostBridge.ts` never answers a permission or outbound request
-from its own logic. Inbound messages are validated and attributed to an instance id; unknown kinds,
+The core decides, the host relays: `hostBridge.ts` never answers a permission, outbound or navigate
+request from its own logic. A refused `navigate` is dropped. The frame is answered with the
+decision, the iframe's `data-dropped-intents` count goes up, and the core's audit record goes into
+the host's bounded session log (`listWidgetHostAudit`, 100 entries, not persisted; `window.__widgetHostAudit`
+in dev builds). A resolved one is routed in-app. The worker sandbox does not speak `navigate`; its
+parser drops it as an unknown kind. Inbound messages are validated and attributed to an instance id; unknown kinds,
 version mismatches, and foreign frames are dropped and audited. A frame that throws, hangs, or
 violates policy is torn down through `isolateWidgetFailure`; siblings and core state survive.
 
@@ -216,13 +262,25 @@ capability is absent at the gate, not merely hidden.
 Installed packages start `unreviewed` with every permission denied. System packages shipped in code
 are pre-trusted.
 
+`navigate` (RC-WID-5.1) lets custom code follow the intents its definition declares, and only to
+targets the viewer can already read. It never grants a URL. A trust record written before the
+permission existed has no `navigate` key, and the host reads approvals only from entries that say
+`approved`, so such a record stays denied.
+
 ## 6. Authoring
 
 - **Manual builder** (`apps/gm-react/src/app/widgetBuilder/`, Extensions › Plugins): a stepper
   (identity → layout → data → config → commands → style → advanced → review) with a live preview
   through the same render resolver. It produces `template` definitions; `custom-html-js` is only
   reachable through the explicit Advanced step, where code, requested permissions, and the SEC-011
-  destination picker live with the review summary recomputed live.
+  destination picker live with the review summary recomputed live. The Commands step also declares
+  intents ("Open and create"). Open intents pick their target from the author's actor-filtered
+  reads; a template's starts on the first one the author can see. Adding an intent to a custom
+  widget requests `navigate`. The step itself names a template open intent with no target, an
+  unlabelled intent, and a custom widget whose intents lack `navigate` (`validateIntents`, in `draft.ts`); the core
+  schema refuses duplicate ids and empty labels on Review. The iteration diff (`draftDiff.ts`)
+  prints each intent with its destination, so a re-run that keeps a label but changes the target,
+  kind, route, tab or creation target shows up as a change and can be applied.
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;
@@ -245,20 +303,21 @@ instances, the same render resolver and the same core mutation path; flow is not
 
 ## 8. Where to look
 
-| Concern                                  | Location                                                                                                                                                      |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                             |
-| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                      |
-| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                        |
-| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                 |
-| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                  |
-| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                   |
-| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                                            |
-| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                              |
-| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                 |
-| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                      |
-| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                |
-| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts` |
+| Concern                                  | Location                                                                                                                                                                                |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                       |
+| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                |
+| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                  |
+| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                           |
+| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                            |
+| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                 |
+| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                             |
+| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                                                                      |
+| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                        |
+| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                           |
+| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                |
+| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                          |
+| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts` |
 
 ## 9. Widget gallery
 

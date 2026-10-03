@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-AI-2.4 — BATCH REVIEW WITH GROUPING AND FILTERS. The staged-writes panel groups pending proposals
 // by the agent that staged them and adds an agent filter over that grouping, plus a checkbox selection
@@ -26,6 +26,7 @@ function invokeAgentTool(
 /** Two agents, each staging note-create proposals — three from "prep-assistant", one from "scout-bot". */
 async function seedBatch(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});

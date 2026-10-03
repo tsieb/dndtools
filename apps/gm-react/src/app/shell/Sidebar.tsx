@@ -1,3 +1,4 @@
+import { settingsGateVisible, useSettingsTier } from '../../screens/settings/Experience';
 import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -59,6 +60,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	// the Core was refusing every session command.
 	const posture = useSessionPosture();
 	const { t } = useI18n();
+	const tier = useSettingsTier();
+	const canManageSeat = settingsGateVisible('settings.nav.players', tier);
 	const dmName =
 		dmActor && !isPlaceholderActorName(dmActor.displayName)
 			? dmActor.displayName
@@ -366,9 +369,16 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				    A never-renamed seat shows the role rather than the seeded "Default DM" placeholder. */}
 				<button
 					type="button"
-					onClick={() => navigate('/settings?tab=players')}
-					title={t('shell.accountOpen')}
-					aria-label={t('shell.accountLabel', { name: dmName, presence: presence.label })}
+					disabled={!canManageSeat}
+					onClick={canManageSeat ? () => navigate('/settings?tab=players') : undefined}
+					// Below Players' tier the seat stays visible but names why it doesn't open (RC-UX-5.2).
+					title={canManageSeat ? t('shell.accountOpen') : t('shell.accountGated')}
+					aria-label={
+						canManageSeat
+							? t('shell.accountLabel', { name: dmName, presence: presence.label })
+							: dmName
+					}
+					aria-description={canManageSeat ? undefined : t('shell.accountGated')}
 					style={{
 						display: 'flex',
 						alignItems: 'center',
@@ -380,10 +390,12 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 						borderRadius: 8,
 						background: 'transparent',
 						color: T.ink,
-						cursor: 'pointer',
+						cursor: canManageSeat ? 'pointer' : 'default',
 						textAlign: 'left',
 					}}
-					onMouseEnter={(e) => (e.currentTarget.style.background = T.hover)}
+					onMouseEnter={(e) => {
+						if (canManageSeat) e.currentTarget.style.background = T.hover;
+					}}
 					onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
 				>
 					<Avatar name={dmName} size="sm" ring="active" />

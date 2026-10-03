@@ -9,20 +9,26 @@ import {
 	type WidgetPackageDefinition,
 	type WidgetPackageRecord,
 } from '@dndtools/core';
+import { DM_ACTOR, PLAYER_ACTOR, buildInitialState } from '@dndtools/core/testing';
 import {
 	FORWARDED_THEME_TOKENS,
 	WIDGET_HOST_API_VERSION,
 	WIDGET_HOST_CHANNEL,
+	WIDGET_HOST_AUDIT_LIMIT,
 	WIDGET_SANDBOX_ATTRIBUTE,
 	approvedHostPermissions,
 	assembleWidgetDocument,
 	auditSandboxFrame,
 	clampContentHeight,
 	collectThemeVariables,
+	clearWidgetHostAudit,
 	decideDispatch,
+	decideIntent,
 	decideOutbound,
 	decidePermission,
+	listWidgetHostAudit,
 	parseGuestMessage,
+	recordWidgetHostAudit,
 	resolveAssetPath,
 	type GuestOutbound,
 } from './hostBridge';
@@ -264,6 +270,7 @@ describe('host API v1: every answer is the core policy', () => {
 				'external-link': 'denied',
 				'source-adapter': 'denied',
 				filesystem: 'denied',
+				navigate: 'denied',
 			},
 		});
 		expect(approvedHostPermissions(reviewed)).toEqual(['clipboard']);
@@ -354,6 +361,131 @@ describe('host API v1: every answer is the core policy', () => {
 			],
 		});
 		expect(decideDispatch(declared.widgets[0]!, 'torch.light').accepted).toBe(true);
+	});
+});
+
+describe('RC-WID-5.1: navigate — the core resolves, the host drops and audits', () => {
+	const INTENTS: WidgetDefinition['intents'] = [
+		{ id: 'new-map', displayName: 'New map', kind: 'create', target: 'map' },
+		{
+			id: 'open-character',
+			displayName: 'Open character',
+			kind: 'open-entity',
+			entityKind: 'character',
+		},
+	];
+	const custom = customPackage({ intents: INTENTS, hostPermissions: ['navigate'] }).widgets[0]!;
+	const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+
+	it('parses a navigate request by intent id, and nothing that looks like a URL', () => {
+		expect(
+			parseGuestMessage(
+				guest('navigate', { requestId: 'r1', intentId: 'new-map', targetId: 'c1' }),
+			),
+		).toEqual({ kind: 'navigate', requestId: 'r1', intentId: 'new-map', targetId: 'c1' });
+		expect(parseGuestMessage(guest('navigate', { requestId: 'r1', intentId: 'new-map' }))).toEqual({
+			kind: 'navigate',
+			requestId: 'r1',
+			intentId: 'new-map',
+			targetId: null,
+		});
+		// A URL has no field to arrive in: the message is an intent id or it is malformed.
+		expect(
+			parseGuestMessage(guest('navigate', { requestId: 'r1', url: 'https://example.invalid' })),
+		).toEqual({ drop: 'malformed' });
+		expect(parseGuestMessage(guest('navigate', { intentId: 'new-map' }))).toEqual({
+			drop: 'malformed',
+		});
+	});
+
+	it('navigate is a capability a frame can ask about, and is undeclared until approved', () => {
+		expect(decidePermission('w1', 'navigate', []).decision).toBe('undeclared');
+		expect(decidePermission('w1', 'navigate', ['navigate']).decision).toBe('available');
+	});
+
+	it('drops a custom widget intent whose package was not approved for navigate, and audits it', () => {
+		clearWidgetHostAudit();
+		const decision = decideIntent(
+			'w1',
+			custom,
+			{ intentId: 'new-map' },
+			approvedHostPermissions(record()),
+			state,
+			DM_ACTOR.id,
+		);
+		expect(decision.destination).toBeNull();
+		expect(decision.answer.decision).toBe('permission-denied');
+		expect(listWidgetHostAudit()).toEqual([
+			expect.objectContaining({
+				widgetInstanceId: 'w1',
+				intentId: 'new-map',
+				decision: 'permission-denied',
+			}),
+		]);
+	});
+
+	it('follows the same intent once review approved navigate, and audits nothing', () => {
+		clearWidgetHostAudit();
+		const reviewed = record({
+			state: 'trusted',
+			hostPermissions: { ...record().trust.hostPermissions, navigate: 'approved' },
+		});
+		const decision = decideIntent(
+			'w1',
+			custom,
+			{ intentId: 'new-map' },
+			approvedHostPermissions(reviewed),
+			state,
+			DM_ACTOR.id,
+		);
+		expect(decision.destination).toEqual({ path: '/atlas', state: { create: true } });
+		expect(listWidgetHostAudit()).toEqual([]);
+	});
+
+	it('an approved package still cannot take a player past the read gate', () => {
+		clearWidgetHostAudit();
+		const decision = decideIntent(
+			'w1',
+			custom,
+			{ intentId: 'new-map' },
+			['navigate'],
+			state,
+			PLAYER_ACTOR.id,
+		);
+		expect(decision.answer.decision).toBe('not-authorized');
+		expect(listWidgetHostAudit()).toHaveLength(1);
+	});
+
+	it('an old trust record without a navigate decision reads as denied', () => {
+		const legacy = record({
+			state: 'trusted',
+			hostPermissions: {
+				clipboard: 'approved',
+				network: 'denied',
+				asset: 'denied',
+				'external-link': 'denied',
+				'source-adapter': 'denied',
+				filesystem: 'denied',
+			} as Record<WidgetHostPermission, 'approved' | 'denied'>,
+		});
+		expect(approvedHostPermissions(legacy)).not.toContain('navigate');
+	});
+
+	it('the audit log is bounded, so a frame spinning on a refusal cannot grow it', () => {
+		clearWidgetHostAudit();
+		for (let index = 0; index < WIDGET_HOST_AUDIT_LIMIT + 25; index += 1) {
+			recordWidgetHostAudit({
+				widgetInstanceId: 'w1',
+				intentId: 'new-map',
+				intentKind: 'create',
+				decision: 'permission-denied',
+				reason: 'denied',
+			});
+		}
+		const log = listWidgetHostAudit();
+		expect(log).toHaveLength(WIDGET_HOST_AUDIT_LIMIT);
+		expect(log[log.length - 1]!.sequence - log[0]!.sequence).toBe(WIDGET_HOST_AUDIT_LIMIT - 1);
+		clearWidgetHostAudit();
 	});
 });
 

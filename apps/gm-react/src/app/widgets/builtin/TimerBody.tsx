@@ -104,7 +104,20 @@ export function TimerBody({
 					};
 
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
+		// RC-CAN-5.5 — the controls sit beside the clock when the tile is wide enough and wrap into a
+		// row under it when not. Stacked, two touch-size controls were taller than the default
+		// rail-tier tile and clipped the second one. `minHeight`, not `height`: a centred body taller
+		// than its tile would also overflow upward, where no scroll reaches.
+		<div
+			style={{
+				display: 'flex',
+				flexWrap: 'wrap',
+				alignItems: 'center',
+				alignContent: 'center',
+				gap: 'var(--space-1) var(--space-3)',
+				minHeight: '100%',
+			}}
+		>
 			<div style={{ minWidth: 0 }}>
 				{/* `timer` is a live region that is OFF by default: the figure is readable on demand
 				    without narrating every tick. Urgency was colour alone; the warning shape survives
@@ -133,8 +146,8 @@ export function TimerBody({
 				style={{
 					marginLeft: 'auto',
 					display: 'flex',
-					flexDirection: 'column',
-					alignItems: 'flex-end',
+					flexWrap: 'wrap',
+					justifyContent: 'flex-end',
 					gap: 4,
 				}}
 			>

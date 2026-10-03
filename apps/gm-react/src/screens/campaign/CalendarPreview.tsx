@@ -7,7 +7,7 @@ import {
 	type CalendarDefinition,
 	type CustomDate,
 } from '@dndtools/core';
-import { Button, Field, Icon, Input, Select } from '../../ds';
+import { Button, Toaster, Field, Icon, Input, Select } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { num, type Translate } from './calendarDraft';
 
@@ -51,7 +51,9 @@ export function CalendarPreview({
 				) : undefined
 			}
 		>
-			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+			<div
+				style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+			>
 				<Field label={t('session.date.month')} style={{ flex: '1 1 150px' }}>
 					<Select
 						value={String(month)}
@@ -78,24 +80,35 @@ export function CalendarPreview({
 					/>
 				</Field>
 			</div>
-			<div data-testid="calendar-preview-date" style={{ font: `600 15px ${T.disp}`, color: T.ink }}>
+			<div
+				data-testid="calendar-preview-date"
+				style={{ font: `600 var(--text-md) ${T.sans}`, color: T.ink }}
+			>
 				{formatCustomDate(calendar, date, 'long')}
 			</div>
-			<div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', gap: 'var(--space-5)', flexWrap: 'wrap' }}>
 				<div style={{ flex: '1 1 200px', minWidth: 0 }}>
 					<div style={eb}>{t('calendar.moons.title')}</div>
 					{moons.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('calendar.moons.none')}</div>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
+							{t('calendar.moons.none')}
+						</div>
 					) : (
-						<ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0 }}>
+						<ul
+							style={{
+								listStyle: 'none',
+								margin: 'var(--space-1-5) var(--space-0, 0) var(--space-0, 0)',
+								padding: 'var(--space-0, 0)',
+							}}
+						>
 							{moons.map((moon) => (
 								<li
 									key={moon.moonId}
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 8,
-										font: `12.5px ${T.sans}`,
+										gap: 'var(--space-2)',
+										font: `var(--text-sm) ${T.sans}`,
 										color: T.sub,
 									}}
 								>
@@ -112,19 +125,25 @@ export function CalendarPreview({
 				<div style={{ flex: '1 1 200px', minWidth: 0 }}>
 					<div style={eb}>{t('calendar.holidays.title')}</div>
 					{holidays.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+						<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 							{t('calendar.holidays.noneToday')}
 						</div>
 					) : (
-						<ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0 }}>
+						<ul
+							style={{
+								listStyle: 'none',
+								margin: 'var(--space-1-5) var(--space-0, 0) var(--space-0, 0)',
+								padding: 'var(--space-0, 0)',
+							}}
+						>
 							{holidays.map((holiday) => (
 								<li
 									key={holiday.id}
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 8,
-										font: `12.5px ${T.sans}`,
+										gap: 'var(--space-2)',
+										font: `var(--text-sm) ${T.sans}`,
 										color: T.sub,
 									}}
 								>
@@ -163,7 +182,9 @@ export function DateANote({
 	if (notes.length === 0) {
 		return (
 			<Panel title={t('calendar.note.title')}>
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('calendar.note.noNotes')}</div>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
+					{t('calendar.note.noNotes')}
+				</div>
 			</Panel>
 		);
 	}
@@ -182,6 +203,8 @@ export function DateANote({
 		setBusy(true);
 		try {
 			await onDate(noteId, trimmed, date);
+		} catch {
+			Toaster.error(t('campaign.saveFailed'));
 		} finally {
 			setBusy(false);
 		}
@@ -189,8 +212,12 @@ export function DateANote({
 
 	return (
 		<Panel title={t('calendar.note.title')}>
-			<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{t('calendar.note.blurb')}</div>
-			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+			<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+				{t('calendar.note.blurb')}
+			</div>
+			<div
+				style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+			>
 				<Field label={t('calendar.note.note')} style={{ flex: '2 1 200px' }}>
 					<Select
 						value={noteId}
@@ -211,7 +238,9 @@ export function DateANote({
 					/>
 				</Field>
 			</div>
-			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+			<div
+				style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end', flexWrap: 'wrap' }}
+			>
 				<Field label={t('session.date.month')} style={{ flex: '1 1 150px' }}>
 					<Select
 						value={String(month)}
@@ -241,7 +270,7 @@ export function DateANote({
 					/>
 				</Field>
 				<Button
-					variant="primary"
+					variant="secondary"
 					size="sm"
 					icon="check"
 					disabled={busy}
@@ -251,7 +280,10 @@ export function DateANote({
 					{t('calendar.note.apply')}
 				</Button>
 			</div>
-			<div style={{ font: `12px ${T.sans}`, color: T.ter }} data-testid="calendar-note-preview">
+			<div
+				style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}
+				data-testid="calendar-note-preview"
+			>
 				{t('calendar.note.preview', { date: formatCustomDate(calendar, date, 'medium') })}
 			</div>
 		</Panel>

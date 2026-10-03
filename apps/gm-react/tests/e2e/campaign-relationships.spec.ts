@@ -61,6 +61,10 @@ test.describe('campaign: relationship editor', () => {
 		expect(body).toContain('leads :: Marrow Vane');
 
 		await page.getByRole('button', { name: `Remove: ${FACTION_TITLE} → ${NPC_TITLE}` }).click();
+		await page
+			.getByRole('dialog')
+			.getByRole('button', { name: 'Remove relationship', exact: true })
+			.click();
 		await expect(page.getByText('Relationship removed.')).not.toHaveCount(0);
 		await expect(page.getByText('No relationships declared yet.')).not.toHaveCount(0);
 	});

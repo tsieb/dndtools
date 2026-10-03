@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-AI-2.2 — THREE-WAY CONFLICT UI. A staged rewrite is written against the revision the assistant
 // read. When the DM edits that note first, approving the proposal as staged writes NOTHING while the
@@ -68,6 +68,7 @@ function noteBody(page: Page, title: string): Promise<string> {
 /** Stage a rewrite of a note, then land a human edit on top so the staged base goes stale. */
 async function seedConflict(page: Page, humanBody: string): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});

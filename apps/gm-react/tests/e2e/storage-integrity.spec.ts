@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { markOnboarded, waitReady } from './_helpers';
+import { markOnboarded, preferTier, waitReady } from './_helpers';
 
 test('a corrupted fixture opens the vault and exports its quarantined original', async ({
 	page,
 }) => {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		Object.defineProperty(navigator.storage, 'estimate', {
 			value: async () => ({ usage: 80, quota: 100 }),

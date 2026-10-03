@@ -7,8 +7,8 @@ import { readTier } from '../../screens/settings/shared';
 import { T } from '../screen-kit';
 import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { appVersion } from '../../platform/appVersion';
-import { latestRelease, parseChangelog, type ReleaseNote } from './changelog';
 import { renderMarkdown } from '../markdown/render';
+import { ReleaseNotes } from './ReleaseNotes';
 import { ShortcutsDialog } from './ShortcutsDialog';
 
 import guide0 from '../../../../../docs/user/getting-started.md?raw';
@@ -50,15 +50,6 @@ export function hasUnseenWhatsNew(): boolean {
 	const latest = appVersion();
 	if (!latest) return false;
 	return readSeenWhatsNewVersion() !== latest;
-}
-
-/**
- * The repo's CHANGELOG.md, parsed, loaded the first time the menu opens. The raw markdown is a
- * separate chunk: nothing on the boot path needs release notes.
- */
-async function loadLatestRelease(): Promise<ReleaseNote | null> {
-	const { default: markdown } = await import('../../../../../CHANGELOG.md?raw');
-	return latestRelease(parseChangelog(markdown));
 }
 
 /**
@@ -115,37 +106,25 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 	const [guide, setGuide] = useState<(typeof USER_GUIDES)[number] | null>(null);
 	const view = resolveOnboarding(runtime.state, runtime.defaultActorId, readTier());
 	const done = view.steps.filter((step) => step.done).length;
-	const [latest, setLatest] = useState<ReleaseNote | null>(null);
 
 	// Opening the menu is what "seeing" the release means: mark the shipped version seen (the badge's
-	// own source) and fetch the release notes for the body. Both are side effects, once per open.
+	// own source). ReleaseNotes owns its lazy load and retry lifecycle while the menu is open.
 	useEffect(() => {
 		if (!open) return;
 		const version = appVersion();
 		if (version) markWhatsNewSeen(version);
-		let live = true;
-		void loadLatestRelease().then((release) => {
-			if (!live) return;
-			setLatest(release);
-			// A build without an injected version (or one whose changelog ran ahead) still marks what it
-			// actually showed as seen.
-			if (!version && release) markWhatsNewSeen(release.version);
-		});
-		return () => {
-			live = false;
-		};
 	}, [open]);
 
 	return (
 		<>
 			<Dialog open={open && !guide} onClose={onClose} title={t('help.title')} icon="info" size="md">
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 					<section aria-label={t('help.gettingStarted')}>
 						<h3
 							style={{
-								margin: '0 0 6px',
-								font: `600 12px ${T.sans}`,
-								letterSpacing: '.06em',
+								margin: '0 0 var(--space-1-5)',
+								font: `600 var(--text-xs) ${T.sans}`,
+								letterSpacing: 'var(--tracking-wide)',
 								textTransform: 'uppercase',
 								color: T.ter,
 							}}
@@ -154,23 +133,29 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 						</h3>
 						{view.canSetup ? (
 							<>
-								<div style={{ font: `13px ${T.sans}`, color: T.ink, marginBottom: 6 }}>
+								<div
+									style={{
+										font: `var(--text-sm) ${T.sans}`,
+										color: T.ink,
+										marginBottom: 'var(--space-1-5)',
+									}}
+								>
 									{t('help.gettingStartedProgress', { done, total: view.steps.length })}
 								</div>
 								<ul
 									style={{
-										margin: 0,
-										paddingLeft: 18,
+										margin: 'var(--space-0)',
+										paddingLeft: 'var(--space-4)',
 										display: 'flex',
 										flexDirection: 'column',
-										gap: 4,
+										gap: 'var(--space-1)',
 									}}
 								>
 									{view.steps.map((step) => (
 										<li
 											key={step.id}
 											style={{
-												font: `13px ${T.sans}`,
+												font: `var(--text-sm) ${T.sans}`,
 												color: step.done ? T.ter : T.ink,
 												textDecoration: step.done ? 'line-through' : 'none',
 											}}
@@ -180,13 +165,19 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 									))}
 								</ul>
 								{view.status === 'complete' && (
-									<div style={{ font: `12.5px ${T.sans}`, color: T.ter, marginTop: 6 }}>
+									<div
+										style={{
+											font: `var(--text-sm) ${T.sans}`,
+											color: T.ter,
+											marginTop: 'var(--space-1-5)',
+										}}
+									>
 										{t('help.gettingStartedComplete')}
 									</div>
 								)}
 							</>
 						) : (
-							<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 								{t('help.gettingStartedParticipant')}
 							</div>
 						)}
@@ -210,39 +201,16 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 					<section aria-label={t('help.whatsNew')}>
 						<h3
 							style={{
-								margin: '0 0 6px',
-								font: `600 12px ${T.sans}`,
-								letterSpacing: '.06em',
+								margin: '0 0 var(--space-1-5)',
+								font: `600 var(--text-xs) ${T.sans}`,
+								letterSpacing: 'var(--tracking-wide)',
 								textTransform: 'uppercase',
 								color: T.ter,
 							}}
 						>
 							{t('help.whatsNew')}
 						</h3>
-						{latest ? (
-							<>
-								<div style={{ font: `13px ${T.sans}`, color: T.ink, marginBottom: 6 }}>
-									{t('help.whatsNewVersion', { version: latest.version })}
-								</div>
-								<ul
-									style={{
-										margin: 0,
-										paddingLeft: 18,
-										display: 'flex',
-										flexDirection: 'column',
-										gap: 4,
-									}}
-								>
-									{latest.items.map((item) => (
-										<li key={item} style={{ font: `13px ${T.sans}`, color: T.ink }}>
-											{item}
-										</li>
-									))}
-								</ul>
-							</>
-						) : (
-							<div style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('help.whatsNewNone')}</div>
-						)}
+						{open && <ReleaseNotes />}
 					</section>
 
 					<section aria-label={t('help.keyboardShortcuts')}>
@@ -250,16 +218,29 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 							variant="secondary"
 							size="sm"
 							onClick={() => setShortcutsOpen(true)}
-							style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+							title={t('help.keyboardShortcutsBody')}
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 'var(--space-1-5)',
+								minHeight: 'var(--space-12)',
+							}}
 						>
 							<Icon name="info" />
 							{t('help.keyboardShortcuts')}
 						</Button>
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter, marginTop: 6 }}>
+						<div
+							style={{
+								font: `var(--text-sm) ${T.sans}`,
+								color: T.ter,
+								marginTop: 'var(--space-1-5)',
+							}}
+						>
 							{t('help.keyboardShortcutsBody')}
 						</div>
 					</section>
 				</div>
+				{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
 			</Dialog>
 			<Dialog
 				open={open && guide !== null}
@@ -274,7 +255,6 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 			>
 				<article lang="en">{guide && renderMarkdown(guide.body, { t })}</article>
 			</Dialog>
-			{shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
 		</>
 	);
 }

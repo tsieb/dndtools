@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FEATURE_GATES, isFeatureVisible, type FeatureTier } from '@dndtools/core';
+import type { FeatureTier } from '@dndtools/core';
 import { Button, Icon, Select } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Page, Panel, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { AI_USAGE_PREFERENCE_EVENT, isAiAssistantEnabled } from '../../ai/usagePreference';
-import { TIER_ATTR, TIER_EVENT, TIER_KEY, readTier, setDocAttr } from './shared';
-import { COMPLEXITY_LEVELS } from './Experience';
+import {
+	SETTINGS_FEATURE_GATES,
+	TIER_ATTR,
+	TIER_KEY,
+	setDocAttr,
+	settingsFeatureGate,
+} from './shared';
+import { COMPLEXITY_LEVELS, settingsGateVisible, useSettingsTier } from './Experience';
 import { SettingsAppearance } from './Appearance';
 import { SettingsLanguage } from './Language';
 import { SettingsAccount } from './Account';
@@ -83,28 +89,15 @@ const SUBPAGES: Record<string, () => JSX.Element> = {
 	about: SettingsAbout,
 };
 
-/* ---- REAL progressive disclosure (ADR-012) ------------------------------------------------------
- * Tabs mapped to a declared Core feature gate hide below that gate's tier — the SAME
- * `visibleFeatures()`/`isFeatureVisible()` registry the onboarding surface reads, so the gating is
- * authoritative, not authored. Only tabs with a real declared gate are mapped (fail-open for the
- * rest: an unmapped tab is never hidden by guesswork). */
-const TAB_GATE: Record<string, string> = {
-	permissions: 'permissions', // 'Permission grants' — advanced
-	plugins: 'widget-library', // widget packages ARE the widget library — intermediate
-	systems: 'widget-library', // the rules system is a widget package — intermediate
-};
-
 /** Deep-linking into a gated-off tab shows this honest gate instead of the panel (and offers the
  * real unlock: raising the persisted feature tier, the same write the Appearance cards do). */
 function GatedTab({ gateId, tier }: { gateId: string; tier: FeatureTier }) {
 	const { t } = useI18n();
-	const gate = FEATURE_GATES.find((g) => g.id === gateId);
+	const gate = SETTINGS_FEATURE_GATES.find((g) => g.id === gateId);
 	const neededTier = gate?.minTier ?? 'advanced';
 	const level = COMPLEXITY_LEVELS.find((l) => l.tier === neededTier);
 	const activeLevel = COMPLEXITY_LEVELS.find((l) => l.tier === tier);
-	// `gate.label` comes from the core feature registry, which is not translated yet
-	// (HANDOFF: packages/core FEATURE_GATES labels).
-	const panel = gate?.label ?? t('settings.gated.thisPanel');
+	const panel = gate ? t(gate.labelKey as MessageKey) : t('settings.gated.thisPanel');
 	const levelName = level ? t(level.name) : t('settings.experience.expert');
 	const body = t('settings.gated.body', {
 		panel,
@@ -126,7 +119,7 @@ function GatedTab({ gateId, tier }: { gateId: string; tier: FeatureTier }) {
 				style={{ alignSelf: 'flex-start' }}
 				onClick={() => setDocAttr(TIER_ATTR, TIER_KEY, neededTier)}
 			>
-				{t('settings.gated.switchTo', { level: levelName })}
+				{t('settings.gated.showAdvanced')}
 			</Button>
 		</Panel>
 	);
@@ -139,30 +132,45 @@ export function Settings() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const viewport = useViewport();
-	const [tier, setTier] = useState<FeatureTier>(() => readTier());
+	const tier = useSettingsTier();
 	const [aiEnabled, setAiEnabled] = useState(isAiAssistantEnabled);
-	useEffect(() => {
-		const onTier = () => setTier(readTier());
-		window.addEventListener(TIER_EVENT, onTier);
-		return () => window.removeEventListener(TIER_EVENT, onTier);
-	}, []);
 	useEffect(() => {
 		const onAiPreference = () => setAiEnabled(isAiAssistantEnabled());
 		window.addEventListener(AI_USAGE_PREFERENCE_EVENT, onAiPreference);
 		return () => window.removeEventListener(AI_USAGE_PREFERENCE_EVENT, onAiPreference);
 	}, []);
-	const gatedOff = (id: string) => (TAB_GATE[id] ? !isFeatureVisible(TAB_GATE[id], tier) : false);
+	const gatedOff = (id: string) => !settingsGateVisible(`settings.nav.${id}`, tier);
 	const urlTab = new URLSearchParams(location.search).get('tab');
 	const requestedTab = urlTab && urlTab in SUBPAGES ? urlTab : 'appearance';
 	// A bookmarked AI URL must never disclose its UI after the user opts out.
 	const tab = requestedTab === 'ai' && !aiEnabled ? 'tools' : requestedTab;
 	const setTab = (next: string) => navigate(`/settings?tab=${next}`, { replace: true });
 	const Sub = SUBPAGES[tab] || SettingsAppearance;
+	const sectionAnchor =
+		new URLSearchParams(location.search).get('section') ?? location.hash.slice(1);
+	const requestedSection = settingsFeatureGate(tab, sectionAnchor);
+	// The cloud-mode row lives inside the advanced privacy panel. A row bookmark must
+	// unlock its containing panel too, rather than landing on an absent child.
+	const sectionGate =
+		requestedSection?.id === 'settings.privacy.rowCloud'
+			? settingsFeatureGate(tab, 'settings-privacy-title')
+			: requestedSection;
+	const hiddenGate =
+		sectionGate && !settingsGateVisible(sectionGate.id, tier)
+			? sectionGate.id
+			: gatedOff(tab)
+				? `settings.nav.${tab}`
+				: null;
+	useEffect(() => {
+		if (!hiddenGate && sectionGate)
+			document.getElementById(sectionGate.sectionAnchor)?.scrollIntoView?.();
+	}, [hiddenGate, sectionGate, tab, tier]);
+
 	const visibleNav = SETTINGS_NAV.filter((s) => s.id !== 'ai' || aiEnabled).filter(
 		(s) => !gatedOff(s.id),
 	);
-	// The active sub-page can legitimately be one the tier gates off — Command Center's Manage list
-	// deep-links to /settings?tab=permissions, which needs the `advanced` tier while the default is
+	// A saved deep link can name a sub-page the current tier hides. Permissions needs
+	// the `advanced` tier while the default is
 	// `core`. Dropping it from the nav made the phone `<Select>` LIE: a native select whose `value`
 	// matches no option renders the FIRST one, so the picker read "Appearance" while the panel beside
 	// it read "Hidden at your experience level". Keep the active entry in the list (GatedTab still
@@ -257,7 +265,7 @@ export function Settings() {
 					})}
 			</nav>
 			<div style={{ minWidth: 0 }}>
-				{gatedOff(tab) ? <GatedTab gateId={TAB_GATE[tab]} tier={tier} /> : <Sub />}
+				{hiddenGate ? <GatedTab gateId={hiddenGate} tier={tier} /> : <Sub />}
 			</div>
 		</Page>
 	);

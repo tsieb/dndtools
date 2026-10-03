@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // SYSTEM PACKAGE PICKER (RC-SYS-3.1) — the Extensions › System tab is the front door to the rules
 // system a campaign plays. The gallery lists the packages actually installed in the `systems` slice
@@ -60,6 +60,7 @@ test.describe('system package picker', () => {
 		// in parallel on the first run; 30s is not enough room for that on a loaded machine.
 		test.slow();
 		await markOnboarded(page);
+		await preferTier(page);
 		await gotoRoute(page, '/extensions');
 		await seedFresh(page);
 		await waitReady(page);

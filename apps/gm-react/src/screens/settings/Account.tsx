@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useEffect, useState } from 'react';
 import { Avatar, Badge, Button, Dialog, Input, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
@@ -66,93 +67,100 @@ function AccountProfilePanel() {
 	};
 	const shownName = profile?.displayName || profile?.email || '…';
 	return (
-		<Panel
-			title={t('settings.account.profile')}
-			action={
-				<Badge status="success" icon="check">
-					{t('settings.account.cloudAccount')}
-				</Badge>
-			}
-		>
-			<CloudOfflineNotice />
-			{failed ? (
-				// "reopen this tab" was the only way out of this state, while the sibling device and
-				// export panels in this same file both offer a Retry. Now it does too.
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-					<div
-						role="alert"
-						style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}
-					>
-						{t('settings.account.loadFailed')}
-					</div>
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="retry"
-						{...cloudActions.offlineProps}
-						onClick={() => setReloadKey((n) => n + 1)}
-					>
-						{t('common.action.retry')}
-					</Button>
-				</div>
-			) : (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-					<Avatar name={shownName} size="lg" ring="active" />
-					<div style={{ flex: 1, minWidth: 0 }}>
-						{editing ? (
-							<div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
-								<Input
-									value={draft}
-									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
-									placeholder={t('settings.account.displayName')}
-									aria-label={t('settings.account.displayName')}
-									maxLength={60}
-								/>
-								<Button
-									variant="primary"
-									size="sm"
-									icon="check"
-									disabled={busy}
-									{...cloudActions.offlineProps}
-									onClick={save}
-								>
-									{t('common.action.save')}
-								</Button>
-								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>
-									{t('common.action.cancel')}
-								</Button>
-							</div>
-						) : (
-							<div style={{ font: `700 18px ${T.disp}` }}>{shownName}</div>
-						)}
-						<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{profile?.email ?? ''}</div>
-						{profile?.createdAt && (
-							<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
-								<Badge status="neutral">
-									{t('settings.account.memberSince', {
-										date: formatDate(new Date(profile.createdAt)),
-									})}
-								</Badge>
-							</div>
-						)}
-					</div>
-					{!editing && (
+		<SettingsSection gateKey="settings.account.profile">
+			<Panel
+				title={t('settings.account.profile')}
+				action={
+					<Badge status="success" icon="check">
+						{t('settings.account.cloudAccount')}
+					</Badge>
+				}
+			>
+				<CloudOfflineNotice />
+				{failed ? (
+					// "reopen this tab" was the only way out of this state, while the sibling device and
+					// export panels in this same file both offer a Retry. Now it does too.
+					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+						<div
+							role="alert"
+							style={{ font: `12.5px ${T.sans}`, color: T.ter, flex: 1, minWidth: 0 }}
+						>
+							{t('settings.account.loadFailed')}
+						</div>
 						<Button
 							variant="secondary"
 							size="sm"
-							icon="edit"
-							disabled={!profile}
-							onClick={() => {
-								setDraft(profile?.displayName ?? '');
-								setEditing(true);
-							}}
+							icon="retry"
+							{...cloudActions.offlineProps}
+							onClick={() => setReloadKey((n) => n + 1)}
 						>
-							{t('common.action.edit')}
+							{t('common.action.retry')}
 						</Button>
-					)}
-				</div>
-			)}
-		</Panel>
+					</div>
+				) : (
+					<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+						<Avatar name={shownName} size="lg" ring="active" />
+						<div style={{ flex: 1, minWidth: 0 }}>
+							{editing ? (
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
+									<Input
+										value={draft}
+										onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+										placeholder={t('settings.account.displayName')}
+										aria-label={t('settings.account.displayName')}
+										maxLength={60}
+									/>
+									<Button
+										variant="primary"
+										size="sm"
+										icon="check"
+										disabled={busy}
+										{...cloudActions.offlineProps}
+										onClick={save}
+									>
+										{t('common.action.save')}
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={busy}
+										onClick={() => setEditing(false)}
+									>
+										{t('common.action.cancel')}
+									</Button>
+								</div>
+							) : (
+								<div style={{ font: `700 18px ${T.disp}` }}>{shownName}</div>
+							)}
+							<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{profile?.email ?? ''}</div>
+							{profile?.createdAt && (
+								<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+									<Badge status="neutral">
+										{t('settings.account.memberSince', {
+											date: formatDate(new Date(profile.createdAt)),
+										})}
+									</Badge>
+								</div>
+							)}
+						</div>
+						{!editing && (
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="edit"
+								disabled={!profile}
+								onClick={() => {
+									setDraft(profile?.displayName ?? '');
+									setEditing(true);
+								}}
+							>
+								{t('common.action.edit')}
+							</Button>
+						)}
+					</div>
+				)}
+			</Panel>
+		</SettingsSection>
 	);
 }
 /** Export (real backend data) + delete account behind a type-to-confirm dialog. */
@@ -233,93 +241,95 @@ function AccountDangerPanel() {
 	const confirmSentence = t('settings.account.deleteBody', { phrase: deletePhrase });
 	const [confirmBefore, confirmAfter = ''] = confirmSentence.split(deletePhrase);
 	return (
-		<Panel
-			title={t('settings.account.dangerZone')}
-			style={{ borderColor: 'var(--color-status-error-border)' }}
-		>
-			<CloudOfflineNotice />
-			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-				<div style={{ flex: '1 1 240px' }}>
-					<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.account.dangerHeading')}</div>
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-						{t('settings.account.dangerBody')}
-					</div>
-				</div>
-				<Button
-					variant="secondary"
-					size="sm"
-					icon="download"
-					disabled={busy}
-					{...cloudActions.offlineProps}
-					onClick={exportData}
-				>
-					{t('settings.account.download')}
-				</Button>
-				<Button
-					variant="danger"
-					size="sm"
-					icon="trash"
-					disabled={busy}
-					{...cloudActions.offlineProps}
-					onClick={() => {
-						setPhrase('');
-						setConfirmOpen(true);
-					}}
-				>
-					{t('settings.account.delete')}
-				</Button>
-			</div>
-			<Dialog
-				open={confirmOpen}
-				onClose={() => setConfirmOpen(false)}
-				title={t('settings.account.deleteDialogTitle')}
-				description={t('settings.account.deleteDialogDescription')}
-				icon="warning"
-				size="md"
-				dismissible={!busy}
-				initialFocus="#delete-account-confirmation"
-				role="alertdialog"
-				aria-busy={busy}
-				footer={
-					<>
-						<Button
-							variant="secondary"
-							size="sm"
-							disabled={busy}
-							onClick={() => setConfirmOpen(false)}
-						>
-							{t('common.action.cancel')}
-						</Button>
-						<Button
-							variant="danger"
-							size="sm"
-							icon="trash"
-							disabled={busy || phrase.trim().toLowerCase() !== deletePhrase}
-							{...cloudActions.offlineProps}
-							onClick={destroy}
-						>
-							{busy ? t('settings.account.deleting') : t('settings.account.deleteForever')}
-						</Button>
-					</>
-				}
+		<SettingsSection gateKey="settings.account.dangerZone">
+			<Panel
+				title={t('settings.account.dangerZone')}
+				style={{ borderColor: 'var(--color-status-error-border)' }}
 			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
-					{confirmBefore}
-					<strong style={{ color: T.ink }}>{deletePhrase}</strong>
-					{confirmAfter}
+				<CloudOfflineNotice />
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+					<div style={{ flex: '1 1 240px' }}>
+						<div style={{ font: `600 13px ${T.sans}` }}>{t('settings.account.dangerHeading')}</div>
+						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+							{t('settings.account.dangerBody')}
+						</div>
+					</div>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="download"
+						disabled={busy}
+						{...cloudActions.offlineProps}
+						onClick={exportData}
+					>
+						{t('settings.account.download')}
+					</Button>
+					<Button
+						variant="danger"
+						size="sm"
+						icon="trash"
+						disabled={busy}
+						{...cloudActions.offlineProps}
+						onClick={() => {
+							setPhrase('');
+							setConfirmOpen(true);
+						}}
+					>
+						{t('settings.account.delete')}
+					</Button>
 				</div>
-				<Input
-					id="delete-account-confirmation"
-					value={phrase}
-					onChange={(e: { target: { value: string } }) => setPhrase(e.target.value)}
-					placeholder={deletePhrase}
-					aria-label={t('settings.account.deletePhraseLabel', { phrase: deletePhrase })}
-					autoComplete="off"
-					maxLength={deletePhrase.length}
-					disabled={busy}
-				/>
-			</Dialog>
-		</Panel>
+				<Dialog
+					open={confirmOpen}
+					onClose={() => setConfirmOpen(false)}
+					title={t('settings.account.deleteDialogTitle')}
+					description={t('settings.account.deleteDialogDescription')}
+					icon="warning"
+					size="md"
+					dismissible={!busy}
+					initialFocus="#delete-account-confirmation"
+					role="alertdialog"
+					aria-busy={busy}
+					footer={
+						<>
+							<Button
+								variant="secondary"
+								size="sm"
+								disabled={busy}
+								onClick={() => setConfirmOpen(false)}
+							>
+								{t('common.action.cancel')}
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="trash"
+								disabled={busy || phrase.trim().toLowerCase() !== deletePhrase}
+								{...cloudActions.offlineProps}
+								onClick={destroy}
+							>
+								{busy ? t('settings.account.deleting') : t('settings.account.deleteForever')}
+							</Button>
+						</>
+					}
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
+						{confirmBefore}
+						<strong style={{ color: T.ink }}>{deletePhrase}</strong>
+						{confirmAfter}
+					</div>
+					<Input
+						id="delete-account-confirmation"
+						value={phrase}
+						onChange={(e: { target: { value: string } }) => setPhrase(e.target.value)}
+						placeholder={deletePhrase}
+						aria-label={t('settings.account.deletePhraseLabel', { phrase: deletePhrase })}
+						autoComplete="off"
+						maxLength={deletePhrase.length}
+						disabled={busy}
+					/>
+				</Dialog>
+			</Panel>
+		</SettingsSection>
 	);
 }
 /** Honest gate when the account surface can't be real: local-only build, or signed out. */
@@ -329,37 +339,41 @@ function CloudAccountGate() {
 	const cloudActions = useCloudActions('cloud.offline.signIn');
 	if (!isAccountApiConfigured) {
 		return (
-			<Panel
-				title={t('settings.account.cloudAccount')}
-				action={<Badge status="neutral">{t('settings.account.localOnly')}</Badge>}
-			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{t('settings.account.localOnlyBody')}
-				</div>
-			</Panel>
+			<SettingsSection gateKey="settings.account.cloudAccount">
+				<Panel
+					title={t('settings.account.cloudAccount')}
+					action={<Badge status="neutral">{t('settings.account.localOnly')}</Badge>}
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						{t('settings.account.localOnlyBody')}
+					</div>
+				</Panel>
+			</SettingsSection>
 		);
 	}
 	return (
-		<Panel
-			title={t('settings.account.cloudAccount')}
-			action={<Badge status="neutral">{t('settings.account.signedOut')}</Badge>}
-		>
-			<CloudOfflineNotice />
-			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{t('settings.account.signedOutBody')}
+		<SettingsSection gateKey="settings.account.cloudAccount">
+			<Panel
+				title={t('settings.account.cloudAccount')}
+				action={<Badge status="neutral">{t('settings.account.signedOut')}</Badge>}
+			>
+				<CloudOfflineNotice />
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+					<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						{t('settings.account.signedOutBody')}
+					</div>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="UserCircle"
+						{...cloudActions.offlineProps}
+						onClick={() => auth.openAuthModal()}
+					>
+						{t('settings.account.signIn')}
+					</Button>
 				</div>
-				<Button
-					variant="primary"
-					size="sm"
-					icon="UserCircle"
-					{...cloudActions.offlineProps}
-					onClick={() => auth.openAuthModal()}
-				>
-					{t('settings.account.signIn')}
-				</Button>
-			</div>
-		</Panel>
+			</Panel>
+		</SettingsSection>
 	);
 }
 
@@ -380,27 +394,29 @@ export function SettingsAccount() {
 				<CloudAccountGate />
 			)}
 
-			<Panel
-				title={t('settings.account.onboardingTitle')}
-				action={
-					<Button
-						variant="ghost"
-						size="sm"
-						icon="sparkle"
-						onClick={() => {
-							// REAL: clears the first-run flag and re-opens the live overlay (it listens for this event).
-							removePreference(ONBOARDED_KEY);
-							window.dispatchEvent(new Event(REPLAY_EVENT));
-						}}
-					>
-						{t('settings.account.replaySetup')}
-					</Button>
-				}
-			>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{t('settings.account.onboardingBody')}
-				</div>
-			</Panel>
+			<SettingsSection gateKey="settings.account.onboardingTitle">
+				<Panel
+					title={t('settings.account.onboardingTitle')}
+					action={
+						<Button
+							variant="ghost"
+							size="sm"
+							icon="sparkle"
+							onClick={() => {
+								// REAL: clears the first-run flag and re-opens the live overlay (it listens for this event).
+								removePreference(ONBOARDED_KEY);
+								window.dispatchEvent(new Event(REPLAY_EVENT));
+							}}
+						>
+							{t('settings.account.replaySetup')}
+						</Button>
+					}
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						{t('settings.account.onboardingBody')}
+					</div>
+				</Panel>
+			</SettingsSection>
 
 			{cloudReady && <AccountDangerPanel />}
 		</div>

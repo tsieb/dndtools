@@ -68,6 +68,9 @@ test.describe('route titles (RC-ENG-9.1)', () => {
 
 		// The chrome-less routes have no shell <h1>; each names the tab after its own.
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
+		await expectTitle(page, 'Join your table');
+		await page.waitForFunction(() => window.__rt?.loaded);
+		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await expectTitle(page, 'Now playing');
 		// The player app swaps its heading per section without a route change; the title follows.
 		await page.getByRole('button', { name: 'Dice', exact: true }).first().click();

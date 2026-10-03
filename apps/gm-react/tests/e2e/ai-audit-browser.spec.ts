@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // RC-AI-2.3 — AUDIT BROWSER + EXPORT. `McpAuditEntry` (MCP-011 AC2) already records every committed
 // agent write attempt — staged for review, or committed direct — decision metadata only, never
@@ -28,6 +28,7 @@ function invokeAgentTool(
  *  "scout-bot" (trusted_direct) — two audit entries across two agents and two outcomes. */
 async function seedAuditTrail(page: Page): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	await page.addInitScript(() => {
 		localStorage.setItem('dndtools.ai.usage-preference', 'complete');
 	});

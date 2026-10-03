@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, FeatureSpotlight, HelpTip, RadioCard, Toaster } from '../../ds';
@@ -28,64 +29,66 @@ export function SettingsToolPreferences() {
 		);
 	};
 	return (
-		<Panel title={t('settings.tools.title')}>
-			<HelpTip>{t('settings.tools.intro')}</HelpTip>
-			<div
-				role="radiogroup"
-				aria-label={t('settings.tools.groupLabel')}
-				// This declared radiogroup had no arrow keys and every card was its own tab stop — the
-				// same gap already closed for Seg/SegmentedControl and for Onboarding's choice cards.
-				onKeyDown={radioGroupKeyDown}
-				style={{
-					display: 'grid',
-					gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
-					gap: 10,
-				}}
-			>
-				{(
-					[
-						{
-							id: 'complete' as const,
-							title: 'settings.tools.completeTitle',
-							desc: 'settings.tools.completeDesc',
-						},
-						{
-							id: 'generation-only' as const,
-							title: 'settings.tools.generatorsTitle',
-							desc: 'settings.tools.generatorsDesc',
-						},
-						{
-							id: 'none' as const,
-							title: 'settings.tools.noneTitle',
-							desc: 'settings.tools.noneDesc',
-						},
-					] satisfies Array<{ id: AiUsagePreference; title: MessageKey; desc: MessageKey }>
-				).map((option) => {
-					const selected = preference === option.id;
-					return (
-						<RadioCard
-							key={option.id}
-							value={option.id}
-							checked={selected}
-							onChange={choose}
-							heading={t(option.title)}
-							style={{
-								padding: 12,
-								borderRadius: 10,
-								border: `1px solid ${selected ? T.accBd : T.bd}`,
-								background: selected ? T.accSub : T.alt,
-								textAlign: 'left',
-								cursor: 'pointer',
-							}}
-						>
-							<div style={{ marginTop: 4, font: `12px/1.5 ${T.sans}`, color: T.ter }}>
-								{t(option.desc)}
-							</div>
-						</RadioCard>
-					);
-				})}
-			</div>
-		</Panel>
+		<SettingsSection gateKey="settings.tools.title">
+			<Panel title={t('settings.tools.title')}>
+				<HelpTip>{t('settings.tools.intro')}</HelpTip>
+				<div
+					role="radiogroup"
+					aria-label={t('settings.tools.groupLabel')}
+					// This declared radiogroup had no arrow keys and every card was its own tab stop — the
+					// same gap already closed for Seg/SegmentedControl and for Onboarding's choice cards.
+					onKeyDown={radioGroupKeyDown}
+					style={{
+						display: 'grid',
+						gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))',
+						gap: 10,
+					}}
+				>
+					{(
+						[
+							{
+								id: 'complete' as const,
+								title: 'settings.tools.completeTitle',
+								desc: 'settings.tools.completeDesc',
+							},
+							{
+								id: 'generation-only' as const,
+								title: 'settings.tools.generatorsTitle',
+								desc: 'settings.tools.generatorsDesc',
+							},
+							{
+								id: 'none' as const,
+								title: 'settings.tools.noneTitle',
+								desc: 'settings.tools.noneDesc',
+							},
+						] satisfies Array<{ id: AiUsagePreference; title: MessageKey; desc: MessageKey }>
+					).map((option) => {
+						const selected = preference === option.id;
+						return (
+							<RadioCard
+								key={option.id}
+								value={option.id}
+								checked={selected}
+								onChange={choose}
+								heading={t(option.title)}
+								style={{
+									padding: 12,
+									borderRadius: 10,
+									border: `1px solid ${selected ? T.accBd : T.bd}`,
+									background: selected ? T.accSub : T.alt,
+									textAlign: 'left',
+									cursor: 'pointer',
+								}}
+							>
+								<div style={{ marginTop: 4, font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+									{t(option.desc)}
+								</div>
+							</RadioCard>
+						);
+					})}
+				</div>
+			</Panel>
+		</SettingsSection>
 	);
 }
 
@@ -99,15 +102,17 @@ export function SettingsPlugins() {
 	const navigate = useNavigate();
 	const extensions = t('settings.plugins.extensions');
 	return (
-		<Panel title={t('settings.plugins.title')}>
-			<FeatureSpotlight
-				title={extensions}
-				description={t('settings.plugins.body', { extensions })}
-				icon="widget"
-				actionLabel={t('settings.openExtensions')}
-				onAction={() => navigate('/extensions')}
-			/>
-		</Panel>
+		<SettingsSection gateKey="settings.plugins.title">
+			<Panel title={t('settings.plugins.title')}>
+				<FeatureSpotlight
+					title={extensions}
+					description={t('settings.plugins.body', { extensions })}
+					icon="widget"
+					actionLabel={t('settings.openExtensions')}
+					onAction={() => navigate('/extensions')}
+				/>
+			</Panel>
+		</SettingsSection>
 	);
 }
 
@@ -120,21 +125,23 @@ export function SettingsSystems() {
 	const body = t('settings.systems.body', { location });
 	const [bodyBefore, bodyAfter = ''] = body.split(location);
 	return (
-		<Panel title={t('settings.systems.title')}>
-			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-				{bodyBefore}
-				<strong style={{ color: T.ink }}>{location}</strong>
-				{bodyAfter}
-			</div>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="scroll"
-				onClick={() => navigate('/extensions')}
-				style={{ alignSelf: 'flex-start' }}
-			>
-				{t('settings.openExtensions')}
-			</Button>
-		</Panel>
+		<SettingsSection gateKey="settings.systems.title">
+			<Panel title={t('settings.systems.title')}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					{bodyBefore}
+					<strong style={{ color: T.ink }}>{location}</strong>
+					{bodyAfter}
+				</div>
+				<Button
+					variant="secondary"
+					size="sm"
+					icon="scroll"
+					onClick={() => navigate('/extensions')}
+					style={{ alignSelf: 'flex-start' }}
+				>
+					{t('settings.openExtensions')}
+				</Button>
+			</Panel>
+		</SettingsSection>
 	);
 }

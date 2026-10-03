@@ -414,6 +414,35 @@ describe('each template renders its fixture package', () => {
 		expect(forDm).toContain('Rename the widget');
 	});
 
+	// RC-WID-5.1 — intents sit after the commands, as their own buttons, and are inert while the
+	// layout is being edited exactly as commands are.
+	it('action-panel offers one button per declared intent and follows it', () => {
+		const followed: string[] = [];
+		const pkg = fixturePackage('action-panel', {
+			commands: [],
+			intents: [
+				{ id: 'new-map', displayName: 'New map', kind: 'create', target: 'map' },
+				{ id: 'roster', displayName: 'Characters', kind: 'open-route', route: '/characters' },
+			],
+		});
+		const withIntent = (props: WidgetTemplateProps) => (
+			<ActionPanelTemplate {...props} onIntent={(intent) => followed.push(intent.id)} />
+		);
+		const text = renderTemplate(withIntent, pkg, { onCommand: () => undefined });
+		expect(text).not.toContain('This widget declares no actions yet.');
+		const button = container.querySelector<HTMLButtonElement>('[data-widget-intent="new-map"]');
+		expect(button?.textContent).toContain('New map');
+		act(() => button?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+		expect(followed).toEqual(['new-map']);
+
+		// No `onCommand`: the DM is arranging the board, so the intent says why it is inert.
+		renderTemplate(withIntent, pkg);
+		const inert = container.querySelector<HTMLButtonElement>('[data-widget-intent="new-map"]');
+		expect(inert?.getAttribute('aria-disabled')).toBe('true');
+		act(() => inert?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+		expect(followed).toEqual(['new-map']);
+	});
+
 	it('scene-message prints its configured message', () => {
 		const text = renderTemplate(
 			SceneMessageTemplate,

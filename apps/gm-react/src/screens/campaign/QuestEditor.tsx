@@ -135,6 +135,7 @@ export function QuestEditor({
 	return (
 		<Panel
 			title={quest ? t('campaign.edit', { title: quest.view.title }) : t('campaign.quest.new')}
+			style={{ boxShadow: 'var(--shadow-md)' }}
 			accent
 		>
 			{/* A real <form> so Enter submits — the natural "type a title, press Enter" was a no-op. */}
@@ -149,12 +150,13 @@ export function QuestEditor({
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+						gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%, 12rem),1fr))',
 						gap: T.space.three,
 					}}
 				>
 					<Field label={t('common.field.title')} required>
 						<Input
+							autoFocus
 							value={title}
 							onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 							placeholder={t('campaign.quest.titlePlaceholder')}
@@ -184,7 +186,9 @@ export function QuestEditor({
 						placeholder={t('campaign.quest.hookPlaceholder')}
 					/>
 				</Field>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+				>
 					<Field label={t('common.visibility.label')}>
 						<Select
 							options={options(VIS_OPTIONS, t)}
@@ -194,7 +198,7 @@ export function QuestEditor({
 					</Field>
 					<div style={{ flex: 1 }} />
 					{err && (
-						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+						<span role="alert" style={{ font: `var(--text-sm) ${T.sans}`, color: T.err }}>
 							{err}
 						</span>
 					)}

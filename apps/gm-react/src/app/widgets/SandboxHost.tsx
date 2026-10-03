@@ -14,6 +14,7 @@ import jetbrainsmono500 from '@fontsource/jetbrains-mono/files/jetbrains-mono-la
 import jetbrainsmono600 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-600-normal.woff2?inline';
 import jetbrainsmono700 from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2?inline';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	findPackageRecordForWidgetType,
 	findWidgetDefinition,
@@ -41,6 +42,7 @@ import {
 	clampContentHeight,
 	collectThemeVariables,
 	decideDispatch,
+	decideIntent,
 	decideOutbound,
 	decidePermission,
 	isolateFrame,
@@ -356,6 +358,10 @@ export function SandboxHost({
 	const [initialized, setInitialized] = useState(false);
 	const [contentHeight, setContentHeight] = useState<number | null>(null);
 	const [failure, setFailure] = useState<HostFailure | null>(null);
+	// RC-WID-5.1 — refused intents this frame has asked for. The record itself is in the host audit
+	// log; the count on the frame is what lets a reviewer see that one was dropped.
+	const [droppedIntents, setDroppedIntents] = useState(0);
+	const navigate = useNavigate();
 
 	const definition = previewPackage
 		? (previewPackage.widgets.find((entry) => entry.type === widget.type) ?? null)
@@ -482,6 +488,26 @@ export function SandboxHost({
 					answer(message.requestId, decision);
 					return;
 				}
+				case 'navigate': {
+					// The core runs the declaration check, the `navigate` permission gate and the
+					// viewer's read gate. A refusal is dropped (and audited by `decideIntent`); only a
+					// resolved in-app destination moves anybody.
+					const decision = decideIntent(
+						widget.id,
+						definition,
+						{ intentId: message.intentId, targetId: message.targetId },
+						approved,
+						runtime.state,
+						runtime.activeActorId,
+					);
+					answer(message.requestId, decision.answer);
+					if (decision.destination) {
+						navigate(decision.destination.path, { state: decision.destination.state });
+					} else {
+						setDroppedIntents((count) => count + 1);
+					}
+					return;
+				}
 				case 'resize':
 					setContentHeight(clampContentHeight(message.height));
 					return;
@@ -491,7 +517,20 @@ export function SandboxHost({
 				}
 			}
 		},
-		[definition, assembly, send, answer, widget.id, siblingIds, approved, onCommand],
+		[
+			definition,
+			assembly,
+			send,
+			answer,
+			widget.id,
+			siblingIds,
+			approved,
+			onCommand,
+			navigate,
+			// `runtime.state` is a getter read at message time, so the handler (and the listener
+			// bound to it) is not rebuilt on every unrelated state change.
+			runtime,
+		],
 	);
 
 	// One listener per mounted host. A message is ours only if it came from our own frame's window.
@@ -578,6 +617,7 @@ export function SandboxHost({
 			data-testid={`widget-sandbox-${widget.id}`}
 			data-widget-sandbox={widget.type}
 			data-content-height={contentHeight ?? ''}
+			data-dropped-intents={droppedIntents}
 			title={`${widget.title} — custom widget`}
 			src={WIDGET_SANDBOX_DOCUMENT}
 			sandbox={WIDGET_SANDBOX_ATTRIBUTE}

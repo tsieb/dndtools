@@ -1,3 +1,4 @@
+import { openDemoVault } from './_helpers';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
@@ -435,6 +436,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 	test('the player banner shows the active player-visible card and never a dm-only card', async ({
 		page,
 	}) => {
+		await openDemoVault(page);
 		const stamp = Date.now();
 		const shared = `The Beacon Fires ${stamp}`;
 		const secret = `The Assassin Waits ${stamp}`;
@@ -465,6 +467,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 	test('the scene push banner holds while it is hovered or focused, then resumes', async ({
 		page,
 	}) => {
+		await openDemoVault(page);
 		const title = `The Tide Turns ${Date.now()}`;
 		const cardId = await createCardViaCore(page, { title, visibility: 'player-visible' });
 
@@ -522,6 +525,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 	});
 
 	test('scene history preserves push order across multiple pushes', async ({ page }) => {
+		await openDemoVault(page);
 		const stamp = Date.now();
 		const a = `Landfall ${stamp}`;
 		const b = `The Sunken Stair ${stamp}`;

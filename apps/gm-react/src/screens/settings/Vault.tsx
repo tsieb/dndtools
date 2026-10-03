@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Checkbox, Dialog, EmptyState, Icon, Skeleton, Toaster } from '../../ds';
@@ -94,30 +95,36 @@ function VaultIntegrity() {
 	return (
 		<>
 			{pressure?.pressured && (
-				<Panel title={t('settings.vault.pressureTitle')}>
-					<div role="alert">
-						<p>{t('settings.vault.pressureBody', { percent: Math.floor(pressure.ratio * 100) })}</p>
-						<p>{t('settings.vault.pressureGuidance')}</p>
-						<Button variant="secondary" disabled={busy} onClick={() => void prune()}>
-							{t('settings.vault.freeSpace')}
-						</Button>
-					</div>
-				</Panel>
+				<SettingsSection gateKey="settings.vault.pressureTitle">
+					<Panel title={t('settings.vault.pressureTitle')}>
+						<div role="alert">
+							<p>
+								{t('settings.vault.pressureBody', { percent: Math.floor(pressure.ratio * 100) })}
+							</p>
+							<p>{t('settings.vault.pressureGuidance')}</p>
+							<Button variant="secondary" disabled={busy} onClick={() => void prune()}>
+								{t('settings.vault.freeSpace')}
+							</Button>
+						</div>
+					</Panel>
+				</SettingsSection>
 			)}
 			{quarantined.length > 0 && (
-				<Panel title={t('settings.vault.quarantineTitle')}>
-					<p>{t('settings.vault.quarantineBody')}</p>
-					<ul>
-						{quarantined.map((item) => (
-							<li key={item.key}>
-								<span>{item.documentKey}</span>{' '}
-								<Button variant="secondary" size="sm" onClick={() => exportItem(item)}>
-									{t('settings.vault.exportRecovery', { name: item.documentKey })}
-								</Button>
-							</li>
-						))}
-					</ul>
-				</Panel>
+				<SettingsSection gateKey="settings.vault.quarantineTitle">
+					<Panel title={t('settings.vault.quarantineTitle')}>
+						<p>{t('settings.vault.quarantineBody')}</p>
+						<ul>
+							{quarantined.map((item) => (
+								<li key={item.key}>
+									<span>{item.documentKey}</span>{' '}
+									<Button variant="secondary" size="sm" onClick={() => exportItem(item)}>
+										{t('settings.vault.exportRecovery', { name: item.documentKey })}
+									</Button>
+								</li>
+							))}
+						</ul>
+					</Panel>
+				</SettingsSection>
 			)}
 		</>
 	);
@@ -208,144 +215,146 @@ export function SettingsVault() {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<VaultIntegrity />
 			<MarkdownFolderPanel />
-			<Panel
-				title={t('settings.vault.title')}
-				action={
-					<Button
-						variant="secondary"
-						size="sm"
-						icon="import"
-						onClick={() => navigate('/knowledge')}
-					>
-						{t('settings.vault.manageInKnowledge')}
-					</Button>
-				}
-			>
-				{/* Real WS-7 source registry (fsSource + googleDocs) — import/write-back actions live in the
-				    Knowledge → Sources panel, which dispatches content.commit-import / content.write-to-source. */}
-				{loading ? (
-					<LoadingRegion
-						label={t('settings.vault.loading')}
-						style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
-					>
-						<Skeleton height={52} />
-						<Skeleton height={52} />
-					</LoadingRegion>
-				) : foldersFailed ? (
-					<EmptyState
-						inset
-						icon="warning"
-						title={t('settings.vault.readFailedTitle')}
-						description={t('settings.vault.readFailedBody')}
-						action={
-							<Button variant="secondary" size="sm" icon="retry" onClick={loadFolders}>
-								{t('settings.vault.tryAgain')}
-							</Button>
-						}
-					/>
-				) : rows.length === 0 ? (
-					<EmptyState
-						inset
-						icon="vault"
-						title={t('settings.vault.emptyTitle')}
-						description={t(
-							isGoogleDocsConfigured
-								? 'settings.vault.emptyBodyWithDocs'
-								: 'settings.vault.emptyBody',
-						)}
-						action={
-							<Button
-								variant="secondary"
-								size="sm"
-								icon="import"
-								onClick={() => navigate('/knowledge')}
-							>
-								{t('settings.vault.openSources')}
-							</Button>
-						}
-					/>
-				) : (
-					<div style={{ display: 'flex', flexDirection: 'column' }}>
-						{rows.map((s, i) => (
-							<div
-								key={s.key}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 12,
-									padding: '12px 0',
-									borderTop: i ? `1px solid ${T.bd}` : 'none',
-								}}
-							>
-								<span
-									style={{
-										width: 36,
-										height: 36,
-										borderRadius: 8,
-										background: T.alt,
-										display: 'inline-flex',
-										alignItems: 'center',
-										justifyContent: 'center',
-										color: T.acc,
-										flex: '0 0 auto',
-									}}
-								>
-									<Icon name="vault" size="md" />
-								</span>
-								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `600 13px ${T.sans}` }}>{s.name}</div>
-									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-										{s.kind} · {s.meta}
-									</div>
-								</div>
-								<Badge status="success">{t('settings.vault.connected')}</Badge>
-								<Button variant="ghost" size="sm" icon="trash" onClick={s.disconnect}>
-									{t('settings.vault.disconnect')}
-								</Button>
-							</div>
-						))}
-					</div>
-				)}
-				<Dialog
-					open={pendingDisconnect !== null}
-					onClose={() => setPendingDisconnect(null)}
-					title={t('settings.vault.disconnectTitle')}
-					description={t('settings.vault.disconnectDescription')}
-					tone="danger"
-					size="sm"
-					footer={
-						<>
-							<Button variant="secondary" size="sm" onClick={() => setPendingDisconnect(null)}>
-								{t('common.action.cancel')}
-							</Button>
-							<Button
-								variant="danger"
-								size="sm"
-								icon="trash"
-								onClick={() => pendingDisconnect && disconnectFolder(pendingDisconnect)}
-							>
-								{t('settings.vault.disconnect')}
-							</Button>
-						</>
+			<SettingsSection gateKey="settings.vault.title">
+				<Panel
+					title={t('settings.vault.title')}
+					action={
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="import"
+							onClick={() => navigate('/knowledge')}
+						>
+							{t('settings.vault.manageInKnowledge')}
+						</Button>
 					}
 				>
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-						{disconnectBefore}
-						<strong style={{ color: T.ink }}>{disconnectName}</strong>
-						{disconnectAfter}
-					</div>
-				</Dialog>
-				{!isFsSourceSupported() && (
-					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
-						{t('settings.vault.noFolderSupport')}
-					</div>
-				)}
-				{!isGoogleDocsConfigured && (
-					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
-						{t('settings.vault.noGoogleDocs')}
-					</div>
-				)}
-			</Panel>
+					{/* Real WS-7 source registry (fsSource + googleDocs) — import/write-back actions live in the
+				    Knowledge → Sources panel, which dispatches content.commit-import / content.write-to-source. */}
+					{loading ? (
+						<LoadingRegion
+							label={t('settings.vault.loading')}
+							style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+						>
+							<Skeleton height={52} />
+							<Skeleton height={52} />
+						</LoadingRegion>
+					) : foldersFailed ? (
+						<EmptyState
+							inset
+							icon="warning"
+							title={t('settings.vault.readFailedTitle')}
+							description={t('settings.vault.readFailedBody')}
+							action={
+								<Button variant="secondary" size="sm" icon="retry" onClick={loadFolders}>
+									{t('settings.vault.tryAgain')}
+								</Button>
+							}
+						/>
+					) : rows.length === 0 ? (
+						<EmptyState
+							inset
+							icon="vault"
+							title={t('settings.vault.emptyTitle')}
+							description={t(
+								isGoogleDocsConfigured
+									? 'settings.vault.emptyBodyWithDocs'
+									: 'settings.vault.emptyBody',
+							)}
+							action={
+								<Button
+									variant="secondary"
+									size="sm"
+									icon="import"
+									onClick={() => navigate('/knowledge')}
+								>
+									{t('settings.vault.openSources')}
+								</Button>
+							}
+						/>
+					) : (
+						<div style={{ display: 'flex', flexDirection: 'column' }}>
+							{rows.map((s, i) => (
+								<div
+									key={s.key}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 12,
+										padding: '12px 0',
+										borderTop: i ? `1px solid ${T.bd}` : 'none',
+									}}
+								>
+									<span
+										style={{
+											width: 36,
+											height: 36,
+											borderRadius: 8,
+											background: T.alt,
+											display: 'inline-flex',
+											alignItems: 'center',
+											justifyContent: 'center',
+											color: T.acc,
+											flex: '0 0 auto',
+										}}
+									>
+										<Icon name="vault" size="md" />
+									</span>
+									<div style={{ flex: 1, minWidth: 0 }}>
+										<div style={{ font: `600 13px ${T.sans}` }}>{s.name}</div>
+										<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+											{s.kind} · {s.meta}
+										</div>
+									</div>
+									<Badge status="success">{t('settings.vault.connected')}</Badge>
+									<Button variant="ghost" size="sm" icon="trash" onClick={s.disconnect}>
+										{t('settings.vault.disconnect')}
+									</Button>
+								</div>
+							))}
+						</div>
+					)}
+					<Dialog
+						open={pendingDisconnect !== null}
+						onClose={() => setPendingDisconnect(null)}
+						title={t('settings.vault.disconnectTitle')}
+						description={t('settings.vault.disconnectDescription')}
+						tone="danger"
+						size="sm"
+						footer={
+							<>
+								<Button variant="secondary" size="sm" onClick={() => setPendingDisconnect(null)}>
+									{t('common.action.cancel')}
+								</Button>
+								<Button
+									variant="danger"
+									size="sm"
+									icon="trash"
+									onClick={() => pendingDisconnect && disconnectFolder(pendingDisconnect)}
+								>
+									{t('settings.vault.disconnect')}
+								</Button>
+							</>
+						}
+					>
+						<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							{disconnectBefore}
+							<strong style={{ color: T.ink }}>{disconnectName}</strong>
+							{disconnectAfter}
+						</div>
+					</Dialog>
+					{!isFsSourceSupported() && (
+						<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+							{t('settings.vault.noFolderSupport')}
+						</div>
+					)}
+					{!isGoogleDocsConfigured && (
+						<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>
+							{t('settings.vault.noGoogleDocs')}
+						</div>
+					)}
+				</Panel>
+			</SettingsSection>
 		</div>
 	);
 }
@@ -368,84 +377,89 @@ function MarkdownFolderPanel() {
 		}
 	};
 	return (
-		<Panel title={t('settings.folder.title')}>
-			<p>{t('settings.folder.description')}</p>
-			<Checkbox
-				checked={includeDmOnly}
-				onChange={setIncludeDmOnly}
-				disabled={busy}
-				label={t('settings.folder.includePrivate')}
-			/>
-			<div
-				style={{
-					display: 'flex',
-					flexWrap: 'wrap',
-					gap: 'var(--space-2)',
-					marginTop: 'var(--space-3)',
-				}}
-			>
-				<Button
-					variant="secondary"
+		<SettingsSection gateKey="settings.folder.title">
+			<Panel title={t('settings.folder.title')}>
+				<p>{t('settings.folder.description')}</p>
+				<Checkbox
+					checked={includeDmOnly}
+					onChange={setIncludeDmOnly}
 					disabled={busy}
-					onClick={() =>
-						void run(async () => {
-							const blob = await exportMarkdownZip(runtime, includeDmOnly);
-							const result = await downloadBlob('lamplight-markdown-folder.zip', blob);
-							if (result.status === 'exported') Toaster.success(t('settings.folder.exported'));
-						})
-					}
+					label={t('settings.folder.includePrivate')}
+				/>
+				<div
+					style={{
+						display: 'flex',
+						flexWrap: 'wrap',
+						gap: 'var(--space-2)',
+						marginTop: 'var(--space-3)',
+					}}
 				>
-					{t('settings.folder.exportZip')}
-				</Button>
-				{isFsSourceSupported() && (
 					<Button
 						variant="secondary"
 						disabled={busy}
 						onClick={() =>
 							void run(async () => {
-								const root = await pickMarkdownDirectory();
-								if (!root) return;
-								if (
-									await saveMarkdownFolder(await exportMarkdownFolder(runtime, includeDmOnly), root)
-								)
-									Toaster.success(t('settings.folder.exported'));
+								const blob = await exportMarkdownZip(runtime, includeDmOnly);
+								const result = await downloadBlob('lamplight-markdown-folder.zip', blob);
+								if (result.status === 'exported') Toaster.success(t('settings.folder.exported'));
 							})
 						}
 					>
-						{t('settings.folder.exportFolder')}
+						{t('settings.folder.exportZip')}
 					</Button>
-				)}
-				<Button
-					variant="secondary"
-					disabled={busy}
-					onClick={() =>
-						void run(async () => {
-							const picked = await pickMarkdownZip();
-							if (!picked) return;
-							const count = await importMarkdownZip(runtime, picked);
-							Toaster.success(t('settings.folder.imported', { count }));
-						})
-					}
-				>
-					{t('settings.folder.importZip')}
-				</Button>
-				{isFsSourceSupported() && (
+					{isFsSourceSupported() && (
+						<Button
+							variant="secondary"
+							disabled={busy}
+							onClick={() =>
+								void run(async () => {
+									const root = await pickMarkdownDirectory();
+									if (!root) return;
+									if (
+										await saveMarkdownFolder(
+											await exportMarkdownFolder(runtime, includeDmOnly),
+											root,
+										)
+									)
+										Toaster.success(t('settings.folder.exported'));
+								})
+							}
+						>
+							{t('settings.folder.exportFolder')}
+						</Button>
+					)}
 					<Button
 						variant="secondary"
 						disabled={busy}
 						onClick={() =>
 							void run(async () => {
-								const root = await pickMarkdownDirectory();
-								if (!root) return;
-								const count = await importMarkdownFolder(runtime, await readMarkdownFolder(root));
+								const picked = await pickMarkdownZip();
+								if (!picked) return;
+								const count = await importMarkdownZip(runtime, picked);
 								Toaster.success(t('settings.folder.imported', { count }));
 							})
 						}
 					>
-						{t('settings.folder.importFolder')}
+						{t('settings.folder.importZip')}
 					</Button>
-				)}
-			</div>
-		</Panel>
+					{isFsSourceSupported() && (
+						<Button
+							variant="secondary"
+							disabled={busy}
+							onClick={() =>
+								void run(async () => {
+									const root = await pickMarkdownDirectory();
+									if (!root) return;
+									const count = await importMarkdownFolder(runtime, await readMarkdownFolder(root));
+									Toaster.success(t('settings.folder.imported', { count }));
+								})
+							}
+						>
+							{t('settings.folder.importFolder')}
+						</Button>
+					)}
+				</div>
+			</Panel>
+		</SettingsSection>
 	);
 }

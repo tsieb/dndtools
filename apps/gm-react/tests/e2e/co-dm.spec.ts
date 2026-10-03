@@ -1,3 +1,4 @@
+import { openDemoVault } from './_helpers';
 import { expect, test, type Page } from '@playwright/test';
 import {
 	dispatch,
@@ -5,6 +6,7 @@ import {
 	gotoRoute,
 	markOnboarded,
 	ops,
+	preferTier,
 	seedFresh,
 	waitReady,
 } from './_helpers';
@@ -98,6 +100,7 @@ async function createScene(
 /** Boot a fresh, demo-seeded vault on a DM shell route, optionally pinning the device-local plan first. */
 async function bootShell(page: Page, route: string, plan?: string): Promise<void> {
 	await markOnboarded(page);
+	await preferTier(page);
 	if (plan) {
 		await page.addInitScript((p) => {
 			try {
@@ -121,7 +124,7 @@ async function bootPlay(page: Page): Promise<void> {
 	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 		timeout: 20_000,
 	});
-	await page.getByText('Player view').first().waitFor({ state: 'attached', timeout: 20_000 });
+	await page.locator('#player-main').waitFor({ state: 'attached', timeout: 20_000 });
 }
 
 test.describe('co-dm: elevated role', () => {
@@ -158,6 +161,7 @@ test.describe('co-dm: elevated role', () => {
 		page,
 	}) => {
 		await bootShell(page, '/knowledge');
+		await openDemoVault(page);
 		const stamp = Date.now();
 		const dmScene = `Sealed Sanctum ${stamp}`;
 		await createScene(page, dmScene, 'dm-only');
@@ -313,6 +317,7 @@ test.describe('preview-mode edges (RC-CHR-4.3 / DEBT-2026-005)', () => {
 	}) => {
 		await bootShell(page, '/knowledge');
 		await bootPlay(page);
+		await enterPreviewRole(page, 'player');
 
 		const maps = page.getByRole('button', { name: 'Maps' });
 		const bestiary = page.getByRole('button', { name: 'Bestiary' });
@@ -330,7 +335,8 @@ test.describe('preview-mode edges (RC-CHR-4.3 / DEBT-2026-005)', () => {
 		await expect(assist).toBeEnabled();
 
 		await exitPreview(page);
-		await expect(maps).toBeDisabled();
+		await expect(page.getByRole('heading', { name: 'Join your table' })).toBeVisible();
+		await expect(maps).toHaveCount(0);
 	});
 
 	test('the character screen hides its manage controls once a preview starts, even for the previewed owner', async ({

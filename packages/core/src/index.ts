@@ -557,6 +557,13 @@ export type {
 	WidgetStyleTokenDefinition,
 	WidgetSurface,
 	WidgetTemplateKind,
+	// RC-WID-5.1 — navigation and creation intents.
+	WidgetIntentCreateTarget,
+	WidgetIntentDescriptor,
+	WidgetIntentEntityKind,
+	WidgetIntentKind,
+	WidgetIntentRoute,
+	WidgetIntentSettingsTab,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -583,6 +590,11 @@ export {
 	WIDGET_QUERY_COLUMNS,
 	widgetFormulaIdentifiers,
 	widgetQueryFormulaIdentifier,
+	// RC-WID-5.1 — the closed intent target sets.
+	WIDGET_INTENT_CREATE_TARGETS,
+	WIDGET_INTENT_ENTITY_KINDS,
+	WIDGET_INTENT_ROUTES,
+	WIDGET_INTENT_SETTINGS_TABS,
 } from './state/widget-package-state';
 
 export type {
@@ -3110,6 +3122,13 @@ export type {
 	HostCapabilityResult,
 	RawVaultFileAccessResult,
 	WidgetHostCapability,
+	WidgetIntentAudit,
+	WidgetIntentDecision,
+	WidgetIntentDestination,
+	WidgetIntentInput,
+	WidgetIntentRequest,
+	WidgetIntentResolution,
+	WidgetIntentStateSlice,
 } from './security/widget-host-api';
 export {
 	FORBIDDEN_HOST_CAPABILITIES,
@@ -3120,6 +3139,8 @@ export {
 	requestWidgetNetwork,
 	requiredPermissionFor,
 	resolveHostCapability,
+	resolveWidgetIntent,
+	widgetMayNavigate,
 } from './security/widget-host-api';
 
 export type {

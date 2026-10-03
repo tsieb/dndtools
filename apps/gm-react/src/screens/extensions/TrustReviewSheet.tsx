@@ -29,6 +29,7 @@ const HOST_PERM_LABEL: Record<string, MessageKey> = {
 	'source-adapter': 'extensions.trust.perm.sourceAdapter',
 	asset: 'extensions.trust.perm.asset',
 	'external-link': 'extensions.trust.perm.externalLink',
+	navigate: 'extensions.trust.perm.navigate',
 };
 
 // What granting the permission actually lets the widget do, in the DM's terms.
@@ -39,6 +40,7 @@ const HOST_PERM_MEANING: Record<string, MessageKey> = {
 	'source-adapter': 'extensions.trust.meaning.sourceAdapter',
 	asset: 'extensions.trust.meaning.asset',
 	'external-link': 'extensions.trust.meaning.externalLink',
+	navigate: 'extensions.trust.meaning.navigate',
 };
 
 const RECOMMENDATION_LABEL: Record<string, MessageKey> = {

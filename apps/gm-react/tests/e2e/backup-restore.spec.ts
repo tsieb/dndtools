@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -35,6 +35,7 @@ function seededNoteExists(page: Page): Promise<boolean> {
 test.describe('backup & restore: full-vault portability', () => {
 	test.beforeEach(async ({ page }) => {
 		await markOnboarded(page);
+		await preferTier(page);
 		await gotoRoute(page, '/settings?tab=sync');
 		await seedFresh(page);
 		await page.goto('/#/settings?tab=sync', { waitUntil: 'domcontentloaded' });

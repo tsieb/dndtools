@@ -11,7 +11,9 @@ export type WidgetHostPermission =
 	| 'network'
 	| 'source-adapter'
 	| 'asset'
-	| 'external-link';
+	| 'external-link'
+	// RC-WID-5.1 — a custom widget may ask the host to follow one of its declared intents.
+	| 'navigate';
 
 export type WidgetPackageTrustState = 'trusted' | 'unreviewed' | 'denied';
 export type WidgetHostPermissionDecision = 'approved' | 'denied';
@@ -129,6 +131,100 @@ export interface WidgetCommandDescriptor {
 	destinationClass?: WidgetOutputDestinationClass;
 	targetBindingId?: string;
 }
+
+/**
+ * RC-WID-5.1 — an INTENT: a place a widget can take its viewer, declared beside its commands.
+ *
+ * A command writes to the campaign; an intent writes nothing. It asks the host to open a screen, an
+ * entity, an in-app page, a creation flow or a Settings tab. The set is closed on purpose: every
+ * target is an enum or an id the host checks against the viewer's read gate
+ * (`resolveWidgetIntent`), and no variant has anywhere to put a URL. A template widget's intents are
+ * data rendered by first-party code; a custom widget can follow one only with the `navigate` host
+ * permission approved at trust review.
+ */
+export type WidgetIntentKind =
+	| 'open-screen'
+	| 'open-entity'
+	| 'open-route'
+	| 'create'
+	| 'open-settings';
+export type WidgetIntentEntityKind = 'character' | 'map' | 'note' | 'quest';
+export type WidgetIntentCreateTarget = 'scene' | 'screen' | 'character' | 'map' | 'note' | 'widget';
+
+/** The in-app pages an `open-route` intent may name. Section roots only, never a parameterised path. */
+export const WIDGET_INTENT_ROUTES = [
+	'/',
+	'/scenes',
+	'/session',
+	'/board',
+	'/characters',
+	'/atlas',
+	'/campaign',
+	'/campaign/calendar',
+	'/campaign/relationships',
+	'/knowledge',
+	'/graph',
+	'/audio',
+	'/extensions',
+] as const;
+export type WidgetIntentRoute = (typeof WIDGET_INTENT_ROUTES)[number];
+
+/** The Settings tabs an `open-settings` intent may name (the ids `/settings?tab=` accepts). */
+export const WIDGET_INTENT_SETTINGS_TABS = [
+	'appearance',
+	'language',
+	'account',
+	'subscription',
+	'players',
+	'permissions',
+	'vault',
+	'sync',
+	'tools',
+	'ai',
+	'plugins',
+	'systems',
+	'accessibility',
+	'about',
+] as const;
+export type WidgetIntentSettingsTab = (typeof WIDGET_INTENT_SETTINGS_TABS)[number];
+
+export const WIDGET_INTENT_ENTITY_KINDS: readonly WidgetIntentEntityKind[] = Object.freeze([
+	'character',
+	'map',
+	'note',
+	'quest',
+]);
+export const WIDGET_INTENT_CREATE_TARGETS: readonly WidgetIntentCreateTarget[] = Object.freeze([
+	'scene',
+	'screen',
+	'character',
+	'map',
+	'note',
+	'widget',
+]);
+
+interface WidgetIntentBase {
+	/** Unique inside the definition. A custom widget names the intent it wants by this id. */
+	id: string;
+	/** The button label a template shows. Stored text, like a command's `displayName`. */
+	displayName: string;
+}
+
+export type WidgetIntentDescriptor =
+	| (WidgetIntentBase & {
+			kind: 'open-screen';
+			/** A fixed screen. Absent: a custom widget supplies the id when it asks. */
+			targetId?: string;
+	  })
+	| (WidgetIntentBase & {
+			kind: 'open-entity';
+			entityKind: WidgetIntentEntityKind;
+			/** A fixed entity. Absent: a custom widget supplies the id when it asks. */
+			targetId?: string;
+	  })
+	| (WidgetIntentBase & { kind: 'open-route'; route: WidgetIntentRoute })
+	| (WidgetIntentBase & { kind: 'create'; target: WidgetIntentCreateTarget })
+	| (WidgetIntentBase & { kind: 'open-settings'; tab: WidgetIntentSettingsTab });
 
 export interface WidgetEventDescriptor {
 	type: string;
@@ -284,6 +380,8 @@ export interface WidgetDefinition {
 	automationSchema?: WidgetDataSchema;
 	capabilitySets: WidgetCapabilitySet[];
 	commands: WidgetCommandDescriptor[];
+	/** RC-WID-5.1 — where the widget can take its viewer. Additive and optional. */
+	intents?: WidgetIntentDescriptor[];
 	events: WidgetEventDescriptor[];
 	hostPermissions: WidgetHostPermission[];
 	networkDestinationClasses?: WidgetNetworkDestinationClass[];
@@ -362,6 +460,7 @@ export const ALL_HOST_PERMISSIONS: WidgetHostPermission[] = [
 	'source-adapter',
 	'asset',
 	'external-link',
+	'navigate',
 ];
 
 /**

@@ -1,10 +1,22 @@
-import { useState } from 'react';
-import { resolveMaturitySignals, visibleFeatures, type FeatureTier } from '@dndtools/core';
+import { useSyncExternalStore, type ReactNode } from 'react';
+import {
+	isFeatureVisible,
+	resolveMaturitySignals,
+	visibleFeatures,
+	type FeatureTier,
+} from '@dndtools/core';
 import { Badge, Icon, RadioCard } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { TIER_ATTR, TIER_KEY, readTier, setDocAttr } from './shared';
+import {
+	SETTINGS_FEATURE_GATES,
+	TIER_ATTR,
+	TIER_EVENT,
+	TIER_KEY,
+	readTier,
+	setDocAttr,
+} from './shared';
 /** The three authored complexity levels — each maps 1:1 onto a real Core `FeatureTier`. */
 export const COMPLEXITY_LEVELS: {
 	id: string;
@@ -42,7 +54,7 @@ export const COMPLEXITY_LEVELS: {
 export function ExperienceComplexity() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
-	const [tier, setTier] = useState<FeatureTier>(() => readTier());
+	const tier = useSettingsTier();
 	// RC-UX-3.5 — usage-driven disclosure alongside the manually-chosen tier above: real counts
 	// against the declared thresholds (`MATURITY_SIGNALS`), read-only (a signal reveals itself by
 	// vault usage, never a switch a DM flips — a toggle here would be a fake control, ADR-002/025).
@@ -80,7 +92,6 @@ export function ExperienceComplexity() {
 							value={l.tier}
 							checked={on}
 							onChange={() => {
-								setTier(levelTier);
 								setDocAttr(TIER_ATTR, TIER_KEY, levelTier);
 							}}
 							icon={l.icon}
@@ -170,5 +181,40 @@ export function ExperienceComplexity() {
 				</div>
 			)}
 		</Panel>
+	);
+}
+
+/** One subscription for the shell, sections, picker and links, including other open windows. */
+function subscribeTier(onChange: () => void) {
+	const onStorage = (event: StorageEvent) => {
+		if (event.key !== TIER_KEY && event.key !== null) return;
+		// readTier prefers the pre-paint attribute; invalidate it when another window writes.
+		document.documentElement.removeAttribute(TIER_ATTR);
+		onChange();
+	};
+	window.addEventListener(TIER_EVENT, onChange);
+	window.addEventListener('storage', onStorage);
+	return () => {
+		window.removeEventListener(TIER_EVENT, onChange);
+		window.removeEventListener('storage', onStorage);
+	};
+}
+export function useSettingsTier() {
+	return useSyncExternalStore(subscribeTier, readTier);
+}
+
+export function settingsGateVisible(gateKey: string, tier: FeatureTier) {
+	return isFeatureVisible(gateKey, tier, SETTINGS_FEATURE_GATES);
+}
+
+/** Render nothing below the declared tier; children (including dialogs) are unmounted. */
+export function SettingsSection({ gateKey, children }: { gateKey: string; children: ReactNode }) {
+	const tier = useSettingsTier();
+	const gate = SETTINGS_FEATURE_GATES.find((entry) => entry.id === gateKey);
+	if (!gate || !settingsGateVisible(gateKey, tier)) return null;
+	return (
+		<div id={gate.sectionAnchor} data-settings-section={gate.id}>
+			{children}
+		</div>
 	);
 }

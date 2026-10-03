@@ -316,6 +316,18 @@
 							payload: r.payload === undefined ? null : r.payload,
 						});
 					},
+					/**
+					 * Ask the host to follow one of this widget's DECLARED intents (RC-WID-5.1), by id, with
+					 * a target id when the declaration has none. Needs the `navigate` permission approved
+					 * at review; the host checks the viewer can read the target. There is no URL form.
+					 */
+					navigate: function (intent) {
+						var i = typeof intent === 'string' ? { intentId: intent } : intent || {};
+						return request('navigate', {
+							intentId: i.intentId,
+							targetId: typeof i.targetId === 'string' ? i.targetId : null,
+						});
+					},
 					setHeight: function (height) {
 						reportHeight(Number(height) || 0);
 					},

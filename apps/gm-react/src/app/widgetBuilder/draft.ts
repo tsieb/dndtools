@@ -9,6 +9,7 @@ import {
 	type WidgetDataSchema,
 	type WidgetDefinition,
 	type WidgetHostPermission,
+	type WidgetIntentDescriptor,
 	type WidgetMigration,
 	type WidgetNetworkDestinationClass,
 	type WidgetPackageDefinition,
@@ -26,6 +27,7 @@ import {
 	type CustomCodeSource,
 } from './customCode';
 import type { MessageKey } from '../../i18n';
+import type { DraftIssue } from './validate';
 
 /**
  * The widget builder's draft model (RC-WID-2.1) — the whole of the builder that is not React.
@@ -111,6 +113,8 @@ export interface WidgetDraft {
 	/* Config fields + commands */
 	configFields: WidgetConfigField[];
 	commands: WidgetCommandDescriptor[];
+	/** RC-WID-5.1 — where the widget can take its viewer (edited on the Commands step). */
+	intents: WidgetIntentDescriptor[];
 	/* Style */
 	styleTokens: WidgetStyleTokenDefinition[];
 	styleIsolation: WidgetStyleIsolation;
@@ -181,6 +185,7 @@ export function emptyDraft(): WidgetDraft {
 		optionalBindings: [],
 		configFields: [],
 		commands: [],
+		intents: [],
 		styleTokens: [],
 		styleIsolation: 'host-scoped',
 		styleCapabilities: ['css-variables', 'host-theme-tokens'],
@@ -291,6 +296,11 @@ function buildWidgetDefinition(draft: WidgetDraft): WidgetDefinition {
 		configurationSchema: configurationSchemaFor(configFields),
 		capabilitySets: ['manager', 'operator', 'viewer'],
 		commands: draft.commands.map((command) => ({ ...command })),
+		// Absent rather than empty when none are declared, so a package from before RC-WID-5.1 reads
+		// back byte-identical after an edit that did not touch intents.
+		...(draft.intents.length > 0
+			? { intents: draft.intents.map((intent) => ({ ...intent })) }
+			: {}),
 		events: [],
 		hostPermissions: [...draft.hostPermissions],
 		// Absent rather than empty when nothing is asked for: an empty array in the package would read
@@ -426,6 +436,7 @@ export function readPackage(
 			.filter((field) => field.key !== DOCK_PREFERENCE_KEY)
 			.map((field) => ({ ...field })),
 		commands: widget.commands.map((command) => ({ ...command })),
+		intents: (widget.intents ?? []).map((intent) => ({ ...intent })),
 		styleTokens: (widget.style?.tokens ?? []).map((token) => ({ ...token })),
 		styleIsolation: widget.style?.isolation ?? base.styleIsolation,
 		styleCapabilities: [...(widget.style?.capabilities ?? base.styleCapabilities)],
@@ -441,4 +452,45 @@ export function readPackage(
 		baseConfigKeys: proposed ? [] : (widget.configFields ?? []).map((field) => field.key),
 		...authoring,
 	};
+}
+
+/**
+ * The intent problems the step names itself. Duplicate ids and empty names are also refused by the
+ * core schema on Review; these two are not, and would otherwise ship a button nobody can follow.
+ */
+export function validateIntents(draft: WidgetDraft): DraftIssue[] {
+	const issues: DraftIssue[] = [];
+	for (const intent of draft.intents) {
+		if (!intent.displayName.trim())
+			issues.push({
+				step: 'commands',
+				field: 'intents',
+				message: 'builder.issue.intentName',
+				values: { id: intent.id },
+			});
+		// A template has no code to supply a target at press time, so its open button must carry one.
+		else if (
+			draft.runtime === 'template' &&
+			(intent.kind === 'open-entity' || intent.kind === 'open-screen') &&
+			!intent.targetId
+		)
+			issues.push({
+				step: 'commands',
+				field: 'intents',
+				message: 'builder.issue.intentTarget',
+				values: { name: intent.displayName },
+			});
+	}
+	// Without `navigate` the host drops every request a custom widget makes.
+	if (
+		draft.runtime === 'custom-html-js' &&
+		draft.intents.length > 0 &&
+		!draft.hostPermissions.includes('navigate')
+	)
+		issues.push({
+			step: 'commands',
+			field: 'intents',
+			message: 'builder.issue.intentsNeedNavigate',
+		});
+	return issues;
 }

@@ -14,7 +14,12 @@ import {
 	tileMetadataForDefinition,
 	type TileBindingState,
 } from '../widgets/tileMeta';
-import { WidgetRenderSlot, type WidgetCommandHandler } from '../widgets/WidgetRenderSlot';
+import {
+	TileTitle,
+	WidgetRenderSlot,
+	useTileFit,
+	type WidgetCommandHandler,
+} from '../widgets/WidgetRenderSlot';
 import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
 import type { ArrangeAction, Box } from './geometry';
 
@@ -407,6 +412,7 @@ export function WidgetFrame({
 }: WidgetFrameProps) {
 	const { t } = useI18n();
 	const placeholder = w.status !== 'available';
+	const fit = useTileFit(editing, height, stackOrder);
 	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
 	// icon, the label, who can see it, and what it is bound to.
 	const meta = tileMetadataForWidget(w);
@@ -455,11 +461,10 @@ export function WidgetFrame({
 			onFocus={onFocusIn}
 			style={{
 				position: 'absolute',
-				zIndex: stackOrder,
+				...fit.box,
 				left: x,
 				top: y,
 				width,
-				height,
 				borderRadius: 'var(--radius-md)',
 				// `outline`, NOT `box-shadow`: forced-colors mode suppresses box-shadow outright, so
 				// the selected widget had NO ring at all in Windows High Contrast — and the only
@@ -516,19 +521,7 @@ export function WidgetFrame({
 					}}
 				>
 					<WidgetGlyph icon={meta.icon} size={16} color={accent} />
-					<span
-						style={{
-							flex: 1,
-							minWidth: 0,
-							font: '700 var(--text-sm) var(--font-display)',
-							color: 'var(--color-text-primary)',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
-							whiteSpace: 'nowrap',
-						}}
-					>
-						{w.title}
-					</span>
+					<TileTitle>{w.title}</TileTitle>
 					<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
 				</div>
 				<div
@@ -589,7 +582,7 @@ export function WidgetFrame({
 					style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
 				>
 					<NoteFrameContext.Provider value={true}>
-						<WidgetRenderSlot widget={w} onCommand={onCommand} />
+						<WidgetRenderSlot widget={w} onCommand={onCommand} {...fit.slot} />
 					</NoteFrameContext.Provider>
 				</div>
 				{w.statusNote && (

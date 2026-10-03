@@ -58,7 +58,7 @@ describe('/play announces a bad roll politely', () => {
 	const shared = code('screens', 'play', 'shared.tsx');
 
 	it('does not raise a critical miss as an assertive error', () => {
-		const critMiss = /toast\('Natural 1[^)]*\)/.exec(source)?.[0];
+		const critMiss = /toast\(t\('play\.polish\.criticalMiss'\)[^;]*/.exec(source)?.[0];
 		expect(critMiss, 'the critical-miss toast is gone — re-point this guard').toBeTruthy();
 		expect(critMiss).not.toMatch(/'error'/);
 		expect(critMiss).toMatch(/'warning'/);

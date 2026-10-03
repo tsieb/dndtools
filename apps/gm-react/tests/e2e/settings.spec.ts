@@ -195,6 +195,10 @@ test.describe('settings: product analytics consent is off by default', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/settings');
 		await seedFresh(page);
+		await page
+			.getByRole('radiogroup', { name: 'Experience complexity' })
+			.getByRole('radio', { name: /Standard/ })
+			.click();
 		await page.goto('/#/settings?tab=sync', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 		await page.locator('#main-content').waitFor({ state: 'attached' });

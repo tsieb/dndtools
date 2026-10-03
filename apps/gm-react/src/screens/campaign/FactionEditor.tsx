@@ -131,6 +131,7 @@ export function FactionEditor({
 			title={
 				faction ? t('campaign.edit', { title: faction.view.title }) : t('campaign.faction.new')
 			}
+			style={{ boxShadow: 'var(--shadow-md)' }}
 			accent
 		>
 			{/* See QuestEditor — Enter submits rather than doing nothing. */}
@@ -145,12 +146,13 @@ export function FactionEditor({
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))',
+						gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%, 12rem),1fr))',
 						gap: T.space.three,
 					}}
 				>
 					<Field label={t('campaign.faction.name')} required>
 						<Input
+							autoFocus
 							value={name}
 							onChange={(e: { target: { value: string } }) => setName(e.target.value)}
 							placeholder={t('campaign.faction.namePlaceholder')}
@@ -201,7 +203,9 @@ export function FactionEditor({
 						placeholder={t('campaign.faction.secretPlaceholder')}
 					/>
 				</Field>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+				<div
+					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+				>
 					<Field label={t('common.visibility.label')}>
 						<Select
 							options={options(VIS_OPTIONS, t)}
@@ -211,7 +215,7 @@ export function FactionEditor({
 					</Field>
 					<div style={{ flex: 1 }} />
 					{err && (
-						<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+						<span role="alert" style={{ font: `var(--text-sm) ${T.sans}`, color: T.err }}>
 							{err}
 						</span>
 					)}

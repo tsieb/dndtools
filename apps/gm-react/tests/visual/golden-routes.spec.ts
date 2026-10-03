@@ -95,7 +95,6 @@ const SHELLED_ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/scenes', slug: 'scenes' },
 	{ path: '/characters', slug: 'characters' },
 	{ path: '/knowledge', slug: 'knowledge' },
-	{ path: '/campaign', slug: 'campaign' },
 	{ path: '/session', slug: 'session' },
 	{ path: '/player', slug: 'player' },
 	{ path: '/settings', slug: 'settings' },
@@ -278,5 +277,16 @@ for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
 			await expect(page.getByRole('dialog', { name: 'Delete “Quiet evening”?' })).toBeVisible();
 			await snap(page, theme, 'audio-delete');
 		});
+	});
+}
+
+// RC-POL-1.10: all shipped themes and tiers; scope pixels to Story because shell chrome
+// already has its own golden routes and the repository baseline budget is shared.
+for (const theme of [...THEMES, 'scholar', 'dungeon'] as const) {
+	test(`Story polish — ${theme}`, async ({ page }) => {
+		await stage(page, theme);
+		await openShelled(page, '/campaign');
+		await settle(page, theme);
+		await expect(page.locator('#main-content')).toHaveScreenshot(`campaign--${theme}.png`);
 	});
 }

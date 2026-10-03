@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { isValidFormula } from '../state/system-package';
-import { ALL_HOST_PERMISSIONS, widgetFormulaIdentifiers } from '../state/widget-package-state';
+import {
+	ALL_HOST_PERMISSIONS,
+	WIDGET_INTENT_CREATE_TARGETS,
+	WIDGET_INTENT_ENTITY_KINDS,
+	WIDGET_INTENT_ROUTES,
+	WIDGET_INTENT_SETTINGS_TABS,
+	widgetFormulaIdentifiers,
+	type WidgetIntentCreateTarget,
+	type WidgetIntentEntityKind,
+} from '../state/widget-package-state';
 
 const idSchema = z.string().min(1);
 
@@ -54,6 +63,48 @@ const widgetCommandDescriptorSchema = z
 		targetBindingId: idSchema.optional(),
 	})
 	.strict();
+
+// RC-WID-5.1 — an intent is one of five closed shapes. Each variant is strict, so a descriptor has
+// no field a URL could hide in, and every target outside an id is an enum.
+const widgetIntentBase = { id: idSchema, displayName: z.string().min(1) };
+const widgetIntentDescriptorSchema = z.discriminatedUnion('kind', [
+	z
+		.object({ ...widgetIntentBase, kind: z.literal('open-screen'), targetId: idSchema.optional() })
+		.strict(),
+	z
+		.object({
+			...widgetIntentBase,
+			kind: z.literal('open-entity'),
+			entityKind: z.enum(
+				WIDGET_INTENT_ENTITY_KINDS as [WidgetIntentEntityKind, ...WidgetIntentEntityKind[]],
+			),
+			targetId: idSchema.optional(),
+		})
+		.strict(),
+	z
+		.object({
+			...widgetIntentBase,
+			kind: z.literal('open-route'),
+			route: z.enum(WIDGET_INTENT_ROUTES),
+		})
+		.strict(),
+	z
+		.object({
+			...widgetIntentBase,
+			kind: z.literal('create'),
+			target: z.enum(
+				WIDGET_INTENT_CREATE_TARGETS as [WidgetIntentCreateTarget, ...WidgetIntentCreateTarget[]],
+			),
+		})
+		.strict(),
+	z
+		.object({
+			...widgetIntentBase,
+			kind: z.literal('open-settings'),
+			tab: z.enum(WIDGET_INTENT_SETTINGS_TABS),
+		})
+		.strict(),
+]);
 
 const widgetEventDescriptorSchema = z
 	.object({
@@ -222,6 +273,7 @@ const widgetDefinitionSchema = z
 		automationSchema: widgetDataSchemaSchema.optional(),
 		capabilitySets: z.array(z.enum(['manager', 'operator', 'viewer'])).min(1),
 		commands: z.array(widgetCommandDescriptorSchema),
+		intents: z.array(widgetIntentDescriptorSchema).optional(),
 		events: z.array(widgetEventDescriptorSchema),
 		hostPermissions: z.array(widgetHostPermissionSchema),
 		networkDestinationClasses: z
@@ -234,6 +286,19 @@ const widgetDefinitionSchema = z
 	// reaches for a query that is not declared is rejected at install rather than failing silently
 	// at render time on somebody else's table.
 	.superRefine((definition, ctx) => {
+		// RC-WID-5.1 — a custom widget names the intent it wants by id, so two with one id would make
+		// the request ambiguous. Refused at install rather than resolved to whichever came first.
+		const intentIds = new Set<string>();
+		(definition.intents ?? []).forEach((intent, index) => {
+			if (intentIds.has(intent.id)) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['intents', index, 'id'],
+					message: `Intent id ${intent.id} is declared more than once.`,
+				});
+			}
+			intentIds.add(intent.id);
+		});
 		const identifiers = widgetFormulaIdentifiers(definition.dataQueries ?? []);
 		(definition.computedFields ?? []).forEach((field, index) => {
 			if (field.formula === undefined) return;

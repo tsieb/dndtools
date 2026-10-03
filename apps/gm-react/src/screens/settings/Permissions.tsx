@@ -1,3 +1,4 @@
+import { SettingsSection } from './Experience';
 import { useState } from 'react';
 import {
 	describeCapabilitySet,
@@ -145,123 +146,129 @@ export function SettingsPermissions() {
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title={t('settings.permissions.roles')}>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-						gap: 12,
-					}}
-				>
-					{roleCards.map((r) => (
-						<div
-							key={r.id}
-							style={{
-								padding: 13,
-								borderRadius: 10,
-								border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`,
-								background: T.surf,
-							}}
-						>
+			<SettingsSection gateKey="settings.permissions.roles">
+				<Panel title={t('settings.permissions.roles')}>
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+							gap: 12,
+						}}
+					>
+						{roleCards.map((r) => (
 							<div
-								style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+								key={r.id}
+								style={{
+									padding: 13,
+									borderRadius: 10,
+									border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`,
+									background: T.surf,
+								}}
 							>
-								<span
-									style={{
-										font: `600 13.5px ${T.sans}`,
-										color: r.tone === 'accent' ? T.acc : T.ink,
-									}}
+								<div
+									style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
 								>
-									{t(r.name)}
-								</span>
-								<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
-									×{roleCounts[r.id] ?? 0}
-								</span>
+									<span
+										style={{
+											font: `600 13.5px ${T.sans}`,
+											color: r.tone === 'accent' ? T.acc : T.ink,
+										}}
+									>
+										{t(r.name)}
+									</span>
+									<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
+										×{roleCounts[r.id] ?? 0}
+									</span>
+								</div>
+								<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 4 }}>
+									{t(r.desc)}
+								</div>
 							</div>
-							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginTop: 4 }}>
-								{t(r.desc)}
-							</div>
+						))}
+					</div>
+				</Panel>
+			</SettingsSection>
+
+			<SettingsSection gateKey="settings.permissions.grantTitle">
+				<Panel title={t('settings.permissions.grantTitle')}>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						{t('settings.permissions.grantIntro')}
+					</div>
+					{players.length === 0 || scenes.length === 0 ? (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							{t(
+								players.length === 0
+									? 'settings.permissions.needPlayer'
+									: 'settings.permissions.needScene',
+							)}
 						</div>
-					))}
-				</div>
-			</Panel>
-
-			<Panel title={t('settings.permissions.grantTitle')}>
-				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					{t('settings.permissions.grantIntro')}
-				</div>
-				{players.length === 0 || scenes.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						{t(
-							players.length === 0
-								? 'settings.permissions.needPlayer'
-								: 'settings.permissions.needScene',
-						)}
-					</div>
-				) : (
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-						<span style={{ flex: 1, minWidth: 140 }}>
-							<Select
-								aria-label={t('settings.permissions.player')}
-								value={selectedGrantPlayer}
-								onChange={(e: { target: { value: string } }) => setGrantPlayer(e.target.value)}
-								options={players.map((pl) => ({ value: pl.id, label: pl.displayName }))}
+					) : (
+						<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+							<span style={{ flex: 1, minWidth: 140 }}>
+								<Select
+									aria-label={t('settings.permissions.player')}
+									value={selectedGrantPlayer}
+									onChange={(e: { target: { value: string } }) => setGrantPlayer(e.target.value)}
+									options={players.map((pl) => ({ value: pl.id, label: pl.displayName }))}
+								/>
+							</span>
+							<span style={{ flex: 1, minWidth: 140 }}>
+								<Select
+									aria-label={t('settings.permissions.scene')}
+									value={selectedGrantScene}
+									onChange={(e: { target: { value: string } }) => setGrantScene(e.target.value)}
+									options={scenes.map((sc) => ({ value: sc.id, label: sc.name }))}
+								/>
+							</span>
+							<Seg
+								ariaLabel={t('settings.permissions.capabilitySet')}
+								value={grantSet}
+								onChange={setGrantSet}
+								options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))}
 							/>
-						</span>
-						<span style={{ flex: 1, minWidth: 140 }}>
-							<Select
-								aria-label={t('settings.permissions.scene')}
-								value={selectedGrantScene}
-								onChange={(e: { target: { value: string } }) => setGrantScene(e.target.value)}
-								options={scenes.map((sc) => ({ value: sc.id, label: sc.name }))}
-							/>
-						</span>
-						<Seg
-							ariaLabel={t('settings.permissions.capabilitySet')}
-							value={grantSet}
-							onChange={setGrantSet}
-							options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))}
-						/>
-						<Button variant="primary" size="sm" icon="check" onClick={grant}>
-							{t('settings.permissions.grant')}
-						</Button>
-					</div>
-				)}
-			</Panel>
+							<Button variant="primary" size="sm" icon="check" onClick={grant}>
+								{t('settings.permissions.grant')}
+							</Button>
+						</div>
+					)}
+				</Panel>
+			</SettingsSection>
 
-			<Panel
-				title={t('settings.permissions.activeGrants')}
-				action={<Badge status="neutral">{grants.length}</Badge>}
-			>
-				<DataTable
-					ariaLabel={t('settings.permissions.activeGrants')}
-					columns={[
-						{ key: 'set', header: t('settings.permissions.colAccess'), strong: true },
-						{ key: 'type', header: t('settings.permissions.colType') },
-						{ key: 'entity', header: t('settings.permissions.colEntity') },
-						{ key: 'to', header: t('settings.permissions.colGrantedTo') },
-						{
-							key: 'expires',
-							header: t('settings.permissions.colExpires'),
-							align: 'right',
-							render: (v: string | null) => v || '—',
-						},
-						{
-							key: 'grantId',
-							header: '',
-							align: 'right',
-							render: (id: string) => (
-								<Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>
-									{t('settings.permissions.revoke')}
-								</Button>
-							),
-						},
-					]}
-					rows={grantRows}
-					rowKey={(r: GrantRow) => r.grantId}
-					empty={t('settings.permissions.noGrants')}
-				/>
-			</Panel>
+			<SettingsSection gateKey="settings.permissions.activeGrants">
+				<Panel
+					title={t('settings.permissions.activeGrants')}
+					action={<Badge status="neutral">{grants.length}</Badge>}
+				>
+					<DataTable
+						ariaLabel={t('settings.permissions.activeGrants')}
+						columns={[
+							{ key: 'set', header: t('settings.permissions.colAccess'), strong: true },
+							{ key: 'type', header: t('settings.permissions.colType') },
+							{ key: 'entity', header: t('settings.permissions.colEntity') },
+							{ key: 'to', header: t('settings.permissions.colGrantedTo') },
+							{
+								key: 'expires',
+								header: t('settings.permissions.colExpires'),
+								align: 'right',
+								render: (v: string | null) => v || '—',
+							},
+							{
+								key: 'grantId',
+								header: '',
+								align: 'right',
+								render: (id: string) => (
+									<Button variant="ghost" size="sm" icon="trash" onClick={() => revoke(id)}>
+										{t('settings.permissions.revoke')}
+									</Button>
+								),
+							},
+						]}
+						rows={grantRows}
+						rowKey={(r: GrantRow) => r.grantId}
+						empty={t('settings.permissions.noGrants')}
+					/>
+				</Panel>
+			</SettingsSection>
 		</div>
 	);
 }

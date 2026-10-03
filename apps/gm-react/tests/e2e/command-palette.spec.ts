@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
 
 // COMMAND PALETTE — the ⌘K quick-switcher (app/CommandPalette.tsx on the DS CommandPalette). The
 // overlay is the keyboard spine of the seven-section IA: it opens on Meta/Control+K (and from the
@@ -291,7 +291,12 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await openViaKeyboard(page, 'Meta+k');
 		const here = page.getByRole('group', { name: 'On this screen' });
 		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>scene');
-		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(1);
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveAttribute(
+			'aria-disabled',
+			'true',
+		);
+		await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toContainText('No matches');
 		await page.getByRole('dialog', PALETTE).getByRole('combobox').fill('>board');
 		// Undo is offered but blocked (with its reason) until the layout has a step to take back.
 		const undo = here.getByRole('option', { name: /Undo last change/ });
@@ -383,7 +388,14 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await openViaKeyboard(page, 'Meta+k');
 		for (const prefix of ['>board', '>scene']) {
 			await page.getByRole('dialog', PALETTE).getByRole('combobox').fill(prefix);
-			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(0);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveCount(1);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toHaveAttribute(
+				'aria-disabled',
+				'true',
+			);
+			await expect(page.getByRole('dialog', PALETTE).getByRole('option')).toContainText(
+				'No matches',
+			);
 		}
 		await page.getByRole('combobox').fill('>add tile');
 		await expect(page.getByRole('option', { name: /^Add tile:/ })).toHaveCount(0);
@@ -433,6 +445,10 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 	// screen-reader user could not navigate `/` by heading or rotor and the groupings were conveyed
 	// by typography alone (WCAG 1.3.1 / 2.4.6). Every sibling surface already emits real headings.
 	test('the hub is navigable by heading', async ({ page }) => {
+		// Manage only lists surfaces the active tier shows (RC-UX-5.2), so read the full hub.
+		await preferTier(page);
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
 		const main = page.locator('#main-content');
 		// AppShell owns the route <h1>; the hub's own hero and section labels are <h2>s under it.
 		await expect(main.getByRole('heading', { level: 2, name: 'Your campaign' })).toBeVisible();

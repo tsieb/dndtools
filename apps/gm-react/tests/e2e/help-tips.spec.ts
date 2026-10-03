@@ -11,6 +11,11 @@ test.describe('contextual help tips', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/');
 		await seedFresh(page);
+		await gotoRoute(page, '/settings');
+		await page
+			.getByRole('radiogroup', { name: 'Experience complexity' })
+			.getByRole('radio', { name: /Expert/ })
+			.click();
 		await gotoRoute(page, '/settings?tab=sync');
 	});
 

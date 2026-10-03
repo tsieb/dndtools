@@ -1,3 +1,4 @@
+import { settingsGateVisible, useSettingsTier } from '../settings/Experience';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type {
@@ -33,6 +34,7 @@ export function SystemSelectDialog({
 	onClose: () => void;
 }) {
 	const { t } = useI18n();
+	const tier = useSettingsTier();
 	const navigate = useNavigate();
 	const [phrase, setPhrase] = useState('');
 	const available = preview.kind === 'available';
@@ -213,15 +215,17 @@ export function SystemSelectDialog({
 							<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 								{t('extensions.system.select.destructiveBody')}
 							</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								icon="download"
-								style={{ alignSelf: 'flex-start' }}
-								onClick={() => navigate('/settings?tab=sync')}
-							>
-								{t('extensions.system.select.backupLink')}
-							</Button>
+							{settingsGateVisible('settings.backup.title', tier) && (
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="download"
+									style={{ alignSelf: 'flex-start' }}
+									onClick={() => navigate('/settings?tab=sync')}
+								>
+									{t('extensions.system.select.backupLink')}
+								</Button>
+							)}
 							<Field label={t('extensions.system.select.dropPhraseLabel', { phrase: dropPhrase })}>
 								<Input
 									id="system-select-drop-confirmation"
