@@ -53,3 +53,15 @@
 - Re-verified on the new base: gm-react `tsc --noEmit` clean; eslint 0 errors; `pnpm test:app`
   156 files / 1728 tests passed; help-menu + a11y-axe-gate on desktop and mobile: 71 passed,
   1 skipped.
+
+## 2026-10-03 rebase onto 2b5d74ff
+
+- Gate feedback: rebase onto `2b5d74ff` conflicted in `HelpMenu.tsx`. Upstream RC-POL-1.22
+  (`cdab95fc`, `6f0bbdae`) moved What's new into `ReleaseNotes`, removed `loadLatestRelease`,
+  tokenised the menu styles and nested `ShortcutsDialog` inside the Help dialog.
+- Resolution: kept upstream's menu body unchanged; dropped `loadLatestRelease` (upstream deleted
+  it) and the old `HelpLauncher`; kept this story's `openHelp` / `HelpHost` / `HelpTrigger`.
+  `HelpLauncher` has no remaining code references.
+- Re-verified on the rebased branch: gm-react `tsc --noEmit` clean; eslint 0 errors;
+  `pnpm test:app` 160 files / 1753 tests passed; help-menu + a11y-axe-gate + shortcuts on desktop
+  and mobile: 77 passed, 1 skipped.
