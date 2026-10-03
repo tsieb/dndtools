@@ -33,9 +33,66 @@ import { createPortal } from 'react-dom';
 import { ownsFocusTrap, popTrapLayer, pushTrapLayer, tabbableElements } from './focus';
 import { Icon } from '../core/Icon';
 import { registerBackHandler } from '../../../platform/backNavigation';
-import { isolateModalSiblings } from '../../../platform/modalIsolation';
 import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
 import { restoreReturnFocus } from '../../../platform/returnFocus';
+
+/**
+ * `platform/modalIsolation` for a scrim portaled to body. Walking UP from the panel reaches only
+ * body's children, so the whole app root went inert — and with it the toast viewport inside it,
+ * which opts out with `data-modal-exempt` precisely so a refusal raised from a dialog stays
+ * readable and its Dismiss reachable. Walk DOWN from body instead: inert every branch holding
+ * neither the scrim nor an exempt surface, and descend into the ones that do. Prior state is
+ * restored exactly, so nested overlays compose as they did before.
+ *
+ * Every open scrim is itself `data-modal-exempt`: an enclosing Sheet or Dialog mounted in the same
+ * commit isolates AFTER this one (React runs parent effects last), and would otherwise inert the
+ * nested dialog it just opened. Here, though, another dialog's scrim is kept only when that dialog
+ * is nested inside this one (its anchor sits in this scrim) — an unrelated dialog underneath is
+ * isolated like any other branch.
+ */
+function isolateOutside(scrim: HTMLElement): () => void {
+	const keep = [scrim];
+	const exempt = Array.from(document.querySelectorAll<HTMLElement>('[data-modal-exempt]'));
+	keep.push(...exempt.filter((el) => !el.hasAttribute('data-dialog-scrim')));
+	const scrims = exempt.filter((el) => el.hasAttribute('data-dialog-scrim') && el !== scrim);
+	for (let grew = true; grew; ) {
+		grew = false;
+		for (const other of scrims) {
+			if (keep.includes(other)) continue;
+			const id = other.getAttribute('data-dialog-scrim');
+			const anchor = document.querySelector(`[data-dialog-anchor="${id}"]`);
+			if (anchor && keep.some((kept) => kept.contains(anchor))) {
+				keep.push(other);
+				grew = true;
+			}
+		}
+	}
+	const snapshots: { element: HTMLElement; ariaHidden: string | null; hadInert: boolean }[] = [];
+	const visit = (parent: Element) => {
+		for (const child of Array.from(parent.children)) {
+			if (!(child instanceof HTMLElement) || keep.includes(child)) continue;
+			if (keep.some((kept) => child.contains(kept))) {
+				visit(child);
+				continue;
+			}
+			snapshots.push({
+				element: child,
+				ariaHidden: child.getAttribute('aria-hidden'),
+				hadInert: child.hasAttribute('inert'),
+			});
+			child.setAttribute('aria-hidden', 'true');
+			child.setAttribute('inert', '');
+		}
+	};
+	visit(document.body);
+	return () => {
+		for (const snapshot of snapshots.reverse()) {
+			if (snapshot.ariaHidden === null) snapshot.element.removeAttribute('aria-hidden');
+			else snapshot.element.setAttribute('aria-hidden', snapshot.ariaHidden);
+			if (!snapshot.hadInert) snapshot.element.removeAttribute('inert');
+		}
+	};
+}
 
 /**
  * Dialog — the modal chrome the system has long delegated to ("drop it inside a Dialog (desktop)…"
@@ -58,7 +115,8 @@ import { restoreReturnFocus } from '../../../platform/returnFocus';
  *    distinct status-icon shape carries severity without relying on colour (A11Y-011).
  *
  * Portals the scrim to body so transformed or filtered launchers cannot become its containing
- * block and collapse the panel to the dimensions of the launcher.
+ * block and collapse the panel to the dimensions of the launcher. A hidden anchor stays where the
+ * Dialog sits in the tree so DOM-containment nesting (escape and trap layers) still sees it.
  */
 const SIZES = { sm: 400, md: 540, lg: 760 };
 const TONE_ICON = {
@@ -92,12 +150,14 @@ export function Dialog({
 	...rest
 }: DialogProps) {
 	const panelRef = React.useRef<HTMLDivElement | null>(null);
+	const anchorRef = React.useRef<HTMLSpanElement | null>(null);
 	const bodyRef = React.useRef<HTMLDivElement | null>(null);
 	const returnFocusRef = React.useRef<HTMLElement | null>(null);
 	const onCloseRef = React.useRef(onClose);
 	const dismissibleRef = React.useRef(dismissible);
 	const initialFocusRef = React.useRef(initialFocus);
 	const titleId = React.useId();
+	const anchorId = React.useId();
 	const descId = React.useId();
 	onCloseRef.current = onClose;
 	dismissibleRef.current = dismissible;
@@ -108,7 +168,8 @@ export function Dialog({
 		returnFocusRef.current = document.activeElement as HTMLElement | null;
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
-		const restoreIsolation = panelRef.current ? isolateModalSiblings(panelRef.current) : () => {};
+		const scrim = panelRef.current?.parentElement;
+		const restoreIsolation = scrim ? isolateOutside(scrim) : () => {};
 
 		const focusFirst = () => {
 			const panel = panelRef.current;
@@ -141,6 +202,12 @@ export function Dialog({
 		};
 		const t = setTimeout(focusFirst, 0);
 
+		// Escape and Tab ownership are decided by DOM containment (platform/escapeLayers, ./focus), and
+		// the panel no longer sits inside whatever opened it. So register twice: the in-place anchor
+		// lets a Sheet/Popover/Dialog that contains this one stand down, and the panel tokens are the
+		// ones this dialog checks for overlays nested inside IT.
+		const anchorEscapeToken = pushEscapeLayer(() => anchorRef.current);
+		const anchorTrapToken = pushTrapLayer(() => anchorRef.current);
 		const escapeToken = pushEscapeLayer(() => panelRef.current);
 		const trapToken = pushTrapLayer(() => panelRef.current);
 		const onKey = (e: KeyboardEvent) => {
@@ -201,6 +268,8 @@ export function Dialog({
 			document.removeEventListener('keydown', onKey, true);
 			popEscapeLayer(escapeToken);
 			popTrapLayer(trapToken);
+			popEscapeLayer(anchorEscapeToken);
+			popTrapLayer(anchorTrapToken);
 			panelRef.current?.removeEventListener('focusin', onFocusIn);
 			unregisterBack();
 			document.body.style.overflow = prevOverflow;
@@ -218,9 +287,11 @@ export function Dialog({
 	const accent = TONE_COLOR[tone];
 	const markName = icon || TONE_ICON[tone];
 
-	return createPortal(
+	const scrim = createPortal(
 		<div
 			className="app-fixed-viewport"
+			data-dialog-scrim={anchorId}
+			data-modal-exempt=""
 			style={{
 				position: 'fixed',
 				inset: 0,
@@ -421,5 +492,11 @@ export function Dialog({
 			</div>
 		</div>,
 		document.body,
+	);
+	return (
+		<>
+			<span ref={anchorRef} hidden data-dialog-anchor={anchorId} />
+			{scrim}
+		</>
 	);
 }

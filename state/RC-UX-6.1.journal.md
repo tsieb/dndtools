@@ -65,3 +65,32 @@
 - Re-verified on the rebased branch: gm-react `tsc --noEmit` clean; eslint 0 errors;
   `pnpm test:app` 160 files / 1753 tests passed; help-menu + a11y-axe-gate + shortcuts on desktop
   and mobile: 77 passed, 1 skipped.
+
+## 2026-10-03 browser-acceptance follow-up
+
+- Gate feedback: Browser acceptance failed at `cad7bb66` (14 failed, 1 flaky, 1691 passed). On
+  both profiles: `encounter-builder:55` (toast Dismiss not found), `palette-polish:10` (Escape on
+  Shortcuts also closed Help), `responsive:2125/2152` (Escape/Tab inside the End-session confirm
+  reached the Table controls sheet), `upgrade-cloud-polish:31/50` (error alert not found).
+  `character-levelup:91` was the single flaky test.
+- Root cause, all from the portal. Escape/Tab ownership (`platform/escapeLayers`,
+  `overlay/focus`) treats "nested" as DOM containment, and a body-portaled panel is no longer
+  inside the Sheet/Dialog that opened it, so both handled the key. Modal isolation walked up from
+  the panel, reached only body's children, and marked the whole app root inert/aria-hidden,
+  including the `data-modal-exempt` toast viewport inside it.
+- Fix, entirely in `Dialog.tsx` (those platform files are outside the claim):
+  - A hidden in-place anchor (`data-dialog-anchor`) is registered as an extra escape and trap
+    layer, so an enclosing Sheet/Popover/Dialog stands down. The dialog checks its own ownership
+    with its panel tokens.
+  - `isolateOutside` walks DOWN from body: it marks every branch that holds neither this scrim nor
+    an exempt surface, and descends into the ones that do. State is snapshotted and restored.
+  - Each open scrim is `data-modal-exempt` (with `data-dialog-scrim`), so a parent mounted in the
+    same commit cannot mark its nested dialog inert. Dialog isolation keeps another dialog's scrim
+    only when that dialog's anchor sits inside this scrim, so an unrelated dialog underneath is
+    still isolated.
+- New unit tests: a Dialog inside a Sheet and inside a Dialog owns Escape and Tab; an exempt
+  surface inside the app root stays reachable while the sibling goes inert and is then restored;
+  an unrelated earlier dialog goes inert and is restored.
+- Verified locally: `Dialog.test.ts` 18/18 and overlay + ds-interaction tests 122/122 pass. The previously failing specs plus
+  help-menu and a11y-axe-gate on both profiles: 257 passed, 1 skipped, 0 flaky. gm-react tsc clean;
+  eslint 0 errors; `pnpm test:app` 160 files / 1757 tests passed.

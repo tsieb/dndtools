@@ -285,3 +285,86 @@ it('portals outside a transformed launcher and constrains the panel to the viewp
 	await act(async () => root.render(null));
 	expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
+
+// The portal moves the panel out of whatever opened it, but escape and trap ownership are decided by
+// DOM containment. A confirm opened from a Sheet (End session from Table controls) or a Dialog
+// (Keyboard shortcuts from Help) must still own Escape and Tab alone.
+for (const Outer of [Sheet as typeof TestDialog, TestDialog]) {
+	it(`a Dialog opened inside a ${Outer.name} owns Escape and Tab until it closes`, async () => {
+		const outerClose = vi.fn();
+		const innerClose = vi.fn();
+		await act(async () =>
+			root.render(
+				createElement(
+					Outer,
+					{ open: true, title: 'Outer', onClose: outerClose },
+					createElement('button', { id: 'outer-action' }, 'Outer action'),
+					createElement(
+						TestDialog,
+						{ open: true, title: 'Inner', onClose: innerClose },
+						createElement('button', { id: 'inner-first' }, 'First'),
+						createElement('button', { id: 'inner-last' }, 'Last'),
+					),
+				),
+			),
+		);
+		await act(async () => vi.runAllTimers());
+		expect(document.activeElement).toBe(document.querySelector('#inner-first'));
+		document.querySelector<HTMLButtonElement>('#inner-last')!.focus();
+		const forward = tab();
+		expect(forward.defaultPrevented).toBe(true);
+		const innerPanel = document.querySelector('#inner-first')!.closest('[role="dialog"]')!;
+		expect(innerPanel.contains(document.activeElement)).toBe(true);
+
+		await act(async () => {
+			document.dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+			);
+		});
+		expect(innerClose).toHaveBeenCalledOnce();
+		expect(outerClose).not.toHaveBeenCalled();
+	});
+}
+
+it('keeps an exempt surface inside the app root reachable while the portaled dialog is open', async () => {
+	// React owns `container`'s children, so stand the app root up beside it.
+	const appRoot = document.createElement('div');
+	const toasts = document.createElement('div');
+	toasts.setAttribute('data-modal-exempt', '');
+	const sibling = document.createElement('main');
+	appRoot.append(toasts, sibling);
+	document.body.append(appRoot);
+	await act(async () =>
+		root.render(createElement(TestDialog, { open: true, title: 'Plan', onClose: vi.fn() })),
+	);
+	expect(toasts.hasAttribute('inert')).toBe(false);
+	expect(toasts.getAttribute('aria-hidden')).toBeNull();
+	expect(appRoot.hasAttribute('inert')).toBe(false);
+	expect(sibling.hasAttribute('inert')).toBe(true);
+	expect(sibling.getAttribute('aria-hidden')).toBe('true');
+	const scrim = document.querySelector('[role="dialog"]')!.parentElement!;
+	expect(scrim.hasAttribute('inert')).toBe(false);
+
+	await act(async () => root.render(null));
+	expect(sibling.hasAttribute('inert')).toBe(false);
+	expect(sibling.getAttribute('aria-hidden')).toBeNull();
+	appRoot.remove();
+});
+
+it('isolates an unrelated dialog underneath even though open scrims are exempt', async () => {
+	const otherContainer = document.createElement('div');
+	document.body.append(otherContainer);
+	const otherRoot = createRoot(otherContainer);
+	await act(async () =>
+		otherRoot.render(createElement(TestDialog, { open: true, title: 'First', onClose: vi.fn() })),
+	);
+	const first = document.querySelector('[role="dialog"]')!.parentElement!;
+	await act(async () =>
+		root.render(createElement(TestDialog, { open: true, title: 'Second', onClose: vi.fn() })),
+	);
+	expect(first.hasAttribute('inert')).toBe(true);
+	await act(async () => root.render(null));
+	expect(first.hasAttribute('inert')).toBe(false);
+	await act(async () => otherRoot.unmount());
+	otherContainer.remove();
+});
