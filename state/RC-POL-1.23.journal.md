@@ -285,3 +285,48 @@ that evidence. The earlier implementation and embedded §20.2–§20.5 checklist
   (24.2s), exit 0**, retries disabled. Final targeted ESLint: exit 0.
 - Remaining blocker: generated pseudo catalog ownership/completeness, as detailed above.
   Implementation follow-up is committed for review; full integration readiness is not claimed.
+
+## Integration reconciliation — 2026-10-03
+
+- Rebased both task commits onto `f9ab3d74855c462613793ee87ce0034fd712d637`.
+  The source conflict was the Sidebar import block: kept both the integration branch's
+  `settingsGateVisible`/`useSettingsTier` imports and the task's loading/presence imports.
+  Reviewed the combined account button: the Players-tier restriction, disabled state,
+  gated explanation, and guarded navigation/hover remain intact alongside token styling.
+- The 24 reported binary conflicts cover board, command-center, scene-editor and settings,
+  in desktop/rail and tavern/parchment/high-contrast. Task images were used only as temporary
+  conflict placeholders; the pinned renderer regenerates baselines from the combined source.
+  Full-suite regeneration and strict comparison results are recorded below, not inferred
+  from Git's conflict resolution.
+- Both integration and task EN/ES messages survived the textual merge. The generated pseudo
+  catalog remains identical to the integration target, preserving the explicit claim boundary.
+  The previously documented pseudo completeness blocker is not silently waived by this rebase.
+- No Headroom tool is available; checks use original command output. No agents, dispatcher
+  edits, pushes, promotion, or additional loops were used.
+- App typecheck and targeted owned-source ESLint passed (exit 0). Focused viewport,
+  navigation, session-posture and i18n units: 42 passed, 1 failed; the only failure remains
+  pseudo coverage at index.test.ts:227 (1 expected, 0.9957933703516743 actual after integration's
+  added strings). No generated catalog, coverage assertion or ownership control was changed.
+- Reviewed contact sheets of all 24 regenerated conflicts: desktop sidebar/account and
+  rail/navigation remain bounded; board, scene-editor, Command Center and settings retain
+  their integration layouts with the task's polished shell. Baseline budget: 621 files,
+  29,685.9 KiB / 32,768 KiB, exit 0. No optimization, tolerance or budget change needed.
+
+- Combined browser suite on the rebased source: **143 passed, 3 expected skips (6.4m),
+  exit 0**, retries disabled. Includes all shell/overlay axe scans on both profiles,
+  pin/Demo bounds, vault/command/shortcut/help/session/player/scene-card regressions, plus
+  integration's Beginner/Expert settings-tier and cross-window tier-change cases.
+- `pnpm gates` and Sidebar Prettier check passed, exit 0; no owned file-size warning.
+  Largest owned file is now Sidebar.tsx at 460 lines (rows.tsx remains 457).
+- Full pinned update: 440 passed, 1 failed (7.3m), exit 1. The atlas dungeon desktop case
+  timed out waiting 20 seconds for `window.__rt.loaded`; it never reached its screenshot.
+  All 24 conflicted files were regenerated successfully. No root cause is asserted for the
+  readiness timeout; the entire suite is repeated below with updates disabled and zero retries.
+- Final full pinned strict comparison (`--update-snapshots=none --workers=4 --retries=0`):
+  **441 passed (5.8m), wrapper exit 0**. The atlas readiness failure did not recur; no retry
+  or tolerance change was used. All five-theme/three-tier shell captures and all full-route
+  baselines passed against the reconciled source.
+- Reconciliation complete: target f9ab3d74 is an ancestor of this task branch, all 24 binary
+  conflicts are renderer-derived and reviewed, and no conflict markers/unmerged entries remain.
+  The generated pseudo-catalog scope/completeness issue remains the only recorded integration
+  blocker; this rebase does not claim to resolve it. No push or promotion performed.
