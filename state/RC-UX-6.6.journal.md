@@ -21,6 +21,7 @@ Base: `loop/rc` 9a7b675d (RC-POL-1.23). Branch `dispatch/dndtools/544e7443768b97
   asserts no two rows share a description.
 
 ## Log
+
 - 2026-10-04 commit abc1be32: implementation + unit tests. `vitest app help/ shortcuts/ i18n/` green
   (101 + 47). `tsc --noEmit` (gm-react) clean. qps-ploc regenerated.
 - Registry "no two rows share a description" also caught map `Pan` (tool) vs `Space + drag` (Pan):
@@ -43,3 +44,7 @@ Base: `loop/rc` 9a7b675d (RC-POL-1.23). Branch `dispatch/dndtools/544e7443768b97
   +25% vs the base's filter-0 encodes (37,748 KiB, over the 32 MiB cap); a lossless re-encode
   (unfilter → best of filter-0 / original filters at zlib 9, pixels asserted equal) brought the set
   to 30,064 KiB (base 31,867). Strict compare after re-encode: desktop+rail 322 passed, phone 161.
+- Local gates after 5b4e7107: `pnpm lint` exit 0 (16 pre-existing warnings, none in changed files),
+  `format:check:changed --base loop/rc` clean, gm-react `tsc` clean, gm-react `build` exit 0,
+  `pnpm test:app` 161 files / 1819 tests passed. The full e2e suite was not run locally; the
+  operator's gates own that.
