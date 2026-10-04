@@ -14,7 +14,6 @@ import {
 import type { DSChangeEvent } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
-import { useViewport } from '../../app/useViewport';
 import type { Dispatch } from './shared';
 
 // ── Equipment / currency / encumbrance — REAL structured inventory (I10 S10.1.3 / S10.4.2) ────────
@@ -51,7 +50,6 @@ export function PlayerEquipment({
 	dispatch: Dispatch;
 }) {
 	const { t, formatDistance, formatUnit } = useI18n();
-	const viewport = useViewport();
 	const [name, setName] = useState('');
 	const [qty, setQty] = useState('1');
 	const [weight, setWeight] = useState('');
@@ -123,176 +121,190 @@ export function PlayerEquipment({
 	const lb = (value: number) => formatUnit(Number(value.toFixed(value % 1 ? 1 : 0)), 'pound');
 
 	return (
+		// Side by side at 1.4 : 1 while both columns fit their content; stacked otherwise. The
+		// rem minimums grow with large text, so a 200% preference stacks instead of overflowing
+		// the sheet column (a grid's `fr` tracks cannot shrink below their content and widened it).
 		<div
 			style={{
-				display: 'grid',
-				gridTemplateColumns: viewport === 'phone' ? '1fr' : '1.4fr 1fr',
+				display: 'flex',
+				flexWrap: 'wrap',
 				gap: 'var(--space-4)',
-				alignItems: 'start',
+				alignItems: 'flex-start',
 			}}
 		>
-			<Panel title={t('player.equipment.title', { count: items.length })}>
-				{items.length === 0 ? (
-					<EmptyState
-						inset
-						illustration="inventory-empty"
-						description={t('player.equipment.empty')}
-					/>
-				) : (
-					<div style={{ display: 'flex', flexDirection: 'column' }}>
-						{items.map((item, i) => (
-							<div
-								key={item.id}
-								style={{
-									display: 'flex',
-									alignItems: 'center',
-									gap: 'var(--space-2)',
-									padding: 'var(--space-2) 0',
-									borderTop: i ? `1px solid ${T.bd}` : 'none',
-								}}
-							>
-								<Icon
-									name={item.equipped ? 'shield' : 'tag'}
-									size={14}
-									color={item.equipped ? T.acc : T.ter}
-								/>
-								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
-										{item.name}
-										{item.equipped && (
-											<span style={{ marginLeft: 'var(--space-1-5)' }}>
-												<Badge status="accent">{t('player.equipment.equippedBadge')}</Badge>
-											</span>
-										)}
-									</div>
-									<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
-										{t('player.equipment.weights', {
-											each: lb(item.weight),
-											total: lb(item.quantity * item.weight),
-										})}
-										{item.notes ? ` · ${item.notes}` : ''}
-									</div>
-								</div>
-								{canManage ? (
-									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-										<IconButton
-											icon="chevron-down"
-											// At 1, stepping down clamped to 0 and left a `×0` ghost row that stayed in
-											// the list and kept accepting presses. Removing the item is a different,
-											// already-present action — so say so instead of pretending to work.
-											label={t(
-												item.quantity <= 1
-													? 'player.equipment.cannotGoBelowOne'
-													: 'player.equipment.oneFewer',
-												{ name: item.name },
+			{/* An unpadded wrapper, so both columns grow from the same zero basis. */}
+			<div style={{ flex: '1.4 1 0', minWidth: 'min(100%, 14rem)' }}>
+				<Panel title={t('player.equipment.title', { count: items.length })}>
+					{items.length === 0 ? (
+						<EmptyState
+							inset
+							illustration="inventory-empty"
+							description={t('player.equipment.empty')}
+						/>
+					) : (
+						<div style={{ display: 'flex', flexDirection: 'column' }}>
+							{items.map((item, i) => (
+								<div
+									key={item.id}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 'var(--space-2)',
+										padding: 'var(--space-2) 0',
+										borderTop: i ? `1px solid ${T.bd}` : 'none',
+									}}
+								>
+									<Icon
+										name={item.equipped ? 'shield' : 'tag'}
+										size={14}
+										color={item.equipped ? T.acc : T.ter}
+									/>
+									<div style={{ flex: 1, minWidth: 0 }}>
+										<div style={{ font: `600 var(--text-sm) ${T.sans}` }}>
+											{item.name}
+											{item.equipped && (
+												<span style={{ marginLeft: 'var(--space-1-5)' }}>
+													<Badge status="accent">{t('player.equipment.equippedBadge')}</Badge>
+												</span>
 											)}
-											aria-disabled={item.quantity <= 1 ? true : undefined}
-											variant="ghost"
-											size="sm"
-											onClick={() => void stepQty(item, -1)}
-										/>
-										<span
-											style={{
-												font: `700 var(--text-xs) ${T.mono}`,
-												minWidth: 22,
-												textAlign: 'center',
-											}}
-										>
-											{item.quantity}
-										</span>
-										<IconButton
-											icon="chevron-up"
-											label={t('player.equipment.oneMore', { name: item.name })}
-											variant="ghost"
-											size="sm"
-											onClick={() => void stepQty(item, 1)}
-										/>
-										<button
-											type="button"
-											aria-pressed={item.equipped}
-											onClick={() => void toggleEquipped(item)}
-											style={{
-												// 3px + an 11px line + 3px is a ~21px target, under the WCAG 2.5.8
-												// floor, wedged between icon buttons that DO meet it.
-												padding: 'var(--space-1-5) var(--space-2)',
-												minHeight: 24,
-												boxSizing: 'border-box',
-												borderRadius: 'var(--radius-lg)',
-												cursor: 'pointer',
-												font: `var(--text-xs) ${T.sans}`,
-												border: `1px solid ${item.equipped ? T.accBd : T.bd}`,
-												background: item.equipped ? T.accSub : T.surf,
-												color: item.equipped ? T.acc : T.ter,
-											}}
-										>
-											{t(item.equipped ? 'player.equipment.equipped' : 'player.equipment.equip')}
-										</button>
-										<IconButton
-											icon="close"
-											label={t('player.equipment.removeItem', { name: item.name })}
-											variant="ghost"
-											size="sm"
-											onClick={() => void removeItem(item)}
-										/>
+										</div>
+										<div style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
+											{t('player.equipment.weights', {
+												each: lb(item.weight),
+												total: lb(item.quantity * item.weight),
+											})}
+											{item.notes ? ` · ${item.notes}` : ''}
+										</div>
 									</div>
-								) : (
-									<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
-										×{item.quantity}
-									</span>
-								)}
-							</div>
-						))}
-					</div>
-				)}
-				{canManage && (
-					<div
-						style={{
-							display: 'flex',
-							gap: 'var(--space-2)',
-							marginTop: 'var(--space-3)',
-							paddingTop: 'var(--space-3)',
-							borderTop: `1px solid ${T.bd}`,
-							alignItems: 'flex-end',
-							flexWrap: 'wrap',
-						}}
-					>
-						<Field label={t('player.equipment.itemField')}>
-							<Input
-								value={name}
-								onChange={(e: DSChangeEvent) => setName(e.target.value)}
-								placeholder={t('player.equipment.itemPlaceholder')}
-							/>
-						</Field>
-						<Field label={t('player.equipment.qtyField')}>
-							<Input
-								type="number"
-								value={qty}
-								onChange={(e: DSChangeEvent) => setQty(e.target.value)}
-								style={{ width: 70 }}
-							/>
-						</Field>
-						<Field label={t('player.equipment.weightField')}>
-							<Input
-								type="number"
-								value={weight}
-								onChange={(e: DSChangeEvent) => setWeight(e.target.value)}
-								placeholder="0"
-								style={{ width: 90 }}
-							/>
-						</Field>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="add"
-							disabled={!name.trim()}
-							onClick={addItem}
+									{canManage ? (
+										<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+											<IconButton
+												icon="chevron-down"
+												// At 1, stepping down clamped to 0 and left a `×0` ghost row that stayed in
+												// the list and kept accepting presses. Removing the item is a different,
+												// already-present action — so say so instead of pretending to work.
+												label={t(
+													item.quantity <= 1
+														? 'player.equipment.cannotGoBelowOne'
+														: 'player.equipment.oneFewer',
+													{ name: item.name },
+												)}
+												aria-disabled={item.quantity <= 1 ? true : undefined}
+												variant="ghost"
+												size="sm"
+												onClick={() => void stepQty(item, -1)}
+											/>
+											<span
+												style={{
+													font: `700 var(--text-xs) ${T.mono}`,
+													minWidth: 22,
+													textAlign: 'center',
+												}}
+											>
+												{item.quantity}
+											</span>
+											<IconButton
+												icon="chevron-up"
+												label={t('player.equipment.oneMore', { name: item.name })}
+												variant="ghost"
+												size="sm"
+												onClick={() => void stepQty(item, 1)}
+											/>
+											<button
+												type="button"
+												aria-pressed={item.equipped}
+												onClick={() => void toggleEquipped(item)}
+												style={{
+													// 3px + an 11px line + 3px is a ~21px target, under the WCAG 2.5.8
+													// floor, wedged between icon buttons that DO meet it.
+													padding: 'var(--space-1-5) var(--space-2)',
+													minHeight: 24,
+													boxSizing: 'border-box',
+													borderRadius: 'var(--radius-lg)',
+													cursor: 'pointer',
+													font: `var(--text-xs) ${T.sans}`,
+													border: `1px solid ${item.equipped ? T.accBd : T.bd}`,
+													background: item.equipped ? T.accSub : T.surf,
+													color: item.equipped ? T.acc : T.ter,
+												}}
+											>
+												{t(item.equipped ? 'player.equipment.equipped' : 'player.equipment.equip')}
+											</button>
+											<IconButton
+												icon="close"
+												label={t('player.equipment.removeItem', { name: item.name })}
+												variant="ghost"
+												size="sm"
+												onClick={() => void removeItem(item)}
+											/>
+										</div>
+									) : (
+										<span style={{ font: `var(--text-xs) ${T.mono}`, color: T.ter }}>
+											×{item.quantity}
+										</span>
+									)}
+								</div>
+							))}
+						</div>
+					)}
+					{canManage && (
+						<div
+							style={{
+								display: 'flex',
+								gap: 'var(--space-2)',
+								marginTop: 'var(--space-3)',
+								paddingTop: 'var(--space-3)',
+								borderTop: `1px solid ${T.bd}`,
+								alignItems: 'flex-end',
+								flexWrap: 'wrap',
+							}}
 						>
-							{t('common.action.add')}
-						</Button>
-					</div>
-				)}
-			</Panel>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+							<Field label={t('player.equipment.itemField')}>
+								<Input
+									value={name}
+									onChange={(e: DSChangeEvent) => setName(e.target.value)}
+									placeholder={t('player.equipment.itemPlaceholder')}
+								/>
+							</Field>
+							<Field label={t('player.equipment.qtyField')}>
+								<Input
+									type="number"
+									value={qty}
+									onChange={(e: DSChangeEvent) => setQty(e.target.value)}
+									style={{ width: 70 }}
+								/>
+							</Field>
+							<Field label={t('player.equipment.weightField')}>
+								<Input
+									type="number"
+									value={weight}
+									onChange={(e: DSChangeEvent) => setWeight(e.target.value)}
+									placeholder="0"
+									style={{ width: 90 }}
+								/>
+							</Field>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="add"
+								disabled={!name.trim()}
+								onClick={addItem}
+							>
+								{t('common.action.add')}
+							</Button>
+						</div>
+					)}
+				</Panel>
+			</div>
+			<div
+				style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-4)',
+					flex: '1 1 0',
+					minWidth: 'min(100%, 11.5rem)',
+				}}
+			>
 				<Panel title={t('player.equipment.encumbrance')}>
 					{enc && encMeta ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
