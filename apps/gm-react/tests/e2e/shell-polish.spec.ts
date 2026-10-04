@@ -35,7 +35,12 @@ test('shell and navigation overlays are axe clean in all five themes', async ({ 
 		await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
 		await axe(page);
 		await page.keyboard.press('Escape');
+		// RC-UX-6.6 — Help opens on the route's guide (Screens here), with the full list one level up.
 		await page.getByRole('button', { name: 'Help', exact: true }).click();
+		const guide = page.getByRole('dialog', { name: 'Screens' });
+		await expect(guide).toBeVisible();
+		await axe(page);
+		await guide.getByRole('button', { name: 'All help topics' }).click();
 		await expect(page.getByRole('dialog', { name: 'Help' })).toBeVisible();
 		await axe(page);
 		await page.keyboard.press('Escape');

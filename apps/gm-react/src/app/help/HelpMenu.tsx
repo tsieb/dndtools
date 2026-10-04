@@ -313,7 +313,11 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 					</Button>
 				}
 			>
-				<article lang="en">{guide && renderMarkdown(guide.body, { t })}</article>
+				{/* Focusable, like the shortcut overlay's list: a guide is prose with no controls, and the
+				    dialog body scrolls, so a keyboard user needs a stop inside it to scroll it. */}
+				<article lang="en" tabIndex={0} aria-label={guide?.title}>
+					{guide && renderMarkdown(guide.body, { t })}
+				</article>
 			</Dialog>
 		</>
 	);

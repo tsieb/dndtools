@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
-// RC-DOC-1.3 — the eight user guides ship inside the app and are read from the Help menu, so the
+// RC-DOC-1.3 — the user guides (twelve since RC-UX-6.6) ship inside the app and are read from the Help menu, so the
 // acceptance ("every page reachable from the Help menu") is a navigation claim, not a file claim.
 // `help-menu.spec.ts` covers the menu itself at phone width; this spec covers the part that width
 // cannot see: the Help trigger on the tiers that never mount `Footer.tsx`, and the guide dialog's
@@ -9,8 +9,12 @@ import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 const GUIDES = [
 	'Getting started',
+	'Screens',
 	'Running a session',
+	'Characters',
 	'Maps',
+	'Notes',
+	'Settings',
 	'Widgets & builders',
 	'Systems',
 	'Remote play',
@@ -58,7 +62,7 @@ for (const tier of TIERS) {
 
 				// The footer button goes back to the menu the guide was opened from, so a DM reading
 				// several guides never has to re-find the trigger.
-				await guide.getByRole('button', { name: 'Help', exact: true }).click();
+				await guide.getByRole('button', { name: 'All help topics' }).click();
 				await expect(page.getByRole('dialog', { name: 'Help' })).toBeVisible();
 				await page
 					.getByRole('dialog', { name: 'Help' })
