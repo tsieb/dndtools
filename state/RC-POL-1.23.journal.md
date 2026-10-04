@@ -499,3 +499,45 @@ tests/visual/golden-routes.spec.ts tests/visual/graph-polish.spec.ts
 - Follow-up checks: `pnpm gates` and `pnpm format:check:changed` both exit 0;
   no owned file-size warnings. Exact output artifacts are 7ac884d9332141ce817ca7ca31732325
   and 5c662e697ec74f4cbc03e3422e60ef62. Complete visual acceptance remains blocked.
+
+## Settings integration reconciliation — 2026-10-04
+
+- Rebased the seven task commits onto `ed6141404e7443ee425e804f6f024c8902f5512b`
+  as requested by the central conflict feedback. The nine settings PNG conflicts were
+  temporarily resolved with task images; the pinned renderer regenerates them from the
+  combined source before acceptance. No product-source conflict occurred.
+- FEATURE-GAPS preserves integration's Settings inventory and the separate Palette/help
+  row, together with the task's Command Center shell/pin/Demo coverage. All Settings
+  product files remain byte-identical to the integration target, including the short
+  Experience radio and its associated descriptive feature list.
+- No Headroom tools are available in this session. Exact command logs are retained under
+  `/tmp/shell-ed614-*`; subsequent results below come from those original logs. No agents,
+  dispatcher control changes, remote delivery, or shared visual-harness edits are used.
+- Pinned Settings regeneration: **9 passed (19.4s), wrapper exit 0**. All nine reported
+  conflicts now contain renderer output from the merged source. Reviewed a contact sheet
+  of every changed capture: desktop sidebar/account, rail controls, compact Settings
+  selector and footer remain bounded; the integrated Settings panels retain their layout.
+  Baseline budget: **708 files, 31,867.5 KiB / 32,768 KiB, exit 0**; no compression or
+  tolerance change was needed.
+- `pnpm gates`, app typecheck, raw-style count and changed-document Prettier checks:
+  **exit 0**. No owned file-size warning; Sidebar.tsx and rows.tsx are the largest at
+  **457 lines**. Focused navigation, viewport, session posture and i18n/pseudo units:
+  **5 files / 47 tests passed, exit 0**. Integration's settings source and this task's
+  owned shell source are unchanged from their respective pre-rebase versions.
+- Combined browser acceptance: **238 passed (7.9m), exit 0**, two workers and zero
+  retries. Ran shell-polish, shell-pin-bounds, responsive, pinned-screens, phone-navigator,
+  settings-polish and settings-tiers on both profiles. Includes all five-theme shell/overlay
+  axe scans, 390px pin/Demo bounds, large-text/pseudo reachability and integration's Settings
+  radio/experience behavior. Original log: `/tmp/shell-ed614-browser.log`.
+- Complete pinned visual strict comparison: **483 passed (14.7m), wrapper exit 0**.
+  Command: `CONTAINER_ENGINE=docker bash apps/gm-react/tests/visual/run-in-container.sh
+--update-snapshots=none --workers=2 --retries=0`. Original log:
+  `/tmp/shell-ed614-visual.log`. All five themes and three tiers pass, including all 65
+  shell-specific captures, the nine regenerated Settings images and the integrated Settings
+  empty states. Earlier shared-capture timeouts did not recur; no timeout/tolerance change
+  or causal timing-fix claim is made.
+- Reconciliation complete: `ed614140` is an ancestor; no unmerged entries or conflict
+  markers remain, and the only new artifacts are the nine regenerated baselines, inventory
+  formatting and this journal. Changed-file formatting and whitespace checks pass. The
+  embedded checklist and its explicit hardware/manual/performance waivers remain applicable.
+  Central independent review and delivery are not claimed. No push or promotion performed.
