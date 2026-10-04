@@ -1,7 +1,7 @@
 import './play.css';
 import { useMemo, useState, type ReactNode } from 'react';
 import { getDiceHistoryForActor, type CoreCommand, type DiceRollView } from '@dndtools/core';
-import { Avatar, Icon } from '../../ds';
+import { Avatar, BottomTabBar, Icon } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSession } from '../../net/SessionContext';
@@ -12,6 +12,8 @@ import { useViewport } from '../../app/useViewport';
 import { useI18n } from '../../i18n';
 import {
 	ElevatedLocked,
+	PvPage,
+	SectionHead,
 	NAV,
 	NAV_ELEVATED,
 	PLAYER_ACTOR_ID,
@@ -233,10 +235,55 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 
 	const allItems = [...NAV, ...NAV_ELEVATED];
 	const allowedIds = allItems.filter((n) => r >= n.min).map((n) => n.id);
-	const current = allowedIds.includes(section) ? section : 'stage';
+	const current = section === 'more' || allowedIds.includes(section) ? section : 'stage';
+	const selectSection = (id: string) => {
+		const item = allItems.find((item) => item.id === id);
+		if (item && r < item.min) {
+			toast(
+				t('play.nav.lockedPermissionToast', {
+					section: t(item.label),
+					tier: t(TIER_META.player.label),
+				}),
+				'info',
+				'hidden',
+			);
+			return;
+		}
+		setSection(id);
+		document.getElementById('player-main')?.focus();
+	};
 
 	let body: ReactNode;
-	if (current === 'stage')
+	if (current === 'more')
+		body = (
+			<PvPage>
+				<SectionHead title={t('play.nav.more')} />
+				<div className="player-view-more">
+					{NAV.slice(4).map((n) => (
+						<PlayerNavRow
+							key={n.id}
+							n={n}
+							locked={r < n.min}
+							current={current}
+							setSection={selectSection}
+							toast={toast}
+						/>
+					))}
+					<h2>{t('play.nav.elevated')}</h2>
+					{NAV_ELEVATED.map((n) => (
+						<PlayerNavRow
+							key={n.id}
+							n={n}
+							locked={r < n.min}
+							current={current}
+							setSection={selectSection}
+							toast={toast}
+						/>
+					))}
+				</div>
+			</PvPage>
+		);
+	else if (current === 'stage')
 		body = (
 			<StageSection
 				data={data}
@@ -290,164 +337,6 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 				font: `14px ${T.sans}`,
 			}}
 		>
-			<a
-				href="#player-main"
-				data-skip-link="true"
-				// HashRouter: the hash IS the route, so following this href would rewrite `#/play`.
-				// Move focus ourselves, exactly as AppShell's skip link does.
-				onClick={(e) => {
-					e.preventDefault();
-					document.getElementById('player-main')?.focus();
-				}}
-				style={{
-					position: 'fixed',
-					left: 8,
-					top: -48,
-					zIndex: 100,
-					padding: `${T.space.two} ${T.space.three}`,
-					borderRadius: T.radius.md,
-					background: 'var(--color-accent)',
-					color: 'var(--color-accent-foreground)',
-					font: `600 13px ${T.sans}`,
-					textDecoration: 'none',
-					transition: 'top var(--duration-fast) var(--easing-standard)',
-				}}
-				onFocus={(e) => (e.currentTarget.style.top = '8px')}
-				onBlur={(e) => (e.currentTarget.style.top = '-48px')}
-			>
-				{t('shell.skipToContent')}
-			</a>
-			{/* sidebar */}
-			<aside
-				ref={navigationRef}
-				className="player-view-sidebar"
-				style={{
-					width: 248,
-					flex: '0 0 auto',
-					display: 'flex',
-					flexDirection: 'column',
-					borderRight: `1px solid ${T.bd}`,
-					background: 'color-mix(in srgb, var(--color-surface) 60%, transparent)',
-					backdropFilter: 'blur(4px)',
-					position: 'sticky',
-					top: 'var(--native-titlebar-height)',
-					height: 'var(--app-viewport-height)',
-				}}
-			>
-				<div
-					className="player-view-brand"
-					style={{
-						padding: `${T.space.four} ${T.space.four} ${T.space.three}`,
-						borderBottom: `1px solid ${T.bd}`,
-					}}
-				>
-					<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
-						<div
-							style={{
-								width: 34,
-								height: 34,
-								borderRadius: T.radius.lg,
-								background: T.acc,
-								color: T.accFg,
-								display: 'flex',
-								alignItems: 'center',
-								justifyContent: 'center',
-								font: `700 16px ${T.sans}`,
-							}}
-						>
-							P
-						</div>
-						<div className="player-view-brand-copy" style={{ minWidth: 0 }}>
-							<div style={{ font: `700 14px ${T.sans}`, color: T.ink, lineHeight: 1.1 }}>
-								{t('play.brand')}
-							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
-								{t(data.live ? 'play.sessionLive' : 'play.standby')}
-							</div>
-						</div>
-					</div>
-				</div>
-				<nav
-					className="player-view-nav"
-					aria-label={t('play.nav.label')}
-					style={{
-						flex: 1,
-						overflow: 'auto',
-						padding: `${T.space.three} ${T.space.two}`,
-						display: 'flex',
-						flexDirection: 'column',
-						gap: T.space.half,
-					}}
-				>
-					{NAV.map((n) => (
-						<PlayerNavRow
-							key={n.id}
-							n={n}
-							locked={r < n.min}
-							current={current}
-							setSection={setSection}
-							toast={toast}
-						/>
-					))}
-					<div
-						className="player-view-elevated-label"
-						style={{
-							...eb,
-							padding: `${T.space.three} ${T.space.three} ${T.space.oneHalf}`,
-							display: 'flex',
-							alignItems: 'center',
-							gap: T.space.oneHalf,
-						}}
-					>
-						<span>{t('play.nav.elevated')}</span>
-						<span style={{ flex: 1, height: 1, background: T.bd }} />
-						{r < 2 && <Icon name="hidden" size={13} color={T.ter} />}
-					</div>
-					{NAV_ELEVATED.map((n) => (
-						<PlayerNavRow
-							key={n.id}
-							n={n}
-							locked={r < n.min}
-							current={current}
-							setSection={setSection}
-							toast={toast}
-						/>
-					))}
-				</nav>
-				<div
-					className="player-view-footer"
-					style={{ padding: T.space.three, borderTop: `1px solid ${T.bd}` }}
-				>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: T.space.two,
-							padding: T.space.three,
-							borderRadius: T.radius.lg,
-							background: T.alt,
-							border: `1px solid ${T.bd}`,
-						}}
-					>
-						<Avatar name={data.displayName} size="sm" ring="none" />
-						<div style={{ flex: 1, minWidth: 0 }}>
-							<div
-								style={{
-									font: `600 12.5px ${T.sans}`,
-									color: T.ink,
-									overflow: 'hidden',
-									textOverflow: 'ellipsis',
-									whiteSpace: 'nowrap',
-								}}
-							>
-								{data.displayName}
-							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t(meta.role)}</div>
-						</div>
-					</div>
-				</div>
-			</aside>
-
 			{/* main column */}
 			<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 				<header
@@ -465,6 +354,33 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 						background: 'color-mix(in srgb, var(--color-surface) 55%, transparent)',
 					}}
 				>
+					<a
+						href="#player-main"
+						data-skip-link="true"
+						// HashRouter: the hash IS the route, so following this href would rewrite `#/play`.
+						// Move focus ourselves, exactly as AppShell's skip link does.
+						onClick={(e) => {
+							e.preventDefault();
+							document.getElementById('player-main')?.focus();
+						}}
+						style={{
+							position: 'fixed',
+							left: 8,
+							top: -48,
+							zIndex: 100,
+							padding: `${T.space.two} ${T.space.three}`,
+							borderRadius: T.radius.md,
+							background: 'var(--color-accent)',
+							color: 'var(--color-accent-foreground)',
+							font: `600 13px ${T.sans}`,
+							textDecoration: 'none',
+							transition: 'top var(--duration-fast) var(--easing-standard)',
+						}}
+						onFocus={(e) => (e.currentTarget.style.top = '8px')}
+						onBlur={(e) => (e.currentTarget.style.top = '-48px')}
+					>
+						{t('shell.skipToContent')}
+					</a>
 					<span
 						style={{
 							display: 'inline-flex',
@@ -491,13 +407,13 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 								width: 8,
 								height: 8,
 								borderRadius: T.radius.full,
-								background: data.live ? 'var(--color-status-success-text)' : T.ter,
+								background: presenceShared ? 'var(--color-status-success-text)' : T.ter,
 							}}
 						/>
 						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
-							{joined
+							{presenceShared
 								? t('play.polish.connected')
-								: data.live
+								: !joined && data.live
 									? t('play.polish.localLive')
 									: t('play.polish.disconnected')}
 						</span>
@@ -508,6 +424,155 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 					{body}
 				</main>
 			</div>
+
+			{/* sidebar */}
+			<aside
+				ref={navigationRef}
+				className="player-view-sidebar"
+				style={{
+					order: -1,
+					width: 248,
+					flex: '0 0 auto',
+					display: 'flex',
+					flexDirection: 'column',
+					borderRight: `1px solid ${T.bd}`,
+					background: 'color-mix(in srgb, var(--color-surface) 60%, transparent)',
+					backdropFilter: 'blur(4px)',
+					position: 'sticky',
+					top: 'var(--native-titlebar-height)',
+					height: 'var(--app-viewport-height)',
+				}}
+			>
+				<div className="player-view-bottom-tabs">
+					<BottomTabBar
+						aria-label={t('play.nav.label')}
+						items={[
+							...NAV.slice(0, 4).map((n) => ({
+								key: n.id,
+								icon: n.icon,
+								label: t(n.id === 'sheet' ? 'play.nav.sheetTab' : n.label),
+							})),
+							{ key: 'more', icon: 'more', label: t('play.nav.more') },
+						]}
+						active={NAV.slice(0, 4).some((n) => n.id === current) ? current : 'more'}
+						onSelect={selectSection}
+					/>
+				</div>
+				<div className="player-view-desktop-nav">
+					<div
+						className="player-view-brand"
+						style={{
+							padding: `${T.space.four} ${T.space.four} ${T.space.three}`,
+							borderBottom: `1px solid ${T.bd}`,
+						}}
+					>
+						<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
+							<div
+								style={{
+									width: 34,
+									height: 34,
+									borderRadius: T.radius.lg,
+									background: T.acc,
+									color: T.accFg,
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									font: `700 16px ${T.sans}`,
+								}}
+							>
+								P
+							</div>
+							<div className="player-view-brand-copy" style={{ minWidth: 0 }}>
+								<div style={{ font: `700 14px ${T.sans}`, color: T.ink, lineHeight: 1.1 }}>
+									{t('play.brand')}
+								</div>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									{t(data.live ? 'play.sessionLive' : 'play.standby')}
+								</div>
+							</div>
+						</div>
+					</div>
+					<nav
+						className="player-view-nav"
+						aria-label={t('play.nav.label')}
+						style={{
+							flex: 1,
+							overflow: 'auto',
+							padding: `${T.space.three} ${T.space.two}`,
+							display: 'flex',
+							flexDirection: 'column',
+							gap: T.space.half,
+						}}
+					>
+						{NAV.map((n) => (
+							<PlayerNavRow
+								key={n.id}
+								n={n}
+								locked={r < n.min}
+								current={current}
+								setSection={setSection}
+								toast={toast}
+							/>
+						))}
+						<div
+							className="player-view-elevated-label"
+							style={{
+								...eb,
+								padding: `${T.space.three} ${T.space.three} ${T.space.oneHalf}`,
+								display: 'flex',
+								alignItems: 'center',
+								gap: T.space.oneHalf,
+							}}
+						>
+							<span>{t('play.nav.elevated')}</span>
+							<span style={{ flex: 1, height: 1, background: T.bd }} />
+							{r < 2 && <Icon name="hidden" size={13} color={T.ter} />}
+						</div>
+						{NAV_ELEVATED.map((n) => (
+							<PlayerNavRow
+								key={n.id}
+								n={n}
+								locked={r < n.min}
+								current={current}
+								setSection={setSection}
+								toast={toast}
+							/>
+						))}
+					</nav>
+					<div
+						className="player-view-footer"
+						style={{ padding: T.space.three, borderTop: `1px solid ${T.bd}` }}
+					>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: T.space.two,
+								padding: T.space.three,
+								borderRadius: T.radius.lg,
+								background: T.alt,
+								border: `1px solid ${T.bd}`,
+							}}
+						>
+							<Avatar name={data.displayName} size="sm" ring="none" />
+							<div style={{ flex: 1, minWidth: 0 }}>
+								<div
+									style={{
+										font: `600 12.5px ${T.sans}`,
+										color: T.ink,
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap',
+									}}
+								>
+									{data.displayName}
+								</div>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{t(meta.role)}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</aside>
 
 			<PlayerToasts toasts={toasts} />
 		</div>

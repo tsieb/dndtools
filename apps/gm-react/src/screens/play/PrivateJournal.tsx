@@ -48,6 +48,7 @@ export function PrivateJournal({ data }: { data: LiveData }) {
 	const [notes, setNotes] = useState<PrivateNoteRecord[]>([]);
 	const [bookmarks, setBookmarks] = useState<PrivateBookmarkRecord[]>([]);
 	const [impressions, setImpressions] = useState<PrivateImpressionRecord[]>([]);
+	const [writing, setWriting] = useState(false);
 	const [noteDraft, setNoteDraft] = useState(EMPTY_NOTE);
 	const [bookmarkDraft, setBookmarkDraft] = useState({ target: '', annotation: '' });
 	const [impressionDraft, setImpressionDraft] = useState(EMPTY_IMPRESSION);
@@ -289,35 +290,49 @@ export function PrivateJournal({ data }: { data: LiveData }) {
 				}}
 			>
 				<Panel title={t('play.journal.private.notes', { count: notes.length })}>
-					<div style={{ display: 'grid', gap: T.space.two }} data-testid="private-note-form">
-						<Field label={t('play.journal.private.noteTitle')}>
-							<Input
-								value={noteDraft.title}
-								onChange={(e: { target: { value: string } }) =>
-									setNoteDraft((d) => ({ ...d, title: e.target.value }))
-								}
-							/>
-						</Field>
-						<Field label={t('play.journal.private.noteBody')}>
-							<Textarea
-								rows={3}
-								value={noteDraft.body}
-								onChange={(e: { target: { value: string } }) =>
-									setNoteDraft((d) => ({ ...d, body: e.target.value }))
-								}
-							/>
-						</Field>
-						<div>
-							<Button
-								variant="primary"
-								icon="add"
-								disabled={!noteDraft.title.trim()}
-								onClick={() => run(saveNote)}
-							>
-								{t('play.journal.private.saveNote')}
-							</Button>
+					<Button
+						variant={writing ? 'secondary' : 'primary'}
+						aria-expanded={writing}
+						aria-controls="private-note-editor"
+						onClick={() => setWriting(!writing)}
+					>
+						{t('play.journal.private.writeNote')}
+					</Button>
+					{writing && (
+						<div
+							id="private-note-editor"
+							style={{ display: 'grid', gap: T.space.two }}
+							data-testid="private-note-form"
+						>
+							<Field label={t('play.journal.private.noteTitle')}>
+								<Input
+									value={noteDraft.title}
+									onChange={(e: { target: { value: string } }) =>
+										setNoteDraft((d) => ({ ...d, title: e.target.value }))
+									}
+								/>
+							</Field>
+							<Field label={t('play.journal.private.noteBody')}>
+								<Textarea
+									rows={3}
+									value={noteDraft.body}
+									onChange={(e: { target: { value: string } }) =>
+										setNoteDraft((d) => ({ ...d, body: e.target.value }))
+									}
+								/>
+							</Field>
+							<div>
+								<Button
+									variant="primary"
+									icon="add"
+									disabled={!noteDraft.title.trim()}
+									onClick={() => run(saveNote)}
+								>
+									{t('play.journal.private.saveNote')}
+								</Button>
+							</div>
 						</div>
-					</div>
+					)}
 					<RecordList
 						empty={t('play.journal.private.notesEmpty')}
 						rows={notes.map((note) => ({
@@ -340,149 +355,165 @@ export function PrivateJournal({ data }: { data: LiveData }) {
 					/>
 				</Panel>
 
-				<Panel title={t('play.journal.private.bookmarks', { count: bookmarks.length })}>
-					{targets.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-							{t('play.journal.private.noTargets')}
-						</div>
-					) : (
-						<div style={{ display: 'grid', gap: T.space.two }} data-testid="private-bookmark-form">
-							<Field label={t('play.journal.private.bookmarkTarget')}>
-								<Select
-									value={bookmarkDraft.target}
-									options={[
-										{ value: '', label: '—' },
-										...targets.map((row) => ({
-											value: row.key,
-											label: `${targetKindLabel(row.kind)} · ${row.title}`,
-										})),
-									]}
+				<details>
+					<summary>{t('play.journal.private.bookmarks', { count: bookmarks.length })}</summary>
+					<Panel>
+						{targets.length === 0 ? (
+							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+								{t('play.journal.private.noTargets')}
+							</div>
+						) : (
+							<div
+								style={{ display: 'grid', gap: T.space.two }}
+								data-testid="private-bookmark-form"
+							>
+								<Field label={t('play.journal.private.bookmarkTarget')}>
+									<Select
+										value={bookmarkDraft.target}
+										options={[
+											{ value: '', label: '—' },
+											...targets.map((row) => ({
+												value: row.key,
+												label: `${targetKindLabel(row.kind)} · ${row.title}`,
+											})),
+										]}
+										onChange={(e: { target: { value: string } }) =>
+											setBookmarkDraft((d) => ({ ...d, target: e.target.value }))
+										}
+									/>
+								</Field>
+								<Field label={t('play.journal.private.annotation')}>
+									<Textarea
+										rows={2}
+										value={bookmarkDraft.annotation}
+										onChange={(e: { target: { value: string } }) =>
+											setBookmarkDraft((d) => ({ ...d, annotation: e.target.value }))
+										}
+									/>
+								</Field>
+								<div>
+									<Button
+										variant="secondary"
+										icon="pin"
+										disabled={!bookmarkDraft.target}
+										onClick={() => run(saveBookmark)}
+									>
+										{t('play.journal.private.saveBookmark')}
+									</Button>
+								</div>
+							</div>
+						)}
+						<RecordList
+							empty={t('play.journal.private.bookmarksEmpty')}
+							rows={bookmarks.map((bookmark) => ({
+								id: bookmark.id,
+								title: bookmark.targetTitle,
+								body: bookmark.annotation,
+								testId: 'private-bookmark',
+								badge: targetKindLabel(bookmark.targetKind),
+								actions: (
+									<PrivateDelete
+										name={bookmark.targetTitle}
+										label={t('play.journal.private.removeBookmark', {
+											title: bookmark.targetTitle,
+										})}
+										remove={async () => {
+											await removePrivateBookmark(id, bookmark.id);
+											await reload(id);
+											setStatus(t('play.polish.deleted'));
+										}}
+									/>
+								),
+							}))}
+						/>
+					</Panel>
+				</details>
+
+				<details>
+					<summary>{t('play.journal.private.impressions', { count: impressions.length })}</summary>
+					<Panel>
+						<div
+							style={{ display: 'grid', gap: T.space.two }}
+							data-testid="private-impression-form"
+						>
+							<Field label={t('play.journal.private.impressionWho')}>
+								<Input
+									value={impressionDraft.npcName}
 									onChange={(e: { target: { value: string } }) =>
-										setBookmarkDraft((d) => ({ ...d, target: e.target.value }))
+										setImpressionDraft((d) => ({ ...d, npcName: e.target.value }))
 									}
 								/>
 							</Field>
-							<Field label={t('play.journal.private.annotation')}>
+							<Field label={t('play.journal.private.impressionNote')}>
+								<Select
+									value={impressionDraft.npcNoteId}
+									options={[
+										{ value: '', label: t('play.journal.private.impressionNoteNone') },
+										...npcNotes.map((note) => ({ value: note.id, label: note.title })),
+									]}
+									onChange={(e: { target: { value: string } }) =>
+										setImpressionDraft((d) => ({ ...d, npcNoteId: e.target.value }))
+									}
+								/>
+							</Field>
+							<Field label={t('play.journal.private.impressionBody')}>
 								<Textarea
 									rows={2}
-									value={bookmarkDraft.annotation}
+									value={impressionDraft.body}
 									onChange={(e: { target: { value: string } }) =>
-										setBookmarkDraft((d) => ({ ...d, annotation: e.target.value }))
+										setImpressionDraft((d) => ({ ...d, body: e.target.value }))
 									}
 								/>
 							</Field>
 							<div>
 								<Button
 									variant="secondary"
-									icon="pin"
-									disabled={!bookmarkDraft.target}
-									onClick={() => run(saveBookmark)}
+									icon="add"
+									disabled={!impressionDraft.npcName.trim()}
+									onClick={() => run(saveImpression)}
 								>
-									{t('play.journal.private.saveBookmark')}
+									{t('play.journal.private.saveImpression')}
 								</Button>
 							</div>
 						</div>
-					)}
-					<RecordList
-						empty={t('play.journal.private.bookmarksEmpty')}
-						rows={bookmarks.map((bookmark) => ({
-							id: bookmark.id,
-							title: bookmark.targetTitle,
-							body: bookmark.annotation,
-							testId: 'private-bookmark',
-							badge: targetKindLabel(bookmark.targetKind),
-							actions: (
-								<PrivateDelete
-									name={bookmark.targetTitle}
-									label={t('play.journal.private.removeBookmark', { title: bookmark.targetTitle })}
-									remove={async () => {
-										await removePrivateBookmark(id, bookmark.id);
-										await reload(id);
-										setStatus(t('play.polish.deleted'));
-									}}
-								/>
-							),
-						}))}
-					/>
-				</Panel>
-
-				<Panel title={t('play.journal.private.impressions', { count: impressions.length })}>
-					<div style={{ display: 'grid', gap: T.space.two }} data-testid="private-impression-form">
-						<Field label={t('play.journal.private.impressionWho')}>
-							<Input
-								value={impressionDraft.npcName}
-								onChange={(e: { target: { value: string } }) =>
-									setImpressionDraft((d) => ({ ...d, npcName: e.target.value }))
-								}
-							/>
-						</Field>
-						<Field label={t('play.journal.private.impressionNote')}>
-							<Select
-								value={impressionDraft.npcNoteId}
-								options={[
-									{ value: '', label: t('play.journal.private.impressionNoteNone') },
-									...npcNotes.map((note) => ({ value: note.id, label: note.title })),
-								]}
-								onChange={(e: { target: { value: string } }) =>
-									setImpressionDraft((d) => ({ ...d, npcNoteId: e.target.value }))
-								}
-							/>
-						</Field>
-						<Field label={t('play.journal.private.impressionBody')}>
-							<Textarea
-								rows={2}
-								value={impressionDraft.body}
-								onChange={(e: { target: { value: string } }) =>
-									setImpressionDraft((d) => ({ ...d, body: e.target.value }))
-								}
-							/>
-						</Field>
-						<div>
-							<Button
-								variant="secondary"
-								icon="add"
-								disabled={!impressionDraft.npcName.trim()}
-								onClick={() => run(saveImpression)}
-							>
-								{t('play.journal.private.saveImpression')}
-							</Button>
-						</div>
-					</div>
-					<RecordList
-						empty={t('play.journal.private.impressionsEmpty')}
-						rows={impressions.map((impression) => ({
-							id: impression.id,
-							title: impression.npcName,
-							body: impression.body,
-							testId: 'private-impression',
-							badge: impression.sharedAt ? t('play.journal.private.sharedBadge') : undefined,
-							badgeStatus: 'success' as const,
-							actions: (
-								<span
-									style={{ display: 'inline-flex', gap: T.space.oneHalf, alignItems: 'center' }}
-								>
-									<Button
-										size="sm"
-										icon="send"
-										aria-label={t('play.journal.private.shareOne', { name: impression.npcName })}
-										onClick={() => run(() => shareImpression(impression))}
+						<RecordList
+							empty={t('play.journal.private.impressionsEmpty')}
+							rows={impressions.map((impression) => ({
+								id: impression.id,
+								title: impression.npcName,
+								body: impression.body,
+								testId: 'private-impression',
+								badge: impression.sharedAt ? t('play.journal.private.sharedBadge') : undefined,
+								badgeStatus: 'success' as const,
+								actions: (
+									<span
+										style={{ display: 'inline-flex', gap: T.space.oneHalf, alignItems: 'center' }}
 									>
-										{t('play.journal.private.share')}
-									</Button>
-									<PrivateDelete
-										name={impression.npcName}
-										label={t('play.journal.private.deleteImpression', { name: impression.npcName })}
-										remove={async () => {
-											await removePrivateImpression(id, impression.id);
-											await reload(id);
-											setStatus(t('play.polish.deleted'));
-										}}
-									/>
-								</span>
-							),
-						}))}
-					/>
-				</Panel>
+										<Button
+											size="sm"
+											icon="send"
+											aria-label={t('play.journal.private.shareOne', { name: impression.npcName })}
+											onClick={() => run(() => shareImpression(impression))}
+										>
+											{t('play.journal.private.share')}
+										</Button>
+										<PrivateDelete
+											name={impression.npcName}
+											label={t('play.journal.private.deleteImpression', {
+												name: impression.npcName,
+											})}
+											remove={async () => {
+												await removePrivateImpression(id, impression.id);
+												await reload(id);
+												setStatus(t('play.polish.deleted'));
+											}}
+										/>
+									</span>
+								),
+							}))}
+						/>
+					</Panel>
+				</details>
 			</fieldset>
 		</PrivatePanels>
 	);

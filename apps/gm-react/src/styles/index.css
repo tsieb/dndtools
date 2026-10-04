@@ -164,47 +164,38 @@ html[data-electron='true'] .app-fixed-viewport {
 	min-height: 44px;
 }
 
-/* Standalone player companion: rail at tablet widths, bottom icon navigation on phones. */
-@media (max-width: 1024px) {
-	.player-view-sidebar {
-		width: 64px !important;
-	}
-
-	.player-view-brand,
-	.player-view-footer {
-		padding: 12px 10px !important;
-	}
-
-	.player-view-brand-copy,
-	.player-view-footer > div > div,
-	.player-view-nav-row > span,
-	.player-view-elevated-label > span:first-child,
-	.player-view-elevated-label > span:nth-child(2) {
-		display: none !important;
-	}
-
-	.player-view-nav {
-		align-items: center;
-		padding: 10px !important;
-	}
-
-	.player-view-nav-row {
-		width: 44px !important;
-		height: 44px;
-		padding: 0 !important;
-		justify-content: center;
-		border-left: none !important;
-	}
+/* Reading order is header, content, navigation; desktop presentation keeps the sidebar left. */
+.player-view-bottom-tabs {
+	display: none;
 }
-
+.player-view-desktop-nav {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+.player-view-more .player-view-nav-row {
+	min-height: 48px;
+}
+.player-view-shell [data-skip-link] {
+	min-height: 48px;
+	min-width: 48px;
+}
+.scene-display-help {
+	position: absolute;
+	bottom: 0;
+	inset-inline: 0;
+	margin: 0;
+	padding: var(--space-3);
+	background: var(--color-surface);
+	color: var(--color-text-secondary);
+	font: var(--text-sm)/1.5 var(--font-sans);
+	text-align: center;
+	z-index: 2;
+}
 @media (max-width: 640px) {
 	.player-view-shell {
-		/* Seven primary destinations plus the three Co-DM tools need multiple rows at phone widths. Keeping
-		   every 44px target visible is more discoverable than a bottom bar whose final action starts
-		   off-screen with no scroll affordance. */
-		padding-bottom: var(--player-navigation-height, calc(107px + env(safe-area-inset-bottom, 0px)));
+		padding-bottom: var(--player-navigation-height, 80px);
 	}
-
 	.player-view-sidebar {
 		position: fixed !important;
 		z-index: 80;
@@ -214,52 +205,29 @@ html[data-electron='true'] .app-fixed-viewport {
 		width: 100% !important;
 		height: auto !important;
 		border-right: none !important;
-		border-top: 1px solid var(--color-border);
-		flex-direction: row !important;
 	}
-
-	.player-view-brand,
-	.player-view-footer,
-	.player-view-elevated-label {
-		display: none !important;
+	.player-view-desktop-nav {
+		display: none;
 	}
-
-	.player-view-nav {
-		width: 100%;
-		flex-direction: row !important;
-		flex-wrap: wrap;
-		justify-content: space-around;
-		overflow-x: hidden !important;
-		overflow-y: hidden !important;
-		padding: 8px max(8px, env(safe-area-inset-right, 0px))
-			calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)) !important;
+	.player-view-bottom-tabs {
+		display: block;
 	}
-
-	.player-view-nav-row {
-		flex: 0 0 44px;
+	.player-view-shell .player-view-toolbar > button,
+	.player-view-shell button,
+	.player-view-shell summary {
+		min-height: 48px;
+		min-width: 48px;
 	}
-
-	/* The page, not a pane, scrolls here, and the fixed nav above covers its bottom edge. A scroll that
-	   brings a control to the nearest edge (`scrollIntoView({ block: 'nearest' })`) stopped it right
-	   under the nav — found at 200% zoom, where the stage grows tall enough to push Raise hand below
-	   the fold (RC-UX-2.4). The measured height follows large-text target growth and row wrapping;
-	   it includes the safe area and is shared with the shell's bottom padding. */
 	html:has(.player-view-shell) {
-		scroll-padding-bottom: var(
-			--player-navigation-height,
-			calc(107px + env(safe-area-inset-bottom, 0px))
-		);
+		scroll-padding-bottom: var(--player-navigation-height, 80px);
 	}
-
-	.player-view-toolbar > span:nth-child(2) {
+	.player-view-toolbar > span:nth-of-type(2) {
 		display: none !important;
 	}
-
 	.player-view-toast-viewport {
 		inset-inline: 12px !important;
-		bottom: calc(119px + env(safe-area-inset-bottom, 0px)) !important;
+		bottom: calc(var(--player-navigation-height, 80px) + 12px) !important;
 	}
-
 	.player-view-toast-viewport > div {
 		min-width: 0 !important;
 		max-width: none !important;

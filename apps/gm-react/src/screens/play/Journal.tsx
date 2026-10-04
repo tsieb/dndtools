@@ -1,9 +1,18 @@
 import { Badge, EmptyState, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { moodTheme } from '../../app/sceneCardMood';
-import { useI18n } from '../../i18n';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { PrivateJournal } from './PrivateJournal';
+
+const JOURNAL_KIND: Record<string, MessageKey> = {
+	note: 'player.journal.kind.note',
+	bookmark: 'player.journal.kind.bookmark',
+	'npc-impression': 'player.journal.kind.npcImpression',
+	'personal-quest': 'player.journal.kind.personalQuest',
+	'session-highlight': 'player.journal.kind.sessionHighlight',
+	downtime: 'player.journal.kind.downtime',
+};
 
 // 6 · JOURNAL — the entries the DM has shared with this player, and (RC-CHR-4.1) the player's own
 // private notes, which live in a separate device-local database and never reach the table.
@@ -29,6 +38,7 @@ export function JournalSection({ data }: { data: LiveData }) {
 					{t('play.journal.privateNote')}
 				</span>
 			</div>
+			<PrivateJournal data={data} />
 			<Panel title={t('play.journal.sharedEntries', { count: data.journal.length })}>
 				{data.journal.length === 0 ? (
 					<EmptyState inset illustration="journal-empty" description={t('play.journal.empty')} />
@@ -51,7 +61,9 @@ export function JournalSection({ data }: { data: LiveData }) {
 									}}
 								>
 									<span style={{ font: `600 13px ${T.sans}`, color: T.ink }}>{e.title}</span>
-									<Badge status="neutral">{e.kind}</Badge>
+									<Badge status="neutral">
+										{t(JOURNAL_KIND[e.kind] ?? 'player.journal.kind.note')}
+									</Badge>
 								</div>
 								{e.body && <div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>{e.body}</div>}
 							</div>
@@ -106,7 +118,6 @@ export function JournalSection({ data }: { data: LiveData }) {
 					</div>
 				)}
 			</Panel>
-			<PrivateJournal data={data} />
 		</PvPage>
 	);
 }

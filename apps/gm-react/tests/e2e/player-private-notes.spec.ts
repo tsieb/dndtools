@@ -35,6 +35,8 @@ async function openPrivateJournal(page: Page, opts: { preview: boolean }): Promi
 	});
 	if (opts.preview) await enterPreview(page, 'player');
 	await page.getByRole('main').first().waitFor({ timeout: 20_000 });
+	if (page.viewportSize()!.width <= 640)
+		await page.getByRole('button', { name: 'More', exact: true }).click();
 	await page.getByRole('button', { name: 'Journal', exact: true }).click();
 	await expect(page.getByTestId('private-journal')).toBeVisible();
 }
@@ -50,6 +52,7 @@ test.describe('player-private notes', () => {
 	}) => {
 		await openPrivateJournal(page, { preview: true });
 
+		await page.getByRole('button', { name: 'Write a note', exact: true }).click();
 		const form = page.getByTestId('private-note-form');
 		await form.getByLabel('Title', { exact: true }).fill('What I actually think');
 		await form.getByLabel('Note', { exact: true }).fill(SECRET);
@@ -84,6 +87,8 @@ test.describe('player-private notes', () => {
 			timeout: 20_000,
 		});
 		await enterPreview(page, 'player');
+		if (page.viewportSize()!.width <= 640)
+			await page.getByRole('button', { name: 'More', exact: true }).click();
 		await page.getByRole('button', { name: 'Journal', exact: true }).click();
 		await expect(page.getByTestId('private-note').first()).toContainText(SECRET);
 	});
@@ -94,12 +99,14 @@ test.describe('player-private notes', () => {
 		await openPrivateJournal(page, { preview: false });
 
 		// One private note that must stay private, and one impression the player chooses to share.
+		await page.getByRole('button', { name: 'Write a note', exact: true }).click();
 		const noteForm = page.getByTestId('private-note-form');
 		await noteForm.getByLabel('Title', { exact: true }).fill('Kept back');
 		await noteForm.getByLabel('Note', { exact: true }).fill(SECRET);
 		await page.getByRole('button', { name: 'Save note', exact: true }).click();
 		await expect(page.getByTestId('private-note')).toHaveCount(1);
 
+		await page.locator('summary').filter({ hasText: 'NPC impressions' }).click();
 		const impressionForm = page.getByTestId('private-impression-form');
 		await impressionForm.getByLabel('Who', { exact: true }).fill(NPC);
 		await impressionForm
@@ -154,6 +161,7 @@ test.describe('player-private notes', () => {
 		// screen must report the refusal rather than paint a shared badge nobody earned.
 		await openPrivateJournal(page, { preview: true });
 
+		await page.locator('summary').filter({ hasText: 'NPC impressions' }).click();
 		const impressionForm = page.getByTestId('private-impression-form');
 		await impressionForm.getByLabel('Who', { exact: true }).fill(NPC);
 		await impressionForm
@@ -178,6 +186,7 @@ test.describe('player-private notes', () => {
 	}) => {
 		await openPrivateJournal(page, { preview: true });
 
+		await page.getByRole('button', { name: 'Write a note', exact: true }).click();
 		const form = page.getByTestId('private-note-form');
 		await form.getByLabel('Title', { exact: true }).fill('A note');
 		await form.getByLabel('Note', { exact: true }).fill(SECRET);

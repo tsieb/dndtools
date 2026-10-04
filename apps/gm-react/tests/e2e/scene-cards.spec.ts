@@ -1,3 +1,4 @@
+import { selectCompanionSection } from './_companion';
 import { openDemoVault } from './_helpers';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
@@ -544,7 +545,7 @@ test.describe('scene cards: atmosphere authoring, push, and display', () => {
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
 		await expect(page.getByRole('heading', { name: 'Now playing' })).toBeVisible();
-		await page.getByRole('button', { name: 'Journal' }).click();
+		await selectCompanionSection(page, 'Journal');
 		await expect(page.getByText('Scene history (3)')).toBeVisible({ timeout: 10_000 });
 
 		// Rendered order is newest → oldest (the panel reverses the oldest-first history): C above B above A.

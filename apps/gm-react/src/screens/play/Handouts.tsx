@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Badge, EmptyState, Icon } from '../../ds';
 import { T } from '../../app/screen-kit';
-import { useI18n } from '../../i18n';
+import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { renderMarkdown } from '../../app/markdown/render';
 import type { InlineRollLogger } from '../../app/markdown/RollButton';
@@ -11,6 +11,12 @@ const HANDOUT_ICON: Record<string, string> = {
 	note: 'knowledge-book',
 	scene: 'atlas-map',
 	recap: 'campaign-scroll',
+};
+const HANDOUT_KIND: Record<string, MessageKey> = {
+	note: 'graph.kind.note',
+	object: 'graph.kind.object',
+	map: 'graph.kind.map',
+	poi: 'graph.kind.poi',
 };
 export function HandoutsSection({
 	data,
@@ -91,7 +97,9 @@ export function HandoutsSection({
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two }}>
 											<span style={{ font: `600 14px ${T.sans}`, color: T.ink }}>{n.title}</span>
-											<Badge status="info">{n.kind}</Badge>
+											<Badge status="info">
+												{t(HANDOUT_KIND[n.kind] ?? 'palette.kind.handout')}
+											</Badge>
 										</div>
 										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: T.space.half }}>
 											{t('play.handouts.updated', {

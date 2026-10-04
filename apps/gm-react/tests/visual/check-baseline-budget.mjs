@@ -12,7 +12,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('./__screenshots__/', import.meta.url));
 // Three themes × three tiers × ~15 surfaces is ~135 PNGs; the total leaves room for five themes.
 const MAX_FILE_BYTES = 320 * 1024;
-const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
+// RC-CHR-6.6 adds full companion-frame coverage in five themes on all three tiers
+// (about 1.8 MiB beyond the earlier heading-only stage captures). Keep the per-image cap.
+const MAX_TOTAL_BYTES = 34 * 1024 * 1024;
 
 function walk(dir) {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

@@ -1289,6 +1289,12 @@ export default {
 	'palette.new.encounter': '[Ɓúíľď éñçóúñţéŕ~~~~ ~]',
 	'palette.new.encounterKeywords': '[çóḿƀáţ ƒíğĥţ íñíţíáţíṽé ḿóñšţéŕš ƀáţţľé~~~~ ~~~~ ~~~~ ~]',
 	'play.nav.label': '[Ƥľáýéŕ šéçţíóñš~~~~ ~]',
+	'play.nav.more': '[Ḿóŕé~~]',
+	'play.nav.sheetTab': '[Šĥééţ~~]',
+	'play.journal.private.writeNote': '[Ŵŕíţé á ñóţé~~~~ ]',
+	'sceneDisplay.help':
+		'[Ýóúŕ ~~{gm} çóñţŕóľš ţĥíš ďíšƥľáý ƒŕóḿ Šéššíóñ → Šçéñé çáŕďš.~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'settings.players.characters': '[Ƥľáýíñğ ~~~~{characters}]',
 	'play.nav.stage': '[Ñóŵ ƥľáýíñğ~~~~ ]',
 	'play.nav.sheet': '[Ḿý çĥáŕáçţéŕ~~~~ ]',
 	'play.nav.dice': '[Ďíçé~~]',

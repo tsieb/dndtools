@@ -1,3 +1,4 @@
+import { selectCompanionSection } from './_companion';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
@@ -58,7 +59,7 @@ test.describe('player companion: the between-session inbox', () => {
 		});
 		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
-		await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+		await selectCompanionSection(page, 'Inbox');
 
 		const recap = page.getByTestId('inbox-recap').first();
 		await expect(recap).toBeVisible();
@@ -79,7 +80,7 @@ test.describe('player companion: the between-session inbox', () => {
 		});
 		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
-		await page.getByRole('button', { name: 'Inbox', exact: true }).click();
+		await selectCompanionSection(page, 'Inbox');
 
 		await expect(page.getByTestId('inbox-recap')).toHaveCount(0);
 		await expect(page.getByRole('main')).toContainText('No recaps yet');

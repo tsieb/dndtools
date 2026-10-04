@@ -1,3 +1,4 @@
+import { selectCompanionSection } from './_companion';
 import type { CoreStateSlice } from '@dndtools/core';
 import { expect, test, type Page } from '@playwright/test';
 import {
@@ -339,7 +340,7 @@ test.describe('golden paths', () => {
 		await player.keyboard.press('Escape');
 		await expect(player.getByTestId('player-stage-map')).toBeVisible();
 		await playerHealth.checkpoint('Projected map');
-		await player.getByRole('button', { name: 'Handouts', exact: true }).click();
+		await selectCompanionSection(player, 'Handouts');
 		await expect(player.getByText('Golden letter', { exact: true }).first()).toBeVisible();
 		await expect(player.getByText('The guide is a dragon.', { exact: false })).toHaveCount(0);
 		await expect(player.getByText('Golden secret', { exact: false })).toHaveCount(0);

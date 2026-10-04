@@ -1,3 +1,4 @@
+import { openCompanionMore, selectCompanionSection } from './_companion';
 import { openDemoVault } from './_helpers';
 import { expect, test, type Page } from '@playwright/test';
 import {
@@ -167,6 +168,7 @@ test.describe('co-dm: elevated role', () => {
 		await createScene(page, dmScene, 'dm-only');
 
 		await bootPlay(page);
+		await openCompanionMore(page);
 		const maps = page.getByRole('button', { name: 'Maps' });
 		const bestiary = page.getByRole('button', { name: 'Bestiary' });
 		const assist = page.getByRole('button', { name: 'Combat assist' });
@@ -193,13 +195,13 @@ test.describe('co-dm: elevated role', () => {
 
 		// The elevated Atlas carries the dm-only scenes a player would never receive (safe by construction:
 		// the payload is built through the co-DM's actor-filtered `listScenesForActor`).
-		await maps.click();
+		await selectCompanionSection(page, 'Maps');
 		await expect(page.getByText('Maps & scenes')).not.toHaveCount(0);
 		await expect(page.getByText(dmScene)).not.toHaveCount(0);
 		await expect(page.getByText(SEEDED_DM_SCENE)).not.toHaveCount(0);
 
 		// The elevated Bestiary carries the DM's hidden creature roster.
-		await bestiary.click();
+		await selectCompanionSection(page, 'Bestiary');
 		await expect(page.getByText(SEEDED_DM_NPC)).not.toHaveCount(0);
 
 		// The elevation is durable: the promoted role survives a reload and the tier stays unlocked.
@@ -209,6 +211,7 @@ test.describe('co-dm: elevated role', () => {
 		});
 		await page.getByText('Player view').first().waitFor({ state: 'attached', timeout: 20_000 });
 		expect(await roleOf(page, PLAYER_ACTOR)).toBe('co-dm');
+		await openCompanionMore(page);
 		await expect(page.getByRole('button', { name: 'Maps' })).toBeEnabled();
 	});
 
@@ -319,6 +322,7 @@ test.describe('preview-mode edges (RC-CHR-4.3 / DEBT-2026-005)', () => {
 		await bootPlay(page);
 		await enterPreviewRole(page, 'player');
 
+		await openCompanionMore(page);
 		const maps = page.getByRole('button', { name: 'Maps' });
 		const bestiary = page.getByRole('button', { name: 'Bestiary' });
 		const assist = page.getByRole('button', { name: 'Combat assist' });

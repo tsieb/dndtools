@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { countCoDmActors, type CommandResult } from '@dndtools/core';
+import {
+	countCoDmActors,
+	singularGrantsOnEntity,
+	CHARACTER_ENTITY_TYPE,
+	type CommandResult,
+} from '@dndtools/core';
 import { Avatar, Badge, Button, IconButton, Input, Select, Toaster } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
@@ -156,6 +161,16 @@ export function SettingsPlayers() {
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
 					{sorted.map((a, i) => {
 						const promotable = a.role !== 'dm';
+						const characters = Object.values(runtime.state.characters.characters)
+							.filter((character) =>
+								singularGrantsOnEntity(
+									runtime.state.permissions.grants,
+									CHARACTER_ENTITY_TYPE,
+									character.id,
+								).some((grant) => grant.playerActorId === a.id),
+							)
+							.map((character) => character.name)
+							.join(', ');
 						const roleOptions = [
 							{ value: 'player', label: t('settings.players.role.player') },
 							{ value: 'observer', label: t('settings.players.role.observer') },
@@ -252,9 +267,11 @@ export function SettingsPlayers() {
 									<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
 										{a.id === dmActorId && isPlaceholderActorName(a.displayName)
 											? t('settings.players.yourNameHint')
-											: ROLE_REACH[a.role]
-												? t(ROLE_REACH[a.role])
-												: null}
+											: characters
+												? t('settings.players.characters', { characters })
+												: ROLE_REACH[a.role]
+													? t(ROLE_REACH[a.role])
+													: null}
 									</div>
 								</div>
 								{/* No presence dot here: this roster has no live session/connection state to derive one

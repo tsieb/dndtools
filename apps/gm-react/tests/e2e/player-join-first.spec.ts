@@ -1,3 +1,4 @@
+import { selectCompanionSection } from './_companion';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { gotoRoute, installFakeLan, markOnboarded } from './_helpers';
@@ -78,7 +79,7 @@ test('the invited PC replaces the join stage after a fake-LAN handshake', async 
 		}, answer);
 		await expect(dialog.getByTestId('session-connection')).toContainText('Connected');
 		await player.keyboard.press('Escape');
-		await player.getByRole('button', { name: 'My character', exact: true }).click();
+		await selectCompanionSection(player, 'My character');
 		await expect(player.getByRole('heading', { name: 'Invited adventurer' })).toBeVisible();
 		await expect(player.getByText('Sera Duskwhisper', { exact: true })).toHaveCount(0);
 		await axe(player);
@@ -102,7 +103,7 @@ test('the demo vault keeps an explicitly labelled participant preview', async ({
 	await page.reload();
 	await page.waitForFunction(() => window.__rt?.loaded);
 	await expect(page.getByText('Preview · Demo Player', { exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'My character', exact: true }).click();
+	await selectCompanionSection(page, 'My character');
 	await expect(page.getByRole('heading', { name: 'Sera Duskwhisper' })).toBeVisible();
 	await page.getByRole('button', { name: 'Party', exact: true }).click();
 	await expect(page.getByText('You', { exact: true })).toHaveCount(0);

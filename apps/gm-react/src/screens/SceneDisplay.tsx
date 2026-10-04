@@ -11,6 +11,7 @@ import {
 	subscribeSceneDisplay,
 	type SceneDisplayPayload,
 } from '../platform/sceneDisplayChannel';
+import { useDocumentTitle } from '../app/screen-kit';
 import { moodTheme } from '../app/sceneCardMood';
 import { useI18n } from '../i18n';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
@@ -114,6 +115,7 @@ export function SceneDisplaySurface({
  * current card even before the next dispatch.
  */
 export function SceneDisplay() {
+	const { t } = useI18n();
 	const runtime = useRuntime();
 	const [payload, setPayload] = useState<SceneDisplayPayload | null>(null);
 
@@ -138,6 +140,9 @@ export function SceneDisplay() {
 
 	return (
 		<div className="app-fixed-viewport scene-display-viewport" role="main">
+			<p className="scene-display-help" data-theme="tavern">
+				{t('sceneDisplay.help')}
+			</p>
 			<SceneDisplaySurface active={active} transitionStyle={transitionStyle} />
 		</div>
 	);
@@ -149,7 +154,11 @@ export function SceneDisplay() {
  * images arrive as same-origin object URLs owned and released by the primary broadcaster.
  */
 export function StandaloneSceneDisplay() {
+	const { t } = useI18n();
 	const [payload, setPayload] = useState<SceneDisplayPayload | null>(null);
+	useDocumentTitle(
+		payload?.active?.title ?? t(payload ? 'sceneDisplay.noScene' : 'sceneDisplay.waiting'),
+	);
 
 	useEffect(() => {
 		const unsubscribe = subscribeSceneDisplay(setPayload);
@@ -159,6 +168,9 @@ export function StandaloneSceneDisplay() {
 
 	return (
 		<div className="app-fixed-viewport scene-display-viewport" role="main">
+			<p className="scene-display-help" data-theme="tavern">
+				{t('sceneDisplay.help')}
+			</p>
 			<SceneDisplaySurface
 				active={payload?.active ?? null}
 				transitionStyle={payload?.transitionStyle ?? 'cut'}
