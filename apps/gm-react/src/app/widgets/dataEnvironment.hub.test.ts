@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ALL_WIDGET_HUB_QUERY_SOURCES,
+	WIDGET_DATA_QUERY_SOURCES,
 	PREVIEW_PLAYER_ACTOR_ID,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	dispatchCommand,
@@ -832,4 +833,81 @@ describe('RC-WID-5.2 — hub query sources', () => {
 			expect(result.emptyLabel).toBe('No session log saved yet.');
 		});
 	});
+});
+
+describe('character field redaction in live previews', () => {
+	function campaign(dmOnlyFields: string[], pc = true) {
+		const state = accept(
+			dispatchCommand(
+				buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR),
+				makeEnvironment(),
+				{
+					type: 'character.quick-create',
+					actorId: DM_ACTOR.id,
+					payload: {
+						kind: 'npc',
+						name: 'Visible Guard',
+						visibility: 'player-visible',
+						combat: { hp: 7, maxHp: 19, tempHp: 3, ac: 12, conditions: ['poisoned'] },
+						dmOnlyFields,
+					},
+				},
+			),
+		);
+		// Quick-create does not create PCs; retain the command-created field privacy for the PC case.
+		if (pc) Object.values(state.characters.characters)[0]!.kind = 'pc';
+		state.permissions = permissionsWithPreviewActors(state.permissions);
+		return state;
+	}
+
+	it.each([PLAYER_ACTOR.id, PREVIEW_PLAYER_ACTOR_ID])(
+		'renders the whole catalogue with a redacted NPC for %s',
+		(actorId) => {
+			const state = campaign(['combat.conditions'], false);
+			for (const source of WIDGET_DATA_QUERY_SOURCES)
+				expect(() => read(state, actorId, source), source).not.toThrow();
+			expect(read(state, actorId, 'party').rows).toEqual([]);
+		},
+	);
+
+	for (const source of ['party', 'visible-characters'] as const) {
+		it.each([PLAYER_ACTOR.id, PREVIEW_PLAYER_ACTOR_ID])(
+			`${source} omits private PC conditions for %s`,
+			(actorId) => {
+				const state = campaign(['combat.conditions']);
+				const result = read(state, actorId, source);
+				expect(result.rows).toHaveLength(1);
+				expect(result.rows[0]).toMatchObject({ primary: 'Visible Guard', value: 7, max: 19 });
+				expect(printed(result)).not.toContain('poisoned');
+				if (source === 'party')
+					expect(printed(read(state, DM_ACTOR.id, source))).toContain('poisoned');
+			},
+		);
+		it.each(['hp', 'maxHp', 'tempHp', 'ac', 'all'])(
+			`${source} omits redacted %s without inventing vitals`,
+			(field) => {
+				const fields = field === 'all' ? ['hp', 'maxHp', 'tempHp', 'ac', 'conditions'] : [field];
+				const state = campaign(fields.map((key) => `combat.${key}`));
+				for (const actorId of [PLAYER_ACTOR.id, PREVIEW_PLAYER_ACTOR_ID]) {
+					const member = read(state, actorId, source).rows[0]!;
+					expect(member.primary).toBe('Visible Guard');
+					expect(JSON.stringify(member)).not.toContain('undefined');
+					if (fields.includes('hp')) {
+						expect(member.value).toBeUndefined();
+						expect(member.secondary ?? '').not.toContain('7');
+					}
+					if (fields.includes('maxHp')) {
+						expect(member.max).toBeUndefined();
+						expect(member.secondary ?? '').not.toContain('19');
+					}
+					if (fields.includes('tempHp'))
+						expect(member.secondary ?? '').not.toContain('3 temporary');
+					if (fields.includes('ac')) expect(member.secondary ?? '').not.toContain('AC');
+					if (field === 'all') expect(member.secondary).toBeUndefined();
+				}
+				expect(read(state, DM_ACTOR.id, source).rows[0]).toMatchObject({ value: 7, max: 19 });
+				expect(read(state, OBSERVER_ACTOR.id, source).rows).toEqual([]);
+			},
+		);
+	}
 });

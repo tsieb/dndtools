@@ -53,6 +53,18 @@ async function openDataStep(page: Page): Promise<Locator> {
 		payload: { name: SECRET_SCREEN, description: '', visibility: 'dm-only', tags: [] },
 	});
 	expect(created.status).toBe('accepted');
+	const guard = await dispatch(page, {
+		type: 'character.quick-create',
+		actorId: await page.evaluate(() => window.__rt!.defaultActorId),
+		payload: {
+			kind: 'npc',
+			name: 'Visible Guard',
+			visibility: 'player-visible',
+			combat: { hp: 10, maxHp: 10, ac: 12, conditions: ['poisoned'] },
+			dmOnlyFields: ['combat.conditions'],
+		},
+	});
+	expect(guard.status).toBe('accepted');
 	await page.getByRole('button', { name: 'Build a widget' }).click();
 	const dialog = page.getByRole('dialog', { name: /Widget builder/ });
 	await expect(dialog).toBeVisible();

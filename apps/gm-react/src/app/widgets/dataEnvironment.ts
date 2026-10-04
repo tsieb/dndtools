@@ -3,6 +3,7 @@ import {
 	EMPTY_PRESENCE_STATE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	WIDGET_QUERY_COLUMNS,
+	decideCharacterDataRead,
 	detectContinuityMentions,
 	evaluateFormula,
 	getActiveSystemForActor,
@@ -11,7 +12,6 @@ import {
 	getContentItemsForActor,
 	getDiceHistoryForActor,
 	getHandoutsForActor,
-	getPartyOverviewForActor,
 	getPlayerViewForActor,
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
@@ -22,11 +22,13 @@ import {
 	listScenesForActor,
 	listScreensForActor,
 	listWidgetLibrary,
+	partyRecordOf,
 	projectSessionPresence,
 	resourcesOf,
 	restKindOfLedgerEntry,
 	widgetQueryFormulaIdentifier,
 	type Actor,
+	type CharacterView,
 	type CombatTrackerView,
 	type CoreStateSlice,
 	type PlatformProfileId,
@@ -200,6 +202,32 @@ function row(
 	return { id, primary, ...rest };
 }
 
+/** Preserve the party read's observer ceiling and ordering, using only redacted views. */
+function visiblePartyMembers(state: CoreStateSlice, actorId: string): CharacterView[] {
+	if (decideCharacterDataRead(state.permissions, actorId).kind !== 'granted') return [];
+	const views = listCharactersForActor(state.characters, state.permissions, actorId);
+	const byId = new Map(views.map((view) => [view.id, view]));
+	const ordered: CharacterView[] = [];
+	for (const id of partyRecordOf(state.characters).marchingOrder) {
+		const view = byId.get(id);
+		if (view) ordered.push(view);
+		byId.delete(id);
+	}
+	return [...ordered, ...byId.values()];
+}
+
+/** CharacterView permits individual combat fields to be absent after DM-only redaction. */
+function characterVitals(member: CharacterView, includeTemporary = false): string | undefined {
+	const { hp, maxHp, tempHp, ac } = member.combat;
+	const vitals: string[] = [];
+	if (hp != null && maxHp != null) vitals.push(`HP ${hp} of ${maxHp}`);
+	else if (hp != null) vitals.push(`HP ${hp}`);
+	else if (maxHp != null) vitals.push(`Max HP ${maxHp}`);
+	if (includeTemporary && tempHp != null && tempHp > 0) vitals.push(`${tempHp} temporary`);
+	if (ac != null) vitals.push(`AC ${ac}`);
+	return vitals.join(' · ') || undefined;
+}
+
 /**
  * Resolve ONE declared query against the actor-filtered core reads.
  *
@@ -249,16 +277,16 @@ function resolveSource(
 			};
 		}
 		case 'visible-characters': {
-			const party = getPartyOverviewForActor(state.characters, state.permissions, actorId);
+			const members = visiblePartyMembers(state, actorId);
 			return {
 				header: null,
 				emptyLabel: 'No characters visible yet.',
-				rows: party.members.map((member) =>
-					row(member.characterId, member.name, {
-						secondary: `HP ${member.hp} of ${member.maxHp} · AC ${member.ac}`,
+				rows: members.map((member) =>
+					row(member.id, member.name, {
+						secondary: characterVitals(member),
 						meta: member.visibility,
-						value: member.hp,
-						max: member.maxHp,
+						value: member.combat.hp,
+						max: member.combat.maxHp,
 					}),
 				),
 			};
@@ -472,20 +500,16 @@ function resolveHubSource(
 			};
 		}
 		case 'party': {
-			const overview = getPartyOverviewForActor(state.characters, state.permissions, actorId);
-			const members = overview.members.filter((member) => member.kind === 'pc');
+			const members = visiblePartyMembers(state, actorId).filter((member) => member.kind === 'pc');
 			return {
 				header: members.length > 0 ? `${members.length} in the party` : null,
 				emptyLabel: 'No player characters yet.',
 				rows: members.map((member) => {
-					const vitals = [`HP ${member.hp} of ${member.maxHp}`];
-					if (member.tempHp > 0) vitals.push(`${member.tempHp} temporary`);
-					vitals.push(`AC ${member.ac}`);
-					return row(member.characterId, member.name, {
-						secondary: vitals.join(' · '),
-						meta: member.conditions.length > 0 ? member.conditions.join(', ') : undefined,
-						value: member.hp,
-						max: member.maxHp,
+					return row(member.id, member.name, {
+						secondary: characterVitals(member, true),
+						meta: member.combat.conditions?.join(', ') || undefined,
+						value: member.combat.hp,
+						max: member.combat.maxHp,
 						avatar: initialsOf(member.name),
 					});
 				}),

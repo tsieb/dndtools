@@ -261,3 +261,40 @@ the end of `secondary`. A private live screen still reads as private.
   claim, and the acceptance criterion (isolation per source, builder previews) does not need them.
 
 No push, promotion, dispatcher-control edit, additional loop or agent was performed.
+
+## Session 6 — 2026-10-04: legal field redaction in live previews
+
+Resumed at `10122be5` with a clean tree. Reproduced the retained independent-review fixture:
+2 player/preview-player failures, 1 DM control passing (Headroom `d8836b0f682544a2a8a3747faa806cfa`;
+original stderr retrieved). `getPartyOverviewForActor` spreads conditions after the actor read
+has legally removed that field. Both `party` and `visible-characters` in the catalogue used it.
+
+The owned `dataEnvironment.ts` now maps those two sources from `listCharactersForActor`, retaining
+the core character-data permission guard and visible marching-order membership. It reads no
+unredacted vitals. Missing conditions are omitted; missing HP, maximum HP, temporary HP and AC
+are omitted individually, including numeric chart values. A fully withheld combat block gives
+no detail instead of invented zeros or the string `undefined`. The out-of-claim core overview
+remains unchanged; other consumers of that overview still need a separate core fix.
+
+Companion coverage adds 16 cases to the hub suite (138 total): the command-created NPC from the
+review resolves every catalogue source for a real player and preview player, and PC cases check
+conditions, each vital, and all combat fields redacted together, with DM controls and the observer
+ceiling. The catalogue browser fixture now creates that NPC before opening the builder, exercising
+all 28 previews and accessibility on desktop/mobile. The first new test run had two assertion
+errors because `not.toContain` cannot accept undefined; assertions now normalize absent detail
+only for string checks and independently assert undefined for the fully redacted case.
+
+Fresh validation (all final commands exited 0; original result output retrieved):
+
+- Widget and builder Vitest: 17 files, 424 tests passed, including all 138 hub tests
+  (`761f2bac7f6348f1aa807a4cfa1ab620`).
+- Exact retained review fixture: all 3 passed (`0979a8f28815417eb0e11b032aebd310`).
+- Query-source Playwright on desktop/mobile Chromium: all 4 passed, with every preview and axe
+  (`fab8cc65f80f41f195998d463293fc60`).
+- `pnpm typecheck`: core, cloud functions and React app passed
+  (`50ca4237e4014afe9a9bc6efc39b6921`).
+- ESLint on changed TS/TSX passed (`5c507171c52f49a78b61246477f685d4`).
+
+Formatting and diff checks run before commit. Central wrapper gates, pinned visual gate and
+independent review remain for the operator. The RC-WID-5.3 host-context handoff still applies.
+No push, promotion, dispatcher-control edit, new loop or additional agent was performed.
