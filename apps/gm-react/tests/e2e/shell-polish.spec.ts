@@ -214,6 +214,16 @@ test('cold palette opening announces loading and remains dismissible', async ({ 
 		const loading = page.getByRole('status', { name: 'Search', exact: true });
 		await expect(loading).toContainText('Loading');
 		await axe(page);
+		// Centred from left: 50%, the status used to shrink to half a phone and wrap "Canc / el".
+		const cancelLines = await loading.getByRole('button', { name: 'Cancel' }).evaluate((el) => {
+			const range = document.createRange();
+			range.selectNodeContents(el);
+			return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+		});
+		expect(cancelLines).toBe(1);
+		const box = await loading.boundingBox();
+		const width = page.viewportSize()?.width ?? 0;
+		expect(box && box.x >= 0 && box.x + box.width <= width).toBe(true);
 		await loading.getByRole('button', { name: 'Cancel' }).click();
 		await expect(loading).toBeHidden();
 		await expect(search).toBeFocused();

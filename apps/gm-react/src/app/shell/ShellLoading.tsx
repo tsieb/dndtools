@@ -52,8 +52,13 @@ export function ShellLoading({
 				style={{
 					position: 'fixed',
 					top: 'var(--space-4)',
-					left: '50%',
-					transform: 'translateX(-50%)',
+					// Centre with auto margins: anchored at left 50%, the box shrank to half a phone
+					// and the DS Button (white-space: normal) wrapped "Cancel" mid-word.
+					left: 'var(--space-0)',
+					right: 'var(--space-0)',
+					marginInline: 'auto',
+					width: 'max-content',
+					maxWidth: 'calc(100% - var(--space-8))',
 					zIndex: 'var(--z-modal)',
 					display: 'flex',
 					alignItems: 'center',

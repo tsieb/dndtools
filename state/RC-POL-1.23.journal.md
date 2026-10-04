@@ -541,3 +541,51 @@ tests/visual/golden-routes.spec.ts tests/visual/graph-polish.spec.ts
   formatting and this journal. Changed-file formatting and whitespace checks pass. The
   embedded checklist and its explicit hardware/manual/performance waivers remain applicable.
   Central independent review and delivery are not claimed. No push or promotion performed.
+
+## Central visual gate 340f9dd7 — 2026-10-04
+
+- Read the original log at
+  /home/trinkle/Programming/agent-dispatcher/.state/attempts/340f9dd7-4836-4ffa-a3be-133e1b84a98d/output.log.
+  Candidate d8f5d5cc: **482 passed, one failed (13.7m), exit 1**. Rail high-contrast
+  palette/help: `getByRole('dialog', { name: 'Command palette' })` was not visible within
+  5s after Ctrl+K. No pixel mismatch. All shell captures passed.
+- Not caused by this task. RC-POL-1.7's gate log 42b34848 (worktree 685851321ce9, which
+  has no ShellLoading/OverlayChrome) reports the same rail and phone high-contrast
+  `Command palette` visibility timeout. CommandPalette and its imports contain no nested
+  `lazy`/`use()`/Suspense, so the wait is the cold dev-server dynamic import of
+  `./CommandPalette` alone.
+- Focused pinned palette-help, three tiers × five themes × 3 repeats:
+  **44 passed, one failed (1.5m)**, phone high-contrast repeat 2, same 5s timeout
+  (`/tmp/shell-palette-help-recheck.log`). Its error context shows the nonmodal "Search /
+  Loading" status still present: the chunk had not arrived. Follow-up repeats with traces
+  enabled did not reproduce: high-contrast phone+rail ×10 **20 passed**; full mix ×3 twice,
+  **45 + 45 passed** (`/tmp/shell-palette-hc-trace.log`, `/tmp/shell-palette-trace-{1,2}.log`).
+- Idle-preloading the palette chunk was considered and rejected. It would add module
+  transport to the dev-server scene first-render budget (ADR-040 / RC-ENG-3.2), and the
+  palette spec (RC-POL-1.22) and visual harness are outside this task's owned paths.
+- **Fixed a real defect the failure screenshot exposed.** On phone, the nonmodal palette
+  loader was anchored at `left: 50%` + `translateX(-50%)`. That let it shrink to half the
+  viewport, and the DS Button (`white-space: normal; overflow-wrap: anywhere`) wrapped its
+  label as "Canc / el". `ShellLoading` now centres with `left/right: var(--space-0)`,
+  `margin-inline: auto`, `width: max-content` and `max-width: calc(100% - var(--space-8))`.
+  The cold-palette e2e now asserts that the Cancel label is one line and the status stays
+  inside the viewport. Red/green: without the fix, mobile-chromium **failed (2 lines)**;
+  with it, both profiles ×3 **6 passed**.
+- Shell acceptance after the fix: shell-polish + shell-pin-bounds + command-palette on
+  desktop-chromium and mobile-chromium: **68 passed (1.6m), exit 0**, zero retries. This
+  includes five-theme route/overlay axe on both profiles (`/tmp/shell-loader-browser.log`).
+  `pnpm gates` exit 0 with no file-size warning for owned files (ShellLoading.tsx 88 lines).
+  App typecheck, targeted ESLint and Prettier: exit 0. No baseline captures the nonmodal
+  loader, so no snapshot changed.
+- Complete pinned visual suite after the fix: **482 passed, one failed (9.5m), exit 1**
+  (`/tmp/shell-loader-visual.log`). All 15 palette-help cases and every shell capture
+  passed. The failure was desktop parchment `settings vault empty state`: main still showed
+  the route-level "Loading your vault…" after 5s (Settings surface, RC-POL-1.17, outside
+  this task). Focused recheck ×3: **15 passed (20.2s), exit 0**
+  (`/tmp/shell-loader-settings-recheck.log`).
+- **Remaining blocker (unchanged, handed off):** whole-suite runs keep hitting about one
+  cold dev-server lazy-chunk stall per run, on a different spec each time. Recorded
+  instances: Join, /play, /wiki, Graph, palette-help, Settings. Fixing this needs the
+  shared visual harness (apps/gm-react/playwright.config.ts / run-in-container.sh), which
+  this task does not own. No threshold, baseline, unrelated spec, dispatcher state, push
+  or promotion was changed.
