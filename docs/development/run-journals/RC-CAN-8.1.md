@@ -147,3 +147,19 @@ Evidence on the working tree before commit:
   `custom-widgets` and `screen` (59 passed); `starter-widgets` and `custom-widgets` on desktop
   (11 passed). The parallel run printed some `[WebServer] … ErrorBoundary` stack lines that I could
   not reproduce in serial reruns on either profile (19 and 30 passed, no such lines). No test failed.
+
+## Fifth pass: claim widened
+
+The gate rejected `cb7443a8` for one reason only: it changed `app/shortcuts/paletteActions.ts`,
+outside the claim. The operator brief of 2026-10-04 adds that file to Owns, so the candidate now
+stays inside its claim (plus its own tests and this journal). I made no code changes in this pass.
+
+The branch had been rebased onto `43cf31ce`, so I re-verified on that tree:
+
+- `vitest --config vitest.app.config.ts`: 162 files, 1767 tests passed.
+- gm-react `tsc --noEmit`: clean.
+- `eslint` on every changed `.ts`/`.tsx` file: clean.
+- `format:check:changed --base 43cf31ce`: clean.
+- `pnpm gates`: exit 0.
+- Playwright `canvas-history`, `canvas-keyboard` and `command-palette` on desktop-chromium and
+  mobile-chromium: 50 passed.
