@@ -58,3 +58,14 @@ Base: `loop/rc` 9a7b675d (RC-POL-1.23). Branch `dispatch/dndtools/544e7443768b97
   links, no problems. Help unit tests green.
 - Left stale for the operator: `docs/README.md` "User guides" still says "the info button" and "All
   eight guides", and lists eight. Correcting it needs that path added to the claim.
+
+## Attempt 3 (review: ONB-17 Ready tour still said ⌘K on phone)
+
+- Ready tour card 2 now picks its title by tier: desktop keeps "Press ⌘K to go anywhere"; phone and
+  rail (whose top bar shows the Search icon, `TopBar.tsx` `compact`) read "Tap Search to go
+  anywhere" (new key `onboarding.ready.tourPaletteTitleTouch`, EN + ES, `qps-ploc.ts` regenerated).
+  Crossed outside Owns: `Onboarding.tsx`, en/es catalogs, the pseudo catalog companion.
+- `onboarding-consent.spec.ts` Private-vault walk asserts the per-profile Ready title and that the
+  phone overlay contains no "⌘K".
+- Local: onboarding-consent 14/14 (desktop + mobile), golden-path + responsive onboarding 64/64,
+  `src/i18n` vitest 47/47, gm-react `tsc` clean, eslint clean on changed files, prettier clean.

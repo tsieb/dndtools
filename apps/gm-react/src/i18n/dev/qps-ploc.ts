@@ -552,6 +552,7 @@ export default {
 	'onboarding.ready.tourBoardBody':
 		'[Ţĥé ƀóáŕď óƒ ľíṽé-ƥľáý ŵíďğéţš — šéššíóñ, çóḿƀáţ, ďíçé, ḿáƥš. Éṽéŕýţĥíñğ ýóú ŕúñ áţ ţĥé ţáƀľé šţáŕţš ĥéŕé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'onboarding.ready.tourPaletteTitle': '[Ƥŕéšš ⌘Ķ ţó ğó áñýŵĥéŕé~~~~ ~~~~ ]',
+	'onboarding.ready.tourPaletteTitleTouch': '[Ţáƥ Šéáŕçĥ ţó ğó áñýŵĥéŕé~~~~ ~~~~ ]',
 	'onboarding.ready.tourPaletteBody':
 		'[Šéáŕçĥ ýóúŕ ṽáúľţ ƒóŕ ñóţéš, ḿáƥš, ĥáñďóúţš áñď ŕóľľš ŵíţĥóúţ ľéáṽíñğ ţĥé ţáƀľé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'onboarding.ready.tourPlayerSafeTitle': '[Ƥľáýéŕ-šáƒé ƀý ďéšíğñ~~~~ ~~~~]',

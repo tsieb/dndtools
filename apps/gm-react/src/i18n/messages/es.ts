@@ -525,6 +525,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.ready.tourBoardBody':
 		'El tablero de widgets de juego en vivo — sesión, combate, dados, mapas. Todo lo que diriges en la mesa empieza aquí.',
 	'onboarding.ready.tourPaletteTitle': 'Pulsa ⌘K para ir a cualquier sitio',
+	'onboarding.ready.tourPaletteTitleTouch': 'Toca Buscar para ir a cualquier sitio',
 	'onboarding.ready.tourPaletteBody':
 		'Busca notas, mapas, documentos y tiradas en tu bóveda sin salir de la mesa.',
 	'onboarding.ready.tourPlayerSafeTitle': 'Seguro para jugadores desde el diseño',

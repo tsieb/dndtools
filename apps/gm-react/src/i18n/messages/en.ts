@@ -520,6 +520,7 @@ export const en = {
 	'onboarding.ready.tourBoardBody':
 		'The board of live-play widgets — session, combat, dice, maps. Everything you run at the table starts here.',
 	'onboarding.ready.tourPaletteTitle': 'Press ⌘K to go anywhere',
+	'onboarding.ready.tourPaletteTitleTouch': 'Tap Search to go anywhere',
 	'onboarding.ready.tourPaletteBody':
 		'Search your vault for notes, maps, handouts and rolls without leaving the table.',
 	'onboarding.ready.tourPlayerSafeTitle': 'Player-safe by design',

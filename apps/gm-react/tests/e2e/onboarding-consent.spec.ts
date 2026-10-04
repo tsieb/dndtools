@@ -56,7 +56,7 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 
 	test('Private (E2EE) demands the typed acknowledgment, then completes and persists', async ({
 		page,
-	}) => {
+	}, testInfo) => {
 		await openFresh(page);
 		await toPrivacyStep(page);
 		await overlay(page)
@@ -70,6 +70,13 @@ test.describe('onboarding forced consent (ADR-026)', () => {
 		await overlay(page).getByRole('button', { name: 'Continue' }).click();
 		await overlay(page).getByRole('button', { name: 'Continue' }).click();
 		await overlay(page).getByRole('button', { name: 'Continue' }).click();
+		// ONB-17: the Ready tour names the palette the way this tier reaches it — the top-bar Search
+		// icon on a phone, ⌘K on desktop — and never tells a phone user to press a key.
+		const phone = testInfo.project.name === 'mobile-chromium';
+		await expect(
+			overlay(page).getByText(phone ? 'Tap Search to go anywhere' : 'Press ⌘K to go anywhere'),
+		).toBeVisible();
+		if (phone) await expect(overlay(page)).not.toContainText('⌘K');
 		await overlay(page).getByRole('button', { name: 'Enter Command Center' }).click();
 		await expect(overlay(page)).toBeHidden();
 		expect(await storage(page, MODE_KEY)).toBe('private-e2ee');

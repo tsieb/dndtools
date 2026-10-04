@@ -316,7 +316,11 @@ export function Onboarding() {
 		},
 		{
 			id: 'tr2',
-			title: 'onboarding.ready.tourPaletteTitle',
+			// Below desktop the top bar's palette entry is the Search icon and there may be no
+			// keyboard at all, so ⌘K is desktop-only copy (ONB-17).
+			title: isDesktop
+				? 'onboarding.ready.tourPaletteTitle'
+				: 'onboarding.ready.tourPaletteTitleTouch',
 			body: 'onboarding.ready.tourPaletteBody',
 		},
 		{
