@@ -320,22 +320,32 @@ tap_ui_button_until_text() {
 # Coordinates still come from the matching accessibility node, never from a fixed screen position.
 tap_ui_control() {
 	local label=$1
-	local ui match n node region bounds left top right bottom scroll_top scroll_bottom height
+	local ui match left top right bottom
 	ui=$(dump_ui | sed 's/></>\n</g')
 	match=$(grep -nE 'clickable="true"|class="android.widget.CheckedTextView"' <<<"$ui" \
 		| grep -F 'enabled="true"' | grep -F "$label" | tail -1 || true)
 	[[ -n "$match" ]] || return 1
-	n=${match%%:*}
-	node=${match#*:}
-	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
+	read -r left top right bottom < <(visible_node_bounds "$ui" "${match%%:*}") || return 1
+	[[ -n "${bottom:-}" ]] || return 1
+	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
+	sleep 0.25
+}
+
+# Print the on-screen part of a node as `left top right bottom`. The UI dump must hold one node per
+# line, and $2 is the node's line number. WebView clips a node's bounds to the WebView only, not to
+# the scroll region that holds it. The Settings section picker read [198,327] under a scroll region
+# starting at 306, so its centre landed on the sticky top bar. A control scrolled in from the bottom
+# also reports bounds that run under the fixed bottom navigation. Clip to the innermost scrolling
+# ancestor, and fail when the node is offscreen (collapsed bounds, see tap_ui_button) or shows only a
+# sliver under 96px. tap_ui_scrolling then reveals more of the node before the next try.
+visible_node_bounds() {
+	local ui=$1
+	local n=$2
+	local region bounds left top right bottom scroll_top scroll_bottom height
+	bounds=$(sed -n "${n}s/.*bounds=\"\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\".*/\1 \2 \3 \4/p" <<<"$ui")
 	read -r left top right bottom <<<"$bounds"
 	[[ -n "${bottom:-}" ]] || return 1
-	# An offscreen WebView node keeps bounds collapsed at the clipping edge (see tap_ui_button).
 	((right > left && bottom > top)) || return 1
-	# A node inside a scroll region can be reported whole while the sticky top bar covers most of it:
-	# the Settings section picker read [198,327] under a scroll region starting at 306, and its centre
-	# landed on the header. Clip to the innermost scrolling ancestor and refuse a sliver, so
-	# tap_ui_scrolling reveals more of the control before the tap.
 	region=$(awk -v n="$n" '
 		/^<node / {
 			depth++
@@ -351,8 +361,7 @@ tap_ui_control() {
 		((bottom > scroll_bottom)) && bottom=$scroll_bottom
 		((bottom - top >= height || bottom - top >= 96)) || return 1
 	fi
-	adb shell input tap "$(((left + right) / 2))" "$(((top + bottom) / 2))"
-	sleep 0.25
+	echo "$left $top $right $bottom"
 }
 
 # Choose an Experience complexity card and confirm the choice took. The WebView does not surface the
@@ -362,17 +371,18 @@ tap_ui_control() {
 # revealed, and the centre of that clipped box can sit under the fixed bottom navigation.
 choose_experience_level() {
 	local label=$1
-	local ui node bounds left top right bottom
+	local ui match left top right bottom
 	ui=$(dump_ui | sed 's/></>\n</g')
 	grep -qF "text=\"$label\"" <<<"$ui" && return 0
-	node=$(grep -F 'clickable="true"' <<<"$ui" | grep -F 'enabled="true"' \
+	match=$(grep -nF 'clickable="true"' <<<"$ui" | grep -F 'enabled="true"' \
 		| grep -F "text=\"$label " | tail -1 || true)
-	[[ -n "$node" ]] || return 1
-	bounds=$(sed -n 's/.*bounds="\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]\[\([0-9][0-9]*\),\([0-9][0-9]*\)\]".*/\1 \2 \3 \4/p' <<<"$node")
-	read -r left top right bottom <<<"$bounds"
+	[[ -n "$match" ]] || return 1
+	# Measure the card from its visible part only. A card scrolled in from the bottom reports bounds
+	# that run under the bottom navigation, and a tap there opened Characters instead (CI 37188122128).
+	read -r left top right bottom < <(visible_node_bounds "$ui" "${match%%:*}") || return 1
 	[[ -n "${bottom:-}" ]] || return 1
 	# Too little of the card is on screen to tap its leading row safely; scroll further first.
-	((right > left && bottom - top >= 96)) || return 1
+	((bottom - top >= 96)) || return 1
 	adb shell input tap "$(((left + right) / 2))" "$((top + 48))"
 	sleep 0.5
 	dump_ui | grep -qF "text=\"$label\""

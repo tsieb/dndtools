@@ -62,8 +62,45 @@ was dropped, so nothing here touches `AuthModal.test.tsx` or the acceptance scri
 - Local `pnpm test` at `879489ab`: exit 0 (critical 284/5184, cloud 45/559, app 161/1773,
   tooling 31/245).
 
-Not in scope here: `origin/loop/rc` has since moved to `ed614140` (RC-POL-1.17), and its `CI` is red
-again (push 37188122128). Only `Android unit, lint, and package checks` fails, at
-`scripts/android-emulator-acceptance.sh:547` ("Expert experience level was not reachable"). That
-is a new break from the Settings experience-radio layout change. It belongs to that commit's own
-ci-recovery task, so I left it alone to avoid another sibling conflict.
+## Third red: Expert radio tap lands on the bottom navigation (2026-10-04)
+
+Independent review rejected the journal-only candidate (`dc358daa`): the same required Android
+job is red on its base `ed614140`. The failure is flaky on identical code. `Android unit, lint, and
+package checks` failed in runs 37188122128 and 37188126286 (`ed614140`) and 37197602054
+(`a7a08de6`, journals only), and passed in 37197781114 and 37197785431 (`e4f153cc`, journals only).
+Every failure is `scripts/android-emulator-acceptance.sh:546` with "Expert experience level was
+not reachable", and the `UI hierarchy at failure:` dump shows the Characters route.
+
+Cause: WebView clips an accessibility node's bounds to the WebView (`[0,128][1080,2337]`), not
+to the scroll region that holds it (`[0,306][1080,1989]`). When a swipe stopped with the Expert
+radio's top between about y=1941 and y=2241, `choose_experience_level` saw a ≥96px node and tapped
+48px under its top. That point is below the scroll region and on the fixed bottom navigation, and
+at x=527 it hits the "Characters" button (`[433,2191][648,2330]`). The level never changed, and the
+remaining scroll attempts swiped through the roster. `tap_ui_control` already clipped to the
+scroll ancestor for the sticky top bar (`2b5d74ff`). `choose_experience_level` did not. RC-POL-1.17
+changed the Settings layout, so the radio now lands in that band more often.
+
+Repair:
+
+- `scripts/android-emulator-acceptance.sh`: the scroll-ancestor clipping moved out of
+  `tap_ui_control` into a new `visible_node_bounds` helper, and `choose_experience_level` now uses
+  it too. The 96px minimum and the leading-row tap are unchanged, but they now measure only the
+  part of the radio inside its scroll region. A radio under the navigation is not tapped, and
+  `tap_ui_scrolling` swipes further instead.
+- `tests/unit/android-emulator-acceptance.test.ts`: the existing helper tests now load
+  `visible_node_bounds` too. A new test replays the CI geometry: the radio at
+  `[34,2150][1021,2337]` under the Characters button must lead to a swipe, then a tap at 1448 once it
+  is revealed. Against the old script this test fails with `shell input tap 527 2198`, the
+  Characters button. Every existing assertion is unchanged.
+
+Verification (local, at `ed614140` + this change):
+
+- `npx vitest run tests/unit/android-emulator-acceptance.test.ts`: 20/20. With only the script
+  reverted, 19/20 (the new test fails as described).
+- `pnpm test:tooling` 31 files / 246 tests passed; `pnpm typecheck` exit 0; eslint clean on the
+  test; `bash -n` on the script clean.
+- A replay of the new helper against the real failure dump from 37197602054 finds the scroll
+  ancestor `[0,306][1080,1989]` and clips nodes correctly.
+- I did not run the emulator. There is no local JDK, and the local emulator segfaults. The hosted
+  `android-checks` job on the integration candidate is the end-to-end check. This task forbids
+  pushing, so I could not dispatch it on a branch.

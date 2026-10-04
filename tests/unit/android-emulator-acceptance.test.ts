@@ -104,8 +104,10 @@ describe('Android emulator acceptance gate', () => {
 
 	it('does not tap an offscreen select or option with empty accessibility bounds', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
-		const helper = /^tap_ui_control\(\) \{\n[\s\S]*?^\}$/m.exec(source)?.[0];
-		expect(helper).toBeTruthy();
+		const helpers = ['tap_ui_control', 'visible_node_bounds'].map(
+			(name) => new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source)?.[0] ?? '',
+		);
+		expect(helpers.every(Boolean)).toBe(true);
 		const result = spawnSync(
 			'bash',
 			[
@@ -115,7 +117,7 @@ describe('Android emulator acceptance gate', () => {
 					`dump_ui() { printf '%s' '<hierarchy><node text="Settings section" class="android.widget.Spinner" clickable="true" enabled="true" bounds="[52,280][1002,280]" /></hierarchy>'; }`,
 					'adb() { echo "unexpected tap: $*"; }',
 					'sleep() { :; }',
-					helper,
+					...helpers,
 					"tap_ui_control 'Settings section'",
 				].join('\n'),
 			],
@@ -127,7 +129,7 @@ describe('Android emulator acceptance gate', () => {
 
 	it('scrolls back up to a control above the fold', () => {
 		const source = fs.readFileSync(scriptPath, 'utf-8');
-		const helpers = ['tap_ui_control', 'tap_ui_scrolling'].map((name) => {
+		const helpers = ['tap_ui_control', 'visible_node_bounds', 'tap_ui_scrolling'].map((name) => {
 			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
 			expect(match, `missing helper ${name}`).not.toBeNull();
 			return match?.[0] ?? '';
@@ -183,7 +185,7 @@ describe('Android emulator acceptance gate', () => {
 		// The API 36 dump that failed: the picker reported [198,327] while its scroll region starts
 		// at 306, so its centre (262) was on the top bar and the native dropdown never opened.
 		const source = fs.readFileSync(scriptPath, 'utf-8');
-		const helpers = ['tap_ui_control', 'tap_ui_scrolling'].map((name) => {
+		const helpers = ['tap_ui_control', 'visible_node_bounds', 'tap_ui_scrolling'].map((name) => {
 			const match = new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source);
 			expect(match, `missing helper ${name}`).not.toBeNull();
 			return match?.[0] ?? '';
@@ -232,10 +234,12 @@ describe('Android emulator acceptance gate', () => {
 	});
 
 	describe('choose_experience_level', () => {
-		const run = (states: string[]) => {
+		const run = (states: string[], command = "choose_experience_level 'Expert'") => {
 			const source = fs.readFileSync(scriptPath, 'utf-8');
-			const helper = /^choose_experience_level\(\) \{\n[\s\S]*?^\}$/m.exec(source)?.[0];
-			expect(helper).toBeTruthy();
+			const helpers = ['choose_experience_level', 'visible_node_bounds', 'tap_ui_scrolling'].map(
+				(name) => new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}$`, 'm').exec(source)?.[0] ?? '',
+			);
+			expect(helpers.every(Boolean)).toBe(true);
 			const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'android-level-'));
 			try {
 				states.forEach((xml, i) => fs.writeFileSync(path.join(dir, `${i}.xml`), xml));
@@ -249,8 +253,8 @@ describe('Android emulator acceptance gate', () => {
 							`dump_ui() { local n; n=$(cat n 2>/dev/null || echo 0); cat "$n.xml"; ((n < ${states.length - 1})) && echo $((n + 1)) > n; return 0; }`,
 							'adb() { echo "$*"; }',
 							'sleep() { :; }',
-							helper,
-							"choose_experience_level 'Expert'",
+							...helpers,
+							command,
 						].join('\n'),
 					],
 					{ cwd: dir, encoding: 'utf-8' },
@@ -280,6 +284,38 @@ describe('Android emulator acceptance gate', () => {
 			const result = run([screen('Beginner', '[55,1000][1025,1500]')]);
 			expect(result.events).toBe('shell input tap 540 1048');
 			expect(result.status).toBe(1);
+		});
+
+		it('scrolls a card out from under the bottom navigation before tapping it', () => {
+			// CI 37188122128: the radio sat below its scroll region ([0,306][1080,1989]) but reported
+			// bounds down to the WebView's edge, so the leading-row tap (2198) opened Characters from
+			// the bottom navigation. Only the part inside the scroll region counts.
+			const page = (active: string, card: string) =>
+				[
+					'<hierarchy rotation="0">',
+					'<node text="" class="android.webkit.WebView" scrollable="false" enabled="true" bounds="[0,128][1080,2337]">',
+					'<node text="" class="android.view.View" scrollable="true" enabled="true" bounds="[0,306][1080,1989]">',
+					`<node text="${active}" class="android.widget.TextView" clickable="false" enabled="true" bounds="[850,400][955,440]" />`,
+					`<node text="Expert Everything on, nothing hidden" class="android.widget.Button" clickable="true" enabled="true" bounds="${card}" />`,
+					'</node>',
+					'<node text="Characters" class="android.widget.Button" clickable="true" enabled="true" bounds="[433,2191][648,2330]" />',
+					'</node>',
+					'</hierarchy>',
+				].join('');
+			const result = run(
+				[
+					page('Beginner', '[34,2150][1021,2337]'),
+					page('Beginner', '[34,2150][1021,2337]'),
+					page('Beginner', '[34,1400][1021,1700]'),
+					page('Expert', '[34,1400][1021,1700]'),
+				],
+				"tap_ui_scrolling choose_experience_level 'Expert' down",
+			);
+			expect(result.status, result.stderr).toBe(0);
+			expect(result.events.split('\n')).toEqual([
+				'shell input swipe 540 1568 540 726 300',
+				'shell input tap 527 1448',
+			]);
 		});
 
 		it('does not tap a sliver of a card and leaves an already-chosen level alone', () => {
