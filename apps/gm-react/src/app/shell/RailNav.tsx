@@ -84,8 +84,9 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 						onClick={() => setVaultsOpen(true)}
 						style={{
 							padding: 'var(--space-0)',
-							minWidth: 'var(--touch-target-min)',
-							minHeight: 'var(--touch-target-min)',
+							// The icon-only launcher must fit the fixed-width rail at large text sizes.
+							minWidth: 48,
+							minHeight: 48,
 							alignItems: 'center',
 							justifyContent: 'center',
 							border: 0,

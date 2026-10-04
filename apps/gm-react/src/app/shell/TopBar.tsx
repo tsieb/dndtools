@@ -127,6 +127,7 @@ export function TopBar({
 						label={t('shell.search')}
 						variant="outline"
 						size="lg"
+						style={{ flexShrink: 0 }}
 						onClick={onOpenPalette}
 					/>
 				) : (
@@ -187,6 +188,7 @@ export function TopBar({
 						label={t('shell.tableControls')}
 						variant="outline"
 						size="lg"
+						style={{ flexShrink: 0 }}
 						aria-haspopup="dialog"
 						aria-expanded={controlsOpen}
 						onClick={() => setControlsOpen(true)}

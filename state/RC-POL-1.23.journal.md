@@ -355,3 +355,55 @@ that evidence. The earlier implementation and embedded §20.2–§20.5 checklist
 - `pnpm gates`, generated-file ESLint and Prettier: **exit 0**. No new owned size warning.
   The code failure is resolved; central claim acceptance and independent review remain the
   operator's checks. This commit contains only the required generated catalog and this journal.
+
+## Browser acceptance recovery — 2026-10-03
+
+- Read the original browser gate log `21e288e9-1806-4478-8146-ed88ffd6d348`: 1,669 passed,
+  32 skipped, five failures. The remaining failures were shell defects: rail Local vaults
+  measured -12..76px inside a 64px rail with 200% text; phone Search shrank to 43.984375px;
+  newly translated pseudo presence text was ellipsized inside the sidebar account control.
+- Rebased onto repaired integration `879489ab` (loop/rc). Retained its shared HelpTrigger /
+  full Help dialog in Footer and its separate Palette/help inventory row. Removed the obsolete
+  shell raw-style allowances while retaining unrelated integration allowances. Campaign PNG
+  conflicts use integration images as temporary inputs, followed by renderer regeneration.
+- Fixed the icon-only rail launcher to a 48px minimum target independent of root text size,
+  preserving Android's 48px floor inside the fixed 64px rail. Compact Search and Table controls
+  keep their intrinsic size with flexShrink: 0. Sidebar presence wraps, including unbroken text,
+  rather than clipping translated status. No assertions, screenshot tolerances or target floors
+  were relaxed; the existing responsive cases directly cover all three regressions.
+- Focused responsive rerun: **6 passed (16.7s), exit 0**, both desktop and mobile, retries 0.
+  Full browser, pinned visuals and the other validation gates are rerun below on this source.
+- An exploratory full browser run with four workers / zero retries overlapped the build
+  and visual checks. Four initial runtime-ready waits timed out at 20s; a map fling-distance
+  assertion (60px instead of greater than 90px) and a campaign axe test also failed. Stopped that run explicitly rather
+  than present a partial sweep as a passing gate. The authoritative rerun below uses the
+  central two-worker / two-retry configuration after the build checks finish. No test timeout,
+  assertion or retry configuration in the repository was changed.
+- Full non-browser gates passed, all exit 0: quality, changed-file format, full typecheck,
+  full lint, App tests (161 files / 1,773 tests), tooling tests (245), build and requirements
+  audit. Original logs are /tmp/shell-recovery-{quality,format,typecheck,lint,app,tooling,build,
+  requirements}.log; /tmp/shell-recovery-gates.json records each command's exit status.
+- Full pinned visual update: **468 passed (17.1m), wrapper exit 0**. The rail target
+  changes 81 existing full-route/shell captures; all changed captures were reviewed in seven
+  contact sheets. Rail chrome stays bounded and the launcher is centered; existing workspace
+  clipping/scrolling policies and the shell spec's deliberate main-content mask are preserved.
+- Regeneration exceeded the unchanged baseline byte budget. Losslessly recompressed only
+  those 81 changed PNGs using zopfli.png.optimize(use_zopfli=False), verifying equal dimensions
+  and decoded RGBA bytes before replacing each file: 9,101,839 -> 7,010,642 bytes.
+  Final budget check: **693 files, 31,522.0 KiB / 32,768 KiB, exit 0**. No dependency,
+  snapshot tolerance or budget limit changed; the helper lives only under /tmp.
+- Final full pinned visual comparison: **468 passed (16.5m), wrapper exit 0**, updates
+  disabled, two workers and zero retries. This verifies the final source and losslessly
+  recompressed baselines across every theme and tier. The largest owned source files are
+  Sidebar.tsx and rows.tsx at 457 lines; no owned file-size warning remains.
+- Final full browser acceptance (`pnpm e2e --workers=2 --retries=2`): **1,734 passed,
+  32 skipped (1.1h)**, no failures or retried cases in the original completed runner log,
+  /tmp/shell-recovery-browser-final.log. Both profiles pass the five-theme shell/overlay axe
+  matrix, pin/Demo bounds, and all three previously failing responsive checks. The exploratory
+  run's readiness, fling-distance and campaign axe failures did not recur. Skips remain the
+  suite's existing opt-in/profile-specific cases; no test was disabled for this repair.
+- Recovery complete on the rebased task branch: repaired integration 879489ab is an ancestor,
+  the complete browser and pinned visual suites pass, and all other validation gates pass.
+  Earlier catalog and browser blockers are superseded by the current complete runs. The
+  embedded checklist and its manual/hardware waivers remain applicable. No push, promotion,
+  dispatcher control change or additional agent was used.

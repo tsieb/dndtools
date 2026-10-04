@@ -436,10 +436,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 							}}
 						>
 							<StatusDot status={presence.dot} pulse={presence.dot === 'pending'} />
-							<span
-								style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-								title={presence.label}
-							>
+							<span style={{ minWidth: 0, overflowWrap: 'anywhere' }} title={presence.label}>
 								{presence.label}
 							</span>
 						</span>
