@@ -457,3 +457,45 @@ apps/gm-react/tests/visual/run-in-container.sh tests/visual/shell-polish.spec.ts
 - Follow-up changes only this journal. Quality and changed formatting pass; the previous
   complete browser/axe results remain applicable to unchanged source. No push, promotion,
   dispatcher state mutation, baseline update, or agent delegation occurred.
+
+## Central visual gate c1009f07 — 2026-10-04
+
+- Read the original log at
+  /home/trinkle/Programming/agent-dispatcher/.state/attempts/c1009f07-e64d-48af-ae6e-6fab78f329c2/output.log.
+  Candidate 4ffb7f0c: **466 passed, two failed (15.9m), exit 1**. All 15 shell cases
+  passed. The failures are desktop high-contrast `/wiki` and rail parchment Graph selection;
+  each exceeded the 5s screenshot deadline after fonts loaded. Neither reports a pixel
+  mismatch. This is a new pair of failures, not recurrence of the shell error-dialog case.
+- Focused pinned reproduction, unchanged source and baselines: **12 passed (28.9s),
+  wrapper exit 0**, both affected themes on desktop and rail, each repeated three times.
+  Command: `CONTAINER_ENGINE=docker bash apps/gm-react/tests/visual/run-in-container.sh
+tests/visual/golden-routes.spec.ts tests/visual/graph-polish.spec.ts
+--grep 'high-contrast.*\/wiki|graph polish.*parchment'
+--project=visual-desktop --project=visual-rail --update-snapshots=none
+--workers=2 --retries=0 --repeat-each=3`.
+  Original log: /tmp/shell-gate-c1009-focused.log; exact result retained in dispatch
+  artifact b211b87afd8845dd9415b1f0ec3e4e37. This is reproduction evidence, not a passing
+  complete gate or proof of a timing fix.
+- No new integration commits are available: loop/rc remains 879489ab, already an ancestor.
+  The shared visual project config in apps/gm-react/playwright.config.ts supplies pixel
+  tolerance and animation settings but no assertion deadline override; these failures use
+  Playwright's default 5s. Current host load and full swap are observations only; no causal
+  claim about the completed central run is supported by those later measurements.
+- **Handoff / remaining blocker:** the complete visual gate still fails intermittently
+  across non-shell captures. Shared harness ownership is needed for
+  apps/gm-react/playwright.config.ts and, if required, tests/visual/run-in-container.sh.
+  Neither is in this task's listed owned paths. A concrete recovery experiment is a
+  visual-project-only bounded capture deadline (for example `toHaveScreenshot.timeout:
+15000`), followed by the complete pinned suite with retries and updates disabled and
+  capture-duration evidence. Preserve maxDiffPixels: 40, pixel threshold, all baselines,
+  functional assertions, and the existing performance checks. This is a proposed experiment,
+  **not an implemented or validated fix**; startup/lazy-load failures need separate readiness
+  evidence and are not covered by a screenshot deadline.
+- Do not infer that another shell pixel edit or baseline regeneration addresses these
+  diagnostics. The task's shell implementation, checklist, EN/ES, snapshots and browser/axe
+  evidence remain unchanged. This follow-up commits only the precise remaining validation
+  blocker and reproduction result. No dispatcher control state, unrelated source, test
+  threshold or snapshot was changed. No push, promotion, extra loop or delegation occurred.
+- Follow-up checks: `pnpm gates` and `pnpm format:check:changed` both exit 0;
+  no owned file-size warnings. Exact output artifacts are 7ac884d9332141ce817ca7ca31732325
+  and 5c662e697ec74f4cbc03e3422e60ef62. Complete visual acceptance remains blocked.
