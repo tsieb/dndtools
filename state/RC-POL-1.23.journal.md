@@ -407,3 +407,53 @@ that evidence. The earlier implementation and embedded §20.2–§20.5 checklist
   Earlier catalog and browser blockers are superseded by the current complete runs. The
   embedded checklist and its manual/hardware waivers remain applicable. No push, promotion,
   dispatcher control change or additional agent was used.
+
+## Visual gate recheck — 2026-10-04
+
+- Read the original central gate log for `b8e6730e-7f0f-46e8-8ccf-9233ce822007`
+  at `ee39c218`: 467 passed, one failed. The high-contrast phone shell test reached the
+  visible Local vaults error dialog, then exhausted the screenshot's 5s budget waiting
+  for element stability during scroll-into-view. No pixel mismatch was reported.
+- The worktree starts clean at that exact candidate. Reviewing the shell flow found no
+  evidenced product defect requiring a source or baseline change. Recheck the existing
+  shell suite three times across all themes/tiers and then the complete pinned suite,
+  with baseline updates and retries disabled. Do not infer the timeout's root cause
+  from a passing repetition or weaken screenshot comparisons to conceal it.
+- Repeated pinned shell comparison: **45 passed (1.9m), wrapper exit 0**. All five
+  themes and three tiers ran three times, including three successful high-contrast phone
+  error-dialog captures. Command: `CONTAINER_ENGINE=docker bash
+apps/gm-react/tests/visual/run-in-container.sh tests/visual/shell-polish.spec.ts
+--update-snapshots=none --workers=2 --retries=0 --repeat-each=3`. Original log:
+  /tmp/shell-visual-recheck.log. No source, fixture, baseline, timeout or tolerance changed.
+- `pnpm gates`: **exit 0**, no owned file-size warning (exact output retained as dispatch
+  artifact 44e5ce52c9b8407a839cc54d2cdb4783). Unrelated file-size warnings remain outside
+  this task's ownership. The prior browser/axe evidence still describes unchanged source.
+- First complete pinned recheck: **467 passed, one failed (13.0m), wrapper exit 1**.
+  Every shell case passed, including the original phone high-contrast error dialog. The
+  failure moved to rail `join missing high-contrast`, before screenshot capture: its 5s
+  Campaign invite visibility assertion expired while the page still showed “Loading your
+  vault…”. Read the original log /tmp/shell-visual-gate-recheck.log and the failure context
+  (dispatch artifact 891bc02c9213444baab24e5633ee140c). No pixel mismatch occurred.
+  Retain this failed result; repeat the complete suite with the same two workers, zero
+  retries and updates disabled, without changing the unrelated Join test.
+- Second complete pinned recheck: **466 passed, two failed (12.0m), wrapper exit 1**.
+  All shell cases passed again (75 successful shell cases total across this turn's three
+  runs). The previous rail Join failure passed in 2.5s. Original complete log:
+  /tmp/shell-visual-gate-final.log. Its final summary also reports phone high-contrast
+  `/play`: screenshot capture exhausted 5s after fonts loaded, with no pixel mismatch.
+  Phone high-contrast palette/help exhausted its 5s dialog visibility wait while the
+  lazy-loading Search status remained visible. Exact diagnostics were read from dispatch
+  artifacts 86c8770f84f64befa4bb761c7497e414 and 6f8f4940ea7244919038f26a347f7ba1.
+- The original shell timeout has not reproduced, but the complete visual gate is **not
+  green** in this turn. These varying timeouts do not establish a root cause or justify
+  changing shell pixels, rewriting baselines, or relaxing unrelated visual assertions.
+  Keep the current implementation and record the remaining whole-suite validation issue
+  for the central operator's independent gate/review. This evidence-only follow-up does
+  not supersede the failed full-suite results with a focused pass.
+- Focused Join/palette high-contrast recheck on phone and rail, repeated three times:
+  **12 passed (27.1s), wrapper exit 0**, updates/retries disabled, two workers. Original
+  log: /tmp/shell-visual-loading-recheck.log. This confirms those cases can pass unchanged;
+  it does not prove the full-suite timing issue fixed. No product or test source changed.
+- Follow-up changes only this journal. Quality and changed formatting pass; the previous
+  complete browser/axe results remain applicable to unchanged source. No push, promotion,
+  dispatcher state mutation, baseline update, or agent delegation occurred.
