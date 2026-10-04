@@ -98,11 +98,12 @@ export function useTouchNavigation({
 		}
 		return points[0] ?? null;
 	};
-	const sampleNavigation = () => {
+	// Stamped with the input's own time, not the handler's: a frame of main-thread jank delivers
+	// the moves late and bunched, and handler time would read that as a stall and kill the glide.
+	const sampleNavigation = (timeStamp: number) => {
 		const point = navigationPoint();
 		if (!point) return;
-		const now = performance.now();
-		panSamples.current.push({ x: point.x, y: point.y, t: now });
+		panSamples.current.push({ x: point.x, y: point.y, t: timeStamp });
 		while (panSamples.current.length > 8) panSamples.current.shift();
 	};
 	const stopInertia = () => {
@@ -257,7 +258,7 @@ export function useTouchNavigation({
 			// Sampled for the momentum glide only while the gesture really is navigation: the
 			// two-finger centroid, or one finger with the navigate tool armed (MapCanvas owns that
 			// drag, this only reads it). A marker drag under Select must never fling the map.
-			if (touchNavigationBlocked.current || tool === 'pan') sampleNavigation();
+			if (touchNavigationBlocked.current || tool === 'pan') sampleNavigation(event.timeStamp);
 		}
 		const start = longPressStart.current;
 		if (start && start.pointerId === event.pointerId) {

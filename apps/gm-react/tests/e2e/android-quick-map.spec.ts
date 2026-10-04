@@ -524,17 +524,28 @@ test.describe('RC-MAP-4.3 touch gesture model', () => {
 		const travelPx = 60;
 		const before = await mapTranslateX(page);
 		expect(Number.isNaN(before)).toBe(false);
+		// The flick is 60px over four 16ms frames, stamped on the events themselves. Without the
+		// stamps each move carries the time it happened to arrive, and on a loaded runner a CDP round
+		// trip alone outlasts the velocity window — the "flick" becomes a slow drag and never glides.
+		const flickStart = Date.now() / 1000;
+		const at = (frame: number) => flickStart + (frame * 16) / 1000;
 		await cdp.send('Input.dispatchTouchEvent', {
 			type: 'touchStart',
 			touchPoints: finger(cx + travelPx, cy),
+			timestamp: at(0),
 		});
 		for (let step = 1; step <= 4; step += 1) {
 			await cdp.send('Input.dispatchTouchEvent', {
 				type: 'touchMove',
 				touchPoints: finger(cx + travelPx - (travelPx / 4) * step, cy),
+				timestamp: at(step),
 			});
 		}
-		await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchEnd',
+			touchPoints: [],
+			timestamp: at(5),
+		});
 		// The finger dragged 60px; momentum must carry the map meaningfully further than that.
 		await expect
 			.poll(async () => Math.abs((await mapTranslateX(page)) - before))
