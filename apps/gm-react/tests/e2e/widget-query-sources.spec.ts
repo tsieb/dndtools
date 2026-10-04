@@ -36,6 +36,9 @@ const SOURCES = [
 	'combatant-status',
 	'capture-candidates',
 	'widget-library',
+	'live-peers',
+	'table-readiness',
+	'continuity-mentions',
 ];
 
 const SECRET_SCREEN = 'Smugglers’ hold — RC-WID-5.2';
@@ -103,6 +106,21 @@ test.describe('widget builder: query sources (RC-WID-5.2)', () => {
 		await expect(
 			catalogue.getByTestId('widget-builder-source-preview-quick-reference-player'),
 		).toHaveText('For a player: 0 rows');
+		// The live-table sources read this device's P2P session: not hosting, so they say so instead of
+		// reporting an empty table (and readiness is the hosting DM's alone).
+		await expect(catalogue.getByTestId('widget-builder-source-preview-live-peers')).toContainText(
+			'For you: 0 rows · Not hosting a table',
+		);
+		await expect(
+			catalogue.getByTestId('widget-builder-source-preview-table-readiness'),
+		).toContainText('Readiness shows while you host a table.');
+		await expect(
+			catalogue.getByTestId('widget-builder-source-preview-table-readiness-player'),
+		).toHaveText('For a player: 0 rows');
+		// No session log has been saved, so there are no post-save mentions yet.
+		await expect(
+			catalogue.getByTestId('widget-builder-source-preview-continuity-mentions'),
+		).toContainText('No session log saved yet.');
 
 		// ── A query card previews its own declaration, and follows a change of source.
 		await picker.selectOption('screens');

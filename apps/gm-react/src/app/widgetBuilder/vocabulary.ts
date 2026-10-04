@@ -82,6 +82,9 @@ export const QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, MessageKey> = {
 	'combatant-status': 'builder.source.combatantStatus',
 	'capture-candidates': 'builder.source.captureCandidates',
 	'widget-library': 'builder.source.widgetLibrary',
+	'live-peers': 'builder.source.livePeers',
+	'table-readiness': 'builder.source.tableReadiness',
+	'continuity-mentions': 'builder.source.continuityMentions',
 };
 
 export const QUERY_SOURCES = Object.keys(QUERY_SOURCE_LABEL) as WidgetDataQuerySource[];

@@ -18,7 +18,12 @@ import {
 	buildInitialState,
 	makeEnvironment,
 } from '@dndtools/core/testing';
-import { resolveWidgetTemplateData, type WidgetQueryResult } from './dataEnvironment';
+import {
+	resolveWidgetTemplateData,
+	type WidgetHostContext,
+	type WidgetLiveTable,
+	type WidgetQueryResult,
+} from './dataEnvironment';
 import type { BoardWidget } from '../board-helpers';
 
 /**
@@ -34,6 +39,10 @@ import type { BoardWidget } from '../board-helpers';
  *    the core read that keeps the row out, not the declaration's own audience gate;
  * 3. where the source is not DM-only in the core, the player still gets the row they may see, so
  *    the pass is not an empty list.
+ *
+ * The live-table sources (`live-peers`, `table-readiness`) read the host transport, so the fixture
+ * also passes a hosting DM's table: the secret is the transport's peer ids and an invitation the
+ * DM has not had answered, neither of which the host's presence broadcast sends a player.
  */
 
 const SECRET = 'SECRET';
@@ -65,6 +74,11 @@ function hubCampaign() {
 		type: 'scene.create',
 		actorId: dm,
 		payload: { name: `${SECRET} Lair`, visibility: 'dm-only' },
+	});
+	run({
+		type: 'scene.create',
+		actorId: dm,
+		payload: { name: 'Shared Hall', visibility: 'shared' },
 	});
 	const sceneId = (name: string) =>
 		Object.values(state.scenes.scenes).find((scene) => scene.name === name)!.id;
@@ -257,6 +271,45 @@ function hubCampaign() {
 
 const HUB_SOURCES = ALL_WIDGET_HUB_QUERY_SOURCES;
 
+/** A hosting DM's table: two connected players and one invitation nobody has answered yet. */
+const HOST_TABLE: WidgetLiveTable = {
+	role: 'host',
+	peers: [
+		{
+			peerId: `peer-${SECRET}-1`,
+			actorId: PLAYER_ACTOR.id,
+			displayName: PLAYER_ACTOR.displayName,
+			role: 'player',
+			connected: true,
+			status: 'online',
+			hand: false,
+			ready: true,
+		},
+		{
+			peerId: `peer-${SECRET}-2`,
+			actorId: OTHER_PLAYER.id,
+			displayName: OTHER_PLAYER.displayName,
+			role: 'player',
+			connected: true,
+			status: 'away',
+			hand: true,
+			ready: false,
+		},
+		{
+			peerId: `peer-${SECRET}-3`,
+			actorId: 'actor-invitee',
+			displayName: `${SECRET} Invitee`,
+			role: 'observer',
+			connected: false,
+			status: 'online',
+			hand: false,
+			ready: false,
+		},
+	],
+};
+
+const HOST: WidgetHostContext = { campaignName: 'The Drowned Vault', table: HOST_TABLE };
+
 function query(
 	source: WidgetDataQueryDefinition['source'],
 	audience: WidgetDataQueryDefinition['audience'] = 'shared',
@@ -311,10 +364,15 @@ function read(
 	state: CoreStateSlice,
 	actorId: string,
 	source: WidgetDataQueryDefinition['source'],
+	host: WidgetHostContext = HOST,
 ): WidgetQueryResult {
-	const data = resolveWidgetTemplateData(state, actorId, definitionWith([query(source)]), WIDGET, {
-		campaignName: 'The Drowned Vault',
-	});
+	const data = resolveWidgetTemplateData(
+		state,
+		actorId,
+		definitionWith([query(source)]),
+		WIDGET,
+		host,
+	);
 	const result = data.queries[0];
 	if (!result) throw new Error(`no result for ${source}`);
 	return result;
@@ -347,6 +405,8 @@ type Case = {
 	source: WidgetDataQueryDefinition['source'];
 	dm: (result: WidgetQueryResult) => void;
 	player: (result: WidgetQueryResult) => void;
+	/** Every row is DM material, so every non-DM reading must be empty, not merely secret-free. */
+	dmOnly?: true;
 };
 
 const CASES: Case[] = [
@@ -356,10 +416,20 @@ const CASES: Case[] = [
 			expect(names(r)).toContain(`${SECRET} Lair`);
 			const live = r.rows.find((row) => row.active);
 			expect(live?.primary).toBe(`${SECRET} Lair`);
-			expect(live?.meta).toBe('Live');
+			expect(live?.secondary).toMatch(/ · Live$/);
 			expect(live?.thumbnail).toBeTruthy();
+			// Live and private at once: the live flag does not overwrite the visibility.
+			expect(live?.visibility).toBe('dm-only');
+			const visibilityOf = (name: string) => r.rows.find((row) => row.primary === name)?.visibility;
+			expect(visibilityOf('Open Square')).toBe('player-visible');
+			expect(visibilityOf('Shared Hall')).toBe('shared');
 		},
-		player: (r) => expect(names(r)).toContain('Open Square'),
+		player: (r) => {
+			expect(names(r)).toContain('Open Square');
+			expect(r.rows.find((row) => row.primary === 'Open Square')?.visibility).toBe(
+				'player-visible',
+			);
+		},
 	},
 	{
 		source: 'vault-counts',
@@ -425,12 +495,14 @@ const CASES: Case[] = [
 		source: 'quick-reference',
 		dm: (r) => expect(names(r)).toEqual([`${SECRET} pin`]),
 		player: (r) => expect(r.rows).toEqual([]),
+		dmOnly: true,
 	},
 	{
 		source: 'continuity-digest',
 		// The digest is DM-only in the core; its prompts here name the secret pin and the fight.
 		dm: (r) => expect(printed(r)).toContain(SECRET),
 		player: (r) => expect(r.rows).toEqual([]),
+		dmOnly: true,
 	},
 	{
 		source: 'rest-log',
@@ -478,17 +550,58 @@ const CASES: Case[] = [
 		// The whole library is DM material (CMD-005): every row is a DM-only row.
 		dm: (r) => expect(r.rows.length).toBeGreaterThan(0),
 		player: (r) => expect(r.rows).toEqual([]),
+		dmOnly: true,
+	},
+	{
+		source: 'live-peers',
+		// The DM reads the host's peer list: transport ids, roles and the unanswered invitation.
+		dm: (r) => {
+			expect(r.header).toBe('2 connected');
+			const invitee = r.rows.find((row) => row.primary === `${SECRET} Invitee`);
+			expect(invitee?.meta).toBe('Invited');
+			expect(invitee?.active).toBe(false);
+			expect(r.rows.find((row) => row.id === `peer-${SECRET}-1`)?.secondary).toBe(
+				'Player · online',
+			);
+			expect(r.rows.find((row) => row.id === `peer-${SECRET}-2`)?.meta).toBe('Hand raised');
+		},
+		// A player reads what the presence broadcast sends them: connected peers by actor, no roles.
+		player: (r) => {
+			expect(r.rows.map((row) => row.id)).toEqual([PLAYER_ACTOR.id, OTHER_PLAYER.id]);
+			const self = r.rows.find((row) => row.id === PLAYER_ACTOR.id);
+			expect(self?.meta).toBe('Ready');
+			expect(self?.avatar).toBeTruthy();
+			expect(r.rows.every((row) => !row.secondary?.includes('Player'))).toBe(true);
+		},
+	},
+	{
+		source: 'table-readiness',
+		// The DM's call cue: connected players only, ready or not, keyed by transport peer id.
+		dm: (r) => {
+			expect(r.header).toBe('1 of 2 ready');
+			expect(r.rows.map((row) => [row.id, row.meta])).toEqual([
+				[`peer-${SECRET}-1`, 'Ready'],
+				[`peer-${SECRET}-2`, 'Not ready'],
+			]);
+		},
+		player: (r) => {
+			expect(r.rows).toEqual([]);
+			expect(r.emptyLabel).toBe('Only the DM sees table readiness.');
+		},
+		dmOnly: true,
 	},
 ];
 
 describe('RC-WID-5.2 — hub query sources', () => {
 	it('has an isolation case for every hub source', () => {
+		// The two archive-backed sources need an archived session, so they have their own fixtures.
+		const ownFixture = new Set(['session-archives', 'continuity-mentions']);
 		expect(CASES.map((entry) => entry.source).sort()).toEqual(
-			HUB_SOURCES.filter((source) => source !== 'session-archives').sort(),
+			HUB_SOURCES.filter((source) => !ownFixture.has(source)).sort(),
 		);
 	});
 
-	describe.each(CASES)('$source', ({ source, dm, player }) => {
+	describe.each(CASES)('$source', ({ source, dm, player, dmOnly }) => {
 		const { state } = hubCampaign();
 
 		it('the DM reading carries the DM-only row (control)', () => {
@@ -500,6 +613,7 @@ describe('RC-WID-5.2 — hub query sources', () => {
 		it.each(nonDmReadings(state, source))('%s never carries a DM-only row', (_who, result) => {
 			expect(result.withheld).toBeNull();
 			expect(printed(result)).not.toContain(SECRET);
+			if (dmOnly) expect(result.rows).toEqual([]);
 		});
 
 		it('a player still receives the rows they may see', () => {
@@ -556,6 +670,166 @@ describe('RC-WID-5.2 — hub query sources', () => {
 			const rows = read(recapped, PLAYER_ACTOR.id, 'session-archives').rows;
 			expect(rows.map((row) => row.id)).toEqual([archiveId]);
 			expect(rows[0]?.meta).toBe('Recap written');
+		});
+	});
+
+	describe('screens visibility', () => {
+		it('keeps each visibility apart from the live flag, whichever screen is live', () => {
+			const { state, env, openScene, secretScene } = hubCampaign();
+			const sharedScene = Object.values(state.scenes.scenes).find(
+				(scene) => scene.name === 'Shared Hall',
+			)!.id;
+			const expected = {
+				[openScene]: 'player-visible',
+				[secretScene]: 'dm-only',
+				[sharedScene]: 'shared',
+			} as const;
+			for (const liveId of [openScene, secretScene, sharedScene]) {
+				const live = accept(
+					dispatchCommand(state, env, {
+						type: 'session.set-workflow',
+						actorId: DM_ACTOR.id,
+						payload: { workflow: 'active', activeSceneId: liveId },
+					}),
+				);
+				const rows = read(live, DM_ACTOR.id, 'screens').rows.filter((row) => row.id in expected);
+				expect(rows).toHaveLength(3);
+				for (const screen of rows) {
+					expect(screen.visibility).toBe(expected[screen.id]);
+					expect(screen.meta).toBe(expected[screen.id]);
+					expect(screen.active).toBe(screen.id === liveId);
+				}
+			}
+		});
+	});
+
+	describe('live-table sources without a host table', () => {
+		it.each(['live-peers', 'table-readiness'] as const)(
+			'%s says the table is unknown rather than empty',
+			(source) => {
+				const { state } = hubCampaign();
+				const result = read(state, DM_ACTOR.id, source, { campaignName: null });
+				expect(result.rows).toEqual([]);
+				expect(result.emptyLabel).toBe('The live table is not available here.');
+			},
+		);
+
+		it('a solo device says it is not hosting', () => {
+			const { state } = hubCampaign();
+			const result = read(state, DM_ACTOR.id, 'live-peers', { table: { role: 'solo', peers: [] } });
+			expect(result.rows).toEqual([]);
+			expect(result.header).toBe('Not hosting a table');
+		});
+
+		it('a joined device lists the roster the host projected for it', () => {
+			const { state } = hubCampaign();
+			const joined: WidgetLiveTable = {
+				role: 'joined',
+				peers: [
+					{
+						peerId: OTHER_PLAYER.id,
+						actorId: OTHER_PLAYER.id,
+						displayName: OTHER_PLAYER.displayName,
+						role: null,
+						connected: true,
+						status: 'online',
+						hand: false,
+						ready: true,
+					},
+				],
+			};
+			const result = read(state, PLAYER_ACTOR.id, 'live-peers', { table: joined });
+			expect(result.rows.map((row) => [row.id, row.meta])).toEqual([[OTHER_PLAYER.id, 'Ready']]);
+			// Readiness stays the hosting DM's: a joined device has no roster to call from.
+			expect(read(state, PLAYER_ACTOR.id, 'table-readiness', { table: joined }).rows).toEqual([]);
+		});
+	});
+
+	describe('continuity-mentions', () => {
+		// SE-41 reads the capture a saved session log left on its archive, so it needs an archive. The
+		// mention detector reads title-case names, so the two names here stand in for `SECRET`:
+		// `Captain Vellis` has no record anywhere, and `Warden Grell` is a DM-only NPC, a record the DM
+		// holds and a player cannot see. Neither may reach a non-DM reading.
+		const UNKNOWN = 'Captain Vellis';
+		const HIDDEN = 'Warden Grell';
+
+		function captured() {
+			const { state, env } = hubCampaign();
+			const withHidden = accept(
+				dispatchCommand(state, env, {
+					type: 'character.quick-create',
+					actorId: DM_ACTOR.id,
+					payload: { kind: 'npc', name: HIDDEN, visibility: 'dm-only' },
+				}),
+			);
+			const recap = accept(
+				dispatchCommand(withHidden, env, {
+					type: 'session.set-workflow',
+					actorId: DM_ACTOR.id,
+					payload: { workflow: 'recap' },
+				}),
+			);
+			const archiveId = Object.keys(recap.session.archives)[0]!;
+			const next = accept(
+				dispatchCommand(recap, env, {
+					type: 'session.author-recap',
+					actorId: DM_ACTOR.id,
+					payload: {
+						archiveId,
+						markdown: 'The party reached the gate.',
+						happened: `The party met ${UNKNOWN} at the gate. ${HIDDEN} watched from the wall.`,
+						changes: [],
+						followUps: ['Follow up with Aria about the toll.'],
+					},
+				}),
+			);
+			return { state: next, env };
+		}
+
+		it('the DM reading names the mention with no record (control)', () => {
+			const { state } = captured();
+			const result = read(state, DM_ACTOR.id, 'continuity-mentions');
+			expect(names(result)).toEqual([UNKNOWN]);
+			expect(result.header).toBe('1 name mentioned without notes');
+			expect(result.rows[0]?.meta).toBe('No record yet');
+		});
+
+		it.each([
+			['a player projection', PLAYER_ACTOR.id, false],
+			['an observer projection', OBSERVER_ACTOR.id, false],
+			['the preview player projection', PREVIEW_PLAYER_ACTOR_ID, true],
+		] as const)('%s never carries a DM-only row', (_who, actorId, preview) => {
+			const { state } = captured();
+			const viewed = preview
+				? { ...state, permissions: permissionsWithPreviewActors(state.permissions) }
+				: state;
+			const result = read(viewed, actorId, 'continuity-mentions');
+			expect(result.withheld).toBeNull();
+			// Checked against a player's roster, the hidden NPC would read as unknown: none may surface.
+			expect(printed(result)).not.toContain(UNKNOWN);
+			expect(printed(result)).not.toContain(HIDDEN);
+			expect(result.rows).toEqual([]);
+		});
+
+		it('a quick-created NPC drops off the list', () => {
+			const { state, env } = captured();
+			const created = accept(
+				dispatchCommand(state, env, {
+					type: 'character.quick-create',
+					actorId: DM_ACTOR.id,
+					payload: { kind: 'npc', name: UNKNOWN, visibility: 'dm-only' },
+				}),
+			);
+			const result = read(created, DM_ACTOR.id, 'continuity-mentions');
+			expect(result.rows).toEqual([]);
+			expect(result.emptyLabel).toBe('Every name in the last session log has a record.');
+		});
+
+		it('before any capture there is nothing to read', () => {
+			const { state } = hubCampaign();
+			const result = read(state, DM_ACTOR.id, 'continuity-mentions');
+			expect(result.rows).toEqual([]);
+			expect(result.emptyLabel).toBe('No session log saved yet.');
 		});
 	});
 });

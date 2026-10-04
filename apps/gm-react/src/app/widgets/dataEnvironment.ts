@@ -3,6 +3,7 @@ import {
 	EMPTY_PRESENCE_STATE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	WIDGET_QUERY_COLUMNS,
+	detectContinuityMentions,
 	evaluateFormula,
 	getActiveSystemForActor,
 	getCalendarContextForActor,
@@ -29,6 +30,7 @@ import {
 	type CombatTrackerView,
 	type CoreStateSlice,
 	type PlatformProfileId,
+	type Scene,
 	type WidgetComputedFieldDefinition,
 	type WidgetDataQueryDefinition,
 	type WidgetDefinition,
@@ -36,6 +38,8 @@ import {
 import { listLocalVaults } from '../../platform/storage/coreStore';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { useSession, type SessionContextValue } from '../../net/SessionContext';
+import type { PeerPresenceEntry } from '../../net/messages';
 import type { BoardWidget } from '../board-helpers';
 
 /**
@@ -69,7 +73,9 @@ import type { BoardWidget } from '../board-helpers';
  * rollable tables, quick reference and the Session console's remaining rows). The rule did not
  * change: each one is a mapping over a `*ForActor` read, or over records for ids such a read has
  * just returned. Where the core read is DM-only (quick reference, the digest, the widget library),
- * a player gets the empty result that read gives them, not a second, looser one built here.
+ * a player gets the empty result that read gives them, not a second, looser one built here. The
+ * live-table sources are the exception that no core read answers: they read the P2P table the host
+ * app passes in, and project it for the viewer exactly as the host's presence broadcast does.
  */
 
 /** One normalized row. Every template reads this shape, whatever source produced it. */
@@ -94,6 +100,35 @@ export interface WidgetDataRow {
 	 * `dark`, `grid`). Screens carry no image, so a card draws the thumbnail from the token.
 	 */
 	thumbnail?: string;
+	/**
+	 * RC-WID-5.2 — the row's visibility level (`dm-only`, `shared`, `player-visible`), kept apart from
+	 * `meta`/`active` so a screen can be live AND private and a template can still tell which.
+	 */
+	visibility?: Scene['visibility'];
+}
+
+/**
+ * RC-WID-5.2 — one participant of this device's live table, as the P2P transport knows them. On the
+ * hosting DM's device that is the host's peer list, invited-but-unconnected peers included; on a
+ * joined player's device it is the roster the host already projected for that player.
+ */
+export interface WidgetLivePeer {
+	/** The transport's peer id on the host; the actor id on a joined device, which has no peer ids. */
+	peerId: string;
+	actorId: string;
+	displayName: string;
+	/** Unknown on a joined device: the host's presence broadcast does not carry roles. */
+	role: 'player' | 'observer' | 'co-dm' | null;
+	connected: boolean;
+	status: 'online' | 'away';
+	hand: boolean;
+	ready: boolean;
+}
+
+/** RC-WID-5.2 — this device's live table: its P2P session role and who is on it. */
+export interface WidgetLiveTable {
+	role: 'solo' | 'host' | 'joined';
+	peers: readonly WidgetLivePeer[];
 }
 
 /**
@@ -105,6 +140,11 @@ export interface WidgetHostContext {
 	campaignName?: string | null;
 	/** The platform profile the widget library judges availability for. Defaults to `web`. */
 	profileId?: PlatformProfileId;
+	/**
+	 * This device's live table, when the caller can see the P2P transport. Absent means "not known
+	 * here", which the live-table sources say rather than claiming nobody is connected.
+	 */
+	table?: WidgetLiveTable;
 }
 
 /** Why a query returned nothing on purpose. `null` means the query really ran. */
@@ -318,6 +358,15 @@ function initialsOf(name: string): string {
 		.join('');
 }
 
+/** What a live-table source says when its caller passed no table: unknown, not empty. */
+const TABLE_UNKNOWN = 'The live table is not available here.';
+
+const PEER_ROLE_WORD: Record<NonNullable<WidgetLivePeer['role']>, string> = {
+	player: 'Player',
+	observer: 'Observer',
+	'co-dm': 'Co-DM',
+};
+
 function plural(count: number, one: string, many: string): string {
 	return `${count} ${count === 1 ? one : many}`;
 }
@@ -378,12 +427,20 @@ function resolveHubSource(
 					// Read off a screen the actor-scoped list just returned, so it describes only a screen
 					// this viewer may already open.
 					const background = state.scenes.scenes[screen.id]?.visualSettings.background;
+					// Visibility and the live flag are two fields, not one marker: a private screen can be
+					// live, and a template must still be able to say it is private.
+					const detail = [
+						screen.tags[0] ?? 'Screen',
+						plural(screen.widgetCount, 'widget', 'widgets'),
+					];
+					if (isLive) detail.push('Live');
 					return row(screen.id, screen.name, {
-						secondary: `${screen.tags[0] ?? 'Screen'} · ${plural(screen.widgetCount, 'widget', 'widgets')}`,
-						meta: isLive ? 'Live' : screen.visibility === 'dm-only' ? 'Draft' : 'Ready',
+						secondary: detail.join(' · '),
+						meta: screen.visibility,
 						value: screen.widgetCount,
 						active: isLive,
 						thumbnail: background,
+						visibility: screen.visibility,
 					});
 				}),
 			};
@@ -612,7 +669,7 @@ function resolveHubSource(
 			};
 		}
 		case 'presence': {
-			// Core presence only. Live P2P peers belong to the host transport, not to any core read.
+			// Core presence only. The transport's live peers are the `live-peers` source.
 			const scenes = new Map(
 				listScenesForActor(state.scenes, state.permissions, actorId).map((scene) => [
 					scene.id,
@@ -807,6 +864,123 @@ function resolveHubSource(
 				),
 			};
 		}
+		case 'live-peers': {
+			// SE-23's transport half. The DM reads every peer the host holds, invited ones included.
+			// Anyone else reads only connected peers, and only what the host's presence broadcast
+			// already sends a player: name, status, hand and ready. No peer ids, roles or invitations.
+			const table = host.table;
+			if (!table) return { header: null, emptyLabel: TABLE_UNKNOWN, rows: [] };
+			if (table.role === 'solo') {
+				return {
+					header: 'Not hosting a table',
+					emptyLabel: 'No live table yet. Host a table and players appear here as they connect.',
+					rows: [],
+				};
+			}
+			// The online/away reading prefers core presence, as the Session console's roster does.
+			const presence = new Map(
+				projectSessionPresence(
+					state.presence ?? EMPTY_PRESENCE_STATE,
+					state.permissions,
+					actorId,
+				).visible.map((entry) => [entry.actorId, entry.status]),
+			);
+			const peers = isDm ? table.peers : table.peers.filter((peer) => peer.connected);
+			return {
+				header: `${peers.filter((peer) => peer.connected).length} connected`,
+				emptyLabel: 'Nobody has joined yet.',
+				rows: peers.map((peer) => {
+					const status = peer.connected ? (presence.get(peer.actorId) ?? peer.status) : 'offline';
+					const detail = isDm && peer.role ? [PEER_ROLE_WORD[peer.role], status] : [status];
+					return row(isDm ? peer.peerId : peer.actorId, peer.displayName, {
+						secondary: detail.join(' · '),
+						meta: peer.hand
+							? 'Hand raised'
+							: peer.ready
+								? 'Ready'
+								: peer.connected
+									? undefined
+									: 'Invited',
+						active: peer.connected && status === 'online',
+						avatar: initialsOf(peer.displayName),
+					});
+				}),
+			};
+		}
+		case 'table-readiness': {
+			// SE-34's ready chips: the DM's cue to call initiative. Only a hosting DM holds a roster to
+			// read readiness from, the same rule the Session console follows, so anyone else gets none.
+			const table = host.table;
+			if (!table) return { header: null, emptyLabel: TABLE_UNKNOWN, rows: [] };
+			if (!isDm) return { header: null, emptyLabel: 'Only the DM sees table readiness.', rows: [] };
+			if (table.role !== 'host') {
+				return { header: null, emptyLabel: 'Readiness shows while you host a table.', rows: [] };
+			}
+			const players = table.peers.filter((peer) => peer.connected && peer.role === 'player');
+			const ready = players.filter((peer) => peer.ready).length;
+			return {
+				header: players.length > 0 ? `${ready} of ${players.length} ready` : null,
+				emptyLabel: 'No players connected yet.',
+				rows: players.map((peer) =>
+					row(peer.peerId, peer.displayName, {
+						meta: peer.ready ? 'Ready' : 'Not ready',
+						value: peer.ready ? 1 : 0,
+						active: peer.ready,
+						avatar: initialsOf(peer.displayName),
+					}),
+				),
+			};
+		}
+		case 'continuity-mentions': {
+			// SE-41: the names the latest saved capture mentions with no record behind them, read from
+			// what that capture stored on its archive and checked against the roster and vault labels
+			// the capture panel uses, so a quick-created NPC drops off by itself. ("Not now" is a local
+			// dismissal, not data.) DM-only, like the capture: against a player's smaller roster a hidden
+			// NPC's name would come back as a "no record" row.
+			if (!isDm) return { header: null, emptyLabel: 'Nothing to follow up.', rows: [] };
+			const latest = Object.values(state.session.archives)
+				.filter(
+					(archive) =>
+						archive.recap !== undefined &&
+						(archive.recap.happened !== undefined ||
+							archive.recap.changes !== undefined ||
+							archive.recap.followUps !== undefined),
+				)
+				.sort((a, b) => (b.recap?.authoredAt ?? '').localeCompare(a.recap?.authoredAt ?? ''))[0];
+			const recap = latest?.recap;
+			if (!latest || !recap) {
+				return { header: null, emptyLabel: 'No session log saved yet.', rows: [] };
+			}
+			const known = [
+				...listCharactersForActor(state.characters, state.permissions, actorId).map((c) => c.name),
+				...getContentItemsForActor(state.content, state.permissions, actorId).map((i) => i.title),
+			];
+			const mentions = detectContinuityMentions(
+				{
+					happened: recap.happened ?? '',
+					changes: recap.changes ?? [],
+					followUps: recap.followUps ?? [],
+				},
+				known,
+			);
+			return {
+				header:
+					mentions.length > 0
+						? plural(
+								mentions.length,
+								'name mentioned without notes',
+								'names mentioned without notes',
+							)
+						: null,
+				emptyLabel: 'Every name in the last session log has a record.',
+				rows: mentions.map((mention) =>
+					row(mention.id, mention.name, {
+						secondary: latest.title ?? 'Untitled session',
+						meta: 'No record yet',
+					}),
+				),
+			};
+		}
 		default:
 			return { header: null, emptyLabel: 'No data.', rows: [] };
 	}
@@ -970,14 +1144,57 @@ export function resolveWidgetTemplateData(
 	return { queries, computed, primary: queries[0] ?? null, isDm };
 }
 
+/** The P2P session, or null where no `SessionProvider` is mounted (an isolated render). */
+function useOptionalSession(): SessionContextValue | null {
+	try {
+		return useSession();
+	} catch {
+		return null;
+	}
+}
+
+/** The transport's view of this device's table, in the shape the live-table sources read. */
+function liveTableOf(
+	role: SessionContextValue['role'],
+	peers: SessionContextValue['peers'],
+	clientPresence: readonly PeerPresenceEntry[],
+): WidgetLiveTable {
+	if (role === 'joined') {
+		// A joined device holds only the roster the host projected for it: connected peers, no roles.
+		return {
+			role,
+			peers: clientPresence.map((entry) => ({
+				peerId: entry.actorId,
+				actorId: entry.actorId,
+				displayName: entry.displayName,
+				role: null,
+				connected: true,
+				status: entry.status,
+				hand: entry.hand ?? false,
+				ready: entry.ready ?? false,
+			})),
+		};
+	}
+	return { role, peers: role === 'host' ? peers.map((peer) => ({ ...peer })) : [] };
+}
+
 /**
- * The device-local half of {@link WidgetHostContext}: this vault's name from the device's catalog and
- * the platform profile. A catalog that cannot be read leaves the name out rather than failing the
- * widget; the campaign source then says "Your campaign", as the Command Center hero does.
+ * The device-local half of {@link WidgetHostContext}: this vault's name from the device's catalog,
+ * the platform profile and the live table. A catalog that cannot be read leaves the name out rather
+ * than failing the widget; the campaign source then says "Your campaign", as the Command Center hero
+ * does.
  */
 export function useWidgetHostContext(): WidgetHostContext {
 	const runtime = useRuntime();
+	const session = useOptionalSession();
 	const vaultId = runtime.vaultId;
+	const role = session?.role;
+	const peers = session?.peers;
+	const clientPresence = session?.client?.presence;
+	const table = useMemo(
+		() => (role ? liveTableOf(role, peers ?? [], clientPresence ?? []) : undefined),
+		[role, peers, clientPresence],
+	);
 	return useMemo(() => {
 		let campaignName: string | null = null;
 		try {
@@ -985,8 +1202,8 @@ export function useWidgetHostContext(): WidgetHostContext {
 		} catch {
 			/* A missing catalog is not a widget error. */
 		}
-		return { campaignName, profileId: widgetProfileForRuntime() };
-	}, [vaultId]);
+		return { campaignName, profileId: widgetProfileForRuntime(), table };
+	}, [vaultId, table]);
 }
 
 /** The app-side hook: the same resolution against the live, actor-projected runtime state. */

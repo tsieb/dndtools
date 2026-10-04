@@ -3743,6 +3743,9 @@ export default {
 	'builder.source.combatantStatus': '[Çóḿƀáţáñţ çóñďíţíóñš~~~~ ~~~]',
 	'builder.source.captureCandidates': '[Ŵĥáţ á šéššíóñ ľóğ çáñ ḿáŕķ~~~~ ~~~~ ~]',
 	'builder.source.widgetLibrary': '[Ŵíďğéţ ľíƀŕáŕý~~~~ ~]',
+	'builder.source.livePeers': '[Ľíṽé ţáƀľé~~~~]',
+	'builder.source.tableReadiness': '[Ţáƀľé ŕéáďíñéšš~~~~ ~]',
+	'builder.source.continuityMentions': '[Ñáḿéš ŵíţĥóúţ ñóţéš~~~~ ~~~]',
 	'builder.data.preview': '[Ľíṽé ƥŕéṽíéŵ~~~~ ]',
 	'builder.data.previewYou': '[Ƒóŕ ýóú: ~~~~{count, plural, one {# ŕóŵ~~} other {# ŕóŵš~~~}}]',
 	'builder.data.previewPlayer':

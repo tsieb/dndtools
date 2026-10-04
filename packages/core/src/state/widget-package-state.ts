@@ -66,7 +66,13 @@ export type WidgetDataQuerySource =
 	| 'initiative-call'
 	| 'combatant-status'
 	| 'capture-candidates'
-	| 'widget-library';
+	| 'widget-library'
+	// The three G-02 rows no core read answers: the host transport's live peers and their readiness,
+	// and the names a saved capture mentions without a record. The host app supplies the transport
+	// half; the resolver still projects it for the viewer.
+	| 'live-peers'
+	| 'table-readiness'
+	| 'continuity-mentions';
 export type WidgetOutputDestinationClass =
 	| 'scene'
 	| 'session'
@@ -520,7 +526,8 @@ export const ALL_WIDGET_DATA_QUERY_SOURCES = [
 
 /**
  * RC-WID-5.2 — the hub sources the SCREENS_PARITY gap register (§4.1 G-02) needs, in a stable order.
- * Each resolves through an existing actor-scoped core read, exactly like the originals.
+ * Each resolves through an existing actor-scoped core read, exactly like the originals. The last three
+ * also read what the host app knows (its live table), and the resolver projects that for the viewer.
  */
 export const ALL_WIDGET_HUB_QUERY_SOURCES = [
 	'screens',
@@ -540,6 +547,9 @@ export const ALL_WIDGET_HUB_QUERY_SOURCES = [
 	'combatant-status',
 	'capture-candidates',
 	'widget-library',
+	'live-peers',
+	'table-readiness',
+	'continuity-mentions',
 ] as const satisfies readonly WidgetDataQuerySource[];
 
 /** Every source a definition may declare: the persisted schema's enum and the builder's catalogue. */

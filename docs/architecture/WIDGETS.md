@@ -160,39 +160,50 @@ read has just returned. A query declared `audience: 'dm'` (or `requiredCapabilit
 returns no rows to a non-DM viewer, whatever the read would have returned. RC-WID-5.2 added the hub
 sources the SCREENS_PARITY gap register (§4.1 G-02) lists.
 
-| Source               | Core read                                                       | A player receives                                                       |
-| -------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `current-combatants` | `getCombatTrackerForActor`                                      | Visible combatants; vitals only where the tracker exposes them          |
-| `visible-characters` | `getPartyOverviewForActor`                                      | The characters they may see                                             |
-| `selected-scene`     | `listScenesForActor`                                            | Scenes they may open                                                    |
-| `session-state`      | workflow + `listScenesForActor` + tracker                       | Active scene named only if visible                                      |
-| `notes`              | `getContentItemsForActor` (notes)                               | Visible notes                                                           |
-| `maps`               | `listMapsForActor`                                              | Visible maps                                                            |
-| `content-objects`    | `getContentItemsForActor` (objects)                             | Visible objects                                                         |
-| `binding`            | the board's binding status                                      | The board's own availability verdict                                    |
-| `screens`            | `listScreensForActor`                                           | Visible screens; widget count scoped to their sections; live flag       |
-| `vault-counts`       | characters, maps and content `*ForActor`                        | Counts of what they may list, never vault totals                        |
-| `party`              | `getPartyOverviewForActor` (PCs)                                | Visible PCs with initials (`avatar`) and vitals                         |
-| `campaign`           | `getActiveSystemForActor`, scenes, `getCalendarContextForActor` | Name, system, live screen only if visible, workflow, date, own identity |
-| `dice-history`       | `getDiceHistoryForActor`                                        | Rolls they may see; the hidden count is never surfaced                  |
-| `handouts`           | `getHandoutsForActor`                                           | Handouts delivered to them                                              |
-| `rollable-tables`    | content `*ForActor` (`dice-table`) + dice history               | Visible tables and the latest draw they may see                         |
-| `quick-reference`    | `getQuickReferencePanelsForActor`                               | Nothing (DM-only read)                                                  |
-| `session-archives`   | archives (DM) / `getSessionRecapFeedForActor`                   | Only archived sessions whose recap the feed delivers                    |
-| `continuity-digest`  | `getPrepRecapDigest`                                            | Nothing (DM-only read)                                                  |
-| `rest-log`           | ledger of characters `listCharactersForActor` returned          | Rests of characters they may see                                        |
-| `presence`           | `projectSessionPresence` with scene-hint stripping              | Participants; a hint naming a hidden screen is removed                  |
-| `player-projections` | `session.playerViewAssignments` (DM) / `getPlayerViewForActor`  | Their own row only                                                      |
-| `initiative-call`    | `getCombatTrackerForActor` log                                  | Awaiting / rolled / adjusted for visible combatants                     |
-| `combatant-status`   | `getCombatTrackerForActor`                                      | Conditions, concentration, death saves only where vitals are exposed    |
-| `capture-candidates` | `listCharactersForActor` + `getContentItemsForActor`            | References to what they may list                                        |
-| `widget-library`     | `listWidgetLibrary`                                             | Nothing (scene authors only)                                            |
+| Source                | Core read                                                       | A player receives                                                       |
+| --------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `current-combatants`  | `getCombatTrackerForActor`                                      | Visible combatants; vitals only where the tracker exposes them          |
+| `visible-characters`  | `getPartyOverviewForActor`                                      | The characters they may see                                             |
+| `selected-scene`      | `listScenesForActor`                                            | Scenes they may open                                                    |
+| `session-state`       | workflow + `listScenesForActor` + tracker                       | Active scene named only if visible                                      |
+| `notes`               | `getContentItemsForActor` (notes)                               | Visible notes                                                           |
+| `maps`                | `listMapsForActor`                                              | Visible maps                                                            |
+| `content-objects`     | `getContentItemsForActor` (objects)                             | Visible objects                                                         |
+| `binding`             | the board's binding status                                      | The board's own availability verdict                                    |
+| `screens`             | `listScreensForActor`                                           | Visible screens; visibility, widget count, thumbnail, live flag         |
+| `vault-counts`        | characters, maps and content `*ForActor`                        | Counts of what they may list, never vault totals                        |
+| `party`               | `getPartyOverviewForActor` (PCs)                                | Visible PCs with initials (`avatar`) and vitals                         |
+| `campaign`            | `getActiveSystemForActor`, scenes, `getCalendarContextForActor` | Name, system, live screen only if visible, workflow, date, own identity |
+| `dice-history`        | `getDiceHistoryForActor`                                        | Rolls they may see; the hidden count is never surfaced                  |
+| `handouts`            | `getHandoutsForActor`                                           | Handouts delivered to them                                              |
+| `rollable-tables`     | content `*ForActor` (`dice-table`) + dice history               | Visible tables and the latest draw they may see                         |
+| `quick-reference`     | `getQuickReferencePanelsForActor`                               | Nothing (DM-only read)                                                  |
+| `session-archives`    | archives (DM) / `getSessionRecapFeedForActor`                   | Only archived sessions whose recap the feed delivers                    |
+| `continuity-digest`   | `getPrepRecapDigest`                                            | Nothing (DM-only read)                                                  |
+| `rest-log`            | ledger of characters `listCharactersForActor` returned          | Rests of characters they may see                                        |
+| `presence`            | `projectSessionPresence` with scene-hint stripping              | Participants; a hint naming a hidden screen is removed                  |
+| `player-projections`  | `session.playerViewAssignments` (DM) / `getPlayerViewForActor`  | Their own row only                                                      |
+| `initiative-call`     | `getCombatTrackerForActor` log                                  | Awaiting / rolled / adjusted for visible combatants                     |
+| `combatant-status`    | `getCombatTrackerForActor`                                      | Conditions, concentration, death saves only where vitals are exposed    |
+| `capture-candidates`  | `listCharactersForActor` + `getContentItemsForActor`            | References to what they may list                                        |
+| `widget-library`      | `listWidgetLibrary`                                             | Nothing (scene authors only)                                            |
+| `live-peers`          | host transport (`WidgetHostContext.table`) + presence status    | Connected peers by actor: name, status, hand, ready. No ids or invites  |
+| `table-readiness`     | host transport (`WidgetHostContext.table`)                      | Nothing (the hosting DM's call cue)                                     |
+| `continuity-mentions` | latest archived capture vs `listCharactersForActor` + content   | Nothing (DM-only, like the capture)                                     |
 
-A row may also carry `avatar` (initials) and `thumbnail` (the scene background token: screens
-carry no image). `WidgetHostContext` passes in the two device-local values: the vault's name from
-this device's catalog (`campaign`) and the platform profile (`widget-library`). Two G-02 items are
-not core reads, so no source covers them. Live P2P peers and initiative readiness belong to the host
-transport (`apps/gm-react/src/net/`). Post-save continuity mentions are transient Session UI state.
+A row may also carry `avatar` (initials), `thumbnail` (the scene background token: screens carry no
+image) and `visibility`. A screen row keeps its visibility in `visibility` (and `meta`) and its live
+flag in `active`, so a private live screen still reads as private. `WidgetHostContext` passes in what
+only the device knows: the vault's name from this device's catalog (`campaign`), the platform
+profile (`widget-library`) and the live table (`table`: the P2P session role and its peers). The
+live-table sources project that table for the viewer the way the host's presence broadcast does. A
+caller that passes no table gets "The live table is not available here", never an empty roster.
+`continuity-mentions` reads the capture the latest session log stored on its archive and runs
+`detectContinuityMentions` against the DM's roster and vault, so a quick-created NPC drops off by
+itself. "Not now" is a local dismissal, not data. `useWidgetHostContext` builds the context;
+the builder's previews pass it today. The template slot (`templates/index.tsx`) and the worker
+host still call the resolver without one, so a placed widget reads the live-table sources as "not
+available here" until RC-WID-5.3 wires it into the template slot.
 
 The builder's Data step previews every source live (`DataStepBindings.tsx`). Each query card
 shows its reading for the author and for the reserved preview player. "Every source" lists the

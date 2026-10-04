@@ -187,3 +187,77 @@ supports a transient capture timeout, not a demonstrated pixel regression; its u
 cause is not established. No source or baseline change is justified by these results. Only this
 journal is changed. The task implementation remains in rebased commits `53e1b71a` and `6470150e`.
 No push, promotion, dispatcher-control edit, additional loop or agent was performed.
+
+## Session 5 — 2026-10-04: review findings (live table, continuity mentions, screen visibility)
+
+Resumed at `d149555a` with a clean tree to answer the independent review. No Headroom tools are
+exposed, so output went to `/tmp/rc-wid52-r5-*.log` and I read those logs directly.
+
+### Finding 1 (high): live peers, readiness and post-save continuity had no source
+
+Three sources were added to `ALL_WIDGET_HUB_QUERY_SOURCES` (now 20 hub sources, 28 in all):
+
+- `live-peers` (SE-23 transport half). `WidgetHostContext` gains `table: WidgetLiveTable`, built by
+  `useWidgetHostContext` from the P2P session (`useSession`, read through a guard so a render with
+  no `SessionProvider` gets no table rather than a crash). On a host it is the host's peer list,
+  invited peers included. On a joined device it is the roster the host already projected for it.
+  The DM reads every peer with its transport id and role, and an unanswered invitation reads
+  `Invited`. Anyone else reads only connected peers, keyed by actor, with the fields the host's
+  presence broadcast already sends a player (name, status, hand, ready). Online/away prefers core
+  presence, as the Session console roster does.
+- `table-readiness` (SE-34). Connected players with `Ready`/`Not ready` and an `N of M ready` header,
+  for a hosting DM only, which is the rule the console's ready chips follow. A non-DM gets no rows.
+- `continuity-mentions` (SE-41). The latest archive whose recap carries a structured capture, run
+  through the core's `detectContinuityMentions` against the DM's roster and vault labels (the same
+  check `Capture.tsx` runs after save). A quick-created NPC drops off by itself; "Not now" stays a
+  local dismissal. DM-only: against a player's smaller roster a hidden NPC's name would come back as
+  a "no record" row.
+
+A caller that passes no table gets "The live table is not available here." rather than an empty
+roster, and a solo device reads "Not hosting a table".
+
+### Finding 2 (medium): screens lost visibility
+
+`WidgetDataRow` gains `visibility`. A screen row now carries `visibility` and `meta` = the scene's
+visibility (as `selected-scene` and `maps` already do), the live flag in `active`, and `· Live` at
+the end of `secondary`. A private live screen still reads as private.
+
+### Tests
+
+- `dataEnvironment.hub.test.ts`: 122 passed (`/tmp/rc-wid52-r5-hub.log`). New: `live-peers` and
+  `table-readiness` cases in the per-source table, run against a hosting DM's table whose transport
+  ids and unanswered invitation carry `SECRET`. A new `dmOnly` flag makes every non-DM reading of a
+  DM-only source assert zero rows, not just no `SECRET` (applies to quick-reference,
+  continuity-digest, widget-library and table-readiness). A `continuity-mentions` block with its own
+  archived-capture fixture covers the DM control, player/observer/preview-player isolation, NPC
+  creation and the pre-capture state. A screens test makes each of the three visibilities live in
+  turn and checks every row keeps its own visibility. Further cases cover a missing table, a solo
+  device and a joined device.
+- Mutation check (`/tmp/rc-wid52-r5-orig.ts` restored afterwards, `cmp` clean): unfiltered peers for
+  non-DM → 4 failures; continuity open to non-DM → 3; readiness open to non-DM → 4; screen
+  `visibility` dropped → 3.
+- App vitest over `app/widgets`, `app/widgetBuilder`, `i18n`: 21 files, 455 passed
+  (`/tmp/rc-wid52-r5-app.log`).
+- Full core vitest: 284 files, 5184 passed (`/tmp/rc-wid52-r5-core.log`).
+- `pnpm typecheck` exit 0 (`/tmp/rc-wid52-r5-typecheck.log`); ESLint on changed TS/TSX exit 0
+  (`/tmp/rc-wid52-r5-lint.log`); Prettier `--check` on every changed file and `git diff --check` pass.
+- `widget-query-sources.spec.ts` + `widget-builder.spec.ts` + `widget-generate.spec.ts`, desktop and
+  mobile Chromium, port 5756: 28 passed (`/tmp/rc-wid52-r5-e2e.log`). The spec now lists 28 sources
+  and checks that the live-table previews read the real (solo) P2P session ("Not hosting a table";
+  readiness "shows while you host a table", player 0 rows) and that `continuity-mentions` reads "No
+  session log saved yet." The `DefinitionPane` forwardRef warning in that log comes from
+  `BuilderPanes.tsx`, which this change does not touch.
+
+### Companions and limits
+
+- Owned: `widget-package-state.ts`, `dataEnvironment.ts`, `vocabulary.ts` (3 labels). Companions:
+  `en.ts`/`es.ts` (+3 keys each), `qps-ploc.ts` (regenerated), the hub test, the e2e spec and
+  `WIDGETS.md` §3.2 (table rows, and the paragraph that used to record these exclusions).
+- HANDOFF (RC-WID-5.3, which owns `apps/gm-react/src/app/widgets/templates`): the template slot's
+  `connect` in `templates/index.tsx` and `WorkerHost.ts` still call `resolveWidgetTemplateData` without
+  a host context, as they did before this story. Until they pass `useWidgetHostContext()`, a placed
+  template widget reads the live-table sources as "not available here" (honest, not empty) and the
+  campaign name as "Your campaign". The builder's previews already pass it. Neither file is in this
+  claim, and the acceptance criterion (isolation per source, builder previews) does not need them.
+
+No push, promotion, dispatcher-control edit, additional loop or agent was performed.
