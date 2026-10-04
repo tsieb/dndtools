@@ -28,3 +28,34 @@
 - Final typecheck, targeted ESLint, Prettier, `pnpm gates`, `pnpm lint:boundary`, `git diff --check`, and baseline budget check passed. Aggregate images: 33,951.3 KiB / 34 MiB.
 - No push, promotion, loop launch, dispatcher-state edits, or remote-CI claims. Independent operator gates/review remain external.
 - Final pinned `/display` comparison: **15/15 passed**, `--update-snapshots=none`, across all five themes and all three tiers.
+
+## Attempt 2 — explicit claim exceptions for operator review
+
+The central claim gate rejected `src/screens/play/PrivateJournal.tsx` and
+`tests/visual/check-baseline-budget.mjs` (paths relative to `apps/gm-react`).
+Compared both files against base `ed6141404e7443ee425e804f6f024c8902f5512b`.
+The working tree was clean before this follow-up; no unrelated changes were present.
+
+Both changes are intentionally retained for the operator's claim decision:
+
+- `PrivateJournal.tsx` owns all three private editors and their state. The owned
+  `Journal.tsx` only renders `<PrivateJournal data={data} />`; it cannot introduce
+  independent accessible disclosures inside that child. Reverting the child would
+  restore the three open forms and remove the primary Write a note action, directly
+  undoing the requested acceptance behavior. Keeping the existing component boundary
+  also preserves its device-local persistence and sharing implementation; no duplicate
+  journal implementation or imperative DOM manipulation was introduced.
+- `check-baseline-budget.mjs` budgets the requested full-frame theme snapshots while
+  retaining the existing join-first and other route baselines. The current exact check
+  reports 652 PNGs, **33,951.3 KiB**. The base's **32,768 KiB** cap cannot accommodate
+  this retained coverage. The change raises only the aggregate allowance to 34 MiB;
+  the 320 KiB per-image limit and screenshot comparison tolerances are unchanged.
+  Reverting this file alone would knowingly leave the baseline gate failing. The
+  operator may instead require a different snapshot coverage/budget tradeoff.
+
+This follow-up changes only the run journal and records the exception rationale in
+its commit message. It does not widen the claim, alter dispatcher state, or claim that
+admission is fixed. The task remains blocked pending the operator's decision whether
+to include these two paths. Existing implementation/test evidence above is unchanged;
+this follow-up reran the baseline budget check and `git diff --check`, not the browser
+suites. Headroom tools remain unavailable; original native output was inspected.
