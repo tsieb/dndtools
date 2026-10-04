@@ -48,3 +48,13 @@ Base: `loop/rc` 9a7b675d (RC-POL-1.23). Branch `dispatch/dndtools/544e7443768b97
   `format:check:changed --base loop/rc` clean, gm-react `tsc` clean, gm-react `build` exit 0,
   `pnpm test:app` 161 files / 1819 tests passed. The full e2e suite was not run locally; the
   operator's gates own that.
+
+## Attempt 2 (gate: path outside claim)
+
+- Reverted `docs/README.md` to base 9a7b675d. The docs-links gate (`scripts/validate/docs-links.ts`,
+  run by `pnpm gates`) needs every `docs/` file reachable from `docs/README.md`; the four new guides
+  are now linked from `docs/user/getting-started.md`'s "Implementation references" section, which
+  the app strips, so they stay reachable without touching the index. `auditDocs`: 298 files, 414
+  links, no problems. Help unit tests green.
+- Left stale for the operator: `docs/README.md` "User guides" still says "the info button" and "All
+  eight guides", and lists eight. Correcting it needs that path added to the claim.

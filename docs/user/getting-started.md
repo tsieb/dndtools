@@ -51,3 +51,10 @@ Vault switching check: 2026-09-23, merged `loop/rc` `74b4fb64` (RC-UX-5.4).
 - [Sidebar.tsx](../../apps/gm-react/src/app/shell/Sidebar.tsx)
 - [RailNav.tsx](../../apps/gm-react/src/app/shell/RailNav.tsx)
 - [MoreSheet.tsx](../../apps/gm-react/src/app/shell/MoreSheet.tsx)
+
+Guides added in RC-UX-6.6 (2026-10-04, base `9a7b675d`), which Help opens for their own screens:
+
+- [screens.md](screens.md)
+- [characters.md](characters.md)
+- [notes.md](notes.md)
+- [settings.md](settings.md)
