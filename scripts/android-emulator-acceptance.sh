@@ -596,7 +596,8 @@ wait_for_ui_text 'LIVE SESSION' || fail 'the Session shortcut did not open the s
 SHORTCUT_OUTPUT=$(adb shell am start -W -a android.intent.action.VIEW -n "$COMPONENT" \
 	--es dndtools_route /play | tr -d '\r')
 grep -q 'Status: ok' <<<"$SHORTCUT_OUTPUT" || fail 'the Play shortcut intent did not reach MainActivity'
-wait_for_ui_text 'Now playing' || fail 'the Play shortcut did not open the player view'
+# This install holds no seat, so the player view opens on its join-first stage (player-join-first.spec).
+wait_for_ui_text 'Join your table' || fail 'the Play shortcut did not open the player view'
 
 # A route the shortcuts never declare must be dropped, not navigated to.
 adb shell am start -W -a android.intent.action.VIEW -n "$COMPONENT" --es dndtools_route /settings \

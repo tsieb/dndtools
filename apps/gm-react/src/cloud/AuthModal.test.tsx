@@ -12,8 +12,9 @@ let root: Root;
 let container: HTMLDivElement;
 let props: Props;
 
+// The DS Dialog portals its scrim to <body>, so queries look there rather than in `container`.
 function action(label: string): HTMLButtonElement {
-	const match = [...container.querySelectorAll('button')].find(
+	const match = [...document.body.querySelectorAll('button')].find(
 		(button) => button.textContent?.trim() === label,
 	);
 	if (!match) throw new Error(`Button not found: ${label}`);
@@ -21,7 +22,7 @@ function action(label: string): HTMLButtonElement {
 }
 
 function field(id: string): HTMLInputElement {
-	const input = container.querySelector<HTMLInputElement>(`#${id}`);
+	const input = document.body.querySelector<HTMLInputElement>(`#${id}`);
 	if (!input) throw new Error(`Input not found: ${id}`);
 	return input;
 }
@@ -44,7 +45,7 @@ async function click(label: string): Promise<void> {
 }
 
 function title(): string {
-	return container.querySelector('h2')?.textContent?.trim() ?? '';
+	return document.body.querySelector('h2')?.textContent?.trim() ?? '';
 }
 
 beforeEach(async () => {
@@ -81,7 +82,7 @@ describe('AuthModal password recovery', () => {
 		await enter('auth-password', 'OldSignInPassword3');
 		await click('Forgot password?');
 		expect(title()).toBe('Reset your password');
-		expect(container.textContent).toContain(
+		expect(document.body.textContent).toContain(
 			'We’ll send a code if an account can use password recovery.',
 		);
 
@@ -120,7 +121,7 @@ describe('AuthModal password recovery', () => {
 		await enter('auth-password', 'too-short');
 		await click('Set new password');
 
-		expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+		expect(document.body.querySelector('[role="alert"]')?.textContent).toBe(
 			'Use at least 12 characters.',
 		);
 		expect(props.confirmPasswordReset).not.toHaveBeenCalled();
@@ -134,7 +135,7 @@ describe('AuthModal password recovery', () => {
 		await enter('auth-email', 'alice@example.com');
 		await click('Send reset code');
 
-		const alert = container.querySelector('[role="alert"]')?.textContent ?? '';
+		const alert = document.body.querySelector('[role="alert"]')?.textContent ?? '';
 		expect(alert).toBe('Couldn’t send a reset code. Check your connection and try again.');
 		expect(alert).not.toMatch(/alice|smtp|exists/i);
 	});
@@ -150,7 +151,7 @@ describe('AuthModal password recovery', () => {
 		await enter('auth-password', 'LongEnoughPassword7');
 		await click('Set new password');
 
-		const alert = container.querySelector('[role="alert"]')?.textContent ?? '';
+		const alert = document.body.querySelector('[role="alert"]')?.textContent ?? '';
 		expect(alert).toBe('Couldn’t update the password. Request a new code and try again.');
 		expect(alert).not.toMatch(/unknown@example|does not exist/i);
 	});
@@ -168,7 +169,7 @@ describe('AuthModal enrollment errors', () => {
 		await enter('auth-password', 'LongEnoughPassword7');
 		await click('Create account');
 
-		const alert = container.querySelector('[role="alert"]')?.textContent ?? '';
+		const alert = document.body.querySelector('[role="alert"]')?.textContent ?? '';
 		expect(alert).toBe(
 			'An account may already use that email. Try signing in or resetting the password.',
 		);
@@ -189,13 +190,13 @@ describe('AuthModal enrollment errors', () => {
 		);
 		await enter('auth-code', '000000');
 		await click('Confirm');
-		expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+		expect(document.body.querySelector('[role="alert"]')?.textContent).toBe(
 			'That confirmation code is invalid or expired. Request a new code and try again.',
 		);
 
 		vi.mocked(props.resend).mockRejectedValue(new Error('SMTP private destination detail'));
 		await click('Resend code');
-		const resendAlert = container.querySelector('[role="alert"]')?.textContent ?? '';
+		const resendAlert = document.body.querySelector('[role="alert"]')?.textContent ?? '';
 		expect(resendAlert).toBe('Couldn’t confirm the account. Request a new code and try again.');
 		expect(resendAlert).not.toMatch(/smtp|private|destination/i);
 	});
