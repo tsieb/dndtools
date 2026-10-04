@@ -163,3 +163,24 @@ The branch had been rebased onto `43cf31ce`, so I re-verified on that tree:
 - `pnpm gates`: exit 0.
 - Playwright `canvas-history`, `canvas-keyboard` and `command-palette` on desktop-chromium and
   mobile-chromium: 50 passed.
+
+## Sixth pass: reconciled onto `9a7b675d`
+
+The operator's rebase onto `9a7b675d` conflicted in `canvas/WidgetFrame.test.tsx`. Since my base,
+RC-ENG-10.1 had localised the frame's binding glyph, content-region and resize labels, and added a
+Spanish-rendering `describe` block at the end of that test plus `LOCALE_STORAGE_KEY`/`loadCatalog`/
+`writePreference` imports. I rebased the branch onto `9a7b675d` myself and resolved it by keeping
+both sides: both `describe` blocks, and the integration branch's imports plus this story's
+`frameName` import (from `board-helpers`, where the third pass moved it). `WidgetFrame.tsx` merged
+cleanly. This story's only lines there are `onSettle` (prop, blur handler, resize-handle Escape),
+on top of the localised labels. The file is still 800 lines, at the gate limit.
+
+Verified on the rebased tree:
+
+- `vitest --config vitest.app.config.ts`: 163 files, 1788 tests passed.
+- gm-react `tsc --noEmit`: clean.
+- `eslint` on every changed `.ts`/`.tsx` file: clean.
+- `format:check:changed --base 9a7b675d`: clean.
+- `pnpm gates`: exit 0.
+- Playwright `canvas-history`, `canvas-keyboard`, `canvas` and `command-palette` on desktop-chromium
+  and mobile-chromium: 130 passed.
