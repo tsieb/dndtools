@@ -124,3 +124,34 @@ Validation after the repair:
 - `widget-query-sources.spec.ts` + `widget-builder.spec.ts` + `widget-generate.spec.ts` on
   desktop-chromium and mobile-chromium: 28 passed (`/tmp/rc-wid52-r2-e2e.log`).
 - ESLint and Prettier `--check` on the changed files, and `git diff --check`, all passed.
+
+## Session 3 — 2026-10-04: widened claim verification
+
+Resumed at `733b53fa` on the existing task branch with a clean tree. The operator brief now
+explicitly includes `apps/gm-react/src/app/widgetBuilder/vocabulary.ts`, resolving the ownership
+blocker recorded in session 2. The implementation and acceptance tests are already committed in
+the candidate history; no source rewrite is needed to address that ownership feedback.
+
+No Headroom tools are exposed in this session. Fresh validation output is retained in
+`/tmp/rc-wid52-r3-*.log` and read directly. Every command below exited 0:
+
+- Focused app Vitest (`app/widgets`, `app/widgetBuilder`, `i18n`): 21 files and 432 tests passed,
+  including the hub-source isolation suite (`/tmp/rc-wid52-r3-app.log`).
+- `pnpm typecheck`: core, cloud functions and React app passed
+  (`/tmp/rc-wid52-r3-typecheck.log`).
+- Core custom-widget-platform, mcp-widget-package-propose and widget-data-safety suites:
+  3 files and 40 tests passed (`/tmp/rc-wid52-r3-core.log`).
+- Query-source, widget-builder and widget-generate Playwright specs: 28 passed on desktop and
+  mobile Chromium, including source catalogue previews, audience withholding and axe checks
+  (`/tmp/rc-wid52-r3-e2e.log`). The worktree-specific dev server used port 5756.
+- ESLint on all six owned implementation files passed (`/tmp/rc-wid52-r3-lint.log`).
+- Prettier on those files and this journal passed (`/tmp/rc-wid52-r3-format.log`), as did
+  `git diff --check`.
+
+The existing source list, actor-scoped resolver branches, per-source isolation cases and live
+builder previews were inspected against SCREENS_PARITY G-02. Session 1's host-transport and
+transient-UI limitations and session 2's unchanged MCP propose-source limitation still apply.
+This session changes only the required run journal. The implementation remains in `42f59ae9`
+and `733b53fa`; the newly authorized vocabulary entries are retained. Full wrapper gates,
+pinned visual regression and independent review remain for the central operator. No push,
+promotion, dispatcher-control edit, additional loop or additional agent was performed.
