@@ -20,6 +20,14 @@ Open **Settings → Backup & history** to inspect the mode or request a switch. 
 
 The same area holds recovery-key export and import. These controls require a signed-in account and available key custody. When available, export a recovery file with a passphrase and keep both safe. On a replacement device, import that file using the same passphrase. A recovery key unlocks an encrypted backup; it is not itself a copy of your campaign or its media.
 
+<!-- keyboard -->
+
+With a keyboard, press Ctrl+K (⌘K on a Mac) and type Settings to get to **Backup & history** from anywhere.
+
+<!-- touch -->
+
+On a phone, **Settings** is under **More** in the tab bar; choose **Backup & history** from the **Settings section** menu.
+
 Vault privacy and player visibility are separate choices. A private cloud backup does not make a handout private from players you share it with. Check the player view before projecting material.
 
 ## Implementation references

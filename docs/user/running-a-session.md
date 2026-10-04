@@ -12,6 +12,14 @@ The session controls distinguish preparation, preview, and live play. Preview le
 
 Use the combat tracker for combatants, turns, hit points, and conditions. The active system supplies the available conditions and rules. Use the dice tray for rolls, and the handout controls when you are ready to share a note. Keep private preparation on your own screen; use the projection controls for the table display.
 
+<!-- keyboard -->
+
+With a keyboard, Ctrl+→ (⌘→ on a Mac) shows players the next queued scene card, and Ctrl+Shift+S (⌘⇧S) enters or leaves the fullscreen scene display.
+
+<!-- touch -->
+
+On a phone, **Start session**, **Host** and the projection controls are in **Table controls**, the button at the right of the top bar. The strip above the tab bar shows how long the session has been running.
+
 A live session and a network connection are separate things. Use **Host** to connect other devices; the **Remote play** guide walks through approval and joining. Starting a session does not by itself bring players online.
 
 ## Close the evening

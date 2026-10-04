@@ -1,7 +1,21 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { en } from '../../i18n/messages/en';
 import { es } from '../../i18n/messages/es';
-import { HELP_TOPICS } from './helpTopics';
+import { GUIDE_IDS, HELP_TOPICS, guideForRoute, guideParagraphs, readGuide } from './helpTopics';
+
+const USER_DOCS = join(
+	dirname(fileURLToPath(import.meta.url)),
+	'..',
+	'..',
+	'..',
+	'..',
+	'..',
+	'docs',
+	'user',
+);
 
 // RC-UX-3.1 — "copy in the voice". The rules are the content fundamentals in
 // `docs/design-package/readme.md`: address the DM as you, sentence case, state things plainly, no
@@ -59,4 +73,70 @@ describe('contextual help topics', () => {
 			expect(es[key], key).not.toBe(en[key]);
 		}
 	});
+});
+
+// RC-UX-6.6 — the guides a lost GM lands on.
+describe('user guides', () => {
+	const guides = GUIDE_IDS.map(
+		(id) => [id, readFileSync(join(USER_DOCS, `${id}.md`), 'utf8')] as const,
+	);
+
+	it('bundles every guide in docs/user, and nothing else', () => {
+		const files = readdirSync(USER_DOCS)
+			.filter((file) => file.endsWith('.md'))
+			.map((file) => file.replace(/\.md$/, ''));
+		expect([...GUIDE_IDS].sort()).toEqual(files.sort());
+	});
+
+	it.each([
+		['/screens', 'screens'],
+		['/screen/abc', 'screens'],
+		['/board', 'screens'],
+		['/scene/abc', 'screens'],
+		['/session', 'running-a-session'],
+		['/characters', 'characters'],
+		['/characters/pc-1', 'characters'],
+		['/atlas', 'maps'],
+		['/knowledge/note-1', 'notes'],
+		['/campaign/calendar', 'notes'],
+		['/settings', 'settings'],
+		['/', null],
+		['/audio', null],
+		['/sessions-elsewhere', null],
+	])('opens %s on %s', (pathname, guide) => {
+		expect(guideForRoute(pathname)).toBe(guide);
+	});
+
+	// Keyboard copy that a phone cannot act on (ONB-17: "Press ⌘K" on a phone).
+	// Case-sensitive: "Tab" is the key, "tab bar" is the phone's navigation.
+	const KEYBOARD_COPY =
+		/⌘|\bCtrl\b|\b[Pp]ress(es)?\b|\b[Kk]eyboard\b|\barrow keys?\b|\bShift\b|\bTab\b/;
+
+	it.each(guides)('%s: every piece of keyboard copy has a touch twin', (_id, markdown) => {
+		const paragraphs = guideParagraphs(markdown);
+		const keyboard = paragraphs.filter((paragraph) => paragraph.tier === 'keyboard');
+		const touch = paragraphs.filter((paragraph) => paragraph.tier === 'touch');
+		expect(keyboard.length).toBeGreaterThan(0);
+		expect(touch.length).toBe(keyboard.length);
+		for (const paragraph of paragraphs.filter((entry) => entry.tier === null))
+			expect(paragraph.text, paragraph.text).not.toMatch(KEYBOARD_COPY);
+		for (const paragraph of touch)
+			expect(paragraph.text, paragraph.text).not.toMatch(KEYBOARD_COPY);
+	});
+
+	it.each(guides)(
+		'%s: each tier reads its own variant, without markers or references',
+		(_id, markdown) => {
+			const phone = readGuide(markdown, 'touch');
+			const desktop = readGuide(markdown, 'keyboard');
+			expect(phone.title).toBe(desktop.title);
+			expect(phone.title).not.toMatch(/^#/);
+			for (const { body } of [phone, desktop]) {
+				expect(body).not.toContain('<!--');
+				expect(body).not.toContain('Implementation references');
+			}
+			expect(phone.body).not.toMatch(KEYBOARD_COPY);
+			expect(desktop.body).not.toBe(phone.body);
+		},
+	);
 });

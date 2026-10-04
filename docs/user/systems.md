@@ -8,6 +8,14 @@ Open **Extensions → System** as the GM. The gallery shows installed systems, i
 
 If the preview shows data loss, stop and export your vault before proceeding. The app asks for an acknowledgment before accepting a destructive switch. A rules change can affect existing characters; it is worth making this decision between sessions.
 
+<!-- keyboard -->
+
+With a keyboard, press Ctrl+K (⌘K on a Mac) and type Extensions to reach the system gallery from anywhere.
+
+<!-- touch -->
+
+On a phone, **Extensions** is under **More** in the tab bar.
+
 ## Make it your own
 
 Use the fork action to begin with an existing system, then edit the copy in the system builder. Built-in packages stay intact. Work through the builder's fields and review the result before saving your custom system.

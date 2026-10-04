@@ -118,8 +118,13 @@ Page primitives in `screen-kit.tsx`: `Page` (centered column, max 1180px), `Pane
 5. Help (`HelpLauncher` from `app/help/HelpMenu.tsx`) on the desktop and rail tiers only. WCAG 3.2.6
    wants Help in the same place on every screen, and above 640px the top bar is the only chrome that
    follows the DM onto every route — the phone's own trigger sits in `Footer.tsx`, which those tiers
-   never mount. It stays a 44px icon button, without a visible label, at both tiers. The menu behind it carries Getting started, What's new, the shortcut overlay, and the
-   eight user guides indexed in [`../README.md`](../README.md#user-guides) (RC-DOC-1.3).
+   never mount. It is 44px tall and, unlike the other utilities, keeps its visible word "Help" at
+   both tiers (RC-UX-6.6, ONB-10): an "i" alone reads as About, and the guides tell a lost GM to
+   "open Help". The phone's footer row carries the same word. The menu opens on the guide for the
+   current route (screens, session, characters, maps, notes, settings; `guideForRoute` in
+   `app/help/helpTopics.ts`) with the full list one level up: Getting started, the twelve user
+   guides indexed in [`../README.md`](../README.md#user-guides), What's new (with a "New" chip while
+   the latest release is unseen) and the shortcut overlay.
 
 It must not host content actions (create, delete, roll, push), a duplicate settings or navigation
 destination, or any control that is not relevant across routes.
@@ -129,7 +134,7 @@ The action budget depends on the tier, and it is the same on every route:
 | Tier                          | Top bar actions                                                                                                                                                                                                                                                    |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Phone (≤ 640px)               | One inline action, Search (the palette reaches every destination and command), and one overflow, **Table controls** (`aria-haspopup="dialog"`, `aria-expanded`). Its bottom sheet holds the four utilities. Nothing in the bar is filled and no status chip shows. |
-| Rail and desktop under 1280px | Search and the utilities inline as 44px icon buttons, with no overflow.                                                                                                                                                                                            |
+| Rail and desktop under 1280px | Search and the utilities inline as 44px icon buttons (Help keeps its word), with no overflow.                                                                                                                                                                      |
 | Desktop from 1280px           | The same controls with their labels.                                                                                                                                                                                                                               |
 
 On every tier the only primary-weight (filled) control the top bar owns is Start session / End session.

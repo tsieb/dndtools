@@ -53,7 +53,8 @@ export function Footer() {
 			    (WCAG 3.2.6 consistent help): a slim row directly above the tab bar, in-flow so it never
 			    overlaps the top bar's own controls (RC-STB-2.6's "Table controls" sheet trigger sits in
 			    that corner already). Desktop and rail reach the same menu from the top bar; both triggers
-			    open the shell's one `HelpHost` (RC-UX-6.1). */}
+			    open the shell's one `HelpHost` (RC-UX-6.1). The row says Help in words (RC-UX-6.6), so
+			    "open Help" in a guide points at something a lost GM can read. */}
 			<div
 				style={{
 					flex: '0 0 auto',
@@ -63,7 +64,7 @@ export function Footer() {
 					borderTop: `1px solid ${T.bd}`,
 				}}
 			>
-				<HelpTrigger variant="ghost" size="sm" />
+				<HelpTrigger variant="ghost" />
 			</div>
 			<BottomTabBar
 				style={{ '--color-text-tertiary': T.sub } as CSSProperties}

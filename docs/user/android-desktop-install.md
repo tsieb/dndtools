@@ -14,6 +14,14 @@ The Android shell requires Android 7.0 or later. If your release provides an APK
 
 Open Lamplight and confirm your vault after installation. Native exports use Android's share or save chooser; complete that chooser to keep the file. The Android map editor drops the precision geometry tools for a touch-first canvas; author that geometry on desktop.
 
+<!-- keyboard -->
+
+On desktop, the keyboard shortcuts work in the installed app as in the browser. Press ? for the list.
+
+<!-- touch -->
+
+On Android, the system Back button steps back through the screens you opened. After opening the app from a home-screen shortcut, one Back returns home.
+
 ## Browser installation and offline use
 
 If your browser offers installation for the Lamplight site, use that control to add the app to your device. Installation does not move a vault from another browser profile or desktop installation.

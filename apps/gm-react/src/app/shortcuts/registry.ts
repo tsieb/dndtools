@@ -103,7 +103,7 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
 		id: 'canvas.moveMode',
 		scope: 'canvas',
 		keys: 'Space',
-		action: 'settings.a11y.shortcutArrows',
+		action: 'shortcuts.action.canvasPickUp',
 		combo: { key: ' ' },
 	},
 	{ id: 'canvas.add', scope: 'canvas', keys: 'A', action: 'board.addWidget', combo: { key: 'a' } },

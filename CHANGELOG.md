@@ -11,6 +11,19 @@ v1 document-editor have been removed; that application's last state is preserved
 The Lamplight release candidate is in development. These notes describe changes on the current
 branch. Installers still come from the alpha releases.
 
+### For players and GMs
+
+- Help says Help. It opens on the guide for the screen you are on, and new guides cover Screens,
+  Characters, Notes and Settings. On a phone, the guides tell you what to tap instead of which keys
+  to press.
+- Dice, rollable tables, combat and handouts work on the Session screen before a session starts.
+  Rolls made then stay in the roll history, marked "Outside a session". The button that used to
+  read "Go live" is now Start session.
+- Board widgets stop repeating the GM-only badge on every tile. Shared, hidden and mixed tiles are
+  still marked.
+
+### Changes
+
 - The README and landing page now show the board and atlas with the built-in sample campaign.
   Screenshots are captured from the app by a local browser suite, with source revision and image
   hashes recorded alongside them.
@@ -31,6 +44,14 @@ Export a vault backup before updating, especially on Android, where uninstalling
 Same application code as 0.3.6, plus the three Android fixes below. 0.3.6's release build never
 completed — its Android job could not compile — so it produced no installers and is superseded.
 
+### For players and GMs
+
+- The Android app builds again, so this release has an Android installer.
+- A home-screen shortcut now opens the app with home directly beneath it: one Back from Session or
+  Play takes you home, however many shortcuts you used before.
+
+### Changes
+
 - Fixed the Android build: a shared-file reader caught `IOException | SecurityException |
 RuntimeException`, and `SecurityException` extends `RuntimeException`, which javac rejects in a
   multi-catch. No Android package could be built from 0.3.6.
@@ -43,6 +64,23 @@ RuntimeException`, and `SecurityException` extends `RuntimeException`, which jav
 
 The RC loop's second integration batch: 75 stories across maps, audio, knowledge, session play,
 characters, cloud and the platform shells.
+
+### For players and GMs
+
+- Maps: combat tokens follow the fight onto every map, with range, path and area measuring tools.
+  Fog you lift fades away on the players' screens.
+- Audio: a free starter pack of sounds, music that starts and stops with combat, and an optional
+  sound on a natural 20.
+- Notes: templates, saved searches, a campaign calendar, and one-click repair for broken links.
+- Session: conditions run out on their own when their rounds are up, encounters can be saved and
+  placed on the map, and a break timer sits in the quick panel.
+- Characters: party-wide experience and level-up, a downtime journal, a shared party stash, and
+  private player notes the GM cannot read.
+- Remote play: the player's phone draws the projected map with your fog and tokens, and players can
+  read a recap between sessions.
+- The desktop app updates itself, and Lamplight can be installed from the browser and used offline.
+
+### Changes
 
 - **Maps.** Combat tokens now live on the editor canvas and follow the running fight onto every map
   surface; range, path and area-of-effect measuring tools; fog the DM lifts fades off the player's
@@ -99,6 +137,20 @@ characters, cloud and the platform shells.
 
 ## [0.3.4] - 2026-09-07
 
+### For players and GMs
+
+- You can set your own display name from the player roster, and the GM seat reads "Dungeon Master"
+  until it is named.
+- The map editor gains tokens, a prop library, lighting and line of sight, travel routes, and touch
+  gestures for pinch, pan and long-press.
+- Session: start and end flows, a quick panel on every screen, a one-handed hit point keypad with
+  undo, and a roll log you can export.
+- Characters: class resources from your game system, a rest workflow, a guided level-up, and a live
+  party panel during remote play.
+- A Help menu, a keyboard shortcut list, and a Pathfinder 2e sample system.
+
+### Changes
+
 - Fixed the sidebar account block: the presence label no longer squeezes the name column, the DM
   seat reads "Dungeon Master" until named, and clicking it opens Settings › Players. A DM (or any
   actor, for their own seat) can now set their display name from the roster; the rename is a durable
@@ -145,6 +197,15 @@ characters, cloud and the platform shells.
   revisions actually in use.
 
 ## [0.3.0] - 2026-07-15
+
+### For players and GMs
+
+- An early Android app for running the table from a phone or tablet, with a touch-first map mode.
+- The assistant can work through several steps for you, and asks before it changes anything.
+- Export your vault before installing or upgrading on Android: uninstalling the app removes the
+  campaign stored on the device.
+
+### Changes
 
 - Added an alpha Android GM companion using the shared React renderer, `@dndtools/core`, Dexie vault,
   and Capacitor 8. The package is `com.dndtools.gm` (version code 3000; API 24 minimum, API 36 target).

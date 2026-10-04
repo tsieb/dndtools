@@ -14,6 +14,16 @@ With a live session ready, choose **Project to players**. Read the result messag
 
 Use the session's map and combat controls together during an encounter. The **Running a session** guide covers going live, and **Remote play** covers connecting the people who will receive the view.
 
+## Move around the map
+
+<!-- keyboard -->
+
+With a keyboard, press ? in the map editor for its keys. Single letters pick tools, Space and drag pans, [ and ] change the brush size, and the arrow keys nudge what is selected.
+
+<!-- touch -->
+
+On a phone or tablet, pinch to zoom and drag with two fingers to pan. Double-tap to zoom in, and touch and hold for the menu of what is under your finger.
+
 ## Work on a smaller screen
 
 On Android the map editor opens in a reduced, touch-first form: the canvas leads, every control is at least 48dp, and the precision drawing tools are absent. Existing geometry stays visible and is preserved; authoring it belongs on desktop. **More map actions → About advanced drawing** says so in the app. Navigation is the default; use two fingers to pan without drawing. Prepare detailed geometry on desktop, then carry the map to the table on the phone.

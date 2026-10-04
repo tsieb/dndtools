@@ -927,6 +927,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shortcuts.action.sceneDisplay': 'Entrar o salir de la pantalla completa de la escena',
 	'shortcuts.action.advanceCard': 'Mostrar a los jugadores la siguiente tarjeta en cola',
 	'shortcuts.action.canvasUndoRedo': 'Deshacer o rehacer el último cambio del lienzo',
+	'shortcuts.action.canvasPickUp':
+		'Tomar el widget enfocado para moverlo con las flechas (modo edición del lienzo)',
 	'settings.a11y.safetyChecks': 'Comprobaciones de seguridad para jugadores',
 	'settings.a11y.safetyIntro':
 		'Estas comprobaciones usan las mismas vistas que reciben tus jugadores y confirman que el contenido solo para el {gm} sigue oculto.',
@@ -6561,7 +6563,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'mapEditor.shortcut.undoRedo': 'Deshacer / Rehacer',
 	'mapEditor.shortcut.zoom': 'Zoom',
 	'mapEditor.shortcut.zoomKeys': '+ acercar · − alejar · 0 ajustar · rueda hacia el cursor',
-	'mapEditor.shortcut.pan': 'Desplazar',
+	'mapEditor.shortcut.pan': 'Desplazar sin cambiar de herramienta',
 	'mapEditor.shortcut.panKeys': 'Mantén Espacio y arrastra',
 	'mapEditor.shortcut.nudge': 'Desplazar la selección',
 	'mapEditor.shortcut.nudgeKeys': 'Teclas de flecha (Mayús = paso mayor)',
@@ -6677,9 +6679,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'help.whatsNewVersion': 'Versión {version}',
 	'help.whatsNewLoading': 'Cargando las notas de versión…',
 	'help.whatsNewError': 'No se pudieron cargar las notas de versión. Inténtalo de nuevo.',
-	'help.whatsNewNone': 'Aún no hay notas de versión.',
+	'help.whatsNewNone': 'No hay notas para esta versión.',
 	'help.keyboardShortcuts': 'Atajos de teclado',
 	'help.keyboardShortcutsBody': 'Consulta los atajos de navegación y del lienzo.',
+	'help.whatsNewNew': 'Nuevo',
+	'help.guides': 'Guías',
+	'help.allTopics': 'Todos los temas de ayuda',
 	'help.tip.vaultPrivacy.label': 'Acerca del modo de privacidad de la bóveda',
 	'help.tip.vaultPrivacy.title': 'Modo de privacidad de la bóveda',
 	'help.tip.vaultPrivacy.body':

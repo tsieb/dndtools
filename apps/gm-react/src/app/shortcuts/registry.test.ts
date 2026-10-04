@@ -32,6 +32,14 @@ describe('the keyboard shortcut registry', () => {
 		}
 	});
 
+	// RC-UX-6.6 (ONB-18) — Space printed the arrow keys' description, so the overlay listed one action
+	// twice and never said what Space does. Every printed row must say something different.
+	it('gives no two rows the same description', () => {
+		const descriptions = SHORTCUTS.map((entry) => en[entry.action]);
+		const repeated = descriptions.filter((text, index) => descriptions.indexOf(text) !== index);
+		expect(repeated).toEqual([]);
+	});
+
 	it('resolves every id a handler fires on', () => {
 		for (const id of HANDLER_IDS) expect(shortcut(id).combo).toBeDefined();
 	});

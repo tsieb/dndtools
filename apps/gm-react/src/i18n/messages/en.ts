@@ -911,6 +911,8 @@ export const en = {
 	'shortcuts.action.sceneDisplay': 'Enter or leave the fullscreen scene display',
 	'shortcuts.action.advanceCard': 'Show the next queued scene card to players',
 	'shortcuts.action.canvasUndoRedo': 'Undo or redo the last canvas change',
+	'shortcuts.action.canvasPickUp':
+		'Pick up the focused widget so the arrow keys move it (canvas edit mode)',
 	'settings.a11y.safetyChecks': 'Player-safety checks',
 	'settings.a11y.safetyIntro':
 		'These checks use the same views your players receive and confirm {gm}-only content stays hidden.',
@@ -6491,7 +6493,7 @@ export const en = {
 	'mapEditor.shortcut.undoRedo': 'Undo / Redo',
 	'mapEditor.shortcut.zoom': 'Zoom',
 	'mapEditor.shortcut.zoomKeys': '+ in · − out · 0 fit · wheel to cursor',
-	'mapEditor.shortcut.pan': 'Pan',
+	'mapEditor.shortcut.pan': 'Pan without switching tools',
 	'mapEditor.shortcut.panKeys': 'Hold Space and drag',
 	'mapEditor.shortcut.nudge': 'Nudge selection',
 	'mapEditor.shortcut.nudgeKeys': 'Arrow keys (Shift = larger step)',
@@ -6608,9 +6610,12 @@ export const en = {
 	'help.whatsNewVersion': 'Version {version}',
 	'help.whatsNewLoading': 'Loading release notes…',
 	'help.whatsNewError': 'Release notes couldn’t load. Try again.',
-	'help.whatsNewNone': 'No release notes yet.',
+	'help.whatsNewNone': 'No notes for this release.',
 	'help.keyboardShortcuts': 'Keyboard shortcuts',
 	'help.keyboardShortcutsBody': 'See shortcuts for navigation and the canvas.',
+	'help.whatsNewNew': 'New',
+	'help.guides': 'Guides',
+	'help.allTopics': 'All help topics',
 	/* RC-UX-3.1 — contextual help beside non-obvious controls (`app/help/helpTopics.ts`). */
 	'help.tip.vaultPrivacy.label': 'About vault privacy mode',
 	'help.tip.vaultPrivacy.title': 'Vault privacy mode',

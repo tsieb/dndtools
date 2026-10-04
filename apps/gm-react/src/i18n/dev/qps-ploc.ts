@@ -967,6 +967,8 @@ export default {
 		'[Éñţéŕ óŕ ľéáṽé ţĥé ƒúľľšçŕééñ šçéñé ďíšƥľáý~~~~ ~~~~ ~~~~ ~~~]',
 	'shortcuts.action.advanceCard': '[Šĥóŵ ţĥé ñéẋţ ɋúéúéď šçéñé çáŕď ţó ƥľáýéŕš~~~~ ~~~~ ~~~~ ~~]',
 	'shortcuts.action.canvasUndoRedo': '[Úñďó óŕ ŕéďó ţĥé ľášţ çáñṽáš çĥáñğé~~~~ ~~~~ ~~~~]',
+	'shortcuts.action.canvasPickUp':
+		'[Ƥíçķ úƥ ţĥé ƒóçúšéď ŵíďğéţ šó ţĥé áŕŕóŵ ķéýš ḿóṽé íţ (çáñṽáš éďíţ ḿóďé)~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'settings.a11y.safetyChecks': '[Ƥľáýéŕ-šáƒéţý çĥéçķš~~~~ ~~~]',
 	'settings.a11y.safetyIntro':
 		'[Ţĥéšé çĥéçķš úšé ţĥé šáḿé ṽíéŵš ýóúŕ ƥľáýéŕš ŕéçéíṽé áñď çóñƒíŕḿ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~{gm}-óñľý çóñţéñţ šţáýš ĥíďďéñ.~~~~ ~~~~ ~]',
@@ -6728,7 +6730,7 @@ export default {
 	'mapEditor.shortcut.undoRedo': '[Úñďó / Ŕéďó~~~~ ]',
 	'mapEditor.shortcut.zoom': '[Žóóḿ~~]',
 	'mapEditor.shortcut.zoomKeys': '[+ íñ · − óúţ · 0 ƒíţ · ŵĥééľ ţó çúŕšóŕ~~~~ ~~~~ ~~~~ ~]',
-	'mapEditor.shortcut.pan': '[Ƥáñ~~]',
+	'mapEditor.shortcut.pan': '[Ƥáñ ŵíţĥóúţ šŵíţçĥíñğ ţóóľš~~~~ ~~~~ ~]',
 	'mapEditor.shortcut.panKeys': '[Ĥóľď Šƥáçé áñď ďŕáğ~~~~ ~~~]',
 	'mapEditor.shortcut.nudge': '[Ñúďğé šéľéçţíóñ~~~~ ~]',
 	'mapEditor.shortcut.nudgeKeys': '[Áŕŕóŵ ķéýš (Šĥíƒţ = ľáŕğéŕ šţéƥ)~~~~ ~~~~ ~~~]',
@@ -6844,9 +6846,12 @@ export default {
 	'help.whatsNewVersion': '[Ṽéŕšíóñ ~~~~{version}]',
 	'help.whatsNewLoading': '[Ľóáďíñğ ŕéľéášé ñóţéš…~~~~ ~~~~]',
 	'help.whatsNewError': '[Ŕéľéášé ñóţéš çóúľďñ’ţ ľóáď. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~]',
-	'help.whatsNewNone': '[Ñó ŕéľéášé ñóţéš ýéţ.~~~~ ~~~~]',
+	'help.whatsNewNone': '[Ñó ñóţéš ƒóŕ ţĥíš ŕéľéášé.~~~~ ~~~~ ~]',
 	'help.keyboardShortcuts': '[Ķéýƀóáŕď šĥóŕţçúţš~~~~ ~~~]',
 	'help.keyboardShortcutsBody': '[Šéé šĥóŕţçúţš ƒóŕ ñáṽíğáţíóñ áñď ţĥé çáñṽáš.~~~~ ~~~~ ~~~~ ~~~]',
+	'help.whatsNewNew': '[Ñéŵ~~]',
+	'help.guides': '[Ğúíďéš~~~]',
+	'help.allTopics': '[Áľľ ĥéľƥ ţóƥíçš~~~~ ~]',
 	'help.tip.vaultPrivacy.label': '[Áƀóúţ ṽáúľţ ƥŕíṽáçý ḿóďé~~~~ ~~~~ ]',
 	'help.tip.vaultPrivacy.title': '[Ṽáúľţ ƥŕíṽáçý ḿóďé~~~~ ~~~]',
 	'help.tip.vaultPrivacy.body':

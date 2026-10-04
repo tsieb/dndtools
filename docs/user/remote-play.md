@@ -10,6 +10,14 @@ The GM must approve the request and choose the participant the joining device re
 
 Online controls appear only when cloud connectivity is available in the build. If they are absent, check the cloud setup and connection status. Do not keep retrying a local invite in the online-code field: the two flows use different codes.
 
+<!-- keyboard -->
+
+On a larger screen, **Host** sits in the top bar on every screen, beside the projection controls. With a keyboard, Tab reaches it from the top of the page and Enter opens it.
+
+<!-- touch -->
+
+On a phone, **Host** is in **Table controls**, the button at the right of the top bar. A player can join from **Join a table** on their own phone and scan the code you show them.
+
 ## Join nearby
 
 On a supported desktop build, **Tables on your network** lists nearby hosts. Select a table to ask to join, then wait for the GM's approval.

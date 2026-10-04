@@ -10,13 +10,19 @@ v1 document editor is preserved at tag `v1-final` only.
 
 ## User guides
 
-Open the info button in the top bar, or Help above the tab bar on a phone, to read these
-guides without leaving your table. All eight guides ship with the app. They are in English;
-the implementation references below each page are for maintainers and are hidden in the app.
+Open Help in the top bar, or the Help row above the tab bar on a phone, to read these guides
+without leaving your table. Help opens on the guide for the screen you are on. All twelve guides
+ship with the app. They are in English; the implementation references below each page are for
+maintainers and are hidden in the app. A paragraph after a `<!-- keyboard -->` marker is shown on
+desktop and rail, and its `<!-- touch -->` twin replaces it on a phone.
 
 - [Getting started](user/getting-started.md)
+- [Screens](user/screens.md)
 - [Running a session](user/running-a-session.md)
+- [Characters](user/characters.md)
 - [Maps](user/maps.md)
+- [Notes](user/notes.md)
+- [Settings](user/settings.md)
 - [Widgets & builders](user/widgets-and-builders.md)
 - [Systems](user/systems.md)
 - [Remote play](user/remote-play.md)

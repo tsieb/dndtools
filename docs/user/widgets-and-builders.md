@@ -6,6 +6,14 @@ Keep the tools you reach for close at hand. A widget is a tile on your GM screen
 
 Open **GM screen** and use its widget library to add a tile. Choose a widget that fits the surface you are working on. Arrange and resize the tiles for your session, then set each tile's options. A widget that needs a character, map, or note must be connected to that content before it can show it.
 
+<!-- keyboard -->
+
+With a keyboard, press A on a screen in edit mode to add a widget, and ? for the canvas keys. The **Screens** guide lists them.
+
+<!-- touch -->
+
+On a phone, choose **Edit layout**, then **Add**, and pick a widget from the library. Each tile's actions menu moves, resizes, configures or removes it.
+
 If a tile says its content is missing or unavailable, check the selected content and who is allowed to see it. Giving someone a view of a tile does not automatically give them permission to change it. Keep GM-only tiles out of the player view and check the preview before presenting.
 
 ## Build a widget

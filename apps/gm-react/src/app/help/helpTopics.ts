@@ -65,3 +65,90 @@ export const HELP_TOPICS = {
 } as const satisfies Record<string, HelpTopic>;
 
 export type HelpTopicId = keyof typeof HELP_TOPICS;
+
+/**
+ * RC-UX-6.6 — the user guides in `docs/user`, in the order the Help menu lists them. The id is the
+ * file name; HelpMenu bundles each file under its id.
+ */
+export const GUIDE_IDS = [
+	'getting-started',
+	'screens',
+	'running-a-session',
+	'characters',
+	'maps',
+	'notes',
+	'settings',
+	'widgets-and-builders',
+	'systems',
+	'remote-play',
+	'privacy-modes',
+	'android-desktop-install',
+] as const;
+
+export type GuideId = (typeof GUIDE_IDS)[number];
+
+/**
+ * The guide Help opens on, by route: a lost GM gets the page about the screen in front of them, with
+ * the full list one level up. A route no guide covers (Command Center, Audio, Extensions…) opens on
+ * the full list, which starts with Getting started.
+ */
+const ROUTE_GUIDES: readonly { prefixes: readonly string[]; guide: GuideId }[] = [
+	{ prefixes: ['/screens', '/screen', '/scenes', '/scene', '/board'], guide: 'screens' },
+	{ prefixes: ['/session'], guide: 'running-a-session' },
+	{ prefixes: ['/characters'], guide: 'characters' },
+	{ prefixes: ['/atlas'], guide: 'maps' },
+	{ prefixes: ['/knowledge', '/campaign', '/graph'], guide: 'notes' },
+	{ prefixes: ['/settings'], guide: 'settings' },
+];
+
+export function guideForRoute(pathname: string): GuideId | null {
+	for (const { prefixes, guide } of ROUTE_GUIDES) {
+		if (prefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/')))
+			return guide;
+	}
+	return null;
+}
+
+/**
+ * Keyboard copy has a touch twin (ONB-17: the tour told phone users to press ⌘K). The paragraph
+ * after a `<!-- keyboard -->` line is read on the desktop and rail tiers only, and the paragraph after
+ * `<!-- touch -->` replaces it on a phone. The markers are HTML comments, so the same file still
+ * reads cleanly on GitHub, where both variants show.
+ */
+export type GuideTier = 'keyboard' | 'touch';
+
+const VARIANT_RE = /^<!--\s*(keyboard|touch)\s*-->\s*/;
+/** Everything below this heading is a maintainer's source list, never shown in the app. */
+const REFERENCES_HEADING = '\n## Implementation references';
+
+/** A guide's paragraphs, each with the tier it is written for (null: every tier). */
+export function guideParagraphs(markdown: string): { tier: GuideTier | null; text: string }[] {
+	const [, ...rest] = markdown.split(REFERENCES_HEADING)[0]!.split('\n');
+	const paragraphs: { tier: GuideTier | null; text: string }[] = [];
+	let pending: GuideTier | null = null;
+	for (const raw of rest.join('\n').split(/\n{2,}/)) {
+		const paragraph = raw.trim();
+		if (!paragraph) continue;
+		const variant = VARIANT_RE.exec(paragraph);
+		const text = variant ? paragraph.slice(variant[0].length).trim() : paragraph;
+		const tier: GuideTier | null = variant ? (variant[1] as GuideTier) : pending;
+		// Prettier puts a blank line after an HTML comment, so a marker usually stands alone and tags
+		// the paragraph that follows it.
+		if (!text) {
+			pending = tier;
+			continue;
+		}
+		paragraphs.push({ tier, text });
+		pending = null;
+	}
+	return paragraphs;
+}
+
+export function readGuide(markdown: string, tier: GuideTier): { title: string; body: string } {
+	const title = markdown.split('\n')[0]!.replace(/^# /, '');
+	const body = guideParagraphs(markdown)
+		.filter((paragraph) => paragraph.tier === null || paragraph.tier === tier)
+		.map((paragraph) => paragraph.text)
+		.join('\n\n');
+	return { title, body };
+}
