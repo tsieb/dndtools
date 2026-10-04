@@ -140,3 +140,10 @@ node apps/gm-react/tests/visual/check-baseline-budget.mjs
 - Fresh surface e2e (player-polish + 8 character/equipment/stash specs), desktop-chromium + mobile-chromium: **66 passed**, exit 0. This includes axe on the route tabs and the rest/discard overlays. Print/export suite: **3 passed**, exit 0.
 - Snapshot set: 664 files / 32,278.5 KiB (under the 32,768 KiB budget).
 - Headroom tools were not used; all results above come from the original native logs under `/tmp/rc-pol17-*.log` and `/tmp/rcpol17-*.log`. No push, promotion, loop or dispatcher-state edit.
+
+## Visual-gate retry at 6588af9a — 2026-10-03
+
+- Read the original central log for run `42b34848-458f-43b8-bf3f-5a3ee4c76ac1`: **454 passed, 5 failed** (15.3m; the same suite took ~8.8m in earlier runs that day). All five failures were 5-second timeouts with no pixel diff: `characters-polish` empty tavern/parchment (desktop; illustration not yet rendered), `/audio Automation` scholar (desktop; screenshot not stable within 5s), and `palette-help` high-contrast (rail, phone; Command palette dialog not found or not stable). None are Player or `/play` cases. In my previous full run at this same tree, all five passed and the only failures were three different `palette-help` cases.
+- Fleet load at the time: load average 11.8/14.3/14.6 on 16 cores. Another task's concurrent visual run (`b8e6730e-…`) failed the same way, a 5s `toHaveScreenshot` timeout on the `Local vaults` dialog in `shell-polish`. `/characters`, `/audio` and the palette do not import from `app/character` or `screens/player`.
+- Fresh pinned rerun of every spec that failed (`characters-polish.spec.ts palette-help.spec.ts golden-routes.spec.ts --update-snapshots=none --workers=2`): **243 passed, 0 failed** (7.6m), exit 0. That covers all five tests that failed above.
+- No code, test or snapshot change; this retry adds only this journal entry. These five timeouts are load flakes in specs outside this task's claim. Retiming them is left to their owners rather than raising timeouts here. Results come from the original native logs (`/tmp/rc-pol17-visual-rerun3.log`). No push, promotion, loop or dispatcher-state edit.
