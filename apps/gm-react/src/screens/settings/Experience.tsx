@@ -5,7 +5,7 @@ import {
 	visibleFeatures,
 	type FeatureTier,
 } from '@dndtools/core';
-import { Badge, Icon, RadioCard } from '../../ds';
+import { Badge, Icon } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -88,54 +88,76 @@ export function ExperienceComplexity() {
 					const levelTier = l.tier;
 					const on = levelTier === tier;
 					const reveals = visibleFeatures(levelTier).map((f) => f.label);
+					// The radio is the level's name and blurb; the feature list beside it is its
+					// description. As one 10-item button the Expert card was taller than a phone's
+					// scroll pane at 200% text (its centre landed under the footer) and its accessible
+					// name read the whole list.
+					const revealsId = `experience-reveals-${l.id}`;
 					return (
-						<RadioCard
+						<div
 							key={l.id}
-							value={l.tier}
-							checked={on}
-							onChange={() => {
-								setDocAttr(TIER_ATTR, TIER_KEY, levelTier);
-							}}
-							icon={l.icon}
 							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: T.space.two,
 								minWidth: 0,
-								maxWidth: '100%',
-								textAlign: 'left',
 								padding: T.space.four,
 								borderRadius: T.radius.lg,
-								cursor: 'pointer',
 								border: `1px solid ${on ? T.accBd : T.bd}`,
 								background: on ? T.accSub : T.surf,
 								boxShadow: on ? T.smd : 'none',
 							}}
 						>
-							<div
-								style={{
-									display: 'flex',
-									minWidth: 0,
-									alignItems: 'center',
-									gap: T.space.two,
-									flexWrap: 'wrap',
-								}}
-							>
-								<span style={{ font: `600 var(--text-base) ${T.sans}`, color: T.ink }}>
-									{t(l.name)}
-								</span>
-								{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
-								{on && (
-									<span style={{ marginLeft: 'auto' }}>
-										<Icon name="check" size={16} color={T.acc} />
-									</span>
-								)}
-							</div>
-							<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>{t(l.blurb)}</div>
-							<div
+							<button
+								type="button"
+								role="radio"
+								aria-checked={on}
+								aria-describedby={revealsId}
+								tabIndex={on ? 0 : -1}
+								onClick={() => setDocAttr(TIER_ATTR, TIER_KEY, levelTier)}
 								style={{
 									display: 'flex',
 									flexDirection: 'column',
-									gap: T.space.one,
-									marginTop: T.space.half,
+									alignItems: 'flex-start',
+									gap: T.space.two,
+									minWidth: 0,
+									width: '100%',
+									padding: T.space.zero,
+									border: 'none',
+									background: 'transparent',
+									color: T.ink,
+									textAlign: 'left',
+									cursor: 'pointer',
 								}}
+							>
+								<Icon name={l.icon} size="sm" />
+								<span
+									style={{
+										display: 'flex',
+										alignSelf: 'stretch',
+										minWidth: 0,
+										alignItems: 'center',
+										gap: T.space.two,
+										flexWrap: 'wrap',
+									}}
+								>
+									<span style={{ font: `600 var(--text-base) ${T.sans}`, color: T.ink }}>
+										{t(l.name)}
+									</span>
+									{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
+									{on && (
+										<span style={{ marginLeft: 'auto' }}>
+											<Icon name="check" size={16} color={T.acc} />
+										</span>
+									)}
+								</span>
+								<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+									{t(l.blurb)}
+								</span>
+							</button>
+							<div
+								id={revealsId}
+								style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}
 							>
 								{reveals.map((r) => (
 									<span
@@ -155,7 +177,7 @@ export function ExperienceComplexity() {
 									</span>
 								))}
 							</div>
-						</RadioCard>
+						</div>
 					);
 				})}
 			</div>

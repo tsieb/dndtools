@@ -99,4 +99,4 @@ export const allow = {
 	'apps/gm-react/src/screens/session/Tables.tsx': 3,
 };
 
-// Total current findings: 727
+// Total current findings: 726

@@ -226,3 +226,33 @@ reviewed and re-deflated (222,214 → 213,577 B).
 - Visual `-g settings --update-snapshots=none`: **24 passed**; budget **643 files, 32,166.6 KiB**.
 - `pnpm gates`: exit 0, no file-size warning for an owned file. Vitest `src/i18n` +
   `screens/settings`: 77 passed. ESLint and Prettier on the changed files: clean.
+
+## Attempt 3 — rebase onto `879489ab` and the 200%-text phone sweep
+
+Gate feedback: Browser acceptance on `e37be64f` failed 2 of 1,754 tests, both
+`responsive.spec.ts:1210` "200% large text keeps every route whole on the phone tier" (desktop and
+mobile projects): `/settings` — "Expert… is under DIV once scrolled into view". Rebased onto
+`loop/rc` 879489ab (RC-UX-6.1 portaled dialogs + the ci-recovery fix; no conflicts; the raw-style
+allow-list total re-counted to 726). The failure was still mine and load-dependent: **3 of 16**
+with `--repeat-each=8 --workers=6`.
+
+Cause: at 360×640 with a 32px default font the shell leaves `#main-content` 345px tall, while the
+Expert complexity card, a single `role="radio"` button holding its ten-item feature list, measured
+763px. The sweep scrolls a control into view and hit-tests its centre; a control taller than the
+pane has its centre outside it, under the footer. The same structure also gave the radio a
+ten-feature accessible name. Fix in `Experience.tsx`: the card is now a styled container whose
+`role="radio"` button holds only the level's icon, name, badge and blurb (Expert radio 268px at
+that size), and the feature list sits below it in the same card as the radio's
+`aria-describedby`. Keyboard behaviour is unchanged (the group's `radioGroupKeyDown` drives any
+`role="radio"` child, roving `tabIndex`).
+
+- `responsive.spec.ts` "200% large text keeps every route whole" (phone, rail and desktop),
+  `--repeat-each=8 --workers=6 --retries=0`, both profiles: **48 passed**.
+- settings-polish, settings, settings-tiers, help-tips, route-titles, a11y-axe-gate, themes,
+  onboarding-consent, sync, responsive (full), both profiles: **300 passed, 6 skipped**.
+- Vitest `screens/settings` + `src/i18n`: 77 passed.
+- Visual: the six desktop/rail `/settings` goldens moved by a few pixels of card spacing (reviewed
+  old vs new), re-deflated (973,346 → 931,822 B); `-g settings --update-snapshots=none`: **24
+  passed**; budget **643 files, 32,155.3 KiB of 32,768.0**.
+- `pnpm gates` (no file-size warning for an owned file), `pnpm lint`, `pnpm typecheck`,
+  `pnpm format:check:changed --base loop/rc`: all exit 0.
