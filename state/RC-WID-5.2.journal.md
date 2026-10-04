@@ -155,3 +155,35 @@ This session changes only the required run journal. The implementation remains i
 and `733b53fa`; the newly authorized vocabulary entries are retained. Full wrapper gates,
 pinned visual regression and independent review remain for the central operator. No push,
 promotion, dispatcher-control edit, additional loop or additional agent was performed.
+
+## Session 4 — 2026-10-04: pinned visual gate investigation
+
+Resumed at rebased candidate `57d20d314587570d228455ff6603926ff8aaa71f` with a clean tree.
+Read the original gate log at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/fc368a4e-a761-4d70-87f5-46830e6754fb/output.log`.
+It reports 482 passing tests and one failure: visual-rail, parchment, `/session`. The screenshot
+assertion exhausted its 5000 ms timeout after fonts loaded; no pixel-difference count was reported.
+Quality gates and changed-file formatting passed in the operator's supplied gate result.
+
+No Headroom tools are exposed. Reproduction output is retained directly in
+`/tmp/rc-wid52-r4-visual-target.log`. The first title filter used display-only separators and matched
+no tests; the corrected filter is `golden routes.*parchment.*/session$`.
+
+Fresh verification, with exit code 0 confirmed for each run:
+
+- `bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2
+--project=visual-rail --grep 'golden routes.*parchment.*/session$' --repeat-each=5`:
+  **5 passed**, without changes (`/tmp/rc-wid52-r4-visual-target.log`).
+- `bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2`:
+  **483 passed in 11.7 minutes**, including the original rail/parchment Session case in 2.7 seconds
+  (`/tmp/rc-wid52-r4-visual-full.log`). No snapshots were updated, assertion settings changed or
+  retries added. This is local pinned-container evidence, not central review or promotion.
+- `pnpm exec vitest run --config vitest.app.config.ts
+apps/gm-react/src/app/widgets/dataEnvironment.hub.test.ts`: **99 passed**
+  (`/tmp/rc-wid52-r4-isolation.log`).
+
+The failure did not reproduce in five focused repetitions or the complete gate. The evidence
+supports a transient capture timeout, not a demonstrated pixel regression; its underlying timing
+cause is not established. No source or baseline change is justified by these results. Only this
+journal is changed. The task implementation remains in rebased commits `53e1b71a` and `6470150e`.
+No push, promotion, dispatcher-control edit, additional loop or agent was performed.
