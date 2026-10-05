@@ -118,3 +118,17 @@ independent review remain separate from this implementation commit.
   Quality gates emitted existing file-size warnings only. Browser/visual suites were not rerun for
   this core resolution repair; central wrapper gates and independent review remain separate.
 - No agents, push, promotion, new loop or dispatcher control changes.
+
+## Post-rebase visual gate triage (2026-10-05)
+
+- Wrapper visual run ec0189a8 at 3d07a669: 452 passed, 1 failed — `visual-desktop` golden routes
+  tavern `/board` (0.35 pixel ratio). The other eight `/board` captures (parchment and
+  high-contrast desktop, plus every rail and phone theme) passed in the same run.
+- The received image shows the App `Boot` Suspense fallback ("Loading your vault…") in the main
+  pane while the shell had already rendered. A lazy surface chunk had not arrived at capture time.
+  This is the known cold dev-server chunk stall, not a rendering change. The branch does not touch
+  the board or DM-screen surfaces.
+- Re-ran in the pinned container: `run-in-container.sh tests/visual/golden-routes.spec.ts -g
+  "/board" --repeat-each=3` gave 27 passed (desktop tavern 3/3), exit 0, with no snapshot updates
+  and no baseline changes (log `/tmp/rc-knw-6.1-visual-board.log`). No re-baseline. The full
+  wrapper visual gate still needs a retry from the central operator.
