@@ -1007,7 +1007,9 @@ test('a Co-DM can reach every elevated standalone player tool at compact phone s
 		{ button: 'Bestiary', heading: 'Bestiary' },
 		{ button: 'Combat assist', heading: 'Combat assist' },
 	]) {
-		const button = playerNav.getByRole('button', { name: tool.button });
+		// RC-CHR-6.6 — the phone bar keeps five labelled tabs; Co-DM tools live under More.
+		await playerNav.getByRole('button', { name: 'More', exact: true }).click();
+		const button = page.locator('#player-main').getByRole('button', { name: tool.button });
 		await expect(button).toBeEnabled();
 		await button.scrollIntoViewIfNeeded();
 		await expect(button).toBeInViewport();

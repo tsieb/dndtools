@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, installFakeLan, markOnboarded } from './_helpers';
+import { selectCompanionSection } from './_companion';
 
 // RC-CHR-6.1 — the companion sheet is the player's sheet. A player joined over the fake LAN (real
 // signaling, encryption and host filtering; only the data channel is faked) marks damage, adds a
@@ -137,7 +138,7 @@ test('a joined player edits their own sheet live; the DM sees it and another PC 
 		}, answer);
 		await expect(dialog.getByTestId('session-connection')).toContainText('Connected');
 		await player.keyboard.press('Escape');
-		await player.getByRole('button', { name: 'My character', exact: true }).click();
+		await selectCompanionSection(player, 'My character');
 		const sheet = player.locator('#player-main');
 		await expect(sheet.getByRole('heading', { name: mine.name })).toBeVisible();
 		// The sheet the table sees is the sheet the player edits: the old hand-off copy is gone.

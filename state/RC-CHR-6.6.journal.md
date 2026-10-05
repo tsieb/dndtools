@@ -59,3 +59,40 @@ admission is fixed. The task remains blocked pending the operator's decision whe
 to include these two paths. Existing implementation/test evidence above is unchanged;
 this follow-up reran the baseline budget check and `git diff --check`, not the browser
 suites. Headroom tools remain unavailable; original native output was inspected.
+
+## Attempt 3 — rebased onto loop/rc after the claim was widened
+
+The operator brief (2026-10-04) widened the claim to `PrivateJournal.tsx` and
+`check-baseline-budget.mjs`, so both stay as they were. `loop/rc` had moved to `ae852b4e`,
+and a trial merge conflicted in `Frame.tsx`. The branch is rebased onto it. The only conflict
+was the import block: RC-CHR-6.2's `CoreCommand` import and this story's `BottomTabBar`
+import are both kept. RC-CHR-6.2's sheet-write wiring (`writeSheet`, `sheetWrites`,
+`NO_SHEET_WRITES`) is intact.
+
+Selector-only fixes for specs that arrived with the new base:
+
+- `companion-sheet.spec.ts` (new in RC-CHR-6.2) clicked `My character`. On phones the tab is
+  now labelled `Sheet`, so the test timed out on mobile-chromium. It now uses the shared
+  `selectCompanionSection` helper. Assertions are unchanged.
+- `responsive.spec.ts` "a Co-DM can reach every elevated standalone player tool at compact
+  phone size" looked for Maps/Bestiary/Combat assist inside the nav. At 375px those tools now
+  sit under More, so the test opens More and then finds each tool in `#player-main`. The
+  geometry, enabled, in-viewport, heading and overflow assertions are unchanged.
+
+Visual: all 15 `play-stage--*` captures differed only in the Party vitals tile, by about
+1px. That comes from the base's RC-POL-1.7 change to `app/character/PartyPanel.tsx`, which
+this branch does not touch. They were re-baselined in the pinned container with
+`--update-snapshots=changed`.
+
+Verification on the rebased tree (local and native output; operator gates still pending):
+
+- `gm-react` typecheck, targeted ESLint, Prettier and `lint:boundary` passed.
+- `pnpm test:app`: 166 files, 1,950 tests passed.
+- e2e on both projects: companion-frame, player-private-notes, play-polish, player-inbox,
+  player-join-first and co-dm passed 66/66. companion-sheet passed 2/2 after the edit.
+  responsive, golden-path, scene-cards and shell-polish passed 270/272 before the edit, and
+  the 2 failures (the Co-DM test above) pass after it. a11y-axe-gate, collab, equipment,
+  command-palette, join, player-view and route-titles passed 171/171.
+- Pinned container, `--update-snapshots=none`: play-polish, player-polish, and golden-routes
+  filtered to `play|display|player` passed 69/69 across the three visual tiers.
+- Baseline budget: 753 files, 34,165.9 KiB of 34,816 KiB.
