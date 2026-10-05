@@ -48,3 +48,20 @@ ownership or mark the gate passed.
 - After restoring the adapter, all 11 companion projection tests passed. No production code changed
   during this follow-up; prior browser/visual evidence remains recorded above. Full acceptance is
   still subject to the operator's ownership decision and independent gates/review.
+
+## Claim widened (operator brief 2026-10-04)
+
+- The operator widened the claim to `apps/gm-react/src/app/character/PartyPanel.tsx` and
+  `apps/gm-react/src/net/viewModels.ts`, so both retained changes now fall inside the claim. No
+  production behaviour changed in this pass.
+- Small tidy in `party-overview.ts`: moved the resource-access comment next to the
+  `availableSpellSlots` / `availableClassResources` fields it describes and removed a stray blank line.
+- Re-ran: core isolation suite `tests/character-party-and-player-records.test.ts` 23 passed;
+  `src/net/viewModels.test.ts` 11 passed; core `tsc --noEmit` exit 0; gm-react `typecheck` exit 0;
+  prettier check of the edited file passed. The e2e and visual evidence above was not re-run here
+  (no UI change since then).
+- ⚠️ Integration note: `loop/rc` is 77 commits past this branch's base `6dcb0a00`.
+  `git merge-tree HEAD loop/rc` reports a content conflict in `PartyPanel.tsx` (from `40b262ab`
+  RC-POL-1.7 and `eb9e529a`) and binary conflicts in the nine `/play` visual baselines. I did not
+  rebase, so the claim diff stays measured against the recorded base. Integration needs a rebase
+  and a fresh `/play` baseline capture on top of current `loop/rc`.

@@ -131,8 +131,6 @@ export function getPartyOverviewForActor(
 		const sheet = getCharacterForActor(characters, permissions, actorId, id);
 		// PC vitals are public even when the full sheet or individual sheet fields are private.
 		const view = fullRecord.kind === 'pc' ? fullRecord : sheet!;
-		// Resource totals require sheet access in addition to public summary access.
-
 		return {
 			characterId: view.id,
 			name: view.name,
@@ -146,6 +144,7 @@ export function getPartyOverviewForActor(
 			tempHp: view.combat.tempHp,
 			ac: view.combat.ac,
 			conditions: [...(view.combat.conditions ?? [])],
+			// Resource totals require sheet access in addition to public summary access.
 			availableSpellSlots:
 				sheet && (isDm || !fullRecord.dmOnlyFields.includes('resources.spellSlots'))
 					? totalAvailableSpellSlots(fullRecord)
