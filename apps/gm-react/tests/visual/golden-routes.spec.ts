@@ -68,17 +68,29 @@ async function openShelled(page: Page, path: string): Promise<void> {
 	await page.locator('h1').first().waitFor({ state: 'attached', timeout: 20_000 });
 }
 
-/** The fresh vault's first real Scene, the one Command Center opens. */
+/**
+ * The fresh vault's first real Scene, the one Command Center opens. RC-CAN-7.6: opening `/` now
+ * provisions the default screens (the GM screen's board and the home screen), which are not table
+ * scenes, so they are skipped; this is the scene the golden has always shown.
+ */
 function defaultSceneId(page: Page): Promise<string | null> {
 	return page.evaluate(() => {
 		const state = window.__rt!.state as unknown as {
 			commandCenter: { homeSceneId: string | null };
-			scenes: { scenes: Record<string, { id: string; isTemplate?: boolean }> };
+			scenes: {
+				scenes: Record<
+					string,
+					{ id: string; isTemplate?: boolean; screen?: { origin?: { kind?: string } | null } }
+				>;
+			};
 		};
 		return (
-			state.commandCenter.homeSceneId ??
-			Object.values(state.scenes.scenes).find((scene) => !scene.isTemplate)?.id ??
-			null
+			Object.values(state.scenes.scenes).find(
+				(scene) =>
+					!scene.isTemplate &&
+					scene.id !== state.commandCenter.homeSceneId &&
+					scene.screen?.origin?.kind !== 'default',
+			)?.id ?? null
 		);
 	});
 }

@@ -518,6 +518,16 @@ describe('the Command Center as the default screen (RC-CAN-7.6)', () => {
 		]);
 	});
 
+	it('a part with nothing to show leaves the layout (Manage at the core tier)', async () => {
+		await seedDemoVault();
+		document.documentElement.setAttribute('data-feature-tier', 'core');
+		const main = await renderHub();
+		const shown = [...main.querySelectorAll<HTMLElement>('[data-testid="home-screen"] > div')]
+			.filter((part) => part.style.display !== 'none')
+			.map((part) => part.querySelector('[data-widget-region]')?.getAttribute('aria-label'));
+		expect(shown).toEqual(['1. Resume', '2. Scenes', '3. Create', '5. Library']);
+	});
+
 	it('a GM-built duplicate of each part passes the same snapshot', async () => {
 		await seedDemoVault();
 		const original = serialise(await renderHub());

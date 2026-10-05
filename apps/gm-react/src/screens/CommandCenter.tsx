@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+} from 'react';
 import {
 	findHomeScreen,
 	findWidgetDefinition,
@@ -8,7 +16,14 @@ import {
 } from '@dndtools/core';
 import { Button, Card, EmptyState, StatusDot } from '../ds';
 import { Page, T } from '../app/screen-kit';
-import { boardWidgetsOf, FLOW_COLUMNS, flowPlacements, payloadIndex } from '../app/board-helpers';
+import {
+	boardWidgetsOf,
+	FLOW_COLUMNS,
+	flowOrder,
+	flowPlacements,
+	payloadIndex,
+	type FlowPlacement,
+} from '../app/board-helpers';
 import { WidgetRenderSlot } from '../app/widgets/WidgetRenderSlot';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useViewport } from '../app/useViewport';
@@ -59,6 +74,53 @@ function useProvisionedHome(enabled: boolean) {
 	return { home, failed, retry };
 }
 
+/** One part in the grid, or out of it (`display: none`) while its body draws nothing. */
+function HomePart({
+	placement,
+	onBlank,
+	children,
+}: {
+	placement: FlowPlacement | null;
+	onBlank: (blank: boolean) => void;
+	children: ReactNode;
+}) {
+	const ref = useRef<HTMLDivElement>(null);
+	const report = useRef(onBlank);
+	report.current = onBlank;
+	useLayoutEffect(() => {
+		const node = ref.current;
+		if (!node) return;
+		// The widget region's content box; a body that renders nothing leaves it without elements.
+		const check = () => {
+			const content = node.querySelector('[data-widget-region] > div');
+			report.current(!!content && content.childElementCount === 0);
+		};
+		check();
+		const observer = new MutationObserver(check);
+		observer.observe(node, { childList: true, subtree: true });
+		return () => observer.disconnect();
+	}, []);
+	return (
+		<div
+			ref={ref}
+			data-flow-index={placement?.index}
+			style={
+				placement
+					? {
+							gridColumn: `${placement.column + 1} / span ${placement.span}`,
+							gridRow: placement.rowSpan
+								? `${placement.row + 1} / span ${placement.rowSpan}`
+								: String(placement.row + 1),
+							minWidth: 0,
+						}
+					: { display: 'none' }
+			}
+		>
+			{children}
+		</div>
+	);
+}
+
 export function CommandCenter() {
 	const runtime = useRuntime();
 	const viewport = useViewport();
@@ -69,6 +131,20 @@ export function CommandCenter() {
 	});
 	const participant = homeView.kind === 'participant';
 	const { home, failed, retry } = useProvisionedHome(!participant);
+
+	// Parts that currently draw nothing (Manage at the core tier, say) leave the layout, as the hub's
+	// own sections did: no empty row, no empty labelled region. They stay mounted, out of the grid, so
+	// one that has something to show again comes back.
+	const [blank, setBlank] = useState<ReadonlySet<string>>(() => new Set());
+	const reportBlank = useCallback((id: string, isBlank: boolean) => {
+		setBlank((current) => {
+			if (current.has(id) === isBlank) return current;
+			const next = new Set(current);
+			if (isBlank) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+	}, []);
 
 	const tiles = useMemo(() => {
 		if (!home) return [];
@@ -85,17 +161,20 @@ export function CommandCenter() {
 			payloadIndex(summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
 		);
-		const byId = new Map(widgets.map((widget) => [widget.id, widget]));
 		// The hub's own tier rule: only the phone collapses to one column; the rail keeps the
 		// desktop arrangement, as the Command Center always did.
-		return flowPlacements(
-			widgets,
-			viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop,
-		).flatMap((placement) => {
-			const widget = byId.get(placement.id);
-			return widget ? [{ placement, widget }] : [];
-		});
-	}, [home, runtime.state, actorId, viewport]);
+		const placed = new Map(
+			flowPlacements(
+				widgets.filter((widget) => !blank.has(widget.id)),
+				viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop,
+			).map((placement) => [placement.id, placement]),
+		);
+		// DOM order is the reading order (ADR-041), hidden parts included.
+		return flowOrder(widgets).map((widget) => ({
+			widget,
+			placement: placed.get(widget.id) ?? null,
+		}));
+	}, [home, runtime.state, actorId, viewport, blank]);
 
 	// Liveness is `session.workflow` everywhere else in the app (Session.tsx, ProjectionControl, every
 	// StatusDot). Reading `activeSceneId` instead meant `session.recover` — which restores the scene id
@@ -164,21 +243,16 @@ export function CommandCenter() {
 				style={{
 					display: 'grid',
 					gridTemplateColumns: `repeat(${viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop}, minmax(0, 1fr))`,
-					gap: T.space.six,
+					// The hub's 28px between its parts; a phone's single column keeps 24px.
+					gap: viewport === 'phone' ? T.space.six : `calc(${T.space.six} + ${T.space.one})`,
 					alignItems: 'start',
 				}}
 			>
 				{tiles.map(({ placement, widget }) => (
-					<div
+					<HomePart
 						key={widget.id}
-						data-flow-index={placement.index}
-						style={{
-							gridColumn: `${placement.column + 1} / span ${placement.span}`,
-							gridRow: placement.rowSpan
-								? `${placement.row + 1} / span ${placement.rowSpan}`
-								: String(placement.row + 1),
-							minWidth: 0,
-						}}
+						placement={placement}
+						onBlank={(isBlank) => reportBlank(widget.id, isBlank)}
 					>
 						<WidgetRenderSlot
 							widget={widget}
@@ -197,7 +271,7 @@ export function CommandCenter() {
 								})
 							}
 						/>
-					</div>
+					</HomePart>
 				))}
 			</div>
 		</Page>

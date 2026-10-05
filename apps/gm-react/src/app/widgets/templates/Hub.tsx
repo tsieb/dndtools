@@ -133,7 +133,7 @@ function SceneTileBody({ row }: { row: WidgetDataRow }) {
 					</div>
 				)}
 			</div>
-			<div style={{ padding: 'var(--space-2) var(--space-3)' }}>
+			<div style={{ padding: 'calc(var(--space-2) + var(--space-0-5)) var(--space-3)' }}>
 				<div style={{ font: `600 13.5px ${sans}`, color: ink }}>{row.primary}</div>
 				<div style={{ font: `11.5px ${sans}`, color: ter }}>{row.secondary ?? row.meta}</div>
 			</div>
@@ -450,7 +450,8 @@ function HubBody({
 				flexDirection: 'column',
 				alignItems: 'flex-start',
 				gap: 'var(--space-2)',
-				padding: 'var(--space-4)',
+				// 14px, the hub's launch tile.
+				padding: 'calc(var(--space-3) + var(--space-0-5))',
 				borderRadius: 'var(--radius-lg)',
 				cursor: 'pointer',
 				textAlign: 'left',
@@ -529,7 +530,7 @@ function HubBody({
 								display: 'flex',
 								alignItems: 'center',
 								gap: 'var(--space-3)',
-								padding: 'var(--space-2)',
+								padding: 'calc(var(--space-2) + var(--space-0-5)) var(--space-2)',
 								border: 'none',
 								borderTop: index ? '1px solid var(--color-border)' : 'none',
 								background: 'none',
