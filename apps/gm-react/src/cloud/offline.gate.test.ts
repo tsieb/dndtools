@@ -46,6 +46,8 @@ const NO_CLOUD_CONTROLS: Record<string, string> = {
 	'screens/settings/SyncPrivacy.tsx':
 		'ADR-026 mode switch writes device-local state; recovery-key export/import are local crypto against the OS credential store (cloud/vaultKey.ts). Its only cloud call is a best-effort refresh already wrapped in .catch().',
 	'app/shell/rows.tsx': 'Renders sync status as a nav row. Displays state, offers no action.',
+	'app/shell/presence.ts':
+		'Presence-dot hook split out of rows.tsx. Reads session and backup-engine state for a status caption; renders nothing and calls no cloud method.',
 	'screens/settings/Analytics.tsx':
 		'Opt-in toggle writing a device-local preference; telemetry delivery is fire-and-forget by design.',
 	'App.tsx':
