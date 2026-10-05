@@ -16,6 +16,9 @@ import type { CommandRequest } from '../../net/messages';
 import { buildPlayerData, NO_SHEET_WRITES, type SheetWrites } from '../../net/viewModels';
 import { SheetSection } from './Sheet';
 
+// The layout reads the resolved viewport profile; the fixture renders the desktop one.
+vi.mock('../../app/useViewport', () => ({ useViewport: () => 'desktop' }));
+
 // The class-resource panel mints ids for homebrew rows through the runtime; nothing else is read.
 vi.mock('../../runtime/RuntimeContext', () => ({
 	useRuntime: () => ({ newId: () => 'homebrew-1' }),
@@ -95,12 +98,6 @@ let root: Root;
 let container: HTMLDivElement;
 
 beforeEach(() => {
-	(window as unknown as { matchMedia: unknown }).matchMedia = (query: string) => ({
-		matches: false,
-		media: query,
-		addEventListener: () => {},
-		removeEventListener: () => {},
-	});
 	(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 	container = document.createElement('div');
 	document.body.appendChild(container);

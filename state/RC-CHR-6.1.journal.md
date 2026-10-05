@@ -34,3 +34,7 @@
 - Retry verification: play/Sheet.test.tsx 3/3, net companionSheet + initiativeCall + viewModels 24/24,
   e2e companion-sheet, player-polish, character-resources, character-rest, play-polish → 46 passed
   on both profiles.
+- 2026-10-04 (retry 2): Lint gate failed on `pnpm lint:boundary` — `play/Sheet.test.tsx` stubbed
+  `window.matchMedia` (PLAT-006 raw viewport sniff). Replaced the stub with a mock of
+  `app/useViewport` (the resolved profile), so no exception entry is needed. `pnpm lint` exits 0
+  (16 pre-existing warnings, 0 errors); Sheet.test.tsx 3/3.
