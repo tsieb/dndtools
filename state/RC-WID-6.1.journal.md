@@ -157,3 +157,23 @@ Validation (native output read):
   mobile-chromium, `--repeat-each=4 --retries=0`: 112/112 passed. Before the spec fix, the same
   run at `--repeat-each=3` gave 83 passed and 1 failed.
 - No push, promotion, extra agents, loop launch or dispatcher control-state change.
+
+## Attempt 5 — Lint gate: boundary lint (2026-10-05)
+
+- The gate (head `76395506`, rebased by the operator onto `66fb8c13`) failed only in `pnpm lint` →
+  `lint:boundary`. ESLint itself had 0 errors. The log said
+  `useLayoutHistory.ts:246 — uses the crypto platform primitive directly (PLAT-006)`.
+  The rebase reconciliation had re-applied `prepareWidgetCommand` with `crypto.randomUUID()`.
+- Fix: the replay key now comes from the runtime's own id source. The hook's `runtime` option takes
+  an optional `newId` (`SceneRuntime.newId()`, already passed by Board and the scene editor). A
+  plain test state holder without it falls back to a per-session `history-replay-<n>` counter.
+  `newId` joins the `run`/`replay` dependency lists. Only `useLayoutHistory.ts` changed.
+
+Validation (native output read):
+
+- Full `pnpm lint` (raw-style count, ESLint, boundary, emphasis, contrast) exits 0, with 0 errors.
+  The 16 warnings are all in files this task does not touch.
+- gm-react `tsc --noEmit` is clean. Canvas, SceneBoardCanvas and shortcuts vitest: 139/139.
+- Playwright widget-commands + canvas-keyboard + canvas-history on desktop-chromium and
+  mobile-chromium, `--repeat-each=2 --retries=0`: 28/28 passed.
+- No push, promotion, extra agents, loop launch or dispatcher control-state change.

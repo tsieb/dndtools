@@ -237,13 +237,20 @@ function lastPerWidget(commands: readonly CoreCommand[]): CoreCommand[] {
 	});
 }
 
+/** Replay keys for a runtime without its own id source (a plain state holder in a test). */
+let replaySeq = 0;
+
 /** History replay is a new operation against the current revision, never an idempotent retry. */
-function prepareWidgetCommand(command: CoreCommand, state: CoreStateSlice): CoreCommand {
+function prepareWidgetCommand(
+	command: CoreCommand,
+	state: CoreStateSlice,
+	newId: () => string,
+): CoreCommand {
 	if (command.type !== 'widget.dispatch-command') return command;
 	const payload = command.payload as { sceneId: string; expectedRevision: number };
 	return {
 		...command,
-		idempotencyKey: crypto.randomUUID(),
+		idempotencyKey: newId(),
 		payload: {
 			...payload,
 			expectedRevision:
@@ -265,11 +272,14 @@ export function useLayoutHistory(options: {
 		onDispatched?: (listener: (ops: SyncOperation[], next: CoreStateSlice) => void) => () => void;
 		/** Only this device's own placements are recorded — never a co-DM's or the assistant's. */
 		readonly defaultActorId?: string;
+		/** `SceneRuntime`'s id source, for the fresh idempotency key each widget-command replay needs. */
+		newId?: () => string;
 	};
 	/** The screen's own guarded dispatch — it owns rejection and persist-failure messaging. */
 	dispatch: (command: CoreCommand) => Promise<boolean>;
 }): LayoutHistory {
 	const { sceneId, dispatch, runtime } = options;
+	const newId = useCallback(() => runtime.newId?.() ?? `history-replay-${++replaySeq}`, [runtime]);
 	const [past, setPast] = useState<LayoutHistoryEntry[]>([]);
 	const [future, setFuture] = useState<LayoutHistoryEntry[]>([]);
 	const [announcement, setAnnouncement] = useState<LayoutAnnouncement | null>(null);
@@ -389,7 +399,7 @@ export function useLayoutHistory(options: {
 				// Read the state BEFORE dispatching: every layout command overwrites its field outright,
 				// so the value to restore only exists in the state the command was dispatched against.
 				const stateBefore = runtime.state;
-				const prepared = prepareWidgetCommand(command, stateBefore);
+				const prepared = prepareWidgetCommand(command, stateBefore, newId);
 				const ok = await dispatch(prepared);
 				if (!ok) return false;
 				if (!sceneId) return true;
@@ -400,7 +410,7 @@ export function useLayoutHistory(options: {
 				return true;
 			});
 		},
-		[dispatch, enqueue, remember, runtime, sceneId],
+		[dispatch, enqueue, newId, remember, runtime, sceneId],
 	);
 
 	// The state the screen last rendered: the runtime signals a dispatch before it re-renders, so
@@ -438,7 +448,7 @@ export function useLayoutHistory(options: {
 			let inverse: CoreCommand[] | null = [];
 			for (const queued of commands) {
 				const before = runtime.state;
-				const command = prepareWidgetCommand(queued, before);
+				const command = prepareWidgetCommand(queued, before, newId);
 				const claim: Claim = { command, label: null, burst: null };
 				if (PLACING.has(command.type)) claimsRef.current.push(claim);
 				try {
@@ -451,7 +461,7 @@ export function useLayoutHistory(options: {
 			}
 			return { ok: true, inverse };
 		},
-		[dispatch, runtime],
+		[dispatch, newId, runtime],
 	);
 
 	/** Reverse the top step. Runs in the queue, after every edit made before it. */
