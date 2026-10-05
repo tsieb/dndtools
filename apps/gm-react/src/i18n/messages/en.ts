@@ -5486,8 +5486,8 @@ export const en = {
 	'home.count.campaign':
 		'{threads, plural, one {# thread} other {# threads}} · {factions, plural, one {# faction} other {# factions}}',
 	'home.count.notes': '{count, plural, one {# note} other {# notes}}',
-	'home.setupFailed': 'The Command Center couldn\'t be set up on this device.',
-	'home.setupFailedHint': 'Check the device\'s storage space, then try again.',
+	'home.setupFailed': "The Command Center couldn't be set up on this device.",
+	'home.setupFailedHint': "Check the device's storage space, then try again.",
 
 	/* Join › the emailed invite landing page */
 	'join.unavailable':

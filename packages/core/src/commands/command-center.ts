@@ -165,7 +165,12 @@ export function buildDefaultHomeScreen(env: CoreEnvironment, ownerActorId: strin
 			pinned: false,
 			pinOrder: null,
 			layoutPolicy: 'flow',
-			origin: { kind: 'default', sourceSceneId: null, defaultKey: HOME_SCREEN_DEFAULT_KEY, at: now },
+			origin: {
+				kind: 'default',
+				sourceSceneId: null,
+				defaultKey: HOME_SCREEN_DEFAULT_KEY,
+				at: now,
+			},
 		},
 	);
 }
@@ -277,11 +282,7 @@ function ensureHomeBoard(
 		): CommandResult => ({
 			status: 'accepted',
 			nextState: next,
-			events: [
-				...boardEvents,
-				{ kind: 'command-center.home-ready', sceneId, actorId },
-				...events,
-			],
+			events: [...boardEvents, { kind: 'command-center.home-ready', sceneId, actorId }, ...events],
 			operationIds: [...boardOps, ...operationIds],
 		});
 

@@ -5517,7 +5517,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{threads, plural, one {# hilo} other {# hilos}} · {factions, plural, one {# facción} other {# facciones}}',
 	'home.count.notes': '{count, plural, one {# nota} other {# notas}}',
 	'home.setupFailed': 'No se pudo preparar el Centro de comandos en este dispositivo.',
-	'home.setupFailedHint': 'Revisa el espacio de almacenamiento del dispositivo y vuelve a intentarlo.',
+	'home.setupFailedHint':
+		'Revisa el espacio de almacenamiento del dispositivo y vuelve a intentarlo.',
 
 	/* Unirse › la página de aterrizaje de la invitación por correo */
 	'join.unavailable':

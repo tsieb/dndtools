@@ -1258,8 +1258,18 @@ export function createHomeWidgetDefinitions(): WidgetDefinition[] {
 					route: '/board',
 					icon: 'enter',
 				},
-				{ id: 'enter-scene', displayName: i18n('home.enterScene'), kind: 'open-screen', icon: 'enter' },
-				{ id: 'open-scene', displayName: i18n('home.openScene'), kind: 'open-screen', icon: 'enter' },
+				{
+					id: 'enter-scene',
+					displayName: i18n('home.enterScene'),
+					kind: 'open-screen',
+					icon: 'enter',
+				},
+				{
+					id: 'open-scene',
+					displayName: i18n('home.openScene'),
+					kind: 'open-screen',
+					icon: 'enter',
+				},
 				{
 					id: 'open-library',
 					displayName: i18n('home.openScene'),
@@ -1407,10 +1417,20 @@ export function createHomeWidgetDefinitions(): WidgetDefinition[] {
 			],
 			dataQueries: [dataQuery('sections', 'Library', 'library-sections', 'dm')],
 			intents: [
-				{ id: 'characters', displayName: i18n('nav.characters'), kind: 'open-route', route: '/characters' },
+				{
+					id: 'characters',
+					displayName: i18n('nav.characters'),
+					kind: 'open-route',
+					route: '/characters',
+				},
 				{ id: 'atlas', displayName: i18n('nav.maps'), kind: 'open-route', route: '/atlas' },
 				{ id: 'campaign', displayName: i18n('nav.story'), kind: 'open-route', route: '/campaign' },
-				{ id: 'knowledge', displayName: i18n('nav.notes'), kind: 'open-route', route: '/knowledge' },
+				{
+					id: 'knowledge',
+					displayName: i18n('nav.notes'),
+					kind: 'open-route',
+					route: '/knowledge',
+				},
 			],
 		}),
 	];

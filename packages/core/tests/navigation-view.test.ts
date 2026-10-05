@@ -19,7 +19,11 @@ import {
 	makeEnvironment,
 } from '../src/testing/fixtures';
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -63,9 +67,11 @@ function baseVault(): {
 		dispatch(state, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
 	);
 	state = home.nextState;
-	const homeSceneId = (home.events.find((e) => e.kind === 'command-center.home-ready') as {
-		sceneId: string;
-	}).sceneId;
+	const homeSceneId = (
+		home.events.find((e) => e.kind === 'command-center.home-ready') as {
+			sceneId: string;
+		}
+	).sceneId;
 
 	const dm = createScene(state, env, 'Secret Lair', 'dm-only');
 	state = dm.state;
@@ -165,9 +171,11 @@ describe('NAV-003 contextual backlinks and related links', () => {
 			}),
 		);
 		let state = tmpl.nextState;
-		const templateSceneId = (tmpl.events.find((e) => e.kind === 'scene.template-saved') as {
-			templateSceneId: string;
-		}).templateSceneId;
+		const templateSceneId = (
+			tmpl.events.find((e) => e.kind === 'scene.template-saved') as {
+				templateSceneId: string;
+			}
+		).templateSceneId;
 
 		const inst = accept(
 			dispatch(state, env, {
@@ -177,9 +185,11 @@ describe('NAV-003 contextual backlinks and related links', () => {
 			}),
 		);
 		state = inst.nextState;
-		const instanceId = (inst.events.find((e) => e.kind === 'scene.template-instantiated') as {
-			newSceneId: string;
-		}).newSceneId;
+		const instanceId = (
+			inst.events.find((e) => e.kind === 'scene.template-instantiated') as {
+				newSceneId: string;
+			}
+		).newSceneId;
 
 		// From the template: a backlink to the instance created from it.
 		const templateView = resolveNavigationView(state, DM_ACTOR.id, sceneLocation(templateSceneId));
@@ -225,7 +235,11 @@ describe('NAV-003 contextual backlinks and related links', () => {
 		expect(dmView.backlinks.some((b) => b.relation.startsWith('Projected to'))).toBe(true);
 
 		// The player sees the Scene itself but no who-is-projected session detail.
-		const playerView = resolveNavigationView(projected, PLAYER_ACTOR.id, sceneLocation(playerSceneId));
+		const playerView = resolveNavigationView(
+			projected,
+			PLAYER_ACTOR.id,
+			sceneLocation(playerSceneId),
+		);
 		expect(playerView.backlinks.some((b) => b.relation.startsWith('Projected to'))).toBe(false);
 	});
 });
