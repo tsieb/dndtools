@@ -59,3 +59,14 @@ IdentityPanel,XpPanel,DeathSavesPanel}` + reworked Abilities/Combat/Attacks/Spel
   companion; History limit carried over; the stale "No printable sheet" limit dropped — RC-CHR-2.4
   is done and `/player` exports a PDF), Player app row names the shared sheet. Cells sized to the
   existing column widths so the table is not re-padded. `pnpm feature-audit`: 40 limits, 0 stale.
+- Full e2e (`playwright test --workers=4 --retries=1`, both profiles): exit 0 — 1768 passed, 5
+  flaky, 29 skipped, 0 failed. The flakes (combat-tile ×4: `#main-content` boot timeout under load;
+  shell-polish palette focus) are outside the sheet; re-run with `--retries=0`: 25/25.
+- Visual: re-baselined in the pinned container (`--update-snapshots=changed -g "player sheet"`) —
+  25 PNGs (desktop/rail `player--*` top crops and all `player-combat--*`; the Combat panel now
+  carries the vitals block and the DM's Edit). Re-deflated losslessly (966,619 → 908,715 B);
+  budget 32,371.8 / 32,768 KiB. Full visual gate `--update-snapshots=none --workers=2`: 489/489.
+- Gates: `pnpm gates` 0, `pnpm format:check:changed --base loop/rc` 0, `pnpm lint` 0 errors,
+  `pnpm typecheck` 0, `pnpm build` 0, `pnpm feature-audit` 0 stale. Composition files all under
+  500 lines (largest `player/Journal.tsx` 424, `player/Vitals.tsx` 382).
+- Not rebased: `loop/rc` has moved ahead (RC-CAN-8.1 commits) without touching these files.
