@@ -108,3 +108,21 @@ Verified on the working tree before commit:
   same as on the base, so the baseline is not raised. `pnpm a11y:contrast`: passed.
 - Ratchets: `no-raw-style-values` still 6 in `WidgetFrame.tsx` and 0 in the other owned files;
   `no-literal-jsx-text` still 2 in `FlowBoard.tsx`.
+
+## Second pass: visual gate on `11cb6459`
+
+The operator's rebase put this story on `4ed8b451` (head `11cb6459`). The pinned-container visual
+gate then failed 3 of 489 tests, all in `visual-rail` on routes this story does not touch:
+
+- `characters-polish.spec.ts:10` (characters empty, dungeon): the empty-state illustration was
+  never found within 5s;
+- `community.spec.ts:79` (community, tavern) and `plans-legal.spec.ts:29` (plans account check,
+  parchment): `toHaveScreenshot` timed out at "waiting for element to be stable".
+
+None of them is a pixel diff. The desktop twins of the first two took about 17s in the same window
+(normally 3–4s), which points to a loaded machine or a cold dev-server chunk (the known
+visual lazy-chunk stall). The other 486 passed, including every `/board` and `/scene` golden.
+
+Re-run on `11cb6459` with `tests/visual/run-in-container.sh` for the three specs, every visual
+project, `--repeat-each=2`: 120 passed, 0 failed (2.3 min). No baseline was changed and no code
+changed in this pass.
