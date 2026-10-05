@@ -74,9 +74,10 @@ export function hpUndoFor(
 }
 
 /**
- * RC-CHR-6.1 — the HP stepper (with undo), temporary hit points and conditions, shared by `/player`
- * and the `/play` companion. Every control is a CHAR-007 write, so all of them are drawn only when
- * `canUpdate` says the core would take it; without it the block is a plain readout.
+ * RC-CHR-6.1 — the HP stepper (with undo), temporary hit points and conditions, drawn at the top of
+ * {@link PlayerResources} whenever its caller passes `vitals` (the `/play` companion does; `/player`
+ * can opt in with the same prop). Every control is a CHAR-007 write, so all of them are drawn only
+ * when `canUpdate` says the core would take it; without it the block is a plain readout.
  */
 export function CharacterVitals({
 	subject,

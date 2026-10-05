@@ -26,3 +26,11 @@
   `cloud/offline.gate.test.ts` naming `app/shell/presence.ts` (from RC-POL-1.23, untouched here).
 - Visual: /play golden route captures the Stage, /player visual captures the Sheet tab — neither
   surface changed, so no baselines regenerated.
+- 2026-10-04 (retry): gate refused the claim crossing into `screens/player/index.tsx`. Reverted it to
+  base 9e604133 — the acceptance criteria never needed `/player` to pass `vitals`. `/player`'s
+  Resources tab still renders the shared `PlayerResources` (slots, class resources, rest, prepared
+  spells, now capability-gated); the vitals panel appears only where `vitals` is passed (the
+  companion). Wiring `/player` is a one-prop follow-up for the owner of `player/index.tsx` (RC-CHR-6.2).
+- Retry verification: play/Sheet.test.tsx 3/3, net companionSheet + initiativeCall + viewModels 24/24,
+  e2e companion-sheet, player-polish, character-resources, character-rest, play-polish → 46 passed
+  on both profiles.
