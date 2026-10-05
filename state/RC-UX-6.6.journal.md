@@ -69,3 +69,10 @@ Base: `loop/rc` 9a7b675d (RC-POL-1.23). Branch `dispatch/dndtools/544e7443768b97
   phone overlay contains no "⌘K".
 - Local: onboarding-consent 14/14 (desktop + mobile), golden-path + responsive onboarding 64/64,
   `src/i18n` vitest 47/47, gm-react `tsc` clean, eslint clean on changed files, prettier clean.
+
+## Attempt 4 (gate: path outside claim — Onboarding.tsx)
+
+- Operator brief 2026-10-04 widened Owns to `apps/gm-react/src/app/Onboarding.tsx`. No code change:
+  candidate 93d38d48 stands. Remaining out-of-Owns paths are the same companions the earlier gates
+  accepted (i18n catalogs + qps-ploc, help/shortcuts/onboarding/shell-polish e2e specs,
+  registry.test.ts, NAVIGATION.md, visual baselines, this journal).
