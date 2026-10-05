@@ -92,9 +92,16 @@ ownership or mark the gate passed.
   - `pnpm lint`: exit 0 (raw-style count, eslint, boundary, emphasis and contrast). The emphasis
     warnings are pre-existing on the base.
   - `playwright test tests/e2e/party-summary.spec.ts --project=desktop-chromium
-    --project=mobile-chromium --workers=1` with `DNDTOOLS_E2E_PORT=32967`: **6 passed**. This covers
+--project=mobile-chromium --workers=1` with `DNDTOOLS_E2E_PORT=32967`: **6 passed**. This covers
     a real joined companion seeing three private-sheet PCs, live DM HP propagation, and the EN/ES
     Sharing copy.
   - Pinned container: `run-in-container.sh --update-snapshots=none --workers=2
-    -g '(/play|characters|character builder|play stage|player)'`: **69 passed** (1.7m), with no
+-g '(/play|characters|character builder|play stage|player)'`: **69 passed** (1.7m), with no
     snapshot updates.
+
+## Format gate follow-up (2026-10-05)
+
+- The `Format (changed)` gate failed at `8d143c83` on `state/RC-CHR-6.3.journal.md` only. All
+  source files were clean.
+- Ran `prettier --write` on the journal (two wrapped lines). `pnpm format:check:changed -- --base
+loop/rc` then passed: 15 files checked, exit 0. No source changes.
