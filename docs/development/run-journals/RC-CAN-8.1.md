@@ -184,3 +184,50 @@ Verified on the rebased tree:
 - `pnpm gates`: exit 0.
 - Playwright `canvas-history`, `canvas-keyboard`, `canvas` and `command-palette` on desktop-chromium
   and mobile-chromium: 130 passed.
+
+## Seventh pass: placements recorded per operation
+
+Independent review of `41c742f7` reproduced two placement races with the real core behind a
+runtime-shaped dispatcher (one queue, persist, then the dispatch signal):
+
+1. A palette Add tile and a gallery add both queued behind a persisting write: `run` read the state
+   before the palette's add executed, then diffed the whole scene, so one gallery Undo destroyed both
+   tiles.
+2. A palette add that landed between a template Undo's destroys was dropped, because the dispatch
+   signal ignored every placement while an undo or redo was replaying.
+
+What changed in `canvas/useLayoutHistory.ts`:
+
+- With a runtime signal available, no placing command (`scene.add-widget`, `scene.apply-template`,
+  `scene.duplicate-widget`) is recorded from a scene diff. `run` registers a claim (command, label,
+  burst) and the runtime's signal, which fires inside the runtime's own serialization with exactly
+  that dispatch's operations, records the step from the operation itself (an add or duplicate names
+  its instance; a template's tiles are the last `appliedWidgetCount` of that dispatch's state).
+  An unclaimed placement by this device (palette, template picker) is its own step, as before. The
+  scene-diff path remains only for a runtime without the signal.
+- Undo and redo claim only the placing commands they replay themselves, with no label, so their
+  signal records nothing. The blanket `busyRef` early return is gone.
+- Undo and redo remove their own entry by identity rather than slicing the top, so an edit recorded
+  mid-replay stays on the stack. An undo during which a new action was recorded does not offer redo,
+  since that action already closed the redo branch.
+- The `sameCommands` dedupe in `remember` is gone: a placement is now recorded exactly once.
+
+Tests: the `useLayoutHistory.test.tsx` harness now queues dispatches and signals after the persist,
+the way `SceneRuntime` does (one existing test waits for the queued move instead of reading it
+synchronously). Two new regressions match the review's: a gallery add queued behind a palette add
+undoes only its own tile, and a palette add made during a template Undo stays undoable (and closes
+redo). Both fail on `41c742f7`'s hook and pass now. The reviewer's own config
+(`history-races.test.tsx`) passes 3/3.
+
+The review also noted that `canvas-history.spec.ts` lets through `scrollable-region-focusable` on a
+widget body region in edit mode. That finding comes from `WidgetRenderSlot` taking an overflowing
+body out of the tab order in edit mode. It happens on the base with or without a move, and that file
+is outside this story's claim. The view-mode scan in the same spec has no exception.
+
+Verified on the working tree before commit:
+
+- `vitest --config vitest.app.config.ts`: 163 files, 1790 tests passed.
+- gm-react `tsc --noEmit`: clean. `eslint` on the changed files: clean.
+- `format:check:changed --base 9a7b675d`: clean. `pnpm gates`: exit 0.
+- Playwright desktop-chromium and mobile-chromium: `canvas-history`, `canvas-keyboard` and
+  `command-palette` (50 passed); `canvas`, `canvas-arrange` and `scene-surfaces` (86 passed).

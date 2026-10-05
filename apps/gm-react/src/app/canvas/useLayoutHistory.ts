@@ -132,10 +132,11 @@ function backgroundInverse(command: CoreCommand, before: CoreStateSlice): CoreCo
 }
 
 /**
- * RC-CAN-8.1 — the undo step for tiles placed by a dispatch that did NOT come through `run`: the
- * palette's "Add tile" and the template picker dispatch straight to the runtime. Read off the
- * operation the core logged (an add names its instance; a template appends its tiles last) and the
- * state the screen last rendered (the background a template replaced). `null` for anything else.
+ * RC-CAN-8.1 — the undo step for ONE placing dispatch, read off the operation the core logged for it
+ * (an add or a duplicate names its instance; a template appends its tiles last) and the state the
+ * screen last saw (the background a template replaced). Never off a diff of the whole scene: another
+ * placement queued in the runtime at the same time would be taken back with it. `null` for anything
+ * else.
  */
 function placementStep(
 	op: SyncOperation,
@@ -148,7 +149,7 @@ function placementStep(
 	if (!now) return null;
 	let placed: string[] = [];
 	let label = 'Applied template';
-	if (op.opType === 'scene.add-widget') {
+	if (op.opType === 'scene.add-widget' || op.opType === 'scene.duplicate-widget') {
 		const widget = op.value as {
 			id?: unknown;
 			type?: unknown;
@@ -194,8 +195,34 @@ interface Burst {
 	entry: LayoutHistoryEntry | null;
 }
 
-const sameCommands = (a: readonly CoreCommand[], b: readonly CoreCommand[]) =>
-	JSON.stringify(a) === JSON.stringify(b);
+/**
+ * A placing command this hook has handed to the runtime and not yet seen signalled. `run` claims its
+ * own (the runtime's signal then records it under the run's label and burst); undo and redo claim
+ * the commands they replay, so their signal records nothing. A placement nobody claimed — the
+ * palette's Add tile, the template picker — is a new action of its own.
+ */
+interface Claim {
+	command: CoreCommand;
+	label: string | null;
+	burst: Burst | null;
+}
+
+/** Whether `op` is the operation `command` logs. Two identical adds are interchangeable, so the
+ *  oldest claim of the same shape takes the first such operation. */
+function claims(command: CoreCommand, op: SyncOperation): boolean {
+	if (command.type !== op.opType || command.actorId !== op.actorId) return false;
+	const payload = command.payload as {
+		sceneId?: unknown;
+		widget?: { type?: unknown };
+		copyId?: unknown;
+	};
+	if (payload.sceneId !== op.entityId) return false;
+	const placed = op.value as { id?: unknown; type?: unknown } | null;
+	if (command.type === 'scene.add-widget') return payload.widget?.type === placed?.type;
+	if (command.type === 'scene.duplicate-widget' && typeof payload.copyId === 'string')
+		return payload.copyId === placed?.id;
+	return true;
+}
 
 /** Move and resize overwrite their field outright, so within one step only the LAST command per
  *  widget matters — forward keeps the newest, inverse (in undo order) the oldest. */
@@ -246,6 +273,9 @@ export function useLayoutHistory(options: {
 	const queueRef = useRef<Promise<unknown>>(Promise.resolve());
 	const busyRef = useRef(false);
 	const seqRef = useRef(0);
+	// Counts recorded actions, so an undo or redo can tell that a new one landed while it replayed.
+	const actionsRef = useRef(0);
+	const claimsRef = useRef<Claim[]>([]);
 	// RC-CAN-8.1 — the open burst. A `run` captures the burst open at the moment it is CALLED, so a
 	// nudge still persisting when Escape or blur settles the burst folds into that burst's step rather
 	// than becoming a step of its own. `entry` is the step the burst has written so far: only that
@@ -305,9 +335,7 @@ export function useLayoutHistory(options: {
 	const remember = useCallback(
 		(command: CoreCommand, inverse: CoreCommand[], label: string, burst: Burst | null) => {
 			const stack = pastRef.current;
-			// A placement `run` dispatched was already recorded off the runtime's dispatch signal.
 			const top = stack[stack.length - 1];
-			if (PLACING.has(command.type) && top && sameCommands(top.inverse, inverse)) return;
 			const open = burst?.entry ?? null;
 			const folding = open !== null && top === open;
 			const entry: LayoutHistoryEntry = folding
@@ -318,6 +346,7 @@ export function useLayoutHistory(options: {
 					}
 				: { forward: [command], inverse, label };
 			if (burst) burst.entry = entry;
+			actionsRef.current += 1;
 			commitPast([...(folding ? stack.slice(0, -1) : stack), entry].slice(-MAX_LAYOUT_HISTORY));
 			// Any new action invalidates the redo branch — redoing onto a diverged layout would be
 			// a different edit than the one the user reversed.
@@ -331,6 +360,17 @@ export function useLayoutHistory(options: {
 			// The burst is the one open when the edit was MADE, not when its turn in the queue comes.
 			const burst = burstRef.current;
 			return enqueue(async () => {
+				if (sceneId && runtime.onDispatched && PLACING.has(command.type)) {
+					// Which tiles this command placed is only known from the operation it logs: the
+					// runtime's signal records the step, inside the runtime's own serialization.
+					const claim: Claim = { command, label, burst };
+					claimsRef.current.push(claim);
+					try {
+						return await dispatch(command);
+					} finally {
+						claimsRef.current = claimsRef.current.filter((c) => c !== claim);
+					}
+				}
 				// Read the state BEFORE dispatching: every layout command overwrites its field outright,
 				// so the value to restore only exists in the state the command was dispatched against.
 				const stateBefore = runtime.state;
@@ -354,12 +394,20 @@ export function useLayoutHistory(options: {
 	useEffect(() => {
 		if (!sceneId || !runtime.onDispatched) return;
 		return runtime.onDispatched((ops, next) => {
-			// An undo/redo replay is not a new action.
-			if (busyRef.current) return;
 			for (const op of ops) {
-				if (runtime.defaultActorId && op.actorId !== runtime.defaultActorId) continue;
+				const claim = claimsRef.current.find((c) => claims(c.command, op));
+				if (claim) claimsRef.current = claimsRef.current.filter((c) => c !== claim);
+				// An undo/redo replay is not a new action; nor is a co-DM's or the assistant's.
+				const foreign = !!runtime.defaultActorId && op.actorId !== runtime.defaultActorId;
+				if (claim ? claim.label === null : foreign) continue;
 				const step = placementStep(op, sceneId, seenRef.current, next);
-				if (step) remember(step.command, step.inverse, step.label, null);
+				if (step)
+					remember(
+						claim?.command ?? step.command,
+						step.inverse,
+						claim?.label ?? step.label,
+						claim?.burst ?? null,
+					);
 			}
 			seenRef.current = next;
 		});
@@ -374,7 +422,13 @@ export function useLayoutHistory(options: {
 			let inverse: CoreCommand[] | null = [];
 			for (const command of commands) {
 				const before = runtime.state;
-				if (!(await dispatch(command))) return { ok: false, inverse: null };
+				const claim: Claim = { command, label: null, burst: null };
+				if (PLACING.has(command.type)) claimsRef.current.push(claim);
+				try {
+					if (!(await dispatch(command))) return { ok: false, inverse: null };
+				} finally {
+					claimsRef.current = claimsRef.current.filter((c) => c !== claim);
+				}
 				const step = inverseCommands(command, before, runtime.state);
 				inverse = step && inverse ? [...step, ...inverse] : null;
 			}
@@ -387,18 +441,23 @@ export function useLayoutHistory(options: {
 	const undoTop = useCallback(async (): Promise<boolean> => {
 		const entry = pastRef.current[pastRef.current.length - 1];
 		if (!entry) return false;
+		const actions = actionsRef.current;
 		const { ok, inverse: redone } = await replay(entry.inverse);
 		if (!ok) return false;
+		// An edit made while the undo replayed (a palette add between two of a template's destroys)
+		// is now on top: take out THIS entry, not whatever is last.
+		commitPast(pastRef.current.filter((e) => e !== entry));
+		// That edit also closed the redo branch, so only an undo nothing interrupted can be redone.
 		// Re-derive the forward commands against the state the UNDO ran on, so a redo can itself
 		// be undone exactly (revisions and neighbouring widgets have moved on) — and so the redo of
 		// an add RESTORES the destroyed instances instead of placing fresh ones.
-		commitPast(pastRef.current.slice(0, -1));
-		commitFuture(
-			[
-				...futureRef.current,
-				{ forward: redone ?? entry.forward, inverse: entry.inverse, label: entry.label },
-			].slice(-MAX_LAYOUT_HISTORY),
-		);
+		if (actionsRef.current === actions)
+			commitFuture(
+				[
+					...futureRef.current,
+					{ forward: redone ?? entry.forward, inverse: entry.inverse, label: entry.label },
+				].slice(-MAX_LAYOUT_HISTORY),
+			);
 		announce(`Undone: ${asPhrase(entry.label)}`);
 		return true;
 	}, [announce, commitFuture, commitPast, replay]);
@@ -408,7 +467,7 @@ export function useLayoutHistory(options: {
 		if (!entry) return false;
 		const { ok, inverse } = await replay(entry.forward);
 		if (!ok) return false;
-		commitFuture(futureRef.current.slice(0, -1));
+		commitFuture(futureRef.current.filter((e) => e !== entry));
 		commitPast(
 			[
 				...pastRef.current,

@@ -2,7 +2,7 @@
 
 import { act, useEffect, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	dispatchCommand,
 	type CoreCommand,
@@ -85,13 +85,21 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 			return () => void listeners.delete(listener);
 		},
 	};
+	// One queue, like `SceneRuntime.dispatch`: the state changes at once, the signal fires after the
+	// persist, and the next dispatch waits for both.
+	let tail: Promise<unknown> = Promise.resolve();
 	const apply = (command: CoreCommand) => {
-		const result = dispatchCommand(holder.state, env, command);
-		if (result.status !== 'accepted') return result;
-		const ops = result.nextState.sync.operations.slice(holder.state.sync.operations.length);
-		holder.state = result.nextState;
-		for (const listener of listeners) listener(ops, result.nextState);
-		return result;
+		const work = tail.then(async () => {
+			const result = dispatchCommand(holder.state, env, command);
+			if (result.status !== 'accepted') return result;
+			const ops = result.nextState.sync.operations.slice(holder.state.sync.operations.length);
+			holder.state = result.nextState;
+			await options.persist?.();
+			for (const listener of listeners) listener(ops, result.nextState);
+			return result;
+		});
+		tail = work.catch(() => undefined);
+		return work;
 	};
 	let api: LayoutHistory | null = null;
 
@@ -99,11 +107,7 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 		const history = useLayoutHistory({
 			sceneId: scene,
 			runtime: holder,
-			dispatch: async (command: CoreCommand) => {
-				if (apply(command).status !== 'accepted') return false;
-				await options.persist?.();
-				return true;
-			},
+			dispatch: async (command: CoreCommand) => (await apply(command)).status === 'accepted',
 		});
 		api = history;
 		return null;
@@ -120,10 +124,12 @@ function harness(options: { persist?: () => Promise<void> } = {}) {
 	act(() => root.render(<Host />));
 	return {
 		holder,
-		/** Dispatch past the stack, as the palette and the template picker do. */
-		dispatchOutside(command: CoreCommand) {
-			act(() => void accept(apply(command)));
+		/** Dispatch past the stack, as the palette and the template picker do, and let it settle. */
+		async dispatchOutside(command: CoreCommand) {
+			await act(async () => void accept(await apply(command)));
 		},
+		/** Queue a dispatch past the stack without waiting for it. */
+		queueOutside: apply,
 		sceneId: start.sceneId,
 		widgetId: start.widgetId,
 		get history(): LayoutHistory {
@@ -235,7 +241,7 @@ describe('useLayoutHistory', () => {
 				'Moved Timer',
 			);
 			// The core already holds the moved widget; the persist has not resolved yet.
-			expect(t.layout().x).toBe(startX + 20);
+			await vi.waitFor(() => expect(t.layout().x).toBe(startX + 20));
 			undone = t.history.undo();
 			release();
 			await ran;
@@ -477,7 +483,7 @@ describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
 			payload: { sceneId: t.sceneId, source: { kind: 'builtin', templateId: 'combat' } },
 		};
 		// The template picker dispatches straight to the runtime; the stack records it off the signal.
-		t.dispatchOutside(command);
+		await t.dispatchOutside(command);
 		expect(ids().length).toBeGreaterThan(before.length + 1);
 		expect(t.history.undoLabel).toBe('Applied template');
 
@@ -491,7 +497,7 @@ describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
 		const t = harness();
 		const scene = () => t.holder.state.scenes.scenes[t.sceneId];
 		for (const widget of [...scene().widgets])
-			t.dispatchOutside({
+			await t.dispatchOutside({
 				type: 'scene.destroy-widget',
 				actorId: DM_ACTOR.id,
 				payload: { sceneId: t.sceneId, widgetInstanceId: widget.id },
@@ -513,5 +519,97 @@ describe('useLayoutHistory — RC-CAN-8.1 bursts and adds', () => {
 		});
 		expect(scene().widgets).toHaveLength(0);
 		expect(scene().visualSettings.background).toBe(background);
+	});
+
+	// RC-CAN-8.1 review: placements that wait behind the runtime's persist at the same time.
+	const addDice = (sceneId: string): CoreCommand => ({
+		type: 'scene.add-widget',
+		actorId: DM_ACTOR.id,
+		payload: {
+			sceneId,
+			widget: {
+				type: 'dice',
+				version: '1.0.0',
+				layout: { x: 24, y: 900, w: 240, h: 160 },
+				configuration: {},
+				localState: {},
+				binding: null,
+			},
+		},
+	});
+
+	it('a gallery add queued behind a palette add undoes only its own tile', async () => {
+		let release!: () => void;
+		const persisted = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let hold = true;
+		const t = harness({ persist: () => (hold ? persisted : Promise.resolve()) });
+		const ids = () => t.holder.state.scenes.scenes[t.sceneId].widgets.map((w) => w.id);
+		const before = ids();
+		await act(async () => {
+			// An earlier write still persisting, then the palette's add, then the gallery's.
+			const earlier = t.queueOutside(moveTo(t, 24, 64));
+			const palette = t.queueOutside(addDice(t.sceneId));
+			const gallery = t.history.run(addDice(t.sceneId), 'Added Dice');
+			hold = false;
+			release();
+			await Promise.all([earlier, palette, gallery]);
+		});
+		const placed = ids().filter((id) => !before.includes(id));
+		expect(placed).toHaveLength(2);
+
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect(ids()).toEqual([...before, placed[0]]);
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect(ids()).toEqual(before);
+	});
+
+	it('a palette add made while a template undo replays stays an undo step of its own', async () => {
+		let release!: () => void;
+		const persisted = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let hold = false;
+		const t = harness({ persist: () => (hold ? persisted : Promise.resolve()) });
+		const ids = () => t.holder.state.scenes.scenes[t.sceneId].widgets.map((w) => w.id);
+		const before = ids();
+		await act(async () => {
+			await t.history.run(
+				{
+					type: 'scene.apply-template',
+					actorId: DM_ACTOR.id,
+					payload: { sceneId: t.sceneId, source: { kind: 'builtin', templateId: 'combat' } },
+				},
+				'Applied template',
+			);
+		});
+		hold = true;
+		let undone!: Promise<boolean>;
+		let palette!: Promise<unknown>;
+		await act(async () => {
+			undone = t.history.undo();
+			// Lands between two of the template's destroys.
+			palette = t.queueOutside(addDice(t.sceneId));
+			await Promise.resolve();
+		});
+		await act(async () => {
+			hold = false;
+			release();
+			await Promise.all([undone, palette]);
+		});
+		expect(ids()).toHaveLength(before.length + 1);
+		expect(t.history.undoLabel).toBe('Added Dice');
+		// The add closed the redo branch: redoing the template onto it would be a different edit.
+		expect(t.history.canRedo).toBe(false);
+		await act(async () => {
+			await t.history.undo();
+		});
+		expect(ids()).toEqual(before);
+		expect(t.history.canUndo).toBe(false);
 	});
 });
