@@ -1,11 +1,14 @@
-import { DEFAULT_FEATURE_TIER, visibleFeatures, type FeatureTier } from '@dndtools/core';
-import { Badge, Icon } from '../../../ds';
-import { useI18n } from '../../../i18n';
+import { isFeatureVisible, SECTION_FEATURE_GATES, type FeatureTier } from '@dndtools/core';
+import { useI18n, type MessageKey } from '../../../i18n';
 import { T, radioGroupKeyDown } from '../../screen-kit';
-import { COMPLEXITY_LEVELS, LEVEL_TO_TIER } from '../shared';
 
-/** Step 4 — the device-local experience tier. Extracted from Onboarding.tsx unchanged
- * (RC-STB-2.6). */
+export const TIER_NAMES: Record<FeatureTier, MessageKey> = {
+	core: 'onboarding.experience.beginner',
+	intermediate: 'onboarding.experience.standard',
+	advanced: 'onboarding.experience.expert',
+};
+
+/** Until the full complexity map lands, describe the actual gated Settings tabs. */
 export function ExperienceStep({
 	isDesktop,
 	tier,
@@ -16,93 +19,54 @@ export function ExperienceStep({
 	setTier: (tier: FeatureTier) => void;
 }) {
 	const { t } = useI18n();
+	const tabs = SECTION_FEATURE_GATES.filter((gate) => gate.id.startsWith('settings.nav.'));
 	return (
 		<div
-			style={{ paddingTop: 14 }}
 			role="radiogroup"
-			aria-label={t('onboarding.experience.groupLabel')}
+			aria-label={t('onboarding.v3.group')}
 			onKeyDown={radioGroupKeyDown}
+			style={{
+				display: 'grid',
+				gridTemplateColumns: isDesktop ? 'repeat(3, 1fr)' : '1fr',
+				gap: T.space.two,
+			}}
 		>
-			<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>
-				{t('onboarding.experience.title')}
-			</h2>
-			<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-				{t('onboarding.experience.intro')}
-			</p>
-			<div
-				style={{
-					display: 'grid',
-					gridTemplateColumns: isDesktop ? 'repeat(3,minmax(0,1fr))' : '1fr',
-					gap: 12,
-				}}
-			>
-				{COMPLEXITY_LEVELS.map((l) => {
-					const levelTier = LEVEL_TO_TIER[l.id] ?? DEFAULT_FEATURE_TIER;
-					const on = levelTier === tier;
-					const reveals = visibleFeatures(levelTier).map((f) => f.label);
-					return (
-						<button
-							key={l.id}
-							type="button"
-							role="radio"
-							aria-checked={on}
-							tabIndex={on ? 0 : -1}
-							onClick={() => setTier(levelTier)}
-							style={{
-								textAlign: 'left',
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 9,
-								padding: 14,
-								borderRadius: 12,
-								cursor: 'pointer',
-								border: `1px solid ${on ? T.accBd : T.bd}`,
-								background: on ? T.accSub : T.surf,
-								boxShadow: on ? T.smd : 'none',
-							}}
-						>
-							<span
-								style={{
-									width: 32,
-									height: 32,
-									borderRadius: 9,
-									display: 'inline-flex',
-									alignItems: 'center',
-									justifyContent: 'center',
-									background: on ? T.acc : T.alt,
-									color: on ? T.accFg : T.acc,
-								}}
-							>
-								<Icon name={l.icon} size="sm" />
-							</span>
-							<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-								<span style={{ font: `700 14px ${T.disp}`, color: on ? T.acc : T.ink }}>
-									{t(l.name)}
-								</span>
-								{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
-							</span>
-							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>{t(l.blurb)}</span>
-							<span style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
-								{reveals.slice(0, 4).map((r) => (
-									<span
-										key={r}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 6,
-											font: `11px ${T.sans}`,
-											color: T.ter,
-										}}
-									>
-										<Icon name="check" size={12} color={on ? T.acc : T.ter} />
-										{r}
-									</span>
-								))}
-							</span>
-						</button>
-					);
-				})}
-			</div>
+			{(['core', 'intermediate', 'advanced'] as const).map((value) => {
+				const hidden = tabs
+					.filter((gate) => !isFeatureVisible(gate.id, value, tabs))
+					.map((gate) => t(gate.labelKey as MessageKey));
+				return (
+					<button
+						key={value}
+						type="button"
+						role="radio"
+						aria-checked={tier === value}
+						tabIndex={tier === value ? 0 : -1}
+						onClick={() => setTier(value)}
+						style={{
+							padding: T.space.three,
+							borderRadius: T.radius.md,
+							textAlign: 'left',
+							color: T.ink,
+							font: `13px/1.5 ${T.sans}`,
+							cursor: 'pointer',
+							border: `1px solid ${tier === value ? T.acc : T.bd}`,
+							background: tier === value ? T.accSub : T.surf,
+						}}
+					>
+						<strong>
+							{value === 'intermediate'
+								? t('onboarding.v3.recommended', { tier: t(TIER_NAMES[value]) })
+								: t(TIER_NAMES[value])}
+						</strong>
+						<span style={{ display: 'block', marginTop: T.space.one }}>
+							{hidden.length
+								? t('onboarding.v3.hides', { tabs: hidden.join(', ') })
+								: t('onboarding.v3.hidesNone')}
+						</span>
+					</button>
+				);
+			})}
 		</div>
 	);
 }

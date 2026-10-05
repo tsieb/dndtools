@@ -1,3 +1,4 @@
+import { prepareNewCampaignOnboarding } from '../platform/preferences';
 import {
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
@@ -405,6 +406,10 @@ export class SceneRuntime {
 		const vaultId = this.vaultId;
 		if (vaultId !== LEGACY_LOCAL_VAULT_ID) this.options.env.vaultId = vaultId;
 		const loaded = await loadCoreState();
+		if (seedDemo)
+			prepareNewCampaignOnboarding(
+				Object.keys(loaded.permissions.actors).length === 0 && loaded.sync.operations.length === 0,
+			);
 		this.innerState = this.ensureDefaultActor(loaded, seedDemo);
 		// Populate only on initial boot. A restore is authoritative and must not silently add demo data.
 		if (seedDemo && !this.freshVaultChosen()) {

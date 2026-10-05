@@ -1,4 +1,4 @@
-import { DEFAULT_FEATURE_TIER, type FeatureTier } from '@dndtools/core';
+import type { FeatureTier } from '@dndtools/core';
 import type { MessageKey } from '../../i18n';
 import {
 	PREFERENCE_KEYS,
@@ -8,8 +8,7 @@ import {
 	type PreferenceKey,
 } from '../../platform/preferences';
 
-/* The onboarding wizard's device-local storage keys, the tier/complexity tables and the step
- * definition. Extracted from Onboarding.tsx unchanged (RC-STB-2.6). */
+/* The onboarding wizard's storage contract and three-step definition (RC-UX-3.6). */
 
 export const ONBOARDED_KEY = PREFERENCE_KEYS.onboarded;
 export const VAULT_CHOICE_KEY = PREFERENCE_KEYS.vaultChoice;
@@ -79,7 +78,7 @@ export function readStoredTier(): FeatureTier {
 	const value = readStorage(TIER_KEY);
 	return value === 'core' || value === 'intermediate' || value === 'advanced'
 		? value
-		: DEFAULT_FEATURE_TIER;
+		: 'intermediate';
 }
 
 export function readStoredPartyNotes(): string[] {
@@ -99,16 +98,12 @@ export function readStoredPartyNotes(): string[] {
 /** ARIA radio-group contract: arrows move selection (selection follows focus), Tab skips the group. */
 
 export const ONB_STEPS = [
-	{ id: 'welcome', title: 'onboarding.step.welcome', icon: 'sparkle' },
-	{ id: 'vault', title: 'onboarding.step.vault', icon: 'vault' },
-	{ id: 'privacy', title: 'onboarding.step.privacy', icon: 'shield' },
-	{ id: 'experience', title: 'onboarding.step.experience', icon: 'sliders' },
-	{ id: 'tools', title: 'onboarding.step.tools', icon: 'sparkle' },
-	{ id: 'players', title: 'onboarding.step.players', icon: 'players' },
-	{ id: 'ready', title: 'onboarding.step.ready', icon: 'flag' },
-] as const satisfies ReadonlyArray<{ id: string; title: MessageKey; icon: string }>;
+	{ id: 'campaign', title: 'onboarding.v3.campaign', icon: 'vault' },
+	{ id: 'experience', title: 'onboarding.v3.complexity', icon: 'sliders' },
+	{ id: 'ready', title: 'onboarding.v3.ready', icon: 'flag' },
+] as const;
 
-export const PRIVACY_STEP_INDEX = ONB_STEPS.findIndex((s) => s.id === 'privacy');
+export const PRIVACY_STEP_INDEX = 1;
 /** ADR-026 — the typed acknowledgment for choosing Private (E2EE), mirroring AccountDangerPanel. */
 export const PRIVACY_ACK_PHRASE = 'i hold the keys';
 

@@ -1,231 +1,247 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { markOnboarded, waitReady } from './_helpers';
 
-// ONBOARDING FORCED CONSENT (ADR-026). First-run setup must not be dismissible until the vault
-// privacy mode is explicitly decided: skip/Escape refuse and land on the privacy step, the step has
-// NO pre-selected option, and choosing Private (E2EE) additionally demands the typed no-cloud-
-// recovery acknowledgment. Both modes complete and persist; the e2e bypass flag keeps working.
-
-const MODE_KEY = 'dndtools:react:vault-privacy-mode';
-const ONBOARDED_KEY = 'dndtools:react:onboarded';
-const TIER_KEY = 'dndtools:react:tier';
-const INVITES_KEY = 'dndtools:react:invites';
-const ACK_PHRASE = 'i hold the keys';
-
-function overlay(page: Page) {
-	return page.locator('[data-fullscreen-overlay="onboarding"]');
-}
-
-function storage(page: Page, key: string): Promise<string | null> {
-	return page.evaluate((k) => window.localStorage.getItem(k), key);
-}
-
-async function openFresh(page: Page): Promise<void> {
-	await page.goto('/#/', { waitUntil: 'domcontentloaded' });
+// ADR-042 creation defaults, with the 2026-09-29 task's unconditional skip rule.
+const MODE = 'dndtools:react:vault-privacy-mode';
+const DONE = 'dndtools:react:onboarded';
+const ACK = 'i hold the keys';
+const overlay = (page: Page) => page.locator('[data-fullscreen-overlay="onboarding"]');
+const storage = (page: Page, key: string) => page.evaluate((key) => localStorage.getItem(key), key);
+async function openFresh(page: Page) {
+	await page.goto('/#/');
 	await waitReady(page);
 	await expect(overlay(page)).toBeVisible();
 }
-
-/** Walk welcome → vault and land on the privacy step. */
-async function toPrivacyStep(page: Page): Promise<void> {
-	await overlay(page).getByRole('button', { name: 'Get started' }).click();
-	await overlay(page).getByRole('button', { name: 'Continue' }).click();
-	await expect(overlay(page).getByRole('radiogroup', { name: 'Vault privacy mode' })).toBeVisible();
+async function complexity(page: Page) {
+	await overlay(page).getByLabel('Campaign name').fill('Lantern Coast');
+	await overlay(page).getByRole('button', { name: 'Continue', exact: true }).click();
+}
+async function accessible(page: Page) {
+	const result = await new AxeBuilder({ page })
+		.include('[data-fullscreen-overlay="onboarding"]')
+		.analyze();
+	expect(result.violations).toEqual([]);
+}
+async function finished(page: Page) {
+	await expect(overlay(page)).toBeHidden();
+	await expect(page).toHaveURL(/#\/$/);
+	await expect
+		.poll(() =>
+			page.evaluate(() =>
+				document.querySelector('#main-content')?.contains(document.activeElement),
+			),
+		)
+		.toBe(true);
 }
 
-test.describe('onboarding forced consent (ADR-026)', () => {
-	test('setup refuses to dismiss until the privacy mode is decided', async ({ page }) => {
+for (const tier of ['Standard', 'Beginner']) {
+	test(`${tier}: three accessible steps to a named empty campaign in five clicks`, async ({
+		page,
+		isMobile,
+	}) => {
+		test.setTimeout(90_000);
 		await openFresh(page);
-		// Skip from the welcome step refuses and routes to the (undecided) privacy step instead.
-		await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
-		await expect(overlay(page)).toBeVisible();
-		const group = overlay(page).getByRole('radiogroup', { name: 'Vault privacy mode' });
-		await expect(group).toBeVisible();
-		// Escape refuses too.
-		await page.keyboard.press('Escape');
-		await expect(overlay(page)).toBeVisible();
-		// No option is pre-selected, and the primary action is disabled until one is picked.
-		await expect(group.getByRole('radio', { checked: true })).toHaveCount(0);
+		const started = Date.now();
+		await page.evaluate(() => {
+			(window as unknown as { onboardingClicks: number }).onboardingClicks = 0;
+			document
+				.querySelector('[data-fullscreen-overlay="onboarding"]')!
+				.addEventListener('click', () => {
+					(window as unknown as { onboardingClicks: number }).onboardingClicks++;
+				});
+		});
+		await expect(overlay(page).getByText('Step 1 of 3')).toBeVisible();
+		await expect(overlay(page).getByLabel('Campaign name')).toHaveValue('');
 		await expect(
-			overlay(page).getByRole('button', { name: 'Choose an option to continue' }),
+			overlay(page).getByRole('button', { name: 'Continue', exact: true }),
 		).toBeDisabled();
-		// Nothing was recorded by the refused dismissals.
-		expect(await storage(page, MODE_KEY)).toBeNull();
-		expect(await storage(page, ONBOARDED_KEY)).toBeNull();
-	});
-
-	test('Private (E2EE) demands the typed acknowledgment, then completes and persists', async ({
-		page,
-	}, testInfo) => {
-		await openFresh(page);
-		await toPrivacyStep(page);
-		await overlay(page)
-			.getByRole('radio', { name: /Private vault/ })
-			.click();
-		// Picking Private is not enough — the no-cloud-recovery acknowledgment gates Continue.
-		await expect(overlay(page).getByRole('button', { name: 'Continue' })).toBeDisabled();
-		await overlay(page).getByLabel(`Type "${ACK_PHRASE}" to confirm`).fill(ACK_PHRASE);
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		// experience → tools → players → ready → finish.
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		// ONB-17: the Ready tour names the palette the way this tier reaches it — the top-bar Search
-		// icon on a phone, ⌘K on desktop — and never tells a phone user to press a key.
-		const phone = testInfo.project.name === 'mobile-chromium';
-		await expect(
-			overlay(page).getByText(phone ? 'Tap Search to go anywhere' : 'Press ⌘K to go anywhere'),
-		).toBeVisible();
-		if (phone) await expect(overlay(page)).not.toContainText('⌘K');
-		await overlay(page).getByRole('button', { name: 'Enter Command Center' }).click();
-		await expect(overlay(page)).toBeHidden();
-		expect(await storage(page, MODE_KEY)).toBe('private-e2ee');
-		expect(await storage(page, ONBOARDED_KEY)).toBe('done');
-	});
-
-	// A near-miss on the acknowledgment phrase was a silent dead end: Continue was HARD-disabled, so
-	// it left the tab order and dropped its title, the field showed no invalid state and nothing said
-	// which of the two conditions was blocking — on the one wizard step that cannot be skipped.
-	test('a mistyped acknowledgment says what is wrong and keeps Continue reachable', async ({
-		page,
-	}) => {
-		await openFresh(page);
-		await toPrivacyStep(page);
-		await overlay(page)
-			.getByRole('radio', { name: /Private vault/ })
-			.click();
-
-		const ack = overlay(page).getByLabel(`Type "${ACK_PHRASE}" to confirm`);
-		const cont = overlay(page).getByRole('button', { name: 'Continue' });
-
-		// Nothing typed yet: blocked, but the reason names the phrase.
-		await expect(cont).toBeDisabled();
-		await expect(cont).toHaveAttribute('title', new RegExp(ACK_PHRASE, 'i'));
-		// Soft, not native — the button keeps its place in the tab order and can still be focused.
-		expect(await cont.evaluate((el: HTMLButtonElement) => el.disabled)).toBe(false);
-		await cont.focus();
-		await expect(cont).toBeFocused();
-
-		// A near-miss now reports itself instead of failing silently.
-		await ack.fill('i hold the key');
-		await expect(ack).toHaveAttribute('aria-invalid', 'true');
-		const errorId = await ack.getAttribute('aria-describedby');
-		expect(errorId).toBeTruthy();
-		await expect(overlay(page).getByRole('alert')).toContainText(ACK_PHRASE);
-		await expect(cont).toBeDisabled();
-
-		// And the exact phrase clears both.
-		await ack.fill(ACK_PHRASE);
-		await expect(ack).not.toHaveAttribute('aria-invalid', 'true');
-		await expect(cont).toBeEnabled();
-		await expect(cont).not.toHaveAttribute('title', /.+/);
-	});
-
-	test('Cloud-Enhanced needs no acknowledgment, and a decided setup may then be skipped', async ({
-		page,
-	}) => {
-		await openFresh(page);
-		await toPrivacyStep(page);
-		await overlay(page)
-			.getByRole('radio', { name: /Cloud-Enhanced vault/ })
-			.click();
-		await expect(overlay(page).getByRole('button', { name: 'Continue' })).toBeEnabled();
-		// Once the forced decision is made, "Skip setup" is honored — and persists the consent.
-		await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
-		await expect(overlay(page)).toBeHidden();
-		expect(await storage(page, MODE_KEY)).toBe('cloud-enhanced');
-		expect(await storage(page, ONBOARDED_KEY)).toBe('skipped');
-	});
-
-	// Escape is bound on the whole panel, so it also fired from inside the party-name field and the
-	// E2EE acknowledgement field — where the browser convention is "leave this field", not "abandon
-	// the wizard". It ended setup and threw away whatever had been typed.
-	test('Escape inside a text field leaves the field instead of abandoning setup', async ({
-		page,
-	}) => {
-		await openFresh(page);
-		await toPrivacyStep(page);
-		await overlay(page)
-			.getByRole('radio', { name: /Cloud-Enhanced vault/ })
-			.click();
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		// experience -> tools -> players
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-
-		const draft = overlay(page).getByLabel('Player name or email');
-		await expect(draft).toBeVisible();
-		await draft.click();
-		await draft.fill('Rowan');
-		await expect(draft).toBeFocused();
-
-		// Escape from inside the field: setup survives and the typed name is untouched.
-		await page.keyboard.press('Escape');
-		await expect(overlay(page)).toBeVisible();
-		await expect(draft).toHaveValue('Rowan');
-		// Focus stayed inside the modal rather than falling to <body>.
-		expect(
-			await page.evaluate(
-				() =>
-					!!document.activeElement &&
-					document.activeElement !== document.body &&
-					!!document.activeElement.closest('[data-fullscreen-overlay="onboarding"]'),
-			),
-		).toBe(true);
-
-		// A second Escape — now from outside any text field — still dismisses, so the affordance is
-		// not lost, just no longer destructive mid-typing.
-		await page.keyboard.press('Escape');
-		await expect(overlay(page)).toBeHidden();
-	});
-
-	// "Skip setup" ENDS setup, so it has to persist the decisions already made on the steps behind it.
-	// It used to write only the privacy mode + the onboarded flag, silently discarding the experience
-	// tier, the AI preference and the noted players — with no way back (setup only replays from
-	// Settings). Regression lock for that data loss.
-	test('skipping mid-setup keeps the choices already made (tier + noted players)', async ({
-		page,
-	}) => {
-		await openFresh(page);
-		await toPrivacyStep(page);
-		await overlay(page)
-			.getByRole('radio', { name: /Cloud-Enhanced vault/ })
-			.click();
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-
-		// Experience step: pick a NON-default complexity ('expert' -> the 'advanced' tier; the default
-		// is 'core', so a lost write is indistinguishable from an unmade choice unless we move it).
-		const tiers = overlay(page).getByRole('radiogroup', { name: 'Experience complexity' });
-		await expect(tiers).toBeVisible();
-		await tiers.getByRole('radio', { name: /Expert/ }).click();
-		await expect(tiers.getByRole('radio', { name: /Expert/ })).toHaveAttribute(
+		await accessible(page);
+		await overlay(page).getByLabel('Campaign name').click();
+		await complexity(page);
+		await expect(overlay(page).getByText('Step 2 of 3')).toBeVisible();
+		await expect(overlay(page).getByRole('radio', { name: /Standard/ })).toHaveAttribute(
 			'aria-checked',
 			'true',
 		);
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-
-		// tools -> players, and note a player.
-		await overlay(page).getByRole('button', { name: 'Continue' }).click();
-		const draft = overlay(page).getByLabel('Player name or email');
-		await expect(draft).toBeVisible();
-		await draft.fill('Rowan');
-		await overlay(page).getByRole('button', { name: 'Add', exact: true }).click();
-
-		// Now bail out. Everything decided so far must survive.
-		await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
-		await expect(overlay(page)).toBeHidden();
-		expect(await storage(page, ONBOARDED_KEY)).toBe('skipped');
-		expect(await storage(page, MODE_KEY)).toBe('cloud-enhanced');
-		expect(await storage(page, TIER_KEY)).toBe('advanced');
-		expect(await storage(page, INVITES_KEY)).toContain('Rowan');
-		// The tier is applied to the live document, not just stored.
-		await expect(page.locator('html')).toHaveAttribute('data-feature-tier', 'advanced');
-	});
-
-	test('the e2e/gate bypass flag still suppresses the overlay entirely', async ({ page }) => {
-		await markOnboarded(page);
-		await page.goto('/#/', { waitUntil: 'domcontentloaded' });
+		if (tier === 'Beginner')
+			await overlay(page)
+				.getByRole('radio', { name: /Beginner/ })
+				.click();
+		await expect(overlay(page).getByText(/E2EE|Private \(E2EE\)|hold the keys/)).toHaveCount(0);
+		const descriptions = await overlay(page).getByRole('radio').allTextContents();
+		expect(new Set(descriptions.map((text) => text.slice(text.indexOf('Hides')))).size).toBe(3);
+		await accessible(page);
+		await overlay(page).getByRole('button', { name: 'Continue', exact: true }).click();
+		await expect(overlay(page).getByText('Step 3 of 3')).toBeVisible();
+		await expect(overlay(page).getByText(/including secrets/)).toBeVisible();
+		await expect(
+			overlay(page).getByRole('link', { name: 'Settings › Backup & history' }),
+		).toBeVisible();
+		await accessible(page);
+		await overlay(page).getByRole('button', { name: 'Open the Command Center' }).click();
+		await finished(page);
+		expect(Date.now() - started).toBeLessThan(60_000);
+		expect(
+			await page.evaluate(
+				() => (window as unknown as { onboardingClicks: number }).onboardingClicks,
+			),
+		).toBeLessThanOrEqual(5);
+		expect(await storage(page, MODE)).toBe('cloud-enhanced');
+		expect(await storage(page, 'dndtools:react:vault-privacy-disclosure')).toContain(
+			'including secrets',
+		);
+		expect(await storage(page, DONE)).toBe('done');
+		if (!isMobile)
+			await expect(page.locator('aside').getByText('Lantern Coast', { exact: true })).toBeVisible();
+		expect(
+			await page.evaluate(() => {
+				const state = window.__rt!.state as unknown as {
+					characters: { characters: object };
+					maps: { maps: object };
+					content: { items: object };
+				};
+				return [
+					Object.keys(state.characters.characters).length,
+					Object.keys(state.maps.maps).length,
+					Object.keys(state.content.items).length,
+				];
+			}),
+		).toEqual([0, 0, 0]);
+		await page.reload();
 		await waitReady(page);
-		await expect(overlay(page)).toHaveCount(0);
+		await expect(overlay(page)).toBeHidden();
+		expect(await storage(page, MODE)).toBe('cloud-enhanced');
 	});
+}
+
+test('Expert: explicit choice, visible mismatch, acknowledgement, accessible steps and layout', async ({
+	page,
+	isMobile,
+}) => {
+	await openFresh(page);
+	await accessible(page);
+	await complexity(page);
+	await overlay(page)
+		.getByRole('radio', { name: /Expert/ })
+		.click();
+	await expect(
+		overlay(page).getByRole('radio', { name: 'Private (E2EE)', exact: true }),
+	).not.toBeChecked();
+	await expect(overlay(page).getByText('Choose a storage mode to continue.')).toBeVisible();
+	await overlay(page).getByRole('radio', { name: 'Private (E2EE)', exact: true }).check();
+	await expect(overlay(page).getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+	await overlay(page).getByLabel(`Type “${ACK}” to confirm`).fill('i hold the key');
+	await expect(overlay(page).getByRole('alert')).toContainText('The phrase does not match');
+	await expect(overlay(page).getByLabel(`Type “${ACK}” to confirm`)).toHaveAttribute(
+		'aria-invalid',
+		'true',
+	);
+	await accessible(page);
+	if (!isMobile) {
+		expect(
+			await overlay(page)
+				.locator('[data-onboarding-content]')
+				.evaluate((el) => el.scrollHeight <= el.clientHeight),
+		).toBe(true);
+	}
+	await overlay(page).getByLabel(`Type “${ACK}” to confirm`).fill(ACK);
+	await overlay(page).getByRole('button', { name: 'Continue', exact: true }).click();
+	await accessible(page);
+	await overlay(page).getByRole('button', { name: 'Open the Command Center' }).click();
+	await finished(page);
+	expect(await storage(page, MODE)).toBe('private-e2ee');
+});
+
+test('Expert can explicitly select Cloud-Enhanced', async ({ page }) => {
+	await openFresh(page);
+	await complexity(page);
+	await overlay(page)
+		.getByRole('radio', { name: /Expert/ })
+		.click();
+	await overlay(page).getByRole('radio', { name: 'Cloud-Enhanced', exact: true }).check();
+	await overlay(page).getByRole('button', { name: 'Continue', exact: true }).click();
+	await overlay(page).getByRole('button', { name: 'Open the Command Center' }).click();
+	await finished(page);
+	expect(await storage(page, MODE)).toBe('cloud-enhanced');
+});
+
+for (const method of ['button', 'escape', 'platform-back']) {
+	test(`skip from step one with ${method} records defaults`, async ({ page }) => {
+		await openFresh(page);
+		await expect(overlay(page).getByText(/including secrets/)).toBeVisible();
+		if (method === 'button')
+			await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
+		else if (method === 'escape') {
+			await overlay(page).getByLabel('Campaign name').focus();
+			await page.keyboard.press('Escape');
+		} else
+			await page.evaluate(async () => {
+				const modulePath = '/src/platform/backNavigation.ts';
+				const { handlePlatformBack } = await import(/* @vite-ignore */ modulePath);
+				await handlePlatformBack({
+					atRootDestination: true,
+					canGoBack: false,
+					navigateBack() {},
+					navigateToRoot() {},
+					minimize() {},
+				});
+			});
+		await finished(page);
+		expect(await storage(page, DONE)).toBe('skipped');
+		expect(await storage(page, MODE)).toBe('cloud-enhanced');
+		expect(await storage(page, 'dndtools:react:tier')).toBe('intermediate');
+	});
+}
+
+test('a skipped Expert can defer storage without a modal', async ({ page }) => {
+	await page.addInitScript(() => localStorage.setItem('dndtools:react:tier', 'advanced'));
+	await openFresh(page);
+	await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
+	await finished(page);
+	expect(await storage(page, MODE)).toBeNull();
+	expect(await page.getByRole('dialog').count()).toBe(0);
+});
+
+test('Generic system persists, and replay cannot change an existing mode', async ({ page }) => {
+	await openFresh(page);
+	await overlay(page).getByLabel('Game system').selectOption({ label: 'Generic' });
+	await complexity(page);
+	await overlay(page)
+		.getByRole('radio', { name: /Expert/ })
+		.click();
+	await overlay(page).getByRole('radio', { name: 'Private (E2EE)', exact: true }).check();
+	await overlay(page).getByLabel(`Type “${ACK}” to confirm`).fill(ACK);
+	await overlay(page).getByRole('button', { name: 'Continue', exact: true }).click();
+	await overlay(page).getByRole('button', { name: 'Open the Command Center' }).click();
+	await finished(page);
+	expect(
+		await page.evaluate(
+			() => (window.__rt!.state.systems as { activePackageId: string }).activePackageId,
+		),
+	).toContain('generic');
+	await page.evaluate(() => {
+		localStorage.removeItem('dndtools:react:onboarded');
+		window.dispatchEvent(new Event('dndtools:onboarding-replay'));
+	});
+	await complexity(page);
+	await overlay(page)
+		.getByRole('radio', { name: /Beginner/ })
+		.click();
+	await overlay(page).getByRole('button', { name: 'Skip setup' }).click();
+	await finished(page);
+	expect(await storage(page, MODE)).toBe('private-e2ee');
+});
+
+test('existing gate hook still loads the seeded fixture', async ({ page }) => {
+	await markOnboarded(page);
+	await page.goto('/#/');
+	await waitReady(page);
+	await expect(overlay(page)).toBeHidden();
+	expect(
+		await page.evaluate(
+			() =>
+				Object.keys((window.__rt!.state.characters as { characters: object }).characters).length,
+		),
+	).toBeGreaterThan(0);
 });

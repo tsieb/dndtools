@@ -1,7 +1,7 @@
 import { settingsGateVisible, useSettingsTier } from '../../screens/settings/Experience';
 import { ShellLoading } from './ShellLoading';
 import { usePresenceStatus } from './presence';
-import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	listScenesForActor,
@@ -43,14 +43,19 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const [vaultsOpen, setVaultsOpen] = useState(false);
-	const readVault = () => {
+	const readVault = useCallback(() => {
 		try {
 			return listLocalVaults().find((vault) => vault.id === runtime.vaultId);
 		} catch {
 			return undefined;
 		}
-	};
+	}, [runtime]);
 	const [vault, setVault] = useState(readVault);
+	useEffect(() => {
+		const refresh = () => setVault(readVault());
+		window.addEventListener('dndtools:local-vault-renamed', refresh);
+		return () => window.removeEventListener('dndtools:local-vault-renamed', refresh);
+	}, [readVault]);
 	const active = activeSectionId(location.pathname);
 	const go = (id: string) => navigate(sectionPath(id, runtime.state, actorId));
 

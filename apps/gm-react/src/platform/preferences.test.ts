@@ -7,12 +7,14 @@
  * clipboard) instead of throwing into a render.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { markLocalVaultOpened } from './storage/coreStore';
 import {
 	PREFERENCE_KEYS,
 	copyToClipboard,
 	isOnline,
 	matchesMedia,
 	readPreference,
+	prepareNewCampaignOnboarding,
 	readViewportHeight,
 	removePreference,
 	subscribeMedia,
@@ -107,5 +109,35 @@ describe('navigator capabilities', () => {
 		writeText.mockRejectedValueOnce(new Error('denied'));
 		await expect(copyToClipboard('join link')).resolves.toBe(false);
 		vi.unstubAllGlobals();
+	});
+});
+
+describe('first-run campaign preparation', () => {
+	it('marks a pristine campaign pending and suppresses automatic demo content', () => {
+		prepareNewCampaignOnboarding(true);
+		expect(readPreference(PREFERENCE_KEYS.onboardingCampaign)).toBe('pending');
+		expect(readPreference(PREFERENCE_KEYS.vaultChoice)).toBe('fresh');
+	});
+	it('does not treat an existing campaign as new when onboarding preferences are cleared', () => {
+		prepareNewCampaignOnboarding(false);
+		expect(readPreference(PREFERENCE_KEYS.onboardingCampaign)).toBeNull();
+		expect(readPreference(PREFERENCE_KEYS.vaultChoice)).toBeNull();
+	});
+	it('preserves an already-opened empty vault when UI preferences are cleared', () => {
+		markLocalVaultOpened();
+		prepareNewCampaignOnboarding(true);
+		expect(readPreference(PREFERENCE_KEYS.onboardingCampaign)).toBeNull();
+	});
+	it('resumes interrupted creation after the vault has been opened', () => {
+		prepareNewCampaignOnboarding(true);
+		markLocalVaultOpened();
+		prepareNewCampaignOnboarding(true);
+		expect(readPreference(PREFERENCE_KEYS.onboardingCampaign)).toBe('pending');
+	});
+	it.each(['gate', 'done', 'skipped'])('preserves the existing %s boot contract', (value) => {
+		writePreference(PREFERENCE_KEYS.onboarded, value);
+		prepareNewCampaignOnboarding(true);
+		expect(readPreference(PREFERENCE_KEYS.onboardingCampaign)).toBeNull();
+		expect(readPreference(PREFERENCE_KEYS.vaultChoice)).toBeNull();
 	});
 });

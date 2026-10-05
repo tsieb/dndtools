@@ -8,6 +8,42 @@
  * Values may use ICU syntax — plural, select, number, date, time, unit — rendered by `format.ts`.
  * Every key a locale translates must exist here; a locale catalog is a `Partial` of this one. */
 export const en = {
+	'onboarding.v3.campaign': 'Your campaign',
+	'onboarding.v3.complexity': 'How much on screen',
+	'onboarding.v3.ready': 'Ready',
+	'onboarding.v3.waitName': 'Enter a campaign name to continue.',
+	'onboarding.v3.waitMode': 'Choose a storage mode to continue.',
+	'onboarding.v3.waitAck': 'Type “{phrase}” to continue.',
+	'onboarding.v3.settings': 'Settings › Backup & history',
+	'onboarding.v3.progress': 'Step {current} of {total}',
+	'onboarding.v3.intro': 'Plan and run your tabletop campaign with Lamplight.',
+	'onboarding.v3.name': 'Campaign name',
+	'onboarding.v3.nameExample': 'The Lantern Coast',
+	'onboarding.v3.system': 'Game system',
+	'onboarding.v3.defaultStorage': 'Use Cloud-Enhanced storage by default.',
+	'onboarding.v3.manage': 'Manage storage in',
+	'onboarding.v3.cloudDisclosure':
+		'Cloud-Enhanced lets our server read your campaign content, including secrets, to provide cloud features. Those features are not in this edition, so your vault stays end-to-end encrypted.',
+	'onboarding.v3.chooseStorage': 'Choose storage',
+	'onboarding.v3.private': 'Private (E2EE)',
+	'onboarding.v3.cloud': 'Cloud-Enhanced',
+	'onboarding.v3.recovery':
+		'Keep your recovery keys safe. Only you can read this vault; we cannot recover it if you lose the keys.',
+	'onboarding.v3.ack': 'Type “{phrase}” to confirm',
+	'onboarding.v3.mismatch': 'The phrase does not match. Type “{phrase}”.',
+	'onboarding.v3.summary': 'Open {name} with the {tier} layout.',
+	'onboarding.v3.cloudSummary': 'This vault uses Cloud-Enhanced.',
+	'onboarding.v3.privateSummary':
+		'This vault uses private storage. Only you hold its recovery keys.',
+	'onboarding.v3.saving': 'Saving campaign…',
+	'onboarding.v3.open': 'Open the Command Center',
+	'onboarding.v3.group': 'Screen complexity',
+	'onboarding.v3.hides': 'Hides {tabs}.',
+	'onboarding.v3.hidesNone': 'Hides no tabs.',
+	'onboarding.v3.recommended': '{tier} (recommended)',
+	'onboarding.v3.saveFailed': 'Setup could not be saved. Try again.',
+	'onboarding.v3.systemFailed': 'The game system could not be saved.',
+
 	'play.join.title': 'Join your table',
 	'play.join.about':
 		'Lamplight keeps your character, dice and shared notes together while you play.',

@@ -5,8 +5,9 @@ import { gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_h
 // server-readable path exists in this edition (the platform is deferred to epic CLD-6). Every
 // surface that offers or reports the mode must say two things — the data is still end-to-end
 // encrypted, and the server features are not in this edition — and none may promise that they are
-// on their way. This walks each of those surfaces: the onboarding choice, the Settings › Sync
-// panel, both switch dialogs, the confirmation toast and the vault-privacy help tip.
+// on their way. This walks each of those surfaces: the onboarding disclosure and Expert choice,
+// the Settings › Sync panel, both switch dialogs, the confirmation toast and the vault-privacy
+// help tip.
 
 const MODE_KEY = 'dndtools:react:vault-privacy-mode';
 
@@ -51,11 +52,17 @@ test.describe('Cloud-Enhanced states its limit (RC-CLD-2.2)', () => {
 		await waitReady(page);
 		const overlay = page.locator('[data-fullscreen-overlay="onboarding"]');
 		await expect(overlay).toBeVisible();
-		await overlay.getByRole('button', { name: 'Get started' }).click();
-		await overlay.getByRole('button', { name: 'Continue' }).click();
-		const group = overlay.getByRole('radiogroup', { name: 'Vault privacy mode' });
-		await expect(group).toBeVisible();
-		await expectHonestLimit(group.getByRole('radio', { name: /Cloud-Enhanced vault/ }));
+		// ADR-042: the Standard default discloses Cloud-Enhanced on the first step.
+		await expectHonestLimit(overlay.locator('p', { hasText: 'including secrets' }));
+		await overlay.getByLabel('Campaign name').fill('Lantern Coast');
+		await overlay.getByRole('button', { name: 'Continue', exact: true }).click();
+		// Expert makes the explicit choice; choosing Cloud-Enhanced states the same limit.
+		await overlay.getByRole('radio', { name: /Expert/ }).click();
+		const group = overlay.getByRole('group', { name: 'Choose storage' });
+		await group.getByRole('radio', { name: 'Cloud-Enhanced', exact: true }).check();
+		await expectHonestLimit(group);
+		await overlay.getByRole('button', { name: 'Continue', exact: true }).click();
+		await expectHonestLimit(overlay.locator('[data-onboarding-content] p'));
 	});
 
 	test('a Cloud-Enhanced vault reports itself as still end-to-end encrypted', async ({ page }) => {

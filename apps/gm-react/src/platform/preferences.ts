@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { vaultPreferenceKey } from './storage/coreStore';
+import { activeLocalVaultId, listLocalVaults, vaultPreferenceKey } from './storage/coreStore';
 
 /**
  * RC-UX-4.1 (DEBT-2026-001) — the device-preferences slice and platform capability layer.
@@ -40,6 +40,8 @@ export const PREFERENCE_KEYS = {
 	tier: 'dndtools:react:tier',
 	/** Whether first-run onboarding has been completed or skipped on this device. */
 	onboarded: 'dndtools:react:onboarded',
+	/** Pending first-run campaign creation, scoped to its vault. */
+	onboardingCampaign: 'dndtools:react:onboarding-campaign',
 	/** Which starting vault the onboarding wizard chose. */
 	vaultChoice: 'dndtools:react:vault-choice',
 	/** Device-local player-invite notes captured during onboarding. */
@@ -83,6 +85,7 @@ export function readProseWidthPreference(fallback: ProseWidth = 'comfortable'): 
 // keeps its released keys). Language, appearance, accessibility, feature tier and first-run
 // onboarding describe the person holding the device and stay device-wide.
 const VAULT_PREFERENCES: ReadonlySet<PreferenceKey> = new Set<PreferenceKey>([
+	PREFERENCE_KEYS.onboardingCampaign,
 	PREFERENCE_KEYS.vaultChoice,
 	PREFERENCE_KEYS.partyNotes,
 	PREFERENCE_KEYS.paletteRecents,
@@ -279,4 +282,27 @@ export function useMarkGmOnly(): boolean {
 		() => readPreference(PREFERENCE_KEYS.markGmOnly) === 'true',
 		() => false,
 	);
+}
+
+/** Called before runtime fixture seeding, only after durable storage has been inspected.
+ * The existing development gate remains the explicit seeded e2e fixture hook.
+ */
+export function prepareNewCampaignOnboarding(empty: boolean): void {
+	if (!empty || readPreference(PREFERENCE_KEYS.onboarded) !== null) return;
+	// An already-opened empty campaign is still an existing vault. Clearing UI preferences
+	// must not opt it into a new storage default. Interrupted creation retains its marker.
+	try {
+		const vault = listLocalVaults().find((entry) => entry.id === activeLocalVaultId());
+		if (
+			!vault ||
+			vault.kind === 'demo' ||
+			(vault.lastOpenedAt !== null &&
+				readPreference(PREFERENCE_KEYS.onboardingCampaign) !== 'pending')
+		)
+			return;
+	} catch {
+		return;
+	}
+	writePreference(PREFERENCE_KEYS.onboardingCampaign, 'pending');
+	writePreference(PREFERENCE_KEYS.vaultChoice, 'fresh');
 }

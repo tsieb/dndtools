@@ -248,11 +248,11 @@ async function openFirstRun(page: Page): Promise<void> {
 async function expectOnboardingStep(
 	page: Page,
 	step: number,
-	actionLabel: 'Get started' | 'Continue' | 'Enter Command Center',
+	actionLabel: 'Continue' | 'Open the Command Center',
 ) {
 	const dialog = page.getByRole('dialog', { name: 'First-run setup' });
-	const action = dialog.getByRole('button', { name: actionLabel });
-	await expect(dialog.getByText(`Step ${step} of 7`, { exact: true })).toBeVisible();
+	const action = dialog.getByRole('button', { name: actionLabel, exact: true });
+	await expect(dialog.getByText(`Step ${step} of 3`, { exact: true })).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
 	if (step > 1) await expect(dialog.getByRole('button', { name: 'Back' })).toBeInViewport();
 	await expect(action).toBeVisible();
@@ -824,101 +824,65 @@ test('first-run setup remains usable through every step at 375x520', async ({ pa
 	await openFirstRun(page);
 	const dialog = page.getByRole('dialog', { name: 'First-run setup' });
 
-	await expect(dialog.getByRole('heading', { name: 'Run a better table.' })).toBeVisible();
+	await expect(dialog.getByRole('heading', { name: 'Your campaign' })).toBeVisible();
 	await expect(dialog.locator('[data-onboarding-content]')).toBeFocused();
-	await expectOnboardingStep(page, 1, 'Get started');
-	await dialog.getByRole('button', { name: 'Get started' }).click();
+	// The longest name the field accepts must not widen or clip the compact wizard.
+	const longName = `The ${'Extremely-Long-Campaign-Name-'.repeat(3)}`.slice(0, 80);
+	await dialog.getByLabel('Campaign name').fill(longName);
+	await expectOnboardingStep(page, 1, 'Continue');
+	await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
 
-	await expect(
-		dialog.getByRole('heading', { name: 'Where should your world live?' }),
-	).toBeVisible();
-	await expectOnboardingStep(page, 2, 'Continue');
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-
-	// ADR-026 — the forced, undefaulted privacy decision; Private also demands the typed ack.
-	await expect(dialog.getByRole('heading', { name: 'Who can read your world?' })).toBeVisible();
-	await expect(dialog.getByRole('button', { name: 'Choose an option to continue' })).toBeDisabled();
-	await dialog.getByRole('radio', { name: /Private vault/ }).click();
-	const ackInput = dialog.getByLabel('Type "i hold the keys" to confirm');
+	// Expert adds the explicit storage choice; Private demands the typed acknowledgement.
+	await expect(dialog.getByRole('heading', { name: 'How much on screen' })).toBeVisible();
+	await dialog.getByRole('radio', { name: /Expert/ }).click();
+	await expect(dialog.getByText('Choose a storage mode to continue.')).toBeVisible();
+	await dialog.getByRole('radio', { name: 'Private (E2EE)', exact: true }).check();
+	const ackInput = dialog.getByLabel('Type “i hold the keys” to confirm');
 	await ackInput.scrollIntoViewIfNeeded();
 	await ackInput.fill('i hold the keys');
-	await expectOnboardingStep(page, 3, 'Continue');
-	await dialog.getByRole('button', { name: 'Continue' }).click();
+	await expectOnboardingStep(page, 2, 'Continue');
+	await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
 
-	await expect(
-		dialog.getByRole('heading', { name: 'How much do you want on screen?' }),
-	).toBeVisible();
-	await dialog.getByRole('radio', { name: /Expert/ }).click();
-	await expectOnboardingStep(page, 4, 'Continue');
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-
-	await expect(
-		dialog.getByRole('heading', { name: 'Which optional tools do you want?' }),
-	).toBeVisible();
-	await dialog.getByRole('radio', { name: /Generators only/ }).click();
-	await expectOnboardingStep(page, 5, 'Continue');
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-
-	await expect(dialog.getByRole('heading', { name: 'Bring your party.' })).toBeVisible();
-	const longPartyName = `Sir ${'Extremely-Long-Party-Name-'.repeat(5)}`.slice(0, 120);
-	const partyInput = dialog.getByRole('textbox', { name: 'Player name or email' });
-	await partyInput.scrollIntoViewIfNeeded();
-	await partyInput.fill(longPartyName);
-	await dialog.getByRole('button', { name: 'Add', exact: true }).click();
-	const savedName = dialog.getByText(longPartyName, { exact: true });
-	await savedName.scrollIntoViewIfNeeded();
-	await expect(savedName).toBeVisible();
-	await expect(dialog.getByRole('button', { name: `Remove ${longPartyName}` })).toBeInViewport();
-	await expectOnboardingStep(page, 6, 'Continue');
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-
-	await expect(dialog.getByRole('heading', { name: "You're ready to run." })).toBeVisible();
-	await expectOnboardingStep(page, 7, 'Enter Command Center');
-	await dialog.getByRole('button', { name: 'Enter Command Center' }).click();
+	await expect(dialog.getByRole('heading', { name: 'Ready' })).toBeVisible();
+	await expect(dialog.getByText(longName)).toBeVisible();
+	await expectOnboardingStep(page, 3, 'Open the Command Center');
+	await dialog.getByRole('button', { name: 'Open the Command Center' }).click();
 
 	await expect(dialog).toHaveCount(0);
 	await expect(page.locator('#main-content')).toBeVisible();
 	await expectNoHorizontalOverflow(page, 'completed compact onboarding');
 	const persisted = await page.evaluate(() => ({
-		party: JSON.parse(localStorage.getItem('dndtools:react:invites') ?? '[]'),
 		tier: localStorage.getItem('dndtools:react:tier'),
 		mode: localStorage.getItem('dndtools:react:vault-privacy-mode'),
-		tools: localStorage.getItem('dndtools.ai.usage-preference'),
 	}));
-	expect(persisted.party).toEqual([longPartyName]);
 	expect(persisted.tier).toBe('advanced');
 	expect(persisted.mode).toBe('private-e2ee');
-	expect(persisted.tools).toBe('generation-only');
 });
 
-test('starting fresh can reload directly into a HashRouter destination', async ({ page }) => {
+test('finishing setup through its Settings link lands on a HashRouter destination', async ({
+	page,
+}) => {
 	await openFirstRun(page);
 	const dialog = page.getByRole('dialog', { name: 'First-run setup' });
 
-	await dialog.getByRole('button', { name: 'Get started' }).click();
-	await dialog.getByRole('radio', { name: /Start fresh/ }).click();
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-	// ADR-026 forced privacy step — Cloud-Enhanced needs no typed acknowledgment.
-	await dialog.getByRole('radio', { name: /Cloud-Enhanced vault/ }).click();
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-	await dialog.getByRole('button', { name: 'Continue' }).click();
-
+	await dialog.getByLabel('Campaign name').fill('Lantern Coast');
+	await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+	await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
 	await Promise.all([
-		// The step's `/scenes` resolves to the Screens library (RC-CAN-7.3).
-		page.waitForURL(/#\/screens$/, { timeout: 20_000 }),
-		dialog.getByRole('button', { name: 'A scene is staged' }).click(),
+		page.waitForURL(/#\/settings\?tab=sync$/, { timeout: 20_000 }),
+		dialog.getByRole('link', { name: 'Settings › Backup & history' }).click(),
 	]);
-	await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
-
 	await expect(dialog).toHaveCount(0);
-	await expect(
-		page.getByTestId('screens-library').getByRole('heading', { level: 2, name: 'Screens' }),
-	).toBeVisible();
-	await expect(
-		page.locator('#main-content').getByText('Command Center', { exact: true }),
-	).toHaveCount(0);
+	const main = page.locator('#main-content');
+	const backup = main.getByRole('heading', { name: 'Encrypted cloud backup', exact: true });
+	await expect(backup).toBeVisible();
+
+	// A reload resolves the same hash destination, and the finished setup stays closed.
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
+	await expect(page).toHaveURL(/#\/settings\?tab=sync$/);
+	await expect(backup).toBeVisible();
+	await expect(dialog).toHaveCount(0);
 });
 
 test('first-run setup changes layout cleanly at 640/641 and fits the 720x520 window minimum', async ({
@@ -927,6 +891,7 @@ test('first-run setup changes layout cleanly at 640/641 and fits the 720x520 win
 	await page.setViewportSize({ width: 640, height: 700 });
 	await openFirstRun(page);
 	const dialog = page.getByRole('dialog', { name: 'First-run setup' });
+	const content = dialog.locator('[data-onboarding-content]');
 
 	for (const expected of [
 		{ width: 640, height: 700, phone: true },
@@ -935,14 +900,22 @@ test('first-run setup changes layout cleanly at 640/641 and fits the 720x520 win
 	]) {
 		await page.setViewportSize({ width: expected.width, height: expected.height });
 		await expect(dialog).toBeVisible();
-		await expect(dialog.getByRole('button', { name: 'Get started' })).toBeInViewport();
+		await expect(dialog.getByText('Step 1 of 3', { exact: true })).toBeVisible();
+		await expect(dialog.getByRole('button', { name: 'Continue', exact: true })).toBeInViewport();
 		await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
-		if (expected.phone) {
-			await expect(dialog.getByText('Welcome · 1/7', { exact: true })).toBeVisible();
-			await expect(dialog.getByText('About 2 minutes to your first scene')).toHaveCount(0);
-		} else {
-			await expect(dialog.getByText('About 2 minutes to your first scene')).toBeVisible();
-			await expect(dialog.getByText('Welcome · 1/7', { exact: true })).toHaveCount(0);
+		// Only the content region scrolls. The desktop wizard is a fixed 560px panel whose content
+		// fits without an inner scroll; the phone layout and the shorter 720x520 window fill the
+		// viewport, and their content region is the scroll path instead of clipping a control.
+		await expect(content).toHaveCSS('overflow-y', 'auto');
+		const panel = await content.evaluate((el) => el.parentElement!.getBoundingClientRect().height);
+		if (expected.phone) expect(panel).toBeGreaterThan(expected.height - 40);
+		else if (expected.height < 600) expect(panel).toBeLessThan(560);
+		else {
+			expect(panel).toBeCloseTo(560, 0);
+			expect(
+				await content.evaluate((el) => el.scrollHeight <= el.clientHeight + 1),
+				`${expected.width}x${expected.height} onboarding needed an inner scroll`,
+			).toBe(true);
 		}
 		const box = await dialog.boundingBox();
 		expect(box).not.toBeNull();

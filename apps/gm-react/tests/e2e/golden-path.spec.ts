@@ -67,21 +67,16 @@ async function live(page: Page, activeSceneId: string) {
 test.describe('golden paths', () => {
 	test('first run to Command Center with an empty vault', async ({ page }) => {
 		const health = watchJourney(page);
-		await page.addInitScript(() => localStorage.setItem('dndtools:react:vault-choice', 'fresh'));
 		await page.goto('/#/');
 		await waitReady(page);
 		const overlay = page.locator('[data-fullscreen-overlay="onboarding"]');
-		await health.checkpoint('Welcome');
-		await overlay.getByRole('button', { name: 'Get started' }).click();
-		await overlay.getByRole('button', { name: 'Continue' }).click();
-		await health.checkpoint('Privacy choice');
-		await overlay.getByRole('radio', { name: /Private vault/ }).click();
-		await overlay.getByLabel('Type "i hold the keys" to confirm').fill('i hold the keys');
-		for (let step = 0; step < 4; step++) {
-			await overlay.getByRole('button', { name: 'Continue' }).click();
-			await health.checkpoint(`Setup ${step}`);
-		}
-		await overlay.getByRole('button', { name: 'Enter Command Center' }).click();
+		await health.checkpoint('Your campaign');
+		await overlay.getByLabel('Campaign name').fill('Golden campaign');
+		await overlay.getByRole('button', { name: 'Continue', exact: true }).click();
+		await health.checkpoint('How much on screen');
+		await overlay.getByRole('button', { name: 'Continue', exact: true }).click();
+		await health.checkpoint('Ready');
+		await overlay.getByRole('button', { name: 'Open the Command Center' }).click();
 		await expect(overlay).toBeHidden();
 		await expect(page.locator('#main-content')).toBeVisible();
 		expect(
