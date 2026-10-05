@@ -105,3 +105,28 @@ ownership or mark the gate passed.
   source files were clean.
 - Ran `prettier --write` on the journal (two wrapped lines). `pnpm format:check:changed -- --base
 loop/rc` then passed: 15 files checked, exit 0. No source changes.
+
+## Browser acceptance follow-up: golden-path clip (2026-10-05)
+
+- The gate at `bd6b9f22` failed on one test, three times out of three on desktop-chromium:
+  `golden-path.spec.ts:267` "player joins the fake LAN and receives only player-safe content".
+  The error was "Player: Error: Journey health: Projected map: unrecoverable clip (x): span Sera
+  Duskwhisper".
+- Cause: `PartyBoardTiles` in `PartyPanel.tsx`, on the player's Now playing screen. It truncated
+  each PC name with `nowrap` and an ellipsis and had no `title`. Before this story the player saw
+  one tile at full width. Now every PC shares the row (`flex: 1 1 160px`), so "Sera Duskwhisper" is
+  cut off. The journey-health checker counts truncated text with no full-text alternative as an
+  unrecoverable clip.
+- Fix: the tile name now wraps (`minWidth: 0`, `overflowWrap: 'anywhere'`) instead of truncating,
+  so the whole name stays readable on touch and keyboard without a hover-only tooltip.
+- Validation:
+  - Reproduced: with the fix temporarily reverted, `golden-path.spec.ts:267` on desktop-chromium
+    fails with the same "unrecoverable clip (x): span Sera Duskwhisper". With the fix restored it
+    passes.
+  - `playwright test tests/e2e/golden-path.spec.ts tests/e2e/party-summary.spec.ts
+--project=desktop-chromium --project=mobile-chromium --workers=1 --retries=0` with
+    `DNDTOOLS_E2E_PORT=59787`: **66 passed**.
+  - gm-react `tsc --noEmit` exit 0. `pnpm lint` exit 0 (the 16 eslint warnings were already on the
+    base). Prettier check passed.
+  - Pinned container, `-g '(/play|characters|character builder|play stage|player)'`
+    `--update-snapshots=none`: **69 passed**, no baseline changes.

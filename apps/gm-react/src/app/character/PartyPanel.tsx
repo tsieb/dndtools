@@ -182,9 +182,10 @@ export function PartyBoardTiles({ members }: { members: PartyMemberVitals[] }) {
 								style={{
 									font: `600 var(--text-xs) ${T.sans}`,
 									color: T.ink,
-									overflow: 'hidden',
-									textOverflow: 'ellipsis',
-									whiteSpace: 'nowrap',
+									// Wrap rather than truncate: every PC now shares this row, so a long
+									// name must stay fully readable without a hover-only tooltip.
+									minWidth: 0,
+									overflowWrap: 'anywhere',
 								}}
 							>
 								{m.name}
