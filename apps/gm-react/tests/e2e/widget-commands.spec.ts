@@ -156,16 +156,26 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 			await panel.getByRole('button', { name: 'Advance', exact: true }).click();
 			await expect(panel.getByText('Count: 2', { exact: true })).toBeVisible();
 			await panel.getByRole('button', { name: 'Advance', exact: true }).focus();
+			// The count paints before its write persists, and the history refuses an undo or redo while
+			// the previous one is still replaying. Queue a no-op behind that write before each press.
+			const settled = () =>
+				page.evaluate(async () => {
+					await window.__rt!.runExclusiveMaintenance(async () => undefined);
+					await new Promise((resolve) => setTimeout(resolve, 0));
+				});
 			for (const count of [1, 0]) {
+				await settled();
 				if (isMobile) await page.getByRole('button', { name: /^Undo changed/ }).click();
 				else await page.keyboard.press('Control+z');
 				await expect(panel.getByText(`Count: ${count}`, { exact: true })).toBeVisible();
 			}
 			for (const count of [1, 2]) {
+				await settled();
 				if (isMobile) await page.getByRole('button', { name: /^Redo changed/ }).click();
 				else await page.keyboard.press('Control+Shift+z');
 				await expect(panel.getByText(`Count: ${count}`, { exact: true })).toBeVisible();
 			}
+			await settled();
 			if (isMobile) await page.getByRole('button', { name: /^Undo changed/ }).click();
 			else await page.keyboard.press('Control+z');
 			await expect(panel.getByText('Count: 1', { exact: true })).toBeVisible();

@@ -125,3 +125,35 @@ Final validation (native output inspected):
   post-commit gates and independent review, as requested; no prior-candidate gate result is claimed
   as verification of this repair.
 - No push, promotion, additional agent, loop launch or dispatcher control-state mutation.
+
+## Attempt 4 — widened claim, reconciled onto loop/rc afa00e6e (2026-10-05)
+
+- The only gate finding was the claim check. The operator brief now owns the eight integration paths,
+  so no source moves back out of them.
+- `loop/rc` had moved 84 commits since base `2450f59c`. A trial merge conflicted in three files, so
+  the branch was rebased onto `afa00e6e` (pre-rebase head kept as
+  `backup/rc-wid-6.1-pre-rebase-5b11` = `9a958533`):
+  - `schemas/widget-package.ts`: import-list conflict with RC-WID-5.2. Kept both
+    `WIDGET_COMMAND_EXECUTORS` and `WIDGET_DATA_QUERY_SOURCES`.
+  - `canvas/useLayoutHistory.ts`: RC-CAN-8.1 rewrote the hook around a write queue, multi-command
+    entries and `replay`. Took that version in full. Only `prepareWidgetCommand` (a fresh
+    idempotency key and the current scene revision for `widget.dispatch-command`) was re-applied,
+    in `run` and in `replay`. The old inflight/serialization code is gone because upstream's
+    `enqueue` already covers it.
+  - `canvas/keyboard.ts`: kept RC-CAN-8.1's `canvasKey`/`useNudges`/`useDragOverlay` and re-added
+    `isTileContentKey`.
+- E2E race found after the rebase: under load (3 specs × 2 profiles in parallel), the desktop board
+  run failed about 1 time in 12. The final Ctrl+Z was dropped because "Count: 2" paints before the
+  redo's write persists, and the history refuses an undo while a redo is still replaying (upstream
+  design). The spec now waits before each undo/redo press by queueing a no-op through
+  `__rt.runExclusiveMaintenance`. No product change.
+
+Validation (native output read):
+
+- Core and gm-react `tsc --noEmit` are clean.
+- Core vitest: 5233/5233 passed. App vitest (`pnpm test:app`): 2003/2003 passed.
+- Prettier and ESLint are clean on every changed file. `pnpm gates` (quality + docs) passes.
+- Playwright: widget-commands + canvas-keyboard + widget-builder on desktop-chromium and
+  mobile-chromium, `--repeat-each=4 --retries=0`: 112/112 passed. Before the spec fix, the same
+  run at `--repeat-each=3` gave 83 passed and 1 failed.
+- No push, promotion, extra agents, loop launch or dispatcher control-state change.
