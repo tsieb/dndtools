@@ -57,10 +57,10 @@ async function sceneWithNote(page: Page): Promise<{ sceneId: string; widgetId: s
 	await gotoRoute(page, `/scene/${sceneId}`);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
-	// The entry's name is "Note" plus its description; `\b` keeps the Notes entry out of the match.
+	// RC-CAN-8.5: each row is one button named "Add <widget>"; `exact` keeps "Add Notes" out.
 	await page
 		.getByTestId('scene-add-widget-panel')
-		.getByRole('button', { name: /^Note\b/ })
+		.getByRole('button', { name: 'Add Note', exact: true })
 		.click();
 	const handle = await page.waitForFunction(
 		(id) => {

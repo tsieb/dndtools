@@ -19,7 +19,6 @@ import {
 	boardWidgetsOf,
 	clampToColumns,
 	clampWidthToColumns,
-	defaultTileSize,
 	payloadIndex,
 	repackBoardColumns,
 	type BoardWidget,
@@ -39,7 +38,7 @@ import {
 	BoardPlayerNotice,
 } from './board/BoardPlayerNotice';
 import { useBoardLayouts } from './board/useBoardLayouts';
-import { AddWidgetGallery, nextFreeSlot } from '../app/canvas/AddWidgetGallery';
+import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
 import { FlowBoard } from '../app/canvas/FlowBoard';
 import { BoardHeading } from './board/BoardHeading';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
@@ -353,18 +352,13 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		);
 		if (ok) setStatus(null);
 	}
-	// RC-CAN-4.1: the gallery chooses the slot (the first open spot on the board's columns, where the
-	// old cascade stacked each new widget over the seeded ones) and focuses the placed tile.
-	// RC-CAN-8.1: sized from the one default-size table, and an undo step like every other edit. The
-	// gallery searched its slot at the definition's own size; the board's columns need the table's,
-	// so a bounded board re-finds the first open spot for the size the tile will really have.
+	// RC-CAN-4.1: the gallery chooses the slot and focuses the placed tile. RC-CAN-8.1: sized from
+	// the one default-size table, and an undo step like every other edit. RC-CAN-8.5: the slot comes
+	// from the shared `placeNewTile` (the first free one in view, at the size the table gives), so
+	// the board takes it as given, and the gallery hands the new tile back to be selected.
 	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
 		if (!homeSceneId) return false;
-		const policy = flow ? 'flow' : 'bounded';
-		const at = flow
-			? position
-			: nextFreeSlot(widgets, defaultTileSize(entry.defaultSize, policy, entry.minSize));
-		const command = addTileCommand(entry, homeSceneId, at, policy);
+		const command = addTileCommand(entry, homeSceneId, position, flow ? 'flow' : 'bounded');
 		if (!command) return false;
 		const ok = await history.run(
 			{ type: command.type, actorId, payload: command.payload },
@@ -652,6 +646,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 						setLayoutsOpen(false);
 					}}
 					onAdd={addWidget}
+					onPlaced={setSelectedId}
 					error={error}
 					onGenerate={() => setGenerateOpen(true)}
 					onBuild={() => setBuilder({ pkg: null })}

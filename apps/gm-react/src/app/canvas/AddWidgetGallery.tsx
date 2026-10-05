@@ -1,19 +1,13 @@
 import type React from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { findWidgetDefinition, listWidgetLibrary, type WidgetLibraryEntry } from '@dndtools/core';
 import { Button, Callout, Card, Icon, IconButton, Input, Sheet } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { useI18n, type MessageValues } from '../../i18n';
-import { formatMessage } from '../../i18n/format';
+import { useI18n } from '../../i18n';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
-import {
-	BOARD_RIGHT_BOUND,
-	flowKeyBetween,
-	flowOrder,
-	tierOf,
-	type BoardLayoutRect,
-	type BoardWidget,
-} from '../board-helpers';
+import { defaultTileSize, tierOf, type BoardLayoutRect, type BoardWidget } from '../board-helpers';
+import { placeNewTile } from '../../screens/screen/paletteRows';
 import { srOnly } from '../screen-kit';
 import type { Viewport } from '../useViewport';
 import { WidgetRenderSlot, WidgetErrorBoundary } from '../widgets/WidgetRenderSlot';
@@ -31,126 +25,34 @@ import { StatusListTemplate } from '../widgets/templates/StatusList';
 import { TrackerTemplate } from '../widgets/templates/Tracker';
 import { WidgetLibraryCard } from './WidgetFrame';
 
-// Feature-local translations keep this task within its owned paths.
-const galleryMessages = {
-	en: {
-		'addGallery.search': 'Search widgets',
-		'addGallery.searchPlaceholder': 'Search by name or purpose',
-		'addGallery.categories': 'Filter by category',
-		'addGallery.allCategories': 'All',
-		'addGallery.resultCount': '{count, plural, one {# widget shown} other {# widgets shown}}',
-		'addGallery.noMatches': 'No widgets match that search.',
-		'addGallery.startTitle': 'Start from a template',
-		'addGallery.startBody':
-			'This scene is empty. Every card below is a ready-made tile: pick one and it lands in the first open spot.',
-		'addGallery.createGroup': 'Make something new',
-		'addGallery.generate': 'Generate with assistant',
-		'addGallery.generateHint': 'Describe it, then review the draft before anything is installed.',
-		'addGallery.build': 'Build your own',
-		'addGallery.buildHint': 'Design a tile from scratch in the widget builder.',
-		'addGallery.library': 'Widget library',
-		'addGallery.customPreview': 'Runs its own code, so it previews once placed.',
-	},
-	es: {
-		'addGallery.search': 'Buscar widgets',
-		'addGallery.searchPlaceholder': 'Busca por nombre o propósito',
-		'addGallery.categories': 'Filtrar por categoría',
-		'addGallery.allCategories': 'Todas',
-		'addGallery.resultCount':
-			'{count, plural, one {# widget a la vista} other {# widgets a la vista}}',
-		'addGallery.noMatches': 'Ningún widget coincide con esa búsqueda.',
-		'addGallery.startTitle': 'Empieza con una plantilla',
-		'addGallery.startBody':
-			'Esta escena está vacía. Cada tarjeta es un widget listo para usar: elige una y se colocará en el primer hueco libre.',
-		'addGallery.createGroup': 'Crea algo nuevo',
-		'addGallery.generate': 'Generar con el asistente',
-		'addGallery.generateHint': 'Descríbelo y revisa el borrador antes de que se instale nada.',
-		'addGallery.build': 'Crea el tuyo',
-		'addGallery.buildHint': 'Diseña un widget desde cero en el editor de widgets.',
-		'addGallery.library': 'Biblioteca de widgets',
-		'addGallery.customPreview': 'Ejecuta su propio código, así que se previsualiza al colocarlo.',
-	},
-} as const;
-
-function useGalleryCopy() {
-	const { locale } = useI18n();
-	return (key: keyof typeof galleryMessages.en, values?: MessageValues) =>
-		formatMessage(
-			locale,
-			(galleryMessages[locale as keyof typeof galleryMessages] ?? galleryMessages.en)[key],
-			values,
-		);
-}
+// The free-slot search moved beside the palette rows that share it (RC-CAN-8.5).
+export { nextFreeSlot } from '../../screens/screen/paletteRows';
 
 /**
  * AddWidgetGallery — the one "add a tile" surface for `/board` and `/scene/:id` (RC-CAN-4.1).
  *
- * It replaced two hand-rolled lists of names. Each library entry is now a card carrying the tile's
- * identity (the RC-CAN-2.2 accent rail and icon), its description, and a miniature drawn by the SAME
- * template bodies the canvas uses (RC-WID-1.1), with sample rows and declared config defaults.
- * Entries the current platform profile can't run stay
- * in the list, dimmed, with the core's reason — hiding them left a DM wondering where a widget went.
+ * RC-CAN-8.5 made it a list a GM can read: one short row per library entry (glyph, title,
+ * category, a one-line purpose) inside one button named "Add <widget>", and "Generate with
+ * assistant" / "Build your own" after the library under "More ways to add". The miniature, drawn
+ * by the SAME template bodies the canvas uses (RC-WID-1.1) with sample rows, appears beside a row
+ * only on mouse hover or keyboard focus, `aria-hidden` and `inert`. Entries the current platform
+ * profile can't run stay in the list, dimmed, with the core's reason — hiding them left a GM
+ * wondering where a widget went.
  *
- * Phone: a DS `Sheet`, because a side panel at 300px covered nearly the whole board. Wider: a
- * non-modal side panel in the slot the old panel used, so the canvas stays in view.
+ * Phone: a DS `Sheet` with the same rows, because a side panel at 300px covered nearly the whole
+ * board. Wider: a non-modal side panel, so the canvas stays in view.
  *
- * Picking a card resolves the first open slot (`nextFreeSlot`) — never on top of an existing tile —
- * and, once the gallery has closed, moves focus onto the new tile so the next keystroke acts on it.
+ * A pick closes the panel and places the tile through `placeNewTile` (the first free slot in view,
+ * or the end of the reading order on a flow screen), then selects it (`onPlaced`), focuses it and
+ * announces "Added <widget>".
  */
-
-// The board's column geometry (board-helpers.ts: 24px margin and gutter, 240px widgets on a 264px
-// step, mirroring the core's Command Center `defaultLayout`), so a placed tile lines up with the
-// seeded ones instead of starting a ragged fourth column.
-const SLOT_MARGIN = 24;
-const SLOT_GUTTER = 24;
-const SLOT_COLUMN_STEP = 264;
 
 /** The miniature's box. The tile is scaled down into it at its own default aspect, never up. */
 const PREVIEW_WIDTH = 240;
 const PREVIEW_HEIGHT = 128;
+/** The popover around it: the box plus an 8px padding and a 1px border each side. */
+const POPOVER = { w: PREVIEW_WIDTH + 18, h: PREVIEW_HEIGHT + 18, edge: 8 };
 const PANEL_WIDTH = 320;
-
-type SlotRect = Pick<BoardLayoutRect, 'x' | 'y' | 'w' | 'h'>;
-
-/**
- * The first open spot for a `size` tile: the top-most row, then the left-most column, where it
- * clears every existing tile by a gutter and stays inside `bound`. Candidates are the margin, the
- * board's column starts and the gutter past every existing tile's right and bottom edge — the only
- * places an open spot can begin. Pure and deterministic.
- */
-export function nextFreeSlot(
-	existing: readonly SlotRect[],
-	size: { w: number; h: number },
-	bound: number = BOARD_RIGHT_BOUND,
-): { x: number; y: number } {
-	// A tile wider than the board still gets the margin column rather than no slot at all.
-	const right = Math.max(bound, SLOT_MARGIN + size.w);
-	const xs = new Set<number>();
-	for (let x = SLOT_MARGIN; x + size.w <= right; x += SLOT_COLUMN_STEP) xs.add(x);
-	const ys = new Set<number>([SLOT_MARGIN]);
-	for (const r of existing) {
-		xs.add(r.x + r.w + SLOT_GUTTER);
-		ys.add(r.y + r.h + SLOT_GUTTER);
-	}
-	const columns = [...xs].filter((x) => x >= 0 && x + size.w <= right).sort((a, b) => a - b);
-	const rows = [...ys].sort((a, b) => a - b);
-	const clear = (x: number, y: number) =>
-		existing.every(
-			(r) =>
-				x >= r.x + r.w + SLOT_GUTTER ||
-				x + size.w + SLOT_GUTTER <= r.x ||
-				y >= r.y + r.h + SLOT_GUTTER ||
-				y + size.h + SLOT_GUTTER <= r.y,
-		);
-	for (const y of rows) {
-		for (const x of columns) {
-			if (clear(x, y)) return { x, y };
-		}
-	}
-	// Unreachable while the row below every tile is a candidate; kept so the type needs no assertion.
-	const bottom = existing.reduce((max, r) => Math.max(max, r.y + r.h), 0);
-	return { x: SLOT_MARGIN, y: bottom + SLOT_GUTTER };
-}
 
 /**
  * The view-model a miniature renders: an unplaced, unbound instance of the entry holding only its
@@ -254,60 +156,67 @@ function TemplateMiniature({ widget }: { widget: BoardWidget }) {
 	);
 }
 
-/** Mount a miniature only once its card nears the viewport: a long library is dozens of live bodies. */
-function useNearViewport(ref: React.RefObject<HTMLElement>): boolean {
-	const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined');
-	useEffect(() => {
-		const el = ref.current;
-		if (near || !el) return undefined;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (entries.some((entry) => entry.isIntersecting)) {
-					setNear(true);
-					observer.disconnect();
-				}
-			},
-			{ rootMargin: '200px' },
-		);
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, [near, ref]);
-	return near;
+/**
+ * Where the miniature sits: left of the row when the side panel leaves room (over the canvas),
+ * else above it, else below — kept on screen either way.
+ */
+function popoverPosition(row: DOMRect): { left: number; top: number } {
+	const { w, h, edge } = POPOVER;
+	const clamp = (v: number, max: number) => Math.max(edge, Math.min(v, max - edge));
+	if (row.left - w - edge >= edge) {
+		return {
+			left: row.left - w - edge,
+			top: clamp(row.top, document.documentElement.clientHeight - h),
+		};
+	}
+	const above = row.top - h - edge;
+	return {
+		left: clamp(row.left, document.documentElement.clientWidth - w),
+		top: above >= edge ? above : row.bottom + edge,
+	};
 }
 
 function Miniature({
 	entry,
 	custom,
-	dimmed,
+	row,
 }: {
 	entry: WidgetLibraryEntry;
 	custom: boolean;
-	dimmed: boolean;
+	row: Element;
 }) {
-	const copy = useGalleryCopy();
+	const { t } = useI18n();
 	const hostRef = useRef<HTMLDivElement>(null);
-	const near = useNearViewport(hostRef);
-	// React 18 has no `inert` prop. A body's own buttons and fields must never take focus from inside
-	// a card — they would be a tab stop per preview that does nothing, hidden from assistive tech.
+	// React 18 has no `inert` prop. A body's own buttons and fields must never take focus from a
+	// preview — they would be a tab stop that does nothing, hidden from assistive tech.
 	useEffect(() => {
 		hostRef.current?.setAttribute('inert', '');
 	}, []);
 	const widget = useMemo(() => previewWidget(entry), [entry]);
 	const { width, height } = entry.defaultSize;
 	const scale = Math.min(PREVIEW_WIDTH / width, PREVIEW_HEIGHT / height, 1);
-	return (
+	const dimmed = !entry.availability.available;
+	return createPortal(
 		<div
 			ref={hostRef}
 			aria-hidden
+			data-testid="gallery-preview"
 			data-preview={custom ? 'custom' : 'live'}
 			style={{
+				position: 'fixed',
+				...popoverPosition(row.getBoundingClientRect()),
+				zIndex: 'var(--z-tooltip)',
 				display: 'flex',
 				justifyContent: 'center',
 				alignItems: 'flex-start',
+				width: PREVIEW_WIDTH,
 				height: PREVIEW_HEIGHT,
+				padding: 'var(--space-2)',
 				overflow: 'hidden',
-				borderRadius: 'var(--radius-sm)',
+				border: '1px solid var(--color-border)',
+				borderRadius: 'var(--radius-md)',
 				background: 'var(--color-surface-sunken)',
+				boxShadow: 'var(--shadow-md)',
 				pointerEvents: 'none',
 				opacity: dimmed ? 0.45 : 1,
 				filter: dimmed ? 'grayscale(1)' : undefined,
@@ -315,7 +224,7 @@ function Miniature({
 		>
 			{custom ? (
 				// A custom-code widget previews as its silhouette: the gallery does not boot a package's
-				// sandboxed code just because the DM is browsing — it runs once the tile is placed.
+				// sandboxed code just because the GM is browsing — it runs once the tile is placed.
 				<div
 					style={{
 						display: 'flex',
@@ -331,9 +240,9 @@ function Miniature({
 					}}
 				>
 					<Icon name="widget" size="md" />
-					{copy('addGallery.customPreview')}
+					{t('boardCanvas.add.customPreview')}
 				</div>
-			) : near ? (
+			) : (
 				<div style={{ position: 'relative', width: width * scale, height: height * scale }}>
 					<div
 						style={{
@@ -356,8 +265,9 @@ function Miniature({
 						<TemplateMiniature widget={widget} />
 					</div>
 				</div>
-			) : null}
-		</div>
+			)}
+		</div>,
+		document.body,
 	);
 }
 
@@ -430,6 +340,8 @@ export interface AddWidgetGalleryProps {
 	widgets: readonly BoardLayoutRect[];
 	/** Dispatch the add at `position`; resolves true once the core accepted it. */
 	onAdd: (entry: WidgetLibraryEntry, position: { x: number; y: number }) => Promise<boolean>;
+	/** The tile an accepted add created, once it is on the surface — the host selects it. */
+	onPlaced?: (widgetInstanceId: string) => void;
 	/** The host's current error. Repeated inside the phone sheet, whose scrim hides the page's alert. */
 	error?: string | null;
 	/** "Generate with assistant" (RC-WID-3.2). The entry is omitted when absent. */
@@ -447,6 +359,7 @@ export function AddWidgetGallery({
 	policy,
 	widgets,
 	onAdd,
+	onPlaced,
 	error,
 	onGenerate,
 	onBuild,
@@ -454,20 +367,25 @@ export function AddWidgetGallery({
 	startAction,
 }: AddWidgetGalleryProps) {
 	const { t } = useI18n();
-	const copy = useGalleryCopy();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const titleId = useId();
+	const moreId = useId();
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
-	// The tile ids that existed when an add was accepted; cleared once the new tile has focus.
-	const pendingRef = useRef<Set<string> | null>(null);
+	// The row under the mouse or keyboard focus, whose miniature shows beside it.
+	const [preview, setPreview] = useState<{ entry: WidgetLibraryEntry; row: Element } | null>(null);
+	const [, reposition] = useState(0);
+	// Permanent, so "Added Dice" is announced by its text changing; `seq` re-keys a repeat.
+	const [announcement, setAnnouncement] = useState<{ text: string; seq: number } | null>(null);
+	// The tile ids that existed when an add was accepted, and its name; cleared once it has focus.
+	const pendingRef = useRef<{ before: Set<string>; name: string } | null>(null);
 	const phone = viewport === 'phone';
 
 	// Unavailable entries are listed on purpose (dimmed, with the reason), after the addable ones so
-	// the first card is always one the DM can pick. `sort` is stable, so the core's name order holds.
+	// the first row is always one the GM can pick. `sort` is stable, so the core's name order holds.
 	const library = useMemo(() => {
 		if (!open) return [];
 		const entries = listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, actorId, {
@@ -508,6 +426,7 @@ export function AddWidgetGallery({
 	// late, so the host's usePanelFocusReturn has already recorded the Add button as the place to
 	// come back to; the phone Sheet sends focus in by itself.
 	useEffect(() => {
+		setPreview(null);
 		if (!open) return undefined;
 		setQuery('');
 		setCategory(null);
@@ -518,38 +437,49 @@ export function AddWidgetGallery({
 		return () => window.clearTimeout(timer);
 	}, [open, phone]);
 
-	// Focus the tile an accepted add created, once the gallery is gone. It waits for BOTH the new id
-	// and the close, whichever arrives last, and then a tick more, so the Sheet's and the host's
-	// focus-return (which put the cursor back on Add) run first and this has the last word.
+	// The miniature follows its row while the list or the page scrolls.
 	useEffect(() => {
-		const before = pendingRef.current;
-		if (!before || open) return;
-		const added = widgets.find((widget) => !before.has(widget.id));
+		if (!preview) return undefined;
+		const update = () => reposition((n) => n + 1);
+		window.addEventListener('scroll', update, true);
+		window.addEventListener('resize', update);
+		return () => {
+			window.removeEventListener('scroll', update, true);
+			window.removeEventListener('resize', update);
+		};
+	}, [preview]);
+
+	// Select, announce and focus the tile an accepted add created, once the gallery is gone. It waits
+	// for BOTH the new id and the close, whichever arrives last, and then a tick more, so the Sheet's
+	// and the host's focus-return (which put the cursor back on Add) run first and this has the last
+	// word.
+	useEffect(() => {
+		const pending = pendingRef.current;
+		if (!pending || open) return;
+		const added = widgets.find((widget) => !pending.before.has(widget.id));
 		if (!added) return;
 		pendingRef.current = null;
+		onPlaced?.(added.id);
+		const text = t('boardCanvas.add.added', { name: pending.name });
+		setAnnouncement((last) => ({ text, seq: (last?.seq ?? 0) + 1 }));
 		window.setTimeout(() => {
-			document.querySelector<HTMLElement>(`[data-testid="widget-${added.id}"]`)?.focus();
+			const frame = document.querySelector<HTMLElement>(`[data-testid="widget-${added.id}"]`);
+			frame?.focus();
+			// Focus alone scrolls only as far as the frame's corner on a phone's sideways-scrolling board.
+			frame?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}, 0);
-	}, [open, widgets]);
+	}, [open, widgets, onPlaced, t]);
 
 	async function pick(entry: WidgetLibraryEntry) {
 		if (busy || !entry.availability.available) return;
-		const bound =
-			policy === 'bounded'
-				? BOARD_RIGHT_BOUND
-				: widgets.reduce((max, w) => Math.max(max, w.x + w.w), BOARD_RIGHT_BOUND);
-		// Flow has no free coordinates to search: its next slot is the end of the reading order.
-		const ordered = policy === 'flow' ? flowOrder(widgets) : [];
-		const position =
-			policy === 'flow'
-				? (flowKeyBetween(ordered[ordered.length - 1] ?? null, null) ?? { x: 0, y: 0 })
-				: nextFreeSlot(widgets, { w: entry.defaultSize.width, h: entry.defaultSize.height }, bound);
+		const size = defaultTileSize(entry.defaultSize, policy, entry.minSize);
+		const position = placeNewTile(widgets, size, policy);
 		const before = new Set(widgets.map((widget) => widget.id));
 		setBusy(true);
 		try {
 			const ok = await onAdd(entry, position);
 			if (!ok) return;
-			pendingRef.current = before;
+			pendingRef.current = { before, name: entry.displayName };
 			onClose();
 		} finally {
 			setBusy(false);
@@ -595,7 +525,7 @@ export function AddWidgetGallery({
 							color: 'var(--color-text-primary)',
 						}}
 					>
-						{copy('addGallery.startTitle')}
+						{t('boardCanvas.add.startTitle')}
 					</h3>
 					<div
 						style={{
@@ -603,7 +533,7 @@ export function AddWidgetGallery({
 							color: 'var(--color-text-secondary)',
 						}}
 					>
-						{copy('addGallery.startBody')}
+						{t('boardCanvas.add.startBody')}
 					</div>
 					{startAction}
 				</div>
@@ -613,13 +543,13 @@ export function AddWidgetGallery({
 				icon="search"
 				value={query}
 				onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-				aria-label={copy('addGallery.search')}
-				placeholder={copy('addGallery.searchPlaceholder')}
+				aria-label={t('boardCanvas.add.search')}
+				placeholder={t('boardCanvas.add.searchPlaceholder')}
 			/>
 			{categories.length > 0 && (
 				<div
 					role="group"
-					aria-label={copy('addGallery.categories')}
+					aria-label={t('boardCanvas.add.categories')}
 					style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}
 				>
 					<Button
@@ -628,7 +558,7 @@ export function AddWidgetGallery({
 						aria-pressed={category === null}
 						onClick={() => setCategory(null)}
 					>
-						{copy('addGallery.allCategories')}
+						{t('boardCanvas.add.allCategories')}
 					</Button>
 					{categories.map((name) => (
 						<Button
@@ -643,154 +573,184 @@ export function AddWidgetGallery({
 					))}
 				</div>
 			)}
-			{(onGenerate || onBuild) && (
-				<div
-					role="group"
-					aria-label={copy('addGallery.createGroup')}
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
-						gap: 'var(--space-2)',
-					}}
-				>
-					{onGenerate && (
-						<CreateEntry
-							icon="sparkle"
-							label={copy('addGallery.generate')}
-							hint={copy('addGallery.generateHint')}
-							onClick={() => {
-								onClose();
-								onGenerate();
-							}}
-						/>
-					)}
-					{onBuild && (
-						<CreateEntry
-							icon="wand"
-							label={copy('addGallery.build')}
-							hint={copy('addGallery.buildHint')}
-							onClick={() => {
-								onClose();
-								onBuild();
-							}}
-						/>
-					)}
-				</div>
-			)}
 			{/* Permanent while open, so a filter change is announced as a change, not an insertion. */}
 			<div role="status" aria-live="polite" style={srOnly}>
-				{copy('addGallery.resultCount', { count: shown.length })}
+				{t('boardCanvas.add.resultCount', { count: shown.length })}
 			</div>
 			{library.length === 0 ? (
 				<div style={note}>
 					{policy === 'bounded' ? t('board.noWidgets') : t('sceneEditor.noWidgetsAvailable')}
 				</div>
 			) : shown.length === 0 ? (
-				<div style={note}>{copy('addGallery.noMatches')}</div>
+				<div style={note}>{t('boardCanvas.add.noMatches')}</div>
 			) : (
 				<ul
 					data-testid={policy === 'bounded' ? undefined : 'scene-add-widget-panel'}
-					aria-label={copy('addGallery.library')}
+					aria-label={t('boardCanvas.add.library')}
 					aria-busy={busy || undefined}
 					style={{
 						listStyle: 'none',
 						margin: 'var(--space-0)',
 						padding: 'var(--space-0)',
-						display: 'grid',
-						gridTemplateColumns: `repeat(auto-fill, minmax(${PREVIEW_WIDTH}px, 1fr))`,
-						gap: 'var(--space-2)',
+						display: 'flex',
+						flexDirection: 'column',
+						gap: 'var(--space-1)',
 					}}
 				>
 					{shown.map((entry) => (
 						<WidgetLibraryCard
 							key={`${entry.packageId}:${entry.type}`}
 							entry={entry}
+							label={t('boardCanvas.add.pick', { name: entry.displayName })}
 							onPick={() => void pick(entry)}
-						>
-							<Miniature
-								entry={entry}
-								custom={isCustom(entry.type)}
-								dimmed={!entry.availability.available}
-							/>
-						</WidgetLibraryCard>
+							onPreview={(row) => setPreview(row ? { entry, row } : null)}
+						/>
 					))}
 				</ul>
+			)}
+			{(onGenerate || onBuild) && (
+				<div
+					role="group"
+					aria-labelledby={moreId}
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+				>
+					<div id={moreId} style={{ font: '600 var(--text-xs) var(--font-sans)' }}>
+						{t('boardCanvas.add.moreWays')}
+					</div>
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
+							gap: 'var(--space-2)',
+						}}
+					>
+						{onGenerate && (
+							<CreateEntry
+								icon="sparkle"
+								label={t('boardCanvas.add.generate')}
+								hint={t('boardCanvas.add.generateHint')}
+								onClick={() => {
+									onClose();
+									onGenerate();
+								}}
+							/>
+						)}
+						{onBuild && (
+							<CreateEntry
+								icon="wand"
+								label={t('boardCanvas.add.build')}
+								hint={t('boardCanvas.add.buildHint')}
+								onClick={() => {
+									onClose();
+									onBuild();
+								}}
+							/>
+						)}
+					</div>
+				</div>
 			)}
 		</div>
 	);
 
+	const extras = (
+		<>
+			<div
+				aria-live="polite"
+				aria-atomic="true"
+				data-testid="add-widget-announcement"
+				style={srOnly}
+			>
+				{announcement && <span key={announcement.seq}>{announcement.text}</span>}
+			</div>
+			{open && preview?.row.isConnected && (
+				<Miniature entry={preview.entry} custom={isCustom(preview.entry.type)} row={preview.row} />
+			)}
+		</>
+	);
+
 	if (phone) {
 		return (
-			<Sheet
-				open={open}
-				onClose={onClose}
-				side="bottom"
-				footer={
-					onDone ? (
-						<Button
-							icon="check"
-							onClick={() => {
-								onClose();
-								onDone();
-							}}
-						>
-							{t('common.action.done')}
-						</Button>
-					) : undefined
-				}
-				title={policy === 'bounded' ? t('board.addWidget') : t('sceneEditor.addWidget')}
-				data-testid="add-widget-gallery"
-			>
-				{body}
-			</Sheet>
+			<>
+				<Sheet
+					open={open}
+					onClose={onClose}
+					side="bottom"
+					footer={
+						onDone ? (
+							<Button
+								icon="check"
+								onClick={() => {
+									onClose();
+									onDone();
+								}}
+							>
+								{t('common.action.done')}
+							</Button>
+						) : undefined
+					}
+					title={policy === 'bounded' ? t('board.addWidget') : t('sceneEditor.addWidget')}
+					data-testid="add-widget-gallery"
+				>
+					{body}
+				</Sheet>
+				{extras}
+			</>
 		);
 	}
 
-	if (!open) return null;
+	if (!open) return extras;
 	return (
-		<Card
-			data-testid="add-widget-gallery"
-			role="region"
-			aria-labelledby={titleId}
-			elevation="overlay"
-			padding="md"
-			onKeyDown={(e: React.KeyboardEvent) => {
-				if (e.key === 'Escape') {
-					e.stopPropagation();
-					onClose();
-				}
-			}}
-			style={{
-				width: PANEL_WIDTH,
-				flex: '0 0 auto',
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 'var(--space-3)',
-				maxHeight: '100%',
-				overflow: 'auto',
-			}}
-		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-				<h3
-					id={titleId}
-					style={{
-						flex: 1,
-						margin: 'var(--space-0)',
-						font: '700 var(--text-md) var(--font-sans)',
-						color: 'var(--color-text-primary)',
-					}}
-				>
-					{policy === 'bounded' ? t('board.addWidget') : t('sceneEditor.addWidget')}
-				</h3>
-				<IconButton
-					icon="close"
-					label={t('common.action.close')}
-					variant="ghost"
-					size="sm"
-					onClick={onClose}
-				/>
-			</div>
-			{body}
-		</Card>
+		<>
+			<Card
+				data-testid="add-widget-gallery"
+				role="region"
+				aria-labelledby={titleId}
+				elevation="overlay"
+				padding="md"
+				onKeyDown={(e: React.KeyboardEvent) => {
+					if (e.key === 'Escape') {
+						e.stopPropagation();
+						onClose();
+					}
+				}}
+				style={{
+					width: PANEL_WIDTH,
+					flex: '0 0 auto',
+					// Size containment: the list's height must not size the row. The board's root grows
+					// with its content (index.css, RC-UX-2.4), so an uncontained panel grew the page and
+					// `<main>` scrolled the canvas's top row away. Contained, the panel stretches to the
+					// row and scrolls inside itself.
+					contain: 'size',
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-3)',
+					maxHeight: '100%',
+					overflow: 'auto',
+				}}
+			>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+					<h3
+						id={titleId}
+						style={{
+							flex: 1,
+							margin: 'var(--space-0)',
+							font: '700 var(--text-md) var(--font-sans)',
+							color: 'var(--color-text-primary)',
+						}}
+					>
+						{policy === 'bounded' ? t('board.addWidget') : t('sceneEditor.addWidget')}
+					</h3>
+					<IconButton
+						icon="close"
+						label={t('common.action.close')}
+						variant="ghost"
+						size="sm"
+						onClick={onClose}
+					/>
+				</div>
+				{body}
+			</Card>
+			{extras}
+		</>
 	);
 }

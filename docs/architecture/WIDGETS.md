@@ -438,19 +438,22 @@ instances, the same render resolver and the same core mutation path; flow is not
 
 ## 9. Widget gallery
 
-`WidgetFrame.tsx` owns the gallery card chrome (`WidgetLibraryCard`), including identity,
-unavailability reasons and the accessible selection control. The control overlays the whole card,
-and the card clips overflow, so the control draws its focus ring inside the card edge with a
-negative `outline-offset` (WCAG 2.4.7). The gallery supplies its inert miniature as children and
-owns discovery, filtering and placement. Card test ids (`gallery-card-<type>`,
-`gallery-entry-<type>`) are keyed on widget type, which assumes types are unique across installed
-packages.
+`WidgetFrame.tsx` owns the gallery row (`WidgetLibraryCard`). Since RC-CAN-8.5 a library entry is
+one short row: accent rail, glyph, title, category and a one-line purpose, all inside ONE button
+named "Add <widget>" (the visible title is part of the name; the purpose and any unavailability
+reason are its description). The row reports mouse hover and keyboard focus (`:focus-visible`, so
+a tap does not) to the gallery, which owns discovery, filtering, the miniature and placement. Row
+test ids (`gallery-card-<type>` on the `li`, `gallery-entry-<type>` on the button) are keyed on
+widget type, which assumes types are unique across installed packages.
 
 `AddWidgetGallery` is shared by the GM Screen (`Board`) and scene editor. Phones use the design
-system bottom `Sheet`; wider viewports use a non-modal side panel. Each library card carries its
-accent, icon, name, description and miniature. Search matches name, description, category, type and
+system bottom `Sheet`; wider viewports use a non-modal side panel with the same rows. The side panel
+is size-contained (`contain: size`): the board's root grows with its content (RC-UX-2.4), so an
+uncontained panel grew the page and `<main>` scrolled the canvas away; contained, it stretches to
+the board row and scrolls inside itself. Search matches name, description, category, type and
 package name; category filters combine with search. Unsupported entries remain visible after the
-available entries, with an accessible reason and no add action.
+available entries, with an accessible reason and no add action. "Generate with assistant" and
+"Build your own" follow the library as a final "More ways to add" group (still one click each).
 
 ### Rendering and placement
 
@@ -458,29 +461,39 @@ The gallery reads `listWidgetLibrary` with the runtime profile and `includeUnava
 Declared templates render through the same pure template components used by `WidgetRenderSlot`,
 with synthetic sample rows and default configuration. These samples never enter campaign state.
 Legacy bodies without a declared template use `WidgetRenderSlot`. Custom-code packages show a
-labelled silhouette; browsing does not start their iframe or worker. Miniatures mount near the
-viewport and are inert and hidden from accessibility navigation; card names and descriptions
-remain accessible separately.
+labelled silhouette; browsing does not start their iframe or worker. A miniature mounts only while
+its row is hovered by a mouse or focused from the keyboard, in a fixed popover portalled beside the
+row (left of the side panel, over the canvas; above or below a phone row), `aria-hidden` and
+`inert`, so its body's own buttons are never tab stops (`AddWidgetGallery.test.tsx` proves it with
+the live Dice body).
 
 An empty scene offers “Start from a template”. “Generate with assistant” opens the existing draft
 workflow; “Build your own” opens the widget builder. Neither installs a package just by opening it.
-Selecting a library card calls the host's core add command at the first free slot: top to bottom,
-then left to right, with the board's 24px margin/gutter and 264px column step. The GM Screen uses its
-fixed right bound; scenes also admit their existing horizontal extent. Oversized tiles still place
-at the margin below any conflicting tiles. A scene on the `flow` layout policy (ADR-041) has no free
-coordinates to search, so its next slot is the end of the reading order: `flowKeyBetween(last,
-null)` over `flowOrder`, one flow row below the last tile. After a successful add and panel dismissal, the new tile
-receives focus through the existing canvas focus handler. Failed adds keep the gallery open.
+Picking a row places the tile through `placeNewTile` (`screens/screen/paletteRows.ts`), the one
+placement path for every add: the gallery, the palette's "Add tile" rows (through `nextFreeSlot`)
+and, after a build, RC-WID-6.2. Candidates are the board's 24px margin/gutter on its 264px column
+step, the gutter past every tile's right and bottom edge, and every tile's top. Of the free ones,
+the first in reading order whose corner is in view wins (`visibleBoardRect` reads the on-screen part
+of the surface off its rendered frames); with none in view, the one nearest the view's centre; with
+no rendered surface, the first in reading order. The GM Screen uses its fixed right bound; scenes
+also admit their existing horizontal extent. A scene on the `flow` layout policy (ADR-041) has no
+free coordinates to search, so its next slot is the end of the reading order: `flowKeyBetween(last,
+null)` over `flowOrder`, one flow row below the last tile. An accepted add closes the panel, hands
+the new tile to the host's `onPlaced` (the GM Screen selects it), focuses it, scrolls it fully into
+view and announces "Added <widget>" in a permanent polite region. Failed adds keep the gallery open.
 
-Gallery-specific English and Spanish copy is colocated in the owned component and uses the shared
-locale and message formatter. Existing title/empty-state strings remain in the shared catalogs.
+The gallery's copy lives in the shared catalogs under `boardCanvas.add.*`.
 
 ### Browser acceptance
 
 The executable Playwright fixture below checks Board and SceneEditor in both desktop-chromium and
 mobile-chromium: panel modality, populated template miniatures, unsupported profile reason and
 blocked placement, search, categories, empty header, generation/build entry points, non-overlapping
-placement, tile focus and a visible keyboard focus ring on a card. It also runs axe over the open gallery's interactive content.
+placement, tile focus and a visible keyboard focus ring on a row. It also runs axe over the open gallery's interactive content.
+RC-CAN-8.5's committed `tests/e2e/add-panel.spec.ts` covers the rest of the panel's contract on both
+projects (two clicks to add Dice, a focused, selected tile inside the viewport, in-view placement on
+a scrolled board, unnamed-button axe rules, the miniature outside the tab order), and
+`tests/visual/add-panel.spec.ts` pins the panel in every theme and tier.
 
 Test paths are outside RC-CAN-4.1 ownership, so this fixture is kept here and extracted temporarily.
 From the repository root, run:
@@ -664,15 +677,14 @@ test.describe('add-widget gallery (RC-CAN-4.1)', () => {
 		// The home board already has tiles, so there is no "start from a template" header.
 		await expect(gallery.getByTestId('gallery-start-header')).toHaveCount(0);
 
-		// A keyboard-focused card shows its focus ring (WCAG 2.4.7): the card clips overflow, so
-		// the ring must be drawn inside it. Previews are masked so only the chrome is compared.
+		// A keyboard-focused row shows its focus ring (WCAG 2.4.7). RC-CAN-8.5: the row no longer
+		// clips, and its miniature is drawn beside it (outside the row), so the ring may sit outside.
 		const firstCard = gallery
 			.locator('[data-testid^="gallery-card-"]')
 			.filter({ has: page.locator('[data-testid^="gallery-entry-"]:not([aria-disabled="true"])') })
 			.first();
 		const firstEntry = firstCard.locator('[data-testid^="gallery-entry-"]');
-		const cardShot = () =>
-			firstCard.screenshot({ mask: [firstCard.locator('[data-preview]')], animations: 'disabled' });
+		const cardShot = () => firstCard.screenshot({ animations: 'disabled' });
 		const unfocused = await cardShot();
 		await firstEntry.focus();
 		await page.keyboard.press('Shift+Tab');
@@ -687,22 +699,27 @@ test.describe('add-widget gallery (RC-CAN-4.1)', () => {
 			};
 		});
 		expect(ring.style).toBe('solid');
-		expect(ring.reach).toBeLessThanOrEqual(0);
+		expect(ring.reach).toBeGreaterThan(0);
 		expect(unfocused.equals(await cardShot())).toBe(false);
-		await firstEntry.blur();
 
-		// Cards carry a rendered miniature drawn by the widget render path, not just a name.
-		const live = gallery.locator('[data-preview="live"]').first();
-		await expect(live).toBeVisible();
+		// Keyboard focus draws the row's miniature beside it, rendered by the widget render path.
+		const live = page.getByTestId('gallery-preview');
+		await expect(live).toHaveAttribute('data-preview', 'live');
 		await expect
 			.poll(() => live.evaluate((el) => el.textContent?.trim().length ?? 0))
 			.toBeGreaterThan(0);
 		await expect(live).toHaveAttribute('inert', '');
+		await expect(live).toHaveAttribute('aria-hidden', 'true');
+		await firstEntry.blur();
+		await expect(live).toHaveCount(0);
 		// The preview uses the declared template and populated sample rows, even before binding.
 		await gallery.getByRole('searchbox').fill('initiative');
-		const sample = gallery.getByTestId('gallery-card-initiative-tracker');
-		await expect(sample.locator('[data-testid="widget-template-status-list"]')).toBeVisible();
-		await expect(sample).toContainText('Scout');
+		const sample = gallery.getByTestId('gallery-entry-initiative-tracker');
+		await sample.focus();
+		await page.keyboard.press('Shift+Tab');
+		await page.keyboard.press('Tab');
+		await expect(live.locator('[data-testid="widget-template-status-list"]')).toBeVisible();
+		await expect(live).toContainText('Scout');
 		await gallery.getByRole('searchbox').fill('');
 
 		// The desktop-only widget is listed, dimmed, with the core's reason, and cannot be added.

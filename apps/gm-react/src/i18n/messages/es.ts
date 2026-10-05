@@ -5743,6 +5743,28 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.tile.resizeHelp':
 		'Haz clic para alternar entre pequeño, mediano y grande. Enfoca y usa las flechas para redimensionar; Escape vuelve al mosaico.',
 
+	/* Tablero › el panel Añadir (AddWidgetGallery) */
+	'boardCanvas.add.search': 'Buscar widgets',
+	'boardCanvas.add.searchPlaceholder': 'Busca por nombre o propósito',
+	'boardCanvas.add.categories': 'Filtrar por categoría',
+	'boardCanvas.add.allCategories': 'Todas',
+	'boardCanvas.add.resultCount':
+		'{count, plural, one {# widget a la vista} other {# widgets a la vista}}',
+	'boardCanvas.add.noMatches': 'Ningún widget coincide con esa búsqueda.',
+	'boardCanvas.add.startTitle': 'Empieza con una plantilla',
+	'boardCanvas.add.startBody':
+		'Esta escena está vacía. Cada fila es un widget listo para usar: elige una y aparecerá a la vista.',
+	'boardCanvas.add.library': 'Biblioteca de widgets',
+	'boardCanvas.add.pick': 'Añadir {name}',
+	'boardCanvas.add.added': 'Se añadió {name}',
+	'boardCanvas.add.moreWays': 'Más formas de añadir',
+	'boardCanvas.add.generate': 'Generar con el asistente',
+	'boardCanvas.add.generateHint': 'Descríbelo y revisa el borrador antes de que se instale nada.',
+	'boardCanvas.add.build': 'Crea el tuyo',
+	'boardCanvas.add.buildHint': 'Diseña un widget desde cero en el editor de widgets.',
+	'boardCanvas.add.customPreview':
+		'Ejecuta su propio código, así que se previsualiza al colocarlo.',
+
 	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
 	'widgetBody.sessionOnly':
 		'Empieza la sesión en Sesión primero — esto solo llega a la mesa durante el juego.',

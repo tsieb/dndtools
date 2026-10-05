@@ -1,13 +1,5 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import {
-	useId,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-	type CSSProperties,
-	type ReactNode,
-} from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { widgetPresentation, type WidgetLibraryEntry } from '@dndtools/core';
 import { Badge, Icon, VisibilityChip } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -686,89 +678,111 @@ export function WidgetFrame({
 	);
 }
 
-/** Card text: one font shorthand plus a colour. */
-const cardText = (font: string, color: string) => ({ font: `${font} var(--font-sans)`, color });
-const CARD_ROW = { display: 'flex', alignItems: 'center', gap: 'var(--space-2)' } as const;
-const CARD_META = cardText('var(--text-2xs)', 'var(--color-text-tertiary)');
-type CardProps = { entry: WidgetLibraryEntry; children: ReactNode; onPick: () => void };
+/** Row text: one font shorthand plus a colour. */
+const rowText = (font: string, color: string) => ({ font: `${font} var(--font-sans)`, color });
+const ONE_LINE = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+type RowProps = {
+	entry: WidgetLibraryEntry;
+	/** The pick control's whole name, "Add Dice": the row's visible title is part of it. */
+	label: string;
+	onPick: () => void;
+	/** Hover by mouse or keyboard focus: the row to show a miniature beside, or null to hide it. */
+	onPreview?: (row: HTMLElement | null) => void;
+};
 
 /**
- * One library card. The visible content is plain text plus an `inert` miniature; the control is a
- * transparent button laid over the whole card. Putting the miniature INSIDE a button would nest the
- * preview's own buttons in it, which HTML forbids and assistive tech reads as one run-on name.
+ * One Add-panel row (RC-CAN-8.5): glyph, title, category and a one-line purpose, all inside ONE
+ * button named "Add <widget>". The miniature is not part of the row — the gallery draws it beside
+ * the row on mouse hover or keyboard focus, `aria-hidden` and `inert`, so a list of forty widgets
+ * is forty short rows and forty tab stops, not forty live bodies full of dead buttons.
  */
-export function WidgetLibraryCard({ entry, children, onPick }: CardProps) {
+export function WidgetLibraryCard({ entry, label, onPick, onPreview }: RowProps) {
 	const baseId = useId();
-	const [nameId, descId, reasonId] = ['name', 'desc', 'reason'].map((s) => `${baseId}-${s}`);
+	const [descId, reasonId] = [`${baseId}-desc`, `${baseId}-reason`];
 	const meta = tileMetadataForDefinition(entry);
 	const reason = entry.availability.available ? null : entry.availability.reason;
 	const accent = reason ? 'var(--color-border-strong)' : `var(${meta.accentToken})`;
-	const glyph = reason ? 'var(--color-text-tertiary)' : accent;
-	const name = reason ? 'var(--color-text-secondary)' : 'var(--color-text-primary)';
+	const show = (e: React.SyntheticEvent<HTMLElement>) => onPreview?.(e.currentTarget);
+	const hide = () => onPreview?.(null);
 	return (
-		<li
-			data-testid={`gallery-card-${entry.type}`}
-			className={meta.silhouetteClass}
-			style={{
-				position: 'relative',
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 'var(--space-2)',
-				padding: 'var(--space-3)',
-				border: '1px solid var(--color-border)',
-				// The accent rail is a border, not a background: forced-colors keeps it (as WidgetFrame's).
-				borderLeft: `4px solid ${accent}`,
-				borderRadius: 'var(--radius-md)',
-				background: reason ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
-				overflow: 'hidden',
-			}}
-		>
-			<div style={CARD_ROW}>
-				<WidgetGlyph icon={meta.icon} size={16} color={glyph} />
-				<span id={nameId} style={{ flex: 1, minWidth: 0, ...cardText('600 var(--text-sm)', name) }}>
-					{entry.displayName}
-				</span>
-				{entry.category && <span style={CARD_META}>{entry.category}</span>}
-			</div>
-			<div id={descId} style={cardText('var(--text-2xs)/1.4', 'var(--color-text-secondary)')}>
-				{meta.description}
-			</div>
-			{reason && (
-				<div
-					id={reasonId}
-					style={{
-						...CARD_ROW,
-						gap: 'var(--space-1)',
-						...cardText('600 var(--text-2xs)/1.4', 'var(--color-text-primary)'),
-					}}
-				>
-					<Icon name="lock" size="sm" />
-					{reason}
-				</div>
-			)}
-			{children}
+		<li data-testid={`gallery-card-${entry.type}`} className={meta.silhouetteClass}>
 			<button
 				type="button"
 				data-testid={`gallery-entry-${entry.type}`}
 				data-category={entry.category ?? ''}
-				aria-labelledby={nameId}
+				aria-label={label}
 				aria-describedby={reason ? `${descId} ${reasonId}` : descId}
 				// `aria-disabled`, not `disabled`, keeps the reason reachable by keyboard (tab order).
 				aria-disabled={reason ? true : undefined}
 				onClick={() => reason || onPick()}
+				onPointerEnter={(e) => e.pointerType === 'mouse' && show(e)}
+				onPointerLeave={hide}
+				// Keyboard focus only: a tap focuses the row on its way to picking it.
+				onFocus={(e) => e.currentTarget.matches(':focus-visible') && show(e)}
+				onBlur={hide}
 				style={{
-					position: 'absolute',
-					inset: 0,
+					display: 'grid',
+					gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+					alignItems: 'center',
+					columnGap: 'var(--space-2)',
+					rowGap: 'var(--space-0-5)',
 					width: '100%',
-					height: '100%',
-					border: 'none',
+					minHeight: 44,
+					padding: 'var(--space-2) var(--space-3)',
+					textAlign: 'left',
+					border: '1px solid var(--color-border)',
+					// The accent rail is a border, not a background: forced-colors keeps it (as WidgetFrame's).
+					borderLeft: `4px solid ${accent}`,
 					borderRadius: 'var(--radius-md)',
-					background: 'transparent',
+					background: reason ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
 					cursor: reason ? 'not-allowed' : 'pointer',
-					// Inside the edge: the card's `overflow: hidden` clips an outset ring (WCAG 2.4.7).
-					outlineOffset: 'calc(-1 * var(--focus-ring-width) - 2px)',
 				}}
-			/>
+			>
+				<WidgetGlyph
+					icon={meta.icon}
+					size={16}
+					color={reason ? 'var(--color-text-tertiary)' : accent}
+				/>
+				<span
+					style={{
+						...ONE_LINE,
+						...rowText(
+							'600 var(--text-sm)',
+							reason ? 'var(--color-text-secondary)' : 'var(--color-text-primary)',
+						),
+					}}
+				>
+					{entry.displayName}
+				</span>
+				<span style={rowText('var(--text-2xs)', 'var(--color-text-tertiary)')}>
+					{entry.category ?? ''}
+				</span>
+				<span
+					id={descId}
+					style={{
+						gridColumn: '2 / -1',
+						...ONE_LINE,
+						...rowText('var(--text-2xs)/1.4', 'var(--color-text-secondary)'),
+					}}
+				>
+					{meta.description}
+				</span>
+				{reason && (
+					<span
+						id={reasonId}
+						style={{
+							gridColumn: '2 / -1',
+							display: 'flex',
+							alignItems: 'center',
+							gap: 'var(--space-1)',
+							...rowText('600 var(--text-2xs)/1.4', 'var(--color-text-primary)'),
+						}}
+					>
+						<Icon name="lock" size="sm" />
+						{reason}
+					</span>
+				)}
+			</button>
 		</li>
 	);
 }

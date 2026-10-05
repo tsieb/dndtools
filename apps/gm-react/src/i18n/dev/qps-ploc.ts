@@ -5913,6 +5913,28 @@ export default {
 	'boardCanvas.tile.resize': '[Ŕéšížé ~~~{title}]',
 	'boardCanvas.tile.resizeHelp':
 		'[Çľíçķ ţó çýçľé šḿáľľ, ḿéďíúḿ áñď ľáŕğé. Ƒóçúš áñď úšé áŕŕóŵ ķéýš ţó ŕéšížé; Éšçáƥé ŕéţúŕñš ţó ţĥé ţíľé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'boardCanvas.add.search': '[Šéáŕçĥ ŵíďğéţš~~~~ ~]',
+	'boardCanvas.add.searchPlaceholder': '[Šéáŕçĥ ƀý ñáḿé óŕ ƥúŕƥóšé~~~~ ~~~~ ]',
+	'boardCanvas.add.categories': '[Ƒíľţéŕ ƀý çáţéğóŕý~~~~ ~~~]',
+	'boardCanvas.add.allCategories': '[Áľľ~~]',
+	'boardCanvas.add.resultCount':
+		'[{count, plural, one {# ŵíďğéţ šĥóŵñ~~~~ ~} other {# ŵíďğéţš šĥóŵñ~~~~ ~}}]',
+	'boardCanvas.add.noMatches': '[Ñó ŵíďğéţš ḿáţçĥ ţĥáţ šéáŕçĥ.~~~~ ~~~~ ~~]',
+	'boardCanvas.add.startTitle': '[Šţáŕţ ƒŕóḿ á ţéḿƥľáţé~~~~ ~~~~]',
+	'boardCanvas.add.startBody':
+		'[Ţĥíš šçéñé íš éḿƥţý. Éṽéŕý ŕóŵ ƀéľóŵ íš á ŕéáďý-ḿáďé ţíľé: ƥíçķ óñé áñď íţ ľáñďš íñ ṽíéŵ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'boardCanvas.add.library': '[Ŵíďğéţ ľíƀŕáŕý~~~~ ~]',
+	'boardCanvas.add.pick': '[Áďď ~~{name}]',
+	'boardCanvas.add.added': '[Áďďéď ~~~{name}]',
+	'boardCanvas.add.moreWays': '[Ḿóŕé ŵáýš ţó áďď~~~~ ~~]',
+	'boardCanvas.add.generate': '[Ğéñéŕáţé ŵíţĥ áššíšţáñţ~~~~ ~~~~ ]',
+	'boardCanvas.add.generateHint':
+		'[Ďéšçŕíƀé íţ, ţĥéñ ŕéṽíéŵ ţĥé ďŕáƒţ ƀéƒóŕé áñýţĥíñğ íš íñšţáľľéď.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'boardCanvas.add.build': '[Ɓúíľď ýóúŕ óŵñ~~~~ ~]',
+	'boardCanvas.add.buildHint':
+		'[Ďéšíğñ á ţíľé ƒŕóḿ šçŕáţçĥ íñ ţĥé ŵíďğéţ ƀúíľďéŕ.~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'boardCanvas.add.customPreview':
+		'[Ŕúñš íţš óŵñ çóďé, šó íţ ƥŕéṽíéŵš óñçé ƥľáçéď.~~~~ ~~~~ ~~~~ ~~~~]',
 	'widgetBody.sessionOnly':
 		'[Šţáŕţ ţĥé šéššíóñ íñ Šéššíóñ ƒíŕšţ — ţĥíš ŕéáçĥéš ţĥé ţáƀľé óñľý ďúŕíñğ ƥľáý.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
 	'widgetBody.note.empty': '[Éḿƥţý ñóţé — šéľéçţ ţĥé ŵíďğéţ ţó áďď ţéẋţ.~~~~ ~~~~ ~~~~ ~~~]',

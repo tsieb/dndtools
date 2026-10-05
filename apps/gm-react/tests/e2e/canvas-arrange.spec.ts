@@ -47,7 +47,8 @@ test('RC-CAN-3.6: keyboard-only multi-select aligns and layers three tiles', asy
 		await page.keyboard.press('Delete');
 		await expect(frames).toHaveCount(count - 1);
 	}
-	// The gallery (RC-CAN-4.1) fills the first open slot, so the three start at three different lefts.
+	// The gallery fills the first open slot in view (RC-CAN-8.5), so the three never share one left —
+	// a phone, scrolled sideways to the second tile, puts the third beside it rather than off screen.
 	for (let count = 0; count < 3; count++) {
 		await tabTo(page, count ? frames.first() : board);
 		await page.keyboard.press('a');
@@ -57,7 +58,7 @@ test('RC-CAN-3.6: keyboard-only multi-select aligns and layers three tiles', asy
 		await expect(frames).toHaveCount(count + 1);
 	}
 	const before = await geometry(frames);
-	expect(new Set(before.map((tile) => tile.x)).size).toBe(3);
+	expect(new Set(before.map((tile) => tile.x)).size).toBeGreaterThan(1);
 	const [top, middle, bottom] = before.map((tile) => page.getByTestId(tile.id));
 
 	// Space selects the first tile; Shift+Space adds each of the others.

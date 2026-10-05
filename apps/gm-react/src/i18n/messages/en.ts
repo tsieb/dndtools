@@ -5701,6 +5701,27 @@ export const en = {
 	'boardCanvas.tile.resizeHelp':
 		'Click to cycle small, medium and large. Focus and use arrow keys to resize; Escape returns to the tile.',
 
+	/* GM Screen › the Add panel (AddWidgetGallery) */
+	'boardCanvas.add.search': 'Search widgets',
+	'boardCanvas.add.searchPlaceholder': 'Search by name or purpose',
+	'boardCanvas.add.categories': 'Filter by category',
+	'boardCanvas.add.allCategories': 'All',
+	'boardCanvas.add.resultCount': '{count, plural, one {# widget shown} other {# widgets shown}}',
+	'boardCanvas.add.noMatches': 'No widgets match that search.',
+	'boardCanvas.add.startTitle': 'Start from a template',
+	'boardCanvas.add.startBody':
+		'This scene is empty. Every row below is a ready-made tile: pick one and it lands in view.',
+	'boardCanvas.add.library': 'Widget library',
+	'boardCanvas.add.pick': 'Add {name}',
+	'boardCanvas.add.added': 'Added {name}',
+	'boardCanvas.add.moreWays': 'More ways to add',
+	'boardCanvas.add.generate': 'Generate with assistant',
+	'boardCanvas.add.generateHint':
+		'Describe it, then review the draft before anything is installed.',
+	'boardCanvas.add.build': 'Build your own',
+	'boardCanvas.add.buildHint': 'Design a tile from scratch in the widget builder.',
+	'boardCanvas.add.customPreview': 'Runs its own code, so it previews once placed.',
+
 	/* Widget bodies › the hand-drawn built-in widget contents on the GM Screen */
 	'widgetBody.sessionOnly':
 		'Start the session in Session first — this reaches the table only during play.',
