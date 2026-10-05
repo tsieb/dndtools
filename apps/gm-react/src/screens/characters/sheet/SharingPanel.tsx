@@ -1,37 +1,53 @@
 import { Button, Field, Icon, Select, VisibilityChip } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
-import { type Actor, type Character, type CharacterView } from '@dndtools/core';
+import { useState } from 'react';
 import { Panel, T } from '../../../app/screen-kit';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { visChip } from '../shared';
 import { useI18n } from '../../../i18n';
+import type { SheetIO, SheetSubject } from './subject';
+
+type ShareDraft = { visibility: string; sharedWith: string[] };
 
 /** The DM-only sharing editor — entity visibility plus the explicit `sharedWith` delivery list.
- * Fail-closed: nothing here widens by default. Extracted from Characters.tsx unchanged
- * (RC-STB-2.6). */
+ * Fail-closed: nothing here widens by default. Drawn only where the plan admits `sharing` (DM
+ * authority), from the audience the subject carries for a DM reader. */
 export function SharingPanel({
-	view,
-	record,
-	players,
-	shareDraft,
-	setShareDraft,
-	applySharing,
+	subject,
+	actorId,
+	io,
 }: {
-	view: CharacterView;
-	record: Character;
-	players: Actor[];
-	shareDraft: { visibility: string; sharedWith: string[] } | null;
-	setShareDraft: (
-		next:
-			| ({ visibility: string; sharedWith: string[] } | null)
-			| ((
-					previous: { visibility: string; sharedWith: string[] } | null,
-			  ) => { visibility: string; sharedWith: string[] } | null),
-	) => void;
-	applySharing: () => Promise<void>;
+	subject: SheetSubject;
+	actorId: string;
+	io: SheetIO;
 }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
+	const [shareDraft, setShareDraft] = useState<ShareDraft | null>(null);
+	const { view } = subject;
+	if (!subject.sharing) return null;
+	const record = subject.sharing;
+	const players = record.players;
+	// `sharedWith` is always sent as-is, so flipping the level never silently drops a PC's owner from
+	// the delivery list (visibility never narrows or widens as a side effect).
+	const applySharing = async () => {
+		if (!shareDraft) return;
+		if (
+			await io.dispatch(
+				{
+					type: 'character.set-sharing',
+					actorId,
+					payload: {
+						characterId: subject.id,
+						visibility: shareDraft.visibility,
+						sharedWith: shareDraft.sharedWith,
+					},
+				},
+				'Sharing updated.',
+			)
+		)
+			setShareDraft(null);
+	};
 	return (
 		<>
 			{/* Sharing — the DM-only `character.set-sharing` (entity visibility + the explicit
@@ -118,7 +134,7 @@ export function SharingPanel({
 							<Button variant="ghost" size="sm" onClick={() => setShareDraft(null)}>
 								{t('common.action.cancel')}
 							</Button>
-							<Button variant="primary" size="sm" onClick={applySharing}>
+							<Button variant="secondary" size="sm" onClick={applySharing}>
 								{t('characters.applySharing')}
 							</Button>
 						</div>

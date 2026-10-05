@@ -1,77 +1,60 @@
-import { PlayerCombat } from './Combat';
 import { usePlayerData } from './usePlayerData';
-import { useState } from 'react';
-import { Button, Badge, EmptyState, Icon, Select, Tabs, tabPanelProps } from '../../ds';
+import { useMemo, useState } from 'react';
+import { Button, Badge, EmptyState, Icon, Select } from '../../ds';
 import type { DSChangeEvent } from '../../ds';
-import { Page, T } from '../../app/screen-kit';
+import { Page, T, useSingleColumn } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useViewport } from '../../app/useViewport';
 import { cap } from './shared';
 import { PrintableSheet } from '../../app/character/PrintableSheet';
 import { Portrait } from './Portrait';
-import { SheetSpellcasting } from './SheetSpellcasting';
-import { PlayerSheet } from './Sheet';
 import { RestDialog } from '../../app/character/RestDialog';
-import { PlayerResources } from './Vitals';
+import { restSubjectOf } from './Vitals';
 import { PlayerParty } from './Party';
-import { PlayerLevelUp } from './Advancement';
-import { PlayerJournal } from './Journal';
-import { CharacterHistoryTimeline } from '../../app/character/History';
 import { PartyStash } from '../../app/character/PartyStash';
+import { sheetCapabilitiesFor } from '../characters/sheet/capabilities';
+import { useSheetFeedback } from '../characters/sheet/feedback';
+import { SheetBody } from '../characters/sheet/SheetBody';
+import { buildSheetSubject } from '../characters/sheet/subject';
 
+/**
+ * `/player` — the DM shell's entry to the one character sheet body (RC-CHR-6.2): this frame keeps the
+ * route, the PC picker, the vitals bar (portrait, identity, rests, inspiration), the PDF export and the
+ * Party tab; the sheet itself is `SheetBody`, the same composition `/characters/:id` and the companion
+ * render, gated by the core's authority for this actor on the chosen PC.
+ */
 export function Player() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
+	const singleColumn = useSingleColumn();
 	const actorId = runtime.defaultActorId;
 
 	// The switcher's selection — null falls back to the first visible PC. A signed-in player may
 	// control multiple PCs (multiple `owner` grants / shared PCs), so the pick is theirs, not `pcs[0]`.
 	const [pcChoice, setPcChoice] = useState<string | null>(null);
-
 	const data = usePlayerData(pcChoice);
-
-	const C = data.view;
+	const charId = data.characterId;
+	const subject = useMemo(
+		() => (charId ? buildSheetSubject(runtime.state, actorId, charId) : null),
+		[runtime.state, actorId, charId],
+	);
 	const [tab, setTab] = useState('sheet');
-	const [err, setErr] = useState<string | null>(null);
-	const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-	// The HP stepper was ±1-only, so taking 27 damage meant 27 separate durable commands (each one a
-	// full-state persist + op-log entry), and a SUCCESSFUL write announced nothing at all — the number
-	// changed silently for anyone not looking at it. The amount is a string draft so backspacing to
-	// empty doesn't snap to a coerced value mid-edit.
 	const [restKind, setRestKind] = useState<'short' | 'long' | null>(null);
-	const [hpAmount, setHpAmount] = useState('1');
-	const [hpNote, setHpNote] = useState<string | null>(null);
-
-	// A `data.<key>` sheet string authored through `character.edit-field` (draft flow / advancement /
-	// the identity editor below). Null when the field was never written — rendered honestly as absent.
-	const ds = (key: string): string | null => {
-		const v = C?.data?.[key];
-		return typeof v === 'string' && v.trim() !== '' ? v : null;
-	};
-
-	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
-		setErr(null);
-		setHpNote(null);
-		setSaveState('saving');
-		try {
+	const feedback = useSheetFeedback({
+		run: async (command) => {
 			const result = await runtime.dispatch(command);
-			if (result.status === 'rejected') {
-				setErr(result.rejection.message);
-				setSaveState('idle');
-				return false;
-			}
-			setSaveState('saved');
-			return true;
-		} catch {
-			setSaveState('idle');
-			setErr(t('player.saveFailed'));
-			return false;
-		}
-	}
+			return result.status === 'rejected'
+				? { ok: false, message: result.rejection.message }
+				: { ok: true };
+		},
+		newId: () => runtime.newId(),
+		failure: () => t('player.saveFailed'),
+		savedNote: t('player.saved'),
+	});
 
-	if (!C || !data.characterId) {
+	if (!subject || !charId) {
 		return (
 			<Page max={1080}>
 				<section aria-labelledby="player-empty-title">
@@ -82,57 +65,28 @@ export function Player() {
 		);
 	}
 
-	const charId = data.characterId;
-	const hp = C.combat.hp;
-	const maxHp = C.combat.maxHp;
-	const conditions = C.combat.conditions;
+	const caps = sheetCapabilitiesFor(runtime.state, actorId, charId, runtime.readOnly);
+	const C = subject.view;
 	const name = C.name;
-	const level = data.advancement?.level ?? null;
+	const level = subject.level;
+	// A `data.<key>` sheet string; null when the field was never written — rendered honestly as absent.
+	const ds = (key: string): string | null => {
+		const v = C.data?.[key];
+		return typeof v === 'string' && v.trim() !== '' ? v : null;
+	};
 	// Real inspiration flag, persisted as the `data.inspiration` sheet string ('yes' when inspired).
 	const insp = ds('inspiration') === 'yes';
-
-	const tabs = [
-		{ id: 'sheet', label: t('player.tab.sheet'), icon: 'characters-person' },
-		{ id: 'resources', label: t('player.tab.resources'), icon: 'sparkle' },
-		{ id: 'party', label: t('player.tab.party'), icon: 'players' },
-		// The level-up tab drives the REAL staged advancement — shown only to an actor the core would
-		// authorize (DM / granted owner), so it is never a dead surface.
-		...(data.canAdvance ? [{ id: 'levelup', label: t('player.tab.levelUp'), icon: 'flag' }] : []),
-		{ id: 'journal', label: t('player.tab.journal'), icon: 'note-edit' },
-		// RC-CHR-2.3 — the history timeline reads the SAME actor-filtered journal already fetched
-		// above for the journal tab; no extra query.
-		{ id: 'history', label: t('player.tab.history'), icon: 'recent' },
-	];
-	const activeTab = tabs.some((t) => t.id === tab) ? tab : 'sheet';
-
-	// Real HP write: the only HP path is the combat-resource command, which the Core gates on an ACTIVE
-	// session. In the idle seed it is rejected read-only — the value snaps back and the reason surfaces.
-	const hpStep = () => {
-		const n = Math.trunc(Number(hpAmount));
-		return Number.isFinite(n) && n > 0 ? n : 1;
-	};
-	const stepHp = async (sign: 1 | -1) => {
-		const amount = hpStep();
-		setHpNote(null);
-		if (
-			await dispatch({
-				type: 'character.update-combat-resource',
-				actorId,
-				payload: { characterId: charId, kind: 'hp', delta: sign * amount },
-			})
-		)
-			setHpNote(t(sign < 0 ? 'player.hp.damaged' : 'player.hp.healed', { amount }));
-	};
-	// Real inspiration toggle: `character.edit-field` on the `data.inspiration` sheet string.
+	// Inspiration is an owner-or-DM field write; without it the toggle is a readout.
+	const inspBlocked = !caps.manage;
 	const toggleInspiration = () =>
-		dispatch({
+		feedback.io.dispatch({
 			type: 'character.edit-field',
 			actorId,
 			payload: { characterId: charId, path: 'data.inspiration', value: insp ? '' : 'yes' },
 		});
 
 	// Identity line — composed ONLY from real fields (class/level/background/subclass from the draft
-	// flow + advancement commits; race authored via the identity editor). Absent pieces are omitted.
+	// flow + advancement commits; race authored in the Identity panel). Absent pieces are omitted.
 	const cls = ds('class');
 	const identityLine = [
 		ds('race'),
@@ -144,7 +98,7 @@ export function Player() {
 
 	return (
 		<div className="player-surface">
-			<PrintableSheet character={C} inventory={data.inventory} level={level} />
+			<PrintableSheet character={C} inventory={subject.inventory} level={level} />
 			{/* persistent vitals bar */}
 			<div
 				style={{
@@ -168,8 +122,8 @@ export function Player() {
 					key={charId}
 					character={C}
 					actorId={actorId}
-					canEdit={data.isDm && !data.readOnlyPreview}
-					dispatch={dispatch}
+					canEdit={caps.dm}
+					dispatch={feedback.io.dispatch}
 				/>
 				<div style={{ minWidth: 0 }}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -179,16 +133,14 @@ export function Player() {
 					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>{identityLine}</div>
 				</div>
 				{/* PC switcher — a signed-in player may control multiple PCs (the actor-filtered list);
-				    the whole surface (sheet/resources/level-up/journal) follows the selection. */}
+				    the whole sheet body follows the selection. */}
 				{data.pcs.length > 1 && (
 					<Select
 						value={charId}
 						onChange={(e: DSChangeEvent) => {
-							// The error banner is screen-level and was only ever cleared by the NEXT
-							// successful dispatch, so a rejected write kept accusing the user from the top
-							// of an unrelated character or tab.
-							setErr(null);
-							setHpNote(null);
+							// The banners are frame-level: a rejected write must not keep accusing the user
+							// from the top of an unrelated character.
+							feedback.clear();
 							setRestKind(null);
 							setPcChoice(e.target.value);
 						}}
@@ -197,7 +149,7 @@ export function Player() {
 					/>
 				)}
 
-				{activeTab === 'sheet' && data.canManageResources && (
+				{tab === 'sheet' && caps.manage && (
 					<div className="character-sheet-rest">
 						<Button variant="ghost" size="sm" onClick={() => setRestKind('short')}>
 							{t('player.vitals.shortRest')}
@@ -212,9 +164,9 @@ export function Player() {
 					variant="secondary"
 					type="button"
 					aria-pressed={insp}
-					aria-disabled={data.readOnlyPreview || undefined}
+					aria-disabled={inspBlocked || undefined}
 					title={data.readOnlyPreview ? t('player.blockedPreview') : undefined}
-					onClick={data.readOnlyPreview ? undefined : toggleInspiration}
+					onClick={inspBlocked ? undefined : toggleInspiration}
 					style={{
 						marginLeft: 'auto',
 						display: 'inline-flex',
@@ -222,8 +174,8 @@ export function Player() {
 						gap: 'var(--space-1-5)',
 						padding: 'var(--space-1-5) var(--space-3)',
 						borderRadius: 'var(--radius-full)',
-						cursor: data.readOnlyPreview ? 'not-allowed' : 'pointer',
-						opacity: data.readOnlyPreview ? 0.6 : 1,
+						cursor: inspBlocked ? 'not-allowed' : 'pointer',
+						opacity: inspBlocked ? 0.6 : 1,
 						border: `1px solid ${insp ? T.accBd : T.bd}`,
 						background: insp ? T.accSub : T.surf,
 						color: insp ? T.acc : T.ter,
@@ -236,21 +188,13 @@ export function Player() {
 			</div>
 
 			<RestDialog
-				open={restKind !== null && data.canManageResources}
+				open={restKind !== null && caps.manage}
 				defaultRest={restKind ?? 'short'}
-				subject={{
-					id: charId,
-					name,
-					hp,
-					maxHp,
-					hitDice: C.proficiencies.hitDice,
-					conMod: Math.floor(((C.abilityScores.con ?? 10) - 10) / 2),
-					exhaustion: data.resources?.exhaustion ?? 0,
-				}}
+				subject={restSubjectOf(subject)}
 				onClose={() => setRestKind(null)}
 				onConfirm={(choice) => {
 					setRestKind(null);
-					void dispatch({
+					void feedback.io.dispatch({
 						type: 'character.rest',
 						actorId,
 						payload: { characterId: charId, ...choice },
@@ -258,15 +202,14 @@ export function Player() {
 				}}
 			/>
 
-			{/* A successful HP write used to change only the number, which announces nothing. */}
+			{/* A successful write otherwise changes only a number, which announces nothing. */}
 			<div role="status" className="player-save-status">
-				{saveState === 'saving'
-					? t('player.saving')
-					: (hpNote ?? (saveState === 'saved' ? t('player.saved') : ''))}
+				{feedback.saving ? t('player.saving') : feedback.note}
 			</div>
 
-			{err && (
+			{feedback.error && (
 				<div
+					key={feedback.error.seq}
 					role="alert"
 					aria-live="assertive"
 					style={{
@@ -278,151 +221,60 @@ export function Player() {
 					<span
 						style={{ font: `var(--text-xs) ${T.sans}`, color: 'var(--color-status-warning-text)' }}
 					>
-						<Icon name="warning" size={13} /> {err}
+						<Icon name="warning" size={13} /> {feedback.error.text}
 					</span>
 				</div>
 			)}
 
 			<Page max={1080}>
-				<div style={{ marginBottom: 'var(--space-4)' }}>
-					<Tabs
-						aria-label={t('player.sections')}
-						value={activeTab}
-						onChange={(next: string) => {
-							setErr(null);
-							setHpNote(null);
-							setTab(next);
-						}}
-						tabs={tabs}
-						idBase="player"
-					/>
-				</div>
-				{/* One panel element, re-labelled per active tab — only one body is ever mounted. */}
-				<div {...tabPanelProps('player', activeTab)}>
-					{/* Keyed by charId on purpose. The PC picker in the vitals bar stays mounted across a
-				    switch, so without a key these bodies kept the PREVIOUS character's draft state —
-				    and `saveEdit` diffs those drafts against the NEW `C`, writing person A's race,
-				    subclass, background and speed onto person B with no warning and no undo. */}
-					{activeTab === 'sheet' && (
-						<PlayerSheet
-							key={charId}
-							C={C}
-							level={level}
-							isDm={data.isDm && !data.readOnlyPreview}
-							combat={
-								<PlayerCombat
-									hp={hp}
-									maxHp={maxHp}
-									ac={C.combat.ac}
-									speed={ds('speed')}
-									initiative={ds('init')}
-									conditions={conditions}
-									readOnly={data.readOnlyPreview}
-									hpAmount={hpAmount}
-									setHpAmount={setHpAmount}
-									hpStep={hpStep}
-									stepHp={stepHp}
-								/>
-							}
-							spellcasting={
-								<SheetSpellcasting
-									resources={data.resources}
-									charId={charId}
-									actorId={actorId}
-									canManage={data.canManageResources}
-									dispatch={dispatch}
-								/>
-							}
-							charId={charId}
-							actorId={actorId}
-							passive={data.passive}
-							profBonus={data.profBonus}
-							inventory={data.inventory}
-							encumbrance={data.encumbrance}
-							canManageInventory={data.canManageInventory}
-							dispatch={dispatch}
-						/>
-					)}
-					{activeTab === 'resources' && (
-						<PlayerResources
-							key={charId}
-							charId={charId}
-							resources={data.resources}
-							resourceInstances={data.resourceInstances}
-							canManageResources={data.canManageResources}
-							actorId={actorId}
-							compact={viewport === 'phone'}
-							// RC-CHR-1.2 — what the rest dialog needs, all from the actor-scoped view: the
-							// hit dice on the sheet, the hit-point pool a rest heals, the CON modifier the
-							// core adds to each spent die, and the exhaustion a long rest steps down.
-							restSubject={
-								C
-									? {
-											id: charId,
-											name: C.name,
-											hp: C.combat.hp,
-											maxHp: C.combat.maxHp,
-											hitDice: C.proficiencies.hitDice,
-											conMod: Math.floor(((C.abilityScores.con ?? 10) - 10) / 2),
-											exhaustion: data.resources?.exhaustion ?? 0,
-										}
-									: null
-							}
-							dispatch={dispatch}
-						/>
-					)}
-					{activeTab === 'party' && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-							<PlayerParty
-								party={data.party}
-								selfId={charId}
-								isDm={data.isDm}
-								actorId={actorId}
-								compact={viewport === 'phone'}
-								dispatch={dispatch}
-							/>
-							{/* RC-CHR-3.2 — party stash v2 supersedes the name/detail-only stash that used to
-							    be embedded in PlayerParty (quantity/weight, claim-to-PC, deposit, baseline). */}
-							<PartyStash
-								key={charId}
-								party={data.party}
-								partyStrength={data.partyStrength}
-								selfId={charId}
-								selfName={name}
-								selfInventory={data.inventory}
-								isDm={data.isDm}
-								canClaim={data.canManageInventory}
-								actorId={actorId}
-								dispatch={dispatch}
-							/>
-						</div>
-					)}
-					{activeTab === 'levelup' && data.canAdvance && (
-						<PlayerLevelUp
-							key={charId}
-							charId={charId}
-							actorId={actorId}
-							advancement={data.advancement}
-							xpEligible={data.xpEligible}
-							milestoneEligible={data.milestoneEligible}
-							dispatch={dispatch}
-						/>
-					)}
-					{activeTab === 'journal' && (
-						<PlayerJournal
-							key={charId}
-							charId={charId}
-							actorId={actorId}
-							entries={data.journal}
-							canAuthor={data.canAuthorJournal}
-							compact={viewport === 'phone'}
-							dispatch={dispatch}
-						/>
-					)}
-					{activeTab === 'history' && (
-						<CharacterHistoryTimeline key={charId} characterName={name} entries={data.journal} />
-					)}
-				</div>
+				<SheetBody
+					subject={subject}
+					caps={caps}
+					actorId={actorId}
+					io={feedback.io}
+					singleColumn={singleColumn}
+					compact={viewport === 'phone'}
+					idBase="player"
+					section={tab}
+					onSectionChange={(next) => {
+						feedback.clear();
+						setTab(next);
+					}}
+					frameSections={[
+						{
+							// The party and its stash are the DM shell's own tab, not a panel of this sheet.
+							id: 'party',
+							label: t('player.tab.party'),
+							icon: 'players',
+							after: 'resources',
+							render: () => (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+									<PlayerParty
+										party={data.party}
+										selfId={charId}
+										isDm={data.isDm}
+										actorId={actorId}
+										compact={viewport === 'phone'}
+										dispatch={feedback.io.dispatch}
+									/>
+									{/* RC-CHR-3.2 — party stash v2 (quantity/weight, claim-to-PC, deposit, baseline). */}
+									<PartyStash
+										key={charId}
+										party={data.party}
+										partyStrength={data.partyStrength}
+										selfId={charId}
+										selfName={name}
+										selfInventory={subject.inventory}
+										isDm={data.isDm}
+										canClaim={caps.manage}
+										actorId={actorId}
+										dispatch={feedback.io.dispatch}
+									/>
+								</div>
+							),
+						},
+					]}
+				/>
 			</Page>
 		</div>
 	);

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CharacterView } from '@dndtools/core';
 import { I18nProvider } from '../../../i18n';
 import { AbilitiesPanel } from './AbilitiesPanel';
+import type { SheetSubject } from './subject';
 
 /**
  * RC-DSN-2.1 — the DS `abilityModifier` returns signed display text ("+3"), which the old `any`
@@ -40,27 +41,20 @@ describe('AbilitiesPanel bonuses', () => {
 			abilityScores: { str: 16, dex: 8, con: 10, int: 10, wis: 10, cha: 10 },
 			proficiencies: prof,
 		} as unknown as CharacterView;
+		const subject = { id: 'pc-1', view, profBonus: 2, passive: null } as unknown as SheetSubject;
 		act(() =>
 			root.render(
 				<I18nProvider>
-					<AbilitiesPanel
-						view={view}
-						prof={prof}
-						profBonus={2}
-						passivePer={null}
-						hasProficiencyData
-						abilityCells={[{ key: 'STR', val: 16 }]}
-						isPhone={false}
-					/>
+					<AbilitiesPanel subject={subject} />
 				</I18nProvider>,
 			),
 		);
 		const text = container.textContent ?? '';
 		// Saving throws: STR +3 proficient = +5; DEX -1 unproficient = -1.
-		expect(text).toContain('STR+5');
-		expect(text).toContain('DEX-1');
+		expect(text).toContain('Strength+5');
+		expect(text).toContain('Dexterity-1');
 		// Skills: Athletics (STR, proficient) +5; Acrobatics (DEX, expertise) -1 + 4 = +3.
-		expect(text).toContain('Athletics+5');
+		expect(text).toContain('Athletics •+5');
 		expect(text).toContain('Acrobatics ★+3');
 		expect(text).not.toMatch(/\+\+|\+-/);
 		// The ability-score display keeps the DS signed-string helper.

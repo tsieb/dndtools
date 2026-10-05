@@ -2,6 +2,7 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchCommand, type Actor, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
 import {
@@ -19,10 +20,10 @@ import { SheetSection } from './Sheet';
 // The layout reads the resolved viewport profile; the fixture renders the desktop one.
 vi.mock('../../app/useViewport', () => ({ useViewport: () => 'desktop' }));
 
-// The class-resource panel mints ids for homebrew rows through the runtime; nothing else is read.
-vi.mock('../../runtime/RuntimeContext', () => ({
-	useRuntime: () => ({ newId: () => 'homebrew-1' }),
-}));
+// The class-resource panel mints ids for homebrew rows through the runtime, and the level-up wizard
+// reads the device's own state (in a preview, the fixture campaign).
+const runtimeStub = vi.hoisted(() => ({ newId: () => 'homebrew-1', state: undefined as unknown }));
+vi.mock('../../runtime/RuntimeContext', () => ({ useRuntime: () => runtimeStub }));
 
 /**
  * RC-CHR-6.1 — the companion sheet draws only what the actor may dispatch. Over a fixture campaign built
@@ -109,8 +110,22 @@ afterEach(() => {
 	container.remove();
 });
 
+// Section tabs navigate within the sheet; they write nothing, so they are not controls here.
 const LIVE_CONTROLS =
-	'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [role="button"]:not([aria-disabled="true"])';
+	'button:not([disabled]):not([role="tab"]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [role="button"]:not([aria-disabled="true"])';
+const PRESSABLE = 'button:not([disabled]):not([role="tab"])';
+
+/** The body's section tabs, by id (RC-CHR-6.2: Sheet · Resources · Level up · Journal · History). */
+const sectionIds = () =>
+	[...container.querySelectorAll('[role="tab"]')].map((tab) =>
+		tab.id.replace('play-sheet-tab-', ''),
+	);
+
+function openSection(id: string) {
+	act(() => {
+		container.querySelector<HTMLButtonElement>(`#play-sheet-tab-${id}`)?.click();
+	});
+}
 
 function mount(
 	state: CoreStateSlice,
@@ -119,11 +134,14 @@ function mount(
 	onWrite: (command: CommandRequest) => Promise<boolean>,
 ) {
 	const data = buildPlayerData(state, viewer);
+	runtimeStub.state = state;
 	act(() => {
 		root.render(
-			<I18nProvider>
-				<SheetSection data={data} writes={writes} actorId={viewer} onWrite={onWrite} />
-			</I18nProvider>,
+			<MemoryRouter>
+				<I18nProvider>
+					<SheetSection data={data} writes={writes} actorId={viewer} onWrite={onWrite} />
+				</I18nProvider>
+			</MemoryRouter>,
 		);
 	});
 	return data;
@@ -137,12 +155,18 @@ describe('RC-CHR-6.1 — the companion sheet draws nothing the actor cannot disp
 		// The fixture is a real sheet: the owner WOULD hold every write outside the preview.
 		expect(data.sheetWrites).toEqual({ combat: true, manage: true });
 		expect(container.textContent).toContain('Ysolde');
+		const sections = sectionIds();
+		expect(sections).toEqual(['sheet', 'resources', 'journal', 'history']);
+		for (const section of sections) {
+			openSection(section);
+			expect(
+				[...container.querySelectorAll(LIVE_CONTROLS)].map(
+					(el) => `${section}: ${el.getAttribute('aria-label') ?? el.textContent}`,
+				),
+			).toEqual([]);
+		}
+		openSection('resources');
 		expect(container.textContent).toContain('Arcane recovery');
-		expect(
-			[...container.querySelectorAll(LIVE_CONTROLS)].map(
-				(el) => el.getAttribute('aria-label') ?? el.textContent,
-			),
-		).toEqual([]);
 	});
 
 	for (const [who, viewer] of [
@@ -157,35 +181,51 @@ describe('RC-CHR-6.1 — the companion sheet draws nothing the actor cannot disp
 				buildPlayerData(state, viewer).sheetWrites,
 				async () => true,
 			);
-			const count = container.querySelectorAll('button:not([disabled])').length;
-			expect(count).toBeGreaterThan(0);
 			expect(probe.pcId).not.toBeNull();
 			const sent: CommandRequest[] = [];
-			for (let index = 0; index < count; index += 1) {
-				// A fresh sheet per control, so no press leans on a state an earlier press left behind.
-				const data = buildPlayerData(state, viewer);
-				act(() => root.unmount());
-				root = createRoot(container);
-				mount(state, viewer, data.sheetWrites, async (command) => {
-					sent.push(command);
-					return true;
-				});
-				const button =
-					container.querySelectorAll<HTMLButtonElement>('button:not([disabled])')[index];
-				await act(async () => {
-					button?.click();
-				});
+			let pressed = 0;
+			for (const section of sectionIds()) {
+				openSection(section);
+				const count = container.querySelectorAll(PRESSABLE).length;
+				for (let index = 0; index < count; index += 1) {
+					// A fresh sheet per control, so no press leans on a state an earlier press left behind.
+					const data = buildPlayerData(state, viewer);
+					act(() => root.unmount());
+					root = createRoot(container);
+					mount(state, viewer, data.sheetWrites, async (command) => {
+						sent.push(command);
+						return true;
+					});
+					openSection(section);
+					const button = container.querySelectorAll<HTMLButtonElement>(PRESSABLE)[index];
+					await act(async () => {
+						button?.click();
+					});
+					pressed += 1;
+				}
 			}
+			expect(pressed).toBeGreaterThan(0);
 			expect(sent.length).toBeGreaterThan(0);
+			// The question is AUTHORITY: a value the core refuses for this sheet's numbers (spending a coin
+			// the purse does not hold — equipment.spec relies on that refusal) is not a dead control.
 			for (const command of sent) {
 				const result = dispatchCommand(state, env, { ...command, actorId: viewer } as CoreCommand);
 				expect(
-					result.status,
+					result.status === 'accepted' ? 'accepted' : result.rejection.code,
 					`${command.type} ${JSON.stringify(command.payload)}: ${
 						result.status === 'rejected' ? result.rejection.message : ''
 					}`,
-				).toBe('accepted');
+				).not.toBe('actor-not-authorized');
 			}
+			// And the authority-only refusals really are caught: the same presses from an observer fail.
+			const observer = sent.filter(
+				(command) =>
+					dispatchCommand(state, env, {
+						...command,
+						actorId: OBSERVER_ACTOR.id,
+					} as CoreCommand).status === 'accepted',
+			);
+			expect(observer).toEqual([]);
 		});
 	}
 });

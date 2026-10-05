@@ -1,43 +1,35 @@
-import { type Dispatch, type SetStateAction } from 'react';
-import { Avatar, Badge, Button, IconButton, Input, Stat, VisibilityChip } from '../../../ds';
+import { Avatar, Badge, IconButton, Input, Stat, VisibilityChip } from '../../../ds';
 import type { DSChangeEvent, DSKeyboardEvent } from '../../../ds';
 import { T, srOnly } from '../../../app/screen-kit';
 import { type AdvancementState, type CharacterView } from '@dndtools/core';
 import { BackBar, KIND_LABEL, KIND_TONE, subtitleOf, visChip } from '../shared';
 import { useI18n } from '../../../i18n';
 
-/** The sheet's back bar, live regions and identity header (portrait, name + rename, kind/visibility
- * chips, the DM edit-mode toggle). Extracted from Characters.tsx unchanged (RC-STB-2.6). */
+/** The `/characters/:id` frame around the shared sheet body: the back bar, the frame's live regions
+ * and the identity header (portrait, name + rename, kind/visibility chips, AC and level). Rename is
+ * an owner-or-DM `character.edit-field`, so it is offered only for `canRename`. */
 export function SheetHeader({
 	view,
-	isDm,
+	canRename,
 	advancement,
 	note,
 	error,
-	editMode,
-	setEditMode,
 	nameDraft,
 	setNameDraft,
 	editingName,
 	setEditingName,
-	setAttackRows,
-	setShareDraft,
 	saveName,
 	onBack,
 }: {
 	view: CharacterView;
-	isDm: boolean;
+	canRename: boolean;
 	advancement: AdvancementState | null;
 	note: string;
-	error: { text: string; field?: 'ac' | 'slots' | 'xp'; seq?: number } | null;
-	editMode: boolean;
-	setEditMode: Dispatch<SetStateAction<boolean>>;
+	error: { text: string; seq: number } | null;
 	nameDraft: string;
 	setNameDraft: (next: string) => void;
 	editingName: boolean;
 	setEditingName: (next: boolean) => void;
-	setAttackRows: (next: { id?: string; name: string; detail: string }[] | null) => void;
-	setShareDraft: (next: { visibility: string; sharedWith: string[] } | null) => void;
 	saveName: () => Promise<void>;
 	onBack: () => void;
 }) {
@@ -48,7 +40,7 @@ export function SheetHeader({
 			<div role="status" style={srOnly}>
 				{note}
 			</div>
-			{error && !error.field && (
+			{error && (
 				<div
 					key={error.seq}
 					role="alert"
@@ -84,7 +76,7 @@ export function SheetHeader({
 						) : (
 							<>
 								<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>{view.name}</h2>
-								{isDm && (
+								{canRename && (
 									<IconButton
 										icon="note-edit"
 										label={t('characters.rename')}
@@ -110,20 +102,6 @@ export function SheetHeader({
 				<div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
 					<Stat label={t('characters.ac')} value={String(view.combat.ac)} icon="shield" />
 					{advancement && <Stat label={t('characters.level')} value={String(advancement.level)} />}
-					{isDm && (
-						<Button
-							variant={editMode ? 'primary' : 'secondary'}
-							size="sm"
-							icon="note-edit"
-							onClick={() => {
-								setEditMode((v) => !v);
-								setAttackRows(null);
-								setShareDraft(null);
-							}}
-						>
-							{editMode ? 'Done' : 'Edit'}
-						</Button>
-					)}
 				</div>
 			</div>
 		</>

@@ -49,13 +49,8 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/templates/StatusList.tsx': 3,
 	'apps/gm-react/src/screens/Board.tsx': 3,
 	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 3,
-	'apps/gm-react/src/screens/characters/CharacterSheet.tsx': 3,
 	'apps/gm-react/src/screens/characters/shared.tsx': 2,
-	'apps/gm-react/src/screens/characters/sheet/AbilitiesPanel.tsx': 14,
-	'apps/gm-react/src/screens/characters/sheet/AdvancementPanel.tsx': 9,
-	'apps/gm-react/src/screens/characters/sheet/AttacksPanel.tsx': 3,
 	'apps/gm-react/src/screens/characters/sheet/BioPanel.tsx': 2,
-	'apps/gm-react/src/screens/characters/sheet/CombatPanel.tsx': 9,
 	'apps/gm-react/src/screens/characters/sheet/SharingPanel.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SheetHeader.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SpellsPanel.tsx': 20,
@@ -79,4 +74,4 @@ export const allow = {
 	'apps/gm-react/src/screens/session/Tables.tsx': 3,
 };
 
-// Total current findings: 726
+// Total current findings: 437

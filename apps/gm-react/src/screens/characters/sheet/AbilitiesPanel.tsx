@@ -1,158 +1,92 @@
-import { AbilityScore, abilityModifier, Stat } from '../../../ds';
-import { abilityModifier as numericAbilityModifier, type CharacterView } from '@dndtools/core';
+import { AbilityScore, DefinitionList } from '../../../ds';
 import { ABILITY_IDS, SKILLS } from '../../../app/charImport/skills';
-import { Panel, T, eb, mono } from '../../../app/screen-kit';
-import { sgn } from '../shared';
+import { Panel } from '../../../app/screen-kit';
+import { ABIL_ORDER, abilMod, sgn } from '../../../app/character/abilities';
 import { useI18n } from '../../../i18n';
+import { ABIL_FULL, ABIL_LABEL } from '../../player/shared';
+import type { SheetSubject } from './subject';
 
-/** Ability scores + the structured skills / saves / hit dice / passive perception panel. Extracted
- * from Characters.tsx unchanged (RC-STB-2.6). */
-export function AbilitiesPanel({
-	view,
-	prof,
-	profBonus,
-	passivePer,
-	hasProficiencyData,
-	abilityCells,
-	isPhone,
-}: {
-	view: CharacterView;
-	prof: NonNullable<CharacterView['proficiencies']> | null;
-	profBonus: number | null;
-	passivePer: number | null;
-	hasProficiencyData: boolean;
-	abilityCells: { key: string; val: number }[];
-	isPhone: boolean;
-}) {
+/**
+ * Ability scores with proficiency, passive perception and hit dice, then saving throws and skills —
+ * the structured `proficiencies` slice of the (redacted, player-safe) view. Bonuses derive from the
+ * pure core reads on the subject; nothing here is stored, so it can never drift. Everyone sees it.
+ */
+export function AbilitiesPanel({ subject }: { subject: SheetSubject }) {
 	const { t } = useI18n();
+	const { view, profBonus, passive } = subject;
+	const prof = view.proficiencies;
+	const hasProficiencyData =
+		Object.keys(prof.skills).length > 0 ||
+		prof.saves.length > 0 ||
+		prof.proficiencyBonus !== null ||
+		prof.hitDice.total > 0;
+	const scores = view.abilityScores as Record<string, number | undefined>;
+	const score = (id: string) => scores[id] ?? 10;
 	return (
 		<>
-			{abilityCells.length > 0 ? (
-				<Panel title={t('characters.abilityScores')}>
-					<div
-						style={{
-							display: 'grid',
-							gridTemplateColumns: isPhone ? 'repeat(3,minmax(0,1fr))' : 'repeat(6,1fr)',
-							gap: 8,
-						}}
-					>
-						{abilityCells.map((a) => (
-							<AbilityScore
-								key={a.key}
-								label={a.key}
-								score={a.val}
-								modifier={abilityModifier(a.val)}
-							/>
-						))}
+			<Panel title={t('characters.abilityScores')} pad={18}>
+				<div className="character-sheet-abilities">
+					{ABIL_ORDER.map((key) => (
+						<AbilityScore
+							key={key}
+							label={ABIL_LABEL[key]}
+							score={scores[key] ?? null}
+							aria-label={ABIL_FULL[ABIL_LABEL[key]!]}
+						/>
+					))}
+				</div>
+				<dl className="character-sheet-summary">
+					<div>
+						<dt>{t('player.sheet.proficiency')}</dt>
+						<dd>{profBonus === null ? '—' : sgn(profBonus)}</dd>
 					</div>
-				</Panel>
-			) : null}
-
-			{/* Skills / saves / hit dice / passive perception — the structured `proficiencies` slice.
-					    Bonuses derive from the pure core queries (effectiveProficiencyBonus / passivePerception)
-					    plus the shared skill registry; nothing here is stored, so it can never drift. */}
-			<Panel title={t('characters.skillsSaves')}>
-				{hasProficiencyData && prof && profBonus !== null ? (
-					<>
-						<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
-							<Stat label={t('characters.proficiency')} value={sgn(profBonus)} />
-							{passivePer !== null && (
-								<Stat
-									label={t('characters.passivePerception')}
-									value={String(passivePer)}
-									icon="visibility-players"
-								/>
-							)}
-							{prof.hitDice.total > 0 && (
-								<Stat
-									label={t('characters.hitDice')}
-									value={`${prof.hitDice.total - prof.hitDice.spent}/${prof.hitDice.total} ${prof.hitDice.die}`}
-								/>
-							)}
-						</div>
-						<div style={{ ...eb, marginBottom: 6 }}>{t('characters.savingThrows')}</div>
-						<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-							{ABILITY_IDS.map((a) => {
-								const proficient = prof.saves.includes(a);
-								const bonus =
-									numericAbilityModifier(view.abilityScores[a] ?? 10) +
-									(proficient ? profBonus : 0);
-								return (
-									<span
-										key={a}
-										style={{
-											display: 'inline-flex',
-											alignItems: 'center',
-											gap: 6,
-											padding: '4px 10px',
-											borderRadius: 16,
-											font: `12px ${T.sans}`,
-											border: `1px solid ${proficient ? T.accBd : T.bd}`,
-											background: proficient ? T.accSub : T.surf,
-											color: proficient ? T.acc : T.ter,
-										}}
-									>
-										{a.toUpperCase()}
-										<span style={mono}>{sgn(bonus)}</span>
-									</span>
-								);
-							})}
-						</div>
-						<div style={{ ...eb, marginBottom: 6 }}>{t('characters.skills')}</div>
-						<div
-							style={{
-								display: 'grid',
-								gridTemplateColumns: isPhone ? 'minmax(0,1fr)' : '1fr 1fr',
-								gap: '4px 18px',
-							}}
-						>
-							{SKILLS.map((s) => {
-								const level = prof.skills[s.id] ?? 'none';
-								const bonus =
-									numericAbilityModifier(view.abilityScores[s.ability] ?? 10) +
-									(level === 'expertise' ? profBonus * 2 : level === 'proficient' ? profBonus : 0);
-								return (
-									<div
-										key={s.id}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 8,
-											font: `12.5px ${T.sans}`,
-											color: level === 'none' ? T.ter : T.ink,
-										}}
-									>
-										<span
-											aria-hidden
-											style={{
-												width: 8,
-												height: 8,
-												borderRadius: '50%',
-												flex: '0 0 auto',
-												background: level === 'none' ? 'transparent' : T.acc,
-												border: `1.5px solid ${level === 'none' ? T.bdS : T.acc}`,
-											}}
-										/>
-										<span style={{ flex: 1, minWidth: 0 }}>
-											{s.label}
-											{level === 'expertise' ? ' ★' : ''}
-										</span>
-										<span style={mono}>{sgn(bonus)}</span>
-									</div>
-								);
-							})}
-						</div>
-						<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-							{t('characters.proficiencyLegend')}
-						</div>
-					</>
+					<div>
+						<dt>{t('player.sheet.passivePerception')}</dt>
+						<dd>{passive ?? '—'}</dd>
+					</div>
+					<div>
+						<dt>{t('player.sheet.hitDice')}</dt>
+						<dd>
+							{prof.hitDice.total - prof.hitDice.spent}/{prof.hitDice.total} {prof.hitDice.die}
+						</dd>
+					</div>
+				</dl>
+			</Panel>
+			<Panel title={t('player.sheet.savingThrows')} pad={18}>
+				<DefinitionList
+					items={ABILITY_IDS.map((a) => ({
+						label: ABIL_FULL[a.toUpperCase()]!,
+						value:
+							view.abilityScores[a] == null
+								? '—'
+								: sgn(abilMod(score(a)) + (prof.saves.includes(a) ? (profBonus ?? 0) : 0)),
+						mono: true,
+					}))}
+				/>
+			</Panel>
+			<Panel title={t('player.sheet.skills')} pad={18}>
+				{hasProficiencyData ? (
+					<DefinitionList
+						items={SKILLS.map((skill) => {
+							const rank = prof.skills[skill.id] ?? 'none';
+							return {
+								label: `${skill.label}${rank === 'expertise' ? ' ★' : rank === 'proficient' ? ' •' : ''}`,
+								value:
+									view.abilityScores[skill.ability] == null
+										? '—'
+										: sgn(
+												abilMod(score(skill.ability)) +
+													(rank === 'expertise' ? 2 : rank === 'proficient' ? 1 : 0) *
+														(profBonus ?? 0),
+											),
+								mono: true,
+							};
+						})}
+					/>
 				) : (
-					// Honest empty state — no fabricated skill sheet when the character carries no
-					// proficiency data (older records, bare quick-creates).
-					<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-						{t('characters.noProficiencyData')}
-					</div>
+					<p>{t('player.sheet.noProficiencies')}</p>
 				)}
+				<p className="character-sheet-hint">{t('player.sheet.proficiencyLegend')}</p>
 			</Panel>
 		</>
 	);

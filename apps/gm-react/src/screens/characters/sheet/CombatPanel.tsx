@@ -1,151 +1,90 @@
-import { type ReactNode } from 'react';
-import { Button, ConditionTracker, Field, HPBar, Input, Select, Stat } from '../../../ds';
-import type { DSChangeEvent } from '../../../ds';
-import { type CharacterResources, type CharacterView } from '@dndtools/core';
-import { Panel, T, eb } from '../../../app/screen-kit';
-import { STANDARD_CONDITIONS, condKey } from '../shared';
+import { useState } from 'react';
+import { Button, Stat } from '../../../ds';
 import { useI18n } from '../../../i18n';
+import type { SheetCapabilities } from './capabilities';
+import { DmCombatEditor } from './DmCombatEditor';
+import type { SheetIO, SheetSubject } from './subject';
+import { VitalsBlock, type VitalsWrite } from './VitalsBlock';
 
-/** Hit points, AC, death saves and the condition tracker — the DM-only `character.set-combat`
- * surface. Extracted from Characters.tsx unchanged (RC-STB-2.6). */
+/** A `data.<key>` sheet string, or null when it was never written. */
+const dataString = (subject: SheetSubject, key: string): string | null => {
+	const v = subject.view.data?.[key];
+	return typeof v === 'string' && v.trim() !== '' ? v : null;
+};
+
+/**
+ * RC-CHR-6.2 — the Combat panel every route draws: armour class, speed and initiative, then the vitals
+ * block (HP stepper with undo, temporary HP, conditions) for anyone the core lets update combat
+ * resources, and — behind Edit — the DM's absolute `character.set-combat` editor.
+ */
 export function CombatPanel({
-	view,
-	isDm,
-	editMode,
-	resources,
-	hpDraft,
-	setHpDraft,
-	commitHpAmount,
-	typedHpAmount,
-	acDraft,
-	setAcDraft,
-	conditionInput,
-	setConditionInput,
-	applyHp,
-	applyAc,
-	setCondition,
-	fieldError,
+	subject,
+	caps,
+	actorId,
+	io,
+	writeVitals,
 }: {
-	view: CharacterView;
-	isDm: boolean;
-	editMode: boolean;
-	resources: CharacterResources | null;
-	hpDraft: string;
-	setHpDraft: (next: string) => void;
-	commitHpAmount: () => void;
-	typedHpAmount: () => number;
-	acDraft: string;
-	setAcDraft: (next: string) => void;
-	conditionInput: string;
-	setConditionInput: (next: string) => void;
-	applyHp: (delta: number) => Promise<void>;
-	applyAc: () => Promise<void>;
-	setCondition: (name: string, present: boolean) => Promise<void>;
-	fieldError: (field: 'ac' | 'slots' | 'xp') => ReactNode;
+	subject: SheetSubject;
+	caps: SheetCapabilities;
+	actorId: string;
+	io: SheetIO;
+	writeVitals: (write: VitalsWrite) => Promise<boolean>;
 }) {
 	const { t } = useI18n();
+	const [editing, setEditing] = useState(false);
+	const { combat } = subject.view;
+	const speed = dataString(subject, 'speed');
 	return (
-		<Panel accent title={t('characters.combat')}>
-			<HPBar current={view.combat.hp} max={view.combat.maxHp} label={t('characters.hitPoints')} />
-			<div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
-				<Stat label={t('characters.ac')} value={String(view.combat.ac)} icon="shield" />
-				{view.combat.tempHp > 0 && (
-					<Stat label={t('characters.temp')} value={String(view.combat.tempHp)} />
-				)}
-				{resources && resources.deathSaves.successes + resources.deathSaves.failures > 0 && (
-					<Stat
-						label={t('characters.deathSaves')}
-						value={`${resources.deathSaves.successes}✓ / ${resources.deathSaves.failures}✗`}
-					/>
+		<section className="character-sheet-combat" aria-label={t('mapInspector.combat')}>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'space-between',
+					gap: 'var(--space-2)',
+				}}
+			>
+				<h2>{t('mapInspector.combat')}</h2>
+				{caps.dm && (
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="note-edit"
+						onClick={() => setEditing((v) => !v)}
+					>
+						{t(editing ? 'common.action.done' : 'common.action.edit')}
+					</Button>
 				)}
 			</div>
-			<div style={{ ...eb, marginTop: 10 }}>{t('characters.conditions')}</div>
-			{/* DS ConditionTracker — the character-sheet template's stacked condition set; each
-						    registry key keeps its DISTINCT icon shape (grayscale-safe), unknown strings render
-						    as labeled badges. Removal (edit mode) round-trips character.set-combat. The add
-						    picker stays the Select below (addable=false avoids a second, dangling affordance). */}
-			{view.combat.conditions.length ? (
-				<ConditionTracker
-					entries={view.combat.conditions.map((c) => condKey(c) ?? c)}
-					compact={!editMode}
-					addable={false}
-					onRemove={
-						editMode && isDm
-							? (_key: string, idx: number) => setCondition(view!.combat.conditions[idx], false)
-							: undefined
-					}
+			<div className="character-sheet-combat-stats">
+				<Stat label={t('player.stat.ac')} value={String(combat.ac)} icon="shield" />
+				{/* speed / initiative — `data.*` sheet strings (edited in Identity); '—' until authored */}
+				<Stat
+					label={t('player.stat.speed')}
+					value={speed ? t('player.stat.speedValue', { feet: speed }) : '—'}
+					icon="travel"
 				/>
-			) : (
-				<span style={{ font: `13px ${T.sans}`, color: T.ter }}>{t('characters.none')}</span>
+				<Stat
+					label={t('player.stat.init')}
+					value={dataString(subject, 'init') ?? '—'}
+					icon="session-bolt"
+				/>
+			</div>
+			<VitalsBlock
+				subject={{
+					hp: combat.hp,
+					maxHp: combat.maxHp,
+					tempHp: combat.tempHp ?? 0,
+					conditions: combat.conditions,
+				}}
+				concentrating={!!subject.resources?.concentration?.effect}
+				canUpdate={caps.combat}
+				onWrite={writeVitals}
+				announce={io.announce}
+			/>
+			{caps.dm && editing && (
+				<DmCombatEditor id={subject.id} view={subject.view} actorId={actorId} io={io} />
 			)}
-
-			{editMode && isDm && (
-				<div
-					style={{
-						marginTop: 12,
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 10,
-						borderTop: `1px solid ${T.bd}`,
-						paddingTop: 12,
-					}}
-				>
-					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label={t('characters.amount')} style={{ width: 90 }}>
-							<Input
-								type="number"
-								min={1}
-								// Coercing per keystroke snapped the field back to 1 the instant it was
-								// cleared, so "12" could not be typed over "3". Hold the text, commit
-								// on blur — the pattern EncounterBuilder's CR/quantity fields use.
-								value={hpDraft}
-								onChange={(e: DSChangeEvent) => setHpDraft(e.target.value)}
-								onBlur={commitHpAmount}
-							/>
-						</Field>
-						<Button variant="secondary" size="sm" onClick={() => applyHp(-typedHpAmount())}>
-							{t('characters.damage')}
-						</Button>
-						<Button variant="secondary" size="sm" onClick={() => applyHp(typedHpAmount())}>
-							{t('characters.heal')}
-						</Button>
-					</div>
-					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label={t('characters.setAc')} style={{ width: 90 }}>
-							<Input
-								type="number"
-								value={acDraft}
-								placeholder={String(view.combat.ac)}
-								onChange={(e: DSChangeEvent) => setAcDraft(e.target.value)}
-							/>
-						</Field>
-						<Button variant="secondary" size="sm" onClick={applyAc}>
-							{t('characters.setAc')}
-						</Button>
-						{fieldError('ac')}
-					</div>
-					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-						<Field label={t('characters.addCondition')} style={{ minWidth: 160, flex: 1 }}>
-							<Select
-								value={conditionInput}
-								onChange={(e: DSChangeEvent) => setConditionInput(e.target.value)}
-								options={[
-									{ value: '', label: t('characters.choose') },
-									...STANDARD_CONDITIONS.map((c) => ({ value: c, label: c })),
-								]}
-							/>
-						</Field>
-						<Button
-							variant="secondary"
-							size="sm"
-							disabled={!conditionInput}
-							onClick={() => setCondition(conditionInput, true)}
-						>
-							{t('common.action.add')}
-						</Button>
-					</div>
-				</div>
-			)}
-		</Panel>
+		</section>
 	);
 }

@@ -1,51 +1,67 @@
+import { useState } from 'react';
 import { Button, DataTable, IconButton, Input } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
-import { type CharacterView } from '@dndtools/core';
 import { Panel, T } from '../../../app/screen-kit';
 import { useI18n } from '../../../i18n';
+import type { SheetIO, SheetSubject } from './subject';
 
-/** The attacks list and its DM/owner full-replacement editor (`character.update-attacks`).
- * Extracted from Characters.tsx unchanged (RC-STB-2.6). */
+type AttackRow = { id?: string; name: string; detail: string };
+
+/**
+ * The attacks list and its full-replacement editor (`character.update-attacks`, owner-or-DM): the saved
+ * rows become the attack list in one validated step, so add, edit and remove share the command. Everyone
+ * reads the list; the editor is drawn only for `canEdit`.
+ */
 export function AttacksPanel({
-	view,
-	isDm,
-	editMode,
-	attackRows,
-	setAttackRows,
-	saveAttacks,
-	isPhone,
+	subject,
+	actorId,
+	canEdit,
+	compact,
+	io,
 }: {
-	view: CharacterView;
-	isDm: boolean;
-	editMode: boolean;
-	attackRows: { id?: string; name: string; detail: string }[] | null;
-	setAttackRows: (
-		next:
-			| ({ id?: string; name: string; detail: string }[] | null)
-			| ((
-					previous: { id?: string; name: string; detail: string }[] | null,
-			  ) => { id?: string; name: string; detail: string }[] | null),
-	) => void;
-	saveAttacks: () => Promise<void>;
-	isPhone: boolean;
+	subject: SheetSubject;
+	actorId: string;
+	canEdit: boolean;
+	compact: boolean;
+	io: SheetIO;
 }) {
 	const { t } = useI18n();
+	const { view } = subject;
+	const isPhone = compact;
+	const [attackRows, setAttackRows] = useState<AttackRow[] | null>(null);
+	async function saveAttacks() {
+		if (!attackRows) return;
+		const attacks = attackRows
+			.filter((a) => a.name.trim())
+			.map((a) => ({
+				...(a.id ? { id: a.id } : {}),
+				name: a.name.trim(),
+				detail: a.detail.trim(),
+			}));
+		if (
+			await io.dispatch(
+				{
+					type: 'character.update-attacks',
+					actorId,
+					payload: { characterId: subject.id, attacks },
+				},
+				`Saved ${attacks.length} ${attacks.length === 1 ? 'attack' : 'attacks'}.`,
+			)
+		)
+			setAttackRows(null);
+	}
 	return (
 		<Panel
 			title={t('characters.attacks')}
 			action={
-				editMode && isDm && attackRows === null ? (
+				canEdit && attackRows === null ? (
 					<Button
 						variant="secondary"
 						size="sm"
 						icon="note-edit"
 						onClick={() =>
 							setAttackRows(
-								view.attacks.map((a) => ({
-									id: a.id,
-									name: a.name,
-									detail: a.detail ?? '',
-								})),
+								view.attacks.map((a) => ({ id: a.id, name: a.name, detail: a.detail ?? '' })),
 							)
 						}
 					>
@@ -57,7 +73,7 @@ export function AttacksPanel({
 			{attackRows !== null ? (
 				// Full-replacement editor: the saved rows become the attack list via
 				// `character.update-attacks` (rows without an id are new attacks).
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 					{attackRows.map((a, idx) => (
 						<div
 							key={a.id ?? `new-${idx}`}
@@ -66,7 +82,7 @@ export function AttacksPanel({
 								// The sheet's outer grid is phone-guarded but this nested attack editor was
 								// not: Name + Detail + remove crushed onto one 393px row.
 								gridTemplateColumns: isPhone ? 'minmax(0,1fr) 28px' : '1fr 1.5fr 28px',
-								gap: 8,
+								gap: T.space.two,
 								alignItems: 'center',
 							}}
 						>
@@ -109,7 +125,7 @@ export function AttacksPanel({
 							{t('characters.attacksClearNote')}
 						</div>
 					)}
-					<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+					<div style={{ display: 'flex', gap: T.space.two, alignItems: 'center' }}>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -122,7 +138,7 @@ export function AttacksPanel({
 						<Button variant="ghost" size="sm" onClick={() => setAttackRows(null)}>
 							{t('common.action.cancel')}
 						</Button>
-						<Button variant="primary" size="sm" onClick={saveAttacks}>
+						<Button variant="secondary" size="sm" onClick={saveAttacks}>
 							{t('characters.saveAttacks')}
 						</Button>
 					</div>
@@ -139,7 +155,7 @@ export function AttacksPanel({
 				/>
 			) : (
 				<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
-					{t(isDm ? 'characters.noAttacksDm' : 'characters.noAttacks')}
+					{t(canEdit ? 'characters.noAttacksDm' : 'characters.noAttacks')}
 				</div>
 			)}
 		</Panel>

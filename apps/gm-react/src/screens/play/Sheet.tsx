@@ -1,21 +1,23 @@
-import type { CSSProperties } from 'react';
-import type { CoreCommand } from '@dndtools/core';
-import { Avatar, Badge, Chip, ConditionBadge, Stat } from '../../ds';
+import { Avatar, Badge, Chip, ConditionBadge, Icon, Stat } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
-import { ABIL_ORDER, abilMod, sgn } from '../../app/character/abilities';
-import { PlayerResources, type VitalsWrite } from '../player/Vitals';
+import { useRuntime } from '../../runtime/RuntimeContext';
 import type { CommandRequest } from '../../net/messages';
 import { sheetCombatCommands, type SheetWrites } from '../../net/viewModels';
-import { ABIL_FULL, condKey, Panel, PvPage, SectionHead, type LiveData } from './shared';
+import { capabilitiesFromWrites } from '../characters/sheet/capabilities';
+import { useSheetFeedback } from '../characters/sheet/feedback';
+import { SheetBody } from '../characters/sheet/SheetBody';
+import type { SheetSubject } from '../characters/sheet/subject';
+import type { VitalsWrite } from '../characters/sheet/VitalsBlock';
+import { condKey, Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { useI18n } from '../../i18n';
 
 /**
- * 2 · MY CHARACTER — the player's own sheet. RC-CHR-6.1: the same vitals block `/player` renders (HP
- * with undo, temporary HP, conditions, spell slots, class resources, rest), writing through `onWrite`:
- * a command REQUEST the host stamps when joined, a local dispatch as the viewer when previewing. A
- * control is drawn only when `writes` (the core's authority for this viewer, folded with read-only
- * preview by the caller) says the write would be taken.
+ * 2 · MY CHARACTER — the player's own sheet. RC-CHR-6.2: the one sheet body `/characters/:id` and
+ * `/player` render, writing through `onWrite`: a command REQUEST the host stamps when joined, a local
+ * dispatch as the viewer when previewing. Panels and controls follow `writes` (the core's authority
+ * for this viewer, folded with read-only preview by the caller), so nothing is drawn the actor cannot
+ * dispatch.
  */
 export function SheetSection({
 	data,
@@ -31,6 +33,16 @@ export function SheetSection({
 }) {
 	const { t } = useI18n();
 	const viewport = useViewport();
+	const runtime = useRuntime();
+	// Refusals are already toasted by the frame (`writeSheet`), so a refused write says nothing here.
+	const feedback = useSheetFeedback({
+		run: async (command) =>
+			(await onWrite({ type: command.type, payload: command.payload }))
+				? { ok: true }
+				: { ok: false, message: null },
+		newId: () => runtime.newId(),
+		failure: () => t('play.sheet.writeDeclined'),
+	});
 	const C = data.pc;
 	const pcId = data.pcId;
 	if (!C || !pcId) {
@@ -43,27 +55,35 @@ export function SheetSection({
 			</PvPage>
 		);
 	}
-	// The vitals block takes the `/player` dispatch shape; the actor it names is dropped here, because
-	// the host (joined) or the caller (preview) stamps the real one.
-	const dispatch = (command: CoreCommand) =>
-		onWrite({ type: command.type, payload: command.payload });
-	// While the PC fights, the change also lands on its tracker row (see `sheetCombatCommands`).
+	// The body's writes carry no actor here: the host (joined) or the caller (preview) stamps it.
+	// While the PC fights, a vitals change also lands on its tracker row (see `sheetCombatCommands`).
 	const writeVitals = async (write: VitalsWrite) => {
 		for (const command of sheetCombatCommands(pcId, data.pcCombatantId ?? null, write)) {
 			if (!(await onWrite(command))) return false;
 		}
 		return true;
 	};
+	const extra = data.sheet;
+	const subject: SheetSubject = {
+		id: pcId,
+		view: C,
+		level: data.level,
+		resources: data.resources,
+		profBonus: extra?.profBonus ?? null,
+		passive: extra?.passive ?? null,
+		inventory: extra?.inventory ?? null,
+		encumbrance: extra?.encumbrance ?? null,
+		advancement: extra?.advancement ?? null,
+		xpEligible: extra?.xpEligible ?? null,
+		milestoneEligible: extra?.milestoneEligible ?? null,
+		journal: data.journal,
+		// The companion reads no vault of the DM's to search, and is never the DM who shares.
+		mentions: [],
+		sharing: null,
+	};
 	// Real sheet identity: the `data.class` field the draft flow writes + the CHAR-009 level.
 	const cls = typeof C.data?.class === 'string' && C.data.class.trim() !== '' ? C.data.class : null;
 	const clsLabel = cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : t('play.sheet.adventurer');
-	const cardBox: CSSProperties = {
-		textAlign: 'center',
-		padding: `${T.space.two} ${T.space.oneHalf}`,
-		borderRadius: T.radius.lg,
-		border: `1px solid ${T.bd}`,
-		background: T.surf,
-	};
 	return (
 		<div>
 			<div
@@ -134,67 +154,36 @@ export function SheetSection({
 						);
 					})}
 				</div>
+				{/* A successful write otherwise changes only a number, which announces nothing. */}
+				<div role="status" style={{ font: `12px ${T.sans}`, color: T.sub }}>
+					{feedback.note}
+				</div>
 			</div>
-			<PvPage max={1140}>
+			{feedback.error && (
 				<div
+					key={feedback.error.seq}
+					role="alert"
 					style={{
-						display: 'grid',
-						gridTemplateColumns: viewport === 'phone' ? 'minmax(0,1fr)' : 'auto minmax(0,1fr)',
-						gap: T.space.four,
-						alignItems: 'start',
+						padding: `${T.space.two} ${T.space.four}`,
+						font: `12px ${T.sans}`,
+						color: 'var(--color-status-warning-text)',
+						background: 'var(--color-status-warning-subtle)',
 					}}
 				>
-					<div
-						style={{
-							display: viewport === 'phone' ? 'grid' : 'flex',
-							gridTemplateColumns: viewport === 'phone' ? 'repeat(3,1fr)' : undefined,
-							flexDirection: 'column',
-							gap: T.space.two,
-							width: viewport === 'phone' ? 'auto' : 116,
-						}}
-					>
-						{ABIL_ORDER.map((key) => {
-							const score = (C.abilityScores as Record<string, number | undefined>)[key];
-							return (
-								<div key={key} style={cardBox}>
-									<div style={{ ...eb, color: T.ter }}>{t(ABIL_FULL[key])}</div>
-									<div style={{ font: `700 24px ${T.mono}`, lineHeight: 1, color: T.ink }}>
-										{sgn(abilMod(score))}
-									</div>
-									<div style={{ font: `11px ${T.mono}`, color: T.ter, marginTop: T.space.half }}>
-										{score ?? '—'}
-									</div>
-								</div>
-							);
-						})}
-					</div>
-					<PlayerResources
-						charId={pcId}
-						resources={data.resources}
-						resourceInstances={C.resources ?? []}
-						canManageResources={writes.manage}
-						canUpdateCombat={writes.combat}
-						vitals={{
-							hp: C.combat.hp,
-							maxHp: C.combat.maxHp,
-							tempHp: C.combat.tempHp ?? 0,
-							conditions: C.combat.conditions,
-						}}
-						onVitalsWrite={writeVitals}
-						actorId={actorId}
-						compact={viewport !== 'desktop'}
-						restSubject={{
-							id: pcId,
-							name: C.name,
-							hp: C.combat.hp,
-							maxHp: C.combat.maxHp,
-							hitDice: C.proficiencies.hitDice,
-							conMod: Math.floor(((C.abilityScores.con ?? 10) - 10) / 2),
-							exhaustion: data.resources?.exhaustion ?? 0,
-						}}
-						dispatch={dispatch}
-					/>
+					<Icon name="warning" size={13} /> {feedback.error.text}
 				</div>
+			)}
+			<PvPage max={1140}>
+				<SheetBody
+					subject={subject}
+					caps={capabilitiesFromWrites(writes)}
+					actorId={actorId}
+					io={feedback.io}
+					writeVitals={writeVitals}
+					singleColumn={viewport === 'phone'}
+					compact={viewport !== 'desktop'}
+					idBase="play-sheet"
+				/>
 			</PvPage>
 		</div>
 	);

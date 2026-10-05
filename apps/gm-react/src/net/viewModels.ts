@@ -18,7 +18,16 @@ import {
 	CHARACTER_ENTITY_TYPE,
 	resourcesOf,
 	availableSlots,
+	checkAdvancementEligibility,
+	computeEncumbrance,
+	effectiveProficiencyBonus,
+	inventoryOf,
+	passivePerception,
 	type ActorId,
+	type AdvancementState,
+	type CharacterInventory,
+	type EligibilityResult,
+	type EncumbranceState,
 	type CoreStateSlice,
 	type CommandCenterHomeView,
 	type PartyOverview,
@@ -206,6 +215,20 @@ export interface PlayerData {
 	 */
 	pcCombatantId: string | null;
 	resources: ReturnType<typeof resourcesOf> | null;
+	/**
+	 * RC-CHR-6.2 — the rest of `pc`'s sheet body (the one `/player` and `/characters/:id` render): derived
+	 * reads, equipment, and the advancement standing the level-up panel drives. Read from the record only
+	 * after the `pc` visibility gate passed, like `resources`; null without a PC.
+	 */
+	sheet: {
+		profBonus: number;
+		passive: number;
+		inventory: CharacterInventory;
+		encumbrance: EncumbranceState;
+		advancement: AdvancementState;
+		xpEligible: EligibilityResult;
+		milestoneEligible: EligibilityResult;
+	} | null;
 	party: PartyOverview;
 	/**
 	 * RC-CHR-3.1 — the live party vitals the party panel renders (PC members only; the panel's
@@ -500,6 +523,18 @@ export function buildPlayerData(
 		sheetWrites,
 		pcCombatantId: pcCombatant?.id ?? null,
 		resources,
+		sheet:
+			record && pc
+				? {
+						profBonus: effectiveProficiencyBonus(record),
+						passive: passivePerception(record),
+						inventory: inventoryOf(record),
+						encumbrance: computeEncumbrance(record),
+						advancement: advancementStateOf(record),
+						xpEligible: checkAdvancementEligibility(record, 'xp'),
+						milestoneEligible: checkAdvancementEligibility(record, 'milestone'),
+					}
+				: null,
 		party,
 		partyVitals: buildPartyVitals(
 			state,

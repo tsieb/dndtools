@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Badge, Button, Field, Icon, Input, SpellSlots } from '../../../ds';
 import type { DSChangeEvent } from '../../../ds';
 import {
@@ -10,12 +10,55 @@ import {
 } from '@dndtools/core';
 import { Panel, T, eb, mono } from '../../../app/screen-kit';
 import { useI18n } from '../../../i18n';
+import type { SheetField, SheetIO, SheetSubject } from './subject';
+import { useSpellEditor } from './useSpellEditor';
 
-/** The spellcasting panel — slot economy, class resources, known/prepared spells and the DM's
- * declare-slot / add-spell editors. Extracted from Characters.tsx unchanged (RC-STB-2.6). */
+/**
+ * The spellcasting panel — slot economy, class resources, known/prepared spells and, behind Edit, the
+ * declare-slot / add-spell editors. Every one of those writes (`character.set-spell-slots`,
+ * `character.set-spell`) is the owner-or-DM CHAR-008 authority, so the pips, the prepared toggles and
+ * the Edit action are live only for `canEdit`; everyone else reads them.
+ */
 export function SpellsPanel({
-	isDm,
-	editMode,
+	subject,
+	actorId,
+	canEdit,
+	io,
+}: {
+	subject: SheetSubject;
+	actorId: string;
+	canEdit: boolean;
+	io: SheetIO;
+}) {
+	const [editing, setEditing] = useState(false);
+	const editor = useSpellEditor({
+		actorId,
+		id: subject.id,
+		newId: io.newId,
+		dispatch: io.dispatch,
+		setError: (e) => io.refuse(e.text, e.field),
+	});
+	const r = subject.resources;
+	return (
+		<SpellsPanelBody
+			canEdit={canEdit}
+			editing={editing && canEdit}
+			setEditing={setEditing}
+			slots={r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : []}
+			classResources={r ? Object.values(r.classResources) : []}
+			spells={
+				r ? [...r.spells].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)) : []
+			}
+			{...editor}
+			fieldError={io.fieldError}
+		/>
+	);
+}
+
+function SpellsPanelBody({
+	canEdit,
+	editing,
+	setEditing,
 	slots,
 	classResources,
 	spells,
@@ -33,8 +76,9 @@ export function SpellsPanel({
 	declareSlots,
 	fieldError,
 }: {
-	isDm: boolean;
-	editMode: boolean;
+	canEdit: boolean;
+	editing: boolean;
+	setEditing: (next: boolean) => void;
 	slots: SpellSlotLevel[];
 	classResources: ClassResource[];
 	spells: PreparedSpell[];
@@ -50,17 +94,36 @@ export function SpellsPanel({
 	togglePrepared: (spell: PreparedSpell) => Promise<void>;
 	addSpell: () => Promise<void>;
 	declareSlots: () => Promise<void>;
-	fieldError: (field: 'ac' | 'slots' | 'xp') => ReactNode;
+	fieldError: (field: SheetField) => ReactNode;
 }) {
 	const { t } = useI18n();
 	return (
-		<Panel title={t('characters.spellcasting')}>
+		<Panel
+			title={t('characters.spellcasting')}
+			action={
+				canEdit ? (
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="note-edit"
+						onClick={() => setEditing(!editing)}
+					>
+						{t(editing ? 'common.action.done' : 'common.action.edit')}
+					</Button>
+				) : undefined
+			}
+		>
+			{slots.length === 0 && classResources.length === 0 && spells.length === 0 && !editing && (
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
+					{t('player.vitals.noSlotsBody')}
+				</div>
+			)}
 			{slots.length > 0 && (
 				// Live slot economy (character-sheet template: SpellSlots WITH onToggle) — a pip
 				// click spends/recovers through character.set-spell-slots (CHAR-008, DM-or-owner,
 				// no session gate). Read-only for any non-DM viewer of this DM sheet.
 				<SpellSlots
-					readOnly={!isDm}
+					readOnly={!canEdit}
 					levels={slots.map((sl) => ({
 						level: sl.level,
 						total: sl.max,
@@ -159,7 +222,7 @@ export function SpellsPanel({
 										</span>
 									)}
 								</span>
-								{isDm ? (
+								{canEdit ? (
 									<button
 										type="button"
 										aria-pressed={s.prepared}
@@ -202,7 +265,7 @@ export function SpellsPanel({
 					</div>
 				</div>
 			)}
-			{editMode && isDm && (
+			{editing && (
 				<div
 					style={{
 						marginTop: 12,
