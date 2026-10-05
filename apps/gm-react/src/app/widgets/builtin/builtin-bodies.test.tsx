@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	HOME_WIDGET_TYPES,
 	createSystemWidgetPackages,
 	dispatchCommand,
 	type CoreCommand,
@@ -158,9 +159,13 @@ function campaign(): CoreStateSlice {
 	return state;
 }
 
-const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(
-	createSystemWidgetPackages().packages,
-).flatMap((record) => record.package.widgets);
+// RC-CAN-7.6 — the Command Center's parts are system widgets with NO builtin body: they render
+// through their hub templates, which is the point of them (a GM-built copy draws the same). The hub
+// templates carry their own tests (`templates/Hub.test.tsx`, `screens/CommandCenter.baseline.test.tsx`).
+const HOME_PARTS: ReadonlySet<string> = new Set(HOME_WIDGET_TYPES);
+const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(createSystemWidgetPackages().packages)
+	.flatMap((record) => record.package.widgets)
+	.filter((definition) => !HOME_PARTS.has(definition.type));
 
 /** A placed instance of one system widget definition, with the definition's declared defaults. */
 function boardWidget(definition: WidgetDefinition): BoardWidget {

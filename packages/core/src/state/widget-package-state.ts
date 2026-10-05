@@ -76,7 +76,13 @@ export type WidgetDataQuerySource =
 	// half; the resolver still projects it for the viewer.
 	| 'live-peers'
 	| 'table-readiness'
-	| 'continuity-mentions';
+	| 'continuity-mentions'
+	// RC-CAN-7.6 — the three reads the Command Center's parts are built on: the hero's resume target,
+	// the table scenes (every scene that is not a template or a default screen) and the library
+	// sections with their live counts. Each is projected from existing actor-scoped reads.
+	| 'resume'
+	| 'table-scenes'
+	| 'library-sections';
 export type WidgetOutputDestinationClass =
 	| 'scene'
 	| 'session'
@@ -429,7 +435,23 @@ interface WidgetIntentBase {
 	id: string;
 	/** The button label a template shows. Stored text, like a command's `displayName`. */
 	displayName: string;
+	/**
+	 * RC-CAN-7.6 — the glyph a launcher tile or link row draws beside the label (a DS icon name).
+	 * Optional; absent, the template draws the widget's own icon.
+	 */
+	icon?: string;
+	/** RC-CAN-7.6 — the supporting line under the label ("A canvas for the table"). Optional. */
+	hint?: string;
 }
+
+/**
+ * RC-CAN-7.6 — stored widget text that names a message in the app's catalog instead of spelling the
+ * words out: `i18n:home.scenes`. A first-party template renders it in the viewer's language (and the
+ * active system's vocabulary); text without the prefix is shown exactly as written. It is plain
+ * stored text either way, so it survives export, import and the builder unchanged, and a widget a GM
+ * copies from a system one reads the same as the original in every language.
+ */
+export const WIDGET_TEXT_MESSAGE_PREFIX = 'i18n:' as const;
 
 export type WidgetIntentDescriptor =
 	| (WidgetIntentBase & {
@@ -900,8 +922,10 @@ export const ALL_WIDGET_DATA_QUERY_SOURCES = [
 
 /**
  * RC-WID-5.2 — the hub sources the SCREENS_PARITY gap register (§4.1 G-02) needs, in a stable order.
- * Each resolves through an existing actor-scoped core read, exactly like the originals. The last three
- * also read what the host app knows (its live table), and the resolver projects that for the viewer.
+ * Each resolves through an existing actor-scoped core read, exactly like the originals.
+ * `live-peers`, `table-readiness` and `continuity-mentions` also read what the host app knows (its
+ * live table), and the resolver projects that for the viewer. RC-CAN-7.6 appends the three the
+ * Command Center's parts read (`resume`, `table-scenes`, `library-sections`).
  */
 export const ALL_WIDGET_HUB_QUERY_SOURCES = [
 	'screens',
@@ -924,6 +948,9 @@ export const ALL_WIDGET_HUB_QUERY_SOURCES = [
 	'live-peers',
 	'table-readiness',
 	'continuity-mentions',
+	'resume',
+	'table-scenes',
+	'library-sections',
 ] as const satisfies readonly WidgetDataQuerySource[];
 
 /** Every source a definition may declare: the persisted schema's enum and the builder's catalogue. */
@@ -1129,6 +1156,264 @@ function commandCenterWidget(input: {
 		configFields: [titleField(), ...(input.configFields ?? [])],
 		dataQueries: input.dataQueries,
 	});
+}
+
+// --- RC-CAN-7.6 — the Command Center's parts -------------------------------------------------------
+// The default home screen is a flow screen of five SYSTEM TEMPLATE widgets: the hero, the scenes,
+// Create, Manage and the library. They are defined here through the same public definition surface a
+// GM-built widget uses (a template kind, declared queries, declared intents and config fields) and
+// rendered by the same template renderers, so a copy the GM opens in the widget builder looks and
+// works exactly like the original. Text that the app translates is stored as `i18n:` references.
+
+/** The widget types of the Command Center's parts, in the home screen's reading order. */
+export const HOME_WIDGET_TYPES = [
+	'home-hero',
+	'home-scenes',
+	'home-create',
+	'home-manage',
+	'home-library',
+] as const;
+export type HomeWidgetType = (typeof HOME_WIDGET_TYPES)[number];
+
+/** Placeable on any screen, but not offered in the add gallery: the home screen places them. */
+const HOME_PLACEMENT: WidgetPlacement = { surfaces: ['scene'], libraryListed: false };
+
+const i18n = (key: string) => `${WIDGET_TEXT_MESSAGE_PREFIX}${key}`;
+
+/** The builder's own presentation field (LayoutStep), defaulting to bare: a part reads as page content. */
+function barePresentationField(): WidgetConfigField {
+	return {
+		key: 'presentation',
+		label: 'Presentation',
+		group: 'display',
+		control: 'select',
+		default: 'bare',
+		options: [
+			{ value: 'framed', label: 'Framed' },
+			{ value: 'bare', label: 'Bare' },
+		],
+	};
+}
+
+function textDefaultField(key: string, label: string, value: string): WidgetConfigField {
+	return { key, label, control: 'text', group: 'content', default: value };
+}
+
+function homePart(input: {
+	type: HomeWidgetType;
+	displayName: string;
+	icon: string;
+	description: string;
+	template: WidgetTemplateKind;
+	size: { width: number; height: number };
+	configFields: WidgetConfigField[];
+	dataQueries?: WidgetDataQueryDefinition[];
+	intents: WidgetIntentDescriptor[];
+}): WidgetDefinition {
+	return {
+		...systemWidget({
+			type: input.type,
+			displayName: input.displayName,
+			category: 'Command Center',
+			description: input.description,
+			icon: input.icon,
+			defaultSize: input.size,
+			minSize: { width: 240, height: 96 },
+			placement: HOME_PLACEMENT,
+			renderEntrypoint: templateEntrypoint(input.template),
+			configFields: [titleField(), barePresentationField(), ...input.configFields],
+			dataQueries: input.dataQueries,
+		}),
+		intents: input.intents,
+	};
+}
+
+/**
+ * The five parts. Each mirrors one SCREENS_PARITY Command Center group: the hero (CC-01–CC-06), the
+ * scenes (CC-07–CC-10), Create (CC-11), Manage (CC-12) and the library (CC-13).
+ */
+export function createHomeWidgetDefinitions(): WidgetDefinition[] {
+	return [
+		homePart({
+			type: 'home-hero',
+			displayName: 'Resume',
+			icon: 'enter',
+			description: 'The live state, the party and the one way back into play.',
+			template: 'hero',
+			size: { width: 1152, height: 120 },
+			configFields: [
+				textDefaultField('eyebrow', 'Label', i18n('nav.commandCenter')),
+				textDefaultField('liveEyebrow', 'Label while live', i18n('home.sessionLive')),
+			],
+			dataQueries: [
+				dataQuery('resume', 'Resume', 'resume', 'dm'),
+				dataQuery('party', 'Party', 'party', 'dm'),
+			],
+			// The resume row names which of these its target takes (the row's `meta`).
+			intents: [
+				{
+					id: 'enter-gm-screen',
+					displayName: i18n('home.enterGmScreen'),
+					kind: 'open-route',
+					route: '/board',
+					icon: 'enter',
+				},
+				{ id: 'enter-scene', displayName: i18n('home.enterScene'), kind: 'open-screen', icon: 'enter' },
+				{ id: 'open-scene', displayName: i18n('home.openScene'), kind: 'open-screen', icon: 'enter' },
+				{
+					id: 'open-library',
+					displayName: i18n('home.openScene'),
+					kind: 'open-route',
+					route: '/scenes',
+					icon: 'enter',
+				},
+			],
+		}),
+		homePart({
+			type: 'home-scenes',
+			displayName: 'Scenes',
+			icon: 'scene',
+			description: 'Every table scene, its status and how much is on it.',
+			template: 'card-grid',
+			size: { width: 672, height: 240 },
+			configFields: [textDefaultField('heading', 'Heading', i18n('home.scenes'))],
+			dataQueries: [dataQuery('scenes', 'Scenes', 'table-scenes', 'dm')],
+			intents: [
+				{ id: 'open', displayName: i18n('home.openScene'), kind: 'open-screen' },
+				{
+					id: 'new',
+					displayName: i18n('home.newScene'),
+					kind: 'open-route',
+					route: '/scenes',
+					icon: 'add',
+				},
+				{
+					id: 'empty',
+					displayName: i18n('home.createFirstScene'),
+					kind: 'open-route',
+					route: '/scenes',
+					icon: 'add',
+				},
+			],
+		}),
+		homePart({
+			type: 'home-create',
+			displayName: 'Create',
+			icon: 'add',
+			description: 'Start a scene, a character, a map, a widget or a note.',
+			template: 'launcher',
+			size: { width: 480, height: 240 },
+			configFields: [
+				textDefaultField('heading', 'Heading', i18n('home.create')),
+				numberField('columns', 'Columns', 2, { min: 1, max: 4, step: 1 }, 'display'),
+			],
+			intents: [
+				{
+					id: 'new-scene',
+					displayName: i18n('home.create.scene'),
+					kind: 'open-route',
+					route: '/scenes',
+					icon: 'scene',
+					hint: i18n('home.create.sceneSub'),
+				},
+				{
+					id: 'new-character',
+					displayName: i18n('home.create.character'),
+					kind: 'create',
+					target: 'character',
+					icon: 'new-character',
+					hint: i18n('home.create.characterSub'),
+				},
+				{
+					id: 'new-map',
+					displayName: i18n('home.create.map'),
+					kind: 'create',
+					target: 'map',
+					icon: 'new-map',
+					hint: i18n('home.create.mapSub'),
+				},
+				{
+					id: 'new-widget',
+					displayName: i18n('home.create.widget'),
+					kind: 'create',
+					target: 'widget',
+					icon: 'widget',
+					hint: i18n('home.create.widgetSub'),
+				},
+				{
+					id: 'new-note',
+					displayName: i18n('home.create.note'),
+					kind: 'create',
+					target: 'note',
+					icon: 'note-edit',
+					hint: i18n('home.create.noteSub'),
+				},
+			],
+		}),
+		homePart({
+			type: 'home-manage',
+			displayName: 'Manage',
+			icon: 'settings-gear',
+			description: 'Players, permissions and vault connections, one tap from home.',
+			template: 'link-list',
+			size: { width: 480, height: 200 },
+			configFields: [textDefaultField('heading', 'Heading', i18n('home.manage'))],
+			intents: [
+				{
+					id: 'players',
+					displayName: i18n('home.manage.players'),
+					kind: 'open-settings',
+					tab: 'players',
+					icon: 'characters-person',
+					hint: i18n('home.manage.playersMeta'),
+				},
+				{
+					id: 'permissions',
+					displayName: i18n('home.manage.permissions'),
+					kind: 'open-settings',
+					tab: 'permissions',
+					icon: 'dm-only',
+					hint: i18n('home.manage.permissionsMeta'),
+				},
+				{
+					id: 'vault',
+					displayName: i18n('home.manage.vault'),
+					kind: 'open-settings',
+					tab: 'vault',
+					icon: 'settings-gear',
+					hint: i18n('home.manage.vaultMeta'),
+				},
+			],
+		}),
+		homePart({
+			type: 'home-library',
+			displayName: 'Library',
+			icon: 'book',
+			description: 'The library sections with what each one holds.',
+			template: 'link-list',
+			size: { width: 1152, height: 160 },
+			configFields: [
+				textDefaultField('heading', 'Heading', i18n('home.library')),
+				selectField(
+					'layout',
+					'Layout',
+					[
+						{ value: 'list', label: 'List' },
+						{ value: 'grid', label: 'Cards' },
+					],
+					'grid',
+					'display',
+				),
+			],
+			dataQueries: [dataQuery('sections', 'Library', 'library-sections', 'dm')],
+			intents: [
+				{ id: 'characters', displayName: i18n('nav.characters'), kind: 'open-route', route: '/characters' },
+				{ id: 'atlas', displayName: i18n('nav.maps'), kind: 'open-route', route: '/atlas' },
+				{ id: 'campaign', displayName: i18n('nav.story'), kind: 'open-route', route: '/campaign' },
+				{ id: 'knowledge', displayName: i18n('nav.notes'), kind: 'open-route', route: '/knowledge' },
+			],
+		}),
+	];
 }
 
 export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): WidgetPackageState {
@@ -1504,6 +1789,15 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			version: '1.0.0',
 			displayName: 'Command Center Widgets',
 			widgets: commandCenterWidgets,
+			migrations: [],
+			assets: [],
+			portabilityWarnings: [],
+		},
+		{
+			id: 'system.home-widgets',
+			version: '1.0.0',
+			displayName: 'Command Center Parts',
+			widgets: createHomeWidgetDefinitions(),
 			migrations: [],
 			assets: [],
 			portabilityWarnings: [],

@@ -3706,6 +3706,9 @@ export const en = {
 	'builder.source.livePeers': 'Live table',
 	'builder.source.tableReadiness': 'Table readiness',
 	'builder.source.continuityMentions': 'Names without notes',
+	'builder.source.resume': 'Where to resume',
+	'builder.source.tableScenes': 'Table scenes',
+	'builder.source.librarySections': 'Library sections',
 	'builder.data.preview': 'Live preview',
 	'builder.data.previewYou': 'For you: {count, plural, one {# row} other {# rows}}',
 	'builder.data.previewPlayer': 'For a player: {count, plural, one {# row} other {# rows}}',
@@ -4869,6 +4872,7 @@ export const en = {
 	'sceneEditor.autoLayoutOrder': 'Auto (layout order)',
 	'sceneEditor.position': 'Position {index}',
 	'sceneEditor.editWidgetDefinition': 'Edit widget definition',
+	'sceneEditor.rebuildWidget': 'Rebuild in the widget builder',
 	'sceneEditor.removeWidget': 'Remove widget',
 	// RC-POL-1.3 — the toolbar, undo labels and the Inspector's tab and panel labels.
 	'sceneEditor.editLayout': 'Edit layout',
@@ -5482,6 +5486,8 @@ export const en = {
 	'home.count.campaign':
 		'{threads, plural, one {# thread} other {# threads}} · {factions, plural, one {# faction} other {# factions}}',
 	'home.count.notes': '{count, plural, one {# note} other {# notes}}',
+	'home.setupFailed': 'The Command Center couldn\'t be set up on this device.',
+	'home.setupFailedHint': 'Check the device\'s storage space, then try again.',
 
 	/* Join › the emailed invite landing page */
 	'join.unavailable':

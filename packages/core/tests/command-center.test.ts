@@ -75,15 +75,19 @@ describe('CMD-001 Command Center as home Scene', () => {
 		expect(scene!.widgets.map((w) => w.type)).toEqual(
 			DEFAULT_COMMAND_CENTER_TOOLS.map((t) => t.type),
 		);
+		// RC-CAN-7.6: the home screen is created beside the board, as its own scene.
 		expect(result.events.map((e) => e.kind)).toEqual([
 			'command-center.home-created',
 			'command-center.home-ready',
+			'scene.created',
 		]);
-		// A scene-create and a set-home operation are appended for sync replay.
-		expect(result.operationIds).toHaveLength(2);
+		// A scene-create and a set-home operation for the board, and a scene-create for the home
+		// screen, are appended for sync replay.
+		expect(result.operationIds).toHaveLength(3);
 		expect(result.nextState.sync.operations.map((o) => o.opType)).toEqual([
 			'scene.create',
 			'command-center.set-home',
+			'scene.create',
 		]);
 	});
 
@@ -107,7 +111,8 @@ describe('CMD-001 Command Center as home Scene', () => {
 		);
 
 		expect(second.nextState.commandCenter.homeSceneId).toBe(homeSceneId);
-		expect(Object.keys(second.nextState.scenes.scenes)).toHaveLength(1);
+		// The board and the home screen, each once.
+		expect(Object.keys(second.nextState.scenes.scenes)).toHaveLength(2);
 		expect(second.operationIds).toHaveLength(0);
 		expect(second.events.map((e) => e.kind)).toEqual(['command-center.home-ready']);
 	});

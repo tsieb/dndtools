@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { findWidgetDefinition, type WidgetTemplateKind } from '@dndtools/core';
+import { useI18n } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import type { WidgetCommandHandler } from '../../widget-bodies';
@@ -41,12 +42,15 @@ function connect(
 ): ComponentType<ConnectedProps> {
 	function Connected({ widget, onCommand }: ConnectedProps) {
 		const runtime = useRuntime();
+		const { t } = useI18n();
 		const definition = findWidgetDefinition(runtime.state.widgets, widget.type) ?? null;
+		// RC-CAN-7.6: the sources that carry the app's own prose read in the viewer's language.
 		const data = resolveWidgetTemplateData(
 			runtime.state,
 			runtime.activeActorId,
 			definition,
 			widget,
+			{ translate: t },
 		);
 		return <Template widget={widget} definition={definition} data={data} onCommand={onCommand} />;
 	}

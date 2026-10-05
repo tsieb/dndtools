@@ -125,8 +125,10 @@ describe('NAV-003 local section navigation', () => {
 		const { state, playerSceneId } = baseVault();
 		const dmView = resolveNavigationView(state, DM_ACTOR.id, sceneLocation(playerSceneId));
 		// The Command Center home is itself a dm-only Scene, so it appears in the DM's
-		// local section nav alongside the authored Scenes (name-sorted).
+		// local section nav alongside the authored Scenes (name-sorted) — as does the home
+		// screen `ensure-home` provisions beside it (RC-CAN-7.6), which carries the same name.
 		expect(dmView.localItems.map((i) => i.title)).toEqual([
+			'Command Center',
 			'Command Center',
 			'Secret Lair',
 			'Tavern',

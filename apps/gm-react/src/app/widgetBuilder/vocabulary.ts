@@ -93,6 +93,10 @@ export const QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, MessageKey> = {
 	'live-peers': 'builder.source.livePeers',
 	'table-readiness': 'builder.source.tableReadiness',
 	'continuity-mentions': 'builder.source.continuityMentions',
+	// RC-CAN-7.6 — the Command Center's parts.
+	resume: 'builder.source.resume',
+	'table-scenes': 'builder.source.tableScenes',
+	'library-sections': 'builder.source.librarySections',
 };
 
 export const QUERY_SOURCES = Object.keys(QUERY_SOURCE_LABEL) as WidgetDataQuerySource[];

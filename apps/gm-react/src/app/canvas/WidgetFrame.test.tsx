@@ -91,6 +91,11 @@ const TILE_TOKENS: ReadonlyMap<string, Readonly<Record<string, string>>> = (() =
 const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(
 	createSystemWidgetPackages().packages,
 ).flatMap((record) => record.package.widgets);
+/** The ones that draw a header in view mode. RC-CAN-7.6's home parts default to bare: no header. */
+const FRAMED_DEFINITIONS = SYSTEM_DEFINITIONS.filter(
+	(definition) =>
+		definition.configFields?.find((field) => field.key === 'presentation')?.default !== 'bare',
+);
 
 interface Campaign {
 	state: CoreStateSlice;
@@ -271,7 +276,7 @@ describe('tile header identity snapshots', () => {
 	});
 
 	describe.each(THEMES)('%s theme', (theme) => {
-		it.each(SYSTEM_DEFINITIONS.map((d) => [d.type, d] as const))('%s', (_type, definition) => {
+		it.each(FRAMED_DEFINITIONS.map((d) => [d.type, d] as const))('%s', (_type, definition) => {
 			const frame = renderFrame(
 				boardWidget(definition, sharedBindingFor(definition)),
 				DM_ACTOR.id,

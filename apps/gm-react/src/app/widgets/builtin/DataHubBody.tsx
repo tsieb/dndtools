@@ -1,4 +1,5 @@
 import {
+	isDefaultScreen,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	getContentItemsForActor,
 	listCharactersForActor,
@@ -39,14 +40,13 @@ export function DataHubBody({ widget }: { widget: BoardWidget }) {
 	const order =
 		TAB_ORDERS[cfg<string>(widget, 'tabOrder') ?? 'scenes-first'] ?? TAB_ORDERS['scenes-first'];
 	const actorId = runtime.defaultActorId;
-	const homeSceneId = runtime.state.commandCenter.homeSceneId;
-	// The GM Screen's own backing scene is not a table scene — it has its own destination, exactly as
-	// the hub excludes it (screens/CommandCenter.tsx).
+	// The default screens (the GM Screen's board, the home screen) are not table scenes — each has its
+	// own destination, exactly as the hub's scenes leave them out (RC-CAN-7.6 `table-scenes`).
 	const scenes = listScenesForActor(
 		runtime.state.scenes,
 		runtime.state.permissions,
 		actorId,
-	).filter((scene) => !scene.isTemplate && scene.id !== homeSceneId);
+	).filter((scene) => !scene.isTemplate && !isDefaultScreen(runtime.state, scene.id));
 	const parties = listCharactersForActor(
 		runtime.state.characters,
 		runtime.state.permissions,

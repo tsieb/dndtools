@@ -79,7 +79,13 @@ const widgetCommandDescriptorSchema = z
 
 // RC-WID-5.1 — an intent is one of five closed shapes. Each variant is strict, so a descriptor has
 // no field a URL could hide in, and every target outside an id is an enum.
-const widgetIntentBase = { id: idSchema, displayName: z.string().min(1) };
+const widgetIntentBase = {
+	id: idSchema,
+	displayName: z.string().min(1),
+	// RC-CAN-7.6 — a launcher tile's or link row's glyph (a DS icon name) and supporting line.
+	icon: z.string().min(1).max(64).optional(),
+	hint: z.string().min(1).max(200).optional(),
+};
 const widgetIntentDescriptorSchema = z.discriminatedUnion('kind', [
 	z
 		.object({ ...widgetIntentBase, kind: z.literal('open-screen'), targetId: idSchema.optional() })

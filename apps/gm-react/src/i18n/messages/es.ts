@@ -3774,6 +3774,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.source.livePeers': 'Mesa en vivo',
 	'builder.source.tableReadiness': 'Preparación de la mesa',
 	'builder.source.continuityMentions': 'Nombres sin notas',
+	'builder.source.resume': 'Dónde retomar',
+	'builder.source.tableScenes': 'Escenas de mesa',
+	'builder.source.librarySections': 'Secciones de la biblioteca',
 	'builder.data.preview': 'Vista previa en directo',
 	'builder.data.previewYou': 'Para ti: {count, plural, one {# fila} other {# filas}}',
 	'builder.data.previewPlayer': 'Para un jugador: {count, plural, one {# fila} other {# filas}}',
@@ -4876,6 +4879,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.autoLayoutOrder': 'Automático (orden de la disposición)',
 	'sceneEditor.position': 'Posición {index}',
 	'sceneEditor.editWidgetDefinition': 'Editar definición del widget',
+	'sceneEditor.rebuildWidget': 'Reconstruir en el constructor de widgets',
 	'sceneEditor.removeWidget': 'Quitar el widget',
 	// RC-POL-1.3 — la barra de herramientas, las etiquetas de deshacer y las pestañas del inspector.
 	'sceneEditor.editLayout': 'Editar disposición',
@@ -5512,6 +5516,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'home.count.campaign':
 		'{threads, plural, one {# hilo} other {# hilos}} · {factions, plural, one {# facción} other {# facciones}}',
 	'home.count.notes': '{count, plural, one {# nota} other {# notas}}',
+	'home.setupFailed': 'No se pudo preparar el Centro de comandos en este dispositivo.',
+	'home.setupFailedHint': 'Revisa el espacio de almacenamiento del dispositivo y vuelve a intentarlo.',
 
 	/* Unirse › la página de aterrizaje de la invitación por correo */
 	'join.unavailable':

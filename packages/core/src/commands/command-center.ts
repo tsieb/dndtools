@@ -6,6 +6,7 @@ import {
 } from '../schemas/commands';
 import {
 	buildDefaultCommandCenterScene,
+	DEFAULT_COMMAND_CENTER_NAME,
 	type CommandCenterAutoSave,
 	type CommandCenterPreset,
 	type CommandCenterPresetSection,
@@ -15,12 +16,19 @@ import {
 import type { SceneVisualSettings } from '../state/scene-state';
 import {
 	SCENE_SCHEMA_VERSION,
+	isLiveScene,
+	screenMetaOf,
+	withScreenMeta,
 	type Scene,
 	type SceneState,
 	type SectionLayoutRegion,
 	type WidgetInstance,
 } from '../state/scene-state';
-import { findPackageRecordForWidgetType } from '../state/widget-package-state';
+import {
+	HOME_WIDGET_TYPES,
+	findPackageRecordForWidgetType,
+	type HomeWidgetType,
+} from '../state/widget-package-state';
 import {
 	appendOperationDraft,
 	bumpRevision,
@@ -75,6 +83,127 @@ function withDefaultMapBinding(scene: Scene, mapId: string | null): Scene {
 	};
 }
 
+// --- RC-CAN-7.6 — the Command Center as the default screen (ADR-041) ------------------------------
+
+/**
+ * The default-screen key the home screen is provisioned under (`ScreenOrigin.defaultKey`). It is how
+ * `/` finds its screen: the home pointer (`commandCenter.homeSceneId`) keeps naming the board, which
+ * ADR-041 keeps as the GM screen with its id, widgets and layout untouched, so `/board`, presets and
+ * safe points go on meaning what they always have.
+ */
+export const HOME_SCREEN_DEFAULT_KEY = 'command-center';
+
+/** The flow grid's authoring units (`FLOW_COLUMN_STEP` / `FLOW_ROW_STEP` in the app's board helpers). */
+const FLOW_COLUMN = 96;
+const FLOW_ROW = 240;
+
+/**
+ * Where each part sits on the twelve authoring columns, as the Command Center laid itself out: the
+ * hero across the top, the scenes beside a column of Create over Manage (spans 7 + 5, the old
+ * `1.5fr 1fr` body), then the library across the bottom. Create and Manage share a group, which a
+ * flow screen stacks in one lane.
+ */
+const HOME_LAYOUT: Record<HomeWidgetType, { column: number; row: number; span: number }> = {
+	'home-hero': { column: 0, row: 0, span: 12 },
+	'home-scenes': { column: 0, row: 1, span: 7 },
+	'home-create': { column: 7, row: 1, span: 5 },
+	'home-manage': { column: 7, row: 2, span: 5 },
+	'home-library': { column: 0, row: 3, span: 12 },
+};
+const STACKED: ReadonlySet<HomeWidgetType> = new Set(['home-create', 'home-manage']);
+
+/**
+ * Build the default home screen: a GM-only FLOW screen of the Command Center's five system template
+ * parts, recorded as the `command-center` default screen. Instances carry no configuration of their
+ * own; every setting (bare presentation, headings, labels) is the definition's default, so a part the
+ * GM rebuilds from the same definition is configured identically.
+ */
+export function buildDefaultHomeScreen(env: CoreEnvironment, ownerActorId: string): Scene {
+	const now = env.clock();
+	const id = env.ids();
+	const column = env.ids();
+	const widgets: WidgetInstance[] = HOME_WIDGET_TYPES.map((type, index) => {
+		const place = HOME_LAYOUT[type];
+		return {
+			id: env.ids(),
+			type,
+			version: '1.0.0',
+			layout: {
+				x: place.column * FLOW_COLUMN,
+				y: place.row * FLOW_ROW,
+				w: place.span * FLOW_COLUMN,
+				h: FLOW_ROW,
+				z: index + 1,
+				groupId: STACKED.has(type) ? column : null,
+				dock: null,
+				pinned: false,
+				focusOrder: index + 1,
+			},
+			configuration: {},
+			localState: {},
+			binding: null,
+			disabled: null,
+		};
+	});
+	return withScreenMeta(
+		{
+			id,
+			name: DEFAULT_COMMAND_CENTER_NAME,
+			description: 'Your campaign hub: resume the live scene or jump anywhere.',
+			tags: [],
+			visibility: 'dm-only',
+			visualSettings: { background: 'parchment' },
+			ownership: { ownerActorId, createdAt: now, updatedAt: now, revision: 1 },
+			sharingTargets: [],
+			playerViewAssignments: [],
+			templateMeta: { isTemplate: false, instantiatedFromTemplateSceneId: null },
+			sections: [],
+			widgets,
+			schemaVersion: SCENE_SCHEMA_VERSION,
+		},
+		{
+			pinned: false,
+			pinOrder: null,
+			layoutPolicy: 'flow',
+			origin: { kind: 'default', sourceSceneId: null, defaultKey: HOME_SCREEN_DEFAULT_KEY, at: now },
+		},
+	);
+}
+
+/**
+ * The vault's home screen: the oldest live scene provisioned as the `command-center` default screen,
+ * or `null` before `command-center.ensure-home` has run. Provenance only — a GM's edits to it are
+ * never overwritten, and a deleted one is not resurrected by a read.
+ */
+export function findHomeScreen(scenes: SceneState): Scene | null {
+	let found: Scene | null = null;
+	for (const scene of Object.values(scenes.scenes)) {
+		if (!isLiveScene(scene)) continue;
+		const origin = screenMetaOf(scene).origin;
+		if (origin?.kind !== 'default' || origin.defaultKey !== HOME_SCREEN_DEFAULT_KEY) continue;
+		const older =
+			!found ||
+			scene.ownership.createdAt < found.ownership.createdAt ||
+			(scene.ownership.createdAt === found.ownership.createdAt && scene.id < found.id);
+		if (older) found = scene;
+	}
+	return found;
+}
+
+/**
+ * Whether a scene is one of the default screens rather than a table scene: the GM screen (the board
+ * the home pointer names) or any screen provisioned as a default. The Command Center's scene tiles,
+ * the sidebar's scene list and the scene pickers leave these out, as they always left out the board.
+ */
+export function isDefaultScreen(
+	state: Pick<CoreStateSlice, 'commandCenter' | 'scenes'>,
+	sceneId: string,
+): boolean {
+	if (sceneId === state.commandCenter.homeSceneId) return true;
+	const scene = state.scenes.scenes[sceneId];
+	return !!scene && screenMetaOf(scene).origin?.kind === 'default';
+}
+
 export function handleEnsureCommandCenterHome(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -89,6 +218,73 @@ export function handleEnsureCommandCenterHome(
 	const parsed = parseInput(ensureCommandCenterHomeInputSchema, rawPayload ?? {});
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
+	const board = ensureHomeBoard(state, env, actor.id, parsed.data.name);
+	// RC-CAN-7.6 — then the home screen (ADR-041 "Defaults and preservation"): a fresh vault gets it
+	// beside the board it just created; an existing vault gains it as its new home while its board,
+	// untouched, stays the GM screen. Idempotent: once one exists nothing is written, and a GM's
+	// customisation of it is never reset.
+	if (findHomeScreen(board.state.scenes)) return board.result(board.state, []);
+	const home = buildDefaultHomeScreen(env, actor.id);
+	const created = appendOperationDraft(env, board.state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: home.id,
+		opType: 'scene.create',
+		value: home,
+		afterRevision: home.ownership.revision,
+	});
+	return board.result(
+		{
+			...board.state,
+			scenes: {
+				schemaVersion: board.state.scenes.schemaVersion,
+				scenes: { ...board.state.scenes.scenes, [home.id]: home },
+			},
+			sync: created.log,
+		},
+		[created.op.id],
+		[{ kind: 'scene.created', sceneId: home.id, actorId: actor.id }],
+	);
+}
+
+/**
+ * The GM screen half of `ensure-home`: the board the home pointer names, created from the system
+ * template the first time (CMD-001) and otherwise left untouched apart from the one RC-ENG-8.2 repair.
+ * Returns the state after it and a `result` that finishes the command with whatever follows.
+ */
+function ensureHomeBoard(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	name: string | undefined,
+): {
+	state: CoreStateSlice;
+	result: (
+		next: CoreStateSlice,
+		operationIds: string[],
+		events?: Extract<CommandResult, { status: 'accepted' }>['events'],
+	) => CommandResult;
+} {
+	const finish =
+		(
+			sceneId: string,
+			boardOps: string[],
+			boardEvents: Extract<CommandResult, { status: 'accepted' }>['events'],
+		) =>
+		(
+			next: CoreStateSlice,
+			operationIds: string[],
+			events: Extract<CommandResult, { status: 'accepted' }>['events'] = [],
+		): CommandResult => ({
+			status: 'accepted',
+			nextState: next,
+			events: [
+				...boardEvents,
+				{ kind: 'command-center.home-ready', sceneId, actorId },
+				...events,
+			],
+			operationIds: [...boardOps, ...operationIds],
+		});
+
 	// Idempotent: when a Command Center home Scene already exists, leave durable
 	// state untouched and simply report it as ready (CMD-001). The one repair is a
 	// Map tile a board created before RC-ENG-8.2 left unbound while the vault has
@@ -99,16 +295,9 @@ export function handleEnsureCommandCenterHome(
 		const rebound = repaired.widgets.find(
 			(widget, index) => widget.binding !== existing.widgets[index]?.binding,
 		);
-		if (!rebound) {
-			return {
-				status: 'accepted',
-				nextState: state,
-				events: [{ kind: 'command-center.home-ready', sceneId: existing.id, actorId: actor.id }],
-				operationIds: [],
-			};
-		}
+		if (!rebound) return { state, result: finish(existing.id, [], []) };
 		const nextScene = bumpRevision(repaired, env);
-		const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		const { log: nextLog, op } = appendOperationDraft(env, state.sync, actorId, {
 			entityType: 'scene',
 			entityId: existing.id,
 			opType: 'command-center.bind-default-map',
@@ -118,22 +307,20 @@ export function handleEnsureCommandCenterHome(
 			afterRevision: nextScene.ownership.revision,
 		});
 		return {
-			status: 'accepted',
-			nextState: {
+			state: {
 				...state,
 				scenes: withScene(state.scenes, existing.id, () => nextScene),
 				sync: nextLog,
 			},
-			events: [{ kind: 'command-center.home-ready', sceneId: existing.id, actorId: actor.id }],
-			operationIds: [op.id],
+			result: finish(existing.id, [op.id], []),
 		};
 	}
 
 	const scene = withDefaultMapBinding(
-		buildDefaultCommandCenterScene(env, actor.id),
+		buildDefaultCommandCenterScene(env, actorId),
 		defaultCommandCenterMapId(state),
 	);
-	const namedScene = parsed.data.name ? { ...scene, name: parsed.data.name } : scene;
+	const namedScene = name ? { ...scene, name } : scene;
 
 	const nextSceneState: SceneState = {
 		schemaVersion: state.scenes.schemaVersion,
@@ -144,14 +331,14 @@ export function handleEnsureCommandCenterHome(
 		homeSceneId: namedScene.id,
 	};
 
-	const afterSceneOp = appendOperationDraft(env, state.sync, actor.id, {
+	const afterSceneOp = appendOperationDraft(env, state.sync, actorId, {
 		entityType: 'scene',
 		entityId: namedScene.id,
 		opType: 'scene.create',
 		value: namedScene,
 		afterRevision: namedScene.ownership.revision,
 	});
-	const afterHomeOp = appendOperationDraft(env, afterSceneOp.log, actor.id, {
+	const afterHomeOp = appendOperationDraft(env, afterSceneOp.log, actorId, {
 		entityType: 'command-center',
 		entityId: namedScene.id,
 		opType: 'command-center.set-home',
@@ -160,18 +347,17 @@ export function handleEnsureCommandCenterHome(
 	});
 
 	return {
-		status: 'accepted',
-		nextState: {
+		state: {
 			...state,
 			scenes: nextSceneState,
 			commandCenter: nextCommandCenter,
 			sync: afterHomeOp.log,
 		},
-		events: [
-			{ kind: 'command-center.home-created', sceneId: namedScene.id, actorId: actor.id },
-			{ kind: 'command-center.home-ready', sceneId: namedScene.id, actorId: actor.id },
-		],
-		operationIds: [afterSceneOp.op.id, afterHomeOp.op.id],
+		result: finish(
+			namedScene.id,
+			[afterSceneOp.op.id, afterHomeOp.op.id],
+			[{ kind: 'command-center.home-created', sceneId: namedScene.id, actorId }],
+		),
 	};
 }
 

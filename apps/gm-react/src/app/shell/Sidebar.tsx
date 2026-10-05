@@ -4,6 +4,7 @@ import { usePresenceStatus } from './presence';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+	isDefaultScreen,
 	listScenesForActor,
 	listCharactersForActor,
 	listMapsForActor,
@@ -76,12 +77,12 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const { scenes, counts, recent } = useMemo(() => {
 		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
 		// table scenes (as a scene literally named "Command Center") only reads as a mystery scene.
-		const homeSceneId = runtime.state.commandCenter.homeSceneId;
+		// The same goes for the home screen itself (RC-CAN-7.6): both are default screens.
 		const allScenes = listScenesForActor(
 			runtime.state.scenes,
 			runtime.state.permissions,
 			actorId,
-		).filter((s) => !s.isTemplate && s.id !== homeSceneId);
+		).filter((s) => !s.isTemplate && !isDefaultScreen(runtime.state, s.id));
 		const characters = listCharactersForActor(
 			runtime.state.characters,
 			runtime.state.permissions,

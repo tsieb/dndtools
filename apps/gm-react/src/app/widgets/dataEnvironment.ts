@@ -47,6 +47,8 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSession, type SessionContextValue } from '../../net/SessionContext';
 import type { PeerPresenceEntry } from '../../net/messages';
 import type { BoardWidget } from '../board-helpers';
+import { useI18n } from '../../i18n';
+import { englishTranslate, resolveHomeSource, type HomeTranslate } from './homeSources';
 
 /**
  * dataEnvironment — what a TEMPLATE widget is allowed to see (RC-WID-1.2).
@@ -119,6 +121,8 @@ export interface WidgetDataRow {
 	 * the app's word for it ("DM only", "Shared", "Player visible"), never the enum value.
 	 */
 	visibility?: Scene['visibility'];
+	/** RC-CAN-7.6 — the glyph a link row draws for this row (a library section's icon). */
+	icon?: string;
 }
 
 /**
@@ -159,6 +163,11 @@ export interface WidgetHostContext {
 	 * here", which the live-table sources say rather than claiming nobody is connected.
 	 */
 	table?: WidgetLiveTable;
+	/**
+	 * RC-CAN-7.6 — the viewer's translator, for the sources whose rows are the app's own prose (the
+	 * Command Center's resume line, scene meta and library counts). Absent: English.
+	 */
+	translate?: HomeTranslate;
 }
 
 /** Why a query returned nothing on purpose. `null` means the query really ran. */
@@ -1230,6 +1239,10 @@ function resolveHubSource(
 				),
 			};
 		}
+		case 'resume':
+		case 'table-scenes':
+		case 'library-sections':
+			return resolveHomeSource(state, actor, source, host.translate ?? englishTranslate);
 		default:
 			return { header: null, emptyLabel: 'No data.', rows: [] };
 	}
@@ -1506,6 +1519,7 @@ function liveTableOf(
  */
 export function useWidgetHostContext(): WidgetHostContext {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const session = useOptionalSession();
 	const vaultId = runtime.vaultId;
 	const role = session?.role;
@@ -1522,8 +1536,8 @@ export function useWidgetHostContext(): WidgetHostContext {
 		} catch {
 			/* A missing catalog is not a widget error. */
 		}
-		return { campaignName, profileId: widgetProfileForRuntime(), table };
-	}, [vaultId, table]);
+		return { campaignName, profileId: widgetProfileForRuntime(), table, translate: t };
+	}, [vaultId, table, t]);
 }
 
 /** The app-side hook: the same resolution against the live, actor-projected runtime state. */

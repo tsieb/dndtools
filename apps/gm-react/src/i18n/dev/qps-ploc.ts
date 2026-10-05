@@ -3841,6 +3841,9 @@ export default {
 	'builder.source.livePeers': '[Ľíṽé ţáƀľé~~~~]',
 	'builder.source.tableReadiness': '[Ţáƀľé ŕéáďíñéšš~~~~ ~]',
 	'builder.source.continuityMentions': '[Ñáḿéš ŵíţĥóúţ ñóţéš~~~~ ~~~]',
+	'builder.source.resume': '[Ŵĥéŕé ţó ŕéšúḿé~~~~ ~]',
+	'builder.source.tableScenes': '[Ţáƀľé šçéñéš~~~~ ]',
+	'builder.source.librarySections': '[Ľíƀŕáŕý šéçţíóñš~~~~ ~~]',
 	'builder.data.preview': '[Ľíṽé ƥŕéṽíéŵ~~~~ ]',
 	'builder.data.previewYou': '[Ƒóŕ ýóú: ~~~~{count, plural, one {# ŕóŵ~~} other {# ŕóŵš~~~}}]',
 	'builder.data.previewPlayer':
@@ -5055,6 +5058,7 @@ export default {
 	'sceneEditor.autoLayoutOrder': '[Áúţó (ľáýóúţ óŕďéŕ)~~~~ ~~~]',
 	'sceneEditor.position': '[Ƥóšíţíóñ ~~~~{index}]',
 	'sceneEditor.editWidgetDefinition': '[Éďíţ ŵíďğéţ ďéƒíñíţíóñ~~~~ ~~~~]',
+	'sceneEditor.rebuildWidget': '[Ŕéƀúíľď íñ ţĥé ŵíďğéţ ƀúíľďéŕ~~~~ ~~~~ ~~]',
 	'sceneEditor.removeWidget': '[Ŕéḿóṽé ŵíďğéţ~~~~ ~]',
 	'sceneEditor.editLayout': '[Éďíţ ľáýóúţ~~~~ ]',
 	'sceneEditor.done': '[Ďóñé~~]',
@@ -5696,6 +5700,9 @@ export default {
 	'home.count.campaign':
 		'[{threads, plural, one {# ţĥŕéáď~~~~} other {# ţĥŕéáďš~~~~}} · ~~{factions, plural, one {# ƒáçţíóñ~~~~} other {# ƒáçţíóñš~~~~}}]',
 	'home.count.notes': '[{count, plural, one {# ñóţé~~~} other {# ñóţéš~~~}}]',
+	'home.setupFailed':
+		"[Ţĥé Çóḿḿáñď Çéñţéŕ çóúľďñ'ţ ƀé šéţ úƥ óñ ţĥíš ďéṽíçé.~~~~ ~~~~ ~~~~ ~~~~ ~~]",
+	'home.setupFailedHint': "[Çĥéçķ ţĥé ďéṽíçé'š šţóŕáğé šƥáçé, ţĥéñ ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~~ ]",
 	'join.unavailable':
 		'[Óñľíñé áççóúñţ šéŕṽíçéš áŕé ñóţ áṽáíľáƀľé íñ ţĥíš éďíţíóñ. Ášķ ýóúŕ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~{gm} ƒóŕ á ţáƀľé çóďé ţó ĵóíñ íñ ţĥé ƥľáýéŕ áƥƥ.~~~~ ~~~~ ~~~~ ~~~]',
 	'join.expired':

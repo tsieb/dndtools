@@ -55,7 +55,11 @@ for (const kind of kinds) {
 		);
 		act(() => container.querySelector('button')!.click());
 		expect(onIntent).toHaveBeenCalledTimes(1);
-		expect(onIntent.mock.calls[0][0].intentId).toBe(props.definition!.intents![0].id);
+		// The first control follows a declared intent (a card grid's first is its "new" action,
+		// which heads the section as the Command Center's did — RC-CAN-7.6).
+		expect(props.definition!.intents!.map((intent) => intent.id)).toContain(
+			onIntent.mock.calls[0][0].intentId,
+		);
 		act(() =>
 			root.render(
 				<I18nProvider>
@@ -83,7 +87,10 @@ it('binds card intents by row identity after reorder', () => {
 			</I18nProvider>,
 		),
 	);
-	act(() => container.querySelector('button')!.click());
+	const crypt = [...container.querySelectorAll('button')].find((button) =>
+		button.textContent?.includes('The Sunken Crypt'),
+	);
+	act(() => crypt!.click());
 	expect(onIntent).toHaveBeenCalledWith({ intentId: 'crypt', targetId: 'crypt' });
 });
 it('legacy and unknown presentation values remain framed', () => {

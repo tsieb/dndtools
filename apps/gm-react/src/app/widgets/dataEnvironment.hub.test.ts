@@ -576,6 +576,50 @@ const CASES: Case[] = [
 			expect(r.rows.every((row) => !row.secondary?.includes('Player'))).toBe(true);
 		},
 	},
+	// RC-CAN-7.6 — the Command Center's three.
+	{
+		source: 'resume',
+		// Live on the DM-only lair: the DM's hero names it and enters it.
+		dm: (r) => {
+			expect(r.rows[0]).toMatchObject({
+				primary: `${SECRET} Lair`,
+				active: true,
+				meta: 'enter-scene',
+			});
+		},
+		// A player cannot see the live scene, so the hero names no scene at all.
+		player: (r) => expect(r.rows[0]?.primary).toBe('Your campaign'),
+	},
+	{
+		source: 'table-scenes',
+		dm: (r) => {
+			expect(names(r)).toContain(`${SECRET} Lair`);
+			// The default screens (the GM screen's board, the home screen) are not table scenes.
+			expect(names(r)).not.toContain('Command Center');
+		},
+		player: (r) => expect(names(r)).toContain('Open Square'),
+	},
+	{
+		source: 'library-sections',
+		// Counts are of what the viewer can list: the secret sidekick, horror, map, note, quest and
+		// cabal count for the DM only.
+		dm: (r) => {
+			expect(r.rows.map((row) => row.secondary)).toEqual([
+				'2 PCs · 2 NPCs',
+				'2 maps',
+				'2 threads · 2 factions',
+				'2 notes',
+			]);
+		},
+		player: (r) => {
+			expect(r.rows.map((row) => row.secondary)).toEqual([
+				'1 PCs · 1 NPCs',
+				'1 map',
+				'1 thread · 1 faction',
+				'1 note',
+			]);
+		},
+	},
 	{
 		source: 'table-readiness',
 		// The DM's call cue: connected players only, ready or not, keyed by transport peer id.

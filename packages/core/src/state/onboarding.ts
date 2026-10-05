@@ -1,6 +1,7 @@
 import type { CoreStateSlice } from '../commands/types';
 import type { ActorId } from './ids';
 import { parseMarkdownNote } from './markdown';
+import { screenMetaOf } from './scene-state';
 
 /**
  * PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
@@ -2233,8 +2234,11 @@ export function resolveOnboarding(
 	const hasHome = homeSceneId !== null;
 	// "Create your first Scene" means a Scene OTHER than the Command Center home Scene: the home
 	// surface is set up by the Command Center step, so authoring a real workspace Scene is the
-	// distinct next milestone.
-	const hasScene = Object.keys(state.scenes.scenes).some((id) => id !== homeSceneId);
+	// distinct next milestone. RC-CAN-7.6: nor is a default screen (the home screen `ensure-home`
+	// provisions beside the board) — the GM did not author it either.
+	const hasScene = Object.values(state.scenes.scenes).some(
+		(scene) => scene.id !== homeSceneId && screenMetaOf(scene).origin?.kind !== 'default',
+	);
 	const role = state.permissions.actors[actorId]?.role ?? null;
 	const canSetup = role === 'dm';
 

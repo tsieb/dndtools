@@ -80,6 +80,8 @@ export interface BoardWidget {
 	styleTokens?: WidgetStyleTokenDefinition[];
 	defaultSize?: { width: number; height: number };
 	minSize?: { width: number; height: number };
+	/** RC-CAN-7.6 — the instance's layout group. A flow screen stacks consecutive members in one lane. */
+	groupId?: string | null;
 }
 
 // WidgetDefinition.author is the closest core analogue to the prototype's four widget "tiers".
@@ -197,6 +199,7 @@ export function boardWidgetsOf(
 			y: instance.layout.y,
 			w: instance.layout.w,
 			h: instance.layout.h,
+			groupId: instance.layout.groupId,
 			status: payload?.kind ?? 'hidden',
 			statusNote: statusNoteFor(payload),
 		};
@@ -510,6 +513,8 @@ export interface FlowRect {
 	y: number;
 	w: number;
 	h: number;
+	/** RC-CAN-7.6 — consecutive tiles sharing a group stack in one lane (see {@link flowPlacements}). */
+	groupId?: string | null;
 }
 
 /** A single `scene.move-widget` payload — flow's ONLY durable layout write for a reorder. */
@@ -611,6 +616,8 @@ export interface FlowPlacement {
 	row: number;
 	span: number;
 	index: number;
+	/** Rows the tile covers when it sits beside a stack taller than one row; absent means one. */
+	rowSpan?: number;
 }
 
 /**
@@ -626,6 +633,13 @@ export interface FlowPlacement {
  * point. Clamping alone leaves ragged rows (a span-5 tile alone in a 6-column rail row), so a tile
  * that ends up ALONE in its row at a narrower-than-authoring tier fills the row. At the authoring
  * tier nothing is stretched, so the authored arrangement is reproduced exactly.
+ *
+ * RC-CAN-7.6 — a STACK. Consecutive tiles that share a layout group form one lane: they keep one
+ * column and span (the widest member's) and sit one per row, and the tiles before them in the same
+ * band span all of those rows. That is the Command Center's Create-over-Manage column beside its
+ * Scenes. A stack always closes its band — nothing is placed after it beside it — so reading the
+ * grid row by row still meets the tiles in layout order: the tiles to its left, then the stack top
+ * to bottom, then the next band.
  */
 export function flowPlacements(
 	widgets: readonly FlowRect[],
@@ -640,28 +654,66 @@ export function flowPlacementsForOrder(
 	columns: number = FLOW_COLUMNS.desktop,
 ): FlowPlacement[] {
 	const lanes = Math.max(1, Math.floor(columns));
+	// Each item is one tile, or a stack of consecutive tiles in one group.
+	const items: FlowRect[][] = [];
+	for (const widget of ordered) {
+		const last = items[items.length - 1];
+		if (last && widget.groupId && last[0]!.groupId === widget.groupId) last.push(widget);
+		else items.push([widget]);
+	}
 	const placements: FlowPlacement[] = [];
+	// The band (a run of rows that starts together) each placement belongs to, and how many items
+	// each band holds: an item alone in its band is the "alone in its row" case below.
+	const bandOf = new Map<FlowPlacement, number>();
+	const itemsInBand: number[] = [];
+	let band = 0;
+	let beside: FlowPlacement[] = [];
 	let row = 0;
 	let column = 0;
-	ordered.forEach((widget, index) => {
-		const span = flowSpanOf(widget, lanes);
-		if (column > 0 && column + span > lanes) {
-			row += 1;
-			column = 0;
+	const nextBand = (rows: number) => {
+		row += rows;
+		column = 0;
+		band += 1;
+		beside = [];
+	};
+	for (const item of items) {
+		const span = Math.max(...item.map((widget) => flowSpanOf(widget, lanes)));
+		if (column > 0 && column + span > lanes) nextBand(1);
+		itemsInBand[band] = (itemsInBand[band] ?? 0) + 1;
+		if (item.length === 1) {
+			const placement: FlowPlacement = {
+				id: item[0]!.id,
+				column,
+				row,
+				span,
+				index: placements.length,
+			};
+			placements.push(placement);
+			bandOf.set(placement, band);
+			beside.push(placement);
+			column += span;
+			if (column >= lanes) nextBand(1);
+			continue;
 		}
-		placements.push({ id: widget.id, column, row, span, index });
-		column += span;
-		if (column >= lanes) {
-			row += 1;
-			column = 0;
+		for (const [offset, widget] of item.entries()) {
+			const placement: FlowPlacement = {
+				id: widget.id,
+				column,
+				row: row + offset,
+				span,
+				index: placements.length,
+			};
+			placements.push(placement);
+			bandOf.set(placement, band);
 		}
-	});
+		for (const placement of beside) placement.rowSpan = item.length;
+		nextBand(item.length);
+	}
 	if (lanes >= FLOW_COLUMNS[FLOW_AUTHORING_TIER]) return placements;
-	const perRow = new Map<number, number>();
-	for (const placement of placements)
-		perRow.set(placement.row, (perRow.get(placement.row) ?? 0) + 1);
 	return placements.map((placement) =>
-		perRow.get(placement.row) === 1 ? { ...placement, column: 0, span: lanes } : placement,
+		itemsInBand[bandOf.get(placement)!] === 1
+			? { ...placement, column: 0, span: lanes }
+			: placement,
 	);
 }
 

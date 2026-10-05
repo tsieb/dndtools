@@ -44,7 +44,7 @@ export const allow = {
 	'apps/gm-react/src/screens/characters/sheet/SharingPanel.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SheetHeader.tsx': 7,
 	'apps/gm-react/src/screens/characters/sheet/SpellsPanel.tsx': 20,
-	'apps/gm-react/src/screens/CommandCenter.tsx': 33,
+	'apps/gm-react/src/screens/CommandCenter.tsx': 3,
 	'apps/gm-react/src/screens/play/Home.tsx': 10,
 	'apps/gm-react/src/screens/SceneCardsPanel.tsx': 1,
 	'apps/gm-react/src/screens/SceneQueuePanel.tsx': 1,

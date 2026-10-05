@@ -12,11 +12,11 @@ const slices = {
 		baseline.indexOf('    - heading "Your campaign"'),
 		baseline.indexOf('    - heading "Scenes"'),
 	),
-	'card-grid':
-		baseline.slice(
-			baseline.indexOf('    - button "Ready Harbor'),
-			baseline.indexOf('    - heading "Create"'),
-		) + '    - button "New scene"\n',
+	// The "New scene" action heads the scene tiles, as it does in the baseline (RC-CAN-7.6).
+	'card-grid': baseline.slice(
+		baseline.indexOf('    - button "New scene"\n    - button "Ready Harbor'),
+		baseline.indexOf('    - heading "Create"'),
+	),
 	launcher: baseline.slice(
 		baseline.indexOf('    - button "New scene A canvas'),
 		baseline.indexOf('    - button "New map Battle'),

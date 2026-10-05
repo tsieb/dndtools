@@ -14,6 +14,7 @@ import {
 	listAudioSourceClassificationsForActor,
 	listCharactersForActor,
 	listMapsForActor,
+	findHomeScreen,
 	listScenesForActor,
 	resourcesOf,
 	restKindOfLedgerEntry,
@@ -40,6 +41,7 @@ export function useSessionView(runtime: ReturnType<typeof useRuntime>, actorId: 
 		const dice = getDiceHistoryForActor(session, perms, actorId);
 		const characters = listCharactersForActor(runtime.state.characters, perms, actorId);
 		const scenes = listScenesForActor(runtime.state.scenes, perms, actorId);
+		const homeScreenId = findHomeScreen(runtime.state.scenes)?.id ?? null;
 		const activeSceneId = session.activeSceneId;
 		const audioView = getSessionAudioView(
 			runtime.state.audio,
@@ -146,7 +148,10 @@ export function useSessionView(runtime: ReturnType<typeof useRuntime>, actorId: 
 			party: characters.filter((c) => c.kind === 'pc'),
 			// RC-SES-1.3 — the start flow picks the scene explicitly, so it needs the (actor-scoped,
 			// non-template) scenes by name rather than the single resolved active one.
-			startableScenes: scenes.filter((s) => !s.isTemplate).map((s) => ({ id: s.id, name: s.name })),
+			// RC-CAN-7.6: the home screen is the GM's hub, not somewhere to run play from.
+			startableScenes: scenes
+				.filter((s) => !s.isTemplate && s.id !== homeScreenId)
+				.map((s) => ({ id: s.id, name: s.name })),
 			activeSceneName: scenes.find((s) => s.id === activeSceneId)?.name ?? null,
 			activeSceneId,
 			handouts: getHandoutsForActor(session, perms, actorId),

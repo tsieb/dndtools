@@ -145,10 +145,12 @@ describe('RC-ENG-8.2 default Command Center bindings', () => {
 		expect(homeMapTile(legacy)?.binding).toBeNull();
 
 		const repaired = ensureHome(legacy, env);
-		expect(repaired.operationIds).toHaveLength(1);
-		expect(repaired.nextState.sync.operations.at(-1)?.opType).toBe(
+		// The repair, then (RC-CAN-7.6) the home screen this existing vault gains beside its board.
+		expect(repaired.operationIds).toHaveLength(2);
+		expect(repaired.nextState.sync.operations.map((op) => op.opType)).toEqual([
 			'command-center.bind-default-map',
-		);
+			'scene.create',
+		]);
 		const home = repaired.nextState.scenes.scenes[legacyHome.id]!;
 		expect(home.ownership.revision).toBe(legacyHome.ownership.revision + 1);
 		expect(homeMapTile(repaired.nextState)?.binding?.source.entityId).toBe('map-ruined-keep');

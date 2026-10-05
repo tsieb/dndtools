@@ -1,343 +1,110 @@
-import { featureGateVisible, settingsGateVisible, useSettingsTier } from './settings/Experience';
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-	listCharactersForActor,
-	listMapsForActor,
-	listScenesForActor,
-	getContentItemsForActor,
+	findHomeScreen,
+	findWidgetDefinition,
+	getSceneForActor,
 	resolveCommandCenterHome,
-	VAULT_OBJECT_SUBTYPE_KEY,
-	type SceneListEntry,
+	type CoreCommand,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Card, Icon, StatusDot } from '../ds';
-import { Page, T, eb } from '../app/screen-kit';
-import { LIBRARY } from '../app/nav';
+import { Button, Card, EmptyState, StatusDot } from '../ds';
+import { Page, T } from '../app/screen-kit';
+import { boardWidgetsOf, FLOW_COLUMNS, flowPlacements, payloadIndex } from '../app/board-helpers';
+import { WidgetRenderSlot } from '../app/widgets/WidgetRenderSlot';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useViewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
 
 /**
- * CommandCenter — the navigational hub (port of app.jsx HomeSection), wired to the live
- * Processing Core. The single Resume primary drops back into the live
- * scene, the Scenes board opens the real `/scene/:id` editor, Create launchers reach the real
- * sections, and every count comes from the actor-filtered read model. A player/observer device sees
- * only their own player-safe view (UX-CMD-012), never the DM hub.
+ * CommandCenter — `/`, the vault's home screen (ADR-041, RC-CAN-7.6).
+ *
+ * The hub is no longer drawn here. It is a FLOW screen of five system template widgets — the hero,
+ * the scenes, Create, Manage and the library — that `command-center.ensure-home` provisions (in a
+ * fresh vault beside the GM screen's board; in an existing vault as its new home, the board left
+ * untouched). This page renders that screen in reading mode: its widgets, in its layout order, each
+ * through the one widget render path (`WidgetRenderSlot`) and so inside its labelled widget region.
+ * The GM moves, removes, restyles or rebuilds any part from the screen itself (`/screen/:id`, Edit
+ * layout and the widget builder), and this page shows whatever the screen holds.
+ *
+ * Its committed baselines (`CommandCenter.baseline.test.tsx`) are the bespoke hub's: the same
+ * accessibility tree, DOM skeleton, headings and focus order, apart from the widget regions.
+ *
+ * A player/observer device sees only their own player-safe view (UX-CMD-012), never the GM's screen.
  */
 
-/**
- * The section label above each hub group. It is an `<h2>` rather than a styled `<span>`: `/` is the
- * app's landing surface and it contained NO heading of any level, so a screen-reader DM could not
- * navigate it by heading or rotor and the four groupings (Scenes / Create / Manage / Library) were
- * not conveyed at all. `eb` supplies the whole appearance, so the visual result is unchanged.
- */
-function HubLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
-	return (
-		<div
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				justifyContent: 'space-between',
-				marginBottom: 11,
-			}}
-		>
-			<h2 style={{ ...eb, margin: 0 }}>{children}</h2>
-			{action}
-		</div>
-	);
-}
-
-function statusOf(scene: SceneListEntry, activeSceneId: string | null): 'live' | 'ready' | 'draft' {
-	if (scene.id === activeSceneId) return 'live';
-	return scene.visibility === 'dm-only' ? 'draft' : 'ready';
-}
-
-function SceneTile({
-	scene,
-	status,
-	widgetCount,
-	onOpen,
-}: {
-	scene: SceneListEntry;
-	status: 'live' | 'ready' | 'draft';
-	widgetCount: number;
-	onOpen: () => void;
-}) {
-	const { t } = useI18n();
-	const live = status === 'live';
-	const [h, setH] = useState(false);
-	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			onMouseEnter={() => setH(true)}
-			onMouseLeave={() => setH(false)}
-			style={{
-				textAlign: 'left',
-				padding: 0,
-				border: `1px solid ${live || h ? T.accBd : T.bd}`,
-				borderRadius: 11,
-				overflow: 'hidden',
-				background: h ? T.alt : T.surf,
-				boxShadow: h ? T.ssm : 'none',
-				cursor: 'pointer',
-				transition:
-					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard)',
-			}}
-		>
-			<div
-				style={{
-					position: 'relative',
-					height: 96,
-					background: 'linear-gradient(135deg,var(--color-surface-raised),var(--color-bg))',
-				}}
-			>
-				<div
-					style={{
-						position: 'absolute',
-						inset: 0,
-						backgroundImage:
-							'linear-gradient(var(--map-grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid-line) 1px,transparent 1px)',
-						backgroundSize: '20px 20px',
-					}}
-				/>
-				<div style={{ position: 'absolute', top: 9, right: 9 }}>
-					{live ? (
-						<Badge status="success" icon="visibility-players">
-							{t('home.status.live')}
-						</Badge>
-					) : status === 'ready' ? (
-						<Badge status="info">{t('home.status.ready')}</Badge>
-					) : (
-						<Badge status="neutral">{t('home.status.draft')}</Badge>
-					)}
-				</div>
-				{status === 'draft' && (
-					// No `label`, so the glyph stays aria-hidden. A NAMED Icon becomes role="img" +
-					// aria-label INSIDE this <button>, so the tile announced "Draft Draft — not visible
-					// to players <scene> …" — duplicating the Badge rendered two lines above it.
-					<div style={{ position: 'absolute', top: 9, left: 9, color: T.ter }}>
-						<Icon name="lock" size="sm" />
-					</div>
-				)}
-			</div>
-			<div style={{ padding: '10px 13px' }}>
-				<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{scene.name}</div>
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-					{scene.tags[0] ?? t('home.scene.tag')} · {t('home.scene.widgets', { count: widgetCount })}
-				</div>
-			</div>
-		</button>
-	);
-}
-
-function LaunchTile({
-	icon,
-	label,
-	sub,
-	onClick,
-}: {
-	icon: string;
-	label: string;
-	sub?: string;
-	onClick: () => void;
-}) {
-	const [h, setH] = useState(false);
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			onMouseEnter={() => setH(true)}
-			onMouseLeave={() => setH(false)}
-			style={{
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'flex-start',
-				gap: 9,
-				padding: 14,
-				borderRadius: 11,
-				cursor: 'pointer',
-				textAlign: 'left',
-				border: `1px solid ${h ? T.accBd : T.bd}`,
-				background: h ? T.accSub : T.surf,
-				transition:
-					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
-			}}
-		>
-			<span
-				style={{
-					width: 34,
-					height: 34,
-					borderRadius: 9,
-					background: T.surf,
-					display: 'inline-flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					color: T.acc,
-				}}
-			>
-				<Icon name={icon} size="md" />
-			</span>
-			<span style={{ minWidth: 0 }}>
-				<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>
-					{label}
-				</span>
-				{sub && (
-					<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>
-						{sub}
-					</span>
-				)}
-			</span>
-		</button>
-	);
+/** Ensure the home screen exists, once per mount; reports a provisioning write that failed. */
+function useProvisionedHome(enabled: boolean) {
+	const runtime = useRuntime();
+	const home = findHomeScreen(runtime.state.scenes);
+	const asked = useRef(false);
+	const [failed, setFailed] = useState(false);
+	const [attempt, setAttempt] = useState(0);
+	useEffect(() => {
+		if (!enabled || home || !runtime.loaded || asked.current) return;
+		asked.current = true;
+		const command: CoreCommand = {
+			type: 'command-center.ensure-home',
+			actorId: runtime.defaultActorId,
+			payload: {},
+		};
+		// `dispatch` rethrows a persist failure; a rejection is reported in its result.
+		void Promise.resolve(runtime.dispatch(command))
+			.then((result) => setFailed(result.status !== 'accepted'))
+			.catch(() => setFailed(true));
+	}, [enabled, home, runtime, attempt]);
+	const retry = () => {
+		asked.current = false;
+		setFailed(false);
+		setAttempt((count) => count + 1);
+	};
+	return { home, failed, retry };
 }
 
 export function CommandCenter() {
-	const navigate = useNavigate();
 	const runtime = useRuntime();
 	const viewport = useViewport();
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
+	const homeView = resolveCommandCenterHome(runtime.state, actorId, {
+		widgetPackages: runtime.state.widgets,
+	});
+	const participant = homeView.kind === 'participant';
+	const { home, failed, retry } = useProvisionedHome(!participant);
 
-	const data = useMemo(() => {
-		const homeView = resolveCommandCenterHome(runtime.state, actorId, {
-			widgetPackages: runtime.state.widgets,
+	const tiles = useMemo(() => {
+		if (!home) return [];
+		const summary = getSceneForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			actorId,
+			home.id,
+			{ widgetPackages: runtime.state.widgets },
+		);
+		if ('kind' in summary) return [];
+		const widgets = boardWidgetsOf(
+			home.widgets,
+			payloadIndex(summary.widgets),
+			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
+		);
+		const byId = new Map(widgets.map((widget) => [widget.id, widget]));
+		// The hub's own tier rule: only the phone collapses to one column; the rail keeps the
+		// desktop arrangement, as the Command Center always did.
+		return flowPlacements(
+			widgets,
+			viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop,
+		).flatMap((placement) => {
+			const widget = byId.get(placement.id);
+			return widget ? [{ placement, widget }] : [];
 		});
-		const homeSceneId = runtime.state.commandCenter.homeSceneId;
-		// The GM Screen's backing scene (named "Command Center") is not a table scene — keep it out
-		// of the Scenes board (it has its own nav destination).
-		const allScenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId);
-		const scenes = allScenes.filter((s) => !s.isTemplate && s.id !== homeSceneId);
-		const characters = listCharactersForActor(
-			runtime.state.characters,
-			runtime.state.permissions,
-			actorId,
-		);
-		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
-		const items = getContentItemsForActor(
-			runtime.state.content,
-			runtime.state.permissions,
-			actorId,
-		);
-		const notes = items.filter((n) => n.kind === 'note');
-		const factionCount = items.filter(
-			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
-		).length;
-		// The Campaign "Threads" tab lists real quest Vault Objects now — count those, not notes.
-		const questCount = items.filter(
-			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
-		).length;
-		const activeSceneId = runtime.state.session.activeSceneId;
-		const workflow = runtime.state.session.workflow;
-		// Resolved against the UNFILTERED list on purpose. `Session`'s "Go live" falls back to the GM
-		// Screen's own home scene when nothing else is active, and that scene is deliberately excluded
-		// from `scenes` — so looking it up there always missed, the old `scenes.find(id === homeSceneId)`
-		// line was dead by construction, and the hero card fell through to `scenes[0]`: it announced
-		// "Session live" over an UNRELATED scene's name and "Enter scene" navigated there. With no other
-		// scene at all it resolved to null, disabling the hub's only primary CTA while still claiming a
-		// live session.
-		const liveScene = allScenes.find((s) => s.id === activeSceneId) ?? scenes[0] ?? null;
-		// The GM Screen has its own route; `/scene/<homeSceneId>` is not where that scene is edited.
-		const liveSceneIsHome = liveScene !== null && liveScene.id === homeSceneId;
-		const party = characters.filter((c) => c.kind === 'pc');
-		const widgetCountFor = (sceneId: string) =>
-			runtime.state.scenes.scenes[sceneId]?.widgets.length ?? 0;
-		return {
-			homeView,
-			scenes,
-			maps,
-			notes,
-			activeSceneId,
-			workflow,
-			liveScene,
-			liveSceneIsHome,
-			party,
-			pcCount: party.length,
-			npcCount: characters.length - party.length,
-			factionCount,
-			questCount,
-			widgetCountFor,
-		};
-	}, [runtime.state, actorId]);
+	}, [home, runtime.state, actorId, viewport]);
 
 	// Liveness is `session.workflow` everywhere else in the app (Session.tsx, ProjectionControl, every
 	// StatusDot). Reading `activeSceneId` instead meant `session.recover` — which restores the scene id
 	// while moving the workflow to `recap` — would make the hub pulse "Session live" over a read-only
 	// archive review.
-	const isLive = data.workflow === 'active';
-
-	// Each launcher hands its destination a create-intent (router state) so the create flow OPENS on
-	// arrival; the sub-line says what the thing is in GM vocabulary, since the labels alone
-	// ("widget"?) didn't tell a new user where NPCs, locations, or lore go. RC-UX-6.4 — a launcher
-	// with a complexity-map gate (New widget) is left out below its tier.
-	const tier = useSettingsTier();
-	const create = [
-		{
-			icon: 'scene',
-			label: t('home.create.scene'),
-			sub: t('home.create.sceneSub'),
-			run: () => navigate('/scenes'),
-		},
-		{
-			icon: 'new-character',
-			label: t('home.create.character'),
-			sub: t('home.create.characterSub'),
-			run: () => navigate('/characters', { state: { create: true } }),
-		},
-		{
-			icon: 'new-map',
-			label: t('home.create.map'),
-			sub: t('home.create.mapSub'),
-			run: () => navigate('/atlas', { state: { create: true } }),
-		},
-		{
-			gate: 'home.create.widget',
-			icon: 'widget',
-			label: t('home.create.widget'),
-			sub: t('home.create.widgetSub'),
-			run: () => navigate('/board', { state: { addWidget: true } }),
-		},
-		{
-			icon: 'note-edit',
-			label: t('home.create.note'),
-			sub: t('home.create.noteSub'),
-			run: () => navigate('/knowledge', { state: { create: true } }),
-		},
-	].filter((item) => !item.gate || featureGateVisible(item.gate, tier));
-
-	const manage = [
-		{
-			id: 'players',
-			icon: 'characters-person',
-			label: t('home.manage.players'),
-			meta: t('home.manage.playersMeta'),
-		},
-		{
-			id: 'permissions',
-			icon: 'dm-only',
-			label: t('home.manage.permissions'),
-			meta: t('home.manage.permissionsMeta'),
-		},
-		{
-			id: 'vault',
-			icon: 'settings-gear',
-			label: t('home.manage.vault'),
-			meta: t('home.manage.vaultMeta'),
-		},
-	].filter((item) => settingsGateVisible(`settings.nav.${item.id}`, tier));
-
-	const libraryCounts: Record<string, string> = {
-		characters: t('home.count.characters', { pcs: data.pcCount, npcs: data.npcCount }),
-		atlas: t('home.count.maps', { count: data.maps.length }),
-		campaign: t('home.count.campaign', {
-			threads: data.questCount,
-			factions: data.factionCount,
-		}),
-		knowledge: t('home.count.notes', { count: data.notes.length }),
-	};
+	const isLive = runtime.state.session.workflow === 'active';
 
 	// UX-CMD-012 — a player/observer device gets ONLY its own player-safe view, never the DM hub.
-	if (data.homeView.kind === 'participant') {
+	if (homeView.kind === 'participant') {
 		return (
 			<Page max={1100}>
 				<Card
@@ -356,13 +123,13 @@ export function CommandCenter() {
 								color: T.acc,
 							}}
 						>
-							{data.homeView.observerMode ? t('home.observerMode') : t('home.playerView')}
+							{homeView.observerMode ? t('home.observerMode') : t('home.playerView')}
 						</div>
 						<div style={{ font: `700 22px/1.1 ${T.disp}`, marginTop: 2 }}>
-							{data.homeView.displayName}
+							{homeView.displayName}
 						</div>
 						<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
-							{data.homeView.readOnly ? t('home.readOnlyView') : t('home.liveView')}
+							{homeView.readOnly ? t('home.readOnlyView') : t('home.liveView')}
 						</div>
 					</div>
 				</Card>
@@ -370,257 +137,68 @@ export function CommandCenter() {
 		);
 	}
 
+	if (!home) {
+		return (
+			<Page max={1200}>
+				{failed && (
+					<EmptyState
+						icon="home"
+						title={t('home.setupFailed')}
+						description={t('home.setupFailedHint')}
+						action={
+							<Button variant="secondary" size="sm" icon="refresh" onClick={retry}>
+								{t('common.action.retry')}
+							</Button>
+						}
+					/>
+				)}
+			</Page>
+		);
+	}
+
 	return (
 		<Page max={1200}>
-			{/* Resume — the single primary: drop back into the live scene */}
-			<Card
-				accent
-				elevation="raised"
-				padding="lg"
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 20,
-					flexWrap: 'wrap',
-					marginBottom: 26,
-				}}
-			>
-				<StatusDot status={isLive ? 'live' : 'idle'} pulse={isLive} />
-				<div style={{ flex: 1, minWidth: viewport === 'phone' ? 0 : 200 }}>
-					<div
-						style={{
-							font: `600 11px ${T.sans}`,
-							letterSpacing: '.09em',
-							textTransform: 'uppercase',
-							color: T.acc,
-						}}
-					>
-						{isLive ? t('home.sessionLive') : t('nav.commandCenter')}
-					</div>
-					{/* A real heading, not a styled div: AppShell already owns the route's <h1>, so the hub's
-					    own hero is an <h2> alongside the section labels. */}
-					<h2 style={{ font: `700 23px/1.1 ${T.disp}`, margin: '2px 0 0' }}>
-						{/* `liveScene` falls back to `scenes[0]` so the "Enter scene" button always has a
-						    destination — but with no session running that made the hub's 23px display heading
-						    announce an arbitrary scene name, which a DM reads as the current scene. */}
-						{(isLive ? data.liveScene?.name : null) ?? t('home.yourCampaign')}
-					</h2>
-					<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
-						{isLive ? t('home.liveSubtitle') : t('home.idleSubtitle')}
-						{data.party.length ? ` · ${t('home.partyCount', { count: data.party.length })}` : ''}
-					</div>
-				</div>
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 14,
-						flexWrap: 'wrap',
-						minWidth: 0,
-						width: viewport === 'phone' ? '100%' : undefined,
-					}}
-				>
-					<div style={{ display: 'flex' }}>
-						{data.party.slice(0, 5).map((p, i) => (
-							<span
-								key={p.id}
-								title={p.name}
-								role="img"
-								aria-label={p.name}
-								style={{
-									marginLeft: i ? -8 : 0,
-									borderRadius: '50%',
-									boxShadow: '0 0 0 2px var(--color-surface-raised)',
-								}}
-							>
-								<Avatar name={p.name} size="sm" ring="active" />
-							</span>
-						))}
-					</div>
-					<Button
-						variant="primary"
-						size="lg"
-						iconRight="enter"
-						// Not `disabled` on an empty resolve any more: the hub's ONE primary CTA went inert
-						// with no explanation, and the null branch already has a sensible destination.
-						onClick={() =>
-							!data.liveScene
-								? navigate('/scenes')
-								: // The GM Screen's backing scene is not editable at `/scene/:id` — it has its
-									// own destination, and "Go live" with no active scene lands exactly there.
-									navigate(data.liveSceneIsHome ? '/board' : `/scene/${data.liveScene.id}`)
-						}
-						style={{
-							maxWidth: '100%',
-							whiteSpace: viewport === 'phone' ? 'normal' : 'nowrap',
-							overflowWrap: 'anywhere',
-						}}
-					>
-						{data.liveSceneIsHome
-							? t('home.enterGmScreen')
-							: isLive
-								? t('home.enterScene')
-								: t('home.openScene')}
-					</Button>
-				</div>
-			</Card>
-
 			<div
+				data-testid="home-screen"
+				data-screen-id={home.id}
 				style={{
 					display: 'grid',
-					gridTemplateColumns: viewport === 'phone' ? '1fr' : 'minmax(0,1.5fr) minmax(0,1fr)',
-					gap: viewport === 'phone' ? 24 : 28,
+					gridTemplateColumns: `repeat(${viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop}, minmax(0, 1fr))`,
+					gap: T.space.six,
 					alignItems: 'start',
 				}}
 			>
-				<div>
-					<HubLabel
-						action={
-							<Button variant="ghost" size="sm" icon="add" onClick={() => navigate('/scenes')}>
-								{t('home.newScene')}
-							</Button>
-						}
+				{tiles.map(({ placement, widget }) => (
+					<div
+						key={widget.id}
+						data-flow-index={placement.index}
+						style={{
+							gridColumn: `${placement.column + 1} / span ${placement.span}`,
+							gridRow: placement.rowSpan
+								? `${placement.row + 1} / span ${placement.rowSpan}`
+								: String(placement.row + 1),
+							minWidth: 0,
+						}}
 					>
-						{t('home.scenes')}
-					</HubLabel>
-					{data.scenes.length === 0 ? (
-						<Card elevation="flat" padding="lg" style={{ textAlign: 'center', color: T.ter }}>
-							<div style={{ font: `13px ${T.sans}` }}>{t('home.noScenes')}</div>
-							<Button
-								variant="secondary"
-								size="sm"
-								icon="add"
-								onClick={() => navigate('/scenes')}
-								style={{ marginTop: 10 }}
-							>
-								{t('home.createFirstScene')}
-							</Button>
-						</Card>
-					) : (
-						<div
-							style={{
-								display: 'grid',
-								gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
-								gap: 14,
-							}}
-						>
-							{data.scenes.map((s) => (
-								<SceneTile
-									key={s.id}
-									scene={s}
-									// Same correction as the hub heading: a scene is only "live" while the session is.
-									status={statusOf(s, isLive ? data.activeSceneId : null)}
-									widgetCount={data.widgetCountFor(s.id)}
-									onOpen={() => navigate(`/scene/${s.id}`)}
-								/>
-							))}
-						</div>
-					)}
-				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-					<div>
-						<HubLabel>{t('home.create')}</HubLabel>
-						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
-							{create.map((c) => (
-								<LaunchTile
-									key={c.label}
-									icon={c.icon}
-									label={c.label}
-									sub={c.sub}
-									onClick={c.run}
-								/>
-							))}
-						</div>
+						<WidgetRenderSlot
+							widget={widget}
+							fitsContent
+							onCommand={(commandType, payload) =>
+								void runtime.dispatch({
+									type: 'widget.dispatch-command',
+									actorId,
+									payload: {
+										sceneId: home.id,
+										widgetInstanceId: widget.id,
+										commandType,
+										payload,
+										expectedRevision: home.ownership.revision,
+									},
+								})
+							}
+						/>
 					</div>
-					{manage.length > 0 && (
-						<div>
-							<HubLabel>{t('home.manage')}</HubLabel>
-							<Card
-								elevation="flat"
-								padding="sm"
-								style={{ display: 'flex', flexDirection: 'column' }}
-							>
-								{manage.map((m, i) => (
-									<button
-										key={m.id}
-										type="button"
-										// Deep-link the exact Settings subpage (Settings reads `?tab=`), not the section root.
-										onClick={() => navigate(`/settings?tab=${m.id}`)}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 11,
-											padding: '10px 8px',
-											border: 'none',
-											borderTop: i ? `1px solid ${T.bd}` : 'none',
-											background: 'transparent',
-											cursor: 'pointer',
-											textAlign: 'left',
-										}}
-									>
-										<Icon name={m.icon} size="sm" color={T.sub} />
-										<span style={{ flex: 1, minWidth: 0 }}>
-											<span
-												style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}
-											>
-												{m.label}
-											</span>
-											<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter }}>
-												{m.meta}
-											</span>
-										</span>
-										<Icon name="chevron-right" size="sm" color={T.ter} />
-									</button>
-								))}
-							</Card>
-						</div>
-					)}
-				</div>
-			</div>
-
-			<div style={{ marginTop: 28 }}>
-				<HubLabel>{t('home.library')}</HubLabel>
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))',
-						gap: 14,
-					}}
-				>
-					{LIBRARY.map((l) => (
-						<Card
-							key={l.id}
-							elevation="flat"
-							interactive
-							padding="md"
-							onClick={() => navigate(l.path)}
-							style={{ display: 'flex', alignItems: 'center', gap: 12 }}
-						>
-							<span
-								style={{
-									width: 40,
-									height: 40,
-									borderRadius: 9,
-									background: T.accSub,
-									color: T.acc,
-									display: 'inline-flex',
-									alignItems: 'center',
-									justifyContent: 'center',
-									flex: '0 0 auto',
-								}}
-							>
-								<Icon name={l.icon} size="md" />
-							</span>
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13.5px ${T.sans}`, color: T.ink }}>{t(l.labelKey)}</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									{libraryCounts[l.id] ?? (l.subKey ? t(l.subKey) : '')}
-								</div>
-							</div>
-							<Icon name="chevron-right" size="sm" color={T.ter} />
-						</Card>
-					))}
-				</div>
+				))}
 			</div>
 		</Page>
 	);

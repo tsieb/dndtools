@@ -576,6 +576,8 @@ export type {
 	WidgetQuerySceneMembership,
 	WidgetQuerySort,
 	WidgetQueryStatus,
+	// RC-CAN-7.6 — the Command Center's parts.
+	HomeWidgetType,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -636,6 +638,10 @@ export {
 	readWidgetLastRoll,
 	readWidgetShownMessage,
 	widgetCommandHasExecutor,
+	// RC-CAN-7.6 — the Command Center's parts and translatable stored text.
+	HOME_WIDGET_TYPES,
+	WIDGET_TEXT_MESSAGE_PREFIX,
+	createHomeWidgetDefinitions,
 } from './state/widget-package-state';
 export type {
 	WidgetCommandAvailability,
@@ -1689,6 +1695,13 @@ export type {
 	StatusStripTurnCell,
 } from './queries/command-center-home';
 export { getSessionStatusStrip, resolveCommandCenterHome } from './queries/command-center-home';
+// RC-CAN-7.6 — the Command Center as the default screen.
+export {
+	HOME_SCREEN_DEFAULT_KEY,
+	buildDefaultHomeScreen,
+	findHomeScreen,
+	isDefaultScreen,
+} from './commands/command-center';
 
 // UX-CMD-006/007/010/011 — the Command Center LIVE-CONTROL read models: spec'd session phase
 // transitions (with their confirmation contract), the default-deny pushable-content selector, the

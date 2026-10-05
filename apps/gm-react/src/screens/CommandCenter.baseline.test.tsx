@@ -5,14 +5,19 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	HOME_WIDGET_TYPES,
 	createDemoMapState,
 	dispatchCommand,
+	findHomeScreen,
+	findWidgetDefinition,
 	type Actor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreStateSlice,
 } from '@dndtools/core';
 import { buildInitialState, makeEnvironment } from '@dndtools/core/testing';
+import { flowPlacements } from '../app/board-helpers';
+import { buildPackage, readPackage } from '../app/widgetBuilder/draft';
 import { I18nProvider } from '../i18n';
 import { seedDemoContent } from '../runtime/demo-seed';
 
@@ -400,5 +405,148 @@ describe('Command Center baselines (RC-CAN-7.6)', () => {
 		runtime.defaultActorId = 'actor-observer';
 		runtime.activeActorId = 'actor-observer';
 		expectBaseline(await renderHub(), 'observer');
+	});
+});
+
+// --- After the conversion -----------------------------------------------------------------------
+
+/** Every serialisation the baselines hold, of the hub with its widget regions unwrapped. */
+function serialise(main: HTMLElement) {
+	const page = withoutWidgetRegions(main);
+	return {
+		aria: ariaTree(page),
+		dom: domSkeleton(page),
+		headings: headingOutline(page),
+		focus: focusOrder(page),
+	};
+}
+
+function homeScreen() {
+	const home = findHomeScreen(runtime.state.scenes);
+	if (!home) throw new Error('the home screen was not provisioned');
+	return home;
+}
+
+/** Where each part sits in the flow grid, by the part it is (a copy reads as its original). */
+function arrangement() {
+	const home = homeScreen();
+	const typeOf = new Map(home.widgets.map((w) => [w.id, w.type.replace(/^copy-/, '')]));
+	return flowPlacements(home.widgets.map((w) => ({ id: w.id, ...w.layout })))
+		.map(({ id, column, row, span, rowSpan }) => ({
+			part: typeOf.get(id),
+			column,
+			row,
+			span,
+			rowSpan,
+		}))
+		.sort((a, b) => a.row - b.row || a.column - b.column);
+}
+
+/**
+ * Rebuild one part the way a GM does: open the system definition in the widget builder (the
+ * builder's own `readPackage`), save it under their own package and type (`buildPackage`), install
+ * and enable it, and put it on the home screen where the original was.
+ */
+async function rebuildPart(type: (typeof HOME_WIDGET_TYPES)[number]) {
+	const definition = findWidgetDefinition(runtime.state.widgets, type)!;
+	const draft = readPackage(
+		{
+			id: 'system.home-widgets',
+			version: '1.0.0',
+			displayName: definition.displayName,
+			widgets: [definition],
+			migrations: [],
+			assets: [],
+			portabilityWarnings: [],
+		},
+		'proposed',
+	);
+	const pkg = buildPackage({ ...draft, packageId: `user.copy-${type}`, typeId: `copy-${type}` });
+	await accept({ type: 'widget.package.install', payload: { package: pkg } } as never);
+	await accept({ type: 'widget.package.enable', payload: { packageId: pkg.id } } as never);
+	const home = homeScreen();
+	const original = home.widgets.find((widget) => widget.type === type)!;
+	await accept({
+		type: 'scene.add-widget',
+		payload: {
+			sceneId: home.id,
+			widget: {
+				type: `copy-${type}`,
+				version: pkg.version,
+				layout: {
+					x: original.layout.x,
+					y: original.layout.y,
+					w: original.layout.w,
+					h: original.layout.h,
+				},
+				configuration: {},
+				localState: {},
+				binding: null,
+			},
+		},
+	} as never);
+	await accept({
+		type: 'scene.destroy-widget',
+		payload: { sceneId: home.id, widgetInstanceId: original.id },
+	} as never);
+}
+
+describe('the Command Center as the default screen (RC-CAN-7.6)', () => {
+	it('is a flow screen of five system template parts, each in its own widget region', async () => {
+		await seedDemoVault();
+		const main = await renderHub();
+		const home = homeScreen();
+		expect(home.screen?.layoutPolicy).toBe('flow');
+		expect(home.widgets.map((widget) => widget.type)).toEqual([...HOME_WIDGET_TYPES]);
+		for (const type of HOME_WIDGET_TYPES) {
+			const definition = findWidgetDefinition(runtime.state.widgets, type);
+			expect(definition?.renderEntrypoint?.runtime).toBe('template');
+		}
+		// The documented difference from the baselines: one labelled region per part.
+		expect(
+			[...main.querySelectorAll('section[data-widget-region]')].map((region) =>
+				region.getAttribute('aria-label'),
+			),
+		).toEqual(['1. Resume', '2. Scenes', '3. Create', '4. Manage', '5. Library']);
+		// Create over Manage beside the scenes: the hub's two-column body.
+		expect(arrangement()).toEqual([
+			{ part: 'home-hero', column: 0, row: 0, span: 12, rowSpan: undefined },
+			{ part: 'home-scenes', column: 0, row: 1, span: 7, rowSpan: 2 },
+			{ part: 'home-create', column: 7, row: 1, span: 5, rowSpan: undefined },
+			{ part: 'home-manage', column: 7, row: 2, span: 5, rowSpan: undefined },
+			{ part: 'home-library', column: 0, row: 3, span: 12, rowSpan: undefined },
+		]);
+	});
+
+	it('a GM-built duplicate of each part passes the same snapshot', async () => {
+		await seedDemoVault();
+		const original = serialise(await renderHub());
+		act(() => root.render(null));
+		for (const type of HOME_WIDGET_TYPES) {
+			await rebuildPart(type);
+			const rebuilt = serialise(await renderHub());
+			act(() => root.render(null));
+			expect(rebuilt, `after rebuilding ${type}`).toEqual(original);
+		}
+		// All five are now the GM's own widgets; the column is re-formed with the group command.
+		const home = homeScreen();
+		expect(home.widgets.every((widget) => widget.type.startsWith('copy-'))).toBe(true);
+		await accept({
+			type: 'scene.group-widgets',
+			payload: {
+				sceneId: home.id,
+				widgetInstanceIds: home.widgets
+					.filter((widget) => ['copy-home-create', 'copy-home-manage'].includes(widget.type))
+					.map((widget) => widget.id),
+			},
+		} as never);
+		expect(serialise(await renderHub())).toEqual(original);
+		expect(arrangement().map(({ part, column, row, span }) => [part, column, row, span])).toEqual([
+			['home-hero', 0, 0, 12],
+			['home-scenes', 0, 1, 7],
+			['home-create', 7, 1, 5],
+			['home-manage', 7, 2, 5],
+			['home-library', 0, 3, 12],
+		]);
 	});
 });
