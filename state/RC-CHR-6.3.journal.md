@@ -130,3 +130,30 @@ loop/rc` then passed: 15 files checked, exit 0. No source changes.
     base). Prettier check passed.
   - Pinned container, `-g '(/play|characters|character builder|play stage|player)'`
     `--update-snapshots=none`: **69 passed**, no baseline changes.
+
+## Visual gate follow-up: play-stage re-baseline (2026-10-05)
+
+- The operator rebased the branch onto `13bfd9e5` (current `loop/rc`). The gate at `72e69cef`
+  failed `Visual regression (pinned container)` on exactly 15 captures:
+  `play-polish.spec.ts` "play stage" × 5 themes × 3 tiers. 483 other captures passed. Each diff was
+  about 1% of pixels.
+- Cause: RC-CHR-6.6 (`e210c1dc`) re-baselined the play-stage captures on `loop/rc` without this
+  story. In those baselines the player's "Party vitals" shows one PC (Sera Duskwhisper), which is
+  the PLY-6 bug this story fixes. The actual captures show all three PCs (Brother Calloway, Sera
+  Duskwhisper, Tormund Ironfist), with full names wrapping inside their tiles. This is the intended
+  change, not a regression.
+- Inspected the actual and diff images (desktop tavern) and the new phone tavern and rail
+  high-contrast captures. On phone, the fixed bottom nav draws over part of the party card. The base
+  phone baseline shows the same overlay in the same place (an artefact of the full-height element
+  capture), so this change did not introduce it.
+- Re-baselined only those 15 inside the pinned container:
+  `run-in-container.sh --update-snapshots=changed --workers=2 -g 'play stage'` (15 passed, 15
+  rewritten). Then losslessly re-deflated the 15 PNGs (zlib level 9; the decoded pixel stream was
+  asserted identical), saving 136,054 bytes. Baseline budget: 32,348.3 KiB of 34,816 KiB, below the
+  base's 32,397.9 KiB.
+- No-update comparison,
+  `-g '(/play|characters|character builder|play stage|player|companion)' --update-snapshots=none`:
+  **78 passed**.
+- Full pinned-container visual suite, `run-in-container.sh --update-snapshots=none --workers=2`:
+  **498 passed** (10.2m), exit 0.
+- No source changes in this follow-up.
