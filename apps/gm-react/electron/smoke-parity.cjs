@@ -111,6 +111,13 @@ app.whenReady().then(async () => {
 		app.emit('open-url', { preventDefault() {} }, 'lamplight://join/invalid/path');
 		await delay(100);
 		assert.ok(win.webContents.getURL().includes('token=second-token'));
+		// A fresh profile starts with an empty campaign (RC-UX-3.6), and a session needs a scene to go
+		// live on. Opening the Screens library creates the Command Center's own home scene, the same
+		// step a DM takes through the hub's "Open scene" button.
+		await win.webContents.executeJavaScript("location.hash = '#/scenes'");
+		await until(() =>
+			win.webContents.executeJavaScript("document.body.innerText.includes('New screen')"),
+		);
 		await win.webContents.executeJavaScript("location.hash = '#/'");
 		await until(() =>
 			win.webContents.executeJavaScript("document.body.innerText.includes('Command Center')"),

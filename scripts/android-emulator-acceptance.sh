@@ -167,15 +167,16 @@ wait_for_ui_text() {
 }
 
 # The Command Center's primary CTA is state-dependent (CommandCenter.tsx): "Open scene" with no
-# live session, "Enter scene" when live on a table scene, and "Enter GM Screen" when the live scene
-# is the GM Screen's own home scene. `Session`'s "Start session" falls back to that home scene when
-# nothing else is active — which is exactly what happens on the fresh install this script drives —
-# so an assertion that only means "we are back on the root destination" must accept any of them.
+# live session, "Enter scene" when live on a table scene, and "Open DM screen" (formerly "Enter GM
+# Screen"; the role word follows the vocabulary setting) when the live scene is the GM Screen's own
+# home scene. The fresh vault this script drives starts empty (RC-UX-3.6), so its session goes live
+# on that home scene. An assertion that only means "we are back on the root destination" must
+# accept any of them.
 wait_for_root_destination() {
 	local ui='' label
 	for _ in {1..45}; do
 		ui=$(dump_ui || true)
-		for label in 'enter gm screen' 'enter scene' 'open scene'; do
+		for label in 'enter gm screen' 'open dm screen' 'open gm screen' 'enter scene' 'open scene'; do
 			if [[ "${ui,,}" == *"$label"* ]]; then
 				return 0
 			fi
@@ -469,22 +470,23 @@ adb install --no-streaming "$APK_PATH" | grep -q 'Success' || fail 'fresh APK in
 step 'fresh signed install and cold launch'
 launch_app
 
-# Fresh installs open the first-run dialog. ADR-026: setup is NOT dismissible until the vault
-# privacy mode is explicitly decided — the first Back must keep the app foreground and land on the
-# forced privacy step instead of dismissing. After an explicit choice (Cloud-Enhanced needs no
-# typed acknowledgment), Back routes to skip and dismisses only that topmost overlay.
+# Fresh installs open the first-run dialog. RC-UX-3.6 (ADR-042): a Beginner or Standard GM is not
+# asked for consent, and Back skips setup from its first step, recording the defaults. Back must
+# dismiss only that topmost overlay and keep the app foreground.
 wait_for_ui_text 'Skip setup' || fail 'first-run setup did not become accessible'
 adb shell input keyevent KEYCODE_BACK
-wait_until_foreground || fail 'Back minimized the app instead of routing to the privacy step'
-wait_for_pid >/dev/null || fail 'the refused Back dismissal terminated the app process'
-wait_for_ui_text 'Who can read your world' || fail 'Back did not land on the forced privacy step'
-tap_ui_node 'Cloud-Enhanced vault' || fail 'the Cloud-Enhanced privacy option was not tappable'
-sleep 0.5
-adb shell input keyevent KEYCODE_BACK
-wait_until_foreground || fail 'Back minimized the app instead of dismissing decided first-run setup'
+wait_until_foreground || fail 'Back minimized the app instead of skipping first-run setup'
 wait_for_pid >/dev/null || fail 'dismissing first-run setup terminated the app process'
-wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss the decided first-run setup'
+wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss first-run setup'
 wait_for_ui_text 'Open scene' || fail 'root destination did not render after first-run setup'
+
+# A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates the scene a
+# session can start on; Home then returns to the root destination for the checks below.
+step 'fresh vault scene'
+tap_ui_button 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
+wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
+tap_ui_button 'Home' || fail 'Home navigation control was not reachable from Screens'
+wait_for_root_destination || fail 'Home did not return to the root destination'
 
 # Exercise renderer history and commit a real Core command before the final root-level minimize
 # check. "players see" is rendered only after session.set-workflow was accepted, so observing it now
@@ -516,6 +518,13 @@ wait_for_root_destination || fail 'Back did not return from Session to Command C
 step 'fullscreen editor Back ordering'
 tap_ui_button 'Maps' || fail 'Maps navigation control was not reachable'
 wait_for_ui_text 'Open in map editor' || fail 'Maps destination did not render'
+# The fresh vault has no map yet, and the editor entry stays disabled until one exists. New map
+# focuses its required name field, and Enter submits the form.
+tap_ui_button 'New map' || fail 'New map was not reachable on the Maps destination'
+wait_for_ui_text 'Create map' || fail 'the New map dialog did not open'
+adb shell input text 'Harbor'
+adb shell input keyevent KEYCODE_ENTER
+wait_for_ui_text_absent 'Create map' || fail 'the new map was not created'
 tap_ui_button_until_text 'Open in map editor' 'Navigate map' \
 	|| fail 'fullscreen quick-map editor did not open'
 step 'fullscreen editor opened'

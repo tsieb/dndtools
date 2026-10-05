@@ -84,84 +84,17 @@ Gate run at `eec27573`: Browser acceptance failed 8 tests (1750 passed). Exact l
 ## 2026-10-05 linear history for the dispatcher rebase
 
 - The dispatcher's rebase onto `8f9669b5` replays commits one by one, so the early commits conflicted with integration changes made since (Sidebar.tsx, en.ts, the raw-style allowance). Those conflicts had already been reconciled in merge commits, which a rebase drops. I merged `8f9669b5` cleanly and squashed the branch into one commit on top of it, so a rebase onto `8f9669b5` is a no-op. The content is unchanged from the reconciled merge.
-- The out-of-claim Android acceptance-script follow-up (formerly commit `74541f09`, no longer on the branch after the squash) is preserved here as a patch against the base script. Apply it under a claim that owns `scripts/android-emulator-acceptance.sh`:
+- The out-of-claim Android acceptance-script patch that was preserved here has now landed on the branch (see the next entry).
 
-```diff
-diff --git a/scripts/android-emulator-acceptance.sh b/scripts/android-emulator-acceptance.sh
-index 49afbf7e..3e92a2be 100755
---- a/scripts/android-emulator-acceptance.sh
-+++ b/scripts/android-emulator-acceptance.sh
-@@ -167,15 +167,16 @@ wait_for_ui_text() {
- }
+## 2026-10-05 review rejection: CI scripts, replay, cleanup
 
- # The Command Center's primary CTA is state-dependent (CommandCenter.tsx): "Open scene" with no
--# live session, "Enter scene" when live on a table scene, and "Enter GM Screen" when the live scene
--# is the GM Screen's own home scene. `Session`'s "Start session" falls back to that home scene when
--# nothing else is active — which is exactly what happens on the fresh install this script drives —
--# so an assertion that only means "we are back on the root destination" must accept any of them.
-+# live session, "Enter scene" when live on a table scene, and "Open DM screen" (formerly "Enter GM
-+# Screen"; the role word follows the vocabulary setting) when the live scene is the GM Screen's own
-+# home scene. The fresh vault this script drives starts empty (RC-UX-3.6), so its session goes live
-+# on that home scene. An assertion that only means "we are back on the root destination" must
-+# accept any of them.
- wait_for_root_destination() {
- 	local ui='' label
- 	for _ in {1..45}; do
- 		ui=$(dump_ui || true)
--		for label in 'enter gm screen' 'enter scene' 'open scene'; do
-+		for label in 'enter gm screen' 'open dm screen' 'open gm screen' 'enter scene' 'open scene'; do
- 			if [[ "${ui,,}" == *"$label"* ]]; then
- 				return 0
- 			fi
-@@ -469,23 +470,24 @@ adb install --no-streaming "$APK_PATH" | grep -q 'Success' || fail 'fresh APK in
- step 'fresh signed install and cold launch'
- launch_app
+The review of `61d784cb` rejected the candidate for two CI jobs that assume a seeded fresh profile, which the story removes. Both fixes are outside the claim. The fence feedback for an earlier attempt said to revert out-of-claim paths unless they are required, so the task should now block for the operator to decide whether to widen the claim. Without these two paths the review rejects the candidate, and with them the fence blocks it.
 
--# Fresh installs open the first-run dialog. ADR-026: setup is NOT dismissible until the vault
--# privacy mode is explicitly decided — the first Back must keep the app foreground and land on the
--# forced privacy step instead of dismissing. After an explicit choice (Cloud-Enhanced needs no
--# typed acknowledgment), Back routes to skip and dismisses only that topmost overlay.
-+# Fresh installs open the first-run dialog. RC-UX-3.6 (ADR-042): a Beginner or Standard GM is not
-+# asked for consent, and Back skips setup from its first step, recording the defaults. Back must
-+# dismiss only that topmost overlay and keep the app foreground.
- wait_for_ui_text 'Skip setup' || fail 'first-run setup did not become accessible'
- adb shell input keyevent KEYCODE_BACK
--wait_until_foreground || fail 'Back minimized the app instead of routing to the privacy step'
--wait_for_pid >/dev/null || fail 'the refused Back dismissal terminated the app process'
--wait_for_ui_text 'Who can read your world' || fail 'Back did not land on the forced privacy step'
--tap_ui_node 'Cloud-Enhanced vault' || fail 'the Cloud-Enhanced privacy option was not tappable'
--sleep 0.5
--adb shell input keyevent KEYCODE_BACK
--wait_until_foreground || fail 'Back minimized the app instead of dismissing decided first-run setup'
-+wait_until_foreground || fail 'Back minimized the app instead of skipping first-run setup'
- wait_for_pid >/dev/null || fail 'dismissing first-run setup terminated the app process'
--wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss the decided first-run setup'
-+wait_for_ui_text_absent 'Skip setup' || fail 'Back did not dismiss first-run setup'
- wait_for_ui_text 'Open scene' || fail 'root destination did not render after first-run setup'
-
-+# A fresh vault starts empty (RC-UX-3.6). Opening the Command Center scene creates the scene a
-+# session can start on; Home then returns to the root destination for the checks below.
-+step 'fresh vault scene'
-+tap_ui_button 'Open scene' || fail 'Open scene was not reachable on the fresh vault'
-+wait_for_ui_text 'New screen' || fail 'Open scene did not open the Screens library'
-+tap_ui_button 'Home' || fail 'Home navigation control was not reachable from Screens'
-+wait_for_root_destination || fail 'Home did not return to the root destination'
-+
- # Exercise renderer history and commit a real Core command before the final root-level minimize
- # check. "players see" is rendered only after session.set-workflow was accepted, so observing it now
- # and after process death proves more than the presence of an IndexedDB directory.
-@@ -516,6 +518,13 @@ wait_for_root_destination || fail 'Back did not return from Session to Command C
- step 'fullscreen editor Back ordering'
- tap_ui_button 'Maps' || fail 'Maps navigation control was not reachable'
- wait_for_ui_text 'Open in map editor' || fail 'Maps destination did not render'
-+# The fresh vault has no map yet, and the editor entry stays disabled until one exists. New map
-+# focuses its required name field, and Enter submits the form.
-+tap_ui_button 'New map' || fail 'New map was not reachable on the Maps destination'
-+wait_for_ui_text 'Create map' || fail 'the New map dialog did not open'
-+adb shell input text 'Harbor'
-+adb shell input keyevent KEYCODE_ENTER
-+wait_for_ui_text_absent 'Create map' || fail 'the new map was not created'
- tap_ui_button_until_text 'Open in map editor' 'Navigate map' \
- 	|| fail 'fullscreen quick-map editor did not open'
- step 'fullscreen editor opened'
-```
+- `apps/gm-react/electron/smoke-parity.cjs` (desktop-smoke job): the parity smoke clicked Start session on a fresh profile, and an empty campaign has no scene, so the badge never appeared. The smoke now opens the Screens library first, which creates the Command Center home scene the same way the hub's "Open scene" button does, then returns to `#/`. `DISPLAY=:0 pnpm --filter @dndtools/gm-react desktop:smoke` passed every step, parity write and verify included (`/tmp/rc-ux36-smoke1.log`), and passed again on the final tree (`/tmp/rc-ux36-smoke2.log`).
+- `scripts/android-emulator-acceptance.sh` (android-checks job): applied the patch that was preserved in this journal. Back skips setup, "Open scene" creates the home scene, New map plus a typed name creates a map before the editor step, and the root check accepts "Open DM screen". I checked every label against the current catalog ("Create map" is a literal in `MapCreationForm.tsx`). `bash -n` passed, and the source-contract test `tests/unit/android-emulator-acceptance.test.ts` passed 20 of 20. I replayed the sequence in phone Chromium with a temporary spec (now deleted): skip, Open scene, Home, Session, then Start session and confirm, "Players see", Back to root, Maps, New map, Harbor + Enter, and "Open in map editor" enabled. It passed. The emulator itself cannot run here (no JDK), so `gh workflow run CI --ref <branch>` is still the operator's check; I did not push.
+- Replay (medium finding): the name field now pre-fills from the catalog unless creation is pending, and the system select starts at the active package. Finishing only dispatches `system.select` when the system actually changed, and skip no longer dispatches it at all.
+- i18n (low): the skip fallback name uses `home.yourCampaign`. A rejected system change shows `onboarding.v3.systemFailed`, and any storage or catalog error shows `onboarding.v3.saveFailed`, in place of the English exception text.
+- Dead code (low): deleted the v2 step components (Welcome, Vault, Privacy, Tools, Players, Ready), ChoiceCard and StepRail, the unused `shared.ts` exports and their raw-style allowances. `scripts/emphasis-baseline.json` still lists five of the deleted files. The emphasis lint only reports those entries as shrinkable and exits 0. I left the file alone because it is outside the claim. `apps/gm-react/scripts/verify-ui.mjs` is also outside the claim and untouched.
+- Evidence (low): the Standard and Beginner runs now check for E2EE copy on all three steps. On phone they open More and check that the campaign row shows the name. The replay test now asserts the pre-filled name and Generic system.
+- Results: `playwright test onboarding-consent golden-path cloud-enhanced-honest-limit --workers=3` **86 passed** (both profiles); `responsive` **162 passed**; vitest app (preferences, SceneRuntime, i18n) **75**, cloud vaultMode **6**, Android script contract **20**; gm-react typecheck, ESLint on changed files, Prettier, raw-style count and emphasis lint passed.
+- Local commit only. Nothing pushed or promoted, and no dispatcher state touched.

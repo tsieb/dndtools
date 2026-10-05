@@ -1,9 +1,7 @@
 import type { FeatureTier } from '@dndtools/core';
-import type { MessageKey } from '../../i18n';
 import {
 	PREFERENCE_KEYS,
 	readPreference,
-	removePreference,
 	writePreference,
 	type PreferenceKey,
 } from '../../platform/preferences';
@@ -13,66 +11,12 @@ import {
 export const ONBOARDED_KEY = PREFERENCE_KEYS.onboarded;
 export const VAULT_CHOICE_KEY = PREFERENCE_KEYS.vaultChoice;
 export const REPLAY_EVENT = 'dndtools:onboarding-replay';
-export const INVITES_KEY = PREFERENCE_KEYS.partyNotes;
 export const TIER_KEY = PREFERENCE_KEYS.tier;
 export const TIER_ATTR = 'data-feature-tier';
-export const MAX_PARTY_NOTES = 20;
-export const MAX_PARTY_NOTE_CHARS = 120;
-// Mirrors Settings' complexity mapping — design vocabulary level → real core FeatureTier.
-export const LEVEL_TO_TIER: Record<string, FeatureTier> = {
-	beginner: 'core',
-	standard: 'intermediate',
-	expert: 'advanced',
-};
 
-// The experience-step cards (design vocabulary). The table holds message keys rather than English,
-// so the step reads in the active locale (RC-UX-1.2). Each card's REVEALS list stays live — read
-// from the Core's `visibleFeatures()` for the mapped tier, never from static copy.
-export const COMPLEXITY_LEVELS = [
-	{
-		id: 'beginner',
-		name: 'onboarding.experience.beginner',
-		icon: 'Sprout',
-		rec: false,
-		blurb: 'onboarding.experience.beginnerBlurb',
-	},
-	{
-		id: 'standard',
-		name: 'onboarding.experience.standard',
-		icon: 'SlidersHorizontal',
-		rec: true,
-		blurb: 'onboarding.experience.standardBlurb',
-	},
-	{
-		id: 'expert',
-		name: 'onboarding.experience.expert',
-		icon: 'Wrench',
-		rec: false,
-		blurb: 'onboarding.experience.expertBlurb',
-	},
-] as const satisfies ReadonlyArray<{
-	id: string;
-	name: MessageKey;
-	icon: string;
-	rec: boolean;
-	blurb: MessageKey;
-}>;
-
-/* The wizard's device-local state goes through the platform preferences layer (RC-UX-4.1); these
- * three names are kept so every step keeps importing storage from one place. */
+/* The wizard's device-local state goes through the platform preferences layer (RC-UX-4.1). */
 export const readStorage = (key: PreferenceKey) => readPreference(key);
 export const writeStorage = (key: PreferenceKey, value: string) => writePreference(key, value);
-export const removeStorage = (key: PreferenceKey) => removePreference(key);
-
-/** Reload after a vault reset while preserving a HashRouter destination under both http(s) and file. */
-export function reloadAtRoute(route?: string) {
-	if (route) {
-		const next = new URL(window.location.href);
-		next.hash = route;
-		window.history.replaceState(null, '', next.href);
-	}
-	window.location.reload();
-}
 
 export function readStoredTier(): FeatureTier {
 	const value = readStorage(TIER_KEY);
@@ -81,29 +25,12 @@ export function readStoredTier(): FeatureTier {
 		: 'intermediate';
 }
 
-export function readStoredPartyNotes(): string[] {
-	try {
-		const value = JSON.parse(readStorage(INVITES_KEY) ?? '[]') as unknown;
-		if (!Array.isArray(value)) return [];
-		return value
-			.filter((entry): entry is string => typeof entry === 'string')
-			.map((entry) => entry.trim().slice(0, MAX_PARTY_NOTE_CHARS))
-			.filter(Boolean)
-			.slice(0, MAX_PARTY_NOTES);
-	} catch {
-		return [];
-	}
-}
-
-/** ARIA radio-group contract: arrows move selection (selection follows focus), Tab skips the group. */
-
 export const ONB_STEPS = [
 	{ id: 'campaign', title: 'onboarding.v3.campaign', icon: 'vault' },
 	{ id: 'experience', title: 'onboarding.v3.complexity', icon: 'sliders' },
 	{ id: 'ready', title: 'onboarding.v3.ready', icon: 'flag' },
 ] as const;
 
-export const PRIVACY_STEP_INDEX = 1;
 /** ADR-026 — the typed acknowledgment for choosing Private (E2EE), mirroring AccountDangerPanel. */
 export const PRIVACY_ACK_PHRASE = 'i hold the keys';
 

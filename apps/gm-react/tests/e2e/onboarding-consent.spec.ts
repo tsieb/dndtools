@@ -23,6 +23,9 @@ async function accessible(page: Page) {
 		.analyze();
 	expect(result.violations).toEqual([]);
 }
+// The Private (E2EE) choice and its acknowledgement belong to Expert alone.
+const noPrivateChoice = (page: Page) =>
+	expect(overlay(page).getByText(/E2EE|hold the keys/)).toHaveCount(0);
 async function finished(page: Page) {
 	await expect(overlay(page)).toBeHidden();
 	await expect(page).toHaveURL(/#\/$/);
@@ -56,6 +59,7 @@ for (const tier of ['Standard', 'Beginner']) {
 		await expect(
 			overlay(page).getByRole('button', { name: 'Continue', exact: true }),
 		).toBeDisabled();
+		await noPrivateChoice(page);
 		await accessible(page);
 		await overlay(page).getByLabel('Campaign name').click();
 		await complexity(page);
@@ -68,7 +72,7 @@ for (const tier of ['Standard', 'Beginner']) {
 			await overlay(page)
 				.getByRole('radio', { name: /Beginner/ })
 				.click();
-		await expect(overlay(page).getByText(/E2EE|Private \(E2EE\)|hold the keys/)).toHaveCount(0);
+		await noPrivateChoice(page);
 		const descriptions = await overlay(page).getByRole('radio').allTextContents();
 		expect(new Set(descriptions.map((text) => text.slice(text.indexOf('Hides')))).size).toBe(3);
 		await accessible(page);
@@ -78,6 +82,7 @@ for (const tier of ['Standard', 'Beginner']) {
 		await expect(
 			overlay(page).getByRole('link', { name: 'Settings › Backup & history' }),
 		).toBeVisible();
+		await noPrivateChoice(page);
 		await accessible(page);
 		await overlay(page).getByRole('button', { name: 'Open the Command Center' }).click();
 		await finished(page);
@@ -94,6 +99,14 @@ for (const tier of ['Standard', 'Beginner']) {
 		expect(await storage(page, DONE)).toBe('done');
 		if (!isMobile)
 			await expect(page.locator('aside').getByText('Lantern Coast', { exact: true })).toBeVisible();
+		else {
+			// The phone form of the sidebar chip is the More sheet's campaign row.
+			await page.getByRole('button', { name: 'More', exact: true }).click();
+			await expect(page.getByRole('button', { name: /^Local vaults/ })).toContainText(
+				'Lantern Coast',
+			);
+			await page.keyboard.press('Escape');
+		}
 		expect(
 			await page.evaluate(() => {
 				const state = window.__rt!.state as unknown as {
@@ -224,7 +237,10 @@ test('Generic system persists, and replay cannot change an existing mode', async
 		localStorage.removeItem('dndtools:react:onboarded');
 		window.dispatchEvent(new Event('dndtools:onboarding-replay'));
 	});
-	await complexity(page);
+	// Replay keeps the campaign's name and system, so changing only the layout needs no retyping.
+	await expect(overlay(page).getByLabel('Campaign name')).toHaveValue('Lantern Coast');
+	await expect(overlay(page).getByLabel('Game system')).toHaveValue(/generic/);
+	await overlay(page).getByRole('button', { name: 'Continue', exact: true }).click();
 	await overlay(page)
 		.getByRole('radio', { name: /Beginner/ })
 		.click();

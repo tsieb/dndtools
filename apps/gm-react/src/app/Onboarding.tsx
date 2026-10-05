@@ -32,6 +32,17 @@ export {
 	VAULT_CHOICE_KEY,
 } from './onboarding/shared';
 
+const isNewCampaign = () => readPreference(PREFERENCE_KEYS.onboardingCampaign) === 'pending';
+
+/** The catalog name of the open campaign, or '' when the catalog cannot be read. */
+function campaignName(vaultId: string): string {
+	try {
+		return listLocalVaults().find((vault) => vault.id === vaultId)?.name ?? '';
+	} catch {
+		return '';
+	}
+}
+
 /** Three steps to a named, empty campaign. Replay changes presentation, never vault privacy. */
 export function Onboarding() {
 	const runtime = useRuntime();
@@ -40,7 +51,8 @@ export function Onboarding() {
 	const isPhone = useViewport() === 'phone';
 	const [open, setOpen] = useState(() => readStorage(ONBOARDED_KEY) === null);
 	const [step, setStep] = useState(0);
-	const [name, setName] = useState('');
+	// A new campaign starts unnamed; a replay keeps the campaign's current name.
+	const [name, setName] = useState(() => (isNewCampaign() ? '' : campaignName(runtime.vaultId)));
 	const [system, setSystem] = useState(runtime.state.systems.activePackageId);
 	const [tier, setTier] = useState<FeatureTier>(readStoredTier);
 	const [privacy, setPrivacy] = useState<VaultPrivacyMode | null>(null);
@@ -51,7 +63,7 @@ export function Onboarding() {
 	const content = useRef<HTMLDivElement>(null);
 	const saving = useRef(false);
 	const completed = useRef(false);
-	const isNew = readPreference(PREFERENCE_KEYS.onboardingCampaign) === 'pending';
+	const isNew = isNewCampaign();
 	const existingMode = storedVaultPrivacyMode();
 	const chooseMode = isNew && existingMode === null && tier === 'advanced';
 	const mode =
@@ -69,7 +81,7 @@ export function Onboarding() {
 	useEffect(() => {
 		const replay = () => {
 			setStep(0);
-			setName('');
+			setName(isNewCampaign() ? '' : campaignName(runtime.vaultId));
 			setSystem(runtime.state.systems.activePackageId);
 			setTier(readStoredTier());
 			setPrivacy(null);
@@ -105,17 +117,22 @@ export function Onboarding() {
 			setBusy(true);
 			setError('');
 			try {
-				const currentName =
-					listLocalVaults().find((v) => v.id === runtime.vaultId)?.name || 'Your campaign';
-				const campaignName = skipped ? currentName : name.trim();
-				const result = await runtime.dispatch({
-					type: 'system.select',
-					actorId: runtime.defaultActorId,
-					payload: { packageId: skipped ? runtime.state.systems.activePackageId : system },
-				});
-				if (result.status !== 'accepted')
-					throw new Error(result.rejection?.message ?? t('onboarding.v3.systemFailed'));
-				renameLocalVault(runtime.vaultId, campaignName);
+				const nextName = skipped
+					? campaignName(runtime.vaultId) || t('home.yourCampaign')
+					: name.trim();
+				// Only a changed system is a command; a replay that keeps it writes nothing.
+				if (!skipped && system !== runtime.state.systems.activePackageId) {
+					const result = await runtime.dispatch({
+						type: 'system.select',
+						actorId: runtime.defaultActorId,
+						payload: { packageId: system },
+					});
+					if (result.status !== 'accepted') {
+						setError(t('onboarding.v3.systemFailed'));
+						return;
+					}
+				}
+				renameLocalVault(runtime.vaultId, nextName);
 				window.dispatchEvent(new Event('dndtools:local-vault-renamed'));
 				if (isNew && !(skipped && tier === 'advanced')) recordNewVaultPrivacyMode(mode);
 				setDocAttr(TIER_ATTR, TIER_KEY, tier);
@@ -124,8 +141,9 @@ export function Onboarding() {
 				navigate(destination);
 				completed.current = true;
 				setOpen(false);
-			} catch (e) {
-				setError(e instanceof Error ? e.message : t('onboarding.v3.saveFailed'));
+			} catch {
+				// Storage and catalog errors carry English text; show the localized message instead.
+				setError(t('onboarding.v3.saveFailed'));
 			} finally {
 				saving.current = false;
 				setBusy(false);
