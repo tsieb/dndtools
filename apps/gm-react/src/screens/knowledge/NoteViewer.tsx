@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { useCallback, useMemo, useState } from 'react';
+import { readNoteRecovery } from '../../platform/storage/noteRecovery';
+import { useCallback, useMemo, useState, useRef } from 'react';
 import {
 	buildWikilinkCandidatesForActor,
 	suggestWikilinkTargetsForActor,
@@ -7,9 +8,13 @@ import {
 	resolveWikilinkForActor,
 	type ContentItemView,
 } from '@dndtools/core';
-import { Button, Dialog, Icon, IconButton, Toaster, VisibilityChip } from '../../ds';
+import { Button, Dialog, Icon, IconButton, Menu, Toaster, VisibilityChip } from '../../ds';
 import { BackBar, Page, Panel, T, useSingleColumn } from '../../app/screen-kit';
-import { NoteEditor, type NoteSaveOutcome } from '../../app/editor/NoteEditor';
+import {
+	NoteEditor,
+	type NoteEditorHandle,
+	type NoteSaveOutcome,
+} from '../../app/editor/NoteEditor';
 import { wikilinkKindLabel, type WikilinkSuggestion } from '../../app/editor/Autocomplete';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { META, VIS_CHIP } from './shared';
@@ -23,7 +28,9 @@ export function NoteViewer({
 	canAuthor,
 	onBack,
 	onOpen,
+	initialEditing = false,
 }: {
+	initialEditing?: boolean;
 	note: ContentItemView;
 	canAuthor: boolean;
 	onBack: () => void;
@@ -36,7 +43,16 @@ export function NoteViewer({
 	// One column on a phone AND in the rail tier's detail pane (RC-UX-4.3): the 280px side column
 	// beside the note body would leave the body ~160px wide there.
 	const isPhone = useSingleColumn();
-	const [editing, setEditing] = useState(false);
+	const editorRef = useRef<NoteEditorHandle>(null);
+	const recoveryKey = `note-draft:${JSON.stringify([runtime.vaultId, actorId, note.id])}`;
+	const [recoveredDraft, setRecoveredDraft] = useState(() => {
+		if (!canAuthor) return null;
+		const draft = readNoteRecovery(recoveryKey);
+		return draft && (draft.title !== note.title || draft.body !== note.body) ? draft : null;
+	});
+	const [editing, setEditing] = useState((initialEditing || !!recoveredDraft) && canAuthor);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [pendingDelete, setPendingDelete] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 	const proseWidth = readProseWidthPreference();
@@ -229,11 +245,12 @@ export function NoteViewer({
 	}
 
 	async function remove() {
+		editorRef.current?.discard();
 		setErr(null);
 		setBusy(true);
 		try {
 			// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read),
-			// so Delete acts immediately and the toast's Undo dispatches the counterpart
+			// after confirmation, the toast's Undo dispatches the counterpart
 			// content.restore-item (same delete→undo pattern as ScenesCreator).
 			const result = await runtime.dispatch({
 				type: 'content.remove-item',
@@ -256,8 +273,12 @@ export function NoteViewer({
 					},
 				});
 				onBack();
-			} else setErr(result.rejection.message);
+			} else {
+				editorRef.current?.discard(false);
+				setErr(result.rejection.message);
+			}
 		} catch (error) {
+			editorRef.current?.discard(false);
 			setErr(error instanceof Error ? error.message : t('knowledge.deleteFailed'));
 		} finally {
 			setBusy(false);
@@ -301,6 +322,34 @@ export function NoteViewer({
 							})}
 						</span>
 						<div style={{ flex: 1 }} />
+						{canAuthor && (
+							<div style={{ position: 'relative' }}>
+								<IconButton
+									icon="more"
+									label={t('knowledge.moreActions')}
+									aria-haspopup="menu"
+									aria-expanded={menuOpen}
+									onClick={() => setMenuOpen(!menuOpen)}
+								/>
+								<Menu
+									open={menuOpen}
+									title={t('knowledge.noteActions')}
+									onClose={() => setMenuOpen(false)}
+								>
+									<Button
+										role="menuitem"
+										variant="danger"
+										disabled={busy}
+										onClick={() => {
+											setMenuOpen(false);
+											setPendingDelete(true);
+										}}
+									>
+										{t('common.action.delete')}
+									</Button>
+								</Menu>
+							</div>
+						)}
 						{canAuthor && !editing && (
 							<>
 								<IconButton
@@ -325,6 +374,9 @@ export function NoteViewer({
 
 					{editing ? (
 						<NoteEditor
+							editorRef={editorRef}
+							recoveryKey={recoveryKey}
+							recoveredDraft={recoveredDraft}
 							title={note.title}
 							body={note.body}
 							revision={note.revision}
@@ -346,9 +398,9 @@ export function NoteViewer({
 								// role=alert above the body, so cancelling out of a failed save left a note
 								// that plainly has a title announced as "A note needs a title."
 								setErr(null);
+								setRecoveredDraft(null);
 								setEditing(false);
 							}}
-							{...(canAuthor ? { onDelete: remove } : {})}
 						/>
 					) : (
 						<>
@@ -420,6 +472,30 @@ export function NoteViewer({
 				</div>
 			</div>
 
+			<Dialog
+				open={pendingDelete}
+				onClose={() => setPendingDelete(false)}
+				title={t('knowledge.deleteTitle', { title: note.title })}
+				description={t('knowledge.deleteBody')}
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" disabled={busy} onClick={() => setPendingDelete(false)}>
+							{t('common.action.cancel')}
+						</Button>
+						<Button
+							variant="danger"
+							disabled={busy}
+							onClick={() => {
+								setPendingDelete(false);
+								void remove();
+							}}
+						>
+							{t('common.action.delete')}
+						</Button>
+					</>
+				}
+			/>
 			<Dialog
 				open={!!pendingReveal}
 				onClose={() => setPendingReveal(null)}

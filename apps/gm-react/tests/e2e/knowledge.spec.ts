@@ -107,7 +107,7 @@ test.describe('knowledge: notes workbench', () => {
 		await page.waitForURL((url) => url.hash.includes(`/knowledge/${item!.id}`), {
 			timeout: 10_000,
 		});
-		await expect(page.getByText(title)).not.toHaveCount(0);
+		await expect(page.getByRole('textbox', { name: 'Note title', exact: true })).not.toHaveCount(0);
 
 		// Reload-persistence: the durable op-log round-trips through IndexedDB.
 		await page.reload({ waitUntil: 'domcontentloaded' });
@@ -122,7 +122,7 @@ test.describe('knowledge: notes workbench', () => {
 		for (const body of ['First edit', 'Second edit']) {
 			await page.getByRole('button', { name: 'Edit', exact: true }).click();
 			await page.locator('textarea').fill(body);
-			await page.getByRole('button', { name: 'Save note', exact: true }).click();
+			await page.getByRole('button', { name: 'Done', exact: true }).click();
 			await expect(page.getByRole('heading', { name: 'History restore journal' })).toBeVisible();
 		}
 		const before = await page.evaluate((id) => window.__rt!.state.content.items[id]!.revision, id);
@@ -170,7 +170,7 @@ test.describe('knowledge: notes workbench', () => {
 		const newBody = 'The tide returns at dusk and the pier goes quiet.';
 		await page.getByPlaceholder('Note title').fill(newTitle);
 		await page.locator('textarea').fill(newBody);
-		await page.getByRole('button', { name: 'Save note' }).click();
+		await page.getByRole('button', { name: 'Done' }).click();
 
 		// The save closed the editor and the persisted item carries the new title+body.
 		await page.waitForFunction(
@@ -209,21 +209,21 @@ test.describe('knowledge: notes workbench', () => {
 		await page.getByRole('button', { name: 'Edit', exact: true }).click();
 
 		await page.getByPlaceholder('Note title').fill('');
-		await page.getByRole('button', { name: 'Save note' }).click();
+		await page.getByRole('button', { name: 'Done' }).click();
 
 		const alert = page.getByRole('alert');
 		await expect(alert).toBeVisible();
 		await expect(alert).toHaveText('Give the note a title.');
 		// The editor stayed open — the note was NOT written with an empty title.
-		await expect(page.getByRole('button', { name: 'Save note' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
 		expect(await findItem(page, `Ledger ${stamp}`)).toBeTruthy();
 
 		// Correcting it clears the message and the save goes through. Assert on the text, not on
 		// role=alert: the DS Toaster also uses that role for its success toast.
 		await page.getByPlaceholder('Note title').fill(`Ledger ${stamp} v2`);
-		await page.getByRole('button', { name: 'Save note' }).click();
+		await page.getByRole('button', { name: 'Done' }).click();
 		await expect(page.getByText('Give the note a title.')).toHaveCount(0);
-		await expect(page.getByRole('button', { name: 'Save note' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Done' })).toHaveCount(0);
 	});
 
 	// Cancel used to leave the failed save's `err` set. View mode renders that SAME state in its own
@@ -239,10 +239,10 @@ test.describe('knowledge: notes workbench', () => {
 		await page.getByRole('button', { name: 'Edit', exact: true }).click();
 
 		await page.getByPlaceholder('Note title').fill('');
-		await page.getByRole('button', { name: 'Save note' }).click();
+		await page.getByRole('button', { name: 'Done' }).click();
 		await expect(page.getByText('Give the note a title.')).toBeVisible();
 
-		await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await page.getByRole('button', { name: 'Discard changes', exact: true }).click();
 
 		// Back in view mode: the note kept its real title and the stale rejection is gone.
 		await expect(page.getByRole('heading', { name: title })).toBeVisible();
@@ -290,8 +290,9 @@ test.describe('knowledge: notes workbench', () => {
 		const noteId = await createNoteViaCore(page, title, 'A rumor best forgotten.', 'dm-only');
 
 		await gotoRoute(page, `/knowledge/${noteId}`);
-		await page.getByRole('button', { name: 'Edit', exact: true }).click();
-		await page.getByRole('button', { name: 'Delete', exact: true }).click();
+		await page.getByRole('button', { name: 'More note actions', exact: true }).click();
+		await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
 
 		// Soft-delete: back on the list, the note is gone from the actor-filtered read.
 		await expect(page.getByRole('status').filter({ hasText: 'deleted' })).not.toHaveCount(0);
@@ -736,7 +737,7 @@ test.describe('knowledge: notes workbench', () => {
 		);
 		await expect(page.getByRole('main').getByRole('status')).toHaveText(/^Saved /);
 		// An autosave does NOT close the editor — the DM keeps writing.
-		await expect(page.getByRole('button', { name: 'Save note' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done' })).toBeVisible();
 	});
 
 	test('a note changed elsewhere conflicts instead of overwriting the other author', async ({
@@ -762,7 +763,7 @@ test.describe('knowledge: notes workbench', () => {
 		expect(other.status).toBe('accepted');
 
 		await page.getByPlaceholder('Note title').fill(title);
-		await page.getByRole('button', { name: 'Save note' }).click();
+		await page.getByRole('button', { name: 'Done' }).click();
 
 		// The core recorded the divergence and wrote NOTHING: the other author's text stands, the
 		// draft is still on screen, and the editor says so instead of reporting a save.

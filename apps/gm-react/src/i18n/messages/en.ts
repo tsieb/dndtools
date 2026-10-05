@@ -4101,6 +4101,12 @@ export const en = {
 	'builder.preview.customDmOnly':
 		'A widget running its own code previews as the {gm}. Place it on a scene to see what a player receives.',
 	/* Knowledge › the notes vault, its importer and the note viewer */
+	'knowledge.discardChanges': 'Discard changes',
+	'knowledge.moreActions': 'More note actions',
+	'knowledge.noteActions': 'Note actions',
+	'knowledge.deleteTitle': 'Delete “{title}”?',
+	'knowledge.deleteBody': 'You can undo this deletion from the notification.',
+	'knowledge.failedLeave': 'The note could not be saved. Discard changes and leave?',
 	'knowledge.notes': 'Notes',
 	'knowledge.note': 'Note',
 	'knowledge.sources': 'Sources',

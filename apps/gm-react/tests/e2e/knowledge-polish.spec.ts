@@ -103,7 +103,7 @@ test('knowledge polish: axe clean for the open note, its editor, history and rev
 
 	await page.getByRole('button', { name: 'Edit', exact: true }).click();
 	await page.locator('textarea').fill('Edited once.');
-	await page.getByRole('button', { name: 'Save note', exact: true }).click();
+	await page.getByRole('button', { name: 'Done', exact: true }).click();
 	await page.getByRole('button', { name: 'Show history', exact: true }).click();
 	await expect(page.getByRole('list', { name: 'History', exact: true })).toBeVisible();
 	await expect(page.getByText(/Revision \d+ · current/)).toBeVisible();
@@ -112,7 +112,8 @@ test('knowledge polish: axe clean for the open note, its editor, history and rev
 	await page.getByRole('button', { name: 'Edit', exact: true }).click();
 	await expect(page.getByRole('toolbar', { name: 'Formatting' })).toBeVisible();
 	await axe(page, 'editor');
-	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Discard changes', exact: true })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Done', exact: true }).click();
 
 	await page.getByRole('button', { name: 'Push to players', exact: true }).last().click();
 	await expect(page.getByRole('dialog', { name: /Polish Ledger/ })).toBeVisible();
@@ -126,7 +127,7 @@ test('knowledge polish: history rows name the author and a failed restore stays 
 	await gotoRoute(page, `/knowledge/${id}`);
 	await page.getByRole('button', { name: 'Edit', exact: true }).click();
 	await page.locator('textarea').fill('Second text.');
-	await page.getByRole('button', { name: 'Save note', exact: true }).click();
+	await page.getByRole('button', { name: 'Done', exact: true }).click();
 	await page.getByRole('button', { name: 'Show history', exact: true }).click();
 
 	const history = page.getByRole('list', { name: 'History', exact: true });
@@ -170,27 +171,33 @@ test('knowledge polish: keyboard alone creates a note, and focus is always visib
 	await expect(title).toBeFocused();
 	await page.keyboard.type('Keyboard Ledger');
 	await page.keyboard.press('Enter');
-	await expect(page.getByRole('heading', { level: 2, name: 'Keyboard Ledger' })).toBeVisible();
+	await expect(page.getByRole('textbox', { name: 'Note title', exact: true })).toHaveValue(
+		'Keyboard Ledger',
+	);
+	const body = page.getByRole('textbox', { name: 'Note body', exact: true });
+	await expect(body).toBeFocused();
 
-	// Into the editor and back out through the toolbar, all from the keyboard.
-	const edit = page.getByRole('button', { name: 'Edit', exact: true });
-	await edit.focus();
-	await page.keyboard.press('Enter');
+	// Creation opens the editor directly. Walk its toolbar using only the keyboard.
 	const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
 	await toolbar.getByRole('button', { name: 'Bold' }).focus();
 	await page.keyboard.press('ArrowRight');
 	await expect(toolbar.getByRole('button', { name: 'Italic' })).toBeFocused();
 	// Tab leaves the toolbar as one stop. On a phone the Write/Preview switch comes next, then the
 	// body; on desktop the body is next.
-	const body = page.locator('textarea');
 	for (let i = 0; i < 4 && !(await body.evaluate((el) => el === document.activeElement)); i++) {
 		await page.keyboard.press('Tab');
 	}
 	await expect(body).toBeFocused();
 	await page.keyboard.type('Typed by keyboard.');
-	await page.getByRole('button', { name: 'Save note', exact: true }).focus();
+	await page.getByRole('button', { name: 'Done', exact: true }).focus();
 	await page.keyboard.press('Enter');
 	await expect(page.locator('.knowledge-prose')).toContainText('Typed by keyboard.');
+
+	// Edit also places focus in the body without an extra Tab or click.
+	await page.getByRole('button', { name: 'Edit', exact: true }).focus();
+	await page.keyboard.press('Enter');
+	await expect(body).toBeFocused();
+	await expect(body).toHaveValue('Typed by keyboard.');
 });
 
 test('knowledge polish: 200% text leaves the list, the note and its editor unclipped', async ({
@@ -211,7 +218,7 @@ test('knowledge polish: 200% text leaves the list, the note and its editor uncli
 	expect(await overflow(), 'the open note scrolls sideways at 200%').toBeLessThanOrEqual(1);
 	await page.getByRole('button', { name: 'Edit', exact: true }).click();
 	expect(await overflow(), 'the editor scrolls sideways at 200%').toBeLessThanOrEqual(1);
-	const save = page.getByRole('button', { name: 'Save note', exact: true });
+	const save = page.getByRole('button', { name: 'Done', exact: true });
 	await save.scrollIntoViewIfNeeded();
 	await expect(save).toBeInViewport();
 

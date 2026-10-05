@@ -1,5 +1,8 @@
+import type { NoteRecoveryDraft } from '../../platform/storage/noteRecovery';
 import {
 	useLayoutEffect,
+	useImperativeHandle,
+	type Ref,
 	useMemo,
 	useRef,
 	useState,
@@ -52,7 +55,14 @@ import {
 
 export type { NoteSaveOutcome } from './useNoteAutosave';
 
+export interface NoteEditorHandle {
+	discard: (skip?: boolean) => void;
+}
+
 export interface NoteEditorProps {
+	recoveryKey?: string;
+	recoveredDraft?: NoteRecoveryDraft | null;
+	editorRef?: Ref<NoteEditorHandle>;
 	/** The PERSISTED title/body/revision, straight off the actor-filtered read. */
 	title: string;
 	body: string;
@@ -68,7 +78,6 @@ export interface NoteEditorProps {
 	}) => Promise<NoteSaveOutcome>;
 	/** Leave the editor. Edits made since the last write are dropped. */
 	onCancel: () => void;
-	onDelete?: () => void;
 	busy?: boolean;
 }
 
@@ -76,6 +85,9 @@ const LIST_ID = 'note-editor-suggestions';
 const MAX_WIKILINK_ROWS = 8;
 
 export function NoteEditor({
+	recoveryKey,
+	recoveredDraft,
+	editorRef,
 	title,
 	body,
 	revision,
@@ -83,14 +95,13 @@ export function NoteEditor({
 	renderPreview,
 	onSave,
 	onCancel,
-	onDelete,
 	busy = false,
 }: NoteEditorProps) {
 	const { t, formatDate, formatTime } = useI18n();
 	const splitPane = useViewport() === 'desktop';
 
-	const [draftTitle, setDraftTitle] = useState(title);
-	const [draftBody, setDraftBody] = useState(body);
+	const [draftTitle, setDraftTitle] = useState(recoveredDraft?.title ?? title);
+	const [draftBody, setDraftBody] = useState(recoveredDraft?.body ?? body);
 	const [tab, setTab] = useState<'write' | 'preview'>('write');
 	const [trigger, setTrigger] = useState<{ kind: 'wikilink' | 'slash'; at: EditorTrigger } | null>(
 		null,
@@ -111,7 +122,19 @@ export function NoteEditor({
 		write,
 		saveAndClose,
 		discard,
-	} = useNoteAutosave({ title, body, revision, draftTitle, draftBody, onSave, onCancel, busy });
+	} = useNoteAutosave({
+		recoveryKey,
+		recoveredRevision: recoveredDraft?.baseRevision,
+		title,
+		body,
+		revision,
+		draftTitle,
+		draftBody,
+		onSave,
+		onCancel,
+		busy,
+	});
+	useImperativeHandle(editorRef, () => ({ discard }), [discard]);
 
 	const items = useMemo(
 		() => slashItems(t, formatDate(new Date(), { year: 'numeric', month: 'long', day: 'numeric' })),
@@ -261,6 +284,7 @@ export function NoteEditor({
 		<div style={{ position: 'relative' }}>
 			<textarea
 				ref={areaRef}
+				autoFocus={!!title.trim()}
 				value={draftBody}
 				aria-label={t('knowledge.noteBody')}
 				placeholder={t('knowledge.notePlaceholder')}
@@ -314,6 +338,13 @@ export function NoteEditor({
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 			<Input
+				autoFocus={!title.trim()}
+				onKeyDown={(event) => {
+					if (event.key === 'Enter') {
+						event.preventDefault();
+						areaRef.current?.focus();
+					}
+				}}
 				value={draftTitle}
 				aria-label={t('knowledge.noteTitle')}
 				onChange={(e: { target: { value: string } }) => setDraftTitle(e.target.value)}
@@ -337,13 +368,15 @@ export function NoteEditor({
 				<div
 					style={{
 						display: 'grid',
-						gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+						gridTemplateColumns: draftBody.trim()
+							? 'minmax(0, 1fr) minmax(0, 1fr)'
+							: 'minmax(0, 1fr)',
 						gap: T.space.three,
 						alignItems: 'start',
 					}}
 				>
 					{writer}
-					{preview}
+					{draftBody.trim() && preview}
 				</div>
 			) : (
 				<>
@@ -390,33 +423,20 @@ export function NoteEditor({
 					disabled={busy}
 					onClick={() => void saveAndClose()}
 				>
-					{t('knowledge.saveNote')}
+					{t('common.action.done')}
 				</Button>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={busy}
-					onClick={() => {
-						discard();
-						setError(null);
-						onCancel();
-					}}
-				>
-					{t('common.action.cancel')}
-				</Button>
-				<div style={{ flex: 1 }} />
-				{onDelete && (
+				{dirty && (
 					<Button
-						variant="danger"
+						variant="ghost"
 						size="sm"
-						icon="delete"
 						disabled={busy}
 						onClick={() => {
 							discard();
-							onDelete();
+							setError(null);
+							onCancel();
 						}}
 					>
-						{t('common.action.delete')}
+						{t('knowledge.discardChanges')}
 					</Button>
 				)}
 			</div>

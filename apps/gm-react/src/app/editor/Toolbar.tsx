@@ -1,9 +1,16 @@
 import {
-	useRef,
-	useState,
-	type CSSProperties,
-	type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+	Bold,
+	Italic,
+	Heading,
+	List,
+	ListOrdered,
+	Quote,
+	Link,
+	Table,
+	type LucideIcon,
+} from 'lucide-react';
+import { Tooltip } from '../../ds';
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { T } from '../screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 
@@ -246,19 +253,18 @@ const SHORTCUT: Partial<Record<ToolbarAction, { legend: string; aria: string }>>
 	italic: { legend: 'Ctrl/⌘+I', aria: 'Control+I Meta+I' },
 };
 
-const FACE_STYLE: Partial<Record<ToolbarAction, CSSProperties>> = {
-	bold: { fontWeight: 700 },
-	italic: { fontStyle: 'italic' },
+const ACTION_ICONS: Record<ToolbarAction, LucideIcon> = {
+	bold: Bold,
+	italic: Italic,
+	heading: Heading,
+	bullet: List,
+	ordered: ListOrdered,
+	quote: Quote,
+	link: Link,
+	table: Table,
 };
 
-/**
- * The formatting toolbar. Text labels rather than glyphs: the icon registry
- * (`docs/reference/ICON_VOCABULARY.md`) carries no formatting marks, and a word is its own
- * accessible name, so label-in-name (WCAG 2.5.3) holds for free.
- *
- * Roving tabindex per the ARIA toolbar pattern — the whole row is ONE tab stop between the title
- * field and the body, so Tab still walks the editor in reading order and arrows move within it.
- */
+/** Roving tabindex keeps the formatting toolbar to one tab stop. */
 export function EditorToolbar({
 	onAction,
 	disabled = false,
@@ -296,40 +302,47 @@ export function EditorToolbar({
 			onKeyDown={onKeyDown}
 			style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.oneHalf }}
 		>
-			{ACTION_ORDER.map((action, index) => (
-				<button
-					key={action}
-					type="button"
-					disabled={disabled}
-					tabIndex={index === focused ? 0 : -1}
-					onFocus={() => setFocused(index)}
-					onClick={() => onAction(action)}
-					// The shortcut is in the tooltip; the visible word stays the accessible name.
-					title={
-						SHORTCUT[action]
-							? `${t(ACTION_LABELS[action])} (${SHORTCUT[action]!.legend})`
-							: undefined
-					}
-					aria-keyshortcuts={SHORTCUT[action]?.aria}
-					style={{
-						font: `var(--text-xs) ${T.sans}`,
-						color: T.sub,
-						background: T.surf,
-						border: `1px solid ${T.bd}`,
-						borderRadius: T.radius.md,
-						// The density touch target: 32px at Standard, 44px under the comfortable set
-						// every viewport under 1200px is locked to, 48dp on Android.
-						minHeight: T.density.touch,
-						minWidth: T.density.touch,
-						padding: `${T.space.one} ${T.space.two}`,
-						cursor: disabled ? 'default' : 'pointer',
-						opacity: disabled ? 0.5 : 1,
-						...FACE_STYLE[action],
-					}}
-				>
-					{t(ACTION_LABELS[action])}
-				</button>
-			))}
+			{ACTION_ORDER.map((action, index) => {
+				const Glyph = ACTION_ICONS[action];
+				const label = SHORTCUT[action]
+					? `${t(ACTION_LABELS[action])} (${SHORTCUT[action]!.legend})`
+					: t(ACTION_LABELS[action]);
+				return (
+					<Tooltip key={action} label={label}>
+						<button
+							aria-label={t(ACTION_LABELS[action])}
+							type="button"
+							disabled={disabled}
+							tabIndex={index === focused ? 0 : -1}
+							onFocus={() => setFocused(index)}
+							onClick={() => onAction(action)}
+							// The icon keeps the translated action name; the tooltip adds its shortcut.
+							title={
+								SHORTCUT[action]
+									? `${t(ACTION_LABELS[action])} (${SHORTCUT[action]!.legend})`
+									: t(ACTION_LABELS[action])
+							}
+							aria-keyshortcuts={SHORTCUT[action]?.aria}
+							style={{
+								font: `var(--text-xs) ${T.sans}`,
+								color: T.sub,
+								background: T.surf,
+								border: `1px solid ${T.bd}`,
+								borderRadius: T.radius.md,
+								// The density touch target: 32px at Standard, 44px under the comfortable set
+								// every viewport under 1200px is locked to, 48dp on Android.
+								minHeight: T.density.touch,
+								minWidth: T.density.touch,
+								padding: `${T.space.one} ${T.space.two}`,
+								cursor: disabled ? 'default' : 'pointer',
+								opacity: disabled ? 0.5 : 1,
+							}}
+						>
+							<Glyph size={18} aria-hidden="true" />
+						</button>
+					</Tooltip>
+				);
+			})}
 		</div>
 	);
 }

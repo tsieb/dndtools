@@ -56,6 +56,10 @@ export function Knowledge() {
 	// a missed reset left two stacked open against their own aria-expanded). Filters is the one that
 	// is NOT author-gated: a player can search what they can see and run a saved search shared with
 	// them (RC-KNW-2.1). Templates is RC-KNW-1.3; Sources is WS-7.
+	const [createdId, setCreatedId] = useState<string | null>(null);
+	useEffect(() => {
+		if (detailId === createdId) setCreatedId(null);
+	}, [detailId, createdId]);
 	const [panel, setPanel] = useState<LibraryPanel | null>(null);
 	const toggle = (next: LibraryPanel) => setPanel((current) => (current === next ? null : next));
 	// On a phone the four secondary toggles show their icon only, so the header stays one row with
@@ -117,6 +121,7 @@ export function Knowledge() {
 			key={open.id}
 			note={open}
 			canAuthor={canAuthor}
+			initialEditing={open.id === createdId}
 			onBack={() => navigate('/knowledge')}
 			onOpen={(id) => navigate(`/knowledge/${id}`)}
 		/>
@@ -137,7 +142,10 @@ export function Knowledge() {
 				const created = result.events.find(
 					(e) => (e as { kind?: string }).kind === 'content.item-changed',
 				) as { itemId?: string } | undefined;
-				if (created?.itemId) navigate(`/knowledge/${created.itemId}`);
+				if (created?.itemId) {
+					setCreatedId(created.itemId);
+					navigate(`/knowledge/${created.itemId}`);
+				}
 			} else {
 				// The composer used to close unconditionally and the rejection was dropped on the floor:
 				// the form vanished, the typed title went with it, no note appeared and nothing said why.

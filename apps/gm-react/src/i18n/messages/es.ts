@@ -4189,6 +4189,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.preview.customDmOnly':
 		'Un widget con código propio se previsualiza como {gm}. Colócalo en una escena para ver lo que recibe un jugador.',
 	/* Conocimiento › la bóveda de notas, su importador y el visor de notas */
+	'knowledge.discardChanges': 'Descartar cambios',
+	'knowledge.moreActions': 'Más acciones de nota',
+	'knowledge.noteActions': 'Acciones de nota',
+	'knowledge.deleteTitle': '¿Eliminar «{title}»?',
+	'knowledge.deleteBody': 'Puedes deshacer esta eliminación desde la notificación.',
+	'knowledge.failedLeave': 'No se pudo guardar la nota. ¿Descartar los cambios y salir?',
 	'knowledge.notes': 'Notas',
 	'knowledge.note': 'Nota',
 	'knowledge.sources': 'Fuentes',
