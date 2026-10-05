@@ -35,7 +35,8 @@ Previous session stopped at the provider allowance limit with the implementation
   frame test is skipped on mobile: phones render scenes through PhoneNavigator, which never draws
   WidgetFrame chrome — bare is a canvas-frame presentation.
 
-Evidence (local, logs in /tmp/rc-wid53-*.log):
+Evidence (local, logs in /tmp/rc-wid53-\*.log):
+
 - `pnpm typecheck` 0; `pnpm lint` 0 (warnings only, pre-existing).
 - `vitest --config vitest.app.config.ts` full: 163 files / 1921 tests passed; Hub.test 10/10 with
   16 snapshots (re-recorded after the token swap; keys unchanged, only inline style values moved).
@@ -95,3 +96,8 @@ Evidence on the rebased tree: `pnpm typecheck` 0; `pnpm lint` 0 (16 pre-existing
 `pnpm gates` (quality-gates) 0; app vitest 167 files / 2013 tests; core vitest 286 / 5233;
 Playwright hub-templates + widget-builder + canvas + canvas-keyboard + canvas-arrange +
 custom-widgets on desktop + mobile: 136 passed, 2 skipped (incl. the intentional mobile skip).
+
+## Format gate — 2026-10-05
+
+`format:check:changed --base loop/rc` failed on this journal only (Prettier markdown wrapping).
+Ran Prettier on it; the check now passes for all 22 changed files. No code changes.
