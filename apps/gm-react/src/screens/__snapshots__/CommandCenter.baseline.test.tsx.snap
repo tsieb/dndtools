@@ -1,0 +1,1310 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop core tier · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Draft The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop core tier · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  "Draft"
+  <svg aria-hidden="true">
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop core tier · focus order 1`] = `
+"button Open scene
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Draft The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop core tier · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop intermediate tier · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Draft The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop intermediate tier · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  "Draft"
+  <svg aria-hidden="true">
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop intermediate tier · focus order 1`] = `
+"button Open scene
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Draft The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop intermediate tier · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- text: No scenes yet.
+- button "Create your first scene"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 0 PCs · 0 NPCs"
+- button "Maps 0 maps"
+- button "Story 0 threads · 0 factions"
+- button "Notes 0 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+"No scenes yet."
+<button type="button">
+  <svg aria-hidden="true">
+  "Create your first scene"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "0 PCs · 0 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "0 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 0 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "0 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · focus order 1`] = `
+"button Open scene
+button New scene
+button Create your first scene
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 0 PCs · 0 NPCs
+button Maps 0 maps
+button Story 0 threads · 0 factions
+button Notes 0 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- text: No scenes yet.
+- button "Create your first scene"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+"No scenes yet."
+<button type="button">
+  <svg aria-hidden="true">
+  "Create your first scene"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · focus order 1`] = `
+"button Open scene
+button New scene
+button Create your first scene
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > desktop idle · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Draft The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > desktop idle · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  "Draft"
+  <svg aria-hidden="true">
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > desktop idle · focus order 1`] = `
+"button Open scene
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Draft The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > desktop idle · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > phone idle · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Draft The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > phone idle · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  "Draft"
+  <svg aria-hidden="true">
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > phone idle · focus order 1`] = `
+"button Open scene
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Draft The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > phone idle · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > rail idle · aria 1`] = `
+"- text: Command Center
+- heading "Your campaign" [level=2]
+- text: Resume or open a scene to run live play · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Draft The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > rail idle · dom 1`] = `
+""Command Center"
+<h2>
+  "Your campaign"
+"Resume or open a scene to run live play · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  "Draft"
+  <svg aria-hidden="true">
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > rail idle · focus order 1`] = `
+"button Open scene
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Draft The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > rail idle · headings 1`] = `
+"h2 Your campaign
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table scene > desktop live scene · aria 1`] = `
+"- text: Session live
+- heading "The Sunken Crypt" [level=2]
+- text: Combat, initiative & rolls run inside the scene · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Enter scene"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Live The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table scene > desktop live scene · dom 1`] = `
+""Session live"
+<h2>
+  "The Sunken Crypt"
+"Combat, initiative & rolls run inside the scene · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Enter scene"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  <svg aria-hidden="true">
+  "Live"
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table scene > desktop live scene · focus order 1`] = `
+"button Enter scene
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Live The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table scene > desktop live scene · headings 1`] = `
+"h2 The Sunken Crypt
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · aria 1`] = `
+"- text: Session live
+- heading "Command Center" [level=2]
+- text: Combat, initiative & rolls run inside the scene · 3 in the party
+- img "Brother Calloway"
+- img "Sera Duskwhisper"
+- img "Tormund Ironfist"
+- button "Open DM screen"
+- heading "Scenes" [level=2]
+- button "New scene"
+- button "Ready Harbor of Saltreach town · 0 widgets"
+- button "Draft The Sunken Crypt dungeon · 3 widgets"
+- heading "Create" [level=2]
+- button "New scene A canvas for the table"
+- button "New character PC, NPC, or monster"
+- button "New map Battle map or region"
+- button "New widget A tracker for your DM screen"
+- button "New note Lore, quest, or handout"
+- heading "Manage" [level=2]
+- button "Players Roster & invites"
+- button "Permissions Roles & access"
+- button "Vault connections Connected note sources"
+- heading "Library" [level=2]
+- button "Characters 3 PCs · 2 NPCs"
+- button "Maps 3 maps"
+- button "Story 0 threads · 3 factions"
+- button "Notes 6 notes""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · dom 1`] = `
+""Session live"
+<h2>
+  "Command Center"
+"Combat, initiative & rolls run inside the scene · 3 in the party"
+<span role="img" aria-label="Brother Calloway" title="Brother Calloway">
+  "BC"
+<span role="img" aria-label="Sera Duskwhisper" title="Sera Duskwhisper">
+  "SD"
+<span role="img" aria-label="Tormund Ironfist" title="Tormund Ironfist">
+  "TI"
+<button type="button">
+  "Open DM screen"
+  <svg aria-hidden="true">
+<h2>
+  "Scenes"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+<button type="button">
+  <svg aria-hidden="true">
+  "Ready"
+  "Harbor of Saltreach"
+  "town · 0 widgets"
+<button type="button">
+  "Draft"
+  <svg aria-hidden="true">
+  "The Sunken Crypt"
+  "dungeon · 3 widgets"
+<h2>
+  "Create"
+<button type="button">
+  <svg aria-hidden="true">
+  "New scene"
+  "A canvas for the table"
+<button type="button">
+  <svg aria-hidden="true">
+  "New character"
+  "PC, NPC, or monster"
+<button type="button">
+  <svg aria-hidden="true">
+  "New map"
+  "Battle map or region"
+<button type="button">
+  <svg aria-hidden="true">
+  "New widget"
+  "A tracker for your DM screen"
+<button type="button">
+  <svg aria-hidden="true">
+  "New note"
+  "Lore, quest, or handout"
+<h2>
+  "Manage"
+<button type="button">
+  <svg aria-hidden="true">
+  "Players"
+  "Roster & invites"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Permissions"
+  "Roles & access"
+  <svg aria-hidden="true">
+<button type="button">
+  <svg aria-hidden="true">
+  "Vault connections"
+  "Connected note sources"
+  <svg aria-hidden="true">
+<h2>
+  "Library"
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Characters"
+  "3 PCs · 2 NPCs"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Maps"
+  "3 maps"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Story"
+  "0 threads · 3 factions"
+  <svg aria-hidden="true">
+<div role="button" tabindex="0">
+  <svg aria-hidden="true">
+  "Notes"
+  "6 notes"
+  <svg aria-hidden="true">"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · focus order 1`] = `
+"button Open DM screen
+button New scene
+button Ready Harbor of Saltreach town · 0 widgets
+button Draft The Sunken Crypt dungeon · 3 widgets
+button New scene A canvas for the table
+button New character PC, NPC, or monster
+button New map Battle map or region
+button New widget A tracker for your DM screen
+button New note Lore, quest, or handout
+button Players Roster & invites
+button Permissions Roles & access
+button Vault connections Connected note sources
+button Characters 3 PCs · 2 NPCs
+button Maps 3 maps
+button Story 0 threads · 3 factions
+button Notes 6 notes"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · headings 1`] = `
+"h2 Command Center
+h2 Scenes
+h2 Create
+h2 Manage
+h2 Library"
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · aria 1`] = `
+"- text: Observer mode
+- text: Demo Observer
+- text: Your read-only view of the live table."
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · dom 1`] = `
+""Observer mode"
+"Demo Observer"
+"Your read-only view of the live table.""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · focus order 1`] = `""`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · headings 1`] = `""`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · aria 1`] = `
+"- text: Player view
+- text: Demo Player
+- text: Your live view of the table — what the DM is sharing right now."
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · dom 1`] = `
+""Player view"
+"Demo Player"
+"Your live view of the table — what the DM is sharing right now.""
+`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · focus order 1`] = `""`;
+
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · headings 1`] = `""`;
