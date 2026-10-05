@@ -56,7 +56,10 @@ test('player polish: sheet, rest overlays and all tabs are axe clean', async ({ 
 test('player polish: failed save keeps the draft and reports recovery; retry persists', async ({
 	page,
 }) => {
-	await page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+	await page
+		.locator('[data-sheet-panel="identity"]')
+		.getByRole('button', { name: 'Edit', exact: true })
+		.click();
 	await page.getByLabel('Race', { exact: true }).fill('Wood elf');
 	await page.evaluate(() => {
 		const rt = window.__rt!;

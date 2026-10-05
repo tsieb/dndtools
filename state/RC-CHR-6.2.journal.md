@@ -39,3 +39,23 @@
   asserts no AUTHORITY refusal, with an observer negative control (overspending a coin is a value
   refusal equipment.spec relies on). `pnpm lint` 0 errors (raw-style allow-list lowered for the
   files that went to zero); `pnpm test:app` 1921/1921.
+- E2E (DNDTOOLS_E2E_PORT=5391, both profiles): character-sheet + player-polish + companion-sheet
+  26/26 after selector-only edits (the Combat/Identity panel's own Edit; several panels now carry
+  one). Wider set (20 specs) 274 passed / 8 failed → fixed: (a) XpPanel repeated the wizard's
+  "Level 2" readout — readout dropped; (b) roster tags flow scoped to the Tags panel's Edit/Done and
+  the tags editor stays open after Save as before; (c) `co-dm.spec.ts:342` and
+  `character-sheet-template.spec.ts:105` asserted the OLD `/player` preview behaviour (a greyed HP
+  stepper named "Preview mode is read-only…"). The shared body follows RC-CHR-6.1's rule — nothing
+  drawn that the viewer cannot dispatch — so in a read-only preview the stepper is absent; both
+  assertions now check that (co-dm's own test title says the screen HIDES its manage controls).
+  Re-run: 32/32. responsive + a11y-axe-gate: 221 passed, 1 skipped, 2 failed → the rotate test's
+  `Edit` scoped to the Combat panel → 6/6.
+- Reference panel trimmed to rows no other panel shows (kind, alignment, visibility, DM notes): race
+  and speed were duplicated with Identity ("Wood elf" twice broke player-polish), AC/HP with Combat.
+- i18n: removed the 31 keys this change orphaned (old DM abilities/combat/advancement/reference
+  copy, `player.sheet.noAttacks`) from en/es; regenerated qps-ploc; i18n tests 47/47.
+- Docs: NAVIGATION.md §1 `/player` row + a paragraph on the one sheet body; FEATURE-GAPS: the
+  Player (DM-side) row folded into the Characters row (one body on `/characters/:id`, `/player`, the
+  companion; History limit carried over; the stale "No printable sheet" limit dropped — RC-CHR-2.4
+  is done and `/player` exports a PDF), Player app row names the shared sheet. Cells sized to the
+  existing column widths so the table is not re-padded. `pnpm feature-audit`: 40 limits, 0 stale.

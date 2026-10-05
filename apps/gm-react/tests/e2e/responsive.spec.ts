@@ -1829,17 +1829,25 @@ test('rotating across the split width keeps the open detail mounted', async ({ p
 	const cardName = await card.getAttribute('aria-label');
 	await card.click();
 	await expect(detail).toBeVisible();
-	await detail.getByRole('button', { name: 'Edit', exact: true }).click();
-	await expect(detail.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	// RC-CHR-6.2 — each sheet panel carries its own Edit; the Combat panel's is the DM's editor.
+	const combat = '[data-sheet-panel="combat"]';
+	await detail.locator(combat).getByRole('button', { name: 'Edit', exact: true }).click();
+	await expect(
+		detail.locator(combat).getByRole('button', { name: 'Done', exact: true }),
+	).toBeVisible();
 
 	// Landscape: the sheet is a full-width page again, the same instance, still in edit mode.
 	await page.setViewportSize({ width: 1180, height: 820 });
 	await expect(page.locator('[data-pane]')).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	await expect(
+		page.locator(combat).getByRole('button', { name: 'Done', exact: true }),
+	).toBeVisible();
 
 	// Portrait again: back beside the roster, which is showing the sheet's character as the open one.
 	await page.setViewportSize({ width: 820, height: 1180 });
-	await expect(detail.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	await expect(
+		detail.locator(combat).getByRole('button', { name: 'Done', exact: true }),
+	).toBeVisible();
 	await expect(detail).toHaveAttribute('aria-label', /\S/);
 	await expect(page.locator(`[data-roster-card][aria-label="${cardName}"]`)).toHaveAttribute(
 		'aria-current',

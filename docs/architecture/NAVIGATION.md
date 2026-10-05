@@ -23,7 +23,7 @@ Routes are `react-router-dom` v6 HashRouter paths. Every screen lives under
 | Platform | Extensions     | `/extensions` | Widget packages, system packages, custom types, themes  |
 | Platform | Community      | `/community`  | Module publish and import, wiki publishing              |
 | Platform | Plans & cloud  | `/upgrade`    | Plan comparison and billing                             |
-| Footer   | Player view    | `/player`     | The second persona: own sheet, resources, journal       |
+| Footer   | Player view    | `/player`     | The DM shell's entry to a PC's sheet, with picker/party |
 | Footer   | Settings       | `/settings`   | Vault, sync and privacy, players, AI, appearance, about |
 
 Chrome-less routes sit outside the shell: `/play` (player companion), `/join` (invite redeem),
@@ -31,6 +31,15 @@ Chrome-less routes sit outside the shell: `/play` (player companion), `/join` (i
 scene editor (`/scene/:id`) renders inside the shell as a `scenes` pseudo-section, and the Screens
 library (`/screens`) and every screen (`/screen/:id`) as a `screens` pseudo-section:
 `activeSectionId` titles them, but they are not `nav.ts` destinations.
+
+One character sheet body (RC-CHR-6.2). `/characters/:id`, `/player` and the companion's Sheet
+section render the same composition, `screens/characters/sheet/SheetBody.tsx`, with its own
+sections (Sheet, Resources, Level up, Journal, History). Each route only frames it: `/characters/:id`
+adds the roster's back bar and rename, `/player` keeps its route, PC picker, vitals bar and its own
+Party tab, and `/play` keeps its strip. Which panels and controls appear comes from the core's
+authority for the viewer on that character (`sheetCapabilitiesFor`, or the host's `sheetWrites` on
+a joined companion), never from the route. A read-only preview holds no writes, so it draws no
+write control.
 
 Rules:
 

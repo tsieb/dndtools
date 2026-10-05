@@ -347,7 +347,7 @@ test.describe('preview-mode edges (RC-CHR-4.3 / DEBT-2026-005)', () => {
 		// As the owning DM, the HP stepper reads as a real, live control.
 		const damageOn = page.getByRole('button', { name: 'Damage 1' });
 		await expect(damageOn).toBeVisible();
-		await expect(damageOn).toHaveAttribute('aria-disabled', 'false');
+		await expect(damageOn).not.toHaveAttribute('aria-disabled', 'true');
 
 		// Preview as the SPECIFIC player who owns this PC (`actor-player` owns the seeded Sera
 		// Duskwhisper) — authority (`isOwner`) would otherwise be TRUE, which is exactly the case that
@@ -360,15 +360,10 @@ test.describe('preview-mode edges (RC-CHR-4.3 / DEBT-2026-005)', () => {
 			timeout: 5_000,
 		});
 
-		// The control is now honestly disabled — a NEW accessible name explaining why, not a live
-		// button that quietly rejects on click. Both HP-stepper buttons (damage/heal) swap the same way.
-		const blocked = page.getByRole('button', {
-			name: 'Preview mode is read-only — exit preview to make changes',
-		});
-		await expect(blocked).toHaveCount(2);
-		for (const button of await blocked.all()) {
-			await expect(button).toBeVisible();
-			await expect(button).toHaveAttribute('aria-disabled', 'true');
-		}
+		// RC-CHR-6.2 — the one sheet body draws nothing a read-only preview would reject (the
+		// RC-CHR-6.1 rule), so the stepper is gone rather than greyed; the hit points still read.
+		await expect(page.getByTestId('vitals-hp')).toBeVisible();
+		await expect(page.getByRole('button', { name: /^(Damage|Heal) 1$/ })).toHaveCount(0);
+		await expect(page.getByRole('textbox', { name: 'Hit point change amount' })).toHaveCount(0);
 	});
 });

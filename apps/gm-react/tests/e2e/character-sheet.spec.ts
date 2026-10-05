@@ -9,6 +9,10 @@ import { gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers'
 // both full replacements addressed by `characterId: id`, so the very next Apply/Save wrote A's
 // sharing list, or A's entire attack list, onto B. Silently, durably, with no undo.
 
+/** RC-CHR-6.2 — the sheet body's Combat panel, where the DM's `character.set-combat` editor lives. */
+const combatPanel = (page: import('@playwright/test').Page) =>
+	page.locator('[data-sheet-panel="combat"]');
+
 /** Ids of two distinct seeded characters, in roster order. */
 async function twoCharacterIds(page: import('@playwright/test').Page): Promise<[string, string]> {
 	const ids = await page.evaluate(() =>
@@ -42,10 +46,12 @@ test.describe('character sheet: per-character state is not shared between charac
 		// Put character A into edit mode — the entry point for every draft this sheet holds.
 		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
-		const edit = page.getByRole('button', { name: 'Edit', exact: true });
+		const edit = combatPanel(page).getByRole('button', { name: 'Edit', exact: true });
 		await expect(edit).toBeVisible();
 		await edit.click();
-		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+		await expect(
+			combatPanel(page).getByRole('button', { name: 'Done', exact: true }),
+		).toBeVisible();
 
 		// Straight to character B's sheet, without passing back through the roster — exactly what
 		// the command palette's character results do.
@@ -54,8 +60,12 @@ test.describe('character sheet: per-character state is not shared between charac
 
 		// B opens read-only. Before the fix the shared instance survived and B opened mid-edit,
 		// holding A's drafts and one Apply away from writing them to B.
-		await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
-		await expect(page.getByRole('button', { name: 'Done', exact: true })).toHaveCount(0);
+		await expect(
+			combatPanel(page).getByRole('button', { name: 'Edit', exact: true }),
+		).toBeVisible();
+		await expect(combatPanel(page).getByRole('button', { name: 'Done', exact: true })).toHaveCount(
+			0,
+		);
 	});
 
 	test('each sheet renders its own character, not the one opened before it', async ({ page }) => {
@@ -101,7 +111,7 @@ test.describe('character sheet: validation is reported at the control it belongs
 		const [first] = await twoCharacterIds(page);
 		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
-		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+		await combatPanel(page).getByRole('button', { name: 'Edit', exact: true }).click();
 
 		const setAc = page.getByRole('button', { name: 'Set AC', exact: true });
 		await expect(setAc).toBeVisible();
@@ -144,7 +154,7 @@ test.describe('character sheet: durable writes announce themselves', () => {
 		const [first] = await twoCharacterIds(page);
 		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
-		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+		await combatPanel(page).getByRole('button', { name: 'Edit', exact: true }).click();
 
 		// The status host must PRE-EXIST for its change to be announced: a live region inserted
 		// together with its own text is routinely dropped by screen readers.
@@ -176,7 +186,7 @@ test.describe('character sheet: durable writes announce themselves', () => {
 		const [first] = await twoCharacterIds(page);
 		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
-		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+		await combatPanel(page).getByRole('button', { name: 'Edit', exact: true }).click();
 
 		const status = sheetStatus(page);
 		await expect(status).toHaveCount(1);
@@ -195,7 +205,7 @@ test.describe('character sheet: durable writes announce themselves', () => {
 		const [first] = await twoCharacterIds(page);
 		await page.goto(`/#/characters/${first}`, { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
-		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+		await combatPanel(page).getByRole('button', { name: 'Edit', exact: true }).click();
 
 		const status = sheetStatus(page);
 		await expect(status).toHaveCount(1);

@@ -63,10 +63,7 @@ export function TagsPanel({
 							size="sm"
 							disabled={!dirty}
 							onClick={async () => {
-								if (await onSave(serializeTags(tags))) {
-									setDraft(null);
-									setEditing(false);
-								}
+								if (await onSave(serializeTags(tags))) setDraft(null);
 							}}
 						>
 							{t('characters.saveTags')}

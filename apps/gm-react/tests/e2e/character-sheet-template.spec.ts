@@ -129,8 +129,6 @@ test('rejects invalid portraits and keeps preview read-only', async ({ page }) =
 	await expect(page.getByTestId('character-sheet')).toBeVisible();
 	await expect(page.getByLabel('Portrait', { exact: true })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Short rest', exact: true })).toHaveCount(0);
-	await expect(page.locator('.character-sheet-combat button').first()).toHaveAttribute(
-		'aria-disabled',
-		'true',
-	);
+	// RC-CHR-6.2 — read-only preview draws no write control in the Combat panel (RC-CHR-6.1 rule).
+	await expect(page.locator('.character-sheet-combat button')).toHaveCount(0);
 });

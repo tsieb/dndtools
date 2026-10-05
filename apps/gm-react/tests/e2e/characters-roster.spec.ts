@@ -119,7 +119,8 @@ test.describe('characters roster: information scent', () => {
 		await card(page, 'Mira the Ferryman').click();
 		await expect(page).toHaveURL(/#\/characters\/[^/]+$/);
 
-		await page.getByRole('button', { name: 'Edit', exact: true }).click();
+		const tagsPanel = page.locator('[data-sheet-panel="tags"]');
+		await tagsPanel.getByRole('button', { name: 'Edit', exact: true }).click();
 		const input = page.getByRole('textbox', { name: 'Tags', exact: true });
 		await input.fill('ferry');
 		await input.press('Enter');
@@ -143,7 +144,7 @@ test.describe('characters roster: information scent', () => {
 			.toBe('ferry, ally');
 
 		// Read mode lists the saved tags.
-		await page.getByRole('button', { name: 'Done', exact: true }).click();
+		await tagsPanel.getByRole('button', { name: 'Done', exact: true }).click();
 		await expect(page.getByText('ally', { exact: true })).toBeVisible();
 
 		await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('button').click();
