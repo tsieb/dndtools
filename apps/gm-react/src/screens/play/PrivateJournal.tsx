@@ -266,6 +266,11 @@ export function PrivateJournal({ data }: { data: LiveData }) {
 			: kind === 'scene'
 				? t('play.journal.private.targetScene')
 				: t('play.journal.private.targetJournal');
+	const writeToggle = {
+		'aria-expanded': writing,
+		'aria-controls': 'private-note-editor',
+		onClick: () => setWriting(!writing),
+	};
 
 	return (
 		<PrivatePanels heading={t('play.journal.private.heading')} sub={t('play.journal.private.sub')}>
@@ -290,48 +295,53 @@ export function PrivateJournal({ data }: { data: LiveData }) {
 				}}
 			>
 				<Panel title={t('play.journal.private.notes', { count: notes.length })}>
-					<Button
-						variant={writing ? 'secondary' : 'primary'}
-						aria-expanded={writing}
-						aria-controls="private-note-editor"
-						onClick={() => setWriting(!writing)}
-					>
-						{t('play.journal.private.writeNote')}
-					</Button>
-					{writing && (
-						<div
-							id="private-note-editor"
-							style={{ display: 'grid', gap: T.space.two }}
-							data-testid="private-note-form"
-						>
-							<Field label={t('play.journal.private.noteTitle')}>
-								<Input
-									value={noteDraft.title}
-									onChange={(e: { target: { value: string } }) =>
-										setNoteDraft((d) => ({ ...d, title: e.target.value }))
-									}
-								/>
-							</Field>
-							<Field label={t('play.journal.private.noteBody')}>
-								<Textarea
-									rows={3}
-									value={noteDraft.body}
-									onChange={(e: { target: { value: string } }) =>
-										setNoteDraft((d) => ({ ...d, body: e.target.value }))
-									}
-								/>
-							</Field>
-							<div>
-								<Button
-									variant="primary"
-									icon="add"
-									disabled={!noteDraft.title.trim()}
-									onClick={() => run(saveNote)}
-								>
-									{t('play.journal.private.saveNote')}
-								</Button>
+					{/* One primary at a time: Write a note while collapsed, Save once the editor is open.
+					    Both branches lead with the toggle, so React keeps that button (and its focus). */}
+					{writing ? (
+						<>
+							<Button variant="secondary" {...writeToggle}>
+								{t('play.journal.private.writeNote')}
+							</Button>
+							<div
+								id="private-note-editor"
+								style={{ display: 'grid', gap: T.space.two }}
+								data-testid="private-note-form"
+							>
+								<Field label={t('play.journal.private.noteTitle')}>
+									<Input
+										value={noteDraft.title}
+										onChange={(e: { target: { value: string } }) =>
+											setNoteDraft((d) => ({ ...d, title: e.target.value }))
+										}
+									/>
+								</Field>
+								<Field label={t('play.journal.private.noteBody')}>
+									<Textarea
+										rows={3}
+										value={noteDraft.body}
+										onChange={(e: { target: { value: string } }) =>
+											setNoteDraft((d) => ({ ...d, body: e.target.value }))
+										}
+									/>
+								</Field>
+								<div>
+									<Button
+										variant="primary"
+										icon="add"
+										disabled={!noteDraft.title.trim()}
+										onClick={() => run(saveNote)}
+									>
+										{t('play.journal.private.saveNote')}
+									</Button>
+								</div>
 							</div>
-						</div>
+						</>
+					) : (
+						<>
+							<Button variant="primary" {...writeToggle}>
+								{t('play.journal.private.writeNote')}
+							</Button>
+						</>
 					)}
 					<RecordList
 						empty={t('play.journal.private.notesEmpty')}

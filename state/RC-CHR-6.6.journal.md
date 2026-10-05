@@ -96,3 +96,27 @@ Verification on the rebased tree (local and native output; operator gates still 
 - Pinned container, `--update-snapshots=none`: play-polish, player-polish, and golden-routes
   filtered to `play|display|player` passed 69/69 across the three visual tiers.
 - Baseline budget: 753 files, 34,165.9 KiB of 34,816 KiB.
+
+## Attempt 4: Lint gate (emphasis lint)
+
+The operator's Lint gate failed on `e210c1dc`. `lint:emphasis` reported
+`PrivateJournal.tsx multiple-accent-primaries 1 > 0`. The toggle used
+`variant={writing ? 'secondary' : 'primary'}` next to an always-primary Save button. At runtime
+they were never primary together, but the static count can only see exclusivity through
+branches. The Notes panel now renders a ternary: collapsed shows the primary "Write a note",
+and open shows a secondary toggle plus the primary Save. The toggle props are shared. Both
+branches are fragments that lead with the toggle, so React keeps the same button. I did not
+touch `scripts/emphasis-baseline.json`, which this task does not own.
+
+Verification (local, native output):
+
+- `pnpm lint`: exit 0. Emphasis `multiple-accent-primaries` is 41 against a baseline of 58,
+  and `PrivateJournal.tsx` is no longer listed.
+- `gm-react` typecheck and Prettier passed.
+- Vitest for `src/screens/play`: 3/3 passed.
+- e2e on both projects: player-private-notes, play-polish and companion-frame passed 34/34.
+- A throwaway probe (deleted, not committed) checked that Enter on "Write a note" opens the
+  editor with focus still on the toggle and `aria-expanded="true"`, and that Enter again
+  closes it with focus kept. It passed 2/2 on desktop and mobile.
+- No visual baseline captures the journal, and the toggle renders the same as before, so no
+  snapshots changed.
