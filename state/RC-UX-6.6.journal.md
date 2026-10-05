@@ -76,3 +76,18 @@ Base: `loop/rc` 9a7b675d (RC-POL-1.23). Branch `dispatch/dndtools/544e7443768b97
   candidate 93d38d48 stands. Remaining out-of-Owns paths are the same companions the earlier gates
   accepted (i18n catalogs + qps-ploc, help/shortcuts/onboarding/shell-polish e2e specs,
   registry.test.ts, NAVIGATION.md, visual baselines, this journal).
+
+## Attempt 5 (gate: rebase onto 4d0a9f2d conflicted on /player goldens)
+
+- Rebased onto 4d0a9f2d. The nine `player--*` PNGs (desktop/rail/phone × high-contrast/parchment/
+  tavern) conflicted with RC-CHR-6.2's /player re-baseline; took the integration versions. All
+  other commits applied cleanly.
+- Strict pinned-container visual run (`--update-snapshots=none --workers=4 --retries=0`): 497/498
+  passed, including every `player--*` capture at the integration baseline, so no re-baseline was
+  needed. The one failure was `community.spec.ts:88` visual-phone tavern, a `toHaveCount` 5s
+  timeout on `discover-shelf` buttons (0 rendered) — the cold lazy-chunk stall, not a pixel diff,
+  on a route this change does not touch. Rerun `community.spec.ts --repeat-each=2`: 60/60 passed.
+- Baseline budget: 753 files, 32397.9 KiB of 34816.0 KiB.
+- After the rebase: gm-react `tsc` clean; help/shortcuts/i18n vitest 150/150; e2e help-menu,
+  shortcuts, help-guides, onboarding-consent, shell-polish on desktop-chromium + mobile-chromium
+  58/58.
