@@ -132,3 +132,20 @@ independent review remain separate from this implementation commit.
   "/board" --repeat-each=3` gave 27 passed (desktop tavern 3/3), exit 0, with no snapshot updates
   and no baseline changes (log `/tmp/rc-knw-6.1-visual-board.log`). No re-baseline. The full
   wrapper visual gate still needs a retry from the central operator.
+
+## Rebase onto ae852b4e: CharacterSheet reconciliation (2026-10-05)
+
+- The wrapper rebase conflicted in `CharacterSheet.tsx`. Upstream RC-CHR-6.2 (f199c42b) replaced
+  the route's inline panels with a thin frame (`SheetHeader` + shared `SheetBody`).
+- Rebased locally onto `loop/rc` ae852b4e. I took the upstream file whole and re-added only this
+  story's Backlinks panel, after `SheetBody` in the `/characters/:id` frame. It still reads
+  through `getNoteRelationshipsForActor` and routes through `buildWikilinkCandidatesForActor`.
+  `SheetBody` was left untouched, so `/player` and the companion are unchanged and no visual
+  baseline captures the panel. The other five commits replayed cleanly.
+- Verification after the rebase: workspace typecheck, ESLint and Prettier on the file, `pnpm gates`
+  (existing file-size warnings only), and `git diff --check` all passed. Core
+  `wikilink-target-kinds` passed 12/12. App vitest for characters + play passed 19/19, including
+  the `SheetBody` route snapshots. RC-KNW-6.1 e2e passed 10/10 on desktop-chromium and
+  mobile-chromium. All character/sheet/companion e2e specs passed 62/62 on both profiles.
+  Logs: `/tmp/rc-knw-6.1-*.log`.
+- Central wrapper gates and independent review remain separate. No push or promotion.
