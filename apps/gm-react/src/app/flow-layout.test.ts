@@ -190,61 +190,6 @@ describe('flowPlacements — the responsive column grid', () => {
 	});
 });
 
-describe('flowPlacements — a group stacks in one lane (RC-CAN-7.6)', () => {
-	const grouped = (id: string, x: number, y: number, w: number): FlowRect => ({
-		...tile(id, x, y, w),
-		groupId: 'column',
-	});
-	/** The Command Center home screen: hero, Scenes beside Create over Manage, then the library. */
-	const home = (): FlowRect[] => [
-		tile('hero', 0, 0, flowSpanWidth(12)),
-		tile('scenes', 0, 240, flowSpanWidth(7)),
-		grouped('create', 7 * FLOW_COLUMN_STEP, 240, flowSpanWidth(5)),
-		grouped('manage', 7 * FLOW_COLUMN_STEP, 480, flowSpanWidth(5)),
-		tile('library', 0, 720, flowSpanWidth(12)),
-	];
-
-	it('keeps Manage under Create, beside Scenes, at the authoring tier', () => {
-		expect(flowPlacements(home(), FLOW_COLUMNS.desktop)).toEqual([
-			{ id: 'hero', column: 0, row: 0, span: 12, index: 0 },
-			{ id: 'scenes', column: 0, row: 1, span: 7, index: 1, rowSpan: 2 },
-			{ id: 'create', column: 7, row: 1, span: 5, index: 2 },
-			{ id: 'manage', column: 7, row: 2, span: 5, index: 3 },
-			{ id: 'library', column: 0, row: 3, span: 12, index: 4 },
-		]);
-	});
-
-	it('reads row by row in layout order: the stack closes its band', () => {
-		const placed = flowPlacements(home(), FLOW_COLUMNS.desktop);
-		const visual = [...placed].sort((a, b) => a.row - b.row || a.column - b.column);
-		expect(visual.map((p) => p.id)).toEqual(placed.map((p) => p.id));
-	});
-
-	it('reflows to one lane per row at rail and phone, keeping every tile', () => {
-		for (const tier of ['rail', 'phone'] as const) {
-			const placed = flowPlacements(home(), FLOW_COLUMNS[tier]);
-			expect(placed.map((p) => [p.id, p.column, p.span, p.rowSpan])).toEqual(
-				['hero', 'scenes', 'create', 'manage', 'library'].map((id) => [
-					id,
-					0,
-					FLOW_COLUMNS[tier],
-					undefined,
-				]),
-			);
-			expect(placed.map((p) => p.row)).toEqual([0, 1, 2, 3, 4]);
-		}
-	});
-
-	it('only consecutive members stack; a lone grouped tile packs as before', () => {
-		const rects = [grouped('a', 0, 0, HALF), tile('b', HALF, 0, HALF), grouped('c', 0, 240, HALF)];
-		expect(flowPlacements(rects).map((p) => [p.id, p.row, p.column, p.rowSpan])).toEqual([
-			['a', 0, 0, undefined],
-			['b', 0, 6, undefined],
-			['c', 1, 0, undefined],
-		]);
-	});
-});
-
 describe('flowKeyBetween', () => {
 	const a = tile('a', 0, 0, 96);
 	const b = tile('b', 96, 0, 96);

@@ -4879,7 +4879,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.autoLayoutOrder': 'Automático (orden de la disposición)',
 	'sceneEditor.position': 'Posición {index}',
 	'sceneEditor.editWidgetDefinition': 'Editar definición del widget',
-	'sceneEditor.rebuildWidget': 'Reconstruir en el constructor de widgets',
 	'sceneEditor.removeWidget': 'Quitar el widget',
 	// RC-POL-1.3 — la barra de herramientas, las etiquetas de deshacer y las pestañas del inspector.
 	'sceneEditor.editLayout': 'Editar disposición',

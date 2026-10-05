@@ -16,7 +16,7 @@ import {
 	type CoreStateSlice,
 } from '@dndtools/core';
 import { buildInitialState, makeEnvironment } from '@dndtools/core/testing';
-import { flowPlacements } from '../app/board-helpers';
+import { FLOW_COLUMNS, flowOrder } from '../app/board-helpers';
 import { buildPackage, readPackage } from '../app/widgetBuilder/draft';
 import { I18nProvider } from '../i18n';
 import { seedDemoContent } from '../runtime/demo-seed';
@@ -72,7 +72,7 @@ vi.mock('../app/useViewport', async (importOriginal) => ({
 	useViewport: () => viewport,
 }));
 
-const { CommandCenter } = await import('./CommandCenter');
+const { CommandCenter, homePlacements } = await import('./CommandCenter');
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -431,7 +431,10 @@ function homeScreen() {
 function arrangement() {
 	const home = homeScreen();
 	const typeOf = new Map(home.widgets.map((w) => [w.id, w.type.replace(/^copy-/, '')]));
-	return flowPlacements(home.widgets.map((w) => ({ id: w.id, ...w.layout })))
+	return homePlacements(
+		flowOrder(home.widgets.map((w) => ({ id: w.id, ...w.layout }))),
+		FLOW_COLUMNS.desktop,
+	)
 		.map(({ id, column, row, span, rowSpan }) => ({
 			part: typeOf.get(id),
 			column,

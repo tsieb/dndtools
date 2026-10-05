@@ -59,11 +59,6 @@ export interface TileFitProps {
 	onRestore?: () => void;
 	/** Layout editing owns the frame's keys; reading mode lets the body scroll by keyboard. */
 	keyboardScrollable?: boolean;
-	/**
-	 * RC-CAN-7.6 — the host sizes the tile to its content (a flow page), so the region never scrolls
-	 * and must not clip what a body draws past its box: a card's shadow, a control's focus ring.
-	 */
-	fitsContent?: boolean;
 }
 
 type WidgetRenderer = ComponentType<WidgetRendererProps>;
@@ -319,7 +314,6 @@ export function WidgetRegion({
 	onGrow,
 	onRestore,
 	keyboardScrollable = true,
-	fitsContent = false,
 }: TileFitProps & { label: string; children: ReactNode }) {
 	const scrollRef = useRef<HTMLElement>(null);
 	const contentRef = useRef<HTMLDivElement>(null);
@@ -396,7 +390,7 @@ export function WidgetRegion({
 					)
 						event.stopPropagation();
 				}}
-				style={{ height: '100%', overflow: fitsContent ? 'visible' : 'auto' }}
+				style={{ height: '100%', overflow: 'auto' }}
 			>
 				<div ref={contentRef} style={{ height: '100%' }}>
 					{children}

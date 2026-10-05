@@ -4872,7 +4872,6 @@ export const en = {
 	'sceneEditor.autoLayoutOrder': 'Auto (layout order)',
 	'sceneEditor.position': 'Position {index}',
 	'sceneEditor.editWidgetDefinition': 'Edit widget definition',
-	'sceneEditor.rebuildWidget': 'Rebuild in the widget builder',
 	'sceneEditor.removeWidget': 'Remove widget',
 	// RC-POL-1.3 — the toolbar, undo labels and the Inspector's tab and panel labels.
 	'sceneEditor.editLayout': 'Edit layout',

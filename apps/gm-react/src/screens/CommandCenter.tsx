@@ -18,11 +18,12 @@ import { Button, Card, EmptyState, StatusDot } from '../ds';
 import { Page, T } from '../app/screen-kit';
 import {
 	boardWidgetsOf,
+	FLOW_AUTHORING_TIER,
 	FLOW_COLUMNS,
 	flowOrder,
-	flowPlacements,
+	flowSpanOf,
 	payloadIndex,
-	type FlowPlacement,
+	type FlowRect,
 } from '../app/board-helpers';
 import { WidgetRenderSlot } from '../app/widgets/WidgetRenderSlot';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -74,13 +75,89 @@ function useProvisionedHome(enabled: boolean) {
 	return { home, failed, retry };
 }
 
+/** A part's place in the home grid: the flow placement, plus the rows it spans beside a stack. */
+export interface HomePlacement {
+	id: string;
+	column: number;
+	row: number;
+	span: number;
+	index: number;
+	rowSpan?: number;
+}
+
+/**
+ * The home screen's flow packing: the flow policy's non-dense row fill (`flowPlacements`), with one
+ * addition the hub's body needs — consecutive parts that share a layout group STACK in one lane
+ * (Create over Manage beside Scenes). A stack keeps one column and span, one part per row, and the
+ * parts before it in its band span its rows; it closes its band, so reading the grid row by row still
+ * meets the parts in layout order (ADR-041). At a narrower tier an item alone in its band fills it.
+ */
+export function homePlacements(
+	ordered: readonly (FlowRect & { groupId?: string | null })[],
+	columns: number,
+): HomePlacement[] {
+	const lanes = Math.max(1, Math.floor(columns));
+	const items: (FlowRect & { groupId?: string | null })[][] = [];
+	for (const widget of ordered) {
+		const last = items[items.length - 1];
+		if (last && widget.groupId && last[0]!.groupId === widget.groupId) last.push(widget);
+		else items.push([widget]);
+	}
+	const placements: HomePlacement[] = [];
+	const bandOf = new Map<HomePlacement, number>();
+	const itemsInBand: number[] = [];
+	let band = 0;
+	let beside: HomePlacement[] = [];
+	let row = 0;
+	let column = 0;
+	const nextBand = (rows: number) => {
+		row += rows;
+		column = 0;
+		band += 1;
+		beside = [];
+	};
+	for (const item of items) {
+		const span = Math.max(...item.map((widget) => flowSpanOf(widget, lanes)));
+		if (column > 0 && column + span > lanes) nextBand(1);
+		itemsInBand[band] = (itemsInBand[band] ?? 0) + 1;
+		if (item.length === 1) {
+			const placement = { id: item[0]!.id, column, row, span, index: placements.length };
+			placements.push(placement);
+			bandOf.set(placement, band);
+			beside.push(placement);
+			column += span;
+			if (column >= lanes) nextBand(1);
+			continue;
+		}
+		for (const [offset, widget] of item.entries()) {
+			const placement = {
+				id: widget.id,
+				column,
+				row: row + offset,
+				span,
+				index: placements.length,
+			};
+			placements.push(placement);
+			bandOf.set(placement, band);
+		}
+		for (const placement of beside) placement.rowSpan = item.length;
+		nextBand(item.length);
+	}
+	if (lanes >= FLOW_COLUMNS[FLOW_AUTHORING_TIER]) return placements;
+	return placements.map((placement) =>
+		itemsInBand[bandOf.get(placement)!] === 1
+			? { ...placement, column: 0, span: lanes, rowSpan: undefined }
+			: placement,
+	);
+}
+
 /** One part in the grid, or out of it (`display: none`) while its body draws nothing. */
 function HomePart({
 	placement,
 	onBlank,
 	children,
 }: {
-	placement: FlowPlacement | null;
+	placement: HomePlacement | null;
 	onBlank: (blank: boolean) => void;
 	children: ReactNode;
 }) {
@@ -92,12 +169,17 @@ function HomePart({
 		if (!node) return;
 		// The widget region's content box; a body that renders nothing leaves it without elements.
 		const check = () => {
-			const content = node.querySelector('[data-widget-region] > div');
+			const region = node.querySelector<HTMLElement>('[data-widget-region]');
+			// The grid sizes every part to its content, so the region never scrolls; it must not clip
+			// what a part draws past its box either (the hero card's shadow, an outward focus ring).
+			// Its own `overflow: auto` is the canvas's, where a tile has a fixed size.
+			if (region && region.style.overflow !== 'visible') region.style.overflow = 'visible';
+			const content = region?.firstElementChild;
 			report.current(!!content && content.childElementCount === 0);
 		};
 		check();
 		const observer = new MutationObserver(check);
-		observer.observe(node, { childList: true, subtree: true });
+		observer.observe(node, { childList: true, subtree: true, attributeFilter: ['style'] });
 		return () => observer.disconnect();
 	}, []);
 	return (
@@ -161,19 +243,21 @@ export function CommandCenter() {
 			payloadIndex(summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
 		);
+		const groupOf = new Map(home.widgets.map((widget) => [widget.id, widget.layout.groupId]));
+		// DOM order is the reading order (ADR-041), hidden parts included.
+		const ordered = flowOrder(widgets).map((widget) => ({
+			...widget,
+			groupId: groupOf.get(widget.id) ?? null,
+		}));
 		// The hub's own tier rule: only the phone collapses to one column; the rail keeps the
 		// desktop arrangement, as the Command Center always did.
 		const placed = new Map(
-			flowPlacements(
-				widgets.filter((widget) => !blank.has(widget.id)),
+			homePlacements(
+				ordered.filter((widget) => !blank.has(widget.id)),
 				viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop,
 			).map((placement) => [placement.id, placement]),
 		);
-		// DOM order is the reading order (ADR-041), hidden parts included.
-		return flowOrder(widgets).map((widget) => ({
-			widget,
-			placement: placed.get(widget.id) ?? null,
-		}));
+		return ordered.map((widget) => ({ widget, placement: placed.get(widget.id) ?? null }));
 	}, [home, runtime.state, actorId, viewport, blank]);
 
 	// Liveness is `session.workflow` everywhere else in the app (Session.tsx, ProjectionControl, every
@@ -256,7 +340,6 @@ export function CommandCenter() {
 					>
 						<WidgetRenderSlot
 							widget={widget}
-							fitsContent
 							onCommand={(commandType, payload) =>
 								void runtime.dispatch({
 									type: 'widget.dispatch-command',

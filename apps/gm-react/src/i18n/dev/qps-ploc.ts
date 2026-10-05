@@ -5058,7 +5058,6 @@ export default {
 	'sceneEditor.autoLayoutOrder': '[Áúţó (ľáýóúţ óŕďéŕ)~~~~ ~~~]',
 	'sceneEditor.position': '[Ƥóšíţíóñ ~~~~{index}]',
 	'sceneEditor.editWidgetDefinition': '[Éďíţ ŵíďğéţ ďéƒíñíţíóñ~~~~ ~~~~]',
-	'sceneEditor.rebuildWidget': '[Ŕéƀúíľď íñ ţĥé ŵíďğéţ ƀúíľďéŕ~~~~ ~~~~ ~~]',
 	'sceneEditor.removeWidget': '[Ŕéḿóṽé ŵíďğéţ~~~~ ~]',
 	'sceneEditor.editLayout': '[Éďíţ ľáýóúţ~~~~ ]',
 	'sceneEditor.done': '[Ďóñé~~]',

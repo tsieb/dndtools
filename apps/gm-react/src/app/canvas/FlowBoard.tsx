@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { widgetPresentation } from '@dndtools/core';
 import { Icon, VisibilityChip } from '../../ds';
 import {
 	FLOW_COLUMNS,
@@ -109,16 +108,6 @@ function FlowTile({
 }: FlowTileProps) {
 	const meta = tileMetadataForWidget(w);
 	const placeholder = w.status !== 'available';
-	// RC-WID-5.3 bare presentation, honoured by flow too (RC-CAN-7.6): in view mode a bare tile draws
-	// no surface, rail, title row or type caption, so a hub part reads as page content. Editing shows
-	// the chrome again, because that is where the grip, the menu and the position live.
-	const bare =
-		!editing &&
-		widgetPresentation({
-			presentation:
-				w.configuration.presentation ??
-				w.configFields.find((field) => field.key === 'presentation')?.default,
-		}) === 'bare';
 	const accent = `var(${meta.accentToken})`;
 	const menuRef = useRef<MenuHandle | null>(null);
 	const press = useLongPress((at) => menuRef.current?.open(at));
@@ -154,20 +143,18 @@ function FlowTile({
 				e.preventDefault();
 				menuRef.current?.open({ x: e.clientX, y: e.clientY });
 			}}
-			className={bare ? undefined : meta.silhouetteClass}
+			className={meta.silhouetteClass}
 			style={{
 				gridColumn: `${placement.column + 1} / span ${placement.span}`,
-				gridRow: placement.rowSpan
-					? `${placement.row + 1} / span ${placement.rowSpan}`
-					: String(placement.row + 1),
+				gridRow: String(placement.row + 1),
 				position: 'relative',
 				display: 'flex',
 				flexDirection: 'column',
 				gap: T.space.two,
-				padding: bare ? T.space.zero : T.space.three,
+				padding: T.space.three,
 				borderRadius: T.radius.md,
-				background: bare ? 'transparent' : placeholder ? T.sunken : T.raised,
-				border: bare ? 'none' : `1px solid ${placeholder ? T.bdS : T.bd}`,
+				background: placeholder ? T.sunken : T.raised,
+				border: `1px solid ${placeholder ? T.bdS : T.bd}`,
 				// Heights follow CONTENT: no height, no maxHeight, and no `overflow:hidden` anywhere on
 				// the path to the body — which is what keeps a tile from clipping at a narrow tier.
 				minWidth: 0,
@@ -181,73 +168,63 @@ function FlowTile({
 		>
 			{/* A BORDER, not a background: forced-colors repaints backgrounds as Canvas but keeps a
 			    border and remaps it to CanvasText. Same reasoning as WidgetFrame's rail. */}
-			{!bare && (
+			<span
+				aria-hidden
+				data-testid="tile-accent-rail"
+				style={{
+					position: 'absolute',
+					left: 0,
+					top: 0,
+					bottom: 0,
+					width: 0,
+					borderLeft: `4px solid ${accent}`,
+				}}
+			/>
+			<div
+				style={{
+					display: 'flex',
+					alignItems: 'center',
+					gap: T.space.two,
+					flex: '0 0 auto',
+					minWidth: 0,
+					// Room for the edit-mode grip and menu trigger.
+					...(editing
+						? { paddingInlineStart: T.space.three, paddingInlineEnd: T.space.eight }
+						: {}),
+				}}
+			>
+				<WidgetGlyph icon={meta.icon} size={16} color={accent} />
 				<span
-					aria-hidden
-					data-testid="tile-accent-rail"
 					style={{
-						position: 'absolute',
-						left: 0,
-						top: 0,
-						bottom: 0,
-						width: 0,
-						borderLeft: `4px solid ${accent}`,
+						flex: 1,
+						minWidth: 0,
+						// Sans, not the display face: Cinzel starts at --text-xl (RC-ENG-8.4 emphasis lint).
+						font: `700 var(--text-sm) ${T.sans}`,
+						color: T.ink,
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
+						whiteSpace: 'nowrap',
 					}}
-				/>
-			)}
-			{!bare && (
-				<>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: T.space.two,
-							flex: '0 0 auto',
-							minWidth: 0,
-							// Room for the edit-mode grip and menu trigger.
-							...(editing
-								? { paddingInlineStart: T.space.three, paddingInlineEnd: T.space.eight }
-								: {}),
-						}}
-					>
-						<WidgetGlyph icon={meta.icon} size={16} color={accent} />
-						<span
-							style={{
-								flex: 1,
-								minWidth: 0,
-								// Sans, not the display face: Cinzel starts at --text-xl (RC-ENG-8.4 emphasis lint).
-								font: `700 var(--text-sm) ${T.sans}`,
-								color: T.ink,
-								overflow: 'hidden',
-								textOverflow: 'ellipsis',
-								whiteSpace: 'nowrap',
-							}}
-						>
-							{w.title}
-						</span>
-						<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
-					</div>
-					<span
-						title={meta.description}
-						style={{
-							font: `var(--text-2xs) ${T.sans}`,
-							letterSpacing: 'var(--tracking-wide)',
-							textTransform: 'uppercase',
-							color: T.ter,
-							flex: '0 0 auto',
-						}}
-					>
-						{w.typeLabel}
-					</span>
-				</>
-			)}
+				>
+					{w.title}
+				</span>
+				<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
+			</div>
+			<span
+				title={meta.description}
+				style={{
+					font: `var(--text-2xs) ${T.sans}`,
+					letterSpacing: 'var(--tracking-wide)',
+					textTransform: 'uppercase',
+					color: T.ter,
+					flex: '0 0 auto',
+				}}
+			>
+				{w.typeLabel}
+			</span>
 			<div style={{ flex: 1, minWidth: 0, pointerEvents: editing ? 'none' : 'auto' }}>
 				<NoteFrameContext.Provider value={true}>
-					<WidgetRenderSlot
-						widget={w}
-						onCommand={editing ? undefined : onCommand}
-						fitsContent={bare}
-					/>
+					<WidgetRenderSlot widget={w} onCommand={editing ? undefined : onCommand} />
 				</NoteFrameContext.Provider>
 			</div>
 			{w.statusNote && (
