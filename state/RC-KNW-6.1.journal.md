@@ -128,10 +128,11 @@ independent review remain separate from this implementation commit.
   pane while the shell had already rendered. A lazy surface chunk had not arrived at capture time.
   This is the known cold dev-server chunk stall, not a rendering change. The branch does not touch
   the board or DM-screen surfaces.
-- Re-ran in the pinned container: `run-in-container.sh tests/visual/golden-routes.spec.ts -g
-  "/board" --repeat-each=3` gave 27 passed (desktop tavern 3/3), exit 0, with no snapshot updates
-  and no baseline changes (log `/tmp/rc-knw-6.1-visual-board.log`). No re-baseline. The full
-  wrapper visual gate still needs a retry from the central operator.
+- Re-ran the `/board` golden routes three times each in the pinned container:
+  `run-in-container.sh tests/visual/golden-routes.spec.ts -g /board --repeat-each=3`. 27 passed
+  (desktop tavern 3/3), exit 0, with no snapshot updates and no baseline changes (log
+  `/tmp/rc-knw-6.1-visual-board.log`). No re-baseline. The full wrapper visual gate still needs a
+  retry from the central operator.
 
 ## Rebase onto ae852b4e: CharacterSheet reconciliation (2026-10-05)
 
@@ -149,3 +150,10 @@ independent review remain separate from this implementation commit.
   mobile-chromium. All character/sheet/companion e2e specs passed 62/62 on both profiles.
   Logs: `/tmp/rc-knw-6.1-*.log`.
 - Central wrapper gates and independent review remain separate. No push or promotion.
+
+## Format gate repair (2026-10-05)
+
+- Wrapper `Format (changed)` at 8cdb3842 flagged only `state/RC-KNW-6.1.journal.md`: an inline code
+  span wrapped across two lines, which Prettier reflows. Rewrote that bullet so the command sits on
+  one line; no source files changed. `pnpm format:check:changed -- --base loop/rc` now passes for all 20
+  changed files.
