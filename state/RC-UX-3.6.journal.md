@@ -104,3 +104,9 @@ The review of `61d784cb` rejected the candidate for two CI jobs that assume a se
 - The fence flagged `apps/gm-react/electron/smoke-parity.cjs` and `scripts/android-emulator-acceptance.sh` again. I kept both, so the task blocks for the operator's claim decision. The previous attempt reverted the Android script on the same fence rule, and the review of `61d784cb` then rejected the candidate for exactly these two CI breaks: desktop-smoke failed 3 of 3, and android-checks fails deterministically. Fresh vaults start empty because the story requires it, and neither script can pass on an empty vault without these edits. No path in the claim can supply a scene and a map to a fresh profile without seeding the vault, which the acceptance forbids. The decision needed is whether to widen the claim to these two paths.
 - Re-verified on the rebased tree: gm-react typecheck passed; `playwright test onboarding-consent golden-path cloud-enhanced-honest-limit --workers=3` **86 passed** on both profiles; `desktop:smoke` passed every step, parity write and verify included (`/tmp/rc-ux36-smoke3.log`); the Android script contract test passed 20 of 20 and `bash -n` passed; raw-style count passed.
 - Local commit only. Nothing pushed or promoted, and no dispatcher state touched.
+
+## 2026-10-05 claim widened to the two CI scripts
+
+- The operator widened the claim to `apps/gm-react/electron/smoke-parity.cjs` and `scripts/android-emulator-acceptance.sh`, so every changed path is now owned or a manifest companion. The fence feedback on this attempt predates the widening.
+- No code changed. The branch is still `f9eb0f07`, `b4c753e1`, `4b818e2b` on base `ae852b4e`, the same tree that the previous entry's results cover: 86 e2e passed on both profiles, desktop smoke green, the Android contract test 20 of 20, typecheck and raw-style count passed.
+- Local commit only. Nothing pushed or promoted, and no dispatcher state touched.
