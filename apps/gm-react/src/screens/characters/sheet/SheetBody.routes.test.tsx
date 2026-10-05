@@ -36,6 +36,9 @@ const runtimeStub = vi.hoisted(() => ({
 	dispatch: async () => ({ status: 'accepted' }),
 }));
 vi.mock('../../../runtime/RuntimeContext', () => ({ useRuntime: () => runtimeStub }));
+// The companion reads its own state when previewing and the host's view-model when joined.
+const sessionStub = vi.hoisted(() => ({ role: 'none' as string, client: null as unknown }));
+vi.mock('../../../net/SessionContext', () => ({ useSession: () => sessionStub }));
 
 /** A player with no PC of their own, holding `combat-participant` on someone else's. */
 const HELPER: Actor = { id: 'actor-helper', role: 'player', displayName: 'Helper' };
@@ -93,7 +96,7 @@ afterEach(() => {
 	container.remove();
 });
 
-type Route = '/characters/:id' | '/player' | 'companion';
+type Route = '/characters/:id' | '/player' | 'companion' | 'joined companion';
 
 /** Render `route` for `viewer` and read every sheet section's panels, in tab order. */
 function panelsOn(
@@ -110,6 +113,12 @@ function panelsOn(
 		actors: Object.values(state.permissions.actors),
 	});
 	const data = buildPlayerData(state, viewer);
+	Object.assign(
+		sessionStub,
+		route === 'joined companion'
+			? { role: 'joined', client: { data } }
+			: { role: 'none', client: null },
+	);
 	const node =
 		route === '/characters/:id' ? (
 			<CharacterSheet id={pcId} onBack={() => undefined} />
@@ -157,12 +166,12 @@ describe('RC-CHR-6.2 — the same sheet body on every route, differing only by c
 		owner: {
 			actor: PLAYER_ACTOR.id,
 			readOnly: false,
-			routes: ['/characters/:id', '/player', 'companion'],
+			routes: ['/characters/:id', '/player', 'companion', 'joined companion'],
 		},
 		'combat participant': {
 			actor: HELPER.id,
 			readOnly: false,
-			routes: ['/characters/:id', '/player', 'companion'],
+			routes: ['/characters/:id', '/player', 'companion', 'joined companion'],
 		},
 		'read-only preview': {
 			actor: PLAYER_ACTOR.id,
@@ -181,6 +190,7 @@ describe('RC-CHR-6.2 — the same sheet body on every route, differing only by c
 			}
 			// The companion's capabilities come from the host's grant check — the same answer.
 			if ((viewer.routes as readonly string[]).includes('companion')) {
+				// (Joined or previewing, the companion's writes are the host's `sheetWrites`.)
 				const writes = buildPlayerData(state, viewer.actor).sheetWrites;
 				expect(
 					capabilitiesFromWrites(viewer.readOnly ? { combat: false, manage: false } : writes),
@@ -191,7 +201,23 @@ describe('RC-CHR-6.2 — the same sheet body on every route, differing only by c
 
 	// One snapshot per route: the panel set each viewer gets there. The DM shell routes and the
 	// companion share their entries for every viewer they both serve, by the assertions above.
-	for (const route of ['/characters/:id', '/player', 'companion'] as const) {
+	it('a joined companion keeps Equipment and Level up and says the host does not send them', () => {
+		panelsOn('joined companion', state, pcId, PLAYER_ACTOR.id, false);
+		const open = (section: string) =>
+			act(() =>
+				container.querySelector<HTMLButtonElement>(`[role="tab"][id$="-tab-${section}"]`)!.click(),
+			);
+		open('levelup');
+		expect(container.querySelector('[data-sheet-panel="level-up"]')?.textContent).toContain(
+			'Levelling up isn’t available on this device yet.',
+		);
+		open('sheet');
+		expect(container.querySelector('[data-sheet-panel="equipment"]')?.textContent).toContain(
+			'Your equipment isn’t sent to this device yet.',
+		);
+	});
+
+	for (const route of ['/characters/:id', '/player', 'companion', 'joined companion'] as const) {
 		it(`snapshot: ${route}`, () => {
 			const sets = Object.fromEntries(
 				Object.entries(viewers)

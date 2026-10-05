@@ -218,3 +218,45 @@ exports[`RC-CHR-6.2 — the same sheet body on every route, differing only by ca
   ],
 }
 `;
+
+exports[`RC-CHR-6.2 — the same sheet body on every route, differing only by capability > snapshot: joined companion 1`] = `
+{
+  "combat participant": [
+    "abilities",
+    "attacks",
+    "equipment",
+    "bio",
+    "combat",
+    "spellcasting",
+    "identity",
+    "backstory",
+    "reference",
+    "tags",
+    "resources",
+    "death-saves",
+    "prepared-spells",
+    "journal",
+    "history",
+  ],
+  "owner": [
+    "abilities",
+    "attacks",
+    "equipment",
+    "bio",
+    "combat",
+    "spellcasting",
+    "identity",
+    "backstory",
+    "reference",
+    "tags",
+    "resources",
+    "death-saves",
+    "rest",
+    "prepared-spells",
+    "xp",
+    "level-up",
+    "journal",
+    "history",
+  ],
+}
+`;

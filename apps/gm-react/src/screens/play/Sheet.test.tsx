@@ -24,6 +24,8 @@ vi.mock('../../app/useViewport', () => ({ useViewport: () => 'desktop' }));
 // reads the device's own state (in a preview, the fixture campaign).
 const runtimeStub = vi.hoisted(() => ({ newId: () => 'homebrew-1', state: undefined as unknown }));
 vi.mock('../../runtime/RuntimeContext', () => ({ useRuntime: () => runtimeStub }));
+// Previewing (not joined): the sheet reads this device's own state, the fixture campaign.
+vi.mock('../../net/SessionContext', () => ({ useSession: () => ({ role: 'none', client: null }) }));
 
 /**
  * RC-CHR-6.1 — the companion sheet draws only what the actor may dispatch. Over a fixture campaign built

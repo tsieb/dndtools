@@ -1359,6 +1359,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.sheet.hitPoints': 'Puntos de golpe',
 	'play.sheet.armorClass': 'CA',
 	'play.sheet.writeDeclined': 'La mesa no aceptó ese cambio.',
+	'play.sheet.equipmentElsewhere':
+		'Tu equipo aún no llega a este dispositivo. Tu {gm} puede verlo y cambiarlo en su hoja.',
+	'play.sheet.levelUpElsewhere':
+		'Subir de nivel aún no está disponible en este dispositivo. Tu {gm} puede subirte de nivel desde su hoja.',
 	'play.dice.title': 'Dados',
 	'play.dice.sub':
 		'Las tiradas se registran en el registro de sesión compartido de la mesa, a tu nombre',

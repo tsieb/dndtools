@@ -1,13 +1,15 @@
 import { Avatar, Badge, Chip, ConditionBadge, Icon, Stat } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
+import { useMemo } from 'react';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { useSession } from '../../net/SessionContext';
 import type { CommandRequest } from '../../net/messages';
 import { sheetCombatCommands, type SheetWrites } from '../../net/viewModels';
 import { capabilitiesFromWrites } from '../characters/sheet/capabilities';
 import { useSheetFeedback } from '../characters/sheet/feedback';
 import { SheetBody } from '../characters/sheet/SheetBody';
-import type { SheetSubject } from '../characters/sheet/subject';
+import { buildSheetSubject, type SheetSubject } from '../characters/sheet/subject';
 import type { VitalsWrite } from '../characters/sheet/VitalsBlock';
 import { condKey, Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { useI18n } from '../../i18n';
@@ -45,6 +47,14 @@ export function SheetSection({
 	});
 	const C = data.pc;
 	const pcId = data.pcId;
+	// Joined, the sheet is the host's view-model; previewing, it is this device's own core state, read
+	// through the same builder the DM shell uses (the frame's `joined` test, play/Frame.tsx).
+	const session = useSession();
+	const joined = session.role === 'joined' && session.client?.data != null;
+	const local = useMemo(
+		() => (!joined && pcId ? buildSheetSubject(runtime.state, actorId, pcId) : null),
+		[joined, pcId, runtime.state, actorId],
+	);
 	if (!C || !pcId) {
 		return (
 			<PvPage max={1140}>
@@ -63,21 +73,24 @@ export function SheetSection({
 		}
 		return true;
 	};
-	const extra = data.sheet;
+	// The host sends the PC's view, resources and journal; it does not send equipment or the
+	// advancement standing, so a joined sheet keeps those panels and says so (SheetBody).
 	const subject: SheetSubject = {
-		id: pcId,
-		view: C,
-		level: data.level,
-		resources: data.resources,
-		profBonus: extra?.profBonus ?? null,
-		passive: extra?.passive ?? null,
-		inventory: extra?.inventory ?? null,
-		encumbrance: extra?.encumbrance ?? null,
-		advancement: extra?.advancement ?? null,
-		xpEligible: extra?.xpEligible ?? null,
-		milestoneEligible: extra?.milestoneEligible ?? null,
-		journal: data.journal,
-		// The companion reads no vault of the DM's to search, and is never the DM who shares.
+		...(local ?? {
+			id: pcId,
+			view: C,
+			level: data.level,
+			resources: data.resources,
+			profBonus: null,
+			passive: null,
+			inventory: null,
+			encumbrance: null,
+			advancement: null,
+			xpEligible: null,
+			milestoneEligible: null,
+			journal: data.journal,
+		}),
+		// The companion searches no vault of the {gm}'s, and its viewer never holds Sharing.
 		mentions: [],
 		sharing: null,
 	};

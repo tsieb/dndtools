@@ -1337,6 +1337,10 @@ export const en = {
 	'play.sheet.armorClass': 'AC',
 	// RC-CHR-6.1 — a sheet write the table refused without a reason of its own.
 	'play.sheet.writeDeclined': 'The table didn’t take that change.',
+	'play.sheet.equipmentElsewhere':
+		'Your equipment isn’t sent to this device yet. Your {gm} can see and change it on their sheet.',
+	'play.sheet.levelUpElsewhere':
+		'Levelling up isn’t available on this device yet. Your {gm} can level you up from their sheet.',
 	'play.dice.title': 'Dice',
 	'play.dice.sub': "Rolls are recorded to the table's shared session log, attributed to you",
 	'play.dice.standbyNote': 'Only rolls made during a live session reach the table log.',

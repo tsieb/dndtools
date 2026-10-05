@@ -20,11 +20,8 @@ IdentityPanel,XpPanel,DeathSavesPanel}` + reworked Abilities/Combat/Attacks/Spel
   panels (each owns its editor; global Edit/Done retired). `player/Vitals.tsx` is now the Resources
   section panels (750 → ~390 lines); `player/Sheet.tsx`, `AdvancementPanel`, `useAdvancementEditor`
   deleted. `/characters/:id`, `/player` and `play/Sheet.tsx` are frames around `SheetBody`.
-- CROSSED the claim once, minimally: `net/viewModels.ts` gains an additive `sheet` field (derived
-  reads, inventory, encumbrance, advancement + eligibility for the viewer's own PC, read after the
-  same visibility gate as `resources`). Without it the companion would draw Equipment and Level up
-  with no data, so the panel set could not be the same on all three routes (acceptance 1).
-  `net/viewModels.ts` belongs to RC-CHR-6.1's claim (done).
+- (Attempt 1 crossed into `net/viewModels.ts` to ship inventory/advancement to the companion; the
+  claim gate refused it. Reverted in attempt 2 — see below.)
 - Known limit (HANDOFF, not in this claim): `app/character/LevelUp.tsx` resolves the system package,
   hit die and dice history from the device's OWN runtime. On a joined companion that is not the
   DM's vault, so the wizard works (open/choices/commit go to the host) but the hit-die roll button
@@ -70,3 +67,19 @@ IdentityPanel,XpPanel,DeathSavesPanel}` + reworked Abilities/Combat/Attacks/Spel
   `pnpm typecheck` 0, `pnpm build` 0, `pnpm feature-audit` 0 stale. Composition files all under
   500 lines (largest `player/Journal.tsx` 424, `player/Vitals.tsx` 382).
 - Not rebased: `loop/rc` has moved ahead (RC-CAN-8.1 commits) without touching these files.
+- 2026-10-04 attempt 2 (base 5bcd0e60): gate refused `apps/gm-react/src/net/viewModels.ts`.
+  Reverted to base. The acceptance criterion is the panel SET, which holds without that data, so
+  the crossing was not required. The companion now builds its subject with `buildSheetSubject` from
+  the device's own state when previewing (the frame's `joined` test via `useSession`), and from the
+  host's view-model when joined. A joined sheet keeps Equipment and Level up but says the host does
+  not send them yet (`play.sheet.equipmentElsewhere` / `levelUpElsewhere`, EN/ES, qps-ploc regen)
+  instead of drawing an empty list or a wizard with no draft. HANDOFF (owner of
+  `net/viewModels.ts`): add inventory, encumbrance, advancement and eligibility to `PlayerData`,
+  then drop those two notes.
+- Attempt 2 verification: routes test gains a `joined companion` route (owner, combat participant)
+  plus a test for the two notes; 9/9, snapshot per route (4 routes). `play/Sheet.test.tsx` 3/3
+  with a not-joined session stub. `pnpm test:app` 1940/1940, `pnpm typecheck` 0, `pnpm lint`
+  0 errors, format:check:changed 0, feature-audit 0 stale. E2E both profiles, `--retries=0`:
+  companion-sheet, play-polish, player-view, player-preview, player-join-first, golden-path,
+  collab, character-sheet, player-polish — 150/150. No visual change (only the null-data branch
+  is new; `/player` and `/characters/:id` always carry the data).

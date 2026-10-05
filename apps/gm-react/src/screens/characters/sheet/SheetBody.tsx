@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, tabPanelProps } from '../../../ds';
+import { Panel, T } from '../../../app/screen-kit';
 import { CharacterHistoryTimeline } from '../../../app/character/History';
 import { useI18n, type MessageKey } from '../../../i18n';
 import { PlayerLevelUp } from '../../player/Advancement';
@@ -37,6 +38,13 @@ const SECTION_TAB: Record<SheetSectionId, { label: MessageKey; icon: string }> =
 	history: { label: 'player.tab.history', icon: 'recent' },
 };
 
+/** The copy for a panel whose data this device was not sent (a joined companion; see play/Sheet). */
+const NOTE: CSSProperties = {
+	margin: T.space.zero,
+	font: `var(--text-sm)/1.55 ${T.sans}`,
+	color: T.sub,
+};
+
 /** A section the frame adds beside the sheet's own, e.g. the DM shell's Party tab. Not a sheet panel. */
 export interface FrameSection {
 	id: string;
@@ -53,6 +61,8 @@ export interface FrameSection {
  * capabilities the core grants the viewer. Which panels exist comes from {@link sheetPlan}; which
  * controls a panel draws comes from the same `caps`. Layout follows the viewport (`singleColumn`,
  * `compact`), never the route. Every panel carries `data-sheet-panel` so the composition is testable.
+ * A subject without inventory or advancement (what a joined companion is not sent) keeps those
+ * panels and says so, rather than drawing an empty list or a wizard with no draft to drive.
  */
 export function SheetBody({
 	subject,
@@ -142,14 +152,20 @@ export function SheetBody({
 							)}
 							{panel(
 								'equipment',
-								<PlayerEquipment
-									charId={subject.id}
-									actorId={actorId}
-									inventory={subject.inventory}
-									encumbrance={subject.encumbrance}
-									canManage={caps.manage}
-									dispatch={io.dispatch}
-								/>,
+								subject.inventory ? (
+									<PlayerEquipment
+										charId={subject.id}
+										actorId={actorId}
+										inventory={subject.inventory}
+										encumbrance={subject.encumbrance}
+										canManage={caps.manage}
+										dispatch={io.dispatch}
+									/>
+								) : (
+									<Panel title={t('player.print.equipment')}>
+										<p style={NOTE}>{t('play.sheet.equipmentElsewhere')}</p>
+									</Panel>
+								),
 							)}
 							{panel(
 								'bio',
@@ -209,14 +225,20 @@ export function SheetBody({
 						{panel('xp', <XpPanel {...props} />)}
 						{panel(
 							'level-up',
-							<PlayerLevelUp
-								charId={subject.id}
-								actorId={actorId}
-								advancement={subject.advancement}
-								xpEligible={subject.xpEligible}
-								milestoneEligible={subject.milestoneEligible}
-								dispatch={io.dispatch}
-							/>,
+							subject.advancement ? (
+								<PlayerLevelUp
+									charId={subject.id}
+									actorId={actorId}
+									advancement={subject.advancement}
+									xpEligible={subject.xpEligible}
+									milestoneEligible={subject.milestoneEligible}
+									dispatch={io.dispatch}
+								/>
+							) : (
+								<Panel title={t('player.tab.levelUp')}>
+									<p style={NOTE}>{t('play.sheet.levelUpElsewhere')}</p>
+								</Panel>
+							),
 						)}
 					</div>
 				)}
