@@ -350,6 +350,13 @@ export function Player() {
 							resources={data.resources}
 							resourceInstances={data.resourceInstances}
 							canManageResources={data.canManageResources}
+							// RC-CHR-6.1 — the same vitals block the `/play` companion renders.
+							vitals={{
+								hp,
+								maxHp,
+								tempHp: C.combat.tempHp ?? 0,
+								conditions,
+							}}
 							actorId={actorId}
 							compact={viewport === 'phone'}
 							// RC-CHR-1.2 — what the rest dialog needs, all from the actor-scoped view: the

@@ -1,18 +1,39 @@
 import type { CSSProperties } from 'react';
-import { availableSlots } from '@dndtools/core';
+import type { CoreCommand } from '@dndtools/core';
 import { Avatar, Badge, Chip, ConditionBadge, Stat } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { ABIL_ORDER, abilMod, sgn } from '../../app/character/abilities';
+import { PlayerResources, type VitalsWrite } from '../player/Vitals';
+import type { CommandRequest } from '../../net/messages';
+import { sheetCombatCommands, type SheetWrites } from '../../net/viewModels';
 import { ABIL_FULL, condKey, Panel, PvPage, SectionHead, type LiveData } from './shared';
 import { useI18n } from '../../i18n';
 
-// 2 · MY CHARACTER — the player's own sheet, read-only on the live device.
-export function SheetSection({ data }: { data: LiveData }) {
+/**
+ * 2 · MY CHARACTER — the player's own sheet. RC-CHR-6.1: the same vitals block `/player` renders (HP
+ * with undo, temporary HP, conditions, spell slots, class resources, rest), writing through `onWrite`:
+ * a command REQUEST the host stamps when joined, a local dispatch as the viewer when previewing. A
+ * control is drawn only when `writes` (the core's authority for this viewer, folded with read-only
+ * preview by the caller) says the write would be taken.
+ */
+export function SheetSection({
+	data,
+	writes,
+	actorId,
+	onWrite,
+}: {
+	data: LiveData;
+	writes: SheetWrites;
+	actorId: string;
+	/** Send one command; resolves false when refused (the caller has already said why). */
+	onWrite: (command: CommandRequest) => Promise<boolean>;
+}) {
 	const { t } = useI18n();
 	const viewport = useViewport();
 	const C = data.pc;
-	if (!C) {
+	const pcId = data.pcId;
+	if (!C || !pcId) {
 		return (
 			<PvPage max={1140}>
 				<SectionHead title={t('play.sheet.title')} />
@@ -22,8 +43,17 @@ export function SheetSection({ data }: { data: LiveData }) {
 			</PvPage>
 		);
 	}
-	const r = data.resources;
-	const slots = r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : [];
+	// The vitals block takes the `/player` dispatch shape; the actor it names is dropped here, because
+	// the host (joined) or the caller (preview) stamps the real one.
+	const dispatch = (command: CoreCommand) =>
+		onWrite({ type: command.type, payload: command.payload });
+	// While the PC fights, the change also lands on its tracker row (see `sheetCombatCommands`).
+	const writeVitals = async (write: VitalsWrite) => {
+		for (const command of sheetCombatCommands(pcId, data.pcCombatantId ?? null, write)) {
+			if (!(await onWrite(command))) return false;
+		}
+		return true;
+	};
 	// Real sheet identity: the `data.class` field the draft flow writes + the CHAR-009 level.
 	const cls = typeof C.data?.class === 'string' && C.data.class.trim() !== '' ? C.data.class : null;
 	const clsLabel = cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : t('play.sheet.adventurer');
@@ -138,54 +168,32 @@ export function SheetSection({ data }: { data: LiveData }) {
 							);
 						})}
 					</div>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
-						<Panel title={t('play.sheet.spellSlots')}>
-							{slots.length === 0 ? (
-								<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-									{t('play.sheet.noSpellSlots')}
-								</div>
-							) : (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
-									{slots.map((s) => {
-										const avail = availableSlots(s);
-										return (
-											<div
-												key={s.level}
-												style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}
-											>
-												<span style={{ font: `600 12px ${T.sans}`, color: T.sub, width: 48 }}>
-													{t('play.sheet.slotLevel', { level: s.level })}
-												</span>
-												<div style={{ display: 'flex', gap: T.space.oneHalf, flex: 1 }}>
-													{Array.from({ length: s.max }).map((_, i) => (
-														<span
-															key={i}
-															style={{
-																width: 18,
-																height: 18,
-																transform: 'rotate(45deg)',
-																borderRadius: T.radius.sm,
-																background: i < avail ? T.acc : 'transparent',
-																border: `1.5px solid ${i < avail ? T.acc : T.bdS}`,
-															}}
-														/>
-													))}
-												</div>
-												<span style={{ font: `12px ${T.mono}`, color: T.ter }}>
-													{avail}/{s.max}
-												</span>
-											</div>
-										);
-									})}
-								</div>
-							)}
-						</Panel>
-						<Panel title={t('play.sheet.conditions')}>
-							<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
-								{t('play.sheet.conditionsHelp')}
-							</div>
-						</Panel>
-					</div>
+					<PlayerResources
+						charId={pcId}
+						resources={data.resources}
+						resourceInstances={C.resources ?? []}
+						canManageResources={writes.manage}
+						canUpdateCombat={writes.combat}
+						vitals={{
+							hp: C.combat.hp,
+							maxHp: C.combat.maxHp,
+							tempHp: C.combat.tempHp ?? 0,
+							conditions: C.combat.conditions,
+						}}
+						onVitalsWrite={writeVitals}
+						actorId={actorId}
+						compact={viewport !== 'desktop'}
+						restSubject={{
+							id: pcId,
+							name: C.name,
+							hp: C.combat.hp,
+							maxHp: C.combat.maxHp,
+							hitDice: C.proficiencies.hitDice,
+							conMod: Math.floor(((C.abilityScores.con ?? 10) - 10) / 2),
+							exhaustion: data.resources?.exhaustion ?? 0,
+						}}
+						dispatch={dispatch}
+					/>
 				</div>
 			</PvPage>
 		</div>

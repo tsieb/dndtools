@@ -117,13 +117,13 @@ function hostOver(initial: CoreStateSlice, env: ReturnType<typeof makeEnvironmen
 }
 
 describe('RC-SES-5.1 — what a player device may request', () => {
-	it('admits combat.apply-resource ONLY as an initiative roll', () => {
+	it('admits combat.apply-resource as an initiative roll (and, RC-CHR-6.1, a sheet mirror only)', () => {
 		const roll = { combatantId: 'c1', kind: 'initiative', roll: { modifier: 2 } };
 		expect(isPlayerRequestable({ type: 'combat.apply-resource', payload: roll })).toBe(true);
 		expect(
 			isPlayerRequestable({
 				type: 'combat.apply-resource',
-				payload: { combatantId: 'c1', kind: 'hp', delta: -5 },
+				payload: { combatantId: 'c1', kind: 'death-save', outcome: 'success' },
 			}),
 		).toBe(false);
 		expect(isPlayerRequestable({ type: 'combat.apply-resource', payload: null })).toBe(false);
@@ -178,12 +178,12 @@ describe('RC-SES-5.1 — the roll travels the command-request path with the DM a
 		expect(host.current()).toBe(state);
 	});
 
-	it('never lets a player device reach an HP change through the same command', async () => {
+	it('never lets a player device reach a death save through the same command', async () => {
 		const { env, state, mine } = campaignInCall();
 		const host = hostOver(state, env);
 		await host.request(PLAYER_ACTOR.id, 'req-3', {
 			type: 'combat.apply-resource',
-			payload: { combatantId: mine, kind: 'hp', delta: 50 },
+			payload: { combatantId: mine, kind: 'death-save', outcome: 'success' },
 		});
 		expect(host.dispatch).not.toHaveBeenCalled();
 		expect(host.send).toHaveBeenCalledWith({

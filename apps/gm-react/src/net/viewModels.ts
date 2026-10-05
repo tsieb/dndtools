@@ -8,6 +8,7 @@ import {
 	getCombatTrackerForActor,
 	getDiceHistoryForActor,
 	getActiveSceneCardForActor,
+	getActiveSystemForActor,
 	getSceneCardPushHistoryForActor,
 	getSessionRecapFeedForActor,
 	listCharactersForActor,
@@ -34,6 +35,7 @@ import {
 	type SessionRecapFeedEntry,
 } from '@dndtools/core';
 import { resolveProjectedMapForViewer, type ProjectedMapInfo } from '../app/projectedMap';
+import type { CommandRequest } from './messages';
 
 /**
  * PLAYER VIEW-MODEL — the single, player-safe, JSON-serializable snapshot the P2P host replicates to a
@@ -132,6 +134,51 @@ export interface InitiativeCallView {
 	heldCount: number;
 }
 
+/**
+ * RC-CHR-6.1 — which sheet writes the viewer may make on their own PC (`PlayerData.pc`). The answer is
+ * the core's own authority rule, asked through the same grant check its command handlers run, so the
+ * companion never offers a control the core would refuse:
+ *   - `combat` — CHAR-007 `character.update-combat-resource` (HP, temporary HP, conditions, spending
+ *     a slot, concentration): the DM, or a player holding `combat-participant` (which `owner` inherits);
+ *   - `manage` — CHAR-008 structure (recovering slots, class-resource counters, prepared spells) and
+ *     `character.rest`: the DM, or the character `owner`.
+ * Observers hold neither. The core still re-checks every write; this only decides what is drawn.
+ */
+export interface SheetWrites {
+	combat: boolean;
+	manage: boolean;
+}
+
+export const NO_SHEET_WRITES: SheetWrites = { combat: false, manage: false };
+
+/** RC-CHR-6.1 — one hit-point, temporary-HP or condition change made on the companion sheet. */
+export type SheetCombatWrite =
+	| { kind: 'hp'; delta: number }
+	| { kind: 'temp-hp'; value: number }
+	| { kind: 'condition'; condition: string; present: boolean };
+
+/**
+ * RC-CHR-6.1 — the commands one {@link SheetCombatWrite} takes, in dispatch order. The character record
+ * and the tracker's combatant are SEPARATE core state (the combatant is seeded from the sheet when the
+ * fight starts and edited by `combat.apply-resource` after that), so while the PC is in a running fight
+ * the same change goes to its combatant as well, or the DM's tracker keeps showing the old number.
+ * Both commands carry no actor: the host stamps it, and the core checks it against the same
+ * `combat-participant` grant either way.
+ */
+export function sheetCombatCommands(
+	characterId: string,
+	combatantId: string | null,
+	write: SheetCombatWrite,
+): CommandRequest[] {
+	const commands: CommandRequest[] = [
+		{ type: 'character.update-combat-resource', payload: { characterId, ...write } },
+	];
+	if (combatantId) {
+		commands.push({ type: 'combat.apply-resource', payload: { combatantId, ...write } });
+	}
+	return commands;
+}
+
 export interface PlayerData {
 	home: CommandCenterHomeView;
 	live: boolean;
@@ -151,6 +198,13 @@ export interface PlayerData {
 	pcId: string | null;
 	/** The PC's real level from the CHAR-009 advancement model (null without a PC). */
 	level: number | null;
+	/** RC-CHR-6.1 — what the viewer may write on `pc` (all false without a PC). */
+	sheetWrites: SheetWrites;
+	/**
+	 * RC-CHR-6.1 — `pc`'s row in the RUNNING fight, when the viewer can see it, so a sheet change can
+	 * reach the tracker too ({@link sheetCombatCommands}). Null outside combat.
+	 */
+	pcCombatantId: string | null;
 	resources: ReturnType<typeof resourcesOf> | null;
 	party: PartyOverview;
 	/**
@@ -340,7 +394,12 @@ function buildInitiativeCall(
  * local and replicated code paths can never diverge. Reads exclusively through the actor-filtered query
  * layer, so the result carries only content `viewer` may see.
  */
-export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerData {
+export function buildPlayerData(
+	state: CoreStateSlice,
+	viewer: ActorId,
+	/** The ISO clock, so an EXPIRED grant offers no sheet write (PERM-004 fail closed). */
+	now?: string,
+): PlayerData {
 	const actor = state.permissions.actors[viewer];
 	const role: 'player' | 'observer' | 'co-dm' =
 		actor?.role === 'co-dm' ? 'co-dm' : actor?.role === 'observer' ? 'observer' : 'player';
@@ -370,13 +429,42 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 				}))
 			: [];
 
-	const pcs = listCharactersForActor(state.characters, state.permissions, viewer).filter(
-		(c) => c.kind === 'pc',
-	);
+	// RC-CHR-1.1 — package-scoped reads, as `/player` makes them: the sheet's class resources are the
+	// ones the ACTIVE system declares, so the companion and `/player` render the same rows.
+	const activePackage = getActiveSystemForActor(
+		state.systems,
+		state.permissions,
+		viewer,
+	).activePackage;
+	const pcs = listCharactersForActor(
+		state.characters,
+		state.permissions,
+		viewer,
+		activePackage,
+	).filter((c) => c.kind === 'pc');
 	const chosen = pcs[0] ?? null;
 	const pc = chosen
-		? getCharacterForActor(state.characters, state.permissions, viewer, chosen.id)
+		? getCharacterForActor(state.characters, state.permissions, viewer, chosen.id, activePackage)
 		: null;
+	const writable = (capability: 'combat-participant' | 'owner') =>
+		!!actor &&
+		!!chosen &&
+		hasGrantedCapability(
+			state.permissions,
+			actor,
+			CHARACTER_ENTITY_TYPE,
+			chosen.id,
+			capability,
+			now,
+		);
+	const sheetWrites: SheetWrites = {
+		combat: writable('combat-participant'),
+		manage: writable('owner'),
+	};
+	const pcCombatant =
+		chosen && combat.status === 'running'
+			? combat.combatants.find((c) => c.characterId === chosen.id && !c.redacted)
+			: undefined;
 	const record = chosen ? state.characters.characters[chosen.id] : undefined;
 	const resources = record ? resourcesOf(record) : null;
 	const journal = chosen
@@ -409,6 +497,8 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		pc,
 		pcId: chosen?.id ?? null,
 		level: record ? advancementStateOf(record).level : null,
+		sheetWrites,
+		pcCombatantId: pcCombatant?.id ?? null,
 		resources,
 		party,
 		partyVitals: buildPartyVitals(

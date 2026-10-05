@@ -1,11 +1,12 @@
 import './play.css';
 import { useMemo, useState, type ReactNode } from 'react';
-import { getDiceHistoryForActor, type DiceRollView } from '@dndtools/core';
+import { getDiceHistoryForActor, type CoreCommand, type DiceRollView } from '@dndtools/core';
 import { Avatar, Icon } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSession } from '../../net/SessionContext';
-import { buildPlayerData } from '../../net/viewModels';
+import { buildPlayerData, NO_SHEET_WRITES } from '../../net/viewModels';
+import type { CommandRequest } from '../../net/messages';
 import { JoinModal, JoinSessionButton } from '../../net/SessionPanel';
 import { useViewport } from '../../app/useViewport';
 import { useI18n } from '../../i18n';
@@ -82,7 +83,7 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 
 	const state = runtime.state;
 	const localData = useMemo<LiveData>(() => {
-		const previewData = buildPlayerData(state, viewer);
+		const previewData = buildPlayerData(state, viewer, new Date().toISOString());
 		return {
 			...previewData,
 			partyVitals: previewData.partyVitals.map((member) => ({ ...member, isSelf: false })),
@@ -184,6 +185,29 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 		);
 	};
 
+	/**
+	 * RC-CHR-6.1 — a write from the Sheet section. JOINED → a command REQUEST: the host stamps our
+	 * authenticated identity and the core's owner authority decides. PREVIEW → a local dispatch as the
+	 * viewer. Either way a refusal says why in a toast; the Sheet then leaves its numbers alone.
+	 */
+	const writeSheet = async (command: CommandRequest): Promise<boolean> => {
+		if (joined) {
+			const ack = await session.requestCommand(command);
+			if (!ack.ok) toast(ack.message ?? t('play.sheet.writeDeclined'), 'error', 'hidden');
+			return ack.ok;
+		}
+		const result = await runtime.dispatch({ ...command, actorId: viewer } as CoreCommand);
+		if (result.status === 'rejected') {
+			toast(result.rejection.message, 'error', 'hidden');
+			return false;
+		}
+		return true;
+	};
+	// What the Sheet may offer: the core's answer for this viewer, except that a read-only preview takes
+	// every write (RC-CHR-4.3), so it offers none. A host that predates the field offers none either.
+	const sheetWrites =
+		!joined && runtime.readOnly ? NO_SHEET_WRITES : (data.sheetWrites ?? NO_SHEET_WRITES);
+
 	// Resolve a roller's display name. Joined devices have no full roster, so map self → t('play.polish.you') and fall
 	// back to the presence roster / the roll's own attribution; solo reads the local actor roster.
 	const actorName = (id: string): string => {
@@ -224,7 +248,8 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 				onRollInitiative={rollInitiative}
 			/>
 		);
-	else if (current === 'sheet') body = <SheetSection data={data} />;
+	else if (current === 'sheet')
+		body = <SheetSection data={data} writes={sheetWrites} actorId={viewer} onWrite={writeSheet} />;
 	else if (current === 'dice')
 		body = (
 			<DiceSection

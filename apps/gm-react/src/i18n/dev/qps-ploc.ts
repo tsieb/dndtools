@@ -1408,12 +1408,7 @@ export default {
 	'play.sheet.characterLevel': '[ · Ľéṽéľ ~~~~{level}]',
 	'play.sheet.hitPoints': '[Ĥíţ ƥóíñţš~~~~]',
 	'play.sheet.armorClass': '[ÁÇ~]',
-	'play.sheet.spellSlots': '[Šƥéľľ šľóţš~~~~ ]',
-	'play.sheet.noSpellSlots': '[Ñó šƥéľľ šľóţš ţŕáçķéď.~~~~ ~~~~ ]',
-	'play.sheet.slotLevel': '[Ľéṽéľ ~~~{level}]',
-	'play.sheet.conditions': '[Çóñďíţíóñš & šţáţúš~~~~ ~~~]',
-	'play.sheet.conditionsHelp':
-		'[Ţĥíš íš ýóúŕ ľíṽé šĥééţ áš ţĥé ţáƀľé šééš íţ. Éďíţš áŕé ḿáďé íñ ýóúŕ ƒúľľ çĥáŕáçţéŕ áƥƥ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'play.sheet.writeDeclined': '[Ţĥé ţáƀľé ďíďñ’ţ ţáķé ţĥáţ çĥáñğé.~~~~ ~~~~ ~~~~]',
 	'play.dice.title': '[Ďíçé~~]',
 	'play.dice.sub':
 		"[Ŕóľľš áŕé ŕéçóŕďéď ţó ţĥé ţáƀľé'š šĥáŕéď šéššíóñ ľóğ, áţţŕíƀúţéď ţó ýóú~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]",
@@ -2444,6 +2439,16 @@ export default {
 	'player.hp.damaged': '[Ţóóķ ~~{amount} ďáḿáğé.~~~~]',
 	'player.hp.healed':
 		'[Ĥéáľéď ~~~{amount, plural, one {# ĥíţ ƥóíñţ~~~~ } other {# ĥíţ ƥóíñţš~~~~ }}.~]',
+	'player.hp.undoDamage': '[Úñďó ~~{amount} ďáḿáğé~~~]',
+	'player.hp.undoHeal': '[Úñďó ĥéáľíñğ ~~~~ ~{amount}]',
+	'player.hp.undone': '[Úñďíď ţĥé ľášţ ĥíţ ƥóíñţ çĥáñğé.~~~~ ~~~~ ~~~]',
+	'player.hp.temp': '[Ţéḿƥ ĤƤ~~~]',
+	'player.hp.tempValue': '[+~{count} ţéḿƥóŕáŕý~~~~]',
+	'player.hp.tempLabel': '[Ţéḿƥóŕáŕý ĥíţ ƥóíñţš ţó ğŕáñţ~~~~ ~~~~ ~~]',
+	'player.hp.tempGrant': '[Ğŕáñţ ţéḿƥóŕáŕý ĤƤ~~~~ ~~~]',
+	'player.hp.tempHelp':
+		'[Ţéḿƥóŕáŕý ĥíţ ƥóíñţš ďóñ’ţ šţáçķ: ţĥé ĥíğĥéŕ ṽáľúé šţáýš.~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
+	'player.hp.tempGranted': '[Ţéḿƥóŕáŕý ĥíţ ƥóíñţš: ~~~~ ~~~~{count}.~]',
 	'player.stat.ac': '[ÁÇ~]',
 	'player.stat.speed': '[Šƥééď~~]',
 	'player.stat.speedValue': '[{feet}ƒţ~]',
@@ -2487,6 +2492,12 @@ export default {
 		'[Ýóú ţóóķ ~~~~{damage} ďáḿáğé. Ŕóľľ á Çóñšţíţúţíóñ šáṽé.~~~~ ~~~~ ~~~~]',
 	'player.vitals.concKept': '[Ķéƥţ íţ~~~]',
 	'player.vitals.concLost': '[Ľóšţ íţ~~~]',
+	'player.vitals.conditions': '[Çóñďíţíóñš~~~~]',
+	'player.vitals.addConditionLabel': '[Çóñďíţíóñ ţó áďď~~~~ ~~]',
+	'player.vitals.addCondition': '[Áďď çóñďíţíóñ~~~~ ~]',
+	'player.vitals.conditionAdded': '[Áďďéď ~~~{condition}.~]',
+	'player.vitals.conditionRemoved': '[Ŕéḿóṽéď ~~~~{condition}.~]',
+	'player.vitals.spendSlot': '[Šƥéñď á ľéṽéľ ~~~~ ~{level} šľóţ~~]',
 	'player.vitals.spellSlots': '[{spell} šľóţš~~~]',
 	'player.vitals.noSlotsTitle': '[Ñó ~~{spellLower} šľóţš~~~]',
 	'player.vitals.noSlotsBody':

@@ -32,20 +32,36 @@ import {
 const PLAYER_REQUESTABLE_PREFIXES = ['dice.', 'character.'] as const;
 
 /**
- * Whether a joined participant may REQUEST this command. RC-SES-5.1 adds ONE exact exception outside
- * the prefixes: `combat.apply-resource` carrying `kind: 'initiative'` — a player's roll for the DM's
- * initiative call. The rest of that command (HP, conditions, death saves…) stays refused at the host.
- * The Core still decides: it re-checks that the stamped actor holds the character the combatant is
- * (a player can never roll for another player's character) and that a call is open.
+ * The `combat.apply-resource` kinds a joined participant may REQUEST:
+ *   - RC-SES-5.1 `initiative` — a player's roll for the DM's initiative call;
+ *   - RC-CHR-6.1 `hp`, `temp-hp`, `condition` — the companion sheet's change mirrored onto the PC's own
+ *     tracker row, so the DM's tracker follows the sheet (see `sheetCombatCommands`).
+ * Everything else on that command (death saves, concentration…) stays refused at the host.
+ */
+const PLAYER_REQUESTABLE_COMBAT_KINDS: ReadonlySet<unknown> = new Set([
+	'initiative',
+	'hp',
+	'temp-hp',
+	'condition',
+]);
+
+/**
+ * Whether a joined participant may REQUEST this command: the prefixes above, plus the exact
+ * `combat.apply-resource` kinds in {@link PLAYER_REQUESTABLE_COMBAT_KINDS}. The Core still decides: it
+ * re-checks that the stamped actor holds `combat-participant` on the character the combatant is (a
+ * player can never roll for, damage or condition another player's character) and, for initiative,
+ * that a call is open.
  */
 export function isPlayerRequestable(command: { type: string; payload: unknown }): boolean {
 	if (PLAYER_REQUESTABLE_PREFIXES.some((p) => command.type.startsWith(p))) return true;
-	return (
-		command.type === 'combat.apply-resource' &&
-		typeof command.payload === 'object' &&
-		command.payload !== null &&
-		(command.payload as { kind?: unknown }).kind === 'initiative'
-	);
+	if (
+		command.type !== 'combat.apply-resource' ||
+		typeof command.payload !== 'object' ||
+		command.payload === null
+	) {
+		return false;
+	}
+	return PLAYER_REQUESTABLE_COMBAT_KINDS.has((command.payload as { kind?: unknown }).kind);
 }
 
 /** A connected (or invited-but-not-yet-connected) participant on the host side. */
@@ -266,7 +282,7 @@ export class SessionHost {
 
 	private async pushSnapshot(peer: InternalPeer, state?: CoreStateSlice): Promise<void> {
 		const slice = state ?? this.runtime.authoritativeState;
-		const data = buildPlayerData(slice, peer.actorId);
+		const data = buildPlayerData(slice, peer.actorId, new Date().toISOString());
 		const json = JSON.stringify(data);
 		if (json === peer.lastDataJson) return; // no visible change for this player — skip the send
 		peer.lastDataJson = json;
