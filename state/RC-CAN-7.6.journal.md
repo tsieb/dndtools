@@ -116,3 +116,53 @@ needed no change.
   of each part, and of all five with the column re-grouped, serialises identically.
 - `pnpm typecheck` 0; `pnpm lint` 0 (warnings only); `pnpm gates` 0; app vitest 168 files / 2052
   tests; core vitest 287 files / 5240 tests; `format:check:changed --base 13bfd9e5` clean.
+
+### Step 3 — browser checks, review and re-baseline (`e760a983`)
+
+- The first container run of `golden-routes` moved exactly 18 goldens: `/` and `/scenes`, three
+  themes × three tiers. Nothing else moved; the `/scene/:id` capture was kept on the same table
+  scene by skipping default screens in the spec's scene picker (opening `/` now provisions them).
+- It also showed one real regression: at the core tier (the goldens' tier) Manage draws nothing and
+  its empty slot still took a grid row, pushing Library down ~32px and leaving an empty labelled
+  region. Fixed: a part whose body draws nothing leaves the layout (kept mounted, `display:none`,
+  out of the placements), and DOM order stays the reading order. Unit test added.
+- Spacing brought back to the hub's values with token-backed `calc()`: 14px launch tiles, 10px row
+  padding, 28px between parts (24px on a phone).
+- `ux-ui-reviewer` compared the 18 before/after pairs (`/tmp/rc-can76-before`, `/tmp/rc-can76-after`):
+  **no regression in any pair**. Minor notes, within token tolerance: the 12-column grid gives a
+  58/42 Scenes/Create split instead of 60/40 (Scenes cards ~6px narrower); content ~4px lower. Nits
+  outside this claim, left as follow-ups: the `/screens` thumbnail draws a flow screen from its
+  nominal canvas geometry (`ScreenThumbnail.tsx`, CAN-7.3) rather than its flow placement; and
+  deleting the Command Center screen from the library means the next visit to `/` provisions a new
+  one (`ensure-home` looks for a LIVE default screen) — after an Undo the oldest one is used and the
+  newer copy stays in the library for the GM to delete.
+- Re-baselined the 18 goldens in the pinned container (`--update-snapshots=changed`); the visual
+  budget is 32.9 of 34.0 MiB.
+- Playwright (local, desktop + mobile): hub-templates, screens, pinned-screens, flow-layout,
+  golden-path, demo-vault, responsive, settings-tiers, local-vaults, command-palette,
+  shell-pin-bounds, onboarding-consent, scene-templates — **353 passed**.
+- Perf (`perf:capture --only scene-first-render,app-startup`, then `compare.ts --run`):
+  `scene-first-render` **1232.6 ms / 1500 ms — PASS**, steady (+15.4% on a busy host; `/board`
+  now also provisions the home screen); `app-startup` 1087.3 / 2000 ms PASS. The compare script
+  prints "gate FAILED" only because 9 of the 11 budgets were not captured in this run.
+
+### CAN-7.5 Command Center rows
+
+| Row      | Element                    | Where it is now                                                                                                    | Checked by                                              |
+| -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| CC-01    | Hero eyebrow               | `home-hero` `eyebrow`/`liveEyebrow` (`i18n:nav.commandCenter` / `home.sessionLive`), live from the `resume` row    | baseline idle + live snapshots                          |
+| CC-02    | Hero name                  | `resume` row: the live scene's name only while live, else "Your campaign"; `<h2>`                                  | idle, live-scene, live-GM-screen snapshots              |
+| CC-03    | Subtitle + party count     | `resume` row secondary                                                                                             | snapshots (with and without party: empty vault)         |
+| CC-04    | Live dot                   | hero `StatusDot`, pulse while live                                                                                 | screenshots; aria (absent, decorative)                  |
+| CC-05    | Avatar stack               | `party` query, ≤5, `role=img` + name + title                                                                       | DOM snapshot                                            |
+| CC-06    | Hero primary               | `resume` row `meta` names the intent: GM screen `/board`, enter/open `/scene/:id`, `/scenes` when nothing resolves | three snapshot states; live-GM-screen label             |
+| CC-07/08 | Scenes header + New scene  | `home-scenes` heading + `new` intent (`open-route /scenes`)                                                        | snapshots                                               |
+| CC-09    | Scene tiles                | `table-scenes` source; Live/Ready/Draft badge, lock, hover; open-screen intent                                     | snapshots incl. live; `table-scenes` isolation test     |
+| CC-10    | Empty state                | card-grid empty card + `empty` intent                                                                              | "no scenes" and empty-vault snapshots                   |
+| CC-11    | Create launchers           | `home-create`, five intents with icon + hint, two columns                                                          | snapshots                                               |
+| CC-12    | Manage links               | `home-manage`, open-settings intents gated by the experience tier; hidden when none                                | advanced / intermediate / core snapshots; collapse test |
+| CC-13    | Library counts             | `library-sections` source + open-route intents, card layout                                                        | snapshots; isolation test                               |
+| CC-14/15 | Player / observer variants | unchanged participant card in `CommandCenter.tsx` (players never see the GM's screen)                              | player and observer snapshots                           |
+
+Keyboard and heading order: the `headings` and `focus order` snapshots of every state above pass
+unchanged.
