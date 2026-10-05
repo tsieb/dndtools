@@ -26,6 +26,8 @@ async function accessible(page: Page) {
 // The Private (E2EE) choice and its acknowledgement belong to Expert alone.
 const noPrivateChoice = (page: Page) =>
 	expect(overlay(page).getByText(/E2EE|hold the keys/)).toHaveCount(0);
+// ONB-17: the wizard names no keyboard chord, so a touch tier is never told to press one.
+const noChord = (page: Page) => expect(overlay(page)).not.toContainText(/⌘|Ctrl\+/);
 async function finished(page: Page) {
 	await expect(overlay(page)).toBeHidden();
 	await expect(page).toHaveURL(/#\/$/);
@@ -60,6 +62,7 @@ for (const tier of ['Standard', 'Beginner']) {
 			overlay(page).getByRole('button', { name: 'Continue', exact: true }),
 		).toBeDisabled();
 		await noPrivateChoice(page);
+		await noChord(page);
 		await accessible(page);
 		await overlay(page).getByLabel('Campaign name').click();
 		await complexity(page);
@@ -73,6 +76,7 @@ for (const tier of ['Standard', 'Beginner']) {
 				.getByRole('radio', { name: /Beginner/ })
 				.click();
 		await noPrivateChoice(page);
+		await noChord(page);
 		const descriptions = await overlay(page).getByRole('radio').allTextContents();
 		expect(new Set(descriptions.map((text) => text.slice(text.indexOf('Hides')))).size).toBe(3);
 		await accessible(page);
@@ -83,6 +87,7 @@ for (const tier of ['Standard', 'Beginner']) {
 			overlay(page).getByRole('link', { name: 'Settings › Backup & history' }),
 		).toBeVisible();
 		await noPrivateChoice(page);
+		await noChord(page);
 		await accessible(page);
 		await overlay(page).getByRole('button', { name: 'Open the Command Center' }).click();
 		await finished(page);

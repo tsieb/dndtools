@@ -110,3 +110,10 @@ The review of `61d784cb` rejected the candidate for two CI jobs that assume a se
 - The operator widened the claim to `apps/gm-react/electron/smoke-parity.cjs` and `scripts/android-emulator-acceptance.sh`, so every changed path is now owned or a manifest companion. The fence feedback on this attempt predates the widening.
 - No code changed. The branch is still `f9eb0f07`, `b4c753e1`, `4b818e2b` on base `ae852b4e`, the same tree that the previous entry's results cover: 86 e2e passed on both profiles, desktop smoke green, the Android contract test 20 of 20, typecheck and raw-style count passed.
 - Local commit only. Nothing pushed or promoted, and no dispatcher state touched.
+
+## 2026-10-05 rebase onto 66fb8c13
+
+- The dispatcher's rebase onto `66fb8c13` conflicted in `Onboarding.tsx` and `onboarding-consent.spec.ts`. The base side was RC-UX-6.6's `c6e34ea1` (ONB-17). It made the old Ready tour card say "Tap Search" instead of "Press ⌘K" below desktop, and it asserted that in the old seven-step spec. The three-step wizard removes the tour cards, so I rebased onto `66fb8c13` locally and took the rewrite for both files. The ONB-17 rule carries over as a `noChord` assertion: the Standard and Beginner runs check every step on both profiles for `⌘` or `Ctrl+`. The `onboarding.ready.tourPaletteTitleTouch` key that `c6e34ea1` added stays in the catalogs untouched, but nothing renders it any more.
+- None of the other base commits touch the onboarding flows (checked the golden-path, responsive and play-polish diffs).
+- Results on the rebased tree: `playwright test onboarding-consent golden-path cloud-enhanced-honest-limit responsive --workers=3` **248 passed** on both profiles; `desktop:smoke` passed every step, parity write and verify included (`/tmp/rc-ux36-smoke4.log`); vitest app **75**, cloud vaultMode **6**, Android script contract **20**; gm-react typecheck, ESLint on changed files, Prettier and raw-style count passed.
+- Local commits only. Nothing pushed or promoted, and no dispatcher state touched.
