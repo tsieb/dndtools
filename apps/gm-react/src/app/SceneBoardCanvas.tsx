@@ -9,17 +9,13 @@ import {
 } from './board-helpers';
 import { getSceneForActor, type CoreCommand, type SectionLayoutRegion } from '@dndtools/core';
 import { useParams } from 'react-router-dom';
-import {
-	ArrangeBar,
-	EmptyCanvas,
-	HistoryCluster,
-	Marquee,
-	WidgetFrame,
-} from './canvas/WidgetFrame';
+import { EmptyCanvas, HistoryCluster, WidgetFrame } from './canvas/WidgetFrame';
 import {
 	arrangeCommand,
 	arrangeShortcut,
+	alignTo,
 	boxFromPoints,
+	dragGuides,
 	enclosedIds,
 	extentOf,
 	planPlacements,
@@ -28,6 +24,7 @@ import {
 	zoomAbout,
 	type ArrangeAction,
 	type Box,
+	type DragGuides,
 	type Placement,
 } from './canvas/geometry';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -118,6 +115,8 @@ export function SceneBoardCanvas({
 	const runtime = useRuntime();
 	const [multi, setMulti] = useState<string[]>([]);
 	const [marquee, setMarquee] = useState<Box | null>(null);
+	// RC-CAN-8.3 — the snap guides and gaps of the tile under a move drag (`id`), while it moves.
+	const [guides, setGuides] = useState<(DragGuides & { id: string }) | null>(null);
 	const marqueeRef = useRef<{ x: number; y: number; base: string[] } | null>(null);
 	const groupDrag = useRef<Record<string, { x: number; y: number }>>({});
 	const selection = multi.length ? multi : selectedId ? [selectedId] : [];
@@ -374,14 +373,22 @@ export function SceneBoardCanvas({
 			const dx = (e.clientX - d.sx) / scale;
 			const dy = (e.clientY - d.sy) / scale;
 			if (d.mode === 'move') {
-				const x = Math.max(0, snapTo(d.ox + dx, snap));
-				const y = Math.max(0, snapTo(d.oy + dy, snap));
+				const size = overlay.sizeRef.current[d.id] ??
+					widgets.find((w) => w.id === d.id) ?? { w: 0, h: 0 };
+				const still = widgets.filter((w) => w.id !== d.id && !(w.id in groupDrag.current));
+				const free = { x: d.ox + dx, y: d.oy + dy, w: size.w, h: size.h };
+				// RC-CAN-8.3 — with Snap on, a still tile's edge or centre within 6 screen px wins over
+				// the grid, and the guides show what the tile now shares.
+				const pull = snap ? alignTo(free, still, 6 / scale) : {};
+				const x = Math.max(0, pull.x ?? snapTo(free.x, snap));
+				const y = Math.max(0, pull.y ?? snapTo(free.y, snap));
 				overlay.setPos((prev) => {
 					const next = { ...prev, [d.id]: { x, y } };
 					for (const [id, o] of Object.entries(groupDrag.current))
 						next[id] = { x: Math.max(0, o.x + x - d.ox), y: Math.max(0, o.y + y - d.oy) };
 					return next;
 				});
+				setGuides({ id: d.id, ...dragGuides({ ...free, x, y }, still) });
 			} else {
 				if (!resizeMoved.current && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
 				resizeMoved.current = true;
@@ -397,6 +404,7 @@ export function SceneBoardCanvas({
 			const m = marqueeRef.current;
 			dragRef.current = null;
 			marqueeRef.current = null;
+			setGuides(null);
 			document.body.style.userSelect = '';
 			if (m) {
 				setMarquee(null);
@@ -431,6 +439,7 @@ export function SceneBoardCanvas({
 			dragRef.current = null;
 			marqueeRef.current = null;
 			setMarquee(null);
+			setGuides(null);
 			document.body.style.userSelect = '';
 			if (!d || d.mode === 'pan' || d.mode === 'scroll-pan') return;
 			overlay.clear([d.id, ...Object.keys(groupDrag.current)]);
@@ -612,6 +621,7 @@ export function SceneBoardCanvas({
 				multi={selected && multi.length > 1}
 				scale={scale}
 				resizable={resizable}
+				dragging={guides?.id === w.id}
 				tabbable
 				stackOrder={widgets.indexOf(w)}
 				ariaLabel={frameName(w, { editing, selected: selected && multi.length > 0 })}
@@ -707,42 +717,15 @@ export function SceneBoardCanvas({
 						}}
 					/>
 				)}
-				{sections.map((section) => (
-					<div
-						key={section.id}
-						data-testid={`scene-section-${section.id}`}
-						role="region"
-						aria-label={section.name}
-						style={{
-							position: 'absolute',
-							left: section.bounds.x,
-							top: section.bounds.y,
-							width: section.bounds.w,
-							height: section.bounds.h,
-							pointerEvents: 'none',
-							border: '1px solid var(--color-border-strong)',
-							background: 'color-mix(in srgb, var(--color-surface) 35%, transparent)',
-						}}
-					>
-						<div
-							style={{
-								padding: 'var(--space-1) var(--space-2)',
-								background: 'var(--color-surface)',
-								color: 'var(--color-text-primary)',
-								fontWeight: 600,
-							}}
-						>
-							{section.name}
-						</div>
-					</div>
-				))}
+				<A11y.SectionBands sections={sections} />
 				{frames}
-				{marquee && <Marquee box={marquee} />}
+				{marquee && <A11y.Marquee box={marquee} />}
+				{guides && <A11y.DragGuides {...guides} scale={scale} />}
 			</div>
 
 			{history && editing && <HistoryCluster history={history} policy={policy} />}
 			{editing && selection.length > 1 && (
-				<ArrangeBar
+				<A11y.ArrangeBar
 					count={selection.length}
 					grouped={selection.some((id) => groupOf.get(id))}
 					policy={policy}

@@ -267,6 +267,111 @@ export function dropSettled<D, W extends { id: string }>(
 	return next;
 }
 
+/** RC-CAN-8.3 — an edge or centre line the dragged tile shares with a still one, in board units.
+ *  `axis: 'x'` is a vertical line at x = `at`, running from `from` to `to` down the board. */
+export interface Guide {
+	axis: 'x' | 'y';
+	at: number;
+	from: number;
+	to: number;
+}
+
+/** The free space between the dragged tile and its nearest still neighbour on one side: a run along
+ *  `axis` from `from` to `to`, drawn across the other axis at `at`. */
+export interface Gap extends Guide {
+	distance: number;
+}
+
+export interface DragGuides {
+	guides: Guide[];
+	gaps: Gap[];
+}
+
+const linesOf = (b: Box, axis: 'x' | 'y') =>
+	axis === 'x' ? [b.x, b.x + b.w / 2, b.x + b.w] : [b.y, b.y + b.h / 2, b.y + b.h];
+
+/** The overlap of two boxes across `axis` (their shared y-range for 'x'), or null. */
+function across(a: Box, b: Box, axis: 'x' | 'y'): [number, number] | null {
+	const [a0, a1, b0, b1] =
+		axis === 'x' ? [a.y, a.y + a.h, b.y, b.y + b.h] : [a.x, a.x + a.w, b.x, b.x + b.w];
+	const lo = Math.max(a0, b0);
+	const hi = Math.min(a1, b1);
+	return hi > lo ? [lo, hi] : null;
+}
+
+/**
+ * RC-CAN-8.3 — the snap guides and distance hints for a tile being dragged. A guide is every left,
+ * centre or right (top, middle, bottom) line the moving box shares with a still box, within
+ * `tolerance`, spanning both boxes; lines at the same place merge into one. A gap is the distance to
+ * the nearest still box on each of the four sides that overlaps the moving box across that axis.
+ */
+export function dragGuides(moving: Box, still: readonly Box[], tolerance = 0.5): DragGuides {
+	const guides = new Map<string, Guide>();
+	const gaps: Gap[] = [];
+	for (const axis of ['x', 'y'] as const) {
+		const mine = linesOf(moving, axis);
+		for (const other of still) {
+			const span = boundsOf([moving, other]);
+			const [from, to] = axis === 'x' ? [span.y, span.y + span.h] : [span.x, span.x + span.w];
+			for (const at of linesOf(other, axis)) {
+				if (!mine.some((line) => Math.abs(line - at) <= tolerance)) continue;
+				const key = `${axis}:${at}`;
+				const seen = guides.get(key);
+				guides.set(key, {
+					axis,
+					at,
+					from: Math.min(from, seen?.from ?? from),
+					to: Math.max(to, seen?.to ?? to),
+				});
+			}
+		}
+		const start = axis === 'x' ? moving.x : moving.y;
+		const end = start + (axis === 'x' ? moving.w : moving.h);
+		let before: Gap | null = null;
+		let after: Gap | null = null;
+		for (const other of still) {
+			const shared = across(moving, other, axis);
+			if (!shared) continue;
+			const at = (shared[0] + shared[1]) / 2;
+			const [oStart, oEnd] =
+				axis === 'x' ? [other.x, other.x + other.w] : [other.y, other.y + other.h];
+			if (oEnd <= start && (!before || oEnd > before.from))
+				before = { axis, at, from: oEnd, to: start, distance: start - oEnd };
+			if (oStart >= end && (!after || oStart < after.to))
+				after = { axis, at, from: end, to: oStart, distance: oStart - end };
+		}
+		for (const gap of [before, after]) if (gap && gap.distance > 0) gaps.push(gap);
+	}
+	return { guides: [...guides.values()], gaps };
+}
+
+/**
+ * RC-CAN-8.3 — the magnet behind the snap guides: per axis, where `moving` would sit to share its
+ * nearest edge or centre line with a still box, when that line is within `threshold`. An axis with no
+ * line that close is absent, and the caller falls back to the grid.
+ */
+export function alignTo(
+	moving: Box,
+	still: readonly Box[],
+	threshold: number,
+): { x?: number; y?: number } {
+	const out: { x?: number; y?: number } = {};
+	for (const axis of ['x', 'y'] as const) {
+		let best = threshold;
+		const origin = axis === 'x' ? moving.x : moving.y;
+		for (const line of linesOf(moving, axis)) {
+			for (const other of still) {
+				for (const at of linesOf(other, axis)) {
+					if (Math.abs(at - line) > best) continue;
+					best = Math.abs(at - line);
+					out[axis] = origin + at - line;
+				}
+			}
+		}
+	}
+	return out;
+}
+
 export interface ViewTransform {
 	tx: number;
 	ty: number;

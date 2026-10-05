@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	alignRects,
+	alignTo,
 	arrangeShortcut,
 	boundsOf,
 	boxFromPoints,
 	distributeRects,
+	dragGuides,
 	enclosedIds,
 	planPlacements,
 	reorderLayers,
@@ -160,5 +162,47 @@ describe('shortcuts', () => {
 		expect(arrangeShortcut(key('KeyA', { ctrl: true }))).toEqual({ kind: 'select-all' });
 		expect(arrangeShortcut(key('KeyZ', { ctrl: true }))).toBeNull();
 		expect(arrangeShortcut(key('KeyA', {}))).toBeNull();
+	});
+});
+
+describe('drag guides (RC-CAN-8.3)', () => {
+	// Two still tiles on one row with a third below the first, the way /board seeds its grid.
+	const still = [
+		{ x: 24, y: 24, w: 240, h: 160 },
+		{ x: 552, y: 24, w: 240, h: 160 },
+		{ x: 24, y: 208, w: 240, h: 160 },
+	];
+
+	it('draws one line per shared edge or centre, spanning every tile that shares it', () => {
+		const { guides } = dragGuides({ x: 288, y: 24, w: 240, h: 160 }, still);
+		const lines = guides.map((g) => `${g.axis}@${g.at} ${g.from}-${g.to}`).sort();
+		// Top, middle and bottom with both row-mates (x 24 → 792), and nothing vertical: the dragged
+		// tile's columns touch no still tile's.
+		expect(lines).toEqual(['y@104 24-792', 'y@184 24-792', 'y@24 24-792']);
+	});
+
+	it('reports the gap to the nearest tile on each side it overlaps', () => {
+		const { gaps } = dragGuides({ x: 288, y: 24, w: 240, h: 160 }, still);
+		expect(gaps.map((g) => [g.axis, g.from, g.to, g.distance])).toEqual([
+			['x', 264, 288, 24],
+			['x', 528, 552, 24],
+		]);
+		// Drawn across the middle of the overlap with each neighbour.
+		expect(gaps.map((g) => g.at)).toEqual([104, 104]);
+	});
+
+	it('says nothing about a tile that shares no line and overlaps no side', () => {
+		expect(dragGuides({ x: 1000, y: 1000, w: 100, h: 100 }, still)).toEqual({
+			guides: [],
+			gaps: [],
+		});
+	});
+
+	it('pulls a near-miss onto the nearest shared line, per axis, within the threshold', () => {
+		// 5 below the row's top edge, and no column line within 6: y snaps, x does not.
+		expect(alignTo({ x: 330, y: 29, w: 240, h: 160 }, still, 6)).toEqual({ y: 24 });
+		// The right edge lands 3 short of the far tile's left edge: x snaps to touch it.
+		expect(alignTo({ x: 309, y: 400, w: 240, h: 160 }, still, 6)).toEqual({ x: 312 });
+		expect(alignTo({ x: 330, y: 400, w: 100, h: 100 }, still, 6)).toEqual({});
 	});
 });

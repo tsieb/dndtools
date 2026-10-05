@@ -1,11 +1,21 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CHARACTER_ENTITY_TYPE, CONTENT_ITEM_ENTITY_TYPE, type CoreCommand } from '@dndtools/core';
-import { Button, IconButton, Menu, Toaster } from '../../ds';
+import { Button, Icon, IconButton, Menu, Toaster } from '../../ds';
 import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../platform/escapeLayers';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { visibilityChip, type BoardWidget } from '../board-helpers';
+import {
+	FLOW_AUTHORING_TIER,
+	FLOW_COLUMNS,
+	FLOW_PANEL_MARGIN,
+	FLOW_SPAN_PRESETS,
+	flowPanelPosition,
+	flowSpanOf,
+	visibilityChip,
+	type BoardWidget,
+} from '../board-helpers';
+import { T } from '../screen-kit';
 import { GRID } from '../SceneBoardModel';
 import {
 	bindingSlot,
@@ -45,6 +55,17 @@ const VISIBILITY_ICON: Record<string, string> = {
 	'dm-only': 'dm-only',
 	shared: 'visibility-shared',
 	'player-visible': 'visibility-players',
+};
+
+/** Flow's tile-menu copy (`FlowTileMenu`), English-only like `TEXT`. */
+const FLOW_TEXT = {
+	actions: (title: string) => `Actions for ${title}`,
+	moveToStart: 'Move to start',
+	moveBack: 'Move back',
+	moveForward: 'Move forward',
+	moveToEnd: 'Move to end',
+	width: 'Width',
+	remove: 'Remove',
 };
 
 const SEPARATOR = { height: 1, margin: 'var(--space-1) 0', background: 'var(--color-border)' };
@@ -113,9 +134,55 @@ function MenuRow(p: RowProps) {
 	);
 }
 
+/** A viewport point: where a right-click or a long-press landed. */
+export interface Point {
+	x: number;
+	y: number;
+}
+
+/** What a frame holds to open its tile menu: under the trigger, or at a pointer (RC-CAN-8.3). */
+export interface MenuHandle {
+	open: (at?: Point) => void;
+}
+
+/** How long a still finger has to rest on a tile before its menu opens, and how far it may drift. */
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_SLOP = 8;
+
+/**
+ * RC-CAN-8.3 — a touch held still on a tile opens its menu at the finger, the touch counterpart of a
+ * right-click. Spread the handlers on the drag surface; `onPointerDown` must run before the board
+ * starts its own gesture. When the press fires it takes the gesture over the way the browser does
+ * when a touch becomes a scroll: it raises `pointercancel` on the window, and both boards abandon a
+ * drag on that event, so the tile stays where it was.
+ */
+export function useLongPress(onPress: (at: Point) => void) {
+	const timer = useRef<number | undefined>(undefined);
+	const origin = useRef<Point>({ x: 0, y: 0 });
+	const clear = () => window.clearTimeout(timer.current);
+	useEffect(() => () => window.clearTimeout(timer.current), []);
+	return {
+		onPointerDown: (e: React.PointerEvent) => {
+			clear();
+			if (e.pointerType !== 'touch') return;
+			origin.current = { x: e.clientX, y: e.clientY };
+			timer.current = window.setTimeout(() => {
+				window.dispatchEvent(new Event('pointercancel'));
+				onPress(origin.current);
+			}, LONG_PRESS_MS);
+		},
+		onPointerMove: (e: React.PointerEvent) => {
+			const { x, y } = origin.current;
+			if (Math.hypot(e.clientX - x, e.clientY - y) > LONG_PRESS_SLOP) clear();
+		},
+		onPointerUp: clear,
+		onPointerCancel: clear,
+	};
+}
+
 interface TileMenuProps {
 	history?: LayoutHistory;
-	handle: React.Ref<{ open: () => void }>;
+	handle: React.Ref<MenuHandle>;
 	w: BoardWidget;
 	scale: number;
 	resizable: boolean;
@@ -131,7 +198,8 @@ interface TileMenuProps {
  * none. WAI-ARIA menu button: Enter/Space/↓ on the trigger or Shift+F10 on the frame open it;
  * ↑/↓/Home/End move; →, ← and Escape enter and leave the Visibility submenu; Escape closes and returns
  * focus; Tab closes and moves on. Portalled to <body>, because inside the canvas's transform layer no
- * z-index can lift it over the canvas's own zoom and history clusters.
+ * z-index can lift it over the canvas's own zoom and history clusters. RC-CAN-8.3: a right-click or a
+ * long-press on the tile opens the same menu at the pointer (`MenuHandle.open(at)`).
  */
 export function TileActionMenu({
 	handle,
@@ -144,13 +212,27 @@ export function TileActionMenu({
 	const runtime = useRuntime();
 	const anchorRef = useRef<HTMLDivElement | null>(null);
 	const subRef = useRef<HTMLDivElement | null>(null);
-	const [box, setBox] = useState<DOMRect | null>(null);
+	// The trigger's rect, or a zero-size rect at the pointer (`at`) for a right-click or long-press.
+	const [box, setBox] = useState<{
+		top: number;
+		bottom: number;
+		left: number;
+		right: number;
+		at: boolean;
+	} | null>(null);
 	const [subOpen, setSubOpen] = useState(false);
 	const [dialog, setDialog] = useState<'bind' | 'configure' | null>(null);
 	const label = TEXT.actions(w.title);
-	const show = () => {
+	const show = (at?: Point) => {
 		setSubOpen(false);
-		setBox(anchorRef.current?.getBoundingClientRect() ?? null);
+		const rect = anchorRef.current?.getBoundingClientRect();
+		if (at) setBox({ top: at.y, bottom: at.y, left: at.x, right: at.x, at: true });
+		else
+			setBox(
+				rect
+					? { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, at: false }
+					: null,
+			);
 	};
 	useImperativeHandle(handle, () => ({ open: show }));
 	const close = () => setBox(null);
@@ -291,7 +373,11 @@ export function TileActionMenu({
 	const below = vp.clientHeight - (box?.bottom ?? 0);
 	const panelStyle = box && {
 		position: 'fixed',
-		left: Math.max(8, Math.min(box.right - MENU_WIDTH, vp.clientWidth - MENU_WIDTH - 8)),
+		// A trigger's menu hangs right-aligned under it; a pointer's opens rightwards from the point.
+		left: Math.max(
+			8,
+			Math.min(box.at ? box.left : box.right - MENU_WIDTH, vp.clientWidth - MENU_WIDTH - 8),
+		),
 		...(below >= box.top
 			? { top: box.bottom + 4, maxHeight: below - 12 }
 			: { bottom: vp.clientHeight - box.top + 4, maxHeight: box.top - 12 }),
@@ -424,6 +510,205 @@ export function TileActionMenu({
 						) : (
 							<TileConfigureDialog w={w} onClose={() => setDialog(null)} />
 						)}
+					</div>,
+					document.body,
+				)}
+		</div>
+	);
+}
+
+const FLOW_MENU_WIDTH = 224;
+/** The grid a durable span is measured against, at every tier. See {@link flowPresetSpan}. */
+export const AUTHORING_COLUMNS = FLOW_COLUMNS[FLOW_AUTHORING_TIER];
+
+interface FlowMenuRowProps {
+	label: string;
+	icon?: string;
+	checked?: boolean;
+	disabled?: boolean;
+	onSelect: () => void;
+}
+
+function FlowMenuRow({ label, icon, checked, disabled, onSelect }: FlowMenuRowProps) {
+	return (
+		<button
+			type="button"
+			role={checked === undefined ? 'menuitem' : 'menuitemradio'}
+			aria-checked={checked === undefined ? undefined : checked}
+			aria-disabled={disabled || undefined}
+			disabled={disabled}
+			onClick={() => {
+				if (!disabled) onSelect();
+			}}
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: T.space.two,
+				width: '100%',
+				padding: T.space.two,
+				border: 'none',
+				borderRadius: T.radius.sm,
+				background: checked ? T.accSub : 'transparent',
+				color: disabled ? T.ter : T.ink,
+				font: `var(--text-sm) ${T.sans}`,
+				textAlign: 'start',
+				cursor: disabled ? 'default' : 'pointer',
+			}}
+		>
+			{icon && <Icon name={icon} size="sm" />}
+			<span style={{ flex: 1, minWidth: 0 }}>{label}</span>
+			{checked && <Icon name="check" size="sm" />}
+		</button>
+	);
+}
+
+interface FlowTileMenuProps {
+	handle: React.Ref<MenuHandle>;
+	w: BoardWidget;
+	index: number;
+	count: number;
+	resizable: boolean;
+	onMoveTo: (toIndex: number) => void;
+	onSpan: (span: number) => void;
+	onRemove?: () => void;
+}
+
+/**
+ * The tile's own action menu. It is PORTALLED and positioned from the trigger's viewport rect: the
+ * grid is a real `overflow:auto` scroll region, so an in-flow panel on the last row would have been
+ * clipped by it — the same reason `TileActionMenu` portals.
+ */
+export function FlowTileMenu({
+	handle,
+	w,
+	index,
+	count,
+	resizable,
+	onMoveTo,
+	onSpan,
+	onRemove,
+}: FlowTileMenuProps) {
+	const anchorRef = useRef<HTMLDivElement | null>(null);
+	const panelRef = useRef<HTMLDivElement | null>(null);
+	// The tile's DURABLE span, not `placement.span`: the placement is clamped to the current tier and
+	// stretched when the tile lands alone in a row, so checking against it would tick the wrong row —
+	// and at phone, where every placement is span 1, it would tick EVERY row at once.
+	const authoredSpan = flowSpanOf(w, AUTHORING_COLUMNS);
+	const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+	const label = FLOW_TEXT.actions(w.title);
+	const close = () => setBox(null);
+	// Under the trigger, or at the pointer for a right-click or long-press (RC-CAN-8.3).
+	const show = (at?: Point) => {
+		const rect = anchorRef.current?.getBoundingClientRect();
+		if (at) setBox({ top: at.y, left: at.x });
+		else if (rect)
+			setBox({ top: rect.bottom + 4, left: Math.max(8, rect.right - FLOW_MENU_WIDTH) });
+	};
+	useImperativeHandle(handle, () => ({ open: show }));
+	const run = (action: () => void) => {
+		close();
+		action();
+	};
+	// Measure the panel once it exists and pull it back on screen — see {@link flowPanelPosition}.
+	useLayoutEffect(() => {
+		const el = panelRef.current;
+		if (!box || !el) return;
+		const root = document.documentElement;
+		const next = flowPanelPosition(box, el.getBoundingClientRect(), {
+			width: root.clientWidth,
+			height: root.clientHeight,
+		});
+		if (Math.abs(next.top - box.top) > 0.5 || Math.abs(next.left - box.left) > 0.5) setBox(next);
+	}, [box]);
+	return (
+		<div ref={anchorRef} style={{ position: 'absolute', top: T.space.two, right: T.space.two }}>
+			<IconButton
+				icon="more"
+				label={label}
+				variant="outline"
+				size="sm"
+				aria-haspopup="menu"
+				aria-expanded={!!box}
+				data-testid="flow-tile-actions"
+				onClick={() => (box ? close() : show())}
+			/>
+			{box &&
+				createPortal(
+					// `Menu`/`Popover` are not ref-forwarding, and `Popover` keeps its own root ref for
+					// outside-press dismissal, so the measured element is this wrapper rather than the panel.
+					<div
+						ref={panelRef}
+						style={{
+							position: 'fixed',
+							top: box.top,
+							left: box.left,
+							zIndex: 'var(--z-overlay)',
+							// Taller than the screen (a short viewport, a phone in landscape): scroll the rows
+							// rather than cropping them — `Popover`'s own root is `overflow: hidden`.
+							maxHeight: `calc(100dvh - ${FLOW_PANEL_MARGIN * 2}px)`,
+							overflowY: 'auto',
+						}}
+					>
+						<Menu
+							title={label}
+							triggerRef={anchorRef}
+							onClose={close}
+							width={FLOW_MENU_WIDTH}
+							data-testid="flow-tile-menu"
+						>
+							<FlowMenuRow
+								icon="arrow-up"
+								label={FLOW_TEXT.moveToStart}
+								disabled={index === 0}
+								onSelect={() => run(() => onMoveTo(0))}
+							/>
+							<FlowMenuRow
+								icon="arrow-left"
+								label={FLOW_TEXT.moveBack}
+								disabled={index === 0}
+								onSelect={() => run(() => onMoveTo(index - 1))}
+							/>
+							<FlowMenuRow
+								icon="arrow-right"
+								label={FLOW_TEXT.moveForward}
+								disabled={index >= count - 1}
+								onSelect={() => run(() => onMoveTo(index + 1))}
+							/>
+							<FlowMenuRow
+								icon="arrow-down"
+								label={FLOW_TEXT.moveToEnd}
+								disabled={index >= count - 1}
+								onSelect={() => run(() => onMoveTo(count - 1))}
+							/>
+							<div
+								role="group"
+								aria-label={FLOW_TEXT.width}
+								style={{
+									borderTop: `1px solid ${T.bd}`,
+									marginTop: T.space.one,
+									paddingTop: T.space.one,
+								}}
+							>
+								{FLOW_SPAN_PRESETS.map((preset) => (
+									<FlowMenuRow
+										key={preset.label}
+										label={preset.label}
+										checked={authoredSpan === preset.span}
+										disabled={!resizable}
+										onSelect={() => run(() => onSpan(preset.span))}
+									/>
+								))}
+							</div>
+							{onRemove && (
+								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
+									<FlowMenuRow
+										icon="trash"
+										label={FLOW_TEXT.remove}
+										onSelect={() => run(onRemove)}
+									/>
+								</div>
+							)}
+						</Menu>
 					</div>,
 					document.body,
 				)}

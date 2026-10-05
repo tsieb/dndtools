@@ -1,20 +1,7 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Icon, VisibilityChip } from '../../ds';
 import {
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-	type CSSProperties,
-} from 'react';
-import { createPortal } from 'react-dom';
-import { Icon, IconButton, Menu, VisibilityChip } from '../../ds';
-import {
-	FLOW_AUTHORING_TIER,
 	FLOW_COLUMNS,
-	FLOW_PANEL_MARGIN,
-	FLOW_SPAN_PRESETS,
-	flowPanelPosition,
 	flowPlacements,
 	flowReorderMoves,
 	flowSpanOf,
@@ -28,8 +15,16 @@ import { NoteFrameContext } from '../widgets/builtin/NoteBody';
 import { tileMetadataForWidget } from '../widgets/tileMeta';
 import { WidgetRenderSlot } from '../widgets/WidgetRenderSlot';
 import type { FlowBoardProps, FlowDrag } from '../SceneBoardModel';
-import { HistoryBtn, WidgetGlyph } from './WidgetFrame';
+import {
+	HistoryBtn,
+	LIFT_TRANSITION,
+	liftStyle,
+	TileGrip,
+	useHoverLift,
+	WidgetGlyph,
+} from './WidgetFrame';
 import { canvasSurfaceProps, OperationLiveRegion, useOperationNotice } from './surfaceA11y';
+import { AUTHORING_COLUMNS, FlowTileMenu, useLongPress, type MenuHandle } from './TileActionMenu';
 
 /**
  * FlowBoard — ADR-041's FLOW layout policy, the responsive counterpart to `SceneBoardCanvas`.
@@ -53,13 +48,8 @@ import { canvasSurfaceProps, OperationLiveRegion, useOperationNotice } from './s
 /** Tile copy, English-only for now — the same convention `WidgetFrame` and `TileActionMenu` use in
  *  this directory, so flow does not half-migrate a catalog its siblings have not moved to. */
 const TEXT = {
-	actions: (title: string) => `Actions for ${title}`,
-	moveToStart: 'Move to start',
-	moveBack: 'Move back',
-	moveForward: 'Move forward',
-	moveToEnd: 'Move to end',
-	width: 'Width',
-	remove: 'Remove',
+	toolbar: 'Layout history',
+	hint: 'Drag a tile by its grip to reorder it, or select it and use the arrow keys.',
 	at: (index: number, of: number) => `position ${index} of ${of}`,
 	position: (title: string, index: number, of: number) => `${title}, position ${index} of ${of}`,
 	spanNotice: (title: string, span: number, of: number) =>
@@ -68,195 +58,8 @@ const TEXT = {
 	emptyHint: 'Press Edit layout, then Add to place a widget.',
 };
 
-const MENU_WIDTH = 224;
-/** The grid a durable span is measured against, at every tier. See {@link flowPresetSpan}. */
-const AUTHORING_COLUMNS = FLOW_COLUMNS[FLOW_AUTHORING_TIER];
-
-interface MenuRowProps {
-	label: string;
-	icon?: string;
-	checked?: boolean;
-	disabled?: boolean;
-	onSelect: () => void;
-}
-
-function MenuRow({ label, icon, checked, disabled, onSelect }: MenuRowProps) {
-	return (
-		<button
-			type="button"
-			role={checked === undefined ? 'menuitem' : 'menuitemradio'}
-			aria-checked={checked === undefined ? undefined : checked}
-			aria-disabled={disabled || undefined}
-			disabled={disabled}
-			onClick={() => {
-				if (!disabled) onSelect();
-			}}
-			style={{
-				display: 'flex',
-				alignItems: 'center',
-				gap: T.space.two,
-				width: '100%',
-				padding: T.space.two,
-				border: 'none',
-				borderRadius: T.radius.sm,
-				background: checked ? T.accSub : 'transparent',
-				color: disabled ? T.ter : T.ink,
-				font: `var(--text-sm) ${T.sans}`,
-				textAlign: 'start',
-				cursor: disabled ? 'default' : 'pointer',
-			}}
-		>
-			{icon && <Icon name={icon} size="sm" />}
-			<span style={{ flex: 1, minWidth: 0 }}>{label}</span>
-			{checked && <Icon name="check" size="sm" />}
-		</button>
-	);
-}
-
-interface FlowTileMenuProps {
-	w: BoardWidget;
-	index: number;
-	count: number;
-	resizable: boolean;
-	onMoveTo: (toIndex: number) => void;
-	onSpan: (span: number) => void;
-	onRemove?: () => void;
-}
-
-/**
- * The tile's own action menu. It is PORTALLED and positioned from the trigger's viewport rect: the
- * grid is a real `overflow:auto` scroll region, so an in-flow panel on the last row would have been
- * clipped by it — the same reason `TileActionMenu` portals.
- */
-function FlowTileMenu({
-	w,
-	index,
-	count,
-	resizable,
-	onMoveTo,
-	onSpan,
-	onRemove,
-}: FlowTileMenuProps) {
-	const anchorRef = useRef<HTMLDivElement | null>(null);
-	const panelRef = useRef<HTMLDivElement | null>(null);
-	// The tile's DURABLE span, not `placement.span`: the placement is clamped to the current tier and
-	// stretched when the tile lands alone in a row, so checking against it would tick the wrong row —
-	// and at phone, where every placement is span 1, it would tick EVERY row at once.
-	const authoredSpan = flowSpanOf(w, AUTHORING_COLUMNS);
-	const [box, setBox] = useState<{ top: number; left: number } | null>(null);
-	const label = TEXT.actions(w.title);
-	const close = () => setBox(null);
-	const show = () => {
-		const rect = anchorRef.current?.getBoundingClientRect();
-		if (!rect) return;
-		setBox({ top: rect.bottom + 4, left: Math.max(8, rect.right - MENU_WIDTH) });
-	};
-	const run = (action: () => void) => {
-		close();
-		action();
-	};
-	// Measure the panel once it exists and pull it back on screen — see {@link flowPanelPosition}.
-	useLayoutEffect(() => {
-		const el = panelRef.current;
-		if (!box || !el) return;
-		const root = document.documentElement;
-		const next = flowPanelPosition(box, el.getBoundingClientRect(), {
-			width: root.clientWidth,
-			height: root.clientHeight,
-		});
-		if (Math.abs(next.top - box.top) > 0.5 || Math.abs(next.left - box.left) > 0.5) setBox(next);
-	}, [box]);
-	return (
-		<div ref={anchorRef} style={{ position: 'absolute', top: T.space.two, right: T.space.two }}>
-			<IconButton
-				icon="more"
-				label={label}
-				variant="outline"
-				size="sm"
-				aria-haspopup="menu"
-				aria-expanded={!!box}
-				data-testid="flow-tile-actions"
-				onClick={() => (box ? close() : show())}
-			/>
-			{box &&
-				createPortal(
-					// `Menu`/`Popover` are not ref-forwarding, and `Popover` keeps its own root ref for
-					// outside-press dismissal, so the measured element is this wrapper rather than the panel.
-					<div
-						ref={panelRef}
-						style={{
-							position: 'fixed',
-							top: box.top,
-							left: box.left,
-							zIndex: 'var(--z-overlay)',
-							// Taller than the screen (a short viewport, a phone in landscape): scroll the rows
-							// rather than cropping them — `Popover`'s own root is `overflow: hidden`.
-							maxHeight: `calc(100dvh - ${FLOW_PANEL_MARGIN * 2}px)`,
-							overflowY: 'auto',
-						}}
-					>
-						<Menu
-							title={label}
-							triggerRef={anchorRef}
-							onClose={close}
-							width={MENU_WIDTH}
-							data-testid="flow-tile-menu"
-						>
-							<MenuRow
-								icon="arrow-up"
-								label={TEXT.moveToStart}
-								disabled={index === 0}
-								onSelect={() => run(() => onMoveTo(0))}
-							/>
-							<MenuRow
-								icon="arrow-left"
-								label={TEXT.moveBack}
-								disabled={index === 0}
-								onSelect={() => run(() => onMoveTo(index - 1))}
-							/>
-							<MenuRow
-								icon="arrow-right"
-								label={TEXT.moveForward}
-								disabled={index >= count - 1}
-								onSelect={() => run(() => onMoveTo(index + 1))}
-							/>
-							<MenuRow
-								icon="arrow-down"
-								label={TEXT.moveToEnd}
-								disabled={index >= count - 1}
-								onSelect={() => run(() => onMoveTo(count - 1))}
-							/>
-							<div
-								role="group"
-								aria-label={TEXT.width}
-								style={{
-									borderTop: `1px solid ${T.bd}`,
-									marginTop: T.space.one,
-									paddingTop: T.space.one,
-								}}
-							>
-								{FLOW_SPAN_PRESETS.map((preset) => (
-									<MenuRow
-										key={preset.label}
-										label={preset.label}
-										checked={authoredSpan === preset.span}
-										disabled={!resizable}
-										onSelect={() => run(() => onSpan(preset.span))}
-									/>
-								))}
-							</div>
-							{onRemove && (
-								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
-									<MenuRow icon="trash" label={TEXT.remove} onSelect={() => run(onRemove)} />
-								</div>
-							)}
-						</Menu>
-					</div>,
-					document.body,
-				)}
-		</div>
-	);
-}
+/** Half the grid gap plus half the indicator: centred in the gap beside the target tile. */
+const OUTSIDE = `calc(-1 * ${T.space.two})`;
 
 interface FlowTileProps {
 	w: BoardWidget;
@@ -267,7 +70,10 @@ interface FlowTileProps {
 	resizable: boolean;
 	tabbable: boolean;
 	dragging: boolean;
-	dropTarget: boolean;
+	/** RC-CAN-8.3: where a dragged tile would land relative to this one, while it is the target. */
+	dropSide: 'before' | 'after' | null;
+	/** The column count, so a full-row target shows its drop indicator above or below it. */
+	columns: number;
 	registerRef: (el: HTMLDivElement | null) => void;
 	onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
 	onFocusIn: () => void;
@@ -288,7 +94,8 @@ function FlowTile({
 	resizable,
 	tabbable,
 	dragging,
-	dropTarget,
+	dropSide,
+	columns,
 	registerRef,
 	onKeyDown,
 	onFocusIn,
@@ -302,9 +109,12 @@ function FlowTile({
 	const meta = tileMetadataForWidget(w);
 	const placeholder = w.status !== 'available';
 	const accent = `var(${meta.accentToken})`;
+	const menuRef = useRef<MenuHandle | null>(null);
+	const press = useLongPress((at) => menuRef.current?.open(at));
+	const hover = useHoverLift(editing);
 	// Selection, drop target and idle are three different rings, so a keyboard user and a pointer
 	// user are told the same thing by the same affordance.
-	const ring = dropTarget
+	const ring = dropSide
 		? `2px dashed ${T.acc}`
 		: selected
 			? `2px solid ${T.acc}`
@@ -325,6 +135,14 @@ function FlowTile({
 			tabIndex={tabbable ? 0 : -1}
 			onKeyDown={onKeyDown}
 			onFocus={onFocusIn}
+			{...hover.handlers}
+			// RC-CAN-8.3: a right-click opens the tile menu at the pointer, as a long-press does. A press
+			// inside the portalled menu bubbles here through React, so only this tile's own DOM counts.
+			onContextMenu={(e) => {
+				if (!editing || !e.currentTarget.contains(e.target as Node)) return;
+				e.preventDefault();
+				menuRef.current?.open({ x: e.clientX, y: e.clientY });
+			}}
 			className={meta.silhouetteClass}
 			style={{
 				gridColumn: `${placement.column + 1} / span ${placement.span}`,
@@ -344,6 +162,8 @@ function FlowTile({
 				opacity: dragging ? 0.6 : placeholder ? 0.85 : 1,
 				...(ring ? { outline: ring } : {}),
 				outlineOffset: 2,
+				...liftStyle(dragging ? 'drag' : hover.lifted ? 'hover' : 'rest', !!ring),
+				transition: editing ? LIFT_TRANSITION : undefined,
 			}}
 		>
 			{/* A BORDER, not a background: forced-colors repaints backgrounds as Canvas but keeps a
@@ -367,8 +187,10 @@ function FlowTile({
 					gap: T.space.two,
 					flex: '0 0 auto',
 					minWidth: 0,
-					// Room for the edit-mode menu trigger.
-					...(editing ? { paddingInlineEnd: T.space.eight } : {}),
+					// Room for the edit-mode grip and menu trigger.
+					...(editing
+						? { paddingInlineStart: T.space.three, paddingInlineEnd: T.space.eight }
+						: {}),
 				}}
 			>
 				<WidgetGlyph icon={meta.icon} size={16} color={accent} />
@@ -425,8 +247,14 @@ function FlowTile({
 			{editing && (
 				<div
 					data-testid={`flow-drag-${w.id}`}
+					{...press}
 					onPointerDown={(e) => {
-						onSelect();
+						// A right press belongs to the context menu: selecting would open the scene
+						// editor's Inspector, which takes focus and closes the menu it just opened.
+						if (e.button === 2) return;
+						press.onPointerDown(e);
+						// A finger selects on release instead (see `finish`).
+						if (e.pointerType !== 'touch') onSelect();
 						onStartDrag(e);
 					}}
 					style={{
@@ -435,13 +263,46 @@ function FlowTile({
 						borderRadius: T.radius.md,
 						cursor: 'grab',
 						// A finger has to be able to scroll the screen it is reading; a drag is a
-						// deliberate press-and-move, which `pan-y` still delivers as a pointermove.
+						// deliberate press-and-move, which `pan-y` still delivers as a pointermove. The grip
+						// is `none`, so a finger on it drags in any direction — a phone's one column too.
 						touchAction: 'pan-y',
+						WebkitTouchCallout: 'none',
+					}}
+				>
+					<TileGrip />
+				</div>
+			)}
+			{dropSide && (
+				<span
+					aria-hidden
+					data-testid="flow-drop-indicator"
+					data-side={dropSide}
+					style={{
+						position: 'absolute',
+						pointerEvents: 'none',
+						background: T.acc,
+						borderRadius: T.radius.full,
+						// In the middle of the grid gap: a full-row tile is crossed above or below, a tile
+						// sharing its row is marked at its leading or trailing edge.
+						...(placement.span >= columns
+							? {
+									left: 0,
+									right: 0,
+									height: 4,
+									[dropSide === 'before' ? 'top' : 'bottom']: OUTSIDE,
+								}
+							: {
+									top: 0,
+									bottom: 0,
+									width: 4,
+									[dropSide === 'before' ? 'left' : 'right']: OUTSIDE,
+								}),
 					}}
 				/>
 			)}
 			{editing && (
 				<FlowTileMenu
+					handle={menuRef}
 					w={w}
 					index={placement.index}
 					count={count}
@@ -476,6 +337,8 @@ export function FlowBoard({
 	const [drag, setDrag] = useState<FlowDrag | null>(null);
 	const dragRef = useRef<FlowDrag | null>(null);
 	dragRef.current = drag;
+	/** The tile a touch press is on, selected when the press ends without reaching another tile. */
+	const tapRef = useRef<string | null>(null);
 	const [notice, announce] = useOperationNotice();
 
 	const placements = useMemo(() => flowPlacements(widgets, columns), [widgets, columns]);
@@ -577,10 +440,18 @@ export function FlowBoard({
 			/* a pointer that has already ended cannot be captured — the window listeners still cover us */
 		}
 		document.body.style.userSelect = 'none';
+		tapRef.current = e.pointerType === 'touch' ? id : null;
 		setDrag({ id, overIndex: null });
 	};
 
 	const dragging = drag !== null;
+	/** The drop indicator's side: `reorder` puts the tile AT the target's index, so a tile dragged
+	 *  forward lands after its target and one dragged back lands before it. */
+	const dropSideOf = (index: number) => {
+		const from = drag ? orderIds.indexOf(drag.id) : -1;
+		if (!drag || drag.overIndex !== index || from === index) return null;
+		return from < index ? ('after' as const) : ('before' as const);
+	};
 	useEffect(() => {
 		if (!dragging) return;
 		const move = (e: PointerEvent) => {
@@ -594,11 +465,20 @@ export function FlowBoard({
 		};
 		const finish = (commit: boolean) => {
 			const current = dragRef.current;
+			const tap = tapRef.current;
+			tapRef.current = null;
 			setDrag(null);
 			document.body.style.userSelect = '';
-			if (!commit || !current || current.overIndex === null) return;
-			if (!Number.isFinite(current.overIndex)) return;
-			reorder(current.id, current.overIndex);
+			if (!commit || !current) return;
+			const over = current.overIndex;
+			// RC-CAN-8.3 — a touch press selects on release, and only when it never reached another
+			// tile: on a phone, selecting on the press opened the scene editor's Inspector over the
+			// board and hid every tile the finger could drop on.
+			if (over === null || !Number.isFinite(over) || orderIds[over] === current.id) {
+				if (tap) onSelect(tap);
+				return;
+			}
+			reorder(current.id, over);
 		};
 		const up = () => finish(true);
 		// A gesture the browser takes over (a touch that became a scroll) must abandon the reorder
@@ -612,7 +492,7 @@ export function FlowBoard({
 			window.removeEventListener('pointerup', up);
 			window.removeEventListener('pointercancel', cancel);
 		};
-	}, [dragging, reorder]);
+	}, [dragging, reorder, orderIds, onSelect]);
 
 	/** `Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`, scoped to this screen exactly as on the canvas. */
 	const boardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -655,6 +535,44 @@ export function FlowBoard({
 				touchAction: 'pan-y',
 			}}
 		>
+			{/* RC-CAN-8.3 — Undo/Redo docked in a toolbar row above the tiles, not floating over them:
+			    the old cluster stuck to the bottom of the scroll region and sat on the last tile on a
+			    phone. Sticky, so it stays reachable while a long screen scrolls under it. */}
+			{history && editing && (
+				<div
+					role="toolbar"
+					aria-label={TEXT.toolbar}
+					data-testid="flow-history-controls"
+					style={{
+						position: 'sticky',
+						top: `calc(-1 * ${T.space.three})`,
+						zIndex: 1,
+						display: 'flex',
+						alignItems: 'center',
+						gap: T.space.two,
+						margin: `calc(-1 * ${T.space.three}) calc(-1 * ${T.space.three}) ${T.space.three}`,
+						padding: `${T.space.one} ${T.space.three}`,
+						background: T.bg,
+						borderBottom: `1px solid ${T.bd}`,
+					}}
+				>
+					<span style={{ flex: 1, minWidth: 0, font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+						{TEXT.hint}
+					</span>
+					<HistoryBtn
+						icon="undo"
+						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
+						disabled={!history.canUndo}
+						onClick={() => void history.undo()}
+					/>
+					<HistoryBtn
+						icon="redo"
+						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
+						disabled={!history.canRedo}
+						onClick={() => void history.redo()}
+					/>
+				</div>
+			)}
 			<div
 				data-testid="flow-grid"
 				style={
@@ -684,7 +602,8 @@ export function FlowBoard({
 							resizable={editing && (canResize ? canResize(w) : isWidgetResizable(w))}
 							tabbable={tabbableId === w.id}
 							dragging={drag?.id === w.id}
-							dropTarget={!!drag && drag.id !== w.id && drag.overIndex === placement.index}
+							dropSide={dropSideOf(placement.index)}
+							columns={columns}
 							registerRef={(el) => {
 								if (el) frameRefs.current.set(w.id, el);
 								else frameRefs.current.delete(w.id);
@@ -705,40 +624,6 @@ export function FlowBoard({
 					);
 				})}
 			</div>
-
-			{history && editing && (
-				<div
-					data-testid="flow-history-controls"
-					style={{
-						position: 'sticky',
-						bottom: 0,
-						marginInlineStart: 'auto',
-						marginTop: T.space.three,
-						width: 'fit-content',
-						display: 'flex',
-						alignItems: 'center',
-						gap: T.space.half,
-						padding: T.space.one,
-						borderRadius: T.radius.md,
-						background: T.overlay,
-						border: `1px solid ${T.bdS}`,
-						boxShadow: T.shadow.lg,
-					}}
-				>
-					<HistoryBtn
-						icon="undo"
-						label={history.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : 'Undo'}
-						disabled={!history.canUndo}
-						onClick={() => void history.undo()}
-					/>
-					<HistoryBtn
-						icon="redo"
-						label={history.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : 'Redo'}
-						disabled={!history.canRedo}
-						onClick={() => void history.redo()}
-					/>
-				</div>
-			)}
 
 			{/* Permanent live regions, present before the first change, so a reorder is announced by
 			    the CONTENT changing rather than by a region appearing with its text already in it. */}

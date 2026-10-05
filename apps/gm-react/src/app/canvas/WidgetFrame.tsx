@@ -1,5 +1,5 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useId, useMemo, useRef, type ReactNode } from 'react';
+import { useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { WidgetLibraryEntry } from '@dndtools/core';
 import { Badge, Icon, VisibilityChip } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -20,8 +20,7 @@ import {
 	useTileFit,
 	type WidgetCommandHandler,
 } from '../widgets/WidgetRenderSlot';
-import { TileActionMenu, TRIGGER_SIZE } from './TileActionMenu';
-import type { ArrangeAction, Box } from './geometry';
+import { TileActionMenu, TRIGGER_SIZE, useLongPress, type MenuHandle } from './TileActionMenu';
 
 /** Shared canvas frame and overlay controls. Frames follow the scene's metadata reading order;
  * explicit stack indices let the canvas change DOM order without changing visual overlap. */
@@ -179,164 +178,62 @@ export function EmptyCanvas({ title, hint, theme }: EmptyCanvasProps) {
 	);
 }
 
-/** RC-CAN-3.6 — the marquee rectangle, in board coordinates inside the canvas transform layer. */
-export function Marquee({ box }: { box: Box }) {
-	return (
-		<div
-			data-testid="canvas-marquee"
-			aria-hidden
-			style={{
-				position: 'absolute',
-				left: box.x,
-				top: box.y,
-				width: box.w,
-				height: box.h,
-				border: '1px dashed var(--color-accent)',
-				background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
-				pointerEvents: 'none',
-				zIndex: 100000,
-			}}
-		/>
-	);
-}
-
-interface ArrangeButton {
-	action: ArrangeAction;
-	short: MessageKey;
-	full: MessageKey;
-	keys: string;
-	/** Tiles the action needs before it can do anything. */
-	min: number;
-}
-
-const ARRANGE_BUTTONS: ArrangeButton[] = [
-	['left', 'A'],
-	['center', 'H'],
-	['right', 'D'],
-	['top', 'W'],
-	['middle', 'V'],
-	['bottom', 'S'],
-].map(([mode, key]) => ({
-	action: { kind: 'align', mode } as ArrangeAction,
-	short: `boardCanvas.arrange.${mode}` as MessageKey,
-	full: `boardCanvas.arrange.${mode}Full` as MessageKey,
-	keys: `Alt+${key}`,
-	min: 2,
-}));
-ARRANGE_BUTTONS.push(
-	{
-		action: { kind: 'distribute', axis: 'horizontal' },
-		short: 'boardCanvas.arrange.distributeH',
-		full: 'boardCanvas.arrange.distributeHFull',
-		keys: 'Alt+Shift+H',
-		min: 3,
-	},
-	{
-		action: { kind: 'distribute', axis: 'vertical' },
-		short: 'boardCanvas.arrange.distributeV',
-		full: 'boardCanvas.arrange.distributeVFull',
-		keys: 'Alt+Shift+V',
-		min: 3,
-	},
-	{
-		action: { kind: 'layer', move: 'forward' },
-		short: 'boardCanvas.arrange.forward',
-		full: 'boardCanvas.arrange.forwardFull',
-		keys: 'Control+]',
-		min: 1,
-	},
-	{
-		action: { kind: 'layer', move: 'backward' },
-		short: 'boardCanvas.arrange.backward',
-		full: 'boardCanvas.arrange.backwardFull',
-		keys: 'Control+[',
-		min: 1,
-	},
-);
+const EASE = 'var(--duration-fast) var(--easing-standard)';
+/** RC-CAN-8.3 — edit mode's tile transition: the hover outline and shadow ease on the motion tokens,
+ *  which collapse to 0ms under reduced motion (styles/tokens/spacing.css), so the cue is static. */
+export const LIFT_TRANSITION = `outline-color ${EASE}, box-shadow ${EASE}`;
 
 /**
- * RC-CAN-3.6 — the multi-selection toolbar: align, distribute, layer and group, each also a
- * shortcut (`geometry.ts` `arrangeShortcut`). A real toolbar of buttons, so every arrange action is
- * reachable without a pointer AND without memorising a chord. Buttons a selection this small cannot
- * use are disabled rather than hidden, so the bar does not reflow under the cursor.
+ * RC-CAN-8.3 — the hover lift on an edited tile: an outline (unless a selection or drop ring is
+ * already drawn) and an elevation shadow; a dragged tile casts the deeper shadow of a held card. The
+ * lift is elevation only, never a `transform`: moving a frame that holds the focused menu trigger
+ * made Chrome scroll the overflow-hidden canvas to keep the trigger in view, and the tile menu
+ * closes on any scroll.
  */
-export function ArrangeBar({
-	count,
-	grouped,
-	policy,
-	onAction,
-}: {
-	count: number;
-	grouped: boolean;
-	policy: 'bounded' | 'canvas';
-	onAction: (action: ArrangeAction) => void;
-}) {
-	const { t } = useI18n();
-	const buttons: ArrangeButton[] = [
-		...ARRANGE_BUTTONS,
-		grouped
-			? {
-					action: { kind: 'ungroup' },
-					short: 'boardCanvas.arrange.ungroup',
-					full: 'boardCanvas.arrange.ungroupFull',
-					keys: 'Control+Shift+G',
-					min: 1,
-				}
-			: {
-					action: { kind: 'group' },
-					short: 'boardCanvas.arrange.group',
-					full: 'boardCanvas.arrange.groupFull',
-					keys: 'Control+G',
-					min: 2,
-				},
-	];
+export function liftStyle(lift: 'rest' | 'hover' | 'drag', ringed: boolean): CSSProperties {
+	if (lift === 'rest') return {};
+	return {
+		...(ringed ? {} : { outline: '2px solid var(--color-accent-border)' }),
+		boxShadow: lift === 'drag' ? 'var(--shadow-lg)' : 'var(--shadow-md)',
+	};
+}
+
+/** Pointer hover on an edited tile. A finger has no hover, so touch never lifts a tile. Entering
+ *  counts only while editing, so a view-mode frame does not re-render as the pointer crosses it. */
+export function useHoverLift(editing: boolean) {
+	const [hovered, setHovered] = useState(false);
+	return {
+		lifted: editing && hovered,
+		handlers: {
+			onPointerEnter: (e: React.PointerEvent) => setHovered(editing && e.pointerType !== 'touch'),
+			onPointerLeave: () => setHovered(false),
+		},
+	};
+}
+
+/**
+ * RC-CAN-8.3 — the grip in an edited tile's title bar: the glyph that says "drag here". It lives on
+ * the drag surface (the title row leaves it room), and it is `touch-action: none`, so a finger on it
+ * drags the tile where a finger anywhere else on the tile still scrolls the board.
+ */
+export function TileGrip() {
 	return (
-		<div
-			role="toolbar"
-			aria-label={t('boardCanvas.arrange.toolbar', { count })}
-			data-testid="canvas-arrange-bar"
-			onPointerDown={(e) => e.stopPropagation()}
+		<span
+			aria-hidden
+			data-testid="tile-grip"
 			style={{
 				position: 'absolute',
-				...(policy === 'bounded' ? { top: 12, left: 12 } : { top: 16, left: 16 }),
-				maxWidth: 'calc(100% - 24px)',
-				display: 'flex',
-				flexWrap: 'wrap',
-				alignItems: 'center',
-				gap: 'var(--space-1)',
+				top: 'var(--space-2)',
+				left: 0,
+				display: 'inline-flex',
 				padding: 'var(--space-1)',
-				borderRadius: 'var(--radius-md)',
-				background: 'var(--color-surface-overlay)',
-				border: '1px solid var(--color-border-strong)',
-				boxShadow: 'var(--shadow-lg)',
-				zIndex: 1,
+				color: 'var(--color-text-secondary)',
+				touchAction: 'none',
+				cursor: 'grab',
 			}}
 		>
-			{buttons.map((button) => (
-				<button
-					key={button.short}
-					type="button"
-					aria-label={t(button.full)}
-					aria-keyshortcuts={button.keys}
-					title={`${t(button.full)} (${button.keys})`}
-					disabled={count < button.min}
-					onClick={() => onAction(button.action)}
-					style={{
-						minHeight: 28,
-						border: 'none',
-						borderRadius: 'var(--radius-sm)',
-						padding: '0 var(--space-2)',
-						background: 'transparent',
-						color:
-							count < button.min ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
-						font: '600 var(--text-xs) var(--font-sans)',
-						cursor: count < button.min ? 'default' : 'pointer',
-					}}
-				>
-					{t(button.short)}
-				</button>
-			))}
-		</div>
+			<Icon name="drag-handle" size={16} />
+		</span>
 	);
 }
 
@@ -384,6 +281,8 @@ export interface WidgetFrameProps {
 	onResizeStep?: (dx: number, dy: number) => void;
 	/** VIEW-mode operate dispatch, pre-bound to this widget instance. Absent while editing. */
 	onCommand?: WidgetCommandHandler;
+	/** RC-CAN-8.3: this tile is the one under the pointer in a move drag — it casts the held shadow. */
+	dragging?: boolean;
 }
 
 export function WidgetFrame({
@@ -410,6 +309,7 @@ export function WidgetFrame({
 	onResizeStep,
 	onCommand,
 	history,
+	dragging = false,
 }: WidgetFrameProps) {
 	const { t } = useI18n();
 	const placeholder = w.status !== 'available';
@@ -433,13 +333,18 @@ export function WidgetFrame({
 		[state, defaultActorId, w.status, refType, refId],
 	);
 	const accent = `var(${meta.accentToken})`;
-	// RC-CAN-2.4: Shift+F10 and the ContextMenu key open the tile menu from a focused frame. A
-	// keyboard-raised `contextmenu` lands on the frame too; a right-click lands on the drag overlay.
-	const menuRef = useRef<{ open: () => void } | null>(null);
-	const openMenu = (e: React.SyntheticEvent<HTMLDivElement>) => {
-		if (!editing || e.target !== e.currentTarget) return false;
+	// RC-CAN-2.4: Shift+F10 and the ContextMenu key open the tile menu from a focused frame, under its
+	// trigger. RC-CAN-8.3: a right-click (it lands on the drag overlay) or a long-press opens it at the
+	// pointer. A keyboard-raised `contextmenu` targets the frame itself and keeps the trigger anchor.
+	const menuRef = useRef<MenuHandle | null>(null);
+	const press = useLongPress((at) => menuRef.current?.open(at));
+	const hover = useHoverLift(editing);
+	const openMenu = (e: React.KeyboardEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>) => {
+		// A press inside the portalled menu bubbles here through React; only this frame's DOM counts.
+		if (!editing || !e.currentTarget.contains(e.target as Node)) return false;
 		e.preventDefault();
-		menuRef.current?.open();
+		const pointer = 'clientX' in e && e.target !== e.currentTarget;
+		menuRef.current?.open(pointer ? { x: e.clientX, y: e.clientY } : undefined);
 		return true;
 	};
 	return (
@@ -456,9 +361,10 @@ export function WidgetFrame({
 			tabIndex={tabbable ? 0 : -1}
 			onKeyDown={(e) => {
 				const menuKey = e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
-				if (!(menuKey && openMenu(e))) onKeyDown(e);
+				if (!(menuKey && e.target === e.currentTarget && openMenu(e))) onKeyDown(e);
 			}}
 			onContextMenu={openMenu}
+			{...hover.handlers}
 			onFocus={onFocusIn}
 			onBlur={(e) => {
 				if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onSettle?.();
@@ -471,16 +377,20 @@ export function WidgetFrame({
 				width,
 				borderRadius: 'var(--radius-md)',
 				// `outline`, NOT `box-shadow`: forced-colors mode suppresses box-shadow outright, so
-				// the selected widget had NO ring at all in Windows High Contrast — and the only
-				// other selection cue, the title chip at `top:-26`, is clipped by the bounded
-				// container for top-row widgets. An outline survives and remaps to `Highlight`.
+				// the selected widget had NO ring at all in Windows High Contrast. An outline survives
+				// and remaps to `Highlight`. (The title chip is the other selection cue.)
 				// Emit the key ONLY when selected. `outline:'none'` is an INLINE style, so it beat the
 				// app's global `:focus-visible` rule (styles/tokens/base.css) and left every widget
 				// frame with no focus indicator at all — on the one surface whose whole navigation
 				// model is a roving tabindex across those frames (CANVAS-016, WCAG 2.4.7).
 				...(selected ? { outline: '2px solid var(--color-accent)' } : {}),
 				outlineOffset: 2,
-				transition: selected ? 'none' : 'outline-color var(--duration-fast) var(--easing-standard)',
+				...liftStyle(dragging ? 'drag' : hover.lifted ? 'hover' : 'rest', selected),
+				transition: selected
+					? 'none'
+					: editing
+						? LIFT_TRANSITION
+						: 'outline-color var(--duration-fast) var(--easing-standard)',
 			}}
 		>
 			<div
@@ -520,8 +430,10 @@ export function WidgetFrame({
 						alignItems: 'center',
 						gap: 'var(--space-2)',
 						flex: '0 0 auto',
-						// Room for the edit-mode menu trigger, held at screen size (hence ÷ scale).
-						...(editing ? { paddingRight: `calc(${TRIGGER_SIZE} / ${scale})` } : {}),
+						// Room for the edit-mode grip, and for the menu trigger held at screen size (÷ scale).
+						...(editing
+							? { paddingLeft: 'var(--space-3)', paddingRight: `calc(${TRIGGER_SIZE} / ${scale})` }
+							: {}),
 					}}
 				>
 					<WidgetGlyph icon={meta.icon} size={16} color={accent} />
@@ -610,14 +522,24 @@ export function WidgetFrame({
 
 			{editing && (
 				<div
-					onPointerDown={onStartMove}
+					data-testid="tile-drag-surface"
+					{...press}
+					onPointerDown={(e) => {
+						// A right press is the context menu's, not a drag, and must not reach the canvas.
+						if (e.button === 2) return e.stopPropagation();
+						press.onPointerDown(e);
+						onStartMove(e);
+					}}
 					style={{
 						position: 'absolute',
 						inset: 0,
 						borderRadius: 'var(--radius-md)',
 						cursor: 'grab',
+						WebkitTouchCallout: 'none',
 					}}
-				/>
+				>
+					<TileGrip />
+				</div>
 			)}
 
 			{/* After the drag overlay in DOM order, so it paints — and takes presses — above it. */}
@@ -634,11 +556,16 @@ export function WidgetFrame({
 
 			{selected && !multi && (
 				<>
+					{/* RC-CAN-8.3: INSIDE the frame's bottom-left corner, held at screen size and capped to the
+					    frame's width. Above the frame it overlapped the canvas edge on a top-row tile. */}
 					<div
+						data-testid="tile-selection-chip"
 						style={{
 							position: 'absolute',
-							top: -26,
-							left: 0,
+							bottom: 'var(--space-2)',
+							left: 'var(--space-2)',
+							maxWidth: Math.max(0, (width - 16) * scale),
+							overflow: 'hidden',
 							display: 'inline-flex',
 							alignItems: 'center',
 							gap: 5,
