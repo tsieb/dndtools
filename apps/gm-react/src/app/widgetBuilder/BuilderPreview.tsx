@@ -18,12 +18,7 @@ import { ActionPanelTemplate } from '../widgets/templates/ActionPanel';
 import { ChartTemplate } from '../widgets/templates/Chart';
 import { DataTableTemplate } from '../widgets/templates/DataTable';
 import { FormPanelTemplate } from '../widgets/templates/FormPanel';
-import {
-	CardGridTemplate,
-	HeroTemplate,
-	LauncherTemplate,
-	LinkListTemplate,
-} from '../widgets/templates/Hub';
+import { HUB_TEMPLATES } from '../widgets/templates/Hub';
 import { SceneMessageTemplate } from '../widgets/templates/SceneMessage';
 import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
@@ -64,10 +59,7 @@ const RAW_TEMPLATES: Record<WidgetTemplateKind, ComponentType<WidgetTemplateProp
 	chart: ChartTemplate,
 	'stat-block': StatBlockTemplate,
 	'form-panel': FormPanelTemplate,
-	hero: HeroTemplate,
-	'card-grid': CardGridTemplate,
-	launcher: LauncherTemplate,
-	'link-list': LinkListTemplate,
+	...HUB_TEMPLATES,
 };
 
 export function BuilderPreview({ draft }: { draft: WidgetDraft }) {

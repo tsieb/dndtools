@@ -75,3 +75,23 @@ Re-run on the candidate: `pnpm typecheck` 0; `pnpm lint` 0 (16 pre-existing warn
 164 files / 1924 tests passed; core vitest 284 / 5184 passed; Playwright hub-templates +
 widget-builder on desktop + mobile: 29 passed, 1 skipped (intentional mobile skip of the bare
 canvas-frame test).
+
+## Rebase onto 23d73c91 — 2026-10-05
+
+Gate could not rebase the three commits (conflicts in SceneBoardCanvas, WidgetFrame, widget-package
+schema). Squashed them first (net diff vs bad21178 has no SceneBoardCanvas change; old tip 59dc807d)
+and rebased onto 23d73c91.
+
+- `schemas/widget-package.ts`: import list — kept upstream `WIDGET_COMMAND_EXECUTORS` (RC-WID-6.1)
+  alongside `ALL_WIDGET_TEMPLATE_KINDS`.
+- `WidgetFrame.tsx`: took upstream (RC-CAN-8.1/8.3 lift, grip, context menu, bottom-left selection
+  chip) and re-applied the bare edits by hand: presentation → `bare`, theme layout effect, outer
+  `role` region when bare, body ref/transparent surface, rail + header rows behind `!bare`,
+  selection chrome behind `!bare`. 774 lines (< 800 gate).
+- AddWidgetGallery hit 804 lines on the new base (800-line hard gate). `Hub.tsx` now exports
+  `HUB_TEMPLATES`, spread into the gallery, builder-preview and worker maps (gallery 796 lines).
+
+Evidence on the rebased tree: `pnpm typecheck` 0; `pnpm lint` 0 (16 pre-existing warnings);
+`pnpm gates` (quality-gates) 0; app vitest 167 files / 2013 tests; core vitest 286 / 5233;
+Playwright hub-templates + widget-builder + canvas + canvas-keyboard + canvas-arrange +
+custom-widgets on desktop + mobile: 136 passed, 2 skipped (incl. the intentional mobile skip).

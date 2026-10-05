@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 import type { WidgetIntentDescriptor } from '@dndtools/core';
 import { Avatar, Badge, Card, Icon, Skeleton, StatusDot } from '../../../ds';
 import { useI18n } from '../../../i18n';
@@ -205,3 +205,11 @@ export const HeroTemplate = (props: HubProps) => <HubTemplate {...props} kind="h
 export const CardGridTemplate = (props: HubProps) => <HubTemplate {...props} kind="card-grid" />;
 export const LauncherTemplate = (props: HubProps) => <HubTemplate {...props} kind="launcher" />;
 export const LinkListTemplate = (props: HubProps) => <HubTemplate {...props} kind="link-list" />;
+
+/** The four hub renderers by kind, for the registries that draw a template outside the connected slot. */
+export const HUB_TEMPLATES: Record<HubTemplateKind, (props: HubProps) => ReactElement> = {
+	hero: HeroTemplate,
+	'card-grid': CardGridTemplate,
+	launcher: LauncherTemplate,
+	'link-list': LinkListTemplate,
+};
