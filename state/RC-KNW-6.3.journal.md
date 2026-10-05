@@ -233,3 +233,28 @@ No tests rerun for this documentation-only decision. Formatting and diff whitesp
 Operator action: decide whether to widen the claim to include
 `apps/gm-react/src/platform/storage/noteRecovery.ts` (or arrange separately owned platform support).
 The ownership rejection remains unresolved. No dispatcher state, agents, push or promotion.
+
+## Claim widened; rebase onto loop/rc (2026-10-05)
+
+Operator brief 2026-10-04 widened the claim to include
+`apps/gm-react/src/platform/storage/noteRecovery.ts`, which resolves the ownership rejection.
+
+`loop/rc` had moved 86 commits past base `2b5d74ff` (RC-KNW-6.1 rewrote NoteViewer wikilink
+resolution), so the dispatcher's post-run rebase would have conflicted. Backed up the old head as
+`backup/knw-6.3-pre-rebase-*`, squashed the task commits into one and rebased onto `83725b75`.
+Resolved NoteViewer.tsx imports (kept 6.1's `useNavigate`/`wikilinkKindLabel`, dropped the
+removed quick-switcher imports, kept this task's `readNoteRecovery`/`NoteEditorHandle`). The
+new `fr.ts` spreads `en`, so it needed nothing, and the pseudo catalog regenerated unchanged.
+6.1's new NPC backlink test clicked "Save note"; changed only that selector to "Done". The player
+journal keeps its own "Save note" copy, so `play-polish`/`player-private-notes` specs are untouched.
+
+Verification on the rebased tree:
+
+- gm-react typecheck exit 0 (`/tmp/knw63-rebase-typecheck.log`).
+- Full `pnpm lint` exit 0, including boundary and contrast (`/tmp/knw63-rebase-lint.log`).
+- knowledge-capture + knowledge + knowledge-polish specs, desktop and mobile: 76 passed
+  (`/tmp/knw63-rebase-e2e2.log`). The first run's only failure was that stale selector
+  (`/tmp/knw63-rebase-e2e.log`).
+- vitest editor/knowledge/i18n/platform-storage: 139 passed (`/tmp/knw63-rebase-unit.log`).
+
+Visual and full-suite gates were not rerun here; central exact-commit validation is pending.

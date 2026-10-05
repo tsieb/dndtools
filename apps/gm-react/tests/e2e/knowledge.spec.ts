@@ -649,7 +649,7 @@ test.describe('knowledge: notes workbench', () => {
 		await expect(option).toContainText('Character');
 		await option.click();
 		await expect(area).toHaveValue('Ask [[Mira the Ferryman]]');
-		await page.getByRole('button', { name: 'Save note', exact: true }).click();
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
 		const link = page.getByRole('link', { name: 'Mira the Ferryman', exact: true });
 		await expect(link).toHaveAttribute('href', /#\/characters\//);
 		await link.click();
