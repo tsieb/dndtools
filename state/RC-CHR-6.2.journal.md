@@ -83,3 +83,10 @@ IdentityPanel,XpPanel,DeathSavesPanel}` + reworked Abilities/Combat/Attacks/Spel
   companion-sheet, play-polish, player-view, player-preview, player-join-first, golden-path,
   collab, character-sheet, player-polish — 150/150. No visual change (only the null-data branch
   is new; `/player` and `/characters/:id` always carry the data).
+- 2026-10-04 attempt 3: the Visual regression gate on b6be12c5 failed one of 489 —
+  `golden-routes.spec.ts:107` high-contrast `/session` on visual-phone (18,510 px, 6%). Nothing
+  `/session` renders imports a module this story changed (only `characters/index`, `player/index`,
+  `play/Sheet` and the sheet folder reach them). Same code, pinned container: that test with
+  `--repeat-each=3` 3/3, then the full gate command `run-in-container.sh --update-snapshots=none
+--workers=2` 489/489. Treated as the known intermittent capture race on shell routes; no code or
+  baseline change.
