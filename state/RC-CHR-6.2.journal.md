@@ -16,7 +16,7 @@
   (+ its own Party tab, not a sheet panel), the companion strip. Per-panel edit affordances replace
   the DM sheet's global Edit/Done, each gated by the capability its command needs.
 - Built: `characters/sheet/{capabilities,subject,feedback,SheetBody,VitalsBlock,DmCombatEditor,
-  IdentityPanel,XpPanel,DeathSavesPanel}` + reworked Abilities/Combat/Attacks/Spells/Sharing/Tags
+IdentityPanel,XpPanel,DeathSavesPanel}` + reworked Abilities/Combat/Attacks/Spells/Sharing/Tags
   panels (each owns its editor; global Edit/Done retired). `player/Vitals.tsx` is now the Resources
   section panels (750 → ~390 lines); `player/Sheet.tsx`, `AdvancementPanel`, `useAdvancementEditor`
   deleted. `/characters/:id`, `/player` and `play/Sheet.tsx` are frames around `SheetBody`.
