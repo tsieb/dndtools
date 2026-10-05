@@ -166,3 +166,41 @@ needed no change.
 
 Keyboard and heading order: the `headings` and `focus order` snapshots of every state above pass
 unchanged.
+
+## Session 2 — claim gate follow-up (2026-10-05, base `b04c529e`)
+
+The gate rebased the branch onto `b04c529e` and flagged 15 paths outside the claim. Each was
+re-checked against the acceptance; commit `2148f8c9` carries the per-path reasons.
+
+**Reverted to base** (not required, or done inside owned files instead):
+
+- `app/board-helpers.ts`, `app/canvas/FlowBoard.tsx`, `app/flow-layout.test.ts` — the lane
+  stacking (Create over Manage beside Scenes) moved into `CommandCenter.tsx` as `homePlacements`,
+  reading the parts' layout groups from the scene. Consequence: at `/screen/:id` the flow board
+  (CAN-7.7) still packs rows, so Manage sits under Scenes there, and flow does not yet honour bare
+  presentation; `/` is unaffected. Both are follow-ups for the flow board's owner.
+- `app/widgets/WidgetRenderSlot.tsx` — the page sets `overflow: visible` on its own parts' regions
+  (from `HomePart`'s layout effect) instead of a slot prop.
+- `screens/sceneEditor/Inspector.tsx` and the `sceneEditor.rebuildWidget` key — the "Rebuild in the
+  widget builder" button is gone. The duplicate acceptance is proved through the builder's own
+  `readPackage`/`buildPackage` in the baseline test; an in-app entry point for copying a system
+  template widget into the builder is a follow-up (the Inspector's owner).
+
+**Kept, and why** (the task should be blocked for the operator to decide on widening):
+`templates/Hub.tsx`, `HubIntent.tsx` (the parts are these renderers — baseline and duplicate
+acceptance); `templates/index.tsx` (the viewer's translator, so es is not English-only);
+`dataEnvironment.ts` + `homeSources.ts` (the three sources); `widgetBuilder/vocabulary.ts`
+(typecheck); `schemas/widget-package.ts` (a GM-built copy with icon/hint must install);
+`shell/Sidebar.tsx` (else "3 scenes" on `/`); `builtin/DataHubBody.tsx` (reverting it fails the
+existing builtin-bodies snapshot: "Scenes 1"); `session/useSessionView.ts` (else the start picker
+offers the home screen); `core/state/onboarding.ts` (else the existing onboarding test fails).
+
+Evidence after the reverts: `pnpm typecheck` 0; `pnpm lint` 0 (16 pre-existing warnings); app vitest
+168 files green (DataHub snapshot restored); core vitest 287 files / 5241 tests; baseline test 11/11
+(44 committed snapshots unchanged); `golden-routes` in the pinned container: **213 passed**, no
+golden changed from the `e760a983` re-baseline.
+
+Not completed: the full Playwright suite (both profiles, 1882 tests) was started twice and both runs
+were cut off when the session ended (the second reached 36/1882 with no failures). Locally proven
+browser coverage is therefore the 353-test targeted batch (session 1) and the 213 golden routes;
+the operator's browser gate is the full-suite evidence.
