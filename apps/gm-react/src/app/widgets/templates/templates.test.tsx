@@ -241,6 +241,10 @@ describe('the template registry', () => {
 	it('registers a renderer for every template kind the schema declares', () => {
 		expect(TEMPLATE_RENDERER_ENTRIES.map(([kind]) => kind).sort()).toEqual(
 			[
+				'hero',
+				'card-grid',
+				'launcher',
+				'link-list',
 				'action-panel',
 				'chart',
 				'data-table',

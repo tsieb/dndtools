@@ -1,6 +1,14 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { WidgetLibraryEntry } from '@dndtools/core';
+import {
+	useId,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+	type ReactNode,
+} from 'react';
+import { widgetPresentation, type WidgetLibraryEntry } from '@dndtools/core';
 import { Badge, Icon, VisibilityChip } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { noteDepth, type NoteDepth } from '../widgets/builtin/Note';
@@ -313,6 +321,27 @@ export function WidgetFrame({
 }: WidgetFrameProps) {
 	const { t } = useI18n();
 	const placeholder = w.status !== 'available';
+	const presentation =
+		w.configuration.presentation ??
+		w.configFields.find((field) => field.key === 'presentation')?.default;
+	const bare = !editing && widgetPresentation({ presentation }) === 'bare';
+	// RC-WID-5.3: a bare tile paints no surface of its own, so its content takes the scene surface's
+	// palette (the board background's `data-theme`, a sibling of the tile layer) to keep its text
+	// contrast against the page. Written to the node, not rendered: React never owns the attribute,
+	// and each render re-reads it, so a changed scene background follows without a state round-trip.
+	const bodyRef = useRef<HTMLDivElement | null>(null);
+	useLayoutEffect(() => {
+		const body = bodyRef.current;
+		if (!body) return;
+		const theme = bare
+			? body
+					.closest('[data-background]')
+					?.querySelector(':scope > [data-testid="scene-background"]')
+					?.getAttribute('data-theme')
+			: null;
+		if (theme) body.setAttribute('data-theme', theme);
+		else body.removeAttribute('data-theme');
+	});
 	const fit = useTileFit(editing, height, stackOrder);
 	// RC-CAN-2.2 — the header is the tile's identity at a glance: the type's accent rail and tinted
 	// icon, the label, who can see it, and what it is bound to.
@@ -351,7 +380,7 @@ export function WidgetFrame({
 		<div
 			data-testid={`widget-${w.id}`}
 			ref={registerRef}
-			role="group"
+			role={bare ? 'region' : 'group'}
 			aria-label={ariaLabel}
 			aria-description={
 				editing
@@ -394,104 +423,122 @@ export function WidgetFrame({
 			}}
 		>
 			<div
-				className={meta.silhouetteClass}
+				ref={bodyRef}
+				className={bare ? undefined : meta.silhouetteClass}
 				style={{
 					position: 'relative',
 					height: '100%',
 					display: 'flex',
 					flexDirection: 'column',
 					gap: 'var(--space-2)',
-					padding: 'var(--space-3)',
+					padding: bare ? 'var(--space-0)' : 'var(--space-3)',
 					borderRadius: 'var(--radius-md)',
-					background: placeholder ? 'var(--color-surface-sunken)' : 'var(--color-surface-raised)',
-					border: `1px solid ${placeholder ? 'var(--color-border-strong)' : 'var(--color-border)'}`,
+					background: bare
+						? 'transparent'
+						: placeholder
+							? 'var(--color-surface-sunken)'
+							: 'var(--color-surface-raised)',
+					border: bare
+						? 'none'
+						: `1px solid ${placeholder ? 'var(--color-border-strong)' : 'var(--color-border)'}`,
 					opacity: placeholder ? 0.85 : 1,
 					overflow: 'hidden',
 					pointerEvents: editing ? 'none' : 'auto',
 				}}
 			>
-				{/* A BORDER, not a background: forced-colors mode repaints backgrounds as Canvas, which
+				{!bare && (
+					<>
+						{/* A BORDER, not a background: forced-colors mode repaints backgrounds as Canvas, which
 				    would erase the rail, but keeps a border and remaps it to CanvasText. */}
-				<span
-					aria-hidden
-					data-testid="tile-accent-rail"
-					style={{
-						position: 'absolute',
-						left: 0,
-						top: 0,
-						bottom: 0,
-						width: 0,
-						borderLeft: `4px solid ${accent}`,
-					}}
-				/>
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 'var(--space-2)',
-						flex: '0 0 auto',
-						// Room for the edit-mode grip, and for the menu trigger held at screen size (÷ scale).
-						...(editing
-							? { paddingLeft: 'var(--space-3)', paddingRight: `calc(${TRIGGER_SIZE} / ${scale})` }
-							: {}),
-					}}
-				>
-					<WidgetGlyph icon={meta.icon} size={16} color={accent} />
-					<TileTitle>{w.title}</TileTitle>
-					<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
-				</div>
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						gap: 'var(--space-2)',
-						minWidth: 0,
-						flex: '0 0 auto',
-					}}
-				>
-					<span
-						title={meta.description}
-						style={{
-							font: 'var(--text-2xs) var(--font-sans)',
-							letterSpacing: 'var(--tracking-wide)',
-							textTransform: 'uppercase',
-							color: 'var(--color-text-tertiary)',
-							whiteSpace: 'nowrap',
-							flex: '0 0 auto',
-						}}
-					>
-						{w.typeLabel}
-					</span>
-					{editing &&
-						w.type === 'note' &&
-						w.configFields.some((field) => field.key === 'depth') && (
-							<Badge data-testid="note-depth-badge">
-								{t('widgetBody.note.depthBadge', { depth: t(NOTE_DEPTH_LABEL[noteDepth(w)]) })}
-							</Badge>
-						)}
-					{binding && glyph && (
 						<span
-							data-testid="tile-binding"
-							data-binding-state={binding}
-							title={
-								entityName ? t('boardCanvas.binding.boundTo', { name: entityName }) : t(glyph.label)
-							}
+							aria-hidden
+							data-testid="tile-accent-rail"
 							style={{
-								display: 'inline-flex',
+								position: 'absolute',
+								left: 0,
+								top: 0,
+								bottom: 0,
+								width: 0,
+								borderLeft: `4px solid ${accent}`,
+							}}
+						/>
+						<div
+							style={{
+								display: 'flex',
 								alignItems: 'center',
-								gap: 'var(--space-1)',
-								minWidth: 0,
-								font: '600 var(--text-2xs) var(--font-sans)',
-								color: glyph.tone,
+								gap: 'var(--space-2)',
+								flex: '0 0 auto',
+								// Room for the edit-mode grip, and for the menu trigger held at screen size (÷ scale).
+								...(editing
+									? {
+											paddingLeft: 'var(--space-3)',
+											paddingRight: `calc(${TRIGGER_SIZE} / ${scale})`,
+										}
+									: {}),
 							}}
 						>
-							<Icon name={glyph.icon} size={12} />
-							<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-								{entityName ?? t(glyph.label)}
+							<WidgetGlyph icon={meta.icon} size={16} color={accent} />
+							<TileTitle>{w.title}</TileTitle>
+							<VisibilityChip level={w.visibility} byException data-testid="visibility-badge" />
+						</div>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								minWidth: 0,
+								flex: '0 0 auto',
+							}}
+						>
+							<span
+								title={meta.description}
+								style={{
+									font: 'var(--text-2xs) var(--font-sans)',
+									letterSpacing: 'var(--tracking-wide)',
+									textTransform: 'uppercase',
+									color: 'var(--color-text-tertiary)',
+									whiteSpace: 'nowrap',
+									flex: '0 0 auto',
+								}}
+							>
+								{w.typeLabel}
 							</span>
-						</span>
-					)}
-				</div>
+							{editing &&
+								w.type === 'note' &&
+								w.configFields.some((field) => field.key === 'depth') && (
+									<Badge data-testid="note-depth-badge">
+										{t('widgetBody.note.depthBadge', { depth: t(NOTE_DEPTH_LABEL[noteDepth(w)]) })}
+									</Badge>
+								)}
+							{binding && glyph && (
+								<span
+									data-testid="tile-binding"
+									data-binding-state={binding}
+									title={
+										entityName
+											? t('boardCanvas.binding.boundTo', { name: entityName })
+											: t(glyph.label)
+									}
+									style={{
+										display: 'inline-flex',
+										alignItems: 'center',
+										gap: 'var(--space-1)',
+										minWidth: 0,
+										font: '600 var(--text-2xs) var(--font-sans)',
+										color: glyph.tone,
+									}}
+								>
+									<Icon name={glyph.icon} size={12} />
+									<span
+										style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+									>
+										{entityName ?? t(glyph.label)}
+									</span>
+								</span>
+							)}
+						</div>
+					</>
+				)}
 				<div
 					data-tile-content
 					tabIndex={-1}
@@ -554,7 +601,7 @@ export function WidgetFrame({
 				/>
 			)}
 
-			{selected && !multi && (
+			{selected && !multi && !bare && (
 				<>
 					{/* RC-CAN-8.3: INSIDE the frame's bottom-left corner, held at screen size and capped to the
 					    frame's width. Above the frame it overlapped the canvas edge on a top-row tile. */}

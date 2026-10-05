@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isValidFormula } from '../state/system-package';
 import {
 	ALL_HOST_PERMISSIONS,
+	ALL_WIDGET_TEMPLATE_KINDS,
 	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_CREATE_TARGETS,
@@ -122,18 +123,7 @@ const widgetRenderEntrypointSchema = z
 	.object({
 		runtime: z.enum(['template', 'builtin', 'custom-html-js']),
 		sandbox: z.enum(['iframe', 'worker']).optional(),
-		template: z
-			.enum([
-				'data-table',
-				'status-list',
-				'tracker',
-				'action-panel',
-				'scene-message',
-				'chart',
-				'stat-block',
-				'form-panel',
-			])
-			.optional(),
+		template: z.enum(ALL_WIDGET_TEMPLATE_KINDS).optional(),
 		assetPath: z.string().min(1).optional(),
 		exportName: z.string().min(1).optional(),
 		hostApiVersion: z.number().int().positive(),

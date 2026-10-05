@@ -24,6 +24,12 @@ import { ActionPanelTemplate } from '../widgets/templates/ActionPanel';
 import { ChartTemplate } from '../widgets/templates/Chart';
 import { DataTableTemplate } from '../widgets/templates/DataTable';
 import { FormPanelTemplate } from '../widgets/templates/FormPanel';
+import {
+	CardGridTemplate,
+	HeroTemplate,
+	LauncherTemplate,
+	LinkListTemplate,
+} from '../widgets/templates/Hub';
 import { SceneMessageTemplate } from '../widgets/templates/SceneMessage';
 import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
@@ -188,6 +194,10 @@ const PREVIEW_TEMPLATES: Record<WidgetTemplateKind, React.ComponentType<WidgetTe
 	chart: ChartTemplate,
 	'data-table': DataTableTemplate,
 	'form-panel': FormPanelTemplate,
+	hero: HeroTemplate,
+	'card-grid': CardGridTemplate,
+	launcher: LauncherTemplate,
+	'link-list': LinkListTemplate,
 	'scene-message': SceneMessageTemplate,
 	'stat-block': StatBlockTemplate,
 	'status-list': StatusListTemplate,

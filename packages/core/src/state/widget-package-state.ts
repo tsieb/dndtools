@@ -27,7 +27,11 @@ export type WidgetTemplateKind =
 	| 'scene-message'
 	| 'chart'
 	| 'stat-block'
-	| 'form-panel';
+	| 'form-panel'
+	| 'hero'
+	| 'card-grid'
+	| 'launcher'
+	| 'link-list';
 export type WidgetRuntimeKind = 'template' | 'builtin' | 'custom-html-js';
 export type WidgetRuntimeSandbox = 'iframe' | 'worker';
 export type WidgetStyleIsolation = 'host-scoped' | 'iframe-document' | 'shadow-root';
@@ -683,7 +687,7 @@ export const ALL_HOST_PERMISSIONS: WidgetHostPermission[] = [
 /**
  * Every declared template renderer, in a stable order (RC-WID-1.2 ships one renderer per entry).
  * Exported so the widget builder, the MCP `widget.package.propose` tool schema, and its
- * model-facing description all name the SAME eight kinds — a ninth can never appear in one place
+ * model-facing description all name the SAME kinds — a new one can never appear in one place
  * and be missing from another.
  */
 export const ALL_WIDGET_TEMPLATE_KINDS = [
@@ -695,6 +699,10 @@ export const ALL_WIDGET_TEMPLATE_KINDS = [
 	'chart',
 	'stat-block',
 	'form-panel',
+	'hero',
+	'card-grid',
+	'launcher',
+	'link-list',
 ] as const satisfies readonly WidgetTemplateKind[];
 
 /**

@@ -6091,3 +6091,6 @@ export { listPinnedScreensForActor, listScreensForActor } from './queries/screen
 
 export { getContentHistoryForActor } from './queries/content-history';
 export type { ContentRevisionView } from './queries/content-history';
+
+export { widgetPresentation } from './state/scene-state';
+export type { WidgetPresentation } from './state/scene-state';

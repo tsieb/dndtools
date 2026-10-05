@@ -37,6 +37,12 @@ import { ActionPanelTemplate } from './templates/ActionPanel';
 import { ChartTemplate } from './templates/Chart';
 import { DataTableTemplate } from './templates/DataTable';
 import { FormPanelTemplate } from './templates/FormPanel';
+import {
+	CardGridTemplate,
+	HeroTemplate,
+	LauncherTemplate,
+	LinkListTemplate,
+} from './templates/Hub';
 import { SceneMessageTemplate } from './templates/SceneMessage';
 import { StatBlockTemplate } from './templates/StatBlock';
 import { StatusListTemplate } from './templates/StatusList';
@@ -687,6 +693,10 @@ const WORKER_TEMPLATES: Record<
 	chart: ChartTemplate,
 	'stat-block': StatBlockTemplate,
 	'form-panel': FormPanelTemplate,
+	hero: HeroTemplate,
+	'card-grid': CardGridTemplate,
+	launcher: LauncherTemplate,
+	'link-list': LinkListTemplate,
 };
 
 /** The template a data-only widget's result is drawn through; a table when it names none. */

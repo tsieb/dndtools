@@ -3,6 +3,7 @@ import {
 	PREVIEW_PLAYER_ACTOR_ID,
 	permissionsWithPreviewActors,
 	resolveWidgetConfig,
+	widgetPresentation,
 	type WidgetTemplateKind,
 } from '@dndtools/core';
 import { Seg, T } from '../screen-kit';
@@ -17,6 +18,12 @@ import { ActionPanelTemplate } from '../widgets/templates/ActionPanel';
 import { ChartTemplate } from '../widgets/templates/Chart';
 import { DataTableTemplate } from '../widgets/templates/DataTable';
 import { FormPanelTemplate } from '../widgets/templates/FormPanel';
+import {
+	CardGridTemplate,
+	HeroTemplate,
+	LauncherTemplate,
+	LinkListTemplate,
+} from '../widgets/templates/Hub';
 import { SceneMessageTemplate } from '../widgets/templates/SceneMessage';
 import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
@@ -57,6 +64,10 @@ const RAW_TEMPLATES: Record<WidgetTemplateKind, ComponentType<WidgetTemplateProp
 	chart: ChartTemplate,
 	'stat-block': StatBlockTemplate,
 	'form-panel': FormPanelTemplate,
+	hero: HeroTemplate,
+	'card-grid': CardGridTemplate,
+	launcher: LauncherTemplate,
+	'link-list': LinkListTemplate,
 };
 
 export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
@@ -133,6 +144,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 		},
 	);
 
+	const bare = widgetPresentation(widget.configuration) === 'bare';
 	const Template = RAW_TEMPLATES[definition.renderEntrypoint?.template ?? 'status-list'];
 	const emptyQueries = data.queries.filter((query) => query.rows.length === 0 && !query.withheld);
 	const withheldQueries = data.queries.filter((query) => query.withheld !== null);
@@ -164,25 +176,31 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 					width: '100%',
 					maxWidth: Math.max(240, Math.min(560, definition.defaultSize.width)),
 					height: Math.max(160, Math.min(420, definition.defaultSize.height)),
-					padding: 'var(--space-3)',
-					border: `1px solid ${T.bd}`,
+					padding: bare ? 'var(--space-0)' : 'var(--space-3)',
+					border: bare ? 'none' : `1px solid ${T.bd}`,
 					borderRadius: 'var(--radius-lg)',
-					background: T.surf,
-					boxShadow: T.ssm,
+					background: bare ? 'transparent' : T.surf,
+					boxShadow: bare ? 'none' : T.ssm,
 					overflow: 'hidden',
 				}}
 			>
-				<div
-					style={{
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 'var(--space-0)',
-						flex: '0 0 auto',
-					}}
-				>
-					<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{widget.title}</span>
-					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>{widget.typeLabel}</span>
-				</div>
+				{!bare && (
+					<div
+						style={{
+							display: 'flex',
+							flexDirection: 'column',
+							gap: 'var(--space-0)',
+							flex: '0 0 auto',
+						}}
+					>
+						<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
+							{widget.title}
+						</span>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+							{widget.typeLabel}
+						</span>
+					</div>
+				)}
 				<div style={{ flex: 1, minHeight: 0 }}>
 					<WidgetErrorBoundary widgetId={`${widget.type}:${plan.kind}`}>
 						{plan.kind === 'custom' ? (

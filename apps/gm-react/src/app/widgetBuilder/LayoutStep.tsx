@@ -1,3 +1,4 @@
+import { widgetPresentation } from '@dndtools/core';
 import { Field, Input, Select } from '../../ds';
 import { type DockPreference } from './draft';
 import { FieldGrid, StepHeader, StepSection, issueFor, type StepProps } from './fields';
@@ -54,6 +55,40 @@ export function LayoutStep({ draft, patch, issues }: StepProps) {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.layout.title')} help={t('builder.layout.help')} />
+			<StepSection
+				title={t('builder.layout.presentation')}
+				help={t('builder.layout.presentationHelp')}
+			>
+				<Field label={t('builder.layout.presentation')}>
+					<Select
+						value={widgetPresentation({
+							presentation: draft.configFields.find((f) => f.key === 'presentation')?.default,
+						})}
+						options={[
+							{ value: 'framed', label: t('builder.layout.framed') },
+							{ value: 'bare', label: t('builder.layout.bare') },
+						]}
+						onChange={(e) =>
+							patch({
+								configFields: [
+									...draft.configFields.filter((f) => f.key !== 'presentation'),
+									{
+										key: 'presentation',
+										label: 'Presentation',
+										group: 'display',
+										control: 'select',
+										default: e.target.value,
+										options: [
+											{ value: 'framed', label: 'Framed' },
+											{ value: 'bare', label: 'Bare' },
+										],
+									},
+								],
+							})
+						}
+					/>
+				</Field>
+			</StepSection>
 			<StepSection
 				title={t('builder.layout.defaultSize')}
 				help={t('builder.layout.defaultSizeHelp')}

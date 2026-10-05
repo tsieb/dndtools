@@ -8,6 +8,7 @@ import { ActionPanelTemplate } from './ActionPanel';
 import { ChartTemplate } from './Chart';
 import { DataTableTemplate } from './DataTable';
 import { FormPanelTemplate } from './FormPanel';
+import { CardGridTemplate, HeroTemplate, LauncherTemplate, LinkListTemplate } from './Hub';
 import { SceneMessageTemplate } from './SceneMessage';
 import { StatBlockTemplate } from './StatBlock';
 import { StatusListTemplate } from './StatusList';
@@ -57,6 +58,10 @@ function connect(
 export const TEMPLATE_RENDERER_ENTRIES: ReadonlyArray<
 	readonly [WidgetTemplateKind, ComponentType<ConnectedProps>]
 > = [
+	['hero', connect(HeroTemplate, 'HeroWidget')],
+	['card-grid', connect(CardGridTemplate, 'CardGridWidget')],
+	['launcher', connect(LauncherTemplate, 'LauncherWidget')],
+	['link-list', connect(LinkListTemplate, 'LinkListWidget')],
 	['data-table', connect(DataTableTemplate, 'DataTableWidget')],
 	['status-list', connect(StatusListTemplate, 'StatusListWidget')],
 	['tracker', connect(TrackerTemplate, 'TrackerWidget')],

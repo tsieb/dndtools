@@ -724,6 +724,10 @@ const WIDGET_TEMPLATE_GUIDANCE: Record<(typeof ALL_WIDGET_TEMPLATE_KINDS)[number
 	chart: 'values plotted',
 	'stat-block': 'one creature',
 	'form-panel': 'labelled inputs',
+	hero: 'campaign title, subtitle, party avatars and one primary intent',
+	'card-grid': 'thumbnail cards with status, metadata and a new action',
+	launcher: 'icon tiles with labels and hints',
+	'link-list': 'navigation rows with icons, metadata and chevrons',
 };
 
 /** A SHORT gloss per data-query source, in `ALL_WIDGET_DATA_QUERY_SOURCES` order. */

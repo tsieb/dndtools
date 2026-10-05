@@ -50,6 +50,16 @@ export interface WidgetLayout {
 	focusOrder: number | null;
 }
 
+/** Host display setting in instance configuration, alongside title and visibility.
+ * Missing/legacy values remain framed. Configuration already round-trips through scene commands,
+ * duplication, history, export and package defaults without a scene schema migration.
+ */
+export type WidgetPresentation = 'framed' | 'bare';
+
+export function widgetPresentation(configuration: Record<string, unknown>): WidgetPresentation {
+	return configuration.presentation === 'bare' ? 'bare' : 'framed';
+}
+
 export interface WidgetInstance {
 	id: WidgetInstanceId;
 	type: string;

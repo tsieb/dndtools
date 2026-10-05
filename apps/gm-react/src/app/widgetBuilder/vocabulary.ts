@@ -40,6 +40,10 @@ export const TEMPLATE_LABEL: Record<WidgetTemplateKind, MessageKey> = {
 	chart: 'builder.template.chart',
 	'stat-block': 'builder.template.statBlock',
 	'form-panel': 'builder.template.formPanel',
+	'link-list': 'builder.template.linkList',
+	launcher: 'builder.template.launcher',
+	'card-grid': 'builder.template.cardGrid',
+	hero: 'builder.template.hero',
 };
 
 export const TEMPLATE_HELP: Record<WidgetTemplateKind, MessageKey> = {
@@ -51,6 +55,10 @@ export const TEMPLATE_HELP: Record<WidgetTemplateKind, MessageKey> = {
 	chart: 'builder.templateHelp.chart',
 	'stat-block': 'builder.templateHelp.statBlock',
 	'form-panel': 'builder.templateHelp.formPanel',
+	'link-list': 'builder.templateHelp.linkList',
+	launcher: 'builder.templateHelp.launcher',
+	'card-grid': 'builder.templateHelp.cardGrid',
+	hero: 'builder.templateHelp.hero',
 };
 
 export const TEMPLATE_KINDS = Object.keys(TEMPLATE_LABEL) as WidgetTemplateKind[];

@@ -3835,6 +3835,21 @@ export default {
 	'builder.template.actionPanel': '[Áçţíóñ ƥáñéľ~~~~ ]',
 	'builder.template.chart': '[Çĥáŕţ~~]',
 	'builder.template.dataTable': '[Ďáţá ţáƀľé~~~~]',
+	'builder.template.hero': '[Ĥéŕó~~]',
+	'builder.templateHelp.hero':
+		'[Ţíţľé, šúƀţíţľé, ƥáŕţý áñď óñé ƥŕíḿáŕý áçţíóñ.~~~~ ~~~~ ~~~~ ~~~~]',
+	'builder.template.cardGrid': '[Çáŕď ğŕíď~~~~]',
+	'builder.templateHelp.cardGrid':
+		'[Ţĥúḿƀñáíľ çáŕďš ŵíţĥ šţáţúš áñď á ñéŵ áçţíóñ.~~~~ ~~~~ ~~~~ ~~~]',
+	'builder.template.launcher': '[Ľáúñçĥéŕ~~~~]',
+	'builder.templateHelp.launcher': '[Íçóñ ţíľéš ŵíţĥ ľáƀéľš áñď ĥíñţš.~~~~ ~~~~ ~~~~]',
+	'builder.template.linkList': '[Ľíñķ ľíšţ~~~~]',
+	'builder.templateHelp.linkList': '[Ŕóŵš ŵíţĥ íçóñš, ḿéţáďáţá áñď çĥéṽŕóñš.~~~~ ~~~~ ~~~~ ~]',
+	'builder.layout.presentation': '[Ƥŕéšéñţáţíóñ~~~~ ]',
+	'builder.layout.framed': '[Ƒŕáḿéď~~~]',
+	'builder.layout.bare': '[Ɓáŕé~~]',
+	'builder.layout.presentationHelp':
+		'[Ɓáŕé ĥíďéš ţĥé ţíţľé ƀáŕ íñ ṽíéŵ ḿóďé šó ţĥé ŵíďğéţ ŕéáďš áš ƥáğé çóñţéñţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'builder.template.formPanel': '[Ƒóŕḿ ƥáñéľ~~~~]',
 	'builder.template.sceneMessage': '[Šçéñé ḿéššáğé~~~~ ~]',
 	'builder.template.statBlock': '[Šţáţ ƀľóçķ~~~~]',
