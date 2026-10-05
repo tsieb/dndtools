@@ -65,3 +65,36 @@ ownership or mark the gate passed.
   RC-POL-1.7 and `eb9e529a`) and binary conflicts in the nine `/play` visual baselines. I did not
   rebase, so the claim diff stays measured against the recorded base. Integration needs a rebase
   and a fresh `/play` baseline capture on top of current `loop/rc`.
+
+## Rebase onto ae852b4e (integration reconcile, 2026-10-05)
+
+- Rebased the three task commits onto `ae852b4e`. Conflicts:
+  - `PartyPanel.tsx` `MemberRow`: kept the base's token styling (RC-POL-1.7) and re-applied the
+    portrait `src` and level label. The level label now uses the same `var(--text-xs)`/`T.ter` style
+    as the AC label. The board-tile "You" badge `flexShrink: 0` merged cleanly and is unchanged.
+  - Nine `/play` baselines: took the base versions. Since `eb9e529a`, the `/play` golden route shows
+    the join-first screen (no seat, no party rows), so this change no longer moves those captures.
+    The branch now changes no PNGs.
+- Base drift fixed after the rebase:
+  - RC-CHR-6.2 (`210310fd`) removed `characters.levelValue` as orphaned copy. The party row now uses
+    a new `play.party.level` key (EN "Level {level}", ES "Nivel {level}").
+  - RC-CHR-6.2 reshaped `SheetSubject.sharing` (no `kind`). `SharingPanel` now checks `view.kind`.
+  - The vocabulary test bans a hard-coded "DM" in catalogs. `characters.shareHidden` and
+    `characters.sharedWithNobody` now use `{gm}` in EN and ES.
+  - Regenerated `src/i18n/dev/qps-ploc.ts` (`tsx scripts/i18n-catalog.ts pseudo`). The previous
+    attempt had changed and added copy without regenerating it.
+- Validation on the rebased tree:
+  - core `tsc --noEmit` exit 0; gm-react `tsc --noEmit` exit 0
+  - core `vitest run tests/character-party-and-player-records.test.ts character`: 174 passed / 10 files
+  - gm-react `vitest run src/i18n src/screens/characters src/net src/app/character src/screens/play`
+    (excluding Playwright `*.spec.ts`): 143 passed / 16 files. Before the `{gm}` fix,
+    `vocabulary.test.tsx` failed on `characters.shareHidden`, which is how the issue was found.
+  - `pnpm lint`: exit 0 (raw-style count, eslint, boundary, emphasis and contrast). The emphasis
+    warnings are pre-existing on the base.
+  - `playwright test tests/e2e/party-summary.spec.ts --project=desktop-chromium
+    --project=mobile-chromium --workers=1` with `DNDTOOLS_E2E_PORT=32967`: **6 passed**. This covers
+    a real joined companion seeing three private-sheet PCs, live DM HP propagation, and the EN/ES
+    Sharing copy.
+  - Pinned container: `run-in-container.sh --update-snapshots=none --workers=2
+    -g '(/play|characters|character builder|play stage|player)'`: **69 passed** (1.7m), with no
+    snapshot updates.

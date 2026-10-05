@@ -246,7 +246,7 @@ function MemberRow({ m, detail }: { m: PartyMemberVitals; detail?: ReactNode }) 
 						<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>{m.name}</span>
 						{m.level != null && (
 							<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter }}>
-								{t('characters.levelValue', { level: m.level })}
+								{t('play.party.level', { level: m.level })}
 							</span>
 						)}
 						{m.isSelf && <Badge status="accent">{t('play.party.you')}</Badge>}

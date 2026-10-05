@@ -73,7 +73,7 @@ export function SharingPanel({
 					) : undefined
 				}
 			>
-				{record.kind === 'pc' && <p>{t('characters.partyVitalsAlways')}</p>}
+				{view.kind === 'pc' && <p>{t('characters.partyVitalsAlways')}</p>}
 				{shareDraft ? (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						<Field label={t('characters.whoCanSee')}>

@@ -1408,6 +1408,7 @@ export const en = {
 	'play.party.roster': 'Roster',
 	'play.party.empty': 'No party members are visible to you yet.',
 	'play.party.you': 'You',
+	'play.party.level': 'Level {level}',
 	'play.party.armorClass': 'AC {value}',
 	'play.party.vitals': 'Party vitals',
 	'play.party.tempHp': '+{value} temp',
@@ -4682,9 +4683,10 @@ export const en = {
 	'characters.specificPlayers': 'Specific players',
 	'characters.noPlayersYet': 'No players yet — add a player in Settings first.',
 	'characters.applySharing': 'Apply',
-	'characters.shareHidden': 'Only the DM can open the full sheet.',
+	'characters.shareHidden': 'Only the {gm} can open the full sheet.',
 	'characters.sharedWith': 'Full sheet shared with {names}.',
-	'characters.sharedWithNobody': 'Only the DM can open the full sheet until players are selected.',
+	'characters.sharedWithNobody':
+		'Only the {gm} can open the full sheet until players are selected.',
 	'characters.shareAllPlayers': 'Everyone in the party can open the full sheet.',
 
 	'characters.advancement': 'Advancement',

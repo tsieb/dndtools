@@ -1431,6 +1431,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'play.party.roster': 'Lista',
 	'play.party.empty': 'Todavía no puedes ver a ningún miembro del grupo.',
 	'play.party.you': 'Tú',
+	'play.party.level': 'Nivel {level}',
 	'play.party.armorClass': 'CA {value}',
 	'play.party.vitals': 'Constantes del grupo',
 	'play.party.tempHp': '+{value} temp',
@@ -4688,10 +4689,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'characters.specificPlayers': 'Jugadores concretos',
 	'characters.noPlayersYet': 'Todavía no hay jugadores — añade uno en Configuración primero.',
 	'characters.applySharing': 'Aplicar',
-	'characters.shareHidden': 'Solo el DM puede abrir la ficha completa.',
+	'characters.shareHidden': 'Solo el {gm} puede abrir la ficha completa.',
 	'characters.sharedWith': 'Ficha completa compartida con {names}.',
 	'characters.sharedWithNobody':
-		'Solo el DM puede abrir la ficha completa hasta que selecciones jugadores.',
+		'Solo el {gm} puede abrir la ficha completa hasta que selecciones jugadores.',
 	'characters.shareAllPlayers': 'Todo el grupo puede abrir la ficha completa.',
 
 	'characters.advancement': 'Progresión',
