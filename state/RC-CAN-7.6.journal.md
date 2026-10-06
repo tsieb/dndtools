@@ -234,3 +234,20 @@ onboarding-consent, scene-templates, a11y-axe-gate, widget-builder, widget-query
 
 - mobile: 432 passed, 4 skipped, then the 4 query-source failures fixed by the spec update (4/4);
   `scene-first-render` 1241.0 / 1500 ms PASS, `app-startup` 1129.8 / 2000 ms PASS (0 regressed).
+
+### Visual gate follow-up (gate run on `fa65e901`)
+
+The operator's "Visual regression (pinned container)" gate runs every visual spec (516), not only
+`golden-routes`, and failed on `extensions-polish` and `palette-help`. Reproduced locally; both are
+intended consequences of the home screen, so re-baselined (`62f2e672`, 36 PNGs):
+
+- `/extensions` lists the new built-in "Command Center Parts" package beside the existing "Command
+  Center Widgets" one (desktop + rail lists, the phone remove confirm; five themes each).
+- Help's getting-started checklist reads "2 of 2 set up": the spec opens `/`, which now provisions
+  the Command Center, so "Set up your Command Center" is done. Before, nothing was provisioned until
+  `/board`, and the capture showed "1 of 2".
+- Six rail palette captures differ only in the sliver of page (now the hub) behind the dialog's top
+  edge; the dialog itself is identical.
+
+Full visual suite in the pinned container after the re-baseline: **516 passed**; visual budget
+34066 of 34816 KiB.
