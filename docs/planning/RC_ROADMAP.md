@@ -3739,9 +3739,11 @@ story; most stalls of the last week were roadmap data, not code.
    dispatcher). Candidates rebase onto `loop/rc` before gating; a rebase conflict parks the task with a
    `git rebase:` blocker and a retry re-enters the same worktree, so the operator brief in the task's
    description must say which upstream commit conflicts and what must survive.
-3. **`loop/rc` → `main` is a delivery PR** opened by the dispatcher once a promotion window opens and
-   the required `CI` workflow is green; `main` deploys the dev stage. Nobody pushes `main` directly for
-   feature work; docs and plan edits are the exception and merge back to `loop/rc` at once.
+3. **`loop/rc` → `main` is a direct fast-forward** by the dispatcher once the promotion window (one
+   hour) opens and the required `CI` workflow is green on the commit (ADR-043; no delivery PR). `main`
+   deploys the dev stage from that same green run. Nobody pushes `main` directly: the ruleset requires
+   the commit's `ci-gate`, so docs and plan edits arrive by pull request and merge back to `loop/rc`
+   at once.
 
 ### 21.2 Ownership is a write fence
 

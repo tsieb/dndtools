@@ -37,9 +37,11 @@ env:
 
 jobs:
   verify:
+    # The tag's commit must already carry a passing `ci-gate` (the suite ran there); this job adds
+    # the release-only gates: versions, advisories, the Electron boot smoke and the SBOM (ADR-043).
     name: release gates
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 30
     outputs:
       release_sha: ${{ steps.release_ref.outputs.sha }}
     steps:
@@ -59,44 +61,27 @@ jobs:
           test "$(git rev-parse HEAD)" = "$TAG_SHA"
           git merge-base --is-ancestor "$TAG_SHA" refs/remotes/origin/main
           echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      # An older tag (for example a rollback) predates these scripts; run this workflow revision's copy.
+      - name: Use this workflow revision's CI scripts
+        run: |
+          git cat-file -e "$GITHUB_WORKFLOW_SHA^{commit}" 2>/dev/null || git fetch --no-tags origin "$GITHUB_WORKFLOW_SHA"
+          git restore --source="$GITHUB_WORKFLOW_SHA" --worktree -- scripts/ci .github/actions
+      - name: Require a green ci-gate on the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
+        run: scripts/ci/require-green.sh "$RELEASE_SHA"
+      - uses: ./.github/actions/setup-workspace
         with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          electron: 'true'
       - name: Verify tag and package versions
         run: pnpm release:verify version --tag "$RELEASE_TAG"
       - name: Scan tracked files for credentials
         run: pnpm security:secrets
       - name: Reject high-severity dependency advisories
         run: pnpm security:audit
-      - name: Run static, type, and unit release gates
-        run: pnpm check
-      - name: Enforce core and security coverage floors
-        run: pnpm test:coverage:core
-      - name: Run full lint policy
-        run: pnpm lint
       - name: Build production bundles
         run: pnpm build
-      # An older tag (for example a rollback) predates the local action; run this workflow's copy.
-      - name: Use this workflow revision's browser setup action
-        run: |
-          git cat-file -e "$GITHUB_WORKFLOW_SHA^{commit}" 2>/dev/null || git fetch --no-tags origin "$GITHUB_WORKFLOW_SHA"
-          rm -rf .github/actions/setup-e2e
-          git restore --source="$GITHUB_WORKFLOW_SHA" --worktree -- .github/actions/setup-e2e
-      - name: Set up browser tests
-        uses: ./.github/actions/setup-e2e
-      - name: Run browser release suite
-        env:
-          PLAYWRIGHT_HTML_OPEN: never
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
-        run: pnpm --filter @dndtools/gm-react exec playwright test --reporter=line,html
-      - name: Apply accessibility release policy
-        run: pnpm a11y:report
       - name: Run Electron boot and persistence smoke
         run: xvfb-run --auto-servernum pnpm --filter @dndtools/gm-react desktop:smoke
       - name: Generate SPDX SBOM
@@ -106,17 +91,6 @@ jobs:
           format: spdx-json
           output-file: dndtools.spdx.json
           upload-artifact: false
-      - name: Upload release-gate diagnostics
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-gate-diagnostics
-          path: |
-            apps/gm-react/playwright-report
-            apps/gm-react/test-results
-            tmp/a11y
-          if-no-files-found: warn
-          retention-days: 30
       - name: Stage SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

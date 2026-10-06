@@ -4,6 +4,9 @@
 name: Performance
 
 on:
+  # Every promoted commit that can move a budget is measured once; a candidate gets hosted evidence
+  # through a manual run on its ref. Pull requests no longer trigger the two-hour paired capture
+  # (ADR-043): the integration branch pushed several times a day and paid for it on every push.
   push:
     branches:
       - main
@@ -16,16 +19,8 @@ on:
       - 'pnpm-lock.yaml'
       - '.github/workflows/perf.yml'
       - '.github/actions/setup-e2e/**'
-  pull_request:
-    paths:
-      - 'apps/gm-react/**'
-      - 'packages/core/**'
-      - 'scripts/perf/**'
-      - 'tests/perf/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/perf.yml'
-      - '.github/actions/setup-e2e/**'
+  schedule:
+    - cron: '0 4 * * 1' # Mondays 04:00 UTC: a weekly sample even when nothing budget-relevant landed
   # A manual run can capture any ref, so an unmerged candidate gets hosted evidence before it lands.
   workflow_dispatch:
     inputs:
@@ -36,7 +31,7 @@ on:
         default: ''
 
 concurrency:
-  group: perf-${{ inputs.ref || github.event.pull_request.base.ref || github.ref }}
+  group: perf-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:

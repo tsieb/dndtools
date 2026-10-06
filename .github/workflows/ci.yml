@@ -1,5 +1,17 @@
 name: CI
 
+# The required gate. One aggregate check, `ci-gate`, is what branch rules, the deploy, the
+# release and the dispatcher's promotion look at; everything else in this file is a leg of it.
+# Design (ADR-043, docs/development/GIT_WORKFLOW.md §2):
+#   • every leg is independent and starts from a cached install, so wall time is the slowest leg
+#     (~10 min), not the sum;
+#   • browser legs run inside the pinned Playwright image, so no job installs browsers or touches
+#     apt, and the functional, axe and visual suites all render in one known environment;
+#   • heavy, flaky-by-nature checks (the Android emulator, quarantined browser tests, the whole-app
+#     harness) live in nightly.yml and never block a landing;
+#   • a push to `main` that fast-forwards a commit already green on `loop/rc` reuses that result
+#     (status checks belong to the commit) instead of re-running the suite.
+
 on:
   push:
     branches:
@@ -14,40 +26,81 @@ on:
         default: false
 
 concurrency:
-  # Every integration push gets a complete run, even while other slots keep landing work.
-  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/loop/rc' && github.run_id || github.event.pull_request.base.ref || github.ref }}
+  # Integration and promotion pushes each get a complete, never-cancelled run: the dispatcher
+  # reads one verdict per commit, and a cancelled run would read as a failure. Human branches
+  # and PRs cancel their superseded runs.
+  group: ci-${{ (github.ref == 'refs/heads/loop/rc' || github.ref == 'refs/heads/main') && github.run_id || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
+env:
+  PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+
 jobs:
   changes:
-    name: detect runtime changes
+    name: plan the run
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
+      tier: ${{ steps.tier.outputs.tier }}
+      reuse: ${{ steps.reuse.outputs.reuse }}
       runtime: ${{ steps.filter.outputs.runtime }}
       visual: ${{ steps.filter.outputs.visual }}
-      tier: ${{ steps.tier.outputs.tier }}
+      android: ${{ steps.filter.outputs.android }}
+      desktop: ${{ steps.filter.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # RC-ENG-2.1 — a PR into an `initiative/*` branch is epic-level work and only needs the
+      # smoke tier; everything else runs the full tier.
+      - name: Determine CI tier
+        id: tier
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == initiative/* ]]; then
+            echo "tier=smoke" >> "$GITHUB_OUTPUT"
+          else
+            echo "tier=full" >> "$GITHUB_OUTPUT"
+          fi
+      # A promotion fast-forwards `main` to a commit that already passed on `loop/rc`. The check
+      # belongs to the commit, so the whole run is skipped and `ci-gate` passes on that evidence.
+      - name: Reuse a green result for this commit
+        id: reuse
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          GREEN=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?check_name=ci-gate&per_page=100" \
+            --jq "[.check_runs[] | select(.status == \"completed\" and .conclusion == \"success\" and (.html_url | contains(\"/runs/$RUN_ID/\") | not))] | length")
+          if [[ "$GREEN" -gt 0 ]]; then
+            echo "reuse=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Reusing CI evidence::ci-gate already passed on $SHA; this run reuses that result."
+          else
+            echo "reuse=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
             runtime:
               - 'apps/gm-react/**'
-              - 'packages/core/**'
+              - 'packages/**'
               - 'scripts/**'
+              - 'tests/**'
+              - 'config/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
-              - 'vitest.*.config.ts'
+              - 'vitest.*.ts'
               - '.github/workflows/ci.yml'
-              - '.github/workflows/release.yml'
-              - '.github/actions/setup-e2e/**'
+              - '.github/actions/**'
             # RC-DSN-4.1 — anything that can move a golden-route pixel, and the suite itself.
             visual:
               - 'apps/gm-react/src/**'
@@ -60,20 +113,24 @@ jobs:
               - 'packages/core/**'
               - 'pnpm-lock.yaml'
               - '.github/workflows/ci.yml'
-      # RC-ENG-2.1 — tiered branch model (GIT_WORKFLOW.md §3.3, §1.5): a PR into an `initiative/*`
-      # branch is epic-level work and only needs the fast smoke gate; a push/PR into `main` (or a
-      # manual dispatch) is an initiative-integration and needs the full gate.
-      - name: Determine CI tier
-        id: tier
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-        run: |
-          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == initiative/* ]]; then
-            echo "tier=smoke" >> "$GITHUB_OUTPUT"
-          else
-            echo "tier=full" >> "$GITHUB_OUTPUT"
-          fi
+            android:
+              - 'apps/gm-react/android/**'
+              - 'apps/gm-react/capacitor.config.*'
+              - 'apps/gm-react/src/**'
+              - 'apps/gm-react/package.json'
+              - 'packages/core/**'
+              - 'pnpm-lock.yaml'
+              - 'scripts/android-sdk-install.sh'
+              - 'scripts/check-android.mjs'
+              - '.github/workflows/ci.yml'
+            desktop:
+              - 'apps/gm-react/electron/**'
+              - 'apps/gm-react/scripts/**'
+              - 'apps/gm-react/src/**'
+              - 'apps/gm-react/package.json'
+              - 'packages/core/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/ci.yml'
 
   smoke-gate:
     name: smoke-gate
@@ -85,76 +142,69 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-workspace
       - name: Run the smoke gate (lint:boundary + typecheck + critical unit subset)
         run: pnpm test:smoke
 
-  build-and-test:
-    name: build-and-test
+  static:
+    name: static (gates, lint, typecheck)
     needs: [changes]
-    if: needs.changes.outputs.tier == 'full'
+    if: needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
+      - uses: ./.github/actions/setup-workspace
       - name: Enforce tiered quality gates (PLAT-010)
         run: pnpm gates
-
       - name: Scan tracked files for high-confidence credentials
         run: pnpm security:secrets
-
       - name: Enforce the incremental formatting baseline
         run: pnpm format:check:changed
-
+      - name: Verify the Android version contract
+        run: pnpm check:android
+      - name: Validate declarative stage configuration
+        run: pnpm cloud:stage-config:validate
       # `pnpm gates` only cross-checks gate metadata; it runs no compiler or linter.
-      # The changed-file format gate advances the baseline without reformatting historical files.
-      - name: Lint (eslint + boundary + non-text contrast)
+      - name: Lint (eslint + boundary + emphasis + non-text contrast)
         run: pnpm lint
-
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Build
-        run: pnpm build
-
-      - name: Enforce the production bundle budget (RC-ENG-1.2)
-        run: pnpm check:bundle-budget
-
-      - name: Run unit tests
-        run: pnpm test
-
-      - name: Enforce core and security coverage floors
-        run: pnpm test:coverage:core
-
+  unit:
+    name: unit (${{ matrix.suite }})
+    needs: [changes]
+    if: needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # The four root suites of `pnpm test` (docs/development/TESTING.md §1), one runner each.
+        # `critical` runs the core suite under coverage so the floors are enforced in the same pass.
+        include:
+          - suite: critical
+            script: test:coverage:core
+          - suite: cloud
+            script: test:cloud
+          - suite: app
+            script: test:app
+          - suite: tooling
+            script: test:tooling
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - name: Run the ${{ matrix.suite }} suite
+        env:
+          SCRIPT: ${{ matrix.script }}
+        run: pnpm "$SCRIPT"
       - name: Upload core coverage report
-        if: always()
+        if: always() && matrix.suite == 'critical'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: core-coverage
@@ -162,92 +212,115 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  browser-e2e:
-    name: browser E2E (${{ matrix.name }})
-    # Vite serves these tests directly: a separate build failure must not hide browser failures.
+  build:
+    name: build + bundle budget
     needs: [changes]
-    if: needs.changes.outputs.tier == 'full' && (github.ref == 'refs/heads/loop/rc' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
+    if: needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true'
     runs-on: ubuntu-latest
-    # RC-ENG-2.2: the shard budget is 12 minutes. The Playwright step keeps its own 19-minute cap
-    # (what it had inside the old 20-minute job) so a silent test slowdown still cannot ride for
-    # half an hour. The job total also covers a browser setup capped at 10 minutes: on
-    # b25ec1e8 a slow Ubuntu mirror stretched `playwright install --with-deps` from ~30 s to
-    # 7.7 minutes and the shard was killed at 536/550 with every test green.
-    timeout-minutes: 32
-    strategy:
-      fail-fast: false
-      matrix:
-        # RC-ENG-2.2: three shards, each running two Playwright workers, keeps a full browser-E2E
-        # leg inside the 12-minute-per-profile budget recorded in docs/development/TESTING.md.
-        include:
-          - shard: 1/3
-            name: 1-of-3
-          - shard: 2/3
-            name: 2-of-3
-          - shard: 3/3
-            name: 3-of-3
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: ./.github/actions/setup-workspace
+      - name: Build core, cloud functions and the web app
+        run: pnpm build
+      - name: Enforce the production bundle budget (RC-ENG-1.2)
+        run: pnpm check:bundle-budget
+
+  e2e:
+    name: browser e2e (${{ matrix.shard }} of 4)
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true' &&
+      (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
+    runs-on: ubuntu-latest
+    # RC-ENG-2.2: a shard of the full functional suite, both profiles, two workers, fits well
+    # inside this cap; the image removes the browser install that used to eat the budget.
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+      options: --ipc=host
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: pnpm install --frozen-lockfile
-      - name: Set up browser tests
-        timeout-minutes: 10
-        uses: ./.github/actions/setup-e2e
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
       - name: Run Playwright shard
-        timeout-minutes: 19
         env:
-          PLAYWRIGHT_HTML_OPEN: never
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
-          PLAYWRIGHT_SHARD: ${{ matrix.shard }}
+          PLAYWRIGHT_SHARD: ${{ matrix.shard }}/4
+        # Tests tagged @quarantine run in nightly.yml only (docs/development/TESTING.md §10).
         run: >-
           pnpm --filter @dndtools/gm-react exec playwright test
-          --shard="$PLAYWRIGHT_SHARD" --reporter=line,html
-      - name: Upload Playwright diagnostics
+          --shard="$PLAYWRIGHT_SHARD" --grep-invert @quarantine --reporter=line,blob
+      - name: Upload shard report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: browser-e2e-${{ matrix.name }}
-          path: |
-            apps/gm-react/playwright-report
-            apps/gm-react/test-results
+          name: e2e-blob-${{ matrix.shard }}
+          path: apps/gm-react/blob-report
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-failures-${{ matrix.shard }}
+          path: apps/gm-react/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-report:
+    name: browser e2e report
+    needs: [e2e]
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: e2e-blob-*
+          path: apps/gm-react/all-blob-reports
+          merge-multiple: true
+      - name: Merge the shards into one HTML report
+        working-directory: apps/gm-react
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: merged.json
+        run: pnpm exec playwright merge-reports --reporter=html,json ./all-blob-reports
+      - name: Summarize flaky and failed tests
+        working-directory: apps/gm-react
+        run: node ../../scripts/ci/e2e-summary.mjs merged.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-report
+          path: apps/gm-react/playwright-report
           if-no-files-found: warn
           retention-days: 14
 
   accessibility:
     name: accessibility (desktop + mobile)
-    needs: [changes, build-and-test]
-    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true' &&
+      (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+      options: --ipc=host
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: pnpm install --frozen-lockfile
-      - name: Set up browser tests
-        timeout-minutes: 10
-        uses: ./.github/actions/setup-e2e
+      - uses: ./.github/actions/setup-workspace
       - name: Run axe scan
         run: pnpm a11y:axe
       - name: Apply accessibility release policy
@@ -266,12 +339,14 @@ jobs:
 
   visual-regression:
     name: visual regression (golden routes)
-    # RC-DSN-4.1 — path-filtered: only a change that can move pixels pays for the golden set. The
-    # job runs inside the pinned Playwright image, the one environment the committed baselines
-    # describe (docs/development/TESTING.md §8). Keep the tag and digest in step with
-    # @playwright/test and apps/gm-react/tests/visual/run-in-container.sh.
+    # RC-DSN-4.1 — only a change that can move pixels pays for the golden set. The job runs inside
+    # the pinned Playwright image, the one environment the committed baselines describe
+    # (docs/development/TESTING.md §8). Keep the tag and digest in step with @playwright/test and
+    # apps/gm-react/tests/visual/run-in-container.sh.
     needs: [changes]
-    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.visual == 'true')
+    if: >-
+      needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true' &&
+      (github.event_name == 'workflow_dispatch' || needs.changes.outputs.visual == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -281,17 +356,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup-workspace
       - name: Enforce the visual baseline size budget
         run: node apps/gm-react/tests/visual/check-baseline-budget.mjs
       - name: Compare the golden routes with the committed baselines
@@ -326,43 +391,38 @@ jobs:
 
   desktop-smoke:
     name: Electron smoke (Linux)
-    needs: [changes, build-and-test]
-    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true' &&
+      (github.event_name == 'workflow_dispatch' || needs.changes.outputs.desktop == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: ./.github/actions/setup-workspace
         with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies (including Electron)
-        run: pnpm install --frozen-lockfile
+          electron: 'true'
       - name: Boot packaged renderer twice and verify persistence
         run: xvfb-run --auto-servernum pnpm --filter @dndtools/gm-react desktop:smoke
 
-  android-checks:
-    name: Android unit, lint, and package checks
-    needs: [changes, build-and-test]
-    if: needs.changes.outputs.tier == 'full' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
+  android-build:
+    name: Android unit, lint, and debug package
+    # The emulator legs (instrumentation + lifecycle acceptance) are nightly.yml's and the
+    # release's: on hosted runners they failed about one landing in five for reasons unrelated
+    # to the change under test. The compile, unit and lint gates stay here.
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true' &&
+      (github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
+      - uses: ./.github/actions/setup-workspace
       - name: Set up JDK 21
         uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
@@ -371,77 +431,70 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
         with:
-          # The action defaults to 'tools platform-tools', but Google retired the
-          # obsolete 'tools' package, so sdkmanager now exits 1 on it. Everything
-          # the Android jobs need is installed explicitly below.
+          # Google retired the obsolete 'tools' package the action defaults to; everything the
+          # job needs is installed explicitly below through the retrying script.
           packages: platform-tools
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Install Android API 36 toolchain
         shell: bash
-        run: >-
-          bash scripts/android-sdk-install.sh
-          'platform-tools'
-          'platforms;android-36'
-          'build-tools;36.0.0'
-          'emulator'
-          'system-images;android-36;google_apis;x86_64'
-      - name: Install dependencies
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: pnpm install --frozen-lockfile
+        run: bash scripts/android-sdk-install.sh 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
       - name: Build renderer and synchronize Capacitor
         run: |
           pnpm --filter @dndtools/gm-react build
           pnpm --filter @dndtools/gm-react exec cap sync android
-      - name: Run Android unit, lint, and debug APK/AAB packaging gates
+      - name: Run Android unit, lint, and debug APK packaging gates
         working-directory: apps/gm-react/android
-        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest lintDebug assembleDebug bundleDebug
-      - name: Normalize CI-only Android debug packages
-        shell: bash
-        run: |
-          VERSION=$(node -p "require('./apps/gm-react/package.json').version")
-          mkdir -p apps/gm-react/android/app/build/outputs/ci-packages
-          install -m 0644 \
-            apps/gm-react/android/app/build/outputs/apk/debug/app-debug.apk \
-            "apps/gm-react/android/app/build/outputs/ci-packages/DND-Tools-GM-${VERSION}-android-ci-debug.apk"
-          install -m 0644 \
-            apps/gm-react/android/app/build/outputs/bundle/debug/app-debug.aab \
-            "apps/gm-react/android/app/build/outputs/ci-packages/DND-Tools-GM-${VERSION}-android-ci-debug.aab"
-      - name: Enable KVM for the API 36 emulator
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Run instrumentation and lifecycle acceptance on API 36
-        env:
-          ANDROID_EXPECT_PRIVATE_DATA: '1'
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: 36
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          # The pixel_6 default (2560M once the emulator bumps it) left API 36 google_apis paging
-          # system code in and out (kswapd, >50k major faults in 3.5 min) under the acceptance
-          # script; a stalled rotation frame then tripped an input-dispatch ANR. Runners have 16G.
-          ram-size: 4096M
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: |
-            (cd apps/gm-react/android && ./gradlew --no-daemon --stacktrace :app:connectedDebugAndroidTest)
-            scripts/android-emulator-acceptance.sh apps/gm-react/android/app/build/outputs/apk/debug/app-debug.apk
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest lintDebug assembleDebug
       - name: Upload Android diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: android-checks
+          name: android-build
           path: |
             apps/gm-react/android/app/build/reports
             apps/gm-react/android/app/build/outputs/apk/debug
-            apps/gm-react/android/app/build/outputs/bundle/debug
-            apps/gm-react/android/app/build/outputs/ci-packages
           if-no-files-found: warn
           retention-days: 14
+
+  ci-gate:
+    # The one required status check. Branch rules, deploy.yml, release.yml, promote-production.yml
+    # and the dispatcher read this job on the commit; the legs above can be reshaped without
+    # touching any of them. A skipped leg (path-filtered, or reused evidence) is fine; a failed
+    # or cancelled one is not.
+    name: ci-gate
+    needs:
+      - changes
+      - smoke-gate
+      - static
+      - unit
+      - build
+      - e2e
+      - e2e-report
+      - accessibility
+      - visual-regression
+      - desktop-smoke
+      - android-build
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate the legs
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "### ci-gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "| leg | result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<<"$RESULTS" >> "$GITHUB_STEP_SUMMARY"
+          BAD=$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key' <<<"$RESULTS")
+          if [[ -n "$BAD" ]]; then
+            echo "ci-gate: failed legs: $(tr '\n' ' ' <<<"$BAD")" >&2
+            exit 1
+          fi
+          REUSED=$(jq -r '.changes.outputs.reuse // "false"' <<<"$RESULTS")
+          if [[ "$REUSED" == "true" ]]; then
+            echo "ci-gate: reused the green ci-gate already recorded on this commit."
+          else
+            echo "ci-gate: every leg passed or was not required for this change."
+          fi

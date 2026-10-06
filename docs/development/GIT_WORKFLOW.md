@@ -2,12 +2,17 @@
 
 ## 1. Branches
 
-- `main` is the release-ready branch and the only branch CI deploys from (dev stage). Direct commits
-  are reserved for single-file doc fixes and human-approved emergency follow-ups.
+- `main` is the release-ready branch. Every commit on it carries a passing `ci-gate` check, and
+  every such commit deploys the dev stage (`deploy.yml`, triggered by the CI run that passed).
+  Nothing pushes `main` without that check: the dispatcher's promotion carries it from `loop/rc`,
+  a human change arrives through a pull request. `main` has a ruleset: no force push, no
+  deletion, `ci-gate` required on every pushed commit, linear history.
 - `loop/rc` is the dispatcher's integration branch (§5). Workers take roadmap stories in their own
   worktrees (`dispatch/dndtools/<hash>`), every candidate is gated and independently reviewed, then
-  integrated onto `loop/rc`; a delivery PR promotes `loop/rc` to `main` on a 12-hour window when the
-  required `CI` workflow is green. Every push to `loop/rc` runs full CI including all browser shards.
+  fast-forwarded onto `loop/rc`. Every push runs CI; once the required `CI` workflow is green and
+  the promotion window (one hour) has elapsed, the dispatcher fast-forwards `main` to that commit
+  directly. There is no standing delivery pull request any more (ADR-043). `loop/rc` has a
+  ruleset: no force push, no deletion, linear history.
 - Human work branches from `main` as `<type>/<slug>` and merges by squash PR. Long-running
   multi-story efforts may use `initiative/<id>-<slug>` with `story/<id>-<slug>` branches off it;
   PRs into an `initiative/*` branch get the smoke tier.
@@ -21,7 +26,7 @@ No git hooks are installed; run these by hand.
 | When                             | Command                                                       |
 | -------------------------------- | ------------------------------------------------------------- |
 | Before every push                | `pnpm test:smoke` (fast) or `pnpm check` (full)               |
-| Before opening a PR              | `pnpm check`, plus the domain gates below                     |
+| Before opening a PR              | `pnpm ci:local` (the `static`, `unit` and `build` legs)       |
 | UI routes or interaction changes | `pnpm e2e` on both profiles; the full suite for shared routes |
 | Accessibility-affecting changes  | `pnpm a11y:gate`                                              |
 | Layer-spanning changes           | `pnpm validate`                                               |
@@ -36,34 +41,64 @@ No git hooks are installed; run these by hand.
 and privacy security boundaries, command dispatch). It is deliberately the load-bearing seams, not
 the fastest tests.
 
-### CI tiers
+### CI: the required tier
 
-`.github/workflows/ci.yml` tiers by the PR's base branch: a PR into `initiative/*` runs `smoke-gate`;
-a push to `main`, a PR into `main`, `loop/rc`, or `workflow_dispatch` runs the full tier:
+`.github/workflows/ci.yml` is one workflow whose legs run in parallel from a cached install and
+feed one aggregate job, **`ci-gate`**. That job is the only required status check: branch rules,
+`deploy.yml`, `release.yml`, `promote-production.yml` and the dispatcher all read it on the
+commit, so the legs can be reshaped without touching any of them. A leg that is skipped because
+its paths did not change is fine; a failed or cancelled leg fails the gate.
 
-- `build-and-test`: credentials scan, quality gates, lint, typecheck, production build and bundle
-  budget, all unit suites.
-- `browser-e2e`: three Playwright shards with failure artifacts; `accessibility`: axe on both
-  profiles; `desktop-smoke`: Electron boot, CSP, persistence; `android-checks`: JDK 21 / API 36
-  sync, Gradle unit and lint, debug package. All path-filtered on `main` PRs, unconditional on
-  `loop/rc`.
+| Leg                 | What it runs                                                                                               | Runs when                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `static`            | quality gates, secrets scan, format baseline, Android version contract, stage config, lint, typecheck      | always                     |
+| `unit` ×4           | `test:coverage:core` (core + coverage floors), `test:cloud`, `test:app`, `test:tooling`                    | always                     |
+| `build`             | `pnpm build`, bundle budget                                                                                | always                     |
+| `e2e` ×4 + report   | the functional Playwright suite, both profiles, four shards merged into one report; `@quarantine` excluded | runtime paths changed      |
+| `accessibility`     | axe on both profiles + the release policy                                                                  | runtime paths changed      |
+| `visual-regression` | golden routes against the committed baselines                                                              | pixel-moving paths changed |
+| `desktop-smoke`     | Electron boot, CSP, persistence                                                                            | desktop paths changed      |
+| `android-build`     | Gradle unit, lint, debug APK                                                                               | Android paths changed      |
 
-The dispatcher's per-candidate gate list (quality gates, format, typecheck, lint, all unit suites,
-build, feature audit, the full browser suite on both profiles) mirrors this tier; the run on
-`loop/rc` is the independent confirmation on the integrated tree.
+Every browser leg runs inside the pinned Playwright image (the one the visual baselines describe),
+so no job installs browsers or touches apt. The wall time is the slowest leg, about ten minutes.
 
-Other workflows: `validate.yml` (weekly and manual whole-app harness), `deploy.yml` (dev cloud
-deploy over OIDC, skips cleanly when unconfigured), `promote-production.yml` (manual, protected
-`production` environment), `cloud-drift.yml` (scheduled), `perf.yml` (path-filtered budgets),
-`release.yml` (tag-triggered desktop and Android packaging). Playwright installation is one
-composite action, `.github/actions/setup-e2e`, restored from the workflow SHA when a release tag
-predates it.
+A push to `main` that fast-forwards a commit already green on `loop/rc` reuses that verdict: the
+`changes` job finds the existing `ci-gate` on the commit, every leg skips, and `ci-gate` passes
+on that evidence. PRs into `initiative/*` run only `smoke-gate`.
+
+### Heavy and flaky checks: nightly
+
+`nightly.yml` runs daily against `loop/rc` (or any ref by dispatch): the Android emulator legs
+(instrumentation + lifecycle acceptance on API 36), every browser test tagged `@quarantine`
+(five repeats each), and the whole-application harness `pnpm validate`. A failure opens or
+updates one issue labelled `nightly`; a green night closes it. None of it blocks a landing. The
+emulator legs also run on every release tag (`release.yml`).
+
+Other workflows: `deploy.yml` (dev cloud deploy after a green CI run on `main`, redeploying only
+what changed since the last successful deploy), `promote-production.yml` (manual, protected
+`production` environment), `release.yml` (tag-triggered desktop and Android packaging),
+`cloud-drift.yml` (scheduled), `perf.yml` (push to `main`, weekly, or manual; no longer on pull
+requests), `supply-chain.yml` (workflow lint on PRs and on workflow edits pushed to `loop/rc` or
+`main`; weekly audit and SBOM). Workflows share `.github/actions/setup-workspace` (pnpm, Node,
+cached install); the Playwright install action `.github/actions/setup-e2e` remains for the jobs
+that run outside the image (`perf.yml`, the nightly harness).
+
+The dispatcher's per-candidate gate list mirrors the required tier (quality gates, format,
+typecheck, lint, all unit suites, build, bundle budget, feature audit, the full browser suite on
+both profiles, axe, the visual suite); the run on `loop/rc` is the independent confirmation on
+the integrated tree, and promotion re-runs only the cheap contract checks.
 
 ## 3. Branch protection
 
-`main`: require a PR, require `build-and-test` and `android-checks`, require up to date, no
-bypass, no force push, no deletion. `initiative/*`: the same with `smoke-gate` as the required
-check. Repository settings enable squash merge, auto-merge, and head-branch deletion.
+Rulesets (Settings → Rules), created by `scripts/ci/apply-rulesets.sh`:
+
+- `main`: block force pushes and deletion, require linear history, require the `ci-gate` status
+  check on every pushed commit. Repository admins may bypass only through a pull request.
+- `loop/rc`: block force pushes and deletion, require linear history. No status check: the
+  dispatcher pushes commits GitHub has never seen, and CI runs on the push.
+
+Repository settings enable squash merge, auto-merge, and head-branch deletion.
 
 ## 4. Pull requests
 
@@ -87,6 +122,12 @@ semantics — are in RC_ROADMAP.md §21. Two scripts keep the file and the store
 
 A story added on `main` reaches the dispatcher after `main` is merged into `loop/rc` and pushed, then
 `dispatch.py migrate dndtools --apply`.
+
+When GitHub CI fails on a published or promoted commit, the dispatcher first re-runs the failed
+jobs once (no tokens). If the rerun is red too, it creates one `ci-recovery-<sha>` task scoped to
+the paths changed since the last green promotion plus the workflow files; later failures are
+absorbed into that open task instead of spawning siblings. A nightly failure never creates a task:
+it is an issue for the operator.
 
 ## 6. Branch ledger (2026-09-11)
 
