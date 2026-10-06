@@ -217,6 +217,12 @@ from 2,110,214 B to 1,441,303 B (−653 KiB). `check-baseline-budget.mjs` report
 34,816.0 KiB. A compare-only re-run in the container (`--update-snapshots=none`) on the two specs:
 **60 passed**.
 
-The neighbouring e2e re-run from attempt 1 was again cut off when the session ended. Its
-first-run partial (tests 1–49 of 124 with no failure) and the acceptance spec's 4/4 are the browser
-evidence recorded here.
+Browser re-run on head `5d18cfb5`, `--project=desktop-chromium --project=mobile-chromium`:
+
+- widget-trust-review, extensions-polish, widget-author-trust, widget-commands, widget-generate,
+  add-panel, widget-install-words: **51 passed, 1 skipped**. The skip is `add-panel.spec.ts:159`,
+  the hover test, which skips on touch by design.
+- widget-builder and starter-widgets: **20 passed**.
+
+The `Function components cannot be given refs` console warnings in these logs are the existing
+builder Textarea warning (WID-17, `BuilderPanes.tsx`), not this change.
