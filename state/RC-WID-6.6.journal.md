@@ -8,7 +8,7 @@ Base: `fe996760` (the task branch head at start).
 
 - **`widget.package.fork`** (`commands/widget-package.ts`): copies one widget of any installed
   package into a new `user-authored` package with `authoring.forkedFrom` (`{ packageId, version,
-  widgetType }`).
+widgetType }`).
   - The caller names only the source, plus optional slug ids and a display name (the app passes a
     localized "{name} (copy)").
   - The definition and assets are read from the core's own state. The copy gets a fresh type and
@@ -70,7 +70,7 @@ Base: `fe996760` (the task branch head at start).
   save. `readPackageCustomCode` finds the stylesheet and script by declaration and kind, and lifts
   the body out of the document without the link and script tags the builder's document adds back.
 - Copy: EN/ES `extensions.builder.keepTitle/keepBody/keepDraft/discardDraft/resumeTitle/resumeBody/
-  resumeDraft/startOver/forkName/forked`. `qps-ploc.ts` regenerated. The tile menus' "Edit widget"
+resumeDraft/startOver/forkName/forked`. `qps-ploc.ts` regenerated. The tile menus' "Edit widget"
   is English-only, like the rest of their `TEXT`.
 - `docs/architecture/WIDGETS.md`: new §5.2 Forks; §6 kept drafts and Edit widget; "where to look".
 
@@ -115,7 +115,7 @@ Attempt 1 crossed two paths, and the gate refused both. Both are reverted to `fe
   `resumeDraft`'s rebase, key-order-insensitive dirtiness, the edit step, and `widgetEditTarget`
   (fork → copy reuse → own; nothing for builtin or removed).
 - **E2E `apps/gm-react/tests/e2e/widget-edit-fork.spec.ts`, `--project=desktop-chromium
-  --project=mobile-chromium`: 4 passed.**
+--project=mobile-chromium`: 4 passed.**
   - **Drafts:** an untouched builder closes on Escape with no question. A dirty one asks; Escape on
     the question returns to the builder. Keep closes and focuses the opener. After leaving
     Extensions and coming back, opening the builder asks to resume; Resume focuses the builder and
@@ -186,4 +186,7 @@ package. The dispatcher brief forbids extra agents, so the skill's sub-task phas
 
 ## Neighbour run
 
-(pending)
+The 22 specs listed above, `--project=desktop-chromium --project=mobile-chromium`, on the attempt-2
+code (`DNDTOOLS_E2E_PORT=5391`, a private port): **251 passed, 5 skipped, 0 failed** (256 tests,
+5.9 min, exit 0). Attempt 1's partial run of the same set, cut off when that session ended at 86 of
+256, had no failure either.
