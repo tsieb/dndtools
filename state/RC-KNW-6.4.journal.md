@@ -107,3 +107,20 @@ Verification on the final tree (logs `/tmp/knw64r-*.log`):
   171 passed each. Budget 32,863.6 / 34,816 KiB (base 33,187.4 KiB).
 - Paths changed vs base outside `__screenshots__`: the seven owned files, `knowledge/index.tsx`,
   catalogs (en/es/qps-ploc), `registry.test.ts`, the new e2e spec, and this journal.
+
+## Claim widened (2026-10-06)
+
+Operator brief widened the claim to `apps/gm-react/src/screens/knowledge/index.tsx`; no code change
+was needed. Every path the candidate changes against base `7dc67b3f` is now owned or a manifest
+companion (catalogs, `*.test.ts`, e2e spec, visual baselines, this journal).
+
+- `git merge-tree --write-tree loop/rc HEAD` (loop/rc 18 commits ahead, incl. a DS palette Escape
+  change): clean, no conflicts. On the merged tree the i18n catalog/pseudo-coverage and shortcut
+  registry suites passed; two other suites could not load there only because the probe worktree
+  borrowed this checkout's `node_modules` (Vite `/@fs` path refusal), not a test failure.
+- Fresh e2e on the candidate: knowledge-start-from, knowledge, knowledge-filters,
+  command-palette — 114 passed on desktop-chromium and mobile-chromium (`/tmp/knw64s-e2e.log`).
+- Earlier results on this same HEAD code still stand: test:app 2,029 passed, typecheck, lint,
+  format, gates, full visual per tier 171 passed each (see the retry section above).
+
+Not rebased; the operator integrates. No push, promotion, agents or dispatcher state edits.
