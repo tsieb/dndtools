@@ -16,6 +16,7 @@ import { StyleTokenList } from './StyleTokenList';
 import { readPlayerPreview } from './playerPreview';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useEditWidget } from '../extensions/WidgetBuilder';
+import { widgetSettingsFields } from '../../app/widgetBuilder/draft';
 
 const TABS = ['content', 'display', 'style', 'binding', 'transform', 'visibility'] as const;
 const TAB_LABEL: Record<(typeof TABS)[number], MessageKey> = {
@@ -79,7 +80,8 @@ export function Inspector({
 	);
 	const tabId = useId();
 	// `visibility` has its own dedicated control; never surface it twice if a widget also declares it.
-	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
+	// RC-WID-6.8 — nor the dock preference, which the scene canvas never reads.
+	const settingsFields = widgetSettingsFields(widget.configFields);
 	const resizable = isWidgetResizable(widget);
 	const runtime = useRuntime();
 	// RC-WID-6.6 — the same "Edit widget" as the tile menu: any template or custom-code widget, copied
@@ -96,6 +98,12 @@ export function Inspector({
 			).tiles[widget.id]
 		: undefined;
 	const tabs = TABS.map((id) => ({ id, label: t(TAB_LABEL[id]) }));
+	// RC-WID-6.8 — with nothing declared at all, every settings tab says so and why, and points at the
+	// definition when there is one the GM can edit.
+	const emptyNote =
+		settingsFields.length > 0 || widget.requiresBinding
+			? t('sceneEditor.noFields')
+			: t(edit.available ? 'sceneEditor.noSettingsEdit' : 'sceneEditor.noSettings');
 	return (
 		<>
 			{edit.editor}
@@ -232,7 +240,7 @@ export function Inspector({
 									))}
 							</Section>
 						) : (
-							<p style={NOTE}>{t('sceneEditor.noFields')}</p>
+							<p style={NOTE}>{emptyNote}</p>
 						)}
 						{group === 'style' && <StyleTokenList widget={widget} />}
 					</div>

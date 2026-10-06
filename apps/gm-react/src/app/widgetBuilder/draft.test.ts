@@ -10,6 +10,8 @@ import {
 	DOCK_PREFERENCE_KEY,
 	bumpPatch,
 	buildPackage,
+	counterRecipe,
+	widgetSettingsFields,
 	emptyDraft,
 	generateMigration,
 	readPackage,
@@ -105,13 +107,17 @@ describe('RC-WID-2.1 widget builder draft', () => {
 		expect(record!.trust.state).toBe('unreviewed');
 	});
 
-	it('always declares the dock preference as a display config field', () => {
-		const definition = buildPackage({ ...statusListDraft(), dockPreference: 'right' }).widgets[0]!;
-		const field = definition.configFields?.find((entry) => entry.key === DOCK_PREFERENCE_KEY);
+	it('declares the dock preference only for a widget that can go on a docking surface', () => {
+		const docked = buildPackage({
+			...statusListDraft(),
+			surfaces: ['scene', 'command-center'],
+			dockPreference: 'right',
+		}).widgets[0]!;
+		const field = docked.configFields?.find((entry) => entry.key === DOCK_PREFERENCE_KEY);
 		expect(field?.group).toBe('display');
 		expect(field?.default).toBe('right');
 		// It is a real declared key, so the configuration schema knows about it.
-		expect(definition.configurationSchema.properties?.[DOCK_PREFERENCE_KEY]?.type).toBe('string');
+		expect(docked.configurationSchema.properties?.[DOCK_PREFERENCE_KEY]?.type).toBe('string');
 	});
 
 	it('round-trips an installed package back into a draft', () => {
@@ -383,5 +389,76 @@ describe('RC-WID-2.1 widget builder draft', () => {
 		expect(reread.requiredBindings).toEqual(draft.requiredBindings);
 		expect(reread.optionalBindings).toEqual(draft.optionalBindings);
 		expect(reread.computedFields).toEqual(draft.computedFields);
+	});
+});
+
+describe('RC-WID-6.8 widget settings that exist', () => {
+	it('a scene-only widget has no dock field', () => {
+		// Whatever the Layout step was left on, the scene canvas never reads a dock preference.
+		const draft = {
+			...statusListDraft(),
+			surfaces: ['scene' as const],
+			dockPreference: 'left' as const,
+		};
+		const definition = buildPackage(draft).widgets[0]!;
+		expect(definition.configFields?.map((field) => field.key)).not.toContain(DOCK_PREFERENCE_KEY);
+		expect(definition.configurationSchema.properties).not.toHaveProperty(DOCK_PREFERENCE_KEY);
+		// …nor does a player-view one: the player view is the scene canvas, projected.
+		const projected = buildPackage({ ...draft, surfaces: ['scene', 'player-view'] }).widgets[0]!;
+		expect(projected.configFields?.map((field) => field.key)).not.toContain(DOCK_PREFERENCE_KEY);
+		// Read back and built again, it still has none.
+		const again = buildPackage(readPackage(buildPackage(draft))).widgets[0]!;
+		expect(again.configFields?.map((field) => field.key)).not.toContain(DOCK_PREFERENCE_KEY);
+	});
+
+	it('an edit that drops the dock field migrates without a value for it', () => {
+		const docked = buildPackage({ ...statusListDraft(), surfaces: ['scene', 'command-center'] });
+		const edit = { ...readPackage(docked), surfaces: ['scene' as const] };
+		const migration = generateMigration(edit);
+		expect(migration?.setConfigurationDefaults).toBeUndefined();
+	});
+
+	it('a placed tile is offered every declared setting but visibility and the dock preference', () => {
+		const fields = buildPackage({
+			...counterRecipe('Doom'),
+			surfaces: ['scene', 'command-center'],
+			configFields: [
+				...counterRecipe('Doom').configFields,
+				{ key: 'visibility', label: 'Visibility', control: 'text', default: '' },
+			],
+		}).widgets[0]!.configFields!;
+		expect(fields.map((field) => field.key)).toContain(DOCK_PREFERENCE_KEY);
+		expect(widgetSettingsFields(fields).map((field) => field.key)).toEqual([
+			'count',
+			'title',
+			'min',
+			'max',
+		]);
+	});
+
+	it('a counter declares its count, title and range as settings, and the core installs it', () => {
+		const box = campaign();
+		const pkg = buildPackage(counterRecipe('Doom clock', { min: 0, max: 6 }));
+		box.run({ type: 'widget.package.install', actorId: DM_ACTOR.id, payload: { package: pkg } });
+		const definition = box.state.widgets.packages['workspace.doom-clock']!.package.widgets[0]!;
+		expect(definition.type).toBe('doom-clock');
+		expect(definition.renderEntrypoint?.template).toBe('tracker');
+		expect(
+			definition.configFields?.map(({ key, control, group, default: value }) => ({
+				key,
+				control,
+				group,
+				value,
+			})),
+		).toEqual([
+			{ key: 'count', control: 'number', group: 'content', value: 0 },
+			{ key: 'title', control: 'text', group: 'display', value: '' },
+			{ key: 'min', control: 'number', group: 'display', value: 0 },
+			{ key: 'max', control: 'number', group: 'display', value: 6 },
+		]);
+		// An ordinary template definition: through the Full builder and back it is the same widget.
+		const back = buildPackage(readPackage(pkg)).widgets[0]!;
+		expect({ ...back, version: pkg.version }).toEqual(pkg.widgets[0]);
+		expect(validateDraft(counterRecipe('Doom clock'))).toEqual([]);
 	});
 });

@@ -103,6 +103,16 @@ function numberAsText(value: number | undefined): string {
 	return value === undefined ? '' : String(value);
 }
 
+/**
+ * RC-WID-6.8 — a key a placed tile never offers as a setting (`widgetSettingsFields`): the dock
+ * preference the Layout step writes, and `visibility`, which every tile already sets on its own.
+ */
+function reservedKeyProblem(key: string): MessageKey | undefined {
+	if (key === DOCK_PREFERENCE_KEY) return 'builder.config.reservedKey';
+	if (key === 'visibility') return 'builder.config.reservedVisibility';
+	return undefined;
+}
+
 export function ConfigStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
 	const setField = (index: number, next: WidgetConfigField) =>
@@ -143,6 +153,7 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 				>
 					{draft.configFields.map((field, index) => {
 						const problems = configFieldProblems(field);
+						const reserved = reservedKeyProblem(field.key);
 						return (
 							<RowCard
 								key={`config-${index}`}
@@ -159,14 +170,7 @@ export function ConfigStep({ draft, patch, issues }: StepProps) {
 											}
 										/>
 									</Field>
-									<Field
-										label={t('builder.config.key')}
-										error={
-											field.key === DOCK_PREFERENCE_KEY
-												? t('builder.config.reservedKey')
-												: undefined
-										}
-									>
+									<Field label={t('builder.config.key')} error={reserved ? t(reserved) : undefined}>
 										<Input
 											value={field.key}
 											onChange={(e: { target: { value: string } }) =>

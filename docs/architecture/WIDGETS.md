@@ -505,6 +505,19 @@ permission existed has no `navigate` key, and the host reads approvals only from
   document's body without the link and script the builder's document adds back. The builder is
   portalled behind a fence that stops key, wheel and context-menu events reaching the canvas
   through React; it hears its own keys on its overlay, before that fence.
+- **Settings that exist** (RC-WID-6.8): the builder writes the Layout step's dock preference as a
+  display config field only when the widget's surfaces include one that docks (`DOCKING_SURFACES`,
+  the Command Center); a scene-only widget has none. A placed tile offers
+  `widgetSettingsFields`: every declared field except `visibility` (it has its own control) and the
+  dock preference (no tile canvas reads it). The Config step flags both keys as reserved. With no
+  setting left, the canvas tile menu shows a disabled "No settings" row with the reason in place of
+  Configure…, and Edit widget beside it; the Inspector's settings tabs say the same. Recipes declare
+  the settings a GM changes through `titleSetting` (key `title`, which the host reads as the tile
+  title) and `rangeSettings` (`min`/`max`, display group); the tracker draws a configured count
+  between a declared range, so a new range in Configure… changes the meter. `counterRecipe` is the
+  "Counter or clock" draft. Who sees a tile stays the host's per-instance visibility, not a field.
+  Colour is not a recipe setting yet: a per-instance colour is the `styleTokens` override object,
+  which no flat config control writes.
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;

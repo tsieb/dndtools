@@ -3868,7 +3868,7 @@ export const en = {
 	'builder.layout.resizePolicy': 'Resize policy',
 	'builder.layout.dockPreference': 'Dock preference',
 	'builder.layout.dockPreferenceHelp':
-		'Saved as a display setting on every placed copy. The scene canvas is free-form and leaves it alone.',
+		'Saved as a display setting only when the widget can go on the Command Center. The scene canvas is free-form and leaves it alone.',
 
 	'builder.data.help':
 		'Choose how the widget looks and what data it reads. Lamplight checks each viewer’s access, so data marked {gm} only never reaches players.',
@@ -3967,6 +3967,8 @@ export const en = {
 	'builder.config.label': 'Label',
 	'builder.config.key': 'Key',
 	'builder.config.reservedKey': 'That key is used for dock preference. Choose another key.',
+	'builder.config.reservedVisibility':
+		'Every tile already has its own visibility setting. Choose another key.',
 	'builder.config.control': 'Control',
 	'builder.config.group': 'Group',
 	'builder.config.startsOn': 'Starts switched on',
@@ -4883,6 +4885,9 @@ export const en = {
 	'sceneEditor.tab.visibility': 'Visibility',
 	'sceneEditor.properties': 'Properties',
 	'sceneEditor.noFields': 'No settings in this tab.',
+	'sceneEditor.noSettings': 'No settings: this widget declares nothing to set.',
+	'sceneEditor.noSettingsEdit':
+		'No settings: this widget declares nothing to set. Add some with Edit widget definition.',
 	'sceneEditor.noBinding': 'This widget doesn’t use a binding.',
 	'sceneEditor.whoSees': 'Who sees this',
 	'sceneEditor.anyPlayer': 'Any player',

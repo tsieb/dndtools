@@ -1,5 +1,13 @@
 import type { LayoutHistory } from './useLayoutHistory';
-import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+	useEffect,
+	useId,
+	useImperativeHandle,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { CHARACTER_ENTITY_TYPE, CONTENT_ITEM_ENTITY_TYPE, type CoreCommand } from '@dndtools/core';
 import { Button, Icon, IconButton, Menu, Toaster } from '../../ds';
@@ -18,13 +26,8 @@ import {
 import { T } from '../screen-kit';
 import { GRID } from '../SceneBoardModel';
 import { useEditWidget } from '../../screens/extensions/WidgetBuilder';
-import {
-	bindingSlot,
-	sceneInstance,
-	settingsFields,
-	TileBindDialog,
-	TileConfigureDialog,
-} from './TileDialogs';
+import { bindingSlot, sceneInstance, TileBindDialog, TileConfigureDialog } from './TileDialogs';
+import { widgetSettingsFields } from '../widgetBuilder/draft';
 
 /** Density-sized, so the tile-menu trigger meets the touch floor on the profiles that ask for one. */
 export const TRIGGER_SIZE = 'var(--density-touch-target, 1.75rem)';
@@ -40,7 +43,12 @@ const TEXT = {
 	duplicate: 'Duplicate',
 	bind: 'Bind…',
 	configure: 'Configure…',
-	configureNone: 'Configure… (no settings)',
+	noSettings: 'No settings',
+	/** RC-WID-6.8 — why the row is off, and where to go instead when there is somewhere. */
+	noSettingsReason: (editable: boolean) =>
+		editable
+			? 'This widget declares nothing to set. Add settings in Edit widget.'
+			: 'This widget declares nothing to set.',
 	edit: 'Edit widget',
 	visibility: 'Visibility',
 	remove: 'Remove',
@@ -102,6 +110,8 @@ const focusParent = (sub: HTMLElement | null) =>
 
 interface RowProps {
 	label: string;
+	/** A line under the label, read as the row's description. */
+	hint?: string;
 	icon?: string;
 	parent?: boolean;
 	expanded?: boolean;
@@ -112,6 +122,7 @@ interface RowProps {
 }
 
 function MenuRow(p: RowProps) {
+	const hintId = useId();
 	return (
 		<Button
 			variant="ghost"
@@ -125,6 +136,7 @@ function MenuRow(p: RowProps) {
 			aria-disabled={p.disabled || undefined}
 			aria-keyshortcuts={p.keys}
 			aria-label={p.label}
+			aria-describedby={p.hint ? hintId : undefined}
 			data-submenu-parent={p.parent || undefined}
 			tabIndex={-1}
 			onClick={() => {
@@ -132,7 +144,22 @@ function MenuRow(p: RowProps) {
 			}}
 			style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }}
 		>
-			<span style={{ flex: 1 }}>{p.label}</span>
+			<span style={{ flex: 1 }}>
+				{p.label}
+				{p.hint && (
+					<span
+						id={hintId}
+						style={{
+							display: 'block',
+							whiteSpace: 'normal',
+							font: `var(--text-xs)/1.4 ${T.sans}`,
+							color: T.sub,
+						}}
+					>
+						{p.hint}
+					</span>
+				)}
+			</span>
 		</Button>
 	);
 }
@@ -370,7 +397,10 @@ export function TileActionMenu({
 	const source = ref && entityName ? SOURCE_LINK[ref.entityType] : undefined;
 	// Only the scene editor mounts an Inspector for a selection; /board gets the settings dialog.
 	const onSceneEditor = globalThis.location.hash.startsWith('#/scene/');
-	const configurable = onSceneEditor || settingsFields(w).length > 0;
+	// RC-WID-6.8 — the settings that do something on a tile: no visibility (it has its own row) and no
+	// dock preference (no tile canvas docks). With none, the row says so and Edit widget is the way on.
+	const settings = useMemo(() => widgetSettingsFields(w.configFields), [w.configFields]);
+	const configurable = onSceneEditor || settings.length > 0;
 	// Right-aligned to the trigger, clamped to the layout viewport as the DS Popover clamps itself.
 	// It opens on the roomier side and scrolls inside that room: on a phone the open Visibility
 	// group made it taller than the space under a tile near the top, leaving its last rows unreachable.
@@ -448,15 +478,24 @@ export function TileActionMenu({
 						{bindable && (
 							<MenuRow icon="link" label={TEXT.bind} onSelect={() => openDialog('bind')} />
 						)}
-						<MenuRow
-							icon="settings-gear"
-							label={configurable ? TEXT.configure : TEXT.configureNone}
-							disabled={!configurable}
-							onSelect={() => {
-								if (onSceneEditor) viaFrame('Enter');
-								else if (configurable) openDialog('configure');
-							}}
-						/>
+						{configurable ? (
+							<MenuRow
+								icon="settings-gear"
+								label={TEXT.configure}
+								onSelect={() => {
+									if (onSceneEditor) viaFrame('Enter');
+									else openDialog('configure');
+								}}
+							/>
+						) : (
+							<MenuRow
+								icon="settings-gear"
+								label={TEXT.noSettings}
+								hint={TEXT.noSettingsReason(edit.available)}
+								disabled
+								onSelect={() => undefined}
+							/>
+						)}
 						{edit.available && (
 							<MenuRow
 								icon="edit"
@@ -526,7 +565,10 @@ export function TileActionMenu({
 						{dialog === 'bind' ? (
 							<TileBindDialog w={w} onClose={() => setDialog(null)} />
 						) : (
-							<TileConfigureDialog w={w} onClose={() => setDialog(null)} />
+							<TileConfigureDialog
+								w={{ ...w, configFields: settings }}
+								onClose={() => setDialog(null)}
+							/>
 						)}
 					</div>,
 					document.body,

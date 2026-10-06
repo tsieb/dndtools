@@ -91,6 +91,19 @@ const STORED_DOCK_LABEL: Record<DockPreference, string> = {
 /** The config-field key the Layout step's dock preference is declared under. */
 export const DOCK_PREFERENCE_KEY = 'dockPreference';
 
+/**
+ * RC-WID-6.8 — the surfaces a dock preference is for. The scene canvas, and the player view it
+ * projects, are free-form and never read one; the Command Center is the surface designed with docks.
+ * A widget placed on none of these carries no dock preference at all, so its Configure… is not
+ * holding a setting that does nothing.
+ */
+export const DOCKING_SURFACES: readonly WidgetSurface[] = ['command-center'];
+
+/** Whether a widget placed on `surfaces` can be docked, and so whether it declares a dock preference. */
+export function surfacesDock(surfaces: readonly WidgetSurface[]): boolean {
+	return surfaces.some((surface) => DOCKING_SURFACES.includes(surface));
+}
+
 export interface WidgetDraft {
 	/* Identity */
 	packageId: string;
@@ -224,7 +237,8 @@ function configurationSchemaFor(fields: WidgetConfigField[]): WidgetDataSchema {
 	};
 }
 
-/** The dock preference, expressed as a declared display config field so it round-trips. */
+/** The dock preference, expressed as a declared display config field so it round-trips. Declared
+ * only for a widget that can be placed on a docking surface (`surfacesDock`). */
 function dockPreferenceField(preference: DockPreference): WidgetConfigField {
 	return {
 		key: DOCK_PREFERENCE_KEY,
@@ -245,7 +259,8 @@ export function draftConfigKeys(draft: WidgetDraft): string[] {
 function buildWidgetDefinition(draft: WidgetDraft): WidgetDefinition {
 	const configFields = [
 		...draft.configFields.filter((field) => field.key !== DOCK_PREFERENCE_KEY),
-		dockPreferenceField(draft.dockPreference),
+		// RC-WID-6.8 — written only when the widget can sit on a surface that docks.
+		...(surfacesDock(draft.surfaces) ? [dockPreferenceField(draft.dockPreference)] : []),
 	];
 	const definition: WidgetDefinition = {
 		type: draft.typeId,
@@ -744,4 +759,101 @@ export function widgetEditTarget(
 	return copy
 		? { kind: 'copy', record: copy }
 		: { kind: 'fork', source: record, name: widget.displayName };
+}
+
+/* ── RC-WID-6.8 — widget settings that exist ──────────────────────────────────────────────────── */
+
+/** The configuration key the host reads any placed copy's title from (`board-helpers`). */
+export const TITLE_SETTING_KEY = 'title';
+/** The keys a recipe declares its range under; the tracker draws its count between them. */
+export const RANGE_MIN_KEY = 'min';
+export const RANGE_MAX_KEY = 'max';
+/** The key a counter keeps its count under. */
+export const COUNT_SETTING_KEY = 'count';
+
+/**
+ * The settings a placed tile offers in Configure… and the Inspector: every declared field except the
+ * two that are no setting there. `visibility` has a control of its own, and the dock preference is
+ * read by no tile canvas, so offering it would be a setting that does nothing (WID-10).
+ */
+export function widgetSettingsFields(fields: readonly WidgetConfigField[]): WidgetConfigField[] {
+	return fields.filter((field) => field.key !== 'visibility' && field.key !== DOCK_PREFERENCE_KEY);
+}
+
+/*
+ * The settings a GM changes on a placed copy, declared the same way by every recipe so each one is a
+ * real control in Configure…. Their labels and help are written into the built package, so like the
+ * dock preference's they are package content and stay in the source language. Who can see a tile is
+ * not among them: the tile menu's Visibility and the Inspector already set it on every placed copy.
+ */
+
+/** The tile's own title, shown in place of the widget's name. Empty keeps the name. */
+export function titleSetting(): WidgetConfigField {
+	return {
+		key: TITLE_SETTING_KEY,
+		label: 'Title',
+		control: 'text',
+		group: 'display',
+		default: '',
+		help: 'Shown on the tile in place of the widget name.',
+	};
+}
+
+/** Where a count starts and where its meter is full. */
+export function rangeSettings(range: { min: number; max: number }): WidgetConfigField[] {
+	return [
+		{
+			key: RANGE_MIN_KEY,
+			label: 'Minimum',
+			control: 'number',
+			group: 'display',
+			default: range.min,
+			step: 1,
+			help: 'The meter is empty at this count.',
+		},
+		{
+			key: RANGE_MAX_KEY,
+			label: 'Maximum',
+			control: 'number',
+			group: 'display',
+			default: range.max,
+			step: 1,
+			help: 'The meter is full at this count.',
+		},
+	];
+}
+
+/**
+ * A number the table keeps by hand — a doom clock, a torch's turns, a reputation score: a tracker
+ * drawn from its own settings. The count, title and range are all settings, so Configure… on a placed
+ * copy changes what the tile says. The Quick track's "Counter or clock" card is this draft.
+ */
+export function counterRecipe(
+	name = 'Counter',
+	range: { min: number; max: number } = { min: 0, max: 10 },
+): WidgetDraft {
+	const slug = slugify(name);
+	return {
+		...emptyDraft(),
+		packageId: `workspace.${slug}`,
+		typeId: slug,
+		name,
+		description: 'A number the table keeps by hand.',
+		category: 'Trackers',
+		icon: 'hourglass',
+		template: 'tracker',
+		defaultSize: { width: 300, height: 180 },
+		configFields: [
+			{
+				key: COUNT_SETTING_KEY,
+				label: 'Count',
+				control: 'number',
+				group: 'content',
+				default: range.min,
+				step: 1,
+			},
+			titleSetting(),
+			...rangeSettings(range),
+		],
+	};
 }

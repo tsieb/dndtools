@@ -3944,7 +3944,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.layout.resizePolicy': 'Política de redimensionado',
 	'builder.layout.dockPreference': 'Preferencia de acople',
 	'builder.layout.dockPreferenceHelp':
-		'Se guarda como un ajuste de presentación en cada copia colocada. El lienzo de escena es libre y no lo tiene en cuenta.',
+		'Se guarda como un ajuste de presentación solo si el widget puede ir en el Centro de comandos. El lienzo de escena es libre y no lo tiene en cuenta.',
 
 	'builder.data.help':
 		'Elige el aspecto del widget y qué datos lee. Lamplight comprueba el acceso de cada persona, así que los datos solo para {gm} nunca llegan a los jugadores.',
@@ -4044,6 +4044,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.config.label': 'Etiqueta',
 	'builder.config.key': 'Clave',
 	'builder.config.reservedKey': 'Esa clave se usa para la preferencia de anclaje. Elige otra.',
+	'builder.config.reservedVisibility':
+		'Cada mosaico ya tiene su propio ajuste de visibilidad. Elige otra clave.',
 	'builder.config.control': 'Control',
 	'builder.config.group': 'Grupo',
 	'builder.config.startsOn': 'Empieza activado',
@@ -4893,6 +4895,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.tab.visibility': 'Visibilidad',
 	'sceneEditor.properties': 'Propiedades',
 	'sceneEditor.noFields': 'No hay opciones en esta pestaña.',
+	'sceneEditor.noSettings': 'Sin opciones: este widget no declara nada que ajustar.',
+	'sceneEditor.noSettingsEdit':
+		'Sin opciones: este widget no declara nada que ajustar. Añade algunas con Editar definición del widget.',
 	'sceneEditor.noBinding': 'Este widget no usa un vínculo.',
 	'sceneEditor.whoSees': 'Quién ve esto',
 	'sceneEditor.anyPlayer': 'Cualquier jugador',
