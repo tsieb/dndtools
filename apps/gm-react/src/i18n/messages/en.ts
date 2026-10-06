@@ -2728,11 +2728,13 @@ export const en = {
 		'Installed {name}. It stays off until you review and enable it.',
 	'extensions.builder.openPackage': 'Open package',
 	'extensions.builder.keepTitle': 'Keep this draft?',
-	'extensions.builder.keepBody': 'Your changes to {name} are not installed yet. Keep them on this device to finish later, or discard them.',
+	'extensions.builder.keepBody':
+		'Your changes to {name} are not installed yet. Keep them on this device to finish later, or discard them.',
 	'extensions.builder.keepDraft': 'Keep draft',
 	'extensions.builder.discardDraft': 'Discard draft',
 	'extensions.builder.resumeTitle': 'Resume your draft?',
-	'extensions.builder.resumeBody': 'You kept changes to {name} on this device that are not installed yet.',
+	'extensions.builder.resumeBody':
+		'You kept changes to {name} on this device that are not installed yet.',
 	'extensions.builder.resumeDraft': 'Resume draft',
 	'extensions.builder.startOver': 'Start over',
 	'extensions.builder.forkName': '{name} (copy)',
