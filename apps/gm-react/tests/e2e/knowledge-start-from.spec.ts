@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
@@ -68,6 +69,11 @@ test.describe('knowledge: start from a template, filter, refine', () => {
 		await session.fill('12');
 		await composer.getByLabel('One-line summary').fill('The party sealed the reliquary.');
 
+		// The open composer with its chip row and inline fields passes axe.
+		expect((await new AxeBuilder({ page }).include('#main-content').analyze()).violations).toEqual(
+			[],
+		);
+
 		// Action 3 — Create.
 		await create.click();
 		await page.waitForURL(/#\/knowledge\/[^/]+$/);
@@ -125,6 +131,10 @@ test.describe('knowledge: start from a template, filter, refine', () => {
 			page.getByRole('heading', { level: 2, name: new RegExp(`^${after} notes?$`) }),
 		).toBeVisible();
 
+		expect((await new AxeBuilder({ page }).include('#main-content').analyze()).violations).toEqual(
+			[],
+		);
+
 		// Pressing it again shows every note.
 		await chip.click();
 		await expect(chip).toHaveAttribute('aria-pressed', 'false');
@@ -138,8 +148,10 @@ test.describe('knowledge: start from a template, filter, refine', () => {
 		const palette = page.getByRole('dialog', { name: 'Command palette' });
 		await expect(palette).toBeVisible();
 		await palette.getByRole('combobox').fill('Sunken Crypt');
-		const refine = palette.getByRole('option', { name: /Refine “Sunken Crypt” in Notes/ });
+		const refine = palette.getByRole('option', { name: /^Refine in Notes/ });
 		await expect(refine).toBeVisible();
+		// It trails the hits: the first (Enter) row is still something that was found.
+		await expect(palette.getByRole('option').first()).not.toHaveAccessibleName(/Refine in Notes/);
 		await refine.click();
 
 		await page.waitForURL((url) => url.hash === '#/knowledge');

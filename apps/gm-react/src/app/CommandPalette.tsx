@@ -330,16 +330,19 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		let searchHits: PaletteRow[] = [];
 		// RC-KNW-6.4 — the palette is search and the Notes panel is a filter. This row carries the
 		// words as typed (case kept) into that panel, so narrowing further never means retyping them.
-		// Not remembered (a `search:` id): it only means something while a query is typed.
+		// Not remembered (a `search:` id): it only means something while a query is typed. Its own
+		// last group keeps the top hit first, so Enter still opens what was found; and its text leaves
+		// the query out, since every word of a row is its accessible name and would echo each hit.
 		let refine: PaletteRow[] = [];
 		if (needle !== '') {
 			refine = [
 				{
 					id: 'search:refine-notes',
 					kind: 'action',
-					label: t('palette.refineInNotes', { query: rawQuery }),
+					label: t('palette.refineInNotes'),
+					description: t('palette.refineInNotesHint'),
 					icon: 'filter',
-					group: t('palette.group.notes'),
+					group: t('palette.group.refine'),
 					keywords: withQuery(),
 					run: goTo('search:refine-notes', '/knowledge', { search: rawQuery }),
 				},
@@ -438,6 +441,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 					t('palette.group.mapLocations'),
 					t('palette.group.handouts'),
 					t('palette.group.rolls'),
+					t('palette.group.refine'),
 				]}
 				placeholder={t('palette.placeholder')}
 				emptyTitle={t('palette.emptyTitle')}
