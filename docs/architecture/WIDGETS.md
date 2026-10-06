@@ -413,7 +413,8 @@ version and widget type). The core reads the definition and assets from its own 
 names only the source and, optionally, the copy's slug ids and display name. The copy gets a fresh
 type and id (`widgetPackageForkIdentity`: `user.<type>` / `<type>-copy`, numbered from `-2`),
 version 1.0.0 and no migrations, then goes through the install schema, validation and commit path.
-A widget with a `builtin` renderer cannot be copied, because that renderer is keyed by its own type.
+A widget with a `builtin` renderer cannot be copied, because that renderer is keyed by its own type. Nor can a system widget (`author: 'system'`, locked content): most
+draw through a hand-written body keyed by their type, which a copy would lose (Dice, the timer).
 
 The copy's trust is decided afresh by `evaluateWidgetPackageForkTrust`. The RC-WID-6.2 rule runs on
 the copy, and two source states keep it on the review path whatever it contains: a source the DM

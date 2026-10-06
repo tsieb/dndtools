@@ -313,6 +313,19 @@ describe('RC-WID-6.6: widget.package.fork', () => {
 		if (refused.result.status === 'rejected') {
 			expect(refused.result.rejection.code).toBe('invalid-state');
 		}
+
+		// A system widget drawn through a template (Dice) is locked content too: no copy.
+		const systemTemplate = Object.values(state.widgets.packages)
+			.flatMap((record) => record.package.widgets.map((widget) => ({ record, widget })))
+			.find(
+				({ widget }) =>
+					widget.author === 'system' && widget.renderEntrypoint?.runtime === 'template',
+			)!;
+		const system = run(state, fork(systemTemplate.record.package.id, systemTemplate.widget.type));
+		expect(system.result.status).toBe('rejected');
+		if (system.result.status === 'rejected') {
+			expect(system.result.rejection.message).toMatch(/system widget/);
+		}
 	});
 
 	it('a forked package is saved again through upgrade with its forkedFrom intact', () => {

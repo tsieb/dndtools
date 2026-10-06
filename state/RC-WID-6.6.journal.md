@@ -190,3 +190,36 @@ The 22 specs listed above, `--project=desktop-chromium --project=mobile-chromium
 code (`DNDTOOLS_E2E_PORT=5391`, a private port): **251 passed, 5 skipped, 0 failed** (256 tests,
 5.9 min, exit 0). Attempt 1's partial run of the same set, cut off when that session ended at 86 of
 256, had no failure either.
+
+## Attempt 3: visual regression red on `scene editor inspector` (head `76cc57d0`)
+
+The pinned-container visual gate failed 15 tests and passed 501. All 15 were
+`tests/visual/scene-editor-polish.spec.ts:62` "scene editor inspector": 5 themes on each of
+`visual-desktop`, `visual-rail` and `visual-phone`, with 6–10% of pixels different. The actual image
+showed one extra row, an **"Edit widget definition"** button on the Inspector of **Dice**.
+
+That was a logic error, not a stale baseline. Dice is a system widget ("System · locked content")
+that renders through an `action-panel` template, but the app draws it with a hand-written body keyed
+by its type. My edit target admitted every `template`/`custom-html-js` widget, so it offered to copy
+Dice. A copy under a new type would have lost that body and drawn as the bare template.
+
+Fix: system widgets (`author: 'system'`) are neither copyable nor editable.
+
+- **Core:** `widget.package.fork` refuses them ("is a system widget, so it cannot be copied").
+- **App:** `widgetEditTarget` returns null for them, so neither the tile menus nor the Inspector
+  offer "Edit widget".
+- Starters (`workspace`) and the GM's own packages (`user`) are unaffected; Torchlight is a starter.
+  The baselines are unchanged.
+
+Evidence:
+
+- Core `widget-fork.test.ts`: 11 pass. The refusal test now also forks a system template widget and
+  expects "system widget".
+- App `draftStore.test.ts`: 11 pass. The edit-target test asserts Dice is `author: 'system'` with a
+  `template` entrypoint and gets no target.
+- **Negative control:** with the app-side check removed, that test fails. Restored.
+- `apps/gm-react/tests/visual/run-in-container.sh tests/visual/scene-editor-polish.spec.ts` (the
+  pinned image, all three visual projects): **15 passed**, exit 0, with no `--update-snapshots`.
+- E2E on both profiles for `widget-edit-fork`, `widget-builder`, `scene-editor-polish` and `canvas`:
+  **122 passed, 2 skipped**.
+- `docs/architecture/WIDGETS.md` §5.2 now says system widgets are not copied.

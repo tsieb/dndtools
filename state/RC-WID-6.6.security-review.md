@@ -35,6 +35,9 @@ false-positive sub-task phases ran inline.
   (live or removed) is refused, and so is a widget type any record declares, because placed
   instances resolve their package by type.
 - **Built-in renderers.** A widget drawn by a `builtin` renderer cannot be copied.
+- **System widgets** (attempt 3). `author: 'system'` widgets are refused too, which only narrows
+  what can be copied. The reason is correctness: their hand-written body is keyed by type. It is
+  not a security control.
 
 ### `authoring.forkedFrom` (`schemas/commands.ts`, install and upgrade)
 

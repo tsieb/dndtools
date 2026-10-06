@@ -209,12 +209,17 @@ describe('RC-WID-6.6 what "Edit widget" opens', () => {
 		expect(widgetEditTarget(v.state, 'torchlight-copy')?.kind).toBe('own');
 	});
 
-	it('offers nothing for a built-in widget or a removed package', () => {
+	it('offers nothing for a built-in or system widget, or a removed package', () => {
 		const v = vault();
-		const builtin = Object.values(v.state.widgets.packages)
-			.flatMap((record) => record.package.widgets)
-			.find((widget) => widget.renderEntrypoint?.runtime === 'builtin')!;
+		const systemWidgets = Object.values(v.state.widgets.packages).flatMap(
+			(record) => record.package.widgets,
+		);
+		const builtin = systemWidgets.find((widget) => widget.renderEntrypoint?.runtime === 'builtin')!;
 		expect(widgetEditTarget(v.state, builtin.type)).toBeNull();
+		// Dice draws through a template but is a system widget with its own body: not editable.
+		const dice = systemWidgets.find((widget) => widget.type === 'dice')!;
+		expect(dice).toMatchObject({ author: 'system', renderEntrypoint: { runtime: 'template' } });
+		expect(widgetEditTarget(v.state, 'dice')).toBeNull();
 		expect(widgetEditTarget(v.state, 'nothing-declares-this')).toBeNull();
 
 		const own = buildPackage(named('mine'));

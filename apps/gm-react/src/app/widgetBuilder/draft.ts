@@ -714,8 +714,8 @@ function isOwnWidgetPackage(record: WidgetPackageRecord): boolean {
 
 /**
  * Where "Edit widget" goes for a tile of `widgetType`, or null when it cannot: the package is gone,
- * or the widget draws with a built-in renderer the builder cannot express (and a copy under a new
- * type would have nothing to draw it).
+ * the widget draws with a built-in renderer the builder cannot express (and a copy under a new type
+ * would have nothing to draw it), or it is a system widget.
  */
 export function widgetEditTarget(
 	state: Pick<CoreStateSlice, 'widgets' | 'scenes'>,
@@ -726,6 +726,9 @@ export function widgetEditTarget(
 	const runtime = widget?.renderEntrypoint?.runtime;
 	if (!record || !widget || record.removedAt) return null;
 	if (runtime !== 'template' && runtime !== 'custom-html-js') return null;
+	// System widgets are locked content, and most draw through a hand-written body keyed by their
+	// type that a copy would lose; the core refuses to fork them for the same reason.
+	if (widget.author === 'system') return null;
 	if (isOwnWidgetPackage(record)) return { kind: 'own', record };
 	const placed = (type: string) =>
 		Object.values(state.scenes.scenes).some((scene) =>

@@ -1327,7 +1327,8 @@ export function evaluateWidgetPackageForkTrust(
  * template the RC-WID-6.2 rule clears, otherwise `unreviewed`, off and every permission denied.
  *
  * A widget drawn by a built-in renderer cannot be copied: that renderer is keyed by its own type, so
- * a copy under a new type would have nothing to draw it. Nothing placed is touched here; moving a
+ * a copy under a new type would have nothing to draw it. Nor can a system widget: it is locked
+ * content, and the app draws most of them with a hand-written body keyed by type. Nothing placed is touched here; moving a
  * placed copy onto the fork is `scene.repoint-widget`.
  */
 export function handleForkWidgetPackage(
@@ -1367,6 +1368,18 @@ export function handleForkWidgetPackage(
 			{
 				code: 'invalid-state',
 				message: `${widget.displayName} is drawn by a built-in renderer, so it cannot be copied.`,
+			},
+			state,
+		);
+	}
+	// A system widget is locked content, and the app draws most of them with a hand-written body
+	// keyed by their own type (Dice's roll history, the live timer): a copy under a new type would
+	// lose it and draw as the bare template.
+	if (widget.author === 'system') {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `${widget.displayName} is a system widget, so it cannot be copied.`,
 			},
 			state,
 		);
