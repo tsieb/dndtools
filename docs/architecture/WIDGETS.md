@@ -516,9 +516,9 @@ no rendered surface, the first in reading order. The GM Screen uses its fixed ri
 also admit their existing horizontal extent. A scene on the `flow` layout policy (ADR-041) has no
 free coordinates to search, so its next slot is the end of the reading order: `flowKeyBetween(last,
 null)` over `flowOrder`, one flow row below the last tile. An accepted add closes the panel, hands
-the new tile to the host's `onPlaced` (the GM Screen and, since RC-WID-6.2, the scene editor select
-it), focuses it, scrolls it fully into
-view and announces "Added <widget>" in a permanent polite region. Failed adds keep the gallery open.
+the new tile to the host's `onPlaced` (the GM Screen selects it; the scene editor passes none, because
+there a selection opens the Inspector, which on a phone covers the canvas), focuses it, scrolls it
+fully into view and announces "Added <widget>" in a permanent polite region. Failed adds keep the gallery open.
 
 The gallery's copy lives in the shared catalogs under `boardCanvas.add.*`.
 

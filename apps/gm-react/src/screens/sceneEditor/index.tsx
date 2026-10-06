@@ -403,7 +403,6 @@ export function SceneEditor() {
 							setMetaOpen(false);
 						}}
 						onAdd={addWidget}
-						onPlaced={select}
 						error={error}
 						onGenerate={() => setGenerateOpen(true)}
 						onBuild={() => setBuilding(true)}

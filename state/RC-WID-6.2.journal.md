@@ -41,8 +41,8 @@ Base: `c61d8cdb` (the task branch head at start).
   `onInstalled` package and pass it back as `placePackage`. Once the library lists it, the gallery
   calls its own `pick` (the CAN-8.5 path: `placeNewTile`, close, `onPlaced`, focus, scroll into view,
   "Added X"). It does this one tick later so `widgets` is the surface the builder closed onto, then
-  calls `onPlacePackageDone`. The scene editor now passes `onPlaced={select}` (the CAN-8.5 handoff),
-  so a pick there selects too.
+  calls `onPlacePackageDone`. The scene editor does not pass `onPlaced`: it places, focuses and
+  announces, but does not select (see attempt 2).
 - **In-place Enable**: `InPlaceEnable` renders its own `<li>` under a dimmed row ("Enable
   <widget>"), because a button cannot sit inside the row's button and `WidgetLibraryCard` lives in
   the unowned `WidgetFrame.tsx`. It is offered to the DM, outside preview, for a disabled, not
@@ -55,7 +55,7 @@ Base: `c61d8cdb` (the task branch head at start).
   `boardCanvas.add.enable`, `.enabled`; `qps-ploc.ts` regenerated (`npx tsx scripts/i18n-catalog.ts
 pseudo`).
 - `docs/architecture/WIDGETS.md`: new §5.1 Author trust, plus the builder, gallery Enable,
-  `placePackage` and the scene editor `onPlaced`. I also corrected §5's claim that any upgrade
+  `placePackage`, and why the scene editor passes no `onPlaced`. I also corrected §5's claim that any upgrade
   requesting a new permission resets to `unreviewed`. The code never did that; the new permission
   just stays denied.
 
@@ -105,13 +105,41 @@ pseudo`).
   hub-templates, add-panel, widget-trust-review, custom-widgets, starter-widgets, widget-generate,
   extensions-polish, widget-query-sources and widget-kit gave 107 passed, 3 skipped, 2 failed. Both
   failures were `widget-generate` (the embedded sheet, fixed above); a re-run of that spec gave 6/6.
-- Wider board/canvas e2e: see "Wider e2e" below.
+- Wider board/canvas e2e: the first run was cut off when the session ended. See attempt 2.
 - `pnpm typecheck` exit 0. The first run caught the core test's `outputWrites` shape, which I
   fixed. `pnpm lint` exit 0; its 16 warnings are all in files this task does not touch.
   `pnpm gates` exit 0 (800-line gate: gallery 797, builder 524).
 - `pnpm test`, all four configs: core 5254, cloud 569, app 2028, tooling 246; all passed.
 - Prettier was run on each changed file only.
 - Headroom tools were not used; I read native command output and log files directly.
+
+## Attempt 2 — browser acceptance red on `canvas.spec.ts` (head `84b6f3f3`)
+
+The gate failed on 3 tests, each failing every retry. All of the
+other tests passed (1860 of them).
+
+- `canvas.spec.ts:290`, both profiles: "selecting a widget with Scene details open still opens the
+  Inspector".
+- `canvas.spec.ts:1782`, mobile: "Configure… on the scene editor opens the Inspector".
+
+Both came from the scene editor's `onPlaced={select}`, the CAN-8.5 handoff I had taken on.
+
+- Test 1: the tile the fixture adds was now pre-selected. Enter on an already-selected frame enters
+  the tile instead of calling `select`, so the details panel stayed open and the Inspector stayed
+  hidden.
+- Test 2: a probe showed the test's Escape landing while focus was still in the closing gallery.
+  The deferred placement then selected and focused the tile, which opened the Inspector. With the
+  Inspector open on a phone, the tile menu closed as soon as it opened ("element was detached",
+  for 30s). Removing `onPlaced` alone made it pass (1/1).
+
+That selection is not part of RC-WID-6.2's acceptance; the 8-click flow runs on the board, which
+selects. A first fix kept it (select without the `propertiesDismissed` reset, and clear the
+selection when Scene details opens). That fixed test 1 but not test 2. I withdrew the selection and
+the toggle change: the scene editor's placement is back to CAN-8.5's behaviour (placed, focused,
+announced, not selected), and the HANDOFF is restored below. WIDGETS.md §9 says why.
+
+Re-run on both profiles of `canvas.spec.ts`, `scene-editor-polish.spec.ts` and
+`widget-author-trust.spec.ts`: **106 passed, 2 skipped**.
 
 ## Security review
 
@@ -136,6 +164,10 @@ Deviation: the dispatcher brief forbids extra agents, so the skill's sub-task ph
 - I did not touch `FlowBoard.tsx`: it hosts no gallery or builder, so nothing to change.
 - The gallery Enable is deliberately narrower than the Extensions switch, which still enables any
   non-denied package, unreviewed custom code included. Changing that switch is RC-WID-6.7's file.
+- HANDOFF (from CAN-8.5, still open): the scene editor's gallery picks are not selected. Doing it
+  needs two things. First, the tile menu has to survive an open Inspector on a phone (today it
+  closes immediately). Second, `canvas.spec.ts:290`/`:1782` have to stop assuming an unselected
+  placement.
 - HANDOFF (RC-WID-6.7, `TrustReviewSheet.tsx`): the sheet still says "Trust package", and the
   builder adds the enable after it closes. A primary "Allow and enable" belongs to 6.7.
 - HANDOFF (RC-WID-6.6): `widget.package.fork` should evaluate `evaluateWidgetPackageAuthorTrust`
