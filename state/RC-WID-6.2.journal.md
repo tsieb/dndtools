@@ -139,7 +139,9 @@ the toggle change: the scene editor's placement is back to CAN-8.5's behaviour (
 announced, not selected), and the HANDOFF is restored below. WIDGETS.md §9 says why.
 
 Re-run on both profiles of `canvas.spec.ts`, `scene-editor-polish.spec.ts` and
-`widget-author-trust.spec.ts`: **106 passed, 2 skipped**.
+`widget-author-trust.spec.ts`: **106 passed, 2 skipped**. Then add-panel, note-depth, scene-templates,
+widget-builder and widget-commands (the specs that add through the scene editor's gallery) on both
+profiles: **47 passed, 1 skipped**. `tsc --noEmit` (app) passes.
 
 ## Security review
 
