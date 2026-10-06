@@ -251,3 +251,16 @@ intended consequences of the home screen, so re-baselined (`62f2e672`, 36 PNGs):
 
 Full visual suite in the pinned container after the re-baseline: **516 passed**; visual budget
 34066 of 34816 KiB.
+
+### Core-tests gate (run on `83e21300`)
+
+Quality gates, format, the full visual suite, typecheck and lint passed. "Core tests"
+(`pnpm test:critical`) failed on one test this branch does not touch:
+`packages/core/tests/calendar.test.ts` › "is INDEPENDENT of host timezone, locale, and clock" —
+`Test timed out in 5000ms` after 5363 ms. The test spawns `tsx` child processes to format under other
+timezones and locales, so its cost is process start-up on the host; locally it takes 354 ms.
+Re-run on the same head: `pnpm test:critical` exit 0 — 290 files / 5286 tests; the test alone 3/3
+passes. No branch change touches the calendar code or that test (the core diff is
+`command-center.ts`, `widget-package-state.ts`, `schemas/widget-package.ts`, `onboarding.ts`, the
+barrel and four command-center/navigation tests). Treated as a host-load timeout; not edited (outside
+the claim). The gate needs a re-run.
