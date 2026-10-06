@@ -574,7 +574,9 @@ function HubBody({
 		<div data-testid={`widget-template-${kind}`}>
 			{header}
 			{shown.length === 0 ? (
-				cardGrid ? (
+				// The hub's empty-scenes card needs a query to be empty OF; with none, the grid says it
+				// has no data source, as every row-drawing template does (RC-WID-6.5).
+				cardGrid && query ? (
 					<Card elevation="flat" padding="lg" style={{ textAlign: 'center', color: ter }}>
 						<div style={{ font: `13px ${sans}` }}>
 							{query?.withheld ? query.label : (query?.emptyLabel ?? '')}
