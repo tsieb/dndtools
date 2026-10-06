@@ -102,6 +102,17 @@ owned or a manifest companion.
   `pnpm gates` all exit 0. `git diff --check` is clean.
 - I read command output directly; the dispatch Headroom tools were not used.
 
+## Post-rebase visual gate (run 3868caad, head e69ca629)
+
+- 515 passed, 1 failed: `[visual-rail] player-polish.spec.ts:7 › player sheet parchment`. It failed
+  on `getByTestId('character-sheet')` toBeVisible (5s), and the error context shows `main` still on
+  the App `Boot` suspense status "Loading your vault…". That is the cold lazy-chunk stall on a route
+  this branch does not touch (`/player`). `board-layouts.spec.ts` passed on all 3 tiers in that run.
+- Re-ran in the pinned container (`run-in-container.sh --update-snapshots=none --workers=2
+tests/visual/player-polish.spec.ts tests/visual/board-layouts.spec.ts`): 18 passed. The rail
+  parchment and high-contrast cases took 6.0s each, so the spec's 5s visibility wait is marginal on a
+  cold chunk. That spec is outside this claim. No code or baseline change was made for this.
+
 ## Scope notes / handoffs
 
 - Changed paths: the three owned files plus companions only: i18n catalogs + `qps-ploc.ts`,
