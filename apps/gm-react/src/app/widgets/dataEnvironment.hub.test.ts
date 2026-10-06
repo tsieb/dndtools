@@ -20,6 +20,7 @@ import {
 	makeEnvironment,
 } from '@dndtools/core/testing';
 import {
+	VISIBILITY_WORD,
 	resolveWidgetTemplateData,
 	type WidgetHostContext,
 	type WidgetLiveTable,
@@ -697,7 +698,8 @@ describe('RC-WID-5.2 — hub query sources', () => {
 				expect(rows).toHaveLength(3);
 				for (const screen of rows) {
 					expect(screen.visibility).toBe(expected[screen.id]);
-					expect(screen.meta).toBe(expected[screen.id]);
+					// RC-WID-6.5 — the tag a template prints is the app's word, never the enum value.
+					expect(screen.meta).toBe(VISIBILITY_WORD[expected[screen.id]]);
 					expect(screen.active).toBe(screen.id === liveId);
 				}
 			}

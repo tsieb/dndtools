@@ -9,7 +9,14 @@ import {
 	WIDGET_INTENT_ENTITY_KINDS,
 	WIDGET_INTENT_ROUTES,
 	WIDGET_INTENT_SETTINGS_TABS,
+	WIDGET_QUERY_CHARACTER_KINDS,
+	WIDGET_QUERY_LIMIT_MAX,
+	WIDGET_QUERY_SCENE_MEMBERSHIPS,
+	WIDGET_QUERY_SORTS,
+	WIDGET_QUERY_STATUSES,
+	WIDGET_QUERY_TAG_MAX_LENGTH,
 	widgetFormulaIdentifiers,
+	widgetQueryOptionIssues,
 	type WidgetIntentCreateTarget,
 	type WidgetIntentEntityKind,
 } from '../state/widget-package-state';
@@ -161,6 +168,20 @@ const widgetStyleDefinitionSchema = z
 	})
 	.strict();
 
+// RC-WID-6.5 — each option's own shape. Whether it applies to the query's source is decided below,
+// where the source is in scope.
+const widgetDataQueryOptionsSchema = z
+	.object({
+		characterKinds: z.array(z.enum(WIDGET_QUERY_CHARACTER_KINDS)).min(1).optional(),
+		// A blank tag would match nothing, so it is refused rather than stored.
+		tag: z.string().min(1).max(WIDGET_QUERY_TAG_MAX_LENGTH).regex(/\S/).optional(),
+		sceneMembership: z.enum(WIDGET_QUERY_SCENE_MEMBERSHIPS).optional(),
+		status: z.enum(WIDGET_QUERY_STATUSES).optional(),
+		sort: z.enum(WIDGET_QUERY_SORTS).optional(),
+		limit: z.number().int().min(1).max(WIDGET_QUERY_LIMIT_MAX).optional(),
+	})
+	.strict();
+
 const widgetDataQueryDefinitionSchema = z
 	.object({
 		id: idSchema,
@@ -170,8 +191,16 @@ const widgetDataQueryDefinitionSchema = z
 		bindingIds: z.array(idSchema).optional(),
 		requiredCapability: z.enum(['manager', 'operator', 'viewer']),
 		audience: z.enum(['dm', 'players', 'shared']),
+		options: widgetDataQueryOptionsSchema.optional(),
 	})
-	.strict();
+	.strict()
+	// RC-WID-6.5 — an option on a source that has no such field would match nothing (or everything)
+	// without saying so; it is refused at install instead.
+	.superRefine((query, ctx) => {
+		for (const issue of widgetQueryOptionIssues(query)) {
+			ctx.addIssue({ code: 'custom', path: ['options', issue.option], message: issue.message });
+		}
+	});
 
 const widgetComputedFieldDefinitionSchema = z
 	.object({

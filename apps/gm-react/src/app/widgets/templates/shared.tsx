@@ -1,9 +1,20 @@
-import type { ReactNode } from 'react';
-import type { WidgetDefinition } from '@dndtools/core';
-import { Icon } from '../../../ds';
+import { createContext, useContext, type ReactNode } from 'react';
+import {
+	ALL_WIDGET_TEMPLATE_KINDS,
+	widgetTemplateReadsQueries,
+	type WidgetDefinition,
+	type WidgetTemplateKind,
+} from '@dndtools/core';
+import { Badge, Icon } from '../../../ds';
+import { useI18n, type MessageKey } from '../../../i18n';
 import type { BoardWidget } from '../../board-helpers';
 import type { WidgetCommandHandler } from '../../widget-bodies';
-import { WITHHELD_COPY, type WidgetQueryResult, type WidgetTemplateData } from '../dataEnvironment';
+import {
+	WITHHELD_COPY,
+	type WidgetDataRow,
+	type WidgetQueryResult,
+	type WidgetTemplateData,
+} from '../dataEnvironment';
 
 /**
  * Shared chrome for the eight template renderers (RC-WID-1.2).
@@ -22,6 +33,35 @@ export interface WidgetTemplateProps {
 	data: WidgetTemplateData;
 	/** Dispatches a widget-declared command; absent while the layout is being edited. */
 	onCommand?: WidgetCommandHandler;
+}
+
+/**
+ * RC-WID-6.5 — the template kind being drawn. A {@link TemplateShell} sets it from its
+ * `widget-template-<kind>` test id (the one name every shell already carries); a caller that knows
+ * the kind can set it around a template that draws no shell (the hub kinds) with
+ * {@link TemplateKindProvider}. `null` when nobody said, which {@link emptyNoticeOf} treats as a kind
+ * that reads data.
+ */
+const TemplateKindContext = createContext<WidgetTemplateKind | null>(null);
+
+export function TemplateKindProvider({
+	kind,
+	children,
+}: {
+	kind: WidgetTemplateKind | null;
+	children: ReactNode;
+}) {
+	return <TemplateKindContext.Provider value={kind}>{children}</TemplateKindContext.Provider>;
+}
+
+const TEMPLATE_TEST_ID_PREFIX = 'widget-template-';
+
+function kindOfTestId(testId: string): WidgetTemplateKind | null {
+	if (!testId.startsWith(TEMPLATE_TEST_ID_PREFIX)) return null;
+	const kind = testId.slice(TEMPLATE_TEST_ID_PREFIX.length);
+	return (ALL_WIDGET_TEMPLATE_KINDS as readonly string[]).includes(kind)
+		? (kind as WidgetTemplateKind)
+		: null;
 }
 
 /**
@@ -45,27 +85,30 @@ export function TemplateShell({
 	testId: string;
 	controls?: ReactNode;
 }) {
+	const outerKind = useContext(TemplateKindContext);
 	return (
-		<div
-			data-testid={testId}
-			style={{
-				height: '100%',
-				minHeight: 0,
-				display: 'flex',
-				flexDirection: 'column',
-				gap: 'var(--space-2)',
-				overflow: 'auto',
-			}}
-		>
+		<TemplateKindContext.Provider value={kindOfTestId(testId) ?? outerKind}>
 			<div
-				aria-live="polite"
-				aria-atomic="false"
-				style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+				data-testid={testId}
+				style={{
+					height: '100%',
+					minHeight: 0,
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 'var(--space-2)',
+					overflow: 'auto',
+				}}
 			>
-				{children}
+				<div
+					aria-live="polite"
+					aria-atomic="false"
+					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+				>
+					{children}
+				</div>
+				{controls}
 			</div>
-			{controls}
-		</div>
+		</TemplateKindContext.Provider>
 	);
 }
 
@@ -83,13 +126,23 @@ export function TemplateNote({ children }: { children: ReactNode }) {
 	);
 }
 
+/** What a data template with no query says. Only a kind that draws rows ever says it. */
+export const NO_DATA_SOURCE_COPY = 'This widget has no data source yet.';
+
 /**
  * What to say when a query produced no rows — and nothing when it produced some. A query withheld
  * from this viewer says so; an empty one says it is empty. Never the same sentence, because "nothing
  * yet" for data that exists but is DM-only would be a lie.
+ *
+ * RC-WID-6.5 — with no query at all, only a kind that draws a query's rows says it has no data
+ * source. An action panel, a message or a form is complete without one, so a line that sounds like
+ * an error would sit on the live board for good. An unknown kind keeps the line.
  */
-export function emptyNoticeOf(query: WidgetQueryResult | null): string | null {
-	if (!query) return 'This widget has no data source yet.';
+export function emptyNoticeOf(
+	query: WidgetQueryResult | null,
+	kind: WidgetTemplateKind | null = null,
+): string | null {
+	if (!query) return kind === null || widgetTemplateReadsQueries(kind) ? NO_DATA_SOURCE_COPY : null;
 	if (query.withheld) return WITHHELD_COPY[query.withheld];
 	if (query.rows.length === 0) return query.emptyLabel;
 	return null;
@@ -97,7 +150,7 @@ export function emptyNoticeOf(query: WidgetQueryResult | null): string | null {
 
 /** A withheld query gets the padlock; an empty one is just quiet. */
 export function TemplateEmpty({ query }: { query: WidgetQueryResult | null }) {
-	const notice = emptyNoticeOf(query);
+	const notice = emptyNoticeOf(query, useContext(TemplateKindContext));
 	if (!notice) return null;
 	return (
 		<span
@@ -169,4 +222,28 @@ export function cfgText(widget: BoardWidget, ...keys: string[]): string | null {
 		if (typeof value === 'string' && value.trim()) return value.trim();
 	}
 	return null;
+}
+
+/** RC-WID-6.5 — the shared visibility words (`common.visibility.*`), as the screen list uses them. */
+const VISIBILITY_KEY: Record<NonNullable<WidgetDataRow['visibility']>, MessageKey> = {
+	'dm-only': 'common.visibility.dmOnly',
+	shared: 'common.visibility.shared',
+	'player-visible': 'common.visibility.playerVisible',
+};
+
+/**
+ * A row's trailing tag as a badge. A visibility is drawn in the app's own words, localized and
+ * following the GM vocabulary ("DM only · Shared · Player visible"); any other tag prints as the
+ * source wrote it.
+ */
+export function RowTag({ row }: { row: WidgetDataRow }) {
+	const { t } = useI18n();
+	if (row.visibility) {
+		return (
+			<Badge status={row.visibility === 'dm-only' ? 'neutral' : 'info'}>
+				{t(VISIBILITY_KEY[row.visibility])}
+			</Badge>
+		);
+	}
+	return row.meta ? <Badge status="neutral">{row.meta}</Badge> : null;
 }

@@ -15,6 +15,7 @@ import {
 	getPlayerViewForActor,
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
+	getSceneForActor,
 	getSessionRecapFeedForActor,
 	hasDmAuthority,
 	listCharactersForActor,
@@ -27,6 +28,7 @@ import {
 	resourcesOf,
 	restKindOfLedgerEntry,
 	widgetQueryFormulaIdentifier,
+	widgetTemplateReadsQueries,
 	type Actor,
 	type CharacterView,
 	type CombatTrackerView,
@@ -35,6 +37,8 @@ import {
 	type Scene,
 	type WidgetComputedFieldDefinition,
 	type WidgetDataQueryDefinition,
+	type WidgetDataQueryOptions,
+	type WidgetTemplateKind,
 	type WidgetDefinition,
 } from '@dndtools/core';
 import { listLocalVaults } from '../../platform/storage/coreStore';
@@ -78,6 +82,12 @@ import type { BoardWidget } from '../board-helpers';
  * a player gets the empty result that read gives them, not a second, looser one built here. The
  * live-table sources are the exception that no core read answers: they read the P2P table the host
  * app passes in, and project it for the viewer exactly as the host's presence broadcast does.
+ *
+ * RC-WID-6.5 added declarative query OPTIONS (character kind, tag, scene membership, status, sort,
+ * limit). Every filter runs over the views the source's `*ForActor` read already returned, so an
+ * option can only take rows away: a player's "NPCs" are the NPCs that player may see, a tag the read
+ * withheld from them never matches, and "on the active screen" asks the actor-scoped scene read
+ * which widgets they receive there.
  */
 
 /** One normalized row. Every template reads this shape, whatever source produced it. */
@@ -105,6 +115,8 @@ export interface WidgetDataRow {
 	/**
 	 * RC-WID-5.2 — the row's visibility level (`dm-only`, `shared`, `player-visible`), kept apart from
 	 * `meta`/`active` so a screen can be live AND private and a template can still tell which.
+	 * RC-WID-6.5 — every source whose `meta` names a visibility sets this too, and `meta` then carries
+	 * the app's word for it ("DM only", "Shared", "Player visible"), never the enum value.
 	 */
 	visibility?: Scene['visibility'];
 }
@@ -155,6 +167,11 @@ export type WidgetQueryWithheldReason = 'audience' | 'capability';
 export interface WidgetQueryResult {
 	/** The declaration's id, so a computed field can name its inputs. */
 	id: string;
+	/**
+	 * RC-WID-6.5 — true only for {@link sampleTemplateData}'s made-up rows, which the builder preview
+	 * draws (labelled "Sample data") while the draft declares no query. Never set on a real query.
+	 */
+	sample?: boolean;
 	label: string;
 	source: WidgetDataQueryDefinition['source'];
 	rows: WidgetDataRow[];
@@ -202,6 +219,28 @@ function row(
 	return { id, primary, ...rest };
 }
 
+/**
+ * RC-WID-6.5 — the app's words for a visibility level, the ones the screen list and the map use
+ * (`common.visibility.*`). `meta` is plain text every template prints as is, so it carries the word;
+ * a localizing template reads `visibility` instead.
+ */
+export const VISIBILITY_WORD: Record<Scene['visibility'], string> = {
+	'dm-only': 'DM only',
+	shared: 'Shared',
+	'player-visible': 'Player visible',
+};
+
+function isVisibilityLevel(value: unknown): value is Scene['visibility'] {
+	return value === 'dm-only' || value === 'shared' || value === 'player-visible';
+}
+
+/** A row's visibility as both fields a template may read: the level and its word. */
+function visibilityOf(level: string): Pick<WidgetDataRow, 'meta' | 'visibility'> {
+	return isVisibilityLevel(level)
+		? { meta: VISIBILITY_WORD[level], visibility: level }
+		: { meta: level };
+}
+
 /** Preserve the party read's observer ceiling and ordering, using only redacted views. */
 function visiblePartyMembers(state: CoreStateSlice, actorId: string): CharacterView[] {
 	if (decideCharacterDataRead(state.permissions, actorId).kind !== 'granted') return [];
@@ -228,6 +267,163 @@ function characterVitals(member: CharacterView, includeTemporary = false): strin
 	return vitals.join(' · ') || undefined;
 }
 
+/** Whether any FILTER is set, so an empty result says "nothing matches" rather than "nothing yet". */
+function narrows(options: WidgetDataQueryOptions | undefined): boolean {
+	if (!options) return false;
+	return (
+		options.characterKinds !== undefined ||
+		options.tag !== undefined ||
+		options.sceneMembership !== undefined ||
+		options.status !== undefined
+	);
+}
+
+/** A tags value as stored in a note's or object's `tags` field: a list, or one comma-separated line. */
+function tagsOfField(value: unknown): string[] {
+	if (Array.isArray(value)) return value.filter((tag): tag is string => typeof tag === 'string');
+	if (typeof value === 'string') return value.split(',');
+	return [];
+}
+
+/** Case- and `#`-insensitive, so `#Undead`, `undead` and ` Undead ` are one tag. */
+function normalizeTag(tag: string): string {
+	return tag.trim().replace(/^#/, '').toLocaleLowerCase();
+}
+
+function hasTag(tags: readonly string[], wanted: string | undefined): boolean {
+	if (wanted === undefined) return true;
+	const needle = normalizeTag(wanted);
+	return tags.some((tag) => normalizeTag(tag) === needle);
+}
+
+/**
+ * The entity ids bound to a widget on the active screen, as THIS ACTOR receives that screen: the
+ * actor-scoped scene read decides whether they may open it at all and which of its widgets reach
+ * them, so a player is never told what sits on a screen, or a section of one, that they cannot see.
+ */
+function activeScreenBindings(state: CoreStateSlice, actor: Actor): ReadonlySet<string> {
+	const activeId = state.session.activeSceneId;
+	if (!activeId) return new Set();
+	const summary = getSceneForActor(state.scenes, state.permissions, actor.id, activeId, {
+		widgetPackages: state.widgets,
+	});
+	if ('kind' in summary) return new Set();
+	const ids = new Set<string>();
+	for (const payload of summary.widgets) {
+		if (payload.kind !== 'available' && payload.kind !== 'degraded') continue;
+		const entityId = payload.widget.binding?.source.entityId;
+		if (entityId) ids.add(entityId);
+	}
+	return ids;
+}
+
+/**
+ * HP status from what the viewer may see. A character or combatant whose HP the read withheld has
+ * no status, so it matches no status filter rather than being placed by a value the viewer lacks.
+ */
+function hpStatusOf(
+	hp: number | null | undefined,
+	maxHp: number | null | undefined,
+): WidgetDataQueryOptions['status'] | null {
+	if (hp == null) return null;
+	if (hp <= 0) return 'down';
+	if (maxHp != null && maxHp > 0 && hp <= maxHp / 2) return 'bloodied';
+	return 'up';
+}
+
+/** RC-WID-6.5 — the character filters, over views the actor-scoped read already returned. */
+function filterCharacters(
+	state: CoreStateSlice,
+	actor: Actor,
+	members: CharacterView[],
+	options: WidgetDataQueryOptions | undefined,
+): CharacterView[] {
+	if (!narrows(options)) return members;
+	const kinds = options?.characterKinds;
+	const membership = options?.sceneMembership;
+	const inScope: ReadonlySet<string> | null =
+		membership === 'active-scene'
+			? activeScreenBindings(state, actor)
+			: membership === 'in-combat'
+				? new Set(
+						getCombatTrackerForActor(state.session.combat, state.permissions, actor.id)
+							.combatants.map((combatant) => combatant.characterId)
+							.filter((id): id is string => id !== null),
+					)
+				: null;
+	return members.filter(
+		(member) =>
+			(kinds === undefined || kinds.includes(member.kind)) &&
+			(inScope === null || inScope.has(member.id)) &&
+			(options?.status === undefined ||
+				hpStatusOf(member.combat.hp, member.combat.maxHp) === options.status),
+	);
+}
+
+/**
+ * RC-WID-6.5 — the combatant filters. A combatant's kind is its character's kind when this viewer
+ * may see that character, else the tracker's own NPC/monster word; a character row the viewer cannot
+ * resolve matches no kind filter. Status reads the tracker's own flags, which are false for a
+ * combatant whose vitals are withheld, and `resources` itself, which is null for one.
+ */
+function filterCombatants(
+	state: CoreStateSlice,
+	actorId: string,
+	combatants: CombatTrackerView['combatants'],
+	options: WidgetDataQueryOptions | undefined,
+): CombatTrackerView['combatants'] {
+	if (!narrows(options)) return combatants;
+	const kinds = options?.characterKinds;
+	const kindOfCharacter =
+		kinds === undefined
+			? null
+			: new Map(
+					listCharactersForActor(state.characters, state.permissions, actorId).map((view) => [
+						view.id,
+						view.kind,
+					]),
+				);
+	return combatants.filter((combatant) => {
+		if (kinds !== undefined) {
+			const kind =
+				(combatant.characterId ? kindOfCharacter?.get(combatant.characterId) : undefined) ??
+				(combatant.kind === 'character' ? undefined : combatant.kind);
+			if (kind === undefined || !kinds.includes(kind)) return false;
+		}
+		if (options?.status !== undefined) {
+			const status = combatant.resources
+				? combatant.isDefeated || combatant.isDying
+					? 'down'
+					: hpStatusOf(combatant.resources.hp, combatant.resources.maxHp)
+				: null;
+			if (status !== options.status) return false;
+		}
+		return true;
+	});
+}
+
+/** RC-WID-6.5 — `sort` then `limit`, over the normalized rows any source produced. */
+function orderRows(
+	rows: WidgetDataRow[],
+	options: WidgetDataQueryOptions | undefined,
+): WidgetDataRow[] {
+	if (!options || (options.sort === undefined && options.limit === undefined)) return rows;
+	const sorted = rows.slice();
+	if (options.sort === 'name') {
+		sorted.sort((a, b) => a.primary.localeCompare(b.primary));
+	} else if (options.sort === 'value-high' || options.sort === 'value-low') {
+		const sign = options.sort === 'value-high' ? -1 : 1;
+		// A row with no measure sorts last either way: it has nothing to rank by.
+		sorted.sort((a, b) => {
+			if (a.value === undefined || b.value === undefined) {
+				return a.value === undefined ? (b.value === undefined ? 0 : 1) : -1;
+			}
+			return sign * (a.value - b.value);
+		});
+	}
+	return options.limit === undefined ? sorted : sorted.slice(0, options.limit);
+}
+
 /**
  * Resolve ONE declared query against the actor-filtered core reads.
  *
@@ -246,6 +442,7 @@ function resolveSource(
 	host: WidgetHostContext,
 ): ResolvedSource {
 	const actorId = actor.id;
+	const options = query.options;
 	switch (query.source) {
 		case 'current-combatants': {
 			const tracker = getCombatTrackerForActor(state.session.combat, state.permissions, actorId);
@@ -253,10 +450,13 @@ function resolveSource(
 				tracker.status === 'running'
 					? `Round ${tracker.round} · turn ${tracker.turn + 1} of ${tracker.combatants.length}`
 					: 'No combat running';
+			const combatants = filterCombatants(state, actorId, tracker.combatants, options);
 			return {
 				header,
-				emptyLabel: 'No combatants in the tracker.',
-				rows: tracker.combatants.map((combatant) => {
+				emptyLabel: narrows(options)
+					? 'No combatants match these filters.'
+					: 'No combatants in the tracker.',
+				rows: combatants.map((combatant) => {
 					// `resources` is null for a combatant whose vitals are withheld from this viewer, so
 					// the HP detail simply disappears rather than being reconstructed here.
 					const detail: string[] = [];
@@ -277,14 +477,16 @@ function resolveSource(
 			};
 		}
 		case 'visible-characters': {
-			const members = visiblePartyMembers(state, actorId);
+			const members = filterCharacters(state, actor, visiblePartyMembers(state, actorId), options);
 			return {
 				header: null,
-				emptyLabel: 'No characters visible yet.',
+				emptyLabel: narrows(options)
+					? 'No characters match these filters.'
+					: 'No characters visible yet.',
 				rows: members.map((member) =>
 					row(member.id, member.name, {
 						secondary: characterVitals(member),
-						meta: member.visibility,
+						...visibilityOf(member.visibility),
 						value: member.combat.hp,
 						max: member.combat.maxHp,
 					}),
@@ -293,16 +495,16 @@ function resolveSource(
 		}
 		case 'selected-scene': {
 			const scenes = listScenesForActor(state.scenes, state.permissions, actorId).filter(
-				(scene) => !scene.isTemplate,
+				(scene) => !scene.isTemplate && hasTag(scene.tags, options?.tag),
 			);
 			const activeId = state.session.activeSceneId;
 			return {
 				header: null,
-				emptyLabel: 'No scenes yet.',
+				emptyLabel: options?.tag ? 'No scenes carry this tag.' : 'No scenes yet.',
 				rows: scenes.map((scene) =>
 					row(scene.id, scene.name, {
 						secondary: scene.tags.join(', ') || undefined,
-						meta: scene.visibility,
+						...visibilityOf(scene.visibility),
 						active: scene.id === activeId,
 					}),
 				),
@@ -337,12 +539,22 @@ function resolveSource(
 			// The vault holds two content kinds; the declaration names which one it wants, so `notes`
 			// and `content-objects` are the two halves rather than two names for the same list.
 			const kind = query.source === 'notes' ? 'note' : 'object';
+			// A tag is read off the item's `tags` field AS THIS VIEWER RECEIVED IT: a field the DM hid
+			// from players is already gone from their view, so it can never match for them.
+			const onScreen = options?.sceneMembership ? activeScreenBindings(state, actor) : null;
 			const wanted = getContentItemsForActor(state.content, state.permissions, actorId).filter(
-				(item) => item.kind === kind,
+				(item) =>
+					item.kind === kind &&
+					hasTag(tagsOfField(item.fields.tags), options?.tag) &&
+					(onScreen === null || onScreen.has(item.id)),
 			);
 			return {
 				header: null,
-				emptyLabel: query.source === 'notes' ? 'No notes yet.' : 'No vault objects yet.',
+				emptyLabel: narrows(options)
+					? 'Nothing here matches these filters.'
+					: query.source === 'notes'
+						? 'No notes yet.'
+						: 'No vault objects yet.',
 				rows: wanted
 					.slice()
 					.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -350,12 +562,18 @@ function resolveSource(
 			};
 		}
 		case 'maps': {
-			const maps = listMapsForActor(state.maps, state.permissions, actorId);
+			const onScreen = options?.sceneMembership ? activeScreenBindings(state, actor) : null;
+			const maps = listMapsForActor(state.maps, state.permissions, actorId).filter(
+				(map) => onScreen === null || onScreen.has(map.id),
+			);
 			return {
 				header: null,
-				emptyLabel: 'No maps yet.',
+				emptyLabel: onScreen ? 'No maps on the active screen.' : 'No maps yet.',
 				rows: maps.map((map) =>
-					row(map.id, map.name, { secondary: map.description || undefined, meta: map.visibility }),
+					row(map.id, map.name, {
+						secondary: map.description || undefined,
+						...visibilityOf(map.visibility),
+					}),
 				),
 			};
 		}
@@ -372,7 +590,7 @@ function resolveSource(
 			};
 		}
 		default:
-			return resolveHubSource(state, actor, query.source, host);
+			return resolveHubSource(state, actor, query, host);
 	}
 }
 
@@ -433,9 +651,10 @@ function initiativeSourceOf(
 function resolveHubSource(
 	state: CoreStateSlice,
 	actor: Actor,
-	source: WidgetDataQueryDefinition['source'],
+	query: WidgetDataQueryDefinition,
 	host: WidgetHostContext,
 ): ResolvedSource {
+	const { source, options } = query;
 	const actorId = actor.id;
 	const isDm = hasDmAuthority(actor.role);
 	const live = state.session.workflow === 'active';
@@ -444,10 +663,10 @@ function resolveHubSource(
 			const screens = listScreensForActor(state.scenes, state.permissions, actorId, {
 				commandCenter: state.commandCenter,
 				session: state.session,
-			});
+			}).filter((screen) => hasTag(screen.tags, options?.tag));
 			return {
 				header: null,
-				emptyLabel: 'No screens yet.',
+				emptyLabel: options?.tag ? 'No screens carry this tag.' : 'No screens yet.',
 				rows: screens.map((screen) => {
 					// The live flag needs a running session, not just a remembered scene id: a recovered
 					// session restores the id into recap and must not read as live (SCREENS_PARITY CC-01).
@@ -464,11 +683,10 @@ function resolveHubSource(
 					if (isLive) detail.push('Live');
 					return row(screen.id, screen.name, {
 						secondary: detail.join(' · '),
-						meta: screen.visibility,
+						...visibilityOf(screen.visibility),
 						value: screen.widgetCount,
 						active: isLive,
 						thumbnail: background,
-						visibility: screen.visibility,
 					});
 				}),
 			};
@@ -500,10 +718,17 @@ function resolveHubSource(
 			};
 		}
 		case 'party': {
-			const members = visiblePartyMembers(state, actorId).filter((member) => member.kind === 'pc');
+			const members = filterCharacters(
+				state,
+				actor,
+				visiblePartyMembers(state, actorId).filter((member) => member.kind === 'pc'),
+				options,
+			);
 			return {
 				header: members.length > 0 ? `${members.length} in the party` : null,
-				emptyLabel: 'No player characters yet.',
+				emptyLabel: narrows(options)
+					? 'No party members match these filters.'
+					: 'No player characters yet.',
 				rows: members.map((member) => {
 					return row(member.id, member.name, {
 						secondary: characterVitals(member, true),
@@ -1153,7 +1378,7 @@ export function resolveWidgetTemplateData(
 			id: query.id,
 			label: query.label,
 			source: query.source,
-			rows: resolved.rows,
+			rows: orderRows(resolved.rows, query.options),
 			header: resolved.header,
 			emptyLabel: resolved.emptyLabel,
 			withheld: null,
@@ -1166,6 +1391,77 @@ export function resolveWidgetTemplateData(
 	);
 
 	return { queries, computed, primary: queries[0] ?? null, isDm };
+}
+
+/**
+ * RC-WID-6.5 — whether the builder preview should draw {@link sampleTemplateData}: the draft
+ * declares no query, and its template kind draws a query's rows. A kind that is complete without one
+ * (buttons, a message, a form, a launcher of intents) is drawn as it is. So is a tracker counting its
+ * own configured numbers, or a card grid built from intents: made-up rows would hide what the
+ * author actually set.
+ */
+export function previewNeedsSampleData(definition: WidgetDefinition | null | undefined): boolean {
+	if (!definition || (definition.dataQueries?.length ?? 0) > 0) return false;
+	const entrypoint = definition.renderEntrypoint;
+	if (entrypoint?.runtime !== 'template' || !entrypoint.template) return false;
+	const kind: WidgetTemplateKind = entrypoint.template;
+	if (!widgetTemplateReadsQueries(kind)) return false;
+	if (kind === 'tracker') {
+		return !(definition.configFields ?? []).some(
+			(field) => field.control === 'number' && (field.group ?? 'content') === 'content',
+		);
+	}
+	if (kind === 'card-grid') return (definition.intents ?? []).length === 0;
+	return true;
+}
+
+/** Made-up rows that exercise every field a template draws: a measure, a ceiling, a turn, a tag. */
+const SAMPLE_ROWS: readonly WidgetDataRow[] = Object.freeze([
+	row('sample-1', 'Ser Brannoc', {
+		secondary: 'HP 18 of 24 · AC 16',
+		value: 18,
+		max: 24,
+		active: true,
+		avatar: 'SB',
+		...visibilityOf('player-visible'),
+	}),
+	row('sample-2', 'Wren Ashdown', {
+		secondary: 'HP 9 of 20 · AC 13',
+		value: 9,
+		max: 20,
+		avatar: 'WA',
+		...visibilityOf('shared'),
+	}),
+	row('sample-3', 'Old Tam', {
+		secondary: 'HP 31 of 31 · AC 12',
+		value: 31,
+		max: 31,
+		avatar: 'OT',
+		...visibilityOf('dm-only'),
+	}),
+]);
+
+/**
+ * RC-WID-6.5 — what the builder preview draws while a data template has no query yet: three
+ * sample rows as the primary query, flagged `sample` so the preview labels them "Sample data". They
+ * never reach a placed widget — the board resolves the real (empty) declaration — and `queries`
+ * stays empty, so no computed field or query list counts them. Previewed as a player, the DM-only
+ * sample row is left out, so the two previews still differ the way real rows would.
+ */
+export function sampleTemplateData(isDm: boolean): WidgetTemplateData {
+	const primary: WidgetQueryResult = {
+		id: 'sample',
+		label: 'Sample data',
+		source: 'visible-characters',
+		sample: true,
+		rows: SAMPLE_ROWS.filter((sample) => isDm || sample.visibility !== 'dm-only').map((sample) => ({
+			...sample,
+		})),
+		header: null,
+		emptyLabel: '',
+		withheld: null,
+	};
+	return { queries: [], computed: [], primary, isDm };
 }
 
 /** The P2P session, or null where no `SessionProvider` is mounted (an isolated render). */

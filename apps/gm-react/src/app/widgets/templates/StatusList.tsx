@@ -2,6 +2,7 @@ import { Badge, StatusDot } from '../../../ds';
 import { useI18n } from '../../../i18n';
 import {
 	ComputedFields,
+	RowTag,
 	TemplateEmpty,
 	TemplateNote,
 	TemplateShell,
@@ -12,7 +13,7 @@ import {
  * `status-list` — a compact roster where each row's STATE is the point (RC-WID-1.2): who is up, what
  * is shared, what is hidden. Every state is carried by a shape AND a word, never by colour alone
  * (A11Y-011): the active row gets a live dot plus the word "Now", and a row's tag is a badge with
- * its own icon.
+ * its own icon. A visibility tag reads in the app's words (RC-WID-6.5), never the stored enum.
  */
 export function StatusListTemplate({ data }: WidgetTemplateProps) {
 	const { t } = useI18n();
@@ -65,7 +66,7 @@ export function StatusListTemplate({ data }: WidgetTemplateProps) {
 								) : null}
 							</span>
 							{row.active ? <Badge status="success">{t('widgetTemplate.now')}</Badge> : null}
-							{row.meta ? <Badge status="neutral">{row.meta}</Badge> : null}
+							<RowTag row={row} />
 						</li>
 					))}
 				</ul>

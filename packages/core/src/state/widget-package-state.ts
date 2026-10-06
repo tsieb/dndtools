@@ -491,6 +491,161 @@ export interface WidgetDataQueryDefinition {
 	bindingIds?: string[];
 	requiredCapability: WidgetCapabilitySet;
 	audience: 'dm' | 'players' | 'shared';
+	/** RC-WID-6.5 — declarative narrowing and ordering. Absent means every row, in source order. */
+	options?: WidgetDataQueryOptions;
+}
+
+/**
+ * RC-WID-6.5 — the declarative options a data query may carry. Each one only NARROWS or ORDERS the
+ * rows the source's actor-scoped read already returned, so no option can widen what a viewer sees.
+ * A filter matches against the viewer's own redacted view: a tag or an HP the read withheld from a
+ * player never matches for that player, which keeps a filter from probing hidden values.
+ *
+ * - `characterKinds` keeps characters of these kinds (a party list filtered to `pc`).
+ * - `tag` keeps rows carrying this tag (scene and screen tags, a note's or object's `tags` field).
+ * - `sceneMembership` keeps rows placed on the active screen (a widget there is bound to them) or,
+ *   for characters, those in the running fight.
+ * - `status` keeps characters by HP: `up` above half, `bloodied` at or below half, `down` at 0.
+ * - `sort` reorders by name or by the row's measure; absent keeps the source's own order.
+ * - `limit` keeps the first N rows after filtering and sorting.
+ */
+export interface WidgetDataQueryOptions {
+	characterKinds?: WidgetQueryCharacterKind[];
+	tag?: string;
+	sceneMembership?: WidgetQuerySceneMembership;
+	status?: WidgetQueryStatus;
+	sort?: WidgetQuerySort;
+	limit?: number;
+}
+
+export type WidgetQueryCharacterKind = 'pc' | 'npc' | 'monster' | 'sidekick';
+export type WidgetQuerySceneMembership = 'active-scene' | 'in-combat';
+export type WidgetQueryStatus = 'up' | 'bloodied' | 'down';
+export type WidgetQuerySort = 'name' | 'value-high' | 'value-low';
+export type WidgetQueryOption = keyof WidgetDataQueryOptions;
+
+export const WIDGET_QUERY_CHARACTER_KINDS = [
+	'pc',
+	'npc',
+	'monster',
+	'sidekick',
+] as const satisfies readonly WidgetQueryCharacterKind[];
+export const WIDGET_QUERY_SCENE_MEMBERSHIPS = [
+	'active-scene',
+	'in-combat',
+] as const satisfies readonly WidgetQuerySceneMembership[];
+export const WIDGET_QUERY_STATUSES = [
+	'up',
+	'bloodied',
+	'down',
+] as const satisfies readonly WidgetQueryStatus[];
+export const WIDGET_QUERY_SORTS = [
+	'name',
+	'value-high',
+	'value-low',
+] as const satisfies readonly WidgetQuerySort[];
+/** The largest `limit` a query may declare. A template draws a handful of rows, not a vault. */
+export const WIDGET_QUERY_LIMIT_MAX = 50;
+/** The longest `tag` a query may declare. */
+export const WIDGET_QUERY_TAG_MAX_LENGTH = 64;
+
+/** The sources whose rows are characters, so a kind or an HP status means something. */
+const CHARACTER_ROW_SOURCES = ['visible-characters', 'party'] as const;
+
+/**
+ * Which sources each FILTER applies to. A filter on a source whose rows cannot carry the field would
+ * silently match nothing (or everything), so the schema refuses it instead. `sort` and `limit` read
+ * only the normalized row and apply to every source.
+ */
+export const WIDGET_QUERY_FILTER_SOURCES: Readonly<
+	Record<Exclude<WidgetQueryOption, 'sort' | 'limit'>, readonly WidgetDataQuerySource[]>
+> = Object.freeze({
+	characterKinds: ['visible-characters', 'current-combatants'],
+	tag: ['selected-scene', 'screens', 'notes', 'content-objects'],
+	sceneMembership: [...CHARACTER_ROW_SOURCES, 'notes', 'content-objects', 'maps'],
+	status: [...CHARACTER_ROW_SOURCES, 'current-combatants'],
+});
+
+/** Only a character is in a fight; every scene-membership source can be on the active screen. */
+export const WIDGET_QUERY_SCENE_MEMBERSHIP_SOURCES: Readonly<
+	Record<WidgetQuerySceneMembership, readonly WidgetDataQuerySource[]>
+> = Object.freeze({
+	'active-scene': WIDGET_QUERY_FILTER_SOURCES.sceneMembership,
+	'in-combat': CHARACTER_ROW_SOURCES,
+});
+
+/** Whether one option means anything on this source (the Data step offers exactly these). */
+export function widgetQueryOptionApplies(
+	option: WidgetQueryOption,
+	source: WidgetDataQuerySource,
+): boolean {
+	if (option === 'sort' || option === 'limit') return true;
+	return WIDGET_QUERY_FILTER_SOURCES[option].includes(source);
+}
+
+export interface WidgetQueryOptionIssue {
+	option: WidgetQueryOption;
+	message: string;
+}
+
+/**
+ * Everything wrong with a query's options that the per-field shapes cannot see: an option on a
+ * source it does not apply to, a fight filter on a non-character source, a repeated kind. Empty when
+ * the options are fine. The schema and the builder both read this, so the two never disagree.
+ */
+export function widgetQueryOptionIssues(
+	query: Pick<WidgetDataQueryDefinition, 'id' | 'source' | 'options'>,
+): WidgetQueryOptionIssue[] {
+	const options = query.options;
+	if (!options) return [];
+	const issues: WidgetQueryOptionIssue[] = [];
+	for (const option of Object.keys(options) as WidgetQueryOption[]) {
+		if (options[option] === undefined) continue;
+		if (!widgetQueryOptionApplies(option, query.source)) {
+			issues.push({
+				option,
+				message: `Query ${query.id} reads ${query.source}, which has no ${option} to filter by.`,
+			});
+		}
+	}
+	const membership = options.sceneMembership;
+	if (
+		membership !== undefined &&
+		widgetQueryOptionApplies('sceneMembership', query.source) &&
+		!WIDGET_QUERY_SCENE_MEMBERSHIP_SOURCES[membership].includes(query.source)
+	) {
+		issues.push({
+			option: 'sceneMembership',
+			message: `Query ${query.id} reads ${query.source}, which cannot be in a fight.`,
+		});
+	}
+	const kinds = options.characterKinds ?? [];
+	if (new Set(kinds).size !== kinds.length) {
+		issues.push({
+			option: 'characterKinds',
+			message: `Query ${query.id} names a character kind more than once.`,
+		});
+	}
+	return issues;
+}
+
+/**
+ * RC-WID-6.5 — the template kinds that draw a data query's rows. The rest (buttons, a message, a
+ * form, a launcher or link list built from intents) are complete without one, so they never say a
+ * data source is missing.
+ */
+export const WIDGET_TEMPLATE_KINDS_READING_QUERIES = [
+	'data-table',
+	'status-list',
+	'tracker',
+	'chart',
+	'stat-block',
+	'hero',
+	'card-grid',
+] as const satisfies readonly WidgetTemplateKind[];
+
+export function widgetTemplateReadsQueries(kind: WidgetTemplateKind): boolean {
+	return (WIDGET_TEMPLATE_KINDS_READING_QUERIES as readonly WidgetTemplateKind[]).includes(kind);
 }
 
 export interface WidgetComputedFieldDefinition {

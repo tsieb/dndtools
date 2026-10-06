@@ -1,11 +1,14 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import {
 	PREVIEW_PLAYER_ACTOR_ID,
+	hasDmAuthority,
 	permissionsWithPreviewActors,
 	resolveWidgetConfig,
 	widgetPresentation,
+	type WidgetDefinition,
 	type WidgetTemplateKind,
 } from '@dndtools/core';
+import { Badge } from '../../ds';
 import { Seg, T } from '../screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { BoardWidget } from '../board-helpers';
@@ -13,7 +16,12 @@ import { hasBuiltinBody } from '../widget-bodies';
 import { resolveWidgetRenderer } from '../widgets/resolveRenderer';
 import { SandboxHost } from '../widgets/SandboxHost';
 import { WidgetErrorBoundary, WidgetPlaceholder } from '../widgets/WidgetRenderSlot';
-import { WITHHELD_COPY, resolveWidgetTemplateData } from '../widgets/dataEnvironment';
+import {
+	WITHHELD_COPY,
+	previewNeedsSampleData,
+	resolveWidgetTemplateData,
+	sampleTemplateData,
+} from '../widgets/dataEnvironment';
 import { ActionPanelTemplate } from '../widgets/templates/ActionPanel';
 import { ChartTemplate } from '../widgets/templates/Chart';
 import { DataTableTemplate } from '../widgets/templates/DataTable';
@@ -23,9 +31,10 @@ import { SceneMessageTemplate } from '../widgets/templates/SceneMessage';
 import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
 import { TrackerTemplate } from '../widgets/templates/Tracker';
-import type { WidgetTemplateProps } from '../widgets/templates/shared';
+import { TemplateKindProvider, type WidgetTemplateProps } from '../widgets/templates/shared';
 import { buildPackage, type WidgetDraft } from './draft';
-import { useI18n } from '../../i18n';
+import { TEMPLATE_LABEL } from './vocabulary';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /**
  * The builder's centre pane: the draft drawn through the real render path (RC-WID-2.1).
@@ -47,7 +56,26 @@ import { useI18n } from '../../i18n';
  * query comes back withheld, not merely empty. It is the app's own preview machinery rather than a
  * builder-local guess about what a player can see, because a second opinion here would be a lie the
  * author would only discover at the table.
+ *
+ * RC-WID-6.5 — until a data template has a query, the preview draws it with three sample rows and
+ * says "Sample data" in the frame, so the author sees the template they picked rather than an empty
+ * frame claiming the widget has no data. A placed widget never gets those rows. The eyebrow names
+ * the author's category, or the template kind while the category is still the builder's default.
  */
+
+/** The category a new draft starts with (`emptyDraft`); it says nothing about the widget. */
+const DEFAULT_CATEGORY = 'Custom';
+
+/** The eyebrow: the author's own category, else what draws the widget. Never the bare default. */
+function eyebrowOf(definition: WidgetDefinition, t: (key: MessageKey) => string): string {
+	const category = definition.category?.trim();
+	if (category && category !== DEFAULT_CATEGORY) return category;
+	const entrypoint = definition.renderEntrypoint;
+	if (entrypoint?.runtime === 'template' && entrypoint.template) {
+		return t(TEMPLATE_LABEL[entrypoint.template]);
+	}
+	return t('builder.preview.custom');
+}
 
 /** Exhaustive by construction: adding a template kind to the schema fails to compile here. */
 const RAW_TEMPLATES: Record<WidgetTemplateKind, ComponentType<WidgetTemplateProps>> = {
@@ -96,7 +124,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 			id: 'widget-builder-preview',
 			type: definition.type,
 			title: definition.displayName || t('builder.preview.untitled'),
-			typeLabel: definition.category || t('builder.preview.custom'),
+			typeLabel: eyebrowOf(definition, t),
 			icon: definition.icon ?? 'widget',
 			tier: 'custom',
 			description: definition.description ?? '',
@@ -115,10 +143,13 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 		};
 	}, [definition, t]);
 
-	const data = useMemo(
-		() => (widget ? resolveWidgetTemplateData(state, actorId, definition, widget) : null),
-		[state, actorId, definition, widget],
-	);
+	const sample = previewNeedsSampleData(definition);
+	const data = useMemo(() => {
+		if (!widget) return null;
+		if (!sample) return resolveWidgetTemplateData(state, actorId, definition, widget);
+		const actor = state.permissions.actors[actorId];
+		return sampleTemplateData(actor ? hasDmAuthority(actor.role) : false);
+	}, [state, actorId, definition, widget, sample]);
 
 	if (!definition || !widget || !data) return null;
 
@@ -137,7 +168,8 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 	);
 
 	const bare = widgetPresentation(widget.configuration) === 'bare';
-	const Template = RAW_TEMPLATES[definition.renderEntrypoint?.template ?? 'status-list'];
+	const kind = definition.renderEntrypoint?.template ?? 'status-list';
+	const Template = RAW_TEMPLATES[kind];
 	const emptyQueries = data.queries.filter((query) => query.rows.length === 0 && !query.withheld);
 	const withheldQueries = data.queries.filter((query) => query.withheld !== null);
 
@@ -188,8 +220,21 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 						<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
 							{widget.title}
 						</span>
-						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-							{widget.typeLabel}
+						<span
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								font: `var(--text-xs) ${T.sans}`,
+								color: T.sub,
+							}}
+						>
+							<span data-testid="widget-builder-preview-eyebrow">{widget.typeLabel}</span>
+							{sample && (
+								<Badge status="info" icon={null} data-testid="widget-builder-preview-sample">
+									{t('builder.preview.sampleData')}
+								</Badge>
+							)}
 						</span>
 					</div>
 				)}
@@ -198,7 +243,9 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 						{plan.kind === 'custom' ? (
 							<SandboxHost widget={widget} previewPackage={pkg} />
 						) : plan.kind === 'template' ? (
-							<Template widget={widget} definition={definition} data={data} />
+							<TemplateKindProvider kind={kind}>
+								<Template widget={widget} definition={definition} data={data} />
+							</TemplateKindProvider>
 						) : plan.kind === 'builtin' ? (
 							<WidgetPlaceholder
 								diagnostic={t('builder.preview.typeIdTaken', { type: widget.type })}
@@ -217,9 +264,11 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 				{t(
 					isCustom
 						? 'builder.preview.drawnInSandbox'
-						: effectiveAudience === 'player'
-							? 'builder.preview.drawnAsPlayer'
-							: 'builder.preview.drawnAsActor',
+						: sample
+							? 'builder.preview.drawnWithSample'
+							: effectiveAudience === 'player'
+								? 'builder.preview.drawnAsPlayer'
+								: 'builder.preview.drawnAsActor',
 				)}
 				{emptyQueries.length > 0 &&
 					` ${t('builder.preview.emptyQueries', {

@@ -1,12 +1,26 @@
 import {
+	WIDGET_QUERY_CHARACTER_KINDS,
 	WIDGET_QUERY_COLUMNS,
+	WIDGET_QUERY_LIMIT_MAX,
+	WIDGET_QUERY_SCENE_MEMBERSHIPS,
+	WIDGET_QUERY_SCENE_MEMBERSHIP_SOURCES,
+	WIDGET_QUERY_SORTS,
+	WIDGET_QUERY_STATUSES,
+	WIDGET_QUERY_TAG_MAX_LENGTH,
 	isValidFormula,
 	widgetFormulaIdentifiers,
 	widgetQueryFormulaIdentifier,
+	widgetQueryOptionApplies,
 	type WidgetBindingDefinition,
 	type WidgetComputedFieldDefinition,
 	type WidgetDataQueryDefinition,
+	type WidgetDataQueryOptions,
 	type WidgetDataQuerySource,
+	type WidgetQueryCharacterKind,
+	type WidgetQueryOption,
+	type WidgetQuerySceneMembership,
+	type WidgetQuerySort,
+	type WidgetQueryStatus,
 	type WidgetTemplateKind,
 } from '@dndtools/core';
 import { Checkbox, Field, Input, Select } from '../../ds';
@@ -28,8 +42,11 @@ import {
 	issueFor,
 	removeAt,
 	replaceAt,
+	ToggleGroup,
 	type StepProps,
+	type Translate,
 } from './fields';
+import type { WidgetDraft } from './draft';
 import { QUERY_SOURCE_LABEL, TEMPLATE_HELP } from './vocabulary';
 import {
 	COLUMN_HELP,
@@ -40,7 +57,7 @@ import {
 	sourceOptions,
 	templateOptions,
 } from './dataOptions';
-import { useI18n } from '../../i18n';
+import { useI18n, type MessageKey } from '../../i18n';
 
 /**
  * Data — which template kind draws the widget, what it draws FROM, and what it works out from that
@@ -63,7 +80,284 @@ import { useI18n } from '../../i18n';
  *   aggregate columns every query exposes — arithmetic and nothing else: no property access, no way
  *   to name an individual row, no call into the host. A withheld query contributes zeroes, so a
  *   player's total can never be derived from rows they never received.
+ *
+ * RC-WID-6.5 — each query card also has a "Show what" group: plain pickers for the declarative query
+ * options (character kind, tag, where, health, order, how many). Only the options the chosen source
+ * can honour are offered, and they are resolved in `dataEnvironment` over the same actor-scoped
+ * reads, so a filter only ever removes rows. A query's id follows its source until the author edits
+ * it by hand, and a computed field that reads the query follows the id.
  */
+
+/** Whether an id is one the builder derived from this source (`notes`, `notes-2`), not a typed one. */
+export function isDerivedQueryId(id: string, source: WidgetDataQuerySource): boolean {
+	if (id === source) return true;
+	return id.startsWith(`${source}-`) && /^\d+$/.test(id.slice(source.length + 1));
+}
+
+/**
+ * Point a query at a new source. The id and the label follow the source while they still hold what
+ * the builder derived; a typed id or label is the author's and stays. Options the new source cannot
+ * honour are dropped (the schema would refuse them), and computed fields that read the query follow
+ * its new id, formula names included.
+ */
+export function changeQuerySource(
+	draft: Pick<WidgetDraft, 'dataQueries' | 'computedFields'>,
+	index: number,
+	source: WidgetDataQuerySource,
+	t: Translate,
+): Pick<WidgetDraft, 'dataQueries' | 'computedFields'> {
+	const query = draft.dataQueries[index];
+	if (!query) return draft;
+	const others = draft.dataQueries.filter((_, at) => at !== index);
+	const id = isDerivedQueryId(query.id, query.source) ? nextQueryId(others, source) : query.id;
+	const label =
+		query.label === t(QUERY_SOURCE_LABEL[query.source])
+			? t(QUERY_SOURCE_LABEL[source])
+			: query.label;
+	const options = keptOptions(query.options, source);
+	const next: WidgetDataQueryDefinition = {
+		...query,
+		id,
+		source,
+		label,
+		// A binding list only means anything for the binding source; dropping it keeps the
+		// definition honest about what the query actually reads.
+		bindingIds: source === 'binding' ? (query.bindingIds ?? []) : undefined,
+		options,
+	};
+	if (next.options === undefined) delete next.options;
+	if (next.bindingIds === undefined) delete next.bindingIds;
+	const renamed = id !== query.id;
+	return {
+		dataQueries: replaceAt(draft.dataQueries, index, next),
+		computedFields: renamed
+			? draft.computedFields.map((field) => renameQueryIn(field, query.id, id))
+			: draft.computedFields,
+	};
+}
+
+function keptOptions(
+	options: WidgetDataQueryOptions | undefined,
+	source: WidgetDataQuerySource,
+): WidgetDataQueryOptions | undefined {
+	if (!options) return undefined;
+	const kept: WidgetDataQueryOptions = {};
+	for (const key of Object.keys(options) as WidgetQueryOption[]) {
+		if (options[key] === undefined || !widgetQueryOptionApplies(key, source)) continue;
+		const place = key === 'sceneMembership' ? options.sceneMembership : undefined;
+		if (place && !WIDGET_QUERY_SCENE_MEMBERSHIP_SOURCES[place].includes(source)) continue;
+		(kept as Record<string, unknown>)[key] = options[key];
+	}
+	return Object.keys(kept).length > 0 ? kept : undefined;
+}
+
+function renameQueryIn(
+	field: WidgetComputedFieldDefinition,
+	from: string,
+	to: string,
+): WidgetComputedFieldDefinition {
+	if (!field.inputQueryIds.includes(from)) return field;
+	let formula = field.formula;
+	if (formula !== undefined) {
+		for (const column of WIDGET_QUERY_COLUMNS) {
+			const before = widgetQueryFormulaIdentifier(from, column);
+			formula = formula.replace(
+				new RegExp(`(?<![A-Za-z0-9_])${before}(?![A-Za-z0-9_])`, 'g'),
+				widgetQueryFormulaIdentifier(to, column),
+			);
+		}
+	}
+	return {
+		...field,
+		inputQueryIds: field.inputQueryIds.map((id) => (id === from ? to : id)),
+		...(formula !== undefined ? { formula } : {}),
+	};
+}
+
+/** Set (or, with `undefined`, clear) one option; an emptied set leaves no `options` key at all. */
+function withOption<Key extends WidgetQueryOption>(
+	query: WidgetDataQueryDefinition,
+	key: Key,
+	value: WidgetDataQueryOptions[Key] | undefined,
+): WidgetDataQueryDefinition {
+	const options: WidgetDataQueryOptions = { ...query.options };
+	if (value === undefined) delete options[key];
+	else options[key] = value;
+	const next: WidgetDataQueryDefinition = { ...query, options };
+	if (Object.keys(options).length === 0) delete next.options;
+	return next;
+}
+
+const KIND_LABEL: Record<WidgetQueryCharacterKind, MessageKey> = {
+	pc: 'builder.data.option.kind.pc',
+	npc: 'builder.data.option.kind.npc',
+	monster: 'builder.data.option.kind.monster',
+	sidekick: 'builder.data.option.kind.sidekick',
+};
+const WHERE_LABEL: Record<WidgetQuerySceneMembership, MessageKey> = {
+	'active-scene': 'builder.data.option.where.activeScene',
+	'in-combat': 'builder.data.option.where.inCombat',
+};
+const STATUS_LABEL: Record<WidgetQueryStatus, MessageKey> = {
+	up: 'builder.data.option.status.up',
+	bloodied: 'builder.data.option.status.bloodied',
+	down: 'builder.data.option.status.down',
+};
+const SORT_LABEL: Record<WidgetQuerySort, MessageKey> = {
+	name: 'builder.data.option.sort.name',
+	'value-high': 'builder.data.option.sort.valueHigh',
+	'value-low': 'builder.data.option.sort.valueLow',
+};
+
+/**
+ * RC-WID-6.5 — "Show what": the query options as plain pickers, only those the source can honour.
+ * Exported so the Quick track can offer the same pickers over the same declaration.
+ */
+export function QueryOptionPickers({
+	query,
+	onChange,
+	testId,
+}: {
+	query: WidgetDataQueryDefinition;
+	onChange: (next: WidgetDataQueryDefinition) => void;
+	testId?: string;
+}) {
+	const { t } = useI18n();
+	const options = query.options ?? {};
+	const applies = (option: WidgetQueryOption) => widgetQueryOptionApplies(option, query.source);
+	const kinds = options.characterKinds ?? [];
+	const places = WIDGET_QUERY_SCENE_MEMBERSHIPS.filter((place) =>
+		WIDGET_QUERY_SCENE_MEMBERSHIP_SOURCES[place].includes(query.source),
+	);
+	return (
+		<div
+			data-testid={testId}
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+		>
+			<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
+				{t('builder.data.showWhat')}
+			</span>
+			{applies('characterKinds') && (
+				<ToggleGroup legend={t('builder.data.option.kinds')}>
+					{WIDGET_QUERY_CHARACTER_KINDS.map((kind) => (
+						<Checkbox
+							key={kind}
+							checked={kinds.includes(kind)}
+							label={t(KIND_LABEL[kind])}
+							onChange={() => {
+								const next = kinds.includes(kind)
+									? kinds.filter((entry) => entry !== kind)
+									: WIDGET_QUERY_CHARACTER_KINDS.filter(
+											(entry) => entry === kind || kinds.includes(entry),
+										);
+								onChange(withOption(query, 'characterKinds', next.length > 0 ? next : undefined));
+							}}
+						/>
+					))}
+				</ToggleGroup>
+			)}
+			<FieldGrid>
+				{applies('tag') && (
+					<Field label={t('builder.data.option.tag')}>
+						<Input
+							value={options.tag ?? ''}
+							maxLength={WIDGET_QUERY_TAG_MAX_LENGTH}
+							placeholder={t('builder.data.option.tagPlaceholder')}
+							onChange={(e: { target: { value: string } }) =>
+								onChange(
+									withOption(query, 'tag', e.target.value.trim() ? e.target.value : undefined),
+								)
+							}
+						/>
+					</Field>
+				)}
+				{applies('sceneMembership') && (
+					<Field label={t('builder.data.option.where')}>
+						<Select
+							value={options.sceneMembership ?? ''}
+							options={[
+								{ value: '', label: t('builder.data.option.where.any') },
+								...places.map((place) => ({ value: place, label: t(WHERE_LABEL[place]) })),
+							]}
+							onChange={(e: { target: { value: string } }) =>
+								onChange(
+									withOption(
+										query,
+										'sceneMembership',
+										(e.target.value || undefined) as WidgetQuerySceneMembership | undefined,
+									),
+								)
+							}
+						/>
+					</Field>
+				)}
+				{applies('status') && (
+					<Field label={t('builder.data.option.status')}>
+						<Select
+							value={options.status ?? ''}
+							options={[
+								{ value: '', label: t('builder.data.option.status.any') },
+								...WIDGET_QUERY_STATUSES.map((status) => ({
+									value: status,
+									label: t(STATUS_LABEL[status]),
+								})),
+							]}
+							onChange={(e: { target: { value: string } }) =>
+								onChange(
+									withOption(
+										query,
+										'status',
+										(e.target.value || undefined) as WidgetQueryStatus | undefined,
+									),
+								)
+							}
+						/>
+					</Field>
+				)}
+				<Field label={t('builder.data.option.sort')}>
+					<Select
+						value={options.sort ?? ''}
+						options={[
+							{ value: '', label: t('builder.data.option.sort.source') },
+							...WIDGET_QUERY_SORTS.map((sort) => ({ value: sort, label: t(SORT_LABEL[sort]) })),
+						]}
+						onChange={(e: { target: { value: string } }) =>
+							onChange(
+								withOption(
+									query,
+									'sort',
+									(e.target.value || undefined) as WidgetQuerySort | undefined,
+								),
+							)
+						}
+					/>
+				</Field>
+				<Field label={t('builder.data.option.limit')} help={t('builder.data.option.limitHelp')}>
+					<Input
+						type="number"
+						inputMode="numeric"
+						min={1}
+						max={WIDGET_QUERY_LIMIT_MAX}
+						value={options.limit === undefined ? '' : String(options.limit)}
+						placeholder={t('builder.data.option.limitPlaceholder')}
+						onChange={(e: { target: { value: string } }) => {
+							const parsed = Number.parseInt(e.target.value, 10);
+							onChange(
+								withOption(
+									query,
+									'limit',
+									Number.isFinite(parsed)
+										? Math.min(WIDGET_QUERY_LIMIT_MAX, Math.max(1, parsed))
+										: undefined,
+								),
+							);
+						}}
+					/>
+				</Field>
+			</FieldGrid>
+		</div>
+	);
+}
 
 export function DataStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
@@ -188,17 +482,11 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									<Select
 										value={query.source}
 										options={sourceOptions(t)}
-										onChange={(e: { target: { value: string } }) => {
-											const source = e.target.value as WidgetDataQuerySource;
-											setQuery(index, {
-												...query,
-												source,
-												label: t(QUERY_SOURCE_LABEL[source]),
-												// A binding list only means anything for the binding source; dropping it
-												// keeps the definition honest about what the query actually reads.
-												bindingIds: source === 'binding' ? (query.bindingIds ?? []) : undefined,
-											});
-										}}
+										onChange={(e: { target: { value: string } }) =>
+											patch(
+												changeQuerySource(draft, index, e.target.value as WidgetDataQuerySource, t),
+											)
+										}
 									/>
 								</Field>
 								<Field label={t('builder.binding.label')}>
@@ -287,6 +575,11 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									</div>
 								</fieldset>
 							)}
+							<QueryOptionPickers
+								query={query}
+								onChange={(next) => setQuery(index, next)}
+								testId={`widget-builder-query-options-${index}`}
+							/>
 							<QueryPreview
 								you={readings.you[index]}
 								player={readings.player[index]}

@@ -262,6 +262,34 @@ whole catalogue the same way. Isolation tests: `app/widgets/dataEnvironment.hub.
 per source, for a player, an observer and the preview player). Browser:
 `tests/e2e/widget-query-sources.spec.ts`.
 
+### 3.3 Query options
+
+A query may carry `options` (RC-WID-6.5, `WidgetDataQueryOptions`). Every option narrows or orders
+the rows the source's actor-scoped read already returned, so none can widen what a viewer sees.
+
+| Option            | Values                                     | Sources                                                           |
+| ----------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| `characterKinds`  | `pc`, `npc`, `monster`, `sidekick` (1+)    | `visible-characters`, `current-combatants`                        |
+| `tag`             | non-blank, ≤ 64 characters                 | `selected-scene`, `screens`, `notes`, `content-objects`           |
+| `sceneMembership` | `active-scene`; `in-combat` for characters | `visible-characters`, `party`; `notes`, `content-objects`, `maps` |
+| `status`          | `up`, `bloodied` (≤ half HP), `down` (0)   | `visible-characters`, `party`, `current-combatants`               |
+| `sort`            | `name`, `value-high`, `value-low`          | every source                                                      |
+| `limit`           | 1–50                                       | every source                                                      |
+
+The schema refuses an option on a source that cannot honour it (`widgetQueryOptionIssues`, shared
+with the builder). Filters match the viewer's redacted view: a tag in a field hidden from players,
+or an HP the read withheld, never matches for a player. `active-scene` reads the entity ids bound
+on the active screen as `getSceneForActor` delivers it to the viewer, so a screen they cannot open
+contributes nobody. Sort and limit run last. Rows that name a visibility put the app's word in
+`meta` ("DM only", "Shared", "Player visible") and the level in `visibility`.
+
+A template kind that reads no query (`widgetTemplateReadsQueries`: action panel, scene message, form
+panel, launcher, link list) never says it has no data source. In the builder preview a kind that
+does read one draws three sample rows labelled "Sample data" until a query exists; a placed widget
+never gets them. Tests: `packages/core/tests/widget-query-options.test.ts`,
+`app/widgets/dataEnvironment.options.test.ts`, `app/widgets/templates/noQuery.test.tsx`, and
+`tests/e2e/widget-honest-previews.spec.ts`.
+
 ## 4. The custom-widget host
 
 `custom-html-js` widgets render in an iframe with `sandbox="allow-scripts"` and no

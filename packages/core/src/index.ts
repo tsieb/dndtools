@@ -568,6 +568,14 @@ export type {
 	WidgetCommandExecutor,
 	WidgetLastRoll,
 	WidgetShownMessage,
+	// RC-WID-6.5 — declarative query options.
+	WidgetDataQueryOptions,
+	WidgetQueryCharacterKind,
+	WidgetQueryOption,
+	WidgetQueryOptionIssue,
+	WidgetQuerySceneMembership,
+	WidgetQuerySort,
+	WidgetQueryStatus,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -601,6 +609,19 @@ export {
 	WIDGET_INTENT_ENTITY_KINDS,
 	WIDGET_INTENT_ROUTES,
 	WIDGET_INTENT_SETTINGS_TABS,
+	// RC-WID-6.5 — declarative query options and the template kinds that read a query.
+	WIDGET_QUERY_CHARACTER_KINDS,
+	WIDGET_QUERY_FILTER_SOURCES,
+	WIDGET_QUERY_LIMIT_MAX,
+	WIDGET_QUERY_SCENE_MEMBERSHIPS,
+	WIDGET_QUERY_SCENE_MEMBERSHIP_SOURCES,
+	WIDGET_QUERY_SORTS,
+	WIDGET_QUERY_STATUSES,
+	WIDGET_QUERY_TAG_MAX_LENGTH,
+	WIDGET_TEMPLATE_KINDS_READING_QUERIES,
+	widgetQueryOptionApplies,
+	widgetQueryOptionIssues,
+	widgetTemplateReadsQueries,
 	// RC-WID-6.1 — declared command executors and the per-instance state they keep.
 	CORE_NAMED_WIDGET_COMMANDS,
 	WIDGET_COMMAND_EXECUTORS,
