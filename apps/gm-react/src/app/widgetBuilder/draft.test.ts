@@ -453,8 +453,8 @@ describe('RC-WID-6.8 widget settings that exist', () => {
 		).toEqual([
 			{ key: 'count', control: 'number', group: 'content', value: 0 },
 			{ key: 'title', control: 'text', group: 'display', value: '' },
-			{ key: 'min', control: 'number', group: 'display', value: 0 },
-			{ key: 'max', control: 'number', group: 'display', value: 6 },
+			{ key: 'min', control: 'number', group: 'content', value: 0 },
+			{ key: 'max', control: 'number', group: 'content', value: 6 },
 		]);
 		// An ordinary template definition: through the Full builder and back it is the same widget.
 		const back = buildPackage(readPackage(pkg)).widgets[0]!;

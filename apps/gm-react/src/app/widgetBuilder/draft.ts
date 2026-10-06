@@ -765,7 +765,7 @@ export function widgetEditTarget(
 
 /** The configuration key the host reads any placed copy's title from (`board-helpers`). */
 export const TITLE_SETTING_KEY = 'title';
-/** The keys a recipe declares its range under; the tracker draws its count between them. */
+/** The keys a recipe declares its range under. As content numbers, the tracker shows each on the tile. */
 export const RANGE_MIN_KEY = 'min';
 export const RANGE_MAX_KEY = 'max';
 /** The key a counter keeps its count under. */
@@ -799,26 +799,29 @@ export function titleSetting(): WidgetConfigField {
 	};
 }
 
-/** Where a count starts and where its meter is full. */
+/**
+ * The lowest and highest a count goes. Content-group numbers, so a tracker shows both beside the
+ * count and a range saved in Configure… is what the tile then says.
+ */
 export function rangeSettings(range: { min: number; max: number }): WidgetConfigField[] {
 	return [
 		{
 			key: RANGE_MIN_KEY,
 			label: 'Minimum',
 			control: 'number',
-			group: 'display',
+			group: 'content',
 			default: range.min,
 			step: 1,
-			help: 'The meter is empty at this count.',
+			help: 'The lowest the count goes.',
 		},
 		{
 			key: RANGE_MAX_KEY,
 			label: 'Maximum',
 			control: 'number',
-			group: 'display',
+			group: 'content',
 			default: range.max,
 			step: 1,
-			help: 'The meter is full at this count.',
+			help: 'The highest the count goes.',
 		},
 	];
 }

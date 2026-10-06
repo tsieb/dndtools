@@ -9,7 +9,7 @@
   the field emits a migration with no defaults; the open configuration schema keeps any stored value.
 - `draft.ts`: `widgetSettingsFields` is the one rule for what a placed tile offers. It drops
   `visibility` and the dock preference. `titleSetting` (key `title`, display group; `board-helpers`
-  already reads it as the tile title), `rangeSettings` (`min`/`max`, number, display group), and
+  already reads it as the tile title), `rangeSettings` (`min`/`max`, number, content group), and
   `counterRecipe(name, range)`: a tracker template with count (content), title, minimum and
   maximum. RC-WID-6.3's Quick track has not landed (`quickRecipes.ts` does not exist), so the
   counter recipe lives in `draft.ts`, which both stories own. 6.3's "Counter or clock" card is meant
@@ -28,14 +28,16 @@
   widget can go on the Command Center. qps-ploc regenerated (`tsx scripts/i18n-catalog.ts pseudo`).
 - `docs/architecture/WIDGETS.md` §6: "Settings that exist".
 
-## Crossing outside `Owns` (operator decision)
+## Attempt 2: back inside the claim
 
-- `apps/gm-react/src/app/widgets/templates/Tracker.tsx` (RC-WID-6.5's file, landed). The acceptance
-  needs "saving [the range] changes the tile". The tracker drew a configured number against the
-  field's declared `max` only, so a range set in Configure… could not move the meter. The change is
-  11 lines: when the definition declares number fields `min`/`max` in the display group, the meter
-  runs from the configured minimum to the configured maximum. Widgets that declare no range draw as
-  before (`rangeMin` 0, `max` from the declaration). No other file outside the claim was touched.
+- Attempt 1 edited `apps/gm-react/src/app/widgets/templates/Tracker.tsx` (RC-WID-6.5) so the meter
+  ran between a configured `min`/`max`. The claim fence refused it. The acceptance does not need a
+  meter, so the file is back at base `c66d0904`. The range settings are now content-group numbers.
+  The unchanged tracker already shows every content number as a figure, so a counter tile reads
+  "Count 3 · Minimum 0 · Maximum 8", and a title or range saved in Configure… is what the tile says.
+  The count has no declared `max`, so the tracker never draws it against a ceiling the GM did not set.
+- HANDOFF (RC-WID-6.5 or 6.3): a meter that fills between the configured range would read better
+  than three figures. It needs the tracker to take its ceiling from the `min`/`max` settings.
 
 ## Deliberately not done
 
@@ -59,14 +61,27 @@
   through the Full builder unchanged apart from the version.
 - `tests/e2e/widget-settings.spec.ts` (desktop-chromium + mobile-chromium): the counter is built in
   the page from `draft.ts` and installed with author trust, then placed from the Add gallery on
-  /board. Its Configure… dialog shows Title, Minimum (0), Maximum (6) and Count, with no
-  "Dock preference" and no select. Saving title "Doom of the Lich", maximum 8 and count 3 changes
-  the tile's accessible name and its meter (`3 of 8`, aria-valuemax 8). Raising the minimum to 2
-  moves where the meter starts. A scene-only widget with no settings stores no dock field, its menu
-  has no Configure… and a disabled "No settings" row with the reason as its accessible description,
-  Edit widget is offered, and pressing the disabled row opens nothing.
+  /board. It reads "Count 0 Minimum 0 Maximum 6". Its Configure… dialog shows Title (empty),
+  Minimum (0), Maximum (6) and Count (0), with no "Dock preference" and no select. Saving title
+  "Doom of the Lich", maximum 8 and count 3 changes the tile's accessible name and its readout to
+  "Count 3 Minimum 0 Maximum 8". Opened again, the dialog holds those values, and a minimum of 2
+  shows on the tile. A scene-only widget with no settings stores no dock field, its menu has no
+  Configure… and a disabled "No settings" row with the reason as its accessible description, Edit
+  widget is offered, and pressing the disabled row opens nothing.
 
-## Verification (local, 2026-10-06)
+## Verification (local, 2026-10-06, attempt 2)
+
+- `git diff --stat c66d0904`: only claimed paths plus companions (catalogs, qps-ploc, the new e2e
+  spec, `WIDGETS.md`, this journal). `Tracker.tsx` is identical to base.
+- `vitest --config vitest.app.config.ts` over `widgetBuilder`, `widgets`, `canvas`, `sceneEditor`:
+  29 files, 635 tests passed.
+- `tsc --noEmit` (gm-react): clean. `eslint` on the changed files and the spec: clean.
+- `playwright test tests/e2e/widget-settings.spec.ts` on both profiles, `--repeat-each=2`: 8 passed.
+- Neighbouring specs (canvas, board-layouts, binding-inspector, widget-builder, widget-edit-fork,
+  starter-widgets, widget-honest-previews, widget-author-trust, note-depth) on both profiles:
+  still running when this was committed; see the follow-up commit.
+
+## Verification, attempt 1 (superseded)
 
 - `vitest --config vitest.app.config.ts` over `widgetBuilder`, `widgets/templates`, `canvas`,
   `sceneEditor`: 17 files, 272 tests passed.

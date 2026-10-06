@@ -513,8 +513,8 @@ permission existed has no `navigate` key, and the host reads approvals only from
   setting left, the canvas tile menu shows a disabled "No settings" row with the reason in place of
   Configure…, and Edit widget beside it; the Inspector's settings tabs say the same. Recipes declare
   the settings a GM changes through `titleSetting` (key `title`, which the host reads as the tile
-  title) and `rangeSettings` (`min`/`max`, display group); the tracker draws a configured count
-  between a declared range, so a new range in Configure… changes the meter. `counterRecipe` is the
+  title) and `rangeSettings` (`min`/`max`, content-group numbers, which the tracker shows beside
+  the count, so a range saved in Configure… is what the tile then says). `counterRecipe` is the
   "Counter or clock" draft. Who sees a tile stays the host's per-instance visibility, not a field.
   Colour is not a recipe setting yet: a per-instance colour is the `styleTokens` override object,
   which no flat config control writes.

@@ -44,22 +44,12 @@ export function TrackerTemplate({ widget, definition, data }: WidgetTemplateProp
 		: (definition?.configFields ?? widget.configFields).filter(
 				(field) => (field.group ?? 'content') === 'content',
 			);
-	// RC-WID-6.8 — a counter declares its range as two display settings (`min`, `max`), so the range a
-	// GM sets in Configure… is the one the meter is drawn against, not the declaration's ceiling.
-	const declared = definition?.configFields ?? widget.configFields;
-	const rangeAt = (key: string) => {
-		const field = declared.find((entry) => entry.key === key && entry.control === 'number');
-		const value = field && field.group === 'display' ? cfg(widget, key) : undefined;
-		return typeof value === 'number' ? value : undefined;
-	};
-	const rangeMin = rangeAt('min') ?? 0;
-	const rangeMax = rangeAt('max');
 	const configuredNumbers = settings
 		.filter((field) => field.control === 'number')
 		.map((field) => ({
 			key: field.key,
 			label: field.label,
-			max: rangeMax ?? field.max,
+			max: field.max,
 			value: cfg(widget, field.key),
 		}))
 		.filter((entry): entry is typeof entry & { value: number } => typeof entry.value === 'number');
@@ -108,8 +98,8 @@ export function TrackerTemplate({ widget, definition, data }: WidgetTemplateProp
 					<ProgressMeter
 						key={entry.key}
 						label={entry.label}
-						value={entry.value - rangeMin}
-						max={entry.max - rangeMin}
+						value={entry.value}
+						max={entry.max}
 						valueLabel={`${entry.value} of ${entry.max}`}
 						tone="accent"
 						size="sm"

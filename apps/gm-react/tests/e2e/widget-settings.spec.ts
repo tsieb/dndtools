@@ -74,6 +74,16 @@ async function place(page: Page, name: string, type: string): Promise<Locator> {
 
 const openMenu = (frame: Locator) => frame.getByTestId('tile-actions-trigger').click();
 
+/** What the counter tile reads out, as one line of its text: "Count 3 Minimum 0 Maximum 8". */
+const readout = (frame: Locator) =>
+	frame.getByTestId('widget-template-tracker').evaluate((el) =>
+		Array.from(el.querySelectorAll('*'))
+			.filter((node) => node.children.length === 0)
+			.map((node) => node.textContent?.trim() ?? '')
+			.filter(Boolean)
+			.join(' '),
+	);
+
 test('Configure… on a Quick-track counter shows its range and title, and saving them changes the tile', async ({
 	page,
 }) => {
@@ -81,7 +91,7 @@ test('Configure… on a Quick-track counter shows its range and title, and savin
 	await installFromDraft(page, 'counter');
 	const frame = await place(page, 'Doom clock', 'doom-clock');
 	await expect(frame).toHaveAttribute('aria-label', /^Doom clock, /);
-	await expect(frame.getByTestId('widget-template-tracker')).toContainText('0 of 6');
+	await expect.poll(() => readout(frame)).toBe('Count 0 Minimum 0 Maximum 6');
 
 	await openMenu(frame);
 	await page.getByRole('menuitem', { name: 'Configure…', exact: true }).click();
@@ -105,24 +115,22 @@ test('Configure… on a Quick-track counter shows its range and title, and savin
 	await configure.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(configure).toHaveCount(0);
 
-	// The tile says what was saved: its title, and the count against the new range.
+	// The tile says what was saved: its title, the count and the new range.
 	await expect(frame).toHaveAttribute('aria-label', /^Doom of the Lich, /);
-	const meter = frame.getByRole('progressbar');
-	await expect(frame.getByTestId('widget-template-tracker')).toContainText('3 of 8');
-	await expect(meter).toHaveAttribute('aria-valuemax', '8');
-	await expect(meter).toHaveAttribute('aria-valuenow', '3');
+	await expect.poll(() => readout(frame)).toBe('Count 3 Minimum 0 Maximum 8');
 
-	// The range is a range: raising the minimum moves where the meter starts.
+	// Opened again, the dialog holds what was saved, and a second range edit lands on the tile too.
 	await openMenu(frame);
 	await page.getByRole('menuitem', { name: 'Configure…', exact: true }).click();
 	const again = page.getByRole('dialog', { name: 'Configure Doom of the Lich', exact: true });
+	await expect(again.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue(
+		'Doom of the Lich',
+	);
 	await expect(again.getByRole('spinbutton', { name: 'Maximum', exact: true })).toHaveValue('8');
 	await again.getByRole('spinbutton', { name: 'Minimum', exact: true }).fill('2');
 	await again.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(again).toHaveCount(0);
-	await expect(meter).toHaveAttribute('aria-valuemax', '6');
-	await expect(meter).toHaveAttribute('aria-valuenow', '1');
-	await expect(frame.getByTestId('widget-template-tracker')).toContainText('3 of 8');
+	await expect.poll(() => readout(frame)).toBe('Count 3 Minimum 2 Maximum 8');
 });
 
 test('a widget with no settings says so with the reason and offers Edit widget instead', async ({
