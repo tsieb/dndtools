@@ -5685,6 +5685,17 @@ export default {
 	'board.layoutApplied':
 		'[Ľáýóúţ “~~~~{name}” áƥƥľíéď — ýóú çáñ ŕéšţóŕé ţĥé ƥŕéṽíóúš ľáýóúţ.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'board.layoutRestored': '[Ƥŕéṽíóúš ľáýóúţ ŕéšţóŕéď.~~~~ ~~~~ ]',
+	'board.applyLayout': '[Áƥƥľý “~~~{name}”~]',
+	'board.renameLayout': '[Ŕéñáḿé “~~~~{name}”~]',
+	'board.renameLayoutField': '[Ñéŵ ñáḿé ƒóŕ “~~~~ ~{name}”~]',
+	'board.deleteLayout': '[Ďéľéţé “~~~~{name}”~]',
+	'board.deleteLayoutConfirm': '[Ďéľéţé “~~~~{name}”? Ţĥé ƀóáŕď šţáýš áš íţ íš.~~~~ ~~~~ ~~]',
+	'board.layoutRenamed': '[Ľáýóúţ ŕéñáḿéď ţó “~~~~ ~~~{name}”.~]',
+	'board.layoutDeleted': '[Ľáýóúţ “~~~~{name}” ďéľéţéď.~~~~]',
+	'board.restoreBeforeApplying':
+		'[Ƥúţš ƀáçķ ţĥé ľáýóúţ ýóú ĥáď ƀéƒóŕé áƥƥľýíñğ “~~~~ ~~~~ ~~~~ ~~~~{name}”: ~~{count, plural, one {# ţíľé~~~} other {# ţíľéš~~~}}, šáṽéď áţ ~~~~ {time}.~]',
+	'board.restoreCaptured':
+		'[Ƥúţš ƀáçķ ţĥé ľáýóúţ šáṽéď áúţóḿáţíçáľľý áţ ~~~~ ~~~~ ~~~~ ~~~{time}: ~{count, plural, one {# ţíľé~~~} other {# ţíľéš~~~}}.~]',
 	'board.layoutIssues':
 		'[{count, plural, one {# ľáýóúţ íššúé~~~~ ~} other {# ľáýóúţ íššúéš~~~~ ~}} — óṽéŕľáƥƥíñğ óŕ óƒƒ ţĥé ƀóáŕď.~~~~ ~~~~ ~~~]',
 	'board.layoutIssuesTitle': '[Ľáýóúţ íššúéš~~~~ ~]',

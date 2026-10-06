@@ -46,7 +46,9 @@ import {
 } from './system-package';
 import {
 	handleApplyCommandCenterPreset,
+	handleDeleteCommandCenterPreset,
 	handleEnsureCommandCenterHome,
+	handleRenameCommandCenterPreset,
 	handleRestoreCommandCenterAutoSave,
 	handleSaveCommandCenterPreset,
 	handleSnapshotCommandCenterAutoSave,
@@ -429,6 +431,10 @@ export function dispatchCommand(
 			return handleSaveCommandCenterPreset(state, env, command.actorId, command.payload);
 		case 'command-center.apply-preset':
 			return handleApplyCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'command-center.rename-preset':
+			return handleRenameCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'command-center.delete-preset':
+			return handleDeleteCommandCenterPreset(state, env, command.actorId, command.payload);
 		case 'command-center.snapshot-auto-save':
 			return handleSnapshotCommandCenterAutoSave(state, env, command.actorId, command.payload);
 		case 'command-center.restore-auto-save':

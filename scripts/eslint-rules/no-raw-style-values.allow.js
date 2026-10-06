@@ -38,7 +38,7 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/templates/shared.tsx': 3,
 	'apps/gm-react/src/app/widgets/templates/StatusList.tsx': 3,
 	'apps/gm-react/src/screens/Board.tsx': 3,
-	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 3,
+	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 2,
 	'apps/gm-react/src/screens/characters/shared.tsx': 2,
 	'apps/gm-react/src/screens/characters/sheet/BioPanel.tsx': 2,
 	'apps/gm-react/src/screens/characters/sheet/SharingPanel.tsx': 7,

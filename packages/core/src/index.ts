@@ -1089,6 +1089,8 @@ export {
 	transferOwnershipInputSchema,
 	updateMapEmbedInputSchema,
 	saveCommandCenterPresetInputSchema,
+	renameCommandCenterPresetInputSchema,
+	deleteCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
 	setActiveMapInputSchema,
 	setMapLayerEnabledInputSchema,

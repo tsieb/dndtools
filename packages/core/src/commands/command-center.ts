@@ -1,7 +1,9 @@
 import {
 	applyCommandCenterPresetInputSchema,
 	commandCenterAutoSaveInputSchema,
+	deleteCommandCenterPresetInputSchema,
 	ensureCommandCenterHomeInputSchema,
+	renameCommandCenterPresetInputSchema,
 	saveCommandCenterPresetInputSchema,
 } from '../schemas/commands';
 import {
@@ -330,6 +332,107 @@ export function handleApplyCommandCenterPreset(
 				missingWidgetTypes,
 			},
 		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * RC-CAN-8.8 — rename a saved preset in place. The snapshot is untouched; only its name, `updatedAt`
+ * and revision move, so applying it afterwards restores exactly what was saved. DM-only.
+ */
+export function handleRenameCommandCenterPreset(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(renameCommandCenterPresetInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const preset = state.commandCenter.presets[parsed.data.presetId];
+	if (!preset) {
+		return reject(
+			{ code: 'preset-not-found', message: `Preset ${parsed.data.presetId} does not exist.` },
+			state,
+		);
+	}
+
+	const renamed: CommandCenterPreset = {
+		...preset,
+		name: parsed.data.name,
+		updatedAt: env.clock(),
+		revision: preset.revision + 1,
+	};
+	const nextCommandCenter: CommandCenterState = {
+		...state.commandCenter,
+		presets: { ...state.commandCenter.presets, [preset.id]: renamed },
+	};
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'command-center',
+		entityId: preset.id,
+		opType: 'command-center.rename-preset',
+		value: { presetId: preset.id, name: parsed.data.name },
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, commandCenter: nextCommandCenter, sync: nextLog },
+		events: [
+			{
+				kind: 'command-center.preset-renamed',
+				presetId: preset.id,
+				name: parsed.data.name,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * RC-CAN-8.8 — delete a saved preset. The home Scene and the auto-save safe point are untouched:
+ * deleting a layout never changes what is on the board. DM-only.
+ */
+export function handleDeleteCommandCenterPreset(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(deleteCommandCenterPresetInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const preset = state.commandCenter.presets[parsed.data.presetId];
+	if (!preset) {
+		return reject(
+			{ code: 'preset-not-found', message: `Preset ${parsed.data.presetId} does not exist.` },
+			state,
+		);
+	}
+
+	const { [preset.id]: _deleted, ...presets } = state.commandCenter.presets;
+	const nextCommandCenter: CommandCenterState = { ...state.commandCenter, presets };
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'command-center',
+		entityId: preset.id,
+		opType: 'command-center.delete-preset',
+		value: { presetId: preset.id, name: preset.name },
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, commandCenter: nextCommandCenter, sync: nextLog },
+		events: [{ kind: 'command-center.preset-deleted', presetId: preset.id, actorId: actor.id }],
 		operationIds: [op.id],
 	};
 }

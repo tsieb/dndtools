@@ -196,9 +196,6 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		);
 	}, [ready, homeSceneId, runtime.state.scenes, runtime.state.widgets, summary, isDm, editing]);
 
-	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
-		a.name.localeCompare(b.name),
-	);
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		// Clear before the attempt, not only after it. `error` renders inside a `role="alert"`, which
 		// announces on INSERTION — and setting the identical string again is an `Object.is` bail-out,
@@ -230,14 +227,8 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		return true;
 	}
 
-	const {
-		presetName,
-		setPresetName,
-		savePreset,
-		snapshotSafePoint,
-		applyPreset,
-		restoreSafePoint,
-	} = useBoardLayouts({ runtime, actorId, dispatch, setStatus });
+	const layouts = useBoardLayouts({ runtime, actorId, dispatch, setStatus });
+	const { snapshotSafePoint } = layouts;
 
 	const history = useLayoutHistory({ sceneId: homeSceneId ?? null, runtime, dispatch });
 	// A stable callback for the Undo toast: the toast store lives outside React, so the closure it
@@ -662,16 +653,9 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 
 				{editing && layoutsOpen && isHomeBoard && (
 					<BoardLayoutsPanel
-						t={t}
 						viewport={viewport}
 						onClose={() => setLayoutsOpen(false)}
-						presetName={presetName}
-						onPresetNameChange={setPresetName}
-						onSave={savePreset}
-						presets={presets}
-						onApplyPreset={applyPreset}
-						autoSaveEnabled={!!runtime.state.commandCenter.autoSave}
-						onRestoreSafePoint={restoreSafePoint}
+						layouts={layouts}
 					/>
 				)}
 			</div>

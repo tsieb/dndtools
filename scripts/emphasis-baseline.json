@@ -32,7 +32,6 @@
 		"apps/gm-react/src/ds/components/system/SystemPackageCard.tsx": 1,
 		"apps/gm-react/src/net/SessionPanelParts.tsx": 1,
 		"apps/gm-react/src/screens/Board.tsx": 1,
-		"apps/gm-react/src/screens/BoardLayoutsPanel.tsx": 1,
 		"apps/gm-react/src/screens/Campaign.tsx": 1,
 		"apps/gm-react/src/screens/CommandCenter.tsx": 2,
 		"apps/gm-react/src/screens/Graph.tsx": 1,

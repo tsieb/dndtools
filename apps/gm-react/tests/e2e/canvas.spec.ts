@@ -1767,13 +1767,21 @@ test.describe('canvas: the tile action menu', () => {
 		const abilities = configure.getByRole('switch', { name: 'Ability scores' });
 		await expect(abilities).toBeChecked();
 		await abilities.click();
-		await expect.poll(async () => (await instance()).configuration.showAbilities).toBe(false);
+		await expect(abilities).not.toBeChecked();
 		// Keys typed in the dialog stay in it: an arrow does not move the tile, Delete does not remove it.
 		const { x } = await instance();
 		await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('Delete');
 		expect((await instance()).x).toBe(x);
+		// RC-CAN-8.8 — the dialog edits a draft: Escape with a change asks first, Save writes it.
 		await page.keyboard.press('Escape');
+		await expect(configure.getByTestId('tile-configure-unsaved')).toContainText(
+			'You have unsaved changes',
+		);
+		await page.keyboard.press('Escape');
+		expect((await instance()).configuration.showAbilities).toBeUndefined();
+		await configure.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect.poll(async () => (await instance()).configuration.showAbilities).toBe(false);
 		await expect(configure).toHaveCount(0);
 		await expect(frame).toBeFocused();
 		await expect(frame).toBeVisible();

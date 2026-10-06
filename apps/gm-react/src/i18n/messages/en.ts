@@ -5476,6 +5476,17 @@ export const en = {
 	'board.layoutSaved': 'Layout “{name}” saved.',
 	'board.layoutApplied': 'Layout “{name}” applied — you can restore the previous layout.',
 	'board.layoutRestored': 'Previous layout restored.',
+	'board.applyLayout': 'Apply “{name}”',
+	'board.renameLayout': 'Rename “{name}”',
+	'board.renameLayoutField': 'New name for “{name}”',
+	'board.deleteLayout': 'Delete “{name}”',
+	'board.deleteLayoutConfirm': 'Delete “{name}”? The board stays as it is.',
+	'board.layoutRenamed': 'Layout renamed to “{name}”.',
+	'board.layoutDeleted': 'Layout “{name}” deleted.',
+	'board.restoreBeforeApplying':
+		'Puts back the layout you had before applying “{name}”: {count, plural, one {# tile} other {# tiles}}, saved at {time}.',
+	'board.restoreCaptured':
+		'Puts back the layout saved automatically at {time}: {count, plural, one {# tile} other {# tiles}}.',
 	'board.layoutIssues':
 		'{count, plural, one {# layout issue} other {# layout issues}} — overlapping or off the board.',
 	'board.layoutIssuesTitle': 'Layout issues',
