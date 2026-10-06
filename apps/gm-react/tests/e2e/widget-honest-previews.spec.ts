@@ -147,7 +147,7 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 			await expect(preview).not.toContainText(name);
 		}
 
-		// ── Install, enable and place it: the tile on the board lists the party, no NPC.
+		// ── Install and place it: the tile on the board lists the party, no NPC.
 		await showPane(page, 'Edit');
 		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
@@ -170,7 +170,8 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 			options: { characterKinds: ['pc'] },
 		});
 
-		await page.getByRole('switch', { name: 'Enable Party HP' }).click();
+		// RC-WID-6.2 — a template with no permission installs trusted and already on.
+		await expect(page.getByRole('switch', { name: 'Enable Party HP' })).toBeChecked();
 		const sceneName = `Party Scene ${Date.now()}`;
 		const created = await dispatch(page, {
 			type: 'scene.create',

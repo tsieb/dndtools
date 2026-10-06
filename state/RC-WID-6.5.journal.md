@@ -77,3 +77,17 @@
 - An empty launcher or link list (no intents, no query) on the board still shows the no-data line,
   because `Hub.tsx` draws no `TemplateShell` and `templates/index.tsx` does not name the kind.
   One `TemplateKindProvider` around the connected renderer in `templates/index.tsx` fixes it.
+
+## Attempt 2 — post-rebase Browser acceptance (2026-10-06)
+
+- Gate run `3bae9f0b`: 1871 passed, 2 failed, both
+  `widget-honest-previews.spec.ts:80` (desktop + mobile). The rebase picked up RC-WID-6.2
+  (`83e83121`): a template package with no permission now installs trusted and already enabled.
+  The spec still clicked the `Enable Party HP` switch, which turned the package off. The Add panel
+  then showed the disabled row plus its new in-place `Enable Party HP` button, so the
+  `/Party HP/` button locator matched two elements (strict-mode violation).
+- Fix (spec only, no product change): assert the switch is already checked, the same change
+  RC-WID-6.2 made to widget-builder, widget-commands and widget-intents.
+- Re-run: `widget-honest-previews.spec.ts` on both profiles, `--retries=0`: 6 passed, then
+  `--repeat-each=3`: 18 passed. The dev-server `Function components cannot be given refs`
+  warning (`DefinitionPane` → `Textarea`, `BuilderPanes.tsx`) is on the base; that file is untouched here.
