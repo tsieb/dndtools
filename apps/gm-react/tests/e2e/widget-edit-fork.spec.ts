@@ -1,15 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 /**
  * RC-WID-6.6 — DRAFTS SURVIVE, AND EVERY TILE CAN BECOME YOURS.
  *
  * Acceptance, driven through the real UI on both profiles:
  *  - Escape on a dirty builder draft asks Keep or Discard; kept, reopening the builder resumes it
- *    (also across a reload, since it lives in device preferences), and discarded it is gone.
- *  - "Edit widget" on a placed Torchlight starter copies it into a user package, opens the builder
- *    on Advanced (custom code), a code edit saves as that new user package, and the tile, moved
- *    onto the copy, draws the change. The starter itself is untouched.
+ *    (also after leaving the screen that opened it), and discarded it is gone.
+ *  - "Edit widget" on a placed Torchlight starter copies it into a user package and moves the tile
+ *    onto it, opens the builder on Advanced (custom code), a code edit saves as that new user package,
+ *    and the tile draws the change. Closed without saving, the tile goes back to Torchlight and the
+ *    copy is reused next time. The starter itself is untouched.
  */
 
 interface PackageLite {
@@ -85,9 +86,14 @@ test.describe('widget builder drafts (RC-WID-6.6)', () => {
 			page.evaluate(() => Object.keys(window.__rt!.state.widgets.packages).sort());
 		const before = await packageIds();
 
-		// Kept in device preferences, so it survives a reload as well as a close.
-		await page.reload({ waitUntil: 'domcontentloaded' });
-		await waitReady(page);
+		// Kept beyond the screen that opened it: leave Extensions in the app and come back.
+		await page.evaluate(() => {
+			window.location.hash = '#/scenes';
+		});
+		await expect(opener).toHaveCount(0);
+		await page.evaluate(() => {
+			window.location.hash = '#/extensions';
+		});
 		await opener.click();
 		await expect(resume).toBeVisible();
 		await expect(resume).toContainText('Lantern list');
@@ -169,16 +175,42 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		);
 		const starterBefore = await packageRecord(page, 'starter.torchlight');
 
+		const tileType = () =>
+			page.evaluate(
+				([id, widget]) =>
+					window.__rt!.state.scenes.scenes[id]!.widgets.find((w) => w.id === widget)?.type,
+				[sceneId, widgetId],
+			);
+		const packageIds = () =>
+			page.evaluate(() => Object.keys(window.__rt!.state.widgets.packages).sort());
+
 		await gotoRoute(page, `/scene/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
 		const tile = page.getByTestId(`widget-${widgetId}`);
-		await tile.getByTestId('tile-actions-trigger').click();
-		await page.getByRole('menuitem', { name: 'Edit widget', exact: true }).click();
-
-		// The starter was copied into a package of the GM's own, off until it is saved: custom code
-		// is never trusted on the GM's word (RC-WID-6.2), so the tile stays on Torchlight for now.
+		const editWidget = async () => {
+			await tile.getByTestId('tile-actions-trigger').click();
+			await page.getByRole('menuitem', { name: 'Edit widget', exact: true }).click();
+		};
 		const builder = page.getByRole('dialog', { name: /Widget builder/ });
+
+		// Closed without saving, the tile goes back to Torchlight; the copy waits, unplaced.
+		await editWidget();
 		await expect(builder).toBeVisible();
+		await expect.poll(tileType).toBe('torchlight-copy');
+		await page.keyboard.press('Escape');
+		await expect(builder).toHaveCount(0);
+		await expect.poll(tileType).toBe('torchlight');
+		const afterFirstCopy = await packageIds();
+		expect(afterFirstCopy).toContain('user.torchlight');
+
+		// The second edit reuses that copy rather than making another.
+		await editWidget();
+
+		// The starter's copy is a package of the GM's own, off until it is saved: custom code is
+		// never trusted on the GM's word (RC-WID-6.2). The tile is on it, "disabled, preserved".
+		await expect(builder).toBeVisible();
+		await expect.poll(tileType).toBe('torchlight-copy');
+		expect(await packageIds()).toEqual(afterFirstCopy);
 		await expect(builder.getByRole('button', { name: 'Advanced', exact: true })).toHaveAttribute(
 			'aria-current',
 			'step',
@@ -200,7 +232,7 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		await builder.getByRole('button', { name: 'Save new version', exact: true }).click();
 		await expect(builder).toHaveCount(0);
 
-		// Saved as the new user package, and the placed tile moved onto it.
+		// Saved as the new user package, turned on, and the placed tile still on it.
 		await expect
 			.poll(async () => (await packageRecord(page, 'user.torchlight'))?.package.version)
 			.toBe('1.0.1');
@@ -209,15 +241,7 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		expect(saved.package.authoring?.source).toBe('user-authored');
 		expect(saved.package.authoring?.forkedFrom?.packageId).toBe('starter.torchlight');
 		expect(saved.package.widgets[0]!.type).toBe('torchlight-copy');
-		await expect
-			.poll(() =>
-				page.evaluate(
-					([id, widget]) =>
-						window.__rt!.state.scenes.scenes[id]!.widgets.find((w) => w.id === widget)?.type,
-					[sceneId, widgetId],
-				),
-			)
-			.toBe('torchlight-copy');
+		expect(await tileType()).toBe('torchlight-copy');
 		// The starter is exactly as it was.
 		expect(await packageRecord(page, 'starter.torchlight')).toEqual(starterBefore);
 

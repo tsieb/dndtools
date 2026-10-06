@@ -2824,12 +2824,12 @@ export default {
 	'extensions.builder.openPackage': '[Óƥéñ ƥáçķáğé~~~~ ]',
 	'extensions.builder.keepTitle': '[Ķééƥ ţĥíš ďŕáƒţ?~~~~ ~~]',
 	'extensions.builder.keepBody':
-		'[Ýóúŕ çĥáñğéš ţó ~~~~ ~~{name} áŕé ñóţ íñšţáľľéď ýéţ. Ķééƥ ţĥéḿ óñ ţĥíš ďéṽíçé ţó ƒíñíšĥ ľáţéŕ, óŕ ďíšçáŕď ţĥéḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
+		'[Ýóúŕ çĥáñğéš ţó ~~~~ ~~{name} áŕé ñóţ íñšţáľľéď ýéţ. Ķééƥ ţĥéḿ ţó ƒíñíšĥ ľáţéŕ, óŕ ďíšçáŕď ţĥéḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'extensions.builder.keepDraft': '[Ķééƥ ďŕáƒţ~~~~]',
 	'extensions.builder.discardDraft': '[Ďíšçáŕď ďŕáƒţ~~~~ ~]',
 	'extensions.builder.resumeTitle': '[Ŕéšúḿé ýóúŕ ďŕáƒţ?~~~~ ~~~]',
 	'extensions.builder.resumeBody':
-		'[Ýóú ķéƥţ çĥáñğéš ţó ~~~~ ~~~{name} óñ ţĥíš ďéṽíçé ţĥáţ áŕé ñóţ íñšţáľľéď ýéţ.~~~~ ~~~~ ~~~~ ~~~]',
+		'[Ýóú ķéƥţ çĥáñğéš ţó ~~~~ ~~~{name} ţĥáţ áŕé ñóţ íñšţáľľéď ýéţ.~~~~ ~~~~ ~~]',
 	'extensions.builder.resumeDraft': '[Ŕéšúḿé ďŕáƒţ~~~~ ]',
 	'extensions.builder.startOver': '[Šţáŕţ óṽéŕ~~~~]',
 	'extensions.builder.forkName': '[{name} (çóƥý)~~~]',

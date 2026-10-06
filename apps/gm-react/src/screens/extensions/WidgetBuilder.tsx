@@ -14,12 +14,6 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { isolateModalSiblings } from '../../platform/modalIsolation';
 import {
-	PREFERENCE_KEYS,
-	readPreference,
-	removePreference,
-	writePreference,
-} from '../../platform/preferences';
-import {
 	STEP_IDS,
 	STEP_LABEL,
 	buildPackage,
@@ -27,6 +21,7 @@ import {
 	editStepFor,
 	emptyDraft,
 	isDraftDirty,
+	keptDraftStore,
 	readPackage,
 	readStoredDraft,
 	removeStoredDraft,
@@ -66,11 +61,11 @@ import { TrustReviewSheet } from './TrustReviewSheet';
  * writes, through `widget.package.install` or `widget.package.upgrade` — the same commands the
  * Plugins panel's JSON box dispatches, so a widget built here is not a special kind of package.
  *
- * RC-WID-6.6 — a changed draft is also kept in device preferences under the id of the package the
+ * RC-WID-6.6 — a changed draft is also kept (`keptDraftStore`) under the id of the package the
  * builder opened on (`draftStorageKey`), until it is installed or discarded. Closing it while it
  * differs from what it opened with asks Keep or Discard, and opening the builder on a package with a
- * kept draft asks whether to resume it. Device preferences, not the vault: a half-written widget is
- * this device's work in progress, never campaign state.
+ * kept draft asks whether to resume it. Never the vault: a half-written widget is work in progress,
+ * not campaign state.
  *
  * RC-WID-6.2 — a new package the core's author-trust rule clears (template-only, no permission, a
  * "safe to trust" verdict) installs with `authorTrust`, so it is trusted and on at once. Anything
@@ -95,7 +90,6 @@ export function WidgetBuilder({
 	initialStep,
 	onClose,
 	onInstalled,
-	onSaved,
 }: {
 	editPackage?: WidgetPackageDefinition | null;
 	generatedPackage?: WidgetPackageDefinition | null;
@@ -105,8 +99,6 @@ export function WidgetBuilder({
 	onClose: () => void;
 	/** RC-WID-6.2 — a new package that installed enabled; the caller closes the builder and places it. */
 	onInstalled?: (pkg: WidgetPackageDefinition) => void;
-	/** RC-WID-6.6 — an installed package saved as a new version (a tile's "Edit widget" re-points). */
-	onSaved?: (pkg: WidgetPackageDefinition) => void;
 }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -131,7 +123,7 @@ export function WidgetBuilder({
 	);
 	// RC-WID-6.6 — a kept draft of this package, offered for resuming before anything is edited.
 	const [kept, setKept] = useState<StoredWidgetDraft | null>(() => {
-		const stored = readStoredDraft(readPreference(PREFERENCE_KEYS.widgetDrafts), draftKey);
+		const stored = readStoredDraft(keptDraftStore.read(), draftKey);
 		return stored && isDraftDirty(baseline, stored.draft) ? stored : null;
 	});
 	const [leaving, setLeaving] = useState(false);
@@ -167,19 +159,17 @@ export function WidgetBuilder({
 	}, [kept]);
 
 	const forgetDraft = useCallback(() => {
-		const rest = removeStoredDraft(readPreference(PREFERENCE_KEYS.widgetDrafts), draftKey);
-		if (rest) writePreference(PREFERENCE_KEYS.widgetDrafts, rest);
-		else removePreference(PREFERENCE_KEYS.widgetDrafts);
+		keptDraftStore.write(removeStoredDraft(keptDraftStore.read(), draftKey));
 	}, [draftKey]);
 
-	// Keep a changed draft on this device; forget one edited back to where it started. Paused while
+	// Keep a changed draft; forget one edited back to where it started. Paused while
 	// the resume question is open, so the kept draft is not overwritten before the GM answers.
 	useEffect(() => {
 		if (kept || settledRef.current) return;
-		const raw = readPreference(PREFERENCE_KEYS.widgetDrafts);
+		const raw = keptDraftStore.read();
 		if (dirty) {
 			const entry = { draft, step, savedAt: new Date().toISOString() };
-			writePreference(PREFERENCE_KEYS.widgetDrafts, writeStoredDraft(raw, draftKey, entry));
+			keptDraftStore.write(writeStoredDraft(raw, draftKey, entry));
 		} else if (readStoredDraft(raw, draftKey)) forgetDraft();
 	}, [draft, step, dirty, kept, draftKey, forgetDraft]);
 
@@ -196,7 +186,7 @@ export function WidgetBuilder({
 	};
 	const requestCloseRef = useRef(requestClose);
 	requestCloseRef.current = requestClose;
-	// Answered: Keep leaves the draft in device preferences, Discard forgets it. The builder closes
+	// Answered: Keep leaves the draft in the store, Discard forgets it. The builder closes
 	// once the question has (an effect, after the Dialog's own cleanup lifts its isolation), so focus
 	// can return to whatever opened the builder.
 	const [closing, setClosing] = useState(false);
@@ -328,7 +318,6 @@ export function WidgetBuilder({
 						Toaster.success(
 							t('extensions.builder.savedUpgrade', { name: draft.name, version: draft.version }),
 						);
-						onSaved?.(pkg);
 						onCloseRef.current();
 					} else if (authorTrust) {
 						finishInstalled(pkg);
@@ -684,9 +673,10 @@ export function InPlaceEnable({
  * RC-WID-6.6 — "Edit widget" for a placed tile, shared by the tile menus and the Inspector. What it
  * opens is `widgetEditTarget`'s answer: the GM's own package as it is, an unplaced copy from an
  * earlier edit (so its kept draft resumes), or a new copy made with `widget.package.fork`. The tile
- * moves onto a copy with `scene.repoint-widget`: at once when the copy is on (a template the
- * author-trust rule cleared), otherwise when the builder saves it, because pointing a live tile at a
- * switched-off package would blank it. The builder opens on Data, or Advanced for custom code.
+ * moves onto the copy at once with `scene.repoint-widget`. A copy that starts off (custom code is
+ * never trusted on the GM's word) reads "disabled, preserved" until the builder saves it, which turns
+ * it on and draws the tile afresh from the saved code; closed with the copy still off, the tile goes
+ * back to the widget it was copied from. The builder opens on Data, or Advanced for custom code.
  */
 export function useEditWidget(widgetInstanceId: string, widgetType: string) {
 	const { t } = useI18n();
@@ -694,7 +684,8 @@ export function useEditWidget(widgetInstanceId: string, widgetType: string) {
 	const [session, setSession] = useState<{
 		packageId: string;
 		step: BuilderStepId;
-		repoint: boolean;
+		/** The tile's own type, to go back to if the builder closes with the copy still off. */
+		revertTo: string | null;
 	} | null>(null);
 	const busyRef = useRef(false);
 	const dmId = runtime.defaultActorId;
@@ -744,10 +735,10 @@ export function useEditWidget(widgetInstanceId: string, widgetType: string) {
 				Toaster.info(t('extensions.builder.forked', { name }));
 			}
 			if (!copy) return;
-			const repointLater = target.kind !== 'own' && !copy.enabled;
-			if (target.kind !== 'own' && copy.enabled) await repoint(copy.package.widgets[0]!.type);
+			if (target.kind !== 'own') await repoint(copy.package.widgets[0]!.type);
 			const step = editStepFor(readPackage(copy.package));
-			setSession({ packageId: copy.package.id, step, repoint: repointLater });
+			const revertTo = target.kind === 'own' ? null : widgetType;
+			setSession({ packageId: copy.package.id, step, revertTo });
 		} finally {
 			busyRef.current = false;
 		}
@@ -765,8 +756,11 @@ export function useEditWidget(widgetInstanceId: string, widgetType: string) {
 						<WidgetBuilder
 							editPackage={editing.package}
 							initialStep={session.step}
-							onClose={() => setSession(null)}
-							onSaved={session.repoint ? (pkg) => void repoint(pkg.widgets[0]!.type) : undefined}
+							onClose={() => {
+								setSession(null);
+								if (session.revertTo && !runtime.state.widgets.packages[session.packageId]?.enabled)
+									void repoint(session.revertTo);
+							}}
 						/>
 					</div>,
 					document.body,

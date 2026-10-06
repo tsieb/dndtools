@@ -544,15 +544,31 @@ export function validateIntents(draft: WidgetDraft): DraftIssue[] {
 
 /* ── RC-WID-6.6 — drafts that survive ─────────────────────────────────────────────────────────── */
 
-/** A builder draft kept on this device until it is installed or discarded. */
+/** A builder draft kept until it is installed or discarded. */
 export interface StoredWidgetDraft {
 	draft: WidgetDraft;
 	step: BuilderStepId;
 	savedAt: string;
 }
 
-/** How many drafts one device keeps per vault; the oldest goes first. */
+/** How many drafts are kept at once; the oldest goes first. */
 export const MAX_STORED_DRAFTS = 12;
+
+let keptDrafts: string | null = null;
+
+/**
+ * Where the builder keeps its drafts: for the life of the document, so closing a builder and opening
+ * it again resumes, and a vault switch (which reloads the document) never leaks one campaign's draft
+ * into another. It holds the serialized value the functions below read and write, so moving it to
+ * device preferences, to survive a reload as well, is one `PREFERENCE_KEYS` entry in
+ * `platform/preferences.ts` and these two lines.
+ */
+export const keptDraftStore = {
+	read: (): string | null => keptDrafts,
+	write: (raw: string | null): void => {
+		keptDrafts = raw;
+	},
+};
 
 /**
  * Where a builder session's draft is kept: the id of the package it was opened on, so an edit of

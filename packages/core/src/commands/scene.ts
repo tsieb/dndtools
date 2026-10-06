@@ -430,10 +430,12 @@ export function handleDuplicateScene(
  * Only that lineage is accepted. The target must name the instance's current type in
  * `authoring.forkedFrom`, or the instance's current package must name the target there, so this can
  * never turn a tile into an unrelated widget and skip what `scene.add-widget` checks. The target's
- * package must be installed and on, as for a placement. The instance keeps its id, layout, binding
- * and local state; it moves to the target's version, and its configuration must satisfy the
- * target's schema. `disabled` is cleared: it described the old package, and the scene read re-derives
- * the new one's status. DM-only, like the fork itself.
+ * package must be installed. It may be off: a fork of custom code starts off, and the tile moves
+ * onto it while the GM edits it, reading "disabled, preserved" until the save turns it on (the scene
+ * read reports a switched-off package exactly as it does for a package disabled after placement).
+ * The instance keeps its id, layout, binding and local state; it moves to the target's version, and
+ * its configuration must satisfy the target's schema. `disabled` is cleared: it described the old
+ * package, and the scene read re-derives the new one's status. DM-only, like the fork itself.
  */
 export function handleRepointWidget(
 	state: CoreStateSlice,
@@ -489,15 +491,6 @@ export function handleRepointWidget(
 			{
 				code: 'invalid-state',
 				message: `${widgetType} is not a copy of ${instance.type}, nor the widget it was copied from.`,
-			},
-			state,
-		);
-	}
-	if (!target.enabled) {
-		return reject(
-			{
-				code: 'package-disabled',
-				message: `Widget package ${target.package.id} is disabled.`,
 			},
 			state,
 		);

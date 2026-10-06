@@ -145,10 +145,6 @@ tracker, action panel, scene message, chart, stat block, form panel) read `dataQ
 and honours `audience`. Built-in bodies (`app/widgets/builtin/`) cover the system widgets: Map, Audio,
 combat, notes, atlas, search, session, tools, player views, and the rest.
 
-The slot keys its renderer by the widget's type and definition version (RC-WID-6.6). A sandboxed
-frame receives its document once, when it loads, so without the key a saved new version of a custom
-widget, or a tile re-pointed to its fork, kept drawing the old code until the page reloaded.
-
 ### 3.1 Accessibility contract
 
 What every widget owes a keyboard or screen-reader user, and who supplies each part (RC-WID-4.4).
@@ -430,8 +426,9 @@ records `forkedFrom` and the trust it started with. `forkedFrom` is accepted by 
 
 `scene.repoint-widget` moves a placed instance onto its fork, or a fork's instance back to the
 widget it was copied from, and refuses any other type, so it cannot bypass `scene.add-widget`'s
-checks. The target must be installed and enabled, and the instance's configuration must satisfy its
-schema; id, layout, binding and local state are kept, `disabled` is cleared. Both commands are
+checks. The target must be installed; it may be off (the tile then reads "disabled, preserved", as
+for any package switched off after placement). The instance's configuration must satisfy the
+target's schema; id, layout, binding and local state are kept, `disabled` is cleared. Both commands are
 DM-only. `packages/core/tests/widget-fork.test.ts` covers both.
 
 `navigate` (RC-WID-5.1) lets custom code follow the intents its definition declares, and only to
@@ -457,9 +454,11 @@ permission existed has no `navigate` key, and the host reads approvals only from
   has a "Runs" picker for its executor; a template command without one blocks Review (§2.2).
   Install follows §5.1: author-trusted and enabled when the rule clears it, otherwise the trust sheet
   over the builder. An enabled install is handed to the host's `onInstalled`.
-- **Kept drafts** (RC-WID-6.6): a draft that differs from what the builder opened with is kept in
-  device preferences (`widgetDrafts`, per vault), keyed by the id of the package the builder opened
-  on (the empty key for a new widget), until it is installed, saved or discarded. Closing it by
+- **Kept drafts** (RC-WID-6.6): a draft that differs from what the builder opened with is kept
+  (`keptDraftStore`, for the life of the document), keyed by the id of the package the builder
+  opened on (the empty key for a new widget), until it is installed, saved or discarded. It is not
+  in device preferences yet: that needs a `PREFERENCE_KEYS` entry RC-WID-6.6 does not own, and the
+  store holds the same serialized value so the move is that key plus the store's two lines. Closing it by
   Escape, Back or the platform gesture asks Keep or Discard; Escape on that question returns to the
   builder. Opening the builder on a package with a kept draft asks Resume or Start over first. The
   store is pure (`readStoredDraft`, `writeStoredDraft`, `removeStoredDraft` in `draft.ts`, at most
@@ -467,10 +466,12 @@ permission existed has no `navigate` key, and the host reads approvals only from
 - **Edit widget** (RC-WID-6.6): the canvas and flow tile menus and the Inspector share
   `useEditWidget`. `widgetEditTarget` decides: the GM's own single-widget package opens as it is;
   otherwise an unplaced copy from an earlier edit is reused (its kept draft resumes), or the widget
-  is forked (§5.2). A copy that starts enabled takes the tile at once through
-  `scene.repoint-widget`; one that starts off takes it when the builder saves it (an upgrade turns
-  the package on), so the tile never points at a switched-off package. The builder opens on Data,
-  or Advanced for custom code. `readPackage` reads a starter's or import's own files: the
+  is forked (§5.2). The tile moves onto the copy at once through `scene.repoint-widget`. A copy that
+  starts off (custom code) reads "disabled, preserved" until the builder saves it: the upgrade turns
+  it on and the slot mounts a fresh sandbox with the saved code. Closed with the copy still off, the
+  tile goes back to its original widget. The builder opens on Data, or Advanced for custom code.
+  A saved new version of a custom widget whose tile stays mounted (a second edit) keeps drawing
+  the old code until the tile remounts: `SandboxHost` sends its document once, at load. `readPackage` reads a starter's or import's own files: the
   stylesheet and script by declaration and kind beside the entrypoint, and the markup as the
   document's body without the link and script the builder's document adds back. The builder is
   portalled behind a fence that stops key, wheel and context-menu events reaching the canvas

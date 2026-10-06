@@ -610,12 +610,7 @@ export function WidgetRenderSlot({
 			variables={definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {}}
 		>
 			<WidgetRegion label={regionLabel} {...fit}>
-				{/* RC-WID-6.6 — a new version (or a tile re-pointed to its fork) redraws from scratch: a
-				    sandboxed frame receives its document once, when it loads, and kept the old code. */}
-				<WidgetErrorBoundary
-					key={`${widget.type}@${definition?.version ?? ''}`}
-					widgetId={widget.id}
-				>
+				<WidgetErrorBoundary widgetId={widget.id}>
 					{renderPlan(
 						plan,
 						{ widget, onCommand },

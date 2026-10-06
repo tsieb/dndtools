@@ -9,6 +9,7 @@ import {
 	TORCHLIGHT_STARTER,
 	dispatchCommand,
 	evaluateWidgetPackageForkTrust,
+	getSceneForActor,
 	widgetPackageForkIdentity,
 	type CoreCommand,
 	type CoreStateSlice,
@@ -388,7 +389,7 @@ describe('RC-WID-6.6: scene.repoint-widget', () => {
 		expect(back.scenes.scenes[start.sceneId]!.widgets[0]).toEqual(start.instance);
 	});
 
-	it('refuses an unrelated widget, a switched-off fork, a player and the same type', () => {
+	it('refuses an unrelated widget, a removed fork, a player and the same type', () => {
 		const start = placed(withInstalled(bundle()));
 		// A sibling in the same bundle is not a fork of this tile.
 		expect(
@@ -399,20 +400,78 @@ describe('RC-WID-6.6: scene.repoint-widget', () => {
 		).toBe('rejected');
 
 		let state = accept(start.state, fork('workspace.bundle', 'party-hp'));
-		state = accept(state, {
-			type: 'widget.package.disable',
-			actorId: DM_ACTOR.id,
-			payload: { packageId: 'user.party-hp' },
-		});
-		const off = run(state, repoint(start.sceneId, start.instance.id, 'party-hp-copy'));
-		expect(off.result.status).toBe('rejected');
-		if (off.result.status === 'rejected')
-			expect(off.result.rejection.code).toBe('package-disabled');
-
 		const asPlayer = dispatchCommand(state, makeEnvironment(), {
 			...repoint(start.sceneId, start.instance.id, 'party-hp-copy'),
 			actorId: PLAYER_ACTOR.id,
 		});
 		expect(asPlayer.status).toBe('rejected');
+
+		state = accept(state, {
+			type: 'widget.package.remove',
+			actorId: DM_ACTOR.id,
+			payload: { packageId: 'user.party-hp' },
+		});
+		const removed = run(state, repoint(start.sceneId, start.instance.id, 'party-hp-copy'));
+		expect(removed.result.status).toBe('rejected');
+		if (removed.result.status === 'rejected')
+			expect(removed.result.rejection.code).toBe('package-not-found');
+	});
+
+	it('moves a tile onto a switched-off copy, which reads disabled until a saved version turns it on', () => {
+		const start = placed(withInstalled(bundle()), 'party-hp');
+		// Torchlight's copy starts off (custom code); disabling this template copy stands in for it.
+		let state = accept(start.state, fork('workspace.bundle', 'party-hp'));
+		state = accept(state, {
+			type: 'widget.package.disable',
+			actorId: DM_ACTOR.id,
+			payload: { packageId: 'user.party-hp' },
+		});
+		state = accept(state, repoint(start.sceneId, start.instance.id, 'party-hp-copy'));
+		const status = (current: CoreStateSlice) => {
+			const summary = getSceneForActor(
+				current.scenes,
+				current.permissions,
+				DM_ACTOR.id,
+				start.sceneId,
+				{ widgetPackages: current.widgets },
+			);
+			if (!('widgets' in summary)) throw new Error('scene not readable');
+			const id = (payload: (typeof summary.widgets)[number]) =>
+				'widgetInstanceId' in payload ? payload.widgetInstanceId : payload.widget.id;
+			return summary.widgets.find((payload) => id(payload) === start.instance.id)!.kind;
+		};
+		expect(status(state)).toBe('disabled');
+
+		// The builder saves the copy as a new version: the upgrade migrates the tile and turns it on.
+		const copy = state.widgets.packages['user.party-hp']!.package;
+		state = accept(state, {
+			type: 'widget.package.upgrade',
+			actorId: DM_ACTOR.id,
+			payload: {
+				package: {
+					...copy,
+					version: '1.0.1',
+					widgets: [{ ...copy.widgets[0]!, version: '1.0.1' }],
+					migrations: [{ widgetType: 'party-hp-copy', fromVersion: '1.0.0', toVersion: '1.0.1' }],
+				},
+			},
+		});
+		expect(state.scenes.scenes[start.sceneId]!.widgets[0]).toMatchObject({
+			id: start.instance.id,
+			type: 'party-hp-copy',
+			version: '1.0.1',
+		});
+		expect(status(state)).not.toBe('disabled');
+
+		// Closed without saving, the tile goes back to the widget it was copied from.
+		const back = accept(
+			accept(start.state, fork('workspace.bundle', 'party-hp')),
+			repoint(start.sceneId, start.instance.id, 'party-hp-copy'),
+		);
+		expect(
+			accept(back, repoint(start.sceneId, start.instance.id, 'party-hp')).scenes.scenes[
+				start.sceneId
+			]!.widgets[0],
+		).toEqual(start.instance);
 	});
 });
