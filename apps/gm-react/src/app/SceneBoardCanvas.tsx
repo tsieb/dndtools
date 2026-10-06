@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type CSSProperties,
+} from 'react';
 import {
 	dockedPosition,
 	fitWidgetSize,
@@ -215,6 +223,16 @@ export function SceneBoardCanvas({
 		observer.observe(node);
 		return () => observer.disconnect();
 	}, []);
+
+	// A pane that changes width re-scales a Fit board, moving every tile. Keep whatever has focus in
+	// view across it: closing the Add panel widens the pane after the gallery has scrolled the new
+	// tile into view, and the larger scale would otherwise push it back off the bottom.
+	useLayoutEffect(() => {
+		const focused = document.activeElement;
+		if (focused instanceof HTMLElement && wrapRef.current?.contains(focused)) {
+			focused.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		}
+	}, [wrapWidth]);
 
 	const contentExtent = extentOf([...authoredWidgets, ...rects, ...sections.map((s) => s.bounds)]);
 
