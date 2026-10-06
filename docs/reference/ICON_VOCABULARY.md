@@ -59,8 +59,8 @@ Sizes resolve to `--icon-size-*` CSS variables.
   `campaign-scroll`, `knowledge-book`, `settings-gear` (mirrors `src/app/nav.ts`).
 - **Status / visibility** — `success`, `warning`, `error`, `info`; `dm-only`, `hidden`,
   `visibility-shared|players|hidden|mixed` (actor-safety cues).
-- **Common actions** — `close`, `check`, `add`, `search`, `filter`, `more`, chevrons, `retry`,
-  `loading`, `move`, `pin`, `edit`, `delete`, `duplicate`, `preview`.
+- **Common actions** — `close`, `check`, `add`, `search`, `more`, chevrons, `retry`, `loading`,
+  `move`, `pin`, `edit`, `delete`, `duplicate`, `preview`.
 - **Live play** — `dice`, `heart`, `shield`, `sword`, `audio`/`audio-off`, `play`/`pause`/`skip`.
 - **Command Center / authoring** — `scene`, `widget`, `new-character`, `new-map`, `note-edit`,
   `players`, `permissions`, `vault`, `connection`, `lock`/`unlock`, and the phone board's

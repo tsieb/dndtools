@@ -402,34 +402,46 @@ export function SavedSearchChips({
 	const { t } = useI18n();
 	const ordered = useOrderedSavedSearches();
 	if (ordered.length === 0) return null;
+	const active = ordered.find((entry) => entry.id === activeId);
 	return (
-		<div
-			role="group"
-			aria-label={t('knowledge.filters.saved')}
-			data-testid="knowledge-saved-chips"
-			style={{
-				display: 'flex',
-				flexWrap: 'wrap',
-				alignItems: 'center',
-				gap: T.space.oneHalf,
-				marginBottom: T.space.three,
-			}}
-		>
-			{ordered.map((entry) => {
-				const active = entry.id === activeId;
-				return (
-					<Chip
-						key={entry.id}
-						icon={entry.pinned ? 'pin' : 'search'}
-						tone={active ? 'accent' : 'neutral'}
-						selected={active}
-						data-testid={`knowledge-saved-chip-${entry.id}`}
-						onClick={() => onChange(active ? null : entry.id)}
-					>
-						{entry.name} · {entry.result.countsByType.note}
-					</Chip>
-				);
-			})}
-		</div>
+		<>
+			<div
+				role="group"
+				aria-label={t('knowledge.filters.saved')}
+				data-testid="knowledge-saved-chips"
+				style={{
+					display: 'flex',
+					flexWrap: 'wrap',
+					alignItems: 'center',
+					gap: T.space.oneHalf,
+					marginBottom: T.space.three,
+				}}
+			>
+				{ordered.map((entry) => {
+					const active = entry.id === activeId;
+					return (
+						<Chip
+							key={entry.id}
+							icon={entry.pinned ? 'pin' : 'search'}
+							tone={active ? 'accent' : 'neutral'}
+							selected={active}
+							data-testid={`knowledge-saved-chip-${entry.id}`}
+							onClick={() => onChange(active ? null : entry.id)}
+						>
+							{entry.name} · {entry.result.countsByType.note}
+						</Chip>
+					);
+				})}
+			</div>
+			{/* The grid below is empty under an applied chip that leaves no notes; say why here. */}
+			{active && active.result.countsByType.note === 0 && (
+				<p
+					style={{ ...BODY, color: T.ter, margin: T.space.zero, marginBottom: T.space.three }}
+					data-testid="knowledge-saved-chip-empty"
+				>
+					{t('knowledge.savedChipEmpty')}
+				</p>
+			)}
+		</>
 	);
 }

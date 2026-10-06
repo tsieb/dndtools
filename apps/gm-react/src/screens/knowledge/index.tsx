@@ -6,7 +6,7 @@ import { ListDetail, Page, T, srOnly } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
-import { BODY, META, VIS_CHIP } from './shared';
+import { META, VIS_CHIP } from './shared';
 import { parseArchive, snippetOf } from './markdown';
 import { useI18n } from '../../i18n';
 import { NoteListMetadata } from './NoteListMetadata';
@@ -235,7 +235,7 @@ export function Knowledge() {
 				<Button
 					variant={panel === 'filters' ? 'secondary' : 'ghost'}
 					size="sm"
-					icon="filter"
+					icon="search"
 					aria-expanded={panel === 'filters'}
 					data-testid="knowledge-filters-toggle"
 					onClick={() => toggle('filters')}
@@ -348,10 +348,6 @@ export function Knowledge() {
 						) : undefined
 					}
 				/>
-			) : shown.length === 0 ? (
-				<p style={{ ...BODY, margin: T.space.zero }} data-testid="knowledge-saved-chip-empty">
-					{t('knowledge.savedChipEmpty')}
-				</p>
 			) : (
 				<ul
 					aria-label={t('knowledge.notes')}

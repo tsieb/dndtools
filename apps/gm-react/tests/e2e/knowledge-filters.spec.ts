@@ -181,7 +181,7 @@ test.describe('knowledge: filters and saved searches', () => {
 		// Nothing typed, nothing to hand over — the control says so instead of navigating empty.
 		await expect(vault).toBeDisabled();
 
-		await page.getByLabel('Filter the graph').fill('Sunken');
+		await page.getByLabel('Search the graph').fill('Sunken');
 		await vault.click();
 
 		await expect(page.getByTestId('filters-panel')).toBeVisible();

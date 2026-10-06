@@ -66,7 +66,7 @@ test.describe('graph: relationship graph & search', () => {
 	});
 
 	test('search finds an entity and opening it routes to its own surface', async ({ page }) => {
-		await page.getByLabel('Filter the graph').fill('Campaign Primer');
+		await page.getByLabel('Search the graph').fill('Campaign Primer');
 
 		// The text facet narrows the live read; select the surviving result.
 		await page.getByRole('button', { name: VISIBLE_NOTE }).first().click();
@@ -93,7 +93,7 @@ test.describe('graph: relationship graph & search', () => {
 	test('selecting a search result does not shove the result list down the page', async ({
 		page,
 	}) => {
-		const search = page.getByLabel('Filter the graph');
+		const search = page.getByLabel('Search the graph');
 		await search.fill('Campaign Primer');
 		const result = page.getByRole('button', { name: VISIBLE_NOTE }).last();
 		// Exclude Playwright's automatic scrolling from the layout-shift measurement.
@@ -188,7 +188,7 @@ test.describe('graph: relationship graph & search', () => {
 		// search rows in the right rail — from there Escape did nothing at all, so a keyboard user who
 		// picked a result had no way to release the dimming. The handler now lives on the grid that
 		// owns both, and deliberately skips the search input so Escape there still clears the query.
-		await page.getByLabel('Filter the graph').fill('Campaign Primer');
+		await page.getByLabel('Search the graph').fill('Campaign Primer');
 		const rows = page.getByRole('button', { name: VISIBLE_NOTE });
 		const row = rows.last();
 		await row.click();
@@ -202,7 +202,7 @@ test.describe('graph: relationship graph & search', () => {
 		// The grid handler above deliberately skips inputs because the input was documented as owning
 		// "its own Escape (clear the query)" — but it had no onKeyDown at all, so Escape in the search
 		// box cleared neither the query nor the selection. There is no × affordance either.
-		const search = page.getByLabel('Filter the graph');
+		const search = page.getByLabel('Search the graph');
 		await search.fill('Campaign Primer');
 		await expect(search).toHaveValue('Campaign Primer');
 		// The query really is filtering — the rail is down to the matching row.
@@ -215,7 +215,7 @@ test.describe('graph: relationship graph & search', () => {
 	test('Escape in the search box does not also drop an existing selection', async ({ page }) => {
 		// The input stops propagation only while it has a query to clear, so a selection made from the
 		// rail survives the query reset — and a SECOND Escape (empty query) still reaches the grid.
-		const search = page.getByLabel('Filter the graph');
+		const search = page.getByLabel('Search the graph');
 		await search.fill('Campaign Primer');
 		await page.getByRole('button', { name: VISIBLE_NOTE }).last().click();
 		await expect(page.getByText('Selected')).not.toHaveCount(0);
@@ -233,8 +233,8 @@ test.describe('graph: relationship graph & search', () => {
 		await page.getByRole('button', { name: VISIBLE_NOTE }).first().click();
 		await expect(page.getByText('Selected')).not.toHaveCount(0);
 		await page.getByRole('button', { name: 'Note', exact: true }).click(); // kind facet chip
-		await page.getByLabel('Filter the graph').fill('crypt');
-		await page.getByLabel('Filter the graph').fill('');
+		await page.getByLabel('Search the graph').fill('crypt');
+		await page.getByLabel('Search the graph').fill('');
 		await page.getByRole('radio', { name: 'Player view' }).click();
 		await page.getByRole('radio', { name: 'DM view' }).click();
 
@@ -368,7 +368,7 @@ test.describe('graph: the connections panel does not call a filtered-out link a 
 		await expect(page.getByText('No links from or to this node yet.')).toHaveCount(0);
 
 		// Now narrow the text facet to the node itself, which drops every edge out of the read.
-		await page.getByLabel('Filter the graph').fill(VISIBLE_NOTE);
+		await page.getByLabel('Search the graph').fill(VISIBLE_NOTE);
 		await expect(page.getByText('Connections (0)')).not.toHaveCount(0);
 
 		// The links still exist — only the filter hides them, and the copy must say so.

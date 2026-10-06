@@ -5583,7 +5583,7 @@ export const en = {
 		'Nothing to graph yet — notes, maps, and story entries appear here as you link them.',
 	'graph.search': 'Filter',
 	'graph.searchPlaceholder': 'Filter the graph…',
-	'graph.searchLabel': 'Filter the graph',
+	'graph.searchLabel': 'Search the graph',
 	'graph.searchVault': 'Refine in Notes',
 	'graph.noResultsPlayer': 'No results in player view.',
 	'graph.noResultsFilter': 'No results for this filter.',

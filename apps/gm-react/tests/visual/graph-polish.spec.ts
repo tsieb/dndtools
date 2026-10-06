@@ -64,11 +64,11 @@ for (const theme of THEMES) {
 		await stage(page, theme);
 		await openShelled(page, '/graph');
 		await snap(page, theme, 'graph');
-		await page.getByLabel('Filter the graph').fill('Campaign Primer');
+		await page.getByLabel('Search the graph').fill('Campaign Primer');
 		await page.getByRole('button', { name: 'Campaign Primer' }).first().click();
 		await page.getByRole('button', { name: 'Open note' }).scrollIntoViewIfNeeded();
 		await snap(page, theme, 'graph-selected');
-		await page.getByLabel('Filter the graph').fill('no-matching-graph-node');
+		await page.getByLabel('Search the graph').fill('no-matching-graph-node');
 		await page
 			.getByRole('heading', { name: 'No results for this filter.' })
 			.first()

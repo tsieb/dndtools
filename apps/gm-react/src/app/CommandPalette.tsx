@@ -367,7 +367,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 						kind: 'action',
 						label: t('palette.refineInNotes'),
 						description: t('palette.refineInNotesHint'),
-						icon: 'filter',
+						icon: 'search',
 						group: t('palette.group.refine'),
 						keywords: withQuery(),
 						run: goTo('search:refine-notes', '/knowledge', { search: rawQuery }),

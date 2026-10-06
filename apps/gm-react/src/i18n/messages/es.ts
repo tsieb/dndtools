@@ -5617,7 +5617,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Todavía no hay nada que graficar — las notas, los mapas y las entradas de historia aparecen aquí a medida que las enlazas.',
 	'graph.search': 'Filtrar',
 	'graph.searchPlaceholder': 'Filtrar el grafo…',
-	'graph.searchLabel': 'Filtrar el grafo',
+	'graph.searchLabel': 'Buscar en el grafo',
 	'graph.noResultsPlayer': 'Sin resultados en la vista de jugador.',
 	'graph.noResultsFilter': 'Sin resultados para este filtro.',
 	'graph.selected': 'Seleccionado',

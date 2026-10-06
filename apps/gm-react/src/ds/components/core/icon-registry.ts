@@ -48,8 +48,6 @@ export const ICON_REGISTRY: Record<string, string> = {
 	trash: 'Trash2',
 	download: 'Download',
 	search: 'Search',
-	// RC-KNW-6.4 — narrowing what is already listed (Notes filter panel, Graph box); `search` is the palette.
-	filter: 'Filter',
 	more: 'Ellipsis',
 	'chevron-down': 'ChevronDown',
 	'chevron-right': 'ChevronRight',

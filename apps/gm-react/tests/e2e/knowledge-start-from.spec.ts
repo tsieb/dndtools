@@ -206,7 +206,7 @@ test.describe('knowledge: start from a template, filter, refine', () => {
 	test('the Graph box says it filters the graph', async ({ page }) => {
 		await gotoRoute(page, '/graph');
 		await page.locator('#main-content').waitFor({ state: 'attached' });
-		const box = page.getByLabel('Filter the graph');
+		const box = page.getByLabel('Search the graph');
 		await expect(box).toHaveAttribute('placeholder', 'Filter the graph…');
 		await box.fill('Sunken');
 		await page.getByRole('button', { name: 'Refine in Notes' }).click();
