@@ -76,6 +76,11 @@ const { CommandCenter, homePlacements } = await import('./CommandCenter');
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom has no layout: each widget region's fit probe measures text ranges on an animation frame,
+// which can fire after a test under load. Without these it throws outside any test.
+Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+
 // --- The two serialisations ---------------------------------------------------------------------
 
 const KEPT_TAGS = new Set([
