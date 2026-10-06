@@ -1,6 +1,6 @@
 # RC-UX-6.4 run journal
 
-Base: `7dc67b3f` (task branch head at start; worktree clean). Headroom tools were not used; exact
+Base: `7dc67b3f` at start; the operator rebased the branch onto `c61d8cdb`. Headroom tools were not used; exact
 command output was read directly.
 
 ## Implementation
@@ -38,12 +38,50 @@ command output was read directly.
 
 ## Scope notes
 
-- Outside Owns (minimal): `Sidebar.tsx` (the More group, named by the story), `RailNav.tsx` (tablet
-  rail, the same filter so the tier does not leak there), and `CommandCenter.tsx` (the launcher
-  filter, named by the story). Companion paths: `packages/core/src/index.ts`, i18n catalogs,
-  `CHANGELOG.md`, tests.
+- Outside Owns, kept because the acceptance e2e needs them:
+  - `apps/gm-react/src/app/shell/Sidebar.tsx`: the desktop More group _is_ the "Extensions entry"
+    a Beginner must not see. Its `visiblePlatform` is a `useMemo` over `runtime.state` alone, so
+    no change to an owned or companion file (`sections.ts`, `nav.ts`) can hide the row, or bring it
+    back after a switch to Expert without a reload. The edit swaps the filter for `isSectionShown`
+    and adds `tier` and `active` to the memo deps.
+  - `apps/gm-react/src/screens/CommandCenter.tsx`: the New widget launcher is declared inline in
+    that file's `create` array. The criterion "a Beginner sees no New widget launcher" can only be
+    met there. The edit tags the entry with gate `home.create.widget` and filters it.
+- Reverted to base after the ownership gate (2026-10-05): `RailNav.tsx` (the tablet rail filter)
+  and `GettingStartedBody.tsx` (the tile passed no tier to `resolveOnboarding`, so it always printed
+  the core default). Neither is required by the acceptance criteria. Both are follow-ups: the tablet
+  rail still lists Extensions and Community at Beginner, and the Getting started tile shows the
+  default tier ("Intermediate") rather than the device's tier. The `builtin-bodies` snapshot update
+  stays: with the new default the tile prints "Intermediate" either way.
+- Companion paths: `packages/core/src/index.ts`, i18n catalogs, `CHANGELOG.md`, tests, snapshot.
 - Not done: the widget builder's advanced steps are not gated by tier anywhere (`widgetBuilder/*`
   never reads it). Listing them on the Beginner card would repeat the defect this story fixes, so
   `TIER_SUMMARY_GATE_IDS` leaves them out. Enforcing builder-step gating is follow-up work.
 
 ## Validation
+
+All runs are local; Playwright used `DNDTOOLS_E2E_PORT=41449`.
+
+- Core `vitest run`: 286 files, 5234 tests passed. `tests/unit/feature-complexity.test.ts` (includes
+  the new pairwise-different / real-section-id test): 9/9 passed.
+- `pnpm test:app` (before the rebase): 2029/2030. The one failure was the `builtin-bodies`
+  getting-started snapshot ("Depth Core" became "Depth Intermediate", the intended default change).
+  Snapshot updated. After the revert: `builtin-bodies` plus `src/app/shell` passed 69/69.
+  `pnpm test:tooling`: 248/248.
+- `pnpm typecheck`, `pnpm lint:boundary`, ESLint and Prettier on the changed files: pass.
+- E2E before the rebase, desktop and mobile Chromium:
+  - onboarding-consent, settings, settings-tiers and settings-polish: 62/62 passed.
+  - a11y-axe-gate, command-palette, community-_, extensions-polish, golden-path, help-_,
+    hub-templates, map-onboarding, phone-navigator, responsive, shell-pin-bounds and shell-polish:
+    450 passed, 2 skipped.
+- E2E after the rebase onto `c61d8cdb` and the two reverts, desktop and mobile Chromium:
+  onboarding-consent, settings, settings-tiers, settings-polish and shell-polish passed 82/82.
+  This includes the new RC-UX-6.4 tests: Beginner shows no New widget, Extensions or Permissions;
+  Expert shows all three without a reload, checked with a window marker; the three cards list
+  different hidden sections.
+- Visual: two container runs were stopped when their sessions ended, at 14/258 and 2/513. No
+  visual result is claimed. Goldens expected to move because the default tier changed:
+  `command-center--*` (Manage now shows Players and Vault) and `settings--*` (Standard is selected,
+  the cards changed and the rail has more tabs), across desktop, rail and phone. Central visual
+  gates are the evidence. Nothing was re-baselined.
+- No agents, dispatcher-state edits, push, promotion or loop launches.

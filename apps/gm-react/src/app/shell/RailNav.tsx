@@ -6,10 +6,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Icon, IconButton, NavRail } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { useSettingsTier } from '../../screens/settings/Experience';
-import { activeSectionId } from '../nav';
+import { activeSectionId, isNavSectionVisible } from '../nav';
 import { T } from '../screen-kit';
-import { ALL_SECTIONS, isSectionShown, sectionPath } from './sections';
+import { ALL_SECTIONS, sectionPath } from './sections';
 import { useSessionPosture } from './session-posture';
 import { isDemoLocalVault } from '../../platform/storage/coreStore';
 
@@ -34,12 +33,8 @@ export function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const active = selectedPin ? `pin:${selectedPin.id}` : activeSectionId(location.pathname);
 	// RC-SES-1.1 — one source for "live" across all three navigations: the session workflow.
 	const live = useSessionPosture().live;
-	// RC-UX-3.5 — the tablet rail must not leak a usage-gated surface either (Graph before 3 links),
-	// nor (RC-UX-6.4) a tier-gated one other than the section you're on.
-	const tier = useSettingsTier();
-	const visibleSections = ALL_SECTIONS.filter(
-		(s) => s.id === active || isSectionShown(s.id, runtime.state, tier),
-	);
+	// RC-UX-3.5 — the tablet rail must not leak a usage-gated surface either (Graph before 3 links).
+	const visibleSections = ALL_SECTIONS.filter((s) => isNavSectionVisible(s.id, runtime.state));
 	return (
 		<>
 			<NavRail

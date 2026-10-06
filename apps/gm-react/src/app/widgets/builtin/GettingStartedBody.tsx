@@ -1,7 +1,6 @@
 import { resolveOnboarding } from '@dndtools/core';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import { useI18n } from '../../../i18n';
-import { useSettingsTier } from '../../../screens/settings/Experience';
 import { Chip, Muted, StatPill, bodyWrap } from '../../widget-body-kit';
 import { LiveStats, StateMark } from './live';
 
@@ -14,8 +13,7 @@ import { LiveStats, StateMark } from './live';
 export function GettingStartedBody() {
 	const runtime = useRuntime();
 	const { t } = useI18n();
-	// RC-UX-6.4 — the device's chosen tier, not the core default (this tile read "Core" for an Expert).
-	const view = resolveOnboarding(runtime.state, runtime.defaultActorId, useSettingsTier());
+	const view = resolveOnboarding(runtime.state, runtime.defaultActorId);
 	const done = view.steps.filter((step) => step.done).length;
 	return (
 		<div style={bodyWrap}>
