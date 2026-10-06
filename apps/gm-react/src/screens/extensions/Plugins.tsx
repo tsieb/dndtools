@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
-import { STARTER_WIDGET_LIBRARY, type WidgetPackageDefinition } from '@dndtools/core';
-import { Badge, Button, EmptyState, Textarea } from '../../ds';
+import {
+	STARTER_WIDGET_LIBRARY,
+	type StarterWidgetEntry,
+	type WidgetPackageDefinition,
+} from '@dndtools/core';
+import { Badge, Button, EmptyState, Textarea, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 /* ── RC-WID-2.1: the widget builder overlay is launched from this panel ─────────────────────── */
@@ -10,7 +14,7 @@ import { GenerateDialog } from '../../app/widgetBuilder/GenerateDialog';
 import { TrustReviewSheet } from './TrustReviewSheet';
 import { useI18n } from '../../i18n';
 import { hasMarketplaceBackend } from '../community/shared';
-import { PluginPackageCard } from './PluginPackageCard';
+import { PluginPackageCard, asksForNothing } from './PluginPackageCard';
 import { ReadOnlyNote } from './shared';
 import { usePackageActions } from './usePackageActions';
 
@@ -30,6 +34,11 @@ import { usePackageActions } from './usePackageActions';
 // Each starter's name and description are written into the installed package definition, so they are
 // durable vault state rather than screen copy: translating them would make what a campaign stores
 // depend on the locale the DM happened to install in. They stay in the source language.
+//
+// RC-WID-6.7 — a starter that asks for nothing (no permission, no network, nothing the players see)
+// is enabled by the same Install press: its code ships with Lamplight and every permission stays
+// denied, so a review would ask the GM to decide nothing. Its card then reads "Bundled · no
+// permissions". A starter that asks for something keeps the fail-closed path (off until reviewed).
 
 export function ExtPlugins() {
 	const { t } = useI18n();
@@ -48,6 +57,34 @@ export function ExtPlugins() {
 		applyJson,
 	} = usePackageActions();
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+	const [installing, setInstalling] = useState(false);
+	const installBundled = (entry: StarterWidgetEntry) => {
+		const pkg = entry.build();
+		if (!asksForNothing(pkg)) {
+			installStarter(entry);
+			return;
+		}
+		if (installing || busy) return;
+		setInstalling(true);
+		const fail = (message: string) => Toaster.error(message);
+		void (async () => {
+			const installed = await runtime.dispatch({
+				type: 'widget.package.install',
+				actorId: dmId,
+				payload: { package: pkg },
+			});
+			if (installed.status !== 'accepted') return fail(installed.rejection.message);
+			const enabled = await runtime.dispatch({
+				type: 'widget.package.enable',
+				actorId: dmId,
+				payload: { packageId: pkg.id },
+			});
+			if (enabled.status !== 'accepted') return fail(enabled.rejection.message);
+			Toaster.success(t('extensions.plugins.installedStarterOn', { name: entry.name }));
+		})()
+			.catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)))
+			.finally(() => setInstalling(false));
+	};
 	// RC-WID-2.1 — the builder is a full-screen overlay over this panel, not a route (same shape as
 	// the map editor over Atlas), so it is opened and closed from here.
 	const [builderOpen, setBuilderOpen] = useState(false);
@@ -188,8 +225,8 @@ export function ExtPlugins() {
 										size="sm"
 										icon="import"
 										aria-label={t('extensions.plugins.installLabel', { name: entry.name })}
-										disabled={!canWrite || busy}
-										onClick={() => installStarter(entry)}
+										disabled={!canWrite || busy || installing}
+										onClick={() => installBundled(entry)}
 									>
 										{t('extensions.plugins.install')}
 									</Button>

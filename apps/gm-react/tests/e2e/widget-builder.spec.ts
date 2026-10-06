@@ -314,11 +314,26 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 		// ── Commands: one operate verb from the catalogue, and one configure verb that can only be
 		//    declared for a manager.
 		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Roll', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Set value', exact: true }).click();
-		await expect(dialog.getByText('Operate', { exact: true })).toBeVisible();
+		// RC-WID-6.7 — named by outcome; who may press it is said on hover, not as a heading.
+		await expect(dialog.getByText('Operate', { exact: true })).toHaveCount(0);
+		await dialog.getByRole('button', { name: 'Roll dice', exact: true }).hover();
 		await expect(
-			dialog.getByText('This verb changes the widget, so only a campaign manager can fire it.'),
+			dialog
+				.getByRole('tooltip')
+				.filter({ hasText: 'You, and any player you let use this widget, can press it.' }),
+		).toBeVisible();
+		await dialog.getByRole('button', { name: 'Roll dice', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Set the count', exact: true }).hover();
+		await expect(
+			dialog.getByRole('tooltip').filter({ hasText: 'Only the DM can press it.' }),
+		).toBeVisible();
+		await dialog.getByRole('button', { name: 'Set the count', exact: true }).click();
+		// The capability that follows from the verb sits under the row's Advanced.
+		const advanced = dialog.getByTestId('command-advanced').nth(1);
+		await expect(advanced.getByText('This changes the widget itself')).toBeHidden();
+		await advanced.getByText('Advanced', { exact: true }).click();
+		await expect(
+			advanced.getByText('This changes the widget itself, so only the DM can press it.'),
 		).toBeVisible();
 
 		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
@@ -501,7 +516,8 @@ test.describe('widget builder: accessibility', () => {
 		await dialog.getByRole('button', { name: 'Add config field' }).click();
 		await dialog.getByLabel('Control', { exact: true }).selectOption({ label: 'Number' });
 		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
-		await dialog.getByRole('button', { name: 'Set value', exact: true }).click();
+		await dialog.getByRole('button', { name: 'Set the count', exact: true }).click();
+		await dialog.getByTestId('command-advanced').getByText('Advanced', { exact: true }).click();
 
 		const results = await new AxeBuilder({ page })
 			.withTags(AXE_TAGS)

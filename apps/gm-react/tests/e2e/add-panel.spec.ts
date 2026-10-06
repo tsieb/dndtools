@@ -113,10 +113,15 @@ test('every button in the panel has a name (axe) and the library comes before Mo
 		.evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label') ?? n.textContent ?? ''));
 	const rows = names.flatMap((name, index) => (/^Add \S/.test(name) ? [index] : []));
 	expect(rows.length).toBeGreaterThan(5);
-	expect(names.indexOf('Generate with assistant')).toBeGreaterThan(Math.max(...rows));
 	expect(names.indexOf('Build your own')).toBeGreaterThan(Math.max(...rows));
 	const more = gallery(page).getByRole('group', { name: 'More ways to add' });
-	await expect(more.getByRole('button')).toHaveCount(2);
+	// RC-WID-6.7 — with the assistant off, Generate is the reason and a link to Settings, not a
+	// button that opens a dialog saying the same thing.
+	await expect(more.getByRole('group', { name: 'Generate with assistant' })).toContainText(
+		'The assistant is off.',
+	);
+	await expect(more.getByRole('link', { name: 'Open Settings › Tool preferences' })).toBeVisible();
+	await expect(more.getByRole('button')).toHaveCount(1);
 });
 
 test('the miniature shows on keyboard focus but is never in the tab order', async ({ page }) => {

@@ -2803,24 +2803,34 @@ export const es: Partial<Record<MessageKey, string>> = {
 
 	'extensions.trust.title': 'Revisar {name}',
 	'extensions.trust.description':
-		'Decide a qué puede llegar este paquete. Todo está denegado hasta que lo permitas.',
-	'extensions.trust.denyPackage': 'Denegar paquete',
-	'extensions.trust.trustPackage': 'Confiar en el paquete',
+		'Elige qué puede usar este widget. No se permite nada hasta que tú lo digas.',
+	'extensions.trust.denyPackage': 'Bloquear',
+	'extensions.trust.allowAndEnable': 'Permitir y activar',
 	'extensions.trust.readOnly':
 		'La revisión de paquetes es solo para {gm}. Sal de la vista previa o pide a tu {gm} que revise este paquete.',
-	'extensions.trust.trusted': 'Se confía en {name} con los permisos que permitiste.',
+	'extensions.trust.trusted': '{name} está permitido y activado.',
 	'extensions.trust.denied':
-		'Se denegó {name} — queda desactivado y sus widgets colocados están en pausa.',
-	'extensions.trust.recommend.trusted': 'Seguro para confiar tras la revisión',
+		'Se bloqueó {name}. Está desactivado y sus copias colocadas están en pausa.',
+	'extensions.trust.verdict.templatesNoneHidden':
+		'Está hecho con los diseños propios de Lamplight, no pide nada y no muestra nada a tus jugadores.',
+	'extensions.trust.verdict.templatesNoneShown':
+		'Está hecho con los diseños propios de Lamplight, no pide nada y puede mostrar cosas a tus jugadores.',
+	'extensions.trust.verdict.templatesSomeHidden':
+		'Está hecho con los diseños propios de Lamplight, pide los permisos de abajo y no muestra nada a tus jugadores.',
+	'extensions.trust.verdict.templatesSomeShown':
+		'Está hecho con los diseños propios de Lamplight, pide los permisos de abajo y puede mostrar cosas a tus jugadores.',
+	'extensions.trust.verdict.customNoneHidden':
+		'Ejecuta su propio código, apartado del resto de Lamplight, no pide nada y no muestra nada a tus jugadores.',
+	'extensions.trust.verdict.customNoneShown':
+		'Ejecuta su propio código, apartado del resto de Lamplight, no pide nada y puede mostrar cosas a tus jugadores.',
+	'extensions.trust.verdict.customSomeHidden':
+		'Ejecuta su propio código, apartado del resto de Lamplight, pide los permisos de abajo y no muestra nada a tus jugadores.',
+	'extensions.trust.verdict.customSomeShown':
+		'Ejecuta su propio código, apartado del resto de Lamplight, pide los permisos de abajo y puede mostrar cosas a tus jugadores.',
 	'extensions.trust.recommend.review': 'Requiere revisión',
 	'extensions.trust.recommend.deny': 'Denegar hasta que se corrija',
-	'extensions.trust.version': 'v{version}',
-	'extensions.trust.codeCustom': 'Ejecuta su propio código en un espacio aislado.',
-	'extensions.trust.codeTemplates': 'Solo usa plantillas de widgets integradas.',
-	'extensions.trust.writesPlayerVisible': 'Puede escribir contenido que tus jugadores ven.',
-	'extensions.trust.writesNothing': 'No escribe nada que tus jugadores vean.',
 	'extensions.trust.permsTitle': 'Permisos que solicita',
-	'extensions.trust.noPerms': 'Este paquete no solicita ningún permiso del anfitrión.',
+	'extensions.trust.noPerms': 'No pide ningún permiso.',
 	'extensions.trust.perm.filesystem': 'Sistema de archivos',
 	'extensions.trust.perm.clipboard': 'Portapapeles',
 	'extensions.trust.perm.network': 'Red',
@@ -2848,8 +2858,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.trust.writesTo': '{widget} escribe en {destination}.',
 	'extensions.trust.readTitle': 'Qué puede leer',
 	'extensions.trust.ackBody':
-		'La revisión recomienda denegar este paquete hasta que se corrija. Confiar en él de todos modos necesita tu confirmación.',
-	'extensions.trust.ackLabel': 'Entiendo la recomendación y quiero confiar en él de todos modos',
+		'Lamplight recomienda bloquearlo hasta que se corrija. Para permitirlo de todos modos, confírmalo abajo.',
+	'extensions.trust.ackLabel': 'Lo entiendo y quiero permitirlo de todos modos',
 
 	'extensions.system.title': 'Sistema de la campaña',
 	'extensions.system.intro':
@@ -3319,16 +3329,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.installedIntro':
 		'Cada paquete está aislado y solo recibe los permisos que se muestran abajo. Los cambios en los paquetes instalados se guardan con esta campaña.',
 	'extensions.plugins.none': 'No hay paquetes de widgets instalados.',
-	'extensions.plugins.trustTrusted': 'De confianza',
-	'extensions.plugins.trustUnreviewed': 'Sin revisar',
-	'extensions.plugins.trustDenied': 'Denegado',
+	'extensions.plugins.status.bundled': 'Incluido · sin permisos',
+	'extensions.plugins.status.allowed': 'Permitido',
+	'extensions.plugins.status.blocked': 'Bloqueado',
 	'extensions.plugins.recommendTrust': 'Confiar tras la revisión',
 	'extensions.plugins.needsReview': 'Necesita revisión',
-	'extensions.plugins.customCode': 'Código propio',
 	'extensions.plugins.migrationFailed': 'La actualización falló: revisa el paquete',
-	'extensions.plugins.cardMeta':
-		'v{version} · {widgets, plural, one {# widget} other {# widgets}} · {recommendation}',
-	'extensions.plugins.noPerms': 'Sin permisos del anfitrión',
+	'extensions.plugins.cardMeta': 'v{version} · {widgets, plural, one {# widget} other {# widgets}}',
+	'extensions.plugins.runsCode': 'ejecuta su propio código',
+	'extensions.plugins.usesTemplates': 'hecho con plantillas',
+	'extensions.plugins.drafted': 'redactado por el asistente',
+	'extensions.plugins.asksNothing': 'No pide ningún permiso.',
+	'extensions.plugins.asks': 'Pide: {list}.',
 	'extensions.plugins.network': 'Red: {destination}',
 	'extensions.plugins.review': 'Revisar',
 	'extensions.plugins.reviewLabel': 'Revisar {name}',
@@ -3339,9 +3351,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.newVersion': 'Nueva versión',
 	'extensions.plugins.newVersionLabel': 'Empezar una nueva versión de {name}',
 	'extensions.plugins.starterTitle': 'Biblioteca inicial',
-	'extensions.plugins.starterBadge': 'incluida · sin red',
+	'extensions.plugins.starterBadge': 'Incluido · funciona sin conexión',
 	'extensions.plugins.starterIntro':
-		'Estos paquetes vienen con Lamplight y funcionan sin conexión. Se instalan desactivados y con todos los permisos denegados. Revisa cada uno en la lista de instalados antes de activarlo.',
+		'Vienen con Lamplight y funcionan sin conexión a la red. Uno que no pide permisos se activa en cuanto lo instalas; uno que pide algo queda desactivado hasta que lo revises.',
 	'extensions.plugins.sandboxed': 'aislado',
 	'extensions.plugins.starterNoCode': 'sin código',
 	'extensions.plugins.installed': 'Instalado',
@@ -3350,7 +3362,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.plugins.buildTitle': 'Crear un widget',
 	'extensions.plugins.buildBadge': 'sin escribir código',
 	'extensions.plugins.buildIntro':
-		'Describe un widget paso a paso — qué muestra, qué puede hacer, qué aspecto tiene — y Lamplight crea el paquete por ti. Se instala desactivado, como cualquier otro paquete.',
+		'Describe un widget paso a paso (qué muestra, qué puede hacer, cómo se ve) y Lamplight lo construye por ti. Uno hecho con plantillas que no pide nada se activa en cuanto lo instalas.',
 	'extensions.plugins.jsonTitle': 'Instalar o actualizar desde JSON',
 	'extensions.plugins.jsonIntro':
 		'Pega un paquete de widgets o una exportación de una tarjeta de arriba. Lamplight comprueba el paquete antes de instalarlo. Si ya está instalado, lo actualiza y comprueba y ejecuta los pasos de actualización que incluya.',
@@ -3369,6 +3381,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Paquete eliminado. Sus widgets siguen en su sitio, pero están desactivados.',
 	'extensions.plugins.installedStarter':
 		'Se instaló {name} desactivado y restringido. Revísalo arriba antes de activarlo.',
+	'extensions.plugins.installedStarterOn': 'Se instaló {name}. Está activado y listo para colocar.',
 	'extensions.plugins.installedPackage': 'Paquete instalado. Revísalo arriba antes de activarlo.',
 	'extensions.plugins.upgraded': 'Paquete actualizado, incluidos sus widgets ya colocados.',
 	'extensions.plugins.exportFailed': 'No se pudo exportar el paquete: {reason} Inténtalo de nuevo.',
@@ -4059,22 +4072,22 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.config.choicesPlaceholder': 'calma=Calma, tension=Tensión',
 
 	'builder.commands.help':
-		'Lo que este widget puede hacer. Lamplight clasifica cada acción como de operación o de configuración y lo hace cumplir en la mesa.',
-	'builder.commands.catalogTitle': 'Añadir desde el catálogo',
-	'builder.commands.catalogHelp':
-		'Cada entrada es un descriptor ya hecho con el nombre del id de tipo de este widget.',
+		'Los botones que este widget ofrece en la mesa. Señala uno para ver quién puede pulsarlo.',
+	'builder.commands.catalogTitle': 'Añadir un botón',
+	'builder.commands.catalogHelp': 'Cada uno está listo para usar. Cámbiale el nombre abajo.',
 	'builder.commands.alreadyAdded': '{label} — añadido',
-	'builder.commands.declared': 'Comandos declarados',
+	'builder.commands.declared': 'Botones de este widget',
 	'builder.commands.empty':
-		'No hay comandos. Un panel de acciones sin comandos se dibuja como una tarjeta de solo lectura.',
+		'Aún no hay botones. Sin ninguno, un panel de acciones es una tarjeta de solo lectura.',
 	'builder.commands.addBlank': 'Añadir un comando en blanco',
 	'builder.commands.remove': 'Quitar el comando {name}',
+	'builder.commands.advanced': 'Avanzado',
 	'builder.commands.name': 'Nombre',
 	'builder.commands.type': 'Tipo',
 	'builder.commands.typeHelp': 'El identificador de la acción, con palabras separadas por puntos.',
 	'builder.commands.writesTo': 'Escribe en',
 	'builder.commands.destination': 'Destino',
-	'builder.commands.destinationHelp': 'A qué clase de datos llega este comando.',
+	'builder.commands.destinationHelp': 'Si lo que cambia se queda contigo o llega a tus jugadores.',
 	'builder.commands.runs': 'Ejecuta',
 	'builder.commands.runsHelp': 'Lo que pasa en la mesa al pulsar este botón.',
 	'builder.commands.runsNothing': 'Nada todavía: elige una',
@@ -4108,12 +4121,12 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.issue.intentTarget': '«{name}» necesita algo que abrir.',
 	'builder.issue.intentsNeedNavigate':
 		'Este widget tiene botones para abrir o crear, así que su código necesita el permiso «Abrir páginas en Lamplight».',
-	'builder.catalog.roll': 'Tirar',
-	'builder.catalog.advance': 'Avanzar',
-	'builder.catalog.tick': 'Marcar',
-	'builder.catalog.reset': 'Reiniciar',
-	'builder.catalog.setValue': 'Fijar un valor',
-	'builder.catalog.show': 'Mostrar a los jugadores',
+	'builder.catalog.roll': 'Tirar dados',
+	'builder.catalog.advance': 'Contar hacia arriba o abajo',
+	'builder.catalog.tick': 'Sumar uno',
+	'builder.catalog.reset': 'Poner la cuenta a cero',
+	'builder.catalog.setValue': 'Fijar la cuenta',
+	'builder.catalog.show': 'Mostrar un mensaje a los jugadores',
 	'builder.destination.playerVisibleState': 'Estado visible para jugadores',
 	'builder.destination.playerScene': 'La escena del jugador',
 	'builder.config.min': 'Mínimo',
@@ -4128,17 +4141,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.config.defaultAboveMax': 'Reduce el valor predeterminado hasta el máximo o menos.',
 	'builder.config.defaultNotAChoice': 'Elige un valor predeterminado de la lista de opciones.',
 	'builder.config.choicesEmpty': 'Añade al menos una opción.',
-	'builder.catalog.start': 'Iniciar',
-	'builder.catalog.pause': 'Pausar',
-	'builder.catalog.resume': 'Reanudar',
-	'builder.catalog.markComplete': 'Marcar como completado',
-	'builder.catalog.writeNoteLine': 'Escribir una línea de nota',
+	'builder.catalog.start': 'Iniciar un temporizador',
+	'builder.catalog.pause': 'Pausar el temporizador',
+	'builder.catalog.resume': 'Reanudar el temporizador',
+	'builder.catalog.markComplete': 'Marcar la misión como hecha',
+	'builder.catalog.writeNoteLine': 'Añadir una línea a la nota',
 	'builder.commands.verbForcesManager':
-		'Este verbo cambia el widget, así que solo un gestor de campaña puede ejecutarlo.',
-	'builder.commandKind.operate': 'Operación',
-	'builder.commandKind.operateHelp': 'Un operador en la mesa puede lanzarlo.',
-	'builder.commandKind.configure': 'Configuración',
-	'builder.commandKind.configureHelp': 'Solo un gestor de campaña puede lanzarlo.',
+		'Esto cambia el propio widget, así que solo el {gm} puede pulsarlo.',
+	'builder.commandKind.operateHelp':
+		'Lo puede pulsar cualquier jugador al que dejes usar este widget, y también tú.',
+	'builder.commandKind.configureHelp': 'Solo el {gm} puede pulsarlo.',
 
 	'builder.style.title': 'Estilo',
 	'builder.style.help':
@@ -5819,11 +5831,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.add.enabled': '{name} está activado. Elígelo para añadirlo.',
 	'boardCanvas.add.moreWays': 'Más formas de añadir',
 	'boardCanvas.add.generate': 'Generar con el asistente',
+	'boardCanvas.add.generateLocal': 'Generar (local)',
 	'boardCanvas.add.generateHint': 'Descríbelo y revisa el borrador antes de que se instale nada.',
 	'boardCanvas.add.build': 'Crea el tuyo',
 	'boardCanvas.add.buildHint': 'Diseña un widget desde cero en el editor de widgets.',
 	'boardCanvas.add.customPreview':
 		'Ejecuta su propio código, así que se previsualiza al colocarlo.',
+	'boardCanvas.add.sampleLabel': 'Datos de ejemplo',
+	'boardCanvas.add.sampleScout': 'Exploradora',
+	'boardCanvas.add.sampleGuardian': 'Guardián',
+	'boardCanvas.add.sampleMessage': 'Una luz brilla bajo la puerta.',
 
 	/* Cuerpos de widget › el contenido dibujado a mano de los widgets integrados */
 	'widgetBody.sessionOnly':
@@ -6809,13 +6826,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetGen.noWidgetDetail':
 		'El asistente no creó un widget: {detail} Prueba a describirlo con más detalle.',
 	'widgetGen.blockerNotDm': 'Pide a tu {gm} que genere un widget.',
+	'widgetGen.blockerConsent':
+		'El asistente está desactivado. Actívalo en Configuración › Preferencias de herramientas para generar un widget.',
 	'widgetGen.blockerNoKey':
-		'Añade una clave de API del proveedor en Configuración, IA y herramientas, para generar un widget.',
+		'No hay ningún proveedor de IA configurado. Añade uno en Configuración › IA y herramientas para generar un widget.',
 	'widgetGen.blockerDisabled':
-		'Activa el acceso de agentes en Configuración, IA y herramientas, para generar un widget.',
+		'El acceso de agentes está desactivado. Actívalo en Configuración › IA y herramientas para generar un widget.',
 	'widgetGen.blockerNoAgent':
-		'Permite la herramienta de widgets a un agente en Configuración, IA y herramientas, para generar un widget.',
-	'extensions.plugins.generated': 'Generado',
+		'Ningún asistente puede crear widgets todavía. Permite la herramienta de widgets a uno en Configuración › IA y herramientas.',
+	'widgetGen.openAiSettings': 'Abrir Configuración › IA y herramientas',
+	'widgetGen.openToolSettings': 'Abrir Configuración › Preferencias de herramientas',
 	'widgetIterate.entry': 'Pedir al asistente que lo cambie…',
 	'widgetIterate.title': 'Pedir al asistente que cambie este widget',
 	'widgetIterate.intro':

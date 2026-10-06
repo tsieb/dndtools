@@ -2745,23 +2745,33 @@ export const en = {
 
 	'extensions.trust.title': 'Review {name}',
 	'extensions.trust.description':
-		'Decide what this package may reach. Everything is denied until you allow it.',
-	'extensions.trust.denyPackage': 'Deny package',
-	'extensions.trust.trustPackage': 'Trust package',
+		'Choose what this widget may use. Nothing is allowed until you say so.',
+	'extensions.trust.denyPackage': 'Block',
+	'extensions.trust.allowAndEnable': 'Allow and enable',
 	'extensions.trust.readOnly':
 		'Package review is {gm} only. Exit preview or ask your {gm} to review this package.',
-	'extensions.trust.trusted': 'Trusted {name} with the permissions you allowed.',
-	'extensions.trust.denied': 'Denied {name} — it is disabled and its placed widgets are paused.',
-	'extensions.trust.recommend.trusted': 'Safe to trust after review',
+	'extensions.trust.trusted': '{name} is allowed and on.',
+	'extensions.trust.denied': 'Blocked {name}. It is off, and its placed copies are paused.',
+	'extensions.trust.verdict.templatesNoneHidden':
+		'It is built from Lamplight’s own layouts, asks for nothing and shows your players nothing.',
+	'extensions.trust.verdict.templatesNoneShown':
+		'It is built from Lamplight’s own layouts, asks for nothing and can show things to your players.',
+	'extensions.trust.verdict.templatesSomeHidden':
+		'It is built from Lamplight’s own layouts, asks for the permissions below and shows your players nothing.',
+	'extensions.trust.verdict.templatesSomeShown':
+		'It is built from Lamplight’s own layouts, asks for the permissions below and can show things to your players.',
+	'extensions.trust.verdict.customNoneHidden':
+		'It runs its own code, kept apart from the rest of Lamplight, asks for nothing and shows your players nothing.',
+	'extensions.trust.verdict.customNoneShown':
+		'It runs its own code, kept apart from the rest of Lamplight, asks for nothing and can show things to your players.',
+	'extensions.trust.verdict.customSomeHidden':
+		'It runs its own code, kept apart from the rest of Lamplight, asks for the permissions below and shows your players nothing.',
+	'extensions.trust.verdict.customSomeShown':
+		'It runs its own code, kept apart from the rest of Lamplight, asks for the permissions below and can show things to your players.',
 	'extensions.trust.recommend.review': 'Requires review',
 	'extensions.trust.recommend.deny': 'Deny until fixed',
-	'extensions.trust.version': 'v{version}',
-	'extensions.trust.codeCustom': 'Runs its own code in a sandbox.',
-	'extensions.trust.codeTemplates': 'Uses built-in widget templates only.',
-	'extensions.trust.writesPlayerVisible': 'It can write content your players see.',
-	'extensions.trust.writesNothing': 'It writes nothing your players see.',
 	'extensions.trust.permsTitle': 'Permissions it asks for',
-	'extensions.trust.noPerms': 'This package asks for no host permissions.',
+	'extensions.trust.noPerms': 'It asks for no permissions.',
 	'extensions.trust.perm.filesystem': 'Filesystem',
 	'extensions.trust.perm.clipboard': 'Clipboard',
 	'extensions.trust.perm.network': 'Network',
@@ -2788,8 +2798,8 @@ export const en = {
 	'extensions.trust.writesTo': '{widget} writes to {destination}.',
 	'extensions.trust.readTitle': 'What it can read',
 	'extensions.trust.ackBody':
-		'The review recommends denying this package until it is fixed. Trusting it anyway needs your acknowledgement.',
-	'extensions.trust.ackLabel': 'I understand the recommendation and want to trust it anyway',
+		'Lamplight recommends blocking this until it is fixed. To allow it anyway, confirm below.',
+	'extensions.trust.ackLabel': 'I understand and want to allow it anyway',
 
 	'extensions.system.title': 'Campaign system',
 	'extensions.system.intro':
@@ -3257,16 +3267,18 @@ export const en = {
 	'extensions.plugins.installedIntro':
 		'Each package is isolated and receives only the permissions shown below. Changes to installed packages are saved with this campaign.',
 	'extensions.plugins.none': 'No widget packages installed.',
-	'extensions.plugins.trustTrusted': 'Trusted',
-	'extensions.plugins.trustUnreviewed': 'Unreviewed',
-	'extensions.plugins.trustDenied': 'Denied',
+	'extensions.plugins.status.bundled': 'Bundled · no permissions',
+	'extensions.plugins.status.allowed': 'Allowed',
+	'extensions.plugins.status.blocked': 'Blocked',
 	'extensions.plugins.recommendTrust': 'Trust after review',
 	'extensions.plugins.needsReview': 'Needs review',
-	'extensions.plugins.customCode': 'Custom code',
 	'extensions.plugins.migrationFailed': 'Update failed — review the package',
-	'extensions.plugins.cardMeta':
-		'v{version} · {widgets, plural, one {# widget} other {# widgets}} · {recommendation}',
-	'extensions.plugins.noPerms': 'No host permissions',
+	'extensions.plugins.cardMeta': 'v{version} · {widgets, plural, one {# widget} other {# widgets}}',
+	'extensions.plugins.runsCode': 'runs its own code',
+	'extensions.plugins.usesTemplates': 'built from templates',
+	'extensions.plugins.drafted': 'drafted by the assistant',
+	'extensions.plugins.asksNothing': 'Asks for no permissions.',
+	'extensions.plugins.asks': 'Asks for: {list}.',
 	'extensions.plugins.network': 'Network: {destination}',
 	'extensions.plugins.review': 'Review',
 	'extensions.plugins.reviewLabel': 'Review {name}',
@@ -3277,9 +3289,9 @@ export const en = {
 	'extensions.plugins.newVersion': 'New version',
 	'extensions.plugins.newVersionLabel': 'Start a new version of {name}',
 	'extensions.plugins.starterTitle': 'Starter library',
-	'extensions.plugins.starterBadge': 'bundled · no network',
+	'extensions.plugins.starterBadge': 'Bundled · works offline',
 	'extensions.plugins.starterIntro':
-		'These packages come with Lamplight and work without a network connection. Each installs disabled with all permissions denied. Review it in the installed list before enabling it.',
+		'These come with Lamplight and work without a network connection. One that asks for no permissions is on as soon as you install it; one that asks for something stays off until you review it.',
 	'extensions.plugins.sandboxed': 'sandboxed',
 	'extensions.plugins.starterNoCode': 'no code',
 	'extensions.plugins.installed': 'Installed',
@@ -3288,7 +3300,7 @@ export const en = {
 	'extensions.plugins.buildTitle': 'Build a widget',
 	'extensions.plugins.buildBadge': 'no code needed',
 	'extensions.plugins.buildIntro':
-		'Describe a widget step by step — what it shows, what it can do, how it looks — and Lamplight builds the package for you. It installs disabled, like any other package.',
+		'Describe a widget step by step — what it shows, what it can do, how it looks — and Lamplight builds it for you. One built from templates that asks for nothing is on as soon as you install it.',
 	'extensions.plugins.jsonTitle': 'Install or upgrade from JSON',
 	'extensions.plugins.jsonIntro':
 		'Paste a widget package or an export from a card above. Lamplight checks the package before installing it. If the same package is already installed, it is updated and any included upgrade steps are checked and run.',
@@ -3306,6 +3318,7 @@ export const en = {
 	'extensions.plugins.removed': 'Package removed. Its widgets remain in place but are disabled.',
 	'extensions.plugins.installedStarter':
 		'Installed {name} in a disabled, restricted state. Review it above before enabling it.',
+	'extensions.plugins.installedStarterOn': 'Installed {name}. It is on and ready to place.',
 	'extensions.plugins.installedPackage': 'Package installed. Review it above before enabling it.',
 	'extensions.plugins.upgraded': 'Package updated, including its placed widgets.',
 	'extensions.plugins.exportFailed': 'The package could not be exported: {reason} Try again.',
@@ -3984,22 +3997,22 @@ export const en = {
 	'builder.config.choicesPlaceholder': 'calm=Calm, tense=Tense',
 
 	'builder.commands.help':
-		'What this widget can do. Lamplight classifies each one as an operate or a configure action and enforces that at the table.',
-	'builder.commands.catalogTitle': 'Add from the catalogue',
-	'builder.commands.catalogHelp':
-		'Each entry is a ready-made descriptor named after this widget’s type id.',
+		'The buttons this widget offers at the table. Point at one to see who can press it.',
+	'builder.commands.catalogTitle': 'Add a button',
+	'builder.commands.catalogHelp': 'Each one is ready to use. Rename it below.',
 	'builder.commands.alreadyAdded': '{label} — added',
-	'builder.commands.declared': 'Declared commands',
-	'builder.commands.empty':
-		'No commands. An action panel with no commands renders as a read-only card.',
+	'builder.commands.declared': 'This widget’s buttons',
+	'builder.commands.empty': 'No buttons yet. Without one, an action panel is a read-only card.',
 	'builder.commands.addBlank': 'Add a blank command',
 	'builder.commands.remove': 'Remove command {name}',
+	'builder.commands.advanced': 'Advanced',
 	'builder.commands.name': 'Name',
 	'builder.commands.type': 'Type',
 	'builder.commands.typeHelp': 'The action’s identifier, with words separated by dots.',
 	'builder.commands.writesTo': 'Writes to',
 	'builder.commands.destination': 'Destination',
-	'builder.commands.destinationHelp': 'What class of data this command reaches.',
+	'builder.commands.destinationHelp':
+		'Whether what it changes stays with you or reaches your players.',
 	'builder.commands.runs': 'Runs',
 	'builder.commands.runsHelp': 'What happens at the table when this button is pressed.',
 	'builder.commands.runsNothing': 'Nothing yet — pick one',
@@ -4033,12 +4046,12 @@ export const en = {
 	'builder.issue.intentTarget': '“{name}” needs something to open.',
 	'builder.issue.intentsNeedNavigate':
 		'This widget has open or create buttons, so its code needs the “Open pages in Lamplight” permission.',
-	'builder.catalog.roll': 'Roll',
-	'builder.catalog.advance': 'Advance',
-	'builder.catalog.tick': 'Tick',
-	'builder.catalog.reset': 'Reset',
-	'builder.catalog.setValue': 'Set value',
-	'builder.catalog.show': 'Show to players',
+	'builder.catalog.roll': 'Roll dice',
+	'builder.catalog.advance': 'Count up or down',
+	'builder.catalog.tick': 'Count up by one',
+	'builder.catalog.reset': 'Reset the count',
+	'builder.catalog.setValue': 'Set the count',
+	'builder.catalog.show': 'Show a message to players',
 	'builder.destination.playerVisibleState': 'Player visible state',
 	'builder.destination.playerScene': 'The player scene',
 	'builder.config.min': 'Least',
@@ -4053,17 +4066,15 @@ export const en = {
 	'builder.config.defaultAboveMax': 'Lower the default value to the maximum or less.',
 	'builder.config.defaultNotAChoice': 'Choose a default value from the listed choices.',
 	'builder.config.choicesEmpty': 'Add at least one choice.',
-	'builder.catalog.start': 'Start',
-	'builder.catalog.pause': 'Pause',
-	'builder.catalog.resume': 'Resume',
-	'builder.catalog.markComplete': 'Mark complete',
-	'builder.catalog.writeNoteLine': 'Write a note line',
+	'builder.catalog.start': 'Start a timer',
+	'builder.catalog.pause': 'Pause the timer',
+	'builder.catalog.resume': 'Resume the timer',
+	'builder.catalog.markComplete': 'Mark the quest done',
+	'builder.catalog.writeNoteLine': 'Add a line to the note',
 	'builder.commands.verbForcesManager':
-		'This verb changes the widget, so only a campaign manager can fire it.',
-	'builder.commandKind.operate': 'Operate',
-	'builder.commandKind.operateHelp': 'An operator at the table can fire this.',
-	'builder.commandKind.configure': 'Configure',
-	'builder.commandKind.configureHelp': 'Only a campaign manager can fire this.',
+		'This changes the widget itself, so only the {gm} can press it.',
+	'builder.commandKind.operateHelp': 'You, and any player you let use this widget, can press it.',
+	'builder.commandKind.configureHelp': 'Only the {gm} can press it.',
 
 	'builder.style.title': 'Style',
 	'builder.style.help':
@@ -5779,11 +5790,16 @@ export const en = {
 	'boardCanvas.add.enabled': '{name} is on. Pick it to add it.',
 	'boardCanvas.add.moreWays': 'More ways to add',
 	'boardCanvas.add.generate': 'Generate with assistant',
+	'boardCanvas.add.generateLocal': 'Generate (local)',
 	'boardCanvas.add.generateHint':
 		'Describe it, then review the draft before anything is installed.',
 	'boardCanvas.add.build': 'Build your own',
 	'boardCanvas.add.buildHint': 'Design a tile from scratch in the widget builder.',
 	'boardCanvas.add.customPreview': 'Runs its own code, so it previews once placed.',
+	'boardCanvas.add.sampleLabel': 'Sample data',
+	'boardCanvas.add.sampleScout': 'Scout',
+	'boardCanvas.add.sampleGuardian': 'Guardian',
+	'boardCanvas.add.sampleMessage': 'A light shines beneath the door.',
 
 	/* Widget bodies › the hand-drawn built-in widget contents on the GM Screen */
 	'widgetBody.sessionOnly':
@@ -6739,13 +6755,16 @@ export const en = {
 	'widgetGen.noWidgetDetail':
 		'The assistant did not draft a widget: {detail} Try describing it in more detail.',
 	'widgetGen.blockerNotDm': 'Ask your {gm} to generate a widget.',
+	'widgetGen.blockerConsent':
+		'The assistant is off. Turn it on in Settings › Tool preferences to generate a widget.',
 	'widgetGen.blockerNoKey':
-		'Add a provider API key in Settings, AI and tools, to generate a widget.',
+		'No AI provider is set up. Add one in Settings › AI & tools to generate a widget.',
 	'widgetGen.blockerDisabled':
-		'Turn on agent access in Settings, AI and tools, to generate a widget.',
+		'Agent access is off. Turn it on in Settings › AI & tools to generate a widget.',
 	'widgetGen.blockerNoAgent':
-		'Allow the widget tool for an agent in Settings, AI and tools, to generate a widget.',
-	'extensions.plugins.generated': 'Generated',
+		'No assistant may build widgets yet. Allow the widget tool for one in Settings › AI & tools.',
+	'widgetGen.openAiSettings': 'Open Settings › AI & tools',
+	'widgetGen.openToolSettings': 'Open Settings › Tool preferences',
 	// RC-WID-3.3 — iterate on a generated widget from the Review step. The re-run is diffed against
 	// the draft on screen; only the fields the DM checks are applied.
 	'widgetIterate.entry': 'Ask the assistant to change…',

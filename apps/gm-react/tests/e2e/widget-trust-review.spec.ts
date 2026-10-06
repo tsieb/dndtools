@@ -4,8 +4,9 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_hel
 
 /**
  * TRUST REVIEW — RC-WID-1.5. An installed widget package can reach nothing until the DM reviews it.
- * These tests walk that path the way a DM does: install a bundled starter from Extensions, open its
- * review sheet, decide, enable it, and place it on a scene.
+ * These tests walk that path the way a DM does: open the review sheet of a package that asks for
+ * something, allow it (RC-WID-6.7: "Allow and enable" also turns it on), and place it on a scene. A
+ * bundled starter that asks for nothing owes no review and installs on.
  *
  * The second test is the one with teeth: a package that asks for the clipboard is told "undeclared"
  * by the sandbox host before the review, and "available" after the DM allows it in the sheet — read
@@ -116,48 +117,75 @@ const CLIPBOARD_PACKAGE = {
 };
 
 test.describe('widget trust review', () => {
-	test('a DM installs a starter, reviews it, enables it, and places it', async ({ page }) => {
+	test('a package that asks for something is reviewed, then allowed and enabled in one press', async ({
+		page,
+	}) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/extensions');
 		await seedFresh(page);
 		await gotoRoute(page, '/extensions');
 		await waitReady(page);
 
-		// 1. Install the bundled starter from the library.
-		await page.getByRole('button', { name: `Install ${STARTER_NAME}` }).click();
-		const card = page.getByTestId(`package-card-${STARTER_ID}`);
+		// 1. A package that asks for the clipboard lands unreviewed and off — the fail-closed state.
+		const installed = await dispatch(page, {
+			type: 'widget.package.install',
+			actorId: await actorId(page),
+			payload: { package: CLIPBOARD_PACKAGE },
+		});
+		expect(installed.status, JSON.stringify(installed.rejection)).toBe('accepted');
+		const card = page.getByTestId(`package-card-${CLIPBOARD_ID}`);
 		await expect(card).toBeVisible();
-		// It lands unreviewed, disabled, with nothing granted — the fail-closed install state.
-		await expect(card.getByText('Needs review')).toBeVisible();
-		expect(await trustState(page, STARTER_ID)).toMatchObject({ state: 'unreviewed' });
+		// RC-WID-6.7 — one status per card, and what it asks for in words.
+		await expect(card.getByTestId('package-status')).toHaveText('Needs review');
+		await expect(card).toContainText('Asks for: Clipboard.');
+		expect(await trustState(page, CLIPBOARD_ID)).toMatchObject({ state: 'unreviewed' });
 
-		// 2. Open the review sheet and read what the package asks for.
-		await page.getByRole('button', { name: `Review ${STARTER_NAME}` }).click();
+		// 2. The sheet's verdict is one sentence, and its primary turns the widget on.
+		await page.getByRole('button', { name: 'Review Clip widget' }).click();
 		const sheet = page.getByRole('dialog');
-		await expect(sheet).toBeVisible();
-		await expect(sheet.getByText(`Review ${STARTER_NAME}`)).toBeVisible();
+		await expect(sheet.getByText('Review Clip widget')).toBeVisible();
+		await expect(sheet.getByTestId('trust-verdict')).toHaveText(
+			'It runs its own code, kept apart from the rest of Lamplight, asks for the permissions below and shows your players nothing.',
+		);
 		await expect(sheet.getByText('Permissions it asks for')).toBeVisible();
-
-		// 3. Trust it.
-		await sheet.getByRole('button', { name: 'Trust package' }).click();
+		await sheet.getByRole('button', { name: 'Allow and enable' }).click();
 		await expect(sheet).toBeHidden();
-		await expect.poll(() => trustState(page, STARTER_ID)).toMatchObject({ state: 'trusted' });
-		await expect(card.getByText('Needs review')).toBeHidden();
-
-		// 4. Enable it from the package list, then place it on a scene.
-		await card.getByRole('switch', { name: `Enable ${STARTER_NAME}` }).click();
+		await expect.poll(() => trustState(page, CLIPBOARD_ID)).toMatchObject({ state: 'trusted' });
 		await expect
 			.poll(() =>
-				page.evaluate(() => window.__rt!.state.widgets.packages['starter.table-roller']?.enabled),
+				page.evaluate((id) => window.__rt!.state.widgets.packages[id]?.enabled, CLIPBOARD_ID),
 			)
 			.toBe(true);
+		await expect(card.getByTestId('package-status')).toHaveText('Allowed');
+		await expect(card.getByRole('switch', { name: 'Enable Clip widget' })).toBeChecked();
 
+		// 3. Nothing else to do: it places and runs.
 		const sceneId = await createScene(page, `Review Scene ${Date.now()}`);
-		await placeWidget(page, sceneId, 'table-roller');
+		await placeWidget(page, sceneId, 'clipwidget');
 		await gotoRoute(page, `/scene/${sceneId}`);
-		// RC-WID-1.6 — the Table Roller starter is a TEMPLATE widget now (an action panel over a
-		// declared `dice.roll`), not a code shell, so what proves it placed is the template it draws.
-		await expect(page.locator('[data-testid="widget-template-action-panel"]')).toBeVisible();
+		await expect(page.locator('iframe[data-widget-sandbox="clipwidget"]')).toBeVisible();
+	});
+
+	test('a bundled starter that asks for nothing installs on, with no review owed', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/extensions');
+		await seedFresh(page);
+		await gotoRoute(page, '/extensions');
+		await waitReady(page);
+
+		await page.getByRole('button', { name: `Install ${STARTER_NAME}` }).click();
+		const card = page.getByTestId(`package-card-${STARTER_ID}`);
+		await expect(card.getByTestId('package-status')).toHaveText('Bundled · no permissions');
+		await expect(card.getByRole('switch', { name: `Enable ${STARTER_NAME}` })).toBeChecked();
+		// Nobody reviewed it, and the record says so: on, with every permission still denied.
+		const record = await page.evaluate(
+			(id) => window.__rt!.state.widgets.packages[id] ?? null,
+			STARTER_ID,
+		);
+		expect(record).toMatchObject({ enabled: true, trust: { state: 'unreviewed' } });
+		expect(Object.values(record!.trust.hostPermissions).every((d) => d === 'denied')).toBe(true);
 	});
 
 	test('allowing a permission in the review sheet is what unlocks it in the sandbox', async ({
@@ -201,7 +229,7 @@ test.describe('widget trust review', () => {
 			.getByRole('radiogroup', { name: 'Clipboard permission' })
 			.getByRole('radio', { name: 'Allow' })
 			.click();
-		await sheet.getByRole('button', { name: 'Trust package' }).click();
+		await sheet.getByRole('button', { name: 'Allow and enable' }).click();
 		await expect(sheet).toBeHidden();
 		expect(await trustState(page, CLIPBOARD_ID)).toMatchObject({
 			state: 'trusted',

@@ -1,31 +1,14 @@
-import { buildWidgetPackageReviewSummary, type WidgetPackageRecord } from '@dndtools/core';
+import {
+	STARTER_WIDGET_LIBRARY,
+	buildWidgetPackageReviewSummary,
+	type WidgetPackageDefinition,
+	type WidgetPackageRecord,
+} from '@dndtools/core';
 import { Badge, Button, Icon, Switch } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useI18n, type MessageKey } from '../../i18n';
 import { useFocusOnReveal } from './shared';
 
-const TRUST_TONE: Record<string, 'success' | 'warning' | 'error'> = {
-	trusted: 'success',
-	unreviewed: 'warning',
-	denied: 'error',
-};
-// Machine tokens from the trust/review model, rendered as spoken labels.
-const TRUST_LABEL: Record<string, MessageKey> = {
-	trusted: 'extensions.plugins.trustTrusted',
-	unreviewed: 'extensions.plugins.trustUnreviewed',
-	denied: 'extensions.plugins.trustDenied',
-};
-// A distinct shape per trust state, so the badge never relies on its colour alone.
-const TRUST_ICON: Record<string, string> = {
-	trusted: 'check',
-	unreviewed: 'warning',
-	denied: 'error',
-};
-const TRUST_RECOMMENDATION_LABEL: Record<string, MessageKey> = {
-	'trusted-after-review': 'extensions.plugins.recommendTrust',
-	'requires-review': 'extensions.trust.recommend.review',
-	'deny-until-fixed': 'extensions.trust.recommend.deny',
-};
 const HOST_PERM_LABEL: Record<string, MessageKey> = {
 	filesystem: 'extensions.trust.perm.filesystem',
 	clipboard: 'extensions.trust.perm.clipboard',
@@ -33,9 +16,75 @@ const HOST_PERM_LABEL: Record<string, MessageKey> = {
 	'source-adapter': 'extensions.trust.perm.sourceAdapter',
 	asset: 'extensions.trust.perm.asset',
 	'external-link': 'extensions.trust.perm.externalLink',
+	navigate: 'extensions.trust.perm.navigate',
 };
 
-/** One installed widget package: its trust posture, what it asks for, and what the DM can do with it. */
+/** Whether a package asks for anything beyond drawing itself: a permission, the network, or a
+ *  write the players can see. */
+export function asksForNothing(definition: WidgetPackageDefinition): boolean {
+	const review = buildWidgetPackageReviewSummary(definition);
+	return (
+		review.requestedHostPermissions.length === 0 &&
+		review.requestedNetworkDestinations.length === 0 &&
+		review.playerVisibleOutputs.length === 0
+	);
+}
+
+/**
+ * RC-WID-6.7 — a starter that ships with this build and asks for nothing. The Starter library
+ * installs one enabled, because the GM has nothing to decide: the code is Lamplight's own and every
+ * permission stays denied. The installed copy must still BE that starter, so a pasted package that
+ * borrows a starter's id is judged like any other. The core normalises command and field defaults on
+ * install, so the comparison covers what runs (the assets, each widget's entrypoint and style) and
+ * what it may reach (its permission and network requests), not the whole definition.
+ */
+export function isBundledWithoutPermissions(definition: WidgetPackageDefinition): boolean {
+	const starter = STARTER_WIDGET_LIBRARY.find((entry) => entry.packageId === definition.id);
+	if (!starter || definition.authoring?.createdBy !== 'starter-library') return false;
+	const runs = (pkg: WidgetPackageDefinition) =>
+		JSON.stringify([
+			pkg.version,
+			pkg.assets,
+			pkg.widgets.map((widget) => [
+				widget.type,
+				widget.renderEntrypoint,
+				widget.style,
+				widget.hostPermissions,
+				widget.networkDestinationClasses,
+			]),
+		]);
+	return runs(definition) === runs(starter.build()) && asksForNothing(definition);
+}
+
+interface Status {
+	label: MessageKey;
+	tone: 'success' | 'warning' | 'error' | 'neutral';
+	/** A distinct shape per state, so the badge never relies on its colour alone. */
+	icon: string;
+}
+
+/**
+ * RC-WID-6.7 — a card says ONE thing about its package: the state that decides what the GM does
+ * next. A failed update or a block outranks everything; a review the GM still owes comes last.
+ */
+function packageStatus(rec: WidgetPackageRecord, isSystem: boolean): Status {
+	if (rec.migrationStatus?.state === 'failed') {
+		return { label: 'extensions.plugins.migrationFailed', tone: 'error', icon: 'error' };
+	}
+	if (rec.trust.state === 'denied') {
+		return { label: 'extensions.plugins.status.blocked', tone: 'error', icon: 'error' };
+	}
+	if (isSystem) return { label: 'extensions.objects.builtIn', tone: 'neutral', icon: 'lock' };
+	if (isBundledWithoutPermissions(rec.package)) {
+		return { label: 'extensions.plugins.status.bundled', tone: 'success', icon: 'check' };
+	}
+	if (rec.trust.state === 'trusted') {
+		return { label: 'extensions.plugins.status.allowed', tone: 'success', icon: 'check' };
+	}
+	return { label: 'extensions.plugins.needsReview', tone: 'warning', icon: 'warning' };
+}
+
+/** One installed widget package: its one status, what it asks for, and what the GM can do with it. */
 export function PluginPackageCard({
 	rec,
 	canWrite,
@@ -65,11 +114,17 @@ export function PluginPackageCard({
 	const def = rec.package;
 	const isSystem = def.id.startsWith('system.');
 	const review = buildWidgetPackageReviewSummary(def);
-	// RC-WID-1.5 — "needs review" is the RECORDED trust state, not the analysis: once the DM has
-	// reviewed a package the card stops asking them to review it, and the analysis' recommendation
-	// stays visible on its own line below.
-	const needsReview = rec.trust.state === 'unreviewed';
-	const perms: string[] = review.requestedHostPermissions;
+	const status = packageStatus(rec, isSystem);
+	// RC-WID-1.5 — "needs review" is the RECORDED trust state, not the analysis: once the GM has
+	// reviewed a package the card stops asking them to. RC-WID-6.7 — nor does a bundled starter that
+	// asks for nothing.
+	const needsReview = status.label === 'extensions.plugins.needsReview';
+	const asks = [
+		...review.requestedHostPermissions.map((p) => (HOST_PERM_LABEL[p] ? t(HOST_PERM_LABEL[p]) : p)),
+		...review.requestedNetworkDestinations.map((d: string) =>
+			t('extensions.plugins.network', { destination: d }),
+		),
+	];
 	const confirmRef = useFocusOnReveal<HTMLSpanElement>(confirmingRemove);
 	return (
 		<div
@@ -105,64 +160,34 @@ export function PluginPackageCard({
 					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
 				>
 					<span style={{ font: `600 var(--text-sm) ${T.sans}` }}>{def.displayName}</span>
-					<Badge
-						status={TRUST_TONE[rec.trust.state] ?? 'neutral'}
-						icon={TRUST_ICON[rec.trust.state]}
-					>
-						{TRUST_LABEL[rec.trust.state] ? t(TRUST_LABEL[rec.trust.state]) : rec.trust.state}
+					<Badge status={status.tone} icon={status.icon} data-testid="package-status">
+						{t(status.label)}
 					</Badge>
-					{isSystem && <Badge status="neutral">{t('extensions.objects.builtIn')}</Badge>}
-					{def.authoring?.source === 'generated' && (
-						<Badge status="info" icon="sparkle">
-							{t('extensions.plugins.generated')}
-						</Badge>
-					)}
-					{needsReview && (
-						<Badge status="warning" icon="permissions">
-							{t('extensions.plugins.needsReview')}
-						</Badge>
-					)}
-					{review.customCodeWidgets.length > 0 && (
-						<Badge status="info" icon="toolbox">
-							{t('extensions.plugins.customCode')}
-						</Badge>
-					)}
-					{rec.migrationStatus?.state === 'failed' && (
-						<Badge status="error" icon="error">
-							{t('extensions.plugins.migrationFailed')}
-						</Badge>
-					)}
 				</div>
+				<div style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+					{[
+						t('extensions.plugins.cardMeta', { version: def.version, widgets: def.widgets.length }),
+						t(
+							review.customCodeWidgets.length > 0
+								? 'extensions.plugins.runsCode'
+								: 'extensions.plugins.usesTemplates',
+						),
+						def.authoring?.source === 'generated' ? t('extensions.plugins.drafted') : null,
+					]
+						.filter(Boolean)
+						.join(' · ')}
+				</div>
+				{/* What it asks for, in words: the status above already carries the verdict. */}
 				<div
 					style={{
-						font: `var(--text-xs) ${T.sans}`,
+						font: `var(--text-xs)/1.5 ${T.sans}`,
 						color: T.sub,
 						marginBottom: 'var(--space-1-5)',
 					}}
 				>
-					{t('extensions.plugins.cardMeta', {
-						version: def.version,
-						widgets: def.widgets.length,
-						recommendation: TRUST_RECOMMENDATION_LABEL[review.trustRecommendation]
-							? t(TRUST_RECOMMENDATION_LABEL[review.trustRecommendation])
-							: review.trustRecommendation,
-					})}
-				</div>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1-5)' }}>
-					{perms.length === 0 ? (
-						<Badge status="neutral">{t('extensions.plugins.noPerms')}</Badge>
-					) : (
-						perms.map((p) => (
-							<Badge key={p} status="neutral" icon="permissions">
-								{HOST_PERM_LABEL[p] ? t(HOST_PERM_LABEL[p]) : p}
-							</Badge>
-						))
-					)}
-					{review.requestedNetworkDestinations.map((d: string) => (
-						<Badge key={d} status="warning" icon="warning">
-							{t('extensions.plugins.network', { destination: d })}
-						</Badge>
-					))}
+					{asks.length === 0
+						? t('extensions.plugins.asksNothing')
+						: t('extensions.plugins.asks', { list: asks.join(', ') })}
 				</div>
 			</div>
 			<div

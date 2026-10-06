@@ -20,7 +20,7 @@ import {
 	type WidgetIntentSettingsTab,
 	type WidgetOutputDestinationClass,
 } from '@dndtools/core';
-import { Badge, Field, Input, Select } from '../../ds';
+import { Badge, Field, Input, Select, Tooltip } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
 import {
@@ -64,6 +64,11 @@ type Translate = (key: MessageKey, values?: MessageValues) => string;
  * descriptor claims. Letting an author declare `rename` as `operator` would ship a package whose
  * own declaration disagrees with the authority the core grants it — the button would render for a
  * player and then be refused. Reconciling the two here is what keeps the declaration honest.
+ *
+ * RC-WID-6.7 — in the GM's words. The catalogue is one list named by outcome ("Roll dice", "Count up
+ * or down", "Show a message to players"), and who may press each button is said on hover or focus
+ * rather than as an operate/configure heading. A declared command shows its name and what it runs;
+ * the identifier, the capability, what it writes to and its destination class sit under Advanced.
  */
 
 /** `label` names the chip in the picker and is translated; the descriptor's `displayName` is
@@ -295,15 +300,10 @@ const destinationOptions = (t: Translate) =>
 		label: t(DESTINATION_LABEL[value] ?? 'builder.writesTo.scene'),
 	}));
 
-const KIND_COPY: Record<'operate' | 'configure', { label: MessageKey; help: MessageKey }> = {
-	operate: {
-		label: 'builder.commandKind.operate',
-		help: 'builder.commandKind.operateHelp',
-	},
-	configure: {
-		label: 'builder.commandKind.configure',
-		help: 'builder.commandKind.configureHelp',
-	},
+/** Who may press a button of each kind, in the GM's words. Shown on hover and focus only. */
+const WHO_PRESSES: Record<'operate' | 'configure', MessageKey> = {
+	operate: 'builder.commandKind.operateHelp',
+	configure: 'builder.commandKind.configureHelp',
 };
 
 export function CommandsStep({ draft, patch, issues }: StepProps) {
@@ -329,36 +329,21 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 				title={t('builder.commands.catalogTitle')}
 				help={t('builder.commands.catalogHelp')}
 			>
-				{(['operate', 'configure'] as const).map((group) => {
-					const entries = CATALOG.filter(
-						(candidate) =>
-							classifyWidgetCommand(candidate.descriptor(draft.typeId || 'widget')) === group,
-					);
-					return (
-						<div
-							key={group}
-							style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}
-						>
-							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
-								{t(KIND_COPY[group].label)} — {t(KIND_COPY[group].help)}
-							</span>
-							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-								{entries.map((catalogEntry) => {
-									const type = catalogEntry.descriptor(draft.typeId || 'widget').type;
-									const already = draft.commands.some((command) => command.type === type);
-									return (
-										<CatalogChip
-											key={catalogEntry.label}
-											label={t(catalogEntry.label)}
-											already={already}
-											onAdd={() => addCommand(catalogEntry)}
-										/>
-									);
-								})}
-							</div>
-						</div>
-					);
-				})}
+				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+					{CATALOG.map((catalogEntry) => {
+						const descriptor = catalogEntry.descriptor(draft.typeId || 'widget');
+						const already = draft.commands.some((command) => command.type === descriptor.type);
+						return (
+							<CatalogChip
+								key={catalogEntry.label}
+								label={t(catalogEntry.label)}
+								hint={t(WHO_PRESSES[classifyWidgetCommand(descriptor)])}
+								already={already}
+								onAdd={() => addCommand(catalogEntry)}
+							/>
+						);
+					})}
+				</div>
 			</StepSection>
 			<StepSection title={t('builder.commands.declared')}>
 				{issueFor(issues, 'commands', t) && (
@@ -386,7 +371,6 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 					}
 				>
 					{draft.commands.map((command, index) => {
-						const kind = classifyWidgetCommand(command);
 						// A configure VERB is a configure action whatever the descriptor declares, so the
 						// only capability that can honestly be stored on it is `manager`.
 						const forced = verbForcesConfigure(command);
@@ -399,35 +383,12 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 								})}
 								onRemove={() => patch({ commands: removeAt(draft.commands, index) })}
 							>
-								<div
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 'var(--space-2)',
-										flexWrap: 'wrap',
-									}}
-								>
-									<Badge status={kind === 'operate' ? 'info' : 'warning'}>
-										{t(KIND_COPY[kind].label)}
-									</Badge>
-									<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-										{t(KIND_COPY[kind].help)}
-									</span>
-								</div>
 								<FieldGrid>
 									<Field label={t('builder.commands.name')}>
 										<Input
 											value={command.displayName}
 											onChange={(e: { target: { value: string } }) =>
 												setCommand(index, { ...command, displayName: e.target.value })
-											}
-										/>
-									</Field>
-									<Field label={t('builder.commands.type')} help={t('builder.commands.typeHelp')}>
-										<Input
-											value={command.type}
-											onChange={(e: { target: { value: string } }) =>
-												setCommand(index, { ...command, type: e.target.value.trim() })
 											}
 										/>
 									</Field>
@@ -442,50 +403,74 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 											}}
 										/>
 									</Field>
-									<Field
-										label={t('builder.binding.needs')}
-										help={forced ? t('builder.commands.verbForcesManager') : undefined}
-									>
-										<Select
-											value={command.requiredCapability}
-											options={forced ? managerOnlyOption(t) : capabilityOptions(t)}
-											onChange={(e: { target: { value: string } }) =>
-												setCommand(index, {
-													...command,
-													requiredCapability: e.target
-														.value as WidgetCommandDescriptor['requiredCapability'],
-												})
-											}
-										/>
-									</Field>
-									<Field label={t('builder.commands.writesTo')}>
-										<Select
-											value={command.writesTo}
-											options={writesToOptions(t)}
-											onChange={(e: { target: { value: string } }) =>
-												setCommand(index, {
-													...command,
-													writesTo: e.target.value as WidgetCommandDescriptor['writesTo'],
-												})
-											}
-										/>
-									</Field>
-									<Field
-										label={t('builder.commands.destination')}
-										help={t('builder.commands.destinationHelp')}
-									>
-										<Select
-											value={command.destinationClass ?? 'scene'}
-											options={destinationOptions(t)}
-											onChange={(e: { target: { value: string } }) =>
-												setCommand(index, {
-													...command,
-													destinationClass: e.target.value as WidgetOutputDestinationClass,
-												})
-											}
-										/>
-									</Field>
 								</FieldGrid>
+								<details data-testid="command-advanced">
+									<summary
+										style={{
+											font: `600 var(--text-xs) ${T.sans}`,
+											color: T.sub,
+											cursor: 'pointer',
+											minHeight: 'var(--touch-target-min)',
+											display: 'flex',
+											alignItems: 'center',
+										}}
+									>
+										{t('builder.commands.advanced')}
+									</summary>
+									<FieldGrid>
+										<Field label={t('builder.commands.type')} help={t('builder.commands.typeHelp')}>
+											<Input
+												value={command.type}
+												onChange={(e: { target: { value: string } }) =>
+													setCommand(index, { ...command, type: e.target.value.trim() })
+												}
+											/>
+										</Field>
+										<Field
+											label={t('builder.binding.needs')}
+											help={forced ? t('builder.commands.verbForcesManager') : undefined}
+										>
+											<Select
+												value={command.requiredCapability}
+												options={forced ? managerOnlyOption(t) : capabilityOptions(t)}
+												onChange={(e: { target: { value: string } }) =>
+													setCommand(index, {
+														...command,
+														requiredCapability: e.target
+															.value as WidgetCommandDescriptor['requiredCapability'],
+													})
+												}
+											/>
+										</Field>
+										<Field label={t('builder.commands.writesTo')}>
+											<Select
+												value={command.writesTo}
+												options={writesToOptions(t)}
+												onChange={(e: { target: { value: string } }) =>
+													setCommand(index, {
+														...command,
+														writesTo: e.target.value as WidgetCommandDescriptor['writesTo'],
+													})
+												}
+											/>
+										</Field>
+										<Field
+											label={t('builder.commands.destination')}
+											help={t('builder.commands.destinationHelp')}
+										>
+											<Select
+												value={command.destinationClass ?? 'scene'}
+												options={destinationOptions(t)}
+												onChange={(e: { target: { value: string } }) =>
+													setCommand(index, {
+														...command,
+														destinationClass: e.target.value as WidgetOutputDestinationClass,
+													})
+												}
+											/>
+										</Field>
+									</FieldGrid>
+								</details>
 							</RowCard>
 						);
 					})}
@@ -496,34 +481,39 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 	);
 }
 
-/** One catalogue pick. Shared by commands and intents so the two pickers read as one control. */
+/** One catalogue pick. Shared by commands and intents so the two pickers read as one control.
+ *  `hint` (who may press the button it adds) shows on hover and keyboard focus. */
 function CatalogChip({
 	label,
+	hint,
 	already,
 	onAdd,
 }: {
 	label: string;
+	hint?: string;
 	already: boolean;
 	onAdd: () => void;
 }) {
 	const { t } = useI18n();
 	return (
-		<button
-			type="button"
-			disabled={already}
-			onClick={onAdd}
-			style={{
-				font: `600 var(--text-xs) ${T.sans}`,
-				color: already ? T.sub : T.ink,
-				padding: 'var(--space-1-5) var(--space-3)',
-				borderRadius: 'var(--radius-full)',
-				border: `1px solid ${already ? T.bd : T.bdS}`,
-				background: already ? T.sunken : T.surf,
-				cursor: already ? 'default' : 'pointer',
-			}}
-		>
-			{already ? t('builder.commands.alreadyAdded', { label }) : label}
-		</button>
+		<Tooltip label={hint}>
+			<button
+				type="button"
+				disabled={already}
+				onClick={onAdd}
+				style={{
+					font: `600 var(--text-xs) ${T.sans}`,
+					color: already ? T.sub : T.ink,
+					padding: 'var(--space-1-5) var(--space-3)',
+					borderRadius: 'var(--radius-full)',
+					border: `1px solid ${already ? T.bd : T.bdS}`,
+					background: already ? T.sunken : T.surf,
+					cursor: already ? 'default' : 'pointer',
+				}}
+			>
+				{already ? t('builder.commands.alreadyAdded', { label }) : label}
+			</button>
+		</Tooltip>
 	);
 }
 

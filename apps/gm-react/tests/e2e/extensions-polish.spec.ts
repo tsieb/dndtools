@@ -77,7 +77,7 @@ test('Plugins: keyboard install, a remove confirm that names the package, and ax
 	await card.getByRole('button', { name: 'Review Table Roller', exact: true }).click();
 	const sheet = page.getByRole('dialog', { name: /Review Table Roller/ });
 	await expect(sheet).toBeVisible();
-	await expect(sheet.getByRole('button', { name: 'Trust package', exact: true })).toBeVisible();
+	await expect(sheet.getByRole('button', { name: 'Allow and enable', exact: true })).toBeVisible();
 	await axe(page);
 	await page.keyboard.press('Escape');
 	await expect(sheet).toHaveCount(0);

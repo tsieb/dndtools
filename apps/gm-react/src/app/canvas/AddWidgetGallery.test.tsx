@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CoreStateSlice } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState } from '@dndtools/core/testing';
 import { I18nProvider } from '../../i18n';
+import { en } from '../../i18n/messages/en';
+import { es } from '../../i18n/messages/es';
+import type { AiRouteResult } from '../../ai/providerConfig';
+import { AI_USAGE_PREFERENCE_KEY } from '../../ai/usagePreference';
 import { nextFreeSlot, placeNewTile } from '../../screens/screen/paletteRows';
 import type { AddWidgetGalleryProps } from './AddWidgetGallery';
 
@@ -23,6 +30,15 @@ const runtimeRef: { state: CoreStateSlice; defaultActorId: string } = {
 vi.mock('../../runtime/RuntimeContext', () => ({
 	useRuntime: () => runtimeRef,
 	DEFAULT_DM_ACTOR_ID: 'dm-1',
+}));
+
+// What the assistant task routes to. Off by default, as on a fresh device.
+const routeRef: { current: AiRouteResult } = {
+	current: { available: false, backendId: 'provider', reason: 'no-key' },
+};
+vi.mock('../../ai/providerConfig', async (original) => ({
+	...(await original<typeof import('../../ai/providerConfig')>()),
+	routeAiTask: () => routeRef.current,
 }));
 
 const { AddWidgetGallery } = await import('./AddWidgetGallery');
@@ -85,27 +101,52 @@ describe('the Add panel', () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
+		localStorage.clear();
+		routeRef.current = { available: false, backendId: 'provider', reason: 'no-key' };
+		runtimeRef.state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 	});
 
-	function render(onAdd = vi.fn<AddWidgetGalleryProps['onAdd']>(async () => true)) {
+	function render(
+		onAdd = vi.fn<AddWidgetGalleryProps['onAdd']>(async () => true),
+		onGenerate: () => void = () => {},
+	) {
 		act(() =>
 			root.render(
-				<I18nProvider>
-					<AddWidgetGallery
-						open
-						onClose={() => {}}
-						viewport="desktop"
-						policy="bounded"
-						widgets={[]}
-						onAdd={onAdd}
-						onGenerate={() => {}}
-						onBuild={() => {}}
-					/>
-				</I18nProvider>,
+				<MemoryRouter>
+					<I18nProvider>
+						<AddWidgetGallery
+							open
+							onClose={() => {}}
+							viewport="desktop"
+							policy="bounded"
+							widgets={[]}
+							onAdd={onAdd}
+							onGenerate={onGenerate}
+							onBuild={() => {}}
+						/>
+					</I18nProvider>
+				</MemoryRouter>,
 			),
 		);
 		return onAdd;
 	}
+
+	/** The assistant switched on, agent access on, and one agent allowed the widget tool. */
+	function assistantReady() {
+		localStorage.setItem(AI_USAGE_PREFERENCE_KEY, 'complete');
+		const state = runtimeRef.state;
+		runtimeRef.state = {
+			...state,
+			mcp: {
+				...state.mcp,
+				enabled: true,
+				bindings: { prep: { agentId: 'prep', actorId: DM_ACTOR.id, label: 'Prep' } },
+				policies: { prep: { agentId: 'prep', allowedToolIds: ['widget.package.propose'] } },
+			},
+		} as unknown as CoreStateSlice;
+	}
+	const generateCard = () =>
+		panel().querySelector<HTMLElement>('[aria-label^="Generate"]') as HTMLElement;
 
 	const panel = () => container.querySelector<HTMLElement>('[data-testid="add-widget-gallery"]')!;
 	const tabStops = () =>
@@ -132,8 +173,64 @@ describe('the Add panel', () => {
 			'More ways to add',
 		);
 		expect(list.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		const names = [...more.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
+		const names = [...more.querySelectorAll('[aria-label]')].map((b) =>
+			b.getAttribute('aria-label'),
+		);
 		expect(names).toEqual(['Generate with assistant', 'Build your own']);
+	});
+
+	// RC-WID-6.7 — the card says what is missing and links to where to fix it; it never opens a
+	// dialog whose only content is "go to Settings".
+	it('says on the Generate card that the assistant is off, with a link to Tool preferences', () => {
+		const onGenerate = vi.fn();
+		render(undefined, onGenerate);
+		const card = generateCard();
+		expect(card.tagName).not.toBe('BUTTON');
+		expect(card.textContent).toContain('The assistant is off.');
+		const link = card.querySelector('a')!;
+		expect(link.getAttribute('href')).toBe('/settings?tab=tools');
+		expect(link.textContent).toBe('Open Settings › Tool preferences');
+		expect(onGenerate).not.toHaveBeenCalled();
+	});
+
+	it('names the missing provider on the Generate card and links to Settings › AI & tools', () => {
+		assistantReady();
+		render();
+		const card = generateCard();
+		expect(card.tagName).not.toBe('BUTTON');
+		expect(card.textContent).toContain('No AI provider is set up.');
+		const link = card.querySelector('a')!;
+		expect(link.getAttribute('href')).toBe('/settings?tab=ai');
+		expect(link.textContent).toBe('Open Settings › AI & tools');
+	});
+
+	it('reads "Generate (local)" and opens the dialog once a local model is ready', () => {
+		assistantReady();
+		routeRef.current = {
+			available: true,
+			backendId: 'local',
+			config: { provider: 'openai-compatible', model: 'llama3', baseUrl: '', apiKey: 'local' },
+		};
+		const onGenerate = vi.fn();
+		render(undefined, onGenerate);
+		const card = generateCard();
+		expect(card.tagName).toBe('BUTTON');
+		expect(card.getAttribute('aria-label')).toBe('Generate (local)');
+		expect(card.querySelector('a')).toBeNull();
+		act(() => card.click());
+		expect(onGenerate).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps "Generate with assistant" for a ready provider', () => {
+		assistantReady();
+		routeRef.current = {
+			available: true,
+			backendId: 'provider',
+			config: { provider: 'anthropic', model: 'm', baseUrl: '', apiKey: 'k' },
+		};
+		render();
+		expect(generateCard().tagName).toBe('BUTTON');
+		expect(generateCard().getAttribute('aria-label')).toBe('Generate with assistant');
 	});
 
 	it('shows the miniature on mouse hover, aria-hidden, inert and out of the tab order', () => {
@@ -165,5 +262,41 @@ describe('the Add panel', () => {
 		expect(onAdd).toHaveBeenCalledTimes(1);
 		expect(onAdd.mock.calls[0][0]).toMatchObject({ type: 'dice' });
 		expect(onAdd.mock.calls[0][1]).toEqual({ x: 24, y: 24 });
+	});
+});
+
+// RC-WID-6.7 (WID-16) — the gallery's copy lives in the message catalogs, not in a table of its own.
+describe('the Add panel copy', () => {
+	const source = readFileSync(
+		join(process.cwd(), 'apps', 'gm-react', 'src', 'app', 'canvas', 'AddWidgetGallery.tsx'),
+		'utf8',
+	)
+		.split('\n')
+		.filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+		.join('\n');
+
+	it('branches on no locale and keeps no per-language strings of its own', () => {
+		expect(source).not.toMatch(/\blocale\b/);
+		expect(source).not.toMatch(/\b(en|es|fr)\s*:\s*['"{]/);
+	});
+
+	it('reads every key it uses from a catalog with a Spanish translation', () => {
+		const keys = [
+			// Every dotted string literal: a key handed to t(), directly or through a conditional.
+			...source.matchAll(/'([a-z][A-Za-z]*(?:\.[a-zA-Z0-9]+)+)'/g),
+		].map((match) => match[1]!);
+		expect(keys.length).toBeGreaterThan(20);
+		for (const key of keys) {
+			expect(en, `no English source for ${key}`).toHaveProperty([key]);
+			expect(es, `no Spanish for ${key}`).toHaveProperty([key]);
+		}
+		for (const key of [
+			'boardCanvas.add.sampleLabel',
+			'boardCanvas.add.sampleMessage',
+			'boardCanvas.add.generateLocal',
+		] as const) {
+			expect(keys).toContain(key);
+			expect(es[key]).not.toBe(en[key]);
+		}
 	});
 });

@@ -30,9 +30,12 @@ import { StatusListTemplate } from '../widgets/templates/StatusList';
 import { TrackerTemplate } from '../widgets/templates/Tracker';
 import { WidgetLibraryCard } from './WidgetFrame';
 import { InPlaceEnable } from '../../screens/extensions/WidgetBuilder';
+import { CreateEntry, GenerateGateNote, useGenerateGate } from '../widgetBuilder/GenerateDialog';
 
-// The free-slot search moved beside the palette rows that share it (RC-CAN-8.5).
+// The free-slot search moved beside the palette rows that share it (RC-CAN-8.5), and the "More ways
+// to add" card beside the Generate gate that can turn it into a note (RC-WID-6.7).
 export { nextFreeSlot } from '../../screens/screen/paletteRows';
+export { CreateEntry };
 
 /**
  * AddWidgetGallery — the one "add a tile" surface for `/board` and `/scene/:id` (RC-CAN-4.1).
@@ -54,6 +57,10 @@ export { nextFreeSlot } from '../../screens/screen/paletteRows';
  *
  * RC-WID-6.2 — a package the builder installed enabled comes back as `placePackage` and is placed
  * through that same pick; a row dimmed only because its package is off gets `InPlaceEnable`.
+ *
+ * RC-WID-6.7 — "Generate with assistant" says on the card what is missing, with a link to the
+ * Settings tab, instead of opening a dialog that only says so ("Generate (local)" on a local model).
+ * Every string here, sample rows included, comes from the message catalogs.
  */
 
 /** The miniature's box. The tile is scaled down into it at its own default aspect, never up. */
@@ -109,16 +116,15 @@ const PREVIEW_TEMPLATES: Record<WidgetTemplateKind, React.ComponentType<WidgetTe
 
 function TemplateMiniature({ widget }: { widget: BoardWidget }) {
 	const runtime = useRuntime();
-	const { locale } = useI18n();
+	const { t } = useI18n();
 	const definition = findWidgetDefinition(runtime.state.widgets, widget.type) ?? null;
 	const entrypoint = definition?.renderEntrypoint;
 	if (entrypoint?.runtime !== 'template' || !entrypoint.template)
 		return <WidgetRenderSlot widget={widget} />;
 	const Template = PREVIEW_TEMPLATES[entrypoint.template];
-	const sampleLabel = locale === 'es' ? 'Datos de ejemplo' : 'Sample data';
 	const primary: WidgetQueryResult = {
 		id: 'gallery-sample',
-		label: sampleLabel,
+		label: t('boardCanvas.add.sampleLabel'),
 		source: 'binding',
 		header: null,
 		emptyLabel: '',
@@ -126,7 +132,7 @@ function TemplateMiniature({ widget }: { widget: BoardWidget }) {
 		rows: [
 			{
 				id: 'sample-1',
-				primary: locale === 'es' ? 'Exploradora' : 'Scout',
+				primary: t('boardCanvas.add.sampleScout'),
 				secondary: '18 / 24',
 				value: 18,
 				max: 24,
@@ -134,7 +140,7 @@ function TemplateMiniature({ widget }: { widget: BoardWidget }) {
 			},
 			{
 				id: 'sample-2',
-				primary: locale === 'es' ? 'Guardián' : 'Guardian',
+				primary: t('boardCanvas.add.sampleGuardian'),
 				secondary: '12 / 20',
 				value: 12,
 				max: 20,
@@ -146,10 +152,7 @@ function TemplateMiniature({ widget }: { widget: BoardWidget }) {
 			? {
 					...widget,
 					configuration: {
-						message:
-							locale === 'es'
-								? 'Una luz brilla bajo la puerta.'
-								: 'A light shines beneath the door.',
+						message: t('boardCanvas.add.sampleMessage'),
 						...widget.configuration,
 					},
 				}
@@ -280,62 +283,6 @@ function Miniature({
 	);
 }
 
-export function CreateEntry({
-	icon,
-	label,
-	hint,
-	onClick,
-}: {
-	icon: string;
-	label: string;
-	hint: string;
-	onClick: () => void;
-}) {
-	const hintId = useId();
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			aria-describedby={hintId}
-			onClick={onClick}
-			style={{
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'flex-start',
-				gap: 'var(--space-1)',
-				padding: 'var(--space-2)',
-				textAlign: 'left',
-				border: '1px dashed var(--color-border-strong)',
-				borderRadius: 'var(--radius-md)',
-				background: 'var(--color-surface-alt)',
-				color: 'var(--color-text-primary)',
-				cursor: 'pointer',
-			}}
-		>
-			<span
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 'var(--space-1)',
-					font: '600 var(--text-xs) var(--font-sans)',
-				}}
-			>
-				<Icon name={icon} size="sm" />
-				{label}
-			</span>
-			<span
-				id={hintId}
-				style={{
-					font: 'var(--text-2xs)/1.4 var(--font-sans)',
-					color: 'var(--color-text-tertiary)',
-				}}
-			>
-				{hint}
-			</span>
-		</button>
-	);
-}
-
 export interface AddWidgetGalleryProps {
 	open: boolean;
 	onClose: () => void;
@@ -397,6 +344,7 @@ export function AddWidgetGallery({
 	// The tile ids that existed when an add was accepted, and its name; cleared once it has focus.
 	const pendingRef = useRef<{ before: Set<string>; name: string } | null>(null);
 	const phone = viewport === 'phone';
+	const generate = useGenerateGate();
 
 	// Unavailable entries are listed on purpose (dimmed, with the reason), after the addable ones so
 	// the first row is always one the GM can pick. `sort` is stable, so the core's name order holds.
@@ -668,8 +616,17 @@ export function AddWidgetGallery({
 						{onGenerate && (
 							<CreateEntry
 								icon="sparkle"
-								label={t('boardCanvas.add.generate')}
+								label={t(
+									generate.ready && generate.local
+										? 'boardCanvas.add.generateLocal'
+										: 'boardCanvas.add.generate',
+								)}
 								hint={t('boardCanvas.add.generateHint')}
+								blocked={
+									generate.ready ? undefined : (
+										<GenerateGateNote gate={generate} onFollow={onClose} />
+									)
+								}
 								onClick={() => {
 									onClose();
 									onGenerate();

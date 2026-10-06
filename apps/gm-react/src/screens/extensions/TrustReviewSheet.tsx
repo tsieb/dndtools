@@ -4,9 +4,9 @@ import {
 	type CommandResult,
 	type WidgetHostPermission,
 } from '@dndtools/core';
-import { Badge, Button, Checkbox, Sheet, Toaster } from '../../ds';
+import { Badge, Button, Callout, Checkbox, Sheet, Toaster } from '../../ds';
 import { Seg, T } from '../../app/screen-kit';
-import { HelpBeside } from '../../app/help/ContextHelp';
+import { ContextHelp } from '../../app/help/ContextHelp';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n, type MessageKey } from '../../i18n';
 
@@ -20,6 +20,11 @@ import { useI18n, type MessageKey } from '../../i18n';
  * When the analysis recommends denying the package until it is fixed, trusting it takes an explicit
  * acknowledgment here; the Core rejects a trust decision without one, so the checkbox is the real
  * gate rather than a warning the DM can click past.
+ *
+ * RC-WID-6.7 — in the GM's words. The verdict is one sentence (what runs, what it asks for, whether
+ * the players see anything) instead of a recommendation badge and a version line, and the primary
+ * is "Allow and enable": the GM came here to turn the widget on, so allowing it also enables it
+ * (`widget.package.enable` after the review is accepted) rather than sending them on to a switch.
  */
 
 const HOST_PERM_LABEL: Record<string, MessageKey> = {
@@ -43,10 +48,32 @@ const HOST_PERM_MEANING: Record<string, MessageKey> = {
 	navigate: 'extensions.trust.meaning.navigate',
 };
 
-const RECOMMENDATION_LABEL: Record<string, MessageKey> = {
-	'trusted-after-review': 'extensions.trust.recommend.trusted',
-	'requires-review': 'extensions.trust.recommend.review',
-	'deny-until-fixed': 'extensions.trust.recommend.deny',
+// The verdict, one whole sentence per case so a translator never stitches fragments together:
+// what runs (its own code, or Lamplight's templates), whether it asks for anything, and whether
+// the players can see what it does.
+type Asks = 'none' | 'some';
+type Seen = 'hidden' | 'shown';
+const VERDICT: Record<'custom' | 'templates', Record<Asks, Record<Seen, MessageKey>>> = {
+	custom: {
+		none: {
+			hidden: 'extensions.trust.verdict.customNoneHidden',
+			shown: 'extensions.trust.verdict.customNoneShown',
+		},
+		some: {
+			hidden: 'extensions.trust.verdict.customSomeHidden',
+			shown: 'extensions.trust.verdict.customSomeShown',
+		},
+	},
+	templates: {
+		none: {
+			hidden: 'extensions.trust.verdict.templatesNoneHidden',
+			shown: 'extensions.trust.verdict.templatesNoneShown',
+		},
+		some: {
+			hidden: 'extensions.trust.verdict.templatesSomeHidden',
+			shown: 'extensions.trust.verdict.templatesSomeShown',
+		},
+	},
 };
 const RECOMMENDATION_TONE: Record<string, 'success' | 'warning' | 'error'> = {
 	'trusted-after-review': 'success',
@@ -103,16 +130,11 @@ export function TrustReviewSheet({
 	if (!record || !summary) return null;
 
 	const denyUntilFixed = summary.trustRecommendation === 'deny-until-fixed';
-	const finish = (result: CommandResult, okText: string) => {
-		if (result.status === 'accepted') {
-			Toaster.success(okText);
-			onClose();
-		} else {
-			const issues = (result.rejection.issues ?? [])
-				.map((issue) => `${issue.path}: ${issue.message}`)
-				.join(' · ');
-			Toaster.error(issues ? `${result.rejection.message} ${issues}` : result.rejection.message);
-		}
+	const refused = (result: Exclude<CommandResult, { status: 'accepted' }>) => {
+		const issues = (result.rejection.issues ?? [])
+			.map((issue) => `${issue.path}: ${issue.message}`)
+			.join(' · ');
+		Toaster.error(issues ? `${result.rejection.message} ${issues}` : result.rejection.message);
 	};
 
 	const decide = (trustState: 'trusted' | 'denied') => {
@@ -135,14 +157,26 @@ export function TrustReviewSheet({
 					acknowledgeRecommendation: acknowledged,
 				},
 			})
-			.then((result) =>
-				finish(
-					result,
-					trustState === 'trusted'
-						? t('extensions.trust.trusted', { name: record.package.displayName })
-						: t('extensions.trust.denied', { name: record.package.displayName }),
-				),
-			)
+			.then(async (result) => {
+				if (result.status !== 'accepted') return refused(result);
+				const name = record.package.displayName;
+				if (trustState === 'denied') {
+					Toaster.success(t('extensions.trust.denied', { name }));
+					return onClose();
+				}
+				// Allowed: switch it on too, unless it already is. A refused enable leaves it allowed
+				// and off, and says why; the sheet closes either way, since the review itself was kept.
+				const enabled = record.enabled
+					? result
+					: await runtime.dispatch({
+							type: 'widget.package.enable',
+							actorId: dmId,
+							payload: { packageId },
+						});
+				if (enabled.status === 'accepted') Toaster.success(t('extensions.trust.trusted', { name }));
+				else refused(enabled);
+				onClose();
+			})
 			.catch((error: unknown) =>
 				Toaster.error(error instanceof Error ? error.message : String(error)),
 			)
@@ -175,7 +209,7 @@ export function TrustReviewSheet({
 						disabled={!canWrite || busy || (denyUntilFixed && !acknowledged)}
 						onClick={() => decide('trusted')}
 					>
-						{t('extensions.trust.trustPackage')}
+						{t('extensions.trust.allowAndEnable')}
 					</Button>
 				</div>
 			}
@@ -186,36 +220,24 @@ export function TrustReviewSheet({
 						{t('extensions.trust.readOnly')}
 					</div>
 				)}
-				<div
-					style={{
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 'var(--space-1-5)',
-						padding: 'var(--space-3)',
-						border: `1px solid ${T.bd}`,
-						borderRadius: 'var(--radius-lg)',
-						background: T.sunken,
-					}}
-				>
-					<HelpBeside topic="widgetTrust">
-						<Badge status={RECOMMENDATION_TONE[summary.trustRecommendation] ?? 'warning'}>
-							{RECOMMENDATION_LABEL[summary.trustRecommendation]
-								? t(RECOMMENDATION_LABEL[summary.trustRecommendation])
-								: summary.trustRecommendation}
-						</Badge>
-					</HelpBeside>
-					<div style={{ font: `var(--text-sm)/1.55 ${T.sans}`, color: T.sub }}>
-						{t('extensions.trust.version', { version: record.package.version })} ·{' '}
-						{t(
-							summary.customCodeWidgets.length > 0
-								? 'extensions.trust.codeCustom'
-								: 'extensions.trust.codeTemplates',
-						)}{' '}
-						{t(
-							summary.playerVisibleOutputs.length > 0
-								? 'extensions.trust.writesPlayerVisible'
-								: 'extensions.trust.writesNothing',
-						)}
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1-5)' }}>
+					<div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+						<Callout
+							tone={RECOMMENDATION_TONE[summary.trustRecommendation] ?? 'warning'}
+							data-testid="trust-verdict"
+							style={{ flex: 1, minWidth: 0 }}
+						>
+							{t(
+								VERDICT[summary.customCodeWidgets.length > 0 ? 'custom' : 'templates'][
+									summary.requestedHostPermissions.length +
+										summary.requestedNetworkDestinations.length >
+									0
+										? 'some'
+										: 'none'
+								][summary.playerVisibleOutputs.length > 0 ? 'shown' : 'hidden'],
+							)}
+						</Callout>
+						<ContextHelp topic="widgetTrust" />
 					</div>
 					{summary.runtimeIssues.length > 0 && (
 						<ul

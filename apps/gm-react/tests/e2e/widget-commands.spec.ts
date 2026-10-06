@@ -45,8 +45,8 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 			await dialog.getByRole('button', { name: 'Data', exact: true }).click();
 			await dialog.getByLabel('Template kind').selectOption('action-panel');
 			await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
-			await dialog.getByRole('button', { name: 'Roll', exact: true }).click();
-			await dialog.getByRole('button', { name: 'Advance', exact: true }).click();
+			await dialog.getByRole('button', { name: 'Roll dice', exact: true }).click();
+			await dialog.getByRole('button', { name: 'Count up or down', exact: true }).click();
 			await dialog.getByRole('button', { name: 'Review', exact: true }).click();
 			await dialog.getByRole('button', { name: 'Install widget' }).click();
 			await expect(dialog).toHaveCount(0);

@@ -146,7 +146,7 @@ test('a custom-code build still ends in the trust sheet, which allows and enable
 	expect((await packageRecord(page, 'workspace.torch-card'))!.trust.basis).toBeUndefined();
 
 	// Trusting it there enables it and places it, still without leaving the board.
-	await sheet.getByRole('button', { name: 'Trust package' }).click();
+	await sheet.getByRole('button', { name: 'Allow and enable' }).click();
 	await expect(dialog).toHaveCount(0);
 	await expect
 		.poll(async () => (await packageRecord(page, 'workspace.torch-card'))?.enabled)

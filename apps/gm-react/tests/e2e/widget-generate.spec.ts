@@ -208,7 +208,9 @@ test.describe('generate a widget (RC-WID-3.2)', () => {
 		expect(installed).toHaveLength(1);
 		expect(installed[0]!.displayName).toBe('Party loot ledger');
 		expect(installed[0]!.authoring?.promptHash).toBeTruthy();
-		await expect(page.getByText('Generated', { exact: true }).first()).toBeVisible();
+		await expect(
+			page.getByTestId('package-card-' + installed[0]!.id).getByText(/drafted by the assistant/),
+		).toBeVisible();
 
 		// Two provider round trips: the authoring pass and the summary pass. No third.
 		expect(calls()).toBe(2);
@@ -278,12 +280,16 @@ test.describe('generate a widget (RC-WID-3.2)', () => {
 	test('fails closed with no provider key — the run cannot be started', async ({ page }) => {
 		const calls = await stubProvider(page);
 		await markOnboarded(page);
+		await page.addInitScript(() => {
+			localStorage.setItem('dndtools.ai.usage-preference', 'complete');
+		});
 		await gotoRoute(page, '/extensions');
 		await seedFresh(page);
 
 		await page.getByRole('button', { name: 'Generate a widget' }).click();
 		const dialog = page.getByRole('dialog', { name: 'Generate a widget' });
-		await expect(dialog).toContainText('Add a provider API key');
+		await expect(dialog).toContainText('No AI provider is set up.');
+		await expect(dialog.getByRole('link', { name: 'Open Settings › AI & tools' })).toBeVisible();
 		// No prompt box and no Generate button: there is nothing to press that could reach a provider.
 		await expect(dialog.getByLabel('What should the widget do?')).toHaveCount(0);
 		await expect(dialog.getByRole('button', { name: 'Generate' })).toHaveCount(0);
