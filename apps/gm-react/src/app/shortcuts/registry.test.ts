@@ -4,6 +4,7 @@ import {
 	SHORTCUTS,
 	matchesShortcut,
 	shortcut,
+	desktopMenuEntries,
 	shortcutsForScope,
 	type ShortcutCombo,
 } from './registry';
@@ -19,8 +20,14 @@ function press(key: string, mods: Partial<Record<'mod' | 'shift' | 'alt', boolea
 	};
 }
 
-/** The ids AppShell's global keydown handler binds to (app/AppShell.tsx). */
-const HANDLER_IDS = ['global.palette', 'global.help', 'global.sceneDisplay', 'global.advanceCard'];
+/** The ids AppShell's global keydown handler binds to (app/AppShell.tsx), plus Notes' own. */
+const HANDLER_IDS = [
+	'global.palette',
+	'global.help',
+	'global.sceneDisplay',
+	'global.advanceCard',
+	'knowledge.newNote',
+];
 
 describe('the keyboard shortcut registry', () => {
 	it('gives every entry a unique id, a key legend and a real catalog string', () => {
@@ -85,6 +92,23 @@ describe('the keyboard shortcut registry', () => {
 		expect(
 			matchesShortcut('global.sceneDisplay', press('S', { mod: true, shift: true, alt: true })),
 		).toBe(false);
+	});
+
+	// RC-KNW-6.4 — Ctrl/⌘+N opens the Notes composer; it is printed with the global set (the `?`
+	// overlay) but stays out of the desktop menu, where it would be dead on every other screen.
+	it('binds the Notes composer to Ctrl/⌘+N on Notes only', () => {
+		expect(matchesShortcut('knowledge.newNote', press('n', { mod: true }))).toBe(true);
+		expect(matchesShortcut('knowledge.newNote', press('N', { mod: true }))).toBe(true);
+		expect(matchesShortcut('knowledge.newNote', press('n'))).toBe(false);
+		expect(matchesShortcut('knowledge.newNote', press('n', { mod: true, shift: true }))).toBe(
+			false,
+		);
+		expect(matchesShortcut('knowledge.newNote', press('n', { mod: true }), { typing: true })).toBe(
+			false,
+		);
+		expect(shortcutsForScope('global').map((entry) => entry.id)).toContain('knowledge.newNote');
+		expect(shortcut('knowledge.newNote').route).toBe('/knowledge');
+		expect(desktopMenuEntries().map((entry) => entry.id)).not.toContain('knowledge.newNote');
 	});
 
 	it('carries the map editor tool keymap so the overlay never re-types it', () => {

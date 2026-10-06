@@ -965,6 +965,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'shortcuts.action.canvasUndoRedo': 'Deshacer o rehacer el último cambio del lienzo',
 	'shortcuts.action.canvasPickUp':
 		'Tomar el widget enfocado para moverlo con las flechas (modo edición del lienzo)',
+	'shortcuts.action.newNote': 'Empezar una nota nueva (en Notas)',
 	'settings.a11y.safetyChecks': 'Comprobaciones de seguridad para jugadores',
 	'settings.a11y.safetyIntro':
 		'Estas comprobaciones usan las mismas vistas que reciben tus jugadores y confirman que el contenido solo para el {gm} sigue oculto.',
@@ -4298,6 +4299,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.newNote': 'Nota nueva',
 	'knowledge.newNoteTitle': 'Título de la nota nueva',
 	'knowledge.newNoteTitlePlaceholder': 'Título de la nota nueva…',
+	'knowledge.composer.startFrom': 'Empezar desde',
+	'knowledge.composer.blank': 'En blanco',
+	'knowledge.savedChipEmpty':
+		'Ninguna nota coincide con esta búsqueda guardada. Vuelve a pulsar su chip para ver todas las notas.',
 	'knowledge.emptyDm': 'No hay nada escrito',
 	'knowledge.emptyDmBody':
 		'Aquí viven las notas, los documentos y el texto para leer en voz alta. Los retroenlaces los conectan automáticamente.',
@@ -5610,9 +5615,9 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.emptyPlayer': 'Ningún nodo visible para jugadores coincide con este filtro.',
 	'graph.emptyDm':
 		'Todavía no hay nada que graficar — las notas, los mapas y las entradas de historia aparecen aquí a medida que las enlazas.',
-	'graph.search': 'Buscar',
-	'graph.searchPlaceholder': 'Buscar en el grafo…',
-	'graph.searchLabel': 'Buscar en el grafo',
+	'graph.search': 'Filtrar',
+	'graph.searchPlaceholder': 'Filtrar el grafo…',
+	'graph.searchLabel': 'Filtrar el grafo',
 	'graph.noResultsPlayer': 'Sin resultados en la vista de jugador.',
 	'graph.noResultsFilter': 'Sin resultados para este filtro.',
 	'graph.selected': 'Seleccionado',
@@ -7190,7 +7195,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'palette.group.savedSearches': 'Búsquedas guardadas',
 	'palette.savedSearch.keywords': 'buscar búsquedas guardadas filtro filtros bóveda',
 	'palette.savedSearch.matches': '{count, plural, one {# coincidencia} other {# coincidencias}}',
-	'knowledge.filters.open': 'Buscar',
+	'palette.refineInNotes': 'Refinar «{query}» en Notas',
+	'knowledge.filters.open': 'Filtrar',
 	'knowledge.filters.query': 'Palabras que buscar',
 	'knowledge.filters.queryPlaceholder': 'Buscar en títulos y textos…',
 	'knowledge.filters.types': 'Tipos',
@@ -7287,7 +7293,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'knowledge.templates.deleteBody':
 		'Las notas ya creadas con ella conservan su texto. No se puede deshacer.',
 	'knowledge.templates.deleteConfirm': 'Eliminar plantilla',
-	'graph.searchVault': 'Buscar en la bóveda',
+	'graph.searchVault': 'Refinar en Notas',
 	// RC-CAN-7.3 — la biblioteca de pantallas, la cabecera de pantalla y su selector (ADR-041).
 	'nav.screens': 'Pantallas',
 	'section.sub.screens':

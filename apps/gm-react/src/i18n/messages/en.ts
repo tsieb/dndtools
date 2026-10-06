@@ -950,6 +950,7 @@ export const en = {
 	'shortcuts.action.canvasUndoRedo': 'Undo or redo the last canvas change',
 	'shortcuts.action.canvasPickUp':
 		'Pick up the focused widget so the arrow keys move it (canvas edit mode)',
+	'shortcuts.action.newNote': 'Start a new note (on Notes)',
 	'settings.a11y.safetyChecks': 'Player-safety checks',
 	'settings.a11y.safetyIntro':
 		'These checks use the same views your players receive and confirm {gm}-only content stays hidden.',
@@ -1226,6 +1227,7 @@ export const en = {
 	'palette.group.savedSearches': 'Saved searches',
 	'palette.savedSearch.keywords': 'search saved searches filter facets vault',
 	'palette.savedSearch.matches': '{count, plural, one {# match} other {# matches}}',
+	'palette.refineInNotes': 'Refine “{query}” in Notes',
 	'palette.action.advanceCard': 'Show the next scene card',
 	'palette.action.advanceCardKeywords': 'queue card next advance show players',
 	'palette.action.advanceCardBlocked': 'Queue a scene card first.',
@@ -4211,6 +4213,10 @@ export const en = {
 	'knowledge.newNote': 'New note',
 	'knowledge.newNoteTitle': 'New note title',
 	'knowledge.newNoteTitlePlaceholder': 'New note title…',
+	'knowledge.composer.startFrom': 'Start from',
+	'knowledge.composer.blank': 'Blank',
+	'knowledge.savedChipEmpty':
+		'No notes match this saved search. Press its chip again to show every note.',
 	'knowledge.emptyDm': 'Nothing written down',
 	'knowledge.emptyDmBody':
 		'Notes, handouts and read-aloud text live here. Backlinks connect them automatically.',
@@ -4226,7 +4232,7 @@ export const en = {
 
 	/* Knowledge › templates and snippets (RC-KNW-1.3) */
 	// RC-KNW-2.1 — Knowledge filters + saved searches.
-	'knowledge.filters.open': 'Search',
+	'knowledge.filters.open': 'Filter',
 	'knowledge.filters.query': 'Words to find',
 	'knowledge.filters.queryPlaceholder': 'Search titles and bodies…',
 	'knowledge.filters.types': 'Kinds',
@@ -5573,10 +5579,10 @@ export const en = {
 	'graph.emptyPlayer': 'No player-visible nodes match this filter.',
 	'graph.emptyDm':
 		'Nothing to graph yet — notes, maps, and story entries appear here as you link them.',
-	'graph.search': 'Search',
-	'graph.searchPlaceholder': 'Search the graph…',
-	'graph.searchLabel': 'Search the graph',
-	'graph.searchVault': 'Search the vault',
+	'graph.search': 'Filter',
+	'graph.searchPlaceholder': 'Filter the graph…',
+	'graph.searchLabel': 'Filter the graph',
+	'graph.searchVault': 'Refine in Notes',
 	'graph.noResultsPlayer': 'No results in player view.',
 	'graph.noResultsFilter': 'No results for this filter.',
 	'graph.selected': 'Selected',

@@ -354,3 +354,82 @@ export function SavedSearches({
 		</>
 	);
 }
+
+/** The reading actor's saved searches, live, pinned first (the Command Center's tiles). */
+function useOrderedSavedSearches() {
+	const runtime = useRuntime();
+	const actorId = runtime.defaultActorId;
+	return useMemo(() => {
+		const saved = getSavedSearchesForActor(
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			actorId,
+		);
+		return [...saved.filter((s) => s.pinned), ...saved.filter((s) => !s.pinned)];
+	}, [runtime.state, actorId]);
+}
+
+/**
+ * RC-KNW-6.4 — the note ids an applied saved-search chip keeps on the Notes grid, or null when no
+ * chip is applied (or the applied one is gone: deleted, or no longer visible to this actor). The ids
+ * are the core's LIVE re-run of the stored filter for this actor, so the grid never shows a note the
+ * search would not return, and never one this actor may not see.
+ */
+export function useSavedSearchNoteIds(searchId: string | null): ReadonlySet<string> | null {
+	const ordered = useOrderedSavedSearches();
+	return useMemo(() => {
+		const entry = searchId ? ordered.find((s) => s.id === searchId) : undefined;
+		if (!entry) return null;
+		return new Set(entry.result.hits.filter((hit) => hit.type === 'note').map((hit) => hit.id));
+	}, [ordered, searchId]);
+}
+
+/**
+ * RC-KNW-6.4 — saved searches as chips above the Notes grid, whether or not the filter panel is
+ * open (they used to be reachable only inside it). A chip is a toggle: pressing it narrows the grid to
+ * the notes that search returns, pressing it again shows every note. The number on a chip is the
+ * notes it would leave, so it matches what the grid then shows. Renders nothing without any.
+ */
+export function SavedSearchChips({
+	activeId,
+	onChange,
+}: {
+	activeId: string | null;
+	onChange: (searchId: string | null) => void;
+}) {
+	const { t } = useI18n();
+	const ordered = useOrderedSavedSearches();
+	if (ordered.length === 0) return null;
+	return (
+		<div
+			role="group"
+			aria-label={t('knowledge.filters.saved')}
+			data-testid="knowledge-saved-chips"
+			style={{
+				display: 'flex',
+				flexWrap: 'wrap',
+				alignItems: 'center',
+				gap: T.space.oneHalf,
+				marginBottom: T.space.three,
+			}}
+		>
+			{ordered.map((entry) => {
+				const active = entry.id === activeId;
+				return (
+					<Chip
+						key={entry.id}
+						icon={entry.pinned ? 'pin' : 'search'}
+						tone={active ? 'accent' : 'neutral'}
+						selected={active}
+						data-testid={`knowledge-saved-chip-${entry.id}`}
+						onClick={() => onChange(active ? null : entry.id)}
+					>
+						{entry.name} · {entry.result.countsByType.note}
+					</Chip>
+				);
+			})}
+		</div>
+	);
+}

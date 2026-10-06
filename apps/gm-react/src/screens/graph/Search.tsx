@@ -36,8 +36,9 @@ export function GraphSearch({
 	};
 	return (
 		<Panel title={t('graph.search')} style={{ background: T.sunken }}>
+			{/* RC-KNW-6.4 — this box narrows the graph; the palette is search. It says so. */}
 			<Input
-				icon="search"
+				icon="filter"
 				value={query}
 				aria-label={t('graph.searchLabel')}
 				placeholder={t('graph.searchPlaceholder')}
@@ -110,7 +111,7 @@ export function GraphSearch({
 			<Button
 				variant="ghost"
 				size="sm"
-				icon="search"
+				icon="filter"
 				disabled={!query.trim()}
 				data-testid="graph-search-vault"
 				onClick={() => navigate('/knowledge', { state: { search: query.trim() } })}

@@ -21,11 +21,11 @@ test('graph polish: axe clean for graph, selection, empty search and player proj
 	page,
 }) => {
 	await axe(page);
-	await page.getByLabel('Search the graph').fill('Campaign Primer');
+	await page.getByLabel('Filter the graph').fill('Campaign Primer');
 	await page.getByRole('button', { name: 'Campaign Primer' }).first().click();
 	await expect(page.getByRole('button', { name: 'Open note' })).toBeVisible();
 	await axe(page);
-	await page.getByLabel('Search the graph').fill('no-match-for-this-query');
+	await page.getByLabel('Filter the graph').fill('no-match-for-this-query');
 	await expect(page.getByRole('button', { name: 'Open note' })).toHaveCount(0);
 	await axe(page);
 	await page.getByRole('button', { name: 'Clear filters', exact: true }).first().click();
@@ -38,7 +38,7 @@ test('graph polish: large text leaves search controls reachable and canvas targe
 	page,
 }) => {
 	await page.locator('html').evaluate((el) => (el.style.fontSize = '200%'));
-	const search = page.getByLabel('Search the graph');
+	const search = page.getByLabel('Filter the graph');
 	await search.fill('Campaign Primer');
 	const node = page.getByTestId('graph-node');
 	await expect(node).toHaveCount(1);
@@ -126,7 +126,7 @@ test('graph polish: preview rejects writes and repair controls cannot mutate', a
 test('graph polish: selected search result keeps its selected treatment after pointer leave', async ({
 	page,
 }) => {
-	await page.getByLabel('Search the graph').fill('Campaign Primer');
+	await page.getByLabel('Filter the graph').fill('Campaign Primer');
 	const result = page.getByRole('region', { name: 'Graph results' }).getByRole('button').first();
 	await result.click();
 	await expect(result).toHaveAttribute('aria-pressed', 'true');

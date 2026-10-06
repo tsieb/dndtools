@@ -6,15 +6,16 @@ import { ListDetail, Page, T, srOnly } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { ConnectedSourcesPanel } from '../../app/ConnectedSources';
-import { META, VIS_CHIP } from './shared';
+import { BODY, META, VIS_CHIP } from './shared';
 import { parseArchive, snippetOf } from './markdown';
 import { useI18n } from '../../i18n';
 import { NoteListMetadata } from './NoteListMetadata';
 import { NoteViewer } from './NoteViewer';
-import { Composer } from './Composer';
+import { Composer, useNewNoteShortcut } from './Composer';
 import { ImportPanel } from './ImportPanel';
 import { TemplatesPanel } from './Templates';
 import { FiltersPanel } from './Filters';
+import { SavedSearchChips, useSavedSearchNoteIds } from './SavedSearches';
 
 export { parseWikilink } from './markdown';
 
@@ -50,6 +51,11 @@ export function Knowledge() {
 			),
 		[runtime.state, actorId],
 	);
+	// RC-KNW-6.4 — a saved-search chip above the grid narrows it to that search's live note hits.
+	const [chipSearchId, setChipSearchId] = useState<string | null>(null);
+	const chipNoteIds = useSavedSearchNoteIds(chipSearchId);
+	const shown = chipNoteIds ? notes.filter((n) => chipNoteIds.has(n.id)) : notes;
+	useNewNoteShortcut(canAuthor);
 
 	// One state for the five mutually exclusive disclosures, so opening one closes the rest by
 	// construction (they used to be five booleans, each toggle resetting the other four by hand, and
@@ -222,14 +228,14 @@ export function Knowledge() {
 						color: T.sub,
 					}}
 				>
-					{t('knowledge.listHeading', { count: notes.length })}
+					{t('knowledge.listHeading', { count: shown.length })}
 				</h2>
 				{/* Disclosure toggles: each carries aria-expanded, since the open state was otherwise
 				    invisible to assistive tech. Only New note is gold; the rest are quiet until open. */}
 				<Button
 					variant={panel === 'filters' ? 'secondary' : 'ghost'}
 					size="sm"
-					icon="search"
+					icon="filter"
 					aria-expanded={panel === 'filters'}
 					data-testid="knowledge-filters-toggle"
 					onClick={() => toggle('filters')}
@@ -286,7 +292,16 @@ export function Knowledge() {
 				/>
 			)}
 			{canAuthor && panel === 'compose' && (
-				<Composer busy={busy} onCreate={createNote} onCancel={() => setPanel(null)} />
+				<Composer
+					busy={busy}
+					onCreate={createNote}
+					onCreated={(id) => {
+						setPanel(null);
+						setCreatedId(id);
+						navigate(`/knowledge/${id}`);
+					}}
+					onCancel={() => setPanel(null)}
+				/>
 			)}
 			{canAuthor && panel === 'templates' && (
 				<TemplatesPanel onCreated={(id) => navigate(`/knowledge/${id}`)} />
@@ -306,6 +321,7 @@ export function Knowledge() {
 			)}
 			{/* WS-7 — connected vault sources (local folder / Google Docs) pull+push panel. */}
 			{canAuthor && panel === 'sources' && <ConnectedSourcesPanel />}
+			<SavedSearchChips activeId={chipNoteIds ? chipSearchId : null} onChange={setChipSearchId} />
 
 			{notes.length === 0 ? (
 				<EmptyState
@@ -332,6 +348,10 @@ export function Knowledge() {
 						) : undefined
 					}
 				/>
+			) : shown.length === 0 ? (
+				<p style={{ ...BODY, margin: T.space.zero }} data-testid="knowledge-saved-chip-empty">
+					{t('knowledge.savedChipEmpty')}
+				</p>
 			) : (
 				<ul
 					aria-label={t('knowledge.notes')}
@@ -346,7 +366,7 @@ export function Knowledge() {
 						gap: T.space.three,
 					}}
 				>
-					{notes.map((n) => (
+					{shown.map((n) => (
 						<li key={n.id} style={{ minWidth: 0, display: 'grid', position: 'relative' }}>
 							<Card
 								style={{ minWidth: 0, overflowWrap: 'anywhere' }}

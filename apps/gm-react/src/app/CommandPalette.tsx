@@ -328,7 +328,22 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 		// Full-text hits from the core search engine — only once the user typed something (a blank
 		// query would match the whole visible vault and flood the palette's browse view).
 		let searchHits: PaletteRow[] = [];
+		// RC-KNW-6.4 — the palette is search and the Notes panel is a filter. This row carries the
+		// words as typed (case kept) into that panel, so narrowing further never means retyping them.
+		// Not remembered (a `search:` id): it only means something while a query is typed.
+		let refine: PaletteRow[] = [];
 		if (needle !== '') {
+			refine = [
+				{
+					id: 'search:refine-notes',
+					kind: 'action',
+					label: t('palette.refineInNotes', { query: rawQuery }),
+					icon: 'filter',
+					group: t('palette.group.notes'),
+					keywords: withQuery(),
+					run: goTo('search:refine-notes', '/knowledge', { search: rawQuery }),
+				},
+			];
 			const result = searchVaultForActor(
 				vaultState.content,
 				vaultState.maps,
@@ -375,6 +390,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			...scenes,
 			...characters,
 			...maps,
+			...refine,
 			...searchHits,
 		];
 	}, [

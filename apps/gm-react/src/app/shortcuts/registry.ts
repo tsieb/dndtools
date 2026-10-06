@@ -44,6 +44,12 @@ export interface ShortcutEntry {
 	/** What the shortcut does, in the app's voice. */
 	action: MessageKey;
 	combo?: ShortcutCombo;
+	/**
+	 * Set when the combo is live on one screen only (its handler is mounted there). It is still printed
+	 * with the global set, so its `action` names the screen; it is left out of the desktop menu, whose
+	 * entries would otherwise sit dead on every other screen.
+	 */
+	route?: string;
 }
 
 /** The map editor's single-key tool keymap, derived from the tool model rather than re-typed. */
@@ -87,6 +93,15 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
 		keys: 'Ctrl/⌘+→',
 		action: 'shortcuts.action.advanceCard',
 		combo: { key: 'ArrowRight', mod: true },
+	},
+	{
+		// RC-KNW-6.4 — fired by `useNewNoteShortcut` (screens/knowledge/Composer.tsx).
+		id: 'knowledge.newNote',
+		scope: 'global',
+		route: '/knowledge',
+		keys: 'Ctrl/⌘+N',
+		action: 'shortcuts.action.newNote',
+		combo: { key: 'n', mod: true, shift: false },
 	},
 	{ id: 'global.focus', scope: 'global', keys: 'Tab', action: 'settings.a11y.shortcutTab' },
 	{ id: 'global.escape', scope: 'global', keys: 'Esc', action: 'settings.a11y.shortcutEsc' },
@@ -270,20 +285,22 @@ export function getDesktopChrome(): DesktopChrome | null {
 }
 
 export function desktopMenuEntries() {
-	return SHORTCUTS.filter((entry) => entry.scope === 'global' && entry.combo).map((entry) => {
-		const combo = entry.combo!;
-		return {
-			id: entry.id,
-			label: en[entry.action],
-			accelerator: [
-				combo.mod && 'CommandOrControl',
-				combo.shift && 'Shift',
-				combo.key === 'ArrowRight' ? 'Right' : combo.key.toUpperCase(),
-			]
-				.filter(Boolean)
-				.join('+'),
-		};
-	});
+	return SHORTCUTS.filter((entry) => entry.scope === 'global' && entry.combo && !entry.route).map(
+		(entry) => {
+			const combo = entry.combo!;
+			return {
+				id: entry.id,
+				label: en[entry.action],
+				accelerator: [
+					combo.mod && 'CommandOrControl',
+					combo.shift && 'Shift',
+					combo.key === 'ArrowRight' ? 'Right' : combo.key.toUpperCase(),
+				]
+					.filter(Boolean)
+					.join('+'),
+			};
+		},
+	);
 }
 
 const bootDesktopChrome = getDesktopChrome();

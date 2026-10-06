@@ -1006,6 +1006,7 @@ export default {
 	'shortcuts.action.canvasUndoRedo': '[Úñďó óŕ ŕéďó ţĥé ľášţ çáñṽáš çĥáñğé~~~~ ~~~~ ~~~~]',
 	'shortcuts.action.canvasPickUp':
 		'[Ƥíçķ úƥ ţĥé ƒóçúšéď ŵíďğéţ šó ţĥé áŕŕóŵ ķéýš ḿóṽé íţ (çáñṽáš éďíţ ḿóďé)~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'shortcuts.action.newNote': '[Šţáŕţ á ñéŵ ñóţé (óñ Ñóţéš)~~~~ ~~~~ ~]',
 	'settings.a11y.safetyChecks': '[Ƥľáýéŕ-šáƒéţý çĥéçķš~~~~ ~~~]',
 	'settings.a11y.safetyIntro':
 		'[Ţĥéšé çĥéçķš úšé ţĥé šáḿé ṽíéŵš ýóúŕ ƥľáýéŕš ŕéçéíṽé áñď çóñƒíŕḿ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~{gm}-óñľý çóñţéñţ šţáýš ĥíďďéñ.~~~~ ~~~~ ~]',
@@ -1290,6 +1291,7 @@ export default {
 	'palette.group.savedSearches': '[Šáṽéď šéáŕçĥéš~~~~ ~]',
 	'palette.savedSearch.keywords': '[šéáŕçĥ šáṽéď šéáŕçĥéš ƒíľţéŕ ƒáçéţš ṽáúľţ~~~~ ~~~~ ~~~~ ~~]',
 	'palette.savedSearch.matches': '[{count, plural, one {# ḿáţçĥ~~~} other {# ḿáţçĥéš~~~~}}]',
+	'palette.refineInNotes': '[Ŕéƒíñé “~~~~{query}” íñ Ñóţéš~~~~]',
 	'palette.action.advanceCard': '[Šĥóŵ ţĥé ñéẋţ šçéñé çáŕď~~~~ ~~~~ ]',
 	'palette.action.advanceCardKeywords': '[ɋúéúé çáŕď ñéẋţ áďṽáñçé šĥóŵ ƥľáýéŕš~~~~ ~~~~ ~~~~ ]',
 	'palette.action.advanceCardBlocked': '[Ɋúéúé á šçéñé çáŕď ƒíŕšţ.~~~~ ~~~~ ]',
@@ -4380,6 +4382,10 @@ export default {
 	'knowledge.newNote': '[Ñéŵ ñóţé~~~~]',
 	'knowledge.newNoteTitle': '[Ñéŵ ñóţé ţíţľé~~~~ ~]',
 	'knowledge.newNoteTitlePlaceholder': '[Ñéŵ ñóţé ţíţľé…~~~~ ~]',
+	'knowledge.composer.startFrom': '[Šţáŕţ ƒŕóḿ~~~~]',
+	'knowledge.composer.blank': '[Ɓľáñķ~~]',
+	'knowledge.savedChipEmpty':
+		'[Ñó ñóţéš ḿáţçĥ ţĥíš šáṽéď šéáŕçĥ. Ƥŕéšš íţš çĥíƥ áğáíñ ţó šĥóŵ éṽéŕý ñóţé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'knowledge.emptyDm': '[Ñóţĥíñğ ŵŕíţţéñ ďóŵñ~~~~ ~~~]',
 	'knowledge.emptyDmBody':
 		'[Ñóţéš, ĥáñďóúţš áñď ŕéáď-áľóúď ţéẋţ ľíṽé ĥéŕé. Ɓáçķľíñķš çóññéçţ ţĥéḿ áúţóḿáţíçáľľý.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
@@ -4393,7 +4399,7 @@ export default {
 	'knowledge.updated': '[úƥďáţéď ~~~~{when}]',
 	'knowledge.noteUpdated': '[Ñóţé · úƥďáţéď ~~~~ ~{when}]',
 	'knowledge.createFailed': '[Ţĥé ñóţé çóúľďñ’ţ ƀé çŕéáţéď — ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~]',
-	'knowledge.filters.open': '[Šéáŕçĥ~~~]',
+	'knowledge.filters.open': '[Ƒíľţéŕ~~~]',
 	'knowledge.filters.query': '[Ŵóŕďš ţó ƒíñď~~~~ ~]',
 	'knowledge.filters.queryPlaceholder': '[Šéáŕçĥ ţíţľéš áñď ƀóďíéš…~~~~ ~~~~ ]',
 	'knowledge.filters.types': '[Ķíñďš~~]',
@@ -5787,10 +5793,10 @@ export default {
 	'graph.emptyPlayer': '[Ñó ƥľáýéŕ-ṽíšíƀľé ñóďéš ḿáţçĥ ţĥíš ƒíľţéŕ.~~~~ ~~~~ ~~~~ ~~]',
 	'graph.emptyDm':
 		'[Ñóţĥíñğ ţó ğŕáƥĥ ýéţ — ñóţéš, ḿáƥš, áñď šţóŕý éñţŕíéš áƥƥéáŕ ĥéŕé áš ýóú ľíñķ ţĥéḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
-	'graph.search': '[Šéáŕçĥ~~~]',
-	'graph.searchPlaceholder': '[Šéáŕçĥ ţĥé ğŕáƥĥ…~~~~ ~~]',
-	'graph.searchLabel': '[Šéáŕçĥ ţĥé ğŕáƥĥ~~~~ ~~]',
-	'graph.searchVault': '[Šéáŕçĥ ţĥé ṽáúľţ~~~~ ~~]',
+	'graph.search': '[Ƒíľţéŕ~~~]',
+	'graph.searchPlaceholder': '[Ƒíľţéŕ ţĥé ğŕáƥĥ…~~~~ ~~]',
+	'graph.searchLabel': '[Ƒíľţéŕ ţĥé ğŕáƥĥ~~~~ ~~]',
+	'graph.searchVault': '[Ŕéƒíñé íñ Ñóţéš~~~~ ~]',
 	'graph.noResultsPlayer': '[Ñó ŕéšúľţš íñ ƥľáýéŕ ṽíéŵ.~~~~ ~~~~ ~]',
 	'graph.noResultsFilter': '[Ñó ŕéšúľţš ƒóŕ ţĥíš ƒíľţéŕ.~~~~ ~~~~ ~]',
 	'graph.selected': '[Šéľéçţéď~~~~]',

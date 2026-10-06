@@ -41,6 +41,51 @@ import { useI18n } from '../../i18n';
  * Nothing here touches storage and nothing reports a success the core did not perform.
  */
 
+/**
+ * RC-KNW-6.4 — the one create-from-template path, shared by this panel and the composer's
+ * "Start from" row. It dispatches `content.create-from-template` and nothing else: the core renders,
+ * validates and refuses (a missing required variable included), and a rejection is surfaced, never
+ * swallowed. Resolves to the created note's id, or null when nothing was written.
+ */
+export function useCreateFromTemplate() {
+	const { t } = useI18n();
+	const runtime = useRuntime();
+	const [busy, setBusy] = useState(false);
+	async function create(presetId: string, variables: Record<string, string>) {
+		setBusy(true);
+		try {
+			const result = await runtime.dispatch({
+				type: 'content.create-from-template',
+				actorId: runtime.defaultActorId,
+				payload: { presetId, variables },
+			});
+			if (result.status === 'accepted') {
+				const created = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.item-changed',
+				) as { itemId?: string } | undefined;
+				return created?.itemId ?? null;
+			}
+			Toaster.error(result.rejection.message);
+		} catch (error) {
+			Toaster.error(error instanceof Error ? error.message : t('knowledge.templates.createFailed'));
+		} finally {
+			setBusy(false);
+		}
+		return null;
+	}
+	return { busy, create };
+}
+
+/** The catalog label for one template: the DM's own carry "· yours" so they read apart from presets. */
+export function templateOptionLabel(
+	row: ContentTemplateSummary,
+	t: ReturnType<typeof useI18n>['t'],
+): string {
+	return row.source === 'user'
+		? t('knowledge.templates.yourTemplateOption', { name: row.name })
+		: row.name;
+}
+
 export function TemplatesPanel({ onCreated }: { onCreated: (itemId: string) => void }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -75,28 +120,13 @@ export function TemplatesPanel({ onCreated }: { onCreated: (itemId: string) => v
 		(variable) => variable.required && (values[variable.name] ?? '').trim() === '',
 	);
 
+	const fromTemplate = useCreateFromTemplate();
 	async function createFromTemplate() {
 		if (!selected) return;
-		setBusy(true);
-		try {
-			const result = await runtime.dispatch({
-				type: 'content.create-from-template',
-				actorId,
-				payload: { presetId: selected.id, variables: values },
-			});
-			if (result.status === 'accepted') {
-				const created = result.events.find(
-					(e) => (e as { kind?: string }).kind === 'content.item-changed',
-				) as { itemId?: string } | undefined;
-				setValues({});
-				if (created?.itemId) onCreated(created.itemId);
-			} else {
-				Toaster.error(result.rejection.message);
-			}
-		} catch (error) {
-			Toaster.error(error instanceof Error ? error.message : t('knowledge.templates.createFailed'));
-		} finally {
-			setBusy(false);
+		const itemId = await fromTemplate.create(selected.id, values);
+		if (itemId) {
+			setValues({});
+			onCreated(itemId);
 		}
 	}
 
@@ -157,10 +187,7 @@ export function TemplatesPanel({ onCreated }: { onCreated: (itemId: string) => v
 								data-testid="template-pick"
 								options={catalog.map((row) => ({
 									value: row.id,
-									label:
-										row.source === 'user'
-											? t('knowledge.templates.yourTemplateOption', { name: row.name })
-											: row.name,
+									label: templateOptionLabel(row, t),
 								}))}
 								onChange={(e: { target: { value: string } }) => {
 									setTemplateId(e.target.value);
@@ -208,7 +235,7 @@ export function TemplatesPanel({ onCreated }: { onCreated: (itemId: string) => v
 										variant="primary"
 										size="sm"
 										icon="check"
-										disabled={busy || missingRequired}
+										disabled={busy || fromTemplate.busy || missingRequired}
 										data-testid="template-create"
 										onClick={createFromTemplate}
 									>
