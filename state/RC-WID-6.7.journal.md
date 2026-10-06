@@ -185,3 +185,38 @@ data'` put back, both tests fail (2 failed, 12 passed). Restored: 14/14.
 - Not changed (RC-WID-6.2's note): the Extensions switch still enables any non-denied package,
   unreviewed custom code included. It is not in this story's acceptance.
 - No push, promotion, loop launch, dispatcher state edit or additional agents.
+
+## Attempt 2 — visual regression red (head `78e877f4`)
+
+The pinned-container visual gate failed on 35 of 516 tests. Every failure was a screen this story
+changes on purpose, and nothing else moved:
+
+- `extensions-polish.spec.ts` `/extensions` and `/extensions named remove confirm`, five themes
+  each on desktop, rail and phone (30 tests);
+- `add-panel.spec.ts` "Add panel rows" on visual-rail (5 tests). That profile's crop reaches
+  "More ways to add", where the Generate card is now the gated note; the desktop crop does not.
+
+Before re-baselining I checked that `loop/rc` is an ancestor of the head, so there were no newer
+integration baselines to collide with. I re-baselined only those two specs in the pinned image:
+
+```
+apps/gm-react/tests/visual/run-in-container.sh tests/visual/extensions-polish.spec.ts tests/visual/add-panel.spec.ts --update-snapshots=changed
+```
+
+The 35 rewritten PNGs are exactly the failing set. I inspected `visual-desktop/extensions--tavern.png`
+and `visual-rail/add-panel--tavern.png`:
+
+- built-in cards show one "Built-in" status, "v1.0.0 · 10 widgets · built from templates" and "Asks
+  for no permissions.";
+- the Starter library badge reads "Bundled · works offline", with the new intro;
+- the Generate card reads "The assistant is off. Turn it on in Settings › Tool…", a link and no
+  button.
+
+The PNGs were recompressed losslessly (re-filter plus Zopfli, decoded rows asserted identical),
+from 2,110,214 B to 1,441,303 B (−653 KiB). `check-baseline-budget.mjs` reports 32,702.0 KiB of
+34,816.0 KiB. A compare-only re-run in the container (`--update-snapshots=none`) on the two specs:
+**60 passed**.
+
+The neighbouring e2e re-run from attempt 1 was again cut off when the session ended. Its
+first-run partial (tests 1–49 of 124 with no failure) and the acceptance spec's 4/4 are the browser
+evidence recorded here.
