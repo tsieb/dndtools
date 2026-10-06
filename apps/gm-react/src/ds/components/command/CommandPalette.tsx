@@ -57,6 +57,7 @@ import { Illustration } from '../../illustrations';
 import { Icon } from '../core/Icon';
 import { Kbd, PaletteRow } from './CommandPaletteRow.jsx';
 import { registerBackHandler } from '../../../platform/backNavigation';
+import { ownsEscape, popEscapeLayer, pushEscapeLayer } from '../../../platform/escapeLayers';
 import { restoreReturnFocus } from '../../../platform/returnFocus';
 
 /** Keyboard-driven modal combobox: arrows skip disabled rows, Enter runs, Escape closes.
@@ -176,6 +177,26 @@ export function CommandPalette({
 		};
 	}, [open]);
 
+	// Escape is owned on `document` in CAPTURE, like Dialog/Sheet/Popover, not by the input: the
+	// input only takes focus on the next tick, so an Escape pressed straight after opening landed
+	// on the opener, was dropped, and the palette then grabbed focus and stayed up over the page.
+	// A layout effect, so the listener is live before the palette is ever painted.
+	React.useLayoutEffect(() => {
+		if (!open) return undefined;
+		const escapeToken = pushEscapeLayer(() => panelRef.current);
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || !ownsEscape(escapeToken)) return;
+			e.preventDefault();
+			e.stopPropagation();
+			void (onCloseRef.current && onCloseRef.current());
+		};
+		document.addEventListener('keydown', onKey, true);
+		return () => {
+			document.removeEventListener('keydown', onKey, true);
+			popEscapeLayer(escapeToken);
+		};
+	}, [open]);
+
 	// keep active in-range and on an enabled row
 	React.useEffect(() => {
 		setActive((a) => {
@@ -240,9 +261,6 @@ export function CommandPalette({
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
 			run(flat[active]);
-		} else if (e.key === 'Escape') {
-			e.preventDefault();
-			void (onClose && onClose());
 		} else if (e.key === 'Tab') {
 			// The panel declares aria-modal but the input is its only focusable child, so an
 			// untrapped Tab moved focus into the shell behind the scrim. Results are driven by
