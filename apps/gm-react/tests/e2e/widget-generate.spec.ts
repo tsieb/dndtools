@@ -196,6 +196,11 @@ test.describe('generate a widget (RC-WID-3.2)', () => {
 		await builder.getByLabel('Name', { exact: true }).fill('Party loot ledger');
 		await steps.getByRole('button', { name: 'Review' }).click();
 		await builder.getByRole('button', { name: /^Install/ }).click();
+		// RC-WID-6.2 — a generated package is not the DM's own, so it installs for review and the trust
+		// sheet opens over the builder. Leaving it leaves the package off.
+		const review = page.getByRole('dialog', { name: 'Review Party loot ledger' });
+		await expect(review).toBeVisible({ timeout: 10_000 });
+		await review.getByRole('button', { name: 'Cancel' }).click();
 		await expect(builder).toBeHidden({ timeout: 10_000 });
 
 		// What landed keeps the provenance the core stamped, and the Plugins list says so.

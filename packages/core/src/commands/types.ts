@@ -2339,6 +2339,11 @@ export type RejectionCode =
 	// `deny-until-fixed` without the DM acknowledging that recommendation. Fail closed: a package the
 	// analysis says is broken or over-reaching is never trusted by accident.
 	| 'review-recommendation-unacknowledged'
+	// RC-WID-6.2 — `widget.package.install` asked for author trust on a package the rule does not
+	// clear (custom code, a code or stylesheet file, any host permission or network destination, or a
+	// review verdict short of "safe to trust"). Fail closed: nothing is installed, and the issues name
+	// every reason so the caller can install it for review instead.
+	| 'author-trust-refused'
 	// RC-CAN-1.2 — `scene.restore-widget` found no live tombstone for the instance: it was never
 	// destroyed, was already restored, or its 30-day retention window has passed. Fail closed and
 	// honest — the app says the widget can no longer be brought back instead of adding a new one.

@@ -1423,12 +1423,17 @@ export {
 
 export type {
 	ScaffoldCustomWidgetPackageDraftInput,
+	WidgetAuthorTrustEvaluation,
+	WidgetAuthorTrustRefusal,
+	WidgetAuthorTrustRefusalCode,
 	WidgetPackageReviewSummary,
 	WidgetWizardDraft,
 } from './queries/widget-package-review';
 export {
 	CUSTOM_WIDGET_HOST_API_VERSION,
 	buildWidgetPackageReviewSummary,
+	// RC-WID-6.2 — the author-trust rule a builder install is held to.
+	evaluateWidgetPackageAuthorTrust,
 	// RC-WID-3.1 — the prompt fingerprint recorded as provenance on a generated package.
 	hashWidgetPromptText,
 	scaffoldCustomWidgetPackageDraft,

@@ -2723,6 +2723,10 @@ export const en = {
 		'Saved {name} version {version} and updated every placed copy.',
 	'extensions.builder.installed':
 		'Installed {name}. It is disabled until you enable it in Installed packages.',
+	'extensions.builder.installedEnabled': 'Installed {name}. It is on and ready to place.',
+	'extensions.builder.installedNeedsReview':
+		'Installed {name}. It stays off until you review and enable it.',
+	'extensions.builder.openPackage': 'Open package',
 
 	'extensions.trust.title': 'Review {name}',
 	'extensions.trust.description':
@@ -5719,6 +5723,8 @@ export const en = {
 	'boardCanvas.add.library': 'Widget library',
 	'boardCanvas.add.pick': 'Add {name}',
 	'boardCanvas.add.added': 'Added {name}',
+	'boardCanvas.add.enable': 'Enable {name}',
+	'boardCanvas.add.enabled': '{name} is on. Pick it to add it.',
 	'boardCanvas.add.moreWays': 'More ways to add',
 	'boardCanvas.add.generate': 'Generate with assistant',
 	'boardCanvas.add.generateHint':

@@ -140,7 +140,8 @@ test.describe('widget intents: open and create', () => {
 			{ id: 'new-map', displayName: 'New map', kind: 'create', target: 'map' },
 		]);
 
-		await page.getByRole('switch', { name: 'Enable Table launcher' }).click();
+		// RC-WID-6.2 — a template with no permission installs trusted and already on.
+		await expect(page.getByRole('switch', { name: 'Enable Table launcher' })).toBeChecked();
 		await expect
 			.poll(() =>
 				page.evaluate(
@@ -185,7 +186,8 @@ test.describe('widget intents: open and create', () => {
 			await builder.getByRole('button', { name: 'Review', exact: true }).click();
 			await builder.getByRole('button', { name: 'Install widget' }).click();
 			await expect(builder).toHaveCount(0);
-			await page.getByRole('switch', { name: 'Enable Screen launcher' }).click();
+			// RC-WID-6.2 — a template with no permission installs trusted and already on.
+			await expect(page.getByRole('switch', { name: 'Enable Screen launcher' })).toBeChecked();
 			await expect
 				.poll(() =>
 					page.evaluate(

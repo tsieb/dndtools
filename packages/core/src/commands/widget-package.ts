@@ -9,7 +9,10 @@ import {
 	upgradeWidgetPackageInputSchema,
 } from '../schemas/commands';
 import { previewSystemSwitch } from '../queries/system-switch-query';
-import { buildWidgetPackageReviewSummary } from '../queries/widget-package-review';
+import {
+	buildWidgetPackageReviewSummary,
+	evaluateWidgetPackageAuthorTrust,
+} from '../queries/widget-package-review';
 import type { WidgetPackageDefinitionParsed } from '../schemas/widget-package';
 import type {
 	WidgetDataSchema,
@@ -459,24 +462,86 @@ export function handleInstallWidgetPackage(
 	}
 
 	const definition = normalizeDefinition(parsed.data.package);
-	const record = recordFromPackage(env, actor.id, definition, diagnostics);
+	// RC-WID-6.2 — author trust is all or nothing: a package the rule does not clear is refused, not
+	// quietly installed for review, so the caller always knows which outcome it got.
+	const authorTrust = parsed.data.authorTrust === true;
+	const evaluation = authorTrust ? evaluateWidgetPackageAuthorTrust(definition) : null;
+	if (evaluation && !evaluation.eligible) {
+		return reject(
+			{
+				code: 'author-trust-refused',
+				message: `Widget package ${definition.id} cannot be trusted on its author's word. Install it for review instead.`,
+				issues: evaluation.refusals.map((item) => ({ path: item.code, message: item.message })),
+			},
+			state,
+		);
+	}
+	const unreviewed = recordFromPackage(env, actor.id, definition, diagnostics);
+	const record: WidgetPackageRecord = evaluation
+		? {
+				...unreviewed,
+				// Every permission stays denied: the rule admits only packages that request none.
+				trust: { ...unreviewed.trust, state: 'trusted', basis: 'author' },
+				enabled: true,
+			}
+		: unreviewed;
 	const nextWidgets: WidgetPackageState = {
 		...state.widgets,
 		packages: { ...state.widgets.packages, [definition.id]: record },
 	};
-	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+	const { log: installLog, op } = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: 'widget-package',
 		entityId: definition.id,
 		opType: 'widget.package.install',
-		value: { packageId: definition.id, version: definition.version },
+		value: {
+			packageId: definition.id,
+			version: definition.version,
+			...(evaluation ? { trust: 'author' } : {}),
+		},
 		beforeRevision: 0,
+		afterRevision: record.revision,
+	});
+	if (!evaluation) {
+		return {
+			status: 'accepted',
+			nextState: { ...state, widgets: nextWidgets, sync: installLog },
+			events: [{ kind: 'widget.package-installed', packageId: definition.id, actorId: actor.id }],
+			operationIds: [op.id],
+		};
+	}
+	// The audit entry: the same `widget.package.review` record a review in the sheet writes, naming
+	// the DM, the analysis' verdict and the author basis, so the decision is never invisible.
+	const { log: nextLog, op: reviewOp } = appendOperationDraft(env, installLog, actor.id, {
+		entityType: 'widget-package',
+		entityId: definition.id,
+		opType: 'widget.package.review',
+		path: 'trust',
+		value: {
+			packageId: definition.id,
+			trustState: 'trusted',
+			approvedPermissions: [],
+			recommendation: evaluation.review.trustRecommendation,
+			basis: 'author',
+			reviewedAt: record.trust.reviewedAt,
+		},
+		beforeRevision: record.revision,
 		afterRevision: record.revision,
 	});
 	return {
 		status: 'accepted',
 		nextState: { ...state, widgets: nextWidgets, sync: nextLog },
-		events: [{ kind: 'widget.package-installed', packageId: definition.id, actorId: actor.id }],
-		operationIds: [op.id],
+		events: [
+			{ kind: 'widget.package-installed', packageId: definition.id, actorId: actor.id },
+			{
+				kind: 'widget.package-reviewed',
+				packageId: definition.id,
+				actorId: actor.id,
+				trustState: 'trusted',
+				approvedPermissions: [],
+			},
+			{ kind: 'widget.package-enabled', packageId: definition.id, actorId: actor.id },
+		],
+		operationIds: [op.id, reviewOp.id],
 	};
 }
 
@@ -702,9 +767,25 @@ export function handleUpgradeWidgetPackage(
 		});
 		if (changed) nextScenes[scene.id] = bumpRevision({ ...scene, widgets }, env);
 	}
+	// RC-WID-6.2 — author trust covers the package the DM wrote, not whatever it later becomes. An
+	// upgrade that stops qualifying (custom code, a permission, a player-visible write…) drops back
+	// to unreviewed with every permission denied, so the trust sheet asks again; whether it stays
+	// enabled follows the ordinary upgrade rule, as for any other unreviewed package.
+	const authorTrustLapsed =
+		existing.trust.basis === 'author' && !evaluateWidgetPackageAuthorTrust(definition).eligible;
 	const now = env.clock();
 	const nextWidgets = updatePackage(state.widgets, definition.id, (record) => ({
 		...record,
+		...(authorTrustLapsed
+			? {
+					trust: {
+						state: 'unreviewed' as const,
+						hostPermissions: deniedHostPermissions(),
+						reviewedBy: actor.id,
+						reviewedAt: now,
+					},
+				}
+			: {}),
 		package: definition,
 		enabled: !failed,
 		removedAt: null,
@@ -726,6 +807,7 @@ export function handleUpgradeWidgetPackage(
 			packageId: definition.id,
 			fromVersion: existing.package.version,
 			toVersion: definition.version,
+			...(authorTrustLapsed ? { trust: 'unreviewed' } : {}),
 		},
 		beforeRevision: existing.revision,
 		afterRevision: existing.revision + 1,

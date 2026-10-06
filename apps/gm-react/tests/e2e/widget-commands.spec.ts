@@ -67,7 +67,8 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 			]);
 			expect(widget?.configFields?.find((field) => field.key === 'formula')?.default).toBe('1d20');
 
-			await page.getByRole('switch', { name: 'Enable Bell ringer' }).click();
+			// RC-WID-6.2 — a template with no permission installs trusted and already on.
+			await expect(page.getByRole('switch', { name: 'Enable Bell ringer' })).toBeChecked();
 			await expect
 				.poll(() =>
 					page.evaluate(

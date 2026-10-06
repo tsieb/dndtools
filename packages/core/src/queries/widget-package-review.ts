@@ -188,6 +188,103 @@ export function buildWidgetPackageReviewSummary(
 	};
 }
 
+/* ── RC-WID-6.2 — AUTHOR TRUST ───────────────────────────────────────────────────────────────── */
+
+export type WidgetAuthorTrustRefusalCode =
+	| 'author-trust.not-template'
+	| 'author-trust.code-asset'
+	| 'author-trust.host-permission'
+	| 'author-trust.network'
+	| 'author-trust.stylesheet'
+	| 'author-trust.review-verdict';
+
+export interface WidgetAuthorTrustRefusal {
+	code: WidgetAuthorTrustRefusalCode;
+	message: string;
+}
+
+export interface WidgetAuthorTrustEvaluation {
+	eligible: boolean;
+	/** Every reason the package cannot be trusted on its author's word; empty when eligible. */
+	refusals: WidgetAuthorTrustRefusal[];
+	review: WidgetPackageReviewSummary;
+}
+
+/**
+ * RC-WID-6.2 — may the DM who wrote this package trust it at install, without the review sheet?
+ *
+ * Only a package that cannot reach anything the review sheet exists to gate qualifies: every widget
+ * draws through a host `template` (no sandboxed code), the package ships no file but a plain
+ * `asset` (no html, script, worker, module, stylesheet, or an asset of unstated kind), it asks for
+ * no host permission and no network destination, and the review analysis itself says "safe to
+ * trust after review" — which already rules out generated packages and anything writing to a
+ * player-visible or lower-privilege destination. Anything else keeps the fail-closed path:
+ * `unreviewed`, disabled, every permission denied, until the DM reviews it.
+ *
+ * Pure, so the install command (which enforces it), an upgrade of an author-trusted package (which
+ * re-checks it) and the GUI (which decides whether to ask) all read the same rule.
+ */
+export function evaluateWidgetPackageAuthorTrust(
+	definition: WidgetPackageDefinition,
+): WidgetAuthorTrustEvaluation {
+	const review = buildWidgetPackageReviewSummary(definition);
+	const refusals: WidgetAuthorTrustRefusal[] = [];
+	const refuse = (code: WidgetAuthorTrustRefusalCode, message: string) => {
+		if (!refusals.some((item) => item.code === code)) refusals.push({ code, message });
+	};
+	for (const widget of definition.widgets) {
+		if (widget.renderEntrypoint?.runtime !== 'template') {
+			refuse(
+				'author-trust.not-template',
+				`${widget.displayName} runs its own code, so it needs a review before it is trusted.`,
+			);
+		}
+		if ((widget.hostPermissions ?? []).length > 0) {
+			refuse(
+				'author-trust.host-permission',
+				`${widget.displayName} asks for host permissions, so it needs a review before it is trusted.`,
+			);
+		}
+		if ((widget.networkDestinationClasses ?? []).length > 0) {
+			refuse(
+				'author-trust.network',
+				`${widget.displayName} asks to reach the network, so it needs a review before it is trusted.`,
+			);
+		}
+		if (
+			(widget.style?.stylesheetAssetPaths ?? []).length > 0 ||
+			(widget.style?.capabilities ?? []).includes('custom-stylesheet')
+		) {
+			refuse(
+				'author-trust.stylesheet',
+				`${widget.displayName} ships its own stylesheet, so it needs a review before it is trusted.`,
+			);
+		}
+	}
+	if (definition.widgets.length === 0) {
+		refuse('author-trust.not-template', 'A package with no widgets cannot be trusted at install.');
+	}
+	if (definition.assets.some((asset) => asset.kind !== 'asset')) {
+		refuse(
+			'author-trust.code-asset',
+			'The package ships code or stylesheet files, so it needs a review before it is trusted.',
+		);
+	}
+	if (review.requestedHostPermissions.length > 0) {
+		refuse(
+			'author-trust.host-permission',
+			'The package asks for host permissions, so it needs a review before it is trusted.',
+		);
+	}
+	if (review.trustRecommendation !== 'trusted-after-review') {
+		refuse(
+			'author-trust.review-verdict',
+			'The review does not rate this package safe to trust, so it needs a review before it is trusted.',
+		);
+	}
+	return { eligible: refusals.length === 0, refusals, review };
+}
+
 export interface WidgetWizardDraft {
 	state: 'unreviewed';
 	provider: {

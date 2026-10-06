@@ -105,6 +105,8 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// is the assistant's staged proposal, or null for a blank widget; neither is durable.
 	const [generateOpen, setGenerateOpen] = useState(false);
 	const [builder, setBuilder] = useState<{ pkg: WidgetPackageDefinition | null } | null>(null);
+	// RC-WID-6.2 — what the builder installed enabled, until the gallery has placed it.
+	const [built, setBuilt] = useState<WidgetPackageDefinition | null>(null);
 	// RC-CAN-3.1: the board's zoom lives here, not in the canvas, so the control can sit in the
 	// toolbar. The bounded canvas IS its own scroll container, so an in-canvas control would scroll
 	// away from the widgets it applies to and sit on top of the top-left widget while it did.
@@ -650,6 +652,8 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 					error={error}
 					onGenerate={() => setGenerateOpen(true)}
 					onBuild={() => setBuilder({ pkg: null })}
+					placePackage={built}
+					onPlacePackageDone={() => setBuilt(null)}
 					startAction={
 						<TemplateStartEntry
 							onPick={() => {
@@ -696,7 +700,13 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 					setBuilder({ pkg });
 				}}
 			/>
-			{builder && <WidgetBuilder generatedPackage={builder.pkg} onClose={() => setBuilder(null)} />}
+			{builder && (
+				<WidgetBuilder
+					generatedPackage={builder.pkg}
+					onClose={() => setBuilder(null)}
+					onInstalled={setBuilt}
+				/>
+			)}
 		</div>
 	);
 }

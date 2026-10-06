@@ -367,8 +367,8 @@ absent from those fonts use the same device fallback stack as the app. A package
 
 `widget.package.review` (`packages/core/src/commands/widget-package.ts`) is the single writer of
 `WidgetPackageRecord.trust`. Every permission the package requests carries an explicit
-`approved` | `denied` decision; anything absent stays denied; an upgrade that requests a new
-permission resets the package to `unreviewed`. When `buildWidgetPackageReviewSummary`
+`approved` | `denied` decision; anything absent stays denied, so a permission an upgrade newly
+requests stays denied until a review approves it. When `buildWidgetPackageReviewSummary`
 (`queries/widget-package-review.ts`) recommends `deny-until-fixed`, the DM must acknowledge it before
 `trusted` is recorded. Review is separate from `widget.package.enable`. The approved set is exactly
 the `HostCapabilityGrant.approvedPermissions` the host passes to `resolveHostCapability`, so a denied
@@ -377,6 +377,34 @@ capability is absent at the gate, not merely hidden.
 Installed packages start `unreviewed` with every permission denied. System packages shipped in code
 are pre-trusted.
 
+### 5.1 Author trust (RC-WID-6.2)
+
+`widget.package.install` accepts `authorTrust: true`: the installing DM wrote the package and trusts
+it on their own word. The core grants it only when `evaluateWidgetPackageAuthorTrust`
+(`queries/widget-package-review.ts`) clears the package:
+
+- every widget renders through a host `template` (no `custom-html-js`, no missing entrypoint);
+- the package ships no file except plain `asset`s (no html, script, worker, module, stylesheet, or
+  asset of unstated kind), and no widget declares a stylesheet or the `custom-stylesheet` capability;
+- no widget requests a host permission or a network destination;
+- the review summary's verdict is `trusted-after-review`, which already excludes generated packages
+  and any command or output write to a player-visible or lower-privilege destination.
+
+A cleared package is recorded `trusted` with `basis: 'author'`, `reviewedBy` = the installing DM,
+every permission still denied, and `enabled: true`. Beside the install op the command appends a
+`widget.package.review` op (`trustState: 'trusted'`, `approvedPermissions: []`, the verdict and
+`basis: 'author'`) as the audit entry. A package the rule does not clear is refused outright
+(`author-trust-refused`, one issue per reason) and nothing is installed; without the flag the
+install is unchanged. Author trust covers the package as written: an upgrade of an author-trusted
+package that stops qualifying drops it to `unreviewed` with every permission denied (the upgrade op
+records `trust: 'unreviewed'`). A later review in the sheet replaces the record and clears `basis`.
+`packages/core/tests/widget-author-trust.test.ts` holds the rule, each refusal and the upgrade lapse.
+
+The builder asks for author trust only when the same rule clears its package. Anything else installs
+on the fail-closed path and `TrustReviewSheet` opens over the builder; trusting it there enables it
+too, so allow-and-enable never needs Extensions. Cancelling or denying closes the builder with a
+toast whose "Open package" action goes to Extensions.
+
 `navigate` (RC-WID-5.1) lets custom code follow the intents its definition declares, and only to
 targets the viewer can already read. It never grants a URL. A trust record written before the
 permission existed has no `navigate` key, and the host reads approvals only from entries that say
@@ -384,7 +412,8 @@ permission existed has no `navigate` key, and the host reads approvals only from
 
 ## 6. Authoring
 
-- **Manual builder** (`apps/gm-react/src/app/widgetBuilder/`, Extensions › Plugins): a stepper
+- **Manual builder** (`apps/gm-react/src/app/widgetBuilder/`, Extensions › Plugins, and the
+  gallery's "Build your own"): a stepper
   (identity → layout → data → config → commands → style → advanced → review) with a live preview
   through the same render resolver. It produces `template` definitions; `custom-html-js` is only
   reachable through the explicit Advanced step, where code, requested permissions, and the SEC-011
@@ -397,10 +426,12 @@ permission existed has no `navigate` key, and the host reads approvals only from
   prints each intent with its destination, so a re-run that keeps a label but changes the target,
   kind, route, tab or creation target shows up as a change and can be applied. Each command row
   has a "Runs" picker for its executor; a template command without one blocks Review (§2.2).
+  Install follows §5.1: author-trusted and enabled when the rule clears it, otherwise the trust sheet
+  over the builder. An enabled install is handed to the host's `onInstalled`.
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;
-  trust is a second, separate review. Provenance records `authoring.source = 'generated'` and a
+  trust is a second, separate review (a generated package never qualifies for author trust, §5.1). Provenance records `authoring.source = 'generated'` and a
   `promptHash` fingerprint, never the prompt. The schema was trimmed to what a model must invent,
   because a large tool schema degraded tool choice across every other tool (measured against
   `scripts/ai-agent-smoke.ts`).
@@ -419,22 +450,22 @@ instances, the same render resolver and the same core mutation path; flow is not
 
 ## 8. Where to look
 
-| Concern                                  | Location                                                                                                                                                                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                                                  |
-| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                                           |
-| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                                             |
-| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                                                      |
-| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                                                       |
-| Command executors and availability       | `packages/core/src/commands/widget-command.ts` (`widgetCommandAvailability`, `buildWidgetCommandInverse`)                                                                                                          |
-| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                                            |
-| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                                                        |
-| Review command and summary               | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts`                                                                                                                                 |
-| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                                                   |
-| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                                                      |
-| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                           |
-| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                     |
-| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts` |
+| Concern                                  | Location                                                                                                                                                                                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                                                                                 |
+| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                                                                          |
+| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                                                                            |
+| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                                                                                     |
+| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                                                                                      |
+| Command executors and availability       | `packages/core/src/commands/widget-command.ts` (`widgetCommandAvailability`, `buildWidgetCommandInverse`)                                                                                                                                         |
+| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                                                                           |
+| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                                                                                       |
+| Review command, summary, author trust    | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts` (`evaluateWidgetPackageAuthorTrust`)                                                                                                                           |
+| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                                                                                  |
+| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                                                                                     |
+| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                                                          |
+| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                                                    |
+| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts`, `widget-author-trust.spec.ts` |
 
 ## 9. Widget gallery
 
@@ -452,7 +483,11 @@ is size-contained (`contain: size`): the board's root grows with its content (RC
 uncontained panel grew the page and `<main>` scrolled the canvas away; contained, it stretches to
 the board row and scrolls inside itself. Search matches name, description, category, type and
 package name; category filters combine with search. Unsupported entries remain visible after the
-available entries, with an accessible reason and no add action. "Generate with assistant" and
+available entries, with an accessible reason and no add action. A row dimmed because its package is
+off gets its own list row below it with "Enable <widget>" (`InPlaceEnable`, in
+`screens/extensions/WidgetBuilder.tsx`) for the DM, but only for a package already `trusted` or one
+`evaluateWidgetPackageAuthorTrust` clears; a package with code or a permission still goes through
+review. Enabling announces "<widget> is on. Pick it to add it." and focuses the row. "Generate with assistant" and
 "Build your own" follow the library as a final "More ways to add" group (still one click each).
 
 ### Rendering and placement
@@ -471,7 +506,9 @@ An empty scene offers “Start from a template”. “Generate with assistant”
 workflow; “Build your own” opens the widget builder. Neither installs a package just by opening it.
 Picking a row places the tile through `placeNewTile` (`screens/screen/paletteRows.ts`), the one
 placement path for every add: the gallery, the palette's "Add tile" rows (through `nextFreeSlot`)
-and, after a build, RC-WID-6.2. Candidates are the board's 24px margin/gutter on its 264px column
+and, after a build, RC-WID-6.2: the host keeps the builder's `onInstalled` package and passes it
+back as `placePackage`; once the library lists it, the gallery picks it exactly like a row (and calls
+`onPlacePackageDone`). Candidates are the board's 24px margin/gutter on its 264px column
 step, the gutter past every tile's right and bottom edge, and every tile's top. Of the free ones,
 the first in reading order whose corner is in view wins (`visibleBoardRect` reads the on-screen part
 of the surface off its rendered frames); with none in view, the one nearest the view's centre; with
@@ -479,7 +516,8 @@ no rendered surface, the first in reading order. The GM Screen uses its fixed ri
 also admit their existing horizontal extent. A scene on the `flow` layout policy (ADR-041) has no
 free coordinates to search, so its next slot is the end of the reading order: `flowKeyBetween(last,
 null)` over `flowOrder`, one flow row below the last tile. An accepted add closes the panel, hands
-the new tile to the host's `onPlaced` (the GM Screen selects it), focuses it, scrolls it fully into
+the new tile to the host's `onPlaced` (the GM Screen and, since RC-WID-6.2, the scene editor select
+it), focuses it, scrolls it fully into
 view and announces "Added <widget>" in a permanent polite region. Failed adds keep the gallery open.
 
 The gallery's copy lives in the shared catalogs under `boardCanvas.add.*`.

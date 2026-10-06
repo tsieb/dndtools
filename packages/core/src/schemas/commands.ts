@@ -238,6 +238,10 @@ export const moveGroupInputSchema = z
 export const installWidgetPackageInputSchema = z
 	.object({
 		package: widgetPackageDefinitionSchema,
+		// RC-WID-6.2 — the installing DM wrote this package and asks to trust it on their word. The
+		// command grants it only when `evaluateWidgetPackageAuthorTrust` clears the package, and
+		// refuses the install otherwise; absent, the install stays unreviewed and disabled.
+		authorTrust: z.literal(true).optional(),
 	})
 	.strict();
 

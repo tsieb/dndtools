@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WidgetPackageDefinition } from '@dndtools/core';
+import { useNavigate } from 'react-router-dom';
+import {
+	evaluateWidgetPackageAuthorTrust,
+	type WidgetLibraryEntry,
+	type WidgetPackageDefinition,
+} from '@dndtools/core';
 import { Badge, Button, IconButton, Toaster } from '../../ds';
 import { Seg, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
@@ -27,6 +32,7 @@ import { StyleStep } from '../../app/widgetBuilder/StyleStep';
 import { AdvancedStep } from '../../app/widgetBuilder/AdvancedStep';
 import { ReviewStep } from '../../app/widgetBuilder/ReviewStep';
 import { useI18n } from '../../i18n';
+import { TrustReviewSheet } from './TrustReviewSheet';
 
 /**
  * The widget builder (RC-WID-2.1) — a full-screen overlay on the same contract as the map editor:
@@ -42,6 +48,13 @@ import { useI18n } from '../../i18n';
  * The draft lives in component state and touches nothing durable. Review is the only step that
  * writes, through `widget.package.install` or `widget.package.upgrade` — the same commands the
  * Plugins panel's JSON box dispatches, so a widget built here is not a special kind of package.
+ *
+ * RC-WID-6.2 — a new package the core's author-trust rule clears (template-only, no permission, a
+ * "safe to trust" verdict) installs with `authorTrust`, so it is trusted and on at once. Anything
+ * else installs on the fail-closed path and the trust sheet opens over the builder, so allowing and
+ * enabling it never means a trip to Extensions. Either way an enabled install is handed to
+ * `onInstalled` (the gallery that opened the builder places it); one left off gets a toast that
+ * opens Extensions.
  */
 
 const FOCUSABLE =
@@ -58,6 +71,7 @@ export function WidgetBuilder({
 	initialDraft,
 	initialStep,
 	onClose,
+	onInstalled,
 }: {
 	editPackage?: WidgetPackageDefinition | null;
 	generatedPackage?: WidgetPackageDefinition | null;
@@ -65,6 +79,8 @@ export function WidgetBuilder({
 	initialDraft?: WidgetDraft;
 	initialStep?: BuilderStepId;
 	onClose: () => void;
+	/** RC-WID-6.2 — a new package that installed enabled; the caller closes the builder and places it. */
+	onInstalled?: (pkg: WidgetPackageDefinition) => void;
 }) {
 	const { t } = useI18n();
 	const runtime = useRuntime();
@@ -89,10 +105,16 @@ export function WidgetBuilder({
 	const [pane, setPane] = useState<'edit' | 'preview' | 'json'>('edit');
 	const [busy, setBusy] = useState(false);
 	const [rejection, setRejection] = useState<string | null>(null);
+	// RC-WID-6.2 — the package just installed for review, while the trust sheet is open over the builder.
+	const [reviewing, setReviewing] = useState<WidgetPackageDefinition | null>(null);
+	const navigate = useNavigate();
 
 	const rootRef = useRef<HTMLDivElement>(null);
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
+	// The open trust sheet owns the keyboard: its Escape and Tab cycle, not the builder's.
+	const reviewingRef = useRef(false);
+	reviewingRef.current = reviewing !== null;
 
 	const patch = useCallback(
 		(next: Partial<WidgetDraft>) => setDraft((current) => ({ ...current, ...next })),
@@ -133,6 +155,7 @@ export function WidgetBuilder({
 	// One Tab cycle inside the overlay (the app shell stays mounted underneath), plus Escape.
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
+			if (reviewingRef.current) return;
 			if (e.key === 'Escape') {
 				e.stopPropagation();
 				onCloseRef.current();
@@ -183,23 +206,28 @@ export function WidgetBuilder({
 		setBusy(true);
 		setRejection(null);
 		const previousMigrations = mode === 'upgrade' ? (installed?.package.migrations ?? []) : [];
+		const pkg = buildPackage(draft, previousMigrations);
+		// The core holds the same rule and refuses author trust it would not grant; asking only when
+		// the rule clears the package keeps a custom-code build on the ordinary install.
+		const authorTrust = mode === 'install' && evaluateWidgetPackageAuthorTrust(pkg).eligible;
 		void runtime
 			.dispatch({
 				type: mode === 'upgrade' ? 'widget.package.upgrade' : 'widget.package.install',
 				actorId: dmId,
-				payload: { package: buildPackage(draft, previousMigrations) },
+				payload: { package: pkg, ...(authorTrust ? { authorTrust: true } : {}) },
 			})
 			.then((result) => {
 				if (result.status === 'accepted') {
-					Toaster.success(
-						mode === 'upgrade'
-							? t('extensions.builder.savedUpgrade', {
-									name: draft.name,
-									version: draft.version,
-								})
-							: t('extensions.builder.installed', { name: draft.name }),
-					);
-					onCloseRef.current();
+					if (mode === 'upgrade') {
+						Toaster.success(
+							t('extensions.builder.savedUpgrade', { name: draft.name, version: draft.version }),
+						);
+						onCloseRef.current();
+					} else if (authorTrust) {
+						finishInstalled(pkg);
+					} else {
+						setReviewing(pkg);
+					}
 					return;
 				}
 				const detail = (result.rejection.issues ?? [])
@@ -210,6 +238,36 @@ export function WidgetBuilder({
 			.catch((error: unknown) =>
 				setRejection(error instanceof Error ? error.message : String(error)),
 			)
+			.finally(() => setBusy(false));
+	};
+
+	// An enabled install goes back to the caller to be placed; without one, the toast says it is on.
+	const finishInstalled = (pkg: WidgetPackageDefinition) => {
+		if (onInstalled) onInstalled(pkg);
+		else Toaster.success(t('extensions.builder.installedEnabled', { name: pkg.displayName }));
+		onCloseRef.current();
+	};
+
+	// The trust sheet closed. Trusted there: enable it here and finish like an author-trusted install.
+	// Cancelled or denied: the package stays off, and the toast links to it in Extensions.
+	const afterReview = (pkg: WidgetPackageDefinition) => {
+		setReviewing(null);
+		const leaveOff = () => {
+			Toaster.warning(t('extensions.builder.installedNeedsReview', { name: pkg.displayName }), {
+				action: t('extensions.builder.openPackage'),
+				onAction: () => navigate('/extensions'),
+			});
+			onCloseRef.current();
+		};
+		if (runtime.state.widgets.packages[pkg.id]?.trust.state !== 'trusted') {
+			leaveOff();
+			return;
+		}
+		setBusy(true);
+		void runtime
+			.dispatch({ type: 'widget.package.enable', actorId: dmId, payload: { packageId: pkg.id } })
+			.then((result) => (result.status === 'accepted' ? finishInstalled(pkg) : leaveOff()))
+			.catch(leaveOff)
 			.finally(() => setBusy(false));
 	};
 
@@ -403,6 +461,64 @@ export function WidgetBuilder({
 				{(!narrow || pane === 'json') &&
 					column(jsonPane, narrow ? undefined : { borderLeft: `1px solid ${T.bd}` })}
 			</div>
+			{reviewing && (
+				<TrustReviewSheet packageId={reviewing.id} onClose={() => afterReview(reviewing)} />
+			)}
 		</div>
+	);
+}
+
+/**
+ * RC-WID-6.2 — the gallery's in-place "Enable": its own list row under a library row that is dimmed
+ * because its package is off. Offered to the DM only for a package already trusted, or one the
+ * author-trust rule clears (what this builder would have installed enabled). A package with code or
+ * a permission is never switched on from here; it still goes through review.
+ */
+export function InPlaceEnable({
+	entry,
+	onEnabled,
+}: {
+	entry: WidgetLibraryEntry;
+	onEnabled: (entry: WidgetLibraryEntry) => void;
+}) {
+	const { t } = useI18n();
+	const runtime = useRuntime();
+	const [busy, setBusy] = useState(false);
+	const dmId = runtime.defaultActorId;
+	const record = runtime.state.widgets.packages[entry.packageId];
+	const offer =
+		runtime.state.permissions.actors[dmId]?.role === 'dm' &&
+		!runtime.preview &&
+		!entry.availability.available &&
+		!!record &&
+		!record.enabled &&
+		!record.removedAt &&
+		(record.trust.state === 'trusted' ||
+			(record.trust.state === 'unreviewed' &&
+				evaluateWidgetPackageAuthorTrust(record.package).eligible));
+	if (!offer) return null;
+	const enable = () => {
+		if (busy) return;
+		setBusy(true);
+		void runtime
+			.dispatch({
+				type: 'widget.package.enable',
+				actorId: dmId,
+				payload: { packageId: entry.packageId },
+			})
+			.then((result) =>
+				result.status === 'accepted' ? onEnabled(entry) : Toaster.error(result.rejection.message),
+			)
+			.catch((error: unknown) =>
+				Toaster.error(error instanceof Error ? error.message : String(error)),
+			)
+			.finally(() => setBusy(false));
+	};
+	return (
+		<li style={{ paddingLeft: 'var(--space-4)' }}>
+			<Button size="sm" variant="secondary" icon="check" disabled={busy} onClick={enable}>
+				{t('boardCanvas.add.enable', { name: entry.displayName })}
+			</Button>
+		</li>
 	);
 }

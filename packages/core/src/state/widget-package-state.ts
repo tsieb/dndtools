@@ -643,6 +643,13 @@ export interface WidgetPackageTrustReview {
 	hostPermissions: Record<WidgetHostPermission, WidgetHostPermissionDecision>;
 	reviewedBy: ActorId | null;
 	reviewedAt: string | null;
+	/**
+	 * RC-WID-6.2 — `author`: trusted at install on the installing DM's word, which the core grants
+	 * only to a package `evaluateWidgetPackageAuthorTrust` clears (template-only, no permission, a
+	 * "safe to trust" verdict). An upgrade that stops qualifying drops it back to `unreviewed`.
+	 * Absent on every other decision, including a DM's review in the trust sheet.
+	 */
+	basis?: 'author';
 }
 
 export interface WidgetPackageMigrationStatus {

@@ -60,6 +60,8 @@ export function SceneEditor() {
 	const [generated, setGenerated] = useState<WidgetPackageDefinition | null>(null);
 	// RC-CAN-4.1 — the gallery's "Build your own" opens the builder on a blank widget.
 	const [building, setBuilding] = useState(false);
+	// RC-WID-6.2 — what the builder installed enabled, until the gallery has placed it.
+	const [built, setBuilt] = useState<WidgetPackageDefinition | null>(null);
 	const [metaOpen, setMetaOpen] = useState(false);
 	const [propertiesDismissed, setPropertiesDismissed] = useState(false);
 	useEffect(() => setPropertiesDismissed(false), [editing, id]);
@@ -401,9 +403,12 @@ export function SceneEditor() {
 							setMetaOpen(false);
 						}}
 						onAdd={addWidget}
+						onPlaced={select}
 						error={error}
 						onGenerate={() => setGenerateOpen(true)}
 						onBuild={() => setBuilding(true)}
+						placePackage={built}
+						onPlacePackageDone={() => setBuilt(null)}
 						startAction={
 							<TemplateStartEntry
 								onPick={() => {
@@ -464,6 +469,7 @@ export function SceneEditor() {
 						setGenerated(null);
 						setBuilding(false);
 					}}
+					onInstalled={setBuilt}
 				/>
 			)}
 		</div>

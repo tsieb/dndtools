@@ -2784,6 +2784,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Se guardó {name} versión {version} y se actualizó cada copia colocada.',
 	'extensions.builder.installed':
 		'Se instaló {name}. Queda desactivado hasta que lo actives en Paquetes instalados.',
+	'extensions.builder.installedEnabled': 'Se instaló {name}. Está activado y listo para colocarlo.',
+	'extensions.builder.installedNeedsReview':
+		'Se instaló {name}. Seguirá desactivado hasta que lo revises y lo actives.',
+	'extensions.builder.openPackage': 'Abrir paquete',
 
 	'extensions.trust.title': 'Revisar {name}',
 	'extensions.trust.description':
@@ -5762,6 +5766,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'boardCanvas.add.library': 'Biblioteca de widgets',
 	'boardCanvas.add.pick': 'Añadir {name}',
 	'boardCanvas.add.added': 'Se añadió {name}',
+	'boardCanvas.add.enable': 'Activar {name}',
+	'boardCanvas.add.enabled': '{name} está activado. Elígelo para añadirlo.',
 	'boardCanvas.add.moreWays': 'Más formas de añadir',
 	'boardCanvas.add.generate': 'Generar con el asistente',
 	'boardCanvas.add.generateHint': 'Descríbelo y revisa el borrador antes de que se instale nada.',

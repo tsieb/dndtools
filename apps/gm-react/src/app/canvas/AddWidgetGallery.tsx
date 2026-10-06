@@ -1,7 +1,12 @@
 import type React from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { findWidgetDefinition, listWidgetLibrary, type WidgetLibraryEntry } from '@dndtools/core';
+import {
+	findWidgetDefinition,
+	listWidgetLibrary,
+	type WidgetLibraryEntry,
+	type WidgetPackageDefinition,
+} from '@dndtools/core';
 import { Button, Callout, Card, Icon, IconButton, Input, Sheet } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n } from '../../i18n';
@@ -24,6 +29,7 @@ import { StatBlockTemplate } from '../widgets/templates/StatBlock';
 import { StatusListTemplate } from '../widgets/templates/StatusList';
 import { TrackerTemplate } from '../widgets/templates/Tracker';
 import { WidgetLibraryCard } from './WidgetFrame';
+import { InPlaceEnable } from '../../screens/extensions/WidgetBuilder';
 
 // The free-slot search moved beside the palette rows that share it (RC-CAN-8.5).
 export { nextFreeSlot } from '../../screens/screen/paletteRows';
@@ -45,6 +51,9 @@ export { nextFreeSlot } from '../../screens/screen/paletteRows';
  * A pick closes the panel and places the tile through `placeNewTile` (the first free slot in view,
  * or the end of the reading order on a flow screen), then selects it (`onPlaced`), focuses it and
  * announces "Added <widget>".
+ *
+ * RC-WID-6.2 — a package the builder installed enabled comes back as `placePackage` and is placed
+ * through that same pick; a row dimmed only because its package is off gets `InPlaceEnable`.
  */
 
 /** The miniature's box. The tile is scaled down into it at its own default aspect, never up. */
@@ -348,6 +357,9 @@ export interface AddWidgetGalleryProps {
 	onGenerate?: () => void;
 	/** "Build your own" (RC-WID-2.1). The entry is omitted when absent. */
 	onBuild?: () => void;
+	/** RC-WID-6.2 — a package "Build your own" installed enabled: place it, then `onPlacePackageDone`. */
+	placePackage?: WidgetPackageDefinition | null;
+	onPlacePackageDone?: () => void;
 	/** Extra header action while the scene is empty (RC-CAN-4.4: the scene-template entry). */
 	startAction?: React.ReactNode;
 }
@@ -363,6 +375,8 @@ export function AddWidgetGallery({
 	error,
 	onGenerate,
 	onBuild,
+	placePackage,
+	onPlacePackageDone,
 	onDone,
 	startAction,
 }: AddWidgetGalleryProps) {
@@ -470,6 +484,26 @@ export function AddWidgetGallery({
 		}, 0);
 	}, [open, widgets, onPlaced, t]);
 
+	// Place a built package once the library lists it; a package that never lists (not a scene widget)
+	// is let go. The pick runs on the next tick, so `widgets` is the surface the builder closed onto.
+	const pickRef = useRef<(entry: WidgetLibraryEntry) => Promise<void>>(async () => {});
+	useEffect(() => {
+		if (!placePackage || !runtime.state.widgets.packages[placePackage.id]) return;
+		onPlacePackageDone?.();
+		const entry = listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, actorId, {
+			profileId: widgetProfileForRuntime(),
+		}).find((item) => item.packageId === placePackage.id);
+		if (entry) window.setTimeout(() => void pickRef.current(entry), 0);
+	}, [placePackage, onPlacePackageDone, runtime.state, actorId]);
+
+	// An in-place Enable succeeded: say so, and put the cursor on the row it made addable.
+	function enabled(entry: WidgetLibraryEntry) {
+		const text = t('boardCanvas.add.enabled', { name: entry.displayName });
+		setAnnouncement((last) => ({ text, seq: (last?.seq ?? 0) + 1 }));
+		const row = `[data-testid="gallery-entry-${entry.type}"]`;
+		window.setTimeout(() => bodyRef.current?.querySelector<HTMLElement>(row)?.focus(), 0);
+	}
+
 	async function pick(entry: WidgetLibraryEntry) {
 		if (busy || !entry.availability.available) return;
 		const size = defaultTileSize(entry.defaultSize, policy, entry.minSize);
@@ -485,6 +519,7 @@ export function AddWidgetGallery({
 			setBusy(false);
 		}
 	}
+	pickRef.current = pick;
 
 	const isCustom = (type: string) =>
 		findWidgetDefinition(runtime.state.widgets, type)?.renderEntrypoint?.runtime ===
@@ -597,15 +632,21 @@ export function AddWidgetGallery({
 						gap: 'var(--space-1)',
 					}}
 				>
-					{shown.map((entry) => (
+					{shown.flatMap((entry) => [
 						<WidgetLibraryCard
 							key={`${entry.packageId}:${entry.type}`}
 							entry={entry}
 							label={t('boardCanvas.add.pick', { name: entry.displayName })}
 							onPick={() => void pick(entry)}
 							onPreview={(row) => setPreview(row ? { entry, row } : null)}
-						/>
-					))}
+						/>,
+						// Its own row under the dimmed one: a button can't sit inside the row's button.
+						<InPlaceEnable
+							key={`${entry.packageId}:${entry.type}:on`}
+							entry={entry}
+							onEnabled={enabled}
+						/>,
+					])}
 				</ul>
 			)}
 			{(onGenerate || onBuild) && (

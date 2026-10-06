@@ -2817,6 +2817,11 @@ export default {
 		'[Šáṽéď ~~~{name} ṽéŕšíóñ ~~~~{version} áñď úƥďáţéď éṽéŕý ƥľáçéď çóƥý.~~~~ ~~~~ ~~~]',
 	'extensions.builder.installed':
 		'[Íñšţáľľéď ~~~~{name}. Íţ íš ďíšáƀľéď úñţíľ ýóú éñáƀľé íţ íñ Íñšţáľľéď ƥáçķáğéš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'extensions.builder.installedEnabled':
+		'[Íñšţáľľéď ~~~~{name}. Íţ íš óñ áñď ŕéáďý ţó ƥľáçé.~~~~ ~~~~ ~~]',
+	'extensions.builder.installedNeedsReview':
+		'[Íñšţáľľéď ~~~~{name}. Íţ šţáýš óƒƒ úñţíľ ýóú ŕéṽíéŵ áñď éñáƀľé íţ.~~~~ ~~~~ ~~~~ ~~~~]',
+	'extensions.builder.openPackage': '[Óƥéñ ƥáçķáğé~~~~ ]',
 	'extensions.trust.title': '[Ŕéṽíéŵ ~~~{name}]',
 	'extensions.trust.description':
 		'[Ďéçíďé ŵĥáţ ţĥíš ƥáçķáğé ḿáý ŕéáçĥ. Éṽéŕýţĥíñğ íš ďéñíéď úñţíľ ýóú áľľóŵ íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
@@ -5931,6 +5936,8 @@ export default {
 	'boardCanvas.add.library': '[Ŵíďğéţ ľíƀŕáŕý~~~~ ~]',
 	'boardCanvas.add.pick': '[Áďď ~~{name}]',
 	'boardCanvas.add.added': '[Áďďéď ~~~{name}]',
+	'boardCanvas.add.enable': '[Éñáƀľé ~~~{name}]',
+	'boardCanvas.add.enabled': '[{name} íš óñ. Ƥíçķ íţ ţó áďď íţ.~~~~ ~~~~ ~]',
 	'boardCanvas.add.moreWays': '[Ḿóŕé ŵáýš ţó áďď~~~~ ~~]',
 	'boardCanvas.add.generate': '[Ğéñéŕáţé ŵíţĥ áššíšţáñţ~~~~ ~~~~ ]',
 	'boardCanvas.add.generateHint':

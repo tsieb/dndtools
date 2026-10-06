@@ -102,13 +102,10 @@ test.describe('widget builder: build, install, place', () => {
 		expect(definition.renderEntrypoint?.template).toBe('status-list');
 		expect(definition.dataQueries?.[0]?.source).toBe('current-combatants');
 		expect(definition.placement?.surfaces).toContain('scene');
-		// Fail closed: a package the DM just wrote is still unreviewed and disabled.
-		expect(record!.enabled).toBe(false);
-		expect(record!.trust.state).toBe('unreviewed');
-
-		// ── Enable it from the same panel, through the real switch.
-		await page.getByRole('switch', { name: 'Enable Party status' }).click();
-		await expect.poll(async () => (await installedPackage(page, PACKAGE_ID))?.enabled).toBe(true);
+		// RC-WID-6.2: a template the DM wrote, with no permission, is trusted on their word and on.
+		expect(record!.enabled).toBe(true);
+		expect(record!.trust.state).toBe('trusted');
+		await expect(page.getByRole('switch', { name: 'Enable Party status' })).toBeChecked();
 
 		// ── Place it on a scene through the scene editor's own Add panel.
 		const sceneName = `Builder Scene ${Date.now()}`;
@@ -340,8 +337,7 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 			definition.commands.find((command) => command.type.endsWith('.roll'))?.requiredCapability,
 		).toBe('operator');
 
-		// ── Enable, place, select: the declared field is a live control in the Inspector.
-		await page.getByRole('switch', { name: 'Enable Party status' }).click();
+		// ── Already on (RC-WID-6.2). Place, select: the declared field is a live control in the Inspector.
 		await expect.poll(async () => (await installedPackage(page, PACKAGE_ID))?.enabled).toBe(true);
 
 		const sceneName = `Config Scene ${Date.now()}`;
@@ -560,12 +556,17 @@ test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
 		// A widget running its own code previews as the DM; the picker says so rather than lying.
 		await expect(dialog.getByRole('radio', { name: 'Preview as player' })).toBeDisabled();
 
-		// ── Review installs it: custom runtime, three assets, and no trust it has not earned.
+		// ── Review installs it: custom runtime, three assets, and no trust it has not earned. The
+		// trust sheet opens over the builder (RC-WID-6.2); leaving it leaves the package off.
 		await showPane(page, 'Edit');
 		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
 		await expect(dialog.getByText('Requires review')).toBeVisible();
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		const sheet = page.getByRole('dialog', { name: 'Review Torch card' });
+		await expect(sheet).toBeVisible();
+		await sheet.getByRole('button', { name: 'Cancel' }).click();
 		await expect(dialog).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Open package' })).toBeVisible();
 
 		const record = await page.evaluate((packageId) => {
 			const packages = (

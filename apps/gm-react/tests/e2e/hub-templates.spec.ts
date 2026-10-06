@@ -105,7 +105,8 @@ test('bare frame keeps a labelled region and focus ring, and edit mode restores 
 	await dialog.getByRole('button', { name: 'Review', exact: true }).click();
 	await dialog.getByRole('button', { name: 'Install widget' }).click();
 	await expect(dialog).toHaveCount(0);
-	await page.getByRole('switch', { name: 'Enable Hub example' }).click();
+	// RC-WID-6.2 — a template with no permission installs trusted and already on.
+	await expect(page.getByRole('switch', { name: 'Enable Hub example' })).toBeChecked();
 	const actor = await page.evaluate(() => window.__rt!.defaultActorId);
 	const result = await dispatch(page, {
 		type: 'scene.create',
