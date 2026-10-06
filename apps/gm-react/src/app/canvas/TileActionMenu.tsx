@@ -17,6 +17,7 @@ import {
 } from '../board-helpers';
 import { T } from '../screen-kit';
 import { GRID } from '../SceneBoardModel';
+import { useEditWidget } from '../../screens/extensions/WidgetBuilder';
 import {
 	bindingSlot,
 	sceneInstance,
@@ -40,6 +41,7 @@ const TEXT = {
 	bind: 'Bind…',
 	configure: 'Configure…',
 	configureNone: 'Configure… (no settings)',
+	edit: 'Edit widget',
 	visibility: 'Visibility',
 	remove: 'Remove',
 };
@@ -64,6 +66,7 @@ const FLOW_TEXT = {
 	moveBack: 'Move back',
 	moveForward: 'Move forward',
 	moveToEnd: 'Move to end',
+	edit: 'Edit widget',
 	width: 'Width',
 	remove: 'Remove',
 };
@@ -222,6 +225,8 @@ export function TileActionMenu({
 	} | null>(null);
 	const [subOpen, setSubOpen] = useState(false);
 	const [dialog, setDialog] = useState<'bind' | 'configure' | null>(null);
+	// RC-WID-6.6 — "Edit widget": the builder on this tile's definition, copied first when not the GM's.
+	const edit = useEditWidget(w.id, w.type);
 	const label = TEXT.actions(w.title);
 	const show = (at?: Point) => {
 		setSubOpen(false);
@@ -452,6 +457,19 @@ export function TileActionMenu({
 								else if (configurable) openDialog('configure');
 							}}
 						/>
+						{edit.available && (
+							<MenuRow
+								icon="edit"
+								label={TEXT.edit}
+								onSelect={() => {
+									// The frame holds focus, so the builder hands it back there on close.
+									const frame = anchorRef.current?.parentElement;
+									close();
+									frame?.focus();
+									void edit.open();
+								}}
+							/>
+						)}
 						<div role="none">
 							<MenuRow
 								icon="eye"
@@ -513,6 +531,7 @@ export function TileActionMenu({
 					</div>,
 					document.body,
 				)}
+			{edit.editor}
 		</div>
 	);
 }
@@ -595,6 +614,7 @@ export function FlowTileMenu({
 	// and at phone, where every placement is span 1, it would tick EVERY row at once.
 	const authoredSpan = flowSpanOf(w, AUTHORING_COLUMNS);
 	const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+	const edit = useEditWidget(w.id, w.type);
 	const label = FLOW_TEXT.actions(w.title);
 	const close = () => setBox(null);
 	// Under the trigger, or at the pointer for a right-click or long-press (RC-CAN-8.3).
@@ -699,6 +719,15 @@ export function FlowTileMenu({
 									/>
 								))}
 							</div>
+							{edit.available && (
+								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
+									<FlowMenuRow
+										icon="edit"
+										label={FLOW_TEXT.edit}
+										onSelect={() => run(() => void edit.open())}
+									/>
+								</div>
+							)}
 							{onRemove && (
 								<div style={{ borderTop: `1px solid ${T.bd}`, marginTop: T.space.one }}>
 									<FlowMenuRow
@@ -712,6 +741,7 @@ export function FlowTileMenu({
 					</div>,
 					document.body,
 				)}
+			{edit.editor}
 		</div>
 	);
 }

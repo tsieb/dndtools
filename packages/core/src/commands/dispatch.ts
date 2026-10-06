@@ -14,6 +14,8 @@ import {
 	handleDuplicateScene,
 	handleReorderScreenPins,
 	handleSetScreenLayoutPolicy,
+	// RC-WID-6.6
+	handleRepointWidget,
 	handleSetScreenPinned,
 } from './scene';
 import {
@@ -118,6 +120,8 @@ import {
 	handleDisableWidgetPackage,
 	handleEnableWidgetPackage,
 	handleInstallWidgetPackage,
+	// RC-WID-6.6
+	handleForkWidgetPackage,
 	handleRemoveWidgetPackage,
 	// RC-WID-1.5 — the DM's trust review of an installed package.
 	handleReviewWidgetPackage,
@@ -402,6 +406,11 @@ export function dispatchCommand(
 		// --- RC-WID-1.5 — TRUST REVIEW (append-only) ------------------------------------------------
 		case 'widget.package.review':
 			return handleReviewWidgetPackage(state, env, command.actorId, command.payload);
+		// --- RC-WID-6.6 — FORK A WIDGET, RE-POINT A PLACED COPY (append-only) ------------------------
+		case 'widget.package.fork':
+			return handleForkWidgetPackage(state, env, command.actorId, command.payload);
+		case 'scene.repoint-widget':
+			return handleRepointWidget(state, env, command.actorId, command.payload);
 		case 'widget.package.switch-system':
 			return handleSwitchSystemPackage(state, env, command.actorId, command.payload);
 		// --- RC-SYS-1.3 — SYSTEM PACKAGE commands (append-only block) -------------------------------

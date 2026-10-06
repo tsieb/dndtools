@@ -1,9 +1,12 @@
 import {
 	duplicateSceneInputSchema,
 	reorderScreenPinsInputSchema,
+	// RC-WID-6.6
+	repointWidgetInputSchema,
 	setScreenLayoutPolicyInputSchema,
 	setScreenPinnedInputSchema,
 } from '../schemas/commands';
+import { findPackageRecordForWidgetType } from '../state/widget-package-state';
 import {
 	SCENE_SCHEMA_VERSION,
 	isLiveScene,
@@ -19,11 +22,14 @@ import {
 import {
 	appendOperationDraft,
 	bumpRevision,
+	findWidget,
 	parseInput,
 	reject,
+	replaceWidget,
 	requireActor,
 	requireDm,
 	requireScene,
+	validateObjectAgainstSchema,
 	withScene,
 } from './helpers';
 import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
@@ -411,6 +417,144 @@ export function handleDuplicateScene(
 				sourceSceneId: source.id,
 				newSceneId: newId,
 				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * RC-WID-6.6 — `scene.repoint-widget`: a placed widget draws as its fork from now on (the tile's
+ * "Edit widget"), or a fork's placed copy goes back to the widget it was copied from.
+ *
+ * Only that lineage is accepted. The target must name the instance's current type in
+ * `authoring.forkedFrom`, or the instance's current package must name the target there, so this can
+ * never turn a tile into an unrelated widget and skip what `scene.add-widget` checks. The target's
+ * package must be installed and on, as for a placement. The instance keeps its id, layout, binding
+ * and local state; it moves to the target's version, and its configuration must satisfy the
+ * target's schema. `disabled` is cleared: it described the old package, and the scene read re-derives
+ * the new one's status. DM-only, like the fork itself.
+ */
+export function handleRepointWidget(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+	const parsed = parseInput(repointWidgetInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = requireScene(state, parsed.data.sceneId);
+	if ('code' in scene) return reject(scene, state);
+	const instance = findWidget(scene, parsed.data.widgetInstanceId);
+	if (!instance) {
+		return reject(
+			{
+				code: 'widget-not-found',
+				message: `Widget ${parsed.data.widgetInstanceId} not found on Scene ${scene.id}.`,
+			},
+			state,
+		);
+	}
+	const widgetType = parsed.data.widgetType;
+	if (widgetType === instance.type) {
+		return reject(
+			{ code: 'invalid-state', message: `Widget ${instance.id} is already a ${widgetType}.` },
+			state,
+		);
+	}
+	const target = findPackageRecordForWidgetType(state.widgets, widgetType);
+	if (!target || target.removedAt) {
+		return reject(
+			{
+				code: 'package-not-found',
+				message: `No installed package declares widget type ${widgetType}.`,
+			},
+			state,
+		);
+	}
+	const current = findPackageRecordForWidgetType(state.widgets, instance.type);
+	const ontoFork = target.package.authoring?.forkedFrom;
+	const backFromFork = current?.package.authoring?.forkedFrom;
+	const related =
+		(ontoFork?.widgetType === instance.type &&
+			(!current || ontoFork.packageId === current.package.id)) ||
+		(backFromFork?.widgetType === widgetType && backFromFork.packageId === target.package.id);
+	if (!related) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `${widgetType} is not a copy of ${instance.type}, nor the widget it was copied from.`,
+			},
+			state,
+		);
+	}
+	if (!target.enabled) {
+		return reject(
+			{
+				code: 'package-disabled',
+				message: `Widget package ${target.package.id} is disabled.`,
+			},
+			state,
+		);
+	}
+	const definition = target.package.widgets.find((candidate) => candidate.type === widgetType)!;
+	const configIssues = validateObjectAgainstSchema(
+		definition.configurationSchema,
+		instance.configuration,
+	);
+	if (configIssues.length > 0) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: `Widget ${instance.id}'s settings do not fit ${widgetType}.`,
+				issues: configIssues.map((issue) => ({
+					path: `configuration.${issue.path}`,
+					message: issue.message,
+				})),
+			},
+			state,
+		);
+	}
+
+	const nextWidget: WidgetInstance = {
+		...instance,
+		type: widgetType,
+		version: definition.version,
+		disabled: null,
+	};
+	const nextScene = bumpRevision(replaceWidget(scene, nextWidget), env);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.repoint-widget',
+		path: `widgets/${instance.id}/type`,
+		value: {
+			sceneId: scene.id,
+			widgetInstanceId: instance.id,
+			fromType: instance.type,
+			fromVersion: instance.version,
+			widgetType,
+			version: definition.version,
+		},
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [
+			{
+				kind: 'scene.widget-repointed',
+				sceneId: scene.id,
+				widgetInstanceId: instance.id,
+				actorId: actor.id,
+				widgetType,
 			},
 		],
 		operationIds: [op.id],

@@ -1,5 +1,7 @@
 import {
 	CUSTOM_WIDGET_HOST_API_VERSION,
+	findPackageRecordForWidgetType,
+	type CoreStateSlice,
 	type PlatformProfileId,
 	type WidgetBindingDefinition,
 	type WidgetCommandDescriptor,
@@ -13,6 +15,7 @@ import {
 	type WidgetMigration,
 	type WidgetNetworkDestinationClass,
 	type WidgetPackageDefinition,
+	type WidgetPackageRecord,
 	type WidgetStyleCapability,
 	type WidgetStyleIsolation,
 	type WidgetStyleTokenDefinition,
@@ -24,6 +27,7 @@ import {
 	CUSTOM_STYLE_PATH,
 	customCodeAssets,
 	readCustomCode,
+	readEntrypointBody,
 	type CustomCodeSource,
 } from './customCode';
 import type { MessageKey } from '../../i18n';
@@ -443,7 +447,7 @@ export function readPackage(
 		runtime: widget.renderEntrypoint?.runtime === 'custom-html-js' ? 'custom-html-js' : 'template',
 		customCode:
 			widget.renderEntrypoint?.runtime === 'custom-html-js'
-				? readCustomCode(pkg.assets, widget.renderEntrypoint.assetPath)
+				? readPackageCustomCode(pkg, widget)
 				: { html: '', css: '', js: '' },
 		networkDestinations: [...(widget.networkDestinationClasses ?? [])],
 		hostPermissions: [...widget.hostPermissions],
@@ -451,6 +455,49 @@ export function readPackage(
 		baseVersion: proposed ? null : pkg.version,
 		baseConfigKeys: proposed ? [] : (widget.configFields ?? []).map((field) => field.key),
 		...authoring,
+	};
+}
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * RC-WID-6.6 — the three editors' code for a custom widget. A package this builder wrote reads
+ * straight back. One it did not (a starter, an import, a fork of either) keeps its files beside its
+ * entrypoint under names of its own, and its markup is a whole document: its stylesheet and script
+ * are found by what the widget declares and by kind, and its markup is the document's body without
+ * the stylesheet link and script tag the builder's own document adds back around it. Without this a
+ * forked Torchlight opened with empty CSS and JS, and saving it lost both.
+ */
+function readPackageCustomCode(pkg: WidgetPackageDefinition, widget: WidgetDefinition) {
+	const entryPath = widget.renderEntrypoint?.assetPath ?? CUSTOM_ENTRY_PATH;
+	const assetAt = (path: string | undefined) => pkg.assets.find((asset) => asset.path === path);
+	const text = (path: string | undefined) => {
+		const asset = assetAt(path);
+		return asset && asset.contentEncoding !== 'base64' ? (asset.content ?? '') : '';
+	};
+	const document = text(entryPath);
+	if (entryPath === CUSTOM_ENTRY_PATH && readEntrypointBody(document) !== document)
+		return readCustomCode(pkg.assets, entryPath);
+	const stylesheet =
+		assetAt(widget.style?.stylesheetAssetPaths?.[0]) ??
+		pkg.assets.find((asset) => asset.kind === 'css');
+	const script = pkg.assets.find((asset) => asset.kind === 'javascript');
+	let html = /<body[^>]*>([\s\S]*)<\/body>/i.exec(document)?.[1] ?? document;
+	for (const file of [stylesheet?.path, script?.path]) {
+		const name = file?.split('/').pop();
+		if (!name) continue;
+		const ref = `["'](?:\\./)?${escapeRegExp(name)}["']`;
+		html = html
+			.replace(
+				new RegExp(`^[ \\t]*<script[^>]*src=${ref}[^>]*>\\s*</script>[ \\t]*\\n?`, 'gim'),
+				'',
+			)
+			.replace(new RegExp(`^[ \\t]*<link[^>]*href=${ref}[^>]*>[ \\t]*\\n?`, 'gim'), '');
+	}
+	return {
+		html: html.replace(/^\s*\n|\n\s*$/g, ''),
+		css: text(stylesheet?.path),
+		js: text(script?.path),
 	};
 }
 
@@ -493,4 +540,189 @@ export function validateIntents(draft: WidgetDraft): DraftIssue[] {
 			message: 'builder.issue.intentsNeedNavigate',
 		});
 	return issues;
+}
+
+/* ── RC-WID-6.6 — drafts that survive ─────────────────────────────────────────────────────────── */
+
+/** A builder draft kept on this device until it is installed or discarded. */
+export interface StoredWidgetDraft {
+	draft: WidgetDraft;
+	step: BuilderStepId;
+	savedAt: string;
+}
+
+/** How many drafts one device keeps per vault; the oldest goes first. */
+export const MAX_STORED_DRAFTS = 12;
+
+/**
+ * Where a builder session's draft is kept: the id of the package it was opened on, so an edit of
+ * one installed widget never resumes into another. A brand-new widget has no package yet and keeps
+ * its one draft under the empty key.
+ */
+export function draftStorageKey(packageId: string | null | undefined): string {
+	return packageId ?? '';
+}
+
+/** The step a widget opens on for editing from a tile: Advanced for custom code, Data otherwise. */
+export function editStepFor(draft: Pick<WidgetDraft, 'runtime'>): BuilderStepId {
+	return draft.runtime === 'custom-html-js' ? 'advanced' : 'data';
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** JSON with every object's keys sorted, so two equal drafts compare equal whatever built them. */
+function stableJson(value: unknown): string {
+	return JSON.stringify(value, (_key, entry: unknown) =>
+		isRecord(entry)
+			? Object.fromEntries(Object.entries(entry).sort(([a], [b]) => a.localeCompare(b)))
+			: entry,
+	);
+}
+
+/** Whether the draft differs from the one the builder opened with. */
+export function isDraftDirty(baseline: WidgetDraft, draft: WidgetDraft): boolean {
+	return stableJson(baseline) !== stableJson(draft);
+}
+
+/**
+ * Read a stored draft back over a fresh empty one, field by field, keeping only a value of the
+ * shape the empty draft has. A draft written by an older build, or edited by hand, then opens with
+ * defaults where it disagrees instead of crashing a step that maps over a field it expects to be a
+ * list. Anything that is not an object is no draft at all.
+ */
+function normalizeStoredDraft(value: unknown): WidgetDraft | null {
+	if (!isRecord(value)) return null;
+	const base = emptyDraft() as unknown as Record<string, unknown>;
+	const next: Record<string, unknown> = { ...base };
+	for (const [key, fallback] of Object.entries(base)) {
+		const stored = value[key];
+		if (stored === undefined) continue;
+		const fits =
+			fallback === null
+				? stored === null || typeof stored === 'string'
+				: Array.isArray(fallback)
+					? Array.isArray(stored)
+					: isRecord(fallback)
+						? isRecord(stored)
+						: typeof stored === typeof fallback;
+		if (fits) next[key] = stored;
+	}
+	if (isRecord(value.authoring) && typeof value.authoring.source === 'string')
+		next.authoring = value.authoring;
+	return next as unknown as WidgetDraft;
+}
+
+/** Every draft in the stored value, oldest first. A value that does not parse holds none. */
+function parseDraftStore(raw: string | null): Record<string, StoredWidgetDraft> {
+	if (!raw) return {};
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return {};
+	}
+	if (!isRecord(parsed)) return {};
+	const store: Record<string, StoredWidgetDraft> = {};
+	for (const [key, entry] of Object.entries(parsed)) {
+		if (!isRecord(entry)) continue;
+		const draft = normalizeStoredDraft(entry.draft);
+		const step = STEP_IDS.find((id) => id === entry.step);
+		if (!draft || !step || typeof entry.savedAt !== 'string') continue;
+		store[key] = { draft, step, savedAt: entry.savedAt };
+	}
+	return store;
+}
+
+/**
+ * The kept draft to carry on from. When the package moved on since it was kept (another device, an
+ * import, a second edit), the GM's changes go on top of the version installed now: the version,
+ * base version and base config keys come from what the builder opened with, so saving it upgrades
+ * from the live version instead of re-issuing an old one.
+ */
+export function resumeDraft(baseline: WidgetDraft, kept: WidgetDraft): WidgetDraft {
+	if (kept.baseVersion === baseline.baseVersion) return kept;
+	return {
+		...kept,
+		version: baseline.version,
+		baseVersion: baseline.baseVersion,
+		baseConfigKeys: [...baseline.baseConfigKeys],
+	};
+}
+
+/** The draft kept under `key`, or null. */
+export function readStoredDraft(raw: string | null, key: string): StoredWidgetDraft | null {
+	return parseDraftStore(raw)[key] ?? null;
+}
+
+/** The stored value with `entry` kept under `key`, dropping the oldest drafts past the cap. */
+export function writeStoredDraft(
+	raw: string | null,
+	key: string,
+	entry: StoredWidgetDraft,
+): string {
+	const store = parseDraftStore(raw);
+	delete store[key];
+	const kept = Object.entries(store)
+		.sort(([, a], [, b]) => a.savedAt.localeCompare(b.savedAt))
+		.slice(-(MAX_STORED_DRAFTS - 1));
+	return JSON.stringify(Object.fromEntries([...kept, [key, entry]]));
+}
+
+/** The stored value without `key`; null once no draft is left, so the preference can be removed. */
+export function removeStoredDraft(raw: string | null, key: string): string | null {
+	const store = parseDraftStore(raw);
+	delete store[key];
+	return Object.keys(store).length > 0 ? JSON.stringify(store) : null;
+}
+
+/* ── RC-WID-6.6 — every tile can become yours ─────────────────────────────────────────────────── */
+
+/** What "Edit widget" on a placed tile opens. */
+export type WidgetEditTarget =
+	/** The GM's own single-widget package, edited in place. */
+	| { kind: 'own'; record: WidgetPackageRecord }
+	/** A copy of the tile's widget an earlier edit made and nothing is placed on yet: reused. */
+	| { kind: 'copy'; record: WidgetPackageRecord }
+	/** Anything else: copied first with `widget.package.fork`. */
+	| { kind: 'fork'; source: WidgetPackageRecord; name: string };
+
+/** A package the builder edits in place: the GM's own, holding exactly the one widget. */
+function isOwnWidgetPackage(record: WidgetPackageRecord): boolean {
+	return (
+		!record.removedAt &&
+		record.package.authoring?.source === 'user-authored' &&
+		record.package.widgets.length === 1
+	);
+}
+
+/**
+ * Where "Edit widget" goes for a tile of `widgetType`, or null when it cannot: the package is gone,
+ * or the widget draws with a built-in renderer the builder cannot express (and a copy under a new
+ * type would have nothing to draw it).
+ */
+export function widgetEditTarget(
+	state: Pick<CoreStateSlice, 'widgets' | 'scenes'>,
+	widgetType: string,
+): WidgetEditTarget | null {
+	const record = findPackageRecordForWidgetType(state.widgets, widgetType);
+	const widget = record?.package.widgets.find((candidate) => candidate.type === widgetType);
+	const runtime = widget?.renderEntrypoint?.runtime;
+	if (!record || !widget || record.removedAt) return null;
+	if (runtime !== 'template' && runtime !== 'custom-html-js') return null;
+	if (isOwnWidgetPackage(record)) return { kind: 'own', record };
+	const placed = (type: string) =>
+		Object.values(state.scenes.scenes).some((scene) =>
+			scene.widgets.some((instance) => instance.type === type),
+		);
+	const copy = Object.values(state.widgets.packages).find(
+		(candidate) =>
+			isOwnWidgetPackage(candidate) &&
+			candidate.package.authoring?.forkedFrom?.packageId === record.package.id &&
+			candidate.package.authoring.forkedFrom.widgetType === widgetType &&
+			!placed(candidate.package.widgets[0]!.type),
+	);
+	return copy
+		? { kind: 'copy', record: copy }
+		: { kind: 'fork', source: record, name: widget.displayName };
 }

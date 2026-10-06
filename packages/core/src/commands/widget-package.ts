@@ -7,11 +7,14 @@ import {
 	reviewWidgetPackageInputSchema,
 	switchSystemPackageInputSchema,
 	upgradeWidgetPackageInputSchema,
+	// RC-WID-6.6 — copy one installed widget into a package the DM owns.
+	forkWidgetPackageInputSchema,
 } from '../schemas/commands';
 import { previewSystemSwitch } from '../queries/system-switch-query';
 import {
 	buildWidgetPackageReviewSummary,
 	evaluateWidgetPackageAuthorTrust,
+	type WidgetAuthorTrustEvaluation,
 } from '../queries/widget-package-review';
 import type { WidgetPackageDefinitionParsed } from '../schemas/widget-package';
 import type {
@@ -476,7 +479,32 @@ export function handleInstallWidgetPackage(
 			state,
 		);
 	}
-	const unreviewed = recordFromPackage(env, actor.id, definition, diagnostics);
+	return commitInstalledPackage(state, env, actor.id, definition, diagnostics, evaluation, {
+		opType: 'widget.package.install',
+		value: {
+			packageId: definition.id,
+			version: definition.version,
+			...(evaluation ? { trust: 'author' } : {}),
+		},
+	});
+}
+
+/**
+ * Write a validated, normalized package as a new install: `widget.package.install` and
+ * `widget.package.fork` (RC-WID-6.6) share it, so a copy lands exactly as an install with the same
+ * trust outcome would. `evaluation` is an author-trust verdict the caller has already checked eligible; null
+ * keeps the fail-closed path (`unreviewed`, disabled, every permission denied).
+ */
+function commitInstalledPackage(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	definition: WidgetPackageDefinition,
+	diagnostics: WidgetDiagnostic[],
+	evaluation: WidgetAuthorTrustEvaluation | null,
+	audit: { opType: string; value: Record<string, unknown> },
+): Extract<CommandResult, { status: 'accepted' }> {
+	const unreviewed = recordFromPackage(env, actorId, definition, diagnostics);
 	const record: WidgetPackageRecord = evaluation
 		? {
 				...unreviewed,
@@ -489,15 +517,11 @@ export function handleInstallWidgetPackage(
 		...state.widgets,
 		packages: { ...state.widgets.packages, [definition.id]: record },
 	};
-	const { log: installLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+	const { log: installLog, op } = appendOperationDraft(env, state.sync, actorId, {
 		entityType: 'widget-package',
 		entityId: definition.id,
-		opType: 'widget.package.install',
-		value: {
-			packageId: definition.id,
-			version: definition.version,
-			...(evaluation ? { trust: 'author' } : {}),
-		},
+		opType: audit.opType,
+		value: audit.value,
 		beforeRevision: 0,
 		afterRevision: record.revision,
 	});
@@ -505,13 +529,13 @@ export function handleInstallWidgetPackage(
 		return {
 			status: 'accepted',
 			nextState: { ...state, widgets: nextWidgets, sync: installLog },
-			events: [{ kind: 'widget.package-installed', packageId: definition.id, actorId: actor.id }],
+			events: [{ kind: 'widget.package-installed', packageId: definition.id, actorId }],
 			operationIds: [op.id],
 		};
 	}
 	// The audit entry: the same `widget.package.review` record a review in the sheet writes, naming
 	// the DM, the analysis' verdict and the author basis, so the decision is never invisible.
-	const { log: nextLog, op: reviewOp } = appendOperationDraft(env, installLog, actor.id, {
+	const { log: nextLog, op: reviewOp } = appendOperationDraft(env, installLog, actorId, {
 		entityType: 'widget-package',
 		entityId: definition.id,
 		opType: 'widget.package.review',
@@ -531,15 +555,15 @@ export function handleInstallWidgetPackage(
 		status: 'accepted',
 		nextState: { ...state, widgets: nextWidgets, sync: nextLog },
 		events: [
-			{ kind: 'widget.package-installed', packageId: definition.id, actorId: actor.id },
+			{ kind: 'widget.package-installed', packageId: definition.id, actorId },
 			{
 				kind: 'widget.package-reviewed',
 				packageId: definition.id,
-				actorId: actor.id,
+				actorId,
 				trustState: 'trusted',
 				approvedPermissions: [],
 			},
-			{ kind: 'widget.package-enabled', packageId: definition.id, actorId: actor.id },
+			{ kind: 'widget.package-enabled', packageId: definition.id, actorId },
 		],
 		operationIds: [op.id, reviewOp.id],
 	};
@@ -1214,5 +1238,226 @@ export function handleReviewWidgetPackage(
 			},
 		],
 		operationIds: [op.id],
+	};
+}
+
+/* ── RC-WID-6.6 — FORK ──────────────────────────────────────────────────────────────────────────── */
+
+function forkSlug(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/[^a-z0-9.]+/g, '-')
+		.replace(/-{2,}/g, '-')
+		.replace(/^[-.]+|[-.]+$/g, '');
+}
+
+/**
+ * The ids a fork of `widgetType` is installed under when the caller names none: the first free
+ * `user.<type>` package id and `<type>-copy` widget type, numbered together from `-2`. A package id
+ * counts as taken even when that package was removed, and a type counts as taken while any record
+ * declares it, because placed widgets resolve their package by type.
+ */
+export function widgetPackageForkIdentity(
+	state: WidgetPackageState,
+	widgetType: string,
+): { packageId: string; widgetType: string } {
+	const base = forkSlug(widgetType) || 'widget';
+	const typeTaken = (type: string) =>
+		Object.values(state.packages).some((record) =>
+			record.package.widgets.some((widget) => widget.type === type),
+		);
+	for (let n = 1; ; n += 1) {
+		const suffix = n === 1 ? '' : `-${n}`;
+		const identity = { packageId: `user.${base}${suffix}`, widgetType: `${base}-copy${suffix}` };
+		if (!state.packages[identity.packageId] && !typeTaken(identity.widgetType)) return identity;
+	}
+}
+
+export interface WidgetPackageForkTrustEvaluation {
+	/** Whether the copy is trusted and on at once, on the forking DM's word. */
+	eligible: boolean;
+	/** The RC-WID-6.2 rule, run on the copy itself. */
+	authorTrust: WidgetAuthorTrustEvaluation;
+	/** Why the source alone keeps the copy off, whatever the copy contains. */
+	sourceRefusals: { code: 'fork.source-denied' | 'fork.source-generated'; message: string }[];
+}
+
+/**
+ * RC-WID-6.6 — the trust a fork starts with. The copy is the forking DM's own package, so the
+ * RC-WID-6.2 author-trust rule is run on it afresh (nothing about the source's trust or approved
+ * permissions carries over). Two source states also keep it on the review path, because a copy must
+ * not be a way around a decision: a source the DM denied, and a generated source nobody has trusted
+ * yet, which the review analysis would have sent to the sheet before relabelling made it the DM's.
+ */
+export function evaluateWidgetPackageForkTrust(
+	source: WidgetPackageRecord,
+	fork: WidgetPackageDefinition,
+): WidgetPackageForkTrustEvaluation {
+	const authorTrust = evaluateWidgetPackageAuthorTrust(fork);
+	const sourceRefusals: WidgetPackageForkTrustEvaluation['sourceRefusals'] = [];
+	if (source.trust.state === 'denied') {
+		sourceRefusals.push({
+			code: 'fork.source-denied',
+			message: `${source.package.displayName} was denied, so a copy of it needs a review before it is trusted.`,
+		});
+	}
+	if (source.package.authoring?.source === 'generated' && source.trust.state !== 'trusted') {
+		sourceRefusals.push({
+			code: 'fork.source-generated',
+			message: `${source.package.displayName} was generated and not reviewed yet, so a copy of it needs a review before it is trusted.`,
+		});
+	}
+	return {
+		eligible: authorTrust.eligible && sourceRefusals.length === 0,
+		authorTrust,
+		sourceRefusals,
+	};
+}
+
+/**
+ * `widget.package.fork` — copy one widget of any installed package into a new user-authored package
+ * the DM can edit in the builder: a starter, a bundled package, one widget out of several.
+ *
+ * Only the source is named. The definition (style, queries, commands, config fields) and the
+ * package's assets are copied from the core's own state; the copy gets a fresh type and package id
+ * (`widgetPackageForkIdentity` unless the caller names them), version 1.0.0, no migrations, and
+ * `authoring: { source: 'user-authored', forkedFrom }`. It then goes through the install schema and
+ * validation, so a copy is exactly as valid as an install of it would be, and lands through the
+ * install path with the trust `evaluateWidgetPackageForkTrust` gives it: trusted and on for a
+ * template the RC-WID-6.2 rule clears, otherwise `unreviewed`, off and every permission denied.
+ *
+ * A widget drawn by a built-in renderer cannot be copied: that renderer is keyed by its own type, so
+ * a copy under a new type would have nothing to draw it. Nothing placed is touched here; moving a
+ * placed copy onto the fork is `scene.repoint-widget`.
+ */
+export function handleForkWidgetPackage(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+	const parsed = parseInput(forkWidgetPackageInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const source = requirePackage(state, parsed.data.packageId);
+	if ('code' in source) return reject(source, state);
+	if (source.removedAt) {
+		return reject(
+			{ code: 'package-not-found', message: `Widget package ${source.package.id} was removed.` },
+			state,
+		);
+	}
+	const widget = source.package.widgets.find((entry) => entry.type === parsed.data.widgetType);
+	if (!widget) {
+		return reject(
+			{
+				code: 'package-not-found',
+				message: `Widget package ${source.package.id} does not declare ${parsed.data.widgetType}.`,
+			},
+			state,
+		);
+	}
+	const runtime = widget.renderEntrypoint?.runtime;
+	if (runtime !== 'template' && runtime !== 'custom-html-js') {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `${widget.displayName} is drawn by a built-in renderer, so it cannot be copied.`,
+			},
+			state,
+		);
+	}
+
+	const derived = widgetPackageForkIdentity(state.widgets, widget.type);
+	const forkPackageId = parsed.data.forkPackageId ?? derived.packageId;
+	const forkWidgetType = parsed.data.forkWidgetType ?? derived.widgetType;
+	if (state.widgets.packages[forkPackageId]) {
+		return reject(
+			{ code: 'invalid-state', message: `Widget package ${forkPackageId} already exists.` },
+			state,
+		);
+	}
+	if (findPackageRecordForWidgetType(state.widgets, forkWidgetType)) {
+		return reject(
+			{ code: 'invalid-state', message: `Widget type ${forkWidgetType} is already declared.` },
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const version = '1.0.0';
+	const displayName = parsed.data.displayName ?? `${widget.displayName} (copy)`;
+	// A JSON round trip is the whole of a definition: it is plain data, and the copy must share no
+	// object with the source's record.
+	const copied = JSON.parse(JSON.stringify(widget)) as WidgetDefinition;
+	const candidate: WidgetPackageDefinition = {
+		id: forkPackageId,
+		version,
+		displayName,
+		// The widget's version is the package's, as the builder writes it: a placed instance is
+		// created and migrated at the package version.
+		widgets: [{ ...copied, type: forkWidgetType, version, displayName, author: 'user' }],
+		migrations: [],
+		assets: JSON.parse(JSON.stringify(source.package.assets)) as WidgetPackageDefinition['assets'],
+		portabilityWarnings: [...source.package.portabilityWarnings],
+		authoring: {
+			source: 'user-authored',
+			createdBy: 'widget.package.fork',
+			createdAt: now,
+			forkedFrom: {
+				packageId: source.package.id,
+				version: source.package.version,
+				widgetType: widget.type,
+			},
+		},
+	};
+	const reparsed = parseInput(installWidgetPackageInputSchema, { package: candidate });
+	if (!reparsed.ok) return reject(reparsed.rejection, state);
+	const diagnostics = validateWidgetPackageDefinition(env, reparsed.data.package);
+	if (diagnostics.some((item) => item.severity === 'error')) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: `A copy of ${widget.displayName} failed schema validation.`,
+				issues: diagnostics.map((item) => ({ path: item.code, message: item.message })),
+			},
+			state,
+		);
+	}
+	const definition = normalizeDefinition(reparsed.data.package);
+	const trust = evaluateWidgetPackageForkTrust(source, definition);
+	const result = commitInstalledPackage(
+		state,
+		env,
+		actor.id,
+		definition,
+		diagnostics,
+		trust.eligible ? trust.authorTrust : null,
+		{
+			opType: 'widget.package.fork',
+			value: {
+				packageId: definition.id,
+				version: definition.version,
+				forkedFrom: definition.authoring?.forkedFrom,
+				trust: trust.eligible ? 'author' : 'unreviewed',
+			},
+		},
+	);
+	return {
+		...result,
+		events: [
+			{
+				kind: 'widget.package-forked',
+				packageId: definition.id,
+				sourcePackageId: source.package.id,
+				actorId: actor.id,
+				trustState: trust.eligible ? 'trusted' : 'unreviewed',
+			},
+			...result.events,
+		],
 	};
 }

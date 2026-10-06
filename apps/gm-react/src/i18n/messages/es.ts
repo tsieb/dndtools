@@ -2788,6 +2788,16 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'extensions.builder.installedNeedsReview':
 		'Se instaló {name}. Seguirá desactivado hasta que lo revises y lo actives.',
 	'extensions.builder.openPackage': 'Abrir paquete',
+	'extensions.builder.keepTitle': '¿Conservar este borrador?',
+	'extensions.builder.keepBody': 'Tus cambios en {name} aún no están instalados. Consérvalos en este dispositivo para terminarlos más tarde, o descártalos.',
+	'extensions.builder.keepDraft': 'Conservar borrador',
+	'extensions.builder.discardDraft': 'Descartar borrador',
+	'extensions.builder.resumeTitle': '¿Retomar tu borrador?',
+	'extensions.builder.resumeBody': 'Conservaste en este dispositivo cambios en {name} que aún no están instalados.',
+	'extensions.builder.resumeDraft': 'Retomar borrador',
+	'extensions.builder.startOver': 'Empezar de nuevo',
+	'extensions.builder.forkName': '{name} (copia)',
+	'extensions.builder.forked': 'Editando tu propia copia de {name}. El original no cambia.',
 
 	'extensions.trust.title': 'Revisar {name}',
 	'extensions.trust.description':

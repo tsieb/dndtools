@@ -60,6 +60,8 @@ export const PREFERENCE_KEYS = {
 	proseWidth: 'dndtools:react:prose-width',
 	/** RC-CAN-5.1 — phone reading defaults to `stacked` panels; `canvas` explicitly opts out. */
 	boardPhoneLayout: 'dndtools:react:board-phone-layout',
+	/** RC-WID-6.6 — widget-builder drafts kept until installed or discarded, keyed by package id. */
+	widgetDrafts: 'dndtools:react:widget-drafts',
 } as const;
 
 export type PreferenceKey = (typeof PREFERENCE_KEYS)[keyof typeof PREFERENCE_KEYS];
@@ -91,6 +93,7 @@ const VAULT_PREFERENCES: ReadonlySet<PreferenceKey> = new Set<PreferenceKey>([
 	PREFERENCE_KEYS.paletteRecents,
 	PREFERENCE_KEYS.seenSpotlights,
 	PREFERENCE_KEYS.boardFilled,
+	PREFERENCE_KEYS.widgetDrafts,
 ]);
 
 /** The storage key a preference lives under in this document. Exported for isolation tests. */

@@ -235,9 +235,28 @@ export const moveGroupInputSchema = z
 	})
 	.strict();
 
+// RC-WID-6.6 — a package `widget.package.fork` made names its origin in `authoring.forkedFrom`. The
+// builder saves it again through upgrade, and an exported copy comes back through install, so both
+// accept that one field on top of the package schema. Nothing reads it to grant trust.
+const forkableWidgetPackageDefinitionSchema = widgetPackageDefinitionSchema.extend({
+	authoring: widgetPackageDefinitionSchema.shape.authoring
+		.unwrap()
+		.extend({
+			forkedFrom: z
+				.object({
+					packageId: idSchema,
+					version: z.string().min(1),
+					widgetType: z.string().min(1),
+				})
+				.strict()
+				.optional(),
+		})
+		.optional(),
+});
+
 export const installWidgetPackageInputSchema = z
 	.object({
-		package: widgetPackageDefinitionSchema,
+		package: forkableWidgetPackageDefinitionSchema,
 		// RC-WID-6.2 — the installing DM wrote this package and asks to trust it on their word. The
 		// command grants it only when `evaluateWidgetPackageAuthorTrust` clears the package, and
 		// refuses the install otherwise; absent, the install stays unreviewed and disabled.
@@ -266,7 +285,7 @@ export const removeWidgetPackageInputSchema = z
 
 export const upgradeWidgetPackageInputSchema = z
 	.object({
-		package: widgetPackageDefinitionSchema,
+		package: forkableWidgetPackageDefinitionSchema,
 	})
 	.strict();
 
@@ -3751,5 +3770,34 @@ export const duplicateSceneInputSchema = z
 	.object({
 		sceneId: idSchema,
 		name: z.string().min(1, 'Scene name is required'),
+	})
+	.strict();
+
+// --- RC-WID-6.6 — FORK A WIDGET, RE-POINT A PLACED COPY (append-only block) ----------------------
+// The ids a copy is installed under. Slugs, because the widget builder that edits the copy accepts
+// nothing else; absent, the core picks the first free `user.<type>` / `<type>-copy` pair.
+const forkSlugSchema = z
+	.string()
+	.regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/, 'Use lowercase words separated by "-" or ".".');
+
+// Copy one widget of an installed package into a new user-authored package. Only the source is
+// named: the definition, assets and trust come from the core's own state, never from the caller.
+// The display name is the caller's because core does not author display strings.
+export const forkWidgetPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+		widgetType: z.string().min(1),
+		forkPackageId: forkSlugSchema.optional(),
+		forkWidgetType: forkSlugSchema.optional(),
+		displayName: z.string().trim().min(1).max(120).optional(),
+	})
+	.strict();
+
+// Point a placed widget at its fork (or a fork's instance back at the widget it was copied from).
+export const repointWidgetInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+		widgetType: z.string().min(1),
 	})
 	.strict();

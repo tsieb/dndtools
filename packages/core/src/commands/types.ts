@@ -999,7 +999,13 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
-	| { type: 'scene.duplicate'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'scene.duplicate'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// --- RC-WID-6.6 — FORK A WIDGET, RE-POINT A PLACED COPY (append-only block) -------------------
+	// `widget.package.fork` copies one installed widget into a new user-authored package, its trust
+	// re-decided by the author-trust rule. `scene.repoint-widget` moves a placed copy between a widget
+	// and its fork. Both are DM-only.
+	| { type: 'widget.package.fork'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.repoint-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -2097,6 +2103,22 @@ export type CoreEvent =
 			outgoingCount: number;
 			conflictCount: number;
 			recordedConflictCount: number;
+	  }
+	// RC-WID-6.6 — a widget was copied into a new user-authored package.
+	| {
+			kind: 'widget.package-forked';
+			packageId: string;
+			sourcePackageId: string;
+			actorId: ActorId;
+			trustState: 'trusted' | 'unreviewed';
+	  }
+	// RC-WID-6.6 — a placed widget now draws as another widget type (its fork, or back again).
+	| {
+			kind: 'scene.widget-repointed';
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			actorId: ActorId;
+			widgetType: string;
 	  };
 
 export type RejectionCode =

@@ -2822,6 +2822,19 @@ export default {
 	'extensions.builder.installedNeedsReview':
 		'[Íñšţáľľéď ~~~~{name}. Íţ šţáýš óƒƒ úñţíľ ýóú ŕéṽíéŵ áñď éñáƀľé íţ.~~~~ ~~~~ ~~~~ ~~~~]',
 	'extensions.builder.openPackage': '[Óƥéñ ƥáçķáğé~~~~ ]',
+	'extensions.builder.keepTitle': '[Ķééƥ ţĥíš ďŕáƒţ?~~~~ ~~]',
+	'extensions.builder.keepBody':
+		'[Ýóúŕ çĥáñğéš ţó ~~~~ ~~{name} áŕé ñóţ íñšţáľľéď ýéţ. Ķééƥ ţĥéḿ óñ ţĥíš ďéṽíçé ţó ƒíñíšĥ ľáţéŕ, óŕ ďíšçáŕď ţĥéḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
+	'extensions.builder.keepDraft': '[Ķééƥ ďŕáƒţ~~~~]',
+	'extensions.builder.discardDraft': '[Ďíšçáŕď ďŕáƒţ~~~~ ~]',
+	'extensions.builder.resumeTitle': '[Ŕéšúḿé ýóúŕ ďŕáƒţ?~~~~ ~~~]',
+	'extensions.builder.resumeBody':
+		'[Ýóú ķéƥţ çĥáñğéš ţó ~~~~ ~~~{name} óñ ţĥíš ďéṽíçé ţĥáţ áŕé ñóţ íñšţáľľéď ýéţ.~~~~ ~~~~ ~~~~ ~~~]',
+	'extensions.builder.resumeDraft': '[Ŕéšúḿé ďŕáƒţ~~~~ ]',
+	'extensions.builder.startOver': '[Šţáŕţ óṽéŕ~~~~]',
+	'extensions.builder.forkName': '[{name} (çóƥý)~~~]',
+	'extensions.builder.forked':
+		'[Éďíţíñğ ýóúŕ óŵñ çóƥý óƒ ~~~~ ~~~~ {name}. Ţĥé óŕíğíñáľ šţáýš áš íţ íš.~~~~ ~~~~ ~~]',
 	'extensions.trust.title': '[Ŕéṽíéŵ ~~~{name}]',
 	'extensions.trust.description':
 		'[Ďéçíďé ŵĥáţ ţĥíš ƥáçķáğé ḿáý ŕéáçĥ. Éṽéŕýţĥíñğ íš ďéñíéď úñţíľ ýóú áľľóŵ íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',

@@ -15,8 +15,7 @@ import { InspectorTransform } from './InspectorTransform';
 import { StyleTokenList } from './StyleTokenList';
 import { readPlayerPreview } from './playerPreview';
 import { useI18n, type MessageKey } from '../../i18n';
-import { CanvasWidgetBuilder } from '../../app/widgetBuilder';
-import { readPackage, type WidgetDraft } from '../../app/widgetBuilder/draft';
+import { useEditWidget } from '../extensions/WidgetBuilder';
 
 const TABS = ['content', 'display', 'style', 'binding', 'transform', 'visibility'] as const;
 const TAB_LABEL: Record<(typeof TABS)[number], MessageKey> = {
@@ -83,17 +82,9 @@ export function Inspector({
 	const settingsFields = widget.configFields.filter((f) => f.key !== 'visibility');
 	const resizable = isWidgetResizable(widget);
 	const runtime = useRuntime();
-	const [builderDraft, setBuilderDraft] = useState<WidgetDraft | null>(null);
-	const editablePackage = Object.values(runtime.state.widgets.packages).find(
-		(record) =>
-			!record.removedAt &&
-			record.package.authoring?.source === 'user-authored' &&
-			// The builder edits one definition; never discard siblings from an imported bundle.
-			record.package.widgets.length === 1 &&
-			record.package.widgets[0]?.type === widget.type,
-	);
-	const canEditDefinition =
-		!runtime.preview && runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
+	// RC-WID-6.6 — the same "Edit widget" as the tile menu: any template or custom-code widget, copied
+	// into a package of the GM's own first when it is a starter, a bundle's or anyone else's.
+	const edit = useEditWidget(widget.id, widget.type);
 	const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
 		candidate.widgets.some((instance) => instance.id === widget.id),
 	);
@@ -107,9 +98,7 @@ export function Inspector({
 	const tabs = TABS.map((id) => ({ id, label: t(TAB_LABEL[id]) }));
 	return (
 		<>
-			{builderDraft && (
-				<CanvasWidgetBuilder draft={builderDraft} onClose={() => setBuilderDraft(null)} />
-			)}
+			{edit.editor}
 			<Card
 				elevation="overlay"
 				padding="md"
@@ -168,12 +157,8 @@ export function Inspector({
 					{TIER_LABEL[widget.tier]}
 				</Badge>
 
-				{canEditDefinition && editablePackage && (
-					<Button
-						variant="secondary"
-						size="sm"
-						onClick={() => setBuilderDraft(readPackage(editablePackage.package))}
-					>
+				{edit.available && (
+					<Button variant="secondary" size="sm" onClick={() => void edit.open()}>
 						{t('sceneEditor.editWidgetDefinition')}
 					</Button>
 				)}

@@ -567,6 +567,19 @@ export interface WidgetAuthoringProvenance {
 	 */
 	promptHash?: string;
 	reviewNotes?: string[];
+	/**
+	 * RC-WID-6.6 — the installed widget this package was copied from by `widget.package.fork`. It is
+	 * provenance only: nothing grants trust or permissions from it, and the copy's own trust was
+	 * decided when it was made. Additive and optional.
+	 */
+	forkedFrom?: WidgetPackageForkOrigin;
+}
+
+/** RC-WID-6.6 — the package, version and widget type a forked package was copied from. */
+export interface WidgetPackageForkOrigin {
+	packageId: string;
+	version: string;
+	widgetType: string;
 }
 
 export interface WidgetDefinition {

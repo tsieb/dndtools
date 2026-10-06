@@ -6099,3 +6099,14 @@ export type { ContentRevisionView } from './queries/content-history';
 
 export { widgetPresentation } from './state/scene-state';
 export type { WidgetPresentation } from './state/scene-state';
+
+// RC-WID-6.6 — fork any installed widget into a package the DM owns, and re-point a placed copy.
+export type { WidgetPackageForkOrigin } from './state/widget-package-state';
+export type { WidgetPackageForkTrustEvaluation } from './commands/widget-package';
+export {
+	evaluateWidgetPackageForkTrust,
+	handleForkWidgetPackage,
+	widgetPackageForkIdentity,
+} from './commands/widget-package';
+export { handleRepointWidget } from './commands/scene';
+export { forkWidgetPackageInputSchema, repointWidgetInputSchema } from './schemas/commands';

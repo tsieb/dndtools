@@ -145,6 +145,10 @@ tracker, action panel, scene message, chart, stat block, form panel) read `dataQ
 and honours `audience`. Built-in bodies (`app/widgets/builtin/`) cover the system widgets: Map, Audio,
 combat, notes, atlas, search, session, tools, player views, and the rest.
 
+The slot keys its renderer by the widget's type and definition version (RC-WID-6.6). A sandboxed
+frame receives its document once, when it loads, so without the key a saved new version of a custom
+widget, or a tile re-pointed to its fork, kept drawing the old code until the page reloaded.
+
 ### 3.1 Accessibility contract
 
 What every widget owes a keyboard or screen-reader user, and who supplies each part (RC-WID-4.4).
@@ -405,6 +409,31 @@ on the fail-closed path and `TrustReviewSheet` opens over the builder; trusting 
 too, so allow-and-enable never needs Extensions. Cancelling or denying closes the builder with a
 toast whose "Open package" action goes to Extensions.
 
+### 5.2 Forks (RC-WID-6.6)
+
+`widget.package.fork` copies one widget of any installed package (a starter, a bundle's, a
+generated one) into a new `user-authored` package with `authoring.forkedFrom` (source package id,
+version and widget type). The core reads the definition and assets from its own state; the caller
+names only the source and, optionally, the copy's slug ids and display name. The copy gets a fresh
+type and id (`widgetPackageForkIdentity`: `user.<type>` / `<type>-copy`, numbered from `-2`),
+version 1.0.0 and no migrations, then goes through the install schema, validation and commit path.
+A widget with a `builtin` renderer cannot be copied, because that renderer is keyed by its own type.
+
+The copy's trust is decided afresh by `evaluateWidgetPackageForkTrust`. The RC-WID-6.2 rule runs on
+the copy, and two source states keep it on the review path whatever it contains: a source the DM
+denied, and a generated source nobody has trusted. Nothing about the source's trust or approved
+permissions carries over. A template copy that clears is `trusted`/`basis: 'author'` and enabled
+with the same `widget.package.review` audit op an author-trusted install writes; anything else,
+Torchlight's custom code included, is `unreviewed`, off, every permission denied. The fork op
+records `forkedFrom` and the trust it started with. `forkedFrom` is accepted by install and upgrade
+(`schemas/commands.ts`) so the builder can save the copy again; nothing reads it to grant anything.
+
+`scene.repoint-widget` moves a placed instance onto its fork, or a fork's instance back to the
+widget it was copied from, and refuses any other type, so it cannot bypass `scene.add-widget`'s
+checks. The target must be installed and enabled, and the instance's configuration must satisfy its
+schema; id, layout, binding and local state are kept, `disabled` is cleared. Both commands are
+DM-only. `packages/core/tests/widget-fork.test.ts` covers both.
+
 `navigate` (RC-WID-5.1) lets custom code follow the intents its definition declares, and only to
 targets the viewer can already read. It never grants a URL. A trust record written before the
 permission existed has no `navigate` key, and the host reads approvals only from entries that say
@@ -428,6 +457,24 @@ permission existed has no `navigate` key, and the host reads approvals only from
   has a "Runs" picker for its executor; a template command without one blocks Review (§2.2).
   Install follows §5.1: author-trusted and enabled when the rule clears it, otherwise the trust sheet
   over the builder. An enabled install is handed to the host's `onInstalled`.
+- **Kept drafts** (RC-WID-6.6): a draft that differs from what the builder opened with is kept in
+  device preferences (`widgetDrafts`, per vault), keyed by the id of the package the builder opened
+  on (the empty key for a new widget), until it is installed, saved or discarded. Closing it by
+  Escape, Back or the platform gesture asks Keep or Discard; Escape on that question returns to the
+  builder. Opening the builder on a package with a kept draft asks Resume or Start over first. The
+  store is pure (`readStoredDraft`, `writeStoredDraft`, `removeStoredDraft` in `draft.ts`, at most
+  12 drafts) and reads a stale or hand-edited value over fresh defaults instead of failing.
+- **Edit widget** (RC-WID-6.6): the canvas and flow tile menus and the Inspector share
+  `useEditWidget`. `widgetEditTarget` decides: the GM's own single-widget package opens as it is;
+  otherwise an unplaced copy from an earlier edit is reused (its kept draft resumes), or the widget
+  is forked (§5.2). A copy that starts enabled takes the tile at once through
+  `scene.repoint-widget`; one that starts off takes it when the builder saves it (an upgrade turns
+  the package on), so the tile never points at a switched-off package. The builder opens on Data,
+  or Advanced for custom code. `readPackage` reads a starter's or import's own files: the
+  stylesheet and script by declaration and kind beside the entrypoint, and the markup as the
+  document's body without the link and script the builder's document adds back. The builder is
+  portalled behind a fence that stops key, wheel and context-menu events reaching the canvas
+  through React; it hears its own keys on its overlay, before that fence.
 - **AI builder**: `widget.package.propose` is a staged MCP write tool (`mcp/tool-registry.ts`,
   `commandType: 'widget.package.install'`). Its input schema has no code, permissions, or network
   fields, so a model cannot author `custom-html-js`. Approval installs the package `unreviewed`;
@@ -450,22 +497,23 @@ instances, the same render resolver and the same core mutation path; flow is not
 
 ## 8. Where to look
 
-| Concern                                  | Location                                                                                                                                                                                                                                          |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                                                                                 |
-| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                                                                          |
-| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                                                                            |
-| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                                                                                     |
-| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                                                                                      |
-| Command executors and availability       | `packages/core/src/commands/widget-command.ts` (`widgetCommandAvailability`, `buildWidgetCommandInverse`)                                                                                                                                         |
-| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                                                                           |
-| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                                                                                       |
-| Review command, summary, author trust    | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts` (`evaluateWidgetPackageAuthorTrust`)                                                                                                                           |
-| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                                                                                  |
-| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                                                                                     |
-| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                                                          |
-| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                                                    |
-| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts`, `widget-author-trust.spec.ts` |
+| Concern                                  | Location                                                                                                                                                                                                                                                                      |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Definitions, packages, system widgets    | `packages/core/src/state/widget-package-state.ts`                                                                                                                                                                                                                             |
+| Instances and scene visibility           | `packages/core/src/state/scene-state.ts`                                                                                                                                                                                                                                      |
+| Binding resolution                       | `packages/core/src/queries/binding.ts`                                                                                                                                                                                                                                        |
+| Library discovery                        | `packages/core/src/queries/widget-library.ts`                                                                                                                                                                                                                                 |
+| Operator authority                       | `packages/core/src/permissions/widget-operator-authority.ts`                                                                                                                                                                                                                  |
+| Command executors and availability       | `packages/core/src/commands/widget-command.ts` (`widgetCommandAvailability`, `buildWidgetCommandInverse`)                                                                                                                                                                     |
+| Intent resolver and `navigate` gate      | `packages/core/src/security/widget-host-api.ts` (`resolveWidgetIntent`)                                                                                                                                                                                                       |
+| Sandbox policy, host API, exfiltration   | `packages/core/src/security/{custom-widget-runtime,widget-host-api,widget-exfiltration}.ts`                                                                                                                                                                                   |
+| Review command, summary, author trust    | `packages/core/src/commands/widget-package.ts`, `queries/widget-package-review.ts` (`evaluateWidgetPackageAuthorTrust`)                                                                                                                                                       |
+| Fork, fork trust, re-point               | `packages/core/src/commands/widget-package.ts` (`handleForkWidgetPackage`, `evaluateWidgetPackageForkTrust`), `commands/scene.ts` (`handleRepointWidget`)                                                                                                                     |
+| Render path, templates, data environment | `apps/gm-react/src/app/widgets/`                                                                                                                                                                                                                                              |
+| Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                                                                                                                 |
+| Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                                                                                      |
+| Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                                                                                |
+| E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts`, `widget-author-trust.spec.ts`, `widget-edit-fork.spec.ts` |
 
 ## 9. Widget gallery
 

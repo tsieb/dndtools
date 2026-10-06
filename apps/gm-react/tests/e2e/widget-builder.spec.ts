@@ -154,14 +154,20 @@ test.describe('widget builder: build, install, place', () => {
 		const inspector = page.getByTestId('widget-inspector');
 		const edit = inspector.getByRole('button', { name: 'Edit widget definition' });
 		await edit.click();
-		await expect(dialog.getByRole('button', { name: 'Layout', exact: true })).toHaveAttribute(
+		// RC-WID-6.6 — an edit from a placed tile opens on the Data step (Advanced for custom code).
+		await expect(dialog.getByRole('button', { name: 'Data', exact: true })).toHaveAttribute(
 			'aria-current',
 			'step',
 		);
 		await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
 		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
 		await dialog.getByLabel('Name', { exact: true }).fill('Discard this edit');
+		// RC-WID-6.6 — a changed draft asks before it closes; discarded, nothing is kept.
 		await page.keyboard.press('Escape');
+		await page
+			.getByRole('dialog', { name: 'Keep this draft?' })
+			.getByRole('button', { name: 'Discard draft', exact: true })
+			.click();
 		await expect(dialog).toHaveCount(0);
 		await expect(edit).toBeFocused();
 		expect((await installedPackage(page, PACKAGE_ID))!.package.version).toBe('1.0.0');
