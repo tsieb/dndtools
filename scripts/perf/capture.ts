@@ -778,7 +778,7 @@ const search: Scenario = {
 			const seeded = await seedNotes(page, options.notes);
 			await page.reload({ waitUntil: 'domcontentloaded' });
 			await waitReady(page);
-			const box = page.getByRole('textbox', { name: 'Search the graph' });
+			const box = page.getByRole('textbox', { name: 'Filter the graph' });
 			await box.waitFor({ state: 'visible', timeout: READY_TIMEOUT });
 			const samples: number[] = [];
 			for (let i = 0; i < 20; i += 1) {

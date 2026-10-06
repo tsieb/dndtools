@@ -32,5 +32,46 @@ start. No Headroom tools used; raw logs under `/tmp/knw64-*.log`. No agents, no 
 - `apps/gm-react/src/ds/components/core/icon-registry.ts` + `Icon.tsx`: the story names the
   `filter` icon, which did not exist; added `filter: 'Filter'` (Lucide) to the allowlist.
   `docs/reference/ICON_VOCABULARY.md` (companion) lists it.
+- `scripts/perf/capture.ts`: one selector, `textbox` named "Search the graph" → "Filter the graph".
+  The graph box's accessible name follows its new visible placeholder, and the perf capture's
+  graph-search scenario would otherwise time out waiting for a box that no longer has that name.
+
+## Decisions
+
+- Palette row: label "Refine in Notes" with a hint, in its own trailing "Refine" group, offered
+  only when the search found something. First draft put the query in the label inside the Notes
+  group: it became the first (Enter) row and, since every word of a DS palette row is its
+  accessible name, `getByRole('option', { name: X })` after typing X matched it too (two
+  command-palette e2e failures, both profiles). Negative control: dropping the hits guard makes the
+  new spec's "no Refine row for a no-match query" assertion fail (Expected 0, Received 1).
+- Ctrl/⌘+N is a page key; Chrome (non-app mode) reserves it for a new window, so on the plain
+  web it works in Playwright, the Electron desktop app and an installed PWA, not a Chrome tab.
+- "Three actions" = New note → Session recap chip → Create, with the two required fields typed
+  in between (the friction review counts clicks, not keystrokes); Enter in a field also submits.
 
 ## Verification
+
+All raw output under `/tmp/knw64-*.log`; final state is commit HEAD of this branch.
+
+- New `tests/e2e/knowledge-start-from.spec.ts`: 12 passed, desktop-chromium + mobile-chromium
+  (session recap in three actions with axe on the open composer, Blank create, saved-search chip
+  filters the grid with axe, palette handoff keeps "Sunken Crypt" and no row for a no-match query,
+  `?` overlay row + Ctrl+N incl. typing guard and from an open note, Graph "Filter the graph…").
+- Related e2e after the last code change: knowledge*, graph*, shortcuts, help-menu, screens,
+  a11y-axe-gate — 267 passed (`/tmp/knw64-e2e8.log`); command-palette + palette-polish +
+  knowledge-start-from 62 passed (`/tmp/knw64-e2e7.log`). Selector-only edits:
+  `getByLabel('Search the graph')` → `'Filter the graph'` in graph, graph-polish,
+  knowledge-filters and visual graph-polish specs.
+- `pnpm test:app`: 167 files, 2,021 tests passed (registry test gains the Ctrl/⌘+N case).
+- `pnpm typecheck` (gm-react), `pnpm lint` (full chain), `pnpm format:check:changed -- --base
+b04c529e`, `pnpm gates`: all exit 0.
+- Visual (pinned container): full `--update-snapshots=none` per tier found only the expected
+  movers — golden-routes `/knowledge` (Filter toggle), graph-polish (Filter box, Refine in Notes)
+  and palette-help `shortcuts--*` (new row). Re-baselined with `--update-snapshots=changed`,
+  recompressed losslessly with zopfli (decoded pixels asserted identical), re-verified:
+  knowledge|graph 39 passed, palette-help 15 passed. Budget 32,015.2 / 34,816 KiB, below base
+  (32,348.3 KiB). Full per-tier runs: desktop/rail/phone each 161 passed + the 5 re-baselined.
+- `loop/rc` had one new commit (RC-CAN-8.5) touching only the EN/ES/pseudo catalogs; no PNG
+  overlap. Not rebased (operator integrates).
+
+No push, promotion, agents or dispatcher state edits.
