@@ -115,7 +115,19 @@ pseudo`).
 
 ## Security review
 
-See "Security review" below; the `/security-review` report is `state/RC-WID-6.2.security-review.md`.
+The `/security-review` report is [`state/RC-WID-6.2.security-review.md`](RC-WID-6.2.security-review.md).
+It covers commit `09193c0b` and found **no HIGH or MEDIUM finding at confidence ≥ 8**. It checked:
+
+- the DM-only flag;
+- the core's re-check of the rule;
+- that `trusted` grants no permission (`approvedHostPermissions` reads only the `approved` decisions,
+  and author trust records every one `denied`);
+- the upgrade lapse;
+- that no import or MCP path forwards `authorTrust`;
+- the gallery Enable's narrower offer;
+- the builder enabling only after the sheet records `trusted`.
+
+Deviation: the dispatcher brief forbids extra agents, so the skill's sub-task phases ran inline.
 
 ## Scope notes
 

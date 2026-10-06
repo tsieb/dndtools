@@ -1,0 +1,37 @@
+# RC-WID-6.2 — `/security-review` report
+
+- Run: 2026-10-05, `/security-review` skill, over commit `09193c0b` (the RC-WID-6.2 change on top of
+  base `c61d8cdb`). The skill's own diff is against `main`, which also carries many already-integrated
+  `loop/rc` stories. Those are out of scope, and the review below is limited to what this commit
+  adds.
+- Method: I followed the skill's three phases (context research, comparative analysis, assessment
+  with the false-positive filter) inline. The dispatcher brief forbids extra agents, so I did not
+  launch the sub-tasks the skill suggests. This is recorded as a deviation.
+
+## Result
+
+**No HIGH or MEDIUM findings with confidence ≥ 8.**
+
+## What was examined
+
+| Surface                                                                    | Question                                                                                   | Finding                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `widget.package.install` `authorTrust` (`commands/widget-package.ts`)      | Can a non-DM, or a package with code or permissions, obtain `trusted`?                     | No. `requireDm` runs before parsing. The flag is `z.literal(true)`. The core re-runs `evaluateWidgetPackageAuthorTrust` on the normalized definition and refuses (installing nothing) on any refusal. The client's rule is advisory only.                                                                                                                                                       |
+| The rule (`queries/widget-package-review.ts`)                              | Can executable content slip through?                                                       | Every widget must be `template`; a missing entrypoint is refused. Any asset whose kind is not `asset` is refused, an unstated kind included. Stylesheets and `custom-stylesheet` are refused. Raw `widget.hostPermissions` and network classes are checked as well as the summary, and the verdict must be `trusted-after-review`, which excludes generated packages and player-visible writes. |
+| What `trusted` unlocks                                                     | Does author trust grant capabilities?                                                      | `trusted` is read only by `approvedHostPermissions` (`hostBridge.ts`), which returns the `approved` decisions. Author trust records every permission `denied`, so it grants none.                                                                                                                                                                                                               |
+| Upgrade (`handleUpgradeWidgetPackage`)                                     | Can an author-trusted template become custom code or gain a permission and stay `trusted`? | No. `basis === 'author'` plus a failed re-evaluation resets to `unreviewed` with every permission denied (core test `drops to unreviewed…`).                                                                                                                                                                                                                                                    |
+| Import paths (Discover, `.dndmodule`, share import, Plugins JSON box, MCP) | Can a third-party file or model set `authorTrust`?                                         | No. Each builds its payload as `{ package }` itself (`moduleInstall.ts`, `ShareImportDialog.tsx`, `usePackageActions.ts`, `mcp/tool-dispatch.ts`). MCP drafts are `generated`, so they would be refused even if the flag were sent.                                                                                                                                                             |
+| Gallery `InPlaceEnable`                                                    | Does it switch on unreviewed code?                                                         | It is offered only for `trusted` or rule-cleared `unreviewed` packages. It dispatches the existing DM-only `widget.package.enable`, which the Extensions switch already offers for any non-denied package. That is not a new capability.                                                                                                                                                        |
+| Builder embedded `TrustReviewSheet`                                        | Can the builder enable without the DM's trust decision?                                    | The builder enables only after the sheet closes with the record `trusted` (read from live runtime state). Cancel or deny leaves the package off.                                                                                                                                                                                                                                                |
+| Audit                                                                      | Is the decision visible?                                                                   | The install op carries `trust: 'author'`, a `widget.package.review` op names the DM, the verdict and `basis: 'author'`, and the upgrade lapse is recorded `trust: 'unreviewed'`.                                                                                                                                                                                                                |
+| Rendering / XSS                                                            | New HTML sinks?                                                                            | None. The new UI is React text and DS `Button`/`Toaster`; no `dangerouslySetInnerHTML`.                                                                                                                                                                                                                                                                                                         |
+
+## Considered and dismissed (below threshold)
+
+- **Template intents on an author-trusted package.** A template may declare open/create intents. The
+  rule does not consider them, but template intents resolve through the host gate to targets the
+  viewer can already read. An unreviewed template package could already be enabled and run them
+  before this change. No new reach. Confidence 2.
+- **Pre-existing:** the Extensions switch enables unreviewed custom-code packages (with every
+  permission denied). This is not introduced here. It is noted for RC-WID-6.7, which owns that
+  surface.
