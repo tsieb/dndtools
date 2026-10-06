@@ -17,9 +17,11 @@ it('automatically runs every browser shard on loop/rc, without path filtering or
 	expect(browser.if).toContain("github.ref == 'refs/heads/loop/rc' ||");
 	expect(browser.strategy['fail-fast']).toBe(false);
 	expect(browser.strategy.matrix.include.map((entry: { shard: string }) => entry.shard)).toEqual([
-		'1/3',
-		'2/3',
-		'3/3',
+		'1/5',
+		'2/5',
+		'3/5',
+		'4/5',
+		'5/5',
 	]);
 	const tier = ci.jobs.changes.steps.find((step: { id?: string }) => step.id === 'tier').run;
 	const dir = mkdtempSync(path.join(tmpdir(), 'loop-tier-'));

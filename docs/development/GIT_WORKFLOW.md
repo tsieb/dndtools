@@ -43,7 +43,7 @@ a push to `main`, a PR into `main`, `loop/rc`, or `workflow_dispatch` runs the f
 
 - `build-and-test`: credentials scan, quality gates, lint, typecheck, production build and bundle
   budget, all unit suites.
-- `browser-e2e`: three Playwright shards with failure artifacts; `accessibility`: axe on both
+- `browser-e2e`: five Playwright shards with failure artifacts; `accessibility`: axe on both
   profiles; `desktop-smoke`: Electron boot, CSP, persistence; `android-checks`: JDK 21 / API 36
   sync, Gradle unit and lint, debug package. All path-filtered on `main` PRs, unconditional on
   `loop/rc`.

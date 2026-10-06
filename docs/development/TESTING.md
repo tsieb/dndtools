@@ -31,7 +31,9 @@ Timing budgets (wall clock; a job past its budget is a regression to investigate
 raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
 12 min, `accessibility` 5 min, `visual-regression` 10 min. Browser setup (`setup-e2e`, whose apt
 step depends on the runner's Ubuntu mirror) is capped at 10 min as its own step so it never spends
-the test step's cap. The core suite runs with `isolate: false` because it is framework-free
+the test step's cap. When the suite outgrows the shard budget, CI gets another shard and the
+19-minute test-step cap stays where it is (three shards became five at 1,916 tests, when shards ran
+17-19 minutes). The core suite runs with `isolate: false` because it is framework-free
 and each isolated file re-imported the whole module graph.
 
 ## 2. Mandatory rules

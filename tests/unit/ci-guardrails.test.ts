@@ -23,6 +23,7 @@ interface WorkflowJob {
 	outputs?: Record<string, string>;
 	environment?: string | { name?: string };
 	'timeout-minutes'?: number;
+	strategy?: { matrix?: { include?: Array<Record<string, unknown>> } };
 	steps?: WorkflowStep[];
 }
 
@@ -383,6 +384,24 @@ describe('CI guardrails', () => {
 				10 + testBudget + 2,
 			);
 		}
+	});
+
+	it('splits browser E2E into enough complete shards to stay under the step cap', () => {
+		// At 1,916 tests three shards ran 17-19 minutes each, and on 582ed519 a shard that had
+		// finished 626 passed / 13 skipped was killed by the 19-minute step cap. Growth gets more
+		// shards, not a bigger cap; the matrix must also cover every shard exactly once.
+		const ci = YAML.parse(
+			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
+		) as WorkflowFile;
+		const include = ci.jobs?.['browser-e2e']?.strategy?.matrix?.include ?? [];
+		const total = include.length;
+		expect(total, 'browser-e2e shard count').toBeGreaterThanOrEqual(5);
+		expect(include).toEqual(
+			Array.from({ length: total }, (_, index) => ({
+				shard: `${index + 1}/${total}`,
+				name: `${index + 1}-of-${total}`,
+			})),
+		);
 	});
 
 	it('pins third-party actions to immutable commits and keeps foundation bootstrap-only', () => {

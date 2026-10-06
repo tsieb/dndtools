@@ -177,15 +177,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # RC-ENG-2.2: three shards, each running two Playwright workers, keeps a full browser-E2E
-        # leg inside the 12-minute-per-profile budget recorded in docs/development/TESTING.md.
+        # RC-ENG-2.2: each shard runs two Playwright workers and must fit the 12-minute budget
+        # recorded in docs/development/TESTING.md. Three shards did until the suite reached 1,916
+        # tests: by 582ed519 each took 17-19 minutes, and a shard that finished 626 passed / 13
+        # skipped was still killed by the 19-minute step cap. Five shards split the ~52
+        # shard-minutes back to ~11 each.
         include:
-          - shard: 1/3
-            name: 1-of-3
-          - shard: 2/3
-            name: 2-of-3
-          - shard: 3/3
-            name: 3-of-3
+          - shard: 1/5
+            name: 1-of-5
+          - shard: 2/5
+            name: 2-of-5
+          - shard: 3/5
+            name: 3-of-5
+          - shard: 4/5
+            name: 4-of-5
+          - shard: 5/5
+            name: 5-of-5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
