@@ -75,3 +75,35 @@ b04c529e`, `pnpm gates`: all exit 0.
   overlap. Not rebased (operator integrates).
 
 No push, promotion, agents or dispatcher state edits.
+
+## Claim-fence retry (2026-10-05, base 7dc67b3f)
+
+Gate feedback refused four paths outside the claim. Resolution:
+
+- Reverted to base: `ds/components/core/Icon.tsx`, `ds/components/core/icon-registry.ts`,
+  `scripts/perf/capture.ts` (and the companion `ICON_VOCABULARY.md` line, now moot). The `filter`
+  glyph is not in the acceptance criteria, so the Notes Filter toggle, the Graph box/button and the
+  palette row keep the existing `search` glyph. The Graph box keeps its accessible name "Search the
+  graph" (the perf capture's selector) and its placeholder reads "Filter the graph…"; the e2e/visual
+  selector edits for the old rename were reverted with it.
+- KEPT, flagged for the operator: `apps/gm-react/src/screens/knowledge/index.tsx`. "A saved search
+  chip filters the grid" needs it: the grid and its count render there and no owned component is
+  mounted on /knowledge while every disclosure is closed. It is also the only always-mounted host
+  for the Ctrl/⌘+N handler and for opening a template-created note. Trimmed to mount points (the
+  chip-empty message moved into the owned `SavedSearchChips`; the icon line reverted).
+
+HANDOFF (needs a wider claim, not acceptance-critical): add `filter: 'Filter'` to the DS icon
+registry + Icon allowlist and switch the three `search` glyphs above; renaming the Graph box's
+accessible name to "Filter the graph" also needs the one-line `scripts/perf/capture.ts` selector.
+
+Verification on the final tree (logs `/tmp/knw64r-*.log`):
+
+- e2e knowledge*, graph*, command-palette, palette-polish, shortcuts: 226 passed on both profiles
+  (includes `knowledge-start-from.spec.ts`, 12 tests).
+- `pnpm test:app` 168 files / 2,029 tests; gm-react typecheck; `pnpm lint`;
+  `format:check:changed --base 7dc67b3f`; `pnpm gates`: all exit 0.
+- Visual (pinned container): golden-routes `/knowledge` (9) and graph-polish (15) re-baselined for
+  the restored glyph, zopfli-recompressed, re-verified; full per-tier runs desktop / rail / phone
+  171 passed each. Budget 32,863.6 / 34,816 KiB (base 33,187.4 KiB).
+- Paths changed vs base outside `__screenshots__`: the seven owned files, `knowledge/index.tsx`,
+  catalogs (en/es/qps-ploc), `registry.test.ts`, the new e2e spec, and this journal.
