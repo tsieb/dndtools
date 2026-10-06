@@ -1,4 +1,5 @@
-import { isFeatureVisible, SECTION_FEATURE_GATES, type FeatureTier } from '@dndtools/core';
+import { tierHiddenSections, type FeatureTier } from '@dndtools/core';
+import { Badge } from '../../../ds';
 import { useI18n, type MessageKey } from '../../../i18n';
 import { T, radioGroupKeyDown } from '../../screen-kit';
 
@@ -8,7 +9,8 @@ export const TIER_NAMES: Record<FeatureTier, MessageKey> = {
 	advanced: 'onboarding.experience.expert',
 };
 
-/** Until the full complexity map lands, describe the actual gated Settings tabs. */
+/** RC-UX-6.4 — each card says what its tier hides, from the same complexity-map query as the
+ * Settings › Appearance cards, so the three never read the same. */
 export function ExperienceStep({
 	isDesktop,
 	tier,
@@ -19,7 +21,6 @@ export function ExperienceStep({
 	setTier: (tier: FeatureTier) => void;
 }) {
 	const { t } = useI18n();
-	const tabs = SECTION_FEATURE_GATES.filter((gate) => gate.id.startsWith('settings.nav.'));
 	return (
 		<div
 			role="radiogroup"
@@ -32,9 +33,7 @@ export function ExperienceStep({
 			}}
 		>
 			{(['core', 'intermediate', 'advanced'] as const).map((value) => {
-				const hidden = tabs
-					.filter((gate) => !isFeatureVisible(gate.id, value, tabs))
-					.map((gate) => t(gate.labelKey as MessageKey));
+				const hidden = tierHiddenSections(value).map((gate) => t(gate.labelKey as MessageKey));
 				return (
 					<button
 						key={value}
@@ -54,11 +53,17 @@ export function ExperienceStep({
 							background: tier === value ? T.accSub : T.surf,
 						}}
 					>
-						<strong>
-							{value === 'intermediate'
-								? t('onboarding.v3.recommended', { tier: t(TIER_NAMES[value]) })
-								: t(TIER_NAMES[value])}
-						</strong>
+						<span
+							style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: T.space.two }}
+						>
+							<strong>{t(TIER_NAMES[value])}</strong>
+							{value === 'intermediate' && (
+								// The badge drops to its own line rather than breaking mid-word.
+								<Badge status="neutral" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+									{t('common.badge.recommended')}
+								</Badge>
+							)}
+						</span>
 						<span style={{ display: 'block', marginTop: T.space.one }}>
 							{hidden.length
 								? t('onboarding.v3.hides', { tabs: hidden.join(', ') })

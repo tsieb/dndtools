@@ -39,8 +39,7 @@ export const en = {
 	'onboarding.v3.open': 'Open the Command Center',
 	'onboarding.v3.group': 'Screen complexity',
 	'onboarding.v3.hides': 'Hides {tabs}.',
-	'onboarding.v3.hidesNone': 'Hides no tabs.',
-	'onboarding.v3.recommended': '{tier} (recommended)',
+	'onboarding.v3.hidesNone': 'Hides nothing.',
 	'onboarding.v3.saveFailed': 'Setup could not be saved. Try again.',
 	'onboarding.v3.systemFailed': 'The game system could not be saved.',
 
@@ -921,6 +920,9 @@ export const en = {
 		'Everything on, nothing hidden — permission grants, plugins, systems, diagnostics.',
 	// RC-UX-3.5 — read-only progress toward usage-earned surfaces (e.g. Graph at 3 links).
 	'settings.experience.growingInto': 'Growing into it',
+	// RC-UX-6.4 — each card lists what its level keeps out of sight.
+	'settings.experience.hides': 'Hidden at this level',
+	'settings.experience.hidesNone': 'Nothing hidden',
 	'settings.a11y.displayMotion': 'Display & motion',
 	'settings.a11y.intro':
 		'These mirror your Appearance settings, take effect immediately, and stay selected next time.',

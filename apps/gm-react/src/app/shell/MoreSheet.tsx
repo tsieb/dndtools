@@ -4,8 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Badge, Sheet } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { activeSectionId, isNavSectionVisible } from '../nav';
-import { ALL_SECTIONS, PHONE_TABS, sectionPath } from './sections';
+import { useSettingsTier } from '../../screens/settings/Experience';
+import { activeSectionId } from '../nav';
+import { ALL_SECTIONS, isSectionShown, PHONE_TABS, sectionPath } from './sections';
 import { PinnedScreenRows, SideRow } from './rows';
 import { listLocalVaults } from '../../platform/storage/coreStore';
 
@@ -31,11 +32,13 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
 	const [vaultsOpen, setVaultsOpen] = useState(false);
 	const active = activeSectionId(location.pathname);
 	const vault = open ? currentVault(runtime.vaultId) : undefined;
+	const tier = useSettingsTier();
 	const hotIds = new Set(PHONE_TABS.map((s) => s.id));
 	// RC-UX-3.5 — the phone sheet must not leak a usage-gated surface the desktop sidebar keeps
-	// hidden pending its signal (Graph before 3 links).
+	// hidden pending its signal (Graph before 3 links). RC-UX-6.4 — nor a tier-gated one
+	// (Extensions and Community below Standard); the section you're on always stays listed.
 	const rest = ALL_SECTIONS.filter(
-		(s) => !hotIds.has(s.id) && isNavSectionVisible(s.id, runtime.state),
+		(s) => !hotIds.has(s.id) && (s.id === active || isSectionShown(s.id, runtime.state, tier)),
 	);
 	return (
 		<>

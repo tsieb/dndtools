@@ -41,8 +41,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.v3.open': 'Abrir el Centro de comandos',
 	'onboarding.v3.group': 'Complejidad de la pantalla',
 	'onboarding.v3.hides': 'Oculta {tabs}.',
-	'onboarding.v3.hidesNone': 'No oculta ninguna pestaña.',
-	'onboarding.v3.recommended': '{tier} (recomendado)',
+	'onboarding.v3.hidesNone': 'No oculta nada.',
 	'onboarding.v3.saveFailed': 'No se pudo guardar la configuración. Inténtalo de nuevo.',
 	'onboarding.v3.systemFailed': 'No se pudo guardar el sistema de juego.',
 	'mapEdit.newPoi': 'Nuevo punto de interés',
@@ -934,6 +933,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.experience.expertBlurb':
 		'Todo activo, nada oculto — concesiones de permisos, complementos, sistemas y diagnósticos.',
 	'settings.experience.growingInto': 'Creciendo hacia esto',
+	'settings.experience.hides': 'Oculto en este nivel',
+	'settings.experience.hidesNone': 'Nada oculto',
 	'settings.a11y.displayMotion': 'Pantalla y movimiento',
 	'settings.a11y.intro':
 		'Reflejan tus ajustes de Apariencia, se aplican al momento y se mantienen la próxima vez.',

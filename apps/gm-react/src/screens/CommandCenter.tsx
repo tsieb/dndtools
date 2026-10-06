@@ -1,4 +1,4 @@
-import { settingsGateVisible, useSettingsTier } from './settings/Experience';
+import { featureGateVisible, settingsGateVisible, useSettingsTier } from './settings/Experience';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -268,7 +268,9 @@ export function CommandCenter() {
 
 	// Each launcher hands its destination a create-intent (router state) so the create flow OPENS on
 	// arrival; the sub-line says what the thing is in GM vocabulary, since the labels alone
-	// ("widget"?) didn't tell a new user where NPCs, locations, or lore go.
+	// ("widget"?) didn't tell a new user where NPCs, locations, or lore go. RC-UX-6.4 — a launcher
+	// with a complexity-map gate (New widget) is left out below its tier.
+	const tier = useSettingsTier();
 	const create = [
 		{
 			icon: 'scene',
@@ -289,6 +291,7 @@ export function CommandCenter() {
 			run: () => navigate('/atlas', { state: { create: true } }),
 		},
 		{
+			gate: 'home.create.widget',
 			icon: 'widget',
 			label: t('home.create.widget'),
 			sub: t('home.create.widgetSub'),
@@ -300,9 +303,8 @@ export function CommandCenter() {
 			sub: t('home.create.noteSub'),
 			run: () => navigate('/knowledge', { state: { create: true } }),
 		},
-	];
+	].filter((item) => !item.gate || featureGateVisible(item.gate, tier));
 
-	const tier = useSettingsTier();
 	const manage = [
 		{
 			id: 'players',

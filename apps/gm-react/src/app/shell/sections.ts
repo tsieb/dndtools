@@ -1,6 +1,20 @@
-import { listScreensForActor, type CoreStateSlice } from '@dndtools/core';
+import {
+	isFeatureVisible,
+	listScreensForActor,
+	SECTION_FEATURE_GATES,
+	type CoreStateSlice,
+	type FeatureTier,
+} from '@dndtools/core';
 import { screenPath } from '../../screens/screen/screenModel';
-import { LIBRARY, PLATFORM, PLAYER_SECTION, RUN, SETTINGS_SECTION, type NavSection } from '../nav';
+import {
+	isNavSectionVisible,
+	LIBRARY,
+	PLATFORM,
+	PLAYER_SECTION,
+	RUN,
+	SETTINGS_SECTION,
+	type NavSection,
+} from '../nav';
 
 export const SECTION_PATH: Record<string, string> = {
 	home: '/',
@@ -28,6 +42,22 @@ export const ALL_SECTIONS: NavSection[] = [
 	PLAYER_SECTION,
 	SETTINGS_SECTION,
 ];
+
+/** RC-UX-6.4 — the nav sections the experience tier hides, keyed to their complexity-map gate.
+ * Only these two: the other `nav.*` gates describe surfaces a Beginner still reaches from the rail. */
+export const SECTION_TIER_GATES: Record<string, string> = {
+	extensibility: 'nav.extensions',
+	community: 'nav.community',
+};
+
+/** A section's nav entry at this tier: usage-earned (RC-UX-3.5) and at or above its tier gate. The
+ * route itself stays open, so a bookmark or the command palette still reaches it. */
+export function isSectionShown(id: string, state: CoreStateSlice, tier: FeatureTier): boolean {
+	const gate = SECTION_TIER_GATES[id];
+	return (
+		isNavSectionVisible(id, state) && (!gate || isFeatureVisible(gate, tier, SECTION_FEATURE_GATES))
+	);
+}
 
 /** Phone: the 4 hot destinations + "More" (a bottom sheet listing the rest of the IA). */
 export const PHONE_TABS: NavSection[] = [RUN[0], RUN[2], LIBRARY[0], LIBRARY[1]];

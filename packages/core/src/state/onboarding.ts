@@ -1846,6 +1846,15 @@ export const SECTION_FEATURE_GATES: readonly SectionFeatureGate[] = (
 			misuse: 'Editing the wrong tracker can distort the current session.',
 		},
 		{
+			id: 'home.create.widget',
+			labelKey: 'home.create.widget',
+			minTier: 'intermediate',
+			surface: '/',
+			sectionAnchor: 'home-create-widget',
+			assumes: 'Which widgets a GM screen needs and where the Add panel places them.',
+			misuse: 'Unneeded widgets crowd the screen the table relies on.',
+		},
+		{
 			id: 'nav.quests',
 			labelKey: 'nav.quests',
 			minTier: 'intermediate',
@@ -1881,8 +1890,45 @@ export function isFeatureVisible(
 	return tierMeets(tier, gate.minTier);
 }
 
-/** The default maturity tier a fresh vault starts at (PLAT-013 AC1). */
-export const DEFAULT_FEATURE_TIER: FeatureTier = 'core';
+/**
+ * The tier a device uses until the GM picks one (PLAT-013 AC1).
+ *
+ * Migration note (RC-UX-6.4): this was `core` (Beginner) until 2026-10. Onboarding already
+ * pre-selected and recommended Standard, so the two disagreed. A device that never stored a choice
+ * now opens at `intermediate` (Standard) and sees Extensions, Community, the New widget launcher
+ * and the intermediate Settings panels. A stored choice, including an explicit Beginner, is kept
+ * as it is. Nothing is rewritten.
+ */
+export const DEFAULT_FEATURE_TIER: FeatureTier = 'intermediate';
+
+/**
+ * RC-UX-6.4: the gates an experience card names when it says what its tier hides. Every entry is
+ * enforced by a reader: the Settings rail and section wrappers, the More group and phone More
+ * sheet (Extensions, Community), and the Command Center launchers (New widget, Permissions).
+ * Listing a gate here that nothing hides would make the card dishonest again.
+ */
+export const TIER_SUMMARY_GATE_IDS: readonly string[] = [
+	'nav.extensions',
+	'nav.community',
+	'home.create.widget',
+	'settings.nav.plugins',
+	'settings.nav.systems',
+	'settings.nav.permissions',
+	'settings.nav.ai',
+	'settings.backup.title',
+	'settings.about.export',
+];
+
+/** The summary gates `tier` keeps out of sight, in card order. Expert hides none. */
+export function tierHiddenSections(
+	tier: FeatureTier,
+	gates: readonly SectionFeatureGate[] = SECTION_FEATURE_GATES,
+): SectionFeatureGate[] {
+	return TIER_SUMMARY_GATE_IDS.flatMap((id) => {
+		const gate = gates.find((entry) => entry.id === id);
+		return gate && !tierMeets(tier, gate.minTier) ? [gate] : [];
+	});
+}
 
 /** A help surface shown during onboarding and reachable from the help affordance. */
 export interface HelpSurface {

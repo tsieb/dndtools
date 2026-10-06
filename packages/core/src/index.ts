@@ -2369,6 +2369,8 @@ export {
 	resolveMaturitySignals,
 	resolveOnboarding,
 	serializeSeenSpotlights,
+	tierHiddenSections,
+	TIER_SUMMARY_GATE_IDS,
 	spotlightsSeenIn,
 	spotlightVaultId,
 	tierMeets,

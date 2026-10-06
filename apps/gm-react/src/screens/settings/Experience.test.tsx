@@ -4,7 +4,7 @@ import { removePreference, writePreference } from '../../platform/preferences';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SettingsSection } from './Experience';
-import { TIER_ATTR, TIER_KEY, setDocAttr } from './shared';
+import { TIER_ATTR, TIER_KEY, readTier, setDocAttr } from './shared';
 
 const fixture = [
 	['settings.account.profile', 'profile'],
@@ -96,5 +96,19 @@ describe('Settings section tier fixture', () => {
 			),
 		);
 		expect(host.innerHTML).toBe('');
+	});
+});
+
+describe('RC-UX-6.4 default tier', () => {
+	it('reads Standard when this device has never stored a tier', () => {
+		removePreference(TIER_KEY);
+		document.documentElement.removeAttribute(TIER_ATTR);
+		expect(readTier()).toBe('intermediate');
+		renderFixture();
+		expect(sections()).toEqual(['profile', 'tools', 'analytics', 'vault']);
+	});
+	it('keeps a stored Beginner choice', () => {
+		writePreference(TIER_KEY, 'core');
+		expect(readTier()).toBe('core');
 	});
 });

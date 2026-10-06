@@ -82,12 +82,13 @@ describe('PLAT-013 fresh-vault onboarding (AC1)', () => {
 		expect(isFreshVault(state)).toBe(true);
 	});
 
-	it('first-run onboarding defaults: core tier, first-run status, setup steps undone', () => {
+	it('first-run onboarding defaults: intermediate tier, first-run status, setup steps undone', () => {
 		const state = buildInitialState(DM_ACTOR);
 		const view = resolveOnboarding(state, DM_ACTOR.id);
 		expect(view.status).toBe('first-run');
 		expect(view.tier).toBe(DEFAULT_FEATURE_TIER);
-		expect(view.tier).toBe('core');
+		// RC-UX-6.4: Standard is the default, matching the tier onboarding recommends.
+		expect(view.tier).toBe('intermediate');
 		expect(view.isFresh).toBe(true);
 		expect(view.steps.find((s) => s.id === 'command-center')?.done).toBe(false);
 		expect(view.steps.find((s) => s.id === 'first-scene')?.done).toBe(false);

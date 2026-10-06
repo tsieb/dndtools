@@ -2,7 +2,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import { SECTION_FEATURE_GATES, isFeatureVisible } from '../../packages/core/src/state/onboarding';
+import {
+	DEFAULT_FEATURE_TIER,
+	FEATURE_TIERS,
+	SECTION_FEATURE_GATES,
+	TIER_SUMMARY_GATE_IDS,
+	isFeatureVisible,
+	tierHiddenSections,
+} from '../../packages/core/src/state/onboarding';
 import { en } from '../../apps/gm-react/src/i18n/messages/en';
 import { renderFeatureComplexity } from '../../scripts/feature-complexity';
 
@@ -152,6 +159,45 @@ describe('RC-UX-5.1 feature complexity inventory', () => {
 		expect(isFeatureVisible('private-e2ee', 'core', SECTION_FEATURE_GATES)).toBe(false);
 		expect(isFeatureVisible('private-e2ee', 'intermediate', SECTION_FEATURE_GATES)).toBe(false);
 		expect(isFeatureVisible('private-e2ee', 'advanced', SECTION_FEATURE_GATES)).toBe(true);
+	});
+
+	it('RC-UX-6.4: the three experience cards hide pairwise-different, real sections', () => {
+		const lists = FEATURE_TIERS.map((tier) => tierHiddenSections(tier).map((gate) => gate.id));
+		for (let a = 0; a < lists.length; a++)
+			for (let b = a + 1; b < lists.length; b++)
+				expect(lists[a], `${FEATURE_TIERS[a]} vs ${FEATURE_TIERS[b]}`).not.toEqual(lists[b]);
+		const ids = new Set(SECTION_FEATURE_GATES.map((gate) => gate.id));
+		for (const id of TIER_SUMMARY_GATE_IDS) expect(ids.has(id), id).toBe(true);
+		for (const list of lists) for (const id of list) expect(ids.has(id), id).toBe(true);
+		const [beginner, standard, expert] = lists;
+		expect(beginner).toEqual(
+			expect.arrayContaining([
+				'nav.extensions',
+				'nav.community',
+				'home.create.widget',
+				'settings.nav.permissions',
+				'settings.nav.plugins',
+				'settings.nav.systems',
+				'settings.nav.ai',
+			]),
+		);
+		// Standard hides only advanced Settings sections; Expert hides nothing.
+		expect(standard.length).toBeGreaterThan(0);
+		for (const id of standard) {
+			const gate = SECTION_FEATURE_GATES.find((entry) => entry.id === id);
+			expect(gate?.minTier, id).toBe('advanced');
+			expect(gate?.surface, id).toMatch(/^\/settings\?tab=/);
+		}
+		expect(expert).toEqual([]);
+		// Each list is exactly the summary gates its tier cannot see — nothing authored by hand.
+		for (const [i, tier] of FEATURE_TIERS.entries())
+			expect(lists[i]).toEqual(
+				TIER_SUMMARY_GATE_IDS.filter((id) => !isFeatureVisible(id, tier, SECTION_FEATURE_GATES)),
+			);
+	});
+
+	it('RC-UX-6.4: Standard is the default tier', () => {
+		expect(DEFAULT_FEATURE_TIER).toBe('intermediate');
 	});
 
 	it('keeps the reference document byte-for-byte equal to the declared data', () => {

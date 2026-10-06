@@ -34,10 +34,12 @@ export const readLocal = (key: PreferenceKey) => readPreference(key);
 export const writeLocal = (key: PreferenceKey, value: string) => writePreference(key, value);
 /* ---- Experience complexity → real feature tier ------------------------------------------------
  * The 3-card "complexity" control is wired to the Core's progressive-disclosure model: each level maps
- * to a real `FeatureTier`, and the per-card reveals come from `visibleFeatures(tier)` (the same query the
- * onboarding surface reads), so the list is authoritative, not authored. The active tier is a device-local
- * display preference (Contract 1): persisted to localStorage (+ a `data-feature-tier` attr for any future
- * consumer). The tier is ENFORCED here: gated settings tabs (see TAB_GATE) hide below their gate's tier. */
+ * to a real `FeatureTier`, and each card lists what its tier hides from `tierHiddenSections(tier)` (the
+ * same query the onboarding step reads), so the list is derived, not authored. The active tier is a
+ * device-local display preference (Contract 1): persisted to localStorage (+ a `data-feature-tier` attr).
+ * With nothing stored it is `DEFAULT_FEATURE_TIER` (Standard since RC-UX-6.4). The tier is ENFORCED by
+ * the Settings rail and sections, the More group / phone More sheet / rail (Extensions, Community) and
+ * the Command Center launchers (New widget, Permissions). */
 export const TIER_KEY = PREFERENCE_KEYS.tier;
 export const TIER_ATTR = 'data-feature-tier';
 export const TIER_EVENT = 'dndtools:react:tier-changed';

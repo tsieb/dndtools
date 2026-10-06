@@ -32,8 +32,7 @@ export default {
 	'onboarding.v3.open': '[Óƥéñ ţĥé Çóḿḿáñď Çéñţéŕ~~~~ ~~~~ ]',
 	'onboarding.v3.group': '[Šçŕééñ çóḿƥľéẋíţý~~~~ ~~]',
 	'onboarding.v3.hides': '[Ĥíďéš ~~~{tabs}.~]',
-	'onboarding.v3.hidesNone': '[Ĥíďéš ñó ţáƀš.~~~~ ~]',
-	'onboarding.v3.recommended': '[{tier} (ŕéçóḿḿéñďéď)~~~~ ~]',
+	'onboarding.v3.hidesNone': '[Ĥíďéš ñóţĥíñğ.~~~~ ~]',
 	'onboarding.v3.saveFailed': '[Šéţúƥ çóúľď ñóţ ƀé šáṽéď. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ]',
 	'onboarding.v3.systemFailed': '[Ţĥé ğáḿé šýšţéḿ çóúľď ñóţ ƀé šáṽéď.~~~~ ~~~~ ~~~~]',
 	'play.join.title': '[Ĵóíñ ýóúŕ ţáƀľé~~~~ ~]',
@@ -972,6 +971,8 @@ export default {
 	'settings.experience.expertBlurb':
 		'[Éṽéŕýţĥíñğ óñ, ñóţĥíñğ ĥíďďéñ — ƥéŕḿíššíóñ ğŕáñţš, ƥľúğíñš, šýšţéḿš, ďíáğñóšţíçš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'settings.experience.growingInto': '[Ğŕóŵíñğ íñţó íţ~~~~ ~]',
+	'settings.experience.hides': '[Ĥíďďéñ áţ ţĥíš ľéṽéľ~~~~ ~~~]',
+	'settings.experience.hidesNone': '[Ñóţĥíñğ ĥíďďéñ~~~~ ~]',
 	'settings.a11y.displayMotion': '[Ďíšƥľáý & ḿóţíóñ~~~~ ~~]',
 	'settings.a11y.intro':
 		'[Ţĥéšé ḿíŕŕóŕ ýóúŕ Áƥƥéáŕáñçé šéţţíñğš, ţáķé éƒƒéçţ íḿḿéďíáţéľý, áñď šţáý šéľéçţéď ñéẋţ ţíḿé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',

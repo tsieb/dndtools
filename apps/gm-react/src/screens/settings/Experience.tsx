@@ -2,7 +2,8 @@ import { useSyncExternalStore, type ReactNode } from 'react';
 import {
 	isFeatureVisible,
 	resolveMaturitySignals,
-	visibleFeatures,
+	SECTION_FEATURE_GATES,
+	tierHiddenSections,
 	type FeatureTier,
 } from '@dndtools/core';
 import { Badge, Icon } from '../../ds';
@@ -87,11 +88,16 @@ export function ExperienceComplexity() {
 				{COMPLEXITY_LEVELS.map((l) => {
 					const levelTier = l.tier;
 					const on = levelTier === tier;
-					const reveals = visibleFeatures(levelTier).map((f) => f.label);
-					// The radio is the level's name and blurb; the feature list beside it is its
-					// description. As one 10-item button the Expert card was taller than a phone's
-					// scroll pane at 200% text (its centre landed under the footer) and its accessible
-					// name read the whole list.
+					// RC-UX-6.4 — what this level keeps out of sight, from the complexity map. The three
+					// lists differ by construction; the old "reveals" list printed the same four core
+					// features on every card.
+					const hides = tierHiddenSections(levelTier).map((gate) => ({
+						id: gate.id,
+						label: t(gate.labelKey as MessageKey),
+					}));
+					// The radio is the level's name and blurb; the list beside it is its description. As
+					// one 10-item button the card was taller than a phone's scroll pane at 200% text (its
+					// centre landed under the footer) and its accessible name read the whole list.
 					const revealsId = `experience-reveals-${l.id}`;
 					return (
 						<div
@@ -144,7 +150,12 @@ export function ExperienceComplexity() {
 									<span style={{ font: `600 var(--text-base) ${T.sans}`, color: T.ink }}>
 										{t(l.name)}
 									</span>
-									{l.rec && !on && <Badge status="neutral">{t('common.badge.recommended')}</Badge>}
+									{l.rec && !on && (
+										// The badge drops to its own line rather than breaking mid-word.
+										<Badge status="neutral" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+											{t('common.badge.recommended')}
+										</Badge>
+									)}
 									{on && (
 										<span style={{ marginLeft: 'auto' }}>
 											<Icon name="check" size={16} color={T.acc} />
@@ -157,11 +168,17 @@ export function ExperienceComplexity() {
 							</button>
 							<div
 								id={revealsId}
+								data-experience-hides={l.id}
 								style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}
 							>
-								{reveals.map((r) => (
+								<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
+									{hides.length
+										? t('settings.experience.hides')
+										: t('settings.experience.hidesNone')}
+								</span>
+								{hides.map((h) => (
 									<span
-										key={r}
+										key={h.id}
 										style={{
 											display: 'flex',
 											minWidth: 0,
@@ -172,8 +189,8 @@ export function ExperienceComplexity() {
 											overflowWrap: 'anywhere',
 										}}
 									>
-										<Icon name="check" size={12} color={on ? T.acc : T.ter} />
-										{r}
+										<Icon name="hidden" size={12} color={on ? T.acc : T.ter} />
+										{h.label}
 									</span>
 								))}
 							</div>
@@ -238,6 +255,11 @@ export function useSettingsTier() {
 
 export function settingsGateVisible(gateKey: string, tier: FeatureTier) {
 	return isFeatureVisible(gateKey, tier, SETTINGS_FEATURE_GATES);
+}
+
+/** Any complexity-map gate (`SECTION_FEATURE_GATES`), for readers outside Settings. */
+export function featureGateVisible(gateId: string, tier: FeatureTier) {
+	return isFeatureVisible(gateId, tier, SECTION_FEATURE_GATES);
 }
 
 /** Render nothing below the declared tier; children (including dialogs) are unmounted. */

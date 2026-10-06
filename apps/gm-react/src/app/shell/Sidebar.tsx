@@ -21,11 +21,10 @@ import {
 	RUN,
 	SETTINGS_SECTION,
 	activeSectionId,
-	isNavSectionVisible,
 	type NavSection,
 } from '../nav';
 import { T } from '../screen-kit';
-import { sectionPath } from './sections';
+import { isSectionShown, sectionPath } from './sections';
 import { PinnedScreenRows, SideGroup, SideRow } from './rows';
 import { useSessionPosture } from './session-posture';
 import { listLocalVaults } from '../../platform/storage/coreStore';
@@ -148,10 +147,11 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	};
 
 	// RC-UX-3.5 — a section named by a declared maturity signal (currently only Graph) stays out of
-	// the More group until the DM's own usage earns it (e.g. three linked notes).
+	// the More group until the DM's own usage earns it (e.g. three linked notes). RC-UX-6.4 — a
+	// tier-gated section (Extensions, Community) stays out below its tier, unless you're on it.
 	const visiblePlatform = useMemo(
-		() => PLATFORM.filter((s) => isNavSectionVisible(s.id, runtime.state)),
-		[runtime.state],
+		() => PLATFORM.filter((s) => s.id === active || isSectionShown(s.id, runtime.state, tier)),
+		[runtime.state, tier, active],
 	);
 	const [moreOpen, setMoreOpen] = useState(false);
 	// Never hide the row you're ON: arriving at a platform section OPENS the group. It stays a real
