@@ -147,6 +147,13 @@ test.describe('knowledge: start from a template, filter, refine', () => {
 		await page.keyboard.press('Control+k');
 		const palette = page.getByRole('dialog', { name: 'Command palette' });
 		await expect(palette).toBeVisible();
+		// Nothing found, nothing to refine: the empty state stays the answer. (A negative check, so
+		// it waits out the palette's search debounce before asserting the row never arrived.)
+		await palette.getByRole('combobox').fill('zzzz-no-such-words');
+		await expect(palette.getByText('No matches')).toBeVisible();
+		await page.waitForTimeout(600);
+		await expect(palette.getByRole('option', { name: /^Refine in Notes/ })).toHaveCount(0);
+
 		await palette.getByRole('combobox').fill('Sunken Crypt');
 		const refine = palette.getByRole('option', { name: /^Refine in Notes/ });
 		await expect(refine).toBeVisible();
