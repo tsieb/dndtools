@@ -204,3 +204,33 @@ Not completed: the full Playwright suite (both profiles, 1882 tests) was started
 were cut off when the session ended (the second reached 36/1882 with no failures). Locally proven
 browser coverage is therefore the 353-test targeted batch (session 1) and the 213 golden routes;
 the operator's browser gate is the full-suite evidence.
+
+## Session 3 — widened claim, rebase onto loop/rc (2026-10-06)
+
+Operator brief: the claim now covers the crossings the journal justifies; rebase (the branch was 19
+commits behind) and re-run gates on the existing candidate.
+
+- Rebased onto `582ed519` (pre-rebase tip tagged locally as `rc-can76-pre-rebase`). Conflicts:
+  `packages/core/src/index.ts` (RC-WID-6.5's query-option type exports beside `HomeWidgetType` — both
+  kept) and `screens/sceneEditor/Inspector.tsx` (resolved to `loop/rc`: this branch no longer changes
+  it). The files session 2 reverted (`board-helpers`, `FlowBoard`, `WidgetRenderSlot`,
+  `flow-layout.test`, `Inspector`) are byte-identical to `loop/rc`. Every changed source path is in
+  the widened claim; the rest are tests, catalogs (`qps-ploc` regenerated), the core barrel, the
+  raw-style ratchet and this journal.
+- RC-WID-6.5 (new upstream) pins every template kind with no query. It caught one behaviour change
+  in the rebuilt hub templates: a card grid with no query drew a blank empty card instead of "This
+  widget has no data source yet." Fixed in `Hub.tsx` (`b87787e3`); the hero, launcher and link list
+  differed in markup only, so the four snapshots were re-recorded.
+- `widget-query-sources.spec.ts` pins the full source list; it now includes the three home sources
+  (`98fad959`).
+
+Evidence on the rebased tree: `pnpm typecheck` 0; `pnpm lint` 0 (16 pre-existing warnings);
+`pnpm gates` 0; `format:check:changed --base loop/rc` clean; app vitest 174 files / 2116 tests; core
+vitest 290 files / 5286 tests; `CommandCenter.baseline.test.tsx` 11/11 with the 44 committed
+baselines unchanged; `golden-routes` in the pinned container 213 passed (no golden moved);
+Playwright targeted batch (hub-templates, screens, pinned-screens, flow-layout, golden-path,
+demo-vault, responsive, settings-tiers, local-vaults, command-palette, shell-pin-bounds,
+onboarding-consent, scene-templates, a11y-axe-gate, widget-builder, widget-query-sources) on desktop
+
+- mobile: 432 passed, 4 skipped, then the 4 query-source failures fixed by the spec update (4/4);
+  `scene-first-render` 1241.0 / 1500 ms PASS, `app-startup` 1129.8 / 2000 ms PASS (0 regressed).
