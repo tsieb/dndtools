@@ -39,6 +39,10 @@ const SOURCES = [
 	'live-peers',
 	'table-readiness',
 	'continuity-mentions',
+	// RC-CAN-7.6 — the Command Center's parts.
+	'resume',
+	'table-scenes',
+	'library-sections',
 ];
 
 const SECRET_SCREEN = 'Smugglers’ hold — RC-WID-5.2';
