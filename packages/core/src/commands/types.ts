@@ -178,18 +178,6 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| {
-			type: 'command-center.rename-preset';
-			actorId: ActorId;
-			payload: unknown;
-			idempotencyKey?: string;
-	  }
-	| {
-			type: 'command-center.delete-preset';
-			actorId: ActorId;
-			payload: unknown;
-			idempotencyKey?: string;
-	  }
-	| {
 			type: 'command-center.snapshot-auto-save';
 			actorId: ActorId;
 			payload: unknown;
@@ -1221,13 +1209,6 @@ export type CoreEvent =
 			restoredWidgetCount: number;
 			missingWidgetTypes: string[];
 	  }
-	| {
-			kind: 'command-center.preset-renamed';
-			presetId: string;
-			name: string;
-			actorId: ActorId;
-	  }
-	| { kind: 'command-center.preset-deleted'; presetId: string; actorId: ActorId }
 	| {
 			kind: 'command-center.auto-save-captured';
 			sceneId: SceneId;

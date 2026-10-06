@@ -5511,12 +5511,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.layoutApplied': 'Se aplicó el diseño «{name}» — puedes restaurar el diseño anterior.',
 	'board.layoutRestored': 'Se restauró el diseño anterior.',
 	'board.applyLayout': 'Aplicar «{name}»',
-	'board.renameLayout': 'Cambiar el nombre de «{name}»',
-	'board.renameLayoutField': 'Nuevo nombre para «{name}»',
-	'board.deleteLayout': 'Eliminar «{name}»',
-	'board.deleteLayoutConfirm': '¿Eliminar «{name}»? El tablero se queda como está.',
-	'board.layoutRenamed': 'El diseño ahora se llama «{name}».',
-	'board.layoutDeleted': 'Se eliminó el diseño «{name}».',
 	'board.restoreBeforeApplying':
 		'Vuelve al diseño que tenías antes de aplicar «{name}»: {count, plural, one {# mosaico} other {# mosaicos}}, guardado a las {time}.',
 	'board.restoreCaptured':

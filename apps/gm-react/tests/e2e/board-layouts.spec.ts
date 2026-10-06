@@ -48,9 +48,7 @@ const presetNames = (page: Page) =>
 		Object.values(window.__rt!.state.commandCenter.presets).map((preset) => preset.name),
 	);
 
-test('saves a layout, applies it, says what Restore puts back, renames and deletes it', async ({
-	page,
-}) => {
+test('saves a layout, applies it, and says what Restore puts back', async ({ page }) => {
 	const { sceneId, frames } = await editBoard(page);
 	const status = page.getByTestId('board-status');
 	const tiles = await frames.count();
@@ -104,37 +102,11 @@ test('saves a layout, applies it, says what Restore puts back, renames and delet
 		panel(page).getByRole('button', { name: 'Restore previous layout', exact: true }),
 	).toHaveAccessibleDescription(/before applying “Combat night”/);
 
-	// Rename in place. Escape backs out of the field without closing the panel.
-	await panel(page).getByRole('button', { name: 'Rename “Combat night”', exact: true }).click();
-	const rename = panel(page).getByLabel('New name for “Combat night”');
-	await expect(rename).toBeFocused();
-	await page.keyboard.press('Escape');
-	await expect(panel(page)).toBeVisible();
-	await expect(rename).toHaveCount(0);
-	const renameButton = panel(page).getByRole('button', {
-		name: 'Rename “Combat night”',
-		exact: true,
-	});
-	await expect(renameButton).toBeFocused();
-	await renameButton.click();
-	await rename.fill('Boss fight');
-	await rename.press('Enter');
-	await expect(status).toHaveText('Layout renamed to “Boss fight”.');
-	await expect(
-		panel(page).getByRole('button', { name: 'Apply “Boss fight”', exact: true }),
-	).toBeVisible();
-	await expect.poll(() => presetNames(page)).toEqual(['Boss fight']);
-
-	// Delete asks first, then leaves the board as it is.
-	await panel(page).getByRole('button', { name: 'Delete “Boss fight”', exact: true }).click();
-	await expect(panel(page).getByRole('alert')).toHaveText(
-		'Delete “Boss fight”? The board stays as it is.',
-	);
-	await panel(page).getByRole('button', { name: 'Delete', exact: true }).click();
-	await expect(status).toHaveText('Layout “Boss fight” deleted.');
-	await expect.poll(() => presetNames(page)).toEqual([]);
-	await expect(page.getByLabel('Layout name')).toBeFocused();
-	await expect(frames).toHaveCount(tiles);
+	// …and restoring it does: the board goes back to the tile it lost.
+	await panel(page).getByRole('button', { name: 'Restore previous layout', exact: true }).click();
+	await expect(status).toHaveText('Previous layout restored.');
+	await expect(frames).toHaveCount(tiles - 1);
+	await expect.poll(() => presetNames(page)).toEqual(['Combat night']);
 });
 
 test('Dice Configure: an example, a message for a bad formula, Enter saves, Escape guards', async ({

@@ -295,20 +295,6 @@ export const applyCommandCenterPresetInputSchema = z
 	})
 	.strict();
 
-// RC-CAN-8.8 — the Layouts panel names and prunes its saved presets in place.
-export const renameCommandCenterPresetInputSchema = z
-	.object({
-		presetId: idSchema,
-		name: z.string().trim().min(1, 'Preset name is required'),
-	})
-	.strict();
-
-export const deleteCommandCenterPresetInputSchema = z
-	.object({
-		presetId: idSchema,
-	})
-	.strict();
-
 // UX-CMD-008 — the auto-save snapshot / restore commands take no caller payload; they operate on the
 // single last-known-good slot and the current home Scene.
 export const commandCenterAutoSaveInputSchema = z.object({}).strict().default({});

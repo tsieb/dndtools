@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
 import type { CommandCenterPreset } from '@dndtools/core';
 import { Button, Card, IconButton, Input } from '../ds';
 import type { Viewport } from '../app/useViewport';
 import { useI18n } from '../i18n';
-import type { BoardLayouts } from './board/useBoardLayouts';
+import { useRuntime } from '../runtime/RuntimeContext';
+import { safePointOf } from './board/useBoardLayouts';
 
 const label: React.CSSProperties = {
 	font: '600 var(--text-xs) var(--font-sans)',
@@ -14,38 +14,42 @@ const column: React.CSSProperties = {
 	flexDirection: 'column',
 	gap: 'var(--space-1-5)',
 };
-// The name field takes what is left; below ~8rem it wraps under the button instead of squeezing it.
-// The Input's own `width: 100%` made the button the only thing that could shrink, and at 260px it
-// shrank to one letter per line (CAN-15).
-const wrapRow: React.CSSProperties = {
-	display: 'flex',
-	flexWrap: 'wrap',
-	alignItems: 'center',
-	gap: 'var(--space-1-5)',
-};
-const grow: React.CSSProperties = { flex: '1 1 8rem', minWidth: 0, width: 'auto' };
-const keep: React.CSSProperties = { flex: '0 0 auto', whiteSpace: 'nowrap' };
 
 /**
- * RC-STB-2.7 moved the "Layouts" overlay out of Board.tsx; RC-CAN-8.8 made it a place to manage
- * layouts rather than only save one. Save the current layout, apply, rename or delete a saved one,
- * and restore the safe point with a line saying what that restore puts back. Commands, guards and
- * status messages live in `useBoardLayouts`; this component holds only row-editing state.
+ * RC-STB-2.7 — pure move out of Board.tsx (no behaviour change): the "Layouts" overlay
+ * (save/apply/restore a Command Center preset) was the largest self-contained JSX block keeping
+ * that file over the file-size gate's 800-line hard limit. All state and handlers still live in
+ * Board.tsx and are threaded through as props; this component only renders.
+ *
+ * RC-CAN-8.8 — Save keeps its width, Enter in the name saves, and "Restore previous layout" carries
+ * a line saying what it puts back (read off the safe point itself).
  */
 export function BoardLayoutsPanel({
+	t,
 	viewport,
 	onClose,
-	layouts,
+	presetName,
+	onPresetNameChange,
+	onSave,
+	presets,
+	onApplyPreset,
+	autoSaveEnabled,
+	onRestoreSafePoint,
 }: {
+	t: ReturnType<typeof useI18n>['t'];
 	viewport: Viewport;
 	onClose: () => void;
-	layouts: BoardLayouts;
+	presetName: string;
+	onPresetNameChange: (value: string) => void;
+	onSave: () => void;
+	presets: readonly CommandCenterPreset[];
+	onApplyPreset: (presetId: string, name: string) => void;
+	autoSaveEnabled: boolean;
+	onRestoreSafePoint: () => void;
 }) {
-	const { t, formatTime } = useI18n();
-	const { presetName, setPresetName, savePreset, presets, safePoint } = layouts;
-	// DS Input/IconButton do not forward refs (React 18), so focus moves by query inside a wrapper.
-	const saveRowRef = useRef<HTMLDivElement>(null);
-
+	const { formatTime } = useI18n();
+	const { commandCenter } = useRuntime().state;
+	const safePoint = autoSaveEnabled ? safePointOf(commandCenter) : null;
 	return (
 		<Card
 			elevation="overlay"
@@ -74,7 +78,7 @@ export function BoardLayoutsPanel({
 				<span
 					style={{
 						flex: 1,
-						font: '700 var(--text-md) var(--font-sans)',
+						font: '700 var(--text-md) var(--font-display)',
 						color: 'var(--color-text-primary)',
 					}}
 				>
@@ -92,17 +96,28 @@ export function BoardLayoutsPanel({
 				style={column}
 				onSubmit={(e) => {
 					e.preventDefault();
-					void savePreset();
+					if (presetName.trim()) onSave();
 				}}
 			>
 				<span style={label}>{t('board.saveCurrentLayout')}</span>
-				<div ref={saveRowRef} style={wrapRow} data-testid="board-layouts-save-row">
+				{/* The Input's own `width: 100%` left the button as the only thing that could shrink, and
+				    at 260px it shrank to one letter per line (CAN-15). The field now takes what is left
+				    and, below ~8rem, wraps under the button instead of squeezing it. */}
+				<div
+					data-testid="board-layouts-save-row"
+					style={{
+						display: 'flex',
+						flexWrap: 'wrap',
+						alignItems: 'center',
+						gap: 'var(--space-1-5)',
+					}}
+				>
 					<Input
 						value={presetName}
 						aria-label={t('board.layoutName')}
-						onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
+						onChange={(e: { target: { value: string } }) => onPresetNameChange(e.target.value)}
 						placeholder={t('board.layoutNamePlaceholder')}
-						style={grow}
+						style={{ flex: '1 1 8rem', minWidth: 0, width: 'auto' }}
 					/>
 					<Button
 						type="submit"
@@ -110,7 +125,7 @@ export function BoardLayoutsPanel({
 						size="sm"
 						icon="check"
 						disabled={!presetName.trim()}
-						style={keep}
+						style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
 					>
 						{t('common.action.save')}
 					</Button>
@@ -126,12 +141,25 @@ export function BoardLayoutsPanel({
 						style={{ ...column, listStyle: 'none', margin: 0, padding: 0 }}
 					>
 						{presets.map((preset) => (
-							<PresetRow
-								key={preset.id}
-								preset={preset}
-								layouts={layouts}
-								onDeleted={() => saveRowRef.current?.querySelector('input')?.focus()}
-							/>
+							<li key={preset.id}>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon="scene"
+									aria-label={t('board.applyLayout', { name: preset.name })}
+									title={preset.name}
+									onClick={() => onApplyPreset(preset.id, preset.name)}
+									style={{
+										width: '100%',
+										justifyContent: 'flex-start',
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap',
+									}}
+								>
+									{preset.name}
+								</Button>
+							</li>
 						))}
 					</ul>
 				</div>
@@ -142,7 +170,7 @@ export function BoardLayoutsPanel({
 						variant="ghost"
 						size="sm"
 						icon="retry"
-						onClick={() => void layouts.restoreSafePoint()}
+						onClick={onRestoreSafePoint}
 						aria-describedby="board-layouts-restore-what"
 						style={{ alignSelf: 'flex-start' }}
 					>
@@ -167,127 +195,5 @@ export function BoardLayoutsPanel({
 				</div>
 			)}
 		</Card>
-	);
-}
-
-/** One saved layout: apply it, or rename/delete it in place. Escape backs out of a rename or a
- *  delete confirm without closing the panel. */
-function PresetRow({
-	preset,
-	layouts,
-	onDeleted,
-}: {
-	preset: CommandCenterPreset;
-	layouts: BoardLayouts;
-	onDeleted: () => void;
-}) {
-	const { t } = useI18n();
-	const [mode, setMode] = useState<'idle' | 'rename' | 'delete'>('idle');
-	const [draft, setDraft] = useState(preset.name);
-	const rowRef = useRef<HTMLLIElement>(null);
-	const back = () => {
-		setMode('idle');
-		// The control that opened the editor is gone until the row re-renders idle.
-		requestAnimationFrame(() =>
-			rowRef.current?.querySelector<HTMLElement>('[data-action="rename"]')?.focus(),
-		);
-	};
-	const stayOpen = (e: React.KeyboardEvent) => {
-		if (e.key !== 'Escape') return;
-		e.stopPropagation();
-		back();
-	};
-
-	if (mode === 'rename') {
-		return (
-			<li ref={rowRef}>
-				<form
-					style={wrapRow}
-					onKeyDown={stayOpen}
-					onSubmit={(e) => {
-						e.preventDefault();
-						void layouts.renamePreset(preset.id, draft).then((ok) => ok && back());
-					}}
-				>
-					<Input
-						autoFocus
-						value={draft}
-						aria-label={t('board.renameLayoutField', { name: preset.name })}
-						onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
-						style={grow}
-					/>
-					<Button type="submit" variant="secondary" size="sm" disabled={!draft.trim()} style={keep}>
-						{t('common.action.save')}
-					</Button>
-					<Button variant="ghost" size="sm" onClick={back} style={keep}>
-						{t('common.action.cancel')}
-					</Button>
-				</form>
-			</li>
-		);
-	}
-	if (mode === 'delete') {
-		return (
-			<li ref={rowRef} style={column} onKeyDown={stayOpen}>
-				<span role="alert" style={{ ...label, color: 'var(--color-text-primary)' }}>
-					{t('board.deleteLayoutConfirm', { name: preset.name })}
-				</span>
-				<div style={wrapRow}>
-					<Button
-						autoFocus
-						variant="danger"
-						size="sm"
-						icon="trash"
-						style={keep}
-						onClick={() => void layouts.deletePreset(preset.id, preset.name).then(onDeleted)}
-					>
-						{t('common.action.delete')}
-					</Button>
-					<Button variant="ghost" size="sm" onClick={back} style={keep}>
-						{t('common.action.cancel')}
-					</Button>
-				</div>
-			</li>
-		);
-	}
-	return (
-		<li ref={rowRef} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-			<Button
-				variant="ghost"
-				size="sm"
-				icon="scene"
-				aria-label={t('board.applyLayout', { name: preset.name })}
-				title={preset.name}
-				onClick={() => void layouts.applyPreset(preset.id, preset.name)}
-				style={{
-					flex: '1 1 auto',
-					minWidth: 0,
-					justifyContent: 'flex-start',
-					overflow: 'hidden',
-					textOverflow: 'ellipsis',
-					whiteSpace: 'nowrap',
-				}}
-			>
-				{preset.name}
-			</Button>
-			<IconButton
-				data-action="rename"
-				icon="edit"
-				variant="ghost"
-				size="sm"
-				label={t('board.renameLayout', { name: preset.name })}
-				onClick={() => {
-					setDraft(preset.name);
-					setMode('rename');
-				}}
-			/>
-			<IconButton
-				icon="trash"
-				variant="ghost"
-				size="sm"
-				label={t('board.deleteLayout', { name: preset.name })}
-				onClick={() => setMode('delete')}
-			/>
-		</li>
 	);
 }

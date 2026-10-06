@@ -2,34 +2,43 @@
 
 Base: `7dc67b3f` (RC-CAN-8.5 head = branch start).
 
+## Attempt 2: claim gate
+
+Attempt 1 (`a8e1712b`) was refused for paths outside the claim: `Board.tsx`,
+`docs/planning/SCREENS_PARITY.md`, `packages/core/src/commands/command-center.ts` and
+`scripts/emphasis-baseline.json`. None of them is needed for the acceptance criteria (a 260px visual
+of the button on one line, a formula-validator unit test, e2e save + apply on both profiles), so all
+four are reverted to base. The core commands I added for rename/delete
+(`command-center.rename-preset` / `delete-preset`) need their handler in `command-center.ts`, so I
+reverted them too, including their companion edits in `dispatch.ts`, `types.ts`,
+`schemas/commands.ts`, `index.ts` and `tests/command-center.test.ts`. A handler written into
+`dispatch.ts` would technically fall inside the companions, but no handler lives there. **Rename
+and delete are therefore not built**. See the handoff below. Every path changed against base is now
+owned or a manifest companion.
+
 ## Implementation
 
-- **Save keeps its width** (`BoardLayoutsPanel.tsx`): the DS Input's `width: 100%` left the button
-  as the only thing that could shrink, so at 260px it stacked one letter per line (CAN-15). The
-  save row is now a wrapping flex row. The field is `flex: 1 1 8rem; min-width: 0`, and the button is
-  `flex: 0 0 auto; white-space: nowrap`. At 260px (desktop and rail) and 280px (phone) the button
-  sits beside the field. On a narrower panel it wraps underneath it. The first try was 9rem, which
-  wrapped at 260px in the pinned container, and the visual spec's same-row assertion caught it.
-  The save row is a `<form>`, so Enter in "Layout name" saves.
-- **Saved layouts list**: each row is Apply ("Apply “<name>”", visible text = name, ellipsis),
-  Rename and Delete. Rename swaps the row for a field plus Save/Cancel: Enter saves, and Escape
-  backs out without closing the panel, returning focus to Rename. Delete asks first ("Delete “X”?
-  The board stays as it is."). After deleting, focus goes to the name field. The rows sit in a
-  `<ul>` labelled by the section label.
+- **Save keeps its width** (`BoardLayoutsPanel.tsx`). The DS Input's `width: 100%` left the button
+  as the only thing that could shrink, so at 260px it stacked one letter per line (CAN-15). The save
+  row is now a wrapping flex row:
+  - the field is `flex: 1 1 8rem; min-width: 0`;
+  - the button is `flex: 0 0 auto; white-space: nowrap`.
+
+  At 260px (desktop, rail) and 280px (phone) the button sits beside the field; on a narrower panel it
+  wraps under it. A 9rem basis wrapped at 260px in the pinned container, and the visual spec's
+  same-row assertion caught it. The row is a `<form>`, so Enter in "Layout name" saves.
+
+- **Saved layouts list**: Apply only. It is a `<ul>` labelled by its section label. Each row is
+  named "Apply “<name>”", shows the name as its text, and ellipsizes a long one.
 - **Restore previous says what it restores**: a line under the button, also its
   `aria-describedby`. It reads either "Puts back the layout you had before applying “X”: N tiles,
-  saved at <time>." or "Puts back the layout saved automatically at <time>: N tiles." The hook
-  pairs the safe point's `capturedAt` with the preset applied right after it. A later checkpoint
-  (edit start, template apply) has a different `capturedAt`, so it falls back to the generic line.
-- **Core (crossed minimally, not owned)**: no rename/delete preset command existed, and presets live
-  in core state. Added `command-center.rename-preset` (trimmed non-empty name, bumps revision and
-  `updatedAt`, snapshot untouched) and `command-center.delete-preset` (board and auto-save
-  untouched). Both are DM-only and reject an unknown id with `preset-not-found`. Each is one
-  `command-center` op plus an event. Touched files: `schemas/commands.ts`, `commands/types.ts`
-  (command + event unions), `commands/command-center.ts`, `commands/dispatch.ts`, `index.ts`.
-  Tests are in `packages/core/tests/command-center.test.ts` (+3).
-- **Board.tsx (crossed minimally, not owned)**: it now passes the hook result as `layouts={layouts}`
-  instead of nine props. The `presets` sort moved into `useBoardLayouts`. Net -16 lines.
+  saved at <time>." or "Puts back the layout saved automatically at <time>: N tiles."
+  - `safePointOf(commandCenter)` in `useBoardLayouts.ts` reads it off `commandCenter.autoSave`.
+  - `applyPreset` pairs the safe point's `capturedAt` with the preset it was taken in front of.
+  - That pairing sits in module scope, because Board (not owned, unchanged) passes the panel only
+    the hook's commands.
+  - Any later checkpoint has a different `capturedAt`, so the line falls back to the generic wording.
+  - The panel reads the runtime with `useRuntime()`. Its props are exactly the base ones.
 - **Configure dialog** (`TileDialogs.tsx`): the controls edit a draft. Save, or Enter in a
   single-line field (Ctrl/⌘+Enter in a textarea), validates every entry field, focuses the first
   invalid one, or writes all changes in one `scene.configure-widget` and toasts "Saved <tile>
@@ -48,59 +57,63 @@ Base: `7dc67b3f` (RC-CAN-8.5 head = branch start).
   - Toggle/select/color cannot hold a bad value, so they get no validator. They now write through
     the draft too, instead of committing on click.
     Copy stays in the file's English-only `TEXT` table, like the rest of the tile dialogs.
-- i18n: 10 new `board.*` keys in `en.ts`/`es.ts`, `qps-ploc.ts` regenerated
-  (`npx tsx scripts/i18n-catalog.ts pseudo`).
-- Ratchets: the panel's title moved off the display face (it was below 24px), so its
-  `emphasis-baseline.json` entry is removed (count 0). `no-raw-style-values` for the panel is
-  3 → 2 (gaps now tokens). Both changes only lower counts.
+- i18n: 3 new `board.*` keys (`applyLayout`, `restoreBeforeApplying`, `restoreCaptured`) in
+  `en.ts`/`es.ts`, `qps-ploc.ts` regenerated (`npx tsx scripts/i18n-catalog.ts pseudo`).
+- Ratchet: `no-raw-style-values` for the panel is 3 → 2 (gaps now tokens; the allow-list is a
+  companion path). The panel title keeps its display face, so the emphasis baseline is unchanged.
 
-## Tests and evidence
+## Tests and evidence (attempt 2, re-run after the revert)
 
-- Unit `apps/gm-react/src/app/canvas/TileDialogs.test.tsx` (new, 7 pass): the formula validator
-  (example, `d20`/keep suffixes/empty/trailing comma accepted; first bad formula named; range error
-  passed through), the number validator, every system entry field having placeholder + example +
-  check, and a jsdom render of Dice Configure (placeholder and example shown, Enter on a bad list
-  shows the message and dispatches nothing, Enter on a good list writes one configure-widget and
-  closes, Escape guard / keep editing / discard, untouched dialog closes on first Escape).
-  **Negative control:** with `parseDiceExpression`'s verdict ignored, 3 fail / 4 pass; restored → 7.
-- Core `command-center.test.ts`: 12 pass (+3: rename, rejections, delete).
-- New e2e `tests/e2e/board-layouts.spec.ts`, `--project=desktop-chromium --project=mobile-chromium
---repeat-each=2`: **8 passed**. It covers Save on one line, Enter saves, a dropped tile restored
-  by Apply, the restore line naming the applied layout and the tile count (also as the button's
-  accessible description), rename (Escape keeps the panel and refocuses Rename; Enter saves), delete
-  confirm, and focus after delete. It also runs the Dice Configure flow: placeholder and description,
-  a bad formula → `aria-invalid` + message + nothing written, Escape guard → Keep editing, Enter saves,
-  Discard leaves the saved value. Axe (`button-name`, `label`, `list`, `listitem`,
-  `aria-allowed-attr`, `nested-interactive`) runs on the open panel and the dialog: clean.
-  **Negative control:** with the old row styling (no wrap, Input full width) the Save button is
-  76.4px tall against a 38px limit and the test fails; restored.
-- Updated `canvas.spec.ts` "Bind… and Configure…": the switch now changes the draft, and the test
-  checks Escape → guard → Escape → nothing written → Save → written.
-- Related e2e on both profiles: board-layouts, canvas, scene-templates, add-panel: **103 passed,
-  1 skipped** (add-panel's mouse-hover case on touch, skipped by design).
-- Visual `tests/visual/board-layouts.spec.ts`: Layouts panel in tavern on the 3 tiers, with a saved
-  layout, a typed name and the restore line. It asserts the panel width (260 / 280 on phone) and that
-  Save sits right of the field, inside its row, no taller than it. Baselines were generated in the
-  pinned container (`run-in-container.sh … --update-snapshots=missing`), inspected (desktop, phone),
-  losslessly re-deflated (63,911 → 60,631 B), then re-compared with `--update-snapshots=none`:
-  3 passed. Budget after: ~33,247 / 34,816 KiB. I did not run the full visual suite; no golden route
-  opens the Layouts panel or a Configure dialog.
-- `pnpm test` (4 configs): 5237 + 569 + 2035 + 246 passed. `pnpm typecheck`: exit 0 (the first run
-  caught the new test's `vi.fn` typing, now fixed). `pnpm lint`: exit 0. `pnpm gates`: exit 0
-  (TileDialogs 496 lines, panel 293, Board 686). Prettier on every changed file and
-  `git diff --check`: clean.
-- I read the command output directly; the dispatch Headroom tools were not used.
+- Unit `apps/gm-react/src/app/canvas/TileDialogs.test.tsx` (7 pass):
+  - the formula validator: the example, `d20`, keep suffixes, an empty field and a trailing comma
+    are accepted; the first bad formula is named; a range error passes the parser's reason on;
+  - the number validator;
+  - every system entry field has a placeholder, an example and a check;
+  - a jsdom render of Dice Configure: Enter on a bad list shows the message and writes nothing,
+    Enter on a good list writes one configure-widget and closes, the Escape guard / keep editing /
+    discard, and an untouched dialog closes on the first Escape.
+
+  **Negative control (attempt 1, same code):** with the parser's verdict ignored, 3 fail / 4 pass.
+
+- e2e `tests/e2e/board-layouts.spec.ts` + `canvas.spec.ts`, `--project=desktop-chromium
+--project=mobile-chromium`: **84 passed**.
+  - The layouts test checks that Save is one line and disabled while the name is empty, that Enter
+    saves, and that Apply brings back a dropped tile. It checks the restore line names the applied
+    layout and the tile count, also as the button's accessible description. Restore then removes the
+    tile again. Axe runs on the open panel.
+  - The Dice Configure test checks the placeholder and description; that a bad formula sets
+    `aria-invalid`, shows the message and writes nothing; Escape guard → Keep editing; Enter saves;
+    Discard keeps the saved value. Axe runs on the dialog.
+  - `canvas.spec.ts` "Bind… and Configure…" now expects the draft contract: Escape → guard →
+    Escape → nothing written → Save → written.
+
+  **Negative control (attempt 1, same styling):** with the old row styling the Save button is
+  76.4px tall against a 38px limit and the test fails.
+
+- Visual `tests/visual/board-layouts.spec.ts`: the panel in tavern on 3 tiers. It asserts the width
+  (260, or 280 on a phone) and that Save is right of the field, inside its row, and no taller than
+  it.
+  - Baselines were regenerated in the pinned container (`--update-snapshots=missing`; the first run's
+    3 "failures" are the writes) and inspected (desktop).
+  - They were losslessly re-deflated (61,366 → 58,179 B) and re-compared with
+    `--update-snapshots=none`: 3 passed.
+  - Budget 33,244.2 / 34,816 KiB.
+- `pnpm test` (4 configs): 5234 + 569 + 2035 + 246 passed. `pnpm typecheck`, `pnpm lint` and
+  `pnpm gates` all exit 0. `git diff --check` is clean.
+- I read command output directly; the dispatch Headroom tools were not used.
 
 ## Scope notes / handoffs
 
-- Outside the three owned files: core (rename/delete commands, required for the acceptance's
-  rename/delete), `Board.tsx` (prop threading), i18n catalogs + `qps-ploc.ts`, the two lint
-  ratchet files (lowered only), `docs/planning/SCREENS_PARITY.md` BD-07 (the row now describes
-  rename/delete/restore line; Prettier realigned the table), `canvas.spec.ts`, and new test/visual
-  files.
-- HANDOFF: the scene editor's Inspector still commits each field on blur through `FieldControl`
-  (`screens/sceneEditor/fields.tsx`, not owned). It could reuse `fieldGuide` for the same
-  placeholders, examples and messages.
-- HANDOFF: the command palette's preset rows (`queries/command-actions.ts`) list apply only. The new
-  rename/delete commands are not offered there.
+- Changed paths: the three owned files plus companions only: i18n catalogs + `qps-ploc.ts`,
+  `*.test.tsx`, `tests/e2e/*.spec.ts`, `tests/visual/*`, `scripts/eslint-rules/*.allow.js`, and
+  this journal.
+- HANDOFF (needs a wider claim): rename and delete for saved layouts. They need core
+  `command-center.rename-preset` / `command-center.delete-preset`, whose handlers belong in
+  `packages/core/src/commands/command-center.ts`. A complete implementation is in `a8e1712b` on this
+  branch (handlers, schemas, command/event unions, dispatch, 3 core tests, the panel rows, i18n,
+  e2e). An operator who widens the claim to `command-center.ts` (and `Board.tsx`, or keeps the
+  current prop shape) can take it from there.
+- HANDOFF: the scene editor Inspector (`screens/sceneEditor/fields.tsx`, not owned) still commits each
+  field on blur. It could reuse `fieldGuide` for the same placeholders, examples and messages.
+- HANDOFF: `docs/planning/SCREENS_PARITY.md` BD-07 could mention Enter-to-save and the restore line.
 - No push, promotion, dispatcher state edit or additional agents.

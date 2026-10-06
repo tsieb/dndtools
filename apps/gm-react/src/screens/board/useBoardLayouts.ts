@@ -1,14 +1,34 @@
 import { useState } from 'react';
+import type { CommandCenterState } from '@dndtools/core';
 import type { SceneRuntime } from '../../runtime/SceneRuntime';
 import { useI18n } from '../../i18n';
 
 /**
- * The board's saved layouts: naming and saving a preset, the CMD-008 auto-save safe point, applying,
- * renaming and deleting a preset and restoring the safe point.
+ * RC-CAN-8.8 — which preset the current safe point was taken in front of. Keyed by the capture
+ * time, so any later checkpoint (entering edit mode, applying a template) has a different
+ * `capturedAt` and drops the stale "before you applied". Module scope because the Layouts panel
+ * reads it and the board, which holds this hook, passes the panel only the commands.
+ */
+let capturedBefore: { at: string; name: string } | null = null;
+
+/** What "Restore previous layout" would put back, or null when there is no safe point yet. */
+export function safePointOf(commandCenter: CommandCenterState) {
+	const autoSave = commandCenter.autoSave ?? null;
+	if (!autoSave) return null;
+	return {
+		capturedAt: autoSave.capturedAt,
+		tileCount: autoSave.widgets.length,
+		beforeApplying: capturedBefore?.at === autoSave.capturedAt ? capturedBefore.name : null,
+	};
+}
+
+/**
+ * The board's saved layouts: naming and saving a preset, the CMD-008 auto-save safe point, applying
+ * a preset and restoring the safe point.
  *
  * A pure move out of `Board.tsx` (RC-ENG-2.2 — that screen had grown past the RC-STB-2.7 file-size
- * limit). The screen still owns the guarded `dispatch` wrapper and the live-region `status`, and
- * passes them in. RC-CAN-8.8 added rename/delete and `safePoint`, which says what a restore puts back.
+ * limit). The commands, the guards and the status messages are exactly what lived inline; the
+ * screen still owns the guarded `dispatch` wrapper and the live-region `status`, and passes them in.
  */
 export function useBoardLayouts({
 	runtime,
@@ -23,21 +43,6 @@ export function useBoardLayouts({
 }) {
 	const { t } = useI18n();
 	const [presetName, setPresetName] = useState('');
-	// Which preset the CURRENT safe point was taken in front of. Keyed by the capture time, so a later
-	// checkpoint (entering edit mode, applying a template) silently drops the stale "before you applied".
-	const [capturedBefore, setCapturedBefore] = useState<{ at: string; name: string } | null>(null);
-
-	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
-		a.name.localeCompare(b.name),
-	);
-	const autoSave = runtime.state.commandCenter.autoSave ?? null;
-	const safePoint = autoSave
-		? {
-				capturedAt: autoSave.capturedAt,
-				tileCount: autoSave.widgets.length,
-				beforeApplying: capturedBefore?.at === autoSave.capturedAt ? capturedBefore.name : null,
-			}
-		: null;
 
 	async function savePreset() {
 		if (!presetName.trim()) return;
@@ -78,29 +83,8 @@ export function useBoardLayouts({
 			payload: { presetId },
 		});
 		if (!ok) return;
-		if (at) setCapturedBefore({ at, name });
+		if (at) capturedBefore = { at, name };
 		setStatus(t('board.layoutApplied', { name }));
-	}
-
-	async function renamePreset(presetId: string, name: string): Promise<boolean> {
-		const next = name.trim();
-		if (!next) return false;
-		const ok = await dispatch({
-			type: 'command-center.rename-preset',
-			actorId,
-			payload: { presetId, name: next },
-		});
-		if (ok) setStatus(t('board.layoutRenamed', { name: next }));
-		return ok;
-	}
-
-	async function deletePreset(presetId: string, name: string) {
-		const ok = await dispatch({
-			type: 'command-center.delete-preset',
-			actorId,
-			payload: { presetId },
-		});
-		if (ok) setStatus(t('board.layoutDeleted', { name }));
 	}
 
 	async function restoreSafePoint() {
@@ -111,15 +95,9 @@ export function useBoardLayouts({
 	return {
 		presetName,
 		setPresetName,
-		presets,
-		safePoint,
 		savePreset,
 		snapshotSafePoint,
 		applyPreset,
-		renamePreset,
-		deletePreset,
 		restoreSafePoint,
 	};
 }
-
-export type BoardLayouts = ReturnType<typeof useBoardLayouts>;
