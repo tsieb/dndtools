@@ -431,3 +431,48 @@ the home's Create part: the "New widget" launcher is hidden below its tier
 (`featureGateVisible('home.create.widget', tier)`). The bespoke hub it was written against no longer
 exists here, so on rebase that gate belongs in `Hub.tsx`'s live availability check (or as a gate on
 the `home-create` intent); the goldens then need re-capturing on top of upstream's.
+
+## Session 6 — rebase onto `1f78337f` (RC-UX-6.4) (2026-10-07)
+
+The gate's rebase onto `1f78337f` conflicted in `CommandCenter.tsx`. Rebased here (pre-rebase tip
+tagged `rc-can76-pre-rebase-2`):
+
+- `CommandCenter.tsx` (conversion commit): resolved to the converted page. Upstream's change was to
+  the bespoke hub that page no longer contains: RC-UX-6.4 hid the "New widget" launcher below its
+  complexity-map gate (`home.create.widget`, intermediate). Carried into the Create part instead
+  (`eea04cdb`): `Hub.tsx`'s live availability check offers an intent named like a gate the map places
+  on the Command Center (`surface: '/'`) only from that gate's tier. Checked against every home
+  intent: only `new-widget` matches (scoping to `/` keeps the library's Campaign card, `nav.story`,
+  ungated, as the hub had it).
+- The six desktop/rail `command-center--*` PNGs (both sides re-baselined): took upstream's, then
+  re-captured (`50cbb191`).
+- Everything else merged cleanly (`Sidebar.tsx`, `onboarding.ts`, the core barrel, en/es catalogs);
+  the branch's own source files are byte-identical to the pre-rebase tip, `qps-ploc` regenerated
+  with no change.
+
+**Baselines re-recorded on the new base.** "Today's Command Center" changed upstream, so the
+committed baselines were regenerated against upstream's own hub (the rebased baseline commit's
+sources, `498e2454`, with `-u`): exactly one change — "New widget" leaves the core-tier state
+(6 snapshot lines). The new home passes the re-recorded file unchanged, all states, including the
+GM-built duplicates and the canonical-route parity.
+
+**Goldens.** A full visual compare on the rebased head: 509 passed, 7 failed — the six `/`
+desktop/rail captures (expected: upstream's are of the bespoke hub at the new Standard default) and
+`community — parchment` on phone, a `toHaveScreenshot` 5 s timeout (no pixel diff) on a route this
+branch does not touch; `community.spec.ts --repeat-each=3`: 90/90. Re-captured the six (changed
+only), losslessly re-deflated (−51 KiB), golden routes desktop + rail 142/142; budget 33,745.6 of
+34,816 KiB. A `ux-ui-reviewer` comparison of the six before (upstream hub, `1f78337f`) / after
+pairs, measured by pixel and sampled colour: **no regression finding** in any pair — same content,
+order and per-theme colours, nothing clipped; the known 58/42 split (cards −3 to −5 px) and the
+cumulative 2–8 px downward shift stay within tolerance; card gutters are now a uniform 12 px (were
+11–14 px). It noted the rail Story tile's "0 threads" against the sidebar's "6 threads" is the same
+before and after (not this change). The phone `/` captures did not move.
+
+Evidence on `50cbb191`: `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0,
+`format:check:changed --base loop/rc` clean, `pnpm test:app` 174 files / 2133 tests,
+`pnpm test:critical` 290 files / 5286 tests; Playwright targeted batch (the 14 specs of session 4 +
+widget-query-sources) on desktop + mobile **446 passed, 6 skipped, 0 failed**; `scene-first-render`
+**1223.7 / 1500 ms PASS (steady)**, `app-startup` 1155.3 / 2000 ms PASS (steady).
+
+CAN-7.5 row update: CC-11 Create launchers — New widget from the intermediate tier
+(`home.create.widget`), checked by the re-recorded core-tier baseline.
