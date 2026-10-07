@@ -17,7 +17,6 @@ import {
 	BUILTIN_PARITY,
 	SHARED_MODULE_USES,
 	builtinBodyModules,
-	changedFields,
 	checkBuiltinParity,
 	defaultScreenParityProblems,
 	deriveQueryExposure,
@@ -99,7 +98,7 @@ describe('builder parity gate: builtin bodies', () => {
 		}
 	});
 
-	it('every builtin read and command is public or a recorded gap', () => {
+	it('every builtin read and command is public', () => {
 		expect(check(bodyUses())).toEqual([]);
 	});
 
@@ -115,7 +114,9 @@ describe('builder parity gate: builtin bodies', () => {
 						].join('\n'),
 					)
 				: readBuiltin(name);
-		expect(check(bodyUses(withPrivateRead))).toEqual([
+		expect(
+			check(bodyUses(withPrivateRead)).filter((problem) => problem.startsWith('notes:')),
+		).toEqual([
 			'notes: uses read:listFactionsForActor, which no descriptor, intent or query source exposes to a GM-built widget',
 			'notes: uses state:session.timers, which no descriptor, intent or query source exposes to a GM-built widget',
 		]);
@@ -130,7 +131,11 @@ describe('builder parity gate: builtin bodies', () => {
 			...BUILTIN_PARITY,
 			search: { ...BUILTIN_PARITY.search, gaps: { 'read:listEncountersForActor': 'stale' } },
 		};
-		expect(check(bodyUses(withPrivateWrites), declared)).toEqual([
+		expect(
+			check(bodyUses(withPrivateWrites), declared).filter((problem) =>
+				/^(characters|search):/.test(problem),
+			),
+		).toEqual([
 			'characters: uses command:session.end, which no descriptor, intent or query source exposes to a GM-built widget',
 			'characters: uses route:/campaign, which no descriptor, intent or query source exposes to a GM-built widget',
 			'search: uses read:getSavedSearchesForActor, which no descriptor, intent or query source exposes to a GM-built widget',
@@ -147,7 +152,7 @@ describe('builder parity gate: builtin bodies', () => {
 				gaps: { 'read:getDiceHistoryForActor': 'closed already' },
 			},
 		};
-		expect(check(bodyUses(), declared)).toEqual([
+		expect(check(bodyUses(), declared).filter((problem) => problem.startsWith('dice:'))).toEqual([
 			'dice: read:getDiceHistoryForActor is public (query:dice-history); remove its gap entry',
 			'dice: declares command timer.start but never dispatches it',
 		]);
@@ -155,7 +160,7 @@ describe('builder parity gate: builtin bodies', () => {
 
 	it('reports a builtin body with no declared entry', () => {
 		const { map: _map, ...declared } = BUILTIN_PARITY;
-		expect(check(bodyUses(), declared)).toEqual(['map: has a builtin body but no parity entry']);
+		expect(check(bodyUses(), declared)).toContain('map: has a builtin body but no parity entry');
 	});
 });
 
@@ -197,22 +202,49 @@ describe('builder parity gate: default screens', () => {
 		} as CoreCommand);
 		expect(added.status).toBe('accepted');
 		if (added.status !== 'accepted') return;
-		expect(defaultScreenParityProblems(added.nextState, env, DM.id)).toEqual([
-			'dice: draws through a hand-written builtin body the builder cannot express',
-		]);
+		expect(defaultScreenParityProblems(added.nextState, env, DM.id)).toEqual(
+			expect.arrayContaining([
+				'dice: draws through a hand-written builtin body the builder cannot express',
+			]),
+		);
 	});
 
-	it('lets the builder add derived fields but not drop or change declared ones', () => {
-		const shipped = { style: { tokens: [{ key: 'accent' }] }, configFields: [{ key: 'title' }] };
-		expect(changedFields(shipped, { ...shipped, computedFields: [] })).toEqual([]);
-		expect(
-			changedFields(shipped, { style: { tokens: [] }, configFields: [{ key: 'heading' }] }),
-		).toEqual(['/style/tokens', '/configFields/0/key']);
+	it('rejects first-import mutations of all shipped home definitions', () => {
+		const { env, state } = provisionedVault();
+		const problems = defaultScreenParityProblems(state, env, DM.id);
+		for (const widget of findHomeScreen(state.scenes)!.widgets)
+			expect(problems).toContain(
+				`${widget.type}: export → builder → install → export is not byte-identical`,
+			);
 	});
 
-	it('the GM screen board is drawn only by declared builtin bodies', () => {
-		const { state } = provisionedVault();
+	it('enforces the same rule on every fresh GM board widget', () => {
+		const { env, state } = provisionedVault();
 		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
-		for (const widget of board.widgets) expect(Object.keys(BUILTIN_PARITY)).toContain(widget.type);
+		const problems = defaultScreenParityProblems(state, env, DM.id);
+		expect(board.widgets).toHaveLength(7);
+		for (const widget of board.widgets)
+			expect(problems).toContain(
+				`${widget.type}: draws through a hand-written builtin body the builder cannot express`,
+			);
 	});
+});
+
+it('a recorded gap cannot waive a private timer read', () => {
+	expect(
+		check(new Map([['timer', new Set<ParityUse>(['state:session.timers'])]]), {
+			timer: { ...BUILTIN_PARITY.timer, commands: [] },
+		}),
+	).toContain(
+		'timer: uses state:session.timers, which no descriptor, intent or query source exposes to a GM-built widget',
+	);
+});
+
+it.each([
+	'const state = runtime.state; const privateTimers = state.session.timers;',
+	'const state = runtime.state; const session = state.session; const timers = session.timers;',
+	'const { session: { timers } } = runtime.state;',
+	'const state = runtime.state; const timers = state["session"]["timers"];',
+])('detects private state through aliases: %s', (source) => {
+	expect(extractModuleUses(source)).toContain('state:session.timers');
 });

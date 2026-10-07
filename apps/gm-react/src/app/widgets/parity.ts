@@ -1,3 +1,4 @@
+import ts from 'typescript';
 import type * as Core from '@dndtools/core';
 import {
 	dispatchCommand,
@@ -16,27 +17,10 @@ import { buildPackage, readPackage, widgetEditTarget } from '../widgetBuilder/dr
 import { hasBuiltinBody, type BuiltinWidgetType } from './builtin';
 
 /**
- * RC-WID-5.5 — the builder parity gate.
- *
- * A first-party screen is built from widgets a GM could have built (§0.3 rule 12, ADR-041): a
- * template or a custom widget on the host API, never a private body the builder cannot express. Two
- * halves enforce it, both run by `parity.test.ts` in `pnpm test`:
- *
- * 1. Every widget on a shipped default screen (a scene `command-center.ensure-home` provisions with
- *    `origin.kind === 'default'`) is a `template` or `custom-html-js` definition that the GM can open
- *    in the builder, and whose package round-trips through it byte-identically: export, import into
- *    the builder and install, export again.
- * 2. Every builtin body is declared below against the public surface it draws on: the query sources
- *    whose reads cover what it reads, the commands a descriptor can also run, the intents that go
- *    where it navigates. What it really uses is read from its source (`extractBodyUses`), and what a
- *    query source really reads is read from the resolver (`deriveQueryExposure`), so neither side of
- *    the comparison is taken on trust. A use nothing public exposes is a gap: it must be listed under
- *    the body's `gaps` with the register entry (SCREENS_PARITY §4) or follow-up that closes it. The
- *    list is exact both ways: a new private read fails, and so does a gap that has been closed.
- *
- * The extractors are deliberately plain text scans of this directory's own idioms (`runtime.state`
- * paths, `@dndtools/core` value imports, `type: '<command>'` and `onCommand('<command>')`, hash
- * navigation). A body that reaches the core some other way must be taught here, not routed around.
+ * RC-WID-5.5: every fresh default widget must use a builder-editable public definition
+ * whose first export/import/export preserves bytes. Every builtin dependency must be
+ * public; recorded gaps are diagnostics, never waivers. See WIDGETS.md section 6.1.
+ * State access uses syntax analysis; commands, imports and routes use source scans.
  */
 
 /** One thing a builtin body takes from the core or the app. */
@@ -62,7 +46,7 @@ export interface BuiltinBodyParity {
 	intents: readonly WidgetIntentKind[];
 	/**
 	 * What the body uses that no descriptor, intent or query source exposes yet, each with the gap
-	 * that closes it. Exact: a use missing here fails, and so does an entry the body no longer needs.
+	 * that closes it. Diagnostic only: every private use fails, even when recorded here.
 	 */
 	gaps: Readonly<Partial<Record<ParityUse, string>>>;
 }
@@ -375,7 +359,6 @@ export function moduleImports(source: string): ModuleImports {
  */
 export function extractModuleUses(source: string): Set<ParityUse> {
 	const code = stripComments(source);
-	const identifiers = stripComments(source, true);
 	const uses = new Set<ParityUse>();
 	const pure: ReadonlySet<string> = new Set(CORE_PURE_HELPERS);
 	for (const name of moduleImports(source).core) if (!pure.has(name)) uses.add(`read:${name}`);
@@ -383,16 +366,76 @@ export function extractModuleUses(source: string): Set<ParityUse> {
 	const addPath = (segments: string[]) => {
 		if (segments.length >= 2) uses.add(`state:${segments.join('.')}`);
 	};
-	const statePattern = new RegExp(String.raw`\bruntime\.state${MEMBER_CHAIN}`, 'g');
-	for (const match of identifiers.matchAll(statePattern)) addPath(chainPath(match[1]!));
-	for (const match of identifiers.matchAll(/(?:const|let)\s*\{([^}]*)\}\s*=\s*runtime\.state\b/g)) {
-		for (const entry of match[1]!.split(',')) {
-			const [slice, alias = slice] = entry.split(':').map((part) => part.trim());
-			if (!slice || !alias) continue;
-			const pattern = new RegExp(String.raw`(?<![\w$.])${alias}${MEMBER_CHAIN}`, 'g');
-			for (const use of identifiers.matchAll(pattern)) addPath([slice, ...chainPath(use[1]!)]);
+	// Resolve ordinary state aliases and destructuring through syntax, rather than matching
+	// only literal runtime.state chains. Iterate to cover aliases of aliases.
+	const tree = ts.createSourceFile(
+		'body.tsx',
+		source,
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TSX,
+	);
+	const aliases = new Map<string, string[]>();
+	const pathOf = (node: ts.Node): string[] | undefined => {
+		if (
+			ts.isParenthesizedExpression(node) ||
+			ts.isAsExpression(node) ||
+			ts.isNonNullExpression(node)
+		)
+			return pathOf(node.expression);
+		if (ts.isIdentifier(node)) return aliases.get(node.text);
+		if (ts.isPropertyAccessExpression(node)) {
+			if (
+				ts.isIdentifier(node.expression) &&
+				node.expression.text === 'runtime' &&
+				node.name.text === 'state'
+			)
+				return [];
+			const base = pathOf(node.expression);
+			return base && [...base, node.name.text];
 		}
+		if (ts.isElementAccessExpression(node)) {
+			const base = pathOf(node.expression);
+			if (base)
+				return [
+					...base,
+					ts.isStringLiteral(node.argumentExpression) ? node.argumentExpression.text : '<dynamic>',
+				];
+		}
+		return undefined;
+	};
+	const bind = (name: ts.BindingName, path: string[]) => {
+		if (ts.isIdentifier(name)) {
+			if (!aliases.has(name.text)) aliases.set(name.text, path);
+		} else {
+			for (const element of name.elements) {
+				if (!ts.isBindingElement(element)) continue;
+				const key = element.propertyName ?? element.name;
+				bind(element.name, [
+					...path,
+					ts.isIdentifier(key) || ts.isStringLiteral(key) ? key.text : '<dynamic>',
+				]);
+			}
+		}
+	};
+	let previousSize = -1;
+	while (previousSize !== aliases.size) {
+		previousSize = aliases.size;
+		const visit = (node: ts.Node) => {
+			if (ts.isVariableDeclaration(node) && node.initializer) {
+				const path = pathOf(node.initializer);
+				if (path) bind(node.name, path);
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(tree);
 	}
+	const collect = (node: ts.Node) => {
+		const path = pathOf(node);
+		if (path) addPath(path);
+		ts.forEachChild(node, collect);
+	};
+	collect(tree);
 
 	const command =
 		/(?:\b(?:type|command):\s*|\bonCommand\??\.?\(\s*|\bop\(\s*|\.includes\(\s*)'([a-z][a-z-]*(?:\.[a-z][a-z-]*)+)'/g;
@@ -610,7 +653,7 @@ export function checkBuiltinParity(inputs: ParityInputs): string[] {
 			if (cover) {
 				usedSurface.add(cover);
 				if (gap) problems.push(`${type}: ${use} is public (${cover}); remove its gap entry`);
-			} else if (!gap) {
+			} else {
 				problems.push(
 					`${type}: uses ${use}, which no descriptor, intent or query source exposes to a GM-built widget`,
 				);
@@ -653,34 +696,9 @@ function canonical(value: unknown): string {
 }
 
 /**
- * The paths where `after` drops or changes something `before` declares. Fields only `after` has are
- * allowed: the builder derives a few on save (the style's CSS variables, the config schema's
- * properties, an empty computed-field list) that a hand-written definition leaves out.
- */
-export function changedFields(before: unknown, after: unknown, path = ''): string[] {
-	if (before && typeof before === 'object' && after && typeof after === 'object') {
-		if (Array.isArray(before) !== Array.isArray(after)) return [path || '(root)'];
-		if (Array.isArray(before) && before.length !== (after as unknown[]).length)
-			return [path || '(root)'];
-		return Object.entries(before).flatMap(([key, value]) =>
-			changedFields(value, (after as Record<string, unknown>)[key], `${path}/${key}`),
-		);
-	}
-	return canonical(before) === canonical(after) ? [] : [path || '(root)'];
-}
-
-/**
- * Every way the widgets on the shipped default screens break the gate, one line each; empty when
- * they pass. A default screen is one `command-center.ensure-home` provisions with
- * `origin.kind === 'default'` (the Command Center today, the Session screen once CAN-7.8 provisions
- * it). Each widget on one must draw through no builtin body, be a `template` or `custom-html-js`
- * definition reachable from "Edit widget" (`widgetEditTarget`), and:
- *
- * - the GM's copy (`widget.package.fork`) is the shipped definition, apart from its identity;
- * - the builder, opening that copy (`readPackage`) and saving it (`buildPackage`), keeps every field
- *   the definition declares;
- * - the builder's save round-trips byte for byte: exported as the Extensions export writes it,
- *   imported into the builder, saved and installed, and exported again.
+ * Check fresh provisioning, including the GM board even though its origin is null.
+ * Existing customized vaults are not input to this gate. Compare the original eligible
+ * export to its FIRST builder import/save/install/export, without normalization.
  */
 export function defaultScreenParityProblems(
 	state: CoreStateSlice,
@@ -689,7 +707,9 @@ export function defaultScreenParityProblems(
 ): string[] {
 	const problems: string[] = [];
 	const screens = Object.values(state.scenes.scenes).filter(
-		(scene) => screenMetaOf(scene).origin?.kind === 'default',
+		(scene) =>
+			screenMetaOf(scene).origin?.kind === 'default' ||
+			scene.id === state.commandCenter.homeSceneId,
 	);
 	if (screens.length === 0) problems.push('no default screen is provisioned');
 	const types = [
@@ -756,17 +776,10 @@ export function defaultScreenParityProblems(
 			problems.push(`${type}: the copy cannot be exported`);
 			continue;
 		}
-		const saved = buildPackage(readPackage(JSON.parse(exported), 'proposed')).widgets[0];
-		for (const path of changedFields(copy, saved))
-			problems.push(`${type}: the builder drops or changes ${path}`);
-
 		const first = throughBuilder(exported);
-		const second = first.bytes ? throughBuilder(first.bytes) : first;
-		if (!first.bytes || !second.bytes)
-			problems.push(
-				`${type}: the builder's save does not install (${second.error ?? 'no export'})`,
-			);
-		else if (second.bytes !== first.bytes)
+		if (!first.bytes)
+			problems.push(`${type}: the builder's save does not install (${first.error ?? 'no export'})`);
+		else if (first.bytes !== exported)
 			problems.push(`${type}: export → builder → install → export is not byte-identical`);
 	}
 	return problems;

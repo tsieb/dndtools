@@ -109,3 +109,38 @@ be filed as WID follow-ups:
   inline `type` specifiers; the parity test, `tsc` and eslint were re-run after them: 13/13, 0, 0).
 - `tsc --noEmit` (gm-react) 0 errors; eslint on the three files 0; `pnpm gates` passed (warnings only;
   `parity.ts` is 772 lines, under the 800-line gate).
+
+## Session 2 — independent-review corrections — 2026-10-07
+
+The Session 1 decisions above are superseded: gap declarations cannot waive failures;
+the fresh GM board is a shipped default; the FIRST builder round trip must preserve bytes.
+No Headroom tools were available. Original local diagnostics are retained in
+`/tmp/rcwid55-review-{test,lint,types,gates}.log` and were read directly.
+
+Changes:
+
+- Missing public exposure always produces a finding, even with a recorded gap.
+- Fresh provisioning includes `commandCenter.homeSceneId` regardless of origin metadata.
+- Compare the eligible original export with its first builder import/save/install/export;
+  remove the additive-field allowance and second-cycle comparison.
+- TypeScript syntax analysis detects state aliases, chained aliases, nested destructuring,
+  and literal indexed reads. Dynamic indexed paths are conservatively reported.
+- Regression tests cover all four review reproductions. WIDGETS.md states the strict rule.
+
+Validation:
+
+- Focused app parity suite: exit 1, 16 passed / 2 failed (18 total). The two unskipped
+  enforcement assertions still require zero findings. They report 41 private-access
+  findings (including newly visible dynamic member paths) and 12 default-widget findings:
+  seven handwritten GM board bodies plus five first-import byte mismatches.
+- ESLint on parity.ts and parity.test.ts: exit 0.
+- gm-react typecheck (`tsc --noEmit`): exit 0.
+- `pnpm gates`: exit 0, existing file-size warnings only.
+- `git diff --check`: exit 0.
+- `pnpm test` wiring verified from package.json and vitest.app.config.ts; the complete
+  chain and browser/visual wrappers were not rerun. No claim of a green acceptance gate.
+
+Remaining blocker: the strict gate exposes existing product parity debt. This correction
+keeps those failures visible, as requested by the review's expose/remove-or-fail instruction.
+Converting the default board and exposing all private dependencies is not implemented here.
+No push, promotion, extra agent, loop launch or dispatcher-state change.
