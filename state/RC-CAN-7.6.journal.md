@@ -325,3 +325,62 @@ Visual budget 33522.7 of 34816 KiB.
 On the rebased head: `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0, `format:check:changed --base
 loop/rc` clean, `pnpm test:app` 174 files / 2123 tests (no errors), `pnpm test:critical` 290 files /
 5286 tests; `qps-ploc` regenerated (no change).
+
+## Session 4 — independent review on `f1cf17f6` (2026-10-07)
+
+The review rejected the candidate on two findings. Both reproduced from the code, then fixed:
+
+1. **High — the home screen lost its layout and bare presentation at `/screen/:id`.** `/` drew the
+   parts through a home-only path (`homePlacements` + `HomePart`); the screen's own route draws flow
+   screens with `FlowBoard`, which packed rows (Manage under Scenes) and framed every tile. So the
+   "normal flow screen" only looked right on `/`, and a copied part would not look the same anywhere
+   else. Session 2 had reverted the flow-board half of this to stay inside the claim; the review
+   shows it is part of the acceptance, so it is back as ONE shared path:
+   - `board-helpers.ts` — `flowPlacementsForOrder` now does the group stacking itself (moved from
+     `CommandCenter.tsx` unchanged; byte-identical output without groups, so every existing flow
+     screen packs as before). `BoardWidget.groupId` is filled from the layout only when set;
+     `FlowPlacement.rowSpan` is set only beside a stack. `boardWidgetPresentation` reads instance
+     configuration, else the definition's default field (WidgetFrame's rule).
+   - `canvas/FlowPart.tsx` (new, beside FlowBoard, which sits at the 800-line gate) — the bare cell
+     (`HomePart` moved here), `useBlankTiles`, `flowPartGap` (28px / 24px phone).
+   - `canvas/FlowBoard.tsx` — in VIEW mode a bare tile is page content: no frame/header/caption/rail,
+     no tile tab stop (its controls are the stops; the arrow walk covers framed tiles), and out of the
+     layout while it draws nothing. A grid of only bare parts uses the part gap. Edit mode is
+     unchanged: every tile framed, grabbable, walked. `FlowViewTile` is the exported view-mode tile.
+   - `CommandCenter.tsx` renders the home screen with `flowPlacementsForOrder` + `FlowViewTile`, so
+     `/`, `/screen/:id` and a part copied elsewhere go through the same code. Kept: `/` uses the hub's
+     tier rule (rail keeps 12 columns); `/screen/:id` uses the flow tier (rail reflows to 6), as every
+     flow screen does.
+2. **Medium — Presentation and Style settings had no effect.** Framed now draws the flow frame on
+   both routes (same `FlowViewTile`). `Hub.tsx` wraps what a hub template draws in `HubStyle`: two
+   `display: contents` levels that point `--color-accent` / `--color-text-primary` at the part's
+   `--widget-accent` / `--widget-text` (two levels because a property naming itself is a cycle). With
+   the declared defaults they resolve to the theme's colours; a picked colour also re-derives the
+   accent fill/border and the quieter text levels. DS controls inside (the hero's primary button,
+   Card borders) follow. A template that draws nothing still renders nothing (blank detection holds).
+
+Tests added: `CommandCenter.baseline.test.tsx` — `/screen/:id` (FlowBoard in view mode over the same
+actor-scoped widgets) has the same cells, aria/DOM/headings/focus serialisation and gap as `/`, at
+advanced and core tiers, also after all five parts are GM-rebuilt copies; framed + styleTokens on the
+hero reach both routes. `flow-layout.test.ts` — four stacking cases. `hub-templates.spec.ts` (desktop,
+real browser): part geometry and gap equal on `/` and `/screen/<home>`, no chrome; after configuring
+the hero framed with `{accent:'#ff00ff', text:'#00ff00'}` its heading computes `rgb(0, 255, 0)` and its
+primary button `rgb(255, 0, 255)` on both routes, while Scenes keeps the theme. Template snapshots
+(`Hub.test`, `noQuery.test`, 20) re-recorded: the two wrapper divs only. The 44 committed baselines
+are unchanged.
+
+Evidence: `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0, `format:check:changed --base loop/rc`
+clean, `pnpm test:app` 174 files / 2129 tests. `token-references.test` caught the undeclared
+`--hub-*` names; they now carry an inert `currentColor` fallback (the outer level always sets them).
+Browser: targeted Playwright batch (a11y-axe-gate, canvas-cues, command-palette, demo-vault,
+flow-layout, golden-path, hub-templates, onboarding-consent, pinned-screens, responsive,
+scene-templates, screens, settings-tiers, widget-builder) on desktop + mobile: **436 passed, 6
+skipped, 0 failed**. Full visual suite in the pinned container: **516 passed, no golden changed** —
+`/` and `/scenes` at every theme and tier render exactly as the reviewed `e760a983`/`62f2e672`
+baselines, so the earlier per-theme/tier `ux-ui-reviewer` comparison still describes this head.
+Perf: `scene-first-render` **1294.6 / 1500 ms PASS**, `app-startup` 1208.8 / 2000 ms PASS; `compare.ts`
+exits 1 on the ±20% historical-baseline drift (+21.2% / +20.1%, the untouched `app-startup` drifting
+equally, captured right after the 13-minute visual run), not on a budget.
+
+Not changed (outside this story): `WidgetFrame` (canvas) keeps a bare tile focusable, as WID-5.3
+shipped; other template kinds (stat block, table…) still read the theme tokens directly.

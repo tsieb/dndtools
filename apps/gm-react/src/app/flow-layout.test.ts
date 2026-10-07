@@ -190,6 +190,68 @@ describe('flowPlacements — the responsive column grid', () => {
 	});
 });
 
+describe('flowPlacements — a layout group stacks in one lane (RC-CAN-7.6)', () => {
+	/** The home screen: hero, Scenes beside Create over Manage (one group), the library. */
+	const home = (): FlowRect[] => [
+		tile('hero', 0, 0, flowSpanWidth(12)),
+		tile('scenes', 0, FLOW_ROW_STEP, flowSpanWidth(7)),
+		{ ...tile('create', 7 * FLOW_COLUMN_STEP, FLOW_ROW_STEP, flowSpanWidth(5)), groupId: 'g' },
+		{ ...tile('manage', 7 * FLOW_COLUMN_STEP, FLOW_ROW_STEP + 1, flowSpanWidth(5)), groupId: 'g' },
+		tile('library', 0, 2 * FLOW_ROW_STEP, flowSpanWidth(12)),
+	];
+
+	it('puts consecutive members one per row in one lane, the tile beside them spanning their rows', () => {
+		expect(flowPlacements(home(), FLOW_COLUMNS.desktop)).toEqual([
+			{ id: 'hero', column: 0, row: 0, span: 12, index: 0 },
+			{ id: 'scenes', column: 0, row: 1, span: 7, index: 1, rowSpan: 2 },
+			{ id: 'create', column: 7, row: 1, span: 5, index: 2 },
+			{ id: 'manage', column: 7, row: 2, span: 5, index: 3 },
+			{ id: 'library', column: 0, row: 3, span: 12, index: 4 },
+		]);
+	});
+
+	it('keeps reading order: the stack closes its band, so nothing after it moves up beside it', () => {
+		const rects = [...home(), tile('after', 0, 3 * FLOW_ROW_STEP, flowSpanWidth(3))];
+		const placements = flowPlacements(rects, FLOW_COLUMNS.desktop);
+		expect(placements.map((p) => p.id)).toEqual([
+			'hero',
+			'scenes',
+			'create',
+			'manage',
+			'library',
+			'after',
+		]);
+		expect(placements.at(-1)).toMatchObject({ row: 4, column: 0 });
+	});
+
+	it('reflows at rail and phone: each band alone fills the row and spans no stack', () => {
+		const rail = flowPlacements(home(), FLOW_COLUMNS.rail);
+		expect(rail.map((p) => [p.id, p.column, p.row, p.span, p.rowSpan])).toEqual([
+			['hero', 0, 0, 6, undefined],
+			['scenes', 0, 1, 6, undefined],
+			['create', 0, 2, 6, undefined],
+			['manage', 0, 3, 6, undefined],
+			['library', 0, 4, 6, undefined],
+		]);
+		expect(flowPlacements(home(), FLOW_COLUMNS.phone).map((p) => p.row)).toEqual([0, 1, 2, 3, 4]);
+	});
+
+	it('stacks nothing when the members are not consecutive, and is unchanged without groups', () => {
+		const apart = home();
+		apart[3] = { ...apart[3]!, y: 3 * FLOW_ROW_STEP };
+		const placements = flowPlacements(apart, FLOW_COLUMNS.desktop);
+		expect(placements.every((p) => p.rowSpan === undefined)).toBe(true);
+		const plain = home().map(({ groupId: _groupId, ...rect }) => rect);
+		expect(flowPlacements(plain, FLOW_COLUMNS.desktop).map((p) => [p.id, p.row])).toEqual([
+			['hero', 0],
+			['scenes', 1],
+			['create', 1],
+			['manage', 2],
+			['library', 3],
+		]);
+	});
+});
+
 describe('flowKeyBetween', () => {
 	const a = tile('a', 0, 0, 96);
 	const b = tile('b', 96, 0, 96);

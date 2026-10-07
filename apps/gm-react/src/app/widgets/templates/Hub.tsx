@@ -1,5 +1,9 @@
 import { useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
-import { resolveWidgetIntent, type WidgetIntentDescriptor } from '@dndtools/core';
+import {
+	resolveWidgetIntent,
+	resolveWidgetStyleVariables,
+	type WidgetIntentDescriptor,
+} from '@dndtools/core';
 import { Avatar, Badge, Card, Icon, Skeleton, StatusDot } from '../../../ds';
 import { useI18n } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
@@ -35,6 +39,57 @@ const ter = 'var(--color-text-tertiary)';
 const acc = 'var(--color-accent)';
 const transition = (...properties: string[]) =>
 	properties.map((p) => `${p} var(--duration-fast) var(--easing-standard)`).join(', ');
+
+/**
+ * RC-CAN-7.6 — the part's Style settings (its `--widget-text` and `--widget-accent`, RC-WID-2.4)
+ * re-point the theme tokens the hub and every DS control inside it read, so restyling a part restyles
+ * what it draws. Two `display: contents` levels, because a custom property that names itself is a
+ * cycle: the outer one reads each widget token with the theme's as its fallback, the inner one points
+ * the theme's at it. With the declared defaults both resolve to the theme's own colours. A colour the
+ * GM picks carries its tints with it (the accent's fill and border, the quieter text levels).
+ */
+function HubStyle({
+	widget,
+	definition,
+	children,
+}: Pick<HubProps, 'widget' | 'definition'> & { children: ReactNode }) {
+	const variables = definition ? resolveWidgetStyleVariables(definition, widget.configuration) : {};
+	const picked = (token: string, theme: string) =>
+		!!variables[token] && variables[token] !== `var(${theme})`;
+	const accent = picked('--widget-accent', '--color-accent');
+	const text = picked('--widget-text', '--color-text-primary');
+	const from = {
+		display: 'contents',
+		'--hub-accent': 'var(--widget-accent, var(--color-accent))',
+		'--hub-text': 'var(--widget-text, var(--color-text-primary))',
+	} as CSSProperties;
+	const to = {
+		display: 'contents',
+		'--color-accent': 'var(--hub-accent, currentColor)',
+		'--color-text-primary': 'var(--hub-text, currentColor)',
+		...(accent
+			? {
+					'--color-accent-subtle':
+						'color-mix(in srgb, var(--hub-accent, currentColor) 18%, var(--color-surface))',
+					'--color-accent-border':
+						'color-mix(in srgb, var(--hub-accent, currentColor) 65%, var(--color-border))',
+				}
+			: {}),
+		...(text
+			? {
+					'--color-text-secondary':
+						'color-mix(in srgb, var(--hub-text, currentColor) 78%, transparent)',
+					'--color-text-tertiary':
+						'color-mix(in srgb, var(--hub-text, currentColor) 60%, transparent)',
+				}
+			: {}),
+	} as CSSProperties;
+	return (
+		<div data-hub-style="" style={from}>
+			<div style={to}>{children}</div>
+		</div>
+	);
+}
 
 /** Fixed targets match by identity, never by row position. An unbound open intent takes the row id. */
 function rowIntent(intents: WidgetIntentDescriptor[], row: WidgetDataRow) {
@@ -264,13 +319,19 @@ function HubBody({
 	const intents = definition?.intents ?? [];
 	const icon = cfgText(widget, 'icon') ?? definition?.icon ?? 'scene';
 	const heading = text(cfgText(widget, 'heading'));
+	// Every drawn result goes through the part's style; a part that draws nothing renders nothing.
+	const styled = (node: ReactNode) => (
+		<HubStyle widget={widget} definition={definition}>
+			{node}
+		</HubStyle>
+	);
 	if (loading)
-		return (
+		return styled(
 			<div data-testid={`widget-template-${kind}`}>
 				<div role="status" aria-label={t('common.state.loading')} aria-busy="true">
 					<Skeleton variant="text" lines={3} />
 				</div>
-			</div>
+			</div>,
 		);
 	const action = (intent: WidgetIntentDescriptor, extra: Partial<HubActionProps> = {}) =>
 		available(intent, extra.targetId) ? (
@@ -289,7 +350,7 @@ function HubBody({
 		const eyebrow = text(cfgText(widget, live ? 'liveEyebrow' : 'eyebrow'));
 		// The row may name which declared intent its target takes (the resume source does).
 		const primary = intents.find((intent) => intent.id === first?.meta) ?? intents[0];
-		return (
+		return styled(
 			<Card
 				data-testid="widget-template-hero"
 				accent
@@ -362,7 +423,7 @@ function HubBody({
 							style: { maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere' },
 						})}
 				</div>
-			</Card>
+			</Card>,
 		);
 	}
 
@@ -518,7 +579,7 @@ function HubBody({
 
 	if (kind === 'link-list' && layout !== 'grid') {
 		const rowsShown = shown.filter((entry) => entry.intent || query);
-		return (
+		return styled(
 			<div data-testid="widget-template-link-list">
 				{header}
 				{rowsShown.length === 0 ? (
@@ -558,7 +619,7 @@ function HubBody({
 					</Card>
 				)}
 				{query?.withheld && <TemplateNote>{query.label}</TemplateNote>}
-			</div>
+			</div>,
 		);
 	}
 
@@ -570,7 +631,7 @@ function HubBody({
 				: columns > 0
 					? `repeat(${columns}, minmax(0, 1fr))`
 					: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))';
-	return (
+	return styled(
 		<div data-testid={`widget-template-${kind}`}>
 			{header}
 			{shown.length === 0 ? (
@@ -598,7 +659,7 @@ function HubBody({
 				</div>
 			)}
 			{query?.withheld && shown.length > 0 && <TemplateNote>{query.label}</TemplateNote>}
-		</div>
+		</div>,
 	);
 }
 

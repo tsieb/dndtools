@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon, VisibilityChip } from '../../ds';
 import {
+	boardWidgetPresentation,
 	FLOW_COLUMNS,
-	flowPlacements,
+	flowOrder,
+	flowPlacementsForOrder,
 	flowReorderMoves,
 	flowSpanOf,
 	flowSpanWidth,
@@ -23,6 +25,7 @@ import {
 	useHoverLift,
 	WidgetGlyph,
 } from './WidgetFrame';
+import { FlowPart, flowPartGap, gridColumnOf, gridRowOf, useBlankTiles } from './FlowPart';
 import { canvasSurfaceProps, OperationLiveRegion, useOperationNotice } from './surfaceA11y';
 import { AUTHORING_COLUMNS, FlowTileMenu, useLongPress, type MenuHandle } from './TileActionMenu';
 
@@ -43,6 +46,12 @@ import { AUTHORING_COLUMNS, FlowTileMenu, useLongPress, type MenuHandle } from '
  * positioned at a coordinate with a fixed width and height, which is the opposite of what a flow
  * tile is. Everything UNDER the frame — the type metadata, the visibility chip and the render slot —
  * is the same code both policies use, so a widget looks and behaves the same on either.
+ *
+ * RC-CAN-7.6 — a tile in BARE presentation (RC-WID-5.3) is page content in view mode: no frame, no
+ * header, no tile focus stop of its own (its controls are the stops), and a body that draws nothing
+ * leaves the layout. `FlowViewTile` is that view-mode tile, and the Command Center (`/`) renders the
+ * home screen's parts through it and through the same placement, so a part looks the same on `/`,
+ * at `/screen/:id`, and copied onto any other flow screen.
  */
 
 /** Tile copy, English-only for now — the same convention `WidgetFrame` and `TileActionMenu` use in
@@ -57,6 +66,59 @@ const TEXT = {
 	emptyTitle: 'An empty screen',
 	emptyHint: 'Press Edit layout, then Add to place a widget.',
 };
+
+const noop = () => {};
+
+/**
+ * One tile in VIEW mode: a bare part as page content, any other tile in its flow frame (not a tab
+ * stop here; `FlowBoard` adds its keyboard model to framed tiles). `placement` is null while a bare
+ * part draws nothing.
+ */
+export function FlowViewTile({
+	w,
+	placement,
+	count,
+	columns,
+	onCommand,
+	onBlank,
+}: {
+	w: BoardWidget;
+	placement: FlowPlacement | null;
+	count: number;
+	columns: number;
+	onCommand?: (commandType: string, payload: Record<string, unknown>) => void;
+	onBlank: (blank: boolean) => void;
+}) {
+	if (boardWidgetPresentation(w) === 'bare')
+		return (
+			<FlowPart placement={placement} onBlank={onBlank}>
+				<WidgetRenderSlot widget={w} onCommand={onCommand} />
+			</FlowPart>
+		);
+	if (!placement) return null;
+	return (
+		<FlowTile
+			w={w}
+			placement={placement}
+			count={count}
+			editing={false}
+			selected={false}
+			resizable={false}
+			tabbable={false}
+			dragging={false}
+			dropSide={null}
+			columns={columns}
+			registerRef={noop}
+			onKeyDown={noop}
+			onFocusIn={noop}
+			onStartDrag={noop}
+			onSelect={noop}
+			onMoveTo={noop}
+			onSpan={noop}
+			onCommand={onCommand}
+		/>
+	);
+}
 
 /** Half the grid gap plus half the indicator: centred in the gap beside the target tile. */
 const OUTSIDE = `calc(-1 * ${T.space.two})`;
@@ -145,8 +207,8 @@ function FlowTile({
 			}}
 			className={meta.silhouetteClass}
 			style={{
-				gridColumn: `${placement.column + 1} / span ${placement.span}`,
-				gridRow: String(placement.row + 1),
+				gridColumn: gridColumnOf(placement),
+				gridRow: gridRowOf(placement),
 				position: 'relative',
 				display: 'flex',
 				flexDirection: 'column',
@@ -340,12 +402,35 @@ export function FlowBoard({
 	/** The tile a touch press is on, selected when the press ends without reaching another tile. */
 	const tapRef = useRef<string | null>(null);
 	const [notice, announce] = useOperationNotice();
+	const [blank, reportBlank] = useBlankTiles();
 
-	const placements = useMemo(() => flowPlacements(widgets, columns), [widgets, columns]);
-	// Reading order IS render order here: the tiles are emitted in `placements` order, which is the
-	// order `flowOrder` produced. Nothing re-sorts them for paint.
+	// Bare presentation is a VIEW-mode reading: editing frames every tile, so each can be grabbed.
+	const isBare = useCallback(
+		(w: BoardWidget) => !editing && boardWidgetPresentation(w) === 'bare',
+		[editing],
+	);
+	const ordered = useMemo(() => flowOrder(widgets), [widgets]);
+	// A bare part that draws nothing leaves the layout (it stays mounted, see `FlowPart`).
+	const placements = useMemo(
+		() =>
+			flowPlacementsForOrder(
+				ordered.filter((w) => !(blank.has(w.id) && isBare(w))),
+				columns,
+			),
+		[ordered, blank, isBare, columns],
+	);
+	const placementOf = useMemo(() => new Map(placements.map((p) => [p.id, p])), [placements]);
+	// Reading order IS render order here: the tiles are emitted in `flowOrder`, the order the
+	// placements follow. Nothing re-sorts them for paint.
 	const byId = useMemo(() => new Map(widgets.map((w) => [w.id, w])), [widgets]);
 	const orderIds = useMemo(() => placements.map((p) => p.id), [placements]);
+	// The tiles the keyboard walks: every tile while editing; in view mode the framed ones, since a
+	// bare part is page content whose own controls are the tab stops.
+	const walkIds = useMemo(
+		() => orderIds.filter((id) => !isBare(byId.get(id)!)),
+		[orderIds, byId, isBare],
+	);
+	const allBare = placements.length > 0 && walkIds.length === 0;
 
 	/**
 	 * The ONE place a flow tile moves. Drag, the arrow keys and the tile menu differ only in how
@@ -384,9 +469,9 @@ export function FlowBoard({
 
 	// Roving tabindex: the selection, else the last-focused tile, else the first in reading order.
 	const tabbableId =
-		(selectedId && orderIds.includes(selectedId) ? selectedId : null) ??
-		(focusedId && orderIds.includes(focusedId) ? focusedId : null) ??
-		orderIds[0] ??
+		(selectedId && walkIds.includes(selectedId) ? selectedId : null) ??
+		(focusedId && walkIds.includes(focusedId) ? focusedId : null) ??
+		walkIds[0] ??
 		null;
 
 	const tileKeyDown = (e: React.KeyboardEvent<HTMLDivElement>, w: BoardWidget, index: number) => {
@@ -428,7 +513,7 @@ export function FlowBoard({
 		}
 		// Unselected (either mode): the arrows walk the reading order, in both axes, because in flow
 		// there is only ONE order to walk.
-		const next = orderIds[index + (forward ? 1 : -1)];
+		const next = walkIds[walkIds.indexOf(w.id) + (forward ? 1 : -1)];
 		if (next) frameRefs.current.get(next)?.focus();
 	};
 
@@ -583,14 +668,30 @@ export function FlowBoard({
 						// track instead of forcing the whole row wider than the pane.
 						gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
 						gridAutoRows: 'minmax(0, auto)',
-						gap: T.space.three,
+						gap: allBare ? flowPartGap(columns) : T.space.three,
 						alignItems: 'stretch',
 					} as CSSProperties
 				}
 			>
-				{placements.map((placement) => {
-					const w = byId.get(placement.id);
-					if (!w) return null;
+				{ordered.map((w) => {
+					const placement = placementOf.get(w.id) ?? null;
+					if (isBare(w))
+						return (
+							<FlowViewTile
+								key={w.id}
+								w={w}
+								placement={placement}
+								count={placements.length}
+								columns={columns}
+								onCommand={
+									onWidgetCommand
+										? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
+										: undefined
+								}
+								onBlank={(isBlank) => reportBlank(w.id, isBlank)}
+							/>
+						);
+					if (!placement) return null;
 					return (
 						<FlowTile
 							key={w.id}

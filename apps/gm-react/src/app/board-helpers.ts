@@ -1,11 +1,13 @@
 import {
 	resolveAddWidgetCommand,
+	widgetPresentation,
 	type ResolvedAddWidgetCommand,
 	type WidgetBindingPayload,
 	type WidgetConfigField,
 	type WidgetDefinition,
 	type WidgetInstance,
 	type WidgetLibraryEntry,
+	type WidgetPresentation,
 	type WidgetStyleTokenDefinition,
 } from '@dndtools/core';
 
@@ -80,6 +82,8 @@ export interface BoardWidget {
 	styleTokens?: WidgetStyleTokenDefinition[];
 	defaultSize?: { width: number; height: number };
 	minSize?: { width: number; height: number };
+	/** The instance's layout group, when it has one: flow stacks consecutive members (RC-CAN-7.6). */
+	groupId?: string | null;
 }
 
 // WidgetDefinition.author is the closest core analogue to the prototype's four widget "tiers".
@@ -199,7 +203,22 @@ export function boardWidgetsOf(
 			h: instance.layout.h,
 			status: payload?.kind ?? 'hidden',
 			statusNote: statusNoteFor(payload),
+			...(instance.layout.groupId ? { groupId: instance.layout.groupId } : {}),
 		};
+	});
+}
+
+/**
+ * The tile's presentation (RC-WID-5.3): the instance's own setting, else its definition's default
+ * field. Bare applies in VIEW mode only; while the layout is edited every tile shows its frame.
+ */
+export function boardWidgetPresentation(
+	widget: Pick<BoardWidget, 'configuration' | 'configFields'>,
+): WidgetPresentation {
+	return widgetPresentation({
+		presentation:
+			widget.configuration.presentation ??
+			widget.configFields.find((field) => field.key === 'presentation')?.default,
 	});
 }
 
@@ -503,13 +522,14 @@ export const FLOW_COLUMN_STEP = 96;
  *  policy lands on a readable grid rather than on a single stack. */
 export const FLOW_ROW_STEP = 240;
 
-/** What flow needs of a tile: an identity, an order key and a width. */
+/** What flow needs of a tile: an identity, an order key, a width and, optionally, its layout group. */
 export interface FlowRect {
 	id: string;
 	x: number;
 	y: number;
 	w: number;
 	h: number;
+	groupId?: string | null;
 }
 
 /** A single `scene.move-widget` payload — flow's ONLY durable layout write for a reorder. */
@@ -611,6 +631,8 @@ export interface FlowPlacement {
 	row: number;
 	span: number;
 	index: number;
+	/** Rows the tile spans: set on a tile that sits beside a stack (see {@link flowPlacements}). */
+	rowSpan?: number;
 }
 
 /**
@@ -626,6 +648,11 @@ export interface FlowPlacement {
  * point. Clamping alone leaves ragged rows (a span-5 tile alone in a 6-column rail row), so a tile
  * that ends up ALONE in its row at a narrower-than-authoring tier fills the row. At the authoring
  * tier nothing is stretched, so the authored arrangement is reproduced exactly.
+ *
+ * RC-CAN-7.6 — consecutive tiles that share a layout group STACK in one lane: one column and span
+ * (the widest member's), one tile per row, and the tiles before the stack in its band span its rows
+ * (the Command Center's Create over Manage beside Scenes). A stack closes its band, so reading the
+ * grid row by row still meets the tiles in layout order. Without groups the packing is unchanged.
  */
 export function flowPlacements(
 	widgets: readonly FlowRect[],
@@ -640,29 +667,53 @@ export function flowPlacementsForOrder(
 	columns: number = FLOW_COLUMNS.desktop,
 ): FlowPlacement[] {
 	const lanes = Math.max(1, Math.floor(columns));
+	// A run of consecutive tiles in one layout group is one item; any other tile is an item alone.
+	const items: FlowRect[][] = [];
+	for (const widget of ordered) {
+		const last = items[items.length - 1];
+		if (last && widget.groupId && last[0]!.groupId === widget.groupId) last.push(widget);
+		else items.push([widget]);
+	}
 	const placements: FlowPlacement[] = [];
+	const bandOf: number[] = [];
+	const itemsInBand: number[] = [];
+	let band = 0;
+	let beside: FlowPlacement[] = [];
 	let row = 0;
 	let column = 0;
-	ordered.forEach((widget, index) => {
-		const span = flowSpanOf(widget, lanes);
-		if (column > 0 && column + span > lanes) {
-			row += 1;
-			column = 0;
+	const nextBand = (rows: number) => {
+		row += rows;
+		column = 0;
+		band += 1;
+		beside = [];
+	};
+	for (const item of items) {
+		const span = Math.max(...item.map((widget) => flowSpanOf(widget, lanes)));
+		if (column > 0 && column + span > lanes) nextBand(1);
+		itemsInBand[band] = (itemsInBand[band] ?? 0) + 1;
+		if (item.length === 1) {
+			const placement = { id: item[0]!.id, column, row, span, index: placements.length };
+			bandOf.push(band);
+			placements.push(placement);
+			beside.push(placement);
+			column += span;
+			if (column >= lanes) nextBand(1);
+			continue;
 		}
-		placements.push({ id: widget.id, column, row, span, index });
-		column += span;
-		if (column >= lanes) {
-			row += 1;
-			column = 0;
+		for (const [offset, widget] of item.entries()) {
+			bandOf.push(band);
+			placements.push({ id: widget.id, column, row: row + offset, span, index: placements.length });
 		}
-	});
+		for (const placement of beside) placement.rowSpan = item.length;
+		nextBand(item.length);
+	}
 	if (lanes >= FLOW_COLUMNS[FLOW_AUTHORING_TIER]) return placements;
-	const perRow = new Map<number, number>();
-	for (const placement of placements)
-		perRow.set(placement.row, (perRow.get(placement.row) ?? 0) + 1);
-	return placements.map((placement) =>
-		perRow.get(placement.row) === 1 ? { ...placement, column: 0, span: lanes } : placement,
-	);
+	// A tile alone in its band at a narrower tier fills the band (and so spans no stack).
+	return placements.map((placement, index) => {
+		if (itemsInBand[bandOf[index]!] !== 1) return placement;
+		const { rowSpan: _rowSpan, ...rest } = placement;
+		return { ...rest, column: 0, span: lanes };
+	});
 }
 
 /**

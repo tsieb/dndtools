@@ -10,13 +10,20 @@ import {
 	dispatchCommand,
 	findHomeScreen,
 	findWidgetDefinition,
+	getSceneForActor,
 	type Actor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreStateSlice,
 } from '@dndtools/core';
 import { buildInitialState, makeEnvironment } from '@dndtools/core/testing';
-import { FLOW_COLUMNS, flowOrder } from '../app/board-helpers';
+import {
+	boardWidgetsOf,
+	FLOW_COLUMNS,
+	flowOrder,
+	flowPlacementsForOrder,
+	payloadIndex,
+} from '../app/board-helpers';
 import { buildPackage, readPackage } from '../app/widgetBuilder/draft';
 import { I18nProvider } from '../i18n';
 import { seedDemoContent } from '../runtime/demo-seed';
@@ -72,7 +79,8 @@ vi.mock('../app/useViewport', async (importOriginal) => ({
 	useViewport: () => viewport,
 }));
 
-const { CommandCenter, homePlacements } = await import('./CommandCenter');
+const { CommandCenter } = await import('./CommandCenter');
+const { FlowBoard } = await import('../app/canvas/FlowBoard');
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -432,11 +440,82 @@ function homeScreen() {
 	return home;
 }
 
+/**
+ * The home screen as its canonical route (`/screen/:id`, `Board` → `FlowBoard`) draws it in view
+ * mode: the flow board over the same actor-scoped widgets.
+ */
+async function renderCanonical(): Promise<HTMLElement> {
+	const home = homeScreen();
+	const summary = getSceneForActor(
+		runtime.state.scenes,
+		runtime.state.permissions,
+		DM.id,
+		home.id,
+		{ widgetPackages: runtime.state.widgets },
+	);
+	if ('kind' in summary) throw new Error('the home screen is not readable');
+	const widgets = boardWidgetsOf(
+		home.widgets,
+		payloadIndex(summary.widgets),
+		(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
+	);
+	await act(async () => {
+		root.render(
+			<MemoryRouter>
+				<I18nProvider>
+					<main id="main-content">
+						<FlowBoard
+							widgets={widgets}
+							tier="desktop"
+							editing={false}
+							selectedId={null}
+							onSelect={() => {}}
+							onMove={() => {}}
+							onResize={() => {}}
+							onWidgetCommand={() => {}}
+						/>
+					</main>
+				</I18nProvider>
+			</MemoryRouter>,
+		);
+	});
+	for (let turn = 0; turn < 3; turn += 1) await act(async () => {});
+	return host.querySelector('main')!;
+}
+
+/** Each grid cell: the part in it, where it sits, and whether it is in the layout at all. */
+function cells(grid: HTMLElement) {
+	return [...grid.children].map((cell) => ({
+		part: cell.querySelector('[data-widget-region]')?.getAttribute('aria-label'),
+		column: (cell as HTMLElement).style.gridColumn,
+		row: (cell as HTMLElement).style.gridRow,
+		shown: (cell as HTMLElement).style.display !== 'none',
+	}));
+}
+
+/** `/` and `/screen/:id` draw the same parts, in the same cells, with the same tree and spacing. */
+async function expectCanonicalParity() {
+	const homeGrid = (await renderHub()).querySelector<HTMLElement>('[data-testid="home-screen"]')!;
+	const expected = { cells: cells(homeGrid), tree: serialise(homeGrid), gap: homeGrid.style.gap };
+	act(() => root.render(null));
+	const flowGrid = (await renderCanonical()).querySelector<HTMLElement>(
+		'[data-testid="flow-grid"]',
+	)!;
+	act(() => root.render(null));
+	// Bare parts carry no tile chrome: no frame, header, category caption or accent rail.
+	expect(flowGrid.querySelector('[data-testid="tile-accent-rail"]')).toBeNull();
+	expect(flowGrid.querySelector('[role="group"]')).toBeNull();
+	expect(cells(flowGrid)).toEqual(expected.cells);
+	expect(serialise(flowGrid)).toEqual(expected.tree);
+	expect(flowGrid.style.gap).toBe(expected.gap);
+	return expected.cells;
+}
+
 /** Where each part sits in the flow grid, by the part it is (a copy reads as its original). */
 function arrangement() {
 	const home = homeScreen();
 	const typeOf = new Map(home.widgets.map((w) => [w.id, w.type.replace(/^copy-/, '')]));
-	return homePlacements(
+	return flowPlacementsForOrder(
 		flowOrder(home.widgets.map((w) => ({ id: w.id, ...w.layout }))),
 		FLOW_COLUMNS.desktop,
 	)
@@ -536,6 +615,81 @@ describe('the Command Center as the default screen (RC-CAN-7.6)', () => {
 		expect(shown).toEqual(['1. Resume', '2. Scenes', '3. Create', '5. Library']);
 	});
 
+	it('reads the same at its canonical route, /screen/:id, as on / (bare, Create over Manage)', async () => {
+		await seedDemoVault();
+		expect(await expectCanonicalParity()).toEqual([
+			{ part: '1. Resume', column: '1 / span 12', row: '1', shown: true },
+			{ part: '2. Scenes', column: '1 / span 7', row: '2 / span 2', shown: true },
+			{ part: '3. Create', column: '8 / span 5', row: '2', shown: true },
+			{ part: '4. Manage', column: '8 / span 5', row: '3', shown: true },
+			{ part: '5. Library', column: '1 / span 12', row: '4', shown: true },
+		]);
+		// At the core tier Manage draws nothing and leaves the layout on both routes.
+		document.documentElement.setAttribute('data-feature-tier', 'core');
+		const core = await expectCanonicalParity();
+		expect(core.filter((cell) => cell.shown).map((cell) => cell.part)).toEqual([
+			'1. Resume',
+			'2. Scenes',
+			'3. Create',
+			'5. Library',
+		]);
+	});
+
+	it('its Presentation and Style settings restyle a part on both routes', async () => {
+		await seedDemoVault();
+		await renderHub();
+		act(() => root.render(null));
+		const home = homeScreen();
+		const hero = home.widgets.find((widget) => widget.type === 'home-hero')!;
+		await accept({
+			type: 'scene.configure-widget',
+			payload: {
+				sceneId: home.id,
+				widgetInstanceId: hero.id,
+				configuration: {
+					presentation: 'framed',
+					styleTokens: { accent: '#ff00ff', text: '#00ff00' },
+				},
+			},
+		} as never);
+		for (const draw of [renderHub, renderCanonical]) {
+			const main = await draw();
+			const region = main.querySelector<HTMLElement>('section[aria-label="1. Resume"]')!;
+			// Framed: the hero sits in a flow tile frame with its header and accent rail.
+			const tile = region.closest('[role="group"]');
+			expect(tile?.getAttribute('aria-label')).toBe('Resume, Command Center widget');
+			expect(tile?.querySelector('[data-testid="tile-accent-rail"]')).not.toBeNull();
+			// The other parts stay bare.
+			expect(main.querySelectorAll('[data-testid="tile-accent-rail"]')).toHaveLength(1);
+			// The picked colours reach the theme tokens the hub and its DS controls read.
+			const scope = region.closest<HTMLElement>('[data-widget-style-scope]')!;
+			expect(scope.style.getPropertyValue('--widget-accent')).toBe('#ff00ff');
+			expect(scope.style.getPropertyValue('--widget-text')).toBe('#00ff00');
+			const from = region.querySelector<HTMLElement>('[data-hub-style]')!;
+			expect(from.style.getPropertyValue('--hub-accent')).toBe(
+				'var(--widget-accent, var(--color-accent))',
+			);
+			const to = from.firstElementChild as HTMLElement;
+			expect(to.style.getPropertyValue('--color-accent')).toBe('var(--hub-accent, currentColor)');
+			expect(to.style.getPropertyValue('--color-text-primary')).toBe(
+				'var(--hub-text, currentColor)',
+			);
+			expect(to.style.getPropertyValue('--color-accent-subtle')).toContain(
+				'var(--hub-accent, currentColor)',
+			);
+			expect(to.style.getPropertyValue('--color-text-secondary')).toContain(
+				'var(--hub-text, currentColor)',
+			);
+			expect(to.querySelector('[data-testid="widget-template-hero"]')).not.toBeNull();
+			act(() => root.render(null));
+		}
+		// An unstyled part keeps the theme's own tints.
+		const scenes = (await renderHub()).querySelector<HTMLElement>(
+			'section[aria-label="2. Scenes"] [data-hub-style] > div',
+		)!;
+		expect(scenes.style.getPropertyValue('--color-accent-subtle')).toBe('');
+	});
+
 	it('a GM-built duplicate of each part passes the same snapshot', async () => {
 		await seedDemoVault();
 		const original = serialise(await renderHub());
@@ -566,5 +720,8 @@ describe('the Command Center as the default screen (RC-CAN-7.6)', () => {
 			['home-manage', 7, 2, 5],
 			['home-library', 0, 3, 12],
 		]);
+		// The copies read the same at the screen's own route too.
+		act(() => root.render(null));
+		await expectCanonicalParity();
 	});
 });

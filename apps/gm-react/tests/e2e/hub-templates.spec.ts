@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { gotoRoute, markOnboarded, seedFresh, dispatch } from './_helpers';
+import { gotoRoute, markOnboarded, preferTier, seedFresh, dispatch } from './_helpers';
 
 const baseline = readFileSync(
 	new URL('../../../../state/RC-CAN-7.5/aria/aria-home-desktop.yaml', import.meta.url),
@@ -149,4 +149,107 @@ test('bare frame keeps a labelled region and focus ring, and edit mode restores 
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 	await expect(page.getByTestId('tile-accent-rail')).toBeVisible();
 	await expect(region).toHaveCount(0);
+});
+
+/** Each Command Center part's box as a fraction of its grid, keyed by its region label. */
+async function partBoxes(page: Page, grid: string) {
+	return page.locator(grid).evaluate((el) => {
+		const frame = el.getBoundingClientRect();
+		return [...el.querySelectorAll('section[data-widget-region]')].map((region) => {
+			const box = region.getBoundingClientRect();
+			return {
+				part: region.getAttribute('aria-label'),
+				left: Math.round(((box.left - frame.left) / frame.width) * 100),
+				width: Math.round((box.width / frame.width) * 100),
+				top: Math.round(box.top - frame.top),
+			};
+		});
+	});
+}
+
+test('the Command Center reads the same at /screen/:id, and its Presentation and Style settings take effect', async ({
+	page,
+}, testInfo) => {
+	// Phones read a screen through the stacked panels (RC-CAN-5.1), not the flow grid.
+	test.skip(testInfo.project.name.startsWith('mobile'), 'flow grid parity is a desktop check');
+	await preferTier(page, 'advanced');
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	const home = page.getByTestId('home-screen');
+	await expect(home.locator('section[data-widget-region]')).toHaveCount(5);
+	const homeId = (await home.getAttribute('data-screen-id'))!;
+	const onHome = await partBoxes(page, '[data-testid="home-screen"]');
+	// Create over Manage beside Scenes.
+	const [, scenes, create, manage] = onHome;
+	expect(manage!.left).toBe(create!.left);
+	expect(manage!.top).toBeGreaterThan(create!.top);
+	expect(create!.left).toBeGreaterThan(scenes!.left + scenes!.width - 5);
+
+	await gotoRoute(page, `/screen/${homeId}`);
+	const grid = page.getByTestId('flow-grid');
+	await expect(grid.locator('section[data-widget-region]')).toHaveCount(5);
+	// Bare parts: no tile chrome at the canonical route either.
+	await expect(grid.getByTestId('tile-accent-rail')).toHaveCount(0);
+	await expect(grid.getByRole('group')).toHaveCount(0);
+	const onScreen = await partBoxes(page, '[data-testid="flow-grid"]');
+	expect(onScreen.map(({ part, left, width }) => ({ part, left, width }))).toEqual(
+		onHome.map(({ part, left, width }) => ({ part, left, width })),
+	);
+	expect(await grid.evaluate((el) => getComputedStyle(el).rowGap)).toBe(
+		await page.evaluate(() => {
+			const probe = document.createElement('div');
+			probe.style.rowGap = 'calc(var(--space-6) + var(--space-1))';
+			document.body.append(probe);
+			const gap = getComputedStyle(probe).rowGap;
+			probe.remove();
+			return gap;
+		}),
+	);
+
+	// Restyle the hero through its public settings: framed, with its own accent and text colours.
+	const actor = await page.evaluate(() => window.__rt!.defaultActorId);
+	const heroId = await page.evaluate(
+		(id) => window.__rt!.state.scenes.scenes[id]!.widgets.find((w) => w.type === 'home-hero')!.id,
+		homeId,
+	);
+	const configured = await dispatch(page, {
+		type: 'scene.configure-widget',
+		actorId: actor,
+		payload: {
+			sceneId: homeId,
+			widgetInstanceId: heroId,
+			configuration: {
+				presentation: 'framed',
+				styleTokens: { accent: '#ff00ff', text: '#00ff00' },
+			},
+		},
+	});
+	expect(configured.status).toBe('accepted');
+	for (const [route, scope] of [
+		['/', 'home-screen'],
+		[`/screen/${homeId}`, 'flow-grid'],
+	] as const) {
+		await gotoRoute(page, route);
+		const hero = page.getByTestId(scope).getByTestId('widget-template-hero');
+		await expect(hero).toBeVisible();
+		await expect(page.getByTestId(scope).getByTestId('tile-accent-rail')).toHaveCount(1);
+		await expect(page.getByTestId(scope).getByRole('group', { name: /^Resume,/ })).toBeVisible();
+		expect(
+			await hero.getByRole('heading', { level: 2 }).evaluate((el) => getComputedStyle(el).color),
+		).toBe('rgb(0, 255, 0)');
+		expect(
+			await hero
+				.getByRole('button')
+				.last()
+				.evaluate((el) => getComputedStyle(el).backgroundColor),
+		).toBe('rgb(255, 0, 255)');
+		// The other parts keep the theme.
+		const scenesHeading = page
+			.getByTestId(scope)
+			.locator('section[aria-label="2. Scenes"]')
+			.getByRole('heading', { level: 2 });
+		expect(await scenesHeading.evaluate((el) => getComputedStyle(el).color)).not.toBe(
+			'rgb(0, 255, 0)',
+		);
+	}
 });
