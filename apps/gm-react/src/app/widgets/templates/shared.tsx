@@ -174,7 +174,7 @@ export function ComputedFields({ data }: { data: WidgetTemplateData }) {
 	return (
 		<dl
 			style={{
-				margin: 0,
+				margin: 'var(--space-0)',
 				display: 'flex',
 				flexWrap: 'wrap',
 				gap: 'var(--space-1) var(--space-3)',
@@ -182,7 +182,10 @@ export function ComputedFields({ data }: { data: WidgetTemplateData }) {
 			}}
 		>
 			{data.computed.map((field) => (
-				<div key={field.id} style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+				<div
+					key={field.id}
+					style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}
+				>
 					<dt
 						style={{
 							font: '600 var(--text-2xs) var(--font-sans)',
@@ -195,7 +198,7 @@ export function ComputedFields({ data }: { data: WidgetTemplateData }) {
 					</dt>
 					<dd
 						style={{
-							margin: 0,
+							margin: 'var(--space-0)',
 							font: 'var(--text-xs) var(--font-mono)',
 							color: 'var(--color-text-primary)',
 						}}

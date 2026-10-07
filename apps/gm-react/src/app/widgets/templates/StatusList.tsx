@@ -29,8 +29,8 @@ export function StatusListTemplate({ data }: WidgetTemplateProps) {
 			) : (
 				<ul
 					style={{
-						margin: 0,
-						padding: 0,
+						margin: 'var(--space-0)',
+						padding: 'var(--space-0)',
 						listStyle: 'none',
 						display: 'flex',
 						flexDirection: 'column',
@@ -44,7 +44,7 @@ export function StatusListTemplate({ data }: WidgetTemplateProps) {
 								display: 'flex',
 								alignItems: 'center',
 								gap: 'var(--space-2)',
-								padding: '2px 0',
+								padding: 'var(--space-0-5) var(--space-0)',
 								minWidth: 0,
 							}}
 						>

@@ -383,6 +383,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneCards.androidHttpsOnly': 'Usa un enlace de imagen https:// en Android.',
 	'sceneCards.androidImageBroken':
 		'Este enlace de imagen no carga en Android. Reemplázalo por un enlace https:// o bórralo.',
+	'sceneCards.transition.crossfade': 'Fundido',
+	'sceneCards.transition.slide': 'Deslizamiento',
+	'sceneCards.transition.cut': 'Corte',
+	'sceneCards.saving': 'Guardando cartas de escena…',
+	'sceneCards.saved': 'Carta de escena guardada.',
 	'sceneCards.createFailed': 'La carta de escena no se pudo crear — inténtalo de nuevo.',
 	'sceneCards.deleteFailed': 'La carta no se pudo eliminar — inténtalo de nuevo.',
 	'sceneCards.restoreFailed': 'La carta no se pudo restaurar — inténtalo de nuevo.',

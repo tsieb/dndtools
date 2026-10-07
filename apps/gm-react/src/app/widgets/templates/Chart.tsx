@@ -40,8 +40,8 @@ export function ChartTemplate({ data }: WidgetTemplateProps) {
 			) : (
 				<ul
 					style={{
-						margin: 0,
-						padding: 0,
+						margin: 'var(--space-0)',
+						padding: 'var(--space-0)',
 						listStyle: 'none',
 						display: 'flex',
 						flexDirection: 'column',
@@ -53,7 +53,10 @@ export function ChartTemplate({ data }: WidgetTemplateProps) {
 						const fraction =
 							value !== null && ceiling > 0 ? Math.max(0, Math.min(1, value / ceiling)) : 0;
 						return (
-							<li key={row.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+							<li
+								key={row.id}
+								style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-0-5)' }}
+							>
 								<span
 									style={{
 										display: 'flex',

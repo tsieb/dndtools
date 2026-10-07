@@ -9,12 +9,6 @@ import { moodTheme } from '../app/sceneCardMood';
  * Split out of `SceneCardsPanel` by responsibility (RC-STB-2.7); it owns no state of its own beyond
  * the focus-restoration bookkeeping and dispatches through the callbacks the panel hands it.
  */
-const TRANSITION_OPTIONS: { value: SceneCardTransitionStyle; label: string }[] = [
-	{ value: 'crossfade', label: 'Crossfade' },
-	{ value: 'slide', label: 'Slide' },
-	{ value: 'cut', label: 'Cut' },
-];
-
 export function SceneQueuePanel({
 	queue,
 	activeCardId,
@@ -83,7 +77,7 @@ export function SceneQueuePanel({
 			>
 				<div
 					style={{
-						font: '700 var(--text-md) var(--font-display)',
+						font: '700 var(--text-md) var(--font-sans)',
 						color: 'var(--color-text-primary)',
 						flex: '1 1 100px',
 					}}
@@ -97,7 +91,10 @@ export function SceneQueuePanel({
 						onChange={(e: { target: { value: string } }) =>
 							onTransition(e.target.value as SceneCardTransitionStyle)
 						}
-						options={TRANSITION_OPTIONS}
+						options={(['crossfade', 'slide', 'cut'] as const).map((value) => ({
+							value,
+							label: t(`sceneCards.transition.${value}`),
+						}))}
 					/>
 				</span>
 				{/* `scene-card.advance` POPS the queue head, so advancing the LAST queued card emptied the
@@ -105,6 +102,7 @@ export function SceneQueuePanel({
 				    the next Tab restarted at the skip link, on the control they press most during play.
 				    Soft-disable keeps the tab stop and lets the button say why it is unavailable. */}
 				<Button
+					style={{ minHeight: 'var(--space-12)' }}
 					variant="primary"
 					size="sm"
 					icon="skip"
@@ -149,7 +147,7 @@ export function SceneQueuePanel({
 									style={{
 										width: 9,
 										height: 9,
-										borderRadius: '50%',
+										borderRadius: 'var(--radius-full)',
 										flex: '0 0 auto',
 										background: theme.accent,
 									}}
@@ -165,10 +163,13 @@ export function SceneQueuePanel({
 									{i + 1}. {card.title}
 								</span>
 								{activeCardId === card.id && (
-									<Badge status="success">{t('sceneDisplay.onDisplay')}</Badge>
+									<Badge status="success" icon="check">
+										{t('sceneDisplay.onDisplay')}
+									</Badge>
 								)}
 								<span style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
 									<IconButton
+										style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
 										icon="chevron-up"
 										label={t('sceneCards.moveUp', { title: card.title })}
 										variant="ghost"
@@ -179,6 +180,7 @@ export function SceneQueuePanel({
 										onClick={() => move(i, -1)}
 									/>
 									<IconButton
+										style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
 										icon="chevron-down"
 										label={t('sceneCards.moveDown', { title: card.title })}
 										variant="ghost"
@@ -189,6 +191,7 @@ export function SceneQueuePanel({
 										onClick={() => move(i, 1)}
 									/>
 									<IconButton
+										style={{ minWidth: 'var(--space-12)', minHeight: 'var(--space-12)' }}
 										icon="close"
 										label={t('sceneCards.removeFromQueue', { title: card.title })}
 										variant="ghost"

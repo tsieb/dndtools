@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { SceneCardRow } from './SceneCardRow';
+import { SceneCardComposer } from './SceneCardComposer';
+import { useMemo, useState } from 'react';
 import {
 	getSceneDisplayForActor,
 	getSceneCardQueueForActor,
@@ -6,30 +8,16 @@ import {
 	listSceneCardsForActor,
 	listUserAudioPresets,
 	type SceneCardLightingHint,
-	type SceneCardMood,
-	type SceneCardVisibility,
 	type SceneCardView,
 } from '@dndtools/core';
-import {
-	VisibilityChip,
-	Badge,
-	Button,
-	Card,
-	Field,
-	IconButton,
-	Input,
-	Select,
-	Textarea,
-	Toaster,
-} from '../ds';
+import { Button, Card, EmptyState, Toaster } from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { moodTheme, SCENE_MOOD_THEME } from '../app/sceneCardMood';
 import { useViewport } from '../app/useViewport';
 import { openSecondScreen } from '../platform/sceneDisplayChannel';
 import { isOnline } from '../platform/preferences';
 import { isNativeDesktopRuntime } from '../platform/windowChrome';
-import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
+import { usePlatformCapabilities } from '../platform/capabilities';
 import { SceneQueuePanel } from './SceneQueuePanel';
 
 /**
@@ -40,11 +28,6 @@ import { SceneQueuePanel } from './SceneQueuePanel';
  * through the single runtime write path; the fullscreen display (Ctrl+Shift+S) and the second-screen
  * window read the same core state.
  */
-
-const MOOD_OPTIONS = (Object.keys(SCENE_MOOD_THEME) as SceneCardMood[]).map((m) => ({
-	value: m,
-	label: SCENE_MOOD_THEME[m].label,
-}));
 
 // RC-AUD-2.1 — the lighting half of a scene package: a stage direction shown with the card, not a device
 // command. The app drives no lamps; the DM reads it and the display tints its wash.
@@ -65,14 +48,7 @@ export function SceneCardsPanel() {
 	const display = getSceneDisplayForActor(session, permissions, actorId);
 	const queuedIds = new Set(queue.map((c) => c.id));
 
-	const [title, setTitle] = useState('');
-	const [mood, setMood] = useState<SceneCardMood>('exploration');
-	const [flavor, setFlavor] = useState('');
-	const [heroUrl, setHeroUrl] = useState('');
-	const [visibility, setVisibility] = useState<SceneCardVisibility>('dm-only');
-	const [audioPresetId, setAudioPresetId] = useState('');
-	const [lightingHint, setLightingHint] = useState('');
-	const [submitting, setSubmitting] = useState(false);
+	const [pending, setPending] = useState(0);
 	const [editingId, setEditingId] = useState<string | null>(null);
 
 	// The package's audio half is picked from the SAME catalog the Audio screen applies (built-ins first,
@@ -93,58 +69,12 @@ export function SceneCardsPanel() {
 		[t],
 	);
 
-	async function createCard(event: FormEvent) {
-		event.preventDefault();
-		if (!title.trim() || submitting) return;
-		const requestedHero = heroUrl.trim();
-		if (
-			android &&
-			requestedHero &&
-			!isNetworkDestinationAllowed(requestedHero, capabilities.runtimeKind)
-		) {
-			Toaster.error(t('sceneCards.androidSecureLink'));
-			return;
-		}
-		setSubmitting(true);
-		try {
-			const result = await runtime.dispatch({
-				type: 'scene-card.create',
-				actorId,
-				payload: {
-					title: title.trim(),
-					mood,
-					flavorText: flavor.trim(),
-					visibility,
-					heroImage: !nativeDesktop && requestedHero ? { kind: 'url', ref: requestedHero } : null,
-					audioPresetId: audioPresetId || null,
-					lightingHint: (lightingHint || null) as SceneCardLightingHint | null,
-				},
-			});
-			if (result.status === 'accepted') {
-				setTitle('');
-				setFlavor('');
-				setHeroUrl('');
-				setMood('exploration');
-				setVisibility('dm-only');
-				setAudioPresetId('');
-				setLightingHint('');
-			} else {
-				Toaster.error(result.rejection.message ?? t('sceneCards.createFailed'));
-			}
-		} catch {
-			// A thrown persist failure left the composer populated and said nothing at all, so the
-			// Create button read as simply not registering.
-			Toaster.error(t('sceneCards.createFailed'));
-		} finally {
-			setSubmitting(false);
-		}
-	}
-
 	// Show / Queue / Dequeue / Reorder / Next card / visibility / Delete / Save-edit / transition ALL
 	// route through here. `runtime.dispatch` THROWS on a persist failure (SceneRuntime rethrows after
 	// `persistFullState`), so without this catch every one of them escaped as an unhandled rejection:
 	// the button did nothing and said nothing, and `deleteCard` never reached its Undo toast.
 	async function run(type: string, payload: Record<string, unknown>, failMsg: string) {
+		setPending((count) => count + 1);
 		try {
 			const result = await runtime.dispatch({ type, actorId, payload } as Parameters<
 				typeof runtime.dispatch
@@ -154,6 +84,8 @@ export function SceneCardsPanel() {
 		} catch {
 			Toaster.error(failMsg);
 			return { status: 'rejected' as const, rejection: { message: failMsg } };
+		} finally {
+			setPending((count) => count - 1);
 		}
 	}
 
@@ -198,8 +130,28 @@ export function SceneCardsPanel() {
 		});
 	}
 
+	// Keep the actor-scoped card read available to participants without offering DM commands.
+	if (runtime.preview || permissions.actors[actorId]?.role !== 'dm') {
+		return (
+			<section aria-label={t('sceneCards.title')} style={{ marginTop: 'var(--space-8)' }}>
+				{cards.map((card) => (
+					<Card key={card.id} elevation="flat" padding="md">
+						<h3 style={{ font: '600 var(--text-md) var(--font-sans)' }}>{card.title}</h3>
+						<p style={{ font: 'var(--text-sm) var(--font-sans)' }}>{card.flavorText}</p>
+					</Card>
+				))}
+			</section>
+		);
+	}
+
 	return (
 		<div style={{ maxWidth: 1180, margin: 'var(--space-8) auto 0' }}>
+			<div
+				role="status"
+				style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)' }}
+			>
+				{pending > 0 ? t('sceneCards.saving') : null}
+			</div>
 			<div
 				style={{
 					display: 'flex',
@@ -231,6 +183,7 @@ export function SceneCardsPanel() {
 				</div>
 				<span style={{ flex: '1 1 var(--space-4)' }} />
 				<Button
+					style={{ minHeight: 'var(--space-12)' }}
 					variant="secondary"
 					size="sm"
 					icon="display"
@@ -268,127 +221,7 @@ export function SceneCardsPanel() {
 					alignItems: 'start',
 				}}
 			>
-				<Card
-					elevation="raised"
-					padding="lg"
-					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-				>
-					<div
-						style={{
-							font: '700 var(--text-lg) var(--font-display)',
-							color: 'var(--color-text-primary)',
-						}}
-					>
-						{t('sceneCards.new')}
-					</div>
-					<form
-						onSubmit={createCard}
-						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-					>
-						<Field label={t('common.field.title')} htmlFor="card-title" required>
-							<Input
-								id="card-title"
-								value={title}
-								onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
-								placeholder={t('sceneCards.titlePlaceholder')}
-							/>
-						</Field>
-						<Field label={t('sceneCards.mood')} htmlFor="card-mood">
-							<Select
-								id="card-mood"
-								value={mood}
-								onChange={(e: { target: { value: string } }) =>
-									setMood(e.target.value as SceneCardMood)
-								}
-								options={MOOD_OPTIONS}
-							/>
-						</Field>
-						<Field
-							label={t('sceneCards.flavorText')}
-							htmlFor="card-flavor"
-							help={t('sceneCards.flavorTextHelp')}
-						>
-							<Textarea
-								id="card-flavor"
-								value={flavor}
-								maxLength={500}
-								onChange={(e: { target: { value: string } }) => setFlavor(e.target.value)}
-								placeholder={t('sceneCards.flavorPlaceholder')}
-							/>
-						</Field>
-						<Field
-							label={t('sceneCards.heroImage')}
-							htmlFor="card-hero"
-							help={
-								nativeDesktop
-									? t('sceneCards.heroImageDesktopBlocked')
-									: android
-										? t('sceneCards.heroImageSecureHelp')
-										: t('sceneCards.heroImageHelp')
-							}
-						>
-							<Input
-								id="card-hero"
-								value={heroUrl}
-								disabled={nativeDesktop}
-								onChange={(e: { target: { value: string } }) => setHeroUrl(e.target.value)}
-								placeholder={t('sceneCards.urlPlaceholder')}
-							/>
-						</Field>
-						<Field
-							label={t('sceneCards.audioPreset')}
-							htmlFor="card-preset"
-							help={t('sceneCards.packageHelp')}
-						>
-							<Select
-								id="card-preset"
-								value={audioPresetId}
-								onChange={(e: { target: { value: string } }) => setAudioPresetId(e.target.value)}
-								options={presetOptions}
-							/>
-						</Field>
-						<Field label={t('sceneCards.lightingHint')} htmlFor="card-lighting">
-							<Select
-								id="card-lighting"
-								value={lightingHint}
-								onChange={(e: { target: { value: string } }) => setLightingHint(e.target.value)}
-								options={lightingOptions}
-							/>
-						</Field>
-						<Field
-							label={t('common.visibility.label')}
-							htmlFor="card-visibility"
-							help={t('sceneCards.visibilityHelp')}
-						>
-							<Select
-								id="card-visibility"
-								value={visibility}
-								onChange={(e: { target: { value: string } }) =>
-									setVisibility(e.target.value as SceneCardVisibility)
-								}
-								options={[
-									{ value: 'dm-only', label: t('common.visibility.dmOnly') },
-									{ value: 'player-visible', label: t('common.visibility.playerVisible') },
-								]}
-							/>
-						</Field>
-						<Button
-							type="submit"
-							variant="primary"
-							icon="add"
-							disabled={submitting || !title.trim()}
-							title={
-								submitting
-									? t('sceneCards.creating')
-									: !title.trim()
-										? `${t('common.field.title')} · ${t('extensions.customTypes.required')}`
-										: undefined
-							}
-						>
-							{submitting ? t('sceneCards.creating') : t('sceneCards.create')}
-						</Button>
-					</form>
-				</Card>
+				<SceneCardComposer presetOptions={presetOptions} lightingOptions={lightingOptions} />
 
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
 					<SceneQueuePanel
@@ -424,16 +257,7 @@ export function SceneCardsPanel() {
 							{t('sceneCards.count', { count: cards.length })}
 						</div>
 						{cards.length === 0 ? (
-							<Card elevation="flat" padding="lg">
-								<div
-									style={{
-										font: 'var(--text-sm) var(--font-sans)',
-										color: 'var(--color-text-secondary)',
-									}}
-								>
-									{t('sceneCards.empty')}
-								</div>
-							</Card>
+							<EmptyState icon="scene" illustration="scenes-empty" title={t('sceneCards.empty')} />
 						) : (
 							<Card
 								elevation="flat"
@@ -485,7 +309,10 @@ export function SceneCardsPanel() {
 												{ cardId: card.id, ...patch },
 												t('sceneCards.saveFailed'),
 											);
-											if (result.status === 'accepted') setEditingId(null);
+											if (result.status === 'accepted') {
+												setEditingId(null);
+												Toaster.success(t('sceneCards.saved'));
+											}
 										}}
 									/>
 								))}
@@ -494,316 +321,6 @@ export function SceneCardsPanel() {
 					</div>
 				</div>
 			</div>
-		</div>
-	);
-}
-
-function SceneCardRow({
-	card,
-	first,
-	active,
-	queued,
-	editing,
-	allowRemoteHero,
-	requireHttpsHero,
-	presetOptions,
-	lightingOptions,
-	onEditToggle,
-	onActivate,
-	onPlayPackage,
-	onEnqueue,
-	onToggleVisibility,
-	onDelete,
-	onSaveEdit,
-}: {
-	card: SceneCardView;
-	first: boolean;
-	active: boolean;
-	queued: boolean;
-	editing: boolean;
-	allowRemoteHero: boolean;
-	requireHttpsHero: boolean;
-	presetOptions: { value: string; label: string }[];
-	lightingOptions: { value: string; label: string }[];
-	onEditToggle: () => void;
-	onActivate: () => void;
-	onPlayPackage: () => void;
-	onEnqueue: () => void;
-	onToggleVisibility: () => void;
-	onDelete: () => void;
-	onSaveEdit: (patch: {
-		title: string;
-		mood: SceneCardMood;
-		flavorText: string;
-		heroImage: { kind: 'url'; ref: string } | null;
-		audioPresetId: string | null;
-		lightingHint: SceneCardLightingHint | null;
-	}) => void;
-}) {
-	const { t } = useI18n();
-	const theme = moodTheme(card.mood);
-	const isPackage = card.audioPresetId !== null || card.lightingHint !== null;
-	const [draftTitle, setDraftTitle] = useState(card.title);
-	const [draftMood, setDraftMood] = useState<SceneCardMood>(card.mood);
-	const [draftFlavor, setDraftFlavor] = useState(card.flavorText);
-	const [draftHero, setDraftHero] = useState(
-		card.heroImage?.kind === 'url' ? card.heroImage.ref : '',
-	);
-	const [draftPreset, setDraftPreset] = useState(card.audioPresetId ?? '');
-	const [draftLighting, setDraftLighting] = useState<string>(card.lightingHint ?? '');
-	useEffect(() => {
-		if (editing) return;
-		setDraftTitle(card.title);
-		setDraftMood(card.mood);
-		setDraftFlavor(card.flavorText);
-		setDraftHero(card.heroImage?.kind === 'url' ? card.heroImage.ref : '');
-		setDraftPreset(card.audioPresetId ?? '');
-		setDraftLighting(card.lightingHint ?? '');
-	}, [
-		editing,
-		card.title,
-		card.mood,
-		card.flavorText,
-		card.heroImage,
-		card.audioPresetId,
-		card.lightingHint,
-	]);
-	const legacyHeroBlocked =
-		requireHttpsHero &&
-		!!draftHero.trim() &&
-		!isNetworkDestinationAllowed(draftHero.trim(), 'android');
-	const saveEdit = () => {
-		if (legacyHeroBlocked) {
-			Toaster.error(t('sceneCards.androidSecureLink'));
-			return;
-		}
-		onSaveEdit({
-			title: draftTitle.trim(),
-			mood: draftMood,
-			flavorText: draftFlavor.trim(),
-			heroImage:
-				allowRemoteHero && draftHero.trim() ? { kind: 'url', ref: draftHero.trim() } : null,
-			audioPresetId: draftPreset || null,
-			lightingHint: (draftLighting || null) as SceneCardLightingHint | null,
-		});
-	};
-
-	return (
-		<div
-			style={{
-				borderTop: first ? 'none' : '1px solid var(--color-border)',
-				padding: 'var(--space-2) var(--space-1)',
-			}}
-		>
-			{/* Without wrapping, the badges + Show button + 4 icon buttons refuse to shrink and crush
-			    the title block to a few unreadable pixels on a phone. The queue rows above already
-			    wrap for exactly this reason. */}
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 'var(--space-2)',
-					flexWrap: 'wrap',
-				}}
-			>
-				<span
-					style={{
-						width: 10,
-						height: 10,
-						borderRadius: 3,
-						flex: '0 0 auto',
-						background: `linear-gradient(135deg, ${theme.from}, ${theme.to})`,
-						border: `1px solid ${theme.accent}`,
-					}}
-				/>
-				{/* minWidth gives the title a floor to wrap AGAINST — with `minWidth: 0` alone the
-				    non-shrinking controls still won the row and squeezed it to nothing. */}
-				<div style={{ flex: 1, minWidth: 160 }}>
-					<div
-						style={{
-							font: '600 var(--text-sm) var(--font-sans)',
-							color: 'var(--color-text-primary)',
-						}}
-					>
-						{card.title}
-					</div>
-					<div
-						style={{
-							font: 'var(--text-xs) var(--font-sans)',
-							color: 'var(--color-text-tertiary)',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
-							whiteSpace: 'nowrap',
-						}}
-					>
-						{card.flavorText || t('sceneCards.noFlavorText')}
-					</div>
-				</div>
-				<VisibilityChip
-					level={card.visibility}
-					byException
-					label={
-						card.visibility === 'player-visible'
-							? t('settings.players')
-							: t('common.visibility.dmOnly')
-					}
-				/>
-				{legacyHeroBlocked && <Badge status="warning">{t('sceneCards.secureImageRequired')}</Badge>}
-				{active && <Badge status="success">{t('sceneDisplay.onDisplay')}</Badge>}
-				{card.lightingHint && (
-					<Badge status="neutral">{t(`sceneCards.lighting.${card.lightingHint}`)}</Badge>
-				)}
-				{/* RC-AUD-2.1 — only a card that actually carries a package half gets this button; a card
-				    with neither an audio preset nor a lighting hint would have nothing extra to play. */}
-				{isPackage && (
-					<Button variant="primary" size="sm" icon="play" onClick={onPlayPackage}>
-						{t('sceneCards.playPackage')}
-					</Button>
-				)}
-				<Button
-					variant={active || isPackage ? 'secondary' : 'primary'}
-					size="sm"
-					icon="play"
-					onClick={onActivate}
-				>
-					{active ? t('common.action.showAgain') : t('common.action.show')}
-				</Button>
-				<IconButton
-					icon="add"
-					label={
-						queued
-							? t('sceneCards.queued', { title: card.title })
-							: t('sceneCards.queue', { title: card.title })
-					}
-					variant="ghost"
-					size="sm"
-					aria-disabled={queued || undefined}
-					// Same as "Next card": without this guard the press reached
-					// `scene-card.enqueue`, which rejects with the literal `Scene card <uuid> is
-					// already queued.` — a raw id rendered into a user-facing error toast, on a button
-					// whose own name already reads "{title} is queued".
-					onClick={() => {
-						if (queued) return;
-						onEnqueue();
-					}}
-				/>
-				<IconButton
-					icon={card.visibility === 'player-visible' ? 'visibility-players' : 'dm-only'}
-					label={
-						card.visibility === 'player-visible'
-							? t('sceneCards.makeDmOnly', { title: card.title })
-							: t('sceneCards.makePlayerVisible', { title: card.title })
-					}
-					variant="ghost"
-					size="sm"
-					onClick={onToggleVisibility}
-				/>
-				<IconButton
-					icon="edit"
-					label={t('sceneCards.edit', { title: card.title })}
-					variant="ghost"
-					size="sm"
-					onClick={onEditToggle}
-				/>
-				<IconButton
-					icon="delete"
-					label={t('sceneCards.delete', { title: card.title })}
-					variant="ghost"
-					size="sm"
-					onClick={onDelete}
-				/>
-			</div>
-			{editing && (
-				<div
-					onKeyDown={(e: React.KeyboardEvent) => {
-						if (e.key === 'Escape') {
-							e.stopPropagation();
-							onEditToggle();
-						}
-					}}
-					style={{
-						display: 'flex',
-						flexDirection: 'column',
-						gap: 'var(--space-3)',
-						margin: 'var(--space-3) 0',
-						padding: 'var(--space-3)',
-						borderRadius: 'var(--radius-md)',
-						background: 'var(--color-surface-sunken)',
-						border: '1px solid var(--color-border)',
-					}}
-				>
-					<Field label={t('common.field.title')} required>
-						<Input
-							value={draftTitle}
-							onChange={(e: { target: { value: string } }) => setDraftTitle(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('sceneCards.mood')}>
-						<Select
-							value={draftMood}
-							onChange={(e: { target: { value: string } }) =>
-								setDraftMood(e.target.value as SceneCardMood)
-							}
-							options={MOOD_OPTIONS}
-						/>
-					</Field>
-					<Field label={t('sceneCards.flavorText')}>
-						<Textarea
-							rows={2}
-							value={draftFlavor}
-							maxLength={500}
-							onChange={(e: { target: { value: string } }) => setDraftFlavor(e.target.value)}
-						/>
-					</Field>
-					<Field label={t('sceneCards.audioPreset')} help={t('sceneCards.packageHelp')}>
-						<Select
-							value={draftPreset}
-							onChange={(e: { target: { value: string } }) => setDraftPreset(e.target.value)}
-							options={presetOptions}
-						/>
-					</Field>
-					<Field label={t('sceneCards.lightingHint')}>
-						<Select
-							value={draftLighting}
-							onChange={(e: { target: { value: string } }) => setDraftLighting(e.target.value)}
-							options={lightingOptions}
-						/>
-					</Field>
-					<Field
-						label={t('sceneCards.heroImage')}
-						help={
-							legacyHeroBlocked
-								? t('sceneCards.androidImageBroken')
-								: allowRemoteHero
-									? requireHttpsHero
-										? t('sceneCards.androidHttpsOnly')
-										: undefined
-									: t('sceneCards.heroImageDesktopClears')
-						}
-					>
-						<Input
-							value={draftHero}
-							disabled={!allowRemoteHero}
-							onChange={(e: { target: { value: string } }) => setDraftHero(e.target.value)}
-							placeholder={t('sceneCards.urlPlaceholder')}
-						/>
-					</Field>
-					<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-						<Button
-							variant="primary"
-							size="sm"
-							icon="check"
-							disabled={!draftTitle.trim()}
-							onClick={saveEdit}
-						>
-							{t('common.action.save')}
-						</Button>
-						<Button variant="ghost" size="sm" onClick={onEditToggle}>
-							{t('common.action.cancel')}
-						</Button>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 }

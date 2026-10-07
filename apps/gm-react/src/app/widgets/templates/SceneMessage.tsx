@@ -46,7 +46,7 @@ export function SceneMessageTemplate({ widget, data }: WidgetTemplateProps) {
 			{message ? (
 				<p
 					style={{
-						margin: 0,
+						margin: 'var(--space-0)',
 						font: 'var(--text-sm)/1.5 var(--font-sans)',
 						color: 'var(--color-text-primary)',
 						whiteSpace: 'pre-wrap',

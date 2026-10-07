@@ -121,6 +121,7 @@ export function ScenesCreator() {
 					</h2>
 					{isDm && (
 						<Button
+							style={{ minHeight: 'var(--space-12)' }}
 							variant="primary"
 							size="sm"
 							icon="add"
@@ -202,12 +203,13 @@ export function ScenesCreator() {
 				{shown.length === 0 ? (
 					<EmptyState
 						icon="widget"
-						illustration={filtered ? 'search-none' : undefined}
+						illustration={filtered ? 'search-none' : 'scenes-empty'}
 						title={t(filtered ? 'screens.noMatches' : 'screens.empty')}
 						description={t(filtered ? 'screens.noMatchesHint' : 'screens.emptyHint')}
 						action={
 							filtered ? (
 								<Button
+									style={{ minHeight: 'var(--space-12)' }}
 									variant="secondary"
 									size="sm"
 									icon="close"

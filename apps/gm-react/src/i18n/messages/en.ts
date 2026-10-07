@@ -381,6 +381,11 @@ export const en = {
 	'sceneCards.androidHttpsOnly': 'Use an https:// image link on Android.',
 	'sceneCards.androidImageBroken':
 		'This image link doesn’t load on Android. Replace it with an https:// link or clear it.',
+	'sceneCards.transition.crossfade': 'Crossfade',
+	'sceneCards.transition.slide': 'Slide',
+	'sceneCards.transition.cut': 'Cut',
+	'sceneCards.saving': 'Saving scene cards…',
+	'sceneCards.saved': 'Scene card saved.',
 	'sceneCards.createFailed': 'The scene card couldn’t be created — try again.',
 	'sceneCards.deleteFailed': 'The card couldn’t be deleted — try again.',
 	'sceneCards.restoreFailed': 'The card couldn’t be restored — try again.',

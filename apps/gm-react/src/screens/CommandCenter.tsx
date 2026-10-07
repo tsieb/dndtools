@@ -6,7 +6,7 @@ import {
 	resolveCommandCenterHome,
 	type CoreCommand,
 } from '@dndtools/core';
-import { Button, Card, EmptyState, StatusDot } from '../ds';
+import { Button, Card, EmptyState, Skeleton, StatusDot } from '../ds';
 import { Page, T } from '../app/screen-kit';
 import {
 	boardWidgetPresentation,
@@ -135,13 +135,13 @@ export function CommandCenter() {
 					accent
 					elevation="raised"
 					padding="lg"
-					style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
+					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}
 				>
 					<StatusDot status={isLive ? 'live' : 'idle'} pulse={isLive} />
-					<div style={{ flex: 1, minWidth: 200 }}>
+					<div style={{ flex: 1, minWidth: 'min(100%, 12rem)' }}>
 						<div
 							style={{
-								font: `600 11px ${T.sans}`,
+								font: `600 var(--text-xs) ${T.sans}`,
 								letterSpacing: '.09em',
 								textTransform: 'uppercase',
 								color: T.acc,
@@ -149,10 +149,18 @@ export function CommandCenter() {
 						>
 							{homeView.observerMode ? t('home.observerMode') : t('home.playerView')}
 						</div>
-						<div style={{ font: `700 22px/1.1 ${T.disp}`, marginTop: 2 }}>
+						<div
+							style={{ font: `700 var(--text-xl)/1.1 ${T.disp}`, marginTop: 'var(--space-0-5)' }}
+						>
 							{homeView.displayName}
 						</div>
-						<div style={{ font: `13px ${T.sans}`, color: T.sub, marginTop: 3 }}>
+						<div
+							style={{
+								font: `var(--text-sm) ${T.sans}`,
+								color: T.sub,
+								marginTop: 'var(--space-1)',
+							}}
+						>
 							{homeView.readOnly ? t('home.readOnlyView') : t('home.liveView')}
 						</div>
 					</div>
@@ -164,7 +172,7 @@ export function CommandCenter() {
 	if (!home) {
 		return (
 			<Page max={1200}>
-				{failed && (
+				{failed ? (
 					<EmptyState
 						icon="home"
 						title={t('home.setupFailed')}
@@ -175,6 +183,10 @@ export function CommandCenter() {
 							</Button>
 						}
 					/>
+				) : (
+					<div role="status" aria-label={t('common.state.loading')} aria-busy="true">
+						<Skeleton variant="text" lines={3} />
+					</div>
 				)}
 			</Page>
 		);

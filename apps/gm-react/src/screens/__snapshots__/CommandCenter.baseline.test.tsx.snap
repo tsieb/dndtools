@@ -49,6 +49,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
   "Harbor of Saltreach"
   "town · 0 widgets"
 <button type="button">
+  <svg aria-hidden="true">
   "Draft"
   <svg aria-hidden="true">
   "The Sunken Crypt"
@@ -170,6 +171,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
   "Harbor of Saltreach"
   "town · 0 widgets"
 <button type="button">
+  <svg aria-hidden="true">
   "Draft"
   <svg aria-hidden="true">
   "The Sunken Crypt"
@@ -297,6 +299,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 <button type="button">
   <svg aria-hidden="true">
   "New scene"
+<svg aria-hidden="true">
 "No scenes yet."
 <button type="button">
   <svg aria-hidden="true">
@@ -438,6 +441,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 <button type="button">
   <svg aria-hidden="true">
   "New scene"
+<svg aria-hidden="true">
 "No scenes yet."
 <button type="button">
   <svg aria-hidden="true">
@@ -585,6 +589,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > des
   "Harbor of Saltreach"
   "town · 0 widgets"
 <button type="button">
+  <svg aria-hidden="true">
   "Draft"
   <svg aria-hidden="true">
   "The Sunken Crypt"
@@ -733,6 +738,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phon
   "Harbor of Saltreach"
   "town · 0 widgets"
 <button type="button">
+  <svg aria-hidden="true">
   "Draft"
   <svg aria-hidden="true">
   "The Sunken Crypt"
@@ -881,6 +887,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phon
   "Harbor of Saltreach"
   "town · 0 widgets"
 <button type="button">
+  <svg aria-hidden="true">
   "Draft"
   <svg aria-hidden="true">
   "The Sunken Crypt"
@@ -1177,6 +1184,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM scre
   "Harbor of Saltreach"
   "town · 0 widgets"
 <button type="button">
+  <svg aria-hidden="true">
   "Draft"
   <svg aria-hidden="true">
   "The Sunken Crypt"
