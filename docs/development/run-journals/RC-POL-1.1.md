@@ -83,3 +83,7 @@ No remote gates, independent review, push, publication or promotion are claimed 
 - After reducing redundant snapshot area, pinned Command Center polish comparison without update mode: exit 0, **15 passed** (21.0 seconds). Final hero contact sheet reviewed in all five themes and three tiers.
 - Snapshot budget: **816 files, 34556.2 KiB of 34816.0 KiB**, exit 0. The fixed budget was not increased; 45 new captures are retained.
 - Changed-file Prettier and `git diff --check` pass. No new emphasis allowance or accessibility exemption was introduced.
+
+### Claim-scope correction
+
+The central gate rejected the two extracted screen helpers outside the claim. Both paths are absent in base `515d714c87578cd09e2df99e716ed10fe988b871`; they are now removed from `src/screens` and live under the owned `src/app/widgets/templates` directory. Only relative imports change; component logic, markup and snapshots remain unchanged. This keeps the surface below 500 lines without requesting a wider claim. Follow-up validation: TypeScript, focused ESLint, Prettier, emphasis lint and `pnpm gates` pass (no owned-file size warning). The two rejected paths have no net diff against the specified base. The moved composer is 210 lines; the row is 361 lines. Both-profile Command Center/scene-card e2e: **38 passed** (1.2 minutes), including axe scans. Pinned Command Center and `/scenes` visual comparisons: **24 passed** (44.5 seconds), with no baseline updates. Original Headroom output retrieved before recording these verdicts.

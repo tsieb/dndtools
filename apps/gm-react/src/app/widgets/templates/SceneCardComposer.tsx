@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import type { SceneCardMood, SceneCardVisibility, SceneCardLightingHint } from '@dndtools/core';
-import { Button, Card, Field, Input, Select, Textarea, Toaster } from '../ds';
-import { useI18n } from '../i18n';
-import { useRuntime } from '../runtime/RuntimeContext';
-import { SCENE_MOOD_THEME } from '../app/sceneCardMood';
-import { isNativeDesktopRuntime } from '../platform/windowChrome';
-import { isNetworkDestinationAllowed, usePlatformCapabilities } from '../platform/capabilities';
+import { Button, Card, Field, Input, Select, Textarea, Toaster } from '../../../ds';
+import { useI18n } from '../../../i18n';
+import { useRuntime } from '../../../runtime/RuntimeContext';
+import { SCENE_MOOD_THEME } from '../../sceneCardMood';
+import { isNativeDesktopRuntime } from '../../../platform/windowChrome';
+import {
+	isNetworkDestinationAllowed,
+	usePlatformCapabilities,
+} from '../../../platform/capabilities';
 
 export function SceneCardComposer({
 	presetOptions,

@@ -10,10 +10,10 @@ import {
 	Select,
 	Textarea,
 	Toaster,
-} from '../ds';
-import { useI18n } from '../i18n';
-import { moodTheme, SCENE_MOOD_THEME } from '../app/sceneCardMood';
-import { isNetworkDestinationAllowed } from '../platform/capabilities';
+} from '../../../ds';
+import { useI18n } from '../../../i18n';
+import { moodTheme, SCENE_MOOD_THEME } from '../../sceneCardMood';
+import { isNetworkDestinationAllowed } from '../../../platform/capabilities';
 export function SceneCardRow({
 	card,
 	first,

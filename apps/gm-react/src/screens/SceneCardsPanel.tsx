@@ -1,5 +1,5 @@
-import { SceneCardRow } from './SceneCardRow';
-import { SceneCardComposer } from './SceneCardComposer';
+import { SceneCardRow } from '../app/widgets/templates/SceneCardRow';
+import { SceneCardComposer } from '../app/widgets/templates/SceneCardComposer';
 import { useMemo, useState } from 'react';
 import {
 	getSceneDisplayForActor,
