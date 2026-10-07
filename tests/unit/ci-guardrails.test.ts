@@ -108,12 +108,12 @@ describe('CI guardrails', () => {
 		}
 	});
 
-	it('deploys dependent stacks in order and rebuilds every core-consuming cloud API', () => {
+	it('deploys dependent stacks in order and rebuilds every core-consuming cloud API', async () => {
 		const workflowPath = path.join(repoRoot, '.github', 'workflows', 'deploy.yml');
-		const workflowText = fs.readFileSync(workflowPath, 'utf-8');
-		const workflow = YAML.parse(workflowText) as {
+		const workflow = YAML.parse(fs.readFileSync(workflowPath, 'utf-8')) as {
+			on?: Record<string, unknown>;
 			jobs?: {
-				changes?: { steps?: Array<{ id?: string; with?: { filters?: string } }> };
+				changes?: { if?: string; steps?: Array<{ name?: string; run?: string }> };
 				infra?: { steps?: Array<{ name?: string }> };
 			};
 		};
@@ -125,36 +125,64 @@ describe('CI guardrails', () => {
 		const appRefreshIndex = steps.findIndex(
 			(step) => step.name === 'Refresh app-api sync purge verifier',
 		);
-		const filters = workflow.jobs?.changes?.steps?.find((step) => step.id === 'filter')?.with
-			?.filters;
-		const parsedFilters = YAML.parse(filters ?? '') as Record<string, string[]>;
-
 		expect(turnIndex).toBeGreaterThanOrEqual(0);
 		expect(signalingIndex).toBeGreaterThan(turnIndex);
 		expect(appApiIndex).toBeGreaterThanOrEqual(0);
 		expect(syncIndex).toBeGreaterThan(appApiIndex);
 		expect(appRefreshIndex).toBeGreaterThan(syncIndex);
-		expect(parsedFilters.signaling).toEqual(
+
+		// ADR-043: the dev deploy follows a green CI run on main, never a bare push, and only ships a
+		// commit whose aggregate check passed.
+		const on = workflow.on as { workflow_run?: { workflows?: string[]; branches?: string[] } };
+		expect(on.workflow_run?.workflows).toEqual(['CI']);
+		expect(on.workflow_run?.branches).toEqual(['main']);
+		expect(workflow.on).not.toHaveProperty('push');
+		expect(workflow.jobs?.changes?.if).toContain(
+			"github.event.workflow_run.conclusion == 'success'",
+		);
+		expect(
+			workflow.jobs?.changes?.steps?.some((step) =>
+				step.run?.includes('scripts/ci/require-green.sh'),
+			),
+		).toBe(true);
+
+		const { DEPLOY_TARGETS, changedTargets } = (await import(
+			path.join(repoRoot, 'scripts', 'ci', 'changed-stacks.mjs')
+		)) as {
+			DEPLOY_TARGETS: Record<string, string[]>;
+			changedTargets: (paths: string[]) => Record<string, boolean>;
+		};
+		expect(DEPLOY_TARGETS.signaling).toEqual(
 			expect.arrayContaining([
-				'infra/signaling/**',
-				'infra/identity/**',
-				'infra/turn/**',
-				'packages/core/**',
+				'infra/signaling/',
+				'infra/identity/',
+				'infra/turn/',
+				'packages/core/',
 			]),
 		);
-		expect(parsedFilters.sync_api).toEqual(
-			expect.arrayContaining(['infra/identity/**', 'packages/core/**']),
+		expect(DEPLOY_TARGETS.sync_api).toEqual(
+			expect.arrayContaining(['infra/identity/', 'packages/core/']),
 		);
-		expect(parsedFilters.app_api).toEqual(
-			expect.arrayContaining(['infra/identity/**', 'packages/core/**']),
+		expect(DEPLOY_TARGETS.app_api).toEqual(
+			expect.arrayContaining(['infra/identity/', 'packages/core/']),
 		);
-		expect(parsedFilters.web_hosting).toEqual(
+		expect(DEPLOY_TARGETS.web_hosting).toEqual(
 			expect.arrayContaining([
-				'infra/web-hosting/**',
-				'infra/signaling/**',
-				'infra/sync-api/**',
-				'infra/app-api/**',
+				'infra/web-hosting/',
+				'infra/signaling/',
+				'infra/sync-api/',
+				'infra/app-api/',
 			]),
+		);
+		expect(changedTargets(['packages/core/src/index.ts'])).toMatchObject({
+			signaling: true,
+			sync_api: true,
+			app_api: true,
+			app: true,
+			web_hosting: false,
+		});
+		expect(changedTargets(['docs/README.md'])).toEqual(
+			Object.fromEntries(Object.keys(DEPLOY_TARGETS).map((k) => [k, false])),
 		);
 	});
 
@@ -233,8 +261,33 @@ describe('CI guardrails', () => {
 		) as WorkflowFile;
 
 		expect(Object.keys(ci.jobs ?? {})).toEqual(
-			expect.arrayContaining(['build-and-test', 'browser-e2e', 'accessibility', 'desktop-smoke']),
+			expect.arrayContaining([
+				'static',
+				'unit',
+				'build',
+				'e2e',
+				'accessibility',
+				'visual-regression',
+				'desktop-smoke',
+				'android-build',
+				'ci-gate',
+			]),
 		);
+		// ADR-043: `ci-gate` is the one required check; it must observe every leg and run regardless.
+		const gate = (ci.jobs as Record<string, WorkflowJob>)['ci-gate'];
+		const legs = Object.keys(ci.jobs ?? {}).filter((name) => name !== 'ci-gate');
+		expect(gate?.if).toBe('always()');
+		expect([...(gate?.needs as string[])].sort()).toEqual([...legs].sort());
+		// Release and promotion ship only a commit the gate passed on; they do not re-run the suite.
+		for (const [name, job] of [
+			['release.yml', release.jobs?.verify],
+			['promote-production.yml', promotion.jobs?.preflight],
+		] as const) {
+			expect(
+				job?.steps?.some((step) => step.run?.includes('scripts/ci/require-green.sh')),
+				`${name} requires a green ci-gate`,
+			).toBe(true);
+		}
 		const configJob = release.jobs?.['production-cloud-config'];
 		const packageJob = release.jobs?.package;
 		const draftJob = release.jobs?.['draft-release'];
@@ -359,31 +412,47 @@ describe('CI guardrails', () => {
 		expect(environmentJobs).toBeGreaterThan(0);
 	});
 
-	it('keeps a slow browser setup from spending the browser test time budget', () => {
-		// On b25ec1e8 a slow Ubuntu mirror stretched `playwright install --with-deps` to 7.7
-		// minutes inside a 20-minute job, and a green shard was killed at 536/550. Setup gets its
-		// own cap; the test step keeps the cap it effectively had inside the old job.
+	it('runs every browser leg inside the one pinned Playwright image', () => {
+		// On b25ec1e8 a slow Ubuntu mirror stretched `playwright install --with-deps` to 7.7 minutes
+		// and a green shard was killed; a broken Google apt source once took out every browser job.
+		// The browser legs run in the Playwright image instead, which also keeps the functional, axe
+		// and visual suites rendering in the environment the visual baselines describe.
 		const ci = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
-		) as WorkflowFile;
-		for (const [jobName, testStep, testCap] of [
-			['browser-e2e', 'Run Playwright shard', 19],
-			['accessibility', 'Run axe scan', undefined],
-		] as const) {
+		) as WorkflowFile & { jobs?: Record<string, WorkflowJob & { container?: { image?: string } }> };
+		const script = fs.readFileSync(
+			path.join(repoRoot, 'apps', 'gm-react', 'tests', 'visual', 'run-in-container.sh'),
+			'utf-8',
+		);
+		const pinned = script.match(/^IMAGE='([^']+)'$/m)?.[1];
+		expect(pinned).toMatch(/^mcr\.microsoft\.com\/playwright:v[\d.]+-\w+@sha256:[0-9a-f]{64}$/);
+		const playwrightVersion = (
+			JSON.parse(
+				fs.readFileSync(path.join(repoRoot, 'apps', 'gm-react', 'package.json'), 'utf-8'),
+			) as { devDependencies?: Record<string, string> }
+		).devDependencies?.['@playwright/test']?.replace(/^[\^~]/, '');
+		expect(pinned, 'image tag matches @playwright/test').toContain(`:v${playwrightVersion}-`);
+		for (const jobName of ['e2e', 'accessibility', 'visual-regression']) {
 			const job = ci.jobs?.[jobName];
-			const steps = job?.steps ?? [];
-			const setup = steps.find((step) => step.uses === './.github/actions/setup-e2e');
-			const tests = steps.find((step) => step.name === testStep);
-			expect(setup?.['timeout-minutes'], `${jobName} caps browser setup`).toBe(10);
-			expect(tests, `${jobName} runs ${testStep}`).toBeDefined();
-			expect(tests?.['timeout-minutes'], `${jobName} test cap`).toBe(testCap);
-			const jobCap = job?.['timeout-minutes'] ?? 0;
-			const testBudget = tests?.['timeout-minutes'] ?? 0;
-			// Room for checkout, install and upload besides a worst-case setup and a full test run.
-			expect(jobCap, `${jobName} job fits setup plus tests`).toBeGreaterThanOrEqual(
-				10 + testBudget + 2,
-			);
+			expect(job?.container?.image, `${jobName} runs in the pinned image`).toBe(pinned);
+			expect(
+				job?.steps?.some((step) => step.uses === './.github/actions/setup-e2e'),
+				`${jobName} installs no browser`,
+			).toBe(false);
+			expect(job?.['timeout-minutes'], `${jobName} is capped`).toBeLessThanOrEqual(25);
 		}
+		// Blocking runs exclude quarantined tests; the nightly runs them (TESTING.md §10).
+		const shard = ci.jobs?.e2e?.steps?.find((step) => step.name === 'Run Playwright shard');
+		expect(shard?.run).toContain('--grep-invert @quarantine');
+		const nightly = YAML.parse(
+			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'nightly.yml'), 'utf-8'),
+		) as WorkflowFile;
+		expect(
+			nightly.jobs?.quarantine?.steps?.some((step) => step.run?.includes('--grep @quarantine')),
+		).toBe(true);
+		// The emulator legs never block a landing: nightly and release only.
+		expect(JSON.stringify(ci)).not.toContain('android-emulator-runner');
+		expect(JSON.stringify(nightly)).toContain('android-emulator-runner');
 	});
 
 	it('splits browser E2E into enough complete shards to stay under the step cap', () => {
@@ -392,16 +461,15 @@ describe('CI guardrails', () => {
 		// shards, not a bigger cap; the matrix must also cover every shard exactly once.
 		const ci = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
-		) as WorkflowFile;
-		const include = ci.jobs?.['browser-e2e']?.strategy?.matrix?.include ?? [];
-		const total = include.length;
-		expect(total, 'browser-e2e shard count').toBeGreaterThanOrEqual(5);
-		expect(include).toEqual(
-			Array.from({ length: total }, (_, index) => ({
-				shard: `${index + 1}/${total}`,
-				name: `${index + 1}-of-${total}`,
-			})),
-		);
+		) as WorkflowFile & {
+			jobs?: Record<string, WorkflowJob & { strategy?: { matrix?: { shard?: number[] } } }>;
+		};
+		const shards = ci.jobs?.e2e?.strategy?.matrix?.shard ?? [];
+		const total = shards.length;
+		expect(total, 'e2e shard count').toBeGreaterThanOrEqual(5);
+		expect(shards).toEqual(Array.from({ length: total }, (_, index) => index + 1));
+		const run = ci.jobs?.e2e?.steps?.find((step) => step.name === 'Run Playwright shard');
+		expect(run?.env?.PLAYWRIGHT_SHARD).toBe(`\${{ matrix.shard }}/${total}`);
 	});
 
 	it('pins third-party actions to immutable commits and keeps foundation bootstrap-only', () => {
@@ -418,7 +486,7 @@ describe('CI guardrails', () => {
 			).toEqual([]);
 			for (const match of source.matchAll(/^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*(?:#.*)?$/gm)) {
 				// The local action is versioned with the checkout, not a remote tag.
-				if (match[1] === './.github/actions/setup-e2e') continue;
+				if (match[1].startsWith('./.github/actions/')) continue;
 				expect(match[1], `${name} has a mutable action reference`).toMatch(
 					/^[^@\s]+@[0-9a-f]{40}$/,
 				);
@@ -453,16 +521,25 @@ describe('CI guardrails', () => {
 		expect(expectedVersion).toBeTruthy();
 
 		const workflowsRoot = path.join(repoRoot, '.github', 'workflows');
+		const files = fs
+			.readdirSync(workflowsRoot)
+			.filter((file) => file.endsWith('.yml'))
+			.map((file) => path.join(workflowsRoot, file));
+		files.push(path.join(repoRoot, '.github', 'actions', 'setup-workspace', 'action.yml'));
 		let setupSteps = 0;
-		for (const name of fs.readdirSync(workflowsRoot).filter((file) => file.endsWith('.yml'))) {
-			const workflow = YAML.parse(
-				fs.readFileSync(path.join(workflowsRoot, name), 'utf-8'),
-			) as WorkflowFile;
-			for (const job of Object.values(workflow.jobs ?? {})) {
+		for (const file of files) {
+			const document = YAML.parse(fs.readFileSync(file, 'utf-8')) as WorkflowFile & {
+				runs?: { steps?: WorkflowStep[] };
+			};
+			const jobs = Object.values(document.jobs ?? {});
+			if (document.runs) jobs.push({ steps: document.runs.steps });
+			for (const job of jobs) {
 				for (const step of job.steps ?? []) {
 					if (!step.uses?.startsWith('pnpm/action-setup@')) continue;
 					setupSteps += 1;
-					expect(String(step.with?.version), `${name} pnpm setup version`).toBe(expectedVersion);
+					expect(String(step.with?.version), `${path.basename(file)} pnpm setup version`).toBe(
+						expectedVersion,
+					);
 				}
 			}
 		}

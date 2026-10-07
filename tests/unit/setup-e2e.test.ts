@@ -7,7 +7,7 @@ import YAML from 'yaml';
 
 const actionDir = path.resolve('.github/actions/setup-e2e');
 
-it('routes all six browser setup sites through the composite action', () => {
+it('routes every browser install outside the Playwright image through the composite action', () => {
 	const callers: string[] = [];
 	for (const file of fs.readdirSync('.github/workflows')) {
 		const workflow = YAML.parse(fs.readFileSync(`.github/workflows/${file}`, 'utf8'));
@@ -20,14 +20,9 @@ it('routes all six browser setup sites through the composite action', () => {
 			}
 		}
 	}
-	expect(callers.sort()).toEqual([
-		'ci.yml',
-		'ci.yml',
-		'perf.yml',
-		'promote-production.yml',
-		'release.yml',
-		'validate.yml',
-	]);
+	// ADR-043: ci.yml's browser legs, release.yml and promote-production.yml run in (or rely on)
+	// the pinned Playwright image; only the perf capture and the nightly harness still install.
+	expect(callers.sort()).toEqual(['nightly.yml', 'perf.yml']);
 	const action = YAML.parse(fs.readFileSync(`${actionDir}/action.yml`, 'utf8'));
 	expect(action.runs.using).toBe('composite');
 	expect(action.runs.steps.map((step: { run: string }) => step.run)).toEqual([
@@ -40,17 +35,17 @@ it('routes all six browser setup sites through the composite action', () => {
 	}
 });
 
-it('runs the path-filtered browser jobs when only the action changes', () => {
+it('runs the path-filtered jobs when only a local action changes', () => {
 	const ci = YAML.parse(fs.readFileSync('.github/workflows/ci.yml', 'utf8'));
 	const filter = ci.jobs.changes.steps.find((step: { id?: string }) => step.id === 'filter');
-	expect(YAML.parse(filter.with.filters).runtime).toContain('.github/actions/setup-e2e/**');
+	expect(YAML.parse(filter.with.filters).runtime).toContain('.github/actions/**');
 	const perf = YAML.parse(fs.readFileSync('.github/workflows/perf.yml', 'utf8'));
-	for (const event of ['push', 'pull_request']) {
-		expect(perf.on[event].paths).toContain('.github/actions/setup-e2e/**');
-	}
+	expect(perf.on.push.paths).toContain('.github/actions/setup-e2e/**');
+	// Pull requests no longer pay for the two-hour paired capture (ADR-043).
+	expect(perf.on.pull_request).toBeUndefined();
 });
 
-it('gives release and rollback checkouts of older tags this workflow revision of the action', () => {
+it('gives release and rollback checkouts of older tags this workflow revision of the CI scripts and actions', () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'setup-e2e-tag-'));
 	const env = Object.fromEntries(
 		Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
@@ -82,9 +77,12 @@ it('gives release and rollback checkouts of older tags this workflow revision of
 		git(origin, 'commit', '-q', '-m', 'old release');
 		const tagSha = git(origin, 'rev-parse', 'HEAD');
 		git(root, 'clone', '-q', origin, work);
-		fs.cpSync(actionDir, path.join(origin, '.github/actions/setup-e2e'), { recursive: true });
+		fs.cpSync(path.resolve('.github/actions'), path.join(origin, '.github/actions'), {
+			recursive: true,
+		});
+		fs.cpSync(path.resolve('scripts/ci'), path.join(origin, 'scripts/ci'), { recursive: true });
 		git(origin, 'add', '.');
-		git(origin, 'commit', '-q', '-m', 'add setup-e2e');
+		git(origin, 'commit', '-q', '-m', 'add the CI scripts and actions');
 		const workflowSha = git(origin, 'rev-parse', 'HEAD');
 
 		for (const [file, job] of [
@@ -93,17 +91,31 @@ it('gives release and rollback checkouts of older tags this workflow revision of
 		]) {
 			const workflow = YAML.parse(fs.readFileSync(`.github/workflows/${file}`, 'utf8'));
 			const steps: { name?: string; uses?: string; run?: string }[] = workflow.jobs[job].steps;
-			const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-e2e');
-			const overlay = steps[setup - 1];
-			expect(overlay?.run, `${file} restores the action first`).toContain('GITHUB_WORKFLOW_SHA');
+			const overlay = steps.find((step) => step.run?.includes('GITHUB_WORKFLOW_SHA'));
+			const requireGreen = steps.findIndex((step) =>
+				step.run?.includes('scripts/ci/require-green.sh'),
+			);
+			const setup = steps.findIndex((step) => step.uses === './.github/actions/setup-workspace');
+			expect(overlay?.run, `${file} restores the scripts and actions`).toContain(
+				'scripts/ci .github/actions',
+			);
+			expect(steps.indexOf(overlay!), `${file} restores before using the scripts`).toBeLessThan(
+				requireGreen,
+			);
+			expect(steps.indexOf(overlay!), `${file} restores before using the action`).toBeLessThan(
+				setup,
+			);
 			// First run fetches the missing workflow revision; the second finds it locally.
 			execFileSync('bash', ['-e', '-c', overlay.run ?? ''], {
 				cwd: work,
 				env: { ...env, GITHUB_WORKFLOW_SHA: workflowSha },
 				stdio: 'pipe',
 			});
-			expect(fs.readFileSync(path.join(work, '.github/actions/setup-e2e/action.yml'), 'utf8')).toBe(
-				fs.readFileSync(`${actionDir}/action.yml`, 'utf8'),
+			expect(
+				fs.readFileSync(path.join(work, '.github/actions/setup-workspace/action.yml'), 'utf8'),
+			).toBe(fs.readFileSync('.github/actions/setup-workspace/action.yml', 'utf8'));
+			expect(fs.readFileSync(path.join(work, 'scripts/ci/require-green.sh'), 'utf8')).toBe(
+				fs.readFileSync('scripts/ci/require-green.sh', 'utf8'),
 			);
 			expect(git(work, 'rev-parse', 'HEAD'), `${file} keeps the tag checked out`).toBe(tagSha);
 			expect(git(work, 'diff', '--cached', '--name-only')).toBe('');

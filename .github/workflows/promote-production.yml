@@ -1,8 +1,9 @@
 name: Promote Production
 
-# Manual-only, protected production promotion. Configure required reviewers on the `production`
-# GitHub environment and set AWS_PROD_DEPLOY_ROLE_ARN to the prod foundation stack's OIDC role.
-# To roll back, dispatch this workflow again with the previous known-good tag as `release_ref`.
+# Manual-only, protected production promotion: one button, one input (an existing semver tag),
+# one approval on the `production` environment. The tag's commit must carry a passing `ci-gate`;
+# the release-only gates run in preflight, the deploy runs after approval (docs/development/
+# RELEASING.md §5). To roll back, dispatch again with the previous known-good tag.
 
 on:
   workflow_dispatch:
@@ -31,9 +32,12 @@ env:
 
 jobs:
   preflight:
+    # The release candidate is a commit `ci-gate` already passed on, tagged and reachable from
+    # main. Preflight verifies exactly that plus the release-only checks (versions, advisories,
+    # legal placeholders, a production build); it does not re-run the suite (ADR-043).
     name: verify release candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
     outputs:
       release_sha: ${{ steps.release_ref.outputs.sha }}
     steps:
@@ -54,17 +58,17 @@ jobs:
           test "$(git rev-parse HEAD)" = "$TAG_SHA"
           git merge-base --is-ancestor "$TAG_SHA" refs/remotes/origin/main
           echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Install dependencies
+      # A rollback tag may predate this script; run this workflow revision's copy.
+      - name: Use this workflow revision's CI scripts
+        run: |
+          git cat-file -e "$GITHUB_WORKFLOW_SHA^{commit}" 2>/dev/null || git fetch --no-tags origin "$GITHUB_WORKFLOW_SHA"
+          git restore --source="$GITHUB_WORKFLOW_SHA" --worktree -- scripts/ci .github/actions
+      - name: Require a green ci-gate on the release commit
         env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: pnpm install --frozen-lockfile
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release_ref.outputs.sha }}
+        run: scripts/ci/require-green.sh "$RELEASE_SHA"
+      - uses: ./.github/actions/setup-workspace
       - name: Validate declarative stage configuration
         run: pnpm cloud:stage-config:validate
       - name: Verify tag and package versions
@@ -73,10 +77,6 @@ jobs:
         run: pnpm release:verify version --tag "$RELEASE_REF"
       - name: Scan repository files for credentials
         run: pnpm security:secrets
-      - name: Run release-quality gates
-        run: pnpm check
-      - name: Run full lint policy
-        run: pnpm lint
       - name: Reject high-severity dependency advisories
         run: pnpm security:audit
       - name: Build production bundles
@@ -85,32 +85,6 @@ jobs:
         run: pnpm build
       - name: Reject unresolved legal placeholders
         run: node scripts/check-legal-placeholders.mjs
-      # A rollback tag predates the local action; run this workflow's copy.
-      - name: Use this workflow revision's browser setup action
-        run: |
-          git cat-file -e "$GITHUB_WORKFLOW_SHA^{commit}" 2>/dev/null || git fetch --no-tags origin "$GITHUB_WORKFLOW_SHA"
-          rm -rf .github/actions/setup-e2e
-          git restore --source="$GITHUB_WORKFLOW_SHA" --worktree -- .github/actions/setup-e2e
-      - name: Set up browser tests
-        uses: ./.github/actions/setup-e2e
-      - name: Run browser release suite
-        env:
-          PLAYWRIGHT_HTML_OPEN: never
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report
-        run: pnpm --filter @dndtools/gm-react exec playwright test --reporter=line,html
-      - name: Apply accessibility release policy
-        run: pnpm a11y:report
-      - name: Upload preflight diagnostics
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: production-preflight-${{ github.run_id }}
-          path: |
-            apps/gm-react/playwright-report
-            apps/gm-react/test-results
-            tmp/a11y
-          if-no-files-found: warn
-          retention-days: 30
 
   promote:
     name: deploy and verify production
@@ -141,13 +115,12 @@ jobs:
         run: |
           test -n "$EMAIL_SOURCE_ARN"
           test -n "$EMAIL_FROM"
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.34.5
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
+      # A rollback tag may predate the workspace action; run this workflow revision's copy.
+      - name: Use this workflow revision's CI scripts
+        run: |
+          git cat-file -e "$GITHUB_WORKFLOW_SHA^{commit}" 2>/dev/null || git fetch --no-tags origin "$GITHUB_WORKFLOW_SHA"
+          git restore --source="$GITHUB_WORKFLOW_SHA" --worktree -- scripts/ci .github/actions
+      - uses: ./.github/actions/setup-workspace
       - uses: aws-actions/setup-sam@89ddb14d60e682855e3fea4be85b3c56485de310 # v3
         with:
           use-installer: true
@@ -161,10 +134,6 @@ jobs:
           aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile dndtools
           aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile dndtools
           aws configure set region "$AWS_REGION" --profile dndtools
-      - name: Install dependencies
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-        run: pnpm install --frozen-lockfile
       - name: Fail closed on out-of-band stack drift
         run: pnpm cloud:drift prod
       - name: Reuse the current production web origin when present

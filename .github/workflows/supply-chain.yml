@@ -2,13 +2,24 @@ name: Supply Chain
 
 on:
   pull_request:
+  # The dispatcher's CI repairs land workflow edits on `loop/rc` without a pull request; lint
+  # those edits on the push itself.
+  push:
+    branches:
+      - main
+      - loop/rc
+    paths:
+      - '.github/**'
+      - 'infra/*.sh'
+      - 'scripts/*.sh'
+      - 'scripts/ci/*.sh'
   schedule:
     - cron: '0 9 * * 1'
   workflow_dispatch:
 
 concurrency:
   group: supply-chain-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -56,7 +67,8 @@ jobs:
       - name: Lint repository deployment scripts
         run: >-
           shellcheck infra/deploy.sh infra/verify-signaling.sh infra/verify-sync.sh
-          infra/verify-turn.sh scripts/check-cloudformation-drift.sh
+          infra/verify-turn.sh scripts/check-cloudformation-drift.sh scripts/ci/require-green.sh
+          scripts/ci/apply-rulesets.sh
 
   dependency-review:
     name: dependency review
@@ -73,7 +85,7 @@ jobs:
 
   audit-and-sbom:
     name: audit, secrets, and SBOM
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

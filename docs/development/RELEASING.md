@@ -7,23 +7,26 @@ signing certificates exist (RC-PLT-1.1).
 
 ## 1. Cut a release
 
-1. Merge only after every required check passes; verify the commit is reachable from `origin/main`.
-2. Set `package.json`, `packages/core/package.json`, and `apps/gm-react/package.json` to the same
-   `X.Y.Z` (plain semver; Android rejects a `-rc` suffix). `apps/gm-react/android/app/build.gradle`
-   derives `versionName` and `versionCode` (`major × 1,000,000 + minor × 1,000 + patch`) from it;
-   `pnpm check:android` asserts the contract.
-3. On that commit run the gates in [TESTING.md](TESTING.md) and the Android checks in the
-   [Android runbook](../runbooks/android-alpha.md).
-4. Tag and push:
+1. Pick the commit on `main` to release. Every commit on `main` already carries a passing
+   `ci-gate` (GIT_WORKFLOW.md §3); check the last nightly issue is closed, and run the Android
+   checks in the [Android runbook](../runbooks/android-alpha.md) if the release touches Android.
+2. From a clean checkout of `main`, cut the release:
 
    ```bash
-   git tag -a vX.Y.Z -m "Lamplight GM X.Y.Z"
-   git push origin vX.Y.Z
+   pnpm release:cut X.Y.Z
+   git push origin main vX.Y.Z
    ```
 
-`release.yml` checks out the tag, requires its commit to be reachable from `origin/main`, verifies
-all three versions agree, runs the static, unit, coverage, build, browser, axe, dependency, secret,
-and Electron gates, packages macOS arm64 and x64, Linux x86*64, and Windows x64 installers, builds
+   `release:cut` sets `package.json`, `packages/core/package.json`, and `apps/gm-react/package.json`
+   to the same `X.Y.Z` (plain semver; Android rejects a `-rc` suffix), asserts the Android version
+   contract (`apps/gm-react/android/app/build.gradle` derives `versionName` and `versionCode`,
+   `major × 1,000,000 + minor × 1,000 + patch`), commits `release: vX.Y.Z` and creates the
+   annotated tag. The version commit goes through CI like any other push to `main`; the tag's
+   workflow refuses to run until that commit's `ci-gate` is green.
+
+`release.yml` checks out the tag, requires its commit to be reachable from `origin/main` and to
+carry a passing `ci-gate`, verifies all three versions agree, runs the release-only gates
+(dependency advisories, secret scan, production build, Electron boot smoke, SBOM), packages macOS arm64 and x64, Linux x86*64, and Windows x64 installers, builds
 and signs the Android APK/AAB with the `dndtools-alpha` key from the four `ANDROID_ALPHA*\*`secrets,
 verifies both signatures, installs and cold-launches the APK on an API 36 emulator, writes`SHA256SUMS.txt`, two SPDX documents, and build-provenance attestations, and creates or refreshes a
 draft prerelease. It refuses to mutate a published release or to replace a signed production draft
@@ -70,9 +73,11 @@ the job. Auto-update accepts only packages whose signature matches ([PLATFORMS.m
 
 ## 5. Promote cloud and web to production
 
-`promote-production.yml` is manual, uses the protected `production` environment
-(`AWS_PROD_DEPLOY_ROLE_ARN`, `COGNITO_EMAIL_SOURCE_ARN`, `COGNITO_EMAIL_FROM` set on it), pins the
-tag's commit before waiting for approval, re-runs release gates, blocks on CloudFormation drift,
+`promote-production.yml` is one button with one input, an existing semver tag. It is manual, uses
+the protected `production` environment (`AWS_PROD_DEPLOY_ROLE_ARN`, `COGNITO_EMAIL_SOURCE_ARN`,
+`COGNITO_EMAIL_FROM` set on it), pins the tag's commit, requires its `ci-gate` to have passed, runs
+the release-only gates (versions, advisories, secrets, production build, legal placeholders) in a
+few minutes, waits for the environment approval, blocks on CloudFormation drift,
 deploys `identity → turn → app-api → signaling → sync-api → app-api purge-proof refresh →
 web-hosting → identity/API origin refresh`, publishes the SPA, waits for the CloudFront
 invalidation, and runs non-mutating probes. `foundation` is bootstrapped by an administrator, never
@@ -84,4 +89,6 @@ accepted; desktop packaging passes `--policy apps/gm-react/dist/electron-network
 must contain exactly the configured cloud and AI origins. A build with every coordinate absent is a
 valid local-only build; a partial one fails.
 
-`deploy.yml` remains the path-filtered automatic dev deploy; `cloud-drift.yml` watches dev weekly.
+`deploy.yml` is the automatic dev deploy: it runs after every green CI run on `main` and redeploys
+only the stacks and the web app that changed since the last successful deploy, so dev always holds
+the latest commit that passed. `cloud-drift.yml` watches dev weekly.

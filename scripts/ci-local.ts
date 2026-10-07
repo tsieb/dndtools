@@ -1,4 +1,4 @@
-// Local mirror of the CI `build-and-test` job (.github/workflows/ci.yml).
+// Local mirror of the CI `static`, `unit` and `build` legs (.github/workflows/ci.yml).
 //
 // It exists because the gates people actually run locally (`pnpm lint`, `pnpm typecheck`) are a
 // strict subset of what CI enforces, so a tree can look green locally and still fail on push. The
@@ -40,9 +40,12 @@ const steps: Step[] = [
 		name: 'format:check:changed',
 		args: base ? ['format:check:changed', '--', '--base', base] : ['format:check:changed'],
 	},
+	{ name: 'check:android', args: ['check:android'] },
+	{ name: 'cloud:stage-config:validate', args: ['cloud:stage-config:validate'] },
 	{ name: 'lint', args: ['lint'] },
 	{ name: 'typecheck', args: ['typecheck'] },
 	{ name: 'build', args: ['build'] },
+	{ name: 'check:bundle-budget', args: ['check:bundle-budget'] },
 	{ name: 'test', args: ['test'] },
 	{ name: 'test:coverage:core', args: ['test:coverage:core'] },
 ];

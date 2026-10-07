@@ -9,20 +9,22 @@ import YAML from 'yaml';
 
 const ci = YAML.parse(readFileSync('.github/workflows/ci.yml', 'utf8'));
 
-it('automatically runs every browser shard on loop/rc, without path filtering or build dependency', () => {
+it('runs every browser shard on a loop/rc push, never cancelled, with no build dependency', () => {
 	expect(ci.on.push.branches).toContain('loop/rc');
-	expect(ci.concurrency.group).toContain("github.ref == 'refs/heads/loop/rc' && github.run_id");
-	const browser = ci.jobs['browser-e2e'];
+	// Integration and promotion pushes get a complete run each: the dispatcher reads one verdict
+	// per commit, and a cancelled run would read as a failure (ADR-043).
+	expect(ci.concurrency.group).toContain(
+		"(github.ref == 'refs/heads/loop/rc' || github.ref == 'refs/heads/main') && github.run_id",
+	);
+	const browser = ci.jobs.e2e;
 	expect(browser.needs).toEqual(['changes']);
-	expect(browser.if).toContain("github.ref == 'refs/heads/loop/rc' ||");
+	expect(browser.if).toContain("needs.changes.outputs.runtime == 'true'");
 	expect(browser.strategy['fail-fast']).toBe(false);
-	expect(browser.strategy.matrix.include.map((entry: { shard: string }) => entry.shard)).toEqual([
-		'1/5',
-		'2/5',
-		'3/5',
-		'4/5',
-		'5/5',
-	]);
+	expect(browser.strategy.matrix.shard).toEqual([1, 2, 3, 4, 5, 6]);
+	expect(
+		browser.steps.find((step: { name?: string }) => step.name === 'Run Playwright shard').env
+			.PLAYWRIGHT_SHARD,
+	).toBe('${{ matrix.shard }}/6');
 	const tier = ci.jobs.changes.steps.find((step: { id?: string }) => step.id === 'tier').run;
 	const dir = mkdtempSync(path.join(tmpdir(), 'loop-tier-'));
 	try {
@@ -51,7 +53,7 @@ it('catches an injected cross-spec regression with the CI command while the name
 	const appRequire = createRequire(path.resolve('apps/gm-react/package.json'));
 	const playwright = appRequire.resolve('@playwright/test');
 	const cli = appRequire.resolve('@playwright/test/cli');
-	const command = ci.jobs['browser-e2e'].steps
+	const command = ci.jobs.e2e.steps
 		.find((step: { name?: string }) => step.name === 'Run Playwright shard')
 		.run.trim();
 	// Run the actual workflow's argument list, replacing only the package-manager launcher.

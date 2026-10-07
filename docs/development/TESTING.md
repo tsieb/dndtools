@@ -28,13 +28,13 @@ already listening on :5273. A linked worktree derives its own port in 5300–589
 skips any port that already answers (Postgres holds 5432 on the gate host).
 
 Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
-raise): core unit 90s, core coverage 120s, CI `build-and-test` 10 min, one `browser-e2e` shard
-12 min, `accessibility` 5 min, `visual-regression` 10 min. Browser setup (`setup-e2e`, whose apt
-step depends on the runner's Ubuntu mirror) is capped at 10 min as its own step so it never spends
-the test step's cap. When the suite outgrows the shard budget, CI gets another shard and the
-19-minute test-step cap stays where it is (three shards became five at 1,916 tests, when shards ran
-17-19 minutes). The core suite runs with `isolate: false` because it is framework-free
-and each isolated file re-imported the whole module graph.
+raise): core unit 90s, core coverage 120s, CI `static` 8 min, each `unit` suite 6 min, `build`
+6 min, one `e2e` shard (of six) 10 min, `accessibility` 6 min, `visual-regression` 10 min,
+`android-build` 15 min. The browser legs run inside the pinned Playwright image, so no job installs
+a browser; `.github/actions/setup-e2e` (whose apt step depends on the runner's Ubuntu mirror) is
+used only by `perf.yml` and the nightly harness. The required tier's wall time is its slowest leg
+(GIT_WORKFLOW.md §2). The core suite runs with `isolate: false` because it is framework-free and
+each isolated file re-imported the whole module graph.
 
 ## 2. Mandatory rules
 
@@ -52,7 +52,7 @@ and each isolated file re-imported the whole module graph.
 ## 3. `pnpm validate`
 
 One orchestrated pass over every verification the repo has, with a consolidated report. It does not
-replace PR CI (`ci.yml`); it is the deep on-demand and weekly sweep (`validate.yml`).
+replace PR CI (`ci.yml`); it is the deep on-demand and nightly sweep (`nightly.yml`, job `validate`).
 
 ```bash
 pnpm validate            # static + unit + build + browser + audit
@@ -357,3 +357,26 @@ truncated text its complete text alternative, or let it wrap/scroll. The shell m
 a positioning context so absolute screen-reader helpers remain inside its scroll region. Startup
 warnings are failures too: use the existing Capacitor SystemBars registration, opt into the installed
 router future flags, and keep demo seeding within the same command validation as user content.
+
+## 10. Quarantine (`@quarantine`)
+
+A browser test that fails intermittently on hosted CI and cannot be made deterministic in the
+change at hand is quarantined, not deleted and not retried into silence:
+
+```ts
+test('pinch snaps between Fit, Comfortable and Detail', { tag: '@quarantine' }, async ({ page }) => {
+```
+
+The blocking `e2e` legs run with `--grep-invert @quarantine`, so a quarantined test cannot fail a
+landing. `nightly.yml` runs every quarantined test five times (`--repeat-each=5 --retries=0`) and
+reports the outcome in the `nightly` issue, so the flake rate stays measured. Rules:
+
+- A quarantine commit links the issue that tracks the fix in the test's comment and in the
+  `nightly` issue. The dispatcher's `ci-recovery-*` task description asks for exactly this when
+  a test passes locally and on rerun but fails on the runner.
+- Quarantine is for a flaky test, never for a failing one: a test that fails deterministically is
+  a bug in the product or the test and is fixed in the change that found it.
+- Leaving quarantine is a normal change: remove the tag once the nightly shows five clean repeats
+  on consecutive nights, and say so in the commit.
+- `scripts/ci/e2e-summary.mjs` lists, for every CI run, the tests that passed only on retry.
+  A test that appears there repeatedly is a quarantine candidate before it is a red run.
