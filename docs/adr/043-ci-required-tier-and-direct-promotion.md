@@ -45,9 +45,12 @@ not exist on GitHub.
 5. **No standing delivery pull request.** The dispatcher fast-forwards `main` directly once the
    required workflow is green and the promotion window (one hour) has elapsed. Pull requests no
    longer trigger the performance workflow.
-6. **Rulesets, not documentation.** `main`: no deletion, no force push, linear history, `ci-gate`
-   required on every pushed commit, admin bypass only through a pull request. `loop/rc`: no
-   deletion, no force push, linear history. `scripts/ci/apply-rulesets.sh` is the source.
+6. **Rulesets, not documentation.** `main`: no deletion, no force push, `ci-gate` required on
+   every pushed commit, admin bypass only through a pull request. `loop/rc`: no deletion, no
+   force push. `scripts/ci/apply-rulesets.sh` is the source. No linear-history rule: a pull
+   request merged to `main` is merged back into `loop/rc` by the dispatcher's next promotion (a
+   `merge-back-<sha>` candidate that CI verifies before it fast-forwards onto `main`), so `main`
+   stays an ancestor of `loop/rc` without anyone merging by hand.
 7. **Dispatcher recovery is bounded and scoped.** A cancelled or skipped run is not a failure.
    A failed required workflow is first re-run once (`gh run rerun --failed`, no tokens). A second
    failure creates one `ci-recovery-<sha>` task scoped to the paths changed since the last green
