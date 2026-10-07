@@ -226,3 +226,19 @@ Browser re-run on head `5d18cfb5`, `--project=desktop-chromium --project=mobile-
 
 The `Function components cannot be given refs` console warnings in these logs are the existing
 builder Textarea warning (WID-17, `BuilderPanes.tsx`), not this change.
+
+## Attempt 3 — boundary lint repair (2026-10-06)
+
+- Read the original failed Lint log for head `252c58cc`: PLAT-006 flagged the gallery test's
+  direct storage setup and cleanup. Replaced both with `saveAiUsagePreference`: `complete` for
+  assistant setup and the default `none` after unmount in `afterEach`. No platform exception.
+- Rechecked the existing copy review against `docs/design-package/readme.md`, Content
+  fundamentals. This repair changes test setup only; product copy and acceptance behavior remain
+  as reviewed above.
+- `pnpm lint`: exit 0, including boundary lint and non-text contrast. Existing ESLint warnings
+  (16) and emphasis baseline warnings remain. Original local output: `/tmp/rc-wid-6.7-lint.log`.
+- `pnpm test:app apps/gm-react/src/app/canvas/AddWidgetGallery.test.tsx`: exit 0, **14 passed**,
+  including provider/local routing and EN/ES catalog checks. Original local output:
+  `/tmp/rc-wid-6.7-gallery-test.log`.
+- The operator reports the other gates passed on the prior head; those gates were not rerun for
+  this test-only repair. No push, promotion, loop launch, dispatcher state edit or extra agents.

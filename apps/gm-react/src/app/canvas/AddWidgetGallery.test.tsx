@@ -12,7 +12,7 @@ import { I18nProvider } from '../../i18n';
 import { en } from '../../i18n/messages/en';
 import { es } from '../../i18n/messages/es';
 import type { AiRouteResult } from '../../ai/providerConfig';
-import { AI_USAGE_PREFERENCE_KEY } from '../../ai/usagePreference';
+import { saveAiUsagePreference } from '../../ai/usagePreference';
 import { nextFreeSlot, placeNewTile } from '../../screens/screen/paletteRows';
 import type { AddWidgetGalleryProps } from './AddWidgetGallery';
 
@@ -101,7 +101,7 @@ describe('the Add panel', () => {
 	afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
-		localStorage.clear();
+		saveAiUsagePreference('none');
 		routeRef.current = { available: false, backendId: 'provider', reason: 'no-key' };
 		runtimeRef.state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 	});
@@ -133,7 +133,7 @@ describe('the Add panel', () => {
 
 	/** The assistant switched on, agent access on, and one agent allowed the widget tool. */
 	function assistantReady() {
-		localStorage.setItem(AI_USAGE_PREFERENCE_KEY, 'complete');
+		saveAiUsagePreference('complete');
 		const state = runtimeRef.state;
 		runtimeRef.state = {
 			...state,
