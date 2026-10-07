@@ -264,3 +264,16 @@ passes. No branch change touches the calendar code or that test (the core diff i
 `command-center.ts`, `widget-package-state.ts`, `schemas/widget-package.ts`, `onboarding.ts`, the
 barrel and four command-center/navigation tests). Treated as a host-load timeout; not edited (outside
 the claim). The gate needs a re-run.
+
+### App-tests gate (run on `8c1b24bb`) and rebase onto the repaired `loop/rc`
+
+"App tests" (`pnpm test:app`) reported 174 files / 2116 tests passed but exited 1 on four uncaught
+errors, all `TypeError: range.getClientRects is not a function` from `WidgetRegion`'s fit probe
+(`WidgetRenderSlot.tsx`), attributed to `CommandCenter.baseline.test.tsx`. This was mine: the hub's
+parts render inside widget regions, the baseline test stubs `ResizeObserver` (so the probe runs) and
+jsdom has no `Range.getClientRects`; a probe frame that fired late under load threw outside any test.
+Fixed in the test with the same `Range` stubs `SceneBoardCanvas.test.tsx` uses (`2a142da8`).
+
+Rebased onto `c6e47e5d` (the ci-recovery repair; it only splits the browser e2e into shards). On the
+new head: `pnpm test:app` exit 0 — 174 files / 2116 tests, no errors; the baseline test 3× 11/11;
+`pnpm typecheck` 0; `format:check:changed --base loop/rc` clean.
