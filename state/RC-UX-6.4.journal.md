@@ -13,9 +13,11 @@ command output was read directly.
   choice, including an explicit Beginner, is never rewritten.
 - **Reveal lists** (core): `TIER_SUMMARY_GATE_IDS` names the complexity-map gates a card may list,
   and `tierHiddenSections(tier)` returns those its tier cannot see. Beginner: Extensions, Community,
-  New widget, Plugins, Extensions & systems, Permissions, AI & tools, Local backup, Export
-  diagnostics bundle. Standard: Permissions, AI & tools, Local backup, Export diagnostics bundle
-  (all advanced Settings sections). Expert: nothing. The Settings › Appearance cards
+  New widget, Custom widget code, Plugins, Extensions & systems, Permissions, AI & tools, Local
+  backup, Diagnostics. Standard: Permissions, AI & tools, Local backup, Diagnostics (all advanced
+  Settings sections). Expert: nothing. A gate may carry an optional `summaryKey` for the cards when
+  its `labelKey` is ambiguous there (`builder.step.advanced` would read "Advanced";
+  `settings.about.export` was long enough to overflow the onboarding step). The Settings › Appearance cards
   (`Experience.tsx`) and the onboarding step (`ExperienceStep.tsx`) both read it. The old Settings
   list (`visibleFeatures`) printed the same core features on every card.
 - **New gate** `home.create.widget` (intermediate, surface `/`) for the Command Center's New widget
@@ -55,9 +57,10 @@ command output was read directly.
   default tier ("Intermediate") rather than the device's tier. The `builtin-bodies` snapshot update
   stays: with the new default the tile prints "Intermediate" either way.
 - Companion paths: `packages/core/src/index.ts`, i18n catalogs, `CHANGELOG.md`, tests, snapshot.
-- Not done: the widget builder's advanced steps are not gated by tier anywhere (`widgetBuilder/*`
-  never reads it). Listing them on the Beginner card would repeat the defect this story fixes, so
-  `TIER_SUMMARY_GATE_IDS` leaves them out. Enforcing builder-step gating is follow-up work.
+- Widget builder (review fix, see below): `widgetBuilder/draft.ts`, `widgetBuilder/BuilderPanes.tsx`
+  and `screens/extensions/WidgetBuilder.tsx` are outside Owns. The story names "the widget
+  builder's advanced steps" in the Beginner list, and the independent review rejected the candidate
+  without them, so the edit crosses into those three files and nothing else.
 
 ## Validation
 
@@ -115,3 +118,59 @@ All runs are local; Playwright used `DNDTOOLS_E2E_PORT=41449`.
   516/516 passed in 11.2 min, exit 0.
 - No code, baseline, assertion or timeout changes in this retry; journal only. No agents,
   dispatcher-state edits, push, promotion or loop launches.
+
+## Review fix: widget builder Advanced step (2026-10-06)
+
+The independent review of `a4004500` passed every gate but rejected the candidate because the
+Beginner card left out the widget builder's advanced steps and the builder never read the tier
+(Beginner could open `/#/extensions` → Build a widget → Advanced and edit custom code).
+
+- Core (`onboarding.ts`): `builder.step.advanced` moves from `advanced` to `intermediate`. The
+  story puts the builder's advanced steps on the Beginner list and keeps Standard's list to advanced
+  Settings sections, and Standard is the default the builder ran at before. The gate joins
+  `TIER_SUMMARY_GATE_IDS`. `SectionFeatureGate` gains an optional `summaryKey` for the cards:
+  "Custom widget code" for the builder step (its `labelKey` must stay `builder.step.advanced`;
+  the RC-UX-5.1 inventory test matches UI step keys) and "Diagnostics" for
+  `settings.about.export`. With the extra Beginner entry, the old "Export diagnostics bundle" pushed
+  the onboarding Experience step one line taller than its content box on desktop, so
+  `onboarding-consent.spec.ts:136` failed 3/3 until the shorter label went in.
+  `docs/reference/FEATURE_COMPLEXITY.md` regenerated. The other builder gates (data, config,
+  commands, review at `advanced`) stay unenforced and stay off the cards; enforcing Review would
+  stop a Standard GM from installing anything.
+- Builder (outside the original Owns, the minimum the requirement needs):
+  - `widgetBuilder/draft.ts`: pure `shownSteps(draft, advancedAllowed, current, issues)`. Advanced
+    is left out below the gate unless the draft already uses custom code, host permissions or
+    network destinations, has an issue on that step, or is open on it. Hiding work that exists
+    would leave it unreachable.
+  - `widgetBuilder/BuilderPanes.tsx`: the rail takes a `steps` prop. New `AdvancedStepGate` shows
+    the RC-UX-5.2 gate copy ("Advanced is part of the Standard toolkit…") and a
+    "Switch to Standard" button that raises the tier in place, the same write the gate page does.
+  - `screens/extensions/WidgetBuilder.tsx`: reads the tier, builds the steps, and uses them for the
+    rail, "Step N of M" and Back/Next. The note lives in `BuilderPanes.tsx` because inlining it put
+    `WidgetBuilder.tsx` at 810 lines, over the 800-line file-size gate.
+- Copy: `builder.step.advancedGate` and `settings.about.exportSummary` (en, es); pseudo catalog
+  regenerated. CHANGELOG entry extended.
+
+### Validation
+
+Local runs; Playwright on `DNDTOOLS_E2E_PORT=41467`.
+
+- `tests/unit/feature-complexity.test.ts` 9/9 (Beginner list now asserts `builder.step.advanced`).
+  `pnpm test:app` 2092/2092 (includes new `shownSteps` tests in `draft.test.ts`). Core
+  `vitest run` 5279/5279. `pnpm test:tooling` 249/249 (first run failed the file-size gate at 810
+  lines; fixed as above).
+- `tsc --noEmit` (gm-react, core), `pnpm lint:boundary`, ESLint and Prettier on every changed file:
+  pass.
+- E2E, desktop and mobile Chromium: settings-tiers, onboarding-consent, settings, settings-polish,
+  widget-builder and widget-settings: 86/86. The new settings-tiers test: at Beginner the builder
+  rail has Identity and Review but no Advanced and no custom-code controls; the gate note says why;
+  "Switch to Standard" brings Advanced back without a reload and it opens. settings-tiers plus
+  onboarding-consent with `--repeat-each=2`: 60/60.
+- Visual, pinned container: full compare (`--update-snapshots=none --workers=2`) had 513 passed and
+  3 failed, all golden-routes `/settings` on visual-rail (tavern, parchment, high-contrast,
+  1120–1393 px, ratio 0.01). Actual vs diff checked: only the cards' hidden lists changed (Beginner
+  adds "Custom widget code", "Export diagnostics bundle" → "Diagnostics"). Desktop `/settings` did
+  not move. Re-baselined those 3 (`--update-snapshots=changed`), losslessly re-deflated
+  (494,468 → 474,528 B). Budget: 771 files, 33,330.8 of 34,816.0 KiB. Compare re-run over
+  golden-routes, settings-polish and extensions-polish settings/extensions captures: 69/69.
+- No agents, dispatcher-state edits, push, promotion or loop launches.

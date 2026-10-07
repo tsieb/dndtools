@@ -22,8 +22,10 @@ branch. Installers still come from the alpha releases.
 - Board widgets stop repeating the GM-only badge on every tile. Shared, hidden and mixed tiles are
   still marked.
 - Experience complexity now means something outside Settings. Beginner hides Extensions and
-  Community from the menus, and hides New widget and Permissions on the Command Center. Each card in
-  Settings › Appearance and in setup lists what that level hides. Expert hides nothing.
+  Community from the menus, hides New widget and Permissions on the Command Center, and skips the
+  widget builder's Advanced step (custom code and host access) unless the widget already uses it.
+  The builder says the step is hidden and offers Switch to Standard. Each card in Settings ›
+  Appearance and in setup lists what that level hides. Expert hides nothing.
 - **Migration note:** Standard is now the default experience level. Before this release, a device
   that had never picked a level ran as Beginner, even though setup recommended Standard. Such a
   device now opens at Standard and shows Extensions, Community, New widget and the Standard
