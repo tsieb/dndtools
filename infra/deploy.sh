@@ -77,7 +77,10 @@ sam validate --lint --template "$STACK_DIR/template.yaml" --region "$REGION" --p
   echo "    (lint reported findings; review above — not blocking deploy)"
 
 echo "==> $STACK / $STAGE : build"
-sam build --template "$STACK_DIR/template.yaml" --base-dir "$STACK_DIR" \
+# `BuildMethod: esbuild` functions (app-api's PushReminderFn) bundle from a CodeUri with no
+# package.json, so SAM looks for esbuild on PATH. The workspace installs it under cloud-fns.
+PATH="$HERE/../packages/cloud-fns/node_modules/.bin:$HERE/../node_modules/.bin:$PATH" \
+  sam build --template "$STACK_DIR/template.yaml" --base-dir "$STACK_DIR" \
   --build-dir "$STACK_DIR/.aws-sam/build"
 
 echo "==> $STACK / $STAGE : deploy"
