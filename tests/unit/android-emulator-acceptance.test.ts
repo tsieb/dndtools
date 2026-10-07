@@ -621,15 +621,20 @@ describe('Android emulator acceptance gate', () => {
 		expect(appAnr.events, "the app's own ANR dialog was dismissed or launched over").toEqual([]);
 	});
 
-	it('runs instrumentation and the shared script in CI and signed release emulators', () => {
+	it('runs instrumentation and the shared script in the nightly and signed release emulators', () => {
+		// ADR-043: the emulator legs never block a landing; they run nightly against loop/rc and
+		// on every release tag. ci.yml keeps the compile, unit and lint gates only.
 		const ci = YAML.parse(
-			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
+			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'nightly.yml'), 'utf-8'),
 		) as Workflow;
+		expect(
+			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf-8'),
+		).not.toContain('android-emulator-runner');
 		const release = YAML.parse(
 			fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'release.yml'), 'utf-8'),
 		) as Workflow;
 
-		const ciEmulator = ci.jobs?.['android-checks']?.steps?.find((step) =>
+		const ciEmulator = ci.jobs?.['android-emulator']?.steps?.find((step) =>
 			step.uses?.startsWith('reactivecircus/android-emulator-runner@'),
 		);
 		const releaseEmulator = release.jobs?.['draft-release']?.steps?.find((step) =>

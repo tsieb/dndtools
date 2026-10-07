@@ -49,16 +49,16 @@ feed one aggregate job, **`ci-gate`**. That job is the only required status chec
 commit, so the legs can be reshaped without touching any of them. A leg that is skipped because
 its paths did not change is fine; a failed or cancelled leg fails the gate.
 
-| Leg                 | What it runs                                                                                               | Runs when                  |
-| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `static`            | quality gates, secrets scan, format baseline, Android version contract, stage config, lint, typecheck      | always                     |
-| `unit` ×4           | `test:coverage:core` (core + coverage floors), `test:cloud`, `test:app`, `test:tooling`                    | always                     |
-| `build`             | `pnpm build`, bundle budget                                                                                | always                     |
-| `e2e` ×4 + report   | the functional Playwright suite, both profiles, four shards merged into one report; `@quarantine` excluded | runtime paths changed      |
-| `accessibility`     | axe on both profiles + the release policy                                                                  | runtime paths changed      |
-| `visual-regression` | golden routes against the committed baselines                                                              | pixel-moving paths changed |
-| `desktop-smoke`     | Electron boot, CSP, persistence                                                                            | desktop paths changed      |
-| `android-build`     | Gradle unit, lint, debug APK                                                                               | Android paths changed      |
+| Leg                 | What it runs                                                                                              | Runs when                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `static`            | quality gates, secrets scan, format baseline, Android version contract, stage config, lint, typecheck     | always                     |
+| `unit` ×4           | `test:coverage:core` (core + coverage floors), `test:cloud`, `test:app`, `test:tooling`                   | always                     |
+| `build`             | `pnpm build`, bundle budget                                                                               | always                     |
+| `e2e` ×6 + report   | the functional Playwright suite, both profiles, six shards merged into one report; `@quarantine` excluded | runtime paths changed      |
+| `accessibility`     | axe on both profiles + the release policy                                                                 | runtime paths changed      |
+| `visual-regression` | golden routes against the committed baselines                                                             | pixel-moving paths changed |
+| `desktop-smoke`     | Electron boot, CSP, persistence                                                                           | desktop paths changed      |
+| `android-build`     | Gradle unit, lint, debug APK                                                                              | Android paths changed      |
 
 Every browser leg runs inside the pinned Playwright image (the one the visual baselines describe),
 so no job installs browsers or touches apt. The wall time is the slowest leg, about ten minutes.

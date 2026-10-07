@@ -1,6 +1,7 @@
 # ADR-043: CI as one required tier, direct promotion, nightly heavy checks
 
-- Status: Accepted (2026-10-06)
+- Status: Accepted
+- Date: 2026-10-06
 - Deciders: owner
 - Related: ADR-002 (platform ownership), RC-ENG-1.3, RC-ENG-2.1, RC-ENG-2.2, RC-DSN-4.1
 
@@ -24,7 +25,7 @@ not exist on GitHub.
 ## Decision
 
 1. **One required check.** `ci.yml` is a set of independent legs (`static`, four `unit` suites,
-   `build`, four `e2e` shards with a merged report, `accessibility`, `visual-regression`,
+   `build`, six `e2e` shards with a merged report, `accessibility`, `visual-regression`,
    `desktop-smoke`, `android-build`) feeding one aggregate job, `ci-gate`. Branch rules, the
    deploy, the release, the promotion and the dispatcher read `ci-gate` on the commit and
    nothing else. Legs are path-filtered; a skipped leg passes the gate, a failed or cancelled

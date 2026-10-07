@@ -29,7 +29,7 @@ skips any port that already answers (Postgres holds 5432 on the gate host).
 
 Timing budgets (wall clock; a job past its budget is a regression to investigate, not a number to
 raise): core unit 90s, core coverage 120s, CI `static` 8 min, each `unit` suite 6 min, `build`
-6 min, one `e2e` shard (of four) 10 min, `accessibility` 6 min, `visual-regression` 10 min,
+6 min, one `e2e` shard (of six) 10 min, `accessibility` 6 min, `visual-regression` 10 min,
 `android-build` 15 min. The browser legs run inside the pinned Playwright image, so no job installs
 a browser; `.github/actions/setup-e2e` (whose apt step depends on the runner's Ubuntu mirror) is
 used only by `perf.yml` and the nightly harness. The required tier's wall time is its slowest leg

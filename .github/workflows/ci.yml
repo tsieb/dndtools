@@ -229,14 +229,15 @@ jobs:
         run: pnpm check:bundle-budget
 
   e2e:
-    name: browser e2e (${{ matrix.shard }} of 4)
+    name: browser e2e (${{ matrix.shard }} of 6)
     needs: [changes]
     if: >-
       needs.changes.outputs.tier == 'full' && needs.changes.outputs.reuse != 'true' &&
       (github.event_name == 'workflow_dispatch' || needs.changes.outputs.runtime == 'true')
     runs-on: ubuntu-latest
-    # RC-ENG-2.2: a shard of the full functional suite, both profiles, two workers, fits well
-    # inside this cap; the image removes the browser install that used to eat the budget.
+    # RC-ENG-2.2: the suite is ~1,900 tests across both profiles; six shards of two workers put
+    # each shard near ten minutes (three shards had reached 17-19 and were killed at the cap on
+    # green runs). The image removes the browser install that used to eat the budget.
     timeout-minutes: 25
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
@@ -244,7 +245,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -252,7 +253,7 @@ jobs:
       - uses: ./.github/actions/setup-workspace
       - name: Run Playwright shard
         env:
-          PLAYWRIGHT_SHARD: ${{ matrix.shard }}/4
+          PLAYWRIGHT_SHARD: ${{ matrix.shard }}/6
         # Tests tagged @quarantine run in nightly.yml only (docs/development/TESTING.md §10).
         run: >-
           pnpm --filter @dndtools/gm-react exec playwright test
@@ -483,10 +484,12 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          echo "### ci-gate" >> "$GITHUB_STEP_SUMMARY"
-          echo "| leg | result |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
-          jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<<"$RESULTS" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### ci-gate"
+            echo "| leg | result |"
+            echo "| --- | --- |"
+            jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<<"$RESULTS"
+          } >> "$GITHUB_STEP_SUMMARY"
           BAD=$(jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key' <<<"$RESULTS")
           if [[ -n "$BAD" ]]; then
             echo "ci-gate: failed legs: $(tr '\n' ' ' <<<"$BAD")" >&2

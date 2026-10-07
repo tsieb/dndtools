@@ -182,12 +182,12 @@ jobs:
           EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label nightly --state open --json number --jq '.[0].number // empty')
           if [[ -z "$FAILED" ]]; then
             if [[ -n "$EXISTING" ]]; then
-              gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "Nightly passed on \`$REF\`: $RUN_URL. Closing."
+              gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "Nightly passed on $REF: $RUN_URL. Closing."
               gh issue close "$EXISTING" --repo "$GITHUB_REPOSITORY"
             fi
             exit 0
           fi
-          BODY=$(printf 'Nightly failed on `%s`: %s\n\nFailed jobs: %s\n\n%s' "$REF" "$RUN_URL" "$FAILED" \
+          BODY=$(printf 'Nightly failed on %s: %s\n\nFailed jobs: %s\n\n%s' "$REF" "$RUN_URL" "$FAILED" \
             "$(jq -r 'to_entries[] | "- \(.key): \(.value.result)"' <<<"$RESULTS")")
           if [[ -n "$EXISTING" ]]; then
             gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
