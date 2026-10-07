@@ -291,3 +291,22 @@ re-baselined was also re-baselined upstream); `qps-ploc` regenerated (no change)
 `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0, `format:check:changed --base loop/rc` clean,
 `pnpm test:app` 174 files / 2117 tests (no errors), `pnpm test:critical` 290 files / 5286 tests, and
 the full visual suite in the pinned container **516 passed**.
+
+### Browser-acceptance gate (run on `bc5ac0c8`)
+
+Every other gate passed (quality gates, format, visual 516, typecheck, lint, core, app, tooling,
+build, bundle budget, requirements audit). Browser acceptance (`pnpm e2e --workers=2 --retries=2`):
+1892 passed, 35 skipped, **1 failed** — `canvas-cues.spec.ts:287` "a drag by the grip shows a drop
+indicator, reorders, and Undo restores" on `mobile-chromium`, failing on all three attempts.
+
+Mine: the spec's `openFlowScene` fixture turns `homeSceneId ?? the first authored scene` into a flow
+screen. On the base `/` provisioned nothing, so it always got a demo table scene; on this branch `/`
+runs `ensure-home`, and the fixture raced onto the GM screen's board, whose first tile is the bound
+Map. Reproduced 6/6 on mobile: a grip drag on that Map tile selects it instead (the Inspector stays
+open). The fixture now skips default screens (as the golden-routes scene picker already does) —
+`canvas-cues.spec.ts` ×4 on both profiles: 52 passed, 4 skipped (profile-specific).
+
+Follow-up for the flow board's owner (not changed here; `FlowBoard` and `Map.tsx` are outside the
+claim): on a phone, dragging a flow tile whose body is the Map tile by its grip selects the tile rather
+than starting the drag. Other specs still use `homeSceneId ?? first scene` (flow-layout, atlas,
+dice-tray, encounter-builder …); all passed in this gate run.
