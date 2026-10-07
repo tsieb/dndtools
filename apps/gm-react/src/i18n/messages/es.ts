@@ -1019,6 +1019,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.about.colDuration': 'Duración',
 	'settings.about.noPerf': 'No se registraron marcas de rendimiento en esta sesión',
 	'settings.about.export': 'Exportar paquete de diagnóstico',
+	'settings.about.exportSummary': 'Diagnóstico',
 	'settings.about.exportBody':
 		'Descarga una instantánea redactada de este diagnóstico para compartir con soporte. Las rutas y los secretos se eliminan de forma predeterminada.',
 	'settings.about.exportButton': 'Descargar paquete de diagnóstico',
@@ -3855,6 +3856,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.step.commands': 'Comandos',
 	'builder.step.style': 'Estilo',
 	'builder.step.advanced': 'Avanzado',
+	'builder.step.advancedGate': 'Código de widget propio',
 	'builder.step.review': 'Revisión',
 
 	'builder.dock.canvas': 'Libre en el lienzo',

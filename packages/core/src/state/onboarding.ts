@@ -41,6 +41,8 @@ export interface FeatureGate {
  * Complexity is discoverability advice, never authorization or a crypto safety gate. */
 export interface SectionFeatureGate extends FeatureGate {
 	readonly labelKey: string;
+	/** RC-UX-6.4: the experience cards' name for the gate, when `labelKey` alone is ambiguous there. */
+	readonly summaryKey?: string;
 	readonly sectionAnchor: string;
 	readonly assumes: string;
 	readonly misuse: string;
@@ -247,6 +249,7 @@ export const SECTION_FEATURE_GATES: readonly SectionFeatureGate[] = (
 		{
 			id: 'settings.about.export',
 			labelKey: 'settings.about.export',
+			summaryKey: 'settings.about.exportSummary',
 			minTier: 'advanced',
 			surface: '/settings?tab=about',
 			sectionAnchor: 'settings-about-export',
@@ -1249,7 +1252,9 @@ export const SECTION_FEATURE_GATES: readonly SectionFeatureGate[] = (
 		{
 			id: 'builder.step.advanced',
 			labelKey: 'builder.step.advanced',
-			minTier: 'advanced',
+			// RC-UX-6.4: on the Beginner card a bare "Advanced" would not say what is hidden.
+			summaryKey: 'builder.step.advancedGate',
+			minTier: 'intermediate',
 			surface: '/extensions',
 			sectionAnchor: 'widget-builder-advanced',
 			assumes: 'Custom code, sandbox boundaries and host capabilities.',
@@ -1904,13 +1909,15 @@ export const DEFAULT_FEATURE_TIER: FeatureTier = 'intermediate';
 /**
  * RC-UX-6.4: the gates an experience card names when it says what its tier hides. Every entry is
  * enforced by a reader: the Settings rail and section wrappers, the More group and phone More
- * sheet (Extensions, Community), and the Command Center launchers (New widget, Permissions).
+ * sheet (Extensions, Community), the Command Center launchers (New widget, Permissions) and the
+ * widget builder's stepper (Advanced: custom code and host access).
  * Listing a gate here that nothing hides would make the card dishonest again.
  */
 export const TIER_SUMMARY_GATE_IDS: readonly string[] = [
 	'nav.extensions',
 	'nav.community',
 	'home.create.widget',
+	'builder.step.advanced',
 	'settings.nav.plugins',
 	'settings.nav.systems',
 	'settings.nav.permissions',

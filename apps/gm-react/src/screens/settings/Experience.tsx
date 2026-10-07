@@ -93,7 +93,7 @@ export function ExperienceComplexity() {
 					// features on every card.
 					const hides = tierHiddenSections(levelTier).map((gate) => ({
 						id: gate.id,
-						label: t(gate.labelKey as MessageKey),
+						label: t((gate.summaryKey ?? gate.labelKey) as MessageKey),
 					}));
 					// The radio is the level's name and blurb; the list beside it is its description. As
 					// one 10-item button the card was taller than a phone's scroll pane at 200% text (its

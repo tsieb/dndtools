@@ -72,6 +72,27 @@ export const STEP_LABEL: Record<BuilderStepId, MessageKey> = {
 	review: 'builder.step.review',
 };
 
+/**
+ * RC-UX-6.4 — the steps the stepper offers. Advanced (custom code, host access) is left out below
+ * its complexity-map gate (`builder.step.advanced`) unless the draft already uses it, has an issue
+ * there, or is open on it: hiding work that exists would leave it unreachable, not simpler.
+ */
+export function shownSteps(
+	draft: WidgetDraft,
+	advancedAllowed: boolean,
+	current: BuilderStepId,
+	issues: readonly { step: BuilderStepId }[],
+): BuilderStepId[] {
+	const keepAdvanced =
+		advancedAllowed ||
+		current === 'advanced' ||
+		draft.runtime === 'custom-html-js' ||
+		draft.hostPermissions.length > 0 ||
+		draft.networkDestinations.length > 0 ||
+		issues.some((issue) => issue.step === 'advanced');
+	return STEP_IDS.filter((id) => id !== 'advanced' || keepAdvanced);
+}
+
 /** Where a widget prefers to sit on a surface that docks widgets. See `buildPackage`. */
 export type DockPreference = 'canvas' | 'left' | 'right' | 'bottom';
 

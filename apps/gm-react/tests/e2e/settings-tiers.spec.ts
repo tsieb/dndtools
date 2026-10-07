@@ -165,3 +165,24 @@ test('RC-UX-6.4: the three experience cards list different hidden sections', asy
 	expect(lists[1]).not.toContain('New widget');
 	expect(lists[2]).toContain('Nothing hidden');
 });
+
+test("RC-UX-6.4: a Beginner's widget builder skips Advanced and reveals it in place", async ({
+	page,
+}) => {
+	// The beforeEach chose Beginner. The Extensions route stays open to a direct link.
+	await gotoRoute(page, '/extensions');
+	await page.getByRole('button', { name: 'Build a widget' }).click();
+	const builder = page.getByRole('dialog', { name: /Widget builder/ });
+	const steps = builder.getByTestId('widget-builder-steps');
+	await expect(steps.getByRole('button', { name: 'Identity', exact: true })).toBeVisible();
+	await expect(steps.getByRole('button', { name: 'Review', exact: true })).toBeVisible();
+	await expect(steps.getByRole('button', { name: 'Advanced', exact: true })).toHaveCount(0);
+	await expect(builder.getByText('Custom HTML and JavaScript')).toHaveCount(0);
+
+	const gate = builder.getByTestId('widget-builder-advanced-hidden');
+	await expect(gate).toContainText('Advanced is part of the Standard toolkit');
+	await gate.getByRole('button', { name: 'Switch to Standard' }).click();
+	await expect(gate).toHaveCount(0);
+	await steps.getByRole('button', { name: 'Advanced', exact: true }).click();
+	await expect(builder.getByText('Custom HTML and JavaScript')).toBeVisible();
+});

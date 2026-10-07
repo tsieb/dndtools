@@ -33,7 +33,9 @@ export function ExperienceStep({
 			}}
 		>
 			{(['core', 'intermediate', 'advanced'] as const).map((value) => {
-				const hidden = tierHiddenSections(value).map((gate) => t(gate.labelKey as MessageKey));
+				const hidden = tierHiddenSections(value).map((gate) =>
+					t((gate.summaryKey ?? gate.labelKey) as MessageKey),
+				);
 				return (
 					<button
 						key={value}

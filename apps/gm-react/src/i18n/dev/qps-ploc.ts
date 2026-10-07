@@ -1061,6 +1061,7 @@ export default {
 	'settings.about.colDuration': '[Ďúŕáţíóñ~~~~]',
 	'settings.about.noPerf': '[Ñó ƥéŕƒóŕḿáñçé ḿáŕķš ŕéçóŕďéď ţĥíš šéššíóñ~~~~ ~~~~ ~~~~ ~~]',
 	'settings.about.export': '[Éẋƥóŕţ ďíáğñóšţíçš ƀúñďľé~~~~ ~~~~ ]',
+	'settings.about.exportSummary': '[Ďíáğñóšţíçš~~~~ ]',
 	'settings.about.exportBody':
 		'[Ďóŵñľóáď á ŕéďáçţéď šñáƥšĥóţ óƒ ţĥíš ďíáğñóšţíçš ṽíéŵ ţó šĥáŕé ƒóŕ šúƥƥóŕţ. Ƥáţĥš áñď šéçŕéţš áŕé ŕéḿóṽéď ƀý ďéƒáúľţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'settings.about.exportButton': '[Ďóŵñľóáď ďíáğñóšţíçš ƀúñďľé~~~~ ~~~~ ~]',
@@ -3926,6 +3927,7 @@ export default {
 	'builder.step.commands': '[Çóḿḿáñďš~~~~]',
 	'builder.step.style': '[Šţýľé~~]',
 	'builder.step.advanced': '[Áďṽáñçéď~~~~]',
+	'builder.step.advancedGate': '[Çúšţóḿ ŵíďğéţ çóďé~~~~ ~~~]',
 	'builder.step.review': '[Ŕéṽíéŵ~~~]',
 	'builder.dock.canvas': '[Ƒŕéé óñ ţĥé çáñṽáš~~~~ ~~~]',
 	'builder.dock.left': '[Ľéƒţ ďóçķ~~~~]',

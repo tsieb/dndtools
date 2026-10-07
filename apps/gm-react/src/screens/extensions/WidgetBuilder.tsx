@@ -14,7 +14,6 @@ import { useRuntime } from '../../runtime/RuntimeContext';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { isolateModalSiblings } from '../../platform/modalIsolation';
 import {
-	STEP_IDS,
 	STEP_LABEL,
 	buildPackage,
 	draftStorageKey,
@@ -26,6 +25,7 @@ import {
 	readStoredDraft,
 	removeStoredDraft,
 	resumeDraft,
+	shownSteps,
 	widgetEditTarget,
 	writeStoredDraft,
 	type BuilderStepId,
@@ -34,7 +34,11 @@ import {
 } from '../../app/widgetBuilder/draft';
 import { firstBlockedStep, validateDraft } from '../../app/widgetBuilder/validate';
 import { BuilderPreview } from '../../app/widgetBuilder/BuilderPreview';
-import { BuilderStepRail, DefinitionPane } from '../../app/widgetBuilder/BuilderPanes';
+import {
+	AdvancedStepGate,
+	BuilderStepRail,
+	DefinitionPane,
+} from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
 import { LayoutStep } from '../../app/widgetBuilder/LayoutStep';
 import { DataStep } from '../../app/widgetBuilder/DataStep';
@@ -44,6 +48,7 @@ import { StyleStep } from '../../app/widgetBuilder/StyleStep';
 import { AdvancedStep } from '../../app/widgetBuilder/AdvancedStep';
 import { ReviewStep } from '../../app/widgetBuilder/ReviewStep';
 import { useI18n } from '../../i18n';
+import { featureGateVisible, useSettingsTier } from '../settings/Experience';
 import { TrustReviewSheet } from './TrustReviewSheet';
 
 /**
@@ -285,7 +290,11 @@ export function WidgetBuilder({
 		};
 	}, []);
 
-	const stepIndex = STEP_IDS.indexOf(step);
+	// RC-UX-6.4 — below its complexity-map gate the stepper skips Advanced (custom code, host
+	// access); `shownSteps` keeps it whenever the draft already has something there.
+	const tier = useSettingsTier();
+	const steps = shownSteps(draft, featureGateVisible('builder.step.advanced', tier), step, issues);
+	const stepIndex = steps.indexOf(step);
 	const goToStep = (next: BuilderStepId) => {
 		setStep(next);
 		if (narrow) setPane('edit');
@@ -368,7 +377,12 @@ export function WidgetBuilder({
 	};
 
 	const stepProps = { draft, patch, issues: stepIssues };
-	const stepRail = <BuilderStepRail step={step} issues={issues} onGoToStep={goToStep} />;
+	const stepRail = (
+		<>
+			<BuilderStepRail step={step} steps={steps} issues={issues} onGoToStep={goToStep} />
+			{!steps.includes('advanced') && <AdvancedStepGate tier={tier} />}
+		</>
+	);
 
 	const jsonPane = <DefinitionPane json={json} narrow={narrow} />;
 
@@ -446,7 +460,7 @@ export function WidgetBuilder({
 					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('extensions.builder.stepOf', {
 							index: stepIndex + 1,
-							total: STEP_IDS.length,
+							total: steps.length,
 							label: t(STEP_LABEL[step]),
 						})}
 					</span>
@@ -527,15 +541,15 @@ export function WidgetBuilder({
 									size="sm"
 									icon="chevron-left"
 									disabled={stepIndex === 0}
-									onClick={() => goToStep(STEP_IDS[Math.max(0, stepIndex - 1)]!)}
+									onClick={() => goToStep(steps[Math.max(0, stepIndex - 1)]!)}
 								>
 									{t('common.action.back')}
 								</Button>
 								<Button
 									variant="secondary"
 									size="sm"
-									disabled={stepIndex === STEP_IDS.length - 1}
-									onClick={() => goToStep(STEP_IDS[Math.min(STEP_IDS.length - 1, stepIndex + 1)]!)}
+									disabled={stepIndex === steps.length - 1}
+									onClick={() => goToStep(steps[Math.min(steps.length - 1, stepIndex + 1)]!)}
 								>
 									{t('common.action.next')}
 								</Button>

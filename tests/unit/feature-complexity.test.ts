@@ -175,6 +175,7 @@ describe('RC-UX-5.1 feature complexity inventory', () => {
 				'nav.extensions',
 				'nav.community',
 				'home.create.widget',
+				'builder.step.advanced',
 				'settings.nav.permissions',
 				'settings.nav.plugins',
 				'settings.nav.systems',

@@ -1001,6 +1001,7 @@ export const en = {
 	'settings.about.colDuration': 'Duration',
 	'settings.about.noPerf': 'No performance marks recorded this session',
 	'settings.about.export': 'Export diagnostics bundle',
+	'settings.about.exportSummary': 'Diagnostics',
 	'settings.about.exportBody':
 		'Download a redacted snapshot of this diagnostics view to share for support. Paths and secrets are removed by default.',
 	'settings.about.exportButton': 'Download diagnostics bundle',
@@ -3786,6 +3787,7 @@ export const en = {
 	'builder.step.commands': 'Commands',
 	'builder.step.style': 'Style',
 	'builder.step.advanced': 'Advanced',
+	'builder.step.advancedGate': 'Custom widget code',
 	'builder.step.review': 'Review',
 
 	'builder.dock.canvas': 'Free on the canvas',
