@@ -571,3 +571,18 @@ The gate flagged four paths outside the claim. Each was re-checked against the a
 Evidence on this head: `pnpm typecheck` 0, `pnpm gates` 0, eslint on the test 0,
 `format:check:changed --base loop/rc` clean after re-formatting this journal. The session-7 browser,
 visual and perf evidence stands: no product code changed in this session.
+
+## Session 9 — third fence: claim widened to the three crossings (2026-10-07)
+
+Operator brief: the claim now covers `app/widgetBuilder/draft.ts`, `screens/Board.tsx` and
+`core/src/commands/widget-package.ts`; keep those diffs as small as they are. No code changed in
+this session. Those three diffs are unchanged from `8b493ea4`: 15 insertions, 9 deletions in total.
+Every changed source path is inside the claim. The base is still `1f78337f`, and `loop/rc` has not
+moved.
+
+Gates on `8b493ea4`: `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0,
+`format:check:changed --base loop/rc` clean, `pnpm test:app` 174 files / 2134 tests (no errors),
+`pnpm test:critical` 290 files / 5287 tests. Playwright desktop + mobile, `hub-templates`,
+`widget-edit-fork` and `flow-layout`: 32 passed, 4 skipped (profile-specific). The session-7
+evidence stands for this code: 617/0 targeted browser batch, golden routes 213 passed with no
+golden changed, `scene-first-render` 1191.0 / 1500 ms.
