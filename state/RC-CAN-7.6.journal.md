@@ -384,3 +384,27 @@ equally, captured right after the 13-minute visual run), not on a budget.
 
 Not changed (outside this story): `WidgetFrame` (canvas) keeps a bare tile focusable, as WID-5.3
 shipped; other template kinds (stat block, table…) still read the theme tokens directly.
+
+### Claim gate on `dd69af55` — three paths kept, operator decision needed
+
+The gate flagged `app/board-helpers.ts`, `app/canvas/FlowBoard.tsx` and the new
+`app/canvas/FlowPart.tsx`. Each was re-checked against the review's high finding (the home screen
+must look and lay out the same at its canonical route, `/screen/:id`, and copied onto other
+screens). None can be reverted without bringing that finding back:
+
+- `/screen/:id` renders through `ScreenView` → `Board` → `FlowBoard`; no owned file is on that path.
+  The chrome the review saw is `FlowBoard`'s `FlowTile`, and only `FlowBoard` can draw a bare tile
+  without it. Wrapping or special-casing the home screen elsewhere is what the review rejected
+  ("no special home host").
+- Manage's column comes from `flowPlacements` in `board-helpers.ts`, the one flow placement the board
+  uses; the stacking has to live there for the board to stack. `FlowBoard` receives `BoardWidget[]`
+  from `boardWidgetsOf` (also `board-helpers.ts`), which is the only way a layout group reaches it.
+- `FlowPart.tsx` exists only because `FlowBoard.tsx` would otherwise cross the 800-line hard gate
+  (846 lines); folding it into an owned screen file would make `app/canvas` import from `screens/`
+  in a cycle with `CommandCenter.tsx`.
+
+Smallest alternative considered: revert all three and keep the session-2 home-only path. That
+restores the exact defect the independent review rejected (`/screen/<home>` framed, Manage in
+column 1), so it was not taken. If the operator declines to widen the claim, reverting these three
+paths and `CommandCenter.tsx` to `f1cf17f6` is the fallback; the `Hub.tsx` style fix (owned) works
+on its own.
