@@ -526,6 +526,62 @@ permission existed has no `navigate` key, and the host reads approvals only from
   because a large tool schema degraded tool choice across every other tool (measured against
   `scripts/ai-agent-smoke.ts`).
 
+### 6.1 The builder parity gate (RC-WID-5.5)
+
+**The rule.** An element of a first-party screen is a widget a GM could have built: a template, or a
+custom widget on the host API, never a private body the builder cannot express (RC_ROADMAP §0.3
+rule 12, ADR-041). A builtin body may remain where one is still needed, but only over the public
+surface a GM-built widget also has: the query sources (§3.2), the commands a descriptor can run
+(§2.2) and the intents (§2.1). Anything else it uses is a recorded gap with the story that closes it.
+
+`apps/gm-react/src/app/widgets/parity.ts` holds the rule and `parity.test.ts` enforces it in
+`pnpm test` (the app suite). It has two halves.
+
+1. **Default screens.** Each widget on a screen `command-center.ensure-home` provisions with
+   `origin.kind === 'default'` (the Command Center today; the Session screen joins once CAN-7.8
+   provisions it the same way) must meet four conditions. It draws through no builtin body; the
+   render slot lets a hand-written body win over a declared template, so the declared runtime alone
+   proves nothing. It is a `template` or `custom-html-js` definition that "Edit widget" can open
+   (`widgetEditTarget`). The GM's copy (`widget.package.fork`) equals the shipped definition apart
+   from its identity. The builder keeps every field the definition declares and round-trips byte for
+   byte: export as the Extensions export writes it, import into the builder (`readPackage`), save
+   (`buildPackage`), install, export again. On its first save the builder adds three derived fields:
+   the style's CSS variables, the config schema's properties and an empty computed-field list. The
+   round trip is checked from the builder's own save (its fixed point), and the check before it
+   allows additions but no dropped or changed field. The GM screen board (the home pointer's canvas
+   board, which ADR-041 keeps untouched) is not a provisioned default screen. Its tiles are builtin
+   bodies, and the test requires every one to have an entry in the second half.
+2. **Builtin bodies.** `BUILTIN_PARITY` is keyed by `BuiltinWidgetType` (the `BUILTIN_WIDGET_TYPES`
+   list in `builtin/index.tsx`), so a new body does not compile without an entry. Each entry lists
+   the query sources, commands and intent kinds the body relies on, plus its `gaps`. Neither side
+   of the comparison is taken on trust:
+   - What a body uses is read from its source (`extractBodyUses`). The scan starts at the module
+     the `WidgetBody` switch renders, follows its `./` imports, and records `@dndtools/core` value
+     imports (minus `CORE_PURE_HELPERS`), `runtime.state` paths deeper than a slice (also through
+     a destructured `runtime.state`), dispatched or `onCommand` command types, and hash navigation.
+     A slice handed whole to an actor-scoped read is that read's input; a field picked out of it is
+     a read of its own. Each module outside `builtin/` a body imports must be listed in
+     `SHARED_MODULE_USES` with what its exports take from the core. The test scans those modules
+     too.
+   - What a query source exposes is read from the resolver (`deriveQueryExposure` over
+     `dataEnvironment.ts` and `homeSources.ts`): the core reads and `state.` paths in the source's
+     `case` block and the helpers it calls. A command is public when the core runs it by name
+     (`CORE_NAMED_WIDGET_COMMANDS`) or an executor runs it (`EXECUTOR_CORE_COMMANDS`). A route is
+     public when an intent kind reaches it. The viewer's own role (`permissions.actors`) is public
+     to every template (`WidgetTemplateData.isDm`).
+
+   A use that nothing public covers fails the test unless it is in the body's `gaps`. The ledger is
+   exact: a gap that has since become public, or is no longer used, fails too, as does a declared
+   source, command or intent the body does not use. `parity.test.ts` proves the failure: one
+   private read added to a body, then one private command and route.
+
+**Recorded gaps (2026-10-07).** Note, handout, dice, quick reference, prep, data hub, characters
+and notes use only public surface. Map, initiative tracker, timer, audio, character, session,
+getting started, tools, atlas, player views, combat and search have gaps. Only the initiative
+tracker's three combat writes are in the SCREENS_PARITY §4 register (G-11, RC-WID-5.12). The rest
+are marked "Unfiled": the parity matrix kept those board tiles as `builtin` targets (BD-20–BD-26,
+SE-18), so nobody had named the private reads behind them. Each gap's reason is in `parity.ts`.
+
 ## 7. Canvas and layout history
 
 `app/SceneBoardCanvas.tsx` is the shared engine for `/board` and `/scene/:id`. Every pointer
@@ -556,6 +612,7 @@ instances, the same render resolver and the same core mutation path; flow is not
 | Iframe and worker hosts, bridge          | `apps/gm-react/src/app/widgets/{SandboxHost.tsx,WorkerHost.ts,hostBridge.ts}`                                                                                                                                                                                                 |
 | Design-system kit for custom widgets     | `apps/gm-react/public/widget-kit.css`, `apps/gm-react/src/app/widgets/widgetKit.test.ts`                                                                                                                                                                                      |
 | Builder                                  | `apps/gm-react/src/app/widgetBuilder/`, `screens/extensions/WidgetBuilder.tsx`                                                                                                                                                                                                |
+| Builder parity gate (§6.1)               | `apps/gm-react/src/app/widgets/parity.ts`, `parity.test.ts`                                                                                                                                                                                                                   |
 | E2E                                      | `custom-widgets.spec.ts`, `widget-builder.spec.ts`, `widget-trust-review.spec.ts`, `widget-generate.spec.ts`, `starter-widgets.spec.ts`, `widget-kit.spec.ts`, `widget-intents.spec.ts`, `widget-commands.spec.ts`, `widget-author-trust.spec.ts`, `widget-edit-fork.spec.ts` |
 
 ## 9. Widget gallery

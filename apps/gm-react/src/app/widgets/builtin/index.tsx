@@ -50,7 +50,7 @@ export type { WidgetCommandHandler } from '../../widget-body-kit';
  * authoritative answer to "can the host draw this by hand" rather than a comment that drifts from
  * the switch below.
  */
-export const BUILTIN_WIDGET_TYPES: readonly string[] = [
+export const BUILTIN_WIDGET_TYPES = [
 	'note',
 	'handout',
 	'dice',
@@ -75,9 +75,15 @@ export const BUILTIN_WIDGET_TYPES: readonly string[] = [
 	'combat',
 	'notes',
 	'search',
-];
+] as const;
 
-const BUILTIN_WIDGET_TYPE_SET = new Set(BUILTIN_WIDGET_TYPES);
+/**
+ * A type `WidgetBody` draws by hand. RC-WID-5.5 keys the builder parity map (`../parity.ts`) by it,
+ * so a body added here without declaring the public surface it uses does not compile.
+ */
+export type BuiltinWidgetType = (typeof BUILTIN_WIDGET_TYPES)[number];
+
+const BUILTIN_WIDGET_TYPE_SET: ReadonlySet<string> = new Set(BUILTIN_WIDGET_TYPES);
 
 /** Whether `WidgetBody` renders a real body for this widget type (the resolver's `builtin` test). */
 export function hasBuiltinBody(widgetType: string): boolean {
