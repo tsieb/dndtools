@@ -94,6 +94,7 @@ All runs are local; Playwright used `DNDTOOLS_E2E_PORT=41449`.
   - `check-baseline-budget.mjs`: 768 files, 33,598.0 of 34,816.0 KiB.
   - `--update-snapshots=none` over golden-routes `/` and `/settings`, settings-polish and
     shell-polish: 48/48 passed.
-  - The full visual suite was not rerun to completion; it is listed below if it finishes.
+  - Full visual suite (`run-in-container.sh --update-snapshots=none --workers=2`) on `29bcc2e9`:
+    513/513 passed in 11.2 min, exit 0.
 
 - No agents, dispatcher-state edits, push, promotion or loop launches.
