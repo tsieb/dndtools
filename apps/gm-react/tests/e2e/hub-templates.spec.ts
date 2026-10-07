@@ -170,7 +170,7 @@ async function partBoxes(page: Page, grid: string) {
 test('the Command Center reads the same at /screen/:id, and its Presentation and Style settings take effect', async ({
 	page,
 }, testInfo) => {
-	// Phones read a screen through the stacked panels (RC-CAN-5.1), not the flow grid.
+	// The desktop arrangement; rail and phone are the next test's.
 	test.skip(testInfo.project.name.startsWith('mobile'), 'flow grid parity is a desktop check');
 	await preferTier(page, 'advanced');
 	await markOnboarded(page);
@@ -252,4 +252,94 @@ test('the Command Center reads the same at /screen/:id, and its Presentation and
 			'rgb(0, 255, 0)',
 		);
 	}
+});
+
+test('the Command Center lays out the same on / and /screen/:id at rail and phone', async ({
+	page,
+}, testInfo) => {
+	// The viewport is set per tier below; one profile is enough.
+	test.skip(testInfo.project.name.startsWith('mobile'), 'tiers are set explicitly');
+	await preferTier(page, 'advanced');
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	const homeId = (await page.getByTestId('home-screen').getAttribute('data-screen-id'))!;
+	for (const size of [
+		{ width: 900, height: 900 },
+		{ width: 390, height: 844 },
+	]) {
+		await page.setViewportSize(size);
+		await gotoRoute(page, '/');
+		await expect(
+			page.locator('[data-testid="home-screen"] section[data-widget-region]'),
+		).toHaveCount(5);
+		const onHome = await partBoxes(page, '[data-testid="home-screen"]');
+		await gotoRoute(page, `/screen/${homeId}`);
+		// The ordinary screen route draws the flow grid at every tier, not the phone's panel list.
+		const grid = page.getByTestId('flow-grid');
+		await expect(grid.locator('section[data-widget-region]')).toHaveCount(5);
+		await expect(grid.getByTestId('tile-accent-rail')).toHaveCount(0);
+		await expect(grid.getByRole('group')).toHaveCount(0);
+		const onScreen = await partBoxes(page, '[data-testid="flow-grid"]');
+		expect(
+			onScreen.map(({ part, left, width }) => ({ part, left, width })),
+			`${size.width}px`,
+		).toEqual(onHome.map(({ part, left, width }) => ({ part, left, width })));
+		// Content-sized: no part clips what it draws.
+		const clipped = await grid.evaluate((el) =>
+			[...el.querySelectorAll<HTMLElement>('section[data-widget-region]')]
+				.filter((region) => region.scrollHeight > region.clientHeight + 1)
+				.map((region) => region.getAttribute('aria-label')),
+		);
+		expect(clipped, `${size.width}px`).toEqual([]);
+		const [, scenes, create, manage] = onScreen;
+		if (size.width === 900) {
+			// Rail keeps Create over Manage beside Scenes, as the hub did.
+			expect(create!.left).toBeGreaterThan(scenes!.left + scenes!.width - 5);
+			expect(manage!.left).toBe(create!.left);
+		} else {
+			expect(create!.left).toBe(scenes!.left);
+			expect(create!.width).toBe(100);
+		}
+	}
+});
+
+test('Edit widget copies a Command Center part into the builder, and the copy reads the same', async ({
+	page,
+}, testInfo) => {
+	test.skip(testInfo.project.name.startsWith('mobile'), 'the tile menu path is a desktop check');
+	await preferTier(page, 'advanced');
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	const home = page.getByTestId('home-screen');
+	const homeId = (await home.getAttribute('data-screen-id'))!;
+	const heroText = await home.locator('section[aria-label="1. Resume"]').innerText();
+	const heroId = await page.evaluate(
+		(id) => window.__rt!.state.scenes.scenes[id]!.widgets.find((w) => w.type === 'home-hero')!.id,
+		homeId,
+	);
+	const heroType = () =>
+		page.evaluate(
+			([id, widget]) =>
+				window.__rt!.state.scenes.scenes[id]!.widgets.find((w) => w.id === widget)?.type,
+			[homeId, heroId],
+		);
+
+	await gotoRoute(page, `/screen/${homeId}`);
+	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await page.getByTestId(`widget-${heroId}`).getByTestId('flow-tile-actions').click();
+	await page.getByRole('menuitem', { name: 'Edit widget', exact: true }).click();
+	const builder = page.getByRole('dialog', { name: /Widget builder/ });
+	await expect(builder).toBeVisible();
+	await expect.poll(heroType).toBe('home-hero-copy');
+	await page.keyboard.press('Escape');
+	await expect(builder).toHaveCount(0);
+	// A template copy is on at once, so the part stays on the GM's own copy.
+	await expect.poll(heroType).toBe('home-hero-copy');
+
+	await gotoRoute(page, '/');
+	// The copy carries the builder's copy name; it draws exactly what the part drew.
+	const copied = page.locator('[data-testid="home-screen"] section[aria-label="1. Resume (copy)"]');
+	await expect(copied).toBeVisible();
+	expect(await copied.innerText()).toBe(heroText);
+	await expect(page.getByTestId('home-screen').getByTestId('tile-accent-rail')).toHaveCount(0);
 });

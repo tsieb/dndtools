@@ -7,6 +7,7 @@ import {
 	findHomeScreen,
 	findWidgetDefinition,
 	getSceneForActor,
+	isCopyableSystemWidget,
 	isDefaultScreen,
 	listScreensForActor,
 	screenMetaOf,
@@ -212,5 +213,48 @@ describe('RC-CAN-7.6 the home screen', () => {
 			portabilityWarnings: [],
 		});
 		expect(parsed.success ? null : parsed.error.issues).toBeNull();
+	});
+	it('the GM can copy a part (widget.package.fork); other system widgets stay locked', () => {
+		const env = makeEnvironment();
+		let state = buildInitialState(DM_ACTOR);
+		const packageOf = (type: string) =>
+			Object.values(state.widgets.packages).find((record) =>
+				record.package.widgets.some((widget) => widget.type === type),
+			)!.package.id;
+		for (const type of HOME_WIDGET_TYPES) {
+			const source = findWidgetDefinition(state.widgets, type)!;
+			expect(isCopyableSystemWidget(source)).toBe(true);
+			state = accept(
+				dispatchCommand(state, env, {
+					type: 'widget.package.fork',
+					actorId: DM_ACTOR.id,
+					payload: { packageId: packageOf(type), widgetType: type },
+				}),
+			).nextState;
+			const copy = Object.values(state.widgets.packages).find(
+				(record) => record.package.authoring?.forkedFrom?.widgetType === type,
+			)!;
+			const definition = copy.package.widgets[0]!;
+			expect(definition.author).toBe('user');
+			expect(definition.renderEntrypoint).toEqual(source.renderEntrypoint);
+			expect(definition.configFields).toEqual(source.configFields);
+			expect(definition.dataQueries).toEqual(source.dataQueries);
+			expect(definition.intents).toEqual(source.intents);
+		}
+		const locked = Object.values(state.widgets.packages)
+			.flatMap((record) => record.package.widgets)
+			.find(
+				(widget) =>
+					widget.author === 'system' &&
+					widget.renderEntrypoint?.runtime === 'template' &&
+					!(HOME_WIDGET_TYPES as readonly string[]).includes(widget.type),
+			)!;
+		expect(isCopyableSystemWidget(locked)).toBe(false);
+		const refused = dispatchCommand(state, env, {
+			type: 'widget.package.fork',
+			actorId: DM_ACTOR.id,
+			payload: { packageId: packageOf(locked.type), widgetType: locked.type },
+		});
+		expect(refused.status).toBe('rejected');
 	});
 });
