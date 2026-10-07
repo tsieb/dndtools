@@ -196,3 +196,28 @@ fit the two owned production files:
 An ownership-scope clarification was requested; no answer arrived during this work.
 No production files outside this task were changed, no dispatcher metadata or roadmap
 status was rewritten, and no push, promotion, new loop or extra agent was launched.
+
+## Session 4 — repeated ownership blocker — 2026-10-07
+
+Status: BLOCKED; acceptance is not green. The repeated task instruction retains the
+same two production-owned paths and does not authorize the wider changes requested
+in Session 3. The working tree was clean at `d4a52a01` on entry.
+
+Read the original App tests log for run `e73742e3-81ad-48f7-ba09-ffa687fd1ab0`
+at `/home/trinkle/Programming/agent-dispatcher/.state/attempts/e73742e3-81ad-48f7-ba09-ffa687fd1ab0/output.log`.
+It records exit 1, 174 passing files / 1 failing file, and 2150 passing tests / 2
+failing tests. The failures remain the builtin-public-surface assertion and the
+fresh-default builder-round-trip assertion. The latter still identifies seven
+builtin board widgets and five first-import byte mismatches. No Headroom tools
+are available; the original output was inspected directly.
+
+Re-read RC_ROADMAP section 21.2: ownership is a write fence and item 4 explicitly
+prohibits widening scope. Session 3 records the concrete production paths and
+follow-up work needed. Retrying this unchanged claim cannot repair those product
+incompatibilities. Operator action is required to schedule the prerequisite work
+or explicitly authorize and arrange a wider claim. No scope answer has arrived.
+
+No implementation or test changes were made, and unchanged tests were not rerun.
+This journal-only commit records the blocked handoff, not task completion. The
+strict assertions remain enabled. No dispatcher state, roadmap status, other
+worktree, remote branch, loop or agent was changed.
