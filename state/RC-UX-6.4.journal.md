@@ -98,3 +98,20 @@ All runs are local; Playwright used `DNDTOOLS_E2E_PORT=41449`.
     513/513 passed in 11.2 min, exit 0.
 
 - No agents, dispatcher-state edits, push, promotion or loop launches.
+
+## Visual gate retry — 2026-10-07
+
+- The branch was rebased onto `382e1d81` (head `b7e81687`). The gate's visual run
+  (`.state/attempts/a5ee9410-…/output.log`) had 514 passed and 2 failed: golden-routes
+  `Audio polish — scholar › /audio Playback` (desktop) and
+  `Audio polish — parchment › /audio named deletion` (phone). Both failed with
+  `toHaveScreenshot` "Timeout 5000ms exceeded" while waiting for fonts to load, with no pixel
+  diff. That is the shared visual-container stall the base commit `382e1d81` journals for
+  Community, not a rendering change. `/audio` renders the same at Standard as it did at the old
+  Beginner default: the More group listed Extensions and Community there before too.
+- Re-ran all `Audio polish` captures in the pinned container (`--update-snapshots=none
+--repeat-each=3`): 225/225 passed, including the two that had failed.
+- Full visual suite on `b7e81687` (`run-in-container.sh --update-snapshots=none --workers=2`):
+  516/516 passed in 11.2 min, exit 0.
+- No code, baseline, assertion or timeout changes in this retry; journal only. No agents,
+  dispatcher-state edits, push, promotion or loop launches.
