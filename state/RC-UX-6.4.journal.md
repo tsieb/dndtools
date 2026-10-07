@@ -22,9 +22,9 @@ command output was read directly.
   launcher. `docs/reference/FEATURE_COMPLEXITY.md` was regenerated with
   `pnpm exec tsx scripts/feature-complexity.ts`.
 - **Primary surfaces**: `sections.ts` gains `SECTION_TIER_GATES` (`extensibility → nav.extensions`,
-  `community → nav.community`) and `isSectionShown(id, state, tier)`. The phone More sheet, the
-  desktop More group (`Sidebar.tsx`) and the tablet rail (`RailNav.tsx`) filter through it. Each one
-  keeps the section you are currently on, as the Settings rail does. The routes themselves stay open,
+  `community → nav.community`) and `isSectionShown(id, state, tier)`. The phone More sheet and the
+  desktop More group (`Sidebar.tsx`) filter through it. The tablet rail does not; that edit was
+  reverted (see Scope notes). Both keep the section you are currently on, as the Settings rail does. The routes themselves stay open,
   so a bookmark or the command palette still reaches them. The Command Center Create launchers
   filter New widget through `featureGateVisible` (new, `Experience.tsx`). Manage already hid
   Permissions through `settings.nav.permissions`. A Permissions deep link still lands on the
