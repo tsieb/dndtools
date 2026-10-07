@@ -476,3 +476,70 @@ widget-query-sources) on desktop + mobile **446 passed, 6 skipped, 0 failed**; `
 
 CAN-7.5 row update: CC-11 Create launchers — New widget from the intermediate tier
 (`home.create.widget`), checked by the re-recorded core-tier baseline.
+
+## Session 7 — independent review on `4f81c477` (2026-10-07)
+
+The review rejected the candidate on two high findings. Both reproduced from the code and fixed.
+
+1. **Canonical route at phone and rail.** On a phone, `Board.tsx` chose `StackedBoard` (the phone
+   panel list, RC-CAN-5.1) before `FlowBoard`, so `/screen/<home>` framed every part in a 172px
+   disclosure panel. At rail, `/` used 12 columns and `FlowBoard` used 6, so Scenes and Create/Manage
+   each went full width on the screen route only.
+   - `board-helpers.ts`: `flowColumnsFor(tier, widgets, editing)` is now the one column rule for both
+     routes. A screen whose tiles are all bare in view mode is one page of content, so it keeps the
+     authoring grid at rail and only the phone collapses it (the hub's rule). A framed tile, or edit
+     mode, reads the tier's own grid, so every existing flow screen reflows at rail as before
+     (`flow-layout.spec` still sees 6 columns). `FlowBoard` and `CommandCenter.tsx` both call it.
+   - `screens/Board.tsx` — **outside the claim, 1 line plus moving 3 lines up**: `useStackedPosture(phone
+     && !editing && !flow)`. The panel list stands in for a canvas on a phone; a flow screen already
+     collapses to one column (ADR-041), so it goes through `FlowBoard` at every tier. `flow` is
+     computed a few lines earlier so the hook can read it. No owned file is on this path: `Board`
+     picks the board component before `FlowBoard` is reached. Canvas-policy boards are unchanged.
+2. **No builder path for the parts.** `widgetEditTarget` (app) and `widget.package.fork` (core) both
+   refuse any `author: 'system'` widget, because most system widgets draw through a hand-written body
+   keyed by type that a copy would lose. The home parts have no such body.
+   - `widget-package-state.ts`: `isCopyableSystemWidget` is true only for a system TEMPLATE widget
+     whose type is one of `HOME_WIDGET_TYPES`. Exported from the core barrel.
+   - **Outside the claim, one condition each**: `core/src/commands/widget-package.ts` (fork refusal)
+     and `app/widgetBuilder/draft.ts` (`widgetEditTarget`) now refuse `author === 'system' &&
+     !isCopyableSystemWidget(widget)`. Every other system widget stays locked (tested).
+   - The GM's path is the one RC-WID-6.6 ships: tile menu or Inspector → **Edit widget** → fork (on
+     at once: template code is author-trusted) → `scene.repoint-widget` (same instance, layout and
+     layout group) → builder. The copy is named "Resume (copy)" by the builder's fork convention, so
+     its region label reads "1. Resume (copy)"; everything it draws is unchanged.
+
+Tests:
+- `CommandCenter.baseline.test.tsx`: canonical parity now renders `FlowBoard` at the current tier
+  and checks rail (same 7 + 5 cells as desktop) and phone (one column). A new case runs the real
+  builder path for all five parts: `widgetEditTarget` → `fork`, `widget.package.fork`,
+  `scene.repoint-widget`, then the builder's save (`readPackage` → `buildPackage` →
+  `widget.package.upgrade`). After each step the serialised hub equals the original; the copies keep
+  settings, queries and intents; the arrangement holds; parity holds at all three tiers. Another case
+  checks other system template widgets stay locked (target null, fork rejected).
+  The pure DOM serialisers moved to `CommandCenter.serialise.ts` (the test hit the 800-line gate at
+  833); the committed snapshot file is unchanged.
+- `command-center-home-screen.test.ts` (core): each part forks with its definition intact; a
+  non-home system template widget is refused.
+- `hub-templates.spec.ts` (real browser): at 900px and 390px, `/` and `/screen/<home>` have the
+  same part columns and widths, the screen route draws the flow grid (not the panel list), no chrome,
+  and no part's region clips. Second test: Edit layout → hero tile menu → Edit widget opens the
+  builder, the tile moves to `home-hero-copy`, stays there after Escape, and `/` draws the same hero
+  text, still bare.
+
+Evidence on the session-7 code (`061b28b7`, base `1f78337f`): `pnpm typecheck` 0, `pnpm lint` 0,
+`pnpm gates` 0 (after the serialiser split; it first failed on the 833-line test file),
+`format:check:changed --base loop/rc` clean, `pnpm test:critical` 290 files / 5287 tests,
+`pnpm test:app` 174 files: 2134 passed, 1 failed. The failure was `play/Sheet.test.tsx` timing out
+at 5 s while the browser batch loaded the host. That file isn't touched here, and alone it passes
+3/3. The baseline test passes 15/15 with the committed snapshot file unchanged. Playwright on
+desktop + mobile, 28 specs (every spec that touches flow screens, `/screen/`, the stacked list or the
+home screen, plus widget-edit-fork, widget-builder, golden-path, demo-vault, settings-tiers,
+onboarding-consent, widget-query-sources): **617 passed, 21 skipped, 0 failed, 0 flaky**.
+`golden-routes` in the pinned container: **213 passed, no golden changed**, so the per-theme/tier
+screenshot review of `50cbb191` still describes `/`. `scene-first-render` **1191.0 / 1500 ms PASS**
+(steady). `compare.ts` printed "gate FAILED" only because the other budgets weren't captured in this
+run.
+
+Paths outside the claim in this session (flagged for the operator): `screens/Board.tsx`,
+`core/src/commands/widget-package.ts`, `app/widgetBuilder/draft.ts` (one condition each, reasons
+above), the core barrel export, the new test helper `screens/CommandCenter.serialise.ts`, and tests.
