@@ -513,6 +513,25 @@ export const FLOW_COLUMNS: Record<FlowTier, number> = { desktop: 12, rail: 6, ph
  *  narrower tiers re-read the same stored widths. */
 export const FLOW_AUTHORING_TIER: FlowTier = 'desktop';
 
+/**
+ * RC-CAN-7.6 — the columns a flow screen reads at `tier`. A screen whose tiles are ALL bare in view
+ * mode is one page of content rather than a board of tiles (the Command Center): like the hub it
+ * replaces, it keeps its authored arrangement at rail and only the phone collapses it. Any framed
+ * tile, or edit mode (which frames every tile), reads the tier's own grid. `/` and `/screen/:id`
+ * both ask here, so the home screen lays out the same on either route at every tier.
+ */
+export function flowColumnsFor(
+	tier: FlowTier,
+	widgets: readonly Pick<BoardWidget, 'configuration' | 'configFields'>[],
+	editing = false,
+): number {
+	const pageOnly =
+		!editing &&
+		widgets.length > 0 &&
+		widgets.every((widget) => boardWidgetPresentation(widget) === 'bare');
+	return pageOnly && tier === 'rail' ? FLOW_COLUMNS[FLOW_AUTHORING_TIER] : FLOW_COLUMNS[tier];
+}
+
 /** Durable px per column. 12 × 96 = 1152, a content width the desktop pane comfortably holds, and a
  *  240px default widget lands on span 3 (a quarter) rather than on a fraction nothing can render. */
 export const FLOW_COLUMN_STEP = 96;

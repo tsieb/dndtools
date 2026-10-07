@@ -114,7 +114,13 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// A phone's Layout opens at Comfortable, the real tiles at 1:1; its Fit is the titles-only overview.
 	const [zoom, setZoom] = useState<ZoomPreset>(phone ? 'comfortable' : 'fit');
 	const steps = Phone.phoneZoomSteps(phone, editing, zoom);
-	const posture = useStackedPosture(phone && !editing);
+	// The home scene backs `/board`; a screen route names its own scene and never provisions one.
+	const homeSceneId = screen ? screen.id : runtime.state.commandCenter.homeSceneId;
+	const boardScene = homeSceneId ? runtime.state.scenes.scenes[homeSceneId] : undefined;
+	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
+	// The panel list stands in for a CANVAS on a phone. A flow screen already collapses to one column
+	// of its own content (ADR-041), so it reads through FlowBoard on every tier (RC-CAN-7.6).
+	const posture = useStackedPosture(phone && !editing && !flow);
 	const [layoutFull, setLayoutFull] = useState(false);
 	const chromeHidden = posture.hideChrome || layoutFull;
 	// The Layouts panel used to render unconditionally whenever edit mode was on, with no close
@@ -143,12 +149,8 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		}
 	}, [location.state, location.pathname, navigate]);
 
-	// The home scene backs `/board`; a screen route names its own scene and never provisions one.
-	const homeSceneId = screen ? screen.id : runtime.state.commandCenter.homeSceneId;
-	const boardScene = homeSceneId ? runtime.state.scenes.scenes[homeSceneId] : undefined;
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
 	const isHomeBoard = homeSceneId === runtime.state.commandCenter.homeSceneId;
-	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
 	const summary = homeSceneId
 		? getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, homeSceneId, {
 				widgetPackages: runtime.state.widgets,

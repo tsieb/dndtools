@@ -12,6 +12,7 @@ import {
 	boardWidgetPresentation,
 	boardWidgetsOf,
 	FLOW_COLUMNS,
+	flowColumnsFor,
 	flowOrder,
 	flowPlacementsForOrder,
 	payloadIndex,
@@ -84,12 +85,9 @@ export function CommandCenter() {
 	// hub's own sections did: no empty row, no empty labelled region. They stay mounted, out of the
 	// grid, so one that has something to show again comes back.
 	const [blank, reportBlank] = useBlankTiles();
-	// The hub's own tier rule: only the phone collapses to one column; the rail keeps the desktop
-	// arrangement, as the Command Center always did.
-	const columns = viewport === 'phone' ? FLOW_COLUMNS.phone : FLOW_COLUMNS.desktop;
 
-	const tiles = useMemo(() => {
-		if (!home) return [];
+	const { tiles, columns } = useMemo(() => {
+		if (!home) return { tiles: [], columns: FLOW_COLUMNS[viewport] };
 		const summary = getSceneForActor(
 			runtime.state.scenes,
 			runtime.state.permissions,
@@ -97,12 +95,15 @@ export function CommandCenter() {
 			home.id,
 			{ widgetPackages: runtime.state.widgets },
 		);
-		if ('kind' in summary) return [];
+		if ('kind' in summary) return { tiles: [], columns: FLOW_COLUMNS[viewport] };
 		const widgets = boardWidgetsOf(
 			home.widgets,
 			payloadIndex(summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
 		);
+		// The flow board's own tier rule, so `/` and `/screen/:id` lay out alike: a screen of bare parts
+		// keeps its arrangement at rail, as the hub always did, and only the phone collapses it.
+		const columns = flowColumnsFor(viewport, widgets);
 		// DOM order is the reading order (ADR-041), hidden parts included.
 		const ordered = flowOrder(widgets);
 		const placements = flowPlacementsForOrder(
@@ -112,12 +113,13 @@ export function CommandCenter() {
 			columns,
 		);
 		const placed = new Map(placements.map((placement) => [placement.id, placement]));
-		return ordered.map((widget) => ({
+		const tiles = ordered.map((widget) => ({
 			widget,
 			placement: placed.get(widget.id) ?? null,
 			count: placements.length,
 		}));
-	}, [home, runtime.state, actorId, columns, blank]);
+		return { tiles, columns };
+	}, [home, runtime.state, actorId, viewport, blank]);
 
 	// Liveness is `session.workflow` everywhere else in the app (Session.tsx, ProjectionControl, every
 	// StatusDot). Reading `activeSceneId` instead meant `session.recover` — which restores the scene id

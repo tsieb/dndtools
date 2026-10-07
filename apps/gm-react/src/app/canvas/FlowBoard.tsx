@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Icon, VisibilityChip } from '../../ds';
 import {
 	boardWidgetPresentation,
-	FLOW_COLUMNS,
+	flowColumnsFor,
 	flowOrder,
 	flowPlacementsForOrder,
 	flowReorderMoves,
@@ -393,7 +393,7 @@ export function FlowBoard({
 	emptyHint,
 	history,
 }: FlowBoardProps) {
-	const columns = FLOW_COLUMNS[tier];
+	const columns = flowColumnsFor(tier, widgets, editing);
 	const frameRefs = useRef(new Map<string, HTMLDivElement>());
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [drag, setDrag] = useState<FlowDrag | null>(null);
