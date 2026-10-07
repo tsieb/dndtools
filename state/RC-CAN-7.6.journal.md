@@ -277,3 +277,17 @@ Fixed in the test with the same `Range` stubs `SceneBoardCanvas.test.tsx` uses (
 Rebased onto `c6e47e5d` (the ci-recovery repair; it only splits the browser e2e into shards). On the
 new head: `pnpm test:app` exit 0 — 174 files / 2116 tests, no errors; the baseline test 3× 11/11;
 `pnpm typecheck` 0; `format:check:changed --base loop/rc` clean.
+
+### Visual gate (run on `3ef6705d`) and rebase onto `24201708`
+
+The visual gate ran 516: 515 passed, 1 failed — `knowledge-polish.spec.ts` › "knowledge note card —
+tavern" on `visual-phone`, a `toHaveScreenshot` **timeout** (the page never settled within 5 s), not a
+pixel diff, on `/knowledge`, which this branch does not touch. Re-run locally in the pinned container
+with `--repeat-each=3`: 45/45 passed. Treated as the known one-off host stall in the full visual gate.
+
+`loop/rc` had moved 10 commits (RC-KNW-6.4: Notes filter/refine, composer templates, re-baselined
+Notes/Graph/shortcut captures). Rebased onto `24201708` without conflicts (no PNG this branch
+re-baselined was also re-baselined upstream); `qps-ploc` regenerated (no change). On the new head:
+`pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0, `format:check:changed --base loop/rc` clean,
+`pnpm test:app` 174 files / 2117 tests (no errors), `pnpm test:critical` 290 files / 5286 tests, and
+the full visual suite in the pinned container **516 passed**.
