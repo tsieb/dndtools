@@ -1,5 +1,7 @@
 import { useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import {
+	SECTION_FEATURE_GATES,
+	WIDGET_TEXT_MESSAGE_PREFIX,
 	resolveWidgetIntent,
 	resolveWidgetStyleVariables,
 	type WidgetIntentDescriptor,
@@ -7,7 +9,11 @@ import {
 import { Avatar, Badge, Card, Icon, Skeleton, StatusDot } from '../../../ds';
 import { useI18n } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
-import { settingsGateVisible, useSettingsTier } from '../../../screens/settings/Experience';
+import {
+	featureGateVisible,
+	settingsGateVisible,
+	useSettingsTier,
+} from '../../../screens/settings/Experience';
 import { SETTINGS_FEATURE_GATES } from '../../../screens/settings/shared';
 import { eb } from '../../screen-kit';
 import type { WidgetDataRow } from '../dataEnvironment';
@@ -278,6 +284,15 @@ function LinkCardBody({ row, icon }: { row: WidgetDataRow; icon: string }) {
 	);
 }
 
+/** The complexity-map gate on the Command Center (`surface: '/'`) whose message names this intent. */
+function homeGate(intent: WidgetIntentDescriptor): string | null {
+	if (!intent.displayName.startsWith(WIDGET_TEXT_MESSAGE_PREFIX)) return null;
+	const key = intent.displayName.slice(WIDGET_TEXT_MESSAGE_PREFIX.length);
+	return (
+		SECTION_FEATURE_GATES.find((gate) => gate.surface === '/' && gate.labelKey === key)?.id ?? null
+	);
+}
+
 /** Live hubs decide which intents the viewer can follow before drawing; previews show them all. */
 export function HubTemplate(props: HubProps & { kind: HubTemplateKind }) {
 	const live = !props.onIntent && !!props.onCommand && !!props.definition;
@@ -295,6 +310,9 @@ function LiveHub(props: HubProps & { kind: HubTemplateKind }) {
 			SETTINGS_FEATURE_GATES.some((gate) => gate.id === `settings.nav.${intent.tab}`) &&
 			!settingsGateVisible(`settings.nav.${intent.tab}`, tier)
 		) &&
+		// RC-UX-6.4 — an intent named like a gate the complexity map places on the Command Center
+		// (New widget) is offered from that gate's tier, as the hub's launcher was.
+		!(homeGate(intent) && !featureGateVisible(homeGate(intent)!, tier)) &&
 		resolveWidgetIntent({
 			widgetInstanceId: props.widget.id,
 			definition: props.definition!,

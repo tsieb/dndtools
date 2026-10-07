@@ -16,7 +16,6 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
 - button "New scene A canvas for the table"
 - button "New character PC, NPC, or monster"
 - button "New map Battle map or region"
-- button "New widget A tracker for your DM screen"
 - button "New note Lore, quest, or handout"
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
@@ -70,10 +69,6 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
   "Battle map or region"
 <button type="button">
   <svg aria-hidden="true">
-  "New widget"
-  "A tracker for your DM screen"
-<button type="button">
-  <svg aria-hidden="true">
   "New note"
   "Lore, quest, or handout"
 <h2>
@@ -108,7 +103,6 @@ button Draft The Sunken Crypt dungeon · 3 widgets
 button New scene A canvas for the table
 button New character PC, NPC, or monster
 button New map Battle map or region
-button New widget A tracker for your DM screen
 button New note Lore, quest, or handout
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
