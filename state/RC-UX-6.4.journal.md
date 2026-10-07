@@ -57,10 +57,11 @@ command output was read directly.
   default tier ("Intermediate") rather than the device's tier. The `builtin-bodies` snapshot update
   stays: with the new default the tile prints "Intermediate" either way.
 - Companion paths: `packages/core/src/index.ts`, i18n catalogs, `CHANGELOG.md`, tests, snapshot.
-- Widget builder (review fix, see below): `widgetBuilder/draft.ts`, `widgetBuilder/BuilderPanes.tsx`
-  and `screens/extensions/WidgetBuilder.tsx` are outside Owns. The story names "the widget
-  builder's advanced steps" in the Beginner list, and the independent review rejected the candidate
-  without them, so the edit crosses into those three files and nothing else.
+- Widget builder (review fix, see below): two files outside Owns stay changed,
+  `widgetBuilder/BuilderPanes.tsx` (the rail takes a `steps` prop) and
+  `screens/extensions/WidgetBuilder.tsx` (reads the tier, passes the steps, renders the gate note,
+  "Step N of M" and Back/Next follow the shown steps). The step filter and the gate note live in the
+  owned `Experience.tsx`. See "Ownership gate" below for why they are kept.
 
 ## Validation
 
@@ -138,7 +139,7 @@ Beginner card left out the widget builder's advanced steps and the builder never
   commands, review at `advanced`) stay unenforced and stay off the cards; enforcing Review would
   stop a Standard GM from installing anything.
 - Builder (outside the original Owns, the minimum the requirement needs):
-  - `widgetBuilder/draft.ts`: pure `shownSteps(draft, advancedAllowed, current, issues)`. Advanced
+  - (moved, see "Ownership gate") pure `shownSteps(draft, advancedAllowed, current, issues)`. Advanced
     is left out below the gate unless the draft already uses custom code, host permissions or
     network destinations, has an issue on that step, or is open on it. Hiding work that exists
     would leave it unreachable.
@@ -173,4 +174,32 @@ Local runs; Playwright on `DNDTOOLS_E2E_PORT=41467`.
   not move. Re-baselined those 3 (`--update-snapshots=changed`), losslessly re-deflated
   (494,468 → 474,528 B). Budget: 771 files, 33,330.8 of 34,816.0 KiB. Compare re-run over
   golden-routes, settings-polish and extensions-polish settings/extensions captures: 69/69.
+- No agents, dispatcher-state edits, push, promotion or loop launches.
+
+## Ownership gate (2026-10-06)
+
+The gate refused `9f1fa41d` for `widgetBuilder/BuilderPanes.tsx`, `widgetBuilder/draft.ts` and
+`extensions/WidgetBuilder.tsx`.
+
+- `draft.ts` and `draft.test.ts` are reverted to `382e1d81`. The filter is now
+  `shownBuilderSteps(draft, tier, current, issues)` in the owned `screens/settings/Experience.tsx`,
+  beside `featureGateVisible`, and `AdvancedStepGate` moved there too. Its tests moved to the
+  companion `Experience.test.tsx`.
+- Kept, and blocked for the operator to decide on widening the claim:
+  - `BuilderPanes.tsx` (+4/−2): `BuilderStepRail` draws `STEP_IDS` itself. Without a `steps` prop
+    no owned file can take Advanced out of the rail.
+  - `WidgetBuilder.tsx` (+14/−9): the only place that knows the draft, the current step and the
+    issues, and that drives "Step N of M" and Back/Next. Without it Next still walks a Beginner
+    into Advanced.
+  - The requirement: the story's "What to build" puts "the widget builder's advanced steps" on the
+    Beginner list. The independent review of `a4004500` rejected the candidate for leaving that out
+    and reproduced a Beginner editing custom code. The formal acceptance list doesn't name it, so
+    reverting these two files and dropping the gate from the cards is the alternative. That would
+    bring back the review's finding.
+- Validation after the move: `tsc --noEmit` (gm-react), ESLint, Prettier, `pnpm lint:boundary`
+  pass. `pnpm test:app` 2092/2092, `pnpm test:tooling` 249/249 (file-size gate:
+  `WidgetBuilder.tsx` 779 lines). E2E desktop and mobile Chromium: settings-tiers,
+  onboarding-consent, settings, settings-polish, widget-builder, widget-settings 86/86. Visual compare
+  (pinned container) over golden-routes, settings-polish and extensions-polish settings/extensions
+  captures: 69/69. No baseline changes in this step.
 - No agents, dispatcher-state edits, push, promotion or loop launches.

@@ -15,7 +15,6 @@ import {
 	emptyDraft,
 	generateMigration,
 	readPackage,
-	shownSteps,
 	slugify,
 	type WidgetDraft,
 } from './draft';
@@ -461,27 +460,5 @@ describe('RC-WID-6.8 widget settings that exist', () => {
 		const back = buildPackage(readPackage(pkg)).widgets[0]!;
 		expect({ ...back, version: pkg.version }).toEqual(pkg.widgets[0]);
 		expect(validateDraft(counterRecipe('Doom clock'))).toEqual([]);
-	});
-});
-
-describe('shownSteps (RC-UX-6.4)', () => {
-	const steps = (
-		draft: WidgetDraft,
-		allowed: boolean,
-		current: Parameters<typeof shownSteps>[2] = 'identity',
-	) => shownSteps(draft, allowed, current, []);
-
-	it('leaves Advanced out below its gate and offers every step at or above it', () => {
-		expect(steps(emptyDraft(), false)).not.toContain('advanced');
-		expect(steps(emptyDraft(), false)).toContain('review');
-		expect(steps(emptyDraft(), true)).toContain('advanced');
-	});
-
-	it('keeps Advanced when the draft already has something there, or the builder is open on it', () => {
-		const base = emptyDraft();
-		expect(steps({ ...base, runtime: 'custom-html-js' }, false)).toContain('advanced');
-		expect(steps({ ...base, hostPermissions: ['network'] }, false)).toContain('advanced');
-		expect(steps(base, false, 'advanced')).toContain('advanced');
-		expect(shownSteps(base, false, 'identity', [{ step: 'advanced' }])).toContain('advanced');
 	});
 });

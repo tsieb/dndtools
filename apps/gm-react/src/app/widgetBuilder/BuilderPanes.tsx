@@ -1,14 +1,11 @@
 import { useRef } from 'react';
-import { SECTION_FEATURE_GATES, type FeatureTier } from '@dndtools/core';
 import { Badge, Button, Textarea } from '../../ds';
 import { T } from '../screen-kit';
 import { useI18n } from '../../i18n';
-import { COMPLEXITY_LEVELS } from '../../screens/settings/Experience';
-import { setDocAttr, TIER_ATTR, TIER_KEY } from '../../screens/settings/shared';
 import { STEP_IDS, STEP_LABEL, type BuilderStepId } from './draft';
 import { type DraftIssue } from './validate';
 
-/** The builder's stepper: every shown step, the current one marked, and any step with an open issue flagged. */
+/** The builder's stepper: every shown step (RC-UX-6.4), the current one marked, and any step with an open issue flagged. */
 export function BuilderStepRail({
 	step,
 	steps = STEP_IDS,
@@ -87,42 +84,6 @@ export function BuilderStepRail({
 				})}
 			</ol>
 		</nav>
-	);
-}
-
-/**
- * RC-UX-6.4 — shown when the stepper leaves Advanced out below its complexity-map gate: the same
- * honest gate as a hidden Settings panel, saying what is hidden and offering the real unlock.
- */
-export function AdvancedStepGate({ tier }: { tier: FeatureTier }) {
-	const { t } = useI18n();
-	const gate = SECTION_FEATURE_GATES.find((entry) => entry.id === 'builder.step.advanced');
-	const needed = gate?.minTier ?? 'intermediate';
-	const levelName = (of: FeatureTier) => {
-		const level = COMPLEXITY_LEVELS.find((entry) => entry.tier === of);
-		return level ? t(level.name) : of;
-	};
-	return (
-		<div
-			data-testid="widget-builder-advanced-hidden"
-			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
-		>
-			<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
-				{t('settings.gated.body', {
-					panel: t('builder.step.advanced'),
-					level: levelName(needed),
-					active: levelName(tier),
-				})}
-			</span>
-			<Button
-				variant="secondary"
-				size="sm"
-				style={{ alignSelf: 'flex-start' }}
-				onClick={() => setDocAttr(TIER_ATTR, TIER_KEY, needed)}
-			>
-				{t('settings.gated.switchTo', { level: levelName(needed) })}
-			</Button>
-		</div>
 	);
 }
 

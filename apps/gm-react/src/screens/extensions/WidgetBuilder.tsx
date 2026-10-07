@@ -25,7 +25,6 @@ import {
 	readStoredDraft,
 	removeStoredDraft,
 	resumeDraft,
-	shownSteps,
 	widgetEditTarget,
 	writeStoredDraft,
 	type BuilderStepId,
@@ -34,11 +33,7 @@ import {
 } from '../../app/widgetBuilder/draft';
 import { firstBlockedStep, validateDraft } from '../../app/widgetBuilder/validate';
 import { BuilderPreview } from '../../app/widgetBuilder/BuilderPreview';
-import {
-	AdvancedStepGate,
-	BuilderStepRail,
-	DefinitionPane,
-} from '../../app/widgetBuilder/BuilderPanes';
+import { BuilderStepRail, DefinitionPane } from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
 import { LayoutStep } from '../../app/widgetBuilder/LayoutStep';
 import { DataStep } from '../../app/widgetBuilder/DataStep';
@@ -48,7 +43,7 @@ import { StyleStep } from '../../app/widgetBuilder/StyleStep';
 import { AdvancedStep } from '../../app/widgetBuilder/AdvancedStep';
 import { ReviewStep } from '../../app/widgetBuilder/ReviewStep';
 import { useI18n } from '../../i18n';
-import { featureGateVisible, useSettingsTier } from '../settings/Experience';
+import { AdvancedStepGate, shownBuilderSteps, useSettingsTier } from '../settings/Experience';
 import { TrustReviewSheet } from './TrustReviewSheet';
 
 /**
@@ -291,9 +286,9 @@ export function WidgetBuilder({
 	}, []);
 
 	// RC-UX-6.4 — below its complexity-map gate the stepper skips Advanced (custom code, host
-	// access); `shownSteps` keeps it whenever the draft already has something there.
+	// access); `shownBuilderSteps` keeps it whenever the draft already has something there.
 	const tier = useSettingsTier();
-	const steps = shownSteps(draft, featureGateVisible('builder.step.advanced', tier), step, issues);
+	const steps = shownBuilderSteps(draft, tier, step, issues);
 	const stepIndex = steps.indexOf(step);
 	const goToStep = (next: BuilderStepId) => {
 		setStep(next);

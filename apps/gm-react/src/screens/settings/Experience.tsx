@@ -6,10 +6,11 @@ import {
 	tierHiddenSections,
 	type FeatureTier,
 } from '@dndtools/core';
-import { Badge, Icon } from '../../ds';
+import { Badge, Button, Icon } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T, radioGroupKeyDown } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
+import { STEP_IDS, type BuilderStepId, type WidgetDraft } from '../../app/widgetBuilder/draft';
 import {
 	SETTINGS_FEATURE_GATES,
 	TIER_ATTR,
@@ -260,6 +261,60 @@ export function settingsGateVisible(gateKey: string, tier: FeatureTier) {
 /** Any complexity-map gate (`SECTION_FEATURE_GATES`), for readers outside Settings. */
 export function featureGateVisible(gateId: string, tier: FeatureTier) {
 	return isFeatureVisible(gateId, tier, SECTION_FEATURE_GATES);
+}
+
+/**
+ * RC-UX-6.4 — the widget builder's steps at this tier. Advanced (custom code, host access) is left
+ * out below its complexity-map gate (`builder.step.advanced`) unless the draft already uses it, has
+ * an issue there, or is open on it: hiding work that exists would leave it unreachable, not simpler.
+ */
+export function shownBuilderSteps(
+	draft: WidgetDraft,
+	tier: FeatureTier,
+	current: BuilderStepId,
+	issues: readonly { step: BuilderStepId }[],
+): BuilderStepId[] {
+	const keepAdvanced =
+		featureGateVisible('builder.step.advanced', tier) ||
+		current === 'advanced' ||
+		draft.runtime === 'custom-html-js' ||
+		draft.hostPermissions.length > 0 ||
+		draft.networkDestinations.length > 0 ||
+		issues.some((issue) => issue.step === 'advanced');
+	return STEP_IDS.filter((id) => id !== 'advanced' || keepAdvanced);
+}
+
+/** What the builder's stepper left out and the real unlock: the RC-UX-5.2 gate, in place. */
+export function AdvancedStepGate({ tier }: { tier: FeatureTier }) {
+	const { t } = useI18n();
+	const gate = SECTION_FEATURE_GATES.find((entry) => entry.id === 'builder.step.advanced');
+	const needed = gate?.minTier ?? 'intermediate';
+	const levelName = (of: FeatureTier) => {
+		const level = COMPLEXITY_LEVELS.find((entry) => entry.tier === of);
+		return level ? t(level.name) : of;
+	};
+	return (
+		<div
+			data-testid="widget-builder-advanced-hidden"
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+		>
+			<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+				{t('settings.gated.body', {
+					panel: t('builder.step.advanced'),
+					level: levelName(needed),
+					active: levelName(tier),
+				})}
+			</span>
+			<Button
+				variant="secondary"
+				size="sm"
+				style={{ alignSelf: 'flex-start' }}
+				onClick={() => setDocAttr(TIER_ATTR, TIER_KEY, needed)}
+			>
+				{t('settings.gated.switchTo', { level: levelName(needed) })}
+			</Button>
+		</div>
+	);
 }
 
 /** Render nothing below the declared tier; children (including dialogs) are unmounted. */

@@ -3,7 +3,8 @@ import { act } from 'react';
 import { removePreference, writePreference } from '../../platform/preferences';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SettingsSection } from './Experience';
+import { emptyDraft } from '../../app/widgetBuilder/draft';
+import { SettingsSection, shownBuilderSteps } from './Experience';
 import { TIER_ATTR, TIER_KEY, readTier, setDocAttr } from './shared';
 
 const fixture = [
@@ -110,5 +111,29 @@ describe('RC-UX-6.4 default tier', () => {
 	it('keeps a stored Beginner choice', () => {
 		writePreference(TIER_KEY, 'core');
 		expect(readTier()).toBe('core');
+	});
+});
+
+describe('shownBuilderSteps (RC-UX-6.4)', () => {
+	const base = emptyDraft();
+
+	it('leaves Advanced out below Standard and keeps every other step', () => {
+		expect(shownBuilderSteps(base, 'core', 'identity', [])).not.toContain('advanced');
+		expect(shownBuilderSteps(base, 'core', 'identity', [])).toContain('review');
+		expect(shownBuilderSteps(base, 'intermediate', 'identity', [])).toContain('advanced');
+		expect(shownBuilderSteps(base, 'advanced', 'identity', [])).toContain('advanced');
+	});
+
+	it('keeps Advanced when the draft already has something there, or the builder is open on it', () => {
+		expect(
+			shownBuilderSteps({ ...base, runtime: 'custom-html-js' }, 'core', 'identity', []),
+		).toContain('advanced');
+		expect(
+			shownBuilderSteps({ ...base, hostPermissions: ['network'] }, 'core', 'identity', []),
+		).toContain('advanced');
+		expect(shownBuilderSteps(base, 'core', 'advanced', [])).toContain('advanced');
+		expect(shownBuilderSteps(base, 'core', 'identity', [{ step: 'advanced' }])).toContain(
+			'advanced',
+		);
 	});
 });
