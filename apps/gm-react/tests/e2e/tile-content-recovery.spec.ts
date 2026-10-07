@@ -92,25 +92,26 @@ for (const [width, height] of [
 		const initiative = page.getByRole('region', { name: '2. Initiative Tracker' });
 		await expect(initiative.getByText('No combat running · HP shown')).toBeVisible();
 		await expect(initiative.getByRole('button', { name: /Next turn/ })).toBeVisible();
-		const whole = [
-			'2. Initiative Tracker',
-			'3. Dice',
-			'4. Timer',
-			'5. Audio',
-			'6. Quick Reference',
-		];
+		// RC-KNW-6.2: Quick Reference lists the seed's vault objects, and the Ashen Hand became the
+		// fourth faction, so its content no longer fits the default tile. It overflows the designed
+		// way (asserted below) instead of being one of the tiles that must render whole.
+		const whole = ['2. Initiative Tracker', '3. Dice', '4. Timer', '5. Audio'];
 		await expect
 			.poll(async () => {
 				const reach = await clippedTiles(page);
 				return whole.filter((name) => reach[name] > 1);
 			})
 			.toEqual([]);
-		for (const name of ['2. Initiative Tracker', '4. Timer', '6. Quick Reference']) {
+		for (const name of ['2. Initiative Tracker', '4. Timer']) {
 			const region = page.getByRole('region', { name });
 			// Nothing to scroll: no tab stop, no footer.
 			await expect(region).not.toHaveAttribute('tabindex');
 			await expect(region.locator('xpath=..')).not.toContainText(/more line|More below|Grow/);
 		}
+		// The tile that no longer fits says so and offers Grow, rather than clipping silently.
+		const reference = page.getByRole('region', { name: '6. Quick Reference' });
+		await expect(reference.locator('xpath=..')).toContainText(/\d+ more lines?/);
+		await expect(reference.locator('xpath=..')).toContainText('Grow to fit');
 		await testInfo.attach(`initiative-${width}`, {
 			body: await initiative.screenshot(),
 			contentType: 'image/png',
