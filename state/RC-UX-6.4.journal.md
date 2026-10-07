@@ -38,7 +38,8 @@ command output was read directly.
 
 ## Scope notes
 
-- Outside Owns, kept because the acceptance e2e needs them:
+- Outside the original Owns, kept because the acceptance e2e needs them. The operator brief of
+  2026-10-06 widened Owns to both files:
   - `apps/gm-react/src/app/shell/Sidebar.tsx`: the desktop More group _is_ the "Extensions entry"
     a Beginner must not see. Its `visiblePlatform` is a `useMemo` over `runtime.state` alone, so
     no change to an owned or companion file (`sections.ts`, `nav.ts`) can hide the row, or bring it
@@ -71,7 +72,7 @@ All runs are local; Playwright used `DNDTOOLS_E2E_PORT=41449`.
 - `pnpm typecheck`, `pnpm lint:boundary`, ESLint and Prettier on the changed files: pass.
 - E2E before the rebase, desktop and mobile Chromium:
   - onboarding-consent, settings, settings-tiers and settings-polish: 62/62 passed.
-  - a11y-axe-gate, command-palette, community-_, extensions-polish, golden-path, help-_,
+  - a11y-axe-gate, command-palette, `community-*`, extensions-polish, golden-path, `help-*`,
     hub-templates, map-onboarding, phone-navigator, responsive, shell-pin-bounds and shell-polish:
     450 passed, 2 skipped.
 - E2E after the rebase onto `c61d8cdb` and the two reverts, desktop and mobile Chromium:
@@ -79,9 +80,20 @@ All runs are local; Playwright used `DNDTOOLS_E2E_PORT=41449`.
   This includes the new RC-UX-6.4 tests: Beginner shows no New widget, Extensions or Permissions;
   Expert shows all three without a reload, checked with a window marker; the three cards list
   different hidden sections.
-- Visual: two container runs were stopped when their sessions ended, at 14/258 and 2/513. No
-  visual result is claimed. Goldens expected to move because the default tier changed:
-  `command-center--*` (Manage now shows Players and Vault) and `settings--*` (Standard is selected,
-  the cards changed and the rail has more tabs), across desktop, rail and phone. Central visual
-  gates are the evidence. Nothing was re-baselined.
+- Visual (2026-10-06, pinned container, `c61d8cdb` + this candidate):
+  - Compare mode: golden-routes `/` and `/settings` failed on desktop and rail in all three themes,
+    12 captures, 0.01–0.02 of the pixels each. Phone passed. Inspected actual and diff images:
+    - `/`: Manage now shows Players and Vault connections at Standard, which pushes Library down.
+    - `/settings`: Standard is selected, the rail has the intermediate tabs, and the cards show
+      "Hidden at this level" lists.
+
+    These are the intended default-tier changes.
+
+  - Re-baselined only those 12 (`--update-snapshots=changed`; 18 passed). Losslessly re-deflated
+    them with `pol19-png-redeflate.py` (1,881,344 → 1,788,065 B).
+  - `check-baseline-budget.mjs`: 768 files, 33,598.0 of 34,816.0 KiB.
+  - `--update-snapshots=none` over golden-routes `/` and `/settings`, settings-polish and
+    shell-polish: 48/48 passed.
+  - The full visual suite was not rerun to completion; it is listed below if it finishes.
+
 - No agents, dispatcher-state edits, push, promotion or loop launches.
