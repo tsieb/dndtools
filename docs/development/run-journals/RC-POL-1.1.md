@@ -87,3 +87,21 @@ No remote gates, independent review, push, publication or promotion are claimed 
 ### Claim-scope correction
 
 The central gate rejected the two extracted screen helpers outside the claim. Both paths are absent in base `515d714c87578cd09e2df99e716ed10fe988b871`; they are now removed from `src/screens` and live under the owned `src/app/widgets/templates` directory. Only relative imports change; component logic, markup and snapshots remain unchanged. This keeps the surface below 500 lines without requesting a wider claim. Follow-up validation: TypeScript, focused ESLint, Prettier, emphasis lint and `pnpm gates` pass (no owned-file size warning). The two rejected paths have no net diff against the specified base. The moved composer is 210 lines; the row is 361 lines. Both-profile Command Center/scene-card e2e: **38 passed** (1.2 minutes), including axe scans. Pinned Command Center and `/scenes` visual comparisons: **24 passed** (44.5 seconds), with no baseline updates. Original Headroom output retrieved before recording these verdicts.
+
+### Full visual gate follow-up
+
+The operator's pinned full-suite run at `3b34e04d` passed 525 cases and failed six parchment/scholar overlay cases: rail palette, rail vault loading, and phone vault error. Exact original gate output and rendered diffs were inspected. Differences occupy rounded outer edges (41–63 pixels), exposing the updated Command Center/Screens background; dialog contents and geometry match. The first focused refresh passed 30 cases and updated eight PNGs (including the two empty-palette captures reached after the populated-palette assertion). The next full comparison passed 530/531; phone scholar vault-error still varied by 50 edge pixels.
+
+Repeated checks confirmed that a baseline refresh alone was insufficient. The shell visual test now explicitly hides `#main-content` before vault captures and asserts its computed visibility. This isolates the independently covered workspace underneath the translucent scrim while preserving the complete dialog, shell and all screenshot tolerances. An initial inline screenshot-style experiment had no effect because the assertion does not apply that option; it was replaced with `page.addStyleTag`. The final 15-case shell refresh passed. Before/after captures were reviewed: only background visible around the dialog changes. Application source and visual thresholds remain unchanged.
+
+Repeated pinned comparison passed **24/24** (47.9 seconds): parchment/scholar shell and palette on phone/rail, each repeated three times, with updates disabled. The full pinned comparison with `--update-snapshots=none --workers=4` completed **530 passed, 1 failed** (11.9 minutes). All original overlay failures and all Command Center cases passed. The sole failure was `visual-phone / join missing parchment`: its five-second `Campaign invite` visibility assertion expired while the startup screen still said “Loading your vault…”, before any screenshot comparison. The unchanged phone join spec then passed **15/15** (27.4 seconds), all five themes repeated three times with two workers and updates disabled. This supports a transient startup timeout, but the full run is not recorded as a clean pass. Snapshot budget remains within the existing cap: 816 files, 34576.6 KiB of 34816.0 KiB. Prettier and `pnpm gates` pass; the exact gate output has no owned-file size warning.
+
+Reproduction for this follow-up:
+
+```sh
+bash apps/gm-react/tests/visual/run-in-container.sh shell-polish.spec.ts palette-help.spec.ts -g 'parchment|scholar' --project=visual-phone --project=visual-rail --repeat-each=3 --update-snapshots=none --workers=2
+bash apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=4
+bash apps/gm-react/tests/visual/run-in-container.sh join.spec.ts --project=visual-phone --repeat-each=3 --update-snapshots=none --workers=2
+```
+
+Full comparison log: `/tmp/rc-pol-final-full.log`, SHA-256 `a7d79907ebac6271ff78451c5c7f8fe5f5cf49aa0e55e7ecfb2bd4e06e0e2dbe`. Repeated overlay comparison log: `/tmp/rc-pol-isolated-repeat.log`, SHA-256 `f932b8c3ac2855150732bba1579a42c3c2ac3df7671d309da77a42ec79188f6a`. Exact original diagnostics were retrieved through Headroom; failure screenshots and refreshed overlays were visually inspected.

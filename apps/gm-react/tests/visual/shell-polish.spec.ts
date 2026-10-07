@@ -32,6 +32,10 @@ for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast
 			await route.continue();
 		});
 		const vaults = page.getByRole('dialog', { name: 'Local vaults' });
+		// Rounded dialog corners expose the workspace beneath the scrim. Keep that
+		// separately covered surface out of these overlay captures without masking the dialog.
+		await page.addStyleTag({ content: '#main-content { visibility: hidden !important; }' });
+		await expect(page.locator('#main-content')).toHaveCSS('visibility', 'hidden');
 		try {
 			await page.getByRole('button', { name: /^Local vaults/ }).click();
 			await expect(vaults.getByRole('status')).toHaveText('Loading your vaults…');
