@@ -310,3 +310,18 @@ Follow-up for the flow board's owner (not changed here; `FlowBoard` and `Map.tsx
 claim): on a phone, dragging a flow tile whose body is the Map tile by its grip selects the tile rather
 than starting the drag. Other specs still use `homeSceneId ?? first scene` (flow-layout, atlas,
 dice-tray, encounter-builder …); all passed in this gate run.
+
+### Restart re-admission (2026-10-07) — rebase onto `ca25e26b`
+
+The operator restart refunded an attempt and re-admitted the preserved work. `loop/rc` had moved 8
+commits (RC-WID-6.7 install/trust wording with re-baselined Extensions and rail Add-panel captures,
+the CI linear-history change, a gallery-test fix, an infra build fix). Rebased; the only conflicts were
+the 15 `/extensions` PNGs both sides had re-baselined. Took upstream's, finished the rebase, then ran
+the full visual suite in compare mode: **501 passed, 15 failed — exactly those 15**, each showing
+RC-WID-6.7's wording unchanged plus this branch's "Command Center Parts" row. Re-baselined them in the
+pinned container (`--update-snapshots=changed`, 15 files) and re-ran `extensions-polish`: 45/45.
+Visual budget 33522.7 of 34816 KiB.
+
+On the rebased head: `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0, `format:check:changed --base
+loop/rc` clean, `pnpm test:app` 174 files / 2123 tests (no errors), `pnpm test:critical` 290 files /
+5286 tests; `qps-ploc` regenerated (no change).
