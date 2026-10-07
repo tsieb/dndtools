@@ -1,9 +1,11 @@
 name: Deploy Cloud
 
-# Deploys the dndtools cloud stacks (infra/*) and the hosted SPA to the `dev` stage on
-# every push to main, PATH-FILTERED so only what changed redeploys. Keyless: GitHub's
-# OIDC token is exchanged for the scoped `foundation` deploy role (no long-lived AWS
-# keys). The desktop release pipeline (release.yml) and CI gates (ci.yml) are untouched.
+# Deploys the dndtools cloud stacks (infra/*) and the hosted SPA to the `dev` stage for every
+# commit on `main` whose CI run passed, redeploying only what changed since the last successful
+# deploy. Keyless: GitHub's OIDC token is exchanged for the scoped `foundation` deploy role.
+#
+# Trigger: the CI workflow completing on `main` (ADR-043). A push to `main` never deploys on its
+# own; the commit's `ci-gate` must have passed. `workflow_dispatch` deploys every target.
 #
 # Activation (one-time, manual — see infra/README.md):
 #   • Deploy infra/foundation once locally so the OIDC provider + CI deploy role exist.
@@ -16,21 +18,20 @@ name: Deploy Cloud
 # jobs SKIP (neutral) instead of failing — so an unconfigured cloud deploy never turns
 # the repo's push status red. It activates automatically the moment the variable exists.
 
-on:
-  push:
+# workflow_run is safe here: the only input it takes from the triggering run is the commit SHA of
+# `main`, which this workflow then independently requires to carry a passing ci-gate. No PR data,
+# artifact or title from a fork is ever read or executed.
+on: # zizmor: ignore[dangerous-triggers]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - 'infra/**'
-      - 'packages/cloud-fns/**'
-      - 'packages/core/**'
-      - 'apps/gm-react/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 concurrency:
   # Never cancel an in-flight deploy — a half-applied CloudFormation change is worse
   # than a queued one.
-  group: deploy-cloud-${{ github.ref }}
+  group: deploy-cloud-dev
   cancel-in-progress: false
 
 permissions:
@@ -39,12 +40,16 @@ permissions:
 env:
   AWS_REGION: ca-central-1
   STAGE: dev
+  # The commit being deployed: the CI run's head on a workflow_run event, the branch tip on dispatch.
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   # --- Decide which stacks/app changed so we only redeploy those. --------------------
   changes:
-    name: detect changes
+    name: detect changes since the last deploy
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       foundation: ${{ steps.filter.outputs.foundation }}
       identity: ${{ steps.filter.outputs.identity }}
@@ -57,55 +62,34 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 0
           persist-credentials: false
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - name: Require a green ci-gate on the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/ci/require-green.sh "$DEPLOY_SHA"
+      # Everything that changed since the commit the last SUCCESSFUL deploy shipped, so a failed
+      # or partial deploy is retried on the next green commit and a promotion of many commits
+      # redeploys each stack those commits touched. A manual dispatch redeploys every target.
+      - name: Classify the changes by deploy target
         id: filter
-        with:
-          filters: |
-            foundation:
-              - 'infra/foundation/**'
-            identity:
-              - 'infra/identity/**'
-            signaling:
-              - 'infra/signaling/**'
-              # A pool/client replacement changes the issuer/audience embedded in the authorizer.
-              - 'infra/identity/**'
-              # Signaling enforces hosted-play entitlements from app-api's table.
-              # A table replacement must refresh the SSM-resolved table name.
-              - 'infra/app-api/**'
-              # Signaling resolves TURN coordinates from SSM at deploy time. A TURN
-              # replacement must refresh those resolved values in signaling.
-              - 'infra/turn/**'
-              - 'packages/cloud-fns/**'
-              - 'packages/core/**'
-            turn:
-              - 'infra/turn/**'
-            sync_api:
-              - 'infra/sync-api/**'
-              # A pool/client replacement changes the issuer/audience embedded in the authorizer.
-              - 'infra/identity/**'
-              # Sync enforces backup entitlements from app-api's table.
-              - 'infra/app-api/**'
-              - 'packages/cloud-fns/**'
-              - 'packages/core/**'
-            app_api:
-              - 'infra/app-api/**'
-              # A pool/client replacement changes the issuer/audience embedded in the authorizer.
-              - 'infra/identity/**'
-              - 'packages/cloud-fns/**'
-              - 'packages/core/**'
-            web_hosting:
-              - 'infra/web-hosting/**'
-              # The CSP resolves the exact deployed API origins from SSM. Refresh it
-              # whenever a stack replacement can change one of those origins.
-              - 'infra/signaling/**'
-              - 'infra/sync-api/**'
-              - 'infra/app-api/**'
-            app:
-              - 'apps/gm-react/**'
-              - 'packages/core/**'
-              # Identity replacements change the client-side pool/client coordinates.
-              - 'infra/identity/**'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        run: |
+          LAST=""
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            LAST=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$WORKFLOW_NAME" \
+              --branch main --status success --json headSha --limit 1 --jq '.[0].headSha // empty')
+            if [[ -n "$LAST" ]] && ! git cat-file -e "$LAST^{commit}" 2>/dev/null; then
+              echo "::warning::last deployed commit $LAST is not in history; redeploying everything"
+              LAST=""
+            fi
+          fi
+          echo "Comparing ${LAST:-<nothing>}..$DEPLOY_SHA"
+          node scripts/ci/changed-stacks.mjs "$LAST" "$DEPLOY_SHA" | tee -a "$GITHUB_OUTPUT"
 
       - name: Report manual foundation rollout
         if: steps.filter.outputs.foundation == 'true'
@@ -120,6 +104,7 @@ jobs:
   # credentials. Gating here (not in each job's `if`) makes the reason self-documenting.
   preflight:
     name: check deploy config
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       configured: ${{ steps.check.outputs.configured }}
@@ -155,6 +140,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.DEPLOY_SHA }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -251,7 +237,7 @@ jobs:
     # infra didn't fail. (`always()` is needed so this still runs when the infra job was
     # skipped — a pure app change deploys no stacks but still republishes the SPA.)
     if: >-
-      always() &&
+      !cancelled() && needs.changes.result == 'success' &&
       needs.preflight.outputs.configured == 'true' &&
       (needs.changes.outputs.app == 'true' || needs.changes.outputs.web_hosting == 'true') &&
       (needs.infra.result == 'success' || needs.infra.result == 'skipped')
@@ -262,6 +248,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.DEPLOY_SHA }}
           persist-credentials: false
 
       - name: Setup pnpm
