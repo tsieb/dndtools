@@ -6,13 +6,18 @@
   every such commit deploys the dev stage (`deploy.yml`, triggered by the CI run that passed).
   Nothing pushes `main` without that check: the dispatcher's promotion carries it from `loop/rc`,
   a human change arrives through a pull request. `main` has a ruleset: no force push, no
-  deletion, `ci-gate` required on every pushed commit, linear history.
+  deletion, `ci-gate` required on every pushed commit.
 - `loop/rc` is the dispatcher's integration branch (§5). Workers take roadmap stories in their own
   worktrees (`dispatch/dndtools/<hash>`), every candidate is gated and independently reviewed, then
   fast-forwarded onto `loop/rc`. Every push runs CI; once the required `CI` workflow is green and
   the promotion window (one hour) has elapsed, the dispatcher fast-forwards `main` to that commit
   directly. There is no standing delivery pull request any more (ADR-043). `loop/rc` has a
-  ruleset: no force push, no deletion, linear history.
+  ruleset: no force push, no deletion.
+- A pull request merged to `main` moves it ahead of `loop/rc`. The dispatcher's next promotion
+  merges `main` back into `loop/rc` (a `merge-back-<sha>` candidate), CI verifies the merge
+  commit on the push, and the promotion after that fast-forwards `main` again. Nobody merges
+  `main` into `loop/rc` by hand. A merge that conflicts becomes one `promotion-recovery` task
+  scoped to the paths the pull request touched.
 - Human work branches from `main` as `<type>/<slug>` and merges by squash PR. Long-running
   multi-story efforts may use `initiative/<id>-<slug>` with `story/<id>-<slug>` branches off it;
   PRs into an `initiative/*` branch get the smoke tier.
@@ -93,10 +98,13 @@ the integrated tree, and promotion re-runs only the cheap contract checks.
 
 Rulesets (Settings → Rules), created by `scripts/ci/apply-rulesets.sh`:
 
-- `main`: block force pushes and deletion, require linear history, require the `ci-gate` status
-  check on every pushed commit. Repository admins may bypass only through a pull request.
-- `loop/rc`: block force pushes and deletion, require linear history. No status check: the
-  dispatcher pushes commits GitHub has never seen, and CI runs on the push.
+- `main`: block force pushes and deletion, require the `ci-gate` status check on every pushed
+  commit. Repository admins may bypass only through a pull request.
+- `loop/rc`: block force pushes and deletion. No status check: the dispatcher pushes commits
+  GitHub has never seen, and CI runs on the push.
+
+Neither ruleset requires linear history: the dispatcher's merge-back of a pull request into
+`loop/rc` is a merge commit, and it reaches `main` by fast-forward.
 
 Repository settings enable squash merge, auto-merge, and head-branch deletion.
 
