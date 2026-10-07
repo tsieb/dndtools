@@ -144,3 +144,55 @@ Remaining blocker: the strict gate exposes existing product parity debt. This co
 keeps those failures visible, as requested by the review's expose/remove-or-fail instruction.
 Converting the default board and exposing all private dependencies is not implemented here.
 No push, promotion, extra agent, loop launch or dispatcher-state change.
+
+## Session 3 — wrapper failure investigation — 2026-10-07
+
+Read the original dispatcher App tests log for run
+`70efa902-b64c-4277-af38-60005def4a16` (candidate `6a565ea0`). It records
+174 passing files / 1 failing file and 2150 passing tests / 2 failing tests.
+Both failures are the strict production parity assertions, not test infrastructure.
+No Headroom tools are available in this session.
+
+Corrected two regression fixtures: inject a CSS variable the builder loses instead of
+requiring every shipped home definition to remain broken; inject a builtin on the GM
+board instead of requiring its shipped seven private bodies to remain forever. The two
+production assertions remain unchanged and unskipped.
+
+Validation of this correction:
+
+- `pnpm test:app apps/gm-react/src/app/widgets/parity.test.ts`: exit 1, 16 passed,
+  2 failed. Original output read from `/tmp/rcwid55-retry-test.log`. Still 41 builtin
+  findings and 12 default findings; no claim that the wrapper failure is resolved.
+- ESLint on the changed test: exit 0 (`/tmp/rcwid55-retry-lint.log`).
+- gm-react typecheck: exit 0 (`/tmp/rcwid55-retry-types.log`).
+- `git diff --check`: exit 0. Full wrapper chain not rerun.
+
+### Ownership blocker and concrete follow-up scope
+
+RC_ROADMAP section 0.2 defines Owns as a write fence; section 21.2(4) says
+"Never widen scope" and requires needed core changes to land as separate stories first.
+Tests are companion paths under section 21.2(2). The following product changes do not
+fit the two owned production files:
+
+1. Make `createHomeWidgetDefinitions` / `homePart` in
+   `packages/core/src/state/widget-package-state.ts` agree with the builder's serialized
+   definition. `systemWidget` omits computedFields and style.cssVariables and uses an
+   empty configuration schema; `widgetBuilder/draft.ts` emits computedFields, derives
+   CSS variables and declares config properties. Compare original export bytes after
+   a single builder import/install/export; do not normalize the test input.
+2. Replace the fresh GM board's seven builtin bodies with builder-editable public
+   definitions, preserving the shipped map/combat/dice/timer/audio/reference/prep
+   functionality. Provisioning is in `packages/core/src/commands/command-center.ts`
+   (`ensureHomeBoard`); definitions, copyability and the template renderer must agree.
+   Existing customized boards must remain preserved.
+3. Add real, actor-scoped public query/command exposure for the private dependencies
+   reported by the gate (timer/audio/map/combat and legacy hub bodies), with builder
+   catalogue/schema support and permission tests. Relevant production owners include
+   widget query state/schema modules, `commands/widget-command.ts`,
+   `widgets/dataEnvironment.ts`, `widgets/homeSources.ts`, builder vocabulary, and
+   renderer/builtin files. Merely declaring a query or command in BUILTIN_PARITY is
+   not exposure and must not turn the gate green.
+
+An ownership-scope clarification was requested; no answer arrived during this work.
+No production files outside this task were changed, no dispatcher metadata or roadmap
+status was rewritten, and no push, promotion, new loop or extra agent was launched.

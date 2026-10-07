@@ -209,24 +209,39 @@ describe('builder parity gate: default screens', () => {
 		);
 	});
 
-	it('rejects first-import mutations of all shipped home definitions', () => {
+	it('rejects a field lost on the first builder import', () => {
 		const { env, state } = provisionedVault();
+		const home = findHomeScreen(state.scenes)!;
+		// Inject a valid style value that the builder does not retain. This must fail even
+		// once shipped definitions themselves become byte-identical on their first import.
+		const types = new Set(home.widgets.map((widget) => widget.type));
+		for (const record of Object.values(state.widgets.packages)) {
+			for (const definition of record.package.widgets) {
+				if (types.has(definition.type)) {
+					definition.style = {
+						...definition.style!,
+						cssVariables: { ...definition.style?.cssVariables, '--widget-parity-probe': 'lost' },
+					};
+				}
+			}
+		}
 		const problems = defaultScreenParityProblems(state, env, DM.id);
-		for (const widget of findHomeScreen(state.scenes)!.widgets)
+		for (const type of types)
 			expect(problems).toContain(
-				`${widget.type}: export → builder → install → export is not byte-identical`,
+				`${type}: export → builder → install → export is not byte-identical`,
 			);
 	});
 
-	it('enforces the same rule on every fresh GM board widget', () => {
+	it('rejects a builtin injected into the fresh GM board with null origin', () => {
 		const { env, state } = provisionedVault();
 		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
-		const problems = defaultScreenParityProblems(state, env, DM.id);
-		expect(board.widgets).toHaveLength(7);
-		for (const widget of board.widgets)
-			expect(problems).toContain(
-				`${widget.type}: draws through a hand-written builtin body the builder cannot express`,
-			);
+		// Do not require the shipped board to keep seven private bodies forever. The
+		// negative fixture names the defect explicitly; the real provisioned gate above
+		// independently checks every shipped widget without altering provisioning.
+		board.widgets = [{ ...board.widgets[0]!, type: 'dice', version: '1.0.0' }];
+		expect(defaultScreenParityProblems(state, env, DM.id)).toContain(
+			'dice: draws through a hand-written builtin body the builder cannot express',
+		);
 	});
 });
 
