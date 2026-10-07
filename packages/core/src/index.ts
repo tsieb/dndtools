@@ -642,6 +642,7 @@ export {
 	HOME_WIDGET_TYPES,
 	WIDGET_TEXT_MESSAGE_PREFIX,
 	createHomeWidgetDefinitions,
+	isCopyableSystemWidget,
 } from './state/widget-package-state';
 export type {
 	WidgetCommandAvailability,

@@ -32,6 +32,7 @@ import {
 	WIDGET_COMMAND_EXECUTORS,
 	effectiveWidgetCommandExecutor,
 	findPackageRecordForWidgetType,
+	isCopyableSystemWidget,
 	widgetCommandHasExecutor,
 } from '../state/widget-package-state';
 import type { SystemsState } from '../state/system-package';
@@ -1374,8 +1375,9 @@ export function handleForkWidgetPackage(
 	}
 	// A system widget is locked content, and the app draws most of them with a hand-written body
 	// keyed by their own type (Dice's roll history, the live timer): a copy under a new type would
-	// lose it and draw as the bare template.
-	if (widget.author === 'system') {
+	// lose it and draw as the bare template. The Command Center's parts draw only through their
+	// template, so they are the exception (RC-CAN-7.6).
+	if (widget.author === 'system' && !isCopyableSystemWidget(widget)) {
 		return reject(
 			{
 				code: 'invalid-state',

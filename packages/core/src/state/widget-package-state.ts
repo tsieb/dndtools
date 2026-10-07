@@ -1175,6 +1175,23 @@ export const HOME_WIDGET_TYPES = [
 ] as const;
 export type HomeWidgetType = (typeof HOME_WIDGET_TYPES)[number];
 
+/**
+ * The system widgets a GM may copy into the widget builder (`widget.package.fork`, "Edit widget").
+ * Other system widgets stay locked because the app draws most of them with a hand-written body keyed
+ * by their type, which a copy under a new type would lose. The Command Center's parts have no such
+ * body: everything they draw comes from their template, declared queries, intents and settings, all
+ * of which a fork copies, so the copy looks and works the same.
+ */
+export function isCopyableSystemWidget(
+	widget: Pick<WidgetDefinition, 'type' | 'author' | 'renderEntrypoint'>,
+): boolean {
+	return (
+		widget.author === 'system' &&
+		widget.renderEntrypoint?.runtime === 'template' &&
+		(HOME_WIDGET_TYPES as readonly string[]).includes(widget.type)
+	);
+}
+
 /** Placeable on any screen, but not offered in the add gallery: the home screen places them. */
 const HOME_PLACEMENT: WidgetPlacement = { surfaces: ['scene'], libraryListed: false };
 

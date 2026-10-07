@@ -1,6 +1,7 @@
 import {
 	CUSTOM_WIDGET_HOST_API_VERSION,
 	findPackageRecordForWidgetType,
+	isCopyableSystemWidget,
 	type CoreStateSlice,
 	type PlatformProfileId,
 	type WidgetBindingDefinition,
@@ -742,8 +743,9 @@ export function widgetEditTarget(
 	if (!record || !widget || record.removedAt) return null;
 	if (runtime !== 'template' && runtime !== 'custom-html-js') return null;
 	// System widgets are locked content, and most draw through a hand-written body keyed by their
-	// type that a copy would lose; the core refuses to fork them for the same reason.
-	if (widget.author === 'system') return null;
+	// type that a copy would lose; the core refuses to fork them for the same reason. The Command
+	// Center's parts draw only through their template, so they can be copied (RC-CAN-7.6).
+	if (widget.author === 'system' && !isCopyableSystemWidget(widget)) return null;
 	if (isOwnWidgetPackage(record)) return { kind: 'own', record };
 	const placed = (type: string) =>
 		Object.values(state.scenes.scenes).some((scene) =>
