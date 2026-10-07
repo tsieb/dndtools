@@ -125,12 +125,22 @@ describe('RC-UX-3.7 demo vault showcase seed', () => {
 			(item) => item.fields[VAULT_OBJECT_SUBTYPE_KEY],
 		);
 		expect(subtypes.filter((subtype) => subtype === 'quest')).toHaveLength(2);
-		expect(subtypes.filter((subtype) => subtype === 'faction')).toHaveLength(3);
+		// RC-KNW-6.2 — four factions: the Ashen Hand is a faction dossier, not a note beside three.
+		expect(subtypes.filter((subtype) => subtype === 'faction')).toHaveLength(4);
+		const ashenHand = Object.values(state.content.items).filter((item) =>
+			item.title.includes('Ashen Hand'),
+		);
+		expect(
+			ashenHand.map((item) => [item.kind, item.title, item.fields[VAULT_OBJECT_SUBTYPE_KEY]]),
+		).toEqual([['object', 'The Ashen Hand', 'faction']]);
+		// The lore is the dossier body, with no front matter for the Factions card to summarise.
+		expect(ashenHand[0]?.body).toMatch(/^A cult of tide-priests bargaining with the Hollow King\./);
 		const edges = getTypedRelationshipEdgesForActor(state.content, state.permissions, DM.id);
 		expect(edges.map((edge) => `${edge.sourceTitle} ${edge.verb} ${edge.targetTitle}`)).toEqual(
 			expect.arrayContaining([
-				'Faction · The Ashen Hand serves The Hollow King stirs',
-				'Quest hook · The missing shipment stolen by Faction · The Ashen Hand',
+				'The Hollow King stirs is served by The Ashen Hand',
+				'The Sunken Crypt — DM notes hosts the rites of The Ashen Hand',
+				'Quest hook · The missing shipment stolen by The Ashen Hand',
 			]),
 		);
 

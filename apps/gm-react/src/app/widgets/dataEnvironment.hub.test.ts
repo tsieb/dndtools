@@ -607,7 +607,7 @@ const CASES: Case[] = [
 			expect(r.rows.map((row) => row.secondary)).toEqual([
 				'2 PCs · 2 NPCs',
 				'2 maps',
-				'2 threads · 2 factions',
+				'2 quests · 2 factions',
 				'2 notes',
 			]);
 		},
@@ -615,7 +615,7 @@ const CASES: Case[] = [
 			expect(r.rows.map((row) => row.secondary)).toEqual([
 				'1 PCs · 1 NPCs',
 				'1 map',
-				'1 thread · 1 faction',
+				'1 quest · 1 faction',
 				'1 note',
 			]);
 		},

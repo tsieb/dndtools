@@ -3,6 +3,7 @@ import type { VaultContentState } from '../state/content';
 import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
 import { parseMarkdownNote } from '../state/markdown';
+import { VAULT_OBJECT_SUBTYPE_KEY } from '../state/vault-object';
 import type { GraphEdge, GraphNode, GraphNodeKind } from '../state/graph-index';
 import { GRAPH_NODE_KINDS } from '../state/graph-index';
 import type { GraphSourceKind } from '../state/graph-source-index';
@@ -53,6 +54,41 @@ import type { GraphSourceDiagnostic } from '../state/graph-source-index';
 /** The `dndtools.folder` field a note/object is filed under (mirrors the SRCH filter derivation). */
 const FOLDER_FIELD = 'dndtools.folder' as const;
 
+/**
+ * RC-KNW-6.2 — the ONE kind vocabulary every surface names a thing by: the Graph (legend, canvas,
+ * results, inspector), the Notes filter, the command palette and the `[[` autocomplete. A GM sees the
+ * same word for the same thing wherever it appears, and that word predicts where it lives (a Quest or
+ * a Faction on Story, an NPC on Characters, a Map or a Place in the Atlas, everything else in Notes).
+ */
+export type ContentKindWord = 'note' | 'quest' | 'faction' | 'npc' | 'map' | 'place';
+
+/** The kind words in their canonical order (legend, facets and node sort all follow it). */
+export const CONTENT_KIND_WORDS: readonly ContentKindWord[] = Object.freeze([
+	'note',
+	'quest',
+	'faction',
+	'npc',
+	'map',
+	'place',
+]);
+
+/**
+ * RC-KNW-6.2 — the kind word for one thing. `kind` is whatever the reading surface holds: a content
+ * item's `kind` (`note` / `object`, with the object's `subtype`), a graph node kind (`map` / `poi`),
+ * or a wikilink target kind (`note`, `character`, `map`, `poi`, or an object's subtype itself).
+ * A note-backed object is a Quest or a Faction by subtype and a Note otherwise; a character is an
+ * NPC (its story home is Characters); a POI is a Place. Pure and total: anything unrecognised is a
+ * Note, the generic word, never a raw id.
+ */
+export function kindWordFor(kind: string, subtype?: unknown): ContentKindWord {
+	const key = kind === 'object' ? subtype : kind;
+	if (key === 'quest' || key === 'faction') return key;
+	if (kind === 'character') return 'npc';
+	if (kind === 'map') return 'map';
+	if (kind === 'poi') return 'place';
+	return 'note';
+}
+
 /** The kind of relationship an edge represents in the visualization. */
 export type GraphRelationshipKind = 'wikilink' | 'poi-link';
 
@@ -70,7 +106,10 @@ export const GRAPH_RELATIONSHIP_KINDS: readonly GraphRelationshipKind[] = Object
  */
 export interface GraphVizNode {
 	id: string;
-	kind: GraphNodeKind;
+	/** The node's kind word (RC-KNW-6.2): what the legend, results and inspector call it. */
+	kind: ContentKindWord;
+	/** The structural kind the node was indexed as (note/object/map/poi): what opening it routes on. */
+	entity: GraphNodeKind;
 	title: string;
 	/** The folder the node is filed under (`dndtools.folder`), or `null` for unfiled/maps/POIs. */
 	folder: string | null;
@@ -102,8 +141,8 @@ export interface GraphVizFilter {
 	folder?: string;
 	/** Require ALL of these tags (lowercased) to be present on the node. */
 	tags?: readonly string[];
-	/** Restrict to these entity types (note/object/map/poi). */
-	kinds?: readonly GraphNodeKind[];
+	/** Restrict to these kind words (note/quest/faction/map/place — {@link kindWordFor}). */
+	kinds?: readonly ContentKindWord[];
 	/** Restrict to these sources (`local-vault` / `obsidian-vault` / `google-docs` / future). */
 	sources?: readonly GraphSourceKind[];
 	/** Restrict the EDGES shown to these relationship kinds (`wikilink` / `poi-link`). */
@@ -118,8 +157,8 @@ export interface GraphVizFacets {
 	folders: string[];
 	/** The distinct tags among visible nodes, sorted. */
 	tags: string[];
-	/** The distinct entity types present among visible nodes, in canonical kind order. */
-	kinds: GraphNodeKind[];
+	/** The distinct kind words present among visible nodes, in {@link CONTENT_KIND_WORDS} order. */
+	kinds: ContentKindWord[];
 	/** The distinct sources present among visible nodes, sorted. */
 	sources: GraphSourceKind[];
 	/** The relationship kinds present among visible edges, in canonical order. */
@@ -148,16 +187,20 @@ export interface GraphVisualization {
 	sourceDiagnostics: GraphSourceDiagnostic[];
 }
 
-/** Deterministic ordering for visualization nodes: by kind, then title, then id. Total tie-break. */
+/** Deterministic ordering for visualization nodes: by kind word, then entity, then title, then id. Total. */
 function compareNodes(a: GraphVizNode, b: GraphVizNode): number {
-	const kindOrder = GRAPH_NODE_KINDS.indexOf(a.kind) - GRAPH_NODE_KINDS.indexOf(b.kind);
+	const kindOrder = CONTENT_KIND_WORDS.indexOf(a.kind) - CONTENT_KIND_WORDS.indexOf(b.kind);
 	if (kindOrder !== 0) return kindOrder;
+	const entityOrder = GRAPH_NODE_KINDS.indexOf(a.entity) - GRAPH_NODE_KINDS.indexOf(b.entity);
+	if (entityOrder !== 0) return entityOrder;
 	return a.title.localeCompare(b.title) || a.id.localeCompare(b.id);
 }
 
 /** Deterministic ordering for visualization edges: by from id, then to id, then via. Total tie-break. */
 function compareEdges(a: GraphVizEdge, b: GraphVizEdge): number {
-	return a.fromId.localeCompare(b.fromId) || a.toId.localeCompare(b.toId) || a.via.localeCompare(b.via);
+	return (
+		a.fromId.localeCompare(b.fromId) || a.toId.localeCompare(b.toId) || a.via.localeCompare(b.via)
+	);
 }
 
 /** The folder a content item is filed under (its `dndtools.folder` field), or `null` when unfiled. Pure. */
@@ -167,7 +210,10 @@ function itemFolder(fields: Record<string, unknown>): string | null {
 }
 
 /** Classify an edge from its endpoints: a POI-origin edge is a `poi-link`; everything else a `wikilink`. */
-function classifyEdge(edge: GraphEdge, kindById: ReadonlyMap<string, GraphNodeKind>): GraphRelationshipKind {
+function classifyEdge(
+	edge: GraphEdge,
+	kindById: ReadonlyMap<string, GraphNodeKind>,
+): GraphRelationshipKind {
 	return kindById.get(edge.fromId) === 'poi' ? 'poi-link' : 'wikilink';
 }
 
@@ -209,8 +255,10 @@ export function getGraphVisualizationForActor(
 	// CONTENT/SRCH/GRAPH uses, so they can only ever name content the actor already sees (fail closed).
 	const folderById = new Map<string, string | null>();
 	const tagsById = new Map<string, string[]>();
+	const subtypeById = new Map<string, unknown>();
 	for (const view of getContentItemsForActor(content, permissions, actorId)) {
 		folderById.set(view.id, itemFolder(view.fields));
+		subtypeById.set(view.id, view.fields[VAULT_OBJECT_SUBTYPE_KEY]);
 		tagsById.set(
 			view.id,
 			parseMarkdownNote(view.body).tags.map((tag) => tag.toLowerCase()),
@@ -223,7 +271,8 @@ export function getGraphVisualizationForActor(
 	// Project every visible node onto the view-model node (degree is filled in after the edge pass).
 	const allNodes: GraphVizNode[] = graph.nodes.map((node: GraphNode) => ({
 		id: node.id,
-		kind: node.kind,
+		kind: kindWordFor(node.kind, subtypeById.get(node.id)),
+		entity: node.kind,
 		title: node.title,
 		folder: folderById.get(node.id) ?? null,
 		tags: tagsById.get(node.id) ?? [],
@@ -300,7 +349,7 @@ function buildFacets(
 ): GraphVizFacets {
 	const folders = new Set<string>();
 	const tags = new Set<string>();
-	const kinds = new Set<GraphNodeKind>();
+	const kinds = new Set<ContentKindWord>();
 	const sources = new Set<GraphSourceKind>();
 	for (const node of nodes) {
 		if (node.folder !== null) folders.add(node.folder);
@@ -313,9 +362,11 @@ function buildFacets(
 	return {
 		folders: [...folders].sort((a, b) => a.localeCompare(b)),
 		tags: [...tags].sort((a, b) => a.localeCompare(b)),
-		kinds: GRAPH_NODE_KINDS.filter((kind) => kinds.has(kind)),
+		kinds: CONTENT_KIND_WORDS.filter((kind) => kinds.has(kind)),
 		sources: [...sources].sort((a, b) => a.localeCompare(b)),
-		relationships: GRAPH_RELATIONSHIP_KINDS.filter((relationship) => relationships.has(relationship)),
+		relationships: GRAPH_RELATIONSHIP_KINDS.filter((relationship) =>
+			relationships.has(relationship),
+		),
 	};
 }
 

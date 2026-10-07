@@ -11,6 +11,7 @@ import {
 	type ContentItemView,
 	type ImportArchiveFile,
 } from '@dndtools/core';
+import { I18nProvider } from '../../i18n';
 import { NoteListMetadata, noteListFacets } from './NoteListMetadata';
 
 /**
@@ -78,7 +79,13 @@ afterEach(() => {
 });
 
 function render(note: ContentItemView): void {
-	act(() => root.render(<NoteListMetadata note={note} />));
+	act(() =>
+		root.render(
+			<I18nProvider>
+				<NoteListMetadata note={note} />
+			</I18nProvider>,
+		),
+	);
 }
 
 describe('RC-KNW-2.2 note list information scent', () => {
@@ -129,6 +136,18 @@ describe('RC-KNW-2.2 note list information scent', () => {
 		};
 
 		expect(noteListFacets(crowded).tags).toEqual(['one', 'two']);
+	});
+
+	it('counts distinct link targets beside the tags', () => {
+		const player = importedNoteFor(PLAYER_ACTOR.id);
+		const linked: ContentItemView = {
+			...player,
+			body: 'See [[Highmoor Keep]], [[highmoor keep|the keep]] and [[The Reeve#Debts]]. #keep',
+		};
+		render(linked);
+
+		expect(noteListFacets(linked).links).toBe(2);
+		expect(container.querySelector('[data-testid="note-links"]')?.textContent).toBe('2 links');
 	});
 
 	it('renders nothing for a note with neither a folder nor a tag', () => {

@@ -646,7 +646,7 @@ test.describe('knowledge: notes workbench', () => {
 		const area = await openEditor(page, sourceId);
 		await area.pressSequentially('Ask [[Mi');
 		const option = page.getByRole('option').filter({ hasText: 'Mira the Ferryman' });
-		await expect(option).toContainText('Character');
+		await expect(option).toContainText('NPC');
 		await option.click();
 		await expect(area).toHaveValue('Ask [[Mira the Ferryman]]');
 		await page.getByRole('button', { name: 'Done', exact: true }).click();

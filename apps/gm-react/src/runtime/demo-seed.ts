@@ -90,19 +90,29 @@ const DEMO_NOTES = [
 		body: 'Beneath the old keep: flooded antechamber, a sealed reliquary, and something that breathes in the dark.',
 		visibility: 'dm-only',
 	},
-	{
-		title: 'Faction · The Ashen Hand',
-		body: 'A cult of tide-priests bargaining with the Hollow King. Motive: raise the drowned empire.',
-		visibility: 'dm-only',
-	},
 ] as const;
 
 // CONTENT-013 — faction dossiers as real note-backed Vault Objects (`content.create-object`, subtype
 // `faction`), so the Campaign → Factions tab renders live core entities instead of sample data. Card
 // data (kind/stance/leader/goals + the dm-only secret) lives in the validated frontmatter fields; the
 // prose summary is the markdown body. One faction is player-visible so a previewed player still sees
-// a populated (but secret-free) tab; the hostile cult stays dm-only.
+// a populated (but secret-free) tab; the hostile cults stay dm-only. RC-KNW-6.2: the Ashen Hand was a
+// note titled "Faction · The Ashen Hand" beside these, so Story showed three factions while Notes held
+// a fourth as prose. It is a faction object now, and its lore is the dossier body.
 const DEMO_FACTIONS = [
+	{
+		title: 'The Ashen Hand',
+		visibility: 'dm-only',
+		body: 'A cult of tide-priests bargaining with the Hollow King. Motive: raise the drowned empire.',
+		fields: {
+			name: 'The Ashen Hand',
+			kind: 'cult',
+			stance: 'hostile',
+			leader: 'The tide-priests',
+			goals: ['Raise the drowned empire'],
+			secret: 'The Hollow King answers their rites, and he means to keep the empire for himself.',
+		},
+	},
 	{
 		title: 'Brine Hand',
 		visibility: 'dm-only',
@@ -148,9 +158,9 @@ const DEMO_FACTIONS = [
 
 // GRAPH/CONTENT-006 — [[wikilinks]] between the seeded notes, so Knowledge backlinks and the Graph's
 // wikilink edges are non-empty out of the box. Each line is APPENDED to an existing note body through
-// the real `content.update-item` command. Wikilink targets resolve by note TITLE (case-insensitive;
-// `state/wikilink-graph.ts`), and backlinks are computed between `kind: 'note'` items only — so every
-// line below links note→note by exact seeded title. Player-safe: a player-visible source only names
+// the real `content.update-item` command. Wikilink targets resolve by TITLE (case-insensitive;
+// `state/wikilink-graph.ts`) across notes and note-backed objects (RC-KNW-6.1), so the Ashen Hand's
+// faction dossier links and is linked by exact seeded title like any note. Player-safe: a player-visible source only names
 // player-visible targets (a raw body leaks its link text to every reader of that note).
 const DEMO_WIKILINK_APPENDS = [
 	{
@@ -160,11 +170,11 @@ const DEMO_WIKILINK_APPENDS = [
 	},
 	{
 		source: 'The Sunken Crypt — DM notes',
-		line: 'The rites below answer to [[Faction · The Ashen Hand]] — read [[The Hollow King stirs]] before the party descends.',
-		targets: ['Faction · The Ashen Hand', 'The Hollow King stirs'],
+		line: 'The rites below answer to [[The Ashen Hand]] — read [[The Hollow King stirs]] before the party descends.',
+		targets: ['The Ashen Hand', 'The Hollow King stirs'],
 	},
 	{
-		source: 'Faction · The Ashen Hand',
+		source: 'The Ashen Hand',
 		line: 'Their next rite is staged beneath [[The Sunken Crypt — DM notes]].',
 		targets: ['The Sunken Crypt — DM notes'],
 	},
@@ -542,12 +552,13 @@ async function seedBaseContent(rt: Seedable): Promise<boolean> {
 		}
 
 		// [[Wikilinks]] between the seeded notes → non-empty Knowledge backlinks + Graph wikilink edges.
-		// Runs AFTER the note/calendar categories so the titles it links exist; re-reads LIVE state (the
-		// runtime state getter tracks each accepted dispatch) and appends through `content.update-item`.
+		// Runs AFTER the note/faction/calendar categories so the titles it links exist; re-reads LIVE
+		// state (the runtime state getter tracks each accepted dispatch) and appends through
+		// `content.update-item`. Objects are linkable too: the Ashen Hand is a faction dossier.
 		if (needWikilinks) {
 			const notesByTitle = new Map(
 				Object.values(rt.state.content.items)
-					.filter((item) => item.kind === 'note' && isLiveContentItem(item))
+					.filter((item) => isLiveContentItem(item))
 					.map((item) => [item.title, item]),
 			);
 			for (const append of DEMO_WIKILINK_APPENDS) {
@@ -802,14 +813,17 @@ const SHOWCASE_QUESTS = [
 	},
 ] as const;
 
-/** Typed relationships are declared in a note's `relations:` front matter (RC-KNW-3.3, note→note). */
+/** Typed relationships are declared in a note's `relations:` front matter (RC-KNW-3.3). RC-KNW-6.2:
+ * the Ashen Hand is a faction dossier now, so its ties are declared by the notes that point at it —
+ * front matter on the dossier body would become the Factions card's one-line summary. */
 const SHOWCASE_RELATIONS = [
 	{
-		source: 'Faction · The Ashen Hand',
-		relations: [
-			'serves :: The Hollow King stirs',
-			'performs rites in :: The Sunken Crypt — DM notes',
-		],
+		source: 'The Hollow King stirs',
+		relations: ['is served by :: The Ashen Hand'],
+	},
+	{
+		source: 'The Sunken Crypt — DM notes',
+		relations: ['hosts the rites of :: The Ashen Hand'],
 	},
 ] as const;
 
@@ -817,7 +831,7 @@ const SHOWCASE_RELATIONS = [
 const SHOWCASE_QUEST_HOOK = {
 	title: 'Quest hook · The missing shipment',
 	visibility: 'dm-only',
-	relations: ['stolen by :: Faction · The Ashen Hand', 'hidden in :: The Sunken Crypt — DM notes'],
+	relations: ['stolen by :: The Ashen Hand', 'hidden in :: The Sunken Crypt — DM notes'],
 	body: 'Three crates of lamp oil vanished off the Saltreach pier on a moonless low tide. The Watch blames smugglers; the ledger says otherwise.',
 } as const;
 
@@ -1005,7 +1019,7 @@ async function seedShowcase(rt: Seedable): Promise<boolean> {
 			}
 		}
 
-		// Typed relationships: the faction note declares its ties; the quest hook points back at it.
+		// Typed relationships: the Ashen Hand's notes and the quest hook all point at the faction.
 		for (const declaration of SHOWCASE_RELATIONS) {
 			const source = liveNoteByTitle(state(), declaration.source);
 			if (!source || source.body.startsWith('---')) continue;

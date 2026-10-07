@@ -3,15 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import {
 	getContentItemsForActor,
 	getSavedSearchesForActor,
+	kindWordFor,
 	searchVaultForActor,
 	SEARCH_CONTENT_TYPES,
+	VAULT_OBJECT_SUBTYPE_KEY,
 	type SearchContentType,
+	type SearchHit,
 } from '@dndtools/core';
 import { Button, Card, Chip, EmptyState, Field, Input, Select } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useI18n, type MessageKey } from '../../i18n';
 import { SavedSearches } from './SavedSearches';
+import { KIND_ICON, KIND_PLURAL_LABEL } from '../graph/presentation';
 import { BODY, META } from './shared';
 import {
 	draftToFilter,
@@ -31,6 +35,47 @@ const FIELDSET = {
 	padding: T.space.zero,
 	minWidth: 0,
 } as const;
+
+/**
+ * RC-KNW-6.2 — the Kinds chips speak the one kind vocabulary (`kindWordFor`), not the search's
+ * storage types: a faction dossier is under Factions here, as it is on Story, the Graph and the
+ * palette. The core filters by content type, so each kind names the types it needs; quests,
+ * factions and any other object (a Note by its kind word) share `object` and are told apart by
+ * subtype among the hits the core already returned. Handouts and rolls keep their own words.
+ */
+type FilterKind = 'note' | 'quest' | 'faction' | 'place' | 'handout' | 'roll';
+const FILTER_KINDS: {
+	kind: FilterKind;
+	types: SearchContentType[];
+	label: MessageKey;
+	icon: string;
+}[] = [
+	{ kind: 'note', types: ['note', 'object'], label: KIND_PLURAL_LABEL.note, icon: KIND_ICON.note },
+	{ kind: 'quest', types: ['object'], label: KIND_PLURAL_LABEL.quest, icon: KIND_ICON.quest },
+	{ kind: 'faction', types: ['object'], label: KIND_PLURAL_LABEL.faction, icon: KIND_ICON.faction },
+	{ kind: 'place', types: ['poi'], label: KIND_PLURAL_LABEL.place, icon: KIND_ICON.place },
+	{ kind: 'handout', types: ['handout'], label: TYPE_LABEL.handout, icon: TYPE_ICON.handout },
+	{
+		kind: 'roll',
+		types: ['session-artifact'],
+		label: TYPE_LABEL['session-artifact'],
+		icon: TYPE_ICON['session-artifact'],
+	},
+];
+
+/** The content types a set of kinds needs from the core, in the core's own order. */
+function typesForKinds(kinds: readonly FilterKind[]): SearchContentType[] {
+	const wanted = new Set(
+		FILTER_KINDS.filter((k) => kinds.includes(k.kind)).flatMap((k) => k.types),
+	);
+	return SEARCH_CONTENT_TYPES.filter((type) => wanted.has(type));
+}
+
+/** The kinds a stored filter's content types select (a saved `object` search is quests + factions). */
+function kindsForTypes(types: readonly SearchContentType[]): FilterKind[] {
+	return FILTER_KINDS.filter((k) => types.includes(k.types[0])).map((k) => k.kind);
+}
+
 const LEGEND = {
 	font: `600 var(--text-xs) ${T.sans}`,
 	color: T.sub,
@@ -45,8 +90,8 @@ const LEGEND = {
  *
  *   - the RESULT is `searchVaultForActor` (SRCH-001/003/005) run for the CURRENT actor, so a dm-only
  *     note / hidden POI / withheld handout is never a candidate — not as a hit, not as a count. The
- *     panel renders `result.totalCount` and `result.countsByType` verbatim; it never counts hits itself
- *     and never filters the returned list.
+ *     only narrowing done here is by kind word among those visible hits (RC-KNW-6.2: quests and
+ *     factions share the core's `object` type), so nothing the core withheld can be counted.
  *   - a SAVED SEARCH is the DM's named `SearchFilter`, persisted through `content.create-saved-search`
  *     and friends. It stores the QUERY, never a result: `getSavedSearchesForActor` re-runs each filter
  *     LIVE for the reading actor, so a saved search can never serve a now-hidden item (SRCH-004 AC2).
@@ -127,10 +172,11 @@ export function FiltersPanel({
 		return { ...EMPTY_DRAFT, query: initialQuery };
 	});
 
+	const [kinds, setKinds] = useState<FilterKind[]>(() => kindsForTypes(draft.contentTypes));
 	const filter = useMemo(() => draftToFilter(draft), [draft]);
 
-	// The live, actor-filtered result. Every hit and every count comes from here; this screen never
-	// narrows the list afterwards, so what is shown is exactly what the core says this actor may see.
+	// The live, actor-filtered result. Every hit and every count comes from here; the kind chips only
+	// narrow it by kind word, so what is shown is always a subset of what this actor may see.
 	const result = useMemo(
 		() =>
 			searchVaultForActor(
@@ -151,6 +197,24 @@ export function FiltersPanel({
 		[runtime.state, actorId],
 	);
 
+	const kindOf = useMemo(() => {
+		const subtypeOf = new Map(
+			anchors.map((item) => [item.id, item.fields[VAULT_OBJECT_SUBTYPE_KEY]]),
+		);
+		return (hit: SearchHit): FilterKind => {
+			if (hit.type === 'handout') return 'handout';
+			if (hit.type === 'session-artifact') return 'roll';
+			const word = kindWordFor(hit.type, subtypeOf.get(hit.id));
+			return word === 'quest' || word === 'faction' || word === 'place' ? word : 'note';
+		};
+	}, [anchors]);
+	const hits = useMemo(
+		() =>
+			kinds.length === 0 ? result.hits : result.hits.filter((hit) => kinds.includes(kindOf(hit))),
+		[result.hits, kinds, kindOf],
+	);
+	const countOf = (kind: FilterKind) => hits.filter((hit) => kindOf(hit) === kind).length;
+
 	const calendars = useMemo(
 		() => Object.values(runtime.state.content.calendars),
 		[runtime.state.content.calendars],
@@ -164,13 +228,15 @@ export function FiltersPanel({
 		(filter.relationship ? 1 : 0) +
 		(filter.dateRange ? 1 : 0);
 
-	function toggleType(type: SearchContentType) {
-		setDraft((prev) => ({
-			...prev,
-			contentTypes: prev.contentTypes.includes(type)
-				? prev.contentTypes.filter((value) => value !== type)
-				: [...prev.contentTypes, type],
-		}));
+	function toggleKind(kind: FilterKind) {
+		const next = kinds.includes(kind) ? kinds.filter((value) => value !== kind) : [...kinds, kind];
+		setKinds(next);
+		setDraft((prev) => ({ ...prev, contentTypes: typesForKinds(next) }));
+	}
+
+	function loadDraft(next: FilterDraft) {
+		setDraft(next);
+		setKinds(kindsForTypes(next.contentTypes));
 	}
 
 	return (
@@ -195,16 +261,16 @@ export function FiltersPanel({
 				<fieldset style={FIELDSET}>
 					<legend style={LEGEND}>{t('knowledge.filters.types')}</legend>
 					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.oneHalf }}>
-						{SEARCH_CONTENT_TYPES.map((type) => (
+						{FILTER_KINDS.map(({ kind, label, icon }) => (
 							<Chip
-								key={type}
-								icon={TYPE_ICON[type]}
-								tone={draft.contentTypes.includes(type) ? 'accent' : 'neutral'}
-								selected={draft.contentTypes.includes(type)}
-								data-testid={`filters-type-${type}`}
-								onClick={() => toggleType(type)}
+								key={kind}
+								icon={icon}
+								tone={kinds.includes(kind) ? 'accent' : 'neutral'}
+								selected={kinds.includes(kind)}
+								data-testid={`filters-type-${kind}`}
+								onClick={() => toggleKind(kind)}
 							>
-								{t(TYPE_LABEL[type])} · {result.countsByType[type]}
+								{t(label)} · {countOf(kind)}
 							</Chip>
 						))}
 					</div>
@@ -306,7 +372,7 @@ export function FiltersPanel({
 						style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}
 						data-testid="filters-count"
 					>
-						{t('knowledge.filters.matches', { count: result.totalCount })}
+						{t('knowledge.filters.matches', { count: hits.length })}
 					</span>
 					<span style={META}>{t('knowledge.filters.facetsApplied', { count: facetCount })}</span>
 					<Button
@@ -315,13 +381,13 @@ export function FiltersPanel({
 						icon="close"
 						disabled={facetCount === 0}
 						data-testid="filters-clear"
-						onClick={() => setDraft({ ...EMPTY_DRAFT })}
+						onClick={() => loadDraft({ ...EMPTY_DRAFT })}
 					>
 						{t('knowledge.filters.clear')}
 					</Button>
 				</div>
 
-				{result.totalCount === 0 ? (
+				{hits.length === 0 ? (
 					<EmptyState
 						inset
 						illustration="search-none"
@@ -344,12 +410,12 @@ export function FiltersPanel({
 						}}
 						data-testid="filters-results"
 					>
-						{result.hits.slice(0, HIT_LIMIT).map((hit) => (
+						{hits.slice(0, HIT_LIMIT).map((hit) => (
 							<li key={`${hit.type}:${hit.id}`}>
 								<Button
 									variant="ghost"
 									size="sm"
-									icon={TYPE_ICON[hit.type]}
+									icon={KIND_ICON[kindOf(hit)] ?? TYPE_ICON[hit.type]}
 									data-testid={`filters-hit-${hit.id}`}
 									style={{ width: '100%', justifyContent: 'flex-start' }}
 									onClick={() => navigate(routeForHit(hit))}
@@ -360,13 +426,13 @@ export function FiltersPanel({
 						))}
 					</ul>
 				)}
-				{result.totalCount > HIT_LIMIT && (
+				{hits.length > HIT_LIMIT && (
 					<p style={{ ...META, margin: T.space.zero }} data-testid="filters-truncated">
-						{t('knowledge.filters.showingFirst', { shown: HIT_LIMIT, count: result.totalCount })}
+						{t('knowledge.filters.showingFirst', { shown: HIT_LIMIT, count: hits.length })}
 					</p>
 				)}
 
-				<SavedSearches filter={filter} onApply={(saved) => setDraft(filterToDraft(saved))} />
+				<SavedSearches filter={filter} onApply={(saved) => loadDraft(filterToDraft(saved))} />
 			</div>
 		</Card>
 	);

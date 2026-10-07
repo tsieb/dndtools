@@ -5,32 +5,66 @@ import {
 	listMapsForActor,
 	getGraphHealthForDm,
 	getPlayerScopedHealthSummary,
+	kindWordFor,
+	type ContentKindWord,
 	type GraphVizNode,
 } from '@dndtools/core';
 import { T } from '../../app/screen-kit';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { MessageKey } from '../../i18n';
 
-// Real GraphVizNode.kind is note | object | map | poi (NOT the design prototype's character/place/
-// faction). Colors, icons and labels are remapped to those; the legend is built from the live facets.
+// RC-KNW-6.2 — GraphVizNode.kind is the core's kind word (`kindWordFor`), so the legend, canvas,
+// results and inspector name a faction object "Faction", not by its storage kind. Colors and icons
+// follow the same words; the legend is built from the live facets.
 export const KIND_COLOR: Record<string, string> = {
 	note: 'var(--color-status-info)',
-	object: T.acc,
+	quest: T.acc,
+	faction: T.acc,
+	npc: T.acc,
 	map: T.ok,
-	poi: 'var(--color-status-warning)',
+	place: 'var(--color-status-warning)',
 };
 export const KIND_ICON: Record<string, string> = {
 	note: 'knowledge-book',
-	object: 'tag',
+	quest: 'flag',
+	faction: 'campaign-scroll',
+	npc: 'characters-person',
 	map: 'new-map',
-	poi: 'globe',
+	place: 'globe',
 };
-export const KIND_LABEL: Record<string, MessageKey> = {
-	note: 'graph.kind.note',
-	object: 'graph.kind.object',
-	map: 'graph.kind.map',
-	poi: 'graph.kind.poi',
+/** The singular kind word: a row's meta, a node's label, an autocomplete row's right-hand word. */
+export const KIND_LABEL: Record<ContentKindWord, MessageKey> = {
+	note: 'kind.note',
+	quest: 'kind.quest',
+	faction: 'kind.faction',
+	npc: 'kind.npc',
+	map: 'kind.map',
+	place: 'kind.place',
 };
+/** The plural kind word: a palette group heading, a Notes filter chip. */
+export const KIND_PLURAL_LABEL: Record<ContentKindWord, MessageKey> = {
+	note: 'kind.plural.note',
+	quest: 'kind.plural.quest',
+	faction: 'kind.plural.faction',
+	npc: 'kind.plural.npc',
+	map: 'kind.plural.map',
+	place: 'kind.plural.place',
+};
+
+/**
+ * RC-KNW-6.2 — THE kind label every surface shows: the Graph, the Notes filter, the palette and the
+ * `[[` autocomplete all call this, so one object reads the same word on each. `kind`/`subtype` are
+ * passed straight to the core's `kindWordFor` (see there for the accepted shapes).
+ */
+export function kindLabel(
+	kind: string,
+	subtype: unknown,
+	t: (key: MessageKey) => string,
+	form: 'one' | 'many' = 'one',
+): string {
+	const word = kindWordFor(kind, subtype);
+	return t(form === 'one' ? KIND_LABEL[word] : KIND_PLURAL_LABEL[word]);
+}
 export const REL_LABEL: Record<string, MessageKey> = {
 	wikilink: 'graph.rel.wikilink',
 	'poi-link': 'graph.rel.poiLink',
@@ -98,18 +132,18 @@ export function useOpenGraphNode(viewActorId: string) {
 	// `/knowledge/:id`, maps/POIs to the Atlas `?map=&poi=` deep link (the same URL MapBuilder's
 	// "copy link" writes). A POI's owning map is resolved through the SAME actor-filtered map reads
 	// the Atlas renders from, so the link never names a map the current viewpoint cannot see.
-	// Objects (quest/faction dossiers) live on Campaign — the same destination the Characters
-	// mention-search uses for object hits.
+	// Quests and factions live on Story — the same destination the Characters mention-search uses
+	// for object hits; any other object is a Note by its kind word and opens in Notes (RC-KNW-6.2).
 	const openNode = (n: GraphVizNode) => {
-		if (n.kind === 'note') {
+		if (n.entity === 'note' || (n.entity === 'object' && n.kind === 'note')) {
 			navigate(`/knowledge/${n.id}`);
 			return;
 		}
-		if (n.kind === 'map') {
+		if (n.entity === 'map') {
 			navigate(`/atlas?map=${encodeURIComponent(n.id)}`);
 			return;
 		}
-		if (n.kind === 'poi') {
+		if (n.entity === 'poi') {
 			const owner = listMapsForActor(
 				runtime.state.maps,
 				runtime.state.permissions,

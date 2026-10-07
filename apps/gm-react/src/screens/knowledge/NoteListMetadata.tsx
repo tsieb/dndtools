@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { parseMarkdownNote, type ContentItemView } from '@dndtools/core';
 import { T } from '../../app/screen-kit';
+import { useI18n } from '../../i18n';
 
 /** The core's folder facet key (`itemFolder` in `queries/search-query.ts`). */
 const FOLDER_FIELD = 'dndtools.folder';
@@ -28,7 +29,11 @@ const TAG_LIMIT = 2;
  * field is deliberately not a fallback: it is the DM's archive layout, it is not what the folder
  * filter matches, and a long path is exactly what overflows a 320px card.
  */
-export function noteListFacets(note: ContentItemView): { folder: string[]; tags: string[] } {
+export function noteListFacets(note: ContentItemView): {
+	folder: string[];
+	tags: string[];
+	links: number;
+} {
 	const rawFolder = note.fields[FOLDER_FIELD];
 	const folder =
 		typeof rawFolder === 'string'
@@ -38,18 +43,22 @@ export function noteListFacets(note: ContentItemView): { folder: string[]; tags:
 					.map((segment) => segment.trim())
 					.filter(Boolean)
 			: [];
+	const parsed = parseMarkdownNote(note.body);
 	const tags = [
 		...new Set(
-			parseMarkdownNote(note.body)
-				.tags.map((tag) => tag.trim().replace(/^#/, '').toLowerCase())
-				.filter(Boolean),
+			parsed.tags.map((tag) => tag.trim().replace(/^#/, '').toLowerCase()).filter(Boolean),
 		),
 	].slice(0, TAG_LIMIT);
-	return { folder, tags };
+	// RC-KNW-6.2 — the link count is the note's distinct `[[targets]]`, read from the same projected
+	// body as the tags, so a link written only inside a stripped secret callout is never counted.
+	const links = new Set(parsed.wikilinks.map((link) => link.target.trim().toLowerCase())).size;
+	return { folder, tags, links };
 }
 
 /**
- * Breadcrumb + tag scent for a note list card. Renders nothing when the note carries neither.
+ * Breadcrumb, link count and tag scent for a note list card. Renders nothing when the note carries
+ * none of them. RC-KNW-6.2: every card on Notes is a note, so the card's kind label is not repeated
+ * here; what a GM scans for is how connected a note is and what it is tagged with.
  *
  * Memoized on the two PRIMITIVES the facets are derived from rather than on `note`, because the
  * list's `notes` memo re-projects through `getContentItemsForActor` on every core state change —
@@ -58,18 +67,22 @@ export function noteListFacets(note: ContentItemView): { folder: string[]; tags:
  * needless work on the render path.
  */
 export function NoteListMetadata({ note }: { note: ContentItemView }) {
+	const { t } = useI18n();
 	const rawFolder = note.fields[FOLDER_FIELD];
-	const { folder, tags } = useMemo(
+	const { folder, tags, links } = useMemo(
 		() => noteListFacets(note),
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- the facets read only these two.
 		[note.body, rawFolder],
 	);
-	if (folder.length === 0 && tags.length === 0) return null;
+	if (folder.length === 0 && tags.length === 0 && links === 0) return null;
 	return (
 		<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.ter, marginBottom: 'var(--space-2)' }}>
 			{folder.length > 0 && <div data-testid="note-folder">{folder.join(' / ')}</div>}
-			{tags.length > 0 && (
+			{(tags.length > 0 || links > 0) && (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+					{links > 0 && (
+						<span data-testid="note-links">{t('knowledge.card.links', { count: links })}</span>
+					)}
 					{tags.map((tag) => (
 						<span key={tag} data-testid="note-tag">
 							#{tag}

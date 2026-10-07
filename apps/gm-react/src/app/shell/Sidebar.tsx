@@ -94,13 +94,14 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			runtime.state.permissions,
 			actorId,
 		);
-		// Count what each screen actually lists: Notes shows kind==='note' only; Story's tabs surface
-		// those notes as threads plus the faction dossiers (a raw item count here once claimed
-		// "9 notes" while the Notes screen showed 6).
+		// Count what each screen actually lists: Notes shows kind==='note' only; Story counts its
+		// Quests and Factions tabs (RC-KNW-6.2 — NPCs are counted on Characters, and the old "threads"
+		// counted notes no Story tab shows). A raw item count here once claimed "9 notes" while the
+		// Notes screen showed 6.
 		const noteCount = items.filter((n) => n.kind === 'note').length;
-		const factionCount = items.filter(
-			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
-		).length;
+		const objectCount = (subtype: string) =>
+			items.filter((n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === subtype)
+				.length;
 		const pcCount = characters.filter((c) => c.kind === 'pc').length;
 		const npcCount = characters.length - pcCount;
 		const ordered = [...allScenes].sort((a, b) => {
@@ -117,7 +118,10 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			counts: {
 				characters: t('shell.countCharacters', { pcs: pcCount, npcs: npcCount }),
 				atlas: t('shell.countMaps', { count: maps.length }),
-				campaign: t('shell.countStory', { threads: noteCount, factions: factionCount }),
+				campaign: t('shell.countStory', {
+					quests: objectCount('quest'),
+					factions: objectCount('faction'),
+				}),
 				knowledge: t('shell.countNotes', { count: noteCount }),
 			} as Record<string, string>,
 		};

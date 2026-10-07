@@ -2,11 +2,15 @@ import { HelpMenu } from './help/HelpMenu';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+	VAULT_OBJECT_SUBTYPE_KEY,
+	getContentItemsForActor,
 	getSavedSearchesForActor,
+	kindWordFor,
 	listCharactersForActor,
 	listMapsForActor,
 	parseQuickSwitcherQuery,
 	searchVaultForActor,
+	type SearchHit,
 } from '@dndtools/core';
 import { CommandPalette as DSCommandPalette } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
@@ -34,6 +38,7 @@ import {
 	type PaletteCommand as PaletteRow,
 } from './shortcuts/palettePresentation';
 import { paletteActions } from './shortcuts/paletteActions';
+import { KIND_ICON, KIND_LABEL, KIND_PLURAL_LABEL } from '../screens/graph/presentation';
 /** The remembered row ids, newest first. Device-scoped UI history, never vault state. */
 function readRecentIds(): string[] {
 	const raw = readPreference(PREFERENCE_KEYS.paletteRecents);
@@ -344,19 +349,33 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				actorId,
 				{ query: needle },
 			);
+			// RC-KNW-6.2 — a note, object or POI hit is named by the one kind vocabulary: its group is
+			// the plural kind word and its meta the singular, so a faction dossier reads "Faction" here
+			// exactly as on the Graph and in Notes. The subtype comes from the actor's own visible read.
+			const subtypeOf = new Map(
+				getContentItemsForActor(vaultState.content, vaultState.permissions, actorId).map((item) => [
+					item.id,
+					item.fields[VAULT_OBJECT_SUBTYPE_KEY],
+				]),
+			);
+			const kindOf = (hit: SearchHit) =>
+				hit.type === 'note' || hit.type === 'object' || hit.type === 'poi'
+					? kindWordFor(hit.type, subtypeOf.get(hit.id))
+					: null;
 			searchHits = result.hits.slice(0, SEARCH_HIT_LIMIT).map((hit) => {
 				const p = HIT_PRESENTATION[hit.type];
+				const word = kindOf(hit);
 				return {
 					id: `search:${hit.type}:${hit.mapId ?? ''}:${hit.id}`,
 					kind: 'destination' as const,
 					label: hit.title,
-					icon: p.icon,
-					group: t(p.group),
+					icon: word ? KIND_ICON[word] : p.icon,
+					group: t(word ? KIND_PLURAL_LABEL[word] : p.group),
 					// Carry the matched query + snippet + tags so the DS live substring filter keeps
 					// body-only matches (whose titles don't contain the query) in the list.
 					keywords: withQuery(hit.tags.join(' '), hit.snippet?.text),
 					description: hit.snippet?.text,
-					meta: t(p.kind),
+					meta: t(word ? KIND_LABEL[word] : p.kind),
 					run: goTo(`search:${hit.type}:${hit.id}`, routeForHit(hit)),
 				};
 			});
@@ -438,9 +457,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 					t('palette.group.screens'),
 					t('palette.group.characters'),
 					t('palette.group.maps'),
-					t('palette.group.notes'),
-					t('palette.group.objects'),
-					t('palette.group.mapLocations'),
+					t(KIND_PLURAL_LABEL.note),
+					t(KIND_PLURAL_LABEL.quest),
+					t(KIND_PLURAL_LABEL.faction),
+					t(KIND_PLURAL_LABEL.place),
 					t('palette.group.handouts'),
 					t('palette.group.rolls'),
 					t('palette.group.refine'),

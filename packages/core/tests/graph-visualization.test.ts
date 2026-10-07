@@ -4,6 +4,8 @@ import {
 	emptyGraphVisualization,
 	getGraphVisualizationForActor,
 	GRAPH_RELATIONSHIP_KINDS,
+	CONTENT_KIND_WORDS,
+	kindWordFor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreEnvironment,
@@ -57,7 +59,11 @@ function createNote(
 }
 
 /** Build a small actor-visible vault: linked notes in folders/tags/sources + a couple of maps. */
-function buildVault(): { state: CoreStateSlice; env: CoreEnvironment; ids: Record<string, string> } {
+function buildVault(): {
+	state: CoreStateSlice;
+	env: CoreEnvironment;
+	ids: Record<string, string>;
+} {
 	const env = makeEnvironment();
 	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
 	const ids: Record<string, string> = {};
@@ -130,9 +136,7 @@ describe('GRAPH-004 — the actor-filtered visualization model', () => {
 
 		// Both Quest Log and Secret Plot link to Highmoor — two wikilink edges into Highmoor (DM sees both).
 		const intoHighmoor = viz.edges.filter((e) => e.toId === ids.highmoor);
-		expect(intoHighmoor.map((e) => e.fromId).sort()).toEqual(
-			[ids.questLog, ids.secret].sort(),
-		);
+		expect(intoHighmoor.map((e) => e.fromId).sort()).toEqual([ids.questLog, ids.secret].sort());
 		expect(intoHighmoor.every((e) => e.relationship === 'wikilink')).toBe(true);
 		// Highmoor's in-result degree counts both inbound edges.
 		expect(highmoor.degree).toBe(2);
@@ -241,7 +245,9 @@ describe('GRAPH-004 — filters intersect over visible content only', () => {
 	it('filters by SEARCH TEXT over title/folder/tag (visibility-safe — never matches hidden content)', () => {
 		const { state, ids } = buildVault();
 		// "high" matches the Highmoor title for the DM and the player alike.
-		expect(viz(state, DM_ACTOR.id, { text: 'high' }).nodes.map((n) => n.id)).toEqual([ids.highmoor]);
+		expect(viz(state, DM_ACTOR.id, { text: 'high' }).nodes.map((n) => n.id)).toEqual([
+			ids.highmoor,
+		]);
 		// A player searching for the hidden node's title matches NOTHING (the hidden node is not in the model).
 		expect(viz(state, PLAYER_ACTOR.id, { text: 'secret plot' }).nodes).toEqual([]);
 	});
@@ -249,9 +255,9 @@ describe('GRAPH-004 — filters intersect over visible content only', () => {
 	it('combines facets intersectively (folder AND tag)', () => {
 		const { state, ids } = buildVault();
 		// Highmoor is in "Locations" AND tagged #keep — it survives; nothing else does.
-		expect(viz(state, DM_ACTOR.id, { folder: 'Locations', tags: ['keep'] }).nodes.map((n) => n.id)).toEqual([
-			ids.highmoor,
-		]);
+		expect(
+			viz(state, DM_ACTOR.id, { folder: 'Locations', tags: ['keep'] }).nodes.map((n) => n.id),
+		).toEqual([ids.highmoor]);
 		// A contradictory combination (Sessions folder but the #keep tag) yields no node.
 		expect(viz(state, DM_ACTOR.id, { folder: 'Sessions', tags: ['keep'] }).nodes).toEqual([]);
 	});
@@ -279,7 +285,11 @@ describe('GRAPH-004 AC1 — filtering by entity type `map`', () => {
 			dispatchCommand(
 				state,
 				env,
-				cmd('map.create', { name: 'Western Reaches', description: 'The coast.', visibility: 'player-visible' }),
+				cmd('map.create', {
+					name: 'Western Reaches',
+					description: 'The coast.',
+					visibility: 'player-visible',
+				}),
 			),
 		);
 		state = mapResult.nextState;
@@ -289,7 +299,11 @@ describe('GRAPH-004 AC1 — filtering by entity type `map`', () => {
 			dispatchCommand(
 				state,
 				env,
-				cmd('map.set-layer-visibility', { mapId, layerId: baseLayerId, visibility: 'player-visible' }),
+				cmd('map.set-layer-visibility', {
+					mapId,
+					layerId: baseLayerId,
+					visibility: 'player-visible',
+				}),
 			),
 		).nextState;
 
@@ -356,7 +370,7 @@ describe('GRAPH-004 AC1 — filtering by entity type `map`', () => {
 			state.permissions,
 			PLAYER_ACTOR.id,
 			DEFAULT_SOURCE_ID,
-			{ kinds: ['poi', 'note'] },
+			{ kinds: ['place', 'note'] },
 		);
 		const poiLink = poiAndNote.edges.find((e) => e.relationship === 'poi-link');
 		expect(poiLink).toBeDefined();
@@ -437,5 +451,79 @@ describe('GRAPH-004 — partial/offline source signal', () => {
 		expect(remote!.available).toBe(false);
 		// The diagnostic carries no note title/body — only the source id/kind + status.
 		expect(remote!.message).not.toContain('Highmoor');
+	});
+});
+
+// --- RC-KNW-6.2 kind vocabulary -------------------------------------------------------------------------
+
+describe('RC-KNW-6.2 — one kind vocabulary', () => {
+	it('names a note-backed object by its subtype and everything else by what it is', () => {
+		expect(CONTENT_KIND_WORDS).toEqual(['note', 'quest', 'faction', 'npc', 'map', 'place']);
+		expect(kindWordFor('object', 'quest')).toBe('quest');
+		expect(kindWordFor('object', 'faction')).toBe('faction');
+		expect(kindWordFor('object', 'handout')).toBe('note');
+		expect(kindWordFor('object', undefined)).toBe('note');
+		expect(kindWordFor('note')).toBe('note');
+		expect(kindWordFor('character')).toBe('npc');
+		expect(kindWordFor('map')).toBe('map');
+		expect(kindWordFor('poi')).toBe('place');
+		// A wikilink target names an object by its subtype directly.
+		expect(kindWordFor('faction')).toBe('faction');
+		expect(kindWordFor('session-log')).toBe('note');
+	});
+
+	it('gives graph nodes, facets and the kind filter the same word', () => {
+		const vault = buildVault();
+		const env = vault.env;
+		let state = vault.state;
+		const faction = accepted(
+			dispatchCommand(
+				state,
+				env,
+				cmd('content.create-object', {
+					subtype: 'faction',
+					title: 'The Ashen Hand',
+					fields: { name: 'The Ashen Hand', kind: 'cult', stance: 'hostile' },
+					body: 'A cult of tide-priests.',
+					visibility: 'dm-only',
+				}),
+			),
+		);
+		state = faction.nextState;
+		const factionId = (faction.events[0] as { itemId: string }).itemId;
+		const dm = getGraphVisualizationForActor(
+			state.content,
+			state.maps,
+			state.session,
+			state.permissions,
+			DM_ACTOR.id,
+			DEFAULT_SOURCE_ID,
+		);
+		const node = dm.nodes.find((n) => n.id === factionId);
+		expect(node).toMatchObject({ kind: 'faction', entity: 'object' });
+		expect(dm.facets.kinds).toContain('faction');
+		expect(dm.facets.kinds).not.toContain('object' as never);
+
+		const factions = getGraphVisualizationForActor(
+			state.content,
+			state.maps,
+			state.session,
+			state.permissions,
+			DM_ACTOR.id,
+			DEFAULT_SOURCE_ID,
+			{ kinds: ['faction'] },
+		);
+		expect(factions.nodes.map((n) => n.id)).toEqual([factionId]);
+
+		// The player never sees the dm-only faction, so its word is not a facet either.
+		const player = getGraphVisualizationForActor(
+			state.content,
+			state.maps,
+			state.session,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			DEFAULT_SOURCE_ID,
+		);
+		expect(player.facets.kinds).not.toContain('faction');
 	});
 });

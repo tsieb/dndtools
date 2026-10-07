@@ -89,8 +89,8 @@ test.describe('campaign: relationship editor', () => {
 		])
 			expect((await dispatch(page, command)).status).toBe('accepted');
 		await gotoRoute(page, '/campaign/relationships');
-		await expect(page.getByLabel('From').locator('optgroup[label="Character"]')).toHaveCount(1);
-		await expect(page.getByLabel('To').locator('optgroup[label="Factions"]')).toHaveCount(1);
+		await expect(page.getByLabel('From').locator('optgroup[label="NPC"]')).toHaveCount(1);
+		await expect(page.getByLabel('To').locator('optgroup[label="Faction"]')).toHaveCount(1);
 		await page.getByLabel('From').selectOption({ label: 'Mira the Ferryman' });
 		await page.getByLabel('To').selectOption({ label: 'Ferry Guild' });
 		await page.getByLabel('Relationship').fill('leads');

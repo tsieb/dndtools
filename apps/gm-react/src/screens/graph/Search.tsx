@@ -3,7 +3,7 @@ import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useNavigate } from 'react-router-dom';
 import { KIND_COLOR, KIND_ICON, KIND_LABEL } from './presentation';
-import type { GraphVisualization } from '@dndtools/core';
+import type { ContentKindWord, GraphVisualization } from '@dndtools/core';
 import type { ChangeEvent, Dispatch, KeyboardEvent, SetStateAction } from 'react';
 
 export function GraphSearch({
@@ -55,7 +55,9 @@ export function GraphSearch({
 				}}
 			/>
 			<div className="graph-facets">
-				{['all', ...viz.facets.kinds].map((f) => (
+				{/* RC-KNW-6.2 — the facets are kind words, so a chip, a legend entry and a result's
+				    meta line all say the same "Faction" for a faction object. */}
+				{(['all', ...viz.facets.kinds] as ('all' | ContentKindWord)[]).map((f) => (
 					<Button
 						key={f}
 						size="sm"
@@ -66,7 +68,7 @@ export function GraphSearch({
 							setFocusId(null);
 						}}
 					>
-						{f === 'all' ? t('graph.facetAll') : KIND_LABEL[f] ? t(KIND_LABEL[f]) : f}
+						{f === 'all' ? t('graph.facetAll') : t(KIND_LABEL[f])}
 					</Button>
 				))}
 				{(query || facet !== 'all') && (
@@ -95,7 +97,7 @@ export function GraphSearch({
 							<span className="graph-number">{r.degree}</span>
 						</span>
 						<span className="graph-meta">
-							{KIND_LABEL[r.kind] ? t(KIND_LABEL[r.kind]) : r.kind}
+							{t(KIND_LABEL[r.kind])}
 							{r.folder ? ` · ${r.folder}` : ''}
 							{r.tags.length ? ` · ${r.tags.map((tag) => `#${tag}`).join(' ')}` : ''}
 						</span>

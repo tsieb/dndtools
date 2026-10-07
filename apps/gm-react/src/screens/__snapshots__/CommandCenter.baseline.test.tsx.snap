@@ -20,8 +20,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop core tier · dom 1`] = `
@@ -87,12 +87,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -107,8 +107,8 @@ button New map Battle map or region
 button New note Lore, quest, or handout
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop core tier · headings 1`] = `
@@ -142,8 +142,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop intermediate tier · dom 1`] = `
@@ -225,12 +225,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings exp
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -248,8 +248,8 @@ button Players Roster & invites
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > Manage follows the settings experience tier > desktop intermediate tier · headings 1`] = `
@@ -282,7 +282,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 - heading "Library" [level=2]
 - button "Characters 0 PCs · 0 NPCs"
 - button "Maps 0 maps"
-- button "Story 0 threads · 0 factions"
+- button "Story 0 quests · 0 factions"
 - button "Notes 0 notes""
 `;
 
@@ -358,7 +358,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 0 factions"
+  "0 quests · 0 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
@@ -381,7 +381,7 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 0 PCs · 0 NPCs
 button Maps 0 maps
-button Story 0 threads · 0 factions
+button Story 0 quests · 0 factions
 button Notes 0 notes"
 `;
 
@@ -418,8 +418,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · dom 1`] = `
@@ -500,12 +500,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -523,8 +523,8 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · headings 1`] = `
@@ -560,8 +560,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > des
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > desktop idle · dom 1`] = `
@@ -648,12 +648,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > des
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -672,8 +672,8 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, desktop > desktop idle · headings 1`] = `
@@ -709,8 +709,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phon
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > phone idle · dom 1`] = `
@@ -797,12 +797,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phon
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -821,8 +821,8 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > phone idle · headings 1`] = `
@@ -858,8 +858,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phon
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > rail idle · dom 1`] = `
@@ -946,12 +946,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phon
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -970,8 +970,8 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, idle, rail and phone > rail idle · headings 1`] = `
@@ -1007,8 +1007,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table sce
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table scene > desktop live scene · dom 1`] = `
@@ -1094,12 +1094,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table sce
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -1118,8 +1118,8 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on a table scene > desktop live scene · headings 1`] = `
@@ -1155,8 +1155,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM scre
 - heading "Library" [level=2]
 - button "Characters 3 PCs · 2 NPCs"
 - button "Maps 3 maps"
-- button "Story 0 threads · 3 factions"
-- button "Notes 6 notes""
+- button "Story 0 quests · 4 factions"
+- button "Notes 5 notes""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · dom 1`] = `
@@ -1243,12 +1243,12 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM scre
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Story"
-  "0 threads · 3 factions"
+  "0 quests · 4 factions"
   <svg aria-hidden="true">
 <div role="button" tabindex="0">
   <svg aria-hidden="true">
   "Notes"
-  "6 notes"
+  "5 notes"
   <svg aria-hidden="true">"
 `;
 
@@ -1267,8 +1267,8 @@ button Permissions Roles & access
 button Vault connections Connected note sources
 button Characters 3 PCs · 2 NPCs
 button Maps 3 maps
-button Story 0 threads · 3 factions
-button Notes 6 notes"
+button Story 0 quests · 4 factions
+button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · headings 1`] = `

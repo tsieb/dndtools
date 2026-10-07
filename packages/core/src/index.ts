@@ -3879,6 +3879,7 @@ export {
 // source graph (no second graph) + the SAME folder/tag derivation as the SRCH filter surface, and fails
 // closed: a hidden node never becomes a node, edge endpoint, facet, or count. Unknown actor ⇒ empty model.
 export type {
+	ContentKindWord,
 	GraphRelationshipKind,
 	GraphVisualization,
 	GraphVizEdge,
@@ -3887,9 +3888,11 @@ export type {
 	GraphVizNode,
 } from './queries/graph-visualization-query';
 export {
+	CONTENT_KIND_WORDS,
 	GRAPH_RELATIONSHIP_KINDS,
 	emptyGraphVisualization,
 	getGraphVisualizationForActor,
+	kindWordFor,
 } from './queries/graph-visualization-query';
 
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation

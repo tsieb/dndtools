@@ -78,7 +78,7 @@ export function GraphInspector({
 				<Button variant="primary" size="sm" icon="chevron-right" onClick={() => openNode(selNode)}>
 					{selNode.kind === 'note'
 						? t('graph.openNote')
-						: selNode.kind === 'object'
+						: selNode.kind === 'quest' || selNode.kind === 'faction'
 							? t('graph.openInStory')
 							: t('graph.openInMaps')}
 				</Button>

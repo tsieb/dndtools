@@ -1,6 +1,7 @@
 import type { MessageKey } from '../../i18n';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { T } from '../screen-kit';
+import { kindLabel } from '../../screens/graph/presentation';
 
 /**
  * RC-KNW-1.2 — the `[[` wikilink autocomplete: the trigger detector, and the listbox both this and
@@ -181,17 +182,8 @@ export function SuggestionList({
 	);
 }
 
-/** Shared kind words for link menus and grouped relationship endpoints. */
+/** Shared kind words for link menus and grouped relationship endpoints. RC-KNW-6.2: a wikilink
+ * target's kind is an object's subtype or the target's domain, and reads the one kind vocabulary. */
 export function wikilinkKindLabel(kind: string, t: (key: MessageKey) => string): string {
-	const keys: Record<string, MessageKey> = {
-		note: 'palette.kind.note',
-		character: 'play.kind.character',
-		poi: 'palette.kind.poi',
-		object: 'extensions.customTypes.kind.object',
-		map: 'graph.kind.map',
-		location: 'mapPoiNote.type.location',
-		faction: 'campaign.tab.factions',
-		quest: 'campaign.tab.quests',
-	};
-	return keys[kind] ? t(keys[kind]) : kind.charAt(0).toUpperCase() + kind.slice(1);
+	return kindLabel(kind, undefined, t);
 }
