@@ -203,3 +203,15 @@ The gate refused `9f1fa41d` for `widgetBuilder/BuilderPanes.tsx`, `widgetBuilder
   (pinned container) over golden-routes, settings-polish and extensions-polish settings/extensions
   captures: 69/69. No baseline changes in this step.
 - No agents, dispatcher-state edits, push, promotion or loop launches.
+
+## Claim widened (2026-10-07)
+
+The operator brief of 2026-10-07 widened Owns to `widgetBuilder/BuilderPanes.tsx` and
+`extensions/WidgetBuilder.tsx`. The branch now sits on `98fdb866`. Against that base every changed
+source file is owned or a companion (tests, i18n catalogs, snapshot, baselines, `core/src/index.ts`,
+`CHANGELOG.md`, this journal). No code, test or baseline changes in this step.
+
+Check on the rebased head: `tsc --noEmit` (gm-react, core) clean;
+`tests/unit/feature-complexity.test.ts` 9/9; gm-react settings, widgetBuilder, extensions and
+shell unit tests 117/117; e2e settings-tiers, onboarding-consent and settings on desktop and mobile
+Chromium 46/46. No agents, dispatcher-state edits, push, promotion or loop launches.
