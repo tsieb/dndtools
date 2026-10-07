@@ -491,7 +491,7 @@ The review rejected the candidate on two high findings. Both reproduced from the
      mode, reads the tier's own grid, so every existing flow screen reflows at rail as before
      (`flow-layout.spec` still sees 6 columns). `FlowBoard` and `CommandCenter.tsx` both call it.
    - `screens/Board.tsx` — **outside the claim, 1 line plus moving 3 lines up**: `useStackedPosture(phone
-     && !editing && !flow)`. The panel list stands in for a canvas on a phone; a flow screen already
+&& !editing && !flow)`. The panel list stands in for a canvas on a phone; a flow screen already
      collapses to one column (ADR-041), so it goes through `FlowBoard` at every tier. `flow` is
      computed a few lines earlier so the hook can read it. No owned file is on this path: `Board`
      picks the board component before `FlowBoard` is reached. Canvas-policy boards are unchanged.
@@ -502,13 +502,14 @@ The review rejected the candidate on two high findings. Both reproduced from the
      whose type is one of `HOME_WIDGET_TYPES`. Exported from the core barrel.
    - **Outside the claim, one condition each**: `core/src/commands/widget-package.ts` (fork refusal)
      and `app/widgetBuilder/draft.ts` (`widgetEditTarget`) now refuse `author === 'system' &&
-     !isCopyableSystemWidget(widget)`. Every other system widget stays locked (tested).
+!isCopyableSystemWidget(widget)`. Every other system widget stays locked (tested).
    - The GM's path is the one RC-WID-6.6 ships: tile menu or Inspector → **Edit widget** → fork (on
      at once: template code is author-trusted) → `scene.repoint-widget` (same instance, layout and
      layout group) → builder. The copy is named "Resume (copy)" by the builder's fork convention, so
      its region label reads "1. Resume (copy)"; everything it draws is unchanged.
 
 Tests:
+
 - `CommandCenter.baseline.test.tsx`: canonical parity now renders `FlowBoard` at the current tier
   and checks rail (same 7 + 5 cells as desktop) and phone (one column). A new case runs the real
   builder path for all five parts: `widgetEditTarget` → `fork`, `widget.package.fork`,
@@ -543,3 +544,30 @@ run.
 Paths outside the claim in this session (flagged for the operator): `screens/Board.tsx`,
 `core/src/commands/widget-package.ts`, `app/widgetBuilder/draft.ts` (one condition each, reasons
 above), the core barrel export, the new test helper `screens/CommandCenter.serialise.ts`, and tests.
+
+## Session 8 — claim gate on `e773a5fc` (2026-10-07)
+
+The gate flagged four paths outside the claim. Each was re-checked against the acceptance:
+
+- **Reverted:** `screens/CommandCenter.serialise.ts`, the test-only helper. Its serialisers are back
+  inside `CommandCenter.baseline.test.tsx`. The two attribute/tag lists are now one-line splits (same
+  entries, same order) and the app-side "other system widgets stay locked" case is dropped; the core
+  test `command-center-home-screen.test.ts` covers it. The file is 780 lines, under the 800-line
+  gate, and passes 14/14 with the committed snapshot file unchanged.
+- **Kept, operator decision needed:**
+  - `screens/Board.tsx` (one condition, `!flow` in `useStackedPosture`). The review's first high
+    finding is `/screen/<home>` on a phone drawing the canvas panel list. `Board` chooses that list
+    before `FlowBoard` is reached, and no owned file is on that path (`ScreenView` → `Board`).
+  - `core/src/commands/widget-package.ts` and `app/widgetBuilder/draft.ts` (one condition each,
+    `&& !isCopyableSystemWidget(widget)`). The review's second high finding is that the GM can't
+    copy or rebuild a part in the builder, and those two are the refusals. The in-claim alternative,
+    giving the parts a non-`system` author, would change their tier: the UI derives tier caption and
+    resize lock from `author` (`board-helpers.ts` `tierOf`). It would also stop them being the
+    "system template widgets" the story specifies, so it was not taken.
+  - If the operator declines: reverting `Board.tsx` brings the phone finding back; reverting the
+    other two brings the builder finding back. `flowColumnsFor` (rail parity) and
+    `isCopyableSystemWidget` are inside the claim and are harmless on their own.
+
+Evidence on this head: `pnpm typecheck` 0, `pnpm gates` 0, eslint on the test 0,
+`format:check:changed --base loop/rc` clean after re-formatting this journal. The session-7 browser,
+visual and perf evidence stands: no product code changed in this session.
