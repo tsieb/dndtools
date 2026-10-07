@@ -408,3 +408,26 @@ restores the exact defect the independent review rejected (`/screen/<home>` fram
 column 1), so it was not taken. If the operator declines to widen the claim, reverting these three
 paths and `CommandCenter.tsx` to `f1cf17f6` is the fallback; the `Hub.tsx` style fix (owned) works
 on its own.
+
+## Session 5 — claim widened to the flow path (2026-10-07)
+
+Operator brief: owns now include `app/board-helpers.ts`, `app/canvas/FlowBoard.tsx` and
+`app/canvas/FlowPart.tsx`; re-run gates on the existing candidate and change nothing else. No code
+changed in this session; the head's code is byte-identical to `dd69af55` (only this journal
+differs). Every changed source path is now inside the claim.
+
+Gates on `544b1cf6` (base `ca25e26b`): `pnpm typecheck` 0, `pnpm lint` 0, `pnpm gates` 0,
+`format:check:changed --base ca25e26b` clean, `pnpm test:app` 174 files / 2129 tests,
+`pnpm test:critical` 290 files / 5286 tests. The baseline snapshot file is unchanged since its first
+commit `d885844e`. The browser evidence from session 4 stands for this code: targeted Playwright 436
+passed / 0 failed on both profiles, full visual suite 516 passed with no golden changed,
+`scene-first-render` 1294.6 / 1500 ms.
+
+For the next rebase (not done here, per the brief): `loop/rc` is 11 commits ahead (`1f78337f`).
+RC-UX-6.4 (`7b319298`, `a57f2350`) touched three files this branch changes — `CommandCenter.tsx`,
+`shell/Sidebar.tsx`, `core/state/onboarding.ts` — and re-baselined the six desktop/rail
+`command-center--*` goldens. The `CommandCenter.tsx` conflict carries a behaviour that must move into
+the home's Create part: the "New widget" launcher is hidden below its tier
+(`featureGateVisible('home.create.widget', tier)`). The bespoke hub it was written against no longer
+exists here, so on rebase that gate belongs in `Hub.tsx`'s live availability check (or as a gate on
+the `home-create` intent); the goldens then need re-capturing on top of upstream's.
