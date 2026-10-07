@@ -399,6 +399,11 @@ export default {
 	'sceneCards.androidHttpsOnly': '[Úšé áñ ĥţţƥš:// íḿáğé ľíñķ óñ Áñďŕóíď.~~~~ ~~~~ ~~~~ ~]',
 	'sceneCards.androidImageBroken':
 		'[Ţĥíš íḿáğé ľíñķ ďóéšñ’ţ ľóáď óñ Áñďŕóíď. Ŕéƥľáçé íţ ŵíţĥ áñ ĥţţƥš:// ľíñķ óŕ çľéáŕ íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'sceneCards.transition.crossfade': '[Çŕóššƒáďé~~~~]',
+	'sceneCards.transition.slide': '[Šľíďé~~]',
+	'sceneCards.transition.cut': '[Çúţ~~]',
+	'sceneCards.saving': '[Šáṽíñğ šçéñé çáŕďš…~~~~ ~~~]',
+	'sceneCards.saved': '[Šçéñé çáŕď šáṽéď.~~~~ ~~]',
 	'sceneCards.createFailed': '[Ţĥé šçéñé çáŕď çóúľďñ’ţ ƀé çŕéáţéď — ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~~~]',
 	'sceneCards.deleteFailed': '[Ţĥé çáŕď çóúľďñ’ţ ƀé ďéľéţéď — ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~]',
 	'sceneCards.restoreFailed': '[Ţĥé çáŕď çóúľďñ’ţ ƀé ŕéšţóŕéď — ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~]',
