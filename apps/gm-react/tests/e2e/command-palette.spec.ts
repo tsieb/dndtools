@@ -179,6 +179,18 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 		await expect(page.getByText('Campaign Primer')).not.toHaveCount(0);
 	});
 
+	// RC-KNW-6.2 — a faction dossier is grouped under Factions and its row says Faction, the same
+	// word the Graph, the Notes filter and the `[[` autocomplete use; never "Story entry".
+	test('a faction hit is grouped and labelled with its kind word', async ({ page }) => {
+		await openViaKeyboard(page, 'Meta+k');
+		await page.getByRole('combobox').fill('Ashen Hand');
+		const factions = page.getByRole('group', { name: 'Factions', exact: true });
+		const hit = factions.getByRole('option', { name: /The Ashen Hand/ });
+		await expect(hit).toBeVisible({ timeout: 10_000 });
+		await expect(hit).toContainText('Faction');
+		await expect(page.getByRole('dialog', PALETTE)).not.toContainText('Story entr');
+	});
+
 	test('a Create action lands on the right screen', async ({ page }) => {
 		await openViaKeyboard(page, 'Meta+k');
 

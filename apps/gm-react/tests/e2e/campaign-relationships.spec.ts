@@ -6,7 +6,9 @@ import { dispatch, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from '.
 // SAME visible-note set GRAPH-002 uses) and written through the existing `content.update-item` command
 // — no parallel mutation path, no new schema.
 
-const FACTION_TITLE = 'The Ashen Hand';
+// Not a seeded title: since RC-KNW-6.2 the seed carries a faction dossier named "The Ashen Hand", and
+// a second item with that title would make the From/To options and the collision pair ambiguous.
+const FACTION_TITLE = 'The Cinder Court';
 const NPC_TITLE = 'Marrow Vane';
 
 test.describe('campaign: relationship editor', () => {

@@ -41,6 +41,26 @@ test.describe('knowledge: filters and saved searches', () => {
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 	});
 
+	// RC-KNW-6.2 — the seed's Ashen Hand is a faction dossier, not a note titled "Faction · The Ashen
+	// Hand": it is counted under Factions here, absent from the Notes grid, and listed on Story.
+	test('the seeded Ashen Hand is a faction, not a note', async ({ page }) => {
+		const grid = page.getByRole('list', { name: 'Notes' });
+		await expect(grid.getByText('Campaign Primer', { exact: true })).toBeVisible();
+		await expect(page.getByText('Faction · The Ashen Hand')).toHaveCount(0);
+		await expect(grid.getByText('The Ashen Hand', { exact: true })).toHaveCount(0);
+
+		await openFilters(page);
+		await page.getByTestId('filters-query').fill('Ashen Hand');
+		await expect(page.getByTestId('filters-type-faction')).toHaveText('Factions · 1');
+		await page.getByTestId('filters-type-faction').click();
+		await expect(page.getByTestId('filters-results')).toContainText('The Ashen Hand');
+
+		await gotoRoute(page, '/campaign');
+		await page.getByRole('tab', { name: 'Factions' }).click();
+		await expect(page.getByText('The Ashen Hand', { exact: true }).first()).toBeVisible();
+		await expect(page.getByText('Faction · The Ashen Hand')).toHaveCount(0);
+	});
+
 	test('text and kind facets narrow the result to what the core matched', async ({ page }) => {
 		await openFilters(page);
 
@@ -52,10 +72,11 @@ test.describe('knowledge: filters and saved searches', () => {
 		const results = page.getByTestId('filters-results');
 		await expect(results).toContainText('Sunken Crypt');
 
-		// Restricting the kind facet to story entries drops the note hit — the core re-evaluates,
-		// the panel does not filter its own list.
-		await page.getByTestId('filters-type-object').click();
-		await expect(page.getByTestId('filters-type-object')).toHaveAttribute('aria-pressed', 'true');
+		// Restricting the kind facet to factions drops the note hit (RC-KNW-6.2: the chips are the
+		// kind vocabulary, so a faction dossier is under Factions, not "Story entries").
+		await expect(page.getByTestId('filters-type-object')).toHaveCount(0);
+		await page.getByTestId('filters-type-faction').click();
+		await expect(page.getByTestId('filters-type-faction')).toHaveAttribute('aria-pressed', 'true');
 		await expect(results).not.toContainText('Sunken Crypt');
 
 		// Clearing puts every facet back and the applied-facet count says so.
