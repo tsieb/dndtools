@@ -227,14 +227,19 @@ async function openFlowScene(
 	await markOnboarded(page);
 	await gotoRoute(page, '/');
 	await seedFresh(page);
-	// `command-center.ensure-home` resolves after `waitReady`; fall back to any authored scene, as
-	// `flow-layout.spec.ts` does.
+	// An authored table scene. RC-CAN-7.6: opening `/` now provisions the default screens (the GM
+	// screen's board and the home screen), and racing onto the board put its Map tile first, so the
+	// fixture skips default screens and keeps the demo scene it always used.
 	const handle = await page.waitForFunction(() => {
 		const state = window.__rt!.state;
 		return (
-			state.commandCenter.homeSceneId ??
-			Object.values(state.scenes.scenes).find((s) => !s.isTemplate)?.id ??
-			null
+			Object.values(state.scenes.scenes).find(
+				(s) =>
+					!s.templateMeta.isTemplate &&
+					s.id !== state.commandCenter.homeSceneId &&
+					s.screen?.origin?.kind !== 'default' &&
+					s.widgets.length >= 2,
+			)?.id ?? null
 		);
 	});
 	const sceneId = (await handle.jsonValue()) as string;
