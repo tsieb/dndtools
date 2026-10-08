@@ -387,7 +387,8 @@ export function extractModuleUses(source: string): Set<ParityUse> {
 	for (const name of moduleImports(source).core) if (!pure.has(name)) uses.add(`read:${name}`);
 
 	const addPath = (segments: string[]) => {
-		if (segments.length >= 2) uses.add(`state:${segments.join('.')}`);
+		if (segments[0] !== '<runtime>' && segments.length >= 2)
+			uses.add(`state:${segments.join('.')}`);
 	};
 	// Resolve ordinary state aliases and destructuring through syntax, rather than matching
 	// only literal runtime.state chains. Iterate to cover aliases of aliases.
@@ -399,6 +400,11 @@ export function extractModuleUses(source: string): Set<ParityUse> {
 		ts.ScriptKind.TSX,
 	);
 	const aliases = new Map<string, string[]>();
+	const memberPath = (base: string[], key: string): string[] | undefined => {
+		if (base[0] !== '<runtime>') return [...base, key];
+		if (key === '<dynamic>') uses.add('state:<dynamic-runtime-member>');
+		return key === 'state' ? [] : undefined;
+	};
 	const pathOf = (node: ts.Node): string[] | undefined => {
 		if (
 			ts.isParenthesizedExpression(node) ||
@@ -406,38 +412,40 @@ export function extractModuleUses(source: string): Set<ParityUse> {
 			ts.isNonNullExpression(node)
 		)
 			return pathOf(node.expression);
-		if (ts.isIdentifier(node)) return aliases.get(node.text);
+		if (ts.isIdentifier(node))
+			return node.text === 'runtime' ? ['<runtime>'] : aliases.get(node.text);
 		if (ts.isPropertyAccessExpression(node)) {
-			if (
-				ts.isIdentifier(node.expression) &&
-				node.expression.text === 'runtime' &&
-				node.name.text === 'state'
-			)
-				return [];
 			const base = pathOf(node.expression);
-			return base && [...base, node.name.text];
+			return base && memberPath(base, node.name.text);
 		}
 		if (ts.isElementAccessExpression(node)) {
 			const base = pathOf(node.expression);
 			if (base)
-				return [
-					...base,
+				return memberPath(
+					base,
 					ts.isStringLiteral(node.argumentExpression) ? node.argumentExpression.text : '<dynamic>',
-				];
+				);
 		}
 		return undefined;
 	};
 	const bind = (name: ts.BindingName, path: string[]) => {
 		if (ts.isIdentifier(name)) {
-			if (!aliases.has(name.text)) aliases.set(name.text, path);
+			const previous = aliases.get(name.text);
+			if (!previous) aliases.set(name.text, path);
+			else if (previous.join('.') !== path.join('.')) uses.add('state:<ambiguous-alias>');
 		} else {
 			for (const element of name.elements) {
 				if (!ts.isBindingElement(element)) continue;
+				if (element.dotDotDotToken) {
+					uses.add('state:<rest-alias>');
+					continue;
+				}
 				const key = element.propertyName ?? element.name;
-				bind(element.name, [
-					...path,
+				const member = memberPath(
+					path,
 					ts.isIdentifier(key) || ts.isStringLiteral(key) ? key.text : '<dynamic>',
-				]);
+				);
+				if (member) bind(element.name, member);
 			}
 		}
 	};
@@ -448,6 +456,18 @@ export function extractModuleUses(source: string): Set<ParityUse> {
 			if (ts.isVariableDeclaration(node) && node.initializer) {
 				const path = pathOf(node.initializer);
 				if (path) bind(node.name, path);
+			}
+			if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+				const path = pathOf(node.right);
+				if (path) {
+					if (ts.isIdentifier(node.left)) bind(node.left, path);
+					else if (
+						path[0] !== '<runtime>' ||
+						ts.isObjectLiteralExpression(node.left) ||
+						ts.isArrayLiteralExpression(node.left)
+					)
+						uses.add('state:<unsupported-assignment>');
+				}
 			}
 			ts.forEachChild(node, visit);
 		};

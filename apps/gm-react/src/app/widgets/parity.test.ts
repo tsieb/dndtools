@@ -120,11 +120,11 @@ describe('builder parity gate: the debt ledger', () => {
 	});
 
 	it('fails on a ledger entry that no longer reproduces', () => {
-		const repaid = privateUseFinding('search', 'read:getSavedSearchesForActor');
-		const findings = [...check(bodyUses()), ...screenFindings()].filter(
-			(finding) => finding !== repaid,
-		);
-		expect(compareToLedger(findings)).toEqual({ unledgered: [], stale: [repaid] });
+		const repaid = privateUseFinding('fixture', 'state:session.timers');
+		expect(compareToLedger([], [{ finding: repaid, repaidBy: 'RC-WID-5.7' }])).toEqual({
+			unledgered: [],
+			stale: [repaid],
+		});
 	});
 
 	it('fails on a finding a ledger entry for another widget does not cover', () => {
@@ -185,10 +185,19 @@ describe('builder parity gate: builtin bodies', () => {
 		});
 	});
 
-	it('fails on a private read through a runtime.state alias', () => {
+	it.each([
+		'const s = runtime.state;',
+		'let s; s = runtime.state;',
+		'const { state: s } = runtime;',
+		'const s = runtime["state"];',
+		'const r = runtime; const { state: s } = r;',
+	])('fails on an unledgered private read through an alias: %s', (alias) => {
 		const withAliasedRead = (name: string) =>
 			name === 'NotesBody'
-				? `${readBuiltin(name)}\nconst s = runtime.state;\nconst leak = () => s.session.timers;`
+				? readBuiltin(name).replace(
+						'const runtime = useRuntime();',
+						`const runtime = useRuntime(); ${alias} const hidden = s.session.timers;`,
+					)
 				: readBuiltin(name);
 		expect(
 			compareToLedger([...check(bodyUses(withAliasedRead)), ...screenFindings()]).unledgered,
@@ -225,16 +234,6 @@ describe('builder parity gate: builtin bodies', () => {
 });
 
 describe('builder parity gate: default screens', () => {
-	it('enumerates the fresh GM board, whose origin is null', () => {
-		const { state } = provisionedVault();
-		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
-		expect(screenMetaOf(board).origin ?? null).toBeNull();
-		expect(board.widgets.length).toBeGreaterThan(0);
-		const findings = screenFindings();
-		for (const widget of board.widgets)
-			expect(findings.some((finding) => finding.startsWith(`${widget.type}:`))).toBe(true);
-	});
-
 	it('fails when a default screen gains a builtin body', () => {
 		const { env, state } = provisionedVault();
 		const home = findHomeScreen(state.scenes)!;
@@ -263,6 +262,8 @@ describe('builder parity gate: default screens', () => {
 	it('rejects a builtin injected into the fresh GM board with null origin', () => {
 		const { env, state } = provisionedVault();
 		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
+		expect(screenMetaOf(board).origin ?? null).toBeNull();
+		expect(board.widgets.length).toBeGreaterThan(0);
 		board.widgets = [{ ...board.widgets[0]!, type: 'search', version: '1.0.0' }];
 		expect(defaultScreenParityProblems(state, env, DM.id)).toContain(
 			builtinOnScreenFinding('search'),
@@ -280,10 +281,9 @@ describe('builder parity gate: default screens', () => {
 		} as CoreCommand);
 		if (forked.status !== 'accepted') throw new Error(forked.rejection.message);
 		const original = exportedBytes(forked.nextState, env, identity.packageId)!;
-		// Today the first trip changes home-hero (ledgered for RC-WID-5.6); the builder's own output
-		// is a fixed point, so the gate passes it and fails it again once a field is lost on import.
+		// Build a stable fixture, then inject a field lost on the first import. Production
+		// home definitions may already be stable after RC-WID-5.6 repays their ledger entries.
 		const first = builderRoundTrip(state, env, DM.id, original).bytes!;
-		expect(first).not.toBe(original);
 		expect(builderRoundTrip(state, env, DM.id, first).bytes).toBe(first);
 		const probe = JSON.parse(first) as {
 			widgets: { style?: { cssVariables?: Record<string, string> } }[];
@@ -305,4 +305,13 @@ it.each([
 	'const state = runtime.state; const timers = state["session"]["timers"];',
 ])('detects private state through aliases: %s', (source) => {
 	expect(extractModuleUses(source)).toContain('state:session.timers');
+});
+
+it.each([
+	['let s = runtime.state.maps; s = runtime.state.session; s.timers;', 'state:<ambiguous-alias>'],
+	['const { ...s } = runtime.state; s.session.timers;', 'state:<rest-alias>'],
+	['let s; ({ state: s } = runtime); s.session.timers;', 'state:<unsupported-assignment>'],
+	['const s = runtime[key]; s.session.timers;', 'state:<dynamic-runtime-member>'],
+])('rejects unsupported or ambiguous state aliases: %s', (source, finding) => {
+	expect(extractModuleUses(source)).toContain(finding);
 });

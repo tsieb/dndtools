@@ -540,8 +540,9 @@ changed serialization all fail; normalization before comparison is not allowed.
 
 `BUILTIN_PARITY` in `parity.ts` declares each builtin body's commands, intents and query
 sources. Source scanning follows local imports and checks shared-module declarations.
-Runtime state member access, aliases (`const s = runtime.state; s.session.timers`), aliases
-of aliases, destructuring and literal indexed access are inspected through TypeScript
+Runtime state member access, aliases (`const s = runtime.state; s.session.timers`), later
+assignments (`let s; s = runtime.state`), runtime destructuring (`const { state: s } = runtime`),
+aliases of aliases and literal indexed access (`runtime["state"]`) are inspected through TypeScript
 syntax. Query exposure is derived from resolver sources. Every command, read or state path
 that no declared descriptor, intent or query source covers is a finding.
 
@@ -553,6 +554,9 @@ repays it. Repairing a finding means deleting its entry in the same change; addi
 is a reviewed decision, not a way to pass the gate. Regression cases cover an unledgered
 private read, an aliased private read, a stale entry, a field lost on the first import and
 a builtin on the fresh GM board.
+
+Negative regression fixtures inject their own defects; only the exact ledger comparison requires
+current production debt to reproduce, so repaying that debt does not break unrelated assertions.
 
 The ledger as the gate landed (2026-10-08):
 

@@ -294,3 +294,44 @@ WIDGETS.md, RC_ROADMAP.md and this journal. Nothing under `apps/gm-react/src` or
 `apps/gm-react/tests` imports `parity.ts` except `parity.test.ts`, so the rendered app is
 byte-for-byte the one that passed. No code change, no re-baseline. The gate needs a
 re-run.
+
+## Session 7 — independent-review alias and repayment corrections — 2026-10-08
+
+Started at `9e1ad164` with a clean tracked tree. No Headroom tools are exposed in this
+session; original command output was inspected directly. No additional agents used.
+
+- Track runtime roots and aliases through literal indexed access, destructuring and
+  subsequent identifier assignments. The three reviewer probes are now parameterized
+  NotesBody mutations passed through the real extraction, checker and ledger comparison;
+  each reports the unledgered `notes` read of `session.timers`.
+- Reject conflicting alias paths, rest aliases, destructuring assignments and dynamic
+  runtime members conservatively rather than silently missing those forms.
+- Remove production-debt assumptions from the fresh-board and first-round-trip tests.
+  The board test injects its own builtin; the byte test injects a lost CSS variable into
+  a stable builder export. The stale-ledger test also uses an isolated fixture.
+- Keep all 53 ledger entries unchanged. WIDGETS.md documents the alias forms and
+  debt-independent regression fixtures. RC-WID-5.6 and RC-WID-5.7 already appear in
+  the roadmap epic and section 23; no roadmap rewrite needed.
+
+During development an overly broad unsupported-assignment guard flagged RuntimeContext's
+runtime reference assignment. The original focused failure was read, the guard narrowed
+and the final focused suite passed 28/28 (`/tmp/rcwid55-revision-tests.log`). An app-suite
+run started before that correction was cancelled; it is not passing evidence.
+
+Final validation is in progress; results are appended below before commit.
+
+Final local results (original outputs inspected):
+
+- Focused parity suite: 28/28 passed, exit 0.
+- Reviewer's unchanged external `probe.config.mjs`: 3/3 passed, exit 0
+  (`/tmp/rcwid55-reviewer-probes.log`).
+- `pnpm test:app`: 175 files / 2162 tests passed, exit 0
+  (`/tmp/rcwid55-revision-app-final.log`).
+- gm-react typecheck, ESLint for both changed TypeScript files, Prettier for the
+  changed source/docs, and `git diff --check`: exit 0.
+- `pnpm gates`: exit 0, existing file-size warnings only
+  (`/tmp/rcwid55-revision-gates-final.log`).
+
+The full `pnpm test` chain, build, visual/browser wrappers and independent review are
+left to the central operator as instructed; these local checks do not establish those
+results. No push, promotion, extra loop or dispatcher control-state change.
