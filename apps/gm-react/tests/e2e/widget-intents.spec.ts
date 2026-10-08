@@ -119,7 +119,10 @@ test.describe('widget intents: open and create', () => {
 		await dialog.getByLabel('Opens', { exact: true }).selectOption({ label: characterName });
 
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 
 		const intents = await page.evaluate(
@@ -185,7 +188,10 @@ test.describe('widget intents: open and create', () => {
 			await builderStep(builder, 'Commands');
 			await builder.getByRole('button', { name: intentName, exact: true }).click();
 			await builderStep(builder, 'Review');
-			await builder.getByRole('button', { name: 'Install widget' }).click();
+			await builder
+				.getByTestId('builder-footer')
+				.getByRole('button', { name: 'Install widget' })
+				.click();
 			await expect(builder).toHaveCount(0);
 			// RC-WID-6.2 — a template with no permission installs trusted and already on.
 			await expect(page.getByRole('switch', { name: 'Enable Screen launcher' })).toBeChecked();

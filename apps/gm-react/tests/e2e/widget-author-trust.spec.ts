@@ -94,7 +94,9 @@ test('Full builder from Quick still installs and places an author-trusted templa
 	await gm.click(dialog.getByRole('button', { name: 'Add data query' }));
 	await gm.select(dialog.getByLabel('Source'), 'visible-characters');
 	await countedStep('Review');
-	await gm.click(dialog.getByRole('button', { name: 'Install widget' }));
+	await gm.click(
+		dialog.getByTestId('builder-footer').getByRole('button', { name: 'Install widget' }),
+	);
 
 	expect(gm.count).toBeLessThanOrEqual(page.viewportSize()!.width < 1025 ? 13 : 10);
 	await expect(dialog).toHaveCount(0);
@@ -143,7 +145,10 @@ test('a custom-code build still ends in the trust sheet, which allows and enable
 	await builderStep(dialog, 'Advanced');
 	await dialog.getByRole('radio', { name: 'Custom HTML and JavaScript' }).click();
 	await builderStep(dialog, 'Review');
-	await dialog.getByRole('button', { name: 'Install widget' }).click();
+	await dialog
+		.getByTestId('builder-footer')
+		.getByRole('button', { name: 'Install widget' })
+		.click();
 
 	// Installed on the fail-closed path, and the review sheet is up over the builder.
 	const sheet = page.getByRole('dialog', { name: 'Review Torch card' });

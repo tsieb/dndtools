@@ -147,7 +147,10 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 		// ── Install and place it: the tile on the board lists the party, no NPC.
 		await showPane(page, 'Edit');
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 		const query = await page.evaluate(
 			(packageId) =>

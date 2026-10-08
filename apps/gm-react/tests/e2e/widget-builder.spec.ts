@@ -88,7 +88,10 @@ test.describe('widget builder: build, install, place', () => {
 		// ── Review installs it. The overlay closes on success.
 		await showPane(page, 'Edit');
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 
 		const record = await installedPackage(page, PACKAGE_ID);
@@ -181,7 +184,10 @@ test.describe('widget builder: build, install, place', () => {
 		await dialog.getByLabel('Key', { exact: true }).fill('caption');
 		await dialog.getByLabel('Default value', { exact: true }).fill('Ready for adventure');
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Save new version' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Save new version' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 		await expect(edit).toBeFocused();
 		expect((await installedPackage(page, PACKAGE_ID))!.package.version).toBe('1.0.1');
@@ -205,7 +211,9 @@ test.describe('widget builder: build, install, place', () => {
 		// Straight to Review with nothing filled in: the install button is unavailable and the
 		// blocking steps are listed by name.
 		await builderStep(dialog, 'Review');
-		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
+		await expect(
+			dialog.getByTestId('builder-footer').getByRole('button', { name: 'Install widget' }),
+		).toBeDisabled();
 		await expect(dialog.getByText('Give the widget a name.')).toBeVisible();
 		await dialog.getByRole('button', { name: 'Go to Identity' }).first().click();
 		await expect(dialog.getByLabel('Name', { exact: true })).toBeVisible();
@@ -269,7 +277,10 @@ test.describe('widget builder: data step (RC-WID-2.2)', () => {
 		// ── All three declarations reach the installed package.
 		await showPane(page, 'Edit');
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 
 		const record = await installedPackage(page, PACKAGE_ID);
@@ -337,7 +348,10 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 		).toBeVisible();
 
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 
 		// ── What was installed: the range survived, and the configure verb is a manager command.
@@ -425,7 +439,10 @@ test.describe('widget builder: export and new version (RC-WID-2.7)', () => {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
 		await builderStep(dialog, 'Review');
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 	}
 
@@ -472,7 +489,10 @@ test.describe('widget builder: export and new version (RC-WID-2.7)', () => {
 		await dialog.getByLabel('Changelog', { exact: true }).fill('Clarifies the health readout.');
 		// The migration this version bump writes is described before it is saved.
 		await expect(dialog.getByText('Every copy on version 1.0.0 moves to 1.0.1')).toBeVisible();
-		await dialog.getByRole('button', { name: 'Save new version' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Save new version' })
+			.click();
 		await expect(dialog).toHaveCount(0);
 
 		const record = await page.evaluate((packageId) => {
@@ -567,7 +587,9 @@ test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
 		await dialog.getByRole('checkbox', { name: 'Reach the network' }).click();
 		await expect(dialog.getByRole('group', { name: 'Network destinations' })).toBeVisible();
 		await builderStep(dialog, 'Review');
-		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
+		await expect(
+			dialog.getByTestId('builder-footer').getByRole('button', { name: 'Install widget' }),
+		).toBeDisabled();
 		await expect(dialog.getByText(/Pick at least one destination/)).toBeVisible();
 		await builderStep(dialog, 'Advanced');
 		await dialog.getByRole('checkbox', { name: 'Its own declared address' }).click();
@@ -584,7 +606,10 @@ test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
 		await showPane(page, 'Edit');
 		await builderStep(dialog, 'Review');
 		await expect(dialog.getByText('Requires review')).toBeVisible();
-		await dialog.getByRole('button', { name: 'Install widget' }).click();
+		await dialog
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Install widget' })
+			.click();
 		const sheet = page.getByRole('dialog', { name: 'Review Torch card' });
 		await expect(sheet).toBeVisible();
 		await sheet.getByRole('button', { name: 'Cancel' }).click();

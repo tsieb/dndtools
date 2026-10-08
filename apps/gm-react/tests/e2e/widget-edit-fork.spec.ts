@@ -221,7 +221,10 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		expect(markup).toContain('Pause flicker');
 		await code.fill(markup.replace('Pause flicker', 'Hold the flame'));
 		await builderStep(builder, 'Review');
-		await builder.getByRole('button', { name: 'Save new version', exact: true }).click();
+		await builder
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: 'Save new version', exact: true })
+			.click();
 		await expect(builder).toHaveCount(0);
 
 		// Saved as the new user package, turned on, and the placed tile still on it.

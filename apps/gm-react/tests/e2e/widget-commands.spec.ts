@@ -49,7 +49,10 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 			await dialog.getByRole('button', { name: 'Roll dice', exact: true }).click();
 			await dialog.getByRole('button', { name: 'Count up or down', exact: true }).click();
 			await builderStep(dialog, 'Review');
-			await dialog.getByRole('button', { name: 'Install widget' }).click();
+			await dialog
+				.getByTestId('builder-footer')
+				.getByRole('button', { name: 'Install widget' })
+				.click();
 			await expect(dialog).toHaveCount(0);
 
 			// What was installed: each command names what runs it, and Roll brought its formula.
@@ -201,7 +204,9 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 		await expect(dialog.getByText(reason).first()).toBeVisible();
 
 		await builderStep(dialog, 'Review');
-		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
+		await expect(
+			dialog.getByTestId('builder-footer').getByRole('button', { name: 'Install widget' }),
+		).toBeDisabled();
 		await expect(dialog.getByText(reason).first()).toBeVisible();
 		await dialog.getByRole('button', { name: 'Go to Commands' }).first().click();
 
@@ -209,7 +214,9 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 		await dialog.getByLabel('Runs', { exact: true }).selectOption('tick');
 		await expect(dialog.getByText(reason)).toHaveCount(0);
 		await builderStep(dialog, 'Review');
-		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeEnabled();
+		await expect(
+			dialog.getByTestId('builder-footer').getByRole('button', { name: 'Install widget' }),
+		).toBeEnabled();
 		expect(
 			await page.evaluate(
 				() => window.__rt!.state.widgets.packages['workspace.blank-panel'] ?? null,

@@ -591,7 +591,6 @@ export function WidgetBuilder({
 										rejection={rejection}
 										onGoToStep={goToStep}
 										onSubmit={submit}
-										hideSubmit
 									/>
 								)}
 							</div>,
