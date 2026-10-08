@@ -224,3 +224,29 @@ describe('CMD-004 Command Center Player View controller', () => {
 		});
 	});
 });
+
+describe('RC-CAN-7.8 — the GM workspaces are not projection targets', () => {
+	it("leaves the default screens out of the scene options and keeps the GM screen's board", () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR) as CoreStateSlice;
+		const table = createScene(base, env, 'The Sunken Crypt');
+		const provisioned = accept(
+			dispatch(table.state, env, {
+				type: 'command-center.ensure-home',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
+		).nextState;
+		const controller = getPlayerViewController(provisioned, DM_ACTOR.id);
+		if (controller.kind !== 'available') throw new Error(controller.reason);
+		const boardId = provisioned.commandCenter.homeSceneId!;
+		// The home screen exists (a default screen) but is not offered; the board and the table are.
+		const defaults = Object.values(provisioned.scenes.scenes).filter(
+			(scene) => scene.screen?.origin?.kind === 'default',
+		);
+		expect(defaults).toHaveLength(1);
+		expect(controller.sceneOptions.map((option) => option.id).sort()).toEqual(
+			[boardId, table.sceneId].sort(),
+		);
+	});
+});

@@ -2,7 +2,7 @@ import { hasDmAuthority } from '../state/permission-state';
 import type { CoreStateSlice } from '../commands/types';
 import type { ActorId } from '../state/ids';
 import type { ActorRole } from '../state/permission-state';
-import type { Scene, SceneVisibility } from '../state/scene-state';
+import { screenMetaOf, type Scene, type SceneVisibility } from '../state/scene-state';
 import type {
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionKind,
@@ -95,14 +95,20 @@ export function getPlayerViewController(
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	if (!hasDmAuthority(actor.role)) return { kind: 'denied', reason: 'actor-not-authorized' };
 
+	// RC-CAN-7.8 — the default GM workspaces (the Command Center and Session screens, ADR-041) are the
+	// GM's own consoles, not something to put in front of a player. The GM screen's board stays here.
 	const sceneOptions = Object.values(state.scenes.scenes)
-		.filter((scene) => !scene.templateMeta.isTemplate)
+		.filter(
+			(scene) => !scene.templateMeta.isTemplate && screenMetaOf(scene).origin?.kind !== 'default',
+		)
 		.map(sceneOption)
 		.sort((a, b) => a.name.localeCompare(b.name));
 
 	const participants = Object.values(state.permissions.actors)
 		.filter(
-			(participant): participant is typeof participant & {
+			(
+				participant,
+			): participant is typeof participant & {
 				role: Exclude<ActorRole, 'dm' | 'co-dm'>;
 			} =>
 				// A DM / co-DM operates the Player-View controller; they are never a projection TARGET.
