@@ -1,7 +1,14 @@
+import { useState } from 'react';
 import { getDiceHistoryForActor, parseDiceExpression } from '@dndtools/core';
 import { useRuntime } from '../../../runtime/RuntimeContext';
 import type { BoardWidget } from '../../board-helpers';
 import { useI18n } from '../../../i18n';
+import { DicePanel } from '../../../screens/session/DiceTray';
+import {
+	useDiceView,
+	useSessionDispatch,
+	useSessionSeat,
+} from '../../../screens/session/useSessionView';
 import {
 	Chip,
 	OpChip,
@@ -12,13 +19,51 @@ import {
 } from '../../widget-body-kit';
 
 /**
- * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
- * hold once every system widget type gained a body, so each hand-written body now lives in its own
- * file under `app/widgets/builtin/`. This is a pure move: the component below is byte-for-byte the
- * one that used to sit in `widget-bodies.tsx`.
+ * The `dice` widget. Its default view is the quick-roll tile (moved from `app/widget-bodies.tsx` by
+ * RC-WID-4.1); its `tray` view is the Session screen's dice tray (RC-CAN-7.8, SCREENS_PARITY SE-15):
+ * quick rolls, an expression and a label, Roll, and the session's roll history.
  */
-
 export function DiceBody({
+	widget,
+	onCommand,
+}: {
+	widget: BoardWidget;
+	onCommand?: WidgetCommandHandler;
+}) {
+	return cfg<string>(widget, 'view') === 'tray' ? (
+		<DiceTrayView />
+	) : (
+		<QuickDice widget={widget} onCommand={onCommand} />
+	);
+}
+
+/** `dice.roll` over the actor-filtered history. RC-SES-6.2 — it rolls in every workflow state. */
+function DiceTrayView() {
+	const { actorId, previewing } = useSessionSeat();
+	const dispatch = useSessionDispatch();
+	const dice = useDiceView();
+	const [expr, setExpr] = useState('1d20+7');
+	const [label, setLabel] = useState('');
+	return (
+		<DicePanel
+			rolls={dice.rolls}
+			previewing={previewing}
+			expr={expr}
+			onExpr={setExpr}
+			label={label}
+			onLabel={setLabel}
+			onRoll={(expression, rollLabel) =>
+				dispatch({
+					type: 'dice.roll',
+					actorId,
+					payload: { expression, ...(rollLabel ? { label: rollLabel } : {}) },
+				})
+			}
+		/>
+	);
+}
+
+function QuickDice({
 	widget,
 	onCommand,
 }: {

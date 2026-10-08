@@ -26,6 +26,7 @@ import {
 } from '../state/scene-state';
 import {
 	HOME_WIDGET_TYPES,
+	SESSION_SCREEN_PARTS,
 	findPackageRecordForWidgetType,
 	type HomeWidgetType,
 } from '../state/widget-package-state';
@@ -181,11 +182,16 @@ export function buildDefaultHomeScreen(env: CoreEnvironment, ownerActorId: strin
  * never overwritten, and a deleted one is not resurrected by a read.
  */
 export function findHomeScreen(scenes: SceneState): Scene | null {
+	return findDefaultScreen(scenes, HOME_SCREEN_DEFAULT_KEY);
+}
+
+/** The oldest live scene provisioned as the default screen under `defaultKey`. */
+function findDefaultScreen(scenes: SceneState, defaultKey: string): Scene | null {
 	let found: Scene | null = null;
 	for (const scene of Object.values(scenes.scenes)) {
 		if (!isLiveScene(scene)) continue;
 		const origin = screenMetaOf(scene).origin;
-		if (origin?.kind !== 'default' || origin.defaultKey !== HOME_SCREEN_DEFAULT_KEY) continue;
+		if (origin?.kind !== 'default' || origin.defaultKey !== defaultKey) continue;
 		const older =
 			!found ||
 			scene.ownership.createdAt < found.ownership.createdAt ||
@@ -193,6 +199,85 @@ export function findHomeScreen(scenes: SceneState): Scene | null {
 		if (older) found = scene;
 	}
 	return found;
+}
+
+// --- RC-CAN-7.8 — Session as a screen (ADR-041) ---------------------------------------------------
+
+/** The default-screen key the Session screen is provisioned under; `/session` finds it by this. */
+export const SESSION_SCREEN_DEFAULT_KEY = 'session';
+
+/**
+ * Build the default Session screen: a GM-only FLOW screen of the console's widgets
+ * (`SESSION_SCREEN_PARTS`), recorded as the `session` default screen. The session status runs across
+ * the top; the combat tracker sits beside one stacked column of the other panels (spans 7 + 5, the old
+ * `1.6fr 1fr` grid), so reading and focus order are the console's: status, combat, then the column.
+ */
+export function buildDefaultSessionScreen(env: CoreEnvironment, ownerActorId: string): Scene {
+	const now = env.clock();
+	const id = env.ids();
+	const column = env.ids();
+	let sideRow = 1;
+	const widgets: WidgetInstance[] = SESSION_SCREEN_PARTS.map((part, index) => {
+		const place =
+			part.lane === 'full'
+				? { column: 0, row: 0, span: 12 }
+				: part.lane === 'main'
+					? { column: 0, row: 1, span: 7 }
+					: { column: 7, row: sideRow++, span: 5 };
+		return {
+			id: env.ids(),
+			type: part.type,
+			version: '1.0.0',
+			layout: {
+				x: place.column * FLOW_COLUMN,
+				y: place.row * FLOW_ROW,
+				w: place.span * FLOW_COLUMN,
+				h: FLOW_ROW,
+				z: index + 1,
+				groupId: part.lane === 'side' ? column : null,
+				dock: null,
+				pinned: false,
+				focusOrder: index + 1,
+			},
+			configuration: { ...part.configuration },
+			localState: {},
+			binding: null,
+			disabled: null,
+		};
+	});
+	return withScreenMeta(
+		{
+			id,
+			name: 'Session',
+			description: 'Run the table: the session phase, combat, dice and the tools you use live.',
+			tags: [],
+			visibility: 'dm-only',
+			visualSettings: { background: 'parchment' },
+			ownership: { ownerActorId, createdAt: now, updatedAt: now, revision: 1 },
+			sharingTargets: [],
+			playerViewAssignments: [],
+			templateMeta: { isTemplate: false, instantiatedFromTemplateSceneId: null },
+			sections: [],
+			widgets,
+			schemaVersion: SCENE_SCHEMA_VERSION,
+		},
+		{
+			pinned: false,
+			pinOrder: null,
+			layoutPolicy: 'flow',
+			origin: {
+				kind: 'default',
+				sourceSceneId: null,
+				defaultKey: SESSION_SCREEN_DEFAULT_KEY,
+				at: now,
+			},
+		},
+	);
+}
+
+/** The vault's Session screen, or `null` until `/session` (ensure-home with `session`) provisions it. */
+export function findSessionScreen(scenes: SceneState): Scene | null {
+	return findDefaultScreen(scenes, SESSION_SCREEN_DEFAULT_KEY);
 }
 
 /**
@@ -228,26 +313,35 @@ export function handleEnsureCommandCenterHome(
 	// beside the board it just created; an existing vault gains it as its new home while its board,
 	// untouched, stays the GM screen. Idempotent: once one exists nothing is written, and a GM's
 	// customisation of it is never reset.
-	if (findHomeScreen(board.state.scenes)) return board.result(board.state, []);
-	const home = buildDefaultHomeScreen(env, actor.id);
-	const created = appendOperationDraft(env, board.state.sync, actor.id, {
-		entityType: 'scene',
-		entityId: home.id,
-		opType: 'scene.create',
-		value: home,
-		afterRevision: home.ownership.revision,
-	});
-	return board.result(
-		{
-			...board.state,
+	// RC-CAN-7.8 — and, when `/session` asks (`session: true`), the Session screen, by the same rules.
+	const screens: Scene[] = [];
+	if (!findHomeScreen(board.state.scenes)) screens.push(buildDefaultHomeScreen(env, actor.id));
+	if (parsed.data.session && !findSessionScreen(board.state.scenes))
+		screens.push(buildDefaultSessionScreen(env, actor.id));
+	let next = board.state;
+	const operationIds: string[] = [];
+	for (const screen of screens) {
+		const created = appendOperationDraft(env, next.sync, actor.id, {
+			entityType: 'scene',
+			entityId: screen.id,
+			opType: 'scene.create',
+			value: screen,
+			afterRevision: screen.ownership.revision,
+		});
+		next = {
+			...next,
 			scenes: {
-				schemaVersion: board.state.scenes.schemaVersion,
-				scenes: { ...board.state.scenes.scenes, [home.id]: home },
+				schemaVersion: next.scenes.schemaVersion,
+				scenes: { ...next.scenes.scenes, [screen.id]: screen },
 			},
 			sync: created.log,
-		},
-		[created.op.id],
-		[{ kind: 'scene.created', sceneId: home.id, actorId: actor.id }],
+		};
+		operationIds.push(created.op.id);
+	}
+	return board.result(
+		next,
+		operationIds,
+		screens.map((screen) => ({ kind: 'scene.created', sceneId: screen.id, actorId: actor.id })),
 	);
 }
 

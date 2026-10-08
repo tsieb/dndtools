@@ -48,7 +48,6 @@ export const allow = {
 	'apps/gm-react/src/screens/session/ConditionPickerDialog.tsx': 2,
 	'apps/gm-react/src/screens/session/DiceTray.tsx': 11,
 	'apps/gm-react/src/screens/session/Handouts.tsx': 5,
-	'apps/gm-react/src/screens/session/index.tsx': 2,
 	'apps/gm-react/src/screens/session/Lifecycle.tsx': 9,
 	'apps/gm-react/src/screens/session/NowPlaying.tsx': 4,
 	'apps/gm-react/src/screens/session/PrepRecap.tsx': 8,

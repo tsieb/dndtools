@@ -5,14 +5,19 @@ import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	SESSION_SCREEN_PARTS,
 	createDemoMapState,
 	dispatchCommand,
+	findSessionScreen,
+	findWidgetDefinition,
+	getSceneForActor,
 	type Actor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreStateSlice,
 } from '@dndtools/core';
 import { buildInitialState, makeEnvironment } from '@dndtools/core/testing';
+import { boardWidgetsOf, payloadIndex } from '../../app/board-helpers';
 import { I18nProvider } from '../../i18n';
 import { seedDemoContent } from '../../runtime/demo-seed';
 
@@ -76,6 +81,7 @@ vi.mock('../../net/SessionContext', async (importOriginal) => ({
 }));
 
 const { Session } = await import('./index');
+const { FlowBoard } = await import('../../app/canvas/FlowBoard');
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -421,5 +427,186 @@ describe('Session baselines (RC-CAN-7.8)', () => {
 		runtime.defaultActorId = 'actor-player';
 		runtime.activeActorId = 'actor-player';
 		expectBaseline(await renderSession(), 'desktop player');
+	});
+});
+
+// --- After the conversion -----------------------------------------------------------------------
+
+function sessionScreen() {
+	const screen = findSessionScreen(runtime.state.scenes);
+	if (!screen) throw new Error('the Session screen was not provisioned');
+	return screen;
+}
+
+const REGIONS = [
+	'1. Active Session',
+	'2. Combat',
+	'3. Dice',
+	'4. Rollable tables',
+	'5. Handouts',
+	'6. Now playing',
+	'7. Stage',
+	'8. Campaign date',
+	'9. Prep & recap',
+	'10. End-of-session capture',
+	'11. Table roster',
+	'12. Party',
+	'13. Rests this session',
+	'14. Schedule next session',
+];
+
+/** Each grid cell: the widget in it, where it sits, and whether it is in the layout at all. */
+function cells(grid: HTMLElement) {
+	return [...grid.children].map((cell) => ({
+		part: cell.querySelector('[data-widget-region]')?.getAttribute('aria-label'),
+		column: (cell as HTMLElement).style.gridColumn,
+		row: (cell as HTMLElement).style.gridRow,
+		shown: (cell as HTMLElement).style.display !== 'none',
+	}));
+}
+
+/** The Session screen at its canonical route (`/screen/:id` → `FlowBoard`), in view mode. */
+async function renderCanonical(): Promise<HTMLElement> {
+	const screen = sessionScreen();
+	const summary = getSceneForActor(
+		runtime.state.scenes,
+		runtime.state.permissions,
+		DM.id,
+		screen.id,
+		{ widgetPackages: runtime.state.widgets },
+	);
+	if ('kind' in summary) throw new Error('the Session screen is not readable');
+	const widgets = boardWidgetsOf(
+		screen.widgets,
+		payloadIndex(summary.widgets),
+		(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
+	);
+	await act(async () => {
+		root.render(
+			<MemoryRouter>
+				<I18nProvider>
+					<main id="main-content">
+						<FlowBoard
+							widgets={widgets}
+							tier={viewport}
+							editing={false}
+							selectedId={null}
+							onSelect={() => {}}
+							onMove={() => {}}
+							onResize={() => {}}
+							onWidgetCommand={() => {}}
+						/>
+					</main>
+				</I18nProvider>
+			</MemoryRouter>,
+		);
+	});
+	for (let turn = 0; turn < 3; turn += 1) await act(async () => {});
+	return host.querySelector('main')!;
+}
+
+async function press(name: string) {
+	const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+		(candidate) => squash(candidate.textContent) === name,
+	);
+	if (!button) throw new Error(`no button named ${name}`);
+	await act(async () => button.click());
+}
+
+const openDialog = () => document.querySelector('[role="dialog"]');
+
+describe('Session as a screen (RC-CAN-7.8)', () => {
+	it('is a flow screen of the console’s widgets, each in its own widget region', async () => {
+		await seedDemoVault();
+		const main = await renderSession();
+		const screen = sessionScreen();
+		expect(screen.screen?.layoutPolicy).toBe('flow');
+		expect(screen.widgets.map((widget) => widget.type)).toEqual(
+			SESSION_SCREEN_PARTS.map((part) => part.type),
+		);
+		// The documented difference from the baselines: one labelled region per widget.
+		expect(
+			[...main.querySelectorAll('section[data-widget-region]')].map((region) =>
+				region.getAttribute('aria-label'),
+			),
+		).toEqual(REGIONS);
+		// The status across the top; the tracker beside the column; the empty rest timeline out of it.
+		const grid = main.querySelector<HTMLElement>('[data-testid="session-screen"]')!;
+		expect(cells(grid)).toEqual([
+			{ part: REGIONS[0], column: '1 / span 12', row: '1', shown: true },
+			{ part: REGIONS[1], column: '1 / span 7', row: '2 / span 11', shown: true },
+			...REGIONS.slice(2, 12).map((part, index) => ({
+				part,
+				column: '8 / span 5',
+				row: String(index + 2),
+				shown: true,
+			})),
+			{ part: REGIONS[12], column: '', row: '', shown: false },
+			{ part: REGIONS[13], column: '8 / span 5', row: '12', shown: true },
+		]);
+	});
+
+	it('reads the same at its canonical route, /screen/:id, at every tier', async () => {
+		await seedDemoVault();
+		await goLive();
+		await startFight();
+		for (const tier of ['desktop', 'rail', 'phone'] as const) {
+			viewport = tier;
+			const sessionGrid = (await renderSession()).querySelector<HTMLElement>(
+				'[data-testid="session-screen"]',
+			)!;
+			const expected = {
+				cells: cells(sessionGrid),
+				tree: ariaTree(withoutWidgetRegions(sessionGrid)),
+			};
+			act(() => root.render(null));
+			const flowGrid = (await renderCanonical()).querySelector<HTMLElement>(
+				'[data-testid="flow-grid"]',
+			)!;
+			act(() => root.render(null));
+			expect(cells(flowGrid), tier).toEqual(expected.cells);
+			expect(ariaTree(withoutWidgetRegions(flowGrid)), tier).toEqual(expected.tree);
+		}
+	});
+
+	it('the start, rest and end dialogs open from the session status widget', async () => {
+		await seedDemoVault();
+		await renderSession();
+		await press('Start session');
+		expect(openDialog()?.textContent).toContain('Start');
+		act(() => root.render(null));
+		await goLive();
+		await renderSession();
+		await press('Call a rest');
+		expect(openDialog()?.querySelector('[role="radiogroup"]')).not.toBeNull();
+		act(() => root.render(null));
+		await renderSession();
+		await press('End session');
+		expect(openDialog()?.textContent).toContain('End and review');
+	});
+
+	it('the encounter builder and the end-combat confirm open from the combat widget', async () => {
+		await seedDemoVault();
+		await renderSession();
+		await press('Build encounter');
+		expect(openDialog()?.getAttribute('aria-label') ?? openDialog()?.textContent).toContain(
+			'Build encounter',
+		);
+		act(() => root.render(null));
+		await goLive();
+		await startFight();
+		await renderSession();
+		await press('End combat');
+		expect(openDialog()?.textContent).toContain('Keep');
+	});
+
+	it('the rest timeline joins the layout once a rest is taken', async () => {
+		await seedDemoVault();
+		await goLive();
+		await restTheParty();
+		const grid = (await renderSession()).querySelector<HTMLElement>(
+			'[data-testid="session-screen"]',
+		)!;
+		expect(cells(grid).find((cell) => cell.part === REGIONS[12])).toMatchObject({ shown: true });
 	});
 });

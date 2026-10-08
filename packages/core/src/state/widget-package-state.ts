@@ -1480,6 +1480,170 @@ export function createHomeWidgetDefinitions(): WidgetDefinition[] {
 	];
 }
 
+// --- RC-CAN-7.8 — the Session screen's widgets -----------------------------------------------------
+// The Session console is a flow screen too, one widget per SCREENS_PARITY Session row group. Most of
+// its behaviour (the phase control and its dialogs, the combat tracker's writes and keyboard model,
+// the capture form) has no public widget surface yet (SCREENS_PARITY §4.2 G-05–G-11), so these are
+// BUILTIN widgets with hand-written bodies, held to the RC-WID-5.5 gate's debt ledger. The status,
+// tracker and dice tray are views of the existing `session`, `combat` and `dice` widgets (their
+// `view` setting); the right-hand column's panels are the types below.
+
+/** The Session screen's own widget types, in the console's reading order. */
+export const SESSION_WIDGET_TYPES = [
+	'session-tables',
+	'session-handouts',
+	'session-now-playing',
+	'session-stage',
+	'session-campaign-date',
+	'session-prep-recap',
+	'session-capture',
+	'session-roster',
+	'session-party',
+	'session-rests',
+	'session-schedule',
+] as const;
+export type SessionWidgetType = (typeof SESSION_WIDGET_TYPES)[number];
+
+/** Where a Session part sits: across the top, the main column, or the stacked side column. */
+export type SessionScreenLane = 'full' | 'main' | 'side';
+
+export interface SessionScreenPart {
+	type: string;
+	/** The instance's own settings: the view of a shared widget, and bare presentation. */
+	configuration: Record<string, unknown>;
+	lane: SessionScreenLane;
+}
+
+/**
+ * The default Session screen, in reading order: the session status across the top, the combat
+ * tracker beside a column of the console's panels (dice first), as `/session` laid itself out.
+ */
+export const SESSION_SCREEN_PARTS: readonly SessionScreenPart[] = Object.freeze([
+	{ type: 'session', configuration: { view: 'console', presentation: 'bare' }, lane: 'full' },
+	{ type: 'combat', configuration: { view: 'tracker', presentation: 'bare' }, lane: 'main' },
+	{ type: 'dice', configuration: { view: 'tray', presentation: 'bare' }, lane: 'side' },
+	...SESSION_WIDGET_TYPES.map(
+		(type): SessionScreenPart => ({ type, configuration: {}, lane: 'side' }),
+	),
+]);
+
+/** Placeable on any screen, but not offered in the add gallery: the Session screen places them. */
+const SESSION_PLACEMENT: WidgetPlacement = { surfaces: ['scene'], libraryListed: false };
+
+function sessionPart(input: {
+	type: SessionWidgetType;
+	displayName: string;
+	icon: string;
+	description: string;
+	dataQueries?: WidgetDataQueryDefinition[];
+}): WidgetDefinition {
+	return systemWidget({
+		type: input.type,
+		displayName: input.displayName,
+		category: 'Session',
+		description: input.description,
+		icon: input.icon,
+		defaultSize: { width: 480, height: 240 },
+		minSize: { width: 240, height: 96 },
+		placement: SESSION_PLACEMENT,
+		renderEntrypoint: builtinEntrypoint(input.type),
+		configFields: [titleField(), barePresentationField()],
+		dataQueries: input.dataQueries,
+	});
+}
+
+/** The right-hand column's panels (SCREENS_PARITY SE-16–SE-26). */
+export function createSessionWidgetDefinitions(): WidgetDefinition[] {
+	return [
+		sessionPart({
+			type: 'session-tables',
+			displayName: 'Rollable tables',
+			icon: 'tile-dice',
+			description: 'Draw from the vault’s dice tables and pin them for quick reference.',
+			dataQueries: [
+				dataQuery('tables', 'Rollable tables', 'rollable-tables'),
+				dataQuery('pins', 'Quick reference pins', 'quick-reference'),
+			],
+		}),
+		sessionPart({
+			type: 'session-handouts',
+			displayName: 'Handouts',
+			icon: 'tile-handout',
+			description: 'Push a handout to the players and see who has read it.',
+			dataQueries: [dataQuery('handouts', 'Handouts', 'handouts')],
+		}),
+		sessionPart({
+			type: 'session-now-playing',
+			displayName: 'Now playing',
+			icon: 'tile-audio',
+			description: 'What is playing for the table, with pause, stop and volume.',
+		}),
+		sessionPart({
+			type: 'session-stage',
+			displayName: 'Stage',
+			icon: 'tile-map',
+			description: 'The active map, projecting it, and which scene each player sees.',
+			dataQueries: [
+				dataQuery('maps', 'Maps', 'maps', 'dm'),
+				dataQuery('projections', 'Player views', 'player-projections', 'dm'),
+			],
+		}),
+		sessionPart({
+			type: 'session-campaign-date',
+			displayName: 'Campaign date',
+			icon: 'tile-calendar',
+			description: 'The in-world date the Campaign timeline follows.',
+		}),
+		sessionPart({
+			type: 'session-prep-recap',
+			displayName: 'Prep & recap',
+			icon: 'folder',
+			description: 'What to carry into the session, and the recap of the last one.',
+			dataQueries: [
+				dataQuery('digest', 'Continuity', 'continuity-digest', 'dm'),
+				dataQuery('archives', 'Session archives', 'session-archives', 'dm'),
+			],
+		}),
+		sessionPart({
+			type: 'session-capture',
+			displayName: 'End-of-session capture',
+			icon: 'note-edit',
+			description: 'Write the session log and mark what changed.',
+			dataQueries: [
+				dataQuery('archives', 'Session archives', 'session-archives', 'dm'),
+				dataQuery('candidates', 'What changed', 'capture-candidates', 'dm'),
+			],
+		}),
+		sessionPart({
+			type: 'session-roster',
+			displayName: 'Table roster',
+			icon: 'players',
+			description: 'Who is at the table right now.',
+			dataQueries: [dataQuery('presence', 'Presence', 'presence')],
+		}),
+		sessionPart({
+			type: 'session-party',
+			displayName: 'Party',
+			icon: 'characters-person',
+			description: 'The player characters and their hit points.',
+			dataQueries: [dataQuery('party', 'Party', 'party')],
+		}),
+		sessionPart({
+			type: 'session-rests',
+			displayName: 'Rests this session',
+			icon: 'rest-short',
+			description: 'Every rest the party has taken, newest first.',
+			dataQueries: [dataQuery('rests', 'Rests', 'rest-log')],
+		}),
+		sessionPart({
+			type: 'session-schedule',
+			displayName: 'Schedule next session',
+			icon: 'tile-calendar',
+			description: 'Put the next session on the calendar.',
+		}),
+	];
+}
+
 export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): WidgetPackageState {
 	// SES-005 — the timer/tool widget's runtime action surface. start/pause/resume/reset/advance are
 	// OPERATE actions (require `operator`); set-duration CONFIGURES the timer (requires `manager`). An
@@ -1579,7 +1743,21 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			defaultSize: { width: 220, height: 160 },
 			minSize: { width: 160, height: 120 },
 			renderEntrypoint: templateEntrypoint('action-panel'),
-			configFields: [textField('formulas', 'Quick-roll formulas (comma separated)')],
+			configFields: [
+				textField('formulas', 'Quick-roll formulas (comma separated)'),
+				// RC-CAN-7.8 — the Session screen's dice tray (expression, label, history); the quick
+				// rolls stay the default.
+				selectField(
+					'view',
+					'Shows',
+					[
+						{ value: 'quick', label: 'Quick rolls' },
+						{ value: 'tray', label: 'Dice tray' },
+					],
+					'quick',
+					'display',
+				),
+			],
 		}),
 		commands: [
 			{
@@ -1725,6 +1903,20 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			icon: 'controls',
 			description: 'Session status strip, phase controls, and workflow.',
 			size: { width: 400, height: 250 },
+			// RC-CAN-7.8 — the Session screen shows the full phase control (Standby, Prep, Live, Recap,
+			// the start, rest and end dialogs); the strip stays the default everywhere else.
+			configFields: [
+				selectField(
+					'view',
+					'Shows',
+					[
+						{ value: 'strip', label: 'Status strip' },
+						{ value: 'console', label: 'Session controls' },
+					],
+					'strip',
+					'display',
+				),
+			],
 		}),
 		commandCenterWidget({
 			type: 'getting-started',
@@ -1807,7 +1999,21 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			icon: 'sword',
 			description: 'Live tracker glance plus the most recent encounter.',
 			size: { width: 194, height: 150 },
-			configFields: [toggleField('showChallenge', 'Challenge rating', true)],
+			configFields: [
+				// RC-CAN-7.8 — the Session screen's full tracker (the encounter builder, turn controls,
+				// hit points, conditions and the keyboard model); the glance stays the default.
+				selectField(
+					'view',
+					'Shows',
+					[
+						{ value: 'glance', label: 'Glance' },
+						{ value: 'tracker', label: 'Full tracker' },
+					],
+					'glance',
+					'display',
+				),
+				toggleField('showChallenge', 'Challenge rating', true),
+			],
 			dataQueries: [dataQuery('combat', 'Combat tracker', 'current-combatants', 'dm')],
 		}),
 		commandCenterWidget({
@@ -1862,6 +2068,15 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			version: '1.0.0',
 			displayName: 'Command Center Parts',
 			widgets: createHomeWidgetDefinitions(),
+			migrations: [],
+			assets: [],
+			portabilityWarnings: [],
+		},
+		{
+			id: 'system.session-widgets',
+			version: '1.0.0',
+			displayName: 'Session Widgets',
+			widgets: createSessionWidgetDefinitions(),
 			migrations: [],
 			assets: [],
 			portabilityWarnings: [],

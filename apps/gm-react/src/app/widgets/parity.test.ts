@@ -3,10 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	CORE_NAMED_WIDGET_COMMANDS,
+	SESSION_WIDGET_TYPES,
 	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_ROUTES,
 	dispatchCommand,
 	findHomeScreen,
+	findSessionScreen,
 	findPackageRecordForWidgetType,
 	screenMetaOf,
 	widgetPackageForkIdentity,
@@ -86,12 +88,14 @@ function check(
 
 const DM: Actor = { id: 'dm-1', role: 'dm', displayName: 'Dungeon Master' };
 
+/** A fresh vault with every shipped default screen: the GM board, the home screen and (RC-CAN-7.8)
+ *  the Session screen, which `/session` asks `ensure-home` for. */
 function provisionedVault() {
 	const env = makeEnvironment();
 	const result = dispatchCommand(buildInitialState(DM) as CoreStateSlice, env, {
 		type: 'command-center.ensure-home',
 		actorId: DM.id,
-		payload: {},
+		payload: { session: true },
 	} as CoreCommand);
 	if (result.status !== 'accepted') throw new Error(result.rejection.message);
 	return { env, state: result.nextState };
@@ -106,6 +110,7 @@ function screenFindings(): string[] {
 describe('builder parity gate: the debt ledger', () => {
 	it('matches every finding exactly: none unledgered, none stale', () => {
 		expect(findHomeScreen(provisionedVault().state.scenes)?.widgets.length).toBeGreaterThan(0);
+		expect(findSessionScreen(provisionedVault().state.scenes)?.widgets.length).toBeGreaterThan(0);
 		expect(compareToLedger([...check(bodyUses()), ...screenFindings()])).toEqual({
 			unledgered: [],
 			stale: [],
@@ -115,10 +120,16 @@ describe('builder parity gate: the debt ledger', () => {
 	it('lists each finding once and names the story that repays it', () => {
 		const findings = PARITY_DEBT_LEDGER.map((debt) => debt.finding);
 		expect(new Set(findings).size).toBe(findings.length);
-		for (const debt of PARITY_DEBT_LEDGER)
-			expect(debt.repaidBy, debt.finding).toBe(
-				debt.finding.endsWith('is not byte-identical') ? 'RC-WID-5.6' : 'RC-WID-5.7',
-			);
+		for (const debt of PARITY_DEBT_LEDGER) {
+			const type = debt.finding.slice(0, debt.finding.indexOf(':'));
+			if (debt.finding.endsWith('is not byte-identical'))
+				expect(debt.repaidBy, debt.finding).toBe('RC-WID-5.6');
+			// RC-CAN-7.8: the Session screen's own panels are repaid by the Session surface story; the
+			// views it added to `session`, `combat` and `dice` are too, beside their older board debt.
+			else if ((SESSION_WIDGET_TYPES as readonly string[]).includes(type))
+				expect(debt.repaidBy, debt.finding).toBe('RC-WID-5.13');
+			else expect(['RC-WID-5.7', 'RC-WID-5.13'], debt.finding).toContain(debt.repaidBy);
+		}
 	});
 
 	it('fails on a ledger entry that no longer reproduces', () => {
@@ -224,9 +235,11 @@ describe('builder parity gate: builtin bodies', () => {
 			...BUILTIN_PARITY,
 			dice: { ...BUILTIN_PARITY.dice, commands: [...BUILTIN_PARITY.dice.commands, 'timer.start'] },
 		};
-		expect(check(bodyUses(), declared).filter((problem) => problem.startsWith('dice:'))).toEqual([
-			'dice: declares command timer.start but never dispatches it',
-		]);
+		expect(
+			compareToLedger(check(bodyUses(), declared)).unledgered.filter((problem) =>
+				problem.startsWith('dice:'),
+			),
+		).toEqual(['dice: declares command timer.start but never dispatches it']);
 	});
 
 	it('reports a builtin body with no declared entry', () => {

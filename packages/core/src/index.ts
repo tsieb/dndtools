@@ -578,6 +578,9 @@ export type {
 	WidgetQueryStatus,
 	// RC-CAN-7.6 — the Command Center's parts.
 	HomeWidgetType,
+	SessionScreenLane,
+	SessionScreenPart,
+	SessionWidgetType,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -643,6 +646,10 @@ export {
 	WIDGET_TEXT_MESSAGE_PREFIX,
 	createHomeWidgetDefinitions,
 	isCopyableSystemWidget,
+	// RC-CAN-7.8 — the Session screen's widgets.
+	SESSION_SCREEN_PARTS,
+	SESSION_WIDGET_TYPES,
+	createSessionWidgetDefinitions,
 } from './state/widget-package-state';
 export type {
 	WidgetCommandAvailability,
@@ -1699,8 +1706,11 @@ export { getSessionStatusStrip, resolveCommandCenterHome } from './queries/comma
 // RC-CAN-7.6 — the Command Center as the default screen.
 export {
 	HOME_SCREEN_DEFAULT_KEY,
+	SESSION_SCREEN_DEFAULT_KEY,
 	buildDefaultHomeScreen,
+	buildDefaultSessionScreen,
 	findHomeScreen,
+	findSessionScreen,
 	isDefaultScreen,
 } from './commands/command-center';
 

@@ -1,730 +1,209 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-	EMPTY_PRESENCE_STATE,
-	allowedTransitionsFrom,
-	projectSessionPresence,
-	SESSION_LOG_SUBTYPE,
-	VAULT_OBJECT_SUBTYPE_KEY,
-	type SessionWorkflowState,
+	buildDefaultSessionScreen,
+	findSessionScreen,
+	findWidgetDefinition,
+	getSceneForActor,
+	type CoreCommand,
+	type CoreEnvironment,
+	type WidgetInstance,
 } from '@dndtools/core';
-import { Toaster, useConditionCatalog } from '../../ds';
-import { EncounterDialog } from '../../app/EncounterBuilder';
-import { Page } from '../../app/screen-kit';
+import { Button, EmptyState, Skeleton } from '../../ds';
+import { Page, T } from '../../app/screen-kit';
+import {
+	boardWidgetPresentation,
+	boardWidgetsOf,
+	flowColumnsFor,
+	flowOrder,
+	flowPlacementsForOrder,
+	payloadIndex,
+	type BoardWidget,
+} from '../../app/board-helpers';
+import { FlowViewTile } from '../../app/canvas/FlowBoard';
+import { useBlankTiles } from '../../app/canvas/FlowPart';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { useSession } from '../../net/SessionContext';
 import { useViewport } from '../../app/useViewport';
-import { StagePanel } from './ActiveMap';
-import { CampaignDatePanel } from './CampaignDate';
-import { CombatPanel } from './CombatTracker';
-import { ConditionPickerDialog } from './ConditionPickerDialog';
-import { DicePanel } from './DiceTray';
-import { HandoutsPanel } from './Handouts';
-import {
-	EndCombatDialog,
-	EndSessionDialog,
-	CallRestDialog,
-	RestTimelinePanel,
-	SessionHeader,
-	StandbyStatus,
-	StartSessionDialog,
-	type SessionStartChoice,
-} from './Lifecycle';
-import { AudioPanel } from './NowPlaying';
-import { CapturePanel, type CaptureSubmission } from './Capture';
-import { RecapPanel } from './PrepRecap';
-import { PartyPanel, RosterPanel } from './Roster';
-import { SchedulePanel } from './Schedule';
-import { TablesPanel, type TableView } from './Tables';
-import { useSessionView } from './useSessionView';
 
 /**
- * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
- * It runs the session lifecycle (`session.set-workflow`), the encounter builder (a composition
- * dialog over the real character roster dispatching `encounter.build` → `combat.start`), the combat
- * tracker (`combat.advance-turn/previous-turn/apply-resource/end` plus the mid-fight roster ops
- * `combat.add-combatants/remove-combatant/reorder-combatant/set-combatant-visibility` over
- * `getCombatTrackerForActor`), the dice roller (`dice.roll` over `getDiceHistoryForActor`), handout
- * delivery (`session.deliver-handout/revoke-handout/acknowledge-handout`), now-playing session audio
- * (`session.audio.pause/resume/stop/set-volume`), the active-map stage
- * (`session.set-active-map/project-active-map`), the campaign date (`session.set-campaign-date`
- * over `getCalendarContinuityForActor` — the control the Campaign timeline points at), and the
- * SES-009 prep/recap panel (the `getPrepRecapDigest` continuity digest, the session archives, and
- * recap authoring via `session.author-recap`). Combat, dice, tables
- * and delivery work in every workflow state (RC-SES-6.1/6.2); starting the session starts the log,
- * the clock and the automations, so a roll made outside it is kept but not logged. Reads are actor-filtered, so previewing as a player projects the player-safe
- * view; every durable write is rejected read-only while previewing. Tracker rows follow the DS
- * InitiativeRow anatomy (mono initiative · avatar with gold turn ring · gold active left rail ·
- * HPBar) with per-condition ConditionBadge chips from the CONDITIONS registry (distinct icon per
- * condition — the grayscale-safe contract). The spatial widget board lives on `/board` and
- * `/scene/:id`; this screen is the combat hot path.
+ * Session — `/session`, the Session screen (ADR-041, RC-CAN-7.8).
+ *
+ * The live-play console is no longer drawn here. It is a FLOW screen of widgets, one per
+ * SCREENS_PARITY Session row group, that `command-center.ensure-home` provisions the first time a GM
+ * opens `/session` (`session: true`): the session status (`session`, its Standby / Prep / Live / Recap
+ * control and the start, rest and end dialogs) across the top, the combat tracker (`combat`, with
+ * the encounter builder) beside a column of the dice tray (`dice`), rollable tables, handouts, now
+ * playing, stage and projection, campaign date, prep and recap, capture, table roster, party, the
+ * rest timeline and scheduling. Each widget reads the core actor-scoped and dispatches its own
+ * commands, so previewing as a player projects that player's view. This page renders the screen in
+ * reading mode through the flow policy's own pieces, so it reads the same here and at `/screen/:id`,
+ * where the GM moves, removes or restyles any part of it.
+ *
+ * Its committed baselines (`Session.baseline.test.tsx`) are the bespoke console's: the same
+ * accessibility tree, DOM skeleton, headings and focus order, apart from the widget regions.
  */
+
+/** The console's 16px between its panels; widgets in bare presentation carry no padding of their own. */
+const PANEL_GAP = T.space.four;
+
+/** Ensure the Session screen exists, once per mount; reports a provisioning write that failed. */
+function useProvisionedSessionScreen(enabled: boolean) {
+	const runtime = useRuntime();
+	const screen = findSessionScreen(runtime.state.scenes);
+	const asked = useRef(false);
+	const [failed, setFailed] = useState(false);
+	const [attempt, setAttempt] = useState(0);
+	useEffect(() => {
+		if (!enabled || screen || !runtime.loaded || asked.current) return;
+		asked.current = true;
+		const command: CoreCommand = {
+			type: 'command-center.ensure-home',
+			actorId: runtime.defaultActorId,
+			payload: { session: true },
+		};
+		// `dispatch` rethrows a persist failure; a rejection is reported in its result.
+		void Promise.resolve(runtime.dispatch(command))
+			.then((result) => setFailed(result.status !== 'accepted'))
+			.catch(() => setFailed(true));
+	}, [enabled, screen, runtime, attempt]);
+	const retry = () => {
+		asked.current = false;
+		setFailed(false);
+		setAttempt((count) => count + 1);
+	};
+	return { screen, failed, retry };
+}
+
+/**
+ * The default Session screen's widgets, unsaved: what a participant's device draws. The GM's screen
+ * is GM-only, so a player never reads it; every widget reads that player's own view.
+ */
+function defaultSessionWidgets(ownerActorId: string): WidgetInstance[] {
+	let next = 0;
+	const env = {
+		ids: () => `session-part-${next++}`,
+		clock: () => '1970-01-01T00:00:00.000Z',
+	} as unknown as CoreEnvironment;
+	return buildDefaultSessionScreen(env, ownerActorId).widgets;
+}
 
 export function Session() {
 	const runtime = useRuntime();
-	const { t } = useI18n();
 	const viewport = useViewport();
-	const session = useSession();
+	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
-	const workflow = runtime.state.session.workflow;
-	const isLive = workflow === 'active';
-	// `recap → active` is not a legal core transition (session-workflow.ts), so the standby card's
-	// "Go live" was a button that could only ever fail.
-	const canGoLive = allowedTransitionsFrom(workflow as SessionWorkflowState).includes('active');
 	const previewing = !!runtime.preview;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
-	// RC-SES-3.1 — names an expired condition key for the round-tick toast, from the ACTIVE package.
-	const conditionCatalog = useConditionCatalog();
+	// Previewing is something only the GM does, on the GM's own screen: it keeps the GM's layout and
+	// shows each widget as the previewed actor sees it.
+	const { screen, failed, retry } = useProvisionedSessionScreen(isDm && !previewing);
 
-	const {
-		tracker,
-		dice,
-		characters,
-		party,
-		startableScenes,
-		activeSceneName,
-		activeSceneId,
-		handouts,
-		handoutStatus,
-		audio,
-		audioLabel,
-		maps,
-		activeMapId,
-		marchingOrder,
-		players,
-		calendar,
-		campaignDate,
-		digest,
-		archives,
-		recapArchiveId,
-		captureCandidates,
-		campaignDateValue,
-		restLog,
-		tables,
-		tableDraws,
-		quickPins,
-	} = useSessionView(runtime, actorId);
+	// Widgets that currently draw nothing (the rest timeline before a rest, the GM-only panels for a
+	// participant) leave the layout. They stay mounted, out of the grid, so one that has something to
+	// show again comes back.
+	const [blank, reportBlank] = useBlankTiles();
 
-	// COLLAB-004 — the ephemeral core presence, projected for this viewer via the core query (fail
-	// closed: only registered participants surface). Written by `session.set-presence`, which the P2P
-	// host applies (stamped) whenever a connected player's presence beat arrives; never persisted.
-	const presenceByActor = useMemo(() => {
-		const projection = projectSessionPresence(
-			runtime.state.presence ?? EMPTY_PRESENCE_STATE,
-			runtime.state.permissions,
-			actorId,
-		);
-		return new Map(projection.visible.map((entry) => [entry.actorId, entry]));
-	}, [runtime.state, actorId]);
-
-	const [selectedId, setSelectedId] = useState<string | null>(null);
-	const [diceExpr, setDiceExpr] = useState('1d20+7');
-	const [diceLabel, setDiceLabel] = useState('');
-	const [handoutTitle, setHandoutTitle] = useState('');
-	const [handoutBody, setHandoutBody] = useState('');
-	// The encounter-composition dialog: 'start' builds `encounter.build` → `combat.start`;
-	// 'reinforce' adds to running combat via `combat.add-combatants`.
-	const [builderMode, setBuilderMode] = useState<'start' | 'reinforce' | null>(null);
-	// The combatant id the condition-picker dialog is open for (the design-b condPick modal pattern).
-	const [condPickFor, setCondPickFor] = useState<string | null>(null);
-	// `combat.end` discards the round counter, the initiative order, and every combatant's HP and
-	// conditions, and the core has no restore command — so it needs a confirm step, like the other
-	// irreversible actions in this app.
-	const [endConfirmOpen, setEndConfirmOpen] = useState(false);
-	const [standbyConfirmOpen, setStandbyConfirmOpen] = useState(false);
-	// RC-SES-1.3 — the start flow's dialog (continue the current scene, or a new session with a name).
-	const [startOpen, setStartOpen] = useState(false);
-	// RC-CHR-1.2 — the DM's party-wide "Call a rest" dialog.
-	const [restOpen, setRestOpen] = useState(false);
-
-	// Create-intent handoff from the "Build encounter" launchers (⌘K palette, the shell's Create
-	// menu). They used to perform a bare navigation to /session and leave the DM to hunt for the
-	// dialog — every other Create entry hands its destination an intent. Consumed once, then cleared.
-	const location = useLocation();
-	const navigate = useNavigate();
-	useEffect(() => {
-		const intent = (location.state ?? null) as { createEncounter?: boolean } | null;
-		if (intent?.createEncounter) {
-			setBuilderMode('start');
-			navigate(location.pathname, { replace: true, state: null });
-		}
-	}, [location.state, location.pathname, navigate]);
-
-	/**
-	 * RC-SES-3.1 — advance the turn, and SAY what the round tick took off. A condition badge that
-	 * silently disappears between rounds is indistinguishable from a bug, so the core's
-	 * `combat.condition-expired` events become a toast naming the condition and whose it was. One
-	 * expiry names it; several are counted, because a wall of toasts at the top of a round is worse
-	 * than a number the encounter log can expand on.
-	 */
-	async function advanceTurn(): Promise<void> {
-		const result = await runtime.dispatch({ type: 'combat.advance-turn', actorId, payload: {} });
-		if (result.status !== 'accepted') {
-			Toaster.error(result.rejection.message);
-			return;
-		}
-		const expired = result.events.filter((e) => e.kind === 'combat.condition-expired');
-		if (expired.length === 0) return;
-		if (expired.length === 1) {
-			const only = expired[0]!;
-			Toaster.info(
-				t('session.combat.conditionExpired', {
-					condition: conditionCatalog.registry[only.condition]?.label ?? only.condition,
-					name: tracker.combatants.find((c) => c.id === only.combatantId)?.name ?? '',
-				}),
+	const { tiles, columns, ready } = useMemo(() => {
+		const defOf = (type: string) => findWidgetDefinition(runtime.state.widgets, type) ?? null;
+		let widgets: BoardWidget[] | null = null;
+		if (screen && isDm && !previewing) {
+			const summary = getSceneForActor(
+				runtime.state.scenes,
+				runtime.state.permissions,
+				actorId,
+				screen.id,
+				{ widgetPackages: runtime.state.widgets },
 			);
-			return;
+			if (!('kind' in summary))
+				widgets = boardWidgetsOf(screen.widgets, payloadIndex(summary.widgets), defOf);
+		} else if (screen && previewing) {
+			widgets = boardWidgetsOf(screen.widgets, new Map(), defOf, { includeUndelivered: true });
+		} else if (!isDm) {
+			widgets = boardWidgetsOf(defaultSessionWidgets(actorId), new Map(), defOf, {
+				includeUndelivered: true,
+			});
 		}
-		Toaster.info(t('session.combat.conditionExpiredMany', { count: expired.length }));
-	}
+		if (!widgets) return { tiles: [], columns: 1, ready: false };
+		// The flow board's own tier rule: a screen of bare parts keeps its arrangement at rail, as the
+		// console always did, and only the phone collapses it to one column.
+		const columns = flowColumnsFor(viewport, widgets);
+		// DOM order is the reading order (ADR-041), blank parts included.
+		const ordered = flowOrder(widgets);
+		const placements = flowPlacementsForOrder(
+			ordered.filter(
+				(widget) => !(blank.has(widget.id) && boardWidgetPresentation(widget) === 'bare'),
+			),
+			columns,
+		);
+		const placed = new Map(placements.map((placement) => [placement.id, placement]));
+		const tiles = ordered.map((widget) => ({
+			widget,
+			placement: placed.get(widget.id) ?? null,
+			count: placements.length,
+		}));
+		return { tiles, columns, ready: true };
+	}, [screen, isDm, previewing, runtime.state, actorId, viewport, blank]);
 
-	async function dispatch(
-		command: Parameters<typeof runtime.dispatch>[0],
-		ok?: string,
-	): Promise<boolean> {
-		const result = await runtime.dispatch(command);
-		if (result.status === 'accepted') {
-			if (ok) Toaster.success(ok);
-			return true;
-		}
-		Toaster.error(result.rejection.message);
-		return false;
-	}
-
-	/**
-	 * RC-SES-4.1 — one capture writes TWO durable records through EXISTING commands: the structured
-	 * recap onto the session archive, then the `session-log` note in the vault. The note is created
-	 * ONLY after the recap is accepted, so a rejected capture never leaves an orphan note behind, and
-	 * a failure at either step says which half did not land rather than reporting a false success.
-	 */
-	async function captureSession(submission: CaptureSubmission): Promise<boolean> {
-		const { archiveId, title, markdown, capture } = submission;
-		const recap = await runtime.dispatch({
-			type: 'session.author-recap',
-			actorId,
-			payload: {
-				archiveId,
-				markdown,
-				happened: capture.happened,
-				changes: capture.changes,
-				followUps: capture.followUps,
-			},
-		});
-		if (recap.status !== 'accepted') {
-			Toaster.error(recap.rejection.message);
-			return false;
-		}
-		const note = await runtime.dispatch({
-			type: 'content.create-item',
-			actorId,
-			payload: {
-				kind: 'note',
-				title,
-				body: markdown,
-				visibility: 'dm-only',
-				fields: {
-					[VAULT_OBJECT_SUBTYPE_KEY]: SESSION_LOG_SUBTYPE,
-					title,
-					sessionArchiveId: archiveId,
-					happened: capture.happened,
-					changes: capture.changes,
-					followUps: capture.followUps,
-				},
-				// Dating the note at the campaign current date is what places it on the Campaign
-				// timeline. With no date set there is nothing truthful to date it with, so it is left
-				// undated (the panel says so) rather than stamped with a made-up day.
-				...(campaignDateValue ? { dateFields: { occurred: campaignDateValue } } : {}),
-			},
-		});
-		if (note.status !== 'accepted') {
-			Toaster.error(t('session.capture.noteFailed'));
-			return false;
-		}
-		Toaster.success(t('session.capture.saved'));
-		return true;
-	}
-
-	/**
-	 * RC-SES-4.2 — the continuity check's "Create" button: a DM-only quick-create NPC (CHAR-001),
-	 * dm-only by the command's own visibility default, named exactly as the capture's prose named it.
-	 */
-	async function quickCreateContinuityNpc(name: string): Promise<boolean> {
-		return dispatch(
-			{ type: 'character.quick-create', actorId, payload: { kind: 'npc', name } },
-			t('session.capture.continuityCreated', { name }),
+	if (!ready) {
+		return (
+			<Page max={1280}>
+				{failed ? (
+					<EmptyState
+						icon="session-bolt"
+						title={t('session.setupFailed')}
+						description={t('home.setupFailedHint')}
+						action={
+							<Button variant="secondary" size="sm" icon="refresh" onClick={retry}>
+								{t('common.action.retry')}
+							</Button>
+						}
+					/>
+				) : (
+					<div role="status" aria-label={t('common.state.loading')} aria-busy="true">
+						<Skeleton variant="text" lines={3} />
+					</div>
+				)}
+			</Page>
 		);
 	}
-
-	// Every other lifecycle control on this screen confirms what it did — `goLive` toasts, the top-bar
-	// ProjectionControl toasts. The phase Seg alone changed durable lifecycle state and said nothing,
-	// so a screen-reader DM got only a silently re-checked radio.
-	function workflowAnnounce(target: 'prep' | 'recap' | 'idle'): string {
-		if (target === 'prep') return t('session.movedToPrep');
-		if (target === 'recap') return t('session.archivedIntoRecap');
-		return t('session.end.toast');
-	}
-
-	/** The scene a "Continue" start resumes: the session's own scene, else the home Scene. */
-	function continueSceneId(): string | null {
-		return runtime.state.session.activeSceneId ?? runtime.state.commandCenter.homeSceneId ?? null;
-	}
-
-	// RC-SES-1.3 — going live is a flow, not a press: the dialog asks which scene (and lets a new
-	// session be named) instead of silently resolving one. Opening it is still gated exactly as the
-	// dispatch was, so a blocked "Go live" opens nothing rather than raising a dialog it cannot honour.
-	function openStart(): void {
-		if (previewing || !isDm || !canGoLive) return;
-		if (startableScenes.length === 0) {
-			Toaster.warning(t('session.goLive.needsScene'));
-			return;
-		}
-		setStartOpen(true);
-	}
-
-	async function goLive(choice: SessionStartChoice): Promise<void> {
-		await dispatch(
-			{
-				type: 'session.set-workflow',
-				actorId,
-				payload: {
-					workflow: 'active',
-					activeSceneId: choice.sceneId,
-					// An unnamed start clears any name left on the slice, so a new session never inherits
-					// the previous one's name.
-					title: choice.title,
-				},
-			},
-			t('session.goLive.announcement'),
-		);
-	}
-
-	async function deliverHandout(): Promise<void> {
-		const title = handoutTitle.trim();
-		if (!title) return;
-		// RC-SES-6.2 — a push works outside a session too, where no scene is active: it lands on the
-		// scene a "Continue" start would resume, else the first scene the DM can see.
-		const sceneId =
-			activeSceneId ??
-			startableScenes.find((scene) => scene.id === continueSceneId())?.id ??
-			startableScenes[0]?.id ??
-			null;
-		if (!sceneId) {
-			Toaster.warning(t('session.goLive.needsScene'));
-			return;
-		}
-		if (players.length === 0) {
-			Toaster.warning(t('projection.noPlayers'));
-			return;
-		}
-		const ok = await dispatch(
-			{
-				type: 'session.deliver-handout',
-				actorId,
-				payload: {
-					title,
-					sections: [
-						{ heading: title, body: handoutBody.trim(), visibility: 'player-visible' as const },
-					],
-					sceneId,
-					recipientActorIds: players.map((p) => p.id),
-				},
-			},
-			t('projection.pushed', { title, count: players.length }),
-		);
-		if (ok) {
-			setHandoutTitle('');
-			setHandoutBody('');
-		}
-	}
-
-	const selected = tracker.combatants.find((c) => c.id === selectedId) ?? null;
-	const condPickTarget = tracker.combatants.find((c) => c.id === condPickFor) ?? null;
-	// `canDeliver` gates only on DM-ness + not previewing: requiring a scene/`players.length` here
-	// too made `deliverHandout`'s two Toaster.warning branches DEAD, so a DM with no registered players
-	// saw a permanently greyed "Push to players" and was never told why. RC-SES-6.2 — a push works in
-	// every workflow state, so being live is no longer part of it.
-	const canDeliver = isDm && !previewing;
 
 	return (
 		<Page max={1280}>
-			<SessionHeader
-				workflow={workflow}
-				sceneName={activeSceneName}
-				sessionTitle={runtime.state.session.title}
-				previewing={previewing}
-				isDm={isDm}
-				canStart={canGoLive}
-				onSetWorkflow={(w) => setWorkflow(w)}
-				onStart={openStart}
-				onEnd={() => setStandbyConfirmOpen(true)}
-				onCallRest={() => setRestOpen(true)}
-			/>
-
-			{!isLive && <StandbyStatus workflow={workflow} canStart={canGoLive} t={t} />}
-
 			<div
+				data-testid="session-screen"
+				data-screen-id={screen?.id}
 				style={{
 					display: 'grid',
-					gridTemplateColumns:
-						viewport === 'phone' ? 'minmax(0,1fr)' : 'minmax(0,1.6fr) minmax(0,1fr)',
-					gap: 16,
+					gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+					gap: PANEL_GAP,
 					alignItems: 'start',
 				}}
 			>
-				<CombatPanel
-					tracker={tracker}
-					isDm={isDm}
-					selectedId={selectedId}
-					selected={selected}
-					previewing={previewing}
-					onStart={() => setBuilderMode('start')}
-					onAdd={() => setBuilderMode('reinforce')}
-					onSelect={setSelectedId}
-					onAdvance={() => void advanceTurn()}
-					onPrevious={() => dispatch({ type: 'combat.previous-turn', actorId, payload: {} })}
-					onEnd={() => setEndConfirmOpen(true)}
-					onHp={(combatantId, delta) =>
-						dispatch({
-							type: 'combat.apply-resource',
-							actorId,
-							payload: { combatantId, kind: 'hp', delta },
-						})
-					}
-					// RC-SES-3.2 — the HP sheet's Temp action. `temp-hp` sets a VALUE (the core keeps the
-					// higher of the two), unlike `hp` which takes a delta.
-					onTempHp={(combatantId, value) =>
-						dispatch({
-							type: 'combat.apply-resource',
-							actorId,
-							payload: { combatantId, kind: 'temp-hp', value },
-						})
-					}
-					onCondition={(combatantId, condition, present) =>
-						dispatch({
-							type: 'combat.apply-resource',
-							actorId,
-							payload: { combatantId, kind: 'condition', condition, present },
-						})
-					}
-					onPickCondition={(combatantId) => setCondPickFor(combatantId)}
-					// RC-CHR-1.3 — the dying combatant's death-save track.
-					onDeathSave={(combatantId, outcome) =>
-						dispatch({
-							type: 'combat.apply-resource',
-							actorId,
-							payload: { combatantId, kind: 'death-save', outcome },
-						})
-					}
-					// RC-CHR-1.3 — report the concentration check damage raised. The toast says which of
-					// the two answers landed, because both are one press apart and both are durable.
-					onConcentrationCheck={(combatantId, name, outcome) =>
-						dispatch(
-							{
-								type: 'combat.apply-resource',
+				{tiles.map(({ placement, widget, count }) => (
+					<FlowViewTile
+						key={widget.id}
+						w={widget}
+						placement={placement}
+						count={count}
+						columns={columns}
+						onBlank={(isBlank) => reportBlank(widget.id, isBlank)}
+						onCommand={(commandType, payload) => {
+							if (!screen) return;
+							void runtime.dispatch({
+								type: 'widget.dispatch-command',
 								actorId,
-								payload: { combatantId, kind: 'concentration-check', outcome },
-							},
-							t(
-								outcome === 'kept'
-									? 'session.combat.concKeptToast'
-									: 'session.combat.concLostToast',
-								{ name },
-							),
-						)
-					}
-					onRemove={(combatantId, name) =>
-						dispatch(
-							{ type: 'combat.remove-combatant', actorId, payload: { combatantId } },
-							`${name} removed from combat`,
-						)
-					}
-					onReorder={(combatantId, direction) =>
-						dispatch({
-							type: 'combat.reorder-combatant',
-							actorId,
-							payload: { combatantId, direction },
-						})
-					}
-					onVisibility={(combatantId, hidden) =>
-						dispatch(
-							{
-								type: 'combat.set-combatant-visibility',
-								actorId,
-								payload: { combatantId, hidden },
-							},
-							hidden ? 'Hidden from players' : 'Revealed to players',
-						)
-					}
-				/>
-
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<DicePanel
-						rolls={dice.rolls}
-						previewing={previewing}
-						expr={diceExpr}
-						onExpr={setDiceExpr}
-						label={diceLabel}
-						onLabel={setDiceLabel}
-						onRoll={(expression, label) =>
-							dispatch({
-								type: 'dice.roll',
-								actorId,
-								payload: { expression, ...(label ? { label } : {}) },
-							})
-						}
-					/>
-					<TablesPanel
-						tables={tables}
-						draws={tableDraws}
-						pins={quickPins}
-						isDm={isDm}
-						previewing={previewing}
-						onRoll={(table: TableView) =>
-							void dispatch({
-								type: 'dice.roll-table',
-								actorId,
-								payload: { tableItemId: table.id, label: table.title },
-							})
-						}
-						onPin={(table: TableView) =>
-							void dispatch(
-								{
-									type: 'session.pin-quick-reference',
-									actorId,
-									payload: { kind: 'dice-table', label: table.title, targetId: table.id },
+								payload: {
+									sceneId: screen.id,
+									widgetInstanceId: widget.id,
+									commandType,
+									payload,
+									expectedRevision: screen.ownership.revision,
 								},
-								t('session.tables.pinned'),
-							)
-						}
-						onUnpin={(panelId: string) =>
-							void dispatch(
-								{ type: 'session.unpin-quick-reference', actorId, payload: { panelId } },
-								t('session.tables.unpinned'),
-							)
-						}
-					/>
-					<HandoutsPanel
-						handouts={handouts}
-						status={handoutStatus}
-						isDm={isDm}
-						previewing={previewing}
-						canDeliver={canDeliver}
-						title={handoutTitle}
-						body={handoutBody}
-						onTitle={setHandoutTitle}
-						onBody={setHandoutBody}
-						onDeliver={deliverHandout}
-						onRevoke={(id) =>
-							dispatch(
-								{ type: 'session.revoke-handout', actorId, payload: { handoutId: id } },
-								'Handout revoked',
-							)
-						}
-						onAcknowledge={(id) =>
-							dispatch(
-								{ type: 'session.acknowledge-handout', actorId, payload: { handoutId: id } },
-								'Marked read',
-							)
-						}
-					/>
-					<AudioPanel
-						audio={audio}
-						trackLabel={audioLabel}
-						isDm={isDm}
-						previewing={previewing}
-						onPause={() => dispatch({ type: 'session.audio.pause', actorId, payload: {} })}
-						onResume={() => dispatch({ type: 'session.audio.resume', actorId, payload: {} })}
-						onStop={() =>
-							dispatch({ type: 'session.audio.stop', actorId, payload: {} }, 'Audio stopped')
-						}
-						onVolume={(volume) =>
-							dispatch({ type: 'session.audio.set-volume', actorId, payload: { volume } })
-						}
-					/>
-					<StagePanel
-						maps={maps}
-						activeMapId={activeMapId}
-						isDm={isDm}
-						// RC-SES-6.2 — projecting works in every workflow state (RC-SES-6.1 made
-						// `session.project-active-map`/`project-player-view` always available), so the
-						// Stage panel's live gate is held open.
-						isLive
-						previewing={previewing}
-						onSelect={(mapId) =>
-							dispatch(
-								{ type: 'session.set-active-map', actorId, payload: { mapId } },
-								'Active map set',
-							)
-						}
-						onProject={() => {
-							if (players.length === 0) {
-								Toaster.warning(t('projection.noPlayers'));
-								return;
-							}
-							void dispatch(
-								{
-									type: 'session.project-active-map',
-									actorId,
-									payload: { playerActorIds: players.map((p) => p.id) },
-								},
-								t('projection.mapProjected'),
-							);
+							});
 						}}
 					/>
-					{isDm && (
-						<CampaignDatePanel
-							calendar={calendar}
-							current={campaignDate}
-							previewing={previewing}
-							onSet={(date, ok) =>
-								void dispatch({ type: 'session.set-campaign-date', actorId, payload: { date } }, ok)
-							}
-						/>
-					)}
-					{isDm && (
-						<RecapPanel
-							digest={digest}
-							archives={archives}
-							maps={maps}
-							defaultArchiveId={recapArchiveId}
-							previewing={previewing}
-							onAuthor={(archiveId, markdown) =>
-								dispatch(
-									{ type: 'session.author-recap', actorId, payload: { archiveId, markdown } },
-									'Recap saved',
-								)
-							}
-						/>
-					)}
-					{isDm && (
-						<CapturePanel
-							archives={archives}
-							defaultArchiveId={recapArchiveId}
-							candidates={captureCandidates}
-							hasCampaignDate={!!campaignDateValue}
-							previewing={previewing}
-							onCapture={captureSession}
-							onQuickCreateNpc={quickCreateContinuityNpc}
-						/>
-					)}
-					<RosterPanel
-						hosting={session.role === 'host'}
-						peers={session.peers}
-						presence={presenceByActor}
-					/>
-					<PartyPanel party={party} />
-					<RestTimelinePanel entries={restLog} />
-					{isDm && <SchedulePanel />}
-				</div>
+				))}
 			</div>
-
-			<EncounterDialog
-				mode={builderMode}
-				onClose={() => setBuilderMode(null)}
-				characters={characters}
-				party={party}
-				defaultTitle={activeSceneName ? `${activeSceneName} — encounter` : 'Encounter'}
-				activeMapId={activeMapId}
-				marchingOrder={marchingOrder}
-			/>
-			<EndCombatDialog
-				open={endConfirmOpen}
-				round={tracker.round}
-				onClose={() => setEndConfirmOpen(false)}
-				onConfirm={() => {
-					setEndConfirmOpen(false);
-					void dispatch({ type: 'combat.end', actorId, payload: {} }, 'Combat ended');
-				}}
-			/>
-			<EndSessionDialog
-				open={standbyConfirmOpen}
-				canReview={allowedTransitionsFrom(workflow as SessionWorkflowState).includes('recap')}
-				onClose={() => setStandbyConfirmOpen(false)}
-				onReview={() => {
-					setStandbyConfirmOpen(false);
-					void dispatch(
-						{ type: 'session.set-workflow', actorId, payload: { workflow: 'recap' } },
-						workflowAnnounce('recap'),
-					);
-				}}
-				onConfirm={() => {
-					setStandbyConfirmOpen(false);
-					void dispatch(
-						{ type: 'session.set-workflow', actorId, payload: { workflow: 'idle' } },
-						workflowAnnounce('idle'),
-					);
-				}}
-			/>
-			<StartSessionDialog
-				open={startOpen}
-				scenes={startableScenes}
-				continueSceneId={continueSceneId()}
-				onClose={() => setStartOpen(false)}
-				onConfirm={(choice) => {
-					setStartOpen(false);
-					void goLive(choice);
-				}}
-			/>
-			<CallRestDialog
-				open={restOpen}
-				partyCount={party.length}
-				onClose={() => setRestOpen(false)}
-				onConfirm={(rest) => {
-					setRestOpen(false);
-					void callRest(rest);
-				}}
-			/>
-			<ConditionPickerDialog
-				target={condPickTarget}
-				onClose={() => setCondPickFor(null)}
-				onPick={(combatantId, condition) => {
-					setCondPickFor(null);
-					void dispatch({
-						type: 'combat.apply-resource',
-						actorId,
-						payload: { combatantId, kind: 'condition', condition, present: true },
-					});
-				}}
-			/>
 		</Page>
 	);
-
-	/**
-	 * RC-CHR-1.2 — call the rest for the whole party: one `character.rest` per player character,
-	 * dispatched in order so each op is stamped and recorded separately. A character the core refuses
-	 * (an expired grant, a character that vanished mid-call) is counted out of the summary rather than
-	 * reported as rested, so the toast never claims more than actually happened.
-	 */
-	async function callRest(rest: 'short' | 'long') {
-		let rested = 0;
-		for (const character of party) {
-			const ok = await dispatch({
-				type: 'character.rest',
-				actorId,
-				payload: { characterId: character.id, rest },
-			});
-			if (ok) rested += 1;
-		}
-		if (rested > 0) Toaster.success(t('session.rest.called', { count: rested }));
-	}
-
-	function setWorkflow(target: 'prep' | 'active' | 'recap' | 'idle') {
-		// The phase Seg was the ONLY control on /session with no `previewing`/`isDm` gate (every other
-		// one of its 50-odd references has one), so previewing as a player and pressing Standby raised
-		// the full-red "End the live session?" dialog for a teardown the core would then refuse
-		// read-only. The Seg now disables those options, and this is the belt-and-braces guard.
-		if (previewing || !isDm) return;
-		if (target === 'active') return openStart();
-		// `idle` runs resetLiveSessionFields (session-control.ts) — it discards the round, the whole
-		// initiative order with every combatant's HP and conditions, the delivered handouts, the dice
-		// log, the timers and the staged map, and unlike Recap it writes NO archive. That is a strict
-		// superset of what `combat.end` throws away, and `combat.end` has had a danger confirm since
-		// run #5. The Seg is selection-follows-focus, so from Live this was one ArrowLeft away.
-		if (target === 'idle' && workflow === 'active') return setStandbyConfirmOpen(true);
-		void dispatch(
-			{ type: 'session.set-workflow', actorId, payload: { workflow: target } },
-			workflowAnnounce(target),
-		);
-	}
 }

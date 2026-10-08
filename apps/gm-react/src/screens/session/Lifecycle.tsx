@@ -16,6 +16,7 @@ export function SessionHeader({
 	onStart,
 	onEnd,
 	onCallRest,
+	flush = false,
 }: {
 	workflow: string;
 	sceneName: string | null;
@@ -32,6 +33,8 @@ export function SessionHeader({
 	onEnd: () => void;
 	/** RC-CHR-1.2 — open the party rest dialog. Omitted ⇒ the control is not offered at all. */
 	onCallRest?: () => void;
+	/** RC-CAN-7.8 — nothing follows it in its widget: the screen's own gap spaces it. */
+	flush?: boolean;
 }) {
 	const { t } = useI18n();
 	const phase =
@@ -68,7 +71,13 @@ export function SessionHeader({
 	});
 	return (
 		<div
-			style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				gap: 16,
+				flexWrap: 'wrap',
+				marginBottom: flush ? undefined : 18,
+			}}
 		>
 			<div style={{ minWidth: 0 }}>
 				<div style={eb}>{t('session.header.eyebrow')}</div>
@@ -176,10 +185,13 @@ export function StandbyStatus({
 	workflow,
 	canStart,
 	t,
+	flush = false,
 }: {
 	workflow: SessionWorkflowState;
 	canStart: boolean;
 	t: (key: MessageKey, vars?: Record<string, string | number>) => string;
+	/** RC-CAN-7.8 — nothing follows it in its widget: the screen's own gap spaces it. */
+	flush?: boolean;
 }) {
 	return (
 		<div
@@ -187,7 +199,7 @@ export function StandbyStatus({
 				display: 'flex',
 				alignItems: 'flex-start',
 				gap: 8,
-				marginBottom: 18,
+				marginBottom: flush ? undefined : 18,
 				font: `12.5px ${T.sans}`,
 				color: T.sub,
 			}}

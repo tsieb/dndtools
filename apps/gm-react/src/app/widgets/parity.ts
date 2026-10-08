@@ -60,6 +60,26 @@ export const CORE_PURE_HELPERS = [
 	'resolveTurnModel',
 	// Formats a timer record the body already read (`state:session.timers`).
 	'getTimerCountdown',
+	// RC-CAN-7.8 — the Session panels' helpers. The workflow transition table, an empty presence
+	// constant and the session-log subtype key; the rest are functions over a value the caller holds:
+	// a character record, a ledger entry, a roll, a calendar date, the capture form's text, or the
+	// encounter draft and the system package.
+	'allowedTransitionsFrom',
+	'EMPTY_PRESENCE_STATE',
+	'SESSION_LOG_SUBTYPE',
+	'resourcesOf',
+	'restKindOfLedgerEntry',
+	'happenedLive',
+	'addDays',
+	'daysInMonth',
+	'holidaysOn',
+	'moonPhasesOn',
+	'normalizeSessionLogCapture',
+	'isEmptySessionLogCapture',
+	'composeSessionLogMarkdown',
+	'detectContinuityMentions',
+	'systemDeclaresChallenge',
+	'computeEncounterChallenge',
 ] as const satisfies readonly (keyof typeof Core)[];
 
 /**
@@ -120,6 +140,113 @@ export const SHARED_MODULE_USES: Readonly<
 	'../../map/mapVocab': {},
 	'../../mapGeometry': {},
 	'../../markdown/render': {},
+	// RC-CAN-7.8 — the Session screen's panels and their reads. Each widget calls only its own row's
+	// hook, so each is charged only with what it reads.
+	'../../EncounterBuilder': {
+		EncounterDialog: [
+			'command:combat.add-combatants',
+			'command:combat.remove-token',
+			'command:combat.start',
+			'command:encounter.build',
+			'read:getActiveSystemForActor',
+			'read:listEncountersForActor',
+		],
+	},
+	'../../../net/SessionContext': {},
+	'../../../screens/session/ActiveMap': {
+		StagePanel: [
+			'read:deliveredMapIdsForActor',
+			'read:getMapViewForActor',
+			'read:listMapsForActor',
+			'read:queryMapLayers',
+			'state:maps.assets',
+			'state:maps.length',
+			'state:maps.map',
+			'state:maps.maps',
+			'state:maps.maps.<dynamic>',
+			'state:maps.maps.<dynamic>.assetIds',
+			'state:session.combat',
+		],
+	},
+	'../../../screens/session/CampaignDate': {
+		CampaignDatePanel: ['read:getCalendarContinuityForActor', 'route:/campaign/calendar'],
+	},
+	'../../../screens/session/Capture': {},
+	'../../../screens/session/CombatTracker': {},
+	'../../../screens/session/ConditionPickerDialog': {},
+	'../../../screens/session/DiceTray': { DicePanel: ['read:getActiveSystemForActor'] },
+	'../../../screens/session/Handouts': {
+		HandoutsPanel: ['read:getHandoutStatusForDm', 'read:getHandoutsForActor'],
+	},
+	'../../../screens/session/Lifecycle': {},
+	'../../../screens/session/NowPlaying': { AudioPanel: ['read:getSessionAudioView'] },
+	'../../../screens/session/PrepRecap': {},
+	'../../../screens/session/Roster': {},
+	'../../../screens/session/Schedule': {},
+	'../../../screens/session/Tables': {},
+	'../../../screens/session/useSessionView': {
+		useSessionSeat: [
+			'state:permissions.actors',
+			'state:permissions.actors.<dynamic>',
+			'state:permissions.actors.<dynamic>.role',
+			'state:session.workflow',
+		],
+		useSessionDispatch: [],
+		useSessionScenes: [
+			'read:findHomeScreen',
+			'read:findSessionScreen',
+			'read:listScenesForActor',
+			'state:commandCenter.homeSceneId',
+			'state:session.activeSceneId',
+		],
+		usePlayers: ['state:permissions.actors'],
+		useRoster: ['read:listCharactersForActor'],
+		useCombatView: [
+			'read:getCombatTrackerForActor',
+			'read:getPartyOverviewForActor',
+			'state:session.activeMap',
+			'state:session.activeMap.mapId',
+			'state:session.combat',
+		],
+		useDiceView: ['read:getDiceHistoryForActor'],
+		useTablesView: [
+			'read:getContentItemsForActor',
+			'read:getDiceHistoryForActor',
+			'read:getQuickReferencePanelsForActor',
+		],
+		useHandoutsView: ['read:getHandoutStatusForDm', 'read:getHandoutsForActor'],
+		useNowPlayingView: [
+			'read:getSessionAudioView',
+			'read:listAudioAssetsForActor',
+			'read:listAudioSourceClassificationsForActor',
+			'state:session.audioPlayback',
+		],
+		useMapList: ['read:listMapsForActor'],
+		useStageView: [
+			'read:listMapsForActor',
+			'state:session.activeMap',
+			'state:session.activeMap.mapId',
+		],
+		useCampaignDateView: [
+			'read:getCalendarContinuityForActor',
+			'state:content.calendars',
+			'state:session.calendarContinuity',
+			'state:session.calendarContinuity.currentDate',
+		],
+		useCampaignDateValue: [
+			'state:session.calendarContinuity',
+			'state:session.calendarContinuity.currentDate',
+		],
+		useArchives: ['state:session.archives', 'state:session.recapArchiveId'],
+		usePrepRecapDigest: ['read:getPrepRecapDigest', 'state:session.workflow'],
+		useCaptureCandidates: ['read:getContentItemsForActor', 'read:listCharactersForActor'],
+		useRestLog: [
+			'read:listCharactersForActor',
+			'state:characters.characters',
+			'state:characters.characters.<dynamic>',
+		],
+		usePresence: ['read:projectSessionPresence'],
+	},
 };
 
 /**
@@ -136,7 +263,12 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 	// A note or handout draws its own configuration (the text the Inspector wrote).
 	note: { queries: [], commands: [], intents: [] },
 	handout: { queries: [], commands: [], intents: [] },
-	dice: { queries: ['dice-history'], commands: ['dice.roll'], intents: [] },
+	// RC-CAN-7.8: the tray view's dice rules are the campaign's system (which also has the workflow).
+	dice: {
+		queries: ['dice-history', 'campaign'],
+		commands: ['dice.roll'],
+		intents: [],
+	},
 	timer: {
 		queries: [],
 		commands: ['timer.start', 'timer.pause', 'timer.resume', 'timer.advance', 'timer.reset'],
@@ -148,7 +280,9 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 	map: { queries: ['maps', 'session-state'], commands: [], intents: ['open-entity'] },
 	'quick-reference': { queries: ['content-objects'], commands: [], intents: [] },
 	prep: { queries: ['notes'], commands: [], intents: [] },
-	session: { queries: [], commands: [], intents: [] },
+	// RC-CAN-7.8: the console view's scenes and workflow, the party it rests and the GM screen a
+	// "Continue" start resumes.
+	session: { queries: ['session-state', 'party', 'resume'], commands: [], intents: [] },
 	'getting-started': { queries: [], commands: [], intents: [] },
 	// The GM screen's widget count is a `screens` row's.
 	tools: { queries: ['screens'], commands: [], intents: [] },
@@ -156,9 +290,42 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 	atlas: { queries: ['maps'], commands: [], intents: [] },
 	characters: { queries: ['visible-characters'], commands: [], intents: [] },
 	'player-views': { queries: [], commands: [], intents: [] },
-	combat: { queries: ['current-combatants'], commands: [], intents: [] },
+	// RC-CAN-7.8: the tracker view's encounter builder reads the scenes, the system and the GM screen.
+	combat: {
+		queries: ['current-combatants', 'session-state', 'campaign', 'resume'],
+		commands: [],
+		intents: [],
+	},
 	notes: { queries: ['notes'], commands: [], intents: [] },
 	search: { queries: [], commands: [], intents: [] },
+	// RC-CAN-7.8 — the Session screen's panels. Every one reads the session seat (`session-state`).
+	'session-tables': {
+		queries: ['rollable-tables', 'quick-reference', 'session-state'],
+		commands: [],
+		intents: [],
+	},
+	'session-handouts': {
+		queries: ['handouts', 'session-state', 'resume'],
+		commands: [],
+		intents: [],
+	},
+	'session-now-playing': { queries: ['session-state'], commands: [], intents: [] },
+	'session-stage': { queries: ['maps', 'session-state'], commands: [], intents: [] },
+	'session-campaign-date': { queries: ['session-state'], commands: [], intents: ['open-route'] },
+	'session-prep-recap': {
+		queries: ['continuity-digest', 'session-archives', 'maps'],
+		commands: [],
+		intents: [],
+	},
+	'session-capture': {
+		queries: ['session-archives', 'capture-candidates', 'session-state'],
+		commands: [],
+		intents: [],
+	},
+	'session-roster': { queries: ['presence'], commands: [], intents: [] },
+	'session-party': { queries: ['party'], commands: [], intents: [] },
+	'session-rests': { queries: ['rest-log'], commands: [], intents: [] },
+	'session-schedule': { queries: ['session-state'], commands: [], intents: [] },
 };
 
 /* ── Findings ──────────────────────────────────────────────────────────────────────────────────── */
@@ -180,8 +347,12 @@ export function roundTripFinding(type: string): string {
 
 /* ── The debt ledger ───────────────────────────────────────────────────────────────────────────── */
 
-/** The stories split out of RC-WID-5.5 to repay the findings the gate found on landing. */
-export type ParityRepairStory = 'RC-WID-5.6' | 'RC-WID-5.7';
+/**
+ * The stories split out of RC-WID-5.5 to repay the findings the gate found on landing, and the one
+ * RC-CAN-7.8 files for the Session screen's widgets (RC-WID-5.13, the public surface for SCREENS_PARITY
+ * §4.2's gaps G-05–G-11; not yet on the roadmap).
+ */
+export type ParityRepairStory = 'RC-WID-5.6' | 'RC-WID-5.7' | 'RC-WID-5.13';
 
 export interface ParityDebt {
 	/** The finding, exactly as the checker reports it. */
@@ -193,8 +364,17 @@ const owedBy =
 	(repaidBy: ParityRepairStory) =>
 	(finding: string): ParityDebt => ({ finding, repaidBy });
 const wid57 = owedBy('RC-WID-5.7');
-const privateUses = (type: BuiltinWidgetType, uses: readonly ParityUse[]) =>
-	uses.map((use) => wid57(privateUseFinding(type, use)));
+const wid513 = owedBy('RC-WID-5.13');
+const privateUses = (
+	type: BuiltinWidgetType,
+	uses: readonly ParityUse[],
+	owed: (finding: string) => ParityDebt = wid57,
+) => uses.map((use) => owed(privateUseFinding(type, use)));
+/** The viewer's own seat, read as `permissions.actors[actorId].role` (a template gets `isDm`). */
+const OWN_ROLE: readonly ParityUse[] = [
+	'state:permissions.actors.<dynamic>',
+	'state:permissions.actors.<dynamic>.role',
+];
 
 /**
  * Every finding the gate reports today, one entry each, with the story that repays it. This is an
@@ -274,6 +454,150 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 			'prep',
 		] as const satisfies readonly BuiltinWidgetType[]
 	).map((type) => wid57(builtinOnScreenFinding(type))),
+
+
+	// RC-WID-5.13: the Session screen's widgets (RC-CAN-7.8). They stay builtin until SCREENS_PARITY
+	// §4.2's gaps have a public surface: widget-owned dialogs (G-05), declared gates and announcements
+	// (G-07), a keyboard model (G-08), headings in bare presentation (G-09), host scheduling (G-10),
+	// combat writes (G-11) and multi-select (G-06). Every panel reads the viewer's own seat.
+	...privateUses(
+		'session',
+		[
+			'command:character.rest',
+			'command:session.set-workflow',
+			'read:findHomeScreen',
+			'read:findSessionScreen',
+			'state:session.title',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses(
+		'combat',
+		[
+			'command:combat.add-combatants',
+			'command:combat.advance-turn',
+			'command:combat.apply-resource',
+			'command:combat.end',
+			'command:combat.previous-turn',
+			'command:combat.remove-combatant',
+			'command:combat.remove-token',
+			'command:combat.reorder-combatant',
+			'command:combat.set-combatant-visibility',
+			'command:combat.start',
+			'command:encounter.build',
+			'read:findHomeScreen',
+			'read:findSessionScreen',
+			'read:getPartyOverviewForActor',
+			'state:session.activeMap',
+			'state:session.activeMap.mapId',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses('dice', OWN_ROLE, wid513),
+	...privateUses(
+		'session-tables',
+		[
+			'command:dice.roll-table',
+			'command:session.pin-quick-reference',
+			'command:session.unpin-quick-reference',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses(
+		'session-handouts',
+		[
+			'command:session.acknowledge-handout',
+			'command:session.deliver-handout',
+			'command:session.revoke-handout',
+			'read:findHomeScreen',
+			'read:findSessionScreen',
+			'read:getHandoutStatusForDm',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses(
+		'session-now-playing',
+		[
+			'command:session.audio.pause',
+			'command:session.audio.resume',
+			'command:session.audio.set-volume',
+			'command:session.audio.stop',
+			'read:getSessionAudioView',
+			'read:listAudioAssetsForActor',
+			'read:listAudioSourceClassificationsForActor',
+			'state:session.audioPlayback',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses(
+		'session-stage',
+		[
+			'command:session.project-active-map',
+			'command:session.set-active-map',
+			'read:deliveredMapIdsForActor',
+			'read:getMapViewForActor',
+			'read:queryMapLayers',
+			'state:maps.assets',
+			'state:maps.length',
+			'state:maps.map',
+			'state:maps.maps',
+			'state:maps.maps.<dynamic>',
+			'state:maps.maps.<dynamic>.assetIds',
+			'state:session.activeMap',
+			'state:session.activeMap.mapId',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses(
+		'session-campaign-date',
+		[
+			'command:session.set-campaign-date',
+			'read:getCalendarContinuityForActor',
+			'state:content.calendars',
+			'state:session.calendarContinuity',
+			'state:session.calendarContinuity.currentDate',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses('session-prep-recap', ['command:session.author-recap', ...OWN_ROLE], wid513),
+	...privateUses(
+		'session-capture',
+		[
+			'command:character.quick-create',
+			'command:content.create-item',
+			'command:session.author-recap',
+			'state:session.calendarContinuity',
+			'state:session.calendarContinuity.currentDate',
+			...OWN_ROLE,
+		],
+		wid513,
+	),
+	...privateUses('session-rests', ['state:characters.characters.<dynamic>'], wid513),
+	...privateUses('session-schedule', OWN_ROLE, wid513),
+	...(
+		[
+			'session',
+			'combat',
+			'session-tables',
+			'session-handouts',
+			'session-now-playing',
+			'session-stage',
+			'session-campaign-date',
+			'session-prep-recap',
+			'session-capture',
+			'session-roster',
+			'session-party',
+			'session-rests',
+			'session-schedule',
+		] as const satisfies readonly BuiltinWidgetType[]
+	).map((type) => wid513(builtinOnScreenFinding(type))),
 ];
 
 /** Where the findings and the ledger disagree; both lists empty means the gate passes. */

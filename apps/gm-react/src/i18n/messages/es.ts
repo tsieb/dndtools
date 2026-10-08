@@ -5555,6 +5555,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'home.setupFailed': 'No se pudo preparar el Centro de comandos en este dispositivo.',
 	'home.setupFailedHint':
 		'Revisa el espacio de almacenamiento del dispositivo y vuelve a intentarlo.',
+	'session.setupFailed': 'No se pudo preparar la pantalla de Sesión en este dispositivo.',
 
 	/* Unirse › la página de aterrizaje de la invitación por correo */
 	'join.unavailable':

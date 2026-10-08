@@ -5525,6 +5525,7 @@ export const en = {
 	'home.count.notes': '{count, plural, one {# note} other {# notes}}',
 	'home.setupFailed': "The Command Center couldn't be set up on this device.",
 	'home.setupFailedHint': "Check the device's storage space, then try again.",
+	'session.setupFailed': "The Session screen couldn't be set up on this device.",
 
 	/* Join › the emailed invite landing page */
 	'join.unavailable':
