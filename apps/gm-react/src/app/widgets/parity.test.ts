@@ -16,6 +16,8 @@ import {
 } from '@dndtools/core';
 import { buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { BUILTIN_WIDGET_TYPES } from './builtin';
+import { buildPackage } from '../widgetBuilder/draft';
+import { QUICK_RECIPES, quickDraft } from '../widgetBuilder/quickRecipes';
 import {
 	BUILTIN_PARITY,
 	PARITY_DEBT_LEDGER,
@@ -314,4 +316,17 @@ it.each([
 	['const s = runtime[key]; s.session.timers;', 'state:<dynamic-runtime-member>'],
 ])('rejects unsupported or ambiguous state aliases: %s', (source, finding) => {
 	expect(extractModuleUses(source)).toContain(finding);
+});
+
+// RC-WID-6.3: Quick is another editor for the ordinary Full-builder definition, not a runtime.
+it.each(QUICK_RECIPES)('Quick recipe $id passes the shared export/import parity gate', (recipe) => {
+	const { state, env } = provisionedVault();
+	const pkg = buildPackage(quickDraft(recipe.id, `parity-${recipe.id}`));
+	expect(pkg.widgets[0]!.renderEntrypoint?.runtime).toBe('template');
+	expect(BUILTIN_WIDGET_TYPES).not.toContain(pkg.widgets[0]!.type);
+	const original = JSON.stringify(pkg, null, '\t');
+	const imported = builderRoundTrip(state, env, DM.id, original);
+	expect(imported.error).toBeUndefined();
+	expect(imported.bytes).toBe(original);
+	expect(builderRoundTrip(state, env, DM.id, imported.bytes!).bytes).toBe(original);
 });

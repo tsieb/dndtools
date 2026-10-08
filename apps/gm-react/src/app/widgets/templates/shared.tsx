@@ -42,23 +42,16 @@ export interface WidgetTemplateProps {
  * {@link TemplateKindProvider}. `null` when nobody said, which {@link emptyNoticeOf} treats as a kind
  * that reads data.
  */
-const ScrollablePreviewContext = createContext(false);
 const TemplateKindContext = createContext<WidgetTemplateKind | null>(null);
 
 export function TemplateKindProvider({
 	kind,
 	children,
-	keyboardScrollable = false,
 }: {
-	keyboardScrollable?: boolean;
 	kind: WidgetTemplateKind | null;
 	children: ReactNode;
 }) {
-	return (
-		<ScrollablePreviewContext.Provider value={keyboardScrollable}>
-			<TemplateKindContext.Provider value={kind}>{children}</TemplateKindContext.Provider>
-		</ScrollablePreviewContext.Provider>
-	);
+	return <TemplateKindContext.Provider value={kind}>{children}</TemplateKindContext.Provider>;
 }
 
 const TEMPLATE_TEST_ID_PREFIX = 'widget-template-';
@@ -93,12 +86,10 @@ export function TemplateShell({
 	controls?: ReactNode;
 }) {
 	const outerKind = useContext(TemplateKindContext);
-	const keyboardScrollable = useContext(ScrollablePreviewContext);
 	return (
 		<TemplateKindContext.Provider value={kindOfTestId(testId) ?? outerKind}>
 			<div
 				data-testid={testId}
-				tabIndex={keyboardScrollable ? 0 : undefined}
 				style={{
 					height: '100%',
 					minHeight: 0,

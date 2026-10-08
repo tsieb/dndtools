@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	listWidgetLibrary,
@@ -345,6 +346,22 @@ export function AddWidgetGallery({
 	const pendingRef = useRef<{ before: Set<string>; name: string } | null>(null);
 	const phone = viewport === 'phone';
 	const generate = useGenerateGate();
+	const location = useLocation();
+	const createIntent = (location.state as { addWidget?: boolean } | null)?.addWidget === true;
+	const seenIntent = useRef<string | null>(null);
+	const pendingBuild = useRef(false);
+	// Board consumes the route state to open this gallery. Capture that same request before it is
+	// cleared, then hand off through the gallery's existing builder callback once the board is ready.
+	useEffect(() => {
+		if (createIntent && seenIntent.current !== location.key) {
+			seenIntent.current = location.key;
+			pendingBuild.current = true;
+		}
+		if (!open || !pendingBuild.current || !onBuild) return;
+		pendingBuild.current = false;
+		onClose();
+		onBuild();
+	}, [createIntent, location.key, open, onBuild, onClose]);
 
 	// Unavailable entries are listed on purpose (dimmed, with the reason), after the addable ones so
 	// the first row is always one the GM can pick. `sort` is stable, so the core's name order holds.

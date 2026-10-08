@@ -1,6 +1,6 @@
 # RC-WID-6.3 run journal
 
-## Scope and implementation
+## Initial implementation (superseded by claim repair below)
 
 - Quick is a DS Sheet with recipe, data/configuration and finish panels. The Full builder retains
   ownership of the draft, validation, local draft recovery, installation and trust review.
@@ -17,7 +17,7 @@
   as a copy. Counter uses the pre-existing WID-6.8 count/range settings and Configure workflow.
 - Companion paths: Board handoff, EN/ES/pseudo catalogues, tests. No dispatcher state changes.
 
-## Validation
+## Initial validation (before rebase and claim repair)
 
 - Builder unit suite: 84 tests passed (7 files). Recipe parity also imports shared-audience variants.
 - App typecheck passed; ESLint on changed implementation/tests and boundary lint passed.
@@ -58,3 +58,41 @@
 
 Local implementation and checks only. Central gates, independent review, integration and promotion
 are not performed by this task. No push, loop launch, or dispatcher-control mutation.
+
+## Claim repair against 8dc8b3dbb81361ddcca1d0bee4021bcb348a1556
+
+The ownership gate rejected changes to Board.tsx, BuilderPreview.tsx and templates/shared.tsx.
+All three are restored byte-for-byte to the specified base. They are not required companion edits:
+
+- AddWidgetGallery captures the existing addWidget route request before Board clears it, then
+  invokes its existing onBuild callback after the gallery opens. It consumes each location key once.
+  Command Center still reaches Quick directly; subsequent Add opens the ordinary gallery.
+- BuilderPanes owns FocusableBuilderPreview, an adapter around the unchanged preview component.
+  It makes only preview template scroll regions keyboard-focusable, restoring attributes on cleanup.
+  Quick and Full use the adapter; the shared renderer and placed widgets are unchanged.
+- The keyboard-only e2e additionally verifies that opening Add after placement does not reopen Quick.
+- The rebased tree now contains WID-5.5 parity.test.ts. Extended that existing gate with all eight
+  Quick presets using its shared builderRoundTrip/core-export helper, in addition to the draft tests.
+
+Headroom tools are unavailable. Current repair evidence:
+
+- The exact `git diff 8dc8b3dbb81361ddcca1d0bee4021bcb348a1556 --exit-code --` comparison of the
+  three rejected paths exits 0; they no longer differ from the claim base.
+- Builder + gallery unit suite: 98 passed (8 files), including all eight recipe round trips.
+- Quick + author-trust e2e: 16 passed across desktop/mobile. All eight pickers pass axe; six-click
+  creation, real vault preview, Standby use and Full handoff remain covered.
+- Extended keyboard-only request-consumption test: 2 passed across desktop/mobile.
+- Typecheck, scoped ESLint, boundary lint and quality gates pass (existing size warnings only).
+- Refreshed paired scene-first-render: 1240.8 ms candidate versus 1281.3 ms base (-3.2%); steady
+  within the core comparator tolerance, both below the 1500 ms target. Seven interleaved batches,
+  21 samples per side, unchanged demo fixture and dev-server measurement caveats apply.
+  `state/RC-WID-6.3.perf.json` now contains this repair capture against the specified claim base;
+  previous sample data remains in the initial implementation commit.
+- WID-5.5 shared parity gate: 36 passed, including the eight new Quick recipe cases. Combined
+  with the builder/gallery suite, 134 unit tests pass across 9 files.
+- Pinned-container affected-route screenshots: 48 passed (desktop/rail/phone, no baseline updates).
+- Extensions Full-builder install/place regression: 2 passed across desktop/mobile.
+- Formatting and git diff whitespace checks pass. No claim widening is required.
+
+Repair capture command: `pnpm exec tsx scripts/perf/capture.ts --only scene-first-render --port 5913 --reference-root /tmp/dndtools-wid63-claim-reference --reference-port 5914 --out /tmp/wid63-claim-perf-candidate.json --reference-out /tmp/wid63-claim-perf-reference.json`.
+The temporary reference checkout was detached at the claim base and removed after capture.

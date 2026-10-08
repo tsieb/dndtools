@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Badge, Button, Dialog, Textarea } from '../../ds';
 import { T } from '../screen-kit';
 import { useI18n } from '../../i18n';
-import { STEP_IDS, STEP_LABEL, type BuilderStepId } from './draft';
+import { STEP_IDS, STEP_LABEL, type BuilderStepId, type WidgetDraft } from './draft';
 import { type DraftIssue } from './validate';
+import { BuilderPreview } from './BuilderPreview';
 
 /** The builder's stepper: every shown step (RC-UX-6.4), the current one marked, and any step with an open issue flagged. */
 export function BuilderStepRail({
@@ -185,5 +186,30 @@ export function BuilderDraftDialogs({
 				}
 			/>
 		</>
+	);
+}
+
+/** The shared renderer owns its DOM but exposes no focus prop. Keep the keyboard adaptation at
+ * the builder boundary: each template's scroll region participates in the modal's Tab cycle.
+ * React may replace a template when the draft changes; restore only attributes this adapter owns.
+ */
+export function FocusableBuilderPreview({ draft }: { draft: WidgetDraft }) {
+	const previewRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const regions = Array.from(
+			previewRef.current?.querySelectorAll<HTMLElement>(
+				'[data-testid^="widget-template-"]:not([tabindex])',
+			) ?? [],
+		);
+		for (const region of regions) region.tabIndex = 0;
+		return () => {
+			for (const region of regions)
+				if (region.getAttribute('tabindex') === '0') region.removeAttribute('tabindex');
+		};
+	}, [draft]);
+	return (
+		<div ref={previewRef}>
+			<BuilderPreview draft={draft} />
+		</div>
 	);
 }

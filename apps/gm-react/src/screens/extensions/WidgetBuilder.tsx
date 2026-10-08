@@ -33,11 +33,11 @@ import {
 } from '../../app/widgetBuilder/draft';
 import { firstBlockedStep, validateDraft } from '../../app/widgetBuilder/validate';
 import { QuickBuilder } from '../../app/widgetBuilder/QuickBuilder';
-import { BuilderPreview } from '../../app/widgetBuilder/BuilderPreview';
 import {
 	BuilderDraftDialogs,
 	BuilderStepRail,
 	DefinitionPane,
+	FocusableBuilderPreview,
 } from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
 import { LayoutStep } from '../../app/widgetBuilder/LayoutStep';
@@ -614,7 +614,7 @@ export function WidgetBuilder({
 							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('extensions.builder.panePreview')}
 							</span>
-							<BuilderPreview draft={draft} />
+							<FocusableBuilderPreview draft={draft} />
 						</div>,
 					)}
 

@@ -137,14 +137,14 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	usePanelFocusReturn(addOpen || (editing && layoutsOpen));
 
 	// Create-intent handoff from "New widget" launchers (home hub): arrive in edit mode with the
-	// Quick builder already open. Consumed once, then cleared.
+	// Add-widget panel already open. Consumed once, then cleared.
 	const navigate = useNavigate();
 	const location = useLocation();
 	useEffect(() => {
 		const intent = (location.state ?? null) as { addWidget?: boolean } | null;
 		if (intent?.addWidget) {
 			setEditing(true);
-			setBuilder({ pkg: null });
+			setAddOpen(true);
 			navigate(location.pathname, { replace: true, state: null });
 		}
 	}, [location.state, location.pathname, navigate]);

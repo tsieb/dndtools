@@ -125,6 +125,11 @@ test('Command Center New widget and a complete recipe work with only the keyboar
 	await page.keyboard.press('Enter');
 	await expect(quick).toHaveCount(0);
 	await expect(await placed(page, 'Party HP')).toBeFocused();
+	// The route request is consumed once: opening Add afterward remains ordinary gallery browsing.
+	await tabTo(page, page.getByRole('button', { name: 'Add', exact: true }));
+	await page.keyboard.press('Enter');
+	await expect(page.getByTestId('add-widget-gallery')).toBeVisible();
+	await expect(quick).toHaveCount(0);
 });
 
 test('More options keeps the Quick draft and opens the matching Full step', async ({ page }) => {

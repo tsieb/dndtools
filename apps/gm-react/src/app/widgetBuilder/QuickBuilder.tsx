@@ -4,7 +4,7 @@ import { Button, Callout, Field, Icon, Input, Select, Sheet, Switch } from '../.
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useViewport } from '../useViewport';
 import { useI18n } from '../../i18n';
-import { BuilderPreview } from './BuilderPreview';
+import { FocusableBuilderPreview } from './BuilderPanes';
 import { CATALOG } from './CommandsStep';
 import { type BuilderStepId, type WidgetDraft } from './draft';
 import {
@@ -271,7 +271,7 @@ export function QuickBuilder({
 						/>
 					</>
 				)}
-				{panel > 0 && <BuilderPreview draft={draft} />}
+				{panel > 0 && <FocusableBuilderPreview draft={draft} />}
 				{panel === 2 && incomplete && (
 					<Callout tone="warning">{t('builder.quick.invalid')}</Callout>
 				)}
