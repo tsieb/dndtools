@@ -5,8 +5,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchCommand, type CoreCommand, type CoreStateSlice } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/core/testing';
-import type { BoardWidget } from '../../board-helpers';
-import { I18nProvider } from '../../../i18n';
+import type { BoardWidget } from '../../../board-helpers';
+import { I18nProvider } from '../../../../i18n';
 
 /**
  * RC-CAN-4.5 — the map tile takes NO visibility decision of its own.
@@ -17,30 +17,38 @@ import { I18nProvider } from '../../../i18n';
  * hands back is drawn at the PLAYER's opacity for a player (it conceals rather than hints), and a
  * map the core withholds collapses to "not available to you" rather than to an empty frame that
  * reads like "there is nothing here".
+ *
+ * RC-WID-5.7 — the tile is the `map-view` template now, drawn through the registry exactly as the
+ * board draws it: the view comes from the definition's `bound-map` query for the viewing actor.
  */
 
 const runtimeRef: {
 	state: CoreStateSlice;
 	defaultActorId: string;
+	activeActorId: string;
 	dispatch: ReturnType<typeof vi.fn>;
+	newId: () => string;
 } = {
 	state: buildInitialState(DM_ACTOR, PLAYER_ACTOR),
 	defaultActorId: DM_ACTOR.id,
+	activeActorId: DM_ACTOR.id,
 	dispatch: vi.fn(async () => ({ status: 'accepted' as const })),
+	newId: () => 'press-id',
 };
 
-vi.mock('../../../runtime/RuntimeContext', () => ({
+vi.mock('../../../../runtime/RuntimeContext', () => ({
 	useRuntime: () => runtimeRef,
 	DEFAULT_DM_ACTOR_ID: 'dm-1',
 }));
 
 // No raster bytes in a test vault; the geometry layers are what this file is about.
-vi.mock('../../../platform/assetUrl', () => ({
+vi.mock('../../../../platform/assetUrl', () => ({
 	useAssetObjectUrl: () => null,
 	createAssetObjectUrl: async () => null,
 }));
 
-const { MapTile } = await import('./Map');
+const { TEMPLATE_RENDERER_ENTRIES } = await import('../index');
+const MapTile = TEMPLATE_RENDERER_ENTRIES.find(([kind]) => kind === 'map-view')![1];
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -127,7 +135,8 @@ function tile(mapId: string): BoardWidget {
 		configuration: {},
 		configFields: [],
 		requiresBinding: true,
-		commands: [],
+		// The system definition's declared commands, so a missing control is the viewer's doing.
+		commands: ['scene.configure-widget', 'session.set-active-map', 'session.project-active-map'],
 		bindingRef: { entityType: 'map', entityId: mapId },
 	};
 }
@@ -136,6 +145,7 @@ function tile(mapId: string): BoardWidget {
 function renderAs(state: CoreStateSlice, actorId: string, widget: BoardWidget): HTMLDivElement {
 	runtimeRef.state = state;
 	runtimeRef.defaultActorId = actorId;
+	runtimeRef.activeActorId = actorId;
 	act(() =>
 		root.render(
 			<I18nProvider>
@@ -179,6 +189,7 @@ describe('the map tile draws the viewing actor’s own view', () => {
 		const { state, sharedMapId } = fixture();
 		runtimeRef.state = state;
 		runtimeRef.defaultActorId = PLAYER_ACTOR.id;
+		runtimeRef.activeActorId = PLAYER_ACTOR.id;
 		act(() =>
 			root.render(
 				<I18nProvider>
@@ -192,5 +203,67 @@ describe('the map tile draws the viewing actor’s own view', () => {
 		expect(labels).not.toContain('Project to players');
 		expect(labels).not.toContain('Hide combat overlay');
 		expect(container.querySelector('select')).toBeNull();
+	});
+});
+
+describe('the map tile acts only through its declared commands', () => {
+	it('turns the overlay off through widget.dispatch-command, addressed to its own instance', async () => {
+		const { state: seeded, sharedMapId } = fixture();
+		const placed = dispatchCommand(seeded, makeEnvironment(), {
+			type: 'command-center.ensure-home',
+			actorId: DM_ACTOR.id,
+			payload: {},
+		});
+		if (placed.status !== 'accepted') throw new Error(placed.rejection.message);
+		const board = placed.nextState.scenes.scenes[placed.nextState.commandCenter.homeSceneId!]!;
+		const instance = board.widgets.find((widget) => widget.type === 'map')!;
+		runtimeRef.state = placed.nextState;
+		runtimeRef.defaultActorId = DM_ACTOR.id;
+		runtimeRef.activeActorId = DM_ACTOR.id;
+		runtimeRef.dispatch.mockClear();
+		act(() =>
+			root.render(
+				<I18nProvider>
+					<MapTile widget={{ ...tile(sharedMapId), id: instance.id }} onCommand={() => {}} />
+				</I18nProvider>,
+			),
+		);
+		const hide = Array.from(container.querySelectorAll('button')).find(
+			(button) => button.getAttribute('aria-label') === 'Hide combat overlay',
+		);
+		expect(hide).toBeTruthy();
+		await act(async () => hide?.click());
+		expect(runtimeRef.dispatch).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'widget.dispatch-command',
+				actorId: DM_ACTOR.id,
+				payload: expect.objectContaining({
+					sceneId: board.id,
+					widgetInstanceId: instance.id,
+					commandType: 'scene.configure-widget',
+					payload: { configuration: { combatOverlay: false } },
+				}),
+			}),
+		);
+	});
+
+	it('draws no control a definition does not declare', () => {
+		const { state, sharedMapId } = fixture();
+		runtimeRef.state = state;
+		runtimeRef.defaultActorId = DM_ACTOR.id;
+		runtimeRef.activeActorId = DM_ACTOR.id;
+		act(() =>
+			root.render(
+				<I18nProvider>
+					<MapTile widget={{ ...tile(sharedMapId), commands: [] }} onCommand={() => {}} />
+				</I18nProvider>,
+			),
+		);
+		expect(container.querySelector('select')).toBeNull();
+		const labels = Array.from(container.querySelectorAll('button')).map(
+			(button) => button.getAttribute('aria-label') ?? '',
+		);
+		expect(labels).not.toContain('Project to players');
+		expect(labels).not.toContain('Hide combat overlay');
 	});
 });

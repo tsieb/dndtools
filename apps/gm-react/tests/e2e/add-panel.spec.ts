@@ -145,7 +145,9 @@ test('the miniature shows on keyboard focus but is never in the tab order', asyn
 	await expect(preview).toBeVisible();
 	await expect(preview).toHaveAttribute('aria-hidden', 'true');
 	await expect(preview).toHaveAttribute('inert', '');
-	expect(await preview.getByRole('button', { includeHidden: true }).count()).toBeGreaterThan(0);
+	// RC-WID-5.7 — the miniature is the dice tile itself, drawn inert as on an editing board: its Roll
+	// is a chip, not a button. (`AddWidgetGallery.test.tsx` keeps a miniature with real buttons.)
+	await expect(preview).toContainText('Roll');
 
 	// The next Tab skips every control the miniature draws and lands on the next row.
 	await page.keyboard.press('Tab');

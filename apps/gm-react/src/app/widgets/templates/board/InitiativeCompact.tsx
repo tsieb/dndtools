@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { getCombatTrackerForActor } from '@dndtools/core';
-import { Badge, HPBar, Icon, IconButton, VisibilityChip } from '../../../ds';
-import { useRuntime } from '../../../runtime/RuntimeContext';
-import { useI18n } from '../../../i18n';
-import { T } from '../../screen-kit';
-import { SR_ONLY, bodyWrap } from '../../widget-body-kit';
-import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../combat/HpKeypadSheet';
+import type { CombatTrackerView } from '@dndtools/core';
+import { Badge, HPBar, Icon, IconButton, VisibilityChip } from '../../../../ds';
+import { useI18n } from '../../../../i18n';
+import { T } from '../../../screen-kit';
+import { SR_ONLY, bodyWrap } from '../../../widget-body-kit';
+import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../../combat/HpKeypadSheet';
+import { LiveReadout } from '../../builtin/live';
+import type { WidgetCommandOutcome } from './boardData';
 import { NextTurnControl } from './NextTurnControl';
-import { LiveReadout } from './live';
 
 /**
  * RC-CAN-5.3 — the touch-first combat tile: what the `initiative-tracker` widget draws on a phone.
@@ -23,9 +23,9 @@ import { LiveReadout } from './live';
  * Enter, and the tray that a swipe reveals is also the "More actions" button sitting in the row's
  * tab order — swiping is a shortcut to it, never the only way in.
  *
- * Writes go straight to `combat.apply-resource` / `combat.set-combatant-visibility` through the
- * runtime, the same commands /session dispatches; the core decides whether this actor may. The tile
- * is inert while the board is in edit mode (no `onCommand`), where every body is a picture.
+ * Writes are `combat.apply-resource` / `combat.set-combatant-visibility`, the same commands /session
+ * dispatches, run as the widget's declared commands (RC-WID-5.7); the core decides whether this actor
+ * may. The tile is inert while the board is in edit mode, where every body is a picture.
  */
 
 /** How far left a drag must travel before it counts as "reveal the actions", in CSS pixels. */
@@ -43,24 +43,29 @@ const ROW_TARGET = {
 	minHeight: 'var(--density-touch-target)',
 } as const;
 
+type Run = (payload: Record<string, unknown>) => Promise<WidgetCommandOutcome>;
+
 export function InitiativeTrackerCompact({
+	tracker,
+	isDm,
 	showHp,
 	interactive,
+	onAdvance,
+	onApplyResource,
+	onSetVisibility,
 }: {
+	/** SES-002 — the ONE actor-filtered combat read model; hidden combatants are already redacted. */
+	tracker: CombatTrackerView;
+	isDm: boolean;
 	showHp: boolean;
 	/** VIEW mode. False on the editing board, where the tile is a picture of itself. */
 	interactive: boolean;
+	/** The declared commands, each absent when the definition does not declare it. */
+	onAdvance?: () => Promise<WidgetCommandOutcome>;
+	onApplyResource?: Run;
+	onSetVisibility?: Run;
 }) {
-	const runtime = useRuntime();
 	const { t } = useI18n();
-	const actorId = runtime.defaultActorId;
-	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
-	// SES-002 — the ONE actor-filtered combat read model; hidden combatants are already redacted.
-	const tracker = getCombatTrackerForActor(
-		runtime.state.session.combat,
-		runtime.state.permissions,
-		actorId,
-	);
 	const running = tracker.status === 'running';
 
 	const [openTray, setOpenTray] = useState<string | null>(null);
@@ -87,19 +92,16 @@ export function InitiativeTrackerCompact({
 	// would be the tile lying about what happened.
 	async function applyHp(id: string, intent: HpIntent, amount: number) {
 		const row = tracker.combatants.find((c) => c.id === id);
-		if (!row?.resources || amount <= 0) return;
+		if (!row?.resources || amount <= 0 || !onApplyResource) return;
 		setHpSheet(null);
 		setOpenTray(null);
-		const result = await runtime.dispatch({
-			type: 'combat.apply-resource',
-			actorId,
-			payload:
-				intent === 'temp'
-					? { combatantId: id, kind: 'temp-hp', value: amount }
-					: { combatantId: id, kind: 'hp', delta: intent === 'damage' ? -amount : amount },
-		});
-		if (result.status !== 'accepted') {
-			setAnnouncement(result.rejection?.message ?? '');
+		const outcome = await onApplyResource(
+			intent === 'temp'
+				? { combatantId: id, kind: 'temp-hp', value: amount }
+				: { combatantId: id, kind: 'hp', delta: intent === 'damage' ? -amount : amount },
+		);
+		if (!outcome.ok) {
+			setAnnouncement(outcome.message);
 			return;
 		}
 		// The HP commands carry no toast text, so without this the write is silent to a screen reader.
@@ -117,12 +119,9 @@ export function InitiativeTrackerCompact({
 
 	async function toggleHidden(row: CombatantRow) {
 		setOpenTray(null);
-		const result = await runtime.dispatch({
-			type: 'combat.set-combatant-visibility',
-			actorId,
-			payload: { combatantId: row.id, hidden: !row.hidden },
-		});
-		if (result.status !== 'accepted') setAnnouncement(result.rejection?.message ?? '');
+		if (!onSetVisibility) return;
+		const outcome = await onSetVisibility({ combatantId: row.id, hidden: !row.hidden });
+		if (!outcome.ok) setAnnouncement(outcome.message);
 	}
 
 	function onPointerDown(id: string, e: React.PointerEvent) {
@@ -208,7 +207,7 @@ export function InitiativeTrackerCompact({
 				    combatant row out of the tile, so the widget drew a Next-turn button and no combat.
 				    It now matches the row controls beside it. */}
 				<span style={{ marginLeft: 'auto' }}>
-					<NextTurnControl dense running interactive={interactive} />
+					<NextTurnControl dense running onAdvance={onAdvance} />
 				</span>
 			</div>
 			<ul
@@ -300,7 +299,7 @@ export function InitiativeTrackerCompact({
 										label={t('session.combat.hp.heal')}
 										onClick={() => !swallowed() && setHpSheet({ id: c.id, intent: 'heal' })}
 									/>
-									{isDm && (
+									{isDm && onSetVisibility && (
 										<IconButton
 											icon={c.hidden ? 'reveal' : 'conceal'}
 											size="md"

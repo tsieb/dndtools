@@ -216,10 +216,12 @@ describe('RC-WID-6.6 what "Edit widget" opens', () => {
 		);
 		const builtin = systemWidgets.find((widget) => widget.renderEntrypoint?.runtime === 'builtin')!;
 		expect(widgetEditTarget(v.state, builtin.type)).toBeNull();
-		// Dice draws through a template but is a system widget with its own body: not editable.
-		const dice = systemWidgets.find((widget) => widget.type === 'dice')!;
-		expect(dice).toMatchObject({ author: 'system', renderEntrypoint: { runtime: 'template' } });
-		expect(widgetEditTarget(v.state, 'dice')).toBeNull();
+		// Note declares a template but is a system widget with its own body: not editable.
+		const note = systemWidgets.find((widget) => widget.type === 'note')!;
+		expect(note).toMatchObject({ author: 'system', renderEntrypoint: { runtime: 'template' } });
+		expect(widgetEditTarget(v.state, 'note')).toBeNull();
+		// RC-WID-5.7 — Dice, like every GM board tool, draws only through its template: a GM may copy it.
+		expect(widgetEditTarget(v.state, 'dice')?.kind).toBe('fork');
 		expect(widgetEditTarget(v.state, 'nothing-declares-this')).toBeNull();
 
 		const own = buildPackage(named('mine'));

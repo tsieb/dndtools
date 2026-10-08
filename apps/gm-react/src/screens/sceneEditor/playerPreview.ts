@@ -169,7 +169,7 @@ export function readPlayerPreview(
 
 	const actor = state.permissions.actors[actorId];
 	const delivered = payloadIndex(summary.widgets);
-	// The same read and deliveries the Map tile makes (`widgets/builtin/Map.tsx`).
+	// The same read and deliveries the Map tile makes (the `bound-map` source in `widgets/dataEnvironment.ts`).
 	const deliveredMapIds = deliveredMapIdsForActor(state.session, actorId);
 	const mapReachesActor = (mapId: string) =>
 		getMapViewForActor(state.maps, state.permissions, actorId, mapId, { deliveredMapIds }).kind ===

@@ -38,6 +38,7 @@ import { ChartTemplate } from './templates/Chart';
 import { DataTableTemplate } from './templates/DataTable';
 import { FormPanelTemplate } from './templates/FormPanel';
 import { HUB_TEMPLATES } from './templates/Hub';
+import { BOARD_TEMPLATE_RENDERERS } from './templates/board';
 import { SceneMessageTemplate } from './templates/SceneMessage';
 import { StatBlockTemplate } from './templates/StatBlock';
 import { StatusListTemplate } from './templates/StatusList';
@@ -689,6 +690,7 @@ const WORKER_TEMPLATES: Record<
 	'stat-block': StatBlockTemplate,
 	'form-panel': FormPanelTemplate,
 	...HUB_TEMPLATES,
+	...BOARD_TEMPLATE_RENDERERS,
 };
 
 /** The template a data-only widget's result is drawn through; a table when it names none. */

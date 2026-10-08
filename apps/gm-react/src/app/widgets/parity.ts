@@ -58,7 +58,7 @@ export const CORE_PURE_HELPERS = [
 	'parseDiceExpression',
 	// Derives the turn model from a system package the body already read.
 	'resolveTurnModel',
-	// Formats a timer record the body already read (`state:session.timers`).
+	// Formats a timer record the body already read (the `widget-timer` source's).
 	'getTimerCountdown',
 	// RC-CAN-7.8 — the Session panels' helpers. The workflow transition table, an empty presence
 	// constant and the session-log subtype key; the rest are functions over a value the caller holds:
@@ -259,32 +259,24 @@ export const VIEWER_CONTEXT_PATHS: readonly string[] = ['permissions.actors'];
 
 /* ── The declared map ──────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * RC-WID-5.7 — the GM board's seven tools (map, initiative, dice, timer, audio, quick reference,
+ * prep) are not here: they are template kinds now (`templates/board`), drawn from public sources and
+ * declared commands, so there is no hand-written body left to check. The legacy Command Center bodies
+ * below read through the public sources RC-WID-5.7 added.
+ */
 export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParity>> = {
 	// A note or handout draws its own configuration (the text the Inspector wrote).
 	note: { queries: [], commands: [], intents: [] },
 	handout: { queries: [], commands: [], intents: [] },
-	// RC-CAN-7.8: the tray view's dice rules are the campaign's system (which also has the workflow).
-	dice: {
-		queries: ['dice-history', 'campaign'],
-		commands: ['dice.roll'],
-		intents: [],
-	},
-	timer: {
-		queries: [],
-		commands: ['timer.start', 'timer.pause', 'timer.resume', 'timer.advance', 'timer.reset'],
-		intents: [],
-	},
-	audio: { queries: [], commands: [], intents: [] },
-	'initiative-tracker': { queries: ['current-combatants', 'campaign'], commands: [], intents: [] },
-	character: { queries: ['campaign'], commands: [], intents: [] },
-	map: { queries: ['maps', 'session-state'], commands: [], intents: ['open-entity'] },
-	'quick-reference': { queries: ['content-objects'], commands: [], intents: [] },
-	prep: { queries: ['notes'], commands: [], intents: [] },
+	// The bound character and the active system's attributes.
+	character: { queries: ['bound-character'], commands: [], intents: [] },
 	// RC-CAN-7.8: the Session screen's views — the status row's scenes and workflow, the party it
 	// rests and the GM screen a "Continue" start resumes, and each right-hand panel's own read.
 	session: {
 		queries: [
 			'session-state',
+			'session-status',
 			'party',
 			'resume',
 			'rollable-tables',
@@ -299,21 +291,21 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 		commands: [],
 		intents: ['open-route'],
 	},
-	'getting-started': { queries: [], commands: [], intents: [] },
-	// The GM screen's widget count is a `screens` row's.
-	tools: { queries: ['screens'], commands: [], intents: [] },
+	'getting-started': { queries: ['onboarding'], commands: [], intents: [] },
+	// The GM screen's widget count, the saved layouts and the safe point.
+	tools: { queries: ['command-center'], commands: [], intents: [] },
 	'data-hub': { queries: ['table-scenes', 'vault-counts'], commands: [], intents: [] },
-	atlas: { queries: ['maps'], commands: [], intents: [] },
+	atlas: { queries: ['maps', 'map-projection'], commands: [], intents: [] },
 	characters: { queries: ['visible-characters'], commands: [], intents: [] },
-	'player-views': { queries: [], commands: [], intents: [] },
+	'player-views': { queries: ['player-view-controller'], commands: [], intents: [] },
 	// RC-CAN-7.8: the tracker view's encounter builder reads the scenes, the system and the GM screen.
 	combat: {
-		queries: ['current-combatants', 'session-state', 'campaign', 'resume'],
-		commands: [],
+		queries: ['current-combatants', 'encounters', 'session-state', 'campaign', 'resume'],
+		commands: ['combat.advance-turn', 'combat.apply-resource', 'combat.set-combatant-visibility'],
 		intents: [],
 	},
 	notes: { queries: ['notes'], commands: [], intents: [] },
-	search: { queries: [], commands: [], intents: [] },
+	search: { queries: ['saved-searches'], commands: [], intents: [] },
 };
 
 /* ── Findings ──────────────────────────────────────────────────────────────────────────────────── */
@@ -348,16 +340,9 @@ export interface ParityDebt {
 	repaidBy: ParityRepairStory;
 }
 
-const owedBy =
-	(repaidBy: ParityRepairStory) =>
-	(finding: string): ParityDebt => ({ finding, repaidBy });
-const wid57 = owedBy('RC-WID-5.7');
-const wid513 = owedBy('RC-WID-5.13');
-const privateUses = (
-	type: BuiltinWidgetType,
-	uses: readonly ParityUse[],
-	owed: (finding: string) => ParityDebt = wid57,
-) => uses.map((use) => owed(privateUseFinding(type, use)));
+const wid513 = (finding: string): ParityDebt => ({ finding, repaidBy: 'RC-WID-5.13' });
+const privateUses = (type: BuiltinWidgetType, uses: readonly ParityUse[]) =>
+	uses.map((use) => wid513(privateUseFinding(type, use)));
 /** The viewer's own seat, read as `permissions.actors[actorId].role` (a template gets `isDm`). */
 const OWN_ROLE: readonly ParityUse[] = [
 	'state:permissions.actors.<dynamic>',
@@ -369,85 +354,19 @@ const OWN_ROLE: readonly ParityUse[] = [
  * exact ratchet like the raw-style allow-lists: the test fails on a finding missing from here and on
  * an entry that no longer reproduces, so a repair must delete its entries and nothing new can be
  * added without a reviewed edit to this list. The checker itself never consults it.
+ *
+ * RC-WID-5.6 repaid the five home-definition findings, and RC-WID-5.7 the private builtin uses and
+ * the seven builtin bodies on the fresh GM board. What remains is the Session screen's (RC-CAN-7.8),
+ * owed by RC-WID-5.13; a new finding fails the gate until it is fixed or a reviewed entry names the
+ * story that repays it.
  */
 export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
-	// RC-WID-5.7: no query source or descriptor reaches these yet. The board tiles (map, initiative,
-	// dice, timer, audio, quick reference, prep) were kept as builtin targets by SCREENS_PARITY
-	// (BD-20–BD-26, SE-18); the legacy hub bodies read the rest.
-	// The session timer the start/pause/resume executors run (BD-23).
-	...privateUses('timer', ['state:session.timers', 'state:session.timers.<dynamic>']),
-	// What is playing (BD-24, SE-18).
-	...privateUses('audio', [
-		'read:getSessionAudioView',
-		'state:audio.assets',
-		'state:audio.assets.<dynamic>',
-		'state:audio.assets.<dynamic>.title',
-		'state:audio.sources',
-		'state:audio.sources.<dynamic>',
-		'state:audio.sources.<dynamic>.displayName',
-		'state:session.audioPlayback',
-	]),
-	// Combat writes (G-11) and other actors' roles.
-	...privateUses('initiative-tracker', [
-		'command:combat.advance-turn',
-		'command:combat.apply-resource',
-		'command:combat.set-combatant-visibility',
-		'state:permissions.actors.<dynamic>',
-		'state:permissions.actors.<dynamic>.role',
-	]),
-	// One bound character (visible-characters and party only list them).
-	...privateUses('character', ['read:getCharacterForActor']),
-	// The map view, its layers and delivered maps; rebinding itself; staging and projecting (BD-20,
-	// SE-19); the players to project to.
-	...privateUses('map', [
-		'command:scene.configure-widget',
-		'command:session.project-active-map',
-		'command:session.set-active-map',
-		'read:deliveredMapIdsForActor',
-		'read:getMapViewForActor',
-		'read:queryMapLayers',
-		'state:maps.assets',
-		'state:maps.maps',
-		'state:maps.maps.<dynamic>',
-		'state:maps.maps.<dynamic>.assetIds',
-		'state:permissions.actors.<dynamic>',
-		'state:permissions.actors.<dynamic>.role',
-		'state:scenes.scenes',
-	]),
-	...privateUses('session', ['read:getSessionStatusStrip']),
-	...privateUses('getting-started', ['read:resolveOnboarding']),
-	// Which screen is the GM screen, the layout presets and the safe point.
-	...privateUses('tools', [
-		'state:commandCenter.autoSave',
-		'state:commandCenter.homeSceneId',
-		'state:commandCenter.presets',
-		'state:scenes.scenes.<dynamic>',
-		'state:scenes.scenes.<dynamic>.widgets',
-		'state:scenes.scenes.<dynamic>.widgets.length',
-	]),
-	...privateUses('atlas', ['read:getActiveMapProjectionSummary']),
-	...privateUses('player-views', ['read:getPlayerViewController']),
-	...privateUses('combat', ['read:listEncountersForActor']),
-	...privateUses('search', ['read:getSavedSearchesForActor']),
-
-	// RC-WID-5.7: the fresh GM board (`ensureHomeBoard`, null origin) provisions builtin bodies.
-	...(
-		[
-			'map',
-			'initiative-tracker',
-			'dice',
-			'timer',
-			'audio',
-			'quick-reference',
-			'prep',
-		] as const satisfies readonly BuiltinWidgetType[]
-	).map((type) => wid57(builtinOnScreenFinding(type))),
-
 	// RC-WID-5.13: the Session screen's widgets (RC-CAN-7.8). They stay builtin until SCREENS_PARITY
 	// §4.2's gaps have a public surface: widget-owned dialogs (G-05), declared gates and announcements
 	// (G-07), a keyboard model (G-08), headings in bare presentation (G-09), host scheduling (G-10),
 	// combat writes (G-11) and multi-select (G-06). `session` renders the status row and every panel of
 	// the right-hand column, so it carries all of their uses. Every view reads the viewer's own seat.
+	// The dice tray is the `dice-roller` template's `tray` view (RC-WID-5.7), so it owes nothing.
 	...privateUses(
 		'session',
 		[
@@ -495,7 +414,6 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 			'state:session.title',
 			...OWN_ROLE,
 		],
-		wid513,
 	),
 	...privateUses(
 		'combat',
@@ -518,9 +436,7 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 			'state:session.activeMap.mapId',
 			...OWN_ROLE,
 		],
-		wid513,
 	),
-	...privateUses('dice', OWN_ROLE, wid513),
 	...(['session', 'combat'] as const satisfies readonly BuiltinWidgetType[]).map((type) =>
 		wid513(builtinOnScreenFinding(type)),
 	),
@@ -576,15 +492,6 @@ export function stripComments(source: string, blankStrings = false): string {
 		out += char;
 	}
 	return out;
-}
-
-const MEMBER_CHAIN = String.raw`((?:\??\.[A-Za-z_$][\w$]*)*)`;
-
-function chainPath(chain: string): string[] {
-	return chain
-		.split('.')
-		.map((part) => part.replace(/\?$/, ''))
-		.filter(Boolean);
 }
 
 export interface ModuleImports {
@@ -795,6 +702,41 @@ export function extractBodyUses(
 
 /* ── What the query sources expose ─────────────────────────────────────────────────────────────── */
 
+/**
+ * Each `state.…` member chain in resolver code, segment by segment. A bracketed member is its string
+ * key, or `<dynamic>` for any other expression, the names the body scan gives the same accesses
+ * (`state.session.timers[widget.id]` → `session`, `timers`, `<dynamic>`).
+ */
+export function stateChains(code: string): string[][] {
+	const chains: string[][] = [];
+	for (const start of code.matchAll(/\bstate\b/g)) {
+		let i = start.index! + start[0].length;
+		const segments: string[] = [];
+		for (;;) {
+			const member = /^\??\.\s*([A-Za-z_$][\w$]*)/.exec(code.slice(i, i + 200));
+			if (member) {
+				segments.push(member[1]!);
+				i += member[0].length;
+				continue;
+			}
+			const bracket = /^(?:\?\.)?\[/.exec(code.slice(i, i + 3));
+			if (!bracket) break;
+			let depth = 0;
+			let end = i + bracket[0].length - 1;
+			for (; end < code.length; end += 1) {
+				if (code[end] === '[') depth += 1;
+				else if (code[end] === ']' && --depth === 0) break;
+			}
+			const key = code.slice(i + bracket[0].length, end).trim();
+			const literal = /^(['"])([^'"]*)\1$/.exec(key);
+			segments.push(literal ? literal[2]! : '<dynamic>');
+			i = end + 1;
+		}
+		if (segments.length > 0) chains.push(segments);
+	}
+	return chains;
+}
+
 export interface SourceExposure {
 	reads: Set<string>;
 	paths: Set<string>;
@@ -836,9 +778,10 @@ export function deriveQueryExposure(
 		const collect = (text: string, into: SourceExposure, visited: Set<string>) => {
 			for (const name of coreNames)
 				if (new RegExp(String.raw`\b${name}\b`).test(text)) into.reads.add(name);
-			for (const match of text.matchAll(new RegExp(String.raw`\bstate${MEMBER_CHAIN}`, 'g'))) {
-				const segments = chainPath(match[1]!);
-				if (segments.length >= 2) into.paths.add(segments.join('.'));
+			for (const segments of stateChains(text)) {
+				// Every prefix too, as the body scan records each member access it passes through.
+				for (let length = 2; length <= segments.length; length += 1)
+					into.paths.add(segments.slice(0, length).join('.'));
 			}
 			for (const helper of helpers) {
 				if (visited.has(helper.name) || !new RegExp(String.raw`\b${helper.name}\(`).test(text))

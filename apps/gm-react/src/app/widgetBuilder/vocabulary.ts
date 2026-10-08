@@ -44,6 +44,13 @@ export const TEMPLATE_LABEL: Record<WidgetTemplateKind, MessageKey> = {
 	launcher: 'builder.template.launcher',
 	'card-grid': 'builder.template.cardGrid',
 	hero: 'builder.template.hero',
+	// RC-WID-5.7 — the GM board's tools.
+	'map-view': 'builder.template.mapView',
+	initiative: 'builder.template.initiative',
+	'dice-roller': 'builder.template.diceRoller',
+	countdown: 'builder.template.countdown',
+	'now-playing': 'builder.template.nowPlaying',
+	'item-list': 'builder.template.itemList',
 };
 
 export const TEMPLATE_HELP: Record<WidgetTemplateKind, MessageKey> = {
@@ -59,6 +66,12 @@ export const TEMPLATE_HELP: Record<WidgetTemplateKind, MessageKey> = {
 	launcher: 'builder.templateHelp.launcher',
 	'card-grid': 'builder.templateHelp.cardGrid',
 	hero: 'builder.templateHelp.hero',
+	'map-view': 'builder.templateHelp.mapView',
+	initiative: 'builder.templateHelp.initiative',
+	'dice-roller': 'builder.templateHelp.diceRoller',
+	countdown: 'builder.templateHelp.countdown',
+	'now-playing': 'builder.templateHelp.nowPlaying',
+	'item-list': 'builder.templateHelp.itemList',
 };
 
 export const TEMPLATE_KINDS = Object.keys(TEMPLATE_LABEL) as WidgetTemplateKind[];
@@ -97,6 +110,18 @@ export const QUERY_SOURCE_LABEL: Record<WidgetDataQuerySource, MessageKey> = {
 	resume: 'builder.source.resume',
 	'table-scenes': 'builder.source.tableScenes',
 	'library-sections': 'builder.source.librarySections',
+	// RC-WID-5.7 — the GM board's tools and the legacy Command Center bodies.
+	'widget-timer': 'builder.source.widgetTimer',
+	'session-audio': 'builder.source.sessionAudio',
+	'bound-map': 'builder.source.boundMap',
+	'bound-character': 'builder.source.boundCharacter',
+	'session-status': 'builder.source.sessionStatus',
+	onboarding: 'builder.source.onboarding',
+	'command-center': 'builder.source.commandCenter',
+	'map-projection': 'builder.source.mapProjection',
+	'player-view-controller': 'builder.source.playerViewController',
+	encounters: 'builder.source.encounters',
+	'saved-searches': 'builder.source.savedSearches',
 };
 
 export const QUERY_SOURCES = Object.keys(QUERY_SOURCE_LABEL) as WidgetDataQuerySource[];

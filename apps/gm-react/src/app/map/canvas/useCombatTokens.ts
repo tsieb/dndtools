@@ -23,7 +23,7 @@ import { useRuntime } from '../../../runtime/RuntimeContext';
  * impossible) contributes no resources rather than blank ones.
  *
  * `now` is omitted from both reads, matching every existing app call site
- * (`widgets/builtin/InitiativeTracker.tsx`, `widgets/dataEnvironment.ts`): the app has no clock seam,
+ * (`widgets/dataEnvironment.ts`, which the initiative tile reads through): the app has no clock seam,
  * and minting `new Date()` per render would re-run both queries on every frame.
  */
 export interface CombatTokenModel {

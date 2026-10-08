@@ -1,66 +1,79 @@
-import { useMemo } from 'react';
-import {
-	getActiveSystemForActor,
-	getCombatTrackerForActor,
-	resolveTurnModel,
-} from '@dndtools/core';
-import { useRuntime } from '../../../runtime/RuntimeContext';
-import type { BoardWidget } from '../../board-helpers';
-import { useI18n } from '../../../i18n';
-import { Muted, StatPill, bodyWrap, cfg, type WidgetCommandHandler } from '../../widget-body-kit';
-import { useViewport } from '../../useViewport';
-import { InitiativeTrackerCompact } from './InitiativeTracker';
+import type { CombatTrackerView, ResolvedTurnModel } from '@dndtools/core';
+import { useI18n } from '../../../../i18n';
+import { Muted, StatPill, bodyWrap, cfg } from '../../../widget-body-kit';
+import { useViewport } from '../../../useViewport';
+import { LiveStats } from '../../builtin/live';
+import type { WidgetTemplateProps } from '../shared';
+import { declares, detailOf, useWidgetCommandRunner } from './boardData';
+import { InitiativeTrackerCompact } from './InitiativeCompact';
 import { NextTurnControl } from './NextTurnControl';
-import { LiveStats } from './live';
+
+/** No fight: what the tile draws before combat starts, or without a combat query to read. */
+const NO_COMBAT: CombatTrackerView = {
+	status: 'idle',
+	encounterId: null,
+	round: 0,
+	turn: 0,
+	combatants: [],
+	activeCombatantId: null,
+	log: [],
+	hiddenCount: 0,
+	revision: 0,
+};
+
+/** The turn model a tile without a combat query assumes: a counted, ordered round of turns. */
+const ROUND_OF_TURNS: ResolvedTurnModel = {
+	kind: 'initiative',
+	ordered: true,
+	spotlight: false,
+	rounds: true,
+	actionsPerTurn: null,
+	initiativeFormula: null,
+};
 
 /**
- * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
- * hold once every system widget type gained a body, so each hand-written body now lives in its own
- * file under `app/widgets/builtin/`. This is a pure move: the component below is byte-for-byte the
- * one that used to sit in `widget-bodies.tsx`.
+ * `initiative` — the GM board's initiative tile (RC-WID-5.7; the `initiative-tracker` builtin body
+ * until then, unchanged on screen). The order and the active system's turn model come from the
+ * definition's `current-combatants` query, SES-002's actor-filtered tracker (hidden combatants
+ * already redacted). Next turn, the HP keypad and hide/reveal run the declared `combat.*` commands.
  */
-
-export function InitiativeBody({
-	widget,
-	onCommand,
-}: {
-	widget: BoardWidget;
-	/** VIEW-mode dispatch; its absence is how a body knows the board is being edited. */
-	onCommand?: WidgetCommandHandler;
-}) {
-	const runtime = useRuntime();
+export function InitiativeTemplate({ widget, data, onCommand }: WidgetTemplateProps) {
 	const { t } = useI18n();
 	const viewport = useViewport();
 	const showHp = cfg<boolean>(widget, 'showHp') ?? true;
+	const combat = detailOf(data, 'combat');
 	// RC-SYS-2.7 — the active package's turn model decides whether the tracker counts rounds at all
-	// and whether the cursor means "whose turn" or "the spotlight" (RC-SYS-2.4's ResolvedTurnModel,
-	// same read `InitiativeRow` uses).
-	const activePackage = useMemo(
-		() =>
-			getActiveSystemForActor(
-				runtime.state.systems,
-				runtime.state.permissions,
-				runtime.defaultActorId,
-			).activePackage,
-		[runtime.state.systems, runtime.state.permissions, runtime.defaultActorId],
-	);
-	const turnModel = resolveTurnModel(activePackage);
+	// and whether the cursor means "whose turn" or "the spotlight" (RC-SYS-2.4's ResolvedTurnModel).
+	const turnModel = combat?.turnModel ?? ROUND_OF_TURNS;
 	// RC-CAN-5.3 — on a phone this tile IS the tracker, so it draws the order itself rather than a
 	// three-pill summary the DM has to leave the board to act on. Hooks above run either way.
 	const compact = viewport === 'phone';
-	// SES-002 — the ONE actor-filtered combat read model; hidden combatants are already redacted.
-	const tracker = getCombatTrackerForActor(
-		runtime.state.session.combat,
-		runtime.state.permissions,
-		runtime.defaultActorId,
-	);
+	const tracker = combat?.tracker ?? NO_COMBAT;
+	const { run } = useWidgetCommandRunner(widget);
+	// VIEW mode only (`onCommand` present), and only for a command the definition declares.
+	const runnable = (type: string) =>
+		onCommand && declares(widget, type)
+			? (payload: Record<string, unknown>) => run(type, payload)
+			: undefined;
+	const advance = runnable('combat.advance-turn');
 	const running = tracker.status === 'running';
 	const active =
 		tracker.combatants.find((c) => c.isActive) ??
 		tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ??
 		null;
 	const orderNames = tracker.combatants.map((c) => c.name);
-	if (compact) return <InitiativeTrackerCompact showHp={showHp} interactive={!!onCommand} />;
+	if (compact)
+		return (
+			<InitiativeTrackerCompact
+				tracker={tracker}
+				isDm={data.isDm}
+				showHp={showHp}
+				interactive={!!onCommand}
+				onAdvance={advance && (() => advance({}))}
+				onApplyResource={runnable('combat.apply-resource')}
+				onSetVisibility={runnable('combat.set-combatant-visibility')}
+			/>
+		);
 	return (
 		// Natural height, not the tile's: content past the tile edge scrolls in the frame's region.
 		<div style={{ ...bodyWrap, height: 'auto', minHeight: '100%', overflow: 'visible' }}>
@@ -100,7 +113,7 @@ export function InitiativeBody({
 				</LiveStats>
 				{/* RC-WID-4.2 — the tile's own operate control; see `NextTurnControl.tsx`. */}
 				<div style={{ display: 'flex', justifyContent: 'flex-end', marginLeft: 'auto' }}>
-					<NextTurnControl running={running} interactive={!!onCommand} />
+					<NextTurnControl running={running} onAdvance={advance && (() => advance({}))} />
 				</div>
 			</div>
 			{running && orderNames.length > 0 ? (

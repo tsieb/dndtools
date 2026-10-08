@@ -27,6 +27,7 @@ import { Checkbox, Field, Input, Select } from '../../ds';
 import { T } from '../screen-kit';
 import {
 	BindingRows,
+	BoundSourceHint,
 	QueryPreview,
 	SourceCatalogue,
 	nextBindingId,
@@ -575,6 +576,7 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									</div>
 								</fieldset>
 							)}
+							<BoundSourceHint source={query.source} bindings={allBindings} />
 							<QueryOptionPickers
 								query={query}
 								onChange={(next) => setQuery(index, next)}

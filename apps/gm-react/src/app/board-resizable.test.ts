@@ -66,9 +66,10 @@ describe('both size affordances ask the same predicate', () => {
 	});
 });
 
-import { BUILTIN_SIZE_BOUNDS, BUILTIN_WIDGET_TYPES } from './widgets/builtin';
+import { BUILTIN_SIZE_BOUNDS, SIZED_WIDGET_TYPES } from './widgets/builtin';
+// RC-WID-5.7 — the GM board's tools are templates now, and keep the bounds they had as bodies.
 describe('every builtin declares host bounds without changing stored layout', () => {
-	it.each(BUILTIN_WIDGET_TYPES)('%s stays resizable from a grid cell to the board', (type) => {
+	it.each(SIZED_WIDGET_TYPES)('%s stays resizable from a grid cell to the board', (type) => {
 		const bounds = BUILTIN_SIZE_BOUNDS[type];
 		expect(bounds.minSize).toEqual({ width: 20, height: 20 });
 		expect(bounds.maxSize).toEqual({ width: Infinity, height: Infinity });

@@ -4,37 +4,55 @@ import {
 	VAULT_OBJECT_SUBTYPE_KEY,
 	WIDGET_QUERY_COLUMNS,
 	decideCharacterDataRead,
+	deliveredMapIdsForActor,
 	detectContinuityMentions,
 	evaluateFormula,
+	getActiveMapProjectionSummary,
 	getActiveSystemForActor,
 	getCalendarContextForActor,
+	getCharacterForActor,
 	getCombatTrackerForActor,
 	getContentItemsForActor,
 	getDiceHistoryForActor,
 	getHandoutsForActor,
+	getMapViewForActor,
+	getPlayerViewController,
 	getPlayerViewForActor,
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
+	getSavedSearchesForActor,
 	getSceneForActor,
+	getSessionAudioView,
 	getSessionRecapFeedForActor,
+	getSessionStatusStrip,
 	hasDmAuthority,
 	listCharactersForActor,
+	listEncountersForActor,
 	listMapsForActor,
 	listScenesForActor,
 	listScreensForActor,
 	listWidgetLibrary,
 	partyRecordOf,
 	projectSessionPresence,
+	queryMapLayers,
+	resolveOnboarding,
+	resolveTurnModel,
 	resourcesOf,
 	restKindOfLedgerEntry,
+	widgetInstanceReachesActor,
 	widgetQueryFormulaIdentifier,
 	widgetTemplateReadsQueries,
 	type Actor,
 	type CharacterView,
 	type CombatTrackerView,
+	type DiceRollView,
 	type CoreStateSlice,
+	type MapLayerQueryEntry,
+	type MapView,
 	type PlatformProfileId,
+	type ResolvedTurnModel,
 	type Scene,
+	type SessionTimer,
 	type WidgetComputedFieldDefinition,
 	type WidgetDataQueryDefinition,
 	type WidgetDataQueryOptions,
@@ -48,6 +66,7 @@ import { useSession, type SessionContextValue } from '../../net/SessionContext';
 import type { PeerPresenceEntry } from '../../net/messages';
 import type { BoardWidget } from '../board-helpers';
 import { useI18n } from '../../i18n';
+import { pickRasterAssetId } from '../mapGeometry';
 import { englishTranslate, resolveHomeSource, type HomeTranslate } from './homeSources';
 
 /**
@@ -173,6 +192,51 @@ export interface WidgetHostContext {
 /** Why a query returned nothing on purpose. `null` means the query really ran. */
 export type WidgetQueryWithheldReason = 'audience' | 'capability';
 
+/** RC-WID-5.7 — what is playing, as this viewer may know it. */
+export interface WidgetAudioTrack {
+	/** The track's title. The DM's only: a player hears "session audio", never the DM's library. */
+	title: string | null;
+	playing: boolean;
+	/** 0 to 1. */
+	volume: number;
+	/** How many ambience layers play under the track. Always 0 for a player. */
+	ambienceCount: number;
+}
+
+/** RC-WID-5.7 — the map a widget is bound to, as this viewer may see it. */
+export interface WidgetBoundMap {
+	/** The bound map's id, or null when the widget is bound to none. */
+	mapId: string | null;
+	/** The actor-filtered view; null when the map is missing or hidden from this viewer. Its combat
+	 * tokens are present only while the widget's combat overlay is on. */
+	view: MapView | null;
+	layers: MapLayerQueryEntry[];
+	rasterAssetId: string | null;
+	/** The DM's only: the maps this widget can be pointed at instead. Empty for anyone else. */
+	choices: { id: string; name: string }[];
+	/** The DM's only: the players a projection reaches. Empty for anyone else. */
+	playerActorIds: string[];
+	sessionLive: boolean;
+}
+
+/**
+ * RC-WID-5.7 — a roll from the viewer's own dice history, oldest first: the core's actor-filtered
+ * view (`getDiceHistoryForActor`), which the Session screen's tray draws in full.
+ */
+export type WidgetDiceRoll = DiceRollView;
+
+/**
+ * RC-WID-5.7 — the structured half of a source whose rows cannot carry everything a board tool draws:
+ * a timer's record, a map view, the combat order. Built by the same actor-scoped read as the rows,
+ * and never set on a withheld query, so it cannot reveal more than the rows would.
+ */
+export type WidgetQueryDetail =
+	| { kind: 'timer'; timer: SessionTimer | null }
+	| { kind: 'audio'; track: WidgetAudioTrack | null }
+	| { kind: 'map'; map: WidgetBoundMap }
+	| { kind: 'combat'; tracker: CombatTrackerView; turnModel: ResolvedTurnModel }
+	| { kind: 'dice'; rolls: WidgetDiceRoll[] };
+
 export interface WidgetQueryResult {
 	/** The declaration's id, so a computed field can name its inputs. */
 	id: string;
@@ -189,6 +253,8 @@ export interface WidgetQueryResult {
 	/** What to say when there are no rows and nothing was withheld. Sentence case. */
 	emptyLabel: string;
 	withheld: WidgetQueryWithheldReason | null;
+	/** RC-WID-5.7 — the board sources' structured result (see {@link WidgetQueryDetail}). */
+	detail?: WidgetQueryDetail;
 }
 
 export interface WidgetComputedValue {
@@ -441,7 +507,12 @@ function orderRows(
  * the DM bound this widget to, and it reports the binding STATUS the board already derived rather
  * than re-deriving (and possibly disagreeing with) it.
  */
-type ResolvedSource = { rows: WidgetDataRow[]; header: string | null; emptyLabel: string };
+type ResolvedSource = {
+	rows: WidgetDataRow[];
+	header: string | null;
+	emptyLabel: string;
+	detail?: WidgetQueryDetail;
+};
 
 function resolveSource(
 	state: CoreStateSlice,
@@ -460,8 +531,13 @@ function resolveSource(
 					? `Round ${tracker.round} · turn ${tracker.turn + 1} of ${tracker.combatants.length}`
 					: 'No combat running';
 			const combatants = filterCombatants(state, actorId, tracker.combatants, options);
+			// RC-WID-5.7 — the initiative tile draws the order itself, in the active system's turn model.
+			const turnModel = resolveTurnModel(
+				getActiveSystemForActor(state.systems, state.permissions, actorId).activePackage,
+			);
 			return {
 				header,
+				detail: { kind: 'combat', tracker: { ...tracker, combatants }, turnModel },
 				emptyLabel: narrows(options)
 					? 'No combatants match these filters.'
 					: 'No combatants in the tracker.',
@@ -599,7 +675,356 @@ function resolveSource(
 			};
 		}
 		default:
-			return resolveHubSource(state, actor, query, host);
+			return (
+				resolveBoardSource(state, actor, query, widget) ??
+				resolveHubSource(state, actor, query, host)
+			);
+	}
+}
+
+/** `1:05` from seconds, the countdown's own format. */
+function clockOf(seconds: number): string {
+	const whole = Math.max(0, Math.round(seconds));
+	return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+/**
+ * RC-WID-5.7 — the reads the GM board's tools and the legacy Command Center bodies used to make on
+ * their own, now public sources. The same rule as every other source: each branch maps an
+ * actor-scoped core read, and what is the DM's stays the DM's. `widget-timer`, `bound-map` and
+ * `bound-character` describe only the placed widget being drawn. Null for any other source.
+ */
+function resolveBoardSource(
+	state: CoreStateSlice,
+	actor: Actor,
+	query: WidgetDataQueryDefinition,
+	widget: BoardWidget,
+): ResolvedSource | null {
+	const actorId = actor.id;
+	const isDm = hasDmAuthority(actor.role);
+	switch (query.source) {
+		case 'widget-timer': {
+			// This instance's own durable timer (SES-005), and only for a viewer the instance reaches (its
+			// screen is visible to them, or a projection hands it over: the gate a press goes through), so
+			// a timer on a screen they cannot open is never described to them.
+			const timer = widgetInstanceReachesActor(state, actorId, widget.id)
+				? (state.session.timers[widget.id] ?? null)
+				: null;
+			return {
+				header: null,
+				emptyLabel: 'This timer has not been started.',
+				detail: { kind: 'timer', timer },
+				rows: timer
+					? [
+							row(widget.id, clockOf(timer.durationSeconds), {
+								secondary: timer.status,
+								value: timer.durationSeconds,
+								active: timer.status === 'running',
+							}),
+						]
+					: [],
+			};
+		}
+		case 'session-audio': {
+			// AUDIO-002/003 — the DM gets the track and the ambience mix; anyone else the player-safe
+			// track alone. Titles resolve through the DM's audio library, so only the DM gets one.
+			const view = getSessionAudioView(
+				state.audio,
+				state.session.audioPlayback,
+				state.permissions,
+				actorId,
+			);
+			const track = view.track;
+			const dmView = view.role === 'dm';
+			const title =
+				track && dmView
+					? ((track.assetId ? state.audio.assets[track.assetId]?.title : undefined) ??
+						state.audio.sources[track.sourceId]?.displayName ??
+						track.sourceId)
+					: null;
+			const ambience = dmView ? Object.entries(view.ambienceLayers) : [];
+			const playing = track?.status === 'playing';
+			return {
+				header: null,
+				emptyLabel: 'Nothing playing.',
+				detail: {
+					kind: 'audio',
+					track: track
+						? { title, playing, volume: track.volume, ambienceCount: ambience.length }
+						: null,
+				},
+				rows: track
+					? [
+							row('track', title ?? 'Session audio', {
+								secondary: `${playing ? 'Playing' : 'Paused'} · ${Math.round(track.volume * 100)}%`,
+								value: Math.round(track.volume * 100),
+								active: playing,
+							}),
+							...ambience.map(([layerId, layer]) =>
+								row(
+									`ambience:${layerId}`,
+									state.audio.sources[layer.sourceId]?.displayName ?? layer.sourceId,
+									{ meta: 'Ambience' },
+								),
+							),
+						]
+					: [],
+			};
+		}
+		case 'bound-map': {
+			// RC-CAN-4.5's map tile, as data: the bound map through the actor-filtered map read (fog,
+			// hidden layers and hidden combatants already removed), with the running fight only while
+			// the widget's overlay is on, so there is no combat list to leak when it is off.
+			const mapId = widget.bindingRef?.entityType === 'map' ? widget.bindingRef.entityId : null;
+			const overlayOn = widget.configuration.combatOverlay !== false;
+			const result = mapId
+				? getMapViewForActor(state.maps, state.permissions, actorId, mapId, {
+						deliveredMapIds: deliveredMapIdsForActor(state.session, actorId),
+						combat: overlayOn ? state.session.combat : undefined,
+					})
+				: null;
+			const view = result?.kind === 'available' ? result : null;
+			const layers =
+				mapId && view
+					? queryMapLayers(state.maps, state.permissions, actorId, { mapId }).layers
+					: [];
+			const rasterAssetId = view
+				? pickRasterAssetId(state.maps.maps[view.mapId]?.assetIds ?? [], state.maps.assets)
+				: null;
+			// The DM's controls: another map to point at, and the players a projection reaches.
+			const choices = isDm
+				? listMapsForActor(state.maps, state.permissions, actorId).map((map) => ({
+						id: map.id,
+						name: map.name,
+					}))
+				: [];
+			const playerActorIds = isDm
+				? Object.keys(state.permissions.actors).filter(
+						(id) => state.permissions.actors[id]?.role === 'player',
+					)
+				: [];
+			return {
+				header: null,
+				emptyLabel: mapId ? 'The bound map is not available.' : 'No map bound.',
+				detail: {
+					kind: 'map',
+					map: {
+						mapId,
+						view,
+						layers,
+						rasterAssetId,
+						choices,
+						playerActorIds,
+						sessionLive: state.session.workflow === 'active',
+					},
+				},
+				rows: view
+					? [
+							row(view.mapId, view.name, {
+								secondary: plural(view.pois.length, 'point of interest', 'points of interest'),
+								value: view.combatTokens.length,
+							}),
+						]
+					: [],
+			};
+		}
+		case 'bound-character': {
+			// The character this widget is bound to, through the actor-scoped read: a DM-only character
+			// is simply unavailable to a player, so the widget says nothing about it.
+			const characterId =
+				widget.bindingRef?.entityType === 'character' ? widget.bindingRef.entityId : null;
+			const activePackage = getActiveSystemForActor(
+				state.systems,
+				state.permissions,
+				actorId,
+			).activePackage;
+			const view = characterId
+				? getCharacterForActor(
+						state.characters,
+						state.permissions,
+						actorId,
+						characterId,
+						activePackage,
+					)
+				: null;
+			if (!view) {
+				return {
+					header: null,
+					emptyLabel: characterId ? 'The bound character is not available.' : 'No character bound.',
+					rows: [],
+				};
+			}
+			return {
+				header: null,
+				emptyLabel: 'No character bound.',
+				rows: [
+					row(view.id, view.name, {
+						secondary: characterVitals(view),
+						value: view.combat.hp,
+						max: view.combat.maxHp,
+					}),
+					...activePackage.attributes
+						.filter((attribute) => view.attributes[attribute.key] !== undefined)
+						.map((attribute) =>
+							row(`attribute:${attribute.key}`, attribute.abbreviation || attribute.label, {
+								value: Number(view.attributes[attribute.key]),
+							}),
+						),
+					...view.resources
+						.filter((resource) => resource.kind === 'track')
+						.map((resource) =>
+							row(`resource:${resource.key}`, resource.label, {
+								value: resource.available,
+								max: resource.max,
+							}),
+						),
+				],
+			};
+		}
+		case 'session-status': {
+			// UX-CMD-003's strip, already filtered: the roster cell is the DM's alone.
+			const strip = getSessionStatusStrip(state, actorId);
+			if (strip.kind !== 'status-strip') {
+				return { header: null, emptyLabel: 'No session status here.', rows: [] };
+			}
+			return {
+				header: strip.observerMode ? 'Observer mode' : null,
+				emptyLabel: 'No session status here.',
+				rows: [
+					row('phase', 'Phase', { secondary: strip.phase.label }),
+					row('turn', 'Turn', { secondary: strip.turn.label, active: strip.turn.inCombat }),
+					...(strip.players
+						? [
+								row('players', 'Players', {
+									secondary: strip.players.label,
+									value: strip.players.connectedCount,
+								}),
+							]
+						: []),
+					row('audio', 'Audio', { secondary: strip.audio.label, active: strip.audio.playing }),
+				],
+			};
+		}
+		case 'onboarding': {
+			// Setup is the DM's (`canSetup`): anyone else gets no checklist.
+			const view = resolveOnboarding(state, actorId);
+			const done = view.steps.filter((step) => step.done).length;
+			return {
+				header: view.canSetup ? `${done} of ${view.steps.length} set up` : null,
+				emptyLabel: 'Setup is the DM’s.',
+				rows: view.canSetup
+					? view.steps.map((step) =>
+							row(step.id, step.label, { meta: step.done ? 'Done' : undefined, active: step.done }),
+						)
+					: [],
+			};
+		}
+		case 'command-center': {
+			// The GM screen's own tools: its widget count, the saved layouts and the safe point. The
+			// DM's material, like the GM screen itself.
+			if (!isDm) return { header: null, emptyLabel: 'Only the DM sees the GM screen.', rows: [] };
+			const homeSceneId = state.commandCenter.homeSceneId;
+			const widgetCount = homeSceneId ? (state.scenes.scenes[homeSceneId]?.widgets.length ?? 0) : 0;
+			const presets = Object.values(state.commandCenter.presets);
+			return {
+				header: null,
+				emptyLabel: 'No GM screen yet.',
+				rows: [
+					row('gm-screen', 'GM screen', {
+						secondary: plural(widgetCount, 'widget', 'widgets'),
+						value: widgetCount,
+					}),
+					...presets.map((preset) => row(`preset:${preset.id}`, preset.name, { meta: 'Layout' })),
+					...(state.commandCenter.autoSave
+						? [row('safe-point', 'Safe point', { meta: 'Saved' })]
+						: []),
+				],
+			};
+		}
+		case 'map-projection': {
+			// UX-CMD-007 — DM-only in the core: anyone else gets no summary at all.
+			const projection = getActiveMapProjectionSummary(state, actorId);
+			if (!projection) return { header: null, emptyLabel: 'Nothing projected.', rows: [] };
+			return {
+				header: projection.projecting ? 'Projecting' : null,
+				emptyLabel: 'Nothing projected.',
+				rows: [
+					row('delivered', 'Delivered', {
+						value: projection.deliveredCount,
+						active: projection.projecting,
+					}),
+					row('queued', 'Queued', { value: projection.queuedCount }),
+				],
+			};
+		}
+		case 'player-view-controller': {
+			// DM-only in the core: who is being shown what.
+			const controller = getPlayerViewController(state, actorId);
+			if (controller.kind !== 'available') {
+				return { header: null, emptyLabel: 'Only the DM sees player views.', rows: [] };
+			}
+			return {
+				header: null,
+				emptyLabel: 'No players registered yet.',
+				rows: controller.participants.map((participant) => {
+					const assignment = participant.assignment;
+					return row(participant.actorId, participant.displayName, {
+						secondary:
+							assignment === null
+								? 'Nothing projected'
+								: (assignment.sceneName ?? 'Missing screen'),
+						active: assignment?.kind === 'assigned',
+					});
+				}),
+			};
+		}
+		case 'encounters': {
+			// The encounters this viewer may list, newest first.
+			const encounters = listEncountersForActor(
+				state.encounters,
+				state.permissions,
+				actorId,
+				state.systems,
+			)
+				.slice()
+				.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+			return {
+				header: null,
+				emptyLabel: 'No encounters yet.',
+				rows: encounters.map((encounter) =>
+					row(encounter.id, encounter.title, {
+						secondary: plural(encounter.combatants.length, 'combatant', 'combatants'),
+						meta: encounter.challenge?.difficulty,
+					}),
+				),
+			};
+		}
+		case 'saved-searches': {
+			// SRCH-004 — a player never receives a DM-only saved search. Pinned ones first.
+			const saved = getSavedSearchesForActor(
+				state.content,
+				state.maps,
+				state.permissions,
+				state.session,
+				actorId,
+			);
+			const ordered = [
+				...saved.filter((entry) => entry.pinned),
+				...saved.filter((entry) => !entry.pinned),
+			];
+			return {
+				header: null,
+				emptyLabel: 'No saved searches yet.',
+				rows: ordered.map((entry) =>
+					row(entry.id, entry.name, {
+						meta: entry.pinned ? 'Pinned' : undefined,
+						active: entry.pinned,
+					}),
+				),
+			};
+		}
+		default:
+			return null;
 	}
 }
 
@@ -789,6 +1214,11 @@ function resolveHubSource(
 			return {
 				header: null,
 				emptyLabel: 'No rolls yet.',
+				// RC-WID-5.7 — the dice tile shows the newest roll of its own formula.
+				detail: {
+					kind: 'dice',
+					rolls: history.rolls,
+				},
 				rows: history.rolls
 					.slice()
 					.sort((a, b) => b.rolledAt.localeCompare(a.rolledAt))
@@ -1395,6 +1825,7 @@ export function resolveWidgetTemplateData(
 			header: resolved.header,
 			emptyLabel: resolved.emptyLabel,
 			withheld: null,
+			...(resolved.detail ? { detail: resolved.detail } : {}),
 		};
 	});
 

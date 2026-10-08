@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { describe, expect, it } from 'vitest';
+import { WIDGET_TEMPLATE_KINDS } from '@dndtools/core';
 import { DM_ACTOR, PLAYER_ACTOR } from '@dndtools/core/testing';
 import { TEMPLATE_RENDERER_ENTRIES } from './index';
 import type { WidgetTemplateProps } from './shared';
@@ -29,7 +30,20 @@ describe('the template registry', () => {
 				'stat-block',
 				'status-list',
 				'tracker',
+				// RC-WID-5.7 — the GM board's tools.
+				'map-view',
+				'initiative',
+				'dice-roller',
+				'countdown',
+				'now-playing',
+				'item-list',
 			].sort(),
+		);
+	});
+
+	it('registers exactly the kinds the persisted schema accepts', () => {
+		expect(TEMPLATE_RENDERER_ENTRIES.map(([kind]) => kind).sort()).toEqual(
+			[...WIDGET_TEMPLATE_KINDS].sort(),
 		);
 	});
 });

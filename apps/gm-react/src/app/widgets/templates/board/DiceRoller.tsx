@@ -1,76 +1,56 @@
 import { useState } from 'react';
-import { getDiceHistoryForActor, parseDiceExpression } from '@dndtools/core';
-import { useRuntime } from '../../../runtime/RuntimeContext';
-import type { BoardWidget } from '../../board-helpers';
-import { useI18n } from '../../../i18n';
-import { DicePanel } from '../../../screens/session/DiceTray';
-import {
-	useDiceView,
-	useSessionDispatch,
-	useSessionSeat,
-} from '../../../screens/session/useSessionView';
-import {
-	Chip,
-	OpChip,
-	SR_ONLY,
-	bodyWrap,
-	cfg,
-	type WidgetCommandHandler,
-} from '../../widget-body-kit';
+import { parseDiceExpression } from '@dndtools/core';
+import { Toaster } from '../../../../ds';
+import { useI18n } from '../../../../i18n';
+import { useRuntime } from '../../../../runtime/RuntimeContext';
+import { DicePanel } from '../../../../screens/session/DiceTray';
+import { Chip, OpChip, SR_ONLY, bodyWrap, cfg } from '../../../widget-body-kit';
+import type { WidgetTemplateProps } from '../shared';
+import { declares, detailOf, useWidgetCommandRunner } from './boardData';
 
 /**
- * The `dice` widget. Its default view is the quick-roll tile (moved from `app/widget-bodies.tsx` by
- * RC-WID-4.1); its `tray` view is the Session screen's dice tray (RC-CAN-7.8, SCREENS_PARITY SE-15):
- * quick rolls, an expression and a label, Roll, and the session's roll history.
+ * `dice-roller` — the GM board's quick rolls (RC-WID-5.7; the `dice` builtin body until then,
+ * unchanged on screen). Its `tray` view is the Session screen's dice tray (RC-CAN-7.8,
+ * SCREENS_PARITY SE-15): quick rolls, an expression and a label, Roll, and the roll history. Both
+ * read the definition's `dice-history` query, the viewer's own history, and roll only through the
+ * declared `dice.roll`.
  */
-export function DiceBody({
-	widget,
-	onCommand,
-}: {
-	widget: BoardWidget;
-	onCommand?: WidgetCommandHandler;
-}) {
-	return cfg<string>(widget, 'view') === 'tray' ? (
-		<DiceTrayView />
+export function DiceRollerTemplate(props: WidgetTemplateProps) {
+	return cfg<string>(props.widget, 'view') === 'tray' ? (
+		<DiceTray {...props} />
 	) : (
-		<QuickDice widget={widget} onCommand={onCommand} />
+		<QuickRolls {...props} />
 	);
 }
 
-/** `dice.roll` over the actor-filtered history. RC-SES-6.2 — it rolls in every workflow state. */
-function DiceTrayView() {
-	const { actorId, previewing } = useSessionSeat();
-	const dispatch = useSessionDispatch();
-	const dice = useDiceView();
+/** RC-SES-6.2 — it rolls in every workflow state; a player preview cannot roll as the DM. */
+function DiceTray({ widget, data, onCommand }: WidgetTemplateProps) {
+	const runtime = useRuntime();
+	const { run } = useWidgetCommandRunner(widget);
 	const [expr, setExpr] = useState('1d20+7');
 	const [label, setLabel] = useState('');
+	const canRoll = !!onCommand && declares(widget, 'dice.roll');
 	return (
 		<DicePanel
-			rolls={dice.rolls}
-			previewing={previewing}
+			rolls={detailOf(data, 'dice')?.rolls ?? []}
+			previewing={!!runtime.preview || !canRoll}
 			expr={expr}
 			onExpr={setExpr}
 			label={label}
 			onLabel={setLabel}
-			onRoll={(expression, rollLabel) =>
-				dispatch({
-					type: 'dice.roll',
-					actorId,
-					payload: { expression, ...(rollLabel ? { label: rollLabel } : {}) },
-				})
-			}
+			onRoll={(expression, rollLabel) => {
+				if (!canRoll) return;
+				void run('dice.roll', { expression, ...(rollLabel ? { label: rollLabel } : {}) }).then(
+					(outcome) => {
+						if (!outcome.ok) Toaster.error(outcome.message);
+					},
+				);
+			}}
 		/>
 	);
 }
 
-function QuickDice({
-	widget,
-	onCommand,
-}: {
-	widget: BoardWidget;
-	onCommand?: WidgetCommandHandler;
-}) {
-	const runtime = useRuntime();
+function QuickRolls({ widget, data, onCommand }: WidgetTemplateProps) {
 	const { t } = useI18n();
 	const formulas = (cfg<string>(widget, 'formulas') ?? 'd20')
 		.split(',')
@@ -83,15 +63,11 @@ function QuickDice({
 		const parsed = parseDiceExpression(f);
 		return parsed.ok ? parsed.expression.source : f;
 	};
-	const history = getDiceHistoryForActor(
-		runtime.state.session,
-		runtime.state.permissions,
-		runtime.defaultActorId,
-	);
+	const rolls = detailOf(data, 'dice')?.rolls ?? [];
 	const formulaSet = new Set(formulas.map(canonical));
 	let lastRoll = null;
-	for (let i = history.rolls.length - 1; i >= 0; i -= 1) {
-		const roll = history.rolls[i];
+	for (let i = rolls.length - 1; i >= 0; i -= 1) {
+		const roll = rolls[i]!;
 		if (formulaSet.has(roll.expression)) {
 			lastRoll = roll;
 			break;
@@ -100,7 +76,7 @@ function QuickDice({
 
 	// Only a widget whose definition DECLARES dice.roll gets a live affordance. RC-SES-6.2 — it rolls
 	// in every workflow state; a roll outside a live session is kept but stays out of the session log.
-	const canRoll = !!onCommand && widget.commands.includes('dice.roll') && formulas.length > 0;
+	const canRoll = !!onCommand && declares(widget, 'dice.roll') && formulas.length > 0;
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

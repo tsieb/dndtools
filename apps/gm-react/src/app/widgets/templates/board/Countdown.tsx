@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { getTimerCountdown } from '@dndtools/core';
-import { Icon } from '../../../ds';
-import { useRuntime } from '../../../runtime/RuntimeContext';
-import type { BoardWidget } from '../../board-helpers';
-import { useI18n } from '../../../i18n';
-import { Muted, OpChip, SR_ONLY, cfg, type WidgetCommandHandler } from '../../widget-body-kit';
-import { LiveReadout } from './live';
+import { Icon } from '../../../../ds';
+import { useI18n } from '../../../../i18n';
+import { Muted, OpChip, SR_ONLY, cfg } from '../../../widget-body-kit';
+import { LiveReadout } from '../../builtin/live';
+import type { WidgetTemplateProps } from '../shared';
+import { declares as carries, detailOf } from './boardData';
 
 /**
- * Moved from `app/widget-bodies.tsx` by RC-WID-4.1 — the file grew past what one module should
- * hold once every system widget type gained a body, so each hand-written body now lives in its own
- * file under `app/widgets/builtin/`. This is a pure move: the component below is byte-for-byte the
- * one that used to sit in `widget-bodies.tsx`.
+ * `countdown` — the GM board's timer (RC-WID-5.7; the `timer` builtin body until then, unchanged on
+ * screen). The durable session timer comes from the definition's `widget-timer` query, the placed
+ * instance's own timer; the transport runs the declared `timer.*` commands through `onCommand`.
  */
 
 /**
@@ -27,19 +26,12 @@ const URGENCY_COLOR: Record<string, string> = {
 	normal: 'var(--color-text-primary)',
 };
 
-export function TimerBody({
-	widget,
-	onCommand,
-}: {
-	widget: BoardWidget;
-	onCommand?: WidgetCommandHandler;
-}) {
-	const runtime = useRuntime();
+export function CountdownTemplate({ widget, data, onCommand }: WidgetTemplateProps) {
 	const { t } = useI18n();
 	const configured = Number(cfg<number>(widget, 'durationSeconds') ?? 60) || 60;
 	// The DURABLE session timer for this widget instance (SES-005); the countdown view is a pure
 	// function of (timer, now) — the GUI only ticks a clock and re-derives (never owns timer state).
-	const timer = runtime.state.session.timers[widget.id] ?? null;
+	const timer = detailOf(data, 'timer')?.timer ?? null;
 	const [nowIso, setNowIso] = useState(() => new Date().toISOString());
 	const countdown = getTimerCountdown(timer, nowIso, configured);
 	const ticking = countdown.status === 'running';
@@ -61,7 +53,7 @@ export function TimerBody({
 	}
 	const urgent = countdown.urgency !== 'normal';
 
-	const declares = (type: string) => !!onCommand && widget.commands.includes(type);
+	const declares = (type: string) => !!onCommand && carries(widget, type);
 	const op = (type: string, payload: Record<string, unknown> = {}) =>
 		declares(type) ? () => onCommand?.(type, payload) : undefined;
 	// RC-SES-6.2 — a table timer is a table tool, not the session clock, so it runs in every workflow

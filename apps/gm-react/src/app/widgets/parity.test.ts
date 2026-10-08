@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+	BOARD_TOOL_WIDGET_TYPES,
 	CORE_NAMED_WIDGET_COMMANDS,
 	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_ROUTES,
@@ -120,6 +121,11 @@ describe('builder parity gate: the debt ledger', () => {
 		});
 	});
 
+	it('owes nothing to RC-WID-5.6 or RC-WID-5.7: they repaid every finding the gate landed with', () => {
+		// What is left is the Session screen's (RC-CAN-7.8), owed by RC-WID-5.13.
+		expect(PARITY_DEBT_LEDGER.filter((debt) => debt.repaidBy !== 'RC-WID-5.13')).toEqual([]);
+	});
+
 	it('lists each finding once and names the story that repays it', () => {
 		const findings = PARITY_DEBT_LEDGER.map((debt) => debt.finding);
 		expect(new Set(findings).size).toBe(findings.length);
@@ -165,6 +171,12 @@ describe('builder parity gate: builtin bodies', () => {
 		expect(exposure.get('current-combatants')?.reads).toContain('getCombatTrackerForActor');
 		expect(exposure.get('session-state')?.paths).toContain('session.workflow');
 		expect(exposure.get('table-scenes')?.reads).toContain('isDefaultScreen');
+		// RC-WID-5.7 — bracketed members are read as the body scan names them.
+		expect(exposure.get('widget-timer')?.paths).toContain('session.timers.<dynamic>');
+		expect(exposure.get('command-center')?.paths).toContain(
+			'scenes.scenes.<dynamic>.widgets.length',
+		);
+		expect(exposure.get('bound-map')?.reads).toContain('getMapViewForActor');
 	});
 
 	it('imports only classified modules outside builtin/', () => {
@@ -236,18 +248,21 @@ describe('builder parity gate: builtin bodies', () => {
 	it('fails on declared surface the body does not use', () => {
 		const declared = {
 			...BUILTIN_PARITY,
-			dice: { ...BUILTIN_PARITY.dice, commands: [...BUILTIN_PARITY.dice.commands, 'timer.start'] },
+			combat: {
+				...BUILTIN_PARITY.combat,
+				commands: [...BUILTIN_PARITY.combat.commands, 'timer.start'],
+			},
 		};
 		expect(
 			compareToLedger(check(bodyUses(), declared)).unledgered.filter((problem) =>
-				problem.startsWith('dice:'),
+				problem.startsWith('combat:'),
 			),
-		).toEqual(['dice: declares command timer.start but never dispatches it']);
+		).toEqual(['combat: declares command timer.start but never dispatches it']);
 	});
 
 	it('reports a builtin body with no declared entry', () => {
-		const { map: _map, ...declared } = BUILTIN_PARITY;
-		expect(check(bodyUses(), declared)).toContain('map: has a builtin body but no parity entry');
+		const { atlas: _atlas, ...declared } = BUILTIN_PARITY;
+		expect(check(bodyUses(), declared)).toContain('atlas: has a builtin body but no parity entry');
 	});
 });
 
@@ -288,22 +303,27 @@ describe('builder parity gate: default screens', () => {
 		);
 	});
 
-	it.each(['home-hero', 'home-scenes', 'home-create', 'home-manage', 'home-library'])(
-		'%s exports identical bytes after its first builder import/install/export',
-		(type) => {
-			const { env, state } = provisionedVault();
-			const record = findPackageRecordForWidgetType(state.widgets, type)!;
-			const identity = widgetPackageForkIdentity(state.widgets, type);
-			const forked = dispatchCommand(state, env, {
-				type: 'widget.package.fork',
-				actorId: DM.id,
-				payload: { packageId: record.package.id, widgetType: type },
-			} as CoreCommand);
-			if (forked.status !== 'accepted') throw new Error(forked.rejection.message);
-			const original = exportedBytes(forked.nextState, env, identity.packageId)!;
-			expect(builderRoundTrip(state, env, DM.id, original)).toEqual({ bytes: original });
-		},
-	);
+	it.each([
+		'home-hero',
+		'home-scenes',
+		'home-create',
+		'home-manage',
+		'home-library',
+		// RC-WID-5.7 — the fresh GM board's tools.
+		...BOARD_TOOL_WIDGET_TYPES,
+	])('%s exports identical bytes after its first builder import/install/export', (type) => {
+		const { env, state } = provisionedVault();
+		const record = findPackageRecordForWidgetType(state.widgets, type)!;
+		const identity = widgetPackageForkIdentity(state.widgets, type);
+		const forked = dispatchCommand(state, env, {
+			type: 'widget.package.fork',
+			actorId: DM.id,
+			payload: { packageId: record.package.id, widgetType: type },
+		} as CoreCommand);
+		if (forked.status !== 'accepted') throw new Error(forked.rejection.message);
+		const original = exportedBytes(forked.nextState, env, identity.packageId)!;
+		expect(builderRoundTrip(state, env, DM.id, original)).toEqual({ bytes: original });
+	});
 
 	it('compares the original export to the first builder round trip, unnormalised', () => {
 		const { env, state } = provisionedVault();

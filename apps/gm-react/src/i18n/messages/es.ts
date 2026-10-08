@@ -3861,6 +3861,18 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.source.resume': 'Dónde retomar',
 	'builder.source.tableScenes': 'Escenas de mesa',
 	'builder.source.librarySections': 'Secciones de la biblioteca',
+	// RC-WID-5.7 — the GM board's sources.
+	'builder.source.widgetTimer': 'El temporizador de este widget',
+	'builder.source.sessionAudio': 'Audio de la sesión',
+	'builder.source.boundMap': 'El mapa vinculado',
+	'builder.source.boundCharacter': 'El personaje vinculado',
+	'builder.source.sessionStatus': 'Estado de la sesión',
+	'builder.source.onboarding': 'Lista de preparación',
+	'builder.source.commandCenter': 'Herramientas de la pantalla del {gm}',
+	'builder.source.mapProjection': 'Proyección del mapa',
+	'builder.source.playerViewController': 'Vistas de jugador',
+	'builder.source.encounters': 'Encuentros',
+	'builder.source.savedSearches': 'Búsquedas guardadas',
 	'builder.data.preview': 'Vista previa en directo',
 	'builder.data.previewYou': 'Para ti: {count, plural, one {# fila} other {# filas}}',
 	'builder.data.previewPlayer': 'Para un jugador: {count, plural, one {# fila} other {# filas}}',
@@ -3893,6 +3905,21 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.template.dataTable': 'Tabla de datos',
 	'builder.template.hero': 'Cabecera',
 	'builder.templateHelp.hero': 'Título, subtítulo, grupo y una acción principal.',
+	// RC-WID-5.7 — the GM board's template kinds.
+	'builder.template.mapView': 'Mapa',
+	'builder.templateHelp.mapView': 'El mapa vinculado, desplazable, con el combate en curso encima.',
+	'builder.template.initiative': 'Iniciativa',
+	'builder.templateHelp.initiative':
+		'El orden de turnos con Siguiente turno; puntos de golpe en el móvil.',
+	'builder.template.diceRoller': 'Dados',
+	'builder.templateHelp.diceRoller': 'Botones de tirada rápida y el último resultado.',
+	'builder.template.countdown': 'Cuenta atrás',
+	'builder.templateHelp.countdown':
+		'Un temporizador de mesa con iniciar, pausar y añadir un minuto.',
+	'builder.template.nowPlaying': 'Sonando ahora',
+	'builder.templateHelp.nowPlaying': 'Lo que oye la mesa, y a qué volumen.',
+	'builder.template.itemList': 'Lista breve',
+	'builder.templateHelp.itemList': 'Los primeros títulos de una lista y cuántos hay.',
 	'builder.template.cardGrid': 'Cuadrícula de tarjetas',
 	'builder.templateHelp.cardGrid': 'Tarjetas con miniatura, estado y una acción de creación.',
 	'builder.template.launcher': 'Lanzador',
@@ -4093,6 +4120,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.data.option.limitHelp': 'Déjalo vacío para mostrar todas las filas.',
 	'builder.data.readsBindings': 'Qué vínculos lee',
 	'builder.data.declareBindingFirst': 'Declara un vínculo arriba primero.',
+	'builder.data.needsMapBinding':
+		'Una copia colocada lee el mapa al que está vinculada: declara arriba un vínculo de mapa.',
+	'builder.data.needsCharacterBinding':
+		'Una copia colocada lee el personaje al que está vinculada: declara arriba un vínculo de personaje.',
 	'builder.data.computed': 'Campos calculados',
 	'builder.data.computedHelp':
 		'Calcula un valor a partir de una o varias consultas de datos. Los datos ocultos para un jugador se excluyen de su cálculo, así que el total no puede revelar información oculta.',
@@ -4180,6 +4211,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.commands.runs': 'Ejecuta',
 	'builder.commands.runsHelp': 'Lo que pasa en la mesa al pulsar este botón.',
 	'builder.commands.runsNothing': 'Nada todavía: elige una',
+	'builder.commands.runsByName': 'La orden propia de la mesa',
 	'builder.intents.title': 'Abrir y crear',
 	'builder.intents.help':
 		'Botones que llevan a quien los pulsa a otro sitio: una pantalla, un personaje, un mapa, una nota, una misión, una página, una pestaña de Ajustes o el inicio de algo nuevo. No cambian nada por sí mismos y cada persona solo recibe los que ya podría abrir.',
@@ -4215,6 +4247,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.catalog.tick': 'Sumar uno',
 	'builder.catalog.reset': 'Poner la cuenta a cero',
 	'builder.catalog.setValue': 'Fijar la cuenta',
+	// RC-WID-5.7 — the table's own commands.
+	'builder.catalog.nextTurn': 'Siguiente turno',
+	'builder.catalog.applyHitPoints': 'Ajustar puntos de golpe',
+	'builder.catalog.hideCombatant': 'Ocultar o mostrar un combatiente',
+	'builder.catalog.stageMap': 'Preparar este mapa',
+	'builder.catalog.projectMap': 'Proyectar el mapa a los jugadores',
+	'builder.catalog.configureWidget': 'Cambiar los ajustes de este widget',
 	'builder.catalog.show': 'Mostrar un mensaje a los jugadores',
 	'builder.destination.playerVisibleState': 'Estado visible para jugadores',
 	'builder.destination.playerScene': 'La escena del jugador',

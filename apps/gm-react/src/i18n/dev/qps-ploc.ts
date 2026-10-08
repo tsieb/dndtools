@@ -3925,6 +3925,17 @@ export default {
 	'builder.source.resume': '[Ŵĥéŕé ţó ŕéšúḿé~~~~ ~]',
 	'builder.source.tableScenes': '[Ţáƀľé šçéñéš~~~~ ]',
 	'builder.source.librarySections': '[Ľíƀŕáŕý šéçţíóñš~~~~ ~~]',
+	'builder.source.widgetTimer': '[Ţĥíš ŵíďğéţ’š ţíḿéŕ~~~~ ~~~]',
+	'builder.source.sessionAudio': '[Šéššíóñ áúďíó~~~~ ~]',
+	'builder.source.boundMap': '[Ţĥé ľíñķéď ḿáƥ~~~~ ~]',
+	'builder.source.boundCharacter': '[Ţĥé ľíñķéď çĥáŕáçţéŕ~~~~ ~~~]',
+	'builder.source.sessionStatus': '[Šéššíóñ šţáţúš~~~~ ~]',
+	'builder.source.onboarding': '[Šéţúƥ çĥéçķľíšţ~~~~ ~]',
+	'builder.source.commandCenter': '[{gm} šçŕééñ ţóóľš~~~~ ~]',
+	'builder.source.mapProjection': '[Ḿáƥ ƥŕóĵéçţíóñ~~~~ ~]',
+	'builder.source.playerViewController': '[Ƥľáýéŕ ṽíéŵš~~~~ ]',
+	'builder.source.encounters': '[Éñçóúñţéŕš~~~~]',
+	'builder.source.savedSearches': '[Šáṽéď šéáŕçĥéš~~~~ ~]',
 	'builder.data.preview': '[Ľíṽé ƥŕéṽíéŵ~~~~ ]',
 	'builder.data.previewYou': '[Ƒóŕ ýóú: ~~~~{count, plural, one {# ŕóŵ~~} other {# ŕóŵš~~~}}]',
 	'builder.data.previewPlayer':
@@ -3959,6 +3970,22 @@ export default {
 	'builder.template.hero': '[Ĥéŕó~~]',
 	'builder.templateHelp.hero':
 		'[Ţíţľé, šúƀţíţľé, ƥáŕţý áñď óñé ƥŕíḿáŕý áçţíóñ.~~~~ ~~~~ ~~~~ ~~~~]',
+	'builder.template.mapView': '[Ḿáƥ~~]',
+	'builder.templateHelp.mapView':
+		'[Ţĥé ľíñķéď ḿáƥ, ƥáññáƀľé, ŵíţĥ ţĥé ŕúññíñğ ƒíğĥţ óñ íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'builder.template.initiative': '[Íñíţíáţíṽé~~~~]',
+	'builder.templateHelp.initiative':
+		'[Ţĥé ţúŕñ óŕďéŕ ŵíţĥ Ñéẋţ ţúŕñ; ĥíţ ƥóíñţš óñ á ƥĥóñé.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'builder.template.diceRoller': '[Ďíçé~~]',
+	'builder.templateHelp.diceRoller': '[Ɋúíçķ-ŕóľľ ƀúţţóñš áñď ţĥé ľášţ ŕéšúľţ.~~~~ ~~~~ ~~~~ ~]',
+	'builder.template.countdown': '[Çóúñţďóŵñ~~~~]',
+	'builder.templateHelp.countdown':
+		'[Á ţáƀľé ţíḿéŕ ŵíţĥ šţáŕţ, ƥáúšé áñď áďď á ḿíñúţé.~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'builder.template.nowPlaying': '[Ñóŵ ƥľáýíñğ~~~~ ]',
+	'builder.templateHelp.nowPlaying': '[Ŵĥáţ ţĥé ţáƀľé ĥéáŕš, áñď ĥóŵ ľóúď.~~~~ ~~~~ ~~~~]',
+	'builder.template.itemList': '[Šĥóŕţ ľíšţ~~~~]',
+	'builder.templateHelp.itemList':
+		'[Ţĥé ƒíŕšţ ƒéŵ ţíţľéš óƒ á ľíšţ, áñď ĥóŵ ḿáñý ţĥéŕé áŕé.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'builder.template.cardGrid': '[Çáŕď ğŕíď~~~~]',
 	'builder.templateHelp.cardGrid':
 		'[Ţĥúḿƀñáíľ çáŕďš ŵíţĥ šţáţúš áñď á ñéŵ áçţíóñ.~~~~ ~~~~ ~~~~ ~~~]',
@@ -4170,6 +4197,10 @@ export default {
 	'builder.data.option.limitHelp': '[Ľéáṽé éḿƥţý ţó šĥóŵ éṽéŕý ŕóŵ.~~~~ ~~~~ ~~]',
 	'builder.data.readsBindings': '[Ŕéáďš ŵĥíçĥ ƀíñďíñğš~~~~ ~~~]',
 	'builder.data.declareBindingFirst': '[Ďéçľáŕé á ƀíñďíñğ áƀóṽé ƒíŕšţ.~~~~ ~~~~ ~~]',
+	'builder.data.needsMapBinding':
+		'[Á ƥľáçéď çóƥý ŕéáďš ţĥé ḿáƥ íţ íš ľíñķéď ţó: ďéçľáŕé á ḿáƥ ƀíñďíñğ áƀóṽé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'builder.data.needsCharacterBinding':
+		'[Á ƥľáçéď çóƥý ŕéáďš ţĥé çĥáŕáçţéŕ íţ íš ľíñķéď ţó: ďéçľáŕé á çĥáŕáçţéŕ ƀíñďíñğ áƀóṽé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'builder.data.computed': '[Çóḿƥúţéď ƒíéľďš~~~~ ~]',
 	'builder.data.computedHelp':
 		'[Çáľçúľáţé á ṽáľúé ƒŕóḿ óñé óŕ ḿóŕé ďáţá ŕéɋúéšţš. Ďáţá ĥíďďéñ ƒŕóḿ á ƥľáýéŕ íš éẋçľúďéď ƒŕóḿ ţĥéíŕ çáľçúľáţíóñ, šó ţĥéíŕ ţóţáľ çáññóţ ŕéṽéáľ ĥíďďéñ íñƒóŕḿáţíóñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
@@ -4258,6 +4289,7 @@ export default {
 	'builder.commands.runsHelp':
 		'[Ŵĥáţ ĥáƥƥéñš áţ ţĥé ţáƀľé ŵĥéñ ţĥíš ƀúţţóñ íš ƥŕéššéď.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
 	'builder.commands.runsNothing': '[Ñóţĥíñğ ýéţ — ƥíçķ óñé~~~~ ~~~~]',
+	'builder.commands.runsByName': '[Ţĥé ţáƀľé’š óŵñ çóḿḿáñď~~~~ ~~~~ ]',
 	'builder.intents.title': '[Óƥéñ áñď çŕéáţé~~~~ ~]',
 	'builder.intents.help':
 		'[Ɓúţţóñš ţĥáţ ţáķé ŵĥóéṽéŕ ƥŕéššéš ţĥéḿ šóḿéŵĥéŕé: á šçŕééñ, á çĥáŕáçţéŕ, á ḿáƥ, á ñóţé, á ɋúéšţ, á ƥáğé, á Šéţţíñğš ţáƀ, óŕ ţĥé šţáŕţ óƒ šóḿéţĥíñğ ñéŵ. Ţĥéý çĥáñğé ñóţĥíñğ ţĥéḿšéľṽéš, áñď éáçĥ ṽíéŵéŕ óñľý ğéţš ţĥé óñéš ţĥéý çóúľď áľŕéáďý óƥéñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
@@ -4293,6 +4325,12 @@ export default {
 	'builder.catalog.tick': '[Çóúñţ úƥ ƀý óñé~~~~ ~]',
 	'builder.catalog.reset': '[Ŕéšéţ ţĥé çóúñţ~~~~ ~]',
 	'builder.catalog.setValue': '[Šéţ ţĥé çóúñţ~~~~ ~]',
+	'builder.catalog.nextTurn': '[Ñéẋţ ţúŕñ~~~~]',
+	'builder.catalog.applyHitPoints': '[Áďĵúšţ ĥíţ ƥóíñţš~~~~ ~~]',
+	'builder.catalog.hideCombatant': '[Ĥíďé óŕ ŕéṽéáľ á çóḿƀáţáñţ~~~~ ~~~~ ~]',
+	'builder.catalog.stageMap': '[Šţáğé ţĥíš ḿáƥ~~~~ ~]',
+	'builder.catalog.projectMap': '[Ƥŕóĵéçţ ţĥé ḿáƥ ţó ƥľáýéŕš~~~~ ~~~~ ~]',
+	'builder.catalog.configureWidget': '[Çĥáñğé ţĥíš ŵíďğéţ’š šéţţíñğš~~~~ ~~~~ ~~]',
 	'builder.catalog.show': '[Šĥóŵ á ḿéššáğé ţó ƥľáýéŕš~~~~ ~~~~ ]',
 	'builder.destination.playerVisibleState': '[Ƥľáýéŕ ṽíšíƀľé šţáţé~~~~ ~~~]',
 	'builder.destination.playerScene': '[Ţĥé ƥľáýéŕ šçéñé~~~~ ~~]',

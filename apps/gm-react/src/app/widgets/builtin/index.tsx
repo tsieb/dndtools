@@ -1,13 +1,8 @@
+import { BOARD_TOOL_WIDGET_TYPES, type BoardToolWidgetType } from '@dndtools/core';
 import type { BoardWidget } from '../../board-helpers';
 import { Muted, type WidgetCommandHandler } from '../../widget-body-kit';
 import { NoteBody } from './NoteBody';
-import { DiceBody } from './DiceBody';
-import { TimerBody } from './TimerBody';
-import { AudioBody } from './AudioBody';
-import { InitiativeBody } from './InitiativeBody';
 import { CharacterBody } from './CharacterBody';
-import { MapTile } from './Map';
-import { ListBody } from './ListBody';
 import { AtlasBody } from './AtlasBody';
 import { CharactersBody } from './CharactersBody';
 import { CombatBody } from './CombatBody';
@@ -25,22 +20,22 @@ export type { WidgetCommandHandler } from '../../widget-body-kit';
  * widget-bodies — the representative BODY each widget renders on the scene canvas, ported from the
  * prototype's `widgets.jsx`. Where the prototype read its mock `w.props`, these read the widget's
  * REAL `configuration` (falling back to the core widget definition's declared `configFields` default),
- * so the body always reflects what the tiered inspector wrote — edit a note's heading or a timer's
- * duration and the canvas updates immediately, and the change persists through `scene.configure-widget`.
+ * so the body always reflects what the tiered inspector wrote — edit a note's heading and the canvas
+ * updates immediately, and the change persists through `scene.configure-widget`.
  *
  * This component renders ONLY the inner content; the `WidgetFrame` (SceneBoardCanvas) supplies the
  * shared header (glyph · title · visibility chip · type label) so view- and edit-mode chrome stay
- * identical. Bodies are LIVE where the core has a live view: the initiative tracker reads
- * `getCombatTrackerForActor`, the character body its bound character (`getCharacterForActor`), the
- * timer the durable session timer (`getTimerCountdown`), and the dice body the session dice history.
- * In VIEW mode the declared operate affordances (Roll / Start / Pause / Reset) are REAL buttons that
- * dispatch through the parent's `onCommand` (→ `widget.dispatch-command`); each is rendered only when
- * the widget's own `WidgetDefinition.commands` declares that command type. Without `onCommand`
- * (edit mode) they stay the inert, de-emphasized chips of the original design.
+ * identical. Bodies are LIVE where the core has a live view: the character body reads its bound
+ * character (`getCharacterForActor`), the combat body the actor-filtered tracker.
  *
  * RC-WID-4.1 moved each body into its own file in this directory; this module keeps the ONE switch
  * that maps a widget type to its body, so "which types can the host draw by hand" stays a single
  * answer rather than a directory listing.
+ *
+ * RC-WID-5.7 — the GM board's seven tools (map, initiative, dice, timer, audio, quick reference,
+ * prep) are no longer drawn here. They are template kinds (`../templates/board`) fed by public query
+ * sources and declared commands, so the builder can copy them; the definitions keep their types, so
+ * every board already holding one draws it the same way.
  */
 
 /**
@@ -53,14 +48,7 @@ export type { WidgetCommandHandler } from '../../widget-body-kit';
 export const BUILTIN_WIDGET_TYPES = [
 	'note',
 	'handout',
-	'dice',
-	'timer',
-	'audio',
-	'initiative-tracker',
 	'character',
-	'map',
-	'quick-reference',
-	'prep',
 	// The Command Center's own widgets (RC-WID-4.1). They are real definitions on the
 	// `command-center` surface, seeded onto the GM Screen's home scene, and they render through the
 	// SAME slot as a scene widget — so without a body here every one of them drew the "Nothing here
@@ -85,7 +73,8 @@ export type BuiltinWidgetType = (typeof BUILTIN_WIDGET_TYPES)[number];
 
 /** Host sizing only: never serialized into definitions or seeded layouts. The board supplies
  * the outer bound; its vertical extent (and both free-canvas axes) can grow. Equal finite
- * min/max dimensions explicitly declare a fixed-size body. */
+ * min/max dimensions explicitly declare a fixed-size body. The GM board's tools keep the bounds
+ * they had as builtin bodies (RC-WID-5.7 made them templates, not smaller tiles). */
 export interface BuiltinSizeBounds {
 	minSize: { width: number; height: number };
 	maxSize: { width: number; height: number };
@@ -94,7 +83,10 @@ const boardBounds = (): BuiltinSizeBounds => ({
 	minSize: { width: 20, height: 20 },
 	maxSize: { width: Infinity, height: Infinity },
 });
-export const BUILTIN_SIZE_BOUNDS: Record<BuiltinWidgetType, BuiltinSizeBounds> = {
+export const BUILTIN_SIZE_BOUNDS: Record<
+	BuiltinWidgetType | BoardToolWidgetType,
+	BuiltinSizeBounds
+> = {
 	note: boardBounds(),
 	handout: boardBounds(),
 	dice: boardBounds(),
@@ -118,9 +110,17 @@ export const BUILTIN_SIZE_BOUNDS: Record<BuiltinWidgetType, BuiltinSizeBounds> =
 };
 export function builtinSizeBounds(type: string): BuiltinSizeBounds | undefined {
 	return Object.hasOwn(BUILTIN_SIZE_BOUNDS, type)
-		? BUILTIN_SIZE_BOUNDS[type as BuiltinWidgetType]
+		? BUILTIN_SIZE_BOUNDS[type as BuiltinWidgetType | BoardToolWidgetType]
 		: undefined;
 }
+
+/** The types `BUILTIN_SIZE_BOUNDS` sizes: every builtin body and every GM board tool. */
+export const SIZED_WIDGET_TYPES: readonly (BuiltinWidgetType | BoardToolWidgetType)[] = [
+	...BUILTIN_WIDGET_TYPES,
+	...BOARD_TOOL_WIDGET_TYPES.filter(
+		(type) => !(BUILTIN_WIDGET_TYPES as readonly string[]).includes(type),
+	),
+];
 
 const BUILTIN_WIDGET_TYPE_SET: ReadonlySet<string> = new Set(BUILTIN_WIDGET_TYPES);
 
@@ -141,24 +141,8 @@ export function WidgetBody({
 		case 'note':
 		case 'handout':
 			return <NoteBody widget={widget} editing={!onCommand} />;
-		case 'dice':
-			return <DiceBody widget={widget} onCommand={onCommand} />;
-		case 'timer':
-			return <TimerBody widget={widget} onCommand={onCommand} />;
-		case 'audio':
-			return <AudioBody />;
-		case 'initiative-tracker':
-			// RC-CAN-5.3 — the phone variant writes HP, so it needs to know view mode from edit mode.
-			return <InitiativeBody widget={widget} onCommand={onCommand} />;
 		case 'character':
 			return <CharacterBody widget={widget} />;
-		case 'map':
-			// RC-CAN-4.5 — the real map, pannable and zoomable, with the running fight drawn on it.
-			return <MapTile widget={widget} onCommand={onCommand} />;
-		case 'quick-reference':
-			return <ListBody widget={widget} kind="object" unit="widgetBody.list.unitObjects" />;
-		case 'prep':
-			return <ListBody widget={widget} kind="note" unit="widgetBody.list.unitNotes" />;
 		case 'session':
 			// RC-CAN-7.8 — the body draws the view its `view` setting picks (the Session screen's rows).
 			return <SessionBody widget={widget} />;

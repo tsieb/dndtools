@@ -5,27 +5,25 @@ import {
 	useState,
 	type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import {
-	deliveredMapIdsForActor,
-	getMapViewForActor,
-	listMapsForActor,
-	queryMapLayers,
-	type MapView,
-} from '@dndtools/core';
-import { IconButton, Select, Toaster } from '../../../ds';
-import { useRuntime } from '../../../runtime/RuntimeContext';
-import { useI18n } from '../../../i18n';
-import { T } from '../../screen-kit';
-import { MapCanvas } from '../../map/canvas/MapCanvas';
-import { clamp01 } from '../../map/mapVocab';
-import { pickRasterAssetId } from '../../mapGeometry';
-import type { BoardWidget } from '../../board-helpers';
-import { Muted, bodyWrap, cfg, type WidgetCommandHandler } from '../../widget-body-kit';
+import { resolveWidgetIntent, type MapView } from '@dndtools/core';
+import { IconButton, Select, Toaster } from '../../../../ds';
+import { useRuntime } from '../../../../runtime/RuntimeContext';
+import { useI18n } from '../../../../i18n';
+import { T } from '../../../screen-kit';
+import { MapCanvas } from '../../../map/canvas/MapCanvas';
+import { clamp01 } from '../../../map/mapVocab';
+import { Muted, bodyWrap, cfg } from '../../../widget-body-kit';
+import type { WidgetTemplateProps } from '../shared';
+import { declares, detailOf, useWidgetCommandRunner } from './boardData';
 
 /**
  * RC-CAN-4.5 — the MAP TILE. The `map` widget used to draw a cover-cropped `<img>` of the bound
  * map's raster and a line of counts, which is a picture of a map rather than a map: no pan, no zoom,
  * no fight on it, and nothing the DM could act on without leaving the board.
+ *
+ * RC-WID-5.7 made it the `map-view` template kind: the view comes from the definition's `bound-map`
+ * query and every action is one of its declared commands or intents, so a copy the GM builds from it
+ * draws and works the same. Nothing on screen changed.
  *
  * This renders the real thing through the SAME renderer the Atlas and the map editor use
  * (`MapCanvas`), reading the SAME actor-filtered query (`getMapViewForActor`). Every visibility
@@ -44,7 +42,7 @@ import { Muted, bodyWrap, cfg, type WidgetCommandHandler } from '../../widget-bo
  * Edit mode stays inert, like every other body: `onCommand` is absent there, so the tile draws the
  * map and nothing else. The actions below only appear in VIEW mode, and only for a DM — a player
  * cannot configure a widget or project to the table, and a control that could only ever be refused
- * would be a dead control.
+ * would be a dead control. Each appears only when the definition declares what it runs.
  */
 
 const ZOOM_MIN = 1;
@@ -76,20 +74,14 @@ function partyCentre(view: MapView | null): { x: number; y: number } | null {
 	return { x: clamp01(sum.x / points.length), y: clamp01(sum.y / points.length) };
 }
 
-export function MapTile({
-	widget,
-	onCommand,
-}: {
-	widget: BoardWidget;
-	/** Present only in VIEW mode (SceneBoardCanvas). Its absence is what keeps edit mode inert. */
-	onCommand?: WidgetCommandHandler;
-}) {
+export function MapViewTemplate({ widget, definition, data, onCommand }: WidgetTemplateProps) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
-	const actorId = runtime.defaultActorId;
-	const { maps, permissions, session, scenes } = runtime.state;
-	const isDm = permissions.actors[actorId]?.role === 'dm';
+	const isDm = data.isDm;
+	// Present only in VIEW mode (SceneBoardCanvas). Its absence is what keeps edit mode inert.
 	const interactive = onCommand !== undefined;
+	const bound = detailOf(data, 'map')?.map ?? null;
+	const { placed, run: runCommand } = useWidgetCommandRunner(widget);
 
 	const overlayOn = cfg<boolean>(widget, 'combatOverlay') !== false;
 	const followParty = cfg<boolean>(widget, 'followParty') === true;
@@ -107,24 +99,12 @@ export function MapTile({
 		setCentre({ x: 0.5, y: 0.5 });
 	}, [initialZoom]);
 
-	const boundId = widget.bindingRef?.entityType === 'map' ? widget.bindingRef.entityId : null;
-	const view = useMemo(() => {
-		if (!boundId) return null;
-		const result = getMapViewForActor(maps, permissions, actorId, boundId, {
-			deliveredMapIds: deliveredMapIdsForActor(session, actorId),
-			// Fail closed: no combat slice passed ⇒ the view carries no combat tokens at all.
-			combat: overlayOn ? session.combat : undefined,
-		});
-		return result.kind === 'available' ? result : null;
-	}, [boundId, maps, permissions, actorId, session, overlayOn]);
-	const layers = useMemo(
-		() => (boundId ? queryMapLayers(maps, permissions, actorId, { mapId: boundId }).layers : []),
-		[boundId, maps, permissions, actorId],
-	);
-	const rasterAssetId = useMemo(
-		() => (view ? pickRasterAssetId(maps.maps[view.mapId]?.assetIds ?? [], maps.assets) : null),
-		[view, maps],
-	);
+	const boundId = bound?.mapId ?? null;
+	// The actor-filtered view; with the overlay off the source passed no combat slice, so the view
+	// carries no combat tokens at all (fail closed).
+	const view = bound?.view ?? null;
+	const layers = bound?.layers ?? [];
+	const rasterAssetId = bound?.rasterAssetId ?? null;
 	const party = useMemo(() => (followParty ? partyCentre(view) : null), [followParty, view]);
 	const shownCentre = party ?? centre;
 
@@ -157,46 +137,40 @@ export function MapTile({
 		);
 	}, [view, zoom, shownCentre]);
 
-	/** The scene this instance lives on — `scene.configure-widget` addresses widgets by scene. */
-	const sceneId = useMemo(() => {
-		for (const scene of Object.values(scenes.scenes)) {
-			if (scene.widgets.some((instance) => instance.id === widget.id)) return scene.id;
-		}
-		return null;
-	}, [scenes, widget.id]);
-
-	const choices = useMemo(
-		() => (isDm && interactive ? listMapsForActor(maps, permissions, actorId) : []),
-		[isDm, interactive, maps, permissions, actorId],
-	);
+	// The DM's choices come from the source, which offers them to the DM alone.
+	const choices = isDm && interactive ? (bound?.choices ?? []) : [];
+	const canConfigure = declares(widget, 'scene.configure-widget');
+	const canProject =
+		declares(widget, 'session.set-active-map') && declares(widget, 'session.project-active-map');
+	// "Open in map editor" is the definition's open-entity map intent, if it declares one.
+	const openIntent =
+		(definition?.intents ?? []).find(
+			(intent) => intent.kind === 'open-entity' && intent.entityKind === 'map',
+		) ?? null;
 
 	async function run(
-		command: Parameters<typeof runtime.dispatch>[0],
+		commandType: string,
+		payload: Record<string, unknown>,
 		ok?: string,
 	): Promise<boolean> {
-		const result = await runtime.dispatch(command);
-		if (result.status === 'accepted') {
+		const outcome = await runCommand(commandType, payload);
+		if (outcome.ok) {
 			if (ok) Toaster.success(ok);
 			return true;
 		}
-		Toaster.error(result.rejection.message);
+		Toaster.error(outcome.message);
 		return false;
 	}
 
 	function changeMap(mapId: string): void {
-		if (!sceneId || !mapId) return;
+		if (!placed || !mapId) return;
 		void run(
+			'scene.configure-widget',
 			{
-				type: 'scene.configure-widget',
-				actorId,
-				payload: {
-					sceneId,
-					widgetInstanceId: widget.id,
-					binding: {
-						source: { entityType: 'map', entityId: mapId },
-						mode: 'read',
-						requiredCapability: 'viewer',
-					},
+				binding: {
+					source: { entityType: 'map', entityId: mapId },
+					mode: 'read',
+					requiredCapability: 'viewer',
 				},
 			},
 			t('widgetBody.map.mapChanged'),
@@ -204,50 +178,46 @@ export function MapTile({
 	}
 
 	function toggleOverlay(): void {
-		if (!sceneId) return;
+		if (!placed) return;
 		void run(
-			{
-				type: 'scene.configure-widget',
-				actorId,
-				payload: {
-					sceneId,
-					widgetInstanceId: widget.id,
-					configuration: { ...widget.configuration, combatOverlay: !overlayOn },
-				},
-			},
+			'scene.configure-widget',
+			{ configuration: { ...widget.configuration, combatOverlay: !overlayOn } },
 			overlayOn ? t('widgetBody.map.overlayHidden') : t('widgetBody.map.overlayShown'),
 		);
 	}
 
 	function openInEditor(): void {
-		if (!view) return;
-		// A HashRouter navigation, the same `#/atlas?map=…` deep link the palette and the editor's
-		// copy-link write (`screens/atlas/index.tsx`). Done through the hash rather than `useNavigate`
-		// so a widget body never requires a Router in the tree to render.
-		globalThis.location.hash = `#/atlas?map=${encodeURIComponent(view.mapId)}`;
+		if (!view || !openIntent || !definition) return;
+		// The core decides the intent for this viewer, as for any widget's intent (`resolveWidgetIntent`):
+		// the `#/atlas?map=…` deep link the palette and the editor's copy-link write. Followed through
+		// the hash rather than `useNavigate` so a widget body never requires a Router in the tree.
+		const decision = resolveWidgetIntent({
+			widgetInstanceId: widget.id,
+			definition,
+			request: { intentId: openIntent.id, targetId: view.mapId },
+			approvedPermissions: [],
+			state: runtime.state,
+			actorId: runtime.activeActorId,
+		});
+		if (decision.decision === 'resolved')
+			globalThis.location.hash = `#${decision.destination.path}`;
+		else Toaster.error(t('widgetTemplate.intentUnavailable'));
 	}
 
 	async function projectToPlayers(): Promise<void> {
 		if (!view) return;
-		const players = Object.values(permissions.actors).filter((actor) => actor.role === 'player');
+		const players = bound?.playerActorIds ?? [];
 		if (players.length === 0) {
 			Toaster.warning(t('projection.noPlayers'));
 			return;
 		}
 		// Projection is defined on the session's ACTIVE map, so staging this map is half of the verb —
 		// and it is the half that explains why the session screen now agrees with the tile.
-		const staged = await run({
-			type: 'session.set-active-map',
-			actorId,
-			payload: { mapId: view.mapId },
-		});
+		const staged = await run('session.set-active-map', { mapId: view.mapId });
 		if (!staged) return;
 		await run(
-			{
-				type: 'session.project-active-map',
-				actorId,
-				payload: { playerActorIds: players.map((player) => player.id) },
-			},
+			'session.project-active-map',
+			{ playerActorIds: players },
 			t('projection.mapProjected'),
 		);
 	}
@@ -298,9 +268,9 @@ export function MapTile({
 		flexShrink: 0,
 	};
 	const actions =
-		interactive && isDm && sceneId ? (
+		interactive && isDm && placed ? (
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-				{choices.length > 0 && (
+				{canConfigure && choices.length > 0 && (
 					<div style={{ flex: '1 1 120px', minWidth: 100 }}>
 						<Select
 							// The board scales its tiles down, so a control sized in plain density units
@@ -322,35 +292,41 @@ export function MapTile({
 						/>
 					</div>
 				)}
-				<IconButton
-					className="scene-board-operation"
-					style={actionTarget}
-					icon={overlayOn ? 'visibility-players' : 'visibility-hidden'}
-					label={overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn')}
-					variant="outline"
-					size="sm"
-					onClick={toggleOverlay}
-				/>
-				<IconButton
-					className="scene-board-operation"
-					style={actionTarget}
-					icon="edit"
-					label={t('widgetBody.map.openInEditor')}
-					variant="outline"
-					size="sm"
-					disabled={!view}
-					onClick={openInEditor}
-				/>
-				<IconButton
-					className="scene-board-operation"
-					style={actionTarget}
-					icon="visibility-shared"
-					label={t('projection.toPlayers')}
-					variant="outline"
-					size="sm"
-					disabled={!view || session.workflow !== 'active'}
-					onClick={() => void projectToPlayers()}
-				/>
+				{canConfigure && (
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon={overlayOn ? 'visibility-players' : 'visibility-hidden'}
+						label={overlayOn ? t('widgetBody.map.overlayOff') : t('widgetBody.map.overlayOn')}
+						variant="outline"
+						size="sm"
+						onClick={toggleOverlay}
+					/>
+				)}
+				{openIntent && (
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="edit"
+						label={t('widgetBody.map.openInEditor')}
+						variant="outline"
+						size="sm"
+						disabled={!view}
+						onClick={openInEditor}
+					/>
+				)}
+				{canProject && (
+					<IconButton
+						className="scene-board-operation"
+						style={actionTarget}
+						icon="visibility-shared"
+						label={t('projection.toPlayers')}
+						variant="outline"
+						size="sm"
+						disabled={!view || !bound?.sessionLive}
+						onClick={() => void projectToPlayers()}
+					/>
+				)}
 			</div>
 		) : null;
 

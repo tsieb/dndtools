@@ -234,23 +234,48 @@ describe('the Add panel', () => {
 	});
 
 	it('shows the miniature on mouse hover, aria-hidden, inert and out of the tab order', () => {
+		// RC-WID-5.7 — the Dice miniature is the dice tile itself now, inert chips and no button, so the
+		// controls come from an action panel: the Dice definition copied under a type of its own.
+		const record = Object.values(runtimeRef.state.widgets.packages).find((candidate) =>
+			candidate.package.widgets.some((widget) => widget.type === 'dice'),
+		)!;
+		const dice = record.package.widgets.find((widget) => widget.type === 'dice')!;
+		runtimeRef.state.widgets.packages['test.roller'] = {
+			...record,
+			package: {
+				...record.package,
+				id: 'test.roller',
+				widgets: [
+					{
+						...dice,
+						type: 'test-roller',
+						displayName: 'Test roller',
+						renderEntrypoint: { runtime: 'template', template: 'action-panel', hostApiVersion: 1 },
+					},
+				],
+			},
+		};
 		render();
 		const before = tabStops().length;
-		const dice = panel().querySelector<HTMLButtonElement>('[data-testid="gallery-entry-dice"]')!;
+		const roller = panel().querySelector<HTMLButtonElement>(
+			'[data-testid="gallery-entry-test-roller"]',
+		)!;
 		act(() => {
-			dice.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+			roller.dispatchEvent(
+				new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }),
+			);
 		});
 		const preview = document.querySelector<HTMLElement>('[data-testid="gallery-preview"]')!;
 		expect(preview).not.toBeNull();
 		expect(preview.getAttribute('aria-hidden')).toBe('true');
 		expect(preview.hasAttribute('inert')).toBe(true);
 		expect(panel().contains(preview)).toBe(false);
-		// The live Dice body holds real buttons of its own; none of them is a tab stop.
+		// The panel holds real buttons of its own; none of them is a tab stop.
 		expect(preview.querySelectorAll('button').length).toBeGreaterThan(0);
 		expect(tabStops().some((el) => preview.contains(el))).toBe(false);
 		expect(tabStops()).toHaveLength(before);
 		act(() => {
-			dice.dispatchEvent(new PointerEvent('pointerout', { bubbles: true, pointerType: 'mouse' }));
+			roller.dispatchEvent(new PointerEvent('pointerout', { bubbles: true, pointerType: 'mouse' }));
 		});
 		expect(document.querySelector('[data-testid="gallery-preview"]')).toBeNull();
 	});

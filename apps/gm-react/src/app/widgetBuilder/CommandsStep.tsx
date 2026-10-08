@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import {
+	BOARD_COMMAND_DESCRIPTORS,
+	CORE_NAMED_WIDGET_COMMANDS,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_INTENT_CREATE_TARGETS,
@@ -230,6 +232,28 @@ export const CATALOG: CatalogEntry[] = [
 	),
 ];
 
+/**
+ * RC-WID-5.7 — the table's own commands, which the core runs by name for any widget that declares
+ * them: what the GM board's initiative and map tiles do. They keep their core names (no executor and
+ * no widget-type prefix), so a widget built from them drives the same fight and the same map. The
+ * core decides who may press each, exactly as for the board's own tiles.
+ */
+const BOARD_COMMAND_LABEL: Readonly<Record<string, MessageKey>> = {
+	'combat.advance-turn': 'builder.catalog.nextTurn',
+	'combat.apply-resource': 'builder.catalog.applyHitPoints',
+	'combat.set-combatant-visibility': 'builder.catalog.hideCombatant',
+	'session.set-active-map': 'builder.catalog.stageMap',
+	'session.project-active-map': 'builder.catalog.projectMap',
+	'scene.configure-widget': 'builder.catalog.configureWidget',
+};
+
+export const BOARD_CATALOG: CatalogEntry[] = Object.entries(BOARD_COMMAND_LABEL).map(
+	([type, label]) => ({
+		label,
+		descriptor: () => ({ ...BOARD_COMMAND_DESCRIPTORS[type]! }),
+	}),
+);
+
 /** The label each executor goes by in the "Runs" picker — the catalogue chip that adds it. */
 const EXECUTOR_LABEL: Record<WidgetCommandExecutor, MessageKey> = {
 	roll: 'builder.catalog.roll',
@@ -245,8 +269,12 @@ const EXECUTOR_LABEL: Record<WidgetCommandExecutor, MessageKey> = {
 	resume: 'builder.catalog.resume',
 };
 
-const executorOptions = (t: Translate) => [
-	{ value: '', label: t('builder.commands.runsNothing') },
+/** A command the core runs by name (`timer.start`, `combat.advance-turn`…) runs without an executor. */
+const executorOptions = (t: Translate, runsByName: boolean) => [
+	{
+		value: '',
+		label: t(runsByName ? 'builder.commands.runsByName' : 'builder.commands.runsNothing'),
+	},
 	...WIDGET_COMMAND_EXECUTORS.map((value) => ({ value, label: t(EXECUTOR_LABEL[value]) })),
 ];
 
@@ -330,7 +358,7 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 				help={t('builder.commands.catalogHelp')}
 			>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-					{CATALOG.map((catalogEntry) => {
+					{[...CATALOG, ...BOARD_CATALOG].map((catalogEntry) => {
 						const descriptor = catalogEntry.descriptor(draft.typeId || 'widget');
 						const already = draft.commands.some((command) => command.type === descriptor.type);
 						return (
@@ -395,7 +423,10 @@ export function CommandsStep({ draft, patch, issues }: StepProps) {
 									<Field label={t('builder.commands.runs')} help={t('builder.commands.runsHelp')}>
 										<Select
 											value={command.executor ?? ''}
-											options={executorOptions(t)}
+											options={executorOptions(
+												t,
+												CORE_NAMED_WIDGET_COMMANDS.includes(command.type),
+											)}
 											onChange={(e: { target: { value: string } }) => {
 												const { executor: _previous, ...rest } = command;
 												const value = e.target.value as WidgetCommandExecutor | '';
