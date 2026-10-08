@@ -236,3 +236,66 @@ this story's code paths.
   tile-content-recovery and campaign-relationships: 92 passed.
 
 Note for `-g`: Playwright matches the title path joined by spaces, not `›`.
+
+## Attempt 6 — 2026-10-08: independent review, requested changes on `ae066a7b`
+
+Review findings and what changed:
+
+1. **Saved kind filters did not round-trip (medium).** The core's `normalizeSearchFilter` keeps
+   content types only, so no owned file can store "Factions but not Quests" (`state/saved-search.ts`
+   and the search query are outside the claim, and the operator brief forbids widening). The review's
+   second option is taken: never save a broader search silently, and reload exactly what was saved.
+   `Filters.tsx`:
+   - The kind state is `FilterKind[] | null`. `null` (a loaded saved search, a cleared panel) narrows
+     by the stored content types only, so the panel lists exactly what the saved search re-runs (and
+     what its Command Center tile shows); the chips show every kind those types cover. An old
+     object-only saved search therefore lists generic objects again (`kindsForTypes` now selects any
+     kind whose types intersect). Toggling a chip switches to picked kinds.
+   - Picking some but not all of the kinds the core returns for `object` (Notes, Quests, Factions,
+     and NPC/Map when offered) shows `knowledge.filters.saveBroadens` above the saved-search form:
+     "A saved search can't tell notes, quests, factions, NPCs and maps apart yet, so saving this one
+     keeps all of them." (en + es, `qps-ploc.ts` regenerated.)
+   - Carrying the kind criterion through saved searches needs a core `SearchFilter` field; handoff
+     below.
+2. **Graph and autocomplete disagreed for `character`/`map` objects (medium).** `kindWordFor` now
+   reads the object's subtype for every word (`switch` on `kind === 'object' ? subtype : kind`), so
+   an object and its wikilink target, which carries the subtype as its kind, always agree:
+   `character` object → NPC, `map` object → Map. Both subtypes are projections of a roster
+   character / an Atlas map (`vault-object-schema.ts` `modelReference`), so NPC/Map is the right word.
+   Knock-ons, kept small:
+   - `presentation.ts`: `opensInStory(node)`; `useOpenGraphNode` sends every object that is not a
+     quest/faction to Notes (a `character`/`map` object is note-backed).
+   - `Inspector.tsx` (widened path): the open button label uses `opensInStory` and the node's
+     `entity` (map/POI → "Open in maps", otherwise "Open note"); one expression plus the import.
+     Without it a `character`/`map` object would have said "Open in maps" and opened a note.
+   - `Filters.tsx`: NPC and Map chips (types `object`), shown only while a visible object has that
+     word, so the seeded panel is unchanged.
+3. **"Note" label on grid cards (low, scope gap).** Not done: the span is `t('knowledge.note')` in
+   `screens/knowledge/index.tsx`, outside the claim, and the brief forbids widening further. **This
+   requested behavior is unfinished**; it needs an authorized one-line follow-up in `index.tsx`.
+
+Tests:
+
+- Core `graph-visualization.test.ts`: `kindWordFor('object','character'|'map')`, and a new case
+  creating faction/character/map objects through `content.create-object` and asserting the graph
+  node word equals `kindWordFor(suggestWikilinkTargetsForActor(...).kind)`.
+- `kindVocabulary.test.tsx` (+4): a `character` and a `map` object read NPC/Map on the Graph row
+  (and "Open note" in the inspector), the Notes filter chip, the palette group/meta and the `[[`
+  label; Factions-only shows the notice, all object kinds hide it, the saved filter is
+  `{query, contentTypes:['object']}` and reopening lists exactly `saved.result.hits`; an object-only
+  saved search lists a `note`-subtype object under Notes. Negative control: with the four source
+  files at `ae066a7b` the four new tests fail and the six old ones pass (`/tmp/rc-knw62-negctl`).
+
+Validation on this tree: core + app typecheck exit 0; eslint on changed files clean; prettier clean.
+Core vitest 290 files / 5290 tests passed; `pnpm test:app` 176 files / 2145 tests passed;
+`changelog.test.ts` 16/16. E2E desktop + mobile (`DNDTOOLS_E2E_PORT=5863`): knowledge-filters,
+graph, graph-polish, graph-repair, command-palette, knowledge, map-room-graph,
+campaign-relationships — 176 passed (`/tmp/rc-knw62-e2e7.log`). No visual run: the seed holds no
+`character`/`map` object (no Graph, chip or inspector change on seeded data) and no visual spec opens
+the filter panel; no baseline changed.
+
+Handoffs added: (a) a core `SearchFilter` kind criterion (`state/saved-search.ts` normalization +
+the search query) so saved searches and their consumers keep Quests/Factions/Notes apart; (b) the
+`index.tsx` grid-card "Note" label (item 3).
+
+No push, promotion, loop or dispatcher-state edits.
