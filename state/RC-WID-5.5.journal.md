@@ -260,3 +260,37 @@ Ledger split: RC-WID-5.6 = 5 home round-trip findings; RC-WID-5.7 = 7 GM-board b
 - `pnpm test:app`: 175 files / 2155 tests passed, exit 0.
 - `apps/gm-react` `tsc --noEmit`: exit 0. `pnpm lint`: exit 0.
 - `pnpm format:check:changed -- --base loop/rc`: clean.
+
+## Session 6 — visual gate failure at `6fe03a4b` — 2026-10-08
+
+Gate feedback: Quality gates, Format (changed) passed; Visual regression (pinned
+container) run `05b2b68c-…` exit 1 — 513 passed, 3 failed. Read from the original log:
+`graph-polish.spec.ts:63` (scholar, dungeon) and `palette-help.spec.ts:8` (tavern). All
+three are `toHaveScreenshot` 5000 ms capture timeouts ("Timeout 5000ms exceeded" after
+fonts loaded / waiting for the element to be stable), not pixel diffs.
+
+This branch changes no runtime code since the visual gate last passed on `6828ce37`:
+`6fe03a4b` touches `parity.ts`, `parity.test.ts`, WIDGETS.md, RC_ROADMAP.md and this
+journal. The only runtime edit on the branch (`builtin/index.tsx`, `as const` plus a type
+export) was already present when the gate passed. Same class as the known full-run
+stalls (memory: visual lazy-chunk stall).
+
+Re-run in the pinned container, `run-in-container.sh --update-snapshots=none --workers=2
+tests/visual/graph-polish.spec.ts tests/visual/palette-help.spec.ts --repeat-each=2`:
+exit 0, 60 passed. No snapshot was re-baselined and no code changed.
+
+Full local run, same command as the gate (`run-in-container.sh --update-snapshots=none
+--workers=2`): exit 1, 512 passed, 4 failed, all different from the gate's three:
+`atlas.spec.ts:59` rail scholar (screenshot timeout), `atlas.spec.ts:39` rail dungeon and
+`characters-polish.spec.ts:10` phone scholar (lazy illustration SVG not found in time),
+`extensions-polish.spec.ts:81` phone dungeon (screenshot timeout). Re-running those three
+files with `--repeat-each=2` gave 143 passed and 1 failure, again a different case
+(`characters-polish` rail high-contrast, illustration not found). Each run fails a
+different spec through a load timeout, and none is a pixel diff.
+
+Why this is not the branch: the visual gate passed on `6828ce37` (run `d75e55f8-…`, 516
+passed). `git diff --name-only 6828ce37 HEAD` is `parity.ts`, `parity.test.ts`,
+WIDGETS.md, RC_ROADMAP.md and this journal. Nothing under `apps/gm-react/src` or
+`apps/gm-react/tests` imports `parity.ts` except `parity.test.ts`, so the rendered app is
+byte-for-byte the one that passed. No code change, no re-baseline. The gate needs a
+re-run.
