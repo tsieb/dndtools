@@ -223,8 +223,7 @@ this story's code paths.
 - Merged catalogs: `tsx scripts/i18n-catalog.ts pseudo` produced no diff. Typecheck (core + app)
   exit 0. `pnpm test:app`: 2140/2141. The one failure was mine: `help/changelog.test.ts` forbids code
   spans in "For players and GMs", and my bullet said `` `[[` ``. It now says "the link menu you
-  open by typing two square brackets"; the test passes 16/16 (`eafb1a7a`-era commit "keep the
-  player-facing note free of code spans"). The merged `CommandCenter.baseline` snapshot passes
+  open by typing two square brackets"; the test passes 16/16 (`e4c6ad79`). The merged `CommandCenter.baseline` snapshot passes
   unchanged. `pnpm lint` exit 0.
 - Visual, full compare on the rebased tree: 521 passed, 10 failed. Nine were exactly the conflicted
   baselines: desktop `/` and `/scenes` and rail `/`, ×3 themes, 124–320 px. Those are this story's
