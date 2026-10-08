@@ -1,0 +1,3243 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- text: the scene
+- text: Players see
+- heading "Combat" [level=2]
+- button "Build encounter (unavailable — DM only)"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Handouts" [level=2]
+- text: Handouts the DM has shared with you appear here.
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Sera Duskwhisper
+- text: /24
+- text: 24"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" title="Ask your DM to change the session phase." type="button" tabindex="-1" disabled="">
+    "Standby"
+  <button role="radio" title="Ask your DM to change the session phase." type="button" tabindex="-1" disabled="">
+    "Prep"
+  <button role="radio" type="button" tabindex="0">
+    "Live"
+  <button role="radio" title="Ask your DM to change the session phase." type="button" tabindex="-1" disabled="">
+    "Recap"
+"Players see"
+"the scene"
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter (unavailable — DM only)" aria-disabled="true" title="Ask your DM to build an encounter." type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Handouts"
+  "Handouts the DM has shared with you appear here."
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Sera Duskwhisper"
+  "24"
+  "/24""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player · focus order 1`] = `
+"radio Live
+button Build encounter (unavailable — DM only)
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Handouts
+h2 Now playing
+h2 Table roster
+h2 Party"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · aria 1`] = `
+"- text: Live session
+- text: The Sunken Crypt
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Call a rest"
+- button "End session"
+- text: The Sunken Crypt
+- text: Players see
+- heading "Combat" [level=2]
+- button "Build encounter"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- button "Roll for initiative"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom 1`] = `
+""Live session"
+"The Sunken Crypt"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="-1">
+    "Standby"
+  <button role="radio" title="Return to Standby before going back to Prep." type="button" tabindex="-1" disabled="">
+    "Prep"
+  <button role="radio" type="button" tabindex="0">
+    "Live"
+  <button role="radio" type="button" tabindex="-1">
+    "Recap"
+<button type="button">
+  <svg aria-hidden="true">
+  "Call a rest"
+<button type="button">
+  <svg aria-hidden="true">
+  "End session"
+"Players see"
+"The Sunken Crypt"
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter" title="Build encounter" type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
+    <svg aria-hidden="true">
+    "Roll for initiative"
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · focus order 1`] = `
+"radio Standby
+radio Live
+radio Recap
+button Call a rest
+button End session
+button Build encounter
+button Roll for initiative
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Start session"
+- text: Prep
+- text: Not recording. Rolls and combat are logged once you start the session.
+- heading "Combat" [level=2]
+- button "Build encounter"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- button "Roll for initiative"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="-1">
+    "Standby"
+  <button role="radio" type="button" tabindex="0">
+    "Prep"
+  <button role="radio" type="button" tabindex="-1">
+    "Live"
+  <button role="radio" title="Start the session first, then end it with Recap." type="button" tabindex="-1" disabled="">
+    "Recap"
+<button title="Starts the session log, the clock and the automations." type="button">
+  <svg aria-hidden="true">
+  "Start session"
+"Prep"
+<svg aria-hidden="true">
+"Not recording. Rolls and combat are logged once you start the session."
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter" title="Build encounter" type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
+    <svg aria-hidden="true">
+    "Roll for initiative"
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · focus order 1`] = `
+"radio Standby
+radio Prep
+radio Live
+button Start session
+button Build encounter
+button Roll for initiative
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Start session"
+- text: Recap
+- text: Not recording. Rolls and combat are logged once you start the session. Return to Standby first — a session cannot start from Recap.
+- heading "Combat" [level=2]
+- button "Build encounter"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- button "Roll for initiative"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: What happened
+- text: 10 recent changes to review.
+- text: Session archives
+- text: Jun 3 · 5:01 AM · no recap yet
+- textbox "Session recap"
+- text: Markdown supported. Saving replaces the recap for this archive.
+- button "Save recap"
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- textbox "Session log title"
+- text: What happened
+- textbox "What happened"
+- text: What changed
+- group "What changed":
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+  - checkbox
+- text: Follow-ups
+- textbox "Follow-ups"
+- text: One follow-up per line.
+- text: Saves a DM-only session log note. Set the campaign date to place it on the timeline.
+- button "Save session log"
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Rests this session" [level=2]
+- text: Every rest the party has taken, newest first.
+- list:
+  - listitem "5:01 AM Tormund Ironfist Short rest"
+  - listitem "5:01 AM Brother Calloway Short rest"
+  - listitem "5:01 AM Sera Duskwhisper Short rest"
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="-1">
+    "Standby"
+  <button role="radio" title="Return to Standby before going back to Prep." type="button" tabindex="-1" disabled="">
+    "Prep"
+  <button role="radio" title="Return to Standby before starting another session." type="button" tabindex="-1" disabled="">
+    "Live"
+  <button role="radio" type="button" tabindex="0">
+    "Recap"
+<button aria-disabled="true" title="Finish Recap and return to Standby before starting a session" type="button">
+  <svg aria-hidden="true">
+  "Start session"
+"Recap"
+<svg aria-hidden="true">
+"Not recording. Rolls and combat are logged once you start the session. Return to Standby first — a session cannot start from Recap."
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter" title="Build encounter" type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
+    <svg aria-hidden="true">
+    "Roll for initiative"
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "What happened"
+  "10 recent changes to review."
+  "Session archives"
+  "Jun 3 · 5:01 AM · no recap yet"
+  <textarea aria-label="Session recap">
+  "Markdown supported. Saving replaces the recap for this archive."
+  <button title="Session recap · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Save recap"
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  <input aria-label="Session log title">
+  "What happened"
+  <textarea aria-label="What happened">
+  "What changed"
+  <div role="group" aria-label="What changed">
+    <button role="checkbox" type="button">
+      "Brother Calloway"
+    <button role="checkbox" type="button">
+      "Mira the Ferryman"
+    <button role="checkbox" type="button">
+      "Sera Duskwhisper"
+    <button role="checkbox" type="button">
+      "The Hollow King"
+    <button role="checkbox" type="button">
+      "Tormund Ironfist"
+    <button role="checkbox" type="button">
+      "Campaign Primer"
+    <button role="checkbox" type="button">
+      "The Sunken Crypt — DM notes"
+    <button role="checkbox" type="button">
+      "Faction · The Ashen Hand"
+    <button role="checkbox" type="button">
+      "Brine Hand"
+    <button role="checkbox" type="button">
+      "Saltmarsh Watch"
+    <button role="checkbox" type="button">
+      "Dockworkers’ Union"
+    <button role="checkbox" type="button">
+      "The Drowning of Saltreach"
+    <button role="checkbox" type="button">
+      "The party makes landfall"
+    <button role="checkbox" type="button">
+      "The Hollow King stirs"
+  "Follow-ups"
+  <textarea aria-label="Follow-ups">
+  "One follow-up per line."
+  "Saves a DM-only session log note. Set the campaign date to place it on the timeline."
+  <button title="What happened · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Save session log"
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Rests this session"
+  "Every rest the party has taken, newest first."
+  <ol>
+    <li aria-current="step">
+      <svg aria-hidden="true">
+      "5:01 AM"
+      "Tormund Ironfist"
+      "Short rest"
+    <li>
+      <svg aria-hidden="true">
+      "5:01 AM"
+      "Brother Calloway"
+      "Short rest"
+    <li>
+      <svg aria-hidden="true">
+      "5:01 AM"
+      "Sera Duskwhisper"
+      "Short rest"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · focus order 1`] = `
+"radio Standby
+radio Recap
+button Start session
+button Build encounter
+button Roll for initiative
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar
+textbox Session recap
+textbox Session log title
+textbox What happened
+checkbox Brother Calloway
+checkbox Mira the Ferryman
+checkbox Sera Duskwhisper
+checkbox The Hollow King
+checkbox Tormund Ironfist
+checkbox Campaign Primer
+checkbox The Sunken Crypt — DM notes
+checkbox Faction · The Ashen Hand
+checkbox Brine Hand
+checkbox Saltmarsh Watch
+checkbox Dockworkers’ Union
+checkbox The Drowning of Saltreach
+checkbox The party makes landfall
+checkbox The Hollow King stirs
+textbox Follow-ups"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Rests this session
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Start session"
+- text: Standby
+- text: Not recording. Rolls and combat are logged once you start the session.
+- heading "Combat" [level=2]
+- button "Build encounter"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- button "Roll for initiative"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="0">
+    "Standby"
+  <button role="radio" type="button" tabindex="-1">
+    "Prep"
+  <button role="radio" type="button" tabindex="-1">
+    "Live"
+  <button role="radio" type="button" tabindex="-1">
+    "Recap"
+<button title="Starts the session log, the clock and the automations." type="button">
+  <svg aria-hidden="true">
+  "Start session"
+"Standby"
+<svg aria-hidden="true">
+"Not recording. Rolls and combat are logged once you start the session."
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter" title="Build encounter" type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
+    <svg aria-hidden="true">
+    "Roll for initiative"
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · focus order 1`] = `
+"radio Standby
+radio Prep
+radio Live
+radio Recap
+button Start session
+button Build encounter
+button Roll for initiative
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Start session"
+- text: Standby
+- text: Not recording. Rolls and combat are logged once you start the session.
+- heading "Combat" [level=2]
+- button "Build encounter"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- button "Roll for initiative"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="0">
+    "Standby"
+  <button role="radio" type="button" tabindex="-1">
+    "Prep"
+  <button role="radio" type="button" tabindex="-1">
+    "Live"
+  <button role="radio" type="button" tabindex="-1">
+    "Recap"
+<button title="Starts the session log, the clock and the automations." type="button">
+  <svg aria-hidden="true">
+  "Start session"
+"Standby"
+<svg aria-hidden="true">
+"Not recording. Rolls and combat are logged once you start the session."
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter" title="Build encounter" type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
+    <svg aria-hidden="true">
+    "Roll for initiative"
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · focus order 1`] = `
+"radio Standby
+radio Prep
+radio Live
+radio Recap
+button Start session
+button Build encounter
+button Roll for initiative
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Start session"
+- text: Standby
+- text: Not recording. Rolls and combat are logged once you start the session.
+- heading "Combat" [level=2]
+- button "Build encounter"
+- status
+- status
+- heading "No combat running" [level=3]
+- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- button "Roll for initiative"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="0">
+    "Standby"
+  <button role="radio" type="button" tabindex="-1">
+    "Prep"
+  <button role="radio" type="button" tabindex="-1">
+    "Live"
+  <button role="radio" type="button" tabindex="-1">
+    "Recap"
+<button title="Starts the session log, the clock and the automations." type="button">
+  <svg aria-hidden="true">
+  "Start session"
+"Standby"
+<svg aria-hidden="true">
+"Not recording. Rolls and combat are logged once you start the session."
+<section>
+  <h2>
+    "Combat"
+  <button aria-label="Build encounter" title="Build encounter" type="button">
+    <svg aria-hidden="true">
+    "Build encounter"
+  <div role="status">
+  <div role="status">
+  <svg aria-hidden="true">
+  <h3>
+    "No combat running"
+  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
+    <svg aria-hidden="true">
+    "Roll for initiative"
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · focus order 1`] = `
+"radio Standby
+radio Prep
+radio Live
+radio Recap
+button Start session
+button Build encounter
+button Roll for initiative
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · headings 1`] = `
+"h2 Combat
+h3 No combat running
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · aria 1`] = `
+"- text: Live session
+- text: The Sunken Crypt
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Call a rest"
+- button "End session"
+- text: The Sunken Crypt
+- text: Players see
+- heading "Combat" [level=2]
+- button "Add"
+- button "End combat"
+- status:
+  - text: Round 1, turn 1 — Goblin. 3 of 7 hit points.
+- status
+- text: Round
+- text: 1
+- text: Turn
+- text: 1
+- text: Lowest HP
+- text: 3/7
+- button "Previous turn"
+- button "Next turn"
+- list:
+  - listitem "15 Goblin Active Bloodied 3 /7 AC 13"
+  - listitem "10 Ogre 30 /30 AC 11"
+  - listitem "5 Lurker 12 /12 AC 10"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: Combat is running (round 1); review before resuming.
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · dom 1`] = `
+""Live session"
+"The Sunken Crypt"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="-1">
+    "Standby"
+  <button role="radio" title="Return to Standby before going back to Prep." type="button" tabindex="-1" disabled="">
+    "Prep"
+  <button role="radio" type="button" tabindex="0">
+    "Live"
+  <button role="radio" type="button" tabindex="-1">
+    "Recap"
+<button type="button">
+  <svg aria-hidden="true">
+  "Call a rest"
+<button type="button">
+  <svg aria-hidden="true">
+  "End session"
+"Players see"
+"The Sunken Crypt"
+<section>
+  <h2>
+    "Combat"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Add"
+  <button type="button">
+    <svg aria-hidden="true">
+    "End combat"
+  <div role="status">
+    "Round 1, turn 1 — Goblin. 3 of 7 hit points."
+  <div role="status">
+  "Round"
+  "1"
+  "Turn"
+  "1"
+  "Lowest HP"
+  "3/7"
+  <button aria-label="Previous turn" title="Previous turn" type="button">
+    <svg aria-hidden="true">
+  <button type="button">
+    "Next turn"
+    <svg aria-hidden="true">
+  <ul>
+    <li aria-current="true">
+      "15"
+      "G"
+      <button aria-pressed="false" type="button">
+        "Goblin"
+      <svg aria-hidden="true">
+      "Active"
+      <svg aria-hidden="true">
+      "Bloodied"
+      <button aria-label="Adjust hit points — Goblin" title="Adjust hit points — Goblin" type="button">
+        "3"
+        "/7"
+      "AC 13"
+      <button aria-label="Quick reference — Goblin" title="Quick reference — Goblin" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Goblin" title="Heal 1 HP — Goblin" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Goblin" title="Damage 1 HP — Goblin" type="button">
+        <svg aria-hidden="true">
+    <li>
+      "10"
+      "O"
+      <button aria-pressed="false" type="button">
+        "Ogre"
+      <button aria-label="Adjust hit points — Ogre" title="Adjust hit points — Ogre" type="button">
+        "30"
+        "/30"
+      "AC 11"
+      <button aria-label="Quick reference — Ogre" title="Quick reference — Ogre" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Ogre" title="Heal 1 HP — Ogre" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Ogre" title="Damage 1 HP — Ogre" type="button">
+        <svg aria-hidden="true">
+    <li>
+      "5"
+      "L"
+      <button aria-pressed="false" type="button">
+        "Lurker"
+      <svg role="img" aria-label="DM only">
+      <button aria-label="Adjust hit points — Lurker" title="Adjust hit points — Lurker" type="button">
+        "12"
+        "/12"
+      "AC 10"
+      <button aria-label="Quick reference — Lurker" title="Quick reference — Lurker" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Lurker" title="Heal 1 HP — Lurker" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Lurker" title="Damage 1 HP — Lurker" type="button">
+        <svg aria-hidden="true">
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "Combat is running (round 1); review before resuming."
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · focus order 1`] = `
+"radio Standby
+radio Live
+radio Recap
+button Call a rest
+button End session
+button Add
+button End combat
+button Previous turn
+button Next turn
+button Goblin
+button Adjust hit points — Goblin
+button Quick reference — Goblin
+button Heal 1 HP — Goblin
+button Damage 1 HP — Goblin
+button Ogre
+button Adjust hit points — Ogre
+button Quick reference — Ogre
+button Heal 1 HP — Ogre
+button Damage 1 HP — Ogre
+button Lurker
+button Adjust hit points — Lurker
+button Quick reference — Lurker
+button Heal 1 HP — Lurker
+button Damage 1 HP — Lurker
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · headings 1`] = `
+"h2 Combat
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · aria 1`] = `
+"- text: Live session
+- text: The Sunken Crypt
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- button "Call a rest"
+- button "End session"
+- text: The Sunken Crypt
+- text: Players see
+- heading "Combat" [level=2]
+- button "Add"
+- button "End combat"
+- status:
+  - text: Round 1, turn 1 — Goblin. 3 of 7 hit points.
+- status
+- text: Round
+- text: 1
+- text: Turn
+- text: 1
+- text: Lowest HP
+- text: 3/7
+- button "Previous turn"
+- button "Next turn"
+- list:
+  - listitem "15 Goblin Active Bloodied 3 /7 AC 13"
+  - listitem "10 Ogre 30 /30 AC 11"
+  - listitem "5 Lurker 12 /12 AC 10"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Rollable tables" [level=2]
+- heading "No rollable tables yet." [level=3]
+- text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
+- heading "Handouts" [level=2]
+- text: Handout title
+- textbox
+- text: What the players read
+- textbox
+- button "Push to players"
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Stage" [level=2]
+- text: Active map
+- text: What you stage for the table.
+- combobox "Active map"
+- button "Project to players"
+- text: Player views
+- text: Demo Player
+- combobox "Scene projected to Demo Player"
+- text: Demo Player 2
+- combobox "Scene projected to Demo Player 2"
+- text: Demo Player 3
+- combobox "Scene projected to Demo Player 3"
+- text: Demo Observer
+- combobox "Scene projected to Demo Observer"
+- heading "Campaign date" [level=2]
+- text: No date set
+- text: Reckoning of Saltreach · drives the Campaign timeline
+- button "+1 day"
+- text: Month
+- combobox
+- text: Day
+- textbox
+- text: Year
+- textbox
+- button "Set date"
+- button "Edit calendar"
+- heading "Prep & recap" [level=2]
+- img "DM only"
+- text: Carry into the session
+- text: Combat is running (round 1); review before resuming.
+- text: 10 recent changes to review.
+- text: Session archives
+- text: No archived sessions yet. Ending a live session into Recap creates one here.
+- heading "End-of-session capture" [level=2]
+- img "DM only"
+- text: No archived sessions yet. Ending a live session into Recap creates one to capture.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Brother Calloway
+- text: /31
+- text: 31
+- text: Sera Duskwhisper
+- text: /24
+- text: 24
+- text: Tormund Ironfist
+- text: /42
+- text: 42
+- heading "Schedule next session" [level=2]
+- img "DM only"
+- text: docs/runbooks/google-oauth-setup.md
+- text: Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at ."
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · dom 1`] = `
+""Live session"
+"The Sunken Crypt"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" type="button" tabindex="-1">
+    "Standby"
+  <button role="radio" title="Return to Standby before going back to Prep." type="button" tabindex="-1" disabled="">
+    "Prep"
+  <button role="radio" type="button" tabindex="0">
+    "Live"
+  <button role="radio" type="button" tabindex="-1">
+    "Recap"
+<button type="button">
+  <svg aria-hidden="true">
+  "Call a rest"
+<button type="button">
+  <svg aria-hidden="true">
+  "End session"
+"Players see"
+"The Sunken Crypt"
+<section>
+  <h2>
+    "Combat"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Add"
+  <button type="button">
+    <svg aria-hidden="true">
+    "End combat"
+  <div role="status">
+    "Round 1, turn 1 — Goblin. 3 of 7 hit points."
+  <div role="status">
+  "Round"
+  "1"
+  "Turn"
+  "1"
+  "Lowest HP"
+  "3/7"
+  <button aria-label="Previous turn" title="Previous turn" type="button">
+    <svg aria-hidden="true">
+  <button type="button">
+    "Next turn"
+    <svg aria-hidden="true">
+  <ul>
+    <li aria-current="true">
+      "15"
+      "G"
+      <button aria-pressed="false" type="button">
+        "Goblin"
+      <svg aria-hidden="true">
+      "Active"
+      <svg aria-hidden="true">
+      "Bloodied"
+      <button aria-label="Adjust hit points — Goblin" title="Adjust hit points — Goblin" type="button">
+        "3"
+        "/7"
+      "AC 13"
+      <button aria-label="Quick reference — Goblin" title="Quick reference — Goblin" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Goblin" title="Heal 1 HP — Goblin" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Goblin" title="Damage 1 HP — Goblin" type="button">
+        <svg aria-hidden="true">
+    <li>
+      "10"
+      "O"
+      <button aria-pressed="false" type="button">
+        "Ogre"
+      <button aria-label="Adjust hit points — Ogre" title="Adjust hit points — Ogre" type="button">
+        "30"
+        "/30"
+      "AC 11"
+      <button aria-label="Quick reference — Ogre" title="Quick reference — Ogre" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Ogre" title="Heal 1 HP — Ogre" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Ogre" title="Damage 1 HP — Ogre" type="button">
+        <svg aria-hidden="true">
+    <li>
+      "5"
+      "L"
+      <button aria-pressed="false" type="button">
+        "Lurker"
+      <svg role="img" aria-label="DM only">
+      <button aria-label="Adjust hit points — Lurker" title="Adjust hit points — Lurker" type="button">
+        "12"
+        "/12"
+      "AC 10"
+      <button aria-label="Quick reference — Lurker" title="Quick reference — Lurker" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Lurker" title="Heal 1 HP — Lurker" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Lurker" title="Damage 1 HP — Lurker" type="button">
+        <svg aria-hidden="true">
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button type="button">
+    "1d20"
+  <button type="button">
+    "1d20+5"
+  <button type="button">
+    "2d6+3"
+  <button type="button">
+    "1d8+2"
+  <button type="button">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button type="submit">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Rollable tables"
+  <svg aria-hidden="true">
+  <h3>
+    "No rollable tables yet."
+  "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
+<section>
+  <h2>
+    "Handouts"
+  "Handout title"
+  <input>
+  "What the players read"
+  <textarea>
+  <button aria-disabled="true" title="Give the handout a title first" type="button">
+    <svg aria-hidden="true">
+    "Push to players"
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Stage"
+  "Active map"
+  "What you stage for the table."
+  <select aria-label="Active map">
+    "— none —"
+    "Hidden Outpost"
+    "Ruined Keep"
+    "Western Reaches"
+  <svg aria-hidden="true">
+  <button title="Active map · Required" type="button" disabled="">
+    <svg aria-hidden="true">
+    "Project to players"
+  "Player views"
+  "Demo Player"
+  <select aria-label="Scene projected to Demo Player">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 2"
+  <select aria-label="Scene projected to Demo Player 2">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Player 3"
+  <select aria-label="Scene projected to Demo Player 3">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+  "Demo Observer"
+  <select aria-label="Scene projected to Demo Observer">
+    "— none —"
+    "Harbor of Saltreach"
+    "The Sunken Crypt"
+  <svg aria-hidden="true">
+<section>
+  <h2>
+    "Campaign date"
+  <svg aria-hidden="true">
+  "No date set"
+  "Reckoning of Saltreach · drives the Campaign timeline"
+  <button title="No date set" type="button" disabled="">
+    <svg aria-hidden="true">
+    "+1 day"
+  "Month"
+  <select>
+    "Thawmonth"
+    "Tidemarch"
+    "Brightmoor"
+    "Highsun"
+    "Harvestwane"
+    "Mournfrost"
+  <svg aria-hidden="true">
+  "Day"
+  <input type="number">
+  "Year"
+  <input type="number">
+  <button type="button">
+    <svg aria-hidden="true">
+    "Set date"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Edit calendar"
+<section>
+  <h2>
+    "Prep & recap"
+  <svg role="img" aria-label="DM only">
+  "Carry into the session"
+  "Combat is running (round 1); review before resuming."
+  "10 recent changes to review."
+  "Session archives"
+  "No archived sessions yet. Ending a live session into Recap creates one here."
+<section>
+  <h2>
+    "End-of-session capture"
+  <svg role="img" aria-label="DM only">
+  "No archived sessions yet. Ending a live session into Recap creates one to capture."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Brother Calloway"
+  "31"
+  "/31"
+  "Sera Duskwhisper"
+  "24"
+  "/24"
+  "Tormund Ironfist"
+  "42"
+  "/42"
+<section>
+  <h2>
+    "Schedule next session"
+  <svg role="img" aria-label="DM only">
+  "Google Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at"
+  "docs/runbooks/google-oauth-setup.md"
+  ".""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · focus order 1`] = `
+"radio Standby
+radio Live
+radio Recap
+button Call a rest
+button End session
+button Add
+button End combat
+button Previous turn
+button Next turn
+button Goblin
+button Adjust hit points — Goblin
+button Quick reference — Goblin
+button Heal 1 HP — Goblin
+button Damage 1 HP — Goblin
+button Ogre
+button Adjust hit points — Ogre
+button Quick reference — Ogre
+button Heal 1 HP — Ogre
+button Damage 1 HP — Ogre
+button Lurker
+button Adjust hit points — Lurker
+button Quick reference — Lurker
+button Heal 1 HP — Lurker
+button Damage 1 HP — Lurker
+button 1d20
+button 1d20+5
+button 2d6+3
+button 1d8+2
+button 4d6
+textbox Dice expression
+textbox Roll label
+button Roll
+textbox 
+textbox 
+button Push to players
+combobox Active map
+combobox Scene projected to Demo Player
+combobox Scene projected to Demo Player 2
+combobox Scene projected to Demo Player 3
+combobox Scene projected to Demo Observer
+combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
+textbox 
+textbox 
+button Set date
+button Edit calendar"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · headings 1`] = `
+"h2 Combat
+h2 Dice
+h2 Rollable tables
+h3 No rollable tables yet.
+h2 Handouts
+h2 Now playing
+h2 Stage
+h2 Campaign date
+h2 Prep & recap
+h2 End-of-session capture
+h2 Table roster
+h2 Party
+h2 Schedule next session"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight > desktop preview player · aria 1`] = `
+"- text: Live session
+- text: No active scene
+- radiogroup "Session phase":
+  - radio:
+    - text: Standby
+  - radio:
+    - text: Prep
+  - radio:
+    - text: Live
+  - radio:
+    - text: Recap
+- text: the scene
+- text: Players see
+- heading "Combat" [level=2]
+- button "End combat"
+- status:
+  - text: Round 1, turn 1 — Goblin. 3 of 7 hit points.
+- status
+- text: Round
+- text: 1
+- text: Turn
+- text: 1
+- text: Lowest HP
+- text: 3/7
+- button "Previous turn"
+- button "Next turn"
+- list:
+  - listitem "15 Goblin Active Bloodied 3 /7 AC 13"
+  - listitem "10 Ogre 30 /30 AC 11"
+- heading "Dice" [level=2]
+- status
+- button "1d20"
+- button "1d20+5"
+- button "2d6+3"
+- button "1d8+2"
+- button "4d6"
+- textbox "Dice expression"
+- textbox "Roll label"
+- button "Roll"
+- heading "Handouts" [level=2]
+- text: Handouts the DM has shared with you appear here.
+- text: No handouts delivered yet.
+- heading "Now playing" [level=2]
+- text: Nothing playing. Start ambience from the Audio library.
+- heading "Table roster" [level=2]
+- text: Host
+- text: No live table yet. Use in the top bar to open your table — players appear here as they connect.
+- heading "Party" [level=2]
+- text: Sera Duskwhisper
+- text: /24
+- text: 24"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight > desktop preview player · dom 1`] = `
+""Live session"
+"No active scene"
+<div role="radiogroup" aria-label="Session phase">
+  <button role="radio" title="Exit player preview to change the session phase." type="button" tabindex="-1" disabled="">
+    "Standby"
+  <button role="radio" title="Exit player preview to change the session phase." type="button" tabindex="-1" disabled="">
+    "Prep"
+  <button role="radio" type="button" tabindex="0">
+    "Live"
+  <button role="radio" title="Exit player preview to change the session phase." type="button" tabindex="-1" disabled="">
+    "Recap"
+"Players see"
+"the scene"
+<section>
+  <h2>
+    "Combat"
+  <button type="button" disabled="">
+    <svg aria-hidden="true">
+    "End combat"
+  <div role="status">
+    "Round 1, turn 1 — Goblin. 3 of 7 hit points."
+  <div role="status">
+  "Round"
+  "1"
+  "Turn"
+  "1"
+  "Lowest HP"
+  "3/7"
+  <button aria-label="Previous turn" title="Previous turn" type="button" disabled="">
+    <svg aria-hidden="true">
+  <button type="button" disabled="">
+    "Next turn"
+    <svg aria-hidden="true">
+  <ul>
+    <li aria-current="true">
+      "15"
+      "G"
+      <button aria-pressed="false" type="button">
+        "Goblin"
+      <svg aria-hidden="true">
+      "Active"
+      <svg aria-hidden="true">
+      "Bloodied"
+      <button aria-label="Adjust hit points — Goblin" title="Adjust hit points — Goblin" type="button" disabled="">
+        "3"
+        "/7"
+      "AC 13"
+      <button aria-label="Quick reference — Goblin" title="Quick reference — Goblin" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Goblin" title="Heal 1 HP — Goblin" type="button" disabled="">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Goblin" title="Damage 1 HP — Goblin" type="button" disabled="">
+        <svg aria-hidden="true">
+    <li>
+      "10"
+      "O"
+      <button aria-pressed="false" type="button">
+        "Ogre"
+      <button aria-label="Adjust hit points — Ogre" title="Adjust hit points — Ogre" type="button" disabled="">
+        "30"
+        "/30"
+      "AC 11"
+      <button aria-label="Quick reference — Ogre" title="Quick reference — Ogre" type="button">
+        <svg aria-hidden="true">
+      <button aria-label="Heal 1 HP — Ogre" title="Heal 1 HP — Ogre" type="button" disabled="">
+        <svg aria-hidden="true">
+      <button aria-label="Damage 1 HP — Ogre" title="Damage 1 HP — Ogre" type="button" disabled="">
+        <svg aria-hidden="true">
+<section>
+  <h2>
+    "Dice"
+  <div role="status">
+  <button title="Preview mode is read-only — exit preview to make changes" type="button" disabled="">
+    "1d20"
+  <button title="Preview mode is read-only — exit preview to make changes" type="button" disabled="">
+    "1d20+5"
+  <button title="Preview mode is read-only — exit preview to make changes" type="button" disabled="">
+    "2d6+3"
+  <button title="Preview mode is read-only — exit preview to make changes" type="button" disabled="">
+    "1d8+2"
+  <button title="Preview mode is read-only — exit preview to make changes" type="button" disabled="">
+    "4d6"
+  <input aria-label="Dice expression">
+  <input aria-label="Roll label">
+  <button title="Preview mode is read-only — exit preview to make changes" type="submit" disabled="">
+    <svg aria-hidden="true">
+    "Roll"
+<section>
+  <h2>
+    "Handouts"
+  "Handouts the DM has shared with you appear here."
+  "No handouts delivered yet."
+<section>
+  <h2>
+    "Now playing"
+  <svg aria-hidden="true">
+  "Nothing playing. Start ambience from the Audio library."
+<section>
+  <h2>
+    "Table roster"
+  "No live table yet. Use"
+  "Host"
+  "in the top bar to open your table — players appear here as they connect."
+<section>
+  <h2>
+    "Party"
+  "Sera Duskwhisper"
+  "24"
+  "/24""
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight > desktop preview player · focus order 1`] = `
+"radio Live
+button Goblin
+button Quick reference — Goblin
+button Ogre
+button Quick reference — Ogre
+textbox Dice expression
+textbox Roll label"
+`;
+
+exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight > desktop preview player · headings 1`] = `
+"h2 Combat
+h2 Dice
+h2 Handouts
+h2 Now playing
+h2 Table roster
+h2 Party"
+`;
