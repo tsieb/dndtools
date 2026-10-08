@@ -107,3 +107,37 @@ e2e specs (`knowledge-filters`, `command-palette`, `knowledge`, `campaign-relati
 - Two other surfaces still say "Story entry" for objects and are outside this story's list:
   `screens/play/Handouts.tsx` (`graph.kind.object`) and `screens/characters/sheet/BioPanel.tsx`
   (a hard-coded English literal).
+
+### Validation (session 1)
+
+- Typecheck (core + app): clean. `pnpm lint`: exit 0 (16 pre-existing warnings, no errors).
+- Core vitest: 290 files, 5289 tests passed. App vitest (`pnpm test:app`): 175 files pass after the
+  CAN-7.6 baseline snapshots were refreshed (`-u`); the only diff in them is the two count lines
+  ("0 quests · 4 factions", "5 notes").
+- E2E targeted (knowledge-filters, command-palette, campaign-relationships, knowledge, graph,
+  graph-polish, campaign; desktop + mobile): 170 passed, 2 failed — both
+  `campaign-relationships` on mobile, caused by the spec's own fixture note reusing the title "The
+  Ashen Hand", which the seed now also holds (ambiguous `selectOption` label and a three-item
+  "collision pair"). The fixture is renamed "The Cinder Court"; re-run 22/22 (with graph-polish).
+- E2E full suite, desktop + mobile, `DNDTOOLS_E2E_PORT=5847`: 1908 passed, 38 skipped, 4 failed —
+  `tile-content-recovery.spec.ts:87` at 1280 and 834 on both profiles. The default home Quick
+  Reference tile lists vault objects; with four factions it overflows and shows "2 more lines ·
+  Grow to fit". That is the designed overflow, so the spec now lists it as overflowing (asserting the
+  footer) instead of among the tiles that must render whole (`35fd7d70`); re-run 14/14.
+- Visual (pinned container), compare against the base baselines: 434 passed, 82 failed. Expected
+  movers: every desktop route (the sidebar's Story and Notes counts), `/knowledge` and graph-polish
+  on all three tiers (no Ashen Hand note card, link counts; Note/Faction/Map/Place legend and
+  chips), `/` and `/board` on desktop and rail (home Library count, Quick Reference overflow), and
+  the campaign faction card. Two failures outside that set (phone `scene-editor-polish` scholar,
+  rail `/audio named deletion` parchment) were 5 s stability timeouts, not pixel diffs.
+- Re-baselined with `--update-snapshots=changed`: 514 passed, 2 failed (phone `characters-polish`
+  empty dungeon and `palette-help` high-contrast — timeouts, nothing written). Exactly 120 PNGs were
+  rewritten, all in the expected set above (checked by listing the changed files per spec/route).
+- Playwright writes uncompressed PNGs, so the set came to 38,127 KiB of the 34,816 KiB budget.
+  Recompressed the 120 losslessly (`/tmp/rc-knw62-tools/zrepng.py`): IDAT unfiltered, the original
+  filters and filter 0 each Zopfli-deflated, the smaller kept, decoded pixels asserted identical, all
+  other chunks unchanged — 17,003,288 → 11,654,359 bytes. Budget 32,903.4 of 34,816 KiB (base
+  33,745.6).
+- Verification, compare mode over the full set: 516 passed.
+
+No push, promotion, loop or dispatcher-state edits.
