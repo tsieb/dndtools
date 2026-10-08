@@ -302,8 +302,9 @@ export const dispatchWidgetCommandInputSchema = z
 export const ensureCommandCenterHomeInputSchema = z
 	.object({
 		name: z.string().min(1).optional(),
-		// RC-CAN-7.8 — also ensure the Session screen (`/session` asks; nothing else does).
-		session: z.boolean().optional(),
+		// RC-CAN-7.8 — ensure this default screen INSTEAD of the board and the home screen: `/session`
+		// asks for its own screen and provisions nothing else.
+		screen: z.literal('session').optional(),
 	})
 	.strict()
 	.default({});

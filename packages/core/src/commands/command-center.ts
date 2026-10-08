@@ -275,7 +275,7 @@ export function buildDefaultSessionScreen(env: CoreEnvironment, ownerActorId: st
 	);
 }
 
-/** The vault's Session screen, or `null` until `/session` (ensure-home with `session`) provisions it. */
+/** The vault's Session screen, or `null` until `/session` (ensure-home `screen: 'session'`) provisions it. */
 export function findSessionScreen(scenes: SceneState): Scene | null {
 	return findDefaultScreen(scenes, SESSION_SCREEN_DEFAULT_KEY);
 }
@@ -308,40 +308,59 @@ export function handleEnsureCommandCenterHome(
 	const parsed = parseInput(ensureCommandCenterHomeInputSchema, rawPayload ?? {});
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
-	const board = ensureHomeBoard(state, env, actor.id, parsed.data.name);
-	// RC-CAN-7.6 — then the home screen (ADR-041 "Defaults and preservation"): a fresh vault gets it
-	// beside the board it just created; an existing vault gains it as its new home while its board,
-	// untouched, stays the GM screen. Idempotent: once one exists nothing is written, and a GM's
-	// customisation of it is never reset.
-	// RC-CAN-7.8 — and, when `/session` asks (`session: true`), the Session screen, by the same rules.
-	const screens: Scene[] = [];
-	if (!findHomeScreen(board.state.scenes)) screens.push(buildDefaultHomeScreen(env, actor.id));
-	if (parsed.data.session && !findSessionScreen(board.state.scenes))
-		screens.push(buildDefaultSessionScreen(env, actor.id));
-	let next = board.state;
-	const operationIds: string[] = [];
-	for (const screen of screens) {
-		const created = appendOperationDraft(env, next.sync, actor.id, {
+	// RC-CAN-7.8 — `/session` ensures the Session screen alone, by the same rules as the home screen
+	// below: created once, never reset, and nothing else in the vault touched.
+	if (parsed.data.screen === 'session') {
+		if (findSessionScreen(state.scenes))
+			return { status: 'accepted', nextState: state, events: [], operationIds: [] };
+		const screen = buildDefaultSessionScreen(env, actor.id);
+		const created = appendOperationDraft(env, state.sync, actor.id, {
 			entityType: 'scene',
 			entityId: screen.id,
 			opType: 'scene.create',
 			value: screen,
 			afterRevision: screen.ownership.revision,
 		});
-		next = {
-			...next,
+		return {
+			status: 'accepted',
+			nextState: {
+				...state,
+				scenes: {
+					schemaVersion: state.scenes.schemaVersion,
+					scenes: { ...state.scenes.scenes, [screen.id]: screen },
+				},
+				sync: created.log,
+			},
+			events: [{ kind: 'scene.created', sceneId: screen.id, actorId: actor.id }],
+			operationIds: [created.op.id],
+		};
+	}
+
+	const board = ensureHomeBoard(state, env, actor.id, parsed.data.name);
+	// RC-CAN-7.6 — then the home screen (ADR-041 "Defaults and preservation"): a fresh vault gets it
+	// beside the board it just created; an existing vault gains it as its new home while its board,
+	// untouched, stays the GM screen. Idempotent: once one exists nothing is written, and a GM's
+	// customisation of it is never reset.
+	if (findHomeScreen(board.state.scenes)) return board.result(board.state, []);
+	const home = buildDefaultHomeScreen(env, actor.id);
+	const created = appendOperationDraft(env, board.state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: home.id,
+		opType: 'scene.create',
+		value: home,
+		afterRevision: home.ownership.revision,
+	});
+	return board.result(
+		{
+			...board.state,
 			scenes: {
-				schemaVersion: next.scenes.schemaVersion,
-				scenes: { ...next.scenes.scenes, [screen.id]: screen },
+				schemaVersion: board.state.scenes.schemaVersion,
+				scenes: { ...board.state.scenes.scenes, [home.id]: home },
 			},
 			sync: created.log,
-		};
-		operationIds.push(created.op.id);
-	}
-	return board.result(
-		next,
-		operationIds,
-		screens.map((screen) => ({ kind: 'scene.created', sceneId: screen.id, actorId: actor.id })),
+		},
+		[created.op.id],
+		[{ kind: 'scene.created', sceneId: home.id, actorId: actor.id }],
 	);
 }
 

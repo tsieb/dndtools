@@ -26,8 +26,8 @@ import {
 
 /**
  * RC-CAN-7.8 — Session as a screen (ADR-041 "Defaults and preservation"). `command-center.ensure-home`
- * with `session: true` (what `/session` asks) provisions a FLOW Session screen of the console's widgets
- * beside the board and the home screen; without it nothing about ensure-home changes.
+ * with `screen: 'session'` (what `/session` asks) provisions a FLOW Session screen of the console's
+ * widgets and nothing else; without it nothing about ensure-home changes.
  */
 
 type Env = ReturnType<typeof makeEnvironment>;
@@ -44,7 +44,7 @@ function ensure(state: CoreStateSlice, env: Env, session = true) {
 		dispatchCommand(state, env, {
 			type: 'command-center.ensure-home',
 			actorId: DM_ACTOR.id,
-			payload: session ? { session: true } : {},
+			payload: session ? { screen: 'session' } : {},
 		}),
 	);
 }
@@ -56,7 +56,7 @@ function sessionScreen(state: CoreStateSlice): Scene {
 }
 
 describe('RC-CAN-7.8 the Session screen', () => {
-	it('is provisioned only when asked, as a GM-only flow screen of the console’s widgets', () => {
+	it('is provisioned only when asked, alone, as a GM-only flow screen of the console’s widgets', () => {
 		const env = makeEnvironment();
 		const plain = ensure(buildInitialState(DM_ACTOR), env, false).nextState;
 		expect(findSessionScreen(plain.scenes)).toBeNull();
@@ -69,10 +69,12 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		expect(meta.pinned).toBe(false);
 		expect(screen.visibility).toBe('dm-only');
 		expect(isDefaultScreen(nextState, screen.id)).toBe(true);
-		// The board, the home screen and the Session screen, each its own recorded write.
-		expect(findHomeScreen(nextState.scenes)).not.toBeNull();
-		expect(events.filter((event) => event.kind === 'scene.created')).toHaveLength(2);
-		expect(operationIds.length).toBeGreaterThanOrEqual(2);
+		// It provisions nothing else: no board, no home pointer, no home screen.
+		expect(Object.keys(nextState.scenes.scenes)).toEqual([screen.id]);
+		expect(nextState.commandCenter.homeSceneId).toBeNull();
+		expect(findHomeScreen(nextState.scenes)).toBeNull();
+		expect(events).toEqual([{ kind: 'scene.created', sceneId: screen.id, actorId: DM_ACTOR.id }]);
+		expect(operationIds).toHaveLength(1);
 		// One widget per Session row group, in the console's reading order, each with its own settings.
 		expect(screen.widgets.map((widget) => widget.type)).toEqual(
 			SESSION_SCREEN_PARTS.map((part) => part.type),
@@ -159,7 +161,7 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		const result = dispatchCommand(buildInitialState(DM_ACTOR, PLAYER_ACTOR), makeEnvironment(), {
 			type: 'command-center.ensure-home',
 			actorId: PLAYER_ACTOR.id,
-			payload: { session: true },
+			payload: { screen: 'session' },
 		});
 		expect(result.status).toBe('rejected');
 	});
@@ -172,7 +174,7 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		}
 		// The status, tracker and tray are views of the shared widgets; their defaults are unchanged.
 		const view = (type: string) =>
-			findWidgetDefinition(nextState.widgets, type)?.configFields.find(
+			findWidgetDefinition(nextState.widgets, type)?.configFields?.find(
 				(field) => field.key === 'view',
 			)?.default;
 		expect([view('session'), view('combat'), view('dice')]).toEqual(['strip', 'glance', 'quick']);
@@ -194,7 +196,7 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		for (const definition of definitions) {
 			expect(definition.renderEntrypoint?.runtime).toBe('builtin');
 			expect(definition.placement).toEqual({ surfaces: ['scene'], libraryListed: false });
-			expect(definition.configFields.find((field) => field.key === 'presentation')?.default).toBe(
+			expect(definition.configFields?.find((field) => field.key === 'presentation')?.default).toBe(
 				'bare',
 			);
 			// A copy under a new type would lose the hand-written body, so a GM cannot fork one.

@@ -88,17 +88,21 @@ function check(
 
 const DM: Actor = { id: 'dm-1', role: 'dm', displayName: 'Dungeon Master' };
 
-/** A fresh vault with every shipped default screen: the GM board, the home screen and (RC-CAN-7.8)
- *  the Session screen, which `/session` asks `ensure-home` for. */
+/** A fresh vault with every shipped default screen: the GM board and the home screen (`/`), and
+ *  (RC-CAN-7.8) the Session screen (`/session`). */
 function provisionedVault() {
 	const env = makeEnvironment();
-	const result = dispatchCommand(buildInitialState(DM) as CoreStateSlice, env, {
-		type: 'command-center.ensure-home',
-		actorId: DM.id,
-		payload: { session: true },
-	} as CoreCommand);
-	if (result.status !== 'accepted') throw new Error(result.rejection.message);
-	return { env, state: result.nextState };
+	let state = buildInitialState(DM) as CoreStateSlice;
+	for (const payload of [{}, { screen: 'session' }]) {
+		const result = dispatchCommand(state, env, {
+			type: 'command-center.ensure-home',
+			actorId: DM.id,
+			payload,
+		} as CoreCommand);
+		if (result.status !== 'accepted') throw new Error(result.rejection.message);
+		state = result.nextState;
+	}
+	return { env, state };
 }
 
 /** What the default-screen checker reports for a freshly provisioned vault. */

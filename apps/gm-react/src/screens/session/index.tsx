@@ -30,7 +30,7 @@ import { useViewport } from '../../app/useViewport';
  *
  * The live-play console is no longer drawn here. It is a FLOW screen of widgets, one per
  * SCREENS_PARITY Session row group, that `command-center.ensure-home` provisions the first time a GM
- * opens `/session` (`session: true`): the session status (`session`, its Standby / Prep / Live / Recap
+ * opens `/session` (`screen: 'session'`, which provisions nothing else): the session status (`session`, its Standby / Prep / Live / Recap
  * control and the start, rest and end dialogs) across the top, the combat tracker (`combat`, with
  * the encounter builder) beside a column of the dice tray (`dice`), rollable tables, handouts, now
  * playing, stage and projection, campaign date, prep and recap, capture, table roster, party, the
@@ -59,7 +59,7 @@ function useProvisionedSessionScreen(enabled: boolean) {
 		const command: CoreCommand = {
 			type: 'command-center.ensure-home',
 			actorId: runtime.defaultActorId,
-			payload: { session: true },
+			payload: { screen: 'session' },
 		};
 		// `dispatch` rethrows a persist failure; a rejection is reported in its result.
 		void Promise.resolve(runtime.dispatch(command))
