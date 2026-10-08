@@ -164,3 +164,18 @@ kept, so the task blocks for the operator to decide on widening the claim. Nothi
   `node.kind` structural, add a separate word field) leaves the legend, the canvas node labels and the
   inspector badge saying "Story entry" unless `Graph.tsx` and `Inspector.tsx` are edited instead,
   which is a larger crossing. The one-condition change is the smallest.
+
+## Attempt 3 — 2026-10-08: claim widened by the operator
+
+The operator widened the claim to `apps/gm-react/src/app/editor/Autocomplete.tsx` and
+`apps/gm-react/src/screens/graph/Inspector.tsx`, keeping the diffs as small as they were. No code
+changed in this attempt: the two diffs against `515d714c` are the same (Autocomplete: the private
+table replaced by `kindLabel`, +5/−13; Inspector: one condition, 1 line). Every other changed path is
+owned, a manifest companion, or this journal.
+
+Re-checked on `089f0ddb`: `pnpm --filter @dndtools/gm-react typecheck` exit 0; vitest
+`kindVocabulary.test.tsx`, `demo-seed*.test.ts` and `i18n/index.test.ts` — 4 files, 40 tests passed
+(`/tmp/rc-knw62-acc.log`). Session 1's full e2e, pinned visual (516 passed) and budget results stand;
+no source changed since.
+
+No push, promotion, loop or dispatcher-state edits.
