@@ -39,13 +39,17 @@ makes them the GM's own consoles; the GM screen's board stays a target. Core tes
 
 ### Step 2 — the conversion (`a5e90d48`)
 
-**The Session screen.** `command-center.ensure-home` with `session: true` provisions a GM-only FLOW
-screen recorded as the `session` default screen (`SESSION_SCREEN_DEFAULT_KEY`), beside the board
-and the home screen it already ensures. `/session` asks for it; nothing else does, so every other
-caller of ensure-home (and every existing core test) is unchanged. Idempotent: once one exists
-nothing is written and the GM's edits are never reset (core test removes a widget, re-runs).
-Existing vaults gain it without any other scene changing (core test compares the JSON).
+**The Session screen.** `command-center.ensure-home` with `screen: 'session'` provisions a GM-only
+FLOW screen recorded as the `session` default screen (`SESSION_SCREEN_DEFAULT_KEY`), and nothing
+else. `/session` asks for it; ensure-home without the field is byte-for-byte what it was, so every
+other caller (and every existing core test) is unchanged. Idempotent: once one exists nothing is
+written and the GM's edits are never reset (core test removes a widget, re-runs). Existing vaults
+gain it without any other scene changing (core test compares the JSON).
 
+- The first form (`session: true`, `a5e90d48`) also ensured the board and the home screen, so a
+  fresh vault opened straight on `/session` gained a board that the start dialog offered as a
+  "Continue" target: `session-lifecycle.spec.ts:124` (nothing to continue) failed on both profiles.
+  Fixed in `a1861678`: `/session` provisions only its own screen.
 - Decision — provisioned on first open, not by every ensure-home. ADR-041 gives fresh vaults three
   default screens; provisioning it from every ensure-home would add a scene to every vault that
   opens `/` (the `/screens` goldens, library e2e counts and the dozens of core tests that run
@@ -58,12 +62,12 @@ Existing vaults gain it without any other scene changing (core test compares the
 
 **The widgets.** Each SCREENS_PARITY Session row group is one widget:
 
-| Row(s)                     | Widget                                         | Body                         |
-| -------------------------- | ---------------------------------------------- | ---------------------------- |
-| SE-01–06, SE-30–32         | `session`, `view: console` (default `strip`)   | `SessionBody.tsx`            |
-| SE-07–14, 33–37, 42–44     | `combat`, `view: tracker` (default `glance`)   | `CombatBody.tsx`             |
-| SE-15                      | `dice`, `view: tray` (default `quick`)         | `DiceBody.tsx`               |
-| SE-16 … SE-26              | `session-tables` … `session-schedule` (11 new) | `Session*Body.tsx` (11 new)  |
+| Row(s)                 | Widget                                         | Body                        |
+| ---------------------- | ---------------------------------------------- | --------------------------- |
+| SE-01–06, SE-30–32     | `session`, `view: console` (default `strip`)   | `SessionBody.tsx`           |
+| SE-07–14, 33–37, 42–44 | `combat`, `view: tracker` (default `glance`)   | `CombatBody.tsx`            |
+| SE-15                  | `dice`, `view: tray` (default `quick`)         | `DiceBody.tsx`              |
+| SE-16 … SE-26          | `session-tables` … `session-schedule` (11 new) | `Session*Body.tsx` (11 new) |
 
 The three shared widgets gain a `view` select (Inspector "Shows") whose default is today's view,
 so the GM board and Command Center tiles are unchanged; the GM can now switch a board Combat or
@@ -111,7 +115,8 @@ Each is what the acceptance needs; none changes another surface's behaviour beyo
 
 - `packages/core/src/commands/command-center.ts`, `schemas/commands.ts`, `index.ts` — provisioning
   ("/session opens this screen") needs a core write with default-screen provenance; no public
-  command sets `origin.kind: 'default'`. One optional payload flag, the builder and the finder.
+  command sets `origin.kind: 'default'`. One optional payload field (`screen: 'session'`), the
+  builder and the finder.
 - `packages/core/src/queries/player-view-control.ts` — default screens out of the projection
   targets (Step 1b). Without it the Stage panel offered "Session" as a scene to project.
 - `apps/gm-react/src/app/widgets/builtin/index.tsx` and the eleven `Session*Body.tsx` — "each row
@@ -136,3 +141,96 @@ Each is what the acceptance needs; none changes another surface's behaviour beyo
   `builtin-bodies.test.tsx` (fixed above); widgets + screens + i18n after formatting 47 files / 753.
 - `tsc --noEmit` app and core 0; `pnpm lint` 0 (warnings only, none in changed files);
   `pnpm gates` 0 (file-size warnings only).
+
+### Step 3 — browser checks
+
+- The acceptance specs (desktop + mobile, local, own port): `combat.spec.ts`, every
+  `session-*.spec.ts`, `dice-tray`, `encounter-builder`, `character-rest`,
+  `combat-quick-reference`, `combat-audio-automation`, `player-preview`: first run 165 passed,
+  2 failed — `session-lifecycle.spec.ts:124` on both profiles (Step 2's provisioning fix). After
+  `a1861678`: lifecycle + the new quick panel spec 18/18. **No spec was edited**, not even a
+  selector: the console's accessible names, roles and test ids are unchanged.
+- New `tests/e2e/session-quick-panel-routes.spec.ts`: live session, then on `/`, `/board`,
+  `/session`, `/screens`, `/characters`, `/atlas`, `/campaign`, `/knowledge`, `/audio` and
+  `/settings` the quick panel's d20 rolls through the core (roll count +1, result shown). Both
+  profiles (rail on desktop, sheet on the phone).
+- Full Playwright suite at `a1861678`, both profiles: **1918 passed, 38 skipped, 0 failed**
+  (33.1 min, `/tmp/rc-can78-e2e-full.log`).
+
+### Step 4 — visual gate, before/after review, re-baseline
+
+- Full visual suite in the pinned container at `a1861678` (`--update-snapshots=none --workers=2`):
+  507 passed, 24 failed, all pixel diffs, none a timeout: the nine `/session` goldens (3 themes ×
+  3 tiers) and the fifteen `/extensions` goldens (desktop and rail list, phone remove confirm × 5
+  themes). `/extensions` lists installed packages, and the only change in its diff is the new
+  built-in "Session Widgets" row (v1.0.0 · 11 widgets), as CAN-7.6's "Command Center Parts" row
+  re-baselined it before. Copies of every actual/expected/diff: `/tmp/rc-can78-visual-fail/`;
+  the before goldens: `/tmp/rc-can78-before/`.
+- Before/after review of the nine `/session` pairs. Done in this session by reading each
+  expected/actual/diff, not by a `ux-ui-reviewer` agent: the task forbids extra agents unless it
+  authorizes them, and the central operator runs its own independent review. Findings, all within
+  CAN-7.6's tolerance, **no regression**:
+  - The columns split 7/12 : 5/12 (58/42) instead of `1.6fr 1fr` (62/38): the combat panel is
+    about 30px narrower at desktop and rail and the right column wider; at desktop the five dice
+    presets now fit one row. Flow has twelve equal columns; 7/5 is the nearest split (CAN-7.6
+    accepted 58/42 for the hub's 60/40).
+  - Everything below the status row sits 2px higher: the status widget's last margin (18px) is now
+    the console's 16px grid gap.
+  - The phone is identical apart from that 2px. No clipped content, no lost control, focus or
+    heading, in any theme; high contrast keeps its borders.
+- Re-baselined exactly those 24 in the container (`--update-snapshots=changed`, golden-routes +
+  extensions-polish: 258 passed), then re-deflated the 24 PNGs losslessly (zlib 9 over the same
+  filtered scanlines, decompressed IDAT asserted identical): 124,477 bytes saved. Budget after:
+  34,680.1 of 34,816.0 KiB. Re-run on the re-deflated files: 258 passed.
+
+### CAN-7.5 Session parity rows
+
+Every row in SCREENS_PARITY §3, with the widget that now carries it and the evidence. "Baseline"
+means the committed `Session.baseline.test.tsx` snapshots pass unchanged (aria, DOM, headings,
+focus order) in the states listed in Step 1.
+
+| Rows            | Widget                | Evidence                                                                                                                                        |
+| --------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| SE-01 eyebrow   | session (console)     | baseline (Standby, Live, preview, player); `session-lifecycle.spec` (named session line)                                                        |
+| SE-02 phase     | session               | baseline (radiogroup, disabled options per state incl. preview); `session-lifecycle.spec` (rail routes through the start / end flows)           |
+| SE-03 standby   | session               | baseline (Standby, Prep, Recap sentence); `session-standby.spec`; `standby-controls.test`                                                       |
+| SE-04, SE-05    | session               | baseline (Live only, not in preview); after-test opens the rest and end dialogs; `character-rest.spec`, `session-lifecycle.spec`                |
+| SE-06           | session               | baseline (Live: "Players see …")                                                                                                                |
+| SE-07, SE-08    | combat (tracker)      | baseline (Build encounter / Add + End combat; "No combat running"); after-test opens the builder and end confirm                                |
+| SE-09–SE-11     | combat                | baseline (live fight desktop + phone, preview: status region, readout, list, hidden combatant); `combat.spec` (turns, n/p keys, Alt+arrows)     |
+| SE-12, SE-13    | combat                | `combat.spec` (HP keypad sheet, d/h keys, digits, Escape; condition picker)                                                                     |
+| SE-14           | combat                | `encounter-builder.spec`, `session-standby.spec` (build, start, reinforce); after-test                                                          |
+| SE-15           | dice (tray)           | baseline; `dice-tray.spec`; `session-standby.spec` (Standby roll)                                                                               |
+| SE-16           | session-tables        | baseline (empty state); `session-tables.spec` (draw, record, pin/unpin by keyboard)                                                             |
+| SE-17           | session-handouts      | baseline (DM, preview sentence); `session-standby.spec` (push outside a session)                                                                |
+| SE-18           | session-now-playing   | baseline (nothing playing); `combat-audio-automation.spec`                                                                                      |
+| SE-19           | session-stage         | baseline (active map, Project, per-player pickers, now without GM workspaces); full suite (`atlas`, `map-tile`, `player-view` projection specs) |
+| SE-20           | session-campaign-date | baseline (DM only, absent in preview); body snapshot (no calendar)                                                                              |
+| SE-21           | session-prep-recap    | baseline (Standby, Recap with archive); full suite                                                                                              |
+| SE-22, SE-39–41 | session-capture       | baseline; `session-capture.spec`                                                                                                                |
+| SE-23           | session-roster        | baseline (not hosting); `session-posture.spec`                                                                                                  |
+| SE-24           | session-party         | baseline (three PCs; empty in preview)                                                                                                          |
+| SE-25           | session-rests         | baseline (absent before a rest, present in Recap after one); after-test (joins the layout after a rest)                                         |
+| SE-26           | session-schedule      | baseline (unconfigured install, DM only)                                                                                                        |
+| SE-30–SE-32     | session (dialogs)     | after-test (start, rest, end open from the widget); `session-lifecycle.spec` (both endings, named start, nothing-to-continue)                   |
+| SE-33           | combat (dialog)       | after-test; `combat.spec` (End combat confirm)                                                                                                  |
+| SE-34–SE-37     | combat                | baseline (live fight); `combat.spec` (initiative call, adjust, detail actions, reorder bounds)                                                  |
+| SE-38           | shell Toaster         | unchanged (not part of the screen); `session-lifecycle.spec`                                                                                    |
+| SE-42–SE-44     | combat                | `combat.spec` (condition clear, death saves, concentration keep/drop)                                                                           |
+| §3.5 headings   | all                   | baseline heading outlines unchanged in every state (`h2` per panel, `h3` empty states, Rests between Party and Schedule in Recap)               |
+| §3.5 tiers      | screen                | baseline rail and phone; after-test `/session` vs `/screen/:id` cells at three tiers (rail keeps two columns, phone one)                        |
+
+Not carried as a public-surface widget yet, by design: every Session row stays builtin until the
+gaps G-05–G-11 have a public surface (ledgered under RC-WID-5.13 above).
+
+### Follow-ups for the operator
+
+- **File RC-WID-5.13** (public surface for the Session widgets; SCREENS_PARITY G-05–G-11) on the
+  roadmap; the parity ledger names it.
+- `/screen/:id` draws the Session screen with flow's bare-part gap (28px) where `/session` keeps
+  the console's 16px (cells and tree are equal; tested). Making FlowBoard honour a screen's gap is
+  outside this claim.
+- The eleven panels are not offered in the add gallery (like the home parts). Listing them would
+  let a GM put "Handouts" on any screen; it changes gallery counts that other specs read.
+- `scene-first-render` / `app-startup` perf budgets were not re-measured here; `/session` now
+  provisions once and renders through the flow pieces.
