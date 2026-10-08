@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-	BUILT_IN_SYSTEM_PACKAGES,
-	campaignNameOf,
-	type FeatureTier,
-	type VaultPrivacyMode,
-} from '@dndtools/core';
+import { BUILT_IN_SYSTEM_PACKAGES, type FeatureTier, type VaultPrivacyMode } from '@dndtools/core';
 import { Button, Input } from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
+import { listLocalVaults, renameLocalVault } from '../platform/storage/coreStore';
 import { PREFERENCE_KEYS, readPreference, removePreference } from '../platform/preferences';
 import { recordNewVaultPrivacyMode, storedVaultPrivacyMode } from '../cloud/vaultMode';
 import { setDocAttr } from '../screens/settings/shared';
@@ -38,6 +34,15 @@ export {
 
 const isNewCampaign = () => readPreference(PREFERENCE_KEYS.onboardingCampaign) === 'pending';
 
+/** The catalog name of the open campaign, or '' when the catalog cannot be read. */
+function campaignName(vaultId: string): string {
+	try {
+		return listLocalVaults().find((vault) => vault.id === vaultId)?.name ?? '';
+	} catch {
+		return '';
+	}
+}
+
 /** Three steps to a named, empty campaign. Replay changes presentation, never vault privacy. */
 export function Onboarding() {
 	const runtime = useRuntime();
@@ -47,11 +52,7 @@ export function Onboarding() {
 	const [open, setOpen] = useState(() => readStorage(ONBOARDED_KEY) === null);
 	const [step, setStep] = useState(0);
 	// A new campaign starts unnamed; a replay keeps the campaign's current name.
-	// RC-UX-6.2 — the campaign's stored name; an unnamed one starts empty ("Your campaign" is never
-	// written for it).
-	const [name, setName] = useState(() =>
-		isNewCampaign() ? '' : (campaignNameOf(runtime.state.commandCenter) ?? ''),
-	);
+	const [name, setName] = useState(() => (isNewCampaign() ? '' : campaignName(runtime.vaultId)));
 	const [system, setSystem] = useState(runtime.state.systems.activePackageId);
 	const [tier, setTier] = useState<FeatureTier>(readStoredTier);
 	const [privacy, setPrivacy] = useState<VaultPrivacyMode | null>(null);
@@ -80,7 +81,7 @@ export function Onboarding() {
 	useEffect(() => {
 		const replay = () => {
 			setStep(0);
-			setName(isNewCampaign() ? '' : (campaignNameOf(runtime.state.commandCenter) ?? ''));
+			setName(isNewCampaign() ? '' : campaignName(runtime.vaultId));
 			setSystem(runtime.state.systems.activePackageId);
 			setTier(readStoredTier());
 			setPrivacy(null);
@@ -116,6 +117,9 @@ export function Onboarding() {
 			setBusy(true);
 			setError('');
 			try {
+				const nextName = skipped
+					? campaignName(runtime.vaultId) || t('home.yourCampaign')
+					: name.trim();
 				// Only a changed system is a command; a replay that keeps it writes nothing.
 				if (!skipped && system !== runtime.state.systems.activePackageId) {
 					const result = await runtime.dispatch({
@@ -128,19 +132,8 @@ export function Onboarding() {
 						return;
 					}
 				}
-				// RC-UX-6.2 — the name and system are the campaign's identity; the vault catalog follows
-				// it. A skip names nothing, so an unnamed campaign keeps showing the placeholder.
-				if (!skipped) {
-					const result = await runtime.dispatch({
-						type: 'campaign.set-identity',
-						actorId: runtime.defaultActorId,
-						payload: { name: name.trim(), systemPackageId: system },
-					});
-					if (result.status !== 'accepted') {
-						setError(t('onboarding.v3.saveFailed'));
-						return;
-					}
-				}
+				renameLocalVault(runtime.vaultId, nextName);
+				window.dispatchEvent(new Event('dndtools:local-vault-renamed'));
 				if (isNew && !(skipped && tier === 'advanced')) recordNewVaultPrivacyMode(mode);
 				setDocAttr(TIER_ATTR, TIER_KEY, tier);
 				writeStorage(ONBOARDED_KEY, skipped ? 'skipped' : 'done');

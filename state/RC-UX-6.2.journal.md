@@ -34,12 +34,14 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
     path). It does two things:
     1. Once per open, it adopts device data into the campaign:
        - A catalog name the GM chose, from the switcher's Create or Rename or from a pre-story
-         onboarding, becomes the campaign name. The placeholder never does.
+         onboarding, becomes the campaign name (the first naming also records the active system).
+         The placeholder never does.
        - The released `partyNotes` roster (`dndtools:react:invites`, vault-scoped) becomes player
          actors through `permission.add-players`. Email entries stay in the preference, because
          `rosterAttendeeEmails` still reads them for the Google Calendar invite. The preference is
          removed when nothing is left in it.
-    2. After that, it renames the catalog entry whenever the campaign name changes.
+    2. After that, it renames the catalog entry whenever the campaign name changes, and adopts the
+       catalog name again whenever `dndtools:local-vault-renamed` fires (onboarding's path).
 - **Surfaces**:
   - Sidebar chip: the campaign name, or the placeholder. The GM name prefers
     `campaign.gmDisplayName`.
@@ -49,10 +51,12 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
     Renaming another vault renames its catalog entry, and that vault takes the name up when it
     next opens.
   - Hero: the idle heading is the campaign name, or the placeholder.
-  - Widget `campaign` source: the campaign name.
   - The phone More sheet row reads the catalog, which follows the campaign name.
-- **Onboarding** names the campaign and its system through `campaign.set-identity`. A skip names
-  nothing. A replay prefills the stored name.
+- **Onboarding** is unchanged (base). It selects the system, renames the catalog and fires
+  `dndtools:local-vault-renamed`; the follower turns that into `campaign.set-identity` with the name
+  and the now-active system. A skip writes the placeholder to the catalog, which is never adopted,
+  and the catalog is put back to the campaign's name if it has one. A replay prefills from the
+  catalog, which follows the campaign name.
 - **Settings › Players** gains "Add your party": comma-separated names, dispatched as one
   `permission.add-players`. An email address is refused before dispatch with a localized message.
   Other rejections show the schema issue. The new seats appear in the roster with role pickers and
@@ -64,16 +68,20 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
 
 ## Scope notes
 
-- Outside Owns (non-companion), kept because the acceptance needs them:
-  - `apps/gm-react/src/app/Onboarding.tsx`: "name the campaign in onboarding, see it in the
-    sidebar, hero and switcher". Onboarding wrote only the catalog name, so the name never reached
-    the campaign. The edit swaps that write for the command and removes the skip's
-    `t('home.yourCampaign')` write, which stored the placeholder as a name.
-  - `apps/gm-react/src/app/widgets/homeSources.ts`: the hero's idle heading was the literal
-    `home.yourCampaign`. One line now reads `campaignNameOf(state.commandCenter)` first.
-  - `apps/gm-react/src/app/widgets/dataEnvironment.ts`: `useWidgetHostContext` read the catalog
-    once per vault (memoised on `vaultId`), so the widget campaign source did not follow a rename.
-    It now reads the campaign name. This is for "every surface follows", and it is small.
+- Claim gate (2026-10-07) flagged three paths outside Owns:
+  - `apps/gm-react/src/app/Onboarding.tsx`: **reverted to base.** The follower in `coreStore.ts`
+    (owned) now adopts the catalog name onboarding writes, on the rename event onboarding already
+    fires, so onboarding needs no edit.
+  - `apps/gm-react/src/app/widgets/dataEnvironment.ts`: **reverted to base.** The widget
+    `campaign` source is not in the acceptance list. It still reads the catalog name (which follows
+    the campaign) memoised per vault, so it shows a rename after a remount. Follow-up.
+  - `apps/gm-react/src/app/widgets/homeSources.ts`: **kept; the acceptance requires it.** The
+    criterion is "see it in the sidebar, hero and switcher ... see every surface follow". The
+    hero's idle heading is the `resume` row's `primary`, which `resolveHomeSource` hard-codes to
+    `t('home.yourCampaign')`. No owned or companion file feeds that row: the hero widget renders
+    `first.primary`, and the row is built only here. The change is one line, which reads
+    `campaignNameOf(state.commandCenter)` before the placeholder. The operator decides whether to
+    widen the claim.
 - Companion paths: `App.tsx`, core `index.ts` / `dispatch.ts` / `types.ts` / `schemas/commands.ts`,
   i18n catalogs, tests, `docs/architecture/DATA_MODEL.md`.
 - Handler placement: the roadmap says party names create actors "through the existing permission
@@ -104,3 +112,17 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
   `a11y-axe-gate`: 293 passed, 7 skipped, 0 failed. The skips are the spec files' own
   `test.skip` guards: the demo-vault perf capture on both profiles, four hub-templates desktop-only
   checks on mobile, and the a11y Layout-view check on desktop.
+
+## Claim-gate rework (2026-10-07)
+
+- Reverted `Onboarding.tsx` and `dataEnvironment.ts` to `515d714c`; kept `homeSources.ts` (see
+  Scope notes). `followCampaignIdentity` listens for `dndtools:local-vault-renamed` and adopts the
+  catalog name (with the active system on the first naming).
+- New unit test in `campaignIdentity.test.ts`: an onboarding-style catalog rename plus the event
+  names the campaign with the active system; a placeholder write stores nothing; a stopped follower
+  adopts nothing. `src/platform/storage`: 6 files, 77 tests passed.
+- `tsc --noEmit` (gm-react) and eslint on the changed files: clean.
+- Playwright, desktop-chromium + mobile-chromium: `campaign-identity`, `local-vaults`,
+  `onboarding-consent`, `golden-path`, `demo-vault`, `shell-polish`, `hub-templates`,
+  `command-palette`: 168 passed, 6 skipped (the same `test.skip` guards: demo-vault perf on both
+  profiles, four hub-templates desktop-only checks on mobile), 0 failed.

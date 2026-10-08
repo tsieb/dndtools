@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import {
 	EMPTY_PRESENCE_STATE,
 	VAULT_OBJECT_SUBTYPE_KEY,
-	campaignNameOf,
 	WIDGET_QUERY_COLUMNS,
 	decideCharacterDataRead,
 	detectContinuityMentions,
@@ -42,6 +41,7 @@ import {
 	type WidgetTemplateKind,
 	type WidgetDefinition,
 } from '@dndtools/core';
+import { listLocalVaults } from '../../platform/storage/coreStore';
 import { widgetProfileForRuntime } from '../../platform/capabilities';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSession, type SessionContextValue } from '../../net/SessionContext';
@@ -154,7 +154,7 @@ export interface WidgetLiveTable {
  * argument and the resolver stays a pure function of what it is given.
  */
 export interface WidgetHostContext {
-	/** The campaign's name (RC-UX-6.2). Absent or blank reads as "Your campaign". */
+	/** The vault's name from this device's vault catalog. Absent or blank reads as "Your campaign". */
 	campaignName?: string | null;
 	/** The platform profile the widget library judges availability for. Defaults to `web`. */
 	profileId?: PlatformProfileId;
@@ -1512,14 +1512,16 @@ function liveTableOf(
 }
 
 /**
- * The host half of {@link WidgetHostContext}: the campaign's name, the platform profile and the live
- * table. An unnamed campaign leaves the name out; the campaign source then says "Your campaign", as
- * the Command Center hero does.
+ * The device-local half of {@link WidgetHostContext}: this vault's name from the device's catalog,
+ * the platform profile and the live table. A catalog that cannot be read leaves the name out rather
+ * than failing the widget; the campaign source then says "Your campaign", as the Command Center hero
+ * does.
  */
 export function useWidgetHostContext(): WidgetHostContext {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const session = useOptionalSession();
+	const vaultId = runtime.vaultId;
 	const role = session?.role;
 	const peers = session?.peers;
 	const clientPresence = session?.client?.presence;
@@ -1527,12 +1529,15 @@ export function useWidgetHostContext(): WidgetHostContext {
 		() => (role ? liveTableOf(role, peers ?? [], clientPresence ?? []) : undefined),
 		[role, peers, clientPresence],
 	);
-	// RC-UX-6.2 — the campaign's own name, the one the hero and the sidebar chip show.
-	const campaignName = campaignNameOf(runtime.state.commandCenter);
-	return useMemo(
-		() => ({ campaignName, profileId: widgetProfileForRuntime(), table, translate: t }),
-		[campaignName, table, t],
-	);
+	return useMemo(() => {
+		let campaignName: string | null = null;
+		try {
+			campaignName = listLocalVaults().find((vault) => vault.id === vaultId)?.name ?? null;
+		} catch {
+			/* A missing catalog is not a widget error. */
+		}
+		return { campaignName, profileId: widgetProfileForRuntime(), table, translate: t };
+	}, [vaultId, table, t]);
 }
 
 /** The app-side hook: the same resolution against the live, actor-projected runtime state. */

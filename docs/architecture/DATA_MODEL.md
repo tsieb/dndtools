@@ -53,13 +53,15 @@ placeholder the app draws while `campaignNameOf` returns `null`. A present block
 `isCampaignIdentityShape` (a trimmed name of 1–80 characters with no control characters, and
 nullable ids); anything else quarantines the document like any other malformed container.
 
-The sidebar chip, the open vault's switcher row, the Command Center hero and the widget `campaign`
-source all read this one name. The device-local vault catalog (`dndtools:react:local-vaults-v1`) is
-a mirror: `followCampaignIdentity` (mounted with the shell) renames the open vault's catalog entry
-whenever the campaign name changes. When a vault opens, a catalog name the GM chose that the
-campaign does not carry is adopted once. That covers a vault created or renamed from another
-vault's switcher, and one named by onboarding before this block existed. The legacy catalog entry
-"Your campaign" never is.
+The sidebar chip, the open vault's switcher row and the Command Center hero read this one name.
+The device-local vault catalog (`dndtools:react:local-vaults-v1`) is a mirror:
+`followCampaignIdentity` (mounted with the shell) renames the open vault's catalog entry whenever
+the campaign name changes. In the other direction, a catalog name the GM chose that the campaign
+does not carry is adopted, when the vault opens and whenever the catalog announces a rename
+(`dndtools:local-vault-renamed`). That covers a vault created or renamed from another vault's
+switcher, and onboarding, which names the vault through the catalog; the first naming also
+records the active system. The placeholder ("Your campaign", which an onboarding skip writes) is
+never adopted.
 
 Players added by name (Settings › Players) go through `permission.add-players` (owner only). It
 creates one `player` actor (`{ id, role, displayName }`) per name with a `permission.add-player`

@@ -189,6 +189,37 @@ describe('followCampaignIdentity', () => {
 		window.removeEventListener(LOCAL_VAULT_RENAMED_EVENT, renamed);
 	});
 
+	it('onboarding names the campaign through the catalog; a skip writes nothing', async () => {
+		const fake = host('primary', await loadedWithDm());
+		const stop = followCampaignIdentity(fake);
+		await settle();
+
+		// A skip writes the placeholder back to the catalog: nothing is stored.
+		renameLocalVault('primary', 'Your campaign');
+		window.dispatchEvent(new Event(LOCAL_VAULT_RENAMED_EVENT));
+		await settle();
+		expect(fake.commands).toEqual([]);
+		expect(fake.state.commandCenter).not.toHaveProperty('campaign');
+
+		// Finishing names it: the campaign takes the name and the system it was set up with.
+		renameLocalVault('primary', 'Lantern Coast');
+		window.dispatchEvent(new Event(LOCAL_VAULT_RENAMED_EVENT));
+		await vi.waitFor(() =>
+			expect(fake.state.commandCenter.campaign).toEqual({
+				name: 'Lantern Coast',
+				systemPackageId: fake.state.systems.activePackageId,
+				gmDisplayName: null,
+			}),
+		);
+		stop();
+
+		// Stopped: a later catalog rename is not adopted by this follower.
+		renameLocalVault('primary', 'Elsewhere');
+		window.dispatchEvent(new Event(LOCAL_VAULT_RENAMED_EVENT));
+		await settle();
+		expect(fake.state.commandCenter.campaign?.name).toBe('Lantern Coast');
+	});
+
 	it('a rename made from another vault is taken up when this vault opens', async () => {
 		const vault = createLocalVault('Harbor');
 		const start = await loadedWithDm();

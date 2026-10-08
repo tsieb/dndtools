@@ -319,6 +319,29 @@ function catalogFollowsCampaign(vaultId: string, name: string | null): void {
 }
 
 /**
+ * A catalog name the GM chose that the campaign does not carry becomes the campaign's name. The
+ * first naming also records the system the campaign is running, as onboarding selects it before it
+ * names the vault. The placeholder is never adopted.
+ */
+async function adoptCatalogName(host: CampaignIdentityHost): Promise<void> {
+	let catalogName: string | null;
+	try {
+		catalogName = listLocalVaults().find((vault) => vault.id === host.vaultId)?.name ?? null;
+	} catch {
+		catalogName = null; // A damaged catalog names nothing; the switcher reports it.
+	}
+	const campaign = host.state.commandCenter.campaign;
+	if (!catalogName || isPlaceholderVaultName(catalogName) || catalogName === campaign?.name) return;
+	await host.dispatch({
+		type: 'campaign.set-identity',
+		actorId: host.defaultActorId,
+		payload: campaign
+			? { name: catalogName }
+			: { name: catalogName, systemPackageId: host.state.systems.activePackageId },
+	});
+}
+
+/**
  * The once-per-vault moves from device storage into the campaign itself, run when a vault opens:
  *
  * - a catalog name the GM chose (from the switcher's Create or Rename, or onboarding before this
@@ -331,17 +354,7 @@ function catalogFollowsCampaign(vaultId: string, name: string | null): void {
  *   removed once nothing is left in it. A refused command leaves the preference for the next open.
  */
 async function adoptDeviceCampaignData(host: CampaignIdentityHost): Promise<void> {
-	const actorId = host.defaultActorId;
-	let catalogName: string | null;
-	try {
-		catalogName = listLocalVaults().find((vault) => vault.id === host.vaultId)?.name ?? null;
-	} catch {
-		catalogName = null; // A damaged catalog names nothing; the switcher reports it.
-	}
-	const current = campaignNameOf(host.state.commandCenter);
-	if (catalogName && !isPlaceholderVaultName(catalogName) && catalogName !== current) {
-		await host.dispatch({ type: 'campaign.set-identity', actorId, payload: { name: catalogName } });
-	}
+	await adoptCatalogName(host);
 
 	if (typeof window === 'undefined') return;
 	const storage = window.localStorage;
@@ -374,7 +387,7 @@ async function adoptDeviceCampaignData(host: CampaignIdentityHost): Promise<void
 	if (names.length > 0) {
 		const result = await host.dispatch({
 			type: 'permission.add-players',
-			actorId,
+			actorId: host.defaultActorId,
 			payload: { displayNames: names.slice(0, 20) },
 		});
 		if (result.status !== 'accepted' || names.length > 20) return;
@@ -402,9 +415,26 @@ export function followCampaignIdentity(host: CampaignIdentityHost): () => void {
 		.then(() => {
 			if (!stopped) catalogFollowsCampaign(host.vaultId, campaignNameOf(host.state.commandCenter));
 		});
+	// Onboarding names the vault through the catalog and announces it with this event; the name it
+	// wrote becomes the campaign's (a skip writes the placeholder, which is never adopted, and the
+	// catalog is put back to the campaign's own name).
+	const onCatalogRenamed = () => {
+		void adoptCatalogName(host)
+			.catch(() => undefined)
+			.then(() => {
+				if (!stopped)
+					catalogFollowsCampaign(host.vaultId, campaignNameOf(host.state.commandCenter));
+			});
+	};
+	if (typeof window !== 'undefined') {
+		window.addEventListener(LOCAL_VAULT_RENAMED_EVENT, onCatalogRenamed);
+	}
 	return () => {
 		stopped = true;
 		unsubscribe();
+		if (typeof window !== 'undefined') {
+			window.removeEventListener(LOCAL_VAULT_RENAMED_EVENT, onCatalogRenamed);
+		}
 	};
 }
 
