@@ -367,3 +367,43 @@ ledger remain unchanged; this commit records diagnostic evidence only.
 
 Validation: journal Prettier and `git diff --check` passed. No push, promotion,
 additional agent, loop launch or dispatcher control-state change.
+
+## Session 9 — rebased visual wrapper failure at `9ad59f05` — 2026-10-08
+
+Started with a clean tree. The task commits have been rebased (the alias correction
+is now `39a7a1be`). Read the original wrapper log directly:
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/e3b15e9c-51ad-4bd6-852e-1d3ccb9fcd95/output.log`.
+It records 528 passed / 3 failed in 17.2 minutes, on different cases than Session 8:
+
+- desktop community parchment: 5000 ms screenshot timeout waiting for the tab panel
+  to be stable after fonts loaded (`community.spec.ts:83`).
+- desktop play parchment: 5000 ms screenshot timeout waiting for `.player-view-shell`
+  (`play-polish.spec.ts:24`).
+- phone Settings high-contrast: a stable 12,921-pixel difference (4%), not a timeout.
+  Inspected the original actual and expected PNGs: actual shows the shell plus
+  `Loading your vault...`; expected shows the loaded Settings Appearance panel.
+  The error-context DOM later contains the Appearance controls. This is evidence
+  of a loading-state capture, not evidence that the settings baseline should change.
+
+The pinned reproduction selects those three exact project/theme/test combinations,
+three repeats each, two workers, `--update-snapshots=none`. Original output is
+`/tmp/rcwid55-visual-retry-session9.log`. Also rerun the parity test after rebase
+(`/tmp/rcwid55-parity-session9.log`). Results follow below.
+
+Results, verified from original output:
+
+- Pinned visual reproductions: exit 0, 9/9 passed in 27.9 seconds. All three failed
+  cases passed each of three repeats, including the Settings pixel comparison.
+- Rebased parity test: exit 0, 28/28 passed.
+- Journal formatting and `git diff --check`: passed.
+
+Only parity.test.ts imports parity.ts in the app source/test trees. No parity source
+change is justified by these visual failures; no visual baseline or timeout changed.
+The repeated broad-suite readiness/capture failures still need a separate visual
+harness investigation (including readiness after runtime initialization and capture
+stability under full-suite load). Their underlying cause is not established here.
+Those harness/runtime paths are outside the explicit owned paths of RC-WID-5.5.
+
+This journal-only commit is diagnostic evidence, not a claim that the full 531-case
+visual wrapper passed. Central validation remains blocked on that wrapper. No push,
+promotion, extra loop, additional agent or dispatcher control-state edit.
