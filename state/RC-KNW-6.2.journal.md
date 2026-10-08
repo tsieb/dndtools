@@ -299,3 +299,21 @@ the search query) so saved searches and their consumers keep Quests/Factions/Not
 `index.tsx` grid-card "Note" label (item 3).
 
 No push, promotion, loop or dispatcher-state edits.
+
+## Attempt 7 — 2026-10-08: Browser acceptance red on `98086009` (post-rebase)
+
+Gate run `a9a5bbdc`: one failure, `tile-resize.spec.ts:21`, on both profiles. The spec arrived with
+the new base `1028592b` (RC-CAN tile resize). It asserts `expect(data.notes).toHaveLength(6)`, where
+`data.notes` is every `kind === 'note'` content item. This story moves "Faction · The Ashen Hand" out
+of notes and into a faction object, so the seed now has five notes. The log shows `Received length: 5`
+with the five remaining titles. The desktop retry #2 instead timed out waiting for the Resize
+menuitem; that is a load stall earlier in the same test, not a separate defect (it passed 4/4 below).
+
+Fix: the count becomes 5, plus a one-line comment. The spec is outside the claim; this is the minimal
+crossing the acceptance criterion asks for ("the e2e that asserted the seed … is updated in the
+same change"). The Prep tile's `count: 6` stays: it is a cap, and all five notes must still render
+whole.
+
+Validation: `tile-resize.spec.ts` desktop + mobile, `--repeat-each=2 --retries=0`
+(`DNDTOOLS_E2E_PORT=5871`) passed 12/12. prettier + eslint on the file are clean. I did not re-run the
+full suite.

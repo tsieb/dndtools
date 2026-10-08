@@ -77,7 +77,8 @@ test('every seeded tile enables Resize; Prep and Map resize through the UI and p
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
 	const prepRegion = page.getByTestId(`widget-${data.prep}`).locator('[data-widget-region]');
 	// The seeded notes are actual content, not a screenshot-only replacement.
-	expect(data.notes).toHaveLength(6);
+	// The Ashen Hand is a faction object since RC-KNW-6.2, so five notes remain.
+	expect(data.notes).toHaveLength(5);
 	for (const title of data.notes) {
 		const note = prepRegion.getByText(title, { exact: true });
 		await expect(note).toBeVisible();
