@@ -7,6 +7,9 @@ import {
 	WIDGET_INTENT_ROUTES,
 	dispatchCommand,
 	findHomeScreen,
+	findPackageRecordForWidgetType,
+	screenMetaOf,
+	widgetPackageForkIdentity,
 	type Actor,
 	type CoreCommand,
 	type CoreStateSlice,
@@ -15,21 +18,29 @@ import { buildInitialState, makeEnvironment } from '@dndtools/core/testing';
 import { BUILTIN_WIDGET_TYPES } from './builtin';
 import {
 	BUILTIN_PARITY,
+	PARITY_DEBT_LEDGER,
 	SHARED_MODULE_USES,
+	builderRoundTrip,
 	builtinBodyModules,
+	builtinOnScreenFinding,
 	checkBuiltinParity,
+	compareToLedger,
 	defaultScreenParityProblems,
 	deriveQueryExposure,
+	exportedBytes,
 	extractBodyUses,
 	extractModuleUses,
 	intentRoutes,
+	privateUseFinding,
 	publicWidgetCommands,
+	roundTripFinding,
 	type ParityUse,
 } from './parity';
 
 /**
  * RC-WID-5.5 — the builder parity gate (`parity.ts`, WIDGETS.md §6.1). Reads the real sources of the
  * builtin bodies and the query-source resolver, and provisions a real vault for the default screens.
+ * Every finding the checkers report is compared to the exact debt ledger `PARITY_DEBT_LEDGER`.
  */
 
 function readSource(relative: string): string {
@@ -71,6 +82,61 @@ function check(
 	});
 }
 
+const DM: Actor = { id: 'dm-1', role: 'dm', displayName: 'Dungeon Master' };
+
+function provisionedVault() {
+	const env = makeEnvironment();
+	const result = dispatchCommand(buildInitialState(DM) as CoreStateSlice, env, {
+		type: 'command-center.ensure-home',
+		actorId: DM.id,
+		payload: {},
+	} as CoreCommand);
+	if (result.status !== 'accepted') throw new Error(result.rejection.message);
+	return { env, state: result.nextState };
+}
+
+/** What the default-screen checker reports for a freshly provisioned vault. */
+function screenFindings(): string[] {
+	const { env, state } = provisionedVault();
+	return defaultScreenParityProblems(state, env, DM.id);
+}
+
+describe('builder parity gate: the debt ledger', () => {
+	it('matches every finding exactly: none unledgered, none stale', () => {
+		expect(findHomeScreen(provisionedVault().state.scenes)?.widgets.length).toBeGreaterThan(0);
+		expect(compareToLedger([...check(bodyUses()), ...screenFindings()])).toEqual({
+			unledgered: [],
+			stale: [],
+		});
+	});
+
+	it('lists each finding once and names the story that repays it', () => {
+		const findings = PARITY_DEBT_LEDGER.map((debt) => debt.finding);
+		expect(new Set(findings).size).toBe(findings.length);
+		for (const debt of PARITY_DEBT_LEDGER)
+			expect(debt.repaidBy, debt.finding).toBe(
+				debt.finding.endsWith('is not byte-identical') ? 'RC-WID-5.6' : 'RC-WID-5.7',
+			);
+	});
+
+	it('fails on a ledger entry that no longer reproduces', () => {
+		const repaid = privateUseFinding('search', 'read:getSavedSearchesForActor');
+		const findings = [...check(bodyUses()), ...screenFindings()].filter(
+			(finding) => finding !== repaid,
+		);
+		expect(compareToLedger(findings)).toEqual({ unledgered: [], stale: [repaid] });
+	});
+
+	it('fails on a finding a ledger entry for another widget does not cover', () => {
+		expect(
+			compareToLedger(
+				[roundTripFinding('home-hero'), roundTripFinding('home-party')],
+				[{ finding: roundTripFinding('home-hero'), repaidBy: 'RC-WID-5.6' }],
+			),
+		).toEqual({ unledgered: [roundTripFinding('home-party')], stale: [] });
+	});
+});
+
 describe('builder parity gate: builtin bodies', () => {
 	it('finds a body module for every builtin type', () => {
 		expect([...bodyModules.keys()].sort()).toEqual([...BUILTIN_WIDGET_TYPES].sort());
@@ -98,11 +164,7 @@ describe('builder parity gate: builtin bodies', () => {
 		}
 	});
 
-	it('every builtin read and command is public', () => {
-		expect(check(bodyUses())).toEqual([]);
-	});
-
-	it('fails on a deliberately private builtin read', () => {
+	it('fails on a deliberately private builtin read that is not ledgered', () => {
 		const withPrivateRead = (name: string) =>
 			name === 'NotesBody'
 				? readBuiltin(name).replace(
@@ -114,46 +176,44 @@ describe('builder parity gate: builtin bodies', () => {
 						].join('\n'),
 					)
 				: readBuiltin(name);
-		expect(
-			check(bodyUses(withPrivateRead)).filter((problem) => problem.startsWith('notes:')),
-		).toEqual([
-			'notes: uses read:listFactionsForActor, which no descriptor, intent or query source exposes to a GM-built widget',
-			'notes: uses state:session.timers, which no descriptor, intent or query source exposes to a GM-built widget',
-		]);
+		expect(compareToLedger([...check(bodyUses(withPrivateRead)), ...screenFindings()])).toEqual({
+			unledgered: [
+				privateUseFinding('notes', 'read:listFactionsForActor'),
+				privateUseFinding('notes', 'state:session.timers'),
+			],
+			stale: [],
+		});
 	});
 
-	it('fails on a private command, an undeclared route and a stale gap', () => {
+	it('fails on a private read through a runtime.state alias', () => {
+		const withAliasedRead = (name: string) =>
+			name === 'NotesBody'
+				? `${readBuiltin(name)}\nconst s = runtime.state;\nconst leak = () => s.session.timers;`
+				: readBuiltin(name);
+		expect(
+			compareToLedger([...check(bodyUses(withAliasedRead)), ...screenFindings()]).unledgered,
+		).toEqual([privateUseFinding('notes', 'state:session.timers')]);
+	});
+
+	it('fails on a private command and an undeclared route', () => {
 		const withPrivateWrites = (name: string) =>
 			name === 'CharactersBody'
 				? `${readBuiltin(name)}\nconst end = () => runtime.dispatch({ type: 'session.end', actorId });\nconst go = () => { globalThis.location.hash = '#/campaign'; };`
 				: readBuiltin(name);
-		const declared = {
-			...BUILTIN_PARITY,
-			search: { ...BUILTIN_PARITY.search, gaps: { 'read:listEncountersForActor': 'stale' } },
-		};
 		expect(
-			check(bodyUses(withPrivateWrites), declared).filter((problem) =>
-				/^(characters|search):/.test(problem),
-			),
+			check(bodyUses(withPrivateWrites)).filter((problem) => problem.startsWith('characters:')),
 		).toEqual([
-			'characters: uses command:session.end, which no descriptor, intent or query source exposes to a GM-built widget',
-			'characters: uses route:/campaign, which no descriptor, intent or query source exposes to a GM-built widget',
-			'search: uses read:getSavedSearchesForActor, which no descriptor, intent or query source exposes to a GM-built widget',
-			'search: gap read:listEncountersForActor is no longer used; remove it',
+			privateUseFinding('characters', 'command:session.end'),
+			privateUseFinding('characters', 'route:/campaign'),
 		]);
 	});
 
-	it('fails on a gap the body no longer needs and on surface it does not use', () => {
+	it('fails on declared surface the body does not use', () => {
 		const declared = {
 			...BUILTIN_PARITY,
-			dice: {
-				...BUILTIN_PARITY.dice,
-				commands: [...BUILTIN_PARITY.dice.commands, 'timer.start'],
-				gaps: { 'read:getDiceHistoryForActor': 'closed already' },
-			},
+			dice: { ...BUILTIN_PARITY.dice, commands: [...BUILTIN_PARITY.dice.commands, 'timer.start'] },
 		};
 		expect(check(bodyUses(), declared).filter((problem) => problem.startsWith('dice:'))).toEqual([
-			'dice: read:getDiceHistoryForActor is public (query:dice-history); remove its gap entry',
 			'dice: declares command timer.start but never dispatches it',
 		]);
 	});
@@ -164,27 +224,18 @@ describe('builder parity gate: builtin bodies', () => {
 	});
 });
 
-const DM: Actor = { id: 'dm-1', role: 'dm', displayName: 'Dungeon Master' };
-
-function provisionedVault() {
-	const env = makeEnvironment();
-	const result = dispatchCommand(buildInitialState(DM) as CoreStateSlice, env, {
-		type: 'command-center.ensure-home',
-		actorId: DM.id,
-		payload: {},
-	} as CoreCommand);
-	if (result.status !== 'accepted') throw new Error(result.rejection.message);
-	return { env, state: result.nextState };
-}
-
 describe('builder parity gate: default screens', () => {
-	it('every widget on a shipped default screen round-trips through the builder', () => {
-		const { env, state } = provisionedVault();
-		expect(findHomeScreen(state.scenes)?.widgets.length).toBeGreaterThan(0);
-		expect(defaultScreenParityProblems(state, env, DM.id)).toEqual([]);
+	it('enumerates the fresh GM board, whose origin is null', () => {
+		const { state } = provisionedVault();
+		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
+		expect(screenMetaOf(board).origin ?? null).toBeNull();
+		expect(board.widgets.length).toBeGreaterThan(0);
+		const findings = screenFindings();
+		for (const widget of board.widgets)
+			expect(findings.some((finding) => finding.startsWith(`${widget.type}:`))).toBe(true);
 	});
 
-	it('fails when a default screen carries a builtin body', () => {
+	it('fails when a default screen gains a builtin body', () => {
 		const { env, state } = provisionedVault();
 		const home = findHomeScreen(state.scenes)!;
 		const added = dispatchCommand(state, env, {
@@ -193,7 +244,7 @@ describe('builder parity gate: default screens', () => {
 			payload: {
 				sceneId: home.id,
 				widget: {
-					type: 'dice',
+					type: 'note',
 					version: '1.0.0',
 					layout: { x: 0, y: 960, w: 1152, h: 240 },
 					configuration: {},
@@ -202,57 +253,49 @@ describe('builder parity gate: default screens', () => {
 		} as CoreCommand);
 		expect(added.status).toBe('accepted');
 		if (added.status !== 'accepted') return;
-		expect(defaultScreenParityProblems(added.nextState, env, DM.id)).toEqual(
-			expect.arrayContaining([
-				'dice: draws through a hand-written builtin body the builder cannot express',
-			]),
-		);
-	});
-
-	it('rejects a field lost on the first builder import', () => {
-		const { env, state } = provisionedVault();
-		const home = findHomeScreen(state.scenes)!;
-		// Inject a valid style value that the builder does not retain. This must fail even
-		// once shipped definitions themselves become byte-identical on their first import.
-		const types = new Set(home.widgets.map((widget) => widget.type));
-		for (const record of Object.values(state.widgets.packages)) {
-			for (const definition of record.package.widgets) {
-				if (types.has(definition.type)) {
-					definition.style = {
-						...definition.style!,
-						cssVariables: { ...definition.style?.cssVariables, '--widget-parity-probe': 'lost' },
-					};
-				}
-			}
-		}
-		const problems = defaultScreenParityProblems(state, env, DM.id);
-		for (const type of types)
-			expect(problems).toContain(
-				`${type}: export → builder → install → export is not byte-identical`,
-			);
+		const findings = [
+			...check(bodyUses()),
+			...defaultScreenParityProblems(added.nextState, env, DM.id),
+		];
+		expect(compareToLedger(findings).unledgered).toEqual([builtinOnScreenFinding('note')]);
 	});
 
 	it('rejects a builtin injected into the fresh GM board with null origin', () => {
 		const { env, state } = provisionedVault();
 		const board = state.scenes.scenes[state.commandCenter.homeSceneId!]!;
-		// Do not require the shipped board to keep seven private bodies forever. The
-		// negative fixture names the defect explicitly; the real provisioned gate above
-		// independently checks every shipped widget without altering provisioning.
-		board.widgets = [{ ...board.widgets[0]!, type: 'dice', version: '1.0.0' }];
+		board.widgets = [{ ...board.widgets[0]!, type: 'search', version: '1.0.0' }];
 		expect(defaultScreenParityProblems(state, env, DM.id)).toContain(
-			'dice: draws through a hand-written builtin body the builder cannot express',
+			builtinOnScreenFinding('search'),
 		);
 	});
-});
 
-it('a recorded gap cannot waive a private timer read', () => {
-	expect(
-		check(new Map([['timer', new Set<ParityUse>(['state:session.timers'])]]), {
-			timer: { ...BUILTIN_PARITY.timer, commands: [] },
-		}),
-	).toContain(
-		'timer: uses state:session.timers, which no descriptor, intent or query source exposes to a GM-built widget',
-	);
+	it('compares the original export to the first builder round trip, unnormalised', () => {
+		const { env, state } = provisionedVault();
+		const record = findPackageRecordForWidgetType(state.widgets, 'home-hero')!;
+		const identity = widgetPackageForkIdentity(state.widgets, 'home-hero');
+		const forked = dispatchCommand(state, env, {
+			type: 'widget.package.fork',
+			actorId: DM.id,
+			payload: { packageId: record.package.id, widgetType: 'home-hero' },
+		} as CoreCommand);
+		if (forked.status !== 'accepted') throw new Error(forked.rejection.message);
+		const original = exportedBytes(forked.nextState, env, identity.packageId)!;
+		// Today the first trip changes home-hero (ledgered for RC-WID-5.6); the builder's own output
+		// is a fixed point, so the gate passes it and fails it again once a field is lost on import.
+		const first = builderRoundTrip(state, env, DM.id, original).bytes!;
+		expect(first).not.toBe(original);
+		expect(builderRoundTrip(state, env, DM.id, first).bytes).toBe(first);
+		const probe = JSON.parse(first) as {
+			widgets: { style?: { cssVariables?: Record<string, string> } }[];
+		};
+		const widget = probe.widgets[0]!;
+		widget.style = {
+			...widget.style,
+			cssVariables: { ...widget.style?.cssVariables, '--widget-parity-probe': 'lost' },
+		};
+		const withProbe = JSON.stringify(probe, null, '\t');
+		expect(builderRoundTrip(state, env, DM.id, withProbe).bytes).not.toBe(withProbe);
+	});
 });
 
 it.each([

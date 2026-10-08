@@ -18,8 +18,9 @@ import { hasBuiltinBody, type BuiltinWidgetType } from './builtin';
 
 /**
  * RC-WID-5.5: every fresh default widget must use a builder-editable public definition
- * whose first export/import/export preserves bytes. Every builtin dependency must be
- * public; recorded gaps are diagnostics, never waivers. See WIDGETS.md section 6.1.
+ * whose first export/import/export preserves bytes, and every builtin dependency must be
+ * public. The checkers report every violation; the test compares that list to the exact
+ * debt ledger below (PARITY_DEBT_LEDGER). See WIDGETS.md section 6.1.
  * State access uses syntax analysis; commands, imports and routes use source scans.
  */
 
@@ -44,11 +45,6 @@ export interface BuiltinBodyParity {
 	commands: readonly string[];
 	/** Intent kinds that take a GM-built widget where the body navigates. */
 	intents: readonly WidgetIntentKind[];
-	/**
-	 * What the body uses that no descriptor, intent or query source exposes yet, each with the gap
-	 * that closes it. Diagnostic only: every private use fails, even when recorded here.
-	 */
-	gaps: Readonly<Partial<Record<ParityUse, string>>>;
 }
 
 /**
@@ -128,149 +124,176 @@ export const SHARED_MODULE_USES: Readonly<
 
 /**
  * Vault state every template renderer is handed whatever it queries: the viewer's own actor record,
- * which `WidgetTemplateData.isDm` and the query audience gate carry. A body reading a role reads
- * nothing a GM-built widget lacks. The scan works on paths, so a read of other actors' roles counts
- * here too: the Map tile's list of players to project to is one, and the projection command that
- * list feeds is a recorded gap.
+ * which `WidgetTemplateData.isDm` and the query audience gate carry. Only the slice itself is
+ * covered: a field picked out of an actor record (`permissions.actors.<dynamic>.role`) is a deeper
+ * path and a finding of its own.
  */
 export const VIEWER_CONTEXT_PATHS: readonly string[] = ['permissions.actors'];
 
 /* ── The declared map ──────────────────────────────────────────────────────────────────────────── */
 
-// The gaps, by what closes them. "Unfiled" ones are not in the SCREENS_PARITY §4 register yet: the
-// matrix kept these board tiles as `builtin` targets (BD-20–BD-26, SE-18), and this gate is what
-// names the private reads behind them.
-const GAP = {
-	combatWrites: 'G-11 (RC-WID-5.12): combat write commands for widgets',
-	nowPlaying: 'Unfiled (BD-24, SE-18): no query source says what is playing',
-	timer:
-		'Unfiled (BD-23): no query source reads the session timer the start/pause/resume executors run',
-	boundCharacter:
-		'Unfiled: no query source reads one bound character (visible-characters and party list them)',
-	mapView: 'Unfiled (BD-20): no query source projects a map view, its layers or delivered maps',
-	selfConfigure:
-		'Unfiled (BD-20): a widget cannot rebind or reconfigure itself; only the Inspector can',
-	projection: 'Unfiled (BD-20, SE-19): no command descriptor stages or projects a map',
-	statusStrip:
-		'Unfiled: the session status strip is not a source (session-state and presence carry parts of it)',
-	onboarding: 'Unfiled: no query source reads onboarding progress',
-	presets: 'Unfiled: no query source reads the layout presets or the safe point',
-	gmScreen: 'Unfiled: no screens row says which screen is the GM screen',
-	projectionSummary: 'Unfiled: no query source reads the active map projection summary',
-	playerViewController:
-		'Unfiled: player-projections reads the projections, not the player-view controller',
-	encounters: 'Unfiled: no query source lists encounters',
-	savedSearches: 'Unfiled: no query source lists saved searches',
-} as const;
-
 export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParity>> = {
 	// A note or handout draws its own configuration (the text the Inspector wrote).
-	note: { queries: [], commands: [], intents: [], gaps: {} },
-	handout: { queries: [], commands: [], intents: [], gaps: {} },
-	dice: { queries: ['dice-history'], commands: ['dice.roll'], intents: [], gaps: {} },
+	note: { queries: [], commands: [], intents: [] },
+	handout: { queries: [], commands: [], intents: [] },
+	dice: { queries: ['dice-history'], commands: ['dice.roll'], intents: [] },
 	timer: {
 		queries: [],
 		commands: ['timer.start', 'timer.pause', 'timer.resume', 'timer.advance', 'timer.reset'],
 		intents: [],
-		gaps: { 'state:session.timers': GAP.timer },
 	},
-	audio: {
-		queries: [],
-		commands: [],
-		intents: [],
-		gaps: {
-			'read:getSessionAudioView': GAP.nowPlaying,
-			'state:audio.assets': GAP.nowPlaying,
-			'state:audio.sources': GAP.nowPlaying,
-			'state:session.audioPlayback': GAP.nowPlaying,
-		},
-	},
-	'initiative-tracker': {
-		queries: ['current-combatants', 'campaign'],
-		commands: [],
-		intents: [],
-		gaps: {
-			'command:combat.advance-turn': GAP.combatWrites,
-			'command:combat.apply-resource': GAP.combatWrites,
-			'command:combat.set-combatant-visibility': GAP.combatWrites,
-		},
-	},
-	character: {
-		queries: ['campaign'],
-		commands: [],
-		intents: [],
-		gaps: { 'read:getCharacterForActor': GAP.boundCharacter },
-	},
-	map: {
-		queries: ['maps', 'session-state'],
-		commands: [],
-		intents: ['open-entity'],
-		gaps: {
-			'read:deliveredMapIdsForActor': GAP.mapView,
-			'read:getMapViewForActor': GAP.mapView,
-			'read:queryMapLayers': GAP.mapView,
-			'state:maps.assets': GAP.mapView,
-			'state:maps.maps': GAP.mapView,
-			'command:scene.configure-widget': GAP.selfConfigure,
-			// Which scene the tile sits on, for `scene.configure-widget`.
-			'state:scenes.scenes': GAP.selfConfigure,
-			'command:session.set-active-map': GAP.projection,
-			'command:session.project-active-map': GAP.projection,
-		},
-	},
-	'quick-reference': { queries: ['content-objects'], commands: [], intents: [], gaps: {} },
-	prep: { queries: ['notes'], commands: [], intents: [], gaps: {} },
-	session: {
-		queries: [],
-		commands: [],
-		intents: [],
-		gaps: { 'read:getSessionStatusStrip': GAP.statusStrip },
-	},
-	'getting-started': {
-		queries: [],
-		commands: [],
-		intents: [],
-		gaps: { 'read:resolveOnboarding': GAP.onboarding },
-	},
-	tools: {
-		// The GM screen's widget count is a `screens` row's.
-		queries: ['screens'],
-		commands: [],
-		intents: [],
-		gaps: {
-			'state:commandCenter.homeSceneId': GAP.gmScreen,
-			'state:commandCenter.presets': GAP.presets,
-			'state:commandCenter.autoSave': GAP.presets,
-		},
-	},
-	'data-hub': { queries: ['table-scenes', 'vault-counts'], commands: [], intents: [], gaps: {} },
-	atlas: {
-		queries: ['maps'],
-		commands: [],
-		intents: [],
-		gaps: { 'read:getActiveMapProjectionSummary': GAP.projectionSummary },
-	},
-	characters: { queries: ['visible-characters'], commands: [], intents: [], gaps: {} },
-	'player-views': {
-		queries: [],
-		commands: [],
-		intents: [],
-		gaps: { 'read:getPlayerViewController': GAP.playerViewController },
-	},
-	combat: {
-		queries: ['current-combatants'],
-		commands: [],
-		intents: [],
-		gaps: { 'read:listEncountersForActor': GAP.encounters },
-	},
-	notes: { queries: ['notes'], commands: [], intents: [], gaps: {} },
-	search: {
-		queries: [],
-		commands: [],
-		intents: [],
-		gaps: { 'read:getSavedSearchesForActor': GAP.savedSearches },
-	},
+	audio: { queries: [], commands: [], intents: [] },
+	'initiative-tracker': { queries: ['current-combatants', 'campaign'], commands: [], intents: [] },
+	character: { queries: ['campaign'], commands: [], intents: [] },
+	map: { queries: ['maps', 'session-state'], commands: [], intents: ['open-entity'] },
+	'quick-reference': { queries: ['content-objects'], commands: [], intents: [] },
+	prep: { queries: ['notes'], commands: [], intents: [] },
+	session: { queries: [], commands: [], intents: [] },
+	'getting-started': { queries: [], commands: [], intents: [] },
+	// The GM screen's widget count is a `screens` row's.
+	tools: { queries: ['screens'], commands: [], intents: [] },
+	'data-hub': { queries: ['table-scenes', 'vault-counts'], commands: [], intents: [] },
+	atlas: { queries: ['maps'], commands: [], intents: [] },
+	characters: { queries: ['visible-characters'], commands: [], intents: [] },
+	'player-views': { queries: [], commands: [], intents: [] },
+	combat: { queries: ['current-combatants'], commands: [], intents: [] },
+	notes: { queries: ['notes'], commands: [], intents: [] },
+	search: { queries: [], commands: [], intents: [] },
 };
+
+/* ── Findings ──────────────────────────────────────────────────────────────────────────────────── */
+
+/** A builtin body uses something no GM-built widget can reach. */
+export function privateUseFinding(type: string, use: ParityUse): string {
+	return `${type}: uses ${use}, which no descriptor, intent or query source exposes to a GM-built widget`;
+}
+
+/** A widget on a fresh default screen draws through a hand-written body. */
+export function builtinOnScreenFinding(type: string): string {
+	return `${type}: draws through a hand-written builtin body the builder cannot express`;
+}
+
+/** A default-screen definition changes on its first trip through the builder. */
+export function roundTripFinding(type: string): string {
+	return `${type}: export → builder → install → export is not byte-identical`;
+}
+
+/* ── The debt ledger ───────────────────────────────────────────────────────────────────────────── */
+
+/** The stories split out of RC-WID-5.5 to repay the findings the gate found on landing. */
+export type ParityRepairStory = 'RC-WID-5.6' | 'RC-WID-5.7';
+
+export interface ParityDebt {
+	/** The finding, exactly as the checker reports it. */
+	finding: string;
+	repaidBy: ParityRepairStory;
+}
+
+const owedBy =
+	(repaidBy: ParityRepairStory) =>
+	(finding: string): ParityDebt => ({ finding, repaidBy });
+const wid56 = owedBy('RC-WID-5.6');
+const wid57 = owedBy('RC-WID-5.7');
+const privateUses = (type: BuiltinWidgetType, uses: readonly ParityUse[]) =>
+	uses.map((use) => wid57(privateUseFinding(type, use)));
+
+/**
+ * Every finding the gate reports today, one entry each, with the story that repays it. This is an
+ * exact ratchet like the raw-style allow-lists: the test fails on a finding missing from here and on
+ * an entry that no longer reproduces, so a repair must delete its entries and nothing new can be
+ * added without a reviewed edit to this list. The checker itself never consults it.
+ */
+export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
+	// RC-WID-5.7: no query source or descriptor reaches these yet. The board tiles (map, initiative,
+	// dice, timer, audio, quick reference, prep) were kept as builtin targets by SCREENS_PARITY
+	// (BD-20–BD-26, SE-18); the legacy hub bodies read the rest.
+	// The session timer the start/pause/resume executors run (BD-23).
+	...privateUses('timer', ['state:session.timers', 'state:session.timers.<dynamic>']),
+	// What is playing (BD-24, SE-18).
+	...privateUses('audio', [
+		'read:getSessionAudioView',
+		'state:audio.assets',
+		'state:audio.assets.<dynamic>',
+		'state:audio.assets.<dynamic>.title',
+		'state:audio.sources',
+		'state:audio.sources.<dynamic>',
+		'state:audio.sources.<dynamic>.displayName',
+		'state:session.audioPlayback',
+	]),
+	// Combat writes (G-11) and other actors' roles.
+	...privateUses('initiative-tracker', [
+		'command:combat.advance-turn',
+		'command:combat.apply-resource',
+		'command:combat.set-combatant-visibility',
+		'state:permissions.actors.<dynamic>',
+		'state:permissions.actors.<dynamic>.role',
+	]),
+	// One bound character (visible-characters and party only list them).
+	...privateUses('character', ['read:getCharacterForActor']),
+	// The map view, its layers and delivered maps; rebinding itself; staging and projecting (BD-20,
+	// SE-19); the players to project to.
+	...privateUses('map', [
+		'command:scene.configure-widget',
+		'command:session.project-active-map',
+		'command:session.set-active-map',
+		'read:deliveredMapIdsForActor',
+		'read:getMapViewForActor',
+		'read:queryMapLayers',
+		'state:maps.assets',
+		'state:maps.maps',
+		'state:maps.maps.<dynamic>',
+		'state:maps.maps.<dynamic>.assetIds',
+		'state:permissions.actors.<dynamic>',
+		'state:permissions.actors.<dynamic>.role',
+		'state:scenes.scenes',
+	]),
+	...privateUses('session', ['read:getSessionStatusStrip']),
+	...privateUses('getting-started', ['read:resolveOnboarding']),
+	// Which screen is the GM screen, the layout presets and the safe point.
+	...privateUses('tools', [
+		'state:commandCenter.autoSave',
+		'state:commandCenter.homeSceneId',
+		'state:commandCenter.presets',
+		'state:scenes.scenes.<dynamic>',
+		'state:scenes.scenes.<dynamic>.widgets',
+		'state:scenes.scenes.<dynamic>.widgets.length',
+	]),
+	...privateUses('atlas', ['read:getActiveMapProjectionSummary']),
+	...privateUses('player-views', ['read:getPlayerViewController']),
+	...privateUses('combat', ['read:listEncountersForActor']),
+	...privateUses('search', ['read:getSavedSearchesForActor']),
+
+	// RC-WID-5.7: the fresh GM board (`ensureHomeBoard`, null origin) provisions builtin bodies.
+	...(
+		[
+			'map',
+			'initiative-tracker',
+			'dice',
+			'timer',
+			'audio',
+			'quick-reference',
+			'prep',
+		] as const satisfies readonly BuiltinWidgetType[]
+	).map((type) => wid57(builtinOnScreenFinding(type))),
+
+	// RC-WID-5.6: the Command Center definitions change on their first builder round trip.
+	...['home-hero', 'home-scenes', 'home-create', 'home-manage', 'home-library'].map((type) =>
+		wid56(roundTripFinding(type)),
+	),
+];
+
+/** Where the findings and the ledger disagree; both lists empty means the gate passes. */
+export function compareToLedger(
+	findings: readonly string[],
+	ledger: readonly ParityDebt[] = PARITY_DEBT_LEDGER,
+): { unledgered: string[]; stale: string[] } {
+	const owed = new Set(ledger.map((debt) => debt.finding));
+	const found = new Set(findings);
+	return {
+		unledgered: [...found].filter((finding) => !owed.has(finding)),
+		stale: [...owed].filter((finding) => !found.has(finding)),
+	};
+}
 
 /* ── Source scanning ───────────────────────────────────────────────────────────────────────────── */
 
@@ -649,18 +672,9 @@ export function checkBuiltinParity(inputs: ParityInputs): string[] {
 
 		for (const use of [...uses].sort()) {
 			const cover = coveredBy(use);
-			const gap = entry.gaps[use];
-			if (cover) {
-				usedSurface.add(cover);
-				if (gap) problems.push(`${type}: ${use} is public (${cover}); remove its gap entry`);
-			} else {
-				problems.push(
-					`${type}: uses ${use}, which no descriptor, intent or query source exposes to a GM-built widget`,
-				);
-			}
+			if (cover) usedSurface.add(cover);
+			else problems.push(privateUseFinding(type, use));
 		}
-		for (const use of Object.keys(entry.gaps) as ParityUse[])
-			if (!uses.has(use)) problems.push(`${type}: gap ${use} is no longer used; remove it`);
 		for (const query of entry.queries)
 			if (!usedSurface.has(`query:${query}`))
 				problems.push(`${type}: declares query source ${query} but reads nothing it exposes`);
@@ -677,13 +691,34 @@ export function checkBuiltinParity(inputs: ParityInputs): string[] {
 /* ── Default screens ───────────────────────────────────────────────────────────────────────────── */
 
 /** A package as the Extensions export writes it to a file (`downloadJsonFile`). */
-function exportedBytes(
+export function exportedBytes(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
 	packageId: string,
 ): string | null {
 	const exported = exportWidgetPackage(state.widgets, env, packageId);
 	return 'kind' in exported ? null : JSON.stringify(exported.package, null, '\t');
+}
+
+/**
+ * One trip of a package file through the builder: read it as the Data step does, save it, install
+ * the save beside what `state` holds and export it again. The bytes come back as written; nothing
+ * is normalised for the comparison.
+ */
+export function builderRoundTrip(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	bytes: string,
+): { bytes: string | null; error?: string } {
+	const saved = buildPackage(readPackage(JSON.parse(bytes), 'proposed'));
+	const installed = dispatchCommand(state, env, {
+		type: 'widget.package.install',
+		actorId,
+		payload: { package: saved },
+	} as CoreCommand);
+	if (installed.status !== 'accepted') return { bytes: null, error: installed.rejection.message };
+	return { bytes: exportedBytes(installed.nextState, env, saved.id) };
 }
 
 /** JSON with object keys sorted, so two definitions compare by content, not key order. */
@@ -715,17 +750,6 @@ export function defaultScreenParityProblems(
 	const types = [
 		...new Set(screens.flatMap((scene) => scene.widgets.map((widget) => widget.type))),
 	];
-	/** The builder's save of a package file, installed beside the shipped widgets and exported. */
-	const throughBuilder = (bytes: string): { bytes: string | null; error?: string } => {
-		const saved = buildPackage(readPackage(JSON.parse(bytes), 'proposed'));
-		const installed = dispatchCommand(state, env, {
-			type: 'widget.package.install',
-			actorId,
-			payload: { package: saved },
-		} as CoreCommand);
-		if (installed.status !== 'accepted') return { bytes: null, error: installed.rejection.message };
-		return { bytes: exportedBytes(installed.nextState, env, saved.id) };
-	};
 	for (const type of types) {
 		const record = findPackageRecordForWidgetType(state.widgets, type);
 		const definition = record?.package.widgets.find((widget) => widget.type === type);
@@ -736,9 +760,7 @@ export function defaultScreenParityProblems(
 		// The render slot lets a hand-written body win over the template a definition declares (most
 		// system widgets declare one), so the body, not the declared runtime, decides.
 		if (hasBuiltinBody(type)) {
-			problems.push(
-				`${type}: draws through a hand-written builtin body the builder cannot express`,
-			);
+			problems.push(builtinOnScreenFinding(type));
 			continue;
 		}
 		const runtime = definition.renderEntrypoint?.runtime ?? 'builtin';
@@ -776,11 +798,12 @@ export function defaultScreenParityProblems(
 			problems.push(`${type}: the copy cannot be exported`);
 			continue;
 		}
-		const first = throughBuilder(exported);
+		// The ORIGINAL export against the FIRST round trip: a field the builder adds, drops or
+		// reorders on its first import is a finding even if a second trip would be stable.
+		const first = builderRoundTrip(state, env, actorId, exported);
 		if (!first.bytes)
 			problems.push(`${type}: the builder's save does not install (${first.error ?? 'no export'})`);
-		else if (first.bytes !== exported)
-			problems.push(`${type}: export → builder → install → export is not byte-identical`);
+		else if (first.bytes !== exported) problems.push(roundTripFinding(type));
 	}
 	return problems;
 }

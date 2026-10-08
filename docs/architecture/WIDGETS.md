@@ -540,15 +540,29 @@ changed serialization all fail; normalization before comparison is not allowed.
 
 `BUILTIN_PARITY` in `parity.ts` declares each builtin body's commands, intents and query
 sources. Source scanning follows local imports and checks shared-module declarations.
-Runtime state member access, aliases of aliases, destructuring and literal indexed access
-are inspected through TypeScript syntax. Query exposure is derived from resolver sources.
-Every command or read without public exposure fails, including entries in the diagnostic
-`gaps` ledger. A follow-up story is never a waiver. Regression cases cover a recorded private
-read, aliased private reads, first-import mutations and the fresh GM board.
+Runtime state member access, aliases (`const s = runtime.state; s.session.timers`), aliases
+of aliases, destructuring and literal indexed access are inspected through TypeScript
+syntax. Query exposure is derived from resolver sources. Every command, read or state path
+that no declared descriptor, intent or query source covers is a finding.
 
-The strict gate currently reports existing private builtin dependencies, seven builtin GM
-board widgets, and first-import changes to the five Command Center definitions. These remain
-blocking parity findings until the public surfaces and default definitions are corrected.
+The checkers report every finding and never consult a waiver. The test compares the full
+list with `PARITY_DEBT_LEDGER` in `parity.ts`, an exact ratchet like the raw-style
+allow-lists: a finding missing from the ledger fails, and so does a ledger entry that no
+longer reproduces. Each entry is one finding, word for word, and names the story that
+repays it. Repairing a finding means deleting its entry in the same change; adding an entry
+is a reviewed decision, not a way to pass the gate. Regression cases cover an unledgered
+private read, an aliased private read, a stale entry, a field lost on the first import and
+a builtin on the fresh GM board.
+
+The ledger as the gate landed (2026-10-08):
+
+| Repaid by  | Findings                                                                                                                                                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RC-WID-5.6 | 5: `home-hero`, `home-scenes`, `home-create`, `home-manage` and `home-library` change on their first builder round trip.                                                                                                                                                                                           |
+| RC-WID-5.7 | 7: the fresh GM board provisions builtin bodies for `map`, `initiative-tracker`, `dice`, `timer`, `audio`, `quick-reference` and `prep`.                                                                                                                                                                           |
+| RC-WID-5.7 | 41: private builtin uses in `timer`, `audio`, `initiative-tracker`, `character`, `map`, `session`, `getting-started`, `tools`, `atlas`, `player-views`, `combat` and `search` (session timers, audio playback, map views and projection, combat writes, other actors' roles, presets, encounters, saved searches). |
+
+RC-WID-5.6 and RC-WID-5.7 (RC_ROADMAP.md, Epic WID-5) end with an empty ledger.
 
 ## 7. Canvas and layout history
 

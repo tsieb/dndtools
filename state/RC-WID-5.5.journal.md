@@ -221,3 +221,42 @@ No implementation or test changes were made, and unchanged tests were not rerun.
 This journal-only commit records the blocked handoff, not task completion. The
 strict assertions remain enabled. No dispatcher state, roadmap status, other
 worktree, remote branch, loop or agent was changed.
+
+## Session 5 — amended acceptance: exact debt ledger — 2026-10-07
+
+The operator brief of 2026-10-08 amended the acceptance: land the gate strict, with every
+current finding in an exact debt ledger naming RC-WID-5.6 or RC-WID-5.7. Gate feedback
+for `6828ce37` (App tests run `553eeecb-…`, exit 1) was the same two strict assertions:
+41 private builtin uses and 12 default-screen findings. Read from the original log.
+
+### What changed
+
+- `parity.ts`: the per-entry `gaps` waivers and the `GAP` table are gone;
+  `BuiltinBodyParity` is queries, commands and intents only. The checker reports every
+  uncovered use through `privateUseFinding` and never reads the ledger. New exports:
+  `PARITY_DEBT_LEDGER` (53 entries, one per finding, word for word, each with
+  `repaidBy: 'RC-WID-5.6' | 'RC-WID-5.7'`), `compareToLedger` (unledgered + stale),
+  the three finding formatters, and `builderRoundTrip` / `exportedBytes` (the round trip
+  the default-screen check already ran, extracted so the test can drive it directly).
+- `parity.test.ts`: the ledger test compares the full finding list (builtin bodies plus
+  the provisioned default screens) to the ledger and expects no unledgered and no stale
+  entries. Negative cases: an unledgered private read in NotesBody, an aliased read
+  (`const s = runtime.state; s.session.timers`), a stale entry, an entry for another
+  widget, a private command and route, unused declared surface, a builtin added to the
+  home screen, a builtin on the fresh GM board. A board test asserts the board's origin is
+  null and that every board widget is enumerated. The round-trip test shows the builder's
+  own output is a fixed point and that a field lost on import changes the bytes, so the
+  original-vs-first-trip comparison is raw.
+- WIDGETS.md §6.1 records the rule and the ledger; RC_ROADMAP.md carries RC-WID-5.6 and
+  RC-WID-5.7 under Epic WID-5 (dispatcher task text) and in §23 (summary counts updated by
+  hand; status cells not re-synced, rows blank = ready).
+
+Ledger split: RC-WID-5.6 = 5 home round-trip findings; RC-WID-5.7 = 7 GM-board builtins +
+41 private uses (its task text covers the legacy hub bodies too).
+
+### Evidence (local)
+
+- `vitest run --config vitest.app.config.ts …/parity.test.ts`: 21/21 passed.
+- `pnpm test:app`: 175 files / 2155 tests passed, exit 0.
+- `apps/gm-react` `tsc --noEmit`: exit 0. `pnpm lint`: exit 0.
+- `pnpm format:check:changed -- --base loop/rc`: clean.

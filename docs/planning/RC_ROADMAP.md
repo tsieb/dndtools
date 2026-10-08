@@ -854,7 +854,31 @@ D1). This epic closes the gaps the CAN-7.5 parity matrix records.
   public-API definition that round-trips through the builder byte-identically (export, import,
   export), or when a builtin body uses a core command or read that no descriptor, intent or query
   source exposes to a GM-built widget. Acceptance: the test runs in `pnpm test`; a deliberately
-  private builtin read makes it fail; WIDGETS.md records the rule.
+  private builtin read makes it fail; WIDGETS.md records the rule. Amended by the operator
+  (2026-10-08): the strict gate found 41 private builtin uses and 12 default-screen findings, so it
+  lands with every current finding in an exact debt ledger in `parity.ts` (`PARITY_DEBT_LEDGER`),
+  one entry per finding naming RC-WID-5.6 or RC-WID-5.7; the test fails on an unledgered finding
+  and on a stale entry.
+- **RC-WID-5.6 — Shipped home definitions round-trip byte-identically.** `M` · P2 · Deps: WID-5.5 ·
+  Owns: `packages/core/src/state/widget-package-state.ts`,
+  `apps/gm-react/src/app/widgetBuilder/draft.ts`, `apps/gm-react/src/app/widgets/parity.ts`. Make
+  `createHomeWidgetDefinitions` / `homePart` / `systemWidget` agree with what the builder serialises
+  (computedFields, style.cssVariables, configuration schema) so home-hero, home-scenes, home-create,
+  home-manage and home-library export the same bytes after one builder import/install/export. Do not
+  normalise the test input. Existing customised boards are preserved. Acceptance: the RC-WID-5.5
+  ledger entries naming RC-WID-5.6 are removed and the parity test stays green; a core test covers
+  the five definitions.
+- **RC-WID-5.7 — Public surface for the GM board builtins.** `L` · P2 · Deps: WID-5.6 · Owns: core
+  `commands/command-center.ts`, `commands/widget-command.ts`, `state/widget-package-state.ts`,
+  `schemas/widget-package.ts`; app `widgets/dataEnvironment.ts`, `widgets/homeSources.ts`,
+  `widgets/builtin`, `widgets/templates`, `widgets/parity.ts`, builder Data/Commands steps. Add real,
+  actor-scoped public query sources and command descriptors for every private read/command the
+  RC-WID-5.5 ledger records (timer, audio, map, combat and the legacy hub bodies), with builder
+  catalogue support and permission/isolation tests; then make the fresh GM board (`ensureHomeBoard`)
+  provision builder-editable public definitions for map, initiative, dice, timer, audio, quick
+  reference and prep, preserving their behaviour and existing customised boards. Declaring a use in
+  the ledger is not exposure. Acceptance: the parity debt ledger is empty and the parity test green;
+  an isolation test per new source proves a player never sees a DM-only row.
 
 ### Epic WID-6 — A widget in one minute (P3)
 
@@ -3831,7 +3855,7 @@ story; most stalls of the last week were roadmap data, not code.
 
 ## 23. Story index
 
-_378 stories. By size: L=40 · M=204 · S=134. By phase: P0=20 · P1=28 · P2=191 · P3=119 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 68 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
+_380 stories. By size: L=41 · M=205 · S=134. By phase: P0=20 · P1=28 · P2=193 · P3=119 · P4=19 · rolling=1. Status (from the dispatcher store): blocked 13 · done 287 · in progress 2 · open 70 · operator 7 · skipped 1. Rendered by `tools/roadmap/sync-status.py`; the store, not this column, is the record._
 
 | Id          | Lane        | Story                                                                                                                                                                                                                                                                                                      | Size | Phase   | Deps                                                                                                                                                                                                   | Status               |
 | ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
@@ -4142,6 +4166,8 @@ _378 stories. By size: L=40 · M=204 · S=134. By phase: P0=20 · P1=28 · P2=19
 | RC-WID-5.3  | Widgets     | Hub template renderers and bare presentation                                                                                                                                                                                                                                                               | M    | P2      | 5.2                                                                                                                                                                                                    |                      |
 | RC-WID-5.4  | Widgets     | The design-system kit inside the sandbox                                                                                                                                                                                                                                                                   | M    | P2      | 2.4                                                                                                                                                                                                    | done (983ec99)       |
 | RC-WID-5.5  | Widgets     | Builder parity gate                                                                                                                                                                                                                                                                                        | S    | P2      | 5.3, CAN-7.6                                                                                                                                                                                           |                      |
+| RC-WID-5.6  | Widgets     | Shipped home definitions round-trip byte-identically                                                                                                                                                                                                                                                       | M    | P2      | WID-5.5                                                                                                                                                                                                |                      |
+| RC-WID-5.7  | Widgets     | Public surface for the GM board builtins                                                                                                                                                                                                                                                                   | L    | P2      | WID-5.6                                                                                                                                                                                                |                      |
 | RC-CAN-5.4  | Canvas      | Moving around a canvas screen on a phone                                                                                                                                                                                                                                                                   | M    | P2      | 5.1                                                                                                                                                                                                    | done (9a8baa7)       |
 | RC-CAN-5.5  | Canvas      | Tile content never clips past recovery                                                                                                                                                                                                                                                                     | M    | P2      | ENG-8.1                                                                                                                                                                                                | blocked(write fence) |
 | RC-CAN-6.4  | Canvas      | Visibility badges by exception                                                                                                                                                                                                                                                                             | S    | P2      | none                                                                                                                                                                                                   | done (8b58267)       |
