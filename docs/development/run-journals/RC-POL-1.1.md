@@ -130,3 +130,15 @@ The operator's pinned run `63ead1f4-37a7-4ac3-809f-561e40d47858` at `dae9de53` c
 bash apps/gm-react/tests/visual/run-in-container.sh graph-polish.spec.ts --project=visual-rail --repeat-each=3 --update-snapshots=none --workers=2
 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.ts -g '200% large text keeps every route whole on the rail tier' --project=desktop-chromium --project=mobile-chromium --workers=2
 ```
+
+### Repeated cross-surface visual capture timeouts
+
+Operator run `48136222-7a77-4b6f-85ca-d0f94ed2b84a` at `85644b42` finished **526 passed, 5 failed** (17.8 minutes). Exact original diagnostics were retrieved through Headroom. All five failures exhausted the five-second screenshot-capture timeout without reporting a pixel mismatch: desktop high-contrast Palette, desktop dungeon Wiki, rail dungeon Graph, and rail parchment/high-contrast Play. This differs from the previous run's single scholar Graph timeout. All Command Center captures passed again; the rail text reflow fix remains in `HubParts.tsx` and the responsive test is unchanged.
+
+The repository's Playwright configuration documents concurrent browser saturation and supports `--workers=1` for diagnosing load-sensitive failures. The serial pinned repeat passed **30/30** (1.2 minutes): the five affected case names on both desktop/rail, each repeated three times, with existing baselines, pixel thresholds, and timeout assertions. Exact original final output was retrieved through Headroom. This supports a load-sensitive capture failure, not a demonstrated pixel regression; it does not establish the full gate as passed. A shared-runner scheduling or screenshot-time-budget change requires operator ownership outside this Command Center claim; repeated focused passes must not be represented as a clean full gate. No dispatcher state, shared harness, unrelated app source, or baseline is modified here.
+
+```sh
+bash apps/gm-react/tests/visual/run-in-container.sh palette-help.spec.ts wiki-reader.spec.ts graph-polish.spec.ts play-polish.spec.ts --project=visual-desktop --project=visual-rail -g 'palette, help and shortcuts — high-contrast|wiki reader dungeon|graph polish — dungeon|play stage (parchment|high-contrast)' --repeat-each=3 --update-snapshots=none --workers=1
+```
+
+Operator handoff: the remaining blocker is shared visual capture reliability across unrelated surfaces. Run the full gate with an isolated browser worker budget before assigning another Command Center implementation retry; if it still times out, diagnose the shared capture harness under its own claim. The implementation's functional, accessibility and owned-file-size evidence remains recorded above. No full-gate pass is claimed by this journal-only commit.
