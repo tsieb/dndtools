@@ -376,7 +376,7 @@ export function WidgetFrame({
 			aria-label={ariaLabel}
 			aria-description={
 				editing
-					? 'Enter opens tile content. Space selects move mode; Shift with Space adds the tile to the selection. Arrows navigate between tiles or move the selected tiles; Shift with arrows resizes. Alt with A, H, D, W, V or S aligns the selection. Escape leaves move mode. A opens Add. Delete removes; Control or Command with Z undoes.'
+					? `Enter opens tile content. Space selects move mode; Shift with Space adds the tile to the selection. Arrows navigate between tiles or move the selected tiles; ${resizable ? 'Shift with arrows resizes.' : `${w.title} declares a fixed size.`} Alt with A, H, D, W, V or S aligns the selection. Escape leaves move mode. A opens Add. Delete removes; Control or Command with Z undoes.`
 					: 'Arrows navigate to the nearest tile. Enter opens tile content. Escape returns to the tile.'
 			}
 			tabIndex={tabbable ? 0 : -1}
@@ -593,11 +593,12 @@ export function WidgetFrame({
 				/>
 			)}
 
-			{selected && !multi && !bare && (
+			{(selected || hover.lifted) && !multi && !bare && (
 				<>
 					{/* RC-CAN-8.3: INSIDE the frame's bottom-left corner, held at screen size and capped to the
 					    frame's width. Above the frame it overlapped the canvas edge on a top-row tile. */}
 					<div
+						hidden={!selected}
 						data-testid="tile-selection-chip"
 						style={{
 							position: 'absolute',
@@ -605,7 +606,7 @@ export function WidgetFrame({
 							left: 'var(--space-2)',
 							maxWidth: Math.max(0, (width - 16) * scale),
 							overflow: 'hidden',
-							display: 'inline-flex',
+							display: selected ? 'inline-flex' : 'none',
 							alignItems: 'center',
 							gap: 5,
 							padding: '2px 7px',

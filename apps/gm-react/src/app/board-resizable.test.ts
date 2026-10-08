@@ -1,28 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isWidgetResizable } from './board-helpers';
+import {
+	boardWidgetsOf,
+	fitWidgetSize,
+	widgetSizePresets,
+	isWidgetResizable,
+	type BoardWidget,
+} from './board-helpers';
 
-/**
- * The scene canvas and the scene Inspector both offer to change a widget's size, and they used to
- * disagree about which widgets may be resized. `SceneBoardCanvas` paints a padlock, renders no resize
- * handle and swallows Shift+Arrow for `system`-tier instances — which is EVERY widget the app ships,
- * since `packages/core/src/state/widget-package-state.ts` mints all of the built-ins through one
- * `systemWidget()` factory. The Inspector's S/M/L buttons had no such gate, and
- * `commands/widget.ts handleResizeWidget` has no tier gate either, so they really did resize. The DM
- * was told the widget was locked and then discovered by accident that it was not.
- *
- * `isWidgetResizable` is now the single predicate both surfaces ask.
- */
 describe('one predicate decides whether a widget can be resized', () => {
-	it('locks system-tier widgets', () => {
-		expect(isWidgetResizable({ tier: 'system' })).toBe(false);
+	it.each(['system', 'template', 'custom', 'ai'])('ignores the %s tier', (tier) => {
+		const widget = {
+			minSize: undefined,
+			get tier() {
+				throw new Error(tier);
+			},
+		};
+		expect(isWidgetResizable(widget)).toBe(true);
 	});
-
-	it('leaves every other tier resizable', () => {
-		for (const tier of ['template', 'custom', 'ai'] as const) {
-			expect(isWidgetResizable({ tier })).toBe(true);
-		}
+	it('honours an explicit fixed resize policy', () => {
+		expect(isWidgetResizable({ resizePolicy: 'fixed' })).toBe(false);
+	});
+	it('locks only when both declared dimensions are fixed', () => {
+		expect(
+			isWidgetResizable({
+				minSize: { width: 100, height: 80 },
+				maxSize: { width: 100, height: 80 },
+			}),
+		).toBe(false);
+		expect(
+			isWidgetResizable({
+				minSize: { width: 100, height: 80 },
+				maxSize: { width: 100, height: 160 },
+			}),
+		).toBe(true);
 	});
 });
 
@@ -52,4 +64,50 @@ describe('both size affordances ask the same predicate', () => {
 		expect(src).toMatch(/resizable=\{resizable\}/);
 		expect(read('screens/sceneEditor/InspectorTransform.tsx')).toMatch(/\{resizable \?/);
 	});
+});
+
+import { BUILTIN_SIZE_BOUNDS, BUILTIN_WIDGET_TYPES } from './widgets/builtin';
+describe('every builtin declares host bounds without changing stored layout', () => {
+	it.each(BUILTIN_WIDGET_TYPES)('%s stays resizable from a grid cell to the board', (type) => {
+		const bounds = BUILTIN_SIZE_BOUNDS[type];
+		expect(bounds.minSize).toEqual({ width: 20, height: 20 });
+		expect(bounds.maxSize).toEqual({ width: Infinity, height: Infinity });
+		expect(isWidgetResizable(bounds)).toBe(true);
+		const widget = { ...bounds, x: 24 } as BoardWidget;
+		expect(fitWidgetSize(widget, 1, 1, true)).toEqual({ w: 20, h: 20 });
+		expect(fitWidgetSize(widget, 10000, 10000, true)).toEqual({ w: 768, h: 10000 });
+		const instance = {
+			id: type,
+			type,
+			configuration: {},
+			layout: { x: 24, y: 24, w: 240, h: 160 },
+		};
+		const [mapped] = boardWidgetsOf([instance as never], new Map(), () => null, {
+			includeUndelivered: true,
+		});
+		expect(mapped).toMatchObject({ ...bounds, w: 240, h: 160 });
+		expect(instance.layout).toEqual({ x: 24, y: 24, w: 240, h: 160 });
+	});
+	it('clamps a declared finite maximum on both axes', () => {
+		const widget = {
+			x: 0,
+			minSize: { width: 20, height: 20 },
+			maxSize: { width: 300, height: 200 },
+		} as BoardWidget;
+		expect(fitWidgetSize(widget, 900, 900, false)).toEqual({ w: 300, h: 200 });
+	});
+});
+
+it('keeps labelled S/M/L entries when Small and Medium coincide', () => {
+	const widget = {
+		x: 0,
+		minSize: { width: 100, height: 100 },
+		defaultSize: { width: 100, height: 100 },
+	} as BoardWidget;
+	expect(widgetSizePresets(widget, false, false)).toEqual([
+		{ w: 100, h: 100 },
+		{ w: 100, h: 100 },
+		{ w: 150, h: 150 },
+	]);
+	expect(widgetSizePresets(widget)).toHaveLength(2);
 });

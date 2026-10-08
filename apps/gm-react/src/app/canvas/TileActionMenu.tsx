@@ -39,7 +39,7 @@ const TEXT = {
 	duplicated: (title: string) => `Duplicated ${title}`,
 	move: 'Move',
 	resize: 'Resize',
-	resizeLocked: 'Resize (size is locked)',
+	resizeLocked: (title: string) => `Resize (${title} declares a fixed size)`,
 	duplicate: 'Duplicate',
 	bind: 'Bind…',
 	configure: 'Configure…',
@@ -468,7 +468,7 @@ export function TileActionMenu({
 						/>
 						<MenuRow
 							icon="zoom-fit"
-							label={resizable ? TEXT.resize : TEXT.resizeLocked}
+							label={resizable ? TEXT.resize : TEXT.resizeLocked(w.title)}
 							keys={resizable ? 'Shift+ArrowRight Shift+ArrowDown' : undefined}
 							disabled={!resizable}
 							onSelect={() => viaFrame(' ')}

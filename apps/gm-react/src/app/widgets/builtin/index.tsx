@@ -83,6 +83,45 @@ export const BUILTIN_WIDGET_TYPES = [
  */
 export type BuiltinWidgetType = (typeof BUILTIN_WIDGET_TYPES)[number];
 
+/** Host sizing only: never serialized into definitions or seeded layouts. The board supplies
+ * the outer bound; its vertical extent (and both free-canvas axes) can grow. Equal finite
+ * min/max dimensions explicitly declare a fixed-size body. */
+export interface BuiltinSizeBounds {
+	minSize: { width: number; height: number };
+	maxSize: { width: number; height: number };
+}
+const boardBounds = (): BuiltinSizeBounds => ({
+	minSize: { width: 20, height: 20 },
+	maxSize: { width: Infinity, height: Infinity },
+});
+export const BUILTIN_SIZE_BOUNDS: Record<BuiltinWidgetType, BuiltinSizeBounds> = {
+	note: boardBounds(),
+	handout: boardBounds(),
+	dice: boardBounds(),
+	timer: boardBounds(),
+	audio: boardBounds(),
+	'initiative-tracker': boardBounds(),
+	character: boardBounds(),
+	map: boardBounds(),
+	'quick-reference': boardBounds(),
+	prep: boardBounds(),
+	session: boardBounds(),
+	'getting-started': boardBounds(),
+	tools: boardBounds(),
+	'data-hub': boardBounds(),
+	atlas: boardBounds(),
+	characters: boardBounds(),
+	'player-views': boardBounds(),
+	combat: boardBounds(),
+	notes: boardBounds(),
+	search: boardBounds(),
+};
+export function builtinSizeBounds(type: string): BuiltinSizeBounds | undefined {
+	return Object.hasOwn(BUILTIN_SIZE_BOUNDS, type)
+		? BUILTIN_SIZE_BOUNDS[type as BuiltinWidgetType]
+		: undefined;
+}
+
 const BUILTIN_WIDGET_TYPE_SET: ReadonlySet<string> = new Set(BUILTIN_WIDGET_TYPES);
 
 /** Whether `WidgetBody` renders a real body for this widget type (the resolver's `builtin` test). */

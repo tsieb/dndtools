@@ -4899,8 +4899,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'sceneEditor.transformY': 'Y',
 	'sceneEditor.transformW': 'Ancho',
 	'sceneEditor.transformH': 'Alto',
-	'sceneEditor.sizeLocked':
-		'Bloqueado — el tamaño de este widget lo fija la disposición de la escena.',
+	'sceneEditor.sizeLocked': 'Bloqueado — {name} declara un tamaño fijo ({width} × {height}).',
 	'sceneEditor.keyboardOrder': 'Orden de teclado',
 	'sceneEditor.alreadyFirst': 'Ya es el primero en el orden de foco',
 	'sceneEditor.earlier': 'Antes',

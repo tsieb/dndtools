@@ -3,7 +3,7 @@ import { listWidgetLayoutCommands, resolveLayoutCommandPayload } from '@dndtools
 import { Button, Field, Select } from '../../ds';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import type { LayoutHistory } from '../../app/canvas/useLayoutHistory';
-import type { BoardWidget } from '../../app/board-helpers';
+import { fitWidgetSize, widgetSizePresets, type BoardWidget } from '../../app/board-helpers';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Section, TransformPanel } from './fields';
 
@@ -13,10 +13,10 @@ const NOTE: CSSProperties = {
 	color: 'var(--color-text-secondary)',
 };
 
-const SIZE_PRESETS: ReadonlyArray<readonly [MessageKey, number, number]> = [
-	['sceneEditor.sizeSmall', 220, 140],
-	['sceneEditor.sizeMedium', 300, 200],
-	['sceneEditor.sizeLarge', 420, 280],
+const SIZE_LABELS: MessageKey[] = [
+	'sceneEditor.sizeSmall',
+	'sceneEditor.sizeMedium',
+	'sceneEditor.sizeLarge',
 ];
 
 const DOCK_EDGES = ['none', 'left', 'right', 'top', 'bottom'] as const;
@@ -43,6 +43,10 @@ export function InspectorTransform({
 	onFocusOrder: (order: number | null) => void;
 }) {
 	const { t } = useI18n();
+	const resize = (w: number, h: number) => {
+		const fitted = fitWidgetSize(widget, w, h, false);
+		onResize(fitted.w, fitted.h);
+	};
 	const runtime = useRuntime();
 	const scene = Object.values(runtime.state.scenes.scenes).find((candidate) =>
 		candidate.widgets.some((instance) => instance.id === widget.id),
@@ -79,24 +83,28 @@ export function InspectorTransform({
 	return (
 		<>
 			<Section label={t('sceneEditor.size')}>
-				{/* The canvas paints a padlock, renders no resize handle and swallows Shift+Arrow for
-				    every `system`-tier widget. The size buttons agree with the canvas, which is the
-				    surface that also owns the drag and keyboard paths. */}
 				{resizable ? (
 					<div style={BUTTON_ROW}>
-						{SIZE_PRESETS.map(([label, w, h]) => (
-							<Button key={label} variant="secondary" size="sm" onClick={() => onResize(w, h)}>
-								{t(label)}
+						{widgetSizePresets(widget, false, false).map(({ w, h }, index) => (
+							<Button
+								key={SIZE_LABELS[index]}
+								variant="secondary"
+								size="sm"
+								onClick={() => resize(w, h)}
+							>
+								{t(SIZE_LABELS[index])}
 							</Button>
 						))}
 					</div>
 				) : (
-					<div style={NOTE}>{t('sceneEditor.sizeLocked')}</div>
+					<div style={NOTE}>
+						{t('sceneEditor.sizeLocked', { name: widget.title, width: widget.w, height: widget.h })}
+					</div>
 				)}
 			</Section>
 
 			<Section label={t('sceneEditor.transform')}>
-				<TransformPanel widget={widget} resizable={resizable} onMove={move} onResize={onResize} />
+				<TransformPanel widget={widget} resizable={resizable} onMove={move} onResize={resize} />
 				{dockCommands.length > 0 && (
 					<Field label={t('sceneEditor.dockToEdge')}>
 						<Select

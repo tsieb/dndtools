@@ -1,3 +1,4 @@
+import { builtinSizeBounds } from './widgets/builtin';
 import {
 	resolveAddWidgetCommand,
 	widgetPresentation,
@@ -80,8 +81,10 @@ export interface BoardWidget {
 	 * (the builder preview, test fixtures) that declare none need not spell out an empty list.
 	 */
 	styleTokens?: WidgetStyleTokenDefinition[];
+	resizePolicy?: WidgetDefinition['resizePolicy'];
 	defaultSize?: { width: number; height: number };
 	minSize?: { width: number; height: number };
+	maxSize?: { width: number; height: number };
 	/** The instance's layout group, when it has one: flow stacks consecutive members (RC-CAN-7.6). */
 	groupId?: string | null;
 }
@@ -99,14 +102,19 @@ export function tierOf(author: string | undefined): WidgetTier {
 	return TIER_BY_AUTHOR[author] ?? 'template';
 }
 
-/**
- * Whether the canvas lets the DM change a widget's size. `system`-tier instances are painted with a
- * padlock, get no resize handle and swallow Shift+Arrow, so every surface offering a size control has
- * to ask the same question — the scene Inspector used to offer S/M/L unconditionally and quietly
- * disagreed with the canvas about the same widget.
- */
-export function isWidgetResizable(widget: { tier: WidgetTier }): boolean {
-	return widget.tier !== 'system';
+/** Only an explicitly fixed size locks resizing; authorship never does. */
+export function isWidgetResizable(
+	widget: Pick<BoardWidget, 'minSize' | 'maxSize' | 'resizePolicy'>,
+): boolean {
+	return (
+		widget.resizePolicy !== 'fixed' &&
+		!(
+			widget.minSize &&
+			widget.maxSize &&
+			widget.minSize.width === widget.maxSize.width &&
+			widget.minSize.height === widget.maxSize.height
+		)
+	);
 }
 
 export const TIER_LABEL: Record<WidgetTier, string> = {
@@ -189,8 +197,10 @@ export function boardWidgetsOf(
 			requiresBinding: (def?.requiredBindings?.length ?? 0) > 0,
 			commands: (def?.commands ?? []).map((command) => command.type),
 			styleTokens: def?.style?.tokens ?? [],
+			resizePolicy: def?.resizePolicy,
 			defaultSize: def?.defaultSize,
-			minSize: def?.minSize,
+			minSize: builtinSizeBounds(instance.type)?.minSize ?? def?.minSize,
+			maxSize: builtinSizeBounds(instance.type)?.maxSize,
 			bindingRef: instance.binding
 				? {
 						entityType: instance.binding.source.entityType,
@@ -450,23 +460,28 @@ export function fitWidgetSize(
 	height: number,
 	bounded: boolean,
 ): { w: number; h: number } {
-	const w = Math.max(widget.minSize?.width ?? 180, width);
+	if (!isWidgetResizable(widget)) return { w: widget.w, h: widget.h };
+	const w = Math.min(
+		widget.maxSize?.width ?? Infinity,
+		Math.max(widget.minSize?.width ?? 20, width),
+	);
 	return {
 		w: bounded ? clampWidthToColumns(widget.x, w) : w,
-		h: Math.max(widget.minSize?.height ?? 120, height),
+		h: Math.min(widget.maxSize?.height ?? Infinity, Math.max(widget.minSize?.height ?? 20, height)),
 	};
 }
 
 /** Small is the declared minimum, medium the default, large 150% of the default — each fitted, so
- *  a preset the bounded board clamps to an existing size collapses into it. */
-export function widgetSizePresets(widget: BoardWidget, bounded = false) {
-	const min = widget.minSize ?? { width: 180, height: 120 };
+ *  a preset the bounded board clamps to an existing size collapses into it. Pass `distinct=false`
+ *  for labelled S/M/L buttons, whose labels must survive coincident sizes. */
+export function widgetSizePresets(widget: BoardWidget, bounded = false, distinct = true) {
+	const min = widget.minSize ?? { width: 20, height: 20 };
 	const base = widget.defaultSize ?? { width: 280, height: 220 };
 	return [min, base, { width: Math.round(base.width * 1.5), height: Math.round(base.height * 1.5) }]
 		.map(({ width, height }) => fitWidgetSize(widget, width, height, bounded))
 		.filter(
 			(size, index, sizes) =>
-				sizes.findIndex((other) => other.w === size.w && other.h === size.h) === index,
+				!distinct || sizes.findIndex((other) => other.w === size.w && other.h === size.h) === index,
 		);
 }
 

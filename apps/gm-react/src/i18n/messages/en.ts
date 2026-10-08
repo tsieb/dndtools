@@ -4891,7 +4891,7 @@ export const en = {
 	'sceneEditor.transformY': 'Y',
 	'sceneEditor.transformW': 'Width',
 	'sceneEditor.transformH': 'Height',
-	'sceneEditor.sizeLocked': 'Locked — this widget’s size is fixed by the scene layout.',
+	'sceneEditor.sizeLocked': 'Locked — {name} declares a fixed size ({width} × {height}).',
 	'sceneEditor.keyboardOrder': 'Keyboard order',
 	'sceneEditor.alreadyFirst': 'Already first in the focus order',
 	'sceneEditor.earlier': 'Earlier',

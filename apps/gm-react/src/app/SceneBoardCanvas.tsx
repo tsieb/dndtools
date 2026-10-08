@@ -548,7 +548,7 @@ export function SceneBoardCanvas({
 		e.preventDefault();
 		if (editing && selection.includes(w.id)) {
 			if (e.shiftKey) {
-				const resizable = canResize ? canResize(w) : isWidgetResizable(w);
+				const resizable = isWidgetResizable(w) && (canResize?.(w) ?? true);
 				if (!resizable) return;
 				keyboardResize(w, delta[0], delta[1]);
 			} else {
@@ -624,7 +624,7 @@ export function SceneBoardCanvas({
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
 		const selected = editing && selection.includes(w.id);
-		const resizable = editing && (canResize ? canResize(w) : isWidgetResizable(w));
+		const resizable = editing && isWidgetResizable(w) && (canResize?.(w) ?? true);
 		return (
 			<WidgetFrame
 				key={w.id}

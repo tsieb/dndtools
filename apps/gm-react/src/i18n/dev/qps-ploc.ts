@@ -5079,7 +5079,7 @@ export default {
 	'sceneEditor.transformW': '[Ŵíďţĥ~~]',
 	'sceneEditor.transformH': '[Ĥéíğĥţ~~~]',
 	'sceneEditor.sizeLocked':
-		'[Ľóçķéď — ţĥíš ŵíďğéţ’š šížé íš ƒíẋéď ƀý ţĥé šçéñé ľáýóúţ.~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
+		'[Ľóçķéď — ~~~~{name} ďéçľáŕéš á ƒíẋéď šížé (~~~~ ~~~~ {width} × ~~{height}).~]',
 	'sceneEditor.keyboardOrder': '[Ķéýƀóáŕď óŕďéŕ~~~~ ~]',
 	'sceneEditor.alreadyFirst': '[Áľŕéáďý ƒíŕšţ íñ ţĥé ƒóçúš óŕďéŕ~~~~ ~~~~ ~~~]',
 	'sceneEditor.earlier': '[Éáŕľíéŕ~~~]',

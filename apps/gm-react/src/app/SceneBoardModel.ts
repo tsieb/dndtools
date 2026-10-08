@@ -56,7 +56,7 @@ export interface SceneBoardCanvasProps {
 	onSelect: (id: string | null) => void;
 	onMove: (id: string, x: number, y: number) => void | Promise<unknown>;
 	onResize: (id: string, w: number, h: number) => void | Promise<unknown>;
-	/** System widgets are move-only (never resizable), mirroring the prototype. */
+	/** Optional host restriction in addition to the declared size bounds. */
 	canResize?: (widget: BoardWidget) => boolean;
 	/** Keyboard traversal order (widget instance ids) — pass `SceneSummary.focusOrder` ids. Widgets
 	 *  missing from it are appended in render order so nothing becomes unreachable. */
@@ -126,7 +126,7 @@ export interface FlowBoardProps {
 	/** `scene.resize-widget`. In flow a resize picks a column SPAN, so only `w` ever changes: a
 	 *  flow tile's height follows its content. */
 	onResize: (id: string, w: number, h: number) => void | Promise<unknown>;
-	/** System widgets are move-only, exactly as on the canvas. */
+	/** Optional host restriction in addition to the declared size bounds. */
 	canResize?: (widget: BoardWidget) => boolean;
 	/** Remove the focused tile (Delete key / the tile menu, edit mode). Omit to disable removal. */
 	onRemove?: (id: string) => void;

@@ -88,10 +88,22 @@ for (const theme of THEMES) {
 			await page.keyboard.press('Escape');
 		}
 		await page.locator('[role="group"][data-testid^="widget-"]').first().focus();
+		await page.keyboard.press('Space');
+		await page.mouse.move(0, 0);
+		if (theme === 'tavern')
+			await expect(page.locator('[role="group"][data-testid^="widget-"]').first()).toHaveScreenshot(
+				`scene-editor-resize-handle--${theme}.png`,
+			);
 		await page.keyboard.press('Enter');
 		const inspector = page.getByTestId('widget-inspector');
 		await expect(inspector).toBeVisible();
 		await settle(page, theme);
 		await expect(inspector).toHaveScreenshot(`scene-editor-inspector--${theme}.png`);
+		await inspector.getByRole('tab', { name: 'Transform', exact: true }).click();
+		await expect(inspector.getByRole('button', { name: 'Small', exact: true })).toBeEnabled();
+		await expect(inspector.getByRole('button', { name: 'Medium', exact: true })).toBeEnabled();
+		await expect(inspector.getByRole('button', { name: 'Large', exact: true })).toBeEnabled();
+		if (theme === 'tavern')
+			await expect(inspector).toHaveScreenshot(`scene-editor-transform--${theme}.png`);
 	});
 }

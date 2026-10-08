@@ -1057,3 +1057,24 @@ test.describe('add-widget gallery (RC-CAN-4.1)', () => {
 	});
 });
 ```
+
+### Tile size bounds (RC-CAN-8.2)
+
+Authorship controls content editing, not layout sizing. `isWidgetResizable` uses
+an explicit `resizePolicy: 'fixed'` or equal minimum and maximum dimensions; every
+seeded tile can be resized. Fixed-size affordances name the widget that declares
+that restriction.
+
+`BUILTIN_SIZE_BOUNDS` beside `WidgetBody` declares `minSize` and `maxSize` for each
+builtin. The default range is one 20px grid cell to the board: width is capped at
+the bounded board's right edge, while its height and the free canvas can grow
+(`Infinity` means no additional body-specific ceiling). Finite maxima can constrain
+either axis. These host bounds are merged into `BoardWidget`, never written into
+core definitions or seeded layouts, so opening the editor does not alter saved
+sizes or builder export bytes.
+
+Pointer drags, Shift+Arrow, handle arrow keys, handle preset cycling and inspector
+controls use `fitWidgetSize`. S is the minimum, M the definition default and L 150%
+of that default, fitted to the declared limits. The corner handle appears on
+selection or hover in edit mode; the tile menu's Resize enters keyboard move mode,
+where Shift+Arrow resizes. View-mode content recovery remains available separately.
