@@ -558,15 +558,18 @@ a builtin on the fresh GM board.
 Negative regression fixtures inject their own defects; only the exact ledger comparison requires
 current production debt to reproduce, so repaying that debt does not break unrelated assertions.
 
-The ledger as the gate landed (2026-10-08):
+The remaining ledger after RC-WID-5.6 (2026-10-08):
 
 | Repaid by  | Findings                                                                                                                                                                                                                                                                                                           |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RC-WID-5.6 | 5: `home-hero`, `home-scenes`, `home-create`, `home-manage` and `home-library` change on their first builder round trip.                                                                                                                                                                                           |
 | RC-WID-5.7 | 7: the fresh GM board provisions builtin bodies for `map`, `initiative-tracker`, `dice`, `timer`, `audio`, `quick-reference` and `prep`.                                                                                                                                                                           |
 | RC-WID-5.7 | 41: private builtin uses in `timer`, `audio`, `initiative-tracker`, `character`, `map`, `session`, `getting-started`, `tools`, `atlas`, `player-views`, `combat` and `search` (session timers, audio playback, map views and projection, combat writes, other actors' roles, presets, encounters, saved searches). |
 
-RC-WID-5.6 and RC-WID-5.7 (RC_ROADMAP.md, Epic WID-5) end with an empty ledger.
+RC-WID-5.6 repaid the five home-definition findings: shipped definitions include empty
+computed fields and query arrays, token-derived CSS variables and declared configuration schema properties,
+matching the builder’s first save. The first-trip byte comparison remains unnormalised;
+existing customised boards and instance settings are not rewritten. RC-WID-5.7
+(RC_ROADMAP.md, Epic WID-5) repays the remaining ledger.
 
 ## 7. Canvas and layout history
 

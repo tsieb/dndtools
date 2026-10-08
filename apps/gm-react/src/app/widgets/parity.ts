@@ -192,7 +192,6 @@ export interface ParityDebt {
 const owedBy =
 	(repaidBy: ParityRepairStory) =>
 	(finding: string): ParityDebt => ({ finding, repaidBy });
-const wid56 = owedBy('RC-WID-5.6');
 const wid57 = owedBy('RC-WID-5.7');
 const privateUses = (type: BuiltinWidgetType, uses: readonly ParityUse[]) =>
 	uses.map((use) => wid57(privateUseFinding(type, use)));
@@ -275,11 +274,6 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 			'prep',
 		] as const satisfies readonly BuiltinWidgetType[]
 	).map((type) => wid57(builtinOnScreenFinding(type))),
-
-	// RC-WID-5.6: the Command Center definitions change on their first builder round trip.
-	...['home-hero', 'home-scenes', 'home-create', 'home-manage', 'home-library'].map((type) =>
-		wid56(roundTripFinding(type)),
-	),
 ];
 
 /** Where the findings and the ledger disagree; both lists empty means the gate passes. */

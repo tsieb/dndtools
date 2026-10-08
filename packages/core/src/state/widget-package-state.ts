@@ -1227,6 +1227,8 @@ function homePart(input: {
 	dataQueries?: WidgetDataQueryDefinition[];
 	intents: WidgetIntentDescriptor[];
 }): WidgetDefinition {
+	const configFields = [titleField(), barePresentationField(), ...input.configFields];
+	const style = defaultWidgetStyle();
 	return {
 		...systemWidget({
 			type: input.type,
@@ -1238,9 +1240,34 @@ function homePart(input: {
 			minSize: { width: 240, height: 96 },
 			placement: HOME_PLACEMENT,
 			renderEntrypoint: templateEntrypoint(input.template),
-			configFields: [titleField(), barePresentationField(), ...input.configFields],
-			dataQueries: input.dataQueries,
+			configFields,
+			dataQueries: input.dataQueries ?? [],
 		}),
+		// Match the builder's first save, without rewriting any persisted board or instance.
+		computedFields: [],
+		style: {
+			...style,
+			cssVariables: Object.fromEntries(
+				(style.tokens ?? []).map((token) => [`--widget-${token.name}`, token.value]),
+			),
+		},
+		configurationSchema: {
+			type: 'object',
+			properties: Object.fromEntries(
+				configFields.map((field) => [
+					field.key,
+					{
+						type:
+							field.control === 'number'
+								? 'number'
+								: field.control === 'toggle'
+									? 'boolean'
+									: 'string',
+					},
+				]),
+			),
+			additionalProperties: true,
+		},
 		intents: input.intents,
 	};
 }

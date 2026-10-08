@@ -272,6 +272,23 @@ describe('builder parity gate: default screens', () => {
 		);
 	});
 
+	it.each(['home-hero', 'home-scenes', 'home-create', 'home-manage', 'home-library'])(
+		'%s exports identical bytes after its first builder import/install/export',
+		(type) => {
+			const { env, state } = provisionedVault();
+			const record = findPackageRecordForWidgetType(state.widgets, type)!;
+			const identity = widgetPackageForkIdentity(state.widgets, type);
+			const forked = dispatchCommand(state, env, {
+				type: 'widget.package.fork',
+				actorId: DM.id,
+				payload: { packageId: record.package.id, widgetType: type },
+			} as CoreCommand);
+			if (forked.status !== 'accepted') throw new Error(forked.rejection.message);
+			const original = exportedBytes(forked.nextState, env, identity.packageId)!;
+			expect(builderRoundTrip(state, env, DM.id, original)).toEqual({ bytes: original });
+		},
+	);
+
 	it('compares the original export to the first builder round trip, unnormalised', () => {
 		const { env, state } = provisionedVault();
 		const record = findPackageRecordForWidgetType(state.widgets, 'home-hero')!;
@@ -283,11 +300,9 @@ describe('builder parity gate: default screens', () => {
 		} as CoreCommand);
 		if (forked.status !== 'accepted') throw new Error(forked.rejection.message);
 		const original = exportedBytes(forked.nextState, env, identity.packageId)!;
-		// Build a stable fixture, then inject a field lost on the first import. Production
-		// home definitions may already be stable after RC-WID-5.6 repays their ledger entries.
-		const first = builderRoundTrip(state, env, DM.id, original).bytes!;
-		expect(builderRoundTrip(state, env, DM.id, first).bytes).toBe(first);
-		const probe = JSON.parse(first) as {
+		// Inject a lost field directly into the original export, without normalising it.
+		expect(builderRoundTrip(state, env, DM.id, original).bytes).toBe(original);
+		const probe = JSON.parse(original) as {
 			widgets: { style?: { cssVariables?: Record<string, string> } }[];
 		};
 		const widget = probe.widgets[0]!;
