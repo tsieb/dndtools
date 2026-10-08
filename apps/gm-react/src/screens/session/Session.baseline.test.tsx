@@ -240,6 +240,9 @@ async function seedDemoVault() {
 	runtime.activeActorId = DM.id;
 	runtime.preview = null;
 	await seedDemoContent(runtime, { showcase: false });
+	// The GM screen's board and the home screen, as the app's first paint of `/` provisions them: the
+	// vault a GM reaches `/session` in (the CAN-7.5 captures were taken from one).
+	await accept({ type: 'command-center.ensure-home', payload: {} } as never);
 }
 
 async function accept(command: Omit<CoreCommand, 'actorId'> & { actorId?: string }) {

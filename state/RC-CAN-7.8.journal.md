@@ -21,3 +21,18 @@ Standby at desktop, rail and phone; Prep; Live; a live fight (three monsters, on
 bloodied) at desktop and phone; Recap after a party short rest (the rest timeline, SE-25); player
 preview during the fight; a player's own device. 40 snapshots. The conversion is held to them with
 the widget-region wrappers unwrapped.
+
+### Step 1b — re-capture with the GM screen provisioned (`fix(core)` first)
+
+The first conversion run matched every aria snapshot but not the DOM: the Stage panel's
+per-player projection pickers listed scenes the fixture vault never had. The bespoke console never
+provisioned anything, so the fixture had no board; the app creates the board and the home screen on
+its first paint of `/`, and the CAN-7.5 captures came from such a vault. The fixture now runs
+`command-center.ensure-home` after the demo seed, and the baselines were re-captured on the
+UNCHANGED console (the only snapshot change is the board, "Command Center", in the 32 picker lists).
+
+Before that re-capture, `getPlayerViewController` (core, outside Owns) stopped offering default
+screens as projection targets: it listed every non-template scene, so the Command Center home
+screen (RC-CAN-7.6) was already a target, and the Session screen would have become one. ADR-041
+makes them the GM's own consoles; the GM screen's board stays a target. Core test added in
+`player-view-control.test.ts`.
