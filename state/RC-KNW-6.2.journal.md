@@ -209,3 +209,31 @@ Each full run on this machine has hit 2–4 such stalls on a rotating set of rou
 phone scene-editor, rail `/audio` delete, phone characters-empty, phone palette-help; this attempt:
 the six above), which matches the known cold dev-server chunk stall in the pinned container. No code
 or baseline changed in this attempt; nothing here can be fixed inside the claim.
+
+## Attempt 5 — 2026-10-08: rebase onto `9752d983` (RC-POL-1.1)
+
+Gate feedback: the rebase onto `9752d983` conflicted in nine baselines, desktop
+`command-center--{high-contrast,parchment,tavern}` and `scenes--*`, and rail `command-center--*`.
+Upstream (RC-POL-1.1, 7 commits) redrew the Command Center and scene authoring. It also touched
+`en.ts`/`es.ts`/`qps-ploc.ts` and the CAN-7.6 `CommandCenter.baseline` snapshot, but none of
+this story's code paths.
+
+- `git rebase 9752d983`: the code, e2e and catalog commits applied cleanly. In the visual commit the
+  nine PNGs were resolved to upstream's version (`--ours` during the rebase), then regenerated below.
+- Merged catalogs: `tsx scripts/i18n-catalog.ts pseudo` produced no diff. Typecheck (core + app)
+  exit 0. `pnpm test:app`: 2140/2141. The one failure was mine: `help/changelog.test.ts` forbids code
+  spans in "For players and GMs", and my bullet said `` `[[` ``. It now says "the link menu you
+  open by typing two square brackets"; the test passes 16/16 (`eafb1a7a`-era commit "keep the
+  player-facing note free of code spans"). The merged `CommandCenter.baseline` snapshot passes
+  unchanged. `pnpm lint` exit 0.
+- Visual, full compare on the rebased tree: 521 passed, 10 failed. Nine were exactly the conflicted
+  baselines: desktop `/` and `/scenes` and rail `/`, ×3 themes, 124–320 px. Those are this story's
+  sidebar Story/Notes counts and the Home Library line on upstream's new layout. The tenth was rail
+  characters-empty tavern (element not found, the known stall).
+- Regenerated only those (`-g "golden routes .* /(scenes)?$"`, desktop + rail, 12 passed, exactly
+  the nine rewritten). Recompressed losslessly with the same Zopfli script (1,339,000 → 950,874 B).
+  Budget 33,677.9 of 34,816 KiB. Compare re-run including rail characters-empty: 22 passed.
+- E2E on both profiles, upstream's `command-center-polish` plus knowledge-filters, command-palette,
+  tile-content-recovery and campaign-relationships: 92 passed.
+
+Note for `-g`: Playwright matches the title path joined by spaces, not `›`.
