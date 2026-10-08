@@ -195,4 +195,10 @@ test('two party names added in Settings › Players become two player actors wit
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);
 	await expect(page.getByLabel('Role for Brannoc', { exact: true })).toBeVisible();
+
+	// The Command Center hero draws them as avatars beside the party's PCs, with no character made.
+	await gotoRoute(page, '/');
+	const heroCard = page.getByTestId('widget-template-hero');
+	await expect(heroCard.getByRole('img', { name: 'Ada Quill', exact: true })).toBeVisible();
+	await expect(heroCard.getByRole('img', { name: 'Brannoc', exact: true })).toBeVisible();
 });

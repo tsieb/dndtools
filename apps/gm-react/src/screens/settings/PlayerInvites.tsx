@@ -40,10 +40,19 @@ export function InvitesPanel({
 	cloudReady,
 	createOpen,
 	onCloseCreate,
+	campaign,
+	onNameCampaign,
 }: {
 	cloudReady: boolean;
 	createOpen: boolean;
 	onCloseCreate: () => void;
+	/**
+	 * RC-UX-6.2 — the campaign's one stored name, or null while it has none. An invite carries it; it
+	 * is never a second name typed here.
+	 */
+	campaign: string | null;
+	/** Names an unnamed campaign before its first invite. Resolves false when the name was refused. */
+	onNameCampaign: (name: string) => Promise<boolean>;
 }) {
 	const { t, formatDate } = useI18n();
 	const ent = useEntitlements();
@@ -54,7 +63,8 @@ export function InvitesPanel({
 	// Listing, minting and revoking are app-api round trips. Copying an already-minted link is NOT
 	// — that is a clipboard write on a URL already in hand, so those two buttons stay ungated.
 	const cloudActions = useCloudActions('cloud.offline.invite');
-	const [campaignName, setCampaignName] = useState('');
+	// Only an unnamed campaign is named here, and that names the campaign itself.
+	const [nameDraft, setNameDraft] = useState('');
 	const [note, setNote] = useState('');
 	const [role, setRole] = useState<'player' | 'co-dm'>('player');
 	const [email, setEmail] = useState('');
@@ -94,18 +104,18 @@ export function InvitesPanel({
 	}, [mintedJoinUrl]);
 	const close = () => {
 		setMinted(null);
-		setCampaignName('');
+		setNameDraft('');
 		setNote('');
 		setRole('player');
 		setEmail('');
 		onCloseCreate();
 	};
-	const mint = () => {
+	const mint = async () => {
 		if (!publicAppBaseUrl()) {
 			Toaster.error(t('settings.invites.noPublicUrl'));
 			return;
 		}
-		const name = campaignName.trim();
+		const name = (campaign ?? nameDraft).trim();
 		if (!name) {
 			Toaster.error(t('settings.invites.needName'));
 			return;
@@ -123,6 +133,10 @@ export function InvitesPanel({
 			return;
 		}
 		setBusy(true);
+		if (!campaign && !(await onNameCampaign(name))) {
+			setBusy(false);
+			return;
+		}
 		apiCreateInvite({
 			campaignName: name,
 			note: note.trim() || undefined,
@@ -328,7 +342,7 @@ export function InvitesPanel({
 								icon="send"
 								disabled={busy}
 								{...cloudActions.offlineProps}
-								onClick={mint}
+								onClick={() => void mint()}
 							>
 								{busy ? t('settings.invites.creating') : t('settings.invites.createInvite')}
 							</Button>
@@ -414,13 +428,27 @@ export function InvitesPanel({
 					</div>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
-						<Input
-							value={campaignName}
-							onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)}
-							placeholder={t('settings.invites.campaignPlaceholder')}
-							aria-label={t('settings.invites.campaignLabel')}
-							maxLength={80}
-						/>
+						{campaign ? (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
+								<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+									{t('settings.invites.campaignLabel')}
+								</span>
+								<strong
+									data-testid="invite-campaign-name"
+									style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}
+								>
+									{campaign}
+								</strong>
+							</div>
+						) : (
+							<Input
+								value={nameDraft}
+								onChange={(e: { target: { value: string } }) => setNameDraft(e.target.value)}
+								placeholder={t('settings.invites.campaignPlaceholder')}
+								aria-label={t('settings.invites.campaignLabel')}
+								maxLength={80}
+							/>
+						)}
 						<Textarea
 							value={note}
 							onChange={(e: { target: { value: string } }) => setNote(e.target.value)}

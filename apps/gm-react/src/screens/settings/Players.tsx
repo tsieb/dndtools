@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import {
+	campaignNameOf,
 	countCoDmActors,
 	singularGrantsOnEntity,
 	CHARACTER_ENTITY_TYPE,
@@ -120,6 +121,21 @@ export function SettingsPlayers() {
 			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.players.addFailed'))))
 			.finally(() => setAddingParty(false));
 	};
+
+	// RC-UX-6.2 — an invite carries the campaign's one name. An unnamed campaign is named by its first
+	// invite, through the same command as the switcher's rename, so the catalog follows it.
+	const nameCampaign = (name: string) =>
+		runtime
+			.dispatch({ type: 'campaign.set-identity', actorId: dmActorId, payload: { name } })
+			.then((res: CommandResult) => {
+				if (res.status === 'accepted') return true;
+				Toaster.error(res.rejection.issues?.[0]?.message ?? res.rejection.message);
+				return false;
+			})
+			.catch((e: unknown) => {
+				Toaster.error(errMsg(e, t('settings.invites.createFailed')));
+				return false;
+			});
 
 	// Role assignment and the invite flow are app-api round trips. Renaming an actor is a vault
 	// command and stays available offline, so its IconButton is deliberately not gated.
@@ -379,6 +395,8 @@ export function SettingsPlayers() {
 				cloudReady={cloudReady}
 				createOpen={inviteOpen}
 				onCloseCreate={() => setInviteOpen(false)}
+				campaign={campaignNameOf(runtime.state.commandCenter)}
+				onNameCampaign={nameCampaign}
 			/>
 		</div>
 	);

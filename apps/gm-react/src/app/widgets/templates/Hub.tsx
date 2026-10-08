@@ -132,7 +132,12 @@ function HubBody({
 	if (kind === 'hero') {
 		const first = rows[0];
 		const live = !!first?.active;
-		const party = data.queries.find((q) => q.source === 'party' && !q.withheld)?.rows ?? [];
+		// The party's PCs, then the seated players with no character yet (RC-UX-6.2: the resume rows
+		// after the first).
+		const party = [
+			...(data.queries.find((q) => q.source === 'party' && !q.withheld)?.rows ?? []),
+			...(query?.source === 'resume' ? rows.slice(1) : []),
+		];
 		const eyebrow = text(cfgText(widget, live ? 'liveEyebrow' : 'eyebrow'));
 		// The row may name which declared intent its target takes (the resume source does).
 		const primary = intents.find((intent) => intent.id === first?.meta) ?? intents[0];

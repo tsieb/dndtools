@@ -1,4 +1,5 @@
 import {
+	CHARACTER_ENTITY_TYPE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	campaignNameOf,
 	getContentItemsForActor,
@@ -6,6 +7,7 @@ import {
 	listCharactersForActor,
 	listMapsForActor,
 	listScenesForActor,
+	singularGrantsOnEntity,
 	type Actor,
 	type CoreStateSlice,
 } from '@dndtools/core';
@@ -40,6 +42,24 @@ interface HomeSourceResult {
 
 /** The intent the hero's primary follows for each resume outcome (`WidgetDataRow.meta`). */
 export type ResumeIntentId = 'enter-gm-screen' | 'enter-scene' | 'open-scene' | 'open-library';
+
+/**
+ * RC-UX-6.2 — the seated players who own no player character yet: a party named in Settings › Players
+ * before anyone has a sheet. Once a player owns a PC, the party source draws that PC instead.
+ */
+function playersWithoutCharacter(state: CoreStateSlice): Actor[] {
+	const owners = new Set(
+		Object.values(state.characters.characters)
+			.filter((character) => character.kind === 'pc')
+			.flatMap((character) =>
+				singularGrantsOnEntity(state.permissions.grants, CHARACTER_ENTITY_TYPE, character.id),
+			)
+			.map((grant) => grant.playerActorId),
+	);
+	return Object.values(state.permissions.actors).filter(
+		(seat) => seat.role === 'player' && !owners.has(seat.id),
+	);
+}
 
 function tableScenes(state: CoreStateSlice, actorId: string) {
 	return listScenesForActor(state.scenes, state.permissions, actorId).filter(
@@ -96,6 +116,18 @@ export function resolveHomeSource(
 						meta,
 						active: live,
 					},
+					// The rows after the hero row are the seated players with no character, which the hero
+					// draws as avatars after the party's PCs (RC-UX-6.2).
+					...playersWithoutCharacter(state).map((seat) => ({
+						id: seat.id,
+						primary: seat.displayName,
+						avatar: seat.displayName
+							.split(/\s+/)
+							.filter(Boolean)
+							.slice(0, 2)
+							.map((word) => word[0]?.toUpperCase() ?? '')
+							.join(''),
+					})),
 				],
 			};
 		}
