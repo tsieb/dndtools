@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	SESSION_SCREEN_DEFAULT_KEY,
+	SESSION_PANEL_VIEWS,
 	SESSION_SCREEN_PARTS,
-	SESSION_WIDGET_TYPES,
-	createSessionWidgetDefinitions,
 	dispatchCommand,
 	findHomeScreen,
 	findSessionScreen,
@@ -16,7 +15,6 @@ import {
 	type CoreStateSlice,
 	type Scene,
 } from '../src';
-import { widgetPackageDefinitionSchema } from '../src/schemas/widget-package';
 import {
 	DM_ACTOR,
 	PLAYER_ACTOR,
@@ -121,7 +119,7 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		const env = makeEnvironment();
 		const first = ensure(buildInitialState(DM_ACTOR), env).nextState;
 		const screen = sessionScreen(first);
-		const schedule = screen.widgets.find((widget) => widget.type === 'session-schedule')!;
+		const schedule = screen.widgets.find((widget) => widget.configuration.view === 'schedule')!;
 		const customised = accept(
 			dispatchCommand(first, env, {
 				type: 'scene.destroy-widget',
@@ -134,9 +132,9 @@ describe('RC-CAN-7.8 the Session screen', () => {
 
 		expect(again.operationIds).toHaveLength(0);
 		expect(again.nextState).toBe(customised);
-		expect(sessionScreen(again.nextState).widgets.map((widget) => widget.type)).not.toContain(
-			'session-schedule',
-		);
+		expect(
+			sessionScreen(again.nextState).widgets.map((widget) => widget.configuration.view),
+		).not.toContain('schedule');
 	});
 
 	it('a player cannot list or read the GM-only Session screen', () => {
@@ -180,25 +178,27 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		expect([view('session'), view('combat'), view('dice')]).toEqual(['strip', 'glance', 'quick']);
 	});
 
-	it('its panels are builtin system definitions the schema accepts, and stay locked', () => {
-		const definitions = createSessionWidgetDefinitions();
-		expect(definitions.map((definition) => definition.type)).toEqual([...SESSION_WIDGET_TYPES]);
-		const parsed = widgetPackageDefinitionSchema.safeParse({
-			id: 'system.session-widgets',
-			version: '1.0.0',
-			displayName: 'Session Widgets',
-			widgets: definitions,
-			migrations: [],
-			assets: [],
-			portabilityWarnings: [],
-		});
-		expect(parsed.success).toBe(true);
-		for (const definition of definitions) {
-			expect(definition.renderEntrypoint?.runtime).toBe('builtin');
-			expect(definition.placement).toEqual({ surfaces: ['scene'], libraryListed: false });
-			expect(definition.configFields?.find((field) => field.key === 'presentation')?.default).toBe(
-				'bare',
-			);
+	it('every row is a view of a builtin widget, and the views are the GM’s to change', () => {
+		const { nextState } = ensure(buildInitialState(DM_ACTOR), makeEnvironment());
+		const screen = sessionScreen(nextState);
+		// The status row and the right-hand column are `session` views, each named for its row.
+		const sessionViews = screen.widgets
+			.filter((widget) => widget.type === 'session')
+			.map((widget) => widget.configuration.view);
+		expect(sessionViews).toEqual(['console', ...SESSION_PANEL_VIEWS.map(({ view }) => view)]);
+		expect(new Set(screen.widgets.map((widget) => widget.configuration.title)).size).toBe(
+			screen.widgets.filter((widget) => widget.type === 'session').length + 1,
+		);
+		// Every view the screen uses is one the Inspector offers ("Shows").
+		const options = (type: string) =>
+			findWidgetDefinition(nextState.widgets, type)
+				?.configFields?.find((field) => field.key === 'view')
+				?.options?.map((option) => option.value) ?? [];
+		for (const widget of screen.widgets)
+			expect(options(widget.type), widget.type).toContain(widget.configuration.view);
+		for (const type of ['session', 'combat', 'dice']) {
+			const definition = findWidgetDefinition(nextState.widgets, type)!;
+			expect(definition.renderEntrypoint?.runtime === 'builtin' || type === 'dice').toBe(true);
 			// A copy under a new type would lose the hand-written body, so a GM cannot fork one.
 			expect(isCopyableSystemWidget(definition)).toBe(false);
 		}

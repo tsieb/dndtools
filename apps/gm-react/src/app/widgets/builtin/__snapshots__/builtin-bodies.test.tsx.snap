@@ -36,26 +36,6 @@ exports[`every system widget type has a body > search renders a body the DM can 
 
 exports[`every system widget type has a body > session renders a body the DM can read 1`] = `"PhaseActiveTurnBrannor1 playerSilent"`;
 
-exports[`every system widget type has a body > session-campaign-date renders a body the DM can read 1`] = `"Campaign dateCreate a campaign calendar before setting a date.Define a calendar"`;
-
-exports[`every system widget type has a body > session-capture renders a body the DM can read 1`] = `"End-of-session captureNo archived sessions yet. Ending a live session into Recap creates one to capture."`;
-
-exports[`every system widget type has a body > session-handouts renders a body the DM can read 1`] = `"HandoutsHandout titleWhat the players readPush to playersNo handouts delivered yet."`;
-
-exports[`every system widget type has a body > session-now-playing renders a body the DM can read 1`] = `"Now playingNothing playing. Start ambience from the Audio library."`;
-
-exports[`every system widget type has a body > session-party renders a body the DM can read 1`] = `"PartyYsoldeNo hit points recorded"`;
-
-exports[`every system widget type has a body > session-prep-recap renders a body the DM can read 1`] = `"Prep & recapCarry into the sessionCombat is running (round 1); review before resuming.10 recent changes to review.Session archivesNo archived sessions yet. Ending a live session into Recap creates one here."`;
-
-exports[`every system widget type has a body > session-roster renders a body the DM can read 1`] = `"Table rosterNo live table yet. Use Host in the top bar to open your table — players appear here as they connect."`;
-
-exports[`every system widget type has a body > session-schedule renders a body the DM can read 1`] = `"Schedule next sessionGoogle Calendar scheduling isn’t set up for this install. A one-time Google Cloud setup enables it — see the guide at docs/runbooks/google-oauth-setup.md."`;
-
-exports[`every system widget type has a body > session-stage renders a body the DM can read 1`] = `"StageActive mapWhat you stage for the table.— none —Old millProject to playersPlayer viewsTest Player— none —Command Center"`;
-
-exports[`every system widget type has a body > session-tables renders a body the DM can read 1`] = `"Rollable tablesNo rollable tables yet.A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."`;
-
 exports[`every system widget type has a body > timer renders a body the DM can read 1`] = `"1:00 Start"`;
 
 exports[`every system widget type has a body > tools renders a body the DM can read 1`] = `"Widgets7Layouts0Save a layout from the DM screen toolbar to restore it later."`;

@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	CORE_NAMED_WIDGET_COMMANDS,
-	SESSION_WIDGET_TYPES,
 	WIDGET_DATA_QUERY_SOURCES,
 	WIDGET_INTENT_ROUTES,
 	dispatchCommand,
@@ -128,11 +127,11 @@ describe('builder parity gate: the debt ledger', () => {
 			const type = debt.finding.slice(0, debt.finding.indexOf(':'));
 			if (debt.finding.endsWith('is not byte-identical'))
 				expect(debt.repaidBy, debt.finding).toBe('RC-WID-5.6');
-			// RC-CAN-7.8: the Session screen's own panels are repaid by the Session surface story; the
-			// views it added to `session`, `combat` and `dice` are too, beside their older board debt.
-			else if ((SESSION_WIDGET_TYPES as readonly string[]).includes(type))
-				expect(debt.repaidBy, debt.finding).toBe('RC-WID-5.13');
-			else expect(['RC-WID-5.7', 'RC-WID-5.13'], debt.finding).toContain(debt.repaidBy);
+			// RC-CAN-7.8: the Session screen's rows are views of `session`, `combat` and `dice`; their debt
+			// is the Session surface story's, beside those widgets' older board debt.
+			else if (debt.repaidBy === 'RC-WID-5.13')
+				expect(['session', 'combat', 'dice'], debt.finding).toContain(type);
+			else expect(debt.repaidBy, debt.finding).toBe('RC-WID-5.7');
 		}
 	});
 

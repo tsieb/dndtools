@@ -17,17 +17,6 @@ import { NotesBody } from './NotesBody';
 import { PlayerViewsBody } from './PlayerViewsBody';
 import { SearchBody } from './SearchBody';
 import { SessionBody } from './SessionBody';
-import { SessionTablesBody } from './SessionTablesBody';
-import { SessionHandoutsBody } from './SessionHandoutsBody';
-import { SessionNowPlayingBody } from './SessionNowPlayingBody';
-import { SessionStageBody } from './SessionStageBody';
-import { SessionCampaignDateBody } from './SessionCampaignDateBody';
-import { SessionPrepRecapBody } from './SessionPrepRecapBody';
-import { SessionCaptureBody } from './SessionCaptureBody';
-import { SessionRosterBody } from './SessionRosterBody';
-import { SessionPartyBody } from './SessionPartyBody';
-import { SessionRestsBody } from './SessionRestsBody';
-import { SessionScheduleBody } from './SessionScheduleBody';
 import { ToolsBody } from './ToolsBody';
 
 export type { WidgetCommandHandler } from '../../widget-body-kit';
@@ -86,19 +75,6 @@ export const BUILTIN_WIDGET_TYPES = [
 	'combat',
 	'notes',
 	'search',
-	// RC-CAN-7.8 — the Session screen's panels (`SESSION_WIDGET_TYPES`). The session status, combat
-	// tracker and dice tray are views of `session`, `combat` and `dice` above.
-	'session-tables',
-	'session-handouts',
-	'session-now-playing',
-	'session-stage',
-	'session-campaign-date',
-	'session-prep-recap',
-	'session-capture',
-	'session-roster',
-	'session-party',
-	'session-rests',
-	'session-schedule',
 ] as const;
 
 /**
@@ -184,6 +160,7 @@ export function WidgetBody({
 		case 'prep':
 			return <ListBody widget={widget} kind="note" unit="widgetBody.list.unitNotes" />;
 		case 'session':
+			// RC-CAN-7.8 — the body draws the view its `view` setting picks (the Session screen's rows).
 			return <SessionBody widget={widget} />;
 		case 'getting-started':
 			return <GettingStartedBody />;
@@ -198,33 +175,12 @@ export function WidgetBody({
 		case 'player-views':
 			return <PlayerViewsBody />;
 		case 'combat':
+			// RC-CAN-7.8 — the tracker view binds its bare-key model only in view mode.
 			return <CombatBody widget={widget} interactive={!!onCommand} />;
 		case 'notes':
 			return <NotesBody widget={widget} />;
 		case 'search':
 			return <SearchBody />;
-		case 'session-tables':
-			return <SessionTablesBody />;
-		case 'session-handouts':
-			return <SessionHandoutsBody />;
-		case 'session-now-playing':
-			return <SessionNowPlayingBody />;
-		case 'session-stage':
-			return <SessionStageBody />;
-		case 'session-campaign-date':
-			return <SessionCampaignDateBody />;
-		case 'session-prep-recap':
-			return <SessionPrepRecapBody />;
-		case 'session-capture':
-			return <SessionCaptureBody />;
-		case 'session-roster':
-			return <SessionRosterBody />;
-		case 'session-party':
-			return <SessionPartyBody />;
-		case 'session-rests':
-			return <SessionRestsBody />;
-		case 'session-schedule':
-			return <SessionScheduleBody />;
 		default:
 			// Unreachable through `resolveWidgetRenderer` (it only picks `builtin` for a type in
 			// BUILTIN_WIDGET_TYPES); kept so a direct caller degrades to the description rather than

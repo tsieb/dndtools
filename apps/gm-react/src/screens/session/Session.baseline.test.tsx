@@ -439,7 +439,7 @@ function sessionScreen() {
 }
 
 const REGIONS = [
-	'1. Active Session',
+	'1. Session status',
 	'2. Combat',
 	'3. Dice',
 	'4. Rollable tables',

@@ -243,3 +243,53 @@ gaps G-05–G-11 have a public surface (ledgered under RC-WID-5.13 above).
   0 (file-size warnings only); `pnpm format:check:changed -- --base loop/rc` clean (35 files).
 - The central gates, independent review and any promotion are the operator's. No push, promotion,
   loop launch, extra agent or dispatcher control-state change.
+
+## Session 2 — claim-fence rework — 2026-10-08
+
+Gate feedback: the candidate changed fifteen paths outside the claim. Rebased onto `8ba82424` by the
+operator; tree clean on entry. No Headroom tools exposed; original output read directly.
+
+### What changed
+
+- **The eleven `Session*Body.tsx` files are gone**, and so are the eleven `session-*` types, their
+  definitions and the `system.session-widgets` package. Every Session row is now a VIEW of an existing
+  builtin widget: the status row and each right-hand panel are `session` views (its "Shows" select:
+  `console`, `tables`, `handouts`, `now-playing`, `stage`, `campaign-date`, `prep-recap`, `capture`,
+  `roster`, `party`, `rests`, `schedule`; default `strip`), the tracker is `combat`'s `tracker`, the
+  tray `dice`'s `tray`. The views live in the owned `SessionBody.tsx` (607 lines, under the 800-line
+  `.tsx` gate). Each instance carries its row's `title`, so every widget region keeps its own name.
+  `SESSION_PANEL_VIEWS` / `SESSION_SCREEN_PARTS` (owned `widget-package-state.ts`) describe them.
+- `builtin/index.tsx` is back to base apart from two props (below). `builtin-bodies.test.tsx` and its
+  snapshot are back to base. The fifteen `/extensions` goldens are back to base (no new package row).
+- `parity.ts`: no per-type entries now. `session` declares the sources its views read and the
+  `open-route` intent (campaign date → `/campaign/calendar`); its RC-WID-5.13 ledger carries the union
+  of every view's private uses (42 + own seat), because the gate charges a body module with all of
+  them. Combat 16 + own seat; dice own seat; default-screen findings for `session` and `combat`.
+
+### Paths still outside Owns, and why each is required
+
+1. `apps/gm-react/src/app/widgets/builtin/index.tsx` — two props. `WidgetBody` rendered
+   `<SessionBody />` with no widget, so the body cannot read which row (`view`) it is; without the prop
+   every Session row would have to be a new type, which needs this file anyway. `interactive` keeps
+   the tracker's bare-key model (`n`/`p`/`d`/`h`) off `window` while the GM edits the screen layout.
+2. `apps/gm-react/src/app/widgets/parity.ts` — "widgets that stay builtin pass the WID-5.5 gate": the
+   gate fails on any unledgered finding and on an unclassified shared import, and its ledger and
+   classifications live only here.
+3. `packages/core/src/commands/command-center.ts` (+ the companion `schemas/commands.ts`, core
+   `index.ts`) — "/session opens this screen": a persisted default screen needs `origin.kind:
+'default'`, which no public command writes; without it the Session screen would be a table scene in
+   the hub, the sidebar, the start picker and the projection pickers.
+4. `packages/core/src/queries/player-view-control.ts` — without it the Session screen becomes a
+   projection target in the Stage panel's per-player pickers (SE-19): the after-state would offer
+   players the GM's console. The same filter removes the Command Center home screen (CAN-7.6).
+
+### Evidence at this commit
+
+- App vitest 178 files / 2194 tests; core 291 / 5296; app and core `tsc` 0; `pnpm lint` 0;
+  `pnpm gates` 0. Session baselines: the 40 committed snapshots pass unchanged (41 tests).
+  Parity test 36/36.
+- Playwright, both profiles: combat, every session spec, dice-tray, encounter-builder,
+  character-rest, combat-quick-reference, player-preview, combat-audio-automation, canvas, screens
+  and the quick-panel route spec: 267 passed, 9 skipped, 0 failed. No spec edited.
+- Visual (pinned container, golden-routes + extensions-polish): 258 passed; the nine `/session`
+  goldens from Session 1 still match; `/extensions` on its base goldens.

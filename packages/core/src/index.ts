@@ -580,7 +580,6 @@ export type {
 	HomeWidgetType,
 	SessionScreenLane,
 	SessionScreenPart,
-	SessionWidgetType,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -647,9 +646,8 @@ export {
 	createHomeWidgetDefinitions,
 	isCopyableSystemWidget,
 	// RC-CAN-7.8 — the Session screen's widgets.
+	SESSION_PANEL_VIEWS,
 	SESSION_SCREEN_PARTS,
-	SESSION_WIDGET_TYPES,
-	createSessionWidgetDefinitions,
 } from './state/widget-package-state';
 export type {
 	WidgetCommandAvailability,

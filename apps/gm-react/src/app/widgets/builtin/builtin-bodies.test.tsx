@@ -2,11 +2,9 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	HOME_WIDGET_TYPES,
-	SESSION_WIDGET_TYPES,
 	createSystemWidgetPackages,
 	dispatchCommand,
 	type CoreCommand,
@@ -51,13 +49,6 @@ vi.mock('../../../runtime/RuntimeContext', () => ({
 vi.mock('../../../platform/assetUrl', () => ({
 	useAssetObjectUrl: () => null,
 	createAssetObjectUrl: async () => null,
-}));
-
-// RC-CAN-7.8 — the table roster reads the live P2P table, which the app's SessionProvider owns. This
-// device is not hosting.
-vi.mock('../../../net/SessionContext', async (importOriginal) => ({
-	...(await importOriginal<typeof import('../../../net/SessionContext')>()),
-	useSession: () => ({ role: 'none', peers: [] }),
 }));
 
 // Imported after the mocks so the bodies pick them up.
@@ -207,23 +198,13 @@ function renderBody(definition: WidgetDefinition, actorId: string = DM_ACTOR.id)
 	runtimeRef.defaultActorId = actorId;
 	act(() =>
 		root.render(
-			// The app's router: the campaign date links to the calendar, the tracker takes a create intent.
-			<MemoryRouter>
-				<I18nProvider>
-					<WidgetBody widget={boardWidget(definition)} />
-				</I18nProvider>
-			</MemoryRouter>,
+			<I18nProvider>
+				<WidgetBody widget={boardWidget(definition)} />
+			</I18nProvider>,
 		),
 	);
 	return container.textContent ?? '';
 }
-
-// RC-CAN-7.8 — the Session screen's panels are whole panels (a heading, controls, their own status
-// regions), held to the Session console's baselines (`screens/session/Session.baseline.test.tsx`)
-// rather than to the one-value tile readout contract below. The rest timeline draws nothing until a
-// rest is taken (SCREENS_PARITY SE-25), and the Session screen leaves it out of the layout.
-const SESSION_PANELS: ReadonlySet<string> = new Set(SESSION_WIDGET_TYPES);
-const DRAWS_NOTHING_WHEN_EMPTY: ReadonlySet<string> = new Set(['session-rests']);
 
 describe('every system widget type has a body', () => {
 	it('declares a builtin body for each shipped system widget type', () => {
@@ -236,16 +217,15 @@ describe('every system widget type has a body', () => {
 		expect(BUILTIN_WIDGET_TYPES.filter((type) => !shipped.has(type))).toEqual([]);
 	});
 
-	it.each(
-		SYSTEM_DEFINITIONS.filter((d) => !DRAWS_NOTHING_WHEN_EMPTY.has(d.type)).map(
-			(d) => [d.type, d] as const,
-		),
-	)('%s renders a body the DM can read', (type, definition) => {
-		const text = renderBody(definition);
-		// A body that renders nothing at all is the failure this story exists to remove.
-		expect(text.trim()).not.toBe('');
-		expect(text).toMatchSnapshot();
-	});
+	it.each(SYSTEM_DEFINITIONS.map((d) => [d.type, d] as const))(
+		'%s renders a body the DM can read',
+		(type, definition) => {
+			const text = renderBody(definition);
+			// A body that renders nothing at all is the failure this story exists to remove.
+			expect(text.trim()).not.toBe('');
+			expect(text).toMatchSnapshot();
+		},
+	);
 });
 
 describe('Command Center bodies stay actor-scoped', () => {
@@ -381,9 +361,7 @@ describe('the widget accessibility contract', () => {
 	const NO_READOUT = new Set(['note', 'handout', 'map', 'quick-reference']);
 
 	it.each(
-		SYSTEM_DEFINITIONS.filter((d) => !NO_READOUT.has(d.type) && !SESSION_PANELS.has(d.type)).map(
-			(d) => [d.type, d] as const,
-		),
+		SYSTEM_DEFINITIONS.filter((d) => !NO_READOUT.has(d.type)).map((d) => [d.type, d] as const),
 	)('%s reads its value out through a polite live region', (_type, definition) => {
 		renderBody(definition);
 		const region = container.querySelector(LIVE);
