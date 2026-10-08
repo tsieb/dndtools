@@ -121,3 +121,12 @@ pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.
 pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/command-center-polish.spec.ts tests/e2e/scene-cards.spec.ts --project=desktop-chromium --project=mobile-chromium --workers=2
 bash apps/gm-react/tests/visual/run-in-container.sh command-center-polish.spec.ts golden-routes.spec.ts -g 'Command Center| /$| /session$' --update-snapshots=none --workers=2
 ```
+
+### Operator visual capture timeout follow-up
+
+The operator's pinned run `63ead1f4-37a7-4ac3-809f-561e40d47858` at `dae9de53` completed **530 passed, 1 failed** (16.7 minutes). Exact original diagnostics were retrieved through Headroom. Its only failure was `visual-rail / graph polish — scholar`: `graph-selected--scholar.png` exhausted the five-second screenshot timeout after fonts loaded. No pixel mismatch was reported; all Command Center, home/session, and shell/palette captures passed. This is outside the changed surface and does not justify changing Graph code, baselines, or screenshot tolerances. Follow-up: the unchanged pinned Graph spec passed **15/15** (39.2 seconds), all five themes on the rail tier repeated three times with updates disabled. The unchanged rail large-text regression passed **2/2** on desktop/mobile profiles (20.6 seconds). Exact original results were retrieved through Headroom. No source, test, baseline or tolerance changes are warranted by this timeout; this follow-up changes only the journal. The operator full-run failure remains recorded separately from the successful focused repeats.
+
+```sh
+bash apps/gm-react/tests/visual/run-in-container.sh graph-polish.spec.ts --project=visual-rail --repeat-each=3 --update-snapshots=none --workers=2
+pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.ts -g '200% large text keeps every route whole on the rail tier' --project=desktop-chromium --project=mobile-chromium --workers=2
+```
