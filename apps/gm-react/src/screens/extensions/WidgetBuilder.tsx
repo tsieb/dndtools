@@ -7,7 +7,7 @@ import {
 	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Badge, Button, Dialog, IconButton, Toaster } from '../../ds';
+import { Badge, Button, IconButton, Toaster } from '../../ds';
 import { Seg, T } from '../../app/screen-kit';
 import { useViewport } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -32,8 +32,13 @@ import {
 	type WidgetDraft,
 } from '../../app/widgetBuilder/draft';
 import { firstBlockedStep, validateDraft } from '../../app/widgetBuilder/validate';
+import { QuickBuilder } from '../../app/widgetBuilder/QuickBuilder';
 import { BuilderPreview } from '../../app/widgetBuilder/BuilderPreview';
-import { BuilderStepRail, DefinitionPane } from '../../app/widgetBuilder/BuilderPanes';
+import {
+	BuilderDraftDialogs,
+	BuilderStepRail,
+	DefinitionPane,
+} from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
 import { LayoutStep } from '../../app/widgetBuilder/LayoutStep';
 import { DataStep } from '../../app/widgetBuilder/DataStep';
@@ -133,6 +138,10 @@ export function WidgetBuilder({
 	const [step, setStep] = useState<BuilderStepId>(
 		initialStep ?? (!editPackage && generatedPackage ? 'review' : 'identity'),
 	);
+	// Board/gallery creation starts Quick; Extensions, edits and generated drafts stay Full.
+	const [quick, setQuick] = useState(
+		!!onInstalled && !initialDraft && !editPackage && !generatedPackage,
+	);
 	const [pane, setPane] = useState<'edit' | 'preview' | 'json'>('edit');
 	const [busy, setBusy] = useState(false);
 	const [rejection, setRejection] = useState<string | null>(null);
@@ -226,6 +235,7 @@ export function WidgetBuilder({
 
 	// Dialog semantics: isolate the app behind the overlay, focus the shell, restore the opener.
 	useEffect(() => {
+		if (quick) return;
 		const opener = document.activeElement as HTMLElement | null;
 		const root = rootRef.current;
 		const restoreIsolation = root ? isolateModalSiblings(root) : () => {};
@@ -234,13 +244,14 @@ export function WidgetBuilder({
 			restoreIsolation();
 			opener?.focus?.();
 		};
-	}, []);
+	}, [quick]);
 
 	// One Tab cycle inside the overlay (the app shell stays mounted underneath), plus Escape. Heard
 	// on the overlay itself, so a host that fences its React tree off from the builder's events (a
 	// tile's "Edit widget", RC-WID-6.6) still delivers them, and on the document only for a key
 	// pressed outside it (a toast's Dismiss), which is pulled back in.
 	useEffect(() => {
+		if (quick) return;
 		const onKey = (e: KeyboardEvent) => {
 			if (yieldKeysRef.current) return;
 			if (e.key === 'Escape') {
@@ -283,7 +294,7 @@ export function WidgetBuilder({
 			root?.removeEventListener('keydown', onKey);
 			document.removeEventListener('keydown', onOutside);
 		};
-	}, []);
+	}, [quick]);
 
 	// RC-UX-6.4 — below its complexity-map gate the stepper skips Advanced (custom code, host
 	// access); `shownBuilderSteps` keeps it whenever the draft already has something there.
@@ -396,6 +407,50 @@ export function WidgetBuilder({
 			{children}
 		</div>
 	);
+
+	const dialogs = (
+		<>
+			{reviewing && (
+				<TrustReviewSheet packageId={reviewing.id} onClose={() => afterReview(reviewing)} />
+			)}
+			<BuilderDraftDialogs
+				keptName={kept ? draftName(kept.draft) : null}
+				leaving={leaving}
+				name={draftName(draft)}
+				onStartOver={() => {
+					forgetDraft();
+					setKept(null);
+				}}
+				onResume={() => {
+					if (!kept) return;
+					setQuick(false);
+					setDraft(resumeDraft(baseline, kept.draft));
+					setStep(kept.step);
+					setKept(null);
+				}}
+				onCancelLeave={() => setLeaving(false)}
+				onLeave={leave}
+			/>
+		</>
+	);
+	if (quick)
+		return (
+			<QuickBuilder
+				draft={draft}
+				onChange={patch}
+				onMore={(next) => {
+					setQuick(false);
+					goToStep(next);
+				}}
+				onAdd={submit}
+				onClose={requestClose}
+				busy={busy}
+				blocked={!canWrite || issues.length > 0}
+				error={rejection}
+			>
+				{dialogs}
+			</QuickBuilder>
+		);
 
 	return (
 		<div
@@ -566,59 +621,7 @@ export function WidgetBuilder({
 				{(!narrow || pane === 'json') &&
 					column(jsonPane, narrow ? undefined : { borderLeft: `1px solid ${T.bd}` })}
 			</div>
-			{reviewing && (
-				<TrustReviewSheet packageId={reviewing.id} onClose={() => afterReview(reviewing)} />
-			)}
-			{/* RC-WID-6.6 — resume is a forced choice on open; Keep or Discard's Escape means "not yet". */}
-			<Dialog
-				open={kept !== null}
-				size="sm"
-				dismissible={false}
-				title={t('extensions.builder.resumeTitle')}
-				description={t('extensions.builder.resumeBody', { name: draftName(kept?.draft) })}
-				footer={
-					<>
-						<Button
-							variant="secondary"
-							onClick={() => {
-								forgetDraft();
-								setKept(null);
-							}}
-						>
-							{t('extensions.builder.startOver')}
-						</Button>
-						<Button
-							variant="primary"
-							onClick={() => {
-								if (!kept) return;
-								setDraft(resumeDraft(baseline, kept.draft));
-								setStep(kept.step);
-								setKept(null);
-							}}
-						>
-							{t('extensions.builder.resumeDraft')}
-						</Button>
-					</>
-				}
-			/>
-			<Dialog
-				open={leaving}
-				size="sm"
-				tone="warning"
-				onClose={() => setLeaving(false)}
-				title={t('extensions.builder.keepTitle')}
-				description={t('extensions.builder.keepBody', { name: draftName(draft) })}
-				footer={
-					<>
-						<Button variant="danger" onClick={() => leave(true)}>
-							{t('extensions.builder.discardDraft')}
-						</Button>
-						<Button variant="primary" onClick={() => leave(false)}>
-							{t('extensions.builder.keepDraft')}
-						</Button>
-					</>
-				}
-			/>
+			{dialogs}
 		</div>
 	);
 }

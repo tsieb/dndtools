@@ -18,7 +18,19 @@ If a tile says its content is missing or unavailable, check the selected content
 
 ## Build a widget
 
-Open **Extensions → Plugins → Build a widget**. Work through identity, layout, data, configuration, commands, and style, using the preview as you go. Review the result before installing. Start with a template for a tracker or information panel; use Advanced only when you intend to supply custom code.
+There are two tracks, and both make the same editable widget package.
+
+**Quick** opens from the Command Center’s **New widget** or the screen gallery’s **Build your own**. It stays on your screen and asks three questions:
+
+1. **What is it?** Choose Party list, Counter or clock, Table of things, Note for the table, Buttons, Stat block, Chart, or Form.
+2. **Show what?** Pick the characters or other data, a note, the number and range, or buttons. The preview uses your vault. A note copies its current text into the message; later edits to the source note do not change that copy.
+3. **Done.** Keep the suggested name or change it, choose **Players can see this**, then **Add to screen**. Player visibility respects the underlying data permissions. Party lists and counters work in Standby, without starting a session. Use the counter’s **Configure…** menu to change its count or range.
+
+**More options** continues in the Full builder at the relevant step, keeping everything you have entered. Exporting and importing a Quick widget uses the same package format as Full.
+
+**Full** opens from **Extensions → Plugins → Build a widget**. Work through identity, layout, data, configuration, commands, and style, using the preview as you go. Review the result before installing. Start with a template for a tracker or information panel; use Advanced only when you intend to supply custom code.
+
+The keyboard works throughout: Tab reaches every recipe and control; Enter chooses a recipe or advances. Escape offers to keep or discard an unfinished draft. A kept draft resumes in Full.
 
 ## Review a package
 
@@ -41,3 +53,9 @@ or release-installation checks were run for this guide.
 Additional source check: 2026-09-20, task baseline `45f59ee4` (app 0.3.7).
 
 - [WorkerHost.ts](../../apps/gm-react/src/app/widgets/WorkerHost.ts)
+
+Quick track source check: 2026-10-08, task base `9752d983`.
+
+- [QuickBuilder.tsx](../../apps/gm-react/src/app/widgetBuilder/QuickBuilder.tsx)
+- [quickRecipes.ts](../../apps/gm-react/src/app/widgetBuilder/quickRecipes.ts)
+- [widget-quick-builder.spec.ts](../../apps/gm-react/tests/e2e/widget-quick-builder.spec.ts)

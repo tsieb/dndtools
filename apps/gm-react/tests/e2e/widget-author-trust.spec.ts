@@ -70,7 +70,7 @@ function counter() {
 const gallery = (page: Page) => page.getByTestId('add-widget-gallery');
 const builder = (page: Page) => page.getByRole('dialog', { name: /Widget builder/ });
 
-test('Add → Build your own → name, template, source → Install places the tile in 8 clicks', async ({
+test('Full builder from Quick still installs and places an author-trusted template', async ({
 	page,
 }) => {
 	const route = await editBoard(page);
@@ -78,7 +78,9 @@ test('Add → Build your own → name, template, source → Install places the t
 
 	await gm.click(page.getByRole('button', { name: 'Add', exact: true }));
 	await gm.click(gallery(page).getByRole('button', { name: 'Build your own' }));
+	await gm.click(page.getByTestId('quick-builder').getByRole('button', { name: 'More options' }));
 	const dialog = builder(page);
+	await gm.click(dialog.getByRole('button', { name: 'Identity', exact: true }));
 	await expect(dialog).toBeVisible();
 	await dialog.getByLabel('Name', { exact: true }).fill('Party HP');
 	await gm.click(dialog.getByRole('button', { name: 'Data', exact: true }));
@@ -88,7 +90,7 @@ test('Add → Build your own → name, template, source → Install places the t
 	await gm.click(dialog.getByRole('button', { name: 'Review', exact: true }));
 	await gm.click(dialog.getByRole('button', { name: 'Install widget' }));
 
-	expect(gm.count).toBeLessThanOrEqual(8);
+	expect(gm.count).toBeLessThanOrEqual(10);
 	await expect(dialog).toHaveCount(0);
 	// No trust sheet and no Extensions: the board is still the route.
 	await expect(page.getByRole('dialog', { name: /^Review / })).toHaveCount(0);
@@ -128,7 +130,9 @@ test('a custom-code build still ends in the trust sheet, which allows and enable
 	const route = await editBoard(page);
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await gallery(page).getByRole('button', { name: 'Build your own' }).click();
+	await page.getByTestId('quick-builder').getByRole('button', { name: 'More options' }).click();
 	const dialog = builder(page);
+	await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
 	await dialog.getByLabel('Name', { exact: true }).fill('Torch card');
 	await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
 	await dialog.getByRole('radio', { name: 'Custom HTML and JavaScript' }).click();

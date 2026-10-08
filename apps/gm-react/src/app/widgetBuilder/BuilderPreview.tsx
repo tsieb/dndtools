@@ -243,7 +243,7 @@ export function BuilderPreview({ draft }: { draft: WidgetDraft }) {
 						{plan.kind === 'custom' ? (
 							<SandboxHost widget={widget} previewPackage={pkg} />
 						) : plan.kind === 'template' ? (
-							<TemplateKindProvider kind={kind}>
+							<TemplateKindProvider kind={kind} keyboardScrollable>
 								<Template widget={widget} definition={definition} data={data} />
 							</TemplateKindProvider>
 						) : plan.kind === 'builtin' ? (

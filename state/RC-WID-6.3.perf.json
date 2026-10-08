@@ -1,0 +1,56 @@
+{
+	"base": "9752d983e0afed13f0ac62a6996560852a63fad5",
+	"candidate": "task working tree before commit",
+	"capturedAt": "2026-10-08T11:16:10.843Z",
+	"aggregation": "median-of-batches-v1",
+	"reference": {
+		"budgetId": "scene-first-render",
+		"samples": [
+			1866.4, 1634.9, 1625.6, 1527.7, 1558.2, 1527, 1387.5, 1311.4, 1273.6, 1299.1, 1483.3, 1383.3,
+			1301.2, 1265.9, 1234.7, 1230.3, 1225.8, 1202.5, 1212.2, 1227.3, 1205.5
+		],
+		"scenario": "Cold context → /board → home scene widgets painted on the bounded GM Screen.",
+		"fixture": "Demo-seeded home scene, 7 painted widgets (budget dataset: 50 widgets / 10 active bindings)",
+		"profile": "desktop",
+		"repetitions": [
+			[1866.4, 1634.9, 1625.6],
+			[1527.7, 1558.2, 1527],
+			[1387.5, 1311.4, 1273.6],
+			[1299.1, 1483.3, 1383.3],
+			[1301.2, 1265.9, 1234.7],
+			[1230.3, 1225.8, 1202.5],
+			[1212.2, 1227.3, 1205.5]
+		]
+	},
+	"candidateMeasurement": {
+		"budgetId": "scene-first-render",
+		"samples": [
+			1520.2, 1613.4, 1557, 1607.1, 1491.8, 1488.7, 1300, 1401.9, 1622.9, 1338.5, 1450.1, 1365.1,
+			1258.4, 1287.3, 1332.8, 1230.9, 1229.5, 1211.6, 1283.7, 1201.7, 1211.2
+		],
+		"scenario": "Cold context → /board → home scene widgets painted on the bounded GM Screen.",
+		"fixture": "Demo-seeded home scene, 7 painted widgets (budget dataset: 50 widgets / 10 active bindings)",
+		"profile": "desktop",
+		"repetitions": [
+			[1520.2, 1613.4, 1557],
+			[1607.1, 1491.8, 1488.7],
+			[1300, 1401.9, 1622.9],
+			[1338.5, 1450.1, 1365.1],
+			[1258.4, 1287.3, 1332.8],
+			[1230.9, 1229.5, 1211.6],
+			[1283.7, 1201.7, 1211.2]
+		]
+	},
+	"comparison": {
+		"budgetId": "scene-first-render",
+		"verdict": "steady",
+		"observedValue": 1450.1,
+		"baselineValue": 1387.5,
+		"driftRatio": 0.04511711711711705,
+		"message": "Budget \"scene-first-render\" STEADY: 1450.1ms is 4.5% worse than the 1387.5ms baseline (tolerance 20.0%)."
+	},
+	"absoluteTarget": {
+		"reference": "pass",
+		"candidate": "pass"
+	}
+}

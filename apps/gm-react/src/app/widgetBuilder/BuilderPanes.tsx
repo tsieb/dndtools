@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Badge, Button, Textarea } from '../../ds';
+import { Badge, Button, Dialog, Textarea } from '../../ds';
 import { T } from '../screen-kit';
 import { useI18n } from '../../i18n';
 import { STEP_IDS, STEP_LABEL, type BuilderStepId } from './draft';
@@ -90,9 +90,12 @@ export function BuilderStepRail({
 /** The definition the draft builds, as read-only JSON the DM can select and copy. */
 export function DefinitionPane({ json, narrow }: { json: string; narrow: boolean }) {
 	const { t } = useI18n();
-	const jsonRef = useRef<HTMLTextAreaElement>(null);
+	const jsonRef = useRef<HTMLDivElement>(null);
 	return (
-		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minHeight: 0 }}>
+		<div
+			ref={jsonRef}
+			style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minHeight: 0 }}
+		>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
 				<span style={{ flex: 1, font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t('extensions.builder.definition')}
@@ -102,15 +105,15 @@ export function DefinitionPane({ json, narrow }: { json: string; narrow: boolean
 					size="sm"
 					icon="duplicate"
 					onClick={() => {
-						jsonRef.current?.focus();
-						jsonRef.current?.select();
+						const textarea = jsonRef.current?.querySelector('textarea');
+						textarea?.focus();
+						textarea?.select();
 					}}
 				>
 					{t('extensions.builder.selectAll')}
 				</Button>
 			</div>
 			<Textarea
-				ref={jsonRef}
 				value={json}
 				readOnly
 				rows={narrow ? 14 : 26}
@@ -122,5 +125,65 @@ export function DefinitionPane({ json, narrow }: { json: string; narrow: boolean
 				{t('extensions.builder.definitionHelp')}
 			</span>
 		</div>
+	);
+}
+
+/** The two tracks share the same recoverable-draft questions. */
+export function BuilderDraftDialogs({
+	keptName,
+	leaving,
+	name,
+	onStartOver,
+	onResume,
+	onCancelLeave,
+	onLeave,
+}: {
+	keptName: string | null;
+	leaving: boolean;
+	name: string;
+	onStartOver: () => void;
+	onResume: () => void;
+	onCancelLeave: () => void;
+	onLeave: (discard: boolean) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<>
+			<Dialog
+				open={keptName !== null}
+				size="sm"
+				dismissible={false}
+				title={t('extensions.builder.resumeTitle')}
+				description={t('extensions.builder.resumeBody', { name: keptName ?? '' })}
+				footer={
+					<>
+						<Button variant="secondary" onClick={onStartOver}>
+							{t('extensions.builder.startOver')}
+						</Button>
+						<Button variant="primary" onClick={onResume}>
+							{t('extensions.builder.resumeDraft')}
+						</Button>
+					</>
+				}
+			/>
+			<Dialog
+				open={leaving}
+				size="sm"
+				tone="warning"
+				onClose={onCancelLeave}
+				title={t('extensions.builder.keepTitle')}
+				description={t('extensions.builder.keepBody', { name })}
+				footer={
+					<>
+						<Button variant="danger" onClick={() => onLeave(true)}>
+							{t('extensions.builder.discardDraft')}
+						</Button>
+						<Button variant="primary" onClick={() => onLeave(false)}>
+							{t('extensions.builder.keepDraft')}
+						</Button>
+					</>
+				}
+			/>
+		</>
 	);
 }
