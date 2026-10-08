@@ -179,3 +179,33 @@ Re-checked on `089f0ddb`: `pnpm --filter @dndtools/gm-react typecheck` exit 0; v
 no source changed since.
 
 No push, promotion, loop or dispatcher-state edits.
+
+## Attempt 4 — 2026-10-08: Visual regression gate red on `596c9434`
+
+Gate log `.state/attempts/25255ad2-…/output.log`: 512 passed, 4 failed, all on `visual-phone` and
+none on a baseline this story changed:
+
+| Case                                                           | Failure                                                                           |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| characters-polish "characters empty tavern"                    | `svg[data-illustration="characters-empty"]` not found in 5 s                      |
+| extensions-polish parchment "/extensions named remove confirm" | `toHaveScreenshot` 5 s timeout waiting on the package card                        |
+| golden-routes tavern `/characters`                             | 13,642 px (5%) — the actual frame is "Loading your vault…" (vault never rendered) |
+| player-polish "player sheet high-contrast"                     | `getByTestId('character-sheet')` not found in 5 s                                 |
+
+The `/characters` diff image shows a blank page with "Loading your vault…" over the expected card
+list. That is a load stall, not a rendering change: phone `/characters` has no sidebar, and nothing
+on it reads the seed's factions or the kind words. HEAD equals the gated SHA, `loop/rc` has nothing
+new, and no changed path touches these baselines.
+
+- Re-run of those four specs on `visual-phone` (pinned container): 96 passed
+  (`/tmp/rc-knw62-visual4.log`).
+- Full compare on the same head: 514 passed, 2 failed — desktop play-polish "play stage scholar" and
+  phone `/audio named deletion` scholar, both 5 s timeouts, again untouched baselines and a different
+  pair (`/tmp/rc-knw62-visual5.log`). Re-run of those specs (all themes, all tiers): 90 passed
+  (`/tmp/rc-knw62-visual6.log`).
+- Session 1's full compare on the same tree passed 516/516.
+
+Each full run on this machine has hit 2–4 such stalls on a rotating set of routes (session 1:
+phone scene-editor, rail `/audio` delete, phone characters-empty, phone palette-help; this attempt:
+the six above), which matches the known cold dev-server chunk stall in the pinned container. No code
+or baseline changed in this attempt; nothing here can be fixed inside the claim.
