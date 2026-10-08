@@ -47,10 +47,12 @@ import {
 	handleUpdateSystemPackage,
 } from './system-package';
 import {
+	handleAddPlayers,
 	handleApplyCommandCenterPreset,
 	handleEnsureCommandCenterHome,
 	handleRestoreCommandCenterAutoSave,
 	handleSaveCommandCenterPreset,
+	handleSetCampaignIdentity,
 	handleSnapshotCommandCenterAutoSave,
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
@@ -442,6 +444,8 @@ export function dispatchCommand(
 			return handleSnapshotCommandCenterAutoSave(state, env, command.actorId, command.payload);
 		case 'command-center.restore-auto-save':
 			return handleRestoreCommandCenterAutoSave(state, env, command.actorId, command.payload);
+		case 'campaign.set-identity':
+			return handleSetCampaignIdentity(state, env, command.actorId, command.payload);
 		case 'session.project-player-view':
 			return handleProjectPlayerView(state, env, command.actorId, command.payload);
 		case 'session.revoke-player-view':
@@ -558,6 +562,8 @@ export function dispatchCommand(
 			return handleAssignRole(state, env, command.actorId, command.payload);
 		case 'permission.rename-actor':
 			return handleRenameActor(state, env, command.actorId, command.payload);
+		case 'permission.add-players':
+			return handleAddPlayers(state, env, command.actorId, command.payload);
 		case 'map.create-layer':
 			return handleCreateMapLayer(state, env, command.actorId, command.payload);
 		case 'map.rename-layer':

@@ -20,6 +20,7 @@ import {
 	CUSTOM_OBJECT_TYPE_MAX_LABEL,
 } from '../state/custom-object-type';
 import { isSafeRemoteMediaUrl } from '../security/content-safety';
+import { hasAsciiControlCharacter } from '../security/payload-limits';
 
 const idSchema = z.string().min(1);
 
@@ -324,6 +325,57 @@ export const applyCommandCenterPresetInputSchema = z
 // UX-CMD-008 — the auto-save snapshot / restore commands take no caller payload; they operate on the
 // single last-known-good slot and the current home Scene.
 export const commandCenterAutoSaveInputSchema = z.object({}).strict().default({});
+
+// RC-UX-6.2 — the campaign's identity. Every field is optional so a rename does not restate the
+// system, but at least one must be given. Names follow the local-vault catalog's bounds (1–80, no
+// control characters) so the catalog can always follow the campaign name.
+const campaignTextSchema = (max: number, label: string) =>
+	z
+		.string()
+		.trim()
+		.min(1, `${label} is required.`)
+		.max(max, `${label} is at most ${max} characters.`)
+		.refine((value) => !hasAsciiControlCharacter(value), `${label} has a control character.`);
+
+export const setCampaignIdentityInputSchema = z
+	.object({
+		name: campaignTextSchema(80, 'The campaign name').optional(),
+		systemPackageId: z.union([z.literal(null), z.string().min(1).max(128)]).optional(),
+		gmDisplayName: z.union([z.literal(null), campaignTextSchema(60, 'The GM name')]).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.name !== undefined ||
+			value.systemPackageId !== undefined ||
+			value.gmDisplayName !== undefined,
+		'Give the campaign a name, a system or a GM name.',
+	);
+
+// RC-UX-6.2 — the party, by name only. A name that looks like an email address is refused: the
+// roster stores what the table calls a player, never a way to reach them.
+export const addPlayersInputSchema = z
+	.object({
+		displayNames: z
+			.array(
+				z
+					.string()
+					.trim()
+					.min(1, 'A player name is required.')
+					.max(60, 'Display names are at most 60 characters.')
+					.refine(
+						(value) => !hasAsciiControlCharacter(value),
+						'A player name has a control character.',
+					)
+					.refine(
+						(value) => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value),
+						'Enter a player name, not an email address.',
+					),
+			)
+			.min(1, 'Add at least one player.')
+			.max(20, 'Add at most 20 players at once.'),
+	})
+	.strict();
 
 const projectionTargetSchema = z
 	.object({

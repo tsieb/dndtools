@@ -1,18 +1,22 @@
 import {
+	addPlayersInputSchema,
 	applyCommandCenterPresetInputSchema,
 	commandCenterAutoSaveInputSchema,
 	ensureCommandCenterHomeInputSchema,
 	saveCommandCenterPresetInputSchema,
+	setCampaignIdentityInputSchema,
 } from '../schemas/commands';
 import {
 	buildDefaultCommandCenterScene,
 	DEFAULT_COMMAND_CENTER_NAME,
+	type CampaignIdentity,
 	type CommandCenterAutoSave,
 	type CommandCenterPreset,
 	type CommandCenterPresetSection,
 	type CommandCenterPresetWidget,
 	type CommandCenterState,
 } from '../state/command-center-state';
+import type { Actor } from '../state/permission-state';
 import type { SceneVisualSettings } from '../state/scene-state';
 import {
 	SCENE_SCHEMA_VERSION,
@@ -36,10 +40,11 @@ import {
 	parseInput,
 	reject,
 	requireActor,
+	requireCampaignOwner,
 	requireDm,
 	withScene,
 } from './helpers';
-import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
+import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 
 function homeSceneExists(state: CoreStateSlice): Scene | null {
 	const id = state.commandCenter.homeSceneId;
@@ -887,5 +892,154 @@ export function handleRestoreCommandCenterAutoSave(
 			},
 		],
 		operationIds: [op.id],
+	};
+}
+
+// --- RC-UX-6.2 — the campaign has a name and a party ----------------------------------------------
+
+/**
+ * Name the campaign, or change its system or GM name. Owner-only: the identity is the campaign
+ * owner's, as the vault catalog it drives is. The block is created by the first naming (a system or
+ * GM name alone cannot create it, so no placeholder name is ever stored) and merged after that; an
+ * unchanged identity is accepted without an operation. The app's local-vault catalog follows the
+ * name it writes.
+ */
+export function handleSetCampaignIdentity(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const ownerCheck = requireCampaignOwner(actor);
+	if (ownerCheck) return reject(ownerCheck, state);
+
+	const parsed = parseInput(setCampaignIdentityInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const input = parsed.data;
+
+	const previous = state.commandCenter.campaign ?? null;
+	if (!previous && input.name === undefined) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: 'Name the campaign before setting its system or GM name.',
+			},
+			state,
+		);
+	}
+	if (input.systemPackageId && !state.systems.packages[input.systemPackageId]) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: `System package ${input.systemPackageId} is not installed.`,
+			},
+			state,
+		);
+	}
+
+	const campaign: CampaignIdentity = {
+		name: input.name ?? previous!.name,
+		systemPackageId:
+			input.systemPackageId !== undefined
+				? input.systemPackageId
+				: (previous?.systemPackageId ?? null),
+		gmDisplayName:
+			input.gmDisplayName !== undefined ? input.gmDisplayName : (previous?.gmDisplayName ?? null),
+	};
+	if (
+		previous &&
+		previous.name === campaign.name &&
+		previous.systemPackageId === campaign.systemPackageId &&
+		previous.gmDisplayName === campaign.gmDisplayName
+	) {
+		return { status: 'accepted', nextState: state, events: [], operationIds: [] };
+	}
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'command-center',
+		entityId: 'campaign',
+		opType: 'campaign.set-identity',
+		path: 'campaign',
+		value: { campaign, previous },
+	});
+	return {
+		status: 'accepted',
+		nextState: {
+			...state,
+			commandCenter: { ...state.commandCenter, campaign },
+			sync: nextLog,
+		},
+		events: [{ kind: 'campaign.identity-set', name: campaign.name, actorId: actor.id }],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * Add the party by name: one `player` actor per name, the same participant record
+ * `permission.assign-role` and `permission.rename-actor` then manage, so the Players roster, the
+ * "view as" switcher and every player-facing surface list them at once. Owner-only, as role
+ * assignment is. Names are display names only (the schema refuses an email address), and a name
+ * already on the roster, or given twice, is refused rather than creating a second seat for one
+ * person.
+ */
+export function handleAddPlayers(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const ownerCheck = requireCampaignOwner(actor);
+	if (ownerCheck) return reject(ownerCheck, state);
+
+	const parsed = parseInput(addPlayersInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const taken = new Set(
+		Object.values(state.permissions.actors).map((entry) => entry.displayName.toLocaleLowerCase()),
+	);
+	for (const displayName of parsed.data.displayNames) {
+		const key = displayName.toLocaleLowerCase();
+		if (taken.has(key)) {
+			return reject(
+				{ code: 'invalid-state', message: `${displayName} is already on the roster.` },
+				state,
+			);
+		}
+		taken.add(key);
+	}
+
+	let log = state.sync;
+	const actors = { ...state.permissions.actors };
+	const operationIds: string[] = [];
+	const events: CoreEvent[] = [];
+	for (const displayName of parsed.data.displayNames) {
+		const id = env.ids();
+		const player: Actor = { id, role: 'player', displayName };
+		actors[id] = player;
+		const draft = appendOperationDraft(env, log, actor.id, {
+			entityType: 'permission-actor',
+			entityId: id,
+			opType: 'permission.add-player',
+			path: `actors/${id}`,
+			value: { actorId: id, role: 'player', displayName },
+		});
+		log = draft.log;
+		operationIds.push(draft.op.id);
+		events.push({
+			kind: 'permission.player-added',
+			targetActorId: id,
+			displayName,
+			actorId: actor.id,
+		});
+	}
+	return {
+		status: 'accepted',
+		nextState: { ...state, permissions: { ...state.permissions, actors }, sync: log },
+		events,
+		operationIds,
 	};
 }

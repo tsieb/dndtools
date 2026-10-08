@@ -1,5 +1,6 @@
 import type { ActorId, SceneId } from './ids';
 import type { CoreEnvironment } from '../commands/types';
+import { hasAsciiControlCharacter } from '../security/payload-limits';
 import {
 	SCENE_SCHEMA_VERSION,
 	type Scene,
@@ -58,6 +59,24 @@ export interface CommandCenterAutoSave {
 	widgets: CommandCenterPresetWidget[];
 }
 
+/**
+ * RC-UX-6.2 — who the campaign is: the one name every surface shows (the hero, the sidebar chip, the
+ * vault switcher row, archives and invites), the system package it was started with and the name
+ * the GM goes by at the table. Written only by `campaign.set-identity`.
+ */
+export interface CampaignIdentity {
+	/** Trimmed, 1–80 characters, no control characters (the local-vault catalog's own bounds). */
+	name: string;
+	/** The system package the campaign was named with, or null when none was recorded. */
+	systemPackageId: string | null;
+	/** The GM's display name for this campaign, or null to use their actor's name. */
+	gmDisplayName: string | null;
+}
+
+/** The bounds `campaign.set-identity` and the persisted-document check both enforce. */
+export const CAMPAIGN_NAME_MAX_LENGTH = 80;
+export const CAMPAIGN_GM_NAME_MAX_LENGTH = 60;
+
 export interface CommandCenterState {
 	/** The Scene that is rendered as the application home surface. */
 	homeSceneId: SceneId | null;
@@ -67,7 +86,43 @@ export interface CommandCenterState {
 	 * this slice hydrates fail-closed to "no auto-save yet" without a destructive migration.
 	 */
 	autoSave?: CommandCenterAutoSave | null;
+	/**
+	 * RC-UX-6.2 — the campaign's identity. ADDITIVE and absent until the GM names the campaign: a
+	 * vault written before this field round-trips byte-identically (no schema bump), and no default
+	 * name is ever stored. "Your campaign" is a placeholder the app draws, never a value of this field.
+	 */
+	campaign?: CampaignIdentity;
 	schemaVersion: typeof COMMAND_CENTER_STATE_SCHEMA_VERSION;
+}
+
+/** The campaign's stored name, or null while it has none (the app shows its placeholder then). */
+export function campaignNameOf(state: Pick<CommandCenterState, 'campaign'>): string | null {
+	return state.campaign?.name ?? null;
+}
+
+/**
+ * Whether a persisted `campaign` value is well formed. Absent is fine (a pre-RC-UX-6.2 vault); a
+ * present value must hold a bounded name and nullable string ids, or the document is damaged.
+ */
+export function isCampaignIdentityShape(value: unknown): value is CampaignIdentity {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+	const candidate = value as Record<string, unknown>;
+	const keys = Object.keys(candidate).sort();
+	if (JSON.stringify(keys) !== JSON.stringify(['gmDisplayName', 'name', 'systemPackageId'])) {
+		return false;
+	}
+	const bounded = (text: unknown, max: number) =>
+		typeof text === 'string' &&
+		text.trim() === text &&
+		text.length >= 1 &&
+		text.length <= max &&
+		!hasAsciiControlCharacter(text);
+	return (
+		bounded(candidate.name, CAMPAIGN_NAME_MAX_LENGTH) &&
+		(candidate.systemPackageId === null || bounded(candidate.systemPackageId, 128)) &&
+		(candidate.gmDisplayName === null ||
+			bounded(candidate.gmDisplayName, CAMPAIGN_GM_NAME_MAX_LENGTH))
+	);
 }
 
 export const EMPTY_COMMAND_CENTER_STATE: CommandCenterState = Object.freeze({

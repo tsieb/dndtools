@@ -496,6 +496,7 @@ export {
 } from './queries/map-query';
 
 export type {
+	CampaignIdentity,
 	CommandCenterAutoSave,
 	CommandCenterPreset,
 	CommandCenterPresetSection,
@@ -514,6 +515,10 @@ export {
 	DEFAULT_COMMAND_CENTER_TOOLS,
 	EMPTY_COMMAND_CENTER_STATE,
 	buildDefaultCommandCenterScene,
+	CAMPAIGN_GM_NAME_MAX_LENGTH,
+	CAMPAIGN_NAME_MAX_LENGTH,
+	campaignNameOf,
+	isCampaignIdentityShape,
 } from './state/command-center-state';
 
 export type {
@@ -1065,6 +1070,7 @@ export { dispatchCommand } from './commands/dispatch';
 
 export {
 	addWidgetInputSchema,
+	addPlayersInputSchema,
 	applyCommandCenterPresetInputSchema,
 	applySceneTemplateInputSchema,
 	createSceneInputSchema,
@@ -1122,6 +1128,7 @@ export {
 	transferOwnershipInputSchema,
 	updateMapEmbedInputSchema,
 	saveCommandCenterPresetInputSchema,
+	setCampaignIdentityInputSchema,
 	saveSceneTemplateInputSchema,
 	setActiveMapInputSchema,
 	setMapLayerEnabledInputSchema,

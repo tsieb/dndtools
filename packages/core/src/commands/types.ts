@@ -189,6 +189,9 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// RC-UX-6.2 — the campaign's name, system and GM name; the party by name.
+	| { type: 'campaign.set-identity'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'permission.add-players'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-player-view';
 			actorId: ActorId;
@@ -1477,6 +1480,15 @@ export type CoreEvent =
 			/** Who renamed them — the actor themselves, or the owner DM. */
 			actorId: ActorId;
 	  }
+	// RC-UX-6.2 — a player seat added by name from Settings › Players.
+	| {
+			kind: 'permission.player-added';
+			targetActorId: ActorId;
+			displayName: string;
+			actorId: ActorId;
+	  }
+	// RC-UX-6.2 — the campaign was named or its identity changed.
+	| { kind: 'campaign.identity-set'; name: string; actorId: ActorId }
 	| {
 			kind: 'map.layer-changed';
 			mapId: string;
