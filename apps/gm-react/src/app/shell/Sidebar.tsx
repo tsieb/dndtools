@@ -4,6 +4,7 @@ import { usePresenceStatus } from './presence';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+	campaignNameOf,
 	isDefaultScreen,
 	listScenesForActor,
 	listCharactersForActor,
@@ -28,7 +29,7 @@ import { T } from '../screen-kit';
 import { isSectionShown, sectionPath } from './sections';
 import { PinnedScreenRows, SideGroup, SideRow } from './rows';
 import { useSessionPosture } from './session-posture';
-import { listLocalVaults } from '../../platform/storage/coreStore';
+import { LOCAL_VAULT_RENAMED_EVENT, listLocalVaults } from '../../platform/storage/coreStore';
 const VaultSwitcher = lazy(() =>
 	import('./VaultSwitcher').then((module) => ({ default: module.VaultSwitcher })),
 );
@@ -53,8 +54,8 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const [vault, setVault] = useState(readVault);
 	useEffect(() => {
 		const refresh = () => setVault(readVault());
-		window.addEventListener('dndtools:local-vault-renamed', refresh);
-		return () => window.removeEventListener('dndtools:local-vault-renamed', refresh);
+		window.addEventListener(LOCAL_VAULT_RENAMED_EVENT, refresh);
+		return () => window.removeEventListener(LOCAL_VAULT_RENAMED_EVENT, refresh);
 	}, [readVault]);
 	const active = activeSectionId(location.pathname);
 	const go = (id: string) => navigate(sectionPath(id, runtime.state, actorId));
@@ -69,10 +70,15 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const { t } = useI18n();
 	const tier = useSettingsTier();
 	const canManageSeat = settingsGateVisible('settings.nav.players', tier);
+	// RC-UX-6.2 — one name: the campaign's own, or the placeholder while it has none. The catalog
+	// entry is still read for the demo badge (the vault's kind is device data, not campaign data).
+	const campaign = runtime.state.commandCenter.campaign;
+	const campaignName = campaignNameOf(runtime.state.commandCenter) ?? t('shell.yourCampaign');
 	const dmName =
-		dmActor && !isPlaceholderActorName(dmActor.displayName)
+		campaign?.gmDisplayName ??
+		(dmActor && !isPlaceholderActorName(dmActor.displayName)
 			? dmActor.displayName
-			: t('settings.players.role.dm');
+			: t('settings.players.role.dm'));
 
 	const { scenes, counts, recent } = useMemo(() => {
 		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
@@ -246,7 +252,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 								whiteSpace: 'nowrap',
 							}}
 						>
-							{vault?.name ?? t('shell.yourCampaign')}
+							{campaignName}
 						</span>
 						{/* RC-UX-3.7 — the demo vault is badged wherever its name shows. */}
 						{vault?.kind === 'demo' && (

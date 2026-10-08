@@ -7,6 +7,7 @@ import {
 	DURABLE_STATE_DOCUMENT_IDS,
 	MAX_ASSET_BLOB_BYTES,
 	assetId,
+	campaignNameOf,
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
@@ -28,6 +29,7 @@ import {
 	hashAssetBytes,
 	hasAsciiControlCharacter,
 	hydrateSystemsState,
+	isCampaignIdentityShape,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
 	validateSyncOperationShape,
@@ -35,6 +37,8 @@ import {
 	type AudioState,
 	type CharacterState,
 	type CommandCenterState,
+	type CommandResult,
+	type CoreCommand,
 	type CoreStateSlice,
 	type DurableStateDocumentId,
 	type EncounterState,
@@ -88,6 +92,18 @@ function requireVaultName(name: string): string {
 function catalogStorage(): Storage {
 	if (typeof window === 'undefined') throw new Error('Local vaults need browser storage.');
 	return window.localStorage;
+}
+
+/**
+ * The catalog entry the original vault is registered under before anyone names it. The catalog needs
+ * a non-empty name, so this string is stored there, but it is a placeholder: it never becomes the
+ * campaign's name (RC-UX-6.2), and the app draws its own localized "Your campaign" in its place.
+ */
+const PLACEHOLDER_LOCAL_VAULT_NAMES: ReadonlySet<string> = new Set(['Your campaign', 'Tu campaña']);
+
+/** Whether a catalog name is the unnamed placeholder rather than a name the GM chose. */
+export function isPlaceholderVaultName(name: string): boolean {
+	return PLACEHOLDER_LOCAL_VAULT_NAMES.has(name.trim());
 }
 
 /** Register the existing database in place. A damaged catalog is never replaced with an empty one. */
@@ -262,6 +278,134 @@ export function forgetLocalVaultPreferences(id: string): void {
 		if (key?.startsWith(prefix)) keys.push(key);
 	}
 	for (const key of keys) storage.removeItem(key);
+}
+
+// --- RC-UX-6.2 — the catalog follows the campaign name ---------------------------------------------
+
+/** What `followCampaignIdentity` needs of the loaded runtime (structural, so this module stays below it). */
+export interface CampaignIdentityHost {
+	readonly vaultId: string;
+	readonly defaultActorId: string;
+	readonly state: CoreStateSlice;
+	dispatch(command: CoreCommand): Promise<CommandResult>;
+	subscribe(listener: () => void): () => void;
+}
+
+/** Fired on `window` whenever this document renames its vault's catalog entry. */
+export const LOCAL_VAULT_RENAMED_EVENT = 'dndtools:local-vault-renamed';
+
+/** The released onboarding roster (names and emails, one JSON array), scoped to the vault. */
+const PARTY_NOTES_KEY = 'dndtools:react:invites';
+
+/** The same conservative check the core applies to a player name. */
+function looksLikeEmail(value: string): boolean {
+	return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+}
+
+/**
+ * Rename the open vault's catalog entry to the campaign's name, so the switcher row (and every other
+ * vault's view of this one) follows a rename made anywhere. A placeholder is never written.
+ */
+function catalogFollowsCampaign(vaultId: string, name: string | null): void {
+	if (!name) return;
+	try {
+		const entry = listLocalVaults().find((vault) => vault.id === vaultId);
+		if (!entry || entry.name === name) return;
+		renameLocalVault(vaultId, name);
+	} catch {
+		return; // A damaged catalog is reported by the switcher; the campaign name is unaffected.
+	}
+	if (typeof window !== 'undefined') window.dispatchEvent(new Event(LOCAL_VAULT_RENAMED_EVENT));
+}
+
+/**
+ * The once-per-vault moves from device storage into the campaign itself, run when a vault opens:
+ *
+ * - a catalog name the GM chose (from the switcher's Create or Rename, or onboarding before this
+ *   story) that the campaign does not carry becomes its name. A rename made from another vault's
+ *   switcher lands here too, the next time this vault opens. The placeholder never does: a vault
+ *   nobody named stays unnamed and every surface draws "Your campaign" in its place.
+ * - the released onboarding roster (`partyNotes`) becomes player actors through
+ *   `permission.add-players`. Names only: an email entry is never stored on an actor, so emails stay
+ *   behind in the preference for the calendar invite they were collected for, and the preference is
+ *   removed once nothing is left in it. A refused command leaves the preference for the next open.
+ */
+async function adoptDeviceCampaignData(host: CampaignIdentityHost): Promise<void> {
+	const actorId = host.defaultActorId;
+	let catalogName: string | null;
+	try {
+		catalogName = listLocalVaults().find((vault) => vault.id === host.vaultId)?.name ?? null;
+	} catch {
+		catalogName = null; // A damaged catalog names nothing; the switcher reports it.
+	}
+	const current = campaignNameOf(host.state.commandCenter);
+	if (catalogName && !isPlaceholderVaultName(catalogName) && catalogName !== current) {
+		await host.dispatch({ type: 'campaign.set-identity', actorId, payload: { name: catalogName } });
+	}
+
+	if (typeof window === 'undefined') return;
+	const storage = window.localStorage;
+	const key = vaultPreferenceKey(PARTY_NOTES_KEY, host.vaultId);
+	const raw = storage.getItem(key);
+	if (raw === null) return;
+	let entries: string[];
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		entries = Array.isArray(parsed)
+			? parsed.filter((entry): entry is string => typeof entry === 'string')
+			: [];
+	} catch {
+		entries = [];
+	}
+	const emails = entries.filter(looksLikeEmail).map((entry) => entry.trim());
+	const roster = new Set(
+		Object.values(host.state.permissions.actors).map((actor) =>
+			actor.displayName.toLocaleLowerCase(),
+		),
+	);
+	const names: string[] = [];
+	for (const entry of entries) {
+		const name = entry.trim().slice(0, 60).trim();
+		if (!name || looksLikeEmail(name) || hasAsciiControlCharacter(name)) continue;
+		if (roster.has(name.toLocaleLowerCase())) continue;
+		roster.add(name.toLocaleLowerCase());
+		names.push(name);
+	}
+	if (names.length > 0) {
+		const result = await host.dispatch({
+			type: 'permission.add-players',
+			actorId,
+			payload: { displayNames: names.slice(0, 20) },
+		});
+		if (result.status !== 'accepted' || names.length > 20) return;
+	}
+	if (emails.length > 0) storage.setItem(key, JSON.stringify(emails));
+	else storage.removeItem(key);
+}
+
+/**
+ * Keep this document's vault catalog following the campaign name: adopt what device storage still
+ * holds for the campaign (above), then rename the catalog entry whenever the campaign name changes
+ * (onboarding, the switcher, a cloud restore). Call once the runtime has loaded; returns the stop.
+ */
+export function followCampaignIdentity(host: CampaignIdentityHost): () => void {
+	let stopped = false;
+	let lastName = campaignNameOf(host.state.commandCenter);
+	const unsubscribe = host.subscribe(() => {
+		const name = campaignNameOf(host.state.commandCenter);
+		if (name === lastName) return;
+		lastName = name;
+		catalogFollowsCampaign(host.vaultId, name);
+	});
+	void adoptDeviceCampaignData(host)
+		.catch(() => undefined)
+		.then(() => {
+			if (!stopped) catalogFollowsCampaign(host.vaultId, campaignNameOf(host.state.commandCenter));
+		});
+	return () => {
+		stopped = true;
+		unsubscribe();
+	};
 }
 
 const SCENE_STATE_KEY = 'scene-state';
@@ -497,6 +641,15 @@ function validatePersistedDocumentContainers(
 		if (value !== undefined && !Array.isArray(value)) throw damagedPersistedDocument(documentId);
 	}
 
+	// RC-UX-6.2 — the campaign block is additive: absent is a vault from before it, but a present one
+	// must be well formed (a bounded name, nullable ids), or the document is damaged.
+	if (
+		documentId === 'commandCenter' &&
+		document.campaign !== undefined &&
+		!isCampaignIdentityShape(document.campaign)
+	) {
+		throw damagedPersistedDocument(documentId);
+	}
 	if (documentId === 'scenes') {
 		for (const [id, scene] of Object.entries(document.scenes as Record<string, unknown>)) {
 			if ((scene as Record<string, unknown>).id !== id) throw damagedPersistedDocument(documentId);

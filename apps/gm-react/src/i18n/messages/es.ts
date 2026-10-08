@@ -1091,6 +1091,14 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.players.renamed': 'Renombrado a {name}.',
 	'settings.players.renameFailed': 'No se pudo renombrar a ese participante. Inténtalo de nuevo.',
 	'settings.players.yourNameHint': 'Este eres tú. Selecciona el lápiz para poner tu nombre.',
+	'settings.players.addParty': 'Añade tu grupo',
+	'settings.players.addPartyLabel': 'Nombres de los jugadores',
+	'settings.players.addPartyHint':
+		'Escribe los nombres que usa tu mesa, separados por comas. Solo se guardan nombres, nunca un correo electrónico.',
+	'settings.players.addPartyAction': 'Añadir jugadores',
+	'settings.players.added':
+		'{count, plural, one {# jugador añadido.} other {# jugadores añadidos.}}',
+	'settings.players.addFailed': 'No se pudieron añadir esos jugadores. Inténtalo de nuevo.',
 	'settings.tools.title': 'Preferencias de herramientas',
 	'settings.tools.intro':
 		'Controla las herramientas opcionales de este dispositivo. Cualquier opción distinta de “Asistente y generadores” oculta al momento el asistente y su configuración, y bloquea las peticiones al modelo aunque siga guardada una clave.',

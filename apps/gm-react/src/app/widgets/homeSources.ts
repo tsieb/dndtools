@@ -1,5 +1,6 @@
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
+	campaignNameOf,
 	getContentItemsForActor,
 	isDefaultScreen,
 	listCharactersForActor,
@@ -85,9 +86,11 @@ export function resolveHomeSource(
 						id: target?.id ?? 'none',
 						// With no session running the heading never names a scene: a GM reads a scene name
 						// there as "the current scene". Nor does it name one that is not the live scene (a
-						// viewer who cannot see the live scene gets the fallback, not another scene).
+						// viewer who cannot see the live scene gets the fallback, not another scene). The
+						// fallback is the campaign's name, or the placeholder while it has none (RC-UX-6.2).
 						primary:
 							(live && target?.id === state.session.activeSceneId ? target.name : null) ??
+							campaignNameOf(state.commandCenter) ??
 							t('home.yourCampaign'),
 						secondary: party ? `${subtitle} · ${t('home.partyCount', { count: party })}` : subtitle,
 						meta,

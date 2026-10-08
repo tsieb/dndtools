@@ -34,6 +34,7 @@ import { SceneDisplay } from './screens/SceneDisplay';
 import { PlatformLifecycle } from './platform/PlatformLifecycle';
 import { ScreenRouteAliases } from './screens/screen/routeAliases';
 import { registerBackHandler } from './platform/backNavigation';
+import { followCampaignIdentity } from './platform/storage/coreStore';
 
 // Route-level code-splitting: every section except the landing Command Center is a lazy chunk, so
 // the boot bundle carries only the shell + hub and each surface loads on first visit (all behind
@@ -499,6 +500,12 @@ function Shell() {
 		if (!runtime.loaded) return;
 		ensureSfxEvents(runtime, ensureAudioPlayback(runtime));
 		ensureCombatAudioAutomation(runtime);
+	}, [runtime, runtime.loaded]);
+	// RC-UX-6.2 — the vault catalog follows the campaign name, and what device storage still holds
+	// for the campaign (a catalog name, the released onboarding roster) moves into it once.
+	useEffect(() => {
+		if (!runtime.loaded) return;
+		return followCampaignIdentity(runtime);
 	}, [runtime, runtime.loaded]);
 	if (runtime.hasLoadError) {
 		return <VaultLoadFailure runtime={runtime} />;

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import {
 	countCoDmActors,
 	singularGrantsOnEntity,
 	CHARACTER_ENTITY_TYPE,
 	type CommandResult,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, IconButton, Input, Select, Toaster } from '../../ds';
+import { Avatar, Badge, Button, Field, IconButton, Input, Select, Toaster } from '../../ds';
 import { useI18n, type MessageKey } from '../../i18n';
 import { Panel, T } from '../../app/screen-kit';
 import { isPlaceholderActorName, useRuntime } from '../../runtime/RuntimeContext';
@@ -82,6 +82,38 @@ export function SettingsPlayers() {
 				Toaster.success(t('settings.players.renamed', { name: displayName }));
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.players.renameFailed'))));
+	};
+
+	// RC-UX-6.2 — the party by name. Each name becomes a player seat through
+	// `permission.add-players`, so this roster, "View as" and every player-facing surface list it at
+	// once; renaming and role changes then work on it like on any joined player. Names only: the
+	// Core refuses an email address, and nothing here asks for one.
+	const [partyDraft, setPartyDraft] = useState('');
+	const [addingParty, setAddingParty] = useState(false);
+	const addParty = (event: FormEvent) => {
+		event.preventDefault();
+		const displayNames = partyDraft
+			.split(/[,\n]/)
+			.map((name) => name.trim())
+			.filter(Boolean);
+		if (displayNames.length === 0 || addingParty) return;
+		setAddingParty(true);
+		void runtime
+			.dispatch({
+				type: 'permission.add-players',
+				actorId: dmActorId,
+				payload: { displayNames },
+			})
+			.then((res: CommandResult) => {
+				if (res.status !== 'accepted') {
+					Toaster.error(res.rejection.message);
+					return;
+				}
+				setPartyDraft('');
+				Toaster.success(t('settings.players.added', { count: displayNames.length }));
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, t('settings.players.addFailed'))))
+			.finally(() => setAddingParty(false));
 	};
 
 	// Role assignment and the invite flow are app-api round trips. Renaming an actor is a vault
@@ -304,6 +336,39 @@ export function SettingsPlayers() {
 						);
 					})}
 				</div>
+				<form
+					onSubmit={addParty}
+					aria-label={t('settings.players.addParty')}
+					style={{
+						display: 'grid',
+						gap: T.space.two,
+						paddingTop: T.space.three,
+						borderTop: `1px solid ${T.bd}`,
+					}}
+				>
+					<Field
+						label={t('settings.players.addPartyLabel')}
+						help={t('settings.players.addPartyHint')}
+					>
+						<Input
+							value={partyDraft}
+							maxLength={600}
+							autoComplete="off"
+							disabled={runtime.readOnly}
+							onChange={(e: { target: { value: string } }) => setPartyDraft(e.target.value)}
+						/>
+					</Field>
+					<div>
+						<Button
+							type="submit"
+							size="sm"
+							icon="add"
+							disabled={addingParty || runtime.readOnly || !partyDraft.trim()}
+						>
+							{t('settings.players.addPartyAction')}
+						</Button>
+					</div>
+				</form>
 			</Panel>
 			<InvitesPanel
 				cloudReady={cloudReady}

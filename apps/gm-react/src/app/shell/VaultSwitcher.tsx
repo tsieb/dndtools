@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from 'react';
+import { campaignNameOf } from '@dndtools/core';
 import { Badge, Button, Dialog, Field, Icon, Input, type DSChangeEvent } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import {
 	LEGACY_LOCAL_VAULT_ID,
+	LOCAL_VAULT_RENAMED_EVENT,
 	createLocalVault,
 	findDemoLocalVault,
 	forgetLocalVaultPreferences,
+	isPlaceholderVaultName,
 	listLocalVaults,
 	reloadLocalVaultDocument,
 	renameLocalVault,
@@ -63,6 +66,15 @@ export function VaultSwitcher({
 	const current = vaults.find((vault) => vault.id === runtime.vaultId);
 	const inDemo = current?.kind === 'demo';
 	const home = ownCampaignVault(vaults);
+	const campaignName = campaignNameOf(runtime.state.commandCenter);
+
+	/** RC-UX-6.2 — the name a row shows: the open vault's campaign name, another vault's catalog name,
+	 * and the placeholder for a vault nobody has named. `null` while unnamed. */
+	function storedName(vault: LocalVault): string | null {
+		if (vault.id === runtime.vaultId) return campaignName;
+		return isPlaceholderVaultName(vault.name) ? null : vault.name;
+	}
+	const shownName = (vault: LocalVault) => storedName(vault) ?? t('shell.yourCampaign');
 
 	async function exploreDemo() {
 		const demo = findDemoLocalVault() ?? createLocalVault(t('vaults.demoName'), 'demo');
@@ -88,11 +100,23 @@ export function VaultSwitcher({
 		reloadLocalVaultDocument();
 	}
 
-	function save(event: FormEvent) {
+	/** Renaming the open vault names the campaign (every surface follows, the catalog included); any
+	 * other vault's catalog entry is renamed and the campaign takes it up when that vault next opens. */
+	async function save(event: FormEvent) {
 		event.preventDefault();
 		setNotice('');
+		setBusy(true);
 		try {
-			if (editing) renameLocalVault(editing, name);
+			if (editing === runtime.vaultId) {
+				const result = await runtime.dispatch({
+					type: 'campaign.set-identity',
+					actorId: runtime.defaultActorId,
+					payload: { name },
+				});
+				if (result.status !== 'accepted') throw new Error(result.rejection.message);
+				renameLocalVault(editing, name);
+				window.dispatchEvent(new Event(LOCAL_VAULT_RENAMED_EVENT));
+			} else if (editing) renameLocalVault(editing, name);
 			else createLocalVault(name);
 			setVaults(listLocalVaults());
 			setName('');
@@ -102,6 +126,8 @@ export function VaultSwitcher({
 			onChanged();
 		} catch {
 			setError(t('vaults.failed'));
+		} finally {
+			setBusy(false);
 		}
 	}
 
@@ -149,20 +175,21 @@ export function VaultSwitcher({
 						>
 							<Button
 								disabled={busy || vault.id === runtime.vaultId}
-								aria-label={t('vaults.openNamed', { name: vault.name })}
+								aria-label={t('vaults.openNamed', { name: shownName(vault) })}
 								onClick={() => void run(() => openVault(vault.id))}
 							>
-								{vault.name}
+								{shownName(vault)}
 							</Button>
 							{vault.kind === 'demo' && <Badge status="info">{t('vaults.demoBadge')}</Badge>}
 							{vault.id === runtime.vaultId && <Badge>{t('vaults.current')}</Badge>}
 							<Button
 								variant="ghost"
 								disabled={busy}
-								aria-label={t('vaults.renameNamed', { name: vault.name })}
+								aria-label={t('vaults.renameNamed', { name: shownName(vault) })}
 								onClick={() => {
 									setEditing(vault.id);
-									setName(vault.name);
+									// An unnamed vault starts empty: "Your campaign" is only the placeholder.
+									setName(storedName(vault) ?? '');
 								}}
 							>
 								{t('vaults.rename')}
@@ -180,10 +207,14 @@ export function VaultSwitcher({
 						</span>
 					</div>
 				))}
-				<form onSubmit={save} style={{ display: 'grid', gap: 'var(--space-3)' }}>
+				<form
+					onSubmit={(event) => void save(event)}
+					style={{ display: 'grid', gap: 'var(--space-3)' }}
+				>
 					<Field label={editing ? t('vaults.rename') : t('vaults.name')}>
 						<Input
 							value={name}
+							placeholder={editing ? t('shell.yourCampaign') : undefined}
 							required
 							maxLength={80}
 							disabled={busy || !!catalog.error}

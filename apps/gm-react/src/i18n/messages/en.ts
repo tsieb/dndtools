@@ -1071,6 +1071,13 @@ export const en = {
 	'settings.players.renamed': 'Renamed to {name}.',
 	'settings.players.renameFailed': 'Could not rename that participant. Try again.',
 	'settings.players.yourNameHint': 'This is you. Select the pencil to set your name.',
+	'settings.players.addParty': 'Add your party',
+	'settings.players.addPartyLabel': 'Player names',
+	'settings.players.addPartyHint':
+		'Type the names your table uses, separated by commas. Only names are kept, never an email address.',
+	'settings.players.addPartyAction': 'Add players',
+	'settings.players.added': '{count, plural, one {# player added.} other {# players added.}}',
+	'settings.players.addFailed': 'Could not add those players. Try again.',
 	'settings.tools.title': 'Tool preferences',
 	'settings.tools.intro':
 		'Control optional tools for this device. Anything except “Assistant and generators” immediately hides the assistant and its setup, and blocks model requests even if a key remains stored.',
