@@ -242,7 +242,7 @@ test('switching vaults keeps op logs, search and keyrings isolated both ways', a
 	expect(await open(page, harborKey)).toBeNull();
 });
 
-test('the tablet rail opens the same switcher and renames without touching the open vault', async ({
+test('the tablet rail opens the same switcher, and renaming the open vault names its campaign', async ({
 	page,
 }) => {
 	await page.setViewportSize({ width: 834, height: 1112 });
@@ -255,13 +255,24 @@ test('the tablet rail opens the same switcher and renames without touching the o
 	const dialog = page.getByRole('dialog', { name: 'Local vaults' });
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: 'Rename Your campaign', exact: true }).click();
+	// RC-UX-6.2 — an unnamed vault's rename field starts empty: "Your campaign" is the placeholder.
+	await expect(dialog.getByLabel('Rename vault', { exact: true })).toHaveValue('');
 	await dialog.getByLabel('Rename vault', { exact: true }).fill('Harbor campaign');
 	await dialog.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(dialog.getByRole('button', { name: 'Open Harbor campaign' })).toBeDisabled();
 	await page.keyboard.press('Escape');
 	await expect(dialog).toHaveCount(0);
 	await expect(trigger).toBeFocused();
-	expect(await opIds(page)).toEqual(before);
+	// RC-UX-6.2 — the open vault's name is its campaign's: exactly one campaign.set-identity.
+	expect(
+		await page.evaluate(
+			(known) =>
+				window
+					.__rt!.state.sync.operations.filter((op) => !known.includes(op.id))
+					.map((op) => op.opType),
+			before,
+		),
+	).toEqual(['campaign.set-identity']);
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);
 	await trigger.click();

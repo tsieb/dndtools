@@ -97,6 +97,11 @@ export function SettingsPlayers() {
 			.map((name) => name.trim())
 			.filter(Boolean);
 		if (displayNames.length === 0 || addingParty) return;
+		// The Core refuses these too; saying so here names the problem in the GM's language.
+		if (displayNames.some((name) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(name))) {
+			Toaster.error(t('settings.players.namesOnly'));
+			return;
+		}
 		setAddingParty(true);
 		void runtime
 			.dispatch({
@@ -106,7 +111,7 @@ export function SettingsPlayers() {
 			})
 			.then((res: CommandResult) => {
 				if (res.status !== 'accepted') {
-					Toaster.error(res.rejection.message);
+					Toaster.error(res.rejection.issues?.[0]?.message ?? res.rejection.message);
 					return;
 				}
 				setPartyDraft('');

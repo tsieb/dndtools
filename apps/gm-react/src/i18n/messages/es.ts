@@ -1099,6 +1099,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.players.added':
 		'{count, plural, one {# jugador añadido.} other {# jugadores añadidos.}}',
 	'settings.players.addFailed': 'No se pudieron añadir esos jugadores. Inténtalo de nuevo.',
+	'settings.players.namesOnly':
+		'Escribe solo los nombres de los jugadores, no direcciones de correo electrónico.',
 	'settings.tools.title': 'Preferencias de herramientas',
 	'settings.tools.intro':
 		'Controla las herramientas opcionales de este dispositivo. Cualquier opción distinta de “Asistente y generadores” oculta al momento el asistente y su configuración, y bloquea las peticiones al modelo aunque siga guardada una clave.',

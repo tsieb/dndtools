@@ -1078,6 +1078,7 @@ export const en = {
 	'settings.players.addPartyAction': 'Add players',
 	'settings.players.added': '{count, plural, one {# player added.} other {# players added.}}',
 	'settings.players.addFailed': 'Could not add those players. Try again.',
+	'settings.players.namesOnly': 'Enter player names only, not email addresses.',
 	'settings.tools.title': 'Tool preferences',
 	'settings.tools.intro':
 		'Control optional tools for this device. Anything except “Assistant and generators” immediately hides the assistant and its setup, and blocks model requests even if a key remains stored.',
