@@ -34,11 +34,40 @@ preferred over bumps:
   beside them pending the MAP_STATE bump ADR-030 calls for.
 - `MapFeature` kinds and `props` (ADR-024), `VaultContentState.customObjectTypes` (ADR-023),
   `WidgetAuthoringProvenance.promptHash` (ADR-031).
+- `CommandCenterState.campaign?: CampaignIdentity` (RC-UX-6.2; see below).
 
 `systems` hydrates to the built-in D&D 5e package when absent and carries the legacy
 `activeWidgetPackageId` in its own field, so the widget-package and system-package id namespaces
 are never conflated ([SYSTEM_PACKAGES.md](SYSTEM_PACKAGES.md)). Formulas in System Packages and in
 widget `computedFields` share one tiny expression grammar evaluated by the pure `evaluateFormula`.
+
+### Campaign identity (RC-UX-6.2)
+
+The campaign's name lives in the `commandCenter` document as an optional block,
+`campaign: { name, systemPackageId, gmDisplayName }`. `campaign.set-identity` (owner only) is its
+only writer. The first naming creates the block. After that the command merges into it, and an
+unchanged identity writes no operation. A system or GM name alone cannot create the block. The block
+is absent until someone names the campaign, so a vault from before this field reads and writes back
+byte-identically, with no schema bump. Nothing stores a default name. "Your campaign" is a
+placeholder the app draws while `campaignNameOf` returns `null`. A present block must pass
+`isCampaignIdentityShape` (a trimmed name of 1–80 characters with no control characters, and
+nullable ids); anything else quarantines the document like any other malformed container.
+
+The sidebar chip, the open vault's switcher row, the Command Center hero and the widget `campaign`
+source all read this one name. The device-local vault catalog (`dndtools:react:local-vaults-v1`) is
+a mirror: `followCampaignIdentity` (mounted with the shell) renames the open vault's catalog entry
+whenever the campaign name changes. When a vault opens, a catalog name the GM chose that the
+campaign does not carry is adopted once. That covers a vault created or renamed from another
+vault's switcher, and one named by onboarding before this block existed. The legacy catalog entry
+"Your campaign" never is.
+
+Players added by name (Settings › Players) go through `permission.add-players` (owner only). It
+creates one `player` actor (`{ id, role, displayName }`) per name with a `permission.add-player`
+operation, refuses an email-shaped name, and refuses a name already on the roster. The existing
+`permission.rename-actor` and `permission.assign-role` then manage those actors. The released
+`partyNotes` preference (`dndtools:react:invites`, vault-scoped) is migrated into actors once
+when the vault opens. Its email entries never reach an actor. They stay in the preference for the
+calendar invite that reads them, and the preference is removed once no entries remain.
 
 ## 3. Content
 
