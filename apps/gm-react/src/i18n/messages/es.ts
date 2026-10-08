@@ -3,6 +3,11 @@ import type { MessageKey } from './en';
 /** Spanish. A `Partial` of `en`: an untranslated key renders its English source rather than a
  * blank or a bare identifier, so a partly translated locale degrades honestly. */
 export const es: Partial<Record<MessageKey, string>> = {
+	'builder.identity.advanced': 'Identidad avanzada',
+	'builder.layout.changeSize': 'Cambiar tamaño',
+	'builder.style.summary': 'Estilo · {count} variables personalizadas',
+	'builder.advanced.summary': '{runtime} · {count} permisos solicitados',
+
 	'play.join.title': 'Únete a tu mesa',
 	'play.join.about':
 		'Lamplight reúne tu personaje, tus dados y las notas compartidas mientras juegas.',
@@ -3949,8 +3954,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'builder.issue.networkWithoutPermission':
 		'Pide el permiso de red o quita los destinos. Sin el permiso no conceden nada.',
 
-	'builder.identity.help':
-		'Pon nombre al widget y elige dónde se puede usar. Sus identificadores se conservan en la campaña; sigue el formato de abajo.',
+	'builder.identity.help': 'Pon nombre al widget y elige una descripción breve y un icono.',
 	'builder.identity.nameSection': 'Nombre y descripción',
 	'builder.identity.name': 'Nombre',
 	'builder.identity.namePlaceholder': 'Estado del grupo',

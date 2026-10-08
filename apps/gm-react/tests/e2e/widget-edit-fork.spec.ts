@@ -1,3 +1,4 @@
+import { builderStep } from './_widget-builder';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
@@ -65,7 +66,7 @@ test.describe('widget builder drafts (RC-WID-6.6)', () => {
 
 		await opener.click();
 		await builder.getByLabel('Name', { exact: true }).fill('Lantern list');
-		await builder.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(builder, 'Data');
 		await page.keyboard.press('Escape');
 		await expect(keep).toBeVisible();
 		await expect(keep).toContainText('Lantern list');
@@ -73,10 +74,7 @@ test.describe('widget builder drafts (RC-WID-6.6)', () => {
 		await page.keyboard.press('Escape');
 		await expect(keep).toHaveCount(0);
 		await expect(builder).toBeVisible();
-		await expect(builder.getByRole('button', { name: 'Data', exact: true })).toHaveAttribute(
-			'aria-current',
-			'step',
-		);
+		await expect(builder.getByRole('button', { name: /Step 3 of 8.*Data/ })).toBeVisible();
 
 		await page.keyboard.press('Escape');
 		await keep.getByRole('button', { name: 'Keep draft', exact: true }).click();
@@ -101,11 +99,8 @@ test.describe('widget builder drafts (RC-WID-6.6)', () => {
 		await expect(resume).toHaveCount(0);
 		// Answered, focus is in the builder, not lost behind it.
 		await expect(builder).toBeFocused();
-		await expect(builder.getByRole('button', { name: 'Data', exact: true })).toHaveAttribute(
-			'aria-current',
-			'step',
-		);
-		await builder.getByRole('button', { name: 'Identity', exact: true }).click();
+		await expect(builder.getByRole('button', { name: /Step 3 of 8.*Data/ })).toBeVisible();
+		await builderStep(builder, 'Identity');
 		await expect(builder.getByLabel('Name', { exact: true })).toHaveValue('Lantern list');
 		// Keeping a draft installs nothing.
 		expect(await packageIds()).toEqual(before);
@@ -211,10 +206,7 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		await expect(builder).toBeVisible();
 		await expect.poll(tileType).toBe('torchlight-copy');
 		expect(await packageIds()).toEqual(afterFirstCopy);
-		await expect(builder.getByRole('button', { name: 'Advanced', exact: true })).toHaveAttribute(
-			'aria-current',
-			'step',
-		);
+		await expect(builder.getByRole('button', { name: /Step 7 of 8.*Advanced/ })).toBeVisible();
 		const copy = (await packageRecord(page, 'user.torchlight'))!;
 		expect(copy.package.authoring).toMatchObject({
 			source: 'user-authored',
@@ -228,7 +220,7 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		const markup = await code.inputValue();
 		expect(markup).toContain('Pause flicker');
 		await code.fill(markup.replace('Pause flicker', 'Hold the flame'));
-		await builder.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(builder, 'Review');
 		await builder.getByRole('button', { name: 'Save new version', exact: true }).click();
 		await expect(builder).toHaveCount(0);
 

@@ -25,6 +25,8 @@ import { activeLocalVaultId, listLocalVaults, vaultPreferenceKey } from './stora
  * is a type error, and the whole set of things this app persists per-device is readable here.
  */
 export const PREFERENCE_KEYS = {
+	/** Full builder JSON visibility, local to this device. */
+	builderDefinition: 'dndtools:react:builder-definition',
 	/** Scene ids that have contained tiles, for repeat-empty onboarding. */
 	boardFilled: 'dndtools:react:board-filled',
 	markGmOnly: 'dndtools:react:mark-gm-only',

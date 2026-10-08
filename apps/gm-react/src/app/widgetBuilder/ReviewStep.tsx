@@ -36,6 +36,7 @@ export function ReviewStep({
 	rejection,
 	onGoToStep,
 	onSubmit,
+	hideSubmit = false,
 }: {
 	draft: WidgetDraft;
 	patch: (next: Partial<WidgetDraft>) => void;
@@ -48,6 +49,7 @@ export function ReviewStep({
 	rejection: string | null;
 	onGoToStep: (step: BuilderStepId) => void;
 	onSubmit: () => void;
+	hideSubmit?: boolean;
 }) {
 	const { t } = useI18n();
 	const [iterating, setIterating] = useState(false);
@@ -218,14 +220,16 @@ export function ReviewStep({
 			<div
 				style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
 			>
-				<Button
-					variant="primary"
-					icon={mode === 'upgrade' ? 'retry' : 'check'}
-					disabled={!canWrite || busy || issues.length > 0}
-					onClick={onSubmit}
-				>
-					{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
-				</Button>
+				{!hideSubmit && (
+					<Button
+						variant="primary"
+						icon={mode === 'upgrade' ? 'retry' : 'check'}
+						disabled={!canWrite || busy || issues.length > 0}
+						onClick={onSubmit}
+					>
+						{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
+					</Button>
+				)}
 				{!canWrite && (
 					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('builder.review.readOnly')}

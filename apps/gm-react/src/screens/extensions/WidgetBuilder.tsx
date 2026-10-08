@@ -8,13 +8,14 @@ import {
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
 import { Badge, Button, IconButton, Toaster } from '../../ds';
-import { Seg, T } from '../../app/screen-kit';
-import { useViewport } from '../../app/useViewport';
+import { T } from '../../app/screen-kit';
+import { useViewport, useViewportHeight } from '../../app/useViewport';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { registerBackHandler } from '../../platform/backNavigation';
 import { isolateModalSiblings } from '../../platform/modalIsolation';
 import {
 	STEP_LABEL,
+	STEP_IDS,
 	buildPackage,
 	draftStorageKey,
 	editStepFor,
@@ -35,12 +36,14 @@ import { firstBlockedStep, validateDraft } from '../../app/widgetBuilder/validat
 import { QuickBuilder } from '../../app/widgetBuilder/QuickBuilder';
 import {
 	BuilderDraftDialogs,
+	BuilderFooter,
+	BuilderPreviewStrip,
 	BuilderStepRail,
 	DefinitionPane,
 	FocusableBuilderPreview,
 } from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
-import { LayoutStep } from '../../app/widgetBuilder/LayoutStep';
+import { LayoutStep, templateLayoutPatch } from '../../app/widgetBuilder/LayoutStep';
 import { DataStep } from '../../app/widgetBuilder/DataStep';
 import { ConfigStep } from '../../app/widgetBuilder/ConfigStep';
 import { CommandsStep } from '../../app/widgetBuilder/CommandsStep';
@@ -48,40 +51,16 @@ import { StyleStep } from '../../app/widgetBuilder/StyleStep';
 import { AdvancedStep } from '../../app/widgetBuilder/AdvancedStep';
 import { ReviewStep } from '../../app/widgetBuilder/ReviewStep';
 import { useI18n } from '../../i18n';
-import { AdvancedStepGate, shownBuilderSteps, useSettingsTier } from '../settings/Experience';
+import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { TrustReviewSheet } from './TrustReviewSheet';
 
-/**
- * The widget builder (RC-WID-2.1) — a full-screen overlay on the same contract as the map editor:
- * `role="dialog" aria-modal`, the rest of the app isolated from assistive tech while it is up,
- * one Tab cycle, Escape and the platform Back gesture both close it, and focus returns to whatever
- * opened it.
- *
- * Three panes: the stepper and the active step on the left, the draft drawn through the real render
- * path in the middle, and the definition JSON on the right. Below the phone/rail breakpoint the
- * three become one pane with a switch, because a three-column authoring screen on a handset is a
- * scroll maze.
- *
- * The draft lives in component state and touches nothing durable. Review is the only step that
- * writes, through `widget.package.install` or `widget.package.upgrade` — the same commands the
- * Plugins panel's JSON box dispatches, so a widget built here is not a special kind of package.
- *
- * RC-WID-6.6 — a changed draft is also kept (`keptDraftStore`) under the id of the package the
- * builder opened on (`draftStorageKey`), until it is installed or discarded. Closing it while it
- * differs from what it opened with asks Keep or Discard, and opening the builder on a package with a
- * kept draft asks whether to resume it. Never the vault: a half-written widget is work in progress,
- * not campaign state.
- *
- * RC-WID-6.2 — a new package the core's author-trust rule clears (template-only, no permission, a
- * "safe to trust" verdict) installs with `authorTrust`, so it is trusted and on at once. Anything
- * else installs on the fail-closed path and the trust sheet opens over the builder, so allowing and
- * enabling it never means a trip to Extensions. Either way an enabled install is handed to
- * `onInstalled` (the gallery that opened the builder places it); one left off gets a toast that
- * opens Extensions.
+/** Full-screen authoring with a recoverable draft, real runtime preview and review-before-install.
+ * Optional detail is disclosed within eight steps. Only the editor scrolls; navigation stays put.
+ * Installation uses ordinary core commands and the core author-trust decision.
  */
 
 const FOCUSABLE =
-	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+	'summary, button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function WidgetBuilder({
 	/** An installed package to edit. Absent for a new widget. */
@@ -108,11 +87,11 @@ export function WidgetBuilder({
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const viewport = useViewport();
+	const viewportHeight = useViewportHeight();
 	const narrow = viewport !== 'desktop';
 	const dmId = runtime.defaultActorId;
 	const canWrite = runtime.state.permissions.actors[dmId]?.role === 'dm' && !runtime.preview;
 
-	// What the builder opened with: the baseline a change is measured against.
 	const [baseline] = useState<WidgetDraft>(
 		() =>
 			initialDraft ??
@@ -126,7 +105,6 @@ export function WidgetBuilder({
 	const [draftKey] = useState(() =>
 		draftStorageKey(editPackage?.id ?? generatedPackage?.id ?? initialDraft?.packageId),
 	);
-	// RC-WID-6.6 — a kept draft of this package, offered for resuming before anything is edited.
 	const [kept, setKept] = useState<StoredWidgetDraft | null>(() => {
 		const stored = readStoredDraft(keptDraftStore.read(), draftKey);
 		return stored && isDraftDirty(baseline, stored.draft) ? stored : null;
@@ -134,25 +112,28 @@ export function WidgetBuilder({
 	const [leaving, setLeaving] = useState(false);
 	// Installed, saved or discarded: nothing is kept for this session any more.
 	const settledRef = useRef(false);
-	// A generated draft starts where a DM reviews it, not where a DM would start typing.
 	const [step, setStep] = useState<BuilderStepId>(
 		initialStep ?? (!editPackage && generatedPackage ? 'review' : 'identity'),
 	);
-	// Board/gallery creation starts Quick; Extensions, edits and generated drafts stay Full.
 	const [quick, setQuick] = useState(
 		!!onInstalled && !initialDraft && !editPackage && !generatedPackage,
 	);
-	const [pane, setPane] = useState<'edit' | 'preview' | 'json'>('edit');
+	const [pane, setPane] = useState<'edit' | 'preview' | 'json'>(() =>
+		narrow && readPreference(PREFERENCE_KEYS.builderDefinition) === 'true' ? 'json' : 'edit',
+	);
+	const [definition, setDefinition] = useState(
+		() => readPreference(PREFERENCE_KEYS.builderDefinition) === 'true',
+	);
+	const [railOpen, setRailOpen] = useState(false);
+	const [changingSize, setChangingSize] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [rejection, setRejection] = useState<string | null>(null);
-	// RC-WID-6.2 — the package just installed for review, while the trust sheet is open over the builder.
 	const [reviewing, setReviewing] = useState<WidgetPackageDefinition | null>(null);
 	const navigate = useNavigate();
 
 	const rootRef = useRef<HTMLDivElement>(null);
 	const onCloseRef = useRef(onClose);
 	onCloseRef.current = onClose;
-	// The open trust sheet or a draft question owns the keyboard: its Escape and Tab, not the builder's.
 	const yieldKeysRef = useRef(false);
 	yieldKeysRef.current = reviewing !== null || kept !== null || leaving;
 
@@ -210,7 +191,8 @@ export function WidgetBuilder({
 	const draftName = (of?: WidgetDraft) => of?.name || t('extensions.builder.newWidget');
 
 	const patch = useCallback(
-		(next: Partial<WidgetDraft>) => setDraft((current) => ({ ...current, ...next })),
+		(next: Partial<WidgetDraft>) =>
+			setDraft((current) => ({ ...current, ...templateLayoutPatch(current, next) })),
 		[],
 	);
 
@@ -296,13 +278,14 @@ export function WidgetBuilder({
 		};
 	}, [quick]);
 
-	// RC-UX-6.4 — below its complexity-map gate the stepper skips Advanced (custom code, host
-	// access); `shownBuilderSteps` keeps it whenever the draft already has something there.
-	const tier = useSettingsTier();
-	const steps = shownBuilderSteps(draft, tier, step, issues);
+	// Full always has eight steps; optional detail is disclosed within each step.
+	const steps = STEP_IDS;
 	const stepIndex = steps.indexOf(step);
 	const goToStep = (next: BuilderStepId) => {
+		rootRef.current?.querySelector('[data-builder-editor]')?.parentElement?.scrollTo(0, 0);
 		setStep(next);
+		setRailOpen(false);
+		setChangingSize(false);
 		if (narrow) setPane('edit');
 	};
 
@@ -386,7 +369,6 @@ export function WidgetBuilder({
 	const stepRail = (
 		<>
 			<BuilderStepRail step={step} steps={steps} issues={issues} onGoToStep={goToStep} />
-			{!steps.includes('advanced') && <AdvancedStepGate tier={tier} />}
 		</>
 	);
 
@@ -466,6 +448,7 @@ export function WidgetBuilder({
 			style={{
 				position: 'fixed',
 				inset: 0,
+				height: narrow ? viewportHeight : undefined,
 				zIndex: T.z.overlay,
 				display: 'flex',
 				flexDirection: 'column',
@@ -507,14 +490,43 @@ export function WidgetBuilder({
 					>
 						{draft.name || t('extensions.builder.newWidget')}
 					</h1>
-					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+					<button
+						type="button"
+						disabled={!narrow}
+						aria-expanded={narrow ? railOpen : undefined}
+						onClick={() => {
+							setRailOpen(!railOpen);
+							setPane('edit');
+						}}
+						style={{
+							padding: 'var(--space-0)',
+							border: 0,
+							textAlign: 'left',
+							background: 'transparent',
+							font: `var(--text-xs) ${T.sans}`,
+							color: T.sub,
+						}}
+					>
 						{t('extensions.builder.stepOf', {
 							index: stepIndex + 1,
 							total: steps.length,
 							label: t(STEP_LABEL[step]),
 						})}
-					</span>
+					</button>
 				</div>
+				<Button
+					size="sm"
+					variant="ghost"
+					aria-pressed={definition}
+					onClick={() => {
+						const next = !definition;
+						setDefinition(next);
+						writePreference(PREFERENCE_KEYS.builderDefinition, String(next));
+						if (!next || narrow) setPane(next ? 'json' : 'edit');
+					}}
+				>
+					{t('extensions.builder.definition')}
+				</Button>
 				<Badge status={mode === 'upgrade' ? 'warning' : 'neutral'}>
 					{mode === 'upgrade'
 						? t('extensions.builder.newVersion')
@@ -523,25 +535,15 @@ export function WidgetBuilder({
 			</header>
 
 			{narrow && (
-				<div
-					style={{
-						padding: 'var(--space-2) var(--space-2)',
-						borderBottom: `1px solid ${T.bd}`,
-						background: T.surf,
-						flex: '0 0 auto',
+				<BuilderPreviewStrip
+					draft={draft}
+					pane={pane}
+					onPane={setPane}
+					onSize={() => {
+						goToStep('layout');
+						setChangingSize(true);
 					}}
-				>
-					<Seg
-						ariaLabel={t('extensions.builder.pane')}
-						value={pane}
-						onChange={(next: string) => setPane(next as typeof pane)}
-						options={[
-							{ value: 'edit', label: t('extensions.builder.paneEdit') },
-							{ value: 'preview', label: t('extensions.builder.panePreview') },
-							{ value: 'json', label: t('extensions.builder.definition') },
-						]}
-					/>
-				</div>
+				/>
 			)}
 
 			<div
@@ -550,63 +552,63 @@ export function WidgetBuilder({
 					minHeight: 0,
 					display: 'grid',
 					gridTemplateColumns: narrow
-						? '1fr'
-						: 'minmax(320px, 400px) minmax(0, 1fr) minmax(280px, 360px)',
+						? 'minmax(0, 1fr)'
+						: definition
+							? 'minmax(320px, 440px) minmax(0, 1fr) minmax(280px, 360px)'
+							: 'minmax(320px, 440px) minmax(0, 1fr)',
 				}}
 			>
-				{(!narrow || pane === 'edit') &&
-					column(
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-							{stepRail}
-							{step === 'identity' ? (
-								<IdentityStep {...stepProps} />
-							) : step === 'layout' ? (
-								<LayoutStep {...stepProps} />
-							) : step === 'data' ? (
-								<DataStep {...stepProps} />
-							) : step === 'config' ? (
-								<ConfigStep {...stepProps} />
-							) : step === 'commands' ? (
-								<CommandsStep {...stepProps} />
-							) : step === 'style' ? (
-								<StyleStep {...stepProps} />
-							) : step === 'advanced' ? (
-								<AdvancedStep {...stepProps} />
-							) : (
-								<ReviewStep
-									draft={draft}
-									patch={patch}
-									issues={issues}
-									mode={mode}
-									busy={busy}
-									canWrite={canWrite}
-									rejection={rejection}
-									onGoToStep={goToStep}
-									onSubmit={submit}
-								/>
-							)}
-							<div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="chevron-left"
-									disabled={stepIndex === 0}
-									onClick={() => goToStep(steps[Math.max(0, stepIndex - 1)]!)}
-								>
-									{t('common.action.back')}
-								</Button>
-								<Button
-									variant="secondary"
-									size="sm"
-									disabled={stepIndex === steps.length - 1}
-									onClick={() => goToStep(steps[Math.min(steps.length - 1, stepIndex + 1)]!)}
-								>
-									{t('common.action.next')}
-								</Button>
-							</div>
-						</div>,
-						narrow ? undefined : { borderRight: `1px solid ${T.bd}` },
-					)}
+				{(!narrow || pane === 'edit') && (
+					<div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+						{column(
+							<div
+								data-builder-editor
+								style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+							>
+								{(!narrow || railOpen) && stepRail}
+								{step === 'identity' ? (
+									<IdentityStep {...stepProps} deriveIds={!editPackage && !generatedPackage} />
+								) : step === 'layout' ? (
+									<LayoutStep {...stepProps} expanded={changingSize} />
+								) : step === 'data' ? (
+									<DataStep {...stepProps} />
+								) : step === 'config' ? (
+									<ConfigStep {...stepProps} />
+								) : step === 'commands' ? (
+									<CommandsStep {...stepProps} />
+								) : step === 'style' ? (
+									<StyleStep {...stepProps} />
+								) : step === 'advanced' ? (
+									<AdvancedStep {...stepProps} />
+								) : (
+									<ReviewStep
+										draft={draft}
+										patch={patch}
+										issues={issues}
+										mode={mode}
+										busy={busy}
+										canWrite={canWrite}
+										rejection={rejection}
+										onGoToStep={goToStep}
+										onSubmit={submit}
+										hideSubmit
+									/>
+								)}
+							</div>,
+							{ flex: 1, borderRight: narrow ? undefined : `1px solid ${T.bd}` },
+						)}
+						{!narrow && (
+							<BuilderFooter
+								step={step}
+								steps={steps}
+								onStep={goToStep}
+								onSubmit={submit}
+								blocked={!canWrite || busy || issues.length > 0}
+								mode={mode}
+							/>
+						)}
+					</div>
+				)}
 
 				{(!narrow || pane === 'preview') &&
 					column(
@@ -614,13 +616,35 @@ export function WidgetBuilder({
 							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('extensions.builder.panePreview')}
 							</span>
+							<Button
+								size="sm"
+								variant="secondary"
+								onClick={() => {
+									goToStep('layout');
+									setChangingSize(true);
+								}}
+							>
+								{draft.defaultSize.width} × {draft.defaultSize.height} ·{' '}
+								{t('builder.layout.changeSize')}
+							</Button>
 							<FocusableBuilderPreview draft={draft} />
 						</div>,
 					)}
 
-				{(!narrow || pane === 'json') &&
+				{definition &&
+					(!narrow || pane === 'json') &&
 					column(jsonPane, narrow ? undefined : { borderLeft: `1px solid ${T.bd}` })}
 			</div>
+			{narrow && (
+				<BuilderFooter
+					step={step}
+					steps={steps}
+					onStep={goToStep}
+					onSubmit={submit}
+					blocked={!canWrite || busy || issues.length > 0}
+					mode={mode}
+				/>
+			)}
 			{dialogs}
 		</div>
 	);
@@ -681,15 +705,7 @@ export function InPlaceEnable({
 	);
 }
 
-/**
- * RC-WID-6.6 — "Edit widget" for a placed tile, shared by the tile menus and the Inspector. What it
- * opens is `widgetEditTarget`'s answer: the GM's own package as it is, an unplaced copy from an
- * earlier edit (so its kept draft resumes), or a new copy made with `widget.package.fork`. The tile
- * moves onto the copy at once with `scene.repoint-widget`. A copy that starts off (custom code is
- * never trusted on the GM's word) reads "disabled, preserved" until the builder saves it, which turns
- * it on and draws the tile afresh from the saved code; closed with the copy still off, the tile goes
- * back to the widget it was copied from. The builder opens on Data, or Advanced for custom code.
- */
+/** Edit a placed widget, forking first when the installed definition belongs to someone else. */
 export function useEditWidget(widgetInstanceId: string, widgetType: string) {
 	const { t } = useI18n();
 	const runtime = useRuntime();

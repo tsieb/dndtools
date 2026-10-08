@@ -62,143 +62,149 @@ export function StyleStep({ draft, patch, issues }: StepProps) {
 				))}
 			</datalist>
 			<StepHeader title={t('builder.style.title')} help={t('builder.style.help')} />
-			<StepSection title={t('builder.style.tokens')} help={t('builder.style.tokensHelp')}>
-				{issueFor(issues, 'styleTokens', t) && (
-					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'styleTokens', t)}
-					</span>
-				)}
-				<RowList
-					empty={t('builder.style.noTokens')}
-					addLabel={t('builder.style.addToken')}
-					onAdd={() =>
-						patch({
-							styleTokens: [
-								...draft.styleTokens,
-								{
-									name: `accent-${nextTokenNumber}`,
-									value: defaultTokenValue,
-								},
-							],
-						})
-					}
-				>
-					{draft.styleTokens.map((token, index) => (
-						<RowCard
-							key={`token-${index}`}
-							title={`--widget-${token.name}`}
-							removeLabel={t('builder.style.removeToken', { name: token.name })}
-							onRemove={() => patch({ styleTokens: removeAt(draft.styleTokens, index) })}
-						>
-							<FieldGrid>
-								<Field label={t('builder.style.name')} help={t('builder.style.nameHelp')}>
+			<details
+				key={String(draft.runtime === 'custom-html-js')}
+				open={draft.runtime === 'custom-html-js' || undefined}
+			>
+				<summary>{t('builder.style.summary', { count: draft.styleTokens.length })}</summary>
+				<StepSection title={t('builder.style.tokens')} help={t('builder.style.tokensHelp')}>
+					{issueFor(issues, 'styleTokens', t) && (
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+							{issueFor(issues, 'styleTokens', t)}
+						</span>
+					)}
+					<RowList
+						empty={t('builder.style.noTokens')}
+						addLabel={t('builder.style.addToken')}
+						onAdd={() =>
+							patch({
+								styleTokens: [
+									...draft.styleTokens,
+									{
+										name: `accent-${nextTokenNumber}`,
+										value: defaultTokenValue,
+									},
+								],
+							})
+						}
+					>
+						{draft.styleTokens.map((token, index) => (
+							<RowCard
+								key={`token-${index}`}
+								title={`--widget-${token.name}`}
+								removeLabel={t('builder.style.removeToken', { name: token.name })}
+								onRemove={() => patch({ styleTokens: removeAt(draft.styleTokens, index) })}
+							>
+								<FieldGrid>
+									<Field label={t('builder.style.name')} help={t('builder.style.nameHelp')}>
+										<Input
+											value={token.name}
+											onChange={(e: { target: { value: string } }) =>
+												patch({
+													styleTokens: replaceAt(draft.styleTokens, index, {
+														...token,
+														name: slugify(e.target.value),
+													}),
+												})
+											}
+										/>
+									</Field>
+									<Field label={t('builder.style.value')}>
+										{allowsRawValue ? (
+											<Input
+												list={tokenValuesId}
+												value={token.value}
+												onChange={(e: { target: { value: string } }) =>
+													patch({
+														styleTokens: replaceAt(draft.styleTokens, index, {
+															...token,
+															value: e.target.value,
+														}),
+													})
+												}
+											/>
+										) : (
+											<Select
+												value={token.value}
+												options={tokenValueOptions(t)}
+												onChange={(e: { target: { value: string } }) =>
+													patch({
+														styleTokens: replaceAt(draft.styleTokens, index, {
+															...token,
+															value: e.target.value,
+														}),
+													})
+												}
+											/>
+										)}
+									</Field>
+								</FieldGrid>
+								<Field
+									label={t('builder.style.description')}
+									help={t('builder.style.descriptionHelp')}
+								>
 									<Input
-										value={token.name}
+										value={token.description ?? ''}
 										onChange={(e: { target: { value: string } }) =>
 											patch({
 												styleTokens: replaceAt(draft.styleTokens, index, {
 													...token,
-													name: slugify(e.target.value),
+													description: e.target.value || undefined,
 												}),
 											})
 										}
 									/>
 								</Field>
-								<Field label={t('builder.style.value')}>
-									{allowsRawValue ? (
-										<Input
-											list={tokenValuesId}
-											value={token.value}
-											onChange={(e: { target: { value: string } }) =>
-												patch({
-													styleTokens: replaceAt(draft.styleTokens, index, {
-														...token,
-														value: e.target.value,
-													}),
-												})
-											}
-										/>
-									) : (
-										<Select
-											value={token.value}
-											options={tokenValueOptions(t)}
-											onChange={(e: { target: { value: string } }) =>
-												patch({
-													styleTokens: replaceAt(draft.styleTokens, index, {
-														...token,
-														value: e.target.value,
-													}),
-												})
-											}
-										/>
-									)}
-								</Field>
-							</FieldGrid>
-							<Field
-								label={t('builder.style.description')}
-								help={t('builder.style.descriptionHelp')}
-							>
-								<Input
-									value={token.description ?? ''}
-									onChange={(e: { target: { value: string } }) =>
-										patch({
-											styleTokens: replaceAt(draft.styleTokens, index, {
-												...token,
-												description: e.target.value || undefined,
-											}),
-										})
-									}
-								/>
-							</Field>
-						</RowCard>
-					))}
-				</RowList>
-				{!allowsRawValue && (
-					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
-						{t('builder.style.semanticOnly')}
-					</span>
-				)}
-			</StepSection>
-			<StepSection title={t('builder.style.isolationTitle')}>
-				<Field label={t('builder.style.isolation')} help={t('builder.style.isolationHelp')}>
-					<Select
-						value={draft.styleIsolation}
-						options={isolationOptions(t)}
-						onChange={(e: { target: { value: string } }) =>
-							patch({ styleIsolation: e.target.value as WidgetStyleIsolation })
-						}
-					/>
-				</Field>
-				<ToggleGroup legend={t('builder.style.capabilities')}>
-					{STYLE_CAPABILITIES.map((capability) => (
-						<Checkbox
-							key={capability}
-							checked={draft.styleCapabilities.includes(capability)}
-							label={t(STYLE_CAPABILITY_LABEL[capability])}
-							onChange={() =>
-								patch({
-									// Revoke custom values together with their capability so the
-									// package cannot retain a palette that stops following the theme.
-									...(capability === 'custom-stylesheet' && allowsRawValue
-										? {
-												styleTokens: draft.styleTokens.map((token) =>
-													SEMANTIC_TOKEN_VALUES.some((option) => option.value === token.value)
-														? token
-														: { ...token, value: defaultTokenValue },
-												),
-											}
-										: {}),
-									styleCapabilities: draft.styleCapabilities.includes(capability)
-										? draft.styleCapabilities.filter(
-												(entry: WidgetStyleCapability) => entry !== capability,
-											)
-										: [...draft.styleCapabilities, capability],
-								})
+							</RowCard>
+						))}
+					</RowList>
+					{!allowsRawValue && (
+						<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+							{t('builder.style.semanticOnly')}
+						</span>
+					)}
+				</StepSection>
+				<StepSection title={t('builder.style.isolationTitle')}>
+					<Field label={t('builder.style.isolation')} help={t('builder.style.isolationHelp')}>
+						<Select
+							value={draft.styleIsolation}
+							options={isolationOptions(t)}
+							onChange={(e: { target: { value: string } }) =>
+								patch({ styleIsolation: e.target.value as WidgetStyleIsolation })
 							}
 						/>
-					))}
-				</ToggleGroup>
-			</StepSection>
+					</Field>
+					<ToggleGroup legend={t('builder.style.capabilities')}>
+						{STYLE_CAPABILITIES.map((capability) => (
+							<Checkbox
+								key={capability}
+								checked={draft.styleCapabilities.includes(capability)}
+								label={t(STYLE_CAPABILITY_LABEL[capability])}
+								onChange={() =>
+									patch({
+										// Revoke custom values together with their capability so the
+										// package cannot retain a palette that stops following the theme.
+										...(capability === 'custom-stylesheet' && allowsRawValue
+											? {
+													styleTokens: draft.styleTokens.map((token) =>
+														SEMANTIC_TOKEN_VALUES.some((option) => option.value === token.value)
+															? token
+															: { ...token, value: defaultTokenValue },
+													),
+												}
+											: {}),
+										styleCapabilities: draft.styleCapabilities.includes(capability)
+											? draft.styleCapabilities.filter(
+													(entry: WidgetStyleCapability) => entry !== capability,
+												)
+											: [...draft.styleCapabilities, capability],
+									})
+								}
+							/>
+						))}
+					</ToggleGroup>
+				</StepSection>
+			</details>
 		</div>
 	);
 }

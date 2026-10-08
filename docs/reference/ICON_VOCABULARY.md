@@ -146,6 +146,16 @@ The vocabulary is ahead of some callers, which live outside the registry's owned
 - `RestDialog.tsx` and `session/Lifecycle.tsx` draw a long rest with `theme` and a short rest with
   `recent`; `rest-long` and `rest-short` are the intended names.
 
+## Builder picker names
+
+The widget builder radios speak the vocabulary concept rather than a Lucide shape or a raw key:
+`session-bolt` is “Session”, `characters-person` is “Characters”, `atlas-map` is “Map”,
+`campaign-scroll` is “Campaign”, `knowledge-book` is “Knowledge”, `settings-gear` is “Settings”,
+`dm-only` is “DM only”, `monster-claw` is “Monster” and `spell-sparkle` is “Spell”.
+Condition, system, tile and die prefixes expand to “Condition”, “System”, “Widget” and “Die”;
+other semantic keys use words separated by spaces. Search accepts both the key and its meaning.
+The picker remains one tab stop, with arrow keys moving between radios.
+
 ## Adding an icon
 
 1. Confirm the Lucide glyph at [lucide.dev/icons](https://lucide.dev/icons) (PascalCase component name).

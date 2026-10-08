@@ -142,13 +142,8 @@ test('More options keeps the Quick draft and opens the matching Full step', asyn
 	await quick.getByRole('spinbutton', { name: 'Maximum', exact: true }).fill('9');
 	await quick.getByRole('button', { name: 'More options', exact: true }).click();
 	const full = page.getByRole('dialog', { name: /Widget builder/ });
-	await expect(full.getByRole('button', { name: 'Config fields', exact: true })).toHaveAttribute(
-		'aria-current',
-		'step',
-	);
-	const panes = full.getByRole('radiogroup', { name: 'Builder pane' });
-	if (await panes.isVisible())
-		await panes.getByRole('radio', { name: 'Definition', exact: true }).click();
+	await expect(full.getByRole('button', { name: /Step 4 of 8.*Config fields/ })).toBeVisible();
+	await full.getByRole('button', { name: 'Definition', exact: true }).click();
 	const pkg = JSON.parse(await full.getByTestId('widget-builder-json').inputValue());
 	expect(pkg.displayName).toBe('Doom counter');
 	expect(

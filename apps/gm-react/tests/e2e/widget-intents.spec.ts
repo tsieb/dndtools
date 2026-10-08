@@ -1,3 +1,4 @@
+import { builderStep } from './_widget-builder';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
@@ -105,10 +106,10 @@ test.describe('widget intents: open and create', () => {
 		const dialog = page.getByRole('dialog', { name: /Widget builder/ });
 		await expect(dialog).toBeVisible();
 		await dialog.getByLabel('Name', { exact: true }).fill('Table launcher');
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		await dialog.getByLabel('Template kind').selectOption('action-panel');
 
-		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
+		await builderStep(dialog, 'Commands');
 		await dialog.getByRole('button', { name: 'Open a character', exact: true }).click();
 		await dialog.getByRole('button', { name: 'New map', exact: true }).click();
 		// A create intent is declared once; the chip says so rather than adding a second.
@@ -117,7 +118,7 @@ test.describe('widget intents: open and create', () => {
 		).toBeDisabled();
 		await dialog.getByLabel('Opens', { exact: true }).selectOption({ label: characterName });
 
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		await expect(dialog).toHaveCount(0);
 
@@ -179,11 +180,11 @@ test.describe('widget intents: open and create', () => {
 			await page.getByRole('button', { name: 'Build a widget' }).click();
 			const builder = page.getByRole('dialog', { name: /Widget builder/ });
 			await builder.getByLabel('Name', { exact: true }).fill('Screen launcher');
-			await builder.getByRole('button', { name: 'Data', exact: true }).click();
+			await builderStep(builder, 'Data');
 			await builder.getByLabel('Template kind').selectOption('action-panel');
-			await builder.getByRole('button', { name: 'Commands', exact: true }).click();
+			await builderStep(builder, 'Commands');
 			await builder.getByRole('button', { name: intentName, exact: true }).click();
-			await builder.getByRole('button', { name: 'Review', exact: true }).click();
+			await builderStep(builder, 'Review');
 			await builder.getByRole('button', { name: 'Install widget' }).click();
 			await expect(builder).toHaveCount(0);
 			// RC-WID-6.2 — a template with no permission installs trusted and already on.

@@ -1,3 +1,5 @@
+import { builderPane } from './_widget-builder';
+import { builderStep } from './_widget-builder';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { promises as fs } from 'node:fs';
@@ -53,12 +55,7 @@ async function openBuilder(page: Page) {
 }
 
 /** The narrow layout folds the three panes behind a switch; pick one when it is present. */
-async function showPane(page: Page, label: 'Edit' | 'Preview' | 'Definition') {
-	const seg = page.getByRole('radiogroup', { name: 'Builder pane' });
-	if (await seg.isVisible().catch(() => false)) {
-		await seg.getByRole('radio', { name: label }).click();
-	}
-}
+const showPane = builderPane;
 
 test.describe('widget builder: build, install, place', () => {
 	test('builds a status-list widget bound to current combatants and places it on a scene', async ({
@@ -68,11 +65,12 @@ test.describe('widget builder: build, install, place', () => {
 
 		// ── Identity: the name drives both ids until they are edited by hand.
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
+		await dialog.locator('summary').filter({ hasText: 'Advanced identity' }).click();
 		await expect(dialog.getByLabel('Package id')).toHaveValue(PACKAGE_ID);
 		await expect(dialog.getByLabel('Widget type id')).toHaveValue('party-status');
 
 		// ── Data: the default template kind is the status list; bind it to the current combatants.
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		await expect(dialog.getByLabel('Template kind')).toHaveValue('status-list');
 		await dialog.getByRole('button', { name: 'Add data query' }).click();
 		await expect(dialog.getByLabel('Source')).toHaveValue('current-combatants');
@@ -89,7 +87,7 @@ test.describe('widget builder: build, install, place', () => {
 
 		// ── Review installs it. The overlay closes on success.
 		await showPane(page, 'Edit');
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		await expect(dialog).toHaveCount(0);
 
@@ -155,11 +153,13 @@ test.describe('widget builder: build, install, place', () => {
 		const edit = inspector.getByRole('button', { name: 'Edit widget definition' });
 		await edit.click();
 		// RC-WID-6.6 — an edit from a placed tile opens on the Data step (Advanced for custom code).
+		if (page.viewportSize()!.width < 1025)
+			await dialog.getByRole('button', { name: /Step \d+ of 8/ }).click();
 		await expect(dialog.getByRole('button', { name: 'Data', exact: true })).toHaveAttribute(
 			'aria-current',
 			'step',
 		);
-		await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
+		await builderStep(dialog, 'Identity');
 		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
 		await dialog.getByLabel('Name', { exact: true }).fill('Discard this edit');
 		// RC-WID-6.6 — a changed draft asks before it closes; discarded, nothing is kept.
@@ -173,14 +173,14 @@ test.describe('widget builder: build, install, place', () => {
 		expect((await installedPackage(page, PACKAGE_ID))!.package.version).toBe('1.0.0');
 
 		await edit.click();
-		await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
+		await builderStep(dialog, 'Identity');
 		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
-		await dialog.getByRole('button', { name: 'Config fields', exact: true }).click();
+		await builderStep(dialog, 'Config fields');
 		await dialog.getByRole('button', { name: 'Add config field' }).click();
 		await dialog.getByLabel('Label', { exact: true }).fill('Caption');
 		await dialog.getByLabel('Key', { exact: true }).fill('caption');
 		await dialog.getByLabel('Default value', { exact: true }).fill('Ready for adventure');
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Save new version' }).click();
 		await expect(dialog).toHaveCount(0);
 		await expect(edit).toBeFocused();
@@ -204,7 +204,7 @@ test.describe('widget builder: build, install, place', () => {
 		const dialog = await openBuilder(page);
 		// Straight to Review with nothing filled in: the install button is unavailable and the
 		// blocking steps are listed by name.
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
 		await expect(dialog.getByText('Give the widget a name.')).toBeVisible();
 		await dialog.getByRole('button', { name: 'Go to Identity' }).first().click();
@@ -233,7 +233,7 @@ test.describe('widget builder: data step (RC-WID-2.2)', () => {
 	}) => {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 
 		// ── A required binding: what a placed copy is pointed at, and what it asks to do with it.
 		await dialog.getByRole('button', { name: 'Add required binding' }).click();
@@ -268,7 +268,7 @@ test.describe('widget builder: data step (RC-WID-2.2)', () => {
 
 		// ── All three declarations reach the installed package.
 		await showPane(page, 'Edit');
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		await expect(dialog).toHaveCount(0);
 
@@ -295,7 +295,7 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
 
 		// ── Config fields: a number with a range, and the range checked against its own default.
-		await dialog.getByRole('button', { name: 'Config fields', exact: true }).click();
+		await builderStep(dialog, 'Config fields');
 		await dialog.getByRole('button', { name: 'Add config field' }).click();
 		await dialog.getByLabel('Label', { exact: true }).fill('Segments');
 		await dialog.getByLabel('Key', { exact: true }).fill('segments');
@@ -313,7 +313,7 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 
 		// ── Commands: one operate verb from the catalogue, and one configure verb that can only be
 		//    declared for a manager.
-		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
+		await builderStep(dialog, 'Commands');
 		// RC-WID-6.7 — named by outcome; who may press it is said on hover, not as a heading.
 		await expect(dialog.getByText('Operate', { exact: true })).toHaveCount(0);
 		await dialog.getByRole('button', { name: 'Roll dice', exact: true }).hover();
@@ -336,7 +336,7 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 			advanced.getByText('This changes the widget itself, so only the DM can press it.'),
 		).toBeVisible();
 
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		await expect(dialog).toHaveCount(0);
 
@@ -424,7 +424,7 @@ test.describe('widget builder: export and new version (RC-WID-2.7)', () => {
 	async function installMinimal(page: Page) {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		await expect(dialog).toHaveCount(0);
 	}
@@ -465,9 +465,10 @@ test.describe('widget builder: export and new version (RC-WID-2.7)', () => {
 
 		// Pre-filled from the installed package: same identity, patch-bumped version.
 		await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Party status');
+		await dialog.locator('summary').filter({ hasText: 'Advanced identity' }).click();
 		await expect(dialog.getByLabel('Version', { exact: true })).toHaveValue('1.0.1');
 
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByLabel('Changelog', { exact: true }).fill('Clarifies the health readout.');
 		// The migration this version bump writes is described before it is saved.
 		await expect(dialog.getByText('Every copy on version 1.0.0 moves to 1.0.1')).toBeVisible();
@@ -503,7 +504,7 @@ test.describe('widget builder: accessibility', () => {
 	test('the open builder has no critical or serious axe violation', async ({ page }) => {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Party status');
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		// Every declaration the Data step can hold is on screen: a binding, a query and a computed
 		// field with its formula editor open (RC-WID-2.2).
 		await dialog.getByRole('button', { name: 'Add required binding' }).click();
@@ -512,10 +513,10 @@ test.describe('widget builder: accessibility', () => {
 		await dialog.getByRole('checkbox', { name: 'Work it out with a formula' }).click();
 		// …and so is every control the Config fields and Commands steps add (RC-WID-2.3): a number's
 		// range boxes and a declared command's capability and destination selects.
-		await dialog.getByRole('button', { name: 'Config fields', exact: true }).click();
+		await builderStep(dialog, 'Config fields');
 		await dialog.getByRole('button', { name: 'Add config field' }).click();
 		await dialog.getByLabel('Control', { exact: true }).selectOption({ label: 'Number' });
-		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
+		await builderStep(dialog, 'Commands');
 		await dialog.getByRole('button', { name: 'Set the count', exact: true }).click();
 		await dialog.getByTestId('command-advanced').getByText('Advanced', { exact: true }).click();
 
@@ -540,7 +541,7 @@ test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
 	}) => {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Torch card');
-		await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
+		await builderStep(dialog, 'Advanced');
 
 		// ── Turning code on fills the editors with a widget that runs, so the preview is never a blank
 		// frame the author has to debug blind.
@@ -565,10 +566,10 @@ test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
 		// a permission scoped to no destination blocks the install rather than shipping a dead grant.
 		await dialog.getByRole('checkbox', { name: 'Reach the network' }).click();
 		await expect(dialog.getByRole('group', { name: 'Network destinations' })).toBeVisible();
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
 		await expect(dialog.getByText(/Pick at least one destination/)).toBeVisible();
-		await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
+		await builderStep(dialog, 'Advanced');
 		await dialog.getByRole('checkbox', { name: 'Its own declared address' }).click();
 		await expect(summary.getByText('Its own declared address')).toBeVisible();
 
@@ -581,7 +582,7 @@ test.describe('widget builder: advanced step (RC-WID-2.5)', () => {
 		// ── Review installs it: custom runtime, three assets, and no trust it has not earned. The
 		// trust sheet opens over the builder (RC-WID-6.2); leaving it leaves the package off.
 		await showPane(page, 'Edit');
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await expect(dialog.getByText('Requires review')).toBeVisible();
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		const sheet = page.getByRole('dialog', { name: 'Review Torch card' });

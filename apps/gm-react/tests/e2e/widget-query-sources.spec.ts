@@ -1,3 +1,4 @@
+import { builderStep } from './_widget-builder';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
@@ -73,7 +74,7 @@ async function openDataStep(page: Page): Promise<Locator> {
 	const dialog = page.getByRole('dialog', { name: /Widget builder/ });
 	await expect(dialog).toBeVisible();
 	await dialog.getByLabel('Name', { exact: true }).fill('Hub sources');
-	await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+	await builderStep(dialog, 'Data');
 	return dialog;
 }
 

@@ -1,6 +1,6 @@
 import { widgetPresentation } from '@dndtools/core';
 import { Field, Input, Select } from '../../ds';
-import { type DockPreference } from './draft';
+import { type DockPreference, type WidgetDraft } from './draft';
 import { FieldGrid, StepHeader, StepSection, issueFor, type StepProps } from './fields';
 import { DOCK_PREFERENCE_LABEL, RESIZE_LABEL } from './vocabulary';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
@@ -50,105 +50,143 @@ function numberField(
 	);
 }
 
-export function LayoutStep({ draft, patch, issues }: StepProps) {
+/** Initial canvas sizes suit the content; explicit author sizes survive a template change. */
+export const TEMPLATE_SIZES: Record<WidgetDraft['template'], WidgetDraft['defaultSize']> = {
+	'status-list': { width: 360, height: 260 },
+	'stat-block': { width: 360, height: 420 },
+	'data-table': { width: 360, height: 320 },
+	tracker: { width: 300, height: 300 },
+	'scene-message': { width: 360, height: 260 },
+	'action-panel': { width: 360, height: 220 },
+	chart: { width: 360, height: 300 },
+	'form-panel': { width: 360, height: 360 },
+	'link-list': { width: 360, height: 260 },
+	launcher: { width: 360, height: 260 },
+	'card-grid': { width: 360, height: 360 },
+	hero: { width: 360, height: 300 },
+};
+
+export function templateLayoutPatch(
+	current: WidgetDraft,
+	next: Partial<WidgetDraft>,
+): Partial<WidgetDraft> {
+	if (!next.template || next.template === current.template || next.defaultSize) return next;
+	const previous = TEMPLATE_SIZES[current.template];
+	return current.defaultSize.width === previous.width &&
+		current.defaultSize.height === previous.height
+		? { ...next, defaultSize: { ...TEMPLATE_SIZES[next.template] } }
+		: next;
+}
+
+export function LayoutStep({
+	draft,
+	patch,
+	issues,
+	expanded = false,
+}: StepProps & { expanded?: boolean }) {
 	const { t } = useI18n();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.layout.title')} help={t('builder.layout.help')} />
-			<StepSection
-				title={t('builder.layout.presentation')}
-				help={t('builder.layout.presentationHelp')}
-			>
-				<Field label={t('builder.layout.presentation')}>
-					<Select
-						value={widgetPresentation({
-							presentation: draft.configFields.find((f) => f.key === 'presentation')?.default,
-						})}
-						options={[
-							{ value: 'framed', label: t('builder.layout.framed') },
-							{ value: 'bare', label: t('builder.layout.bare') },
-						]}
-						onChange={(e) =>
-							patch({
-								configFields: [
-									...draft.configFields.filter((f) => f.key !== 'presentation'),
-									{
-										key: 'presentation',
-										label: 'Presentation',
-										group: 'display',
-										control: 'select',
-										default: e.target.value,
-										options: [
-											{ value: 'framed', label: 'Framed' },
-											{ value: 'bare', label: 'Bare' },
-										],
-									},
-								],
-							})
-						}
-					/>
-				</Field>
-			</StepSection>
-			<StepSection
-				title={t('builder.layout.defaultSize')}
-				help={t('builder.layout.defaultSizeHelp')}
-			>
-				<FieldGrid>
-					{numberField(
-						t('builder.layout.defaultWidth'),
-						draft.defaultSize.width,
-						issueFor(issues, 'defaultSize.width', t),
-						(width) => patch({ defaultSize: { ...draft.defaultSize, width } }),
-					)}
-					{numberField(
-						t('builder.layout.defaultHeight'),
-						draft.defaultSize.height,
-						issueFor(issues, 'defaultSize.height', t),
-						(height) => patch({ defaultSize: { ...draft.defaultSize, height } }),
-					)}
-				</FieldGrid>
-			</StepSection>
-			<StepSection title={t('builder.layout.minSize')} help={t('builder.layout.minSizeHelp')}>
-				<FieldGrid>
-					{numberField(
-						t('builder.layout.minWidth'),
-						draft.minSize.width,
-						issueFor(issues, 'minSize.width', t),
-						(width) => patch({ minSize: { ...draft.minSize, width } }),
-					)}
-					{numberField(
-						t('builder.layout.minHeight'),
-						draft.minSize.height,
-						issueFor(issues, 'minSize.height', t),
-						(height) => patch({ minSize: { ...draft.minSize, height } }),
-					)}
-				</FieldGrid>
-			</StepSection>
-			<StepSection title={t('builder.layout.behaviour')}>
-				<FieldGrid>
-					<Field label={t('builder.layout.resizePolicy')}>
+			<details open={expanded || issues.length > 0 || undefined}>
+				<summary>
+					{t('builder.layout.changeSize')} · {draft.defaultSize.width} × {draft.defaultSize.height}
+				</summary>
+				<StepSection
+					title={t('builder.layout.presentation')}
+					help={t('builder.layout.presentationHelp')}
+				>
+					<Field label={t('builder.layout.presentation')}>
 						<Select
-							value={draft.resizePolicy}
-							options={resizeOptions(t)}
-							onChange={(e: { target: { value: string } }) =>
-								patch({ resizePolicy: e.target.value as typeof draft.resizePolicy })
+							value={widgetPresentation({
+								presentation: draft.configFields.find((f) => f.key === 'presentation')?.default,
+							})}
+							options={[
+								{ value: 'framed', label: t('builder.layout.framed') },
+								{ value: 'bare', label: t('builder.layout.bare') },
+							]}
+							onChange={(e) =>
+								patch({
+									configFields: [
+										...draft.configFields.filter((f) => f.key !== 'presentation'),
+										{
+											key: 'presentation',
+											label: 'Presentation',
+											group: 'display',
+											control: 'select',
+											default: e.target.value,
+											options: [
+												{ value: 'framed', label: 'Framed' },
+												{ value: 'bare', label: 'Bare' },
+											],
+										},
+									],
+								})
 							}
 						/>
 					</Field>
-					<Field
-						label={t('builder.layout.dockPreference')}
-						help={t('builder.layout.dockPreferenceHelp')}
-					>
-						<Select
-							value={draft.dockPreference}
-							options={dockOptions(t)}
-							onChange={(e: { target: { value: string } }) =>
-								patch({ dockPreference: e.target.value as DockPreference })
-							}
-						/>
-					</Field>
-				</FieldGrid>
-			</StepSection>
+				</StepSection>
+				<StepSection
+					title={t('builder.layout.defaultSize')}
+					help={t('builder.layout.defaultSizeHelp')}
+				>
+					<FieldGrid>
+						{numberField(
+							t('builder.layout.defaultWidth'),
+							draft.defaultSize.width,
+							issueFor(issues, 'defaultSize.width', t),
+							(width) => patch({ defaultSize: { ...draft.defaultSize, width } }),
+						)}
+						{numberField(
+							t('builder.layout.defaultHeight'),
+							draft.defaultSize.height,
+							issueFor(issues, 'defaultSize.height', t),
+							(height) => patch({ defaultSize: { ...draft.defaultSize, height } }),
+						)}
+					</FieldGrid>
+				</StepSection>
+				<StepSection title={t('builder.layout.minSize')} help={t('builder.layout.minSizeHelp')}>
+					<FieldGrid>
+						{numberField(
+							t('builder.layout.minWidth'),
+							draft.minSize.width,
+							issueFor(issues, 'minSize.width', t),
+							(width) => patch({ minSize: { ...draft.minSize, width } }),
+						)}
+						{numberField(
+							t('builder.layout.minHeight'),
+							draft.minSize.height,
+							issueFor(issues, 'minSize.height', t),
+							(height) => patch({ minSize: { ...draft.minSize, height } }),
+						)}
+					</FieldGrid>
+				</StepSection>
+				<StepSection title={t('builder.layout.behaviour')}>
+					<FieldGrid>
+						<Field label={t('builder.layout.resizePolicy')}>
+							<Select
+								value={draft.resizePolicy}
+								options={resizeOptions(t)}
+								onChange={(e: { target: { value: string } }) =>
+									patch({ resizePolicy: e.target.value as typeof draft.resizePolicy })
+								}
+							/>
+						</Field>
+						<Field
+							label={t('builder.layout.dockPreference')}
+							help={t('builder.layout.dockPreferenceHelp')}
+						>
+							<Select
+								value={draft.dockPreference}
+								options={dockOptions(t)}
+								onChange={(e: { target: { value: string } }) =>
+									patch({ dockPreference: e.target.value as DockPreference })
+								}
+							/>
+						</Field>
+					</FieldGrid>
+				</StepSection>
+			</details>
 		</div>
 	);
 }

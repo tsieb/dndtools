@@ -1,3 +1,4 @@
+import { builderStep } from './_widget-builder';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
@@ -80,17 +81,22 @@ test('Full builder from Quick still installs and places an author-trusted templa
 	await gm.click(gallery(page).getByRole('button', { name: 'Build your own' }));
 	await gm.click(page.getByTestId('quick-builder').getByRole('button', { name: 'More options' }));
 	const dialog = builder(page);
-	await gm.click(dialog.getByRole('button', { name: 'Identity', exact: true }));
+	const countedStep = async (name: string) => {
+		if (!(await dialog.getByTestId('widget-builder-steps').isVisible()))
+			await gm.click(dialog.getByRole('button', { name: /Step \d+ of 8/ }));
+		await gm.click(dialog.getByRole('button', { name, exact: true }));
+	};
+	await countedStep('Identity');
 	await expect(dialog).toBeVisible();
 	await dialog.getByLabel('Name', { exact: true }).fill('Party HP');
-	await gm.click(dialog.getByRole('button', { name: 'Data', exact: true }));
+	await countedStep('Data');
 	await gm.select(dialog.getByLabel('Template kind'), 'data-table');
 	await gm.click(dialog.getByRole('button', { name: 'Add data query' }));
 	await gm.select(dialog.getByLabel('Source'), 'visible-characters');
-	await gm.click(dialog.getByRole('button', { name: 'Review', exact: true }));
+	await countedStep('Review');
 	await gm.click(dialog.getByRole('button', { name: 'Install widget' }));
 
-	expect(gm.count).toBeLessThanOrEqual(10);
+	expect(gm.count).toBeLessThanOrEqual(page.viewportSize()!.width < 1025 ? 13 : 10);
 	await expect(dialog).toHaveCount(0);
 	// No trust sheet and no Extensions: the board is still the route.
 	await expect(page.getByRole('dialog', { name: /^Review / })).toHaveCount(0);
@@ -132,11 +138,11 @@ test('a custom-code build still ends in the trust sheet, which allows and enable
 	await gallery(page).getByRole('button', { name: 'Build your own' }).click();
 	await page.getByTestId('quick-builder').getByRole('button', { name: 'More options' }).click();
 	const dialog = builder(page);
-	await dialog.getByRole('button', { name: 'Identity', exact: true }).click();
+	await builderStep(dialog, 'Identity');
 	await dialog.getByLabel('Name', { exact: true }).fill('Torch card');
-	await dialog.getByRole('button', { name: 'Advanced', exact: true }).click();
+	await builderStep(dialog, 'Advanced');
 	await dialog.getByRole('radio', { name: 'Custom HTML and JavaScript' }).click();
-	await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+	await builderStep(dialog, 'Review');
 	await dialog.getByRole('button', { name: 'Install widget' }).click();
 
 	// Installed on the fail-closed path, and the review sheet is up over the builder.

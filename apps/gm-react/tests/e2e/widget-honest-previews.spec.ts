@@ -1,3 +1,5 @@
+import { builderPane } from './_widget-builder';
+import { builderStep } from './_widget-builder';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
@@ -37,12 +39,7 @@ async function openBuilder(page: Page) {
 }
 
 /** The narrow layout folds the three panes behind a switch; pick one when it is present. */
-async function showPane(page: Page, label: 'Edit' | 'Preview' | 'Definition') {
-	const seg = page.getByRole('radiogroup', { name: 'Builder pane' });
-	if (await seg.isVisible().catch(() => false)) {
-		await seg.getByRole('radio', { name: label }).click();
-	}
-}
+const showPane = builderPane;
 
 /** Every listed name is drawn, and nothing else: the row count matches and each name is present. */
 async function expectRows(list: Locator, names: string[]) {
@@ -55,7 +52,7 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 		page,
 	}) => {
 		const dialog = await openBuilder(page);
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		await expect(dialog.getByLabel('Template kind')).toHaveValue('status-list');
 
 		await showPane(page, 'Preview');
@@ -106,7 +103,7 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 		expect(cast.some((c) => c.visibility !== 'player-visible')).toBe(true);
 
 		await dialog.getByLabel('Name', { exact: true }).fill('Party HP');
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		await dialog.getByRole('button', { name: 'Add data query' }).click();
 		const id = dialog.getByLabel('Id', { exact: true });
 		await expect(id).toHaveValue('current-combatants');
@@ -149,7 +146,7 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 
 		// ── Install and place it: the tile on the board lists the party, no NPC.
 		await showPane(page, 'Edit');
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await dialog.getByRole('button', { name: 'Install widget' }).click();
 		await expect(dialog).toHaveCount(0);
 		const query = await page.evaluate(
@@ -198,7 +195,7 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 
 	test('the Show what pickers have no critical or serious axe violation', async ({ page }) => {
 		const dialog = await openBuilder(page);
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		await dialog.getByRole('button', { name: 'Add data query' }).click();
 		// The character source offers every picker but the tag; add a notes query for the tag box.
 		await dialog.getByLabel('Source').selectOption('visible-characters');

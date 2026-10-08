@@ -1,3 +1,4 @@
+import { builderStep } from './_widget-builder';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
@@ -42,12 +43,12 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 		}) => {
 			const dialog = await openBuilder(page);
 			await dialog.getByLabel('Name', { exact: true }).fill('Bell ringer');
-			await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+			await builderStep(dialog, 'Data');
 			await dialog.getByLabel('Template kind').selectOption('action-panel');
-			await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
+			await builderStep(dialog, 'Commands');
 			await dialog.getByRole('button', { name: 'Roll dice', exact: true }).click();
 			await dialog.getByRole('button', { name: 'Count up or down', exact: true }).click();
-			await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+			await builderStep(dialog, 'Review');
 			await dialog.getByRole('button', { name: 'Install widget' }).click();
 			await expect(dialog).toHaveCount(0);
 
@@ -191,15 +192,15 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 	test('a blank command is named on the Commands step and cannot pass Review', async ({ page }) => {
 		const dialog = await openBuilder(page);
 		await dialog.getByLabel('Name', { exact: true }).fill('Blank panel');
-		await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+		await builderStep(dialog, 'Data');
 		await dialog.getByLabel('Template kind').selectOption('action-panel');
-		await dialog.getByRole('button', { name: 'Commands', exact: true }).click();
+		await builderStep(dialog, 'Commands');
 		await dialog.getByRole('button', { name: 'Add a blank command' }).click();
 
 		const reason = 'Action 1 has nothing to run it at the table. Pick what it runs, or remove it.';
 		await expect(dialog.getByText(reason).first()).toBeVisible();
 
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeDisabled();
 		await expect(dialog.getByText(reason).first()).toBeVisible();
 		await dialog.getByRole('button', { name: 'Go to Commands' }).first().click();
@@ -207,7 +208,7 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 		// Picking what it runs clears the issue, and Review lets it through.
 		await dialog.getByLabel('Runs', { exact: true }).selectOption('tick');
 		await expect(dialog.getByText(reason)).toHaveCount(0);
-		await dialog.getByRole('button', { name: 'Review', exact: true }).click();
+		await builderStep(dialog, 'Review');
 		await expect(dialog.getByRole('button', { name: 'Install widget' })).toBeEnabled();
 		expect(
 			await page.evaluate(

@@ -25,27 +25,64 @@ function toggle<Item>(list: Item[], item: Item): Item[] {
 	return list.includes(item) ? list.filter((entry) => entry !== item) : [...list, item];
 }
 
-export function IdentityStep({ draft, patch, issues }: StepProps) {
+/** Untouched ids follow the name even after a step/disclosure is closed and reopened. */
+export function identityNamePatch(draft: WidgetDraft, name: string): Partial<WidgetDraft> {
+	const previous = slugify(draft.name);
+	const next = slugify(name);
+	return {
+		name,
+		...(draft.typeId === previous ? { typeId: next } : {}),
+		...(draft.packageId === (previous ? `workspace.${previous}` : '')
+			? { packageId: next ? `workspace.${next}` : '' }
+			: {}),
+	};
+}
+
+/** Vocabulary concepts, never the Lucide shape used to draw them. */
+export function iconMeaning(name: string): string {
+	const meanings: Record<string, string> = {
+		'session-bolt': 'Session',
+		'characters-person': 'Characters',
+		'atlas-map': 'Map',
+		'campaign-scroll': 'Campaign',
+		'knowledge-book': 'Knowledge',
+		'settings-gear': 'Settings',
+		'dm-only': 'DM only',
+		'monster-claw': 'Monster',
+		'spell-sparkle': 'Spell',
+		'maximize-2': 'Full screen',
+		'minimize-2': 'Exit full screen',
+	};
+	return (
+		meanings[name] ??
+		name
+			.replace(/^cond-/, 'Condition ')
+			.replace(/^sys-/, 'System ')
+			.replace(/^tile-/, 'Widget ')
+			.replace(/^die-/, 'Die ')
+			.replace(/-/g, ' ')
+	);
+}
+
+export function IdentityStep({
+	draft,
+	patch,
+	issues,
+	deriveIds = true,
+}: StepProps & { deriveIds?: boolean }) {
 	const { t } = useI18n();
-	const [idsTouched, setIdsTouched] = useState(() => draft.packageId !== '' || draft.typeId !== '');
 	const [iconFilter, setIconFilter] = useState('');
 	const icons = useMemo(() => {
 		const needle = iconFilter.trim().toLowerCase();
 		const matches = needle
-			? ICON_VOCABULARY.filter((name) => name.includes(needle))
+			? ICON_VOCABULARY.filter((name) =>
+					`${name} ${iconMeaning(name)}`.toLowerCase().includes(needle),
+				)
 			: ICON_VOCABULARY;
 		return matches.slice(0, 60);
 	}, [iconFilter]);
 
-	const setName = (name: string) => {
-		const next: Partial<WidgetDraft> = { name };
-		if (!idsTouched) {
-			const slug = slugify(name);
-			next.typeId = slug;
-			next.packageId = slug ? `workspace.${slug}` : '';
-		}
-		patch(next);
-	};
+	const setName = (name: string) => patch(deriveIds ? identityNamePatch(draft, name) : { name });
 
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -69,66 +106,6 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 						onChange={(e: { target: { value: string } }) => patch({ description: e.target.value })}
 					/>
 				</Field>
-			</StepSection>
-
-			<StepSection title={t('builder.identity.idsSection')} help={t('builder.identity.idsHelp')}>
-				<FieldGrid>
-					<Field
-						label={t('builder.identity.packageId')}
-						required
-						error={issueFor(issues, 'packageId', t)}
-					>
-						<Input
-							value={draft.packageId}
-							placeholder={t('builder.identity.packageIdPlaceholder')}
-							onChange={(e: { target: { value: string } }) => {
-								setIdsTouched(true);
-								patch({ packageId: e.target.value.trim() });
-							}}
-						/>
-					</Field>
-					<Field
-						label={t('builder.identity.typeId')}
-						required
-						error={issueFor(issues, 'typeId', t)}
-					>
-						<Input
-							value={draft.typeId}
-							placeholder={t('builder.identity.typeIdPlaceholder')}
-							onChange={(e: { target: { value: string } }) => {
-								setIdsTouched(true);
-								patch({ typeId: e.target.value.trim() });
-							}}
-						/>
-					</Field>
-					<Field
-						label={t('builder.identity.version')}
-						required
-						error={issueFor(issues, 'version', t)}
-					>
-						<Input
-							value={draft.version}
-							placeholder="1.0.0"
-							onChange={(e: { target: { value: string } }) =>
-								patch({ version: e.target.value.trim() })
-							}
-						/>
-					</Field>
-					<Field label={t('builder.identity.category')} help={t('builder.identity.categoryHelp')}>
-						<Input
-							value={draft.category}
-							placeholder={t('builder.identity.categoryPlaceholder')}
-							onChange={(e: { target: { value: string } }) => patch({ category: e.target.value })}
-						/>
-					</Field>
-				</FieldGrid>
-				{draft.packageId && !SLUG_PATTERN.test(draft.packageId) && (
-					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-						{t('builder.identity.suggested', {
-							id: slugify(draft.packageId) || 'workspace.my-widget',
-						})}
-					</span>
-				)}
 			</StepSection>
 
 			<StepSection title={t('builder.identity.icon')} help={t('builder.identity.iconHelp')}>
@@ -166,8 +143,8 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 								type="button"
 								role="radio"
 								aria-checked={selected}
-								aria-label={name}
-								title={name}
+								aria-label={iconMeaning(name)}
+								title={iconMeaning(name)}
 								tabIndex={isTabStop ? 0 : -1}
 								onClick={() => patch({ icon: name })}
 								style={{
@@ -195,45 +172,106 @@ export function IdentityStep({ draft, patch, issues }: StepProps) {
 				</div>
 			</StepSection>
 
-			<StepSection title={t('builder.identity.whereSection')}>
-				<ToggleGroup legend={t('builder.identity.surfaces')}>
-					{SURFACES.map((surface) => (
-						<Checkbox
-							key={surface}
-							checked={draft.surfaces.includes(surface)}
-							label={t(SURFACE_LABEL[surface])}
-							onChange={() => patch({ surfaces: toggle(draft.surfaces, surface) })}
-						/>
-					))}
-				</ToggleGroup>
-				{issueFor(issues, 'surfaces', t) && (
-					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'surfaces', t)}
-					</span>
-				)}
-				<ToggleGroup legend={t('builder.identity.profiles')}>
-					{PROFILES.map((profile) => (
-						<Checkbox
-							key={profile}
-							checked={draft.supportedProfiles.includes(profile)}
-							label={t(PROFILE_LABEL[profile])}
-							onChange={() =>
-								patch({ supportedProfiles: toggle(draft.supportedProfiles, profile) })
-							}
-						/>
-					))}
-				</ToggleGroup>
-				{issueFor(issues, 'supportedProfiles', t) && (
-					<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
-						{issueFor(issues, 'supportedProfiles', t)}
-					</span>
-				)}
-				<Switch
-					checked={draft.libraryListed}
-					label={t('builder.identity.libraryListed')}
-					onChange={(next: boolean) => patch({ libraryListed: next })}
-				/>
-			</StepSection>
+			<details>
+				<summary>{t('builder.identity.advanced')}</summary>
+				<StepSection title={t('builder.identity.idsSection')} help={t('builder.identity.idsHelp')}>
+					<FieldGrid>
+						<Field
+							label={t('builder.identity.packageId')}
+							required
+							error={issueFor(issues, 'packageId', t)}
+						>
+							<Input
+								value={draft.packageId}
+								placeholder={t('builder.identity.packageIdPlaceholder')}
+								onChange={(e: { target: { value: string } }) => {
+									patch({ packageId: e.target.value.trim() });
+								}}
+							/>
+						</Field>
+						<Field
+							label={t('builder.identity.typeId')}
+							required
+							error={issueFor(issues, 'typeId', t)}
+						>
+							<Input
+								value={draft.typeId}
+								placeholder={t('builder.identity.typeIdPlaceholder')}
+								onChange={(e: { target: { value: string } }) => {
+									patch({ typeId: e.target.value.trim() });
+								}}
+							/>
+						</Field>
+						<Field
+							label={t('builder.identity.version')}
+							required
+							error={issueFor(issues, 'version', t)}
+						>
+							<Input
+								value={draft.version}
+								placeholder="1.0.0"
+								onChange={(e: { target: { value: string } }) =>
+									patch({ version: e.target.value.trim() })
+								}
+							/>
+						</Field>
+						<Field label={t('builder.identity.category')} help={t('builder.identity.categoryHelp')}>
+							<Input
+								value={draft.category}
+								placeholder={t('builder.identity.categoryPlaceholder')}
+								onChange={(e: { target: { value: string } }) => patch({ category: e.target.value })}
+							/>
+						</Field>
+					</FieldGrid>
+					{draft.packageId && !SLUG_PATTERN.test(draft.packageId) && (
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+							{t('builder.identity.suggested', {
+								id: slugify(draft.packageId) || 'workspace.my-widget',
+							})}
+						</span>
+					)}
+				</StepSection>
+
+				<StepSection title={t('builder.identity.whereSection')}>
+					<ToggleGroup legend={t('builder.identity.surfaces')}>
+						{SURFACES.map((surface) => (
+							<Checkbox
+								key={surface}
+								checked={draft.surfaces.includes(surface)}
+								label={t(SURFACE_LABEL[surface])}
+								onChange={() => patch({ surfaces: toggle(draft.surfaces, surface) })}
+							/>
+						))}
+					</ToggleGroup>
+					{issueFor(issues, 'surfaces', t) && (
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+							{issueFor(issues, 'surfaces', t)}
+						</span>
+					)}
+					<ToggleGroup legend={t('builder.identity.profiles')}>
+						{PROFILES.map((profile) => (
+							<Checkbox
+								key={profile}
+								checked={draft.supportedProfiles.includes(profile)}
+								label={t(PROFILE_LABEL[profile])}
+								onChange={() =>
+									patch({ supportedProfiles: toggle(draft.supportedProfiles, profile) })
+								}
+							/>
+						))}
+					</ToggleGroup>
+					{issueFor(issues, 'supportedProfiles', t) && (
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+							{issueFor(issues, 'supportedProfiles', t)}
+						</span>
+					)}
+					<Switch
+						checked={draft.libraryListed}
+						label={t('builder.identity.libraryListed')}
+						onChange={(next: boolean) => patch({ libraryListed: next })}
+					/>
+				</StepSection>
+			</details>
 		</div>
 	);
 }

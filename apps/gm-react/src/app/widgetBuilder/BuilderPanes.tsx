@@ -213,3 +213,96 @@ export function FocusableBuilderPreview({ draft }: { draft: WidgetDraft }) {
 		</div>
 	);
 }
+
+/** Navigation never belongs to the step's scrolling content. */
+export function BuilderFooter({
+	step,
+	steps,
+	onStep,
+	onSubmit,
+	blocked,
+	mode,
+}: {
+	step: BuilderStepId;
+	steps: readonly BuilderStepId[];
+	onStep: (step: BuilderStepId) => void;
+	onSubmit: () => void;
+	blocked: boolean;
+	mode: 'install' | 'upgrade';
+}) {
+	const { t } = useI18n();
+	const index = steps.indexOf(step);
+	return (
+		<footer
+			data-testid="builder-footer"
+			style={{
+				flex: '0 0 auto',
+				display: 'flex',
+				gap: 'var(--space-2)',
+				padding: 'var(--space-2) var(--space-3)',
+				paddingBottom: 'max(var(--space-2), env(safe-area-inset-bottom))',
+				background: T.surf,
+				borderTop: `1px solid ${T.bd}`,
+			}}
+		>
+			<Button variant="secondary" disabled={index === 0} onClick={() => onStep(steps[index - 1]!)}>
+				{t('common.action.back')}
+			</Button>
+			{step === 'review' ? (
+				<Button variant="primary" disabled={blocked} onClick={onSubmit}>
+					{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
+				</Button>
+			) : (
+				<Button variant="primary" onClick={() => onStep(steps[index + 1]!)}>
+					{t('common.action.next')}
+				</Button>
+			)}
+		</footer>
+	);
+}
+
+/** A collapsed preview remains reachable without displacing the phone's editor or footer. */
+export function BuilderPreviewStrip({
+	draft,
+	pane,
+	onPane,
+	onSize,
+}: {
+	draft: WidgetDraft;
+	pane: 'edit' | 'preview' | 'json';
+	onPane: (pane: 'edit' | 'preview' | 'json') => void;
+	onSize: () => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<div
+			data-testid="builder-preview-strip"
+			style={{
+				flex: '0 0 auto',
+				display: 'flex',
+				alignItems: 'center',
+				gap: 'var(--space-2)',
+				padding: 'var(--space-1) var(--space-2)',
+				borderBottom: `1px solid ${T.bd}`,
+				background: T.surf,
+			}}
+		>
+			<Button
+				size="sm"
+				variant="ghost"
+				aria-expanded={pane === 'preview'}
+				onClick={() => onPane(pane === 'preview' ? 'edit' : 'preview')}
+			>
+				{t('extensions.builder.panePreview')}
+			</Button>
+			{pane === 'json' && (
+				<Button size="sm" variant="ghost" onClick={() => onPane('edit')}>
+					{t('extensions.builder.paneEdit')}
+				</Button>
+			)}
+			<Button size="sm" variant="ghost" onClick={onSize}>
+				{draft.defaultSize.width} × {draft.defaultSize.height} · {t('builder.layout.changeSize')}
+			</Button>
+		</div>
+	);
+}

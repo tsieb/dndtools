@@ -14,7 +14,9 @@ const ROOT = fileURLToPath(new URL('./__screenshots__/', import.meta.url));
 const MAX_FILE_BYTES = 320 * 1024;
 // RC-CHR-6.6 adds full companion-frame coverage in five themes on all three tiers
 // (about 1.8 MiB beyond the earlier heading-only stage captures). Keep the per-image cap.
-const MAX_TOTAL_BYTES = 34 * 1024 * 1024;
+// RC-WID-6.4 adds Identity and Review in five themes on three tiers (~2.1 MiB).
+// Retain the per-image cap; every intermediate step is covered by the axe/e2e walk.
+const MAX_TOTAL_BYTES = 37 * 1024 * 1024;
 
 function walk(dir) {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

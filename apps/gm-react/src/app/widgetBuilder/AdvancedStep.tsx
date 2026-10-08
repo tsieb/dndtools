@@ -166,212 +166,232 @@ export function AdvancedStep({ draft, patch, issues }: StepProps) {
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
 			<StepHeader title={t('builder.advanced.title')} help={t('builder.advanced.help')} />
 
-			<StepSection
-				title={t('builder.advanced.runtimeTitle')}
-				help={t('builder.advanced.runtimeHelp')}
-			>
-				<Seg
-					ariaLabel={t('builder.advanced.runtimeTitle')}
-					value={draft.runtime}
-					onChange={(next: string) =>
-						setRuntime(next === 'custom-html-js' ? 'custom-html-js' : 'template')
-					}
-					options={[
-						{ value: 'template', label: t(RUNTIME_LABEL.template) },
-						{ value: 'custom-html-js', label: t(RUNTIME_LABEL['custom-html-js']) },
-					]}
-				/>
-				<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
-					{t(
-						isCustom
-							? 'builder.advanced.runtimeCustomNote'
-							: 'builder.advanced.runtimeTemplateNote',
-					)}
-				</span>
-			</StepSection>
-
-			{isCustom && (
-				<StepSection title={t('builder.advanced.codeTitle')} help={t('builder.advanced.codeHelp')}>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 'var(--space-2)',
-							flexWrap: 'wrap',
-						}}
-					>
-						<Seg
-							ariaLabel={t('builder.advanced.codeTitle')}
-							value={part}
-							onChange={(next: string) => setPart(next as CustomCodePart)}
-							options={CODE_PARTS.map((value) => ({ value, label: t(CODE_LABEL[value]) }))}
-						/>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="edit"
-							onClick={() =>
-								patch({
-									customCode: {
-										...draft.customCode,
-										[part]: formatCode(part, draft.customCode[part]),
-									},
-								})
-							}
-						>
-							{t('builder.advanced.format')}
-						</Button>
-						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-							{t('builder.advanced.formatHelp')}
-						</span>
-					</div>
-					<CodeEditor
-						label={t(CODE_LABEL[part])}
-						value={draft.customCode[part]}
-						rows={part === 'js' ? 14 : 10}
-						invalid={Boolean(issueFor(issues, 'customCode', t))}
-						onChange={(next) => patch({ customCode: { ...draft.customCode, [part]: next } })}
-					/>
-					{issueFor(issues, 'customCode', t) && (
-						<span role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
-							{issueFor(issues, 'customCode', t)}
-						</span>
-					)}
-				</StepSection>
-			)}
-
-			{isCustom && (
-				<StepSection title={t('builder.advanced.apiTitle')} help={t('builder.advanced.apiHelp')}>
-					<DefinitionList
-						items={HOST_API_REFERENCE.map((entry) => ({
-							label: entry.signature,
-							value: t(entry.description),
-						}))}
-					/>
-				</StepSection>
-			)}
-
-			<StepSection title={t('builder.advanced.permsTitle')} help={t('builder.advanced.permsHelp')}>
-				<ToggleGroup legend={t('builder.advanced.permsLegend')}>
-					{HOST_PERMISSIONS.map((permission: WidgetHostPermission) => (
-						<Checkbox
-							key={permission}
-							checked={draft.hostPermissions.includes(permission)}
-							label={t(HOST_PERMISSION_LABEL[permission])}
-							onChange={() => togglePermission(permission)}
-						/>
-					))}
-				</ToggleGroup>
-				{draft.hostPermissions.includes('network') && (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-						<ToggleGroup legend={t('builder.advanced.destinationsLegend')}>
-							{NETWORK_DESTINATIONS.map((destination) => (
-								<Checkbox
-									key={destination}
-									checked={draft.networkDestinations.includes(destination)}
-									label={t(NETWORK_DESTINATION_LABEL[destination])}
-									onChange={() => toggleDestination(destination)}
-								/>
-							))}
-						</ToggleGroup>
-						<ul
-							style={{
-								margin: 'var(--space-0)',
-								paddingLeft: 'var(--space-4)',
-								display: 'grid',
-								gap: 'var(--space-1)',
-							}}
-						>
-							{NETWORK_DESTINATIONS.map((destination) => (
-								<li
-									key={destination}
-									style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}
-								>
-									{t(NETWORK_DESTINATION_LABEL[destination])} —{' '}
-									{t(NETWORK_DESTINATION_HELP[destination])}
-								</li>
-							))}
-						</ul>
-						{issueFor(issues, 'networkDestinations', t) && (
-							<span role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
-								{issueFor(issues, 'networkDestinations', t)}
-							</span>
-						)}
-					</div>
-				)}
-			</StepSection>
-
-			<StepSection
-				title={t('builder.advanced.securityTitle')}
-				help={t('builder.advanced.securityHelp')}
-			>
-				<div
-					data-testid="widget-builder-security-summary"
-					style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+			<details key={String(isCustom)} open={isCustom || undefined}>
+				<summary>
+					{t('builder.advanced.summary', {
+						count: draft.hostPermissions.length,
+						runtime: t(RUNTIME_LABEL[draft.runtime]),
+					})}
+				</summary>
+				<StepSection
+					title={t('builder.advanced.runtimeTitle')}
+					help={t('builder.advanced.runtimeHelp')}
 				>
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 'var(--space-2)',
-							flexWrap: 'wrap',
-						}}
-					>
-						<Badge status={recommendation?.tone ?? 'warning'}>
-							{recommendation ? t(recommendation.label) : summary.trustRecommendation}
-						</Badge>
-						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-							{summary.customCodeWidgets.length > 0
-								? t('builder.advanced.summaryCustomCode')
-								: t('builder.advanced.summaryNoCustomCode')}
-						</span>
-					</div>
-					<DefinitionList
-						items={[
-							{
-								label: t('builder.advanced.permsTitle'),
-								value:
-									summary.requestedHostPermissions.length === 0
-										? t('builder.review.noPermsRequested')
-										: summary.requestedHostPermissions
-												.map((permission) => t(HOST_PERMISSION_LABEL[permission]))
-												.join(', '),
-							},
-							{
-								label: t('builder.advanced.destinationsLegend'),
-								value:
-									summary.requestedNetworkDestinations.length === 0
-										? t('builder.advanced.noDestinations')
-										: summary.requestedNetworkDestinations
-												.map((destination) => t(NETWORK_DESTINATION_LABEL[destination]))
-												.join(', '),
-							},
+					<Seg
+						ariaLabel={t('builder.advanced.runtimeTitle')}
+						value={draft.runtime}
+						onChange={(next: string) =>
+							setRuntime(next === 'custom-html-js' ? 'custom-html-js' : 'template')
+						}
+						options={[
+							{ value: 'template', label: t(RUNTIME_LABEL.template) },
+							{ value: 'custom-html-js', label: t(RUNTIME_LABEL['custom-html-js']) },
 						]}
 					/>
-					{summary.runtimeIssues.map((issue) => (
-						<span key={issue.code} style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.warn }}>
-							{issue.message}
-						</span>
-					))}
-				</div>
-			</StepSection>
+					<span style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}>
+						{t(
+							isCustom
+								? 'builder.advanced.runtimeCustomNote'
+								: 'builder.advanced.runtimeTemplateNote',
+						)}
+					</span>
+				</StepSection>
 
-			<StepSection title={t('builder.advanced.notesTitle')} help={t('builder.advanced.notesHelp')}>
-				<Textarea
-					value={draft.portabilityWarnings.join('\n')}
-					rows={3}
-					aria-label={t('builder.advanced.notesTitle')}
-					placeholder={t('builder.advanced.notesPlaceholder')}
-					onChange={(e: { target: { value: string } }) =>
-						patch({
-							portabilityWarnings: e.target.value
-								.split('\n')
-								.map((line) => line.trim())
-								.filter(Boolean),
-						})
-					}
-				/>
-			</StepSection>
+				{isCustom && (
+					<StepSection
+						title={t('builder.advanced.codeTitle')}
+						help={t('builder.advanced.codeHelp')}
+					>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								flexWrap: 'wrap',
+							}}
+						>
+							<Seg
+								ariaLabel={t('builder.advanced.codeTitle')}
+								value={part}
+								onChange={(next: string) => setPart(next as CustomCodePart)}
+								options={CODE_PARTS.map((value) => ({ value, label: t(CODE_LABEL[value]) }))}
+							/>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon="edit"
+								onClick={() =>
+									patch({
+										customCode: {
+											...draft.customCode,
+											[part]: formatCode(part, draft.customCode[part]),
+										},
+									})
+								}
+							>
+								{t('builder.advanced.format')}
+							</Button>
+							<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+								{t('builder.advanced.formatHelp')}
+							</span>
+						</div>
+						<CodeEditor
+							label={t(CODE_LABEL[part])}
+							value={draft.customCode[part]}
+							rows={part === 'js' ? 14 : 10}
+							invalid={Boolean(issueFor(issues, 'customCode', t))}
+							onChange={(next) => patch({ customCode: { ...draft.customCode, [part]: next } })}
+						/>
+						{issueFor(issues, 'customCode', t) && (
+							<span role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+								{issueFor(issues, 'customCode', t)}
+							</span>
+						)}
+					</StepSection>
+				)}
+
+				{isCustom && (
+					<StepSection title={t('builder.advanced.apiTitle')} help={t('builder.advanced.apiHelp')}>
+						<DefinitionList
+							items={HOST_API_REFERENCE.map((entry) => ({
+								label: entry.signature,
+								value: t(entry.description),
+							}))}
+						/>
+					</StepSection>
+				)}
+
+				<StepSection
+					title={t('builder.advanced.permsTitle')}
+					help={t('builder.advanced.permsHelp')}
+				>
+					<ToggleGroup legend={t('builder.advanced.permsLegend')}>
+						{HOST_PERMISSIONS.map((permission: WidgetHostPermission) => (
+							<Checkbox
+								key={permission}
+								checked={draft.hostPermissions.includes(permission)}
+								label={t(HOST_PERMISSION_LABEL[permission])}
+								onChange={() => togglePermission(permission)}
+							/>
+						))}
+					</ToggleGroup>
+					{draft.hostPermissions.includes('network') && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+							<ToggleGroup legend={t('builder.advanced.destinationsLegend')}>
+								{NETWORK_DESTINATIONS.map((destination) => (
+									<Checkbox
+										key={destination}
+										checked={draft.networkDestinations.includes(destination)}
+										label={t(NETWORK_DESTINATION_LABEL[destination])}
+										onChange={() => toggleDestination(destination)}
+									/>
+								))}
+							</ToggleGroup>
+							<ul
+								style={{
+									margin: 'var(--space-0)',
+									paddingLeft: 'var(--space-4)',
+									display: 'grid',
+									gap: 'var(--space-1)',
+								}}
+							>
+								{NETWORK_DESTINATIONS.map((destination) => (
+									<li
+										key={destination}
+										style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.sub }}
+									>
+										{t(NETWORK_DESTINATION_LABEL[destination])} —{' '}
+										{t(NETWORK_DESTINATION_HELP[destination])}
+									</li>
+								))}
+							</ul>
+							{issueFor(issues, 'networkDestinations', t) && (
+								<span role="alert" style={{ font: `var(--text-xs) ${T.sans}`, color: T.err }}>
+									{issueFor(issues, 'networkDestinations', t)}
+								</span>
+							)}
+						</div>
+					)}
+				</StepSection>
+
+				<StepSection
+					title={t('builder.advanced.securityTitle')}
+					help={t('builder.advanced.securityHelp')}
+				>
+					<div
+						data-testid="widget-builder-security-summary"
+						style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+					>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: 'var(--space-2)',
+								flexWrap: 'wrap',
+							}}
+						>
+							<Badge status={recommendation?.tone ?? 'warning'}>
+								{recommendation ? t(recommendation.label) : summary.trustRecommendation}
+							</Badge>
+							<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+								{summary.customCodeWidgets.length > 0
+									? t('builder.advanced.summaryCustomCode')
+									: t('builder.advanced.summaryNoCustomCode')}
+							</span>
+						</div>
+						<DefinitionList
+							items={[
+								{
+									label: t('builder.advanced.permsTitle'),
+									value:
+										summary.requestedHostPermissions.length === 0
+											? t('builder.review.noPermsRequested')
+											: summary.requestedHostPermissions
+													.map((permission) => t(HOST_PERMISSION_LABEL[permission]))
+													.join(', '),
+								},
+								{
+									label: t('builder.advanced.destinationsLegend'),
+									value:
+										summary.requestedNetworkDestinations.length === 0
+											? t('builder.advanced.noDestinations')
+											: summary.requestedNetworkDestinations
+													.map((destination) => t(NETWORK_DESTINATION_LABEL[destination]))
+													.join(', '),
+								},
+							]}
+						/>
+						{summary.runtimeIssues.map((issue) => (
+							<span
+								key={issue.code}
+								style={{ font: `var(--text-xs)/1.5 ${T.sans}`, color: T.warn }}
+							>
+								{issue.message}
+							</span>
+						))}
+					</div>
+				</StepSection>
+
+				<StepSection
+					title={t('builder.advanced.notesTitle')}
+					help={t('builder.advanced.notesHelp')}
+				>
+					<Textarea
+						value={draft.portabilityWarnings.join('\n')}
+						rows={3}
+						aria-label={t('builder.advanced.notesTitle')}
+						placeholder={t('builder.advanced.notesPlaceholder')}
+						onChange={(e: { target: { value: string } }) =>
+							patch({
+								portabilityWarnings: e.target.value
+									.split('\n')
+									.map((line) => line.trim())
+									.filter(Boolean),
+							})
+						}
+					/>
+				</StepSection>
+			</details>
 		</div>
 	);
 }

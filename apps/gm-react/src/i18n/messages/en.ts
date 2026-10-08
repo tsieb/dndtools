@@ -8,6 +8,11 @@
  * Values may use ICU syntax — plural, select, number, date, time, unit — rendered by `format.ts`.
  * Every key a locale translates must exist here; a locale catalog is a `Partial` of this one. */
 export const en = {
+	'builder.identity.advanced': 'Advanced identity',
+	'builder.layout.changeSize': 'Change size',
+	'builder.style.summary': 'Style · {count} custom tokens',
+	'builder.advanced.summary': '{runtime} · {count} requested permissions',
+
 	'onboarding.v3.campaign': 'Your campaign',
 	'onboarding.v3.complexity': 'How much on screen',
 	'onboarding.v3.ready': 'Ready',
@@ -3875,8 +3880,7 @@ export const en = {
 	'builder.issue.networkWithoutPermission':
 		'Ask for the network permission, or clear the destinations. Without the permission they grant nothing.',
 
-	'builder.identity.help':
-		'Name the widget and choose where it can be used. Its identifiers stay with the campaign, so follow the format shown below.',
+	'builder.identity.help': 'Give the widget a name, a short description and an icon.',
 	'builder.identity.nameSection': 'Name and description',
 	'builder.identity.name': 'Name',
 	'builder.identity.namePlaceholder': 'Party status',
