@@ -126,3 +126,13 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
   `onboarding-consent`, `golden-path`, `demo-vault`, `shell-polish`, `hub-templates`,
   `command-palette`: 168 passed, 6 skipped (the same `test.skip` guards: demo-vault perf on both
   profiles, four hub-templates desktop-only checks on mobile), 0 failed.
+
+## Claim widened (operator brief 2026-10-08)
+
+- Owns now includes `apps/gm-react/src/app/widgets/homeSources.ts`. The crossing is unchanged
+  since `d0120cd4`: one import and one fallback line (`campaignNameOf(state.commandCenter)` before
+  `t('home.yourCampaign')`), plus two comment lines. No other path outside Owns or the companion
+  paths differs from `515d714c`.
+- Gates at `d0120cd4`, re-run 2026-10-08: `pnpm typecheck` exit 0; `pnpm lint` exit 0;
+  `pnpm test:critical` 291 files, 5300 tests passed; `pnpm test:app` 175 files, 2142 tests passed.
+  The rework's Playwright run (168 passed, 6 skipped, 0 failed, above) covers the same code.
