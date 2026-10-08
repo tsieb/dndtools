@@ -90,9 +90,8 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
   `campaign.set-identity` rather than in a new `commands/add-players.ts`, so it adds no unowned
   file. Its operation and event use the permission vocabulary.
 - Not done (outside the acceptance criteria, follow-ups):
-  - Hero avatars still come from party PCs (`party` source in `dataEnvironment.ts`). Player actors
-    without a character are not drawn there.
-  - The invite screen's campaign-name field (`PlayerInvites.tsx`) still starts empty.
+  - ~~Hero avatars still come from party PCs only.~~ Done in the review rework below.
+  - ~~The invite screen's campaign-name field still starts empty.~~ Done in the review rework below.
   - Session archives show no campaign name today, so nothing changed there.
   - The demo badge still keys off the catalog `kind` (device data) beside the one name.
 
@@ -136,3 +135,58 @@ Base: `515d714c`. Headroom tools were not used; exact command output was read di
 - Gates at `d0120cd4`, re-run 2026-10-08: `pnpm typecheck` exit 0; `pnpm lint` exit 0;
   `pnpm test:critical` 291 files, 5300 tests passed; `pnpm test:app` 175 files, 2142 tests passed.
   The rework's Playwright run (168 passed, 6 skipped, 0 failed, above) covers the same code.
+
+## Review rework (2026-10-08)
+
+Independent review of `b9ec48be` rejected two acceptance gaps. Both are fixed here.
+
+1. **Party names never reached the hero avatars.** The hero draws avatars from the `party` source,
+   which lists PCs only, so a player added in Settings › Players never showed.
+   - `homeSources.ts` (owned): the `resume` source now returns the seated players who own no PC
+     after its hero row (role `player`, no singular owner grant on any PC, the same test
+     Settings › Players uses to list a player's characters). Each row carries the player's name
+     and initials. A player drops out of the list once they own a PC, because the `party` source
+     then draws that PC. Observers and the DM are never listed.
+   - `templates/Hub.tsx` (**outside Owns**, one statement): the hero's avatar list is the `party`
+     rows followed by `rows.slice(1)` when its primary query is `resume`. No other path feeds the
+     hero's avatars. The `party` source in `dataEnvironment.ts` was left alone because its rows are
+     character rows (`CHARACTER_ROW_SOURCES`) that character intents target by id, and actor rows
+     there would break that contract.
+2. **The invite screen kept a second campaign name.**
+   - `PlayerInvites.tsx` (**outside Owns**): `InvitesPanel` takes `campaign` (the stored name, or
+     null) and `onNameCampaign`. Once the campaign is named, Create invite shows that name as text
+     with no field, and the invite is minted with it. A rename while the dialog is open shows
+     straight away. While the campaign is unnamed, the field remains, and minting first names the
+     campaign through `onNameCampaign`. If that is refused, nothing is minted. The join screen
+     shows the invite's server-side `campaignName`, so it carries the same name.
+   - `Players.tsx` (owned): passes `campaignNameOf(state.commandCenter)` and a `nameCampaign` that
+     dispatches `campaign.set-identity`, the switcher's command, so the catalog follows.
+- **Scope.** The operator brief of 2026-10-08 said not to widen past `homeSources.ts`. The review
+  then required both behaviours, and neither can be built inside Owns: the hero's avatars are
+  drawn only in `Hub.tsx`, and the invite form state lives only in `PlayerInvites.tsx`. I kept
+  both crossings as small as I could (Hub: one statement; PlayerInvites: two props and the form
+  field), and the operator should resolve the claim for these two paths.
+- **Tests.**
+  - New `src/app/widgets/homeSources.test.ts` (3): the hero heading is the placeholder, then the
+    campaign name. Two added players follow the hero row with initials, and the observer and DM
+    are absent. A player who owns a PC drops out.
+  - New `src/screens/settings/PlayerInvites.test.tsx` (4, account API stubbed): a named campaign
+    shows its name with no field and mints with it; a rename while open is followed; an unnamed
+    campaign is named first, then minted; a refused name mints nothing.
+  - `tests/e2e/campaign-identity.spec.ts`: the party test now opens the Command Center and asserts
+    hero images named "Ada Quill" and "Brannoc". (A signed-in invite flow cannot run in e2e, which
+    has no account API, so the invite coverage is the stubbed component test.)
+- **Gates (local, this rework):**
+  - `pnpm typecheck`: exit 0.
+  - `pnpm lint`: exit 0. The first run failed on a `matchMedia` stub in the new component test
+    (PLAT-006 boundary lint); I removed the stub.
+  - `pnpm test:app`: 180 files, 2201 tests passed.
+  - Prettier check on the changed and new files: clean.
+  - Playwright, desktop-chromium + mobile-chromium (`DNDTOOLS_E2E_PORT=5310`): `campaign-identity`,
+    `hub-templates`, `golden-path`, `demo-vault`, `command-center-polish`, `co-dm`, `settings`,
+    `settings-polish`, `settings-tiers`, `widget-query-sources`, `local-vaults`,
+    `onboarding-consent`, `a11y-axe-gate`, `party-summary`. Result: 243 passed, 7 skipped (the
+    specs' own `test.skip` guards), 0 failed.
+  - Not run locally: the pinned visual gate and `pnpm test:critical` (core is unchanged in this
+    rework). The seeded vault's demo players all own PCs, so the seeded Command Center hero should
+    draw the same three avatars as before.

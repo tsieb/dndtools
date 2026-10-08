@@ -53,7 +53,9 @@ placeholder the app draws while `campaignNameOf` returns `null`. A present block
 `isCampaignIdentityShape` (a trimmed name of 1–80 characters with no control characters, and
 nullable ids); anything else quarantines the document like any other malformed container.
 
-The sidebar chip, the open vault's switcher row and the Command Center hero read this one name.
+The sidebar chip, the open vault's switcher row, the Command Center hero and Settings › Players'
+Create invite read this one name. An invite is minted with it; an unnamed campaign is named by its
+first invite, through `campaign.set-identity`.
 The device-local vault catalog (`dndtools:react:local-vaults-v1`) is a mirror:
 `followCampaignIdentity` (mounted with the shell) renames the open vault's catalog entry whenever
 the campaign name changes. In the other direction, a catalog name the GM chose that the campaign
@@ -66,7 +68,9 @@ never adopted.
 Players added by name (Settings › Players) go through `permission.add-players` (owner only). It
 creates one `player` actor (`{ id, role, displayName }`) per name with a `permission.add-player`
 operation, refuses an email-shaped name, and refuses a name already on the roster. The existing
-`permission.rename-actor` and `permission.assign-role` then manage those actors. The released
+`permission.rename-actor` and `permission.assign-role` then manage those actors. Until a player
+owns a PC, the Command Center hero draws them as an avatar after the party's PCs (the `resume`
+source's rows after the hero row). The released
 `partyNotes` preference (`dndtools:react:invites`, vault-scoped) is migrated into actors once
 when the vault opens. Its email entries never reach an actor. They stay in the preference for the
 calendar invite that reads them, and the preference is removed once no entries remain.
