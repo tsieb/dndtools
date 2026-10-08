@@ -195,7 +195,7 @@ export function LaunchTileBody({ row, icon }: { row: WidgetDataRow; icon: string
 			>
 				<Icon name={row.icon ?? icon} size="md" />
 			</span>
-			<span style={{ minWidth: 0 }}>
+			<span style={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>
 				<span style={{ display: 'block', font: `600 var(--text-sm) ${sans}`, color: ink }}>
 					{row.primary}
 				</span>
