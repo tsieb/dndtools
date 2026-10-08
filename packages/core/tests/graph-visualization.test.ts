@@ -6,6 +6,7 @@ import {
 	GRAPH_RELATIONSHIP_KINDS,
 	CONTENT_KIND_WORDS,
 	kindWordFor,
+	suggestWikilinkTargetsForActor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreEnvironment,
@@ -462,6 +463,8 @@ describe('RC-KNW-6.2 — one kind vocabulary', () => {
 		expect(kindWordFor('object', 'quest')).toBe('quest');
 		expect(kindWordFor('object', 'faction')).toBe('faction');
 		expect(kindWordFor('object', 'handout')).toBe('note');
+		expect(kindWordFor('object', 'character')).toBe('npc');
+		expect(kindWordFor('object', 'map')).toBe('map');
 		expect(kindWordFor('object', undefined)).toBe('note');
 		expect(kindWordFor('note')).toBe('note');
 		expect(kindWordFor('character')).toBe('npc');
@@ -525,5 +528,46 @@ describe('RC-KNW-6.2 — one kind vocabulary', () => {
 			DEFAULT_SOURCE_ID,
 		);
 		expect(player.facets.kinds).not.toContain('faction');
+	});
+
+	it('names an object the same as the wikilink target that carries its subtype', () => {
+		const vault = buildVault();
+		const env = vault.env;
+		let state = vault.state;
+		const made: { id: string; title: string; word: string }[] = [];
+		for (const [subtype, fields, word] of [
+			['faction', { name: 'Kind faction', kind: 'cult', stance: 'hostile' }, 'faction'],
+			['character', { name: 'Kind character', characterKind: 'npc' }, 'npc'],
+			['map', { name: 'Kind map' }, 'map'],
+		] as const) {
+			const created = accepted(
+				dispatchCommand(
+					state,
+					env,
+					cmd('content.create-object', { subtype, title: fields.name, fields, body: '' }),
+				),
+			);
+			state = created.nextState;
+			made.push({ id: (created.events[0] as { itemId: string }).itemId, title: fields.name, word });
+		}
+		const viz = getGraphVisualizationForActor(
+			state.content,
+			state.maps,
+			state.session,
+			state.permissions,
+			DM_ACTOR.id,
+			DEFAULT_SOURCE_ID,
+		);
+		for (const { id, title, word } of made) {
+			const [target] = suggestWikilinkTargetsForActor(
+				state.content,
+				state.permissions,
+				DM_ACTOR.id,
+				title,
+			).filter((suggestion) => suggestion.itemId === id);
+			expect(target).toBeDefined();
+			expect(viz.nodes.find((n) => n.id === id)?.kind).toBe(word);
+			expect(kindWordFor(target!.kind)).toBe(word);
+		}
 	});
 });

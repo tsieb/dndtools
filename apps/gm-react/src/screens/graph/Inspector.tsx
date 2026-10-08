@@ -1,7 +1,7 @@
 import { Badge, Button, Icon } from '../../ds';
 import { Panel, T, eb } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
-import { KIND_COLOR, KIND_ICON, KIND_LABEL, REL_LABEL } from './presentation';
+import { KIND_COLOR, KIND_ICON, KIND_LABEL, opensInStory, REL_LABEL } from './presentation';
 import type { GraphVisualization, GraphVizNode } from '@dndtools/core';
 export function GraphInspector({
 	selNode,
@@ -76,11 +76,11 @@ export function GraphInspector({
 			)}
 			<div style={{ marginTop: 'var(--space-2)' }}>
 				<Button variant="primary" size="sm" icon="chevron-right" onClick={() => openNode(selNode)}>
-					{selNode.kind === 'note'
-						? t('graph.openNote')
-						: selNode.kind === 'quest' || selNode.kind === 'faction'
-							? t('graph.openInStory')
-							: t('graph.openInMaps')}
+					{opensInStory(selNode)
+						? t('graph.openInStory')
+						: selNode.entity === 'map' || selNode.entity === 'poi'
+							? t('graph.openInMaps')
+							: t('graph.openNote')}
 				</Button>
 			</div>
 			<div style={{ ...eb, marginTop: 'var(--space-2)' }}>

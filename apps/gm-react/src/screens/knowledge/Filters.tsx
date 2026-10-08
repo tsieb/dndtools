@@ -7,6 +7,7 @@ import {
 	searchVaultForActor,
 	SEARCH_CONTENT_TYPES,
 	VAULT_OBJECT_SUBTYPE_KEY,
+	type ContentKindWord,
 	type SearchContentType,
 	type SearchHit,
 } from '@dndtools/core';
@@ -39,11 +40,12 @@ const FIELDSET = {
 /**
  * RC-KNW-6.2 — the Kinds chips speak the one kind vocabulary (`kindWordFor`), not the search's
  * storage types: a faction dossier is under Factions here, as it is on Story, the Graph and the
- * palette. The core filters by content type, so each kind names the types it needs; quests,
- * factions and any other object (a Note by its kind word) share `object` and are told apart by
- * subtype among the hits the core already returned. Handouts and rolls keep their own words.
+ * palette. The core filters by content type, so each kind names the types it needs; every object
+ * kind shares `object` and is told apart by subtype among the hits the core already returned.
+ * NPC and Map are offered only while the vault holds such an object (a `character` or `map`
+ * subtype). Handouts and rolls keep their own words.
  */
-type FilterKind = 'note' | 'quest' | 'faction' | 'place' | 'handout' | 'roll';
+type FilterKind = ContentKindWord | 'handout' | 'roll';
 const FILTER_KINDS: {
 	kind: FilterKind;
 	types: SearchContentType[];
@@ -53,6 +55,8 @@ const FILTER_KINDS: {
 	{ kind: 'note', types: ['note', 'object'], label: KIND_PLURAL_LABEL.note, icon: KIND_ICON.note },
 	{ kind: 'quest', types: ['object'], label: KIND_PLURAL_LABEL.quest, icon: KIND_ICON.quest },
 	{ kind: 'faction', types: ['object'], label: KIND_PLURAL_LABEL.faction, icon: KIND_ICON.faction },
+	{ kind: 'npc', types: ['object'], label: KIND_PLURAL_LABEL.npc, icon: KIND_ICON.npc },
+	{ kind: 'map', types: ['object'], label: KIND_PLURAL_LABEL.map, icon: KIND_ICON.map },
 	{ kind: 'place', types: ['poi'], label: KIND_PLURAL_LABEL.place, icon: KIND_ICON.place },
 	{ kind: 'handout', types: ['handout'], label: TYPE_LABEL.handout, icon: TYPE_ICON.handout },
 	{
@@ -71,10 +75,19 @@ function typesForKinds(kinds: readonly FilterKind[]): SearchContentType[] {
 	return SEARCH_CONTENT_TYPES.filter((type) => wanted.has(type));
 }
 
-/** The kinds a stored filter's content types select (a saved `object` search is quests + factions). */
+/** The kinds whose hits a set of content types returns (a saved `object` search shows every object). */
 function kindsForTypes(types: readonly SearchContentType[]): FilterKind[] {
-	return FILTER_KINDS.filter((k) => types.includes(k.types[0])).map((k) => k.kind);
+	return FILTER_KINDS.filter((k) => k.types.some((type) => types.includes(type))).map(
+		(k) => k.kind,
+	);
 }
+
+/**
+ * The kinds the core cannot tell apart: all of them come back for `object`. A saved search stores
+ * content types only, so picking some of these but not all saves a broader search than the chips
+ * show (the panel says so before saving).
+ */
+const OBJECT_KINDS: readonly FilterKind[] = ['note', 'quest', 'faction', 'npc', 'map'];
 
 const LEGEND = {
 	font: `600 var(--text-xs) ${T.sans}`,
@@ -172,7 +185,11 @@ export function FiltersPanel({
 		return { ...EMPTY_DRAFT, query: initialQuery };
 	});
 
-	const [kinds, setKinds] = useState<FilterKind[]>(() => kindsForTypes(draft.contentTypes));
+	// The chips the DM picked, or `null` while the kind criterion is the draft's content types as
+	// stored (a loaded saved search, or a cleared panel). In that state the result is exactly what
+	// the core returns for those types, which is what the saved search itself re-runs; the chips
+	// only show which kinds those types cover. Toggling a chip switches to picked kinds.
+	const [kinds, setKinds] = useState<FilterKind[] | null>(null);
 	const filter = useMemo(() => draftToFilter(draft), [draft]);
 
 	// The live, actor-filtered result. Every hit and every count comes from here; the kind chips only
@@ -204,16 +221,33 @@ export function FiltersPanel({
 		return (hit: SearchHit): FilterKind => {
 			if (hit.type === 'handout') return 'handout';
 			if (hit.type === 'session-artifact') return 'roll';
-			const word = kindWordFor(hit.type, subtypeOf.get(hit.id));
-			return word === 'quest' || word === 'faction' || word === 'place' ? word : 'note';
+			return kindWordFor(hit.type, subtypeOf.get(hit.id));
 		};
 	}, [anchors]);
+	// NPC and Map are object kinds only a `character` / `map` object has; offer them when one exists.
+	const offered = useMemo(() => {
+		const words = new Set(
+			anchors
+				.filter((item) => item.kind === 'object')
+				.map((item) => kindWordFor('object', item.fields[VAULT_OBJECT_SUBTYPE_KEY])),
+		);
+		return FILTER_KINDS.filter(
+			(k) => (k.kind !== 'npc' && k.kind !== 'map') || words.has(k.kind) || kinds?.includes(k.kind),
+		);
+	}, [anchors, kinds]);
+	const shownKinds = kinds ?? kindsForTypes(draft.contentTypes);
 	const hits = useMemo(
 		() =>
-			kinds.length === 0 ? result.hits : result.hits.filter((hit) => kinds.includes(kindOf(hit))),
+			kinds === null || kinds.length === 0
+				? result.hits
+				: result.hits.filter((hit) => kinds.includes(kindOf(hit))),
 		[result.hits, kinds, kindOf],
 	);
 	const countOf = (kind: FilterKind) => hits.filter((hit) => kindOf(hit) === kind).length;
+	const offeredObjectKinds = offered.filter((k) => OBJECT_KINDS.includes(k.kind));
+	const pickedObjectKinds = offeredObjectKinds.filter((k) => kinds?.includes(k.kind));
+	const saveBroadens =
+		pickedObjectKinds.length > 0 && pickedObjectKinds.length < offeredObjectKinds.length;
 
 	const calendars = useMemo(
 		() => Object.values(runtime.state.content.calendars),
@@ -229,14 +263,17 @@ export function FiltersPanel({
 		(filter.dateRange ? 1 : 0);
 
 	function toggleKind(kind: FilterKind) {
-		const next = kinds.includes(kind) ? kinds.filter((value) => value !== kind) : [...kinds, kind];
+		const current = shownKinds.filter((value) => offered.some((k) => k.kind === value));
+		const next = current.includes(kind)
+			? current.filter((value) => value !== kind)
+			: [...current, kind];
 		setKinds(next);
 		setDraft((prev) => ({ ...prev, contentTypes: typesForKinds(next) }));
 	}
 
 	function loadDraft(next: FilterDraft) {
 		setDraft(next);
-		setKinds(kindsForTypes(next.contentTypes));
+		setKinds(null);
 	}
 
 	return (
@@ -261,12 +298,12 @@ export function FiltersPanel({
 				<fieldset style={FIELDSET}>
 					<legend style={LEGEND}>{t('knowledge.filters.types')}</legend>
 					<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.oneHalf }}>
-						{FILTER_KINDS.map(({ kind, label, icon }) => (
+						{offered.map(({ kind, label, icon }) => (
 							<Chip
 								key={kind}
 								icon={icon}
-								tone={kinds.includes(kind) ? 'accent' : 'neutral'}
-								selected={kinds.includes(kind)}
+								tone={shownKinds.includes(kind) ? 'accent' : 'neutral'}
+								selected={shownKinds.includes(kind)}
 								data-testid={`filters-type-${kind}`}
 								onClick={() => toggleKind(kind)}
 							>
@@ -432,6 +469,11 @@ export function FiltersPanel({
 					</p>
 				)}
 
+				{saveBroadens && (
+					<p style={{ ...META, margin: T.space.zero }} data-testid="filters-save-broadens">
+						{t('knowledge.filters.saveBroadens')}
+					</p>
+				)}
 				<SavedSearches filter={filter} onApply={(saved) => loadDraft(filterToDraft(saved))} />
 			</div>
 		</Card>

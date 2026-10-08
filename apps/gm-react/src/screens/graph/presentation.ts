@@ -125,6 +125,11 @@ export function useGraphHealth(view: 'dm' | 'player', dmId: string, playerId: st
 	return health;
 }
 
+/** RC-KNW-6.2 — whether opening a node goes to Story: a quest or faction object, nothing else. */
+export function opensInStory(n: Pick<GraphVizNode, 'kind' | 'entity'>): boolean {
+	return n.entity === 'object' && (n.kind === 'quest' || n.kind === 'faction');
+}
+
 export function useOpenGraphNode(viewActorId: string) {
 	const runtime = useRuntime();
 	const navigate = useNavigate();
@@ -133,9 +138,10 @@ export function useOpenGraphNode(viewActorId: string) {
 	// "copy link" writes). A POI's owning map is resolved through the SAME actor-filtered map reads
 	// the Atlas renders from, so the link never names a map the current viewpoint cannot see.
 	// Quests and factions live on Story — the same destination the Characters mention-search uses
-	// for object hits; any other object is a Note by its kind word and opens in Notes (RC-KNW-6.2).
+	// for object hits; any other object (a Note, or an NPC or Map by its subtype) is note-backed and
+	// opens in Notes (RC-KNW-6.2).
 	const openNode = (n: GraphVizNode) => {
-		if (n.entity === 'note' || (n.entity === 'object' && n.kind === 'note')) {
+		if (n.entity === 'note' || (n.entity === 'object' && !opensInStory(n))) {
 			navigate(`/knowledge/${n.id}`);
 			return;
 		}

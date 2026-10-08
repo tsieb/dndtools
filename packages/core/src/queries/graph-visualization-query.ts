@@ -76,17 +76,26 @@ export const CONTENT_KIND_WORDS: readonly ContentKindWord[] = Object.freeze([
  * RC-KNW-6.2 — the kind word for one thing. `kind` is whatever the reading surface holds: a content
  * item's `kind` (`note` / `object`, with the object's `subtype`), a graph node kind (`map` / `poi`),
  * or a wikilink target kind (`note`, `character`, `map`, `poi`, or an object's subtype itself).
- * A note-backed object is a Quest or a Faction by subtype and a Note otherwise; a character is an
- * NPC (its story home is Characters); a POI is a Place. Pure and total: anything unrecognised is a
- * Note, the generic word, never a raw id.
+ * An object is named by its subtype exactly as the wikilink target that carries that subtype is, so
+ * the two shapes of one object always agree: a Quest or a Faction; a character (a roster character
+ * or a `character` object) is an NPC; a map (an Atlas map or a `map` object) is a Map; a POI is a
+ * Place. Pure and total: anything unrecognised is a Note, the generic word, never a raw id.
  */
 export function kindWordFor(kind: string, subtype?: unknown): ContentKindWord {
-	const key = kind === 'object' ? subtype : kind;
-	if (key === 'quest' || key === 'faction') return key;
-	if (kind === 'character') return 'npc';
-	if (kind === 'map') return 'map';
-	if (kind === 'poi') return 'place';
-	return 'note';
+	switch (kind === 'object' ? subtype : kind) {
+		case 'quest':
+			return 'quest';
+		case 'faction':
+			return 'faction';
+		case 'character':
+			return 'npc';
+		case 'map':
+			return 'map';
+		case 'poi':
+			return 'place';
+		default:
+			return 'note';
+	}
 }
 
 /** The kind of relationship an edge represents in the visualization. */

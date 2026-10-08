@@ -8,6 +8,7 @@ import {
 	createDemoMapState,
 	dispatchCommand,
 	getGraphVisualizationForActor,
+	getSavedSearchesForActor,
 	kindWordFor,
 	suggestWikilinkTargetsForActor,
 	VAULT_OBJECT_SUBTYPE_KEY,
@@ -235,5 +236,182 @@ describe('RC-KNW-6.2 — one kind vocabulary', () => {
 			if (key === 'kind.npc' || key === 'kind.plural.npc') continue; // "PNJ" either way
 			expect(es(key), key).not.toBe(en(key));
 		}
+	});
+});
+
+/** Create one note-backed object through the real command, returning its id. */
+async function createObject(subtype: string, title: string, fields: Record<string, unknown>) {
+	const result = await runtime.dispatch({
+		type: 'content.create-object',
+		actorId: DM.id,
+		payload: { subtype, title, fields, body: '' },
+	} as CoreCommand);
+	if (result.status !== 'accepted') throw new Error(`create-object ${subtype} was rejected`);
+	return (result.events[0] as { itemId: string }).itemId;
+}
+
+/** Unmount whatever is mounted and start a fresh root in the same container. */
+function remount() {
+	act(() => root.unmount());
+	root = createRoot(container);
+}
+
+const pressed = (testId: string) =>
+	container.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed');
+
+describe('RC-KNW-6.2 — an object is named by its subtype, as its wikilink target is', () => {
+	it.each([
+		['character', { name: 'Mirela the Ferrywoman', characterKind: 'npc' }, 'npc', 'NPC', 'NPCs'],
+		['map', { name: 'Chart of the Drowned Coast' }, 'map', 'Map', 'Maps'],
+	] as const)(
+		'a %s object reads the same word on the Graph, in Notes, in the palette and in [[',
+		async (subtype, fields, word, one, many) => {
+			const id = await createObject(subtype, fields.name, fields);
+			const viz = getGraphVisualizationForActor(
+				runtime.state.content,
+				runtime.state.maps,
+				runtime.state.session,
+				runtime.state.permissions,
+				DM.id,
+				'local-vault',
+			);
+			expect(viz.nodes.find((node) => node.id === id)).toMatchObject({
+				kind: word,
+				entity: 'object',
+			});
+
+			// Graph: the result row says the word, and the note-backed object still opens as a note.
+			await mount(<Graph />);
+			const results = container.querySelector('.graph-results')!;
+			const row = [...results.querySelectorAll('button')].find((b) =>
+				textOf(b).includes(fields.name),
+			)!;
+			expect(textOf(row.querySelector('.graph-meta'))).toMatch(new RegExp(`^${one}\\b`));
+			await act(async () => row.click());
+			expect([...container.querySelectorAll('button')].map(textOf)).toContain('Open note');
+
+			// Notes filter: the hit is counted under the same word's chip.
+			remount();
+			await mount(<FiltersPanel initialQuery={fields.name} />);
+			expect(textOf(container.querySelector(`[data-testid="filters-type-${word}"]`))).toBe(
+				`${many} · 1`,
+			);
+			expect(textOf(container.querySelector('[data-testid="filters-type-note"]'))).toBe(
+				'Notes · 0',
+			);
+
+			// [[ autocomplete: the wikilink target carries the subtype and reads the same word.
+			const entry = suggestWikilinkTargetsForActor(
+				runtime.state.content,
+				runtime.state.permissions,
+				DM.id,
+				fields.name,
+				runtime.state,
+			).find((suggestion) => suggestion.itemId === id);
+			expect(entry).toBeDefined();
+			expect(wikilinkKindLabel(entry!.kind, en)).toBe(one);
+
+			// Palette: grouped under the plural, meta the singular.
+			remount();
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				await mount(<CommandPalette open onClose={() => {}} />);
+				const input = document.querySelector('[role="combobox"]') as HTMLInputElement;
+				await typeInto(input, fields.name);
+				await act(async () => {
+					await vi.advanceTimersByTimeAsync(400);
+				});
+				const option = [...document.querySelectorAll('[role="option"]')].find((o) =>
+					textOf(o).startsWith(fields.name),
+				);
+				expect(option, 'the object is a palette hit').toBeDefined();
+				expect(textOf(option)).toContain(one);
+				expect(option!.closest('[role="group"]')?.getAttribute('aria-label')).toBe(many);
+			} finally {
+				vi.useRealTimers();
+			}
+		},
+	);
+});
+
+describe('RC-KNW-6.2 — saved searches keep what the kind chips can store', () => {
+	/** The ids of the hits the panel lists. */
+	const listed = () =>
+		[...container.querySelectorAll('[data-testid^="filters-hit-"]')]
+			.map((el) => el.getAttribute('data-testid')!.slice('filters-hit-'.length))
+			.sort();
+
+	it('says before saving that Factions alone saves every object kind, and reloads as saved', async () => {
+		await mount(<FiltersPanel initialQuery="Ashen" />);
+		expect(container.querySelector('[data-testid="filters-save-broadens"]')).toBeNull();
+
+		await act(async () =>
+			(container.querySelector('[data-testid="filters-type-faction"]') as HTMLElement).click(),
+		);
+		expect(textOf(container.querySelector('[data-testid="filters-save-broadens"]'))).toBe(
+			en('knowledge.filters.saveBroadens'),
+		);
+		// Picking every object kind the core can't tell apart is storable as-is: no notice.
+		for (const kind of ['note', 'quest']) {
+			await act(async () =>
+				(container.querySelector(`[data-testid="filters-type-${kind}"]`) as HTMLElement).click(),
+			);
+		}
+		expect(container.querySelector('[data-testid="filters-save-broadens"]')).toBeNull();
+		await act(async () =>
+			(container.querySelector('[data-testid="filters-type-note"]') as HTMLElement).click(),
+		);
+		await act(async () =>
+			(container.querySelector('[data-testid="filters-type-quest"]') as HTMLElement).click(),
+		);
+		expect(pressed('filters-type-faction')).toBe('true');
+		expect(container.querySelector('[data-testid="filters-save-broadens"]')).not.toBeNull();
+
+		await typeInto(
+			container.querySelector('[data-testid="filters-save-name"]') as HTMLInputElement,
+			'Ashen objects',
+		);
+		await act(async () =>
+			(container.querySelector('[data-testid="filters-save"]') as HTMLElement).click(),
+		);
+		const saved = getSavedSearchesForActor(
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			DM.id,
+		).find((entry) => entry.name === 'Ashen objects');
+		expect(saved?.filter).toEqual({ query: 'Ashen', contentTypes: ['object'] });
+
+		// Reopened, the panel lists exactly what the saved search re-runs (its Command Center tile
+		// shows the same), and the chips show every kind that stored type covers.
+		remount();
+		await mount(<FiltersPanel initialSavedSearchId={saved!.id} />);
+		expect(listed()).toEqual(saved!.result.hits.map((hit) => hit.id).sort());
+		expect(pressed('filters-type-faction')).toBe('true');
+		expect(pressed('filters-type-quest')).toBe('true');
+		expect(container.querySelector('[data-testid="filters-save-broadens"]')).toBeNull();
+	});
+
+	it('an object-only saved search lists every object, a Note by its kind word included', async () => {
+		const id = await createObject('note', 'Tide ledger', {});
+		const result = await runtime.dispatch({
+			type: 'content.create-saved-search',
+			actorId: DM.id,
+			payload: { name: 'Objects', filter: { query: 'Tide ledger', contentTypes: ['object'] } },
+		} as CoreCommand);
+		expect(result.status).toBe('accepted');
+		const saved = getSavedSearchesForActor(
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			DM.id,
+		).find((entry) => entry.name === 'Objects')!;
+
+		await mount(<FiltersPanel initialSavedSearchId={saved.id} />);
+		expect(listed()).toEqual([id]);
+		expect(pressed('filters-type-note')).toBe('true');
+		expect(textOf(container.querySelector('[data-testid="filters-type-note"]'))).toBe('Notes · 1');
 	});
 });

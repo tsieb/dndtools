@@ -7324,6 +7324,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Todavía no hay nada que buscar. Las notas y los documentos aparecen cuando existen o cuando te los comparten.',
 	'knowledge.filters.showingFirst':
 		'Se muestran los primeros {shown} de {count}. Añade un filtro para acotar.',
+	'knowledge.filters.saveBroadens':
+		'Una búsqueda guardada aún no distingue notas, misiones, facciones, PNJ y mapas, así que al guardar esta se incluyen todos.',
 	'knowledge.filters.savedToast': 'Búsqueda «{name}» guardada.',
 	'knowledge.filters.deletedToast': 'Búsqueda «{name}» eliminada.',
 	'knowledge.filters.deleteTitle': '¿Eliminar la búsqueda «{name}»?',

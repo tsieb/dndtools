@@ -4335,6 +4335,8 @@ export const en = {
 		'Nothing here is searchable yet. Notes and handouts appear once they exist or are shared with you.',
 	'knowledge.filters.showingFirst':
 		'Showing the first {shown} of {count}. Add a filter to narrow it down.',
+	'knowledge.filters.saveBroadens':
+		"A saved search can't tell notes, quests, factions, NPCs and maps apart yet, so saving this one keeps all of them.",
 	'knowledge.filters.savedToast': 'Saved the search “{name}”.',
 	'knowledge.filters.deletedToast': 'Deleted the search “{name}”.',
 	'knowledge.filters.deleteTitle': 'Delete the search “{name}”?',

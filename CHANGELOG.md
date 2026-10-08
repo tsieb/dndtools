@@ -29,7 +29,9 @@ branch. Installers still come from the alpha releases.
 - Things have one name wherever they appear: Note, Quest, Faction, NPC, Map or Place. The Graph,
   the Notes filter, search and the link menu you open by typing two square brackets used to call a
   faction "Story entry" or "Note". The sidebar's Story line counts quests and factions instead of
-  "threads", and note cards show how many links a note has. In the sample campaign, the Ashen Hand
+  "threads", and note cards show how many links a note has. Saved searches can't yet keep Notes,
+  Quests and Factions apart, so the filter says so when you pick only some of them, and a saved
+  search reopens showing exactly what it finds. In the sample campaign, the Ashen Hand
   is now a faction on Story rather than a note. Vaults that already hold the sample note keep it as
   it is.
 - Experience complexity now means something outside Settings. Beginner hides Extensions and
