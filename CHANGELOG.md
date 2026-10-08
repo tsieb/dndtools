@@ -13,6 +13,11 @@ branch. Installers still come from the alpha releases.
 
 ### For players and GMs
 
+- Preview as a player shows what that player's phone shows. Picking a player or Observer from the
+  top bar's View as menu opens the player view as them, with their character and the scene you
+  assigned them, and none of the GM menus. A banner says who you are previewing; Exit preview or
+  Escape takes you back to the page you came from. The menu's lower rows can be clicked again on
+  pages with cards under it.
 - Help says Help. It opens on the guide for the screen you are on, and new guides cover Screens,
   Characters, Notes and Settings. On a phone, the guides tell you what to tap instead of which keys
   to press.

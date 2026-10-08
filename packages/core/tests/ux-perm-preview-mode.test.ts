@@ -8,6 +8,7 @@ import {
 	makeEnvironment,
 } from '../src/testing';
 import {
+	companionViewerFor,
 	dispatchCommand,
 	getContentItemsForActor,
 	isPreviewActorId,
@@ -191,5 +192,42 @@ describe('previewBannerModel', () => {
 		expect(model.exitLabel).toBe('Exit preview');
 		expect(model.ariaKeyShortcuts).toBe('Shift+Escape');
 		expect(model.announcement).toContain('all editing is disabled');
+	});
+});
+
+describe('companionViewerFor (RC-CHR-6.5)', () => {
+	const permissions = permissionsWithPreviewActors(
+		buildPermissionState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR),
+	);
+	const preview = (selection: Parameters<typeof resolvePreviewActor>[1]) =>
+		resolvePreviewActor(permissions, selection);
+
+	it('is the seat without a preview', () => {
+		expect(companionViewerFor(permissions, null, PLAYER_ACTOR.id)).toBe(PLAYER_ACTOR.id);
+	});
+
+	it('follows a specific player, an observer and a co-DM preview', () => {
+		const other = { id: 'actor-other', role: 'player' as const, displayName: 'Other' };
+		const withOther = permissionsWithPreviewActors(
+			buildPermissionState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR, other),
+		);
+		const specific = resolvePreviewActor(withOther, { role: 'player', playerActorId: other.id });
+		expect(companionViewerFor(withOther, specific, PLAYER_ACTOR.id)).toBe(other.id);
+		expect(companionViewerFor(permissions, preview({ role: 'observer' }), PLAYER_ACTOR.id)).toBe(
+			PREVIEW_OBSERVER_ACTOR_ID,
+		);
+		const coDm = preview({ role: 'co-dm' });
+		expect(companionViewerFor(permissions, coDm, PLAYER_ACTOR.id)).toBe(coDm.actorId);
+	});
+
+	it('lets a player seat stand in for "any player", and fails closed without one', () => {
+		const anyPlayer = preview({ role: 'player' });
+		expect(companionViewerFor(permissions, anyPlayer, PLAYER_ACTOR.id)).toBe(PLAYER_ACTOR.id);
+		expect(companionViewerFor(permissions, anyPlayer, 'actor-missing')).toBe(
+			PREVIEW_PLAYER_ACTOR_ID,
+		);
+		expect(companionViewerFor(permissions, anyPlayer, OBSERVER_ACTOR.id)).toBe(
+			PREVIEW_PLAYER_ACTOR_ID,
+		);
 	});
 });

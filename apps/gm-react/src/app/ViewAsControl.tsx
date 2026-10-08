@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { PreviewSelection } from '@dndtools/core';
 import { Icon, Toaster } from '../ds';
 import { useI18n } from '../i18n';
@@ -26,6 +28,15 @@ export function usePreviewActions() {
 }
 
 /**
+ * RC-CHR-6.5 — where the companion's exit banner returns to: the shell route the GM previewed from.
+ * Carried as router state so a `/play` opened any other way (a bookmark, a joined phone) has none and
+ * stays put when preview ends.
+ */
+export interface CompanionPreviewState {
+	previewFrom: string;
+}
+
+/**
  * ViewAsControl — the "view as" / preview switcher (was entirely absent in the visual port despite
  * the runtime shipping the model). It drives the real `SceneRuntime` preview: previewing as a
  * player/observer projects the actor-filtered, player-safe view and makes every mutation read-only
@@ -33,6 +44,10 @@ export function usePreviewActions() {
  *
  * `placement="scene"` is the scene editor's own switcher (RC-CAN-6.1): the same menu and the same
  * runtime preview, named for the scene so it never shares an accessible name with the top bar's.
+ *
+ * RC-CHR-6.5 — from the top bar, a player or observer preview opens the companion (`/play`) itself: the
+ * page that participant's phone renders, with its own exit banner, instead of the DM shell with a
+ * participant actor behind it. A co-DM preview stays in the shell, which is the co-DM's own surface.
  */
 export function ViewAsControl({
 	compact = false,
@@ -41,7 +56,11 @@ export function ViewAsControl({
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const actions = usePreviewActions();
+	const navigate = useNavigate();
+	const location = useLocation();
 	const [open, setOpen] = useState(false);
+	// Where a portaled menu hangs, fixed under the trigger's right edge; null keeps it in place.
+	const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
 	const preview = runtime.preview;
@@ -58,6 +77,13 @@ export function ViewAsControl({
 			menu?.querySelector<HTMLElement>('[role="menuitemradio"]');
 		target?.focus();
 	}, [open]);
+	// A fixed menu would drift from a trigger that moved; a resize closes it instead.
+	useEffect(() => {
+		if (!open || !anchor) return undefined;
+		const onResize = () => setOpen(false);
+		window.addEventListener('resize', onResize);
+		return () => window.removeEventListener('resize', onResize);
+	}, [open, anchor]);
 	useEffect(() => {
 		if (!open) return undefined;
 		return registerBackHandler('overlay', () => {
@@ -67,6 +93,25 @@ export function ViewAsControl({
 		});
 	}, [open]);
 
+	// RC-CHR-6.5 — the top bar's backdrop blur makes it a stacking context, so a menu drawn in place sat
+	// under any positioned page content after it (screen thumbnails, roster cards), which swallowed
+	// clicks on the lower rows — the specific players. Outside a dialog the menu is portaled to <body>
+	// and fixed under the trigger; inside one (the phone's Table controls sheet) it stays in place,
+	// within the sheet's focus trap. Measured on open, in the same render that opens it.
+	function toggle() {
+		if (open) {
+			setOpen(false);
+			return;
+		}
+		const trigger = triggerRef.current;
+		const rect = trigger?.getBoundingClientRect();
+		setAnchor(
+			trigger && rect && !trigger.closest('[role="dialog"]')
+				? { top: rect.bottom + 6, right: document.documentElement.clientWidth - rect.right }
+				: null,
+		);
+		setOpen(true);
+	}
 	function close(restoreFocus = false) {
 		setOpen(false);
 		if (restoreFocus) triggerRef.current?.focus();
@@ -82,6 +127,17 @@ export function ViewAsControl({
 	// Both use close(true): picking an item with the keyboard used to drop focus to <body>, so the
 	// next Tab restarted from the top of the top bar (WCAG 2.4.3).
 	function preview_(selection: PreviewSelection, label: string) {
+		if (placement === 'shell' && selection.role !== 'co-dm') {
+			// The companion's banner says what is previewed; a shell toast would only surface on return.
+			runtime.enterPreview(selection);
+			close();
+			if (!runtime.preview) return;
+			const state: CompanionPreviewState = {
+				previewFrom: `${location.pathname}${location.search}`,
+			};
+			navigate('/play', { state });
+			return;
+		}
 		actions.enter(selection, label);
 		close(true);
 	}
@@ -93,6 +149,7 @@ export function ViewAsControl({
 	// Only the device-owner DM may preview; a non-DM owner shouldn't see the control.
 	if (!isDm && !preview) return null;
 
+	const portal = (node: ReactNode) => (anchor ? createPortal(node, document.body) : node);
 	const label = preview ? preview.label : t('viewAs.dmView');
 	const scene = placement === 'scene';
 	const triggerName = preview
@@ -108,7 +165,7 @@ export function ViewAsControl({
 				aria-expanded={open}
 				aria-label={triggerName}
 				title={triggerName}
-				onClick={() => setOpen((v) => !v)}
+				onClick={toggle}
 				style={{
 					display: 'flex',
 					alignItems: 'center',
@@ -134,122 +191,128 @@ export function ViewAsControl({
 				)}
 				{!compact && <Icon name="chevron-down" size={12} />}
 			</button>
-			{open && (
-				<>
-					<div
-						className="app-fixed-viewport"
-						onClick={() => close()}
-						style={{ position: 'fixed', inset: 0, zIndex: 40 }}
-					/>
-					<div
-						role="menu"
-						ref={menuRef}
-						onKeyDown={(e) => {
-							if (e.key === 'Escape') {
+			{open &&
+				portal(
+					<>
+						<div
+							className="app-fixed-viewport"
+							onClick={() => close()}
+							style={{ position: 'fixed', inset: 0, zIndex: anchor ? 'var(--z-dropdown)' : 40 }}
+						/>
+						<div
+							role="menu"
+							ref={menuRef}
+							onKeyDown={(e) => {
+								if (e.key === 'Escape') {
+									e.preventDefault();
+									close(true);
+									return;
+								}
+								// ARIA menus are arrow-navigated, not Tab-navigated. Without this the only way
+								// through a full party's preview list was Tab, which also walked straight out of
+								// the menu into the page behind it. Tabbing out now dismisses the menu rather
+								// than leaving it open over controls the invisible click-catcher still covers.
+								if (e.key === 'Tab') {
+									// `close(true)` — restore focus to the trigger. Without it the menu
+									// unmounted from under the focused row, focus fell to <body>, and the
+									// native Tab that follows restarted from the TOP of the document
+									// instead of continuing past the trigger (WCAG 2.4.3). The two other
+									// dismissals in this file already pass `true` for exactly this reason.
+									close(true);
+									return;
+								}
+								const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
+								if (!keys.includes(e.key)) return;
+								const items = Array.from(
+									menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ??
+										[],
+								);
+								if (items.length === 0) return;
 								e.preventDefault();
-								close(true);
-								return;
-							}
-							// ARIA menus are arrow-navigated, not Tab-navigated. Without this the only way
-							// through a full party's preview list was Tab, which also walked straight out of
-							// the menu into the page behind it. Tabbing out now dismisses the menu rather
-							// than leaving it open over controls the invisible click-catcher still covers.
-							if (e.key === 'Tab') {
-								// `close(true)` — restore focus to the trigger. Without it the menu
-								// unmounted from under the focused row, focus fell to <body>, and the
-								// native Tab that follows restarted from the TOP of the document
-								// instead of continuing past the trigger (WCAG 2.4.3). The two other
-								// dismissals in this file already pass `true` for exactly this reason.
-								close(true);
-								return;
-							}
-							const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
-							if (!keys.includes(e.key)) return;
-							const items = Array.from(
-								menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ??
-									[],
-							);
-							if (items.length === 0) return;
-							e.preventDefault();
-							const at = items.indexOf(document.activeElement as HTMLButtonElement);
-							const to =
-								e.key === 'Home'
-									? 0
-									: e.key === 'End'
-										? items.length - 1
-										: e.key === 'ArrowDown'
-											? at < 0
-												? 0
-												: (at + 1) % items.length
-											: at < 0
-												? items.length - 1
-												: (at - 1 + items.length) % items.length;
-							items[to]?.focus();
-						}}
-						style={{
-							position: 'absolute',
-							right: 0,
-							top: 'calc(100% + 6px)',
-							zIndex: 50,
-							minWidth: 220,
-							// A full party (6+ players plus co-DMs) ran the menu past the viewport, and
-							// the fixed click-catcher behind it swallows wheel/touch, so the overflowing
-							// rows were unreachable.
-							maxHeight: 'min(70vh, 420px)',
-							overflowY: 'auto',
-							background: T.overlay,
-							border: `1px solid ${T.bdS}`,
-							borderRadius: 10,
-							boxShadow: T.smd,
-							padding: 6,
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 1,
-						}}
-					>
-						<MenuItem icon="dm-only" label={t('viewAs.dmView')} active={!preview} onClick={exit} />
-						<div role="separator" style={{ height: 1, background: T.bd, margin: '4px 0' }} />
-						<MenuLabel>{t('viewAs.previewAs')}</MenuLabel>
-						<MenuItem
-							icon="visibility-players"
-							label={t('viewAs.anyPlayer')}
-							active={!!preview && preview.role === 'player' && !preview.specific}
-							onClick={() => preview_({ role: 'player' }, t('viewAs.player'))}
-						/>
-						<MenuItem
-							icon="eye"
-							label={t('viewAs.observer')}
-							active={!!preview && preview.role === 'observer'}
-							onClick={() => preview_({ role: 'observer' }, t('viewAs.observer'))}
-						/>
-						<MenuItem
-							icon="session-bolt"
-							label={t('viewAs.coDm')}
-							active={!!preview && preview.role === 'co-dm' && !preview.specific}
-							onClick={() => preview_({ role: 'co-dm' }, t('viewAs.coDm'))}
-						/>
-						{coDms.map((c) => (
+								const at = items.indexOf(document.activeElement as HTMLButtonElement);
+								const to =
+									e.key === 'Home'
+										? 0
+										: e.key === 'End'
+											? items.length - 1
+											: e.key === 'ArrowDown'
+												? at < 0
+													? 0
+													: (at + 1) % items.length
+												: at < 0
+													? items.length - 1
+													: (at - 1 + items.length) % items.length;
+								items[to]?.focus();
+							}}
+							style={{
+								position: anchor ? 'fixed' : 'absolute',
+								right: anchor ? anchor.right : 0,
+								top: anchor ? anchor.top : 'calc(100% + 6px)',
+								zIndex: anchor ? 'var(--z-dropdown)' : 50,
+								minWidth: 220,
+								// A full party (6+ players plus co-DMs) ran the menu past the viewport, and
+								// the fixed click-catcher behind it swallows wheel/touch, so the overflowing
+								// rows were unreachable.
+								maxHeight: 'min(70vh, 420px)',
+								overflowY: 'auto',
+								background: T.overlay,
+								border: `1px solid ${T.bdS}`,
+								borderRadius: 10,
+								boxShadow: T.smd,
+								padding: 6,
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 1,
+							}}
+						>
 							<MenuItem
-								key={c.id}
+								icon="dm-only"
+								label={t('viewAs.dmView')}
+								active={!preview}
+								onClick={exit}
+							/>
+							<div role="separator" style={{ height: 1, background: T.bd, margin: '4px 0' }} />
+							<MenuLabel>{t('viewAs.previewAs')}</MenuLabel>
+							<MenuItem
+								icon="visibility-players"
+								label={t('viewAs.anyPlayer')}
+								active={!!preview && preview.role === 'player' && !preview.specific}
+								onClick={() => preview_({ role: 'player' }, t('viewAs.player'))}
+							/>
+							<MenuItem
+								icon="eye"
+								label={t('viewAs.observer')}
+								active={!!preview && preview.role === 'observer'}
+								onClick={() => preview_({ role: 'observer' }, t('viewAs.observer'))}
+							/>
+							<MenuItem
 								icon="session-bolt"
-								label={c.displayName}
-								active={!!preview && preview.specific && preview.actorId === c.id}
-								onClick={() => preview_({ role: 'co-dm', playerActorId: c.id }, c.displayName)}
+								label={t('viewAs.coDm')}
+								active={!!preview && preview.role === 'co-dm' && !preview.specific}
+								onClick={() => preview_({ role: 'co-dm' }, t('viewAs.coDm'))}
 							/>
-						))}
-						{players.length > 0 && <MenuLabel>{t('viewAs.specificPlayers')}</MenuLabel>}
-						{players.map((p) => (
-							<MenuItem
-								key={p.id}
-								icon="characters-person"
-								label={p.displayName}
-								active={!!preview && preview.specific && preview.actorId === p.id}
-								onClick={() => preview_({ role: 'player', playerActorId: p.id }, p.displayName)}
-							/>
-						))}
-					</div>
-				</>
-			)}
+							{coDms.map((c) => (
+								<MenuItem
+									key={c.id}
+									icon="session-bolt"
+									label={c.displayName}
+									active={!!preview && preview.specific && preview.actorId === c.id}
+									onClick={() => preview_({ role: 'co-dm', playerActorId: c.id }, c.displayName)}
+								/>
+							))}
+							{players.length > 0 && <MenuLabel>{t('viewAs.specificPlayers')}</MenuLabel>}
+							{players.map((p) => (
+								<MenuItem
+									key={p.id}
+									icon="characters-person"
+									label={p.displayName}
+									active={!!preview && preview.specific && preview.actorId === p.id}
+									onClick={() => preview_({ role: 'player', playerActorId: p.id }, p.displayName)}
+								/>
+							))}
+						</div>
+					</>,
+				)}
 		</div>
 	);
 }

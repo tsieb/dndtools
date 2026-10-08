@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	findHomeScreen,
 	findWidgetDefinition,
@@ -6,8 +7,9 @@ import {
 	resolveCommandCenterHome,
 	type CoreCommand,
 } from '@dndtools/core';
-import { Button, Card, EmptyState, Skeleton, StatusDot } from '../ds';
-import { Page, T } from '../app/screen-kit';
+import { Button, EmptyState, Icon, Skeleton } from '../ds';
+import { Page } from '../app/screen-kit';
+import type { CompanionPreviewState } from '../app/ViewAsControl';
 import {
 	boardWidgetPresentation,
 	boardWidgetsOf,
@@ -40,6 +42,8 @@ import { useI18n } from '../i18n';
  * accessibility tree, DOM skeleton, headings and focus order, apart from the widget regions.
  *
  * A player/observer device sees only their own player-safe view (UX-CMD-012), never the GM's screen.
+ * RC-CHR-6.5 — that view is the companion (`/play`), so a participant here is pointed to it rather than
+ * shown a stand-in hero no player's device ever renders.
  */
 
 /** Ensure the home screen exists, once per mount; reports a provisioning write that failed. */
@@ -73,6 +77,7 @@ function useProvisionedHome(enabled: boolean) {
 export function CommandCenter() {
 	const runtime = useRuntime();
 	const viewport = useViewport();
+	const navigate = useNavigate();
 	const { t } = useI18n();
 	const actorId = runtime.defaultActorId;
 	const homeView = resolveCommandCenterHome(runtime.state, actorId, {
@@ -121,50 +126,52 @@ export function CommandCenter() {
 		return { tiles, columns };
 	}, [home, runtime.state, actorId, viewport, blank]);
 
-	// Liveness is `session.workflow` everywhere else in the app (Session.tsx, ProjectionControl, every
-	// StatusDot). Reading `activeSceneId` instead meant `session.recover` — which restores the scene id
-	// while moving the workflow to `recap` — would make the hub pulse "Session live" over a read-only
-	// archive review.
-	const isLive = runtime.state.session.workflow === 'active';
-
-	// UX-CMD-012 — a player/observer device gets ONLY its own player-safe view, never the DM hub.
+	// UX-CMD-012 / RC-CHR-6.5 — a player/observer never gets the GM hub; their page is the companion.
 	if (homeView.kind === 'participant') {
+		const companion: CompanionPreviewState = { previewFrom: '/' };
 		return (
-			<Page max={1100}>
-				<Card
-					accent
-					elevation="raised"
-					padding="lg"
-					style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}
+			<Page max={720}>
+				{/* Not the DS EmptyState: its <h3> would skip a level under the top bar's <h1>. */}
+				<section
+					aria-labelledby="home-participant-title"
+					style={{
+						display: 'flex',
+						flexDirection: 'column',
+						alignItems: 'center',
+						textAlign: 'center',
+						gap: 'var(--space-3)',
+						padding: 'var(--space-10) var(--space-6)',
+					}}
 				>
-					<StatusDot status={isLive ? 'live' : 'idle'} pulse={isLive} />
-					<div style={{ flex: 1, minWidth: 'min(100%, 12rem)' }}>
-						<div
-							style={{
-								font: `600 var(--text-xs) ${T.sans}`,
-								letterSpacing: '.09em',
-								textTransform: 'uppercase',
-								color: T.acc,
-							}}
-						>
-							{homeView.observerMode ? t('home.observerMode') : t('home.playerView')}
-						</div>
-						<div
-							style={{ font: `700 var(--text-xl)/1.1 ${T.disp}`, marginTop: 'var(--space-0-5)' }}
-						>
-							{homeView.displayName}
-						</div>
-						<div
-							style={{
-								font: `var(--text-sm) ${T.sans}`,
-								color: T.sub,
-								marginTop: 'var(--space-1)',
-							}}
-						>
-							{homeView.readOnly ? t('home.readOnlyView') : t('home.liveView')}
-						</div>
-					</div>
-				</Card>
+					<Icon name="visibility-players" size="lg" color="var(--color-text-tertiary)" />
+					<h2
+						id="home-participant-title"
+						style={{
+							margin: 'var(--space-0)',
+							font: '600 var(--text-lg) var(--font-sans)',
+							color: 'var(--color-text-primary)',
+						}}
+					>
+						{t('home.participantTitle')}
+					</h2>
+					<p
+						style={{
+							margin: 'var(--space-0)',
+							font: 'var(--text-sm)/1.5 var(--font-sans)',
+							color: 'var(--color-text-secondary)',
+						}}
+					>
+						{t('home.participantHint', { name: homeView.displayName })}
+					</p>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="visibility-players"
+						onClick={() => navigate('/play', { state: companion })}
+					>
+						{t('home.openCompanion')}
+					</Button>
+				</section>
 			</Page>
 		);
 	}

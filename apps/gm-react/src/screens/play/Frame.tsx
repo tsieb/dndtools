@@ -1,8 +1,16 @@
 import './play.css';
-import { useMemo, useState, type ReactNode } from 'react';
-import { getDiceHistoryForActor, type CoreCommand, type DiceRollView } from '@dndtools/core';
-import { Avatar, BottomTabBar, Icon } from '../../ds';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+	companionViewerFor,
+	getDiceHistoryForActor,
+	type CoreCommand,
+	type DiceRollView,
+} from '@dndtools/core';
+import { Avatar, BottomTabBar, Button, Icon } from '../../ds';
 import { T, eb } from '../../app/screen-kit';
+import { usePreviewActions, type CompanionPreviewState } from '../../app/ViewAsControl';
+import { registerBackHandler } from '../../platform/backNavigation';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSession } from '../../net/SessionContext';
 import { buildPlayerData, NO_SHEET_WRITES } from '../../net/viewModels';
@@ -70,18 +78,12 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 	//    actor-filtered Core, exactly as before.
 	const joined = session.role === 'joined' && session.client?.data != null;
 	const remoteData = session.client?.data ?? null;
-	// RC-CHR-4.3 (DEBT-2026-005) — when NOT joined, this route ran as the reserved generic player actor
-	// UNCONDITIONALLY, so a DM who set "View as → Co-DM" on the AppShell and then opened `/play` on the
-	// same device still saw a plain, locked player nav instead of the elevated tier they were previewing.
-	// Honor an ACTIVE co-DM preview (generic or a specific promoted seat) as the viewer. Plain player/
-	// observer previews are left alone: `PLAYER_ACTOR_ID` is the seeded demo participant the rest of this
-	// route's fixtures (scene projection, journal, party) already target, and the reserved GENERIC preview
-	// actors carry none of that seeded data — switching to them here would blank the stage, not narrow it.
+	// RC-CHR-6.5 — when NOT joined, the viewer is the previewed actor: a specific player is that player
+	// (their PC, their scene assignment), an observer or co-DM preview is its resolved actor. "Any player"
+	// keeps the seeded demo participant as its stand-in; the core helper says why.
 	const viewer = joined
 		? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID)
-		: runtime.preview?.role === 'co-dm'
-			? runtime.activeActorId
-			: PLAYER_ACTOR_ID;
+		: companionViewerFor(runtime.state.permissions, runtime.preview, PLAYER_ACTOR_ID);
 
 	const state = runtime.state;
 	const localData = useMemo<LiveData>(() => {
@@ -419,6 +421,7 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 						</span>
 					</span>
 				</header>
+				{!joined && runtime.preview && <PreviewExitBanner label={runtime.preview.label} />}
 				<SceneBanner card={data.activeSceneCard} />
 				<main id="player-main" tabIndex={-1} style={{ flex: 1, minWidth: 0 }}>
 					{body}
@@ -576,5 +579,78 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 
 			<PlayerToasts toasts={toasts} />
 		</div>
+	);
+}
+
+/**
+ * RC-CHR-6.5 — the GM's way out of a companion preview. It names who is previewed and ends the preview
+ * from its button, Escape or Android Back, returning to the shell route the preview was opened from.
+ * It sits after the header so the companion's own reading and Tab order are the player's.
+ */
+function PreviewExitBanner({ label }: { label: string }) {
+	const { t } = useI18n();
+	const actions = usePreviewActions();
+	const navigate = useNavigate();
+	const location = useLocation();
+	const from = (location.state as Partial<CompanionPreviewState> | null)?.previewFrom;
+	// The listeners below are bound once; they read the latest exit through this ref.
+	const exitRef = useRef(() => {});
+	exitRef.current = () => {
+		actions.exit();
+		if (from) navigate(from, { replace: true });
+	};
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+			// A dialog or sheet open on top owns this Escape; closing it must not also end preview.
+			if (document.querySelector('[aria-modal="true"], dialog[open]')) return;
+			e.preventDefault();
+			exitRef.current();
+		};
+		window.addEventListener('keydown', onKey);
+		const unregister = registerBackHandler('overlay', () => {
+			exitRef.current();
+			return true;
+		});
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			unregister();
+		};
+	}, []);
+	const title = t('viewAs.previewingAs', { label });
+	return (
+		<section
+			aria-label={title}
+			data-testid="companion-preview-banner"
+			style={{
+				display: 'flex',
+				alignItems: 'center',
+				flexWrap: 'wrap',
+				gap: T.space.three,
+				padding: `${T.space.two} ${T.space.four}`,
+				background: T.accSub,
+				borderBottom: `1px solid ${T.accBd}`,
+			}}
+		>
+			<Icon name="visibility-players" size="sm" color={T.acc} />
+			<div style={{ flex: '1 1 14rem', minWidth: 0 }}>
+				<p style={{ margin: 'var(--space-0)', font: `600 var(--text-sm) ${T.sans}`, color: T.ink }}>
+					{title}
+				</p>
+				<p style={{ margin: 'var(--space-0)', font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+					{t('viewAs.companionNote')}
+				</p>
+			</div>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="close"
+				aria-keyshortcuts="Escape"
+				onClick={() => exitRef.current()}
+				style={{ minHeight: 'var(--space-12)', minWidth: 'var(--space-12)' }}
+			>
+				{t('viewAs.exit')}
+			</Button>
+		</section>
 	);
 }

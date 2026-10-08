@@ -1280,33 +1280,43 @@ h2 Library"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · aria 1`] = `
-"- text: Observer mode
-- text: Demo Observer
-- text: Your read-only view of the live table."
+"- heading "This page is only for the DM" [level=2]
+- text: Demo Observer sees the player view on their own device. Open it to see exactly what their phone shows.
+- button "Open the player view""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · dom 1`] = `
-""Observer mode"
-"Demo Observer"
-"Your read-only view of the live table.""
+"<section>
+  <svg aria-hidden="true">
+  <h2>
+    "This page is only for the DM"
+  "Demo Observer sees the player view on their own device. Open it to see exactly what their phone shows."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Open the player view""
 `;
 
-exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · focus order 1`] = `""`;
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · focus order 1`] = `"button Open the player view"`;
 
-exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · headings 1`] = `""`;
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > observer · headings 1`] = `"h2 This page is only for the DM"`;
 
 exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · aria 1`] = `
-"- text: Player view
-- text: Demo Player
-- text: Your live view of the table — what the DM is sharing right now."
+"- heading "This page is only for the DM" [level=2]
+- text: Demo Player sees the player view on their own device. Open it to see exactly what their phone shows.
+- button "Open the player view""
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · dom 1`] = `
-""Player view"
-"Demo Player"
-"Your live view of the table — what the DM is sharing right now.""
+"<section>
+  <svg aria-hidden="true">
+  <h2>
+    "This page is only for the DM"
+  "Demo Player sees the player view on their own device. Open it to see exactly what their phone shows."
+  <button type="button">
+    <svg aria-hidden="true">
+    "Open the player view""
 `;
 
-exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · focus order 1`] = `""`;
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · focus order 1`] = `"button Open the player view"`;
 
-exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · headings 1`] = `""`;
+exports[`Command Center baselines (RC-CAN-7.6) > player and observer variants > player · headings 1`] = `"h2 This page is only for the DM"`;

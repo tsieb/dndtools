@@ -5356,6 +5356,7 @@ export {
 	PREVIEW_OBSERVER_ACTOR_ID,
 	PREVIEW_PLAYER_ACTOR_ID,
 	PREVIEW_READONLY_MESSAGE,
+	companionViewerFor,
 	isPreviewActorId,
 	parsePreviewParam,
 	permissionsWithPreviewActors,
