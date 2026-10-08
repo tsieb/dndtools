@@ -81,3 +81,17 @@ Tests run: first full `pnpm test` (`/tmp/rcwid57/test-full.log`): core 292 files
 `crypto.randomUUID`, file-size gate on DataStep at 805 lines). All three fixed and rerun green
 (29/29). Lint wrappers: changed-file ESLint and Prettier clean, `git diff --check` clean,
 `lint:emphasis` and `a11y:contrast` exit 0. Final full run below.
+
+Final runs (after the fixes, on the committed tree):
+
+- `pnpm typecheck` exit 0. Full `pnpm test` (`/tmp/rcwid57/test-full2.log`): core 292 files /
+  5,307, cloud 46 / 569, tooling green, app 177 of 178 files. The one failure is
+  `screens/play/Sheet.test.tsx` "every control drawn for the owner…" timing out at 5s under full-suite
+  load. `Sheet.tsx` imports nothing this story changed. Run alone it passes; on base `1028592b`
+  the same test takes 3.0–4.1s alone (branch 3.8–4.4s), so it is a pre-existing load-sensitive
+  test near its timeout, not a regression. Not changed here.
+- Full Playwright, both projects (`/tmp/rcwid57/e2e-full.log`): 1,932 passed, 38 skipped, 0
+  failed, 34.1 min, exit 0. Visual goldens were not run (container-only); the board tiles render the
+  same DOM, and the builtin body text snapshots are unchanged.
+
+Committed as `038ded88` plus this journal update. No push, promotion, loop or control-state edits.
