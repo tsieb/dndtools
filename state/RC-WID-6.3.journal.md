@@ -96,3 +96,22 @@ Headroom tools are unavailable. Current repair evidence:
 
 Repair capture command: `pnpm exec tsx scripts/perf/capture.ts --only scene-first-render --port 5913 --reference-root /tmp/dndtools-wid63-claim-reference --reference-port 5914 --out /tmp/wid63-claim-perf-candidate.json --reference-out /tmp/wid63-claim-perf-reference.json`.
 The temporary reference checkout was detached at the claim base and removed after capture.
+
+## App gate repair: guide input variants
+
+Read the original central App tests log for run `0d5e035d-3377-4e9a-ad5a-06894e58effb`
+at candidate `6a04445b`. Its two failures are the widgets-and-builders guide's keyboard/touch
+contract tests: the new builder keyboard instructions were an unmarked paragraph, so they also
+appeared in the phone guide. The other 2179 App tests passed in that run.
+
+Marked the keyboard paragraph with the guide's existing keyboard variant syntax and added a
+touch counterpart describing recipe taps, Next and closing the builder. Kept the shared draft
+recovery sentence visible in both variants. No application code or tests changed.
+
+- Focused helpTopics suite: 68 passed, including both previously failing guide assertions.
+- `pnpm test:app`: 2181 passed across all 177 files, exit 0. Retrieved the original local
+  `/tmp/wid63-app-tests.log` summary after completion; both central failures are resolved.
+- Prettier on both changed files, quality gates and git diff whitespace checks pass.
+- The three previously rejected application paths still match claim base `8dc8b3db` exactly.
+- This repair changes only guide copy and this journal; no screenshot baselines or performance
+  evidence changed. No push, promotion, loop launch or dispatcher-control mutation.

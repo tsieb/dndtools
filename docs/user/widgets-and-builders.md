@@ -30,7 +30,15 @@ There are two tracks, and both make the same editable widget package.
 
 **Full** opens from **Extensions → Plugins → Build a widget**. Work through identity, layout, data, configuration, commands, and style, using the preview as you go. Review the result before installing. Start with a template for a tracker or information panel; use Advanced only when you intend to supply custom code.
 
-The keyboard works throughout: Tab reaches every recipe and control; Enter chooses a recipe or advances. Escape offers to keep or discard an unfinished draft. A kept draft resumes in Full.
+<!-- keyboard -->
+
+The keyboard works throughout: Tab reaches every recipe and control; Enter chooses a recipe or advances. Escape offers to keep or discard an unfinished draft.
+
+<!-- touch -->
+
+On a phone, tap a recipe and its controls, then **Next** to continue. Close the builder to choose whether to keep or discard an unfinished draft.
+
+A kept draft resumes in Full.
 
 ## Review a package
 
