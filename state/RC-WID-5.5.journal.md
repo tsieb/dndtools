@@ -335,3 +335,35 @@ Final local results (original outputs inspected):
 The full `pnpm test` chain, build, visual/browser wrappers and independent review are
 left to the central operator as instructed; these local checks do not establish those
 results. No push, promotion, extra loop or dispatcher control-state change.
+
+## Session 8 — visual wrapper diagnosis at `15d3a9bd` — 2026-10-08
+
+The original wrapper log was read directly (no Headroom tools are exposed):
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/23b65eeb-c3af-45fd-b4dd-ec6a43808e2c/output.log`.
+It reports 513 passed / 3 failed in 24.5 minutes:
+
+- desktop, scholar audio loading/failure: screenshot capture exceeded 5000 ms after
+  fonts loaded (`golden-routes.spec.ts:240`, `audio-error--scholar.png`).
+- rail, tavern palette/help: screenshot capture exceeded 5000 ms waiting for the
+  palette element to be stable (`palette-help.spec.ts:19`).
+- phone, scholar compendium: `Offline — bundled SRD` did not appear within 5000 ms
+  after releasing the held network request (`extensions-polish.spec.ts:101`).
+
+None reports a pixel mismatch. Quality and changed-format wrappers passed according
+to the supplied feedback. The working tree was clean at entry. Verified that the
+previous correction changes only parity.ts, parity.test.ts, WIDGETS.md and this
+journal, and that only parity.test.ts imports parity.ts in app source/tests.
+
+A bounded reproduction runs all three exact project/theme/test combinations three
+times in the pinned container, using two workers and `--update-snapshots=none`.
+Original local output: `/tmp/rcwid55-visual-retry.log`. Result follows below.
+
+Result: exit 0, 9/9 passed in 33.2 seconds, with every original failure repeated three
+times. No source, visual tests, timeouts or baselines were changed. This supports a
+timing-sensitive wrapper failure; it does not establish the underlying cause or a
+passing complete 516-test gate. The full gate remains failed until the central
+operator reruns it successfully. The existing Session 7 implementation and strict
+ledger remain unchanged; this commit records diagnostic evidence only.
+
+Validation: journal Prettier and `git diff --check` passed. No push, promotion,
+additional agent, loop launch or dispatcher control-state change.
