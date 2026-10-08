@@ -141,3 +141,26 @@ e2e specs (`knowledge-filters`, `command-palette`, `knowledge`, `campaign-relati
 - Verification, compare mode over the full set: 516 passed.
 
 No push, promotion, loop or dispatcher-state edits.
+
+## Attempt 2 — 2026-10-07: the fence refused the two crossings
+
+Gate feedback: `apps/gm-react/src/app/editor/Autocomplete.tsx` and
+`apps/gm-react/src/screens/graph/Inspector.tsx` are outside the claim. Re-examined each against the
+acceptance line ("a unit test asserts the same label for one object on every surface"); both are
+kept, so the task blocks for the operator to decide on widening the claim. Nothing else changed.
+
+- **Autocomplete.tsx is required.** The `[[` row's word comes from `wikilinkKindLabel`, defined in
+  this file and called from `NoteViewer.tsx` (not owned either) with the target kind from
+  `queries/content-search.ts` (not owned). Its private table maps `faction` → `campaign.tab.factions`
+  ("Factions") and `quest` → `campaign.tab.quests`, catalog keys the Story tabs also use, so no owned
+  file or catalog value can make the row say "Faction". Reverting it fails the acceptance test's
+  autocomplete case (`kindVocabulary.test.tsx`, negative control in session 1).
+- **Inspector.tsx is required by any design that puts the word on every Graph surface.** The legend
+  and canvas live in `Graph.tsx` and the inspector badge in `Inspector.tsx`; all of them read
+  `KIND_LABEL[node.kind]` / `facets.kinds`, so the only owned lever is the value of `node.kind`. Making
+  it the kind word leaves `Inspector.tsx`'s `selNode.kind === 'object'` (the Open-in-Story button
+  label) a type error: reverting the file gives `Inspector.tsx(81,9): error TS2367 … '"quest" |
+"faction" | "npc" | "map" | "place"' and '"object"' have no overlap`. The alternative (keep
+  `node.kind` structural, add a separate word field) leaves the legend, the canvas node labels and the
+  inspector badge saying "Story entry" unless `Graph.tsx` and `Inspector.tsx` are edited instead,
+  which is a larger crossing. The one-condition change is the smallest.
