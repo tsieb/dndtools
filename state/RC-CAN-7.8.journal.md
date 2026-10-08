@@ -234,3 +234,12 @@ gaps G-05–G-11 have a public surface (ledgered under RC-WID-5.13 above).
   let a GM put "Handouts" on any screen; it changes gallery counts that other specs read.
 - `scene-first-render` / `app-startup` perf budgets were not re-measured here; `/session` now
   provisions once and renders through the flow pieces.
+
+### Final local checks at `d7b4fbe8`
+
+- `pnpm test:app` 177 files / 2185 tests, exit 0. `pnpm test:critical` (core) 291 files /
+  5296 tests, exit 0.
+- `tsc --noEmit` app and core 0; `pnpm lint` 0 (warnings only, none in changed files); `pnpm gates`
+  0 (file-size warnings only); `pnpm format:check:changed -- --base loop/rc` clean (35 files).
+- The central gates, independent review and any promotion are the operator's. No push, promotion,
+  loop launch, extra agent or dispatcher control-state change.
