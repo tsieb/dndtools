@@ -27,7 +27,6 @@ import { Checkbox, Field, Input, Select } from '../../ds';
 import { T } from '../screen-kit';
 import {
 	BindingRows,
-	BoundSourceHint,
 	QueryPreview,
 	SourceCatalogue,
 	nextBindingId,
@@ -360,6 +359,12 @@ export function QueryOptionPickers({
 	);
 }
 
+/** RC-WID-5.7 — a source that reads what a placed copy is linked to, with the binding it needs. */
+const BOUND_SOURCE: Partial<Record<WidgetDataQuerySource, ['map' | 'character', MessageKey]>> = {
+	'bound-map': ['map', 'builder.data.needsMapBinding'],
+	'bound-character': ['character', 'builder.data.needsCharacterBinding'],
+};
+
 export function DataStep({ draft, patch, issues }: StepProps) {
 	const { t } = useI18n();
 	const setQuery = (index: number, next: WidgetDataQueryDefinition) =>
@@ -576,7 +581,14 @@ export function DataStep({ draft, patch, issues }: StepProps) {
 									</div>
 								</fieldset>
 							)}
-							<BoundSourceHint source={query.source} bindings={allBindings} />
+							{BOUND_SOURCE[query.source] &&
+								!allBindings.some((b) =>
+									b.entityTypes.includes(BOUND_SOURCE[query.source]![0]),
+								) && (
+									<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+										{t(BOUND_SOURCE[query.source]![1])}
+									</span>
+								)}
 							<QueryOptionPickers
 								query={query}
 								onChange={(next) => setQuery(index, next)}

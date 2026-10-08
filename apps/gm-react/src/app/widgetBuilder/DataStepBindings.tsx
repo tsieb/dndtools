@@ -5,7 +5,6 @@ import {
 	permissionsWithPreviewActors,
 	type WidgetBindingDefinition,
 	type WidgetDataQueryDefinition,
-	type WidgetDataQuerySource,
 	type WidgetDefinition,
 } from '@dndtools/core';
 import { Checkbox, Field, Input, Select } from '../../ds';
@@ -58,37 +57,6 @@ const capabilityOptions = (t: Translate) =>
 	}));
 
 /** An id no binding in the draft is using, whichever list it sits in. */
-/**
- * RC-WID-5.7 — the sources that read what the placed widget is linked to, by the entity type the
- * link must carry. Without a binding of that type a placed copy has nothing to read, so the query
- * card says so rather than leaving an empty widget to explain itself.
- */
-const BOUND_SOURCE_ENTITY: Partial<Record<WidgetDataQuerySource, 'map' | 'character'>> = {
-	'bound-map': 'map',
-	'bound-character': 'character',
-};
-const BOUND_SOURCE_HINT: Record<'map' | 'character', MessageKey> = {
-	map: 'builder.data.needsMapBinding',
-	character: 'builder.data.needsCharacterBinding',
-};
-
-export function BoundSourceHint({
-	source,
-	bindings,
-}: {
-	source: WidgetDataQuerySource;
-	bindings: readonly WidgetBindingDefinition[];
-}) {
-	const { t } = useI18n();
-	const entity = BOUND_SOURCE_ENTITY[source];
-	if (!entity || bindings.some((binding) => binding.entityTypes.includes(entity))) return null;
-	return (
-		<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
-			{t(BOUND_SOURCE_HINT[entity])}
-		</span>
-	);
-}
-
 export function nextBindingId(draft: WidgetDraft): string {
 	const taken = new Set(
 		[...draft.requiredBindings, ...draft.optionalBindings].map((binding) => binding.id),

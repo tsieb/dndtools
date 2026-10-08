@@ -95,3 +95,25 @@ Final runs (after the fixes, on the committed tree):
   same DOM, and the builtin body text snapshots are unchanged.
 
 Committed as `038ded88` plus this journal update. No push, promotion, loop or control-state edits.
+
+## Claim-gate follow-up — 2026-10-08
+
+Gate feedback: seven paths outside the claim. Reverted to base `1028592b` the three the acceptance
+does not need: `app/map/canvas/useCombatTokens.ts` and `screens/sceneEditor/playerPreview.ts`
+(stale path comments only) and `widgetBuilder/DataStepBindings.tsx` (the bound-source hint moved
+back into the owned `DataStep.tsx`, written compactly: 794 lines, under the 800-line gate).
+
+Kept, because the acceptance cannot compile without them: `canvas/AddWidgetGallery.tsx`
+(`PREVIEW_TEMPLATES`), `widgetBuilder/BuilderPreview.tsx` (`RAW_TEMPLATES`),
+`widgets/WorkerHost.ts` (`WORKER_TEMPLATES`) and `widgetBuilder/vocabulary.ts` (`TEMPLATE_LABEL`,
+`TEMPLATE_HELP`, `QUERY_SOURCE_LABEL`). Each is an exhaustive `Record<WidgetTemplateKind | 
+WidgetDataQuerySource, …>`, written so that a kind or source added to the schema fails the build
+there. Proof: with those four files at base, `tsc --noEmit` on gm-react reports TS2740 at
+AddWidgetGallery.tsx:106, BuilderPreview.tsx:81, vocabulary.ts:34/49/66 and WorkerHost.ts:679
+(`/tmp/rcwid57/forced.txt`). The new public sources are required by the acceptance (and the Data
+step's catalogue support by the story); the board template kinds are what makes the fresh board's
+tools template definitions. This blocks the task for the operator to decide on widening the claim.
+
+After the revert: gm-react typecheck clean; changed-file ESLint clean; builder, widgets and canvas
+suites 32 files / 767 tests green (`/tmp/rcwid57/app4.log`); file-size, boundary-lint and
+renderer-isolation gates 29/29.
