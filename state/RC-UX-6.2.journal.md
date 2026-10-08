@@ -190,3 +190,36 @@ Independent review of `b9ec48be` rejected two acceptance gaps. Both are fixed he
   - Not run locally: the pinned visual gate and `pnpm test:critical` (core is unchanged in this
     rework). The seeded vault's demo players all own PCs, so the seeded Command Center hero should
     draw the same three avatars as before.
+
+## Claim gate after the review rework (2026-10-08)
+
+The claim gate flagged `apps/gm-react/src/app/widgets/templates/Hub.tsx` and
+`apps/gm-react/src/screens/settings/PlayerInvites.tsx`. **Both are kept**, and the task is expected
+to block for the operator.
+
+- **Why not revert.** The independent review of `b9ec48be` rejected the story for exactly these two
+  behaviours: party names as hero avatars, and the invite screen reading the one campaign name.
+  Both are in the story's "What to build" ("the hero, sidebar chip, switcher row, session
+  archives, invite screens and the demo badge read one name"; "Settings › Players, the player view
+  switcher and the hero avatars show them"). The review asked for them "within authorized ownership
+  or an explicit operator scope resolution". Reverting would bring back the rejected candidate, and
+  the next review would reject it the same way.
+- **Why they cannot be built inside Owns.**
+  - The hero's avatars are drawn only in `Hub.tsx`, from the `party` query rows. `homeSources.ts`
+    (owned) now supplies the seated players, but only `Hub.tsx` can draw them. The `party` source
+    in `dataEnvironment.ts` is also unowned, and its rows are character rows.
+  - The invite form's campaign-name state and the `createInvite` call live only in
+    `PlayerInvites.tsx`. Players.tsx (owned) could only avoid it by copying the whole invite
+    dialog.
+- **Size.** In `Hub.tsx`, one statement changed (+7/−1 lines). In `PlayerInvites.tsx`, two props
+  were added and the name field now shows only while the campaign is unnamed (+39/−13).
+- **Operator decision needed.** Either widen the claim to these two paths, or narrow the story's
+  hero-avatar and invite-screen requirements (and tell the reviewer). If narrowed, revert both
+  paths to `1028592b`, drop `PlayerInvites.test.tsx`, drop the hero-avatar assertion in
+  `campaign-identity.spec.ts`, and drop the `resume` extra rows in `homeSources.ts`.
+- **Re-check on the rebased head (base `1028592b`):**
+  - `pnpm typecheck`: exit 0.
+  - Vitest on `PlayerInvites.test.tsx`, `homeSources.test.ts` and `dataEnvironment.hub.test.ts`:
+    163 passed.
+  - Playwright, `campaign-identity` + `hub-templates`, desktop + mobile: 20 passed, 4 skipped
+    (the `hub-templates` desktop-only guards), 0 failed.
