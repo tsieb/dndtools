@@ -267,12 +267,11 @@ test.describe('campaign: story objects', () => {
 		await expect(page.getByText('The Hollow King', { exact: true })).not.toHaveCount(0);
 		await expect(page.locator('#main-content').getByText('Sera Duskwhisper')).toHaveCount(0);
 
-		// Timeline tab: dated notes build the campaign timeline; the campaign date is honestly unset
-		// (authoring lives on the Session surface, so this screen never invents a write control).
+		// Timeline tab: dated notes build the campaign timeline; the campaign date is honestly unset,
+		// and RC-KNW-6.6 offers the Session surface's own date command in place.
 		await page.getByRole('tab', { name: 'Timeline' }).click();
-		await expect(
-			page.getByText('No campaign date set — set it from the Session screen.'),
-		).not.toHaveCount(0);
+		await expect(page.getByText('No campaign date set yet.')).not.toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Set the campaign date' })).toBeVisible();
 		await expect(page.getByText('The Drowning of Saltreach')).not.toHaveCount(0);
 		await expect(page.getByText('The party makes landfall')).not.toHaveCount(0);
 		await expect(page.getByText('The Hollow King stirs')).not.toHaveCount(0);
@@ -296,10 +295,12 @@ test.describe('campaign: story objects', () => {
 		// …and the card's own content is reachable instead of being erased by the label.
 		const card = page.locator('article').filter({ hasText: 'Mira the Ferryman' }).first();
 		await expect(card).toBeVisible();
-		// AC/HP used to be passed as `hook`, which renders italic behind a dm-only Eye glyph —
-		// public combat stats dressed up as a DM secret. They are plain tags now.
-		await expect(card).toContainText('AC ');
-		await expect(card).toContainText(' HP');
+		// RC-KNW-6.6 — the Story card is the NPC's story home, not a stat block: AC and HP stay on the
+		// sheet, and the card's tray keeps an explicit "Open sheet".
+		await expect(card).not.toContainText('AC ');
+		await expect(
+			page.getByRole('button', { name: 'Open sheet: Mira the Ferryman', exact: true }),
+		).toBeVisible();
 		// Nothing in the model backs a disposition, so the card no longer asserts one.
 		await expect(card).not.toContainText('Neutral');
 

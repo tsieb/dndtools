@@ -1,23 +1,35 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
 	actorCanAuthorContent,
+	buildWikilinkCandidatesForActor,
 	getCalendarContinuityForActor,
 	getCalendarTimelineForActor,
 	getContentItemsForActor,
+	getNoteRelationshipsForActor,
+	getTypedRelationshipEdgesForActor,
 	listCharactersForActor,
 	projectObjectFieldsForRole,
+	type CustomDate,
 } from '@dndtools/core';
-import { Button, EmptyState, NpcCard, SessionTimeline, Tabs, tabPanelProps } from '../ds';
+import { Button, EmptyState, NpcCard, SessionTimeline, Tabs, Toaster, tabPanelProps } from '../ds';
 import { ListDetail, Page, Panel, T } from '../app/screen-kit';
 import { useListDetailSplit } from '../app/useViewport';
 import { ContextHelp } from '../app/help/ContextHelp';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { KIND_LABEL } from './campaignVocab';
-import { type FactionRow, type QuestRow } from './campaignRows';
+import {
+	edgesTouching,
+	mentionsOf,
+	npcStoryHome,
+	type FactionRow,
+	type QuestRow,
+} from './campaignRows';
 import { FactionCard, QuestCardRow } from './campaign/Cards';
+import { StoryLinks } from './campaign/Relationships';
+import { CampaignDatePanel } from './session/CampaignDate';
 import { useDraftSlot } from './campaign/draftSlot';
 import { FactionEditor, type FactionDraft } from './campaign/FactionEditor';
 import { QuestEditor, type QuestDraft } from './campaign/QuestEditor';
@@ -33,8 +45,13 @@ import { QuestEditor, type QuestDraft } from './campaign/QuestEditor';
  * the objective checklist are durable writes, not display state. Every
  * read is player-safe: a player/observer sees only their visible items, and the faction dossier's
  * dm-only `secret` field is OMITTED from non-DM projections by `projectObjectFieldsForRole` (the
- * core's CONTENT-013 AC3 projection, not client-side filtering). Campaign-date AUTHORING lives on
- * the Session surface (not here), so this screen never invents an out-of-surface write control.
+ * core's CONTENT-013 AC3 projection, not client-side filtering).
+ *
+ * RC-KNW-6.6 — every quest, NPC and faction card carries a relationships tray: its typed edges and the
+ * notes that link to it (the actor-filtered `getTypedRelationshipEdgesForActor` /
+ * `getNoteRelationshipsForActor` reads), with an inline "Add relationship" that writes through the
+ * same body write as `/campaign/relationships`. A missing campaign date is set in place with the
+ * Session surface's own panel and `session.set-campaign-date` command.
  */
 
 export function Campaign() {
@@ -51,6 +68,10 @@ export function Campaign() {
 	// RC-WID-5.1 — the quest an "open quest" intent asked for. A reader who cannot author it has no
 	// editor to land in, so the card itself is scrolled to, focused and marked current.
 	const [questTarget, setQuestTarget] = useState<string | null>(null);
+	// RC-KNW-6.6 — the Timeline's in-place "Set the campaign date" panel; once a date exists it closes
+	// and focus lands on the date line that now shows it.
+	const [dateOpen, setDateOpen] = useState(false);
+	const dateLine = useRef<HTMLDivElement>(null);
 
 	const restoreLauncher = useRef<'quest' | 'faction' | null>(null);
 	// Restore after React commits the closed editor and mounts its launcher. A frame queued
@@ -115,8 +136,86 @@ export function Campaign() {
 			actorId,
 			'long',
 		);
-		return { npcs, quests, factions, timeline, currentDate: continuity.currentDate };
+		return {
+			npcs,
+			quests,
+			factions,
+			timeline,
+			currentDate: continuity.currentDate,
+			calendar: calendarId ? (content.calendars[calendarId] ?? null) : null,
+			// `session.set-campaign-date` is DM-only, exactly as the Session panel gates it.
+			isDm: role === 'dm',
+		};
 	}, [runtime.state, actorId]);
+
+	// RC-KNW-6.6 — the open tab's card trays. Each backlink read walks every visible body, so only the
+	// entities on screen are read.
+	const links = useMemo(() => {
+		const { content, permissions } = runtime.state;
+		const ids =
+			tab === 'quests'
+				? data.quests.map((q) => q.view.id)
+				: tab === 'factions'
+					? data.factions.map((f) => f.view.id)
+					: tab === 'npcs'
+						? data.npcs.map((n) => n.id)
+						: [];
+		if (ids.length === 0) return null;
+		const candidates = buildWikilinkCandidatesForActor(
+			content,
+			permissions,
+			actorId,
+			runtime.state,
+		);
+		const byId = new Map(candidates.map((c) => [c.id, c]));
+		const updatedAt = (id: string) => content.items[id]?.updatedAt ?? '';
+		const mentions = new Map(
+			ids.map((id) => [
+				id,
+				mentionsOf(
+					getNoteRelationshipsForActor(content, permissions, actorId, id, runtime.state).backlinks,
+					byId,
+					updatedAt,
+				),
+			]),
+		);
+		const edges = getTypedRelationshipEdgesForActor(content, permissions, actorId, runtime.state);
+		return { candidates, byId, edges, mentions };
+	}, [runtime.state, actorId, tab, data]);
+	const linksFor = (entity: { id: string; title: string }, extra?: ReactNode) =>
+		links && (
+			<StoryLinks
+				entity={entity}
+				edges={edgesTouching(entity.id, links.edges)}
+				mentions={links.mentions.get(entity.id) ?? []}
+				candidates={links.candidates}
+				canAuthor={canAuthor}
+				incomingFirst={tab !== 'npcs'}
+			>
+				{extra}
+			</StoryLinks>
+		);
+	const cardStack = { display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' } as const;
+
+	useEffect(() => {
+		if (!dateOpen || !data.currentDate) return;
+		setDateOpen(false);
+		dateLine.current?.focus();
+	}, [dateOpen, data.currentDate]);
+
+	async function setCampaignDate(date: CustomDate, ok: string) {
+		try {
+			const result = await runtime.dispatch({
+				type: 'session.set-campaign-date',
+				actorId,
+				payload: { date },
+			});
+			if (result.status === 'accepted') Toaster.success(ok);
+			else Toaster.error(result.rejection.message ?? t('campaign.saveFailed'));
+		} catch {
+			Toaster.error(t('campaign.saveFailed'));
+		}
+	}
 
 	const tabs = [
 		{ id: 'quests', label: t('campaign.tab.quests'), icon: 'flag' },
@@ -258,13 +357,15 @@ export function Campaign() {
 									}}
 								>
 									{data.quests.map((q) => (
-										<QuestCardRow
-											key={q.view.id}
-											row={q}
-											canAuthor={canAuthor}
-											targeted={questKey === null && questTarget === q.view.id}
-											onEdit={() => setQuestEditor({ id: q.view.id })}
-										/>
+										<div key={q.view.id} style={cardStack}>
+											<QuestCardRow
+												row={q}
+												canAuthor={canAuthor}
+												targeted={questKey === null && questTarget === q.view.id}
+												onEdit={() => setQuestEditor({ id: q.view.id })}
+											/>
+											{linksFor(q.view)}
+										</div>
 									))}
 								</div>
 							</>
@@ -303,33 +404,46 @@ export function Campaign() {
 								alignItems: 'start',
 							}}
 						>
-							{data.npcs.map((n) => (
-								// The card owns its own click now. It used to be wrapped in a `role="button"` div
-								// whose aria-label ("Open X’s sheet in Characters") replaced the whole descendant
-								// subtree, so the role, the stats, the tags and the dm-only chip were all
-								// inaudible — and because NpcCard keys its hover/cursor affordance off its OWN
-								// `onClick`, the wrapper also left a navigating card looking inert.
-								<NpcCard
-									key={n.id}
-									name={n.name}
-									role={KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind}
-									onClick={() => navigate(`/characters/${n.id}`)}
-									// `disposition` is deliberately omitted: nothing in the model backs it, and the
-									// previous hard-coded "neutral" asserted a disposition for every NPC including
-									// hostile ones.
-									//
-									// AC/HP used to be passed as `hook`, which NpcCard renders in italics behind a
-									// dm-only Eye glyph — presenting a monster's public combat stats as a DM
-									// secret. They are plain tags now.
-									// The kind is NOT repeated here: `role` above already renders it directly under
-									// the name, so every card read "NPC / NPC · AC 13 · 8 HP".
-									tags={[
-										t('campaign.npc.ac', { value: n.combat?.ac ?? '—' }),
-										t('campaign.npc.hp', { value: n.combat?.hp ?? '—' }),
-									]}
-									dmOnly={n.visibility === 'dm-only'}
-								/>
-							))}
+							{data.npcs.map((n) => {
+								// RC-KNW-6.6 — a narrative NPC's story home: its faction, its place and the note
+								// that last mentioned it, all from the relationship reads. AC and HP belong to
+								// the sheet, which the name and "Open sheet" both still open.
+								const home = links
+									? npcStoryHome(n.id, links.edges, links.byId)
+									: { faction: null, place: null };
+								const last = links?.mentions.get(n.id)?.[0];
+								return (
+									<div key={n.id} style={cardStack}>
+										{/* The card owns its own click: a `role="button"` wrapper's aria-label used to
+										    replace the whole subtree, so the role, tags and dm-only chip were
+										    inaudible. `disposition` is omitted because nothing in the model backs it,
+										    and the kind is not repeated in the tags — `role` already shows it. */}
+										<NpcCard
+											name={n.name}
+											role={KIND_LABEL[n.kind] ? t(KIND_LABEL[n.kind]) : n.kind}
+											onClick={() => navigate(`/characters/${n.id}`)}
+											tags={[
+												home.faction && t('campaign.npc.faction', { name: home.faction }),
+												home.place && t('campaign.npc.place', { name: home.place }),
+												last && t('campaign.npc.lastMentioned', { title: last.title }),
+											].filter((tag): tag is string => !!tag)}
+											dmOnly={n.visibility === 'dm-only'}
+										/>
+										{linksFor(
+											{ id: n.id, title: n.name },
+											<Button
+												variant="ghost"
+												size="sm"
+												icon="characters-person"
+												aria-label={t('campaign.npc.openSheetOf', { name: n.name })}
+												onClick={() => navigate(`/characters/${n.id}`)}
+											>
+												{t('campaign.npc.openSheet')}
+											</Button>,
+										)}
+									</div>
+								);
+							})}
 						</div>
 					))}
 
@@ -380,12 +494,14 @@ export function Campaign() {
 								}}
 							>
 								{data.factions.map((f) => (
-									<FactionCard
-										key={f.view.id}
-										row={f}
-										canAuthor={canAuthor}
-										onEdit={() => setFactionEditor({ id: f.view.id })}
-									/>
+									<div key={f.view.id} style={cardStack}>
+										<FactionCard
+											row={f}
+											canAuthor={canAuthor}
+											onEdit={() => setFactionEditor({ id: f.view.id })}
+										/>
+										{linksFor(f.view)}
+									</div>
 								))}
 							</div>
 						)}
@@ -395,21 +511,47 @@ export function Campaign() {
 				{tab === 'timeline' && (
 					<Panel title={t('campaign.timeline.title')}>
 						<div
+							ref={dateLine}
+							tabIndex={-1}
 							style={{
+								display: 'flex',
+								alignItems: 'center',
+								flexWrap: 'wrap',
+								gap: 'var(--space-2)',
 								font: `var(--text-sm) ${T.sans}`,
 								color: T.sub,
 								marginBottom: 'var(--space-1)',
 							}}
 						>
 							{data.currentDate ? (
-								<>
+								<span>
 									{t('campaign.timeline.currentDate')}{' '}
 									<strong style={{ color: T.ink }}>{data.currentDate.display}</strong>
-								</>
+								</span>
 							) : (
-								t('campaign.timeline.noDate')
+								<>
+									<span>{t('campaign.timeline.noDate')}</span>
+									{data.isDm && !dateOpen && (
+										<Button
+											variant="secondary"
+											size="sm"
+											icon="recent"
+											onClick={() => setDateOpen(true)}
+										>
+											{t('campaign.timeline.setDate')}
+										</Button>
+									)}
+								</>
 							)}
 						</div>
+						{data.isDm && dateOpen && !data.currentDate && (
+							<CampaignDatePanel
+								calendar={data.calendar}
+								current={null}
+								previewing={runtime.readOnly}
+								onSet={(date, ok) => void setCampaignDate(date, ok)}
+							/>
+						)}
 						{data.timeline.length === 0 ? (
 							<EmptyState
 								icon="recent"
