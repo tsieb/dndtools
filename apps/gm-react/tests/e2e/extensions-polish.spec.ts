@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, enterPreview, gotoRoute, markOnboarded, ops } from './_helpers';
+import { openBuilderRail } from './_widget-builder';
 
 // The core's own actor reads run in the page, loaded through the dev server: Node cannot import the
 // core's system-sample JSON without an import attribute, and the page already has the real modules.
@@ -87,6 +88,8 @@ test('Plugins: keyboard install, a remove confirm that names the package, and ax
 	await build.click();
 	const builder = page.getByRole('dialog', { name: /Widget builder/ });
 	await expect(builder).toBeVisible();
+	// Phones collapse the step rail behind "Step n of 8"; open it so axe sees it too.
+	await openBuilderRail(builder);
 	await expect(builder.getByRole('navigation', { name: /steps/i })).toBeVisible();
 	await axe(page);
 	await page.keyboard.press('Escape');

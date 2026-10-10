@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { gotoRoute, markOnboarded, preferTier, seedFresh, dispatch } from './_helpers';
+import { builderPane, builderStep } from './_widget-builder';
 
 const baseline = readFileSync(
 	new URL('../../../../state/RC-CAN-7.5/aria/aria-home-desktop.yaml', import.meta.url),
@@ -80,15 +81,13 @@ async function openBuilder(page: Page) {
 
 test('builder previews all four hub kinds', async ({ page }) => {
 	const dialog = await openBuilder(page);
-	await dialog.getByRole('button', { name: 'Data', exact: true }).click();
-	// Narrow viewports show one builder pane at a time behind an Edit / Preview switch.
-	const paneSwitch = dialog.getByRole('radio', { name: 'Preview', exact: true });
-	const narrow = await paneSwitch.isVisible();
+	await builderStep(dialog, 'Data');
+	// Phones show one builder pane at a time behind the collapsed preview strip.
 	for (const kind of ['hero', 'card-grid', 'launcher', 'link-list']) {
 		await dialog.getByLabel('Template kind', { exact: true }).selectOption(kind);
-		if (narrow) await paneSwitch.click();
+		await builderPane(page, 'Preview');
 		await expect(dialog.getByTestId(`widget-template-${kind}`)).toHaveCount(1);
-		if (narrow) await dialog.getByRole('radio', { name: 'Edit', exact: true }).click();
+		await builderPane(page, 'Edit');
 	}
 });
 
@@ -98,12 +97,15 @@ test('bare frame keeps a labelled region and focus ring, and edit mode restores 
 	// Phones read a scene through the PhoneNavigator list, which never draws WidgetFrame chrome.
 	test.skip(testInfo.project.name.startsWith('mobile'), 'bare applies to canvas frames');
 	const dialog = await openBuilder(page);
-	await dialog.getByRole('button', { name: 'Data', exact: true }).click();
+	await builderStep(dialog, 'Data');
 	await dialog.getByLabel('Template kind', { exact: true }).selectOption('launcher');
-	await dialog.getByRole('button', { name: 'Layout', exact: true }).click();
+	await builderStep(dialog, 'Layout');
 	await dialog.getByLabel('Presentation', { exact: true }).selectOption('bare');
-	await dialog.getByRole('button', { name: 'Review', exact: true }).click();
-	await dialog.getByRole('button', { name: 'Install widget' }).click();
+	await builderStep(dialog, 'Review');
+	await dialog
+		.getByTestId('builder-footer')
+		.getByRole('button', { name: 'Install widget' })
+		.click();
 	await expect(dialog).toHaveCount(0);
 	// RC-WID-6.2 — a template with no permission installs trusted and already on.
 	await expect(page.getByRole('switch', { name: 'Enable Hub example' })).toBeChecked();

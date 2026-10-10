@@ -149,3 +149,36 @@ sites. On Review that was a real double gold action, not only a static-analysis 
 
 Local records only; central gates and review remain the operator's. No push, promotion, extra
 agents or dispatcher-state edits.
+
+## Browser acceptance repair (head 11444078)
+
+The central full e2e run (`pnpm e2e --workers=2 --retries=2`) failed 7 tests on every retry. I had
+not run these builder-adjacent specs locally before. One `tile-resize.spec.ts:119` mobile flake
+passed on retry; that spec belongs to RC-CAN-8.2 and is untouched here.
+
+- **Real regression, fixed in product code:** `settings-tiers.spec.ts:169` (both profiles). The
+  initial 6.4 implementation had replaced `shownBuilderSteps(draft, tier, step, issues)` with
+  `STEP_IDS` and dropped `AdvancedStepGate`, so a Beginner's builder showed Advanced again
+  (RC-UX-6.4). Restored both in WidgetBuilder; the step summary now reads "Step n of 7" for a
+  Beginner and "of 8" otherwise. The gate renders with the rail (open it on a phone).
+- **Specs written for the old layout, updated:** `hub-templates.spec.ts:81/:95`,
+  `widget-generate.spec.ts:153`, `extensions-polish.spec.ts:45` (mobile) and the settings-tiers
+  phone path. They clicked rail buttons hidden behind the phone step summary, used the removed
+  Edit/Preview radios, picked Presentation inside Layout's closed size disclosure, or hit the
+  intended second Install (footer vs Review). They now use `_widget-builder.ts` helpers: new
+  `openBuilderRail`, `builderStep` (also opens Layout's disclosure, any step count) and
+  `builderPane`, and scope Install to `builder-footer`.
+
+Fresh local validation:
+
+- The 4 failing specs, desktop+mobile: 42 passed, 4 intentional skips (/tmp/wid64-r4-e2e.log).
+- Sweep `tests/e2e/widget-*`, `settings*`, `onboarding*`, desktop+mobile: 161 passed, 1 intentional
+  skip (/tmp/wid64-r4-sweep.log).
+- Pinned visual compare, updates disabled: 15 passed, no snapshot change (default tier keeps all
+  eight steps) (/tmp/wid64-r4-visual-compare.log).
+- Unit (`src/app/widgetBuilder`, `src/screens/settings`): 121 passed in 12 files.
+- Typecheck, `pnpm lint`, `format:check:changed --base loop/rc`, `pnpm gates`, `git diff --check`
+  exit 0. WidgetBuilder is 790 lines.
+
+Local records only. I did not re-run the full 1,900-test suite. Central gates and review remain
+the operator's. No push, promotion, extra agents or dispatcher-state edits.

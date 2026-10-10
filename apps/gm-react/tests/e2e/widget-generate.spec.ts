@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, preferTier, seedFresh, waitReady } from './_helpers';
+import { builderStep } from './_widget-builder';
 
 // RC-WID-3.2 — "GENERATE A WIDGET". The DM describes a widget; the assistant is offered exactly one
 // tool (`widget.package.propose`, RC-WID-3.1), which STAGES a proposal; the manual builder then
@@ -191,11 +192,13 @@ test.describe('generate a widget (RC-WID-3.2)', () => {
 		).toBe(1);
 
 		// Every generated field is editable — rename it before installing.
-		const steps = builder.getByTestId('widget-builder-steps');
-		await steps.getByRole('button', { name: 'Identity' }).click();
+		await builderStep(builder, 'Identity');
 		await builder.getByLabel('Name', { exact: true }).fill('Party loot ledger');
-		await steps.getByRole('button', { name: 'Review' }).click();
-		await builder.getByRole('button', { name: /^Install/ }).click();
+		await builderStep(builder, 'Review');
+		await builder
+			.getByTestId('builder-footer')
+			.getByRole('button', { name: /^Install/ })
+			.click();
 		// RC-WID-6.2 — a generated package is not the DM's own, so it installs for review and the trust
 		// sheet opens over the builder. Leaving it leaves the package off.
 		const review = page.getByRole('dialog', { name: 'Review Party loot ledger' });

@@ -15,7 +15,6 @@ import { registerBackHandler } from '../../platform/backNavigation';
 import { isolateModalSiblings } from '../../platform/modalIsolation';
 import {
 	STEP_LABEL,
-	STEP_IDS,
 	buildPackage,
 	draftStorageKey,
 	editStepFor,
@@ -52,6 +51,7 @@ import { AdvancedStep } from '../../app/widgetBuilder/AdvancedStep';
 import { ReviewStep } from '../../app/widgetBuilder/ReviewStep';
 import { useI18n } from '../../i18n';
 import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
+import { AdvancedStepGate, shownBuilderSteps, useSettingsTier } from '../settings/Experience';
 import { TrustReviewSheet } from './TrustReviewSheet';
 
 /** Full-screen authoring with a recoverable draft, real runtime preview and review-before-install.
@@ -279,7 +279,10 @@ export function WidgetBuilder({
 	}, [quick]);
 
 	// Full always has eight steps; optional detail is disclosed within each step.
-	const steps = STEP_IDS;
+	// RC-UX-6.4 — below its complexity-map gate the stepper skips Advanced (custom code, host
+	// access); `shownBuilderSteps` keeps it whenever the draft already has something there.
+	const tier = useSettingsTier();
+	const steps = shownBuilderSteps(draft, tier, step, issues);
 	const stepIndex = steps.indexOf(step);
 	const goToStep = (next: BuilderStepId) => {
 		rootRef.current?.querySelector('[data-builder-editor]')?.parentElement?.scrollTo(0, 0);
@@ -371,7 +374,10 @@ export function WidgetBuilder({
 		setChangingSize(true);
 	};
 	const stepRail = (
-		<BuilderStepRail step={step} steps={steps} issues={issues} onGoToStep={goToStep} />
+		<>
+			<BuilderStepRail step={step} steps={steps} issues={issues} onGoToStep={goToStep} />
+			{!steps.includes('advanced') && <AdvancedStepGate tier={tier} />}
+		</>
 	);
 
 	const jsonPane = <DefinitionPane json={json} narrow={narrow} />;
