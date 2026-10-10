@@ -304,14 +304,16 @@ function looksLikeEmail(value: string): boolean {
 
 /**
  * Rename the open vault's catalog entry to the campaign's name, so the switcher row (and every other
- * vault's view of this one) follows a rename made anywhere. A placeholder is never written.
+ * vault's view of this one) follows a rename made anywhere. An authoritative replacement can remove
+ * identity too: reset the catalog to its unnamed placeholder so the next open cannot adopt the old
+ * campaign's name. This placeholder stays device-local and never becomes a campaign identity.
  */
 function catalogFollowsCampaign(vaultId: string, name: string | null): void {
-	if (!name) return;
+	const catalogName = name ?? 'Your campaign';
 	try {
 		const entry = listLocalVaults().find((vault) => vault.id === vaultId);
-		if (!entry || entry.name === name) return;
-		renameLocalVault(vaultId, name);
+		if (!entry || entry.name === catalogName) return;
+		renameLocalVault(vaultId, catalogName);
 	} catch {
 		return; // A damaged catalog is reported by the switcher; the campaign name is unaffected.
 	}

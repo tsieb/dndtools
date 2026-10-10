@@ -287,3 +287,28 @@ to block for the operator.
   load-sensitive timeouts can never recur. No production fix is warranted by the observed
   evidence. Only this journal changes in the recovery commit; the campaign implementation and
   five-line `homeSources.ts` allowance are preserved for central revalidation/review.
+
+## Independent-review restore rework (2026-10-10)
+
+- Reproduced the reported defect at `4a098c59` with regression tests using actual
+  `restoreCoreState` and `restoreFullVaultState`, `loadCoreState`, the identity follower and
+  `persistFullState`. The host models hydration subscriber notification and document restart,
+  and drains adoption persistence before inspecting the state. Both unnamed restores failed:
+  `Current campaign` reappeared in the restored campaign block. Both named controls passed.
+  Original red output: `/var/tmp/rc-ux-6.2-restore-before.log` (read directly).
+- `catalogFollowsCampaign` now mirrors absent identity with the existing device-local unnamed
+  catalog placeholder. Hydration therefore invalidates the replaced vault's stale name before
+  reload. Placeholder adoption remains prohibited; explicit catalog renames still use the existing
+  open/event adoption path. No schema change, new stored campaign default or expanded source claim.
+- Added four restore/hydration/reload regressions: unnamed and named backups through both restore
+  APIs. They verify byte-identical command-center data, no adoption command after restart, catalog
+  identity and durable state after another database reopen. Existing onboarding and cross-vault
+  rename tests remain in the same suite.
+- Storage suite: **6 files / 81 tests passed**, exit 0. Original output read from
+  `/var/tmp/rc-ux-6.2-restore-after.log`. Focused ESLint and `git diff --check` passed.
+- Headroom tools were unavailable. No delegated agents, pushes, promotion, dispatcher control
+  edits or additional scheduling loops were used. Central wrapper gates and independent review
+  remain the operator's responsibility.
+- Repository `pnpm typecheck`: exit 0; original output read from
+  `/var/tmp/rc-ux-6.2-restore-typecheck.log`. Prettier check passed for all four changed files.
+  No UI pixels changed; browser and pinned visual gates were not rerun for this storage-only fix.

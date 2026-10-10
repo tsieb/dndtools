@@ -19,6 +19,8 @@ import {
 	loadCoreState,
 	persistFullState,
 	renameLocalVault,
+	restoreCoreState,
+	restoreFullVaultState,
 	selectLocalVaultForNextLoad,
 	vaultPreferenceKey,
 	type CampaignIdentityHost,
@@ -61,18 +63,36 @@ async function loadedWithDm(): Promise<CoreStateSlice> {
 }
 
 /** The runtime surface `followCampaignIdentity` uses, over the pure reducer. */
-function host(vaultId: string, start: CoreStateSlice) {
+function host(vaultId: string, start: CoreStateSlice, durable = false) {
 	const listeners = new Set<() => void>();
 	const commands: string[] = [];
-	const fake: CampaignIdentityHost & { state: CoreStateSlice; commands: string[] } = {
+	const writes: Promise<void>[] = [];
+	const fake: CampaignIdentityHost & {
+		state: CoreStateSlice;
+		commands: string[];
+		hydrate(state: CoreStateSlice): void;
+		flush(): Promise<void>;
+	} = {
 		vaultId,
 		defaultActorId: 'dm',
 		state: start,
 		commands,
+		async flush() {
+			await Promise.all(writes);
+		},
+		hydrate(state) {
+			fake.state = state;
+			for (const listener of listeners) listener();
+		},
 		async dispatch(command: CoreCommand): Promise<CommandResult> {
 			commands.push(command.type);
 			const result = dispatchCommand(fake.state, env, command);
 			if (result.status === 'accepted' && result.nextState !== fake.state) {
+				if (durable) {
+					const write = persistFullState(fake.state, result.nextState);
+					writes.push(write);
+					await write;
+				}
 				fake.state = result.nextState;
 				for (const listener of listeners) listener();
 			}
@@ -145,6 +165,59 @@ describe('the campaign block on disk', () => {
 });
 
 describe('followCampaignIdentity', () => {
+	for (const restore of [
+		{ label: 'cloud', run: restoreCoreState },
+		{ label: 'local backup', run: (state: unknown) => restoreFullVaultState(state, []) },
+	]) {
+		it.each([null, 'Restored campaign'])(
+			`${restore.label} restore preserves identity %s through hydration and document reload`,
+			async (restoredName) => {
+				listLocalVaults();
+				const backup = await loadedWithDm();
+				if (restoredName) {
+					backup.commandCenter = {
+						...backup.commandCenter,
+						campaign: { name: restoredName, systemPackageId: null, gmDisplayName: null },
+					};
+				}
+				const expected = JSON.stringify(backup.commandCenter);
+				const fake = host('primary', await loadedWithDm(), true);
+				const stop = followCampaignIdentity(fake);
+				let stopReloaded = () => {};
+				try {
+					await settle();
+					await fake.dispatch({
+						type: 'campaign.set-identity',
+						actorId: 'dm',
+						payload: { name: 'Current campaign' },
+					});
+					expect(listLocalVaults()[0]!.name).toBe('Current campaign');
+
+					await restore.run({ ...backup, sync: { operations: backup.sync.operations } });
+					fake.hydrate(await loadCoreState());
+					await settle();
+					expect(JSON.stringify(fake.state.commandCenter)).toBe(expected);
+					stop();
+					await __testing.closeDb();
+					__testing.resetVaultSession();
+
+					const reloaded = host('primary', await loadCoreState(), true);
+					stopReloaded = followCampaignIdentity(reloaded);
+					await settle();
+					await reloaded.flush();
+					expect(JSON.stringify(reloaded.state.commandCenter)).toBe(expected);
+					expect(reloaded.commands).toEqual([]);
+					expect(listLocalVaults()[0]!.name).toBe(restoredName ?? 'Your campaign');
+					await __testing.closeDb();
+					expect(JSON.stringify((await loadCoreState()).commandCenter)).toBe(expected);
+				} finally {
+					stop();
+					stopReloaded();
+				}
+			},
+		);
+	}
+
 	it('a pre-story vault keeps "Your campaign" as a placeholder: nothing is stored', async () => {
 		expect(listLocalVaults()[0]!.name).toBe('Your campaign');
 		expect(isPlaceholderVaultName('Your campaign')).toBe(true);

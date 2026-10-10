@@ -63,7 +63,9 @@ does not carry is adopted, when the vault opens and whenever the catalog announc
 (`dndtools:local-vault-renamed`). That covers a vault created or renamed from another vault's
 switcher, and onboarding, which names the vault through the catalog; the first naming also
 records the active system. The placeholder ("Your campaign", which an onboarding skip writes) is
-never adopted.
+never adopted. When restore hydration removes the campaign identity, the mirror resets to this
+unnamed catalog placeholder before reload. The restored command-center document stays unchanged;
+the replaced vault's old catalog name cannot be mistaken for a pending rename on the next open.
 
 Players added by name (Settings › Players) go through `permission.add-players` (owner only). It
 creates one `player` actor (`{ id, role, displayName }`) per name with a `permission.add-player`
