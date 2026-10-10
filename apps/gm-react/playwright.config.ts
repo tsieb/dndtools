@@ -150,10 +150,6 @@ const visualProjects = visualTiers.map((tier) => ({
 	// A genuine diff fails both attempts; one retry absorbs a slow boot, and the report marks it flaky.
 	retries: process.env.CI ? 1 : 0,
 	expect: {
-		// Match the route boot budget: on shared runners a lazy route or Chromium's
-		// screenshot capture can outlast the default 5s even after runtime hydration.
-		// This waits for the same DOM/pixels; it does not relax screenshot tolerances.
-		timeout: 20_000,
 		toHaveScreenshot: {
 			animations: 'disabled' as const,
 			caret: 'hide' as const,

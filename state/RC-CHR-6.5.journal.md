@@ -164,3 +164,23 @@ Output: `/var/tmp/rc-chr-6.5-timing-visual.log`.
 passed. Gate output: `/var/tmp/rc-chr-6.5-timing-gates.log`. The full visual and
 browser suites remain with central validation. No push, promotion or dispatcher
 control-state changes.
+
+## Claim correction — restore shared visual configuration
+
+Operator scope feedback rejected `acad8925` because
+`apps/gm-react/playwright.config.ts` and `docs/development/TESTING.md` are outside
+this task's claim. Neither change is required for the actor-preview acceptance
+criteria. Restored both files exactly to base
+`1028592b7672aa044c045551176e81e41c8392ca`; the shared visual assertion budget
+is therefore back to its base behavior. No claim expansion requested.
+
+The preceding 45-comparison result records the now-reverted configuration and
+must not be treated as validation of this restored configuration. The controlled
+Plans timing evidence remains historical evidence for a separately scoped
+infrastructure repair; the unrelated intermittent visual timeouts remain
+unresolved here. Preview implementation and its targeted regression tests are
+unchanged. Central validation and independent review remain pending.
+
+Verified both restored paths have no diff against the specified base; journal
+formatting and `git diff --check` passed. No push, promotion, dispatcher state
+edit, or unrelated working-tree change.
