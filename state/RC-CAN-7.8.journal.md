@@ -398,3 +398,22 @@ requirement, not an unrelated change.
 This follow-up changes the journal and records the required-path rationale in the commit message;
 implementation and tests are unchanged from `973e9d30`. No test rerun is claimed. `git diff --check`
 passes. No push, promotion, additional agent, loop launch or dispatcher control-state edit.
+
+## Session 6 — widened keyboard-hook claim accepted — 2026-10-10
+
+The scheduling instruction now explicitly includes
+`apps/gm-react/src/screens/session/useCombatKeyboard.ts` in Owns (self-heal round 2) and directs
+that its changes be kept. This supersedes Session 5's pending scope decision. Retained the
+keyboard repair and its regression tests unchanged; no further implementation change is needed
+for the supplied feedback.
+
+Verified a clean tree at `25eaf5bb`, the retained hook diff against base `1028592b`, and no intervening
+implementation changes since the tested repair `973e9d30`. The Session 4 evidence therefore still
+applies: 55 unit/parity passes; 147 acceptance browser passes / 9 skips; typecheck, lint and quality
+gates passed locally. No tests were rerun for this journal-only update. `git diff --check` passed.
+No Headroom tools are exposed; branch and diff output was read directly.
+
+The reported ownership blocker is addressed by the supplied claim extension; this is not a claim
+that a new central gate has run. The candidate is ready for the central operator's wrapper gates
+and independent review. No push, promotion, extra agent, loop launch or dispatcher control-state
+change.
