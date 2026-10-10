@@ -154,3 +154,23 @@ check with exactly those four broken links. The only in-claim alternative is to 
 at the old `builtin/` paths purely so the links resolve, which would be dead code in the builtin
 directory the parity gate reasons about. The diff is the four link targets (4+/4−). Operator
 decision needed on widening the claim to that file.
+
+## Self-heal round 2 — 2026-10-10
+
+The claim now includes `docs/planning/SCREENS_PARITY.md`. Retained its four link-target fixes
+and the prior implementation unchanged. Started at `155db2ce` with a clean worktree. No
+Headroom tools are available in this session; validation uses original local command output.
+Confirmed the acceptance tests enumerate every new board source, exercise command permissions,
+require an empty parity ledger, and compare original package bytes after builder round trips for
+all seven board tools.
+
+Validation on the retained implementation at `155db2ce` (only this journal changed):
+
+- Full `pnpm test` exit 0: core 292 files / 5,307 tests; cloud 46 / 569; app 178 / 2,274;
+  tooling 31 / 249. Original output: `/tmp/rcwid57-round2/test.log`.
+- `pnpm gates` exit 0: six quality gates validated, 306 documentation files reachable and
+  417 relative links resolved. Original output: `/tmp/rcwid57-round2/gates.log`.
+- `git diff --check` exit 0.
+
+No additional agents, push, promotion, loop or dispatcher control edits. Central independent
+review and delivery remain the operator's next steps.
