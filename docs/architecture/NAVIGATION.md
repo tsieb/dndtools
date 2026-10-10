@@ -69,9 +69,10 @@ As of RC-CAN-7.9 no Run route renders a surface of its own. `/` reads the defaul
 screen and `/session` the default `session` screen, each provisioned on first visit
 (`command-center.ensure-home`) and drawn in reading mode from the flow policy's own placement and
 view-mode tiles (`FlowViewTile`), so either reads the same at its `/screen/:id`. `/board` has no
-page behind it: a GM is provisioned and redirected, a player gets the GM-only notice, and a failed
-provisioning write gets a Retry (`BoardAlias`), never a board outside a screen. The board engine
-(`screens/Board.tsx`) only renders a screen `/screen/:id` hands it. The Run the table entries in
+page behind it: a GM is provisioned and redirected (`BoardAlias`), a player gets the GM-only
+notice, and a failed provisioning write gets a Retry, never a board outside a screen. The board
+engine (`screens/Board.tsx`) only renders a screen `/screen/:id` hands it; handed none, it draws
+those two states (`GmScreenUnavailable`). The Run the table entries in
 the sidebar, rail and More sheet open the Command Center and Session screens' `/screen/:id` once
 they exist (`sectionPath`, CAN-7.4); the GM Screen entry opens `/board`, which resolves as above.
 

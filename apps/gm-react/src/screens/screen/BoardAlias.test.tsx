@@ -17,8 +17,9 @@ import { I18nProvider } from '../../i18n';
 /**
  * RC-CAN-7.9 — `/board` never renders the bespoke board page any more. A GM is provisioned and
  * redirected (`ScreenRouteAliases`, covered by `screens.spec.ts`); what is left here is the two
- * states the alias draws itself: a non-GM gets the player notice, and a provisioning write that
- * failed gets an honest failure whose Retry asks again — never a board without its screen.
+ * states `/board` draws when it cannot resolve (`BoardAlias` mounting `Board` with no screen): a
+ * non-GM gets the player notice, and a provisioning write that failed gets an honest failure whose
+ * Retry asks again — never a board without its screen.
  */
 
 const DM: Actor = { id: 'dm-1', role: 'dm', displayName: 'Dungeon Master' };

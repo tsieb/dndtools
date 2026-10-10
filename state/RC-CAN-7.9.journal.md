@@ -112,3 +112,39 @@ tree as this commit apart from the journal).
   which resolves to the same `/screen/:id` in one replaced entry. No user-visible gap, but the
   dead key is CAN-7.4's to tidy.
 - No push, promotion, loop launch, extra agents or dispatcher control-state change.
+
+## Session 2 — claim-fence rework — 2026-10-10, base `a5f7c9ef`
+
+Gate feedback: the candidate changed `apps/gm-react/src/screens/screen/ScreenView.tsx`, which is
+outside the claim. The acceptance criteria do not need that file, so it is **reverted to base**.
+The base `BoardAlias` is unchanged and still renders `<Board />` for a non-GM or after a failed
+provisioning write. What it gets back is now decided entirely inside the owned `Board.tsx`:
+
+- `Board({ screen })` takes an optional `screen` again, but only to choose between two components.
+  `ScreenBoard` (the engine, which needs a screen) renders when one is handed in.
+  `GmScreenUnavailable` renders when none is: a non-GM gets `BoardPlayerNotice`; for the GM it is
+  the honest "The {gm} screen couldn't be set up on this device." with a Retry. Retry dispatches
+  `command-center.ensure-home` and is disabled while that write is in flight. Once the write is
+  accepted it renders nothing, and `ScreenRouteAliases` takes `/board` to the screen.
+- The bespoke page stays deleted: no home-scene fallback, no provisioning effect of its own, and no
+  board without a screen header. No path outside the claim changes. The companion paths still
+  touched are the i18n catalogs, `BoardAlias.test.tsx` and NAVIGATION/WIDGETS.
+- `BoardAlias.test.tsx` mounts the **base** `BoardAlias`. The test docblock was reworded, and its
+  three cases pass. Negative control: with the base `Board.tsx` swapped in, the failed-write case
+  fails (the bespoke board renders), 1 failed / 2 passed. The candidate was restored afterwards.
+- NAVIGATION.md: the `/board` sentence now names `GmScreenUnavailable` for the two fallback states.
+
+### Checks on the reworked tree
+
+- `pnpm typecheck` (app) exit 0; `pnpm test:app` 182 files / 2248 tests, exit 0; `pnpm lint` 0
+  errors (15 warnings, none in changed files); `pnpm gates` passed; Prettier clean.
+- Boot bundle: core **1,104,629 B** gzip (level 6), base 1,104,682 (**−53 B**); `check-bundle-budget`
+  1078.8 KiB, pass. `tmp/dist-after` was removed afterwards.
+- E2E on both profiles (`--workers=4`, free `DNDTOOLS_E2E_PORT`): `screens`, `session-action-bar`,
+  `board-layouts`, `pinned-screens`, `canvas`, `add-panel`, `scene-templates`,
+  `session-quick-panel-routes`, `command-center-polish`, `responsive`, `combat-tile` and
+  `demo-vault` gave **310 passed, 16 skipped, 0 failed**. The only dev-server console error is the
+  existing React `border`/`borderColor` shorthand warning; this change adds no styles.
+- The Session 1 full-suite run (1,976 passed, 1 base flake) predates this rework. Since then the
+  only differences are the screen-less branch of `Board` and the reverted `ScreenView.tsx`;
+  `/screen/:id` renders exactly as in that run.
