@@ -54,7 +54,9 @@ export function CampaignDatePanel({
 	if (!calendar) {
 		return (
 			<Panel title={t('session.date.title')}>
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.date.noCalendar')}</div>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+					{t('session.date.noCalendar')}
+				</div>
 				{/* RC-KNW-3.1 — the empty state used to be terminal; it now points at the editor that
 				    fixes it, so "no calendar" is a step in a flow rather than a wall. */}
 				<div>
@@ -120,12 +122,12 @@ export function CampaignDatePanel({
 
 	return (
 		<Panel title={t('session.date.title')}>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three, flexWrap: 'wrap' }}>
 				<Icon name="recent" size="sm" color={current ? T.acc : T.ter} />
 				<div style={{ flex: '1 1 180px', minWidth: 0 }}>
 					<div
 						style={{
-							font: `600 13px ${T.sans}`,
+							font: `600 var(--text-sm) ${T.sans}`,
 							color: T.ink,
 							whiteSpace: 'nowrap',
 							overflow: 'hidden',
@@ -134,7 +136,7 @@ export function CampaignDatePanel({
 					>
 						{current ? current.display : t('session.date.none')}
 					</div>
-					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t('session.date.drives', { calendar: calendar.name })}
 					</div>
 				</div>
@@ -154,15 +156,15 @@ export function CampaignDatePanel({
 			{(holidays.length > 0 || moons.length > 0) && (
 				<div
 					data-testid="session-date-derived"
-					style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+					style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}
 				>
 					{holidays.length > 0 && (
 						<div
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 6,
-								font: `12px ${T.sans}`,
+								gap: T.space.oneHalf,
+								font: `var(--text-xs) ${T.sans}`,
 								color: T.acc,
 							}}
 						>
@@ -175,9 +177,9 @@ export function CampaignDatePanel({
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 6,
-								font: `12px ${T.sans}`,
-								color: T.ter,
+								gap: T.space.oneHalf,
+								font: `var(--text-xs) ${T.sans}`,
+								color: T.sub,
 							}}
 						>
 							<Icon name="sparkle" size="sm" color={T.ter} />
@@ -193,7 +195,7 @@ export function CampaignDatePanel({
 					)}
 				</div>
 			)}
-			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', gap: T.space.two, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 				<Field label={t('session.date.month')} style={{ flex: '1 1 120px' }}>
 					<Select
 						value={String(month)}

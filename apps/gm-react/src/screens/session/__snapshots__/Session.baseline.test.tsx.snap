@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -19,7 +19,7 @@ exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - heading "Dice" [level=2]
 - status
 - button "1d20"
@@ -45,7 +45,7 @@ exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" title="Ask your DM to change the session phase." type="button" tabindex="-1" disabled="">
@@ -69,7 +69,7 @@ exports[`Session baselines (RC-CAN-7.8) > a player's own device > desktop player
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
 <section>
   <h2>
     "Dice"
@@ -137,7 +137,7 @@ h2 Party"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: The Sunken Crypt
 - radiogroup "Session phase":
   - radio:
@@ -157,7 +157,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - button "Roll for initiative"
 - heading "Dice" [level=2]
 - status
@@ -170,7 +170,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -210,7 +210,8 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: 10 recent changes to review.
+- text: Nothing to carry over yet.
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -236,7 +237,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · ari
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom 1`] = `
-""Live session"
+""Current session"
 "The Sunken Crypt"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="-1">
@@ -266,7 +267,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
   <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
     <svg aria-hidden="true">
     "Roll for initiative"
@@ -294,7 +295,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -388,7 +389,41 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "10 recent changes to review."
+  "Nothing to carry over yet."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Session"
+      "Edited · Jun 3 · 5:01 AM"
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -451,7 +486,8 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · headings 1`] = `
@@ -459,7 +495,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · hea
 h3 No combat running
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -472,7 +508,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -491,7 +527,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - button "Roll for initiative"
 - heading "Dice" [level=2]
 - status
@@ -504,7 +540,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -544,7 +580,8 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: 10 recent changes to review.
+- text: Nothing to carry over yet.
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -570,7 +607,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · ari
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="-1">
@@ -598,7 +635,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
   <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
     <svg aria-hidden="true">
     "Roll for initiative"
@@ -626,7 +663,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -720,7 +757,41 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "10 recent changes to review."
+  "Nothing to carry over yet."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Session"
+      "Edited · Jun 3 · 5:01 AM"
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -782,7 +853,8 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · headings 1`] = `
@@ -790,7 +862,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · hea
 h3 No combat running
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -803,7 +875,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -822,7 +894,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - button "Roll for initiative"
 - heading "Dice" [level=2]
 - status
@@ -835,7 +907,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -875,7 +947,8 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: What happened
-- text: 10 recent changes to review.
+- text: Nothing to carry over yet.
+- button "10 recent changes to review"
 - text: Session archives
 - text: Jun 3 · 12:01 PM · no recap yet
 - textbox "Session recap"
@@ -933,7 +1006,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeline > desktop recap · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="-1">
@@ -961,7 +1034,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
   <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
     <svg aria-hidden="true">
     "Roll for initiative"
@@ -989,7 +1062,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -1083,7 +1156,41 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "What happened"
-  "10 recent changes to review."
+  "Nothing to carry over yet."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Session"
+      "Edited · Jun 3 · 5:01 AM"
+    <li>
+      "Tormund Ironfist"
+      "Changed · Character · Jun 3 · 5:01 AM"
+    <li>
+      "Brother Calloway"
+      "Changed · Character · Jun 3 · 5:01 AM"
+    <li>
+      "Sera Duskwhisper"
+      "Changed · Character · Jun 3 · 5:01 AM"
+    <li>
+      "Session"
+      "Edited · Jun 3 · 5:01 AM"
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
   "Session archives"
   "Jun 3 · 12:01 PM · no recap yet"
   <textarea aria-label="Session recap">
@@ -1209,6 +1316,7 @@ textbox
 textbox 
 button Set date
 button Edit calendar
+button 10 recent changes to review
 textbox Session recap
 textbox Session log title
 textbox What happened
@@ -1234,7 +1342,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 h3 No combat running
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -1248,7 +1356,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -1267,7 +1375,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - button "Roll for initiative"
 - heading "Dice" [level=2]
 - status
@@ -1280,7 +1388,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -1320,7 +1428,8 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: 10 recent changes to review.
+- text: Nothing to carry over yet.
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -1346,7 +1455,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="0">
@@ -1374,7 +1483,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
   <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
     <svg aria-hidden="true">
     "Roll for initiative"
@@ -1402,7 +1511,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -1496,7 +1605,41 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "10 recent changes to review."
+  "Nothing to carry over yet."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -1559,7 +1702,8 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop standby · headings 1`] = `
@@ -1567,7 +1711,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
 h3 No combat running
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -1580,7 +1724,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -1599,7 +1743,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - button "Roll for initiative"
 - heading "Dice" [level=2]
 - status
@@ -1612,7 +1756,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -1652,7 +1796,8 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: 10 recent changes to review.
+- text: Nothing to carry over yet.
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -1678,7 +1823,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="0">
@@ -1706,7 +1851,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
   <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
     <svg aria-hidden="true">
     "Roll for initiative"
@@ -1734,7 +1879,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -1828,7 +1973,41 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "10 recent changes to review."
+  "Nothing to carry over yet."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -1891,7 +2070,8 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > phone standby · headings 1`] = `
@@ -1899,7 +2079,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 h3 No combat running
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -1912,7 +2092,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -1931,7 +2111,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - status
 - status
 - heading "No combat running" [level=3]
-- text: Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.
+- text: Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it.
 - button "Roll for initiative"
 - heading "Dice" [level=2]
 - status
@@ -1944,7 +2124,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -1984,7 +2164,8 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: 10 recent changes to review.
+- text: Nothing to carry over yet.
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -2010,7 +2191,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="0">
@@ -2038,7 +2219,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
   <svg aria-hidden="true">
   <h3>
     "No combat running"
-  "Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it."
+  "Build an encounter from your roster — party, NPCs and monsters — then set initiative and run it."
   <button title="Put every player character into the fight and let the players roll from their own devices" type="button">
     <svg aria-hidden="true">
     "Roll for initiative"
@@ -2066,7 +2247,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -2160,7 +2341,41 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "10 recent changes to review."
+  "Nothing to carry over yet."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -2223,7 +2438,8 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > rail standby · headings 1`] = `
@@ -2231,7 +2447,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
 h3 No combat running
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -2244,7 +2460,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: The Sunken Crypt
 - radiogroup "Session phase":
   - radio:
@@ -2288,7 +2504,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -2328,8 +2544,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: Combat is running (round 1); review before resuming.
-- text: 10 recent changes to review.
+- list:
+  - listitem "Combat is running (round 1); review before resuming."
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -2355,7 +2572,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · dom 1`] = `
-""Live session"
+""Current session"
 "The Sunken Crypt"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="-1">
@@ -2472,7 +2689,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -2566,8 +2783,43 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "Combat is running (round 1); review before resuming."
-  "10 recent changes to review."
+  <ul>
+    <li>
+      "Combat is running (round 1); review before resuming."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Combat"
+      "Changed · Jun 3 · 5:01 AM"
+    <li>
+      "Combat"
+      "Changed · Jun 3 · 5:01 AM"
+    <li>
+      "Session"
+      "Edited · Jun 3 · 5:01 AM"
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -2647,14 +2899,15 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > desktop live combat · headings 1`] = `
 "h2 Combat
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -2667,7 +2920,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: The Sunken Crypt
 - radiogroup "Session phase":
   - radio:
@@ -2711,7 +2964,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - textbox "Roll label"
 - button "Roll"
 - heading "Rollable tables" [level=2]
-- heading "No rollable tables yet." [level=3]
+- heading "No rollable tables yet" [level=3]
 - text: A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here.
 - heading "Handouts" [level=2]
 - text: Handout title
@@ -2751,8 +3004,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 - heading "Prep & recap" [level=2]
 - img "DM only"
 - text: Carry into the session
-- text: Combat is running (round 1); review before resuming.
-- text: 10 recent changes to review.
+- list:
+  - listitem "Combat is running (round 1); review before resuming."
+- button "10 recent changes to review"
 - text: Session archives
 - text: No archived sessions yet. Ending a live session into Recap creates one here.
 - heading "End-of-session capture" [level=2]
@@ -2778,7 +3032,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · dom 1`] = `
-""Live session"
+""Current session"
 "The Sunken Crypt"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" type="button" tabindex="-1">
@@ -2895,7 +3149,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Rollable tables"
   <svg aria-hidden="true">
   <h3>
-    "No rollable tables yet."
+    "No rollable tables yet"
   "A table is a vault object with a dice expression and result rows. Create one in the vault, then draw it here."
 <section>
   <h2>
@@ -2989,8 +3243,43 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
     "Prep & recap"
   <svg role="img" aria-label="DM only">
   "Carry into the session"
-  "Combat is running (round 1); review before resuming."
-  "10 recent changes to review."
+  <ul>
+    <li>
+      "Combat is running (round 1); review before resuming."
+  <button type="button">
+    <svg aria-hidden="true">
+    "10 recent changes to review"
+  <ul aria-label="Recent changes">
+    <li>
+      "Combat"
+      "Changed · Jun 3 · 5:01 AM"
+    <li>
+      "Combat"
+      "Changed · Jun 3 · 5:01 AM"
+    <li>
+      "Session"
+      "Edited · Jun 3 · 5:01 AM"
+    <li>
+      "Harbor of Saltreach"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt"
+      "Created · Scene · Jun 3 · 5:01 AM"
+    <li>
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -3070,14 +3359,15 @@ combobox Thawmonth Tidemarch Brightmoor Highsun Harvestwane Mournfrost
 textbox 
 textbox 
 button Set date
-button Edit calendar"
+button Edit calendar
+button 10 recent changes to review"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and phone > phone live combat · headings 1`] = `
 "h2 Combat
 h2 Dice
 h2 Rollable tables
-h3 No rollable tables yet.
+h3 No rollable tables yet
 h2 Handouts
 h2 Now playing
 h2 Stage
@@ -3090,7 +3380,7 @@ h2 Schedule next session"
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight > desktop preview player · aria 1`] = `
-"- text: Live session
+"- text: Current session
 - text: No active scene
 - radiogroup "Session phase":
   - radio:
@@ -3144,7 +3434,7 @@ exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight 
 `;
 
 exports[`Session baselines (RC-CAN-7.8) > previewing as a player during a fight > desktop preview player · dom 1`] = `
-""Live session"
+""Current session"
 "No active scene"
 <div role="radiogroup" aria-label="Session phase">
   <button role="radio" title="Exit player preview to change the session phase." type="button" tabindex="-1" disabled="">

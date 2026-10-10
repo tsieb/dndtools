@@ -970,12 +970,12 @@ test.describe('concentration and death saves on the tracker', () => {
 		expect(down.status).toBe('accepted');
 
 		await expect(page.getByText('Dying')).toBeVisible();
-		await expect(page.getByText('Death saves 0 of 3 kept, 0 of 3 failed')).toBeVisible();
+		await expect(page.getByText('Death saves: 0 of 3 succeeded, 0 of 3 failed')).toBeVisible();
 
 		await page.getByRole('button', { name: 'Record a death save success for Bog Lurker' }).click();
-		await expect(page.getByText('Death saves 1 of 3 kept, 0 of 3 failed')).toBeVisible();
+		await expect(page.getByText('Death saves: 1 of 3 succeeded, 0 of 3 failed')).toBeVisible();
 		await page.getByRole('button', { name: 'Record a death save failure for Bog Lurker' }).click();
-		await expect(page.getByText('Death saves 1 of 3 kept, 1 of 3 failed')).toBeVisible();
+		await expect(page.getByText('Death saves: 1 of 3 succeeded, 1 of 3 failed')).toBeVisible();
 	});
 });
 

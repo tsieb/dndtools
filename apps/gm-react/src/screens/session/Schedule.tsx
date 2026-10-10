@@ -48,9 +48,11 @@ export function SchedulePanel() {
 				title={t('session.schedule.title')}
 				action={<VisibilityChip level="dm-only" compact />}
 			>
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{notConfiguredBefore}
-					<span style={{ ...mono, fontSize: 12 }}>{GOOGLE_CALENDAR_SETUP_RUNBOOK}</span>
+					<span style={{ ...mono, fontSize: 'var(--text-xs)' }}>
+						{GOOGLE_CALENDAR_SETUP_RUNBOOK}
+					</span>
 					{notConfiguredAfter}
 				</div>
 			</Panel>
@@ -93,7 +95,7 @@ export function SchedulePanel() {
 
 	return (
 		<Panel title={t('session.schedule.title')} action={<VisibilityChip level="dm-only" compact />}>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 				<Field label={t('session.schedule.when')}>
 					<Input
 						type="datetime-local"
@@ -101,7 +103,7 @@ export function SchedulePanel() {
 						onChange={(e: { target: { value: string } }) => setStart(e.target.value)}
 					/>
 				</Field>
-				<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: T.space.three, flexWrap: 'wrap' }}>
 					<Field label={t('session.schedule.length')} style={{ flex: 1, minWidth: 120 }}>
 						<Select
 							value={duration}
@@ -132,14 +134,14 @@ export function SchedulePanel() {
 						placeholder={t('session.schedule.notePlaceholder')}
 					/>
 				</Field>
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{emails.length
 						? t('session.schedule.invitesGo', { count: emails.length })
 						: t('session.schedule.noRosterEmails')}{' '}
 					{t('session.schedule.metadataOnly')}
 				</div>
 				<CloudOfflineNotice />
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+				<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}>
 					<Button
 						{...cloudActions.offlineProps}
 						onClick={() => void create()}
@@ -152,7 +154,7 @@ export function SchedulePanel() {
 							href={link}
 							target="_blank"
 							rel="noreferrer"
-							style={{ font: `12.5px ${T.sans}`, color: T.acc }}
+							style={{ font: `var(--text-sm) ${T.sans}`, color: T.acc }}
 						>
 							{t('session.schedule.openInCalendar')}
 						</a>

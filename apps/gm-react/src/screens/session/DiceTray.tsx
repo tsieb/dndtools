@@ -8,7 +8,7 @@ import {
 import { Button, DiceResult, Icon, Input } from '../../ds';
 import { useI18n, type MessageKey, type MessageValues } from '../../i18n';
 import { Panel, T, mono } from '../../app/screen-kit';
-import { diceResultProps } from '../../app/session/QuickPanel';
+import { diceResultProps } from '../../app/session/diceReadout';
 import { copyToClipboard } from '../../platform/preferences';
 import { useRuntime } from '../../runtime/RuntimeContext';
 
@@ -61,12 +61,12 @@ function RollBreakdown({ roll }: { roll: TrayRoll }) {
 				style={{
 					display: 'inline-flex',
 					alignItems: 'center',
-					gap: 3,
-					font: `11px ${T.sans}`,
-					color: T.ter,
+					gap: T.space.one,
+					font: `var(--text-xs) ${T.sans}`,
+					color: T.sub,
 					background: 'none',
 					border: 'none',
-					padding: 0,
+					padding: T.space.zero,
 					cursor: 'pointer',
 				}}
 			>
@@ -76,7 +76,14 @@ function RollBreakdown({ roll }: { roll: TrayRoll }) {
 			{open && (
 				<div
 					id={panelId}
-					style={{ ...mono, fontSize: 11, color: T.sub, marginTop: 3, display: 'grid', gap: 2 }}
+					style={{
+						...mono,
+						fontSize: 'var(--text-xs)',
+						color: T.sub,
+						marginTop: T.space.one,
+						display: 'grid',
+						gap: T.space.half,
+					}}
 				>
 					{termBreakdown(t, terms).map((line, i) => (
 						<span key={i}>{line}</span>
@@ -168,7 +175,7 @@ export function DicePanel({
 					? t('session.dice.announcement', { expression: last.expression, total: last.total })
 					: ''}
 			</div>
-			<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}>
 				{presets.map((p) => (
 					<Button
 						key={p}
@@ -185,7 +192,7 @@ export function DicePanel({
 			{/* A <form> so Enter (and a phone keyboard's Go key) rolls — typing "2d6+4" and pressing
 			    Enter used to do nothing at all on the busiest control of the live-play screen. */}
 			<form
-				style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
+				style={{ display: 'flex', gap: T.space.two, flexWrap: 'wrap' }}
 				onSubmit={(e) => {
 					e.preventDefault();
 					if (disabled || !expr.trim()) return;
@@ -197,18 +204,21 @@ export function DicePanel({
 					onChange={(e: { target: { value: string } }) => onExpr(e.target.value)}
 					placeholder={t('session.dice.expressionPlaceholder')}
 					aria-label={t('session.dice.expression')}
-					style={{ flex: 2, minWidth: 100 }}
+					style={{ flex: '2 1 7rem', minWidth: '7rem' }}
 				/>
 				<Input
 					value={label}
 					onChange={(e: { target: { value: string } }) => onLabel(e.target.value)}
 					placeholder={t('session.dice.labelPlaceholder')}
 					aria-label={t('session.dice.label')}
-					style={{ flex: 1, minWidth: 100 }}
+					// rem, so "Label (optional)" fits at every text size instead of clipping to "Label (opti".
+					style={{ flex: '1 1 9.5rem', minWidth: '9.5rem' }}
 				/>
 				<Button
 					type="submit"
-					variant="accent"
+					// The tray's one primary. `accent` painted the parchment accent-on-tint pair that
+					// measures 4.43:1 (DEBT-2026-008).
+					variant="primary"
 					icon="dice"
 					disabled={disabled || !expr.trim()}
 					title={
@@ -232,29 +242,32 @@ export function DicePanel({
 						drama={last.id === settledRollId ? 'static' : 'play'}
 					/>
 					{(!happenedLive(last) || last.label) && (
-						<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 4 }}>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub, marginTop: T.space.one }}>
 							{!happenedLive(last) ? `${t('session.dice.outsideSession')} · ` : ''}
 							{last.label}
 						</div>
 					)}
-					<div style={{ marginTop: 4 }}>
+					<div style={{ marginTop: T.space.one }}>
 						<RollBreakdown roll={last} />
 					</div>
 				</div>
 			)}
 			{recent.length > 1 && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
 					{recent.slice(1, 6).map((d) => {
 						const { crit, critNatural } = diceResultProps(activePackage, d);
 						return (
-							<div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+							<div
+								key={d.id}
+								style={{ display: 'flex', flexDirection: 'column', gap: T.space.half }}
+							>
 								<div
 									style={{
 										display: 'flex',
 										alignItems: 'center',
-										gap: 8,
-										font: `12px ${T.sans}`,
-										color: T.ter,
+										gap: T.space.two,
+										font: `var(--text-xs) ${T.sans}`,
+										color: T.sub,
 									}}
 								>
 									<span style={{ ...mono, color: T.sub }}>

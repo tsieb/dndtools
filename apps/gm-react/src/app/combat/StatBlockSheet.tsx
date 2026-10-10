@@ -100,11 +100,11 @@ export function StatBlockSheet({
 			description={t('session.combat.quickRef.help')}
 		>
 			{target && (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					{/* Say where the card came from. "This is the whole character sheet" and "this is the
 					    three numbers you typed into the encounter" look identical otherwise, and the DM
 					    would read an absent trait as a trait the creature does not have. */}
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{character
 							? t('session.combat.quickRef.fromCharacter', { name: character.name })
 							: t('session.combat.quickRef.fromEncounter')}
@@ -131,7 +131,11 @@ export function StatBlockSheet({
 						actions={actionsOpen ? actions : []}
 						dmOnly={target.hidden}
 					/>
-					{notes && <p style={{ margin: 0, font: `12.5px ${T.sans}`, color: T.sub }}>{notes}</p>}
+					{notes && (
+						<p style={{ margin: T.space.zero, font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+							{notes}
+						</p>
+					)}
 				</div>
 			)}
 		</Sheet>

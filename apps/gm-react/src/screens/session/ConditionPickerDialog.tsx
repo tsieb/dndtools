@@ -32,7 +32,7 @@ export function ConditionPickerDialog({
 			icon="cond-poisoned"
 			size="md"
 		>
-			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: T.space.two }}>
 				{keys.map((k) => (
 					<button
 						key={k}
@@ -41,13 +41,18 @@ export function ConditionPickerDialog({
 							condition: conditions.find((c) => c.key === k)?.label ?? k,
 						})}
 						onClick={() => target && onPick(target.id, k)}
-						style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+						style={{
+							border: 'none',
+							background: 'transparent',
+							cursor: 'pointer',
+							padding: T.space.zero,
+						}}
 					>
 						<ConditionBadge condition={k} />
 					</button>
 				))}
 				{keys.length === 0 && (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 						{t(
 							conditions.length === 0
 								? 'session.combat.noSystemConditions'

@@ -37,7 +37,9 @@ export function StagePanel({
 	return (
 		<Panel title={t('session.stage.title')}>
 			{maps.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.stage.noMaps')}</div>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+					{t('session.stage.noMaps')}
+				</div>
 			) : (
 				<>
 					<SetRow
@@ -125,7 +127,9 @@ function StagePreview({ mapId }: { mapId: string | null }) {
 	if (!mapId) return null;
 	if (!view) {
 		return (
-			<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.stage.previewGone')}</div>
+			<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+				{t('session.stage.previewGone')}
+			</div>
 		);
 	}
 	return (
@@ -139,7 +143,7 @@ function StagePreview({ mapId }: { mapId: string | null }) {
 				height={200}
 				rasterAssetId={rasterAssetId}
 				compactCombat
-				style={{ borderRadius: 0, border: 'none' }}
+				style={{ borderRadius: T.radius.none, border: 'none' }}
 			/>
 		</div>
 	);

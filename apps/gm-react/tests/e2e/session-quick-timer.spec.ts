@@ -63,7 +63,7 @@ test.describe('quick-panel timer', () => {
 		await expect(display).toHaveText(/^(4:5\d|5:00)$/);
 
 		await page.getByRole('button', { name: 'Lap' }).click();
-		await expect(page.getByTestId('quick-timer-laps')).toHaveText('1 lap marks');
+		await expect(page.getByTestId('quick-timer-laps')).toHaveText('1 lap mark');
 
 		await page.getByRole('button', { name: 'Pause' }).click();
 		expect(

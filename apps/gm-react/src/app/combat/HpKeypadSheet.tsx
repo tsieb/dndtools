@@ -94,7 +94,7 @@ export function HpKeypadSheet({
 			title={target ? t('session.combat.hp.sheetTitle', { name: target.name }) : undefined}
 			description={t('session.combat.hp.sheetHelp')}
 			footer={
-				<div style={{ display: 'flex', gap: 8, flex: 1, flexWrap: 'wrap' }}>
+				<div style={{ display: 'flex', gap: T.space.two, flex: 1, flexWrap: 'wrap' }}>
 					{actions.map((a) => (
 						<Button
 							key={a.key}
@@ -113,9 +113,9 @@ export function HpKeypadSheet({
 				</div>
 			}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 				{res && (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 						{res.tempHp > 0
 							? t('session.combat.hp.currentWithTemp', {
 									hp: res.hp,
@@ -130,18 +130,18 @@ export function HpKeypadSheet({
 					aria-live="polite"
 					aria-label={t('session.combat.hp.amount')}
 					style={{
-						font: `700 34px ${T.mono}`,
+						font: `700 var(--text-3xl) ${T.mono}`,
 						color: T.ink,
 						textAlign: 'center',
-						padding: '10px 0',
-						borderRadius: 10,
+						padding: `${T.space.three} ${T.space.zero}`,
+						borderRadius: T.radius.md,
 						border: `1px solid ${T.bd}`,
 						background: T.surf,
 					}}
 				>
 					{digits || '0'}
 				</div>
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: T.space.two }}>
 					{KEYPAD.map((d) => (
 						<Button
 							key={d}

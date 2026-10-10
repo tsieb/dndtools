@@ -5,30 +5,19 @@ import {
 	listEncountersForActor,
 	systemDeclaresChallenge,
 } from '@dndtools/core';
+import { Button, Dialog, Field, Input, Select, Toaster } from '../ds';
+import { T } from './screen-kit';
+import { DraftRoster, QuickAddFoe, RosterPicker } from './EncounterDraftRoster';
+import { EncounterChallenge, EncounterOpening } from './combat/EncounterOptions';
 import {
-	Badge,
-	Button,
-	Dialog,
-	Field,
-	Icon,
-	Input,
-	ProgressMeter,
-	SegmentedControl,
-	Select,
-	Switch,
-	Toaster,
-} from '../ds';
-import { T, eb } from './screen-kit';
-import { DraftRoster, QuickAddFoe } from './EncounterDraftRoster';
-import {
-	AMBUSH_BOTTOM,
-	AMBUSH_TOP,
-	DIFFICULTY_BADGE,
 	DIFFICULTY_LABEL,
-	KIND_GROUPS,
-	dexModOf,
+	encounterBuildPayload,
+	partyContext,
 	extractId,
+	reinforcementsOf,
 	rowFromCharacter,
+	rowsFromSaved,
+	seedAmbush,
 	type AmbushMode,
 	type DraftRow,
 	type RosterCharacter,
@@ -161,10 +150,7 @@ export function EncounterDialog({
 					initiative: 0,
 					hidden: r.hidden,
 				})),
-				{
-					size: Math.max(1, Math.trunc(Number(partySize)) || 1),
-					averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
-				},
+				partyContext(partySize, partyLevel),
 				activePackage,
 			),
 		[rows, partySize, partyLevel, activePackage],
@@ -197,30 +183,8 @@ export function EncounterDialog({
 	);
 
 	/** The build payload the durable `encounter.build` command takes — shared by Save and Start. */
-	function buildPayload() {
-		return {
-			title: title.trim() || defaultTitle,
-			combatants: rows.map((r) => ({
-				kind: r.kind,
-				name: r.name,
-				characterId: r.characterId,
-				challengeRating: r.kind === 'character' ? 0 : r.cr,
-				quantity: r.kind === 'character' ? 1 : Math.max(1, r.quantity),
-				maxHp: r.maxHp,
-				ac: r.ac,
-				// Blank ⇒ roll here (d20 + DEX mod) so the DM never starts a fight of all-0 initiative.
-				initiative:
-					r.initiative.trim() === ''
-						? 1 + Math.floor(Math.random() * 20) + r.dexMod
-						: Math.trunc(Number(r.initiative)) || 0,
-				hidden: r.hidden,
-			})),
-			party: {
-				size: Math.max(1, Math.trunc(Number(partySize)) || 1),
-				averageLevel: Math.min(20, Math.max(1, Math.trunc(Number(partyLevel)) || 1)),
-			},
-		};
-	}
+	const buildPayload = () =>
+		encounterBuildPayload(rows, title.trim() || defaultTitle, partySize, partyLevel);
 
 	/**
 	 * RC-SES-3.5 — SAVE the composed roster as a durable `encounter` object WITHOUT starting a fight,
@@ -265,40 +229,14 @@ export function EncounterDialog({
 		setDraftGen((n) => n + 1);
 		setAmbush('none');
 		preAmbushRef.current = {};
-		setRows(
-			saved.combatants.map((c) => {
-				// A selection that still points at a live vault character re-adopts that character's DEX
-				// so a blank initiative rolls the same way it would from the roster picker.
-				const character = c.characterId
-					? characters.find((r) => r.id === c.characterId)
-					: undefined;
-				return {
-					key: c.characterId ? `char-${c.characterId}` : `saved-${c.id}`,
-					kind: c.kind === 'character' || c.kind === 'monster' ? c.kind : 'npc',
-					name: c.name,
-					characterId: c.characterId,
-					maxHp: c.maxHp,
-					ac: c.ac,
-					initiative: '',
-					cr: c.challengeRating,
-					quantity: Math.max(1, c.quantity),
-					hidden: c.hidden,
-					dexMod: character ? dexModOf(character) : 0,
-				};
-			}),
-		);
+		setRows(rowsFromSaved(saved, characters));
 		setError(null);
 		Toaster.success(t('encounter.loaded', { title: saved.title }));
 	}
 
 	/**
-	 * RC-SES-3.5 — seed initiative and hidden flags from the party's MARCHING ORDER.
-	 *
-	 * The marching order already says who is in front, so it is the honest answer to "who reacts
-	 * first" when a fight opens badly. `party-ambushes` puts the party on top of the order in
-	 * marching-order sequence; `party-surprised` puts the foes on top AND starts them hidden (players
-	 * see the tracker's "Unknown creature" placeholder until the DM reveals them). `none` restores
-	 * whatever the fields held before a mode was applied.
+	 * RC-SES-3.5 — seed initiative and hidden flags from the party's MARCHING ORDER (`seedAmbush`).
+	 * `none` restores whatever the fields held before a mode was applied.
 	 */
 	function applyAmbush(next: AmbushMode) {
 		setAmbush(next);
@@ -315,37 +253,11 @@ export function EncounterDialog({
 					prev.map((r) => [r.key, { initiative: r.initiative, hidden: r.hidden }]),
 				);
 			}
-			const partyTop = next === 'party-ambushes';
-			const rank = (r: DraftRow) => {
-				const index = r.characterId ? marchingOrder.indexOf(r.characterId) : -1;
-				// Unplaced party members fall in behind everyone the marching order does place.
-				return index >= 0 ? index : marchingOrder.length;
-			};
-			let foeIndex = 0;
-			return prev.map((r) => {
-				if (r.kind === 'character') {
-					return {
-						...r,
-						initiative: String((partyTop ? AMBUSH_TOP : AMBUSH_BOTTOM) - rank(r)),
-					};
-				}
-				const seat = foeIndex;
-				foeIndex += 1;
-				return {
-					...r,
-					initiative: String((partyTop ? AMBUSH_BOTTOM : AMBUSH_TOP) - seat),
-					// Only the foes' ambush hides them; a party ambush leaves visibility alone.
-					hidden: partyTop ? r.hidden : true,
-				};
-			});
+			return seedAmbush(prev, next, marchingOrder);
 		});
 	}
 
-	// Raw text for the CR fields while they are being edited. Coercing on every keystroke made the
-	// two most common low-tier ratings impossible to type: `Number('0.')` is 0, so the controlled
-	// input snapped back and swallowed the decimal point before "0.25"/"0.5" could be entered.
-	// Same story for the per-row count: `Math.trunc(Number(v) || 1)` on every keystroke snapped the
-	// field back to 1 the moment it was cleared, so "12" could not be retyped over "3".
+	/** Pick or drop a roster character (the picker's toggle). */
 	function toggleCharacter(c: RosterCharacter) {
 		const key = `char-${c.id}`;
 		setRows((prev) =>
@@ -368,17 +280,7 @@ export function EncounterDialog({
 					type: 'combat.add-combatants',
 					actorId,
 					payload: {
-						combatants: rows.map((r) => ({
-							kind: r.kind,
-							name: r.name,
-							characterId: r.characterId,
-							ac: r.ac,
-							// Blank ⇒ null ⇒ the core auto-rolls 1d20 deterministically.
-							initiative: r.initiative.trim() === '' ? null : Math.trunc(Number(r.initiative)) || 0,
-							maxHp: r.maxHp,
-							hidden: r.hidden,
-							quantity: Math.min(20, Math.max(1, r.kind === 'character' ? 1 : r.quantity)),
-						})),
+						combatants: reinforcementsOf(rows),
 					},
 				});
 				if (result.status === 'rejected') {
@@ -499,9 +401,9 @@ export function EncounterDialog({
 				</>
 			}
 		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.four }}>
 				{error && (
-					<div role="alert" style={{ font: `12.5px ${T.sans}`, color: T.err }}>
+					<div role="alert" style={{ font: `var(--text-sm) ${T.sans}`, color: T.err }}>
 						{error}
 					</div>
 				)}
@@ -519,7 +421,9 @@ export function EncounterDialog({
 				{/* RC-SES-3.5 — reuse: load a previously saved encounter back into the draft. Hidden
 				    entirely when nothing has been saved yet, rather than showing an empty picker. */}
 				{mode === 'start' && savedEncounters.length > 0 && (
-					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+					<div
+						style={{ display: 'flex', gap: T.space.two, alignItems: 'flex-end', flexWrap: 'wrap' }}
+					>
 						<Field label={t('encounter.savedEncounters')} style={{ flex: '1 1 200px' }}>
 							<Select
 								value={loadId}
@@ -553,80 +457,7 @@ export function EncounterDialog({
 					</div>
 				)}
 
-				{/* Roster picker — the real character roster across kinds (actor-filtered core read). */}
-				<div
-					style={{
-						display: 'grid',
-						gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-						gap: 12,
-					}}
-				>
-					{KIND_GROUPS.map((group) => {
-						const members = characters.filter(group.match);
-						return (
-							<div key={group.label} style={{ minWidth: 0 }}>
-								<div style={{ ...eb, marginBottom: 6 }}>{t(group.label)}</div>
-								{members.length === 0 ? (
-									<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-										{t('encounter.groupEmpty')}
-									</div>
-								) : (
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-										{members.map((c) => {
-											const picked = rows.some((r) => r.key === `char-${c.id}`);
-											return (
-												<button
-													key={c.id}
-													type="button"
-													aria-pressed={picked}
-													onClick={() => toggleCharacter(c)}
-													style={{
-														display: 'flex',
-														alignItems: 'center',
-														gap: 8,
-														padding: '6px 8px',
-														borderRadius: 7,
-														border: `1px solid ${picked ? T.accBd : T.bd}`,
-														background: picked ? T.accSub : T.surf,
-														cursor: 'pointer',
-														textAlign: 'left',
-													}}
-												>
-													<Icon
-														name={picked ? 'check' : 'add'}
-														size={13}
-														color={picked ? T.acc : T.ter}
-													/>
-													<span
-														style={{
-															flex: 1,
-															minWidth: 0,
-															font: `600 12.5px ${T.sans}`,
-															color: T.ink,
-															whiteSpace: 'nowrap',
-															overflow: 'hidden',
-															textOverflow: 'ellipsis',
-														}}
-													>
-														{c.name}
-													</span>
-													<span
-														style={{ font: `10.5px ${T.mono}`, color: T.ter, whiteSpace: 'nowrap' }}
-													>
-														{t('encounter.hpAc', {
-															hp: c.combat?.maxHp ?? '—',
-															ac: c.combat?.ac ?? '—',
-														})}
-													</span>
-												</button>
-											);
-										})}
-									</div>
-								)}
-							</div>
-						);
-					})}
-				</div>
+				<RosterPicker characters={characters} rows={rows} onToggle={toggleCharacter} />
 
 				<QuickAddFoe key={`quick-${draftGen}`} onAdd={(row) => setRows((prev) => [...prev, row])} />
 
@@ -639,110 +470,25 @@ export function EncounterDialog({
 					onRemove={(key) => setRows((prev) => prev.filter((x) => x.key !== key))}
 				/>
 
-				{/* RC-SES-3.5 — how the fight opens: the ambush seed (read from the party's marching
-				    order) and whether starting it puts tokens on the session's active map. */}
 				{mode === 'start' && (
-					<div
-						style={{
-							display: 'flex',
-							flexDirection: 'column',
-							gap: 8,
-							borderTop: `1px solid ${T.bd}`,
-							paddingTop: 12,
-						}}
-					>
-						<div style={eb}>{t('encounter.opening')}</div>
-						<SegmentedControl
-							ariaLabel={t('encounter.opening')}
-							size="sm"
-							value={ambush}
-							onChange={(next: AmbushMode) => applyAmbush(next)}
-							options={[
-								{ value: 'none', label: t('encounter.ambush.none') },
-								{ value: 'party-ambushes', label: t('encounter.ambush.partyAmbushes') },
-								{ value: 'party-surprised', label: t('encounter.ambush.partySurprised') },
-							]}
-						/>
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							{ambush === 'none'
-								? t('encounter.ambushNote.none')
-								: marchingOrder.length === 0
-									? t('encounter.ambushNote.noOrder')
-									: t('encounter.ambushNote.seeded')}
-						</div>
-						<Switch
-							checked={placeOnMap && activeMapId !== null}
-							aria-disabled={activeMapId === null || undefined}
-							label={t('encounter.placeOnMap')}
-							onChange={(next: boolean) => {
-								if (activeMapId === null) return;
-								setPlaceOnMap(next);
-							}}
-						/>
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-							{activeMapId === null
-								? t('encounter.placeOnMapNoMap')
-								: t('encounter.placeOnMapNote')}
-						</div>
-					</div>
+					<EncounterOpening
+						ambush={ambush}
+						hasMarchingOrder={marchingOrder.length > 0}
+						activeMapId={activeMapId}
+						placeOnMap={placeOnMap}
+						onAmbush={applyAmbush}
+						onPlaceOnMap={setPlaceOnMap}
+					/>
 				)}
 
-				{/* Challenge budget — the deterministic core guidance (the template's XP-budget meter). */}
 				{mode === 'start' && challenge && (
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'flex-end',
-							gap: 12,
-							flexWrap: 'wrap',
-							borderTop: `1px solid ${T.bd}`,
-							paddingTop: 12,
-						}}
-					>
-						<Field label={t('encounter.partySize')} style={{ width: 84 }}>
-							<Input
-								type="number"
-								min={1}
-								value={partySize}
-								onChange={(e: { target: { value: string } }) => setPartySize(e.target.value)}
-							/>
-						</Field>
-						<Field label={t('encounter.avgLevel')} style={{ width: 84 }}>
-							<Input
-								type="number"
-								min={1}
-								max={20}
-								value={partyLevel}
-								onChange={(e: { target: { value: string } }) => setPartyLevel(e.target.value)}
-							/>
-						</Field>
-						<div style={{ flex: '1 1 200px', minWidth: 160 }}>
-							<ProgressMeter
-								label={t('encounter.challengeBudget')}
-								value={challenge.encounterPoints}
-								max={Math.max(1, challenge.partyDeadlyThreshold)}
-								valueLabel={t('encounter.points', {
-									value: challenge.encounterPoints,
-									max: challenge.partyDeadlyThreshold,
-								})}
-								tone={
-									challenge.difficulty === 'deadly'
-										? 'error'
-										: challenge.difficulty === 'hard'
-											? 'warning'
-											: 'accent'
-								}
-								markers={[0.25, 0.5, 0.75].map((f) =>
-									Math.round(challenge.partyDeadlyThreshold * f),
-								)}
-							/>
-						</div>
-						<Badge status={DIFFICULTY_BADGE[challenge.difficulty] ?? 'neutral'}>
-							{DIFFICULTY_LABEL[challenge.difficulty]
-								? t(DIFFICULTY_LABEL[challenge.difficulty])
-								: challenge.difficulty}
-						</Badge>
-					</div>
+					<EncounterChallenge
+						challenge={challenge}
+						partySize={partySize}
+						partyLevel={partyLevel}
+						onPartySize={setPartySize}
+						onPartyLevel={setPartyLevel}
+					/>
 				)}
 			</div>
 		</Dialog>

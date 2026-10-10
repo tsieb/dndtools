@@ -1,17 +1,117 @@
 import { useState } from 'react';
-import { Button, Field, IconButton, Input } from '../ds';
+import { Button, Field, Icon, IconButton, Input } from '../ds';
 import { T, eb } from './screen-kit';
 import { useI18n } from '../i18n';
-import { nextQuickDraftKey, type DraftRow } from './EncounterDraft';
+import {
+	KIND_GROUPS,
+	nextQuickDraftKey,
+	type DraftRow,
+	type RosterCharacter,
+} from './EncounterDraft';
 
 /**
- * The encounter builder's draft-editing surfaces: the ad-hoc quick-add row and the draft roster
- * (per-combatant initiative, count steppers, CR, visibility, removal).
+ * The encounter builder's draft-editing surfaces: the roster picker, the ad-hoc quick-add row and
+ * the draft roster (per-combatant initiative, count steppers, CR, visibility, removal).
  *
  * A pure move out of `EncounterBuilder.tsx` (RC-ENG-2.2 — that file had grown past the RC-STB-2.7
  * file-size limit). The markup, the handlers and the local draft state are exactly what lived
  * inline; only the values the dialog still owns (`rows`, `mode`, `patchRow`) cross as props.
  */
+
+/**
+ * The roster picker — the real character roster across kinds (an actor-filtered core read), one
+ * toggle per character. Moved out of the dialog for size (RC-POL-1.4). Names wrap rather than
+ * ellipsize: in the three-column grid "Sera Duskwhisper" lost half its letters.
+ */
+export function RosterPicker({
+	characters,
+	rows,
+	onToggle,
+}: {
+	characters: RosterCharacter[];
+	rows: DraftRow[];
+	onToggle: (c: RosterCharacter) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<div
+			style={{
+				display: 'grid',
+				gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+				gap: T.space.three,
+			}}
+		>
+			{KIND_GROUPS.map((group) => {
+				const members = characters.filter(group.match);
+				return (
+					<div key={group.label} style={{ minWidth: 0 }}>
+						<div style={{ ...eb, marginBottom: T.space.oneHalf }}>{t(group.label)}</div>
+						{members.length === 0 ? (
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+								{t('encounter.groupEmpty')}
+							</div>
+						) : (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}>
+								{members.map((c) => {
+									const picked = rows.some((r) => r.key === `char-${c.id}`);
+									return (
+										<button
+											key={c.id}
+											type="button"
+											aria-pressed={picked}
+											onClick={() => onToggle(c)}
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: T.space.two,
+												minHeight: T.density.touch,
+												padding: `${T.space.oneHalf} ${T.space.two}`,
+												borderRadius: T.radius.md,
+												border: `1px solid ${picked ? T.accBd : T.bd}`,
+												background: picked ? T.accSub : T.surf,
+												cursor: 'pointer',
+												textAlign: 'left',
+											}}
+										>
+											<Icon
+												name={picked ? 'check' : 'add'}
+												size={13}
+												color={picked ? T.acc : T.sub}
+											/>
+											<span
+												style={{
+													flex: 1,
+													minWidth: 0,
+													font: `600 var(--text-sm) ${T.sans}`,
+													color: T.ink,
+													overflowWrap: 'anywhere',
+												}}
+											>
+												{c.name}
+											</span>
+											<span
+												style={{
+													font: `var(--text-2xs) ${T.mono}`,
+													color: T.sub,
+													whiteSpace: 'nowrap',
+												}}
+											>
+												{t('encounter.hpAc', {
+													hp: c.combat?.maxHp ?? '—',
+													ac: c.combat?.ac ?? '—',
+												})}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
 
 /** Ad-hoc quick add — a monster that is not in the vault yet. */
 export function QuickAddFoe({ onAdd }: { onAdd: (row: DraftRow) => void }) {
@@ -44,7 +144,7 @@ export function QuickAddFoe({ onAdd }: { onAdd: (row: DraftRow) => void }) {
 	return (
 		<>
 			{/* Ad-hoc quick add — a monster that is not in the vault yet. */}
-			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+			<div style={{ display: 'flex', gap: T.space.two, alignItems: 'flex-end', flexWrap: 'wrap' }}>
 				<Field label={t('encounter.quickAdd')} style={{ flex: '2 1 160px' }}>
 					<Input
 						value={qName}
@@ -55,7 +155,7 @@ export function QuickAddFoe({ onAdd }: { onAdd: (row: DraftRow) => void }) {
 						}}
 					/>
 				</Field>
-				<Field label={t('encounter.hp')} style={{ width: 72 }}>
+				<Field label={t('encounter.hp')} style={{ width: '4.5rem' }}>
 					<Input
 						type="number"
 						// `quickAdd` floors at 1, so min={0} let the browser's own validation and the
@@ -65,7 +165,7 @@ export function QuickAddFoe({ onAdd }: { onAdd: (row: DraftRow) => void }) {
 						onChange={(e: { target: { value: string } }) => setQHp(e.target.value)}
 					/>
 				</Field>
-				<Field label={t('encounter.ac')} style={{ width: 72 }}>
+				<Field label={t('encounter.ac')} style={{ width: '4.5rem' }}>
 					<Input
 						type="number"
 						min={0}
@@ -95,6 +195,11 @@ export function DraftRoster({
 	onRemove: (key: string) => void;
 }) {
 	const { t } = useI18n();
+	// Raw text for the CR fields while they are being edited. Coercing on every keystroke made the
+	// two most common low-tier ratings impossible to type: `Number('0.')` is 0, so the controlled
+	// input snapped back and swallowed the decimal point before "0.25"/"0.5" could be entered.
+	// Same story for the per-row count: `Math.trunc(Number(v) || 1)` on every keystroke snapped the
+	// field back to 1 the moment it was cleared, so "12" could not be retyped over "3".
 	const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
 	function commitQty(key: string) {
 		const draft = qtyDrafts[key];
@@ -122,10 +227,12 @@ export function DraftRoster({
 	return (
 		<>
 			{/* The draft roster — per-combatant initiative (typed or rolled), count, CR, visibility. */}
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
 				<div style={eb}>{t('encounter.combatants', { count: rows.length })}</div>
 				{rows.length === 0 ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('encounter.nonePicked')}</div>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+						{t('encounter.nonePicked')}
+					</div>
 				) : (
 					rows.map((r) => (
 						<div
@@ -133,9 +240,9 @@ export function DraftRoster({
 							style={{
 								display: 'flex',
 								alignItems: 'center',
-								gap: 8,
-								padding: '6px 10px',
-								borderRadius: 8,
+								gap: T.space.two,
+								padding: `${T.space.oneHalf} ${T.space.three}`,
+								borderRadius: T.radius.md,
 								border: `1px solid ${T.bd}`,
 								background: T.surf,
 								flexWrap: 'wrap',
@@ -145,7 +252,7 @@ export function DraftRoster({
 								style={{
 									flex: '1 1 120px',
 									minWidth: 0,
-									font: `600 13px ${T.sans}`,
+									font: `600 var(--text-sm) ${T.sans}`,
 									color: T.ink,
 									whiteSpace: 'nowrap',
 									overflow: 'hidden',
@@ -158,9 +265,9 @@ export function DraftRoster({
 								style={{
 									display: 'inline-flex',
 									alignItems: 'center',
-									gap: 5,
-									font: `11px ${T.sans}`,
-									color: T.ter,
+									gap: T.space.oneHalf,
+									font: `var(--text-xs) ${T.sans}`,
+									color: T.sub,
 								}}
 							>
 								{t('encounter.init')}
@@ -168,7 +275,7 @@ export function DraftRoster({
 									value={r.initiative}
 									placeholder={t('encounter.initPlaceholder')}
 									aria-label={t('encounter.initOf', { name: r.name })}
-									style={{ width: 58, textAlign: 'center', fontFamily: T.mono }}
+									style={{ width: '4.5rem', textAlign: 'center', fontFamily: T.mono }}
 									onChange={(e: { target: { value: string } }) =>
 										patchRow(r.key, { initiative: e.target.value.replace(/[^-\d]/g, '') })
 									}
@@ -203,9 +310,9 @@ export function DraftRoster({
 										style={{
 											display: 'inline-flex',
 											alignItems: 'center',
-											gap: 5,
-											font: `11px ${T.sans}`,
-											color: T.ter,
+											gap: T.space.oneHalf,
+											font: `var(--text-xs) ${T.sans}`,
+											color: T.sub,
 										}}
 									>
 										×
@@ -215,7 +322,7 @@ export function DraftRoster({
 											max={20}
 											value={qtyDrafts[r.key] ?? r.quantity}
 											aria-label={t('encounter.quantityOf', { name: r.name })}
-											style={{ width: 56, textAlign: 'center', fontFamily: T.mono }}
+											style={{ width: '4rem', textAlign: 'center', fontFamily: T.mono }}
 											onChange={(e: { target: { value: string } }) =>
 												setQtyDrafts((d) => ({ ...d, [r.key]: e.target.value }))
 											}
@@ -245,9 +352,9 @@ export function DraftRoster({
 											style={{
 												display: 'inline-flex',
 												alignItems: 'center',
-												gap: 5,
-												font: `11px ${T.sans}`,
-												color: T.ter,
+												gap: T.space.oneHalf,
+												font: `var(--text-xs) ${T.sans}`,
+												color: T.sub,
 											}}
 										>
 											{t('encounter.cr')}
@@ -257,7 +364,7 @@ export function DraftRoster({
 												step={0.25}
 												value={crDrafts[r.key] ?? r.cr}
 												aria-label={t('encounter.crOf', { name: r.name })}
-												style={{ width: 62, textAlign: 'center', fontFamily: T.mono }}
+												style={{ width: '4.5rem', textAlign: 'center', fontFamily: T.mono }}
 												onChange={(e: { target: { value: string } }) =>
 													setCrDrafts((d) => ({ ...d, [r.key]: e.target.value }))
 												}
@@ -295,7 +402,7 @@ export function DraftRoster({
 						</div>
 					))
 				)}
-				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{mode === 'start'
 						? t('encounter.initiativeNoteStart')
 						: t('encounter.initiativeNoteReinforce')}

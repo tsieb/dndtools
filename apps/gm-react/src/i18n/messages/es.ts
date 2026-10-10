@@ -600,7 +600,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	// RC-SES-2.3 — la pestaña de tablas aleatorias.
 	'session.tables.title': 'Tablas aleatorias',
 	'session.tables.roll': 'Tirar',
-	'session.tables.rowCount': '{count} filas',
+	'session.tables.rowCount': '{count, plural, one {# fila} other {# filas}}',
 	'session.tables.pin': 'Fijar {title} en la referencia rápida',
 	'session.tables.unpin': 'Quitar {title} de la referencia rápida',
 	'session.tables.pinned': 'Fijada en la referencia rápida',
@@ -608,7 +608,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.tables.drewRow': 'Fila {row} (tirada {total})',
 	'session.tables.overshoot':
 		'Esta tabla llega hasta {max} pero tiene {count} filas, así que todo total mayor cae en la última fila.',
-	'session.tables.empty.title': 'Todavía no hay tablas aleatorias.',
+	'session.tables.empty.title': 'Todavía no hay tablas aleatorias',
 	'session.tables.empty.description':
 		'Una tabla es un objeto de la bóveda con una expresión de dados y filas de resultado. Crea una en la bóveda y tírala aquí.',
 	'session.audio.title': 'Sonando ahora',
@@ -644,7 +644,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.hitPointsAnnouncement': '{hp} de {max} puntos de golpe.',
 	'session.combat.noneRunning': 'No hay combate en curso',
 	'session.combat.noneRunningHelp':
-		'Monta un encuentro con tu lista — grupo, PNJ, monstruos —, fija la iniciativa y dirígelo.',
+		'Monta un encuentro con tu lista —grupo, PNJ y monstruos—, fija la iniciativa y dirígelo.',
 	'session.combat.round': 'Ronda',
 	'session.combat.turn': 'Turno',
 	'session.combat.lowestHp': 'PG más bajos',
@@ -818,7 +818,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.capture.continuityCreated': '{name} creado',
 	'session.prep.whatHappened': 'Qué pasó',
 	'session.prep.carryInto': 'Llevar a la sesión',
-	'session.prep.nothingToCarry': 'Todavía no hay nada que arrastrar.',
+	'session.prep.nothingToCarry': 'Todavía no hay nada pendiente para la sesión.',
 	'session.prep.archives': 'Archivos de sesión',
 	'session.prep.noArchives':
 		'Aún no hay sesiones archivadas. Terminar una sesión en vivo con Resumen crea una aquí.',
@@ -834,6 +834,25 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.prep.saveRecap': 'Guardar el resumen',
 	'session.prep.finalMap': 'Tablero final — {name}',
 	'session.prep.finalMapNoTokens': 'Nadie estaba en el mapa cuando terminó la sesión.',
+	'session.prep.reviewCount':
+		'{count, plural, one {# cambio reciente por revisar} other {# cambios recientes por revisar}}',
+	'session.prep.reviewNone': 'No hay cambios recientes por revisar.',
+	'session.prep.reviewList': 'Cambios recientes',
+	'session.prep.reviewMeta': '{verb} · {kind} · {when}',
+	'session.prep.reviewMetaUnnamed': '{verb} · {when}',
+	'session.prep.reviewKind.character': 'Personaje',
+	'session.prep.reviewKind.item': 'Elemento de la bóveda',
+	'session.prep.reviewKind.scene': 'Escena',
+	'session.prep.reviewKind.map': 'Mapa',
+	'session.prep.reviewKind.session': 'Sesión',
+	'session.prep.reviewKind.combat': 'Combate',
+	'session.prep.reviewKind.audio': 'Audio',
+	'session.prep.reviewKind.access': 'Acceso de jugadores',
+	'session.prep.reviewKind.other': 'Otro cambio',
+	'session.prep.reviewVerb.created': 'Creado',
+	'session.prep.reviewVerb.edited': 'Editado',
+	'session.prep.reviewVerb.deleted': 'Eliminado',
+	'session.prep.reviewVerb.changed': 'Cambiado',
 	'session.schedule.title': 'Programar la próxima sesión',
 	'session.schedule.notConfigured':
 		'La programación con Google Calendar no está configurada en esta instalación. Una configuración única en Google Cloud la habilita — consulta la guía en {guide}.',
@@ -859,7 +878,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.schedule.scheduling': 'Programando…',
 	'session.schedule.create': 'Crear el evento de calendario',
 	'session.schedule.openInCalendar': 'Abrir en Google Calendar',
-	'session.header.eyebrow': 'Sesión en vivo',
+	'session.header.eyebrow': 'Sesión actual',
 	'session.header.noScene': 'Sin escena activa',
 	'session.header.phaseLabel': 'Fase de la sesión',
 	'session.header.blockedPreview':
@@ -1214,7 +1233,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.quick.timerResume': 'Reanudar',
 	'session.quick.timerReset': 'Reiniciar',
 	'session.quick.timerLap': 'Vuelta',
-	'session.quick.timerLapCount': '{count} marcas de vuelta',
+	'session.quick.timerLapCount':
+		'{count, plural, one {# marca de vuelta} other {# marcas de vuelta}}',
 	'session.quick.timerBackIn': 'Vuelve en {display}',
 	'shell.newScene': 'Nueva escena',
 	'shell.noScenes': 'Aún no hay escenas.',
@@ -6102,11 +6122,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'encounter.avgLevel': 'Nivel medio',
 	'encounter.challengeBudget': 'Presupuesto de desafío',
 	'encounter.points': '{value} / {max} pts',
-	'encounter.difficulty.trivial': 'trivial',
-	'encounter.difficulty.easy': 'fácil',
-	'encounter.difficulty.medium': 'medio',
-	'encounter.difficulty.hard': 'difícil',
-	'encounter.difficulty.deadly': 'mortal',
+	'encounter.difficulty.trivial': 'Trivial',
+	'encounter.difficulty.easy': 'Fácil',
+	'encounter.difficulty.medium': 'Medio',
+	'encounter.difficulty.hard': 'Difícil',
+	'encounter.difficulty.deadly': 'Mortal',
 	/* RC-SES-3.5 — constructor de encuentros v2: cantidades, guardar/reutilizar, mapa, emboscada */
 	'encounter.decreaseCount': 'Un {name} menos',
 	'encounter.increaseCount': 'Un {name} más',
@@ -7107,11 +7127,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.rest.title': 'Convocar un descanso',
 	'session.rest.description':
 		'Todos los personajes jugadores toman este descanso. Cada jugador gasta sus dados de golpe desde su hoja.',
-	'session.rest.applies': 'Se aplica a {count} personajes jugadores.',
+	'session.rest.applies':
+		'Se aplica a {count, plural, one {# personaje jugador} other {# personajes jugadores}}.',
 	'session.rest.noParty': 'Añade personajes jugadores a la lista antes de convocar un descanso.',
 	'session.rest.confirm': 'Convocar el descanso',
 	'session.rest.cancel': 'Cancelar',
-	'session.rest.called': 'Descanso convocado para {count} personajes',
+	'session.rest.called':
+		'Descanso convocado para {count, plural, one {# personaje} other {# personajes}}',
 	'session.rest.timeline': 'Descansos de esta sesión',
 	'session.rest.timelineHelp':
 		'Todos los descansos que ha tomado el grupo, del más reciente al más antiguo.',

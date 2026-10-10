@@ -58,7 +58,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('a vault with no tables says so instead of showing an empty list', async ({ page }) => {
-	await expect(page.getByText('No rollable tables yet.', { exact: true })).toBeVisible();
+	await expect(page.getByText('No rollable tables yet', { exact: true })).toBeVisible();
 });
 
 test('rolling a table draws a row and records it in the session roll log', async ({ page }) => {

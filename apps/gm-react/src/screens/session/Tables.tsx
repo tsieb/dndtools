@@ -133,16 +133,20 @@ function TableRow({
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
-				gap: 6,
-				padding: '10px 0',
+				gap: T.space.oneHalf,
+				padding: `${T.space.three} ${T.space.zero}`,
 				borderTop: `1px solid ${T.bd}`,
 			}}
 		>
-			<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-				<span style={{ font: `600 13px ${T.sans}`, color: T.ink, flex: 1, minWidth: 120 }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}>
+				<span
+					style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink, flex: 1, minWidth: 120 }}
+				>
 					{table.title}
 				</span>
-				<span style={{ ...mono, font: `11px ${T.mono}`, color: T.sub }}>{table.dice}</span>
+				<span style={{ ...mono, font: `var(--text-xs) ${T.mono}`, color: T.sub }}>
+					{table.dice}
+				</span>
 				<Badge>{t('session.tables.rowCount', { count: table.rows.length })}</Badge>
 				<Button
 					variant="accent"
@@ -173,14 +177,14 @@ function TableRow({
 				)}
 			</div>
 			{overshoots && (
-				<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t('session.tables.overshoot', { max: table.maxTotal ?? 0, count: table.rows.length })}
 				</div>
 			)}
 			{draw && (
 				<div
 					data-testid={`table-draw-${table.id}`}
-					style={{ font: `12px ${T.sans}`, color: T.sub }}
+					style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}
 				>
 					<span style={{ ...mono, color: T.acc, fontWeight: 700 }}>
 						{t('session.tables.drewRow', { row: draw.rowNumber, total: draw.total })}
@@ -230,6 +234,7 @@ export function TablesPanel({
 				<EmptyState
 					inset
 					icon="dice"
+					illustration="tables-empty"
 					title={t('session.tables.empty.title')}
 					description={t('session.tables.empty.description')}
 				/>

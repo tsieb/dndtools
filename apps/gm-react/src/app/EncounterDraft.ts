@@ -1,4 +1,4 @@
-import type { CommandResult, listCharactersForActor } from '@dndtools/core';
+import type { CommandResult, listCharactersForActor, listEncountersForActor } from '@dndtools/core';
 import type { MessageKey } from '../i18n';
 
 /**
@@ -107,3 +107,120 @@ export type AmbushMode = 'none' | 'party-ambushes' | 'party-surprised';
 /** The initiative a seeded side starts at; the other side starts below it. Deterministic. */
 export const AMBUSH_TOP = 30;
 export const AMBUSH_BOTTOM = 10;
+
+/**
+ * RC-SES-3.5 — seed initiative and hidden flags from the party's MARCHING ORDER (moved here from the
+ * dialog for size, RC-POL-1.4; pure).
+ *
+ * The marching order already says who is in front, so it is the honest answer to "who reacts first"
+ * when a fight opens badly. `party-ambushes` puts the party on top of the order in marching-order
+ * sequence; `party-surprised` puts the foes on top AND starts them hidden (players see the tracker's
+ * "Unknown creature" placeholder until the DM reveals them). Unplaced party members fall in behind
+ * everyone the marching order does place. `none` is the dialog's job: it restores what the fields
+ * held before a mode was applied.
+ */
+export function seedAmbush(
+	rows: DraftRow[],
+	mode: Exclude<AmbushMode, 'none'>,
+	marchingOrder: readonly string[],
+): DraftRow[] {
+	const partyTop = mode === 'party-ambushes';
+	const rank = (r: DraftRow) => {
+		const index = r.characterId ? marchingOrder.indexOf(r.characterId) : -1;
+		return index >= 0 ? index : marchingOrder.length;
+	};
+	let foeIndex = 0;
+	return rows.map((r) => {
+		if (r.kind === 'character') {
+			return { ...r, initiative: String((partyTop ? AMBUSH_TOP : AMBUSH_BOTTOM) - rank(r)) };
+		}
+		const seat = foeIndex;
+		foeIndex += 1;
+		return {
+			...r,
+			initiative: String((partyTop ? AMBUSH_BOTTOM : AMBUSH_TOP) - seat),
+			// Only the foes' ambush hides them; a party ambush leaves visibility alone.
+			hidden: partyTop ? r.hidden : true,
+		};
+	});
+}
+
+/** Typed draft text as a whole number, or `fallback` when it is blank or not a number. */
+const whole = (text: string, fallback: number) => Math.trunc(Number(text)) || fallback;
+
+/** The party context both the meter and `encounter.build` read: size ≥ 1, level 1–20. */
+export function partyContext(size: string, level: string) {
+	return {
+		size: Math.max(1, whole(size, 1)),
+		averageLevel: Math.min(20, Math.max(1, whole(level, 1))),
+	};
+}
+
+/** The durable `encounter.build` payload — shared by Save and Start (moved here for size, RC-POL-1.4). */
+export function encounterBuildPayload(
+	rows: DraftRow[],
+	title: string,
+	partySize: string,
+	partyLevel: string,
+) {
+	return {
+		title,
+		combatants: rows.map((r) => ({
+			kind: r.kind,
+			name: r.name,
+			characterId: r.characterId,
+			challengeRating: r.kind === 'character' ? 0 : r.cr,
+			quantity: r.kind === 'character' ? 1 : Math.max(1, r.quantity),
+			maxHp: r.maxHp,
+			ac: r.ac,
+			// Blank ⇒ roll here (d20 + DEX mod) so the DM never starts a fight of all-0 initiative.
+			initiative:
+				r.initiative.trim() === ''
+					? 1 + Math.floor(Math.random() * 20) + r.dexMod
+					: whole(r.initiative, 0),
+			hidden: r.hidden,
+		})),
+		party: partyContext(partySize, partyLevel),
+	};
+}
+
+/** The `combat.add-combatants` roster for reinforcements. Blank ⇒ null ⇒ the core auto-rolls 1d20. */
+export function reinforcementsOf(rows: DraftRow[]) {
+	return rows.map((r) => ({
+		kind: r.kind,
+		name: r.name,
+		characterId: r.characterId,
+		ac: r.ac,
+		initiative: r.initiative.trim() === '' ? null : whole(r.initiative, 0),
+		maxHp: r.maxHp,
+		hidden: r.hidden,
+		quantity: Math.min(20, Math.max(1, r.kind === 'character' ? 1 : r.quantity)),
+	}));
+}
+
+/**
+ * RC-SES-3.5 — rehydrate draft rows from a saved encounter. A selection that still points at a live
+ * vault character re-adopts that character's DEX, so a blank initiative rolls the same way it would
+ * from the roster picker.
+ */
+export function rowsFromSaved(
+	saved: ReturnType<typeof listEncountersForActor>[number],
+	characters: RosterCharacter[],
+): DraftRow[] {
+	return saved.combatants.map((c) => {
+		const character = c.characterId ? characters.find((r) => r.id === c.characterId) : undefined;
+		return {
+			key: c.characterId ? `char-${c.characterId}` : `saved-${c.id}`,
+			kind: c.kind === 'character' || c.kind === 'monster' ? c.kind : 'npc',
+			name: c.name,
+			characterId: c.characterId,
+			maxHp: c.maxHp,
+			ac: c.ac,
+			initiative: '',
+			cr: c.challengeRating,
+			quantity: Math.max(1, c.quantity),
+			hidden: c.hidden,
+			dexMod: character ? dexModOf(character) : 0,
+		};
+	});
+}

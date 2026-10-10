@@ -33,22 +33,22 @@ export function AudioPanel({
 					style={{
 						display: 'flex',
 						alignItems: 'center',
-						gap: 10,
-						font: `12.5px ${T.sans}`,
-						color: T.ter,
+						gap: T.space.three,
+						font: `var(--text-sm) ${T.sans}`,
+						color: T.sub,
 					}}
 				>
 					<Icon name="audio" size="sm" color={T.ter} />
 					{t('session.audio.empty')}
 				</div>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}>
 						<Icon name="audio" size="sm" color={track.status === 'playing' ? T.acc : T.sub} />
 						<div style={{ flex: 1, minWidth: 0 }}>
 							<div
 								style={{
-									font: `600 13px ${T.sans}`,
+									font: `600 var(--text-sm) ${T.sans}`,
 									color: T.ink,
 									whiteSpace: 'nowrap',
 									overflow: 'hidden',
@@ -57,7 +57,7 @@ export function AudioPanel({
 							>
 								{trackLabel ?? track.assetId ?? track.sourceId}
 							</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('session.audio.source')}
 							</div>
 						</div>
@@ -67,7 +67,7 @@ export function AudioPanel({
 					</div>
 					{isDm && (
 						<>
-							<div style={{ display: 'flex', gap: 7 }}>
+							<div style={{ display: 'flex', gap: T.space.two }}>
 								{track.status === 'playing' ? (
 									<Button
 										variant="secondary"

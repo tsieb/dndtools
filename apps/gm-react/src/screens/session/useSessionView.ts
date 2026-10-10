@@ -277,24 +277,119 @@ export function useArchives() {
  * SES-009 — the prep/recap continuity digest (DM-only: a non-DM receives an EMPTY digest). In
  * `recap` it looks back at the just-archived session; every other phase preps forward.
  */
+/** The kind of thing a reviewable change touched, as the Prep and recap list names it. */
+export type ReviewChangeKind =
+	| 'character'
+	| 'item'
+	| 'scene'
+	| 'map'
+	| 'session'
+	| 'combat'
+	| 'audio'
+	| 'access'
+	| 'other';
+
+/** One recent change the Prep and recap panel lists (RC-POL-1.4, §1.7). */
+export interface ReviewChange {
+	id: string;
+	kind: ReviewChangeKind;
+	/** The thing's name as this viewer may read it, or null when it is gone or not visible. */
+	name: string | null;
+	verb: 'created' | 'edited' | 'deleted' | 'changed';
+	at: string;
+}
+
+/** How many recent changes the panel counts and lists, as the core digest bounds them. */
+const REVIEW_LIMIT = 10;
+
+const REVIEW_KIND: Readonly<Record<string, ReviewChangeKind>> = {
+	character: 'character',
+	'character-draft': 'character',
+	'content-item': 'item',
+	calendar: 'item',
+	handout: 'item',
+	scene: 'scene',
+	map: 'map',
+	session: 'session',
+	combat: 'combat',
+	encounter: 'combat',
+	'session-audio': 'audio',
+	'audio-asset': 'audio',
+	'audio-source': 'audio',
+	'audio-preset': 'audio',
+	'audio-association': 'audio',
+	'audio-automation-rule': 'audio',
+	'permission-grant': 'access',
+	'permission-actor': 'access',
+	'player-group': 'access',
+};
+
+/** Writes that are bookkeeping rather than something a GM reviews (see `usePrepRecapDigest`). */
+const NOT_REVIEWED = new Set(['content-history', 'command-center', 'presence', 'diagnostics']);
+
+function reviewVerb(opType: string): ReviewChange['verb'] {
+	const action = opType.slice(opType.indexOf('.') + 1);
+	if (/^(create|quick-create|finalize|import|add)/.test(action)) return 'created';
+	if (/^(delete|remove|archive)/.test(action)) return 'deleted';
+	if (/^(update|rename|set|edit)/.test(action)) return 'edited';
+	return 'changed';
+}
+
+/**
+ * SES-009 — the prep/recap digest, with the recent changes a GM would actually review (RC-POL-1.4,
+ * roadmap §1.7). The core counts every operation in the log, and on an empty vault the log holds
+ * only the app's own setup: opening Session provisions the Session screen, the Command Center its
+ * home screen. A fresh vault read "2 recent changes to review" for writes nobody made. The default
+ * screens, the home pointer, presence and diagnostics, and the revision records a content edit writes
+ * beside itself (one edit, two operations) are left out, and the rest are named through the same actor-scoped reads the
+ * other panels use, so the list never shows a name this viewer could not open elsewhere.
+ */
 export function usePrepRecapDigest() {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
-	const { session, content, maps, characters, permissions, sync } = runtime.state;
-	return useMemo(
-		() =>
-			getPrepRecapDigest(
-				session,
-				content,
-				maps,
-				characters,
-				permissions,
-				sync,
-				actorId,
-				session.workflow === 'recap' ? 'recap' : 'prep',
-			),
-		[session, content, maps, characters, permissions, sync, actorId],
-	);
+	const { session, content, maps, characters, permissions, sync, scenes, commandCenter } =
+		runtime.state;
+	return useMemo(() => {
+		const digest = getPrepRecapDigest(
+			session,
+			content,
+			maps,
+			characters,
+			permissions,
+			sync,
+			actorId,
+			session.workflow === 'recap' ? 'recap' : 'prep',
+			// Read past the bound: the setup writes filtered out below must not eat into it.
+			{ recentChangeLimit: REVIEW_LIMIT * 5 },
+		);
+		const setup = new Set([
+			commandCenter.homeSceneId,
+			findHomeScreen(scenes)?.id,
+			findSessionScreen(scenes)?.id,
+		]);
+		const names = new Map<string, string>();
+		for (const c of listCharactersForActor(characters, permissions, actorId))
+			names.set(c.id, c.name);
+		for (const i of getContentItemsForActor(content, permissions, actorId))
+			names.set(i.id, i.title);
+		for (const s of listScenesForActor(scenes, permissions, actorId)) names.set(s.id, s.name);
+		for (const m of listMapsForActor(maps, permissions, actorId)) names.set(m.id, m.name);
+		const recentChanges = digest.recentChanges
+			.filter(
+				(change) =>
+					!NOT_REVIEWED.has(change.entityType) &&
+					!(change.entityType === 'scene' && setup.has(change.entityId)),
+			)
+			.slice(0, REVIEW_LIMIT);
+		const reviewChanges: ReviewChange[] = recentChanges.map((change) => ({
+			id: change.operationId,
+			kind: REVIEW_KIND[change.entityType] ?? 'other',
+			name: names.get(change.entityId) ?? null,
+			verb: reviewVerb(change.opType),
+			at: change.at,
+		}));
+		return { ...digest, recentChanges, reviewChanges };
+	}, [session, content, maps, characters, permissions, sync, scenes, commandCenter, actorId]);
 }
 
 /**

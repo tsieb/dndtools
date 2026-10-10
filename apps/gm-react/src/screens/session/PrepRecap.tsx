@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import type { MapListEntry, PrepRecapDigest, SessionArchiveSnapshot } from '@dndtools/core';
-import { Button, Select, Textarea, VisibilityChip } from '../../ds';
+import { useId, useEffect, useState } from 'react';
+import type { MapListEntry, SessionArchiveSnapshot } from '@dndtools/core';
+import { Button, Icon, Select, Textarea, VisibilityChip } from '../../ds';
 import { useI18n } from '../../i18n';
 import { Panel, T, eb } from '../../app/screen-kit';
+import type { ReviewChange, usePrepRecapDigest } from './useSessionView';
+
+type SessionDigest = ReturnType<typeof usePrepRecapDigest>;
 
 // ── Prep & recap (SES-009 — the continuity digest, session archives, recap authoring) ─────────────
 
@@ -34,7 +37,7 @@ function ArchiveFinalMap({
 		.map(([combatantId, token]) => ({ token, combatant: archive.combat.combatants[combatantId] }));
 
 	return (
-		<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+		<div style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}>
 			<div
 				aria-hidden
 				style={{
@@ -42,7 +45,7 @@ function ArchiveFinalMap({
 					width: 72,
 					height: 54,
 					flex: '0 0 auto',
-					borderRadius: 6,
+					borderRadius: T.radius.md,
 					border: `1px solid ${T.bd}`,
 					background: T.sunken,
 					overflow: 'hidden',
@@ -59,13 +62,13 @@ function ArchiveFinalMap({
 							transform: 'translate(-50%, -50%)',
 							width: 6,
 							height: 6,
-							borderRadius: '50%',
+							borderRadius: T.radius.full,
 							background: combatant?.kind === 'character' ? T.acc : T.sub,
 						}}
 					/>
 				))}
 			</div>
-			<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+			<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 				{t('session.prep.finalMap', { name: mapName ?? activeMap.mapId })}
 				{tokens.length === 0 && (
 					<>
@@ -74,6 +77,95 @@ function ArchiveFinalMap({
 					</>
 				)}
 			</div>
+		</div>
+	);
+}
+
+/**
+ * RC-POL-1.4 (roadmap §1.7) — the recent changes to review. The count is the control: it opens the
+ * list it counts, newest first. With nothing to review (a fresh vault) it says so instead of counting
+ * the app's own setup.
+ */
+function ReviewChanges({ changes }: { changes: readonly ReviewChange[] }) {
+	const { t } = useI18n();
+	const [open, setOpen] = useState(false);
+	const listId = useId();
+	if (changes.length === 0)
+		return (
+			<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+				{t('session.prep.reviewNone')}
+			</div>
+		);
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.one }}>
+			<button
+				type="button"
+				aria-expanded={open}
+				aria-controls={listId}
+				onClick={() => setOpen((value) => !value)}
+				style={{
+					alignSelf: 'flex-start',
+					display: 'inline-flex',
+					alignItems: 'center',
+					gap: T.space.oneHalf,
+					minHeight: T.density.touch,
+					padding: T.space.zero,
+					border: 'none',
+					background: 'none',
+					cursor: 'pointer',
+					font: `600 var(--text-sm) ${T.sans}`,
+					color: T.ink,
+					textDecoration: 'underline',
+					textUnderlineOffset: '0.2em',
+				}}
+			>
+				<Icon name={open ? 'chevron-up' : 'chevron-down'} size="sm" color={T.sub} />
+				{t('session.prep.reviewCount', { count: changes.length })}
+			</button>
+			<ul
+				id={listId}
+				hidden={!open}
+				aria-label={t('session.prep.reviewList')}
+				style={{
+					listStyle: 'none',
+					margin: T.space.zero,
+					padding: T.space.zero,
+					display: 'flex',
+					flexDirection: 'column',
+					gap: T.space.one,
+				}}
+			>
+				{changes.map((change) => (
+					<li
+						key={change.id}
+						style={{
+							display: 'flex',
+							flexWrap: 'wrap',
+							alignItems: 'baseline',
+							columnGap: T.space.two,
+							padding: `${T.space.oneHalf} ${T.space.two}`,
+							borderRadius: T.radius.md,
+							background: T.sunken,
+						}}
+					>
+						<span style={{ font: `600 var(--text-sm) ${T.sans}`, color: T.ink, minWidth: 0 }}>
+							{change.name ?? t(`session.prep.reviewKind.${change.kind}`)}
+						</span>
+						<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+							{change.name
+								? t('session.prep.reviewMeta', {
+										verb: t(`session.prep.reviewVerb.${change.verb}`),
+										kind: t(`session.prep.reviewKind.${change.kind}`),
+										when: formatArchiveStamp(change.at),
+									})
+								: t('session.prep.reviewMetaUnnamed', {
+										verb: t(`session.prep.reviewVerb.${change.verb}`),
+										when: formatArchiveStamp(change.at),
+									})}
+						</span>
+					</li>
+				))}
+			</ul>
 		</div>
 	);
 }
@@ -92,7 +184,7 @@ export function RecapPanel({
 	previewing,
 	onAuthor,
 }: {
-	digest: PrepRecapDigest;
+	digest: SessionDigest;
 	archives: SessionArchiveSnapshot[];
 	maps: MapListEntry[];
 	defaultArchiveId: string | null;
@@ -114,7 +206,11 @@ export function RecapPanel({
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- seed from the canonical recap only
 	}, [seedKey]);
 
-	const prompts = digest.continuityPrompts.slice(0, 6);
+	// The core's "N recent changes to review" prompt counts the app's own setup writes and is not a
+	// control; `ReviewChanges` below replaces it with the reviewable count and the list it counts.
+	const prompts = digest.continuityPrompts
+		.filter((prompt) => prompt.source !== 'recent-change')
+		.slice(0, 6);
 
 	async function save() {
 		if (!target || busy) return;
@@ -131,55 +227,40 @@ export function RecapPanel({
 	return (
 		// The whole panel (digest + recap authoring) is DM-only — labeled explicitly in the header.
 		<Panel title={t('session.prep.title')} action={<VisibilityChip level="dm-only" compact />}>
-			<div>
-				<div style={{ ...eb, marginBottom: 5 }}>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.oneHalf }}>
+				<div style={eb}>
 					{t(digest.mode === 'recap' ? 'session.prep.whatHappened' : 'session.prep.carryInto')}
 				</div>
 				{prompts.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 						{t('session.prep.nothingToCarry')}
 					</div>
 				) : (
-					prompts.map((p) => (
-						<div
-							key={p.id}
-							style={{
-								display: 'flex',
-								alignItems: 'baseline',
-								gap: 7,
-								font: `12.5px/1.6 ${T.sans}`,
-								color: T.sub,
-							}}
-						>
-							<span
-								aria-hidden
-								style={{
-									width: 5,
-									height: 5,
-									borderRadius: '50%',
-									background: T.accBd,
-									flexShrink: 0,
-									transform: 'translateY(-2px)',
-								}}
-							/>
-							<span style={{ minWidth: 0 }}>{p.text}</span>
-						</div>
-					))
+					<ul style={{ margin: T.space.zero, paddingLeft: T.space.five, color: T.sub }}>
+						{prompts.map((p) => (
+							<li key={p.id} style={{ font: `var(--text-sm)/1.6 ${T.sans}` }}>
+								{p.text}
+							</li>
+						))}
+					</ul>
 				)}
+				<ReviewChanges changes={digest.reviewChanges} />
 			</div>
 
 			<div
 				style={{
 					borderTop: `1px solid ${T.bd}`,
-					paddingTop: 10,
+					paddingTop: T.space.three,
 					display: 'flex',
 					flexDirection: 'column',
-					gap: 8,
+					gap: T.space.two,
 				}}
 			>
 				<div style={eb}>{t('session.prep.archives')}</div>
 				{archives.length === 0 ? (
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{t('session.prep.noArchives')}</div>
+					<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+						{t('session.prep.noArchives')}
+					</div>
 				) : (
 					<>
 						{archives.length > 1 && (
@@ -195,7 +276,7 @@ export function RecapPanel({
 						)}
 						{target && (
 							<>
-								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 									{formatArchiveStamp(target.archivedAt)}
 									{target.recap
 										? ` · ${t('session.prep.recapRevision', { revision: target.recap.revision })}`
@@ -214,7 +295,7 @@ export function RecapPanel({
 									aria-label={t('session.prep.recapField')}
 									placeholder={t('session.prep.recapPlaceholder')}
 								/>
-								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+								<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 									{t('session.prep.markdownHelp')}
 								</div>
 								<Button

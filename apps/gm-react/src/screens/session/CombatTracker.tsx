@@ -1,21 +1,9 @@
 import type { CombatTrackerView } from '@dndtools/core';
 import { useRef, useState } from 'react';
-import {
-	Avatar,
-	Badge,
-	Button,
-	Chip,
-	ConditionBadge,
-	EmptyState,
-	HPBar,
-	IconButton,
-	StatPill,
-	VisibilityChip,
-	useConditionCatalog,
-} from '../../ds';
+import { Button, Chip, EmptyState, IconButton, StatPill, useConditionCatalog } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useViewport } from '../../app/useViewport';
-import { Panel, T, eb } from '../../app/screen-kit';
+import { Panel, T } from '../../app/screen-kit';
 // RC-CAN-5.3 lifted the keypad into `app/combat/` so the board's touch-first combat tile uses the
 // same sheet as this tracker; `CombatantRow` and `HpIntent` moved with it.
 import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/combat/HpKeypadSheet';
@@ -23,6 +11,8 @@ import { HpKeypadSheet, type CombatantRow, type HpIntent } from '../../app/comba
 import { StatBlockSheet } from '../../app/combat/StatBlockSheet';
 import { useCombatKeyboard } from './useCombatKeyboard';
 import { useHpUndo, type HpUndo } from './useHpUndo';
+import { CombatantItem } from './CombatantItem';
+import { CombatantDetail } from './CombatantDetail';
 // RC-SES-5.1 — the initiative call the player companion answers (call, badges, adjust, readiness).
 import * as Initiative from '../../net/InitiativeCallParts';
 
@@ -97,15 +87,6 @@ export function CombatPanel({
 	const selectedIndex = selected ? tracker.combatants.findIndex((c) => c.id === selected.id) : -1;
 	const atFirst = selectedIndex <= 0;
 	const atLast = selectedIndex < 0 || selectedIndex >= tracker.combatants.length - 1;
-	// The reorder buttons' tooltip: why the move is unavailable, else the move itself.
-	const reorderTitle = (
-		bound: boolean,
-		why: 'alreadyFirst' | 'alreadyLast',
-		move: 'moveEarlier' | 'moveLater',
-	) =>
-		t(previewing ? 'player.blockedPreview' : `session.combat.${bound ? why : move}`, {
-			name: selected?.name ?? '',
-		});
 	const viewport = useViewport();
 
 	// RC-SES-3.2 — the one-handed HP sheet. `±1` on the row stays (it is the fastest thing on the
@@ -193,7 +174,7 @@ export function CombatPanel({
 			title={t('session.combat.title')}
 			action={
 				running ? (
-					<div style={{ display: 'flex', gap: 7 }}>
+					<div style={{ display: 'flex', gap: T.space.two }}>
 						{isDm && (
 							<Button
 								variant="secondary"
@@ -271,15 +252,23 @@ export function CombatPanel({
 			{!running ? (
 				<EmptyState
 					icon="sword"
+					illustration="combat-idle"
 					title={t('session.combat.noneRunning')}
 					description={t('session.combat.noneRunningHelp')}
 				/>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					{call.calling ? (
 						<Initiative.Banner call={call} onStart={onAdvance} />
 					) : (
-						<div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+						<div
+							style={{
+								display: 'flex',
+								gap: T.space.five,
+								alignItems: 'center',
+								flexWrap: 'wrap',
+							}}
+						>
 							<StatPill
 								label={t('session.combat.round')}
 								value={String(tracker.round)}
@@ -293,24 +282,36 @@ export function CombatPanel({
 									tone="error"
 								/>
 							)}
-							<div style={{ flex: 1 }} />
-							<IconButton
-								icon="chevron-left"
-								label={t('session.combat.previousTurn')}
-								variant="ghost"
-								size="sm"
-								disabled={previewing}
-								onClick={onPrevious}
-							/>
-							<Button
-								variant="primary"
-								size="sm"
-								iconRight="skip"
-								disabled={previewing}
-								onClick={onAdvance}
+							{/* RC-POL-1.4 — Previous and Next turn wrap as one group, pushed to the end of the
+							    line. Apart, a phone left "Previous turn" alone at the far right of the stats and
+							    "Next turn" on its own line below. */}
+							<div
+								style={{
+									marginLeft: 'auto',
+									display: 'flex',
+									alignItems: 'center',
+									gap: T.space.one,
+									flex: '0 0 auto',
+								}}
 							>
-								{t('session.combat.nextTurn')}
-							</Button>
+								<IconButton
+									icon="chevron-left"
+									label={t('session.combat.previousTurn')}
+									variant="ghost"
+									size="sm"
+									disabled={previewing}
+									onClick={onPrevious}
+								/>
+								<Button
+									variant="primary"
+									size="sm"
+									iconRight="skip"
+									disabled={previewing}
+									onClick={onAdvance}
+								>
+									{t('session.combat.nextTurn')}
+								</Button>
+							</div>
 						</div>
 					)}
 
@@ -321,13 +322,13 @@ export function CombatPanel({
 						<div
 							role="status"
 							aria-live="polite"
-							style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+							style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}
 						>
 							<Chip icon="heart" tone={undo.intent === 'damage' ? 'danger' : 'accent'}>
 								{undoLabel(undo)}
 							</Chip>
 							{undo.intent === 'temp' ? (
-								<span style={{ font: `12px ${T.sans}`, color: T.ter }}>
+								<span style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 									{t('session.combat.hp.tempNoUndo')}
 								</span>
 							) : (
@@ -350,413 +351,50 @@ export function CombatPanel({
 						style={{
 							display: 'flex',
 							flexDirection: 'column',
-							gap: 8,
+							gap: T.space.two,
 							listStyle: 'none',
-							margin: 0,
-							padding: 0,
+							margin: T.space.zero,
+							padding: T.space.zero,
 						}}
 					>
-						{tracker.combatants.map((c) => {
-							const active = !call.calling && c.id === tracker.activeCombatantId;
-							const sel = c.id === selectedId;
-							const res = c.resources;
-							return (
-								// The DS InitiativeRow anatomy (mono initiative · avatar with gold turn ring · gold
-								// 3px active left rail · HPBar · quick HP steps), hand-hosted so the row can also
-								// carry selection, state badges, and per-condition ConditionBadge chips with the
-								// distinct-icon grayscale contract (the plain component renders generic chips only).
-								//
-								// The row itself is NOT a control. It used to be `role="button"` with
-								// `aria-label={`Select ${name}`}`, and an aria-label on a role=button REPLACES the
-								// whole descendant subtree — so a screen-reader DM heard "Select Goblin, toggle
-								// button" and lost the HP, the AC, the conditions and whose turn it was. It also
-								// nested the condition-remove and Heal/Damage buttons inside a button, which is an
-								// axe `nested-interactive` violation (serious). The name is now the control; the
-								// row keeps its pointer target as a mouse-only convenience.
-								<li
-									key={c.id}
-									aria-current={active ? 'true' : undefined}
-									onClick={() => onSelect(c.id)}
-									style={{
-										cursor: 'pointer',
-										display: 'flex',
-										alignItems: 'center',
-										gap: 12,
-										padding: '9px 12px',
-										borderRadius: 9,
-										border: `1px solid ${active ? T.accBd : sel ? T.bdS : T.bd}`,
-										borderLeft: `3px solid ${active ? T.acc : 'transparent'}`,
-										background: active ? T.accSub : T.surf,
-										opacity: c.hidden ? 0.75 : 1,
-									}}
-								>
-									<span
-										style={{
-											minWidth: 28,
-											textAlign: 'center',
-											font: `700 14px ${T.mono}`,
-											color: active ? T.acc : T.sub,
-										}}
-									>
-										{call.initiativeText(c)}
-									</span>
-									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
-									<div style={{ flex: 1, minWidth: 0 }}>
-										{/* Wraps on purpose. On a 391px phone this row is left ~183px after the initiative
-										    span, avatar, row actions and paddings, and "Active" + "Bloodied" alone exceed
-										    that. Every child here is shrinkable, so the COMBATANT NAME was what collapsed to
-										    an ellipsis while the badge text stacked one character per line. Let the badges
-										    drop to their own line instead. */}
-										<div
-											style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}
-										>
-											{/* The row's one real control. `aria-pressed` carries the selection state that
-											    used to sit on the row, so the toggle semantics survive the restructure. */}
-											<button
-												type="button"
-												aria-pressed={sel}
-												// The row also selects (mouse-only convenience), so stop the bubble
-												// rather than letting one click run the same selection twice.
-												onClick={(e) => {
-													e.stopPropagation();
-													onSelect(c.id);
-												}}
-												style={{
-													font: `600 13.5px ${T.sans}`,
-													color: T.ink,
-													whiteSpace: 'nowrap',
-													overflow: 'hidden',
-													textOverflow: 'ellipsis',
-													background: 'none',
-													border: 'none',
-													padding: 0,
-													textAlign: 'left',
-													cursor: 'pointer',
-													minWidth: 0,
-												}}
-											>
-												{c.name}
-											</button>
-											{c.hidden && <VisibilityChip level="dm-only" compact />}
-											{active && <Badge status="success">{t('session.combat.active')}</Badge>}
-											<Initiative.Badges call={call} row={c} />
-											{c.isBloodied && (
-												<Badge status="warning">{t('session.combat.bloodied')}</Badge>
-											)}
-											{c.isDefeated && <Badge status="error">{t('session.combat.down')}</Badge>}
-											{/* RC-CHR-1.3 — the tracker view already derived these two; nothing painted
-											    them, so a concentrating caster and a dying creature looked like any
-											    other row. Both badges carry TEXT, not just a tint (A11Y-011 AC2). */}
-											{c.isConcentrating && (
-												<Badge status="info">
-													{res?.concentration.effect
-														? t('session.combat.concentratingOn', {
-																effect: res.concentration.effect,
-															})
-														: t('session.combat.concentrating')}
-												</Badge>
-											)}
-											{c.isDying && <Badge status="warning">{t('session.combat.dying')}</Badge>}
-										</div>
-										{res && (
-											<div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
-												{/* RC-SES-3.2 — the HP bar IS the affordance: tap-and-hold (or click, or Enter)
-												    opens the keypad sheet. A hold fires early and the release still produces a
-												    click, so the press is marked and that trailing click is swallowed. The press
-												    is allowed to bubble to the row so the combatant is selected as well, which
-												    is what makes the following `d`/`h` land on the creature just touched. */}
-												<button
-													type="button"
-													aria-label={t('session.combat.hp.adjust', { name: c.name })}
-													title={t('session.combat.hp.adjust', { name: c.name })}
-													disabled={previewing}
-													onPointerDown={() => startPress(c.id)}
-													onPointerUp={endPress}
-													onPointerLeave={endPress}
-													onPointerCancel={endPress}
-													onClick={() => {
-														if (press.current.fired) {
-															press.current.fired = false;
-															return;
-														}
-														openHpSheet(c.id, 'damage');
-													}}
-													style={{
-														flex: 1,
-														minWidth: 0,
-														display: 'block',
-														textAlign: 'left',
-														background: 'none',
-														border: 'none',
-														padding: 0,
-														cursor: previewing ? 'default' : 'pointer',
-														touchAction: 'manipulation',
-														userSelect: 'none',
-													}}
-												>
-													<HPBar current={res.hp} max={res.maxHp} size="sm" />
-												</button>
-												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
-													{t('session.combat.armorClass', { value: c.statBlock.ac ?? '—' })}
-												</span>
-											</div>
-										)}
-										{res && res.conditions.length > 0 && (
-											<div
-												style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}
-												onClick={(e) => e.stopPropagation()}
-											>
-												{/* RC-SES-3.1 — a timed condition wears its countdown, so the DM can see that
-												    Poisoned has two rounds left without opening anything. A condition with no
-												    timer shows no number: it lasts until someone clears it. */}
-												{res.conditions.map((cond) => {
-													const roundsLeft = res.conditionRounds?.[cond];
-													return (
-														<ConditionBadge
-															key={cond}
-															condition={cond}
-															compact
-															duration={roundsLeft}
-															durationLabel={
-																roundsLeft === undefined
-																	? undefined
-																	: t('session.combat.conditionRounds', { count: roundsLeft })
-															}
-															onRemove={
-																previewing ? undefined : () => onCondition(c.id, cond, false)
-															}
-														/>
-													);
-												})}
-											</div>
-										)}
-										{/* RC-CHR-1.3 / UX-SES-007 AC3 — at 0 HP and explicitly not defeated, the death
-										    saves ARE the row: the tally reads as text and the two buttons record one.
-										    Both are ordinary buttons, so the keyboard reaches them the same way. */}
-										{res && c.isDying && (
-											<div
-												style={{
-													display: 'flex',
-													alignItems: 'center',
-													flexWrap: 'wrap',
-													gap: 7,
-													marginTop: 6,
-												}}
-												onClick={(e) => e.stopPropagation()}
-											>
-												<span style={{ font: `11px ${T.mono}`, color: T.ter }}>
-													{t('session.combat.deathSaves', {
-														successes: res.deathSaves.successes,
-														failures: res.deathSaves.failures,
-													})}
-												</span>
-												<IconButton
-													icon="check"
-													label={t('session.combat.deathSaveSuccess', { name: c.name })}
-													variant="ghost"
-													size="sm"
-													disabled={previewing}
-													onClick={() => onDeathSave(c.id, 'success')}
-												/>
-												<IconButton
-													icon="close"
-													label={t('session.combat.deathSaveFailure', { name: c.name })}
-													variant="ghost"
-													size="sm"
-													disabled={previewing}
-													onClick={() => onDeathSave(c.id, 'failure')}
-												/>
-											</div>
-										)}
-										{/* RC-CHR-1.3 — the check damage raised. The core states the DC and stops there:
-										    the table rolls, and one of these two buttons says what happened. Nothing
-										    here decides the effect dropped on its own. */}
-										{res && res.concentration.checkDc !== null && (
-											<div
-												style={{
-													marginTop: 7,
-													padding: '8px 10px',
-													borderRadius: 10,
-													background: T.accSub,
-													border: `1px solid ${T.accBd}`,
-													display: 'flex',
-													alignItems: 'center',
-													flexWrap: 'wrap',
-													gap: 8,
-												}}
-												onClick={(e) => e.stopPropagation()}
-											>
-												<span style={{ font: `600 12px ${T.sans}`, color: T.ink, flex: 1 }}>
-													{t('session.combat.concCheck', { dc: res.concentration.checkDc })}
-												</span>
-												<Button
-													variant="secondary"
-													size="sm"
-													disabled={previewing}
-													aria-label={t('session.combat.concKeptFor', { name: c.name })}
-													onClick={() => onConcentrationCheck(c.id, c.name, 'kept')}
-												>
-													{t('session.combat.concKept')}
-												</Button>
-												<Button
-													variant="ghost"
-													size="sm"
-													disabled={previewing}
-													aria-label={t('session.combat.concLostFor', { name: c.name })}
-													onClick={() => onConcentrationCheck(c.id, c.name, 'lost')}
-												>
-													{t('session.combat.concLost')}
-												</Button>
-											</div>
-										)}
-									</div>
-									{res && (
-										<div
-											style={{ display: 'flex', flexDirection: 'column', gap: 3 }}
-											onClick={(e) => e.stopPropagation()}
-										>
-											{/* The combatant's name has to be IN the name: with six rows a screen
-											    reader otherwise hears six identical "Heal 1" buttons that each
-											    write durable HP to a different creature. "Heal 1"/"Damage 1"
-											    stay as the PREFIX so combat.spec's substring match still hits. */}
-											{/* RC-SES-3.3 — the quick reference. Reading a creature's numbers changes
-											    nothing, so this is offered while previewing too, unlike the HP steps. */}
-											<IconButton
-												icon="knowledge-book"
-												label={t('session.combat.quickRef.open', { name: c.name })}
-												variant="ghost"
-												size="sm"
-												onClick={() => setQuickRefId(c.id)}
-											/>
-											<IconButton
-												icon="add"
-												label={t('session.combat.heal', { name: c.name })}
-												variant="ghost"
-												size="sm"
-												disabled={previewing}
-												onClick={() => onHp(c.id, 1)}
-											/>
-											<IconButton
-												icon="remove"
-												label={t('session.combat.damage', { name: c.name })}
-												variant="ghost"
-												size="sm"
-												disabled={previewing}
-												onClick={() => onHp(c.id, -1)}
-											/>
-										</div>
-									)}
-								</li>
-							);
-						})}
+						{tracker.combatants.map((c) => (
+							<CombatantItem
+								key={c.id}
+								c={c}
+								call={call}
+								active={!call.calling && c.id === tracker.activeCombatantId}
+								selected={c.id === selectedId}
+								previewing={previewing}
+								press={press}
+								onSelect={onSelect}
+								onPressStart={startPress}
+								onPressEnd={endPress}
+								onOpenHpSheet={openHpSheet}
+								onQuickRef={setQuickRefId}
+								onHp={onHp}
+								onCondition={onCondition}
+								onDeathSave={onDeathSave}
+								onConcentrationCheck={onConcentrationCheck}
+							/>
+						))}
 					</ul>
 
 					{selected && (
-						<div
-							ref={detailRef}
-							style={{
-								borderTop: `1px solid ${T.bd}`,
-								paddingTop: 12,
-								display: 'flex',
-								flexDirection: 'column',
-								gap: 10,
-							}}
-						>
-							<div style={{ ...eb }}>{t('session.combat.selected', { name: selected.name })}</div>
-							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-								{/* RC-SES-3.3 — first control in the panel on purpose: RC-SES-3.4's `Enter` moves
-								    focus to whatever leads this row of actions, and the quick reference is what a
-								    DM wants from a selected combatant far more often than a condition. */}
-								<Button
-									variant="secondary"
-									size="sm"
-									icon="knowledge-book"
-									onClick={() => setQuickRefId(selected.id)}
-								>
-									{t('session.combat.quickRef.action')}
-								</Button>
-								{/* RC-SYS-2.3 — no conditions in the active system means no picker to open. Say so
-								    rather than leaving a control that can only ever show an empty dialog. */}
-								{selected.resources &&
-									(systemConditions.length > 0 ? (
-										<Button
-											variant="secondary"
-											size="sm"
-											icon="add"
-											disabled={previewing}
-											onClick={() => onPickCondition(selected.id)}
-										>
-											{t('session.combat.addCondition')}
-										</Button>
-									) : (
-										<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-											{t('session.combat.noSystemConditions')}
-										</span>
-									))}
-								{isDm && (
-									<>
-										<span
-											aria-hidden="true"
-											style={{ width: 1, height: 20, background: T.bd, margin: '0 4px' }}
-										/>
-										{/* Reaching either END of the order is the normal way to use these: press
-										    "earlier" until the combatant is first and the button hard-disabled itself
-										    under the finger that pressed it, dropping focus to <body>. The BOUND is now
-										    soft (focusable, named, swallows the press); `previewing` stays hard. */}
-										<IconButton
-											icon="chevron-up"
-											label={t('session.combat.moveEarlier', { name: selected.name })}
-											title={reorderTitle(atFirst, 'alreadyFirst', 'moveEarlier')}
-											variant="ghost"
-											size="sm"
-											disabled={previewing}
-											aria-disabled={atFirst || undefined}
-											onClick={() => {
-												if (atFirst) return;
-												onReorder(selected.id, 'earlier');
-											}}
-										/>
-										<IconButton
-											icon="chevron-down"
-											label={t('session.combat.moveLater', { name: selected.name })}
-											title={reorderTitle(atLast, 'alreadyLast', 'moveLater')}
-											variant="ghost"
-											size="sm"
-											disabled={previewing}
-											aria-disabled={atLast || undefined}
-											onClick={() => {
-												if (atLast) return;
-												onReorder(selected.id, 'later');
-											}}
-										/>
-										<Button
-											variant="secondary"
-											size="sm"
-											icon={selected.hidden ? 'visibility-players' : 'visibility-hidden'}
-											disabled={previewing}
-											onClick={() => onVisibility(selected.id, !selected.hidden)}
-										>
-											{t(selected.hidden ? 'session.combat.reveal' : 'session.combat.hide')}
-										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											icon="close"
-											disabled={previewing}
-											onClick={() => onRemove(selected.id, selected.name)}
-										>
-											{t('common.action.remove')}
-										</Button>
-									</>
-								)}
-							</div>
-							<Initiative.Adjust call={call} row={selected} />
-							{isDm && selected.hidden && (
-								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
-									{t('session.combat.hiddenNote')}
-								</div>
-							)}
-						</div>
+						<CombatantDetail
+							selected={selected}
+							call={call}
+							isDm={isDm}
+							previewing={previewing}
+							atFirst={atFirst}
+							atLast={atLast}
+							hasConditions={systemConditions.length > 0}
+							detailRef={detailRef}
+							onQuickRef={setQuickRefId}
+							onPickCondition={onPickCondition}
+							onReorder={onReorder}
+							onVisibility={onVisibility}
+							onRemove={onRemove}
+						/>
 					)}
 
 					<StatBlockSheet

@@ -190,9 +190,9 @@ export function CapturePanel({
 					style={{
 						display: 'flex',
 						flexDirection: 'column',
-						gap: 8,
-						paddingBottom: 10,
-						marginBottom: 10,
+						gap: T.space.two,
+						paddingBottom: T.space.three,
+						marginBottom: T.space.three,
 						borderBottom: `1px solid ${T.bd}`,
 					}}
 				>
@@ -202,9 +202,11 @@ export function CapturePanel({
 					{continuityCheck.map((mention) => (
 						<div
 							key={mention.id}
-							style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+							style={{ display: 'flex', alignItems: 'center', gap: T.space.two, flexWrap: 'wrap' }}
 						>
-							<span style={{ font: `12.5px ${T.sans}`, color: T.sub, minWidth: 0, flex: 1 }}>
+							<span
+								style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub, minWidth: 0, flex: 1 }}
+							>
 								{t('session.capture.continuityName', { name: mention.name })}
 							</span>
 							<Button
@@ -229,11 +231,11 @@ export function CapturePanel({
 				</div>
 			)}
 			{archives.length === 0 ? (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t('session.capture.noArchives')}
 				</div>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					{archives.length > 1 && (
 						<Select
 							aria-label={t('session.capture.archivedSession')}
@@ -254,7 +256,9 @@ export function CapturePanel({
 						onChange={(e: { target: { value: string } }) => setTitle(e.target.value)}
 					/>
 					<div>
-						<div style={{ ...eb, marginBottom: 5 }}>{t('session.capture.happened')}</div>
+						<div style={{ ...eb, marginBottom: T.space.oneHalf }}>
+							{t('session.capture.happened')}
+						</div>
 						<Textarea
 							value={happened}
 							rows={4}
@@ -264,9 +268,11 @@ export function CapturePanel({
 						/>
 					</div>
 					<div>
-						<div style={{ ...eb, marginBottom: 5 }}>{t('session.capture.changed')}</div>
+						<div style={{ ...eb, marginBottom: T.space.oneHalf }}>
+							{t('session.capture.changed')}
+						</div>
 						{candidates.length === 0 ? (
-							<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+							<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 								{t('session.capture.nothingToMark')}
 							</div>
 						) : (
@@ -282,7 +288,12 @@ export function CapturePanel({
 								<div
 									role="group"
 									aria-label={t('session.capture.changed')}
-									style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}
+									style={{
+										display: 'flex',
+										flexWrap: 'wrap',
+										gap: T.space.oneHalf,
+										marginTop: T.space.oneHalf,
+									}}
 								>
 									{visibleCandidates.map((c) => {
 										const on = changedIds.includes(c.entityId);
@@ -297,7 +308,7 @@ export function CapturePanel({
 												style={{
 													border: 'none',
 													background: 'transparent',
-													padding: 0,
+													padding: T.space.zero,
 													cursor: previewing ? 'default' : 'pointer',
 												}}
 											>
@@ -316,7 +327,9 @@ export function CapturePanel({
 						)}
 					</div>
 					<div>
-						<div style={{ ...eb, marginBottom: 5 }}>{t('session.capture.followUps')}</div>
+						<div style={{ ...eb, marginBottom: T.space.oneHalf }}>
+							{t('session.capture.followUps')}
+						</div>
 						<Textarea
 							value={followUps}
 							rows={3}
@@ -324,11 +337,11 @@ export function CapturePanel({
 							placeholder={t('session.capture.followUpsPlaceholder')}
 							onChange={(e: { target: { value: string } }) => setFollowUps(e.target.value)}
 						/>
-						<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 4 }}>
+						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub, marginTop: T.space.one }}>
 							{t('session.capture.followUpsHelp')}
 						</div>
 					</div>
-					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+					<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 						{t(hasCampaignDate ? 'session.capture.willDate' : 'session.capture.noCampaignDate')}
 					</div>
 					<Button

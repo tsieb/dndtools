@@ -50,7 +50,7 @@ export function HandoutsPanel({
 		<Panel title={t('session.handouts.title')}>
 			{isDm ? (
 				<>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 						{/* These were the only two unlabelled fields on the screen: a `placeholder` is
 						    not a label, and it disappears the moment the DM types (WCAG 3.3.2). axe
 						    cannot flag it, because HTML-AAM accepts placeholder as an accname
@@ -97,15 +97,17 @@ export function HandoutsPanel({
 					</div>
 				</>
 			) : (
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 					{t('session.handouts.playerIntro')}
 				</div>
 			)}
 
 			{handouts.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.handouts.empty')}</div>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+					{t('session.handouts.empty')}
+				</div>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 					{handouts.map((h) => {
 						const st = statusById.get(h.id);
 						const delivered = st ? st.recipients.length : 0;
@@ -116,9 +118,9 @@ export function HandoutsPanel({
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '8px 10px',
-									borderRadius: 9,
+									gap: T.space.three,
+									padding: `${T.space.two} ${T.space.three}`,
+									borderRadius: T.radius.md,
 									border: `1px solid ${T.bd}`,
 									background: T.surf,
 								}}
@@ -126,7 +128,7 @@ export function HandoutsPanel({
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div
 										style={{
-											font: `600 13px ${T.sans}`,
+											font: `600 var(--text-sm) ${T.sans}`,
 											color: T.ink,
 											whiteSpace: 'nowrap',
 											overflow: 'hidden',
@@ -135,7 +137,7 @@ export function HandoutsPanel({
 									>
 										{h.title}
 									</div>
-									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										{t('session.handouts.meta', {
 											kind: t(HANDOUT_KIND_LABEL[h.handoutKind] ?? 'session.handouts.kind.handout'),
 											sections: h.sections.length,

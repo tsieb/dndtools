@@ -9,7 +9,7 @@ import {
 	type DiceRollResult,
 	type SystemPackage,
 } from '@dndtools/core';
-import { diceResultProps } from './QuickPanel';
+import { diceResultProps } from './diceReadout';
 
 /**
  * RC-SES-2.4 — which rolls get the drama. The quick panel and the /session tray read every roll

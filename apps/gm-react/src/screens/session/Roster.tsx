@@ -53,17 +53,17 @@ export function RosterPanel({
 			}
 		>
 			{!hosting ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{hostBefore}
 					<strong style={{ color: T.sub }}>{t('session.roster.hostAction')}</strong>
 					{hostAfter}
 				</div>
 			) : peers.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{t('session.roster.hostingEmpty')}
 				</div>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.two }}>
 					{peers.map((p) => {
 						const entry = presence.get(p.actorId);
 						const status = p.connected ? (entry?.status ?? p.status) : 'offline';
@@ -73,9 +73,9 @@ export function RosterPanel({
 								style={{
 									display: 'flex',
 									alignItems: 'center',
-									gap: 10,
-									padding: '8px 10px',
-									borderRadius: 9,
+									gap: T.space.three,
+									padding: `${T.space.two} ${T.space.three}`,
+									borderRadius: T.radius.md,
 									border: `1px solid ${p.hand ? T.accBd : T.bd}`,
 									background: p.hand ? T.accSub : T.surf,
 								}}
@@ -85,7 +85,7 @@ export function RosterPanel({
 								<div style={{ flex: 1, minWidth: 0 }}>
 									<div
 										style={{
-											font: `600 13px ${T.sans}`,
+											font: `600 var(--text-sm) ${T.sans}`,
 											color: T.ink,
 											whiteSpace: 'nowrap',
 											overflow: 'hidden',
@@ -94,7 +94,7 @@ export function RosterPanel({
 									>
 										{p.displayName}
 									</div>
-									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 										{ROLE_LABEL[p.role] ? t(ROLE_LABEL[p.role]) : p.role}
 										{p.connected
 											? ` · ${PRESENCE_LABEL[status] ? t(PRESENCE_LABEL[status]) : status}`
@@ -132,11 +132,13 @@ export function PartyPanel({
 	return (
 		<Panel title={t('session.party.title')}>
 			{party.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{t('session.party.empty')}</div>
+				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
+					{t('session.party.empty')}
+				</div>
 			) : (
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: T.space.three }}>
 					{party.map((p) => (
-						<div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+						<div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: T.space.three }}>
 							<div style={{ flex: 1, minWidth: 0 }}>
 								{/* `?? 0` / `?? 1` painted an EMPTY RED bar reading "0/1" for anyone
 								    without hit points recorded — i.e. the panel asserted the character
@@ -150,8 +152,8 @@ export function PartyPanel({
 										style={{
 											display: 'flex',
 											justifyContent: 'space-between',
-											gap: 8,
-											font: `13px ${T.sans}`,
+											gap: T.space.two,
+											font: `var(--text-sm) ${T.sans}`,
 											color: T.sub,
 										}}
 									>
@@ -164,7 +166,7 @@ export function PartyPanel({
 										>
 											{p.name}
 										</span>
-										<span style={{ color: T.ter }}>{t('session.party.noHitPoints')}</span>
+										<span style={{ color: T.sub }}>{t('session.party.noHitPoints')}</span>
 									</div>
 								)}
 							</div>
