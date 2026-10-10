@@ -143,3 +143,14 @@ the docs (the roadmap's historical `Owns:` records) are not links and are left a
 `pnpm gates` locally: exit 0, "docs check passed: 306 file(s) reachable from docs/README.md, 417
 relative link(s) resolved" (`/tmp/rcwid57/gates.log`). No code changed since the full `pnpm test`
 on `9dc3720c`.
+
+## Claim-gate round — 2026-10-09
+
+Gate feedback: `docs/planning/SCREENS_PARITY.md` is outside the claim. Kept, not reverted: at base
+its four relative links (lines 213, 214, 630, 648) name `widgets/builtin/{InitiativeBody,
+InitiativeTracker,TimerBody,NextTurnControl}.tsx`, which this story moves to
+`widgets/templates/board/`, and `pnpm gates` (the wrapper's Quality gates) then fails its docs
+check with exactly those four broken links. The only in-claim alternative is to leave stub modules
+at the old `builtin/` paths purely so the links resolve, which would be dead code in the builtin
+directory the parity gate reasons about. The diff is the four link targets (4+/4−). Operator
+decision needed on widening the claim to that file.
