@@ -231,3 +231,21 @@ Validation (original logs retained under `/tmp/rcwid57-typecheck/`):
 - Changed-file ESLint reported no diagnostics; Prettier and `git diff --check` passed.
 
 No push, promotion, additional agents, loop or dispatcher control-state edits.
+
+## LayoutStep claim-gate follow-up — 2026-10-10
+
+Kept the six added entries in `apps/gm-react/src/app/widgetBuilder/LayoutStep.tsx`, as permitted
+by the claim feedback's required-for-acceptance exception. The file at the requested base
+`87e1c8915e26bf5240b80e57a1c640334ba115c3` is byte-identical to the file at `b4890f3b`, whose
+original central typecheck log reports TS2740 for the missing board template sizes. Reverting
+this file would therefore restore that confirmed compiler failure. The existing
+`templateLayoutPatch` also reads `TEMPLATE_SIZES[current.template].width`; missing entries break
+changing an imported public board template in the builder. This is part of the acceptance's
+builder-editable public definitions and catalogue support.
+
+The diff from the requested base is exactly six size defaults. Keeping the exhaustive record
+and its entries preserves type safety and existing customised sizes; suppressing the type error
+or removing the public kinds would not satisfy acceptance. No implementation change this round;
+the previous full typecheck, 8,438 unit tests and 15 focused visual checks remain the relevant
+validation. The task awaits the central operator's decision on widening the claim to this one
+source file. No dispatcher control state was edited.
