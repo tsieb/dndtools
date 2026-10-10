@@ -54,6 +54,11 @@
 	justify-content: center;
 	gap: var(--space-2);
 }
+
+/* Wraps the Import button so focus can return to it when the importer closes; adds no box. */
+.graph-empty-import {
+	display: contents;
+}
 /* Canvas beside a 20rem rail. Rem-sized, so large text grows the rail too. Below room for a 40rem
    canvas the rail stacks under it: a narrower canvas cannot fit a name under every node of a
    campaign-sized graph (RC-KNW-6.5), and squeezing it is how labels came to overprint. */

@@ -113,3 +113,24 @@ DNDTOOLS_E2E_PORT=5391 npx playwright test graph-readable graph-polish graph.spe
 tests/visual/run-in-container.sh -g "graph polish" --update-snapshots=none                     # 15 passed
 tsc --noEmit, eslint + prettier on touched files, vitest src/screens/graph (18)                 # clean
 ```
+
+## Claim-gate round (2026-10-10) — Import fix moved inside the claim
+
+The claim gate rejected the 5-line `{ import: true }` intent in `screens/knowledge/index.tsx`. That
+file is reverted to base `87e1c891`. The empty-vault Import notes action now opens the existing
+`knowledge/ImportPanel` inline on the Graph (imported, not edited) and dispatches the same
+`content.commit-import` itself, so no path outside Owns changes. While it is open the importer
+replaces the empty state (a ternary, so `lint:emphasis` sees one primary at a time); focus moves to
+the import field and back to Import notes on Close. A successful import replaces the empty state with
+the graph, and a toast reports the count. The e2e test covers open → focus → axe → Close → focus
+returns → import two linked notes → both appear in the results list.
+
+Evidence:
+
+```
+DNDTOOLS_E2E_PORT=5391 npx playwright test graph-readable graph-polish graph.spec graph-repair  # 58 passed, 4 skipped
+DNDTOOLS_E2E_PORT=5391 npx playwright test a11y-axe-gate -g graph                              # 2 passed
+tests/visual/run-in-container.sh -g "graph polish" --update-snapshots=none                     # 15 passed
+pnpm lint                                                                                      # exit 0
+tsc --noEmit; vitest src/screens/graph src/screens/knowledge (25)                              # clean
+```

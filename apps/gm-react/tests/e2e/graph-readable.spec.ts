@@ -273,7 +273,9 @@ test.describe('graph before it has anything to show', () => {
 		await expect(page.getByTestId('knowledge-composer')).toBeVisible();
 	});
 
-	test('Import notes lands on Notes with the importer already open', async ({ page }) => {
+	test('Import notes opens the importer, and an import replaces the empty state', async ({
+		page,
+	}) => {
 		await markOnboarded(page);
 		await page.addInitScript(() => {
 			try {
@@ -287,12 +289,28 @@ test.describe('graph before it has anything to show', () => {
 		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 
-		await page
+		const importNotes = page
 			.locator('#main-content')
-			.getByRole('button', { name: 'Import notes', exact: true })
-			.click();
-		await page.waitForURL((url) => url.hash === '#/knowledge');
-		await expect(page.getByLabel('Markdown or JSON to import')).toBeVisible();
+			.getByRole('button', { name: 'Import notes', exact: true });
+		await importNotes.click();
+		const field = page.getByLabel('Markdown or JSON to import');
+		await expect(field).toBeFocused();
+		await axe(page);
+		// Close puts the empty state back and focus on the button that opened the importer.
+		await page.getByRole('button', { name: 'Close', exact: true }).click();
+		await expect(importNotes).toBeFocused();
+		await importNotes.click();
+		await expect(field).toBeFocused();
+
+		await field.fill(
+			'===== Harbor Town.md =====\nThe docks.\n\n===== Smugglers Cache.md =====\nUnder [[Harbor Town]].',
+		);
+		await page.getByRole('button', { name: 'Import', exact: true }).click();
+		// The notes land and the graph takes the empty state's place.
+		const list = page.getByRole('region', { name: 'Graph results' });
+		await expect(list.getByRole('button', { name: /Harbor Town/ })).toBeVisible();
+		await expect(list.getByRole('button', { name: /Smugglers Cache/ })).toBeVisible();
+		await expect(page.getByLabel('Markdown or JSON to import')).toHaveCount(0);
 	});
 
 	test('below the graph signal the nodes list, but filter, clusters and arcs wait', async ({

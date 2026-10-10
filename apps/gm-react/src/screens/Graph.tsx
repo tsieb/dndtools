@@ -2,7 +2,7 @@ import './graph/graph.css';
 import { GraphSearch } from './graph/Search';
 import { GraphInspector } from './graph/Inspector';
 import { GraphHealth } from './graph/Health';
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	getGraphVisualizationForActor,
@@ -10,11 +10,13 @@ import {
 	type GraphVisualization,
 	type GraphVizNode,
 } from '@dndtools/core';
-import { Button, EmptyState, HelpTip, Icon } from '../ds';
+import { Button, EmptyState, HelpTip, Icon, Toaster } from '../ds';
 import { Page, Seg, T } from '../app/screen-kit';
 import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useI18n } from '../i18n';
+import { ImportPanel } from './knowledge/ImportPanel';
+import { parseArchive } from './knowledge/markdown';
 import {
 	ClusterHulls,
 	ClusterToggle,
@@ -79,6 +81,20 @@ export function Graph() {
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [hoverId, setHoverId] = useState<string | null>(null);
 	const [mapOpen, setMapOpen] = useState(false);
+	const [importOpen, setImportOpen] = useState(false);
+	const [importBusy, setImportBusy] = useState(false);
+	const [importMsg, setImportMsg] = useState<string | null>(null);
+	const [importFailed, setImportFailed] = useState(false);
+	// The importer replaces the empty state while open, so focus follows it in and back out.
+	const emptyRef = useRef<HTMLDivElement>(null);
+	const importWasOpen = useRef(false);
+	useEffect(() => {
+		const root = emptyRef.current;
+		if (importOpen) root?.querySelector<HTMLElement>('textarea')?.focus();
+		else if (importWasOpen.current)
+			root?.querySelector<HTMLElement>('.graph-empty-import button')?.focus();
+		importWasOpen.current = importOpen;
+	}, [importOpen]);
 	const nodeButtons = useRef(new Map<string, HTMLButtonElement>());
 	// The mounted canvas, in state so the label pass re-binds when the phone/wide layouts swap it.
 	const [canvasEl, setCanvasEl] = useState<HTMLElement | null>(null);
@@ -155,37 +171,91 @@ export function Graph() {
 
 	const openNode = useOpenGraphNode(viewActorId);
 
+	// The empty state's importer: the same panel and the same `content.commit-import` Notes runs, so
+	// "Import notes" opens it here rather than on another empty screen. Once notes land the graph
+	// replaces the empty state, so the result is also announced as a toast.
+	async function runImport(text: string, policy: string) {
+		setImportBusy(true);
+		setImportMsg(null);
+		setImportFailed(false);
+		try {
+			const result = await runtime.dispatch({
+				type: 'content.commit-import',
+				actorId: dmId,
+				payload: {
+					sourceKind: 'markdown-archive',
+					policy,
+					files: parseArchive(text),
+					appliedEntryIds: [],
+				},
+			});
+			if (result.status === 'accepted') {
+				const ev = result.events.find(
+					(e) => (e as { kind?: string }).kind === 'content.import-committed',
+				) as { createdItemIds?: string[]; overwrittenItemIds?: string[] } | undefined;
+				const created = ev?.createdItemIds?.length ?? 0;
+				const over = ev?.overwrittenItemIds?.length ?? 0;
+				const message =
+					over > 0
+						? t('knowledge.importedWithOverwrites', { created, overwritten: over })
+						: t('knowledge.imported', { created });
+				setImportMsg(message);
+				if (created > 0) Toaster.success(message);
+			} else {
+				setImportFailed(true);
+				setImportMsg(result.rejection.message);
+			}
+		} catch (error) {
+			setImportFailed(true);
+			setImportMsg(error instanceof Error ? error.message : t('knowledge.importFailed'));
+		} finally {
+			setImportBusy(false);
+		}
+	}
+
 	// One empty state for an empty vault, not a toolbar, a filter and an arcs report about nothing.
 	if (view === 'dm' && viz.totalVisibleNodes === 0) {
 		return (
 			<Page max={1280}>
-				<div className="graph-surface">
+				<div ref={emptyRef} className="graph-surface">
 					{/* The empty state's own title is an h3; this keeps the outline h1 → h2 → h3. */}
 					<h2 className="graph-visually-hidden">{t('graph.canvas')}</h2>
-					<EmptyState
-						illustration="graph-empty"
-						title={t('graph.emptyDm')}
-						description={t('graph.emptyVault.body')}
-						action={
-							<div className="graph-empty-actions">
-								<Button
-									variant="primary"
-									icon="note-edit"
-									onClick={() => navigate('/knowledge', { state: { create: true } })}
-								>
-									{t('graph.emptyVault.newNote')}
-								</Button>
-								{/* Notes owns the importer; the intent opens its import panel on arrival. */}
-								<Button
-									variant="secondary"
-									icon="import"
-									onClick={() => navigate('/knowledge', { state: { import: true } })}
-								>
-									{t('graph.emptyVault.import')}
-								</Button>
-							</div>
-						}
-					/>
+					{/* While open the importer takes the empty state's place: one primary action at a time. */}
+					{importOpen ? (
+						<ImportPanel
+							busy={importBusy}
+							message={importMsg}
+							failed={importFailed}
+							onImport={(text, policy) => void runImport(text, policy)}
+							onCancel={() => {
+								setImportOpen(false);
+								setImportMsg(null);
+								setImportFailed(false);
+							}}
+						/>
+					) : (
+						<EmptyState
+							illustration="graph-empty"
+							title={t('graph.emptyDm')}
+							description={t('graph.emptyVault.body')}
+							action={
+								<div className="graph-empty-actions">
+									<Button
+										variant="primary"
+										icon="note-edit"
+										onClick={() => navigate('/knowledge', { state: { create: true } })}
+									>
+										{t('graph.emptyVault.newNote')}
+									</Button>
+									<span className="graph-empty-import">
+										<Button variant="secondary" icon="import" onClick={() => setImportOpen(true)}>
+											{t('graph.emptyVault.import')}
+										</Button>
+									</span>
+								</div>
+							}
+						/>
+					)}
 				</div>
 			</Page>
 		);
