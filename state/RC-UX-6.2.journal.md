@@ -312,3 +312,33 @@ to block for the operator.
 - Repository `pnpm typecheck`: exit 0; original output read from
   `/var/tmp/rc-ux-6.2-restore-typecheck.log`. Prettier check passed for all four changed files.
   No UI pixels changed; browser and pinned visual gates were not rerun for this storage-only fix.
+
+## Browser-gate demo reset rework (2026-10-10)
+
+- Read the original browser gate output at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/f2419cf3-6ad1-402d-83ed-d8186e1efaff/output.log`.
+  At `7109e368` it reports 1981 passed, 43 skipped and two failed: the demo reset journey on
+  desktop and mobile, each failing all three attempts at `demo-vault.spec.ts:236` because
+  `Open Demo campaign` was absent. The original desktop error context lists the demo row as
+  `Open Your campaign`. Headroom tools remain unavailable.
+- Cause: demo reset hydrates empty state before reloading, so the preceding restore fix correctly
+  clears the removed identity's catalog name. Unlike backup restore, demo reset must then stage
+  the demo's default name for its fresh seed. `VaultSwitcher.resetDemo` now does so after the
+  maintenance/hydration completes, using the existing localized demo name and catalog rename API.
+  The next document adopts it through the existing campaign identity command. The unnamed-backup
+  restore fix is retained unchanged.
+- Added a browser assertion that the reset demo's core campaign identity is `Demo campaign`,
+  alongside the existing catalog-row assertion after returning to the GM vault. Production change
+  is confined to the owned switcher (three lines); no additional production claim is needed.
+- Campaign storage suite: 12 tests passed, including all four named/unnamed cloud/local backup
+  restore-and-reload regressions. Original output read from `/var/tmp/rc-ux-6.2-demo-storage.log`.
+  Focused ESLint, Prettier and `git diff --check` passed.
+- Targeted Playwright run (`demo-vault`, `campaign-identity`, `local-vaults`, desktop and mobile
+  Chromium, two workers, zero retries): **12 passed, two skipped**, exit 0, 46.8 seconds. Both
+  previously failing demo-reset cases pass with the new core-identity assertion. The two skips
+  are the opt-in demo first-render performance checks. Original output read from
+  `/var/tmp/rc-ux-6.2-demo-browser.log`.
+- App `tsc --noEmit` passed (exit 0); original output read from
+  `/var/tmp/rc-ux-6.2-demo-typecheck.log`. Journal formatting also passed. The full browser and
+  pinned visual wrapper gates were not rerun locally; central validation and independent review
+  remain pending. No push, promotion, dispatcher control edit, additional loop or agent delegation.

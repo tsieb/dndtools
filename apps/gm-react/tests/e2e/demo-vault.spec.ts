@@ -216,6 +216,9 @@ test('the demo opens from the switcher, resets, and leaves the GM vault untouche
 	expect(await vaultId(page)).toBe(demoId);
 	expect(await noteTitles(page)).not.toContain('Demo scribble');
 	expect(await showcase(page)).toEqual(seeded);
+	await expect
+		.poll(() => page.evaluate(() => window.__rt!.state.commandCenter.campaign?.name))
+		.toBe('Demo campaign');
 	expect((await opIds(page)).filter((id) => edited.includes(id))).toEqual([]);
 
 	// ── Back to the GM's own vault, exactly as it was ─────────────────────────────────────────

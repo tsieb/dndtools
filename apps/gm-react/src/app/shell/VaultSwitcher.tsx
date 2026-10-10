@@ -97,6 +97,9 @@ export function VaultSwitcher({
 			// queued write cannot persist the old demo before the reload.
 			await runtime.reloadFromStorage();
 		});
+		// Reset creates a fresh demo, unlike an authoritative backup restore. Stage its default
+		// name after empty-state hydration clears the old identity; the next open adopts it.
+		renameLocalVault(id, t('vaults.demoName'));
 		reloadLocalVaultDocument();
 	}
 
