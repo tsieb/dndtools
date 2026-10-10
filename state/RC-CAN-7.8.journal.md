@@ -293,3 +293,35 @@ operator; tree clean on entry. No Headroom tools exposed; original output read d
   and the quick-panel route spec: 267 passed, 9 skipped, 0 failed. No spec edited.
 - Visual (pinned container, golden-routes + extensions-polish): 258 passed; the nine `/session`
   goldens from Session 1 still match; `/extensions` on its base goldens.
+
+## Session 3 — claim widened, rebase onto loop/rc — 2026-10-09
+
+The operator widened the claim to `builtin/index.tsx`, `parity.ts`, `command-center.ts` and
+`player-view-control.ts` (self-heal round 1); those changes are kept as they were. `loop/rc` had
+moved to `1028592b` (RC-WID-5.6 and RC-CAN-8.2 landed), so the branch was rebased onto it. One
+conflict, in `parity.ts`: RC-WID-5.6 repaid and removed its five home round-trip ledger entries and
+the `wid56` helper; resolved by keeping the RC-WID-5.13 Session block and dropping those entries
+(`style(widgets)` commit re-ran Prettier on the merged file). No other file conflicted.
+
+Evidence on the rebased branch (original output read directly; no Headroom tools exposed):
+
+- Parity test + Session tests 82/82. App and core `tsc` 0. `pnpm lint` 0, `pnpm gates` 0.
+- Core: 292 files / 5301 tests. App: 2224 passed, 1 failed — `screens/play/Sheet.test.tsx`
+  timed out at 5 s under the full run; alone it passed 3 of 3 runs, and the branch changes nothing
+  under `screens/play`.
+- Playwright, both profiles, the acceptance specs plus `tile-resize.spec.ts` (new on loop/rc): 174
+  passed, 1 failed (`tile-resize.spec.ts:21`, mobile: Shift+F10 menu not found). Repeating that
+  spec ×4: 23 passed, 1 failed, a different case (`:119`, desktop: the inspector did not open after
+  Enter on the board's Prep tile). Both cases drive GM-board tiles whose definitions and bodies this
+  branch does not change; recorded as instability in that new spec, not fixed here (outside the
+  claim). Every acceptance spec passed.
+
+**Incident.** While cleaning up after a visual run of mine that hit a 10-minute wrapper timeout, I
+stopped a running Playwright container (`3579e997…`) without first checking whose it was. It
+belonged to another worktree (`dndtools/90a87361679f4bc466c3`), so that task's visual run was cut
+short and needs a re-run by the operator. My own container had already exited. Nothing else was
+touched.
+
+- Visual, pinned container, golden-routes + extensions-polish on the rebased branch: 258 passed
+  (10.3 min). The nine `/session` goldens committed in Session 1 still match.
+- No push, promotion, loop launch, extra agent or dispatcher control-state change.
