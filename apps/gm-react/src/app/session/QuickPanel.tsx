@@ -213,8 +213,10 @@ export function SessionQuickPanel({ onNavigated }: { onNavigated?: () => void } 
 						<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 							{t('shell.sessionRound', { round: tracker.round })}
 						</div>
+						{/* Secondary: the timer's mode control is this panel's accent fill, and `accent` painted
+						    parchment's 4.43:1 accent-on-tint pair (DEBT-2026-008). */}
 						<Button
-							variant="primary"
+							variant="secondary"
 							size="sm"
 							icon="skip"
 							data-testid="quick-next-turn"
