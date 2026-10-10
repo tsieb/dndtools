@@ -11,9 +11,9 @@ Routes are `react-router-dom` v6 HashRouter paths. Every screen lives under
 
 | Group    | Destination    | Route         | Owns                                                    |
 | -------- | -------------- | ------------- | ------------------------------------------------------- |
-| Run      | Command Center | `/`           | Campaign hub: resume the live scene, jump anywhere      |
+| Run      | Command Center | `/`           | The home screen: resume the live scene, jump anywhere   |
 | Run      | GM Screen      | `/board`      | The GM screen; resolves to its `/screen/:id`            |
-| Run      | Session        | `/session`    | Live play: combat, dice, handouts, projection           |
+| Run      | Session        | `/session`    | The Session screen: combat, dice, handouts, projection  |
 | Library  | Characters     | `/characters` | PCs, NPCs, bestiary, sheets and builders                |
 | Library  | Maps           | `/atlas`      | Maps, fog, layers, points of interest, the map editor   |
 | Library  | Story          | `/campaign`   | Quests, factions, NPCs, calendar, timeline              |
@@ -63,8 +63,17 @@ As of RC-CAN-7.3 the library and the screen route ship: `/screens` lists screens
 tags, thumbnails, visibility, the live marker; new from template, pin, rename, duplicate, delete
 with undo), and `/screen/:id` renders any screen by its layout policy with a header switcher.
 `/board` resolves to the GM screen's `/screen/:id` and `/scenes` to `/screens`, each by replacing
-the history entry, so a switch from the library, the switcher or the palette is one push. `/`,
-`/session` and `/scene/:id` still render their own screens until CAN-7.6 and CAN-7.8.
+the history entry, so a switch from the library, the switcher or the palette is one push.
+
+As of RC-CAN-7.9 no Run route renders a surface of its own. `/` reads the default `command-center`
+screen and `/session` the default `session` screen, each provisioned on first visit
+(`command-center.ensure-home`) and drawn in reading mode from the flow policy's own placement and
+view-mode tiles (`FlowViewTile`), so either reads the same at its `/screen/:id`. `/board` has no
+page behind it: a GM is provisioned and redirected, a player gets the GM-only notice, and a failed
+provisioning write gets a Retry (`BoardAlias`), never a board outside a screen. The board engine
+(`screens/Board.tsx`) only renders a screen `/screen/:id` hands it. The Run the table entries in
+the sidebar, rail and More sheet open the Command Center and Session screens' `/screen/:id` once
+they exist (`sectionPath`, CAN-7.4); the GM Screen entry opens `/board`, which resolves as above.
 
 ## 2. Navigation layers
 

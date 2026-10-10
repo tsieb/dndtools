@@ -47,13 +47,16 @@ import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
 
 /**
- * Board (`/board`) — the Command Center spatial board: the application's home Scene rendered as a
- * canvas of system widgets, ported from the prototype's bounded "Home" scene and wired to the REAL
- * Processing Core, mirroring the archived Svelte `board/+page.svelte`. The DM's home Scene is materialized the first time
- * the board loads (`command-center.ensure-home`, CMD-001); its seeded system widgets then read out of
- * `getSceneForActor`. Widgets move/resize through `scene.move-widget` / `scene.resize-widget`; new
- * widgets come from the profile-evaluated widget library; and the layout is recoverable through the
- * core's preset + auto-save safe-point commands (CMD-008).
+ * Board — the board engine behind `/screen/:id` (ADR-041): one screen rendered by its layout policy
+ * and wired to the REAL Processing Core. The screen's widgets read out of `getSceneForActor`; they
+ * move/resize through `scene.move-widget` / `scene.resize-widget`; new widgets come from the
+ * profile-evaluated widget library; and the GM screen (the board the home pointer names) is
+ * recoverable through the core's preset + auto-save safe-point commands (CMD-008).
+ *
+ * RC-CAN-7.9 — the engine always renders a screen. The bespoke `/board` page it used to be (the home
+ * board without a screen header, provisioning it on first load) is retired: `/board` resolves to the
+ * GM screen's `/screen/:id`, and `ScreenView`'s `BoardAlias` provisions it and owns the non-GM and
+ * failed-write states.
  *
  * It uses the BOUNDED canvas policy (glanceable, scrolls, keyboard-first) — the accessibility answer
  * the prototype's `scene-canvas.jsx` describes for the home surface. RC-CAN-3.1 fixed what "bounded"
@@ -77,8 +80,7 @@ const PERSIST_FAILED =
 
 /**
  * RC-CAN-7.3 — the screen a `/screen/:id` route hands the board engine: which scene to render, what
- * to call it, and the header actions (the switcher, the pin) that sit beside its name. Without one,
- * the board renders the vault's home scene as `/board` always has.
+ * to call it, and the header actions (the switcher, the pin) that sit beside its name.
  */
 export interface BoardScreen {
 	id: string;
@@ -88,7 +90,7 @@ export interface BoardScreen {
 	actions: ReactNode;
 }
 
-export function Board({ screen }: { screen?: BoardScreen } = {}) {
+export function Board({ screen }: { screen: BoardScreen }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const viewport = useViewport();
@@ -114,9 +116,9 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// A phone's Layout opens at Comfortable, the real tiles at 1:1; its Fit is the titles-only overview.
 	const [zoom, setZoom] = useState<ZoomPreset>(phone ? 'comfortable' : 'fit');
 	const steps = Phone.phoneZoomSteps(phone, editing, zoom);
-	// The home scene backs `/board`; a screen route names its own scene and never provisions one.
-	const homeSceneId = screen ? screen.id : runtime.state.commandCenter.homeSceneId;
-	const boardScene = homeSceneId ? runtime.state.scenes.scenes[homeSceneId] : undefined;
+	// The screen route names the scene; the board never provisions one.
+	const sceneId = screen.id;
+	const boardScene = runtime.state.scenes.scenes[sceneId];
 	const flow = !!boardScene && screenLayoutPolicy(boardScene) === 'flow';
 	// The panel list stands in for a CANVAS on a phone. A flow screen already collapses to one column
 	// of its own content (ADR-041), so it reads through FlowBoard on every tier (RC-CAN-7.6).
@@ -130,7 +132,6 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	const [layoutsOpen, setLayoutsOpen] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const ensuringRef = useRef(false);
 
 	// A successful Add, or a saved layout preset, unmounts the panel with focus still inside it — the
 	// browser then resets focus to <body> and Tab restarts at the skip link. See usePanelFocusReturn.
@@ -150,55 +151,32 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	}, [location.state, location.pathname, navigate]);
 
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
-	const isHomeBoard = homeSceneId === runtime.state.commandCenter.homeSceneId;
-	const summary = homeSceneId
-		? getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, homeSceneId, {
-				widgetPackages: runtime.state.widgets,
-			})
-		: null;
-	const ready = summary !== null && !('kind' in summary);
+	const isHomeBoard = sceneId === runtime.state.commandCenter.homeSceneId;
+	const summary = getSceneForActor(
+		runtime.state.scenes,
+		runtime.state.permissions,
+		actorId,
+		sceneId,
+		{ widgetPackages: runtime.state.widgets },
+	);
+	const ready = !('kind' in summary);
 	// Core-computed keyboard traversal order (CANVAS-016) + the scene revision the durable widget
 	// command envelope must carry (`expectedRevision`, packages/core/src/commands/widget-command.ts).
 	const focusOrder = ready ? summary.focusOrder.map((entry) => entry.widgetInstanceId) : [];
 	const sceneRevision = ready ? summary.ownership.revision : 0;
 
-	// CMD-001: create the DM's home Scene from the system template the first time the board loads.
-	useEffect(() => {
-		if (screen || !runtime.loaded || !isDm || ensuringRef.current) return;
-		const danglingHome = !!homeSceneId && !!summary && 'kind' in summary;
-		if (homeSceneId && !danglingHome) return;
-		ensuringRef.current = true;
-		void runtime
-			.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} })
-			// `dispatchNow` RETHROWS a persist failure. With only a `.finally()` here, a full or
-			// read-only IndexedDB left the home scene uncreated, `ready` false, and the board parked
-			// on "Setting up your GM Screen…" FOREVER — the effect's deps never change, so it never
-			// retries, and nothing told the DM anything had gone wrong.
-			.catch(() => {
-				setError(PERSIST_FAILED);
-			})
-			.finally(() => {
-				ensuringRef.current = false;
-			});
-	}, [runtime, runtime.loaded, isDm, homeSceneId, summary, actorId, screen]);
-
-	const previouslyFilled = useBoardPreviouslyFilled(
-		homeSceneId,
-		!!homeSceneId && (runtime.state.scenes.scenes[homeSceneId]?.widgets.length ?? 0) > 0,
-	);
+	const previouslyFilled = useBoardPreviouslyFilled(sceneId, (boardScene?.widgets.length ?? 0) > 0);
 
 	const widgets: BoardWidget[] = useMemo(() => {
-		if (!ready || !homeSceneId) return [];
-		const rawScene = runtime.state.scenes.scenes[homeSceneId];
-		if (!rawScene) return [];
+		if (!ready || !boardScene) return [];
 		// RC-ENG-10.2 — outside the DM's own edit view, only what this actor's read delivered.
 		return boardWidgetsOf(
-			rawScene.widgets,
+			boardScene.widgets,
 			payloadIndex(summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
 			{ includeUndelivered: isDm && editing },
 		);
-	}, [ready, homeSceneId, runtime.state.scenes, runtime.state.widgets, summary, isDm, editing]);
+	}, [ready, boardScene, runtime.state.widgets, summary, isDm, editing]);
 
 	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
 		a.name.localeCompare(b.name),
@@ -243,7 +221,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		restoreSafePoint,
 	} = useBoardLayouts({ runtime, actorId, dispatch, setStatus });
 
-	const history = useLayoutHistory({ sceneId: homeSceneId ?? null, runtime, dispatch });
+	const history = useLayoutHistory({ sceneId, runtime, dispatch });
 	// A stable callback for the Undo toast: the toast store lives outside React, so the closure it
 	// keeps must not capture a particular render's stack.
 	const historyRef = useRef(history);
@@ -264,7 +242,6 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// (SceneBoardCanvas's `onMove`/`onResize`) commit through — the drop is "snapped back" onto the
 	// grid instead of silently growing the board.
 	function move(widgetInstanceId: string, x: number, y: number) {
-		if (!homeSceneId) return;
 		const widget = widgets.find((w) => w.id === widgetInstanceId);
 		// Flow has no columns to fall off: its x is an order key (FlowBoard computes it).
 		const clampedX = widget && !flow ? clampToColumns(x, widget.w) : x;
@@ -272,20 +249,19 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 			{
 				type: 'scene.move-widget',
 				actorId,
-				payload: { sceneId: homeSceneId, widgetInstanceId, x: clampedX, y: Math.max(0, y) },
+				payload: { sceneId, widgetInstanceId, x: clampedX, y: Math.max(0, y) },
 			},
 			`Moved ${titleOf(widgetInstanceId)}`,
 		);
 	}
 	function resize(widgetInstanceId: string, w: number, h: number) {
-		if (!homeSceneId) return;
 		const widget = widgets.find((wid) => wid.id === widgetInstanceId);
 		const clampedW = widget && !flow ? clampWidthToColumns(widget.x, w) : w;
 		return history.run(
 			{
 				type: 'scene.resize-widget',
 				actorId,
-				payload: { sceneId: homeSceneId, widgetInstanceId, w: clampedW, h },
+				payload: { sceneId, widgetInstanceId, w: clampedW, h },
 			},
 			`Resized ${titleOf(widgetInstanceId)}`,
 		);
@@ -295,7 +271,6 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// takes), so "Fix layout" is a real durable action rather than a client-only visual snap.
 	const layoutIssues = flow ? [] : boardLayoutIssues(widgets);
 	async function fixLayout() {
-		if (!homeSceneId) return;
 		const next = repackBoardColumns(widgets);
 		for (const widget of widgets) {
 			const pos = next.get(widget.id);
@@ -318,14 +293,13 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// offers Undo in a toast — the toast holds open until it is taken or dismissed (Toast.jsx pins any
 	// toast carrying an action), and the same reversal is on `Ctrl+Z`.
 	async function remove(widgetInstanceId: string) {
-		if (!homeSceneId) return;
 		const title = titleOf(widgetInstanceId);
 		setSelectedId((cur) => (cur === widgetInstanceId ? null : cur));
 		const ok = await history.run(
 			{
 				type: 'scene.destroy-widget',
 				actorId,
-				payload: { sceneId: homeSceneId, widgetInstanceId },
+				payload: { sceneId, widgetInstanceId },
 			},
 			`Removed ${title}`,
 		);
@@ -338,14 +312,13 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 		commandType: string,
 		payload: Record<string, unknown>,
 	) {
-		if (!homeSceneId) return;
 		const ok = await history.run(
 			{
 				type: 'widget.dispatch-command',
 				actorId,
 				idempotencyKey: crypto.randomUUID(),
 				payload: {
-					sceneId: homeSceneId,
+					sceneId,
 					widgetInstanceId,
 					commandType,
 					payload,
@@ -361,8 +334,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 	// from the shared `placeNewTile` (the first free one in view, at the size the table gives), so
 	// the board takes it as given, and the gallery hands the new tile back to be selected.
 	async function addWidget(entry: WidgetLibraryEntry, position: { x: number; y: number }) {
-		if (!homeSceneId) return false;
-		const command = addTileCommand(entry, homeSceneId, position, flow ? 'flow' : 'bounded');
+		const command = addTileCommand(entry, sceneId, position, flow ? 'flow' : 'bounded');
 		if (!command) return false;
 		const ok = await history.run(
 			{ type: command.type, actorId, payload: command.payload },
@@ -383,9 +355,9 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 
 	// RC-CAN-4.3 — lend the palette this canvas's edit toggle and undo stack while it is mounted.
 	useEffect(() => {
-		if (!isDm || !homeSceneId) return;
+		if (!isDm) return;
 		return registerCanvasSurface({
-			sceneId: homeSceneId,
+			sceneId,
 			policy: flow ? 'flow' : 'bounded',
 			widgets,
 			editable: true,
@@ -427,7 +399,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 			}}
 		>
 			<Toolbar
-				ariaLabel={screen?.title ?? t('board.title')}
+				ariaLabel={screen.title}
 				style={{
 					display: chromeHidden ? 'none' : 'flex',
 					alignItems: 'center',
@@ -436,12 +408,8 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 					flexWrap: 'wrap',
 				}}
 			>
-				<BoardHeading
-					icon={screen?.icon ?? 'home'}
-					title={screen?.title ?? t('board.title')}
-					summary={screen?.summary ?? t('board.widgetCount', { count: widgets.length })}
-				/>
-				{screen?.actions}
+				<BoardHeading icon={screen.icon} title={screen.title} summary={screen.summary} />
+				{screen.actions}
 				<div style={{ flex: 1 }} />
 				{editing && (
 					<>
@@ -566,7 +534,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 					{posture.stacked ? (
 						<StackedBoard
 							history={history}
-							sceneId={homeSceneId}
+							sceneId={sceneId}
 							widgets={widgets}
 							onWidgetCommand={operateWidget}
 							emptyHint={ready ? '' : t('board.preparingHint')}
@@ -687,7 +655,7 @@ export function Board({ screen }: { screen?: BoardScreen } = {}) {
 				open={templatesOpen}
 				onClose={() => setTemplatesOpen(false)}
 				viewport={viewport}
-				sceneId={ready ? homeSceneId : null}
+				sceneId={ready ? sceneId : null}
 				// The applied layout is a good checkpoint to fall back to, and the DM picked it to adjust it.
 				onApplied={() => {
 					if (isHomeBoard) void snapshotSafePoint();

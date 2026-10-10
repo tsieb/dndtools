@@ -573,15 +573,18 @@ existing customised boards and instance settings are not rewritten. RC-WID-5.7
 
 ## 7. Canvas and layout history
 
-`app/SceneBoardCanvas.tsx` is the shared engine for `/board` and `/scene/:id`. Every pointer
-operation serializes to the same core command as its keyboard equivalent (WCAG 2.5.7). Layout undo
-and reversible destroy are documented in [`SCENE_HISTORY.md`](SCENE_HISTORY.md).
+`app/SceneBoardCanvas.tsx` is the shared engine for canvas screens at `/screen/:id` (the GM screen
+included; `/board` resolves there) and `/scene/:id`. Every pointer operation serializes to the same
+core command as its keyboard equivalent (WCAG 2.5.7). Layout undo and reversible destroy are
+documented in [`SCENE_HISTORY.md`](SCENE_HISTORY.md).
 
 [ADR-041](../adr/041-screens-as-the-run-surface.md) accepts this engine as the `canvas` layout policy
 of a screen and adds `flow`, a responsive column grid of auto-height tiles whose visual, DOM and
 focus order is the layout order, as the default for hub screens. Both policies use the same widget
-instances, the same render resolver and the same core mutation path; flow is not implemented yet
-(CAN-7.7).
+instances, the same render resolver and the same core mutation path; flow ships as
+`app/canvas/FlowBoard.tsx` (CAN-7.7). Since RC-CAN-7.9 the default Command Center (`/`) and Session
+(`/session`) screens are flow screens read through the flow policy's view-mode tile
+(`FlowViewTile`); no run route draws widgets outside a screen.
 
 ## 8. Where to look
 
@@ -614,9 +617,9 @@ a tap does not) to the gallery, which owns discovery, filtering, the miniature a
 test ids (`gallery-card-<type>` on the `li`, `gallery-entry-<type>` on the button) are keyed on
 widget type, which assumes types are unique across installed packages.
 
-`AddWidgetGallery` is shared by the GM Screen (`Board`) and scene editor. Phones use the design
-system bottom `Sheet`; wider viewports use a non-modal side panel with the same rows. The side panel
-is size-contained (`contain: size`): the board's root grows with its content (RC-UX-2.4), so an
+`AddWidgetGallery` is shared by every screen's board engine (`Board`, at `/screen/:id`) and the
+scene editor. Phones use the design system bottom `Sheet`; wider viewports use a non-modal side
+panel with the same rows. The side panel is size-contained (`contain: size`): the board's root grows with its content (RC-UX-2.4), so an
 uncontained panel grew the page and `<main>` scrolled the canvas away; contained, it stretches to
 the board row and scrolls inside itself. Search matches name, description, category, type and
 package name; category filters combine with search. Unsupported entries remain visible after the

@@ -260,7 +260,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.state.wrappingUp': 'Finalizando',
 	'session.state.recap': 'Resumen',
 	'session.state.archived': 'Archivada',
-	'session.live.badge': 'Sesión en vivo',
 	// RC-SES-6.2 — the quiet status /session shows while no session is running.
 	'session.standby.notRecording':
 		'No se está registrando. Las tiradas y el combate se registran en cuanto empiezas la sesión.',
@@ -5622,13 +5621,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.playerBody':
 		'Solo el {gm} puede organizarla. Vuelve a la vista de {gm} para hacer cambios.',
 	'board.title': 'Pantalla del {gm}',
+	'board.setupFailed': 'No se pudo preparar la pantalla del {gm} en este dispositivo.',
 	'board.widgetCount': '{count, plural, one {# widget} other {# widgets}} · tu tablero principal',
 	'board.snap': 'Ajustar',
 	'board.add': 'Añadir',
 	'board.layouts': 'Diseños',
 	'board.done': 'Listo',
 	'board.editLayout': 'Editar el diseño',
-	'board.emptyHint': 'Pulsa Editar el diseño y luego Añadir para colocar un widget.',
 	'board.preparingHint': 'Preparando tu pantalla del {gm}…',
 	'board.addFirstTile': 'Añade tu primer mosaico',
 	'board.applyTemplate': 'Aplicar una plantilla',
@@ -5636,8 +5635,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'board.emptyTitle': 'Tu pantalla del {gm} está vacía',
 	'board.preparingTitle': 'Configurando tu pantalla del {gm}',
 	'board.addWidget': 'Añadir widget',
-	'board.emptyTemplatesHint': 'Tu tablero está vacío. Empieza con un diseño ya preparado:',
-	'board.useTemplate': 'Usar una plantilla',
 	'board.closeLayouts': 'Cerrar los diseños',
 	'board.noWidgets': 'Ahora mismo no hay widgets disponibles para añadir.',
 	'board.saveCurrentLayout': 'Guardar el diseño actual',

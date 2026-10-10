@@ -268,7 +268,6 @@ export default {
 	'session.state.wrappingUp': '[Ŵŕáƥƥíñğ úƥ~~~~ ]',
 	'session.state.recap': '[Ŕéçáƥ~~]',
 	'session.state.archived': '[Áŕçĥíṽéď~~~~]',
-	'session.live.badge': '[Šéššíóñ ľíṽé~~~~ ]',
 	'session.standby.notRecording':
 		'[Ñóţ ŕéçóŕďíñğ. Ŕóľľš áñď çóḿƀáţ áŕé ľóğğéď óñçé ýóú šţáŕţ ţĥé šéššíóñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'session.goLive.label': '[Šţáŕţ šéššíóñ~~~~ ~]',
@@ -5802,6 +5801,7 @@ export default {
 	'board.playerBody':
 		'[Óñľý ţĥé ~~~~{gm} çáñ áŕŕáñğé íţ. Šŵíţçĥ ƀáçķ ţó ţĥé ~~~~ ~~~~ ~~~~ {gm} ṽíéŵ ţó ḿáķé çĥáñğéš.~~~~ ~~~~]',
 	'board.title': '[{gm} šçŕééñ~~~]',
+	'board.setupFailed': "[Ţĥé ~~{gm} šçŕééñ çóúľďñ'ţ ƀé šéţ úƥ óñ ţĥíš ďéṽíçé.~~~~ ~~~~ ~~~~ ~~]",
 	'board.widgetCount':
 		'[{count, plural, one {# ŵíďğéţ~~~~} other {# ŵíďğéţš~~~~}} · ýóúŕ ĥóḿé ƀóáŕď~~~~ ~~~]',
 	'board.snap': '[Šñáƥ~~]',
@@ -5809,7 +5809,6 @@ export default {
 	'board.layouts': '[Ľáýóúţš~~~]',
 	'board.done': '[Ďóñé~~]',
 	'board.editLayout': '[Éďíţ ľáýóúţ~~~~ ]',
-	'board.emptyHint': '[Ƥŕéšš Éďíţ ľáýóúţ, ţĥéñ Áďď ţó ƥľáçé á ŵíďğéţ.~~~~ ~~~~ ~~~~ ~~~~]',
 	'board.preparingHint': '[Ƥŕéƥáŕíñğ ýóúŕ ~~~~ ~{gm} šçŕééñ…~~~~]',
 	'board.addFirstTile': '[Áďď ýóúŕ ƒíŕšţ ţíľé~~~~ ~~~]',
 	'board.applyTemplate': '[Áƥƥľý á ţéḿƥľáţé~~~~ ~~]',
@@ -5817,9 +5816,6 @@ export default {
 	'board.emptyTitle': '[Ýóúŕ ~~{gm} šçŕééñ íš éḿƥţý~~~~ ~~]',
 	'board.preparingTitle': '[Šéţţíñğ úƥ ýóúŕ ~~~~ ~~{gm} šçŕééñ~~~]',
 	'board.addWidget': '[Áďď ŵíďğéţ~~~~]',
-	'board.emptyTemplatesHint':
-		'[Ýóúŕ ƀóáŕď íš éḿƥţý. Šţáŕţ ƒŕóḿ á ŕéáďý-ḿáďé ľáýóúţ:~~~~ ~~~~ ~~~~ ~~~~ ~]',
-	'board.useTemplate': '[Úšé á ţéḿƥľáţé~~~~ ~]',
 	'board.closeLayouts': '[Çľóšé ľáýóúţš~~~~ ~]',
 	'board.noWidgets': '[Ñó ŵíďğéţš áŕé áṽáíľáƀľé ţó áďď ŕíğĥţ ñóŵ.~~~~ ~~~~ ~~~~ ~~]',
 	'board.saveCurrentLayout': '[Šáṽé çúŕŕéñţ ľáýóúţ~~~~ ~~~]',

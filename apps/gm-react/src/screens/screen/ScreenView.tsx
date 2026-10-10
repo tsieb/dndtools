@@ -5,6 +5,7 @@ import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { Page } from '../../app/screen-kit';
 import { Board } from '../Board';
+import { BoardPlayerNotice } from '../board/BoardPlayerNotice';
 import { SCREENS_PATH, visibilityLabelKey } from './screenModel';
 import { ScreenSwitcher } from './ScreenSwitcher';
 import { useEnsureHomeScreen, useScreenActions, useScreens } from './useScreens';
@@ -116,18 +117,41 @@ export function ScreenView() {
  * REPLACING the history entry, so an old bookmark lands on the GM screen and Back never returns to the
  * alias. Any create intent (the Command Center's "New widget") travels with it. In a fresh vault the
  * home board is provisioned first (`command-center.ensure-home`, as `/board` always did) and nothing
- * renders meanwhile, so the board mounts ONCE, on the screen route, rather than here and then again
- * there. A non-GM actor, or a provisioning write that failed to persist, gets the board as it always
- * rendered here: the player notice, or the board's own retry and storage error.
+ * renders meanwhile, so the board mounts ONCE, on the screen route.
+ *
+ * RC-CAN-7.9 — nothing here renders the bespoke `/board` page any more. A non-GM actor gets the
+ * player notice (the GM screen is GM-only), and a provisioning write that failed to persist gets an
+ * honest failure with a Retry that asks again, as `/` and `/session` do.
  *
  * The redirect itself is `ScreenRouteAliases`: a `<Navigate>` here never fired again when `/board` was
  * re-entered before the first redirect had committed, and left the pane empty (see that file).
  */
 export function BoardAlias() {
+	// `useEnsureHomeScreen` asks once per mount; a retry is a fresh mount.
+	const [attempt, setAttempt] = useState(0);
+	return <GmScreenAlias key={attempt} onRetry={() => setAttempt((count) => count + 1)} />;
+}
+
+function GmScreenAlias({ onRetry }: { onRetry: () => void }) {
 	const runtime = useRuntime();
+	const { t } = useI18n();
 	const { failed } = useEnsureHomeScreen();
 	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
 	if (!runtime.loaded) return null;
-	if (!isDm || failed) return <Board />;
-	return null;
+	if (!isDm) return <BoardPlayerNotice />;
+	if (!failed) return null;
+	return (
+		<Page>
+			<EmptyState
+				icon="widget"
+				title={t('board.setupFailed')}
+				description={t('home.setupFailedHint')}
+				action={
+					<Button variant="secondary" size="sm" icon="refresh" onClick={onRetry}>
+						{t('common.action.retry')}
+					</Button>
+				}
+			/>
+		</Page>
+	);
 }
