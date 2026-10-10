@@ -128,3 +128,18 @@ six help lines and eleven source labels in `vocabulary.ts`. No code change this 
 On head `9dc3720c`: `pnpm typecheck` exit 0; full `pnpm test` exit 0 (`/tmp/rcwid57/test-full3.log`):
 core 292 files / 5,307, cloud 46 / 569, app 178 / 2,274, tooling 31 / 249. `Sheet.test.tsx`
 passed this run; it stays load-sensitive near its 5s timeout on base as well.
+
+## Quality-gate follow-up — 2026-10-09
+
+The wrapper's "Quality gates" (`pnpm gates`, `scripts/quality-gates.ts`) failed on head `ee017fcb`
+with four broken relative links, read from the original log
+(`.state/attempts/a44626d4-…/output.log`, lines 40–44): `docs/planning/SCREENS_PARITY.md`
+lines 213, 214, 630 and 648 linked to `widgets/builtin/{InitiativeBody,InitiativeTracker,TimerBody,
+NextTurnControl}.tsx`, which this story moved to `widgets/templates/board/{Initiative,
+InitiativeCompact,Countdown,NextTurnControl}.tsx`. Repointed the four links, nothing else in the
+file. That file is outside the claim; the gate cannot pass without it. Backtick paths elsewhere in
+the docs (the roadmap's historical `Owns:` records) are not links and are left as written.
+
+`pnpm gates` locally: exit 0, "docs check passed: 306 file(s) reachable from docs/README.md, 417
+relative link(s) resolved" (`/tmp/rcwid57/gates.log`). No code changed since the full `pnpm test`
+on `9dc3720c`.
