@@ -283,6 +283,7 @@ export type ReviewChangeKind =
 	| 'item'
 	| 'scene'
 	| 'map'
+	| 'calendar'
 	| 'session'
 	| 'combat'
 	| 'audio'
@@ -306,7 +307,7 @@ const REVIEW_KIND: Readonly<Record<string, ReviewChangeKind>> = {
 	character: 'character',
 	'character-draft': 'character',
 	'content-item': 'item',
-	calendar: 'item',
+	calendar: 'calendar',
 	handout: 'item',
 	scene: 'scene',
 	map: 'map',
@@ -329,7 +330,7 @@ const NOT_REVIEWED = new Set(['content-history', 'command-center', 'presence', '
 
 function reviewVerb(opType: string): ReviewChange['verb'] {
 	const action = opType.slice(opType.indexOf('.') + 1);
-	if (/^(create|quick-create|finalize|import)/.test(action)) return 'created';
+	if (/^(create|quick-create|finalize|import|define)/.test(action)) return 'created';
 	if (/^(delete|archive)/.test(action)) return 'deleted';
 	if (/^(update|rename|set|edit|add|remove|reorder|move)/.test(action)) return 'edited';
 	return 'changed';
@@ -374,6 +375,8 @@ export function usePrepRecapDigest() {
 			names.set(i.id, i.title);
 		for (const s of listScenesForActor(scenes, permissions, actorId)) names.set(s.id, s.name);
 		for (const m of listMapsForActor(maps, permissions, actorId)) names.set(m.id, m.name);
+		// The campaign calendar is the GM's own (the Campaign date panel reads it the same way).
+		for (const calendar of Object.values(content.calendars)) names.set(calendar.id, calendar.name);
 		// One row per changed thing, at its newest write: three widgets added to one scene are one
 		// scene to look at again, not three.
 		const seen = new Set<string>();

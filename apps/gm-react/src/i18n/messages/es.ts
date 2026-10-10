@@ -844,6 +844,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.prep.reviewKind.item': 'Elemento de la bóveda',
 	'session.prep.reviewKind.scene': 'Escena',
 	'session.prep.reviewKind.map': 'Mapa',
+	'session.prep.reviewKind.calendar': 'Calendario',
 	'session.prep.reviewKind.session': 'Sesión',
 	'session.prep.reviewKind.combat': 'Combate',
 	'session.prep.reviewKind.audio': 'Audio',

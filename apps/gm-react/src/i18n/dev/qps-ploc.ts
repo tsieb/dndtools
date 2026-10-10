@@ -875,6 +875,7 @@ export default {
 	'session.prep.reviewKind.item': '[Ṽáúľţ íţéḿ~~~~]',
 	'session.prep.reviewKind.scene': '[Šçéñé~~]',
 	'session.prep.reviewKind.map': '[Ḿáƥ~~]',
+	'session.prep.reviewKind.calendar': '[Çáľéñďáŕ~~~~]',
 	'session.prep.reviewKind.session': '[Šéššíóñ~~~]',
 	'session.prep.reviewKind.combat': '[Çóḿƀáţ~~~]',
 	'session.prep.reviewKind.audio': '[Áúďíó~~]',

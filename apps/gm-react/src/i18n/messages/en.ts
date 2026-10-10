@@ -832,6 +832,7 @@ export const en = {
 	'session.prep.reviewKind.item': 'Vault item',
 	'session.prep.reviewKind.scene': 'Scene',
 	'session.prep.reviewKind.map': 'Map',
+	'session.prep.reviewKind.calendar': 'Calendar',
 	'session.prep.reviewKind.session': 'Session',
 	'session.prep.reviewKind.combat': 'Combat',
 	'session.prep.reviewKind.audio': 'Audio',

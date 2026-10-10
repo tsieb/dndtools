@@ -402,16 +402,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
@@ -424,6 +415,15 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
     <li>
       "The Hollow King stirs"
       "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Reckoning of Saltreach"
+      "Created · Calendar · Jun 3 · 5:00 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -770,16 +770,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
@@ -792,6 +783,15 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
     <li>
       "The Hollow King stirs"
       "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Reckoning of Saltreach"
+      "Created · Calendar · Jun 3 · 5:00 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -1174,23 +1174,23 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
       "Sera Duskwhisper"
       "Changed · Character · Jun 3 · 5:01 AM"
     <li>
-      "Session"
-      "Edited · Jun 3 · 5:01 AM"
-    <li>
       "Harbor of Saltreach"
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "The Ashen Hand"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
     <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "The Sunken Crypt — DM notes"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
     <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "Jun 3 · 12:01 PM · no recap yet"
   <textarea aria-label="Session recap">
@@ -1615,16 +1615,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
@@ -1640,6 +1631,15 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
     <li>
       "The party makes landfall"
       "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Reckoning of Saltreach"
+      "Created · Calendar · Jun 3 · 5:00 AM"
+    <li>
+      "Dockworkers’ Union"
+      "Created · Vault item · Jun 3 · 5:00 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -1983,16 +1983,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
@@ -2008,6 +1999,15 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     <li>
       "The party makes landfall"
       "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Reckoning of Saltreach"
+      "Created · Calendar · Jun 3 · 5:00 AM"
+    <li>
+      "Dockworkers’ Union"
+      "Created · Vault item · Jun 3 · 5:00 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -2351,16 +2351,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
@@ -2376,6 +2367,15 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
     <li>
       "The party makes landfall"
       "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Reckoning of Saltreach"
+      "Created · Calendar · Jun 3 · 5:00 AM"
+    <li>
+      "Dockworkers’ Union"
+      "Created · Vault item · Jun 3 · 5:00 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -2794,9 +2794,6 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
       "Combat"
       "Changed · Jun 3 · 5:01 AM"
     <li>
-      "Combat"
-      "Changed · Jun 3 · 5:01 AM"
-    <li>
       "Session"
       "Edited · Jun 3 · 5:01 AM"
     <li>
@@ -2804,22 +2801,25 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt — DM notes"
       "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
@@ -3254,9 +3254,6 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
       "Combat"
       "Changed · Jun 3 · 5:01 AM"
     <li>
-      "Combat"
-      "Changed · Jun 3 · 5:01 AM"
-    <li>
       "Session"
       "Edited · Jun 3 · 5:01 AM"
     <li>
@@ -3264,22 +3261,25 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
       "Created · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
-    <li>
-      "The Sunken Crypt"
-      "Created · Scene · Jun 3 · 5:01 AM"
+      "Edited · Scene · Jun 3 · 5:01 AM"
     <li>
       "The Ashen Hand"
       "Edited · Vault item · Jun 3 · 5:01 AM"
     <li>
       "The Sunken Crypt — DM notes"
       "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "Campaign Primer"
+      "Edited · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Hollow King stirs"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The party makes landfall"
+      "Created · Vault item · Jun 3 · 5:01 AM"
+    <li>
+      "The Drowning of Saltreach"
+      "Created · Vault item · Jun 3 · 5:01 AM"
   "Session archives"
   "No archived sessions yet. Ending a live session into Recap creates one here."
 <section>
