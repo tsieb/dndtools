@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { dispatch, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from './_helpers';
 
 // GRAPH — the /graph relationship-intelligence surface. Every node/edge comes from the
@@ -10,6 +10,13 @@ import { dispatch, gotoRoute, markOnboarded, ops, seedFresh, waitReady } from '.
 /** Seeded titles (demo-seed.ts). The dm-only note is the leak canary for the player viewpoint. */
 const VISIBLE_NOTE = 'Campaign Primer';
 const DM_ONLY_NOTE = 'The Sunken Crypt — DM notes';
+
+/** RC-KNW-6.5 — a phone lists the graph first and opens the canvas behind "Show map"; the tests of
+ * the canvas itself open it there. Desktop and rail show the canvas from the start. */
+async function showCanvas(page: Page): Promise<void> {
+	if ((page.viewportSize()?.width ?? 1280) <= 640)
+		await page.getByRole('button', { name: 'Show map', exact: true }).click();
+}
 
 test.describe('graph: relationship graph & search', () => {
 	test.beforeEach(async ({ page }) => {
@@ -24,6 +31,7 @@ test.describe('graph: relationship graph & search', () => {
 	test('keyboard walk and focus keep a stable neighborhood and clear with Escape', async ({
 		page,
 	}) => {
+		await showCanvas(page);
 		const nodes = page.getByTestId('graph-node');
 		// /graph is a lazy route: #main-content attaches before the screen mounts, so a one-shot
 		// count can read 0. The vault is already loaded, so every node lands in the mounting commit.
@@ -52,6 +60,7 @@ test.describe('graph: relationship graph & search', () => {
 	});
 
 	test('seeded entities render as a graph with real wikilink edges', async ({ page }) => {
+		await showCanvas(page);
 		// Node buttons for the seeded notes exist (canvas node and/or search row — both are real reads).
 		await expect(page.getByRole('button', { name: VISIBLE_NOTE })).not.toHaveCount(0);
 		await expect(page.getByRole('button', { name: DM_ONLY_NOTE })).not.toHaveCount(0);
@@ -112,6 +121,7 @@ test.describe('graph: relationship graph & search', () => {
 
 	// RC-KNW-4.1 — clusters and momentum.
 	test('linked notes are wrapped in cluster hulls that can be switched off', async ({ page }) => {
+		await showCanvas(page);
 		const hulls = page.locator('svg g[aria-hidden="true"] polygon, svg g[aria-hidden="true"] line');
 		// The seeded vault's [[wikilinks]] form real communities, so at least one arc gets a hull.
 		await expect.poll(async () => hulls.count()).toBeGreaterThan(0);
@@ -266,6 +276,7 @@ test.describe('graph: edge geometry', () => {
 		await waitReady(page);
 		await page.locator('#main-content').waitFor({ state: 'attached' });
 		await expect(page.getByRole('button', { name: VISIBLE_NOTE })).not.toHaveCount(0);
+		await showCanvas(page);
 		expect(await page.locator('#main-content svg line').count()).toBeGreaterThan(0);
 
 		// The SVG stretches its 100x70 viewBox to the container (preserveAspectRatio="none"), so a

@@ -6,7 +6,13 @@ import { KIND_COLOR, KIND_ICON, KIND_LABEL } from './presentation';
 import type { ContentKindWord, GraphVisualization } from '@dndtools/core';
 import type { ChangeEvent, Dispatch, KeyboardEvent, SetStateAction } from 'react';
 
+/**
+ * The graph's results list, and — once the RC-UX-3.5 graph signal is reached (`filterable`) — the
+ * filter box and kind chips that narrow it. The list is the graph's index: on a phone it is the
+ * primary view, and every node is reachable by name here.
+ */
 export function GraphSearch({
+	filterable = true,
 	viz,
 	view,
 	query,
@@ -17,6 +23,7 @@ export function GraphSearch({
 	sel,
 	setSel,
 }: {
+	filterable?: boolean;
 	viz: GraphVisualization;
 	view: 'dm' | 'player';
 	query: string;
@@ -35,52 +42,60 @@ export function GraphSearch({
 		setFocusId(null);
 	};
 	return (
-		<Panel title={t('graph.search')} style={{ background: T.sunken }}>
-			{/* RC-KNW-6.4 — this box narrows the graph; the palette is search. Its placeholder says so;
+		<Panel
+			title={filterable ? t('graph.search') : t('graph.list')}
+			style={{ background: T.sunken }}
+		>
+			{filterable && (
+				<>
+					{/* RC-KNW-6.4 — this box narrows the graph; the palette is search. Its placeholder says so;
 			    the accessible name stays "Search the graph", which scripts/perf/capture.ts targets. */}
-			<Input
-				icon="search"
-				value={query}
-				aria-label={t('graph.searchLabel')}
-				placeholder={t('graph.searchPlaceholder')}
-				onChange={(e: ChangeEvent<HTMLInputElement>) => {
-					setQuery(e.target.value);
-					setFocusId(null);
-				}}
-				onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-					if (e.key === 'Escape' && query) {
-						e.stopPropagation();
-						setQuery('');
-					}
-				}}
-			/>
-			<div className="graph-facets">
-				{/* RC-KNW-6.2 — the facets are kind words, so a chip, a legend entry and a result's
-				    meta line all say the same "Faction" for a faction object. */}
-				{(['all', ...viz.facets.kinds] as ('all' | ContentKindWord)[]).map((f) => (
-					<Button
-						key={f}
-						size="sm"
-						variant={facet === f ? 'accent' : 'ghost'}
-						aria-pressed={facet === f}
-						onClick={() => {
-							setFacet(f);
+					<Input
+						icon="search"
+						value={query}
+						aria-label={t('graph.searchLabel')}
+						placeholder={t('graph.searchPlaceholder')}
+						onChange={(e: ChangeEvent<HTMLInputElement>) => {
+							setQuery(e.target.value);
 							setFocusId(null);
 						}}
-					>
-						{f === 'all' ? t('graph.facetAll') : t(KIND_LABEL[f])}
-					</Button>
-				))}
-				{(query || facet !== 'all') && (
-					<Button size="sm" variant="ghost" onClick={reset}>
-						{t('graph.clearFilters')}
-					</Button>
-				)}
-			</div>
+						onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+							if (e.key === 'Escape' && query) {
+								e.stopPropagation();
+								setQuery('');
+							}
+						}}
+					/>
+					<div className="graph-facets">
+						{/* RC-KNW-6.2 — the facets are kind words, so a chip, a legend entry and a result's
+				    meta line all say the same "Faction" for a faction object. */}
+						{(['all', ...viz.facets.kinds] as ('all' | ContentKindWord)[]).map((f) => (
+							<Button
+								key={f}
+								size="sm"
+								variant={facet === f ? 'accent' : 'ghost'}
+								aria-pressed={facet === f}
+								onClick={() => {
+									setFacet(f);
+									setFocusId(null);
+								}}
+							>
+								{f === 'all' ? t('graph.facetAll') : t(KIND_LABEL[f])}
+							</Button>
+						))}
+						{(query || facet !== 'all') && (
+							<Button size="sm" variant="ghost" onClick={reset}>
+								{t('graph.clearFilters')}
+							</Button>
+						)}
+					</div>
+				</>
+			)}
 			<div className="graph-results" role="region" aria-label={t('graph.results')} tabIndex={0}>
 				{viz.nodes.map((r) => (
 					<Button
 						key={r.id}
+						data-testid="graph-result"
 						variant={r.id === sel ? 'accent' : 'ghost'}
 						aria-pressed={r.id === sel}
 						onClick={() => setSel((cur) => (cur === r.id ? null : r.id))}
@@ -111,16 +126,18 @@ export function GraphSearch({
 					/>
 				)}
 			</div>
-			<Button
-				variant="ghost"
-				size="sm"
-				icon="search"
-				disabled={!query.trim()}
-				data-testid="graph-search-vault"
-				onClick={() => navigate('/knowledge', { state: { search: query.trim() } })}
-			>
-				{t('graph.searchVault')}
-			</Button>
+			{filterable && (
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="search"
+					disabled={!query.trim()}
+					data-testid="graph-search-vault"
+					onClick={() => navigate('/knowledge', { state: { search: query.trim() } })}
+				>
+					{t('graph.searchVault')}
+				</Button>
+			)}
 		</Panel>
 	);
 }

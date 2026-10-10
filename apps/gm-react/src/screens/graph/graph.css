@@ -1,6 +1,7 @@
 /* Graph geometry stays in viewBox coordinates; controls scale with text and density. Canvas nodes
    are the exception: they sit at fixed ring positions and are already sized 48px and up, so a
-   text-scaled minimum (96px at 200% text) would stack them on top of each other. */
+   text-scaled minimum (96px at 200% text) would stack them on top of each other. Their names sit
+   outside the circle (`.graph-node-label`), so the node's own box never wraps text. */
 .graph-surface {
 	container-type: inline-size;
 }
@@ -9,7 +10,7 @@
 	min-height: max(var(--space-12), var(--density-touch-target));
 	min-width: var(--space-12);
 }
-.graph-surface button {
+.graph-surface button:not([data-testid='graph-node']) {
 	overflow-wrap: anywhere;
 }
 .graph-surface input {
@@ -21,15 +22,48 @@
 .graph-surface [data-testid='graph-node']:focus-visible {
 	z-index: var(--z-raised);
 }
-/* Canvas beside a 20rem rail. Rem-sized, so large text grows the rail too; below room for an
-   18rem canvas the rail stacks under it instead of squeezing the canvas to nothing. */
+/* RC-KNW-6.5 — a node's name, below it on a surface-coloured halo so edges and hulls never run
+   through the letters. Words wrap whole (a word is broken only when it alone is wider than the
+   label) and the name stops at two lines; the node's title and aria-label carry the rest. The
+   collision pass in presentation.ts moves overlapping labels with `translate`, which composes with
+   the centring `transform` here. */
+.graph-node-label {
+	position: absolute;
+	margin-top: var(--space-0-5);
+	transform: translateX(-50%);
+	width: max-content;
+	max-width: 8rem;
+	padding-inline: var(--space-1);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	box-shadow: 0 0 var(--space-1) var(--space-0-5) var(--color-surface);
+	color: var(--color-text-primary);
+	font: 600 var(--text-sm) / 1.2 var(--font-sans);
+	text-align: center;
+	overflow-wrap: break-word;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
+	pointer-events: none;
+}
+.graph-empty-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--space-2);
+}
+/* Canvas beside a 20rem rail. Rem-sized, so large text grows the rail too. Below room for a 40rem
+   canvas the rail stacks under it: a narrower canvas cannot fit a name under every node of a
+   campaign-sized graph (RC-KNW-6.5), and squeezing it is how labels came to overprint. */
 .graph-layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
 	gap: var(--space-5);
 	align-items: start;
 }
-@container (width < 39.25rem) {
+@container (width < 61.25rem) {
 	.graph-layout {
 		grid-template-columns: minmax(0, 1fr);
 	}

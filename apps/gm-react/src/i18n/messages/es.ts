@@ -5686,6 +5686,13 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'graph.emptyPlayer': 'Ningún nodo visible para jugadores coincide con este filtro.',
 	'graph.emptyDm':
 		'Todavía no hay nada que graficar — las notas, los mapas y las entradas de historia aparecen aquí a medida que las enlazas.',
+	'graph.emptyVault.body':
+		'Escribe una nota o importa algunas. El grafo se dibuja a partir de los enlaces.',
+	'graph.emptyVault.newNote': 'Nueva nota',
+	'graph.emptyVault.import': 'Importar notas',
+	'graph.map.show': 'Mostrar mapa',
+	'graph.map.hide': 'Ocultar mapa',
+	'graph.list': 'En el grafo',
 	'graph.search': 'Filtrar',
 	'graph.searchPlaceholder': 'Filtrar el grafo…',
 	'graph.searchLabel': 'Buscar en el grafo',

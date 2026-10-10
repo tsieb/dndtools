@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	getMapViewForActor,
@@ -99,6 +99,164 @@ export function positioned(nodes: GraphVizNode[]): (GraphVizNode & { x: number; 
 		const angle = (2 * Math.PI * i) / n - Math.PI / 2;
 		return { ...node, x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
 	});
+}
+
+/** A box in canvas pixels. */
+export interface Rect {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+}
+
+/** One label to place: its box when it sits in its home slot below the node, and the node's box. */
+export interface LabelSlot {
+	id: string;
+	label: Rect;
+	node: Rect;
+}
+
+function overlap(a: Rect, b: Rect): number {
+	const w = Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left);
+	const h = Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top);
+	return w > 0 && h > 0 ? w * h : 0;
+}
+
+/**
+ * RC-KNW-6.5 — the collision pass. Labels are placed in order (the caller puts the selected node and
+ * the best-connected nodes first). Each label tries a ring of slots around its node — below it (home),
+ * slid half or a whole label sideways, beside it, above it, then a row further out — and takes the
+ * slot that overlaps the least: labels already placed and `obstacles` (on-canvas controls) count
+ * most, then the canvas edge, then other nodes. Among equally clear slots the one nearest its node
+ * wins, so a name stays beside the circle it names. When every slot collides the least-bad one is
+ * used, so a pathological graph degrades instead of failing. Returns each label's offset from its
+ * home slot, in pixels.
+ */
+export function placeLabels(
+	slots: readonly LabelSlot[],
+	bounds: Rect,
+	obstacles: readonly Rect[] = [],
+	gap = 2,
+): Map<string, { dx: number; dy: number }> {
+	const placed: Rect[] = [];
+	const offsets = new Map<string, { dx: number; dy: number }>();
+	for (const slot of slots) {
+		const { label, node } = slot;
+		const step = label.height + gap;
+		const above = -(label.height + node.height + 2 * gap);
+		const beside = node.width / 2 + gap + label.width / 2;
+		const level = -(gap + node.height / 2 + label.height / 2);
+		const candidates: [number, number][] = [];
+		for (const dy of [0, above, step, above - step, 2 * step, above - 2 * step])
+			for (const dx of [0, -label.width / 2, label.width / 2, -label.width, label.width])
+				candidates.push([dx, dy]);
+		for (const dy of [0, -step / 2, step / 2, -step, step])
+			for (const dx of [beside, -beside]) candidates.push([dx, level + dy]);
+		const cx = node.left + node.width / 2;
+		const cy = node.top + node.height / 2;
+		let best = { dx: 0, dy: 0 };
+		let bestScore = Infinity;
+		let bestDistance = Infinity;
+		for (const [dx, dy] of candidates) {
+			const box = { ...label, left: label.left + dx, top: label.top + dy };
+			let score = 0;
+			for (const other of placed) score += overlap(box, other) * 4;
+			for (const other of obstacles) score += overlap(box, other) * 4;
+			score += (box.width * box.height - overlap(box, bounds)) * 2;
+			for (const other of slots) if (other !== slot) score += overlap(box, other.node);
+			// How far the label's nearest edge sits from its node's centre.
+			const distance = Math.hypot(
+				Math.max(box.left - cx, 0, cx - (box.left + box.width)),
+				Math.max(box.top - cy, 0, cy - (box.top + box.height)),
+			);
+			if (score < bestScore || (score === bestScore && distance < bestDistance)) {
+				best = { dx, dy };
+				bestScore = score;
+				bestDistance = distance;
+			}
+		}
+		placed.push({ ...label, left: label.left + best.dx, top: label.top + best.dy });
+		offsets.set(slot.id, best);
+	}
+	return offsets;
+}
+
+/**
+ * Run the collision pass over the rendered canvas: measure every `[data-graph-label]` in its home
+ * slot, the `[data-graph-node]` it names and every other control on the canvas, place the labels,
+ * and write each offset to the label's CSS `translate` (React never sets that property, so a
+ * re-render does not undo it). It re-runs whenever `key` changes, when the canvas resizes and once
+ * the web fonts land, since each of those moves the label boxes.
+ */
+export function useLabelPlacement(canvas: RefObject<HTMLElement | null>, key: string) {
+	useLayoutEffect(() => {
+		const el = canvas.current;
+		if (!el) return;
+		let frame = 0;
+		let live = true;
+		const run = () => {
+			if (!live) return;
+			const labels = [...el.querySelectorAll<HTMLElement>('[data-graph-label]')];
+			for (const label of labels) label.style.translate = '';
+			const origin = el.getBoundingClientRect();
+			const local = (r: DOMRect): Rect => ({
+				left: r.left - origin.left,
+				top: r.top - origin.top,
+				width: r.width,
+				height: r.height,
+			});
+			// Place the highest-ranked labels first (`data-graph-rank`: the selection, then degree), so a
+			// crowded neighbourhood moves its minor labels rather than the one the reader is looking at.
+			const ranked = labels
+				.map((label, i) => ({ label, i, rank: Number(label.dataset.graphRank ?? 0) }))
+				.sort((a, b) => b.rank - a.rank || a.i - b.i);
+			const nodes = new Map(
+				[...el.querySelectorAll<HTMLElement>('[data-graph-node]')].map((node) => [
+					node.dataset.graphNode,
+					node,
+				]),
+			);
+			const slots = ranked.flatMap(({ label }) => {
+				const node = nodes.get(label.dataset.graphLabel);
+				return node
+					? [
+							{
+								id: label.dataset.graphLabel ?? '',
+								label: local(label.getBoundingClientRect()),
+								node: local(node.getBoundingClientRect()),
+							},
+						]
+					: [];
+			});
+			// On-canvas controls (the Clusters toggle) stay readable: no name is placed over them.
+			const obstacles = [
+				...el.querySelectorAll<HTMLElement>('button:not([data-testid="graph-node"])'),
+			].map((control) => local(control.getBoundingClientRect()));
+			const offsets = placeLabels(
+				slots,
+				{ left: 0, top: 0, width: origin.width, height: origin.height },
+				obstacles,
+			);
+			for (const label of labels) {
+				const offset = offsets.get(label.dataset.graphLabel ?? '');
+				if (offset && (offset.dx || offset.dy))
+					label.style.translate = `${offset.dx}px ${offset.dy}px`;
+			}
+		};
+		run();
+		const schedule = () => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(run);
+		};
+		const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+		observer?.observe(el);
+		void document.fonts?.ready.then(schedule);
+		return () => {
+			live = false;
+			observer?.disconnect();
+			cancelAnimationFrame(frame);
+		};
+	}, [canvas, key]);
 }
 
 /** Preserve the same actor-scoped health reads and memoization as the graph screen. */

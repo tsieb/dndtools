@@ -40,7 +40,11 @@ test('graph polish: large text leaves search controls reachable and canvas targe
 	await page.locator('html').evaluate((el) => (el.style.fontSize = '200%'));
 	const search = page.getByLabel('Search the graph');
 	await search.fill('Campaign Primer');
-	const node = page.getByTestId('graph-node');
+	// The graph's primary node view: the canvas on desktop, the results list on a phone (RC-KNW-6.5).
+	const node = page
+		.getByRole('region', { name: /^(Relationship graph|Graph results)$/ })
+		.first()
+		.locator('[data-testid="graph-node"], [data-testid="graph-result"]');
 	await expect(node).toHaveCount(1);
 	const bounds = await node.boundingBox();
 	expect(bounds!.width).toBeGreaterThanOrEqual(48);

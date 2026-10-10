@@ -5654,6 +5654,13 @@ export const en = {
 	'graph.emptyPlayer': 'No player-visible nodes match this filter.',
 	'graph.emptyDm':
 		'Nothing to graph yet — notes, maps, and story entries appear here as you link them.',
+	// RC-KNW-6.5 — the empty vault's one empty state, the phone map toggle, the pre-signal list.
+	'graph.emptyVault.body': 'Write a note or bring some in. The graph draws itself from the links.',
+	'graph.emptyVault.newNote': 'New note',
+	'graph.emptyVault.import': 'Import notes',
+	'graph.map.show': 'Show map',
+	'graph.map.hide': 'Hide map',
+	'graph.list': 'On the graph',
 	'graph.search': 'Filter',
 	'graph.searchPlaceholder': 'Filter the graph…',
 	'graph.searchLabel': 'Search the graph',
