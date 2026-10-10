@@ -104,3 +104,22 @@ Current logs: /tmp/wid64-claim-e2e.log, /tmp/wid64-claim-typecheck.log,
 /tmp/wid64-claim-format-check.log, /tmp/wid64-claim-visual-update.log,
 /tmp/wid64-claim-visual-compare.log and /tmp/wid64-claim-budget.log.
 No push, promotion, other agents or dispatcher-state edits.
+
+## Self-heal round 1: claim widened (2026-10-09)
+
+The dispatcher widened the claim to include apps/gm-react/src/platform/preferences.ts and
+apps/gm-react/tests/visual/check-baseline-budget.mjs. Both changes are kept unchanged: the typed
+builderDefinition device key and the 37 MiB aggregate cap. The two claim exceptions above are now
+inside the claim. No source changes were made in this round.
+
+loop/rc has moved to 1028592b (RC-CAN-8.2, canvas resize); `git merge-tree` against it is clean.
+Fresh local re-validation on 346fdaaf:
+
+- `pnpm --filter @dndtools/gm-react typecheck`: exit 0 (/tmp/wid64-r2-typecheck.log).
+- Builder unit suite (`vitest run src/app/widgetBuilder`): 87 passed in 8 files (/tmp/wid64-r2-unit.log).
+- widget-full-disclosure + widget-builder on desktop-chromium and mobile-chromium: 25 passed and
+  1 intentional mobile skip of the desktop-only keyboard case (/tmp/wid64-r2-e2e.log).
+- `check-baseline-budget.mjs`: 846 files, 36,678.8 KiB of 37,888.0 KiB, exit 0.
+
+These are local records only. Central gates and independent review still belong to the operator.
+No push, promotion, extra agents or dispatcher-state edits.
