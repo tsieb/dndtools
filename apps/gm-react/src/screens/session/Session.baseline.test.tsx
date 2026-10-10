@@ -516,6 +516,67 @@ async function press(name: string) {
 const openDialog = () => document.querySelector('[role="dialog"]');
 
 describe('Session as a screen (RC-CAN-7.8)', () => {
+	it('duplicate trackers handle each shortcut once and keep their keyboard cursor on rerender', async () => {
+		await seedDemoVault();
+		await startFight();
+		await renderSession();
+		const screen = sessionScreen();
+		const widget = screen.widgets.find((candidate) => candidate.type === 'combat')!;
+		await accept({
+			type: 'scene.duplicate-widget',
+			payload: { sceneId: screen.id, widgetInstanceId: widget.id },
+		} as never);
+		await renderSession();
+		expect(
+			[...host.querySelectorAll('button')].filter((button) => button.textContent === 'End combat'),
+		).toHaveLength(2);
+
+		const key = async (value: string, options: KeyboardEventInit = {}) => {
+			await act(async () => {
+				window.dispatchEvent(
+					new KeyboardEvent('keydown', { key: value, cancelable: true, ...options }),
+				);
+			});
+			await renderSession();
+		};
+		const combat = () => runtime.state.session.combat;
+		const before = combat().log.length;
+		await key('n');
+		expect(combat().turn).toBe(1);
+		expect(
+			combat()
+				.log.slice(before)
+				.map((entry) => entry.kind),
+		).toEqual(['turn-advanced']);
+		await key('p');
+		expect(combat().turn).toBe(0);
+		expect(
+			combat()
+				.log.slice(before)
+				.map((entry) => entry.kind),
+		).toEqual(['turn-advanced', 'turn-reverted']);
+
+		// Selection rerenders only its own panel. Reattaching its listener would give the other
+		// tracker the next key and split the cursor between two independent selections.
+		await key('ArrowDown');
+		await key('ArrowDown');
+		expect(host.textContent?.match(/Selected · Ogre/g)).toHaveLength(1);
+		expect(host.textContent).not.toContain('Selected · Goblin');
+		const beforeReorder = combat().log.length;
+		await key('ArrowDown', { altKey: true });
+		expect(
+			combat()
+				.log.slice(beforeReorder)
+				.map((entry) => entry.kind),
+		).toEqual(['combatant-reordered']);
+
+		await key('d');
+		expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+		const blocked = combat().log.length;
+		await key('n');
+		expect(combat().log).toHaveLength(blocked);
+	});
+
 	it('is a flow screen of the console’s widgets, each in its own widget region', async () => {
 		await seedDemoVault();
 		const main = await renderSession();

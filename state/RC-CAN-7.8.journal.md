@@ -325,3 +325,51 @@ touched.
 - Visual, pinned container, golden-routes + extensions-polish on the rebased branch: 258 passed
   (10.3 min). The nine `/session` goldens committed in Session 1 still match.
 - No push, promotion, loop launch, extra agent or dispatcher control-state change.
+
+## Session 4 — independent review repair — 2026-10-09
+
+Resumed candidate `7afd563b` with a clean tree. Review reported two durable turn advances from one
+`n` key when a second combat tracker is placed. No Headroom tools are exposed; direct command
+output and original logs under `/tmp/rc-can78-duplicate-*.log` are the evidence for this repair.
+
+The repeatable widget mounts the existing `useCombatKeyboard` hook once per tracker. Each hook
+listens on `window` and ignores whether an earlier listener already handled the event. The repair
+honors `defaultPrevented` and keeps each listener's registration stable across rerenders while a
+layout-updated ref supplies its current callbacks and state. The first eligible mounted tracker
+handles global shortcuts; later trackers skip consumed events. Unmounting that tracker naturally
+hands the shortcuts to the next listener. Preview and edit mode, inputs, and dialogs retain their
+existing guards.
+
+Necessary scope extension: `screens/session/useCombatKeyboard.ts`, the shared keyboard handler
+identified by the review, plus regression coverage in `Session.baseline.test.tsx` and a new browser
+spec. Keeping the correction at the hook protects every caller rather than suppressing duplicate
+writes individually in CombatBody callbacks (which would leave duplicate HP sheets and cursors).
+Existing combat/session/dice browser specs and before/after snapshots remain unchanged.
+
+Validation in progress; final results follow below. No additional agents, push, promotion, loop
+launch or dispatcher control-state edits.
+
+Repair evidence (original output read directly):
+
+- The new duplicate-tracker test against the original hook failed with `expected 2 to be 1`
+  at the turn assertion after one `n` press (`/tmp/rc-can78-duplicate-before.log`).
+- With the repair, Session baselines + widget parity: **55 passed**, including all 40 unchanged
+  before-conversion snapshots (`/tmp/rc-can78-duplicate-after.log`). The new test also checks one
+  durable previous-turn entry, one reordered combatant, stable arrow selection, one HP dialog and
+  no turn write while that dialog is open.
+- New browser regression: **4 passed**, desktop and mobile (`/tmp/rc-can78-duplicate-browser.log`).
+  Exercises actual scene duplication, exact turn and durable-log counts, handoff when the first
+  widget is destroyed, reload from storage, stable selection, and single Damage/Heal dialogs.
+- App typecheck, `pnpm lint`, `pnpm gates`, focused Prettier check and `git diff --check` passed.
+  Original logs: `/tmp/rc-can78-repair-typecheck.log`, `/tmp/rc-can78-repair-lint.log`,
+  `/tmp/rc-can78-repair-gates.log`. Lint/gates retain existing warnings.
+- This follow-up changes keyboard handling only; no layout, styles, accessible markup or golden
+  images changed. The previous before/after visual review remains recorded above; no new pinned
+  visual run is claimed for this repair. Central wrapper gates and independent review remain pending.
+- Acceptance browser run: **147 passed, 9 skipped, 0 failed**, desktop + mobile, 3.8 minutes;
+  original `/tmp/rc-can78-repair-acceptance.log`, runner exit 0. Command:
+  `pnpm --filter @dndtools/gm-react exec playwright test 'tests/e2e/(combat|session-.*|dice-tray)\.spec\.ts' --workers=2`.
+  This includes the new duplicate-tracker cases and quick-panel rolls across all ten primary routes.
+  The pre-existing combat, session and dice specs were not edited, including their selectors.
+
+Repair complete locally; ready for the central operator's wrapper gates and independent review.

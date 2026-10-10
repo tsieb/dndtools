@@ -1,11 +1,11 @@
-import { useLayoutEffect, type RefObject } from 'react';
+import { useLayoutEffect, useRef, type RefObject } from 'react';
 import type { CombatTrackerView } from '@dndtools/core';
 import { useI18n } from '../../i18n';
 import type { HpIntent } from '../../app/combat/HpKeypadSheet';
 
 /**
  * RC-SES-3.4 — the combat tracker's keyboard model, split out of `CombatTracker` by
- * responsibility (RC-STB-2.7). Bound on `window` while combat is running and not previewing; the
+ * responsibility (RC-STB-2.7). Handles `window` keys while combat is running and not previewing; the
  * tracker passes its own callbacks so the same command paths as the buttons are used.
  */
 export function useCombatKeyboard({
@@ -36,6 +36,7 @@ export function useCombatKeyboard({
 	onReorderAnnouncement: (message: string) => void;
 }) {
 	const { t } = useI18n();
+	const handleKey = useRef<((event: KeyboardEvent) => void) | null>(null);
 	// RC-SES-3.4 — THE TRACKER KEYBOARD MODEL. Bare letters/arrows, refused while a text field or a
 	// dialog owns the keyboard, so this never fights typing in the label/HP-keypad/condition inputs:
 	//   `n` / `p`      — next / previous turn (same command as the Next/Previous turn buttons).
@@ -52,8 +53,8 @@ export function useCombatKeyboard({
 	// later task and Chromium dispatches queued input ahead of it: an arrow press ~240 ms after the
 	// tracker was on screen was measured landing before a passive-effect listener existed, and lost.
 	useLayoutEffect(() => {
-		if (!running || previewing) return undefined;
-		function onKey(e: KeyboardEvent) {
+		handleKey.current = (e: KeyboardEvent) => {
+			if (!running || previewing || e.defaultPrevented) return;
 			const el = e.target as HTMLElement | null;
 			if (el && (el.isContentEditable || /^(input|textarea|select)$/i.test(el.tagName))) return;
 			if (document.querySelector('[role="dialog"]')) return;
@@ -122,19 +123,16 @@ export function useCombatKeyboard({
 				e.preventDefault();
 				onOpenHpSheet(target.id, key === 'd' ? 'damage' : 'heal');
 			}
-		}
+		};
+	});
+
+	// A screen can contain several trackers. The first eligible mounted listener consumes each
+	// shortcut with preventDefault; subsequent trackers leave that event alone. Keep registration
+	// order stable when selection or combat state rerenders one panel, or the keyboard cursor would
+	// jump to another tracker. The layout-updated ref supplies that owner's current state/callbacks.
+	useLayoutEffect(() => {
+		const onKey = (event: KeyboardEvent) => handleKey.current?.(event);
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [
-		running,
-		previewing,
-		selectedId,
-		tracker,
-		isDm,
-		onAdvance,
-		onPrevious,
-		onSelect,
-		onReorder,
-		t,
-	]);
+	}, []);
 }
