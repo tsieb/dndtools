@@ -317,3 +317,28 @@ whole.
 Validation: `tile-resize.spec.ts` desktop + mobile, `--repeat-each=2 --retries=0`
 (`DNDTOOLS_E2E_PORT=5871`) passed 12/12. prettier + eslint on the file are clean. I did not re-run the
 full suite.
+
+## Self-heal round 1 — 2026-10-10: remove the Notes grid kind label
+
+The operator widened the claim to `screens/knowledge/index.tsx` after independent review of
+`8daecd20` found the redundant `Note` span still rendered on every grid card. This supersedes the
+scope-gap handoffs above: the requirement is now implemented by deleting that single span. The
+book icon, visibility chip and adjacent `NoteListMetadata` (link count and tags) remain intact.
+No other production source changed.
+
+Validation for this follow-up:
+
+- Focused app tests: `kindVocabulary.test.tsx`, `NoteListMetadata.test.tsx`,
+  `demo-seed.showcase.test.ts`, and `i18n/index.test.ts`: 4 files, 48 tests passed.
+- Prettier and ESLint on `screens/knowledge/index.tsx`: passed; `git diff --check`: passed.
+- Pinned-container visual update, `-g '/knowledge' --update-snapshots=changed`: 24 passed.
+  Nine golden Notes PNGs changed (three themes across desktop, rail and phone); all nine were
+  opened and visually inspected. The 15 card-corner captures remain unchanged.
+- Baseline budget: 822 files, 34050.2 KiB of 34816.0 KiB, passed.
+- Pinned-container visual comparison, `-g '/knowledge' --update-snapshots=none`: 24 passed
+  (53.1 seconds), confirming the saved baselines.
+
+Headroom tools are not exposed in this session; original command output was read directly.
+Visual logs: `/tmp/rc-knw62-selfheal-visual.log` and
+`/tmp/rc-knw62-selfheal-visual-compare.log`. Full wrapper gates and independent review remain with
+the central operator. No push, promotion, new dispatcher loop or dispatcher control-state edits.

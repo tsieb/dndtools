@@ -384,7 +384,6 @@ export function Knowledge() {
 								>
 									<span style={{ display: 'flex', alignItems: 'center', gap: T.space.oneHalf }}>
 										<Icon name="knowledge-book" size="micro" color={T.acc} />
-										<span style={META}>{t('knowledge.note')}</span>
 									</span>
 									<VisibilityChip level={VIS_CHIP[n.visibility] || 'dm-only'} compact />
 								</div>
