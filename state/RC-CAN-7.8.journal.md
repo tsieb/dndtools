@@ -446,3 +446,27 @@ this task passed on every profile. No baseline was changed and no code change is
 
 No push, promotion, extra agent, loop launch or dispatcher control-state change. No Headroom tools
 were used; logs were read directly.
+
+## Session 8 — post-rebase visual gate red at `13e6a119` — 2026-10-10
+
+Gate run `5f4991b0`: 1 failed / 545 passed. The only failure was `[visual-rail]
+settings-polish.spec.ts:29 settings vault empty state — parchment`. Its error context shows
+`#main-content` still on the `Loading your vault…` status when the 5 s `toBeVisible` expired, the
+same Suspense-fallback stall as Session 7. /settings is not in this branch's diff. The other 14
+theme/profile combinations of the spec passed in the same run.
+
+Cross-task check of the dispatcher's recent visual attempts in the same window. Other branches
+fail on the same untouched specs with no diff of their own there:
+- `2680175…` `435d1431`: player sheet parchment, characters empty, `/`, palette-help (4).
+- `2680175…` `cb70bc68`: /audio loading, player sheet tavern, atlas empty (3).
+- `90a8736…` `2c12a7b5`: Story polish, graph polish, **settings vault empty state — scholar**,
+  char builder (4).
+Earlier on 2026-10-08/09, `90a8736…` and `7465ea0…` show the same 1–3 single-theme timeouts on
+plans-legal, palette-help, graph-polish, /audio and /scene/:id. This is host-load noise across the
+fleet, not something this branch introduces.
+
+Re-ran `settings-polish.spec.ts` in the pinned container (`--update-snapshots=none --workers=2
+--repeat-each=2`, load average ~7): 30 passed / 0 failed. No baselines or code changed.
+
+No push, promotion, extra agent, loop launch or dispatcher control-state change. No Headroom tools
+were used; logs were read directly.
