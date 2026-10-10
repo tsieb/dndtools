@@ -117,3 +117,14 @@ tools template definitions. This blocks the task for the operator to decide on w
 After the revert: gm-react typecheck clean; changed-file ESLint clean; builder, widgets and canvas
 suites 32 files / 767 tests green (`/tmp/rcwid57/app4.log`); file-size, boundary-lint and
 renderer-isolation gates 29/29.
+
+## Self-heal round 1 — 2026-10-09
+
+The claim was widened to the four Record-forced files (`AddWidgetGallery.tsx`, `BuilderPreview.tsx`,
+`vocabulary.ts`, `WorkerHost.ts`). Their diff against base is 31 added lines and nothing else: the
+`BOARD_TEMPLATE_RENDERERS` spread in the three renderer maps, and the six template-kind labels,
+six help lines and eleven source labels in `vocabulary.ts`. No code change this round.
+
+On head `9dc3720c`: `pnpm typecheck` exit 0; full `pnpm test` exit 0 (`/tmp/rcwid57/test-full3.log`):
+core 292 files / 5,307, cloud 46 / 569, app 178 / 2,274, tooling 31 / 249. `Sheet.test.tsx`
+passed this run; it stays load-sensitive near its 5s timeout on base as well.
