@@ -261,3 +261,29 @@ to block for the operator.
   this is not a claim that the complete 531-case visual suite ran successfully.
 - Candidate is ready for the central operator's gates and independent review. No push,
   promotion, dispatcher-state edit, additional loop or delegated agent was performed.
+
+## App-gate retry after rebase (2026-10-10)
+
+- Candidate head is now `356999028c190950cbf7840fd4283e7685d33248` (rebased version of the
+  preceding scope correction). Worktree was clean on entry. The scheduled feedback reports
+  successful quality, changed-format, pinned visual, typecheck, lint and core-test gates.
+- Read the original failed app-gate log directly:
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/2dc31e5c-e54a-402a-8225-40c8f75f3622/output.log`.
+  It records 183 passing files / 2259 passing tests and one failure: the owner-controls case
+  in `screens/play/Sheet.test.tsx:178` exceeded the default 5000 ms timeout (5022 ms). The
+  read-only and combat-participant cases passed; no assertion mismatch was reported.
+- Inspected the test: it remounts a complete companion sheet for each enabled control and
+  validates the emitted commands against core permissions. This path is outside the story's
+  production claim; no evidence yet supports changing campaign code or weakening the test.
+- Headroom tools remain unavailable. Running the original `pnpm test:app` gate unchanged,
+  with the inherited `DNDTOOLS_TEST_WORKERS=3`, retaining its exact output in
+  `/var/tmp/rc-ux-6.2-app-recheck.log`. No timeout, test, implementation or dispatcher changes.
+
+- Unchanged full app gate completed with exit 0: **184 files / 2260 tests passed**, 93.44
+  seconds. Read the original retained output before recording success. The previously timed-out
+  owner-controls test is included. No retries, skipped tests, timeout increases or worker-cap
+  overrides were added.
+- The timeout did not reproduce; this run supplies a successful local gate, not proof that
+  load-sensitive timeouts can never recur. No production fix is warranted by the observed
+  evidence. Only this journal changes in the recovery commit; the campaign implementation and
+  five-line `homeSources.ts` allowance are preserved for central revalidation/review.
