@@ -10,8 +10,9 @@ import * as Initiative from '../../net/InitiativeCallParts';
  * the quick reference, conditions, reorder, hide and remove. RC-SES-3.4 — `Enter` on a selected row
  * moves focus INTO this panel, so `detailRef` marks it.
  *
- * RC-POL-1.4 — the reorder pair and its separator wrap as one group. On a phone the separator used
- * to end one line and the two chevrons start the next, which read as two unrelated buttons.
+ * RC-POL-1.4 — the reorder pair wraps as one group. On a phone a hairline separator used to end one
+ * line and the two chevrons start the next, which read as two unrelated buttons; the separator is
+ * gone and the pair keeps together.
  */
 export function CombatantDetail({
 	selected,
@@ -105,15 +106,6 @@ export function CombatantDetail({
 								flex: '0 0 auto',
 							}}
 						>
-							<span
-								aria-hidden="true"
-								style={{
-									width: 1,
-									height: 20,
-									background: T.bd,
-									marginRight: T.space.one,
-								}}
-							/>
 							{/* Reaching either END of the order is the normal way to use these: press "earlier"
 							    until the combatant is first and a hard-disabled button would drop focus to
 							    <body> under the finger that pressed it. The BOUND is soft (focusable, named,

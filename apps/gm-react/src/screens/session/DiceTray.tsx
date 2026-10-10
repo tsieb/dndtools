@@ -204,7 +204,7 @@ export function DicePanel({
 					onChange={(e: { target: { value: string } }) => onExpr(e.target.value)}
 					placeholder={t('session.dice.expressionPlaceholder')}
 					aria-label={t('session.dice.expression')}
-					style={{ flex: '2 1 7rem', minWidth: '7rem' }}
+					style={{ flex: '2 1 7rem', minWidth: 'min(7rem, 100%)' }}
 				/>
 				<Input
 					value={label}
@@ -212,7 +212,7 @@ export function DicePanel({
 					placeholder={t('session.dice.labelPlaceholder')}
 					aria-label={t('session.dice.label')}
 					// rem, so "Label (optional)" fits at every text size instead of clipping to "Label (opti".
-					style={{ flex: '1 1 9.5rem', minWidth: '9.5rem' }}
+					style={{ flex: '1 1 9.5rem', minWidth: 'min(9.5rem, 100%)' }}
 				/>
 				<Button
 					type="submit"

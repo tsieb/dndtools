@@ -50,7 +50,7 @@ export function SchedulePanel() {
 			>
 				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{notConfiguredBefore}
-					<span style={{ ...mono, fontSize: 'var(--text-xs)' }}>
+					<span style={{ ...mono, fontSize: 'var(--text-xs)', overflowWrap: 'anywhere' }}>
 						{GOOGLE_CALENDAR_SETUP_RUNBOOK}
 					</span>
 					{notConfiguredAfter}

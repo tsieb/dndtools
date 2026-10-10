@@ -329,9 +329,9 @@ const NOT_REVIEWED = new Set(['content-history', 'command-center', 'presence', '
 
 function reviewVerb(opType: string): ReviewChange['verb'] {
 	const action = opType.slice(opType.indexOf('.') + 1);
-	if (/^(create|quick-create|finalize|import|add)/.test(action)) return 'created';
-	if (/^(delete|remove|archive)/.test(action)) return 'deleted';
-	if (/^(update|rename|set|edit)/.test(action)) return 'edited';
+	if (/^(create|quick-create|finalize|import)/.test(action)) return 'created';
+	if (/^(delete|archive)/.test(action)) return 'deleted';
+	if (/^(update|rename|set|edit|add|remove|reorder|move)/.test(action)) return 'edited';
 	return 'changed';
 }
 
@@ -374,12 +374,18 @@ export function usePrepRecapDigest() {
 			names.set(i.id, i.title);
 		for (const s of listScenesForActor(scenes, permissions, actorId)) names.set(s.id, s.name);
 		for (const m of listMapsForActor(maps, permissions, actorId)) names.set(m.id, m.name);
+		// One row per changed thing, at its newest write: three widgets added to one scene are one
+		// scene to look at again, not three.
+		const seen = new Set<string>();
 		const recentChanges = digest.recentChanges
-			.filter(
-				(change) =>
-					!NOT_REVIEWED.has(change.entityType) &&
-					!(change.entityType === 'scene' && setup.has(change.entityId)),
-			)
+			.filter((change) => {
+				if (NOT_REVIEWED.has(change.entityType)) return false;
+				if (change.entityType === 'scene' && setup.has(change.entityId)) return false;
+				const key = `${change.entityType}:${change.entityId}`;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
 			.slice(0, REVIEW_LIMIT);
 		const reviewChanges: ReviewChange[] = recentChanges.map((change) => ({
 			id: change.operationId,

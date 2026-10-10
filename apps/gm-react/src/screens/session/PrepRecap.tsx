@@ -130,7 +130,8 @@ function ReviewChanges({ changes }: { changes: readonly ReviewChange[] }) {
 					listStyle: 'none',
 					margin: T.space.zero,
 					padding: T.space.zero,
-					display: 'flex',
+					// `display` from state: an inline `display: flex` outranks the `hidden` attribute.
+					display: open ? 'flex' : 'none',
 					flexDirection: 'column',
 					gap: T.space.one,
 				}}

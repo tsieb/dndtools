@@ -62,6 +62,7 @@ export function CombatantItem({
 	const { t } = useI18n();
 	const res = c.resources;
 	const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
+	const edge = active ? T.accBd : selected ? T.bdS : T.bd;
 	return (
 		<li
 			aria-current={active ? 'true' : undefined}
@@ -73,10 +74,12 @@ export function CombatantItem({
 				gap: T.space.three,
 				padding: `${T.space.two} ${T.space.three}`,
 				borderRadius: T.radius.md,
-				border: `1px solid ${active ? T.accBd : selected ? T.bdS : T.bd}`,
-				borderLeft: `3px solid ${active ? T.acc : 'transparent'}`,
+				// A hidden foe's row is dashed rather than dimmed: dimming took its hit points below 4.5:1.
+				// Longhands only: React warns when a `border` shorthand changes beside a `borderLeft`.
+				borderWidth: '1px 1px 1px 3px',
+				borderStyle: c.hidden ? 'dashed dashed dashed solid' : 'solid',
+				borderColor: `${edge} ${edge} ${edge} ${active ? T.acc : 'transparent'}`,
 				background: T.raised,
-				opacity: c.hidden ? 0.75 : 1,
 			}}
 		>
 			<span
@@ -89,7 +92,8 @@ export function CombatantItem({
 			>
 				{call.initiativeText(c)}
 			</span>
-			<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
+			{/* Ink initials: the DS avatar's accent-on-tint pair is 4.43:1 in parchment (DEBT-2026-008). */}
+			<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} style={{ color: T.ink }} />
 			<div style={{ flex: 1, minWidth: 0 }}>
 				{/* Wraps on purpose. On a 391px phone this row is left ~183px after the initiative span,
 				    avatar, row actions and paddings, and "Active" + "Bloodied" alone exceed that. Every child
