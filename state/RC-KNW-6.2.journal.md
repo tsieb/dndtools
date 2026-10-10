@@ -342,3 +342,41 @@ Headroom tools are not exposed in this session; original command output was read
 Visual logs: `/tmp/rc-knw62-selfheal-visual.log` and
 `/tmp/rc-knw62-selfheal-visual-compare.log`. Full wrapper gates and independent review remain with
 the central operator. No push, promotion, new dispatcher loop or dispatcher control-state edits.
+
+## Gate follow-up — 2026-10-10: visual timeouts outside the Notes change
+
+Current rebased candidate: `e11bc39a223a98ba498dcbe9855f11c4546f7a43`; working tree was clean.
+Read the original gate output directly (Headroom tools are not exposed):
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/cb70bc68-d68c-4946-8d44-4f6c0f65b922/output.log`.
+The full pinned-container run had 543 passes and 3 failures; all 24 Notes visual tests passed.
+Failures were five-second timeouts, not reported pixel differences:
+
+- Desktop Audio / tavern: screenshot capture of `audio-loading--tavern.png` timed out after fonts
+  loaded (`golden-routes.spec.ts:237`).
+- Desktop Player / tavern: `character-sheet` was absent; the saved error context shows
+  `Loading your vault…` (`player-polish.spec.ts:15`).
+- Rail Atlas / scholar: the empty-library illustration was absent; the saved error context shows
+  `Loading your vault…` (`atlas.spec.ts:32`).
+
+Reproduction on unchanged source and baselines:
+
+```sh
+apps/gm-react/tests/visual/run-in-container.sh \
+  --project=visual-desktop --project=visual-rail \
+  -g 'Audio polish — tavern.*loading and failure|player sheet tavern|atlas empty scholar' \
+  --repeat-each=3 --retries=0 --workers=2 --update-snapshots=none
+```
+
+Original local output: `/tmp/rc-knw62-gate-repro.log`, read through its final diagnostics.
+Result: **16 passed, 2 failed**, exit 1 (1.2 minutes). The first desktop Atlas run timed out
+waiting for the illustration; the first desktop Audio run timed out capturing `audio-error`
+(the original gate had stalled at `audio-loading`). Subsequent repetitions of both passed;
+Player passed all six repetitions. This reproduces intermittent readiness/capture failures,
+not a deterministic Notes baseline regression. It does not establish their underlying cause
+or constitute a green visual gate.
+
+No source or baseline changes were justified within this task's claim. The label removal and its
+nine Notes baselines remain committed. The visual gate is still unresolved; the operator needs a
+separately scoped visual-harness/readiness follow-up for the three test locations above. Do not
+waive the gate based on the successful repetitions. This commit records evidence only. No push,
+promotion, new loop, dispatcher control-state edits, timeout increases or snapshot rewrites.
