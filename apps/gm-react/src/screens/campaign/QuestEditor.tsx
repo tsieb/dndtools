@@ -1,10 +1,17 @@
+import { getContentItemsForActor } from '@dndtools/core';
 import { useEffect, useState } from 'react';
 import { Button, Field, Input, Select, Textarea, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { QUEST_STATUS_OPTIONS, VIS_OPTIONS, options } from '../campaignVocab';
-import { objectiveArray, str, type QuestObjective, type QuestRow } from '../campaignRows';
+import {
+	mergeStoryBody,
+	objectiveArray,
+	str,
+	type QuestObjective,
+	type QuestRow,
+} from '../campaignRows';
 import type { DraftSlot } from './draftSlot';
 
 export type QuestDraft = {
@@ -12,6 +19,7 @@ export type QuestDraft = {
 	status: string;
 	objectivesText: string;
 	body: string;
+	baseBody: string;
 	visibility: string;
 };
 
@@ -41,6 +49,7 @@ export function QuestEditor({
 		held?.objectivesText ?? existingObjectives.map((o) => o.text).join('\n'),
 	);
 	const [body, setBody] = useState(held?.body ?? quest?.view.body ?? '');
+	const [baseBody] = useState(held?.baseBody ?? quest?.view.body ?? '');
 	const [visibility, setVisibility] = useState<string>(
 		held?.visibility ?? quest?.view.visibility ?? 'dm-only',
 	);
@@ -48,8 +57,8 @@ export function QuestEditor({
 	const [err, setErr] = useState<string | null>(null);
 	// Keep the surviving copy current, so a rotation across the split width restores what was typed.
 	useEffect(() => {
-		draft.write({ title, status, objectivesText, body, visibility });
-	}, [draft, title, status, objectivesText, body, visibility]);
+		draft.write({ title, status, objectivesText, body, baseBody, visibility });
+	}, [draft, title, status, objectivesText, body, baseBody, visibility]);
 
 	async function save() {
 		if (!title.trim()) {
@@ -63,6 +72,21 @@ export function QuestEditor({
 		// typed work unrecoverable and no way out but a reload. Any await inside a busy guard in this
 		// app needs `finally`.
 		try {
+			const current = quest
+				? getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).find(
+						(item) => item.id === quest.view.id,
+					)
+				: null;
+			const savedBody = quest
+				? current
+					? mergeStoryBody(baseBody, body, current.body)
+					: null
+				: body;
+			if (savedBody === null) {
+				setErr(t('campaign.bodyConflict'));
+				return;
+			}
+
 			const stamp = Date.now().toString(36);
 			// Line i keeps existing objective i's id + done state (a text edit doesn't reset the checklist);
 			// new lines become fresh unchecked objectives.
@@ -84,7 +108,7 @@ export function QuestEditor({
 							itemId: quest.view.id,
 							title: title.trim(),
 							fields: { title: title.trim(), status, objectives },
-							body,
+							body: savedBody,
 						},
 					})
 				: // content.create-object — DM-only vault authoring against the declared `quest` schema

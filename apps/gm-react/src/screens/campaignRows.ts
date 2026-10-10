@@ -1,5 +1,7 @@
 import {
 	kindWordFor,
+	parseMarkdownNote,
+	serializeMarkdownNote,
 	type ActorWikilinkTarget,
 	type ContentItemView,
 	type TypedRelationEdge,
@@ -123,4 +125,34 @@ export function npcStoryHome(
 			)
 			.find(Boolean)?.title ?? null;
 	return { faction: first('faction'), place: first('place', 'map') };
+}
+
+/** Merge independent dossier edits with card writes; null means both changed the same part.
+ * Keep the opening body in the draft slot, including across responsive editor remounts.
+ * Prose is one part; each frontmatter property (including relations) is another.
+ */
+export function mergeStoryBody(base: string, draft: string, current: string): string | null {
+	if (draft === base || draft === current) return current;
+	if (current === base) return draft;
+	const before = parseMarkdownNote(base);
+	const edited = parseMarkdownNote(draft);
+	const latest = parseMarkdownNote(current);
+	const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+	const conflicts = (a: unknown, b: unknown, c: unknown) =>
+		!same(a, b) && !same(a, c) && !same(b, c);
+	if (conflicts(before.body, edited.body, latest.body)) return null;
+	const properties = { ...latest.properties };
+	for (const key of new Set([
+		...Object.keys(before.properties),
+		...Object.keys(edited.properties),
+	])) {
+		const a = before.properties[key];
+		const b = edited.properties[key];
+		if (conflicts(a, b, latest.properties[key])) return null;
+		if (!same(a, b)) {
+			if (b === undefined) delete properties[key];
+			else properties[key] = b;
+		}
+	}
+	return serializeMarkdownNote(properties, edited.body === before.body ? latest.body : edited.body);
 }

@@ -50,3 +50,32 @@
   800-line limit). `git diff --check` clean.
 - Not run locally: the full Playwright suite and the Android/desktop smoke gates. They are left to
   the central gates.
+
+## Independent-review repair (2026-10-10)
+
+- Review candidate `c8920f38` silently overwrote inline outgoing relationships when an already-open
+  faction/quest editor saved its captured body. Confirmed with a new browser regression for unchanged
+  faction prose on desktop and phone before the repair (`/tmp/rc-knw-6.6-regression-before.log`). The
+  first run's other cases had fixture errors (quest required status and faction textarea label), now
+  corrected; those failures are not evidence of the defect.
+- Both editor drafts now retain their opening body in the surviving draft slot. At save, an
+  actor-filtered fresh read is merged against that ancestor: independent prose and frontmatter
+  edits survive together, including relationship additions/removals. Competing edits to the same
+  part abort before dispatch, report a localized conflict and leave the draft available to copy.
+- Added regression cases for both entity types, unchanged/edited prose, durable reload and axe on
+  both browser profiles, plus merge unit coverage. Validation in progress. No agents, push,
+  promotion, new loop or dispatcher control writes.
+
+### Repair verification
+
+- `campaignRows.test.ts`: 8/8 unit tests passed (`/tmp/rc-knw-6.6-review-fix-unit.log`).
+- Story links + relationship overview: 26/26 browser tests passed on desktop and mobile, including
+  all eight editor-save regressions and axe (`/tmp/rc-knw-6.6-review-fix-e2e.log`).
+- Final Story links + regular campaign editor suite: 26/26 passed on desktop and mobile
+  (`/tmp/rc-knw-6.6-review-fix-final-e2e.log`). The edited-prose regressions now additionally cross
+  into the rail detail pane and back before saving, verifying the ancestor survives remounts.
+- gm-react `tsc --noEmit`, targeted ESLint, Prettier over all changed files and `git diff --check`
+  passed. Logs: `/tmp/rc-knw-6.6-review-fix-types.log`, `-lint.log`, `-final-lint.log`, `-format.log`
+  with the same `/tmp/rc-knw-6.6-review-fix` prefix.
+- Full wrapper gates and independent review remain with the central operator. This repair changes
+  save behavior and adds conflict feedback; no existing visual baseline was changed.

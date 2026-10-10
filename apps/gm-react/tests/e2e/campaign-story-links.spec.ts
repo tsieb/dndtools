@@ -178,6 +178,82 @@ test.describe('campaign: relationships on the Story cards', () => {
 		await expect(edge).toBeVisible();
 	});
 
+	for (const subtype of ['faction', 'quest'] as const) {
+		for (const editProse of [false, true]) {
+			test(`${subtype} save preserves a card relationship with ${editProse ? 'edited' : 'unchanged'} prose`, async ({
+				page,
+			}) => {
+				const title = `Concurrent ${subtype}`;
+				const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+				const result = await dispatch(page, {
+					type: 'content.create-object',
+					actorId,
+					payload: {
+						subtype,
+						title,
+						fields: subtype === 'faction' ? { name: title } : { title, status: 'active' },
+						body: 'Original prose',
+						visibility: 'dm-only',
+					},
+				});
+				expect(result.status).toBe('accepted');
+				await page
+					.getByRole('tab', { name: subtype === 'faction' ? 'Factions' : 'Quests', exact: true })
+					.click();
+				await page.getByRole('button', { name: `Edit ${title}`, exact: true }).click();
+				const prose = page.getByLabel(subtype === 'faction' ? 'Dossier notes' : 'Hook & journal', {
+					exact: true,
+				});
+				if (editProse) await prose.fill('Revised prose');
+				const links = tray(page, title);
+				await links
+					.getByRole('button', { name: `Add relationship: ${title}`, exact: true })
+					.click();
+				await links.getByLabel('Direction', { exact: true }).selectOption('out');
+				await links
+					.getByLabel('With', { exact: true })
+					.selectOption({ label: 'Mira the Ferryman' });
+				await links.getByLabel('Relationship', { exact: true }).fill('supports');
+				await links.getByRole('button', { name: 'Add', exact: true }).click();
+				await expect(edgeRows(page, title)).toHaveText([`${title} — supports → Mira the Ferryman`]);
+				if (editProse) {
+					// Crossing into the rail detail pane remounts the editor. Both the draft and
+					// its original body must survive, even though the card has updated meanwhile.
+					const viewport = page.viewportSize()!;
+					await page.setViewportSize({ width: 834, height: 1112 });
+					await expect(prose).toHaveValue('Revised prose');
+					await page.setViewportSize(viewport);
+					await expect(prose).toHaveValue('Revised prose');
+				}
+				await page.getByRole('button', { name: `Save ${subtype}`, exact: true }).click();
+				await expect(
+					page.getByRole('button', { name: `Save ${subtype}`, exact: true }),
+				).toHaveCount(0);
+				await expect(edgeRows(page, title)).toHaveText([`${title} — supports → Mira the Ferryman`]);
+				await page.reload();
+				await waitReady(page);
+				await page
+					.getByRole('tab', { name: subtype === 'faction' ? 'Factions' : 'Quests', exact: true })
+					.click();
+				await expect(edgeRows(page, title)).toHaveText([`${title} — supports → Mira the Ferryman`]);
+				const body = await page.evaluate(
+					(title) =>
+						Object.values(
+							(
+								window.__rt!.state.content as {
+									items: Record<string, { title: string; body: string }>;
+								}
+							).items,
+						).find((item) => item.title === title)?.body,
+					title,
+				);
+				expect(body).toContain(editProse ? 'Revised prose' : 'Original prose');
+				expect(body).toContain('supports');
+				await axe(page);
+			});
+		}
+	}
+
 	test('a player preview shows no DM-only edge or mention', async ({ page }) => {
 		await page.getByRole('tab', { name: 'Factions', exact: true }).click();
 		await addIncoming(page, FACTION, NPC, 'leads');

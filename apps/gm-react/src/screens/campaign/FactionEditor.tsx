@@ -1,10 +1,11 @@
+import { getContentItemsForActor } from '@dndtools/core';
 import { useEffect, useState } from 'react';
 import { Button, Field, Input, Select, Textarea, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { FACTION_KIND_OPTIONS, STANCE_OPTIONS, VIS_OPTIONS, options } from '../campaignVocab';
-import { str, strArray, type FactionRow } from '../campaignRows';
+import { mergeStoryBody, str, strArray, type FactionRow } from '../campaignRows';
 import type { DraftSlot } from './draftSlot';
 
 export type FactionDraft = {
@@ -15,6 +16,7 @@ export type FactionDraft = {
 	goalsText: string;
 	secret: string;
 	body: string;
+	baseBody: string;
 	visibility: string;
 };
 
@@ -45,6 +47,7 @@ export function FactionEditor({
 	);
 	const [secret, setSecret] = useState(held?.secret ?? str(faction?.fields.secret));
 	const [body, setBody] = useState(held?.body ?? faction?.view.body ?? '');
+	const [baseBody] = useState(held?.baseBody ?? faction?.view.body ?? '');
 	// Widened to string (same as Knowledge's visibility control): the Select yields a string and the
 	// core validates the enum fail-closed at dispatch.
 	const [visibility, setVisibility] = useState<string>(
@@ -54,8 +57,8 @@ export function FactionEditor({
 	const [err, setErr] = useState<string | null>(null);
 	// See `useDraftSlot`: what is typed here survives the editor moving between pane and inline.
 	useEffect(() => {
-		draft.write({ name, kind, stance, leader, goalsText, secret, body, visibility });
-	}, [draft, name, kind, stance, leader, goalsText, secret, body, visibility]);
+		draft.write({ name, kind, stance, leader, goalsText, secret, body, baseBody, visibility });
+	}, [draft, name, kind, stance, leader, goalsText, secret, body, baseBody, visibility]);
 
 	async function save() {
 		if (!name.trim()) {
@@ -69,6 +72,21 @@ export function FactionEditor({
 		// typed work unrecoverable and no way out but a reload. Any await inside a busy guard in this
 		// app needs `finally`.
 		try {
+			const current = faction
+				? getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId).find(
+						(item) => item.id === faction.view.id,
+					)
+				: null;
+			const savedBody = faction
+				? current
+					? mergeStoryBody(baseBody, body, current.body)
+					: null
+				: body;
+			if (savedBody === null) {
+				setErr(t('campaign.bodyConflict'));
+				return;
+			}
+
 			// Exactly the subtype's declared frontmatter fields — the core validates them fail-closed
 			// against the `faction` schema before any durable write (an undeclared field is rejected).
 			const fields = {
@@ -87,7 +105,7 @@ export function FactionEditor({
 					await runtime.dispatch({
 						type: 'content.update-object',
 						actorId,
-						payload: { itemId: faction.view.id, title: name.trim(), fields, body },
+						payload: { itemId: faction.view.id, title: name.trim(), fields, body: savedBody },
 					})
 				: // content.create-object — DM-only vault authoring; visibility fails closed to dm-only.
 					await runtime.dispatch({

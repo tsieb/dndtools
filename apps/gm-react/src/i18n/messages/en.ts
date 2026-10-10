@@ -5268,6 +5268,8 @@ export const en = {
 	'campaign.edit': 'Edit {title}',
 	'campaign.saved': 'Saved “{title}”',
 	'campaign.created': 'Created “{title}”',
+	'campaign.bodyConflict':
+		'This entry changed while you were editing. Copy your draft, then cancel and reopen the editor to reconcile the changes.',
 	'campaign.saveFailed':
 		'That couldn’t be saved to this device. Check storage space and try again.',
 	'campaign.status': 'Status',

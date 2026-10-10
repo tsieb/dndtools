@@ -5289,6 +5289,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'campaign.edit': 'Editar {title}',
 	'campaign.saved': 'Se guardó «{title}»',
 	'campaign.created': 'Se creó «{title}»',
+	'campaign.bodyConflict':
+		'Esta entrada cambió mientras la editabas. Copia tu borrador, cancela y vuelve a abrir el editor para conciliar los cambios.',
 	'campaign.saveFailed':
 		'Eso no se pudo guardar en este dispositivo. Revisa el espacio de almacenamiento e inténtalo de nuevo.',
 	'campaign.status': 'Estado',

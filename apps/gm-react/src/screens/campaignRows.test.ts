@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { ActorWikilinkTarget, TypedRelationEdge } from '@dndtools/core';
-import { edgesTouching, mentionsOf, npcStoryHome } from './campaignRows';
+import {
+	parseMarkdownNote,
+	serializeMarkdownNote,
+	type ActorWikilinkTarget,
+	type TypedRelationEdge,
+} from '@dndtools/core';
+import { edgesTouching, mentionsOf, npcStoryHome, mergeStoryBody } from './campaignRows';
 
 function target(id: string, kind: string, storage: ActorWikilinkTarget['storage']) {
 	return {
@@ -96,5 +101,57 @@ describe('RC-KNW-6.6 Story card reads', () => {
 			{ id: 'note-b', title: 'B', route: '/route/note-b' },
 			{ id: 'note-a', title: 'A', route: '/route/note-a' },
 		]);
+	});
+});
+
+describe('Story editor body merge', () => {
+	const base = serializeMarkdownNote(
+		{ tags: ['river'], relations: ['knows [[Mira]]'] },
+		'Original',
+	);
+	it('preserves exact current bytes for untouched drafts and exact draft bytes without concurrent edits', () => {
+		expect(mergeStoryBody(base, base, 'Current')).toBe('Current');
+		expect(mergeStoryBody(base, 'Draft', base)).toBe('Draft');
+	});
+	it.each([{ relations: ['knows [[Mira]]', 'supports [[Odda]]'] }, { relations: [] }])(
+		'merges added or removed relationships with edited prose (%j)',
+		({ relations }) => {
+			const current = serializeMarkdownNote({ tags: ['river'], relations }, 'Original');
+			const draft = serializeMarkdownNote(
+				{ tags: ['river'], relations: ['knows [[Mira]]'] },
+				'Revised',
+			);
+			const merged = mergeStoryBody(base, draft, current);
+			expect(merged).not.toBeNull();
+			expect(parseMarkdownNote(merged!)).toMatchObject({
+				body: 'Revised',
+				properties: { tags: ['river'], relations },
+			});
+		},
+	);
+	it('rejects competing prose or relationship edits', () => {
+		expect(
+			mergeStoryBody(base, base.replace('Original', 'Draft'), base.replace('Original', 'Current')),
+		).toBeNull();
+		expect(
+			mergeStoryBody(base, base.replace('knows', 'leads'), base.replace('knows', 'supports')),
+		).toBeNull();
+	});
+	it('keeps other metadata edits and property removals on either side', () => {
+		const current = serializeMarkdownNote(
+			{ relations: ['supports [[Odda]]'], aliases: ['Guild'] },
+			'Original',
+		);
+		const draft = serializeMarkdownNote(
+			{ tags: ['river'], relations: ['knows [[Mira]]'], extra: 'value' },
+			'Revised',
+		);
+		expect(parseMarkdownNote(mergeStoryBody(base, draft, current)!)).toMatchObject({
+			body: 'Revised',
+			properties: { relations: ['supports [[Odda]]'], aliases: ['Guild'], extra: 'value' },
+		});
+		expect(parseMarkdownNote(mergeStoryBody(base, draft, current)!).properties).not.toHaveProperty(
+			'tags',
+		);
 	});
 });
