@@ -132,22 +132,15 @@ export function resolvePreviewActor(
 }
 
 /**
- * RC-CHR-6.5 — the actor the player companion (`/play`) renders as on the DM's own device. Without a
- * preview it is the seated participant (the demo vault's local seat). A preview is honoured as the
- * viewer: a specific player is that player, an observer or co-DM preview is its resolved actor. The
- * one exception is the generic "any player" preview while the seat is a real player: the seat stands
- * in for "a player", because the reserved zero-grant actor holds no character and no scene assignment,
- * so it would render an empty companion no player at the table ever sees. Without such a seat the
- * zero-grant actor is the viewer (fail closed).
+ * RC-CHR-6.5 — the companion uses the resolved preview actor, including the zero-grant generic
+ * actors. Only a companion opened without a preview uses the seated participant.
  */
 export function companionViewerFor(
-	permissions: PermissionState,
+	_permissions: PermissionState,
 	preview: ResolvedPreview | null,
 	seatActorId: ActorId,
 ): ActorId {
-	if (!preview) return seatActorId;
-	if (preview.specific || preview.role !== 'player') return preview.actorId;
-	return permissions.actors[seatActorId]?.role === 'player' ? seatActorId : preview.actorId;
+	return preview?.actorId ?? seatActorId;
 }
 
 /**

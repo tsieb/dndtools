@@ -184,3 +184,63 @@ unchanged. Central validation and independent review remain pending.
 Verified both restored paths have no diff against the specified base; journal
 formatting and `git diff --check` passed. No push, promotion, dispatcher state
 edit, or unrelated working-tree change.
+
+## Independent review repair — route departure and generic preview identity
+
+Review of `59b18f57` found that browser Back retained companion preview while
+restoring shell navigation, and that Any player substituted the demo seat for
+the resolved zero-grant actor. Removed the generic-seat substitution and added
+companion lifetime cleanup, guarded against StrictMode effect replay and against
+clearing a newer preview. Scene-editor preview entry and exit remain unchanged.
+Added browser regressions for Back/Forward for specific player, generic player
+and observer previews, plus generic identity, character and scene isolation.
+Corrected the core regression that previously expected demo-seat substitution.
+
+Validation in progress; original command output is retained under
+`/var/tmp/rc-chr-6.5-review-*.log`. Dispatch Headroom tools are not available in
+this session, so original local logs are read directly.
+
+Initial focused validation: 18 browser tests passed on Desktop Chrome and Pixel 5
+(companion-preview plus unchanged collab actor-filtered tests); 15 core preview
+tests passed. App typecheck, focused ESLint and `pnpm gates` passed. The corrected
+generic identity changes all 15 companion stage goldens; regenerated only those
+in the pinned container and inspected desktop and phone captures. A strict
+`--update-snapshots=none` comparison passed all 15. Lossless IDAT recompression
+verified identical decompressed PNG data and brought the baseline budget to
+34,781.6 / 34,816.0 KiB (the initial regenerated files exceeded it).
+
+Expanded companion testing exposed private-journal fixture assumptions:
+`play-polish.spec.ts` requested generic Player but expected a character's private
+notes controls. The original error snapshot explicitly shows "Ask your DM to
+assign you a character to use private notes" and a timeout waiting for "Write a
+note". The corrected generic actor has no character, as required. The character
+fixture must select Demo Player explicitly. Inbox and desktop section-scoped
+scene preview checks already pass with the corrected runtime.
+
+Final validation for this repair:
+
+- `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/companion-preview.spec.ts tests/e2e/play-polish.spec.ts --workers=2`:
+  **34 passed** (1.4m), both profiles, including all six formerly failing private
+  journal cases, generic unassigned-sheet assertion, browser history, banner,
+  Escape, specific PC and scene, ARIA navigation and companion axe checks.
+  Original output: `/var/tmp/rc-chr-6.5-review-final-browser.log`.
+- Unchanged collab actor-filtered cases: **4 passed** in the initial 18-test run;
+  original output: `/var/tmp/rc-chr-6.5-review-browser.log`.
+- Inbox and section-scoped scene-preview cases: **6 passed** across both profiles
+  in the expanded run (which also recorded six journal fixture failures before
+  their correction). Original output: `/var/tmp/rc-chr-6.5-review-related.log`.
+- Core preview tests: **15 passed**, original output:
+  `/var/tmp/rc-chr-6.5-review-core.log`.
+- Pinned visual comparison of `tests/visual/play-polish.spec.ts` with
+  `--update-snapshots=none`: **15 passed** (36.4s), original output:
+  `/var/tmp/rc-chr-6.5-review-visual.log`. Baseline update output:
+  `/var/tmp/rc-chr-6.5-review-visual-update.log`. Subsequent compression preserved
+  the exact decompressed image bytes. Baseline budget check passed.
+- App typecheck, focused ESLint, Prettier, `pnpm gates`, and `git diff --check`
+  passed. Logs: `/var/tmp/rc-chr-6.5-review-typecheck.log`,
+  `/var/tmp/rc-chr-6.5-review-lint.log`, `/var/tmp/rc-chr-6.5-review-gates.log`.
+
+Only the companion/core preview implementation, its regression fixtures and
+15 affected companion goldens changed in this repair. No shared visual config,
+collab tests, dispatcher controls, push or promotion. Full wrapper gates and
+independent review remain the central operator's responsibility.

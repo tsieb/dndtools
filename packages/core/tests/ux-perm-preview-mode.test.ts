@@ -236,9 +236,11 @@ describe('companionViewerFor (RC-CHR-6.5)', () => {
 		expect(companionViewerFor(promoted, coDmPreview, PLAYER_ACTOR.id)).toBe(PLAYER_ACTOR.id);
 	});
 
-	it('lets a player seat stand in for "any player", and fails closed without one', () => {
+	it('uses the zero-grant actor for "any player" regardless of the local seat', () => {
 		const anyPlayer = preview({ role: 'player' });
-		expect(companionViewerFor(permissions, anyPlayer, PLAYER_ACTOR.id)).toBe(PLAYER_ACTOR.id);
+		expect(companionViewerFor(permissions, anyPlayer, PLAYER_ACTOR.id)).toBe(
+			PREVIEW_PLAYER_ACTOR_ID,
+		);
 		expect(companionViewerFor(permissions, anyPlayer, 'actor-missing')).toBe(
 			PREVIEW_PLAYER_ACTOR_ID,
 		);

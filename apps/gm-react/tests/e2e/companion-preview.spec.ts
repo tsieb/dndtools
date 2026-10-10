@@ -114,6 +114,49 @@ test.describe('companion preview follows the previewed actor', () => {
 		await expect(page.getByRole('navigation', { name: 'Primary' }).first()).toBeAttached();
 	});
 
+	for (const name of ['Demo Player 2', 'Any player', 'Observer']) {
+		test(`browser Back ends ${name} companion preview before returning to DM navigation`, async ({
+			page,
+		}) => {
+			await previewFromTopBar(page, name);
+			await expect(page.getByTestId('companion-preview-banner')).toBeVisible();
+			await page.goBack();
+			await expect(page).toHaveURL(/#\/screens$/);
+			await expect.poll(() => page.evaluate(() => window.__rt!.preview)).toBeNull();
+			await expect(page.getByRole('navigation', { name: 'Primary' }).first()).toBeAttached();
+			// The history entry must not resurrect the departed preview either.
+			await page.goForward();
+			await expect(page).toHaveURL(/#\/play$/);
+			await expect(page.locator('.player-view-shell')).toBeVisible();
+			await expect(page.getByTestId('companion-preview-banner')).toHaveCount(0);
+			await expect.poll(() => page.evaluate(() => window.__rt!.preview)).toBeNull();
+		});
+	}
+
+	test('Any player uses the generic actor without borrowing the demo seat character or scene', async ({
+		page,
+	}) => {
+		const scenes = await assignScenes(page);
+		await previewFromTopBar(page, 'Any player');
+		await expect(page.getByTestId('companion-preview-banner')).toBeVisible();
+		await expect
+			.poll(() => page.evaluate(() => window.__rt!.preview?.actorId))
+			.toBe('preview-generic-player');
+		await expect(page.locator('.player-view-toolbar')).toContainText('Preview · Player (preview)');
+		await expect(page.getByTestId('player-stage')).not.toContainText(scenes.mine);
+		await expect(page.getByTestId('player-stage')).not.toContainText(scenes.theirs);
+		const tree = await page.locator('body').ariaSnapshot();
+		expect(tree).not.toContain('navigation "Primary"');
+		await openSheet(page);
+		await expect(page.locator('#player-main')).toContainText(
+			'Ask your DM to assign you a character.',
+		);
+		await expect(page.locator('#player-main')).not.toContainText('Sera Duskwhisper');
+		await expect(page.locator('#player-main')).not.toContainText('Brother Calloway');
+		await page.keyboard.press('Escape');
+		await expect.poll(() => page.evaluate(() => window.__rt!.preview)).toBeNull();
+	});
+
 	test('the banner exit and an observer preview: the companion reads as the observer', async ({
 		page,
 	}) => {

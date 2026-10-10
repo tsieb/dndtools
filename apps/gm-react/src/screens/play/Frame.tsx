@@ -48,6 +48,21 @@ export function PlayerView() {
 	const runtime = useRuntime();
 	const session = useSession();
 	const [joining, setJoining] = useState(false);
+	const mounted = useRef(false);
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+			const departingPreview = runtime.preview;
+			// Route departure (including browser Back) ends this companion's preview. Defer through
+			// StrictMode's cleanup/setup probe, and never clear a newer preview entered elsewhere.
+			queueMicrotask(() => {
+				if (!mounted.current && departingPreview && runtime.preview === departingPreview) {
+					runtime.exitPreview();
+				}
+			});
+		};
+	}, [runtime]);
 	// A local seed is a preview, never the identity of a fresh player device.
 	const joined = session.role === 'joined' && session.client?.data != null;
 	const preview = runtime.preview !== null || isDemoLocalVault();
@@ -79,8 +94,7 @@ function PlayerCompanion({ onJoin }: { onJoin: () => void }) {
 	const joined = session.role === 'joined' && session.client?.data != null;
 	const remoteData = session.client?.data ?? null;
 	// RC-CHR-6.5 — when NOT joined, the viewer is the previewed actor: a specific player is that player
-	// (their PC, their scene assignment), an observer or co-DM preview is its resolved actor. "Any player"
-	// keeps the seeded demo participant as its stand-in; the core helper says why.
+	// (their PC, their scene assignment), and generic previews use their resolved zero-grant actor.
 	const viewer = joined
 		? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID)
 		: companionViewerFor(runtime.state.permissions, runtime.preview, PLAYER_ACTOR_ID);
