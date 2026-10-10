@@ -12,6 +12,7 @@ import {
 	buildInitialState,
 	makeEnvironment,
 } from '@dndtools/core/testing';
+import { campaignPartyAvatars } from './templates/Hub';
 import { englishTranslate, resolveHomeSource } from './homeSources';
 
 // RC-UX-6.2 — the hero reads one campaign name, and a party named in Settings › Players shows as
@@ -27,7 +28,7 @@ function resume(state: CoreStateSlice) {
 	return resolveHomeSource(state, DM_ACTOR, 'resume', englishTranslate).rows;
 }
 
-describe('resume source', () => {
+describe('campaign hero identity and party', () => {
 	it('heads the hero with the placeholder until the campaign is named, then with its name', () => {
 		const start = buildInitialState(DM_ACTOR);
 		expect(resume(start)[0]?.primary).toBe('Your campaign');
@@ -39,15 +40,17 @@ describe('resume source', () => {
 		expect(resume(named)[0]?.primary).toBe('Lantern Coast');
 	});
 
-	it('lists the seated players with no character after the hero row, with their initials', () => {
+	it('lists the seated players with no character as avatars, with their initials', () => {
 		const state = accept(buildInitialState(DM_ACTOR, OBSERVER_ACTOR), {
 			type: 'permission.add-players',
 			actorId: DM_ACTOR.id,
 			payload: { displayNames: ['Ada Quill', 'Brannoc'] },
 		});
-		const rows = resume(state);
-		expect(rows).toHaveLength(3);
-		expect(rows.slice(1).map((row) => [row.primary, row.avatar])).toEqual([
+		// Player seats are a hero concern; the resume query remains a single target row.
+		expect(resume(state)).toHaveLength(1);
+		const rows = campaignPartyAvatars(state);
+		expect(rows).toHaveLength(2);
+		expect(rows.map((row) => [row.primary, row.avatar])).toEqual([
 			['Ada Quill', 'AQ'],
 			['Brannoc', 'B'],
 		]);
@@ -62,11 +65,7 @@ describe('resume source', () => {
 			actorId: DM_ACTOR.id,
 			payload: { kind: 'npc', name: 'Sera', visibility: 'shared' },
 		});
-		expect(
-			resume(state)
-				.slice(1)
-				.map((row) => row.id),
-		).toEqual([PLAYER_ACTOR.id]);
+		expect(campaignPartyAvatars(state).map((row) => row.id)).toEqual([PLAYER_ACTOR.id]);
 		const character = Object.values(state.characters.characters)[0]!;
 		// Quick-create does not create PCs; the guided draft flow does, with an owner grant.
 		character.kind = 'pc';
@@ -82,6 +81,6 @@ describe('resume source', () => {
 				createdAt: '2026-10-08T00:00:00.000Z',
 			},
 		];
-		expect(resume(state)).toHaveLength(1);
+		expect(campaignPartyAvatars(state)).toHaveLength(0);
 	});
 });

@@ -161,6 +161,7 @@ Independent review of `b9ec48be` rejected two acceptance gaps. Both are fixed he
      shows the invite's server-side `campaignName`, so it carries the same name.
    - `Players.tsx` (owned): passes `campaignNameOf(state.commandCenter)` and a `nameCampaign` that
      dispatches `campaign.set-identity`, the switcher's command, so the catalog follows.
+
 - **Scope.** The operator brief of 2026-10-08 said not to widen past `homeSources.ts`. The review
   then required both behaviours, and neither can be built inside Owns: the hero's avatars are
   drawn only in `Hub.tsx`, and the invite form state lives only in `PlayerInvites.tsx`. I kept
@@ -223,3 +224,40 @@ to block for the operator.
     163 passed.
   - Playwright, `campaign-identity` + `hub-templates`, desktop + mobile: 20 passed, 4 skipped
     (the `hub-templates` desktop-only guards), 0 failed.
+
+## Self-heal round 1 — authorized scope resolution (2026-10-10)
+
+- The scheduled task explicitly widens the claim to `Hub.tsx` and `PlayerInvites.tsx`; the
+  previous operator-decision blocker is resolved. Both review fixes are retained.
+- The operator still limits `homeSources.ts` to its five-line campaign-name diff. Moved the
+  party-avatar selection and initials into `Hub.tsx`, where the live hero reads runtime actors.
+  The resume query again returns only its hero row. Preview widgets do not require a runtime;
+  withheld resume queries do not receive extra avatars. Updated the existing focused tests to
+  exercise the moved helper, preserving the owner/observer exclusions and PC deduplication.
+- Verified the diff against rebased base `1028592b`: `homeSources.ts` is +4/-1 lines. No new
+  production path is touched in this self-heal. Headroom tools are unavailable; exact native
+  command output is retained in `/var/tmp/rc-ux-6.2-*.log` for the browser and static checks.
+- Core campaign reducer/schema tests: 13 passed. Focused app identity storage/round-trip,
+  home sources, hub data and invite tests: 171 passed across four files.
+- `pnpm typecheck`: exit 0. ESLint on the three changed source/test files: exit 0.
+- The first browser run overlapped the pinned visual runner and failed one dynamic import
+  (`node_modules/.vite/deps/react.js` disappeared during Vite cache regeneration): 19 passed,
+  four intentional mobile skips, one failed. Stopped the overlapping visual run (exit 143);
+  rerunning browser checks sequentially before the targeted pinned Command Center visual suite.
+
+- Sequential functional browser rerun: exit 0, 20 passed and four explicit desktop-only
+  guards skipped on mobile (campaign identity and hub templates, desktop + mobile Chromium).
+  This includes onboarding name, rename propagation/reload, unnamed-vault placeholder,
+  two name-only actors, player-view choices and hero avatars.
+- Added an assertion that player seats do not change the resume query's single-row contract;
+  the three focused hero tests pass again. ESLint, Prettier and `git diff --check` pass.
+- Targeted pinned visual suite (`command-center-polish`, five themes across three layouts):
+  13 passed; two rail cases timed out waiting for `home-screen` before screenshot comparison.
+  Exact error context shows `Loading your vault…`, not a pixel mismatch. Retrying only those
+  two cases with one worker; no snapshots or production loading logic changed.
+
+- Single-worker visual retry: exit 0, both rail cases passed (14.9 seconds), no code or baseline
+  changes. All 15 targeted visual cases have passed across the initial run and targeted retry;
+  this is not a claim that the complete 531-case visual suite ran successfully.
+- Candidate is ready for the central operator's gates and independent review. No push,
+  promotion, dispatcher-state edit, additional loop or delegated agent was performed.

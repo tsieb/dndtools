@@ -16,6 +16,9 @@ import {
 } from './HubParts';
 import { type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import {
+	CHARACTER_ENTITY_TYPE,
+	singularGrantsOnEntity,
+	type CoreStateSlice,
 	SECTION_FEATURE_GATES,
 	WIDGET_TEXT_MESSAGE_PREFIX,
 	resolveWidgetIntent,
@@ -67,6 +70,33 @@ export function HubTemplate(props: HubProps & { kind: HubTemplateKind }) {
 	return live ? <LiveHub {...props} /> : <HubBody {...props} available={() => true} />;
 }
 
+/**
+ * RC-UX-6.2 — the seated players who own no player character yet: a party named in Settings › Players
+ * before anyone has a sheet. Once a player owns a PC, the party source draws that PC instead.
+ */
+export function campaignPartyAvatars(state: CoreStateSlice): WidgetDataRow[] {
+	const owners = new Set(
+		Object.values(state.characters.characters)
+			.filter((character) => character.kind === 'pc')
+			.flatMap((character) =>
+				singularGrantsOnEntity(state.permissions.grants, CHARACTER_ENTITY_TYPE, character.id),
+			)
+			.map((grant) => grant.playerActorId),
+	);
+	return Object.values(state.permissions.actors)
+		.filter((seat) => seat.role === 'player' && !owners.has(seat.id))
+		.map((seat) => ({
+			id: seat.id,
+			primary: seat.displayName,
+			avatar: seat.displayName
+				.split(/\s+/)
+				.filter(Boolean)
+				.slice(0, 2)
+				.map((word) => word[0]?.toUpperCase() ?? '')
+				.join(''),
+		}));
+}
+
 function LiveHub(props: HubProps & { kind: HubTemplateKind }) {
 	const runtime = useRuntime();
 	const tier = useSettingsTier();
@@ -89,14 +119,27 @@ function LiveHub(props: HubProps & { kind: HubTemplateKind }) {
 			state: runtime.state,
 			actorId: runtime.activeActorId,
 		}).decision === 'resolved';
-	return <HubBody {...props} available={available} />;
+	return (
+		<HubBody
+			{...props}
+			available={available}
+			partySeats={
+				props.kind === 'hero' &&
+				props.data.primary?.source === 'resume' &&
+				!props.data.primary.withheld
+					? campaignPartyAvatars(runtime.state)
+					: []
+			}
+		/>
+	);
 }
 
 function HubBody({
 	kind,
 	available,
+	partySeats = [],
 	...props
-}: HubProps & { kind: HubTemplateKind; available: Availability }) {
+}: HubProps & { kind: HubTemplateKind; available: Availability; partySeats?: WidgetDataRow[] }) {
 	const { t } = useI18n();
 	const text = useHubText();
 	const { widget, definition, data, loading } = props;
@@ -132,11 +175,10 @@ function HubBody({
 	if (kind === 'hero') {
 		const first = rows[0];
 		const live = !!first?.active;
-		// The party's PCs, then the seated players with no character yet (RC-UX-6.2: the resume rows
-		// after the first).
+		// The party's PCs, then the seated players with no character yet (RC-UX-6.2).
 		const party = [
 			...(data.queries.find((q) => q.source === 'party' && !q.withheld)?.rows ?? []),
-			...(query?.source === 'resume' ? rows.slice(1) : []),
+			...partySeats,
 		];
 		const eyebrow = text(cfgText(widget, live ? 'liveEyebrow' : 'eyebrow'));
 		// The row may name which declared intent its target takes (the resume source does).
