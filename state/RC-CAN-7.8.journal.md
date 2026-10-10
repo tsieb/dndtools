@@ -457,16 +457,24 @@ theme/profile combinations of the spec passed in the same run.
 
 Cross-task check of the dispatcher's recent visual attempts in the same window. Other branches
 fail on the same untouched specs with no diff of their own there:
+
 - `2680175…` `435d1431`: player sheet parchment, characters empty, `/`, palette-help (4).
 - `2680175…` `cb70bc68`: /audio loading, player sheet tavern, atlas empty (3).
 - `90a8736…` `2c12a7b5`: Story polish, graph polish, **settings vault empty state — scholar**,
   char builder (4).
-Earlier on 2026-10-08/09, `90a8736…` and `7465ea0…` show the same 1–3 single-theme timeouts on
-plans-legal, palette-help, graph-polish, /audio and /scene/:id. This is host-load noise across the
-fleet, not something this branch introduces.
+  Earlier on 2026-10-08/09, `90a8736…` and `7465ea0…` show the same 1–3 single-theme timeouts on
+  plans-legal, palette-help, graph-polish, /audio and /scene/:id. This is host-load noise across the
+  fleet, not something this branch introduces.
 
 Re-ran `settings-polish.spec.ts` in the pinned container (`--update-snapshots=none --workers=2
 --repeat-each=2`, load average ~7): 30 passed / 0 failed. No baselines or code changed.
 
 No push, promotion, extra agent, loop launch or dispatcher control-state change. No Headroom tools
 were used; logs were read directly.
+
+## Session 9 — Format (changed) red at `86cfd159` — 2026-10-10
+
+Gate run `a8fb2dfb`: `format:check:changed --base loop/rc` flagged only `state/RC-CAN-7.8.journal.md`.
+My Session 8 bullet list was not Prettier-wrapped. Ran `prettier --write` on the journal.
+`pnpm format:check:changed -- --base loop/rc` now reports all 25 changed files clean. Journal-only
+change; no code, test or baseline touched.
