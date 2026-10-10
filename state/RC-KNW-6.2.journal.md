@@ -380,3 +380,39 @@ nine Notes baselines remain committed. The visual gate is still unresolved; the 
 separately scoped visual-harness/readiness follow-up for the three test locations above. Do not
 waive the gate based on the successful repetitions. This commit records evidence only. No push,
 promotion, new loop, dispatcher control-state edits, timeout increases or snapshot rewrites.
+
+## Gate follow-up 2 — 2026-10-10: readiness timeout reproduced on Characters
+
+Original central log inspected directly:
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/435d1431-b8e0-4c18-a2e9-a2f7e5ecacea/output.log`.
+Candidate `23617d981d1feb343f166c0a6b9aac2e1dce748a` was clean. Gate result: 542 passed,
+4 failed (23.3 minutes); all 24 Notes visual cases passed. New failures:
+
+- Desktop Player / parchment: five-second `character-sheet` visibility timeout.
+- Rail Characters / high-contrast: five-second empty-illustration visibility timeout; the saved
+  error context shows `Loading your vault…` after entering observer preview.
+- Rail Command Center / high-contrast: five-second screenshot capture timeout after fonts loaded.
+- Rail palette / high-contrast: five-second screenshot timeout waiting for the dialog to be stable.
+
+Ran the four cases unchanged on both desktop and rail, twice each, with the pinned container:
+
+```sh
+apps/gm-react/tests/visual/run-in-container.sh \
+  --project=visual-desktop --project=visual-rail \
+  -g 'player sheet parchment|characters empty high-contrast|golden routes — high-contrast.* /$|palette, help and shortcuts — high-contrast' \
+  --repeat-each=2 --retries=0 --workers=2 --update-snapshots=none
+```
+
+Original output `/tmp/rc-knw62-gate2-repro.log` was read through its final diagnostics: **15 passed,
+1 failed**, exit 1 (36.4 seconds). Rail Characters failed on its second repetition; its error
+context again shows `Loading your vault…`. The palette passed all four repetitions without changes.
+These results do not clear the full visual gate or prove the underlying cause of the delays.
+
+The shared visual projects in `apps/gm-react/playwright.config.ts:144` leave the assertion timeout
+at Playwright's five-second default and enable one retry only with `CI` set. A scoped follow-up
+should investigate readiness in `apps/gm-react/tests/visual/characters-polish.spec.ts:32` and
+`apps/gm-react/tests/visual/player-polish.spec.ts:15`, plus the shared capture settings in
+`apps/gm-react/playwright.config.ts`. Those paths are outside the explicit current claim. This is
+an unresolved scope blocker, not a request to waive failures or repeatedly rerun until green.
+No implementation or baseline mutation is justified by the current evidence within the claim;
+only this journal changed. No push, promotion, new loop or dispatcher control-state edits.
