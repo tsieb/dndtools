@@ -79,3 +79,27 @@
   with the same `/tmp/rc-knw-6.6-review-fix` prefix.
 - Full wrapper gates and independent review remain with the central operator. This repair changes
   save behavior and adds conflict feedback; no existing visual baseline was changed.
+
+## Post-rebase gate investigation (2026-10-10)
+
+- Started clean at `61ec03c9`. No Headroom tools are available in this session; inspected the original
+  dispatcher gate log directly. The failed visual run had 545 passes and one 5-second screenshot
+  timeout in `graph polish — scholar`, visual-rail, at `graph-repair--scholar.png`. It reported no
+  pixel mismatch. Existing feature implementation and editor-save repair remain intact.
+- Fresh Story links and campaign editor browser run: 26/26 passed on desktop and mobile, including
+  relationship creation, persistence, graph display, player-preview filtering, inline date setting,
+  and axe assertions (`/tmp/rc-knw-6.6-retry-e2e.log`). Story reader/merge units: 8/8 passed
+  (`/tmp/rc-knw-6.6-retry-unit.log`).
+- Initial pinned-container reproduction, three repetitions of the reported graph case: two failed
+  at the separate 20-second runtime startup wait, and one passed with unchanged baselines
+  (`/tmp/rc-knw-6.6-retry-visual.log`). This ran alongside the browser acceptance suite; it does not
+  establish a product regression or resolve the original timeout.
+- Isolated pinned-container comparison of `graph polish|campaign cards|Story polish`: 33/33 passed
+  across desktop, rail and phone, including the originally failing scholar rail repair screenshot
+  (`/tmp/rc-knw-6.6-retry-visual-isolated.log`, exit 0). No baselines, tolerances, timeouts or product
+  code were changed. Evidence supports a transient timing failure, not a reproducible pixel defect;
+  this targeted pass is not a claim that the full 546-test wrapper has passed again.
+- Journal formatting and `git diff --check` pass. This retry commits only this verification record;
+  the intended application changes already exist in `221003c7` and `61ec03c9`. Full wrapper gates
+  and independent review remain with the central operator. No push, promotion, dispatcher control
+  writes, new loop or additional agents.
