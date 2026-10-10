@@ -443,7 +443,6 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 		] as const satisfies readonly BuiltinWidgetType[]
 	).map((type) => wid57(builtinOnScreenFinding(type))),
 
-
 	// RC-WID-5.13: the Session screen's widgets (RC-CAN-7.8). They stay builtin until SCREENS_PARITY
 	// §4.2's gaps have a public surface: widget-owned dialogs (G-05), declared gates and announcements
 	// (G-07), a keyboard model (G-08), headings in bare presentation (G-09), host scheduling (G-10),
