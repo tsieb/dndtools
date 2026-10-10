@@ -203,3 +203,31 @@ Full pinned-container comparison (`--update-snapshots=none --workers=2`) passed 
 
 Final change: 19 scene-editor visual baselines plus this journal; the widget implementation is
 unchanged. No push, promotion, additional agents, loop or dispatcher control-state edits.
+
+## Typecheck-gate follow-up — 2026-10-10
+
+Started at `b4890f3b` with a clean worktree. Read the original gate log at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/b22145de-141a-4527-902a-37123523f9d5/output.log`:
+core and cloud typechecks passed; app typecheck reported TS2740 at `widgetBuilder/LayoutStep.tsx:54`.
+The `TEMPLATE_SIZES` exhaustive record added in `daaafbc9` did not contain the six board template
+kinds this task introduces. This also leaves `templateLayoutPatch` without a previous size when
+changing away from one of those templates. No Headroom tools are available in this session.
+
+Added the six defaults in `LayoutStep.tsx`, keeping the exhaustive type check. Dimensions match
+the board tools except countdown and audio use height 160 to respect a new builder draft's
+minimum height (the existing tiles retain their own sizes). Added parameterized coverage in
+`IdentityStep.test.tsx` that switches to and from every schema template kind, checks minimum-size
+compatibility, and preserves explicit sizes. `LayoutStep.tsx` is outside the listed claim, but
+the six entries are required for the public board kinds to compile against the newer size table.
+
+Validation (original logs retained under `/tmp/rcwid57-typecheck/`):
+
+- `pnpm typecheck` exit 0 across core, cloud and app (`typecheck.log`).
+- Full `pnpm test` exit 0: core 292 files / 5,314 tests; cloud 46 / 569; app 180 / 2,306;
+  tooling 31 / 249 (`test.log`). The 18 new cases cover every schema template kind.
+- Pinned-container `widget-full-builder.spec.ts --update-snapshots=none --workers=2`: 15 passed,
+  exit 0 (`visual-builder.log`). No screenshots changed. The preceding central gate had already
+  passed the full 546-test visual suite on `b4890f3b`; this rerun covers the builder repair.
+- Changed-file ESLint reported no diagnostics; Prettier and `git diff --check` passed.
+
+No push, promotion, additional agents, loop or dispatcher control-state edits.

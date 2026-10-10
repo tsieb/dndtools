@@ -64,6 +64,12 @@ export const TEMPLATE_SIZES: Record<WidgetDraft['template'], WidgetDraft['defaul
 	launcher: { width: 360, height: 260 },
 	'card-grid': { width: 360, height: 360 },
 	hero: { width: 360, height: 300 },
+	'map-view': { width: 360, height: 280 },
+	initiative: { width: 280, height: 220 },
+	'dice-roller': { width: 220, height: 160 },
+	countdown: { width: 220, height: 160 },
+	'now-playing': { width: 240, height: 160 },
+	'item-list': { width: 280, height: 220 },
 };
 
 export function templateLayoutPatch(
