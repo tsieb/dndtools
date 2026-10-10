@@ -417,3 +417,32 @@ The reported ownership blocker is addressed by the supplied claim extension; thi
 that a new central gate has run. The candidate is ready for the central operator's wrapper gates
 and independent review. No push, promotion, extra agent, loop launch or dispatcher control-state
 change.
+
+## Session 7 — visual gate red at `f6eec7ca` triaged as load stall — 2026-10-10
+
+Gate feedback: "Visual regression (pinned container)" exit 1, 2 failed / 529 passed (run
+`4544165f`). Read the original log and both error contexts:
+
+- `[visual-desktop] player-polish.spec.ts:7 player sheet high-contrast` — `#main-content` still
+  showed the `Loading your vault…` Suspense fallback when the 5 s `toBeVisible` expired. The other
+  four themes on desktop and all five on rail/phone passed.
+- `[visual-rail] golden-routes.spec.ts:162 tavern /play` — `toHaveScreenshot` capture timed out
+  (5 s). The failure screenshot shows the correct, fully rendered "Join your table" page. parchment
+  and high-contrast /play passed on rail; tavern passed on desktop and phone.
+
+Neither route is in this branch's diff (`git diff --stat 3ef5354b HEAD`: Session screen, Session
+widget bodies, parity, core command-center/player-view-control/widget-package-state). No pixel
+diff on any route.
+
+Re-ran both specs in the pinned container (`run-in-container.sh --update-snapshots=none
+--workers=2 tests/visual/player-polish.spec.ts tests/visual/golden-routes.spec.ts
+--repeat-each=2`) with load average ~17 and a second worktree's visual container running
+concurrently: 452 passed / 4 failed (21.5 m). Both previously failing tests passed on both
+repeats. The 4 new failures are different tests, all 5 s screenshot-capture timeouts on untouched
+routes (desktop `/audio loading` dungeon, desktop `player-history-empty` parchment, rail
+`/characters` tavern, rail `/audio Playback` scholar). This is the documented base-level cold
+chunk/capture stall that lands on a different spec each run; the Session goldens re-baselined by
+this task passed on every profile. No baseline was changed and no code change is warranted.
+
+No push, promotion, extra agent, loop launch or dispatcher control-state change. No Headroom tools
+were used; logs were read directly.
