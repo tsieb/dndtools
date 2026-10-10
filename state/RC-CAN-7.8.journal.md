@@ -522,3 +522,54 @@ changed. Existing acceptance specs and all visual/baseline snapshots remain unch
 changes intent consumption, not rendering; the earlier before/after review is retained. Full wrapper
 and pinned visual gates remain for the central operator; no new full-gate success is claimed here.
 No push, promotion, extra agent, loop launch or dispatcher control-state edit.
+
+## Session 11 — reconcile integration screenshot conflicts — 2026-10-10
+
+Started clean at `be349360`. Rebased the task branch onto the requested integration commit
+`87e1c8915e26bf5240b80e57a1c640334ba115c3`. Reproduced the three reported binary conflicts in
+`visual-desktop/session--{high-contrast,parchment,tavern}.png`; all source commits replayed cleanly.
+The integration branch changes Story to quest/faction counts and makes the Ashen Hand a faction,
+leaving five seeded Notes. The task changes Session to its widget layout. Both must be retained.
+
+Saved original task, integration and common-base screenshots under `/tmp/rc-can78-rebase-review/`,
+along with the original HEAD and a range-diff. Temporarily retained the task-side screenshots to
+finish replaying all commits; the final combined source is being rendered in the pinned container
+before resolving the three baselines. No Headroom tools are exposed; outputs are read directly.
+Validation results and visual comparison follow below.
+
+Pinned-container comparison on the combined source: 6 passed / 3 desktop pixel diffs, exactly the
+three conflicts (`/tmp/rc-can78-rebase-visual-before.log`). Viewed each generated desktop image.
+Pixel comparison against both parents proves that, in all three themes, differences from the task
+image are confined to `(48, 532)–(158, 590)` (Story/Notes count text); the entire Session content is
+pixel-identical to the task, and the entire sidebar is pixel-identical to integration. No layout,
+control, clipping or contrast regression. Saved actual/expected/diff images and comparison output
+beside the original images. Replaced only the three conflicted desktop baselines with those pinned
+container captures. The six rail/phone baselines remain untouched.
+
+The first Session baseline/parity run found one integration-related snapshot mismatch (54 passed,
+1 failed): Recap's capture picker expected the old seeded `Faction · The Ashen Hand` title. Updated
+only the two occurrences in the existing DOM/focus-order snapshots to integration's `The Ashen Hand`;
+test code, assertions, and every other snapshot line are unchanged. This preserves the earlier
+console parity evidence while reflecting the upstream fixture rename.
+
+Verified locally after reconciliation (original logs inspected):
+
+- Pinned container, `golden-routes.spec.ts --grep '/session$' --update-snapshots=none --workers=2`:
+  **9 passed**, all three themes at desktop, rail and phone
+  (`/tmp/rc-can78-rebase-visual-after.log`).
+- Session baseline + widget parity: **55 passed** (`/tmp/rc-can78-rebase-unit-after.log`).
+- App typecheck exited 0 (`/tmp/rc-can78-rebase-typecheck.log`). Baseline size budget passed:
+  852 files, 36,484.6 KiB of 37,888.0 KiB.
+- Range-diff matches all 17 replayed commits; the new base is an ancestor of the task branch.
+  The duplicate-keyboard and duplicate-launch repairs remain intact. No unresolved index entries.
+- Acceptance browser run: **201 passed, 9 skipped, 0 failed**, desktop + mobile, 4.6 minutes,
+  exit 0 (`/tmp/rc-can78-rebase-acceptance.log`). Ran
+  `pnpm --filter @dndtools/gm-react exec playwright test 'tests/e2e/(combat|session-.*|dice-tray|command-palette|encounter-builder)\.spec\.ts' --workers=2 --output=/tmp/rc-can78-rebase-e2e-results`.
+  Includes quick-panel routes and duplicate keyboard/encounter-launch regressions; integration adds
+  two palette cases relative to the prior run. No browser spec was edited for this reconciliation.
+- Journal formatting and `git diff --check` passed.
+
+The resolution commit changes only the three desktop Session PNGs, the two fixture-title snapshot
+strings, and this journal. Full central wrapper gates and independent review remain the operator's
+next step; only the focused pinned visual run above is claimed. No push, promotion, extra agent,
+loop launch or dispatcher control-state edit.

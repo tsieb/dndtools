@@ -1115,7 +1115,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
     <button role="checkbox" type="button">
       "The Sunken Crypt — DM notes"
     <button role="checkbox" type="button">
-      "Faction · The Ashen Hand"
+      "The Ashen Hand"
     <button role="checkbox" type="button">
       "Brine Hand"
     <button role="checkbox" type="button">
@@ -1219,7 +1219,7 @@ checkbox The Hollow King
 checkbox Tormund Ironfist
 checkbox Campaign Primer
 checkbox The Sunken Crypt — DM notes
-checkbox Faction · The Ashen Hand
+checkbox The Ashen Hand
 checkbox Brine Hand
 checkbox Saltmarsh Watch
 checkbox Dockworkers’ Union
