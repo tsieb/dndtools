@@ -80,7 +80,8 @@ export function Graph() {
 	const [hoverId, setHoverId] = useState<string | null>(null);
 	const [mapOpen, setMapOpen] = useState(false);
 	const nodeButtons = useRef(new Map<string, HTMLButtonElement>());
-	const canvasRef = useRef<HTMLElement>(null);
+	// The mounted canvas, in state so the label pass re-binds when the phone/wide layouts swap it.
+	const [canvasEl, setCanvasEl] = useState<HTMLElement | null>(null);
 
 	const viewActorId = view === 'dm' ? dmId : playerId;
 
@@ -148,7 +149,7 @@ export function Graph() {
 		),
 	);
 	useLabelPlacement(
-		canvasRef,
+		canvasEl,
 		showCanvas ? `${sel}|${labelled.map((n) => `${n.id}:${n.title}`).join('|')}` : '',
 	);
 
@@ -174,8 +175,12 @@ export function Graph() {
 								>
 									{t('graph.emptyVault.newNote')}
 								</Button>
-								{/* Notes owns the importer; it opens from that screen's toolbar. */}
-								<Button variant="secondary" icon="import" onClick={() => navigate('/knowledge')}>
+								{/* Notes owns the importer; the intent opens its import panel on arrival. */}
+								<Button
+									variant="secondary"
+									icon="import"
+									onClick={() => navigate('/knowledge', { state: { import: true } })}
+								>
 									{t('graph.emptyVault.import')}
 								</Button>
 							</div>
@@ -189,7 +194,7 @@ export function Graph() {
 	// graph canvas — real nodes (sized by visible degree) + real directed link edges
 	const canvas: ReactNode = (
 		<section
-			ref={canvasRef}
+			ref={setCanvasEl}
 			id="graph-canvas"
 			aria-label={t('graph.canvas')}
 			style={{

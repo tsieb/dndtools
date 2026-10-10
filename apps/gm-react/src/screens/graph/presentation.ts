@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, type RefObject } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	getMapViewForActor,
@@ -186,11 +186,14 @@ export function placeLabels(
  * slot, the `[data-graph-node]` it names and every other control on the canvas, place the labels,
  * and write each offset to the label's CSS `translate` (React never sets that property, so a
  * re-render does not undo it). It re-runs whenever `key` changes, when the canvas resizes and once
- * the web fonts land, since each of those moves the label boxes.
+ * the web fonts land, since each of those moves the label boxes. `canvas` is the mounted element
+ * itself (held in state by a callback ref), not a ref object: the phone and wide layouts mount
+ * different canvas elements, and a ref would leave the observer on the removed one after a
+ * breakpoint change that keeps the same labels.
  */
-export function useLabelPlacement(canvas: RefObject<HTMLElement | null>, key: string) {
+export function useLabelPlacement(canvas: HTMLElement | null, key: string) {
 	useLayoutEffect(() => {
-		const el = canvas.current;
+		const el = canvas;
 		if (!el) return;
 		let frame = 0;
 		let live = true;

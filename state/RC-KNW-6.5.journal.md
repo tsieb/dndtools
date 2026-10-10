@@ -91,9 +91,25 @@ pnpm test:app        # 180 files, 2231 tests
 
 ### Open items
 
-- **Import from the empty state lands on Notes, not on the open importer.** Knowledge only honours
-  `{ create | search | savedSearchId }` intents; an `{ import: true }` intent belongs in
-  `screens/knowledge/index.tsx`, outside this claim. Follow-up: add the intent there and pass it from
-  `Graph.tsx`.
 - The demo vault's phone shell (`phone-session-strip`) fails axe `region` (best-practice); not this
   screen's code.
+
+## Review round 1 (2026-10-10) — two medium findings fixed
+
+- **Collision pass lost after a breakpoint change.** `useLabelPlacement` read a ref object, so a
+  phone ↔ wide swap that kept the same labels (≤12 nodes → same key) left the observer on the removed
+  canvas. The hook now takes the mounted element, held in state by the canvas's callback ref
+  (`setCanvasEl`), so a new canvas re-runs the pass and re-binds the observer. New e2e
+  `graph labels across a breakpoint change` (12 long names, 393 → 1440 → 393 with the map open)
+  FAILS on the old hook (four overlapping pairs after the return) and passes with the fix.
+- **Empty-vault Import notes did not open the importer.** Graph now navigates with
+  `{ import: true }`; `screens/knowledge/index.tsx` (minimal cross outside Owns, 5 lines) honours that
+  intent by opening the import panel. New e2e asserts the import field is visible on arrival.
+
+Evidence:
+
+```
+DNDTOOLS_E2E_PORT=5391 npx playwright test graph-readable graph-polish graph.spec knowledge.spec  # 100 passed, 4 skipped
+tests/visual/run-in-container.sh -g "graph polish" --update-snapshots=none                     # 15 passed
+tsc --noEmit, eslint + prettier on touched files, vitest src/screens/graph (18)                 # clean
+```

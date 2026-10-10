@@ -120,6 +120,49 @@ test.describe('graph labels at 1440', () => {
 	});
 });
 
+test.describe('graph labels across a breakpoint change', () => {
+	test.skip(({ isMobile }) => isMobile, 'resizes a desktop window between the tiers');
+
+	test('the collision pass follows the canvas the new tier mounts', async ({ page }) => {
+		await page.setViewportSize({ width: 393, height: 851 });
+		await markOnboarded(page);
+		await page.addInitScript(() => {
+			try {
+				window.localStorage.setItem('dndtools:react:vault-choice', 'fresh');
+			} catch {
+				/* best-effort, like markOnboarded */
+			}
+		});
+		await gotoRoute(page, '/graph');
+		await seedFresh(page);
+		const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+		// Twelve long names: few enough that a phone names every node, so the labels (and the
+		// placement key) are the same on both tiers and only the canvas element changes.
+		for (let i = 0; i < 12; i++) {
+			const result = await dispatch(page, {
+				type: 'content.create-item',
+				actorId,
+				payload: { kind: 'note', title: `Long campaign location ${i}`, body: '' },
+			});
+			expect(result.status).toBe('accepted');
+		}
+		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		await page.getByRole('button', { name: 'Show map', exact: true }).click();
+		await expect(page.locator('[data-graph-label]')).toHaveCount(12);
+		await expect.poll(async () => (await labelFaults(page)).faults).toEqual([]);
+
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await expect(page.getByRole('button', { name: 'Show map' })).toHaveCount(0);
+		await expect.poll(async () => (await labelFaults(page)).faults).toEqual([]);
+
+		await page.setViewportSize({ width: 393, height: 851 });
+		await expect(page.getByRole('button', { name: 'Hide map', exact: true })).toBeVisible();
+		await expect(page.locator('[data-graph-label]')).toHaveCount(12);
+		await expect.poll(async () => (await labelFaults(page)).faults).toEqual([]);
+	});
+});
+
 test.describe('graph on a phone lists first', () => {
 	test.skip(({ isMobile }) => !isMobile, 'the phone tier');
 
@@ -228,6 +271,28 @@ test.describe('graph before it has anything to show', () => {
 		await main.getByRole('button', { name: 'New note', exact: true }).click();
 		await page.waitForURL((url) => url.hash === '#/knowledge');
 		await expect(page.getByTestId('knowledge-composer')).toBeVisible();
+	});
+
+	test('Import notes lands on Notes with the importer already open', async ({ page }) => {
+		await markOnboarded(page);
+		await page.addInitScript(() => {
+			try {
+				window.localStorage.setItem('dndtools:react:vault-choice', 'fresh');
+			} catch {
+				/* best-effort, like markOnboarded */
+			}
+		});
+		await gotoRoute(page, '/graph');
+		await seedFresh(page);
+		await page.goto('/#/graph', { waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+
+		await page
+			.locator('#main-content')
+			.getByRole('button', { name: 'Import notes', exact: true })
+			.click();
+		await page.waitForURL((url) => url.hash === '#/knowledge');
+		await expect(page.getByLabel('Markdown or JSON to import')).toBeVisible();
 	});
 
 	test('below the graph signal the nodes list, but filter, clusters and arcs wait', async ({

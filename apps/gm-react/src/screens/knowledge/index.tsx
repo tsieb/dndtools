@@ -88,11 +88,16 @@ export function Knowledge() {
 	useEffect(() => {
 		const intent = (location.state ?? null) as {
 			create?: boolean;
+			import?: boolean;
 			search?: string;
 			savedSearchId?: string;
 		} | null;
 		if (intent?.create) {
 			setPanel('compose');
+			navigate(location.pathname, { replace: true, state: null });
+		} else if (intent?.import) {
+			// The Graph's empty-vault "Import notes" lands here with the importer already open.
+			setPanel('import');
 			navigate(location.pathname, { replace: true, state: null });
 		} else if (typeof intent?.savedSearchId === 'string' && intent.savedSearchId !== '') {
 			// ⌘K `>search saved` picked a stored search: open the panel with its criteria restored,
