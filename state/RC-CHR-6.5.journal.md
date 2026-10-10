@@ -76,3 +76,43 @@ times with `--update-snapshots=none`: **45 passed** (2.1m). Output:
 passed. The full 531-test visual suite remains for the central operator; this
 round ran the affected visual spec across all themes and tiers. No push,
 promotion, or dispatcher control-state changes were made.
+
+## Browser acceptance repair — explicit Co-DM preview
+
+The central gate at rebased head `0d15af0f` passed quality, formatting, pinned
+visuals, typecheck, lint, core/app tests, build, bundle budget and requirements
+audit. Browser acceptance reported 1,936 passed, 38 skipped and two failures:
+the compact Co-DM responsive test on both profiles. Exact failure evidence is
+in dispatcher attempt `fa1636da-b24a-417d-9d39-8db53bfc8ce7/output.log`.
+
+Reproduced both failures locally before editing with
+`pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.ts -g 'a Co-DM can reach every elevated' --workers=2`.
+Output: `/var/tmp/rc-chr-6.5-codm-before.log`.
+
+The fixture promoted `actor-player` to Co-DM but entered a generic **player**
+preview, then expected Maps to be enabled. Before this story, `/play` ignored
+player previews and used the local seat, accidentally satisfying that assertion.
+The actor-following implementation correctly refuses to substitute an elevated
+seat for a player preview. This is a test contract mismatch exposed by this
+story, not an inherited failure or a reason to restore elevated access.
+
+The responsive test now asserts that Maps is disabled in the player preview,
+then explicitly previews the promoted Co-DM and exercises all three elevated
+tools with the existing viewport and overflow checks. Added a core regression
+covering the same promoted-seat boundary and specific Co-DM resolution. No
+production code, visual baselines, or collab preview tests changed.
+
+Validation completed:
+
+- Targeted browser run: **12 passed** (20.1s), both profiles. Command:
+  `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/responsive.spec.ts tests/e2e/companion-preview.spec.ts tests/e2e/collab.spec.ts -g 'a Co-DM can reach every elevated|companion preview|collab: actor-filtered' --workers=2`.
+  Exact output: `/var/tmp/rc-chr-6.5-codm-after.log`.
+- Core preview file: **15 passed**, via
+  `pnpm --filter @dndtools/core exec vitest run tests/ux-perm-preview-mode.test.ts`.
+  Exact output: `/var/tmp/rc-chr-6.5-codm-core.log`.
+- `pnpm gates`, ESLint on both changed test files, Prettier and
+  `git diff --check` passed. Gate and lint logs:
+  `/var/tmp/rc-chr-6.5-codm-gates.log`, `/var/tmp/rc-chr-6.5-codm-lint.log`.
+
+The full browser suite remains for central validation; this repair changes tests
+only. No push, promotion, or dispatcher control-state edits.

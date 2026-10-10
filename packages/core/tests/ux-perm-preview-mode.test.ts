@@ -220,6 +220,22 @@ describe('companionViewerFor (RC-CHR-6.5)', () => {
 		expect(companionViewerFor(permissions, coDm, PLAYER_ACTOR.id)).toBe(coDm.actorId);
 	});
 
+	it('does not elevate a player preview when the local seat is promoted to co-DM', () => {
+		const promoted = permissionsWithPreviewActors(
+			buildPermissionState(DM_ACTOR, { ...PLAYER_ACTOR, role: 'co-dm' }),
+		);
+		const playerPreview = resolvePreviewActor(promoted, { role: 'player' });
+		expect(companionViewerFor(promoted, playerPreview, PLAYER_ACTOR.id)).toBe(
+			PREVIEW_PLAYER_ACTOR_ID,
+		);
+		const coDmPreview = resolvePreviewActor(promoted, {
+			role: 'co-dm',
+			playerActorId: PLAYER_ACTOR.id,
+		});
+		expect(coDmPreview.specific).toBe(true);
+		expect(companionViewerFor(promoted, coDmPreview, PLAYER_ACTOR.id)).toBe(PLAYER_ACTOR.id);
+	});
+
 	it('lets a player seat stand in for "any player", and fails closed without one', () => {
 		const anyPlayer = preview({ role: 'player' });
 		expect(companionViewerFor(permissions, anyPlayer, PLAYER_ACTOR.id)).toBe(PLAYER_ACTOR.id);

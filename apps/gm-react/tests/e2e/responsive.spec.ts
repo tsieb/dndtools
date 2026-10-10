@@ -967,6 +967,14 @@ test('a Co-DM can reach every elevated standalone player tool at compact phone s
 	await expectNoHorizontalOverflow(page, 'compact Co-DM player view');
 
 	const playerNav = page.getByRole('navigation', { name: 'Player sections' });
+	// A player preview must not inherit the local seat's promoted authority. Then preview
+	// that specific Co-DM to exercise the elevated tools as the actor who can actually use them.
+	await playerNav.getByRole('button', { name: 'More', exact: true }).click();
+	await expect(page.locator('#player-main').getByRole('button', { name: 'Maps' })).toBeDisabled();
+	await page.evaluate(() =>
+		window.__rt!.enterPreview({ role: 'co-dm', playerActorId: 'actor-player' }),
+	);
+	await expect.poll(() => page.evaluate(() => window.__rt!.preview?.actorId)).toBe('actor-player');
 	const navBox = await playerNav.boundingBox();
 	expect(navBox).not.toBeNull();
 	if (navBox) {
