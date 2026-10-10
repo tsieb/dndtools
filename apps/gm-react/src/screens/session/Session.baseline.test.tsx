@@ -311,7 +311,28 @@ async function restTheParty() {
 let host: HTMLDivElement;
 let root: Root;
 
+// The rest timeline and the archive stamps print wall-clock times in the runtime's own zone, so a
+// baseline captured on a developer's machine would not match a UTC runner. Every date the screen
+// formats is read in UTC (and US English) instead; the instants themselves are the seed's own.
+const LOCALE_FORMATTERS = ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'] as const;
+const pinnedClock: { mockRestore(): void }[] = [];
+function pinClockToUtc() {
+	for (const name of LOCALE_FORMATTERS) {
+		const original = Date.prototype[name];
+		pinnedClock.push(
+			vi.spyOn(Date.prototype, name).mockImplementation(function (
+				this: Date,
+				_locales?: Intl.LocalesArgument,
+				options?: Intl.DateTimeFormatOptions,
+			) {
+				return original.call(this, 'en-US', { ...options, timeZone: 'UTC' });
+			}),
+		);
+	}
+}
+
 beforeEach(() => {
+	pinClockToUtc();
 	vi.stubGlobal(
 		'ResizeObserver',
 		class {
@@ -329,6 +350,7 @@ afterEach(() => {
 	act(() => root.unmount());
 	host.remove();
 	vi.unstubAllGlobals();
+	for (const spy of pinnedClock.splice(0)) spy.mockRestore();
 });
 
 async function renderSession(): Promise<HTMLElement> {

@@ -573,3 +573,27 @@ The resolution commit changes only the three desktop Session PNGs, the two fixtu
 strings, and this journal. Full central wrapper gates and independent review remain the operator's
 next step; only the focused pinned visual run above is claimed. No push, promotion, extra agent,
 loop launch or dispatcher control-state edit.
+
+## ci-recovery-9f42 — Session baseline time zone (2026-10-10)
+
+Hosted CI run 38063185979 failed `unit (app)` twice on `9f421f25`: one test, `Session baselines >
+demo vault, Recap with the rest timeline`, snapshot `desktop recap · aria 1`. The only differences
+were wall-clock times: the snapshot said `5:01 AM`, the runner rendered `12:01 PM`. The rest timeline
+(`Lifecycle.tsx`) and the archive stamps (`PrepRecap.tsx`) format with
+`toLocale{Date,Time}String(undefined, …)`, i.e. in the host's zone. The baselines were captured on a
+PDT machine (UTC−7); the runner is UTC. The seeded instants are fixed, so this is a host-zone
+dependency rather than a race. It fails every time on CI and passes every time locally.
+
+Fix (test only, no assertion loosened): the baseline file pins `Date.prototype.toLocale*` to
+`en-US` + `timeZone: 'UTC'` per test (spied in `beforeEach`, restored in `afterEach`). The app suite
+runs on the threads pool, so `process.env.TZ` cannot be set per file (see `vitest.app.config.ts`).
+The eight time strings in the snapshot were re-captured and now carry the UTC values CI produced. No
+other snapshot line changed.
+
+Verified locally (original logs inspected):
+
+- Session baseline file, no `-u`: **14 passed** under `TZ` = UTC, Asia/Tokyo, Pacific/Kiritimati and
+  America/Los_Angeles, each with `LANG=de_DE.UTF-8`.
+- `TZ=UTC pnpm test:app`: **180 files / 2240 tests passed**, exit 0
+  (`/tmp/ci-recovery-9f42-app.log`).
+- gm-react typecheck exit 0; eslint and prettier clean on the changed test file.

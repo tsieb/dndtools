@@ -877,7 +877,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - text: What happened
 - text: 10 recent changes to review.
 - text: Session archives
-- text: Jun 3 · 5:01 AM · no recap yet
+- text: Jun 3 · 12:01 PM · no recap yet
 - textbox "Session recap"
 - text: Markdown supported. Saving replaces the recap for this archive.
 - button "Save recap"
@@ -923,9 +923,9 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
 - heading "Rests this session" [level=2]
 - text: Every rest the party has taken, newest first.
 - list:
-  - listitem "5:01 AM Tormund Ironfist Short rest"
-  - listitem "5:01 AM Brother Calloway Short rest"
-  - listitem "5:01 AM Sera Duskwhisper Short rest"
+  - listitem "12:01 PM Tormund Ironfist Short rest"
+  - listitem "12:01 PM Brother Calloway Short rest"
+  - listitem "12:01 PM Sera Duskwhisper Short rest"
 - heading "Schedule next session" [level=2]
 - img "DM only"
 - text: docs/runbooks/google-oauth-setup.md
@@ -1085,7 +1085,7 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
   "What happened"
   "10 recent changes to review."
   "Session archives"
-  "Jun 3 · 5:01 AM · no recap yet"
+  "Jun 3 · 12:01 PM · no recap yet"
   <textarea aria-label="Session recap">
   "Markdown supported. Saving replaces the recap for this archive."
   <button title="Session recap · Required" type="button" disabled="">
@@ -1160,17 +1160,17 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
   <ol>
     <li aria-current="step">
       <svg aria-hidden="true">
-      "5:01 AM"
+      "12:01 PM"
       "Tormund Ironfist"
       "Short rest"
     <li>
       <svg aria-hidden="true">
-      "5:01 AM"
+      "12:01 PM"
       "Brother Calloway"
       "Short rest"
     <li>
       <svg aria-hidden="true">
-      "5:01 AM"
+      "12:01 PM"
       "Sera Duskwhisper"
       "Short rest"
 <section>
