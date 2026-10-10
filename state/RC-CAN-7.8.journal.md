@@ -373,3 +373,28 @@ Repair evidence (original output read directly):
   The pre-existing combat, session and dice specs were not edited, including their selectors.
 
 Repair complete locally; ready for the central operator's wrapper gates and independent review.
+
+## Session 5 — claim gate disposition — 2026-10-09
+
+The claim gate rejected `apps/gm-react/src/screens/session/useCombatKeyboard.ts`, which is outside
+this task's current claim. Retain this required path under the explicit exception in the retry
+instructions, and request the operator's decision to widen the claim. The claim has NOT been
+widened, and this task remains blocked at that gate.
+
+Compared the hook with base `1028592b7672aa044c045551176e81e41c8392ca` and inspected its caller.
+Reverting it would restore the independent review's high-severity defect: two reading-mode combat
+widgets advance the durable turn twice for one `n` press. The original regression output was read
+again directly: the base hook produces turn 2 where turn 1 is required. Original repaired outputs
+still record 55 unit/parity passes and 147 browser passes / 9 skips.
+
+The shared hook owns window listener registration and event consumption. `CombatBody` cannot
+independently disable that keyboard model: `CombatPanel` exposes only `previewing`, which also
+disables normal widget controls. Guarding command callbacks there would leave duplicate HP dialogs,
+whose state is internal to CombatPanel. The retained hook change fixes consumption for all shortcut
+actions and preserves listener order across rerenders, covering the newly repeatable tracker while
+keeping each widget interactive. This is necessary for Session widget parity and the explicit review
+requirement, not an unrelated change.
+
+This follow-up changes the journal and records the required-path rationale in the commit message;
+implementation and tests are unchanged from `973e9d30`. No test rerun is claimed. `git diff --check`
+passes. No push, promotion, additional agent, loop launch or dispatcher control-state edit.
