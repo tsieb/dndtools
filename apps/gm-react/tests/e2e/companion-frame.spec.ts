@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 for (const textSize of [16, 32]) {
 	test(`companion labelled navigation and 48dp targets at 390 with ${textSize}px text`, async ({
@@ -12,7 +12,10 @@ for (const textSize of [16, 32]) {
 		await seedFresh(page);
 		await page.goto('/#/play');
 		await page.waitForFunction(() => window.__rt?.loaded === true);
-		await enterPreview(page, 'player');
+		// Journal controls belong to the seeded character, not the unassigned generic preview.
+		await page.evaluate(() =>
+			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
+		);
 		const cdp = await page.context().newCDPSession(page);
 		await cdp.send('Page.setFontSizes', { fontSizes: { standard: textSize, fixed: textSize } });
 		const nav = page.locator('.player-view-bottom-tabs nav');

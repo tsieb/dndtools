@@ -1,7 +1,7 @@
 import { openDemoVault } from './_helpers';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 // The release gate's own ruleset (a11y-axe-gate.spec.ts), applied to the ONE state that gate cannot
 // reach: `/play` opens on the stage, so the private journal's three forms are never scanned there.
@@ -19,10 +19,10 @@ const NPC = 'zz-private-warden-harrow';
 /**
  * Open `/play` and its Journal section.
  *
- * `preview` drives the two REAL device postures this screen has. In DM preview the Core is
- * deliberately read-only (`actor-not-authorized`: "Preview mode is read-only"), which is right for
- * table state but means no share can be accepted; without read-only preview the demo vault runs as its demo
- * player actor, and a share the player owns is authorised for real.
+ * `preview` drives the two REAL device postures this screen has. DM preview explicitly selects
+ * the demo character owner. The Core is deliberately read-only (`actor-not-authorized`:
+ * "Preview mode is read-only"), so no share can be accepted. Without read-only preview the demo
+ * vault runs as its demo player actor, and a share the player owns is authorised for real.
  */
 async function openPrivateJournal(page: Page, opts: { preview: boolean }): Promise<void> {
 	await markOnboarded(page);
@@ -33,7 +33,10 @@ async function openPrivateJournal(page: Page, opts: { preview: boolean }): Promi
 	await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 		timeout: 20_000,
 	});
-	if (opts.preview) await enterPreview(page, 'player');
+	if (opts.preview)
+		await page.evaluate(() =>
+			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
+		);
 	await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 	if (page.viewportSize()!.width <= 640)
 		await page.getByRole('button', { name: 'More', exact: true }).click();
@@ -86,7 +89,9 @@ test.describe('player-private notes', () => {
 		await page.waitForFunction(() => !!window.__rt && window.__rt.loaded === true, null, {
 			timeout: 20_000,
 		});
-		await enterPreview(page, 'player');
+		await page.evaluate(() =>
+			window.__rt!.enterPreview({ role: 'player', playerActorId: 'actor-player' }),
+		);
 		if (page.viewportSize()!.width <= 640)
 			await page.getByRole('button', { name: 'More', exact: true }).click();
 		await page.getByRole('button', { name: 'Journal', exact: true }).click();

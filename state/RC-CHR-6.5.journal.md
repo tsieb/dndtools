@@ -244,3 +244,48 @@ Only the companion/core preview implementation, its regression fixtures and
 15 affected companion goldens changed in this repair. No shared visual config,
 collab tests, dispatcher controls, push or promotion. Full wrapper gates and
 independent review remain the central operator's responsibility.
+
+## Browser gate repair — explicit character and projected-stage fixtures
+
+Central validation at `e8974b17` passed the first ten gates, including pinned
+visuals, and failed browser acceptance with 20 failures, two flaky tile-resize
+cases, 38 skipped and 1,924 passed. Read the original failure details in
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/bb922319-f6f6-4afa-9334-eed67d0763ff/output.log`.
+Headroom tools are unavailable in this session; original files are read directly.
+
+All blocking failures are in `companion-frame.spec.ts`,
+`player-private-notes.spec.ts`, and `player-view.spec.ts`, on both profiles.
+Their fixtures request generic Player but expect a character's private journal
+or a scene/map assigned to a registered player. This contradicts the corrected
+zero-grant generic preview contract. The journal/frame fixtures now explicitly
+preview `actor-player`, including after reload. Projected stage/map fixtures
+preview an actor returned from the roster they actually projected to. Existing
+behavior assertions remain intact. The shared generic preview helper and collab
+tests remain unchanged. No production code or visual baseline changes.
+
+Focused browser and static validation are in progress. Original local output:
+`/var/tmp/rc-chr-6.5-fixtures-browser.log` and
+`/var/tmp/rc-chr-6.5-fixtures-static.log`.
+
+The first focused run passed all 20 formerly blocking cases on both profiles,
+and every unchanged collab case. Overall it recorded 53 passed and one failure:
+the existing mobile home-to-companion Escape test stayed on `/play` after the
+key press. Original log: `/var/tmp/rc-chr-6.5-fixtures-browser.log`; original
+error context showed the preview banner still present and no open dialog.
+No fixture edited this case and no production code changed. Repeated this exact
+case five times per profile without changes: **10 passed** (20.1s), original
+output `/var/tmp/rc-chr-6.5-fixtures-escape.log`. This is an observed intermittent
+failure, not a proven fixed defect. A confirming focused run is recorded in
+`/var/tmp/rc-chr-6.5-fixtures-confirm.log`.
+
+Confirming run: **54 passed** (1.6m), no retries, across Desktop Chrome and Pixel 5.
+Command: `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/companion-frame.spec.ts tests/e2e/player-private-notes.spec.ts tests/e2e/player-view.spec.ts tests/e2e/companion-preview.spec.ts tests/e2e/collab.spec.ts --workers=2`.
+Original output: `/var/tmp/rc-chr-6.5-fixtures-confirm.log`.
+This covers all three repaired files, all preview acceptance regressions and
+the unchanged full collab suite. The earlier intermittent Escape observation is
+retained above; a passing repeat does not establish its root cause.
+
+`pnpm gates`, focused ESLint, Prettier and `git diff --check` passed. Static
+output: `/var/tmp/rc-chr-6.5-fixtures-static.log`. No production or pixel changes
+in this repair, so pinned visuals were not rerun. The full central wrapper and
+independent review remain pending. No push, promotion or dispatcher state edits.

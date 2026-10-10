@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 // PLAYER VIEW — `/play`, the chrome-less player device. It renders OUTSIDE the DM AppShell, so there
 // is no `#main-content` to wait on; gate on the DEV runtime seam plus a route-local signal instead.
@@ -7,7 +7,8 @@ import { enterPreview, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 /**
  * Give `/play` a projected stage. The stage only leaves its empty state when the VIEWER is a
  * participant with a player-view assignment, so this takes the session live, projects a scene to
- * every registered player, and returns the player actor to preview as.
+ * every registered player, and returns the player actor to preview as. Generic Player has no
+ * assignment and must keep its empty stage.
  */
 async function projectSceneToPlayers(page: Page): Promise<string> {
 	const result = await page.evaluate(async () => {
@@ -56,10 +57,13 @@ test.describe('player view: the projected stage', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/session');
 		await seedFresh(page);
-		await projectSceneToPlayers(page);
+		const playerActorId = await projectSceneToPlayers(page);
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
-		await enterPreview(page, 'player');
+		await page.evaluate(
+			(id) => window.__rt!.enterPreview({ role: 'player', playerActorId: id }),
+			playerActorId,
+		);
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 	});
 
@@ -115,10 +119,13 @@ test.describe('player view: forced colors', () => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/session');
 		await seedFresh(page);
-		await projectSceneToPlayers(page);
+		const playerActorId = await projectSceneToPlayers(page);
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
-		await enterPreview(page, 'player');
+		await page.evaluate(
+			(id) => window.__rt!.enterPreview({ role: 'player', playerActorId: id }),
+			playerActorId,
+		);
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 
 		expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true);
@@ -340,13 +347,16 @@ test.describe("player view: the projected map carries the DM's fog and tokens", 
 			});
 			if (projected.status !== 'accepted')
 				return { ok: false, step: 'project active map', ...projected };
-			return { ok: true, mapName };
+			return { ok: true, mapName, playerActorId: playerActorIds[0] };
 		});
 		expect(setup.ok, JSON.stringify(setup)).toBe(true);
 
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
-		await enterPreview(page, 'player');
+		await page.evaluate(
+			(id) => window.__rt!.enterPreview({ role: 'player', playerActorId: id }),
+			setup.playerActorId,
+		);
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 
 		const stageMap = page.getByTestId('player-stage-map');
@@ -453,14 +463,17 @@ test.describe("player view: the projected map carries the DM's fog and tokens", 
 				(rt.state.session as unknown as { combat: { tokens: Record<string, { mapId: string }> } })
 					.combat.tokens,
 			).filter((tk) => tk.mapId === map.id).length;
-			return { ok: true, mapName, dmTokens };
+			return { ok: true, mapName, dmTokens, playerActorId: playerActorIds[0] };
 		});
 		expect(setup.ok, JSON.stringify(setup)).toBe(true);
 		expect((setup as { dmTokens: number }).dmTokens).toBe(2);
 
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });
 		await waitRuntime(page);
-		await enterPreview(page, 'player');
+		await page.evaluate(
+			(id) => window.__rt!.enterPreview({ role: 'player', playerActorId: id }),
+			setup.playerActorId,
+		);
 		await page.getByRole('main').first().waitFor({ timeout: 20_000 });
 
 		const stageMap = page.getByTestId('player-stage-map');
