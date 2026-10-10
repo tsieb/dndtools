@@ -37,3 +37,42 @@ Re-runs in the pinned container against `f099cb0e`, with no change made:
 
 Verdict: a load-dependent flake on an untouched route, which the base has too. Not re-baselined.
 The committed golden is correct.
+
+## Self-heal round 1 — companion route readiness
+
+The reported gate at `769da30e` passed 530 tests and failed phone dungeon because
+`.player-view-shell` never appeared within the screenshot assertion's 5-second
+budget. Its saved error context contains only `Loading your vault…`; this was
+not a pixel mismatch. Source evidence: dispatcher attempt
+`62fe33c0-7c9e-485a-b650-fe524095ecb2/output.log` and the task checkout's
+`apps/gm-react/test-results/play-polish-play-stage-dungeon-visual-phone/error-context.md`.
+
+Before editing, ran the failing check on pre-feature base `8ba82424` in an
+isolated detached worktree with frozen offline dependencies:
+
+`apps/gm-react/tests/visual/run-in-container.sh tests/visual/play-polish.spec.ts --project=visual-phone -g 'play stage dungeon' --repeat-each=3 --update-snapshots=none`
+
+Result: **3 passed** (25.6s), exact output in
+`/var/tmp/rc-chr-6.5-base-visual.log`. The failure did not reproduce on base;
+therefore this round does **not** claim it is inherited.
+
+The visual spec now waits explicitly for the lazy companion frame (20 seconds,
+consistent with functional route readiness) before awaiting its fonts and
+starting the unchanged screenshot comparison. Runtime hydration alone does not
+prove the lazy route mounted. No baseline or pixel tolerance changed.
+
+Acceptance rerun:
+`pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/companion-preview.spec.ts tests/e2e/collab.spec.ts -g 'companion preview|collab: actor-filtered' --workers=2`
+
+**10 passed** (21.6s), including both profiles, Calloway's PC and specific scene,
+ARIA navigation inspection, observer preview, banner and Escape exits, and the
+unchanged collab preview tests. Output: `/var/tmp/rc-chr-6.5-e2e.log`.
+
+Pinned visual comparison across all five themes and three tiers, repeated three
+times with `--update-snapshots=none`: **45 passed** (2.1m). Output:
+`/var/tmp/rc-chr-6.5-visual.log`.
+
+`pnpm gates`, Prettier checks for both changed files, and `git diff --check`
+passed. The full 531-test visual suite remains for the central operator; this
+round ran the affected visual spec across all themes and tiers. No push,
+promotion, or dispatcher control-state changes were made.

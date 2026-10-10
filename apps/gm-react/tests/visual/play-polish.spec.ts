@@ -20,7 +20,11 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 		await page.waitForFunction(() => window.__rt?.loaded === true);
 		await page.evaluate(() => window.__rt!.enterPreview({ role: 'player' }));
 		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+		// Runtime hydration can finish before the lazy companion route has loaded. Wait for
+		// its frame before checking fonts, keeping route startup outside the pixel comparison.
+		const frame = page.locator('.player-view-shell');
+		await expect(frame).toBeVisible({ timeout: 20_000 });
 		await page.evaluate(() => document.fonts.ready);
-		await expect(page.locator('.player-view-shell')).toHaveScreenshot(`play-stage--${theme}.png`);
+		await expect(frame).toHaveScreenshot(`play-stage--${theme}.png`);
 	});
 }
