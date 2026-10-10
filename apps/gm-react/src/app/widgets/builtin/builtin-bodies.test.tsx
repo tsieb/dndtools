@@ -2,6 +2,7 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	HOME_WIDGET_TYPES,
@@ -198,9 +199,12 @@ function renderBody(definition: WidgetDefinition, actorId: string = DM_ACTOR.id)
 	runtimeRef.defaultActorId = actorId;
 	act(() =>
 		root.render(
-			<I18nProvider>
-				<WidgetBody widget={boardWidget(definition)} />
-			</I18nProvider>,
+			// Bodies render inside the app's router; the first-session guide's links navigate with state.
+			<MemoryRouter>
+				<I18nProvider>
+					<WidgetBody widget={boardWidget(definition)} />
+				</I18nProvider>
+			</MemoryRouter>,
 		),
 	);
 	return container.textContent ?? '';

@@ -25,7 +25,6 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/builtin/CharactersBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/CombatBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/DiceBody.tsx': 2,
-	'apps/gm-react/src/app/widgets/builtin/GettingStartedBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/InitiativeTracker.tsx': 11,
 	'apps/gm-react/src/app/widgets/builtin/Map.tsx': 4,
 	'apps/gm-react/src/app/widgets/builtin/PlayerViewsBody.tsx': 1,

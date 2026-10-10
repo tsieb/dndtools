@@ -11,6 +11,7 @@ import { recordNewVaultPrivacyMode, storedVaultPrivacyMode } from '../cloud/vaul
 import { setDocAttr } from '../screens/settings/shared';
 import { T } from './screen-kit';
 import { useViewport } from './useViewport';
+import { FIRST_SESSION_FOCUS_SELECTOR } from './widgets/builtin/GettingStartedBody';
 import {
 	FOCUSABLE,
 	ONBOARDED_KEY,
@@ -99,8 +100,12 @@ export function Onboarding() {
 	useEffect(() => {
 		if (open || !completed.current) return;
 		completed.current = false;
+		// RC-UX-6.3 — onto the first-session guide's first row when the Command Center shows it.
 		const frame = requestAnimationFrame(() =>
-			document.querySelector<HTMLElement>('#main-content')?.focus(),
+			(
+				document.querySelector<HTMLElement>(FIRST_SESSION_FOCUS_SELECTOR) ??
+				document.querySelector<HTMLElement>('#main-content')
+			)?.focus(),
 		);
 		return () => cancelAnimationFrame(frame);
 	}, [open]);

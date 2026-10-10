@@ -1,11 +1,15 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
-import { useLocation } from 'react-router-dom';
-import { resolveOnboarding } from '@dndtools/core';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { resolveFirstSessionGuide } from '@dndtools/core';
 import { Badge, Button, Dialog, Icon } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
-import { readTier } from '../../screens/settings/shared';
 import { T } from '../screen-kit';
+import {
+	FirstSessionGuideList,
+	FirstSessionProgress,
+	useGuideCommand,
+} from '../widgets/builtin/GettingStartedBody';
 import { useViewport } from '../useViewport';
 import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
 import { appVersion } from '../../platform/appVersion';
@@ -141,8 +145,8 @@ const SECTION_HEADING: CSSProperties = {
 
 /**
  * RC-UX-3.4 — the Help menu: a consistent-location (WCAG 3.2.6) entry point onto Getting started
- * (the core's own onboarding milestones — `GettingStartedBody` shows the same view as a Command
- * Center widget), the user guides, What's new (the "For players and GMs" notes of the latest release
+ * (RC-UX-6.3: the first-session guide, the same list `GettingStartedBody` shows on the Command Center,
+ * and the way to put that widget back once it was hidden), the user guides, What's new (the "For players and GMs" notes of the latest release
  * in `CHANGELOG.md`), and the keyboard shortcut overlay (RC-UX-3.3's registry).
  *
  * RC-UX-6.6 — Help opens on the guide for the current route (`guideForRoute`), with this full list
@@ -152,6 +156,8 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const { pathname } = useLocation();
+	const navigate = useNavigate();
+	const runGuideCommand = useGuideCommand();
 	const tier = useViewport() === 'phone' ? 'touch' : 'keyboard';
 	const [shortcutsOpen, setShortcutsOpen] = useState(false);
 	// null: the route's own guide (or the list, when the route has none). Reset on every close, so
@@ -161,8 +167,8 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 	const guideId = choice === 'list' ? null : (choice ?? guideForRoute(pathname));
 	const guide = guideId ? readGuide(GUIDE_MARKDOWN[guideId], tier) : null;
 	const listOpen = open && guide === null;
-	const view = resolveOnboarding(runtime.state, runtime.defaultActorId, readTier());
-	const done = view.steps.filter((step) => step.done).length;
+	const firstSession = resolveFirstSessionGuide(runtime.state, runtime.defaultActorId);
+	const restore = firstSession.restore;
 
 	useEffect(() => {
 		if (open) return;
@@ -188,51 +194,40 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 						<h3 style={{ ...SECTION_HEADING, marginBottom: 'var(--space-1-5)' }}>
 							{t('help.gettingStarted')}
 						</h3>
-						{view.canSetup ? (
-							<>
+						{firstSession.canSetup ? (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 								<div
 									style={{
-										font: `var(--text-sm) ${T.sans}`,
-										color: T.ink,
-										marginBottom: 'var(--space-1-5)',
-									}}
-								>
-									{t('help.gettingStartedProgress', { done, total: view.steps.length })}
-								</div>
-								<ul
-									style={{
-										margin: 'var(--space-0)',
-										paddingLeft: 'var(--space-4)',
 										display: 'flex',
-										flexDirection: 'column',
-										gap: 'var(--space-1)',
+										flexWrap: 'wrap',
+										alignItems: 'center',
+										gap: 'var(--space-2)',
 									}}
 								>
-									{view.steps.map((step) => (
-										<li
-											key={step.id}
-											style={{
-												font: `var(--text-sm) ${T.sans}`,
-												color: step.done ? T.ter : T.ink,
-												textDecoration: step.done ? 'line-through' : 'none',
+									<FirstSessionProgress guide={firstSession} />
+									{restore && (
+										<Button
+											variant="secondary"
+											size="sm"
+											icon="sparkle"
+											onClick={() => {
+												void runGuideCommand(restore, 'firstSession.restored').then((back) => {
+													if (!back) return;
+													onClose();
+													navigate('/');
+												});
 											}}
 										>
-											{step.label}
-										</li>
-									))}
-								</ul>
-								{view.status === 'complete' && (
-									<div
-										style={{
-											font: `var(--text-sm) ${T.sans}`,
-											color: T.ter,
-											marginTop: 'var(--space-1-5)',
-										}}
-									>
-										{t('help.gettingStartedComplete')}
-									</div>
-								)}
-							</>
+											{t('firstSession.restore')}
+										</Button>
+									)}
+								</div>
+								<FirstSessionGuideList
+									guide={firstSession}
+									idPrefix="help-first-session"
+									onLeave={onClose}
+								/>
+							</div>
 						) : (
 							<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.ter }}>
 								{t('help.gettingStartedParticipant')}

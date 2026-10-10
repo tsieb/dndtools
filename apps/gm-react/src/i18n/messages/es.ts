@@ -5552,8 +5552,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'home.openScene': 'Abrir escena',
 	'home.newScene': 'Nueva escena',
 	'home.scenes': 'Escenas',
-	'home.noScenes': 'Todavía no hay escenas.',
-	'home.createFirstScene': 'Crear tu primera escena',
+	'home.noScenes': 'Todavía no hay pantallas',
+	'home.createFirstScene': 'Nueva pantalla desde una plantilla',
 	'home.create': 'Crear',
 	'home.manage': 'Gestionar',
 	'home.library': 'Biblioteca',
@@ -6015,15 +6015,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetBody.session.phase': 'Fase',
 	'widgetBody.session.turn': 'Turno',
 	'widgetBody.session.observer': 'Modo observador: aquí no se puede cambiar nada.',
-	'widgetBody.gettingStarted.setup': 'Configuración',
-	'widgetBody.gettingStarted.tier': 'Profundidad',
-	'widgetBody.gettingStarted.tier.core': 'Básica',
-	'widgetBody.gettingStarted.tier.intermediate': 'Intermedia',
-	'widgetBody.gettingStarted.tier.advanced': 'Avanzada',
 	'widgetBody.gettingStarted.participant':
 		'La configuración es solo para el {gm}: tu vista ya está lista.',
-	'widgetBody.gettingStarted.complete':
-		'La configuración está lista. Elige una profundidad mayor para mostrar más herramientas.',
 	'widgetBody.tools.widgets': 'Widgets',
 	'widgetBody.tools.layouts': 'Diseños',
 	'widgetBody.tools.noLayouts':
@@ -6940,13 +6933,48 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'widgetIterate.apply': 'Aplicar los cambios marcados',
 	'widgetIterate.noChanges': 'El asistente devolvió el widget sin cambios.',
 
+	// RC-UX-6.3 — la guía de la primera sesión (el widget `getting-started` y Ayuda › Primeros pasos).
+	'firstSession.title': 'Tu primera sesión',
+	'firstSession.progress': '{done} de {total} hechos',
+	'firstSession.complete': 'Tu primera sesión está lista: los {total} pasos hechos.',
+	'firstSession.done': 'Hecho',
+	'firstSession.open': 'Pendiente',
+	'firstSession.hide': 'Ocultar la guía',
+	'firstSession.hidden': 'Guía oculta. Ayuda › Primeros pasos la recupera.',
+	'firstSession.restore': 'Mostrar la guía en el Centro de mando',
+	'firstSession.restored': 'La guía vuelve a estar en el Centro de mando.',
+	'firstSession.failed': 'No se pudo cambiar la guía. Inténtalo de nuevo.',
+	'firstSession.row.nameCampaign': 'Ponle nombre a tu campaña',
+	'firstSession.row.nameCampaign.why':
+		'El nombre es cómo vuelves a encontrar esta campaña y lo que ven tus jugadores al unirse.',
+	'firstSession.row.addParty': 'Añade a tu grupo',
+	'firstSession.row.addParty.why':
+		'Los puestos de jugador y los personajes son lo que muestran el rastreador, las vistas de jugador y la pantalla de inicio.',
+	'firstSession.row.mapOrNote': 'Añade un mapa o una nota',
+	'firstSession.row.mapOrNote.why':
+		'Algo que enseñar a la mesa y algo que recordar, listo antes de que nadie se siente.',
+	'firstSession.row.screenFromTemplate': 'Crea una pantalla desde una plantilla',
+	'firstSession.row.screenFromTemplate.why':
+		'Una pantalla deja a mano los widgets que necesita una escena, para no buscar nada a mitad de partida.',
+	'firstSession.row.standbySession': 'Prueba una sesión en espera',
+	'firstSession.row.standbySession.why':
+		'Tira un dado o añade un combatiente antes de que llegue nadie: en espera no se registra nada.',
+	'firstSession.row.openTable': 'Invita a jugadores o abre la vista de jugador',
+	'firstSession.row.openTable.why':
+		'Con una sesión iniciada envías una vista a cada jugador, y solo ve lo que le muestras.',
+	'firstSession.link.nameCampaign': 'Ponerle nombre',
+	'firstSession.link.addPlayers': 'Añadir jugadores',
+	'firstSession.link.importCharacters': 'Importar personajes',
+	'firstSession.link.newMap': 'Nuevo mapa',
+	'firstSession.link.newNote': 'Nueva nota',
+	'firstSession.link.newScreen': 'Nueva pantalla desde una plantilla',
+	'firstSession.link.openSession': 'Abrir Sesión',
+	'firstSession.link.startSession': 'Iniciar una sesión',
+	'firstSession.link.invitePlayers': 'Invitar a jugadores',
 	// RC-UX-3.4 — el menú de ayuda: primeros pasos, novedades y un enlace a los atajos de teclado.
 	'help.title': 'Ayuda',
 	'help.gettingStarted': 'Primeros pasos',
-	'help.gettingStartedProgress': '{done} de {total} configurados',
 	'help.gettingStartedParticipant': 'La configuración es solo del {gm}: tu vista ya está lista.',
-	'help.gettingStartedComplete':
-		'La configuración está lista. Abre Configuración para mostrar más herramientas.',
 	'help.whatsNew': 'Novedades',
 	'help.whatsNewBadgeLabel': 'Nuevas notas de la versión',
 	'help.whatsNewVersion': 'Versión {version}',

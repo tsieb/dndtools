@@ -5736,8 +5736,8 @@ export default {
 	'home.openScene': '[Óƥéñ šçéñé~~~~]',
 	'home.newScene': '[Ñéŵ šçéñé~~~~]',
 	'home.scenes': '[Šçéñéš~~~]',
-	'home.noScenes': '[Ñó šçéñéš ýéţ.~~~~ ~]',
-	'home.createFirstScene': '[Çŕéáţé ýóúŕ ƒíŕšţ šçéñé~~~~ ~~~~ ]',
+	'home.noScenes': '[Ñó šçŕééñš ýéţ~~~~ ~]',
+	'home.createFirstScene': '[Ñéŵ šçŕééñ ƒŕóḿ á ţéḿƥľáţé~~~~ ~~~~ ~]',
 	'home.create': '[Çŕéáţé~~~]',
 	'home.manage': '[Ḿáñáğé~~~]',
 	'home.library': '[Ľíƀŕáŕý~~~]',
@@ -6190,15 +6190,8 @@ export default {
 	'widgetBody.session.phase': '[Ƥĥášé~~]',
 	'widgetBody.session.turn': '[Ţúŕñ~~]',
 	'widgetBody.session.observer': '[Óƀšéŕṽéŕ ḿóďé — ñóţĥíñğ ĥéŕé çáñ ƀé çĥáñğéď.~~~~ ~~~~ ~~~~ ~~~]',
-	'widgetBody.gettingStarted.setup': '[Šéţúƥ~~]',
-	'widgetBody.gettingStarted.tier': '[Ďéƥţĥ~~]',
-	'widgetBody.gettingStarted.tier.core': '[Çóŕé~~]',
-	'widgetBody.gettingStarted.tier.intermediate': '[Íñţéŕḿéďíáţé~~~~ ]',
-	'widgetBody.gettingStarted.tier.advanced': '[Áďṽáñçéď~~~~]',
 	'widgetBody.gettingStarted.participant':
 		'[Šéţúƥ íš ~~~~{gm} óñľý — ýóúŕ ṽíéŵ íš ŕéáďý ţó úšé.~~~~ ~~~~ ~~~~]',
-	'widgetBody.gettingStarted.complete':
-		'[Šéţúƥ íš ďóñé. Çĥóóšé á ĥíğĥéŕ ďéƥţĥ ţó šĥóŵ ḿóŕé ţóóľš.~~~~ ~~~~ ~~~~ ~~~~ ~~~]',
 	'widgetBody.tools.widgets': '[Ŵíďğéţš~~~]',
 	'widgetBody.tools.layouts': '[Ľáýóúţš~~~]',
 	'widgetBody.tools.noLayouts':
@@ -7123,13 +7116,48 @@ export default {
 	'widgetIterate.run': '[Ášķ~~]',
 	'widgetIterate.apply': '[Áƥƥľý çĥéçķéď çĥáñğéš~~~~ ~~~~]',
 	'widgetIterate.noChanges': '[Ţĥé áššíšţáñţ ŕéţúŕñéď ţĥé ŵíďğéţ úñçĥáñğéď.~~~~ ~~~~ ~~~~ ~~~]',
+	'firstSession.title': '[Ýóúŕ ƒíŕšţ šéššíóñ~~~~ ~~~]',
+	'firstSession.progress': '[{done} óƒ ~~{total} ďóñé~~]',
+	'firstSession.complete': '[Ýóúŕ ƒíŕšţ šéššíóñ íš šéţ úƥ: áľľ ~~~~ ~~~~ ~~~~{total} ďóñé.~~~]',
+	'firstSession.done': '[Ďóñé~~]',
+	'firstSession.open': '[Ñóţ ďóñé ýéţ~~~~ ]',
+	'firstSession.hide': '[Ĥíďé ğúíďé~~~~]',
+	'firstSession.hidden':
+		'[Ğúíďé ĥíďďéñ. Ĥéľƥ › Ğéţţíñğ šţáŕţéď ƀŕíñğš íţ ƀáçķ.~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'firstSession.restore': '[Šĥóŵ ţĥé ğúíďé óñ ţĥé Çóḿḿáñď Çéñţéŕ~~~~ ~~~~ ~~~~ ]',
+	'firstSession.restored': '[Ţĥé ğúíďé íš ƀáçķ óñ ţĥé Çóḿḿáñď Çéñţéŕ.~~~~ ~~~~ ~~~~ ~]',
+	'firstSession.failed': '[Ţĥé ğúíďé çóúľď ñóţ ƀé çĥáñğéď. Ţŕý áğáíñ.~~~~ ~~~~ ~~~~ ~~]',
+	'firstSession.row.nameCampaign': '[Ñáḿé ýóúŕ çáḿƥáíğñ~~~~ ~~~]',
+	'firstSession.row.nameCampaign.why':
+		'[Ţĥé ñáḿé íš ĥóŵ ýóú ƒíñď ţĥíš çáḿƥáíğñ áğáíñ áñď ŵĥáţ ýóúŕ ƥľáýéŕš šéé ŵĥéñ ţĥéý ĵóíñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'firstSession.row.addParty': '[Áďď ýóúŕ ƥáŕţý~~~~ ~]',
+	'firstSession.row.addParty.why':
+		'[Ƥľáýéŕ šéáţš áñď çĥáŕáçţéŕš áŕé ŵĥáţ ţĥé ţŕáçķéŕ, ţĥé ƥľáýéŕ ṽíéŵš áñď ţĥé ĥóḿé šçŕééñ šĥóŵ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'firstSession.row.mapOrNote': '[Áďď á ḿáƥ óŕ á ñóţé~~~~ ~~~]',
+	'firstSession.row.mapOrNote.why':
+		'[Šóḿéţĥíñğ ţó šĥóŵ ţĥé ţáƀľé áñď šóḿéţĥíñğ ţó ŕéḿéḿƀéŕ, ŕéáďý ƀéƒóŕé áñýóñé šíţš ďóŵñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'firstSession.row.screenFromTemplate': '[Ɓúíľď á šçŕééñ ƒŕóḿ á ţéḿƥľáţé~~~~ ~~~~ ~~]',
+	'firstSession.row.screenFromTemplate.why':
+		'[Á šçŕééñ ķééƥš ţĥé ŵíďğéţš óñé šçéñé ñééďš ŵíţĥíñ ŕéáçĥ, šó ñóţĥíñğ íš ĥúñţéď ƒóŕ ḿíď-ğáḿé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'firstSession.row.standbySession': '[Ţŕý á šéššíóñ íñ Šţáñďƀý~~~~ ~~~~ ]',
+	'firstSession.row.standbySession.why':
+		'[Ŕóľľ á ďíé óŕ áďď á çóḿƀáţáñţ ƀéƒóŕé áñýóñé áŕŕíṽéš: ñóţĥíñğ íñ Šţáñďƀý íš ŕéçóŕďéď.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'firstSession.row.openTable': '[Íñṽíţé ƥľáýéŕš óŕ óƥéñ ţĥé ƥľáýéŕ ṽíéŵ~~~~ ~~~~ ~~~~ ~]',
+	'firstSession.row.openTable.why':
+		'[Á šţáŕţéď šéššíóñ ľéţš ýóú šéñď éáçĥ ƥľáýéŕ á ṽíéŵ, áñď ţĥéý šéé óñľý ŵĥáţ ýóú šĥóŵ ţĥéḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',
+	'firstSession.link.nameCampaign': '[Ñáḿé íţ~~~]',
+	'firstSession.link.addPlayers': '[Áďď ƥľáýéŕš~~~~ ]',
+	'firstSession.link.importCharacters': '[Íḿƥóŕţ çĥáŕáçţéŕš~~~~ ~~]',
+	'firstSession.link.newMap': '[Ñéŵ ḿáƥ~~~]',
+	'firstSession.link.newNote': '[Ñéŵ ñóţé~~~~]',
+	'firstSession.link.newScreen': '[Ñéŵ šçŕééñ ƒŕóḿ á ţéḿƥľáţé~~~~ ~~~~ ~]',
+	'firstSession.link.openSession': '[Óƥéñ Šéššíóñ~~~~ ]',
+	'firstSession.link.startSession': '[Šţáŕţ á šéššíóñ~~~~ ~]',
+	'firstSession.link.invitePlayers': '[Íñṽíţé ƥľáýéŕš~~~~ ~]',
 	'help.title': '[Ĥéľƥ~~]',
 	'help.gettingStarted': '[Ğéţţíñğ šţáŕţéď~~~~ ~]',
-	'help.gettingStartedProgress': '[{done} óƒ ~~{total} šéţ úƥ~~~]',
 	'help.gettingStartedParticipant':
 		'[Šéţúƥ íš ~~~~{gm} óñľý — ýóúŕ ṽíéŵ íš ŕéáďý ţó úšé.~~~~ ~~~~ ~~~~]',
-	'help.gettingStartedComplete':
-		'[Šéţúƥ íš ďóñé. Óƥéñ Šéţţíñğš ţó šĥóŵ ḿóŕé ţóóľš.~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'help.whatsNew': "[Ŵĥáţ'š ñéŵ~~~~]",
 	'help.whatsNewBadgeLabel': '[Ñéŵ ŕéľéášé ñóţéš~~~~ ~~]',
 	'help.whatsNewVersion': '[Ṽéŕšíóñ ~~~~{version}]',

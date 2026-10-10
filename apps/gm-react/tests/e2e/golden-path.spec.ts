@@ -79,6 +79,14 @@ test.describe('golden paths', () => {
 		await overlay.getByRole('button', { name: 'Open the Command Center' }).click();
 		await expect(overlay).toBeHidden();
 		await expect(page.locator('#main-content')).toBeVisible();
+		// RC-UX-6.3 — the Command Center opens on the first-session guide, focus on its first row. The
+		// campaign was named in onboarding, so that row is the one already done.
+		const guide = page.locator('[data-first-session-guide]');
+		await expect(guide).toBeVisible();
+		await expect(guide.locator('li[data-first-session-row]')).toHaveCount(6);
+		await expect(guide.locator('li[data-done="true"]')).toHaveCount(1);
+		await expect(guide.locator('[data-first-session-focus]')).toBeFocused();
+		await health.checkpoint('First-session guide');
 		expect(
 			await page.evaluate(() => {
 				const state = window.__rt!.state as unknown as CoreStateSlice;

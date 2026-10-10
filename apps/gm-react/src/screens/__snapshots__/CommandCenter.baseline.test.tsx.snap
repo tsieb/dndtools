@@ -261,14 +261,24 @@ h2 Library"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · aria 1`] = `
-"- text: Command Center
+"- heading "Your first session" [level=2]
+- text: 0 of 6 done
+- button "Hide guide"
+- list "Your first session":
+  - listitem "Not done yet Name your campaign The name is how you find this campaign again and what your players see when they join. Name it"
+  - listitem "Not done yet Add your party Player seats and characters are what the tracker, the player views and the home screen show. Add players Import characters"
+  - listitem "Not done yet Add a map or a note Something to show the table and something to remember, ready before anyone sits down. New map New note"
+  - listitem "Not done yet Build a screen from a template A screen keeps the widgets one scene needs within reach, so nothing is hunted for mid-game. New screen from a template"
+  - listitem "Not done yet Try a session in Standby Roll a die or add a combatant before anyone arrives: nothing in Standby is recorded. Open Session"
+  - listitem "Not done yet Invite players or open the player view A started session lets you send each player a view, and they see only what you show them. Start a session Invite players"
+- text: Command Center
 - heading "Your campaign" [level=2]
 - text: Resume or open a scene to run live play
 - button "Open scene"
 - heading "Scenes" [level=2]
 - button "New scene"
-- text: No scenes yet.
-- button "Create your first scene"
+- text: No screens yet
+- button "New screen from a template"
 - heading "Create" [level=2]
 - button "New scene A canvas for the table"
 - button "New character PC, NPC, or monster"
@@ -287,7 +297,69 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · dom 1`] = `
-""Command Center"
+"<section>
+  <h2>
+    "Your first session"
+  "0 of 6 done"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Hide guide"
+  <ol aria-label="Your first session">
+    <li>
+      "1"
+      "Not done yet"
+      "Name your campaign"
+      "The name is how you find this campaign again and what your players see when they join."
+      <button type="button">
+        "Name it"
+        <svg aria-hidden="true">
+    <li>
+      "2"
+      "Not done yet"
+      "Add your party"
+      "Player seats and characters are what the tracker, the player views and the home screen show."
+      <button type="button">
+        "Add players"
+        <svg aria-hidden="true">
+      <button type="button">
+        "Import characters"
+    <li>
+      "3"
+      "Not done yet"
+      "Add a map or a note"
+      "Something to show the table and something to remember, ready before anyone sits down."
+      <button type="button">
+        "New map"
+        <svg aria-hidden="true">
+      <button type="button">
+        "New note"
+    <li>
+      "4"
+      "Not done yet"
+      "Build a screen from a template"
+      "A screen keeps the widgets one scene needs within reach, so nothing is hunted for mid-game."
+      <button type="button">
+        "New screen from a template"
+        <svg aria-hidden="true">
+    <li>
+      "5"
+      "Not done yet"
+      "Try a session in Standby"
+      "Roll a die or add a combatant before anyone arrives: nothing in Standby is recorded."
+      <button type="button">
+        "Open Session"
+        <svg aria-hidden="true">
+    <li>
+      "6"
+      "Not done yet"
+      "Invite players or open the player view"
+      "A started session lets you send each player a view, and they see only what you show them."
+      <button type="button">
+        "Start a session"
+        <svg aria-hidden="true">
+      <button type="button">
+        "Invite players"
+"Command Center"
 <h2>
   "Your campaign"
 "Resume or open a scene to run live play"
@@ -300,10 +372,10 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
   <svg aria-hidden="true">
   "New scene"
 <svg aria-hidden="true">
-"No scenes yet."
+"No screens yet"
 <button type="button">
   <svg aria-hidden="true">
-  "Create your first scene"
+  "New screen from a template"
 <h2>
   "Create"
 <button type="button">
@@ -368,9 +440,19 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · focus order 1`] = `
-"button Open scene
+"button Hide guide
+button Name it
+button Add players
+button Import characters
+button New map
+button New note
+button New screen from a template
+button Open Session
+button Start a session
+button Invite players
+button Open scene
 button New scene
-button Create your first scene
+button New screen from a template
 button New scene A canvas for the table
 button New character PC, NPC, or monster
 button New map Battle map or region
@@ -386,7 +468,8 @@ button Notes 0 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · headings 1`] = `
-"h2 Your campaign
+"h2 Your first session
+h2 Your campaign
 h2 Scenes
 h2 Create
 h2 Manage
@@ -394,7 +477,17 @@ h2 Library"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · aria 1`] = `
-"- text: Command Center
+"- heading "Your first session" [level=2]
+- text: 2 of 6 done
+- button "Hide guide"
+- list "Your first session":
+  - listitem "Not done yet Name your campaign The name is how you find this campaign again and what your players see when they join. Name it"
+  - listitem "Add your party Player seats and characters are what the tracker, the player views and the home screen show. Add players Import characters"
+  - listitem "Add a map or a note Something to show the table and something to remember, ready before anyone sits down. New map New note"
+  - listitem "Not done yet Build a screen from a template A screen keeps the widgets one scene needs within reach, so nothing is hunted for mid-game. New screen from a template"
+  - listitem "Not done yet Try a session in Standby Roll a die or add a combatant before anyone arrives: nothing in Standby is recorded. Open Session"
+  - listitem "Not done yet Invite players or open the player view A started session lets you send each player a view, and they see only what you show them. Start a session Invite players"
+- text: Command Center
 - heading "Your campaign" [level=2]
 - text: Resume or open a scene to run live play · 3 in the party
 - img "Brother Calloway"
@@ -403,8 +496,8 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 - button "Open scene"
 - heading "Scenes" [level=2]
 - button "New scene"
-- text: No scenes yet.
-- button "Create your first scene"
+- text: No screens yet
+- button "New screen from a template"
 - heading "Create" [level=2]
 - button "New scene A canvas for the table"
 - button "New character PC, NPC, or monster"
@@ -423,7 +516,67 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · dom 1`] = `
-""Command Center"
+"<section>
+  <h2>
+    "Your first session"
+  "2 of 6 done"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Hide guide"
+  <ol aria-label="Your first session">
+    <li>
+      "1"
+      "Not done yet"
+      "Name your campaign"
+      "The name is how you find this campaign again and what your players see when they join."
+      <button type="button">
+        "Name it"
+        <svg aria-hidden="true">
+    <li>
+      <svg role="img" aria-label="Done">
+      "Add your party"
+      "Player seats and characters are what the tracker, the player views and the home screen show."
+      <button type="button">
+        "Add players"
+        <svg aria-hidden="true">
+      <button type="button">
+        "Import characters"
+    <li>
+      <svg role="img" aria-label="Done">
+      "Add a map or a note"
+      "Something to show the table and something to remember, ready before anyone sits down."
+      <button type="button">
+        "New map"
+        <svg aria-hidden="true">
+      <button type="button">
+        "New note"
+    <li>
+      "4"
+      "Not done yet"
+      "Build a screen from a template"
+      "A screen keeps the widgets one scene needs within reach, so nothing is hunted for mid-game."
+      <button type="button">
+        "New screen from a template"
+        <svg aria-hidden="true">
+    <li>
+      "5"
+      "Not done yet"
+      "Try a session in Standby"
+      "Roll a die or add a combatant before anyone arrives: nothing in Standby is recorded."
+      <button type="button">
+        "Open Session"
+        <svg aria-hidden="true">
+    <li>
+      "6"
+      "Not done yet"
+      "Invite players or open the player view"
+      "A started session lets you send each player a view, and they see only what you show them."
+      <button type="button">
+        "Start a session"
+        <svg aria-hidden="true">
+      <button type="button">
+        "Invite players"
+"Command Center"
 <h2>
   "Your campaign"
 "Resume or open a scene to run live play · 3 in the party"
@@ -442,10 +595,10 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
   <svg aria-hidden="true">
   "New scene"
 <svg aria-hidden="true">
-"No scenes yet."
+"No screens yet"
 <button type="button">
   <svg aria-hidden="true">
-  "Create your first scene"
+  "New screen from a template"
 <h2>
   "Create"
 <button type="button">
@@ -510,9 +663,19 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · focus order 1`] = `
-"button Open scene
+"button Hide guide
+button Name it
+button Add players
+button Import characters
+button New map
+button New note
+button New screen from a template
+button Open Session
+button Start a session
+button Invite players
+button Open scene
 button New scene
-button Create your first scene
+button New screen from a template
 button New scene A canvas for the table
 button New character PC, NPC, or monster
 button New map Battle map or region
@@ -528,7 +691,8 @@ button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · headings 1`] = `
-"h2 Your campaign
+"h2 Your first session
+h2 Your campaign
 h2 Scenes
 h2 Create
 h2 Manage

@@ -562,7 +562,7 @@ The remaining ledger after RC-WID-5.6 (2026-10-08):
 
 | Repaid by  | Findings                                                                                                                                                                                                                                                                                                           |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RC-WID-5.7 | 7: the fresh GM board provisions builtin bodies for `map`, `initiative-tracker`, `dice`, `timer`, `audio`, `quick-reference` and `prep`.                                                                                                                                                                           |
+| RC-WID-5.7 | 8: the fresh GM board provisions builtin bodies for `map`, `initiative-tracker`, `dice`, `timer`, `audio`, `quick-reference` and `prep`; a fresh vault's home screen opens on the `getting-started` first-session guide (RC-UX-6.3).                                                                               |
 | RC-WID-5.7 | 41: private builtin uses in `timer`, `audio`, `initiative-tracker`, `character`, `map`, `session`, `getting-started`, `tools`, `atlas`, `player-views`, `combat` and `search` (session timers, audio playback, map views and projection, combat writes, other actors' roles, presets, encounters, saved searches). |
 
 RC-WID-5.6 repaid the five home-definition findings: shipped definitions include empty
@@ -570,6 +570,11 @@ computed fields and query arrays, token-derived CSS variables and declared confi
 matching the builder’s first save. The first-trip byte comparison remains unnormalised;
 existing customised boards and instance settings are not rewritten. RC-WID-5.7
 (RC_ROADMAP.md, Epic WID-5) repays the remaining ledger.
+
+RC-UX-6.3 (2026-10-10) added one entry and changed one: the first-session guide is a builtin body
+on a fresh vault's home screen, and its private read is now `resolveFirstSessionGuide` (the core view
+that resolves the guide's WID-5.1 intents and carries its hide and put-back commands) in place of
+`resolveOnboarding`. The count of private uses is unchanged.
 
 ## 7. Canvas and layout history
 

@@ -10,11 +10,26 @@ Pick the amount of detail you want on screen and work through the remaining setu
 
 Each campaign can live in its own vault. To add one or switch between them, open **Local vaults**: the campaign card near the top of the sidebar, the button at the top of the narrow rail, or **More** on a phone.
 
+## Your first session
+
+A new campaign's **Command Center** opens on a short guide called **Your first session**. It lists six things to do before your first evening at the table, in the order most GMs need them:
+
+1. **Name your campaign.** Reopens the first setup step, where you type the name.
+2. **Add your party.** Add players by name in **Settings → Players**, or import characters.
+3. **Add a map or a note.** Opens the new map form or a new note.
+4. **Build a screen from a template.** Opens **New screen** in the Screens library.
+5. **Try a session in Standby.** Roll a die or add a combatant on **Session**. Nothing in Standby is recorded.
+6. **Invite players or open the player view.** Start a session to send each player a view, or invite them from **Settings → Players**.
+
+A row is ticked when your campaign shows it was done, wherever you did it, so following a link alone never ticks it. Once all six are done, the guide shrinks to one line.
+
+To hide the guide, choose **Hide guide**. The same list stays in **Help → Getting started**, and **Show the guide on the Command Center** puts it back.
+
 ## Find your table
 
 **Command Center** is your starting point. **GM screen** holds the widgets you want beside you. **Session** holds live play; **Characters**, **Maps**, and **Notes** hold your material. On a phone, use **More** for destinations that do not fit in the bottom bar. Your chosen game system may use a different name for the GM.
 
-Open **Help** for the setup checklist, these guides, and what changed in the latest release. It is the Help button in the top bar, or the Help row just above the tab bar on a phone. Help opens on the guide for the screen you are on; **All help topics** goes back to the full list. To prepare your first evening, read **Running a session**. If people are joining from their own devices, read **Remote play** too.
+Open **Help** for the first-session guide, these guides, and what changed in the latest release. It is the Help button in the top bar, or the Help row just above the tab bar on a phone. Help opens on the guide for the screen you are on; **All help topics** goes back to the full list. To prepare your first evening, read **Running a session**. If people are joining from their own devices, read **Remote play** too.
 
 <!-- keyboard -->
 
@@ -58,3 +73,9 @@ Guides added in RC-UX-6.6 (2026-10-04, base `9a7b675d`), which Help opens for th
 - [characters.md](characters.md)
 - [notes.md](notes.md)
 - [settings.md](settings.md)
+
+First-session guide: 2026-10-10, RC-UX-6.3.
+
+- [onboarding.ts](../../packages/core/src/state/onboarding.ts) (`resolveFirstSessionGuide`)
+- [GettingStartedBody.tsx](../../apps/gm-react/src/app/widgets/builtin/GettingStartedBody.tsx)
+- [first-session-guide.spec.ts](../../apps/gm-react/tests/e2e/first-session-guide.spec.ts)

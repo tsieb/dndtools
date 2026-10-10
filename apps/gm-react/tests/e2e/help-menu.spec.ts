@@ -67,7 +67,8 @@ test.describe('help menu', () => {
 			expect(scrim).toMatchObject(size);
 
 			await expect(dialog.getByRole('heading', { name: 'Getting started' })).toBeVisible();
-			await expect(dialog.getByText(/of \d+ set up/)).toBeVisible();
+			// RC-UX-6.3 — the first-session guide's progress and its rows.
+			await expect(dialog.getByTestId('first-session-progress')).toHaveText(/\d+ of 6 done/);
 			for (const title of GUIDE_TITLES) {
 				const guide = dialog.getByRole('button', { name: title, exact: true });
 				await guide.scrollIntoViewIfNeeded();

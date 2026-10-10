@@ -38,6 +38,12 @@ import { useI18n } from '../i18n';
  * part copied elsewhere. The GM moves, removes, restyles or rebuilds any part from the screen itself
  * (`/screen/:id`, Edit layout and the widget builder), and this page shows whatever the screen holds.
  *
+ * RC-UX-6.3 — a fresh vault's home screen opens on the first-session guide (`getting-started`, bare,
+ * first in reading order), which `ensure-home` places only when the vault holds nothing yet. It is a
+ * part like the others: hidden from its own "Hide guide" (or Edit layout) and put back from Help. The
+ * scenes part's empty state is "No screens yet" with "New screen from a template", the old "Create
+ * your first scene" call to action.
+ *
  * Its committed baselines (`CommandCenter.baseline.test.tsx`) are the bespoke hub's: the same
  * accessibility tree, DOM skeleton, headings and focus order, apart from the widget regions.
  *
