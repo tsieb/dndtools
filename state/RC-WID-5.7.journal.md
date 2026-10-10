@@ -174,3 +174,32 @@ Validation on the retained implementation at `155db2ce` (only this journal chang
 
 No additional agents, push, promotion, loop or dispatcher control edits. Central independent
 review and delivery remain the operator's next steps.
+
+## Visual-gate follow-up — 2026-10-10
+
+Started at `3a6dd95a` with a clean worktree (the prior task commits were rebased). Read the
+original failed gate log at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/78e2198c-9625-430f-a346-5652fbb9cf01/output.log`:
+531 passed, 15 failed, all in `scene-editor-polish.spec.ts`. Inspected expected and actual
+inspector images and the phone resize-handle crop. The public template definitions correctly
+expose the existing inspector's "Edit widget definition" button, shifting controls down; the
+baselines still describe the old builtin without that button. This is a required visible effect
+of builder editability, so retain the implementation and refresh only the affected visual
+baselines using the pinned container. No Headroom tools are available in this session.
+
+Targeted pinned-container generation passed 15/15 (`/tmp/rcwid57-visual/update.log`). Reviewed
+every rewritten PNG: 15 inspector captures, three tavern Transform captures and the tavern phone
+resize-handle crop, all showing the new edit button and its consequent layout shift. No source,
+test assertions, thresholds or container settings changed. These test artifacts accompany the
+required visible change under `docs/development/TESTING.md` section 8's baseline policy.
+The baseline budget passed: 852 files, 36,301.7 KiB / 37,888.0 KiB.
+
+`pnpm test` passed (exit 0): core 292 files / 5,314 tests; cloud 46 / 569; app 180 / 2,288;
+tooling 31 / 249. `pnpm gates` passed (exit 0): six quality gates, 306 reachable documentation
+files and 417 relative links. Original logs: `/tmp/rcwid57-visual/test.log` and `gates.log`.
+Full pinned-container comparison (`--update-snapshots=none --workers=2`) passed all 546 tests
+(exit 0), including all 15 previously failing inspector cases. Original output is retained at
+`/tmp/rcwid57-visual/compare.log`. Journal formatting and `git diff --check` also passed.
+
+Final change: 19 scene-editor visual baselines plus this journal; the widget implementation is
+unchanged. No push, promotion, additional agents, loop or dispatcher control-state edits.
