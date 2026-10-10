@@ -37,10 +37,10 @@ import { QuickBuilder } from '../../app/widgetBuilder/QuickBuilder';
 import {
 	BuilderDraftDialogs,
 	BuilderFooter,
+	BuilderPreviewPane,
 	BuilderPreviewStrip,
 	BuilderStepRail,
 	DefinitionPane,
-	FocusableBuilderPreview,
 } from '../../app/widgetBuilder/BuilderPanes';
 import { IdentityStep } from '../../app/widgetBuilder/IdentityStep';
 import { LayoutStep, templateLayoutPatch } from '../../app/widgetBuilder/LayoutStep';
@@ -366,10 +366,12 @@ export function WidgetBuilder({
 	};
 
 	const stepProps = { draft, patch, issues: stepIssues };
+	const changeSize = () => {
+		goToStep('layout');
+		setChangingSize(true);
+	};
 	const stepRail = (
-		<>
-			<BuilderStepRail step={step} steps={steps} issues={issues} onGoToStep={goToStep} />
-		</>
+		<BuilderStepRail step={step} steps={steps} issues={issues} onGoToStep={goToStep} />
 	);
 
 	const jsonPane = <DefinitionPane json={json} narrow={narrow} />;
@@ -433,6 +435,56 @@ export function WidgetBuilder({
 				{dialogs}
 			</QuickBuilder>
 		);
+
+	// A step's body and the footer's forward action are chosen together: Review carries its own
+	// primary Install, so the footer repeats it as secondary (one gold action per surface).
+	const panes = (body: React.ReactNode, action: React.ReactNode) => {
+		const footer = (
+			<BuilderFooter step={step} steps={steps} onStep={goToStep}>
+				{action}
+			</BuilderFooter>
+		);
+		return (
+			<>
+				<div
+					style={{
+						flex: 1,
+						minHeight: 0,
+						display: 'grid',
+						gridTemplateColumns: narrow
+							? 'minmax(0, 1fr)'
+							: definition
+								? 'minmax(320px, 440px) minmax(0, 1fr) minmax(280px, 360px)'
+								: 'minmax(320px, 440px) minmax(0, 1fr)',
+					}}
+				>
+					{(!narrow || pane === 'edit') && (
+						<div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+							{column(
+								<div
+									data-builder-editor
+									style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
+								>
+									{(!narrow || railOpen) && stepRail}
+									{body}
+								</div>,
+								{ flex: 1, borderRight: narrow ? undefined : `1px solid ${T.bd}` },
+							)}
+							{!narrow && footer}
+						</div>
+					)}
+
+					{(!narrow || pane === 'preview') &&
+						column(<BuilderPreviewPane draft={draft} onSize={changeSize} />)}
+
+					{definition &&
+						(!narrow || pane === 'json') &&
+						column(jsonPane, narrow ? undefined : { borderLeft: `1px solid ${T.bd}` })}
+				</div>
+				{narrow && footer}
+			</>
+		);
+	};
 
 	return (
 		<div
@@ -535,115 +587,50 @@ export function WidgetBuilder({
 			</header>
 
 			{narrow && (
-				<BuilderPreviewStrip
-					draft={draft}
-					pane={pane}
-					onPane={setPane}
-					onSize={() => {
-						goToStep('layout');
-						setChangingSize(true);
-					}}
-				/>
+				<BuilderPreviewStrip draft={draft} pane={pane} onPane={setPane} onSize={changeSize} />
 			)}
 
-			<div
-				style={{
-					flex: 1,
-					minHeight: 0,
-					display: 'grid',
-					gridTemplateColumns: narrow
-						? 'minmax(0, 1fr)'
-						: definition
-							? 'minmax(320px, 440px) minmax(0, 1fr) minmax(280px, 360px)'
-							: 'minmax(320px, 440px) minmax(0, 1fr)',
-				}}
-			>
-				{(!narrow || pane === 'edit') && (
-					<div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-						{column(
-							<div
-								data-builder-editor
-								style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
-							>
-								{(!narrow || railOpen) && stepRail}
-								{step === 'identity' ? (
-									<IdentityStep {...stepProps} deriveIds={!editPackage && !generatedPackage} />
-								) : step === 'layout' ? (
-									<LayoutStep {...stepProps} expanded={changingSize} />
-								) : step === 'data' ? (
-									<DataStep {...stepProps} />
-								) : step === 'config' ? (
-									<ConfigStep {...stepProps} />
-								) : step === 'commands' ? (
-									<CommandsStep {...stepProps} />
-								) : step === 'style' ? (
-									<StyleStep {...stepProps} />
-								) : step === 'advanced' ? (
-									<AdvancedStep {...stepProps} />
-								) : (
-									<ReviewStep
-										draft={draft}
-										patch={patch}
-										issues={issues}
-										mode={mode}
-										busy={busy}
-										canWrite={canWrite}
-										rejection={rejection}
-										onGoToStep={goToStep}
-										onSubmit={submit}
-									/>
-								)}
-							</div>,
-							{ flex: 1, borderRight: narrow ? undefined : `1px solid ${T.bd}` },
-						)}
-						{!narrow && (
-							<BuilderFooter
-								step={step}
-								steps={steps}
-								onStep={goToStep}
-								onSubmit={submit}
-								blocked={!canWrite || busy || issues.length > 0}
-								mode={mode}
-							/>
-						)}
-					</div>
-				)}
-
-				{(!narrow || pane === 'preview') &&
-					column(
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-							<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
-								{t('extensions.builder.panePreview')}
-							</span>
-							<Button
-								size="sm"
-								variant="secondary"
-								onClick={() => {
-									goToStep('layout');
-									setChangingSize(true);
-								}}
-							>
-								{draft.defaultSize.width} × {draft.defaultSize.height} ·{' '}
-								{t('builder.layout.changeSize')}
-							</Button>
-							<FocusableBuilderPreview draft={draft} />
-						</div>,
+			{step === 'review'
+				? panes(
+						<ReviewStep
+							draft={draft}
+							patch={patch}
+							issues={issues}
+							mode={mode}
+							busy={busy}
+							canWrite={canWrite}
+							rejection={rejection}
+							onGoToStep={goToStep}
+							onSubmit={submit}
+						/>,
+						<Button
+							variant="secondary"
+							disabled={!canWrite || busy || issues.length > 0}
+							onClick={submit}
+						>
+							{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
+						</Button>,
+					)
+				: panes(
+						step === 'identity' ? (
+							<IdentityStep {...stepProps} deriveIds={!editPackage && !generatedPackage} />
+						) : step === 'layout' ? (
+							<LayoutStep {...stepProps} expanded={changingSize} />
+						) : step === 'data' ? (
+							<DataStep {...stepProps} />
+						) : step === 'config' ? (
+							<ConfigStep {...stepProps} />
+						) : step === 'commands' ? (
+							<CommandsStep {...stepProps} />
+						) : step === 'style' ? (
+							<StyleStep {...stepProps} />
+						) : (
+							<AdvancedStep {...stepProps} />
+						),
+						<Button variant="primary" onClick={() => goToStep(steps[stepIndex + 1]!)}>
+							{t('common.action.next')}
+						</Button>,
 					)}
-
-				{definition &&
-					(!narrow || pane === 'json') &&
-					column(jsonPane, narrow ? undefined : { borderLeft: `1px solid ${T.bd}` })}
-			</div>
-			{narrow && (
-				<BuilderFooter
-					step={step}
-					steps={steps}
-					onStep={goToStep}
-					onSubmit={submit}
-					blocked={!canWrite || busy || issues.length > 0}
-					mode={mode}
-				/>
-			)}
 			{dialogs}
 		</div>
 	);

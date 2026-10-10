@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Badge, Button, Dialog, Textarea } from '../../ds';
 import { T } from '../screen-kit';
 import { useI18n } from '../../i18n';
@@ -214,21 +214,20 @@ export function FocusableBuilderPreview({ draft }: { draft: WidgetDraft }) {
 	);
 }
 
-/** Navigation never belongs to the step's scrolling content. */
+/**
+ * Navigation never belongs to the step's scrolling content. The caller supplies the forward action,
+ * so it can pick its emphasis against the step it renders (Review already has a primary Install).
+ */
 export function BuilderFooter({
 	step,
 	steps,
 	onStep,
-	onSubmit,
-	blocked,
-	mode,
+	children,
 }: {
 	step: BuilderStepId;
 	steps: readonly BuilderStepId[];
 	onStep: (step: BuilderStepId) => void;
-	onSubmit: () => void;
-	blocked: boolean;
-	mode: 'install' | 'upgrade';
+	children: ReactNode;
 }) {
 	const { t } = useI18n();
 	const index = steps.indexOf(step);
@@ -248,16 +247,24 @@ export function BuilderFooter({
 			<Button variant="secondary" disabled={index === 0} onClick={() => onStep(steps[index - 1]!)}>
 				{t('common.action.back')}
 			</Button>
-			{step === 'review' ? (
-				<Button variant="primary" disabled={blocked} onClick={onSubmit}>
-					{t(mode === 'upgrade' ? 'builder.review.saveVersion' : 'builder.review.install')}
-				</Button>
-			) : (
-				<Button variant="primary" onClick={() => onStep(steps[index + 1]!)}>
-					{t('common.action.next')}
-				</Button>
-			)}
+			{children}
 		</footer>
+	);
+}
+
+/** The wide tiers' preview column: the live preview under its size chip, which opens Layout's size editor. */
+export function BuilderPreviewPane({ draft, onSize }: { draft: WidgetDraft; onSize: () => void }) {
+	const { t } = useI18n();
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+			<span style={{ font: `600 var(--text-xs) ${T.sans}`, color: T.sub }}>
+				{t('extensions.builder.panePreview')}
+			</span>
+			<Button size="sm" variant="secondary" onClick={onSize}>
+				{draft.defaultSize.width} × {draft.defaultSize.height} · {t('builder.layout.changeSize')}
+			</Button>
+			<FocusableBuilderPreview draft={draft} />
+		</div>
 	);
 }
 

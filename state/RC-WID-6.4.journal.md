@@ -123,3 +123,29 @@ Fresh local re-validation on 346fdaaf:
 
 These are local records only. Central gates and independent review still belong to the operator.
 No push, promotion, extra agents or dispatcher-state edits.
+
+## Lint gate repair (head 19f42a18)
+
+The central Lint gate failed in `pnpm lint:emphasis`: `WidgetBuilder.tsx multiple-accent-primaries
+2 > 0`. The Full dialog could show three gold primaries: ReviewStep's inline Install (unowned, kept
+byte-for-byte) and BuilderFooter, whose Next/Install was always primary, at its desktop and phone
+sites. On Review that was a real double gold action, not only a static-analysis artefact.
+
+- BuilderFooter now takes its forward action as children. WidgetBuilder picks the step body and
+  that action in one conditional: Review gets the secondary footer Install next to ReviewStep's
+  primary Install, and every other step gets the primary Next. Tab order and footer placement are
+  unchanged, and the footer's accessible names are the same.
+- The preview column moved into BuilderPanes as BuilderPreviewPane (sharing a `changeSize` handler
+  with the phone strip). WidgetBuilder is 784 lines, under the 800-line limit.
+- Emphasis baseline untouched; `pnpm lint` (full gate command) exit 0 (/tmp/wid64-r3-lint.log).
+- Typecheck exit 0; builder unit suite 87 passed (/tmp/wid64-r3-unit.log).
+- e2e desktop+mobile: full-disclosure, builder, author-trust, commands, edit-fork, quick-builder
+  51 passed + 1 intentional mobile skip (/tmp/wid64-r3-e2e.log); intents, honest-previews,
+  query-sources 20 passed (/tmp/wid64-r3-e2e-more.log).
+- Pinned visual: only the 15 Review captures changed (footer Install now secondary); inspected the
+  phone tavern capture — one gold action. Compare with updates disabled: 15 passed
+  (/tmp/wid64-r3-visual-compare.log). Budget 852 files, 36,780.8 KiB of 37,888 KiB.
+- `format:check:changed --base loop/rc`, `pnpm gates` and `git diff --check` exit 0.
+
+Local records only; central gates and review remain the operator's. No push, promotion, extra
+agents or dispatcher-state edits.
