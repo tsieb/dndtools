@@ -284,7 +284,7 @@ includes both the journeys and the detector regression tests on `desktop-chromiu
 pnpm e2e golden-path.spec.ts --workers=2 --retries=0
 ```
 
-The four independent journeys cover:
+The five independent journeys cover:
 
 1. First-run privacy setup through entry into Command Center, with the explicit fresh-vault
    preference and an assertion that no demo notes were populated.
@@ -296,6 +296,15 @@ The four independent journeys cover:
 4. A player in a separate browser context joins through the real LAN offer/reply flow, sees the
    projected map and shared handout, and checks that both the UI and received snapshot omit the
    private note. The player context starts with its own empty vault.
+5. Knowledge (RC-KNW-6.7): while a session is live, capture on Notes with New note and Enter
+   (two actions, excluding text entry), landing directly in the focused body. Write NPC and faction
+   wikilinks, follow each to its entity, add an incoming relationship from the faction card, find
+   the note in the palette by a word present only in its body within two seconds of starting input,
+   open that result, and see the note's readable label in the graph. Checkpoints retain the ENG-8.1
+   console and overflow diagnostics and reject cross-screen instruction copy without an action.
+   Seeded regressions exercise the same capture-focus, NPC/faction link-target, relationship,
+   search-deadline, label geometry and dead-end-copy assertions, first proving a healthy baseline.
+   The existing health mutants cover console errors and horizontal/vertical overflow.
 
 Fixture authoring uses accepted Core commands through `dispatch`; start/end, table draw, HP, turn
 advance, capture and player join use real controls. `installFakeLan` replaces only the ordered RTC

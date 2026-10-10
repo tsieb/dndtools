@@ -1,6 +1,6 @@
 import { selectCompanionSection } from './_companion';
 import type { CoreStateSlice } from '@dndtools/core';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Locator } from '@playwright/test';
 import {
 	dispatch,
 	gotoRoute,
@@ -62,6 +62,76 @@ async function live(page: Page, activeSceneId: string) {
 	await dialog.getByLabel('Session name').fill('Golden session');
 	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect(dialog).toBeHidden();
+}
+
+// Shared with the seeded regressions below: a mutation must fail the journey's own assertion.
+async function captureReady(body: Locator) {
+	await expect(body, 'capture opens directly in the body').toBeFocused();
+}
+async function bodyLink(page: Page, link: Locator, route: string) {
+	await link.click();
+	await expect
+		.poll(() => new URL(page.url()).hash, { message: 'body link resolves to its entity' })
+		.toBe(`#${route}`);
+}
+async function relationshipVisible(row: Locator) {
+	await expect(row, 'relationship saved from faction card').toHaveText(
+		'Golden guide — leads → Golden guild',
+	);
+}
+async function paletteFound(result: Locator, started: number) {
+	await expect(result, 'body-word result within two seconds').toBeVisible({
+		timeout: Math.max(1, 2000 - (Date.now() - started)),
+	});
+	expect(Date.now() - started, 'body-word search deadline').toBeLessThanOrEqual(2000);
+}
+async function readableLabel(label: Locator) {
+	await expect(label).toBeVisible();
+	await expect(label).toHaveText('Golden crossing');
+	expect(
+		await label.evaluate((el) => {
+			const box = el.getBoundingClientRect();
+			const css = getComputedStyle(el);
+			const range = document.createRange();
+			range.selectNodeContents(el);
+			const text = range.getBoundingClientRect();
+			const overlaps = [...document.querySelectorAll('[data-graph-label]')].some((other) => {
+				if (other === el) return false;
+				const b = other.getBoundingClientRect();
+				return (
+					Math.min(box.right, b.right) - Math.max(box.left, b.left) > 0.5 &&
+					Math.min(box.bottom, b.bottom) - Math.max(box.top, b.top) > 0.5
+				);
+			});
+			return (
+				parseFloat(css.fontSize) >= 12 &&
+				css.opacity !== '0' &&
+				text.width > 0 &&
+				text.left >= box.left - 1 &&
+				text.right <= box.right + 1 &&
+				text.top >= box.top - 1 &&
+				text.bottom <= box.bottom + 1 &&
+				!overlaps
+			);
+		}),
+		'graph label is readable without clipping or overlap',
+	).toBe(true);
+}
+async function noDeadEnd(page: Page) {
+	// Inspect visible instruction prose, not working navigation controls or user-authored notes.
+	const instructions = page.locator('p, [role="status"], [role="alert"]').filter({
+		hasText:
+			/(?:go to|open|visit|switch to|use|from|in) (?:the )?(?:Notes|Knowledge|Story|Campaign|Graph|Relationships|Session)(?: screen| tab| page)? (?:to|first|instead)|(?:add|create|manage|set).* (?:in|on|from) (?:the )?(?:Notes|Knowledge|Story|Campaign|Graph|Relationships|Session)(?: screen| tab| page)/i,
+	});
+	for (const instruction of await instructions.all()) {
+		if (await instruction.isVisible()) {
+			expect(
+				(await instruction.getByRole('button').count()) +
+					(await instruction.getByRole('link').count()),
+				'cross-screen instruction must offer an action',
+			).toBeGreaterThan(0);
+		}
+	}
 }
 
 test.describe('golden paths', () => {
@@ -265,6 +335,90 @@ test.describe('golden paths', () => {
 		expect(Object.keys(archive.activeMapProjections).sort()).toEqual([...playerActorIds].sort());
 		await gotoRoute(page, '/knowledge');
 		await expect(page.getByText('Golden recap', { exact: true }).first()).toBeVisible();
+		await health.assertHealthy();
+	});
+
+	test('knowledge: capture, link, relate and find a live-session note', async ({ page }) => {
+		const health = watchJourney(page);
+		const checkpoint = async (name: string) => {
+			await noDeadEnd(page);
+			await health.checkpoint(name);
+		};
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await live(page, await prepare(page));
+		await command(page, 'content.create-object', {
+			subtype: 'faction',
+			title: 'Golden guild',
+			fields: { name: 'Golden guild' },
+			body: 'River keepers.',
+		});
+		const ids = await page.evaluate(() => {
+			const state = window.__rt!.state as unknown as CoreStateSlice;
+			return {
+				npc: Object.values(state.characters.characters).find((c) => c.name === 'Golden guide')!.id,
+				faction: Object.values(state.content.items).find((i) => i.title === 'Golden guild')!.id,
+			};
+		});
+		// While the session remains live, capture on Notes takes two actions, excluding text entry:
+		// New note, then Enter. No separate Edit/Preview toggle is needed to reach the body.
+		await gotoRoute(page, '/knowledge');
+		await page.getByRole('button', { name: 'New note', exact: true }).first().click();
+		await page.getByPlaceholder('New note title…').fill('Golden crossing');
+		await page.getByPlaceholder('New note title…').press('Enter');
+		const body = page.getByRole('textbox', { name: 'Note body', exact: true });
+		await captureReady(body);
+		await body.fill('Moonquartz was carried by [[Golden guide]] for [[Golden guild]].');
+		await checkpoint('Live capture');
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
+		const noteRoute = new URL(page.url()).hash.slice(1);
+		for (const [title, route] of [
+			['Golden guide', `/characters/${ids.npc}`],
+			['Golden guild', `/knowledge/${ids.faction}`],
+		]) {
+			const link = page
+				.locator('.knowledge-prose')
+				.getByRole(title === 'Golden guide' ? 'link' : 'button', { name: title, exact: true });
+			await bodyLink(page, link, route!);
+			await checkpoint(`Body link: ${title}`);
+			await gotoRoute(page, noteRoute);
+		}
+		await gotoRoute(page, '/campaign');
+		await page.getByRole('tab', { name: 'Factions', exact: true }).click();
+		const tray = page.getByRole('region', {
+			name: 'Relationships and mentions: Golden guild',
+			exact: true,
+		});
+		await checkpoint('Faction card');
+		await tray.getByRole('button', { name: 'Add relationship: Golden guild', exact: true }).click();
+		await tray.getByLabel('With', { exact: true }).selectOption({ label: 'Golden guide' });
+		await tray.getByLabel('Relationship', { exact: true }).fill('leads');
+		await tray.getByRole('button', { name: 'Add', exact: true }).click();
+		await relationshipVisible(
+			tray.getByRole('list', { name: 'Relationships', exact: true }).getByRole('listitem'),
+		);
+		await checkpoint('Saved relationship');
+		await page.keyboard.press('Control+k');
+		const started = Date.now();
+		await page.getByRole('combobox').fill('Moonquartz');
+		const result = page.getByRole('option').filter({ hasText: 'Golden crossing' });
+		await paletteFound(result, started);
+		await checkpoint('Body-word palette result');
+		await result.click();
+		await expect(page).toHaveURL(new RegExp(`#${noteRoute}$`));
+		await expect(page.locator('.knowledge-prose')).toContainText('Moonquartz');
+		await gotoRoute(page, '/graph');
+		await page.getByLabel('Search the graph').fill('Golden');
+		await page
+			.getByRole('button', { name: /^Golden crossing/ })
+			.first()
+			.click();
+		if ((page.viewportSize()?.width ?? 1280) <= 640)
+			await page.getByRole('button', { name: 'Show map', exact: true }).click();
+		await readableLabel(
+			page.locator('[data-graph-label]').filter({ hasText: /^Golden crossing$/ }),
+		);
+		await checkpoint('Graph note');
 		await health.assertHealthy();
 	});
 
@@ -587,3 +741,61 @@ test('containing control identity survives insertion after geometry capture', as
 		page.getByRole = original;
 	}
 });
+
+for (const defect of [
+	'capture',
+	'npc-link',
+	'faction-link',
+	'relationship',
+	'search',
+	'label',
+	'dead-end',
+]) {
+	test(`knowledge assertion rejects seeded ${defect}`, async ({ page }) => {
+		await page.setContent(
+			'<textarea aria-label="Note body" autofocus></textarea><a href="#/characters/npc">NPC</a><a href="#/knowledge/faction">Faction</a><ul><li>Golden guide — leads → Golden guild</li></ul><div role="option">Golden crossing</div><div data-graph-label="note" style="width:200px;font-size:16px">Golden crossing</div>',
+		);
+		const checks: Record<string, () => Promise<void>> = {
+			capture: () => captureReady(page.getByRole('textbox')),
+			'npc-link': () => bodyLink(page, page.getByRole('link', { name: 'NPC' }), '/characters/npc'),
+			'faction-link': () =>
+				bodyLink(page, page.getByRole('link', { name: 'Faction' }), '/knowledge/faction'),
+			relationship: () => relationshipVisible(page.getByRole('listitem')),
+			search: () => paletteFound(page.getByRole('option'), Date.now()),
+			label: () => readableLabel(page.locator('[data-graph-label]')),
+			'dead-end': () => noDeadEnd(page),
+		};
+		await checks[defect]!();
+		await page.evaluate(() => {
+			window.location.hash = '/baseline';
+		});
+		await page.evaluate((kind) => {
+			if (kind === 'capture') (document.activeElement as HTMLElement).blur();
+			else if (kind.endsWith('-link'))
+				document
+					.querySelectorAll('a')
+					[kind === 'npc-link' ? 0 : 1]!.setAttribute('href', '#/wrong');
+			else if (kind === 'relationship')
+				document.querySelector('li')!.textContent = 'No relationships yet.';
+			else if (kind === 'search') document.querySelector('[role="option"]')!.remove();
+			else if (kind === 'label')
+				(document.querySelector('[data-graph-label]') as HTMLElement).style.width = '10px';
+			else
+				document.body.insertAdjacentHTML(
+					'beforeend',
+					'<p>Open the Relationships screen to add a relationship.</p>',
+				);
+		}, defect);
+		await expect(checks[defect]!()).rejects.toThrow(
+			{
+				capture: 'capture opens directly',
+				'npc-link': 'body link resolves',
+				'faction-link': 'body link resolves',
+				relationship: 'relationship saved',
+				search: 'body-word result',
+				label: 'graph label is readable',
+				'dead-end': 'cross-screen instruction',
+			}[defect],
+		);
+	});
+}
