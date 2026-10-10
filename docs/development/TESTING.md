@@ -212,6 +212,11 @@ animations and the caret disabled, fonts awaited, font hinting, subpixel positio
 off, sRGB output, service workers blocked, and the fresh first-run vault. Up to 40 differing pixels
 per image are tolerated for canvas anti-aliasing; more than that fails.
 
+Visual assertions have a 20 s budget, matching route boot readiness. A hydrated runtime does
+not mean a lazy route has mounted, and a busy shared runner can take more than the default 5 s
+to capture a screenshot. The longer wait applies only to the visual projects; pixel tolerances,
+baselines, functional assertion timeouts and the overall test timeout stay unchanged.
+
 Baselines are rendered in one place only: the pinned `mcr.microsoft.com/playwright:v1.61.1-noble`
 image. Font rasterisation differs between distributions, so a baseline written on a Fedora host
 diffs on every Ubuntu CI run. The config refuses a visual run outside the image (the image sets

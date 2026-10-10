@@ -116,3 +116,51 @@ Validation completed:
 
 The full browser suite remains for central validation; this repair changes tests
 only. No push, promotion, or dispatcher control-state edits.
+
+## Visual gate repair — bounded waits on shared runners
+
+The gate at `34b16135` passed 529 visual cases, including all companion captures,
+and timed out in two unrelated captures: desktop Scholar audio deletion and
+High Contrast Plans account checking. Exact evidence:
+`b0fdf998-7307-4e6b-a4ab-a9b080579afb/output.log` under dispatcher attempts.
+The Plans error context shows the shell with `Loading your vault…` in main;
+its route-specific assertion expired at 5 seconds. Audio had already opened
+its deletion dialog; Chromium's screenshot operation expired at 5 seconds
+without returning a pixel difference. No screenshot baseline was shown wrong.
+
+Before editing, ran both cases three times on pre-feature base `1028592b` in
+`/var/tmp/rc-chr-6.5-base`:
+`apps/gm-react/tests/visual/run-in-container.sh tests/visual/golden-routes.spec.ts tests/visual/plans-legal.spec.ts --project=visual-desktop -g 'Audio polish — scholar.*named deletion|plans account check — high-contrast' --repeat-each=3 --update-snapshots=none`.
+**6 passed** (22.3s), output `/var/tmp/rc-chr-6.5-timing-base.log`. Ordinary
+reruns did not reproduce either intermittent failure.
+
+A controlled pre-feature-base probe copied the Plans spec to a temporary spec
+and delayed only the `/src/screens/Upgrade.tsx` request by 12 seconds using a
+Playwright route handler. It reproduced the identical missing account-status
+failure under the original 5-second assertion budget (one failure, 9.3s).
+Output: `/var/tmp/rc-chr-6.5-timing-probe-before.log`. This demonstrates that
+the lazy-route timing weakness exists before the preview feature; it does not
+prove the same amount of delay occurred during the gate or reproduce the audio
+capture slowdown.
+
+Set visual-project assertions to 20 seconds, matching the existing bounded
+route boot waits. This covers both lazy route readiness and screenshot capture
+under shared-runner contention without adding sleeps or retries to the suite.
+Pixel tolerance, baselines, functional assertion timing and overall test timeout
+are unchanged. Documented the visual-only policy in `docs/development/TESTING.md`.
+
+The identical delayed-route probe with only the assertion budget changed
+**passed** against the original baseline (16.9s test, 19.7s run). Output:
+`/var/tmp/rc-chr-6.5-timing-probe-after.log`. Probe source retained at
+`/var/tmp/rc-chr-6.5-timing-probe.spec.ts`; the isolated base worktree was restored
+after the experiment. No deliberate delay was added to committed tests.
+
+**45 strict pinned comparisons passed** (1.6m), spanning audio deletion, Plans
+and companion stage across all themes and layout tiers. Command:
+`apps/gm-react/tests/visual/run-in-container.sh tests/visual/golden-routes.spec.ts tests/visual/plans-legal.spec.ts tests/visual/play-polish.spec.ts -g 'named deletion|plans account check|play stage' --update-snapshots=none`.
+Output: `/var/tmp/rc-chr-6.5-timing-visual.log`.
+
+`pnpm gates`, ESLint on the Playwright config, formatting and `git diff --check`
+passed. Gate output: `/var/tmp/rc-chr-6.5-timing-gates.log`. The full visual and
+browser suites remain with central validation. No push, promotion or dispatcher
+control-state changes.
