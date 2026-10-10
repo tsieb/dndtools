@@ -83,7 +83,10 @@ a `TODO(APP)` that survives a quarter gets an entry here before merge.
 - Status: open — found by RC-POL-1.3, whose axe spec (`scene-editor-polish.spec.ts`) names this one
   pair as its only exception, on parchment only. RC-POL-1.17 (Settings) moved every inline use of
   the pair to primary ink; on parchment the selected screen-kit `Seg` option, the DS `Avatar`
-  initials and the accent role `Badge` on the Players roster still paint it.
+  initials and the accent role `Badge` on the Players roster still paint it. RC-POL-1.4 (Session)
+  inks the initiative avatars' initials, takes the accent tint off the active combat row and makes the
+  dice Roll and quick-panel Next turn `primary`; its theme scan (`session-polish.spec.ts`) lets through
+  only the session phase `Seg`'s selected option, the one use left on that surface.
 
 ## Resolved
 

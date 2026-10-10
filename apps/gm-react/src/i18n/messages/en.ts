@@ -715,6 +715,10 @@ export const en = {
 	'session.combat.movedEarlierAnnouncement': '{name} moved earlier in initiative.',
 	'session.combat.movedLaterAnnouncement': '{name} moved later in initiative.',
 	'session.combat.reveal': 'Reveal',
+	'session.combat.removeConfirm':
+		'Remove {name} from combat? Its hit points and conditions go with it.',
+	'session.combat.removeConfirmAction': 'Remove {name}',
+	'session.combat.removeKeep': 'Keep {name}',
 	'session.combat.hide': 'Hide',
 	'session.combat.hiddenNote': 'Players see this row as “Unknown creature”.',
 	'session.combat.initiative.call': 'Roll for initiative',

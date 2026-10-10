@@ -1,4 +1,4 @@
-import type { MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { Button, IconButton } from '../../ds';
 import { useI18n } from '../../i18n';
 import { T, eb } from '../../app/screen-kit';
@@ -12,7 +12,7 @@ import * as Initiative from '../../net/InitiativeCallParts';
  *
  * RC-POL-1.4 — the reorder pair wraps as one group. On a phone a hairline separator used to end one
  * line and the two chevrons start the next, which read as two unrelated buttons; the separator is
- * gone and the pair keeps together.
+ * gone and the pair keeps together. Removing a combatant asks first (`RemoveCombatant`).
  */
 export function CombatantDetail({
 	selected,
@@ -146,15 +146,12 @@ export function CombatantDetail({
 						>
 							{t(selected.hidden ? 'session.combat.reveal' : 'session.combat.hide')}
 						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							icon="close"
+						<RemoveCombatant
+							key={selected.id}
+							name={selected.name}
 							disabled={previewing}
-							onClick={() => onRemove(selected.id, selected.name)}
-						>
-							{t('common.action.remove')}
-						</Button>
+							onConfirm={() => onRemove(selected.id, selected.name)}
+						/>
 					</>
 				)}
 			</div>
@@ -165,5 +162,69 @@ export function CombatantDetail({
 				</div>
 			)}
 		</div>
+	);
+}
+
+/**
+ * RC-POL-1.4 — `combat.remove-combatant` takes the creature's hit points and conditions with it and
+ * the core has no restore, so Remove asks first, inline, naming the creature. Focus lands on Keep
+ * (the safe choice) and returns to Remove when the question is dismissed; Escape dismisses it. The
+ * DS Button forwards no ref, so focus goes through wrapper spans.
+ */
+function RemoveCombatant({
+	name,
+	disabled,
+	onConfirm,
+}: {
+	name: string;
+	disabled: boolean;
+	onConfirm: () => void;
+}) {
+	const { t } = useI18n();
+	const [asking, setAsking] = useState(false);
+	const keep = useRef<HTMLSpanElement | null>(null);
+	const trigger = useRef<HTMLSpanElement | null>(null);
+	const asked = useRef(false);
+	useEffect(() => {
+		if (asking) keep.current?.querySelector('button')?.focus();
+		else if (asked.current) trigger.current?.querySelector('button')?.focus();
+		asked.current = asking;
+	}, [asking]);
+	if (!asking)
+		return (
+			<span ref={trigger}>
+				<Button
+					variant="ghost"
+					size="sm"
+					icon="close"
+					disabled={disabled}
+					onClick={() => setAsking(true)}
+				>
+					{t('common.action.remove')}
+				</Button>
+			</span>
+		);
+	const question = t('session.combat.removeConfirm', { name });
+	return (
+		<span
+			role="group"
+			aria-label={question}
+			onKeyDown={(e) => {
+				if (e.key !== 'Escape') return;
+				e.stopPropagation();
+				setAsking(false);
+			}}
+			style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: T.space.two }}
+		>
+			<span style={{ font: `var(--text-sm) ${T.sans}`, color: T.ink }}>{question}</span>
+			<Button variant="danger" size="sm" icon="close" onClick={onConfirm}>
+				{t('session.combat.removeConfirmAction', { name })}
+			</Button>
+			<span ref={keep}>
+				<Button variant="secondary" size="sm" onClick={() => setAsking(false)}>
+					{t('session.combat.removeKeep', { name })}
+				</Button>
+			</span>
+		</span>
 	);
 }

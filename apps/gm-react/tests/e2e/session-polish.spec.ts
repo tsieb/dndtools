@@ -358,3 +358,26 @@ test('at 200% text neither standby nor the live fight widens the page', async ({
 		.click();
 	await expect.poll(widened).toBeLessThanOrEqual(1);
 });
+
+test('removing a combatant asks first, names it, and keeps focus in place', async ({ page }) => {
+	await openSession(page);
+	await startFight(page);
+	const main = page.locator('#main-content');
+	await main.getByRole('button', { name: 'Bog Lurker', exact: true }).click();
+	const remove = main.getByRole('button', { name: 'Remove', exact: true });
+	await remove.click();
+	const question = main.getByRole('group', {
+		name: 'Remove Bog Lurker from combat? Its hit points and conditions go with it.',
+	});
+	await expect(question).toBeVisible();
+	await expect(question.getByRole('button', { name: 'Keep Bog Lurker' })).toBeFocused();
+	await axe(page, 'remove confirm');
+	await page.keyboard.press('Escape');
+	await expect(question).toHaveCount(0);
+	await expect(remove).toBeFocused();
+	await expect(main.getByRole('listitem').filter({ hasText: 'Bog Lurker' })).toHaveCount(1);
+
+	await remove.click();
+	await question.getByRole('button', { name: 'Remove Bog Lurker' }).click();
+	await expect(main.getByRole('listitem').filter({ hasText: 'Bog Lurker' })).toHaveCount(0);
+});

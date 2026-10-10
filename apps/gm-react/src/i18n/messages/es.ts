@@ -722,6 +722,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.combat.movedEarlierAnnouncement': '{name} se movió antes en la iniciativa.',
 	'session.combat.movedLaterAnnouncement': '{name} se movió después en la iniciativa.',
 	'session.combat.reveal': 'Revelar',
+	'session.combat.removeConfirm':
+		'¿Quitar {name} del combate? Se pierden sus puntos de golpe y sus estados.',
+	'session.combat.removeConfirmAction': 'Quitar {name}',
+	'session.combat.removeKeep': 'Mantener {name}',
 	'session.combat.hide': 'Ocultar',
 	'session.combat.hiddenNote': 'Los jugadores ven esta fila como “Criatura desconocida”.',
 	'session.combat.initiative.call': 'Tirar iniciativa',

@@ -749,6 +749,10 @@ export default {
 	'session.combat.movedEarlierAnnouncement': '[{name} ḿóṽéď éáŕľíéŕ íñ íñíţíáţíṽé.~~~~ ~~~~ ~~]',
 	'session.combat.movedLaterAnnouncement': '[{name} ḿóṽéď ľáţéŕ íñ íñíţíáţíṽé.~~~~ ~~~~ ~]',
 	'session.combat.reveal': '[Ŕéṽéáľ~~~]',
+	'session.combat.removeConfirm':
+		'[Ŕéḿóṽé ~~~{name} ƒŕóḿ çóḿƀáţ? Íţš ĥíţ ƥóíñţš áñď çóñďíţíóñš ğó ŵíţĥ íţ.~~~~ ~~~~ ~~~~ ~~~~ ~~]',
+	'session.combat.removeConfirmAction': '[Ŕéḿóṽé ~~~{name}]',
+	'session.combat.removeKeep': '[Ķééƥ ~~{name}]',
 	'session.combat.hide': '[Ĥíďé~~]',
 	'session.combat.hiddenNote': '[Ƥľáýéŕš šéé ţĥíš ŕóŵ áš “Úñķñóŵñ çŕéáţúŕé”.~~~~ ~~~~ ~~~~ ~~~]',
 	'session.combat.initiative.call': '[Ŕóľľ ƒóŕ íñíţíáţíṽé~~~~ ~~~]',
