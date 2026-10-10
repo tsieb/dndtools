@@ -16,6 +16,11 @@ import {
 	type CommandCenterPresetWidget,
 	type CommandCenterState,
 } from '../state/command-center-state';
+import {
+	FIRST_SESSION_GUIDE_CONFIGURATION,
+	FIRST_SESSION_GUIDE_WIDGET_TYPE,
+	wantsFirstSessionGuide,
+} from '../state/onboarding';
 import type { Actor } from '../state/permission-state';
 import type { SceneVisualSettings } from '../state/scene-state';
 import {
@@ -123,11 +128,19 @@ const STACKED: ReadonlySet<HomeWidgetType> = new Set(['home-create', 'home-manag
  * parts, recorded as the `command-center` default screen. Instances carry no configuration of their
  * own; every setting (bare presentation, headings, labels) is the definition's default, so a part the
  * GM rebuilds from the same definition is configured identically.
+ *
+ * RC-UX-6.3 — with `guide`, the first-session guide (`getting-started`, bare) comes first, across the
+ * top, and the parts move down a row. Its id is drawn last so the parts keep theirs.
  */
-export function buildDefaultHomeScreen(env: CoreEnvironment, ownerActorId: string): Scene {
+export function buildDefaultHomeScreen(
+	env: CoreEnvironment,
+	ownerActorId: string,
+	options: { guide?: boolean } = {},
+): Scene {
 	const now = env.clock();
 	const id = env.ids();
 	const column = env.ids();
+	const offset = options.guide ? 1 : 0;
 	const widgets: WidgetInstance[] = HOME_WIDGET_TYPES.map((type, index) => {
 		const place = HOME_LAYOUT[type];
 		return {
@@ -136,14 +149,14 @@ export function buildDefaultHomeScreen(env: CoreEnvironment, ownerActorId: strin
 			version: '1.0.0',
 			layout: {
 				x: place.column * FLOW_COLUMN,
-				y: place.row * FLOW_ROW,
+				y: (place.row + offset) * FLOW_ROW,
 				w: place.span * FLOW_COLUMN,
 				h: FLOW_ROW,
-				z: index + 1,
+				z: index + 1 + offset,
 				groupId: STACKED.has(type) ? column : null,
 				dock: null,
 				pinned: false,
-				focusOrder: index + 1,
+				focusOrder: index + 1 + offset,
 			},
 			configuration: {},
 			localState: {},
@@ -151,6 +164,27 @@ export function buildDefaultHomeScreen(env: CoreEnvironment, ownerActorId: strin
 			disabled: null,
 		};
 	});
+	if (options.guide)
+		widgets.unshift({
+			id: env.ids(),
+			type: FIRST_SESSION_GUIDE_WIDGET_TYPE,
+			version: '1.0.0',
+			layout: {
+				x: 0,
+				y: 0,
+				w: 12 * FLOW_COLUMN,
+				h: FLOW_ROW,
+				z: 1,
+				groupId: null,
+				dock: null,
+				pinned: false,
+				focusOrder: 1,
+			},
+			configuration: { ...FIRST_SESSION_GUIDE_CONFIGURATION },
+			localState: {},
+			binding: null,
+			disabled: null,
+		});
 	return withScreenMeta(
 		{
 			id,
@@ -341,13 +375,15 @@ export function handleEnsureCommandCenterHome(
 		};
 	}
 
+	// RC-UX-6.3 — read before the board is created: only a vault with nothing in it gets the guide.
+	const guide = wantsFirstSessionGuide(state);
 	const board = ensureHomeBoard(state, env, actor.id, parsed.data.name);
 	// RC-CAN-7.6 — then the home screen (ADR-041 "Defaults and preservation"): a fresh vault gets it
 	// beside the board it just created; an existing vault gains it as its new home while its board,
 	// untouched, stays the GM screen. Idempotent: once one exists nothing is written, and a GM's
 	// customisation of it is never reset.
 	if (findHomeScreen(board.state.scenes)) return board.result(board.state, []);
-	const home = buildDefaultHomeScreen(env, actor.id);
+	const home = buildDefaultHomeScreen(env, actor.id, { guide });
 	const created = appendOperationDraft(env, board.state.sync, actor.id, {
 		entityType: 'scene',
 		entityId: home.id,

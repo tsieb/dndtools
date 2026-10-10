@@ -2371,6 +2371,10 @@ export type {
 	SectionFeatureGate,
 	FeatureTier,
 	FirstRunStep,
+	FirstSessionGuideView,
+	FirstSessionLink,
+	FirstSessionRow,
+	FirstSessionRowId,
 	HelpSurface,
 	MaturitySignal,
 	MaturitySignalMetric,
@@ -2387,6 +2391,10 @@ export {
 	SECTION_FEATURE_GATES,
 	FEATURE_SPOTLIGHTS,
 	FEATURE_TIERS,
+	FIRST_SESSION_GUIDE_CONFIGURATION,
+	FIRST_SESSION_GUIDE_WIDGET_TYPE,
+	FIRST_SESSION_INTENTS,
+	FIRST_SESSION_ROW_IDS,
 	HELP_SURFACES,
 	isFeatureVisible,
 	isFreshVault,
@@ -2395,6 +2403,7 @@ export {
 	MATURITY_SIGNALS,
 	parseSeenSpotlights,
 	pendingSpotlights,
+	resolveFirstSessionGuide,
 	resolveMaturitySignals,
 	resolveOnboarding,
 	serializeSeenSpotlights,
@@ -2404,6 +2413,7 @@ export {
 	spotlightVaultId,
 	tierMeets,
 	visibleFeatures,
+	wantsFirstSessionGuide,
 } from './state/onboarding';
 
 // CHAR-001 / CHAR-002 / CHAR-013: the foundational character state model — finalized characters

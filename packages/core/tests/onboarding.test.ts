@@ -90,8 +90,9 @@ describe('PLAT-013 fresh-vault onboarding (AC1)', () => {
 		// RC-UX-6.4: Standard is the default, matching the tier onboarding recommends.
 		expect(view.tier).toBe('intermediate');
 		expect(view.isFresh).toBe(true);
-		expect(view.steps.find((s) => s.id === 'command-center')?.done).toBe(false);
-		expect(view.steps.find((s) => s.id === 'first-scene')?.done).toBe(false);
+		// RC-UX-6.3: the steps are the first-session guide's six rows, all open in a fresh vault.
+		expect(view.steps).toHaveLength(6);
+		expect(view.steps.every((s) => !s.done)).toBe(true);
 		// Core navigation + Command Center are the default-visible features (AC1).
 		expect(view.visibleFeatures.map((f) => f.id)).toContain('command-center');
 		expect(view.visibleFeatures.map((f) => f.id)).toContain('navigation');
@@ -122,8 +123,9 @@ describe('PLAT-013 fresh-vault onboarding (AC1)', () => {
 		expect(isFreshVault(after)).toBe(false);
 		const view = resolveOnboarding(after, DM_ACTOR.id);
 		expect(view.isFresh).toBe(false);
-		expect(view.steps.find((s) => s.id === 'command-center')?.done).toBe(true);
-		// Command Center exists but no Scene has been authored yet → in-progress, not complete.
+		// RC-UX-6.3: provisioning the home is not one of the GM's steps, so it ticks nothing (the old
+		// "Create your first Scene" step counted the provisioned DM screen as authored).
+		expect(view.steps.every((s) => !s.done)).toBe(true);
 		expect(view.status).toBe('in-progress');
 	});
 });

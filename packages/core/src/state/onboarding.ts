@@ -1,7 +1,13 @@
-import type { CoreStateSlice } from '../commands/types';
+import { findHomeScreen } from '../commands/command-center';
+import type { CoreCommand, CoreStateSlice } from '../commands/types';
+import { resolveWidgetIntent, type WidgetIntentDestination } from '../security/widget-host-api';
+import { campaignNameOf } from './command-center-state';
+import { isLiveContentItem } from './content';
 import type { ActorId } from './ids';
 import { parseMarkdownNote } from './markdown';
-import { screenMetaOf } from './scene-state';
+import { isCampaignOwnerRole } from './permission-state';
+import { isLiveScene, screenMetaOf, type Scene } from './scene-state';
+import { findWidgetDefinition, type WidgetIntentDescriptor } from './widget-package-state';
 
 /**
  * PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
@@ -2218,11 +2224,276 @@ export function pendingSpotlights(
 	);
 }
 
+/* ---- RC-UX-6.3 — the first-session guide ------------------------------------------------------
+ * Six things to do before the first evening at the table, in the order a GM does them, each derived
+ * from durable state. A row completes when the vault shows it was done, whichever surface did it; a
+ * click on the guide never ticks anything. Each row links to the existing flow that does it through
+ * a WID-5.1 intent, resolved against the viewer's read gate exactly as a hub template's would be.
+ * The one exception is naming the campaign: no intent target names a campaign, so that row reopens
+ * onboarding's own first step (the flow a GM who skipped onboarding skipped).
+ *
+ * The guide is the `getting-started` widget. `command-center.ensure-home` places it first on the
+ * home screen of a fresh vault (bare, so it reads as page content); dismissing it removes that
+ * instance and Help puts one back. The view carries both commands so every surface acts alike.
+ */
+
+/** The guide's rows, in the order a first evening needs them. */
+export const FIRST_SESSION_ROW_IDS = [
+	'name-campaign',
+	'add-party',
+	'map-or-note',
+	'screen-from-template',
+	'standby-session',
+	'open-table',
+] as const;
+export type FirstSessionRowId = (typeof FIRST_SESSION_ROW_IDS)[number];
+
+/** The widget type the guide renders as, and the settings `ensure-home` places it with. */
+export const FIRST_SESSION_GUIDE_WIDGET_TYPE = 'getting-started';
+export const FIRST_SESSION_GUIDE_CONFIGURATION: Readonly<Record<string, unknown>> = Object.freeze({
+	presentation: 'bare',
+});
+
 /**
- * Assemble the onboarding view for an actor. First-run when the vault is fresh; complete once the
- * Command Center exists and the welcome steps are satisfied. The default tier is `core` so a
- * fresh vault shows exactly the core capabilities (AC1). DM-only: onboarding setup is gated to the
- * DM role; a player/observer view reports `canSetup: false` and never triggers setup commands.
+ * The guide's links, declared like a template widget's intents so the same resolver (and the same
+ * read gate) decides where each one goes. `name-campaign` is not here: see the section comment.
+ */
+export const FIRST_SESSION_INTENTS: readonly WidgetIntentDescriptor[] = Object.freeze([
+	{ id: 'add-players', displayName: 'Add players', kind: 'open-settings', tab: 'players' },
+	{
+		id: 'import-characters',
+		displayName: 'Import characters',
+		kind: 'open-route',
+		route: '/characters',
+	},
+	{ id: 'new-map', displayName: 'New map', kind: 'create', target: 'map' },
+	{ id: 'new-note', displayName: 'New note', kind: 'create', target: 'note' },
+	{ id: 'new-screen', displayName: 'New screen from a template', kind: 'create', target: 'screen' },
+	{ id: 'open-session', displayName: 'Open Session', kind: 'open-route', route: '/session' },
+	{ id: 'invite-players', displayName: 'Invite players', kind: 'open-settings', tab: 'players' },
+	{ id: 'start-session', displayName: 'Start a session', kind: 'open-route', route: '/session' },
+] satisfies WidgetIntentDescriptor[]);
+
+/** One link on a row: an intent the viewer may follow, or onboarding's campaign step. */
+export type FirstSessionLink =
+	| {
+			readonly kind: 'intent';
+			readonly id: string;
+			readonly label: string;
+			readonly destination: WidgetIntentDestination;
+	  }
+	| { readonly kind: 'onboarding'; readonly id: 'name-campaign'; readonly label: string };
+
+export interface FirstSessionRow {
+	readonly id: FirstSessionRowId;
+	/** English fallbacks; the renderer's catalog carries the translations (keyed by row id). */
+	readonly label: string;
+	/** Why the row matters, in one sentence. */
+	readonly why: string;
+	readonly done: boolean;
+	/** The ways to do it, primary first. Empty for a viewer who may follow none of them. */
+	readonly links: readonly FirstSessionLink[];
+}
+
+export interface FirstSessionGuideView {
+	/** Only the campaign owner sets a campaign up; anyone else sees no rows to act on. */
+	readonly canSetup: boolean;
+	readonly rows: readonly FirstSessionRow[];
+	readonly done: number;
+	readonly complete: boolean;
+	/** The guide instance on the home screen, or `null` when it is not there (dismissed, or no home). */
+	readonly placedWidgetId: string | null;
+	/** Removes the guide from the home screen. `null` when it is not there or the viewer may not. */
+	readonly dismiss: CoreCommand | null;
+	/** Puts the guide back first on the home screen. `null` when it is there or cannot be placed. */
+	readonly restore: CoreCommand | null;
+}
+
+interface RowSpec {
+	readonly id: FirstSessionRowId;
+	readonly label: string;
+	readonly why: string;
+	readonly links: readonly string[];
+	readonly done: (state: CoreStateSlice) => boolean;
+}
+
+/** The live sessions' trace: a session that went live and then ended leaves an archive. */
+const LIVE_WORKFLOWS: ReadonlySet<string> = new Set(['active', 'paused', 'ending', 'recap']);
+
+const FIRST_SESSION_ROWS: readonly RowSpec[] = [
+	{
+		id: 'name-campaign',
+		label: 'Name your campaign',
+		why: 'The name is how you find this campaign again and what your players see when they join.',
+		links: ['name-campaign'],
+		done: (state) => campaignNameOf(state.commandCenter) !== null,
+	},
+	{
+		id: 'add-party',
+		label: 'Add your party',
+		why: 'Player seats and characters are what the tracker, the player views and the home screen show.',
+		links: ['add-players', 'import-characters'],
+		done: (state) =>
+			Object.values(state.permissions.actors).some((actor) => actor.role === 'player') ||
+			Object.values(state.characters.characters).some((character) => character.kind === 'pc'),
+	},
+	{
+		id: 'map-or-note',
+		label: 'Add a map or a note',
+		why: 'Something to show the table and something to remember, ready before anyone sits down.',
+		links: ['new-map', 'new-note'],
+		done: (state) =>
+			Object.keys(state.maps.maps).length > 0 ||
+			Object.values(state.content.items).some(
+				(item) => item.kind === 'note' && isLiveContentItem(item),
+			),
+	},
+	{
+		id: 'screen-from-template',
+		label: 'Build a screen from a template',
+		why: 'A screen keeps the widgets one scene needs within reach, so nothing is hunted for mid-game.',
+		links: ['new-screen'],
+		done: (state) =>
+			Object.values(state.scenes.scenes).some(
+				(scene) =>
+					isLiveScene(scene) &&
+					!scene.templateMeta.isTemplate &&
+					scene.id !== state.commandCenter.homeSceneId &&
+					screenMetaOf(scene).origin?.kind !== 'default',
+			),
+	},
+	{
+		id: 'standby-session',
+		label: 'Try a session in Standby',
+		why: 'Roll a die or add a combatant before anyone arrives: nothing in Standby is recorded.',
+		links: ['open-session'],
+		done: ({ session }) =>
+			session.diceHistory.length > 0 ||
+			Object.keys(session.combat.combatants ?? {}).length > 0 ||
+			(session.combat.log?.length ?? 0) > 0 ||
+			Object.keys(session.archives).length > 0,
+	},
+	{
+		id: 'open-table',
+		label: 'Invite players or open the player view',
+		why: 'A started session lets you send each player a view, and they see only what you show them.',
+		links: ['start-session', 'invite-players'],
+		done: ({ session }) =>
+			LIVE_WORKFLOWS.has(session.workflow) ||
+			Object.keys(session.archives).length > 0 ||
+			Object.keys(session.playerViewAssignments).length > 0 ||
+			Object.keys(session.activeMapProjections).length > 0,
+	},
+];
+
+/** Flow-grid authoring units (`FLOW_COLUMN_STEP` / `FLOW_ROW_STEP`), for a guide put back by Help. */
+const GUIDE_WIDTH = 12 * 96;
+const GUIDE_ROW = 240;
+
+function guideInstances(home: Scene | null) {
+	return (home?.widgets ?? []).filter((widget) => widget.type === FIRST_SESSION_GUIDE_WIDGET_TYPE);
+}
+
+/**
+ * The first-session guide for an actor: six rows, each done from state, each linking to its flow.
+ * Pure, so the widget, Help and the tests read one answer.
+ */
+export function resolveFirstSessionGuide(
+	state: CoreStateSlice,
+	actorId: ActorId,
+): FirstSessionGuideView {
+	const canSetup = isCampaignOwnerRole(state.permissions.actors[actorId]?.role);
+	const definition = { intents: [...FIRST_SESSION_INTENTS] };
+	const link = (id: string): FirstSessionLink | null => {
+		if (id === 'name-campaign')
+			return canSetup ? { kind: 'onboarding', id, label: 'Name it' } : null;
+		const intent = FIRST_SESSION_INTENTS.find((entry) => entry.id === id);
+		if (!intent) return null;
+		const resolved = resolveWidgetIntent({
+			widgetInstanceId: FIRST_SESSION_GUIDE_WIDGET_TYPE,
+			definition,
+			request: { intentId: id },
+			approvedPermissions: [],
+			state,
+			actorId,
+		});
+		return resolved.destination
+			? { kind: 'intent', id, label: intent.displayName, destination: resolved.destination }
+			: null;
+	};
+	const rows = FIRST_SESSION_ROWS.map((spec) => ({
+		id: spec.id,
+		label: spec.label,
+		why: spec.why,
+		done: spec.done(state),
+		links: canSetup
+			? spec.links.map(link).filter((entry): entry is FirstSessionLink => entry !== null)
+			: [],
+	}));
+	const done = rows.filter((row) => row.done).length;
+
+	const home = findHomeScreen(state.scenes);
+	const placed = guideInstances(home)[0] ?? null;
+	const definitionVersion = findWidgetDefinition(
+		state.widgets,
+		FIRST_SESSION_GUIDE_WIDGET_TYPE,
+	)?.version;
+	const dismiss: CoreCommand | null =
+		canSetup && home && placed
+			? {
+					type: 'scene.destroy-widget',
+					actorId,
+					payload: { sceneId: home.id, widgetInstanceId: placed.id },
+				}
+			: null;
+	// Put back above everything else on the screen, so it is first in reading order again.
+	const top = Math.min(0, ...(home?.widgets ?? []).map((widget) => widget.layout.y));
+	const restore: CoreCommand | null =
+		canSetup && home && !placed && definitionVersion
+			? {
+					type: 'scene.add-widget',
+					actorId,
+					payload: {
+						sceneId: home.id,
+						widget: {
+							type: FIRST_SESSION_GUIDE_WIDGET_TYPE,
+							version: definitionVersion,
+							layout: { x: 0, y: top - GUIDE_ROW, w: GUIDE_WIDTH, h: GUIDE_ROW },
+							configuration: { ...FIRST_SESSION_GUIDE_CONFIGURATION },
+						},
+					},
+				}
+			: null;
+
+	return {
+		canSetup,
+		rows,
+		done,
+		complete: done === rows.length,
+		placedWidgetId: placed?.id ?? null,
+		dismiss,
+		restore,
+	};
+}
+
+/**
+ * Whether `command-center.ensure-home` should place the guide: a vault that has no GM screen yet and
+ * nothing the GM authored that a screen would show (no table screen, no layout preset). The seeded
+ * e2e vault and the demo already hold screens, so they get the home screen without it.
+ */
+export function wantsFirstSessionGuide(state: CoreStateSlice): boolean {
+	if (state.commandCenter.homeSceneId !== null) return false;
+	if (Object.keys(state.commandCenter.presets).length > 0) return false;
+	return !Object.values(state.scenes.scenes).some(
+		(scene) => isLiveScene(scene) && screenMetaOf(scene).origin?.kind !== 'default',
+	);
+}
+
+/**
+ * Assemble the onboarding view for an actor. First-run when the vault is fresh; complete once every
+ * row of the first-session guide is done (RC-UX-6.3: the steps ARE the guide's rows, so Help, the
+ * widget and this view can never disagree). The default tier is `intermediate`. DM-only: a
+ * player/observer view reports `canSetup: false` and never triggers setup commands.
  */
 export function resolveOnboarding(
 	state: CoreStateSlice,
@@ -2230,22 +2501,13 @@ export function resolveOnboarding(
 	tier: FeatureTier = DEFAULT_FEATURE_TIER,
 ): OnboardingView {
 	const isFresh = isFreshVault(state);
-	const homeSceneId = state.commandCenter.homeSceneId;
-	const hasHome = homeSceneId !== null;
-	// "Create your first Scene" means a Scene OTHER than the Command Center home Scene: the home
-	// surface is set up by the Command Center step, so authoring a real workspace Scene is the
-	// distinct next milestone. RC-CAN-7.6: nor is a default screen (the home screen `ensure-home`
-	// provisions beside the board) — the GM did not author it either.
-	const hasScene = Object.values(state.scenes.scenes).some(
-		(scene) => scene.id !== homeSceneId && screenMetaOf(scene).origin?.kind !== 'default',
-	);
 	const role = state.permissions.actors[actorId]?.role ?? null;
 	const canSetup = role === 'dm';
-
-	const steps: FirstRunStep[] = [
-		{ id: 'command-center', label: 'Set up your Command Center', done: hasHome },
-		{ id: 'first-scene', label: 'Create your first Scene', done: hasScene },
-	];
+	const steps: FirstRunStep[] = resolveFirstSessionGuide(state, actorId).rows.map((row) => ({
+		id: row.id,
+		label: row.label,
+		done: row.done,
+	}));
 
 	const status: OnboardingStatus = isFresh
 		? 'first-run'
