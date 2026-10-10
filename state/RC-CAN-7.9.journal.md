@@ -81,7 +81,24 @@ classified from `index.html` exactly as `scripts/check-bundle-budget.ts` does:
 
 ### E2E
 
-(see below)
+All runs used `DNDTOOLS_E2E_PORT=<free port>` and `--workers=4`, on candidate `e758a4d1` (the same
+tree as this commit apart from the journal).
+
+- Targeted, both profiles: `screens`, `session-action-bar`, `board-layouts`, `pinned-screens`,
+  `canvas`, `add-panel`, `scene-templates`, `session-quick-panel-routes` and
+  `command-center-polish`. **141 passed, 9 skipped** (profile-specific), exit 0.
+- **Full suite, both profiles** (`--project=desktop-chromium --project=mobile-chromium`, 2,020
+  tests, 30.5 min): **1,976 passed, 43 skipped, 1 failed**. The failure was
+  `tile-resize.spec.ts:120` "a builtin inspector offers working Small, Medium and Large presets"
+  (desktop). It timed out waiting for the inspector's Transform tab after Enter on a focused tile
+  in the **scene editor** (`/scene/:id`), which this change does not touch.
+- That test is a base flake. Candidate, `tile-resize.spec.ts` ×5 on both profiles: 29 passed,
+  1 failed (the same test, mobile). **Base `a5f7c9ef`** (base sources restored in the working
+  tree, then put back): `tile-resize.spec.ts:120` ×15 on both profiles gave **6 failed / 24 passed**
+  (20%) with the same timeout. Not caused by this change, and not fixed here (`sceneEditor` is
+  outside the claim). It looks like the keyboard-listener race in
+  `project_combat_keyboard_listener_race`: Enter on a just-focused frame before the listener is
+  attached.
 
 ### Left for the operator
 
