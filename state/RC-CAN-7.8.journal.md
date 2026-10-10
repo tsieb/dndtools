@@ -478,3 +478,47 @@ Gate run `a8fb2dfb`: `format:check:changed --base loop/rc` flagged only `state/R
 My Session 8 bullet list was not Prettier-wrapped. Ran `prettier --write` on the journal.
 `pnpm format:check:changed -- --base loop/rc` now reports all 25 changed files clean. Journal-only
 change; no code, test or baseline touched.
+
+## Session 10 — duplicate encounter-launch review repair — 2026-10-10
+
+Started from the clean reviewed candidate `71e6783c`. The supplied independent review found that
+all interactive combat trackers consume the same `createEncounter` location state before the
+router clears it, opening two dialogs whose modal effects make each other inert. Inspected the
+tracker effect, palette launcher, existing duplicate-keyboard regression, and Playwright config.
+No Headroom tools are exposed; original command output is read directly and logs retained under
+`/tmp/rc-can78-intent-*.log`. No additional agents.
+
+Added browser regression coverage to the existing `session-duplicate-trackers.spec.ts` for idle
+and running combat, repeated palette launches, arrival from another route, and removal of the
+first tracker. Each launch must produce exactly one dialog including hidden dialogs, permit title
+editing and Cancel, then leave no dialog. Validation and repair results follow below.
+
+`CombatBody.tsx` now claims each router location synchronously in a module-local WeakSet before
+setting builder state. All sibling trackers share that location object, so exactly one consumes it
+while navigation clears the state. Fresh navigation creates a fresh object, allowing another launch
+on the same route; the WeakSet does not retain discarded locations or pin ownership to a widget.
+The original interactive guard and per-widget encounter buttons remain unchanged.
+
+Local evidence (original outputs read directly):
+
+- Before the fix, the new idle-combat browser regression failed with **2 dialogs instead of 1**
+  (`/tmp/rc-can78-intent-before.log`). An initial test-helper call used the wrong argument shape;
+  that setup error was corrected before this reproduction.
+- After the fix, `session-duplicate-trackers.spec.ts`: **8 passed**, desktop + mobile, including
+  the existing keyboard/HP-dialog tests (`/tmp/rc-can78-intent-focused.log`).
+- Session baseline + widget parity unit tests: **55 passed**, with unchanged snapshots
+  (`/tmp/rc-can78-intent-unit.log`).
+- App `tsc --noEmit` passed (`/tmp/rc-can78-intent-typecheck.log`). Focused ESLint produced no
+  diagnostics. Quality gates passed with existing file-size warnings
+  (`/tmp/rc-can78-intent-lint.log`, `/tmp/rc-can78-intent-gates.log`).
+- Broader acceptance browser run: **199 passed, 9 skipped, 0 failed**, desktop + mobile,
+  4.5 minutes (`/tmp/rc-can78-intent-acceptance.log`, exit 0). Command:
+  `pnpm --filter @dndtools/gm-react exec playwright test 'tests/e2e/(combat|session-.*|dice-tray|command-palette|encounter-builder)\.spec\.ts' --workers=2`.
+  This includes quick-panel routes, the duplicate-launch regression and existing keyboard repair.
+- Focused ESLint and Prettier checks exited 0; `git diff --check` passed.
+
+Only the owned `CombatBody.tsx`, the existing duplicate-tracker regression spec and this journal
+changed. Existing acceptance specs and all visual/baseline snapshots remain unchanged. This repair
+changes intent consumption, not rendering; the earlier before/after review is retained. Full wrapper
+and pinned visual gates remain for the central operator; no new full-gate success is claimed here.
+No push, promotion, extra agent, loop launch or dispatcher control-state edit.

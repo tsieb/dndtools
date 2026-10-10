@@ -19,6 +19,11 @@ import {
 } from '../../../screens/session/useSessionView';
 import { LiveStats } from './live';
 
+// All trackers in one router see the same location object. Claim it synchronously before opening
+// a dialog: replace navigation alone cannot stop sibling effects from reading the old intent.
+// Weak ownership expires with that location; a new launch (even on /session) gets a fresh object.
+const consumedEncounterLocations = new WeakSet<object>();
+
 /**
  * The `combat` widget. Its default view is the Command Center glance (RC-WID-4.1): the live tracker
  * at a glance plus the most recently touched prepared encounter. Its `tracker` view is the Session
@@ -138,11 +143,12 @@ function CombatTrackerView({ interactive }: { interactive: boolean }) {
 	useEffect(() => {
 		if (!interactive) return;
 		const intent = (location.state ?? null) as { createEncounter?: boolean } | null;
-		if (intent?.createEncounter) {
+		if (intent?.createEncounter && !consumedEncounterLocations.has(location)) {
+			consumedEncounterLocations.add(location);
 			setBuilderMode('start');
 			navigate(location.pathname, { replace: true, state: null });
 		}
-	}, [interactive, location.state, location.pathname, navigate]);
+	}, [interactive, location, navigate]);
 
 	/**
 	 * RC-SES-3.1 — advance the turn, and SAY what the round tick took off: a condition badge that

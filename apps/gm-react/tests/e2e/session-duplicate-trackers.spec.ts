@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { CoreStateSlice } from '@dndtools/core';
-import { gotoRoute, markOnboarded, seedFresh } from './_helpers';
+import { dispatch, gotoRoute, markOnboarded, seedFresh } from './_helpers';
 
 // RC-CAN-7.8 review regression: each tracker used to dispatch a durable turn advance for the same
 // window keydown. Use three combatants so skipping a turn cannot hide behind wrapping the round.
@@ -117,3 +117,47 @@ test('duplicate trackers keep one selection and open one HP dialog', async ({ pa
 	await page.keyboard.press('h');
 	await expect(page.getByRole('dialog')).toHaveCount(1);
 });
+
+for (const running of [false, true]) {
+	test(`duplicate trackers consume each encounter launch once (${running ? 'running' : 'idle'})`, async ({
+		page,
+	}) => {
+		const original = await duplicateTracker(page);
+		if (!running) {
+			const ended = await dispatch(page, { type: 'combat.end', actorId: 'dm-1', payload: {} });
+			expect(ended.status).toBe('accepted');
+		}
+		const buttonName = running ? 'End combat' : 'Build encounter';
+		await expect(page.getByRole('button', { name: buttonName, exact: true })).toHaveCount(2);
+
+		async function launchAndCancel() {
+			await page.keyboard.press('Control+k');
+			const palette = page.getByRole('dialog', { name: 'Command palette' });
+			await expect(palette.getByRole('combobox')).toBeFocused();
+			await palette.getByRole('combobox').fill('Build encounter');
+			await palette.getByRole('option', { name: 'Build encounter' }).click();
+			await expect(palette).toHaveCount(0);
+			// Count hidden dialogs too: two modal effects can make BOTH dialogs inert, so an
+			// accessible-role count alone misses the original duplicate-consumer failure.
+			await expect(page.getByRole('dialog', { includeHidden: true })).toHaveCount(1);
+			const dialog = page.getByRole('dialog', { name: 'Build encounter' });
+			await expect(dialog).toBeVisible();
+			await dialog.getByLabel('Encounter title').fill('One usable encounter builder');
+			await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+			await expect(page.getByRole('dialog', { includeHidden: true })).toHaveCount(0);
+		}
+
+		await launchAndCancel();
+		await launchAndCancel(); // A fresh navigation is a fresh intent, even on the same route.
+		await gotoRoute(page, '/characters');
+		await launchAndCancel(); // Both trackers remount when a different route launches Session.
+		const removed = await dispatch(page, {
+			type: 'scene.destroy-widget',
+			actorId: 'dm-1',
+			payload: original,
+		});
+		expect(removed.status).toBe('accepted');
+		await expect(page.getByRole('button', { name: buttonName, exact: true })).toHaveCount(1);
+		await launchAndCancel(); // Removing the first consumer must not strand subsequent intents.
+	});
+}
