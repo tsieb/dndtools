@@ -255,3 +255,32 @@ all themes and all three tiers, with snapshot updates disabled:
   test fixtures, POL mapping documentation and this journal only, so the boot bundle is unchanged
   from the starting candidate. No push, promotion, additional agent, dispatcher control-state
   mutation or new dispatcher loop was performed.
+
+## Session 4 — app-test gate timeout — 2026-10-10
+
+Starting HEAD `a61f431743fc3ce09c126ff7080132bc2f985d8a`, clean worktree. No Headroom tools
+are exposed. Read the original app gate log at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/a9ed49ba-9cb8-4b5e-90bb-b09e9424326f/output.log`:
+186 files / 2,277 tests passed; only the owner case in `screens/play/Sheet.test.tsx` failed,
+at 5,063 ms against the default 5,000 ms timeout. This test recreates the full real-core-backed
+sheet for every control in every section and checks emitted commands for both the viewer and
+an observer. Its companion-participant case passed. A focused unchanged run passed all three
+cases (5.52 seconds total test time), consistent with a tight aggregate traversal budget rather
+than a failed authority assertion.
+
+The supplied pinned visual gate's original log ends with **546 passed (16.7m)**, exit 0 per gate
+feedback. The prior visual readiness fixes therefore passed the complete central visual gate.
+
+Companion test-only repair: give the two parameterized full-sheet authority traversals a bounded
+15-second per-test timeout. Preserve every remount, control, real-core dispatch and assertion;
+no suite-wide timeout, retries, skips, app changes or bundle changes. Prettier expands the test
+call because it now has an explicit options argument.
+
+Running the complete unchanged app-suite command, `pnpm test:app`, with original output retained
+at `/var/tmp/rc-can-7.9-app-repair.log`.
+
+Validation after the repair: `pnpm test:app` completed with **187 files / 2,278 tests passed**,
+exit 0. Changed-file Prettier, focused ESLint and `git diff --check` also passed. Only the test
+budget and this journal changed; the previously green visual/runtime gates are unaffected.
+Full functional e2e acceptance remains for central validation, as recorded in Session 3.
+No push, promotion, dispatcher mutation or additional agent was used.

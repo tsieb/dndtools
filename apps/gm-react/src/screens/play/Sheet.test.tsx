@@ -175,59 +175,69 @@ describe('RC-CHR-6.1 — the companion sheet draws nothing the actor cannot disp
 		['the owner', PLAYER_ACTOR.id],
 		['a combat participant', HELPER.id],
 	] as const) {
-		it(`every control drawn for ${who} sends only commands the core accepts`, async () => {
-			const { env, state } = fixture();
-			const probe = mount(
-				state,
-				viewer,
-				buildPlayerData(state, viewer).sheetWrites,
-				async () => true,
-			);
-			expect(probe.pcId).not.toBeNull();
-			const sent: CommandRequest[] = [];
-			let pressed = 0;
-			for (const section of sectionIds()) {
-				openSection(section);
-				const count = container.querySelectorAll(PRESSABLE).length;
-				for (let index = 0; index < count; index += 1) {
-					// A fresh sheet per control, so no press leans on a state an earlier press left behind.
-					const data = buildPlayerData(state, viewer);
-					act(() => root.unmount());
-					root = createRoot(container);
-					mount(state, viewer, data.sheetWrites, async (command) => {
-						sent.push(command);
-						return true;
-					});
+		// This integration traversal remounts the full sheet for every control across every section,
+		// then checks each command against the real core twice. Allow bounded shared-runner headroom;
+		// the default five-second unit-test budget is not a performance requirement for this sweep.
+		it(
+			`every control drawn for ${who} sends only commands the core accepts`,
+			{ timeout: 15_000 },
+			async () => {
+				const { env, state } = fixture();
+				const probe = mount(
+					state,
+					viewer,
+					buildPlayerData(state, viewer).sheetWrites,
+					async () => true,
+				);
+				expect(probe.pcId).not.toBeNull();
+				const sent: CommandRequest[] = [];
+				let pressed = 0;
+				for (const section of sectionIds()) {
 					openSection(section);
-					const button = container.querySelectorAll<HTMLButtonElement>(PRESSABLE)[index];
-					await act(async () => {
-						button?.click();
-					});
-					pressed += 1;
+					const count = container.querySelectorAll(PRESSABLE).length;
+					for (let index = 0; index < count; index += 1) {
+						// A fresh sheet per control, so no press leans on a state an earlier press left behind.
+						const data = buildPlayerData(state, viewer);
+						act(() => root.unmount());
+						root = createRoot(container);
+						mount(state, viewer, data.sheetWrites, async (command) => {
+							sent.push(command);
+							return true;
+						});
+						openSection(section);
+						const button = container.querySelectorAll<HTMLButtonElement>(PRESSABLE)[index];
+						await act(async () => {
+							button?.click();
+						});
+						pressed += 1;
+					}
 				}
-			}
-			expect(pressed).toBeGreaterThan(0);
-			expect(sent.length).toBeGreaterThan(0);
-			// The question is AUTHORITY: a value the core refuses for this sheet's numbers (spending a coin
-			// the purse does not hold — equipment.spec relies on that refusal) is not a dead control.
-			for (const command of sent) {
-				const result = dispatchCommand(state, env, { ...command, actorId: viewer } as CoreCommand);
-				expect(
-					result.status === 'accepted' ? 'accepted' : result.rejection.code,
-					`${command.type} ${JSON.stringify(command.payload)}: ${
-						result.status === 'rejected' ? result.rejection.message : ''
-					}`,
-				).not.toBe('actor-not-authorized');
-			}
-			// And the authority-only refusals really are caught: the same presses from an observer fail.
-			const observer = sent.filter(
-				(command) =>
-					dispatchCommand(state, env, {
+				expect(pressed).toBeGreaterThan(0);
+				expect(sent.length).toBeGreaterThan(0);
+				// The question is AUTHORITY: a value the core refuses for this sheet's numbers (spending a coin
+				// the purse does not hold — equipment.spec relies on that refusal) is not a dead control.
+				for (const command of sent) {
+					const result = dispatchCommand(state, env, {
 						...command,
-						actorId: OBSERVER_ACTOR.id,
-					} as CoreCommand).status === 'accepted',
-			);
-			expect(observer).toEqual([]);
-		});
+						actorId: viewer,
+					} as CoreCommand);
+					expect(
+						result.status === 'accepted' ? 'accepted' : result.rejection.code,
+						`${command.type} ${JSON.stringify(command.payload)}: ${
+							result.status === 'rejected' ? result.rejection.message : ''
+						}`,
+					).not.toBe('actor-not-authorized');
+				}
+				// And the authority-only refusals really are caught: the same presses from an observer fail.
+				const observer = sent.filter(
+					(command) =>
+						dispatchCommand(state, env, {
+							...command,
+							actorId: OBSERVER_ACTOR.id,
+						} as CoreCommand).status === 'accepted',
+				);
+				expect(observer).toEqual([]);
+			},
+		);
 	}
 });
