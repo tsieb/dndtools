@@ -259,3 +259,10 @@ Full two-profile e2e and pinned visual comparison on the committed tree follow.
   shell `<h1>` text (now the screen name). The edit-mode tile bodies are pixel-identical after the
   clip change. Re-baselined those 18 in the container (`visual-update.log`, 18 passed); reviewed
   desktop/phone diffs and the rail parchment capture. loop/rc had not moved. `pnpm gates` exit 0.
+- Full two-profile e2e on `68a44cdb` (`--retries=2`, 4 workers): **2049 passed, 43 skipped, 2
+  failed** in 34.4m (`/var/tmp/rc-can-8.4-full2.log`). Both failures were
+  `section-scoped-preview:106` (desktop + phone): an unscoped heading locator now matched the
+  shell `<h1>` as well as the toolbar `<h2>`. Scoped it, and the same pattern in
+  `binding-inspector:95`, to the screen toolbar. Rerun: **6 passed, exit 0** (`r6.log`).
+- Removed the temporary base worktree `/var/tmp/rc-can-8.4-base` after the comparison run.
+- No push, promotion, new loop, extra agents, or dispatcher control-state edits.

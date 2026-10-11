@@ -92,7 +92,9 @@ test.describe('scene editor: widget bindings inspector', () => {
 		await seedFresh(page);
 		const f = await seed(page, 'Binding Wharf');
 		await gotoRoute(page, `/screen/${f.sceneId}?edit=1`);
-		await expect(page.getByRole('heading', { name: 'Binding Wharf' })).toBeVisible();
+		await expect(
+			page.getByTestId('screen-toolbar').getByRole('heading', { name: 'Binding Wharf' }),
+		).toBeVisible();
 		await expect(page.getByTestId('screen-stage')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 

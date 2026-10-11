@@ -115,7 +115,9 @@ test.describe('previews stay inside the previewed actor’s sections', () => {
 		// even on the inert canvas underneath it.
 		await gotoRoute(page, `/screen/${sceneId}?edit=1`);
 		await expect(page.getByTestId('screen-stage')).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Harbor sections' })).toBeVisible();
+		await expect(
+			page.getByTestId('screen-toolbar').getByRole('heading', { name: 'Harbor sections' }),
+		).toBeVisible();
 		await previewAsSectionPlayer(page);
 		const overlay = page.getByTestId('player-preview-overlay');
 		await expect(overlay).toBeVisible();
