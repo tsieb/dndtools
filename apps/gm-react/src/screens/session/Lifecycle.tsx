@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { allowedTransitionsFrom, type SessionWorkflowState } from '@dndtools/core';
-import { Button, Dialog, Field, Icon, Input, Select, StatusDot } from '../../ds';
+import { Button, Checkbox, Dialog, Field, Icon, Input, Select, StatusDot } from '../../ds';
 import { Seg, T, eb } from '../../app/screen-kit';
 import { WORKFLOW_LABEL } from '../../app/ProjectionControl';
 import { useI18n, type MessageKey } from '../../i18n';
@@ -262,6 +262,7 @@ export function EndCombatDialog({
 
 export interface SessionStartChoice {
 	sceneId: string;
+	showToTable: boolean;
 	/** The name typed for a new session, or `null` when continuing (the session keeps its own name). */
 	title: string | null;
 }
@@ -276,7 +277,7 @@ export interface SessionStartChoice {
  */
 export function StartSessionDialog(props: {
 	open: boolean;
-	scenes: readonly { id: string; name: string }[];
+	scenes: readonly { id: string; name: string; shareable: boolean }[];
 	/** The scene a "Continue" start would resume, or null when there is nothing to continue. */
 	continueSceneId: string | null;
 	onClose: () => void;
@@ -292,7 +293,7 @@ function StartSessionForm({
 	onClose,
 	onConfirm,
 }: {
-	scenes: readonly { id: string; name: string }[];
+	scenes: readonly { id: string; name: string; shareable: boolean }[];
 	continueSceneId: string | null;
 	onClose: () => void;
 	onConfirm: (choice: SessionStartChoice) => void;
@@ -302,9 +303,12 @@ function StartSessionForm({
 	const [mode, setMode] = useState<'continue' | 'new'>(continueScene ? 'continue' : 'new');
 	const [sceneId, setSceneId] = useState(continueScene?.id ?? scenes[0]?.id ?? '');
 	const [title, setTitle] = useState('');
+	const [sharingChoices, setSharingChoices] = useState<Record<string, boolean>>({});
 	const chosenSceneId = mode === 'continue' && continueScene ? continueScene.id : sceneId;
 	// Fail closed: with no scene in the vault there is nothing to go live on, so the confirm is
 	// disabled and the dialog says what to do instead rather than firing a core rejection.
+	const chosenScene = scenes.find((scene) => scene.id === chosenSceneId);
+	const showToTable = !!chosenScene?.shareable && (sharingChoices[chosenSceneId] ?? true);
 	const canConfirm = chosenSceneId !== '';
 	return (
 		<Dialog
@@ -328,6 +332,7 @@ function StartSessionForm({
 							canConfirm &&
 							onConfirm({
 								sceneId: chosenSceneId,
+								showToTable,
 								title: mode === 'new' && title.trim() ? title.trim() : null,
 							})
 						}
@@ -382,6 +387,16 @@ function StartSessionForm({
 							</Field>
 						</>
 					)}
+					{chosenScene ? (
+						<Checkbox
+							label={t('session.start.showToTable', { scene: chosenScene.name })}
+							checked={showToTable}
+							disabled={!chosenScene.shareable}
+							onChange={(checked) =>
+								setSharingChoices((choices) => ({ ...choices, [chosenSceneId]: checked }))
+							}
+						/>
+					) : null}
 				</div>
 			)}
 		</Dialog>

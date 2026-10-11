@@ -3,6 +3,7 @@ import {
 	SESSION_LOG_SUBTYPE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	getSessionStatusStrip,
+	canShowSceneToTable,
 } from '@dndtools/core';
 import { Toaster } from '../../../ds';
 import { useRuntime } from '../../../runtime/RuntimeContext';
@@ -140,7 +141,12 @@ function SessionConsole() {
 				actorId,
 				// An unnamed start clears any name left on the slice, so a new session never inherits
 				// the previous one's name.
-				payload: { workflow: 'active', activeSceneId: choice.sceneId, title: choice.title },
+				payload: {
+					workflow: 'active',
+					activeSceneId: choice.sceneId,
+					title: choice.title,
+					showToTable: choice.showToTable,
+				},
 			},
 			t('session.goLive.announcement'),
 		);
@@ -211,7 +217,10 @@ function SessionConsole() {
 			/>
 			<StartSessionDialog
 				open={startOpen}
-				scenes={startableScenes}
+				scenes={startableScenes.map((scene) => ({
+					...scene,
+					shareable: canShowSceneToTable(runtime.state.scenes.scenes[scene.id]),
+				}))}
 				continueSceneId={continueSceneId}
 				onClose={() => setStartOpen(false)}
 				onConfirm={(choice) => {

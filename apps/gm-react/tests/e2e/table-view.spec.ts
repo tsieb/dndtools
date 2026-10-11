@@ -100,12 +100,20 @@ async function openTable(page: Page, browser: Browser, testInfo: TestInfo): Prom
 }
 
 /** Start session from the Session screen's own dialog, on the named scene. */
-async function startSession(page: Page, sceneName: string): Promise<void> {
+async function startSession(page: Page, sceneName: string, showToTable = true): Promise<void> {
 	await page.getByRole('button', { name: 'Start session', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Start a session' });
 	const mode = dialog.getByRole('radio', { name: 'New session' });
 	if (await mode.isVisible()) await mode.click();
 	await dialog.getByRole('combobox').first().selectOption({ label: sceneName });
+	const sharing = dialog.getByRole('checkbox', { name: `Show ${sceneName} to the table` });
+	if (sceneName === TABLE_SCENE) {
+		await expect(sharing).toBeChecked();
+		if (!showToTable) await sharing.uncheck();
+	} else {
+		await expect(sharing).not.toBeChecked();
+		await expect(sharing).toBeDisabled();
+	}
 	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
@@ -169,6 +177,27 @@ test('a DM-only start shows the table nothing and the companion says so; Everyon
 			.getByLabel('Scene shown to everyone', { exact: true })
 			.selectOption({ label: TABLE_SCENE });
 		await expect(stage).toContainText(TABLE_SCENE);
+	} finally {
+		await table.close();
+	}
+});
+
+test('unchecking Show to the table starts live with an empty joined stage', async ({
+	page,
+	browser,
+}, testInfo) => {
+	const table = await openTable(page, browser, testInfo);
+	try {
+		await startSession(page, TABLE_SCENE, false);
+		const stage = table.player.getByTestId('player-stage');
+		await expect(stage).toContainText('has not shown a scene yet.');
+		await expect(stage).not.toContainText(TABLE_SCENE);
+		await expect(page.getByLabel('Scene shown to everyone', { exact: true })).toHaveValue('');
+		expect(
+			await page.evaluate(() =>
+				Object.keys(window.__rt!.state.session.playerViewAssignments ?? {}),
+			),
+		).toEqual([]);
 	} finally {
 		await table.close();
 	}

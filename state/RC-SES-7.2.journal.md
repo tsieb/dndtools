@@ -73,12 +73,28 @@ No push, promotion, dispatcher-state change or additional agent.
 
 ## Handoffs
 
-- **Start-session opt-out in the dialog.** The core accepts `showToTable: false` on
-  `session.set-workflow`, but no UI passes it: the Start-session dialog lives in
-  `screens/session/Lifecycle.tsx` and its dispatch in `app/widgets/builtin/SessionBody.tsx`, both
-  outside this claim. The owner can add the "Show <scene> to the table" checkbox there (checked by
-  default when the scene is shared) and pass `showToTable` through. Until then the GM takes a shown
-  scene down from the Stage panel's Everyone row.
 - `packages/core/src/lifecycle/session-workflow.ts` does not list `session.project-table-view` in
   `SESSION_COMMAND_AVAILABILITY` (a `Partial` map; nothing reads it for this command). Adding
   `'always'` beside `session.project-player-view` is a one-line follow-up for the owner.
+
+## Review revision — Start-session opt-out
+
+- Independent review confirmed the missing checkbox is required. The explicit revision request
+  supersedes the earlier attempt's decision to defer the two UI files outside the original claim.
+- Added the localized “Show {scene} to the table” checkbox to `Lifecycle.tsx` and forwarded its
+  boolean through `SessionBody.tsx`. Eligibility uses core `canShowSceneToTable`; shared scenes
+  default checked, private scenes are unchecked and disabled. Choices persist per scene while the
+  dialog is open and reset on reopen.
+- Extended fake-LAN acceptance coverage to assert the default, private-scene refusal in the UI,
+  and an unchecked start leaving the connected companion live with an empty stage.
+- Validation completed for this revision (original command logs inspected):
+  - `pnpm --filter @dndtools/core exec vitest run tests/player-view-table.test.ts tests/player-view-control.test.ts`: 15 passed.
+  - `pnpm --filter @dndtools/gm-react exec playwright test tests/e2e/table-view.spec.ts --workers=2`: 6 passed, desktop and mobile over fake LAN.
+  - `pnpm exec vitest run --config vitest.app.config.ts apps/gm-react/src/i18n`: 47 passed.
+  - `pnpm --filter @dndtools/gm-react typecheck`: passed.
+  - Targeted ESLint, Prettier check for all eight changed files, and `git diff --check`: passed.
+  - `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh -g session`:
+    30 passed in the pinned container; no baseline changes. This focused visual run covers the
+    Session screen; the new dialog checkbox is exercised by the fake-LAN tests.
+- Full wrapper gates and independent review remain the central operator's next step. No push,
+  promotion, dispatcher control-state edit, or additional agent.

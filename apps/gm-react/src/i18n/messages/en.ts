@@ -279,6 +279,7 @@ export const en = {
 		'Session started — the log, the clock and the automations are running',
 	// RC-SES-1.3 — the start flow: continue the scene the session was already on, or start a new one
 	// with a name. The name is durable session state, so it is worded as a name, not a label.
+	'session.start.showToTable': 'Show {scene} to the table',
 	'session.start.title': 'Start a session',
 	'session.start.description': 'Choose the scene players see once the session is live.',
 	'session.start.modeLabel': 'How to start',

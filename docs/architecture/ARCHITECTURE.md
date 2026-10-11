@@ -51,7 +51,9 @@ Build artifacts (`dist/`, `release/`, Gradle outputs, `.aws-sam/`) are generated
   shown a scene again. A DM-only scene, a template or a default GM workspace is refused for the
   whole table. The dispatcher applies the table view to `session.set-workflow` in the same result:
   Start session (Standby or Prep → Live) shows a shared active scene to the table unless the start
-  passes `showToTable: false` or a table view is already set, and every reset clears it. The Stage
+  passes `showToTable: false` or a table view is already set, and every reset clears it.
+  Start session offers a “Show {scene} to the table” checkbox, checked by default for a shared
+  scene and disabled for a private scene; its value is forwarded as `showToTable`. The Stage
   panel's Everyone row (`src/app/ProjectionControl.tsx`) sets or clears it by hand.
 - **Cloud client** (`src/cloud/`). Cognito auth, E2EE backup and cross-device merge
   (`syncEngine.ts`, `vaultKey.ts`), app-api (`appApi.ts`), billing (`billing.ts`), telemetry, and
