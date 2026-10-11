@@ -127,7 +127,11 @@ test('a builtin inspector offers working Small, Medium and Large presets', async
 		};
 	});
 	await gotoRoute(page, `/scene/${sceneId}`);
+	// Hash navigation can leave the previous board's identically named Edit layout button
+	// mounted while the editor chunk loads. Wait for this route, not only the shell's h1.
+	await expect(page.getByTestId('scene-editor-stage')).toBeVisible();
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	// The scene details panel initially occupies the phone inspector slot.
 	const closeDetails = page.getByRole('button', { name: 'Close scene details' });
 	if (await closeDetails.isVisible()) await closeDetails.click();

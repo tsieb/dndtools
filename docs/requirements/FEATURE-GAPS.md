@@ -22,6 +22,13 @@ means deleting it.
 
 ## Surfaces
 
+RC-CAN-7.9 retires the bespoke Run pages, not their POL coverage. RC-POL-1.1 applies to the
+Command Center screen's template parts, RC-POL-1.2 to the GM screen rendered by the board engine,
+and RC-POL-1.4 to the Session screen's template parts. Their existing route aliases and visual
+specs continue to exercise those surfaces; `/screen/:id` supplies the shared screen controls.
+The shell remains the RC-POL-1.23 surface. Provisioning failure on `/board` shows recovery feedback
+instead of mounting the retired board page.
+
 <!-- inventory:start -->
 
 | Surface           | Route              | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Honest limits                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Evidence                                          | E2E                                                                                                                                                                                                           |

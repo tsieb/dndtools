@@ -148,3 +148,110 @@ provisioning write. What it gets back is now decided entirely inside the owned `
 - The Session 1 full-suite run (1,976 passed, 1 base flake) predates this rework. Since then the
   only differences are the screen-less branch of `Board` and the reverted `ScreenView.tsx`;
   `/screen/:id` renders exactly as in that run.
+
+## Session 3 — post-rebase visual-gate feedback — 2026-10-10
+
+Starting HEAD: `d0ba30c20ebdc59778e4f49b9e6736dd834c777f`; worktree clean.
+No dispatch Headroom tools are exposed; diagnostics below use original command output.
+
+Read the supplied gate log at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/8076025e-3eb5-4a73-8b51-a4d1ec9b6199/output.log`.
+It reports 544 passed / 2 failed: desktop dungeon keyboard shortcuts and rail high-contrast
+Extensions. Both failures time out after 5 seconds waiting for element stability during screenshot
+capture, after fonts load; neither reports a pixel difference. These surfaces are outside the task
+claim. No baselines, tolerances, retries or shared test configuration have been changed.
+
+Added a BoardAlias regression case covering an in-flight Retry, suppression of duplicate clicks,
+a second storage failure, and successful recovery on the next attempt. Throughout failure and
+pending states no board toolbar or widget is mounted. FEATURE-GAPS now explicitly maps
+RC-POL-1.1/1.2/1.4 to the replacement screen surfaces and preserves shell ownership under POL-1.23.
+No runtime source changed in this follow-up, so it cannot change the measured boot bundle.
+
+Validation in progress:
+
+- Repeated pinned-container palette/help and Extensions specs, all three tiers, 3 repetitions,
+  2 workers: `/var/tmp/rc-can-7.9-visual-focused.log`.
+- Full functional e2e, desktop and mobile, 4 workers:
+  `/var/tmp/rc-can-7.9-e2e.log`.
+- Focused BoardAlias unit test: `/var/tmp/rc-can-7.9-unit.log`.
+- Feature inventory audit: `/var/tmp/rc-can-7.9-feature-audit.log`.
+
+The initial two-worker functional run was deliberately interrupted to use the repository's
+four-worker local cap. Its output is retained at `/var/tmp/rc-can-7.9-e2e-interrupted.log`; it is
+not a passing run. The four-worker run starts the full suite from scratch.
+
+Completed checks: BoardAlias 4/4 tests passed; feature-audit all 40 limit anchors valid;
+`pnpm gates` passed (existing file-size warnings only); changed-file Prettier and focused ESLint
+passed.
+
+App `typecheck` passed (exit 0). Repeated focused pinned visual comparison completed with
+**180 passed**, exit 0, in 11.6 minutes. This includes each originally failing case three times
+in its reported tier and both files across all three tiers; neither timeout reproduced.
+Started the complete pinned gate with `--update-snapshots=none --workers=2`, original output
+at `/var/tmp/rc-can-7.9-visual-full.log`. The full functional run is still in progress.
+
+The full functional run reproduced `tile-resize.spec.ts:120` on desktop. The original failure
+artifact (`apps/gm-react/test-results/tile-resize-a-builtin-insp-af9f2-ll-Medium-and-Large-presets-desktop-chromium/error-context.md`)
+shows `Edit layout`, not `Done`: the editor was not editing when Enter was pressed. Inspection of
+`gotoRoute` shows it waits for the runtime and an attached shell h1, not the destination route.
+The previous board has the same Edit layout button and tile IDs, so the test can interact with
+that outgoing board while the lazy editor mounts. This evidence supports a navigation-readiness
+race rather than Session 1's tentative keyboard-listener explanation.
+
+Companion e2e repair: wait for `scene-editor-stage` after navigating, then assert `Done` after
+clicking Edit layout. All keyboard selection and resize/persistence assertions remain intact;
+no sleeps, retries, application changes or relaxed checks. Repeating the affected case 15 times
+on each profile with an isolated port/output directory:
+`/var/tmp/rc-can-7.9-resize.log`. The in-progress full run remains recorded as a failure even if
+its remaining tests pass; a focused rerun does not turn it into a green full-suite result.
+
+The repaired resize case passed **30/30** (15 desktop + 15 mobile), exit 0, in 2.1 minutes.
+The full run's original desktop failure and this separate focused result are kept distinct.
+
+The complete visual run hit a different case: phone `atlas empty dungeon`. The original error
+context, preserved at `/var/tmp/rc-can-7.9-atlas-error-context.md`, reports a 5-second
+`toBeVisible` timeout for the map-library illustration; the page still reads "Loading your vault…".
+It failed before screenshot comparison, not on pixel differences. No Atlas or shared visual-test
+source has changed. Both originally reported visual failures passed in this full run.
+
+Later in the full visual run, phone high-contrast `/board` and `/characters` reported pixel
+mismatches. Inspected both actual PNGs: each captured the shell around "Loading your vault…",
+not route content. `App.tsx` uses the same Boot status for its lazy-route Suspense fallback, so
+`window.__rt.loaded`, a shell heading, fonts and network idle do not prove the route has rendered.
+Added an explicit assertion that this status is hidden, using the existing 20-second boot budget,
+in the golden-route settle helper and Atlas open helper. No application code, snapshot, pixel
+tolerance, retry count or global timeout changed. These companion visual fixtures now fail on an
+unresolved loading state instead of comparing it to the completed route.
+
+Both long-running command sessions returned exit 143 before their summaries; the functional log
+stops during the phone navigator cases, so that full e2e run is incomplete. The pinned visual
+container itself remained running after its attached command exited. Capturing its original
+container output and exit status separately at `/var/tmp/rc-can-7.9-visual-full-container.log`
+and `/var/tmp/rc-can-7.9-visual-full-container.exit` to recover its actual result.
+
+Recovered complete visual result: **543 passed / 3 failed**, container exit **1**, 31.1 minutes.
+Only the Atlas and two golden-route loading-state cases above failed. Original artifacts are
+preserved under `/var/tmp/rc-can-7.9-visual-failures/`. Rerunning both repaired visual files,
+all themes and all three tiers, with snapshot updates disabled:
+`/var/tmp/rc-can-7.9-visual-repaired.log`.
+
+### Final follow-up results and handoff
+
+- Repaired Atlas + golden-route visual files: **225 passed**, exit 0, 7.9 minutes, all three
+  tiers and every theme in those files; `--update-snapshots=none --workers=2`.
+- Originally reported palette/help + Extensions cases: **180 passed**, exit 0, three repetitions
+  across all tiers. No snapshot was changed.
+- Resize inspector after route-readiness repair: **30 passed**, exit 0 (15 per functional profile).
+- BoardAlias recovery coverage: **4 passed**, exit 0.
+- App typecheck, feature-audit (40 valid limit anchors), quality gates, changed-file formatting,
+  focused ESLint and `git diff --check` passed. Final command outputs are under
+  `/var/tmp/rc-can-7.9-{gates-final,format-final,lint-final}.log`.
+- The interrupted full e2e output contains 1,643 passes, 36 skips and the pre-repair desktop
+  resize failure. It is **not** a completed or green full-suite result. Central validation must
+  rerun the full suite on both profiles at the committed head.
+- The recovered full visual gate was 543/546 before the readiness fixes. Its failures are all
+  included in the subsequent 225/225 repaired-file run, but that run is not a second full gate.
+- The retirement implementation from the prior commits remains intact. This follow-up changes
+  test fixtures, POL mapping documentation and this journal only, so the boot bundle is unchanged
+  from the starting candidate. No push, promotion, additional agent, dispatcher control-state
+  mutation or new dispatcher loop was performed.

@@ -18,6 +18,10 @@ async function openAtlas(page: Page, theme: Theme): Promise<void> {
 	await page.goto('/#/atlas', { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
 	await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+	// Runtime readiness does not mean the lazy Atlas route has left its Suspense fallback.
+	await expect(page.getByRole('status').filter({ hasText: 'Loading your vault…' })).toBeHidden({
+		timeout: 20_000,
+	});
 }
 
 async function clipOf(

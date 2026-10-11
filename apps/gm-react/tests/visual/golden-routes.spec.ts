@@ -52,6 +52,11 @@ async function stage(page: Page, theme: Theme): Promise<void> {
 async function settle(page: Page, theme: Theme): Promise<void> {
 	await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 	await page.waitForLoadState('networkidle');
+	// The core and shell can be ready while a lazy route still shows App's Suspense fallback.
+	// A stable loading screen is not the route baseline, even after the network becomes idle.
+	await expect(page.getByRole('status').filter({ hasText: 'Loading your vault…' })).toBeHidden({
+		timeout: 20_000,
+	});
 	await page.evaluate(async () => {
 		await document.fonts.ready;
 		// Two frames: the first commits any layout the font swap caused, the second paints it.

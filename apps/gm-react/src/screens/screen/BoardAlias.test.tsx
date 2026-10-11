@@ -67,6 +67,7 @@ beforeEach(() => {
 afterEach(() => {
 	act(() => root.unmount());
 	host.remove();
+	vi.restoreAllMocks();
 });
 
 async function mount() {
@@ -89,6 +90,36 @@ const boardRendered = () =>
 	host.querySelector('[data-testid^="widget-"]') !== null;
 
 describe('/board (RC-CAN-7.9)', () => {
+	it('keeps a pending or failed Retry out of the board engine and allows another attempt', async () => {
+		failWrites = true;
+		await mount();
+		const retry = host.querySelector('button')!;
+		let rejectWrite!: (reason: Error) => void;
+		const dispatch = vi.spyOn(runtime, 'dispatch').mockImplementationOnce(
+			() =>
+				new Promise<CommandResult>((_resolve, reject) => {
+					rejectWrite = reject;
+				}),
+		);
+
+		await act(async () => retry.click());
+		expect(retry.disabled).toBe(true);
+		expect(boardRendered()).toBe(false);
+		await act(async () => retry.click());
+		expect(dispatch).toHaveBeenCalledTimes(1);
+
+		await act(async () => rejectWrite(new Error('QuotaExceededError')));
+		expect(retry.disabled).toBe(false);
+		expect(host.textContent).toContain("couldn't be set up on this device");
+		expect(boardRendered()).toBe(false);
+
+		failWrites = false;
+		await act(async () => retry.click());
+		expect(dispatch).toHaveBeenCalledTimes(2);
+		expect(runtime.state.commandCenter.homeSceneId).toBeTruthy();
+		expect(host.textContent).toBe('');
+	});
+
 	it('a non-GM gets the player notice, and nothing is provisioned for them', async () => {
 		runtime.state = {
 			...runtime.state,
