@@ -410,6 +410,14 @@ export const revokePlayerViewInputSchema = z
 	})
 	.strict();
 
+// RC-SES-7.2 — show one scene to the whole table (every player and observer, and anyone who joins
+// later); `null` takes the table view down again.
+export const projectTableViewInputSchema = z
+	.object({
+		sceneId: idSchema.nullable(),
+	})
+	.strict();
+
 // COLLAB-012 — PLAYER GROUP management (DM-only). A group is a DELIVERY/PROJECTION TARGET ONLY; membership
 // confers NO permission. Members must be registered participants (players/observers), never the DM.
 export const createPlayerGroupInputSchema = z

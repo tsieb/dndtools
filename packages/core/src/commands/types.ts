@@ -204,6 +204,13 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// RC-SES-7.2 — show one scene to every player and observer at once (the table view).
+	| {
+			type: 'session.project-table-view';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'session.set-workflow'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-001: RECOVER an archived Session State back into recap review (the restore counterpart of the
 	// recap/archive snapshot). DM-only; validated against the SES-011 transition table; fails closed when
@@ -1245,6 +1252,13 @@ export type CoreEvent =
 			assignmentId: string;
 			sceneId: SceneId;
 			playerActorId: ActorId;
+			actorId: ActorId;
+	  }
+	// RC-SES-7.2 — the table view was set (`sceneId`) or taken down (`null`).
+	| {
+			kind: 'session.table-view-set';
+			sceneId: SceneId | null;
+			playerActorIds: ActorId[];
 			actorId: ActorId;
 	  }
 	| {

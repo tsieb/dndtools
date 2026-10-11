@@ -64,6 +64,7 @@ export type {
 	SessionHandout,
 	SessionPartyLocation,
 	SessionPlayerViewAssignment,
+	SessionTableView,
 	SessionQuickTimer,
 	SessionState,
 	SessionTimer,
@@ -1124,6 +1125,7 @@ export {
 	removeMapEmbedInputSchema,
 	revokeGrantInputSchema,
 	revokePlayerViewInputSchema,
+	projectTableViewInputSchema,
 	resizeWidgetInputSchema,
 	transferOwnershipInputSchema,
 	updateMapEmbedInputSchema,
@@ -1692,8 +1694,9 @@ export type {
 	PlayerViewControllerParticipant,
 	PlayerViewControllerQueryResult,
 	PlayerViewControllerSceneOption,
+	PlayerViewControllerTableView,
 } from './queries/player-view-control';
-export { getPlayerViewController } from './queries/player-view-control';
+export { canShowSceneToTable, getPlayerViewController } from './queries/player-view-control';
 
 // UX-CMD-003 / UX-CMD-012 — the viewer-gated Command Center home read model: the glanceable session
 // status strip + the role-differentiated home decision (the single no-leak choke point for `/`).

@@ -1,11 +1,20 @@
-import { projectPlayerViewInputSchema, revokePlayerViewInputSchema } from '../schemas/commands';
+import {
+	projectPlayerViewInputSchema,
+	projectTableViewInputSchema,
+	revokePlayerViewInputSchema,
+} from '../schemas/commands';
 import type {
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionTarget,
 	SessionPlayerViewAssignment,
+	SessionTableView,
 } from '../state/session-state';
+import type { Scene } from '../state/scene-state';
+import type { ActorId } from '../state/ids';
+import type { OperationLog } from '../sync/operation-log';
 import { resolveDeliveryTarget } from '../collab/player-groups';
 import { hasDmAuthority } from '../state/permission-state';
+import { canShowSceneToTable } from '../queries/player-view-control';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -88,14 +97,20 @@ export function handleProjectPlayerView(
 	);
 	if (resolved.unknownGroupIds.length > 0) {
 		return reject(
-			{ code: 'invalid-payload', message: `Unknown player group(s): ${resolved.unknownGroupIds.join(', ')}.` },
+			{
+				code: 'invalid-payload',
+				message: `Unknown player group(s): ${resolved.unknownGroupIds.join(', ')}.`,
+			},
 			state,
 		);
 	}
 	const projectionPlayerIds = resolved.recipientActorIds;
 	if (projectionPlayerIds.length === 0) {
 		return reject(
-			{ code: 'invalid-payload', message: 'Select at least one player or a non-empty player group.' },
+			{
+				code: 'invalid-payload',
+				message: 'Select at least one player or a non-empty player group.',
+			},
 			state,
 		);
 	}
@@ -109,29 +124,67 @@ export function handleProjectPlayerView(
 	const scene = state.scenes.scenes[target.sceneId];
 	if (!scene)
 		return reject({ code: 'scene-not-found', message: `Scene ${target.sceneId} missing.` }, state);
+	const projected = assignPlayerViews(state, env, actor.id, projectionPlayerIds, target, scene, {
+		connectionState: parsed.data.connectionState,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: {
+			...state,
+			session: { ...state.session, playerViewAssignments: projected.assignments },
+			sync: projected.log,
+		},
+		events: projected.events,
+		operationIds: projected.operationIds,
+	};
+}
+
+interface AssignedPlayerViews {
+	assignments: Record<ActorId, SessionPlayerViewAssignment>;
+	log: OperationLog;
+	events: CoreEvent[];
+	operationIds: string[];
+}
+
+/**
+ * Write one `session.project-player-view` assignment per participant onto `state`'s assignments and
+ * op log. Shared by the per-player command, the table view and a joiner inheriting the table view,
+ * so every path records the same op shape (the mobile catch-up classifier and the per-player reads
+ * see no difference between them).
+ */
+function assignPlayerViews(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: ActorId,
+	playerActorIds: readonly ActorId[],
+	target: PlayerViewProjectionTarget,
+	scene: Scene,
+	options: { connectionState: 'connected' | 'offline'; log?: OperationLog },
+): AssignedPlayerViews {
 	const deliveryStatus: PlayerViewDeliveryStatus =
-		parsed.data.connectionState === 'offline' ? 'queued' : 'delivered';
+		options.connectionState === 'offline' ? 'queued' : 'delivered';
 	const now = env.clock();
-	const nextAssignments = { ...state.session.playerViewAssignments };
+	const assignments = { ...state.session.playerViewAssignments };
 	const events: CoreEvent[] = [];
-	let nextLog = state.sync;
+	let log = options.log ?? state.sync;
 	const operationIds: string[] = [];
 
-	for (const playerActorId of projectionPlayerIds) {
-		const previous = nextAssignments[playerActorId];
+	for (const playerActorId of playerActorIds) {
+		const previous = assignments[playerActorId];
 		const assignment: SessionPlayerViewAssignment = {
 			id: previous?.id ?? env.ids(),
 			playerActorId,
 			target,
 			deliveryStatus,
-			deliveryReason: parsed.data.connectionState,
-			createdBy: actor.id,
+			deliveryReason: options.connectionState,
+			createdBy: actorId,
 			createdAt: previous?.createdAt ?? now,
 			updatedAt: now,
 			revision: (previous?.revision ?? 0) + 1,
 		};
-		nextAssignments[playerActorId] = assignment;
-		const draft = appendOperationDraft(env, nextLog, actor.id, {
+		assignments[playerActorId] = assignment;
+		const draft = appendOperationDraft(env, log, actorId, {
 			entityType: 'session',
 			entityId: 'session-default',
 			opType: 'session.project-player-view',
@@ -141,27 +194,205 @@ export function handleProjectPlayerView(
 			afterRevision: assignment.revision,
 			dependencies: [`scene:${scene.id}@${scene.ownership.revision}`],
 		});
-		nextLog = draft.log;
+		log = draft.log;
 		operationIds.push(draft.op.id);
 		events.push({
 			kind: 'session.player-view-projected',
 			assignmentId: assignment.id,
 			sceneId: scene.id,
 			playerActorId,
-			actorId: actor.id,
+			actorId,
 			deliveryStatus,
 		});
 	}
+
+	return { assignments, log, events, operationIds };
+}
+
+/** Every registered player and observer, in a stable order — the "everyone" of the table view. */
+function tableParticipantIds(state: CoreStateSlice): ActorId[] {
+	return Object.values(state.permissions.actors)
+		.filter((participant) => !hasDmAuthority(participant.role))
+		.map((participant) => participant.id)
+		.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+function sceneTarget(sceneId: string): PlayerViewProjectionTarget {
+	return {
+		kind: 'scene',
+		sceneId,
+		sectionIds: null,
+		widgetInstanceIds: null,
+		displayState: null,
+		mapRegion: null,
+	};
+}
+
+/**
+ * RC-SES-7.2 — `session.project-table-view`: show one scene to the whole table. In ONE accepted result
+ * it records the table view (the default for what players see) and assigns the scene to every
+ * registered player and observer, replacing whatever each was shown; a participant who joins later
+ * inherits it ({@link inheritTableView}). `session.project-player-view` stays the way to make an
+ * exception for one participant, and that exception wins until the table is shown a scene again.
+ *
+ * Fail closed: a DM-only scene, a template and a default GM workspace are refused (`hidden-target`)
+ * with nothing written — "everyone" must never sweep a DM-only scene onto the table. `sceneId: null`
+ * takes the table view down and clears every participant's assignment.
+ */
+export function handleProjectTableView(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(projectTableViewInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const previous = state.session.tableView ?? null;
+	const participantIds = tableParticipantIds(state);
+	const { sceneId } = parsed.data;
+
+	if (sceneId === null) {
+		if (!previous)
+			return reject({ code: 'invalid-state', message: 'No scene is shown to the table.' }, state);
+		const revoked = revokePlayerViews(state, env, actor.id, participantIds);
+		const draft = appendOperationDraft(env, revoked.log, actor.id, {
+			entityType: 'session',
+			entityId: 'session-default',
+			opType: 'session.project-table-view',
+			path: 'tableView',
+			value: null,
+			beforeRevision: previous.revision,
+			afterRevision: previous.revision + 1,
+		});
+		return {
+			status: 'accepted',
+			nextState: {
+				...state,
+				session: {
+					...state.session,
+					tableView: null,
+					playerViewAssignments: revoked.assignments,
+				},
+				sync: draft.log,
+			},
+			events: [
+				...revoked.events,
+				{
+					kind: 'session.table-view-set',
+					sceneId: null,
+					playerActorIds: participantIds,
+					actorId: actor.id,
+				},
+			],
+			operationIds: [...revoked.operationIds, draft.op.id],
+		};
+	}
+
+	const scene = state.scenes.scenes[sceneId];
+	if (!scene)
+		return reject({ code: 'scene-not-found', message: `Scene ${sceneId} does not exist.` }, state);
+	if (!canShowSceneToTable(scene)) {
+		return reject(
+			{
+				code: 'hidden-target',
+				message: `${scene.name} is not shared with players, so it cannot be shown to the whole table.`,
+			},
+			state,
+		);
+	}
+
+	const target = sceneTarget(scene.id);
+	const tableView: SessionTableView = {
+		target,
+		setBy: actor.id,
+		setAt: env.clock(),
+		revision: (previous?.revision ?? 0) + 1,
+	};
+	const tableOp = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'session',
+		entityId: 'session-default',
+		opType: 'session.project-table-view',
+		path: 'tableView',
+		value: tableView,
+		beforeRevision: previous?.revision ?? 0,
+		afterRevision: tableView.revision,
+		dependencies: [`scene:${scene.id}@${scene.ownership.revision}`],
+	});
+	const projected = assignPlayerViews(state, env, actor.id, participantIds, target, scene, {
+		connectionState: 'connected',
+		log: tableOp.log,
+	});
 
 	return {
 		status: 'accepted',
 		nextState: {
 			...state,
-			session: { ...state.session, playerViewAssignments: nextAssignments },
-			sync: nextLog,
+			session: {
+				...state.session,
+				tableView,
+				playerViewAssignments: projected.assignments,
+			},
+			sync: projected.log,
 		},
-		events,
-		operationIds,
+		events: [
+			...projected.events,
+			{
+				kind: 'session.table-view-set',
+				sceneId: scene.id,
+				playerActorIds: participantIds,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [tableOp.op.id, ...projected.operationIds],
+	};
+}
+
+/**
+ * RC-SES-7.2 — a participant who JOINS the table inherits the table view. Wraps the roster commands
+ * (`permission.add-players`, `permission.assign-role`) in the dispatcher: after the roster command is
+ * accepted, every actor who is now a player or observer but was not one before (a new seat, or a
+ * seat moved off the DM side) and has no view of their own is assigned the table view, in the same
+ * accepted result. A rejected command, no table view, or a table scene that has since stopped being
+ * shareable (deleted, or made DM-only) leaves the result untouched — fail closed.
+ */
+export function inheritTableView(
+	before: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	result: CommandResult,
+): CommandResult {
+	if (result.status !== 'accepted') return result;
+	const state = result.nextState;
+	const tableView = state.session.tableView;
+	if (!tableView) return result;
+	const scene = state.scenes.scenes[tableView.target.sceneId];
+	if (!scene || !canShowSceneToTable(scene)) return result;
+
+	const joinerIds = tableParticipantIds(state).filter((participantId) => {
+		const previous = before.permissions.actors[participantId];
+		const joined = !previous || hasDmAuthority(previous.role);
+		return joined && !state.session.playerViewAssignments[participantId];
+	});
+	if (joinerIds.length === 0) return result;
+
+	const projected = assignPlayerViews(state, env, actorId, joinerIds, tableView.target, scene, {
+		connectionState: 'connected',
+	});
+	return {
+		...result,
+		nextState: {
+			...state,
+			session: { ...state.session, playerViewAssignments: projected.assignments },
+			sync: projected.log,
+		},
+		events: [...result.events, ...projected.events],
+		operationIds: [...result.operationIds, ...projected.operationIds],
 	};
 }
 
@@ -179,16 +410,37 @@ export function handleRevokePlayerView(
 	const parsed = parseInput(revokePlayerViewInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
-	const nextAssignments = { ...state.session.playerViewAssignments };
+	const revoked = revokePlayerViews(state, env, actor.id, parsed.data.playerActorIds);
+
+	return {
+		status: 'accepted',
+		nextState: {
+			...state,
+			session: { ...state.session, playerViewAssignments: revoked.assignments },
+			sync: revoked.log,
+		},
+		events: revoked.events,
+		operationIds: revoked.operationIds,
+	};
+}
+
+/** Remove each listed participant's assignment (one `session.revoke-player-view` op each); unassigned ids are skipped. */
+function revokePlayerViews(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: ActorId,
+	playerActorIds: readonly ActorId[],
+): AssignedPlayerViews {
+	const assignments = { ...state.session.playerViewAssignments };
 	const events: CoreEvent[] = [];
-	let nextLog = state.sync;
+	let log = state.sync;
 	const operationIds: string[] = [];
 
-	for (const playerActorId of parsed.data.playerActorIds) {
-		const previous = nextAssignments[playerActorId];
+	for (const playerActorId of playerActorIds) {
+		const previous = assignments[playerActorId];
 		if (!previous) continue;
-		delete nextAssignments[playerActorId];
-		const draft = appendOperationDraft(env, nextLog, actor.id, {
+		delete assignments[playerActorId];
+		const draft = appendOperationDraft(env, log, actorId, {
 			entityType: 'session',
 			entityId: 'session-default',
 			opType: 'session.revoke-player-view',
@@ -197,25 +449,16 @@ export function handleRevokePlayerView(
 			beforeRevision: previous.revision,
 			afterRevision: previous.revision + 1,
 		});
-		nextLog = draft.log;
+		log = draft.log;
 		operationIds.push(draft.op.id);
 		events.push({
 			kind: 'session.player-view-revoked',
 			assignmentId: previous.id,
 			sceneId: previous.target.sceneId,
 			playerActorId,
-			actorId: actor.id,
+			actorId,
 		});
 	}
 
-	return {
-		status: 'accepted',
-		nextState: {
-			...state,
-			session: { ...state.session, playerViewAssignments: nextAssignments },
-			sync: nextLog,
-		},
-		events,
-		operationIds,
-	};
+	return { assignments, log, events, operationIds };
 }

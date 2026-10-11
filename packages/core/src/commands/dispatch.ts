@@ -55,7 +55,12 @@ import {
 	handleSetCampaignIdentity,
 	handleSnapshotCommandCenterAutoSave,
 } from './command-center';
-import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
+import {
+	handleProjectPlayerView,
+	handleProjectTableView,
+	handleRevokePlayerView,
+	inheritTableView,
+} from './player-view';
 import {
 	handleAcknowledgeHandout,
 	handleDeliverHandout,
@@ -450,6 +455,8 @@ export function dispatchCommand(
 			return handleProjectPlayerView(state, env, command.actorId, command.payload);
 		case 'session.revoke-player-view':
 			return handleRevokePlayerView(state, env, command.actorId, command.payload);
+		case 'session.project-table-view':
+			return handleProjectTableView(state, env, command.actorId, command.payload);
 		case 'session.set-workflow':
 			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
 		case 'session.recover':
@@ -558,12 +565,24 @@ export function dispatchCommand(
 			return handleRevokeGrant(state, env, command.actorId, command.payload);
 		case 'permission.transfer-ownership':
 			return handleTransferOwnership(state, env, command.actorId, command.payload);
+		// RC-SES-7.2 — a participant who joins the table (a new player, or a seat moved to player or
+		// observer) inherits the table view in the same accepted result.
 		case 'permission.assign-role':
-			return handleAssignRole(state, env, command.actorId, command.payload);
+			return inheritTableView(
+				state,
+				env,
+				command.actorId,
+				handleAssignRole(state, env, command.actorId, command.payload),
+			);
 		case 'permission.rename-actor':
 			return handleRenameActor(state, env, command.actorId, command.payload);
 		case 'permission.add-players':
-			return handleAddPlayers(state, env, command.actorId, command.payload);
+			return inheritTableView(
+				state,
+				env,
+				command.actorId,
+				handleAddPlayers(state, env, command.actorId, command.payload),
+			);
 		case 'map.create-layer':
 			return handleCreateMapLayer(state, env, command.actorId, command.payload);
 		case 'map.rename-layer':

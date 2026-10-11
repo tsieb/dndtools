@@ -268,6 +268,19 @@ export interface SessionPlayerViewAssignment {
 }
 
 /**
+ * RC-SES-7.2 — the TABLE VIEW: the scene every player and observer is shown by default. Setting it
+ * assigns the scene to every current participant at once (`session.project-table-view`), and a
+ * participant who joins later inherits it; a per-player assignment made afterwards overrides it for
+ * that participant only. Never a DM-only scene (refused fail-closed).
+ */
+export interface SessionTableView {
+	target: PlayerViewProjectionTarget;
+	setBy: ActorId;
+	setAt: string;
+	revision: number;
+}
+
+/**
  * COLLAB-007 — the KIND of content a handout carries. The DM can deliver handouts, IMAGES, NOTES, MAP
  * FRAGMENTS, CIPHERS, and RUMORS (the requirement's explicit content kinds). The kind is descriptive
  * metadata for the GUI/recipient surface; it does NOT change the delivery/visibility/revocation rules
@@ -486,6 +499,12 @@ export interface SessionState {
 	diceHistory: SessionDiceRoll[];
 	timers: Record<WidgetInstanceId, SessionTimer>;
 	playerViewAssignments: Record<ActorId, SessionPlayerViewAssignment>;
+	/**
+	 * RC-SES-7.2 — the default for what players see ({@link SessionTableView}), or null/absent when the
+	 * DM has not shown the table a scene. Optional and additive: a session document persisted before
+	 * this field restores with none, and a reset clears it with the assignments it seeded.
+	 */
+	tableView?: SessionTableView | null;
 	activeMapProjections: Record<ActorId, SessionActiveMapProjection>;
 	/** SES-004 — durable handouts keyed by handout id (delivery, history, reveal state). */
 	handouts: Record<string, SessionHandout>;

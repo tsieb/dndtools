@@ -13,8 +13,22 @@ export interface PlayerViewControllerSceneOption {
 	id: string;
 	name: string;
 	visibility: SceneVisibility;
+	/** RC-SES-7.2 — whether the scene may be shown to the whole table ({@link canShowSceneToTable}). */
+	shareable: boolean;
 	widgetCount: number;
 	updatedAt: string;
+}
+
+/**
+ * RC-SES-7.2 — the table view as the controller reads it: the scene the whole table is shown by
+ * default, or `missing-scene` when that scene has since been deleted.
+ */
+export interface PlayerViewControllerTableView {
+	kind: 'assigned' | 'missing-scene';
+	sceneId: string;
+	sceneName: string | null;
+	revision: number;
+	setAt: string;
 }
 
 export interface PlayerViewControllerAssignment {
@@ -44,6 +58,7 @@ export type PlayerViewControllerQueryResult =
 			controllerActorId: ActorId;
 			sceneOptions: PlayerViewControllerSceneOption[];
 			participants: PlayerViewControllerParticipant[];
+			tableView: PlayerViewControllerTableView | null;
 	  }
 	| { kind: 'denied'; reason: 'unknown-actor' | 'actor-not-authorized' };
 
@@ -52,11 +67,29 @@ const PARTICIPANT_ROLE_ORDER: Record<Exclude<ActorRole, 'dm' | 'co-dm'>, number>
 	observer: 1,
 };
 
+/**
+ * RC-CAN-7.8 — the default GM workspaces (the Command Center and Session screens, ADR-041) are the
+ * GM's own consoles, not something to put in front of a player; templates are not scenes yet.
+ */
+function isProjectableScene(scene: Scene): boolean {
+	return !scene.templateMeta.isTemplate && screenMetaOf(scene).origin?.kind !== 'default';
+}
+
+/**
+ * RC-SES-7.2 — whether `scene` may become the TABLE VIEW (shown to every player and observer, and to
+ * anyone who joins later). Fail closed: a DM-only scene never may — a per-player projection is a
+ * deliberate choice for one person, but "everyone" must never sweep a DM-only scene onto the table.
+ */
+export function canShowSceneToTable(scene: Scene | undefined): boolean {
+	return !!scene && isProjectableScene(scene) && scene.visibility !== 'dm-only';
+}
+
 function sceneOption(scene: Scene): PlayerViewControllerSceneOption {
 	return {
 		id: scene.id,
 		name: scene.name,
 		visibility: scene.visibility,
+		shareable: canShowSceneToTable(scene),
 		widgetCount: scene.widgets.length,
 		updatedAt: scene.ownership.updatedAt,
 	};
@@ -95,12 +128,9 @@ export function getPlayerViewController(
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	if (!hasDmAuthority(actor.role)) return { kind: 'denied', reason: 'actor-not-authorized' };
 
-	// RC-CAN-7.8 — the default GM workspaces (the Command Center and Session screens, ADR-041) are the
-	// GM's own consoles, not something to put in front of a player. The GM screen's board stays here.
+	// The GM screen's board stays here; the default workspaces and templates do not.
 	const sceneOptions = Object.values(state.scenes.scenes)
-		.filter(
-			(scene) => !scene.templateMeta.isTemplate && screenMetaOf(scene).origin?.kind !== 'default',
-		)
+		.filter(isProjectableScene)
 		.map(sceneOption)
 		.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -132,5 +162,23 @@ export function getPlayerViewController(
 			};
 		});
 
-	return { kind: 'available', controllerActorId: actor.id, sceneOptions, participants };
+	const table = state.session.tableView ?? null;
+	const tableScene = table ? state.scenes.scenes[table.target.sceneId] : undefined;
+	const tableView: PlayerViewControllerTableView | null = table
+		? {
+				kind: tableScene ? 'assigned' : 'missing-scene',
+				sceneId: table.target.sceneId,
+				sceneName: tableScene?.name ?? null,
+				revision: table.revision,
+				setAt: table.setAt,
+			}
+		: null;
+
+	return {
+		kind: 'available',
+		controllerActorId: actor.id,
+		sceneOptions,
+		participants,
+		tableView,
+	};
 }
