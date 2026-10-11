@@ -276,3 +276,13 @@ Applied to the six new goldens (669 → 487 KiB) and to the nine `/session` gold
   against the re-encoded files; no baseline written (`visual-compare-3.log`).
 - No source, spec or copy change in this attempt, so the attempt-2 gates, e2e and axe results
   above still describe the code.
+
+## Attempt 4 — Session baseline snapshot after rebase
+
+The App tests gate failed six `Session.baseline.test.tsx` DOM snapshots: the Prep and recap
+recent-changes times read `5:01 AM` (recorded in local Pacific time) where the runner printed
+`12:01 PM`. The base's `081845b6` pins every date the screen formats to UTC; this branch's snapshot
+predated that pin and survived the rebase. Re-recorded with `-u`: only the 80 time strings change.
+
+- `Session.baseline.test.tsx`: 14 passed in the local zone and with `TZ=Asia/Tokyo`.
+- `TZ=UTC pnpm test:app --maxWorkers=3`: 186 files, 2274 passed (`app-tests-4.log`).
