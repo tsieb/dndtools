@@ -341,9 +341,10 @@ function reviewVerb(opType: string): ReviewChange['verb'] {
  * roadmap §1.7). The core counts every operation in the log, and on an empty vault the log holds
  * only the app's own setup: opening Session provisions the Session screen, the Command Center its
  * home screen. A fresh vault read "2 recent changes to review" for writes nobody made. The default
- * screens, the home pointer, presence and diagnostics, and the revision records a content edit writes
- * beside itself (one edit, two operations) are left out, and the rest are named through the same actor-scoped reads the
- * other panels use, so the list never shows a name this viewer could not open elsewhere.
+ * screens' provisioning operations (not later edits), the home pointer, presence and diagnostics,
+ * and the revision records a content edit writes beside itself (one edit, two operations) are left
+ * out. The rest are named through the same actor-scoped reads the other panels use, so the list
+ * never shows a name this viewer could not open elsewhere.
  */
 export function usePrepRecapDigest() {
 	const runtime = useRuntime();
@@ -383,7 +384,12 @@ export function usePrepRecapDigest() {
 		const recentChanges = digest.recentChanges
 			.filter((change) => {
 				if (NOT_REVIEWED.has(change.entityType)) return false;
-				if (change.entityType === 'scene' && setup.has(change.entityId)) return false;
+				if (
+					change.entityType === 'scene' &&
+					setup.has(change.entityId) &&
+					(change.opType === 'scene.create' || change.opType === 'command-center.bind-default-map')
+				)
+					return false;
 				const key = `${change.entityType}:${change.entityId}`;
 				if (seen.has(key)) return false;
 				seen.add(key);

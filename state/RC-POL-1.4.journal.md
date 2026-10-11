@@ -40,8 +40,8 @@ dispatcher-state change or additional agent. Raw logs stay in `/tmp/pol14/` and 
 - **§1.7 (added 2026-09-29): the recent-changes count.** The core digest counts every op-log entry,
   so an empty vault's Session read "1 recent change to review" for the Session screen the route
   provisions (the friction review saw 2 with the home screen too) and the count was plain text.
-  `usePrepRecapDigest` now reads the digest past its bound, leaves out the default screens, the home
-  pointer, presence/diagnostics and the revision record a content edit writes beside itself, keeps
+  `usePrepRecapDigest` now reads the digest past its bound, leaves out default-screen provisioning
+  operations (retaining subsequent edits), the home pointer, presence/diagnostics and the revision record a content edit writes beside itself, keeps
   one row per changed thing (its newest write, so three widgets added to one scene are one scene),
   and names each through the actor-scoped reads the other panels already use. `RecapPanel` drops the
   core's English prompt and renders the count as a disclosure button (`aria-expanded`,
@@ -91,8 +91,9 @@ dispatcher-state change or additional agent. Raw logs stay in `/tmp/pol14/` and 
       Badges keep their DS icons; conditions use `ConditionBadge`'s per-condition glyph; hidden foes
       wear the `VisibilityChip`; Prep & recap, Capture and Schedule carry the DM-only chip.
 - [x] Renders correctly in all themes and all three tiers; visual snapshots updated and reviewed. —
-      The nine `/session` goldens re-baselined and a new five-theme × three-tier crop of the combat
-      empty state (`tests/visual/session-polish.spec.ts`); every changed state screenshot-reviewed on
+      The nine `/session` goldens re-baselined, six Scholar/Dungeon interface goldens added in
+      attempt 2, and a five-theme × three-tier crop of the combat empty state
+      (`tests/visual/session-polish.spec.ts`); every changed state screenshot-reviewed on
       desktop and phone; five-theme contrast scans in e2e.
 - [x] Motion uses named tokens; nothing animates under `data-motion='reduced'`. — No motion added;
       dice drama, dialogs and sheets use the DS motion tokens and reduced-motion handling.
@@ -216,3 +217,44 @@ dispatcher-state change or additional agent. Raw logs stay in `/tmp/pol14/` and 
   passed (before the quick panel's Next turn went secondary; no visual spec captures the quick
   panel). Baselines: the nine `/session` goldens and fifteen `session-combat-idle--*` crops
   (~5.5 KiB each), all losslessly re-deflated (−53 KiB) → 37,511.9 / 37,888 KiB.
+
+## Attempt 2 — independent review corrections
+
+Starting candidate: `449088190d5333e8c89671a09eb9668ea2246271`. The two medium findings are addressed
+in this follow-up. The checklist above remains applicable with its explicit waivers; attempt 1's
+verification is historical, not a claim about this follow-up. Raw logs: `/tmp/pol14-review/`.
+
+- **Recent changes:** restrict the default-screen exclusion to `scene.create` and the automatic
+  `command-center.bind-default-map` repair. Subsequent metadata/widget/layout edits remain reviewable.
+  The regression extends the empty-vault test: provision Session, Home and the GM board, verify zero,
+  rename each through an accepted command, check the count/list/name/Edited label, and reopen the
+  vault to check persistence. Before the fix it failed on both profiles because the count control
+  was missing (`regression-before.log`).
+- **Interface snapshots:** add full viewport captures for Scholar and Dungeon on desktop, rail and
+  phone. Together with the nine existing Tavern/Parchment/High contrast goldens these cover the
+  interface in all five themes and tiers. The fifteen illustration crops remain additional art
+  coverage. Six pinned-container baselines add ~655 KiB; the total budget increases from 37 to 38 MiB
+  to accommodate actual interface coverage, retaining the 320 KiB per-image cap. Initial missing-
+  snapshot generation wrote the six images and reported six missing baselines, not a comparison pass.
+- **Visual review:** opened all six new PNGs. Desktop/rail show the session status, phase control,
+  Start session, combat heading/build control/help, dice and rollable tables; phone shows the stacked
+  status and combat controls/help. Text wraps within panels at each tier.
+- **Verification on this follow-up:**
+  - `pnpm gates` passed, no owned-file size warnings (`gates.log`). All 36 owned TS/TSX files are
+    below 500 lines, maximum 496; `useSessionView.ts` is 482.
+  - `pnpm --filter @dndtools/gm-react typecheck` passed (`typecheck.log`).
+  - Focused `pnpm test:app` over `screens/session`, `app/session`, `app/combat`, `app/Encounter`:
+    4 files, 51 passed (`app-tests.log`).
+  - `session-polish.spec.ts --workers=2`: 16 passed, both profiles, including the reproduced
+    regression now green, route/overlay axe with the documented shell exclusions and shared Seg
+    debt, and the five-theme contrast checks (`polish-e2e.log`). No new accessibility suppression.
+  - Pinned container, Session polish and golden-route specs with
+    `-g 'session' --update-snapshots=none --workers=2`: 30 passed, including 15 interface and
+    15 illustration comparisons (`visual-compare.log`).
+  - Baseline budget passed: 873 files, 38,167.3 / 38,912 KiB (`baseline-budget.log`).
+  - Changed-code ESLint and six-file Prettier check passed; feature audit: 40 declared limits,
+    0 stale (`lint.log`, `feature-audit.log`).
+  - Surface e2e suite (`combat*`, `session*` including `session-polish`, `encounter-builder`),
+    both profiles, `--workers=2 --retries=1`: 172 passed, 14 skipped (profile-scoped tests), 0
+    failed, 0 flaky (`surface-e2e-2.log`; the first run, `surface-e2e.log`, was cut off at test 126
+    by the provider allowance limit with no failures up to that point).

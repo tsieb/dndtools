@@ -219,7 +219,9 @@ test('every theme keeps standby, the encounter builder and a live fight above 4.
 	}
 });
 
-test('an empty vault has no recent changes to review', async ({ page }) => {
+test('an empty vault omits provisioning but counts later edits to default screens', async ({
+	page,
+}) => {
 	await markOnboarded(page);
 	await page.addInitScript(() => {
 		try {
@@ -237,6 +239,36 @@ test('an empty vault has no recent changes to review', async ({ page }) => {
 	await expect(prep.getByText('No recent changes to review.', { exact: true })).toBeVisible();
 	await expect(prep.getByRole('button', { name: /recent changes? to review/ })).toHaveCount(0);
 	await expect(prep.getByText(/\d+ recent changes? to review/)).toHaveCount(0);
+
+	// Provision the home screen and GM board too; none of these automatic creations count.
+	await gotoRoute(page, '/');
+	await gotoRoute(page, '/session');
+	await expect(prep.getByText('No recent changes to review.', { exact: true })).toBeVisible();
+	const sceneIds = await page.evaluate(() => Object.keys(window.__rt!.state.scenes.scenes));
+	expect(sceneIds).toHaveLength(3);
+	const actorId = await page.evaluate(() => window.__rt!.defaultActorId);
+	const count = prep.getByRole('button', { name: /recent changes? to review/ });
+	const list = prep.getByRole('list', { name: 'Recent changes' });
+	for (const [index, sceneId] of sceneIds.entries()) {
+		const name = `Evening screen ${index + 1}`;
+		const edited = await dispatch(page, {
+			type: 'scene.update-metadata',
+			actorId,
+			payload: { sceneId, name },
+		});
+		expect(edited.status).toBe('accepted');
+		await expect(count).toHaveText(`${index + 1} recent change${index ? 's' : ''} to review`);
+		if (index === 0) await count.click();
+		await expect(list.getByRole('listitem')).toHaveCount(index + 1);
+		await expect(list.getByRole('listitem').first()).toContainText(name);
+		await expect(list.getByRole('listitem').first()).toContainText('Edited');
+	}
+	// The operation classification survives reopening the vault, and still omits setup.
+	await page.reload();
+	await waitReady(page);
+	await expect(count).toHaveText('3 recent changes to review');
+	await count.click();
+	await expect(list.getByRole('listitem')).toHaveCount(3);
 });
 
 test('the recent-changes count opens the list it counts', async ({ page }) => {
