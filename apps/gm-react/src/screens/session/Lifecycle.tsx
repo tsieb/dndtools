@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { allowedTransitionsFrom, type SessionWorkflowState } from '@dndtools/core';
 import { Button, Dialog, Field, Icon, Input, Select, StatusDot } from '../../ds';
 import { Seg, T, eb } from '../../app/screen-kit';
-import { WORKFLOW_LABEL } from '../../app/ProjectionControl';
+import { ShowToTableOption, WORKFLOW_LABEL } from '../../app/ProjectionControl';
 import { useI18n, type MessageKey } from '../../i18n';
 
 export function SessionHeader({
@@ -264,6 +264,8 @@ export interface SessionStartChoice {
 	sceneId: string;
 	/** The name typed for a new session, or `null` when continuing (the session keeps its own name). */
 	title: string | null;
+	/** RC-SES-7.2 — "Show <scene> to the table": put the scene on every player's stage at start. */
+	showToTable: boolean;
 }
 
 /**
@@ -302,6 +304,7 @@ function StartSessionForm({
 	const [mode, setMode] = useState<'continue' | 'new'>(continueScene ? 'continue' : 'new');
 	const [sceneId, setSceneId] = useState(continueScene?.id ?? scenes[0]?.id ?? '');
 	const [title, setTitle] = useState('');
+	const [showToTable, setShowToTable] = useState(true);
 	const chosenSceneId = mode === 'continue' && continueScene ? continueScene.id : sceneId;
 	// Fail closed: with no scene in the vault there is nothing to go live on, so the confirm is
 	// disabled and the dialog says what to do instead rather than firing a core rejection.
@@ -329,6 +332,7 @@ function StartSessionForm({
 							onConfirm({
 								sceneId: chosenSceneId,
 								title: mode === 'new' && title.trim() ? title.trim() : null,
+								showToTable,
 							})
 						}
 					>
@@ -382,6 +386,13 @@ function StartSessionForm({
 							</Field>
 						</>
 					)}
+					{chosenSceneId ? (
+						<ShowToTableOption
+							sceneId={chosenSceneId}
+							checked={showToTable}
+							onChange={setShowToTable}
+						/>
+					) : null}
 				</div>
 			)}
 		</Dialog>

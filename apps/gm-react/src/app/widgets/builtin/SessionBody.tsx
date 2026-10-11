@@ -10,6 +10,7 @@ import { useI18n } from '../../../i18n';
 import { useSession } from '../../../net/SessionContext';
 import type { BoardWidget } from '../../board-helpers';
 import { Chip, Muted, StatPill, bodyWrap, cfg } from '../../widget-body-kit';
+import { showsToTableByDefault } from '../../ProjectionControl';
 import { StagePanel } from '../../../screens/session/ActiveMap';
 import { CampaignDatePanel } from '../../../screens/session/CampaignDate';
 import { CapturePanel, type CaptureSubmission } from '../../../screens/session/Capture';
@@ -133,8 +134,8 @@ function SessionConsole() {
 		setStartOpen(true);
 	}
 
-	function start(choice: SessionStartChoice): void {
-		void dispatch(
+	async function start(choice: SessionStartChoice): Promise<void> {
+		const started = await dispatch(
 			{
 				type: 'session.set-workflow',
 				actorId,
@@ -144,6 +145,14 @@ function SessionConsole() {
 			},
 			t('session.goLive.announcement'),
 		);
+		// RC-SES-7.2 — "Show <scene> to the table" puts the scene on every player's stage.
+		if (started && choice.showToTable && showsToTableByDefault(runtime.state, choice.sceneId)) {
+			await dispatch({
+				type: 'session.project-table-view',
+				actorId,
+				payload: { sceneId: choice.sceneId },
+			});
+		}
 	}
 
 	function moveTo(target: 'prep' | 'recap' | 'idle'): void {
@@ -216,7 +225,7 @@ function SessionConsole() {
 				onClose={() => setStartOpen(false)}
 				onConfirm={(choice) => {
 					setStartOpen(false);
-					start(choice);
+					void start(choice);
 				}}
 			/>
 			<CallRestDialog

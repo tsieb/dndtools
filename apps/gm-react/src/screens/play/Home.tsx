@@ -274,7 +274,11 @@ export function StageSection({
 								}}
 							>
 								<Illustration name="play-waiting" size={80} />
-								<span style={{ font: `14px ${T.sans}` }}>{t('play.stage.nothingShown')}</span>
+								{/* RC-SES-7.2 — once the session is live an empty stage is the {gm}'s choice,
+								    not a fault: say who has not shown a scene yet, and keep the live badge. */}
+								<span style={{ font: `14px ${T.sans}` }}>
+									{t(live ? 'play.stage.notShownYet' : 'play.stage.nothingShown')}
+								</span>
 							</div>
 						)}
 					</div>

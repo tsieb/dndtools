@@ -306,6 +306,11 @@ export default {
 	'session.start.cancel': '[Çáñçéľ~~~]',
 	'session.start.noScenes':
 		'[Çŕéáţé á šçéñé ƒíŕšţ — á ľíṽé šéššíóñ ñééďš áñ áçţíṽé šçéñé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'session.start.showToTable': '[Šĥóŵ ~~{scene} ţó ţĥé ţáƀľé~~~~ ~]',
+	'session.start.showToTableHelp':
+		'[Éṽéŕý ƥľáýéŕ áñď óƀšéŕṽéŕ šééš íţ óñ ţĥéíŕ šţáğé, áñď šó ďóéš áñýóñé ŵĥó ĵóíñš ľáţéŕ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
+	'session.start.showToTableDmOnly':
+		'[{scene} íš óñľý ṽíšíƀľé ţó ţĥé ~~~~ ~~~~ {gm}. Šĥáŕé íţ ƒŕóḿ ţĥé šçéñé šéţţíñğš ţó šĥóŵ íţ ţó ţĥé ţáƀľé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'session.start.confirm': '[Šţáŕţ šéššíóñ~~~~ ~]',
 	'session.header.sessionScene': '[Šçéñé: ~~~{scene}]',
 	'session.end.label': '[Éñď~~]',
@@ -614,6 +619,10 @@ export default {
 		'[Ţĥáţ ḿáƥ íš ñó ľóñğéŕ áṽáíľáƀľé. Çĥóóšé áñóţĥéŕ ḿáƥ.~~~~ ~~~~ ~~~~ ~~~~ ~]',
 	'session.playerViews.title': '[Ƥľáýéŕ ṽíéŵš~~~~ ]',
 	'session.playerViews.assignAria': '[Šçéñé ƥŕóĵéçţéď ţó ~~~~ ~~~{name}]',
+	'session.playerViews.everyone': '[Éṽéŕýóñé~~~~]',
+	'session.playerViews.everyoneHelp':
+		'[Éṽéŕý ƥľáýéŕ áñď óƀšéŕṽéŕ, áñď áñýóñé ŵĥó ĵóíñš ľáţéŕ. Çĥóóšé á šçéñé ƒóŕ óñé ƥľáýéŕ ƀéľóŵ ţó ḿáķé áñ éẋçéƥţíóñ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
+	'session.playerViews.everyoneAria': '[Šçéñé šĥóŵñ ţó éṽéŕýóñé~~~~ ~~~~ ]',
 	'session.dice.title': '[Ďíçé~~]',
 	'session.dice.announcement': '[Ŕóľľéď ~~~{expression} — ţóţáľ ~~~~{total}.~]',
 	'session.dice.expression': '[Ďíçé éẋƥŕéššíóñ~~~~ ~]',
@@ -1477,6 +1486,7 @@ export default {
 		'[{name} — ~~{fog} ĥíďďéñ áŕéáš, ~~~~ ~{markers} ḿáŕķéŕš, ~~~~{tokens} ţóķéñš, áš ýóúŕ ~~~~ ~~{gm} ƥŕóĵéçţéď íţ~~~~ ~]',
 	'play.stage.projectedByDm': '[Ƥŕóĵéçţéď ţó ýóúŕ ṽíéŵ ƀý ţĥé ~~~~ ~~~~ ~~{gm}]',
 	'play.stage.nothingShown': '[Ñóţĥíñğ íš ƀéíñğ šĥóŵñ ýéţ.~~~~ ~~~~ ~]',
+	'play.stage.notShownYet': '[Ýóúŕ ~~{gm} ĥáš ñóţ šĥóŵñ á šçéñé ýéţ.~~~~ ~~~~ ~]',
 	'play.stage.watching': '[Ŵáţçĥíñğ ţĥé ţáƀľé~~~~ ~~~]',
 	'play.stage.dmControls': "[Ýóúŕ ~~{gm} çóñţŕóľš ŵĥáţ'š ŕéṽéáľéď.~~~~ ~~~~ ~]",
 	'play.stage.thisTurn': '[Ţĥíš ţúŕñ~~~~]',

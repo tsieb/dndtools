@@ -294,6 +294,11 @@ export const en = {
 		'Optional. The name shows in the session header and on the archive you write up afterwards.',
 	'session.start.cancel': 'Cancel',
 	'session.start.noScenes': 'Create a scene first — a live session needs an active scene.',
+	'session.start.showToTable': 'Show {scene} to the table',
+	'session.start.showToTableHelp':
+		'Every player and observer sees it on their stage, and so does anyone who joins later.',
+	'session.start.showToTableDmOnly':
+		'{scene} is only visible to the {gm}. Share it from the scene settings to show it to the table.',
 	'session.start.confirm': 'Start session',
 	'session.header.sessionScene': 'Scene: {scene}',
 	'session.end.label': 'End',
@@ -582,6 +587,10 @@ export const en = {
 	'session.stage.previewGone': 'That map is no longer available. Choose another map.',
 	'session.playerViews.title': 'Player views',
 	'session.playerViews.assignAria': 'Scene projected to {name}',
+	'session.playerViews.everyone': 'Everyone',
+	'session.playerViews.everyoneHelp':
+		'Every player and observer, and anyone who joins later. Choose a scene for one player below to make an exception.',
+	'session.playerViews.everyoneAria': 'Scene shown to everyone',
 	'session.dice.title': 'Dice',
 	'session.dice.announcement': 'Rolled {expression} — total {total}.',
 	'session.dice.expression': 'Dice expression',
@@ -1405,6 +1414,7 @@ export const en = {
 		'{name} — {fog} hidden areas, {markers} markers, {tokens} tokens, as your {gm} projected it',
 	'play.stage.projectedByDm': 'Projected to your view by the {gm}',
 	'play.stage.nothingShown': 'Nothing is being shown yet.',
+	'play.stage.notShownYet': 'Your {gm} has not shown a scene yet.',
 	'play.stage.watching': 'Watching the table',
 	'play.stage.dmControls': "Your {gm} controls what's revealed.",
 	'play.stage.thisTurn': 'This turn',

@@ -298,6 +298,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.start.cancel': 'Cancelar',
 	'session.start.noScenes':
 		'Crea una escena primero — una sesión en vivo necesita una escena activa.',
+	'session.start.showToTable': 'Mostrar {scene} a la mesa',
+	'session.start.showToTableHelp':
+		'Cada jugador y observador la ve en su escenario, y también quien se una después.',
+	'session.start.showToTableDmOnly':
+		'{scene} solo la ve el {gm}. Compártela desde los ajustes de la escena para mostrarla a la mesa.',
 	'session.start.confirm': 'Empezar la sesión',
 	'session.header.sessionScene': 'Escena: {scene}',
 	'session.end.chooseBody':
@@ -586,6 +591,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.stage.previewGone': 'Ese mapa ya no está disponible. Elige otro.',
 	'session.playerViews.title': 'Vistas de jugadores',
 	'session.playerViews.assignAria': 'Escena proyectada a {name}',
+	'session.playerViews.everyone': 'Todos',
+	'session.playerViews.everyoneHelp':
+		'Cada jugador y observador, y quien se una después. Elige una escena para un jugador abajo para hacer una excepción.',
+	'session.playerViews.everyoneAria': 'Escena mostrada a todos',
 	'session.dice.title': 'Dados',
 	'session.dice.announcement': 'Tirada de {expression} — total {total}.',
 	'session.dice.expression': 'Expresión de dados',
@@ -1425,6 +1434,7 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'{name}: {fog} zonas ocultas, {markers} marcadores, {tokens} fichas, tal como lo proyecta tu {gm}',
 	'play.stage.projectedByDm': 'Proyectado a tu vista por el {gm}',
 	'play.stage.nothingShown': 'Todavía no se muestra nada.',
+	'play.stage.notShownYet': 'Tu {gm} todavía no ha mostrado ninguna escena.',
 	'play.stage.watching': 'Observando la mesa',
 	'play.stage.dmControls': 'Tu {gm} controla lo que se revela.',
 	'play.stage.thisTurn': 'Este turno',

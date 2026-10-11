@@ -1,11 +1,12 @@
 import {
 	allowedTransitionsFrom,
+	canShowSceneToTable,
 	getPlayerViewController,
 	listScenesForActor,
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import { useState } from 'react';
-import { Button, Dialog, Select, StatusDot, Toaster } from '../ds';
+import { Button, Checkbox, Dialog, Select, StatusDot, Toaster } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SetRow, T } from './screen-kit';
@@ -79,8 +80,17 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				actorId: runtime.defaultActorId,
 				payload,
 			});
-			if (result.status === 'accepted') Toaster.success(okMessage);
-			else Toaster.error(result.rejection.message);
+			if (result.status !== 'accepted') {
+				Toaster.error(result.rejection.message);
+				return;
+			}
+			// RC-SES-7.2 — this one-press start has no dialog to offer "Show <scene> to the table", so
+			// it takes that option's default: a shared scene goes on every player's stage.
+			if (payload.activeSceneId && showsToTableByDefault(runtime.state, payload.activeSceneId)) {
+				const shown = await showSceneToTable(runtime, payload.activeSceneId);
+				if (shown.status === 'rejected') Toaster.error(shown.rejection.message);
+			}
+			Toaster.success(okMessage);
 		} catch (err) {
 			Toaster.error(err instanceof Error ? err.message : t('session.updateFailed'));
 		}
@@ -189,6 +199,113 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				}
 			/>
 		</>
+	);
+}
+
+type Runtime = ReturnType<typeof useRuntime>;
+
+/**
+ * RC-SES-7.2 — whether a session started on `sceneId` shows it to the table unless the GM says
+ * otherwise: on for a scene players may see, never for a DM-only one (the core refuses that anyway).
+ */
+export function showsToTableByDefault(state: Runtime['state'], sceneId: string): boolean {
+	return canShowSceneToTable(state.scenes.scenes[sceneId]);
+}
+
+/** RC-SES-7.2 — show one scene to every player and observer (and later joiners) in one command. */
+export function showSceneToTable(runtime: Runtime, sceneId: string | null) {
+	return runtime.dispatch({
+		type: 'session.project-table-view',
+		actorId: runtime.defaultActorId,
+		payload: { sceneId },
+	});
+}
+
+/**
+ * ShowToTableOption — RC-SES-7.2. The "Show <scene> to the table" choice on the Start session
+ * dialog. Checked by default; a DM-only scene cannot be shown to the table, so for one the box is
+ * unchecked and disabled and the line under it says why rather than leaving a dead control.
+ */
+export function ShowToTableOption({
+	sceneId,
+	checked,
+	onChange,
+}: {
+	sceneId: string;
+	checked: boolean;
+	onChange: (checked: boolean) => void;
+}) {
+	const runtime = useRuntime();
+	const { t } = useI18n();
+	const scene = runtime.state.scenes.scenes[sceneId];
+	if (!scene) return null;
+	const shareable = showsToTableByDefault(runtime.state, sceneId);
+	return (
+		<div style={{ display: 'grid', gap: T.space.one }}>
+			<Checkbox
+				checked={shareable && checked}
+				disabled={!shareable}
+				onChange={onChange}
+				label={t('session.start.showToTable', { scene: scene.name })}
+				style={{ fontSize: 'var(--text-sm)' }}
+			/>
+			<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+				{shareable
+					? t('session.start.showToTableHelp')
+					: t('session.start.showToTableDmOnly', { scene: scene.name })}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * TableViewRow — RC-SES-7.2. The "Everyone" row at the top of the Stage panel: one choice that shows
+ * a scene to every player and observer, and to anyone who joins later (`session.project-table-view`).
+ * Only scenes players may see are offered; "— none —" takes the table view down. The per-player rows
+ * below it ({@link PlayerViewAssignments}) stay the way to make an exception for one participant.
+ */
+export function TableViewRow({ isLive, previewing }: { isLive: boolean; previewing: boolean }) {
+	const runtime = useRuntime();
+	const { t } = useI18n();
+	const controller = getPlayerViewController(runtime.state, runtime.defaultActorId);
+	if (controller.kind !== 'available') return null;
+	const { tableView } = controller;
+	const current = tableView?.kind === 'assigned' ? tableView.sceneId : '';
+
+	async function show(sceneId: string) {
+		if (sceneId === current || (!sceneId && !tableView)) return;
+		const result = await showSceneToTable(runtime, sceneId || null);
+		if (result.status === 'rejected') Toaster.error(result.rejection.message);
+	}
+
+	return (
+		<div data-testid="table-view">
+			<SetRow
+				label={t('session.playerViews.everyone')}
+				help={t('session.playerViews.everyoneHelp')}
+				control={
+					<Select
+						aria-label={t('session.playerViews.everyoneAria')}
+						value={current}
+						disabled={!isLive || previewing}
+						title={
+							previewing
+								? t('player.blockedPreview')
+								: !isLive
+									? t('widgetBody.sessionOnly')
+									: undefined
+						}
+						options={[
+							{ value: '', label: t('session.stage.noneOption') },
+							...controller.sceneOptions
+								.filter((scene) => scene.shareable)
+								.map((scene) => ({ value: scene.id, label: scene.name })),
+						]}
+						onChange={(e: { target: { value: string } }) => void show(e.target.value)}
+					/>
+				}
+			/>
+		</div>
 	);
 }
 

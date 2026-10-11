@@ -8,7 +8,7 @@ import {
 import { Button, Select } from '../../ds';
 import { useI18n } from '../../i18n';
 import { Panel, SetRow, T } from '../../app/screen-kit';
-import { PlayerViewAssignments } from '../../app/ProjectionControl';
+import { PlayerViewAssignments, TableViewRow } from '../../app/ProjectionControl';
 import { MapCanvas } from '../../app/map/canvas/MapCanvas';
 import { pickRasterAssetId } from '../../app/mapGeometry';
 import { useRuntime } from '../../runtime/RuntimeContext';
@@ -36,6 +36,9 @@ export function StagePanel({
 	if (!isDm) return null;
 	return (
 		<Panel title={t('session.stage.title')}>
+			{/* RC-SES-7.2 — what every player sees comes first: one scene for the whole table (and
+			    anyone who joins later), before the map and the per-player exceptions below. */}
+			<TableViewRow isLive={isLive} previewing={previewing} />
 			{maps.length === 0 ? (
 				<div style={{ font: `var(--text-sm) ${T.sans}`, color: T.sub }}>
 					{t('session.stage.noMaps')}
@@ -90,8 +93,9 @@ export function StagePanel({
 			    session screen. Read-only: the same shared renderer the Atlas and the editor use, with the
 			    running combat's tokens drawn over it. */}
 			<StagePreview mapId={activeMapId} />
-			{/* RC-CAN-6.2: broadcasting the active map to every player is the row above; this lets the
-			    DM send a DIFFERENT scene to each one instead. */}
+			{/* RC-CAN-6.2: the Everyone row at the top shows one scene to the whole table; these rows
+			    send a DIFFERENT scene to one player as an exception, which holds until the table is
+			    shown a scene again. */}
 			<PlayerViewAssignments isLive={isLive} previewing={previewing} />
 		</Panel>
 	);
