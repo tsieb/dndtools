@@ -16,9 +16,7 @@ const MAX_FILE_BYTES = 320 * 1024;
 // (about 1.8 MiB beyond the earlier heading-only stage captures). Keep the per-image cap.
 // RC-WID-6.4 adds Identity and Review in five themes on three tiers (~2.1 MiB).
 // Retain the per-image cap; every intermediate step is covered by the axe/e2e walk.
-// RC-POL-1.4 completes Session interface coverage in Scholar and Dungeon at all three tiers
-// (~655 KiB for six viewport captures). Illustration-only crops did not cover the interface.
-const MAX_TOTAL_BYTES = 38 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 37 * 1024 * 1024;
 
 function walk(dir) {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

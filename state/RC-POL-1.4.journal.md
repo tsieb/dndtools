@@ -258,3 +258,21 @@ verification is historical, not a claim about this follow-up. Raw logs: `/tmp/po
     both profiles, `--workers=2 --retries=1`: 172 passed, 14 skipped (profile-scoped tests), 0
     failed, 0 flaky (`surface-e2e-2.log`; the first run, `surface-e2e.log`, was cut off at test 126
     by the provider allowance limit with no failures up to that point).
+
+## Attempt 3 — claim correction
+
+The claim gate refused `apps/gm-react/tests/visual/check-baseline-budget.mjs` (outside the owned
+paths). It is reverted to base `a966dea5`; the total budget stays 37 MiB, so the attempt-2 notes
+above about raising it to 38 MiB are superseded. The Scholar and Dungeon interface goldens fit
+instead by lossless re-encoding: each PNG is decoded, the alpha channel dropped where every pixel
+is opaque, every row filter tried, and the result kept only when it decodes to identical pixels.
+Applied to the six new goldens (669 → 487 KiB) and to the nine `/session` goldens and fifteen
+`session-combat-idle--*` crops this branch already re-baselined (991 → 768 KiB).
+
+- `node apps/gm-react/tests/visual/check-baseline-budget.mjs` with the base script: 873 files,
+  37,611.7 / 37,888 KiB, pass.
+- Pinned container, `session-polish.spec.ts` + `golden-routes.spec.ts -g 'session'
+  --update-snapshots=none --workers=2`: 30 passed (15 interface, 15 illustration) against the
+  re-encoded files; no baseline written (`visual-compare-3.log`).
+- No source, spec or copy change in this attempt, so the attempt-2 gates, e2e and axe results
+  above still describe the code.
