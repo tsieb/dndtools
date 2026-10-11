@@ -5,7 +5,7 @@ import {
 	listScenesForActor,
 	type SessionWorkflowState,
 } from '@dndtools/core';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button, Checkbox, Dialog, Select, StatusDot, Toaster } from '../ds';
 import { useI18n, type MessageKey } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -237,6 +237,7 @@ export function ShowToTableOption({
 }) {
 	const runtime = useRuntime();
 	const { t } = useI18n();
+	const noteId = useId();
 	const scene = runtime.state.scenes.scenes[sceneId];
 	if (!scene) return null;
 	const shareable = showsToTableByDefault(runtime.state, sceneId);
@@ -247,9 +248,10 @@ export function ShowToTableOption({
 				disabled={!shareable}
 				onChange={onChange}
 				label={t('session.start.showToTable', { scene: scene.name })}
+				aria-describedby={noteId}
 				style={{ fontSize: 'var(--text-sm)' }}
 			/>
-			<div style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
+			<div id={noteId} style={{ font: `var(--text-xs) ${T.sans}`, color: T.sub }}>
 				{shareable
 					? t('session.start.showToTableHelp')
 					: t('session.start.showToTableDmOnly', { scene: scene.name })}
