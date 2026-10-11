@@ -289,4 +289,8 @@ PNGs re-baselined for the named shell heading (restored from `68a44cdb~1`). In-c
 
 Evidence: typecheck, `pnpm gates` (Board.tsx at 800 lines), ESLint and Prettier exit 0. Two-profile
 run of the 13 affected specs: **230 passed, 12 skipped, exit 0** (`/var/tmp/rc-can-8.4-r7.log`).
-Full e2e and pinned visual comparison follow.
+Pinned visual comparison of `9e159a82`, snapshots disabled: **582 passed, exit 0**
+(`/var/tmp/rc-can-8.4-visual-r2.log`); the original goldens stand. Full two-profile e2e
+(`--retries=2`, 4 workers): **2051 passed, 43 skipped, 0 failed, exit 0** in 33.7m
+(`/var/tmp/rc-can-8.4-full3.log`). Changed source paths are owned or companions (`App.tsx`).
+No push, promotion, new loop, extra agents, or dispatcher control-state edits.
