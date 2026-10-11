@@ -284,3 +284,61 @@ exit 0. Changed-file Prettier, focused ESLint and `git diff --check` also passed
 budget and this journal changed; the previously green visual/runtime gates are unaffected.
 Full functional e2e acceptance remains for central validation, as recorded in Session 3.
 No push, promotion, dispatcher mutation or additional agent was used.
+
+## Session 5 — screenshot-capture timeout triage — 2026-10-11
+
+Starting HEAD `60e70d1a374435c096e85f2dd4d02bb7896567f4`, clean worktree. No Headroom
+capabilities are exposed. Read the original supplied gate output at
+`/home/trinkle/Programming/agent-dispatcher/.state/attempts/d2b33818-068e-4a81-a8bb-cfcbcaf10ef5/output.log`.
+It reports **544 passed / 2 failed**: desktop high-contrast graph selection and phone parchment
+Audio failure. Both stop during screenshot capture after fonts load, at the default 5-second
+assertion timeout; neither reports differing pixels. The previous full pinned gate passed all
+546 tests (Session 4). Do not infer a product regression or rewrite snapshots from these timeouts.
+
+Rechecked the retirement boundaries: `Board` without a screen only returns recovery/player
+feedback; the board engine always receives a screen; Home and Session render their provisioned
+flow widgets. The existing Run navigation aliases and POL mapping remain intact. No runtime,
+baseline, tolerance, retry or timeout change is justified by the supplied failure alone.
+
+Validation underway, original output retained:
+
+- Both failed scenarios, all three visual tiers, five repetitions, pinned container, snapshot
+  updates disabled and two workers: `/var/tmp/rc-can-7.9-capture-repeat.log`.
+- Full functional suite, desktop and mobile, two workers, separate output directory:
+  `/var/tmp/rc-can-7.9-final-e2e.log` and `/var/tmp/rc-can-7.9-final-e2e-artifacts`.
+
+The unchanged focused visual repetition completed: **30 passed**, exit 0, 1.4 minutes.
+BoardAlias recovery regression coverage: **4 passed**, exit 0. Started the complete pinned visual
+gate with `--update-snapshots=none --workers=2`; output:
+`/var/tmp/rc-can-7.9-final-visual.log`. The full functional run continues separately.
+
+Complete pinned visual comparison finished: **546 passed**, exit **0**, 18.8 minutes. Both
+reported screenshot-capture failures passed in this full run as well as all five focused
+repetitions in every tier. Snapshots, pixel thresholds, retries and timeouts are unchanged.
+The functional suite has 2,062 cases and is still running; no full-suite result is claimed yet.
+
+The full functional run completed its desktop profile without failures and has entered mobile.
+The pinned visual gate remains green; the only worktree change is this evidence journal.
+
+### Completed validation and handoff
+
+- Full functional suite, both profiles: **2,019 passed / 43 skipped / 0 failed**, exit **0**,
+  54.7 minutes. Exact command:
+  `pnpm --dir apps/gm-react e2e --project=desktop-chromium --project=mobile-chromium --workers=2 --output=/var/tmp/rc-can-7.9-final-e2e-artifacts`.
+  Original complete output: `/var/tmp/rc-can-7.9-final-e2e.log`.
+- Full pinned visual gate: **546 passed / 0 failed**, exit **0**, 18.8 minutes. Exact command:
+  `apps/gm-react/tests/visual/run-in-container.sh --update-snapshots=none --workers=2`.
+  Original complete output: `/var/tmp/rc-can-7.9-final-visual.log`.
+- Focused reproduction of the two reported failures: **30 passed**, exit **0** (five repetitions
+  of each scenario in all three tiers), with unchanged capture budgets and committed baselines.
+- BoardAlias unit regression: **4 passed**, exit **0**. Original output:
+  `/var/tmp/rc-can-7.9-final-alias.log`.
+- This follow-up changes this journal only: no runtime, build input, test, snapshot, timeout or
+  retry modifications. Its boot bundle is consequently unchanged from the starting candidate;
+  the earlier retirement measurement remains recorded in Session 2, not presented as a new build.
+
+The supplied visual failure did not reproduce in either the focused repetitions or the full gate.
+No speculative code change is warranted. The existing retirement commits remain intact, and the
+previously missing complete green functional run on both profiles is now available. No push,
+promotion, dispatcher control-state edit, extra agent or dispatcher loop was performed. Central
+operator gates and independent review remain separate from these local results.
