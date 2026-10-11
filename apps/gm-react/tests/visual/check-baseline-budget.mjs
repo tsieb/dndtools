@@ -16,9 +16,7 @@ const MAX_FILE_BYTES = 320 * 1024;
 // (about 1.8 MiB beyond the earlier heading-only stage captures). Keep the per-image cap.
 // RC-WID-6.4 adds Identity and Review in five themes on three tiers (~2.1 MiB).
 // Retain the per-image cap; every intermediate step is covered by the axe/e2e walk.
-// RC-POL-1.18 adds the onboarding complexity step in five themes on three tiers (~318 KiB
-// after lossless Zopfli re-encoding, element-scoped captures). Keep the per-image cap.
-const MAX_TOTAL_BYTES = 38 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 37 * 1024 * 1024;
 
 function walk(dir) {
 	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
