@@ -9,13 +9,14 @@ test.beforeEach(async ({ page }) => {
 	await expect(page.locator('[data-widget-region]').first()).toBeVisible();
 });
 
-async function expectWhole(region: Locator, content: Locator) {
-	const outer = await region.boundingBox();
-	const inner = await content.boundingBox();
-	expect(outer).not.toBeNull();
-	expect(inner).not.toBeNull();
-	expect(inner!.y).toBeGreaterThanOrEqual(outer!.y - 1);
-	expect(inner!.y + inner!.height).toBeLessThanOrEqual(outer!.y + outer!.height + 1);
+async function expectWhole(content: Locator) {
+	// Read both rectangles in one frame: the canvas can still be scrolling after edit mode ends.
+	const { outer, inner } = await content.evaluate((element) => ({
+		outer: element.closest('[data-widget-region]')!.getBoundingClientRect().toJSON(),
+		inner: element.getBoundingClientRect().toJSON(),
+	}));
+	expect(inner.y).toBeGreaterThanOrEqual(outer.y - 1);
+	expect(inner.y + inner.height).toBeLessThanOrEqual(outer.y + outer.height + 1);
 }
 
 test('every seeded tile enables Resize; Prep and Map resize through the UI and persist', async ({
@@ -49,8 +50,10 @@ test('every seeded tile enables Resize; Prep and Map resize through the UI and p
 	});
 	expect(data.status).toBe('accepted');
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	for (const widget of data.widgets) {
 		const tile = page.getByTestId(`widget-${widget.id}`);
+		await tile.scrollIntoViewIfNeeded();
 		await tile.focus();
 		await page.keyboard.press('Shift+F10');
 		const resize = page.getByRole('menuitem', { name: 'Resize', exact: true });
@@ -59,6 +62,7 @@ test('every seeded tile enables Resize; Prep and Map resize through the UI and p
 	}
 	for (const id of [data.prep, data.map]) {
 		const tile = page.getByTestId(`widget-${id}`);
+		await tile.scrollIntoViewIfNeeded();
 		await tile.focus();
 		await page.keyboard.press('Space');
 		await expect(tile.getByRole('button', { name: /^Resize / })).toBeVisible();
@@ -75,6 +79,7 @@ test('every seeded tile enables Resize; Prep and Map resize through the UI and p
 		await page.keyboard.press('Escape');
 	}
 	await page.getByRole('button', { name: 'Done', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Edit layout', exact: true })).toBeVisible();
 	const prepRegion = page.getByTestId(`widget-${data.prep}`).locator('[data-widget-region]');
 	// The seeded notes are actual content, not a screenshot-only replacement.
 	// The Ashen Hand is a faction object since RC-KNW-6.2, so five notes remain.
@@ -82,14 +87,14 @@ test('every seeded tile enables Resize; Prep and Map resize through the UI and p
 	for (const title of data.notes) {
 		const note = prepRegion.getByText(title, { exact: true });
 		await expect(note).toBeVisible();
-		await expectWhole(prepRegion, note);
+		await expectWhole(note);
 	}
 	await expect
 		.poll(() => prepRegion.evaluate((el) => el.scrollHeight - el.clientHeight))
 		.toBeLessThan(2);
 	const mapRegion = page.getByTestId(`widget-${data.map}`).locator('[data-widget-region]');
-	await expectWhole(mapRegion, mapRegion.getByRole('button', { name: 'Zoom in', exact: true }));
-	await expectWhole(mapRegion, mapRegion.getByRole('button', { name: 'Zoom out', exact: true }));
+	await expectWhole(mapRegion.getByRole('button', { name: 'Zoom in', exact: true }));
+	await expectWhole(mapRegion.getByRole('button', { name: 'Zoom out', exact: true }));
 	await page.reload();
 	await expect(page.getByTestId(`widget-${data.prep}`)).toBeVisible();
 	const saved = await page.evaluate(
@@ -103,6 +108,7 @@ test('every seeded tile enables Resize; Prep and Map resize through the UI and p
 
 test('a builtin corner handle appears on hover and dragging commits a resize', async ({ page }) => {
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	const tile = page.locator('[data-testid^="widget-"][role="group"]').first();
 	const id = (await tile.getAttribute('data-testid'))!.slice(7);
 	await tile.hover();
@@ -126,15 +132,21 @@ test('a builtin inspector offers working Small, Medium and Large presets', async
 			id: rt.state.scenes.scenes[sceneId].widgets.find((w) => w.type === 'prep')!.id,
 		};
 	});
-	await gotoRoute(page, `/scene/${sceneId}`);
-	// Hash navigation can leave the previous board's identically named Edit layout button
-	// mounted while the editor chunk loads. Wait for this route, not only the shell's h1.
-	await expect(page.getByTestId('scene-editor-stage')).toBeVisible();
-	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	// The unified screen uses bounded columns. Put the fixture in the first column so every
+	// preset fits without the intentional right-edge clamp changing its width.
+	const moved = await page.evaluate(
+		({ sceneId, id }) =>
+			window.__rt!.dispatch({
+				type: 'scene.move-widget',
+				actorId: window.__rt!.defaultActorId,
+				payload: { sceneId, widgetInstanceId: id, x: 24, y: 24 },
+			}),
+		{ sceneId, id },
+	);
+	expect(moved.status).toBe('accepted');
+	await gotoRoute(page, `/screen/${sceneId}?edit=1`);
+	await expect(page.getByTestId('screen-stage')).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
-	// The scene details panel initially occupies the phone inspector slot.
-	const closeDetails = page.getByRole('button', { name: 'Close scene details' });
-	if (await closeDetails.isVisible()) await closeDetails.click();
 	await page.getByTestId(`widget-${id}`).focus();
 	await page.keyboard.press('Enter');
 	const inspector = page.getByTestId('widget-inspector');

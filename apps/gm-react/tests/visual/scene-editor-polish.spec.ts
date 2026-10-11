@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import '../e2e/_helpers';
 
-// RC-POL-1.3: retain the complete editor panels and toolbar in all five themes and three
-// tiers. The phone tools dialog is captured separately so its header and Close cannot clip
-// unnoticed. These supplement the golden-route canvas views.
+// RC-CAN-8.4: the canonical screen editor, its drawers and preview control in all five
+// themes and three tiers. Old scene bookmarks enter edit mode directly; there is one toolbar.
+// These supplement the golden-route canvas views.
 const THEMES = ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'] as const;
 type Theme = (typeof THEMES)[number];
 const FIXED_TIME = new Date('2026-03-14T15:30:00Z');
@@ -66,11 +66,15 @@ for (const theme of THEMES) {
 			() => Object.values(window.__rt!.state.scenes.scenes).find((s) => s.widgets.length > 0)!.id,
 		);
 		await openShelled(page, `/scene/${id}`);
-		await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+		await expect(page).toHaveURL(new RegExp(`#/screen/${id}\\?edit=1$`));
+		await expect(page.getByTestId('screen-stage')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+		await expect(page.getByTestId('scene-editor-toolbar')).toHaveCount(0);
 		await settle(page, theme);
-		await expect(page.getByTestId('scene-editor-toolbar')).toHaveScreenshot(
+		await expect(page.getByTestId('screen-toolbar')).toHaveScreenshot(
 			`scene-editor-toolbar--${theme}.png`,
 		);
+		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
 		const details = page.getByTestId('scene-meta-panel');
 		if (testInfo.project.name !== 'visual-rail') {
 			await expect(details).toHaveScreenshot(`scene-editor-details-top--${theme}.png`);
@@ -81,10 +85,15 @@ for (const theme of THEMES) {
 		await expect(details).toHaveScreenshot(`scene-editor-details--${theme}.png`);
 		await page.getByRole('button', { name: 'Close scene details' }).click();
 		if (testInfo.project.name === 'visual-phone') {
-			await page.getByRole('button', { name: 'More editing tools' }).click();
-			await expect(
-				page.getByRole('dialog', { name: 'More editing tools', exact: true }),
-			).toHaveScreenshot(`scene-editor-tools--${theme}.png`);
+			await page.getByRole('button', { name: 'Preview this scene as another role' }).click();
+			const menu = page.getByRole('menu').filter({
+				has: page.getByRole('menuitemradio', { name: 'Any player', exact: true }),
+			});
+			await expect(menu).toBeVisible();
+			const bounds = (await menu.boundingBox())!;
+			expect(bounds.x).toBeGreaterThanOrEqual(0);
+			expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+			await expect(menu).toHaveScreenshot(`screen-preview-menu--${theme}.png`);
 			await page.keyboard.press('Escape');
 		}
 		await page.locator('[role="group"][data-testid^="widget-"]').first().focus();

@@ -132,6 +132,9 @@ for (const theme of THEMES) {
 			const sceneId = await defaultSceneId(page);
 			expect(sceneId, 'the fresh vault has no Scene to open the editor on').not.toBeNull();
 			await openShelled(page, `/scene/${sceneId}`);
+			await expect(page).toHaveURL(new RegExp(`#/screen/${sceneId}\\?edit=1$`));
+			await expect(page.getByTestId('screen-toolbar')).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 			await snap(page, theme, 'scene-editor');
 		});
 

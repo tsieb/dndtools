@@ -91,9 +91,10 @@ test.describe('scene editor: widget bindings inspector', () => {
 		await gotoRoute(page, '/scenes');
 		await seedFresh(page);
 		const f = await seed(page, 'Binding Wharf');
-		await gotoRoute(page, `/scene/${f.sceneId}`);
+		await gotoRoute(page, `/screen/${f.sceneId}?edit=1`);
 		await expect(page.getByRole('heading', { name: 'Binding Wharf' })).toBeVisible();
-		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByTestId('screen-stage')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 
 		const tile = page.getByTestId(`widget-${f.widgetId}`);
 		await tile.focus();
@@ -144,7 +145,7 @@ test.describe('scene editor: widget bindings inspector', () => {
 		await expect(players).toHaveAttribute('data-state', 'hidden');
 
 		// The player preview, drawn from the previewed player's own read, agrees.
-		await page.getByRole('button', { name: 'Done' }).click();
+		await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
 		await page.getByRole('button', { name: 'Preview this scene as another role' }).click();
 		await page.getByRole('menuitemradio', { name: 'Any player' }).click();
 		const overlay = page.getByTestId('player-preview-overlay');
@@ -171,8 +172,9 @@ test.describe('scene editor: widget bindings inspector', () => {
 				) ?? null,
 		);
 		if (!pc) throw new Error('the demo seed has no shared character');
-		await gotoRoute(page, `/scene/${f.sceneId}`);
-		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await gotoRoute(page, `/screen/${f.sceneId}?edit=1`);
+		await expect(page.getByTestId('screen-stage')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByTestId(`widget-${f.widgetId}`).focus();
 		await page.keyboard.press('Enter');
 		const section = page.getByTestId('widget-inspector-binding');

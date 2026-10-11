@@ -425,11 +425,6 @@ export function ScreenToolbar({
 					)}
 				</>
 			)}
-			{(editing || preview) && (
-				<div ref={previewTriggerRef} style={{ display: 'contents' }}>
-					<ViewAsControl placement="scene" compact={phone} />
-				</div>
-			)}
 			<Phone.PhoneViewSwitch posture={posture} />
 			{/* The named zoom steps, in both modes — but not on the stacked list, which has none. */}
 			{!posture.stacked && !flow && (
@@ -444,6 +439,13 @@ export function ScreenToolbar({
 				>
 					{editing ? t('board.done') : t('board.editLayout')}
 				</Button>
+			)}
+			{/* The menu aligns to its trigger's right edge. Keep that edge at the end of the
+                phone row, even when the tools wrap, so the player choices remain on screen. */}
+			{(editing || preview) && (
+				<div ref={previewTriggerRef} style={{ marginLeft: phone ? 'auto' : undefined }}>
+					<ViewAsControl placement="scene" compact={phone} />
+				</div>
 			)}
 		</Toolbar>
 	);

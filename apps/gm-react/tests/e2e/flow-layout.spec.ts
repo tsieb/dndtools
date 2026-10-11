@@ -187,7 +187,7 @@ test.describe('flow layout policy', () => {
 		const { sceneId, first, second } = await seedFlowScene(page);
 
 		await page.setViewportSize({ width: 1280, height: 900 });
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const board = page.getByTestId('scene-board-flow');
 		await expect(board).toBeVisible();
 		await expect(board).toHaveAttribute('data-flow-columns', '12');
@@ -222,6 +222,7 @@ test.describe('flow layout policy', () => {
 		expect(Math.abs(phoneLeft.x - phoneRight.x)).toBeLessThan(2);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await expect(page.getByTestId('flow-tile-actions').first()).toBeVisible();
 		await expect(page.getByRole('radio', { name: 'Flow' })).toBeVisible();
 	});
@@ -236,7 +237,7 @@ test.describe('flow layout policy', () => {
 		const { sceneId, first, second } = await seedFlowScene(page, [7, 5]);
 
 		await page.setViewportSize({ width: 1280, height: 900 });
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const board = page.getByTestId('scene-board-flow');
 		await expect(board).toHaveAttribute('data-flow-columns', String(DESKTOP_COLUMNS));
 
@@ -302,9 +303,10 @@ test.describe('flow layout policy', () => {
 			[sceneId, SPAN_WIDGET_TYPE] as const,
 		);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId('scene-board-flow')).toBeVisible();
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 
 		// The tile is half of TWELVE columns whatever tier is rendering it, so "Half" is the checked
 		// row at each of them and the other three are not. Reading the presets off the tier instead
@@ -368,16 +370,18 @@ test.describe('flow layout policy', () => {
 		await seedFresh(page);
 		const { sceneId, first, second } = await seedFlowScene(page);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId('scene-board-flow')).toBeVisible();
 		expect((await domOrder(page)).slice(0, 2)).toEqual([first, second]);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 
 		// Focus the first tile, select it, then move it one place later.
 		const tile = page.getByTestId(`widget-${first}`);
 		await tile.focus();
 		await page.keyboard.press('Enter');
+		await expect(page.getByTestId('widget-inspector')).toBeVisible();
 		await page.keyboard.press('ArrowRight');
 
 		// The move is announced, so a screen-reader user is told where the tile landed.
@@ -405,9 +409,10 @@ test.describe('flow layout policy', () => {
 		await seedFresh(page);
 		const { sceneId, first, second } = await seedFlowScene(page);
 		await page.setViewportSize({ width: 1280, height: 900 });
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId('scene-board-flow')).toBeVisible();
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		expect((await domOrder(page)).slice(0, 2)).toEqual([first, second]);
 
 		// DRAG: press on the first tile and release over the second, which takes its place.
@@ -428,6 +433,15 @@ test.describe('flow layout policy', () => {
 		await page.getByTestId('flow-tile-menu').getByRole('menuitem', { name: 'Move back' }).click();
 		await expect.poll(async () => (await domOrder(page)).slice(0, 2)).toEqual([first, second]);
 		expect((await durableOrder(page, sceneId)).slice(0, 2)).toEqual([first, second]);
+		// Moving before row zero requires a negative order key. Canvas bounds must not clamp it.
+		const orderKeys = await page.evaluate(
+			({ sceneId, first, second }) => {
+				const widgets = window.__rt!.state.scenes.scenes[sceneId].widgets;
+				return [first, second].map((id) => widgets.find((widget) => widget.id === id)!.layout.y);
+			},
+			{ sceneId, first, second },
+		);
+		expect(orderKeys[0]).toBeLessThan(orderKeys[1]);
 	});
 
 	test('the flow screen and its tile menu are axe-clean while editing', async ({ page }) => {
@@ -435,9 +449,10 @@ test.describe('flow layout policy', () => {
 		await gotoRoute(page, '/');
 		await seedFresh(page);
 		const { sceneId, first } = await seedFlowScene(page);
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId('scene-board-flow')).toBeVisible();
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 
 		const board = await new AxeBuilder({ page })
 			.include('[data-testid="scene-board-flow"]')
@@ -461,7 +476,7 @@ test.describe('flow layout policy', () => {
 		await gotoRoute(page, '/');
 		await seedFresh(page);
 		const { sceneId } = await seedFlowScene(page);
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId('scene-board-flow')).toBeVisible();
 
 		for (const width of [1280, 900, 375]) {

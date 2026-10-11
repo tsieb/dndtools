@@ -327,13 +327,13 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	// grid instead of silently growing the board.
 	function move(widgetInstanceId: string, x: number, y: number) {
 		const widget = widgets.find((w) => w.id === widgetInstanceId);
-		// Flow has no columns to fall off: its x is an order key (FlowBoard computes it).
+		// Flow uses x/y as order keys, including negative y when moving before the first tile.
 		const clampedX = widget && !flow ? clampToColumns(x, widget.w) : x;
 		return history.run(
 			{
 				type: 'scene.move-widget',
 				actorId,
-				payload: { sceneId, widgetInstanceId, x: clampedX, y: Math.max(0, y) },
+				payload: { sceneId, widgetInstanceId, x: clampedX, y: flow ? y : Math.max(0, y) },
 			},
 			`Moved ${titleOf(widgetInstanceId)}`,
 		);

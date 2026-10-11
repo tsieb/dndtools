@@ -113,7 +113,8 @@ test.describe('previews stay inside the previewed actor’s sections', () => {
 
 		// The scene editor: the preview overlay lists the Dock tile and nothing of the Cellar — not
 		// even on the inert canvas underneath it.
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}?edit=1`);
+		await expect(page.getByTestId('screen-stage')).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Harbor sections' })).toBeVisible();
 		await previewAsSectionPlayer(page);
 		const overlay = page.getByTestId('player-preview-overlay');
@@ -131,9 +132,10 @@ test.describe('previews stay inside the previewed actor’s sections', () => {
 		await exitPreview(page);
 
 		// The DM's own edit view still lists every widget.
-		await gotoRoute(page, `/scene/${sceneId}`);
-		await page.getByRole('button', { name: 'Edit layout' }).click();
-		const stage = page.getByTestId('scene-editor-stage');
+		await gotoRoute(page, `/screen/${sceneId}?edit=1`);
+		await expect(page.getByTestId('screen-stage')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+		const stage = page.getByTestId('screen-stage');
 		await expect(stage).toContainText(DOCK);
 		await expect(stage).toContainText(CELLAR);
 	});
