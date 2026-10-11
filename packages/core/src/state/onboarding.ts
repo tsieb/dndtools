@@ -2107,6 +2107,10 @@ export function isMaturitySignalReached(
 /** What makes a spotlight due. `always` is due from the first idle moment; `maturity-signal` waits
  * until the DM's own usage earns the surface it points at (the RC-UX-3.5 thresholds above). */
 export type SpotlightTrigger =
+	| {
+			readonly kind: 'primary-path';
+			readonly event: 'second-screen' | 'session' | 'map' | 'player' | 'campaign';
+	  }
 	| { readonly kind: 'always' }
 	| { readonly kind: 'maturity-signal'; readonly signalId: string };
 
@@ -2118,6 +2122,9 @@ export interface SpotlightDefinition {
 	readonly surface: string | null;
 	/** True when the spotlight teaches a keyboard shortcut, so a touch-only device never sees it. */
 	readonly needsKeyboard: boolean;
+	/** Concrete control and its complexity-map gate. */
+	readonly target?: string;
+	readonly gate?: string;
 }
 
 /** The declared spotlight queue, in the order due spotlights are shown. A surface the DM has just
@@ -2125,8 +2132,49 @@ export interface SpotlightDefinition {
 export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
 	{
 		id: 'graph',
+		gate: 'nav.graph',
 		trigger: { kind: 'maturity-signal', signalId: 'graph' },
 		surface: '/graph',
+		needsKeyboard: false,
+	},
+	{
+		id: 'screen-switcher',
+		trigger: { kind: 'primary-path', event: 'second-screen' },
+		target: '[data-testid="screen-switcher"]',
+		gate: 'nav.scenes',
+		surface: null,
+		needsKeyboard: false,
+	},
+	{
+		id: 'session-standby',
+		trigger: { kind: 'primary-path', event: 'session' },
+		target: '[data-spotlight-target="session-standby"]',
+		gate: 'nav.session',
+		surface: null,
+		needsKeyboard: false,
+	},
+	{
+		id: 'project-map',
+		trigger: { kind: 'primary-path', event: 'map' },
+		target: '[data-spotlight-target="project-map"]',
+		gate: 'nav.session',
+		surface: null,
+		needsKeyboard: false,
+	},
+	{
+		id: 'preview-player',
+		trigger: { kind: 'primary-path', event: 'player' },
+		target: '[data-spotlight-target="preview-player"]',
+		gate: 'nav.playerView',
+		surface: null,
+		needsKeyboard: false,
+	},
+	{
+		id: 'vault-switcher',
+		trigger: { kind: 'primary-path', event: 'campaign' },
+		target: '[data-spotlight-target="vault-switcher"]',
+		gate: 'nav.commandCenter',
+		surface: null,
 		needsKeyboard: false,
 	},
 	{ id: 'command-palette', trigger: { kind: 'always' }, surface: null, needsKeyboard: true },
@@ -2194,8 +2242,45 @@ export function spotlightVaultId(state: CoreStateSlice, fallback: string): strin
 	return state.sync.operations[0]?.vaultId ?? fallback;
 }
 
-function spotlightDue(trigger: SpotlightTrigger, state: CoreStateSlice): boolean {
+export interface SpotlightContext {
+	readonly keyboard: boolean;
+	readonly tier?: FeatureTier;
+	readonly route?: string;
+	readonly onboarded?: boolean;
+	readonly editing?: boolean;
+	readonly sheetOpen?: boolean;
+	/** Host-measured visible controls, including responsive hiding. */
+	readonly visibleTargets?: readonly string[];
+}
+
+function spotlightDue(
+	trigger: SpotlightTrigger,
+	state: CoreStateSlice,
+	options: SpotlightContext,
+): boolean {
 	switch (trigger.kind) {
+		case 'primary-path':
+			switch (trigger.event) {
+				case 'second-screen':
+					return (
+						Object.values(state.scenes.scenes).filter(
+							(scene) => isLiveScene(scene) && !scene.templateMeta.isTemplate,
+						).length >= 2
+					);
+				case 'session':
+					return options.route === '/session';
+				case 'map':
+					return (
+						options.route === '/session' &&
+						state.session.activeMap !== null &&
+						!!state.maps.maps[state.session.activeMap.mapId]
+					);
+				case 'player':
+					return Object.values(state.permissions.actors).some((actor) => actor.role === 'player');
+				case 'campaign':
+					return options.onboarded === true;
+			}
+			return false;
 		case 'always':
 			return true;
 		case 'maturity-signal':
@@ -2213,16 +2298,24 @@ export function pendingSpotlights(
 	actorId: ActorId,
 	vaultId: string,
 	seen: SeenSpotlights,
-	options: { readonly keyboard: boolean },
+	options: SpotlightContext,
 	spotlights: readonly SpotlightDefinition[] = FEATURE_SPOTLIGHTS,
 ): SpotlightDefinition[] {
-	if (state.permissions.actors[actorId]?.role !== 'dm') return [];
+	if (state.permissions.actors[actorId]?.role !== 'dm' || options.editing || options.sheetOpen)
+		return [];
 	const shown = new Set(spotlightsSeenIn(seen, vaultId));
 	return spotlights.filter(
 		(spotlight) =>
 			!shown.has(spotlight.id) &&
 			(options.keyboard || !spotlight.needsKeyboard) &&
-			spotlightDue(spotlight.trigger, state),
+			(!spotlight.target || options.visibleTargets?.includes(spotlight.target)) &&
+			(!spotlight.gate ||
+				SECTION_FEATURE_GATES.some(
+					(gate) =>
+						gate.id === spotlight.gate &&
+						tierMeets(options.tier ?? DEFAULT_FEATURE_TIER, gate.minTier),
+				)) &&
+			spotlightDue(spotlight.trigger, state, options),
 	);
 }
 

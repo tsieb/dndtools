@@ -72,7 +72,9 @@ export function StagePanel({
 						variant="secondary"
 						size="sm"
 						icon="visibility-players"
-						disabled={!isLive || previewing || !activeMapId}
+						// Stay focusable so the spotlight can point at Project in Standby; the DS
+						// suppresses activation while announcing the existing explanation.
+						aria-disabled={!isLive || previewing || !activeMapId}
 						title={
 							previewing
 								? t('player.blockedPreview')
@@ -82,6 +84,7 @@ export function StagePanel({
 										? `${t('session.stage.activeMap')} · ${t('extensions.customTypes.required')}`
 										: undefined
 						}
+						data-spotlight-target="project-map"
 						onClick={onProject}
 					>
 						{t('session.stage.project')}

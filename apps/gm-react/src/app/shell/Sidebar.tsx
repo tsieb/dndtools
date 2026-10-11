@@ -215,6 +215,7 @@ export function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			<button
 				type="button"
 				onClick={() => setVaultsOpen(true)}
+				data-spotlight-target="vault-switcher"
 				aria-label={t('vaults.title')}
 				aria-haspopup="dialog"
 				aria-expanded={vaultsOpen}

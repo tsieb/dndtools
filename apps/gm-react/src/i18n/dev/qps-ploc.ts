@@ -7234,6 +7234,26 @@ export default {
 		'[Ýóúŕ ṽáúľţ’š éñçŕýƥţíóñ ķéýš, šéáľéď úñďéŕ á ƥáššƥĥŕášé ýóú çĥóóšé. Éẋƥóŕţ íţ óñçé áñď šţóŕé íţ óƒƒ ţĥíš ďéṽíçé. Íƒ éṽéŕý šíğñéď-íñ ďéṽíçé íš ľóšţ, íţ íš ţĥé óñľý ŵáý ƀáçķ íñţó ýóúŕ éñçŕýƥţéď ƀáçķúƥš.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ]',
 	'spotlight.region': '[Ţíƥ~~]',
 	'spotlight.dismiss': '[Ďíšḿíšš ţíƥ~~~~ ]',
+	'spotlight.screenSwitcher.title': '[Your screens are a click away ~~~~]',
+	'spotlight.screenSwitcher.body':
+		'[Use the screen switcher to move between your screens without returning to the library. ~~~~]',
+	'spotlight.screenSwitcher.action': '[Switch screens ~~~~]',
+	'spotlight.sessionStandby.title': '[Try Session in Standby ~~~~]',
+	'spotlight.sessionStandby.body':
+		'[Standby is a rehearsal: rolls and combat are not recorded. Go live when you are ready to record the session and share with players. ~~~~]',
+	'spotlight.sessionStandby.action': '[Find Go live ~~~~]',
+	'spotlight.projectMap.title': '[Show your map to the table ~~~~]',
+	'spotlight.projectMap.body':
+		'[Opening a map stages it for you. Once the session is live, Project sends it to your players. ~~~~]',
+	'spotlight.projectMap.action': '[Find Project ~~~~]',
+	'spotlight.previewPlayer.title': '[See what a player sees ~~~~]',
+	'spotlight.previewPlayer.body':
+		'[Preview as a player to check their view before sharing. Choose a player from the view menu. ~~~~]',
+	'spotlight.previewPlayer.action': '[Preview as a player ~~~~]',
+	'spotlight.vaultSwitcher.title': '[Your campaigns and a demo ~~~~]',
+	'spotlight.vaultSwitcher.body':
+		'[The campaign chip opens your vault switcher. Explore the demo campaign there in its own separate vault. ~~~~]',
+	'spotlight.vaultSwitcher.action': '[Open campaigns ~~~~]',
 	'spotlight.graph.title': '[Ýóúŕ ñóţéš áŕé çóññéçţéď~~~~ ~~~~ ]',
 	'spotlight.graph.body':
 		'[Ýóúŕ ñóţéš ľíñķ ţó éáçĥ óţĥéŕ ñóŵ. Ţĥé ŕéľáţíóñšĥíƥ ğŕáƥĥ ľáýš ţĥóšé ľíñķš óúţ šó ýóú çáñ ƒóľľóŵ ţĥéḿ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~]',

@@ -8,6 +8,13 @@ import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_hel
 
 const IDLE_MS = 8_000;
 const COOLDOWN_MS = 5 * 60_000;
+const PRIMARY_IDS = [
+	'screen-switcher',
+	'session-standby',
+	'project-map',
+	'preview-player',
+	'vault-switcher',
+];
 const SEEN_KEY = 'dndtools:react:seen-spotlights';
 
 /** Onboarded, empty vault (no demo content, so the graph signal starts at zero links). */
@@ -23,6 +30,14 @@ async function openEmptyVault(page: Page): Promise<void> {
 	});
 	await gotoRoute(page, '/');
 	await seedFresh(page);
+	// Keep the legacy queue cases isolated from the new primary-path tips.
+	await page.evaluate(
+		({ key, ids }) => {
+			const vaultId = window.__rt!.state.sync.operations[0]?.vaultId ?? 'local-default';
+			window.localStorage.setItem(key, JSON.stringify({ [vaultId]: ids }));
+		},
+		{ key: SEEN_KEY, ids: PRIMARY_IDS },
+	);
 }
 
 /** One real keystroke (Shift alone does nothing in the app), then no input for `quietMs`. */
@@ -40,7 +55,9 @@ async function settle(page: Page): Promise<void> {
 async function seenIds(page: Page): Promise<string[]> {
 	const raw = await page.evaluate((key) => window.localStorage.getItem(key), SEEN_KEY);
 	const record = JSON.parse(raw ?? '{}') as Record<string, string[]>;
-	return Object.values(record).flat();
+	return Object.values(record)
+		.flat()
+		.filter((id) => !PRIMARY_IDS.includes(id));
 }
 
 const anySpotlight = (page: Page) => page.locator('[data-spotlight-id]');
@@ -63,11 +80,80 @@ test.describe('feature spotlights', () => {
 		await openEmptyVault(page);
 	});
 
+	test('campaign chip spotlight shows once, opens campaigns, and never repeats', async ({
+		page,
+	}, testInfo) => {
+		await page.evaluate(
+			({ key, ids }) => {
+				const vaultId = window.__rt!.state.sync.operations[0]?.vaultId ?? 'local-default';
+				window.localStorage.setItem(
+					key,
+					JSON.stringify({
+						[vaultId]: [
+							...ids.filter((id) => id !== 'vault-switcher'),
+							'graph',
+							'command-palette',
+							'shortcuts',
+						],
+					}),
+				);
+			},
+			{ key: SEEN_KEY, ids: PRIMARY_IDS },
+		);
+		await pauseAfterActivity(page, IDLE_MS + 1_000);
+		const card = spotlightCard(page, 'vault-switcher');
+		if (testInfo.project.name === 'mobile-chromium') {
+			await settle(page);
+			await expect(card).toHaveCount(0);
+			return;
+		}
+		await expect(card).toBeVisible();
+		await card.getByRole('button', { name: 'Open campaigns' }).click();
+		await expect(page.getByRole('dialog', { name: 'Local vaults' })).toBeVisible();
+		await page.reload({ waitUntil: 'domcontentloaded' });
+		await waitReady(page);
+		for (let n = 0; n < 2; n++) {
+			await pauseAfterActivity(page, COOLDOWN_MS + IDLE_MS);
+			await settle(page);
+			await expect(card).toHaveCount(0);
+		}
+		const stored = await page.evaluate(
+			(key) => JSON.parse(localStorage.getItem(key) ?? '{}'),
+			SEEN_KEY,
+		);
+		expect(
+			Object.values(stored)
+				.flat()
+				.filter((id) => id === 'vault-switcher'),
+		).toEqual(['vault-switcher']);
+	});
+
+	test('canvas editing suppresses an earned tip until editing finishes', async ({
+		page,
+	}, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', 'Desktop canvas edit-mode regression');
+		await gotoRoute(page, '/board');
+		await linkThreeNotes(page);
+		await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+		await page.getByRole('button', { name: 'Add', exact: true }).click();
+		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
+		// No text field owns focus: edit mode itself must block the tip.
+		await page.getByRole('button', { name: 'Done', exact: true }).focus();
+		await pauseAfterActivity(page, IDLE_MS * 2);
+		await settle(page);
+		await expect(anySpotlight(page)).toHaveCount(0);
+		expect(await seenIds(page)).toEqual([]);
+		await page.getByRole('button', { name: 'Done', exact: true }).click();
+		await pauseAfterActivity(page, IDLE_MS + 1_000);
+		await expect(spotlightCard(page, 'graph')).toBeVisible();
+	});
+
 	test('another vault’s history does not suppress this vault or get overwritten', async ({
 		page,
 	}) => {
 		await page.evaluate((key) => {
-			window.localStorage.setItem(key, JSON.stringify({ 'another-vault': ['graph'] }));
+			const stored = JSON.parse(window.localStorage.getItem(key) ?? '{}');
+			window.localStorage.setItem(key, JSON.stringify({ 'another-vault': ['graph'], ...stored }));
 		}, SEEN_KEY);
 		await linkThreeNotes(page);
 		await pauseAfterActivity(page, IDLE_MS + 1_000);
@@ -77,7 +163,9 @@ test.describe('feature spotlights', () => {
 		}, SEEN_KEY);
 		expect(history['another-vault']).toEqual(['graph']);
 		expect(Object.keys(history)).toHaveLength(2);
-		expect(Object.values(history)).toEqual([['graph'], ['graph']]);
+		expect(
+			Object.values(history).map((ids) => ids.filter((id) => !PRIMARY_IDS.includes(id))),
+		).toEqual([['graph'], ['graph']]);
 		await page.reload({ waitUntil: 'domcontentloaded' });
 		await waitReady(page);
 		await pauseAfterActivity(page, COOLDOWN_MS + IDLE_MS);

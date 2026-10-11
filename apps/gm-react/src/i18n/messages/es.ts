@@ -7054,6 +7054,26 @@ export const es: Partial<Record<MessageKey, string>> = {
 	// RC-UX-3.2 — avisos de funciones que se muestran una sola vez.
 	'spotlight.region': 'Consejo',
 	'spotlight.dismiss': 'Descartar consejo',
+	'spotlight.screenSwitcher.title': 'Tus pantallas están a un clic',
+	'spotlight.screenSwitcher.body':
+		'Usa el selector de pantallas para cambiar de pantalla sin volver a la biblioteca.',
+	'spotlight.screenSwitcher.action': 'Cambiar de pantalla',
+	'spotlight.sessionStandby.title': 'Prueba la sesión en espera',
+	'spotlight.sessionStandby.body':
+		'En espera puedes ensayar: no se registran tiradas ni combates. Inicia la sesión en vivo para registrarla y compartirla con los jugadores.',
+	'spotlight.sessionStandby.action': 'Ver Iniciar sesión',
+	'spotlight.projectMap.title': 'Muestra el mapa a la mesa',
+	'spotlight.projectMap.body':
+		'Abrir un mapa lo prepara para ti. Con la sesión en vivo, Proyectar lo envía a tus jugadores.',
+	'spotlight.projectMap.action': 'Ver Proyectar',
+	'spotlight.previewPlayer.title': 'Mira lo que ve un jugador',
+	'spotlight.previewPlayer.body':
+		'Comprueba la vista de un jugador antes de compartir. Elige un jugador en el menú de vista.',
+	'spotlight.previewPlayer.action': 'Ver como jugador',
+	'spotlight.vaultSwitcher.title': 'Tus campañas y una demo',
+	'spotlight.vaultSwitcher.body':
+		'El botón de campaña abre el selector de bóvedas. Allí puedes explorar la campaña demo en su propia bóveda independiente.',
+	'spotlight.vaultSwitcher.action': 'Abrir campañas',
 	'spotlight.graph.title': 'Tus notas están conectadas',
 	'spotlight.graph.body':
 		'Tus notas ya se enlazan entre sí. El grafo de relaciones muestra esos enlaces para que puedas seguirlos.',

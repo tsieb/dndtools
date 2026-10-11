@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	FEATURE_SPOTLIGHTS,
+	SECTION_FEATURE_GATES,
+	isFeatureVisible,
 	markSpotlightSeen,
 	parseSeenSpotlights,
 	pendingSpotlights,
@@ -20,7 +22,8 @@ import {
 } from '../../platform/preferences';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { useSessionPosture } from '../shell/session-posture';
-import { shortcut } from '../shortcuts/registry';
+import { shortcut, activeCanvasSurface, subscribeCanvasSurface } from '../shortcuts/registry';
+import { useSettingsTier } from '../../screens/settings/Experience';
 import { useViewport } from '../useViewport';
 
 /**
@@ -59,6 +62,36 @@ interface SpotlightCopy {
 
 /** Copy for each declared spotlight. A spotlight without copy here is never shown. */
 const COPY: Readonly<Record<string, SpotlightCopy>> = {
+	'screen-switcher': {
+		title: 'spotlight.screenSwitcher.title',
+		body: 'spotlight.screenSwitcher.body',
+		action: 'spotlight.screenSwitcher.action',
+		icon: 'layers',
+	},
+	'session-standby': {
+		title: 'spotlight.sessionStandby.title',
+		body: 'spotlight.sessionStandby.body',
+		action: 'spotlight.sessionStandby.action',
+		icon: 'info',
+	},
+	'project-map': {
+		title: 'spotlight.projectMap.title',
+		body: 'spotlight.projectMap.body',
+		action: 'spotlight.projectMap.action',
+		icon: 'map',
+	},
+	'preview-player': {
+		title: 'spotlight.previewPlayer.title',
+		body: 'spotlight.previewPlayer.body',
+		action: 'spotlight.previewPlayer.action',
+		icon: 'visibility-players',
+	},
+	'vault-switcher': {
+		title: 'spotlight.vaultSwitcher.title',
+		body: 'spotlight.vaultSwitcher.body',
+		action: 'spotlight.vaultSwitcher.action',
+		icon: 'folder',
+	},
 	graph: {
 		title: 'spotlight.graph.title',
 		body: 'spotlight.graph.body',
@@ -89,7 +122,7 @@ function readSeen() {
 
 /** Whether the DM can be shown something right now without cutting across what they are doing. */
 function interruptible(): boolean {
-	if (document.visibilityState === 'hidden') return false;
+	if (document.visibilityState === 'hidden' || activeCanvasSurface()?.editing) return false;
 	// First-run onboarding still owns the screen until it is finished or skipped.
 	if (readPreference(PREFERENCE_KEYS.onboarded) === null) return false;
 	// A dialog, sheet, the command palette or a full-screen editor means the DM is mid-task.
@@ -159,10 +192,32 @@ function useIdleMoment(armed: boolean, notBefore: number, onIdle: () => void): v
 	}, [armed, notBefore]);
 }
 
+/** A mounted control may still be hidden by a phone breakpoint, a collapsed panel or scrolling. */
+export function visibleSpotlightTarget(selector: string): HTMLElement | null {
+	return (
+		Array.from(document.querySelectorAll<HTMLElement>(selector)).find((target) => {
+			const rect = target.getBoundingClientRect();
+			return (
+				!target.closest('[hidden], [inert], [aria-hidden="true"]') &&
+				getComputedStyle(target).visibility === 'visible' &&
+				rect.width > 0 &&
+				rect.height > 0 &&
+				rect.bottom > 0 &&
+				rect.right > 0 &&
+				rect.top < window.innerHeight &&
+				rect.left < window.innerWidth
+			);
+		}) ?? null
+	);
+}
+
 export function Spotlight() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
+	const location = useLocation();
+	const tier = useSettingsTier();
+	const canvas = useSyncExternalStore(subscribeCanvasSurface, activeCanvasSurface);
 	const viewport = useViewport();
 	const posture = useSessionPosture();
 	const [seen, setSeen] = useState(readSeen);
@@ -174,7 +229,8 @@ export function Spotlight() {
 	// walk every note) is resolved once, at the idle moment itself.
 	const shown = spotlightsSeenIn(seen, spotlightVaultId(runtime.state, LOCAL_VAULT_ID));
 	const anyUnseen = FEATURE_SPOTLIGHTS.some((s) => !shown.includes(s.id));
-	const armed = anyUnseen && current === null && !posture.live && runtime.preview === null;
+	const armed =
+		anyUnseen && current === null && !posture.live && runtime.preview === null && !canvas?.editing;
 
 	useIdleMoment(armed, shownAt + SPOTLIGHT_COOLDOWN_MS, () => {
 		const vaultId = spotlightVaultId(runtime.state, LOCAL_VAULT_ID);
@@ -182,6 +238,14 @@ export function Spotlight() {
 		const stored = readSeen();
 		const next = pendingSpotlights(runtime.state, runtime.defaultActorId, vaultId, stored, {
 			keyboard: matchesMedia('(pointer: fine)'),
+			tier,
+			route: location.pathname.replace(/\/$/, '') || '/',
+			onboarded: readPreference(PREFERENCE_KEYS.onboarded) !== null,
+			editing: activeCanvasSurface()?.editing,
+			sheetOpen: !!document.querySelector('[aria-modal="true"], [data-fullscreen-overlay]'),
+			visibleTargets: FEATURE_SPOTLIGHTS.flatMap((s) =>
+				s.target && visibleSpotlightTarget(s.target) ? [s.target] : [],
+			),
 		}).find((spotlight) => copyFor(spotlight.id));
 		if (!next) {
 			setSeen(stored);
@@ -196,6 +260,34 @@ export function Spotlight() {
 		setShownAt(Date.now());
 		setCurrent(next);
 	});
+
+	useEffect(() => {
+		if (!current) return;
+		const check = () => {
+			if (
+				activeCanvasSurface()?.editing ||
+				runtime.preview ||
+				posture.live ||
+				(current.gate && !isFeatureVisible(current.gate, tier, SECTION_FEATURE_GATES)) ||
+				(current.trigger.kind === 'primary-path' &&
+					['session', 'map'].includes(current.trigger.event) &&
+					location.pathname.replace(/\/$/, '') !== '/session') ||
+				document.querySelector('[aria-modal="true"], [data-fullscreen-overlay]') ||
+				(current.target && !visibleSpotlightTarget(current.target))
+			)
+				setCurrent(null);
+		};
+		check();
+		const observer = new MutationObserver(check);
+		observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+		window.addEventListener('resize', check);
+		window.addEventListener('scroll', check, true);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('resize', check);
+			window.removeEventListener('scroll', check, true);
+		};
+	}, [current, canvas, runtime.preview, posture.live, location.pathname, tier]);
 
 	const copy = current ? copyFor(current.id) : undefined;
 	const surface = current?.surface ?? null;
@@ -215,7 +307,7 @@ export function Spotlight() {
 				pointerEvents: 'none',
 			}}
 		>
-			{current && copy && !posture.live && (
+			{current && copy && !posture.live && !canvas?.editing && !runtime.preview && (
 				<FeatureSpotlight
 					data-spotlight-id={current.id}
 					title={t(copy.title)}
@@ -223,12 +315,22 @@ export function Spotlight() {
 						keys: copy.shortcutId ? shortcut(copy.shortcutId).keys : '',
 					})}
 					icon={copy.icon}
-					actionLabel={copy.action && surface ? t(copy.action) : undefined}
+					actionLabel={copy.action && (surface || current.target) ? t(copy.action) : undefined}
 					onAction={
-						surface
+						surface || current.target
 							? () => {
 									dismiss();
-									navigate(surface);
+									if (current.target) {
+										const target = visibleSpotlightTarget(current.target);
+										target?.scrollIntoView({ block: 'nearest' });
+										if (
+											current.id === 'screen-switcher' ||
+											current.id === 'preview-player' ||
+											current.id === 'vault-switcher'
+										)
+											target?.click();
+										else target?.focus();
+									} else if (surface) navigate(surface);
 								}
 							: undefined
 					}
