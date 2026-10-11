@@ -293,9 +293,9 @@ export function handleProjectTableView(
 		};
 	}
 
-	const scene = state.scenes.scenes[sceneId];
-	if (!scene)
-		return reject({ code: 'scene-not-found', message: `Scene ${sceneId} does not exist.` }, state);
+	// A soft-deleted scene reads as missing, as it does for the per-player command.
+	const scene = requireScene(state, sceneId);
+	if ('code' in scene) return reject(scene, state);
 	if (!canShowSceneToTable(scene)) {
 		return reject(
 			{

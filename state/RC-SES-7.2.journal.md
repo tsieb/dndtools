@@ -130,3 +130,19 @@ No push, promotion, dispatcher-state change or additional agent.
 - This repair changes only the sharing-status query and this journal. No rendering or baseline
   change, core edit, parity exception, or dispatcher mutation. Central wrapper validation and
   independent review remain pending for the new commit.
+
+## Review repair — soft-deleted scenes
+
+- Review on `b992d9a44` (medium): `session.project-table-view` read the raw scene record, so a
+  soft-deleted scene stayed shareable in the Everyone selector and could replace every working
+  stage with an unreadable assignment.
+- `canShowSceneToTable` now requires `isLiveScene`, which covers the Everyone row, the Start-session
+  default and later-joiner inheritance. The command resolves the scene through `requireScene`, so a
+  tombstoned scene is refused `scene-not-found` with the table view and assignments unchanged. The
+  controller omits deleted scenes from `sceneOptions`, and a table view or assignment pointing at a
+  deleted scene reads `missing-scene`.
+- New regression in `packages/core/tests/player-view-table.test.ts` reproduces the reviewer's
+  sequence. It fails on the previous source and passes with the fix.
+- Verified: core vitest 295 files / 5352 tests passed; core typecheck, targeted ESLint and
+  Prettier clean; `ds-interaction-fixes.test.tsx` (the app suite that touches ProjectionControl)
+  103 passed. No UI file changed in this round.

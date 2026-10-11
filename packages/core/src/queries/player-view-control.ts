@@ -2,7 +2,7 @@ import { hasDmAuthority } from '../state/permission-state';
 import type { CoreStateSlice } from '../commands/types';
 import type { ActorId } from '../state/ids';
 import type { ActorRole } from '../state/permission-state';
-import { screenMetaOf, type Scene, type SceneVisibility } from '../state/scene-state';
+import { isLiveScene, screenMetaOf, type Scene, type SceneVisibility } from '../state/scene-state';
 import type {
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionKind,
@@ -103,11 +103,20 @@ function isProjectableScene(scene: Scene): boolean {
 
 /**
  * RC-SES-7.2 — whether `scene` may become the TABLE VIEW (shown to every player and observer, and to
- * anyone who joins later). Fail closed: a DM-only scene never may — a per-player projection is a
- * deliberate choice for one person, but "everyone" must never sweep a DM-only scene onto the table.
+ * anyone who joins later). Fail closed: a soft-deleted scene never may (players cannot read it), nor
+ * a DM-only one — a per-player projection is a deliberate choice for one person, but "everyone" must
+ * never sweep a DM-only scene onto the table.
  */
 export function canShowSceneToTable(scene: Scene | undefined): boolean {
-	return !!scene && isProjectableScene(scene) && scene.visibility !== 'dm-only';
+	return (
+		!!scene && isLiveScene(scene) && isProjectableScene(scene) && scene.visibility !== 'dm-only'
+	);
+}
+
+/** A scene a projection may still resolve: present and not soft-deleted (reads as missing otherwise). */
+function liveSceneOf(state: CoreStateSlice, sceneId: string): Scene | undefined {
+	const scene = state.scenes.scenes[sceneId];
+	return scene && isLiveScene(scene) ? scene : undefined;
 }
 
 function sceneOption(scene: Scene): PlayerViewControllerSceneOption {
@@ -154,9 +163,9 @@ export function getPlayerViewController(
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	if (!hasDmAuthority(actor.role)) return { kind: 'denied', reason: 'actor-not-authorized' };
 
-	// The GM screen's board stays here; the default workspaces and templates do not.
+	// The GM screen's board stays here; the default workspaces, templates and deleted scenes do not.
 	const sceneOptions = Object.values(state.scenes.scenes)
-		.filter(isProjectableScene)
+		.filter((scene) => isLiveScene(scene) && isProjectableScene(scene))
 		.map(sceneOption)
 		.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -183,13 +192,13 @@ export function getPlayerViewController(
 				role: participant.role,
 				assignment: summarizeAssignment(
 					assignment,
-					assignment ? state.scenes.scenes[assignment.target.sceneId] : undefined,
+					assignment ? liveSceneOf(state, assignment.target.sceneId) : undefined,
 				),
 			};
 		});
 
 	const table = state.session.tableView ?? null;
-	const tableScene = table ? state.scenes.scenes[table.target.sceneId] : undefined;
+	const tableScene = table ? liveSceneOf(state, table.target.sceneId) : undefined;
 	const tableView: PlayerViewControllerTableView | null = table
 		? {
 				kind: tableScene ? 'assigned' : 'missing-scene',

@@ -164,6 +164,54 @@ describe('RC-SES-7.2 session.project-table-view', () => {
 		expect(controller.sceneOptions.find((scene) => scene.id === tavernId)?.shareable).toBe(true);
 	});
 
+	it('refuses a soft-deleted scene, leaves the table untouched, and joiners skip it', () => {
+		const { env, state, tavernId, vaultId } = fixture();
+		const shown = accept(showToTable(state, env, tavernId)).nextState;
+		const deleted = accept(
+			run(shown, env, {
+				type: 'scene.delete',
+				actorId: DM_ACTOR.id,
+				payload: { sceneId: vaultId },
+			}),
+		).nextState;
+
+		// Not offered to the Everyone row (or any row) once deleted.
+		const controller = getPlayerViewController(deleted, DM_ACTOR.id);
+		if (controller.kind !== 'available') throw new Error('controller unavailable');
+		expect(controller.sceneOptions.some((scene) => scene.id === vaultId)).toBe(false);
+
+		const refused = showToTable(deleted, env, vaultId);
+		expect(refused.status === 'rejected' && refused.rejection.code).toBe('scene-not-found');
+		expect(refused.nextState).toBe(deleted);
+		for (const id of [PLAYER_ACTOR.id, PLAYER_TWO.id, OBSERVER_ACTOR.id]) {
+			expect(stageOf(refused.nextState, id)).toBe('The Gilded Tankard');
+		}
+		expect(refused.nextState.session.tableView?.target.sceneId).toBe(tavernId);
+
+		// When the table scene itself is deleted, it reads as missing and a later joiner inherits nothing.
+		const tableDeleted = accept(
+			run(deleted, env, {
+				type: 'scene.delete',
+				actorId: DM_ACTOR.id,
+				payload: { sceneId: tavernId },
+			}),
+		).nextState;
+		const after = getPlayerViewController(tableDeleted, DM_ACTOR.id);
+		if (after.kind !== 'available') throw new Error('controller unavailable');
+		expect(after.tableView).toMatchObject({ kind: 'missing-scene', sceneId: tavernId });
+		const added = accept(
+			run(tableDeleted, env, {
+				type: 'permission.add-players',
+				actorId: DM_ACTOR.id,
+				payload: { displayNames: ['Late Arrival'] },
+			}),
+		).nextState;
+		const joiner = Object.values(added.permissions.actors).find(
+			(actor) => actor.displayName === 'Late Arrival',
+		);
+		expect(joiner && added.session.playerViewAssignments[joiner.id]).toBeUndefined();
+	});
+
 	it('refuses an unknown scene, a non-DM actor, and an observer', () => {
 		const { env, state, tavernId } = fixture();
 		const missing = showToTable(state, env, 'scene-does-not-exist');
