@@ -29,7 +29,9 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 			rt.enterPreview({ role: 'observer' });
 		});
 		const art = page.locator('svg[data-illustration="characters-empty"]');
-		await expect(art).toBeVisible();
+		// Under concurrent gates the lazy route chunk can hold the shell's "Loading your vault…" Boot
+		// fallback past the default 5s; readiness only, the pixel comparison below is unchanged.
+		await expect(art).toBeVisible({ timeout: 20_000 });
 		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 		await page.evaluate(() => document.fonts.ready);
 		const box = (await art.boundingBox())!;
