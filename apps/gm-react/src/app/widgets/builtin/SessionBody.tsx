@@ -3,7 +3,7 @@ import {
 	SESSION_LOG_SUBTYPE,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	getSessionStatusStrip,
-	canShowSceneToTable,
+	listScenesForActor,
 } from '@dndtools/core';
 import { Toaster } from '../../../ds';
 import { useRuntime } from '../../../runtime/RuntimeContext';
@@ -109,6 +109,13 @@ function SessionConsole() {
 		useSessionSeat();
 	const dispatch = useSessionDispatch();
 	const { startableScenes, activeSceneName, continueSceneId } = useSessionScenes();
+	// Startable scenes already exclude templates and GM workspaces. Read sharing status through
+	// the same actor-scoped query available to builder widgets, never the raw scene records.
+	const sharedSceneIds = new Set(
+		listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId)
+			.filter((scene) => scene.visibility !== 'dm-only')
+			.map((scene) => scene.id),
+	);
 	const { party } = useRoster();
 	const [startOpen, setStartOpen] = useState(false);
 	const [endOpen, setEndOpen] = useState(false);
@@ -219,7 +226,7 @@ function SessionConsole() {
 				open={startOpen}
 				scenes={startableScenes.map((scene) => ({
 					...scene,
-					shareable: canShowSceneToTable(runtime.state.scenes.scenes[scene.id]),
+					shareable: sharedSceneIds.has(scene.id),
 				}))}
 				continueSceneId={continueSceneId}
 				onClose={() => setStartOpen(false)}

@@ -109,3 +109,24 @@ No push, promotion, dispatcher-state change or additional agent.
   product changes are necessary for this feedback. The focused validation recorded above applies
   to the unchanged implementation; this round updates only this journal and checks its formatting.
 - Ready for the central operator's wrapper gates and independent review under the widened claim.
+
+## App-gate repair — actor-scoped sharing status
+
+- Read the original app-gate log at
+  `/home/trinkle/Programming/agent-dispatcher/.state/attempts/cdc2ba18-b2df-4919-bd7e-42344757321a/output.log`.
+  Its eight failures are all in `widgets/parity.test.ts`: the checkbox introduced three unexposed
+  reads (`canShowSceneToTable`, `scenes.scenes`, and its dynamic entry) in the Session builtin.
+- `SessionBody.tsx` now uses the existing actor-scoped `listScenesForActor` query to identify
+  shared scenes among the already-filtered startable choices. Templates and GM workspaces remain
+  excluded by `useSessionScenes`; core command validation remains authoritative. The checkbox,
+  default, opt-out payload, and translations are retained. No parity ledger exception or gate
+  relaxation was added.
+- Verified from original command logs and process exit status:
+  - Focused `widgets/parity.test.ts`: 41 passed.
+  - `pnpm test:app`: 187 files / 2278 tests passed (exit 0).
+  - Fake-LAN `table-view.spec.ts`: 6 passed across desktop and mobile, including default sharing,
+    private-scene refusal, per-player override, and unchecked start (exit 0).
+  - App typecheck, targeted ESLint, changed-file Prettier, and `git diff --check`: passed.
+- This repair changes only the sharing-status query and this journal. No rendering or baseline
+  change, core edit, parity exception, or dispatcher mutation. Central wrapper validation and
+  independent review remain pending for the new commit.
