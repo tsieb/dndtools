@@ -222,6 +222,7 @@ failing tests on the base `e97943c2` in a separate worktree (`/var/tmp/rc-can-8.
 passed, 1 skipped, exit 0** (`/var/tmp/rc-can-8.4-base-run.log`). None is inherited; all are ours.
 
 Causes and fixes:
+
 - `session-action-bar:213` — the board now stays mounted under the player-preview overlay, so the
   phone session bar stayed too. Board hides it while previewing.
 - `widget-settings` ×2, `widget-quick-builder:51` (phone) — the gallery's `onPlaced` selection
@@ -254,6 +255,7 @@ intermediate Board change and surfaced canvas:354/429/321/1804 against it. Final
 into `useQuietPlacement` (owned `sceneEditor/index.tsx`) to keep Board.tsx under the 800-line gate.
 Focused two-profile rerun of all 11 affected specs: **224 passed, 12 skipped, exit 0** (`r5.log`).
 Full two-profile e2e and pinned visual comparison on the committed tree follow.
+
 - Pinned visual comparison of `3ca8fe30`: **564 passed, 18 failed** (`visual-r1.log`). Every
   failure is a `/board` or `/scene/:id` golden route, 3 themes × 3 tiers; the diffs show only the
   shell `<h1>` text (now the screen name). The edit-mode tile bodies are pixel-identical after the
@@ -272,6 +274,7 @@ Full two-profile e2e and pinned visual comparison on the committed tree follow.
 The fence refused `app/shell/TopBar.tsx`, `app/widgets/WidgetRenderSlot.tsx` and
 `screens/sceneEditor/PlayerPreviewOverlay.tsx`. Reverted all three to `e97943c2`, plus the 18 golden
 PNGs re-baselined for the named shell heading (restored from `68a44cdb~1`). In-claim replacements:
+
 - Title: the acceptance title holds via `useScreenRouteName` in `App.tsx` (companion). The shell
   `<h1>` keeps the Screens label; the screen names itself in its toolbar heading, as `nav.ts`
   already documents. `route-titles` now asserts on screen routes: `<h1>` "Screens", the toolbar
@@ -294,3 +297,9 @@ Pinned visual comparison of `9e159a82`, snapshots disabled: **582 passed, exit 0
 (`--retries=2`, 4 workers): **2051 passed, 43 skipped, 0 failed, exit 0** in 33.7m
 (`/var/tmp/rc-can-8.4-full3.log`). Changed source paths are owned or companions (`App.tsx`).
 No push, promotion, new loop, extra agents, or dispatcher control-state edits.
+
+## 2026-10-11 — format gate
+
+`Format (changed)` failed on `13754fe9` for this journal only (Prettier wanted blank lines before
+two bullet lists). Ran `prettier --write` on it; `pnpm format:check:changed -- --base loop/rc` now
+passes for all 44 changed files. No source or test change.
