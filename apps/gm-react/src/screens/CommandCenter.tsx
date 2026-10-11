@@ -5,6 +5,8 @@ import {
 	findWidgetDefinition,
 	getSceneForActor,
 	resolveCommandCenterHome,
+	resolveOnboarding,
+	wantsFirstSessionGuide,
 	type CoreCommand,
 } from '@dndtools/core';
 import { Button, EmptyState, Icon, Skeleton } from '../ds';
@@ -20,6 +22,8 @@ import {
 	payloadIndex,
 } from '../app/board-helpers';
 import { FlowViewTile } from '../app/canvas/FlowBoard';
+import { FIRST_SESSION_FOCUS_SELECTOR } from '../app/widgets/builtin/GettingStartedBody';
+import { LOCAL_VAULT_RENAMED_EVENT } from '../platform/storage/coreStore';
 import { flowPartGap, useBlankTiles } from '../app/canvas/FlowPart';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useViewport } from '../app/useViewport';
@@ -39,10 +43,10 @@ import { useI18n } from '../i18n';
  * (`/screen/:id`, Edit layout and the widget builder), and this page shows whatever the screen holds.
  *
  * RC-UX-6.3 — a fresh vault's home screen opens on the first-session guide (`getting-started`, bare,
- * first in reading order), which `ensure-home` places only when the vault holds nothing yet. It is a
- * part like the others: hidden from its own "Hide guide" (or Edit layout) and put back from Help. The
- * scenes part's empty state is "No screens yet" with "New screen from a template", the old "Create
- * your first scene" call to action.
+ * first in reading order), which this page places right after `ensure-home` when the vault held
+ * nothing yet. It is a part like the others: hidden from its own "Hide guide" (or Edit layout) and put
+ * back from Help. The scenes part's empty state is "No screens yet" with "New screen from a template",
+ * the old "Create your first scene" call to action.
  *
  * Its committed baselines (`CommandCenter.baseline.test.tsx`) are the bespoke hub's: the same
  * accessibility tree, DOM skeleton, headings and focus order, apart from the widget regions.
@@ -52,7 +56,13 @@ import { useI18n } from '../i18n';
  * shown a stand-in hero no player's device ever renders.
  */
 
-/** Ensure the home screen exists, once per mount; reports a provisioning write that failed. */
+/**
+ * Ensure the home screen exists, once per mount; reports a provisioning write that failed.
+ *
+ * RC-UX-6.3 — a vault with nothing in it yet (read before `ensure-home`) also gets the first-session
+ * guide, put first on the new home screen with the guide view's own `restore`, the command Help uses
+ * to bring a hidden guide back. A guide that fails to place is not a failed home: Help offers it.
+ */
 function useProvisionedHome(enabled: boolean) {
 	const runtime = useRuntime();
 	const home = findHomeScreen(runtime.state.scenes);
@@ -62,6 +72,7 @@ function useProvisionedHome(enabled: boolean) {
 	useEffect(() => {
 		if (!enabled || home || !runtime.loaded || asked.current) return;
 		asked.current = true;
+		const withGuide = wantsFirstSessionGuide(runtime.state);
 		const command: CoreCommand = {
 			type: 'command-center.ensure-home',
 			actorId: runtime.defaultActorId,
@@ -69,8 +80,13 @@ function useProvisionedHome(enabled: boolean) {
 		};
 		// `dispatch` rethrows a persist failure; a rejection is reported in its result.
 		void Promise.resolve(runtime.dispatch(command))
-			.then((result) => setFailed(result.status !== 'accepted'))
-			.catch(() => setFailed(true));
+			.then(async (result) => {
+				setFailed(result.status !== 'accepted');
+				if (result.status !== 'accepted' || !withGuide) return;
+				const place = resolveOnboarding(runtime.state, runtime.defaultActorId).guide.restore;
+				if (place) await runtime.dispatch(place);
+			})
+			.catch(() => setFailed(!findHomeScreen(runtime.state.scenes)));
 	}, [enabled, home, runtime, attempt]);
 	const retry = () => {
 		asked.current = false;
@@ -78,6 +94,35 @@ function useProvisionedHome(enabled: boolean) {
 		setAttempt((count) => count + 1);
 	};
 	return { home, failed, retry };
+}
+
+/**
+ * RC-UX-6.3 — when onboarding closes onto this page, focus lands on the first-session guide's first
+ * row instead of the page. Onboarding renames the vault catalog (and says so with
+ * `LOCAL_VAULT_RENAMED_EVENT`) as it finishes, then focuses `#main-content` once its overlay is gone;
+ * that one focus, shortly after the event, is moved on to the guide. Nothing else is redirected.
+ */
+function useFocusGuideAfterOnboarding() {
+	useEffect(() => {
+		let armedUntil = 0;
+		const arm = () => {
+			armedUntil = performance.now() + 2000;
+		};
+		const onFocus = (event: FocusEvent) => {
+			if (performance.now() > armedUntil) return;
+			if (!(event.target instanceof HTMLElement) || event.target.id !== 'main-content') return;
+			const row = document.querySelector<HTMLElement>(FIRST_SESSION_FOCUS_SELECTOR);
+			if (!row) return;
+			armedUntil = 0;
+			row.focus();
+		};
+		window.addEventListener(LOCAL_VAULT_RENAMED_EVENT, arm);
+		document.addEventListener('focusin', onFocus);
+		return () => {
+			window.removeEventListener(LOCAL_VAULT_RENAMED_EVENT, arm);
+			document.removeEventListener('focusin', onFocus);
+		};
+	}, []);
 }
 
 export function CommandCenter() {
@@ -91,6 +136,7 @@ export function CommandCenter() {
 	});
 	const participant = homeView.kind === 'participant';
 	const { home, failed, retry } = useProvisionedHome(!participant);
+	useFocusGuideAfterOnboarding();
 
 	// Bare parts that currently draw nothing (Manage at the core tier, say) leave the layout, as the
 	// hub's own sections did: no empty row, no empty labelled region. They stay mounted, out of the

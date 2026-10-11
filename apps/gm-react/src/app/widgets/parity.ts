@@ -140,10 +140,6 @@ export const SHARED_MODULE_USES: Readonly<
 	'../../map/mapVocab': {},
 	'../../mapGeometry': {},
 	'../../markdown/render': {},
-	// RC-UX-6.3 — the first-session guide reopens onboarding's campaign step, as Settings › Account
-	// does: a device flag and a window event, nothing from the vault.
-	'../../onboarding/shared': {},
-	'../../../platform/preferences': {},
 	// RC-CAN-7.8 — the Session screen's panels and their reads. Each widget calls only its own row's
 	// hook, so each is charged only with what it reads.
 	'../../EncounterBuilder': {
@@ -303,8 +299,6 @@ export const BUILTIN_PARITY: Readonly<Record<BuiltinWidgetType, BuiltinBodyParit
 		commands: [],
 		intents: ['open-route'],
 	},
-	// RC-UX-6.3: the guide's links are WID-5.1 intents, but the core resolves them inside the guide's
-	// view (one read below), so the body itself names no route, intent kind or command.
 	'getting-started': { queries: [], commands: [], intents: [] },
 	// The GM screen's widget count is a `screens` row's.
 	tools: { queries: ['screens'], commands: [], intents: [] },
@@ -421,8 +415,7 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 		'state:scenes.scenes',
 	]),
 	...privateUses('session', ['read:getSessionStatusStrip']),
-	// RC-UX-6.3: the first-session guide, its rows' done-conditions, links, and hide / put back.
-	...privateUses('getting-started', ['read:resolveFirstSessionGuide']),
+	...privateUses('getting-started', ['read:resolveOnboarding']),
 	// Which screen is the GM screen, the layout presets and the safe point.
 	...privateUses('tools', [
 		'state:commandCenter.autoSave',
@@ -437,9 +430,7 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 	...privateUses('combat', ['read:listEncountersForActor']),
 	...privateUses('search', ['read:getSavedSearchesForActor']),
 
-	// RC-WID-5.7: the fresh GM board (`ensureHomeBoard`, null origin) provisions builtin bodies. RC-UX-6.3
-	// adds the first-session guide, which a fresh vault's home screen opens on: it reads one private
-	// view (above) that no query source exposes yet.
+	// RC-WID-5.7: the fresh GM board (`ensureHomeBoard`, null origin) provisions builtin bodies.
 	...(
 		[
 			'map',
@@ -449,7 +440,6 @@ export const PARITY_DEBT_LEDGER: readonly ParityDebt[] = [
 			'audio',
 			'quick-reference',
 			'prep',
-			'getting-started',
 		] as const satisfies readonly BuiltinWidgetType[]
 	).map((type) => wid57(builtinOnScreenFinding(type))),
 

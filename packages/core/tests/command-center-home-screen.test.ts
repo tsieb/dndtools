@@ -56,7 +56,7 @@ function homeScreen(state: CoreStateSlice): Scene {
 }
 
 describe('RC-CAN-7.6 the home screen', () => {
-	it('a fresh vault gets the board and a flow home screen of the guide and the five parts', () => {
+	it('a fresh vault gets the board and a flow home screen of the five parts', () => {
 		const env = makeEnvironment();
 		const { nextState } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
 		const board = nextState.scenes.scenes[nextState.commandCenter.homeSceneId!]!;
@@ -70,29 +70,23 @@ describe('RC-CAN-7.6 the home screen', () => {
 			layoutPolicy: 'flow',
 			origin: { kind: 'default', defaultKey: HOME_SCREEN_DEFAULT_KEY, sourceSceneId: null },
 		});
-		// RC-UX-6.3 — a fresh vault's home screen opens on the first-session guide, bare.
-		expect(home.widgets.map((widget) => widget.type)).toEqual([
-			'getting-started',
-			...HOME_WIDGET_TYPES,
-		]);
-		const [guide, ...parts] = home.widgets;
-		expect(guide!.configuration).toEqual({ presentation: 'bare' });
-		// Every part's setting is the definition's default, so a rebuilt part is configured identically.
-		expect(parts.every((widget) => Object.keys(widget.configuration).length === 0)).toBe(true);
+		expect(home.widgets.map((widget) => widget.type)).toEqual([...HOME_WIDGET_TYPES]);
+		// Every setting is the definition's default, so a rebuilt part is configured identically.
+		expect(home.widgets.every((widget) => Object.keys(widget.configuration).length === 0)).toBe(
+			true,
+		);
 		// Create over Manage: one group, which a flow screen stacks in one lane.
-		const [, , create, manage] = parts;
+		const [, , create, manage] = home.widgets;
 		expect(create!.layout.groupId).not.toBeNull();
 		expect(manage!.layout.groupId).toBe(create!.layout.groupId);
-		// Spans 12 / 12 / 7 + 5 / 5 / 12 of the authoring grid, in reading order.
+		// Spans 12 / 7 + 5 / 5 / 12 of the authoring grid, in reading order.
 		expect(home.widgets.map(({ layout }) => [layout.x, layout.y, layout.w])).toEqual([
 			[0, 0, 1152],
-			[0, 240, 1152],
-			[0, 480, 672],
+			[0, 240, 672],
+			[672, 240, 480],
 			[672, 480, 480],
-			[672, 720, 480],
-			[0, 960, 1152],
+			[0, 720, 1152],
 		]);
-		expect(home.widgets.map(({ layout }) => layout.focusOrder)).toEqual([1, 2, 3, 4, 5, 6]);
 	});
 
 	it('every part resolves available, never missing, in an empty vault', () => {
@@ -107,7 +101,7 @@ describe('RC-CAN-7.6 the home screen', () => {
 		);
 		if ('kind' in summary) throw new Error('home unreadable');
 		expect(summary.widgets.map((widget) => widget.kind)).toEqual(
-			['getting-started', ...HOME_WIDGET_TYPES].map(() => 'available'),
+			HOME_WIDGET_TYPES.map(() => 'available'),
 		);
 	});
 
@@ -137,10 +131,6 @@ describe('RC-CAN-7.6 the home screen', () => {
 		});
 		expect(isDefaultScreen(nextState, board.id)).toBe(true);
 		expect(isDefaultScreen(nextState, homeScreen(nextState).id)).toBe(true);
-		// RC-UX-6.3 — the guide is for a fresh vault; a vault with a GM screen gets the parts alone.
-		expect(homeScreen(nextState).widgets.map((widget) => widget.type)).toEqual([
-			...HOME_WIDGET_TYPES,
-		]);
 	});
 
 	it('is idempotent and never resets the GM’s changes to the home screen', () => {

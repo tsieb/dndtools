@@ -37,12 +37,16 @@ function doneRows(state: CoreStateSlice): FirstSessionRowId[] {
 		.map((row) => row.id);
 }
 
-/** A fresh vault after the Command Center provisioned its home, as the app opens it. */
+/**
+ * A fresh vault after the Command Center opened it: `ensure-home` provisions the home screen, then,
+ * because the vault was fresh before that, the page places the guide with the view's own `restore`.
+ */
 function freshHome(env: Env, ...extra: (typeof PLAYER_ACTOR)[]) {
-	return run(buildInitialState(DM_ACTOR, ...extra), env, {
-		type: 'command-center.ensure-home',
-		payload: {},
-	});
+	const empty = buildInitialState(DM_ACTOR, ...extra);
+	expect(wantsFirstSessionGuide(empty)).toBe(true);
+	const provisioned = run(empty, env, { type: 'command-center.ensure-home', payload: {} });
+	const place = resolveFirstSessionGuide(provisioned, DM_ACTOR.id).restore;
+	return place ? run(provisioned, env, place) : provisioned;
 }
 
 /** A table scene the DM can go live on. */
@@ -290,9 +294,16 @@ describe('RC-UX-6.3 the first-session guide: partial and complete vaults', () =>
 });
 
 describe('RC-UX-6.3 the guide on the home screen', () => {
-	it('is placed only in a fresh vault', () => {
+	it('is wanted only in a fresh vault, and ensure-home alone never places it', () => {
 		const env = makeEnvironment();
 		expect(wantsFirstSessionGuide(buildInitialState(DM_ACTOR))).toBe(true);
+		const bare = run(buildInitialState(DM_ACTOR), env, {
+			type: 'command-center.ensure-home',
+			payload: {},
+		});
+		// Provisioned: no longer fresh, and the home screen is the five parts until the page adds it.
+		expect(wantsFirstSessionGuide(bare)).toBe(false);
+		expect(resolveFirstSessionGuide(bare, DM_ACTOR.id).placedWidgetId).toBeNull();
 		const { state } = withScreen(buildInitialState(DM_ACTOR), env);
 		expect(wantsFirstSessionGuide(state)).toBe(false);
 		const provisioned = run(state, env, { type: 'command-center.ensure-home', payload: {} });
@@ -306,7 +317,11 @@ describe('RC-UX-6.3 the guide on the home screen', () => {
 		const env = makeEnvironment();
 		const home = freshHome(env);
 		const guide = resolveFirstSessionGuide(home, DM_ACTOR.id);
-		expect(guide.placedWidgetId).toBe(findHomeScreen(home.scenes)!.widgets[0]!.id);
+		const first = [...findHomeScreen(home.scenes)!.widgets].sort(
+			(a, b) => a.layout.y - b.layout.y || a.layout.x - b.layout.x,
+		)[0]!;
+		expect(first.type).toBe('getting-started');
+		expect(guide.placedWidgetId).toBe(first.id);
 		expect(guide.restore).toBeNull();
 
 		const dismissed = run(home, env, guide.dismiss!);

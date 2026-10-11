@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-	resolveFirstSessionGuide,
+	resolveOnboarding,
 	type CoreCommand,
 	type FirstSessionGuideView,
 	type FirstSessionLink,
@@ -10,21 +10,20 @@ import {
 import { Button, Toaster } from '../../../ds';
 import { useI18n, type MessageKey } from '../../../i18n';
 import { useRuntime } from '../../../runtime/RuntimeContext';
-import { removePreference } from '../../../platform/preferences';
-import { ONBOARDED_KEY, REPLAY_EVENT } from '../../onboarding/shared';
 import { T } from '../../screen-kit';
 import { Muted, SR_ONLY } from '../../widget-body-kit';
 import { LiveReadout, StateMark } from './live';
 
 /**
  * The `getting-started` widget (RC-WID-4.1), since RC-UX-6.3 the first-session guide: six things to do
- * before the first evening at the table, read from the core's `resolveFirstSessionGuide` so a row
- * ticks when the vault shows it was done, whichever screen did it. A click here never ticks anything;
- * each link opens the existing flow (a WID-5.1 intent the core already resolved against the viewer's
- * read gate, or onboarding's campaign step for the name).
+ * before the first evening at the table, read from the core's onboarding view (`resolveOnboarding`'s
+ * `guide`, the one read the WID-5.5 ledger already records for this body) so a row ticks when the
+ * vault shows it was done, whichever screen did it. A click here never ticks anything; each link opens
+ * the existing flow (a WID-5.1 intent the core already resolved against the viewer's read gate, or
+ * onboarding's campaign step for the name).
  *
- * `command-center.ensure-home` places it first on a fresh vault's home screen, bare. "Hide guide"
- * removes that instance; Help › Getting started shows the same list and puts it back.
+ * The Command Center places it first on a fresh vault's home screen, bare. "Hide guide" removes that
+ * instance; Help › Getting started shows the same list and puts it back.
  */
 
 /** Where onboarding sends focus when it closes onto the Command Center (the guide's first row). */
@@ -34,17 +33,18 @@ export const FIRST_SESSION_FOCUS_SELECTOR = '[data-first-session-guide] [data-fi
 const keyOf = (id: string) =>
 	id.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 
-/** Reopen onboarding on its first step, the one that names the campaign (Settings › Account's replay). */
-function replayOnboarding() {
-	removePreference(ONBOARDED_KEY);
-	window.dispatchEvent(new Event(REPLAY_EVENT));
-}
+/**
+ * Asks the shell to reopen onboarding on its first step, the one that names the campaign. The shell's
+ * Help host answers it (`HelpHost`, mounted once on every route), as Settings › Account's replay does,
+ * so a widget body never reaches for the device-preference layer itself.
+ */
+export const FIRST_SESSION_NAME_EVENT = 'dndtools:first-session-name-campaign';
 
 function useFollowLink(onLeave?: () => void) {
 	const navigate = useNavigate();
 	return (link: FirstSessionLink) => {
 		onLeave?.();
-		if (link.kind === 'onboarding') replayOnboarding();
+		if (link.kind === 'onboarding') window.dispatchEvent(new Event(FIRST_SESSION_NAME_EVENT));
 		else navigate(link.destination.path, { state: link.destination.state });
 	};
 }
@@ -216,7 +216,7 @@ export function GettingStartedBody() {
 	const runtime = useRuntime();
 	const { t } = useI18n();
 	const run = useGuideCommand();
-	const guide = resolveFirstSessionGuide(runtime.state, runtime.defaultActorId);
+	const { guide } = resolveOnboarding(runtime.state, runtime.defaultActorId);
 	if (!guide.canSetup) return <Muted>{t('widgetBody.gettingStarted.participant')}</Muted>;
 	const dismiss = guide.dismiss;
 	return (

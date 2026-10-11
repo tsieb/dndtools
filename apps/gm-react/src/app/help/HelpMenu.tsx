@@ -1,17 +1,24 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { resolveFirstSessionGuide } from '@dndtools/core';
+import { resolveOnboarding } from '@dndtools/core';
 import { Badge, Button, Dialog, Icon } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
 import {
+	FIRST_SESSION_NAME_EVENT,
 	FirstSessionGuideList,
 	FirstSessionProgress,
 	useGuideCommand,
 } from '../widgets/builtin/GettingStartedBody';
 import { useViewport } from '../useViewport';
-import { PREFERENCE_KEYS, readPreference, writePreference } from '../../platform/preferences';
+import {
+	PREFERENCE_KEYS,
+	readPreference,
+	removePreference,
+	writePreference,
+} from '../../platform/preferences';
+import { ONBOARDED_KEY, REPLAY_EVENT } from '../onboarding/shared';
 import { appVersion } from '../../platform/appVersion';
 import { renderMarkdown } from '../markdown/render';
 import { ReleaseNotes } from './ReleaseNotes';
@@ -94,6 +101,17 @@ export function HelpHost() {
 	const open = useSyncExternalStore(subscribeHelp, () => helpOpen);
 	// A host that unmounts (shell teardown, tests) must not leave the next one opening pre-opened.
 	useEffect(() => () => setHelpOpen(false), []);
+	// RC-UX-6.3 — the first-session guide's "Name it" (in the widget or in this menu) reopens
+	// onboarding on its campaign step, exactly as Settings › Account's replay does. The host answers it
+	// because it is mounted once on every route.
+	useEffect(() => {
+		const replay = () => {
+			removePreference(ONBOARDED_KEY);
+			window.dispatchEvent(new Event(REPLAY_EVENT));
+		};
+		window.addEventListener(FIRST_SESSION_NAME_EVENT, replay);
+		return () => window.removeEventListener(FIRST_SESSION_NAME_EVENT, replay);
+	}, []);
 	return <HelpMenu open={open} onClose={() => setHelpOpen(false)} />;
 }
 
@@ -167,7 +185,7 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 	const guideId = choice === 'list' ? null : (choice ?? guideForRoute(pathname));
 	const guide = guideId ? readGuide(GUIDE_MARKDOWN[guideId], tier) : null;
 	const listOpen = open && guide === null;
-	const firstSession = resolveFirstSessionGuide(runtime.state, runtime.defaultActorId);
+	const firstSession = resolveOnboarding(runtime.state, runtime.defaultActorId).guide;
 	const restore = firstSession.restore;
 
 	useEffect(() => {

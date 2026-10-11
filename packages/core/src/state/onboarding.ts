@@ -2006,6 +2006,8 @@ export interface OnboardingView {
 	readonly canSetup: boolean;
 	/** RC-UX-3.5 — usage-driven disclosure, independent of the manually-chosen tier above. */
 	readonly maturitySignals: readonly MaturitySignalStatus[];
+	/** RC-UX-6.3 — the first-session guide the steps are drawn from, with its links and commands. */
+	readonly guide: FirstSessionGuideView;
 }
 
 /* ---- RC-UX-3.5 — maturity-signal disclosure -----------------------------------------------------
@@ -2232,9 +2234,10 @@ export function pendingSpotlights(
  * The one exception is naming the campaign: no intent target names a campaign, so that row reopens
  * onboarding's own first step (the flow a GM who skipped onboarding skipped).
  *
- * The guide is the `getting-started` widget. `command-center.ensure-home` places it first on the
- * home screen of a fresh vault (bare, so it reads as page content); dismissing it removes that
- * instance and Help puts one back. The view carries both commands so every surface acts alike.
+ * The guide is the `getting-started` widget. The Command Center puts it first on the home screen of a
+ * fresh vault right after `command-center.ensure-home` provisions that screen (bare, so it reads as
+ * page content), using the view's own `restore`; dismissing it removes that instance and Help puts
+ * one back. The view carries both commands so every surface acts alike.
  */
 
 /** The guide's rows, in the order a first evening needs them. */
@@ -2248,7 +2251,7 @@ export const FIRST_SESSION_ROW_IDS = [
 ] as const;
 export type FirstSessionRowId = (typeof FIRST_SESSION_ROW_IDS)[number];
 
-/** The widget type the guide renders as, and the settings `ensure-home` places it with. */
+/** The widget type the guide renders as, and the settings it is placed with. */
 export const FIRST_SESSION_GUIDE_WIDGET_TYPE = 'getting-started';
 export const FIRST_SESSION_GUIDE_CONFIGURATION: Readonly<Record<string, unknown>> = Object.freeze({
 	presentation: 'bare',
@@ -2477,9 +2480,10 @@ export function resolveFirstSessionGuide(
 }
 
 /**
- * Whether `command-center.ensure-home` should place the guide: a vault that has no GM screen yet and
- * nothing the GM authored that a screen would show (no table screen, no layout preset). The seeded
- * e2e vault and the demo already hold screens, so they get the home screen without it.
+ * Whether the Command Center should place the guide when it first provisions the home screen: read
+ * BEFORE `command-center.ensure-home`, a vault that has no GM screen yet and nothing the GM authored
+ * that a screen would show (no table screen, no layout preset). The seeded e2e vault and the demo
+ * already hold screens, so they get the home screen without it.
  */
 export function wantsFirstSessionGuide(state: CoreStateSlice): boolean {
 	if (state.commandCenter.homeSceneId !== null) return false;
@@ -2503,7 +2507,8 @@ export function resolveOnboarding(
 	const isFresh = isFreshVault(state);
 	const role = state.permissions.actors[actorId]?.role ?? null;
 	const canSetup = role === 'dm';
-	const steps: FirstRunStep[] = resolveFirstSessionGuide(state, actorId).rows.map((row) => ({
+	const guide = resolveFirstSessionGuide(state, actorId);
+	const steps: FirstRunStep[] = guide.rows.map((row) => ({
 		id: row.id,
 		label: row.label,
 		done: row.done,
@@ -2524,5 +2529,6 @@ export function resolveOnboarding(
 		helpSurfaces: HELP_SURFACES,
 		canSetup,
 		maturitySignals: resolveMaturitySignals(state),
+		guide,
 	};
 }
