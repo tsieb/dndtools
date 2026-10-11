@@ -89,3 +89,15 @@
   description wrapping. The golden journey must continue exercising the full body snippet on
   mobile with the existing overflow detector. Claim validation remains blocked pending the
   operator's decision; no dispatcher control state was changed to bypass it.
+
+## Claim widened (self-heal round 1, 2026-10-10)
+
+- The operator widened the claim to include `CommandPaletteRow.jsx`; the description-wrapping repair
+  is kept unchanged, as instructed. No application or test code changed in this round.
+- Targeted ESLint on the palette row and golden-path spec passed (exit 0). The branch base
+  `0de08e09` is behind `loop/rc` (`a966dea5`, RC-UX-6.3); `git merge-tree` merges cleanly. That
+  upstream change adds a first-session guide checkpoint to the onboarding journey only; the
+  knowledge journey navigates directly to routes and does not depend on the fresh home.
+- Earlier evidence stands: 128/128 golden-path + palette browser checks and 15/15 pinned palette
+  visual checks. Full central gates and review remain with the operator. No push, promotion,
+  loop or dispatcher control-state edits.
