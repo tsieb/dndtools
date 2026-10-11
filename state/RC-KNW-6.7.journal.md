@@ -122,3 +122,21 @@
   run, on the base as well, on a different spec each time. No baseline drift and no palette-row
   effect. No code, baselines or spec changed; nothing within this claim fixes the base stall.
   Requesting a gate re-run. No push, promotion, loop or dispatcher control-state edits.
+
+## Visual gate timeout triage (2026-10-10)
+
+- Original central log `.state/attempts/c04635be-…/output.log` (head `75e83664`, same app tree as
+  the previous round): the 1800s gate timeout (exit 124) hit at test 515/546. It had two `✘` lines
+  before the kill (golden-routes high-contrast DS gallery desktop, `/` phone). No failure details
+  were printed because the run never finished.
+- Mean passing-test time was 6.9s in the gate vs 4.0s in my full run of the same tree
+  (`/tmp/rc-knw-6.7-visual-full.log`, 18.6 min wall).
+- `journalctl --user`: two other pinned Playwright containers ran alongside the gate container
+  `84799b4e` (22:35:37 → killed 23:05:37): `ae85f2ce` 22:35:36–22:47:16 and `188dfa8a` from
+  22:47:24, still running at the kill. Attempt `55d08268` (RC-CAN-7.9 implementer, worktree
+  `3c7be9da…`) ran `run-in-container` visual suites in that window. Load average at 23:06 was
+  31.75 / 36.02 / 31.50 on 16 cores.
+- Conclusion: the timeout comes from host contention with a concurrent visual suite. This branch
+  changes only description wrapping in palette rows, which touches no route the slow tests render.
+  No code, baselines or spec changed. Requesting a gate re-run on a quiet host. No push, promotion,
+  loop or dispatcher control-state edits.
