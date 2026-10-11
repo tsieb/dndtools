@@ -340,28 +340,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Live > desktop live · dom
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -718,28 +718,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Prep > desktop prep · dom
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -1127,28 +1127,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Recap with the rest timeli
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -1586,28 +1586,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, desktop > desktop
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -1964,28 +1964,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -2342,28 +2342,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, Standby, rail and phone > 
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -2794,28 +2794,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
@@ -3264,28 +3264,28 @@ exports[`Session baselines (RC-CAN-7.8) > demo vault, a live fight, desktop and 
   "Demo Player"
   <select aria-label="Scene projected to Demo Player">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 2"
   <select aria-label="Scene projected to Demo Player 2">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Player 3"
   <select aria-label="Scene projected to Demo Player 3">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">
   "Demo Observer"
   <select aria-label="Scene projected to Demo Observer">
     "— none —"
-    "Command Center"
+    "DM screen"
     "Harbor of Saltreach"
     "The Sunken Crypt"
   <svg aria-hidden="true">

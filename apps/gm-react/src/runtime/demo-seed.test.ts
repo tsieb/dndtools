@@ -180,7 +180,7 @@ describe('RC-ENG-8.2 default content never shows an error', () => {
 		expect(rejected).toEqual([]);
 		expect(homeMapTile(staged.state)?.binding).toBeNull();
 		expect(widgetStates(staged.state).filter((entry) => !entry.endsWith('→ available'))).toEqual([
-			'Command Center › map → unbound',
+			'DM screen › map → unbound',
 		]);
 	});
 

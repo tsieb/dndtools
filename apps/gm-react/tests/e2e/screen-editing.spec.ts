@@ -33,6 +33,7 @@ test('a scene bookmark opens the one screen editor and replaces its history entr
 	await expect(page.getByTestId('screen-open-editor')).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await expect(page).toHaveTitle('Lamplight — Harbor watch');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Harbor watch');
 	const aria = await page.getByTestId('screen-toolbar').ariaSnapshot();
 	expect(aria).toContain('Edit scene name, description & tags');
 	expect(aria).toContain('Preview this scene as another role');
@@ -65,6 +66,7 @@ test('details, background and layout persist; preview preserves the unsaved deta
 	await details.getByRole('button', { name: 'Save details', exact: true }).click();
 	await expect(details).toHaveCount(0);
 	await expect(page).toHaveTitle('Lamplight — Night watch');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Night watch');
 	await toolbar.getByRole('radio', { name: 'Flow', exact: true }).click();
 	await expect(toolbar.getByRole('radio', { name: 'Flow', exact: true })).toHaveAttribute(
 		'aria-checked',
@@ -73,6 +75,7 @@ test('details, background and layout persist; preview preserves the unsaved deta
 	await page.reload();
 	await waitReady(page);
 	await expect(page).toHaveTitle('Lamplight — Night watch');
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText('Night watch');
 	await expect(toolbar.getByRole('radio', { name: 'Flow', exact: true })).toHaveAttribute(
 		'aria-checked',
 		'true',

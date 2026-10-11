@@ -303,3 +303,57 @@ No push, promotion, new loop, extra agents, or dispatcher control-state edits.
 `Format (changed)` failed on `13754fe9` for this journal only (Prettier wanted blank lines before
 two bullet lists). Ran `prettier --write` on it; `pnpm format:check:changed -- --base loop/rc` now
 passes for all 44 changed files. No source or test change.
+
+## 2026-10-11 — independent review naming corrections
+
+- Starting from clean `d31165711`. The current review explicitly requests the shell stored-name
+  wiring in `app/shell/TopBar.tsx` and the centralized GM-board seed in
+  `packages/core/src/state/command-center-state.ts`. Applying those two narrow source corrections
+  to satisfy the returned findings; these are the two paths previously excluded by the ownership
+  fence. No dispatcher claims or control state are edited.
+- TopBar now consumes the same actor-visible route name as the document title. The core board
+  builder seeds `DM screen`; the distinct Command Center flow-screen constant stays unchanged.
+  Removed duplicate defaults from the library and board retry so every entry point uses core.
+- Coverage now asserts the shell name, live rename and reload, and a fresh `/` entry before
+  opening the library. Core tests assert both default names and preserve both custom board names
+  and an existing legacy `Command Center` name. NAVIGATION.md records the full requirement.
+- No Headroom tools are exposed in this run. Validation will use retained native output.
+- Validation pending.
+
+### Naming correction validation
+
+Evidence directory: `/var/tmp/rc-can-8.4-naming/`.
+
+- `screen-editing.spec.ts` and `route-titles.spec.ts`: **14 passed**, desktop and mobile, exit 0
+  (`e2e.log`). Covers shell/toolbar/title agreement, live rename, fresh `/` provisioning, reload,
+  scene bookmarks, details/preview aria controls, one toolbar, and inspector bindings.
+- Core command-center and navigation subset: **72 passed**, exit 0 (`core-final.log`). The initial
+  broader run found one obsolete navigation expectation (`core-broader.log`); corrected it to
+  distinguish `Command Center` from `DM screen`.
+- First app suite: 2,270 passed / 8 failed (`app.log`): seven tests stopped at old board-name
+  snapshots and the demo-seed assertion expected the old name. Retrieved original failures;
+  updated that assertion and 11 text snapshots across the two baseline files. Reviewed the diff:
+  only GM-board headings and scene-option names change. Snapshot update: 28 passed, exit 0
+  (`app-snapshot-update.log`); comparison rerun pending.
+- First pinned visual comparison: 18 mismatches, exit 1 (`visual-initial.log`), retained original
+  artifacts in `visual-initial-results/`. Reviewed desktop board, phone editor and rail diffs:
+  the shell now names the screen. Updated the 18 board/editor goldens in the pinned container
+  (`visual-update.log`, 18 passed, exit 0). No tolerance, retry, or timeout changed. Broader
+  comparison with snapshot updates disabled is pending.
+- App typecheck, quality gates and changed-source ESLint exited 0 (`typecheck.log`, `gates.log`,
+  `lint.log`, `lint-followup.log`). Explicit changed-file Prettier and `git diff --check` pass.
+
+- Final app comparison: **187 files / 2,278 tests passed**, exit 0 (`app-final.log`).
+- Broader functional browser run (`screens`, `hub-templates`, `player-preview`,
+  `binding-inspector`, `section-scoped-preview`): **34 passed, 4 skipped**, both profiles
+  (`e2e-broader.log`). Its outer process returned **143 after the successful Playwright summary**;
+  this is not claimed as an exit-0 gate. The focused 14-test acceptance run exited 0.
+
+- Final pinned visual comparison, **249 passed**, exit 0 in 6.4m (`visual-final.log`), with
+  `--update-snapshots=none`. Covers golden routes, session polish, and palette/help across desktop,
+  rail and phone, including all 18 changed board/editor goldens. This is the selected visual suite,
+  not the full 582-test gate.
+- Implementation is ready for central exact-SHA gates and independent review. The two
+  review-requested source paths outside the original Owns list are retained, not reverted to
+  satisfy the old fence at the cost of the stated requirements. No dispatcher control state was
+  changed. No push, promotion, new loop, or additional agents.

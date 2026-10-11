@@ -10,6 +10,7 @@ import { HelpHost, HelpTrigger } from '../help/HelpMenu';
 import { activeSectionId, sectionLabelKey, sectionSubtitleKey } from '../nav';
 import { T } from '../screen-kit';
 import { useSessionPosture } from './session-posture';
+import { useScreenRouteName } from '../../screens/screen/useScreens';
 
 /* The calm top bar — title / subtitle, ⌘K search, view-as + projection, and on compact widths the
  * overflow sheet that holds them. Extracted from AppShell.tsx unchanged (RC-STB-2.6). */
@@ -27,9 +28,10 @@ export function TopBar({
 	const location = useLocation();
 	const [controlsOpen, setControlsOpen] = useState(false);
 	const id = activeSectionId(location.pathname);
-	// Title and subtitle are message keys (RC-UX-1.2) whose text may carry the system package's
-	// vocabulary (RC-SYS-2.6) — "DM screen" under 5e, "GM screen" under Generic.
-	const title = t(sectionLabelKey(id));
+	// Screen routes share the stored name with the toolbar and document title (RC-CAN-8.4).
+	// Other routes retain their translated section label.
+	const screenName = useScreenRouteName();
+	const title = screenName ?? t(sectionLabelKey(id));
 	const subtitleKey = sectionSubtitleKey(id);
 	const sub = subtitleKey ? t(subtitleKey) : '';
 	const compact = viewport !== 'desktop' || compactToolbar;

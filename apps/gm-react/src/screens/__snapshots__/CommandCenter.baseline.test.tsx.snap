@@ -1296,7 +1296,7 @@ h2 Library"
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · aria 1`] = `
 "- text: Session live
-- heading "Command Center" [level=2]
+- heading "DM screen" [level=2]
 - text: Combat, initiative & rolls run inside the scene · 3 in the party
 - img "Brother Calloway"
 - img "Sera Duskwhisper"
@@ -1326,7 +1326,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM scre
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · dom 1`] = `
 ""Session live"
 <h2>
-  "Command Center"
+  "DM screen"
 "Combat, initiative & rolls run inside the scene · 3 in the party"
 <span role="img" aria-label="Brother Calloway" title="Brother Calloway">
   "BC"
@@ -1436,7 +1436,7 @@ button Notes 5 notes"
 `;
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault, live on the GM screen > desktop live gm screen · headings 1`] = `
-"h2 Command Center
+"h2 DM screen
 h2 Scenes
 h2 Create
 h2 Manage

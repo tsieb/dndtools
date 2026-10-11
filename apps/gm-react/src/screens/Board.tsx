@@ -122,7 +122,7 @@ function GmScreenUnavailable() {
 			runtime.dispatch({
 				type: 'command-center.ensure-home',
 				actorId,
-				payload: { name: 'DM screen' },
+				payload: {},
 			}),
 		)
 			.then((result) => setPhase(result.status === 'accepted' ? 'done' : 'failed'))

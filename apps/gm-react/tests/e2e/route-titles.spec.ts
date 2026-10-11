@@ -35,11 +35,10 @@ async function expectTitle(page: Page, expected: string): Promise<void> {
 }
 
 /**
- * A screen is user content, so the shell's <h1> keeps the Screens section label and the screen names
- * itself in its own header (`nav.ts`). The tab follows the screen's name (RC-CAN-8.4).
+ * The shell, screen toolbar and tab share the stored screen name (RC-CAN-8.4).
  */
 async function expectScreenTitle(page: Page, name: string): Promise<void> {
-	await expect(page.locator('h1').first()).toHaveText('Screens');
+	await expect(page.locator('h1').first()).toHaveText(name);
 	await expect(
 		page.getByTestId('screen-toolbar').getByRole('heading', { name, exact: true }),
 	).toBeVisible();
@@ -63,14 +62,16 @@ test.describe('route titles (RC-ENG-9.1)', () => {
 			page.evaluate((hash) => {
 				window.location.hash = hash;
 			}, path);
-		await go('/screens');
-		await expectTitle(page, 'Screens');
-		// The library provisions the GM screen's home scene in a fresh vault.
+		// The initial visit to / provisions the GM board, before the library opens.
 		const sceneId = await homeSceneId(page);
 		const sceneName = await page.evaluate(
 			(id) => window.__rt!.state.scenes.scenes[id].name,
 			sceneId,
 		);
+
+		expect(sceneName).toBe('DM screen');
+		await go('/screens');
+		await expectTitle(page, 'Screens');
 
 		// A screen bookmark under the old editor route lands on the same screen, titled the same way.
 		for (const path of [`/screen/${sceneId}`, `/scene/${sceneId}`]) {
@@ -101,6 +102,33 @@ test.describe('route titles (RC-ENG-9.1)', () => {
 		// Leaving a standalone route for the shell hands the title back to the shell's heading.
 		await go('/settings');
 		await expectTitle(page, 'Settings');
+	});
+
+	test('fresh home entry seeds DM screen and preserves a rename across aliases and reload', async ({
+		page,
+	}) => {
+		await gotoRoute(page, '/');
+		const id = await homeSceneId(page);
+		await gotoRoute(page, `/scene/${id}`);
+		await expect(page).toHaveURL(new RegExp(`#/screen/${id}\\?edit=1$`));
+		await expectScreenTitle(page, 'DM screen');
+		const toolbar = page.getByTestId('screen-toolbar');
+		await toolbar.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+		const details = page.getByTestId('scene-meta-panel');
+		await details.getByRole('textbox', { name: 'Name', exact: true }).fill('Harbor watch');
+		await details.getByRole('button', { name: 'Save details', exact: true }).click();
+		await expectScreenTitle(page, 'Harbor watch');
+		await gotoRoute(page, '/');
+		await expectTitle(page, 'Command Center');
+		await gotoRoute(page, '/screens');
+		await expect(page.getByTestId(`screen-card-${id}`).getByRole('heading')).toHaveText(
+			'Harbor watch',
+		);
+		await gotoRoute(page, '/board');
+		await expect(page).toHaveURL(new RegExp(`#/screen/${id}$`));
+		await expectScreenTitle(page, 'Harbor watch');
+		await page.reload();
+		await expectScreenTitle(page, 'Harbor watch');
 	});
 
 	test('the navigation chrome carries no @keyframes text in its accessible names', async ({

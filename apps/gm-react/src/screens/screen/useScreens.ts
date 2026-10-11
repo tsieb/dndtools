@@ -72,7 +72,7 @@ export function useEnsureHomeScreen(): { failed: boolean } {
 		if (!runtime.loaded || !isDm || !missing || ensuring.current || failed) return;
 		ensuring.current = true;
 		void runtime
-			.dispatch({ type: 'command-center.ensure-home', actorId, payload: { name: 'DM screen' } })
+			.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} })
 			// `dispatch` rethrows a persist failure. It is not retried here; the board reports it.
 			.catch(() => setFailed(true))
 			.finally(() => {

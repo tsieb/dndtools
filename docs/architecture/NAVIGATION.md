@@ -30,8 +30,8 @@ Chrome-less routes sit outside the shell: `/play` (player companion), `/join` (i
 `/wiki` (published wiki reader), `/display` (second-screen scene display), and `/legal/*`. The
 scene editor (`/scene/:id`) renders inside the shell as a `scenes` pseudo-section, and the Screens
 library (`/screens`) and every screen (`/screen/:id`) as a `screens` pseudo-section:
-`activeSectionId` titles them, but they are not `nav.ts` destinations. A screen names itself in its
-own header, and a listed screen's document title follows that name (RC-CAN-8.4).
+`activeSectionId` identifies their sections, but they are not `nav.ts` destinations. A listed
+screen uses its stored name in the shell heading, toolbar and document title (RC-CAN-8.4).
 
 One character sheet body (RC-CHR-6.2). `/characters/:id`, `/player` and the companion's Sheet
 section render the same composition, `screens/characters/sheet/SheetBody.tsx`, with its own
@@ -85,13 +85,12 @@ background), player preview, and the selected tile's inspector (including bindin
 scene, which is excluded from the screens library, retains its template editor at `/scene/:id`.
 Done removes `edit=1` in place; switching screens resets selection and open drawers.
 
-The durable scene name is the display name in the library, switcher, the screen's own header and
-the browser title (`useScreenRouteName` → `useDocumentTitle`, RC-ENG-9.1). The shell `<h1>` keeps the
-Screens section label, so on a screen route the tab follows the screen's header rather than the
-shell's. Existing names are preserved rather than substituted at render
-time. Home-board provisioning from the screens library or `/board` supplies "DM screen" as the
-seed name. Player preview suspends writes and makes the underlying canvas and drawers inert;
-exiting preview returns to the same edit mode and unsaved details. A selected tile opens its
+The durable scene name is the display name in the library, switcher, shell `<h1>`, screen toolbar
+and browser title (`useScreenRouteName` → `useDocumentTitle`, RC-ENG-9.1). Renaming a screen updates
+all of these. Existing names are preserved rather than substituted at render time. The core
+home-board builder seeds "DM screen" from every entry point, including a fresh visit to `/`,
+`/screens` or `/board`; the separate default Command Center flow screen retains its own name.
+Player preview suspends writes and makes the underlying canvas and drawers inert; exiting preview returns to the same edit mode and unsaved details. A selected tile opens its
 inspector. On a phone, where the inspector covers the board, a tile the Add gallery just placed is
 selected with the inspector shut until the GM taps it or presses Enter on it. While a bounded screen's
 layout is edited, its tile bodies clip rather than scroll (the frame owns the keys); Done restores

@@ -133,6 +133,8 @@ export const EMPTY_COMMAND_CENTER_STATE: CommandCenterState = Object.freeze({
 });
 
 export const DEFAULT_COMMAND_CENTER_NAME = 'Command Center';
+/** The separate GM board, seeded consistently by every ensure-home entry point. */
+export const DEFAULT_GM_SCREEN_NAME = 'DM screen';
 
 /**
  * The DM tools the default Command Center system template lays out as widgets.
@@ -193,7 +195,7 @@ export function buildDefaultCommandCenterScene(env: CoreEnvironment, ownerActorI
 	}));
 	return {
 		id,
-		name: DEFAULT_COMMAND_CENTER_NAME,
+		name: DEFAULT_GM_SCREEN_NAME,
 		description: 'The DM home surface for active session management.',
 		tags: ['command-center'],
 		visibility: 'dm-only',

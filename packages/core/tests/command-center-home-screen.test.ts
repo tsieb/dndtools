@@ -62,6 +62,7 @@ describe('RC-CAN-7.6 the home screen', () => {
 		const board = nextState.scenes.scenes[nextState.commandCenter.homeSceneId!]!;
 		const home = homeScreen(nextState);
 
+		expect(board.name).toBe('DM screen');
 		expect(home.id).not.toBe(board.id);
 		expect(home.name).toBe('Command Center');
 		expect(home.visibility).toBe('dm-only');
@@ -105,33 +106,36 @@ describe('RC-CAN-7.6 the home screen', () => {
 		);
 	});
 
-	it('an existing vault gains the home screen and its board stays untouched as the GM screen', () => {
-		const env = makeEnvironment();
-		const base = buildInitialState(DM_ACTOR);
-		const board = {
-			...buildDefaultCommandCenterScene(env, DM_ACTOR.id),
-			name: 'My table',
-			description: 'Customised',
-		};
-		const existing: CoreStateSlice = {
-			...base,
-			scenes: { ...base.scenes, scenes: { [board.id]: board } },
-			commandCenter: { ...base.commandCenter, homeSceneId: board.id },
-		};
-		const before = JSON.stringify(board);
+	it.each(['My table', 'Command Center'])(
+		'an existing board named %s stays untouched when provisioning the home screen',
+		(name) => {
+			const env = makeEnvironment();
+			const base = buildInitialState(DM_ACTOR);
+			const board = {
+				...buildDefaultCommandCenterScene(env, DM_ACTOR.id),
+				name,
+				description: 'Customised',
+			};
+			const existing: CoreStateSlice = {
+				...base,
+				scenes: { ...base.scenes, scenes: { [board.id]: board } },
+				commandCenter: { ...base.commandCenter, homeSceneId: board.id },
+			};
+			const before = JSON.stringify(board);
 
-		const { nextState, operationIds } = ensureHome(existing, env);
+			const { nextState, operationIds } = ensureHome(existing, env);
 
-		expect(nextState.commandCenter.homeSceneId).toBe(board.id);
-		expect(JSON.stringify(nextState.scenes.scenes[board.id])).toBe(before);
-		expect(operationIds).toHaveLength(1);
-		expect(nextState.sync.operations.at(-1)).toMatchObject({
-			opType: 'scene.create',
-			entityId: homeScreen(nextState).id,
-		});
-		expect(isDefaultScreen(nextState, board.id)).toBe(true);
-		expect(isDefaultScreen(nextState, homeScreen(nextState).id)).toBe(true);
-	});
+			expect(nextState.commandCenter.homeSceneId).toBe(board.id);
+			expect(JSON.stringify(nextState.scenes.scenes[board.id])).toBe(before);
+			expect(operationIds).toHaveLength(1);
+			expect(nextState.sync.operations.at(-1)).toMatchObject({
+				opType: 'scene.create',
+				entityId: homeScreen(nextState).id,
+			});
+			expect(isDefaultScreen(nextState, board.id)).toBe(true);
+			expect(isDefaultScreen(nextState, homeScreen(nextState).id)).toBe(true);
+		},
+	);
 
 	it('is idempotent and never resets the GM’s changes to the home screen', () => {
 		const env = makeEnvironment();
