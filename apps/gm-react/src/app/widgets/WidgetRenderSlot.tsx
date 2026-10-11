@@ -379,8 +379,7 @@ export function WidgetRegion({
 				data-widget-region=""
 				// A scrollable region must be focusable to scroll by keyboard (axe
 				// scrollable-region-focusable); one that fits adds no tab stop. While the layout is
-				// edited the frame owns the keys, so the region leaves the tab order and clips instead
-				// of scrolling: no scroller is left that a keyboard cannot reach (RC-CAN-8.4).
+				// edited the frame owns the keys, so the region leaves the tab order.
 				tabIndex={fit.scrollable ? (keyboardScrollable ? 0 : -1) : undefined}
 				onKeyDown={(event) => {
 					// Scroll keys on the focused region scroll it rather than moving to another tile.
@@ -391,7 +390,7 @@ export function WidgetRegion({
 					)
 						event.stopPropagation();
 				}}
-				style={{ height: '100%', overflow: keyboardScrollable ? 'auto' : 'hidden' }}
+				style={{ height: '100%', overflow: 'auto' }}
 			>
 				<div ref={contentRef} style={{ height: '100%' }}>
 					{children}

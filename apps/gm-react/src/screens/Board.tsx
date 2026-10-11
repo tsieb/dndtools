@@ -43,10 +43,14 @@ import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
 import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
-import { ScreenInspector, useQuietPlacement } from './sceneEditor';
+import {
+	ScreenEditClip,
+	ScreenInspector,
+	ScreenPreviewOverlay,
+	useQuietPlacement,
+} from './sceneEditor';
 import { ScreenToolbar } from './sceneEditor/SceneToolbar';
 import { usePreviewActions } from '../app/ViewAsControl';
-import { PlayerPreviewOverlay } from './sceneEditor/PlayerPreviewOverlay';
 import { readPlayerPreview } from './sceneEditor/playerPreview';
 
 /**
@@ -532,6 +536,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				}
 			/>
 
+			{editing && <ScreenEditClip />}
 			{/* Every board write's confirmation surfaces here, so it has to be a live region (WCAG
 			    4.1.3) — but a polite region must ALREADY be in the DOM for a content change to be
 			    announced. Mounting `<div role="status">Layout saved.</div>` inserts the host and its
@@ -749,7 +754,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 					)}
 				</div>
 				{previewRead && preview && (
-					<PlayerPreviewOverlay
+					<ScreenPreviewOverlay
 						widgets={widgets}
 						read={previewRead}
 						label={preview.label}

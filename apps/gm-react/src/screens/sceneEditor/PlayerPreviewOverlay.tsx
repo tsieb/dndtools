@@ -253,9 +253,6 @@ export function PlayerPreviewOverlay({
 			) : phone ? (
 				<ul
 					aria-label={t('sceneEditor.preview.tiles', { label })}
-					// The list scrolls when it outgrows the overlay, so it takes a tab stop to scroll by
-					// keyboard (axe scrollable-region-focusable).
-					tabIndex={0}
 					style={{
 						...listStyle,
 						flex: 1,

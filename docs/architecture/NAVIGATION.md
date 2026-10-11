@@ -30,8 +30,8 @@ Chrome-less routes sit outside the shell: `/play` (player companion), `/join` (i
 `/wiki` (published wiki reader), `/display` (second-screen scene display), and `/legal/*`. The
 scene editor (`/scene/:id`) renders inside the shell as a `scenes` pseudo-section, and the Screens
 library (`/screens`) and every screen (`/screen/:id`) as a `screens` pseudo-section:
-`activeSectionId` titles them, but they are not `nav.ts` destinations. A listed screen's route is
-titled with the screen's own name instead (RC-CAN-8.4, §4).
+`activeSectionId` titles them, but they are not `nav.ts` destinations. A screen names itself in its
+own header, and a listed screen's document title follows that name (RC-CAN-8.4).
 
 One character sheet body (RC-CHR-6.2). `/characters/:id`, `/player` and the companion's Sheet
 section render the same composition, `screens/characters/sheet/SheetBody.tsx`, with its own
@@ -85,13 +85,17 @@ background), player preview, and the selected tile's inspector (including bindin
 scene, which is excluded from the screens library, retains its template editor at `/scene/:id`.
 Done removes `edit=1` in place; switching screens resets selection and open drawers.
 
-The durable scene name is the display name in the library, switcher, board, shell `<h1>` and
-browser title (`useDocumentTitle`, RC-ENG-9.1). Existing names are preserved rather than substituted at render
+The durable scene name is the display name in the library, switcher, the screen's own header and
+the browser title (`useScreenRouteName` → `useDocumentTitle`, RC-ENG-9.1). The shell `<h1>` keeps the
+Screens section label, so on a screen route the tab follows the screen's header rather than the
+shell's. Existing names are preserved rather than substituted at render
 time. Home-board provisioning from the screens library or `/board` supplies "DM screen" as the
 seed name. Player preview suspends writes and makes the underlying canvas and drawers inert;
 exiting preview returns to the same edit mode and unsaved details. A selected tile opens its
 inspector. On a phone, where the inspector covers the board, a tile the Add gallery just placed is
-selected with the inspector shut until the GM taps it or presses Enter on it.
+selected with the inspector shut until the GM taps it or presses Enter on it. While a bounded screen's
+layout is edited, its tile bodies clip rather than scroll (the frame owns the keys); Done restores
+scrolling.
 
 ## 2. Navigation layers
 
@@ -136,9 +140,7 @@ Page primitives in `screen-kit.tsx`: `Page` (centered column, max 1180px), `Pane
 
 `app/shell/TopBar.tsx` gives section context and a small set of cross-route utilities. It owns:
 
-1. The section title (`<h1>`) and subtitle from `SECTION_TITLES` in `nav.ts`, as message keys. On
-   `/screen/:id` (and a `/scene/:id` screen bookmark) the `<h1>` is the screen's stored name from
-   `useScreenRouteName`, the same name the document title reads (RC-CAN-8.4).
+1. The section title (`<h1>`) and subtitle from `SECTION_TITLES` in `nav.ts`, as message keys.
 2. The command palette trigger (⌘K / Ctrl+K is also bound globally).
 3. A status-only "Session live · 01:12" label while a session is active. No button, no link, not an
    `aria-live` region. Omitted on the phone tier, which carries the status strip instead.

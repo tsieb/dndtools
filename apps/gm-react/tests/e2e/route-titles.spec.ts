@@ -34,6 +34,18 @@ async function expectTitle(page: Page, expected: string): Promise<void> {
 	await expect(page).toHaveTitle(`Lamplight — ${expected}`);
 }
 
+/**
+ * A screen is user content, so the shell's <h1> keeps the Screens section label and the screen names
+ * itself in its own header (`nav.ts`). The tab follows the screen's name (RC-CAN-8.4).
+ */
+async function expectScreenTitle(page: Page, name: string): Promise<void> {
+	await expect(page.locator('h1').first()).toHaveText('Screens');
+	await expect(
+		page.getByTestId('screen-toolbar').getByRole('heading', { name, exact: true }),
+	).toBeVisible();
+	await expect(page).toHaveTitle(`Lamplight — ${name}`);
+}
+
 test.describe('route titles (RC-ENG-9.1)', () => {
 	test.beforeEach(async ({ page }) => {
 		await markOnboarded(page);
@@ -60,15 +72,13 @@ test.describe('route titles (RC-ENG-9.1)', () => {
 			sceneId,
 		);
 
-		const shelled: Array<[string, string]> = [
-			[`/screen/${sceneId}`, sceneName],
-			[`/scene/${sceneId}`, sceneName],
-			['/settings', 'Settings'],
-		];
-		for (const [path, expected] of shelled) {
+		// A screen bookmark under the old editor route lands on the same screen, titled the same way.
+		for (const path of [`/screen/${sceneId}`, `/scene/${sceneId}`]) {
 			await go(path);
-			await expectTitle(page, expected);
+			await expectScreenTitle(page, sceneName);
 		}
+		await go('/settings');
+		await expectTitle(page, 'Settings');
 
 		// The chrome-less routes have no shell <h1>; each names the tab after its own.
 		await page.goto('/#/play', { waitUntil: 'domcontentloaded' });

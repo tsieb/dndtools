@@ -2,7 +2,7 @@ import type React from 'react';
 import { useScreens } from '../screen/useScreens';
 import './sceneEditor.css';
 import { BoardEmptyState, useBoardPreviouslyFilled } from '../board/BoardPlayerNotice';
-import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -28,7 +28,7 @@ import { WidgetBuilder } from '../extensions/WidgetBuilder';
 import { Inspector } from './Inspector';
 import { useI18n } from '../../i18n';
 import { usePreviewActions } from '../../app/ViewAsControl';
-import { PlayerPreviewOverlay } from './PlayerPreviewOverlay';
+import { PlayerPreviewOverlay, type PlayerPreviewOverlayProps } from './PlayerPreviewOverlay';
 import { readPlayerPreview } from './playerPreview';
 import { SceneToolbar } from './SceneToolbar';
 import { SceneUnavailable } from './SceneUnavailable';
@@ -480,6 +480,38 @@ function TemplateSceneEditor() {
 					onInstalled={setBuilt}
 				/>
 			)}
+		</div>
+	);
+}
+
+/**
+ * While a bounded screen's layout is edited the frame owns the keys, and each tile's scroll region
+ * leaves the tab order. Clip those regions instead of leaving scrollers a keyboard cannot reach
+ * (axe scrollable-region-focusable): "N more lines" still shows, and Done brings scrolling back.
+ */
+const EDIT_CLIP =
+	'[data-testid="scene-board-bounded"][role="application"] [data-widget-region]{overflow:hidden!important}';
+export function ScreenEditClip() {
+	return <style>{EDIT_CLIP}</style>;
+}
+
+/**
+ * The preview overlay on a screen. Its phone list scrolls within the board stage, which is shorter
+ * than the old editor's, so the host gives a list that has no tab stop of its own one to scroll by
+ * keyboard (axe scrollable-region-focusable). The wrapper is `display: contents`, so the overlay
+ * still covers the stage.
+ */
+export function ScreenPreviewOverlay(props: PlayerPreviewOverlayProps) {
+	const host = useRef<HTMLDivElement>(null);
+	useLayoutEffect(() => {
+		const list = host.current?.querySelector<HTMLElement>(
+			'[data-testid="player-preview-overlay"] > ul',
+		);
+		if (list && !list.hasAttribute('tabindex')) list.tabIndex = 0;
+	});
+	return (
+		<div ref={host} style={{ display: 'contents' }}>
+			<PlayerPreviewOverlay {...props} />
 		</div>
 	);
 }

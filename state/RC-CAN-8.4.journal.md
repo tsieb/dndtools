@@ -266,3 +266,27 @@ Full two-profile e2e and pinned visual comparison on the committed tree follow.
   `binding-inspector:95`, to the screen toolbar. Rerun: **6 passed, exit 0** (`r6.log`).
 - Removed the temporary base worktree `/var/tmp/rc-can-8.4-base` after the comparison run.
 - No push, promotion, new loop, extra agents, or dispatcher control-state edits.
+
+## 2026-10-11 — claim fence: crossings reverted
+
+The fence refused `app/shell/TopBar.tsx`, `app/widgets/WidgetRenderSlot.tsx` and
+`screens/sceneEditor/PlayerPreviewOverlay.tsx`. Reverted all three to `e97943c2`, plus the 18 golden
+PNGs re-baselined for the named shell heading (restored from `68a44cdb~1`). In-claim replacements:
+- Title: the acceptance title holds via `useScreenRouteName` in `App.tsx` (companion). The shell
+  `<h1>` keeps the Screens label; the screen names itself in its toolbar heading, as `nav.ts`
+  already documents. `route-titles` now asserts on screen routes: `<h1>` "Screens", the toolbar
+  heading equals the stored name, and the title is "Lamplight — <name>". NAVIGATION.md amended.
+  **HANDOFF:** the story's "shell header reads the screen name" (not an acceptance item) needs
+  `TopBar.tsx` to use `useScreenRouteName()`; the prepared one-line change is in `3ca8fe30`.
+- Edit-mode scrollers: `ScreenEditClip` (owned `sceneEditor/index.tsx`) is a `<style>` that
+  clips `[data-widget-region]` only on the bounded canvas while it is `role="application"`
+  (editing). Flow screens and reading mode are untouched. **HANDOFF:** the native fix belongs in
+  `WidgetRenderSlot` (overflow follows `keyboardScrollable`).
+- Phone preview list: `ScreenPreviewOverlay` (owned) hosts the overlay in a `display: contents`
+  wrapper and gives the phone list a tab stop when it has none. **HANDOFF:** the native fix is
+  `tabIndex={0}` on that list in `PlayerPreviewOverlay`.
+- Kept: phone quiet placement, session bar hidden in preview, the toolbar-scoped heading locators.
+
+Evidence: typecheck, `pnpm gates` (Board.tsx at 800 lines), ESLint and Prettier exit 0. Two-profile
+run of the 13 affected specs: **230 passed, 12 skipped, exit 0** (`/var/tmp/rc-can-8.4-r7.log`).
+Full e2e and pinned visual comparison follow.
