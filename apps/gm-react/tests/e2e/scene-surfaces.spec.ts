@@ -23,8 +23,8 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 		() =>
 			Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === 'Surface fixture')!.id,
 	);
-	await gotoRoute(page, `/scene/${sceneId}`);
-	const board = page.getByTestId('scene-board-canvas');
+	await gotoRoute(page, `/screen/${sceneId}`);
+	const board = page.getByTestId('scene-board-bounded');
 	for (const background of ['paper', 'parchment', 'dark', 'grid']) {
 		expect(
 			(
@@ -37,13 +37,15 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 		).toBe('accepted');
 		await expect(board).toHaveAttribute('data-background', background);
 		const result = await new AxeBuilder({ page })
-			.include('[data-testid="scene-board-canvas"]')
+			.include('[data-testid="scene-board-bounded"]')
 			.withRules(['color-contrast'])
 			.analyze();
 		expect(result.violations, `${background} empty scene contrast`).toEqual([]);
 	}
 	// Empty scenes also have their own background, before there is a widget to identify them.
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
 	const meta = page.getByTestId('scene-meta-panel');
 	await meta.getByLabel('Background', { exact: true }).selectOption('parchment');
 	await meta.getByRole('button', { name: 'Save details' }).click();
@@ -163,13 +165,13 @@ test('backgrounds, docks and section bands persist', async ({ page }) => {
 		sceneId,
 	);
 	expect(saved).toMatchObject({ dock: 'bottom', x: 80, y: 90 });
-	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await tile.focus();
 	await page.keyboard.press('Enter');
 	await inspector.getByRole('tab', { name: 'Transform', exact: true }).click();
 	await dock.selectOption('left');
 	await inspector.getByRole('button', { name: 'Close inspector' }).click();
-	await meta.getByRole('button', { name: 'Close scene details' }).click();
+	await tile.scrollIntoViewIfNeeded();
 	const box = (await tile.boundingBox())!;
 	await page.mouse.move(box.x + 30, box.y + 50);
 	await page.mouse.down();

@@ -5,6 +5,7 @@ import { Button, EmptyState, IconButton, Toaster } from '../../ds';
 import { useI18n } from '../../i18n';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { Page } from '../../app/screen-kit';
+import { useViewport } from '../../app/useViewport';
 import { Board } from '../Board';
 import { SCREENS_PATH, visibilityLabelKey } from './screenModel';
 import { ScreenSwitcher } from './ScreenSwitcher';
@@ -24,6 +25,7 @@ export function ScreenView() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
 	const navigate = useNavigate();
+	const viewport = useViewport();
 	const { entries, nameOf } = useScreens();
 	const { setPinned } = useScreenActions();
 	const [pinning, setPinning] = useState(false);
@@ -81,7 +83,7 @@ export function ScreenView() {
 					label={t(entry.pinned ? 'screens.unpinNamed' : 'screens.pinNamed', { name })}
 					aria-pressed={entry.pinned}
 					variant={entry.pinned ? 'accent' : 'ghost'}
-					size="sm"
+					size={viewport === 'phone' ? 'lg' : 'sm'}
 					disabled={pinning}
 					data-testid="screen-pin"
 					onClick={() => void togglePin()}

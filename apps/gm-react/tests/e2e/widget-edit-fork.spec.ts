@@ -179,8 +179,9 @@ test.describe('Edit widget on a tile (RC-WID-6.6)', () => {
 		const packageIds = () =>
 			page.evaluate(() => Object.keys(window.__rt!.state.widgets.packages).sort());
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		const tile = page.getByTestId(`widget-${widgetId}`);
 		const editWidget = async () => {
 			await tile.getByTestId('tile-actions-trigger').click();

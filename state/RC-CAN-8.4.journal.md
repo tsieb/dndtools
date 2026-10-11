@@ -139,3 +139,78 @@ request was not answered by this gate-feedback message; these files remain uncha
   `packages/core/src/state/command-center-state.ts`. The claim decision recorded above remains
   pending. The visual regression feedback is addressed, but this is not a completed RC-CAN-8.4
   until those authorized source changes and the named-header assertions land.
+
+## 2026-10-11 — browser acceptance follow-up
+
+Central validation of df16d686 passed quality, format, pinned visuals, typecheck, lint, app tests,
+build, bundle budget and requirements audit. Browser acceptance timed out after repeated failures
+in legacy editor fixtures. Inspected original 012505f0 output and preserved its error artifacts at
+`/var/tmp/rc-can-8.4-browser/central-results`. Dispatch Headroom is now available and is used with
+exact-output retrieval. Migrating direct screen fixtures to explicit view/edit mode, retaining the
+bookmark regression test. Accessibility findings are being investigated, not suppressed.
+
+### Browser migration and fixes
+
+- Migrated legacy editor fixtures to canonical screen view/edit routes and shared gallery, canvas,
+  inspector and preview controls. Added readiness assertions for the URL-driven editing transition;
+  no retries, timeouts or axe exclusions were relaxed.
+- First migration run: 334 passed, 8 skipped, 16 failed. Exact output retained at
+  `/var/tmp/rc-can-8.4-browser/migration-run.log`; failures were retrieved before fixes.
+- Fixed stale selected-tile state when opening details, reused the existing scene-editor parchment
+  contrast scope, kept Done secondary, and gave policy labels and the phone pin button 44px targets.
+- The a11y/responsive/system subset returned 15 passed, 5 failed (`a11y-responsive.log`): two alias
+  readiness races (now polling canonical URL), phone-hidden navigation expectation (now desktop-only),
+  and two real scrollable-region keyboard failures in WidgetRenderSlot. The latter source is outside
+  the claim and remains untouched. Requested that path alongside the pending TopBar/global seed
+  paths; no authorization has arrived.
+- Updated route-title assertions to require the stored scene name in the shell too. This exposes
+  the incomplete header acceptance rather than accepting the old generic Screens label.
+- Focused rerun of corrected failures and theme checks: `fixes.log`, outcome pending.
+
+### Exact diagnostics and remaining scope
+
+- Corrected rerun: 27 passed, 1 skipped, 4 failed (`fixes.log`). Retrieved failures showed two
+  Quick-widget dialog label mismatches, the inspector covering the mobile history controls, and
+  an offscreen drag after the taller phone toolbar. Corrected selectors, closed the inspector
+  before toolbar interaction, and scrolled the drag target into view.
+- Second rerun: 5 passed, 1 failed (`fixes-second.log`). The remaining failure is genuine:
+  PlayerPreviewOverlay's phone `ul` has overflow scrolling with no keyboard focus target.
+  `screens/sceneEditor/PlayerPreviewOverlay.tsx` is also outside owns + companions. It remains
+  unchanged; no axe rule was suppressed. This is a fourth required claim extension alongside
+  TopBar.tsx, command-center-state.ts, and WidgetRenderSlot.tsx.
+- Typecheck exited 0 (Headroom artifact `635da91489fd42ae8898ad63da621d3e`), quality gates exited 0
+  (`2a327ba2232648bcb239d2a4f40152ae`), changed-file ESLint exited 0 with empty stdout/stderr
+  (`e6850fe5c89e48ec8861957466bec0a6`). Retrieved their exact originals.
+- Broader final functional run additionally reproduces the central canvas-history phone failure:
+  preselecting the frame opens the new inspector over the drag target. The comparison now begins
+  unselected and closes the post-drag inspector before Undo, preserving the exact pixel assertion.
+  Its focused rerun is `history-final.log`.
+
+### Final browser follow-up evidence and handoff
+
+- Final broader functional run: **116 passed, 2 skipped, 4 failed**, exit 1
+  (`/var/tmp/rc-can-8.4-browser/final-functional.log`). Both route-title failures reproduce the
+  excluded shell heading (`Screens` instead of the stored `Command Center` name); the preview
+  failure is the unfocusable phone list. The fourth failure was the obsolete history preselection.
+- Corrected history fixture: **4/4 passed**, both profiles, exit 0 (`history-final.log`). This
+  includes the unchanged zero-differing-pixels assertion after Undo. All other migrated fixture
+  failures from the earlier runs have passing rerun evidence; full browser acceptance is NOT green.
+- Visual update covered golden routes and the shared inspector. The outer update returned 143
+  before its last test summary, so it is not counted as a successful gate. Panel update returned
+  **18 passed**, exit 0 (`visual-panels-update.log`). Reviewed desktop/rail parchment toolbar and
+  board captures, phone toolbar/details/inspector and Layouts captures. Changes reflect neutral
+  Done, restored parchment contrast, and larger phone targets; 45 affected PNG baselines changed.
+- Final pinned comparison, snapshots disabled: **51/51 passed**, exit 0
+  (`visual-compare.log`, also `visual-compare.exit`). Covers /board, the /scene bookmark, all five
+  inspector themes, Add panels and Layouts panels across desktop, rail and phone. Exact output
+  retrieved with Headroom; no tolerance or snapshot-comparison policy changed.
+- Typecheck, quality gates, changed-file lint, formatting and diff whitespace checks pass.
+  Changed paths are confined to the owned source, companion e2e/visual files, and this journal.
+- **Blocked acceptance, not complete:** requires an operator claim extension for
+  `apps/gm-react/src/app/shell/TopBar.tsx` (named shell header),
+  `packages/core/src/state/command-center-state.ts` (global DM screen seed),
+  `apps/gm-react/src/app/widgets/WidgetRenderSlot.tsx` (scroll keyboard access in edit mode), and
+  `apps/gm-react/src/screens/sceneEditor/PlayerPreviewOverlay.tsx` (scroll keyboard access in preview).
+  RC_ROADMAP §21.2 forbids widening scope; those files remain unchanged. The title and axe tests
+  deliberately retain these failing contracts. Do not promote this candidate as completed.
+- No push, promotion, new loop, additional agents, or dispatcher control-state edits.

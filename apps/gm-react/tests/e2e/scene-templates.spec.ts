@@ -36,14 +36,14 @@ function sceneWidgetTypes(page: Page, sceneId: string): Promise<string[]> {
 
 test('applies a built-in template to a fresh scene from its empty state', async ({ page }) => {
 	const sceneId = await freshScene(page);
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 
 	const frames = page
-		.locator('[data-testid="scene-board-canvas"], [data-testid="stacked-board"]')
+		.locator('[data-testid="scene-board-bounded"], [data-testid="stacked-board"]')
 		.locator('[data-testid^="widget-"]');
 	await expect(frames).toHaveCount(0);
 	await page
-		.getByTestId('scene-empty-templates')
+		.getByTestId('board-empty-templates')
 		.getByRole('button', { name: 'Apply a template' })
 		.click();
 
@@ -75,7 +75,7 @@ test('applies a built-in template to a fresh scene from its empty state', async 
 	// The DM picked a starting layout to adjust it, so the editor lands in edit mode…
 	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	// …and the empty-state offer is gone with the emptiness.
-	await expect(page.getByTestId('scene-empty-templates')).toHaveCount(0);
+	await expect(page.getByTestId('board-empty-templates')).toHaveCount(0);
 	const lastOp = await page.evaluate(() => {
 		const opsLog = window.__rt!.state.sync.operations as Array<{ opType: string }>;
 		return opsLog[opsLog.length - 1]?.opType;
@@ -84,7 +84,7 @@ test('applies a built-in template to a fresh scene from its empty state', async 
 
 	// Durable: the applied tiles come back after a reload.
 	await page.reload({ waitUntil: 'domcontentloaded' });
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	await expect(frames).toHaveCount(5);
 });
 
@@ -112,8 +112,9 @@ test('the gallery header offers templates on an empty scene, including a saved l
 	});
 	expect(presetWidgetCount).toBeGreaterThan(0);
 
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	const header = page.getByTestId('gallery-start-header');
 	await expect(header).toBeVisible();
@@ -135,7 +136,7 @@ test('the gallery header offers templates on an empty scene, including a saved l
 		{ timeout: 10_000 },
 	);
 	await expect(
-		page.getByTestId('scene-board-canvas').locator('[data-testid^="widget-"]'),
+		page.getByTestId('scene-board-bounded').locator('[data-testid^="widget-"]'),
 	).toHaveCount(presetWidgetCount);
 	// Once the scene has tiles the header entry is not offered any more.
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -154,7 +155,7 @@ for (const surface of ['scene', 'board', 'flow'] as const) {
 			});
 			expect(result.status).toBe('accepted');
 		}
-		const route = surface === 'board' ? '/board' : `/scene/${freshId}`;
+		const route = surface === 'board' ? '/board' : `/screen/${freshId}`;
 		await gotoRoute(page, route);
 		if (surface === 'board')
 			// Phones read the home board as stacked panels (RC-CAN-5.1); wait in either host.
@@ -183,7 +184,7 @@ for (const surface of ['scene', 'board', 'flow'] as const) {
 		}
 		// The home board starts seeded, so clearing it is already a repeat-empty visit.
 		if (surface === 'board') await clearTiles();
-		const empty = page.getByTestId(`${surface === 'board' ? 'board' : 'scene'}-empty-templates`);
+		const empty = page.getByTestId('board-empty-templates');
 		await expect(empty).toBeVisible();
 		await expect(empty.locator('[data-illustration="session-board-empty"]')).toBeVisible();
 		await expect(empty.getByRole('button')).toHaveCount(surface === 'board' ? 1 : 2);

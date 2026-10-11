@@ -135,7 +135,7 @@ test('bare frame keeps a labelled region and focus ring, and edit mode restores 
 		},
 	});
 	expect(added.status).toBe('accepted');
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	const region = page.locator('[data-testid^="widget-"][role="region"]');
 	await expect(region).toBeVisible();
 	await expect(region).toHaveAccessibleName(/Hub example/);
@@ -149,6 +149,7 @@ test('bare frame keeps a labelled region and focus ring, and edit mode restores 
 			.violations,
 	).toEqual([]);
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await expect(page.getByTestId('tile-accent-rail')).toBeVisible();
 	await expect(region).toHaveCount(0);
 });
@@ -328,6 +329,7 @@ test('Edit widget copies a Command Center part into the builder, and the copy re
 
 	await gotoRoute(page, `/screen/${homeId}`);
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await page.getByTestId(`widget-${heroId}`).getByTestId('flow-tile-actions').click();
 	await page.getByRole('menuitem', { name: 'Edit widget', exact: true }).click();
 	const builder = page.getByRole('dialog', { name: /Widget builder/ });

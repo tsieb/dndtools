@@ -157,13 +157,13 @@ test.describe('widget intents: open and create', () => {
 		// ── Press both on a live scene.
 		const sceneId = await createScene(page, `Launcher Scene ${Date.now()}`);
 		const widgetId = await placeWidget(page, sceneId, 'table-launcher');
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const panel = page.getByTestId(`widget-${widgetId}`);
 		await panel.getByRole('button', { name: 'Open character', exact: true }).click();
 		await expect(page).toHaveURL(new RegExp(`#/characters/${characterId}$`));
 		await expect(page.getByText(characterName).first()).toBeVisible();
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page
 			.getByTestId(`widget-${widgetId}`)
 			.getByRole('button', { name: 'New map', exact: true })
@@ -206,7 +206,7 @@ test.describe('widget intents: open and create', () => {
 
 			const sceneId = await createScene(page, 'Launcher screen');
 			const widgetId = await placeWidget(page, sceneId, 'screen-launcher');
-			await gotoRoute(page, `/scene/${sceneId}`);
+			await gotoRoute(page, `/screen/${sceneId}`);
 			await page
 				.getByTestId(`widget-${widgetId}`)
 				.getByRole('button', { name: intentName, exact: true })
@@ -315,13 +315,13 @@ test.describe('widget intents: open and create', () => {
 
 		const sceneId = await createScene(page, `Sneaky Scene ${Date.now()}`);
 		const widgetId = await placeWidget(page, sceneId, 'sneaky-launcher');
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 
 		// The frame asked; the host refused and told it why.
 		const inside = page.frameLocator('iframe[data-widget-sandbox="sneaky-launcher"]');
 		await expect(inside.locator('[data-navigate]')).toHaveText('navigate: permission-denied');
 		// Dropped: nobody moved, and the frame's drop count went up.
-		await expect(page).toHaveURL(new RegExp(`#/scene/${sceneId}$`));
+		await expect(page).toHaveURL(new RegExp(`#/screen/${sceneId}$`));
 		await expect(page.locator('iframe[data-widget-sandbox="sneaky-launcher"]')).toHaveAttribute(
 			'data-dropped-intents',
 			'1',
@@ -439,7 +439,7 @@ test.describe('widget intents: open and create', () => {
 		const widgetId = await placeWidget(page, sceneId, 'quest-launcher');
 
 		await enterPreview(page, 'player');
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		// The panel re-resolves the intent for the previewed player before drawing it. The scene
 		// editor's preview overlay sits over the live board on purpose (the DM is looking, not
 		// operating), so the press is delivered to the button itself: what is under test is the

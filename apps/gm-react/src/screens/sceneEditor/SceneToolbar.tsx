@@ -376,8 +376,36 @@ export function ScreenToolbar({
 						value={flow ? 'flow' : 'canvas'}
 						onChange={onLayoutPolicy}
 						options={[
-							{ value: 'flow', label: t('sceneEditor.layoutFlow') },
-							{ value: 'canvas', label: t('sceneEditor.layoutCanvas') },
+							{
+								value: 'flow',
+								label: (
+									<span
+										style={{
+											color: 'var(--color-text-primary)',
+											display: 'inline-flex',
+											minHeight: phone ? 30 : undefined,
+											alignItems: 'center',
+										}}
+									>
+										{t('sceneEditor.layoutFlow')}
+									</span>
+								),
+							},
+							{
+								value: 'canvas',
+								label: (
+									<span
+										style={{
+											color: 'var(--color-text-primary)',
+											display: 'inline-flex',
+											minHeight: phone ? 30 : undefined,
+											alignItems: 'center',
+										}}
+									>
+										{t('sceneEditor.layoutCanvas')}
+									</span>
+								),
+							},
 						]}
 					/>
 					<IconButton
@@ -432,7 +460,7 @@ export function ScreenToolbar({
 			)}
 			{!preview && (
 				<Button
-					variant={editing ? 'accent' : 'secondary'}
+					variant="secondary"
 					size="sm"
 					icon={editing ? 'check' : 'edit'}
 					onClick={() => enterEditing(!editing)}

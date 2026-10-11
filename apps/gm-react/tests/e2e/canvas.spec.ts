@@ -51,7 +51,7 @@ async function goLive(page: Page): Promise<void> {
 	expect(live.status, `go live was ${live.status}: ${JSON.stringify(live)}`).toBe('accepted');
 }
 
-// CANVAS — the spatial surfaces (/board, /scene/:id) mount against the real Processing Core, and a
+// CANVAS — the spatial surfaces (/board, /screen/:id) mount against the real Processing Core, and a
 // content mutation (moving a widget) round-trips through the op-log and survives reload.
 
 test.describe('canvas: board + scene mount and round-trip', () => {
@@ -200,7 +200,7 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 		expect(persisted).toEqual({ x: moved.targetX, y: moved.targetY });
 	});
 
-	test('/scene/:id mounts the editor for a freshly created scene', async ({ page }) => {
+	test('/screen/:id mounts the editor for a freshly created scene', async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
 
@@ -218,7 +218,7 @@ test.describe('canvas: board + scene mount and round-trip', () => {
 		);
 		expect(sceneId).toBeTruthy();
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByText(sceneName)).not.toHaveCount(0);
 	});
 });
@@ -247,12 +247,13 @@ test.describe('canvas: layout history and reversible removal', () => {
 
 		// Place one widget through the real Add panel, so the instance is whatever the live library
 		// actually offers rather than a hand-built payload.
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
-		// Button 0 is the panel's own Close control; the library entries follow it.
-		await page.getByTestId('scene-add-widget-panel').getByRole('button').nth(1).click();
+		// Pick a stable built-in entry from the shared widget gallery.
+		await page.getByTestId('gallery-entry-dice').click();
 		await page.waitForFunction(
 			(id) => (window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0) === 1,
 			sceneId!,
@@ -349,7 +350,7 @@ test.describe('canvas: layout history and reversible removal', () => {
 	// `Section`'s label is an unassociated <span> and the DS `Select` renders a bare <select> (only
 	// `Field` wires a label up), so the one control that decides whether a widget is DM-only or on
 	// the players' screen announced nothing but its current value — axe `select-name`, WCAG 4.1.2.
-	// `/scene/:id` is not in the axe gate's route list, so nothing was going to catch it there.
+	// `/screen/:id` is not in the axe gate's route list, so nothing was going to catch it there.
 	test('the Inspector visibility control has an accessible name', async ({ page }) => {
 		const sceneId = await sceneWithOneWidget(page);
 		const widgetId = await page.evaluate(
@@ -387,6 +388,7 @@ test.describe('canvas: layout history and reversible removal', () => {
 		expect(before).toBeGreaterThan(0);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		const widgetId = await page.evaluate(
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId,
@@ -409,7 +411,7 @@ test.describe('canvas: layout history and reversible removal', () => {
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId,
 		);
-		const canvas = page.getByTestId('scene-board-canvas');
+		const canvas = page.getByTestId('scene-board-bounded');
 
 		await page.getByTestId(`widget-${widgetId}`).focus();
 		await page.keyboard.press('Delete');
@@ -421,7 +423,7 @@ test.describe('canvas: layout history and reversible removal', () => {
 		await page.keyboard.press('Control+z');
 
 		await expect.poll(() => widgetCount(page, sceneId)).toBe(1);
-		await expect(canvas.getByRole('status')).toContainText(/^Undone: removed /);
+		await expect(canvas.locator(':scope > [role="status"]')).toContainText(/^Undone: removed /);
 	});
 
 	test('undo and redo reverse a widget move, on the canvas and from the toolbar', async ({
@@ -434,7 +436,7 @@ test.describe('canvas: layout history and reversible removal', () => {
 		);
 		const xOf = () =>
 			page.evaluate((id) => window.__rt!.state.scenes.scenes[id].widgets[0].layout.x, sceneId);
-		const canvas = page.getByTestId('scene-board-canvas');
+		const canvas = page.getByTestId('scene-board-bounded');
 		const originalX = await xOf();
 
 		// Select the frame, then one arrow step — the keyboard equivalent of a drag, committed as one
@@ -446,14 +448,15 @@ test.describe('canvas: layout history and reversible removal', () => {
 
 		await page.keyboard.press('Control+z');
 		await expect.poll(xOf).toBe(originalX);
-		await expect(canvas.getByRole('status')).toContainText(/^Undone: moved /);
+		await expect(canvas.locator(':scope > [role="status"]')).toContainText(/^Undone: moved /);
 
 		// Redo through the toolbar button, so the pointer path is exercised too (WCAG 2.5.7: the
-		// button and the shortcut dispatch the same command).
+		// button and the shortcut dispatch the same command). Close the phone overlay first.
+		await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
 		const controls = page.getByTestId('canvas-history-controls');
 		await controls.getByRole('button', { name: /^Redo/ }).click();
 		await expect.poll(xOf).toBeGreaterThan(originalX);
-		await expect(canvas.getByRole('status')).toContainText(/^Redone: moved /);
+		await expect(canvas.locator(':scope > [role="status"]')).toContainText(/^Redone: moved /);
 
 		await controls.getByRole('button', { name: /^Undo/ }).click();
 		await expect.poll(xOf).toBe(originalX);
@@ -501,6 +504,7 @@ test.describe('canvas: board column-overflow guard', () => {
 		}, sceneId);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		const frame = page.getByTestId(`widget-${mapId}`);
 		const box = await frame.boundingBox();
 		expect(box).not.toBeNull();
@@ -578,6 +582,7 @@ test.describe('canvas: side panels close on Escape', () => {
 		);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
 
@@ -615,6 +620,7 @@ test.describe('canvas: side panels close on Escape', () => {
 
 		// Entering edit mode no longer forces the panel open over the board.
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await expect(layouts).toHaveCount(0);
 		await expect(layoutsToggle).toHaveAttribute('aria-expanded', 'false');
 
@@ -660,8 +666,9 @@ test.describe('canvas: side panels close on Escape', () => {
 		);
 		expect(sceneId).toBeTruthy();
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
 
@@ -671,8 +678,8 @@ test.describe('canvas: side panels close on Escape', () => {
 	});
 });
 
-// `/scene/:id` is ONE route element, so React Router reuses `SceneEditor` across param changes and
-// never unmounts it on a scene→scene navigation. `SceneMetaPanel` held its three fields as
+// The old editor reused its details panel across scene→scene navigation. `SceneMetaPanel` held its
+// three fields as
 // `useState(prop)` drafts with no prop→draft sync and no `key`, and its Save is a FULL metadata
 // replacement addressed by the route id — so leaving the panel open and switching scenes wrote the
 // PREVIOUS scene's name, description and tags onto the new one, silently and durably.
@@ -710,13 +717,13 @@ test.describe('canvas: per-scene editor state does not bleed between scenes', ()
 		expect(idB).toBeTruthy();
 
 		// Open A's details panel and type a new name into the draft.
-		await gotoRoute(page, `/scene/${idA}`);
+		await gotoRoute(page, `/screen/${idA}?edit=1`);
 		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
 		await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
 		await page.locator('#scene-meta-name').fill(`${nameA} EDITED`);
 
-		// Navigate straight to B WITHOUT closing the panel — the component is reused, not remounted.
-		await gotoRoute(page, `/scene/${idB}`);
+		// Navigate straight to B WITHOUT closing the panel; the keyed board must discard A's draft.
+		await gotoRoute(page, `/screen/${idB}?edit=1`);
 		await expect(page.getByTestId('scene-meta-panel')).toHaveCount(0);
 
 		// Reopening on B shows B's real values, not A's abandoned draft…
@@ -778,7 +785,7 @@ test.describe('canvas: widget dice roll outside a session', () => {
 	});
 });
 
-// The shell's only <h1> lives in the top bar, OUTSIDE <main>, and on `/scene/:id` it names the
+// The shell's only <h1> lives in the top bar, OUTSIDE <main>, and on `/screen/:id` it names the
 // SECTION ("Scenes"). The scene's own name was a plain <div>, so heading navigation inside the
 // content pane found nothing and a screen-reader user could not tell which scene was open.
 test.describe('canvas: the spatial surfaces carry a heading inside <main>', () => {
@@ -792,7 +799,7 @@ test.describe('canvas: the spatial surfaces carry a heading inside <main>', () =
 			const first = Object.values(rt.state.scenes.scenes)[0]!;
 			return { id: first.id, name: first.name };
 		});
-		await gotoRoute(page, `/scene/${scene.id}`);
+		await gotoRoute(page, `/screen/${scene.id}`);
 
 		const heading = page.locator('#main-content').getByRole('heading', { name: scene.name });
 		await expect(heading.first()).toBeVisible();
@@ -813,7 +820,7 @@ test.describe('canvas: the spatial surfaces carry a heading inside <main>', () =
 
 test.describe('canvas: view mode reads, edit mode moves', () => {
 	// `onBgDown` is bound to the canvas WRAPPER, and the drag overlay that swallows pointerdown exists
-	// only in EDIT mode. So on `/scene/:id` in view mode a press on widget CONTENT — note text, a
+	// only in EDIT mode. So on `/screen/:id` in view mode a press on widget CONTENT — note text, a
 	// character's stats, a map thumbnail — reached the wrapper, started a canvas pan and set
 	// `userSelect:'none'` on <body>. A DM could therefore never select or copy a note, and an
 	// accidental drag while reading threw the whole canvas off-screen.
@@ -837,11 +844,12 @@ test.describe('canvas: view mode reads, edit mode moves', () => {
 		expect(sceneId).toBeTruthy();
 
 		// Place a widget through the real Add panel, then leave edit mode: view mode is where the bug is.
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
-		await page.getByTestId('scene-add-widget-panel').getByRole('button').nth(1).click();
+		await page.getByTestId('gallery-entry-dice').click();
 		await page.waitForFunction(
 			(id) => (window.__rt!.state.scenes.scenes[id]?.widgets.length ?? 0) > 0,
 			sceneId,
@@ -849,7 +857,7 @@ test.describe('canvas: view mode reads, edit mode moves', () => {
 		);
 		await page.getByRole('button', { name: 'Done', exact: true }).click();
 
-		const canvas = page.getByTestId('scene-board-canvas');
+		const canvas = page.getByTestId('scene-board-bounded');
 		await expect(canvas).toBeVisible();
 
 		// Press somewhere INSIDE the placed widget rather than on the empty backdrop.
@@ -882,7 +890,7 @@ test.describe('canvas: view mode reads, edit mode moves', () => {
 	});
 });
 
-// `/board` and `/scene/:id` are the only two screens in the app that bypass `<Page>`, and they were
+// `/board` and `/screen/:id` are the only two screens in the app that bypass `<Page>`, and they were
 // therefore the only two rendering with ZERO gutters: the heading, the toolbar and the canvas's own
 // rounded border all sat flush against the pane edges, so the border read as a crop rather than a
 // frame. `<Page>` gives every other route 24-28px. Measured against `<main>`, which is the bounded
@@ -978,6 +986,7 @@ test.describe('canvas: a closing side panel gives focus back', () => {
 		);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		const addToggle = page.getByRole('button', { name: 'Add', exact: true });
 		await addToggle.click();
 		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
@@ -1200,6 +1209,7 @@ test.describe('canvas: the GM Screen status region exists before it speaks', () 
 		);
 
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Layouts', exact: true }).click();
 		const name = `Combat night ${Date.now()}`;
 		await page.getByLabel('Layout name').fill(name);
@@ -1434,6 +1444,7 @@ test.describe('canvas: the tile action menu', () => {
 		);
 		const sceneId = (await handle.jsonValue()) as string;
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		const widgetId = await page.evaluate(
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId,
@@ -1668,6 +1679,9 @@ test.describe('canvas: the tile action menu', () => {
 		await page.keyboard.press('ArrowRight');
 		await expect.poll(async () => (await instance()).x).toBeGreaterThan(x);
 
+		// Selection opens the shared inspector; close it before reopening the tile menu.
+		await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
+		await frame.scrollIntoViewIfNeeded();
 		// Visibility writes the instance configuration, and the header chip follows it.
 		await trigger.click();
 		await page.getByRole('menuitem', { name: 'Visibility', exact: true }).click();
@@ -1787,7 +1801,7 @@ test.describe('canvas: the tile action menu', () => {
 		await expect(frame).toBeVisible();
 	});
 
-	test('Configure… on the scene editor opens the Inspector for that tile', async ({ page }) => {
+	test('Configure… on a screen opens the shared tile settings dialog', async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
 		const sceneName = `Menu Scene ${Date.now()}`;
@@ -1801,13 +1815,14 @@ test.describe('canvas: the tile action menu', () => {
 			(n) => Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === n)?.id ?? null,
 			sceneName,
 		);
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
-		await page.getByTestId('scene-add-widget-panel').getByRole('button').nth(1).click();
+		await page.getByTestId('gallery-entry-dice').click();
 		await expect.poll(() => widgetCount(page, sceneId!)).toBe(1);
-		// Placing a widget can leave the Inspector open on it; start from no selection.
-		await page.keyboard.press('Escape');
+		// Placing a widget opens its Inspector; wait for that transition before dismissing it.
+		await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
 		const widgetId = await page.evaluate(
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId!,
@@ -1815,7 +1830,8 @@ test.describe('canvas: the tile action menu', () => {
 
 		await page.getByTestId(`widget-${widgetId}`).getByTestId('tile-actions-trigger').click();
 		await page.getByRole('menuitem', { name: 'Configure…', exact: true }).click();
-		// The Inspector's Remove control is unique to it.
-		await expect(page.getByRole('button', { name: 'Remove widget' })).toBeVisible();
+		const configure = page.getByRole('dialog', { name: 'Configure Dice', exact: true });
+		await expect(configure).toBeVisible();
+		await expect(configure.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
 	});
 });

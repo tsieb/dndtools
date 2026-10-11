@@ -123,12 +123,13 @@ test.describe('widget builder: build, install, place', () => {
 		);
 		expect(sceneId).toBeTruthy();
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await expect(page.getByText('Add widget', { exact: true })).toBeVisible();
 		await page
-			.getByTestId('scene-add-widget-panel')
+			.getByTestId('add-widget-gallery')
 			.getByRole('button', { name: /Party status/ })
 			.click();
 
@@ -388,11 +389,12 @@ test.describe('widget builder: config and commands steps (RC-WID-2.3)', () => {
 			sceneName,
 		);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await page
-			.getByTestId('scene-add-widget-panel')
+			.getByTestId('add-widget-gallery')
 			.getByRole('button', { name: /Party status/ })
 			.click();
 

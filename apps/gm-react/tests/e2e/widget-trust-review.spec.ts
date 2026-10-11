@@ -162,7 +162,7 @@ test.describe('widget trust review', () => {
 		// 3. Nothing else to do: it places and runs.
 		const sceneId = await createScene(page, `Review Scene ${Date.now()}`);
 		await placeWidget(page, sceneId, 'clipwidget');
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.locator('iframe[data-widget-sandbox="clipwidget"]')).toBeVisible();
 	});
 
@@ -213,7 +213,7 @@ test.describe('widget trust review', () => {
 		await placeWidget(page, sceneId, 'clipwidget');
 
 		// Before any review the host tells the widget the capability is not available to it.
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(
 			page.frameLocator('iframe[data-widget-sandbox="clipwidget"]').locator('[data-clipboard]'),
 		).toHaveText('clipboard: undeclared');
@@ -237,7 +237,7 @@ test.describe('widget trust review', () => {
 		});
 
 		// Back on the scene the same widget is now granted the capability it asked for.
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(
 			page.frameLocator('iframe[data-widget-sandbox="clipwidget"]').locator('[data-clipboard]'),
 		).toHaveText('clipboard: available');

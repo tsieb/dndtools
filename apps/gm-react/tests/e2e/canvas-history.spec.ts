@@ -34,6 +34,7 @@ async function openBoard(page: Page): Promise<{ sceneId: string; widgetId: strin
 		sceneId,
 	);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await expect(page.getByTestId('canvas-history-controls')).toBeVisible();
 	return { sceneId, widgetId };
 }
@@ -134,9 +135,8 @@ test.describe('canvas history: the frame follows the layout', () => {
 		const frame = page.getByTestId(`widget-${widgetId}`);
 		const start = await layoutOf(page, sceneId, widgetId);
 
-		// Select the tile first (a press with no movement commits nothing), so the "before" capture
-		// carries the same selection ring the drag leaves behind.
-		await frame.click();
+		// Compare both captures with the inspector closed and no selection ring. Selecting a tile
+		// now opens the shared inspector, which covers the canvas on a phone.
 		await expect(
 			page.getByTestId('canvas-history-controls').getByRole('button', { name: /^Undo/ }),
 		).toBeDisabled();
@@ -156,6 +156,7 @@ test.describe('canvas history: the frame follows the layout', () => {
 		await page.mouse.move(box.x + box.width / 2 + 4000, box.y + 12, { steps: 6 });
 		await page.mouse.up();
 		await expect.poll(async () => (await layoutOf(page, sceneId, widgetId)).x).not.toBe(start.x);
+		await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
 		// The frame lands on the committed (clamped) layout, not on the pointer's drop point.
 		const committed = await layoutOf(page, sceneId, widgetId);
 		await expect

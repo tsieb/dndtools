@@ -184,11 +184,12 @@ test.describe('widget builder: honest previews (RC-WID-6.5)', () => {
 				Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id ?? null,
 			sceneName,
 		);
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await page.getByRole('button', { name: 'Edit layout' }).click();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await page
-			.getByTestId('scene-add-widget-panel')
+			.getByTestId('add-widget-gallery')
 			.getByRole('button', { name: /Party HP/ })
 			.click();
 		const tile = page.getByTestId('widget-template-status-list');

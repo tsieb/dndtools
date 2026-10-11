@@ -372,7 +372,7 @@ test.describe('command palette: the ⌘K quick-switcher', () => {
 				};
 			}, sceneId!);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByRole('button', { name: 'Edit layout' })).toBeVisible();
 		const before = await counts();
 		await openViaKeyboard(page, 'Meta+k');

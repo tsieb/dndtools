@@ -43,6 +43,7 @@ async function openBoard(page: Page): Promise<{ sceneId: string; widgetIds: stri
 		sceneId,
 	);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await expect(page.getByTestId('canvas-history-controls')).toBeVisible();
 	return { sceneId, widgetIds };
 }
@@ -264,9 +265,10 @@ async function openFlowScene(
 		});
 		expect(moved.status, JSON.stringify(moved)).toBe('accepted');
 	}
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	await expect(page.getByTestId('scene-board-flow')).toBeVisible();
 	await page.getByRole('button', { name: 'Edit layout' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await expect(page.getByTestId('flow-history-controls')).toBeVisible();
 	return { sceneId, first: ids[0]!, second: ids[1]! };
 }

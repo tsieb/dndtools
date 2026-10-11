@@ -549,27 +549,27 @@ test('a11y tree: scene editor names its surface and counts its widgets', async (
 	// `/board` is what seeds the home Scene (`command-center.ensure-home`); then open it as a Scene.
 	await openRoute(page, '/board');
 	const { id, count } = await homeScene(page);
-	await openRoute(page, `/scene/${id}`);
+	await openRoute(page, `/screen/${id}`);
 	// The home Scene may render under either layout policy; the contract is the same for both.
 	const surface = page.locator(
-		'[data-testid="scene-board-canvas"], [data-testid="scene-board-flow"]',
+		'[data-testid="scene-board-bounded"], [data-testid="scene-board-flow"]',
 	);
 	await expect(surface).toHaveCount(1);
 	await expect(surface).toHaveAttribute('role', 'region');
 	await expect(surface).toHaveAccessibleName(
-		new RegExp(`^Scene (canvas|layout), ${widgetsWord(count)}$`),
+		new RegExp(`^(GM Screen|Scene layout), ${widgetsWord(count)}$`),
 	);
 	await expect(surface).toMatchAriaSnapshot(`
-		- region /^Scene (canvas|layout), ${widgetsWord(count)}$/:
+		- region /^(GM Screen|Scene layout), ${widgetsWord(count)}$/:
 		  - group /^.+, .+ widget$/
 	`);
 	await expect(surface.locator('[role="group"][data-testid^="widget-"]')).toHaveCount(count);
 
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
 	await expect(surface).toHaveAttribute('role', 'application');
-	await expect(surface).toHaveAccessibleName(`Scene layout editor, ${widgetsWord(count)}`);
+	await expect(surface).toHaveAccessibleName(`GM Screen layout editor, ${widgetsWord(count)}`);
 	await expect(surface).toMatchAriaSnapshot(`
-		- application "Scene layout editor, ${widgetsWord(count)}":
+		- application "GM Screen layout editor, ${widgetsWord(count)}":
 		  - group /^.+, .+ widget, position .+$/
 	`);
 });

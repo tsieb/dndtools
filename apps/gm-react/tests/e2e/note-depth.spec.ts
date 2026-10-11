@@ -54,12 +54,13 @@ async function sceneWithNote(page: Page): Promise<{ sceneId: string; widgetId: s
 	);
 	expect(sceneId).toBeTruthy();
 
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	// RC-CAN-8.5: each row is one button named "Add <widget>"; `exact` keeps "Add Notes" out.
 	await page
-		.getByTestId('scene-add-widget-panel')
+		.getByTestId('add-widget-gallery')
 		.getByRole('button', { name: 'Add Note', exact: true })
 		.click();
 	const handle = await page.waitForFunction(

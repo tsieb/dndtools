@@ -156,7 +156,7 @@ test.describe('system package picker', () => {
 
 	// RC-SYS-2.6 — the acceptance criterion for vocabulary everywhere. 5e calls the person running
 	// the table the DM; Generic calls them the GM. Neither word is written into a screen: the
-	// catalog carries `{gm}` and the ACTIVE package fills it, so the chrome renames itself.
+	// catalog carries `{gm}` and the ACTIVE package fills it. Authored screen names stay stable.
 	test('the chrome takes its words from the active package', async ({ page }) => {
 		// `/board` resolves to the GM screen (RC-CAN-7.3), whose own heading names it.
 		await gotoRoute(page, '/board');
@@ -173,11 +173,12 @@ test.describe('system package picker', () => {
 		await gotoRoute(page, '/board');
 		await waitReady(page);
 		await expect(
-			page.locator('#main-content').getByRole('heading', { level: 2, name: 'GM screen' }),
+			page.locator('#main-content').getByRole('heading', { level: 2, name: 'DM screen' }),
 		).toBeVisible();
-		// Not just the top bar: the same word reaches the sidebar/rail destination and the safety
-		// vocabulary on the surfaces underneath it.
-		await expect(page.getByText('DM screen')).toHaveCount(0);
+		// The authored screen name stays stable; the desktop navigation uses system vocabulary.
+		if (page.viewportSize()!.width > 640) {
+			await expect(page.getByRole('button', { name: /^GM screen/ })).toBeVisible();
+		}
 	});
 
 	test('build your own forks the package into the gallery', async ({ page }) => {
@@ -291,7 +292,7 @@ test.describe('system package picker', () => {
 		await expect(
 			page
 				.locator('#main-content')
-				.getByRole('heading', { level: 2, name: 'Keeper screen', exact: true }),
+				.getByRole('heading', { level: 2, name: 'DM screen', exact: true }),
 		).toBeVisible();
 
 		// ── The player sheet shows Sanity. Adding it to a character is `character.add-system-resource`

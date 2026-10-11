@@ -92,11 +92,13 @@ for (const theme of THEMES) {
 	test(`scene editor, inspector and details panel are axe clean — ${theme}`, async ({ page }) => {
 		await stage(page, theme);
 		const scene = await filledScene(page);
-		await gotoRoute(page, `/scene/${scene.id}`);
+		await gotoRoute(page, `/screen/${scene.id}`);
 		await expect(page.getByRole('heading', { level: 2, name: scene.name })).toBeVisible();
 		await axe(page, `${theme}: view`);
 		await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-		await expect(page.getByRole('group', { name: 'Layout tools' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
+		await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
 		await axe(page, `${theme}: scene details top`);
 		await page.getByRole('button', { name: 'Save details', exact: true }).scrollIntoViewIfNeeded();
 		await axe(page, `${theme}: editing with scene details`);
@@ -109,42 +111,32 @@ for (const theme of THEMES) {
 	});
 }
 
-test('every overlay the editor opens is axe clean', async ({ page }, testInfo) => {
+test('every overlay the editor opens is axe clean', async ({ page }) => {
 	await stage(page);
 	const scene = await filledScene(page);
-	await gotoRoute(page, `/scene/${scene.id}`);
+	await gotoRoute(page, `/screen/${scene.id}?edit=1`);
 	await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
 	await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
 	await page.getByRole('button', { name: 'Save details', exact: true }).scrollIntoViewIfNeeded();
 	await axe(page, 'scene details');
 	await page.getByRole('button', { name: 'Close scene details' }).click();
 
-	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await axe(page, 'add-widget gallery');
 	await page.keyboard.press('Escape');
 
-	// The phone keeps Snap and Generate in a bounded menu; desktop shows them on the tools row.
-	const phone = testInfo.project.name.includes('mobile');
-	if (phone) {
-		await page.getByRole('button', { name: 'More editing tools' }).click();
-		const menu = page.getByRole('menu', { name: 'More editing tools' });
-		await expect(menu.getByRole('menuitemcheckbox', { name: 'Snap' })).toHaveAttribute(
-			'aria-checked',
-			'true',
-		);
-		await axe(page, 'more editing tools');
-		await menu.getByRole('menuitem', { name: 'Generate a widget' }).click();
-	} else {
-		await page.getByRole('button', { name: 'Generate a widget' }).click();
-	}
-	const generate = page.getByRole('dialog', { name: 'Generate a widget' });
-	await expect(generate).toBeVisible();
-	await axe(page, 'generate dialog');
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	// Generation now shares the gallery's prerequisite gate. In a fresh vault it explains the
+	// missing consent; the local builder remains available without an assistant.
+	await expect(page.getByTestId('widget-generate-blocker')).toContainText('The assistant is off');
+	await page.getByRole('button', { name: 'Build your own', exact: true }).click();
+	const builder = page.getByRole('dialog', { name: 'Quick widget', exact: true });
+	await expect(builder).toBeVisible();
+	await axe(page, 'widget builder');
 	await page.keyboard.press('Escape');
-	await expect(generate).toBeHidden();
+	await expect(builder).toBeHidden();
 
-	await page.getByRole('button', { name: 'Done' }).click();
 	await enterPreview(page, 'player');
 	await expect(page.getByTestId('player-preview-overlay')).toBeVisible();
 	await axe(page, 'player preview');
@@ -152,11 +144,11 @@ test('every overlay the editor opens is axe clean', async ({ page }, testInfo) =
 	await expect(page.getByTestId('player-preview-overlay')).toHaveCount(0);
 
 	const emptyId = await emptyScene(page, 'Polish empty scene');
-	await gotoRoute(page, `/scene/${emptyId}`);
-	await expect(page.getByTestId('scene-empty-templates')).toBeVisible();
+	await gotoRoute(page, `/screen/${emptyId}`);
+	await expect(page.getByTestId('board-empty-templates')).toBeVisible();
 	await axe(page, 'empty scene');
 	await page
-		.getByTestId('scene-empty-templates')
+		.getByTestId('board-empty-templates')
 		.getByRole('button', { name: 'Apply a template' })
 		.click();
 	await axe(page, 'template picker');
@@ -165,7 +157,7 @@ test('every overlay the editor opens is axe clean', async ({ page }, testInfo) =
 test('keyboard-only: select a widget, edit it, rename the scene', async ({ page }) => {
 	await stage(page);
 	const scene = await filledScene(page);
-	await gotoRoute(page, `/scene/${scene.id}`);
+	await gotoRoute(page, `/screen/${scene.id}`);
 	const edit = page.getByRole('button', { name: 'Edit layout', exact: true });
 	await edit.focus();
 	await page.keyboard.press('Enter');
@@ -235,7 +227,7 @@ test('Android Back closes a phone panel before it leaves the scene', async ({ pa
 	);
 	await stage(page);
 	const scene = await filledScene(page);
-	await gotoRoute(page, `/scene/${scene.id}`);
+	await gotoRoute(page, `/screen/${scene.id}?edit=1`);
 	await page.getByRole('button', { name: 'Edit scene name, description & tags' }).click();
 	await expect(page.getByTestId('scene-meta-panel')).toBeVisible();
 	const back = () =>
@@ -262,21 +254,21 @@ test('Android Back closes a phone panel before it leaves the scene', async ({ pa
 	expect(await back()).toEqual({ result: 'overlay', left: false });
 	await expect(page.getByTestId('scene-meta-panel')).toHaveCount(0);
 
-	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Close scene details' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	await selectFirstTile(page);
 	expect(await back()).toEqual({ result: 'overlay', left: false });
 	await expect(page.getByTestId('widget-inspector')).toHaveCount(0);
-	await expect(page).toHaveURL(new RegExp(`#/scene/${scene.id}$`));
+	await expect(page).toHaveURL(new RegExp(`#/screen/${scene.id}\\?edit=1$`));
 });
 
 test('200% text: the toolbar and inspector stay reachable without clipping', async ({ page }) => {
 	await stage(page);
 	const scene = await filledScene(page);
-	await gotoRoute(page, `/scene/${scene.id}`);
+	await gotoRoute(page, `/screen/${scene.id}`);
 	await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-	const toolbar = page.getByTestId('scene-editor-toolbar');
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+	const toolbar = page.getByTestId('screen-toolbar');
 	const main = page.locator('#main-content');
 	const [bar, pane] = await Promise.all([toolbar.boundingBox(), main.boundingBox()]);
 	expect(bar!.x + bar!.width).toBeLessThanOrEqual(pane!.x + pane!.width + 1);
@@ -298,9 +290,9 @@ test('phone: every editing control is at least 44px on both axes', async ({ page
 	);
 	await stage(page);
 	const scene = await filledScene(page);
-	await gotoRoute(page, `/scene/${scene.id}`);
+	await gotoRoute(page, `/screen/${scene.id}`);
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
-	await page.getByRole('button', { name: 'Close scene details' }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	const small = (selector: string) =>
 		page.locator(selector).evaluateAll((elements) =>
 			elements.flatMap((element) => {
@@ -313,23 +305,7 @@ test('phone: every editing control is at least 44px on both axes', async ({ page
 		);
 	const CONTROLS = 'button, [role="radio"], [role="switch"], select, input';
 	const found: string[] = [];
-	found.push(...(await small(`[data-testid="scene-editor-toolbar"] :is(${CONTROLS})`)));
-	await page.getByRole('button', { name: 'More editing tools' }).click();
-	const dialog = page.getByRole('dialog', { name: 'More editing tools', exact: true });
-	const close = dialog.getByRole('button', { name: 'Close', exact: true });
-	await expect(dialog).toBeVisible();
-	await expect(close).toBeVisible();
-	for (const control of [dialog, close]) {
-		const bounds = await control.boundingBox();
-		expect(bounds).not.toBeNull();
-		const viewport = page.viewportSize()!;
-		expect(bounds!.x).toBeGreaterThanOrEqual(0);
-		expect(bounds!.y).toBeGreaterThanOrEqual(0);
-		expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
-		expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
-	}
-	found.push(...(await small(`[role="dialog"] :is(${CONTROLS})`)));
-	await page.keyboard.press('Escape');
+	found.push(...(await small(`[data-testid="screen-toolbar"] :is(${CONTROLS})`)));
 	await selectFirstTile(page);
 	for (const tab of ['Content', 'Transform', 'Visibility']) {
 		await page.getByTestId('widget-inspector').getByRole('tab', { name: tab }).click();

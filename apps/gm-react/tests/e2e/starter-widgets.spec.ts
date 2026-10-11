@@ -144,7 +144,7 @@ test.describe('starter widget library', () => {
 		// where the board is. Reload so the scene is judged on what it draws, not on leftover chrome.
 		await page.reload({ waitUntil: 'domcontentloaded' });
 		await waitReady(page);
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await waitReady(page);
 		for (const starter of STARTERS) {
 			await expect(

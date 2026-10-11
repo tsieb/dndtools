@@ -261,7 +261,7 @@ test.describe('design-system kit in the sandbox', () => {
 		const sceneId = await placeTorchlight(page);
 		const reference = await snapshotDesignSystem(page);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const frame = page.locator('iframe[data-widget-sandbox="torchlight"]');
 		await expect(frame).toBeVisible();
 		// The kit changed nothing about the frame's isolation.
@@ -299,7 +299,7 @@ test.describe('design-system kit in the sandbox', () => {
 		page,
 	}) => {
 		const sceneId = await placeTorchlight(page);
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const inside = page.frameLocator('iframe[data-widget-sandbox="torchlight"]');
 		const pause = inside.locator('[data-pause]');
 		const flame = inside.locator('[data-flame]');

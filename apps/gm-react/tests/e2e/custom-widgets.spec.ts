@@ -203,7 +203,7 @@ test.describe('custom widgets: the sandbox host', () => {
 		const sceneId = await createScene(page, `Torch Scene ${Date.now()}`);
 		await placeWidget(page, sceneId, 'torchlight', 40);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const frame = page.locator('iframe[data-widget-sandbox="torchlight"]');
 		await expect(frame).toBeVisible();
 		// The frame is created with the ONE sandbox token, and never with allow-same-origin.
@@ -245,7 +245,7 @@ test.describe('custom widgets: the sandbox host', () => {
 		await placeWidget(page, sceneId, 'torchlight', 40);
 		await placeWidget(page, sceneId, 'brokenwidget', 420);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 
 		// The broken widget collapses to the "disabled, preserved" card...
 		await expect(page.getByTestId('widget-placeholder')).toHaveCount(1);
@@ -280,7 +280,7 @@ test.describe('custom widgets: the sandbox host', () => {
 		const sceneId = await createScene(page, `Codeless Scene ${Date.now()}`);
 		await placeWidget(page, sceneId, 'codeless', 40);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId('widget-placeholder')).toContainText(
 			'This widget package ships no code to run.',
 		);
@@ -296,8 +296,9 @@ test('keyboard resize and handle presets persist the declared widget sizes', asy
 	const sceneId = await createScene(page, 'Resize scene');
 	await placeWidget(page, sceneId, 'torchlight', 40);
 	const id = await instanceId(page, sceneId, 'torchlight');
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	const tile = page.getByTestId(`widget-${id}`);
 	await tile.focus();
 	await tile.press('Enter');
@@ -364,6 +365,7 @@ test('bounded board resize announces the width its columns allow', async ({ page
 	await placeWidget(page, sceneId, 'torchlight', 472);
 	const id = await instanceId(page, sceneId, 'torchlight');
 	await page.getByRole('button', { name: 'Edit layout', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 	const tile = page.getByTestId(`widget-${id}`);
 	await tile.focus();
 	await tile.press('Enter');
@@ -598,7 +600,7 @@ function combatTurn(page: Page): Promise<number> {
 }
 
 test.describe('widget accessibility contract', () => {
-	test('axe is clean on /scene/:id with every builtin type placed and the table live', async ({
+	test('axe is clean on /screen/:id with every builtin type placed and the table live', async ({
 		page,
 	}) => {
 		await openScene(page);
@@ -616,9 +618,9 @@ test.describe('widget accessibility contract', () => {
 		});
 		await runTheTable(page, sceneId);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expectLabelledRegions(page, types.length);
-		await expectAxeClean(page, '/scene/:id');
+		await expectAxeClean(page, '/screen/:id');
 	});
 
 	test('axe is clean on /board with every builtin type placed and the table live', async ({
@@ -681,7 +683,7 @@ test.describe('widget accessibility contract', () => {
 		await command('session.set-workflow', { workflow: 'active', activeSceneId: sceneId });
 		await placeWidget(page, sceneId, 'initiative-tracker', 40);
 		const id = (await instanceId(page, sceneId, 'initiative-tracker'))!;
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const value = page.getByTestId(`widget-${id}`).locator(LIVE_REGION).first();
 		await expect(value).toContainText('No combat running');
 		const original = await value.elementHandle();
@@ -726,7 +728,7 @@ test.describe('widget accessibility contract', () => {
 		const sceneId = await createScene(page, `Empty atlas ${Date.now()}`);
 		await placeWidget(page, sceneId, 'atlas', 40);
 		const id = (await instanceId(page, sceneId, 'atlas'))!;
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const live = page.getByTestId(`widget-${id}`).locator(LIVE_REGION);
 		await expect(live).toHaveCount(1);
 		const emptyText = await live.textContent();
@@ -758,7 +760,7 @@ test.describe('widget accessibility contract', () => {
 		const timerId = (await instanceId(page, sceneId, 'timer'))!;
 		const initiativeId = (await instanceId(page, sceneId, 'initiative-tracker'))!;
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const dice = page.getByTestId(`widget-${diceId}`);
 		const timer = page.getByTestId(`widget-${timerId}`);
 		const initiative = page.getByTestId(`widget-${initiativeId}`);
@@ -847,7 +849,7 @@ test.describe('widget accessibility contract', () => {
 		const sceneId = await createScene(page, `Contrast Scene ${Date.now()}`);
 		await placeWidget(page, sceneId, 'contrastprobe', 40);
 
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		const readout = page
 			.frameLocator('iframe[data-widget-sandbox="contrastprobe"]')
 			.locator('[data-contrast]');

@@ -133,7 +133,7 @@ test.describe('widget commands: every catalogue verb runs (RC-WID-6.1)', () => {
 
 			// ── Standby: the session was never started.
 			expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
-			await gotoRoute(page, surface === 'board' ? '/board' : `/scene/${sceneId}`);
+			await gotoRoute(page, surface === 'board' ? '/board' : `/screen/${sceneId}`);
 			const panel = page.getByTestId(`widget-${widgetId}`);
 			// A first click that is also the page's first gesture can land mid-relayout (the audio
 			// autoplay retry); a key press takes the first gesture instead.

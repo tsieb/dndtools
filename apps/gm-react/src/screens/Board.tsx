@@ -458,6 +458,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 
 	return (
 		<div
+			className="scene-editor"
 			style={{
 				display: 'flex',
 				flexDirection: 'column',
@@ -502,6 +503,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				previewTriggerRef={previewTriggerRef}
 				enterEditing={enterEditing}
 				onToggleMeta={() => {
+					setSelectedId(null);
 					setMetaOpen((open) => !open);
 					setAddOpen(false);
 					setLayoutsOpen(false);

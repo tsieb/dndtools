@@ -27,6 +27,7 @@ const ROUTES = [
  */
 function settledPattern(route: string): string {
 	if (route === '/board') return '^/screen/[^/]+$';
+	if (route === '/scene/:id') return '^/screen/[^/?]+\\?edit=1$';
 	return `^${route.replace(':id', '[^/]+')}$`;
 }
 
@@ -355,12 +356,12 @@ for (const viewport of [
 		);
 		expect(sceneId).toBeTruthy();
 
-		for (const route of ['/board', `/scene/${sceneId}`]) {
+		for (const route of ['/board', `/screen/${sceneId}`]) {
 			await gotoRoute(page, route);
 			// The shell's h1 survives hash navigation. Wait for the requested canvas, otherwise
 			// the old board (or a Suspense-hidden div) can satisfy an overflow-only poll.
 			const canvas = page.getByRole('region', {
-				name: route === '/board' ? /^GM Screen,/ : /^Scene canvas,/,
+				name: /^GM Screen,/,
 			});
 			await expect(canvas).toBeVisible({ timeout: 10_000 });
 			const pane = page.locator('#main-content > div').filter({ has: canvas });
@@ -1925,9 +1926,12 @@ async function openShellScreen(page: Page, screen: string): Promise<void> {
  * audit into a second audit of the Command Center. Every assertion below is only worth what this
  * check is. */
 async function expectStillOn(page: Page, screen: string): Promise<void> {
-	const hash = new URL(page.url()).hash.replace(/^#/, '');
 	const pattern = new RegExp(settledPattern(screen));
-	expect(hash, `${screen} redirected to ${hash}`).toMatch(pattern);
+	await expect
+		.poll(() => new URL(page.url()).hash.replace(/^#/, ''), {
+			message: `${screen} must settle on its canonical route`,
+		})
+		.toMatch(pattern);
 }
 
 async function settleScreen(page: Page): Promise<void> {
@@ -2336,7 +2340,7 @@ test('a scaffold locale can open the add-widget gallery and template picker', as
 		(name) => Object.values(window.__rt!.state.scenes.scenes).find((s) => s.name === name)?.id,
 		sceneName,
 	);
-	await gotoRoute(page, `/scene/${sceneId}`);
+	await gotoRoute(page, `/screen/${sceneId}`);
 	await page.getByRole('button', { name: 'Edit layout' }).click();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	const header = page.getByTestId('gallery-start-header');

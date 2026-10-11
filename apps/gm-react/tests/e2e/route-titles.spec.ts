@@ -55,10 +55,14 @@ test.describe('route titles (RC-ENG-9.1)', () => {
 		await expectTitle(page, 'Screens');
 		// The library provisions the GM screen's home scene in a fresh vault.
 		const sceneId = await homeSceneId(page);
+		const sceneName = await page.evaluate(
+			(id) => window.__rt!.state.scenes.scenes[id].name,
+			sceneId,
+		);
 
 		const shelled: Array<[string, string]> = [
-			[`/screen/${sceneId}`, 'Screens'],
-			[`/scene/${sceneId}`, 'Scenes'],
+			[`/screen/${sceneId}`, sceneName],
+			[`/scene/${sceneId}`, sceneName],
 			['/settings', 'Settings'],
 		];
 		for (const [path, expected] of shelled) {

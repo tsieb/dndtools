@@ -206,7 +206,7 @@ test.describe('golden paths', () => {
 			).toBeVisible();
 			await health.checkpoint(route!);
 		}
-		await gotoRoute(page, `/scene/${sceneId}`);
+		await gotoRoute(page, `/screen/${sceneId}`);
 		await expect(page.getByTestId(`widget-${widgetId}`)).toBeVisible();
 		await health.assertHealthy();
 	});
