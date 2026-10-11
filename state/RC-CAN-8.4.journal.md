@@ -254,3 +254,8 @@ intermediate Board change and surfaced canvas:354/429/321/1804 against it. Final
 into `useQuietPlacement` (owned `sceneEditor/index.tsx`) to keep Board.tsx under the 800-line gate.
 Focused two-profile rerun of all 11 affected specs: **224 passed, 12 skipped, exit 0** (`r5.log`).
 Full two-profile e2e and pinned visual comparison on the committed tree follow.
+- Pinned visual comparison of `3ca8fe30`: **564 passed, 18 failed** (`visual-r1.log`). Every
+  failure is a `/board` or `/scene/:id` golden route, 3 themes × 3 tiers; the diffs show only the
+  shell `<h1>` text (now the screen name). The edit-mode tile bodies are pixel-identical after the
+  clip change. Re-baselined those 18 in the container (`visual-update.log`, 18 passed); reviewed
+  desktop/phone diffs and the rail parchment capture. loop/rc had not moved. `pnpm gates` exit 0.
