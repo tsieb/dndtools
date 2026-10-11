@@ -101,3 +101,24 @@
 - Earlier evidence stands: 128/128 golden-path + palette browser checks and 15/15 pinned palette
   visual checks. Full central gates and review remain with the operator. No push, promotion,
   loop or dispatcher control-state edits.
+
+## Visual gate failure triage (2026-10-10)
+
+- Read the original central log (`.state/attempts/15951a27-…/output.log`, head `d4dd5e68`): 544
+  passed, 2 failed, no pixel diffs. `community.spec.ts:88` (tavern, desktop) timed out waiting for
+  the discover shelf buttons and `extensions-polish.spec.ts:81` (high-contrast, desktop) for the
+  bundled SRD notice. Both are 5s load waits on routes that do not render palette rows.
+- Re-ran both specs on the candidate, `--repeat-each=3 --retries=0`: 224 passed, 1 failed, a
+  different step of the extensions test (element-stability timeout on the empty-state capture, not a
+  pixel diff) (`/tmp/rc-knw-6.7-visual-rerun.log`).
+- Interleaved desktop `extensions-polish.spec.ts --repeat-each=3`, candidate vs the same tree with
+  only `CommandPaletteRow.jsx` reverted to `a966dea5`: 45/45, 45/45, 45/45, 45/45
+  (`/tmp/rc-knw-6.7-ab-{cand1,base1,cand2,base2}.log`).
+- Full pinned visual gate, exact manifest argv: candidate 545 passed / 1 failed
+  (`command-center-polish` parchment phone, `home-screen` not visible in 5s;
+  `/tmp/rc-knw-6.7-visual-full.log`). Base-row tree 545 passed / 1 failed (`command-center-polish`
+  tavern desktop, `#card-title` not visible in 5s; `/tmp/rc-knw-6.7-visual-full-base.log`).
+- Conclusion: the visual gate runs with no retries and hits about one cold-load 5s stall per full
+  run, on the base as well, on a different spec each time. No baseline drift and no palette-row
+  effect. No code, baselines or spec changed; nothing within this claim fixes the base stall.
+  Requesting a gate re-run. No push, promotion, loop or dispatcher control-state edits.
