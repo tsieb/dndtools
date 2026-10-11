@@ -100,25 +100,46 @@ function useProvisionedHome(enabled: boolean) {
  * RC-UX-6.3 — when onboarding closes onto this page, focus lands on the first-session guide's first
  * row instead of the page. Onboarding renames the vault catalog (and says so with
  * `LOCAL_VAULT_RENAMED_EVENT`) as it finishes, then focuses `#main-content` once its overlay is gone;
- * that one focus, shortly after the event, is moved on to the guide. Nothing else is redirected.
+ * that one focus, shortly after the event, is moved on to the guide (as soon as the guide is there).
+ * Nothing else is redirected.
  */
 function useFocusGuideAfterOnboarding() {
 	useEffect(() => {
 		let armedUntil = 0;
+		let waiting: ReturnType<typeof setInterval> | null = null;
+		const stopWaiting = () => {
+			if (waiting !== null) clearInterval(waiting);
+			waiting = null;
+		};
 		const arm = () => {
 			armedUntil = performance.now() + 2000;
+		};
+		// On a fresh vault the guide is placed just after the home screen is provisioned, which can land
+		// after onboarding's focus. Wait for its first row, but only while the reader is still on the
+		// page landmark onboarding left them on: any other focus move wins.
+		const focusRowWhenPlaced = (main: HTMLElement) => {
+			stopWaiting();
+			const until = performance.now() + 5000;
+			const tryFocus = () => {
+				if (document.activeElement !== main || performance.now() > until) return stopWaiting();
+				const row = document.querySelector<HTMLElement>(FIRST_SESSION_FOCUS_SELECTOR);
+				if (!row) return;
+				stopWaiting();
+				row.focus();
+			};
+			waiting = setInterval(tryFocus, 100);
+			tryFocus();
 		};
 		const onFocus = (event: FocusEvent) => {
 			if (performance.now() > armedUntil) return;
 			if (!(event.target instanceof HTMLElement) || event.target.id !== 'main-content') return;
-			const row = document.querySelector<HTMLElement>(FIRST_SESSION_FOCUS_SELECTOR);
-			if (!row) return;
 			armedUntil = 0;
-			row.focus();
+			focusRowWhenPlaced(event.target);
 		};
 		window.addEventListener(LOCAL_VAULT_RENAMED_EVENT, arm);
 		document.addEventListener('focusin', onFocus);
 		return () => {
+			stopWaiting();
 			window.removeEventListener(LOCAL_VAULT_RENAMED_EVENT, arm);
 			document.removeEventListener('focusin', onFocus);
 		};

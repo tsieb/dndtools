@@ -66,6 +66,31 @@ every criterion is met inside the owned files instead:
 Companion paths touched: catalogs, pseudo catalog, core `index.ts`, tests, snapshots, e2e specs, the
 raw-style allow-list (GettingStartedBody now has 0 raw values; entry removed), visual baselines.
 
+## Attempt 3 — Browser acceptance gate (run 7e1e4528, head `bff03a8f`)
+
+The gate's full e2e run: 1997 passed, 2 failed, 4 flaky.
+
+- **`palette-polish.spec.ts:10` failed on both profiles (caused by this story).** It walks Help with
+  Tab, capped at 20 presses, to reach "Keyboard shortcuts". Help's Getting started now holds the
+  guide's links (11) and, in the seeded vault, the restore button ahead of it, so the walk ran out.
+  Fixed in the spec (a companion path): the cap is 40, with a note. The walk itself is unchanged.
+- **`first-session-guide.spec.ts:56` flaky on desktop (caused by this story).** Under load the
+  post-onboarding `#main-content` focus could arrive before `CommandCenter.tsx` had placed the guide,
+  so there was no row to move focus to. `useFocusGuideAfterOnboarding` now waits up to 5 s for the
+  row, only while focus is still on `#main-content`. Re-run with `DNDTOOLS_E2E_CPU_THROTTLE=4
+--repeat-each=3 --retries=0`, both profiles: 18/18 passed.
+- **`widget-full-disclosure.spec.ts:21` (both profiles) and `tile-resize.spec.ts:21` (mobile) were
+  flaky** and passed on retry. Neither touches files this story changed (the builder footer's axe
+  color-contrast; the /board tile resize). Measured base `0de08e09` (a temporary detached worktree,
+  removed afterwards) against this branch, interleaved, `--retries=0`:
+  - `widget-full-disclosure` both profiles, `--repeat-each=4` × 2 rounds: base 3/56 failed, branch
+    2/56 failed, every failure the same axe `color-contrast: footer > button:nth-child(2)`.
+  - `tile-resize.spec.ts:21` mobile, `--repeat-each=8` × 2 rounds: base 3/16 failed, branch 1/16.
+    Both are base flakes, not regressions from this story.
+- Other re-runs at this head (`--retries=0`): `palette-polish`, `widget-full-disclosure`,
+  `tile-resize`, `help-menu`, `golden-path` on both profiles → 92 passed, 1 failed (the
+  `widget-full-disclosure` mobile flake above).
+
 ## Verification, attempt 2 (2026-10-10, after the reverts)
 
 - Core: `npx vitest run` in `packages/core` → 294 files, 5340 tests passed (`first-session-guide`

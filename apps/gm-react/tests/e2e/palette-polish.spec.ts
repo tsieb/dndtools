@@ -36,11 +36,12 @@ test('route, palette failure, help and nested shortcuts are axe clean', async ({
 	const help = page.getByRole('dialog', { name: 'Help', exact: true });
 	await expect(help).toBeVisible();
 	await clean();
-	// The user guides come first in Help, so the keyboard walk tabs forward to the shortcut trigger.
+	// Getting started (RC-UX-6.3: the first-session guide's links and its restore button) and the user
+	// guides come first in Help, so the keyboard walk tabs forward to the shortcut trigger.
 	const trigger = help.getByRole('button', { name: 'Keyboard shortcuts' });
 	for (
 		let step = 0;
-		step < 20 && !(await trigger.evaluate((el) => el === document.activeElement));
+		step < 40 && !(await trigger.evaluate((el) => el === document.activeElement));
 		step++
 	) {
 		await page.keyboard.press('Tab');
