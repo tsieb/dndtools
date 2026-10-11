@@ -55,7 +55,7 @@ No push, promotion, dispatcher-state change or additional agent.
   clears the table view with the assignments it seeded (otherwise next week's joiners would inherit
   an ended session's scene).
 - `apps/gm-react/src/screens/session/Lifecycle.tsx` and `apps/gm-react/src/app/widgets/builtin/
-  SessionBody.tsx` — the Start-session dialog and its dispatch, which is the "Start session" the
+SessionBody.tsx` — the Start-session dialog and its dispatch, which is the "Start session" the
   acceptance e2e drives. The option component itself lives in the owned `ProjectionControl.tsx`;
   these two files only mount it and dispatch after an accepted start.
 
@@ -64,3 +64,6 @@ No push, promotion, dispatcher-state change or additional agent.
 - `packages/core/src/lifecycle/session-workflow.ts` does not list `session.project-table-view` in
   `SESSION_COMMAND_AVAILABILITY` (a `Partial` map; nothing reads it for this command). Adding
   `'always'` beside `session.project-player-view` is a one-line follow-up for the owner.
+- **Visual** (pinned container, `session-polish`, `golden-routes`, `play-polish`, `player-polish`
+  on all three tiers): 264/264 pass, no baseline changed. Repo `pnpm lint` exit 0 (pre-existing
+  emphasis warnings only); `format:check:changed` clean after formatting this journal.
