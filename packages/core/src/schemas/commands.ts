@@ -564,6 +564,9 @@ export const setSessionWorkflowInputSchema = z
 		workflow: z.enum(['idle', 'prep', 'active', 'paused', 'ending', 'recap', 'archived']),
 		activeSceneId: z.union([z.literal(null), idSchema]).optional(),
 		title: z.union([z.literal(null), z.string().trim().min(1).max(120)]).optional(),
+		// RC-SES-7.2 — "Show <scene> to the table" at Start session. Absent means on: a start on a scene
+		// players may see puts it on every player's stage; `false` starts with nothing shown.
+		showToTable: z.boolean().optional(),
 	})
 	.strict();
 

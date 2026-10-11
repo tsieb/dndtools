@@ -295,4 +295,89 @@ describe('RC-SES-7.2 session.project-table-view', () => {
 		).nextState;
 		expect(Object.keys(added.session.playerViewAssignments)).toEqual([]);
 	});
+
+	it('Start session on a shared scene shows it to the table in the same result', () => {
+		const { env, state, tavernId } = fixture();
+		const started = accept(
+			run(state, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: tavernId },
+			}),
+		);
+		const next = started.nextState;
+		expect(next.session.workflow).toBe('active');
+		expect(next.session.tableView?.target.sceneId).toBe(tavernId);
+		for (const id of [PLAYER_ACTOR.id, PLAYER_TWO.id, OBSERVER_ACTOR.id]) {
+			expect(stageOf(next, id)).toBe('The Gilded Tankard');
+		}
+		expect(started.events.map((event) => event.kind)).toContain('session.workflow-changed');
+		expect(started.events.at(-1)).toMatchObject({ kind: 'session.table-view-set' });
+	});
+
+	it('Start session leaves the stage empty when told not to, or when the scene is DM-only', () => {
+		const { env, state, tavernId, secretId } = fixture();
+		const optedOut = accept(
+			run(state, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: tavernId, showToTable: false },
+			}),
+		).nextState;
+		expect(optedOut.session.workflow).toBe('active');
+		expect(optedOut.session.tableView ?? null).toBeNull();
+		expect(optedOut.session.playerViewAssignments).toEqual({});
+
+		// Fail closed: the start succeeds, the DM-only scene reaches nobody.
+		const secret = accept(
+			run(state, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: secretId },
+			}),
+		).nextState;
+		expect(secret.session.workflow).toBe('active');
+		expect(secret.session.tableView ?? null).toBeNull();
+		expect(secret.session.playerViewAssignments).toEqual({});
+	});
+
+	it('Start session keeps a table view chosen in Prep, and a resume is not a start', () => {
+		const { env, state, tavernId, vaultId } = fixture();
+		const prep = accept(
+			run(state, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'prep', activeSceneId: tavernId },
+			}),
+		).nextState;
+		expect(prep.session.tableView ?? null).toBeNull();
+		const chosen = accept(showToTable(prep, env, vaultId)).nextState;
+		const live = accept(
+			run(chosen, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: tavernId },
+			}),
+		).nextState;
+		expect(live.session.tableView?.target.sceneId).toBe(vaultId);
+		expect(stageOf(live, PLAYER_ACTOR.id)).toBe('Drowned Vault');
+
+		const cleared = accept(showToTable(live, env, null)).nextState;
+		const paused = accept(
+			run(cleared, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'paused' },
+			}),
+		).nextState;
+		const resumed = accept(
+			run(paused, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active' },
+			}),
+		).nextState;
+		expect(resumed.session.tableView ?? null).toBeNull();
+		expect(resumed.session.playerViewAssignments).toEqual({});
+	});
 });

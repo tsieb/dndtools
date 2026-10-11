@@ -64,7 +64,6 @@ export type {
 	SessionHandout,
 	SessionPartyLocation,
 	SessionPlayerViewAssignment,
-	SessionTableView,
 	SessionQuickTimer,
 	SessionState,
 	SessionTimer,
@@ -1695,6 +1694,7 @@ export type {
 	PlayerViewControllerQueryResult,
 	PlayerViewControllerSceneOption,
 	PlayerViewControllerTableView,
+	SessionTableView,
 } from './queries/player-view-control';
 export { canShowSceneToTable, getPlayerViewController } from './queries/player-view-control';
 

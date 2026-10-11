@@ -7,14 +7,13 @@ import type {
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionTarget,
 	SessionPlayerViewAssignment,
-	SessionTableView,
 } from '../state/session-state';
 import type { Scene } from '../state/scene-state';
 import type { ActorId } from '../state/ids';
 import type { OperationLog } from '../sync/operation-log';
 import { resolveDeliveryTarget } from '../collab/player-groups';
 import { hasDmAuthority } from '../state/permission-state';
-import { canShowSceneToTable } from '../queries/player-view-control';
+import { canShowSceneToTable, type SessionTableView } from '../queries/player-view-control';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -393,6 +392,58 @@ export function inheritTableView(
 		},
 		events: [...result.events, ...projected.events],
 		operationIds: [...result.operationIds, ...projected.operationIds],
+	};
+}
+
+/** The transitions that run the core's live-session reset (and so clear the assignments). */
+const RESET_WORKFLOWS: ReadonlySet<string> = new Set(['idle', 'recap', 'archived']);
+/** The states Start session leaves from; `paused → active` is a resume, not a start. */
+const START_FROM_WORKFLOWS: ReadonlySet<string> = new Set(['idle', 'prep']);
+
+/**
+ * RC-SES-7.2 — the table view's part in `session.set-workflow`, applied by the dispatcher to the
+ * accepted transition in the same result:
+ *
+ * - **Start session** (Standby or Prep → Live) shows the active scene to the table, the option's
+ *   default — unless the start passes `showToTable: false`, a table view is already in force (one
+ *   the GM chose in Prep is kept), or the scene is not one players may see (a DM-only scene is never
+ *   swept onto the table; the start itself still succeeds with nothing shown).
+ * - **Every reset** (to Standby, Recap or Archived) clears the table view, as the core's reset clears
+ *   the assignments it seeded, so next session's joiners never inherit an ended session's scene.
+ */
+export function applyTableViewOnWorkflow(
+	before: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+	result: CommandResult,
+): CommandResult {
+	if (result.status !== 'accepted') return result;
+	const session = result.nextState.session;
+
+	if (RESET_WORKFLOWS.has(session.workflow)) {
+		if (!session.tableView) return result;
+		return {
+			...result,
+			nextState: { ...result.nextState, session: { ...session, tableView: null } },
+		};
+	}
+
+	// The payload already passed the handler's schema, so these reads only pick out the request.
+	const request = (rawPayload ?? {}) as { workflow?: unknown; showToTable?: unknown };
+	const starting =
+		request.workflow === 'active' && START_FROM_WORKFLOWS.has(before.session.workflow);
+	const optedOut = request.showToTable === false;
+	const sceneId = session.activeSceneId;
+	if (!starting || optedOut || session.tableView || !sceneId) return result;
+	if (!canShowSceneToTable(result.nextState.scenes.scenes[sceneId])) return result;
+
+	const shown = handleProjectTableView(result.nextState, env, actorId, { sceneId });
+	if (shown.status !== 'accepted') return result;
+	return {
+		...shown,
+		events: [...result.events, ...shown.events],
+		operationIds: [...result.operationIds, ...shown.operationIds],
 	};
 }
 

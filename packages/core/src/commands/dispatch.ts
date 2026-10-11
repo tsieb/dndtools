@@ -56,6 +56,7 @@ import {
 	handleSnapshotCommandCenterAutoSave,
 } from './command-center';
 import {
+	applyTableViewOnWorkflow,
 	handleProjectPlayerView,
 	handleProjectTableView,
 	handleRevokePlayerView,
@@ -457,8 +458,15 @@ export function dispatchCommand(
 			return handleRevokePlayerView(state, env, command.actorId, command.payload);
 		case 'session.project-table-view':
 			return handleProjectTableView(state, env, command.actorId, command.payload);
+		// RC-SES-7.2 — Start session shows a shared active scene to the table; a reset clears it.
 		case 'session.set-workflow':
-			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
+			return applyTableViewOnWorkflow(
+				state,
+				env,
+				command.actorId,
+				command.payload,
+				handleSetSessionWorkflow(state, env, command.actorId, command.payload),
+			);
 		case 'session.recover':
 			return handleRecoverSession(state, env, command.actorId, command.payload);
 		case 'session.record-dice':

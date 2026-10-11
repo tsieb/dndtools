@@ -6,8 +6,34 @@ import { screenMetaOf, type Scene, type SceneVisibility } from '../state/scene-s
 import type {
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionKind,
+	PlayerViewProjectionTarget,
 	SessionPlayerViewAssignment,
 } from '../state/session-state';
+
+/**
+ * RC-SES-7.2 — the TABLE VIEW: the scene every player and observer is shown by default. Setting it
+ * assigns the scene to every current participant at once (`session.project-table-view`), and a
+ * participant who joins later inherits it; a per-player assignment made afterwards overrides it for
+ * that participant only. Never a DM-only scene (refused fail-closed).
+ */
+export interface SessionTableView {
+	target: PlayerViewProjectionTarget;
+	setBy: ActorId;
+	setAt: string;
+	revision: number;
+}
+
+// The table view rides on the session slice as an optional, additive field: a session document
+// persisted before it restores with none (the stores spread the persisted session), and the
+// dispatcher clears it on every reset transition with the assignments it seeded
+// (`clearTableViewOnReset`). Declared here, beside its only reader and writer, rather than in
+// `state/session-state.ts`.
+declare module '../state/session-state' {
+	interface SessionState {
+		/** RC-SES-7.2 — the default for what players see, or null/absent when none is set. */
+		tableView?: SessionTableView | null;
+	}
+}
 
 export interface PlayerViewControllerSceneOption {
 	id: string;

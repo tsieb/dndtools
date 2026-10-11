@@ -1,9 +1,9 @@
 # RC-SES-7.2 — Show the scene to everyone: a default for what players see
 
-Run journal, attempt 1. Branch `dispatch/dndtools/a0f5dd555cc84e209603`, based on `961797370`.
+Run journal. Branch `dispatch/dndtools/a0f5dd555cc84e209603`, rebased onto `e97943c2`.
 No push, promotion, dispatcher-state change or additional agent.
 
-## Design
+## Design (as of attempt 3)
 
 - **Core command `session.project-table-view`** (`commands/player-view.ts`). Payload
   `{ sceneId: string | null }`. DM-only. A scene sets the TABLE VIEW (`session.tableView`, the
@@ -11,71 +11,74 @@ No push, promotion, dispatcher-state change or additional agent.
   registered player and observer (one `session.project-player-view` op per participant, so the
   mobile catch-up classifier and the per-player reads need no change, plus one
   `session.project-table-view` op for the default). `null` clears the default and revokes every
-  assignment. Refused fail-closed (`hidden-target`) for a DM-only scene, a template, and a default
-  GM workspace (RC-CAN-7.8) — the same set the Stage panel already leaves out.
+  assignment. Refused fail-closed (`hidden-target`) for a DM-only scene, a template and a default
+  GM workspace (RC-CAN-7.8), the same set the Stage panel already leaves out.
 - **The per-player command stays** for exceptions: a later per-player assignment overwrites that
   one participant only; the next "Everyone" choice replaces every assignment again.
 - **Later joiners inherit** the table view: `inheritTableView` (player-view.ts) wraps
   `permission.add-players` and `permission.assign-role` in `dispatch.ts` (a manifest companion), and
   assigns the default to any participant who became a player/observer in that command and has no
   view of their own.
-- **Storage**: `SessionState.tableView?: SessionTableView | null` — optional and additive, so a
-  persisted vault hydrates unchanged (coreStore and SceneRuntime spread the persisted session). A
-  session reset (`resetLiveSessionFields`) clears it with the assignments it seeded.
+- **Start session** shows the table the active scene: `applyTableViewOnWorkflow` (player-view.ts)
+  wraps `session.set-workflow` in `dispatch.ts`. A start (Standby or Prep → Live) on a scene
+  players may see assigns it to the whole table in the same accepted result, unless the payload
+  passes `showToTable: false` (new optional field on `setSessionWorkflowInputSchema`, a companion
+  path) or a table view chosen in Prep is already set. A DM-only scene starts with nothing shown.
+  A resume (`paused → active`) is not a start. Every reset transition (`idle`, `recap`,
+  `archived`) clears the table view, as the core's reset clears the assignments.
+- **Storage**: `SessionState.tableView?: SessionTableView | null`, declared by module augmentation
+  in the owned `queries/player-view-control.ts` (beside `SessionTableView` and its only reader).
+  Optional and additive, so a persisted vault hydrates unchanged (coreStore and SceneRuntime spread
+  the persisted session).
+- **UI**: Stage panel "Everyone" row (`TableViewRow` in `ProjectionControl.tsx`, mounted first in
+  `ActiveMap.tsx`), companion `Home.tsx` "Your {gm} has not shown a scene yet." when live and empty.
 
 ## Progress log
 
-- **Core** (`71ee3b74`). `session.project-table-view` + `inheritTableView` + controller
-  `tableView`/`shareable` fields. New reducer suite `packages/core/tests/player-view-table.test.ts`
-  (8 tests): atomic assignment (one table op + one op per participant, one result), replacement on a
-  new table scene, DM-only refused `hidden-target` with `nextState === state`, unknown scene /
-  player / observer refused, later joiner inherits via `permission.add-players` and via
-  `permission.assign-role` (co-DM → observer), no inheritance without a table view, per-player
-  override survives the table view and a later joiner, `null` takes it down, an `idle` reset clears
-  it. Full core suite: 295 files / 5348 tests pass.
-- **UI** (`506bc2cc`). `TableViewRow` (Everyone row, only shareable scenes, "— none —" clears) at
-  the top of the Stage panel (`ActiveMap.tsx`); `ShowToTableOption` on the Start-session dialog,
-  checked by default, disabled with the reason for a DM-only scene; the top bar's one-press start
-  takes the default; companion `Home.tsx` says "Your {gm} has not shown a scene yet." when live and
-  empty. EN/ES keys + regenerated `qps-ploc.ts`. Session baseline DOM snapshots gain only the
-  Everyone row (checked by diffing every changed line before `-u`).
-- **e2e** `apps/gm-react/tests/e2e/table-view.spec.ts`, both profiles, fake LAN: 4/4 pass.
-  Negative control: with the start-time dispatch disabled, the acceptance test fails with the stage
-  reading "Your DM has not shown a scene yet." Related specs (player-view, session-lifecycle,
-  golden-path, first-session-guide, session-standby, player-join-first, companion-sheet,
-  companion-preview, collab): 156/156 pass on both profiles.
-- **Docs** (`2776a352`). ARCHITECTURE.md §2 "What players see"; FEATURE-GAPS Session row.
-- **Visual** (pinned container, `session-polish`, `golden-routes`, `play-polish`, `player-polish`
-  on all three tiers): 264/264 pass, no baseline changed. Repo `pnpm lint` exit 0 (pre-existing
-  emphasis warnings only); `format:check:changed` clean after formatting this journal.
-
-## Crossings (outside `Owns`, each needed by an acceptance criterion)
-
-- `packages/core/src/state/session-state.ts` — the optional `tableView` field and its type. "Later
-  joiners inherit the table view" needs the default stored somewhere durable; a session with no
-  players yet (the usual Start session) has no assignment to derive it from.
-- `packages/core/src/commands/session-control.ts` — one line in `resetLiveSessionFields` so a reset
-  clears the table view with the assignments it seeded (otherwise next week's joiners would inherit
-  an ended session's scene).
-- `apps/gm-react/src/screens/session/Lifecycle.tsx` and `apps/gm-react/src/app/widgets/builtin/SessionBody.tsx` — the Start-session dialog and its dispatch, which is the "Start session" the
-  acceptance e2e drives. The option component itself lives in the owned `ProjectionControl.tsx`;
-  these two files only mount it and dispatch after an accepted start.
+- **Attempt 1.** Core command, joiner inheritance, Everyone row, Start-session checkbox in the
+  dialog, companion copy, reducer + e2e + docs. Verified: core 5348/5348, related e2e 156/156 on
+  both profiles, visual 264/264 in the pinned container (no baseline changed), `pnpm lint` exit 0.
+- **Attempt 2** (gate: rebase onto `e97943c2` conflicted in FEATURE-GAPS.md). My sentence widened
+  the Session cell past the table's longest, so prettier re-padded all 24 rows. Rebased, took the
+  integration branch's file and re-applied the note inside the cell's existing padding (one-line
+  diff).
+- **Attempt 3** (gate: four paths outside the claim — `SessionBody.tsx`, `Lifecycle.tsx`,
+  `session-control.ts`, `session-state.ts`). None is needed for the acceptance criteria, so all
+  four are reverted to `e97943c2` and the behaviour moved in-claim:
+  - `session-state.ts` → the `tableView` field is a module augmentation in the owned query file.
+  - `session-control.ts` (reset clears the table view) → `applyTableViewOnWorkflow` clears it on
+    every reset transition, wired in the companion `dispatch.ts`.
+  - `Lifecycle.tsx` / `SessionBody.tsx` (the dialog checkbox and its dispatch) → the core applies
+    "Show <scene> to the table"'s default to the start itself, so every Start session (the dialog,
+    the top bar) shows a shared scene to the table with no app-side dispatch. The top bar's own
+    follow-up dispatch was removed; the unused `session.start.showToTable*` keys were dropped (EN,
+    ES, pseudo regenerated).
+  - Reducer suite `packages/core/tests/player-view-table.test.ts` now 11 tests: the 8 from attempt
+    1 plus Start session shows a shared scene in the same result; `showToTable: false` and a
+    DM-only scene start with nothing shown; a Prep-chosen table view is kept and a resume is not a
+    start.
+  - e2e `table-view.spec.ts`: the acceptance test drives the dialog's Start session on the shared
+    scene, with no Stage-panel interaction, then overrides one player from their row; the second
+    test starts on the DM-only scene (companion says the {gm} has not shown a scene yet, Everyone
+    row empty) and fills the stage from the Everyone row.
+  - Verified: core `tsc` clean, core 295 files / 5348 tests (the RC-SES-6.1 lockstep test caught a
+    `session.workflow === 'active'` read in commands/; the hook now reads the requested transition
+    from the payload instead). App `tsc` clean; app session/play/i18n/net unit tests 92/92 (Session
+    baseline snapshots unchanged from attempt 1: only the Everyone row). e2e `table-view` 4/4 on
+    both profiles; negative control (start hook short-circuited) fails the acceptance test with the
+    stage reading "Your DM has not shown a scene yet." Related e2e (player-view, session-lifecycle,
+    golden-path, first-session-guide, session-standby, player-join-first, companion-sheet,
+    companion-preview, collab, combat) 224/224 on both profiles. Changed paths are now all owned or
+    manifest companions.
 
 ## Handoffs
 
+- **Start-session opt-out in the dialog.** The core accepts `showToTable: false` on
+  `session.set-workflow`, but no UI passes it: the Start-session dialog lives in
+  `screens/session/Lifecycle.tsx` and its dispatch in `app/widgets/builtin/SessionBody.tsx`, both
+  outside this claim. The owner can add the "Show <scene> to the table" checkbox there (checked by
+  default when the scene is shared) and pass `showToTable` through. Until then the GM takes a shown
+  scene down from the Stage panel's Everyone row.
 - `packages/core/src/lifecycle/session-workflow.ts` does not list `session.project-table-view` in
   `SESSION_COMMAND_AVAILABILITY` (a `Partial` map; nothing reads it for this command). Adding
   `'always'` beside `session.project-player-view` is a one-line follow-up for the owner.
-
-## Attempt 2 — rebase onto `e97943c2`
-
-- Gate feedback: rebasing onto `e97943c2` conflicted in `docs/requirements/FEATURE-GAPS.md`. Cause:
-  my sentence widened the Session cell past the table's longest, so prettier re-padded all 24 rows
-  and collided with the integration branch's own table edits.
-- Rebased onto `e97943c2`; resolved by taking the integration branch's file and re-applying the
-  note inside the Session cell's existing padding (93 of 97 spare characters), so the edit is now a
-  one-line diff that cannot re-pad the table. No other conflicts; `qps-ploc.ts` regenerates
-  unchanged.
-- Post-rebase checks: core `tsc` clean, core suite 295 files / 5348 tests pass; app `tsc` clean;
-  app session/play/i18n unit tests 92/92 (Session baseline snapshots unchanged); e2e
-  `table-view`, `player-view`, `session-lifecycle`, `player-join-first` on both profiles 46/46.

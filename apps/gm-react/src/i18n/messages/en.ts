@@ -294,11 +294,6 @@ export const en = {
 		'Optional. The name shows in the session header and on the archive you write up afterwards.',
 	'session.start.cancel': 'Cancel',
 	'session.start.noScenes': 'Create a scene first — a live session needs an active scene.',
-	'session.start.showToTable': 'Show {scene} to the table',
-	'session.start.showToTableHelp':
-		'Every player and observer sees it on their stage, and so does anyone who joins later.',
-	'session.start.showToTableDmOnly':
-		'{scene} is only visible to the {gm}. Share it from the scene settings to show it to the table.',
 	'session.start.confirm': 'Start session',
 	'session.header.sessionScene': 'Scene: {scene}',
 	'session.end.label': 'End',

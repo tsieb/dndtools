@@ -298,11 +298,6 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'session.start.cancel': 'Cancelar',
 	'session.start.noScenes':
 		'Crea una escena primero — una sesión en vivo necesita una escena activa.',
-	'session.start.showToTable': 'Mostrar {scene} a la mesa',
-	'session.start.showToTableHelp':
-		'Cada jugador y observador la ve en su escenario, y también quien se una después.',
-	'session.start.showToTableDmOnly':
-		'{scene} solo la ve el {gm}. Compártela desde los ajustes de la escena para mostrarla a la mesa.',
 	'session.start.confirm': 'Empezar la sesión',
 	'session.header.sessionScene': 'Escena: {scene}',
 	'session.end.chooseBody':

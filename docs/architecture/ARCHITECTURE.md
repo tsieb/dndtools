@@ -43,14 +43,16 @@ Build artifacts (`dist/`, `release/`, Gradle outputs, `.aws-sam/`) are generated
   internet path reuses the transport over the signaling relay and TURN (`signaling.ts`,
   `cloudBridge.ts`, `cloudCrypto.ts`). Threat model: [../security/README.md](../security/README.md).
 - **What players see.** A participant's stage is their own player-view assignment
-  (`session.playerViewAssignments`). The table view (`session.tableView`) is the default:
-  `session.project-table-view` (core `commands/player-view.ts`) assigns one scene to every player
-  and observer in one accepted command and records it, a participant added later inherits it in
-  the roster command that adds them, and `session.project-player-view` remains the per-player
-  exception, which holds until the table is shown a scene again. A DM-only scene, a template or a
-  default GM workspace is refused for the whole table; a session reset clears both. The Stage
-  panel's Everyone row and Start session's "Show <scene> to the table" (on for a shared scene)
-  dispatch it (`src/app/ProjectionControl.tsx`).
+  (`session.playerViewAssignments`). The table view (`session.tableView`, declared in core
+  `queries/player-view-control.ts`) is the default: `session.project-table-view` (core
+  `commands/player-view.ts`) assigns one scene to every player and observer in one accepted command
+  and records it; a participant added later inherits it in the roster command that adds them; and
+  `session.project-player-view` remains the per-player exception, which holds until the table is
+  shown a scene again. A DM-only scene, a template or a default GM workspace is refused for the
+  whole table. The dispatcher applies the table view to `session.set-workflow` in the same result:
+  Start session (Standby or Prep → Live) shows a shared active scene to the table unless the start
+  passes `showToTable: false` or a table view is already set, and every reset clears it. The Stage
+  panel's Everyone row (`src/app/ProjectionControl.tsx`) sets or clears it by hand.
 - **Cloud client** (`src/cloud/`). Cognito auth, E2EE backup and cross-device merge
   (`syncEngine.ts`, `vaultKey.ts`), app-api (`appApi.ts`), billing (`billing.ts`), telemetry, and
   Google integrations. Off by default and fail-closed behind the core `SYNC-017` gate.

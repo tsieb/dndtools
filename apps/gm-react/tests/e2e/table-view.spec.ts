@@ -4,8 +4,9 @@ import { gotoRoute, installFakeLan, markOnboarded } from './_helpers';
 // RC-SES-7.2 — a default for what players see. Start session used to record an active scene the
 // players never received: each joined player's stage stayed empty until the GM assigned a view to
 // that one player in the Stage panel. Starting on a shared scene now shows it to the whole table
-// (the "Show <scene> to the table" option, on by default), a per-player choice in the Stage panel
-// still wins for that player, and a live session with nothing shown says so on the companion.
+// (the core applies "Show <scene> to the table"'s default to the start itself), a per-player choice
+// in the Stage panel still wins for that player, a DM-only scene is never shown to the table, and a
+// live session with nothing shown says so on the companion.
 //
 // Both sides run over the fake LAN (real signaling, encryption and host filtering), so the stage
 // asserted here is the view-model the host actually sent to the player's device.
@@ -98,19 +99,13 @@ async function openTable(page: Page, browser: Browser, testInfo: TestInfo): Prom
 	return table;
 }
 
-async function startSession(page: Page, showToTable: boolean): Promise<void> {
+/** Start session from the Session screen's own dialog, on the named scene. */
+async function startSession(page: Page, sceneName: string): Promise<void> {
 	await page.getByRole('button', { name: 'Start session', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Start a session' });
 	const mode = dialog.getByRole('radio', { name: 'New session' });
 	if (await mode.isVisible()) await mode.click();
-	await dialog.getByRole('combobox').first().selectOption({ label: TABLE_SCENE });
-	const option = dialog.getByRole('checkbox', { name: `Show ${TABLE_SCENE} to the table` });
-	// On by default for a shared scene.
-	await expect(option).toHaveAttribute('aria-checked', 'true');
-	if (!showToTable) {
-		await option.click();
-		await expect(option).toHaveAttribute('aria-checked', 'false');
-	}
+	await dialog.getByRole('combobox').first().selectOption({ label: sceneName });
 	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
@@ -123,7 +118,7 @@ test('Start session with the shared scene puts it on the joined stage; a per-pla
 	const table = await openTable(page, browser, testInfo);
 	try {
 		// Never touched before this point: the Stage panel plays no part in the table getting the scene.
-		await startSession(page, true);
+		await startSession(page, TABLE_SCENE);
 		const stage = table.player.getByTestId('player-stage');
 		await expect(stage).toContainText(TABLE_SCENE);
 		await expect(stage).not.toContainText('has not shown a scene yet');
@@ -157,16 +152,18 @@ test('Start session with the shared scene puts it on the joined stage; a per-pla
 	}
 });
 
-test('a live session with nothing shown says so on the companion; Everyone fills the stage', async ({
+test('a DM-only start shows the table nothing and the companion says so; Everyone fills the stage', async ({
 	page,
 	browser,
 }, testInfo) => {
 	const table = await openTable(page, browser, testInfo);
 	try {
-		await startSession(page, false);
+		// A DM-only scene is never swept onto the table: the session goes live with nothing shown.
+		await startSession(page, OVERRIDE_SCENE);
 		const stage = table.player.getByTestId('player-stage');
 		await expect(stage).toContainText('has not shown a scene yet.');
-		await expect(stage).not.toContainText(TABLE_SCENE);
+		await expect(stage).not.toContainText(OVERRIDE_SCENE);
+		await expect(page.getByLabel('Scene shown to everyone', { exact: true })).toHaveValue('');
 
 		await page
 			.getByLabel('Scene shown to everyone', { exact: true })

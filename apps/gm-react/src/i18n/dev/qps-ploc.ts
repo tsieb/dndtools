@@ -306,11 +306,6 @@ export default {
 	'session.start.cancel': '[Çáñçéľ~~~]',
 	'session.start.noScenes':
 		'[Çŕéáţé á šçéñé ƒíŕšţ — á ľíṽé šéššíóñ ñééďš áñ áçţíṽé šçéñé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
-	'session.start.showToTable': '[Šĥóŵ ~~{scene} ţó ţĥé ţáƀľé~~~~ ~]',
-	'session.start.showToTableHelp':
-		'[Éṽéŕý ƥľáýéŕ áñď óƀšéŕṽéŕ šééš íţ óñ ţĥéíŕ šţáğé, áñď šó ďóéš áñýóñé ŵĥó ĵóíñš ľáţéŕ.~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
-	'session.start.showToTableDmOnly':
-		'[{scene} íš óñľý ṽíšíƀľé ţó ţĥé ~~~~ ~~~~ {gm}. Šĥáŕé íţ ƒŕóḿ ţĥé šçéñé šéţţíñğš ţó šĥóŵ íţ ţó ţĥé ţáƀľé.~~~~ ~~~~ ~~~~ ~~~~ ~~~~]',
 	'session.start.confirm': '[Šţáŕţ šéššíóñ~~~~ ~]',
 	'session.header.sessionScene': '[Šçéñé: ~~~{scene}]',
 	'session.end.label': '[Éñď~~]',

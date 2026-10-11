@@ -103,8 +103,6 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 		diceHistory: session.diceHistory.filter((roll) => !happenedLive(roll)),
 		timers: {},
 		playerViewAssignments: {},
-		// RC-SES-7.2 — the table view seeded those assignments; a new session starts with none.
-		tableView: null,
 		activeMapProjections: {},
 		// Keep non-live handout deliveries available as table history; live deliveries are archived.
 		handouts: liveHandoutsForArchive(session.handouts, false),
