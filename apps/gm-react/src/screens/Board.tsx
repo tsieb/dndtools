@@ -43,7 +43,7 @@ import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
 import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
-import { ScreenInspector } from './sceneEditor';
+import { ScreenInspector, useQuietPlacement } from './sceneEditor';
 import { ScreenToolbar } from './sceneEditor/SceneToolbar';
 import { usePreviewActions } from '../app/ViewAsControl';
 import { PlayerPreviewOverlay } from './sceneEditor/PlayerPreviewOverlay';
@@ -175,6 +175,12 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	});
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const quiet = useQuietPlacement();
+	function pick(id: string | null) {
+		setSelectedId(id);
+		quiet.clear();
+		setMetaOpen(false);
+	}
 	const [addOpen, setAddOpen] = useState(false);
 	// RC-CAN-4.4 — the scene-template picker, opened from the empty board or the gallery header.
 	const [templatesOpen, setTemplatesOpen] = useState(false);
@@ -368,8 +374,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	// mode), so it has to also enter edit mode rather than selecting a widget the canvas can't show
 	// as selected yet.
 	function selectIssue(widgetId: string) {
-		setSelectedId(widgetId);
-		setMetaOpen(false);
+		pick(widgetId);
 		if (!editing) setEditing(true);
 	}
 	// Delete/Backspace and the inspector share the same recoverable removal.
@@ -589,6 +594,8 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				<div
 					ref={stageRef}
 					data-testid="screen-stage"
+					onPointerDownCapture={quiet.wake}
+					onKeyDownCapture={quiet.wake}
 					style={{
 						flex: 1,
 						minWidth: 0,
@@ -617,10 +624,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 								tier={viewport}
 								editing={editing && !preview}
 								selectedId={selectedId}
-								onSelect={(id) => {
-									setSelectedId(id);
-									setMetaOpen(false);
-								}}
+								onSelect={pick}
 								onMove={move}
 								onResize={resize}
 								onRemove={remove}
@@ -645,10 +649,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 									editing={editing && !preview}
 									snap={snap}
 									selectedId={selectedId}
-									onSelect={(id) => {
-										setSelectedId(id);
-										setMetaOpen(false);
-									}}
+									onSelect={pick}
 									onMove={move}
 									onResize={resize}
 									focusOrder={focusOrder}
@@ -695,7 +696,10 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 							setLayoutsOpen(false);
 						}}
 						onAdd={addWidget}
-						onPlaced={setSelectedId}
+						onPlaced={(id) => {
+							setSelectedId(id);
+							quiet.placed(id, phone);
+						}}
 						error={error}
 						onGenerate={() => setGenerateOpen(true)}
 						onBuild={() => setBuilder({ pkg: null })}
@@ -729,7 +733,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 						<ScreenInspector
 							sceneId={sceneId}
 							widgets={widgets}
-							selectedId={selectedId}
+							selectedId={selectedId === quiet.id ? null : selectedId}
 							metaOpen={metaOpen}
 							phone={phone}
 							history={history}
@@ -759,7 +763,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				)}
 			</div>
 			{/* RC-CAN-5.2 — the phone's live-session bar; renders nothing unless the session is live. */}
-			{viewport === 'phone' && !editing && <SessionActionBar />}
+			{viewport === 'phone' && !editing && !preview && <SessionActionBar />}
 			<TemplatePicker
 				open={templatesOpen}
 				onClose={() => setTemplatesOpen(false)}

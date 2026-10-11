@@ -179,7 +179,9 @@ test.describe('scene editor: player-view preview overlay', () => {
 
 		const overlay = page.getByTestId('player-preview-overlay');
 		const stage = page.getByTestId('screen-stage');
-		await expect(page.getByRole('heading', { name: 'Preview Harbor' })).toBeVisible();
+		await expect(
+			page.getByTestId('screen-toolbar').getByRole('heading', { name: 'Preview Harbor' }),
+		).toBeVisible();
 		await expect(overlay).toHaveCount(0);
 		const before = await sceneSnapshot(page, f.sceneId);
 
@@ -242,7 +244,9 @@ test.describe('scene editor: player-view preview overlay', () => {
 		const f = await seedScene(page, 'Preview Crypt', 'dm-only');
 		await gotoRoute(page, `/screen/${f.sceneId}?edit=1`);
 		await expect(page.getByTestId('screen-stage')).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Preview Crypt' })).toBeVisible();
+		await expect(
+			page.getByTestId('screen-toolbar').getByRole('heading', { name: 'Preview Crypt' }),
+		).toBeVisible();
 
 		// Enter from the shell's seam rather than the canvas switcher: the overlay follows the runtime.
 		await enterPreview(page, 'player');

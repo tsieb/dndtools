@@ -1801,7 +1801,7 @@ test.describe('canvas: the tile action menu', () => {
 		await expect(frame).toBeVisible();
 	});
 
-	test('Configure… on a screen opens the shared tile settings dialog', async ({ page }) => {
+	test('Configure… on a screen opens the shared tile settings dialog', async ({ page }, info) => {
 		await markOnboarded(page);
 		await gotoRoute(page, '/scenes');
 		const sceneName = `Menu Scene ${Date.now()}`;
@@ -1821,8 +1821,11 @@ test.describe('canvas: the tile action menu', () => {
 		await page.getByRole('button', { name: 'Add', exact: true }).click();
 		await page.getByTestId('gallery-entry-dice').click();
 		await expect.poll(() => widgetCount(page, sceneId!)).toBe(1);
-		// Placing a widget opens its Inspector; wait for that transition before dismissing it.
-		await page.getByRole('button', { name: 'Close inspector', exact: true }).click();
+		// Placing a widget opens its Inspector beside the board; wait for that transition before
+		// dismissing it. A phone's inspector would cover the board, so placing there leaves it shut.
+		const closeInspector = page.getByRole('button', { name: 'Close inspector', exact: true });
+		if (info.project.name === 'mobile-chromium') await expect(closeInspector).toHaveCount(0);
+		else await closeInspector.click();
 		const widgetId = await page.evaluate(
 			(id) => window.__rt!.state.scenes.scenes[id].widgets[0].id,
 			sceneId!,

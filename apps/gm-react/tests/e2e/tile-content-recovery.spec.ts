@@ -39,8 +39,9 @@ for (const width of [1440, 900, 375]) {
 				.filter((s) => s.widgets.length)
 				.map((s) => s.id),
 		);
-		// A screen IS a scene (ADR-041): check each one on both of its surfaces.
-		const routes = scenes.flatMap((id) => [`/scene/${id}`, `/screen/${encodeURIComponent(id)}`]);
+		// A screen IS a scene (ADR-041), read at `/screen/:id`. A `/scene/:id` bookmark now opens its
+		// edit mode (RC-CAN-8.4), where the frame owns the keys and tile bodies clip until Done.
+		const routes = scenes.map((id) => `/screen/${encodeURIComponent(id)}`);
 		for (const route of ['/board', ...routes]) {
 			await gotoRoute(page, route);
 			await expect(page.locator('[data-widget-region]').first()).toBeVisible();

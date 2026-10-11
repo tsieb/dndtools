@@ -2,7 +2,7 @@ import type React from 'react';
 import { useScreens } from '../screen/useScreens';
 import './sceneEditor.css';
 import { BoardEmptyState, useBoardPreviouslyFilled } from '../board/BoardPlayerNotice';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -482,6 +482,26 @@ function TemplateSceneEditor() {
 			)}
 		</div>
 	);
+}
+
+/**
+ * The inspector covers the whole board on a phone, so a tile the Add gallery just placed there is
+ * selected with the inspector held shut (`id`). A pointer press or Enter on that tile wakes it, as
+ * for any other tile; its menu trigger does not.
+ */
+export function useQuietPlacement() {
+	const [id, setId] = useState<string | null>(null);
+	return {
+		id,
+		placed: (placedId: string, phone: boolean) => setId(phone ? placedId : null),
+		clear: () => setId(null),
+		wake: (e: SyntheticEvent) => {
+			if (!id || ('key' in e && e.key !== 'Enter')) return;
+			const target = e.target as Element;
+			if (target.closest('[data-testid="tile-actions-trigger"]')) return;
+			if (target.closest(`[data-testid="widget-${id}"]`)) setId(null);
+		},
+	};
 }
 
 /** The screen board borrows the editor's drawers, with its own dispatch and undo stack. */

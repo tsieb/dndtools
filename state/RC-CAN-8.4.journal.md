@@ -214,3 +214,43 @@ bookmark regression test. Accessibility findings are being investigated, not sup
   RC_ROADMAP §21.2 forbids widening scope; those files remain unchanged. The title and axe tests
   deliberately retain these failing contracts. Do not promote this candidate as completed.
 - No push, promotion, new loop, additional agents, or dispatcher control-state edits.
+
+## 2026-10-11 — self-heal round 1 (browser acceptance)
+
+Read the original gate log (`attempts/4b3cb3f3…/output.log`, 9 failed / 2042 passed). Ran the nine
+failing tests on the base `e97943c2` in a separate worktree (`/var/tmp/rc-can-8.4-base`): **13
+passed, 1 skipped, exit 0** (`/var/tmp/rc-can-8.4-base-run.log`). None is inherited; all are ours.
+
+Causes and fixes:
+- `session-action-bar:213` — the board now stays mounted under the player-preview overlay, so the
+  phone session bar stayed too. Board hides it while previewing.
+- `widget-settings` ×2, `widget-quick-builder:51` (phone) — the gallery's `onPlaced` selection
+  opened the inspector, which covers the board on a phone and intercepted the tile menu. A placed
+  tile on a phone stays selected and focused but holds the inspector shut until the GM taps it or
+  presses Enter on it (the tile menu trigger does not wake it); desktop is unchanged. A first
+  attempt (never opening it after placement) broke Enter on the placed tile and add-panel's
+  "selected" expectation; `canvas:1804` now expects no inspector after placement on the phone.
+- `route-titles:42` — the acceptance title ("Lamplight — <screen>") and ENG-9.1's
+  title-equals-`<h1>` contract only both hold if the shell heading reads the screen name.
+  **Crossed** `app/shell/TopBar.tsx` (one hook call, `useScreenRouteName() ?? section label`);
+  NAVIGATION.md §1/§4 amended.
+- `a11y-axe-gate /scene/:id` — the bookmark now lands in edit mode, where `WidgetRenderSlot` left
+  overflowing tile bodies as `overflow: auto` scrollers with `tabIndex=-1` (axe
+  scrollable-region-focusable). **Crossed** `app/widgets/WidgetRenderSlot.tsx`: while editing the
+  body clips instead of scrolling (one style value). Reading mode is unchanged.
+- `scene-editor-polish:114` (phone) — the preview overlay's phone list scrolls inside the shorter
+  board stage with no tab stop. **Crossed** `screens/sceneEditor/PlayerPreviewOverlay.tsx`:
+  `tabIndex={0}` on that list. No axe rule suppressed.
+- Collateral spec updates (companions): `player-preview` headings scoped to the screen toolbar
+  (the shell `<h1>` now carries the same name); `tile-content-recovery` checks reading content on
+  `/screen/:id` only, since `/scene/:id` is now edit mode where bodies clip until Done.
+- Not crossed: the core seed default (`command-center-state.ts`) — not an acceptance item; the
+  owned provisioning paths already pass `name: 'DM screen'`.
+
+Evidence: focused rerun of the nine (`/var/tmp/rc-can-8.4-r2.log`) then the six affected specs plus
+screen-editing/player-preview/tile-content-recovery (`r3.log`); typecheck, `pnpm gates`, changed-file
+ESLint and Prettier exit 0. A first full run (`full.log`) was stopped: it hot-reloaded an
+intermediate Board change and surfaced canvas:354/429/321/1804 against it. Final placement fix moved
+into `useQuietPlacement` (owned `sceneEditor/index.tsx`) to keep Board.tsx under the 800-line gate.
+Focused two-profile rerun of all 11 affected specs: **224 passed, 12 skipped, exit 0** (`r5.log`).
+Full two-profile e2e and pinned visual comparison on the committed tree follow.
