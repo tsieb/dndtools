@@ -48,7 +48,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'onboarding.v3.hides': 'Oculta {tabs}.',
 	'onboarding.v3.hidesNone': 'No oculta nada.',
 	'onboarding.v3.saveFailed': 'No se pudo guardar la configuración. Inténtalo de nuevo.',
-	'onboarding.v3.systemFailed': 'No se pudo guardar el sistema de juego.',
+	'onboarding.v3.systemFailed':
+		'No se pudo guardar el sistema de juego. Inténtalo de nuevo o vuelve atrás y elige otro sistema.',
 	'mapEdit.newPoi': 'Nuevo punto de interés',
 	'mapEdit.newToken': 'Ficha {count}',
 	'mapEdit.poiPlaced': 'Punto de interés colocado.',

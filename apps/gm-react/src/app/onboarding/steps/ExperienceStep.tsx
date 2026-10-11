@@ -49,10 +49,10 @@ export function ExperienceStep({
 							borderRadius: T.radius.md,
 							textAlign: 'left',
 							color: T.ink,
-							font: `13px/1.5 ${T.sans}`,
+							font: `var(--text-sm)/var(--leading-body) ${T.sans}`,
 							cursor: 'pointer',
 							border: `1px solid ${tier === value ? T.acc : T.bd}`,
-							background: tier === value ? T.accSub : T.surf,
+							background: tier === value ? T.accSub : T.sunken,
 						}}
 					>
 						<span

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BUILT_IN_SYSTEM_PACKAGES, type FeatureTier, type VaultPrivacyMode } from '@dndtools/core';
-import { Button, Input } from '../ds';
+import { Button, Icon, Input, Select } from '../ds';
 import { useI18n } from '../i18n';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { registerBackHandler } from '../platform/backNavigation';
@@ -93,8 +93,11 @@ export function Onboarding() {
 		return () => window.removeEventListener(REPLAY_EVENT, replay);
 	}, [runtime]);
 	useEffect(() => {
-		if (open) content.current?.focus();
-	}, [open, step]);
+		if (open && !runtime.readOnly) content.current?.focus();
+	}, [open, step, runtime.readOnly]);
+	useEffect(() => {
+		if (content.current) content.current.inert = busy;
+	}, [busy, open]);
 	// Finish after the overlay has unmounted, so its focus trap cannot recapture focus.
 	useEffect(() => {
 		if (open || !completed.current) return;
@@ -107,7 +110,7 @@ export function Onboarding() {
 
 	const finish = useCallback(
 		async (skipped = false, destination = '/') => {
-			if (saving.current) return;
+			if (saving.current || runtime.readOnly) return;
 			if (
 				!skipped &&
 				(!name.trim() || (chooseMode && (!privacy || (privacy === 'private-e2ee' && !ackOk))))
@@ -152,14 +155,14 @@ export function Onboarding() {
 		[runtime, name, system, tier, isNew, mode, chooseMode, privacy, ackOk, navigate, t],
 	);
 	useEffect(() => {
-		if (!open) return;
+		if (!open || runtime.readOnly) return;
 		return registerBackHandler('overlay', () => {
 			void finish(true);
 			return true;
 		});
-	}, [open, finish]);
+	}, [open, finish, runtime.readOnly]);
 
-	if (!open) return null;
+	if (!open || runtime.readOnly) return null;
 	const settingsLink = (
 		<a
 			href="#/settings?tab=sync"
@@ -185,7 +188,13 @@ export function Onboarding() {
 					void finish(true);
 				}
 				if (event.key !== 'Tab') return;
-				const items = Array.from(panel.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+				if (busy) {
+					event.preventDefault();
+					return;
+				}
+				const items = Array.from(
+					panel.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [],
+				).filter((item) => item.tabIndex >= 0 && !item.closest('[inert]'));
 				const first = items[0],
 					last = items[items.length - 1];
 				if (
@@ -202,7 +211,7 @@ export function Onboarding() {
 			style={{
 				position: 'fixed',
 				inset: 0,
-				zIndex: 400,
+				zIndex: T.z.modal,
 				background: 'var(--color-backdrop)',
 				display: 'flex',
 				alignItems: 'center',
@@ -215,16 +224,20 @@ export function Onboarding() {
 				style={{
 					width: 760,
 					maxWidth: '100%',
-					height: isPhone ? '100%' : 560,
+					height: isPhone ? '100%' : 672,
 					maxHeight: '100%',
 					background: T.raised,
 					color: T.ink,
 					border: `1px solid ${T.bd}`,
 					borderRadius: T.radius.lg,
+					boxShadow: T.shadow.md,
 					display: 'flex',
 					flexDirection: 'column',
 					overflow: 'hidden',
-					font: `14px/1.5 ${T.sans}`,
+					font: `var(--text-base)/var(--leading-body) ${T.sans}`,
+					overflowWrap: 'anywhere',
+					['--density-button-height' as string]: T.space.twelve,
+					['--density-input-height' as string]: T.space.twelve,
 				}}
 			>
 				<header
@@ -236,7 +249,9 @@ export function Onboarding() {
 						flexShrink: 0,
 					}}
 				>
-					<span>{t('onboarding.v3.progress', { current: step + 1, total: ONB_STEPS.length })}</span>
+					<span style={{ fontFamily: T.mono, fontSize: 'var(--text-sm)' }}>
+						{t('onboarding.v3.progress', { current: step + 1, total: ONB_STEPS.length })}
+					</span>
 					<Button variant="ghost" disabled={busy} onClick={() => void finish(true)}>
 						{t('onboarding.skip')}
 					</Button>
@@ -250,15 +265,14 @@ export function Onboarding() {
 						flex: 1,
 						minHeight: 0,
 						padding: `${T.space.zero} ${T.space.six}`,
-						// The 560px desktop panel fits its content; shorter windows scroll here, never clip.
+						// The desktop panel fits normal text; shorter windows scroll here, never clip.
 						overflowY: 'auto',
-						outline: 'none',
 					}}
 				>
 					<h1
 						id="onboarding-heading"
 						style={{
-							font: `700 26px ${T.disp}`,
+							font: `var(--font-weight-bold) var(--text-xl)/var(--leading-tight) ${T.disp}`,
 							margin: `${T.space.zero} ${T.space.zero} ${T.space.four}`,
 						}}
 					>
@@ -280,28 +294,17 @@ export function Onboarding() {
 							<label htmlFor="campaign-system" style={{ display: 'block' }}>
 								{t('onboarding.v3.system')}
 							</label>
-							<select
+							<Select
 								id="campaign-system"
 								value={system}
 								onChange={(e) => setSystem(e.target.value)}
-								style={{
-									width: '100%',
-									minHeight: 44,
-									background: T.surf,
-									color: T.ink,
-									border: `1px solid ${T.bd}`,
-									borderRadius: T.radius.md,
-									padding: T.space.two,
-								}}
-							>
-								{BUILT_IN_SYSTEM_PACKAGES.map((pkg) => (
-									<option key={pkg.id} value={pkg.id}>
-										{pkg.displayName}
-									</option>
-								))}
-							</select>
+								options={BUILT_IN_SYSTEM_PACKAGES.map((pkg) => ({
+									value: pkg.id,
+									label: pkg.displayName,
+								}))}
+							/>
 							{isNew && tier !== 'advanced' && (
-								<p style={{ fontSize: 12 }}>
+								<p style={{ fontSize: 'var(--text-sm)' }}>
 									{t('onboarding.v3.defaultStorage')} {t('onboarding.v3.cloudDisclosure')}{' '}
 									{t('onboarding.v3.manage')} {settingsLink}.
 								</p>
@@ -322,7 +325,14 @@ export function Onboarding() {
 								>
 									<legend>{t('onboarding.v3.chooseStorage')}</legend>
 									<div style={{ display: 'flex', gap: T.space.four, flexWrap: 'wrap' }}>
-										<label>
+										<label
+											style={{
+												display: 'inline-flex',
+												alignItems: 'center',
+												gap: T.space.two,
+												minHeight: T.space.twelve,
+											}}
+										>
 											<input
 												type="radio"
 												name="storage"
@@ -331,7 +341,14 @@ export function Onboarding() {
 											/>{' '}
 											{t('onboarding.v3.private')}
 										</label>
-										<label>
+										<label
+											style={{
+												display: 'inline-flex',
+												alignItems: 'center',
+												gap: T.space.two,
+												minHeight: T.space.twelve,
+											}}
+										>
 											<input
 												type="radio"
 												name="storage"
@@ -392,10 +409,13 @@ export function Onboarding() {
 				>
 					<div
 						id="onboarding-waiting"
+						role="status"
 						aria-live="polite"
-						style={{ minHeight: 21, marginBottom: T.space.two }}
+						aria-atomic="true"
+						style={{ minHeight: '1.5em', marginBottom: T.space.two }}
 					>
-						{error || waiting}
+						{error && <Icon name="warning" size="sm" />}{' '}
+						{busy ? t('onboarding.v3.saving') : error || waiting}
 					</div>
 					<div style={{ display: 'flex', justifyContent: 'space-between', gap: T.space.three }}>
 						{step > 0 ? (

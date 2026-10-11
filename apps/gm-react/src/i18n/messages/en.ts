@@ -46,7 +46,8 @@ export const en = {
 	'onboarding.v3.hides': 'Hides {tabs}.',
 	'onboarding.v3.hidesNone': 'Hides nothing.',
 	'onboarding.v3.saveFailed': 'Setup could not be saved. Try again.',
-	'onboarding.v3.systemFailed': 'The game system could not be saved.',
+	'onboarding.v3.systemFailed':
+		'The game system could not be saved. Try again, or go back and choose another system.',
 
 	'play.join.title': 'Join your table',
 	'play.join.about':
