@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { parsePath, useLocation, useNavigate } from 'react-router-dom';
-import { isLiveScene } from '@dndtools/core';
+import { isLiveScene, listScreensForActor } from '@dndtools/core';
 import { useRuntime } from '../../runtime/RuntimeContext';
 import { SCREENS_PATH, screenPath } from './screenModel';
 
@@ -8,7 +8,8 @@ import { SCREENS_PATH, screenPath } from './screenModel';
  * RC-CAN-7.3 — ADR-041's route aliases, each resolved with the history entry REPLACED so Back never
  * lands on the alias: `/scenes` is the Screens library, and `/board` is the home board's
  * `/screen/:id` once it exists (`BoardAlias` provisions it and renders the non-GM and failed-write
- * fallbacks).
+ * fallbacks). `/scene/:id` for a listed screen enters its canonical edit mode; template scenes
+ * retain their editor.
  *
  * This is mounted OUTSIDE the routes' `<Suspense>` rather than as a `<Navigate>` route element. A
  * `<Navigate>` inside the boundary is committed but its effect never fires when the hash changes
@@ -21,7 +22,7 @@ import { SCREENS_PATH, screenPath } from './screenModel';
  * is dropped and the router settles on a `/board` location equal field-for-field to the one already
  * committed (same key, same state), so `useLocation()` hands back the same object, a location-keyed
  * effect is skipped, and the pane stayed empty. Redirecting on every commit while the path is an
- * alias costs two comparisons and cannot miss one.
+ * alias cannot miss one.
  *
  * Every commit is not enough on its own: that settled `/board` hands the router the SAME memoized
  * location context, so nothing re-renders this component and no commit happens for the effect to
@@ -49,8 +50,31 @@ export function ScreenRouteAliases() {
 		runtime.loaded && isDm && homeSceneId && home && isLiveScene(home)
 			? screenPath(homeSceneId)
 			: null;
+	const segment = /^\/scene\/([^/]+)\/?$/.exec(location.pathname)?.[1];
+	let sceneId: string | undefined;
+	try {
+		sceneId = segment ? decodeURIComponent(segment) : undefined;
+	} catch {
+		/* malformed bookmark */
+	}
+	const screen =
+		runtime.loaded &&
+		sceneId &&
+		listScreensForActor(runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId, {
+			commandCenter: runtime.state.commandCenter,
+			session: runtime.state.session,
+		}).find((entry) => entry.id === sceneId);
 	useEffect(() => {
 		if (location.pathname !== browserPathname()) return;
+		if (screen) {
+			const search = new URLSearchParams(location.search);
+			search.set('edit', '1');
+			navigate(
+				{ pathname: screenPath(screen.id), search: `?${search}` },
+				{ replace: true, state: location.state },
+			);
+			return;
+		}
 		if (location.pathname === '/scenes') {
 			navigate(
 				{ pathname: SCREENS_PATH, search: location.search },

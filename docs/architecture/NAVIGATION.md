@@ -76,6 +76,20 @@ those two states (`GmScreenUnavailable`). The Run the table entries in
 the sidebar, rail and More sheet open the Command Center and Session screens' `/screen/:id` once
 they exist (`sectionPath`, CAN-7.4); the GM Screen entry opens `/board`, which resolves as above.
 
+RC-CAN-8.4 consolidates screen editing at `/screen/:id?edit=1`. The board keeps one toolbar and
+its bounded canvas/flow layout engine; edit mode exposes the layout policy, details (including
+background), player preview, and the selected tile's inspector (including bindings). There is no
+"Open in scene editor" action. A bookmark to `/scene/<screenId>` replaces its history entry with
+`/screen/<screenId>?edit=1`, retaining other query parameters and navigation state. A template
+scene, which is excluded from the screens library, retains its template editor at `/scene/:id`.
+Done removes `edit=1` in place; switching screens resets selection and open drawers.
+
+The durable scene name is the display name in the library, switcher, board and browser title
+(`useDocumentTitle`, RC-ENG-9.1). Existing names are preserved rather than substituted at render
+time. Home-board provisioning from the screens library or `/board` supplies "DM screen" as the
+seed name. Player preview suspends writes and makes the underlying canvas and drawers inert;
+exiting preview returns to the same edit mode and unsaved details.
+
 ## 2. Navigation layers
 
 Navigation elements are exactly one of:

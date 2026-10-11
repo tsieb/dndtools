@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { isLiveScene } from '@dndtools/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, EmptyState, IconButton, Toaster } from '../../ds';
 import { useI18n } from '../../i18n';
@@ -12,8 +13,7 @@ import { useEnsureHomeScreen, useScreenActions, useScreens } from './useScreens'
 /**
  * RC-CAN-7.3 — `/screen/:id`, any screen rendered by its layout policy. Both policies run on the
  * board engine (`Board`): a canvas screen on the bounded board, a flow screen on `FlowBoard`, with the
- * same widgets, commands and undo stack either way. The header carries the switcher, the pin and
- * "Open in scene editor", the free editor for arranging the layout.
+ * same widgets, commands and undo stack either way. Layout editing and its inspectors stay here.
  *
  * A screen this actor cannot list — deleted, never shared with them, a template, or an id that never
  * existed — gets an honest unavailable state with the way back to the library. It is never swapped
@@ -29,8 +29,18 @@ export function ScreenView() {
 	const [pinning, setPinning] = useState(false);
 	const isDm = runtime.state.permissions.actors[runtime.defaultActorId]?.role === 'dm';
 
+	// Preserve the open DM screen during player preview, including a DM-only screen. Never use a
+	// cached entry for another id or for a real actor switch outside preview.
+	const lastEntry = useRef<(typeof entries)[number]>();
+	const listed = entries.find((candidate) => candidate.id === id);
+	if (!runtime.preview) lastEntry.current = listed;
+	const raw = runtime.state.scenes.scenes[id];
+	const entry =
+		listed ??
+		(runtime.preview && raw && isLiveScene(raw) && lastEntry.current?.id === id
+			? lastEntry.current
+			: undefined);
 	if (!runtime.loaded) return null;
-	const entry = entries.find((candidate) => candidate.id === id);
 	if (!entry) {
 		return (
 			<Page>
@@ -75,16 +85,6 @@ export function ScreenView() {
 					disabled={pinning}
 					data-testid="screen-pin"
 					onClick={() => void togglePin()}
-				/>
-			)}
-			{isDm && (
-				<IconButton
-					icon="scene"
-					label={t('screens.openEditor', { name })}
-					variant="ghost"
-					size="sm"
-					data-testid="screen-open-editor"
-					onClick={() => navigate(`/scene/${encodeURIComponent(entry.id)}`)}
 				/>
 			)}
 		</>

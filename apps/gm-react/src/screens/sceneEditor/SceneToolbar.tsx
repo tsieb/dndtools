@@ -1,8 +1,13 @@
 import type React from 'react';
+import type { BoardScreen } from '../Board';
+import { BoardHeading } from '../board/BoardHeading';
+import type { ZoomPreset } from '../../app/SceneBoardCanvas';
+import { ZoomPresetGroup } from '../../app/canvas/ZoomCluster';
+import * as Phone from '../../app/canvas/PhoneNavigator';
 import { useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ScreenLayoutPolicy } from '@dndtools/core';
-import { Button, IconButton, Menu, Switch } from '../../ds';
+import { Button, IconButton, Menu, Switch, Toolbar } from '../../ds';
 import { StackedLayoutToggle, type StackedPosture } from '../../app/canvas/StackedBoard';
 import { Seg } from '../../app/screen-kit';
 import { ViewAsControl } from '../../app/ViewAsControl';
@@ -299,5 +304,147 @@ export function SceneToolbar({
 				</div>
 			)}
 		</div>
+	);
+}
+
+/** The single toolbar for a screen in either reading or editing mode. */
+export function ScreenToolbar({
+	screen,
+	chromeHidden,
+	editing,
+	preview,
+	flow,
+	snap,
+	setSnap,
+	metaOpen,
+	addOpen,
+	layoutsOpen,
+	isHomeBoard,
+	phone,
+	posture,
+	steps,
+	setZoom,
+	previewTriggerRef,
+	enterEditing,
+	onToggleMeta,
+	onToggleAdd,
+	onToggleLayouts,
+	onLayoutPolicy,
+}: {
+	screen: BoardScreen;
+	chromeHidden: boolean;
+	editing: boolean;
+	preview: boolean;
+	flow: boolean;
+	snap: boolean;
+	setSnap: (next: boolean) => void;
+	metaOpen: boolean;
+	addOpen: boolean;
+	layoutsOpen: boolean;
+	isHomeBoard: boolean;
+	phone: boolean;
+	posture: StackedPosture;
+	steps: ReturnType<typeof Phone.phoneZoomSteps>;
+	setZoom: (next: ZoomPreset) => void;
+	previewTriggerRef: React.RefObject<HTMLDivElement>;
+	enterEditing: (next: boolean) => void;
+	onToggleMeta: () => void;
+	onToggleAdd: () => void;
+	onToggleLayouts: () => void;
+	onLayoutPolicy: (next: string) => void;
+}) {
+	const { t } = useI18n();
+	return (
+		<Toolbar
+			data-testid="screen-toolbar"
+			ariaLabel={screen.title}
+			style={{
+				display: chromeHidden ? 'none' : 'flex',
+				alignItems: 'center',
+				gap: 'var(--space-2)',
+				flex: '0 0 auto',
+				flexWrap: 'wrap',
+			}}
+		>
+			<BoardHeading icon={screen.icon} title={screen.title} summary={screen.summary} />
+			{!preview && screen.actions}
+			<div style={{ flex: 1 }} />
+			{editing && !preview && (
+				<>
+					<Seg
+						ariaLabel={t('sceneEditor.layout')}
+						value={flow ? 'flow' : 'canvas'}
+						onChange={onLayoutPolicy}
+						options={[
+							{ value: 'flow', label: t('sceneEditor.layoutFlow') },
+							{ value: 'canvas', label: t('sceneEditor.layoutCanvas') },
+						]}
+					/>
+					<IconButton
+						variant="ghost"
+						size={phone ? 'lg' : 'sm'}
+						icon="edit"
+						label={t('sceneEditor.editMeta')}
+						aria-expanded={metaOpen}
+						onClick={onToggleMeta}
+					/>
+					<Switch
+						checked={snap}
+						onChange={setSnap}
+						label={
+							<span
+								style={{
+									font: 'var(--text-2xs) var(--font-sans)',
+									color: 'var(--color-text-secondary)',
+								}}
+							>
+								{t('board.snap')}
+							</span>
+						}
+					/>
+					<Button
+						variant="secondary"
+						size="sm"
+						icon="add"
+						aria-expanded={addOpen}
+						onClick={onToggleAdd}
+					>
+						{t('board.add')}
+					</Button>
+					{/* Add and Layouts share the same side slot, so opening one closes the other. */}
+					{isHomeBoard && (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="scene"
+							aria-expanded={layoutsOpen}
+							onClick={onToggleLayouts}
+						>
+							{t('board.layouts')}
+						</Button>
+					)}
+				</>
+			)}
+			{(editing || preview) && (
+				<div ref={previewTriggerRef} style={{ display: 'contents' }}>
+					<ViewAsControl placement="scene" compact={phone} />
+				</div>
+			)}
+			<Phone.PhoneViewSwitch posture={posture} />
+			{/* The named zoom steps, in both modes — but not on the stacked list, which has none. */}
+			{!posture.stacked && !flow && (
+				<ZoomPresetGroup value={steps.pressed} presets={steps.presets} onChange={setZoom} />
+			)}
+			{!preview && (
+				<Button
+					variant={editing ? 'accent' : 'secondary'}
+					size="sm"
+					icon={editing ? 'check' : 'edit'}
+					onClick={() => enterEditing(!editing)}
+				>
+					{editing ? t('board.done') : t('board.editLayout')}
+				</Button>
+			)}
+		</Toolbar>
 	);
 }

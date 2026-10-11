@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	findWidgetDefinition,
@@ -20,19 +21,35 @@ export function useScreens(): {
 	nameOf: (entry: Pick<ScreenListEntry, 'name' | 'isHome'>) => string;
 } {
 	const runtime = useRuntime();
-	const { t } = useI18n();
 	const { scenes, permissions, commandCenter, session } = runtime.state;
 	const actorId = runtime.defaultActorId;
 	const entries = useMemo(
 		() => listScreensForActor(scenes, permissions, actorId, { commandCenter, session }),
 		[scenes, permissions, actorId, commandCenter, session],
 	);
-	const gmScreen = t('board.title');
-	const nameOf = useCallback(
-		(entry: Pick<ScreenListEntry, 'name' | 'isHome'>) => screenDisplayName(entry, gmScreen),
-		[gmScreen],
-	);
+	const nameOf = screenDisplayName;
 	return { entries, nameOf };
+}
+
+/** The actor-visible screen name for shell chrome and the ENG-9.1 title hook. */
+export function useScreenRouteName(): string | null {
+	const location = useLocation();
+	const runtime = useRuntime();
+	const { entries } = useScreens();
+	const cached = useRef<{ id: string; name: string } | null>(null);
+	const segment = /^\/(?:screen|scene)\/([^/]+)\/?$/.exec(location.pathname)?.[1];
+	let id: string | undefined;
+	try {
+		id = segment ? decodeURIComponent(segment) : undefined;
+	} catch {
+		/* malformed route */
+	}
+	const entry = entries.find((entry) => entry.id === id);
+	if (!runtime.preview) cached.current = entry ?? null;
+	return (
+		entry?.name ??
+		(runtime.preview && cached.current && cached.current.id === id ? cached.current.name : null)
+	);
 }
 
 /**
@@ -55,7 +72,7 @@ export function useEnsureHomeScreen(): { failed: boolean } {
 		if (!runtime.loaded || !isDm || !missing || ensuring.current || failed) return;
 		ensuring.current = true;
 		void runtime
-			.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} })
+			.dispatch({ type: 'command-center.ensure-home', actorId, payload: { name: 'DM screen' } })
 			// `dispatch` rethrows a persist failure. It is not retried here; the board reports it.
 			.catch(() => setFailed(true))
 			.finally(() => {

@@ -35,7 +35,7 @@ function entry(overrides: Partial<ScreenListEntry> & { id: string }): ScreenList
 	} as ScreenListEntry;
 }
 
-const nameOf = (e: ScreenListEntry) => screenDisplayName(e, 'GM screen');
+const nameOf = (e: ScreenListEntry) => screenDisplayName(e);
 
 describe('screenPath', () => {
 	it('addresses one screen by its encoded id', () => {
@@ -45,17 +45,17 @@ describe('screenPath', () => {
 });
 
 describe('screenDisplayName', () => {
-	it('names the untouched home board as the GM screen', () => {
-		expect(
-			screenDisplayName({ name: DEFAULT_COMMAND_CENTER_NAME, isHome: true }, 'DM screen'),
-		).toBe('DM screen');
+	it('uses the stored home name without a display alias', () => {
+		expect(screenDisplayName({ name: DEFAULT_COMMAND_CENTER_NAME, isHome: true })).toBe(
+			DEFAULT_COMMAND_CENTER_NAME,
+		);
 	});
 
 	it('shows a name the GM chose, on the home board or anywhere else', () => {
-		expect(screenDisplayName({ name: 'Table one', isHome: true }, 'DM screen')).toBe('Table one');
-		expect(
-			screenDisplayName({ name: DEFAULT_COMMAND_CENTER_NAME, isHome: false }, 'DM screen'),
-		).toBe(DEFAULT_COMMAND_CENTER_NAME);
+		expect(screenDisplayName({ name: 'Table one', isHome: true })).toBe('Table one');
+		expect(screenDisplayName({ name: DEFAULT_COMMAND_CENTER_NAME, isHome: false })).toBe(
+			DEFAULT_COMMAND_CENTER_NAME,
+		);
 	});
 });
 
@@ -122,7 +122,8 @@ describe('filterScreens', () => {
 		const home = entry({ id: 'h', name: DEFAULT_COMMAND_CENTER_NAME, isHome: true });
 		const ids = (query: string) =>
 			filterScreens([home], { query, tag: '', sort: 'pinned' }, nameOf).map((s) => s.id);
-		expect(ids('gm screen')).toEqual(['h']);
+		expect(ids(DEFAULT_COMMAND_CENTER_NAME)).toEqual(['h']);
+		expect(ids('gm screen')).toEqual([]);
 	});
 });
 

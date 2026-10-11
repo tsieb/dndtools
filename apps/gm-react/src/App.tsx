@@ -26,6 +26,7 @@ import { ensureCombatAudioAutomation } from './runtime/combat-audio-automation';
 import { AppShell } from './app/AppShell';
 import { AppSystemProvider } from './app/SystemContext';
 import { activeSectionId, sectionLabelKey } from './app/nav';
+import { useScreenRouteName } from './screens/screen/useScreens';
 import { TitleFromHeading, useDocumentTitle } from './app/screen-kit';
 import { useI18n } from './i18n';
 import { ONBOARDED_KEY, REPLAY_EVENT, readStorage } from './app/onboarding/shared';
@@ -440,7 +441,8 @@ function OnboardingGate() {
 function SectionDocumentTitle() {
 	const { t } = useI18n();
 	const location = useLocation();
-	useDocumentTitle(t(sectionLabelKey(activeSectionId(location.pathname))));
+	const screenName = useScreenRouteName();
+	useDocumentTitle(screenName ?? t(sectionLabelKey(activeSectionId(location.pathname))));
 	return null;
 }
 

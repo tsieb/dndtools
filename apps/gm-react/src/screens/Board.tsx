@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
@@ -7,11 +7,10 @@ import {
 	type WidgetLibraryEntry,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Button, Icon, Callout, EmptyState, Toolbar, Switch, Toaster } from '../ds';
+import { Button, Icon, Callout, EmptyState, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { widgetRejectionMessage } from '../app/widget-rejection';
 import { SceneBoardCanvas, type ZoomPreset } from '../app/SceneBoardCanvas';
-import { ZoomPresetGroup } from '../app/canvas/ZoomCluster';
 import { BoardLayoutsPanel } from './BoardLayoutsPanel';
 import {
 	addTileCommand,
@@ -40,11 +39,15 @@ import {
 import { useBoardLayouts } from './board/useBoardLayouts';
 import { AddWidgetGallery } from '../app/canvas/AddWidgetGallery';
 import { FlowBoard } from '../app/canvas/FlowBoard';
-import { BoardHeading } from './board/BoardHeading';
 import { BoardLayoutBanner } from './board/BoardLayoutBanner';
 import { TemplatePicker, TemplateStartEntry } from '../app/canvas/TemplatePicker';
 import { GenerateDialog } from '../app/widgetBuilder/GenerateDialog';
 import { WidgetBuilder } from './extensions/WidgetBuilder';
+import { ScreenInspector } from './sceneEditor';
+import { ScreenToolbar } from './sceneEditor/SceneToolbar';
+import { usePreviewActions } from '../app/ViewAsControl';
+import { PlayerPreviewOverlay } from './sceneEditor/PlayerPreviewOverlay';
+import { readPlayerPreview } from './sceneEditor/playerPreview';
 
 /**
  * Board — the board engine behind `/screen/:id` (ADR-041): one screen rendered by its layout policy
@@ -112,7 +115,11 @@ function GmScreenUnavailable() {
 		setPhase('asking');
 		// `dispatch` rethrows a persist failure; a rejection is reported in its result.
 		void Promise.resolve(
-			runtime.dispatch({ type: 'command-center.ensure-home', actorId, payload: {} }),
+			runtime.dispatch({
+				type: 'command-center.ensure-home',
+				actorId,
+				payload: { name: 'DM screen' },
+			}),
 		)
 			.then((result) => setPhase(result.status === 'accepted' ? 'done' : 'failed'))
 			.catch(() => setPhase('failed'));
@@ -146,7 +153,26 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	const actorId = runtime.defaultActorId;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 
-	const [editing, setEditing] = useState(false);
+	const [searchParams, setSearchParams] = useSearchParams();
+	const editing = searchParams.get('edit') === '1';
+	function setEditing(next: boolean) {
+		setSearchParams(
+			(params) => {
+				if (next) params.set('edit', '1');
+				else params.delete('edit');
+				return params;
+			},
+			{ replace: true, state: location.state },
+		);
+	}
+	const [metaOpen, setMetaOpen] = useState(false);
+	const preview = runtime.preview;
+	const previewActions = usePreviewActions();
+	const stageRef = useRef<HTMLDivElement>(null);
+	const previewTriggerRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		stageRef.current?.toggleAttribute('inert', !!preview);
+	});
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
@@ -193,11 +219,16 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	useEffect(() => {
 		const intent = (location.state ?? null) as { addWidget?: boolean } | null;
 		if (intent?.addWidget) {
-			setEditing(true);
 			setAddOpen(true);
-			navigate(location.pathname, { replace: true, state: null });
+			setMetaOpen(false);
+			const search = new URLSearchParams(location.search);
+			search.set('edit', '1');
+			navigate(
+				{ pathname: location.pathname, search: `?${search}` },
+				{ replace: true, state: null },
+			);
 		}
-	}, [location.state, location.pathname, navigate]);
+	}, [location.state, location.pathname, location.search, navigate]);
 
 	// Presets and safe points are `command-center.*` commands on the HOME board, so only it offers them.
 	const isHomeBoard = sceneId === runtime.state.commandCenter.homeSceneId;
@@ -209,6 +240,10 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		{ widgetPackages: runtime.state.widgets },
 	);
 	const ready = !('kind' in summary);
+	const previewBlocked =
+		!!preview && !ready && (summary.reason === 'dm-only' || summary.reason === 'not-shared');
+	const previewRead =
+		preview && boardScene ? readPlayerPreview(runtime.state, preview.actorId, sceneId) : null;
 	// Core-computed keyboard traversal order (CANVAS-016) + the scene revision the durable widget
 	// command envelope must carry (`expectedRevision`, packages/core/src/commands/widget-command.ts).
 	const focusOrder = ready ? summary.focusOrder.map((entry) => entry.widgetInstanceId) : [];
@@ -217,15 +252,15 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	const previouslyFilled = useBoardPreviouslyFilled(sceneId, (boardScene?.widgets.length ?? 0) > 0);
 
 	const widgets: BoardWidget[] = useMemo(() => {
-		if (!ready || !boardScene) return [];
+		if ((!ready && !previewBlocked) || !boardScene) return [];
 		// RC-ENG-10.2 — outside the DM's own edit view, only what this actor's read delivered.
 		return boardWidgetsOf(
 			boardScene.widgets,
-			payloadIndex(summary.widgets),
+			payloadIndex('kind' in summary ? [] : summary.widgets),
 			(type) => findWidgetDefinition(runtime.state.widgets, type) ?? null,
-			{ includeUndelivered: isDm && editing },
+			{ includeUndelivered: previewBlocked || (isDm && editing && !preview) },
 		);
-	}, [ready, boardScene, runtime.state.widgets, summary, isDm, editing]);
+	}, [ready, boardScene, runtime.state.widgets, summary, isDm, editing, preview, previewBlocked]);
 
 	const presets = Object.values(runtime.state.commandCenter.presets).sort((a, b) =>
 		a.name.localeCompare(b.name),
@@ -334,11 +369,11 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 	// as selected yet.
 	function selectIssue(widgetId: string) {
 		setSelectedId(widgetId);
+		setMetaOpen(false);
 		if (!editing) setEditing(true);
 	}
-	// Delete/Backspace on a focused widget frame is the ONLY widget-lifecycle operation on `/board`
-	// (there is no Inspector here). It used to stage a confirm dialog, because a destroy could not be
-	// taken back. RC-CAN-1.2 gave the core `scene.restore-widget`, so the removal now just happens and
+	// Delete/Backspace and the inspector share the same recoverable removal.
+	// RC-CAN-1.2 gave the core `scene.restore-widget`, so removal happens immediately and
 	// offers Undo in a toast — the toast holds open until it is taken or dismissed (Toast.jsx pins any
 	// toast carrying an action), and the same reversal is on `Ctrl+Z`.
 	async function remove(widgetInstanceId: string) {
@@ -400,11 +435,12 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		setSelectedId(null);
 		setAddOpen(false);
 		setLayoutsOpen(false);
+		setMetaOpen(false);
 	}
 
 	// RC-CAN-4.3 — lend the palette this canvas's edit toggle and undo stack while it is mounted.
 	useEffect(() => {
-		if (!isDm) return;
+		if (!isDm || preview) return;
 		return registerCanvasSurface({
 			sceneId,
 			policy: flow ? 'flow' : 'bounded',
@@ -418,7 +454,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 		});
 	});
 
-	if (!isDm) return <BoardPlayerNotice />;
+	if (!isDm && !preview) return <BoardPlayerNotice />;
 
 	return (
 		<div
@@ -447,78 +483,47 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				...(phone && Phone.PHONE_TEXT_FLOOR),
 			}}
 		>
-			<Toolbar
-				ariaLabel={screen.title}
-				style={{
-					display: chromeHidden ? 'none' : 'flex',
-					alignItems: 'center',
-					gap: 'var(--space-2)',
-					flex: '0 0 auto',
-					flexWrap: 'wrap',
+			<ScreenToolbar
+				screen={screen}
+				chromeHidden={chromeHidden}
+				editing={editing}
+				preview={!!preview}
+				flow={flow}
+				snap={snap}
+				setSnap={setSnap}
+				metaOpen={metaOpen}
+				addOpen={addOpen}
+				layoutsOpen={layoutsOpen}
+				isHomeBoard={isHomeBoard}
+				phone={phone}
+				posture={posture}
+				steps={steps}
+				setZoom={setZoom}
+				previewTriggerRef={previewTriggerRef}
+				enterEditing={enterEditing}
+				onToggleMeta={() => {
+					setMetaOpen((open) => !open);
+					setAddOpen(false);
+					setLayoutsOpen(false);
 				}}
-			>
-				<BoardHeading icon={screen.icon} title={screen.title} summary={screen.summary} />
-				{screen.actions}
-				<div style={{ flex: 1 }} />
-				{editing && (
-					<>
-						<Switch
-							checked={snap}
-							onChange={setSnap}
-							label={
-								<span
-									style={{
-										font: 'var(--text-2xs) var(--font-sans)',
-										color: 'var(--color-text-secondary)',
-									}}
-								>
-									{t('board.snap')}
-								</span>
-							}
-						/>
-						<Button
-							variant="secondary"
-							size="sm"
-							icon="add"
-							aria-expanded={addOpen}
-							onClick={() => {
-								setAddOpen((v) => !v);
-								setLayoutsOpen(false);
-							}}
-						>
-							{t('board.add')}
-						</Button>
-						{/* Add and Layouts share the same side slot, so opening one closes the other. */}
-						{isHomeBoard && (
-							<Button
-								variant="secondary"
-								size="sm"
-								icon="scene"
-								aria-expanded={layoutsOpen}
-								onClick={() => {
-									setLayoutsOpen((v) => !v);
-									setAddOpen(false);
-								}}
-							>
-								{t('board.layouts')}
-							</Button>
-						)}
-					</>
-				)}
-				<Phone.PhoneViewSwitch posture={posture} />
-				{/* The named zoom steps, in both modes — but not on the stacked list, which has none. */}
-				{!posture.stacked && !flow && (
-					<ZoomPresetGroup value={steps.pressed} presets={steps.presets} onChange={setZoom} />
-				)}
-				<Button
-					variant={editing ? 'accent' : 'secondary'}
-					size="sm"
-					icon={editing ? 'check' : 'edit'}
-					onClick={() => enterEditing(!editing)}
-				>
-					{editing ? t('board.done') : t('board.editLayout')}
-				</Button>
-			</Toolbar>
+				onToggleAdd={() => {
+					setAddOpen((open) => !open);
+					setMetaOpen(false);
+					setLayoutsOpen(false);
+				}}
+				onToggleLayouts={() => {
+					setLayoutsOpen((open) => !open);
+					setMetaOpen(false);
+					setAddOpen(false);
+				}}
+				onLayoutPolicy={(layoutPolicy) =>
+					void dispatch({
+						type: 'scene.set-layout-policy',
+						actorId,
+						payload: { sceneId, layoutPolicy },
+					})
+				}
+			/>
 
 			{/* Every board write's confirmation surfaces here, so it has to be a live region (WCAG
 			    4.1.3) — but a polite region must ALREADY be in the DOM for a content change to be
@@ -561,7 +566,7 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 				</Callout>
 			)}
 
-			{layoutIssues.length > 0 && !chromeHidden && (
+			{layoutIssues.length > 0 && !chromeHidden && !preview && (
 				<BoardLayoutBanner
 					issues={layoutIssues}
 					titleOf={titleOf}
@@ -579,122 +584,175 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 					position: 'relative',
 				}}
 			>
-				<div style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}>
-					{posture.stacked ? (
-						<StackedBoard
-							history={history}
+				<div
+					ref={stageRef}
+					data-testid="screen-stage"
+					style={{
+						flex: 1,
+						minWidth: 0,
+						minHeight: 0,
+						display: 'flex',
+						gap: 'var(--space-3)',
+						position: 'relative',
+					}}
+				>
+					<div
+						style={{ flex: 1, minWidth: 0, minHeight: 0, position: 'relative', display: 'flex' }}
+					>
+						{posture.stacked ? (
+							<StackedBoard
+								history={history}
+								sceneId={sceneId}
+								widgets={widgets}
+								onWidgetCommand={operateWidget}
+								emptyHint={ready ? '' : t('board.preparingHint')}
+								emptyTitle={ready ? '' : t('board.preparingTitle')}
+								onMaximizedChange={posture.onMaximizedChange}
+							/>
+						) : flow ? (
+							<FlowBoard
+								widgets={widgets}
+								tier={viewport}
+								editing={editing && !preview}
+								selectedId={selectedId}
+								onSelect={(id) => {
+									setSelectedId(id);
+									setMetaOpen(false);
+								}}
+								onMove={move}
+								onResize={resize}
+								onRemove={remove}
+								onWidgetCommand={operateWidget}
+								history={history}
+								emptyTitle=""
+								emptyHint=""
+							/>
+						) : (
+							<Phone.PhoneNavigator
+								active={phone}
+								editing={editing && !preview}
+								widgets={widgets}
+								zoom={zoom}
+								onZoom={setZoom}
+								onWidgetCommand={operateWidget}
+								onFullScreenChange={setLayoutFull}
+							>
+								<SceneBoardCanvas
+									widgets={widgets}
+									policy="bounded"
+									editing={editing && !preview}
+									snap={snap}
+									selectedId={selectedId}
+									onSelect={(id) => {
+										setSelectedId(id);
+										setMetaOpen(false);
+									}}
+									onMove={move}
+									onResize={resize}
+									focusOrder={focusOrder}
+									onRemove={remove}
+									onWidgetCommand={operateWidget}
+									emptyHint={ready ? '' : t('board.preparingHint')}
+									// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
+									emptyTitle={ready ? '' : t('board.preparingTitle')}
+									history={history}
+									zoomPreset={steps.canvas}
+									onZoomPresetChange={setZoom}
+								/>
+							</Phone.PhoneNavigator>
+						)}
+						{ready && widgets.length === 0 && (
+							<BoardEmptyState
+								title={t('board.emptyTitle')}
+								repeat={previouslyFilled}
+								testId="board-empty-templates"
+								onAdd={() => {
+									setEditing(true);
+									setAddOpen(true);
+									setMetaOpen(false);
+									setLayoutsOpen(false);
+								}}
+								onTemplate={() => {
+									setTemplatesOpen(true);
+									setAddOpen(false);
+									setLayoutsOpen(false);
+								}}
+							/>
+						)}
+					</div>
+
+					<AddWidgetGallery
+						open={addOpen && !metaOpen}
+						onClose={() => setAddOpen(false)}
+						viewport={viewport}
+						policy={flow ? 'flow' : 'bounded'}
+						widgets={widgets}
+						onDone={() => {
+							setEditing(false);
+							setSelectedId(null);
+							setLayoutsOpen(false);
+						}}
+						onAdd={addWidget}
+						onPlaced={setSelectedId}
+						error={error}
+						onGenerate={() => setGenerateOpen(true)}
+						onBuild={() => setBuilder({ pkg: null })}
+						placePackage={built}
+						onPlacePackageDone={() => setBuilt(null)}
+						startAction={
+							<TemplateStartEntry
+								onPick={() => {
+									setAddOpen(false);
+									setTemplatesOpen(true);
+								}}
+							/>
+						}
+					/>
+
+					{editing && layoutsOpen && !metaOpen && isHomeBoard && (
+						<BoardLayoutsPanel
+							t={t}
+							viewport={viewport}
+							onClose={() => setLayoutsOpen(false)}
+							presetName={presetName}
+							onPresetNameChange={setPresetName}
+							onSave={savePreset}
+							presets={presets}
+							onApplyPreset={applyPreset}
+							autoSaveEnabled={!!runtime.state.commandCenter.autoSave}
+							onRestoreSafePoint={restoreSafePoint}
+						/>
+					)}
+					{editing && !addOpen && !layoutsOpen && (
+						<ScreenInspector
 							sceneId={sceneId}
 							widgets={widgets}
-							onWidgetCommand={operateWidget}
-							emptyHint={ready ? '' : t('board.preparingHint')}
-							emptyTitle={ready ? '' : t('board.preparingTitle')}
-							onMaximizedChange={posture.onMaximizedChange}
-						/>
-					) : flow ? (
-						<FlowBoard
-							widgets={widgets}
-							tier={viewport}
-							editing={editing}
 							selectedId={selectedId}
-							onSelect={setSelectedId}
+							metaOpen={metaOpen}
+							phone={phone}
+							history={history}
+							dispatch={dispatch}
 							onMove={move}
 							onResize={resize}
 							onRemove={remove}
-							onWidgetCommand={operateWidget}
-							history={history}
-							emptyTitle=""
-							emptyHint=""
-						/>
-					) : (
-						<Phone.PhoneNavigator
-							active={phone}
-							editing={editing}
-							widgets={widgets}
-							zoom={zoom}
-							onZoom={setZoom}
-							onWidgetCommand={operateWidget}
-							onFullScreenChange={setLayoutFull}
-						>
-							<SceneBoardCanvas
-								widgets={widgets}
-								policy="bounded"
-								editing={editing}
-								snap={snap}
-								selectedId={selectedId}
-								onSelect={setSelectedId}
-								onMove={move}
-								onResize={resize}
-								focusOrder={focusOrder}
-								onRemove={remove}
-								onWidgetCommand={operateWidget}
-								emptyHint={ready ? '' : t('board.preparingHint')}
-								// The illustrated overlay owns the ready-empty copy; keep the canvas mounted for shortcuts.
-								emptyTitle={ready ? '' : t('board.preparingTitle')}
-								history={history}
-								zoomPreset={steps.canvas}
-								onZoomPresetChange={setZoom}
-							/>
-						</Phone.PhoneNavigator>
-					)}
-					{ready && widgets.length === 0 && (
-						<BoardEmptyState
-							title={t('board.emptyTitle')}
-							repeat={previouslyFilled}
-							testId="board-empty-templates"
-							onAdd={() => {
-								setEditing(true);
-								setAddOpen(true);
-								setLayoutsOpen(false);
-							}}
-							onTemplate={() => {
-								setTemplatesOpen(true);
-								setAddOpen(false);
-								setLayoutsOpen(false);
+							onClose={() => {
+								setMetaOpen(false);
+								setSelectedId(null);
 							}}
 						/>
 					)}
 				</div>
-
-				<AddWidgetGallery
-					open={addOpen}
-					onClose={() => setAddOpen(false)}
-					viewport={viewport}
-					policy={flow ? 'flow' : 'bounded'}
-					widgets={widgets}
-					onDone={() => {
-						setEditing(false);
-						setSelectedId(null);
-						setLayoutsOpen(false);
-					}}
-					onAdd={addWidget}
-					onPlaced={setSelectedId}
-					error={error}
-					onGenerate={() => setGenerateOpen(true)}
-					onBuild={() => setBuilder({ pkg: null })}
-					placePackage={built}
-					onPlacePackageDone={() => setBuilt(null)}
-					startAction={
-						<TemplateStartEntry
-							onPick={() => {
-								setAddOpen(false);
-								setTemplatesOpen(true);
-							}}
-						/>
-					}
-				/>
-
-				{editing && layoutsOpen && isHomeBoard && (
-					<BoardLayoutsPanel
-						t={t}
-						viewport={viewport}
-						onClose={() => setLayoutsOpen(false)}
-						presetName={presetName}
-						onPresetNameChange={setPresetName}
-						onSave={savePreset}
-						presets={presets}
-						onApplyPreset={applyPreset}
-						autoSaveEnabled={!!runtime.state.commandCenter.autoSave}
-						onRestoreSafePoint={restoreSafePoint}
+				{previewRead && preview && (
+					<PlayerPreviewOverlay
+						widgets={widgets}
+						read={previewRead}
+						label={preview.label}
+						phone={phone}
+						onExit={(focusWasInOverlay) => {
+							previewActions.exit();
+							if (focusWasInOverlay || document.activeElement === document.body)
+								previewTriggerRef.current?.querySelector('button')?.focus();
+						}}
 					/>
 				)}
 			</div>

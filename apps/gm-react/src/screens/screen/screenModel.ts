@@ -1,6 +1,5 @@
 import {
 	BUILTIN_SCENE_TEMPLATES,
-	DEFAULT_COMMAND_CENTER_NAME,
 	DEFAULT_COMMAND_CENTER_TOOLS,
 	type BuiltinSceneTemplateId,
 	type SceneBackground,
@@ -27,17 +26,9 @@ export function screenPath(id: string): string {
 /** The library. `/scenes` resolves here (ADR-041 route table). */
 export const SCREENS_PATH = '/screens';
 
-/**
- * The name a screen is shown under. The vault's home board is still named after the code-defined
- * Command Center template it was seeded from, which is not what the GM calls it: ADR-041 keeps that
- * board as the GM screen. Until the GM renames it, it is labelled as the GM screen (in the active
- * system's vocabulary, which the caller supplies); a name the GM chose is always shown as written.
- */
-export function screenDisplayName(
-	entry: Pick<ScreenListEntry, 'name' | 'isHome'>,
-	gmScreenLabel: string,
-): string {
-	return entry.isHome && entry.name === DEFAULT_COMMAND_CENTER_NAME ? gmScreenLabel : entry.name;
+/** A screen has one name: the durable scene name, including the home board. */
+export function screenDisplayName(entry: Pick<ScreenListEntry, 'name' | 'isHome'>): string {
+	return entry.name;
 }
 
 /**
