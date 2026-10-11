@@ -271,8 +271,8 @@ Applied to the six new goldens (669 → 487 KiB) and to the nine `/session` gold
 
 - `node apps/gm-react/tests/visual/check-baseline-budget.mjs` with the base script: 873 files,
   37,611.7 / 37,888 KiB, pass.
-- Pinned container, `session-polish.spec.ts` + `golden-routes.spec.ts -g 'session'
-  --update-snapshots=none --workers=2`: 30 passed (15 interface, 15 illustration) against the
-  re-encoded files; no baseline written (`visual-compare-3.log`).
+- Pinned container, `session-polish.spec.ts` and `golden-routes.spec.ts` with
+  `-g 'session' --update-snapshots=none --workers=2`: 30 passed (15 interface, 15 illustration)
+  against the re-encoded files; no baseline written (`visual-compare-3.log`).
 - No source, spec or copy change in this attempt, so the attempt-2 gates, e2e and axe results
   above still describe the code.
