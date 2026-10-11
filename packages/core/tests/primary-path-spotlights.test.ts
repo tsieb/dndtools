@@ -7,7 +7,6 @@ import {
 	pendingSpotlights,
 	tierMeets,
 	type CoreStateSlice,
-	type SpotlightContext,
 } from '../src';
 import {
 	buildInitialState,
@@ -15,6 +14,8 @@ import {
 	PLAYER_ACTOR,
 	makeEnvironment,
 } from '../src/testing/fixtures';
+
+type SpotlightContext = Parameters<typeof pendingSpotlights>[4];
 
 const targets = FEATURE_SPOTLIGHTS.flatMap((s) => (s.target ? [s.target] : []));
 const context: SpotlightContext = {
