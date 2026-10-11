@@ -309,3 +309,30 @@ surface and passed 10/10 on the branch with `--repeat-each=10` (`tile-resize-hea
   (`widgets/builtin/SessionBody.tsx`, `net/SessionContext.tsx`, `net/SessionPanel.tsx`).
 - gm-react typecheck exit 0; `TZ=UTC` app tests over `screens/session`, `app/session`,
   `app/combat`: 4 files, 51 passed; ESLint and the changed-file Prettier check clean.
+
+## Attempt 6 — rebase onto `7a287014` and the parity gate
+
+The operator's rebase onto `7a287014` conflicted in `docs/requirements/FEATURE-GAPS.md`: the base
+(RC-CAN-7.9) re-padded the whole inventory table and reworded the Session row's opening. Rebased
+here: the base's table is kept and only the Session row differs, with the base's "The Session screen
+(a default flow screen, one widget per console panel, RC-CAN-7.8)" opening followed by this pass's
+notes, limits and specs. The i18n catalogs merged cleanly and the regenerated `qps-ploc.ts` is
+unchanged.
+
+The full app suite then failed `app/widgets/parity.test.ts`: attempt 5's op-log lookup made
+`useSessionView` read `sync.operations` and import `FIRST_SESSION_GUIDE_WIDGET_TYPE`, which the
+builder parity manifest (`app/widgets/parity.ts`, outside this claim) does not declare. Attempt 5 ran
+only the session tests and missed it. The guide exclusion now uses no new core read: among the
+digest's rows for the home screen, the first write after its `scene.create` (provisioning skipped)
+is the guide's placement when it is a `scene.add-widget` and the home still holds a
+`getting-started` widget. The digest rows carry no payload, so position plus the widget's
+presence is what identifies it. Handoff (Widgets): if the digest ever marks app-issued writes, this
+heuristic can go.
+
+- Full `TZ=UTC pnpm test:app --maxWorkers=3`: 187 files, 2278 passed (`app-tests-7.log`).
+- Surface e2e (`combat*`, `session*`, `encounter-builder`), both profiles, `--retries=1`: 172
+  passed, 14 skipped, 0 failed, 0 flaky (`surface-e2e-7.log`).
+- Pinned container, Session interface + illustration comparisons: 30 passed
+  (`visual-compare-6.log`); baseline budget 37,611.7 / 37,888 KiB.
+- `pnpm gates` exit 0 with no file-size warning for an owned file (`useSessionView.ts` 496 lines);
+  `pnpm typecheck`, `pnpm lint` exit 0; changed-file Prettier check clean.

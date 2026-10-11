@@ -12,7 +12,6 @@ import {
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
 	getSessionAudioView,
-	FIRST_SESSION_GUIDE_WIDGET_TYPE,
 	findHomeScreen,
 	findSessionScreen,
 	listAudioAssetsForActor,
@@ -371,16 +370,24 @@ export function usePrepRecapDigest() {
 			findHomeScreen(scenes)?.id,
 			findSessionScreen(scenes)?.id,
 		]);
-		const guidePlacements = new Set(
-			sync.operations
-				.filter(
-					(op) =>
-						op.opType === 'scene.add-widget' &&
-						setup.has(op.entityId) &&
-						(op.value as { type?: unknown } | undefined)?.type === FIRST_SESSION_GUIDE_WIDGET_TYPE,
-				)
-				.map((op) => op.id),
-		);
+		const provisioning = (change: (typeof digest.recentChanges)[number]) =>
+			change.entityType === 'scene' &&
+			setup.has(change.entityId) &&
+			(change.opType === 'scene.create' || change.opType === 'command-center.bind-default-map');
+		// RC-UX-6.3 puts the first-session guide (`getting-started`, the core's
+		// FIRST_SESSION_GUIDE_WIDGET_TYPE) on a fresh home just after provisioning it. The digest's rows
+		// carry no payload, so the guide's write is the home's first after its creation, while the
+		// guide is still on it.
+		const home = findHomeScreen(scenes);
+		const homeRows = digest.recentChanges.filter((c) => c.entityId === home?.id).reverse();
+		const created = homeRows.findIndex((c) => c.opType === 'scene.create');
+		const placed =
+			created < 0 ? undefined : homeRows.slice(created + 1).find((c) => !provisioning(c));
+		const guidePlacement =
+			placed?.opType === 'scene.add-widget' &&
+			home?.widgets.some((widget) => widget.type === 'getting-started')
+				? placed.operationId
+				: null;
 		const names = new Map<string, string>();
 		for (const c of listCharactersForActor(characters, permissions, actorId))
 			names.set(c.id, c.name);
@@ -396,13 +403,7 @@ export function usePrepRecapDigest() {
 		const recentChanges = digest.recentChanges
 			.filter((change) => {
 				if (NOT_REVIEWED.has(change.entityType)) return false;
-				if (guidePlacements.has(change.operationId)) return false;
-				if (
-					change.entityType === 'scene' &&
-					setup.has(change.entityId) &&
-					(change.opType === 'scene.create' || change.opType === 'command-center.bind-default-map')
-				)
-					return false;
+				if (change.operationId === guidePlacement || provisioning(change)) return false;
 				const key = `${change.entityType}:${change.entityId}`;
 				if (seen.has(key)) return false;
 				seen.add(key);
