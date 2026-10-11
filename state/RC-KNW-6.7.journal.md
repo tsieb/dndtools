@@ -44,3 +44,32 @@
 - Committing the owned spec and documentation plus this requested journal on the current task
   branch. Full wrapper gates and independent review remain with the central operator. No product
   code, dispatcher state, unrelated files, publication or promotion changed.
+
+## Browser-gate repair (2026-10-11)
+
+- Started clean at `ec599e9a`. Read the original central browser output at
+  `.state/attempts/8f2734eb-23fc-4299-9ff2-62bb75976a5c/output.log` in the dispatcher checkout:
+  2,011 passed, 43 skipped, one unrelated tile-resize flake, and the knowledge mobile overflow
+  failure on all three attempts. Headroom tools are not exposed in this session.
+- The gate feedback requires a companion product repair: changed only the palette description
+  span in `CommandPaletteRow.jsx` from hidden single-line ellipsis to normal wrapping, including
+  long unbroken text. Touch users can now read the search match without hovering. The existing
+  golden journey, fixture and overflow assertion are unchanged.
+- This narrowly extends the implementation beyond the two original owned paths to resolve the
+  blocker they detect; it does not shorten fixture prose, skip the checkpoint or change the detector.
+- Targeted ESLint and Prettier passed. Complete golden-path and palette browser specs are running;
+  pinned visual palette comparisons follow, without overlapping browser runs.
+
+### Repair verification
+
+- `pnpm e2e golden-path.spec.ts command-palette.spec.ts palette-polish.spec.ts --workers=2 --retries=0`:
+  **128/128 passed**, including both knowledge journeys, all seeded assertions, palette navigation,
+  keyboard handling, body-word lookup and axe checks (`/tmp/rc-knw-6.7-repair-browser.log`, exit 0).
+- gm-react `tsc --noEmit` passed (`/tmp/rc-knw-6.7-repair-types.log`, exit 0). `pnpm gates` passed,
+  with existing file-size warnings (`/tmp/rc-knw-6.7-repair-gates.log`, exit 0).
+- The full central Browser acceptance run remains for the operator; the unrelated tile-resize
+  flake is not claimed repaired. No agents, dispatcher writes, push, promotion or new loop.
+- Pinned-container `palette-help.spec.ts --retries=0`: **15/15 passed**, all five themes on desktop,
+  rail and phone, with unchanged baselines (`/tmp/rc-knw-6.7-repair-visual.log`, exit 0).
+- Final `git diff --check` and formatting passed. The companion repair resolves the previously
+  recorded mobile blocker in the local journey; full exact-commit central gates/review are pending.

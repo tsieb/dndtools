@@ -127,9 +127,9 @@ export function PaletteRow({ cmd, id, isActive, rowRef, onActivate, onRun }) {
 							fontFamily: 'var(--font-sans)',
 							fontSize: 'var(--text-xs)',
 							color: 'var(--color-text-secondary)',
-							whiteSpace: 'nowrap',
-							overflow: 'hidden',
-							textOverflow: 'ellipsis',
+							// Search snippets must remain readable on touch screens, without a hover tooltip.
+							whiteSpace: 'normal',
+							overflowWrap: 'anywhere',
 						}}
 					>
 						{cmd.description}
