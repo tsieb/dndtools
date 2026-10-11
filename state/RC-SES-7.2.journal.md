@@ -98,3 +98,14 @@ No push, promotion, dispatcher-state change or additional agent.
     Session screen; the new dialog checkbox is exercised by the fake-LAN tests.
 - Full wrapper gates and independent review remain the central operator's next step. No push,
   promotion, dispatcher control-state edit, or additional agent.
+
+## Claim self-heal round 1
+
+- The scheduler widened the claim to include `app/widgets/builtin/SessionBody.tsx` and
+  `screens/session/Lifecycle.tsx`. Verified that implementation commit `618f933db` is still HEAD
+  and the working tree was clean at resumption. Both UI changes are retained unchanged; they
+  implement the required Start-session sharing option and its command payload only.
+- The reported blocker was the claim fence, not a functional or validation failure. No additional
+  product changes are necessary for this feedback. The focused validation recorded above applies
+  to the unchanged implementation; this round updates only this journal and checks its formatting.
+- Ready for the central operator's wrapper gates and independent review under the widened claim.
