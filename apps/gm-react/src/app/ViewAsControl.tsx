@@ -159,7 +159,6 @@ export function ViewAsControl({
 	return (
 		<div style={{ position: 'relative', flex: '0 0 auto' }}>
 			<button
-				data-spotlight-target="preview-player"
 				ref={triggerRef}
 				type="button"
 				aria-haspopup="menu"

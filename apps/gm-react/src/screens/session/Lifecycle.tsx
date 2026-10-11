@@ -130,7 +130,6 @@ export function SessionHeader({
 										})
 									: t('session.goLive.hint')
 					}
-					data-spotlight-target="session-standby"
 					onClick={onStart}
 				>
 					{t('session.goLive.label')}

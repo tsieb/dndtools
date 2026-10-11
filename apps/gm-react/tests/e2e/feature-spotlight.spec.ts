@@ -128,6 +128,41 @@ test.describe('feature spotlights', () => {
 		).toEqual(['vault-switcher']);
 	});
 
+	test('Standby spotlight finds the existing session control without activating it', async ({
+		page,
+	}) => {
+		await page.evaluate(
+			({ key, ids }) => {
+				const vaultId = window.__rt!.state.sync.operations[0]?.vaultId ?? 'local-default';
+				localStorage.setItem(
+					key,
+					JSON.stringify({
+						[vaultId]: [
+							...ids.filter((id) => id !== 'session-standby'),
+							'graph',
+							'command-palette',
+							'shortcuts',
+						],
+					}),
+				);
+			},
+			{ key: SEEN_KEY, ids: PRIMARY_IDS },
+		);
+		await gotoRoute(page, '/session');
+		await expect(
+			page.getByRole('button', { name: 'Start session', exact: true }).first(),
+		).toBeVisible();
+		await pauseAfterActivity(page, IDLE_MS + 1_000);
+		const card = spotlightCard(page, 'session-standby');
+		await expect(card).toBeVisible();
+		const before = await page.evaluate(() => window.__rt!.state.session.workflow);
+		await card.getByRole('button', { name: 'Find Go live' }).click();
+		await expect(
+			page.getByRole('button', { name: 'Start session', exact: true }).first(),
+		).toBeFocused();
+		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe(before);
+	});
+
 	test('canvas editing suppresses an earned tip until editing finishes', async ({
 		page,
 	}, testInfo) => {

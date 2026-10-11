@@ -111,7 +111,6 @@ export function ProjectionControl({ compact = false }: { compact?: boolean } = {
 				</div>
 			)}
 			<Button
-				data-spotlight-target="session-standby"
 				variant={live ? 'secondary' : 'primary'}
 				size="md"
 				// `audio-off` is a muted SPEAKER — on the compact phone form this button is icon-only, so

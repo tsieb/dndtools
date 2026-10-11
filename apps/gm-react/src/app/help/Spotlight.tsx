@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type KeyboardEvent,
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	FEATURE_SPOTLIGHTS,
@@ -193,9 +200,22 @@ function useIdleMoment(armed: boolean, notBefore: number, onIdle: () => void): v
 }
 
 /** A mounted control may still be hidden by a phone breakpoint, a collapsed panel or scrolling. */
-export function visibleSpotlightTarget(selector: string): HTMLElement | null {
+export function visibleSpotlightTarget(
+	selector: string,
+	labels: readonly string[] = [],
+): HTMLElement | null {
 	return (
 		Array.from(document.querySelectorAll<HTMLElement>(selector)).find((target) => {
+			// Reuse the control's localized accessible name or visible label, rather than
+			// requiring spotlight-only attributes on surfaces owned by other tasks.
+			if (
+				labels.length &&
+				!labels.some(
+					(label) =>
+						target.getAttribute('aria-label') === label || target.textContent?.trim() === label,
+				)
+			)
+				return false;
 			const rect = target.getBoundingClientRect();
 			return (
 				!target.closest('[hidden], [inert], [aria-hidden="true"]') &&
@@ -214,6 +234,28 @@ export function visibleSpotlightTarget(selector: string): HTMLElement | null {
 export function Spotlight() {
 	const { t } = useI18n();
 	const runtime = useRuntime();
+	const targetFor = useCallback(
+		(target: string): HTMLElement | null => {
+			switch (target) {
+				case 'screen-switcher':
+					return visibleSpotlightTarget('[data-testid="screen-switcher"]');
+				case 'session-standby':
+					return visibleSpotlightTarget('button', [t('session.goLive.label')]);
+				case 'project-map':
+					return visibleSpotlightTarget('button', [t('session.stage.project')]);
+				case 'preview-player':
+					return visibleSpotlightTarget('button[aria-haspopup="menu"]', [
+						t('viewAs.trigger'),
+						t('viewAs.sceneTrigger'),
+					]);
+				case 'vault-switcher':
+					return visibleSpotlightTarget('button[aria-haspopup="dialog"]', [t('vaults.title')]);
+				default:
+					return null;
+			}
+		},
+		[t],
+	);
 	const navigate = useNavigate();
 	const location = useLocation();
 	const tier = useSettingsTier();
@@ -244,7 +286,7 @@ export function Spotlight() {
 			editing: activeCanvasSurface()?.editing,
 			sheetOpen: !!document.querySelector('[aria-modal="true"], [data-fullscreen-overlay]'),
 			visibleTargets: FEATURE_SPOTLIGHTS.flatMap((s) =>
-				s.target && visibleSpotlightTarget(s.target) ? [s.target] : [],
+				s.target && targetFor(s.target) ? [s.target] : [],
 			),
 		}).find((spotlight) => copyFor(spotlight.id));
 		if (!next) {
@@ -273,7 +315,7 @@ export function Spotlight() {
 					['session', 'map'].includes(current.trigger.event) &&
 					location.pathname.replace(/\/$/, '') !== '/session') ||
 				document.querySelector('[aria-modal="true"], [data-fullscreen-overlay]') ||
-				(current.target && !visibleSpotlightTarget(current.target))
+				(current.target && !targetFor(current.target))
 			)
 				setCurrent(null);
 		};
@@ -287,7 +329,7 @@ export function Spotlight() {
 			window.removeEventListener('resize', check);
 			window.removeEventListener('scroll', check, true);
 		};
-	}, [current, canvas, runtime.preview, posture.live, location.pathname, tier]);
+	}, [current, canvas, runtime.preview, posture.live, location.pathname, tier, targetFor]);
 
 	const copy = current ? copyFor(current.id) : undefined;
 	const surface = current?.surface ?? null;
@@ -321,7 +363,7 @@ export function Spotlight() {
 							? () => {
 									dismiss();
 									if (current.target) {
-										const target = visibleSpotlightTarget(current.target);
+										const target = targetFor(current.target);
 										target?.scrollIntoView({ block: 'nearest' });
 										if (
 											current.id === 'screen-switcher' ||
@@ -329,7 +371,24 @@ export function Spotlight() {
 											current.id === 'vault-switcher'
 										)
 											target?.click();
-										else target?.focus();
+										else if (target?.matches(':disabled')) {
+											// Project is natively disabled in Standby. Focus its explanatory
+											// row without changing the control's activation semantics.
+											const row = target.parentElement;
+											if (row) {
+												const previous = row.getAttribute('tabindex');
+												row.tabIndex = -1;
+												row.addEventListener(
+													'blur',
+													() => {
+														if (previous === null) row.removeAttribute('tabindex');
+														else row.setAttribute('tabindex', previous);
+													},
+													{ once: true },
+												);
+												row.focus();
+											}
+										} else target?.focus();
 									} else if (surface) navigate(surface);
 								}
 							: undefined

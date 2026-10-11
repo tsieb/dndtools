@@ -2122,7 +2122,7 @@ export interface SpotlightDefinition {
 	readonly surface: string | null;
 	/** True when the spotlight teaches a keyboard shortcut, so a touch-only device never sees it. */
 	readonly needsKeyboard: boolean;
-	/** Concrete control and its complexity-map gate. */
+	/** Logical control id (resolved by the host) and its complexity-map gate. */
 	readonly target?: string;
 	readonly gate?: string;
 }
@@ -2140,7 +2140,7 @@ export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
 	{
 		id: 'screen-switcher',
 		trigger: { kind: 'primary-path', event: 'second-screen' },
-		target: '[data-testid="screen-switcher"]',
+		target: 'screen-switcher',
 		gate: 'nav.scenes',
 		surface: null,
 		needsKeyboard: false,
@@ -2148,7 +2148,7 @@ export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
 	{
 		id: 'session-standby',
 		trigger: { kind: 'primary-path', event: 'session' },
-		target: '[data-spotlight-target="session-standby"]',
+		target: 'session-standby',
 		gate: 'nav.session',
 		surface: null,
 		needsKeyboard: false,
@@ -2156,7 +2156,7 @@ export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
 	{
 		id: 'project-map',
 		trigger: { kind: 'primary-path', event: 'map' },
-		target: '[data-spotlight-target="project-map"]',
+		target: 'project-map',
 		gate: 'nav.session',
 		surface: null,
 		needsKeyboard: false,
@@ -2164,7 +2164,7 @@ export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
 	{
 		id: 'preview-player',
 		trigger: { kind: 'primary-path', event: 'player' },
-		target: '[data-spotlight-target="preview-player"]',
+		target: 'preview-player',
 		gate: 'nav.playerView',
 		surface: null,
 		needsKeyboard: false,
@@ -2172,7 +2172,7 @@ export const FEATURE_SPOTLIGHTS: readonly SpotlightDefinition[] = [
 	{
 		id: 'vault-switcher',
 		trigger: { kind: 'primary-path', event: 'campaign' },
-		target: '[data-spotlight-target="vault-switcher"]',
+		target: 'vault-switcher',
 		gate: 'nav.commandCenter',
 		surface: null,
 		needsKeyboard: false,
