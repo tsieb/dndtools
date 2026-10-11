@@ -73,3 +73,19 @@
   rail and phone, with unchanged baselines (`/tmp/rc-knw-6.7-repair-visual.log`, exit 0).
 - Final `git diff --check` and formatting passed. The companion repair resolves the previously
   recorded mobile blocker in the local journey; full exact-commit central gates/review are pending.
+
+## Claim review disposition (2026-10-11)
+
+- Claim validation rejected `CommandPaletteRow.jsx`; the claim has not been widened. The earlier
+  repair notes explain technical necessity, not authorization to expand ownership automatically.
+- Following the explicit feedback's required-change exception, retain this companion path and
+  request the operator's claim decision through the commit message. Reverting it to `0de08e09`
+  restores the exact mobile overflow that the acceptance criterion requires the journey to detect.
+- Re-read the original central log: the same snippet clipping diagnostic appears on the initial
+  attempt and both retries (lines 2104, 2127 and 2158). Re-read original repair outputs: 128 browser
+  checks and 15 pinned visual checks passed. No application or test changes since those runs;
+  this commit adds the claim justification only, so those suites were not rerun.
+- Required scope addition: only `apps/gm-react/src/ds/components/command/CommandPaletteRow.jsx`,
+  description wrapping. The golden journey must continue exercising the full body snippet on
+  mobile with the existing overflow detector. Claim validation remains blocked pending the
+  operator's decision; no dispatcher control state was changed to bypass it.
