@@ -150,6 +150,10 @@ const visualProjects = visualTiers.map((tier) => ({
 	// A genuine diff fails both attempts; one retry absorbs a slow boot, and the report marks it flaky.
 	retries: process.env.CI ? 1 : 0,
 	expect: {
+		// Concurrent dispatcher containers can spend more than the default 5s rendering a
+		// screenshot or loading a lazy route. Bound acquisition separately from pixel tolerance;
+		// the normal test deadline and functional-project assertion budgets remain unchanged.
+		timeout: 15_000,
 		toHaveScreenshot: {
 			animations: 'disabled' as const,
 			caret: 'hide' as const,
