@@ -903,15 +903,16 @@ test('first-run setup changes layout cleanly at 640/641 and fits the 720x520 win
 		await expect(dialog.getByText('Step 1 of 3', { exact: true })).toBeVisible();
 		await expect(dialog.getByRole('button', { name: 'Continue', exact: true })).toBeInViewport();
 		await expect(dialog.getByRole('button', { name: 'Skip setup' })).toBeInViewport();
-		// Only the content region scrolls. The desktop wizard is a fixed 560px panel whose content
-		// fits without an inner scroll; the phone layout and the shorter 720x520 window fill the
+		// Only the content region scrolls. The desktop wizard is a 672px panel (RC-POL-1.18: room for
+		// 48px controls) inside the overlay's 24px padding, so a 700px window clamps it to 652px; step 1
+		// still fits without an inner scroll. The phone layout and the shorter 720x520 window fill the
 		// viewport, and their content region is the scroll path instead of clipping a control.
 		await expect(content).toHaveCSS('overflow-y', 'auto');
 		const panel = await content.evaluate((el) => el.parentElement!.getBoundingClientRect().height);
 		if (expected.phone) expect(panel).toBeGreaterThan(expected.height - 40);
-		else if (expected.height < 600) expect(panel).toBeLessThan(560);
+		else if (expected.height < 600) expect(panel).toBeLessThanOrEqual(expected.height - 48);
 		else {
-			expect(panel).toBeCloseTo(560, 0);
+			expect(panel).toBeCloseTo(Math.min(672, expected.height - 48), 0);
 			expect(
 				await content.evaluate((el) => el.scrollHeight <= el.clientHeight + 1),
 				`${expected.width}x${expected.height} onboarding needed an inner scroll`,

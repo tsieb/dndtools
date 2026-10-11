@@ -125,3 +125,11 @@ Exact local results (2026-10-10); central operator still owns independent review
   3. HEAD: **561/561 passed, exit 0** (`/tmp/pol18-sh1-head-full2.log`).
   4. Base: **1 shared failure**: desktop community marketplace parchment, `discover-shelf` buttons 0 of 3. This is the same assertion that failed in the central gate (`/tmp/pol18-sh1-base-full2.log`).
 - Disposition: the central visual failures are **inherited**. The base source reproduces the community failure, branches without this change fail the same way, and HEAD has a clean full pass. Every failure is a 5000ms readiness or acquisition timeout on a route outside the claim. None is a pixel mismatch, and none is on onboarding. No product, config, baseline, tolerance or retry change is made; `apps/gm-react/playwright.config.ts` still equals base.
+
+## Self-heal round 2: browser acceptance (2026-10-11)
+
+- Read central log `/home/trinkle/Programming/agent-dispatcher/.state/attempts/1e32435f-914e-4470-b168-58765d2d80cf/output.log` for `3912b189`: **2024 passed, 2 failed, 1 flaky (54.8m)**. All other central gates passed, including the pinned visual gate.
+- **Caused by this change:** `responsive.spec.ts:888` failed on both profiles across three retries. It expected the old fixed 560px desktop panel and received 652. This branch raised the panel to 672px for 48px controls, and at a 641×700 window the overlay's 24px padding clamps it to 652. My earlier local runs covered only the onboarding specs, not `responsive.spec.ts`.
+- Fix, in companion path `tests/e2e/*.spec.ts`: the assertion now expects `min(672, height − 48)`. It still requires step 1 to fit without an inner scroll at 641×700. The 720×520 case must fit inside the padded viewport (≤ 472px), which is tighter than the old `< 560`. No product change.
+- **Inherited:** `tile-resize.spec.ts:21` (mobile) was flaky, failing once and passing on retry. The Resize menuitem was not found after Shift+F10 on a board tile. That is outside onboarding.
+- Validation: `responsive.spec.ts:888 --repeat-each=3`, both profiles: 6 passed (`/tmp/pol18-sh2-resp.log`). `responsive.spec.ts`, `onboarding-consent.spec.ts`, `onboarding-polish.spec.ts` and `cloud-enhanced-honest-limit.spec.ts`, both profiles, `--retries=0`: **196 passed, exit 0** (`/tmp/pol18-sh2-e2e2.log`). ESLint `--max-warnings 0` and Prettier on the spec: exit 0.
