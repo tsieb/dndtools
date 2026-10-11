@@ -12,7 +12,9 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 		}, theme);
 		await page.goto('/#/player', { waitUntil: 'domcontentloaded' });
 		await page.waitForFunction(() => window.__rt?.loaded === true, null, { timeout: 20_000 });
-		await expect(page.getByTestId('character-sheet')).toBeVisible();
+		// Runtime readiness does not include the lazy Player route module. Give the
+		// actual sheet the same bounded startup window before comparing its pixels.
+		await expect(page.getByTestId('character-sheet')).toBeVisible({ timeout: 20_000 });
 		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 		await page.evaluate(() => document.fonts.ready);
 		const main = (await page.locator('#main-content').boundingBox())!;
