@@ -286,3 +286,26 @@ predated that pin and survived the rebase. Re-recorded with `-u`: only the 80 ti
 
 - `Session.baseline.test.tsx`: 14 passed in the local zone and with `TZ=Asia/Tokyo`.
 - `TZ=UTC pnpm test:app --maxWorkers=3`: 186 files, 2274 passed (`app-tests-4.log`).
+
+## Attempt 5 — the first-session guide is setup too (self-heal round 1)
+
+Browser acceptance failed `session-polish.spec.ts:222` on both profiles (every retry): after a visit
+to Home, Prep and recap read "1 recent change to review", the Command Center screen "Edited". The
+base's RC-UX-6.3 (`2af60bc3`) places the first-session guide on a fresh home with
+`scene.add-widget` right after `command-center.ensure-home`, an app write the filter did not know.
+A probe on the branch listed exactly that row. `usePrepRecapDigest` now also leaves out an
+`scene.add-widget` of `FIRST_SESSION_GUIDE_WIDGET_TYPE` on a default screen (found by operation id
+in the op log, since the digest's change rows carry no payload); a GM's own widget, layout or
+metadata edit to those screens still counts, as the same test proves by renaming all three.
+`useSessionView.ts` is 495 lines.
+
+`tile-resize.spec.ts:21` (desktop) was reported flaky (passed on retry), not failed; it is not this
+surface and passed 10/10 on the branch with `--repeat-each=10` (`tile-resize-head.log`).
+
+- `session-polish.spec.ts`, both profiles, `--retries=0`: 16 passed (`polish-e2e-5.log`).
+- Surface e2e (`combat*`, `session*`, `encounter-builder`), both profiles, `--retries=1`: 172
+  passed, 14 skipped, 0 failed, 0 flaky (`surface-e2e-5.log`).
+- `pnpm gates` exit 0; its file-size warnings name only files outside the claim
+  (`widgets/builtin/SessionBody.tsx`, `net/SessionContext.tsx`, `net/SessionPanel.tsx`).
+- gm-react typecheck exit 0; `TZ=UTC` app tests over `screens/session`, `app/session`,
+  `app/combat`: 4 files, 51 passed; ESLint and the changed-file Prettier check clean.

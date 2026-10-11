@@ -12,6 +12,7 @@ import {
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,
 	getSessionAudioView,
+	FIRST_SESSION_GUIDE_WIDGET_TYPE,
 	findHomeScreen,
 	findSessionScreen,
 	listAudioAssetsForActor,
@@ -340,8 +341,9 @@ function reviewVerb(opType: string): ReviewChange['verb'] {
  * SES-009 — the prep/recap digest, with the recent changes a GM would actually review (RC-POL-1.4,
  * roadmap §1.7). The core counts every operation in the log, and on an empty vault the log holds
  * only the app's own setup: opening Session provisions the Session screen, the Command Center its
- * home screen. A fresh vault read "2 recent changes to review" for writes nobody made. The default
- * screens' provisioning operations (not later edits), the home pointer, presence and diagnostics,
+ * home screen and puts the first-session guide on it. A fresh vault read "2 recent changes to
+ * review" for writes nobody made. The default screens' provisioning operations and the guide's
+ * placement on them (not later edits), the home pointer, presence and diagnostics,
  * and the revision records a content edit writes beside itself (one edit, two operations) are left
  * out. The rest are named through the same actor-scoped reads the other panels use, so the list
  * never shows a name this viewer could not open elsewhere.
@@ -369,6 +371,16 @@ export function usePrepRecapDigest() {
 			findHomeScreen(scenes)?.id,
 			findSessionScreen(scenes)?.id,
 		]);
+		const guidePlacements = new Set(
+			sync.operations
+				.filter(
+					(op) =>
+						op.opType === 'scene.add-widget' &&
+						setup.has(op.entityId) &&
+						(op.value as { type?: unknown } | undefined)?.type === FIRST_SESSION_GUIDE_WIDGET_TYPE,
+				)
+				.map((op) => op.id),
+		);
 		const names = new Map<string, string>();
 		for (const c of listCharactersForActor(characters, permissions, actorId))
 			names.set(c.id, c.name);
@@ -384,6 +396,7 @@ export function usePrepRecapDigest() {
 		const recentChanges = digest.recentChanges
 			.filter((change) => {
 				if (NOT_REVIEWED.has(change.entityType)) return false;
+				if (guidePlacements.has(change.operationId)) return false;
 				if (
 					change.entityType === 'scene' &&
 					setup.has(change.entityId) &&

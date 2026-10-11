@@ -240,7 +240,8 @@ test('an empty vault omits provisioning but counts later edits to default screen
 	await expect(prep.getByRole('button', { name: /recent changes? to review/ })).toHaveCount(0);
 	await expect(prep.getByText(/\d+ recent changes? to review/)).toHaveCount(0);
 
-	// Provision the home screen and GM board too; none of these automatic creations count.
+	// Provision the home screen (with the first-session guide placed on it) and the GM board too;
+	// none of these automatic writes count.
 	await gotoRoute(page, '/');
 	await gotoRoute(page, '/session');
 	await expect(prep.getByText('No recent changes to review.', { exact: true })).toBeVisible();
