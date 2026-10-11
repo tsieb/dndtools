@@ -45,6 +45,9 @@ No push, promotion, dispatcher-state change or additional agent.
   golden-path, first-session-guide, session-standby, player-join-first, companion-sheet,
   companion-preview, collab): 156/156 pass on both profiles.
 - **Docs** (`2776a352`). ARCHITECTURE.md §2 "What players see"; FEATURE-GAPS Session row.
+- **Visual** (pinned container, `session-polish`, `golden-routes`, `play-polish`, `player-polish`
+  on all three tiers): 264/264 pass, no baseline changed. Repo `pnpm lint` exit 0 (pre-existing
+  emphasis warnings only); `format:check:changed` clean after formatting this journal.
 
 ## Crossings (outside `Owns`, each needed by an acceptance criterion)
 
@@ -54,8 +57,7 @@ No push, promotion, dispatcher-state change or additional agent.
 - `packages/core/src/commands/session-control.ts` — one line in `resetLiveSessionFields` so a reset
   clears the table view with the assignments it seeded (otherwise next week's joiners would inherit
   an ended session's scene).
-- `apps/gm-react/src/screens/session/Lifecycle.tsx` and `apps/gm-react/src/app/widgets/builtin/
-SessionBody.tsx` — the Start-session dialog and its dispatch, which is the "Start session" the
+- `apps/gm-react/src/screens/session/Lifecycle.tsx` and `apps/gm-react/src/app/widgets/builtin/SessionBody.tsx` — the Start-session dialog and its dispatch, which is the "Start session" the
   acceptance e2e drives. The option component itself lives in the owned `ProjectionControl.tsx`;
   these two files only mount it and dispatch after an accepted start.
 
@@ -64,6 +66,16 @@ SessionBody.tsx` — the Start-session dialog and its dispatch, which is the "St
 - `packages/core/src/lifecycle/session-workflow.ts` does not list `session.project-table-view` in
   `SESSION_COMMAND_AVAILABILITY` (a `Partial` map; nothing reads it for this command). Adding
   `'always'` beside `session.project-player-view` is a one-line follow-up for the owner.
-- **Visual** (pinned container, `session-polish`, `golden-routes`, `play-polish`, `player-polish`
-  on all three tiers): 264/264 pass, no baseline changed. Repo `pnpm lint` exit 0 (pre-existing
-  emphasis warnings only); `format:check:changed` clean after formatting this journal.
+
+## Attempt 2 — rebase onto `e97943c2`
+
+- Gate feedback: rebasing onto `e97943c2` conflicted in `docs/requirements/FEATURE-GAPS.md`. Cause:
+  my sentence widened the Session cell past the table's longest, so prettier re-padded all 24 rows
+  and collided with the integration branch's own table edits.
+- Rebased onto `e97943c2`; resolved by taking the integration branch's file and re-applying the
+  note inside the Session cell's existing padding (93 of 97 spare characters), so the edit is now a
+  one-line diff that cannot re-pad the table. No other conflicts; `qps-ploc.ts` regenerates
+  unchanged.
+- Post-rebase checks: core `tsc` clean, core suite 295 files / 5348 tests pass; app `tsc` clean;
+  app session/play/i18n unit tests 92/92 (Session baseline snapshots unchanged); e2e
+  `table-view`, `player-view`, `session-lifecycle`, `player-join-first` on both profiles 46/46.
