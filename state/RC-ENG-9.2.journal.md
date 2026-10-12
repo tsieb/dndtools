@@ -86,3 +86,29 @@ Validation (native logs inspected):
 - ESLint on all six changed e2e files: exit 0. Prettier on changed files: clean. The two warnings
   (isolation-guard, permissions specs) are in untouched files. `git diff --check`: clean.
 - Not run: full browser suite, visual gate, hosted CI. Those belong to the central operator.
+
+## Review round 3 — native HTML drag counting
+
+- Entry HEAD: c9a51f9b2; clean tracked worktree. No Headroom tools exposed and no
+  applicable AGENTS.md found. No agents or dispatcher control-state changes.
+- Added a completed native HTML drag to the scripted counter regression. The first
+  probe encountered an ambiguous Drag locator; made it exact. The corrected probe
+  reproduced the review defect on both profiles: successful drop, but one missing
+  drag in the action sequence (exit 1, /tmp/rc-eng92-native-red2.log).
+- Count trusted native dragstart once and retire its matching pending pointer
+  gesture. Chromium's subsequent pointercancel cannot erase that action; ordinary
+  touch-scroll cancellation still discards its pending pointer gesture.
+- Added real CDP touch scrolling on both profiles, verifying pointercancel, positive
+  scroll offset and zero counted actions. These passed before the repair as well.
+- Updated TESTING.md with native drag attempt semantics and scroll regression coverage.
+  Validation (original logs inspected):
+
+- Five-spec suite: `pnpm e2e friction-budgets.spec.ts golden-path.spec.ts widget-quick-builder.spec.ts companion-sheet.spec.ts table-view.spec.ts --workers=2 --retries=0`:
+  **176 passed**, exit 0 (2.8m), /tmp/rc-eng92-native-green.log. Includes both profiles'
+  native drag and touch-scroll regressions, all budget journeys and seeded mutations.
+- Reviewer's exact external counter-regression.config.ts command: **2 passed**, exit 0,
+  /tmp/rc-eng92-review-regression.log.
+- ESLint on the helper and friction spec: exit 0, no diagnostics.
+- Prettier check on all four changed files: exit 0. `git diff --check`: exit 0.
+- No production UI changes. Full browser suite, visual gate, wrapper gates and hosted CI
+  were not run; central gates and independent review remain with the operator.

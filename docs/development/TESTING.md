@@ -408,7 +408,12 @@ browser events, including input inside other drivers: no manual increments are
 needed. `await actions.snapshot()` returns the ordered kinds and targets. A failed
 budget prints actual/maximum and that sequence; passing counts appear in report
 annotations. Scrolls are excluded; clicks, taps, keystrokes/chords and whole drags
-are counted. Text payload injection is separate from navigation, as specified in
+are counted. Native HTML drags count once at trusted `dragstart`, including
+attempts without an accepted drop; their subsequent `pointercancel` does not erase
+the action. Touch scrolling cancels its pointer without a `dragstart` and remains
+excluded. The scripted regression covers both custom pointer and native HTML
+drags, and a separate touch-scroll fixture verifies actual scrolling and cancellation.
+Text payload injection is separate from navigation, as specified in
 the table. Never use scripted focus or runtime writes to skip measured UI steps.
 
 `friction-budgets.spec.ts` contains the scripted counter unit test, real keyboard,

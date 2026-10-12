@@ -29,12 +29,19 @@ async function drag(page: Page, target: Locator, dx: number, dy: number) {
 	await page.mouse.up();
 }
 
-test('action counter unit: scripted clicks, tap, chord, typing, drag and excluded scroll', async ({
+test('action counter unit: scripted clicks, tap, chord, typing, pointer/native drags and excluded scroll', async ({
 	page,
 }) => {
 	await page.setContent(
-		'<button>Action</button><input aria-label="Text"><div aria-label="Drag" style="width:100px;height:100px;touch-action:none"></div><div style="height:2000px"></div>',
+		'<button>Action</button><input aria-label="Text"><div aria-label="Drag" style="width:100px;height:100px;touch-action:none"></div><div draggable="true" aria-label="Native drag" style="width:100px;height:50px">Native drag</div><div aria-label="Drop target" style="width:100px;height:50px">Drop here</div><div style="height:2000px"></div>',
 	);
+	await page.getByLabel('Drop target').evaluate((target) => {
+		target.addEventListener('dragover', (event) => event.preventDefault());
+		target.addEventListener('drop', (event) => {
+			event.preventDefault();
+			target.textContent = 'Dropped';
+		});
+	});
 	const actions = await countActions(page);
 	const button = page.getByRole('button');
 	await button.click();
@@ -43,7 +50,9 @@ test('action counter unit: scripted clicks, tap, chord, typing, drag and exclude
 	await page.keyboard.press('Control+k');
 	await page.getByLabel('Text').click();
 	await page.keyboard.type('ab');
-	await drag(page, page.getByLabel('Drag'), 40, 20);
+	await drag(page, page.getByLabel('Drag', { exact: true }), 40, 20);
+	await page.getByLabel('Native drag').dragTo(page.getByLabel('Drop target'));
+	await expect(page.getByLabel('Drop target')).toHaveText('Dropped');
 	await page.mouse.wheel(0, 100);
 	expect((await actions.snapshot()).map((action) => action.kind)).toEqual([
 		'click',
@@ -54,13 +63,49 @@ test('action counter unit: scripted clicks, tap, chord, typing, drag and exclude
 		'key',
 		'key',
 		'drag',
+		'drag',
 	]);
 	await actions.stop();
 	await button.click();
-	expect(await actions.snapshot()).toHaveLength(8);
+	expect(await actions.snapshot()).toHaveLength(9);
 	const next = await countActions(page);
 	await button.click();
 	expect(await next.snapshot()).toHaveLength(1);
+});
+
+test('action counter excludes native touch scrolling after pointercancel', async ({ page }) => {
+	await page.setContent(
+		'<meta name="viewport" content="width=device-width, initial-scale=1"><div style="height:3000px">Scroll</div>',
+	);
+	await page.evaluate(() => {
+		window.addEventListener(
+			'pointercancel',
+			() => {
+				document.body.dataset.pointerCancelled = 'true';
+			},
+			{ once: true },
+		);
+	});
+	const actions = await countActions(page);
+	const session = await page.context().newCDPSession(page);
+	try {
+		await session.send('Input.dispatchTouchEvent', {
+			type: 'touchStart',
+			touchPoints: [{ x: 200, y: 400 }],
+		});
+		for (let y = 380; y >= 100; y -= 20) {
+			await session.send('Input.dispatchTouchEvent', {
+				type: 'touchMove',
+				touchPoints: [{ x: 200, y }],
+			});
+		}
+		await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+		await expect(page.locator('body')).toHaveAttribute('data-pointer-cancelled', 'true');
+		await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+		expect(await actions.snapshot()).toEqual([]);
+	} finally {
+		await session.detach();
+	}
 });
 
 // Boundary fixtures intentionally use the full allowance, not the current journey's spare room.

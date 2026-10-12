@@ -712,7 +712,10 @@ export async function countActions(page: Page) {
 		window.__friction?.stop();
 		const controller = new AbortController();
 		const actions: CountedAction[] = [];
-		const pending = new Map<number, { x: number; y: number; action: CountedAction }>();
+		const pending = new Map<
+			number,
+			{ x: number; y: number; target: EventTarget | null; action: CountedAction }
+		>();
 		const label = (target: EventTarget | null) => {
 			const el =
 				target instanceof Element
@@ -737,6 +740,7 @@ export async function countActions(page: Page) {
 				pending.set(event.pointerId, {
 					x: event.clientX,
 					y: event.clientY,
+					target: event.target,
 					action: {
 						kind: event.pointerType === 'touch' ? 'tap' : 'click',
 						target: label(event.target),
@@ -760,6 +764,25 @@ export async function countActions(page: Page) {
 				const gesture = pending.get(event.pointerId);
 				if (gesture) actions.push(gesture.action);
 				pending.delete(event.pointerId);
+			},
+			options,
+		);
+		window.addEventListener(
+			'dragstart',
+			(event) => {
+				if (!event.isTrusted) return;
+				// Native HTML drags cancel their pointer stream and may never emit pointerup.
+				// Count the attempt here, even if no drop is accepted, and retire its pointer
+				// gesture so neither pointerup nor dragend can count the same action twice.
+				actions.push({ kind: 'drag', target: label(event.target) });
+				for (const [id, gesture] of pending) {
+					if (
+						event.target instanceof Node &&
+						gesture.target instanceof Node &&
+						event.target.contains(gesture.target)
+					)
+						pending.delete(id);
+				}
 			},
 			options,
 		);
