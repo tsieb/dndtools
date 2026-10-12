@@ -1,6 +1,17 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { countActions, dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import {
+	armFrictionSeed,
+	countActions,
+	dispatch,
+	expectOneExtraStep,
+	type FrictionSeed,
+	gotoRoute,
+	markOnboarded,
+	seedDialog,
+	seedFresh,
+	waitReady,
+} from './_helpers';
 
 async function setup(page: Page) {
 	await markOnboarded(page);
@@ -44,6 +55,50 @@ async function placed(page: Page, name: string) {
 	return page.getByTestId(`widget-${(await ids())[0]}`);
 }
 
+/**
+ * Reading board → a visible Quick-track widget: Edit layout, Add, Build your own, recipe, Next, Add
+ * to screen. An optional RC-ENG-9.2 seed holds Add to screen behind one extra dialog.
+ */
+async function quickTrack(
+	page: Page,
+	recipe: 'Party list' | 'Counter or clock',
+	name: string,
+	template: string,
+	seed?: FrictionSeed,
+) {
+	const interrupt = await armFrictionSeed(page, seed);
+	const actions = await countActions(page);
+	const click = (target: Locator) => target.click();
+	await click(page.getByRole('button', { name: 'Edit layout', exact: true }));
+	await click(page.getByRole('button', { name: 'Add', exact: true }));
+	await click(
+		page.getByTestId('add-widget-gallery').getByRole('button', { name: 'Build your own' }),
+	);
+	const quick = page.getByTestId('quick-builder');
+	await expect(quick).toBeVisible();
+	for (let panel = 0; panel < 3; panel += 1) {
+		const axe = await new AxeBuilder({ page })
+			.include('[data-testid="quick-builder"]')
+			.withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+			.analyze();
+		expect(axe.violations).toEqual([]);
+		if (panel === 0) await click(quick.getByRole('button', { name: recipe, exact: true }));
+		if (panel === 1) {
+			if (recipe === 'Party list')
+				await expect(quick.getByTestId('widget-builder-preview')).toContainText(
+					'Quick Hero · HP 7 of 12',
+				);
+			await click(quick.getByRole('button', { name: 'Next', exact: true }));
+		}
+	}
+	await click(quick.getByRole('button', { name: 'Add to screen', exact: true }));
+	await interrupt();
+	await expect(quick).toHaveCount(0);
+	const tile = await placed(page, name);
+	await expect(tile.getByTestId(`widget-template-${template}`)).toBeVisible();
+	return { actions, tile };
+}
+
 for (const [recipe, name, template] of [
 	['Party list', 'Party HP', 'status-list'],
 	['Counter or clock', 'Doom counter', 'tracker'],
@@ -52,36 +107,10 @@ for (const [recipe, name, template] of [
 		page,
 	}) => {
 		await setup(page);
-		const actions = await countActions(page);
-		const click = (target: Locator) => target.click();
-		await click(page.getByRole('button', { name: 'Edit layout', exact: true }));
-		await click(page.getByRole('button', { name: 'Add', exact: true }));
-		await click(
-			page.getByTestId('add-widget-gallery').getByRole('button', { name: 'Build your own' }),
-		);
-		const quick = page.getByTestId('quick-builder');
-		await expect(quick).toBeVisible();
-		for (let panel = 0; panel < 3; panel += 1) {
-			const axe = await new AxeBuilder({ page })
-				.include('[data-testid="quick-builder"]')
-				.withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
-				.analyze();
-			expect(axe.violations).toEqual([]);
-			if (panel === 0) await click(quick.getByRole('button', { name: recipe, exact: true }));
-			if (panel === 1) {
-				if (recipe === 'Party list')
-					await expect(quick.getByTestId('widget-builder-preview')).toContainText(
-						'Quick Hero · HP 7 of 12',
-					);
-				await click(quick.getByRole('button', { name: 'Next', exact: true }));
-			}
-		}
-		await click(quick.getByRole('button', { name: 'Add to screen', exact: true }));
+		const { actions, tile } = await quickTrack(page, recipe, name, template);
+		// Measured only once the widget is on the screen: an extra step before it must be counted.
 		await actions.assertWithin('quick-track');
 		await actions.stop();
-		await expect(quick).toHaveCount(0);
-		const tile = await placed(page, name);
-		await expect(tile.getByTestId(`widget-template-${template}`)).toBeVisible();
 		if (recipe === 'Party list') await expect(tile).toContainText('Quick Hero · HP 7 of 12');
 		else {
 			await tile.getByTestId('tile-actions-trigger').click();
@@ -95,6 +124,24 @@ for (const [recipe, name, template] of [
 		expect(await page.evaluate(() => window.__rt!.state.session.workflow)).toBe('idle');
 	});
 }
+
+test('RC-ENG-9.2 seeded defect: a dialog before Add to screen fails the Quick-track budget', async ({
+	page,
+}) => {
+	await setup(page);
+	const { actions } = await quickTrack(
+		page,
+		'Counter or clock',
+		'Doom counter',
+		'tracker',
+		seedDialog(
+			'Add to screen',
+			() => expect(page.getByTestId('quick-builder')).toBeVisible(),
+			'click',
+		),
+	);
+	await expectOneExtraStep(actions, 'quick-track');
+});
 
 /** Actual Tab traversal, never locator.focus(): no pointer is used in this story. */
 async function tabTo(page: Page, target: Locator) {

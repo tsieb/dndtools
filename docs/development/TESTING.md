@@ -417,3 +417,16 @@ mutations for every budget. The existing golden, Quick builder, joined-sheet and
 table-view journeys assert the remaining rows. Mutations first pass at the ceiling,
 then dismiss one seeded dialog and require the same assertion to fail with its
 counted action trace. Keep these tests and the table in sync when tightening.
+
+End each journey on its own outcome (the placed widget, the focused note body, the
+Help menu or route guide), never on "a dialog is visible". To seed a defect into
+the real app, give the journey an optional `FrictionSeed`: call
+`const interrupt = await armFrictionSeed(page, seed)` just before `countActions`
+and `await interrupt()` straight after the seeded step. The test passes
+`seedDialog(name, notYet, via)`, where `notYet` proves the step has not taken effect
+while the extra dialog shows, and ends with `expectOneExtraStep(actions, id)`.
+FRICTION_BUDGETS.md lists the seeded control for each row.
+
+The tightening check reads every committed version of the table. In a shallow
+checkout it fetches HEAD's history from `origin` (no blobs) into a scratch
+repository; with no reachable history it fails instead of passing.

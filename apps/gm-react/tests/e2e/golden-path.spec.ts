@@ -2,11 +2,15 @@ import { selectCompanionSection } from './_companion';
 import type { CoreStateSlice } from '@dndtools/core';
 import { expect, test, type Page, type Locator } from '@playwright/test';
 import {
+	armFrictionSeed,
 	countActions,
 	dispatch,
+	expectOneExtraStep,
+	type FrictionSeed,
 	gotoRoute,
 	installFakeLan,
 	markOnboarded,
+	seedDialog,
 	waitReady,
 	watchJourney,
 } from './_helpers';
@@ -68,6 +72,21 @@ async function live(page: Page, activeSceneId: string) {
 // Shared with the seeded regressions below: a mutation must fail the journey's own assertion.
 async function captureReady(body: Locator) {
 	await expect(body, 'capture opens directly in the body').toBeFocused();
+}
+/** RC-ENG-9.2 capture segment, measured up to the focused body. Shared with its seeded defect. */
+async function captureNote(page: Page, seed?: FrictionSeed) {
+	await gotoRoute(page, '/knowledge');
+	const interrupt = await armFrictionSeed(page, seed);
+	const actions = await countActions(page);
+	await page.getByRole('button', { name: 'New note', exact: true }).first().click();
+	await interrupt();
+	const title = page.getByPlaceholder('New note title…');
+	await expect(title).toBeFocused();
+	await title.fill('Golden crossing');
+	await title.press('Enter');
+	const body = page.getByRole('textbox', { name: 'Note body', exact: true });
+	await captureReady(body);
+	return { actions, body };
 }
 async function bodyLink(page: Page, link: Locator, route: string) {
 	await link.click();
@@ -367,14 +386,7 @@ test.describe('golden paths', () => {
 		});
 		// While the session remains live, capture on Notes takes two actions, excluding text entry:
 		// New note, then Enter. No separate Edit/Preview toggle is needed to reach the body.
-		await gotoRoute(page, '/knowledge');
-		const captureActions = await countActions(page);
-		await page.getByRole('button', { name: 'New note', exact: true }).first().click();
-		await expect(page.getByPlaceholder('New note title…')).toBeFocused();
-		await page.getByPlaceholder('New note title…').fill('Golden crossing');
-		await page.getByPlaceholder('New note title…').press('Enter');
-		const body = page.getByRole('textbox', { name: 'Note body', exact: true });
-		await captureReady(body);
+		const { actions: captureActions, body } = await captureNote(page);
 		await captureActions.assertWithin('capture-note');
 		await captureActions.stop();
 		await body.fill('Moonquartz was carried by [[Golden guide]] for [[Golden guild]].');
@@ -429,6 +441,23 @@ test.describe('golden paths', () => {
 		);
 		await checkpoint('Graph note');
 		await health.assertHealthy();
+	});
+
+	test('RC-ENG-9.2 seeded defect: a dialog before the new note fails the capture budget', async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, '/session');
+		await live(page, await prepare(page));
+		const { actions } = await captureNote(
+			page,
+			seedDialog(
+				'New note',
+				() => expect(page.getByPlaceholder('New note title…')).toHaveCount(0),
+				'click',
+			),
+		);
+		await expectOneExtraStep(actions, 'capture-note');
 	});
 
 	test('player joins the fake LAN and receives only player-safe content', async ({

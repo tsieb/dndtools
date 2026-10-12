@@ -1,13 +1,19 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
+	armFrictionSeed,
 	countActions,
+	expectOneExtraStep,
 	FRICTION_BUDGETS,
+	type FrictionSeed,
 	gotoRoute,
 	markOnboarded,
 	preferPhoneCanvas,
+	seedDialog,
 	waitReady,
 } from './_helpers';
 
@@ -85,7 +91,48 @@ for (const budget of Object.keys(FRICTION_BUDGETS) as Array<keyof typeof FRICTIO
 	});
 }
 
+/**
+ * Every committed version of the table in HEAD's history. A shallow checkout (CI clones depth 1)
+ * cannot see it, so the commit graph and trees of HEAD are fetched from origin into a scratch
+ * repository without blobs; the few table versions are then read lazily. Unavailable history
+ * throws: the tightening-only rule fails closed rather than comparing against nothing.
+ */
+function recordedTables(root: string, path: string): string[] {
+	// CI runs as root in a container over a runner-owned checkout; read it regardless of owner.
+	const git = (cwd: string, ...args: string[]) =>
+		execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+			cwd,
+			encoding: 'utf8',
+			stdio: ['ignore', 'pipe', 'pipe'],
+		}).trim();
+	let scratch: string | undefined;
+	try {
+		const head = git(root, 'rev-parse', 'HEAD');
+		let repo = root;
+		if (git(root, 'rev-parse', '--is-shallow-repository') === 'true') {
+			scratch = mkdtempSync(join(tmpdir(), 'friction-history-'));
+			git(scratch, 'init', '--quiet', '--bare');
+			git(scratch, 'remote', 'add', 'origin', git(root, 'remote', 'get-url', 'origin'));
+			git(scratch, 'fetch', '--quiet', '--no-tags', '--filter=blob:none', 'origin', head);
+			if (git(scratch, 'rev-parse', '--is-shallow-repository') !== 'false')
+				throw new Error('fetched history is still shallow');
+			repo = scratch;
+		}
+		const revisions = git(repo, 'log', '--format=%H', head, '--', path).split('\n').filter(Boolean);
+		if (revisions.length === 0) throw new Error(`no commit of ${path} reachable from ${head}`);
+		return revisions.map((sha) => git(repo, 'show', `${sha}:${path}`));
+	} catch (error) {
+		throw new Error(
+			`Friction budget history unavailable, so tightening-only cannot be verified: ${(error as Error).message}`,
+			{ cause: error },
+		);
+	} finally {
+		if (scratch) rmSync(scratch, { recursive: true, force: true });
+	}
+}
+
 test('budget table matches executable ceilings and cannot loosen recorded history', () => {
+	test.setTimeout(120_000);
 	const root = fileURLToPath(new URL('../../../../', import.meta.url));
 	const path = 'docs/planning/FRICTION_BUDGETS.md';
 	const parse = (text: string) =>
@@ -106,19 +153,7 @@ test('budget table matches executable ceilings and cannot loosen recorded histor
 		help: 1,
 		'table-scene': 1,
 	};
-	const revisions = execFileSync('git', ['log', '--format=%H', '--', path], {
-		cwd: root,
-		encoding: 'utf8',
-	})
-		.trim()
-		.split('\n')
-		.filter(Boolean);
-	for (const previous of [
-		original,
-		...revisions.map((sha) =>
-			parse(execFileSync('git', ['show', `${sha}:${path}`], { cwd: root, encoding: 'utf8' })),
-		),
-	]) {
+	for (const previous of [original, ...recordedTables(root, path).map(parse)]) {
 		for (const [id, limit] of Object.entries(previous)) {
 			expect(
 				FRICTION_BUDGETS[id as keyof typeof FRICTION_BUDGETS],
@@ -128,7 +163,10 @@ test('budget table matches executable ceilings and cannot loosen recorded histor
 	}
 });
 
-test('golden friction: onboarding with keyboard only', async ({ page }) => {
+// Measured journeys. An optional seed arms one extra dialog on a step just before measurement
+// starts; the journey answers it straight after that step. Each journey ends on its own outcome,
+// never on "some dialog is open", so an intermediate dialog cannot pass for completion.
+async function keyboardOnboarding(page: Page) {
 	await page.goto('/#/');
 	await waitReady(page);
 	const overlay = page.locator('[data-fullscreen-overlay="onboarding"]');
@@ -150,12 +188,15 @@ test('golden friction: onboarding with keyboard only', async ({ page }) => {
 	}
 	await expect(overlay).toBeHidden();
 	await expect(page.locator('[data-first-session-guide]')).toBeVisible();
+	return actions;
+}
+
+test('golden friction: onboarding with keyboard only', async ({ page }) => {
+	const actions = await keyboardOnboarding(page);
 	await actions.assertWithin('onboarding-keys');
 });
 
-test('golden friction: add, move and resize a tile in four actions from Edit layout', async ({
-	page,
-}) => {
+async function tileLayout(page: Page, seed?: FrictionSeed) {
 	await markOnboarded(page);
 	await preferPhoneCanvas(page);
 	await gotoRoute(page, '/board');
@@ -167,8 +208,10 @@ test('golden friction: add, move and resize a tile in four actions from Edit lay
 	const before = new Set(
 		await frames.evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')!)),
 	);
+	const interrupt = await armFrictionSeed(page, seed);
 	const actions = await countActions(page);
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await interrupt();
 	await page
 		.getByTestId('add-widget-gallery')
 		.getByRole('button', { name: 'Add Dice', exact: true })
@@ -183,6 +226,13 @@ test('golden friction: add, move and resize a tile in four actions from Edit lay
 	const moved = await tile.getAttribute('aria-label');
 	await drag(page, tile.getByRole('button', { name: /^Resize / }), 0, 40);
 	await expect(tile).not.toHaveAttribute('aria-label', moved!);
+	return actions;
+}
+
+test('golden friction: add, move and resize a tile in four actions from Edit layout', async ({
+	page,
+}) => {
+	const actions = await tileLayout(page);
 	await actions.assertWithin('tile-layout');
 	expect((await actions.snapshot()).map((action) => action.kind)).toEqual([
 		'click',
@@ -190,6 +240,56 @@ test('golden friction: add, move and resize a tile in four actions from Edit lay
 		'drag',
 		'drag',
 	]);
+});
+
+/**
+ * Real Help, never just "a dialog": the Help menu (its Guides section) or, on a route with its
+ * own guide, that guide's article with the way back to every topic.
+ */
+const helpShown = (page: Page) =>
+	page
+		.getByRole('dialog', { name: 'Help', exact: true })
+		.filter({ has: page.getByRole('region', { name: 'Guides', exact: true }) })
+		.or(
+			page
+				.getByRole('dialog')
+				.filter({ has: page.getByRole('article') })
+				.filter({ has: page.getByRole('button', { name: 'All help topics', exact: true }) }),
+		);
+
+/** One Help activation, measured until real Help content is showing. */
+async function openHelp(page: Page, seed?: FrictionSeed) {
+	const interrupt = await armFrictionSeed(page, seed);
+	const actions = await countActions(page);
+	await page.getByRole('button', { name: 'Help', exact: true }).click();
+	await interrupt();
+	await expect(helpShown(page)).toBeVisible();
+	return actions;
+}
+
+// Seeded defects inside the application: the same journeys and completion checks, with one dialog
+// added to the real UI. Rows whose journey has spare room (onboarding) cannot fail on one added
+// step; the boundary fixtures above cover every ceiling.
+for (const route of ['/', '/board']) {
+	test(`seeded app defect: a dialog before Help on ${route} fails the Help budget`, async ({
+		page,
+	}) => {
+		await markOnboarded(page);
+		await gotoRoute(page, route);
+		const actions = await openHelp(
+			page,
+			seedDialog('Help', () => expect(helpShown(page)).toHaveCount(0), 'click'),
+		);
+		await expectOneExtraStep(actions, 'help');
+	});
+}
+
+test('seeded app defect: a dialog before the Add panel fails the tile budget', async ({ page }) => {
+	const actions = await tileLayout(
+		page,
+		seedDialog('Add', () => expect(page.getByTestId('add-widget-gallery')).toHaveCount(0), 'click'),
+	);
+	await expectOneExtraStep(actions, 'tile-layout');
 });
 
 // Every shell route, including entity detail routes and aliases. Standalone join, legal, wiki,
@@ -219,9 +319,7 @@ for (const route of routes) {
 	test(`golden friction: Help from ${route}`, async ({ page }) => {
 		await markOnboarded(page);
 		await gotoRoute(page, route);
-		const actions = await countActions(page);
-		await page.getByRole('button', { name: 'Help', exact: true }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
+		const actions = await openHelp(page);
 		await actions.assertWithin('help');
 	});
 }
@@ -241,9 +339,7 @@ test('golden friction: Help from entity details', async ({ page }) => {
 	});
 	for (const route of routes) {
 		await gotoRoute(page, route);
-		const actions = await countActions(page);
-		await page.getByRole('button', { name: 'Help', exact: true }).click();
-		await expect(page.getByRole('dialog')).toBeVisible();
+		const actions = await openHelp(page);
 		await actions.assertWithin('help');
 		await actions.stop();
 		await page.keyboard.press('Escape');

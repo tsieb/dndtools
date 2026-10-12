@@ -1,5 +1,14 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
-import { countActions, gotoRoute, installFakeLan, markOnboarded } from './_helpers';
+import {
+	armFrictionSeed,
+	countActions,
+	expectOneExtraStep,
+	type FrictionSeed,
+	gotoRoute,
+	installFakeLan,
+	markOnboarded,
+	seedDialog,
+} from './_helpers';
 
 // RC-SES-7.2 — a default for what players see. Start session used to record an active scene the
 // players never received: each joined player's stage stayed empty until the GM assigned a view to
@@ -99,8 +108,16 @@ async function openTable(page: Page, browser: Browser, testInfo: TestInfo): Prom
 	return table;
 }
 
-/** Start session from the Session screen's own dialog, on the named scene. */
-async function startSession(page: Page, sceneName: string, showToTable = true) {
+/**
+ * Start session from the Session screen's own dialog, on the named scene. Measures the final Start
+ * session (RC-ENG-9.2 table-scene); an optional seed holds it behind one extra dialog.
+ */
+async function startSession(
+	page: Page,
+	sceneName: string,
+	showToTable = true,
+	seed?: FrictionSeed,
+) {
 	await page.getByRole('button', { name: 'Start session', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Start a session' });
 	const mode = dialog.getByRole('radio', { name: 'New session' });
@@ -114,8 +131,10 @@ async function startSession(page: Page, sceneName: string, showToTable = true) {
 		await expect(sharing).not.toBeChecked();
 		await expect(sharing).toBeDisabled();
 	}
+	const interrupt = await armFrictionSeed(page, seed);
 	const actions = await countActions(page);
 	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
+	await interrupt();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
 	return actions;
@@ -159,6 +178,29 @@ test('Start session with the shared scene puts it on the joined stage; a per-pla
 				return sceneId ? rt.state.scenes.scenes[sceneId]?.name : null;
 			}),
 		).toBe(TABLE_SCENE);
+	} finally {
+		await table.close();
+	}
+});
+
+test('RC-ENG-9.2 seeded defect: a dialog before Start session fails the table-scene budget', async ({
+	page,
+	browser,
+}, testInfo) => {
+	const table = await openTable(page, browser, testInfo);
+	try {
+		const notLive = async () => {
+			expect(await page.evaluate(() => window.__rt!.state.session.workflow)).not.toBe('active');
+			await expect(table.player.getByTestId('player-stage')).not.toContainText(TABLE_SCENE);
+		};
+		const actions = await startSession(
+			page,
+			TABLE_SCENE,
+			true,
+			seedDialog('Start session', notLive, 'click'),
+		);
+		await expect(table.player.getByTestId('player-stage')).toContainText(TABLE_SCENE);
+		await expectOneExtraStep(actions, 'table-scene');
 	} finally {
 		await table.close();
 	}

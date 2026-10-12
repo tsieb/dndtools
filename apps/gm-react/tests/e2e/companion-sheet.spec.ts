@@ -2,8 +2,18 @@ import AxeBuilder from '@axe-core/playwright';
 import type { CoreStateSlice } from '@dndtools/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { expect, test, type Page } from '@playwright/test';
-import { countActions, dispatch, gotoRoute, installFakeLan, markOnboarded } from './_helpers';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+import {
+	armFrictionSeed,
+	countActions,
+	dispatch,
+	expectOneExtraStep,
+	type FrictionSeed,
+	gotoRoute,
+	installFakeLan,
+	markOnboarded,
+	seedDialog,
+} from './_helpers';
 import { selectCompanionSection } from './_companion';
 
 // RC-CHR-6.1 — the companion sheet is the player's sheet. A player joined over the fake LAN (real
@@ -52,6 +62,26 @@ async function delivered(act: () => Promise<void>, appears: ReturnType<Page['loc
 	await act();
 	await expect(appears).toBeVisible({ timeout: DELIVERY_BUDGET_MS });
 	expect(Date.now() - started).toBeLessThanOrEqual(DELIVERY_BUDGET_MS);
+}
+
+/**
+ * RC-ENG-9.2 player-damage: tap the amount, tap Damage, until the DM sees it within the delivery
+ * budget. A seed holds Damage behind one extra dialog (its delay is not a delivery measurement).
+ */
+async function markDamage(player: Page, amount: number, appears: Locator, seed?: FrictionSeed) {
+	const sheet = player.locator('#player-main');
+	const interrupt = await armFrictionSeed(player, seed);
+	const actions = await countActions(player);
+	await sheet.getByLabel('Hit point change amount').tap();
+	await sheet.getByLabel('Hit point change amount').fill(String(amount));
+	const damage = () => sheet.getByRole('button', { name: `Damage ${amount}`, exact: true }).tap();
+	if (seed) {
+		await damage();
+		await interrupt();
+		await expect(appears).toBeVisible({ timeout: DELIVERY_BUDGET_MS });
+	} else await delivered(damage, appears);
+	await expect(sheet.getByRole('button', { name: `Undo ${amount} damage` })).toBeVisible();
+	return actions;
 }
 
 test('a joined player edits their own sheet live; the DM sees it and another PC is refused', async ({
@@ -158,15 +188,12 @@ test('a joined player edits their own sheet live; the DM sees it and another PC 
 		const hpAfter = mine.combat.hp - 3;
 
 		// 1 · Mark 3 damage.
-		const damageActions = await countActions(player);
-		await sheet.getByLabel('Hit point change amount').tap();
-		await sheet.getByLabel('Hit point change amount').fill('3');
-		await delivered(
-			() => sheet.getByRole('button', { name: 'Damage 3', exact: true }).tap(),
+		const damageActions = await markDamage(
+			player,
+			3,
 			row.getByText(`${hpAfter}/${mine.combat.maxHp}`, { exact: true }),
 		);
 		await expect(sheet.getByTestId('vitals-hp')).toContainText(String(hpAfter));
-		await expect(sheet.getByRole('button', { name: 'Undo 3 damage' })).toBeVisible();
 		await damageActions.assertWithin('player-damage');
 		await damageActions.stop();
 
@@ -211,6 +238,17 @@ test('a joined player edits their own sheet live; the DM sees it and another PC 
 			message: "You may not update this character's combat resources.",
 		});
 		expect(await characterOf(page, theirs.id)).toEqual(before);
+
+		// 5 · RC-ENG-9.2 seeded defect: one dialog before Damage fails the player-damage budget.
+		const hpSeeded = hpAfter - 2;
+		const seededHp = dmSheet.getByText(`${hpSeeded}/${mine.combat.maxHp}`);
+		const seeded = await markDamage(
+			player,
+			2,
+			seededHp.first(),
+			seedDialog('Damage 2', () => expect(seededHp).toHaveCount(0), 'tap'),
+		);
+		await expectOneExtraStep(seeded, 'player-damage');
 	} finally {
 		await context.close();
 	}

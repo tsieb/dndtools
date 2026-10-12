@@ -1,4 +1,4 @@
-import { errors, test, type Page } from '@playwright/test';
+import { errors, expect, test, type Page } from '@playwright/test';
 
 // Shared drivers for the React GM e2e suite. These mirror the idioms proven in the repo's
 // `scripts/verify-*.mjs` gates: bypass the first-run onboarding overlay, navigate under the
@@ -796,4 +796,105 @@ export async function countActions(page: Page) {
 			await page.evaluate(() => window.__friction?.stop());
 		},
 	};
+}
+
+/**
+ * RC-ENG-9.2 seeded defect inside the real app: the next trusted activation of the button named
+ * `name` (pointer or keyboard) is held behind one extra confirmation dialog. Confirming it replays
+ * the original activation with an untrusted click, so the counter sees only the added step. A
+ * journey whose completion check can be satisfied while the extra dialog is open is too weak.
+ */
+export async function seedExtraDialog(page: Page, name: string) {
+	await page.evaluate((buttonName) => {
+		const controller = new AbortController();
+		window.addEventListener(
+			'click',
+			(event) => {
+				const button =
+					event.target instanceof Element
+						? event.target.closest<HTMLElement>('button, [role="button"]')
+						: null;
+				const label = (button?.getAttribute('aria-label') ?? button?.textContent ?? '').trim();
+				if (!event.isTrusted || !button || label !== buttonName) return;
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				controller.abort();
+				const dialog = document.createElement('dialog');
+				dialog.setAttribute('aria-label', 'Extra confirmation');
+				dialog.dataset.seededFriction = '';
+				const confirm = document.createElement('button');
+				confirm.textContent = 'Confirm extra step';
+				confirm.addEventListener('click', () => {
+					dialog.close();
+					dialog.remove();
+					button.click();
+				});
+				dialog.append(confirm);
+				document.body.append(dialog);
+				dialog.showModal();
+			},
+			{ capture: true, signal: controller.signal },
+		);
+	}, name);
+	const dialog = page.getByRole('dialog', { name: 'Extra confirmation', exact: true });
+	return {
+		dialog,
+		/** Dismiss the extra dialog with a counted click, tap or Enter. */
+		async confirm(via: 'click' | 'tap' | 'key') {
+			await expect(dialog).toBeVisible();
+			const confirm = dialog.getByRole('button', { name: 'Confirm extra step', exact: true });
+			if (via === 'key') {
+				await expect(confirm).toBeFocused();
+				await page.keyboard.press('Enter');
+			} else if (via === 'tap') await confirm.tap();
+			else await confirm.click();
+			await expect(dialog).toHaveCount(0);
+		},
+	};
+}
+
+export type FrictionCounter = Awaited<ReturnType<typeof countActions>>;
+/** One extra dialog on the named button, answered by the journey straight after that step. */
+export interface FrictionSeed {
+	button: string;
+	answer: (defect: Awaited<ReturnType<typeof seedExtraDialog>>) => Promise<void>;
+}
+
+/**
+ * Seed for a journey step. `notYet` must prove the step has not taken effect while the extra
+ * dialog is showing, so the journey's own completion check cannot be met by that dialog.
+ */
+export function seedDialog(
+	button: string,
+	notYet: () => Promise<void>,
+	via: 'click' | 'tap' | 'key',
+): FrictionSeed {
+	return {
+		button,
+		async answer(defect) {
+			await expect(defect.dialog).toBeVisible();
+			await notYet();
+			await defect.confirm(via);
+		},
+	};
+}
+
+/** Arm a seed (if any) just before measurement; call the result straight after the seeded step. */
+export async function armFrictionSeed(page: Page, seed?: FrictionSeed) {
+	const defect = seed && (await seedExtraDialog(page, seed.button));
+	return async () => {
+		if (seed && defect) await seed.answer(defect);
+	};
+}
+
+/** A seeded journey at its ceiling must count exactly one more action and fail its budget. */
+export async function expectOneExtraStep(actions: FrictionCounter, budget: FrictionBudget) {
+	const counted = (await actions.snapshot()).length;
+	expect(counted, 'the seeded journey counts exactly one more action').toBe(
+		FRICTION_BUDGETS[budget] + 1,
+	);
+	await expect(actions.assertWithin(budget)).rejects.toThrow(
+		`Friction ${budget}: ${counted}/${FRICTION_BUDGETS[budget]} actions`,
+	);
+	await expect(actions.assertWithin(budget)).rejects.toThrow('Confirm extra step');
 }

@@ -45,3 +45,44 @@
 - `git diff --check`: exit 0.
 - No production UI changed; no screenshot baselines or visual gate run. Full central gates and
   independent review remain the central operator's responsibility.
+
+## Review round 2 (candidate 90dbcaf0 rejected)
+
+Findings addressed:
+
+- **High — Help accepted any dialog.** The Help journey is now `openHelp()`, measured until real
+  Help shows: the Help menu dialog with its Guides region, or the route's own guide dialog (article
+  plus "All help topics"). The stricter check showed that 13 routes (and the entity details) open
+  their route guide, not the menu, so both are accepted and nothing else is. New
+  `seedExtraDialog()` in `_helpers.ts` holds the first trusted activation of a named control
+  behind one native "Extra confirmation" dialog; confirming it replays the action untrusted. Every
+  journey at its ceiling takes an optional `FrictionSeed` (`armFrictionSeed` before
+  `countActions`, `interrupt()` after the seeded step). Each seeded run proves the step has not
+  taken effect while the dialog shows, then requires `expectOneExtraStep`, i.e. limit+1 counted
+  and `assertWithin` rejecting with the count and "Confirm extra step". In-app seeds: Help
+  (`/`, `/board`), tile-layout (Add), quick-track (Add to screen), capture-note (New note),
+  table-scene (Start session), player-damage (Damage 2, step 5 of the joined-sheet test).
+  Onboarding journeys run below their ceilings (9/12 keys, 4/5 clicks), so an in-app seed cannot
+  exceed them; the probe confirmed it (seeded keyboard onboarding counted 10). The test was dropped
+  and the doc explains this. Quick-track now asserts only after the widget is placed.
+- **Medium — shallow-history loosening.** `recordedTables()` reads all committed table versions in
+  HEAD's history. Shallow checkouts fetch HEAD's commit graph and trees from `origin` with
+  `--filter=blob:none` into a scratch bare repo (GitHub main: about 6 s, 3.8 MB). Any failure throws
+  "Friction budget history unavailable" (fail closed). Git runs with `-c safe.directory=*`
+  because CI runs as root in a container over a runner-owned checkout. ci.yml is unchanged.
+
+Validation (native logs inspected):
+
+- Probe `/tmp/rc-eng92-scripts/history-probe.mjs` transpiles and runs the spec's exact
+  `recordedTables` source. Depth-1 clone of the candidate: 1 version, no loosening. Depth-1 clone
+  of a tighten(6→5)-then-restore(6) branch: 3 versions recovered, `quick-track 6>5` detected.
+  Depth-1 clone with unreachable origin: throws. Full worktree: 1 version. Scratch dirs removed.
+- `pnpm e2e friction-budgets.spec.ts widget-quick-builder.spec.ts table-view.spec.ts companion-sheet.spec.ts golden-path.spec.ts --workers=2 --retries=0`:
+  **174 passed**, exit 0, `/tmp/rc-eng92-r2-all.log`.
+- After doc/table edits, `pnpm e2e friction-budgets.spec.ts --workers=2 --retries=0`: **74 passed**,
+  exit 0, `/tmp/rc-eng92-r2-friction2.log`.
+- Seeded tests plus the joined-sheet journey, `--repeat-each=3`: **138 passed**, exit 0,
+  `/tmp/rc-eng92-r2-seeded-repeat.log`.
+- ESLint on all six changed e2e files: exit 0. Prettier on changed files: clean. The two warnings
+  (isolation-guard, permissions specs) are in untouched files. `git diff --check`: clean.
+- Not run: full browser suite, visual gate, hosted CI. Those belong to the central operator.
