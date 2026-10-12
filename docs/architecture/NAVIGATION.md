@@ -1,5 +1,8 @@
 # Navigation, Layout, and the App Shell
 
+The proposed [pre-release navigation review](../planning/IA_REVIEW.md) records RC-UX-5.5's
+recommendation and pending acceptance; the implemented contract below remains in force.
+
 The single source of navigation truth is `apps/gm-react/src/app/nav.ts`. `apps/gm-react/src/app/AppShell.tsx`
 is the only renderer of primary destinations: a sidebar on desktop, `NavRail` on tablet, and
 `BottomTabBar` plus a More sheet on phones. No other module may define a primary destination.
