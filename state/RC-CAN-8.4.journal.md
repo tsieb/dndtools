@@ -369,3 +369,36 @@ Evidence directory: `/var/tmp/rc-can-8.4-naming/`.
   (`/var/tmp/rc-can-8.4-r3-format.log`). The browser, unit and visual evidence from the naming
   correction above covers this exact source tree.
 - No push, promotion, new loop, extra agents, or dispatcher control-state edits.
+
+## 2026-10-11 — independent review baseline-budget repair
+
+- Starting from clean `a7cd86b85`. No Headroom tools exposed; retaining original native output in
+  `/var/tmp/rc-can-8.4-budget/`.
+- Reproduced the review finding with `node apps/gm-react/tests/visual/check-baseline-budget.mjs`:
+  exit 1, 888 files totaling 39,050.6 KiB against the unchanged 37,888.0 KiB cap
+  (`budget-before.log`).
+- Losslessly compressed the 95 PNG baselines already changed by this task using pyoxipng 9.1.1
+  (`level=4`, `optimize_alpha=False`, `strip=StripChunks.none()`). Saved 1,230,245 bytes. Pillow
+  verified exact RGBA bytes, dimensions and metadata before each write; the compression script,
+  per-image hashes and original output are retained as `compress.py`, `compression.json` and
+  `compression.log`. Tools were installed in a temporary environment outside the repository.
+- The unchanged baseline budget now passes, exit 0: 888 files, **37,849.2 KiB / 37,888.0 KiB**
+  (`budget-after.log`, `budget-after.exit`). No baseline was removed or resized, and no screenshot
+  assertion, threshold, coverage, source code or dependency file changed in this repair.
+- Fresh screen-editing and route-title acceptance run: **14 passed**, both desktop and mobile,
+  exit 0 (`e2e.log`, `e2e.exit`), with two workers and no retries. Quality gates pass, exit 0
+  (`gates.log`, `gates.exit`).
+- Independent pngjs verification against `a7cd86b85`: **888/888 baselines** have identical
+  inventory, dimensions and decoded RGBA bytes; exactly 95 have changed encoding. Exit 0
+  (`verify-pixels.cjs`, `pixels.log`, `pixels.exit`). Changed-file formatting passes for all 49
+  text files, exit 0 (`format.log`, `format.exit`); `git diff --check` passes.
+- Pinned visual comparison: **60 passed**, exit 0 (`visual.log`, `visual.exit`), with snapshot
+  updates disabled. Command: `DNDTOOLS_PW_WORKERS=2 apps/gm-react/tests/visual/run-in-container.sh
+golden-routes.spec.ts scene-editor-polish.spec.ts add-panel.spec.ts board-layouts.spec.ts
+--grep '/board$|/scenes$|/scene/:id$|scene editor inspector|Add panel|Layouts'
+--update-snapshots=none --workers=2`. Covers every compressed surface across desktop, rail and
+  phone. This is the affected subset, not a repeat of the full central gate suite.
+- The review's observed size failure is repaired without changing pixels or coverage. Scope
+  verification confirms this round changes only existing task PNGs and this journal. Central
+  exact-SHA gates and independent review remain the operator's next steps. No push, promotion,
+  additional agent, new loop, or dispatcher control-state edits.
