@@ -161,28 +161,30 @@ decider, consultation with UX/Accessibility, date, and this review's merged comm
 
 ## Acceptance record and ENG-7.3 release precondition
 
-| Required evidence                                                    | Status at this revision                                                                    |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Recommendation addresses every September finding                     | Covered above; proposed IA-1.                                                              |
-| Engineering accepts decision, with UX/Accessibility consultation     | Pending; no acceptance inferred from authoring or committing this review.                  |
-| Review merged                                                        | Pending central review/integration; local commit is not merge evidence.                    |
-| ADR-013 amendment adopted                                            | Pending acceptance and an authorized ADR edit.                                             |
-| ENG-7.3 explicitly lists accepted decision as a release precondition | Pending roadmap-owner handoff below; current story only declares `UX-5.5` as a dependency. |
-| Implementation stories filed after acceptance                        | Pending; draft scopes below are not registered stories.                                    |
+| Required evidence                                                    | Status at this revision                                                                        |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Recommendation addresses every September finding                     | Covered above; proposed IA-1.                                                                  |
+| Engineering accepts decision, with UX/Accessibility consultation     | Pending; no acceptance inferred from authoring or committing this review.                      |
+| Review merged                                                        | Pending central review/integration; local commit is not merge evidence.                        |
+| ADR-013 amendment adopted                                            | Pending acceptance and an authorized ADR edit.                                                 |
+| ENG-7.3 explicitly lists accepted decision as a release precondition | Applied in RC_ROADMAP ENG-7.3 (text below); the precondition itself is unmet until acceptance. |
+| Implementation stories filed after acceptance                        | Pending; draft scopes below are not registered stories.                                        |
 
-**HANDOFF RC-UX-5.5 → RC_ROADMAP.md / RC-ENG-7.3 owner:** append the following to ENG-7.3
-and carry the checkbox into its owned `docs/development/RC_CHECKLIST.md` (not yet present):
+[RC_ROADMAP](RC_ROADMAP.md) RC-ENG-7.3 now carries this release precondition, added by this task
+after independent review cited the gap (a minimal crossing of the UX-5.5 claim):
 
-> Release precondition: the RC-UX-5.5 navigation review (`docs/planning/IA_REVIEW.md`) is merged
-> and records an explicitly accepted IA decision, accepting decider, date and merged commit.
-> ADR-013 reflects that decision. Every September 12 finding has a disposition, and each required
-> implementation follow-up is filed with an owner and verified on the release candidate commit.
-> A pending decision, unmerged review or required unfinished follow-up blocks RC-ENG-7.2; a task
-> dependency alone is not acceptance evidence.
+> Release precondition (RC-UX-5.5): the navigation review `IA_REVIEW.md` is merged and records an
+> explicitly accepted IA decision with the accepting decider, date and merged commit; ADR-013
+> reflects that decision; every 2026-09-12 finding has a disposition; and each required
+> implementation follow-up is filed with an owner and verified on the release-candidate commit. A
+> pending decision, an unmerged review or an unfinished required follow-up blocks RC-ENG-7.2; the
+> UX-5.5 dependency alone is not acceptance evidence, and `RC_CHECKLIST.md` carries this as a check.
 
-This task owns IA_REVIEW, not RC_ROADMAP or RC_CHECKLIST. The write fence prevents applying that
-amendment here. Until the owner applies it and acceptance/merge are recorded, UX-5.5's full
-acceptance criteria remain incomplete. Do not mark the review accepted to bypass this handoff.
+ENG-7.3's acceptance line now opens with "the RC-UX-5.5 precondition is met". The checkbox in
+`docs/development/RC_CHECKLIST.md` (owned by ENG-7.3, not yet present) is ENG-7.3's to write.
+Listing the precondition is not meeting it: the decision is still unaccepted, so release stays
+blocked until the rows above marked Pending are recorded. Do not mark the review accepted to clear
+the gate.
 
 After acceptance, file these bounded stories through the roadmap owner with actual IDs and
 explicit Owns/Deps; all depend on the accepted decision, not just this document's existence:
@@ -196,8 +198,9 @@ explicit Owns/Deps; all depend on the accepted decision, not just this document'
 3. **Bookmark compatibility.** Own route aliases, palette consumers and migration tests. Verify
    every route-table row on cold load and Back/Forward, including renamed/missing/private screens,
    query and edit intent, saved recents and unaffected companion joins. Depends on grouping.
-4. **Decision and release evidence.** Own ADR-013, roadmap and RC checklist amendments; attach the
-   accepted decision and follow-up IDs, usability findings and exact-candidate gates to ENG-7.3.
+4. **Decision and release evidence.** Own the ADR-013 and RC checklist amendments (the ENG-7.3
+   precondition is already in the roadmap); attach the accepted decision and follow-up IDs,
+   usability findings and exact-candidate gates to ENG-7.3.
    Do not call a proposed migration tested because existing alias tests pass.
 
 ## Validation plan and review limits

@@ -3321,7 +3321,14 @@ RC_CHECKLIST.md` (the §2 gates as a runnable list with commands), `release.yml`
   `docs/requirements/FEATURE-GAPS.md`, `docs/development/RC_CHECKLIST.md`. The `requirements-auditor`
   and `ux-ui-reviewer` passes over the whole app on one commit: every §2 gate, every inventory row,
   every §20 waiver re-read. Findings become stories; this audit is the gate for RC-ENG-7.2.
-  Acceptance: zero unverifiable claims; every open limit is one of the §2.1 external four.
+  Release precondition (RC-UX-5.5): the navigation review [`IA_REVIEW.md`](IA_REVIEW.md) is merged
+  and records an explicitly accepted IA decision with the accepting decider, date and merged commit;
+  ADR-013 reflects that decision; every 2026-09-12 finding has a disposition; and each required
+  implementation follow-up is filed with an owner and verified on the release-candidate commit. A
+  pending decision, an unmerged review or an unfinished required follow-up blocks RC-ENG-7.2; the
+  UX-5.5 dependency alone is not acceptance evidence, and `RC_CHECKLIST.md` carries this as a check.
+  Acceptance: the RC-UX-5.5 precondition is met; zero unverifiable claims; every open limit is one
+  of the §2.1 external four.
 
 ### Epic ENG-8 — Early access: primary paths before platform depth (P2→P3)
 
