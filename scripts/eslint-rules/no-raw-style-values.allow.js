@@ -19,14 +19,14 @@ export const allow = {
 	'apps/gm-react/src/app/widgets/builtin/CharacterBody.tsx': 2,
 	'apps/gm-react/src/app/widgets/builtin/CharactersBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/CombatBody.tsx': 1,
-	'apps/gm-react/src/app/widgets/builtin/DiceBody.tsx': 2,
-	'apps/gm-react/src/app/widgets/builtin/InitiativeTracker.tsx': 11,
-	'apps/gm-react/src/app/widgets/builtin/Map.tsx': 4,
 	'apps/gm-react/src/app/widgets/builtin/PlayerViewsBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/SearchBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/SessionBody.tsx': 1,
-	'apps/gm-react/src/app/widgets/builtin/TimerBody.tsx': 1,
 	'apps/gm-react/src/app/widgets/builtin/ToolsBody.tsx': 1,
+	'apps/gm-react/src/app/widgets/templates/board/Countdown.tsx': 1,
+	'apps/gm-react/src/app/widgets/templates/board/DiceRoller.tsx': 2,
+	'apps/gm-react/src/app/widgets/templates/board/InitiativeCompact.tsx': 11,
+	'apps/gm-react/src/app/widgets/templates/board/MapView.tsx': 4,
 	'apps/gm-react/src/screens/Board.tsx': 3,
 	'apps/gm-react/src/screens/BoardLayoutsPanel.tsx': 2,
 	'apps/gm-react/src/screens/characters/shared.tsx': 2,
@@ -37,4 +37,4 @@ export const allow = {
 	'apps/gm-react/src/screens/play/Home.tsx': 10,
 };
 
-// Total current findings: 437
+// Total current findings: 150

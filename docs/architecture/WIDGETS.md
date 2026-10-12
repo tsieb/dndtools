@@ -165,7 +165,9 @@ its declared query (`widget-timer`, `session-audio`, `bound-map`, `current-comba
 `dice-history`, `notes` / `content-objects`) and acts only through its declared commands and
 intents: Timer and Dice through the board's `onCommand`, Map and Initiative by sending the same
 `widget.dispatch-command` envelope themselves (`useWidgetCommandRunner`) so they can announce the
-core's answer, as the HP keypad and "Map projected" always did. Host size bounds stay as they were
+core's answer, as the HP keypad and "Map projected" always did. The Session screen's dice tray
+(RC-CAN-7.8) is the `dice-roller` template's `tray` view: the same `dice-history` rows and the
+declared `dice.roll`, with an expression and a label. Host size bounds stay as they were
 (`BUILTIN_SIZE_BOUNDS`). Built-in bodies (`app/widgets/builtin/`) remain for the note and handout,
 the character and the legacy Command Center widgets (session, getting started, tools, data hub,
 atlas, characters, player views, combat, notes, search), each reading through public sources.
@@ -609,7 +611,9 @@ a builtin on the fresh GM board.
 Negative regression fixtures inject their own defects; only the exact ledger comparison requires
 current production debt to reproduce, so repaying that debt does not break unrelated assertions.
 
-The ledger is empty since RC-WID-5.7 (2026-10-08), and a new finding fails the gate.
+RC-WID-5.6 and RC-WID-5.7 left nothing on the ledger. What it holds now is the Session screen's
+(RC-CAN-7.8): the `session` and `combat` views' private uses and their builtin bodies on that
+screen, owed by RC-WID-5.13. A new finding fails the gate.
 
 RC-WID-5.6 repaid the five home-definition findings: shipped definitions include empty
 computed fields and query arrays, token-derived CSS variables and declared configuration schema properties,

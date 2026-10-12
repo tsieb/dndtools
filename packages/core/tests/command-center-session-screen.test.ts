@@ -178,7 +178,7 @@ describe('RC-CAN-7.8 the Session screen', () => {
 		expect([view('session'), view('combat'), view('dice')]).toEqual(['strip', 'glance', 'quick']);
 	});
 
-	it('every row is a view of a builtin widget, and the views are the GM’s to change', () => {
+	it('every row is a view of an existing widget, and the views are the GM’s to change', () => {
 		const { nextState } = ensure(buildInitialState(DM_ACTOR), makeEnvironment());
 		const screen = sessionScreen(nextState);
 		// The status row and the right-hand column are `session` views, each named for its row.
@@ -196,11 +196,15 @@ describe('RC-CAN-7.8 the Session screen', () => {
 				?.options?.map((option) => option.value) ?? [];
 		for (const widget of screen.widgets)
 			expect(options(widget.type), widget.type).toContain(widget.configuration.view);
-		for (const type of ['session', 'combat', 'dice']) {
+		for (const type of ['session', 'combat']) {
 			const definition = findWidgetDefinition(nextState.widgets, type)!;
-			expect(definition.renderEntrypoint?.runtime === 'builtin' || type === 'dice').toBe(true);
+			expect(definition.renderEntrypoint?.runtime).toBe('builtin');
 			// A copy under a new type would lose the hand-written body, so a GM cannot fork one.
 			expect(isCopyableSystemWidget(definition)).toBe(false);
 		}
+		// RC-WID-5.7 — the dice tray is the `dice-roller` template's `tray` view: a copy keeps it.
+		const dice = findWidgetDefinition(nextState.widgets, 'dice')!;
+		expect(dice.renderEntrypoint).toMatchObject({ runtime: 'template', template: 'dice-roller' });
+		expect(isCopyableSystemWidget(dice)).toBe(true);
 	});
 });
