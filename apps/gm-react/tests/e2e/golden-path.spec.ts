@@ -2,6 +2,7 @@ import { selectCompanionSection } from './_companion';
 import type { CoreStateSlice } from '@dndtools/core';
 import { expect, test, type Page, type Locator } from '@playwright/test';
 import {
+	countActions,
 	dispatch,
 	gotoRoute,
 	installFakeLan,
@@ -141,6 +142,8 @@ test.describe('golden paths', () => {
 		await waitReady(page);
 		const overlay = page.locator('[data-fullscreen-overlay="onboarding"]');
 		await health.checkpoint('Your campaign');
+		const onboardingActions = await countActions(page);
+		await overlay.getByLabel('Campaign name').click();
 		await overlay.getByLabel('Campaign name').fill('Golden campaign');
 		await overlay.getByRole('button', { name: 'Continue', exact: true }).click();
 		await health.checkpoint('How much on screen');
@@ -148,6 +151,8 @@ test.describe('golden paths', () => {
 		await health.checkpoint('Ready');
 		await overlay.getByRole('button', { name: 'Open the Command Center' }).click();
 		await expect(overlay).toBeHidden();
+		await onboardingActions.assertWithin('onboarding-clicks');
+		await onboardingActions.stop();
 		await expect(page.locator('#main-content')).toBeVisible();
 		// RC-UX-6.3 — the Command Center opens on the first-session guide, focus on its first row. The
 		// campaign was named in onboarding, so that row is the one already done.
@@ -363,11 +368,15 @@ test.describe('golden paths', () => {
 		// While the session remains live, capture on Notes takes two actions, excluding text entry:
 		// New note, then Enter. No separate Edit/Preview toggle is needed to reach the body.
 		await gotoRoute(page, '/knowledge');
+		const captureActions = await countActions(page);
 		await page.getByRole('button', { name: 'New note', exact: true }).first().click();
+		await expect(page.getByPlaceholder('New note title…')).toBeFocused();
 		await page.getByPlaceholder('New note title…').fill('Golden crossing');
 		await page.getByPlaceholder('New note title…').press('Enter');
 		const body = page.getByRole('textbox', { name: 'Note body', exact: true });
 		await captureReady(body);
+		await captureActions.assertWithin('capture-note');
+		await captureActions.stop();
 		await body.fill('Moonquartz was carried by [[Golden guide]] for [[Golden guild]].');
 		await checkpoint('Live capture');
 		await page.getByRole('button', { name: 'Done', exact: true }).click();

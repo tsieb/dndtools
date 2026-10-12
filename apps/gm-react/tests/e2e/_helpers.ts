@@ -678,3 +678,122 @@ export async function openDemoVault(page: Page): Promise<void> {
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitReady(page);
 }
+
+/** RC-ENG-9.2 ceilings. Keep in sync with docs/planning/FRICTION_BUDGETS.md; only tighten. */
+export const FRICTION_BUDGETS = {
+	'onboarding-clicks': 5,
+	'onboarding-keys': 12,
+	'capture-note': 2,
+	'quick-track': 6,
+	'tile-layout': 4,
+	'player-damage': 2,
+	help: 1,
+	'table-scene': 1,
+} as const;
+export type FrictionBudget = keyof typeof FRICTION_BUDGETS;
+type CountedAction = { kind: 'click' | 'tap' | 'key' | 'drag'; target: string };
+
+declare global {
+	interface Window {
+		__friction?: { actions: CountedAction[]; stop: () => void };
+	}
+}
+
+/**
+ * Start a measured segment AFTER setup. Listen in capture phase so app handlers cannot hide input.
+ * A pointer gesture is one action (never both a tap and its compatibility click); a drag is one
+ * action irrespective of move events. Native touch scrolling cancels the pointer and is excluded.
+ * Each non-modifier keydown, including repeats and typed characters, counts; a chord counts once.
+ * fill()/insertText() are payload injection, not physical keys. Do not use focus()/evaluate() to
+ * bypass navigation during a measured segment. Full-document navigation fails closed.
+ */
+export async function countActions(page: Page) {
+	await page.evaluate(() => {
+		window.__friction?.stop();
+		const controller = new AbortController();
+		const actions: CountedAction[] = [];
+		const pending = new Map<number, { x: number; y: number; action: CountedAction }>();
+		const label = (target: EventTarget | null) => {
+			const el =
+				target instanceof Element
+					? (target.closest('button, a, input, textarea, [role], [aria-label]') ?? target)
+					: null;
+			return (
+				el?.getAttribute('aria-label') ||
+				el?.getAttribute('name') ||
+				el?.textContent ||
+				el?.tagName ||
+				'document'
+			)
+				.trim()
+				.replace(/\s+/g, ' ')
+				.slice(0, 100);
+		};
+		const options = { capture: true, signal: controller.signal };
+		window.addEventListener(
+			'pointerdown',
+			(event) => {
+				if (!event.isTrusted) return;
+				pending.set(event.pointerId, {
+					x: event.clientX,
+					y: event.clientY,
+					action: {
+						kind: event.pointerType === 'touch' ? 'tap' : 'click',
+						target: label(event.target),
+					},
+				});
+			},
+			options,
+		);
+		window.addEventListener(
+			'pointermove',
+			(event) => {
+				const gesture = pending.get(event.pointerId);
+				if (gesture && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 4)
+					gesture.action.kind = 'drag';
+			},
+			options,
+		);
+		window.addEventListener(
+			'pointerup',
+			(event) => {
+				const gesture = pending.get(event.pointerId);
+				if (gesture) actions.push(gesture.action);
+				pending.delete(event.pointerId);
+			},
+			options,
+		);
+		window.addEventListener('pointercancel', (event) => pending.delete(event.pointerId), options);
+		window.addEventListener(
+			'keydown',
+			(event) => {
+				if (!event.isTrusted || ['Shift', 'Control', 'Alt', 'Meta', 'AltGraph'].includes(event.key))
+					return;
+				actions.push({
+					kind: 'key',
+					target: `${event.ctrlKey ? 'Ctrl+' : ''}${event.altKey ? 'Alt+' : ''}${event.metaKey ? 'Meta+' : ''}${event.shiftKey ? 'Shift+' : ''}${event.key} on ${label(event.target)}`,
+				});
+			},
+			options,
+		);
+		window.__friction = { actions, stop: () => controller.abort() };
+	});
+	const snapshot = () =>
+		page.evaluate(() => {
+			if (!window.__friction) throw new Error('Friction counter lost across document navigation');
+			return window.__friction.actions;
+		});
+	return {
+		snapshot,
+		async assertWithin(budget: FrictionBudget) {
+			const actions = await snapshot();
+			const limit = FRICTION_BUDGETS[budget];
+			const diagnostic = `Friction ${budget}: ${actions.length}/${limit} actions\n${actions.map((action, index) => `${index + 1}. ${action.kind}: ${action.target}`).join('\n')}`;
+			if (actions.length > limit) throw new Error(diagnostic);
+			test.info().annotations.push({ type: 'friction', description: diagnostic });
+		},
+		async stop() {
+			await page.evaluate(() => window.__friction?.stop());
+		},
+	};
+}

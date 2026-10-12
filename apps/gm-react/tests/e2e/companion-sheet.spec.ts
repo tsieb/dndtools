@@ -3,7 +3,7 @@ import type { CoreStateSlice } from '@dndtools/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, installFakeLan, markOnboarded } from './_helpers';
+import { countActions, dispatch, gotoRoute, installFakeLan, markOnboarded } from './_helpers';
 import { selectCompanionSection } from './_companion';
 
 // RC-CHR-6.1 — the companion sheet is the player's sheet. A player joined over the fake LAN (real
@@ -109,7 +109,7 @@ test('a joined player edits their own sheet live; the DM sees it and another PC 
 	const context = await browser.newContext({
 		viewport: page.viewportSize(),
 		isMobile: testInfo.project.name === 'mobile-chromium',
-		hasTouch: testInfo.project.name === 'mobile-chromium',
+		hasTouch: true, // Exercise real taps at both profile sizes.
 	});
 	try {
 		const player = await context.newPage();
@@ -158,13 +158,17 @@ test('a joined player edits their own sheet live; the DM sees it and another PC 
 		const hpAfter = mine.combat.hp - 3;
 
 		// 1 · Mark 3 damage.
+		const damageActions = await countActions(player);
+		await sheet.getByLabel('Hit point change amount').tap();
 		await sheet.getByLabel('Hit point change amount').fill('3');
 		await delivered(
-			() => sheet.getByRole('button', { name: 'Damage 3', exact: true }).click(),
+			() => sheet.getByRole('button', { name: 'Damage 3', exact: true }).tap(),
 			row.getByText(`${hpAfter}/${mine.combat.maxHp}`, { exact: true }),
 		);
 		await expect(sheet.getByTestId('vitals-hp')).toContainText(String(hpAfter));
 		await expect(sheet.getByRole('button', { name: 'Undo 3 damage' })).toBeVisible();
+		await damageActions.assertWithin('player-damage');
+		await damageActions.stop();
 
 		// 2 · Add Poisoned.
 		await sheet.getByLabel('Condition to add').selectOption('poisoned');

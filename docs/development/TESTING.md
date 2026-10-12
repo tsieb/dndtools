@@ -389,3 +389,31 @@ reports the outcome in the `nightly` issue, so the flake rate stays measured. Ru
   on consecutive nights, and say so in the commit.
 - `scripts/ci/e2e-summary.mjs` lists, for every CI run, the tests that passed only on retry.
   A test that appears there repeatedly is a quarantine candidate before it is a red run.
+
+## 10. Golden-path friction budgets (RC-ENG-9.2)
+
+[FRICTION_BUDGETS.md](../planning/FRICTION_BUDGETS.md) defines the maximum actions,
+measurement boundaries, journey mapping and tightening-only policy. The ordinary
+Browser acceptance gate discovers all of these specs on both functional profiles.
+Run the focused set from the repository root:
+
+```sh
+pnpm e2e friction-budgets.spec.ts golden-path.spec.ts widget-quick-builder.spec.ts companion-sheet.spec.ts table-view.spec.ts --workers=2 --retries=0
+```
+
+Start `const actions = await countActions(page)` after the documented setup. Drive
+the real UI, assert its outcome, then `await actions.assertWithin('capture-note')`
+(or the appropriate table ID) and `await actions.stop()`. The helper observes
+browser events, including input inside other drivers: no manual increments are
+needed. `await actions.snapshot()` returns the ordered kinds and targets. A failed
+budget prints actual/maximum and that sequence; passing counts appear in report
+annotations. Scrolls are excluded; clicks, taps, keystrokes/chords and whole drags
+are counted. Text payload injection is separate from navigation, as specified in
+the table. Never use scripted focus or runtime writes to skip measured UI steps.
+
+`friction-budgets.spec.ts` contains the scripted counter unit test, real keyboard,
+canvas and Help journeys, table/history checks, and one-extra-dialog boundary
+mutations for every budget. The existing golden, Quick builder, joined-sheet and
+table-view journeys assert the remaining rows. Mutations first pass at the ceiling,
+then dismiss one seeded dialog and require the same assertion to fail with its
+counted action trace. Keep these tests and the table in sync when tightening.

@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page, type TestInfo } from '@playwright/test';
-import { gotoRoute, installFakeLan, markOnboarded } from './_helpers';
+import { countActions, gotoRoute, installFakeLan, markOnboarded } from './_helpers';
 
 // RC-SES-7.2 — a default for what players see. Start session used to record an active scene the
 // players never received: each joined player's stage stayed empty until the GM assigned a view to
@@ -100,7 +100,7 @@ async function openTable(page: Page, browser: Browser, testInfo: TestInfo): Prom
 }
 
 /** Start session from the Session screen's own dialog, on the named scene. */
-async function startSession(page: Page, sceneName: string, showToTable = true): Promise<void> {
+async function startSession(page: Page, sceneName: string, showToTable = true) {
 	await page.getByRole('button', { name: 'Start session', exact: true }).click();
 	const dialog = page.getByRole('dialog', { name: 'Start a session' });
 	const mode = dialog.getByRole('radio', { name: 'New session' });
@@ -114,9 +114,11 @@ async function startSession(page: Page, sceneName: string, showToTable = true): 
 		await expect(sharing).not.toBeChecked();
 		await expect(sharing).toBeDisabled();
 	}
+	const actions = await countActions(page);
 	await dialog.getByRole('button', { name: 'Start session', exact: true }).click();
 	await expect(dialog).toBeHidden();
 	await expect.poll(() => page.evaluate(() => window.__rt!.state.session.workflow)).toBe('active');
+	return actions;
 }
 
 test('Start session with the shared scene puts it on the joined stage; a per-player choice still wins', async ({
@@ -126,9 +128,11 @@ test('Start session with the shared scene puts it on the joined stage; a per-pla
 	const table = await openTable(page, browser, testInfo);
 	try {
 		// Never touched before this point: the Stage panel plays no part in the table getting the scene.
-		await startSession(page, TABLE_SCENE);
+		const actions = await startSession(page, TABLE_SCENE);
 		const stage = table.player.getByTestId('player-stage');
 		await expect(stage).toContainText(TABLE_SCENE);
+		await actions.assertWithin('table-scene');
+		await actions.stop();
 		await expect(stage).not.toContainText('has not shown a scene yet');
 
 		// The GM sees the table view in the Stage panel's Everyone row.

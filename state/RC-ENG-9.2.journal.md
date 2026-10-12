@@ -1,0 +1,47 @@
+# RC-ENG-9.2 run journal
+
+## Implementation
+
+- Clean task branch on entry. No Headroom tools available; native original output used.
+- Read existing golden, onboarding, Quick builder, Add panel, resize, joined companion and table-view journeys. Manifest permits e2e specs and helper companions plus this journal.
+- Implement browser-event counting and shared ceilings; wire real journeys on both projects, scripted counter tests and one-extra-dialog boundary mutations. Document measurement boundaries and tightening policy.
+- No agents, push, promotion, loop launch or dispatcher control-state changes.
+
+## Implemented acceptance
+
+- `_helpers.ts`: trusted capture-phase browser input counter, ordered action diagnostics,
+  whole-gesture drag/tap counting, modifier chord handling, scroll exclusion, explicit segment
+  lifetime and fail-closed document navigation. All input kinds count toward each ceiling.
+- Shared executable budgets match the new planning table; regression checks prohibit exceeding
+  original ceilings or any tighter table version in reachable Git history. Shallow-history
+  limitations are documented. Every GM shell route is checked against the declared route inventory.
+- Existing first-run, capture, Quick builder, joined companion and table projection journeys now
+  assert budgets. New browser journeys cover keyboard onboarding, four-action tile editing and
+  Help on every GM shell route, including dynamic details. Both browser profiles run all rows.
+- Scripted browser unit fixture counts clicks, a real tap, keyboard activation without a duplicate
+  click, a chord, typed keys, a whole drag, and excluded wheel scrolling. Every ceiling has a
+  baseline-at-limit fixture followed by one actual modal confirmation that must exceed it and
+  identify the extra action. These reuse the exact assertion used by application journeys.
+- TESTING.md documents the helper, focused command, table and fixture contract. Text payloads
+  use fill/insertText; focus/navigation remains counted. Capture asserts title focus before fill.
+
+## Validation (original native outputs inspected)
+
+- `pnpm e2e friction-budgets.spec.ts --workers=2 --retries=0`:
+  initial run 62 passed, 2 failed, in `/tmp/rc-eng92-friction.log`. Both failures were the new
+  entity-detail Help loop: it retained the previous Help modal across hash navigation, leaving
+  the next trigger inert. Error context showed the existing Screens dialog. Fixed by closing
+  Help after stopping each measurement and asserting it hidden before the next route.
+- `pnpm e2e golden-path.spec.ts widget-quick-builder.spec.ts companion-sheet.spec.ts table-view.spec.ts --workers=2 --retries=0`:
+  **94 passed**, exit 0, `/tmp/rc-eng92-journeys.log`.
+- `pnpm e2e friction-budgets.spec.ts golden-path.spec.ts -g 'entity details|inventory|fails closed|knowledge: capture' --workers=2 --retries=0`:
+  **8 passed**, exit 0, `/tmp/rc-eng92-followup.log`. Rechecks both corrected detail-route tests,
+  new route inventory and document-navigation regressions, and the capture journey after adding
+  its title-focus assertion. Combined with the initial 62 passing friction cases, all 68 current
+  friction cases and all 94 existing-spec cases have passed; this is evidence across focused runs,
+  not a claim of one 162-test run.
+- ESLint on all six changed/new e2e TypeScript files: exit 0, no diagnostics.
+- Prettier check on all changed/new TypeScript and documentation: exit 0.
+- `git diff --check`: exit 0.
+- No production UI changed; no screenshot baselines or visual gate run. Full central gates and
+  independent review remain the central operator's responsibility.

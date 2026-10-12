@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { countActions, dispatch, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 async function setup(page: Page) {
 	await markOnboarded(page);
@@ -52,11 +52,8 @@ for (const [recipe, name, template] of [
 		page,
 	}) => {
 		await setup(page);
-		let clicks = 0;
-		const click = async (target: Locator) => {
-			await target.click();
-			clicks += 1;
-		};
+		const actions = await countActions(page);
+		const click = (target: Locator) => target.click();
 		await click(page.getByRole('button', { name: 'Edit layout', exact: true }));
 		await click(page.getByRole('button', { name: 'Add', exact: true }));
 		await click(
@@ -80,7 +77,8 @@ for (const [recipe, name, template] of [
 			}
 		}
 		await click(quick.getByRole('button', { name: 'Add to screen', exact: true }));
-		expect(clicks).toBeLessThanOrEqual(6);
+		await actions.assertWithin('quick-track');
+		await actions.stop();
 		await expect(quick).toHaveCount(0);
 		const tile = await placed(page, name);
 		await expect(tile.getByTestId(`widget-template-${template}`)).toBeVisible();
