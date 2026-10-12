@@ -156,7 +156,7 @@ test.describe('feature spotlights', () => {
 		const card = spotlightCard(page, 'session-standby');
 		await expect(card).toBeVisible();
 		const before = await page.evaluate(() => window.__rt!.state.session.workflow);
-		await card.getByRole('button', { name: 'Find Go live' }).click();
+		await card.getByRole('button', { name: 'Find Start session' }).click();
 		await expect(
 			page.getByRole('button', { name: 'Start session', exact: true }).first(),
 		).toBeFocused();

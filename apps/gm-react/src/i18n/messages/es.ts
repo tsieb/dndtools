@@ -7060,11 +7060,11 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'spotlight.screenSwitcher.action': 'Cambiar de pantalla',
 	'spotlight.sessionStandby.title': 'Prueba la sesión en espera',
 	'spotlight.sessionStandby.body':
-		'En espera puedes ensayar: no se registran tiradas ni combates. Inicia la sesión en vivo para registrarla y compartirla con los jugadores.',
-	'spotlight.sessionStandby.action': 'Ver Iniciar sesión',
+		'En espera puedes ensayar: no se registran tiradas ni combates. Empieza la sesión cuando quieras registrarla y compartirla con los jugadores.',
+	'spotlight.sessionStandby.action': 'Ver Empezar la sesión',
 	'spotlight.projectMap.title': 'Muestra el mapa a la mesa',
 	'spotlight.projectMap.body':
-		'Abrir un mapa lo prepara para ti. Con la sesión en vivo, Proyectar lo envía a tus jugadores.',
+		'Abrir un mapa lo prepara para ti. Con la sesión empezada, Proyectar a los jugadores lo envía a la mesa.',
 	'spotlight.projectMap.action': 'Ver Proyectar',
 	'spotlight.previewPlayer.title': 'Mira lo que ve un jugador',
 	'spotlight.previewPlayer.body':

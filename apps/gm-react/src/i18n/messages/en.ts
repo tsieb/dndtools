@@ -6992,11 +6992,11 @@ export const en = {
 	'spotlight.screenSwitcher.action': 'Switch screens',
 	'spotlight.sessionStandby.title': 'Try Session in Standby',
 	'spotlight.sessionStandby.body':
-		'Standby is a rehearsal: rolls and combat are not recorded. Go live when you are ready to record the session and share with players.',
-	'spotlight.sessionStandby.action': 'Find Go live',
+		'Standby is a rehearsal: rolls and combat are not recorded. Start the session when you are ready to record it and share with players.',
+	'spotlight.sessionStandby.action': 'Find Start session',
 	'spotlight.projectMap.title': 'Show your map to the table',
 	'spotlight.projectMap.body':
-		'Opening a map stages it for you. Once the session is live, Project sends it to your players.',
+		'Opening a map stages it for you. Once the session has started, Project to players sends it to the table.',
 	'spotlight.projectMap.action': 'Find Project',
 	'spotlight.previewPlayer.title': 'See what a player sees',
 	'spotlight.previewPlayer.body':
