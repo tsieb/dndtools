@@ -171,7 +171,7 @@ decider, consultation with UX/Accessibility, date, and this review's merged comm
 | Implementation stories filed after acceptance                        | Pending; draft scopes below are not registered stories.                                        |
 
 [RC_ROADMAP](RC_ROADMAP.md) RC-ENG-7.3 now carries this release precondition, added by this task
-after independent review cited the gap (a minimal crossing of the UX-5.5 claim):
+after independent review cited the gap (claim widened to the ENG-7.3 bullet only):
 
 > Release precondition (RC-UX-5.5): the navigation review `IA_REVIEW.md` is merged and records an
 > explicitly accepted IA decision with the accepting decider, date and merged commit; ADR-013

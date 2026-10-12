@@ -56,3 +56,15 @@ No runtime changes or new browser claims. Final checks pending.
   candidate for leaving it as handoff text. Reverting would re-create that rejection.
 - Expected outcome: task blocks for the operator to decide on widening the claim to
   `docs/planning/RC_ROADMAP.md` (ENG-7.3 bullet only, 9-line diff). No other changes this round.
+
+## 2026-10-12 — self-heal round 1 (claim widened)
+
+- Dispatcher widened the claim to `docs/planning/RC_ROADMAP.md`. RC_ROADMAP diff vs base unchanged:
+  ENG-7.3 bullet only (+8/-1). No new roadmap edits.
+- IA_REVIEW: one phrase now says "claim widened to the ENG-7.3 bullet only" instead of calling it a
+  claim crossing.
+- Validation: `pnpm gates` exit 0 (308 reachable docs, 443 resolved links; log
+  `/var/tmp/rc-ux-5.5-gates-r3.log`); `prettier --check` on IA_REVIEW, RC_ROADMAP and journal exit 0;
+  `git diff --check` exit 0. Documentation only; no runtime or browser gates run.
+- Still outstanding, not inferred: independent review, merge, the accepted IA decision, ADR-013
+  amendment and follow-up story filing.
