@@ -217,6 +217,9 @@ export function visibleSpotlightTarget(
 			)
 				return false;
 			const rect = target.getBoundingClientRect();
+			// Layout viewport bounds for an on-screen check; phone/desktop branching stays in the
+			// platform profile and the tier map, not here.
+			const viewport = document.documentElement;
 			return (
 				!target.closest('[hidden], [inert], [aria-hidden="true"]') &&
 				getComputedStyle(target).visibility === 'visible' &&
@@ -224,8 +227,8 @@ export function visibleSpotlightTarget(
 				rect.height > 0 &&
 				rect.bottom > 0 &&
 				rect.right > 0 &&
-				rect.top < window.innerHeight &&
-				rect.left < window.innerWidth
+				rect.top < viewport.clientHeight &&
+				rect.left < viewport.clientWidth
 			);
 		}) ?? null
 	);
