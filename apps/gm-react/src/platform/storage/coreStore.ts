@@ -179,6 +179,15 @@ export function createLocalVault(name: string, kind: LocalVault['kind'] = 'campa
 	return vault;
 }
 
+/**
+ * RC-UX-6.8 — "Start my own campaign" from inside the demo: a new campaign vault nobody has named
+ * yet. Its catalog entry carries the placeholder, so the campaign stays unnamed and the first-session
+ * guide's "Name your campaign" row is still open when it first loads.
+ */
+export function createUnnamedLocalVault(): LocalVault {
+	return createLocalVault('Your campaign', 'campaign');
+}
+
 export function renameLocalVault(id: string, name: string): void {
 	const validName = requireVaultName(name);
 	const vaults = listLocalVaults();

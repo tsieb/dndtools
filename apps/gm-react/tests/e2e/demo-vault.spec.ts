@@ -15,6 +15,8 @@ import { dispatch, gotoRoute, markOnboarded, waitReady } from './_helpers';
 // was. Inside the demo, cloud sync, local backup and hosting or joining a table all refuse. It runs
 // at the profile's own viewport, so the phone project drives the More sheet and the table-controls
 // sheet while the desktop project drives the sidebar chip and the top bar.
+// RC-UX-6.8 — from inside the demo, "Start my own campaign" creates a fresh vault and opens it on its
+// first-session guide in one step; the chip, rail and More sheet badge the demo while it is open.
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) <= 640;
 
@@ -182,9 +184,10 @@ test('the demo opens from the switcher, resets, and leaves the GM vault untouche
 		pendingProposals: 1,
 	});
 
-	// The switcher lists it with its badge, and offers the way back and a reset.
+	// The switcher lists it with its badge, and offers a vault of your own, the way back and a reset.
 	dialog = await openSwitcher(page);
 	await expect(dialog.getByText('Demo', { exact: true })).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Start my own campaign' })).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Back to my campaign' })).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Explore the demo campaign' })).toHaveCount(0);
 	await page.keyboard.press('Escape');
@@ -233,15 +236,91 @@ test('the demo opens from the switcher, resets, and leaves the GM vault untouche
 	expect(await refusals(page)).toEqual({ cloud: true, backup: 'allowed' });
 
 	// ── Exploring again reopens the same demo instead of adding a second one ──────────────────
+	// RC-UX-6.8 — the demo keeps ONE row, first, with its badge: no second "Open Demo campaign".
 	dialog = await openSwitcher(page);
-	await expect(
-		dialog.getByRole('button', { name: 'Open Demo campaign', exact: true }),
-	).toBeVisible();
+	const demoRow = dialog
+		.getByRole('list', { name: 'Vaults on this device' })
+		.getByRole('listitem')
+		.first();
+	await expect(demoRow.getByText('Demo', { exact: true })).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Open Demo campaign' })).toHaveCount(0);
+	await reloadingClick(
+		page,
+		demoRow.getByRole('button', { name: 'Explore the demo campaign', exact: true }),
+	);
+	expect(await vaultId(page)).toBe(demoId);
+	expect(
+		await page.evaluate(
+			() => JSON.parse(localStorage['dndtools:react:local-vaults-v1']).vaults.length,
+		),
+	).toBe(2);
+});
+
+test('from the demo, Start my own campaign opens a fresh vault on its first-session guide', async ({
+	page,
+}) => {
+	test.setTimeout(120_000);
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	expect(await vaultId(page)).toBe('primary');
+	let dialog = await openSwitcher(page);
 	await reloadingClick(
 		page,
 		dialog.getByRole('button', { name: 'Explore the demo campaign', exact: true }),
 	);
-	expect(await vaultId(page)).toBe(demoId);
+	const demoId = await vaultId(page);
+	expect(demoId).toMatch(/^local-/);
+
+	// ── The demo is badged in this profile's navigation, and on the tablet rail ───────────────
+	await expectDemoBadge(page);
+	if (!isPhone(page)) {
+		const viewport = page.viewportSize()!;
+		await page.setViewportSize({ width: 834, height: 1112 });
+		const rail = page
+			.getByRole('navigation', { name: 'Primary', exact: true })
+			.getByRole('button', { name: 'Local vaults · Demo', exact: true });
+		await expect(rail).toBeVisible();
+		await expect(rail.getByText('Demo', { exact: true })).toBeVisible();
+		await page.setViewportSize(viewport);
+	}
+
+	// ── One step: a new vault, opened on its Command Center with the guide up ────────────────
+	dialog = await openSwitcher(page);
+	await reloadingClick(
+		page,
+		dialog.getByRole('button', { name: 'Start my own campaign', exact: true }),
+	);
+	const ownId = await vaultId(page);
+	expect(ownId).toMatch(/^local-/);
+	expect(ownId).not.toBe(demoId);
+	expect(ownId).not.toBe('primary');
+	const guide = page.locator('[data-testid="home-screen"] [data-first-session-guide]');
+	await expect(guide).toBeVisible({ timeout: 15_000 });
+	await expect(guide.locator('li[data-first-session-row]')).toHaveCount(6);
+	// Unnamed, empty, and not the demo: the guide's first row is still open.
+	await expect(guide.locator('[data-first-session-row="name-campaign"]')).toHaveAttribute(
+		'data-done',
+		'false',
+	);
+	expect(await page.evaluate(() => window.__rt!.state.commandCenter.campaign?.name ?? null)).toBe(
+		null,
+	);
+	expect(await noteTitles(page)).toEqual([]);
+	expect(await refusals(page)).toEqual({ cloud: false, backup: 'allowed' });
+	if (isPhone(page)) {
+		await page.getByRole('button', { name: 'More', exact: true }).click();
+		await expect(page.getByRole('button', { name: /^Local vaults/ })).not.toContainText(/Demo$/);
+		await page.keyboard.press('Escape');
+	} else {
+		const chip = page.getByRole('button', { name: 'Local vaults', exact: true });
+		await expect(chip.getByText('Demo', { exact: true })).toHaveCount(0);
+	}
+	// The demo is still there, one row, and the device now holds three vaults.
+	dialog = await openSwitcher(page);
+	await expect(
+		dialog.getByRole('button', { name: 'Explore the demo campaign', exact: true }),
+	).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Open Your campaign' })).toHaveCount(2);
 });
 
 // Opt-in, like local-vault-performance.spec.ts: timing a browser while the functional suite runs in

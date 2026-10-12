@@ -5,6 +5,11 @@ import { dispatch, gotoRoute, markOnboarded, waitReady } from './_helpers';
 // (desktop), the rail's campaign mark (tablet) and the More sheet (phone) open one switcher that
 // creates, renames and opens vaults; opening drains writes and reloads the document into the chosen
 // vault. The journey proves isolation BOTH ways for the op log, full-text search and the keyring.
+// RC-UX-6.8 — the switcher explains itself: with one campaign it leads with what a vault is and
+// lists the demo first, and "New campaign" asks for a name and opens the vault it creates.
+
+const INTRO =
+	'A vault is one campaign kept on this device, with its own notes, maps, screens and sessions.';
 
 const ACCOUNT = 'e2e-account';
 const SECRET_PREFIX = 'e2e-secret:';
@@ -175,6 +180,21 @@ async function switchTo(page: Page, name: string, expected: (id: string) => bool
 	expect(new URL(page.url()).hash).toBe('#/');
 }
 
+/** "New campaign": name it, then the switcher creates the vault and opens it in a new document. */
+async function createCampaign(page: Page, dialog: Locator, name: string): Promise<void> {
+	await dialog.getByRole('button', { name: 'New campaign', exact: true }).click();
+	const field = dialog.getByLabel('Campaign name', { exact: true });
+	await expect(field).toBeFocused();
+	const create = dialog.getByRole('button', { name: 'Create and open', exact: true });
+	await expect(create).toBeDisabled();
+	await field.fill(name);
+	const reloaded = page.waitForEvent('load', { timeout: 20_000 });
+	await create.click();
+	await reloaded;
+	await waitReady(page);
+	expect(new URL(page.url()).hash).toBe('#/');
+}
+
 test('switching vaults keeps op logs, search and keyrings isolated both ways', async ({ page }) => {
 	test.setTimeout(120_000);
 	await installSecureStore(page);
@@ -194,14 +214,10 @@ test('switching vaults keeps op logs, search and keyrings isolated both ways', a
 
 	let dialog = await openSwitcher(page);
 	await expect(dialog.getByRole('button', { name: 'Open Your campaign' })).toBeDisabled();
-	await dialog.getByLabel('Vault name', { exact: true }).fill('Mountain campaign');
-	await dialog.getByRole('button', { name: 'Create vault', exact: true }).click();
-	await expect(dialog.getByText('Not opened yet')).toBeVisible();
-	await page.keyboard.press('Escape');
-	await expect(dialog).toHaveCount(0);
+	await createCampaign(page, dialog, 'Mountain campaign');
 
-	// ── Second vault: nothing from the first is visible ──────────────────────────────────────
-	await switchTo(page, 'Mountain campaign', (id) => id.startsWith('local-'));
+	// ── Second vault (opened on creation): nothing from the first is visible ─────────────────
+	expect(await vaultId(page)).toMatch(/^local-/);
 	const mountainId = await vaultId(page);
 	const mountainStart = await opIds(page);
 	expect(mountainStart.filter((id) => harborOps.includes(id))).toEqual([]);
@@ -277,4 +293,64 @@ test('the tablet rail opens the same switcher, and renaming the open vault names
 	await waitReady(page);
 	await trigger.click();
 	await expect(dialog.getByRole('button', { name: 'Open Harbor campaign' })).toBeVisible();
+});
+
+test('the first visit explains a vault, lists the demo first, and New campaign opens a named empty vault', async ({
+	page,
+}) => {
+	test.setTimeout(90_000);
+	await markOnboarded(page);
+	await gotoRoute(page, '/');
+	expect(await vaultId(page)).toBe('primary');
+
+	// ── One vault on the device: the sentence leads, the demo is the first row with its badge ──
+	let dialog = await openSwitcher(page);
+	await expect(dialog.getByText(INTRO, { exact: true })).toBeVisible();
+	const rows = dialog.getByRole('list', { name: 'Vaults on this device' }).getByRole('listitem');
+	await expect(rows).toHaveCount(2);
+	await expect(
+		rows.first().getByRole('button', { name: 'Explore the demo campaign', exact: true }),
+	).toBeVisible();
+	await expect(rows.first().getByText('Demo', { exact: true })).toBeVisible();
+	await expect(rows.nth(1).getByRole('button', { name: 'Open Your campaign' })).toBeDisabled();
+	// Creating is folded behind "New campaign": no name field until it is asked for.
+	await expect(dialog.getByRole('textbox')).toHaveCount(0);
+	await expect(dialog.getByRole('button', { name: 'Create and open' })).toHaveCount(0);
+	// Cancel folds the form away again and hands focus back to "New campaign".
+	await dialog.getByRole('button', { name: 'New campaign', exact: true }).click();
+	await expect(dialog.getByLabel('Campaign name', { exact: true })).toBeFocused();
+	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect(dialog.getByRole('textbox')).toHaveCount(0);
+	await expect(dialog.getByRole('button', { name: 'New campaign', exact: true })).toBeFocused();
+
+	// ── "New campaign" asks for the name and opens an empty vault carrying it ─────────────────
+	await createCampaign(page, dialog, 'Saltmarsh');
+	expect(await vaultId(page)).toMatch(/^local-/);
+	await expect
+		.poll(() => page.evaluate(() => window.__rt!.state.commandCenter.campaign?.name ?? null))
+		.toBe('Saltmarsh');
+	const contents = await page.evaluate(() => ({
+		notes: Object.keys((window.__rt!.state.content as { items: Record<string, unknown> }).items)
+			.length,
+		characters: Object.keys(
+			(window.__rt!.state as unknown as { characters: { characters: Record<string, unknown> } })
+				.characters.characters,
+		).length,
+	}));
+	expect(contents).toEqual({ notes: 0, characters: 0 });
+
+	// ── Two campaigns now: the switcher no longer explains, the new vault is current ─────────
+	dialog = await openSwitcher(page);
+	await expect(dialog.getByRole('button', { name: 'Open Saltmarsh' })).toBeDisabled();
+	await expect(dialog.getByText(INTRO, { exact: true })).toHaveCount(0);
+	await expect(
+		dialog.getByText('Keep each campaign in its own vault on this device.', { exact: true }),
+	).toBeVisible();
+	await expect(
+		dialog
+			.getByRole('list', { name: 'Vaults on this device' })
+			.getByRole('listitem')
+			.first()
+			.getByRole('button', { name: 'Explore the demo campaign', exact: true }),
+	).toBeVisible();
 });

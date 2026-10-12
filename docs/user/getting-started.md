@@ -10,6 +10,10 @@ Pick the amount of detail you want on screen and work through the remaining setu
 
 Each campaign can live in its own vault. To add one or switch between them, open **Local vaults**: the campaign card near the top of the sidebar, the button at the top of the narrow rail, or **More** on a phone.
 
+The first row in **Local vaults** is **Explore the demo campaign**, marked **Demo**: a finished campaign to borrow ideas from. It stays on this device. It is never synced or backed up, and it can't host or join a table. While the demo is open, the campaign card and the rail button show the **Demo** badge too. Inside the demo, **Start my own campaign** creates a new, empty campaign and opens it on its Command Center, **Back to my campaign** returns to the one you had, and **Reset the demo** puts it back the way it started.
+
+To add a campaign of your own, choose **New campaign**, type its name and choose **Create and open**. The new vault opens straight away with nothing in it but that name. Your other vaults are untouched.
+
 ## Your first session
 
 A new campaign's **Command Center** opens on a short guide called **Your first session**. It lists six things to do before your first evening at the table, in the order most GMs need them:
@@ -79,3 +83,9 @@ First-session guide: 2026-10-10, RC-UX-6.3.
 - [onboarding.ts](../../packages/core/src/state/onboarding.ts) (`resolveFirstSessionGuide`)
 - [GettingStartedBody.tsx](../../apps/gm-react/src/app/widgets/builtin/GettingStartedBody.tsx)
 - [first-session-guide.spec.ts](../../apps/gm-react/tests/e2e/first-session-guide.spec.ts)
+
+Vault switcher that explains itself: 2026-10-12, RC-UX-6.8.
+
+- [VaultSwitcher.tsx](../../apps/gm-react/src/app/shell/VaultSwitcher.tsx)
+- [local-vaults.spec.ts](../../apps/gm-react/tests/e2e/local-vaults.spec.ts)
+- [demo-vault.spec.ts](../../apps/gm-react/tests/e2e/demo-vault.spec.ts)

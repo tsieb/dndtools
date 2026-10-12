@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { gotoRoute, markOnboarded } from './_helpers';
+import { gotoRoute, markOnboarded, waitReady } from './_helpers';
 
 const themes = ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast'];
 const phone = (page: Page) => (page.viewportSize()?.width ?? 1280) <= 640;
@@ -58,6 +58,10 @@ test('shell and navigation overlays are axe clean in all five themes', async ({ 
 			await page.keyboard.press('Escape');
 		}
 		const vaults = await openVaults(page);
+		const newCampaign = vaults.getByRole('button', { name: 'New campaign', exact: true });
+		await expect(newCampaign).toBeVisible();
+		await axe(page);
+		await newCampaign.click();
 		await expect(vaults.getByRole('textbox')).toBeVisible();
 		await axe(page);
 		await page.keyboard.press('Escape');
@@ -91,6 +95,7 @@ test('keyboard skip, palette focus return, empty queue feedback and large text',
 	await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
 	await page.keyboard.press('Escape');
 	const vaults = await openVaults(page);
+	await vaults.getByRole('button', { name: 'New campaign', exact: true }).click();
 	await expect(vaults.getByRole('textbox')).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -99,7 +104,7 @@ test('vault catalog failure is actionable, announced and axe clean', async ({ pa
 	await page.evaluate(() => localStorage.setItem('dndtools:react:local-vaults-v1', '{broken'));
 	const vaults = await openVaults(page);
 	await expect(vaults.getByRole('alert')).toContainText('check device storage');
-	await expect(vaults.getByRole('textbox')).toBeDisabled();
+	await expect(vaults.getByRole('button', { name: 'New campaign', exact: true })).toBeDisabled();
 	await axe(page);
 	await page.keyboard.press('Escape');
 	await expect(vaults).toBeHidden();
@@ -116,7 +121,9 @@ test('rail vault target stays reachable at tablet width', async ({ page }) => {
 	expect(box?.height).toBeGreaterThanOrEqual(44);
 	await trigger.click();
 	await expect(
-		page.getByRole('dialog', { name: 'Local vaults' }).getByRole('textbox'),
+		page
+			.getByRole('dialog', { name: 'Local vaults' })
+			.getByRole('button', { name: 'New campaign', exact: true }),
 	).toBeVisible();
 	await axe(page);
 });
@@ -141,7 +148,7 @@ test('lazy vault opening announces loading and can be dismissed', async ({ page 
 	}
 });
 
-test('vault creation recovers from storage failure and confirms the durable save inline', async ({
+test('vault creation recovers from storage failure, then opens the new campaign', async ({
 	page,
 }) => {
 	const vaults = await openVaults(page);
@@ -154,18 +161,21 @@ test('vault creation recovers from storage failure and confirms the durable save
 			original.call(this, key, value);
 		};
 	});
+	await vaults.getByRole('button', { name: 'New campaign', exact: true }).click();
 	await vaults.getByRole('textbox').fill('Full device');
-	await vaults.getByRole('button', { name: 'Create vault', exact: true }).click();
+	await vaults.getByRole('button', { name: 'Create and open', exact: true }).click();
 	await expect(vaults.getByRole('alert')).toContainText('Check device storage and try again');
 	await expect(vaults.getByRole('button', { name: 'Open Full device' })).toHaveCount(0);
 	await axe(page);
 	await vaults.getByRole('textbox').fill('Polish campaign');
-	await vaults.getByRole('button', { name: 'Create vault', exact: true }).click();
-	await expect(vaults.getByRole('status')).toHaveText('Vault saved.');
-	await expect(vaults.getByRole('button', { name: 'Open Polish campaign' })).toBeVisible();
-	await page.keyboard.press('Escape');
+	// RC-UX-6.8 — creating opens the new campaign in a fresh document.
+	const reloaded = page.waitForEvent('load', { timeout: 20_000 });
+	await vaults.getByRole('button', { name: 'Create and open', exact: true }).click();
+	await reloaded;
+	await waitReady(page);
+	expect(await page.evaluate(() => window.__rt!.vaultId)).toMatch(/^local-/);
 	await openVaults(page);
-	await expect(vaults.getByRole('button', { name: 'Open Polish campaign' })).toBeVisible();
+	await expect(vaults.getByRole('button', { name: 'Open Polish campaign' })).toBeDisabled();
 });
 
 test('Spanish shortcut feedback and vault failure are localized', async ({ page }) => {
@@ -293,7 +303,7 @@ test('vault loading hands focus back to the rail launcher after the ready dialog
 		const vaults = page.getByRole('dialog', { name: 'Local vaults' });
 		await expect(vaults.getByRole('status')).toHaveText('Loading your vaults…');
 		release();
-		await expect(vaults.getByRole('textbox')).toBeVisible();
+		await expect(vaults.getByRole('button', { name: 'New campaign', exact: true })).toBeVisible();
 		await expect(vaults.locator(':focus')).toHaveCount(1);
 		await page.keyboard.press('Escape');
 		await expect(trigger).toBeFocused();

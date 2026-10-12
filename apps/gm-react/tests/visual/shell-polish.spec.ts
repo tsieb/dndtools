@@ -43,7 +43,7 @@ for (const theme of ['tavern', 'parchment', 'scholar', 'dungeon', 'high-contrast
 		} finally {
 			release();
 		}
-		await expect(vaults.getByRole('textbox')).toBeVisible();
+		await expect(vaults.getByRole('button', { name: 'New campaign', exact: true })).toBeVisible();
 		await expect(vaults).toHaveScreenshot(`shell-vault-ready--${theme}.png`);
 		await page.keyboard.press('Escape');
 		await page.evaluate(() => localStorage.setItem('dndtools:react:local-vaults-v1', '{broken'));
