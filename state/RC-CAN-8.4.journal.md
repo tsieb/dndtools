@@ -357,3 +357,15 @@ Evidence directory: `/var/tmp/rc-can-8.4-naming/`.
   review-requested source paths outside the original Owns list are retained, not reverted to
   satisfy the old fence at the cost of the stated requirements. No dispatcher control state was
   changed. No push, promotion, new loop, or additional agents.
+
+## 2026-10-11 — self-heal round 2 (claim widened)
+
+- The claim now includes `app/shell/TopBar.tsx` and `core/src/state/command-center-state.ts`, the
+  two paths the last block cited. Both changes are kept as committed in `8c242b3f`; no source
+  change in this round. Base unchanged (`loop/rc` = `e97943c2`).
+- Changed source paths outside the tests are now all owned or widened, except the `App.tsx`
+  companion. Re-ran on `8c242b3f`: app typecheck exit 0
+  (`/var/tmp/rc-can-8.4-r3-typecheck.log`); `pnpm format:check:changed -- --base loop/rc` exit 0
+  (`/var/tmp/rc-can-8.4-r3-format.log`). The browser, unit and visual evidence from the naming
+  correction above covers this exact source tree.
+- No push, promotion, new loop, extra agents, or dispatcher control-state edits.
