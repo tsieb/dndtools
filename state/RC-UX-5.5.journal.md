@@ -47,3 +47,12 @@ No runtime changes or new browser claims. Final checks pending.
 - Validation: `pnpm gates` exit 0 (308 reachable docs, 443 resolved links; log
   `/var/tmp/rc-ux-5.5-gates-r2.log`); `prettier --check` on IA_REVIEW and RC_ROADMAP exit 0;
   `git diff --check` exit 0. No runtime or browser gates run (documentation only).
+
+## 2026-10-12 — claim fence round (RC_ROADMAP kept)
+
+- Fence check flagged `docs/planning/RC_ROADMAP.md` as outside the claim. Kept on purpose: the
+  acceptance criterion "ENG-7.3 lists the accepted decision as a release precondition" can only be
+  met by editing the ENG-7.3 bullet in RC_ROADMAP, and the previous independent review rejected the
+  candidate for leaving it as handoff text. Reverting would re-create that rejection.
+- Expected outcome: task blocks for the operator to decide on widening the claim to
+  `docs/planning/RC_ROADMAP.md` (ENG-7.3 bullet only, 9-line diff). No other changes this round.
