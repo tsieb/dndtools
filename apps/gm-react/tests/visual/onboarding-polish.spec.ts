@@ -13,7 +13,9 @@ for (const theme of ['tavern', 'parchment', 'high-contrast', 'scholar', 'dungeon
 		await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
 		await page.evaluate(() => document.fonts.ready);
 		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-		await expect(dialog.locator('[data-onboarding-content]')).toHaveScreenshot(
+		// The complexity cards only: the panel around them is mostly empty space and a clipped heading,
+		// and the baseline budget has no room for it.
+		await expect(dialog.getByRole('radiogroup')).toHaveScreenshot(
 			`onboarding-complexity--${theme}.png`,
 		);
 	});
