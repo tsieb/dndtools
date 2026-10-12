@@ -11,7 +11,7 @@ whose journey is at its ceiling also have that dialog seeded into the real app.
 | `onboarding-keys`   | 12      | keystrokes | Same complete onboarding with Tab/Shift+Tab and Enter, from initial content focus; no pointer or scripted focus. `friction-budgets.spec.ts`: keyboard onboarding.                                                                             |
 | `capture-note`      | 2       | actions    | Notes library through focused note body, before its first character: New note, Enter. `golden-path.spec.ts`: knowledge journey.                                                                                                               |
 | `quick-track`       | 6       | clicks     | Reading board through a placed, visible Quick-track widget: Edit layout, Add, Build your own, recipe, Next, Add to screen. `widget-quick-builder.spec.ts`: Counter or clock (also Party list).                                                |
-| `tile-layout`       | 4       | actions    | Already in Edit layout: Add, Dice, move drag, resize drag; both layout changes must appear. `friction-budgets.spec.ts`: tile journey.                                                                                                         |
+| `tile-layout`       | 4       | actions    | Already in Edit layout: Add, Dice, move drag, Shift+ArrowDown resize; focus remains on the tile and both layout changes must commit. `friction-budgets.spec.ts`: tile journey.                                                                |
 | `player-damage`     | 2       | taps       | Joined player's My character sheet: tap amount, tap Damage; changed HP must reach the DM and player. `companion-sheet.spec.ts`: joined sheet journey. Touch enabled at both viewport sizes.                                                   |
 | `help`              | 1       | click      | Each GM shell route and entity detail through real Help: the Help menu with its Guides section, or the route's own guide (its article and All help topics). Any other dialog does not complete it. `friction-budgets.spec.ts`: Help journeys. |
 | `table-scene`       | 1       | action     | Configured Start session dialog through shared scene visible on joined player's stage. Includes the final Start session confirmation, so no further action is required after Start. `table-view.spec.ts`: shared-scene journey.               |
@@ -35,6 +35,13 @@ traversal still count. Do not inject focus, dispatch commands or otherwise bypas
 steps inside a measured segment. Seed data, joining a table, selecting a character,
 and entering Edit layout for the tile journey happen before their named segments.
 The note's body is never filled before its budget assertion.
+
+The tile journey uses the selected tile's documented Shift+ArrowDown resize shortcut.
+Dragging the tile opens its inspector, which covers the corner handle on phones.
+The journey asserts retained tile focus before the key press and verifies the committed
+position and height, without closing the inspector or injecting focus. Its input sequence
+is two clicks, one drag and one key chord on both profiles; the four-action ceiling
+and measurement boundaries are unchanged.
 
 `assertWithin(id)` checks **all** counted actions against the row, even for a
 click-only flow: adding a keyboard detour cannot evade a click ceiling. Failure

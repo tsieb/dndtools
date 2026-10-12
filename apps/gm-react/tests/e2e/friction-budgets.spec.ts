@@ -21,9 +21,10 @@ import {
 test.use({ hasTouch: true });
 
 async function drag(page: Page, target: Locator, dx: number, dy: number) {
-	await target.scrollIntoViewIfNeeded();
+	// Hover performs Playwright's visibility, stability and hit-target checks before mouse.down.
+	// A bounding box alone can point through an inspector or another overlay.
+	await target.hover();
 	const box = (await target.boundingBox())!;
-	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 	await page.mouse.down();
 	await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy, { steps: 8 });
 	await page.mouse.up();
@@ -263,14 +264,29 @@ async function tileLayout(page: Page, seed?: FrictionSeed) {
 		.click();
 	await expect(frames).toHaveCount(before.size + 1);
 	const ids = await frames.evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')!));
-	const tile = page.getByTestId(ids.find((id) => !before.has(id))!);
+	const tileId = ids.find((id) => !before.has(id))!;
+	const tile = page.getByTestId(tileId);
+	const layout = () =>
+		page.evaluate((id) => {
+			const rt = window.__rt!;
+			return rt.state.scenes.scenes[rt.state.commandCenter.homeSceneId!]!.widgets.find(
+				(widget) => `widget-${widget.id}` === id,
+			)!.layout;
+		}, tileId);
 	await expect(tile).toBeFocused();
+	const initialLayout = await layout();
 	const initial = await tile.getAttribute('aria-label');
 	await drag(page, tile.getByTestId('tile-drag-surface'), 0, 40);
 	await expect(tile).not.toHaveAttribute('aria-label', initial!);
+	await expect.poll(async () => (await layout()).y).toBeGreaterThan(initialLayout.y);
+	const movedLayout = await layout();
 	const moved = await tile.getAttribute('aria-label');
-	await drag(page, tile.getByRole('button', { name: /^Resize / }), 0, 40);
+	// Selecting the tile by dragging opens its inspector, which covers the corner handle on
+	// phones. The selected tile retains focus and offers Shift+Arrow resize as one action.
+	await expect(tile).toBeFocused();
+	await page.keyboard.press('Shift+ArrowDown');
 	await expect(tile).not.toHaveAttribute('aria-label', moved!);
+	await expect.poll(layout).toEqual({ ...movedLayout, h: movedLayout.h + 20 });
 	return actions;
 }
 
@@ -283,7 +299,7 @@ test('golden friction: add, move and resize a tile in four actions from Edit lay
 		'click',
 		'click',
 		'drag',
-		'drag',
+		'key',
 	]);
 });
 

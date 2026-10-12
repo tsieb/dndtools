@@ -112,3 +112,40 @@ Validation (native logs inspected):
 - Prettier check on all four changed files: exit 0. `git diff --check`: exit 0.
 - No production UI changes. Full browser suite, visual gate, wrapper gates and hosted CI
   were not run; central gates and independent review remain with the operator.
+
+## Validation repair — mobile tile layout after integration
+
+- Entry HEAD: 00e21fa873ac5cdb321f78079bde73e9b61c48fd, clean tracked worktree.
+  No Headroom tools exposed; original native output inspected. No AGENTS.md found.
+- Read original browser acceptance log at
+  /home/trinkle/Programming/agent-dispatcher/.state/attempts/844e4315-8334-48c5-8725-4df35f0a83d8/output.log.
+  The two mobile tile friction cases fail all three attempts at resize completion.
+  The separate desktop tile-resize menu test is reported flaky, not terminally failed.
+- Reproduced both terminal failures locally: 2 failed, 4 passed, exit 1,
+  /tmp/rc-eng92-tile-repro.log. A temporary read-only pointer probe confirms that
+  the move targets the tile but the resize coordinates hit widget-inspector;
+  /tmp/rc-eng92-tile-probe.log and the failure screenshot confirm the overlay.
+  Removed the temporary probe.
+- The current phone UI wakes the inspector when the placed tile is dragged. Use
+  the selected tile's documented Shift+ArrowDown resize shortcut instead of sending
+  a pointer through that inspector. Assert retained focus before the key; no focus
+  injection, extra uncounted action, setup change or budget increase. Both profiles
+  measure two clicks, one move drag and one resize chord. Assert committed position
+  and height as well as accessible label changes.
+- The drag driver now uses locator hover actionability before pressing so an
+  obscured target cannot silently receive a coordinate-only drag.
+- Updated the budget table and TESTING.md with the explicit input sequence and
+  mobile inspector behavior. Production behavior is unchanged; pointer resizing
+  behind the open phone inspector is not claimed to work.
+- Initial shortcut probe: 6 passed, exit 0, /tmp/rc-eng92-tile-keyboard.log,
+  including both real journeys and both seeded in-app defects.
+- Six-spec validation: `pnpm e2e friction-budgets.spec.ts golden-path.spec.ts widget-quick-builder.spec.ts companion-sheet.spec.ts table-view.spec.ts tile-resize.spec.ts --workers=2 --retries=0`:
+  **182 passed**, exit 0 (3.3m), /tmp/rc-eng92-r4-focused.log. Both profiles'
+  tile-layout journeys, seeded defects, drag/scroll counter tests and the separately
+  flaky tile-resize spec passed without retries.
+- ESLint on the changed spec: exit 0. Prettier on all four changed files: exit 0.
+  `git diff --check`: exit 0.
+- Repeated tile validation: `pnpm e2e friction-budgets.spec.ts tile-resize.spec.ts -g 'tile|builtin' --repeat-each=3 --workers=2 --retries=0`:
+  **36 passed**, exit 0 (1.1m), /tmp/rc-eng92-r4-repeat.log.
+- The full browser suite and central wrapper gates are left to the operator;
+  these focused passes do not claim those gates passed.

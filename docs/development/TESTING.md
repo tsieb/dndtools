@@ -423,6 +423,12 @@ table-view journeys assert the remaining rows. Mutations first pass at the ceili
 then dismiss one seeded dialog and require the same assertion to fail with its
 counted action trace. Keep these tests and the table in sync when tightening.
 
+The tile journey uses Add, Dice, a move drag and Shift+ArrowDown to resize the
+still-focused tile. It checks committed layout state as well as the accessible
+label. The inspector covers the corner handle on phones, so a raw bounding-box
+drag can press the inspector instead. The spec's drag driver uses locator hover
+actionability checks before pressing; do not force pointer input through overlays.
+
 End each journey on its own outcome (the placed widget, the focused note body, the
 Help menu or route guide), never on "a dialog is visible". To seed a defect into
 the real app, give the journey an optional `FrictionSeed`: call
