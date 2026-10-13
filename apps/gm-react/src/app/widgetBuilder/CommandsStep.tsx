@@ -1,29 +1,21 @@
-import { useMemo } from 'react';
 import {
 	BOARD_COMMAND_DESCRIPTORS,
 	CORE_NAMED_WIDGET_COMMANDS,
-	VAULT_OBJECT_SUBTYPE_KEY,
 	WIDGET_COMMAND_EXECUTORS,
 	WIDGET_INTENT_CREATE_TARGETS,
 	WIDGET_INTENT_ROUTES,
 	WIDGET_INTENT_SETTINGS_TABS,
 	classifyWidgetCommand,
-	getContentItemsForActor,
-	listCharactersForActor,
-	listMapsForActor,
-	listScreensForActor,
 	type WidgetCommandDescriptor,
 	type WidgetCommandExecutor,
 	type WidgetConfigField,
 	type WidgetIntentCreateTarget,
 	type WidgetIntentDescriptor,
-	type WidgetIntentEntityKind,
 	type WidgetIntentRoute,
 	type WidgetIntentSettingsTab,
 	type WidgetOutputDestinationClass,
 } from '@dndtools/core';
 import { Badge, Field, Input, Select, Tooltip } from '../../ds';
-import { useRuntime } from '../../runtime/RuntimeContext';
 import { T } from '../screen-kit';
 import {
 	FieldGrid,
@@ -37,6 +29,7 @@ import {
 	type StepProps,
 } from './fields';
 import { validateIntents } from './draft';
+import { useIntentTargets, type IntentTargets } from './intentTargets';
 import {
 	CAPABILITY_LABEL,
 	CREATE_LABEL,
@@ -550,58 +543,6 @@ function CatalogChip({
 
 // --- RC-WID-5.1: intents -----------------------------------------------------------------------
 
-interface TargetOption {
-	value: string;
-	label: string;
-}
-
-/**
- * What an open intent can point at, read the way the author sees the vault. These are the same
- * actor-filtered reads the destinations use; the viewer's own gate is applied again at press time.
- */
-function useIntentTargets(): Record<
-	WidgetIntentEntityKind | 'screen' | 'participant',
-	TargetOption[]
-> {
-	const runtime = useRuntime();
-	const state = runtime.state;
-	const actorId = runtime.defaultActorId;
-	return useMemo(() => {
-		const { characters, maps, permissions, content, scenes } = state;
-		const items = getContentItemsForActor(content, permissions, actorId);
-		const byName = (a: TargetOption, b: TargetOption) => a.label.localeCompare(b.label);
-		return {
-			character: listCharactersForActor(characters, permissions, actorId).map((c) => ({
-				value: c.id,
-				label: c.name,
-			})),
-			map: listMapsForActor(maps, permissions, actorId).map((m) => ({
-				value: m.id,
-				label: m.name,
-			})),
-			note: items
-				.filter((item) => item.kind === 'note')
-				.map((item) => ({ value: item.id, label: item.title }))
-				.sort(byName),
-			quest: items
-				.filter(
-					(item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
-				)
-				.map((item) => ({ value: item.id, label: item.title }))
-				.sort(byName),
-			screen: listScreensForActor(scenes, permissions, actorId).map((screen) => ({
-				value: screen.id,
-				label: screen.name,
-			})),
-			// The seats a `preview-participant` intent may name (the host checks the role again).
-			participant: Object.values(permissions.actors)
-				.filter((actor) => actor.role === 'player' || actor.role === 'observer')
-				.map((actor) => ({ value: actor.id, label: actor.displayName }))
-				.sort(byName),
-		};
-	}, [state, actorId]);
-}
-
 /**
  * Open and create — the intents a placed copy offers (RC-WID-5.1). An intent writes nothing: it takes
  * whoever presses it to a screen, an entity, a page, a Settings tab or a creation flow, and only ever
@@ -718,7 +659,7 @@ function IntentTargetField({
 }: {
 	intent: WidgetIntentDescriptor;
 	custom: boolean;
-	targets: Record<WidgetIntentEntityKind | 'screen' | 'participant', TargetOption[]>;
+	targets: IntentTargets;
 	onChange: (next: WidgetIntentDescriptor) => void;
 }) {
 	const { t } = useI18n();

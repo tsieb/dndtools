@@ -17,7 +17,6 @@ import {
 	getHandoutsForActor,
 	getMapViewForActor,
 	getPlayerViewController,
-	getPlayerViewForActor,
 	getPlayerViewSummary,
 	getPrepRecapDigest,
 	getQuickReferencePanelsForActor,

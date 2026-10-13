@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	BOARD_TOOL_WIDGET_TYPES,
 	HOME_WIDGET_TYPES,
-	isCopyableSystemWidget,
 	createSystemWidgetPackages,
 	dispatchCommand,
 	type CoreCommand,
@@ -194,9 +193,10 @@ function campaign(): CoreStateSlice {
 // through their hub templates, which is the point of them (a GM-built copy draws the same). So does
 // RC-SES-7.3's `player-views`. The hub templates carry their own tests (`templates/Hub.test.tsx`,
 // `screens/CommandCenter.baseline.test.tsx`).
+const HOME_PARTS: ReadonlySet<string> = new Set([...HOME_WIDGET_TYPES, 'player-views']);
 const SYSTEM_DEFINITIONS: WidgetDefinition[] = Object.values(createSystemWidgetPackages().packages)
 	.flatMap((record) => record.package.widgets)
-	.filter((definition) => !isCopyableSystemWidget(definition));
+	.filter((definition) => !HOME_PARTS.has(definition.type));
 
 /** A placed instance of one system widget definition, with the definition's declared defaults. */
 function boardWidget(definition: WidgetDefinition): BoardWidget {

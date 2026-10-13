@@ -427,7 +427,7 @@ resolved `{ role: 'observer' }` to `preview-generic-observer`, which is unassign
 of the observer's deliveries. Fix:
 
 - `security/widget-host-api.ts`: the preview destination is `{ role: target.role, playerActorId:
-  target.id }` for both seat roles.
+target.id }` for both seat roles.
 - `queries/preview-mode.ts` (one minimal crossing outside the claim, required to make the selected
   observer survive the resolver the runtime uses): `resolvePreviewActor` honours a specific seat for
   any previewable role when the actor exists with exactly that role. Mismatched, unknown and
@@ -461,3 +461,28 @@ The change is the smallest that works: one condition (honour a specific seat who
 requested role) plus doc comments, 25 lines. Fallbacks for unknown, reserved and mismatched ids are
 unchanged and still tested. The task blocks for the operator to decide whether to widen the claim to
 this one path. The code is unchanged from `4d73e48b5`.
+
+## Operator completion (2026-10-12)
+
+Finished by the operator session instead of a dispatcher round. The branch's eleven commits were
+squashed and rebased once onto `loop/rc` `ae53e4da8` (RC-WID-5.7 landed). Conflicts and their
+resolution:
+
+- `player-views` is this story's template (`link-list` on `player-projections`), so its builtin
+  parity row and RC-WID-5.7's ledger entries are gone. RC-WID-5.7's `player-view-controller`
+  source stays: it is a public builder source in its own right.
+- `isCopyableSystemWidget` accepts this story's copyable templates and RC-WID-5.7's board tools.
+  `builtin-bodies.test.tsx` excludes the home parts and `player-views` by type again, because the
+  board tools are copyable but still drawn by the body tests.
+- `command-center-session-screen.test.ts` keeps both: `dice` is the `dice-roller` template, and
+  `player-views` is the copyable `link-list` template.
+- `widgetBuilder/CommandsStep.tsx` reached 812 lines (the RC-STB-2.7 800-line gate). The intent
+  target hook moved to `widgetBuilder/intentTargets.ts`; the file is now 753 lines.
+- An unused `getPlayerViewForActor` import was dropped from `dataEnvironment.ts`.
+
+Validation on the rebased tree: `pnpm typecheck` 0; `pnpm test` 0 (core 5,391, cloud 569, app
+2,362, tooling 249); `pnpm lint` 0; `pnpm gates` 0. Playwright on both profiles:
+player-summary, companion-preview, session-lifecycle, session-tables, widget-query-sources and
+custom-widgets, 63 passed and 1 skipped. Pinned visual compare: 579 passed and 3 failed on rail
+(two `toHaveScreenshot` timeouts and one `toBeVisible`). All 3 passed on rerun (the known
+cold-chunk stall).
