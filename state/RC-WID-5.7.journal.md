@@ -316,3 +316,11 @@ Each failure was re-run with `--repeat-each` on the branch and on a detached `lo
 - `canvas.spec.ts:827` (mobile): passed 4/4 on re-run. A load flake.
 
 Logs: `e2e-rerun.log`, `e2e-base.log`, `arrange-branch.log`, `arrange-base.log`.
+
+## Operator completion (2026-10-12)
+
+Reviewed and integrated by the operator session instead of a dispatcher review round. Re-ran on
+`b148e7381`: `apps/gm-react` parity, `dataEnvironment.board` and `templates/board` tests (4 files,
+109 passed); core `widget-command-board-tools` and `command-center-session-screen` (2 files, 23
+passed). The ledger owes nothing to RC-WID-5.6 or RC-WID-5.7; the remaining entries are the Session
+screen's, owed by RC-WID-5.13. The e2e reds listed above reproduce on `loop/rc` `74efcfe2`.
