@@ -279,27 +279,6 @@ exports[`tile header identity snapshots > high-contrast theme > notes 1`] = `
 }
 `;
 
-exports[`tile header identity snapshots > high-contrast theme > player-views 1`] = `
-{
-  "binding": null,
-  "description": "Per-participant Player View assignment + projection.",
-  "icon": {
-    "glyph": "lucide lucide-eye",
-    "size": "16px",
-    "stroke": "var(--color-tile-reference)",
-  },
-  "label": "Player Views",
-  "rail": {
-    "token": "--color-tile-reference",
-    "value": "oklch(0.84 0.015 70)",
-    "width": "4px",
-  },
-  "silhouette": "tile-silhouette-reference",
-  "type": "Command Center",
-  "visibility": null,
-}
-`;
-
 exports[`tile header identity snapshots > high-contrast theme > prep 1`] = `
 {
   "binding": null,
@@ -705,27 +684,6 @@ exports[`tile header identity snapshots > parchment theme > notes 1`] = `
 }
 `;
 
-exports[`tile header identity snapshots > parchment theme > player-views 1`] = `
-{
-  "binding": null,
-  "description": "Per-participant Player View assignment + projection.",
-  "icon": {
-    "glyph": "lucide lucide-eye",
-    "size": "16px",
-    "stroke": "var(--color-tile-reference)",
-  },
-  "label": "Player Views",
-  "rail": {
-    "token": "--color-tile-reference",
-    "value": "oklch(0.48 0.02 70)",
-    "width": "4px",
-  },
-  "silhouette": "tile-silhouette-reference",
-  "type": "Command Center",
-  "visibility": null,
-}
-`;
-
 exports[`tile header identity snapshots > parchment theme > prep 1`] = `
 {
   "binding": null,
@@ -1126,27 +1084,6 @@ exports[`tile header identity snapshots > tavern theme > notes 1`] = `
     "width": "4px",
   },
   "silhouette": "tile-silhouette-note",
-  "type": "Command Center",
-  "visibility": null,
-}
-`;
-
-exports[`tile header identity snapshots > tavern theme > player-views 1`] = `
-{
-  "binding": null,
-  "description": "Per-participant Player View assignment + projection.",
-  "icon": {
-    "glyph": "lucide lucide-eye",
-    "size": "16px",
-    "stroke": "var(--color-tile-reference)",
-  },
-  "label": "Player Views",
-  "rail": {
-    "token": "--color-tile-reference",
-    "value": "oklch(0.76 0.02 70)",
-    "width": "4px",
-  },
-  "silhouette": "tile-silhouette-reference",
   "type": "Command Center",
   "visibility": null,
 }
