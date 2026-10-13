@@ -128,13 +128,26 @@ export function Graph() {
 			),
 		[content, maps, session, permissions, viewActorId],
 	);
-	const viz: GraphVisualization = useMemo(
+	const listViz: GraphVisualization = useMemo(
 		() =>
 			filterGraphVisualization(vizBase, {
 				kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
 				text: query.trim() || undefined,
 			}),
 		[vizBase, facet, query],
+	);
+	// The results list follows every keystroke. The canvas, its label pass and the count follow a
+	// deferred query in an interruptible render, so typing commits the list first (RC-ENG-3.2).
+	const canvasQuery = useDeferredValue(query);
+	// Filtered on its own (not reused from the list) so its identity, and every canvas memo below,
+	// holds through the urgent render.
+	const viz: GraphVisualization = useMemo(
+		() =>
+			filterGraphVisualization(vizBase, {
+				kinds: facet === 'all' ? undefined : [facet as GraphVizNode['kind']],
+				text: canvasQuery.trim() || undefined,
+			}),
+		[vizBase, facet, canvasQuery],
 	);
 
 	// Health and clusters are whole-vault reports for the side panels and hull washes. Reading them from
@@ -567,7 +580,7 @@ export function Graph() {
 						<MemoGraphSearch
 							filterable={signalReached}
 							view={view}
-							viz={viz}
+							viz={listViz}
 							query={query}
 							setQuery={setQuery}
 							facet={facet}
