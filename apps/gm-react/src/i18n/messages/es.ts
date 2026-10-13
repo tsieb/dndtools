@@ -3,6 +3,43 @@ import type { MessageKey } from './en';
 /** Spanish. A `Partial` of `en`: an untranslated key renders its English source rather than a
  * blank or a bare identifier, so a partly translated locale degrades honestly. */
 export const es: Partial<Record<MessageKey, string>> = {
+	'importHub.title': 'Trae tu material existente',
+	'importHub.open': 'Centro de importación',
+	'importHub.command': 'Importar…',
+	'importHub.keywords':
+		'importar archivos carpeta zip notas personajes D&D Beyond mapas audio copia seguridad paquete sistema',
+	'importHub.description':
+		'Elige qué quieres traer. Cada opción abre el importador existente; debajo se explica cómo trata tu material actual.',
+	'importHub.readOnly': 'Solo un {gm} en una bóveda editable puede importar material.',
+	'importHub.folderUnsupported':
+		'Este dispositivo no permite elegir carpetas. Usa un ZIP de Markdown.',
+	'importHub.zip': 'ZIP de Markdown',
+	'importHub.folder': 'Carpeta de Markdown',
+	'importHub.notes': 'Notas y paquetes de contenido',
+	'importHub.characters': 'JSON de personaje',
+	'importHub.maps': 'Imágenes de mapa y formatos externos',
+	'importHub.audio': 'Archivos de audio',
+	'importHub.backup': 'Copia de seguridad de la bóveda',
+	'importHub.module': 'Sistemas y módulos',
+	'importHub.scene': 'Archivos de escena',
+	'importHub.zip.description':
+		'Un ZIP de notas Markdown, calendarios e imágenes. Añade notas nuevas y conserva las existentes. Reutiliza calendarios e imágenes idénticos y rechaza calendarios incompatibles.',
+	'importHub.folder.description':
+		'Una carpeta de notas Markdown, calendarios e imágenes. Añade notas nuevas sin sustituir las existentes. Reutiliza calendarios e imágenes idénticos y rechaza calendarios incompatibles.',
+	'importHub.notes.description':
+		'Markdown, texto o un paquete JSON de contenido exportado. Revisa antes de importar; las notas coincidentes se omiten por defecto. Sobrescribir requiere confirmación.',
+	'importHub.characters.description':
+		'JSON de personajes, incluidas exportaciones de D&D Beyond. Revisa los campos antes de añadir un personaje nuevo; los existentes no cambian.',
+	'importHub.maps.description':
+		'PNG, JPEG, WebP, GIF o SVG en el mapa seleccionado del Atlas. Revisa antes de añadir una capa y aplicar cambios de cuadrícula o escala. Los formatos externos usan la revisión existente; aquí no se procesan archivos JSON de mapas. Si no hay mapas, crea primero un destino.',
+	'importHub.audio.description':
+		'Archivos de audio compatibles. Añade un recurso local; los archivos de contenido idéntico reutilizan el recurso existente.',
+	'importHub.backup.description':
+		'JSON de una copia completa de la bóveda. Tras validar y confirmar, sustituye los datos y recursos actuales. Exporta antes una copia si quieres conservarlos.',
+	'importHub.module.description':
+		'Un archivo .dndmodule, incluidos paquetes de sistema. Revisa antes de instalar. Los sistemas se instalan como copias personalizadas; las actualizaciones de widgets y otros cambios siguen la revisión existente.',
+	'importHub.scene.description':
+		'Un archivo .dndscene. Crea una tarjeta de escena portátil con sus recursos y conserva las escenas existentes.',
 	'builder.identity.advanced': 'Identidad avanzada',
 	'builder.layout.changeSize': 'Cambiar tamaño',
 	'builder.style.summary': 'Estilo · {count} variables personalizadas',
@@ -507,7 +544,8 @@ export const es: Partial<Record<MessageKey, string>> = {
 		'Deja vacía la bóveda de este dispositivo, lista para tu campaña.',
 	'onboarding.vault.freshDescLoaded':
 		'Borra la campaña de ejemplo de este dispositivo y empieza la tuya en una bóveda vacía.',
-	'onboarding.vault.importHint': 'Importa archivos desde Configuración → Conexiones de bóveda.',
+	'onboarding.vault.importHint':
+		'Trae tus archivos desde el Centro de importación en Ayuda o Ajustes → Conexiones de bóveda.',
 	'onboarding.privacy.groupLabel': 'Modo de privacidad de la bóveda',
 	'onboarding.privacy.title': '¿Quién puede leer tu mundo?',
 	'onboarding.privacy.intro':
@@ -1849,10 +1887,10 @@ export const es: Partial<Record<MessageKey, string>> = {
 	'settings.vault.tryAgain': 'Reintentar',
 	'settings.vault.emptyTitle': 'No hay fuentes conectadas',
 	'settings.vault.emptyBody':
-		'Conecta una carpeta de Markdown en Conocimiento → Fuentes para importar o exportar notas.',
+		'Usa el Centro de importación para traer una carpeta Markdown o un ZIP. Gestiona las fuentes conectadas en Conocimiento → Fuentes.',
 	'settings.vault.emptyBodyWithDocs':
-		'Conecta una carpeta de Markdown o un Google Doc en Conocimiento → Fuentes para importar o exportar notas.',
-	'settings.vault.openSources': 'Abrir Conocimiento',
+		'Usa el Centro de importación para traer archivos. Gestiona carpetas conectadas y Google Docs en Conocimiento → Fuentes.',
+	'settings.vault.openSources': 'Centro de importación',
 	'settings.vault.disconnectTitle': '¿Desconectar esta carpeta?',
 	'settings.vault.disconnectDescription': 'La carpeta y todo lo ya importado quedan intactos.',
 	'settings.vault.disconnectBody':

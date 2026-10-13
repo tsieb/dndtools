@@ -137,6 +137,8 @@ export const SHARED_MODULE_USES: Readonly<
 	'../../widget-body-kit': { useSessionOnlyReason: ['state:session.workflow'] },
 	'../../useViewport': {},
 	'../../screen-kit': {},
+	// UI-only event: opens the shell import hub; no vault reads or commands.
+	'../../importHub/registry': {},
 	'../../combat/HpKeypadSheet': {},
 	'../../map/canvas/MapCanvas': {},
 	'../../map/mapVocab': {},

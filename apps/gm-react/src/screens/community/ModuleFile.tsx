@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import {
 	buildContentModuleBundle,
 	exportSystemPackageBundle,
@@ -176,6 +177,8 @@ export function ModuleFilePanel() {
 			setBusy(false);
 		}
 	};
+
+	useImportLaunch('module', () => void openModuleFile());
 
 	const confirmInstall = async () => {
 		if (!review) return;

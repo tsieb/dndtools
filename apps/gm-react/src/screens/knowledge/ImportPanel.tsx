@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { openImportHub } from '../../app/importHub/registry';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Card, Dialog, Icon, Select, Textarea } from '../../ds';
 import { T } from '../../app/screen-kit';
 import { pickTextFiles } from '../../platform/filePick';
@@ -34,12 +35,16 @@ function pickedFilesToArchiveText(files: Array<{ name: string; text: string }>):
 }
 
 export function ImportPanel({
+	autoPick = false,
+	onPicked,
 	onImport,
 	onCancel,
 	busy,
 	message,
 	failed,
 }: {
+	autoPick?: boolean;
+	onPicked?: () => void;
 	onImport: (text: string, policy: string) => void;
 	onCancel: () => void;
 	busy: boolean;
@@ -70,6 +75,18 @@ export function ImportPanel({
 		// Append into the paste box (never silently dispatch) so the user reviews before importing.
 		setText((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${archive}` : archive));
 	};
+	const pickedOnMount = useRef(false);
+	useEffect(() => {
+		if (!autoPick) {
+			pickedOnMount.current = false;
+			return;
+		}
+		if (pickedOnMount.current) return;
+		pickedOnMount.current = true;
+		onPicked?.();
+		void pickFiles();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot picker intent
+	}, [autoPick]);
 	return (
 		<Card
 			elevation="flat"
@@ -102,6 +119,9 @@ export function ImportPanel({
 					{t('knowledge.importFiles')}
 				</Button>
 			</div>
+			<Button variant="ghost" size="sm" onClick={openImportHub}>
+				{t('importHub.open')}
+			</Button>
 			<div style={META}>
 				{t('knowledge.importIntroA')} <code style={{ fontFamily: T.mono }}>.md</code>{' '}
 				{t('knowledge.importIntroB')} <code style={{ fontFamily: T.mono }}>.json</code>{' '}

@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { useState } from 'react';
 import { Button, IconButton, Sheet } from '../../ds';
 import { T } from '../../app/screen-kit';
@@ -19,6 +20,7 @@ export function RosterActions({
 	onImport: () => void;
 }) {
 	const { t } = useI18n();
+	useImportLaunch('characters', onImport);
 	const compact = useViewport() !== 'desktop';
 	const [open, setOpen] = useState(false);
 	const actions = (

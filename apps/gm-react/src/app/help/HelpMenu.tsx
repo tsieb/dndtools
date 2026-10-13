@@ -1,3 +1,5 @@
+import { ImportHub } from '../importHub/ImportHub';
+import { openImportHub } from '../importHub/registry';
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveOnboarding } from '@dndtools/core';
@@ -112,7 +114,12 @@ export function HelpHost() {
 		window.addEventListener(FIRST_SESSION_NAME_EVENT, replay);
 		return () => window.removeEventListener(FIRST_SESSION_NAME_EVENT, replay);
 	}, []);
-	return <HelpMenu open={open} onClose={() => setHelpOpen(false)} />;
+	return (
+		<>
+			<ImportHub />
+			<HelpMenu open={open} onClose={() => setHelpOpen(false)} />
+		</>
+	);
 }
 
 /**
@@ -208,6 +215,16 @@ export function HelpMenu({ open, onClose }: { open: boolean; onClose: () => void
 		<>
 			<Dialog open={listOpen} onClose={onClose} title={t('help.title')} icon="info" size="md">
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+					<Button
+						variant="secondary"
+						icon="import"
+						onClick={() => {
+							onClose();
+							openImportHub();
+						}}
+					>
+						{t('importHub.open')}
+					</Button>
 					<section aria-label={t('help.gettingStarted')}>
 						<h3 style={{ ...SECTION_HEADING, marginBottom: 'var(--space-1-5)' }}>
 							{t('help.gettingStarted')}

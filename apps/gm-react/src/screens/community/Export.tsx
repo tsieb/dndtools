@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { getContentItemsForActor, listSceneCardsForActor, type CoreEvent } from '@dndtools/core';
 import { useMemo, useState } from 'react';
 import { eb, Panel, T } from '../../app/screen-kit';
@@ -80,6 +81,8 @@ export function CommExport() {
 			setScenePackageBusy(false);
 		}
 	};
+
+	useImportLaunch('scene', () => void runScenePackageImport());
 
 	const runScenePackageImport = async () => {
 		if (scenePackageBusy) return;

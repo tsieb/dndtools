@@ -8,6 +8,43 @@
  * Values may use ICU syntax — plural, select, number, date, time, unit — rendered by `format.ts`.
  * Every key a locale translates must exist here; a locale catalog is a `Partial` of this one. */
 export const en = {
+	'importHub.title': 'Bring your existing material',
+	'importHub.open': 'Import hub',
+	'importHub.command': 'Import…',
+	'importHub.keywords':
+		'import files folder zip notes characters D&D Beyond maps audio backup system package',
+	'importHub.description':
+		'Choose what to bring in. Each option opens the existing importer; review how it treats your current material below.',
+	'importHub.readOnly': 'Only a {gm} in an editable vault can import material.',
+	'importHub.folderUnsupported':
+		'Folder picking is unavailable on this device. Use Markdown ZIP instead.',
+	'importHub.zip': 'Markdown ZIP',
+	'importHub.folder': 'Markdown folder',
+	'importHub.notes': 'Notes and content bundles',
+	'importHub.characters': 'Character JSON',
+	'importHub.maps': 'Map images and external formats',
+	'importHub.audio': 'Audio files',
+	'importHub.backup': 'Vault backup',
+	'importHub.module': 'System packages and modules',
+	'importHub.scene': 'Scene files',
+	'importHub.zip.description':
+		'A ZIP of Markdown notes, calendars and images. Adds new notes; keeps existing notes. Reuses identical calendars and images; refuses conflicting calendars.',
+	'importHub.folder.description':
+		'A folder of Markdown notes, calendars and images. Adds new notes without replacing existing notes. Reuses identical calendars and images; refuses conflicting calendars.',
+	'importHub.notes.description':
+		'Markdown, text or a content-export JSON bundle. Review before importing; matching notes are skipped by default. Overwriting requires confirmation.',
+	'importHub.characters.description':
+		'Character JSON, including D&D Beyond exports. Preview mapped fields before adding a new character; existing characters stay unchanged.',
+	'importHub.maps.description':
+		'PNG, JPEG, WebP, GIF or SVG into the selected Atlas map. Preview before adding a layer and applying grid or scale changes. External map formats use the existing format review; JSON file parsing is not available here. With no maps, create a destination first.',
+	'importHub.audio.description':
+		'Supported audio files. Adds a local audio asset; identical file contents reuse the existing asset.',
+	'importHub.backup.description':
+		'A full vault backup JSON. After validation and confirmation, replaces this vault’s current data and assets. Export a backup first if you need to keep them.',
+	'importHub.module.description':
+		'A .dndmodule file, including system packages. Review before installing. Systems install as custom copies; widget upgrades and other module changes follow the existing review.',
+	'importHub.scene.description':
+		'A .dndscene file. Creates a new portable scene card with its assets; keeps existing scenes.',
 	'builder.identity.advanced': 'Advanced identity',
 	'builder.layout.changeSize': 'Change size',
 	'builder.style.summary': 'Style · {count} custom tokens',
@@ -505,7 +542,8 @@ export const en = {
 	'onboarding.vault.freshDescEmpty': 'Keep this device’s vault empty, ready for your campaign.',
 	'onboarding.vault.freshDescLoaded':
 		'Clear the sample campaign from this device and start your own in an empty vault.',
-	'onboarding.vault.importHint': 'Import files from Settings → Vault connections.',
+	'onboarding.vault.importHint':
+		'Bring existing files through the Import hub in Help or Settings → Vault connections.',
 	'onboarding.privacy.groupLabel': 'Vault privacy mode',
 	'onboarding.privacy.title': 'Who can read your world?',
 	'onboarding.privacy.intro':
@@ -1815,10 +1853,10 @@ export const en = {
 	'settings.vault.tryAgain': 'Try again',
 	'settings.vault.emptyTitle': 'No sources connected',
 	'settings.vault.emptyBody':
-		'Connect a Markdown folder in Knowledge → Sources to import or export notes.',
+		'Use the Import hub to bring in a Markdown folder or ZIP. Manage connected sources in Knowledge → Sources.',
 	'settings.vault.emptyBodyWithDocs':
-		'Connect a Markdown folder or Google Doc in Knowledge → Sources to import or export notes.',
-	'settings.vault.openSources': 'Open Knowledge',
+		'Use the Import hub to bring in files. Manage connected folders and Google Docs in Knowledge → Sources.',
+	'settings.vault.openSources': 'Import hub',
 	'settings.vault.disconnectTitle': 'Disconnect this folder?',
 	'settings.vault.disconnectDescription':
 		'The folder and everything already imported stay untouched.',

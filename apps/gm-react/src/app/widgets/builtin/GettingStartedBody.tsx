@@ -1,3 +1,4 @@
+import { openImportHub } from '../../importHub/registry';
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -263,6 +264,9 @@ export function GettingStartedBody() {
 					</Button>
 				)}
 			</div>
+			<Button variant="secondary" size="sm" icon="import" onClick={openImportHub}>
+				{t('importHub.open')}
+			</Button>
 			<FirstSessionGuideList guide={guide} />
 		</section>
 	);

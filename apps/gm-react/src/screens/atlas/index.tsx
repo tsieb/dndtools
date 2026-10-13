@@ -1,3 +1,4 @@
+import { ImportMapDialog } from '../../app/map/ImportMapDialog';
 import { MapEditor } from '../../app/map/MapEditor';
 import { ListDetail, Page, T } from '../../app/screen-kit';
 import { MapCreationForm } from '../../ds';
@@ -37,6 +38,8 @@ export function Atlas() {
 		busy,
 		notice,
 		setNotice,
+		importMapOpen,
+		setImportMapOpen,
 		builder,
 		setBuilder,
 		selPoiId,
@@ -45,6 +48,7 @@ export function Atlas() {
 		setSelTokenId,
 		creating,
 		setCreating,
+		cancelCreate,
 		delivered,
 		maps,
 		mapHierarchy,
@@ -84,7 +88,7 @@ export function Atlas() {
 			creating={creating}
 			onSelect={selectMap}
 			onOpenEditor={() => openBuilder('select')}
-			onToggleCreate={() => setCreating((c) => !c)}
+			onToggleCreate={() => (creating ? cancelCreate() : setCreating(true))}
 		/>
 	);
 
@@ -103,7 +107,7 @@ export function Atlas() {
 		>
 			<MapCreationForm
 				submitting={busy}
-				onCancel={() => setCreating(false)}
+				onCancel={cancelCreate}
 				onCreate={(draft: {
 					name: string;
 					scale: number | null;
@@ -257,6 +261,14 @@ export function Atlas() {
 			{/* A `position:fixed` overlay, so it renders the same outside the page as it did within it —
 			    and from here it survives the tier change instead of remounting with a cleared canvas. */}
 			{editor}
+			{importMapOpen && selectedId && (
+				<ImportMapDialog
+					autoPick
+					mapId={selectedId}
+					mapName={selectedEntry?.name ?? ''}
+					onClose={() => setImportMapOpen(false)}
+				/>
+			)}
 		</>
 	);
 }

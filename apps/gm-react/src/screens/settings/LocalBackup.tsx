@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { useState } from 'react';
 import { Button, Dialog, Toaster } from '../../ds';
 import { Panel, T } from '../../app/screen-kit';
@@ -59,6 +60,8 @@ export function LocalBackupPanel() {
 			Toaster.error(errMsg(e, t('settings.backup.invalidFile')));
 		}
 	};
+	useImportLaunch('backup', () => void pickBackup());
+
 	const restore = () => {
 		if (!pendingRestore) return;
 		setBusy(true);

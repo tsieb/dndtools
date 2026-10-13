@@ -264,6 +264,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 "- heading "Your first session" [level=2]
 - text: 0 of 6 done
 - button "Hide guide"
+- button "Import hub"
 - list "Your first session":
   - listitem "Not done yet Name your campaign The name is how you find this campaign again and what your players see when they join. Name it"
   - listitem "Not done yet Add your party Player seats and characters are what the tracker, the player views and the home screen show. Add players Import characters"
@@ -304,6 +305,9 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
   <button type="button">
     <svg aria-hidden="true">
     "Hide guide"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Import hub"
   <ol aria-label="Your first session">
     <li>
       "1"
@@ -441,6 +445,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty 
 
 exports[`Command Center baselines (RC-CAN-7.6) > an empty vault > desktop empty vault · focus order 1`] = `
 "button Hide guide
+button Import hub
 button Name it
 button Add players
 button Import characters
@@ -480,6 +485,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 "- heading "Your first session" [level=2]
 - text: 2 of 6 done
 - button "Hide guide"
+- button "Import hub"
 - list "Your first session":
   - listitem "Not done yet Name your campaign The name is how you find this campaign again and what your players see when they join. Name it"
   - listitem "Add your party Player seats and characters are what the tracker, the player views and the home screen show. Add players Import characters"
@@ -523,6 +529,9 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
   <button type="button">
     <svg aria-hidden="true">
     "Hide guide"
+  <button type="button">
+    <svg aria-hidden="true">
+    "Import hub"
   <ol aria-label="Your first session">
     <li>
       "1"
@@ -664,6 +673,7 @@ exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > des
 
 exports[`Command Center baselines (RC-CAN-7.6) > demo vault with no scenes > desktop no scenes · focus order 1`] = `
 "button Hide guide
+button Import hub
 button Name it
 button Add players
 button Import characters

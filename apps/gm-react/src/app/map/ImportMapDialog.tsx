@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { pickBinaryFile } from '../../platform/filePick';
 import { Dialog, Stepper } from '../../ds';
 import { ImportAlignPanel, ImportScalePanel, ImportWallsPanel, WizardNav } from './ImportMapPanels';
 import { ImportPreviewPanel, ImportResultPanel, ImportSourcePanel } from './ImportMapSteps';
@@ -5,10 +7,12 @@ import { STEP_LABEL } from './importWizardState';
 import { useImportMap } from './useImportMap';
 
 export function ImportMapDialog({
+	autoPick = false,
 	mapId,
 	mapName,
 	onClose,
 }: {
+	autoPick?: boolean;
 	mapId: string;
 	mapName: string;
 	onClose: () => void;
@@ -60,6 +64,13 @@ export function ImportMapDialog({
 		meta,
 	} = useImportMap({ mapId, mapName, onClose });
 
+	const pickedOnMount = useRef(false);
+	useEffect(() => {
+		if (!autoPick || pickedOnMount.current) return;
+		pickedOnMount.current = true;
+		void pickBinaryFile(nativeMimes.join(',')).then((file) => pickFile(file?.file));
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot picker intent
+	}, [autoPick]);
 	return (
 		<Dialog
 			open

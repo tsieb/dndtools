@@ -1,3 +1,4 @@
+import { useImportLaunch } from '../../app/importHub/useImportLaunch';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { actorCanAuthorContent, getContentItemsForActor } from '@dndtools/core';
@@ -67,6 +68,15 @@ export function Knowledge() {
 		if (detailId === createdId) setCreatedId(null);
 	}, [detailId, createdId]);
 	const [panel, setPanel] = useState<LibraryPanel | null>(null);
+	const [pickOnOpen, setPickOnOpen] = useState(false);
+	useImportLaunch(
+		'notes',
+		() => {
+			setPickOnOpen(true);
+			setPanel('import');
+		},
+		canAuthor,
+	);
 	const toggle = (next: LibraryPanel) => setPanel((current) => (current === next ? null : next));
 	// On a phone the four secondary toggles show their icon only, so the header stays one row with
 	// New note; the word stays the accessible name and the tooltip.
@@ -308,6 +318,8 @@ export function Knowledge() {
 			)}
 			{canAuthor && panel === 'import' && (
 				<ImportPanel
+					autoPick={pickOnOpen}
+					onPicked={() => setPickOnOpen(false)}
 					busy={busy}
 					message={importMsg}
 					failed={importFailed}
