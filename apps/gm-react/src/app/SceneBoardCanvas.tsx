@@ -95,7 +95,8 @@ export function SceneBoardCanvas({
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
 	// RC-ENG-3.2 — read before the first paint, so a Fit board does not paint at 100% and re-render.
-	const wrapWidth = usePaneWidth(wrapRef);
+	const paneWidth = usePaneWidth(wrapRef);
+	const wrapWidth = paneWidth ?? 0;
 	const dragRef = useRef<Drag | null>(null);
 	const resizeMoved = useRef(false);
 	const [notice, announce] = A11y.useOperationNotice();
@@ -711,6 +712,10 @@ export function SceneBoardCanvas({
 						transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
 						// Bare number: `.scene-board-operation` divides its touch target by it.
 						'--scene-board-scale': String(scale),
+						// The tiles mount before the pane is measured, and the fit scale that reading
+						// sets restyles every one of them (their text sizes divide by it). Kept out of
+						// style until then, a cold board computes its tiles' styles once (RC-ENG-3.2).
+						display: paneWidth === null ? 'none' : undefined,
 						minWidth: policy === 'bounded' ? contentExtent.width : '100%',
 						height: policy === 'bounded' ? contentExtent.height : undefined,
 					} as CSSProperties

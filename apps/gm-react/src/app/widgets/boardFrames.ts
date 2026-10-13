@@ -87,11 +87,12 @@ export function sameFrameProps(prev: WidgetFrameProps, next: WidgetFrameProps): 
 export const BoardFrame = memo(WidgetFrame, sameFrameProps);
 
 /**
- * The pane's content width, tracked with a `ResizeObserver`. The first reading happens before the
- * first paint: starting from 0 painted every frame at 100% and then re-rendered them at the fit scale.
+ * The pane's content width, tracked with a `ResizeObserver`; null until the first reading. That
+ * reading happens before the first paint: starting from 0 painted every frame at 100% and then
+ * re-rendered them at the fit scale.
  */
-export function usePaneWidth(ref: { readonly current: HTMLElement | null }): number {
-	const [width, setWidth] = useState(0);
+export function usePaneWidth(ref: { readonly current: HTMLElement | null }): number | null {
+	const [width, setWidth] = useState<number | null>(null);
 	useLayoutEffect(() => {
 		const node = ref.current;
 		if (!node) return;

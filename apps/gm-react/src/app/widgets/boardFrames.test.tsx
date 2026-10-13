@@ -117,7 +117,7 @@ it('reads the pane width before the first paint, then follows resizes', () => {
 	);
 	vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(958);
 	const { root, unmount } = mount();
-	const widths: number[] = [];
+	const widths: (number | null)[] = [];
 	function Pane() {
 		const ref = useRef<HTMLDivElement | null>(null);
 		widths.push(usePaneWidth(ref));
@@ -127,7 +127,7 @@ it('reads the pane width before the first paint, then follows resizes', () => {
 		// `flushSync` commits and runs layout effects, but leaves passive effects queued: the width must
 		// already be in the render the browser paints.
 		flushSync(() => root.render(<Pane />));
-		expect(widths).toEqual([0, 958]);
+		expect(widths).toEqual([null, 958]);
 		act(() =>
 			observed([{ contentRect: { width: 700.4 } } as ResizeObserverEntry], {} as ResizeObserver),
 		);
