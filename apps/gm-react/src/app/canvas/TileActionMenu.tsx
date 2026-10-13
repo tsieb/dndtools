@@ -25,7 +25,7 @@ import {
 } from '../board-helpers';
 import { T } from '../screen-kit';
 import { GRID, triggerNudge } from '../SceneBoardModel';
-import { useEditWidget } from '../../screens/extensions/WidgetBuilder';
+import { useEditWidget } from '../../screens/extensions/useEditWidget';
 import { bindingSlot, sceneInstance, TileBindDialog, TileConfigureDialog } from './TileDialogs';
 import { widgetSettingsFields } from '../widgetBuilder/draft';
 
