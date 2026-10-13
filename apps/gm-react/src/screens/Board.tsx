@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	findWidgetDefinition,
@@ -50,15 +50,7 @@ import {
 import { ScreenToolbar } from './sceneEditor/SceneToolbar';
 import { usePreviewActions } from '../app/ViewAsControl';
 import { readPlayerPreview } from './sceneEditor/playerPreview';
-// Load authoring tools on demand; local Suspense keeps the board mounted.
-const GenerateDialog = lazy(() =>
-	import('../app/widgetBuilder/GenerateDialog').then((module) => ({
-		default: module.GenerateDialog,
-	})),
-);
-const WidgetBuilder = lazy(() =>
-	import('./extensions/WidgetBuilder').then((module) => ({ default: module.WidgetBuilder })),
-);
+import { BoardAuthoring } from './board/BoardAuthoring';
 
 /**
  * Board — the board engine behind `/screen/:id` (ADR-041): one screen rendered by its layout policy
@@ -789,25 +781,13 @@ function ScreenBoard({ screen }: { screen: BoardScreen }) {
 					setEditing(true);
 				}}
 			/>
-			<Suspense fallback={<p role="status">{t('common.state.loading')}</p>}>
-				{generateOpen && (
-					<GenerateDialog
-						open={generateOpen}
-						onClose={() => setGenerateOpen(false)}
-						onGenerated={(pkg) => {
-							setGenerateOpen(false);
-							setBuilder({ pkg });
-						}}
-					/>
-				)}
-				{builder && (
-					<WidgetBuilder
-						generatedPackage={builder.pkg}
-						onClose={() => setBuilder(null)}
-						onInstalled={setBuilt}
-					/>
-				)}
-			</Suspense>
+			<BoardAuthoring
+				generateOpen={generateOpen}
+				onGenerateClose={() => setGenerateOpen(false)}
+				builder={builder}
+				onBuilder={setBuilder}
+				onInstalled={setBuilt}
+			/>
 		</div>
 	);
 }
