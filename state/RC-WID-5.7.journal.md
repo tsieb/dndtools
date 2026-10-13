@@ -249,3 +249,70 @@ or removing the public kinds would not satisfy acceptance. No implementation cha
 the previous full typecheck, 8,438 unit tests and 15 focused visual checks remain the relevant
 validation. The task awaits the central operator's decision on widening the claim to this one
 source file. No dispatcher control state was edited.
+
+## Rebase onto loop/rc — 2026-10-12
+
+Operator brief: the claim now includes `LayoutStep.tsx` and `SCREENS_PARITY.md`; rebase on the
+current `loop/rc` (`74efcfe2`, 121 commits ahead of the old base) and re-run the gates. Both
+widened files are unchanged from the last round (6 and 4+/4− lines). No Headroom tools in this
+session; original logs under `/tmp/rcwid57-rebase/`.
+
+The rebase met RC-CAN-7.8 (Session as a screen) and RC-UX-6.3. Conflicts and their resolution:
+
+- The Session screen provisions a `dice` instance with `view: 'tray'`, drawn upstream by a new
+  tray branch in the builtin `DiceBody`, which this story turned into the `dice-roller` template.
+  Every `dice` instance now renders through that template, so the tray became the template's
+  `tray` view: the shared `DicePanel` fed by the definition's `dice-history` rows (the `dice`
+  detail now carries the core's full actor-filtered `DiceRollView`) and rolling only through the
+  declared `dice.roll` via `widget.dispatch-command` on its own instance, with the label. The
+  system definition keeps upstream's `view` select. New `templates/board/dice-tray.test.tsx`: the
+  provisioned tray reads the viewer's history, a player never sees the DM's dm-only roll, Roll
+  sends the envelope the core accepts and records with its label, and no roll in edit mode or
+  without a declared `dice.roll`.
+- Parity ledger: upstream added RC-WID-5.13 debt for the Session screen's `session`, `combat` and
+  `dice` views. All RC-WID-5.7 entries stay deleted. `dice` no longer owes anything (it is not a
+  builtin). Five RC-WID-5.13 entries stopped reproducing because of this story's public surface and
+  were removed, as the exact ratchet requires: combat's `combat.advance-turn`, `apply-resource` and
+  `set-combatant-visibility` (now named widget commands, declared on `combat`), and session's
+  `characters.characters.<dynamic>` and `permissions.actors.<dynamic>` (the bracketed-member scan
+  sees the declared upstream sources cover them). `combat` declares `encounters` in place of
+  `campaign`, which the gate reported as redundant. The "ledger is empty" test now asserts nothing
+  is owed to RC-WID-5.6/5.7; the remaining entries are all RC-WID-5.13's, which the acceptance's
+  empty-ledger reading cannot cover without doing that story.
+- `core/tests/command-center-session-screen.test.ts` asserted `dice` stays uncopyable. Now it
+  checks that `dice` is the copyable `dice-roller` template and `session`/`combat` remain builtin.
+- Union merges in `core/index.ts` exports, `widget-package-state.ts` and `builtin-bodies.test.tsx`
+  (upstream's `MemoryRouter`). Raw-style allow-list regenerated (`--write`).
+- The 19 scene-editor baselines conflicted with upstream's recompressed ones. Took upstream's,
+  then re-baselined them in the pinned container (below).
+
+Validation on the rebased tree:
+
+- `pnpm typecheck` exit 0. Full `pnpm test` exit 0: core 297 files / 5,377; cloud 46 / 569; app
+  189 / 2,362; tooling 31 / 249 (`test2.log`). `pnpm gates` exit 0: 308 docs files reachable,
+  443 links resolved (`gates.log`). Changed-file ESLint and Prettier clean.
+- Pinned-container visual compare: 567 passed, 15 failed, all scene-editor inspector captures
+  (`visual-compare.log`). Inspected expected/actual: the only change is the "Edit widget
+  definition" button a builder-editable definition gets, and the layout shift below it. Re-baselined
+  that spec (`visual-update.log`). The rewrite also covered the transform and phone resize-handle
+  captures the failing test never reached. Then the full compare passed 582/582
+  (`visual-compare2.log`). Baseline budget 37,807.5 / 37,888.0 KiB.
+- Focused Playwright, both projects (dice-tray, session-\*, golden-path, combat, custom-widgets,
+  add-panel, widget-query-sources, friction-budgets, responsive): 460 passed, 2 skipped
+  (`e2e-focus.log`).
+
+No push, promotion, additional agents, loop or dispatcher control-state edits.
+
+Full Playwright, both projects (`e2e-full.log`): 2,145 passed, 44 skipped, 5 failed (44.8 min).
+Each failure was re-run with `--repeat-each` on the branch and on a detached `loop/rc` worktree
+(`74efcfe2`, removed afterwards):
+
+- `tile-resize.spec.ts:22` (mobile): branch 4/4 fail, base 4/4 fail (+1/4 desktop on base). The
+  Shift+F10 tile menu never shows "Resize". Pre-existing.
+- `widget-full-disclosure.spec.ts:21` (mobile and desktop): branch mobile 4/4 fail, base mobile
+  4/4 fail (+1/4 desktop). An axe color-contrast hit on the builder footer button. Pre-existing.
+- `canvas-arrange.spec.ts:32` (desktop): branch 2/10, base 1/10, the same "Expected 6, Received 7"
+  after Delete. A base flake.
+- `canvas.spec.ts:827` (mobile): passed 4/4 on re-run. A load flake.
+
+Logs: `e2e-rerun.log`, `e2e-base.log`, `arrange-branch.log`, `arrange-base.log`.
