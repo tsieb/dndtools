@@ -1424,9 +1424,23 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 				const cy = box.y + box.height / 2;
 				await page.mouse.move(cx, cy);
 				await page.mouse.down();
-				for (let i = 0; i < 4; i += 1) {
-					await page.mouse.move(cx + box.width * 0.25, cy + box.height * 0.2, { steps: 20 });
-					await page.mouse.move(cx - box.width * 0.25, cy - box.height * 0.2, { steps: 20 });
+				// Each pointer step waits for the next animation frame, so the drag spans at least 160
+				// frames on either revision. Unpaced, a fast revision finished the drag in ~60 frames, and
+				// its gesture-start frames alone decided the 5th percentile (RC-ENG-1.4 hosted agreement).
+				let from = { x: cx, y: cy };
+				for (let i = 0; i < 8; i += 1) {
+					const sign = i % 2 === 0 ? 1 : -1;
+					const to = { x: cx + sign * box.width * 0.25, y: cy + sign * box.height * 0.2 };
+					for (let step = 1; step <= 20; step += 1) {
+						await page.mouse.move(
+							from.x + ((to.x - from.x) * step) / 20,
+							from.y + ((to.y - from.y) * step) / 20,
+						);
+						await page.evaluate<void>(
+							() => new Promise<void>((done) => requestAnimationFrame(() => done())),
+						);
+					}
+					from = to;
 				}
 				await page.mouse.up();
 				await page.mouse.wheel(0, -240);
@@ -1449,7 +1463,7 @@ function mapPanZoom(budgetId: string, profile: 'desktop' | 'slim'): Scenario {
 				return {
 					samples,
 					scenario:
-						'Drag-pan the full-screen map editor 8× across the canvas and wheel-zoom twice, sampling every animation frame.',
+						'Drag-pan the full-screen map editor 8× across the canvas (one pointer step per frame) and wheel-zoom twice, sampling every animation frame.',
 					fixture,
 					profile,
 				};
