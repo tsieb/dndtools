@@ -29,8 +29,8 @@ Every recorded value meets its target. The slim map run uses a 390×844 touch-en
 the desktop viewport is 1280×800. This does not establish physical mobile-device performance.
 Other browser scenarios use the desktop profile. Small samples, reduced fixtures, local session
 projection, and workstation hardware limit what these baselines demonstrate. Full-size datasets,
-physical mobile devices, network delivery, and a stable CI-hardware baseline need separate evidence;
-RC-ENG-1.3 owns the CI baseline and larger sample work.
+physical mobile devices and network delivery need separate evidence. CI does not use these values;
+it grades against the paired CI baseline in §2.1.
 
 Each registry entry retains its accountable owner, user-facing risk, target dataset and device
 class, and measurement method. `validateBudgetRegistry` checks those fields and baseline dates.
@@ -56,11 +56,58 @@ scenario can never read green. Smaller fixtures and the dev-server cost are stat
 A ceiling is graded at its percentile; a floor at the complement (p95 ≥ 50 fps means 95% of frames
 at or above); a `duration-ms` budget grades the worst run. `compare.ts` fails on a breached target,
 on drift past 20% against the baseline in the bad direction (ADR-009), or on an unmeasured budget,
-and grades drift only when the run's CPU matches the baseline's. The checked-in baseline was
-recorded on a desktop with 16 logical CPUs, so CI runs currently grade targets only; on 2026-09-09 two runs of
-one unchanged commit swung `scene-first-render` between 1125 ms and 1621 ms at n=3. RC-ENG-1.3 owns
-a CI-hardware baseline and a larger sample; never loosen a budget to make a run pass.
-`.github/workflows/perf.yml` is path-filtered and uploads the run file and a report.
+and grades drift only when the run's CPU matches the baseline's. `tests/perf/baseline.json` was
+recorded on a desktop with 16 logical CPUs and is for local runs only. On 2026-09-09 two CI runs of
+one unchanged commit swung `scene-first-render` between 1125 ms and 1621 ms at n=3, so CI measures differently
+(RC-ENG-1.3, `tests/perf/README.md`): each run checks the pinned reference commit in
+`tests/perf/baseline.ci.json` out beside the candidate and measures both interleaved, batch by batch,
+median of seven. Never loosen a budget to make a run pass.
+
+### 2.1 CI policy: which verdict is binding (RC-ENG-1.4)
+
+`.github/workflows/perf.yml` runs in one of two modes. Each paired run still writes its own
+`report-N.md` and `verdict-N.json`, but those are evidence, not the verdict. The job's one binding
+verdict comes from `compare.ts --policy`. It goes to the job summary and `policy.json` in the
+`perf-run` artifact. Setup, pipeline tests and artifact upload can also fail independently of the performance verdict.
+
+| Mode           | Runs on                                                                       | Paired runs | Binding verdict, once enforcing                                                    | Advisory only                 |
+| -------------- | ----------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- | ----------------------------- |
+| `scheduled`    | weekly on `main`; `workflow_dispatch` (the default mode)                      | 5           | drift past tolerance (20%, 1.5-frame floor) in any run, or runs disagreeing        | absolute target breaches      |
+| `pull-request` | pushes to `main`; `workflow_dispatch` on request (ADR-043: no PR trigger)     | 2           | a budget breaching its absolute target in **both** repeats, or measured in neither | drift; a breach in one repeat |
+
+**Enforcing** means `baseline.ci.json` has a `recorded` block for the pinned `referenceCommit` and
+for this runner class (same `runnerLabel`, OS and core count; the CPU model may differ because the
+paired runs cancel machine speed). Until then, and whenever the pinned reference changes, both modes
+report and pass: the summary shows what _would_ fail. A lost run fails closed once enforcing, since
+a breach cannot be confirmed and agreement cannot be checked without it.
+
+**Recording the baseline.** A scheduled run whose five runs agree writes a proposed
+`baseline.ci.json` into the artifact: the reference's per-run values, their median, the runner class
+and the run id. The workflow never commits it. To record or re-record one, dispatch the workflow
+(`gh workflow run perf.yml --ref main`), check the five runs agree and the numbers look sane, then
+copy the artifact's `baseline.ci.json` over `tests/perf/baseline.ci.json` in the delivery PR. Run
+`pnpm exec prettier --write` on the copy; it only changes whitespace, and `jq -S .` on both files
+must still match. Moving `referenceCommit` puts the policy back into advisory mode until a new
+recording lands.
+
+**Current recording.** `tests/perf/baseline.ci.json` holds the baseline proposed by
+[run 36282128588](https://github.com/tsieb/dndtools/actions/runs/36282128588). That was a
+scheduled-mode `workflow_dispatch` of `5f93b617` against reference `48a82786` on
+`github-ubuntu-24.04` (4× AMD EPYC 7763). Its five paired runs agreed and all eleven budgets passed.
+The file came from that run's `perf-run` artifact with only Prettier's whitespace changes, so both
+modes now enforce on that runner class. `tests/perf/run-journal.md` has the provenance.
+
+**Five scheduled runs on one commit agree.** This is the RC-1 bar (`RC_ROADMAP.md` §2.2). Five
+weekly runs on an unchanged `main`, or five dispatches of one SHA, each produce a `policy.json`. Download
+them into one directory per run and compare:
+
+```bash
+for id in <run-id> ...; do gh run download "$id" -n perf-run -D "tmp/agree/$id"; done
+pnpm exec tsx scripts/perf/compare.ts --agreement tmp/agree
+```
+
+It fails unless there are at least five, all `scheduled`, each internally stable, on one candidate
+and one reference, with the same enforcement, pass/fail and per-budget verdict.
 
 ## 3. The map bake layer
 

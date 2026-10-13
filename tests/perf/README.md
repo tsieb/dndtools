@@ -30,8 +30,10 @@ pair. Report `n` counts batches, not individual frames. The legacy workstation
 baseline remains usable for old captures; refresh it before comparing new
 aggregation locally.
 
-CI gates regression against the measured CI baseline with 20% tolerance. Absolute
-reference-device targets remain visible diagnostics. Missing/incompatible baseline,
+Each run grades regression against the measured CI baseline with 20% tolerance.
+Absolute reference-device targets remain visible diagnostics. Which of those can
+fail the job, and when, is the RC-ENG-1.4 policy step (`compare.ts --policy`,
+`docs/development/PERFORMANCE.md` §2.1); a pull request runs two paired runs, not five. Missing/incompatible baseline,
 missing budgets, fewer than seven batches, or missing provenance fail closed.
 Five consecutive paired runs of the unchanged candidate must agree on **every CI
 gate verdict**, with numeric drift for all budgets. Agreement alone does not make
@@ -75,3 +77,12 @@ full commit SHA:
 `gh workflow run perf.yml --ref main -f ref=<branch-or-sha>`. The job checks that
 ref out and runs _its_ `ci.sh` and capture harness, so the ref must already contain
 this pipeline. The SHA it measured is the `commit` in every `current-N.json`.
+
+### Policy regression checks
+
+Run `pnpm exec tsx scripts/perf/compare.ts --test-policy` alongside the perf Vitest
+configuration. The Performance workflow runs both before capture. The synthetic
+checks exercise advisory/enforcing decisions, two-repeat target confirmation,
+scheduled drift, missing data, runner-class matching, baseline recording and
+five-job agreement. They live in the owned comparison script and never read or
+write timing artifacts; passing them is not hosted acceptance evidence.

@@ -4,5 +4,86 @@
 	"runnerLabel": "github-ubuntu-24.04",
 	"aggregation": "median-of-batches-v1",
 	"tolerance": 0.2,
-	"description": "Pinned code reference, measured afresh on the same CI runner with the candidate capture harness. This is configuration, not fabricated timing data. The measured baseline and its raw samples are uploaded with every run. Refresh this SHA only after reviewing performance evidence."
+	"description": "Pinned code reference, measured afresh on the same CI runner with the candidate capture harness. This is configuration, not fabricated timing data. The measured baseline and its raw samples are uploaded with every run. Refresh this SHA only after reviewing performance evidence. `recorded` is null until a scheduled Performance run on main proposes a baseline for this runner class (the artifact's baseline.ci.json) and a delivery PR lands it; while it is null, or names another reference or runner class, the workflow reports and never fails (RC-ENG-1.4).",
+	"recorded": {
+		"recordedAt": "2026-09-27T02:05:18.916Z",
+		"commit": "5f93b6174213d2daad8130cb7e6f7f3678e3d617",
+		"referenceCommit": "48a827861616fc3c3f6ccf69f0872edc1c8c771a",
+		"runId": "36282128588",
+		"host": {
+			"runnerLabel": "github-ubuntu-24.04",
+			"os": "Linux linux x64",
+			"cpuCount": 4,
+			"cpuModels": ["AMD EPYC 7763 64-Core Processor"]
+		},
+		"runs": 5,
+		"budgets": [
+			{
+				"budgetId": "smoke-ci",
+				"unit": "ms",
+				"observedValue": 20413,
+				"runs": [20754, 20472, 20413, 20337, 20205]
+			},
+			{
+				"budgetId": "app-startup",
+				"unit": "ms",
+				"observedValue": 1277.6,
+				"runs": [1277.6, 1307.2, 1281.4, 1275.8, 1256.7]
+			},
+			{
+				"budgetId": "vault-open",
+				"unit": "ms",
+				"observedValue": 779.9,
+				"runs": [781.4, 779.9, 786.7, 766.4, 769.8]
+			},
+			{
+				"budgetId": "scene-first-render",
+				"unit": "ms",
+				"observedValue": 1428.2,
+				"runs": [1428.2, 1453, 1420, 1445, 1409.1]
+			},
+			{
+				"budgetId": "widget-update",
+				"unit": "ms",
+				"observedValue": 33.5,
+				"runs": [33.6, 33.5, 33.4, 33.4, 35.5]
+			},
+			{
+				"budgetId": "map-pan-zoom-desktop",
+				"unit": "fps",
+				"observedValue": 59.88,
+				"runs": [59.88, 59.524, 59.88, 59.88, 59.88]
+			},
+			{
+				"budgetId": "map-pan-zoom-slim",
+				"unit": "fps",
+				"observedValue": 59.524,
+				"runs": [59.88, 59.524, 59.524, 59.524, 59.524]
+			},
+			{
+				"budgetId": "search",
+				"unit": "ms",
+				"observedValue": 11,
+				"runs": [12, 10, 11, 11, 11]
+			},
+			{
+				"budgetId": "graph-indexing",
+				"unit": "ms",
+				"observedValue": 186.3,
+				"runs": [187.9, 187.3, 185.6, 179.9, 186.3]
+			},
+			{
+				"budgetId": "sync-reconciliation",
+				"unit": "ms",
+				"observedValue": 746.3,
+				"runs": [746.3, 747.1, 751.5, 739.6, 741]
+			},
+			{
+				"budgetId": "live-session-delivery",
+				"unit": "ms",
+				"observedValue": 18.6,
+				"runs": [19.5, 16.8, 16.8, 18.6, 19]
+			}
+		]
+	}
 }
