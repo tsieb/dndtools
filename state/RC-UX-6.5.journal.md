@@ -174,3 +174,21 @@ No push, promotion, additional loop, agent delegation or dispatcher control-stat
   stale assertions were corrected and retested, two canvas cases passed on rerun, and the remaining
   intermittent mobile Resize-menu failure was reproduced on the untouched base. No push,
   promotion, additional loop or agent delegation occurred.
+
+## Operator completion (2026-10-12)
+
+Reviewed and integrated by the operator session instead of a dispatcher review round. The three
+commits were squashed and rebased onto `loop/rc` `e4707d443` (RC-WID-5.7, RC-SES-7.3 and RC-CAN-8.7
+landed); no conflicts. Checked against the acceptance criteria:
+
+- The hub opens from the first-session guide, Help, the command palette ("Import…") and Settings ›
+  Vault connections. Knowledge › Sources names it.
+- Every importer in `IMPORTERS` has a hub row, and `registry.test.ts` fails on a new material file
+  picker without a `useImportLaunch` handler.
+- `docs/user/getting-started.md` changes in the same commit.
+- Nothing new is parsed.
+
+Validation on the rebased tree: `pnpm typecheck` 0; `pnpm test` 0 (core 5,392, cloud 569, app
+2,375, tooling 249); `pnpm lint` 0; `pnpm gates` 0; changed-file Prettier clean. Playwright on both
+profiles: import-hub, settings-polish, command-palette, first-session-guide, knowledge-import,
+characters and help, 104 passed. Pinned visual compare: 582 passed.
