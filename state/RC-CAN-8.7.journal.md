@@ -409,3 +409,30 @@ under `ScreenView`, but `VocabularyProvider` only takes a system package and liv
     and the inspector set (`scene-editor-inspector`, `-resize-handle`, `-transform`).
   - Every one Zopfli-recompressed. Budget: 37,706.4 / 37,888 KiB.
   - Re-verified with `--update-snapshots=none`: 39/39 for the three affected groups.
+
+## Operator completion (2026-10-12)
+
+Finished by the operator session instead of a dispatcher round. The branch was squashed and rebased
+onto `loop/rc` `c3188811a` (RC-WID-5.7 and RC-SES-7.3 landed). RC-WID-5.7 had turned the `audio`
+builtin body into the `now-playing` template and deleted `builtin/AudioBody.tsx`. The atmosphere
+widget's Scene cards link therefore moved to the public surface:
+
+- Core: `/scene-cards` joins `WIDGET_INTENT_ROUTES`. `destinationFor` refuses it to a viewer
+  without DM authority (`DM_INTENT_ROUTES`, the pattern `DM_SETTINGS_TABS` uses), because the
+  page has no section gate of its own. `widget-intents.test.ts` covers DM and player.
+- The shipped `audio` definition declares an `open-route` intent `scene-cards`
+  (`i18n:sceneCards.title`, icon `scene`). A builder copy keeps the link.
+- `templates/board/NowPlaying.tsx` draws the declared intents in view mode only, as 44px outline
+  icon buttons beside the readout, outside the live region, through `HubIntent` (resolved for the
+  viewer; nothing is drawn when the viewer cannot follow it). The test id is still
+  `audio-scene-cards`. The builder's `ROUTE_LABEL` names the route.
+- The Session screen's Now playing button moved into `screens/session/NowPlaying.tsx`.
+- The 19 scene-editor PNGs conflicted with RC-WID-5.7's. Took theirs, then re-baselined
+  `scene-editor-polish.spec.ts` in the pinned container (the Inspector badge reads "System").
+
+Validation on the rebased tree: `pnpm typecheck` 0; `pnpm test` 0 (core 5,392, cloud 569, app
+2,373, tooling 249); `pnpm lint` 0; `pnpm gates` 0; changed-file Prettier clean. Playwright on both
+profiles: command-center-polish, friction-budgets, scene-cards, screens-library, screens, canvas,
+player-summary and session-lifecycle, 240 passed. Pinned visual compare: 567 passed and 15 failed.
+The 15 were exactly the scene-editor inspector set, which was then re-baselined (15 passed); the
+baselines use 37,613.7 of 37,888.0 KiB.
