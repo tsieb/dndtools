@@ -118,7 +118,9 @@ only when `smoke-ci` is not part of the capture.
 `search:large`, `graph-indexing:large`, `vault-open:large`, and
 `scene-first-render:large` have provisional targets of 500 ms, 1,000 ms,
 5,000 ms, and 2,500 ms respectively. The other large rows retain the workflow's
-existing target. The baseline writer and five-run CI stability check require all
+existing target. Every large row is provisional until its 2026-12-31 review, so
+the pull-request policy reports a large row's target breach as advisory; drift
+on the schedule still binds. The baseline writer and five-run CI stability check require all
 22 IDs, so neither row can silently disappear. `--only search` selects both
 sizes; `--only search:large` selects just the large row. Missing samples make
 capture exit nonzero as well as making comparison fail closed.

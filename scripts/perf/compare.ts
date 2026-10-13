@@ -306,8 +306,8 @@ export function enforcementFor(
  * The RC-ENG-1.4 policy. Until a baseline is recorded for the runner class, nothing fails. Once it
  * is, the scheduled run (five paired runs on `main`) fails on drift past tolerance or on runs that
  * disagree, and a pull request (two paired runs) fails only on an absolute target breached in BOTH
- * repeats, or on a budget neither repeat could measure. A PR's drift and a scheduled run's target
- * breaches stay advisory.
+ * repeats, or on a budget neither repeat could measure. A PR's drift, a scheduled run's target
+ * breaches and a provisional budget's target (its review date not yet reached) stay advisory.
  */
 export function decidePolicy(input: PolicyInput): PolicyDecision {
 	const { mode, config, verdicts, host } = input;
@@ -333,7 +333,7 @@ export function decidePolicy(input: PolicyInput): PolicyDecision {
 		}
 	}
 
-	const budgets = PERFORMANCE_BUDGETS.map(({ id }) => {
+	const budgets = PERFORMANCE_BUDGETS.map(({ id, maturity }) => {
 		const entries = present.map((verdict) => verdict.budgets.find((b) => b.budgetId === id));
 		const gate = entries.map((entry) => entry?.verdict ?? 'missing');
 		const target = entries.map((entry) => entry?.targetVerdict ?? 'missing');
@@ -360,7 +360,11 @@ export function decidePolicy(input: PolicyInput): PolicyDecision {
 					: target.includes('BREACH')
 						? 'unconfirmed-breach'
 						: 'pass';
-			if (breachedEverywhere)
+			if (breachedEverywhere && maturity.kind === 'provisional')
+				advisories.push(
+					`${id} breached its provisional target in both interleaved repeats (advisory until its ${maturity.reviewDate} review).`,
+				);
+			else if (breachedEverywhere)
 				failures.push(`${id} breached its absolute target in both interleaved repeats.`);
 			else if (target.includes('BREACH'))
 				advisories.push(`${id} breached its absolute target in one repeat only; not confirmed.`);
@@ -666,6 +670,14 @@ function testPolicy(): void {
 	breach.budgets[0].targetVerdict = 'BREACH';
 	assert.equal(decide('pull-request', [clean, breach]).failed, false);
 	assert.equal(decide('pull-request', [breach, breach]).failed, true);
+	const provisionalAt = PERFORMANCE_BUDGETS.findIndex((b) => b.maturity.kind === 'provisional');
+	assert.ok(provisionalAt >= 0);
+	const provisional = structuredClone(clean);
+	provisional.budgets[provisionalAt].targetVerdict = 'BREACH';
+	const provisionalDecision = decide('pull-request', [provisional, provisional]);
+	assert.equal(provisionalDecision.failed, false);
+	assert.match(provisionalDecision.advisories.join('\n'), /provisional target/);
+	assert.equal(provisionalDecision.budgets[provisionalAt].verdict, 'confirmed-breach');
 	assert.equal(
 		decide('pull-request', [breach, breach], { ...config, recorded: null }).failed,
 		false,
